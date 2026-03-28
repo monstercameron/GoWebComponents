@@ -18,20 +18,21 @@ func parseUseAccountCostSummary(
 	parseMarkdownWorkerPoolRef ui.Ref[*interop.WorkerPool],
 	handleAuthFailure func(error) bool,
 ) accountCostSummary {
-	parseInitial := parseDeriveAccountCostSummary(nil, parseConfiguredUsagePremiumPercent(), 0)
+	parseInitial := parseDeriveAccountCostSummary(nil, parseConfiguredUsagePremiumPercent(), parseConfiguredPlatformFeeUSD(), 0)
 	parseSummaryState := ui.UseState(parseInitial)
 	parseRequestSeq := ui.UseRef(uint64(0))
 	parseHasWorkerRequester := parseMarkdownWorkerRef.Get() != nil || parseMarkdownWorkerPoolRef.Get() != nil
 
 	ui.UseEffect(func() func() {
 		parsePremiumPercent := parseConfiguredUsagePremiumPercent()
+		parsePlatformFee := parseConfiguredPlatformFeeUSD()
 		if !parseCurrentState.Authenticated || !parseCurrentState.GRPCReady {
-			parseSummaryState.Set(parseDeriveAccountCostSummary(nil, parsePremiumPercent, 0))
+			parseSummaryState.Set(parseDeriveAccountCostSummary(nil, parsePremiumPercent, parsePlatformFee, 0))
 			return nil
 		}
 		parseClient := parseChatClientRef.Get()
 		if parseClient == nil {
-			parseSummaryState.Set(parseDeriveAccountCostSummary(nil, parsePremiumPercent, 0))
+			parseSummaryState.Set(parseDeriveAccountCostSummary(nil, parsePremiumPercent, parsePlatformFee, 0))
 			return nil
 		}
 
@@ -41,10 +42,10 @@ func parseUseAccountCostSummary(
 		parseNextSeq := parseRequestSeq.Get() + 1
 		parseRequestSeq.Set(parseNextSeq)
 
-		go func(parseSeq uint64, parseRows []convSummary, parseAvailableModels []modelOption, parsePremiumPct float64, parseRequester interop.WorkerRequester) {
+		go func(parseSeq uint64, parseRows []convSummary, parseAvailableModels []modelOption, parsePremiumPct float64, parsePlatformFeeUSD float64, parseRequester interop.WorkerRequester) {
 			if len(parseAvailableModels) == 0 {
 				if parseRequestSeq.Get() == parseSeq {
-					parseSummaryState.Set(parseDeriveAccountCostSummary(nil, parsePremiumPct, len(parseRows)))
+					parseSummaryState.Set(parseDeriveAccountCostSummary(nil, parsePremiumPct, parsePlatformFeeUSD, len(parseRows)))
 				}
 				return
 			}
@@ -87,17 +88,18 @@ func parseUseAccountCostSummary(
 			if parseRequestSeq.Get() != parseSeq {
 				return
 			}
-			parseSummary := parseDeriveAccountCostSummary(parseThreadSummaries, parsePremiumPct, parseFailedLookups)
+			parseSummary := parseDeriveAccountCostSummary(parseThreadSummaries, parsePremiumPct, parsePlatformFeeUSD, parseFailedLookups)
 			parseSummaryState.Set(parseSummary)
 			chatLog.Info("account cost refreshed", logging.Fields{
 				"thread_count":          parseSummary.ThreadCount,
 				"exact_thread_costs":    parseSummary.ExactThreadCostCount,
 				"failed_thread_lookups": parseSummary.FailedThreadLookups,
+				"platform_fee_usd":      parseSummary.PlatformFee,
 				"usage_cost_usd":        parseSummary.UsageCost,
 				"premium_pct":           parseSummary.PremiumPercent,
 				"total_cost_usd":        parseSummary.TotalCost,
 			})
-		}(parseNextSeq, parseConversations, parseModels, parsePremiumPercent, parseWorkerRequester)
+		}(parseNextSeq, parseConversations, parseModels, parsePremiumPercent, parsePlatformFee, parseWorkerRequester)
 
 		return nil
 	}, parseCurrentState.Authenticated, parseCurrentState.GRPCReady, parseCurrentState.ConversationList, parseCurrentState.ModelOptions, parseHasWorkerRequester)

@@ -136,6 +136,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 	}, handleAuthFailure)
 	parseAccountCostSummary := parseUseAccountCostSummary(parseCurrentState, parseChatClientRef, parseMarkdownWorkerRef, parseMarkdownWorkerPoolRef, handleAuthFailure)
 	parseAdminDashboard := parseUseAdminDashboard(parseCurrentState, parseChatClientRef, handleAuthFailure)
+	parseAdminCustomers := parseUseAdminCustomers(parseCurrentState, parseAdminDashboard, parseChatClientRef, handleAuthFailure)
 
 	parseAuthSession := parseUseAuthSession(parseApp, parseUserNameState, parseChatClientRef, func(parseSession *chatpb.GetSessionResponse) {
 		var parseRoleSummary *chatpb.AuthRoleSummary
@@ -396,6 +397,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 		TTSAudio:             parseTtsAudio,
 		ScrollMemory:         parseScrollMemory,
 		CanvasWorkspace:      parseCanvasWorkspace,
+		AdminCustomers:       parseAdminCustomers,
 	})
 }
 
@@ -414,6 +416,24 @@ func ParseRun() {
 		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register(marketingPricingRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
+	})
+	parseR.Register(marketingAboutRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
+	})
+	parseR.Register(marketingContactRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
+	})
+	parseR.Register(marketingPrivacyRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
+	})
+	parseR.Register(marketingTermsRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
+	})
+	parseR.Register(marketingSecurityRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
+	})
+	parseR.Register(marketingStatusRoute, func(router.Attrs) *router.Element {
 		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register(chatRouteRoot, func(router.Attrs) *router.Element {

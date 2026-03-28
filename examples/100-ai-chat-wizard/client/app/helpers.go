@@ -876,6 +876,33 @@ func parseConfiguredUsagePremiumPercent() float64 {
 	return parseSanitizeUsagePremiumPercent(parseParsed, parseFallback)
 }
 
+func parseSanitizePlatformFeeUSD(parseValue, parseFallback float64) float64 {
+	if math.IsNaN(parseValue) || math.IsInf(parseValue, 0) || parseValue < 0 {
+		return parseFallback
+	}
+	if parseValue > 1_000_000 {
+		return 1_000_000
+	}
+	return parseValue
+}
+
+func parseConfiguredPlatformFeeUSD() float64 {
+	parseFallback := parseSanitizePlatformFeeUSD(defaultPlatformFeeUSD, 29.0)
+	parseEnv, parseErr := interop.GetWindowEnv()
+	if parseErr != nil {
+		return parseFallback
+	}
+	parseRawValue, parseOk := parseEnv.LookupString(platformFeeWindowKey)
+	if !parseOk {
+		return parseFallback
+	}
+	parseParsed, parseErr := strconv.ParseFloat(strings.TrimSpace(parseRawValue), 64)
+	if parseErr != nil {
+		return parseFallback
+	}
+	return parseSanitizePlatformFeeUSD(parseParsed, parseFallback)
+}
+
 func applyUsagePremium(parseUsageCost, parsePremiumPercent float64) (parsePremiumCost float64, parseTotalCost float64) {
 	parseNormalizedUsageCost := parseUsageCost
 	if parseNormalizedUsageCost < 0 {
@@ -887,10 +914,12 @@ func applyUsagePremium(parseUsageCost, parsePremiumPercent float64) (parsePremiu
 	return parsePremiumCost, parseTotalCost
 }
 
-func parseDeriveAccountCostSummary(parseThreadSummaries []threadCostSummary, parsePremiumPercent float64, parseFailedThreadLookups int) accountCostSummary {
+func parseDeriveAccountCostSummary(parseThreadSummaries []threadCostSummary, parsePremiumPercent float64, parsePlatformFee float64, parseFailedThreadLookups int) accountCostSummary {
 	parseNormalizedPremiumPct := parseSanitizeUsagePremiumPercent(parsePremiumPercent, defaultUsagePremiumPercent)
+	parseNormalizedPlatformFee := parseSanitizePlatformFeeUSD(parsePlatformFee, defaultPlatformFeeUSD)
 	parseSummary := accountCostSummary{
 		ThreadCount:         len(parseThreadSummaries) + parseMaxInt(0, parseFailedThreadLookups),
+		PlatformFee:         parseNormalizedPlatformFee,
 		PremiumPercent:      parseNormalizedPremiumPct,
 		AllThreadCostsExact: parseFailedThreadLookups == 0,
 		FailedThreadLookups: parseMaxInt(0, parseFailedThreadLookups),
@@ -913,6 +942,7 @@ func parseDeriveAccountCostSummary(parseThreadSummaries []threadCostSummary, par
 		parseSummary.AllThreadCostsExact = false
 	}
 	parseSummary.PremiumCost, parseSummary.TotalCost = applyUsagePremium(parseSummary.UsageCost, parseNormalizedPremiumPct)
+	parseSummary.TotalCost += parseNormalizedPlatformFee
 	return parseSummary
 }
 

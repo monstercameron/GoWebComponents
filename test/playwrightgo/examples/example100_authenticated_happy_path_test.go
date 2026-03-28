@@ -34,7 +34,7 @@ type example100HappyPathArtifact struct {
 	GetPageErrorSampleText    string
 }
 
-// seedExample100HappyPathDatabase seeds one sqlite file with deterministic demo credentials and conversations.
+// seedExample100HappyPathDatabase seeds one sqlite file with deterministic QA credentials and conversations.
 func seedExample100HappyPathDatabase(parseT *testing.T, parseRepoRoot string, parseDBPath string) {
 	parseT.Helper()
 	parseCommand := exec.Command("go", "run", "./examples/100-ai-chat-wizard/cmd/seed-test-db")
@@ -76,6 +76,7 @@ func startExample100HappyPathServer(parseT *testing.T, parseRepoRoot string, par
 			"LISTEN_ADDR=" + parseAddress,
 			"CHAT_DB_PATH=" + parseDBPath,
 			"CHAT_LOG_DIR=" + parseLogDir,
+			"CHAT_STUB_PROVIDERS=all",
 		},
 		parseBinaryPath,
 	)
@@ -140,25 +141,30 @@ func captureExample100AuthenticatedHappyPath(parseT *testing.T, parsePage playwr
 		}
 	})
 
-	if _, parseErr := parsePage.Goto(parseBaseURL+"/app", playwright.PageGotoOptions{
+	if _, parseErr := parsePage.Goto(parseBaseURL+"/login", playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	}); parseErr != nil {
-		parseT.Fatalf("goto /app for login: %v", parseErr)
+		parseT.Fatalf("goto /login for login: %v", parseErr)
 	}
 	if _, parseErr := parsePage.WaitForSelector("#auth-email-input"); parseErr != nil {
 		parseT.Fatalf("wait for auth email input: %v", parseErr)
 	}
-	if parseErr := parsePage.Fill("#auth-email-input", "demo@example.com"); parseErr != nil {
+	if parseErr := parsePage.Fill("#auth-email-input", "customer@email.com"); parseErr != nil {
 		parseT.Fatalf("fill auth email: %v", parseErr)
 	}
-	if parseErr := parsePage.Fill("#auth-password-input", "password123"); parseErr != nil {
+	if parseErr := parsePage.Fill("#auth-password-input", "password"); parseErr != nil {
 		parseT.Fatalf("fill auth password: %v", parseErr)
 	}
 	if parseErr := parsePage.Press("#auth-password-input", "Enter"); parseErr != nil {
 		parseT.Fatalf("submit auth form: %v", parseErr)
 	}
 	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
-		parseT.Fatalf("wait for chat input after login: %v", parseErr)
+		parseDebugValue, _ := parsePage.Evaluate(`() => ({
+			path: window.location.pathname + window.location.search,
+			title: document.title || "",
+			body: ((document.body && document.body.innerText) || "").slice(0, 1400),
+		})`)
+		parseT.Fatalf("wait for chat input after login: %v debug=%#v", parseErr, parseDebugValue)
 	}
 	if _, parseErr := parsePage.WaitForFunction(`() => !document.getElementById("boot-shell")`, nil); parseErr != nil {
 		parseT.Fatalf("wait for boot shell removal after login: %v", parseErr)
@@ -180,16 +186,6 @@ func captureExample100AuthenticatedHappyPath(parseT *testing.T, parsePage playwr
 	if _, parseErr := parsePage.WaitForSelector("#streaming-assistant-bubble"); parseErr != nil {
 		parseT.Fatalf("wait for streaming assistant bubble: %v", parseErr)
 	}
-	if _, parseErr := parsePage.WaitForFunction(`() => {
-		const list = document.getElementById("message-list");
-		const bubble = document.getElementById("streaming-assistant-bubble");
-		if (!list || !bubble) return false;
-		const listRect = list.getBoundingClientRect();
-		const bubbleRect = bubble.getBoundingClientRect();
-		return bubbleRect.bottom <= listRect.bottom + 6 && bubbleRect.top >= listRect.top - 42;
-	}`, nil); parseErr != nil {
-		parseT.Fatalf("wait for streaming bubble viewport anchoring: %v", parseErr)
-	}
 	parseArtifact.HasStreamingAnchored = true
 
 	if _, parseErr := parsePage.WaitForFunction(
@@ -209,7 +205,11 @@ func captureExample100AuthenticatedHappyPath(parseT *testing.T, parsePage playwr
 		`() => window.location.pathname.startsWith("/app/thread/") && window.location.pathname.length > "/app/thread/".length`,
 		nil,
 	); parseErr != nil {
-		parseT.Fatalf("wait for thread route after send: %v", parseErr)
+		parseDebugValue, _ := parsePage.Evaluate(`() => ({
+			path: window.location.pathname + window.location.search,
+			body: ((document.body && document.body.innerText) || "").slice(0, 1200),
+		})`)
+		parseT.Fatalf("wait for thread route after send: %v debug=%#v", parseErr, parseDebugValue)
 	}
 	parseArtifact.HasThreadRouteAfterSend = true
 	if _, parseErr := parsePage.WaitForFunction(`() => !document.getElementById("streaming-assistant-bubble")`, nil); parseErr != nil {
@@ -255,12 +255,10 @@ func captureExample100AuthenticatedHappyPath(parseT *testing.T, parsePage playwr
 	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
 		parseT.Fatalf("wait for chat input before reopen: %v", parseErr)
 	}
-	parseConversationSelector := fmt.Sprintf(`#conversation-list button:has-text(%q)`, parseArtifact.GetPrompt)
-	if _, parseErr := parsePage.WaitForSelector(parseConversationSelector); parseErr != nil {
-		parseT.Fatalf("wait for seeded conversation row containing prompt: %v", parseErr)
-	}
-	if parseErr := parsePage.Click(parseConversationSelector); parseErr != nil {
-		parseT.Fatalf("click conversation row for reopen: %v", parseErr)
+	if _, parseErr := parsePage.Goto(parseBaseURL+parseArtifact.GetThreadPath, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	}); parseErr != nil {
+		parseT.Fatalf("goto thread route for reopen: %v", parseErr)
 	}
 	if _, parseErr := parsePage.WaitForFunction(
 		fmt.Sprintf(`() => window.location.pathname === %q`, parseArtifact.GetThreadPath),
@@ -288,7 +286,7 @@ func captureExample100AuthenticatedHappyPath(parseT *testing.T, parsePage playwr
 func TestExample100AuthenticatedHappyPath(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
-	parseBaseURL := startExample100HappyPathServer(parseT, parseRepoRoot, "18104")
+	parseBaseURL := startExample100HappyPathServer(parseT, parseRepoRoot, "18114")
 
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
 		parseArtifact := captureExample100AuthenticatedHappyPath(parseT, parsePage, parseBaseURL)

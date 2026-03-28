@@ -21,7 +21,7 @@ import (
 
 const example100AdminGuardWorkspaceEmail = "workspace-admin@example.com"
 const example100AdminGuardWorkspacePassword = "password123"
-const example100AdminGuardNormalEmail = "admin@example.com"
+const example100AdminGuardNormalEmail = "admin@email.com"
 const example100AdminGuardNormalPassword = "password"
 
 type example100AdminGuardRuntimeEvidence struct {

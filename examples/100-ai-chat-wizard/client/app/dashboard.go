@@ -13,22 +13,22 @@ import (
 
 // renderDashboardHome is the top-level admin dashboard entry-point.
 // It dispatches to the correct slice renderer based on the current path.
-func renderDashboardHome(parseIntl i18n.Runtime, parseView appViewState, parseOpenAdminDashboard ui.Handler) ui.Node {
+func renderDashboardHome(parseIntl i18n.Runtime, parseView appViewState, parseOpenAdminDashboard ui.Handler, parseAdminCustomers adminCustomersController) ui.Node {
 	_ = parseOpenAdminDashboard
 	return Div(
 		Class("flex h-full min-h-0 flex-1 flex-col overflow-hidden"),
 		renderDashboardTopBar(parseIntl, parseView),
-		renderDashboardBody(parseIntl, parseView),
+		renderDashboardBody(parseIntl, parseView, parseAdminCustomers),
 	)
 }
 
 // renderDashboardBody dispatches to the correct slice renderer.
-func renderDashboardBody(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
+func renderDashboardBody(parseIntl i18n.Runtime, parseView appViewState, parseAdminCustomers adminCustomersController) ui.Node {
 	switch parseView.CurrentPath {
 	case chatRouteDashboardBusiness:
 		return renderDashboardSliceWrap(renderDashboardBusiness(parseIntl, parseView))
 	case chatRouteDashboardCustomers:
-		return renderDashboardSliceWrap(renderDashboardCustomers(parseIntl, parseView))
+		return renderDashboardSliceWrap(renderDashboardCustomersEnhanced(parseIntl, parseView, parseAdminCustomers))
 	case chatRouteDashboardChats:
 		return renderDashboardSliceWrap(renderDashboardChats(parseIntl, parseView))
 	case chatRouteDashboardProviders:
@@ -118,7 +118,7 @@ func renderDashboardRoleBanner(parseIntl i18n.Runtime, parseView appViewState) u
 // parseDashboardRoleLabel returns the role heading for the dashboard banner.
 func parseDashboardRoleLabel(parseView appViewState) string {
 	if parseView.CanAccessAdmin {
-		return "Admin access"
+		return "Admin view"
 	}
 	return "Workspace view"
 }
@@ -126,9 +126,9 @@ func parseDashboardRoleLabel(parseView appViewState) string {
 // parseDashboardRoleDescription returns the role sub-line for the dashboard banner.
 func parseDashboardRoleDescription(parseView appViewState) string {
 	if parseView.CanAccessAdmin {
-		return "You have admin visibility across all workspaces and slices."
+		return "Check Business for failed payments and churn, Customers for billing state, Chats for reply quality, Providers for cost and health, and Ops for incidents."
 	}
-	return "You can view workspace summaries and manage your own account."
+	return "You can view workspace usage and manage your own account settings."
 }
 
 // dashboardSlice holds display metadata for a single admin dashboard slice tile.
@@ -147,35 +147,35 @@ func parseDashboardSlices() []dashboardSlice {
 			Label:    "Business",
 			Icon:     "\U0001f4ca",
 			Route:    chatRouteDashboardBusiness,
-			Subtitle: "KPIs, accounts, plans, quotas",
+			Subtitle: "Active subscriptions, failed payments, conversion, churn, and top revenue accounts",
 			IsReady:  true,
 		},
 		{
 			Label:    "Customers",
 			Icon:     "\U0001f465",
 			Route:    chatRouteDashboardCustomers,
-			Subtitle: "Users, workspaces, billing context",
+			Subtitle: "User and workspace search, billing state, recent activity, and disable or suspend controls",
 			IsReady:  true,
 		},
 		{
 			Label:    "Chats",
 			Icon:     "\U0001f4ac",
 			Route:    chatRouteDashboardChats,
-			Subtitle: "Thread health, reply latency, onboarding",
+			Subtitle: "First-chat conversion, reply quality, latency, failures, and onboarding template state",
 			IsReady:  true,
 		},
 		{
 			Label:    "Providers",
 			Icon:     "\u26a1",
 			Route:    chatRouteDashboardProviders,
-			Subtitle: "Model health, cost, routing, guardrails",
+			Subtitle: "Provider and model health, cost tables, routing and fallback state, and guardrail controls",
 			IsReady:  true,
 		},
 		{
 			Label:    "Ops",
 			Icon:     "\U0001f6e0\ufe0f",
 			Route:    chatRouteDashboardOps,
-			Subtitle: "Server health, jobs, incidents, SLOs",
+			Subtitle: "Server and gRPC health, background jobs, incident log, audit feed, and SLO tracking",
 			IsReady:  true,
 		},
 	}
@@ -187,7 +187,7 @@ func renderDashboardSliceTiles(parseIntl i18n.Runtime, parseView appViewState) u
 	parseSlices := parseDashboardSlices()
 	return Div(
 		Class("mb-6"),
-		P(Class("mb-3 text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Dashboard slices")),
+		P(Class("mb-3 text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Admin surfaces")),
 		Div(
 			Class("grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"),
 			Fragment(Map(parseSlices, func(parseSlice dashboardSlice) ui.Node {
@@ -225,12 +225,12 @@ func renderDashboardAccountSummary(parseIntl i18n.Runtime, parseView appViewStat
 	parseHasCost := parseView.AccountCostSummary.HasAnyExactCosts && parseView.AccountCostSummary.TotalCost > 0
 	return Div(
 		Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-		P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Account summary")),
+		P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Your account this period")),
 		Div(Class("mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4"),
-			renderDashboardSummaryCard("Conversations", formatDashboardInt(parseView.AccountCostSummary.ThreadCount)),
+			renderDashboardSummaryCard("Chats", formatDashboardInt(parseView.AccountCostSummary.ThreadCount)),
 			renderDashboardSummaryCard("Total spend", parseDashboardCostLabel(parseHasCost, parseView.AccountCostSummary.TotalCost)),
-			renderDashboardSummaryCard("Base cost", parseDashboardCostLabel(parseHasCost, parseView.AccountCostSummary.UsageCost)),
-			renderDashboardSummaryCard("Premium", parseDashboardCostLabel(parseHasCost, parseView.AccountCostSummary.PremiumCost)),
+			renderDashboardSummaryCard("Model cost", parseDashboardCostLabel(parseHasCost, parseView.AccountCostSummary.UsageCost)),
+			renderDashboardSummaryCard("Service premium", parseDashboardCostLabel(parseHasCost, parseView.AccountCostSummary.PremiumCost)),
 		),
 	)
 }

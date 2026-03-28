@@ -89,7 +89,7 @@ func captureExample100RouteSmokeArtifact(parseT *testing.T, parsePage playwright
 	}
 	parseArtifact.HasPricingFAQ = true
 
-	parseAuthResp, parseErr := parsePage.Goto(parseBaseURL+"/app", playwright.PageGotoOptions{
+	parseAuthResp, parseErr := parsePage.Goto(parseBaseURL+"/login", playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	})
 	if parseErr != nil {
@@ -107,10 +107,10 @@ func captureExample100RouteSmokeArtifact(parseT *testing.T, parsePage playwright
 	}
 	parseArtifact.HasAuthInputs = true
 
-	if parseErr := parsePage.Fill("#auth-email-input", "demo@example.com"); parseErr != nil {
+	if parseErr := parsePage.Fill("#auth-email-input", "customer@email.com"); parseErr != nil {
 		parseT.Fatalf("fill auth email: %v", parseErr)
 	}
-	if parseErr := parsePage.Fill("#auth-password-input", "password123"); parseErr != nil {
+	if parseErr := parsePage.Fill("#auth-password-input", "password"); parseErr != nil {
 		parseT.Fatalf("fill auth password: %v", parseErr)
 	}
 	if parseErr := parsePage.Press("#auth-password-input", "Enter"); parseErr != nil {

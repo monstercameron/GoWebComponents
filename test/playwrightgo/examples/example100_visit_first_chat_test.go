@@ -166,10 +166,10 @@ func captureExample100VisitFirstChatArtifact(parseT *testing.T, parsePage playwr
 	if _, parseErr := parsePage.WaitForSelector("#auth-email-input"); parseErr != nil {
 		parseT.Fatalf("wait for auth email input before login: %v", parseErr)
 	}
-	if parseErr := parsePage.Fill("#auth-email-input", "demo@example.com"); parseErr != nil {
+	if parseErr := parsePage.Fill("#auth-email-input", "customer@email.com"); parseErr != nil {
 		parseT.Fatalf("fill auth email: %v", parseErr)
 	}
-	if parseErr := parsePage.Fill("#auth-password-input", "password123"); parseErr != nil {
+	if parseErr := parsePage.Fill("#auth-password-input", "password"); parseErr != nil {
 		parseT.Fatalf("fill auth password: %v", parseErr)
 	}
 	if parseErr := parsePage.Press("#auth-password-input", "Enter"); parseErr != nil {

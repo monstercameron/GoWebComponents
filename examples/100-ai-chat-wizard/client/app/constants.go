@@ -53,6 +53,10 @@ const (
 	idAuthPasswordInput = "auth-password-input"
 	idSendBtn           = "send-btn"
 	idEmptyState        = "empty-state"
+	idBillingPlatformFeeValue = "billing-platform-fee-value"
+	idBillingUsageValue       = "billing-usage-value"
+	idBillingPremiumValue     = "billing-premium-value"
+	idBillingTotalValue       = "billing-total-value"
 	idQuotePrompt       = "quote-selection-prompt"
 	idQuoteSpinner      = "quote-selection-spinner"
 	appSelector         = "#app"
@@ -85,6 +89,8 @@ const (
 	dataCanvasFocus     = "canvasfocus"
 	dataSettingsSection = "settingssection"
 	dataStarterPrompt   = "starterprompt"
+	dataAdminUserID     = "adminuserid"
+	dataAdminAction     = "adminaction"
 )
 
 // ─── gRPC ────────────────────────────────────────────────────────────────────
@@ -126,7 +132,9 @@ const backgroundWorkerCommandStartTicker = "start-ticker"
 const backgroundWorkerCommandStopTicker = "stop-ticker"
 const backgroundWorkerEventTick = "tick"
 const usagePremiumWindowKey = "__relaydesk_usage_premium_percent"
+const platformFeeWindowKey = "__relaydesk_platform_fee_usd"
 const defaultUsagePremiumPercent = 5.0
+const defaultPlatformFeeUSD = 29.0
 
 // ─── scroll ───────────────────────────────────────────────────────────────────
 
@@ -216,6 +224,7 @@ type threadCostSummary struct {
 
 type accountCostSummary struct {
 	ThreadCount          int
+	PlatformFee          float64
 	UsageCost            float64
 	PremiumPercent       float64
 	PremiumCost          float64

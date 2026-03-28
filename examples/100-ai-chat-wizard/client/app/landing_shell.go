@@ -15,6 +15,12 @@ const landingPageHome = "home"
 const landingPageCapabilities = "capabilities"
 const landingPagePricing = "pricing"
 const landingPageSignup = "signup"
+const landingPageAbout = "about"
+const landingPageContact = "contact"
+const landingPagePrivacy = "privacy"
+const landingPageTerms = "terms"
+const landingPageSecurity = "security"
+const landingPageStatus = "status"
 
 // setLandingDocumentTitle updates the browser tab title to match the current marketing page.
 func setLandingDocumentTitle(parseIntl i18n.Runtime, parsePage string) {
@@ -29,6 +35,18 @@ func setLandingDocumentTitle(parseIntl i18n.Runtime, parsePage string) {
 		parseTitle = parseIntl.T(n, "page.title.pricing")
 	case landingPageCapabilities:
 		parseTitle = parseIntl.T(n, "page.title.capabilities")
+	case landingPageAbout:
+		parseTitle = parseIntl.T(n, "page.title.about")
+	case landingPageContact:
+		parseTitle = parseIntl.T(n, "page.title.contact")
+	case landingPagePrivacy:
+		parseTitle = parseIntl.T(n, "page.title.privacy")
+	case landingPageTerms:
+		parseTitle = parseIntl.T(n, "page.title.terms")
+	case landingPageSecurity:
+		parseTitle = parseIntl.T(n, "page.title.security")
+	case landingPageStatus:
+		parseTitle = parseIntl.T(n, "page.title.status")
 	default:
 		parseTitle = parseIntl.T(n, "page.title.home")
 	}
@@ -48,6 +66,9 @@ func renderLandingShell(parseIntl i18n.Runtime, parseView appViewState, parseAut
 	setLandingDocumentTitle(parseIntl, parsePage)
 	if parsePage == landingPagePricing {
 		return renderPricingShell(parseIntl, parseView)
+	}
+	if isInfoLandingPage(parsePage) {
+		return renderInfoShell(parseIntl, parsePage)
 	}
 	return Div(
 		Class("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
@@ -82,22 +103,19 @@ func renderLandingShell(parseIntl i18n.Runtime, parseView appViewState, parseAut
 		renderMarketingFooter(
 			parseIntl,
 			renderFooterColumn(parseIntl.T(n, "footer.col.product"),
-				renderFooterLink(parseIntl.T(n, "footer.link.overview"), "#product"),
-				renderFooterLink(parseIntl.T(n, "footer.link.demo"), "#demo"),
+				renderFooterLink(parseIntl.T(n, "footer.link.home"), marketingHomeRoute),
 				renderFooterLink(parseIntl.T(n, "footer.link.pricing"), marketingPricingRoute),
-				renderFooterLink(parseIntl.T(n, "footer.link.capabilities"), marketingCapabilitiesRoute),
+				renderFooterLink(parseIntl.T(n, "footer.link.signup"), marketingSignupRoute),
 			),
 			renderFooterColumn(parseIntl.T(n, "footer.col.company"),
-				renderFooterLink(parseIntl.T(n, "footer.link.about"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.link.customers"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.link.careers"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.link.contact"), "#"),
+				renderFooterLink(parseIntl.T(n, "footer.link.about"), "/about"),
+				renderFooterLink(parseIntl.T(n, "footer.link.contact"), "/contact"),
 			),
-			renderFooterColumn(parseIntl.T(n, "footer.col.resources"),
-				renderFooterLink(parseIntl.T(n, "footer.link.documentation"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.link.security"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.privacy"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.terms"), "#"),
+			renderFooterColumn(parseIntl.T(n, "footer.col.legal"),
+				renderFooterLink(parseIntl.T(n, "footer.privacy"), "/privacy"),
+				renderFooterLink(parseIntl.T(n, "footer.terms"), "/terms"),
+				renderFooterLink(parseIntl.T(n, "footer.link.security"), "/security"),
+				renderFooterLink(parseIntl.T(n, "footer.status"), "/status"),
 			),
 		),
 	)
@@ -114,6 +132,18 @@ func parseLandingPageForPath(parsePath string) string {
 		return landingPageSignup
 	case marketingHomeRoute, authLandingRoute:
 		return landingPageHome
+	case marketingAboutRoute:
+		return landingPageAbout
+	case marketingContactRoute:
+		return landingPageContact
+	case marketingPrivacyRoute:
+		return landingPagePrivacy
+	case marketingTermsRoute:
+		return landingPageTerms
+	case marketingSecurityRoute:
+		return landingPageSecurity
+	case marketingStatusRoute:
+		return landingPageStatus
 	default:
 		return landingPageHome
 	}

@@ -617,7 +617,7 @@ func TestDeriveAccountCostSummaryAppliesPremiumAndTracksCoverage(parseT *testing
 		HasAnyExactCosts:       true,
 		AllAssistantCostsExact: false,
 	}
-	parseSummary := parseDeriveAccountCostSummary([]threadCostSummary{parseThreadA, parseThreadB}, 5, 1)
+	parseSummary := parseDeriveAccountCostSummary([]threadCostSummary{parseThreadA, parseThreadB}, 5, 29, 1)
 
 	if parseSummary.ThreadCount != 3 {
 		parseT.Fatalf("ThreadCount = %d, want 3", parseSummary.ThreadCount)
@@ -637,14 +637,17 @@ func TestDeriveAccountCostSummaryAppliesPremiumAndTracksCoverage(parseT *testing
 	if parseSummary.FailedThreadLookups != 1 {
 		parseT.Fatalf("FailedThreadLookups = %d, want 1", parseSummary.FailedThreadLookups)
 	}
+	if math.Abs(parseSummary.PlatformFee-29) > 1e-12 {
+		parseT.Fatalf("PlatformFee = %.12f, want 29.000000000000", parseSummary.PlatformFee)
+	}
 	if math.Abs(parseSummary.UsageCost-0.5) > 1e-12 {
 		parseT.Fatalf("UsageCost = %.12f, want 0.500000000000", parseSummary.UsageCost)
 	}
 	if math.Abs(parseSummary.PremiumCost-0.025) > 1e-12 {
 		parseT.Fatalf("PremiumCost = %.12f, want 0.025000000000", parseSummary.PremiumCost)
 	}
-	if math.Abs(parseSummary.TotalCost-0.525) > 1e-12 {
-		parseT.Fatalf("TotalCost = %.12f, want 0.525000000000", parseSummary.TotalCost)
+	if math.Abs(parseSummary.TotalCost-29.525) > 1e-12 {
+		parseT.Fatalf("TotalCost = %.12f, want 29.525000000000", parseSummary.TotalCost)
 	}
 }
 

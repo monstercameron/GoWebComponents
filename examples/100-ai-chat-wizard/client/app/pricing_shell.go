@@ -37,16 +37,14 @@ func renderPricingShell(parseIntl i18n.Runtime, _ appViewState) ui.Node {
 				renderFooterLink(parseIntl.T(n, "nav.compare"), "#compare"),
 			),
 			renderFooterColumn(parseIntl.T(n, "footer.col.company"),
-				renderFooterLink(parseIntl.T(n, "footer.link.about"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.link.customers"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.link.security"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.link.contact"), "#contact"),
+				renderFooterLink(parseIntl.T(n, "footer.link.about"), marketingAboutRoute),
+				renderFooterLink(parseIntl.T(n, "footer.link.contact"), marketingContactRoute),
 			),
 			renderFooterColumn(parseIntl.T(n, "footer.col.legal"),
-				renderFooterLink(parseIntl.T(n, "footer.privacy"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.terms"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.status"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.link.support"), "#"),
+				renderFooterLink(parseIntl.T(n, "footer.privacy"), marketingPrivacyRoute),
+				renderFooterLink(parseIntl.T(n, "footer.terms"), marketingTermsRoute),
+				renderFooterLink(parseIntl.T(n, "footer.link.security"), marketingSecurityRoute),
+				renderFooterLink(parseIntl.T(n, "footer.status"), marketingStatusRoute),
 			),
 		),
 	)
@@ -192,7 +190,7 @@ func renderPricingPlans(parseIntl i18n.Runtime) ui.Node {
 // renderPricingCompare renders the feature comparison table (8 capability rows).
 func renderPricingCompare(parseIntl i18n.Runtime) ui.Node {
 	n := marketingI18nNamespace
-	compareRowKeys := []string{"compare.seats", "compare.models", "compare.shared", "compare.admin", "compare.api", "compare.residency", "compare.retention", "compare.sla"}
+	compareRowKeys := []string{"compare.workspace", "compare.collab", "compare.admin", "compare.billing", "compare.support", "compare.compliance"}
 
 	buildGridArgs := make([]interface{}, 0, 4+len(compareRowKeys)*4+1)
 	buildGridArgs = append(buildGridArgs, Class("min-w-[640px] overflow-hidden rounded-2xl border border-white/[0.06] grid grid-cols-4 gap-px bg-white/[0.03] text-sm"))

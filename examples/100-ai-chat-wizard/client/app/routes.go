@@ -24,6 +24,12 @@ const marketingCapabilitiesRoute = "/capabilities"
 const marketingPricingRoute = "/pricing"
 const marketingPlansRoute = "/plans"
 const marketingSignupRoute = "/signup"
+const marketingAboutRoute = "/about"
+const marketingContactRoute = "/contact"
+const marketingPrivacyRoute = "/privacy"
+const marketingTermsRoute = "/terms"
+const marketingSecurityRoute = "/security"
+const marketingStatusRoute = "/status"
 
 func parseChatThreadPath(parsePublicID string) string {
 	parsePublicID = strings.TrimSpace(parsePublicID)
@@ -52,7 +58,8 @@ func parseChatCanvasPath(parsePublicID, parseCanvasID string) string {
 
 func isLandingRoute(parsePath string) bool {
 	switch strings.TrimSpace(parsePath) {
-	case authLandingRoute, marketingHomeRoute, marketingCapabilitiesRoute, marketingPricingRoute, marketingPlansRoute, marketingSignupRoute:
+	case authLandingRoute, marketingHomeRoute, marketingCapabilitiesRoute, marketingPricingRoute, marketingPlansRoute, marketingSignupRoute,
+		marketingAboutRoute, marketingContactRoute, marketingPrivacyRoute, marketingTermsRoute, marketingSecurityRoute, marketingStatusRoute:
 		return true
 	default:
 		return false

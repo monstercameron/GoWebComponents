@@ -26,8 +26,8 @@ import (
 
 const example100AdminJourneyAuthTokenStorageKey = "chat-wizard:auth-token"
 const example100AdminJourneyAuthCookieName = "chat_wizard_auth"
-const example100AdminJourneyLoginEmail = "demo@example.com"
-const example100AdminJourneyLoginPassword = "password123"
+const example100AdminJourneyLoginEmail = "admin@email.com"
+const example100AdminJourneyLoginPassword = "password"
 
 type example100AdminJourneyRPCSnapshot struct {
 	HasSessionResolved          bool
@@ -114,7 +114,7 @@ func grantExample100AdminJourneySuperuserRole(parseT *testing.T, parseDBPath str
 	}
 }
 
-// startExample100AdminJourneyServer starts one seeded server with admin@example.com granted superuser scope for dashboard RPC checks.
+// startExample100AdminJourneyServer starts one seeded server with admin@email.com granted superuser scope for dashboard RPC checks.
 func startExample100AdminJourneyServer(parseT *testing.T, parseRepoRoot string, parsePort string) string {
 	parseT.Helper()
 	parseRuntimeDir := parseT.TempDir()

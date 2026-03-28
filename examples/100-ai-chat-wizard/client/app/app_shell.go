@@ -145,6 +145,7 @@ type appShellProps struct {
 	TTSAudio             ttsAudioController
 	ScrollMemory         threadScrollMemory
 	CanvasWorkspace      canvasWorkspaceController
+	AdminCustomers       adminCustomersController
 }
 
 // shouldRenderLandingShellEarly returns whether a public landing route should bypass the auth loading shell.
@@ -216,7 +217,7 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 	if isDashboardRoute(parseProps.View.CurrentPath) {
 		return Fragment(
 			parseSidebarNode,
-			renderDashboardHome(parseProps.Intl, parseProps.View, parseProps.OpenAdminDashboard),
+			renderDashboardHome(parseProps.Intl, parseProps.View, parseProps.OpenAdminDashboard, parseProps.AdminCustomers),
 		)
 	}
 	return Fragment(
@@ -596,7 +597,8 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 			),
 		)
 	case settingsSectionBilling:
-		parseHasUsage := parseView.AccountCostSummary.HasAnyExactCosts && parseView.AccountCostSummary.TotalCost > 0
+		parseHasUsage := parseView.AccountCostSummary.HasAnyExactCosts
+		parseHasBreakdown := parseView.AccountCostSummary.PlatformFee > 0 || parseHasUsage
 		parseCoverage := parseBillingCoverageText(parseView.AccountCostSummary)
 		return Div(
 			ID(settingsSectionBilling),
@@ -611,21 +613,23 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 				If(!parseHasUsage,
 					P(Class("mt-3 text-sm text-white/45"), Text(parseIntl.T(chatI18nNamespace, "modal.billingNoUsage"))),
 				),
-				If(parseHasUsage,
+				If(parseHasBreakdown,
 					Div(Class("mt-3 flex flex-col gap-2"),
 						Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
-							P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingUsageCost"))),
-							P(Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.UsageCost))),
+							P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPlatformFee"))),
+							P(ID(idBillingPlatformFeeValue), Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.PlatformFee))),
 						),
-						If(parseView.AccountCostSummary.PremiumCost > 0,
-							Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
-								P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPremiumCost"))),
-								P(Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.PremiumCost))),
-							),
+						Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+							P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingUsageCost"))),
+							P(ID(idBillingUsageValue), Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.UsageCost))),
+						),
+						Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+							P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPremiumCost"))),
+							P(ID(idBillingPremiumValue), Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.PremiumCost))),
 						),
 						Div(Class("flex items-center justify-between rounded-xl border border-[#8df5cf]/20 bg-[#8df5cf]/[0.04] px-4 py-2.5"),
 							P(Class("text-sm font-medium text-white/80"), Text(parseIntl.T(chatI18nNamespace, "modal.billingTotalCost"))),
-							P(Class("text-sm font-semibold text-[#8df5cf]"), Text(formatCostUSD(parseView.AccountCostSummary.TotalCost))),
+							P(ID(idBillingTotalValue), Class("text-sm font-semibold text-[#8df5cf]"), Text(formatCostUSD(parseView.AccountCostSummary.TotalCost))),
 						),
 					),
 				),
