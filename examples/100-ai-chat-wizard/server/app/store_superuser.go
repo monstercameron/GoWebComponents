@@ -501,6 +501,19 @@ type parseWorkspaceCostGuardrailRow struct {
 	UpdatedAt              string
 }
 
+type parseWorkspaceModelRoutingPolicyRow struct {
+	ID                        int64
+	WorkspaceID               int64
+	PolicyKey                 string
+	DefaultModelID            string
+	FallbackModelID           string
+	MaxInputCostPerMillionUSD float64
+	MaxOutputCostPerMillionUSD float64
+	RequiresApproval          bool
+	RulesJSON                 string
+	UpdatedAt                 string
+}
+
 // parseUpsertSURole persists one superuser role and its permission set.
 func (parseS *Store) parseUpsertSURole(parseWrite parseSURoleWrite) error {
 	parseRoleKey := parseNormalizeSURoleKey(parseWrite.RoleKey)
@@ -2473,6 +2486,41 @@ func (parseS *Store) parseListWorkspaceCostGuardrails(parseLimit int64) ([]parse
 		parseGuardrailRows = append(parseGuardrailRows, parseRow)
 	}
 	return parseGuardrailRows, parseRows.Err()
+}
+
+// parseListWorkspaceModelRoutingPolicies lists workspace model-routing policy rows newest-first.
+func (parseS *Store) parseListWorkspaceModelRoutingPolicies(parseLimit int64) ([]parseWorkspaceModelRoutingPolicyRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listWorkspaceModelRoutingPolicies, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parsePolicyRows := make([]parseWorkspaceModelRoutingPolicyRow, 0)
+	for parseRows.Next() {
+		var parseRow parseWorkspaceModelRoutingPolicyRow
+		var parseRequiresApproval int64
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.WorkspaceID,
+			&parseRow.PolicyKey,
+			&parseRow.DefaultModelID,
+			&parseRow.FallbackModelID,
+			&parseRow.MaxInputCostPerMillionUSD,
+			&parseRow.MaxOutputCostPerMillionUSD,
+			&parseRequiresApproval,
+			&parseRow.RulesJSON,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseRow.RequiresApproval = parseRequiresApproval != 0
+		parsePolicyRows = append(parsePolicyRows, parseRow)
+	}
+	return parsePolicyRows, parseRows.Err()
 }
 
 // parseNormalizeSURoleKey normalizes one role key for superuser control-plane records.

@@ -1137,6 +1137,36 @@ message GetAdminChatsDrilldownResponse {
   repeated ProductAnalyticsEventEntry product_analytics_events = 9;
 }
 
+message GetAdminProvidersDrilldownRequest {
+  int32 lookback_days = 1;
+  int32 limit = 2;
+  int64 workspace_id = 3;
+}
+
+message AdminProvidersDrilldownSummary {
+  int64 provider_usage_count = 1;
+  int64 model_usage_count = 2;
+  int64 usage_event_count = 3;
+  int64 completed_event_count = 4;
+  int64 failed_event_count = 5;
+  double total_cost_usd = 6;
+  int64 model_catalog_count = 7;
+  int64 routing_policy_count = 8;
+  int64 cost_guardrail_count = 9;
+  int64 provider_snapshot_count = 10;
+}
+
+message GetAdminProvidersDrilldownResponse {
+  AdminProvidersDrilldownSummary summary = 1;
+  repeated AdminProviderUsage providers = 2;
+  repeated AdminModelUsage models = 3;
+  repeated AdminUsageEvent usage_events = 4;
+  repeated ModelOption model_catalog = 5;
+  repeated WorkspaceModelRoutingPolicyEntry workspace_model_routing_policies = 6;
+  repeated WorkspaceCostGuardrailEntry workspace_cost_guardrails = 7;
+  repeated AdminProviderSnapshot provider_snapshots = 8;
+}
+
 message GetAdminChatsSettingsRequest {
   int64 workspace_id = 1;
   int32 limit = 2;
@@ -2164,6 +2194,19 @@ message WorkspaceCostGuardrailEntry {
   string updated_at = 9;
 }
 
+message WorkspaceModelRoutingPolicyEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  string policy_key = 3;
+  string default_model_id = 4;
+  string fallback_model_id = 5;
+  double max_input_cost_per_million_usd = 6;
+  double max_output_cost_per_million_usd = 7;
+  bool requires_approval = 8;
+  string rules_json = 9;
+  string updated_at = 10;
+}
+
 message GetSuperuserControlPlaneRequest {
   int32 limit = 1;
 }
@@ -2305,6 +2348,8 @@ service ChatService {
   rpc GetAdminBusinessDrilldown(GetAdminBusinessDrilldownRequest) returns (GetAdminBusinessDrilldownResponse);
   // GetAdminChatsDrilldown returns one typed chats drill-down snapshot for dashboard chats surfaces.
   rpc GetAdminChatsDrilldown(GetAdminChatsDrilldownRequest) returns (GetAdminChatsDrilldownResponse);
+  // GetAdminProvidersDrilldown returns one typed providers drill-down snapshot for dashboard providers surfaces.
+  rpc GetAdminProvidersDrilldown(GetAdminProvidersDrilldownRequest) returns (GetAdminProvidersDrilldownResponse);
   // GetAdminChatsSettings returns typed chats settings defaults plus onboarding/workflow/skill publishing rows.
   rpc GetAdminChatsSettings(GetAdminChatsSettingsRequest) returns (GetAdminChatsSettingsResponse);
   // SetAdminChatDefaults updates platform-wide default prompt/model/reasoning/memory-extraction settings.
