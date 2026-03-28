@@ -2,6 +2,61 @@
 
 This document summarizes the tables defined in `sql/store/schema.sql`.
 
+Related docs:
+- `README.md` for runtime/setup context.
+- `DOCS_MAP.md` for the current doc-location index (including `docs/` subfolder content).
+
+## Wiring Snapshot (2026-03-27)
+
+This section tracks non-schema wiring for newly added operational and growth tables so schema docs stay aligned with live store and RPC paths.
+
+- `auth_sessions`: store query `parseListAuthSessions`; included in `GetSuperuserControlPlane`.
+- `auth_token_versions`: used by auth signup/login/session validation (`parseEnsureAuthTokenVersion` and token validation checks in auth manager/session RPC paths).
+- `workspace_invitations`: store upsert/list `parseUpsertWorkspaceInvitation` and `parseListWorkspaceInvitations`; included in `GetSuperuserControlPlane`.
+- `webhook_deliveries`: store upsert/list/retry funcs (`parseUpsertWebhookDelivery`, `parseListWebhookDeliveries`, `parseListWebhookDeliveriesPendingRetry`, `parseUpdateWebhookDeliveryAttempt`, `parseUpdateWebhookDeliveryDelivered`); included in `GetSuperuserControlPlane`; retry flow helper `parseHandleBackgroundJobs` can host retry handlers.
+- `support_ticket_messages`: store create/list (`parseCreateSupportTicketMessage`, `parseListSupportTicketMessages`); included in `GetSuperuserControlPlane`.
+- `incident_updates`: store create/list (`parseCreateIncidentUpdate`, `parseListIncidentUpdates`); included in `GetSuperuserControlPlane`.
+- `notification_outbox`: store create/list/pending/status funcs (`parseCreateNotificationOutbox`, `parseListNotificationOutbox`, `parseListNotificationOutboxPending`, `parseUpdateNotificationOutboxStatus`); dispatcher flow `parseDispatchNotificationOutboxPending`; included in `GetSuperuserControlPlane`.
+- `background_jobs`: store upsert/list (`parseUpsertBackgroundJob`, `parseListBackgroundJobs`); typed job helpers `parseStoreWeeklySummaryJob`, `parseStoreDunningRetryJob`, `parseStoreRetentionPurgeJob`, `parseStoreHealthScoreRefreshJob`; dispatcher flow `parseHandleBackgroundJobs`; included in `GetSuperuserControlPlane`.
+- `su_user_roles` + `workspace_memberships`: role/scope resolution for admin access split (`parseResolveAdminAccessScopeForUserID`) for platform vs workspace-admin views.
+- `billing_plan_entitlements` + `billing_plan_model_access` + `billing_access_overrides`: effective access/model policy resolution used by send gates and selected-model policy checks.
+- `password_reset_tokens` + `email_verification_tokens`: schema exists, but dedicated store/RPC flow wiring is still pending.
+- `onboarding_templates`: store upsert/list (`parseUpsertOnboardingTemplate`, `parseListOnboardingTemplates`).
+- `user_activation_milestones`: store upsert/list (`parseUpsertUserActivationMilestone`, `parseListUserActivationMilestones`).
+- `saved_workflows`: store upsert/list (`parseUpsertSavedWorkflow`, `parseListSavedWorkflows`).
+- `prompt_library_items`: store upsert/list (`parseUpsertPromptLibraryItem`, `parseListPromptLibraryItems`).
+- `weekly_value_summaries`: store upsert/list (`parseUpsertWeeklyValueSummary`, `parseListWeeklyValueSummaries`).
+- `product_analytics_events`: store create/list (`parseCreateProductAnalyticsEvent`, `parseListProductAnalyticsEvents`).
+- `experiment_assignments`: store upsert/list (`parseUpsertExperimentAssignment`, `parseListExperimentAssignments`).
+- `subscription_churn_feedback`: store create/list (`parseCreateSubscriptionChurnFeedback`, `parseListSubscriptionChurnFeedback`).
+- `user_memory`: RPCs `ListUserMemories` / `UpsertUserMemory` / `DeleteUserMemory`; extraction path `parseExtractAndStoreUserMemories` now deduplicates candidates by normalized signature and reuses existing keys for edit-stable updates.
+
+## Wiring Classification (2026-03-27)
+
+Legend:
+- `Store+RPC+Jobs+UI`: table is exercised by store funcs, exposed by active RPC paths, used by runtime job/flow handlers, and surfaced in current client UX.
+- `Store+RPC+Jobs`: no first-class UI yet, but wired in backend RPC/flow paths and job/dispatcher helpers.
+- `Store+RPC`: wired to store funcs and active RPC/snapshot paths; no dedicated job orchestration or first-class UI yet.
+- `Store-only`: typed store/query coverage exists, but dedicated RPC/job/UI wiring is still pending.
+- `Persistence-only`: table exists in schema with limited or no dedicated store/RPC/job/UI wiring.
+
+Current classification:
+- `Store+RPC+Jobs+UI`: `users`, `user_profile`, `user_memory`, `conversations`, `messages`, `usage_events`, `model_catalog`.
+- `Store+RPC+Jobs`: `notification_outbox`, `background_jobs`, `webhook_deliveries`.
+- `Store+RPC` (UI coverage varies by table): `auth_sessions`, `auth_token_versions`, `billing_plans`, `billing_plan_entitlements`, `billing_plan_model_access`, `billing_customers`, `billing_subscriptions`, `billing_invoices`, `billing_invoice_line_items`, `billing_access_overrides`, `billing_events`, `su_roles`, `su_role_permissions`, `su_user_roles`, `site_config`, `feature_flags`, `workspaces`, `workspace_memberships`, `workspace_invitations`, `api_keys`, `webhook_endpoints`, `audit_logs`, `support_tickets`, `support_ticket_messages`, `experiments`, `incident_updates`.
+- `Store-only`: `onboarding_templates`, `user_activation_milestones`, `saved_workflows`, `prompt_library_items`, `weekly_value_summaries`, `product_analytics_events`, `experiment_assignments`, `subscription_churn_feedback`.
+- `Persistence-only`: `password_reset_tokens`, `email_verification_tokens`, `billing_plan_overages`, `billing_quota_policies`, `billing_upgrade_triggers`, `billing_dunning_events`, `workspace_asset_shares`, `account_health_scores`, `customer_success_playbooks`, `integration_connections`, `partner_referrals`, `workspace_sso_configs`, `data_retention_policies`, `compliance_controls`, `service_level_objectives`, `incidents`, `workspace_model_routing_policies`, `workspace_cost_guardrails`.
+
+## Story Alignment (2026-03-27)
+
+This map ties the active flow stories to the real table usage so docs and implementation stay synchronized.
+
+- Visit-to-first-chat flow (`FLOWS.md`): `users`, `auth_sessions`, `auth_token_versions`, `user_profile`, `model_catalog`, `conversations`, `messages`, `usage_events`.
+- Admin journey and scope split (`FLOWS.md`): `su_roles`, `su_role_permissions`, `su_user_roles`, `workspace_memberships`, `workspaces`, `audit_logs`, plus admin-read slices over `users`, `conversations`, `usage_events`.
+- Control-plane operational snapshots (`GetSuperuserControlPlane`): `auth_sessions`, `workspace_invitations`, `webhook_deliveries`, `support_ticket_messages`, `incident_updates`, `notification_outbox`, `background_jobs`.
+- Billing and send-policy gates (`Send`, model policy): `billing_customers`, `billing_subscriptions`, `billing_plan_entitlements`, `billing_plan_model_access`, `billing_access_overrides`, `billing_events`.
+- Onboarding and growth backlog surfaces: `onboarding_templates`, `user_activation_milestones`, `saved_workflows`, `prompt_library_items`, `weekly_value_summaries`, `product_analytics_events`, `experiment_assignments`, `subscription_churn_feedback` (store-wired; UI/RPC rollout still pending).
+
 ## Auth and Identity
 
 ### `users`

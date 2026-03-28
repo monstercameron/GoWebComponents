@@ -1,306 +1,180 @@
-# RelayDesk — Frontend Design Reference
+# RelayDesk Design Intent
 
-## Aesthetic Direction: Precision Dark Luxury
+This document captures the current intended product surface for example 100.
+It replaces the older page-by-page visual overhaul spec and aligns design intent
+to the shipped runtime, route model, and operator workflows.
 
-> "The kind of interface that makes someone feel like they're operating something serious."
+## Product intent
 
-Think: Bloomberg Terminal precision meets Swiss instrument design meets bespoke fintech.
-Dark, cold, technical — but completely refined. Electric, not garish.
+RelayDesk is a shell-first chat workspace where:
 
-The one thing someone will remember: **A site that feels like the AI is real** —
-real model names, real latency numbers, real technical detail, wrapped in a UI so
-precise it reads like a luxury instrument panel.
+- visitors can evaluate value on public routes,
+- users can authenticate and send first chat quickly,
+- returning users can reopen prior threads reliably,
+- operators can inspect platform health and admin slices with strict authz.
 
----
+The design goal is predictable task completion over ornamental UI.
 
-## Design Tokens
+## Primary journeys
 
-### Color Palette
+### Visitor to first chat
 
-| Token name            | Value                        | Role                                     |
-|-----------------------|------------------------------|------------------------------------------|
-| `bg-page`             | `#050508`                    | True near-black page background          |
-| `bg-surface`          | `#0d0d12`                    | Slightly lifted surface (nav, footer)    |
-| `bg-card`             | `#111118`                    | Card backgrounds                         |
-| `border-default`      | `rgba(255,255,255,0.08)`     | Default card/section border              |
-| `border-hover`        | `rgba(0,217,255,0.35)`       | Hover state border brightening           |
-| `border-featured`     | `rgba(0,217,255,0.6)`        | Featured tier card border (Team plan)    |
-| `accent-cyan`         | `#00d9ff`                    | Primary accent — electric, technical     |
-| `accent-gold`         | `#d4a853`                    | Warm accent — featured/premium moments   |
-| `accent-green`        | `#4ade80`                    | Mono detail — model names, status dots   |
-| `text-heading`        | `#f0f0f8`                    | Headlines (slightly blue-tinted white)   |
-| `text-body`           | `#8a8a9a`                    | Body copy                                |
-| `text-muted`          | `rgba(255,255,255,0.35)`     | Tertiary / labels                        |
-| `shadow-featured`     | `0 0 24px rgba(0,217,255,.15)` | Cyan glow for featured card             |
-
-### Typography
+1. Land on public route (`/`, `/home`, `/capabilities`, `/pricing`, `/signup`).
+2. Enter auth path (login default, signup when requested).
+3. Boot authenticated shell at `/app`.
+4. Send first prompt and see stream start immediately.
+5. Normalize to canonical `/app/thread/:publicID`.
+6. Refresh and reopen without losing route-state continuity.
 
-| Role              | Font              | Weight   | Notes                              |
-|-------------------|-------------------|----------|------------------------------------|
-| Display headlines | **Syne**          | 700–800  | Extra-wide geometric, bold at size |
-| Body / UI text    | **DM Sans**       | 400–500  | Neutral, refined, disappears well  |
-| Numbers / mono    | **JetBrains Mono**| 400–500  | Model names, prices, latency stats |
-
-**Source:** Google Fonts (single `<link>` in `bootstrap.go`)
-
-**Anti-pattern:** No Inter, no Space Grotesk, no Roboto, no system-ui.
-
-### Motion
-
-| Effect              | CSS                                              | Use                              |
-|---------------------|--------------------------------------------------|----------------------------------|
-| Stagger reveal      | `translateY(24px)→0`, 600ms, 80ms per-word delay | Headline on page load            |
-| Card hover          | `scale(1.01)` + border brighten                  | All feature/pricing cards        |
-| Counter increment   | JS `requestAnimationFrame` from 0 to target      | Metric stats when scrolled in    |
-| CTA magnetic        | `mousemove` 5px offset                           | Primary CTA buttons              |
-| Progress bar        | Cyan `#00d9ff`, smooth width transition          | Auth loading shell               |
-
-### Background Treatment (shared across all pages)
-
-Replace all per-page copy-pasted orb `<div>`s with one shared function `renderPageBackground()`:
-
-```
-#050508 base
-+ SVG hexagonal grid at 3% opacity (or circuit trace pattern)
-+ single radial gradient fading to transparent at center
-```
+### Returning user
 
-No blobs, no soft purple glows, no pink orbs.
+1. Re-enter `/app` with persisted session.
+2. Rehydrate profile/settings/catalog/conversation list.
+3. Continue recent thread or start a new one without picker drift.
 
----
+### Admin and superuser journey
 
-## Component Architecture
+1. Authenticate into app shell.
+2. Resolve role and scope.
+3. Enter dashboard-capable surface.
+4. Inspect summary slices and drill into detail.
+5. Execute high-impact actions with confirmation and audit trail.
 
-### Current file structure (before refactor)
+## IA and route model
 
-```
-marketing_shared.go     — shared header/footer/hero primitives
-landing_shell.go        — landing page shell + footer
-landing_hero.go         — hero section + demo card
-landing_sections.go     — product/why/pricing sections
-pricing_shell.go        — full standalone pricing page
-auth_shell.go           — auth loading + auth form
-styles.go               — global CSS const
-```
+### Current route classes
 
-### Target component decomposition
+- Public marketing and auth-entry routes: `/`, `/home`, `/capabilities`, `/pricing`, `/signup`.
+- Authenticated chat routes: `/app`, `/app/thread/:publicID`, `/app/thread/:publicID/canvas/:canvasID`.
+- Settings surface: `/app/settings?panel=settings-*`.
+- Runtime assets and transport endpoints: `/chat-bootstrap.js`, `/app/chat.wasm`, `/worker/background-worker.wasm`, `/healthz`, `/socket`.
 
-Break rendering into three tiers: **tokens → atoms → molecules → shells**.
+### Current admin IA state
 
----
+- Admin and control-plane data access is RPC-gated.
+- Superuser checks are enforced for admin analytics/control-plane RPCs.
+- Dedicated dashboard browser-route IA is still in-progress.
 
-#### Tier 1 — Atoms (single-purpose, no layout)
+### Intended admin IA direction
 
-These live in `marketing_shared.go` (or a new `marketing_atoms.go` if that file grows too large).
+- Keep normal user chat flow uncluttered.
+- Add a clear but scoped admin entry affordance for eligible roles.
+- Split data and actions by role:
+  - normal user: no admin surfaces,
+  - workspace admin: workspace-scoped slices,
+  - superuser: platform-scoped slices and control-plane access.
 
-| Function                           | Signature sketch                                      | Purpose                                    |
-|------------------------------------|-------------------------------------------------------|--------------------------------------------|
-| `renderPageBackground()`           | `() → ui.Node`                                        | Single shared bg for every marketing page  |
-| `renderBrandMark()`                | `() → ui.Node`                                        | The RD monogram badge                      |
-| `renderHeroBadge(text string)`     | `(string) → ui.Node`                                  | Pill eyebrow label (e.g. "Moody · modern") |
-| `renderSectionEyebrow(text)`       | `(string) → ui.Node`                                  | Uppercase tracking label above H2s         |
-| `renderSectionDivider(label)`      | `(string) → ui.Node`                                  | Thin 1px ruled line with section label     |
-| `renderCtaPrimary(label, href)`    | `(string, string) → ui.Node`                          | Cyan-fill CTA button                       |
-| `renderCtaSecondary(label, href)`  | `(string, string) → ui.Node`                          | Glass/ghost CTA button                     |
-| `renderNavLink(current, target, label)` | `(string, string, string) → ui.Node`             | Active-aware nav link                      |
-| `renderFooterLink(label, href)`    | `(string, string) → ui.Node`                          | Single footer list item link               |
-| `renderStatusDot(isLive bool)`     | `(bool) → ui.Node`                                    | Green pulsing dot for live status          |
-| `renderMonoLabel(text)`            | `(string) → ui.Node`                                  | JetBrains Mono detail text                 |
-
----
-
-#### Tier 2 — Molecules (composed from atoms, one job)
+## Surface definitions
 
-| Function                              | Args sketch                            | Purpose                                         |
-|---------------------------------------|----------------------------------------|-------------------------------------------------|
-| `renderMarketingHeader(path, nav, actions)` | `(string, ui.Node, ui.Node) → ui.Node` | Sticky header shell with brand + nav + actions |
-| `renderMarketingFooter(columns)`      | `(...ui.Node) → ui.Node`               | Footer grid with brand blurb + link columns     |
-| `renderFooterColumn(title, links)`    | `(string, ...ui.Node) → ui.Node`       | Single titled column in footer                  |
-| `renderHeroHeading(eyebrow, h1, body, actions)` | `(string, string, string, ...ui.Node) → ui.Node` | Full hero copy block         |
-| `renderHeroMetricStrip(metrics)`      | `([]heroMetric) → ui.Node`             | Horizontal strip of 3 mono metric+label cells   |
-| `renderFeatureCard(eyebrow, title, body, accentClass)` | `...→ ui.Node`            | Single product feature card                     |
-| `renderProofCard(stat, label, body)`  | `(string, string, string) → ui.Node`   | Proof/stat card in Why section                  |
-| `renderPricingCard(plan, featured)`   | `(plan, bool) → ui.Node`               | Single pricing tier card                        |
-| `renderCompareRow(label, vals)`       | `(string, []string) → ui.Node`         | Single row in pricing compare table             |
-| `renderFAQItem(q, a)`                 | `(string, string) → ui.Node`           | Single FAQ question+answer card                 |
-| `renderDemoMessageBubble(role, text)` | `(string, string) → ui.Node`           | AI or user message bubble in demo card          |
-| `renderDemoMetricChip(label, value)`  | `(string, string) → ui.Node`           | Small chip inside demo card                     |
-| `renderDemoComposer(placeholder)`     | `(string) → ui.Node`                   | Input row at bottom of demo card                |
-| `renderDemoCard()`                    | `() → ui.Node`                         | Full mock chat card (composes above 3)          |
-| `renderAuthFormCard(view, auth, isSignup)` | `...→ ui.Node`                    | Auth login/signup form card                     |
-| `renderAuthStatCard(title, body)`     | `(string, string) → ui.Node`           | Stat card on auth page left column              |
-
----
-
-#### Tier 3 — Shells (full page sections, compose molecules)
-
-| Function                  | File                  | Composes                                              |
-|---------------------------|-----------------------|-------------------------------------------------------|
-| `renderLandingShell()`    | `landing_shell.go`    | background + header + main sections + footer          |
-| `renderLandingHeroSection()` | `landing_hero.go`  | hero heading + metric strip + demo card               |
-| `renderProductSection()`  | `landing_sections.go` | section header + feature cards grid                   |
-| `renderWhySection()`      | `landing_sections.go` | pull-quote card + proof cards                         |
-| `renderPricingSection()`  | `landing_sections.go` | section header + pricing cards                        |
-| `renderPricingShell()`    | `pricing_shell.go`    | background + header + hero + plans + compare + FAQ + contact + footer |
-| `renderAuthShell()`       | `auth_shell.go`       | background + header + hero copy + form card + footer  |
-| `renderAuthLoadingShell()`| `auth_shell.go`       | loading card with cyan progress bar                   |
-
----
-
-## Page-by-Page Design Specs
-
-### All Marketing Pages — Shared
-
-**Header:**
-- `position: sticky`, `bg-[#050508]/80`, `border-b border-white/[0.05]`, `backdrop-blur-sm`
-- Brand: RD monogram (cyan accent) + "RelayDesk" in Syne 600 + DM Sans subtitle
-- Nav links: uppercase, `tracking-widest`, DM Sans 13px, `text-[#8a8a9a]` → `text-[#f0f0f8]` hover
-- Primary CTA: `bg-[#00d9ff] text-black font-semibold` — the one cyan button that stands out
-
-**Background:** `renderPageBackground()` — one function, used everywhere.
+### Chat workspace
 
-**Footer:** Horizontal rule + two-row minimal layout. Brand left, links right. No 4-column grid.
+- Left: thread list and route-stable thread reopen.
+- Center: streamed conversation with bottom anchoring and jump-to-bottom behavior.
+- Top controls: provider, model, and intelligence settings with stable persistence.
+- Composer: first-send path with clear loading/error states and entitlement feedback.
 
----
+### Settings
 
-### Landing Hero — `landing_hero.go`
+- Settings remain in-app under `/app/settings`.
+- Panels include profile, tone, prompt, intelligence, speech, memories, and language.
+- Design priority is scanability and low-friction edits over deep nested controls.
 
-**Layout:** Asymmetric — headline bleeds left past the grid, demo card overlaps right with negative margin.
+### Dashboard and operations
 
-**Headline:** Syne 800, `text-8xl xl:text-9xl`, tight tracking `tracking-[-0.06em]`, warm white `#f0f0f8`
+- Dashboard home should summarize operational health before drill-down.
+- Slice views should support search, filter, sort, and pagination state continuity.
+- Mutations (disable/restore/suspend/override/rollback) require confirmation and reason capture.
+- Denied/expired auth must fail closed and return to safe non-privileged state.
 
-**Metric strip** (replaces "Clear / Calm / Flexible"):
-```
-< 800ms        GPT-4o · Claude 3.7 · Cerebras        99.9% uptime
-──────────     ─────────────────────────────────      ──────────────
-Response time  Available models                       Reliability
-```
-All in JetBrains Mono with a green `#4ade80` tint. Third stat has a pulsing green dot.
+### Core dashboard surfaces
 
-**Demo card:**
-- Background: `#0d0d12`, border `1px solid rgba(255,255,255,.08)`
-- Avatar badge: cyan `#00d9ff` with "RD" in black
-- Model name shown in green mono: `gpt-4o · streaming`
-- Send button: `↑` (`\u2191`) not the literal string "up" ← **fix immediately**
-- "streaming..." indicator with animated blinking cursor `|`
+- `Business`: revenue, plan mix, churn, invoice health, overage/upgrade/dunning controls, and account-level commercial risk.
+  Not in `Business`: per-thread chat debugging, provider incident triage, or low-level webhook/job troubleshooting.
+- `Customers`: user/workspace health, lifecycle, entitlements, billing/support context, session/access state, and operator account actions.
+  Not in `Customers`: global pricing policy authoring, provider routing configuration, or site-level reliability policy.
+- `Chats`: first-chat funnel, send/stream health, thread/message quality, memory/onboarding/workflow/skill defaults, and chat-surface settings.
+  Not in `Chats`: subscription ledger policy, provider quota routing controls, or infra incident command.
+- `Providers`: provider/model availability, latency/error/cost trend analysis, routing/fallback controls, model visibility, and guardrail limits.
+  Not in `Providers`: customer-profile moderation workflows, support-ticket handling, or direct subscription plan edits.
+- `Ops`: site health, incidents/SLOs, background jobs, notification/webhook reliability, feature flags, retention/integration settings, and audit signals.
+  Not in `Ops`: business KPI interpretation, pricing package design, or per-customer relationship management.
 
----
-
-### Product Section — `landing_sections.go`
-
-**Cards:** Solid `#111118`, `1px solid rgba(255,255,255,.08)`, `border-radius: 12px`
-On hover: border → `rgba(0,217,255,.25)`, `scale(1.01)` — engineered, not bubbly.
-Drop the gradient glass treatment entirely.
-
-**Left intro copy:** Variant-aware — currently hardcoded. Add switch on `parsePage`.
-
-**Section divider** between Product and Why: `<hr>` styled as `1px solid rgba(255,255,255,.06)` with `CAPABILITIES` label centered in a `bg-[#050508]` pill.
-
----
-
-### Why Section — `landing_sections.go`
-
-**Left card:** Pull-quote style. Massive Syne italic:
-```
-  "You are not
-   selling AI."
-```
-`text-6xl font-semibold italic` — the rest of the copy is secondary, smaller.
-
-**Right proof cards:** Numbers only — `3×`, `40%`, `Day 1` — with DM Sans label below.
-No more "Faster adoption / Higher trust" verb-body pattern.
-
----
-
-### Pricing Section / Page
-
-**Card hierarchy:**
-- Starter: `#111118`, standard border, subdued
-- Team (featured): `border border-[#00d9ff]/60`, `box-shadow: 0 0 24px rgba(0,217,255,.15)`, gold `#d4a853` badge
-- Enterprise/Custom: `border-dashed border-white/20`, "Talk to sales" ghosted treatment
-
-**Compare table** (expand from 4 → 8 rows):
-```
-Capability          Starter     Team        Enterprise
-─────────────────────────────────────────────────────
-Workspaces          1           Up to 5     Unlimited
-Seats               1           Up to 15    Custom
-Model access        GPT-4o      All models  All + priority
-Shared workspace    —           ✓           ✓
-Admin controls      Basic       Standard    Advanced
-API access          —           —           ✓
-Data retention      30 days     90 days     Custom
-SLA / Support       Email       Priority    Dedicated
-```
-
-**FAQ** (replace current 3 soft questions with 5 objection-handlers):
-1. "Where does my conversation data go?" — data handling, retention, deletion
-2. "Which AI models power this?" — GPT-4o, Claude 3.7 Sonnet, Cerebras
-3. "Can we self-host or deploy privately?" — Enterprise tier answer
-4. "What happens if we go over our seat count?" — upgrade path, no surprise charges
-5. "Can we cancel at any time?" — monthly billing, no lock-in
-
-**Dead CTAs to fix:**
-- "Book a sales call" → `mailto:sales@relaydesk.com` (or a real contact form)
-- "Email the team" → `mailto:hello@relaydesk.com`
-- Pricing header: "Open chat" + "Open app" both → `chatRouteRoot` — change first to "Log in" → `authLandingRoute`
-
----
-
-### Auth Shell — `auth_shell.go`
-
-**Background:** Same `renderPageBackground()` as marketing — remove the purple/pink orbs.
-
-**Loading bar:** `#00d9ff` electric cyan (currently cyan-400/sky-300 mix — unify to design token).
-
-**Form card:** `bg-[#111118]`, `border border-white/[0.08]`, no backdrop-blur — precise, not glassy.
-
----
-
-## Content Gaps (trust signals, not just design)
-
-For a credible LLM business these must be added to the landing/pricing pages:
-
-1. **Data handling paragraph** — where prompts go, model provider data policies, retention
-2. **Model transparency** — name the actual models (GPT-4o, Claude 3.7, Cerebras) visibly on landing
-3. **Social proof** — even one quote or "trusted by" strip stops the "is this real?" question
-4. **Free trial vs. paid CTA distinction** — "Start for free" must be visually distinct from "Buy now"
-5. **Demo request path** — Custom/Enterprise tier needs a real contact form, not a link to the chat app
-
----
-
-## Implementation Checklist
-
-### Step 1 — Bootstrap (no WASM rebuild needed)
-- [ ] `bootstrap.go`: Swap Space Grotesk → Syne + DM Sans + JetBrains Mono
-- [ ] `styles.go`: Add `font-family` on body, add stagger/counter keyframes
-
-### Step 2 — Quick fixes (smallest safe first)
-- [ ] `landing_shell.go`: `(c)` → `\u00a9`
-- [ ] `landing_hero.go`: `"up"` → `\u2191`
-- [ ] `pricing_shell.go`: Deduplicate header CTAs
-
-### Step 3 — Shared atoms + molecules
-- [ ] Refactor `marketing_shared.go`: add `renderPageBackground()`, `renderSectionDivider()`, `renderCtaPrimary()`, `renderCtaSecondary()`, `renderStatusDot()`, `renderMonoLabel()`
-- [ ] Refactor `renderMarketingHeaderShell` → `renderMarketingHeader` with sticky + blur
-- [ ] Replace `renderMarketingHeaderAction` with `renderCtaPrimary` / `renderCtaSecondary`
-- [ ] Slim down footer to minimal two-row layout
-
-### Step 4 — Landing pages
-- [ ] `landing_hero.go`: New asymmetric layout, Syne headline, metric strip, updated demo card
-- [ ] `landing_sections.go`: New card style, variant-aware left copy, pull-quote Why section
-- [ ] `landing_shell.go`: Wire in `renderPageBackground()`, new footer
-
-### Step 5 — Pricing page
-- [ ] `pricing_shell.go`: Expand compare table to 8 rows
-- [ ] `pricing_shell.go`: Replace 3 FAQ items with 5 objection-handlers
-- [ ] `pricing_shell.go`: Fix all dead CTAs to real mailto/form targets
-- [ ] `pricing_shell.go`: Featured card cyan border + glow, Enterprise dashed
-
-### Step 6 — Auth shell
-- [ ] `auth_shell.go`: Replace orb background with `renderPageBackground()`
-- [ ] `auth_shell.go`: Loading bar to `#00d9ff`
-
-### Step 7 — Validate
-- [ ] `go run ./tools/gwc build -app .\examples\100-ai-chat-wizard\client\main.go -root .\examples\100-ai-chat-wizard`
-- [ ] Manual smoke: `/`, `/home`, `/capabilities`, `/pricing`, `/` (auth), loading shell
+### Dashboard KPI definitions (planned)
+
+| KPI | Source tables | Source RPC | Caveats |
+| --- | --- | --- | --- |
+| MRR trend (`Business`) | `billing_subscriptions`, `billing_invoices`, `billing_invoice_line_items` | `GetBusinessDashboardSummary` | Invoice posting lag and proration can temporarily skew period totals. |
+| Churn and downgrade risk (`Business`) | `subscription_churn_feedback`, `billing_events`, `billing_access_overrides` | `GetBusinessDashboardSummary` | Voluntary churn reason quality depends on user-provided feedback coverage. |
+| Active customers/workspaces (`Customers`) | `users`, `workspaces`, `workspace_memberships`, `auth_sessions` | `GetCustomersDashboardSummary` | Session freshness windows can overcount recently inactive users. |
+| Customer health and intervention load (`Customers`) | `support_tickets`, `support_ticket_messages`, `usage_events`, `billing_subscriptions` | `GetCustomersDashboardSummary` | Health score is derived and should be shown with component signal breakdown. |
+| First-chat conversion (`Chats`) | `product_analytics_events`, `conversations`, `messages`, `user_activation_milestones` | `GetChatsDashboardSummary` | Funnel steps can be delayed when analytics writes are batched. |
+| Reply quality and latency (`Chats`) | `messages`, `usage_events` | `GetChatsDashboardSummary` | Tail latency should be percentile-based, not average-only. |
+| Provider reliability (`Providers`) | `usage_events`, `model_catalog`, provider-health tables | `GetProvidersDashboardSummary` | Provider outage windows may need rollup smoothing for noisy short spikes. |
+| Provider cost per token (`Providers`) | `usage_events`, `workspace_model_routing_policies`, `workspace_cost_guardrails` | `GetProvidersDashboardSummary` | Token-cost attribution may differ by model pricing snapshot timing. |
+| Incident and SLO posture (`Ops`) | `incidents`, `incident_updates`, `service_level_objectives` | `GetOpsDashboardSummary` | SLO burn calculations should include window length in UI labels. |
+| Async delivery reliability (`Ops`) | `background_jobs`, `notification_outbox`, `webhook_deliveries`, `webhook_endpoints` | `GetOpsDashboardSummary` | Retry-heavy periods can mask first-attempt failure rates unless split out. |
+
+### Dashboard endpoint and query map (planned)
+
+| Surface | Summary RPCs | Drill-down RPCs | Mutation RPCs | Store funcs / SQL families | Primary tables |
+| --- | --- | --- | --- | --- | --- |
+| `Business` | `GetBusinessDashboardSummary` | `ListBusinessRevenueSeries`, `ListBusinessTopAccounts`, `ListBusinessDunningQueue` | `Set/DeleteBusinessPlan`, `Set/DeleteBusinessQuotaPolicy`, `Set/DeleteBusinessOverageRule`, `Set/DeleteBusinessUpgradeTrigger`, `Set/DeleteBusinessDunningRule` | `parseGetBusiness*`, `parseListBusiness*`, `parseStoreBusiness*`; `sql/store/get_business_*.sql`, `list_business_*.sql`, `upsert_business_*.sql`, `delete_business_*.sql` | `billing_customers`, `billing_subscriptions`, `billing_invoices`, `billing_invoice_line_items`, `billing_events`, `billing_access_overrides`, `subscription_churn_feedback`, `usage_events` |
+| `Customers` | `GetCustomersDashboardSummary` | `ListCustomers`, `GetCustomerDetail`, `ListCustomerSessions`, `ListCustomerUsage`, `ListCustomerSupport` | `Disable/RestoreAdminUser`, `Suspend/RestoreAdminWorkspace`, `SetAdminBillingAccessOverride`, `SetAdminBillingQuotaOverride`, support-action mutations | `parseSearchAdminUsers`, `parseGetAdminUserSummary*`, `parseListAdmin*`; `sql/store/get_admin_*.sql`, `list_admin_*.sql`, `upsert_user_access_*.sql` | `users`, `user_profile`, `user_memory`, `workspaces`, `workspace_memberships`, `auth_sessions`, `auth_token_versions`, `support_tickets`, `support_ticket_messages`, `usage_events`, `audit_logs` |
+| `Chats` | `GetChatsDashboardSummary` | `ListChatHealthThreads`, `ListChatLatencySeries`, `ListChatFailures`, `GetChatSettingState` | `SetSystemDefaultPrompt`, `SetModelDefaults`, `SetMemoryRules`, `SetOnboardingTemplate`, `PublishWorkflow`, `PublishSkill` | `parseGetChats*`, `parseListChats*`, `parseStoreChatSettings*`; `sql/store/get_chats_*.sql`, `list_chats_*.sql`, `upsert_chat_settings_*.sql` | `conversations`, `messages`, `usage_events`, `onboarding_templates`, `user_activation_milestones`, `saved_workflows`, `prompt_library_items`, `weekly_value_summaries`, `product_analytics_events` |
+| `Providers` | `GetProvidersDashboardSummary` | `ListProviderHealth`, `ListProviderCostSeries`, `ListProviderRoutingPolicies`, `ListProviderGuardrails` | `SetProviderEnabled`, `SetModelVisibility`, `SetProviderFallbackPolicy`, `SetProviderLimit`, `SetWorkspaceCostGuardrail` | `parseGetProvider*`, `parseListProvider*`, `parseStoreProvider*`; `sql/store/get_provider_*.sql`, `list_provider_*.sql`, `upsert_provider_*.sql` | `model_catalog`, `usage_events`, `workspace_model_routing_policies`, `workspace_cost_guardrails`, provider-health/rate-limit tables |
+| `Ops` | `GetOpsDashboardSummary` | `ListOpsIncidents`, `ListOpsJobFailures`, `ListOpsWebhookFailures`, `ListOpsAuditFeed` | `SetSiteConfig`, `SetFeatureFlag`, `SetRetentionPolicy`, `SetWebhookBehavior`, `SetIntegrationConfig` | `parseGetOps*`, `parseListOps*`, `parseStoreOps*`; `sql/store/get_ops_*.sql`, `list_ops_*.sql`, `upsert_ops_*.sql` | `site_config`, `feature_flags`, `audit_logs`, `service_level_objectives`, `incidents`, `incident_updates`, `background_jobs`, `notification_outbox`, `webhook_endpoints`, `webhook_deliveries` |
+
+### Dashboard permissions model (planned)
+
+| Role | Surface access | List/detail scope | Settings/mutation scope |
+| --- | --- | --- | --- |
+| Normal user | No dashboard surfaces | No admin list or detail access | No dashboard settings/mutations |
+| Workspace admin | `Customers` (workspace-scoped), selected `Chats` operational views for their workspace | Only users/workspaces/tickets/chats tied to active admin workspace memberships | May run workspace-scoped customer/support operations (for example disable non-superuser users in-scope, suspend in-scope workspaces, support escalation), never global pricing/provider/site controls |
+| Superuser | Full `Business`, `Customers`, `Chats`, `Providers`, `Ops` surfaces | Platform-wide lists and detail views with role-appropriate redaction | Full mutation rights for pricing, provider, and ops controls with confirmation/reason/fresh-session requirements for sensitive actions |
+
+- Sensitive controls (pricing policy changes, provider routing limits, site config, retention, incident state transitions) require explicit confirmation and audit logging even for superusers.
+- Workspace-admin access must fail closed when workspace membership is missing, disabled, or suspended.
+- Detail views must apply minimum-field redaction by role even when list access is allowed.
+
+### Dashboard permissions model
+
+| Role | Visible surfaces | Allowed list/detail scope | Allowed settings and mutations |
+| --- | --- | --- | --- |
+| Normal user | No dashboard/admin surfaces. | None. | None. |
+| Workspace admin | Workspace-scoped customer/chat/workspace slices only. No platform-wide `Business`, `Providers`, or global `Ops` surfaces. | Workspace/member records tied to authorized workspace ids only; cross-workspace rows must be denied or redacted. | Workspace-scoped operational actions only (for example user/workspace interventions within scope), with required confirmation/reason payloads. |
+| Superuser | Full `Business`, `Customers`, `Chats`, `Providers`, and `Ops` surfaces. | Platform-wide list/detail access with privacy/redaction rules for sensitive payload fields. | Full control-plane and policy mutation access, with fail-closed authz and immutable audit logging. |
+
+Permission enforcement rules:
+- UI discoverability must match role scope, but RPC authz is the source of truth and must fail closed on deep links.
+- Detail drawers/routes must re-check scope before returning payloads.
+- High-impact mutations require confirmation + reason capture and must emit audit events.
+
+## State and feedback rules
+
+- Route, auth, and role state should always have explicit loading, empty, denied, and error variants.
+- First-chat path must expose actionable diagnostics for bootstrap, send, and stream failures.
+- Admin actions must surface pending, success, denial, and rollback outcomes explicitly.
+- Token/cost provenance should remain traceable from stream completion metadata into usage ledger records.
+
+## Design constraints
+
+- Preserve shell-first SPA behavior with server-delivered bootstrap and WASM client routing.
+- Keep docs, flows, smoke checklists, and schema wiring references synchronized.
+- Avoid introducing IA that conflicts with existing RPC authz boundaries.
+- Favor incremental, test-backed UI and IA changes over broad unvalidated redesign sweeps.
+
+## Material changes from original design pass
+
+- Reframed from a visual-style rewrite spec to a product-surface and IA intent document.
+- Added explicit route-class and role-split guidance tied to the current runtime.
+- Added dashboard-direction guidance based on shipped superuser authz enforcement.
+- Added continuity requirements for list state, mutation confirmation, and fail-closed auth behavior.
+- Added diagnostics and billing-traceability expectations as first-class UX requirements.
+
+## Related docs
+
+- `README.md` for setup, architecture, and route/runtime reference.
+- `FLOWS.md` for user/admin journey definitions and bug-fix workflows.
+- `MANUAL_SMOKE.md` for release-gate verification.
+- `SCHEMA_TABLES.md` for table wiring status and integration class.
+- `TODO.md` for active implementation backlog.

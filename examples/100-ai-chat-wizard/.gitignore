@@ -1,6 +1,9 @@
 bin/
-server/server.stdout.log
-server/server.stderr.log
+
+# Runtime logs and local process output
+log/
+server.stdout.log
+server.stderr.log
 
 # Local runtime state
 chat_history.db

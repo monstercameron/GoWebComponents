@@ -226,49 +226,79 @@ For apps that want a zero-RPC first paint, use `ui.SSRBootstrap.Data` to ship th
 
 RelayDesk treats that bootstrap payload, or the cached `chat-wizard:model-catalog` local-storage entry, as last-known-good UI state only. The authenticated shell still revalidates through `ListModelOptions` when the gRPC session comes up so long-lived tabs converge back to the server-owned catalog without a full page reload.
 
-### Optional: one-command local dev
+### Optional: one-command managed server start
 
-This builds the client and then starts the server:
+Start the default managed profile directly:
 
 ```powershell
-.\examples\100-ai-chat-wizard\scripts\dev.ps1
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server start -json
 ```
 
-On macOS/Linux:
+Then inspect or restart as needed:
 
-```bash
-./examples/100-ai-chat-wizard/scripts/dev.sh
+```powershell
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server restart -json
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server stop -json
 ```
 
 ---
 
 ## File layout
 
-```
+```text
 examples/100-ai-chat-wizard/
-├── scripts/
-│   ├── build-client.ps1  # Windows wrapper for the client build
-│   ├── run-server.ps1    # Windows wrapper for the example server
-│   └── dev.ps1           # Windows build + run entrypoint
-├── client/
-│   ├── main.go       # Thin WASM launcher
-│   ├── app/
-│   │   ├── app.go    # Chat shell component tree
-│   │   └── state.go  # Reducer-backed local app state
-│   └── backgroundworker/
-│       └── main.go   # Secondary Go WASM worker for markdown + background ticks
-├── proto/
-│   ├── chat.proto    # Service definition (source of truth)
-│   ├── chat.pb.go    # Generated message types
-│   └── chat_grpc.pb.go  # Generated service stubs
-└── server/
-    ├── main.go       # Thin server launcher
-    ├── app/
-    │   ├── server.go # HTTP + gRPC-over-WebSocket server + OpenAI proxy
-    │   └── store.go  # SQLite-backed persistence layer
-    └── provider/
-        └── ...       # LLM provider adapters
++-- docs/
+|   +-- BUG_REPORT_TEMPLATES.md
+|   +-- PERFORMANCE.md
++-- bin/
+|   +-- client/
+|   |   +-- app/chat.wasm
+|   |   +-- worker/background-worker.wasm
+|   +-- runtime/
+|   |   +-- chat_history.db
+|   |   +-- logs/server.stderr.log
+|   |   +-- logs/server.stdout.log
+|   |   +-- legacy-artifacts/
+|   +-- server/
+|       +-- chat-wizard.exe
+|       +-- chat-wizard-server.exe
++-- scripts/                    # reserved for example-local helpers
++-- client/
+|   +-- main.go
+|   +-- app/
+|   +-- backgroundworker/
++-- cmd/
+|   +-- server/
+|   +-- seed-test-db/
++-- proto/
+|   +-- chat.proto
+|   +-- chat.pb.go
+|   +-- chat_grpc.pb.go
++-- server/
+|   +-- app/
+|   +-- provider/
++-- sql/
++-- testdata/
++-- README.md
++-- FLOWS.md
++-- MANUAL_SMOKE.md
++-- SCHEMA_TABLES.md
++-- DESIGN.md
++-- DOCS_MAP.md
++-- OPERATOR_RUNBOOK.md
++-- TODO.md
++-- CHANGELOG.md
 ```
+
+## Repo layout rules
+
+- Keep primary entry docs at root (`README.md`, `FLOWS.md`, `MANUAL_SMOKE.md`, `SCHEMA_TABLES.md`, `TODO.md`, `CHANGELOG.md`).
+- Keep secondary/supporting docs under `docs/` (for example `docs/BUG_REPORT_TEMPLATES.md`, `docs/PERFORMANCE.md`).
+- Keep runtime state and logs under `bin/runtime/` (`chat_history.db`, `logs/`, managed state files).
+- Keep generated binaries and build artifacts under `bin/` subfolders (`bin/client`, `bin/server`, `bin/runtime/legacy-artifacts`).
+- Keep helper scripts under `scripts/` only; avoid scattering executable helpers at root.
+- Keep source code under `client/`, `server/`, `cmd/`, `proto/`, `sql/`, and `internal/`.
 
 ---
 
@@ -321,7 +351,7 @@ The sweep logs:
 - cumulative rollup totals across core levels
 - a linear-regression projection for the requested prediction core count using uncensored cumulative rollup points
 
-For a fuller explanation of the output fields, interpretation, and latest measured sample data, see [BENCHMARKS.md](C:/Users/Cam/Desktop/GoWebComponents/examples/100-ai-chat-wizard/BENCHMARKS.md).
+For a fuller explanation of the output fields, interpretation, and latest measured sample data, see [PERFORMANCE.md](C:/Users/Cam/Desktop/GoWebComponents/examples/100-ai-chat-wizard/docs/PERFORMANCE.md).
 
 ---
 
@@ -360,3 +390,4 @@ referenced via a `replace` directive in the root `go.mod`.
 - **Go WASM UI** — the entire frontend is Go; no JavaScript application code
 - **Hooks pattern for async state** — `UseState`, `UseEffect`, `UseRef`, goroutines
 - **Companion submodule pattern** — `GoGRPCBridge` consumed via `third_party/` + `go.mod replace`
+

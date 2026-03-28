@@ -133,3 +133,44 @@ Use this sequence when admin access, dashboard data slices, or operator actions 
    - audit/event evidence if mutation succeeded
 7. Classify root cause before patching: role guard mismatch, route-entry mismatch, slice query defect, mutation contract defect, or stale client state.
 8. Ship smallest role-safe fix and re-run role-specific regressions for denied and allowed paths.
+
+## Admin List Conventions
+
+Use these conventions for operator-facing admin lists (users, workspaces, tickets, usage events, and similar large slices).
+
+### Search
+
+- Search should be explicit and stable: one clear query input, deterministic matching order, and predictable empty-state messaging.
+- Supported searchable identifiers should be documented per slice (for example: email, workspace key, ticket key, conversation public id).
+- Search queries should be reflected in route/query params when practical so reload/back preserves operator intent.
+
+### Filter
+
+- Filters should use bounded enums or typed ranges, not free-form text where cardinality is known.
+- Active filters should be visibly listed and individually clearable.
+- Clearing filters must not clear an active search term unless explicitly requested.
+- Denied/unsupported filter combinations should fail with actionable operator feedback, not silent no-op behavior.
+
+### Pagination
+
+- List pagination must be deterministic (stable sort + explicit cursor/page boundary) so operators can safely go back and forward.
+- Pagination state (page/cursor/page-size) should remain recoverable across refresh/back for long triage sessions.
+- Empty pages after deletions or filter narrowing should auto-recover to the nearest valid page boundary.
+- List response contracts should always return enough metadata for the UI to render previous/next affordances safely.
+
+## Disable vs Suspend Semantics
+
+Use these distinctions consistently so operator actions have predictable blast radius.
+
+| Action | Primary target | Auth impact | Chat/runtime impact | API/webhook impact | Billing/support impact |
+|---|---|---|---|---|---|
+| Disable user | One user identity | Revoke active user sessions; block new login for that user. | User cannot create/send/load personal conversations while disabled. | User-scoped API credentials and delegated access should be treated as inactive. | Preserve billing/support history; future support actions should show account as disabled. |
+| Restore user | One user identity | Allow new login; issue fresh sessions under current token-version policy. | User regains normal conversation access under current entitlement rules. | User-scoped API credentials/access can be re-enabled per policy. | Billing/support history remains intact; restore state should be auditable. |
+| Suspend workspace | One workspace boundary | Workspace-member auth may still exist, but workspace-scoped actions are denied. | Workspace-scoped chats/automation should fail closed until restored. | Workspace API keys/webhooks should stop processing deliveries and new calls. | Workspace billing/support records remain readable; workspace status marked suspended. |
+| Restore workspace | One workspace boundary | Workspace-scoped authorization resumes per current membership roles. | Workspace chat/automation surfaces become available again. | Workspace keys/webhooks can resume according to restore policy. | Billing/support continuity preserved; restore event must be auditable. |
+
+### Guardrail summary
+
+- `disable` is identity-scoped; `suspend` is workspace-scoped.
+- Both actions should emit immutable audit records with actor, reason, target, and timestamp.
+- Restore flows should not silently clear historical billing/support/usage evidence.

@@ -98,3 +98,4 @@ go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100Route
 - relevant server log lines
 - screenshot or short screen recording
 - expected vs actual behavior summary
+- bug template used (`docs/BUG_REPORT_TEMPLATES.md`)
