@@ -44,6 +44,7 @@ type authClaims struct {
 	Email        string `json:"email"`
 	SessionID    string `json:"sid"`
 	TokenVersion int64  `json:"ver"`
+	AuthMethod   string `json:"amr,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -163,16 +164,22 @@ func parseBuildAuthFlowTokenHash(parseRawToken string) string {
 
 // issueToken issues one auth token with a new durable server-side session.
 func (parseA *authManager) issueToken(parseUser authUser) (string, error) {
-	return parseA.issueTokenForContext(context.Background(), parseUser, "")
+	return parseA.issueTokenForContextWithAuthMethod(context.Background(), parseUser, "", parseWorkspaceAuthMethodPassword)
 }
 
 // issueTokenForContext issues one auth token, persisting the backing auth session for one user.
 func (parseA *authManager) issueTokenForContext(parseCtx context.Context, parseUser authUser, parseSessionID string) (string, error) {
+	return parseA.issueTokenForContextWithAuthMethod(parseCtx, parseUser, parseSessionID, parseWorkspaceAuthMethodPassword)
+}
+
+// issueTokenForContextWithAuthMethod issues one auth token with one explicit login-method identity.
+func (parseA *authManager) issueTokenForContextWithAuthMethod(parseCtx context.Context, parseUser authUser, parseSessionID string, parseAuthMethod string) (string, error) {
 	parseNow := time.Now().UTC()
 	parseSessionID = strings.TrimSpace(parseSessionID)
 	if parseSessionID == "" {
 		parseSessionID = uuid.NewString()
 	}
+	parseAuthMethod = parseNormalizePrivilegedAuthMethod(parseAuthMethod)
 	parseTokenVersion := int64(1)
 	if parseA != nil && parseA.store != nil && parseUser.ID > 0 {
 		parseResolvedVersion, parseErr := parseA.store.parseEnsureAuthTokenVersion(parseUser.ID)
@@ -202,6 +209,7 @@ func (parseA *authManager) issueTokenForContext(parseCtx context.Context, parseU
 		Email:        parseUser.Email,
 		SessionID:    parseSessionID,
 		TokenVersion: parseTokenVersion,
+		AuthMethod:   parseAuthMethod,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        parseSessionID,
 			Subject:   "user",

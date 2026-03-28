@@ -259,6 +259,76 @@ func TestAdminBillingOverrideMutationsRequireReasonAndConfirmation(parseT *testi
 	}
 }
 
+// TestAdminBillingEventsWorkspaceScopeRedactsPayload verifies workspace-admin billing event views redact raw provider payload JSON.
+func TestAdminBillingEventsWorkspaceScopeRedactsPayload(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseSeedAdminDashboardTestData(parseT, parseStore)
+	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
+
+	parseBobAuth, parseErr := parseStore.getUserAuthByEmail("bob@example.com")
+	if parseErr != nil {
+		parseT.Fatalf("getUserAuthByEmail bob: %v", parseErr)
+	}
+	parseSeedAdminUserControlSignals(parseT, parseStore, parseBobAuth.ID, "ws-bob-billing-redaction")
+	parseMustAssignBillingPlan(parseT, parseStore, parseBobAuth.ID, "free")
+	parseBobCustomer, hasParseCustomer, parseErr := parseStore.parseGetBillingCustomerByUser(parseBobAuth.ID)
+	if parseErr != nil || !hasParseCustomer {
+		parseT.Fatalf("parseGetBillingCustomerByUser bob: customer=%+v found=%v err=%v", parseBobCustomer, hasParseCustomer, parseErr)
+	}
+	parseSubscriptions, parseErr := parseStore.parseListBillingSubscriptionsByCustomer(parseBobCustomer.ID, 1)
+	if parseErr != nil || len(parseSubscriptions) == 0 {
+		parseT.Fatalf("parseListBillingSubscriptionsByCustomer bob: rows=%+v err=%v", parseSubscriptions, parseErr)
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseInvoice, parseErr := parseStore.parseUpsertBillingInvoice(parseBillingInvoiceWrite{
+		CustomerID:        parseBobCustomer.ID,
+		SubscriptionID:    parseSubscriptions[0].ID,
+		ProviderID:        "stripe",
+		ProviderInvoiceID: "inv-bob-redaction",
+		Status:            "open",
+		Currency:          "usd",
+		SubtotalCents:     500,
+		TotalCents:        500,
+		AmountDueCents:    500,
+		AmountPaidCents:   0,
+		PeriodStart:       parseNow,
+		PeriodEnd:         parseNow,
+		DueAt:             parseNow,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertBillingInvoice: %v", parseErr)
+	}
+	if _, parseErr = parseStore.parseCreateBillingEvent(parseBillingEventWrite{
+		CustomerID:       parseBobCustomer.ID,
+		SubscriptionID:   parseSubscriptions[0].ID,
+		InvoiceID:        parseInvoice.ID,
+		EventType:        "invoice.payment_failed",
+		EventSource:      "provider",
+		EventSummary:     "payment failed with provider payload",
+		EventPayloadJSON: `{"provider_error":"raw-card-declined-payload"}`,
+		ActorUserID:      parseBobAuth.ID,
+	}); parseErr != nil {
+		parseT.Fatalf("parseCreateBillingEvent: %v", parseErr)
+	}
+
+	parseBobCtx := parseBindAuthUser(parseServer, "peer-admin-billing-redaction-bob", parseBobAuth.ID, parseBobAuth.Email)
+	parseEventsResp, parseErr := parseServer.ListAdminBillingEvents(parseBobCtx, &chatpb.ListAdminBillingEventsRequest{
+		UserId: parseBobAuth.ID,
+		Limit:  25,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("ListAdminBillingEvents workspace-admin: %v", parseErr)
+	}
+	if len(parseEventsResp.GetEvents()) == 0 {
+		parseT.Fatalf("expected billing events for workspace-admin redaction check, got %+v", parseEventsResp.GetEvents())
+	}
+	for _, parseEventEntry := range parseEventsResp.GetEvents() {
+		if parseEventEntry.GetEventPayloadJson() != "{}" {
+			parseT.Fatalf("expected workspace-scoped billing payload redaction, got %+v", parseEventEntry)
+		}
+	}
+}
+
 // TestAdminBillingListQueryRPCs verifies typed billing list-query behavior for override, event, and dunning list RPCs.
 func TestAdminBillingListQueryRPCs(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)

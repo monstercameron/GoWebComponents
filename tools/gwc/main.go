@@ -1636,8 +1636,8 @@ func executeSeed(parseConfig seedConfig) (seedSummary, error) {
 	}
 	if isChatWizardSeedCommand(parseConfig.commandPath) {
 		parseSummary.Credentials = []seedCredentialRecord{
-			{Email: "demo@example.com", Password: "password123", Role: "demo"},
-			{Email: "admin@example.com", Password: "password", Role: "admin"},
+			{Email: "customer@email.com", Password: "password", Role: "customer"},
+			{Email: "admin@email.com", Password: "password", Role: "admin"},
 		}
 	}
 	return parseSummary, nil

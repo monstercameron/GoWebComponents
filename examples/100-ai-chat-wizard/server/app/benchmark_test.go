@@ -144,6 +144,7 @@ func parseMustCreateBenchmarkUser(parseB *testing.B, store *Store, parseEmail st
 
 func parseMustAssignBillingPlanBenchmark(parseB *testing.B, parseStore *Store, parseUserID int64, parsePlanCode string) {
 	parseB.Helper()
+	parsePlanCode = parseResolveSeedBillingPlanCode(parsePlanCode)
 	parseNow := time.Now().UTC()
 	parseCustomer, parseErr := parseStore.parseUpsertBillingCustomer(parseBillingCustomerWrite{
 		UserID:             parseUserID,

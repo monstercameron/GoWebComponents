@@ -962,7 +962,7 @@ func (parseS *chatServer) ListAdminUsageEvents(parseCtx context.Context, parseRe
 	parseRows = parseApplyAdminSliceWindow(parseRows, parseListQueryShape.parseOffset, parseListQueryShape.parseLimit)
 	parseEvents := make([]*chatpb.AdminUsageEvent, 0, len(parseRows))
 	for _, parseRow := range parseRows {
-		parseEvents = append(parseEvents, parseBuildAdminUsageEvent(parseRow))
+		parseEvents = append(parseEvents, parseRedactAdminUsageEventByScope(parseScope, parseBuildAdminUsageEvent(parseRow)))
 	}
 	parseFetchDuration := time.Since(parseFetchStart)
 	parseLogAdminFetchOutcome(parseLogger, "rpc.ListAdminUsageEvents", "table", parseScopeType, parseFetchDuration, len(parseEvents))
@@ -1036,7 +1036,7 @@ func (parseS *chatServer) ListAdminConversations(parseCtx context.Context, parse
 	parseRows = parseApplyAdminSliceWindow(parseRows, parseListQueryShape.parseOffset, parseListQueryShape.parseLimit)
 	parseConversations := make([]*chatpb.AdminConversationSummary, 0, len(parseRows))
 	for _, parseRow := range parseRows {
-		parseConversations = append(parseConversations, parseBuildAdminConversationSummary(parseRow))
+		parseConversations = append(parseConversations, parseRedactAdminConversationSummaryByScope(parseScope, parseBuildAdminConversationSummary(parseRow)))
 	}
 	parseFetchDuration := time.Since(parseFetchStart)
 	parseLogAdminFetchOutcome(parseLogger, "rpc.ListAdminConversations", "table", parseScopeType, parseFetchDuration, len(parseConversations))
@@ -1211,13 +1211,13 @@ func (parseS *chatServer) GetAdminUserDetail(parseCtx context.Context, parseReq 
 		RecentAuditLogs:   make([]*chatpb.AuditLogEntry, 0, len(parseAuditRows)),
 	}
 	for _, parseSessionRow := range parseSessionRows {
-		parseDetail.RecentSessions = append(parseDetail.RecentSessions, parseBuildAdminAuthSessionEntry(parseSessionRow))
+		parseDetail.RecentSessions = append(parseDetail.RecentSessions, parseRedactAdminAuthSessionEntryByScope(parseScope, parseBuildAdminAuthSessionEntry(parseSessionRow)))
 	}
 	for _, parseUsageRow := range parseUsageRows {
-		parseDetail.RecentUsageEvents = append(parseDetail.RecentUsageEvents, parseBuildAdminUsageEvent(parseUsageRow))
+		parseDetail.RecentUsageEvents = append(parseDetail.RecentUsageEvents, parseRedactAdminUsageEventByScope(parseScope, parseBuildAdminUsageEvent(parseUsageRow)))
 	}
 	for _, parseAuditRow := range parseAuditRows {
-		parseDetail.RecentAuditLogs = append(parseDetail.RecentAuditLogs, parseBuildAdminAuditLogEntry(parseAuditRow))
+		parseDetail.RecentAuditLogs = append(parseDetail.RecentAuditLogs, parseRedactAdminAuditLogEntryByScope(parseScope, parseBuildAdminAuditLogEntry(parseAuditRow)))
 	}
 	parseFetchDuration := time.Since(parseFetchStart)
 	parseAggregateCount := len(parseDetail.RecentSessions) + len(parseDetail.RecentUsageEvents) + len(parseDetail.RecentAuditLogs)

@@ -23,7 +23,7 @@ resolved_plan AS (
     SELECT ap.plan_code
     FROM active_plan ap
     UNION ALL
-    SELECT 'free'
+    SELECT 'pro'
     FROM customer_scope cs
     WHERE NOT EXISTS (SELECT 1 FROM active_plan)
     LIMIT 1

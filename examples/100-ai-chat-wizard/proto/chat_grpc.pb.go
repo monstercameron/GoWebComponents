@@ -21,92 +21,98 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_Signup_FullMethodName                               = "/chat.v1.ChatService/Signup"
-	ChatService_Login_FullMethodName                                = "/chat.v1.ChatService/Login"
-	ChatService_Logout_FullMethodName                               = "/chat.v1.ChatService/Logout"
-	ChatService_GetSession_FullMethodName                           = "/chat.v1.ChatService/GetSession"
-	ChatService_RefreshSession_FullMethodName                       = "/chat.v1.ChatService/RefreshSession"
-	ChatService_GetClientIdentity_FullMethodName                    = "/chat.v1.ChatService/GetClientIdentity"
-	ChatService_ReportClientLog_FullMethodName                      = "/chat.v1.ChatService/ReportClientLog"
-	ChatService_GetLogTail_FullMethodName                           = "/chat.v1.ChatService/GetLogTail"
-	ChatService_GetServerToolPolicy_FullMethodName                  = "/chat.v1.ChatService/GetServerToolPolicy"
-	ChatService_SetServerToolPolicy_FullMethodName                  = "/chat.v1.ChatService/SetServerToolPolicy"
-	ChatService_GetAdminDashboard_FullMethodName                    = "/chat.v1.ChatService/GetAdminDashboard"
-	ChatService_GetSuperuserControlPlane_FullMethodName             = "/chat.v1.ChatService/GetSuperuserControlPlane"
-	ChatService_ListAdminUsers_FullMethodName                       = "/chat.v1.ChatService/ListAdminUsers"
-	ChatService_ListAdminUsageEvents_FullMethodName                 = "/chat.v1.ChatService/ListAdminUsageEvents"
-	ChatService_ListAdminConversations_FullMethodName               = "/chat.v1.ChatService/ListAdminConversations"
-	ChatService_GetAdminReadOnlyReport_FullMethodName               = "/chat.v1.ChatService/GetAdminReadOnlyReport"
-	ChatService_SearchAdminUsers_FullMethodName                     = "/chat.v1.ChatService/SearchAdminUsers"
-	ChatService_GetAdminUserDetail_FullMethodName                   = "/chat.v1.ChatService/GetAdminUserDetail"
-	ChatService_DisableAdminUser_FullMethodName                     = "/chat.v1.ChatService/DisableAdminUser"
-	ChatService_RestoreAdminUser_FullMethodName                     = "/chat.v1.ChatService/RestoreAdminUser"
-	ChatService_GetAdminWorkspaceDetail_FullMethodName              = "/chat.v1.ChatService/GetAdminWorkspaceDetail"
-	ChatService_SuspendAdminWorkspace_FullMethodName                = "/chat.v1.ChatService/SuspendAdminWorkspace"
-	ChatService_RestoreAdminWorkspace_FullMethodName                = "/chat.v1.ChatService/RestoreAdminWorkspace"
-	ChatService_RevokeWorkspaceAPIKey_FullMethodName                = "/chat.v1.ChatService/RevokeWorkspaceAPIKey"
-	ChatService_PauseWorkspaceWebhookEndpoint_FullMethodName        = "/chat.v1.ChatService/PauseWorkspaceWebhookEndpoint"
-	ChatService_ListAdminBillingAccessOverrides_FullMethodName      = "/chat.v1.ChatService/ListAdminBillingAccessOverrides"
-	ChatService_ListAdminBillingEvents_FullMethodName               = "/chat.v1.ChatService/ListAdminBillingEvents"
-	ChatService_ListAdminBillingDunningEvents_FullMethodName        = "/chat.v1.ChatService/ListAdminBillingDunningEvents"
-	ChatService_SetAdminBillingAccessOverride_FullMethodName        = "/chat.v1.ChatService/SetAdminBillingAccessOverride"
-	ChatService_SetAdminBillingQuotaOverride_FullMethodName         = "/chat.v1.ChatService/SetAdminBillingQuotaOverride"
-	ChatService_ResolveAdminBillingFailedPayment_FullMethodName     = "/chat.v1.ChatService/ResolveAdminBillingFailedPayment"
-	ChatService_GetAdminBusinessDrilldown_FullMethodName            = "/chat.v1.ChatService/GetAdminBusinessDrilldown"
-	ChatService_ListAdminSupportTickets_FullMethodName              = "/chat.v1.ChatService/ListAdminSupportTickets"
-	ChatService_GetAdminSupportTicketDetail_FullMethodName          = "/chat.v1.ChatService/GetAdminSupportTicketDetail"
-	ChatService_AddAdminSupportInternalNote_FullMethodName          = "/chat.v1.ChatService/AddAdminSupportInternalNote"
-	ChatService_AssignAdminSupportTicket_FullMethodName             = "/chat.v1.ChatService/AssignAdminSupportTicket"
-	ChatService_EscalateAdminSupportTicket_FullMethodName           = "/chat.v1.ChatService/EscalateAdminSupportTicket"
-	ChatService_SetAdminFeatureFlag_FullMethodName                  = "/chat.v1.ChatService/SetAdminFeatureFlag"
-	ChatService_RollbackAdminExperiment_FullMethodName              = "/chat.v1.ChatService/RollbackAdminExperiment"
-	ChatService_UpdateAdminIncident_FullMethodName                  = "/chat.v1.ChatService/UpdateAdminIncident"
-	ChatService_GetAdminIncidentBlastRadius_FullMethodName          = "/chat.v1.ChatService/GetAdminIncidentBlastRadius"
-	ChatService_SetSuperuserBillingPlanOverage_FullMethodName       = "/chat.v1.ChatService/SetSuperuserBillingPlanOverage"
-	ChatService_DeleteSuperuserBillingPlanOverage_FullMethodName    = "/chat.v1.ChatService/DeleteSuperuserBillingPlanOverage"
-	ChatService_SetSuperuserBillingQuotaPolicy_FullMethodName       = "/chat.v1.ChatService/SetSuperuserBillingQuotaPolicy"
-	ChatService_DeleteSuperuserBillingQuotaPolicy_FullMethodName    = "/chat.v1.ChatService/DeleteSuperuserBillingQuotaPolicy"
-	ChatService_SetSuperuserBillingUpgradeTrigger_FullMethodName    = "/chat.v1.ChatService/SetSuperuserBillingUpgradeTrigger"
-	ChatService_DeleteSuperuserBillingUpgradeTrigger_FullMethodName = "/chat.v1.ChatService/DeleteSuperuserBillingUpgradeTrigger"
-	ChatService_SetSuperuserBillingDunningEvent_FullMethodName      = "/chat.v1.ChatService/SetSuperuserBillingDunningEvent"
-	ChatService_DeleteSuperuserBillingDunningEvent_FullMethodName   = "/chat.v1.ChatService/DeleteSuperuserBillingDunningEvent"
-	ChatService_SetSuperuserWorkspaceSSOConfig_FullMethodName       = "/chat.v1.ChatService/SetSuperuserWorkspaceSSOConfig"
-	ChatService_DeleteSuperuserWorkspaceSSOConfig_FullMethodName    = "/chat.v1.ChatService/DeleteSuperuserWorkspaceSSOConfig"
-	ChatService_SetSuperuserDataRetentionPolicy_FullMethodName      = "/chat.v1.ChatService/SetSuperuserDataRetentionPolicy"
-	ChatService_DeleteSuperuserDataRetentionPolicy_FullMethodName   = "/chat.v1.ChatService/DeleteSuperuserDataRetentionPolicy"
-	ChatService_SetSuperuserComplianceControl_FullMethodName        = "/chat.v1.ChatService/SetSuperuserComplianceControl"
-	ChatService_DeleteSuperuserComplianceControl_FullMethodName     = "/chat.v1.ChatService/DeleteSuperuserComplianceControl"
-	ChatService_SetSuperuserServiceLevelObjective_FullMethodName    = "/chat.v1.ChatService/SetSuperuserServiceLevelObjective"
-	ChatService_DeleteSuperuserServiceLevelObjective_FullMethodName = "/chat.v1.ChatService/DeleteSuperuserServiceLevelObjective"
-	ChatService_SetSuperuserIncident_FullMethodName                 = "/chat.v1.ChatService/SetSuperuserIncident"
-	ChatService_DeleteSuperuserIncident_FullMethodName              = "/chat.v1.ChatService/DeleteSuperuserIncident"
-	ChatService_SetSuperuserIncidentUpdate_FullMethodName           = "/chat.v1.ChatService/SetSuperuserIncidentUpdate"
-	ChatService_DeleteSuperuserIncidentUpdate_FullMethodName        = "/chat.v1.ChatService/DeleteSuperuserIncidentUpdate"
-	ChatService_GetSuperuserSlices_FullMethodName                   = "/chat.v1.ChatService/GetSuperuserSlices"
-	ChatService_GetWorkspaceAdminSlices_FullMethodName              = "/chat.v1.ChatService/GetWorkspaceAdminSlices"
-	ChatService_RunServerTool_FullMethodName                        = "/chat.v1.ChatService/RunServerTool"
-	ChatService_Send_FullMethodName                                 = "/chat.v1.ChatService/Send"
-	ChatService_ListConversations_FullMethodName                    = "/chat.v1.ChatService/ListConversations"
-	ChatService_ResolveConversationRoute_FullMethodName             = "/chat.v1.ChatService/ResolveConversationRoute"
-	ChatService_LoadConversation_FullMethodName                     = "/chat.v1.ChatService/LoadConversation"
-	ChatService_DeleteConversation_FullMethodName                   = "/chat.v1.ChatService/DeleteConversation"
-	ChatService_SetUserName_FullMethodName                          = "/chat.v1.ChatService/SetUserName"
-	ChatService_GetUserName_FullMethodName                          = "/chat.v1.ChatService/GetUserName"
-	ChatService_ListUserMemories_FullMethodName                     = "/chat.v1.ChatService/ListUserMemories"
-	ChatService_UpsertUserMemory_FullMethodName                     = "/chat.v1.ChatService/UpsertUserMemory"
-	ChatService_DeleteUserMemory_FullMethodName                     = "/chat.v1.ChatService/DeleteUserMemory"
-	ChatService_SynthesizeSpeech_FullMethodName                     = "/chat.v1.ChatService/SynthesizeSpeech"
-	ChatService_ListModelOptions_FullMethodName                     = "/chat.v1.ChatService/ListModelOptions"
-	ChatService_SetSelectedModel_FullMethodName                     = "/chat.v1.ChatService/SetSelectedModel"
-	ChatService_GetSelectedModel_FullMethodName                     = "/chat.v1.ChatService/GetSelectedModel"
-	ChatService_SetSelectedTone_FullMethodName                      = "/chat.v1.ChatService/SetSelectedTone"
-	ChatService_GetSelectedTone_FullMethodName                      = "/chat.v1.ChatService/GetSelectedTone"
-	ChatService_SetSelectedThinkingEnabled_FullMethodName           = "/chat.v1.ChatService/SetSelectedThinkingEnabled"
-	ChatService_GetSelectedThinkingEnabled_FullMethodName           = "/chat.v1.ChatService/GetSelectedThinkingEnabled"
-	ChatService_SetSelectedThinkingEffort_FullMethodName            = "/chat.v1.ChatService/SetSelectedThinkingEffort"
-	ChatService_GetSelectedThinkingEffort_FullMethodName            = "/chat.v1.ChatService/GetSelectedThinkingEffort"
-	ChatService_SetCustomSystemPrompt_FullMethodName                = "/chat.v1.ChatService/SetCustomSystemPrompt"
-	ChatService_GetCustomSystemPrompt_FullMethodName                = "/chat.v1.ChatService/GetCustomSystemPrompt"
+	ChatService_Signup_FullMethodName                                = "/chat.v1.ChatService/Signup"
+	ChatService_Login_FullMethodName                                 = "/chat.v1.ChatService/Login"
+	ChatService_Logout_FullMethodName                                = "/chat.v1.ChatService/Logout"
+	ChatService_GetSession_FullMethodName                            = "/chat.v1.ChatService/GetSession"
+	ChatService_GetCatalogBootstrap_FullMethodName                   = "/chat.v1.ChatService/GetCatalogBootstrap"
+	ChatService_GetCatalogNamespace_FullMethodName                   = "/chat.v1.ChatService/GetCatalogNamespace"
+	ChatService_RefreshSession_FullMethodName                        = "/chat.v1.ChatService/RefreshSession"
+	ChatService_GetClientIdentity_FullMethodName                     = "/chat.v1.ChatService/GetClientIdentity"
+	ChatService_ReportClientLog_FullMethodName                       = "/chat.v1.ChatService/ReportClientLog"
+	ChatService_GetLogTail_FullMethodName                            = "/chat.v1.ChatService/GetLogTail"
+	ChatService_GetServerToolPolicy_FullMethodName                   = "/chat.v1.ChatService/GetServerToolPolicy"
+	ChatService_SetServerToolPolicy_FullMethodName                   = "/chat.v1.ChatService/SetServerToolPolicy"
+	ChatService_GetAdminDashboard_FullMethodName                     = "/chat.v1.ChatService/GetAdminDashboard"
+	ChatService_GetSuperuserControlPlane_FullMethodName              = "/chat.v1.ChatService/GetSuperuserControlPlane"
+	ChatService_ListAdminUsers_FullMethodName                        = "/chat.v1.ChatService/ListAdminUsers"
+	ChatService_ListAdminUsageEvents_FullMethodName                  = "/chat.v1.ChatService/ListAdminUsageEvents"
+	ChatService_ListAdminConversations_FullMethodName                = "/chat.v1.ChatService/ListAdminConversations"
+	ChatService_GetAdminReadOnlyReport_FullMethodName                = "/chat.v1.ChatService/GetAdminReadOnlyReport"
+	ChatService_SearchAdminUsers_FullMethodName                      = "/chat.v1.ChatService/SearchAdminUsers"
+	ChatService_GetAdminUserDetail_FullMethodName                    = "/chat.v1.ChatService/GetAdminUserDetail"
+	ChatService_DisableAdminUser_FullMethodName                      = "/chat.v1.ChatService/DisableAdminUser"
+	ChatService_RestoreAdminUser_FullMethodName                      = "/chat.v1.ChatService/RestoreAdminUser"
+	ChatService_GetAdminWorkspaceDetail_FullMethodName               = "/chat.v1.ChatService/GetAdminWorkspaceDetail"
+	ChatService_SuspendAdminWorkspace_FullMethodName                 = "/chat.v1.ChatService/SuspendAdminWorkspace"
+	ChatService_RestoreAdminWorkspace_FullMethodName                 = "/chat.v1.ChatService/RestoreAdminWorkspace"
+	ChatService_RevokeWorkspaceAPIKey_FullMethodName                 = "/chat.v1.ChatService/RevokeWorkspaceAPIKey"
+	ChatService_PauseWorkspaceWebhookEndpoint_FullMethodName         = "/chat.v1.ChatService/PauseWorkspaceWebhookEndpoint"
+	ChatService_ListAdminBillingAccessOverrides_FullMethodName       = "/chat.v1.ChatService/ListAdminBillingAccessOverrides"
+	ChatService_ListAdminBillingEvents_FullMethodName                = "/chat.v1.ChatService/ListAdminBillingEvents"
+	ChatService_ListAdminBillingDunningEvents_FullMethodName         = "/chat.v1.ChatService/ListAdminBillingDunningEvents"
+	ChatService_SetAdminBillingAccessOverride_FullMethodName         = "/chat.v1.ChatService/SetAdminBillingAccessOverride"
+	ChatService_SetAdminBillingQuotaOverride_FullMethodName          = "/chat.v1.ChatService/SetAdminBillingQuotaOverride"
+	ChatService_ResolveAdminBillingFailedPayment_FullMethodName      = "/chat.v1.ChatService/ResolveAdminBillingFailedPayment"
+	ChatService_GetAdminBusinessDrilldown_FullMethodName             = "/chat.v1.ChatService/GetAdminBusinessDrilldown"
+	ChatService_ListAdminSupportTickets_FullMethodName               = "/chat.v1.ChatService/ListAdminSupportTickets"
+	ChatService_GetAdminSupportTicketDetail_FullMethodName           = "/chat.v1.ChatService/GetAdminSupportTicketDetail"
+	ChatService_AddAdminSupportInternalNote_FullMethodName           = "/chat.v1.ChatService/AddAdminSupportInternalNote"
+	ChatService_AssignAdminSupportTicket_FullMethodName              = "/chat.v1.ChatService/AssignAdminSupportTicket"
+	ChatService_EscalateAdminSupportTicket_FullMethodName            = "/chat.v1.ChatService/EscalateAdminSupportTicket"
+	ChatService_SetAdminFeatureFlag_FullMethodName                   = "/chat.v1.ChatService/SetAdminFeatureFlag"
+	ChatService_RollbackAdminExperiment_FullMethodName               = "/chat.v1.ChatService/RollbackAdminExperiment"
+	ChatService_UpdateAdminIncident_FullMethodName                   = "/chat.v1.ChatService/UpdateAdminIncident"
+	ChatService_GetAdminIncidentBlastRadius_FullMethodName           = "/chat.v1.ChatService/GetAdminIncidentBlastRadius"
+	ChatService_SetSuperuserBillingPlan_FullMethodName               = "/chat.v1.ChatService/SetSuperuserBillingPlan"
+	ChatService_DeleteSuperuserBillingPlan_FullMethodName            = "/chat.v1.ChatService/DeleteSuperuserBillingPlan"
+	ChatService_SetSuperuserBillingPlanEntitlement_FullMethodName    = "/chat.v1.ChatService/SetSuperuserBillingPlanEntitlement"
+	ChatService_DeleteSuperuserBillingPlanEntitlement_FullMethodName = "/chat.v1.ChatService/DeleteSuperuserBillingPlanEntitlement"
+	ChatService_SetSuperuserBillingPlanOverage_FullMethodName        = "/chat.v1.ChatService/SetSuperuserBillingPlanOverage"
+	ChatService_DeleteSuperuserBillingPlanOverage_FullMethodName     = "/chat.v1.ChatService/DeleteSuperuserBillingPlanOverage"
+	ChatService_SetSuperuserBillingQuotaPolicy_FullMethodName        = "/chat.v1.ChatService/SetSuperuserBillingQuotaPolicy"
+	ChatService_DeleteSuperuserBillingQuotaPolicy_FullMethodName     = "/chat.v1.ChatService/DeleteSuperuserBillingQuotaPolicy"
+	ChatService_SetSuperuserBillingUpgradeTrigger_FullMethodName     = "/chat.v1.ChatService/SetSuperuserBillingUpgradeTrigger"
+	ChatService_DeleteSuperuserBillingUpgradeTrigger_FullMethodName  = "/chat.v1.ChatService/DeleteSuperuserBillingUpgradeTrigger"
+	ChatService_SetSuperuserBillingDunningEvent_FullMethodName       = "/chat.v1.ChatService/SetSuperuserBillingDunningEvent"
+	ChatService_DeleteSuperuserBillingDunningEvent_FullMethodName    = "/chat.v1.ChatService/DeleteSuperuserBillingDunningEvent"
+	ChatService_SetSuperuserWorkspaceSSOConfig_FullMethodName        = "/chat.v1.ChatService/SetSuperuserWorkspaceSSOConfig"
+	ChatService_DeleteSuperuserWorkspaceSSOConfig_FullMethodName     = "/chat.v1.ChatService/DeleteSuperuserWorkspaceSSOConfig"
+	ChatService_SetSuperuserDataRetentionPolicy_FullMethodName       = "/chat.v1.ChatService/SetSuperuserDataRetentionPolicy"
+	ChatService_DeleteSuperuserDataRetentionPolicy_FullMethodName    = "/chat.v1.ChatService/DeleteSuperuserDataRetentionPolicy"
+	ChatService_SetSuperuserComplianceControl_FullMethodName         = "/chat.v1.ChatService/SetSuperuserComplianceControl"
+	ChatService_DeleteSuperuserComplianceControl_FullMethodName      = "/chat.v1.ChatService/DeleteSuperuserComplianceControl"
+	ChatService_SetSuperuserServiceLevelObjective_FullMethodName     = "/chat.v1.ChatService/SetSuperuserServiceLevelObjective"
+	ChatService_DeleteSuperuserServiceLevelObjective_FullMethodName  = "/chat.v1.ChatService/DeleteSuperuserServiceLevelObjective"
+	ChatService_SetSuperuserIncident_FullMethodName                  = "/chat.v1.ChatService/SetSuperuserIncident"
+	ChatService_DeleteSuperuserIncident_FullMethodName               = "/chat.v1.ChatService/DeleteSuperuserIncident"
+	ChatService_SetSuperuserIncidentUpdate_FullMethodName            = "/chat.v1.ChatService/SetSuperuserIncidentUpdate"
+	ChatService_DeleteSuperuserIncidentUpdate_FullMethodName         = "/chat.v1.ChatService/DeleteSuperuserIncidentUpdate"
+	ChatService_GetSuperuserSlices_FullMethodName                    = "/chat.v1.ChatService/GetSuperuserSlices"
+	ChatService_GetWorkspaceAdminSlices_FullMethodName               = "/chat.v1.ChatService/GetWorkspaceAdminSlices"
+	ChatService_RunServerTool_FullMethodName                         = "/chat.v1.ChatService/RunServerTool"
+	ChatService_Send_FullMethodName                                  = "/chat.v1.ChatService/Send"
+	ChatService_ListConversations_FullMethodName                     = "/chat.v1.ChatService/ListConversations"
+	ChatService_ResolveConversationRoute_FullMethodName              = "/chat.v1.ChatService/ResolveConversationRoute"
+	ChatService_LoadConversation_FullMethodName                      = "/chat.v1.ChatService/LoadConversation"
+	ChatService_DeleteConversation_FullMethodName                    = "/chat.v1.ChatService/DeleteConversation"
+	ChatService_SetUserName_FullMethodName                           = "/chat.v1.ChatService/SetUserName"
+	ChatService_GetUserName_FullMethodName                           = "/chat.v1.ChatService/GetUserName"
+	ChatService_ListUserMemories_FullMethodName                      = "/chat.v1.ChatService/ListUserMemories"
+	ChatService_UpsertUserMemory_FullMethodName                      = "/chat.v1.ChatService/UpsertUserMemory"
+	ChatService_DeleteUserMemory_FullMethodName                      = "/chat.v1.ChatService/DeleteUserMemory"
+	ChatService_SynthesizeSpeech_FullMethodName                      = "/chat.v1.ChatService/SynthesizeSpeech"
+	ChatService_ListModelOptions_FullMethodName                      = "/chat.v1.ChatService/ListModelOptions"
+	ChatService_SetSelectedModel_FullMethodName                      = "/chat.v1.ChatService/SetSelectedModel"
+	ChatService_GetSelectedModel_FullMethodName                      = "/chat.v1.ChatService/GetSelectedModel"
+	ChatService_SetSelectedTone_FullMethodName                       = "/chat.v1.ChatService/SetSelectedTone"
+	ChatService_GetSelectedTone_FullMethodName                       = "/chat.v1.ChatService/GetSelectedTone"
+	ChatService_SetSelectedThinkingEnabled_FullMethodName            = "/chat.v1.ChatService/SetSelectedThinkingEnabled"
+	ChatService_GetSelectedThinkingEnabled_FullMethodName            = "/chat.v1.ChatService/GetSelectedThinkingEnabled"
+	ChatService_SetSelectedThinkingEffort_FullMethodName             = "/chat.v1.ChatService/SetSelectedThinkingEffort"
+	ChatService_GetSelectedThinkingEffort_FullMethodName             = "/chat.v1.ChatService/GetSelectedThinkingEffort"
+	ChatService_SetCustomSystemPrompt_FullMethodName                 = "/chat.v1.ChatService/SetCustomSystemPrompt"
+	ChatService_GetCustomSystemPrompt_FullMethodName                 = "/chat.v1.ChatService/GetCustomSystemPrompt"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -123,6 +129,10 @@ type ChatServiceClient interface {
 	Logout(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// GetSession resolves the current auth token, if any, into a user session.
 	GetSession(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSessionResponse, error)
+	// GetCatalogBootstrap returns one typed locale bootstrap for one namespace list with cache metadata.
+	GetCatalogBootstrap(ctx context.Context, in *GetCatalogBootstrapRequest, opts ...grpc.CallOption) (*GetCatalogBootstrapResponse, error)
+	// GetCatalogNamespace returns one typed locale namespace payload with version/hash cache checks.
+	GetCatalogNamespace(ctx context.Context, in *GetCatalogNamespaceRequest, opts ...grpc.CallOption) (*GetCatalogNamespaceResponse, error)
 	// RefreshSession issues a fresh signed auth token for the current user.
 	RefreshSession(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AuthResponse, error)
 	// GetClientIdentity returns a stable server-issued client identity for log correlation.
@@ -197,6 +207,14 @@ type ChatServiceClient interface {
 	UpdateAdminIncident(ctx context.Context, in *UpdateAdminIncidentRequest, opts ...grpc.CallOption) (*UpdateAdminIncidentResponse, error)
 	// GetAdminIncidentBlastRadius returns one scoped incident blast-radius snapshot for one workspace.
 	GetAdminIncidentBlastRadius(ctx context.Context, in *GetAdminIncidentBlastRadiusRequest, opts ...grpc.CallOption) (*GetAdminIncidentBlastRadiusResponse, error)
+	// SetSuperuserBillingPlan upserts one superuser billing plan row.
+	SetSuperuserBillingPlan(ctx context.Context, in *SetSuperuserBillingPlanRequest, opts ...grpc.CallOption) (*SetSuperuserBillingPlanResponse, error)
+	// DeleteSuperuserBillingPlan deletes one superuser billing plan row.
+	DeleteSuperuserBillingPlan(ctx context.Context, in *DeleteSuperuserBillingPlanRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingPlanResponse, error)
+	// SetSuperuserBillingPlanEntitlement upserts one superuser billing-plan entitlement row.
+	SetSuperuserBillingPlanEntitlement(ctx context.Context, in *SetSuperuserBillingPlanEntitlementRequest, opts ...grpc.CallOption) (*SetSuperuserBillingPlanEntitlementResponse, error)
+	// DeleteSuperuserBillingPlanEntitlement deletes one superuser billing-plan entitlement row.
+	DeleteSuperuserBillingPlanEntitlement(ctx context.Context, in *DeleteSuperuserBillingPlanEntitlementRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingPlanEntitlementResponse, error)
 	// SetSuperuserBillingPlanOverage upserts one superuser pricing overage control row.
 	SetSuperuserBillingPlanOverage(ctx context.Context, in *SetSuperuserBillingPlanOverageRequest, opts ...grpc.CallOption) (*SetSuperuserBillingPlanOverageResponse, error)
 	// DeleteSuperuserBillingPlanOverage deletes one superuser pricing overage control row.
@@ -333,6 +351,26 @@ func (c *chatServiceClient) GetSession(ctx context.Context, in *emptypb.Empty, o
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetSessionResponse)
 	err := c.cc.Invoke(ctx, ChatService_GetSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetCatalogBootstrap(ctx context.Context, in *GetCatalogBootstrapRequest, opts ...grpc.CallOption) (*GetCatalogBootstrapResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCatalogBootstrapResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetCatalogBootstrap_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetCatalogNamespace(ctx context.Context, in *GetCatalogNamespaceRequest, opts ...grpc.CallOption) (*GetCatalogNamespaceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCatalogNamespaceResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetCatalogNamespace_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -703,6 +741,46 @@ func (c *chatServiceClient) GetAdminIncidentBlastRadius(ctx context.Context, in 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetAdminIncidentBlastRadiusResponse)
 	err := c.cc.Invoke(ctx, ChatService_GetAdminIncidentBlastRadius_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserBillingPlan(ctx context.Context, in *SetSuperuserBillingPlanRequest, opts ...grpc.CallOption) (*SetSuperuserBillingPlanResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserBillingPlanResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserBillingPlan_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserBillingPlan(ctx context.Context, in *DeleteSuperuserBillingPlanRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingPlanResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserBillingPlanResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserBillingPlan_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserBillingPlanEntitlement(ctx context.Context, in *SetSuperuserBillingPlanEntitlementRequest, opts ...grpc.CallOption) (*SetSuperuserBillingPlanEntitlementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserBillingPlanEntitlementResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserBillingPlanEntitlement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserBillingPlanEntitlement(ctx context.Context, in *DeleteSuperuserBillingPlanEntitlementRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingPlanEntitlementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserBillingPlanEntitlementResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserBillingPlanEntitlement_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1194,6 +1272,10 @@ type ChatServiceServer interface {
 	Logout(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// GetSession resolves the current auth token, if any, into a user session.
 	GetSession(context.Context, *emptypb.Empty) (*GetSessionResponse, error)
+	// GetCatalogBootstrap returns one typed locale bootstrap for one namespace list with cache metadata.
+	GetCatalogBootstrap(context.Context, *GetCatalogBootstrapRequest) (*GetCatalogBootstrapResponse, error)
+	// GetCatalogNamespace returns one typed locale namespace payload with version/hash cache checks.
+	GetCatalogNamespace(context.Context, *GetCatalogNamespaceRequest) (*GetCatalogNamespaceResponse, error)
 	// RefreshSession issues a fresh signed auth token for the current user.
 	RefreshSession(context.Context, *emptypb.Empty) (*AuthResponse, error)
 	// GetClientIdentity returns a stable server-issued client identity for log correlation.
@@ -1268,6 +1350,14 @@ type ChatServiceServer interface {
 	UpdateAdminIncident(context.Context, *UpdateAdminIncidentRequest) (*UpdateAdminIncidentResponse, error)
 	// GetAdminIncidentBlastRadius returns one scoped incident blast-radius snapshot for one workspace.
 	GetAdminIncidentBlastRadius(context.Context, *GetAdminIncidentBlastRadiusRequest) (*GetAdminIncidentBlastRadiusResponse, error)
+	// SetSuperuserBillingPlan upserts one superuser billing plan row.
+	SetSuperuserBillingPlan(context.Context, *SetSuperuserBillingPlanRequest) (*SetSuperuserBillingPlanResponse, error)
+	// DeleteSuperuserBillingPlan deletes one superuser billing plan row.
+	DeleteSuperuserBillingPlan(context.Context, *DeleteSuperuserBillingPlanRequest) (*DeleteSuperuserBillingPlanResponse, error)
+	// SetSuperuserBillingPlanEntitlement upserts one superuser billing-plan entitlement row.
+	SetSuperuserBillingPlanEntitlement(context.Context, *SetSuperuserBillingPlanEntitlementRequest) (*SetSuperuserBillingPlanEntitlementResponse, error)
+	// DeleteSuperuserBillingPlanEntitlement deletes one superuser billing-plan entitlement row.
+	DeleteSuperuserBillingPlanEntitlement(context.Context, *DeleteSuperuserBillingPlanEntitlementRequest) (*DeleteSuperuserBillingPlanEntitlementResponse, error)
 	// SetSuperuserBillingPlanOverage upserts one superuser pricing overage control row.
 	SetSuperuserBillingPlanOverage(context.Context, *SetSuperuserBillingPlanOverageRequest) (*SetSuperuserBillingPlanOverageResponse, error)
 	// DeleteSuperuserBillingPlanOverage deletes one superuser pricing overage control row.
@@ -1382,6 +1472,12 @@ func (UnimplementedChatServiceServer) Logout(context.Context, *emptypb.Empty) (*
 func (UnimplementedChatServiceServer) GetSession(context.Context, *emptypb.Empty) (*GetSessionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSession not implemented")
 }
+func (UnimplementedChatServiceServer) GetCatalogBootstrap(context.Context, *GetCatalogBootstrapRequest) (*GetCatalogBootstrapResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCatalogBootstrap not implemented")
+}
+func (UnimplementedChatServiceServer) GetCatalogNamespace(context.Context, *GetCatalogNamespaceRequest) (*GetCatalogNamespaceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCatalogNamespace not implemented")
+}
 func (UnimplementedChatServiceServer) RefreshSession(context.Context, *emptypb.Empty) (*AuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RefreshSession not implemented")
 }
@@ -1492,6 +1588,18 @@ func (UnimplementedChatServiceServer) UpdateAdminIncident(context.Context, *Upda
 }
 func (UnimplementedChatServiceServer) GetAdminIncidentBlastRadius(context.Context, *GetAdminIncidentBlastRadiusRequest) (*GetAdminIncidentBlastRadiusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAdminIncidentBlastRadius not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserBillingPlan(context.Context, *SetSuperuserBillingPlanRequest) (*SetSuperuserBillingPlanResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserBillingPlan not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserBillingPlan(context.Context, *DeleteSuperuserBillingPlanRequest) (*DeleteSuperuserBillingPlanResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserBillingPlan not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserBillingPlanEntitlement(context.Context, *SetSuperuserBillingPlanEntitlementRequest) (*SetSuperuserBillingPlanEntitlementResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserBillingPlanEntitlement not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserBillingPlanEntitlement(context.Context, *DeleteSuperuserBillingPlanEntitlementRequest) (*DeleteSuperuserBillingPlanEntitlementResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserBillingPlanEntitlement not implemented")
 }
 func (UnimplementedChatServiceServer) SetSuperuserBillingPlanOverage(context.Context, *SetSuperuserBillingPlanOverageRequest) (*SetSuperuserBillingPlanOverageResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserBillingPlanOverage not implemented")
@@ -1717,6 +1825,42 @@ func _ChatService_GetSession_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).GetSession(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetCatalogBootstrap_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCatalogBootstrapRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetCatalogBootstrap(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetCatalogBootstrap_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetCatalogBootstrap(ctx, req.(*GetCatalogBootstrapRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetCatalogNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCatalogNamespaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetCatalogNamespace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetCatalogNamespace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetCatalogNamespace(ctx, req.(*GetCatalogNamespaceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2383,6 +2527,78 @@ func _ChatService_GetAdminIncidentBlastRadius_Handler(srv interface{}, ctx conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).GetAdminIncidentBlastRadius(ctx, req.(*GetAdminIncidentBlastRadiusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserBillingPlan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserBillingPlanRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserBillingPlan(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserBillingPlan_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserBillingPlan(ctx, req.(*SetSuperuserBillingPlanRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserBillingPlan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserBillingPlanRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingPlan(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserBillingPlan_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingPlan(ctx, req.(*DeleteSuperuserBillingPlanRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserBillingPlanEntitlement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserBillingPlanEntitlementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserBillingPlanEntitlement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserBillingPlanEntitlement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserBillingPlanEntitlement(ctx, req.(*SetSuperuserBillingPlanEntitlementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserBillingPlanEntitlement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserBillingPlanEntitlementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingPlanEntitlement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserBillingPlanEntitlement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingPlanEntitlement(ctx, req.(*DeleteSuperuserBillingPlanEntitlementRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3196,6 +3412,14 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatService_GetSession_Handler,
 		},
 		{
+			MethodName: "GetCatalogBootstrap",
+			Handler:    _ChatService_GetCatalogBootstrap_Handler,
+		},
+		{
+			MethodName: "GetCatalogNamespace",
+			Handler:    _ChatService_GetCatalogNamespace_Handler,
+		},
+		{
 			MethodName: "RefreshSession",
 			Handler:    _ChatService_RefreshSession_Handler,
 		},
@@ -3342,6 +3566,22 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAdminIncidentBlastRadius",
 			Handler:    _ChatService_GetAdminIncidentBlastRadius_Handler,
+		},
+		{
+			MethodName: "SetSuperuserBillingPlan",
+			Handler:    _ChatService_SetSuperuserBillingPlan_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserBillingPlan",
+			Handler:    _ChatService_DeleteSuperuserBillingPlan_Handler,
+		},
+		{
+			MethodName: "SetSuperuserBillingPlanEntitlement",
+			Handler:    _ChatService_SetSuperuserBillingPlanEntitlement_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserBillingPlanEntitlement",
+			Handler:    _ChatService_DeleteSuperuserBillingPlanEntitlement_Handler,
 		},
 		{
 			MethodName: "SetSuperuserBillingPlanOverage",

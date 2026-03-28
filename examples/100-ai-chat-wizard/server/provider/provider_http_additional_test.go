@@ -238,6 +238,107 @@ func TestAnthropicProviderHTTPBackedBranches(parseT *testing.T) {
 		}
 	})
 
+	parseT.Run("extract memories with tool schema and malformed fallback", func(parseT3 *testing.T) {
+		parseCallCount := 0
+		parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			parseCallCount++
+			if !strings.HasSuffix(parseR.URL.Path, "/messages") {
+				parseT3.Fatalf("unexpected path: %s", parseR.URL.Path)
+			}
+
+			parseBody, parseErr := io.ReadAll(parseR.Body)
+			if parseErr != nil {
+				parseT3.Fatalf("ReadAll: %v", parseErr)
+			}
+			var parsePayload map[string]any
+			if parseErr2 := json.Unmarshal(parseBody, &parsePayload); parseErr2 != nil {
+				parseT3.Fatalf("json.Unmarshal request: %v", parseErr2)
+			}
+			if parseGotModel, _ := parsePayload["model"].(string); parseGotModel != "claude-sonnet-4-5" {
+				parseT3.Fatalf("memory extraction model = %q, want claude-sonnet-4-5", parseGotModel)
+			}
+
+			parseToolChoice, parseToolChoiceOK := parsePayload["tool_choice"].(map[string]any)
+			if !parseToolChoiceOK {
+				parseT3.Fatalf("missing tool_choice payload: %#v", parsePayload["tool_choice"])
+			}
+			if parseToolType, _ := parseToolChoice["type"].(string); parseToolType != "tool" {
+				parseT3.Fatalf("tool_choice.type = %q, want tool", parseToolType)
+			}
+			if parseToolName, _ := parseToolChoice["name"].(string); parseToolName != anthropicMemoryExtractionToolName {
+				parseT3.Fatalf("tool_choice.name = %q, want %s", parseToolName, anthropicMemoryExtractionToolName)
+			}
+			parseTools, parseToolsOK := parsePayload["tools"].([]any)
+			if !parseToolsOK || len(parseTools) != 1 {
+				parseT3.Fatalf("tools payload = %#v, want one tool", parsePayload["tools"])
+			}
+			parseToolDef, parseToolDefOK := parseTools[0].(map[string]any)
+			if !parseToolDefOK {
+				parseT3.Fatalf("tool payload type = %T, want object", parseTools[0])
+			}
+			if parseToolName, _ := parseToolDef["name"].(string); parseToolName != anthropicMemoryExtractionToolName {
+				parseT3.Fatalf("tool.name = %q, want %s", parseToolName, anthropicMemoryExtractionToolName)
+			}
+			parseInputSchema, parseSchemaOK := parseToolDef["input_schema"].(map[string]any)
+			if !parseSchemaOK {
+				parseT3.Fatalf("tool.input_schema missing from extraction request")
+			}
+			parseProperties, parsePropertiesOK := parseInputSchema["properties"].(map[string]any)
+			if !parsePropertiesOK {
+				parseT3.Fatalf("tool.input_schema.properties missing from extraction request")
+			}
+			if _, parseHasMemories := parseProperties["memories"]; !parseHasMemories {
+				parseT3.Fatalf("tool.input_schema.properties.memories missing from extraction request")
+			}
+			if parseStrict, _ := parseToolDef["strict"].(bool); !parseStrict {
+				parseT3.Fatalf("tool.strict = %v, want true", parseToolDef["strict"])
+			}
+
+			parseW.Header().Set("Content-Type", "application/json")
+			if parseCallCount == 1 {
+				_, _ = parseW.Write([]byte(`{"id":"msg_mem","type":"message","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"tool_use","id":"toolu_1","name":"extract_user_memories","caller":{"type":"direct"},"input":{"memories":[{"key":"pref-editor","category":"preference","summary":"Prefers Neovim","detail":"Uses it daily","usefulness_score":120,"confidence_score":1.7,"rubric_reason":"stable preference"}]}}],"usage":{"input_tokens":10,"output_tokens":8},"stop_reason":"tool_use","stop_sequence":""}`))
+				return
+			}
+			_, _ = parseW.Write([]byte(`{"id":"msg_mem_bad","type":"message","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"text","text":"not-json"}],"usage":{"input_tokens":10,"output_tokens":8},"stop_reason":"end_turn","stop_sequence":""}`))
+		}))
+		defer parseServer.Close()
+
+		parseClient := anthropic.NewClient(
+			anthropicoption.WithAPIKey("test-key"),
+			anthropicoption.WithBaseURL(parseServer.URL),
+			anthropicoption.WithHTTPClient(parseServer.Client()),
+		)
+		parseProvider := &AnthropicProvider{client: &parseClient, catalog: parseTestAnthropicCatalog()}
+
+		parseMemories, parseErr := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
+			Model:       " claude-sonnet-4-5 ",
+			UserMessage: "I prefer Neovim and use it daily.",
+		})
+		if parseErr != nil {
+			parseT3.Fatalf("ExtractUserMemories(tool): %v", parseErr)
+		}
+		if len(parseMemories) != 1 || parseMemories[0].Key != "pref-editor" || parseMemories[0].Category != "preference" {
+			parseT3.Fatalf("unexpected memories payload: %+v", parseMemories)
+		}
+		if parseMemories[0].UsefulnessScore != 100 || parseMemories[0].ConfidenceScore != 1 {
+			parseT3.Fatalf("expected normalized score bounds, got %+v", parseMemories[0])
+		}
+
+		parseMalformedMemories, parseMalformedErr := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
+			Model:       "claude-sonnet-4-5",
+			UserMessage: "remember this malformed response",
+		})
+		if parseMalformedErr != nil {
+			parseT3.Fatalf("ExtractUserMemories(malformed): %v", parseMalformedErr)
+		}
+		if len(parseMalformedMemories) != 0 {
+			parseT3.Fatalf("expected malformed extraction to fall back to empty list, got %+v", parseMalformedMemories)
+		}
+		if parseCallCount != 2 {
+			parseT3.Fatalf("request count = %d, want 2", parseCallCount)
+		}
+	})
+
 	parseT.Run("empty title", func(parseT3 *testing.T) {
 		parseServer2 := httptest.NewServer(http.HandlerFunc(func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
 			parseW2.Header().Set("Content-Type", "application/json")
@@ -254,6 +355,102 @@ func TestAnthropicProviderHTTPBackedBranches(parseT *testing.T) {
 
 		if _, parseErr2 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "empty title") {
 			parseT3.Fatalf("GenerateTitle() error = %v, want empty title", parseErr2)
+		}
+	})
+
+	parseT.Run("memory extraction uses tool schema and normalizes candidates", func(parseT4 *testing.T) {
+		parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			if !strings.HasSuffix(parseR.URL.Path, "/messages") {
+				parseT4.Fatalf("unexpected path: %s", parseR.URL.Path)
+			}
+			parseBody, parseErr := io.ReadAll(parseR.Body)
+			if parseErr != nil {
+				parseT4.Fatalf("ReadAll: %v", parseErr)
+			}
+			var parsePayload map[string]any
+			if parseErr2 := json.Unmarshal(parseBody, &parsePayload); parseErr2 != nil {
+				parseT4.Fatalf("json.Unmarshal request: %v", parseErr2)
+			}
+			parseToolChoice, parseOK := parsePayload["tool_choice"].(map[string]any)
+			if !parseOK {
+				parseT4.Fatalf("missing tool_choice in extraction request: %#v", parsePayload["tool_choice"])
+			}
+			if parseGotType, _ := parseToolChoice["type"].(string); parseGotType != "tool" {
+				parseT4.Fatalf("tool_choice.type = %q, want tool", parseGotType)
+			}
+			if parseGotName, _ := parseToolChoice["name"].(string); parseGotName != anthropicMemoryExtractionToolName {
+				parseT4.Fatalf("tool_choice.name = %q, want %q", parseGotName, anthropicMemoryExtractionToolName)
+			}
+			parseTools, parseOK := parsePayload["tools"].([]any)
+			if !parseOK || len(parseTools) != 1 {
+				parseT4.Fatalf("tools = %#v, want single extraction tool", parsePayload["tools"])
+			}
+			parseToolDef, parseOK := parseTools[0].(map[string]any)
+			if !parseOK {
+				parseT4.Fatalf("tools[0] malformed: %#v", parseTools[0])
+			}
+			parseInputSchema, parseOK := parseToolDef["input_schema"].(map[string]any)
+			if !parseOK {
+				parseT4.Fatalf("tools[0].input_schema missing: %#v", parseToolDef)
+			}
+			parseProperties, parseOK := parseInputSchema["properties"].(map[string]any)
+			if !parseOK {
+				parseT4.Fatalf("tools[0].input_schema.properties missing: %#v", parseInputSchema)
+			}
+			if _, parseOK = parseProperties["memories"]; !parseOK {
+				parseT4.Fatalf("tools[0].input_schema.properties.memories missing: %#v", parseProperties)
+			}
+
+			parseW.Header().Set("Content-Type", "application/json")
+			_, _ = parseW.Write([]byte(`{"id":"msg_mem","type":"message","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"tool_use","id":"toolu_mem","name":"extract_user_memories","input":{"memories":[{"key":"","category":"unknown","summary":"Prefers Vim!!","detail":"Uses Vim every day","usefulness_score":150,"confidence_score":-2,"rubric_reason":"stable editing preference"}]}}],"usage":{"input_tokens":13,"output_tokens":9},"stop_reason":"tool_use","stop_sequence":""}`))
+		}))
+		defer parseServer.Close()
+
+		parseClient := anthropic.NewClient(
+			anthropicoption.WithAPIKey("test-key"),
+			anthropicoption.WithBaseURL(parseServer.URL),
+			anthropicoption.WithHTTPClient(parseServer.Client()),
+		)
+		parseProvider := &AnthropicProvider{client: &parseClient, catalog: parseTestAnthropicCatalog()}
+
+		parseMemories, parseErr := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
+			Model:       " claude-sonnet-4-5 ",
+			UserMessage: "I prefer Vim over IDEs.",
+		})
+		if parseErr != nil {
+			parseT4.Fatalf("ParseExtractUserMemories: %v", parseErr)
+		}
+		if len(parseMemories) != 1 {
+			parseT4.Fatalf("memory candidate len = %d, want 1", len(parseMemories))
+		}
+		parseCandidate := parseMemories[0]
+		if parseCandidate.Key != "prefers-vim" || parseCandidate.Category != "other" || parseCandidate.UsefulnessScore != 100 || parseCandidate.ConfidenceScore != 0 {
+			parseT4.Fatalf("unexpected normalized memory candidate: %+v", parseCandidate)
+		}
+	})
+
+	parseT.Run("memory extraction malformed payload falls back safely", func(parseT5 *testing.T) {
+		parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			parseW.Header().Set("Content-Type", "application/json")
+			_, _ = parseW.Write([]byte(`{"id":"msg_mem_bad","type":"message","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"text","text":"not-json"}],"usage":{"input_tokens":3,"output_tokens":2},"stop_reason":"end_turn","stop_sequence":""}`))
+		}))
+		defer parseServer.Close()
+
+		parseClient := anthropic.NewClient(
+			anthropicoption.WithAPIKey("test-key"),
+			anthropicoption.WithBaseURL(parseServer.URL),
+			anthropicoption.WithHTTPClient(parseServer.Client()),
+		)
+		parseProvider := &AnthropicProvider{client: &parseClient, catalog: parseTestAnthropicCatalog()}
+
+		parseMemories, parseErr := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
+			UserMessage: "Remember this malformed test payload.",
+		})
+		if parseErr != nil {
+			parseT5.Fatalf("ParseExtractUserMemories malformed fallback: %v", parseErr)
+		}
+		if len(parseMemories) != 0 {
+			parseT5.Fatalf("expected empty memory candidates on malformed payload fallback, got %+v", parseMemories)
 		}
 	})
 }
@@ -310,6 +507,70 @@ func TestCerebrasProviderHTTPBackedBranches(parseT *testing.T) {
 		}
 		if _, parseErr3 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "blank"}); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "empty title") {
 			parseT3.Fatalf("GenerateTitle() error = %v, want empty title", parseErr3)
+		}
+	})
+
+	parseT.Run("memory extraction json-object contract and parse fallback", func(parseT4 *testing.T) {
+		parseCallCount := 0
+		parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			if !strings.HasSuffix(parseR.URL.Path, "/chat/completions") {
+				parseT4.Fatalf("unexpected path: %s", parseR.URL.Path)
+			}
+			parseCallCount++
+			parseBody, parseErr := io.ReadAll(parseR.Body)
+			if parseErr != nil {
+				parseT4.Fatalf("ReadAll: %v", parseErr)
+			}
+			var parsePayload map[string]any
+			if parseErr2 := json.Unmarshal(parseBody, &parsePayload); parseErr2 != nil {
+				parseT4.Fatalf("json.Unmarshal request: %v", parseErr2)
+			}
+			parseResponseFormat, parseOK := parsePayload["response_format"].(map[string]any)
+			if !parseOK {
+				parseT4.Fatalf("missing response_format in extraction request: %#v", parsePayload["response_format"])
+			}
+			if parseGotType, _ := parseResponseFormat["type"].(string); parseGotType != "json_object" {
+				parseT4.Fatalf("response_format.type = %q, want json_object", parseGotType)
+			}
+			parseW.Header().Set("Content-Type", "application/json")
+			if parseCallCount == 1 {
+				_, _ = parseW.Write([]byte(`{"id":"chatcmpl_mem","object":"chat.completion","created":1,"model":"gpt-oss-120b","choices":[{"index":0,"message":{"role":"assistant","content":"{\"memories\":[{\"key\":\"pref-setup\",\"category\":\"preference\",\"summary\":\"Prefers Vim\",\"detail\":\"Uses Vim for all coding\",\"usefulness_score\":130,\"confidence_score\":1.7,\"rubric_reason\":\"stable preference\"}]}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":8,"completion_tokens":5,"total_tokens":13}}`))
+				return
+			}
+			_, _ = parseW.Write([]byte(`{"id":"chatcmpl_mem_bad","object":"chat.completion","created":1,"model":"gpt-oss-120b","choices":[{"index":0,"message":{"role":"assistant","content":"not-json"},"finish_reason":"stop"}],"usage":{"prompt_tokens":8,"completion_tokens":5,"total_tokens":13}}`))
+		}))
+		defer parseServer.Close()
+
+		parseClient := openai.NewClient(
+			option.WithAPIKey("test-key"),
+			option.WithBaseURL(parseServer.URL),
+			option.WithHTTPClient(parseServer.Client()),
+		)
+		parseProvider := &CerebrasProvider{client: &parseClient, catalog: parseTestCerebrasCatalog()}
+
+		parseMemories, parseErr := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
+			Model:       " gpt-oss-120b ",
+			UserMessage: "I prefer Vim for coding.",
+		})
+		if parseErr != nil {
+			parseT4.Fatalf("ParseExtractUserMemories(success): %v", parseErr)
+		}
+		if len(parseMemories) != 1 {
+			parseT4.Fatalf("memory candidate len = %d, want 1", len(parseMemories))
+		}
+		if parseMemories[0].Key != "pref-setup" || parseMemories[0].Category != "preference" || parseMemories[0].UsefulnessScore != 100 || parseMemories[0].ConfidenceScore != 1 {
+			parseT4.Fatalf("unexpected normalized memory candidate: %+v", parseMemories[0])
+		}
+
+		parseMalformedMemories, parseErr2 := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
+			Model:       "gpt-oss-120b",
+			UserMessage: "trigger malformed payload fallback",
+		})
+		if parseErr2 != nil {
+			parseT4.Fatalf("ParseExtractUserMemories(malformed fallback) error = %v, want nil", parseErr2)
+		}
+		if len(parseMalformedMemories) != 0 {
+			parseT4.Fatalf("expected empty memory candidates on malformed fallback, got %+v", parseMalformedMemories)
 		}
 	})
 }

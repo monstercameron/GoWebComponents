@@ -48,9 +48,9 @@ func TestModelOptionAndSelectedModelRPCs(parseT *testing.T) {
 func TestSetSelectedModelRespectsBillingPlanModelAccess(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "models-denied@example.com")
-	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "free")
-	if _, parseErr := store.db.Exec(`UPDATE billing_plan_model_access SET is_enabled = 0 WHERE plan_code = 'free' AND model_id = ?`, modelGPT54); parseErr != nil {
-		parseT.Fatalf("disable free gpt-5.4: %v", parseErr)
+	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "pro")
+	if _, parseErr := store.db.Exec(`UPDATE billing_plan_model_access SET is_enabled = 0 WHERE plan_code = 'pro' AND model_id = ?`, modelGPT54); parseErr != nil {
+		parseT.Fatalf("disable pro gpt-5.4: %v", parseErr)
 	}
 	parseServer := parseNewFakeChatServer(store, parseNewFakeProvider())
 	parseCtx := parseBindAuthUser(parseServer, "peer-models-denied", parseUser.ID, parseUser.Email)

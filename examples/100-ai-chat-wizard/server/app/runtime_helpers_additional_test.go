@@ -42,6 +42,8 @@ func TestRuntimeConfigHelperBranches(parseT *testing.T) {
 			return " secret "
 		case "CHAT_USAGE_PREMIUM_PERCENT":
 			return " 6.25 "
+		case "CHAT_PLATFORM_FEE_USD":
+			return " 31.5 "
 		default:
 			return ""
 		}
@@ -52,7 +54,7 @@ func TestRuntimeConfigHelperBranches(parseT *testing.T) {
 	if parseGot := strings.Join(parseConfig.stubProviders, ","); parseGot != "openai,anthropic,cerebras" {
 		parseT.Fatalf("stubProviders = %q, want openai,anthropic,cerebras", parseGot)
 	}
-	if parseConfig.defaultModel != "gpt-5.4-mini" || parseConfig.addr != "0.0.0.0:9000" || parseConfig.dbPath != "runtime/chat.db" || parseConfig.authSecret != "secret" || parseConfig.usagePremiumPct != 6.25 {
+	if parseConfig.defaultModel != "gpt-5.4-mini" || parseConfig.addr != "0.0.0.0:9000" || parseConfig.dbPath != "runtime/chat.db" || parseConfig.authSecret != "secret" || parseConfig.usagePremiumPct != 6.25 || parseConfig.platformFeeUSD != 31.5 {
 		parseT.Fatalf("unexpected runtime config: %+v", parseConfig)
 	}
 
@@ -74,6 +76,9 @@ func TestRuntimeConfigHelperBranches(parseT *testing.T) {
 	if parseDefaults.usagePremiumPct != 5 {
 		parseT.Fatalf("default usage premium pct = %.2f, want 5.00", parseDefaults.usagePremiumPct)
 	}
+	if parseDefaults.platformFeeUSD != 29 {
+		parseT.Fatalf("default platform fee usd = %.2f, want 29.00", parseDefaults.platformFeeUSD)
+	}
 
 	if parseGot2 := parseSplitAndTrim(" one, two ,, three "); strings.Join(parseGot2, "|") != "one|two|three" {
 		parseT.Fatalf("splitAndTrim() = %q, want one|two|three", strings.Join(parseGot2, "|"))
@@ -92,6 +97,18 @@ func TestRuntimeConfigHelperBranches(parseT *testing.T) {
 	}
 	if parseGot7 := parseUsagePremiumPercent("5000", 5); parseGot7 != 1000 {
 		parseT.Fatalf("parseUsagePremiumPercent(clamped) = %.2f, want 1000.00", parseGot7)
+	}
+	if parseGot8 := parsePlatformFeeUSD("39.5", 29); parseGot8 != 39.5 {
+		parseT.Fatalf("parsePlatformFeeUSD(valid) = %.2f, want 39.50", parseGot8)
+	}
+	if parseGot9 := parsePlatformFeeUSD("-4", 29); parseGot9 != 29 {
+		parseT.Fatalf("parsePlatformFeeUSD(negative) = %.2f, want fallback 29.00", parseGot9)
+	}
+	if parseGot10 := parsePlatformFeeUSD("oops", 29); parseGot10 != 29 {
+		parseT.Fatalf("parsePlatformFeeUSD(invalid) = %.2f, want fallback 29.00", parseGot10)
+	}
+	if parseGot11 := parsePlatformFeeUSD("10000000", 29); parseGot11 != 1_000_000 {
+		parseT.Fatalf("parsePlatformFeeUSD(clamped) = %.2f, want 1000000.00", parseGot11)
 	}
 }
 
@@ -188,12 +205,16 @@ func TestChatShellRoutingHelpers(parseT *testing.T) {
 
 		parseBootstrapWriter := httptest.NewRecorder()
 		setChatUsagePremiumPercent(8.25)
+		setChatPlatformFeeUSD(29.00)
 		parseHandler.ServeHTTP(parseBootstrapWriter, httptest.NewRequest(http.MethodGet, "http://example.com/chat-bootstrap.js", nil))
 		if !strings.Contains(parseBootstrapWriter.Body.String(), "loadChatWasm") {
 			parseT4.Fatalf("expected bootstrap route to serve JS, got %q", parseBootstrapWriter.Body.String())
 		}
 		if !strings.Contains(parseBootstrapWriter.Body.String(), "window.__relaydesk_usage_premium_percent = 8.250000;") {
 			parseT4.Fatalf("expected bootstrap route to include usage premium percent, got %q", parseBootstrapWriter.Body.String())
+		}
+		if !strings.Contains(parseBootstrapWriter.Body.String(), "window.__relaydesk_platform_fee_usd = 29.000000;") {
+			parseT4.Fatalf("expected bootstrap route to include platform fee usd, got %q", parseBootstrapWriter.Body.String())
 		}
 
 		parseAssetWriter := httptest.NewRecorder()

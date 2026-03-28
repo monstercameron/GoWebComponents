@@ -217,7 +217,7 @@ If nothing qualifies, return {"memories":[]}.`)),
 			return nil, fmt.Errorf("openai memory extraction parse: strict=%v fallback=%v", parseErr2, parseFallbackErr)
 		}
 	}
-	return parsePayload.Memories, nil
+	return parseNormalizeMemoryCandidates(parsePayload.Memories), nil
 }
 
 func (parseP *OpenAIProvider) ParseStreamChat(parseCtx context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {

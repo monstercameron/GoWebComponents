@@ -261,6 +261,11 @@ message SetServerToolPolicyRequest {
 message SetServerToolPolicyResponse {
   bool is_applied = 1;
   string updated_at = 2;
+  bool is_enabled = 3;
+  int32 max_session_seconds = 4;
+  int32 max_output_bytes = 5;
+  repeated ServerToolPolicyRule approved_tools = 6;
+  string source = 7;
 }
 
 message RunServerToolStart {
@@ -1286,6 +1291,139 @@ message BackgroundJobEntry {
   string updated_at = 14;
 }
 
+message CatalogSourceMetadata {
+  string source_layer = 1;
+  string source_id = 2;
+  string source_version = 3;
+  string source_updated_at = 4;
+}
+
+message CatalogMessagePayload {
+  string message_key = 1;
+  string message_value = 2;
+}
+
+message CatalogNamespacePayload {
+  string namespace = 1;
+  string locale = 2;
+  string fallback_locale = 3;
+  string version = 4;
+  string content_hash = 5;
+  CatalogSourceMetadata source = 6;
+  repeated CatalogMessagePayload messages = 7;
+}
+
+message GetCatalogBootstrapRequest {
+  string locale = 1;
+  repeated string namespaces = 2;
+  string known_version = 3;
+  string known_hash = 4;
+}
+
+message GetCatalogBootstrapResponse {
+  string locale = 1;
+  string fallback_locale = 2;
+  string bundle_version = 3;
+  string bundle_hash = 4;
+  bool is_not_modified = 5;
+  repeated CatalogNamespacePayload catalogs = 6;
+}
+
+message GetCatalogNamespaceRequest {
+  string namespace = 1;
+  string locale = 2;
+  string known_version = 3;
+  string known_hash = 4;
+}
+
+message GetCatalogNamespaceResponse {
+  CatalogNamespacePayload catalog = 1;
+  bool is_not_modified = 2;
+}
+
+message BillingPlanEntry {
+  string plan_code = 1;
+  string plan_name = 2;
+  int64 plan_rank = 3;
+  bool is_active = 4;
+  int64 monthly_base_cents = 5;
+  int64 yearly_base_cents = 6;
+  int64 included_tokens_monthly = 7;
+  int64 included_seats = 8;
+  int64 max_seats = 9;
+  bool supports_priority = 10;
+  bool supports_team_workspace = 11;
+  bool supports_sso = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+message BillingPlanEntitlementEntry {
+  string plan_code = 1;
+  string entitlement_key = 2;
+  string entitlement_value = 3;
+  string updated_at = 4;
+}
+
+message SetSuperuserBillingPlanRequest {
+  string plan_code = 1;
+  string plan_name = 2;
+  int64 plan_rank = 3;
+  bool is_active = 4;
+  int64 monthly_base_cents = 5;
+  int64 yearly_base_cents = 6;
+  int64 included_tokens_monthly = 7;
+  int64 included_seats = 8;
+  int64 max_seats = 9;
+  bool supports_priority = 10;
+  bool supports_team_workspace = 11;
+  bool supports_sso = 12;
+  bool confirm = 13;
+  string reason = 14;
+}
+
+message SetSuperuserBillingPlanResponse {
+  BillingPlanEntry plan = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserBillingPlanRequest {
+  string plan_code = 1;
+  bool confirm = 2;
+  string reason = 3;
+}
+
+message DeleteSuperuserBillingPlanResponse {
+  string plan_code = 1;
+  string status = 2;
+}
+
+message SetSuperuserBillingPlanEntitlementRequest {
+  string plan_code = 1;
+  string entitlement_key = 2;
+  string entitlement_value = 3;
+  bool confirm = 4;
+  string reason = 5;
+}
+
+message SetSuperuserBillingPlanEntitlementResponse {
+  BillingPlanEntitlementEntry entitlement = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserBillingPlanEntitlementRequest {
+  string plan_code = 1;
+  string entitlement_key = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message DeleteSuperuserBillingPlanEntitlementResponse {
+  string plan_code = 1;
+  string entitlement_key = 2;
+  string status = 3;
+}
+
 message BillingPlanOverageEntry {
   int64 id = 1;
   string plan_code = 2;
@@ -1768,6 +1906,10 @@ service ChatService {
   rpc Logout(google.protobuf.Empty) returns (google.protobuf.Empty);
   // GetSession resolves the current auth token, if any, into a user session.
   rpc GetSession(google.protobuf.Empty) returns (GetSessionResponse);
+  // GetCatalogBootstrap returns one typed locale bootstrap for one namespace list with cache metadata.
+  rpc GetCatalogBootstrap(GetCatalogBootstrapRequest) returns (GetCatalogBootstrapResponse);
+  // GetCatalogNamespace returns one typed locale namespace payload with version/hash cache checks.
+  rpc GetCatalogNamespace(GetCatalogNamespaceRequest) returns (GetCatalogNamespaceResponse);
   // RefreshSession issues a fresh signed auth token for the current user.
   rpc RefreshSession(google.protobuf.Empty) returns (AuthResponse);
   // GetClientIdentity returns a stable server-issued client identity for log correlation.
@@ -1842,6 +1984,14 @@ service ChatService {
   rpc UpdateAdminIncident(UpdateAdminIncidentRequest) returns (UpdateAdminIncidentResponse);
   // GetAdminIncidentBlastRadius returns one scoped incident blast-radius snapshot for one workspace.
   rpc GetAdminIncidentBlastRadius(GetAdminIncidentBlastRadiusRequest) returns (GetAdminIncidentBlastRadiusResponse);
+  // SetSuperuserBillingPlan upserts one superuser billing plan row.
+  rpc SetSuperuserBillingPlan(SetSuperuserBillingPlanRequest) returns (SetSuperuserBillingPlanResponse);
+  // DeleteSuperuserBillingPlan deletes one superuser billing plan row.
+  rpc DeleteSuperuserBillingPlan(DeleteSuperuserBillingPlanRequest) returns (DeleteSuperuserBillingPlanResponse);
+  // SetSuperuserBillingPlanEntitlement upserts one superuser billing-plan entitlement row.
+  rpc SetSuperuserBillingPlanEntitlement(SetSuperuserBillingPlanEntitlementRequest) returns (SetSuperuserBillingPlanEntitlementResponse);
+  // DeleteSuperuserBillingPlanEntitlement deletes one superuser billing-plan entitlement row.
+  rpc DeleteSuperuserBillingPlanEntitlement(DeleteSuperuserBillingPlanEntitlementRequest) returns (DeleteSuperuserBillingPlanEntitlementResponse);
   // SetSuperuserBillingPlanOverage upserts one superuser pricing overage control row.
   rpc SetSuperuserBillingPlanOverage(SetSuperuserBillingPlanOverageRequest) returns (SetSuperuserBillingPlanOverageResponse);
   // DeleteSuperuserBillingPlanOverage deletes one superuser pricing overage control row.

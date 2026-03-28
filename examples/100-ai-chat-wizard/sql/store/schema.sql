@@ -34,6 +34,50 @@ CREATE TABLE IF NOT EXISTS auth_token_versions (
     token_version              INTEGER NOT NULL DEFAULT 1,
     updated_at                 TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS auth_identities (
+    id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id                    INTEGER NOT NULL REFERENCES users(id),
+    provider_key               TEXT NOT NULL,
+    provider_type              TEXT NOT NULL DEFAULT 'oidc',
+    provider_subject           TEXT NOT NULL,
+    email                      TEXT NOT NULL DEFAULT '' COLLATE NOCASE,
+    is_email_verified          INTEGER NOT NULL DEFAULT 0,
+    profile_json               TEXT NOT NULL DEFAULT '{}',
+    last_login_at              TEXT NOT NULL DEFAULT '',
+    created_at                 TEXT NOT NULL,
+    updated_at                 TEXT NOT NULL,
+    UNIQUE(provider_key, provider_subject)
+);
+CREATE INDEX IF NOT EXISTS idx_auth_identities_user_id ON auth_identities(user_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_auth_identities_provider_subject ON auth_identities(provider_key, provider_subject, id DESC);
+CREATE TABLE IF NOT EXISTS auth_oidc_states (
+    id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider_key               TEXT NOT NULL,
+    workspace_id               INTEGER NOT NULL DEFAULT 0 REFERENCES workspaces(id),
+    session_key                TEXT NOT NULL,
+    state_token_hash           TEXT NOT NULL UNIQUE,
+    nonce_token_hash           TEXT NOT NULL,
+    return_to_url              TEXT NOT NULL DEFAULT '/',
+    expected_subject           TEXT NOT NULL DEFAULT '',
+    expires_at                 TEXT NOT NULL,
+    consumed_at                TEXT NOT NULL DEFAULT '',
+    created_by_user_id         INTEGER NOT NULL DEFAULT 0 REFERENCES users(id),
+    created_at                 TEXT NOT NULL,
+    updated_at                 TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_auth_oidc_states_provider_workspace ON auth_oidc_states(provider_key, workspace_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_auth_oidc_states_expires_at ON auth_oidc_states(expires_at, id DESC);
+CREATE TABLE IF NOT EXISTS workspace_auth_policies (
+    workspace_id                      INTEGER PRIMARY KEY REFERENCES workspaces(id),
+    is_password_allowed               INTEGER NOT NULL DEFAULT 1,
+    is_external_login_allowed         INTEGER NOT NULL DEFAULT 0,
+    is_sso_required                   INTEGER NOT NULL DEFAULT 0,
+    required_provider_key             TEXT NOT NULL DEFAULT '',
+    is_jit_provisioning_allowed       INTEGER NOT NULL DEFAULT 0,
+    is_local_password_qa_allowed      INTEGER NOT NULL DEFAULT 0,
+    updated_by_user_id                INTEGER NOT NULL DEFAULT 0 REFERENCES users(id),
+    updated_at                        TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS user_auth_blocks (
     id                         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id                    INTEGER NOT NULL REFERENCES users(id),
@@ -292,6 +336,17 @@ CREATE TABLE IF NOT EXISTS site_config (
     updated_by_user_id         INTEGER NOT NULL DEFAULT 0,
     updated_at                 TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS server_tool_policy_history (
+    id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+    is_enabled                 INTEGER NOT NULL DEFAULT 0,
+    max_session_seconds        INTEGER NOT NULL DEFAULT 300,
+    max_output_bytes           INTEGER NOT NULL DEFAULT 262144,
+    approved_tools_json        TEXT NOT NULL DEFAULT '[]',
+    updated_by_user_id         INTEGER NOT NULL DEFAULT 0 REFERENCES users(id),
+    source                     TEXT NOT NULL DEFAULT 'set_server_tool_policy',
+    created_at                 TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_server_tool_policy_history_created_at ON server_tool_policy_history(created_at DESC, id DESC);
 CREATE TABLE IF NOT EXISTS feature_flags (
     flag_key                   TEXT PRIMARY KEY,
     description                TEXT NOT NULL DEFAULT '',
@@ -307,7 +362,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
     workspace_key              TEXT NOT NULL UNIQUE,
     slug                       TEXT NOT NULL UNIQUE,
     name                       TEXT NOT NULL,
-    plan_code                  TEXT NOT NULL DEFAULT 'free',
+    plan_code                  TEXT NOT NULL DEFAULT 'pro',
     status                     TEXT NOT NULL DEFAULT 'active',
     owner_user_id              INTEGER NOT NULL REFERENCES users(id),
     settings_json              TEXT NOT NULL DEFAULT '{}',
@@ -877,7 +932,7 @@ INSERT OR IGNORE INTO su_roles (
 ) VALUES
     ('su', 'Superuser', 'Full control plane access across the application.', 1, 1, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
     ('admin', 'Admin', 'Operational admin access without superuser ownership.', 1, 1, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
-    ('customer', 'Customer', 'Default end-user role for paid or free chat customers.', 1, 1, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z');
+    ('customer', 'Customer', 'Default end-user role for paid chat customers.', 1, 1, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z');
 
 INSERT OR IGNORE INTO su_role_permissions (
     role_key, permission_key, permission_value, updated_at
@@ -894,17 +949,13 @@ INSERT OR IGNORE INTO billing_plans (
     supports_priority, supports_team_workspace, supports_sso,
     created_at, updated_at
 ) VALUES
-    ('free', 'Free', 10, 1, 0, 0, 500000, 1, 1, 0, 0, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
-    ('pro', 'Pro', 20, 1, 2900, 29000, 5000000, 1, 1, 1, 0, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
-    ('team', 'Team', 30, 1, 9900, 99000, 20000000, 3, 50, 1, 1, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
-    ('enterprise', 'Enterprise', 40, 1, 0, 0, 0, 10, 500, 1, 1, 1, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z');
+    ('pro', 'Pro', 10, 1, 2900, 29000, 5000000, 1, 1, 1, 0, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
+    ('team', 'Team', 20, 1, 9900, 99000, 20000000, 3, 50, 1, 1, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
+    ('enterprise', 'Enterprise', 30, 1, 0, 0, 0, 10, 500, 1, 1, 1, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z');
 
 INSERT OR IGNORE INTO billing_plan_entitlements (
     plan_code, entitlement_key, entitlement_value, updated_at
 ) VALUES
-    ('free', 'chat.send.enabled', 'true', '1970-01-01T00:00:00Z'),
-    ('free', 'memory.editor.enabled', 'true', '1970-01-01T00:00:00Z'),
-    ('free', 'usage.monthly_token_limit', '500000', '1970-01-01T00:00:00Z'),
     ('pro', 'chat.send.enabled', 'true', '1970-01-01T00:00:00Z'),
     ('pro', 'memory.editor.enabled', 'true', '1970-01-01T00:00:00Z'),
     ('pro', 'usage.monthly_token_limit', '5000000', '1970-01-01T00:00:00Z'),
@@ -925,7 +976,6 @@ INSERT OR IGNORE INTO billing_plan_overages (
     plan_code, meter_key, included_units, soft_limit_units, hard_limit_units,
     overage_unit_size, overage_price_cents, billing_interval, updated_at
 ) VALUES
-    ('free', 'monthly_tokens', 500000, 400000, 500000, 100000, 0, 'monthly', '1970-01-01T00:00:00Z'),
     ('pro', 'monthly_tokens', 5000000, 4500000, 6000000, 1000000, 500, 'monthly', '1970-01-01T00:00:00Z'),
     ('team', 'monthly_tokens', 20000000, 18000000, 25000000, 1000000, 400, 'monthly', '1970-01-01T00:00:00Z'),
     ('enterprise', 'monthly_tokens', 0, 0, 0, 1000000, 0, 'monthly', '1970-01-01T00:00:00Z');
@@ -933,11 +983,9 @@ INSERT OR IGNORE INTO billing_plan_overages (
 INSERT OR IGNORE INTO billing_quota_policies (
     plan_code, quota_key, soft_limit_value, hard_limit_value, reset_interval, enforcement_mode, updated_at
 ) VALUES
-    ('free', 'workspace.seats', 1, 1, 'monthly', 'block', '1970-01-01T00:00:00Z'),
     ('pro', 'workspace.seats', 1, 1, 'monthly', 'block', '1970-01-01T00:00:00Z'),
     ('team', 'workspace.seats', 3, 50, 'monthly', 'block', '1970-01-01T00:00:00Z'),
     ('enterprise', 'workspace.seats', 10, 500, 'monthly', 'review', '1970-01-01T00:00:00Z'),
-    ('free', 'usage.monthly_tokens', 400000, 500000, 'monthly', 'block', '1970-01-01T00:00:00Z'),
     ('pro', 'usage.monthly_tokens', 4500000, 6000000, 'monthly', 'bill_overage', '1970-01-01T00:00:00Z'),
     ('team', 'usage.monthly_tokens', 18000000, 25000000, 'monthly', 'bill_overage', '1970-01-01T00:00:00Z'),
     ('enterprise', 'usage.monthly_tokens', 0, 0, 'monthly', 'contract', '1970-01-01T00:00:00Z');
@@ -945,15 +993,12 @@ INSERT OR IGNORE INTO billing_quota_policies (
 INSERT OR IGNORE INTO billing_upgrade_triggers (
     plan_code, trigger_key, threshold_percent, upgrade_plan_code, message, cta_label, cta_url, is_enabled, updated_at
 ) VALUES
-    ('free', 'monthly_tokens_80', 80, 'pro', 'You are approaching the Free plan token cap.', 'Upgrade to Pro', '/pricing', 1, '1970-01-01T00:00:00Z'),
     ('pro', 'monthly_tokens_90', 90, 'team', 'Your Pro workspace is close to its monthly token limit.', 'Upgrade to Team', '/pricing', 1, '1970-01-01T00:00:00Z'),
     ('team', 'monthly_tokens_90', 90, 'enterprise', 'Your Team workspace is nearing its monthly token limit.', 'Contact Sales', '/enterprise', 1, '1970-01-01T00:00:00Z');
 
 INSERT OR IGNORE INTO billing_plan_model_access (
     plan_code, model_id, is_default, is_enabled, updated_at
 ) VALUES
-    ('free', 'gpt-5.4-mini', 1, 1, '1970-01-01T00:00:00Z'),
-    ('free', 'gpt-5.4', 0, 1, '1970-01-01T00:00:00Z'),
     ('pro', 'gpt-5.4-mini', 1, 1, '1970-01-01T00:00:00Z'),
     ('pro', 'gpt-5.4', 0, 1, '1970-01-01T00:00:00Z'),
     ('team', 'gpt-5.4', 1, 1, '1970-01-01T00:00:00Z'),

@@ -102,7 +102,7 @@ func TestRunSeedJSONExecutesDefaultSeederWithKnownCredentials(parseT *testing.T)
 	if len(parseSummary.Credentials) != 2 {
 		parseT.Fatalf("expected known credentials, got %#v", parseSummary)
 	}
-	if parseSummary.Credentials[0].Email != "demo@example.com" || parseSummary.Credentials[1].Email != "admin@example.com" {
+	if parseSummary.Credentials[0].Email != "customer@email.com" || parseSummary.Credentials[1].Email != "admin@email.com" {
 		parseT.Fatalf("unexpected credential summary: %#v", parseSummary.Credentials)
 	}
 }
@@ -193,8 +193,8 @@ func TestPrintSeedSummary(parseT *testing.T) {
 		CommandPath:  "/repo/cmd/seed",
 		DatabasePath: "/repo/bin/runtime/test.db",
 		Credentials: []seedCredentialRecord{
-			{Email: "demo@example.com", Password: "password123"},
-			{Email: "admin@example.com", Password: "password", Role: "admin"},
+			{Email: "customer@email.com", Password: "password", Role: "customer"},
+			{Email: "admin@email.com", Password: "password", Role: "admin"},
 		},
 		Output: "seed complete",
 	})
@@ -208,8 +208,8 @@ func TestPrintSeedSummary(parseT *testing.T) {
 		"project root: /repo",
 		"command:      /repo/cmd/seed",
 		"database:     /repo/bin/runtime/test.db",
-		"account:      demo@example.com / password123",
-		"account:      admin@example.com / password (admin)",
+		"account:      customer@email.com / password (customer)",
+		"account:      admin@email.com / password (admin)",
 		"output:       seed complete",
 	} {
 		if !strings.Contains(parseOutput, parseWant) {

@@ -197,7 +197,7 @@ func (parseS *chatServer) ListAdminBillingEvents(parseCtx context.Context, parse
 		Events: make([]*chatpb.AdminBillingEventEntry, 0, len(parseEventRows)),
 	}
 	for _, parseEventRow := range parseEventRows {
-		parseResponse.Events = append(parseResponse.Events, parseBuildAdminBillingEventEntry(parseEventRow))
+		parseResponse.Events = append(parseResponse.Events, parseRedactAdminBillingEventEntryByScope(parseScope, parseBuildAdminBillingEventEntry(parseEventRow)))
 	}
 	parseLogger.Info("rpc.ListAdminBillingEvents: complete", slog.Int("count", len(parseResponse.Events)))
 	return parseResponse, nil
@@ -497,6 +497,9 @@ func (parseS *chatServer) SetAdminBillingAccessOverride(parseCtx context.Context
 	if parseOverrideKey == "" {
 		return nil, status.Error(codes.InvalidArgument, "override key is required")
 	}
+	if parseErr := parseValidateUsageBasedBillingOverrideWrite(parseOverrideKey, parseOverrideValue); parseErr != nil {
+		return nil, parseErr
+	}
 	if !parseConfirm {
 		return nil, status.Error(codes.InvalidArgument, "confirmation is required")
 	}
@@ -520,6 +523,9 @@ func (parseS *chatServer) SetAdminBillingAccessOverride(parseCtx context.Context
 		ActorUserID:   parseScope.adminUserID,
 	})
 	if parseErr != nil {
+		if parseStatusErr, parseOk := status.FromError(parseErr); parseOk {
+			return nil, status.Error(parseStatusErr.Code(), parseStatusErr.Message())
+		}
 		parseLogger.Error("rpc.SetAdminBillingAccessOverride: mutation failed", slog.String("error", parseErr.Error()))
 		return nil, status.Errorf(codes.Internal, "set admin billing access override: %v", parseErr)
 	}
@@ -567,6 +573,10 @@ func (parseS *chatServer) SetAdminBillingQuotaOverride(parseCtx context.Context,
 	if parseQuotaKey == "" {
 		return nil, status.Error(codes.InvalidArgument, "quota key is required")
 	}
+	parseNormalizedQuotaKey := parseNormalizeAdminBillingQuotaOverrideKey(parseQuotaKey)
+	if parseErr := parseValidateUsageBasedBillingOverrideWrite(parseNormalizedQuotaKey, parseQuotaValue); parseErr != nil {
+		return nil, parseErr
+	}
 	if !parseConfirm {
 		return nil, status.Error(codes.InvalidArgument, "confirmation is required")
 	}
@@ -590,6 +600,9 @@ func (parseS *chatServer) SetAdminBillingQuotaOverride(parseCtx context.Context,
 		ActorUserID:   parseScope.adminUserID,
 	})
 	if parseErr != nil {
+		if parseStatusErr, parseOk := status.FromError(parseErr); parseOk {
+			return nil, status.Error(parseStatusErr.Code(), parseStatusErr.Message())
+		}
 		parseLogger.Error("rpc.SetAdminBillingQuotaOverride: mutation failed", slog.String("error", parseErr.Error()))
 		return nil, status.Errorf(codes.Internal, "set admin billing quota override: %v", parseErr)
 	}

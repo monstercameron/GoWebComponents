@@ -1116,25 +1116,12 @@ func TestAdminDashboardRPCsWorkspaceAdminScope(parseT *testing.T) {
 	}
 
 	parseBobCtx := parseBindAuthUser(parseServer, "peer-admin-bob-workspace", parseBobAuth.ID, parseBobAuth.Email)
-	parseDashboardResp, parseErr := parseServer.GetAdminDashboard(parseBobCtx, &chatpb.GetAdminDashboardRequest{
+	if _, parseErr = parseServer.GetAdminDashboard(parseBobCtx, &chatpb.GetAdminDashboardRequest{
 		LookbackDays: 30,
 		TopLimit:     10,
 		RecentLimit:  10,
-	})
-	if parseErr != nil {
-		parseT.Fatalf("GetAdminDashboard workspace-admin: %v", parseErr)
-	}
-	if parseDashboardResp.GetSummary().GetTotalUsers() != 1 || parseDashboardResp.GetSummary().GetWindowUsageEvents() != 1 {
-		parseT.Fatalf("expected workspace-scoped dashboard summary, got %+v", parseDashboardResp.GetSummary())
-	}
-	if len(parseDashboardResp.GetRecentUsageEvents()) != 1 || parseDashboardResp.GetRecentUsageEvents()[0].GetEmail() != "bob@example.com" {
-		parseT.Fatalf("expected only Bob usage in workspace scope, got %+v", parseDashboardResp.GetRecentUsageEvents())
-	}
-	if len(parseDashboardResp.GetRecentUsers()) != 1 || parseDashboardResp.GetRecentUsers()[0].GetEmail() != "bob@example.com" {
-		parseT.Fatalf("expected only Bob user summary in workspace scope, got %+v", parseDashboardResp.GetRecentUsers())
-	}
-	if len(parseDashboardResp.GetRecentConversations()) != 1 || parseDashboardResp.GetRecentConversations()[0].GetEmail() != "bob@example.com" {
-		parseT.Fatalf("expected only Bob conversations in workspace scope, got %+v", parseDashboardResp.GetRecentConversations())
+	}); status.Code(parseErr) != codes.PermissionDenied {
+		parseT.Fatalf("GetAdminDashboard workspace-admin status code = %v, want %v", status.Code(parseErr), codes.PermissionDenied)
 	}
 
 	parseUsersResp, parseErr := parseServer.ListAdminUsers(parseBobCtx, &chatpb.ListAdminUsersRequest{Limit: 10})
@@ -1152,6 +1139,9 @@ func TestAdminDashboardRPCsWorkspaceAdminScope(parseT *testing.T) {
 	if len(parseUsageResp.GetEvents()) != 1 || parseUsageResp.GetEvents()[0].GetEmail() != "bob@example.com" {
 		parseT.Fatalf("expected scoped usage events to include only bob, got %+v", parseUsageResp.GetEvents())
 	}
+	if parseUsageResp.GetEvents()[0].GetProviderRequestId() != "" || parseUsageResp.GetEvents()[0].GetClientId() != "" {
+		parseT.Fatalf("expected workspace-scoped usage diagnostics to be redacted, got %+v", parseUsageResp.GetEvents()[0])
+	}
 
 	parseConversationResp, parseErr := parseServer.ListAdminConversations(parseBobCtx, &chatpb.ListAdminConversationsRequest{Limit: 10})
 	if parseErr != nil {
@@ -1159,6 +1149,9 @@ func TestAdminDashboardRPCsWorkspaceAdminScope(parseT *testing.T) {
 	}
 	if len(parseConversationResp.GetConversations()) != 1 || parseConversationResp.GetConversations()[0].GetEmail() != "bob@example.com" {
 		parseT.Fatalf("expected scoped conversations to include only bob, got %+v", parseConversationResp.GetConversations())
+	}
+	if parseConversationResp.GetConversations()[0].GetPreview() != parseWorkspaceScopeRedactionText {
+		parseT.Fatalf("expected workspace-scoped conversation preview redaction, got %+v", parseConversationResp.GetConversations()[0])
 	}
 }
 
@@ -1190,12 +1183,28 @@ func TestAdminUserControlRPCsWorkspaceAdminScope(parseT *testing.T) {
 		parseT.Fatalf("expected scoped search to include bob only, got %+v", parseSearchResp.GetUsers())
 	}
 
-	if _, parseErr = parseServer.GetAdminUserDetail(parseBobCtx, &chatpb.GetAdminUserDetailRequest{
+	parseUserDetailResp, parseErr := parseServer.GetAdminUserDetail(parseBobCtx, &chatpb.GetAdminUserDetailRequest{
 		UserId:       parseBobAuth.ID,
 		LookbackDays: 30,
 		Limit:        10,
-	}); parseErr != nil {
+	})
+	if parseErr != nil {
 		parseT.Fatalf("GetAdminUserDetail scoped bob: %v", parseErr)
+	}
+	if len(parseUserDetailResp.GetDetail().GetRecentSessions()) > 0 {
+		parseSessionEntry := parseUserDetailResp.GetDetail().GetRecentSessions()[0]
+		if parseSessionEntry.GetSessionId() != "" || parseSessionEntry.GetIpAddress() != "" {
+			parseT.Fatalf("expected workspace-scoped auth session redaction, got %+v", parseSessionEntry)
+		}
+	}
+	if len(parseUserDetailResp.GetDetail().GetRecentUsageEvents()) > 0 {
+		parseUsageEntry := parseUserDetailResp.GetDetail().GetRecentUsageEvents()[0]
+		if parseUsageEntry.GetProviderRequestId() != "" || parseUsageEntry.GetClientId() != "" {
+			parseT.Fatalf("expected workspace-scoped user detail usage redaction, got %+v", parseUsageEntry)
+		}
+	}
+	if len(parseUserDetailResp.GetDetail().GetRecentAuditLogs()) > 0 && parseUserDetailResp.GetDetail().GetRecentAuditLogs()[0].GetPayloadJson() != "{}" {
+		parseT.Fatalf("expected workspace-scoped user detail audit payload redaction, got %+v", parseUserDetailResp.GetDetail().GetRecentAuditLogs()[0])
 	}
 
 	if _, parseErr = parseServer.GetAdminUserDetail(parseBobCtx, &chatpb.GetAdminUserDetailRequest{

@@ -22,6 +22,36 @@ func parseRequireSuperuserBillingMutationConfirmation(isParseConfirmed bool, par
 	return parseReason, nil
 }
 
+// parseBuildSuperuserBillingPlanEntry maps one billing plan row into protobuf form.
+func parseBuildSuperuserBillingPlanEntry(parseRow parseBillingPlanRow) *chatpb.BillingPlanEntry {
+	return &chatpb.BillingPlanEntry{
+		PlanCode:              parseRow.PlanCode,
+		PlanName:              parseRow.PlanName,
+		PlanRank:              parseRow.PlanRank,
+		IsActive:              parseRow.IsActive,
+		MonthlyBaseCents:      parseRow.MonthlyBaseCents,
+		YearlyBaseCents:       parseRow.YearlyBaseCents,
+		IncludedTokensMonthly: parseRow.IncludedTokensMonthly,
+		IncludedSeats:         parseRow.IncludedSeats,
+		MaxSeats:              parseRow.MaxSeats,
+		SupportsPriority:      parseRow.SupportsPriority,
+		SupportsTeamWorkspace: parseRow.SupportsTeamWorkspace,
+		SupportsSso:           parseRow.SupportsSSO,
+		CreatedAt:             parseRow.CreatedAt,
+		UpdatedAt:             parseRow.UpdatedAt,
+	}
+}
+
+// parseBuildSuperuserBillingPlanEntitlementEntry maps one billing-plan entitlement row into protobuf form.
+func parseBuildSuperuserBillingPlanEntitlementEntry(parsePlanCode string, parseRow parseBillingPlanEntitlementRow) *chatpb.BillingPlanEntitlementEntry {
+	return &chatpb.BillingPlanEntitlementEntry{
+		PlanCode:         parsePlanCode,
+		EntitlementKey:   parseRow.EntitlementKey,
+		EntitlementValue: parseRow.EntitlementValue,
+		UpdatedAt:        parseRow.UpdatedAt,
+	}
+}
+
 // parseBuildSuperuserBillingPlanOverageEntry maps one billing overage row into protobuf form.
 func parseBuildSuperuserBillingPlanOverageEntry(parseRow parseBillingPlanOverageRow) *chatpb.BillingPlanOverageEntry {
 	return &chatpb.BillingPlanOverageEntry{
@@ -66,6 +96,224 @@ func parseBuildSuperuserBillingUpgradeTriggerEntry(parseRow parseBillingUpgradeT
 		IsEnabled:        parseRow.IsEnabled,
 		UpdatedAt:        parseRow.UpdatedAt,
 	}
+}
+
+// SetSuperuserBillingPlan upserts one superuser billing plan row.
+func (parseS *chatServer) SetSuperuserBillingPlan(parseCtx context.Context, parseReq *chatpb.SetSuperuserBillingPlanRequest) (*chatpb.SetSuperuserBillingPlanResponse, error) {
+	parseSuperuserUserID, parseErr := parseS.parseRequireSuperuserMutationUserID(parseCtx, "superuser.billing.plan.set")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	var parsePlanCode string
+	var parsePlanName string
+	var parsePlanRank int64
+	var isParseActive bool
+	var parseMonthlyBaseCents int64
+	var parseYearlyBaseCents int64
+	var parseIncludedTokensMonthly int64
+	var parseIncludedSeats int64
+	var parseMaxSeats int64
+	var isParseSupportsPriority bool
+	var isParseSupportsTeamWorkspace bool
+	var isParseSupportsSSO bool
+	var parseReason string
+	var isParseConfirmed bool
+	if parseReq != nil {
+		parsePlanCode = strings.TrimSpace(parseReq.GetPlanCode())
+		parsePlanName = strings.TrimSpace(parseReq.GetPlanName())
+		parsePlanRank = parseReq.GetPlanRank()
+		isParseActive = parseReq.GetIsActive()
+		parseMonthlyBaseCents = parseReq.GetMonthlyBaseCents()
+		parseYearlyBaseCents = parseReq.GetYearlyBaseCents()
+		parseIncludedTokensMonthly = parseReq.GetIncludedTokensMonthly()
+		parseIncludedSeats = parseReq.GetIncludedSeats()
+		parseMaxSeats = parseReq.GetMaxSeats()
+		isParseSupportsPriority = parseReq.GetSupportsPriority()
+		isParseSupportsTeamWorkspace = parseReq.GetSupportsTeamWorkspace()
+		isParseSupportsSSO = parseReq.GetSupportsSso()
+		parseReason = parseReq.GetReason()
+		isParseConfirmed = parseReq.GetConfirm()
+	}
+	parseReason, parseErr = parseRequireSuperuserBillingMutationConfirmation(isParseConfirmed, parseReason)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	if parseS == nil || parseS.store == nil {
+		return nil, status.Error(codes.Unavailable, "store unavailable")
+	}
+	parseRow, parseErr := parseS.store.parseUpsertSuperuserBillingPlan(parseSuperuserBillingPlanWrite{
+		PlanCode:              parsePlanCode,
+		PlanName:              parsePlanName,
+		PlanRank:              parsePlanRank,
+		IsActive:              isParseActive,
+		MonthlyBaseCents:      parseMonthlyBaseCents,
+		YearlyBaseCents:       parseYearlyBaseCents,
+		IncludedTokensMonthly: parseIncludedTokensMonthly,
+		IncludedSeats:         parseIncludedSeats,
+		MaxSeats:              parseMaxSeats,
+		SupportsPriority:      isParseSupportsPriority,
+		SupportsTeamWorkspace: isParseSupportsTeamWorkspace,
+		SupportsSSO:           isParseSupportsSSO,
+	})
+	if parseErr != nil {
+		if parseStatusErr, parseOk := status.FromError(parseErr); parseOk {
+			return nil, status.Error(parseStatusErr.Code(), parseStatusErr.Message())
+		}
+		return nil, status.Errorf(codes.Internal, "set superuser billing plan: %v", parseErr)
+	}
+	parseS.parseTrackAdminAuditEvent(
+		parseAdminAccessScope{isPlatformScope: true, adminUserID: parseSuperuserUserID},
+		"admin.superuser.billing_plan.set",
+		"billing_plan",
+		parseRow.PlanCode,
+		parseReason,
+		"{}",
+		0,
+	)
+	return &chatpb.SetSuperuserBillingPlanResponse{
+		Plan:   parseBuildSuperuserBillingPlanEntry(parseRow),
+		Status: "updated",
+	}, nil
+}
+
+// DeleteSuperuserBillingPlan deletes one superuser billing plan row.
+func (parseS *chatServer) DeleteSuperuserBillingPlan(parseCtx context.Context, parseReq *chatpb.DeleteSuperuserBillingPlanRequest) (*chatpb.DeleteSuperuserBillingPlanResponse, error) {
+	parseSuperuserUserID, parseErr := parseS.parseRequireSuperuserMutationUserID(parseCtx, "superuser.billing.plan.delete")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	var parsePlanCode string
+	var parseReason string
+	var isParseConfirmed bool
+	if parseReq != nil {
+		parsePlanCode = strings.TrimSpace(parseReq.GetPlanCode())
+		parseReason = parseReq.GetReason()
+		isParseConfirmed = parseReq.GetConfirm()
+	}
+	parseReason, parseErr = parseRequireSuperuserBillingMutationConfirmation(isParseConfirmed, parseReason)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	if parseS == nil || parseS.store == nil {
+		return nil, status.Error(codes.Unavailable, "store unavailable")
+	}
+	if parseErr = parseS.store.parseDeleteSuperuserBillingPlan(parsePlanCode); parseErr != nil {
+		if parseErr == errStoreSuperuserScopeMissing {
+			return nil, status.Error(codes.NotFound, "billing plan not found")
+		}
+		return nil, status.Errorf(codes.Internal, "delete superuser billing plan: %v", parseErr)
+	}
+	parseS.parseTrackAdminAuditEvent(
+		parseAdminAccessScope{isPlatformScope: true, adminUserID: parseSuperuserUserID},
+		"admin.superuser.billing_plan.delete",
+		"billing_plan",
+		parseNormalizeSuperuserBillingPlanCode(parsePlanCode),
+		parseReason,
+		"{}",
+		0,
+	)
+	return &chatpb.DeleteSuperuserBillingPlanResponse{
+		PlanCode: parseNormalizeSuperuserBillingPlanCode(parsePlanCode),
+		Status:   "deleted",
+	}, nil
+}
+
+// SetSuperuserBillingPlanEntitlement upserts one superuser billing-plan entitlement row.
+func (parseS *chatServer) SetSuperuserBillingPlanEntitlement(parseCtx context.Context, parseReq *chatpb.SetSuperuserBillingPlanEntitlementRequest) (*chatpb.SetSuperuserBillingPlanEntitlementResponse, error) {
+	parseSuperuserUserID, parseErr := parseS.parseRequireSuperuserMutationUserID(parseCtx, "superuser.billing.plan_entitlement.set")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	var parsePlanCode string
+	var parseEntitlementKey string
+	var parseEntitlementValue string
+	var parseReason string
+	var isParseConfirmed bool
+	if parseReq != nil {
+		parsePlanCode = strings.TrimSpace(parseReq.GetPlanCode())
+		parseEntitlementKey = strings.TrimSpace(parseReq.GetEntitlementKey())
+		parseEntitlementValue = strings.TrimSpace(parseReq.GetEntitlementValue())
+		parseReason = parseReq.GetReason()
+		isParseConfirmed = parseReq.GetConfirm()
+	}
+	parseReason, parseErr = parseRequireSuperuserBillingMutationConfirmation(isParseConfirmed, parseReason)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	if parseS == nil || parseS.store == nil {
+		return nil, status.Error(codes.Unavailable, "store unavailable")
+	}
+	parseRow, parseErr := parseS.store.parseUpsertSuperuserBillingPlanEntitlement(parseSuperuserBillingPlanEntitlementWrite{
+		PlanCode:         parsePlanCode,
+		EntitlementKey:   parseEntitlementKey,
+		EntitlementValue: parseEntitlementValue,
+	})
+	if parseErr != nil {
+		if parseStatusErr, parseOk := status.FromError(parseErr); parseOk {
+			return nil, status.Error(parseStatusErr.Code(), parseStatusErr.Message())
+		}
+		return nil, status.Errorf(codes.Internal, "set superuser billing plan entitlement: %v", parseErr)
+	}
+	parsePlanCode = parseNormalizeSuperuserBillingPlanCode(parsePlanCode)
+	parseS.parseTrackAdminAuditEvent(
+		parseAdminAccessScope{isPlatformScope: true, adminUserID: parseSuperuserUserID},
+		"admin.superuser.billing_plan_entitlement.set",
+		"billing_plan_entitlement",
+		parsePlanCode+":"+parseRow.EntitlementKey,
+		parseReason,
+		"{}",
+		0,
+	)
+	return &chatpb.SetSuperuserBillingPlanEntitlementResponse{
+		Entitlement: parseBuildSuperuserBillingPlanEntitlementEntry(parsePlanCode, parseRow),
+		Status:      "updated",
+	}, nil
+}
+
+// DeleteSuperuserBillingPlanEntitlement deletes one superuser billing-plan entitlement row.
+func (parseS *chatServer) DeleteSuperuserBillingPlanEntitlement(parseCtx context.Context, parseReq *chatpb.DeleteSuperuserBillingPlanEntitlementRequest) (*chatpb.DeleteSuperuserBillingPlanEntitlementResponse, error) {
+	parseSuperuserUserID, parseErr := parseS.parseRequireSuperuserMutationUserID(parseCtx, "superuser.billing.plan_entitlement.delete")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	var parsePlanCode string
+	var parseEntitlementKey string
+	var parseReason string
+	var isParseConfirmed bool
+	if parseReq != nil {
+		parsePlanCode = strings.TrimSpace(parseReq.GetPlanCode())
+		parseEntitlementKey = strings.TrimSpace(parseReq.GetEntitlementKey())
+		parseReason = parseReq.GetReason()
+		isParseConfirmed = parseReq.GetConfirm()
+	}
+	parseReason, parseErr = parseRequireSuperuserBillingMutationConfirmation(isParseConfirmed, parseReason)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	if parseS == nil || parseS.store == nil {
+		return nil, status.Error(codes.Unavailable, "store unavailable")
+	}
+	if parseErr = parseS.store.parseDeleteSuperuserBillingPlanEntitlement(parsePlanCode, parseEntitlementKey); parseErr != nil {
+		if parseErr == errStoreSuperuserScopeMissing {
+			return nil, status.Error(codes.NotFound, "billing plan entitlement not found")
+		}
+		return nil, status.Errorf(codes.Internal, "delete superuser billing plan entitlement: %v", parseErr)
+	}
+	parsePlanCode = parseNormalizeSuperuserBillingPlanCode(parsePlanCode)
+	parseS.parseTrackAdminAuditEvent(
+		parseAdminAccessScope{isPlatformScope: true, adminUserID: parseSuperuserUserID},
+		"admin.superuser.billing_plan_entitlement.delete",
+		"billing_plan_entitlement",
+		parsePlanCode+":"+parseEntitlementKey,
+		parseReason,
+		"{}",
+		0,
+	)
+	return &chatpb.DeleteSuperuserBillingPlanEntitlementResponse{
+		PlanCode:       parsePlanCode,
+		EntitlementKey: parseEntitlementKey,
+		Status:         "deleted",
+	}, nil
 }
 
 // SetSuperuserBillingPlanOverage upserts one superuser pricing overage control row.

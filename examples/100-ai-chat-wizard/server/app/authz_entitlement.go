@@ -109,8 +109,7 @@ func (parseS *chatServer) parseRequireUserEntitlement(parseUserID int64, parseEn
 		return status.Error(codes.Unauthenticated, "authentication required")
 	}
 	if parseS == nil || parseS.store == nil {
-		// TODO(authz): switch to fail-closed once all runtime paths provide billing state.
-		return nil
+		return status.Error(codes.Unavailable, "billing access control unavailable")
 	}
 	parseAccessControl, parseErr := parseS.store.parseGetBillingAccessControlByUser(parseUserID, time.Now().UTC())
 	if parseErr != nil {
@@ -132,36 +131,37 @@ func (parseS *chatServer) parseRequireUsageBudget(parseUserID int64) (func(), er
 	if parseUserID <= 0 {
 		return parseReleaseBudget, status.Error(codes.Unauthenticated, "authentication required")
 	}
+	if parseS == nil || parseS.store == nil {
+		return parseReleaseBudget, status.Error(codes.Unavailable, "usage budget access control unavailable")
+	}
 	parseNow := time.Now().UTC()
 	parseAccessControl := map[string]parseBillingAccessControl{}
-	if parseS != nil && parseS.store != nil {
-		parseResolvedAccessControl, parseErr := parseS.store.parseGetBillingAccessControlByUser(parseUserID, parseNow)
-		if parseErr != nil {
-			return parseReleaseBudget, status.Errorf(codes.Internal, "resolve usage budget access control: %v", parseErr)
-		}
-		parseAccessControl = parseResolvedAccessControl
+	parseResolvedAccessControl, parseErr := parseS.store.parseGetBillingAccessControlByUser(parseUserID, parseNow)
+	if parseErr != nil {
+		return parseReleaseBudget, status.Errorf(codes.Internal, "resolve usage budget access control: %v", parseErr)
+	}
+	parseAccessControl = parseResolvedAccessControl
 
-		parseMonthlyTokenLimit, hasParseMonthlyTokenLimit, parseErr := parseResolveUsageBudgetLimit(parseAccessControl, billingEntitlementUsageMonthlyTokenLimit)
-		if parseErr != nil {
-			return parseReleaseBudget, status.Errorf(codes.FailedPrecondition, "usage budget config invalid: %v", parseErr)
+	parseMonthlyTokenLimit, hasParseMonthlyTokenLimit, parseErr := parseResolveUsageBudgetLimit(parseAccessControl, billingEntitlementUsageMonthlyTokenLimit)
+	if parseErr != nil {
+		return parseReleaseBudget, status.Errorf(codes.FailedPrecondition, "usage budget config invalid: %v", parseErr)
+	}
+	if !hasParseMonthlyTokenLimit {
+		return parseReleaseBudget, status.Errorf(codes.PermissionDenied, "subscription entitlement missing: %s", billingEntitlementUsageMonthlyTokenLimit)
+	}
+	if parseMonthlyTokenLimit > 0 {
+		parseMonthStart := parseResolveUsageBudgetMonthStart(parseNow)
+		parseUsedTokens, parseErr2 := parseS.store.parseSumUsageTokensSince(parseUserID, parseMonthStart)
+		if parseErr2 != nil {
+			return parseReleaseBudget, status.Errorf(codes.Internal, "resolve usage token totals: %v", parseErr2)
 		}
-		if !hasParseMonthlyTokenLimit {
-			return parseReleaseBudget, status.Errorf(codes.PermissionDenied, "subscription entitlement missing: %s", billingEntitlementUsageMonthlyTokenLimit)
-		}
-		if parseMonthlyTokenLimit > 0 {
-			parseMonthStart := parseResolveUsageBudgetMonthStart(parseNow)
-			parseUsedTokens, parseErr2 := parseS.store.parseSumUsageTokensSince(parseUserID, parseMonthStart)
-			if parseErr2 != nil {
-				return parseReleaseBudget, status.Errorf(codes.Internal, "resolve usage token totals: %v", parseErr2)
-			}
-			if parseUsedTokens >= parseMonthlyTokenLimit {
-				return parseReleaseBudget, status.Errorf(
-					codes.ResourceExhausted,
-					"monthly token quota exceeded: used=%d limit=%d",
-					parseUsedTokens,
-					parseMonthlyTokenLimit,
-				)
-			}
+		if parseUsedTokens >= parseMonthlyTokenLimit {
+			return parseReleaseBudget, status.Errorf(
+				codes.ResourceExhausted,
+				"monthly token quota exceeded: used=%d limit=%d",
+				parseUsedTokens,
+				parseMonthlyTokenLimit,
+			)
 		}
 	}
 

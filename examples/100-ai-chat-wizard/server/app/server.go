@@ -2294,6 +2294,7 @@ type serverRuntimeConfig struct {
 	environment                     string
 	allowInsecureAuthSecretFallback bool
 	usagePremiumPct                 float64
+	platformFeeUSD                  float64
 }
 
 func parseReadServerRuntimeConfig(parseGetenv func(string) string) serverRuntimeConfig {
@@ -2310,6 +2311,7 @@ func parseReadServerRuntimeConfig(parseGetenv func(string) string) serverRuntime
 		parseDbPath = "examples/100-ai-chat-wizard/bin/runtime/chat_history.db"
 	}
 	parseUsagePremiumPct := parseUsagePremiumPercent(parseGetenv("CHAT_USAGE_PREMIUM_PERCENT"), 5.0)
+	parsePlatformFeeValue := parsePlatformFeeUSD(parseGetenv("CHAT_PLATFORM_FEE_USD"), 29.0)
 	return serverRuntimeConfig{
 		openAIAPIKey:                    strings.TrimSpace(parseGetenv("OPENAI_API_KEY")),
 		anthropicAPIKey:                 strings.TrimSpace(parseGetenv("ANTHROPIC_API_KEY")),
@@ -2322,6 +2324,7 @@ func parseReadServerRuntimeConfig(parseGetenv func(string) string) serverRuntime
 		environment:                     parseResolveRuntimeEnvironment(parseGetenv("CHAT_ENV")),
 		allowInsecureAuthSecretFallback: parseResolveBooleanEnv(parseGetenv("CHAT_ALLOW_INSECURE_AUTH_FALLBACK")),
 		usagePremiumPct:                 parseUsagePremiumPct,
+		platformFeeUSD:                  parsePlatformFeeValue,
 	}
 }
 
@@ -2351,6 +2354,21 @@ func parseUsagePremiumPercent(parseRawValue string, parseFallback float64) float
 	}
 	if parseParsed > 1000 {
 		return 1000
+	}
+	return parseParsed
+}
+
+func parsePlatformFeeUSD(parseRawValue string, parseFallback float64) float64 {
+	parseTrimmed := strings.TrimSpace(parseRawValue)
+	if parseTrimmed == "" {
+		return parseFallback
+	}
+	parseParsed, parseErr := strconv.ParseFloat(parseTrimmed, 64)
+	if parseErr != nil || parseParsed < 0 {
+		return parseFallback
+	}
+	if parseParsed > 1_000_000 {
+		return 1_000_000
 	}
 	return parseParsed
 }
@@ -2635,7 +2653,9 @@ func ParseRun() {
 		)
 	}
 	setChatUsagePremiumPercent(parseConfig.usagePremiumPct)
+	setChatPlatformFeeUSD(parseConfig.platformFeeUSD)
 	parseLogger.Info("billing: usage premium configured", slog.Float64("usage_premium_percent", parseConfig.usagePremiumPct))
+	parseLogger.Info("billing: platform fee configured", slog.Float64("platform_fee_usd", parseConfig.platformFeeUSD))
 	parseStubSet := parseNormalizeStubProviders(parseConfig.stubProviders)
 
 	parseOpenAIAPIKey := parseConfig.openAIAPIKey

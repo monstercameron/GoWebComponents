@@ -59,7 +59,7 @@ func (parseS *chatServer) parseResolveAdminAuditWorkspaceID(parseScope parseAdmi
 			WorkspaceKey: "platform-audit",
 			Slug:         "platform-audit",
 			Name:         "Platform Audit",
-			PlanCode:     "free",
+			PlanCode:     "pro",
 			Status:       "active",
 			OwnerUserID:  parseScope.adminUserID,
 			SettingsJSON: "{}",

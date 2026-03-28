@@ -414,6 +414,23 @@ type parseExperimentRow struct {
 	UpdatedAt     string
 }
 
+type parseBillingPlanRow struct {
+	PlanCode              string
+	PlanName              string
+	PlanRank              int64
+	IsActive              bool
+	MonthlyBaseCents      int64
+	YearlyBaseCents       int64
+	IncludedTokensMonthly int64
+	IncludedSeats         int64
+	MaxSeats              int64
+	SupportsPriority      bool
+	SupportsTeamWorkspace bool
+	SupportsSSO           bool
+	CreatedAt             string
+	UpdatedAt             string
+}
+
 type parseBillingPlanOverageRow struct {
 	ID                int64
 	PlanCode          string
@@ -747,7 +764,7 @@ func (parseS *Store) parseUpsertWorkspace(parseWrite parseWorkspaceWrite) error 
 		parseWorkspaceKey,
 		parseSlug,
 		strings.TrimSpace(parseWrite.Name),
-		parseNormalizeSUValue(parseWrite.PlanCode, "free"),
+		parseNormalizeSUValue(parseWrite.PlanCode, "pro"),
 		parseNormalizeSUValue(parseWrite.Status, "active"),
 		parseWrite.OwnerUserID,
 		parseNormalizeBillingJSON(parseWrite.SettingsJSON),
@@ -2225,6 +2242,51 @@ func (parseS *Store) parseListExperiments(parseLimit int64) ([]parseExperimentRo
 		parseExperimentRows = append(parseExperimentRows, parseRow)
 	}
 	return parseExperimentRows, parseRows.Err()
+}
+
+// parseListBillingPlans lists billing plan rows by rank and code.
+func (parseS *Store) parseListBillingPlans(parseLimit int64) ([]parseBillingPlanRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listBillingPlans, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parsePlanRows := make([]parseBillingPlanRow, 0)
+	for parseRows.Next() {
+		var parseRow parseBillingPlanRow
+		var parseIsActive int64
+		var parseSupportsPriority int64
+		var parseSupportsTeamWorkspace int64
+		var parseSupportsSSO int64
+		if parseErr2 := parseRows.Scan(
+			&parseRow.PlanCode,
+			&parseRow.PlanName,
+			&parseRow.PlanRank,
+			&parseIsActive,
+			&parseRow.MonthlyBaseCents,
+			&parseRow.YearlyBaseCents,
+			&parseRow.IncludedTokensMonthly,
+			&parseRow.IncludedSeats,
+			&parseRow.MaxSeats,
+			&parseSupportsPriority,
+			&parseSupportsTeamWorkspace,
+			&parseSupportsSSO,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseRow.IsActive = parseIsActive != 0
+		parseRow.SupportsPriority = parseSupportsPriority != 0
+		parseRow.SupportsTeamWorkspace = parseSupportsTeamWorkspace != 0
+		parseRow.SupportsSSO = parseSupportsSSO != 0
+		parsePlanRows = append(parsePlanRows, parseRow)
+	}
+	return parsePlanRows, parseRows.Err()
 }
 
 // parseListBillingPlanOverages lists pricing overage controls newest-first.

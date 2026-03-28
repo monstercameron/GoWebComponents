@@ -235,6 +235,7 @@ func parseMustCreateUser(parseT *testing.T, store *Store, parseEmail string) aut
 // parseMustAssignBillingPlan seeds one active billing customer+subscription for a user.
 func parseMustAssignBillingPlan(parseT *testing.T, parseStore *Store, parseUserID int64, parsePlanCode string) {
 	parseT.Helper()
+	parsePlanCode = parseResolveSeedBillingPlanCode(parsePlanCode)
 	parseNow := time.Now().UTC()
 	parseCustomer, parseErr := parseStore.parseUpsertBillingCustomer(parseBillingCustomerWrite{
 		UserID:             parseUserID,
@@ -270,7 +271,7 @@ func parseMustEnsureWorkspaceMembership(parseT *testing.T, parseStore *Store, pa
 		WorkspaceKey: parseWorkspaceKey,
 		Slug:         parseWorkspaceKey,
 		Name:         "Workspace " + parseWorkspaceKey,
-		PlanCode:     "free",
+		PlanCode:     "pro",
 		Status:       "active",
 		OwnerUserID:  parseUserID,
 		SettingsJSON: "{}",
@@ -302,6 +303,17 @@ func parseMustEnsureWorkspaceMembership(parseT *testing.T, parseStore *Store, pa
 		parseT.Fatalf("parseUpsertWorkspaceMembership: %v", parseErr2)
 	}
 	return parseWorkspaceID
+}
+
+// parseResolveSeedBillingPlanCode maps legacy seed plan aliases into canonical plan codes.
+func parseResolveSeedBillingPlanCode(parsePlanCode string) string {
+	parsePlanCode = strings.TrimSpace(strings.ToLower(parsePlanCode))
+	switch parsePlanCode {
+	case "", "free":
+		return "pro"
+	default:
+		return parsePlanCode
+	}
 }
 
 func parseNewFakeProvider() *fakeProvider {

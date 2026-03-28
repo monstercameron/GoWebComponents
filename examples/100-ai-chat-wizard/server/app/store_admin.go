@@ -799,6 +799,9 @@ func (parseS *Store) parseStoreAdminBillingOverrideByUser(parseUserID int64, par
 	if parseWrite.OverrideKey == "" {
 		return parseBillingAccessOverrideRow{}, errStoreBillingScopeMissing
 	}
+	if parseErr = parseValidateUsageBasedBillingOverrideWrite(parseWrite.OverrideKey, parseWrite.OverrideValue); parseErr != nil {
+		return parseBillingAccessOverrideRow{}, parseErr
+	}
 	if parseErr = parseS.parseUpsertBillingAccessOverride(parseWrite); parseErr != nil {
 		return parseBillingAccessOverrideRow{}, parseErr
 	}

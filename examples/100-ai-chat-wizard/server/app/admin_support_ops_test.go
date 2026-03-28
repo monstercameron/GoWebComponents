@@ -336,8 +336,46 @@ func TestAdminSupportTriageRPCsWorkspaceAdminScope(parseT *testing.T) {
 	if parseHasAdminSupportTicketProtoID(parseQueueResp.GetTickets(), parseAliceTicketID) {
 		parseT.Fatalf("workspace-admin queue leaked out-of-scope ticket id=%d rows=%+v", parseAliceTicketID, parseQueueResp.GetTickets())
 	}
-	if parseFindAdminSupportTicketProtoIDByKey(parseQueueResp.GetTickets(), "ticket-bob-scope-only") <= 0 {
+	parseBobTicketID := parseFindAdminSupportTicketProtoIDByKey(parseQueueResp.GetTickets(), "ticket-bob-scope-only")
+	if parseBobTicketID <= 0 {
 		parseT.Fatalf("expected in-scope bob support ticket in queue, rows=%+v", parseQueueResp.GetTickets())
+	}
+	for _, parseTicketEntry := range parseQueueResp.GetTickets() {
+		if parseTicketEntry.GetId() != parseBobTicketID {
+			continue
+		}
+		if parseTicketEntry.GetBody() != parseWorkspaceScopeRedactionText {
+			parseT.Fatalf("expected workspace-scoped support queue body redaction, got %+v", parseTicketEntry)
+		}
+	}
+
+	if _, parseErr = parseServer.AddAdminSupportInternalNote(parseBobCtx, &chatpb.AddAdminSupportInternalNoteRequest{
+		TicketId: parseBobTicketID,
+		Body:     "workspace internal triage note",
+		Confirm:  true,
+		Reason:   "workspace-admin note",
+	}); parseErr != nil {
+		parseT.Fatalf("AddAdminSupportInternalNote in-scope workspace ticket: %v", parseErr)
+	}
+	parseBobDetailResp, parseErr := parseServer.GetAdminSupportTicketDetail(parseBobCtx, &chatpb.GetAdminSupportTicketDetailRequest{
+		TicketId: parseBobTicketID,
+		Limit:    25,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("GetAdminSupportTicketDetail in-scope workspace ticket: %v", parseErr)
+	}
+	if parseBobDetailResp.GetDetail().GetTicket().GetBody() != parseWorkspaceScopeRedactionText {
+		parseT.Fatalf("expected workspace-scoped support detail body redaction, got %+v", parseBobDetailResp.GetDetail().GetTicket())
+	}
+	for _, parseMessageEntry := range parseBobDetailResp.GetDetail().GetMessages() {
+		if parseMessageEntry.GetIsInternal() && parseMessageEntry.GetBody() != parseWorkspaceScopeRedactionText {
+			parseT.Fatalf("expected workspace-scoped internal support message redaction, got %+v", parseMessageEntry)
+		}
+	}
+	for _, parseAuditEntry := range parseBobDetailResp.GetDetail().GetAccountActionHistory() {
+		if parseAuditEntry.GetPayloadJson() != "{}" {
+			parseT.Fatalf("expected workspace-scoped support audit payload redaction, got %+v", parseAuditEntry)
+		}
 	}
 
 	if _, parseErr = parseServer.GetAdminSupportTicketDetail(parseBobCtx, &chatpb.GetAdminSupportTicketDetailRequest{

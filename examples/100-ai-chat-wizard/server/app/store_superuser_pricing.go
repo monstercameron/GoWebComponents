@@ -50,6 +50,157 @@ type parseSuperuserBillingDunningEventWrite struct {
 	ResolvedAt     string
 }
 
+type parseSuperuserBillingPlanWrite struct {
+	PlanCode              string
+	PlanName              string
+	PlanRank              int64
+	IsActive              bool
+	MonthlyBaseCents      int64
+	YearlyBaseCents       int64
+	IncludedTokensMonthly int64
+	IncludedSeats         int64
+	MaxSeats              int64
+	SupportsPriority      bool
+	SupportsTeamWorkspace bool
+	SupportsSSO           bool
+}
+
+type parseSuperuserBillingPlanEntitlementWrite struct {
+	PlanCode         string
+	EntitlementKey   string
+	EntitlementValue string
+}
+
+// parseUpsertSuperuserBillingPlan stores one billing plan row keyed by plan code and returns the persisted row.
+func (parseS *Store) parseUpsertSuperuserBillingPlan(parseWrite parseSuperuserBillingPlanWrite) (parseBillingPlanRow, error) {
+	if parseErr := parseValidateUsageBasedBillingPlanWrite(parseWrite); parseErr != nil {
+		return parseBillingPlanRow{}, parseErr
+	}
+	if parseErr := parseValidatePlanBoundaryPlanWrite(parseWrite); parseErr != nil {
+		return parseBillingPlanRow{}, parseErr
+	}
+	parsePlanCode := parseNormalizeSuperuserBillingPlanCode(parseWrite.PlanCode)
+	if parsePlanCode == "" {
+		return parseBillingPlanRow{}, errors.New("upsert superuser billing plan: plan code is required")
+	}
+	parsePlanName := strings.TrimSpace(parseWrite.PlanName)
+	if parsePlanName == "" {
+		parsePlanName = parsePlanCode
+	}
+	parsePlanRank := parseWrite.PlanRank
+	if parsePlanRank < 0 {
+		parsePlanRank = 0
+	}
+	parseIncludedSeats := parseWrite.IncludedSeats
+	if parseIncludedSeats <= 0 {
+		parseIncludedSeats = 1
+	}
+	parseMaxSeats := parseWrite.MaxSeats
+	if parseMaxSeats <= 0 {
+		parseMaxSeats = parseIncludedSeats
+	}
+	if parseMaxSeats < parseIncludedSeats {
+		parseMaxSeats = parseIncludedSeats
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	if _, parseErr := parseS.db.Exec(
+		parseS.queries.upsertBillingPlan,
+		parsePlanCode,
+		parsePlanName,
+		parsePlanRank,
+		parseBuildBillingFlagValue(parseWrite.IsActive),
+		parseWrite.MonthlyBaseCents,
+		parseWrite.YearlyBaseCents,
+		parseWrite.IncludedTokensMonthly,
+		parseIncludedSeats,
+		parseMaxSeats,
+		parseBuildBillingFlagValue(parseWrite.SupportsPriority),
+		parseBuildBillingFlagValue(parseWrite.SupportsTeamWorkspace),
+		parseBuildBillingFlagValue(parseWrite.SupportsSSO),
+		parseNow,
+		parseNow,
+	); parseErr != nil {
+		return parseBillingPlanRow{}, parseErr
+	}
+	parseRows, parseErr := parseS.parseListBillingPlans(parseAdminScopedScanLimit)
+	if parseErr != nil {
+		return parseBillingPlanRow{}, parseErr
+	}
+	for _, parseRow := range parseRows {
+		if parseRow.PlanCode == parsePlanCode {
+			return parseRow, nil
+		}
+	}
+	return parseBillingPlanRow{}, errStoreSuperuserScopeMissing
+}
+
+// parseDeleteSuperuserBillingPlan deletes one billing plan row keyed by plan code.
+func (parseS *Store) parseDeleteSuperuserBillingPlan(parsePlanCode string) error {
+	parsePlanCode = parseNormalizeSuperuserBillingPlanCode(parsePlanCode)
+	if parsePlanCode == "" {
+		return errors.New("delete superuser billing plan: plan code is required")
+	}
+	parseResult, parseErr := parseS.db.Exec(parseS.queries.deleteBillingPlan, parsePlanCode)
+	if parseErr != nil {
+		return parseErr
+	}
+	parseRowsAffected, parseErr := parseResult.RowsAffected()
+	if parseErr == nil && parseRowsAffected == 0 {
+		return errStoreSuperuserScopeMissing
+	}
+	return nil
+}
+
+// parseUpsertSuperuserBillingPlanEntitlement stores one billing-plan entitlement row and returns the persisted row.
+func (parseS *Store) parseUpsertSuperuserBillingPlanEntitlement(parseWrite parseSuperuserBillingPlanEntitlementWrite) (parseBillingPlanEntitlementRow, error) {
+	if parseErr := parseValidatePlanBoundaryEntitlementWrite(parseWrite); parseErr != nil {
+		return parseBillingPlanEntitlementRow{}, parseErr
+	}
+	parsePlanCode := parseNormalizeSuperuserBillingPlanCode(parseWrite.PlanCode)
+	parseEntitlementKey := strings.TrimSpace(parseWrite.EntitlementKey)
+	if parsePlanCode == "" || parseEntitlementKey == "" {
+		return parseBillingPlanEntitlementRow{}, errors.New("upsert superuser billing plan entitlement: plan code and entitlement key are required")
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	if _, parseErr := parseS.db.Exec(
+		parseS.queries.upsertBillingPlanEntitlement,
+		parsePlanCode,
+		parseEntitlementKey,
+		strings.TrimSpace(parseWrite.EntitlementValue),
+		parseNow,
+	); parseErr != nil {
+		return parseBillingPlanEntitlementRow{}, parseErr
+	}
+	parseRows, parseErr := parseS.parseListBillingPlanEntitlements(parsePlanCode)
+	if parseErr != nil {
+		return parseBillingPlanEntitlementRow{}, parseErr
+	}
+	for _, parseRow := range parseRows {
+		if parseRow.EntitlementKey == parseEntitlementKey {
+			return parseRow, nil
+		}
+	}
+	return parseBillingPlanEntitlementRow{}, errStoreSuperuserScopeMissing
+}
+
+// parseDeleteSuperuserBillingPlanEntitlement deletes one billing-plan entitlement row keyed by plan code and entitlement key.
+func (parseS *Store) parseDeleteSuperuserBillingPlanEntitlement(parsePlanCode string, parseEntitlementKey string) error {
+	parsePlanCode = parseNormalizeSuperuserBillingPlanCode(parsePlanCode)
+	parseEntitlementKey = strings.TrimSpace(parseEntitlementKey)
+	if parsePlanCode == "" || parseEntitlementKey == "" {
+		return errors.New("delete superuser billing plan entitlement: plan code and entitlement key are required")
+	}
+	parseResult, parseErr := parseS.db.Exec(parseS.queries.deleteBillingPlanEntitlement, parsePlanCode, parseEntitlementKey)
+	if parseErr != nil {
+		return parseErr
+	}
+	parseRowsAffected, parseErr := parseResult.RowsAffected()
+	if parseErr == nil && parseRowsAffected == 0 {
+		return errStoreSuperuserScopeMissing
+	}
+	return nil
+}
+
 // parseUpsertSuperuserBillingPlanOverage stores one plan overage control row keyed by plan+meter and returns the persisted row.
 func (parseS *Store) parseUpsertSuperuserBillingPlanOverage(parseWrite parseSuperuserBillingPlanOverageWrite) (parseBillingPlanOverageRow, error) {
 	parsePlanCode := strings.TrimSpace(parseWrite.PlanCode)
@@ -319,4 +470,9 @@ func parseNormalizeSuperuserDunningStatus(parseStatus string) string {
 	default:
 		return "pending"
 	}
+}
+
+// parseNormalizeSuperuserBillingPlanCode normalizes one superuser billing plan code.
+func parseNormalizeSuperuserBillingPlanCode(parsePlanCode string) string {
+	return strings.TrimSpace(strings.ToLower(parsePlanCode))
 }

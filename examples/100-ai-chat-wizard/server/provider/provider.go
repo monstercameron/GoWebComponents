@@ -108,13 +108,13 @@ type MemoryExtractionRequest struct {
 }
 
 type UserMemoryCandidate struct {
-	Key             string
-	Category        string
-	Summary         string
-	Detail          string
-	UsefulnessScore int
-	ConfidenceScore float64
-	RubricReason    string
+	Key             string  `json:"key"`
+	Category        string  `json:"category"`
+	Summary         string  `json:"summary"`
+	Detail          string  `json:"detail"`
+	UsefulnessScore int     `json:"usefulness_score"`
+	ConfidenceScore float64 `json:"confidence_score"`
+	RubricReason    string  `json:"rubric_reason"`
 }
 
 type SpeechRequest struct {

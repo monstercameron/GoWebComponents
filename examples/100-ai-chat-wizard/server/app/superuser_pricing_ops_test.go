@@ -54,6 +54,40 @@ func TestStoreSuperuserPricingControlFuncs(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
 	parseOwner := parseSeedSuperuserControlPlaneData(parseT, parseStore)
 	parseCustomerID, parseSubscriptionID, parseInvoiceID := parseSeedSuperuserPricingInvoiceIDs(parseT, parseStore, parseOwner.ID)
+	parsePlanCode := "agent3-store-plan"
+	parsePlanEntitlementKey := "chat.send.enabled"
+
+	parsePlanRow, parseErr := parseStore.parseUpsertSuperuserBillingPlan(parseSuperuserBillingPlanWrite{
+		PlanCode:              parsePlanCode,
+		PlanName:              "Agent3 Store Plan",
+		PlanRank:              99,
+		IsActive:              true,
+		MonthlyBaseCents:      2900,
+		YearlyBaseCents:       29900,
+		IncludedTokensMonthly: 12345,
+		IncludedSeats:         1,
+		MaxSeats:              2,
+		SupportsPriority:      true,
+		SupportsTeamWorkspace: false,
+		SupportsSSO:           false,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertSuperuserBillingPlan: %v", parseErr)
+	}
+	if parsePlanRow.PlanCode != parsePlanCode || parsePlanRow.MonthlyBaseCents != 2900 {
+		parseT.Fatalf("unexpected billing plan row: %+v", parsePlanRow)
+	}
+	parseEntitlementRow, parseErr := parseStore.parseUpsertSuperuserBillingPlanEntitlement(parseSuperuserBillingPlanEntitlementWrite{
+		PlanCode:         parsePlanCode,
+		EntitlementKey:   parsePlanEntitlementKey,
+		EntitlementValue: "true",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertSuperuserBillingPlanEntitlement: %v", parseErr)
+	}
+	if parseEntitlementRow.EntitlementKey != parsePlanEntitlementKey || parseEntitlementRow.EntitlementValue != "true" {
+		parseT.Fatalf("unexpected billing plan entitlement row: %+v", parseEntitlementRow)
+	}
 
 	parseOverageRow, parseErr := parseStore.parseUpsertSuperuserBillingPlanOverage(parseSuperuserBillingPlanOverageWrite{
 		PlanCode:          "team",
@@ -146,6 +180,12 @@ func TestStoreSuperuserPricingControlFuncs(parseT *testing.T) {
 	if parseErr = parseStore.parseDeleteSuperuserBillingDunningEvent(parseDunningRow.ID); parseErr != nil {
 		parseT.Fatalf("parseDeleteSuperuserBillingDunningEvent: %v", parseErr)
 	}
+	if parseErr = parseStore.parseDeleteSuperuserBillingPlanEntitlement(parsePlanCode, parsePlanEntitlementKey); parseErr != nil {
+		parseT.Fatalf("parseDeleteSuperuserBillingPlanEntitlement: %v", parseErr)
+	}
+	if parseErr = parseStore.parseDeleteSuperuserBillingPlan(parsePlanCode); parseErr != nil {
+		parseT.Fatalf("parseDeleteSuperuserBillingPlan: %v", parseErr)
+	}
 
 	parseOverageRows, parseErr := parseStore.parseListBillingPlanOverages(50)
 	if parseErr != nil {
@@ -171,6 +211,22 @@ func TestStoreSuperuserPricingControlFuncs(parseT *testing.T) {
 	if _, hasParseDunningRow, parseErr := parseStore.parseGetBillingDunningEventByID(parseDunningRow.ID); parseErr != nil || hasParseDunningRow {
 		parseT.Fatalf("expected deleted dunning row to be absent, found=%v err=%v", hasParseDunningRow, parseErr)
 	}
+	parsePlanRows, parseErr := parseStore.parseListBillingPlans(200)
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingPlans: %v", parseErr)
+	}
+	for _, parsePlan := range parsePlanRows {
+		if parsePlan.PlanCode == parsePlanCode {
+			parseT.Fatalf("expected deleted billing plan row to be absent, rows=%+v", parsePlanRows)
+		}
+	}
+	parseEntitlementsAfter, parseErr := parseStore.parseListBillingPlanEntitlements(parsePlanCode)
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingPlanEntitlements after delete: %v", parseErr)
+	}
+	if len(parseEntitlementsAfter) != 0 {
+		parseT.Fatalf("expected deleted billing plan entitlements to be absent, rows=%+v", parseEntitlementsAfter)
+	}
 }
 
 // TestSuperuserPricingControlRPCs verifies typed superuser pricing CRUD RPC behavior and role gating.
@@ -180,6 +236,44 @@ func TestSuperuserPricingControlRPCs(parseT *testing.T) {
 	parseCustomerID, parseSubscriptionID, parseInvoiceID := parseSeedSuperuserPricingInvoiceIDs(parseT, parseStore, parseOwner.ID)
 	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
 	parseSuperuserCtx := parseBindAuthUser(parseServer, "peer-superuser-pricing-rpc", parseOwner.ID, parseOwner.Email)
+	parsePlanCode := "agent3-rpc-plan"
+	parsePlanEntitlementKey := "usage.monthly_token_limit"
+
+	parsePlanResp, parseErr := parseServer.SetSuperuserBillingPlan(parseSuperuserCtx, &chatpb.SetSuperuserBillingPlanRequest{
+		PlanCode:              parsePlanCode,
+		PlanName:              "Agent3 RPC Plan",
+		PlanRank:              101,
+		IsActive:              true,
+		MonthlyBaseCents:      3900,
+		YearlyBaseCents:       39900,
+		IncludedTokensMonthly: 200000,
+		IncludedSeats:         1,
+		MaxSeats:              3,
+		SupportsPriority:      true,
+		SupportsTeamWorkspace: true,
+		SupportsSso:           false,
+		Confirm:               true,
+		Reason:                "add mutation coverage for billing plans",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("SetSuperuserBillingPlan: %v", parseErr)
+	}
+	if parsePlanResp.GetPlan().GetPlanCode() != parsePlanCode || parsePlanResp.GetStatus() == "" {
+		parseT.Fatalf("unexpected SetSuperuserBillingPlan response: %+v", parsePlanResp)
+	}
+	parseEntitlementResp, parseErr := parseServer.SetSuperuserBillingPlanEntitlement(parseSuperuserCtx, &chatpb.SetSuperuserBillingPlanEntitlementRequest{
+		PlanCode:         parsePlanCode,
+		EntitlementKey:   parsePlanEntitlementKey,
+		EntitlementValue: "200000",
+		Confirm:          true,
+		Reason:           "add mutation coverage for billing plan entitlements",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("SetSuperuserBillingPlanEntitlement: %v", parseErr)
+	}
+	if parseEntitlementResp.GetEntitlement().GetEntitlementKey() != parsePlanEntitlementKey || parseEntitlementResp.GetStatus() == "" {
+		parseT.Fatalf("unexpected SetSuperuserBillingPlanEntitlement response: %+v", parseEntitlementResp)
+	}
 
 	parseOverageResp, parseErr := parseServer.SetSuperuserBillingPlanOverage(parseSuperuserCtx, &chatpb.SetSuperuserBillingPlanOverageRequest{
 		PlanCode:          "team",
@@ -284,9 +378,31 @@ func TestSuperuserPricingControlRPCs(parseT *testing.T) {
 	}); parseErr != nil {
 		parseT.Fatalf("DeleteSuperuserBillingDunningEvent: %v", parseErr)
 	}
+	if _, parseErr = parseServer.DeleteSuperuserBillingPlanEntitlement(parseSuperuserCtx, &chatpb.DeleteSuperuserBillingPlanEntitlementRequest{
+		PlanCode:       parsePlanCode,
+		EntitlementKey: parsePlanEntitlementKey,
+		Confirm:        true,
+		Reason:         "cleanup billing plan entitlement",
+	}); parseErr != nil {
+		parseT.Fatalf("DeleteSuperuserBillingPlanEntitlement: %v", parseErr)
+	}
+	if _, parseErr = parseServer.DeleteSuperuserBillingPlan(parseSuperuserCtx, &chatpb.DeleteSuperuserBillingPlanRequest{
+		PlanCode: parsePlanCode,
+		Confirm:  true,
+		Reason:   "cleanup billing plan",
+	}); parseErr != nil {
+		parseT.Fatalf("DeleteSuperuserBillingPlan: %v", parseErr)
+	}
 
 	parseNonSuperuser := parseMustCreateUser(parseT, parseStore, "non-su-pricing@example.com")
 	parseNonSuperuserCtx := parseBindAuthUser(parseServer, "peer-non-superuser-pricing-rpc", parseNonSuperuser.ID, parseNonSuperuser.Email)
+	if _, parseErr = parseServer.SetSuperuserBillingPlan(parseNonSuperuserCtx, &chatpb.SetSuperuserBillingPlanRequest{
+		PlanCode: parsePlanCode,
+		Confirm:  true,
+		Reason:   "should fail",
+	}); status.Code(parseErr) != codes.PermissionDenied {
+		parseT.Fatalf("SetSuperuserBillingPlan non-superuser status code=%v want=%v", status.Code(parseErr), codes.PermissionDenied)
+	}
 	if _, parseErr = parseServer.SetSuperuserBillingPlanOverage(parseNonSuperuserCtx, &chatpb.SetSuperuserBillingPlanOverageRequest{
 		PlanCode: "team",
 		MeterKey: "usage.tokens.monthly",
@@ -302,6 +418,23 @@ func TestSuperuserPricingControlRPCs(parseT *testing.T) {
 		Reason:   "missing confirm",
 	}); status.Code(parseErr) != codes.InvalidArgument {
 		parseT.Fatalf("SetSuperuserBillingPlanOverage missing confirm status code=%v want=%v", status.Code(parseErr), codes.InvalidArgument)
+	}
+
+	parseAuditRows, parseErr := parseStore.parseListAuditLogs(100)
+	if parseErr != nil {
+		parseT.Fatalf("parseListAuditLogs: %v", parseErr)
+	}
+	if !parseHasSuperuserAuditEvent(parseAuditRows, "admin.superuser.billing_plan.set", "billing_plan") {
+		parseT.Fatalf("expected billing_plan set audit row, rows=%+v", parseAuditRows)
+	}
+	if !parseHasSuperuserAuditEvent(parseAuditRows, "admin.superuser.billing_plan.delete", "billing_plan") {
+		parseT.Fatalf("expected billing_plan delete audit row, rows=%+v", parseAuditRows)
+	}
+	if !parseHasSuperuserAuditEvent(parseAuditRows, "admin.superuser.billing_plan_entitlement.set", "billing_plan_entitlement") {
+		parseT.Fatalf("expected billing_plan_entitlement set audit row, rows=%+v", parseAuditRows)
+	}
+	if !parseHasSuperuserAuditEvent(parseAuditRows, "admin.superuser.billing_plan_entitlement.delete", "billing_plan_entitlement") {
+		parseT.Fatalf("expected billing_plan_entitlement delete audit row, rows=%+v", parseAuditRows)
 	}
 }
 
@@ -387,6 +520,16 @@ func parseHasSuperuserBillingQuotaPolicy(parseRows []parseBillingQuotaPolicyRow,
 func parseHasSuperuserBillingUpgradeTrigger(parseRows []parseBillingUpgradeTriggerRow, parsePlanCode string, parseTriggerKey string) bool {
 	for _, parseRow := range parseRows {
 		if parseRow.PlanCode == parsePlanCode && parseRow.TriggerKey == parseTriggerKey {
+			return true
+		}
+	}
+	return false
+}
+
+// parseHasSuperuserAuditEvent reports whether one audit row slice contains one expected event/target pair.
+func parseHasSuperuserAuditEvent(parseRows []parseAuditLogRow, parseEventType string, parseTargetType string) bool {
+	for _, parseRow := range parseRows {
+		if parseRow.EventType == parseEventType && parseRow.TargetType == parseTargetType {
 			return true
 		}
 	}

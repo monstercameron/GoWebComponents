@@ -49,7 +49,7 @@ func TestInsertSeedUserCreatesUserAndProfile(parseT *testing.T) {
 	}
 
 	parseNow := time.Date(2026, 3, 25, 14, 30, 0, 0, time.UTC)
-	parseUserID, parseErr := parseInsertSeedUser(parseDb, parseQueries, parseNow, "demo@example.com", "password123", "Demo User", "gpt-5.4-mini", "balanced", "medium", 1)
+	parseUserID, parseErr := parseInsertSeedUser(parseDb, parseQueries, parseNow, "customer@email.com", "password", "Customer User", "gpt-5.4-mini", "balanced", "medium", 1)
 	if parseErr != nil {
 		parseT.Fatalf("insertSeedUser() error = %v", parseErr)
 	}
@@ -63,10 +63,10 @@ func TestInsertSeedUserCreatesUserAndProfile(parseT *testing.T) {
 	if parseErr3 := parseDb.QueryRow(`SELECT email, password_hash, created_at FROM users WHERE id = ?`, parseUserID).Scan(&parseEmail, &parsePasswordHash, &parseCreatedAt); parseErr3 != nil {
 		parseT.Fatalf("QueryRow(users) error = %v", parseErr3)
 	}
-	if parseEmail != "demo@example.com" || parseCreatedAt != parseNow.Format(time.RFC3339) {
-		parseT.Fatalf("users row = (%q, %q), want demo@example.com and %q", parseEmail, parseCreatedAt, parseNow.Format(time.RFC3339))
+	if parseEmail != "customer@email.com" || parseCreatedAt != parseNow.Format(time.RFC3339) {
+		parseT.Fatalf("users row = (%q, %q), want customer@email.com and %q", parseEmail, parseCreatedAt, parseNow.Format(time.RFC3339))
 	}
-	if parsePasswordHash == "password123" || parsePasswordHash == "" {
+	if parsePasswordHash == "password" || parsePasswordHash == "" {
 		parseT.Fatalf("password hash = %q, want non-empty bcrypt hash", parsePasswordHash)
 	}
 
@@ -76,11 +76,11 @@ func TestInsertSeedUserCreatesUserAndProfile(parseT *testing.T) {
 	if parseErr4 := parseDb.QueryRow(`SELECT name, updated_at, selected_model, selected_tone, selected_thinking_enabled, selected_thinking_effort FROM user_profile WHERE user_id = ?`, parseUserID).Scan(&parseName, &parseUpdatedAt, &parseModel, &parseTone, &parseEnabled, &parseEffort); parseErr4 != nil {
 		parseT.Fatalf("QueryRow(user_profile) error = %v", parseErr4)
 	}
-	if parseName != "Demo User" || parseUpdatedAt != parseNow.Unix() || parseModel != "gpt-5.4-mini" || parseTone != "balanced" || parseEnabled != 1 || parseEffort != "medium" {
-		parseT.Fatalf("user_profile row = (%q, %d, %q, %q, %d, %q), want Demo User/%d/gpt-5.4-mini/balanced/1/medium", parseName, parseUpdatedAt, parseModel, parseTone, parseEnabled, parseEffort, parseNow.Unix())
+	if parseName != "Customer User" || parseUpdatedAt != parseNow.Unix() || parseModel != "gpt-5.4-mini" || parseTone != "balanced" || parseEnabled != 1 || parseEffort != "medium" {
+		parseT.Fatalf("user_profile row = (%q, %d, %q, %q, %d, %q), want Customer User/%d/gpt-5.4-mini/balanced/1/medium", parseName, parseUpdatedAt, parseModel, parseTone, parseEnabled, parseEffort, parseNow.Unix())
 	}
 
-	if _, parseErr5 := parseInsertSeedUser(parseDb, parseQueries, parseNow, "demo@example.com", "password123", "Demo User", "gpt-5.4-mini", "balanced", "medium", 1); parseErr5 == nil {
+	if _, parseErr5 := parseInsertSeedUser(parseDb, parseQueries, parseNow, "customer@email.com", "password", "Customer User", "gpt-5.4-mini", "balanced", "medium", 1); parseErr5 == nil {
 		parseT.Fatal("insertSeedUser() duplicate email error = nil, want unique-constraint failure")
 	}
 }
@@ -94,7 +94,7 @@ func TestRunSeedTestDBSeedsExpectedRows(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("runSeedTestDB(): %v", parseErr)
 	}
-	if !strings.Contains(parseSummary, parseDbPath) || !strings.Contains(parseSummary, "demo@example.com / password123") {
+	if !strings.Contains(parseSummary, parseDbPath) || !strings.Contains(parseSummary, "customer@email.com / password") {
 		parseT.Fatalf("unexpected seed summary %q", parseSummary)
 	}
 
@@ -143,7 +143,7 @@ func TestRunSeedTestDBReturnsDuplicateFailure(parseT *testing.T) {
 	if _, parseErr := runSeedTestDB(); parseErr != nil {
 		parseT.Fatalf("first runSeedTestDB(): %v", parseErr)
 	}
-	if _, parseErr := runSeedTestDB(); parseErr == nil || !strings.Contains(parseErr.Error(), "demo user:") {
+	if _, parseErr := runSeedTestDB(); parseErr == nil || !strings.Contains(parseErr.Error(), "customer user:") {
 		parseT.Fatalf("expected duplicate seed failure, got %v", parseErr)
 	}
 }

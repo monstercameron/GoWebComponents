@@ -77,6 +77,14 @@ func TestRequireUserEntitlementAllowsEffectiveAccess(parseT *testing.T) {
 	}
 }
 
+func TestRequireUserEntitlementFailsClosedWhenStoreUnavailable(parseT *testing.T) {
+	parseServer := &chatServer{store: nil, logger: parseNewTestLogger()}
+	parseErr := parseServer.parseRequireUserEntitlement(1, billingEntitlementChatSendEnabled)
+	if status.Code(parseErr) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable when store missing, got code=%v err=%v", status.Code(parseErr), parseErr)
+	}
+}
+
 // TestRequireUsageBudgetEnforcesMonthlyTokenLimit validates monthly token quota blocking.
 func TestRequireUsageBudgetEnforcesMonthlyTokenLimit(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
@@ -141,6 +149,15 @@ func TestRequireUsageBudgetEnforcesPerUserConcurrency(parseT *testing.T) {
 		parseT.Fatalf("expected budget check to pass after release, got %v", parseErr)
 	}
 	parseReleaseBudget3()
+}
+
+func TestRequireUsageBudgetFailsClosedWhenStoreUnavailable(parseT *testing.T) {
+	parseServer := &chatServer{store: nil, logger: parseNewTestLogger()}
+	parseReleaseBudget, parseErr := parseServer.parseRequireUsageBudget(1)
+	parseReleaseBudget()
+	if status.Code(parseErr) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable when usage-budget store missing, got code=%v err=%v", status.Code(parseErr), parseErr)
+	}
 }
 
 // BenchmarkRequireUsageBudget measures per-call overhead for usage budget checks.

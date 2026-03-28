@@ -576,6 +576,10 @@ func (parseS *Store) parseCreateBillingInvoiceLineItem(parseWrite parseBillingIn
 	if parseWrite.CustomerID <= 0 || parseWrite.InvoiceID <= 0 {
 		return 0, errors.New("create billing invoice line item: customer id and invoice id are required")
 	}
+	parseResolvedLineType, parseErr := parseValidateUsageBasedBillingLineItemWrite(parseWrite)
+	if parseErr != nil {
+		return 0, parseErr
+	}
 	parseQuantity := parseWrite.Quantity
 	if parseQuantity <= 0 {
 		parseQuantity = 1
@@ -585,7 +589,7 @@ func (parseS *Store) parseCreateBillingInvoiceLineItem(parseWrite parseBillingIn
 		parseS.queries.createBillingInvoiceLineItem,
 		parseWrite.InvoiceID,
 		strings.TrimSpace(parseWrite.UsageEventID),
-		parseNormalizeBillingLineType(parseWrite.LineType),
+		parseResolvedLineType,
 		strings.TrimSpace(parseWrite.Description),
 		parseQuantity,
 		parseWrite.UnitAmountCents,
@@ -643,6 +647,9 @@ func (parseS *Store) parseListBillingInvoiceLineItems(parseInvoiceID, parseCusto
 func (parseS *Store) parseUpsertBillingAccessOverride(parseWrite parseBillingAccessOverrideWrite) error {
 	if parseWrite.CustomerID <= 0 || strings.TrimSpace(parseWrite.OverrideKey) == "" {
 		return errors.New("upsert billing access override: customer id and override key are required")
+	}
+	if parseErr := parseValidateUsageBasedBillingOverrideWrite(parseWrite.OverrideKey, parseWrite.OverrideValue); parseErr != nil {
+		return parseErr
 	}
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
@@ -1025,11 +1032,11 @@ func parseNormalizeBillingInterval(parseInterval string) string {
 
 // parseNormalizeBillingLineType normalizes one invoice line type value.
 func parseNormalizeBillingLineType(parseLineType string) string {
-	parseNormalized := strings.ToLower(strings.TrimSpace(parseLineType))
-	if parseNormalized == "" {
-		return "usage"
+	parseResolved, parseErr := parseResolveUsageBasedBillingLineType(parseLineType)
+	if parseErr != nil {
+		return parseBillingLineTypeUsageCost
 	}
-	return parseNormalized
+	return parseResolved
 }
 
 // parseNormalizeBillingEventSource normalizes one billing event source value.

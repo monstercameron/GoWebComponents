@@ -13,6 +13,16 @@ type storeQueries struct {
 	getUserAccessState                      string
 	upsertAuthTokenVersion                  string
 	getAuthTokenVersion                     string
+	upsertAuthIdentity                      string
+	getAuthIdentityByProviderSubject        string
+	listAuthIdentitiesByUser                string
+	deleteAuthIdentityByScope               string
+	createAuthOIDCState                     string
+	getAuthOIDCStateByStateTokenHash        string
+	consumeAuthOIDCStateByStateTokenHash    string
+	deleteExpiredAuthOIDCStates             string
+	upsertWorkspaceAuthPolicy               string
+	getWorkspaceAuthPolicyByWorkspace       string
 	upsertUserAuthBlock                     string
 	countUserAuthBlocksByUser               string
 	deleteUserAuthBlock                     string
@@ -77,7 +87,12 @@ type storeQueries struct {
 	deleteBillingDunningEvent               string
 	updateBillingDunningEventResolved       string
 	updateBillingInvoiceResolution          string
+	listBillingPlans                        string
+	upsertBillingPlan                       string
+	deleteBillingPlan                       string
 	listBillingPlanEntitlements             string
+	upsertBillingPlanEntitlement            string
+	deleteBillingPlanEntitlement            string
 	listBillingPlanOverages                 string
 	upsertBillingPlanOverage                string
 	deleteBillingPlanOverage                string
@@ -99,6 +114,8 @@ type storeQueries struct {
 	userHasSURole                           string
 	upsertSiteConfig                        string
 	listSiteConfigs                         string
+	createServerToolPolicyHistory           string
+	listServerToolPolicyHistory             string
 	upsertFeatureFlag                       string
 	listFeatureFlags                        string
 	upsertWorkspace                         string
@@ -224,6 +241,36 @@ func parseLoadStoreQueries() (storeQueries, error) {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.getAuthTokenVersion, parseErr = sqlfiles.ParseLoad("store/get_auth_token_version.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertAuthIdentity, parseErr = sqlfiles.ParseLoad("store/upsert_auth_identity.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.getAuthIdentityByProviderSubject, parseErr = sqlfiles.ParseLoad("store/get_auth_identity_by_provider_subject.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listAuthIdentitiesByUser, parseErr = sqlfiles.ParseLoad("store/list_auth_identities_by_user.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.deleteAuthIdentityByScope, parseErr = sqlfiles.ParseLoad("store/delete_auth_identity_by_scope.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createAuthOIDCState, parseErr = sqlfiles.ParseLoad("store/create_auth_oidc_state.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.getAuthOIDCStateByStateTokenHash, parseErr = sqlfiles.ParseLoad("store/get_auth_oidc_state_by_state_token_hash.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.consumeAuthOIDCStateByStateTokenHash, parseErr = sqlfiles.ParseLoad("store/consume_auth_oidc_state_by_state_token_hash.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.deleteExpiredAuthOIDCStates, parseErr = sqlfiles.ParseLoad("store/delete_expired_auth_oidc_states.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertWorkspaceAuthPolicy, parseErr = sqlfiles.ParseLoad("store/upsert_workspace_auth_policy.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.getWorkspaceAuthPolicyByWorkspace, parseErr = sqlfiles.ParseLoad("store/get_workspace_auth_policy_by_workspace.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.upsertUserAuthBlock, parseErr = sqlfiles.ParseLoad("store/upsert_user_auth_block.sql"); parseErr != nil {
@@ -418,7 +465,22 @@ func parseLoadStoreQueries() (storeQueries, error) {
 	if parseQueries.updateBillingInvoiceResolution, parseErr = sqlfiles.ParseLoad("store/update_billing_invoice_resolution.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
+	if parseQueries.listBillingPlans, parseErr = sqlfiles.ParseLoad("store/list_billing_plans.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertBillingPlan, parseErr = sqlfiles.ParseLoad("store/upsert_billing_plan.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.deleteBillingPlan, parseErr = sqlfiles.ParseLoad("store/delete_billing_plan.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
 	if parseQueries.listBillingPlanEntitlements, parseErr = sqlfiles.ParseLoad("store/list_billing_plan_entitlements.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertBillingPlanEntitlement, parseErr = sqlfiles.ParseLoad("store/upsert_billing_plan_entitlement.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.deleteBillingPlanEntitlement, parseErr = sqlfiles.ParseLoad("store/delete_billing_plan_entitlement.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.listBillingPlanOverages, parseErr = sqlfiles.ParseLoad("store/list_billing_plan_overages.sql"); parseErr != nil {
@@ -482,6 +544,12 @@ func parseLoadStoreQueries() (storeQueries, error) {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.listSiteConfigs, parseErr = sqlfiles.ParseLoad("store/list_site_configs.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createServerToolPolicyHistory, parseErr = sqlfiles.ParseLoad("store/create_server_tool_policy_history.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listServerToolPolicyHistory, parseErr = sqlfiles.ParseLoad("store/list_server_tool_policy_history.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.upsertFeatureFlag, parseErr = sqlfiles.ParseLoad("store/upsert_feature_flag.sql"); parseErr != nil {

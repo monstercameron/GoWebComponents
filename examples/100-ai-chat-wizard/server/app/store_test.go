@@ -817,33 +817,33 @@ func TestStoreBillingEffectiveModelAccessByUser(parseT *testing.T) {
 		parseT.Fatalf("expected empty model access rows without billing customer, got %+v", parseNoBillingRows)
 	}
 
-	parseFreeUser := parseMustCreateUser(parseT, store, "billing-free-models@example.com")
+	parseFallbackUser := parseMustCreateUser(parseT, store, "billing-pro-fallback-models@example.com")
 	if _, parseErr = store.parseUpsertBillingCustomer(parseBillingCustomerWrite{
-		UserID:             parseFreeUser.ID,
+		UserID:             parseFallbackUser.ID,
 		ProviderID:         "mock",
-		ProviderCustomerID: "cust_free_models",
+		ProviderCustomerID: "cust_pro_fallback_models",
 	}); parseErr != nil {
-		parseT.Fatalf("parseUpsertBillingCustomer free user: %v", parseErr)
+		parseT.Fatalf("parseUpsertBillingCustomer fallback user: %v", parseErr)
 	}
 
-	parseFreeRows, parseErr := store.parseListBillingEffectiveModelAccessByUser(parseFreeUser.ID, time.Now().UTC())
+	parseFallbackRows, parseErr := store.parseListBillingEffectiveModelAccessByUser(parseFallbackUser.ID, time.Now().UTC())
 	if parseErr != nil {
-		parseT.Fatalf("parseListBillingEffectiveModelAccessByUser free fallback: %v", parseErr)
+		parseT.Fatalf("parseListBillingEffectiveModelAccessByUser pro fallback: %v", parseErr)
 	}
-	if len(parseFreeRows) == 0 {
-		parseT.Fatal("expected free fallback model access rows for customer without active subscription")
+	if len(parseFallbackRows) == 0 {
+		parseT.Fatal("expected pro fallback model access rows for customer without active subscription")
 	}
-	parseFreeDefault := ""
-	for _, parseRow := range parseFreeRows {
+	parseFallbackDefault := ""
+	for _, parseRow := range parseFallbackRows {
 		if parseRow.IsDefault {
-			parseFreeDefault = parseNormalizeSelectedModelID(parseRow.ModelID)
+			parseFallbackDefault = parseNormalizeSelectedModelID(parseRow.ModelID)
 		}
-		if parseRow.PlanCode != "free" {
-			parseT.Fatalf("expected free fallback plan code, got %+v", parseRow)
+		if parseRow.PlanCode != "pro" {
+			parseT.Fatalf("expected pro fallback plan code, got %+v", parseRow)
 		}
 	}
-	if parseFreeDefault != modelGPT54Mini {
-		parseT.Fatalf("expected free default model %q, got %q", modelGPT54Mini, parseFreeDefault)
+	if parseFallbackDefault != modelGPT54Mini {
+		parseT.Fatalf("expected pro fallback default model %q, got %q", modelGPT54Mini, parseFallbackDefault)
 	}
 
 	parseTeamUser := parseMustCreateUser(parseT, store, "billing-team-models@example.com")

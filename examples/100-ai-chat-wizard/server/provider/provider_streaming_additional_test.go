@@ -308,10 +308,10 @@ func TestAnthropicProviderStreamingHTTPBackedBranches(parseT *testing.T) {
 	parseT.Run("available provider errors", func(parseT3 *testing.T) {
 		parseProvider := ParseNewAnthropicProvider("test-key", parseTestAnthropicCatalog())
 
-		if _, parseErr := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
-			UserMessage: "remember this",
-		}); parseErr == nil || !strings.Contains(parseErr.Error(), "not implemented") {
-			parseT3.Fatalf("ParseExtractUserMemories() error = %v, want not implemented", parseErr)
+		if parseMemories, parseErr := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
+			UserMessage: "   ",
+		}); parseErr != nil || parseMemories != nil {
+			parseT3.Fatalf("ParseExtractUserMemories(blank) = %+v, %v; want nil,nil", parseMemories, parseErr)
 		}
 
 		parseSpeechErr := &UnsupportedCapabilityError{}
@@ -425,10 +425,10 @@ func TestCerebrasProviderStreamingHTTPBackedBranches(parseT *testing.T) {
 	parseT.Run("available provider errors and emit failure", func(parseT3 *testing.T) {
 		parseProvider := ParseNewCerebrasProvider("test-key", parseTestCerebrasCatalog())
 
-		if _, parseErr := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
-			UserMessage: "remember this",
-		}); parseErr == nil || !strings.Contains(parseErr.Error(), "not implemented") {
-			parseT3.Fatalf("ParseExtractUserMemories() error = %v, want not implemented", parseErr)
+		if parseMemories, parseErr := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
+			UserMessage: "   ",
+		}); parseErr != nil || parseMemories != nil {
+			parseT3.Fatalf("ParseExtractUserMemories(blank) = %+v, %v; want nil,nil", parseMemories, parseErr)
 		}
 
 		parseSpeechErr := &UnsupportedCapabilityError{}

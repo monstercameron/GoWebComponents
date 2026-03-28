@@ -282,6 +282,7 @@ const chatShellHTML = `<!DOCTYPE html>
 `
 
 var chatUsagePremiumPercent = 5.0
+var chatPlatformFeeUSD = 29.0
 
 func setChatUsagePremiumPercent(parsePercent float64) {
 	chatUsagePremiumPercent = parsePercent
@@ -291,7 +292,16 @@ func parseCurrentChatUsagePremiumPercent() float64 {
 	return chatUsagePremiumPercent
 }
 
+func setChatPlatformFeeUSD(parseFee float64) {
+	chatPlatformFeeUSD = parseFee
+}
+
+func parseCurrentChatPlatformFeeUSD() float64 {
+	return chatPlatformFeeUSD
+}
+
 const chatBootstrapJS = `window.__relaydesk_usage_premium_percent = {{USAGE_PREMIUM_PERCENT}};
+window.__relaydesk_platform_fee_usd = {{PLATFORM_FEE_USD}};
 const bootShell = document.getElementById('boot-shell');
 const bootProgressFill = document.getElementById('boot-progress-fill');
 const bootPercent = document.getElementById('boot-percent');
@@ -962,5 +972,8 @@ func parseServeChatShell(parseW http.ResponseWriter, _ *http.Request) {
 func parseServeChatBootstrapJS(parseW http.ResponseWriter, _ *http.Request) {
 	parseW.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	parsePremiumLiteral := strconv.FormatFloat(parseCurrentChatUsagePremiumPercent(), 'f', 6, 64)
-	_, _ = fmt.Fprint(parseW, strings.Replace(chatBootstrapJS, "{{USAGE_PREMIUM_PERCENT}}", parsePremiumLiteral, 1))
+	parsePlatformFeeLiteral := strconv.FormatFloat(parseCurrentChatPlatformFeeUSD(), 'f', 6, 64)
+	parseBootstrapBody := strings.Replace(chatBootstrapJS, "{{USAGE_PREMIUM_PERCENT}}", parsePremiumLiteral, 1)
+	parseBootstrapBody = strings.Replace(parseBootstrapBody, "{{PLATFORM_FEE_USD}}", parsePlatformFeeLiteral, 1)
+	_, _ = fmt.Fprint(parseW, parseBootstrapBody)
 }

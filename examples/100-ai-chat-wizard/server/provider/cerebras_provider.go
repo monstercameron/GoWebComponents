@@ -14,6 +14,7 @@ import (
 
 const cerebrasBaseURL = "https://api.cerebras.ai/v1"
 const cerebrasMaxCompletionTokens int64 = 4096
+const cerebrasMemoryExtractionMaxCompletionTokens int64 = 1024
 
 type CerebrasProvider struct {
 	client  *openai.Client
@@ -116,12 +117,69 @@ func (parseP *CerebrasProvider) ParseGenerateTitle(parseCtx context.Context, par
 }
 
 func (parseP *CerebrasProvider) ParseExtractUserMemories(parseCtx context.Context, parseReq MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
-	_ = parseCtx
-	_ = parseReq
 	if !parseP.ParseAvailable() {
 		return nil, ErrNoProvidersAvailable
 	}
-	return nil, errors.New("cerebras memory extraction is not implemented")
+	if strings.TrimSpace(parseReq.UserMessage) == "" {
+		return nil, nil
+	}
+	parseResolvedModel := strings.TrimSpace(parseReq.Model)
+	if parseResolvedModel == "" {
+		parseResolvedModel = parseP.ParseDefaultModel()
+	}
+	parseResponse, parseErr := parseP.client.Chat.Completions.New(parseCtx, openai.ChatCompletionNewParams{
+		Model: shared.ChatModel(parseResolvedModel),
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.SystemMessage(strings.TrimSpace(`You extract stable, reusable user memory candidates from one user message.
+Return one JSON object only with shape {"memories":[...]}.
+Each memory item must include:
+- key (string)
+- category (one of: preference, profile, constraint, project, other)
+- summary (string)
+- detail (string)
+- usefulness_score (integer 0-100)
+- confidence_score (number 0-1)
+- rubric_reason (string)
+
+Rules:
+- Prefer stable preferences, durable personal details, ongoing constraints, and long-lived project context.
+- Exclude one-off requests, secrets, passwords, API keys, payment details, government IDs, and exact street addresses.
+- If nothing qualifies, return {"memories":[]}.`)),
+			openai.UserMessage("User message:\n" + strings.TrimSpace(parseReq.UserMessage)),
+		},
+		MaxCompletionTokens: openai.Int(cerebrasMemoryExtractionMaxCompletionTokens),
+		ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
+			OfJSONObject: &shared.ResponseFormatJSONObjectParam{Type: "json_object"},
+		},
+	})
+	if parseErr != nil {
+		return nil, fmt.Errorf("cerebras memory extraction: %w", parseErr)
+	}
+	parseCandidates, parseErr := parseResolveCerebrasMemoryCandidates(parseResponse)
+	if parseErr != nil {
+		return nil, fmt.Errorf("cerebras memory extraction parse: %w", parseErr)
+	}
+	return parseNormalizeMemoryCandidates(parseCandidates), nil
+}
+
+// parseResolveCerebrasMemoryCandidates resolves one chat-completion extraction response into memory candidates.
+func parseResolveCerebrasMemoryCandidates(parseResponse *openai.ChatCompletion) ([]UserMemoryCandidate, error) {
+	if parseResponse == nil || len(parseResponse.Choices) == 0 {
+		return []UserMemoryCandidate{}, nil
+	}
+	parseOutput := strings.TrimSpace(parseResponse.Choices[0].Message.Content)
+	if parseOutput == "" {
+		return []UserMemoryCandidate{}, nil
+	}
+	parseCandidates, isParseDecoded := parseDecodeMemoryCandidateList([]byte(parseOutput))
+	if !isParseDecoded {
+		parseFallbackOutput := parseExtractJSONObject(parseOutput)
+		parseCandidates, isParseDecoded = parseDecodeMemoryCandidateList([]byte(parseFallbackOutput))
+		if !isParseDecoded {
+			return []UserMemoryCandidate{}, nil
+		}
+	}
+	return parseCandidates, nil
 }
 
 func (parseP *CerebrasProvider) ParseStreamChat(parseCtx context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {

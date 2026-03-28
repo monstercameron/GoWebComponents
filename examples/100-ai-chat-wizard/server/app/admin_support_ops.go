@@ -365,7 +365,7 @@ func (parseS *chatServer) ListAdminSupportTickets(parseCtx context.Context, pars
 		Tickets: make([]*chatpb.SupportTicketEntry, 0, len(parseTicketRows)),
 	}
 	for _, parseTicketRow := range parseTicketRows {
-		parseResponse.Tickets = append(parseResponse.Tickets, parseBuildAdminSupportTicketEntry(parseTicketRow))
+		parseResponse.Tickets = append(parseResponse.Tickets, parseRedactAdminSupportTicketEntryByScope(parseScope, parseBuildAdminSupportTicketEntry(parseTicketRow)))
 	}
 	parseLogger.Info(
 		"rpc.ListAdminSupportTickets: complete",
@@ -400,16 +400,16 @@ func (parseS *chatServer) GetAdminSupportTicketDetail(parseCtx context.Context, 
 	}
 	parseResponse := &chatpb.GetAdminSupportTicketDetailResponse{
 		Detail: &chatpb.AdminSupportTicketDetail{
-			Ticket:               parseBuildAdminSupportTicketEntry(parseDetail.parseTicketRow),
+			Ticket:               parseRedactAdminSupportTicketEntryByScope(parseScope, parseBuildAdminSupportTicketEntry(parseDetail.parseTicketRow)),
 			Messages:             make([]*chatpb.SupportTicketMessageEntry, 0, len(parseDetail.parseMessageRows)),
 			AccountActionHistory: make([]*chatpb.AuditLogEntry, 0, len(parseDetail.parseAccountActions)),
 		},
 	}
 	for _, parseMessageRow := range parseDetail.parseMessageRows {
-		parseResponse.Detail.Messages = append(parseResponse.Detail.Messages, parseBuildAdminSupportTicketMessageEntry(parseMessageRow))
+		parseResponse.Detail.Messages = append(parseResponse.Detail.Messages, parseRedactAdminSupportTicketMessageEntryByScope(parseScope, parseBuildAdminSupportTicketMessageEntry(parseMessageRow)))
 	}
 	for _, parseAuditRow := range parseDetail.parseAccountActions {
-		parseResponse.Detail.AccountActionHistory = append(parseResponse.Detail.AccountActionHistory, parseBuildAdminAuditLogEntry(parseAuditRow))
+		parseResponse.Detail.AccountActionHistory = append(parseResponse.Detail.AccountActionHistory, parseRedactAdminAuditLogEntryByScope(parseScope, parseBuildAdminAuditLogEntry(parseAuditRow)))
 	}
 	parseFetchDuration := time.Since(parseFetchStart)
 	parseAggregateCount := len(parseResponse.Detail.Messages) + len(parseResponse.Detail.AccountActionHistory)

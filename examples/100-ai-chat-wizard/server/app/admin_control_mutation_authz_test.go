@@ -79,33 +79,49 @@ func TestAdminControlMutationScopeBoundaries(parseT *testing.T) {
 	parseWorkspaceAdminCtx := parseBindAuthUser(parseServer, "peer-control-workspace-admin", parseWorkspaceAdmin.ID, parseWorkspaceAdmin.Email)
 	parseNormalUserCtx := parseBindAuthUser(parseServer, "peer-control-user", parseNormalUser.ID, parseNormalUser.Email)
 
-	if parseErr = parseServer.parseExecuteFeatureFlagControlMutation(parseSuperuserCtx); status.Code(parseErr) != codes.Unimplemented {
-		parseT.Fatalf("feature-flag superuser status code=%v want=%v", status.Code(parseErr), codes.Unimplemented)
+	parseSuperuserFeatureScope, parseErr := parseServer.parseAuthorizeAdminControlMutationScope(parseSuperuserCtx, parseAdminControlMutationFeatureFlag, 0)
+	if parseErr != nil {
+		parseT.Fatalf("feature-flag superuser authz: %v", parseErr)
 	}
-	if parseErr = parseServer.parseExecuteExperimentControlMutation(parseSuperuserCtx); status.Code(parseErr) != codes.Unimplemented {
-		parseT.Fatalf("experiment superuser status code=%v want=%v", status.Code(parseErr), codes.Unimplemented)
+	if !parseSuperuserFeatureScope.isPlatformScope || parseSuperuserFeatureScope.adminUserID != parseSuperuser.ID {
+		parseT.Fatalf("unexpected feature-flag superuser scope: %+v", parseSuperuserFeatureScope)
 	}
-	if parseErr = parseServer.parseExecuteIncidentControlMutation(parseSuperuserCtx, parseOutsideWorkspaceID); status.Code(parseErr) != codes.Unimplemented {
-		parseT.Fatalf("incident superuser status code=%v want=%v", status.Code(parseErr), codes.Unimplemented)
+	parseSuperuserExperimentScope, parseErr := parseServer.parseAuthorizeAdminControlMutationScope(parseSuperuserCtx, parseAdminControlMutationExperiment, 0)
+	if parseErr != nil {
+		parseT.Fatalf("experiment superuser authz: %v", parseErr)
+	}
+	if !parseSuperuserExperimentScope.isPlatformScope || parseSuperuserExperimentScope.adminUserID != parseSuperuser.ID {
+		parseT.Fatalf("unexpected experiment superuser scope: %+v", parseSuperuserExperimentScope)
+	}
+	parseSuperuserIncidentScope, parseErr := parseServer.parseAuthorizeAdminControlMutationScope(parseSuperuserCtx, parseAdminControlMutationIncident, parseOutsideWorkspaceID)
+	if parseErr != nil {
+		parseT.Fatalf("incident superuser authz: %v", parseErr)
+	}
+	if !parseSuperuserIncidentScope.isPlatformScope || parseSuperuserIncidentScope.adminUserID != parseSuperuser.ID {
+		parseT.Fatalf("unexpected incident superuser scope: %+v", parseSuperuserIncidentScope)
 	}
 
-	if parseErr = parseServer.parseExecuteFeatureFlagControlMutation(parseWorkspaceAdminCtx); status.Code(parseErr) != codes.PermissionDenied {
+	if _, parseErr = parseServer.parseAuthorizeAdminControlMutationScope(parseWorkspaceAdminCtx, parseAdminControlMutationFeatureFlag, 0); status.Code(parseErr) != codes.PermissionDenied {
 		parseT.Fatalf("feature-flag workspace-admin status code=%v want=%v", status.Code(parseErr), codes.PermissionDenied)
 	}
-	if parseErr = parseServer.parseExecuteExperimentControlMutation(parseWorkspaceAdminCtx); status.Code(parseErr) != codes.PermissionDenied {
+	if _, parseErr = parseServer.parseAuthorizeAdminControlMutationScope(parseWorkspaceAdminCtx, parseAdminControlMutationExperiment, 0); status.Code(parseErr) != codes.PermissionDenied {
 		parseT.Fatalf("experiment workspace-admin status code=%v want=%v", status.Code(parseErr), codes.PermissionDenied)
 	}
-	if parseErr = parseServer.parseExecuteIncidentControlMutation(parseWorkspaceAdminCtx, parseAdminWorkspaceID); status.Code(parseErr) != codes.Unimplemented {
-		parseT.Fatalf("incident workspace-admin in-scope status code=%v want=%v", status.Code(parseErr), codes.Unimplemented)
+	parseWorkspaceIncidentScope, parseErr := parseServer.parseAuthorizeAdminControlMutationScope(parseWorkspaceAdminCtx, parseAdminControlMutationIncident, parseAdminWorkspaceID)
+	if parseErr != nil {
+		parseT.Fatalf("incident workspace-admin in-scope authz: %v", parseErr)
 	}
-	if parseErr = parseServer.parseExecuteIncidentControlMutation(parseWorkspaceAdminCtx, parseOutsideWorkspaceID); status.Code(parseErr) != codes.PermissionDenied {
+	if parseWorkspaceIncidentScope.isPlatformScope || parseWorkspaceIncidentScope.adminUserID != parseWorkspaceAdmin.ID {
+		parseT.Fatalf("unexpected workspace-admin incident scope: %+v", parseWorkspaceIncidentScope)
+	}
+	if _, parseErr = parseServer.parseAuthorizeAdminControlMutationScope(parseWorkspaceAdminCtx, parseAdminControlMutationIncident, parseOutsideWorkspaceID); status.Code(parseErr) != codes.PermissionDenied {
 		parseT.Fatalf("incident workspace-admin out-of-scope status code=%v want=%v", status.Code(parseErr), codes.PermissionDenied)
 	}
-	if parseErr = parseServer.parseExecuteIncidentControlMutation(parseWorkspaceAdminCtx, 0); status.Code(parseErr) != codes.InvalidArgument {
+	if _, parseErr = parseServer.parseAuthorizeAdminControlMutationScope(parseWorkspaceAdminCtx, parseAdminControlMutationIncident, 0); status.Code(parseErr) != codes.InvalidArgument {
 		parseT.Fatalf("incident workspace-admin missing workspace status code=%v want=%v", status.Code(parseErr), codes.InvalidArgument)
 	}
 
-	if parseErr = parseServer.parseExecuteIncidentControlMutation(parseNormalUserCtx, parseAdminWorkspaceID); status.Code(parseErr) != codes.PermissionDenied {
+	if _, parseErr = parseServer.parseAuthorizeAdminControlMutationScope(parseNormalUserCtx, parseAdminControlMutationIncident, parseAdminWorkspaceID); status.Code(parseErr) != codes.PermissionDenied {
 		parseT.Fatalf("incident normal user status code=%v want=%v", status.Code(parseErr), codes.PermissionDenied)
 	}
 }

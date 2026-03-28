@@ -91,7 +91,16 @@ func (parseS *chatServer) parseRequireSuperuserMutationUserID(parseCtx context.C
 	if parseSessionAge < 0 {
 		parseSessionAge = 0
 	}
-	if parseSessionAge <= superuserMutationSessionMaxAge {
+	isParseFreshSession := parseSessionAge <= superuserMutationSessionMaxAge
+	parsePolicyDecision, parseErr := parseAuthorizePrivilegedMutationSession(
+		parseBuildDefaultPrivilegedAuthPolicy(),
+		parsePrivilegedAuthAttempt{
+			ParseRoleKey:    parsePrivilegedRoleSuperuser,
+			ParseAuthMethod: parseClaims.AuthMethod,
+		},
+		isParseFreshSession,
+	)
+	if parseErr == nil {
 		return parseUserID, nil
 	}
 	if parseS.logger != nil {
@@ -99,11 +108,13 @@ func (parseS *chatServer) parseRequireSuperuserMutationUserID(parseCtx context.C
 			"rpc.superuser mutation requires re-authentication",
 			slog.Int64("user_id", parseUserID),
 			slog.String("mutation_key", strings.TrimSpace(parseMutationKey)),
+			slog.String("auth_method", parseNormalizePrivilegedAuthMethod(parseClaims.AuthMethod)),
+			slog.String("decision_reason", strings.TrimSpace(parsePolicyDecision.ParseReason)),
 			slog.Duration("session_age", parseSessionAge),
 			slog.Duration("max_session_age", superuserMutationSessionMaxAge),
 		)
 	}
-	return 0, status.Error(codes.Unauthenticated, "superuser re-authentication required")
+	return 0, parseErr
 }
 
 // GetSuperuserControlPlane returns the superuser control-plane snapshot for authenticated su users.

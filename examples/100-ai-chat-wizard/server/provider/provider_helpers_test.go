@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"testing"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
@@ -130,8 +129,8 @@ func TestAnthropicProviderHelperAndFallbackBranches(parseT *testing.T) {
 	}
 
 	parseAvailableProvider := ParseNewAnthropicProvider("test-key", parseTestAnthropicCatalog())
-	if _, parseErr5 := parseAvailableProvider.ParseExtractUserMemories(parseCtx, MemoryExtractionRequest{UserMessage: "remember this"}); parseErr5 == nil || !strings.Contains(parseErr5.Error(), "not implemented") {
-		parseT.Fatalf("expected configured Anthropic memory extraction to surface not implemented, got %v", parseErr5)
+	if parseMemories, parseErr5 := parseAvailableProvider.ParseExtractUserMemories(parseCtx, MemoryExtractionRequest{UserMessage: "   "}); parseErr5 != nil || parseMemories != nil {
+		parseT.Fatalf("expected blank configured Anthropic memory extraction to short-circuit without network call, got memories=%+v err=%v", parseMemories, parseErr5)
 	}
 	_, parseErr6 := parseAvailableProvider.ParseSynthesizeSpeech(parseCtx, SpeechRequest{Model: "claude-sonnet-4-5", Text: "hello"}, func(SpeechChunk) error { return nil })
 	var parseUnsupportedErr *UnsupportedCapabilityError

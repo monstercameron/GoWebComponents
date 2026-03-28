@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/ncruces/go-sqlite3/embed"
 	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -36,6 +36,27 @@ func parseInsertSeedUser(parseDb *sql.DB, parseQueries seedQueries, parseNow tim
 		return 0, parseErr2
 	}
 	return parseUserID, nil
+}
+
+func parseUpsertSeedBillingCustomer(parseDb *sql.DB, parseQueries seedQueries, parseNow time.Time, parseUserID int64, parseEmail, parseDisplayName string) error {
+	parseProviderCustomerID := fmt.Sprintf("seed-user-%d", parseUserID)
+	_, parseErr := parseDb.Exec(
+		parseQueries.upsertBillingUser,
+		parseUserID,
+		"seed",
+		parseProviderCustomerID,
+		parseEmail,
+		parseDisplayName,
+		"US",
+		"NA",
+		"USD",
+		"none",
+		"{}",
+		parseNow.Format(time.RFC3339),
+		parseNow.Format(time.RFC3339),
+		parseUserID,
+	)
+	return parseErr
 }
 
 func main() {
@@ -76,13 +97,19 @@ func runSeedTestDB() (string, error) {
 	}
 
 	parseNow := time.Now().UTC()
-	parseUserID, parseErr2 := parseInsertSeedUser(parseDb, parseQueries, parseNow, "demo@example.com", "password123", "Demo User", "gpt-5.4-mini", "balanced", "medium", 1)
+	parseUserID, parseErr2 := parseInsertSeedUser(parseDb, parseQueries, parseNow, "customer@email.com", "password", "Customer User", "gpt-5.4-mini", "balanced", "medium", 1)
 	if parseErr2 != nil {
-		return "", fmt.Errorf("demo user: %w", parseErr2)
+		return "", fmt.Errorf("customer user: %w", parseErr2)
 	}
-	parseAdminUserID, parseErr2 := parseInsertSeedUser(parseDb, parseQueries, parseNow, "admin@example.com", "password", "Admin User", "gpt-5.4", "professional", "high", 1)
+	parseAdminUserID, parseErr2 := parseInsertSeedUser(parseDb, parseQueries, parseNow, "admin@email.com", "password", "Admin User", "gpt-5.4", "professional", "high", 1)
 	if parseErr2 != nil {
 		return "", fmt.Errorf("admin user: %w", parseErr2)
+	}
+	if parseErr2 = parseUpsertSeedBillingCustomer(parseDb, parseQueries, parseNow, parseUserID, "customer@email.com", "Customer User"); parseErr2 != nil {
+		return "", fmt.Errorf("customer billing customer: %w", parseErr2)
+	}
+	if parseErr2 = parseUpsertSeedBillingCustomer(parseDb, parseQueries, parseNow, parseAdminUserID, "admin@email.com", "Admin User"); parseErr2 != nil {
+		return "", fmt.Errorf("admin billing customer: %w", parseErr2)
 	}
 
 	parseR1, parseErr2 := parseDb.Exec(
@@ -163,5 +190,5 @@ func runSeedTestDB() (string, error) {
 		}
 	}
 
-	return fmt.Sprintf("seeded test DB: %s (users: demo@example.com / password123, admin@example.com / password; demo user id: %d, admin user id: %d; conversations: %d, %d, %d)", parseDbPath, parseUserID, parseAdminUserID, parseId1, parseId2, parseId3), nil
+	return fmt.Sprintf("seeded test DB: %s (users: customer@email.com / password, admin@email.com / password; customer user id: %d, admin user id: %d; conversations: %d, %d, %d)", parseDbPath, parseUserID, parseAdminUserID, parseId1, parseId2, parseId3), nil
 }
