@@ -201,3 +201,45 @@ func TestThreadRoutePublicIDFromPath(parseT *testing.T) {
 		}
 	}
 }
+
+func TestShouldNavigateLandingRoute(parseT *testing.T) {
+	parseTests := []struct {
+		name        string
+		currentPath string
+		targetPath  string
+		want        bool
+	}{
+		{
+			name:        "home navigates to auth landing",
+			currentPath: marketingHomeRoute,
+			targetPath:  authLandingRoute,
+			want:        true,
+		},
+		{
+			name:        "same auth landing route is ignored",
+			currentPath: authLandingRoute,
+			targetPath:  authLandingRoute,
+			want:        false,
+		},
+		{
+			name:        "pricing navigates to auth landing",
+			currentPath: marketingPricingRoute,
+			targetPath:  authLandingRoute,
+			want:        true,
+		},
+		{
+			name:        "blank target is ignored",
+			currentPath: marketingHomeRoute,
+			targetPath:  " ",
+			want:        false,
+		},
+	}
+
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := shouldNavigateLandingRoute(parseTest.currentPath, parseTest.targetPath); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldNavigateLandingRoute(%q, %q) = %v, want %v", parseTest.currentPath, parseTest.targetPath, parseGot, parseTest.want)
+			}
+		})
+	}
+}

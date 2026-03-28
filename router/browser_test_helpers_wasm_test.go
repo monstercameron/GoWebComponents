@@ -143,6 +143,22 @@ func installRouterBrowserEnv(parseT testing.TB) {
 			}
 		}
 	}
+	parseDispatchEvent := js.FuncOf(func(parseThis11 js.Value, parseArgs11 []js.Value) interface{} {
+		if len(parseArgs11) == 0 {
+			return false
+		}
+		parseEventType3 := ""
+		if parseArgs11[0].Type() == js.TypeString {
+			parseEventType3 = strings.TrimSpace(parseArgs11[0].String())
+		} else {
+			parseEventType3 = strings.TrimSpace(parseArgs11[0].Get("type").String())
+		}
+		if parseEventType3 == "" {
+			return false
+		}
+		parseEmitEvent(parseEventType3)
+		return true
+	})
 	parseRemoveNode := js.FuncOf(func(parseThis11 js.Value, parseArgs11 []js.Value) interface{} {
 		parseParent := parseThis11.Get("parentNode")
 		if !parseParent.Truthy() {
@@ -358,13 +374,20 @@ func installRouterBrowserEnv(parseT testing.TB) {
 	parseHistoryEntries := []string{"/"}
 	parseHistoryIndex := 0
 	applyHistoryTarget := func(parseTarget string) {
-		if parseIdx := strings.Index(parseTarget, "?"); parseIdx >= 0 {
-			parseLocation.Set("pathname", parseTarget[:parseIdx])
-			parseLocation.Set("search", parseTarget[parseIdx:])
-			return
+		parsePathTarget := parseTarget
+		parseHashTarget := ""
+		if parseIdx := strings.Index(parseTarget, "#"); parseIdx >= 0 {
+			parsePathTarget = parseTarget[:parseIdx]
+			parseHashTarget = parseTarget[parseIdx:]
 		}
-		parseLocation.Set("pathname", parseTarget)
-		parseLocation.Set("search", "")
+		if parseIdx := strings.Index(parsePathTarget, "?"); parseIdx >= 0 {
+			parseLocation.Set("pathname", parsePathTarget[:parseIdx])
+			parseLocation.Set("search", parsePathTarget[parseIdx:])
+		} else {
+			parseLocation.Set("pathname", parsePathTarget)
+			parseLocation.Set("search", "")
+		}
+		parseLocation.Set("hash", parseHashTarget)
 	}
 	parsePushState := js.FuncOf(func(parseThis27 js.Value, parseArgs27 []js.Value) interface{} {
 		if len(parseArgs27) > 2 {
@@ -435,6 +458,7 @@ func installRouterBrowserEnv(parseT testing.TB) {
 	parseWindow := parseObjectCtor.New()
 	parseWindow.Set("addEventListener", parseAddEventListener)
 	parseWindow.Set("removeEventListener", parseRemoveEventListener)
+	parseWindow.Set("dispatchEvent", parseDispatchEvent)
 	parseWindow.Set("document", parseDoc)
 	parseWindow.Set("history", parseHistory)
 	parseWindow.Set("location", parseLocation)

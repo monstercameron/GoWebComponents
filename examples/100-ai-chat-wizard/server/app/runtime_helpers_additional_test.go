@@ -102,6 +102,8 @@ func TestChatShellRoutingHelpers(parseT *testing.T) {
 			"/":                  true,
 			"/app":               true,
 			"/app/":              true,
+			"/app/settings":      true,
+			"/app/settings/pane": true,
 			"/home":              true,
 			"/pricing":           true,
 			"/thread":            true,
@@ -110,6 +112,7 @@ func TestChatShellRoutingHelpers(parseT *testing.T) {
 			"/login":             true,
 			"/signup":            true,
 			"/logout":            true,
+			"/app/logo.svg":      false,
 			"/static/app.css":    false,
 			"/chat.wasm":         false,
 			"/images/logo.svg":   false,
@@ -204,6 +207,9 @@ func TestChatBootstrapLoaderTracksDownloadPhase(parseT *testing.T) {
 	}
 	if !strings.Contains(chatBootstrapJS, `setBootText('boot-fin-heading', statusText);`) {
 		parseT.Fatal("expected bootstrap js to update the finalizing heading text")
+	}
+	if !strings.Contains(chatBootstrapJS, `bootShell.parentNode.removeChild(bootShell);`) {
+		parseT.Fatal("expected bootstrap js to remove the boot shell after the app mounts")
 	}
 }
 

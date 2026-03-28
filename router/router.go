@@ -285,6 +285,44 @@ func normalizeNavigationTarget(parseTarget string) string {
 	return parseNormalized + parseQuery
 }
 
+// splitNavigationTarget separates a navigation target into path/query and fragment components.
+func splitNavigationTarget(parseTarget string) (string, string) {
+	parseTrimmed := strings.TrimSpace(parseTarget)
+	if parseTrimmed == "" {
+		return "", ""
+	}
+	if parseIdx := strings.Index(parseTrimmed, "#"); parseIdx >= 0 {
+		return parseTrimmed[:parseIdx], parseTrimmed[parseIdx:]
+	}
+	return parseTrimmed, ""
+}
+
+// normalizeHistoryFragment converts a history-router fragment target into a canonical hash string.
+func normalizeHistoryFragment(parseFragment string) string {
+	parseTrimmed := strings.TrimSpace(parseFragment)
+	if parseTrimmed == "" || parseTrimmed == "#" {
+		return ""
+	}
+	if strings.HasPrefix(parseTrimmed, "#") {
+		return parseTrimmed
+	}
+	return "#" + strings.TrimPrefix(parseTrimmed, "#")
+}
+
+// buildCurrentHistoryTarget returns the current history-router path plus search string.
+func buildCurrentHistoryTarget() string {
+	parseLoc := getLocationValue()
+	if !parseLoc.Truthy() {
+		return rootRoutePath
+	}
+	parsePath := normalizePath(parseLoc.Get("pathname").String())
+	parseSearch := strings.TrimSpace(parseLoc.Get("search").String())
+	if parseSearch == "?" {
+		parseSearch = ""
+	}
+	return parsePath + parseSearch
+}
+
 var routerRuntimeInitialized bool
 var currentParams = map[string]string{}
 var currentRouteData Attrs
@@ -357,9 +395,18 @@ func (parseR *Router) setupHistoryListener() {
 	})
 
 	parseWindow.Call("addEventListener", browserEventPop, parsePopstateHandler)
+	parseHashchangeHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		// History routers still need hashchange rerenders for in-page fragment navigation.
+		// Without this, links like "#faq" update the URL but shared route components never
+		// see a new location snapshot, which breaks anchor state and browser back/forward.
+		parseR.renderCurrentRoute(true)
+		return nil
+	})
+	parseWindow.Call("addEventListener", browserEventHash, parseHashchangeHandler)
 
 	// Clean up on unload
 	registerCleanup(parsePopstateHandler)
+	registerCleanup(parseHashchangeHandler)
 }
 
 // GoRegisterRoute registers a route on the router instance.
@@ -577,12 +624,33 @@ func (parseR *Router) GetCurrentRouterPath() string {
 	return normalizePath(parseLoc.Get("hash").String())
 }
 
+// buildNavigationTarget normalizes a navigation target for the active router type.
+func (parseR *Router) buildNavigationTarget(parseTarget string) string {
+	if parseR.routerType != routerTypeHistory {
+		return normalizeNavigationTarget(parseTarget)
+	}
+	parseTrimmed := strings.TrimSpace(parseTarget)
+	if parseTrimmed == "" {
+		return rootRoutePath
+	}
+	if strings.HasPrefix(parseTrimmed, "#") {
+		// Preserve hash-only targets against the current history entry instead of treating
+		// "#plans" as a route path. That regression caused history-router apps to lose
+		// in-page anchor behavior on click and on browser back/forward.
+		return buildCurrentHistoryTarget() + normalizeHistoryFragment(parseTrimmed)
+	}
+	parsePathTarget, parseFragment := splitNavigationTarget(parseTrimmed)
+	// Keep fragments attached to full history-router targets as well. This is the core
+	// behavior apps expect from links like "/pricing?plan=team#faq".
+	return normalizeNavigationTarget(parsePathTarget) + normalizeHistoryFragment(parseFragment)
+}
+
 // Navigate navigates to a path using the appropriate method for this router type.
 func (parseR *Router) Navigate(parsePath string) {
 	parseCtx, parseAttemptID := parseR.beginGuardAttempt()
 	defer parseR.finishGuardAttempt(parseAttemptID)
 
-	parseNormalized, parseOk := parseR.evaluateNavigationWithAttempt(parseCtx, parseAttemptID, normalizeNavigationTarget(parsePath))
+	parseNormalized, parseOk := parseR.evaluateNavigationWithAttempt(parseCtx, parseAttemptID, parseR.buildNavigationTarget(parsePath))
 	if !parseOk {
 		return
 	}
@@ -625,7 +693,7 @@ func (parseR *Router) NavigateReplace(parsePath string) {
 	parseCtx, parseAttemptID := parseR.beginGuardAttempt()
 	defer parseR.finishGuardAttempt(parseAttemptID)
 
-	parseNormalized, parseOk := parseR.evaluateNavigationWithAttempt(parseCtx, parseAttemptID, normalizeNavigationTarget(parsePath))
+	parseNormalized, parseOk := parseR.evaluateNavigationWithAttempt(parseCtx, parseAttemptID, parseR.buildNavigationTarget(parsePath))
 	if !parseOk {
 		return
 	}

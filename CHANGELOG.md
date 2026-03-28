@@ -2,6 +2,36 @@
 
 ## 2026-03-27 (continued)
 
+### example 100 + router: history fragments, shell-route coverage, and landing boot cleanup
+
+- Fixed several route and first-paint regressions across `examples/100-ai-chat-wizard` and the shared router:
+  - client-side landing/login navigation no longer treats `/home -> /` as a no-op
+  - extensionless `/app/...` routes like `/app/settings?panel=settings-profile` now serve the client shell instead of 404ing
+  - pricing-page fragment routes now work on initial load, click, and browser back/forward for `/pricing#plans` and `/pricing#faq`
+  - history-router core now preserves `#fragment` targets and rerenders on `hashchange`
+- Fixed public-route loading flashes in example 100:
+  - landing routes now bypass the auth-loading shell and render marketing content immediately after hydration
+  - the bootstrap overlay uses route-aware copy for marketing pages
+  - the bootstrap overlay is removed from the DOM after mount so stale boot text cannot reflow after hydration
+- Added focused regression coverage in:
+  - `router/browser_router_test.go`
+  - `examples/100-ai-chat-wizard/client/app/route_sync_test.go`
+  - `examples/100-ai-chat-wizard/client/app/marketing_fragment_test.go`
+  - `examples/100-ai-chat-wizard/client/app/app_shell_test.go`
+  - `examples/100-ai-chat-wizard/server/app/runtime_helpers_additional_test.go`
+- Validation:
+  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./router -run TestBrowserRouterNavigateHistoryFragmentPreservesPath`
+  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./router -run TestBrowserRouterNavigateHistoryTargetPreservesFragment`
+  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./router -run TestBrowserRouterNavigateReplaceHistoryFragmentPreservesPath`
+  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./router -run TestBrowserRouterHistoryHashchangeRerendersCurrentRoute`
+  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./examples/100-ai-chat-wizard/client/app -run TestShouldNavigateLandingRoute`
+  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./examples/100-ai-chat-wizard/client/app -run TestParseResolvePricingFragmentScroll`
+  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./examples/100-ai-chat-wizard/client/app -run TestShouldRenderLandingShellEarly`
+  - `go test ./examples/100-ai-chat-wizard/server/app -run TestChatBootstrapLoaderTracksDownloadPhase`
+  - `go run ./examples/100-ai-chat-wizard/cmd/build-client`
+  - `go build ./examples/100-ai-chat-wizard/cmd/server`
+  - live browser smoke against `http://127.0.0.1:8095/`, `/pricing#faq`, and `/app/settings?panel=settings-profile`
+
 ### example 100: operational schema coverage + table inventory
 
 - Expanded `examples/100-ai-chat-wizard` schema/migration coverage for operational SaaS workflows with new tables for:

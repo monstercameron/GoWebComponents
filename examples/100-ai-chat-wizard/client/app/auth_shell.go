@@ -15,11 +15,32 @@ type authLoadingShellProps struct {
 	View appViewState
 }
 
+// setAuthDocumentTitle updates the browser tab title for auth and workspace-entry routes.
+func setAuthDocumentTitle(parseIntl i18n.Runtime, parseAuthMode string) {
+	parseDoc := js.Global().Get("document")
+	if !parseDoc.Truthy() {
+		return
+	}
+	c := chatI18nNamespace
+	parseTitle := parseIntl.T(c, "auth.loadingBrand") + " - AI Chat Workspace"
+	switch parseAuthMode {
+	case authModeSignup:
+		parseTitle = parseIntl.T(c, "auth.signUp") + " - " + parseIntl.T(c, "auth.loadingBrand")
+	case authModeReset:
+		parseTitle = parseIntl.T(c, "auth.forgotPassword") + " - " + parseIntl.T(c, "auth.loadingBrand")
+	case authModeUpdatePassword:
+		parseTitle = parseIntl.T(c, "auth.updatePassword") + " - " + parseIntl.T(c, "auth.loadingBrand")
+	}
+	parseDoc.Set("title", parseTitle)
+}
+
 // renderAuthLoadingShell keeps the root route stable while the gRPC bridge and
 // persisted auth token are being resolved. Must be mounted via ui.Component.
 func renderAuthLoadingShell(parseProps authLoadingShellProps) ui.Node {
 	parseProgress := ui.UseState(0)
 	parsePhase := ui.UseState("loading")
+	parseIntl := i18n.UseI18n()
+	c := chatI18nNamespace
 
 	// Loading phase: increment progress by 1 every 38 ms, then pause 450 ms before spinning.
 	ui.UseEffect(func() func() {
@@ -97,40 +118,40 @@ func renderAuthLoadingShell(parseProps authLoadingShellProps) ui.Node {
 			Div(
 				Class("relative h-[2px] overflow-hidden rounded-full bg-white/[0.08]"),
 				Div(
-					Class("absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-cyan-400/70 via-cyan-300 to-sky-300 transition-all duration-300"),
+					Class("absolute inset-y-0 left-0 rounded-full bg-[#00d9ff] transition-all duration-300"),
 					Style(map[string]string{"width": fmt.Sprintf("%d%%", parsePct)}),
 				),
 			),
 			Div(
 				Class("flex items-center justify-between text-sm text-white/35"),
-				Span(Text("Loading")),
-				Span(Class("text-[11px] uppercase tracking-[0.18em]"), Text("Please wait")),
+				Span(Text(parseIntl.T(c, "auth.loadingProgress"))),
+				Span(Class("text-[11px] uppercase tracking-[0.18em]"), Text(parseIntl.T(c, "auth.loadingPleaseWait"))),
 			),
 		)
 	} else {
 		parseBody = Div(
 			Class("flex min-h-[84px] items-center justify-between"),
 			Div(
-				Div(Class("text-sm text-white/[0.38]"), Text("Finalizing")),
-				Div(Class("mt-2 text-base font-medium text-white/[0.88]"), Text("Almost ready")),
+				Div(Class("text-sm text-white/[0.38]"), Text(parseIntl.T(c, "auth.loadingFinalizing"))),
+				Div(Class("mt-2 text-base font-medium text-white/[0.88]"), Text(parseIntl.T(c, "auth.loadingAlmostReady"))),
 			),
 			Div(
 				Class("relative h-10 w-10"),
 				Div(Class("absolute inset-0 rounded-full border border-white/[0.08]"), nil),
-				Div(Class("absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-cyan-300/80 border-r-cyan-200/60"), nil),
+				Div(Class("absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#00d9ff]"), nil),
 			),
 		)
 	}
 
 	return Div(
-		Class("flex min-h-screen items-center justify-center bg-[#020617] px-6 text-white"),
+		Class("flex min-h-screen items-center justify-center bg-[#050508] px-6 text-[#f0f0f8]"),
 		Div(
-			Class("w-full max-w-lg rounded-[32px] border border-white/[0.06] bg-white/[0.02] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-md"),
+			Class("w-full max-w-lg rounded-2xl border border-white/[0.06] bg-[#111118] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.72)]"),
 			Div(
 				Class("mb-8 flex items-center justify-between"),
 				Div(
-					Div(Class("text-[10px] uppercase tracking-[0.35em] text-white/35"), Text("RelayDesk")),
-					Div(Class("mt-3 text-xl font-medium tracking-tight text-white/90"), Text("Preparing interface")),
+					Div(Class("text-[10px] uppercase tracking-[0.35em] text-white/35"), Text(parseIntl.T(c, "auth.loadingBrand"))),
+					Div(Class("mt-3 text-xl font-medium tracking-tight text-white/90"), Text(parseIntl.T(c, "auth.loadingLabel"))),
 				),
 				Div(Class("text-sm tabular-nums text-white/40"), Text(parseDisplayPct)),
 			),
@@ -141,38 +162,34 @@ func renderAuthLoadingShell(parseProps authLoadingShellProps) ui.Node {
 
 // renderAuthShell renders the login/signup/reset/update-password page matching the RelayDesk brand.
 func renderAuthShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController) ui.Node {
+	setAuthDocumentTitle(parseIntl, parseView.AuthMode)
 	if parseView.AuthMode == authModeUpdatePassword {
-		return renderAuthUpdatePasswordShell(parseAuth)
+		return renderAuthUpdatePasswordShell(parseIntl, parseAuth)
 	}
 	if parseView.AuthMode == authModeReset {
-		return renderAuthResetShell(parseAuth)
+		return renderAuthResetShell(parseIntl, parseAuth)
 	}
 	isSignup := parseView.AuthMode == authModeSignup
 	return Div(
-		Class("relative min-h-screen bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
-		// ambient glow orbs
-		Div(
-			Class("pointer-events-none fixed inset-0 overflow-hidden"),
-			Div(Class("absolute left-[6%] top-[6%] h-40 w-40 rounded-full bg-[#8b5cf6]/12 blur-3xl sm:h-56 sm:w-56 lg:h-64 lg:w-64"), nil),
-			Div(Class("absolute right-[8%] top-[10%] h-44 w-44 rounded-full bg-[#ec4899]/12 blur-3xl sm:h-60 sm:w-60 lg:h-72 lg:w-72"), nil),
-			Div(Class("absolute bottom-[8%] left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-[#8b5cf6]/10 blur-3xl sm:h-72 sm:w-72"), nil),
-		),
-		renderAuthHeader(isSignup),
+		Class("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
+		renderPageBackground(),
+		renderAuthHeader(parseIntl, isSignup),
 		Main(
 			Class("relative z-10"),
 			renderAuthBody(parseIntl, parseView, parseAuth, isSignup),
 		),
-		renderAuthFooter(),
+		renderAuthFooter(parseIntl),
 	)
 }
 
 // renderAuthHeader renders the top bar with brand, signup/login toggle, and open-app CTA.
-func renderAuthHeader(isSignup bool) ui.Node {
-	parseSubtitleText := "Log in"
+func renderAuthHeader(parseIntl i18n.Runtime, isSignup bool) ui.Node {
+	c := chatI18nNamespace
+	parseSubtitleText := parseIntl.T(c, "auth.logIn")
 	if isSignup {
-		parseSubtitleText = "Sign up"
+		parseSubtitleText = parseIntl.T(c, "auth.signUp")
 	}
-	parseSignupHref := authLandingRoute + "?mode=signup"
+	parseSignupHref := marketingSignupRoute
 	parseLoginHref := authLandingRoute
 
 	return Header(
@@ -184,10 +201,14 @@ func renderAuthHeader(isSignup bool) ui.Node {
 				Class("flex min-w-0 items-center gap-3 sm:gap-4"),
 				Href(marketingHomeRoute),
 				OnClick(parseLandingNavigateHandler(marketingHomeRoute)),
-				Div(Class("grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#c4b5fd_0%,#f9a8d4_100%)] text-sm font-black text-[#1a1330] sm:h-11 sm:w-11"), Text("RD")),
+				Img(
+					Src(brandChatIconURL),
+					Attr("alt", appBrandName),
+					Class("h-10 w-10 shrink-0 rounded-xl object-cover sm:h-11 sm:w-11"),
+				),
 				Div(
 					Class("min-w-0"),
-					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text("RelayDesk")),
+					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text(parseIntl.T(c, "auth.loadingBrand"))),
 					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseSubtitleText)),
 				),
 			),
@@ -198,21 +219,22 @@ func renderAuthHeader(isSignup bool) ui.Node {
 					A(
 						Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
 						Href(parseSignupHref),
-						Text("Sign up"),
+						OnClick(parseLandingNavigateHandler(parseSignupHref)),
+						Text(parseIntl.T(c, "auth.signUp")),
 					),
 				),
 				If(isSignup,
 					A(
 						Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
 						Href(parseLoginHref),
-						Text("Log in"),
+						Text(parseIntl.T(c, "auth.logIn")),
 					),
 				),
 				A(
 					Class("inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px] sm:flex-none sm:px-5"),
 					Href(chatRouteRoot),
 					OnClick(parseLandingNavigateHandler(chatRouteRoot)),
-					Text("Open app"),
+					Text(parseIntl.T(c, "auth.openApp")),
 				),
 			),
 		),
@@ -221,25 +243,26 @@ func renderAuthHeader(isSignup bool) ui.Node {
 
 // renderAuthBody renders the two-column hero + form section.
 func renderAuthBody(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController, isSignup bool) ui.Node {
-	parseHeadingText := "Log in and get back to work."
-	parseBodyText := "Access your chats, saved workflows, and team workspace from one clean entry point."
-	parseBadgeText := "Secure access · clean entry"
+	c := chatI18nNamespace
+	parseHeadingText := parseIntl.T(c, "auth.loginHeroTitle")
+	parseBodyText := parseIntl.T(c, "auth.loginHeroBody")
+	parseBadgeText := parseIntl.T(c, "auth.loginBadge")
 	if isSignup {
-		parseHeadingText = "Create your account and get started fast."
-		parseBodyText = "Join RelayDesk with a clean signup flow built for real product onboarding, then move straight into your workspace."
-		parseBadgeText = "Simple onboarding · premium entry"
+		parseHeadingText = parseIntl.T(c, "auth.signupHeroTitle")
+		parseBodyText = parseIntl.T(c, "auth.signupHeroBody")
+		parseBadgeText = parseIntl.T(c, "auth.signupBadge")
 	}
 
 	parseStatCards := [][]string{
-		{"Fast re-entry", "Jump back into your existing workspace without extra noise."},
-		{"Secure flow", "A simple login surface designed for real product use."},
-		{"Team ready", "Built for individual and shared workspace access."},
+		{parseIntl.T(c, "auth.loginStat1Title"), parseIntl.T(c, "auth.loginStat1Body")},
+		{parseIntl.T(c, "auth.loginStat2Title"), parseIntl.T(c, "auth.loginStat2Body")},
+		{parseIntl.T(c, "auth.loginStat3Title"), parseIntl.T(c, "auth.loginStat3Body")},
 	}
 	if isSignup {
 		parseStatCards = [][]string{
-			{"Quick setup", "Create an account and enter the product without extra complexity."},
-			{"Clean onboarding", "A signup surface that feels premium without getting in the way."},
-			{"Ready for teams", "Start solo and grow into shared workspace access later."},
+			{parseIntl.T(c, "auth.signupStat1Title"), parseIntl.T(c, "auth.signupStat1Body")},
+			{parseIntl.T(c, "auth.signupStat2Title"), parseIntl.T(c, "auth.signupStat2Body")},
+			{parseIntl.T(c, "auth.signupStat3Title"), parseIntl.T(c, "auth.signupStat3Body")},
 		}
 	}
 
@@ -263,7 +286,7 @@ func renderAuthBody(parseIntl i18n.Runtime, parseView appViewState, parseAuth au
 					Class("mt-8 grid gap-4 sm:grid-cols-3 sm:gap-5"),
 					Map(parseStatCards, func(parseCard []string) ui.Node {
 						return Div(
-							Class("rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:rounded-[28px]"),
+							Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6"),
 							Div(Class("text-lg font-semibold tracking-[-0.04em] text-white sm:text-xl"), Text(parseCard[0])),
 							P(Class("mt-2 text-sm leading-6 text-[#b8c2d9]"), Text(parseCard[1])),
 						)
@@ -281,29 +304,30 @@ func renderAuthBody(parseIntl i18n.Runtime, parseView appViewState, parseAuth au
 
 // renderAuthFormCard renders the glass login/signup form.
 func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController, isSignup bool) ui.Node {
-	parseHeadingText := "Log in"
-	parseFormSubLabel := "Welcome back"
-	parseSubText := "Enter your email and password to continue into RelayDesk."
-	parseSubmitLabel := parseIntl.T(chatI18nNamespace, "auth.signIn")
-	parseSwitchText := "New to RelayDesk?"
-	parseSwitchLinkText := "Create an account"
-	parseSwitchHref := authLandingRoute + "?mode=signup"
-	parseEmailLabel := "Email"
-	parsePasswordPlaceholder := parseIntl.T(chatI18nNamespace, "auth.passwordPlaceholder")
+	c := chatI18nNamespace
+	parseHeadingText := parseIntl.T(c, "auth.loginFormTitle")
+	parseFormSubLabel := parseIntl.T(c, "auth.loginFormSub")
+	parseSubText := parseIntl.T(c, "auth.loginFormBody")
+	parseSubmitLabel := parseIntl.T(c, "auth.signIn")
+	parseSwitchText := parseIntl.T(c, "auth.loginFormSwitchText")
+	parseSwitchLinkText := parseIntl.T(c, "auth.loginFormSwitchLink")
+	parseSwitchHref := marketingSignupRoute
+	parseEmailLabel := parseIntl.T(c, "auth.email")
+	parsePasswordPlaceholder := parseIntl.T(c, "auth.passwordPlaceholder")
 	if isSignup {
-		parseHeadingText = "Sign up"
-		parseFormSubLabel = "Create your account"
-		parseSubText = "Enter your details to create a RelayDesk account and continue into the app."
-		parseSubmitLabel = parseIntl.T(chatI18nNamespace, "auth.createAccount")
-		parseSwitchText = "Already have an account?"
-		parseSwitchLinkText = "Log in"
+		parseHeadingText = parseIntl.T(c, "auth.signupFormTitle")
+		parseFormSubLabel = parseIntl.T(c, "auth.signupFormSub")
+		parseSubText = parseIntl.T(c, "auth.signupFormBody")
+		parseSubmitLabel = parseIntl.T(c, "auth.createAccount")
+		parseSwitchText = parseIntl.T(c, "auth.signupFormSwitchText")
+		parseSwitchLinkText = parseIntl.T(c, "auth.signupFormSwitchLink")
 		parseSwitchHref = authLandingRoute
-		parseEmailLabel = "Work email"
-		parsePasswordPlaceholder = "Create a password"
+		parseEmailLabel = parseIntl.T(c, "auth.workEmail")
+		parsePasswordPlaceholder = parseIntl.T(c, "auth.createPasswordPlaceholder")
 	}
 
 	return Div(
-		Class("rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:rounded-[32px] sm:px-8 sm:py-8"),
+		Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-8 sm:py-8"),
 		// form header
 		Div(
 			Class("mb-6"),
@@ -320,13 +344,13 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 					Tag("label",
 						Class("mb-2 block text-sm font-medium text-[#dfe6f7]"),
 						For(idAuthNameInput),
-						Text("Full name"),
+						Text(parseIntl.T(c, "auth.fullName")),
 					),
 					Input(
 						ID(idAuthNameInput),
 						Type("text"),
 						Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
-						Placeholder("Jane Doe"),
+						Placeholder(parseIntl.T(c, "auth.fullNamePlaceholder")),
 						Value(parseView.AuthDisplayName),
 						OnInput(parseAuth.HandleDisplayNameInput),
 					),
@@ -355,14 +379,14 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 					Tag("label",
 						Class("block text-sm font-medium text-[#dfe6f7]"),
 						For(idAuthPasswordInput),
-						Text("Password"),
+						Text(parseIntl.T(c, "auth.password")),
 					),
 					If(!isSignup,
 						A(
 							Class("text-sm text-[#b8c2d9] transition hover:text-white"),
 							Href("#"),
 							OnClick(parseAuth.HandleForgotPassword),
-							Text("Forgot password?"),
+							Text(parseIntl.T(c, "auth.forgotPassword")),
 						),
 					),
 				),
@@ -381,12 +405,12 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 				Div(
 					Tag("label",
 						Class("mb-2 block text-sm font-medium text-[#dfe6f7]"),
-						Text("Confirm password"),
+						Text(parseIntl.T(c, "auth.confirmPassword")),
 					),
 					Input(
 						Type("password"),
 						Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
-						Placeholder("Confirm your password"),
+						Placeholder(parseIntl.T(c, "auth.confirmPasswordPlaceholder")),
 					),
 				),
 			),
@@ -396,11 +420,11 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 					Class("flex items-start gap-3 text-sm text-[#dfe6f7]"),
 					Input(Type("checkbox"), Class("mt-1 h-4 w-4 rounded bg-white/10")),
 					Span(
-						Text("I agree to the "),
-						A(Class("text-white transition hover:text-[#f5f7fb]"), Href("#"), Text("Terms")),
-						Text(" and "),
-						A(Class("text-white transition hover:text-[#f5f7fb]"), Href("#"), Text("Privacy Policy")),
-						Text("."),
+						Text(parseIntl.T(c, "auth.termsText")),
+						A(Class("text-white transition hover:text-[#f5f7fb]"), Href("#"), Text(parseIntl.T(c, "auth.termsLink"))),
+						Text(parseIntl.T(c, "auth.termsAnd")),
+						A(Class("text-white transition hover:text-[#f5f7fb]"), Href("#"), Text(parseIntl.T(c, "auth.privacyPolicy"))),
+						Text(parseIntl.T(c, "auth.termsEnd")),
 					),
 				),
 			),
@@ -426,7 +450,7 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 			A(
 				Class("font-medium text-white transition hover:text-[#f5f7fb]"),
 				Href(parseSwitchHref),
-				OnClick(parseAuth.HandleModeToggle),
+				OnClick(parseLandingNavigateHandler(parseSwitchHref)),
 				Text(parseSwitchLinkText),
 			),
 		),
@@ -434,27 +458,22 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 }
 
 // renderAuthResetShell renders the password-reset request page.
-func renderAuthResetShell(parseAuth authSessionController) ui.Node {
+func renderAuthResetShell(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
 	return Div(
-		Class("relative min-h-screen bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
-		// ambient glow orbs
-		Div(
-			Class("pointer-events-none fixed inset-0 overflow-hidden"),
-			Div(Class("absolute left-[6%] top-[6%] h-40 w-40 rounded-full bg-[#8b5cf6]/12 blur-3xl sm:h-56 sm:w-56 lg:h-64 lg:w-64"), nil),
-			Div(Class("absolute right-[8%] top-[10%] h-44 w-44 rounded-full bg-[#ec4899]/12 blur-3xl sm:h-60 sm:w-60 lg:h-72 lg:w-72"), nil),
-			Div(Class("absolute bottom-[8%] left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-[#8b5cf6]/10 blur-3xl sm:h-72 sm:w-72"), nil),
-		),
-		renderAuthResetHeader(),
+		Class("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
+		renderPageBackground(),
+		renderAuthResetHeader(parseIntl),
 		Main(
 			Class("relative z-10"),
-			renderAuthResetBody(parseAuth),
+			renderAuthResetBody(parseIntl, parseAuth),
 		),
-		renderAuthFooter(),
+		renderAuthFooter(parseIntl),
 	)
 }
 
 // renderAuthResetHeader renders the header bar for the password reset page.
-func renderAuthResetHeader() ui.Node {
+func renderAuthResetHeader(parseIntl i18n.Runtime) ui.Node {
+	c := chatI18nNamespace
 	return Header(
 		Class("relative z-20"),
 		Div(
@@ -464,11 +483,15 @@ func renderAuthResetHeader() ui.Node {
 				Class("flex min-w-0 items-center gap-3 sm:gap-4"),
 				Href(marketingHomeRoute),
 				OnClick(parseLandingNavigateHandler(marketingHomeRoute)),
-				Div(Class("grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#c4b5fd_0%,#f9a8d4_100%)] text-sm font-black text-[#1a1330] sm:h-11 sm:w-11"), Text("RD")),
+				Img(
+					Src(brandChatIconURL),
+					Attr("alt", appBrandName),
+					Class("h-10 w-10 shrink-0 rounded-xl object-cover sm:h-11 sm:w-11"),
+				),
 				Div(
 					Class("min-w-0"),
-					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text("RelayDesk")),
-					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text("Password reset")),
+					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text(parseIntl.T(c, "auth.loadingBrand"))),
+					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseIntl.T(c, "auth.passwordReset"))),
 				),
 			),
 			// actions
@@ -477,13 +500,13 @@ func renderAuthResetHeader() ui.Node {
 				A(
 					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
 					Href(authLandingRoute),
-					Text("Log in"),
+					Text(parseIntl.T(c, "auth.logIn")),
 				),
 				A(
 					Class("inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px] sm:flex-none sm:px-5"),
 					Href(chatRouteRoot),
 					OnClick(parseLandingNavigateHandler(chatRouteRoot)),
-					Text("Open app"),
+					Text(parseIntl.T(c, "auth.openApp")),
 				),
 			),
 		),
@@ -491,11 +514,12 @@ func renderAuthResetHeader() ui.Node {
 }
 
 // renderAuthResetBody renders the two-column hero + reset form section.
-func renderAuthResetBody(parseAuth authSessionController) ui.Node {
+func renderAuthResetBody(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
+	c := chatI18nNamespace
 	parseStatCards := [][]string{
-		{"Quick recovery", "Reset access without digging through a cluttered auth flow."},
-		{"Secure flow", "A simple recovery surface designed for trusted account access."},
-		{"Back to work", "Get the reset link, update your password, and return to your workspace."},
+		{parseIntl.T(c, "auth.resetStat1Title"), parseIntl.T(c, "auth.resetStat1Body")},
+		{parseIntl.T(c, "auth.resetStat2Title"), parseIntl.T(c, "auth.resetStat2Body")},
+		{parseIntl.T(c, "auth.resetStat3Title"), parseIntl.T(c, "auth.resetStat3Body")},
 	}
 
 	return Section(
@@ -506,19 +530,19 @@ func renderAuthResetBody(parseAuth authSessionController) ui.Node {
 			Div(
 				Class("max-w-[640px]"),
 				Div(Class("mb-5 inline-flex rounded-full bg-white/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:mb-7 sm:px-4 sm:text-[11px] sm:tracking-[0.18em]"),
-					Text("Secure recovery · low friction"),
+					Text(parseIntl.T(c, "auth.resetBadge")),
 				),
 				H1(Class("max-w-none text-4xl font-semibold leading-[0.95] tracking-[-0.055em] text-white sm:text-5xl md:max-w-[11ch] md:text-6xl xl:text-7xl"),
-					Text("Reset your password and get back in."),
+					Text(parseIntl.T(c, "auth.resetHeroTitle")),
 				),
 				P(Class("mt-5 max-w-[56ch] text-base leading-7 text-[#e6ebf8]/92 sm:mt-6 sm:text-lg sm:leading-8 lg:text-xl"),
-					Text("Recover access with a clean reset flow built for real product use. Enter your email and we'll send a secure reset link."),
+					Text(parseIntl.T(c, "auth.resetHeroBody")),
 				),
 				Div(
 					Class("mt-8 grid gap-4 sm:grid-cols-3 sm:gap-5"),
 					Map(parseStatCards, func(parseCard []string) ui.Node {
 						return Div(
-							Class("rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:rounded-[28px]"),
+							Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6"),
 							Div(Class("text-lg font-semibold tracking-[-0.04em] text-white sm:text-xl"), Text(parseCard[0])),
 							P(Class("mt-2 text-sm leading-6 text-[#b8c2d9]"), Text(parseCard[1])),
 						)
@@ -528,23 +552,24 @@ func renderAuthResetBody(parseAuth authSessionController) ui.Node {
 			// right: reset form card
 			Div(
 				Class("mx-auto w-full max-w-[520px]"),
-				renderAuthResetFormCard(parseAuth),
+				renderAuthResetFormCard(parseIntl, parseAuth),
 			),
 		),
 	)
 }
 
 // renderAuthResetFormCard renders the glass email-submission form for password recovery.
-func renderAuthResetFormCard(parseAuth authSessionController) ui.Node {
+func renderAuthResetFormCard(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
+	c := chatI18nNamespace
 	return Div(
-		Class("rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:rounded-[32px] sm:px-8 sm:py-8"),
+		Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-8 sm:py-8"),
 		// form header
 		Div(
 			Class("mb-6"),
-			Div(Class("text-sm font-semibold text-[#dfe6f7]"), Text("Recover your account")),
-			H2(Class("mt-2 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl"), Text("Password reset")),
+			Div(Class("text-sm font-semibold text-[#dfe6f7]"), Text(parseIntl.T(c, "auth.resetFormSub"))),
+			H2(Class("mt-2 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl"), Text(parseIntl.T(c, "auth.passwordReset"))),
 			P(Class("mt-3 text-sm leading-7 text-[#b8c2d9]"),
-				Text("Enter the email tied to your RelayDesk account and we'll send you a reset link."),
+				Text(parseIntl.T(c, "auth.resetFormBody")),
 			),
 		),
 		// email field
@@ -554,13 +579,13 @@ func renderAuthResetFormCard(parseAuth authSessionController) ui.Node {
 				Tag("label",
 					Class("mb-2 block text-sm font-medium text-[#dfe6f7]"),
 					For(idAuthEmailInput),
-					Text("Email"),
+					Text(parseIntl.T(c, "auth.email")),
 				),
 				Input(
 					ID(idAuthEmailInput),
 					Type("email"),
 					Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
-					Placeholder("you@company.com"),
+					Placeholder(parseIntl.T(c, "auth.companyEmailPlaceholder")),
 					OnInput(parseAuth.HandleEmailInput),
 				),
 			),
@@ -568,55 +593,51 @@ func renderAuthResetFormCard(parseAuth authSessionController) ui.Node {
 			Button(
 				Class("inline-flex w-full items-center justify-center rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px]"),
 				OnClick(parseAuth.HandleModeToggle),
-				Text("Send reset link"),
+				Text(parseIntl.T(c, "auth.sendResetLink")),
 			),
 		),
 		// back to login
 		Div(
 			Class("mt-6 rounded-[22px] bg-white/5 px-4 py-4 text-sm text-[#b8c2d9]"),
-			Text("Remembered your password? "),
+			Text(parseIntl.T(c, "auth.resetRemembered")),
 			A(
 				Class("font-medium text-white transition hover:text-[#f5f7fb]"),
 				Href(authLandingRoute),
 				OnClick(parseAuth.HandleModeToggle),
-				Text("Back to log in"),
+				Text(parseIntl.T(c, "auth.backToLogIn")),
 			),
 		),
 		// create account
 		Div(
 			Class("mt-4 rounded-[22px] bg-white/5 px-4 py-4 text-sm text-[#b8c2d9]"),
-			Text("Need a new account? "),
+			Text(parseIntl.T(c, "auth.resetNoAccount")),
 			A(
 				Class("font-medium text-white transition hover:text-[#f5f7fb]"),
 				Href(authLandingRoute+"?mode=signup"),
 				OnClick(parseAuth.HandleModeToggle),
-				Text("Create one"),
+				Text(parseIntl.T(c, "auth.createOne")),
 			),
 		),
 	)
 }
 
 // renderAuthUpdatePasswordShell renders the update-password page for account security settings.
-func renderAuthUpdatePasswordShell(parseAuth authSessionController) ui.Node {
+func renderAuthUpdatePasswordShell(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
 	return Div(
-		Class("relative min-h-screen bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
-		Div(
-			Class("pointer-events-none fixed inset-0 overflow-hidden"),
-			Div(Class("absolute left-[6%] top-[6%] h-40 w-40 rounded-full bg-[#8b5cf6]/12 blur-3xl sm:h-56 sm:w-56 lg:h-64 lg:w-64"), nil),
-			Div(Class("absolute right-[8%] top-[10%] h-44 w-44 rounded-full bg-[#ec4899]/12 blur-3xl sm:h-60 sm:w-60 lg:h-72 lg:w-72"), nil),
-			Div(Class("absolute bottom-[8%] left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-[#8b5cf6]/10 blur-3xl sm:h-72 sm:w-72"), nil),
-		),
-		renderAuthUpdatePasswordHeader(),
+		Class("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
+		renderPageBackground(),
+		renderAuthUpdatePasswordHeader(parseIntl),
 		Main(
 			Class("relative z-10"),
-			renderAuthUpdatePasswordBody(parseAuth),
+			renderAuthUpdatePasswordBody(parseIntl, parseAuth),
 		),
-		renderAuthFooter(),
+		renderAuthFooter(parseIntl),
 	)
 }
 
 // renderAuthUpdatePasswordHeader renders the header bar for the update-password page.
-func renderAuthUpdatePasswordHeader() ui.Node {
+func renderAuthUpdatePasswordHeader(parseIntl i18n.Runtime) ui.Node {
+	c := chatI18nNamespace
 	return Header(
 		Class("relative z-20"),
 		Div(
@@ -625,11 +646,15 @@ func renderAuthUpdatePasswordHeader() ui.Node {
 				Class("flex min-w-0 items-center gap-3 sm:gap-4"),
 				Href(marketingHomeRoute),
 				OnClick(parseLandingNavigateHandler(marketingHomeRoute)),
-				Div(Class("grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#c4b5fd_0%,#f9a8d4_100%)] text-sm font-black text-[#1a1330] sm:h-11 sm:w-11"), Text("RD")),
+				Img(
+					Src(brandChatIconURL),
+					Attr("alt", appBrandName),
+					Class("h-10 w-10 shrink-0 rounded-xl object-cover sm:h-11 sm:w-11"),
+				),
 				Div(
 					Class("min-w-0"),
-					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text("RelayDesk")),
-					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text("Update password")),
+					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text(parseIntl.T(c, "auth.loadingBrand"))),
+					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseIntl.T(c, "auth.updatePassword"))),
 				),
 			),
 			Div(
@@ -637,13 +662,13 @@ func renderAuthUpdatePasswordHeader() ui.Node {
 				A(
 					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
 					Href(authLandingRoute),
-					Text("Log in"),
+					Text(parseIntl.T(c, "auth.logIn")),
 				),
 				A(
 					Class("inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px] sm:flex-none sm:px-5"),
 					Href(chatRouteRoot),
 					OnClick(parseLandingNavigateHandler(chatRouteRoot)),
-					Text("Open app"),
+					Text(parseIntl.T(c, "auth.openApp")),
 				),
 			),
 		),
@@ -651,11 +676,12 @@ func renderAuthUpdatePasswordHeader() ui.Node {
 }
 
 // renderAuthUpdatePasswordBody renders the two-column hero + update-password form section.
-func renderAuthUpdatePasswordBody(parseAuth authSessionController) ui.Node {
+func renderAuthUpdatePasswordBody(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
+	c := chatI18nNamespace
 	parseStatCards := [][]string{
-		{"Secure update", "Verify your current password before setting a new one."},
-		{"Fast flow", "A simple form that gets you back into the product quickly."},
-		{"Account control", "Built for real settings and account management screens."},
+		{parseIntl.T(c, "auth.updatePasswordStat1Title"), parseIntl.T(c, "auth.updatePasswordStat1Body")},
+		{parseIntl.T(c, "auth.updatePasswordStat2Title"), parseIntl.T(c, "auth.updatePasswordStat2Body")},
+		{parseIntl.T(c, "auth.updatePasswordStat3Title"), parseIntl.T(c, "auth.updatePasswordStat3Body")},
 	}
 
 	return Section(
@@ -665,19 +691,19 @@ func renderAuthUpdatePasswordBody(parseAuth authSessionController) ui.Node {
 			Div(
 				Class("max-w-[640px]"),
 				Div(Class("mb-5 inline-flex rounded-full bg-white/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:mb-7 sm:px-4 sm:text-[11px] sm:tracking-[0.18em]"),
-					Text("Secure update · low friction"),
+					Text(parseIntl.T(c, "auth.updatePasswordBadge")),
 				),
 				H1(Class("max-w-none text-4xl font-semibold leading-[0.95] tracking-[-0.055em] text-white sm:text-5xl md:max-w-[11ch] md:text-6xl xl:text-7xl"),
-					Text("Change your password and keep moving."),
+					Text(parseIntl.T(c, "auth.updatePasswordHeroTitle")),
 				),
 				P(Class("mt-5 max-w-[56ch] text-base leading-7 text-[#e6ebf8]/92 sm:mt-6 sm:text-lg sm:leading-8 lg:text-xl"),
-					Text("Update your existing password with a clean account settings flow designed for fast, secure access management."),
+					Text(parseIntl.T(c, "auth.updatePasswordHeroBody")),
 				),
 				Div(
 					Class("mt-8 grid gap-4 sm:grid-cols-3 sm:gap-5"),
 					Map(parseStatCards, func(parseCard []string) ui.Node {
 						return Div(
-							Class("rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:rounded-[28px]"),
+							Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6"),
 							Div(Class("text-lg font-semibold tracking-[-0.04em] text-white sm:text-xl"), Text(parseCard[0])),
 							P(Class("mt-2 text-sm leading-6 text-[#b8c2d9]"), Text(parseCard[1])),
 						)
@@ -686,22 +712,23 @@ func renderAuthUpdatePasswordBody(parseAuth authSessionController) ui.Node {
 			),
 			Div(
 				Class("mx-auto w-full max-w-[520px]"),
-				renderAuthUpdatePasswordFormCard(parseAuth),
+				renderAuthUpdatePasswordFormCard(parseIntl, parseAuth),
 			),
 		),
 	)
 }
 
 // renderAuthUpdatePasswordFormCard renders the glass form for changing an account password.
-func renderAuthUpdatePasswordFormCard(parseAuth authSessionController) ui.Node {
+func renderAuthUpdatePasswordFormCard(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
+	c := chatI18nNamespace
 	return Div(
-		Class("rounded-[28px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:rounded-[32px] sm:px-8 sm:py-8"),
+		Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-8 sm:py-8"),
 		Div(
 			Class("mb-6"),
-			Div(Class("text-sm font-semibold text-[#dfe6f7]"), Text("Account security")),
-			H2(Class("mt-2 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl"), Text("Update password")),
+			Div(Class("text-sm font-semibold text-[#dfe6f7]"), Text(parseIntl.T(c, "auth.updatePasswordFormSub"))),
+			H2(Class("mt-2 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl"), Text(parseIntl.T(c, "auth.updatePassword"))),
 			P(Class("mt-3 text-sm leading-7 text-[#b8c2d9]"),
-				Text("Enter your current password, then choose a new one for your RelayDesk account."),
+				Text(parseIntl.T(c, "auth.updatePasswordFormBody")),
 			),
 		),
 		Div(
@@ -710,68 +737,70 @@ func renderAuthUpdatePasswordFormCard(parseAuth authSessionController) ui.Node {
 				Tag("label",
 					Class("mb-2 block text-sm font-medium text-[#dfe6f7]"),
 					For(idAuthPasswordInput),
-					Text("Current password"),
+					Text(parseIntl.T(c, "auth.currentPassword")),
 				),
 				Input(
 					ID(idAuthPasswordInput),
 					Type("password"),
 					Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
-					Placeholder("Enter your current password"),
+					Placeholder(parseIntl.T(c, "auth.currentPasswordPlaceholder")),
 					OnInput(parseAuth.HandlePasswordInput),
 				),
 			),
 			Div(
 				Tag("label",
 					Class("mb-2 block text-sm font-medium text-[#dfe6f7]"),
-					Text("New password"),
+					Text(parseIntl.T(c, "auth.newPassword")),
 				),
 				Input(
 					Type("password"),
 					Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
-					Placeholder("Create a new password"),
+					Placeholder(parseIntl.T(c, "auth.newPasswordPlaceholder")),
 				),
 			),
 			Div(
 				Tag("label",
 					Class("mb-2 block text-sm font-medium text-[#dfe6f7]"),
-					Text("Confirm new password"),
+					Text(parseIntl.T(c, "auth.confirmNewPassword")),
 				),
 				Input(
 					Type("password"),
 					Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
-					Placeholder("Confirm your new password"),
+					Placeholder(parseIntl.T(c, "auth.confirmNewPasswordPlaceholder")),
 				),
 			),
 			Button(
 				Class("inline-flex w-full items-center justify-center rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px]"),
 				OnClick(parseLandingNavigateHandler(chatRouteRoot)),
-				Text("Update password"),
+				Text(parseIntl.T(c, "auth.updatePasswordSubmit")),
 			),
 		),
 		Div(
 			Class("mt-6 rounded-[22px] bg-white/5 px-4 py-4 text-sm text-[#b8c2d9]"),
-			Text("Need help instead? "),
+			Text(parseIntl.T(c, "auth.updatePasswordHelp")),
 			A(
 				Class("font-medium text-white transition hover:text-[#f5f7fb]"),
 				Href(authLandingRoute),
 				OnClick(parseAuth.HandleModeToggle),
-				Text("Return to log in"),
+				Text(parseIntl.T(c, "auth.returnToLogIn")),
 			),
 		),
 		Div(
 			Class("mt-4 rounded-[22px] bg-white/5 px-4 py-4 text-sm text-[#b8c2d9]"),
-			Text("Don't have an account? "),
+			Text(parseIntl.T(c, "auth.noAccount")),
 			A(
 				Class("font-medium text-white transition hover:text-[#f5f7fb]"),
-				Href(authLandingRoute+"?mode=signup"),
-				OnClick(parseAuth.HandleModeToggle),
-				Text("Create one"),
+				Href(marketingSignupRoute),
+				OnClick(parseLandingNavigateHandler(marketingSignupRoute)),
+				Text(parseIntl.T(c, "auth.createOne")),
 			),
 		),
 	)
 }
 
-func renderAuthFooter() ui.Node {
+func renderAuthFooter(parseIntl i18n.Runtime) ui.Node {
+	c := chatI18nNamespace
+	m := marketingI18nNamespace
 	return Tag("footer",
 		Class("relative z-10"),
 		Div(
@@ -781,41 +810,45 @@ func renderAuthFooter() ui.Node {
 				Class("max-w-[34ch] md:col-span-2 lg:col-span-1"),
 				Div(
 					Class("flex items-center gap-4"),
-					Div(Class("grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(135deg,#c4b5fd_0%,#f9a8d4_100%)] text-sm font-black text-[#1a1330] sm:h-11 sm:w-11"), Text("RD")),
+					Img(
+						Src(brandChatIconURL),
+						Attr("alt", appBrandName),
+						Class("h-10 w-10 shrink-0 rounded-xl object-cover sm:h-11 sm:w-11"),
+					),
 					Div(
-						Div(Class("text-[14px] font-semibold tracking-[-0.01em] text-white sm:text-[15px]"), Text("RelayDesk")),
-						Div(Class("text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text("Enterprise AI workspace")),
+						Div(Class("text-[14px] font-semibold tracking-[-0.01em] text-white sm:text-[15px]"), Text(parseIntl.T(c, "auth.loadingBrand"))),
+						Div(Class("text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseIntl.T(c, "auth.footerTagline"))),
 					),
 				),
-				P(Class("mt-5 text-sm leading-7 text-[#b8c2d9]"), Text("RelayDesk helps teams ask better questions, get clearer answers, and move work forward with less confusion.")),
+				P(Class("mt-5 text-sm leading-7 text-[#b8c2d9]"), Text(parseIntl.T(c, "auth.footerBlurb"))),
 			),
-			renderLandingFooterColumn("Auth",
-				renderLandingFooterLink("Sign up", authLandingRoute+"?mode=signup"),
-				renderLandingFooterLink("Log in", authLandingRoute),
-				renderLandingFooterLink("Open app", chatRouteRoot),
-				renderLandingFooterLink("Support", "#"),
+			renderLandingFooterColumn(parseIntl.T(c, "auth.footerColAuth"),
+				renderLandingFooterLink(parseIntl.T(c, "auth.signUp"), marketingSignupRoute),
+				renderLandingFooterLink(parseIntl.T(c, "auth.logIn"), authLandingRoute),
+				renderLandingFooterLink(parseIntl.T(c, "auth.openApp"), chatRouteRoot),
+				renderLandingFooterLink(parseIntl.T(m, "footer.link.support"), "#"),
 			),
-			renderLandingFooterColumn("Company",
-				renderLandingFooterLink("About", "#"),
-				renderLandingFooterLink("Customers", "#"),
-				renderLandingFooterLink("Security", "#"),
-				renderLandingFooterLink("Contact", "#"),
+			renderLandingFooterColumn(parseIntl.T(c, "auth.footerColCompany"),
+				renderLandingFooterLink(parseIntl.T(m, "footer.link.about"), "#"),
+				renderLandingFooterLink(parseIntl.T(m, "footer.link.customers"), "#"),
+				renderLandingFooterLink(parseIntl.T(m, "footer.link.security"), "#"),
+				renderLandingFooterLink(parseIntl.T(m, "footer.link.contact"), "#"),
 			),
-			renderLandingFooterColumn("Legal",
-				renderLandingFooterLink("Privacy", "#"),
-				renderLandingFooterLink("Terms", "#"),
-				renderLandingFooterLink("Status", "#"),
-				renderLandingFooterLink("Support", "#"),
+			renderLandingFooterColumn(parseIntl.T(c, "auth.footerColLegal"),
+				renderLandingFooterLink(parseIntl.T(m, "footer.privacy"), "#"),
+				renderLandingFooterLink(parseIntl.T(m, "footer.terms"), "#"),
+				renderLandingFooterLink(parseIntl.T(m, "footer.status"), "#"),
+				renderLandingFooterLink(parseIntl.T(m, "footer.link.support"), "#"),
 			),
 		),
 		Div(
 			Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-col gap-3 py-5 text-xs text-[#b8c2d9] sm:w-[min(1200px,calc(100%-32px))] sm:gap-4 sm:py-6 md:flex-row md:items-center md:justify-between lg:w-[min(1200px,calc(100%-40px))]"),
-			Div(Text("© 2026 RelayDesk, Inc. All rights reserved.")),
+			Div(Text(parseIntl.T(c, "auth.footerCopyright"))),
 			Div(
 				Class("flex flex-wrap items-center gap-4 sm:gap-5"),
-				A(Class("transition hover:text-white"), Href("#"), Text("Privacy Policy")),
-				A(Class("transition hover:text-white"), Href("#"), Text("Terms of Service")),
-				A(Class("transition hover:text-white"), Href("#"), Text("Status")),
+				A(Class("transition hover:text-white"), Href("#"), Text(parseIntl.T(c, "auth.footerPrivacyPolicy"))),
+				A(Class("transition hover:text-white"), Href("#"), Text(parseIntl.T(c, "auth.footerTermsOfService"))),
+				A(Class("transition hover:text-white"), Href("#"), Text(parseIntl.T(m, "footer.status"))),
 			),
 		),
 	)

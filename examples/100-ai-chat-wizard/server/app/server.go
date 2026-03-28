@@ -2072,6 +2072,9 @@ func shouldServeClientShell(parseRequestPath string) bool {
 	if parseCleanedPath == "/home" || parseCleanedPath == "/capabilities" || parseCleanedPath == "/pricing" {
 		return true
 	}
+	if strings.HasPrefix(parseCleanedPath, "/app/") && filepath.Ext(parseCleanedPath) == "" {
+		return true
+	}
 	if parseCleanedPath == "/thread" || strings.HasPrefix(parseCleanedPath, "/thread/") {
 		return true
 	}

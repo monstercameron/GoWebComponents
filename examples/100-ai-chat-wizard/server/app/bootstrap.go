@@ -565,10 +565,46 @@ function waitForAppMount(timeoutMs) {
   });
 }
 
+function isMarketingBootRoute() {
+  const pathname = String((window.location && window.location.pathname) || '').trim();
+  return pathname === '/' ||
+    pathname === '/home' ||
+    pathname === '/capabilities' ||
+    pathname === '/pricing' ||
+    pathname === '/signup';
+}
+
+function getBootCopy() {
+  if (isMarketingBootRoute()) {
+    return {
+      loadingHeading: 'Loading RelayDesk',
+      finalizingHeading: 'Almost ready',
+      finalizingDetail: 'Opening the page...',
+      readyHeading: 'Welcome to RelayDesk',
+      readyDetail: 'Your page is ready.',
+    };
+  }
+  return {
+    loadingHeading: 'Loading your workspace',
+    finalizingHeading: 'Almost ready',
+    finalizingDetail: 'Your workspace is almost ready...',
+    readyHeading: 'Welcome to RelayDesk',
+    readyDetail: 'Your workspace is ready.',
+  };
+}
+
 function finishBoot() {
-  setBootPhase('Welcome to RelayDesk', 'Your workspace is ready.', 'Ready', 100);
+  const copy = getBootCopy();
+  setBootPhase(copy.readyHeading, copy.readyDetail, 'Ready', 100);
   requestAnimationFrame(() => {
     bootShell.classList.add('is-hidden');
+    // Remove the boot overlay entirely once the app has mounted so stale boot
+    // copy can never reflow or flash during the first hydrated frame.
+    setTimeout(() => {
+      if (bootShell && bootShell.parentNode) {
+        bootShell.parentNode.removeChild(bootShell);
+      }
+    }, 40);
   });
 }
 
@@ -593,16 +629,17 @@ async function loadChatWasm() {
 
   const contentEncoding = String(response.headers.get('content-encoding') || '').toLowerCase();
   const totalBytes = Number(response.headers.get('content-length') || 0);
+  const copy = getBootCopy();
   if (contentEncoding && contentEncoding !== 'identity') {
     setBootPhase(
-      'Loading your workspace',
+      copy.loadingHeading,
       'Downloading WebAssembly...',
       'Loading',
       88,
       { indeterminate: true }
     );
     const result = await WebAssembly.instantiateStreaming(Promise.resolve(response), go.importObject);
-    setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Finalizing', 98, { indeterminate: true, finalizing: true });
+    setBootPhase(copy.finalizingHeading, copy.finalizingDetail, 'Finalizing', 98, { indeterminate: true, finalizing: true });
     const runPromise = go.run(result.instance);
     await waitForAppMount(8000);
     finishBoot();
@@ -611,10 +648,10 @@ async function loadChatWasm() {
   }
 
   if (!response.body || typeof response.body.getReader !== 'function') {
-    setBootPhase('Loading your workspace', 'Loading...', 'Loading', 34, { indeterminate: true });
+    setBootPhase(copy.loadingHeading, 'Loading...', 'Loading', 34, { indeterminate: true });
     const result = await WebAssembly.instantiateStreaming(Promise.resolve(response), go.importObject);
     setBootPhase('Almost there', 'Getting the final pieces ready...', 'Loading', 92, { indeterminate: true });
-    setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Finalizing', 98, { indeterminate: true, finalizing: true });
+    setBootPhase(copy.finalizingHeading, copy.finalizingDetail, 'Finalizing', 98, { indeterminate: true, finalizing: true });
     const runPromise = go.run(result.instance);
     await waitForAppMount(8000);
     finishBoot();
@@ -627,7 +664,7 @@ async function loadChatWasm() {
   let receivedBytes = 0;
   let unknownSizeProgress = 6;
 
-  setBootPhase('Loading your workspace', totalBytes > 0 ? '0 of ' + formatBytes(totalBytes) : 'Calculating download size...', 'Loading', 4);
+  setBootPhase(copy.loadingHeading, totalBytes > 0 ? '0 of ' + formatBytes(totalBytes) : 'Calculating download size...', 'Loading', 4);
 
   while (true) {
     const { done, value } = await reader.read();
@@ -637,10 +674,10 @@ async function loadChatWasm() {
 
     if (totalBytes > 0) {
       const progress = 8 + (receivedBytes / totalBytes) * 68;
-      setBootPhase('Loading your workspace', formatBytes(receivedBytes) + ' of ' + formatBytes(totalBytes), 'Loading', progress);
+      setBootPhase(copy.loadingHeading, formatBytes(receivedBytes) + ' of ' + formatBytes(totalBytes), 'Loading', progress);
     } else {
       unknownSizeProgress = Math.min(72, unknownSizeProgress + 3.5);
-      setBootPhase('Loading your workspace', formatBytes(receivedBytes) + ' received', 'Loading', unknownSizeProgress, { indeterminate: true });
+      setBootPhase(copy.loadingHeading, formatBytes(receivedBytes) + ' received', 'Loading', unknownSizeProgress, { indeterminate: true });
     }
   }
 
@@ -651,7 +688,7 @@ async function loadChatWasm() {
   });
   const result = await WebAssembly.instantiateStreaming(Promise.resolve(wasmResponse), go.importObject);
 
-  setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Finalizing', 98, { indeterminate: true, finalizing: true });
+  setBootPhase(copy.finalizingHeading, copy.finalizingDetail, 'Finalizing', 98, { indeterminate: true, finalizing: true });
   const runPromise = go.run(result.instance);
   await waitForAppMount(8000);
   finishBoot();

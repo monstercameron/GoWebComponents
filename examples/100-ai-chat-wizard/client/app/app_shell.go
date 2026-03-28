@@ -8,7 +8,6 @@ import (
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/logging"
-	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -58,6 +57,8 @@ type appViewState struct {
 	SelectedTTSProvider    string
 	SidebarOpen            bool
 	ExpandedThoughts       map[string]bool
+	ThoughtCacheByMessage  map[int]renderWorkerThoughtCacheEntry
+	CanvasCacheByMessage   map[int]renderWorkerCanvasCacheEntry
 	ThreadCostSummary      threadCostSummary
 	AccountCostSummary     accountCostSummary
 	ThinkingSupported      bool
@@ -66,9 +67,9 @@ type appViewState struct {
 	CanvasOnlyRoute        bool
 }
 
-func parseDeriveAppViewState(parseCurrentState appState, parseUserName string, isSidebarOpen bool, parseThreadSummary threadCostSummary, parseAccountSummary accountCostSummary, isCanvasOnlyRoute bool) appViewState {
+func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string, parseUserName string, isSidebarOpen bool, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseThreadSummary threadCostSummary, parseAccountSummary accountCostSummary, isCanvasOnlyRoute bool) appViewState {
 	return appViewState{
-		CurrentPath:            router.GetCurrentPath(),
+		CurrentPath:            parseCurrentPath,
 		GRPCReady:              parseCurrentState.GRPCReady,
 		AuthResolved:           parseCurrentState.AuthResolved,
 		Authenticated:          parseCurrentState.Authenticated,
@@ -107,6 +108,8 @@ func parseDeriveAppViewState(parseCurrentState appState, parseUserName string, i
 		SelectedTTSProvider:    parseResolveTTSProviderID(parseCurrentState.SelectedTTSProvider),
 		SidebarOpen:            isSidebarOpen,
 		ExpandedThoughts:       parseCurrentState.ExpandedThoughtSections,
+		ThoughtCacheByMessage:  parseThoughtCacheByMessage,
+		CanvasCacheByMessage:   parseCanvasCacheByMessage,
 		ThreadCostSummary:      parseThreadSummary,
 		AccountCostSummary:     parseAccountSummary,
 		ThinkingSupported:      parseModelSupportsThinking(parseCurrentState.SelectedModel, parseCurrentState.ModelOptions, parseCurrentState.DefaultModel),
@@ -139,10 +142,18 @@ type appShellProps struct {
 	CanvasWorkspace      canvasWorkspaceController
 }
 
+// shouldRenderLandingShellEarly returns whether a public landing route should bypass the auth loading shell.
+func shouldRenderLandingShellEarly(parseView appViewState) bool {
+	return isLandingRoute(parseView.CurrentPath) && !parseView.Authenticated
+}
+
 func renderAppShell(parseProps appShellProps) ui.Node {
 	parseContent := renderWorkspaceShell(parseProps)
 	isWorkspace := true
-	if !parseProps.View.GRPCReady || !parseProps.View.AuthResolved {
+	if shouldRenderLandingShellEarly(parseProps.View) {
+		parseContent = renderLandingShell(parseProps.Intl, parseProps.View, parseProps.AuthSession)
+		isWorkspace = false
+	} else if !parseProps.View.GRPCReady || !parseProps.View.AuthResolved {
 		parseContent = ui.Component(renderAuthLoadingShell, authLoadingShellProps{View: parseProps.View})
 		isWorkspace = false
 	} else if !parseProps.View.Authenticated {
@@ -229,6 +240,8 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 			parseProps.View.SidebarOpen,
 			parseProps.ToggleSidebar,
 			parseProps.View.ExpandedThoughts,
+			parseProps.View.ThoughtCacheByMessage,
+			parseProps.View.CanvasCacheByMessage,
 			parseProps.TTSAudio,
 			parseProps.RequestSpeechUpgrade,
 			parseProps.ScrollMemory,

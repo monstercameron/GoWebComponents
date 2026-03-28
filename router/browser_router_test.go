@@ -168,6 +168,42 @@ func TestBrowserRouterNavigate(parseT *testing.T) {
 	parseRouter.Navigate("/nav-test")
 }
 
+func TestBrowserRouterNavigateHistoryFragmentPreservesPath(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseRouter := NewHistoryRouter(RouterOptions{})
+	js.Global().Get("location").Set("pathname", "/pricing")
+	js.Global().Get("location").Set("search", "?plan=team")
+
+	parseRouter.Navigate("#faq")
+
+	if parseGot := js.Global().Get("location").Get("pathname").String(); parseGot != "/pricing" {
+		parseT.Fatalf("expected history fragment navigation to keep pathname, got %q", parseGot)
+	}
+	if parseGot2 := js.Global().Get("location").Get("search").String(); parseGot2 != "?plan=team" {
+		parseT.Fatalf("expected history fragment navigation to keep search, got %q", parseGot2)
+	}
+	if parseGot3 := js.Global().Get("location").Get("hash").String(); parseGot3 != "#faq" {
+		parseT.Fatalf("expected history fragment navigation to set hash, got %q", parseGot3)
+	}
+}
+
+func TestBrowserRouterNavigateHistoryTargetPreservesFragment(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseRouter := NewHistoryRouter(RouterOptions{})
+
+	parseRouter.Navigate("/pricing?plan=team#faq")
+
+	if parseGot := js.Global().Get("location").Get("pathname").String(); parseGot != "/pricing" {
+		parseT.Fatalf("expected history navigation to set pathname, got %q", parseGot)
+	}
+	if parseGot2 := js.Global().Get("location").Get("search").String(); parseGot2 != "?plan=team" {
+		parseT.Fatalf("expected history navigation to preserve search, got %q", parseGot2)
+	}
+	if parseGot3 := js.Global().Get("location").Get("hash").String(); parseGot3 != "#faq" {
+		parseT.Fatalf("expected history navigation to preserve hash, got %q", parseGot3)
+	}
+}
+
 // TestBrowserRouterNavigateReplace tests NavigateReplace method
 func TestBrowserRouterNavigateReplace(parseT *testing.T) {
 	installRouterBrowserEnv(parseT)
@@ -182,6 +218,21 @@ func TestBrowserRouterNavigateReplace(parseT *testing.T) {
 	}()
 
 	parseRouter.NavigateReplace("/replace-test")
+}
+
+func TestBrowserRouterNavigateReplaceHistoryFragmentPreservesPath(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseRouter := NewHistoryRouter(RouterOptions{})
+	js.Global().Get("location").Set("pathname", "/pricing")
+
+	parseRouter.NavigateReplace("#plans")
+
+	if parseGot := js.Global().Get("location").Get("pathname").String(); parseGot != "/pricing" {
+		parseT.Fatalf("expected history replace fragment navigation to keep pathname, got %q", parseGot)
+	}
+	if parseGot2 := js.Global().Get("location").Get("hash").String(); parseGot2 != "#plans" {
+		parseT.Fatalf("expected history replace fragment navigation to set hash, got %q", parseGot2)
+	}
 }
 
 // TestBrowserRouterMountElement tests mounting to a DOM element
@@ -608,6 +659,31 @@ func TestBrowserRouterAsyncGuardBackAndForwardUsesFreshAttempt(parseT *testing.T
 	if parseGot2 := js.Global().Get("location").Get("pathname").String(); parseGot2 != "/alpha" {
 		parseT.Fatalf("expected stale back navigation to be ignored, got pathname %q", parseGot2)
 	}
+}
+
+func TestBrowserRouterHistoryHashchangeRerendersCurrentRoute(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseRouter := NewHistoryRouter(RouterOptions{DefaultRoute: "/pricing"})
+	js.Global().Get("location").Set("pathname", "/pricing")
+
+	parseRenderCount := 0
+	parseRouter.GoRegisterRoute("/pricing", func(parseAttrs Attrs) *Element {
+		parseRenderCount++
+		return runtime.Div(nil, runtime.Text(js.Global().Get("location").Get("hash").String()))
+	})
+
+	parseContainer := js.Global().Get("document").Call("createElement", "div")
+	parseRouter.MountElement(parseContainer)
+	if parseRenderCount == 0 {
+		parseT.Fatal("expected initial route render")
+	}
+
+	js.Global().Get("location").Set("hash", "#faq")
+	js.Global().Get("window").Call("dispatchEvent", map[string]interface{}{"type": "hashchange"})
+
+	waitForCondition(parseT, func() bool {
+		return parseRenderCount >= 2
+	})
 }
 
 func TestBrowserRouterAsyncGuardDelaysLoaderUntilAllowed(parseT *testing.T) {

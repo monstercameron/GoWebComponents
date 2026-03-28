@@ -3,6 +3,7 @@
 package app
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 )
 
 // App renders the chat wizard application shell.
-func ParseApp() ui.Node {
+func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 	parseIntl := i18n.UseI18n()
 	parseApp := ui.UseReducer(parseReduceAppState, parseInitialAppState())
 	parseCurrentState := parseApp.Get()
@@ -36,7 +37,12 @@ func ParseApp() ui.Node {
 
 	parseChatClientRef := ui.UseRef[chatpb.ChatServiceClient](nil)
 	parseMarkdownWorkerRef := ui.UseRef[*interop.Worker](nil)
+	parseMarkdownWorkerPoolRef := ui.UseRef[*interop.WorkerPool](nil)
 	parseMarkdownRenderInFlight := ui.UseRef(map[string]bool{})
+	parseThoughtCacheByMessageState := ui.UseState(map[int]renderWorkerThoughtCacheEntry{})
+	parseCanvasCacheByMessageState := ui.UseState(map[int]renderWorkerCanvasCacheEntry{})
+	parseThreadCostSummaryState := ui.UseState(threadCostSummary{AssistantMessageCosts: map[int]assistantMessageCost{}})
+	parseThreadCostSummarySignatureState := ui.UseState("")
 
 	parseUserNameFetchedAt := ui.UseRef(time.Time{})
 	parseConvListFetchedAt := ui.UseRef(time.Time{})
@@ -45,17 +51,61 @@ func ParseApp() ui.Node {
 	parseLastRouteMismatchWarning := ui.UseRef("")
 	parseLastRouteNormalizationWarning := ui.UseRef("")
 	parseSettingsReturnRouteRef := ui.UseRef("")
-	parseCurrentPath := router.GetCurrentPath()
+	parseCurrentPath := strings.TrimSpace(parseProps.CurrentPath)
+	if parseCurrentPath == "" {
+		parseCurrentPath = router.GetCurrentPath()
+	}
+	parseUsePricingFragmentScroll(parseCurrentPath)
 	parseSettingsPanelRouteID := parseCurrentSettingsPanelRouteID()
 	parseDeferredMessages := ui.UseDeferredValue(parseCurrentState.Messages)
+	parseRenderSignatureState := ui.UseState(parseBuildRenderSignatureState(parseDeferredMessages, parseCurrentState.ModelOptions))
+	parseRenderSignatureGenerationRef := ui.UseRef(uint64(0))
+	parseHasWorkerRequester := parseMarkdownWorkerRef.Get() != nil || parseMarkdownWorkerPoolRef.Get() != nil
 
-	parseCompletedMarkdownSignature := ui.UseMemo(func() string {
-		return parseCompletedAssistantMessagesMarkdownSignature(parseDeferredMessages)
-	}, parseDeferredMessages)
+	ui.UseEffect(func() func() {
+		parseMessages := append([]message(nil), parseDeferredMessages...)
+		parseModels := append([]modelOption(nil), parseCurrentState.ModelOptions...)
+		parseFallbackSignatures := parseBuildRenderSignatureState(parseMessages, parseModels)
+		if parseCurrentState.MarkdownWorkerFallback || !parseHasWorkerRequester {
+			parseRenderSignatureState.Set(parseFallbackSignatures)
+			return nil
+		}
+		parseRequester, _ := parseResolveBackgroundRenderRequester(parseMarkdownWorkerRef, parseMarkdownWorkerPoolRef)
+		if parseRequester == nil {
+			parseRenderSignatureState.Set(parseFallbackSignatures)
+			return nil
+		}
+		parseGeneration := parseRenderSignatureGenerationRef.Get() + 1
+		parseRenderSignatureGenerationRef.Set(parseGeneration)
+		go func(parseExpectedGeneration uint64, parseWorkerMessages []message, parseWorkerModels []modelOption, parseFallback renderWorkerSignatureState) {
+			parseWorkerSignatures, parseErr := parseRequestWorkerRenderSignatures(context.Background(), parseRequester, parseExpectedGeneration, parseWorkerMessages, parseWorkerModels)
+			if parseErr != nil {
+				chatLog.Warn("render signature worker request failed; using synchronous fallback", logging.Fields{"error": parseErr})
+				parseWorkerSignatures = parseFallback
+			}
+			if parseRenderSignatureGenerationRef.Get() != parseExpectedGeneration {
+				return
+			}
+			parseRenderSignatureState.Set(parseWorkerSignatures)
+		}(parseGeneration, parseMessages, parseModels, parseFallbackSignatures)
+		return nil
+	}, parseCurrentState.MarkdownWorkerFallback, parseDeferredMessages, parseCurrentState.ModelOptions, parseHasWorkerRequester)
 
-	parseThreadCostSummary := ui.UseMemo(func() threadCostSummary {
-		return parseDeriveThreadCostSummary(parseDeferredMessages, parseCurrentState.ModelOptions)
-	}, parseDeferredMessages, parseCurrentState.ModelOptions)
+	parseRenderSignatures := parseRenderSignatureState.Get()
+	parseCompletedMarkdownSignature := parseRenderSignatures.GetCompletedMarkdownSignature
+	parseAssistantMetadataSignature := parseRenderSignatures.GetAssistantMetadataSignature
+	parseThreadCostSignature := parseRenderSignatures.GetThreadCostSignature
+
+	parseThreadCostSummary := parseThreadCostSummaryState.Get()
+	if parseThreadCostSummary.AssistantMessageCosts == nil {
+		parseThreadCostSummary.AssistantMessageCosts = map[int]assistantMessageCost{}
+	}
+	if parseThreadCostSummarySignatureState.Get() != parseThreadCostSignature {
+		parseThreadCostSummary = threadCostSummary{AssistantMessageCosts: map[int]assistantMessageCost{}}
+	}
+	if parseCurrentState.MarkdownWorkerFallback {
+		parseThreadCostSummary = parseDeriveThreadCostSummary(parseDeferredMessages, parseCurrentState.ModelOptions)
+	}
 
 	parseScrollMemory := parseUseThreadScrollMemory(parseCurrentState.ActiveConvID, len(parseCurrentState.Messages))
 	parseModelCatalogState := modelCatalog{DefaultModel: parseCurrentState.DefaultModel, Models: parseCurrentState.ModelOptions}
@@ -83,7 +133,7 @@ func ParseApp() ui.Node {
 			parseNav.Navigate(parsePath)
 		}
 	}, handleAuthFailure)
-	parseAccountCostSummary := parseUseAccountCostSummary(parseCurrentState, parseChatClientRef, handleAuthFailure)
+	parseAccountCostSummary := parseUseAccountCostSummary(parseCurrentState, parseChatClientRef, parseMarkdownWorkerRef, parseMarkdownWorkerPoolRef, handleAuthFailure)
 
 	parseAuthSession := parseUseAuthSession(parseApp, parseUserNameState, parseChatClientRef, func() {
 		if !isChatRoute(router.GetCurrentPath()) {
@@ -137,14 +187,29 @@ func ParseApp() ui.Node {
 		return nil
 	}, parseStoredTTSProvider, parseCurrentState.SelectedTTSProvider, parseCurrentState.ShowNameModal)
 
+	// Sync auth mode with the dedicated /signup route so the form always submits as signup.
+	ui.UseEffect(func() func() {
+		if parseCurrentPath == marketingSignupRoute && parseApp.Get().AuthMode != authModeSignup {
+			parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeSignup})
+		}
+		return nil
+	}, parseCurrentPath)
+
 	parseUseAppRuntime(
 		parseApp,
 		parseChatClientRef,
 		parseMarkdownWorkerRef,
+		parseMarkdownWorkerPoolRef,
 		parseMarkdownRenderInFlight,
 		parseMarkdownRenderVersion,
 		parseMarkdownRenderTick,
 		parseCompletedMarkdownSignature,
+		parseAssistantMetadataSignature,
+		parseThreadCostSignature,
+		parseThoughtCacheByMessageState,
+		parseCanvasCacheByMessageState,
+		parseThreadCostSummaryState,
+		parseThreadCostSummarySignatureState,
 		parseConversationList.Refresh,
 		parseProfileSettings.Refresh,
 	)
@@ -256,7 +321,7 @@ func ParseApp() ui.Node {
 		return nil
 	}, parseCurrentState.Authenticated, parseCurrentState.ActiveConvPublicID, parseCurrentState.CanvasSession.Active, parseCurrentState.CanvasSession.ArtifactID, parseCanvasRouteID, parseThreadRoutePublicID, parseCurrentPath)
 
-	parseView := parseDeriveAppViewState(parseCurrentState, parseUserName, parseSidebarOpen, parseThreadCostSummary, parseAccountCostSummary, strings.TrimSpace(parseCanvasRouteID) != "")
+	parseView := parseDeriveAppViewState(parseCurrentState, parseCurrentPath, parseUserName, parseSidebarOpen, parseThoughtCacheByMessageState.Get(), parseCanvasCacheByMessageState.Get(), parseThreadCostSummary, parseAccountCostSummary, strings.TrimSpace(parseCanvasRouteID) != "")
 
 	return renderAppShell(appShellProps{
 		Intl:                 parseIntl,
@@ -285,33 +350,34 @@ func ParseApp() ui.Node {
 // --- entry point -------------------------------------------------------------
 
 func ParseRun() {
+	parseRegisterRuntime2Regions()
 	parseR := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: chatRouteRoot})
 	parseR.Register(authLandingRoute, func(router.Attrs) *router.Element {
-		return ui.CreateElement(parseChatWizardRoot)
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register(marketingHomeRoute, func(router.Attrs) *router.Element {
-		return ui.CreateElement(parseChatWizardRoot)
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register(marketingCapabilitiesRoute, func(router.Attrs) *router.Element {
-		return ui.CreateElement(parseChatWizardRoot)
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register(marketingPricingRoute, func(router.Attrs) *router.Element {
-		return ui.CreateElement(parseChatWizardRoot)
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register(chatRouteRoot, func(router.Attrs) *router.Element {
-		return ui.CreateElement(parseChatWizardRoot)
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register(chatRouteThreadPattern, func(router.Attrs) *router.Element {
-		return ui.CreateElement(parseChatWizardRoot)
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register(chatRouteCanvasPattern, func(router.Attrs) *router.Element {
-		return ui.CreateElement(parseChatWizardRoot)
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register(settingsRoutePath, func(router.Attrs) *router.Element {
-		return ui.CreateElement(parseChatWizardRoot)
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register("*", func(router.Attrs) *router.Element {
-		return ui.CreateElement(parseChatWizardRoot)
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Mount(appSelector)
 	utils.WaitForever()
