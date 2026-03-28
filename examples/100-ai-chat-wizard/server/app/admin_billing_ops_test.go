@@ -208,6 +208,57 @@ func TestAdminBillingInterventionRPCs(parseT *testing.T) {
 	}
 }
 
+// TestAdminBillingOverrideMutationsRequireReasonAndConfirmation verifies billing override mutations fail closed without explicit confirmation and reason.
+func TestAdminBillingOverrideMutationsRequireReasonAndConfirmation(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseSeedAdminDashboardTestData(parseT, parseStore)
+	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
+
+	parseAliceAuth, parseErr := parseStore.getUserAuthByEmail("alice@example.com")
+	if parseErr != nil {
+		parseT.Fatalf("getUserAuthByEmail alice: %v", parseErr)
+	}
+	parseGrantSuperuserRole(parseT, parseStore, parseAliceAuth.ID)
+	parseAliceCtx := parseBindAuthUser(parseServer, "peer-admin-billing-reason-alice", parseAliceAuth.ID, parseAliceAuth.Email)
+
+	if _, parseErr = parseServer.SetAdminBillingAccessOverride(parseAliceCtx, &chatpb.AdminBillingAccessOverrideMutationRequest{
+		UserId:        parseAliceAuth.ID,
+		OverrideKey:   "access.priority_support",
+		OverrideValue: "enabled",
+		Confirm:       false,
+		Reason:        "requires explicit confirm",
+	}); status.Code(parseErr) != codes.InvalidArgument {
+		parseT.Fatalf("SetAdminBillingAccessOverride missing confirm status code = %v, want %v", status.Code(parseErr), codes.InvalidArgument)
+	}
+	if _, parseErr = parseServer.SetAdminBillingAccessOverride(parseAliceCtx, &chatpb.AdminBillingAccessOverrideMutationRequest{
+		UserId:        parseAliceAuth.ID,
+		OverrideKey:   "access.priority_support",
+		OverrideValue: "enabled",
+		Confirm:       true,
+		Reason:        "   ",
+	}); status.Code(parseErr) != codes.InvalidArgument {
+		parseT.Fatalf("SetAdminBillingAccessOverride missing reason status code = %v, want %v", status.Code(parseErr), codes.InvalidArgument)
+	}
+	if _, parseErr = parseServer.SetAdminBillingQuotaOverride(parseAliceCtx, &chatpb.AdminBillingQuotaOverrideMutationRequest{
+		UserId:     parseAliceAuth.ID,
+		QuotaKey:   "requests.daily",
+		QuotaValue: "100000",
+		Confirm:    false,
+		Reason:     "requires explicit confirm",
+	}); status.Code(parseErr) != codes.InvalidArgument {
+		parseT.Fatalf("SetAdminBillingQuotaOverride missing confirm status code = %v, want %v", status.Code(parseErr), codes.InvalidArgument)
+	}
+	if _, parseErr = parseServer.SetAdminBillingQuotaOverride(parseAliceCtx, &chatpb.AdminBillingQuotaOverrideMutationRequest{
+		UserId:     parseAliceAuth.ID,
+		QuotaKey:   "requests.daily",
+		QuotaValue: "100000",
+		Confirm:    true,
+		Reason:     "",
+	}); status.Code(parseErr) != codes.InvalidArgument {
+		parseT.Fatalf("SetAdminBillingQuotaOverride missing reason status code = %v, want %v", status.Code(parseErr), codes.InvalidArgument)
+	}
+}
+
 // TestAdminBillingListQueryRPCs verifies typed billing list-query behavior for override, event, and dunning list RPCs.
 func TestAdminBillingListQueryRPCs(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
