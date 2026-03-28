@@ -17,7 +17,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-// App renders the chat wizard application shell.
+// ParseApp renders the chat wizard application shell.
 func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 	parseIntl := i18n.UseI18n()
 	parseApp := ui.UseReducer(parseReduceAppState, parseInitialAppState())
@@ -403,6 +403,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 
 // --- entry point -------------------------------------------------------------
 
+// ParseRun starts the chat wizard client entrypoint.
 func ParseRun() {
 	parseRegisterRuntime2Regions()
 	parseR := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: chatRouteRoot})

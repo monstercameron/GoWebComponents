@@ -45,6 +45,7 @@ func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStream
 		If(isParseCanAccessAdmin,
 			Div(Class("px-2 mt-2"),
 				Button(
+					ID("open-admin-dashboard-btn"),
 					Class("flex w-full items-center justify-center rounded-2xl border border-[#8effd8]/30 bg-[#0f2339]/72 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#d6fff0] transition-colors hover:bg-[#143352]"),
 					OnClick(parseOnOpenAdmin),
 					Text("Admin dashboard"),
@@ -97,6 +98,7 @@ func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStream
 		),
 		Div(Class("mt-auto border-t border-white/[0.06]"),
 			Button(
+				ID("open-settings-btn"),
 				Class("w-full flex items-center gap-3 px-3 py-3 hover:bg-white/[0.06] transition-colors text-left"),
 				OnClick(parseOnEditName),
 				Div(Class("h-8 w-8 rounded-full border border-[#00d9ff]/40 bg-gradient-to-br from-[#00d9ff]/28 to-[#3b82f6]/22 flex items-center justify-center shrink-0 text-xs font-semibold"),

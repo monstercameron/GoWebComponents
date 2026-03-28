@@ -327,7 +327,7 @@ func parseUseAuthSession(
 			if parseErr2 != nil || !parseSession.GetAuthenticated() {
 				parseAuthError := ""
 				if parseErr2 != nil {
-					parseAuthError = parseAuthErrorMessage(authModeLogin, parseErr2)
+					parseAuthError = parseBuildUserAuthErrorText(authModeLogin, parseErr2)
 				}
 				parseApplyUnauthenticatedSessionState(parseApp, parseUserNameState, parseAuthError)
 				if parseOnLogout != nil {
@@ -441,18 +441,18 @@ func parseUseAuthSession(
 		}
 		parseClient3 := parseChatClientRef.Get()
 		if parseClient3 == nil {
-			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: "Connection is not ready yet."})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: parseFormatUserErrorText("Connection is not ready yet.")})
 			return
 		}
 		parseEmail := strings.TrimSpace(parseCurrentState.AuthEmail)
 		parsePassword := parseCurrentState.AuthPassword
 		parseDisplayName2 := strings.TrimSpace(parseCurrentState.AuthDisplayName)
 		if parseEmail == "" || strings.TrimSpace(parsePassword) == "" {
-			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: "Email and password are required."})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: parseFormatUserErrorText("Email and password are required.")})
 			return
 		}
 		if parseCurrentState.AuthMode == authModeSignup && len(strings.TrimSpace(parsePassword)) < 8 {
-			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: "Password must be at least 8 characters."})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: parseFormatUserErrorText("Password must be at least 8 characters.")})
 			return
 		}
 		parseApp.Dispatch(appAction{Type: appActionSetAuthSubmitting, AuthSubmitting: true})
@@ -478,7 +478,7 @@ func parseUseAuthSession(
 				})
 			}
 			if parseErr3 != nil {
-				parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: parseAuthErrorMessage(parseMode, parseErr3)})
+				parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: parseBuildUserAuthErrorText(parseMode, parseErr3)})
 				return
 			}
 			parsePersistAuthToken(parseResp2.GetAuthToken())

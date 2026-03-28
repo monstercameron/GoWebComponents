@@ -15,30 +15,42 @@ import (
 )
 
 type example100AuthEntryMatrixArtifact struct {
-	HasSignupFlow          bool
-	HasLoginFlow           bool
-	HasRefreshFlow         bool
-	HasLogoutFlow          bool
-	HasPasswordResetFlow   bool
-	HasFirstChatFlow       bool
-	GetFirstChatThreadPath string
-	GetConsoleErrorCount   int
-	GetPageErrorCount      int
-	GetConsoleSampleText   string
-	GetPageErrorSampleText string
+	HasSignupFlow               bool
+	HasLoginFlow                bool
+	HasRefreshFlow              bool
+	HasLogoutFlow               bool
+	HasPasswordResetFlow        bool
+	HasMixedProviderEntryFlow   bool
+	HasWorkspaceSSOEntryFlow    bool
+	HasCallbackReturnEntryFlow  bool
+	HasFirstChatFlow            bool
+	GetFirstChatThreadPath      string
+	GetConsoleErrorCount        int
+	GetPageErrorCount           int
+	GetConsoleSampleText        string
+	GetPageErrorSampleText      string
+	GetMixedProviderRouteState  string
+	GetCallbackReturnRouteState string
+	GetWorkspaceSSORouteState   string
 }
 
 // formatExample100AuthEntryMatrixSummary formats one auth-entry regression artifact for concise logs.
 func formatExample100AuthEntryMatrixSummary(parseArtifact example100AuthEntryMatrixArtifact) string {
 	return fmt.Sprintf(
-		"signup=%t login=%t refresh=%t logout=%t reset=%t first-chat=%t thread-path=%q console-errors=%d page-errors=%d console-samples=%q page-error-samples=%q",
+		"signup=%t login=%t refresh=%t logout=%t reset=%t mixed-provider=%t workspace-sso-entry=%t callback-return=%t first-chat=%t thread-path=%q mixed-route=%q sso-route=%q callback-route=%q console-errors=%d page-errors=%d console-samples=%q page-error-samples=%q",
 		parseArtifact.HasSignupFlow,
 		parseArtifact.HasLoginFlow,
 		parseArtifact.HasRefreshFlow,
 		parseArtifact.HasLogoutFlow,
 		parseArtifact.HasPasswordResetFlow,
+		parseArtifact.HasMixedProviderEntryFlow,
+		parseArtifact.HasWorkspaceSSOEntryFlow,
+		parseArtifact.HasCallbackReturnEntryFlow,
 		parseArtifact.HasFirstChatFlow,
 		parseArtifact.GetFirstChatThreadPath,
+		parseArtifact.GetMixedProviderRouteState,
+		parseArtifact.GetWorkspaceSSORouteState,
+		parseArtifact.GetCallbackReturnRouteState,
 		parseArtifact.GetConsoleErrorCount,
 		parseArtifact.GetPageErrorCount,
 		parseArtifact.GetConsoleSampleText,
@@ -50,7 +62,36 @@ func formatExample100AuthEntryMatrixSummary(parseArtifact example100AuthEntryMat
 func parseWaitForAuthEmailInput(parseT *testing.T, parsePage playwright.Page, parseLabel string) {
 	parseT.Helper()
 	if _, parseErr := parsePage.WaitForSelector("#auth-email-input"); parseErr != nil {
-		parseT.Fatalf("%s wait for auth email input: %v", parseLabel, parseErr)
+		parseDebugValue, _ := parsePage.Evaluate(`() => ({
+			path: window.location.pathname + window.location.search,
+			title: document.title || "",
+			body: ((document.body && document.body.innerText) || "").slice(0, 1400),
+		})`)
+		parseT.Fatalf("%s wait for auth email input: %v debug=%#v", parseLabel, parseErr, parseDebugValue)
+	}
+}
+
+// parseWaitForSignedOutEntry waits for one signed-out auth-entry state (auth form or public landing) after logout.
+func parseWaitForSignedOutEntry(parseT *testing.T, parsePage playwright.Page, parseLabel string) {
+	parseT.Helper()
+	if _, parseErr := parsePage.WaitForFunction(
+		`() => {
+			const path = window.location.pathname;
+			const hasAuthInput = !!document.querySelector("#auth-email-input");
+			const hasChatInput = !!document.querySelector("#chat-input");
+			const isPublicRoute = path === "/" || path === "/home" || path === "/pricing" || path === "/signup";
+			return hasAuthInput || (isPublicRoute && !hasChatInput);
+		}`,
+		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(45000)},
+	); parseErr != nil {
+		parseDebugValue, _ := parsePage.Evaluate(`() => ({
+			path: window.location.pathname + window.location.search,
+			title: document.title || "",
+			hasAuthInput: !!document.querySelector("#auth-email-input"),
+			hasChatInput: !!document.querySelector("#chat-input"),
+			body: ((document.body && document.body.innerText) || "").slice(0, 1400),
+		})`)
+		parseT.Fatalf("%s wait for signed-out auth-entry state: %v debug=%#v", parseLabel, parseErr, parseDebugValue)
 	}
 }
 
@@ -61,6 +102,19 @@ func parseLoginExample100AuthEntryUser(parseT *testing.T, parsePage playwright.P
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	}); parseErr != nil {
 		parseT.Fatalf("goto /login (%s): %v", parseEmail, parseErr)
+	}
+	if _, parseErr := parsePage.WaitForFunction(
+		`() => !!document.querySelector("#auth-email-input") || !!document.querySelector("#chat-input")`,
+		nil,
+	); parseErr != nil {
+		parseT.Fatalf("wait for login-or-chat shell (%s): %v", parseEmail, parseErr)
+	}
+	parseHasChatInputValue, parseErr := parsePage.Evaluate(`() => !!document.querySelector("#chat-input")`)
+	if parseErr != nil {
+		parseT.Fatalf("evaluate authenticated shell presence (%s): %v", parseEmail, parseErr)
+	}
+	if parseHasChatInput, _ := parseHasChatInputValue.(bool); parseHasChatInput {
+		return
 	}
 	parseWaitForAuthEmailInput(parseT, parsePage, "login")
 	if parseErr := parsePage.Fill("#auth-email-input", parseEmail); parseErr != nil {
@@ -75,6 +129,16 @@ func parseLoginExample100AuthEntryUser(parseT *testing.T, parsePage playwright.P
 	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
 		parseT.Fatalf("wait for chat input after login (%s): %v", parseEmail, parseErr)
 	}
+}
+
+// parseCaptureExample100AuthEntryRouteState returns the current path+query for route-state matrix assertions.
+func parseCaptureExample100AuthEntryRouteState(parseT *testing.T, parsePage playwright.Page, parseLabel string) string {
+	parseT.Helper()
+	parseRouteValue, parseErr := parsePage.Evaluate(`() => String(window.location.pathname || "") + String(window.location.search || "")`)
+	if parseErr != nil {
+		parseT.Fatalf("%s read route state: %v", parseLabel, parseErr)
+	}
+	return strings.TrimSpace(fmt.Sprintf("%v", parseRouteValue))
 }
 
 // parseLogoutExample100AuthEntryUser signs out through settings and verifies the auth-entry shell is restored.
@@ -106,7 +170,7 @@ func parseLogoutExample100AuthEntryUser(parseT *testing.T, parsePage playwright.
 	}); parseErr != nil {
 		parseT.Fatalf("goto /app after sign-out: %v", parseErr)
 	}
-	parseWaitForAuthEmailInput(parseT, parsePage, "logout")
+	parseWaitForSignedOutEntry(parseT, parsePage, "logout")
 }
 
 // captureExample100AuthEntryMatrixArtifact executes one local-auth matrix for signup/login/refresh/logout/reset/first-chat coverage.
@@ -206,6 +270,36 @@ func captureExample100AuthEntryMatrixArtifact(parseT *testing.T, parsePage playw
 	}
 	parseArtifact.HasPasswordResetFlow = true
 
+	if _, parseErr := parsePage.Goto(parseBaseURL+"/login?provider=google&entry=multi&next=%2Fapp%2Fdashboard", playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	}); parseErr != nil {
+		parseT.Fatalf("goto /login mixed-provider entry path: %v", parseErr)
+	}
+	parseWaitForAuthEmailInput(parseT, parsePage, "mixed-provider entry")
+	parseArtifact.GetMixedProviderRouteState = parseCaptureExample100AuthEntryRouteState(parseT, parsePage, "mixed-provider entry route")
+	parseLoginExample100AuthEntryUser(parseT, parsePage, parseBaseURL, "customer@email.com", "password")
+	parseArtifact.HasMixedProviderEntryFlow = true
+
+	parseLogoutExample100AuthEntryUser(parseT, parsePage, parseBaseURL)
+	if _, parseErr := parsePage.Goto(parseBaseURL+"/login?provider=workspace-sso&workspace=acme-corp&entry=sso", playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	}); parseErr != nil {
+		parseT.Fatalf("goto /login workspace-sso entry path: %v", parseErr)
+	}
+	parseWaitForAuthEmailInput(parseT, parsePage, "workspace-sso entry")
+	parseArtifact.GetWorkspaceSSORouteState = parseCaptureExample100AuthEntryRouteState(parseT, parsePage, "workspace-sso entry route")
+	parseArtifact.HasWorkspaceSSOEntryFlow = true
+
+	if _, parseErr := parsePage.Goto(parseBaseURL+"/login?auth_callback=google&callback_state=expired&callback_error=access_denied&return_to=%2Fapp", playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	}); parseErr != nil {
+		parseT.Fatalf("goto /login callback-return entry path: %v", parseErr)
+	}
+	parseWaitForAuthEmailInput(parseT, parsePage, "callback-return entry")
+	parseArtifact.GetCallbackReturnRouteState = parseCaptureExample100AuthEntryRouteState(parseT, parsePage, "callback-return route")
+	parseLoginExample100AuthEntryUser(parseT, parsePage, parseBaseURL, "customer@email.com", "password")
+	parseArtifact.HasCallbackReturnEntryFlow = true
+
 	parseLoginExample100AuthEntryUser(parseT, parsePage, parseBaseURL, "customer@email.com", "password")
 	parsePrompt := fmt.Sprintf("auth-entry-first-chat-%d", time.Now().UnixNano()%1_000_000)
 	if parseErr := parsePage.Click(`button:has-text("New chat")`); parseErr != nil {
@@ -273,6 +367,15 @@ func TestExample100AuthEntryMatrixRegression(parseT *testing.T) {
 		}
 		if !parseArtifact.HasPasswordResetFlow {
 			parseT.Fatalf("password-reset leg missing: %s", formatExample100AuthEntryMatrixSummary(parseArtifact))
+		}
+		if !parseArtifact.HasMixedProviderEntryFlow || !strings.Contains(parseArtifact.GetMixedProviderRouteState, "provider=google") {
+			parseT.Fatalf("mixed-provider leg missing: %s", formatExample100AuthEntryMatrixSummary(parseArtifact))
+		}
+		if !parseArtifact.HasWorkspaceSSOEntryFlow || !strings.Contains(parseArtifact.GetWorkspaceSSORouteState, "provider=workspace-sso") {
+			parseT.Fatalf("workspace-sso entry leg missing: %s", formatExample100AuthEntryMatrixSummary(parseArtifact))
+		}
+		if !parseArtifact.HasCallbackReturnEntryFlow || !strings.Contains(parseArtifact.GetCallbackReturnRouteState, "auth_callback=google") {
+			parseT.Fatalf("callback-return leg missing: %s", formatExample100AuthEntryMatrixSummary(parseArtifact))
 		}
 		if !parseArtifact.HasFirstChatFlow || !strings.HasPrefix(parseArtifact.GetFirstChatThreadPath, "/app/thread/") {
 			parseT.Fatalf("first-chat leg missing: %s", formatExample100AuthEntryMatrixSummary(parseArtifact))

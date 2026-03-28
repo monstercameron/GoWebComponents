@@ -48,6 +48,7 @@ type appState struct {
 	SessionEmail            string
 	ShowNameModal           bool
 	ActiveSettingsSection   string
+	SettingsError           string
 	NameInput               string
 	ToneInput               string
 	ThinkingEnabledInput    bool
@@ -109,6 +110,7 @@ const (
 	appActionResetWorkspace             appActionType = "reset_workspace"
 	appActionSetShowNameModal           appActionType = "set_show_name_modal"
 	appActionSetActiveSettingsSection   appActionType = "set_active_settings_section"
+	appActionSetSettingsError           appActionType = "set_settings_error"
 	appActionSetNameInput               appActionType = "set_name_input"
 	appActionSetToneInput               appActionType = "set_tone_input"
 	appActionSetThinkingEnabledInput    appActionType = "set_thinking_enabled_input"
@@ -166,6 +168,7 @@ type appAction struct {
 	SessionEmail            string
 	ShowNameModal           bool
 	ActiveSettingsSection   string
+	SettingsError           string
 	NameInput               string
 	ToneInput               string
 	ThinkingEnabledInput    bool
@@ -220,6 +223,7 @@ func parseInitialAppState() appState {
 		SessionEmail:            "",
 		ShowNameModal:           false,
 		ActiveSettingsSection:   defaultSettingsSectionID,
+		SettingsError:           "",
 		NameInput:               "",
 		ToneInput:               defaultTone,
 		ThinkingEnabledInput:    defaultThinkingEnabled,
@@ -440,6 +444,7 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 		parseNext.CustomSystemPrompt = ""
 		parseNext.CanAccessAdmin = false
 		parseNext.ShowNameModal = false
+		parseNext.SettingsError = ""
 		parseNext.NameInput = ""
 		parseNext.ToneInput = parseNext.SelectedTone
 		parseNext.ThinkingEnabledInput = parseNext.SelectedThinkingEnabled
@@ -457,6 +462,8 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 		if parseNext.ActiveSettingsSection == "" {
 			parseNext.ActiveSettingsSection = defaultSettingsSectionID
 		}
+	case appActionSetSettingsError:
+		parseNext.SettingsError = parseAction.SettingsError
 	case appActionSetNameInput:
 		parseNext.NameInput = parseAction.NameInput
 	case appActionSetToneInput:

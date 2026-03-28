@@ -45,6 +45,7 @@ type appViewState struct {
 	UserInitials           string
 	ShowSettingsModal      bool
 	ActiveSettingsSection  string
+	SettingsError          string
 	NameInput              string
 	ToneInput              string
 	ThinkingEnabledInput   bool
@@ -98,6 +99,7 @@ func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string
 		UserInitials:           parseDisplayNameInitials(parseUserName),
 		ShowSettingsModal:      parseCurrentState.ShowNameModal,
 		ActiveSettingsSection:  parseCurrentState.ActiveSettingsSection,
+		SettingsError:          parseCurrentState.SettingsError,
 		NameInput:              parseCurrentState.NameInput,
 		ToneInput:              parseCurrentState.ToneInput,
 		ThinkingEnabledInput:   parseCurrentState.ThinkingEnabledInput,
@@ -371,6 +373,13 @@ func renderSettingsModal(parseIntl i18n.Runtime, parseView appViewState, parseSt
 						),
 					),
 					Div(Class("flex flex-col gap-3 border-t border-white/10 bg-black/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-5"),
+						If(strings.TrimSpace(parseView.SettingsError) != "",
+							Div(
+								ID("settings-save-error"),
+								Class("rounded-xl border border-[#f59e0b]/24 bg-[#f59e0b]/10 px-3 py-2 text-xs text-[#ffd7a3] sm:mr-auto"),
+								Text(parseView.SettingsError),
+							),
+						),
 						If(parseView.Authenticated,
 							Button(
 								Class("rounded-lg bg-red-500/15 px-4 py-2 text-sm text-red-200 transition-colors hover:bg-red-500/25 sm:mr-auto"),
@@ -480,7 +489,7 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 			ID(settingsSectionPrompt),
 			Class("flex flex-col gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
 			Tag("textarea",
-					Class("min-h-[10rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
+				Class("min-h-[10rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
 				Placeholder(parseIntl.T(chatI18nNamespace, "modal.systemPromptPlaceholder")),
 				Value(parseView.SystemPromptInput),
 				OnInput(parseProfileSettings.HandleSystemPrompt),

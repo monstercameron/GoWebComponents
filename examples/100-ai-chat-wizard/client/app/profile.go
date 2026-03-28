@@ -60,6 +60,7 @@ func parseUseProfileSettings(
 	handleAuthFailure func(error) bool,
 ) profileSettingsController {
 	parseSeedSettingsInputs := func() {
+		parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: ""})
 		parseApp.Dispatch(appAction{Type: appActionSetNameInput, NameInput: parseUserNameState.Get()})
 		parseApp.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: parseApp.Get().SelectedTone})
 		parseApp.Dispatch(appAction{Type: appActionSetThinkingEnabledInput, ThinkingEnabledInput: parseApp.Get().SelectedThinkingEnabled})
@@ -83,6 +84,7 @@ func parseUseProfileSettings(
 	}
 
 	parseCloseSettingsRoute := func() {
+		parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: ""})
 		parseSection := parseNormalizeSettingsSectionID(parseApp.Get().ActiveSettingsSection)
 		if parseSection == "" {
 			parseSection = defaultSettingsSectionID
@@ -227,6 +229,7 @@ func parseUseProfileSettings(
 
 	parseSaveSettings := func() {
 		parseCurrentState2 := parseApp.Get()
+		parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: ""})
 		parseName := strings.TrimSpace(parseCurrentState2.NameInput)
 		parseSelectedToneValue := parseNormalizeSelectedToneID(parseCurrentState2.ToneInput)
 		parseSelectedThinkingEnabledValue := parseCurrentState2.ThinkingEnabledInput
@@ -267,93 +270,102 @@ func parseUseProfileSettings(
 			parseSelectedThinkingEffortCache.Set(parseSelectedThinkingEffortValue)
 		}
 		parseCustomSystemPromptCache.Set(parseSystemPromptValue)
-		if parseClient4 := parseChatClientRef.Get(); parseClient4 != nil {
+		parseClient4 := parseChatClientRef.Get()
+		if parseClient4 == nil {
+			parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, nil)})
+			return
+		}
+		go func() {
+			_, parseErr4 := parseClient4.SetSelectedTone(context.Background(), wrapperspb.String(parseSelectedToneValue))
+			if parseErr4 != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseErr4) {
+					return
+				}
+				chatLog.Error("set selected tone failed", logging.Fields{"error": parseErr4})
+				parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr4)})
+				parseSelectedToneCache.Invalidate()
+			}
+		}()
+		go func() {
+			_, parseErr5 := parseClient4.SetSelectedThinkingEnabled(context.Background(), wrapperspb.Bool(parseSelectedThinkingEnabledValue))
+			if parseErr5 != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseErr5) {
+					return
+				}
+				chatLog.Error("set selected thinking enabled failed", logging.Fields{"error": parseErr5})
+				parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr5)})
+				parseSelectedThinkingEnabledCache.Invalidate()
+			}
+		}()
+		if parseSelectedThinkingEnabledValue {
 			go func() {
-				_, parseErr4 := parseClient4.SetSelectedTone(context.Background(), wrapperspb.String(parseSelectedToneValue))
-				if parseErr4 != nil {
-					if handleAuthFailure != nil && handleAuthFailure(parseErr4) {
+				_, parseErr6 := parseClient4.SetSelectedThinkingEffort(context.Background(), wrapperspb.String(parseSelectedThinkingEffortValue))
+				if parseErr6 != nil {
+					if handleAuthFailure != nil && handleAuthFailure(parseErr6) {
 						return
 					}
-					chatLog.Error("set selected tone failed", logging.Fields{"error": parseErr4})
-					parseSelectedToneCache.Invalidate()
+					chatLog.Error("set selected thinking effort failed", logging.Fields{"error": parseErr6})
+					parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr6)})
+					parseSelectedThinkingEffortCache.Invalidate()
 				}
 			}()
-			go func() {
-				_, parseErr5 := parseClient4.SetSelectedThinkingEnabled(context.Background(), wrapperspb.Bool(parseSelectedThinkingEnabledValue))
-				if parseErr5 != nil {
-					if handleAuthFailure != nil && handleAuthFailure(parseErr5) {
+		}
+		go func() {
+			_, parseErr7 := parseClient4.SetCustomSystemPrompt(context.Background(), wrapperspb.String(parseSystemPromptValue))
+			if parseErr7 != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseErr7) {
+					return
+				}
+				chatLog.Error("set custom system prompt failed", logging.Fields{"error": parseErr7})
+				parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr7)})
+				parseCustomSystemPromptCache.Invalidate()
+			}
+		}()
+		for _, parseKey := range parseCurrentState2.DeletedUserMemoryKeys {
+			parseDeleteKey := strings.TrimSpace(parseKey)
+			if parseDeleteKey == "" {
+				continue
+			}
+			go func(parseMemoryKey string) {
+				if _, parseErr8 := parseClient4.DeleteUserMemory(context.Background(), &chatpb.DeleteUserMemoryRequest{Key: parseMemoryKey}); parseErr8 != nil {
+					if handleAuthFailure != nil && handleAuthFailure(parseErr8) {
 						return
 					}
-					chatLog.Error("set selected thinking enabled failed", logging.Fields{"error": parseErr5})
-					parseSelectedThinkingEnabledCache.Invalidate()
+					chatLog.Error("delete user memory failed", logging.Fields{"error": parseErr8, "key": parseMemoryKey})
+					parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr8)})
 				}
-			}()
-			if parseSelectedThinkingEnabledValue {
-				go func() {
-					_, parseErr6 := parseClient4.SetSelectedThinkingEffort(context.Background(), wrapperspb.String(parseSelectedThinkingEffortValue))
-					if parseErr6 != nil {
-						if handleAuthFailure != nil && handleAuthFailure(parseErr6) {
-							return
-						}
-						chatLog.Error("set selected thinking effort failed", logging.Fields{"error": parseErr6})
-						parseSelectedThinkingEffortCache.Invalidate()
-					}
-				}()
+			}(parseDeleteKey)
+		}
+		for _, parseMemory2 := range parseCurrentState2.UserMemories {
+			if isManagedUserNameMemory(parseMemory2) {
+				continue
 			}
-			go func() {
-				_, parseErr7 := parseClient4.SetCustomSystemPrompt(context.Background(), wrapperspb.String(parseSystemPromptValue))
-				if parseErr7 != nil {
-					if handleAuthFailure != nil && handleAuthFailure(parseErr7) {
+			parseSummary := strings.TrimSpace(parseMemory2.Summary)
+			if parseSummary == "" {
+				continue
+			}
+			parseRequest := &chatpb.UpsertUserMemoryRequest{
+				Memory: &chatpb.UserMemory{
+					Key:             strings.TrimSpace(parseMemory2.Key),
+					Category:        strings.TrimSpace(parseMemory2.Category),
+					Summary:         parseSummary,
+					Detail:          strings.TrimSpace(parseMemory2.Detail),
+					SourceMessage:   strings.TrimSpace(parseMemory2.SourceMessage),
+					UsefulnessScore: int32(parseMemory2.UsefulnessScore),
+					ConfidenceScore: parseMemory2.ConfidenceScore,
+					RubricReason:    strings.TrimSpace(parseMemory2.RubricReason),
+					UpdatedAt:       parseMemory2.UpdatedAt,
+				},
+			}
+			go func(parseReq *chatpb.UpsertUserMemoryRequest) {
+				if _, parseErr9 := parseClient4.UpsertUserMemory(context.Background(), parseReq); parseErr9 != nil {
+					if handleAuthFailure != nil && handleAuthFailure(parseErr9) {
 						return
 					}
-					chatLog.Error("set custom system prompt failed", logging.Fields{"error": parseErr7})
-					parseCustomSystemPromptCache.Invalidate()
+					chatLog.Error("upsert user memory failed", logging.Fields{"error": parseErr9, "summary": parseReq.GetMemory().GetSummary()})
+					parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr9)})
 				}
-			}()
-			for _, parseKey := range parseCurrentState2.DeletedUserMemoryKeys {
-				parseDeleteKey := strings.TrimSpace(parseKey)
-				if parseDeleteKey == "" {
-					continue
-				}
-				go func(parseMemoryKey string) {
-					if _, parseErr8 := parseClient4.DeleteUserMemory(context.Background(), &chatpb.DeleteUserMemoryRequest{Key: parseMemoryKey}); parseErr8 != nil {
-						if handleAuthFailure != nil && handleAuthFailure(parseErr8) {
-							return
-						}
-						chatLog.Error("delete user memory failed", logging.Fields{"error": parseErr8, "key": parseMemoryKey})
-					}
-				}(parseDeleteKey)
-			}
-			for _, parseMemory2 := range parseCurrentState2.UserMemories {
-				if isManagedUserNameMemory(parseMemory2) {
-					continue
-				}
-				parseSummary := strings.TrimSpace(parseMemory2.Summary)
-				if parseSummary == "" {
-					continue
-				}
-				parseRequest := &chatpb.UpsertUserMemoryRequest{
-					Memory: &chatpb.UserMemory{
-						Key:             strings.TrimSpace(parseMemory2.Key),
-						Category:        strings.TrimSpace(parseMemory2.Category),
-						Summary:         parseSummary,
-						Detail:          strings.TrimSpace(parseMemory2.Detail),
-						SourceMessage:   strings.TrimSpace(parseMemory2.SourceMessage),
-						UsefulnessScore: int32(parseMemory2.UsefulnessScore),
-						ConfidenceScore: parseMemory2.ConfidenceScore,
-						RubricReason:    strings.TrimSpace(parseMemory2.RubricReason),
-						UpdatedAt:       parseMemory2.UpdatedAt,
-					},
-				}
-				go func(parseReq *chatpb.UpsertUserMemoryRequest) {
-					if _, parseErr9 := parseClient4.UpsertUserMemory(context.Background(), parseReq); parseErr9 != nil {
-						if handleAuthFailure != nil && handleAuthFailure(parseErr9) {
-							return
-						}
-						chatLog.Error("upsert user memory failed", logging.Fields{"error": parseErr9, "summary": parseReq.GetMemory().GetSummary()})
-					}
-				}(parseRequest)
-			}
+			}(parseRequest)
 		}
 		parseApp.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: parseSelectedToneValue})
 		parseApp.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: parseSelectedTTSProviderValue})

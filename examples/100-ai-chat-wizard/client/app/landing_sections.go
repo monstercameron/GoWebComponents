@@ -24,11 +24,11 @@ func renderLandingProductSection(parseIntl i18n.Runtime, parsePage string) ui.No
 		Class("pb-16 sm:pb-20 md:pb-24"),
 		Div(
 			Class("mx-auto w-[min(1200px,calc(100%-24px))] sm:w-[min(1200px,calc(100%-32px))] lg:w-[min(1200px,calc(100%-40px))]"),
+			Div(
+				Class("grid gap-10 lg:grid-cols-[.80fr_1.20fr] lg:gap-16"),
+				// left: section intro copy
 				Div(
-					Class("grid gap-10 lg:grid-cols-[.80fr_1.20fr] lg:gap-16"),
-					// left: section intro copy
-					Div(
-						Class("scroll-reveal"),
+					Class("scroll-reveal"),
 					renderSectionEyebrow(parseIntl.T(n, parseEyebrowKey)),
 					H2(Class("font-display mt-4 max-w-[12ch] text-3xl font-bold leading-tight tracking-[-0.04em] text-[#f0f0f8] sm:text-4xl"), Text(parseIntl.T(n, parseH2Key))),
 					P(Class("mt-4 max-w-[46ch] text-base leading-7 text-[#8a8a9a] sm:leading-8"), Text(parseIntl.T(n, parseBodyKey))),

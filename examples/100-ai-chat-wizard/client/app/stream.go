@@ -4,7 +4,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -34,6 +33,8 @@ type chatStreamController struct {
 	Fork               ui.Handler
 }
 
+const chatSendRPCDeadline = 8 * time.Second
+
 // useChatStream hides the gRPC send/stream lifecycle and related composer
 // events behind one feature hook built from ordinary public hooks.
 func parseUseChatStream(
@@ -46,6 +47,7 @@ func parseUseChatStream(
 	parseOnNavigateToConversation func(string),
 	handleAuthFailure func(error) bool,
 ) chatStreamController {
+	_ = parseIntl
 	parseTriggerSend := func(parsePriorMsgs2 []message, parseUserText string) {
 		parseClient := parseChatClientRef.Get()
 		if parseClient == nil {
@@ -60,6 +62,7 @@ func parseUseChatStream(
 		parseThinkingEffort := parseCurrentState.SelectedThinkingEffort
 
 		parseHistory := make([]*chatpb.ChatMessage, 0, len(parsePriorMsgs2))
+		// Rebuild the wire transcript from local messages so the server sees the same turn history the user edited.
 		for _, parseMsg := range parsePriorMsgs2 {
 			if parseMsg.Role == roleSwitch {
 				continue
@@ -73,6 +76,7 @@ func parseUseChatStream(
 			})
 		}
 
+		// Optimistically show the pending assistant turn immediately so the UI stays responsive while the provider runs.
 		parseApp.Dispatch(appAction{
 			Type: appActionSetMessages,
 			Messages: append(append([]message{}, parsePriorMsgs2...),
@@ -95,6 +99,7 @@ func parseUseChatStream(
 			"thinking_effort":  parseThinkingEffort,
 			"text":             parsePreviewLogText(parseUserText, 56),
 		})
+		// Move the network call off the render path so the composer stays interactive while tokens stream in.
 		go func() {
 			defer parseApp.Dispatch(appAction{Type: appActionSetStreaming, Streaming: false})
 			parseSendTime := time.Now()
@@ -105,7 +110,9 @@ func parseUseChatStream(
 			var parsePromptTokens int
 			var parseCompletionTokens int
 
-			parseStream, parseErr := parseClient.Send(context.Background(), &chatpb.SendRequest{
+			parseSendCtx, parseSendCancel := context.WithTimeout(context.Background(), chatSendRPCDeadline)
+			defer parseSendCancel()
+			parseStream, parseErr := parseClient.Send(parseSendCtx, &chatpb.SendRequest{
 				History:         parseHistory,
 				Message:         parseUserText,
 				Model:           parseModel,
@@ -123,7 +130,7 @@ func parseUseChatStream(
 				parseApp.Dispatch(appAction{
 					Type: appActionUpdateMessages,
 					UpdateMessages: func(parsePreviousMessages []message) []message {
-						return parseReplacePendingMessageWithErrorValue(parsePreviousMessages, fmt.Sprintf("%s %v", parseIntl.T(chatI18nNamespace, "error.genericPrefix"), parseErr))
+						return parseReplacePendingMessageWithErrorValue(parsePreviousMessages, parseBuildUserErrorText(userErrorScopeChat, parseErr))
 					},
 				})
 				return
@@ -144,7 +151,7 @@ func parseUseChatStream(
 					parseApp.Dispatch(appAction{
 						Type: appActionUpdateMessages,
 						UpdateMessages: func(parsePreviousMessages2 []message) []message {
-							return parseReplacePendingMessageWithErrorValue(parsePreviousMessages2, fmt.Sprintf("%s %v", parseIntl.T(chatI18nNamespace, "error.receivePrefix"), parseErr2))
+							return parseReplacePendingMessageWithErrorValue(parsePreviousMessages2, parseBuildUserErrorText(userErrorScopeChat, parseErr2))
 						},
 					})
 					return
@@ -154,7 +161,7 @@ func parseUseChatStream(
 					parseApp.Dispatch(appAction{
 						Type: appActionUpdateMessages,
 						UpdateMessages: func(parsePreviousMessages3 []message) []message {
-							return parseReplacePendingMessageWithErrorValue(parsePreviousMessages3, parseIntl.T(chatI18nNamespace, "error.genericPrefix")+" "+parseChunk.GetError())
+							return parseReplacePendingMessageWithErrorValue(parsePreviousMessages3, parseBuildUserErrorText(userErrorScopeChat, nil))
 						},
 					})
 					return
@@ -297,6 +304,17 @@ func parseUseChatStream(
 		if parseChatClientRef.Get() == nil {
 			chatLog.Warn("gRPC client not yet ready", nil)
 			parseRequestGRPCReconnect("composer send requested while bridge unavailable")
+			parseApp.Dispatch(appAction{Type: appActionSetInputText, InputText: ""})
+			parseApp.Dispatch(appAction{
+				Type: appActionUpdateMessages,
+				UpdateMessages: func(parsePreviousMessages []message) []message {
+					return append(
+						append(append([]message{}, parsePreviousMessages...), message{Role: roleUser, Content: parseText}),
+						message{Role: roleAssistant, Content: parseBuildUserErrorText(userErrorScopeChat, nil)},
+					)
+				},
+			})
+			parseScrollMemory.ResetToBottomMode()
 			return
 		}
 		parseCurrent := parseCurrentState3.Messages

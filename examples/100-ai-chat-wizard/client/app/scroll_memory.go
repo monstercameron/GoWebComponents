@@ -18,6 +18,7 @@ type threadScrollMemory struct {
 	prepareRestore       func(int64)
 }
 
+// ShouldAutoScroll reports whether the thread should stay pinned to the bottom.
 func (parseM threadScrollMemory) ShouldAutoScroll() bool {
 	if parseM.shouldAutoScroll == nil {
 		return true
@@ -25,12 +26,14 @@ func (parseM threadScrollMemory) ShouldAutoScroll() bool {
 	return parseM.shouldAutoScroll()
 }
 
+// ResetToBottomMode resets the scroll state to bottom mode.
 func (parseM threadScrollMemory) ResetToBottomMode() {
 	if parseM.resetToBottomMode != nil {
 		parseM.resetToBottomMode()
 	}
 }
 
+// ParseShowScrollToBottom reports whether the scroll-to-bottom affordance should show.
 func (parseM threadScrollMemory) ParseShowScrollToBottom() bool {
 	if parseM.showScrollToBottom == nil {
 		return false
@@ -38,30 +41,35 @@ func (parseM threadScrollMemory) ParseShowScrollToBottom() bool {
 	return parseM.showScrollToBottom()
 }
 
+// ParseFollowStream marks the thread as following the live stream.
 func (parseM threadScrollMemory) ParseFollowStream() {
 	if parseM.followStream != nil {
 		parseM.followStream()
 	}
 }
 
+// ParseScrollToBottom scrolls the thread to the bottom.
 func (parseM threadScrollMemory) ParseScrollToBottom() {
 	if parseM.scrollToBottom != nil {
 		parseM.scrollToBottom()
 	}
 }
 
+// CancelPendingPersist cancels one pending scroll-state persistence job.
 func (parseM threadScrollMemory) CancelPendingPersist() {
 	if parseM.cancelPendingPersist != nil {
 		parseM.cancelPendingPersist()
 	}
 }
 
+// ParsePersistNow persists the current scroll state now.
 func (parseM threadScrollMemory) ParsePersistNow(parseConvID int64) {
 	if parseM.persistNow != nil {
 		parseM.persistNow(parseConvID)
 	}
 }
 
+// ParsePrepareRestore prepares the saved scroll state for restore.
 func (parseM threadScrollMemory) ParsePrepareRestore(parseConvID int64) {
 	if parseM.prepareRestore != nil {
 		parseM.prepareRestore(parseConvID)

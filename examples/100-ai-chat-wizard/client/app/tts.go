@@ -43,6 +43,7 @@ type ttsAudioController struct {
 	stopCurrent func()
 }
 
+// ParseStatus returns the current TTS controller status.
 func (parseC ttsAudioController) ParseStatus(parseKey, parseModel string) ttsClipStatus {
 	if parseC.clipStatus == nil {
 		return ttsClipStatus{}
@@ -50,18 +51,21 @@ func (parseC ttsAudioController) ParseStatus(parseKey, parseModel string) ttsCli
 	return parseC.clipStatus(parseKey, parseModel)
 }
 
+// ParseToggle toggles speech playback.
 func (parseC ttsAudioController) ParseToggle(parseKey, parseText, parseModel string) {
 	if parseC.toggle != nil {
 		parseC.toggle(parseKey, parseText, parseModel)
 	}
 }
 
+// ParseStop stops active playback.
 func (parseC ttsAudioController) ParseStop(parseKey string) {
 	if parseC.stop != nil {
 		parseC.stop(parseKey)
 	}
 }
 
+// ParseStopCurrent stops the current playback session.
 func (parseC ttsAudioController) ParseStopCurrent() {
 	if parseC.stopCurrent != nil {
 		parseC.stopCurrent()

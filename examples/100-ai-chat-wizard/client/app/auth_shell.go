@@ -436,7 +436,7 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 			),
 			// error banner
 			If(parseView.AuthError != "",
-				Div(Class("rounded-[18px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-100"), Text(parseView.AuthError)),
+				Div(ID("auth-error-banner"), Class("rounded-[18px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-100"), Text(parseView.AuthError)),
 			),
 			// submit
 			Button(

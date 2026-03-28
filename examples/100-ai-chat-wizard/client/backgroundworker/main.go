@@ -11,6 +11,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/internal/markdownrender"
 	"github.com/monstercameron/GoWebComponents/examples/shared/renderworker"
 	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/logging"
 )
 
 const backgroundWorkerRequestRenderMarkdown = "render-markdown"
@@ -48,24 +49,36 @@ var tickerState struct {
 	stopCh chan struct{}
 }
 
+var logBackgroundWorker = logging.New("background-worker")
+
 func main() {
 	parseScope, parseErr := interop.GetWorkerScope()
 	if parseErr != nil {
-		panic(parseErr)
+		parseFailBackgroundWorkerBootstrap("scope", parseErr)
 	}
 	parseDispatcher := buildBackgroundWorkerDispatcher()
 	if _, parseErr2 := parseScope.Subscribe(func(parseMessage interop.WorkerMessage, parseMessageErr error) {
 		if parseMessageErr != nil {
+			logBackgroundWorker.Warn("worker message receive failed", logging.Fields{"stage": "subscribe", "error": parseMessageErr})
 			return
 		}
 		go handleMessage(parseScope, parseDispatcher, parseMessage)
 	}); parseErr2 != nil {
-		panic(parseErr2)
+		parseFailBackgroundWorkerBootstrap("subscribe", parseErr2)
 	}
 	if parseErr3 := parseScope.Ready("bootstrap"); parseErr3 != nil {
-		panic(parseErr3)
+		parseFailBackgroundWorkerBootstrap("ready", parseErr3)
 	}
 	select {}
+}
+
+// parseFailBackgroundWorkerBootstrap logs one bootstrap failure before stopping the worker.
+func parseFailBackgroundWorkerBootstrap(parseStage string, parseErr error) {
+	logBackgroundWorker.Error("worker bootstrap failed", logging.Fields{
+		"stage": strings.TrimSpace(parseStage),
+		"error": parseErr,
+	})
+	panic(parseErr)
 }
 
 func handleMessage(parseScope interop.WorkerScope, parseDispatcher *renderworker.RenderWorkerDispatcher, parseMessage interop.WorkerMessage) {
@@ -84,6 +97,10 @@ func handleCommand(parseScope interop.WorkerScope, parseMessage interop.WorkerMe
 	case backgroundWorkerCommandStartTicker:
 		var parseCommand tickerCommand
 		if parseErr := interop.Decode(parseMessage.Payload, &parseCommand); parseErr != nil {
+			logBackgroundWorker.Warn("worker command decode failed", logging.Fields{
+				"command": backgroundWorkerCommandStartTicker,
+				"error":   parseErr,
+			})
 			return
 		}
 		parseStartTicker(parseScope, parseCommand.IntervalMs)
@@ -108,7 +125,7 @@ func buildBackgroundWorkerDispatcher() *renderworker.RenderWorkerDispatcher {
 		handleRenderMarkdownRequest,
 		parseDecodedOptions,
 	); parseErr != nil {
-		panic(parseErr)
+		parseFailBackgroundWorkerBootstrap(backgroundWorkerRequestRenderMarkdown, parseErr)
 	}
 	if parseErr := renderworker.SetRenderWorkerDecodedHandler(
 		parseDispatcher,
@@ -116,7 +133,7 @@ func buildBackgroundWorkerDispatcher() *renderworker.RenderWorkerDispatcher {
 		handleRenderMarkdownBatchRequest,
 		parseDecodedOptions,
 	); parseErr != nil {
-		panic(parseErr)
+		parseFailBackgroundWorkerBootstrap(backgroundWorkerRequestRenderMarkdownBatch, parseErr)
 	}
 	if parseErr := renderworker.SetRenderWorkerDecodedHandler(
 		parseDispatcher,
@@ -124,7 +141,7 @@ func buildBackgroundWorkerDispatcher() *renderworker.RenderWorkerDispatcher {
 		handleRenderMessageMetadataBatchRequest,
 		parseDecodedOptions,
 	); parseErr != nil {
-		panic(parseErr)
+		parseFailBackgroundWorkerBootstrap(backgroundWorkerRequestRenderMessageMetadataBatch, parseErr)
 	}
 	if parseErr := renderworker.SetRenderWorkerDecodedHandler(
 		parseDispatcher,
@@ -132,7 +149,7 @@ func buildBackgroundWorkerDispatcher() *renderworker.RenderWorkerDispatcher {
 		handleRenderThreadCostSummaryRequest,
 		parseDecodedOptions,
 	); parseErr != nil {
-		panic(parseErr)
+		parseFailBackgroundWorkerBootstrap(backgroundWorkerRequestRenderThreadCostSummary, parseErr)
 	}
 	if parseErr := renderworker.SetRenderWorkerDecodedHandler(
 		parseDispatcher,
@@ -140,10 +157,10 @@ func buildBackgroundWorkerDispatcher() *renderworker.RenderWorkerDispatcher {
 		handleRenderSignaturesRequest,
 		parseDecodedOptions,
 	); parseErr != nil {
-		panic(parseErr)
+		parseFailBackgroundWorkerBootstrap(backgroundWorkerRequestRenderSignatures, parseErr)
 	}
 	if parseErr := setBackgroundWorkerCustomHandlers(parseDispatcher); parseErr != nil {
-		panic(parseErr)
+		parseFailBackgroundWorkerBootstrap("custom-handlers", parseErr)
 	}
 	return parseDispatcher
 }

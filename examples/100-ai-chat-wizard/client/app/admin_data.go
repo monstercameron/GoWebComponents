@@ -29,19 +29,19 @@ type adminDashboardData struct {
 
 // adminSummarySnapshot holds the key KPI scalars from AdminDashboardSummary.
 type adminSummarySnapshot struct {
-	TotalUsers          int64
-	TotalConversations  int64
-	TotalMessages       int64
-	WindowNewUsers      int64
-	WindowActiveUsers   int64
-	WindowNewConvs      int64
-	WindowNewMessages   int64
-	WindowUsageEvents   int64
-	WindowTotalCostUSD  float64
-	WindowFailedEvents  int64
-	OpenIncidents       int64
-	OpenSupportTickets  int64
-	ActiveExperiments   int64
+	TotalUsers         int64
+	TotalConversations int64
+	TotalMessages      int64
+	WindowNewUsers     int64
+	WindowActiveUsers  int64
+	WindowNewConvs     int64
+	WindowNewMessages  int64
+	WindowUsageEvents  int64
+	WindowTotalCostUSD float64
+	WindowFailedEvents int64
+	OpenIncidents      int64
+	OpenSupportTickets int64
+	ActiveExperiments  int64
 }
 
 // adminUserRow holds a flattened user summary for list/table rendering.
@@ -72,22 +72,22 @@ type adminConvRow struct {
 
 // adminProviderRow holds a flattened provider health snapshot.
 type adminProviderRow struct {
-	ProviderID      string
-	Label           string
-	IsAvailable     bool
-	IsConfigured    bool
-	Status          string
-	LastError       string
-	LastLatencyMs   int64
-	RequestCount    int64
+	ProviderID    string
+	Label         string
+	IsAvailable   bool
+	IsConfigured  bool
+	Status        string
+	LastError     string
+	LastLatencyMs int64
+	RequestCount  int64
 }
 
 // adminDailyRow holds one day of usage for trend rendering.
 type adminDailyRow struct {
-	UsageDay      string
-	EventCount    int64
-	TotalCostUSD  float64
-	ActiveUsers   int64
+	UsageDay     string
+	EventCount   int64
+	TotalCostUSD float64
+	ActiveUsers  int64
 }
 
 // parseUseAdminDashboard returns an adminDashboardData snapshot refreshed
@@ -101,8 +101,15 @@ func parseUseAdminDashboard(
 	parseRequestSeq := ui.UseRef(uint64(0))
 
 	ui.UseEffect(func() func() {
-		if !parseCurrentState.Authenticated || !parseCurrentState.GRPCReady || !parseCurrentState.CanAccessAdmin {
+		if !parseCurrentState.Authenticated || !parseCurrentState.CanAccessAdmin {
 			parseDataState.Set(adminDashboardData{IsLoading: false})
+			return nil
+		}
+		if !parseCurrentState.GRPCReady {
+			parseDataState.Set(adminDashboardData{
+				IsLoading: false,
+				Error:     parseBuildUserErrorText(userErrorScopeDashboard, nil),
+			})
 			return nil
 		}
 		parseClient := parseChatClientRef.Get()
@@ -114,7 +121,7 @@ func parseUseAdminDashboard(
 		parseDataState.Set(adminDashboardData{IsLoading: true})
 
 		go func(parseSeq uint64) {
-			parseResp, parseErr := parseClient.GetAdminDashboard(context.Background(), &chatpb.GetAdminDashboardRequest{
+			parseDashboardResp, parseDashboardErr := parseClient.GetAdminDashboard(context.Background(), &chatpb.GetAdminDashboardRequest{
 				LookbackDays: 30,
 				TopLimit:     20,
 				RecentLimit:  20,
@@ -122,19 +129,19 @@ func parseUseAdminDashboard(
 			if parseRequestSeq.Get() != parseSeq {
 				return
 			}
-			if parseErr != nil {
-				if handleAuthFailure != nil && handleAuthFailure(parseErr) {
+			if parseDashboardErr != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseDashboardErr) {
 					return
 				}
-				parseErrMsg := parseErr.Error()
+				parseErrMsg := parseDashboardErr.Error()
 				isDenied := strings.Contains(parseErrMsg, "permission denied") ||
 					strings.Contains(parseErrMsg, "unauthenticated") ||
 					strings.Contains(parseErrMsg, "PermissionDenied")
 				chatLog.Warn("admin dashboard fetch failed", logging.Fields{"error": parseErrMsg, "denied": isDenied})
-				parseDataState.Set(adminDashboardData{Error: parseErrMsg, IsDenied: isDenied})
+				parseDataState.Set(adminDashboardData{Error: parseBuildUserErrorText(userErrorScopeDashboard, parseDashboardErr), IsDenied: isDenied})
 				return
 			}
-			parseDataState.Set(parseMarshalAdminDashboardResp(parseResp))
+			parseDataState.Set(parseMarshalAdminDashboardResp(parseDashboardResp))
 		}(parseNextSeq)
 		return nil
 	}, parseCurrentState.Authenticated, parseCurrentState.GRPCReady, parseCurrentState.CanAccessAdmin)
@@ -143,13 +150,13 @@ func parseUseAdminDashboard(
 }
 
 // parseMarshalAdminDashboardResp converts a proto response into the flat render snapshot.
-func parseMarshalAdminDashboardResp(parseResp *chatpb.GetAdminDashboardResponse) adminDashboardData {
-	if parseResp == nil {
-		return adminDashboardData{Error: "empty response"}
+func parseMarshalAdminDashboardResp(parseDashboardResp *chatpb.GetAdminDashboardResponse) adminDashboardData {
+	if parseDashboardResp == nil {
+		return adminDashboardData{Error: parseBuildUserErrorText(userErrorScopeDashboard, nil)}
 	}
-	parseData := adminDashboardData{HasData: true}
-	if parseSummary := parseResp.GetSummary(); parseSummary != nil {
-		parseData.Summary = adminSummarySnapshot{
+	parseDashboardData := adminDashboardData{HasData: true}
+	if parseSummary := parseDashboardResp.GetSummary(); parseSummary != nil {
+		parseDashboardData.Summary = adminSummarySnapshot{
 			TotalUsers:         parseSummary.GetTotalUsers(),
 			TotalConversations: parseSummary.GetTotalConversations(),
 			TotalMessages:      parseSummary.GetTotalMessages(),
@@ -165,64 +172,64 @@ func parseMarshalAdminDashboardResp(parseResp *chatpb.GetAdminDashboardResponse)
 			ActiveExperiments:  parseSummary.GetActiveExperiments(),
 		}
 	}
-	for _, parseUser := range parseResp.GetTopUsers() {
-		parseData.TopUsers = append(parseData.TopUsers, adminUserRow{
-			UserID:            parseUser.GetUserId(),
-			Email:             parseUser.GetEmail(),
-			DisplayName:       parseUser.GetDisplayName(),
-			ConversationCount: parseUser.GetConversationCount(),
-			MessageCount:      parseUser.GetMessageCount(),
-			TotalCostUSD:      parseUser.GetTotalCostUsd(),
-			LastSeenAt:        parseUser.GetLastSeenAt(),
+	for _, parseTopUser := range parseDashboardResp.GetTopUsers() {
+		parseDashboardData.TopUsers = append(parseDashboardData.TopUsers, adminUserRow{
+			UserID:            parseTopUser.GetUserId(),
+			Email:             parseTopUser.GetEmail(),
+			DisplayName:       parseTopUser.GetDisplayName(),
+			ConversationCount: parseTopUser.GetConversationCount(),
+			MessageCount:      parseTopUser.GetMessageCount(),
+			TotalCostUSD:      parseTopUser.GetTotalCostUsd(),
+			LastSeenAt:        parseTopUser.GetLastSeenAt(),
 		})
 	}
-	for _, parseUser := range parseResp.GetRecentUsers() {
-		parseData.RecentUsers = append(parseData.RecentUsers, adminUserRow{
-			UserID:            parseUser.GetUserId(),
-			Email:             parseUser.GetEmail(),
-			DisplayName:       parseUser.GetDisplayName(),
-			ConversationCount: parseUser.GetConversationCount(),
-			MessageCount:      parseUser.GetMessageCount(),
-			TotalCostUSD:      parseUser.GetTotalCostUsd(),
-			LastSeenAt:        parseUser.GetLastSeenAt(),
-			CreatedAt:         parseUser.GetCreatedAt(),
+	for _, parseRecentUser := range parseDashboardResp.GetRecentUsers() {
+		parseDashboardData.RecentUsers = append(parseDashboardData.RecentUsers, adminUserRow{
+			UserID:            parseRecentUser.GetUserId(),
+			Email:             parseRecentUser.GetEmail(),
+			DisplayName:       parseRecentUser.GetDisplayName(),
+			ConversationCount: parseRecentUser.GetConversationCount(),
+			MessageCount:      parseRecentUser.GetMessageCount(),
+			TotalCostUSD:      parseRecentUser.GetTotalCostUsd(),
+			LastSeenAt:        parseRecentUser.GetLastSeenAt(),
+			CreatedAt:         parseRecentUser.GetCreatedAt(),
 		})
 	}
-	for _, parseConv := range parseResp.GetRecentConversations() {
-		parseData.RecentConvs = append(parseData.RecentConvs, adminConvRow{
-			ConversationID: parseConv.GetConversationId(),
-			PublicID:       parseConv.GetPublicId(),
-			UserID:         parseConv.GetUserId(),
-			Email:          parseConv.GetEmail(),
-			DisplayName:    parseConv.GetDisplayName(),
-			Preview:        parseConv.GetPreview(),
-			MessageCount:   parseConv.GetMessageCount(),
-			TotalCostUSD:   parseConv.GetTotalCostUsd(),
-			LastActivityAt: parseConv.GetLastActivityAt(),
-			StartedAt:      parseConv.GetStartedAt(),
+	for _, parseConversation := range parseDashboardResp.GetRecentConversations() {
+		parseDashboardData.RecentConvs = append(parseDashboardData.RecentConvs, adminConvRow{
+			ConversationID: parseConversation.GetConversationId(),
+			PublicID:       parseConversation.GetPublicId(),
+			UserID:         parseConversation.GetUserId(),
+			Email:          parseConversation.GetEmail(),
+			DisplayName:    parseConversation.GetDisplayName(),
+			Preview:        parseConversation.GetPreview(),
+			MessageCount:   parseConversation.GetMessageCount(),
+			TotalCostUSD:   parseConversation.GetTotalCostUsd(),
+			LastActivityAt: parseConversation.GetLastActivityAt(),
+			StartedAt:      parseConversation.GetStartedAt(),
 		})
 	}
-	for _, parseSnap := range parseResp.GetProviderSnapshots() {
-		parseData.ProviderSnaps = append(parseData.ProviderSnaps, adminProviderRow{
-			ProviderID:    parseSnap.GetProviderId(),
-			Label:         parseSnap.GetLabel(),
-			IsAvailable:   parseSnap.GetAvailable(),
-			IsConfigured:  parseSnap.GetAuthConfigured(),
-			Status:        parseSnap.GetStatus(),
-			LastError:     parseSnap.GetLastError(),
-			LastLatencyMs: parseSnap.GetLastLatencyMs(),
-			RequestCount:  parseSnap.GetRequestCount(),
+	for _, parseProviderSnapshot := range parseDashboardResp.GetProviderSnapshots() {
+		parseDashboardData.ProviderSnaps = append(parseDashboardData.ProviderSnaps, adminProviderRow{
+			ProviderID:    parseProviderSnapshot.GetProviderId(),
+			Label:         parseProviderSnapshot.GetLabel(),
+			IsAvailable:   parseProviderSnapshot.GetAvailable(),
+			IsConfigured:  parseProviderSnapshot.GetAuthConfigured(),
+			Status:        parseProviderSnapshot.GetStatus(),
+			LastError:     parseProviderSnapshot.GetLastError(),
+			LastLatencyMs: parseProviderSnapshot.GetLastLatencyMs(),
+			RequestCount:  parseProviderSnapshot.GetRequestCount(),
 		})
 	}
-	for _, parseDay := range parseResp.GetDailyUsage() {
-		parseData.DailyUsage = append(parseData.DailyUsage, adminDailyRow{
-			UsageDay:     parseDay.GetUsageDay(),
-			EventCount:   parseDay.GetUsageEventCount(),
-			TotalCostUSD: parseDay.GetTotalCostUsd(),
-			ActiveUsers:  parseDay.GetActiveUsers(),
+	for _, parseUsageDay := range parseDashboardResp.GetDailyUsage() {
+		parseDashboardData.DailyUsage = append(parseDashboardData.DailyUsage, adminDailyRow{
+			UsageDay:     parseUsageDay.GetUsageDay(),
+			EventCount:   parseUsageDay.GetUsageEventCount(),
+			TotalCostUSD: parseUsageDay.GetTotalCostUsd(),
+			ActiveUsers:  parseUsageDay.GetActiveUsers(),
 		})
 	}
-	return parseData
+	return parseDashboardData
 }
 
 // ─── Customers slice types ────────────────────────────────────────────────────
@@ -351,35 +358,35 @@ func parseUseAdminCustomers(
 			if parseSearchSeq.Get() != parseSeq {
 				return
 			}
-			parseResp, parseErr := parseClient.SearchAdminUsers(context.Background(), &chatpb.SearchAdminUsersRequest{
+			parseSearchResp, parseSearchErr := parseClient.SearchAdminUsers(context.Background(), &chatpb.SearchAdminUsersRequest{
 				Query: parseQ,
 				Limit: 50,
 			})
 			if parseSearchSeq.Get() != parseSeq {
 				return
 			}
-			if parseErr != nil {
-				if handleAuthFailure != nil && handleAuthFailure(parseErr) {
+			if parseSearchErr != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseSearchErr) {
 					return
 				}
 				parseIsSearching.Set(false)
-				chatLog.Warn("admin user search failed", logging.Fields{"error": parseErr.Error()})
+				chatLog.Warn("admin user search failed", logging.Fields{"error": parseSearchErr.Error()})
 				return
 			}
-			parseRows := make([]adminUserRow, 0, len(parseResp.GetUsers()))
-			for _, parseU := range parseResp.GetUsers() {
-				parseRows = append(parseRows, adminUserRow{
-					UserID:            parseU.GetUserId(),
-					Email:             parseU.GetEmail(),
-					DisplayName:       parseU.GetDisplayName(),
-					ConversationCount: parseU.GetConversationCount(),
-					MessageCount:      parseU.GetMessageCount(),
-					TotalCostUSD:      parseU.GetTotalCostUsd(),
-					LastSeenAt:        parseU.GetLastSeenAt(),
-					CreatedAt:         parseU.GetCreatedAt(),
+			parseUserRows := make([]adminUserRow, 0, len(parseSearchResp.GetUsers()))
+			for _, parseUser := range parseSearchResp.GetUsers() {
+				parseUserRows = append(parseUserRows, adminUserRow{
+					UserID:            parseUser.GetUserId(),
+					Email:             parseUser.GetEmail(),
+					DisplayName:       parseUser.GetDisplayName(),
+					ConversationCount: parseUser.GetConversationCount(),
+					MessageCount:      parseUser.GetMessageCount(),
+					TotalCostUSD:      parseUser.GetTotalCostUsd(),
+					LastSeenAt:        parseUser.GetLastSeenAt(),
+					CreatedAt:         parseUser.GetCreatedAt(),
 				})
 			}
-			parseSearchResults.Set(parseRows)
+			parseSearchResults.Set(parseUserRows)
 			parseIsSearching.Set(false)
 		}(parseNextSeq, parseQuery)
 		return nil
@@ -408,7 +415,7 @@ func parseUseAdminCustomers(
 		parseMutationError.Set("")
 		parseMutationSuccess.Set("")
 		go func(parseSeq uint64, parseUID int64) {
-			parseResp, parseErr := parseClient.GetAdminUserDetail(context.Background(), &chatpb.GetAdminUserDetailRequest{
+			parseDetailResp, parseDetailErr := parseClient.GetAdminUserDetail(context.Background(), &chatpb.GetAdminUserDetailRequest{
 				UserId:       parseUID,
 				LookbackDays: 30,
 				Limit:        10,
@@ -416,15 +423,15 @@ func parseUseAdminCustomers(
 			if parseDetailSeq.Get() != parseSeq {
 				return
 			}
-			if parseErr != nil {
-				if handleAuthFailure != nil && handleAuthFailure(parseErr) {
+			if parseDetailErr != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseDetailErr) {
 					return
 				}
 				parseIsLoadingDetail.Set(false)
-				chatLog.Warn("admin user detail fetch failed", logging.Fields{"user_id": parseUID, "error": parseErr.Error()})
+				chatLog.Warn("admin user detail fetch failed", logging.Fields{"user_id": parseUID, "error": parseDetailErr.Error()})
 				return
 			}
-			parseUserDetail.Set(parseMarshalAdminUserDetail(parseResp))
+			parseUserDetail.Set(parseMarshalAdminUserDetail(parseDetailResp))
 			parseIsLoadingDetail.Set(false)
 		}(parseNextSeq, parseUserID)
 		return nil
@@ -508,11 +515,11 @@ func parseUseAdminCustomers(
 				Reason:  strings.TrimSpace(parseReason),
 			}
 			var parseErr error
-			var parseResp *chatpb.AdminUserMutationResponse
+			var parseMutationResp *chatpb.AdminUserMutationResponse
 			if parseAct == "disable" {
-				parseResp, parseErr = parseClient.DisableAdminUser(context.Background(), parseReq)
+				parseMutationResp, parseErr = parseClient.DisableAdminUser(context.Background(), parseReq)
 			} else {
-				parseResp, parseErr = parseClient.RestoreAdminUser(context.Background(), parseReq)
+				parseMutationResp, parseErr = parseClient.RestoreAdminUser(context.Background(), parseReq)
 			}
 			if parseErr != nil {
 				if handleAuthFailure != nil && handleAuthFailure(parseErr) {
@@ -525,8 +532,8 @@ func parseUseAdminCustomers(
 				return
 			}
 			parseStatus := "done"
-			if parseResp != nil && parseResp.GetStatus() != "" {
-				parseStatus = parseResp.GetStatus()
+			if parseMutationResp != nil && parseMutationResp.GetStatus() != "" {
+				parseStatus = parseMutationResp.GetStatus()
 			}
 			parseMutationSuccess.Set("User " + parseStatus + ".")
 			parseConfirmAction.Set("")
@@ -540,7 +547,7 @@ func parseUseAdminCustomers(
 			parseNextSeq := parseDetailSeq.Get() + 1
 			parseDetailSeq.Set(parseNextSeq)
 			go func(parseSeq uint64) {
-				parseDetailResp, parseDetailErr := parseDetailClient.GetAdminUserDetail(context.Background(), &chatpb.GetAdminUserDetailRequest{
+				parseRefreshDetailResp, parseRefreshDetailErr := parseDetailClient.GetAdminUserDetail(context.Background(), &chatpb.GetAdminUserDetailRequest{
 					UserId:       parseID,
 					LookbackDays: 30,
 					Limit:        10,
@@ -548,10 +555,10 @@ func parseUseAdminCustomers(
 				if parseDetailSeq.Get() != parseSeq {
 					return
 				}
-				if parseDetailErr != nil {
+				if parseRefreshDetailErr != nil {
 					return
 				}
-				parseUserDetail.Set(parseMarshalAdminUserDetail(parseDetailResp))
+				parseUserDetail.Set(parseMarshalAdminUserDetail(parseRefreshDetailResp))
 			}(parseNextSeq)
 		}(parseAction, parseUID, parseConfirmReason.Get())
 	})
@@ -583,16 +590,16 @@ func parseUseAdminCustomers(
 }
 
 // parseMarshalAdminUserDetail converts a GetAdminUserDetailResponse into a flat snapshot.
-func parseMarshalAdminUserDetail(parseResp *chatpb.GetAdminUserDetailResponse) adminUserDetailSnapshot {
-	if parseResp == nil {
+func parseMarshalAdminUserDetail(parseDetailResp *chatpb.GetAdminUserDetailResponse) adminUserDetailSnapshot {
+	if parseDetailResp == nil {
 		return adminUserDetailSnapshot{}
 	}
-	parseDetail := parseResp.GetDetail()
+	parseDetail := parseDetailResp.GetDetail()
 	if parseDetail == nil {
 		return adminUserDetailSnapshot{}
 	}
 	parseUser := parseDetail.GetUser()
-	parseSnap := adminUserDetailSnapshot{
+	parseUserDetail := adminUserDetailSnapshot{
 		HasData:      true,
 		UserID:       parseUser.GetUserId(),
 		Email:        parseUser.GetEmail(),
@@ -604,7 +611,7 @@ func parseMarshalAdminUserDetail(parseResp *chatpb.GetAdminUserDetailResponse) a
 		TotalCostUSD: parseUser.GetTotalCostUsd(),
 	}
 	for _, parseSession := range parseDetail.GetRecentSessions() {
-		parseSnap.Sessions = append(parseSnap.Sessions, adminSessionRow{
+		parseUserDetail.Sessions = append(parseUserDetail.Sessions, adminSessionRow{
 			UserAgent:  parseSession.GetUserAgent(),
 			IPAddress:  parseSession.GetIpAddress(),
 			LastSeenAt: parseSession.GetLastSeenAt(),
@@ -613,7 +620,7 @@ func parseMarshalAdminUserDetail(parseResp *chatpb.GetAdminUserDetailResponse) a
 		})
 	}
 	for _, parseUsageEv := range parseDetail.GetRecentUsageEvents() {
-		parseSnap.UsageEvents = append(parseSnap.UsageEvents, adminUsageEventRow{
+		parseUserDetail.UsageEvents = append(parseUserDetail.UsageEvents, adminUsageEventRow{
 			ProviderID:   parseUsageEv.GetProviderId(),
 			ModelID:      parseUsageEv.GetModelId(),
 			TotalCostUSD: parseUsageEv.GetTotalCostUsd(),
@@ -622,11 +629,369 @@ func parseMarshalAdminUserDetail(parseResp *chatpb.GetAdminUserDetailResponse) a
 		})
 	}
 	for _, parseAudit := range parseDetail.GetRecentAuditLogs() {
-		parseSnap.AuditLogs = append(parseSnap.AuditLogs, adminAuditRow{
+		parseUserDetail.AuditLogs = append(parseUserDetail.AuditLogs, adminAuditRow{
 			EventType: parseAudit.GetEventType(),
 			Summary:   parseAudit.GetSummary(),
 			CreatedAt: parseAudit.GetCreatedAt(),
 		})
 	}
-	return parseSnap
+	return parseUserDetail
+}
+
+// ─── Workspace admin types ────────────────────────────────────────────────────
+
+// adminWorkspaceMemberRow holds a flattened workspace membership entry.
+type adminWorkspaceMemberRow struct {
+	UserID    int64
+	RoleKey   string
+	Status    string
+	CreatedAt string
+}
+
+// adminWorkspaceAPIKeyRow holds a flattened API key entry.
+type adminWorkspaceAPIKeyRow struct {
+	KeyID     string
+	Label     string
+	KeyPrefix string
+	RevokedAt string
+	CreatedAt string
+}
+
+// adminWorkspaceWebhookRow holds a flattened webhook endpoint entry.
+type adminWorkspaceWebhookRow struct {
+	Label          string
+	TargetURL      string
+	IsEnabled      bool
+	FailureCount   int64
+	LastDeliveryAt string
+	CreatedAt      string
+}
+
+// adminWorkspaceDetailSnapshot is the render-only snapshot for one selected workspace.
+type adminWorkspaceDetailSnapshot struct {
+	HasData     bool
+	WorkspaceID int64
+	Name        string
+	Slug        string
+	PlanCode    string
+	Status      string
+	OwnerUserID int64
+	CreatedAt   string
+	UpdatedAt   string
+	Members     []adminWorkspaceMemberRow
+	APIKeys     []adminWorkspaceAPIKeyRow
+	Webhooks    []adminWorkspaceWebhookRow
+	AuditLogs   []adminAuditRow
+}
+
+// adminWorkspacesData is the render-only snapshot of Workspaces slice UI state.
+type adminWorkspacesData struct {
+	FilterQuery         string
+	CurrentPage         int
+	SelectedWorkspaceID int64
+	WorkspaceDetail     adminWorkspaceDetailSnapshot
+	IsLoadingDetail     bool
+	ConfirmAction       string
+	ConfirmReason       string
+	IsMutationPending   bool
+	MutationError       string
+	MutationSuccess     string
+}
+
+// adminWorkspacesController bundles Workspaces slice render state and event handlers.
+type adminWorkspacesController struct {
+	Data                adminWorkspacesData
+	HandleFilter        ui.Handler
+	HandleSelectWS      ui.Handler
+	HandleNextPage      ui.Handler
+	HandlePrevPage      ui.Handler
+	HandleConfirmStart  ui.Handler
+	HandleConfirmReason ui.Handler
+	HandleConfirmSubmit ui.Handler
+	HandleConfirmCancel ui.Handler
+}
+
+// parseUseAdminWorkspaces manages local state for the Workspaces admin slice.
+func parseUseAdminWorkspaces(
+	parseCurrentState appState,
+	parseAdminDashboard adminDashboardData,
+	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
+	handleAuthFailure func(error) bool,
+) adminWorkspacesController {
+	parseFilterQuery := ui.UseState("")
+	parseCurrentPage := ui.UseState(0)
+	parseSelectedWSID := ui.UseState(int64(0))
+	parseWorkspaceDetailState := ui.UseState(adminWorkspaceDetailSnapshot{})
+	parseIsLoadingDetail := ui.UseState(false)
+	parseConfirmAction := ui.UseState("")
+	parseConfirmReason := ui.UseState("")
+	parseIsMutationPending := ui.UseState(false)
+	parseMutationError := ui.UseState("")
+	parseMutationSuccess := ui.UseState("")
+
+	parseDetailSeq := ui.UseRef(uint64(0))
+
+	// Fetch workspace detail when selection changes.
+	ui.UseEffect(func() func() {
+		parseWID := parseSelectedWSID.Get()
+		if parseWID <= 0 {
+			parseWorkspaceDetailState.Set(adminWorkspaceDetailSnapshot{})
+			parseIsLoadingDetail.Set(false)
+			parseMutationError.Set("")
+			parseMutationSuccess.Set("")
+			return nil
+		}
+		if !parseCurrentState.Authenticated || !parseCurrentState.GRPCReady {
+			return nil
+		}
+		parseClient := parseChatClientRef.Get()
+		if parseClient == nil {
+			return nil
+		}
+		parseNextSeq := parseDetailSeq.Get() + 1
+		parseDetailSeq.Set(parseNextSeq)
+		parseIsLoadingDetail.Set(true)
+		parseMutationError.Set("")
+		parseMutationSuccess.Set("")
+		go func(parseSeq uint64, parseWsID int64) {
+			parseWorkspaceDetailResp, parseWorkspaceDetailErr := parseClient.GetAdminWorkspaceDetail(context.Background(), &chatpb.GetAdminWorkspaceDetailRequest{
+				WorkspaceId:  parseWsID,
+				LookbackDays: 30,
+				Limit:        10,
+			})
+			if parseDetailSeq.Get() != parseSeq {
+				return
+			}
+			if parseWorkspaceDetailErr != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseWorkspaceDetailErr) {
+					return
+				}
+				parseIsLoadingDetail.Set(false)
+				chatLog.Warn("admin workspace detail fetch failed", logging.Fields{"workspace_id": parseWsID, "error": parseWorkspaceDetailErr.Error()})
+				return
+			}
+			parseWorkspaceDetailState.Set(parseMarshalAdminWorkspaceDetail(parseWorkspaceDetailResp))
+			parseIsLoadingDetail.Set(false)
+		}(parseNextSeq, parseWID)
+		return nil
+	}, parseSelectedWSID.Get(), parseCurrentState.Authenticated, parseCurrentState.GRPCReady)
+
+	handleFilter := ui.UseEvent(func(parseE ui.Event) {
+		parseFilterQuery.Set(parseE.GetValue())
+		parseCurrentPage.Set(0)
+	})
+
+	handleSelectWS := ui.UseEvent(func(parseE ui.Event) {
+		parseWID, parseOk := parseEventDatasetInt64(parseE, dataAdminWorkspaceID)
+		if !parseOk {
+			return
+		}
+		if parseSelectedWSID.Get() == parseWID {
+			parseSelectedWSID.Set(0)
+			return
+		}
+		parseSelectedWSID.Set(parseWID)
+		parseConfirmAction.Set("")
+		parseConfirmReason.Set("")
+		parseMutationError.Set("")
+		parseMutationSuccess.Set("")
+	})
+
+	handleNextPage := ui.UseEvent(func(parseE ui.Event) {
+		_ = parseE
+		parseCurrentPage.Set(parseCurrentPage.Get() + 1)
+	})
+
+	handlePrevPage := ui.UseEvent(func(parseE ui.Event) {
+		_ = parseE
+		parsePrev := parseCurrentPage.Get() - 1
+		if parsePrev < 0 {
+			parsePrev = 0
+		}
+		parseCurrentPage.Set(parsePrev)
+	})
+
+	handleConfirmStart := ui.UseEvent(func(parseE ui.Event) {
+		parseAction := parseEventDatasetValue(parseE, dataAdminAction)
+		parseConfirmAction.Set(parseAction)
+		parseConfirmReason.Set("")
+		parseMutationError.Set("")
+		parseMutationSuccess.Set("")
+	})
+
+	handleConfirmReason := ui.UseEvent(func(parseE ui.Event) {
+		parseConfirmReason.Set(parseE.GetValue())
+	})
+
+	handleConfirmCancel := ui.UseEvent(func(parseE ui.Event) {
+		_ = parseE
+		parseConfirmAction.Set("")
+		parseConfirmReason.Set("")
+		parseMutationError.Set("")
+	})
+
+	handleConfirmSubmit := ui.UseEvent(func(parseE ui.Event) {
+		_ = parseE
+		if parseIsMutationPending.Get() {
+			return
+		}
+		parseAction := parseConfirmAction.Get()
+		parseWID := parseSelectedWSID.Get()
+		if parseAction == "" || parseWID <= 0 {
+			return
+		}
+		parseClient := parseChatClientRef.Get()
+		if parseClient == nil {
+			parseMutationError.Set("Connection not ready.")
+			return
+		}
+		parseIsMutationPending.Set(true)
+		parseMutationError.Set("")
+		go func(parseAct string, parseID int64, parseReason string) {
+			parseReq := &chatpb.AdminWorkspaceMutationRequest{
+				WorkspaceId: parseID,
+				Confirm:     true,
+				Reason:      strings.TrimSpace(parseReason),
+			}
+			var parseErr error
+			var parseWorkspaceStatus string
+			if parseAct == "suspend" {
+				parseWorkspaceResp, parseWorkspaceRespErr := parseClient.SuspendAdminWorkspace(context.Background(), parseReq)
+				parseErr = parseWorkspaceRespErr
+				if parseWorkspaceResp != nil {
+					parseWorkspaceStatus = parseWorkspaceResp.GetStatus()
+				}
+			} else {
+				parseReq.RestoreApiKeys = true
+				parseReq.RestoreWebhookEndpoints = true
+				parseReq.RestoreBackgroundJobs = true
+				parseWorkspaceResp, parseWorkspaceRespErr := parseClient.RestoreAdminWorkspace(context.Background(), parseReq)
+				parseErr = parseWorkspaceRespErr
+				if parseWorkspaceResp != nil {
+					parseWorkspaceStatus = parseWorkspaceResp.GetStatus()
+				}
+			}
+			if parseErr != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseErr) {
+					parseIsMutationPending.Set(false)
+					return
+				}
+				parseMutationError.Set(parseErr.Error())
+				parseIsMutationPending.Set(false)
+				chatLog.Warn("admin workspace mutation failed", logging.Fields{"action": parseAct, "workspace_id": parseID, "error": parseErr.Error()})
+				return
+			}
+			if parseWorkspaceStatus == "" {
+				parseWorkspaceStatus = "done"
+			}
+			parseMutationSuccess.Set("Workspace " + parseWorkspaceStatus + ".")
+			parseConfirmAction.Set("")
+			parseConfirmReason.Set("")
+			parseIsMutationPending.Set(false)
+			// Re-fetch workspace detail after a successful mutation.
+			parseDetailClient := parseChatClientRef.Get()
+			if parseDetailClient == nil {
+				return
+			}
+			parseNextSeq := parseDetailSeq.Get() + 1
+			parseDetailSeq.Set(parseNextSeq)
+			go func(parseSeq uint64) {
+				parseRefreshWorkspaceDetailResp, parseRefreshWorkspaceDetailErr := parseDetailClient.GetAdminWorkspaceDetail(context.Background(), &chatpb.GetAdminWorkspaceDetailRequest{
+					WorkspaceId:  parseID,
+					LookbackDays: 30,
+					Limit:        10,
+				})
+				if parseDetailSeq.Get() != parseSeq {
+					return
+				}
+				if parseRefreshWorkspaceDetailErr != nil {
+					return
+				}
+				parseWorkspaceDetailState.Set(parseMarshalAdminWorkspaceDetail(parseRefreshWorkspaceDetailResp))
+			}(parseNextSeq)
+		}(parseAction, parseWID, parseConfirmReason.Get())
+	})
+
+	_ = parseAdminDashboard
+
+	return adminWorkspacesController{
+		Data: adminWorkspacesData{
+			FilterQuery:         parseFilterQuery.Get(),
+			CurrentPage:         parseCurrentPage.Get(),
+			SelectedWorkspaceID: parseSelectedWSID.Get(),
+			WorkspaceDetail:     parseWorkspaceDetailState.Get(),
+			IsLoadingDetail:     parseIsLoadingDetail.Get(),
+			ConfirmAction:       parseConfirmAction.Get(),
+			ConfirmReason:       parseConfirmReason.Get(),
+			IsMutationPending:   parseIsMutationPending.Get(),
+			MutationError:       parseMutationError.Get(),
+			MutationSuccess:     parseMutationSuccess.Get(),
+		},
+		HandleFilter:        handleFilter,
+		HandleSelectWS:      handleSelectWS,
+		HandleNextPage:      handleNextPage,
+		HandlePrevPage:      handlePrevPage,
+		HandleConfirmStart:  handleConfirmStart,
+		HandleConfirmReason: handleConfirmReason,
+		HandleConfirmSubmit: handleConfirmSubmit,
+		HandleConfirmCancel: handleConfirmCancel,
+	}
+}
+
+// parseMarshalAdminWorkspaceDetail converts a GetAdminWorkspaceDetailResponse into a flat snapshot.
+func parseMarshalAdminWorkspaceDetail(parseWorkspaceDetailResp *chatpb.GetAdminWorkspaceDetailResponse) adminWorkspaceDetailSnapshot {
+	if parseWorkspaceDetailResp == nil {
+		return adminWorkspaceDetailSnapshot{}
+	}
+	parseDetail := parseWorkspaceDetailResp.GetDetail()
+	if parseDetail == nil {
+		return adminWorkspaceDetailSnapshot{}
+	}
+	parseWorkspace := parseDetail.GetWorkspace()
+	parseWorkspaceDetail := adminWorkspaceDetailSnapshot{
+		HasData:     true,
+		WorkspaceID: parseWorkspace.GetId(),
+		Name:        parseWorkspace.GetName(),
+		Slug:        parseWorkspace.GetSlug(),
+		PlanCode:    parseWorkspace.GetPlanCode(),
+		Status:      parseWorkspace.GetStatus(),
+		OwnerUserID: parseWorkspace.GetOwnerUserId(),
+		CreatedAt:   parseWorkspace.GetCreatedAt(),
+		UpdatedAt:   parseWorkspace.GetUpdatedAt(),
+	}
+	for _, parseMembership := range parseDetail.GetMemberships() {
+		parseWorkspaceDetail.Members = append(parseWorkspaceDetail.Members, adminWorkspaceMemberRow{
+			UserID:    parseMembership.GetUserId(),
+			RoleKey:   parseMembership.GetRoleKey(),
+			Status:    parseMembership.GetStatus(),
+			CreatedAt: parseMembership.GetCreatedAt(),
+		})
+	}
+	for _, parseAPIKey := range parseDetail.GetApiKeys() {
+		parseWorkspaceDetail.APIKeys = append(parseWorkspaceDetail.APIKeys, adminWorkspaceAPIKeyRow{
+			KeyID:     parseAPIKey.GetKeyId(),
+			Label:     parseAPIKey.GetLabel(),
+			KeyPrefix: parseAPIKey.GetKeyPrefix(),
+			RevokedAt: parseAPIKey.GetRevokedAt(),
+			CreatedAt: parseAPIKey.GetCreatedAt(),
+		})
+	}
+	for _, parseWebhook := range parseDetail.GetWebhookEndpoints() {
+		parseWorkspaceDetail.Webhooks = append(parseWorkspaceDetail.Webhooks, adminWorkspaceWebhookRow{
+			Label:          parseWebhook.GetLabel(),
+			TargetURL:      parseWebhook.GetTargetUrl(),
+			IsEnabled:      parseWebhook.GetIsEnabled(),
+			FailureCount:   parseWebhook.GetFailureCount(),
+			LastDeliveryAt: parseWebhook.GetLastDeliveryAt(),
+			CreatedAt:      parseWebhook.GetCreatedAt(),
+		})
+	}
+	for _, parseAuditLog := range parseDetail.GetRecentAuditLogs() {
+		parseWorkspaceDetail.AuditLogs = append(parseWorkspaceDetail.AuditLogs, adminAuditRow{
+			EventType: parseAuditLog.GetEventType(),
+			Summary:   parseAuditLog.GetSummary(),
+			CreatedAt: parseAuditLog.GetCreatedAt(),
+		})
+	}
+	return parseWorkspaceDetail
 }
