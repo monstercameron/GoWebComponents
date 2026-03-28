@@ -234,9 +234,9 @@ func renderAdminWSAPIKeysTable(parseKeys []adminWorkspaceAPIKeyRow) ui.Node {
 							Th(Class("px-2 py-1 text-left text-gray-500 dark:text-gray-400"), Text("Created")),
 						),
 					),
-					Tag("tbody",
+					Tbody(
 						Class("divide-y divide-gray-100 dark:divide-gray-800"),
-						func() []ui.Node {
+						func() ui.Node {
 							parseKeyRows := make([]ui.Node, len(parseKeys))
 							for parseI, parseK := range parseKeys {
 								isRevoked := parseK.RevokedAt != ""
@@ -254,8 +254,8 @@ func renderAdminWSAPIKeysTable(parseKeys []adminWorkspaceAPIKeyRow) ui.Node {
 									Td(Class("px-2 py-1 text-gray-400"), Text(parseDashboardShortAt(parseK.CreatedAt))),
 								)
 							}
-							return parseKeyRows
-						}()...,
+							return Fragment(parseKeyRows)
+						}(),
 					),
 				),
 			),

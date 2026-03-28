@@ -186,6 +186,7 @@ type storeQueries struct {
 	getIncidentByKey                        string
 	upsertIncident                          string
 	deleteIncident                          string
+	listWorkspaceModelRoutingPolicies       string
 	listWorkspaceCostGuardrails             string
 	createNotificationOutbox                string
 	listNotificationOutbox                  string
@@ -732,6 +733,9 @@ func parseLoadStoreQueries() (storeQueries, error) {
 		return storeQueries{}, parseErr
 	}
 	if parseErr = parseLoadStoreQuery(&parseQueries.deleteIncident, "store/ops/delete_incident.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseErr = parseLoadStoreQuery(&parseQueries.listWorkspaceModelRoutingPolicies, "store/ops/list_workspace_model_routing_policies.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseErr = parseLoadStoreQuery(&parseQueries.listWorkspaceCostGuardrails, "store/ops/list_workspace_cost_guardrails.sql"); parseErr != nil {

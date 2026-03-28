@@ -1915,6 +1915,133 @@ func TestGoWASMWorkerBootstrapAndLifecycle(parseT *testing.T) {
 	})
 }
 
+// TestWorkerSurfaceValidationReportsFailures verifies browser-lane validation
+// and nil-handler rejection across worker-owned interop surfaces.
+func TestWorkerSurfaceValidationReportsFailures(parseT *testing.T) {
+	parseT.Run("open-worker-empty-url", func(parseT2 *testing.T) {
+		if _, parseErr := OpenWorker(context.Background(), WorkerOptions{}); !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected empty worker URL error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("open-worker-unsupported-type", func(parseT2 *testing.T) {
+		if _, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/demo.js", Type: "shared"}); !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected unsupported worker type error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("request-empty-name", func(parseT2 *testing.T) {
+		var parseFuncs []js.Func
+		defer releaseBrowserFuncs(parseFuncs)
+
+		parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseRaw := js.Global().Get("Object").New()
+			parseAddEventListenerFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} { return nil })
+			parseRemoveEventListenerFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+			parsePostMessageFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil })
+			parseTerminateFn := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} { return nil })
+			parseFuncs = append(parseFuncs, parseAddEventListenerFn, parseRemoveEventListenerFn, parsePostMessageFn, parseTerminateFn)
+			parseRaw.Set("addEventListener", parseAddEventListenerFn)
+			parseRaw.Set("removeEventListener", parseRemoveEventListenerFn)
+			parseRaw.Set("postMessage", parsePostMessageFn)
+			parseRaw.Set("terminate", parseTerminateFn)
+			return parseRaw
+		})
+		defer parseCtor.Release()
+		parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+		defer parseRestoreWorker()
+
+		parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/request.js"})
+		if parseErr != nil {
+			parseT2.Fatalf("expected worker wrapper, got %v", parseErr)
+		}
+		if _, parseErr2 := parseWorker.Request(context.Background(), "", nil, nil); !IsCode(parseErr2, CodeInvalid) {
+			parseT2.Fatalf("expected empty request name error, got %v", parseErr2)
+		}
+	})
+
+	parseT.Run("worker-scope-nil-handler", func(parseT2 *testing.T) {
+		parseRestoreDocument := setGlobalValue("document", js.Null())
+		defer parseRestoreDocument()
+		parsePostMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} { return nil })
+		defer parsePostMessageFn.Release()
+		parseRestorePostMessage := setGlobalValue("postMessage", parsePostMessageFn)
+		defer parseRestorePostMessage()
+
+		parseScope, parseErr := GetWorkerScope()
+		if parseErr != nil {
+			parseT2.Fatalf("expected worker scope, got %v", parseErr)
+		}
+		if _, parseErr2 := parseScope.Subscribe(nil); !IsCode(parseErr2, CodeInvalid) {
+			parseT2.Fatalf("expected nil worker-scope handler error, got %v", parseErr2)
+		}
+	})
+
+	parseT.Run("message-port-nil-handler", func(parseT2 *testing.T) {
+		parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+		defer parseRestoreChannel()
+
+		parseChannel, parseErr := OpenMessageChannel()
+		if parseErr != nil {
+			parseT2.Fatalf("expected message channel, got %v", parseErr)
+		}
+		if _, parseErr2 := parseChannel.Port1().Subscribe(nil); !IsCode(parseErr2, CodeInvalid) {
+			parseT2.Fatalf("expected nil message-port handler error, got %v", parseErr2)
+		}
+	})
+
+	parseT.Run("go-worker-runtime-url-descriptor", func(parseT2 *testing.T) {
+		parseUrlCtor := js.Global().Get("Function").New("url", "base", "return { href: Object.create(null) };")
+		parseRestoreURL := setGlobalValue("URL", parseUrlCtor)
+		defer parseRestoreURL()
+
+		_, parseErr := NewGoWASMWorker(context.Background(), GoWASMWorkerOptions{
+			RuntimeURL: "https://app.example.test/wasm_exec.js",
+			WASMURL:    "https://app.example.test/worker.wasm",
+		})
+		if !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected runtime URL descriptor error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("go-worker-wasm-url-descriptor", func(parseT2 *testing.T) {
+		parseUrlCtor := js.Global().Get("Function").New("url", "base", "if (String(url).indexOf('worker.wasm') >= 0) { return { href: Object.create(null) }; } return { href: String(url) };")
+		parseRestoreURL := setGlobalValue("URL", parseUrlCtor)
+		defer parseRestoreURL()
+
+		_, parseErr := NewGoWASMWorker(context.Background(), GoWASMWorkerOptions{
+			RuntimeURL: "https://app.example.test/wasm_exec.js",
+			WASMURL:    "https://app.example.test/worker.wasm",
+		})
+		if !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected wasm URL descriptor error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("go-worker-create-object-url-descriptor", func(parseT2 *testing.T) {
+		parseBlobCtor := js.Global().Get("Function").New("parts", "options", "return { parts: parts, options: options };")
+		parseRestoreBlob := setGlobalValue("Blob", parseBlobCtor)
+		defer parseRestoreBlob()
+
+		parseUrlCtor := js.Global().Get("Function").New("url", "base", "return { href: String(url) };")
+		parseCreateObjectURLFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			return js.Global().Get("Object").New()
+		})
+		defer parseCreateObjectURLFn.Release()
+		parseUrlCtor.Set("createObjectURL", parseCreateObjectURLFn)
+		parseRestoreURL := setGlobalValue("URL", parseUrlCtor)
+		defer parseRestoreURL()
+
+		_, parseErr := NewGoWASMWorker(context.Background(), GoWASMWorkerOptions{
+			RuntimeURL: "https://app.example.test/wasm_exec.js",
+			WASMURL:    "https://app.example.test/worker.wasm",
+		})
+		if !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected createObjectURL descriptor error, got %v", parseErr)
+		}
+	})
+}
+
 func TestWindowEventsDispatchCustomEvents(parseT *testing.T) {
 	var parseListener js.Value
 	parseWindow := js.Global().Get("Object").New()

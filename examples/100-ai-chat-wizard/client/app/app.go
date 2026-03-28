@@ -137,6 +137,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 	parseAccountCostSummary := parseUseAccountCostSummary(parseCurrentState, parseChatClientRef, parseMarkdownWorkerRef, parseMarkdownWorkerPoolRef, handleAuthFailure)
 	parseAdminDashboard := parseUseAdminDashboard(parseCurrentState, parseChatClientRef, handleAuthFailure)
 	parseAdminCustomers := parseUseAdminCustomers(parseCurrentState, parseAdminDashboard, parseChatClientRef, handleAuthFailure)
+	parseAdminWorkspaces := parseUseAdminWorkspaces(parseCurrentState, parseAdminDashboard, parseChatClientRef, handleAuthFailure)
 
 	parseAuthSession := parseUseAuthSession(parseApp, parseUserNameState, parseChatClientRef, func(parseSession *chatpb.GetSessionResponse) {
 		var parseRoleSummary *chatpb.AuthRoleSummary
@@ -398,6 +399,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 		ScrollMemory:         parseScrollMemory,
 		CanvasWorkspace:      parseCanvasWorkspace,
 		AdminCustomers:       parseAdminCustomers,
+		AdminWorkspaces:      parseAdminWorkspaces,
 	})
 }
 

@@ -148,6 +148,7 @@ type appShellProps struct {
 	ScrollMemory         threadScrollMemory
 	CanvasWorkspace      canvasWorkspaceController
 	AdminCustomers       adminCustomersController
+	AdminWorkspaces      adminWorkspacesController
 }
 
 // shouldRenderLandingShellEarly returns whether a public landing route should bypass the auth loading shell.
@@ -219,7 +220,7 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 	if isDashboardRoute(parseProps.View.CurrentPath) {
 		return Fragment(
 			parseSidebarNode,
-			renderDashboardHome(parseProps.Intl, parseProps.View, parseProps.OpenAdminDashboard, parseProps.AdminCustomers),
+			renderDashboardHome(parseProps.Intl, parseProps.View, parseProps.OpenAdminDashboard, parseProps.AdminCustomers, parseProps.AdminWorkspaces),
 		)
 	}
 	return Fragment(
