@@ -9,21 +9,21 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func renderDashboardHome(parseIntl i18n.Runtime, parseView appViewState, parseOpenAdminDashboard ui.Handler, parseAdminCustomers adminCustomersController) ui.Node {
+func renderDashboardHome(parseIntl i18n.Runtime, parseView appViewState, parseOpenAdminDashboard ui.Handler, parseAdminCustomers adminCustomersController, parseAdminWorkspaces adminWorkspacesController) ui.Node {
 	_ = parseOpenAdminDashboard
 	return Div(
 		Class("flex h-full min-h-0 flex-1 flex-col overflow-hidden"),
 		renderDashboardTopBar(parseIntl, parseView),
-		renderDashboardBody(parseIntl, parseView, parseAdminCustomers),
+		renderDashboardBody(parseIntl, parseView, parseAdminCustomers, parseAdminWorkspaces),
 	)
 }
 
 // renderDashboardBody dispatches to the correct slice renderer.
-func renderDashboardBody(parseIntl i18n.Runtime, parseView appViewState, parseAdminCustomers adminCustomersController) ui.Node {
+func renderDashboardBody(parseIntl i18n.Runtime, parseView appViewState, parseAdminCustomers adminCustomersController, parseAdminWorkspaces adminWorkspacesController) ui.Node {
 	// Pick the slice that matches the current route so each dashboard page can stay focused on one job.
 	switch parseView.CurrentPath {
 	case chatRouteDashboardBusiness:
-		return renderDashboardSliceWrap(renderDashboardBusiness(parseIntl, parseView))
+		return renderDashboardSliceWrap(renderDashboardBusiness(parseIntl, parseView, parseAdminWorkspaces))
 	case chatRouteDashboardCustomers:
 		return renderDashboardSliceWrap(renderDashboardCustomersEnhanced(parseIntl, parseView, parseAdminCustomers))
 	case chatRouteDashboardChats:

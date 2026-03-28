@@ -115,7 +115,7 @@ func renderDashboardSliceHeader(parseIcon, parseTitle, parseSubtitle string) ui.
 // â”€â”€â”€ Business slice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // renderDashboardBusiness renders the Business analytics slice.
-func renderDashboardBusiness(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
+func renderDashboardBusiness(parseIntl i18n.Runtime, parseView appViewState, parseAdminWorkspaces adminWorkspacesController) ui.Node {
 	_ = parseIntl
 	parseData := parseView.AdminDashboardData
 	if parseData.IsDenied {
@@ -150,6 +150,7 @@ func renderDashboardBusiness(parseIntl i18n.Runtime, parseView appViewState) ui.
 		renderDashboardTopUsersTable(parseData.TopUsers),
 		renderDashboardSectionHeader("Daily usage (30 days)"),
 		renderDashboardDailyTable(parseData.DailyUsage),
+		renderDashboardWorkspacesPanel(parseIntl, parseView, parseAdminWorkspaces),
 	)
 }
 

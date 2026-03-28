@@ -42,6 +42,7 @@ const (
 	ChatService_GetAdminReadOnlyReport_FullMethodName                = "/chat.v1.ChatService/GetAdminReadOnlyReport"
 	ChatService_SearchAdminUsers_FullMethodName                      = "/chat.v1.ChatService/SearchAdminUsers"
 	ChatService_GetAdminUserDetail_FullMethodName                    = "/chat.v1.ChatService/GetAdminUserDetail"
+	ChatService_GetAdminCustomerAccountTimeline_FullMethodName       = "/chat.v1.ChatService/GetAdminCustomerAccountTimeline"
 	ChatService_DisableAdminUser_FullMethodName                      = "/chat.v1.ChatService/DisableAdminUser"
 	ChatService_RestoreAdminUser_FullMethodName                      = "/chat.v1.ChatService/RestoreAdminUser"
 	ChatService_GetAdminWorkspaceDetail_FullMethodName               = "/chat.v1.ChatService/GetAdminWorkspaceDetail"
@@ -55,13 +56,26 @@ const (
 	ChatService_SetAdminBillingAccessOverride_FullMethodName         = "/chat.v1.ChatService/SetAdminBillingAccessOverride"
 	ChatService_SetAdminBillingQuotaOverride_FullMethodName          = "/chat.v1.ChatService/SetAdminBillingQuotaOverride"
 	ChatService_ResolveAdminBillingFailedPayment_FullMethodName      = "/chat.v1.ChatService/ResolveAdminBillingFailedPayment"
+	ChatService_GetAdminBusinessQueue_FullMethodName                 = "/chat.v1.ChatService/GetAdminBusinessQueue"
+	ChatService_GetAdminBusinessAccountDetail_FullMethodName         = "/chat.v1.ChatService/GetAdminBusinessAccountDetail"
 	ChatService_GetAdminBusinessDrilldown_FullMethodName             = "/chat.v1.ChatService/GetAdminBusinessDrilldown"
 	ChatService_GetAdminChatsDrilldown_FullMethodName                = "/chat.v1.ChatService/GetAdminChatsDrilldown"
+	ChatService_GetAdminChatsAnomalies_FullMethodName                = "/chat.v1.ChatService/GetAdminChatsAnomalies"
+	ChatService_GetAdminProvidersDrilldown_FullMethodName            = "/chat.v1.ChatService/GetAdminProvidersDrilldown"
+	ChatService_GetAdminProviderHealthTrends_FullMethodName          = "/chat.v1.ChatService/GetAdminProviderHealthTrends"
+	ChatService_GetAdminOpsDrilldown_FullMethodName                  = "/chat.v1.ChatService/GetAdminOpsDrilldown"
 	ChatService_GetAdminChatsSettings_FullMethodName                 = "/chat.v1.ChatService/GetAdminChatsSettings"
 	ChatService_SetAdminChatDefaults_FullMethodName                  = "/chat.v1.ChatService/SetAdminChatDefaults"
 	ChatService_SetAdminOnboardingTemplate_FullMethodName            = "/chat.v1.ChatService/SetAdminOnboardingTemplate"
 	ChatService_SetAdminWorkflowPublishState_FullMethodName          = "/chat.v1.ChatService/SetAdminWorkflowPublishState"
 	ChatService_SetAdminSkillPublishState_FullMethodName             = "/chat.v1.ChatService/SetAdminSkillPublishState"
+	ChatService_SetAdminProviderEnabled_FullMethodName               = "/chat.v1.ChatService/SetAdminProviderEnabled"
+	ChatService_SetAdminProviderModelVisibility_FullMethodName       = "/chat.v1.ChatService/SetAdminProviderModelVisibility"
+	ChatService_SetAdminProviderFallbackRouting_FullMethodName       = "/chat.v1.ChatService/SetAdminProviderFallbackRouting"
+	ChatService_SetAdminProviderLimit_FullMethodName                 = "/chat.v1.ChatService/SetAdminProviderLimit"
+	ChatService_SetAdminProviderCostGuardrail_FullMethodName         = "/chat.v1.ChatService/SetAdminProviderCostGuardrail"
+	ChatService_SetAdminSiteConfig_FullMethodName                    = "/chat.v1.ChatService/SetAdminSiteConfig"
+	ChatService_SetAdminWebhookBehavior_FullMethodName               = "/chat.v1.ChatService/SetAdminWebhookBehavior"
 	ChatService_ListAdminSupportTickets_FullMethodName               = "/chat.v1.ChatService/ListAdminSupportTickets"
 	ChatService_GetAdminSupportTicketDetail_FullMethodName           = "/chat.v1.ChatService/GetAdminSupportTicketDetail"
 	ChatService_AddAdminSupportInternalNote_FullMethodName           = "/chat.v1.ChatService/AddAdminSupportInternalNote"
@@ -176,6 +190,8 @@ type ChatServiceClient interface {
 	SearchAdminUsers(ctx context.Context, in *SearchAdminUsersRequest, opts ...grpc.CallOption) (*SearchAdminUsersResponse, error)
 	// GetAdminUserDetail returns one typed customer detail payload with session, usage, audit, workspace, memory, support, and billing slices.
 	GetAdminUserDetail(ctx context.Context, in *GetAdminUserDetailRequest, opts ...grpc.CallOption) (*GetAdminUserDetailResponse, error)
+	// GetAdminCustomerAccountTimeline returns one typed merged customer timeline across chat, support, billing, auth-session, and audit sources.
+	GetAdminCustomerAccountTimeline(ctx context.Context, in *GetAdminCustomerAccountTimelineRequest, opts ...grpc.CallOption) (*GetAdminCustomerAccountTimelineResponse, error)
 	// DisableAdminUser applies one typed admin user-disable mutation.
 	DisableAdminUser(ctx context.Context, in *AdminUserMutationRequest, opts ...grpc.CallOption) (*AdminUserMutationResponse, error)
 	// RestoreAdminUser applies one typed admin user-restore mutation.
@@ -202,10 +218,22 @@ type ChatServiceClient interface {
 	SetAdminBillingQuotaOverride(ctx context.Context, in *AdminBillingQuotaOverrideMutationRequest, opts ...grpc.CallOption) (*AdminBillingQuotaOverrideMutationResponse, error)
 	// ResolveAdminBillingFailedPayment marks one failed-payment path resolved for one target user and invoice.
 	ResolveAdminBillingFailedPayment(ctx context.Context, in *ResolveAdminBillingFailedPaymentRequest, opts ...grpc.CallOption) (*ResolveAdminBillingFailedPaymentResponse, error)
+	// GetAdminBusinessQueue returns typed failed-payment, dunning, top-account, and funnel queue slices.
+	GetAdminBusinessQueue(ctx context.Context, in *GetAdminBusinessQueueRequest, opts ...grpc.CallOption) (*GetAdminBusinessQueueResponse, error)
+	// GetAdminBusinessAccountDetail returns typed business account drill-down rows for one target user.
+	GetAdminBusinessAccountDetail(ctx context.Context, in *GetAdminBusinessAccountDetailRequest, opts ...grpc.CallOption) (*GetAdminBusinessAccountDetailResponse, error)
 	// GetAdminBusinessDrilldown returns one typed business drill-down snapshot for one admin-target user.
 	GetAdminBusinessDrilldown(ctx context.Context, in *GetAdminBusinessDrilldownRequest, opts ...grpc.CallOption) (*GetAdminBusinessDrilldownResponse, error)
 	// GetAdminChatsDrilldown returns one typed chats drill-down snapshot for dashboard chats surfaces.
 	GetAdminChatsDrilldown(ctx context.Context, in *GetAdminChatsDrilldownRequest, opts ...grpc.CallOption) (*GetAdminChatsDrilldownResponse, error)
+	// GetAdminChatsAnomalies returns typed failed/slow/high-cost/feature-usage anomaly slices for dashboard chats surfaces.
+	GetAdminChatsAnomalies(ctx context.Context, in *GetAdminChatsAnomaliesRequest, opts ...grpc.CallOption) (*GetAdminChatsAnomaliesResponse, error)
+	// GetAdminProvidersDrilldown returns one typed providers drill-down snapshot for dashboard providers surfaces.
+	GetAdminProvidersDrilldown(ctx context.Context, in *GetAdminProvidersDrilldownRequest, opts ...grpc.CallOption) (*GetAdminProvidersDrilldownResponse, error)
+	// GetAdminProviderHealthTrends returns typed provider health trends and provider fallback/control audit events.
+	GetAdminProviderHealthTrends(ctx context.Context, in *GetAdminProviderHealthTrendsRequest, opts ...grpc.CallOption) (*GetAdminProviderHealthTrendsResponse, error)
+	// GetAdminOpsDrilldown returns one typed ops drill-down snapshot for dashboard ops surfaces.
+	GetAdminOpsDrilldown(ctx context.Context, in *GetAdminOpsDrilldownRequest, opts ...grpc.CallOption) (*GetAdminOpsDrilldownResponse, error)
 	// GetAdminChatsSettings returns typed chats settings defaults plus onboarding/workflow/skill publishing rows.
 	GetAdminChatsSettings(ctx context.Context, in *GetAdminChatsSettingsRequest, opts ...grpc.CallOption) (*GetAdminChatsSettingsResponse, error)
 	// SetAdminChatDefaults updates platform-wide default prompt/model/reasoning/memory-extraction settings.
@@ -216,6 +244,20 @@ type ChatServiceClient interface {
 	SetAdminWorkflowPublishState(ctx context.Context, in *SetAdminWorkflowPublishStateRequest, opts ...grpc.CallOption) (*SetAdminWorkflowPublishStateResponse, error)
 	// SetAdminSkillPublishState updates publish visibility for one workspace skill-style prompt item.
 	SetAdminSkillPublishState(ctx context.Context, in *SetAdminSkillPublishStateRequest, opts ...grpc.CallOption) (*SetAdminSkillPublishStateResponse, error)
+	// SetAdminProviderEnabled stores provider enable/disable state for provider routing controls.
+	SetAdminProviderEnabled(ctx context.Context, in *SetAdminProviderEnabledRequest, opts ...grpc.CallOption) (*SetAdminProviderEnabledResponse, error)
+	// SetAdminProviderModelVisibility stores provider-model visibility state for admin provider controls.
+	SetAdminProviderModelVisibility(ctx context.Context, in *SetAdminProviderModelVisibilityRequest, opts ...grpc.CallOption) (*SetAdminProviderModelVisibilityResponse, error)
+	// SetAdminProviderFallbackRouting stores workspace provider default/fallback model routing controls.
+	SetAdminProviderFallbackRouting(ctx context.Context, in *SetAdminProviderFallbackRoutingRequest, opts ...grpc.CallOption) (*SetAdminProviderFallbackRoutingResponse, error)
+	// SetAdminProviderLimit stores provider limit controls for provider operations.
+	SetAdminProviderLimit(ctx context.Context, in *SetAdminProviderLimitRequest, opts ...grpc.CallOption) (*SetAdminProviderLimitResponse, error)
+	// SetAdminProviderCostGuardrail stores workspace provider cost-guardrail controls.
+	SetAdminProviderCostGuardrail(ctx context.Context, in *SetAdminProviderCostGuardrailRequest, opts ...grpc.CallOption) (*SetAdminProviderCostGuardrailResponse, error)
+	// SetAdminSiteConfig upserts one ops site-config control row.
+	SetAdminSiteConfig(ctx context.Context, in *SetAdminSiteConfigRequest, opts ...grpc.CallOption) (*SetAdminSiteConfigResponse, error)
+	// SetAdminWebhookBehavior updates one webhook endpoint behavior control row.
+	SetAdminWebhookBehavior(ctx context.Context, in *SetAdminWebhookBehaviorRequest, opts ...grpc.CallOption) (*SetAdminWebhookBehaviorResponse, error)
 	// ListAdminSupportTickets returns one scoped support queue slice.
 	ListAdminSupportTickets(ctx context.Context, in *ListAdminSupportTicketsRequest, opts ...grpc.CallOption) (*ListAdminSupportTicketsResponse, error)
 	// GetAdminSupportTicketDetail returns one scoped support ticket detail with messages and account-linked action history.
@@ -566,6 +608,16 @@ func (c *chatServiceClient) GetAdminUserDetail(ctx context.Context, in *GetAdmin
 	return out, nil
 }
 
+func (c *chatServiceClient) GetAdminCustomerAccountTimeline(ctx context.Context, in *GetAdminCustomerAccountTimelineRequest, opts ...grpc.CallOption) (*GetAdminCustomerAccountTimelineResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminCustomerAccountTimelineResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminCustomerAccountTimeline_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chatServiceClient) DisableAdminUser(ctx context.Context, in *AdminUserMutationRequest, opts ...grpc.CallOption) (*AdminUserMutationResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AdminUserMutationResponse)
@@ -696,6 +748,26 @@ func (c *chatServiceClient) ResolveAdminBillingFailedPayment(ctx context.Context
 	return out, nil
 }
 
+func (c *chatServiceClient) GetAdminBusinessQueue(ctx context.Context, in *GetAdminBusinessQueueRequest, opts ...grpc.CallOption) (*GetAdminBusinessQueueResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminBusinessQueueResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminBusinessQueue_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminBusinessAccountDetail(ctx context.Context, in *GetAdminBusinessAccountDetailRequest, opts ...grpc.CallOption) (*GetAdminBusinessAccountDetailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminBusinessAccountDetailResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminBusinessAccountDetail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chatServiceClient) GetAdminBusinessDrilldown(ctx context.Context, in *GetAdminBusinessDrilldownRequest, opts ...grpc.CallOption) (*GetAdminBusinessDrilldownResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetAdminBusinessDrilldownResponse)
@@ -710,6 +782,46 @@ func (c *chatServiceClient) GetAdminChatsDrilldown(ctx context.Context, in *GetA
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetAdminChatsDrilldownResponse)
 	err := c.cc.Invoke(ctx, ChatService_GetAdminChatsDrilldown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminChatsAnomalies(ctx context.Context, in *GetAdminChatsAnomaliesRequest, opts ...grpc.CallOption) (*GetAdminChatsAnomaliesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminChatsAnomaliesResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminChatsAnomalies_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminProvidersDrilldown(ctx context.Context, in *GetAdminProvidersDrilldownRequest, opts ...grpc.CallOption) (*GetAdminProvidersDrilldownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminProvidersDrilldownResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminProvidersDrilldown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminProviderHealthTrends(ctx context.Context, in *GetAdminProviderHealthTrendsRequest, opts ...grpc.CallOption) (*GetAdminProviderHealthTrendsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminProviderHealthTrendsResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminProviderHealthTrends_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminOpsDrilldown(ctx context.Context, in *GetAdminOpsDrilldownRequest, opts ...grpc.CallOption) (*GetAdminOpsDrilldownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminOpsDrilldownResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminOpsDrilldown_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -760,6 +872,76 @@ func (c *chatServiceClient) SetAdminSkillPublishState(ctx context.Context, in *S
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetAdminSkillPublishStateResponse)
 	err := c.cc.Invoke(ctx, ChatService_SetAdminSkillPublishState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminProviderEnabled(ctx context.Context, in *SetAdminProviderEnabledRequest, opts ...grpc.CallOption) (*SetAdminProviderEnabledResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminProviderEnabledResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminProviderEnabled_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminProviderModelVisibility(ctx context.Context, in *SetAdminProviderModelVisibilityRequest, opts ...grpc.CallOption) (*SetAdminProviderModelVisibilityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminProviderModelVisibilityResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminProviderModelVisibility_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminProviderFallbackRouting(ctx context.Context, in *SetAdminProviderFallbackRoutingRequest, opts ...grpc.CallOption) (*SetAdminProviderFallbackRoutingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminProviderFallbackRoutingResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminProviderFallbackRouting_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminProviderLimit(ctx context.Context, in *SetAdminProviderLimitRequest, opts ...grpc.CallOption) (*SetAdminProviderLimitResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminProviderLimitResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminProviderLimit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminProviderCostGuardrail(ctx context.Context, in *SetAdminProviderCostGuardrailRequest, opts ...grpc.CallOption) (*SetAdminProviderCostGuardrailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminProviderCostGuardrailResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminProviderCostGuardrail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminSiteConfig(ctx context.Context, in *SetAdminSiteConfigRequest, opts ...grpc.CallOption) (*SetAdminSiteConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminSiteConfigResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminSiteConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminWebhookBehavior(ctx context.Context, in *SetAdminWebhookBehaviorRequest, opts ...grpc.CallOption) (*SetAdminWebhookBehaviorResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminWebhookBehaviorResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminWebhookBehavior_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1475,6 +1657,8 @@ type ChatServiceServer interface {
 	SearchAdminUsers(context.Context, *SearchAdminUsersRequest) (*SearchAdminUsersResponse, error)
 	// GetAdminUserDetail returns one typed customer detail payload with session, usage, audit, workspace, memory, support, and billing slices.
 	GetAdminUserDetail(context.Context, *GetAdminUserDetailRequest) (*GetAdminUserDetailResponse, error)
+	// GetAdminCustomerAccountTimeline returns one typed merged customer timeline across chat, support, billing, auth-session, and audit sources.
+	GetAdminCustomerAccountTimeline(context.Context, *GetAdminCustomerAccountTimelineRequest) (*GetAdminCustomerAccountTimelineResponse, error)
 	// DisableAdminUser applies one typed admin user-disable mutation.
 	DisableAdminUser(context.Context, *AdminUserMutationRequest) (*AdminUserMutationResponse, error)
 	// RestoreAdminUser applies one typed admin user-restore mutation.
@@ -1501,10 +1685,22 @@ type ChatServiceServer interface {
 	SetAdminBillingQuotaOverride(context.Context, *AdminBillingQuotaOverrideMutationRequest) (*AdminBillingQuotaOverrideMutationResponse, error)
 	// ResolveAdminBillingFailedPayment marks one failed-payment path resolved for one target user and invoice.
 	ResolveAdminBillingFailedPayment(context.Context, *ResolveAdminBillingFailedPaymentRequest) (*ResolveAdminBillingFailedPaymentResponse, error)
+	// GetAdminBusinessQueue returns typed failed-payment, dunning, top-account, and funnel queue slices.
+	GetAdminBusinessQueue(context.Context, *GetAdminBusinessQueueRequest) (*GetAdminBusinessQueueResponse, error)
+	// GetAdminBusinessAccountDetail returns typed business account drill-down rows for one target user.
+	GetAdminBusinessAccountDetail(context.Context, *GetAdminBusinessAccountDetailRequest) (*GetAdminBusinessAccountDetailResponse, error)
 	// GetAdminBusinessDrilldown returns one typed business drill-down snapshot for one admin-target user.
 	GetAdminBusinessDrilldown(context.Context, *GetAdminBusinessDrilldownRequest) (*GetAdminBusinessDrilldownResponse, error)
 	// GetAdminChatsDrilldown returns one typed chats drill-down snapshot for dashboard chats surfaces.
 	GetAdminChatsDrilldown(context.Context, *GetAdminChatsDrilldownRequest) (*GetAdminChatsDrilldownResponse, error)
+	// GetAdminChatsAnomalies returns typed failed/slow/high-cost/feature-usage anomaly slices for dashboard chats surfaces.
+	GetAdminChatsAnomalies(context.Context, *GetAdminChatsAnomaliesRequest) (*GetAdminChatsAnomaliesResponse, error)
+	// GetAdminProvidersDrilldown returns one typed providers drill-down snapshot for dashboard providers surfaces.
+	GetAdminProvidersDrilldown(context.Context, *GetAdminProvidersDrilldownRequest) (*GetAdminProvidersDrilldownResponse, error)
+	// GetAdminProviderHealthTrends returns typed provider health trends and provider fallback/control audit events.
+	GetAdminProviderHealthTrends(context.Context, *GetAdminProviderHealthTrendsRequest) (*GetAdminProviderHealthTrendsResponse, error)
+	// GetAdminOpsDrilldown returns one typed ops drill-down snapshot for dashboard ops surfaces.
+	GetAdminOpsDrilldown(context.Context, *GetAdminOpsDrilldownRequest) (*GetAdminOpsDrilldownResponse, error)
 	// GetAdminChatsSettings returns typed chats settings defaults plus onboarding/workflow/skill publishing rows.
 	GetAdminChatsSettings(context.Context, *GetAdminChatsSettingsRequest) (*GetAdminChatsSettingsResponse, error)
 	// SetAdminChatDefaults updates platform-wide default prompt/model/reasoning/memory-extraction settings.
@@ -1515,6 +1711,20 @@ type ChatServiceServer interface {
 	SetAdminWorkflowPublishState(context.Context, *SetAdminWorkflowPublishStateRequest) (*SetAdminWorkflowPublishStateResponse, error)
 	// SetAdminSkillPublishState updates publish visibility for one workspace skill-style prompt item.
 	SetAdminSkillPublishState(context.Context, *SetAdminSkillPublishStateRequest) (*SetAdminSkillPublishStateResponse, error)
+	// SetAdminProviderEnabled stores provider enable/disable state for provider routing controls.
+	SetAdminProviderEnabled(context.Context, *SetAdminProviderEnabledRequest) (*SetAdminProviderEnabledResponse, error)
+	// SetAdminProviderModelVisibility stores provider-model visibility state for admin provider controls.
+	SetAdminProviderModelVisibility(context.Context, *SetAdminProviderModelVisibilityRequest) (*SetAdminProviderModelVisibilityResponse, error)
+	// SetAdminProviderFallbackRouting stores workspace provider default/fallback model routing controls.
+	SetAdminProviderFallbackRouting(context.Context, *SetAdminProviderFallbackRoutingRequest) (*SetAdminProviderFallbackRoutingResponse, error)
+	// SetAdminProviderLimit stores provider limit controls for provider operations.
+	SetAdminProviderLimit(context.Context, *SetAdminProviderLimitRequest) (*SetAdminProviderLimitResponse, error)
+	// SetAdminProviderCostGuardrail stores workspace provider cost-guardrail controls.
+	SetAdminProviderCostGuardrail(context.Context, *SetAdminProviderCostGuardrailRequest) (*SetAdminProviderCostGuardrailResponse, error)
+	// SetAdminSiteConfig upserts one ops site-config control row.
+	SetAdminSiteConfig(context.Context, *SetAdminSiteConfigRequest) (*SetAdminSiteConfigResponse, error)
+	// SetAdminWebhookBehavior updates one webhook endpoint behavior control row.
+	SetAdminWebhookBehavior(context.Context, *SetAdminWebhookBehaviorRequest) (*SetAdminWebhookBehaviorResponse, error)
 	// ListAdminSupportTickets returns one scoped support queue slice.
 	ListAdminSupportTickets(context.Context, *ListAdminSupportTicketsRequest) (*ListAdminSupportTicketsResponse, error)
 	// GetAdminSupportTicketDetail returns one scoped support ticket detail with messages and account-linked action history.
@@ -1718,6 +1928,9 @@ func (UnimplementedChatServiceServer) SearchAdminUsers(context.Context, *SearchA
 func (UnimplementedChatServiceServer) GetAdminUserDetail(context.Context, *GetAdminUserDetailRequest) (*GetAdminUserDetailResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAdminUserDetail not implemented")
 }
+func (UnimplementedChatServiceServer) GetAdminCustomerAccountTimeline(context.Context, *GetAdminCustomerAccountTimelineRequest) (*GetAdminCustomerAccountTimelineResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminCustomerAccountTimeline not implemented")
+}
 func (UnimplementedChatServiceServer) DisableAdminUser(context.Context, *AdminUserMutationRequest) (*AdminUserMutationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DisableAdminUser not implemented")
 }
@@ -1757,11 +1970,29 @@ func (UnimplementedChatServiceServer) SetAdminBillingQuotaOverride(context.Conte
 func (UnimplementedChatServiceServer) ResolveAdminBillingFailedPayment(context.Context, *ResolveAdminBillingFailedPaymentRequest) (*ResolveAdminBillingFailedPaymentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResolveAdminBillingFailedPayment not implemented")
 }
+func (UnimplementedChatServiceServer) GetAdminBusinessQueue(context.Context, *GetAdminBusinessQueueRequest) (*GetAdminBusinessQueueResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminBusinessQueue not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminBusinessAccountDetail(context.Context, *GetAdminBusinessAccountDetailRequest) (*GetAdminBusinessAccountDetailResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminBusinessAccountDetail not implemented")
+}
 func (UnimplementedChatServiceServer) GetAdminBusinessDrilldown(context.Context, *GetAdminBusinessDrilldownRequest) (*GetAdminBusinessDrilldownResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAdminBusinessDrilldown not implemented")
 }
 func (UnimplementedChatServiceServer) GetAdminChatsDrilldown(context.Context, *GetAdminChatsDrilldownRequest) (*GetAdminChatsDrilldownResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAdminChatsDrilldown not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminChatsAnomalies(context.Context, *GetAdminChatsAnomaliesRequest) (*GetAdminChatsAnomaliesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminChatsAnomalies not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminProvidersDrilldown(context.Context, *GetAdminProvidersDrilldownRequest) (*GetAdminProvidersDrilldownResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminProvidersDrilldown not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminProviderHealthTrends(context.Context, *GetAdminProviderHealthTrendsRequest) (*GetAdminProviderHealthTrendsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminProviderHealthTrends not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminOpsDrilldown(context.Context, *GetAdminOpsDrilldownRequest) (*GetAdminOpsDrilldownResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminOpsDrilldown not implemented")
 }
 func (UnimplementedChatServiceServer) GetAdminChatsSettings(context.Context, *GetAdminChatsSettingsRequest) (*GetAdminChatsSettingsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAdminChatsSettings not implemented")
@@ -1777,6 +2008,27 @@ func (UnimplementedChatServiceServer) SetAdminWorkflowPublishState(context.Conte
 }
 func (UnimplementedChatServiceServer) SetAdminSkillPublishState(context.Context, *SetAdminSkillPublishStateRequest) (*SetAdminSkillPublishStateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetAdminSkillPublishState not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminProviderEnabled(context.Context, *SetAdminProviderEnabledRequest) (*SetAdminProviderEnabledResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminProviderEnabled not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminProviderModelVisibility(context.Context, *SetAdminProviderModelVisibilityRequest) (*SetAdminProviderModelVisibilityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminProviderModelVisibility not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminProviderFallbackRouting(context.Context, *SetAdminProviderFallbackRoutingRequest) (*SetAdminProviderFallbackRoutingResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminProviderFallbackRouting not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminProviderLimit(context.Context, *SetAdminProviderLimitRequest) (*SetAdminProviderLimitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminProviderLimit not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminProviderCostGuardrail(context.Context, *SetAdminProviderCostGuardrailRequest) (*SetAdminProviderCostGuardrailResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminProviderCostGuardrail not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminSiteConfig(context.Context, *SetAdminSiteConfigRequest) (*SetAdminSiteConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminSiteConfig not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminWebhookBehavior(context.Context, *SetAdminWebhookBehaviorRequest) (*SetAdminWebhookBehaviorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminWebhookBehavior not implemented")
 }
 func (UnimplementedChatServiceServer) ListAdminSupportTickets(context.Context, *ListAdminSupportTicketsRequest) (*ListAdminSupportTicketsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAdminSupportTickets not implemented")
@@ -2369,6 +2621,24 @@ func _ChatService_GetAdminUserDetail_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_GetAdminCustomerAccountTimeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminCustomerAccountTimelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminCustomerAccountTimeline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminCustomerAccountTimeline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminCustomerAccountTimeline(ctx, req.(*GetAdminCustomerAccountTimelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChatService_DisableAdminUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AdminUserMutationRequest)
 	if err := dec(in); err != nil {
@@ -2603,6 +2873,42 @@ func _ChatService_ResolveAdminBillingFailedPayment_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_GetAdminBusinessQueue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminBusinessQueueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminBusinessQueue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminBusinessQueue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminBusinessQueue(ctx, req.(*GetAdminBusinessQueueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminBusinessAccountDetail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminBusinessAccountDetailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminBusinessAccountDetail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminBusinessAccountDetail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminBusinessAccountDetail(ctx, req.(*GetAdminBusinessAccountDetailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChatService_GetAdminBusinessDrilldown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetAdminBusinessDrilldownRequest)
 	if err := dec(in); err != nil {
@@ -2635,6 +2941,78 @@ func _ChatService_GetAdminChatsDrilldown_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).GetAdminChatsDrilldown(ctx, req.(*GetAdminChatsDrilldownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminChatsAnomalies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminChatsAnomaliesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminChatsAnomalies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminChatsAnomalies_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminChatsAnomalies(ctx, req.(*GetAdminChatsAnomaliesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminProvidersDrilldown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminProvidersDrilldownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminProvidersDrilldown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminProvidersDrilldown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminProvidersDrilldown(ctx, req.(*GetAdminProvidersDrilldownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminProviderHealthTrends_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminProviderHealthTrendsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminProviderHealthTrends(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminProviderHealthTrends_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminProviderHealthTrends(ctx, req.(*GetAdminProviderHealthTrendsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminOpsDrilldown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminOpsDrilldownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminOpsDrilldown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminOpsDrilldown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminOpsDrilldown(ctx, req.(*GetAdminOpsDrilldownRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2725,6 +3103,132 @@ func _ChatService_SetAdminSkillPublishState_Handler(srv interface{}, ctx context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).SetAdminSkillPublishState(ctx, req.(*SetAdminSkillPublishStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminProviderEnabled_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminProviderEnabledRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminProviderEnabled(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminProviderEnabled_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminProviderEnabled(ctx, req.(*SetAdminProviderEnabledRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminProviderModelVisibility_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminProviderModelVisibilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminProviderModelVisibility(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminProviderModelVisibility_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminProviderModelVisibility(ctx, req.(*SetAdminProviderModelVisibilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminProviderFallbackRouting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminProviderFallbackRoutingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminProviderFallbackRouting(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminProviderFallbackRouting_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminProviderFallbackRouting(ctx, req.(*SetAdminProviderFallbackRoutingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminProviderLimit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminProviderLimitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminProviderLimit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminProviderLimit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminProviderLimit(ctx, req.(*SetAdminProviderLimitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminProviderCostGuardrail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminProviderCostGuardrailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminProviderCostGuardrail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminProviderCostGuardrail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminProviderCostGuardrail(ctx, req.(*SetAdminProviderCostGuardrailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminSiteConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminSiteConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminSiteConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminSiteConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminSiteConfig(ctx, req.(*SetAdminSiteConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminWebhookBehavior_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminWebhookBehaviorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminWebhookBehavior(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminWebhookBehavior_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminWebhookBehavior(ctx, req.(*SetAdminWebhookBehaviorRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3948,6 +4452,10 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatService_GetAdminUserDetail_Handler,
 		},
 		{
+			MethodName: "GetAdminCustomerAccountTimeline",
+			Handler:    _ChatService_GetAdminCustomerAccountTimeline_Handler,
+		},
+		{
 			MethodName: "DisableAdminUser",
 			Handler:    _ChatService_DisableAdminUser_Handler,
 		},
@@ -4000,12 +4508,36 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatService_ResolveAdminBillingFailedPayment_Handler,
 		},
 		{
+			MethodName: "GetAdminBusinessQueue",
+			Handler:    _ChatService_GetAdminBusinessQueue_Handler,
+		},
+		{
+			MethodName: "GetAdminBusinessAccountDetail",
+			Handler:    _ChatService_GetAdminBusinessAccountDetail_Handler,
+		},
+		{
 			MethodName: "GetAdminBusinessDrilldown",
 			Handler:    _ChatService_GetAdminBusinessDrilldown_Handler,
 		},
 		{
 			MethodName: "GetAdminChatsDrilldown",
 			Handler:    _ChatService_GetAdminChatsDrilldown_Handler,
+		},
+		{
+			MethodName: "GetAdminChatsAnomalies",
+			Handler:    _ChatService_GetAdminChatsAnomalies_Handler,
+		},
+		{
+			MethodName: "GetAdminProvidersDrilldown",
+			Handler:    _ChatService_GetAdminProvidersDrilldown_Handler,
+		},
+		{
+			MethodName: "GetAdminProviderHealthTrends",
+			Handler:    _ChatService_GetAdminProviderHealthTrends_Handler,
+		},
+		{
+			MethodName: "GetAdminOpsDrilldown",
+			Handler:    _ChatService_GetAdminOpsDrilldown_Handler,
 		},
 		{
 			MethodName: "GetAdminChatsSettings",
@@ -4026,6 +4558,34 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetAdminSkillPublishState",
 			Handler:    _ChatService_SetAdminSkillPublishState_Handler,
+		},
+		{
+			MethodName: "SetAdminProviderEnabled",
+			Handler:    _ChatService_SetAdminProviderEnabled_Handler,
+		},
+		{
+			MethodName: "SetAdminProviderModelVisibility",
+			Handler:    _ChatService_SetAdminProviderModelVisibility_Handler,
+		},
+		{
+			MethodName: "SetAdminProviderFallbackRouting",
+			Handler:    _ChatService_SetAdminProviderFallbackRouting_Handler,
+		},
+		{
+			MethodName: "SetAdminProviderLimit",
+			Handler:    _ChatService_SetAdminProviderLimit_Handler,
+		},
+		{
+			MethodName: "SetAdminProviderCostGuardrail",
+			Handler:    _ChatService_SetAdminProviderCostGuardrail_Handler,
+		},
+		{
+			MethodName: "SetAdminSiteConfig",
+			Handler:    _ChatService_SetAdminSiteConfig_Handler,
+		},
+		{
+			MethodName: "SetAdminWebhookBehavior",
+			Handler:    _ChatService_SetAdminWebhookBehavior_Handler,
 		},
 		{
 			MethodName: "ListAdminSupportTickets",

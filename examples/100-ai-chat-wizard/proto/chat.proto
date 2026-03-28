@@ -638,6 +638,33 @@ message GetAdminUserDetailResponse {
   AdminUserDetail detail = 1;
 }
 
+message AdminCustomerTimelineEvent {
+  string timeline_id = 1;
+  string source = 2;
+  string event_type = 3;
+  int64 user_id = 4;
+  int64 workspace_id = 5;
+  int64 conversation_id = 6;
+  int64 support_ticket_id = 7;
+  int64 billing_customer_id = 8;
+  int64 auth_session_id = 9;
+  int64 audit_log_id = 10;
+  string summary = 11;
+  string detail_json = 12;
+  string created_at = 13;
+}
+
+message GetAdminCustomerAccountTimelineRequest {
+  int64 user_id = 1;
+  int32 lookback_days = 2;
+  int32 limit = 3;
+}
+
+message GetAdminCustomerAccountTimelineResponse {
+  AdminUserSummary user = 1;
+  repeated AdminCustomerTimelineEvent events = 2;
+}
+
 message AdminUserMutationRequest {
   int64 user_id = 1;
   bool confirm = 2;
@@ -1087,6 +1114,44 @@ message SubscriptionChurnFeedbackEntry {
   string created_at = 8;
 }
 
+message GetAdminBusinessQueueRequest {
+  int32 lookback_days = 1;
+  int32 limit = 2;
+}
+
+message AdminBusinessQueueSummary {
+  int64 failed_payment_event_count = 1;
+  int64 dunning_event_count = 2;
+  int64 open_dunning_event_count = 3;
+  int64 top_account_count = 4;
+  int64 first_chat_funnel_event_count = 5;
+}
+
+message GetAdminBusinessQueueResponse {
+  AdminBusinessQueueSummary summary = 1;
+  repeated AdminBillingEventEntry failed_payment_events = 2;
+  repeated AdminBillingDunningEventEntry dunning_events = 3;
+  repeated AdminUserUsage top_accounts = 4;
+  repeated ProductAnalyticsEventEntry first_chat_funnel_events = 5;
+}
+
+message GetAdminBusinessAccountDetailRequest {
+  int64 user_id = 1;
+  int32 lookback_days = 2;
+  int32 limit = 3;
+}
+
+message GetAdminBusinessAccountDetailResponse {
+  AdminUserSummary user = 1;
+  BillingCustomerEntry customer = 2;
+  repeated BillingSubscriptionEntry subscriptions = 3;
+  repeated BillingInvoiceEntry invoices = 4;
+  repeated BillingInvoiceLineItemEntry invoice_line_items = 5;
+  repeated AdminBillingEventEntry billing_events = 6;
+  repeated AdminBillingDunningEventEntry dunning_events = 7;
+  repeated ProductAnalyticsEventEntry first_chat_funnel_events = 8;
+}
+
 message GetAdminBusinessDrilldownRequest {
   int64 user_id = 1;
   int32 limit = 2;
@@ -1137,6 +1202,35 @@ message GetAdminChatsDrilldownResponse {
   repeated ProductAnalyticsEventEntry product_analytics_events = 9;
 }
 
+message GetAdminChatsAnomaliesRequest {
+  int32 lookback_days = 1;
+  int32 limit = 2;
+}
+
+message AdminChatFeatureUsageSlice {
+  string feature_key = 1;
+  int64 event_count = 2;
+  int64 user_count = 3;
+  int64 workspace_count = 4;
+  string last_seen_at = 5;
+}
+
+message AdminChatsAnomaliesSummary {
+  int64 failed_reply_count = 1;
+  int64 slow_reply_count = 2;
+  int64 high_cost_thread_count = 3;
+  int64 feature_usage_slice_count = 4;
+  double high_cost_total_usd = 5;
+}
+
+message GetAdminChatsAnomaliesResponse {
+  AdminChatsAnomaliesSummary summary = 1;
+  repeated AdminUsageEvent failed_replies = 2;
+  repeated AdminUsageEvent slow_replies = 3;
+  repeated AdminConversationSummary high_cost_threads = 4;
+  repeated AdminChatFeatureUsageSlice feature_usage_slices = 5;
+}
+
 message GetAdminProvidersDrilldownRequest {
   int32 lookback_days = 1;
   int32 limit = 2;
@@ -1165,6 +1259,86 @@ message GetAdminProvidersDrilldownResponse {
   repeated WorkspaceModelRoutingPolicyEntry workspace_model_routing_policies = 6;
   repeated WorkspaceCostGuardrailEntry workspace_cost_guardrails = 7;
   repeated AdminProviderSnapshot provider_snapshots = 8;
+}
+
+message GetAdminProviderHealthTrendsRequest {
+  int32 lookback_days = 1;
+  int32 limit = 2;
+  int64 workspace_id = 3;
+}
+
+message AdminProviderHealthTrend {
+  string rollup_day = 1;
+  string provider_id = 2;
+  int64 usage_event_count = 3;
+  double total_cost_usd = 4;
+  int64 prompt_tokens = 5;
+  int64 completion_tokens = 6;
+  int64 completed_event_count = 7;
+  int64 failed_event_count = 8;
+  string updated_at = 9;
+}
+
+message AdminProviderFallbackEvent {
+  int64 audit_log_id = 1;
+  string event_type = 2;
+  int64 workspace_id = 3;
+  string target_type = 4;
+  string target_id = 5;
+  string summary = 6;
+  string payload_json = 7;
+  string created_at = 8;
+}
+
+message AdminProviderHealthTrendSummary {
+  int64 trend_row_count = 1;
+  int64 fallback_event_count = 2;
+  int64 usage_event_count = 3;
+  int64 failed_event_count = 4;
+  double total_cost_usd = 5;
+}
+
+message GetAdminProviderHealthTrendsResponse {
+  AdminProviderHealthTrendSummary summary = 1;
+  repeated AdminProviderHealthTrend trends = 2;
+  repeated AdminProviderFallbackEvent fallback_events = 3;
+}
+
+message GetAdminOpsDrilldownRequest {
+  int32 lookback_days = 1;
+  int32 limit = 2;
+  int64 workspace_id = 3;
+}
+
+message AdminOpsDrilldownSummary {
+  int64 site_config_count = 1;
+  int64 feature_flag_count = 2;
+  int64 audit_log_count = 3;
+  int64 service_level_objective_count = 4;
+  int64 incident_count = 5;
+  int64 open_incident_count = 6;
+  int64 incident_update_count = 7;
+  int64 background_job_count = 8;
+  int64 failed_background_job_count = 9;
+  int64 notification_outbox_count = 10;
+  int64 failed_notification_count = 11;
+  int64 webhook_endpoint_count = 12;
+  int64 webhook_delivery_count = 13;
+  int64 failed_webhook_delivery_count = 14;
+}
+
+message GetAdminOpsDrilldownResponse {
+  AdminOpsDrilldownSummary summary = 1;
+  repeated SiteConfigEntry site_configs = 2;
+  repeated FeatureFlagEntry feature_flags = 3;
+  repeated AuditLogEntry audit_logs = 4;
+  repeated ServiceLevelObjectiveEntry service_level_objectives = 5;
+  repeated IncidentEntry incidents = 6;
+  repeated IncidentUpdateEntry incident_updates = 7;
+  repeated BackgroundJobEntry background_jobs = 8;
+  repeated NotificationOutboxEntry notification_outbox = 9;
+  repeated WebhookEndpointEntry webhook_endpoints = 10;
+  repeated WebhookDeliveryEntry webhook_deliveries = 11;
 }
 
 message GetAdminChatsSettingsRequest {
@@ -1244,6 +1418,113 @@ message SetAdminSkillPublishStateRequest {
 message SetAdminSkillPublishStateResponse {
   int64 workspace_id = 1;
   PromptLibraryItemEntry skill = 2;
+}
+
+message SetAdminProviderEnabledRequest {
+  string provider_id = 1;
+  bool is_enabled = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message SetAdminProviderEnabledResponse {
+  string provider_id = 1;
+  bool is_enabled = 2;
+  string status = 3;
+}
+
+message SetAdminProviderModelVisibilityRequest {
+  string model_id = 1;
+  bool is_visible = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message SetAdminProviderModelVisibilityResponse {
+  string model_id = 1;
+  bool is_visible = 2;
+  string status = 3;
+}
+
+message SetAdminProviderFallbackRoutingRequest {
+  int64 workspace_id = 1;
+  string policy_key = 2;
+  string default_model_id = 3;
+  string fallback_model_id = 4;
+  double max_input_cost_per_million_usd = 5;
+  double max_output_cost_per_million_usd = 6;
+  bool requires_approval = 7;
+  string rules_json = 8;
+  bool confirm = 9;
+  string reason = 10;
+}
+
+message SetAdminProviderFallbackRoutingResponse {
+  WorkspaceModelRoutingPolicyEntry routing_policy = 1;
+  string status = 2;
+}
+
+message SetAdminProviderLimitRequest {
+  string provider_id = 1;
+  int64 requests_per_minute = 2;
+  int64 tokens_per_minute = 3;
+  int64 requests_per_day = 4;
+  int64 tokens_per_day = 5;
+  bool confirm = 6;
+  string reason = 7;
+}
+
+message SetAdminProviderLimitResponse {
+  string provider_id = 1;
+  int64 requests_per_minute = 2;
+  int64 tokens_per_minute = 3;
+  int64 requests_per_day = 4;
+  int64 tokens_per_day = 5;
+  string status = 6;
+}
+
+message SetAdminProviderCostGuardrailRequest {
+  int64 workspace_id = 1;
+  string guardrail_key = 2;
+  int64 daily_budget_cents = 3;
+  int64 monthly_budget_cents = 4;
+  int64 max_cost_per_request_cents = 5;
+  int64 alert_threshold_percent = 6;
+  string action_mode = 7;
+  bool confirm = 8;
+  string reason = 9;
+}
+
+message SetAdminProviderCostGuardrailResponse {
+  WorkspaceCostGuardrailEntry guardrail = 1;
+  string status = 2;
+}
+
+message SetAdminSiteConfigRequest {
+  string config_key = 1;
+  string config_value = 2;
+  string value_type = 3;
+  string description = 4;
+  bool confirm = 5;
+  string reason = 6;
+}
+
+message SetAdminSiteConfigResponse {
+  SiteConfigEntry site_config = 1;
+  string status = 2;
+}
+
+message SetAdminWebhookBehaviorRequest {
+  int64 endpoint_id = 1;
+  bool is_enabled = 2;
+  bool reset_failure_count = 3;
+  bool confirm = 4;
+  string reason = 5;
+}
+
+message SetAdminWebhookBehaviorResponse {
+  WebhookEndpointEntry webhook_endpoint = 1;
+  string status = 2;
 }
 
 message ListAdminSupportTicketsRequest {
@@ -2318,6 +2599,8 @@ service ChatService {
   rpc SearchAdminUsers(SearchAdminUsersRequest) returns (SearchAdminUsersResponse);
   // GetAdminUserDetail returns one typed customer detail payload with session, usage, audit, workspace, memory, support, and billing slices.
   rpc GetAdminUserDetail(GetAdminUserDetailRequest) returns (GetAdminUserDetailResponse);
+  // GetAdminCustomerAccountTimeline returns one typed merged customer timeline across chat, support, billing, auth-session, and audit sources.
+  rpc GetAdminCustomerAccountTimeline(GetAdminCustomerAccountTimelineRequest) returns (GetAdminCustomerAccountTimelineResponse);
   // DisableAdminUser applies one typed admin user-disable mutation.
   rpc DisableAdminUser(AdminUserMutationRequest) returns (AdminUserMutationResponse);
   // RestoreAdminUser applies one typed admin user-restore mutation.
@@ -2344,12 +2627,22 @@ service ChatService {
   rpc SetAdminBillingQuotaOverride(AdminBillingQuotaOverrideMutationRequest) returns (AdminBillingQuotaOverrideMutationResponse);
   // ResolveAdminBillingFailedPayment marks one failed-payment path resolved for one target user and invoice.
   rpc ResolveAdminBillingFailedPayment(ResolveAdminBillingFailedPaymentRequest) returns (ResolveAdminBillingFailedPaymentResponse);
+  // GetAdminBusinessQueue returns typed failed-payment, dunning, top-account, and funnel queue slices.
+  rpc GetAdminBusinessQueue(GetAdminBusinessQueueRequest) returns (GetAdminBusinessQueueResponse);
+  // GetAdminBusinessAccountDetail returns typed business account drill-down rows for one target user.
+  rpc GetAdminBusinessAccountDetail(GetAdminBusinessAccountDetailRequest) returns (GetAdminBusinessAccountDetailResponse);
   // GetAdminBusinessDrilldown returns one typed business drill-down snapshot for one admin-target user.
   rpc GetAdminBusinessDrilldown(GetAdminBusinessDrilldownRequest) returns (GetAdminBusinessDrilldownResponse);
   // GetAdminChatsDrilldown returns one typed chats drill-down snapshot for dashboard chats surfaces.
   rpc GetAdminChatsDrilldown(GetAdminChatsDrilldownRequest) returns (GetAdminChatsDrilldownResponse);
+  // GetAdminChatsAnomalies returns typed failed/slow/high-cost/feature-usage anomaly slices for dashboard chats surfaces.
+  rpc GetAdminChatsAnomalies(GetAdminChatsAnomaliesRequest) returns (GetAdminChatsAnomaliesResponse);
   // GetAdminProvidersDrilldown returns one typed providers drill-down snapshot for dashboard providers surfaces.
   rpc GetAdminProvidersDrilldown(GetAdminProvidersDrilldownRequest) returns (GetAdminProvidersDrilldownResponse);
+  // GetAdminProviderHealthTrends returns typed provider health trends and provider fallback/control audit events.
+  rpc GetAdminProviderHealthTrends(GetAdminProviderHealthTrendsRequest) returns (GetAdminProviderHealthTrendsResponse);
+  // GetAdminOpsDrilldown returns one typed ops drill-down snapshot for dashboard ops surfaces.
+  rpc GetAdminOpsDrilldown(GetAdminOpsDrilldownRequest) returns (GetAdminOpsDrilldownResponse);
   // GetAdminChatsSettings returns typed chats settings defaults plus onboarding/workflow/skill publishing rows.
   rpc GetAdminChatsSettings(GetAdminChatsSettingsRequest) returns (GetAdminChatsSettingsResponse);
   // SetAdminChatDefaults updates platform-wide default prompt/model/reasoning/memory-extraction settings.
@@ -2360,6 +2653,20 @@ service ChatService {
   rpc SetAdminWorkflowPublishState(SetAdminWorkflowPublishStateRequest) returns (SetAdminWorkflowPublishStateResponse);
   // SetAdminSkillPublishState updates publish visibility for one workspace skill-style prompt item.
   rpc SetAdminSkillPublishState(SetAdminSkillPublishStateRequest) returns (SetAdminSkillPublishStateResponse);
+  // SetAdminProviderEnabled stores provider enable/disable state for provider routing controls.
+  rpc SetAdminProviderEnabled(SetAdminProviderEnabledRequest) returns (SetAdminProviderEnabledResponse);
+  // SetAdminProviderModelVisibility stores provider-model visibility state for admin provider controls.
+  rpc SetAdminProviderModelVisibility(SetAdminProviderModelVisibilityRequest) returns (SetAdminProviderModelVisibilityResponse);
+  // SetAdminProviderFallbackRouting stores workspace provider default/fallback model routing controls.
+  rpc SetAdminProviderFallbackRouting(SetAdminProviderFallbackRoutingRequest) returns (SetAdminProviderFallbackRoutingResponse);
+  // SetAdminProviderLimit stores provider limit controls for provider operations.
+  rpc SetAdminProviderLimit(SetAdminProviderLimitRequest) returns (SetAdminProviderLimitResponse);
+  // SetAdminProviderCostGuardrail stores workspace provider cost-guardrail controls.
+  rpc SetAdminProviderCostGuardrail(SetAdminProviderCostGuardrailRequest) returns (SetAdminProviderCostGuardrailResponse);
+  // SetAdminSiteConfig upserts one ops site-config control row.
+  rpc SetAdminSiteConfig(SetAdminSiteConfigRequest) returns (SetAdminSiteConfigResponse);
+  // SetAdminWebhookBehavior updates one webhook endpoint behavior control row.
+  rpc SetAdminWebhookBehavior(SetAdminWebhookBehaviorRequest) returns (SetAdminWebhookBehaviorResponse);
   // ListAdminSupportTickets returns one scoped support queue slice.
   rpc ListAdminSupportTickets(ListAdminSupportTicketsRequest) returns (ListAdminSupportTicketsResponse);
   // GetAdminSupportTicketDetail returns one scoped support ticket detail with messages and account-linked action history.

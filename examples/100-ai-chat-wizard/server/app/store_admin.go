@@ -54,6 +54,18 @@ type parseAdminDashboardProviderUsageRow struct {
 	FailedEventCount    int64
 }
 
+type parseProviderUsageDailyRollupRow struct {
+	RollupDay           string
+	ProviderID          string
+	UsageEventCount     int64
+	TotalCostUSD        float64
+	PromptTokens        int64
+	CompletionTokens    int64
+	CompletedEventCount int64
+	FailedEventCount    int64
+	UpdatedAt           string
+}
+
 type parseAdminDashboardModelUsageRow struct {
 	ProviderID          string
 	ModelID             string
@@ -139,6 +151,30 @@ type parseAdminConversationRow struct {
 	UsageEventCount int64
 	TotalCostUSD    float64
 	LastActivityAt  string
+}
+
+type parseAdminCustomerTimelineEventRow struct {
+	TimelineID        string
+	Source            string
+	EventType         string
+	UserID            int64
+	WorkspaceID       int64
+	ConversationID    int64
+	SupportTicketID   int64
+	BillingCustomerID int64
+	AuthSessionID     int64
+	AuditLogID        int64
+	Summary           string
+	DetailJSON        string
+	CreatedAt         string
+}
+
+type parseAdminChatFeatureUsageRow struct {
+	WorkspaceID int64
+	FeatureKey  string
+	EventCount  int64
+	UserCount   int64
+	LastSeenAt  string
 }
 
 const parseAdminControlScanLimit int64 = 5000
@@ -252,6 +288,121 @@ func (parseS *Store) parseListAdminDashboardProviderUsage(parseSince string, par
 		parseProviderRows = append(parseProviderRows, parseRow)
 	}
 	return parseProviderRows, parseRows.Err()
+}
+
+// parseRefreshProviderUsageDailyRollups upserts provider-usage daily rollups from raw usage-event rows.
+func (parseS *Store) parseRefreshProviderUsageDailyRollups(parseSince string) error {
+	if strings.TrimSpace(parseSince) == "" {
+		parseSince = time.Now().UTC().Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+	}
+	parseUpdatedAt := time.Now().UTC().Format(time.RFC3339)
+	_, parseErr := parseS.db.Exec(parseS.queries.refreshProviderUsageDailyRollups, parseUpdatedAt, parseSince)
+	return parseErr
+}
+
+// parseListProviderUsageDailyRollups returns provider-usage daily rollup rows for one lookback window.
+func (parseS *Store) parseListProviderUsageDailyRollups(parseSince string, parseLimit int64) ([]parseProviderUsageDailyRollupRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 90
+	}
+	if strings.TrimSpace(parseSince) == "" {
+		parseSince = time.Now().UTC().Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listProviderUsageDailyRollups, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseRollupRows := make([]parseProviderUsageDailyRollupRow, 0)
+	for parseRows.Next() {
+		var parseRow parseProviderUsageDailyRollupRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.RollupDay,
+			&parseRow.ProviderID,
+			&parseRow.UsageEventCount,
+			&parseRow.TotalCostUSD,
+			&parseRow.PromptTokens,
+			&parseRow.CompletionTokens,
+			&parseRow.CompletedEventCount,
+			&parseRow.FailedEventCount,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseRollupRows = append(parseRollupRows, parseRow)
+	}
+	return parseRollupRows, parseRows.Err()
+}
+
+// parseListAdminProviderHealthTrends returns provider health-trend rows for one lookback window.
+func (parseS *Store) parseListAdminProviderHealthTrends(parseSince string, parseLimit int64) ([]parseProviderUsageDailyRollupRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 90
+	}
+	if strings.TrimSpace(parseSince) == "" {
+		parseSince = time.Now().UTC().Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminProviderHealthTrends, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseTrendRows := make([]parseProviderUsageDailyRollupRow, 0)
+	for parseRows.Next() {
+		var parseRow parseProviderUsageDailyRollupRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.RollupDay,
+			&parseRow.ProviderID,
+			&parseRow.UsageEventCount,
+			&parseRow.TotalCostUSD,
+			&parseRow.PromptTokens,
+			&parseRow.CompletionTokens,
+			&parseRow.CompletedEventCount,
+			&parseRow.FailedEventCount,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseTrendRows = append(parseTrendRows, parseRow)
+	}
+	return parseTrendRows, parseRows.Err()
+}
+
+// parseListAdminProviderFallbackEvents returns provider fallback/control audit rows for one lookback window.
+func (parseS *Store) parseListAdminProviderFallbackEvents(parseSince string, parseLimit int64) ([]parseAuditLogRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 50
+	}
+	if strings.TrimSpace(parseSince) == "" {
+		parseSince = time.Now().UTC().Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminProviderFallbackEvents, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseAuditRows := make([]parseAuditLogRow, 0)
+	for parseRows.Next() {
+		var parseRow parseAuditLogRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.ActorUserID,
+			&parseRow.WorkspaceID,
+			&parseRow.EventType,
+			&parseRow.TargetType,
+			&parseRow.TargetID,
+			&parseRow.Summary,
+			&parseRow.PayloadJSON,
+			&parseRow.CreatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseAuditRows = append(parseAuditRows, parseRow)
+	}
+	return parseAuditRows, parseRows.Err()
 }
 
 // parseListAdminDashboardModelUsage returns model leaderboard rows for the dashboard lookback window.
@@ -368,6 +519,73 @@ func (parseS *Store) parseListAdminUsageEvents(parseSince string, parseLimit int
 	return parseUsageRows, parseRows.Err()
 }
 
+// parseListAdminFailedPaymentBillingEvents returns recent failed-payment billing events for business queue review.
+func (parseS *Store) parseListAdminFailedPaymentBillingEvents(parseSince string, parseLimit int64) ([]parseBillingEventRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminFailedPaymentBillingEvents, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseEventRows := make([]parseBillingEventRow, 0)
+	for parseRows.Next() {
+		var parseRow parseBillingEventRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.CustomerID,
+			&parseRow.SubscriptionID,
+			&parseRow.InvoiceID,
+			&parseRow.EventType,
+			&parseRow.EventSource,
+			&parseRow.EventSummary,
+			&parseRow.EventPayloadJSON,
+			&parseRow.ActorUserID,
+			&parseRow.CreatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseEventRows = append(parseEventRows, parseRow)
+	}
+	return parseEventRows, parseRows.Err()
+}
+
+// parseListAdminBillingDunningTimeline returns dunning timeline rows for business queue review.
+func (parseS *Store) parseListAdminBillingDunningTimeline(parseLimit int64) ([]parseBillingDunningEventRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminBillingDunningTimeline, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseEventRows := make([]parseBillingDunningEventRow, 0)
+	for parseRows.Next() {
+		var parseRow parseBillingDunningEventRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.CustomerID,
+			&parseRow.SubscriptionID,
+			&parseRow.InvoiceID,
+			&parseRow.Status,
+			&parseRow.AttemptCount,
+			&parseRow.FailureReason,
+			&parseRow.NextAttemptAt,
+			&parseRow.ResolvedAt,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseEventRows = append(parseEventRows, parseRow)
+	}
+	return parseEventRows, parseRows.Err()
+}
+
 // parseListAdminUsers returns recent users with aggregate activity and spend.
 func (parseS *Store) parseListAdminUsers(parseLimit int64) ([]parseAdminUserRow, error) {
 	if parseLimit <= 0 {
@@ -439,6 +657,172 @@ func (parseS *Store) parseListAdminConversations(parseLimit int64) ([]parseAdmin
 		parseConversationRows = append(parseConversationRows, parseRow)
 	}
 	return parseConversationRows, parseRows.Err()
+}
+
+// parseListAdminChatFailedReplies returns failed reply usage rows for chats anomaly review.
+func (parseS *Store) parseListAdminChatFailedReplies(parseSince string, parseLimit int64) ([]parseAdminUsageEventRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminChatFailedReplies, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseUsageRows := make([]parseAdminUsageEventRow, 0)
+	for parseRows.Next() {
+		var parseRow parseAdminUsageEventRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.EventID,
+			&parseRow.UserID,
+			&parseRow.Email,
+			&parseRow.DisplayName,
+			&parseRow.ConversationID,
+			&parseRow.ConversationPublicID,
+			&parseRow.ConversationTitle,
+			&parseRow.ProviderID,
+			&parseRow.ModelID,
+			&parseRow.PromptTokens,
+			&parseRow.CompletionTokens,
+			&parseRow.UsageSource,
+			&parseRow.ProviderRequestID,
+			&parseRow.InputCostPerMillionUSD,
+			&parseRow.OutputCostPerMillionUSD,
+			&parseRow.PricingCurrency,
+			&parseRow.InputCostUSD,
+			&parseRow.OutputCostUSD,
+			&parseRow.TotalCostUSD,
+			&parseRow.ClientID,
+			&parseRow.TraceID,
+			&parseRow.SpanID,
+			&parseRow.TraceState,
+			&parseRow.Status,
+			&parseRow.ErrorMessage,
+			&parseRow.CreatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseUsageRows = append(parseUsageRows, parseRow)
+	}
+	return parseUsageRows, parseRows.Err()
+}
+
+// parseListAdminChatSlowReplies returns high-token completed reply rows as a proxy slow-reply anomaly slice.
+func (parseS *Store) parseListAdminChatSlowReplies(parseSince string, parseMinTotalTokens int64, parseLimit int64) ([]parseAdminUsageEventRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	if parseMinTotalTokens <= 0 {
+		parseMinTotalTokens = 1
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminChatSlowReplies, parseSince, parseMinTotalTokens, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseUsageRows := make([]parseAdminUsageEventRow, 0)
+	for parseRows.Next() {
+		var parseRow parseAdminUsageEventRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.EventID,
+			&parseRow.UserID,
+			&parseRow.Email,
+			&parseRow.DisplayName,
+			&parseRow.ConversationID,
+			&parseRow.ConversationPublicID,
+			&parseRow.ConversationTitle,
+			&parseRow.ProviderID,
+			&parseRow.ModelID,
+			&parseRow.PromptTokens,
+			&parseRow.CompletionTokens,
+			&parseRow.UsageSource,
+			&parseRow.ProviderRequestID,
+			&parseRow.InputCostPerMillionUSD,
+			&parseRow.OutputCostPerMillionUSD,
+			&parseRow.PricingCurrency,
+			&parseRow.InputCostUSD,
+			&parseRow.OutputCostUSD,
+			&parseRow.TotalCostUSD,
+			&parseRow.ClientID,
+			&parseRow.TraceID,
+			&parseRow.SpanID,
+			&parseRow.TraceState,
+			&parseRow.Status,
+			&parseRow.ErrorMessage,
+			&parseRow.CreatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseUsageRows = append(parseUsageRows, parseRow)
+	}
+	return parseUsageRows, parseRows.Err()
+}
+
+// parseListAdminChatHighCostThreads returns high-cost conversation rows for chats anomaly review.
+func (parseS *Store) parseListAdminChatHighCostThreads(parseSince string, parseMinTotalCostUSD float64, parseLimit int64) ([]parseAdminConversationRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	if parseMinTotalCostUSD <= 0 {
+		parseMinTotalCostUSD = 0.01
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminChatHighCostThreads, parseSince, parseMinTotalCostUSD, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseConversationRows := make([]parseAdminConversationRow, 0)
+	for parseRows.Next() {
+		var parseRow parseAdminConversationRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ConversationID,
+			&parseRow.PublicID,
+			&parseRow.UserID,
+			&parseRow.Email,
+			&parseRow.DisplayName,
+			&parseRow.StartedAt,
+			&parseRow.Preview,
+			&parseRow.MessageCount,
+			&parseRow.UsageEventCount,
+			&parseRow.TotalCostUSD,
+			&parseRow.LastActivityAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseConversationRows = append(parseConversationRows, parseRow)
+	}
+	return parseConversationRows, parseRows.Err()
+}
+
+// parseListAdminChatFeatureUsageSlices returns feature-usage aggregate rows keyed by workspace and feature.
+func (parseS *Store) parseListAdminChatFeatureUsageSlices(parseSince string, parseLimit int64) ([]parseAdminChatFeatureUsageRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 50
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminChatFeatureUsageSlices, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseFeatureRows := make([]parseAdminChatFeatureUsageRow, 0)
+	for parseRows.Next() {
+		var parseRow parseAdminChatFeatureUsageRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.WorkspaceID,
+			&parseRow.FeatureKey,
+			&parseRow.EventCount,
+			&parseRow.UserCount,
+			&parseRow.LastSeenAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseFeatureRows = append(parseFeatureRows, parseRow)
+	}
+	return parseFeatureRows, parseRows.Err()
 }
 
 // parseSearchAdminUsers returns admin user rows matching one case-insensitive query.
@@ -721,6 +1105,58 @@ func (parseS *Store) parseListAdminAuditLogsByUser(parseUserID int64, parseLimit
 		}
 	}
 	return parseAuditRows, nil
+}
+
+// parseListAdminCustomerAccountTimelineEvents returns one unified timeline slice for chats, support, billing, auth sessions, and audit events.
+func (parseS *Store) parseListAdminCustomerAccountTimelineEvents(parseUserID int64, parseSince string, parseLimit int64) ([]parseAdminCustomerTimelineEventRow, error) {
+	if parseUserID <= 0 {
+		return nil, nil
+	}
+	parseSince = strings.TrimSpace(parseSince)
+	if parseSince == "" {
+		parseSince = time.Unix(0, 0).UTC().Format(time.RFC3339)
+	}
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.db.Query(
+		parseS.queries.listAdminCustomerAccountTimelineEvents,
+		parseUserID, parseSince,
+		parseUserID, parseSince,
+		parseUserID, parseSince,
+		parseUserID, parseSince,
+		parseUserID, parseSince,
+		parseUserID, parseUserID, parseUserID, parseSince,
+		parseLimit,
+	)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseTimelineRows := make([]parseAdminCustomerTimelineEventRow, 0)
+	for parseRows.Next() {
+		var parseTimelineRow parseAdminCustomerTimelineEventRow
+		if parseErr = parseRows.Scan(
+			&parseTimelineRow.TimelineID,
+			&parseTimelineRow.Source,
+			&parseTimelineRow.EventType,
+			&parseTimelineRow.UserID,
+			&parseTimelineRow.WorkspaceID,
+			&parseTimelineRow.ConversationID,
+			&parseTimelineRow.SupportTicketID,
+			&parseTimelineRow.BillingCustomerID,
+			&parseTimelineRow.AuthSessionID,
+			&parseTimelineRow.AuditLogID,
+			&parseTimelineRow.Summary,
+			&parseTimelineRow.DetailJSON,
+			&parseTimelineRow.CreatedAt,
+		); parseErr != nil {
+			return nil, parseErr
+		}
+		parseTimelineRows = append(parseTimelineRows, parseTimelineRow)
+	}
+	return parseTimelineRows, parseRows.Err()
 }
 
 // parseGetAdminWorkspaceByWorkspaceID returns one workspace row by workspace id.

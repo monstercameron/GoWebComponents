@@ -874,6 +874,20 @@ CREATE TABLE IF NOT EXISTS workspace_cost_guardrails (
     UNIQUE(workspace_id, guardrail_key)
 );
 CREATE INDEX IF NOT EXISTS idx_workspace_cost_guardrails_workspace_id ON workspace_cost_guardrails(workspace_id, id DESC);
+CREATE TABLE IF NOT EXISTS provider_usage_daily_rollups (
+    id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+    rollup_day                 TEXT NOT NULL,
+    provider_id                TEXT NOT NULL,
+    usage_event_count          INTEGER NOT NULL DEFAULT 0,
+    total_cost_usd             REAL NOT NULL DEFAULT 0,
+    prompt_tokens              INTEGER NOT NULL DEFAULT 0,
+    completion_tokens          INTEGER NOT NULL DEFAULT 0,
+    completed_event_count      INTEGER NOT NULL DEFAULT 0,
+    failed_event_count         INTEGER NOT NULL DEFAULT 0,
+    updated_at                 TEXT NOT NULL,
+    UNIQUE(rollup_day, provider_id)
+);
+CREATE INDEX IF NOT EXISTS idx_provider_usage_daily_rollups_day_provider ON provider_usage_daily_rollups(rollup_day DESC, provider_id);
 CREATE TABLE IF NOT EXISTS user_profile (
     user_id                   INTEGER PRIMARY KEY REFERENCES users(id),
     name                      TEXT NOT NULL DEFAULT 'User',

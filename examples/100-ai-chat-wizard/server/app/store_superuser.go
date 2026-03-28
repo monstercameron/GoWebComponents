@@ -502,16 +502,37 @@ type parseWorkspaceCostGuardrailRow struct {
 }
 
 type parseWorkspaceModelRoutingPolicyRow struct {
-	ID                        int64
-	WorkspaceID               int64
-	PolicyKey                 string
-	DefaultModelID            string
-	FallbackModelID           string
-	MaxInputCostPerMillionUSD float64
+	ID                         int64
+	WorkspaceID                int64
+	PolicyKey                  string
+	DefaultModelID             string
+	FallbackModelID            string
+	MaxInputCostPerMillionUSD  float64
 	MaxOutputCostPerMillionUSD float64
-	RequiresApproval          bool
-	RulesJSON                 string
-	UpdatedAt                 string
+	RequiresApproval           bool
+	RulesJSON                  string
+	UpdatedAt                  string
+}
+
+type parseWorkspaceModelRoutingPolicyWrite struct {
+	WorkspaceID                int64
+	PolicyKey                  string
+	DefaultModelID             string
+	FallbackModelID            string
+	MaxInputCostPerMillionUSD  float64
+	MaxOutputCostPerMillionUSD float64
+	RequiresApproval           bool
+	RulesJSON                  string
+}
+
+type parseWorkspaceCostGuardrailWrite struct {
+	WorkspaceID            int64
+	GuardrailKey           string
+	DailyBudgetCents       int64
+	MonthlyBudgetCents     int64
+	MaxCostPerRequestCents int64
+	AlertThresholdPercent  int64
+	ActionMode             string
 }
 
 // parseUpsertSURole persists one superuser role and its permission set.
@@ -2488,6 +2509,43 @@ func (parseS *Store) parseListWorkspaceCostGuardrails(parseLimit int64) ([]parse
 	return parseGuardrailRows, parseRows.Err()
 }
 
+// parseUpsertWorkspaceModelRoutingPolicy stores one workspace model-routing policy row.
+func (parseS *Store) parseUpsertWorkspaceModelRoutingPolicy(parseWrite parseWorkspaceModelRoutingPolicyWrite) error {
+	if parseWrite.WorkspaceID <= 0 {
+		return errors.New("upsert workspace model routing policy: workspace id is required")
+	}
+	parsePolicyKey := strings.TrimSpace(parseWrite.PolicyKey)
+	if parsePolicyKey == "" {
+		return errors.New("upsert workspace model routing policy: policy key is required")
+	}
+	parseDefaultModelID := parseNormalizeSelectedModelID(parseWrite.DefaultModelID)
+	parseFallbackModelID := parseNormalizeSelectedModelID(parseWrite.FallbackModelID)
+	if parseDefaultModelID == "" {
+		return errors.New("upsert workspace model routing policy: default model id is required")
+	}
+	if parseFallbackModelID == "" {
+		parseFallbackModelID = parseDefaultModelID
+	}
+	parseRulesJSON := strings.TrimSpace(parseWrite.RulesJSON)
+	if parseRulesJSON == "" {
+		parseRulesJSON = "{}"
+	}
+	parseUpdatedAt := time.Now().UTC().Format(time.RFC3339)
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.upsertWorkspaceModelRoutingPolicy,
+		parseWrite.WorkspaceID,
+		parsePolicyKey,
+		parseDefaultModelID,
+		parseFallbackModelID,
+		parseWrite.MaxInputCostPerMillionUSD,
+		parseWrite.MaxOutputCostPerMillionUSD,
+		parseBuildBillingFlagValue(parseWrite.RequiresApproval),
+		parseRulesJSON,
+		parseUpdatedAt,
+	)
+	return parseErr
+}
+
 // parseListWorkspaceModelRoutingPolicies lists workspace model-routing policy rows newest-first.
 func (parseS *Store) parseListWorkspaceModelRoutingPolicies(parseLimit int64) ([]parseWorkspaceModelRoutingPolicyRow, error) {
 	if parseLimit <= 0 {
@@ -2521,6 +2579,38 @@ func (parseS *Store) parseListWorkspaceModelRoutingPolicies(parseLimit int64) ([
 		parsePolicyRows = append(parsePolicyRows, parseRow)
 	}
 	return parsePolicyRows, parseRows.Err()
+}
+
+// parseUpsertWorkspaceCostGuardrail stores one workspace cost-guardrail row.
+func (parseS *Store) parseUpsertWorkspaceCostGuardrail(parseWrite parseWorkspaceCostGuardrailWrite) error {
+	if parseWrite.WorkspaceID <= 0 {
+		return errors.New("upsert workspace cost guardrail: workspace id is required")
+	}
+	parseGuardrailKey := strings.TrimSpace(parseWrite.GuardrailKey)
+	if parseGuardrailKey == "" {
+		return errors.New("upsert workspace cost guardrail: guardrail key is required")
+	}
+	parseActionMode := strings.TrimSpace(parseWrite.ActionMode)
+	if parseActionMode == "" {
+		parseActionMode = "notify"
+	}
+	parseAlertThresholdPercent := parseWrite.AlertThresholdPercent
+	if parseAlertThresholdPercent <= 0 {
+		parseAlertThresholdPercent = 80
+	}
+	parseUpdatedAt := time.Now().UTC().Format(time.RFC3339)
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.upsertWorkspaceCostGuardrail,
+		parseWrite.WorkspaceID,
+		parseGuardrailKey,
+		parseWrite.DailyBudgetCents,
+		parseWrite.MonthlyBudgetCents,
+		parseWrite.MaxCostPerRequestCents,
+		parseAlertThresholdPercent,
+		parseActionMode,
+		parseUpdatedAt,
+	)
+	return parseErr
 }
 
 // parseNormalizeSURoleKey normalizes one role key for superuser control-plane records.
