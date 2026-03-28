@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -1554,10 +1555,11 @@ func (parseS *Store) parseListWebhookEndpoints(parseLimit int64) ([]parseWebhook
 }
 
 // parseUpsertWebhookDelivery persists one webhook delivery row.
-func (parseS *Store) parseUpsertWebhookDelivery(parseWrite parseWebhookDeliveryWrite) error {
+func (parseS *Store) parseUpsertWebhookDelivery(parseCtx context.Context, parseWrite parseWebhookDeliveryWrite) error {
 	if parseWrite.EndpointID <= 0 || strings.TrimSpace(parseWrite.DeliveryKey) == "" {
 		return errors.New("upsert webhook delivery: endpoint id and delivery key are required")
 	}
+	parseWrite.RequestHeadersJSON = parseMergeJSONObjectStrings(parseNormalizeBillingJSON(parseWrite.RequestHeadersJSON), parseBuildTraceabilityJSON(parseCtx))
 	parseWorkspaceID, isParseFound, parseErr := parseS.parseGetWebhookEndpointWorkspaceID(parseWrite.EndpointID)
 	if parseErr != nil {
 		return parseErr
@@ -1574,7 +1576,7 @@ func (parseS *Store) parseUpsertWebhookDelivery(parseWrite parseWebhookDeliveryW
 		parseWrite.EndpointID,
 		strings.TrimSpace(parseWrite.EventType),
 		strings.TrimSpace(parseWrite.DeliveryKey),
-		parseNormalizeBillingJSON(parseWrite.RequestHeadersJSON),
+		parseWrite.RequestHeadersJSON,
 		parseNormalizeBillingJSON(parseWrite.RequestBodyJSON),
 		parseWrite.ResponseStatus,
 		strings.TrimSpace(parseWrite.ResponseBody),
@@ -1716,6 +1718,8 @@ func (parseS *Store) parseCreateAuditLog(parseWrite parseAuditLogWrite) (int64, 
 	if strings.TrimSpace(parseWrite.EventType) == "" {
 		return 0, errors.New("create audit log: event type is required")
 	}
+	parseSummary := parseScrubSecretString(parseWrite.Summary)
+	parsePayloadJSON := parseScrubSecretJSONString(parseWrite.PayloadJSON)
 	parseResult, parseErr := parseS.db.Exec(
 		parseS.queries.createAuditLog,
 		parseWrite.ActorUserID,
@@ -1723,8 +1727,8 @@ func (parseS *Store) parseCreateAuditLog(parseWrite parseAuditLogWrite) (int64, 
 		strings.TrimSpace(parseWrite.EventType),
 		strings.TrimSpace(parseWrite.TargetType),
 		strings.TrimSpace(parseWrite.TargetID),
-		strings.TrimSpace(parseWrite.Summary),
-		parseNormalizeBillingJSON(parseWrite.PayloadJSON),
+		parseSummary,
+		parseNormalizeBillingJSON(parsePayloadJSON),
 		time.Now().UTC().Format(time.RFC3339),
 		parseWrite.ActorUserID,
 		parseWrite.ActorUserID,
@@ -1986,7 +1990,7 @@ func (parseS *Store) parseListIncidentUpdates(parseLimit int64) ([]parseIncident
 }
 
 // parseCreateNotificationOutbox appends one notification-outbox row.
-func (parseS *Store) parseCreateNotificationOutbox(parseWrite parseNotificationOutboxWrite) (int64, error) {
+func (parseS *Store) parseCreateNotificationOutbox(parseCtx context.Context, parseWrite parseNotificationOutboxWrite) (int64, error) {
 	if strings.TrimSpace(parseWrite.NotificationKey) == "" {
 		return 0, errors.New("create notification outbox: notification key is required")
 	}
@@ -1996,6 +2000,7 @@ func (parseS *Store) parseCreateNotificationOutbox(parseWrite parseNotificationO
 	if parseErr := parseS.parseRequireWorkspaceOperational(parseWrite.WorkspaceID); parseErr != nil {
 		return 0, parseErr
 	}
+	parseWrite.PayloadJSON = parseMergeJSONObjectStrings(parseNormalizeBillingJSON(parseWrite.PayloadJSON), parseBuildTraceabilityJSON(parseCtx))
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
 		parseS.queries.createNotificationOutbox,
@@ -2007,7 +2012,7 @@ func (parseS *Store) parseCreateNotificationOutbox(parseWrite parseNotificationO
 		parseNormalizeSUValue(parseWrite.Status, "pending"),
 		strings.TrimSpace(parseWrite.Subject),
 		strings.TrimSpace(parseWrite.BodyText),
-		parseNormalizeBillingJSON(parseWrite.PayloadJSON),
+		parseWrite.PayloadJSON,
 		strings.TrimSpace(parseWrite.DedupeKey),
 		strings.TrimSpace(parseWrite.ScheduledAt),
 		strings.TrimSpace(parseWrite.SentAt),

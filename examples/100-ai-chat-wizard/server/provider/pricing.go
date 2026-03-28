@@ -15,8 +15,7 @@ type CostEstimate struct {
 	TotalCostUSD  float64
 }
 
-// EstimateCost calculates approximate request cost from token counts and model
-// pricing metadata.
+// ParseEstimateCost calculates approximate request cost from token counts and model pricing metadata.
 func ParseEstimateCost(parsePromptTokens, parseCompletionTokens int64, parsePricing ModelPricing) CostEstimate {
 	parseInputCost := (float64(parsePromptTokens) / 1_000_000) * parsePricing.InputPerMillionUSD
 	parseOutputCost := (float64(parseCompletionTokens) / 1_000_000) * parsePricing.OutputPerMillionUSD

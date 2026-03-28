@@ -1592,6 +1592,12 @@ message WorkspaceSSOConfigEntry {
   string domains_json = 7;
   bool is_enabled = 8;
   string updated_at = 9;
+  string provider_type = 10;
+  string oidc_issuer_url = 11;
+  string oidc_client_id = 12;
+  string oidc_client_secret_ref = 13;
+  string oidc_scopes_json = 14;
+  string oidc_claims_json = 15;
 }
 
 message DataRetentionPolicyEntry {
@@ -1637,6 +1643,12 @@ message SetSuperuserWorkspaceSSOConfigRequest {
   bool is_enabled = 7;
   bool confirm = 8;
   string reason = 9;
+  string provider_type = 10;
+  string oidc_issuer_url = 11;
+  string oidc_client_id = 12;
+  string oidc_client_secret_ref = 13;
+  string oidc_scopes_json = 14;
+  string oidc_claims_json = 15;
 }
 
 message SetSuperuserWorkspaceSSOConfigResponse {

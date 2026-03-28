@@ -374,6 +374,230 @@ func TestAuthManagerPersistedTokenLifecycles(parseT *testing.T) {
 	}
 }
 
+// TestAuthManagerPasswordRecoveryRequestThrottleAndAudit verifies password-reset request throttling and audit visibility.
+func TestAuthManagerPasswordRecoveryRequestThrottleAndAudit(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	var parseLogOutput bytes.Buffer
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseNewOTELLogger(&parseLogOutput, serverServiceName))
+	parseUser, parseErr := parseAuth.parseSignup("throttle@example.com", "password123", "Throttle")
+	if parseErr != nil {
+		parseT.Fatalf("parseSignup: %v", parseErr)
+	}
+
+	for parseRequestIndex := int64(0); parseRequestIndex < passwordResetRequestThrottleMaxPerEmail; parseRequestIndex++ {
+		parseResetToken, parseErr := parseAuth.parseBeginPasswordResetToken(parseUser.Email, "198.51.100.33")
+		if parseErr != nil {
+			parseT.Fatalf("parseBeginPasswordResetToken(request=%d): %v", parseRequestIndex, parseErr)
+		}
+		if strings.TrimSpace(parseResetToken) == "" {
+			parseT.Fatalf("expected reset token for non-throttled request #%d", parseRequestIndex)
+		}
+	}
+	parseThrottledToken, parseErr := parseAuth.parseBeginPasswordResetToken(parseUser.Email, "198.51.100.33")
+	if parseErr != nil {
+		parseT.Fatalf("parseBeginPasswordResetToken(throttled): %v", parseErr)
+	}
+	if strings.TrimSpace(parseThrottledToken) != "" {
+		parseT.Fatalf("expected throttled request to suppress token emission, got %q", parseThrottledToken)
+	}
+
+	parseLogs := parseLogOutput.String()
+	if !strings.Contains(parseLogs, `"event":"auth.recovery.request"`) || !strings.Contains(parseLogs, `"outcome":"throttled"`) {
+		parseT.Fatalf("expected throttled recovery request audit log, got %q", parseLogs)
+	}
+}
+
+// TestAuthManagerPasswordRecoveryConsumeAuditOutcomes verifies consume-path audit outcomes for consumed, expired, and replay-denied cases.
+func TestAuthManagerPasswordRecoveryConsumeAuditOutcomes(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	var parseLogOutput bytes.Buffer
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseNewOTELLogger(&parseLogOutput, serverServiceName))
+	parseUser, parseErr := parseAuth.parseSignup("consume@example.com", "password123", "Consume")
+	if parseErr != nil {
+		parseT.Fatalf("parseSignup: %v", parseErr)
+	}
+
+	parseExpiredToken, parseErr := parseAuth.parseBeginPasswordResetToken(parseUser.Email, "203.0.113.90")
+	if parseErr != nil {
+		parseT.Fatalf("parseBeginPasswordResetToken(expired setup): %v", parseErr)
+	}
+	parseExpiredTokenHash := parseBuildAuthFlowTokenHash(parseExpiredToken)
+	if _, parseErr2 := parseStore.db.Exec(
+		`UPDATE password_reset_tokens SET expires_at = ? WHERE token_hash = ?`,
+		time.Now().UTC().Add(-1*time.Minute).Format(time.RFC3339),
+		parseExpiredTokenHash,
+	); parseErr2 != nil {
+		parseT.Fatalf("expire token setup: %v", parseErr2)
+	}
+	if parseErr2 := parseAuth.parseCompletePasswordResetWithToken(parseExpiredToken, "password456"); !errors.Is(parseErr2, errInvalidCredentials) {
+		parseT.Fatalf("expected expired token consume to fail with invalid credentials, got %v", parseErr2)
+	}
+
+	parseReplayToken, parseErr := parseAuth.parseBeginPasswordResetToken(parseUser.Email, "203.0.113.91")
+	if parseErr != nil {
+		parseT.Fatalf("parseBeginPasswordResetToken(replay setup): %v", parseErr)
+	}
+	if parseErr2 := parseAuth.parseCompletePasswordResetWithToken(parseReplayToken, "password456"); parseErr2 != nil {
+		parseT.Fatalf("parseCompletePasswordResetWithToken(first consume): %v", parseErr2)
+	}
+	if parseErr2 := parseAuth.parseCompletePasswordResetWithToken(parseReplayToken, "password789"); !errors.Is(parseErr2, errInvalidCredentials) {
+		parseT.Fatalf("expected replay consume to fail with invalid credentials, got %v", parseErr2)
+	}
+
+	parseLogs := parseLogOutput.String()
+	if !strings.Contains(parseLogs, `"event":"auth.recovery.consume"`) {
+		parseT.Fatalf("expected recovery consume audit logs, got %q", parseLogs)
+	}
+	if !strings.Contains(parseLogs, `"outcome":"expired"`) {
+		parseT.Fatalf("expected expired consume audit outcome, got %q", parseLogs)
+	}
+	if !strings.Contains(parseLogs, `"outcome":"replay_denied"`) {
+		parseT.Fatalf("expected replay-denied consume audit outcome, got %q", parseLogs)
+	}
+	if !strings.Contains(parseLogs, `"outcome":"consumed"`) {
+		parseT.Fatalf("expected successful consume audit outcome, got %q", parseLogs)
+	}
+}
+
+// TestSignupVerificationPolicyContract verifies explicit signup-verification policy defaults.
+func TestSignupVerificationPolicyContract(parseT *testing.T) {
+	parsePolicy := parseResolveSignupVerificationPolicy()
+	if !parsePolicy.isParseSignInAllowedBeforeVerification {
+		parseT.Fatal("expected policy to allow sign-in before verification")
+	}
+	if !parsePolicy.isParseResendAllowedBeforeVerification {
+		parseT.Fatal("expected policy to allow verification resend")
+	}
+	if parsePolicy.isParseProtectedActionBlockedUntilVerified {
+		parseT.Fatal("expected policy to keep protected-action blocking disabled by default")
+	}
+}
+
+// TestAuthManagerSignupVerificationLifecycle verifies resend/consume policy behavior and fail-closed replay handling.
+func TestAuthManagerSignupVerificationLifecycle(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	var parseLogOutput bytes.Buffer
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseNewOTELLogger(&parseLogOutput, serverServiceName))
+	parseUser, parseErr := parseAuth.parseSignup("verification@example.com", "password123", "Verification")
+	if parseErr != nil {
+		parseT.Fatalf("parseSignup: %v", parseErr)
+	}
+	if _, parseErr2 := parseAuth.parseLogin(parseUser.Email, "password123"); parseErr2 != nil {
+		parseT.Fatalf("expected unverified login to follow policy and succeed, got %v", parseErr2)
+	}
+	isParseBlocked, parseErr := parseAuth.parseShouldBlockProtectedActionPendingVerification(parseUser.Email, time.Now().UTC())
+	if parseErr != nil {
+		parseT.Fatalf("parseShouldBlockProtectedActionPendingVerification: %v", parseErr)
+	}
+	if isParseBlocked {
+		parseT.Fatal("expected protected-action check to follow policy and remain unblocked")
+	}
+
+	parseMissingResendToken, parseErr := parseAuth.parseResendSignupVerificationToken("missing@example.com")
+	if parseErr != nil {
+		parseT.Fatalf("parseResendSignupVerificationToken(missing): %v", parseErr)
+	}
+	if strings.TrimSpace(parseMissingResendToken) != "" {
+		parseT.Fatalf("expected missing-user resend to suppress token emission, got %q", parseMissingResendToken)
+	}
+
+	parseVerificationToken, parseErr := parseAuth.parseResendSignupVerificationToken(parseUser.Email)
+	if parseErr != nil {
+		parseT.Fatalf("parseResendSignupVerificationToken(user): %v", parseErr)
+	}
+	if strings.TrimSpace(parseVerificationToken) == "" {
+		parseT.Fatal("expected non-empty resend token for unverified user")
+	}
+	if parseErr = parseAuth.parseCompleteSignupVerificationWithToken(parseVerificationToken); parseErr != nil {
+		parseT.Fatalf("parseCompleteSignupVerificationWithToken(first): %v", parseErr)
+	}
+	if parseErr = parseAuth.parseCompleteSignupVerificationWithToken(parseVerificationToken); !errors.Is(parseErr, errInvalidCredentials) {
+		parseT.Fatalf("expected one-time verification consume replay denial, got %v", parseErr)
+	}
+	parsePostVerifyResendToken, parseErr := parseAuth.parseResendSignupVerificationToken(parseUser.Email)
+	if parseErr != nil {
+		parseT.Fatalf("parseResendSignupVerificationToken(post-verify): %v", parseErr)
+	}
+	if strings.TrimSpace(parsePostVerifyResendToken) != "" {
+		parseT.Fatalf("expected already-verified resend to suppress token emission, got %q", parsePostVerifyResendToken)
+	}
+
+	parseLogs := parseLogOutput.String()
+	if !strings.Contains(parseLogs, `"event":"auth.signup_verification.request"`) || !strings.Contains(parseLogs, `"outcome":"requested"`) {
+		parseT.Fatalf("expected signup verification request audit logs, got %q", parseLogs)
+	}
+	if !strings.Contains(parseLogs, `"event":"auth.signup_verification.consume"`) || !strings.Contains(parseLogs, `"outcome":"verified"`) {
+		parseT.Fatalf("expected verification consume success audit logs, got %q", parseLogs)
+	}
+	if !strings.Contains(parseLogs, `"outcome":"replay_denied"`) || !strings.Contains(parseLogs, `"outcome":"already_verified"`) {
+		parseT.Fatalf("expected replay/already-verified audit outcomes, got %q", parseLogs)
+	}
+}
+
+// TestAuthManagerSignupVerificationThrottleAndExpiry verifies resend throttling and expired-token fail-closed behavior.
+func TestAuthManagerSignupVerificationThrottleAndExpiry(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	var parseLogOutput bytes.Buffer
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseNewOTELLogger(&parseLogOutput, serverServiceName))
+	parseUser, parseErr := parseAuth.parseSignup("verify-throttle@example.com", "password123", "VerifyThrottle")
+	if parseErr != nil {
+		parseT.Fatalf("parseSignup: %v", parseErr)
+	}
+
+	for parseRequestIndex := int64(0); parseRequestIndex < emailVerificationResendThrottleMaxPerEmail-1; parseRequestIndex++ {
+		parseResendToken, parseErr := parseAuth.parseResendSignupVerificationToken(parseUser.Email)
+		if parseErr != nil {
+			parseT.Fatalf("parseResendSignupVerificationToken(request=%d): %v", parseRequestIndex, parseErr)
+		}
+		if strings.TrimSpace(parseResendToken) == "" {
+			parseT.Fatalf("expected resend token for non-throttled request #%d", parseRequestIndex)
+		}
+	}
+	parseThrottledResendToken, parseErr := parseAuth.parseResendSignupVerificationToken(parseUser.Email)
+	if parseErr != nil {
+		parseT.Fatalf("parseResendSignupVerificationToken(throttled): %v", parseErr)
+	}
+	if strings.TrimSpace(parseThrottledResendToken) != "" {
+		parseT.Fatalf("expected throttled resend to suppress token emission, got %q", parseThrottledResendToken)
+	}
+
+	parseExpiredToken, parseErr := parseAuth.parseResendSignupVerificationToken("verify-expired@example.com")
+	if parseErr == nil && strings.TrimSpace(parseExpiredToken) != "" {
+		parseT.Fatalf("expected missing-user resend to suppress token emission, got %q", parseExpiredToken)
+	}
+	parseExpiredToken, parseErr = parseAuth.parseResendSignupVerificationToken(parseUser.Email)
+	if parseErr != nil {
+		parseT.Fatalf("parseResendSignupVerificationToken(expired setup): %v", parseErr)
+	}
+	if strings.TrimSpace(parseExpiredToken) != "" {
+		parseT.Fatalf("expected throttled resend during expired setup to suppress token emission, got %q", parseExpiredToken)
+	}
+
+	parseSeedToken, parseErr := parseAuth.parseIssueEmailVerificationTokenForUser(parseUser)
+	if parseErr != nil {
+		parseT.Fatalf("parseIssueEmailVerificationTokenForUser(expired seed): %v", parseErr)
+	}
+	parseSeedTokenHash := parseBuildAuthFlowTokenHash(parseSeedToken)
+	if _, parseErr2 := parseStore.db.Exec(
+		`UPDATE email_verification_tokens SET expires_at = ? WHERE token_hash = ?`,
+		time.Now().UTC().Add(-1*time.Minute).Format(time.RFC3339),
+		parseSeedTokenHash,
+	); parseErr2 != nil {
+		parseT.Fatalf("expire verification token setup: %v", parseErr2)
+	}
+	if parseErr2 := parseAuth.parseCompleteSignupVerificationWithToken(parseSeedToken); !errors.Is(parseErr2, errInvalidCredentials) {
+		parseT.Fatalf("expected expired verification consume to fail closed, got %v", parseErr2)
+	}
+
+	parseLogs := parseLogOutput.String()
+	if !strings.Contains(parseLogs, `"outcome":"throttled"`) {
+		parseT.Fatalf("expected resend throttled audit outcome, got %q", parseLogs)
+	}
+	if !strings.Contains(parseLogs, `"event":"auth.signup_verification.consume"`) || !strings.Contains(parseLogs, `"outcome":"expired"`) {
+		parseT.Fatalf("expected expired verification consume audit outcome, got %q", parseLogs)
+	}
+}
+
 func TestRequestUsesHTTPSAndCookieHelpers(parseT *testing.T) {
 	parseAuth := parseNewAuthManager("test-secret", parseNewTestStore(parseT), parseNewTestLogger())
 

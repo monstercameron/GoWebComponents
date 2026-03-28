@@ -12,6 +12,7 @@ type StubProvider struct {
 	catalog Catalog
 }
 
+// ParseNewStubProvider creates one stub provider for local testing.
 func ParseNewStubProvider(parseProviderID string, parseCatalog Catalog) *StubProvider {
 	parseTrimmedID := strings.TrimSpace(strings.ToLower(parseProviderID))
 	if parseTrimmedID == "" {
@@ -24,14 +25,17 @@ func ParseNewStubProvider(parseProviderID string, parseCatalog Catalog) *StubPro
 	}
 }
 
+// ParseID returns the provider identifier.
 func (parseP *StubProvider) ParseID() string {
 	return parseP.id
 }
 
+// ParseAvailable reports whether the provider is available.
 func (parseP *StubProvider) ParseAvailable() bool {
 	return parseP != nil && parseP.id != "" && len(parseP.catalog.Options) > 0
 }
 
+// ParseInfo returns the provider info snapshot.
 func (parseP *StubProvider) ParseInfo() ProviderInfo {
 	return ProviderInfo{
 		ID:                 parseP.id,
@@ -46,22 +50,27 @@ func (parseP *StubProvider) ParseInfo() ProviderInfo {
 	}
 }
 
+// ParseDefaultModel returns the default model for the provider.
 func (parseP *StubProvider) ParseDefaultModel() string {
 	return strings.TrimSpace(parseP.catalog.DefaultModel)
 }
 
+// ParseSupportsModel reports whether the provider supports the requested model.
 func (parseP *StubProvider) ParseSupportsModel(parseModel string) bool {
 	return parseP.catalog.ParseSupportsModel(parseModel)
 }
 
+// ParseModelOptions returns the provider model options.
 func (parseP *StubProvider) ParseModelOptions() []ModelOption {
 	return parseP.catalog.ParseModelOptions()
 }
 
+// ParseModelMetadata returns the provider model metadata.
 func (parseP *StubProvider) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
 	return parseP.catalog.ParseModelMetadata(parseModel)
 }
 
+// ParseCapabilities returns the capability snapshot.
 func (parseP *StubProvider) ParseCapabilities(parseModel string) ModelCapabilities {
 	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
 		return parseMetadata.Capabilities
@@ -69,6 +78,7 @@ func (parseP *StubProvider) ParseCapabilities(parseModel string) ModelCapabiliti
 	return ModelCapabilities{ProviderID: parseP.id, ProviderLabel: parseP.label}
 }
 
+// ParseHealth returns the health snapshot.
 func (parseP *StubProvider) ParseHealth() ProviderHealth {
 	if !parseP.ParseAvailable() {
 		return ProviderHealth{ProviderID: parseP.id, Status: ProviderHealthUnavailable}
@@ -76,10 +86,12 @@ func (parseP *StubProvider) ParseHealth() ProviderHealth {
 	return ProviderHealth{ProviderID: parseP.id, Status: ProviderHealthUnknown}
 }
 
+// ParseCurrentRateLimits returns the current rate-limit snapshot.
 func (parseP *StubProvider) ParseCurrentRateLimits() RateLimitSnapshot {
 	return RateLimitSnapshot{}
 }
 
+// ParseGenerateTitle generates one conversation title.
 func (parseP *StubProvider) ParseGenerateTitle(_ context.Context, parseReq TitleRequest) (string, error) {
 	parseUserPrompt := strings.TrimSpace(parseReq.Prompt)
 	if parseUserPrompt == "" {
@@ -92,10 +104,12 @@ func (parseP *StubProvider) ParseGenerateTitle(_ context.Context, parseReq Title
 	return fmt.Sprintf("%s stub: %s", parseP.label, parseTitle), nil
 }
 
+// ParseExtractUserMemories extracts user-memory candidates from the current conversation.
 func (parseP *StubProvider) ParseExtractUserMemories(_ context.Context, _ MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
 	return nil, nil
 }
 
+// ParseStreamChat streams one chat completion.
 func (parseP *StubProvider) ParseStreamChat(_ context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {
 	parseModel := strings.TrimSpace(parseReq.Model)
 	if parseModel == "" {
@@ -121,6 +135,7 @@ func (parseP *StubProvider) ParseStreamChat(_ context.Context, parseReq ChatRequ
 	}, nil
 }
 
+// ParseSynthesizeSpeech streams one speech-synthesis response.
 func (parseP *StubProvider) ParseSynthesizeSpeech(_ context.Context, parseReq SpeechRequest, parseEmit func(SpeechChunk) error) (SpeechResult, error) {
 	parseModel := strings.TrimSpace(parseReq.Model)
 	if parseModel == "" {

@@ -43,7 +43,7 @@ func parseNewOTELLogger(parseWriter io.Writer, parseServiceName string) *slog.Lo
 			case slog.MessageKey:
 				parseAttr.Key = "message"
 			}
-			return parseAttr
+			return parseRedactLogAttr(parseAttr)
 		},
 	})
 	return slog.New(&otelJSONHandler{next: parseBase, serviceName: strings.TrimSpace(parseServiceName)})
@@ -99,10 +99,12 @@ func parseNewServerLogger() (*slog.Logger, func(), error) {
 	return parseLoggers.parseServerLogger, parseLoggers.parseClose, nil
 }
 
+// Enabled reports whether the JSON handler should emit the record.
 func (parseH *otelJSONHandler) Enabled(parseCtx context.Context, parseLevel slog.Level) bool {
 	return parseH.next.Enabled(parseCtx, parseLevel)
 }
 
+// Handle writes one structured log record through the JSON handler.
 func (parseH *otelJSONHandler) Handle(parseCtx context.Context, parseRecord slog.Record) error {
 	parseCloned := parseRecord.Clone()
 	if strings.TrimSpace(parseH.serviceName) != "" {
@@ -185,6 +187,7 @@ func parseRecordStringAttrValue(parseRecord slog.Record, parseKey string) string
 	return parseStringValue
 }
 
+// WithAttrs returns a handler with extra attributes.
 func (parseH *otelJSONHandler) WithAttrs(parseAttrs []slog.Attr) slog.Handler {
 	return &otelJSONHandler{
 		next:        parseH.next.WithAttrs(parseAttrs),
@@ -192,6 +195,7 @@ func (parseH *otelJSONHandler) WithAttrs(parseAttrs []slog.Attr) slog.Handler {
 	}
 }
 
+// WithGroup returns a handler scoped to one attribute group.
 func (parseH *otelJSONHandler) WithGroup(parseName string) slog.Handler {
 	return &otelJSONHandler{
 		next:        parseH.next.WithGroup(parseName),

@@ -670,12 +670,25 @@ CREATE TABLE IF NOT EXISTS subscription_churn_feedback (
 );
 CREATE INDEX IF NOT EXISTS idx_subscription_churn_feedback_customer_id ON subscription_churn_feedback(customer_id, id DESC);
 CREATE INDEX IF NOT EXISTS idx_subscription_churn_feedback_subscription_id ON subscription_churn_feedback(subscription_id, id DESC);
+-- AUTH NOTE: `workspace_sso_configs` is enterprise SSO config storage, not the live login runtime.
+-- AUTH NOTE: Active login behavior currently lives in `workspace_auth_policies`,
+-- `auth_identities`, and `auth_oidc_states` for password, Google, and generic OIDC.
+-- AUTH NOTE: `saml_*` fields are storage-only until the SAML runtime is wired.
 CREATE TABLE IF NOT EXISTS workspace_sso_configs (
     id                         INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id               INTEGER NOT NULL REFERENCES workspaces(id),
     provider_key               TEXT NOT NULL DEFAULT '',
+    provider_type              TEXT NOT NULL DEFAULT 'oidc',
+    oidc_issuer_url            TEXT NOT NULL DEFAULT '',
+    oidc_client_id             TEXT NOT NULL DEFAULT '',
+    oidc_client_secret_ref     TEXT NOT NULL DEFAULT '',
+    oidc_scopes_json           TEXT NOT NULL DEFAULT '[]',
+    oidc_claims_json           TEXT NOT NULL DEFAULT '{}',
+    -- AUTH NOTE: SAML config only until assertion validation is wired.
     saml_entrypoint            TEXT NOT NULL DEFAULT '',
+    -- AUTH NOTE: SAML config only until assertion validation is wired.
     saml_issuer                TEXT NOT NULL DEFAULT '',
+    -- AUTH NOTE: SAML config only until assertion validation is wired.
     saml_certificate_pem       TEXT NOT NULL DEFAULT '',
     domains_json               TEXT NOT NULL DEFAULT '[]',
     is_enabled                 INTEGER NOT NULL DEFAULT 0,

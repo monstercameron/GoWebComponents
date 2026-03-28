@@ -11,11 +11,11 @@ import (
 type parseAdminCustomerTimelineSource string
 
 const (
-	parseAdminCustomerTimelineSourceChatContent  parseAdminCustomerTimelineSource = "chat_content"
-	parseAdminCustomerTimelineSourceBilling      parseAdminCustomerTimelineSource = "billing_record"
-	parseAdminCustomerTimelineSourceSupport      parseAdminCustomerTimelineSource = "support_note"
-	parseAdminCustomerTimelineSourceAuthSession  parseAdminCustomerTimelineSource = "auth_session"
-	parseAdminCustomerTimelineSourceAuditEvent   parseAdminCustomerTimelineSource = "audit_event"
+	parseAdminCustomerTimelineSourceChatContent parseAdminCustomerTimelineSource = "chat_content"
+	parseAdminCustomerTimelineSourceBilling     parseAdminCustomerTimelineSource = "billing_record"
+	parseAdminCustomerTimelineSourceSupport     parseAdminCustomerTimelineSource = "support_note"
+	parseAdminCustomerTimelineSourceAuthSession parseAdminCustomerTimelineSource = "auth_session"
+	parseAdminCustomerTimelineSourceAuditEvent  parseAdminCustomerTimelineSource = "audit_event"
 )
 
 // parseAuthorizeAdminCustomerTimelineScope enforces caller scope for one customer timeline source and returns whether payload redaction is required.
@@ -52,4 +52,3 @@ func parseIsAdminCustomerTimelineSourceSupported(parseSource parseAdminCustomerT
 		return false
 	}
 }
-

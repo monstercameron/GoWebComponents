@@ -23,6 +23,7 @@ type ModelCapabilities struct {
 	SupportsSpeech   bool
 }
 
+// ParseSupports reports whether the capability set includes the requested feature.
 func (parseC ModelCapabilities) ParseSupports(parseCapability Capability) bool {
 	switch parseCapability {
 	case CapabilityThinking:
@@ -48,6 +49,7 @@ type UnsupportedCapabilityError struct {
 	ProviderID string
 }
 
+// ParseError returns the normalized error value.
 func (parseE *UnsupportedCapabilityError) ParseError() string {
 	if parseE == nil {
 		return "unsupported capability"
@@ -58,6 +60,7 @@ func (parseE *UnsupportedCapabilityError) ParseError() string {
 	return fmt.Sprintf("model %q does not support %s", parseE.Model, parseE.Capability)
 }
 
+// Error returns the provider error string.
 func (parseE *UnsupportedCapabilityError) Error() string {
 	return parseE.ParseError()
 }
@@ -159,6 +162,7 @@ type Registry struct {
 	providers []ChatProvider
 }
 
+// ParseNewRegistry creates one provider registry from the supplied providers.
 func ParseNewRegistry(parseProviders ...ChatProvider) *Registry {
 	parseAvailable := make([]ChatProvider, 0, len(parseProviders))
 	for _, parseCurrentProvider := range parseProviders {
@@ -170,6 +174,7 @@ func ParseNewRegistry(parseProviders ...ChatProvider) *Registry {
 	return &Registry{providers: parseAvailable}
 }
 
+// ParseResolve resolves one provider from the registry by ID.
 func (parseR *Registry) ParseResolve(parseModel string) (ChatProvider, string, error) {
 	if parseR == nil || len(parseR.providers) == 0 {
 		return nil, "", ErrNoProvidersAvailable
@@ -188,6 +193,7 @@ func (parseR *Registry) ParseResolve(parseModel string) (ChatProvider, string, e
 	return parseR.providers[0], parseR.providers[0].ParseDefaultModel(), nil
 }
 
+// ParseDefaultModel returns the default model for the provider.
 func (parseR *Registry) ParseDefaultModel() string {
 	if parseR == nil || len(parseR.providers) == 0 {
 		return ""
@@ -195,6 +201,7 @@ func (parseR *Registry) ParseDefaultModel() string {
 	return strings.TrimSpace(parseR.providers[0].ParseDefaultModel())
 }
 
+// ParseModelOptions returns the provider model options.
 func (parseR *Registry) ParseModelOptions() []ModelOption {
 	if parseR == nil || len(parseR.providers) == 0 {
 		return nil
@@ -206,6 +213,7 @@ func (parseR *Registry) ParseModelOptions() []ModelOption {
 	return parseOptions
 }
 
+// ParseCapabilities returns the capability snapshot.
 func (parseR *Registry) ParseCapabilities(parseModel string) (ModelCapabilities, string, error) {
 	parseCurrentProvider, parseResolvedModel, parseErr := parseR.ParseResolve(parseModel)
 	if parseErr != nil {
@@ -214,6 +222,7 @@ func (parseR *Registry) ParseCapabilities(parseModel string) (ModelCapabilities,
 	return parseCurrentProvider.ParseCapabilities(parseResolvedModel), parseResolvedModel, nil
 }
 
+// ParseProviderInfos returns the provider info list.
 func (parseR *Registry) ParseProviderInfos() []ProviderInfo {
 	if parseR == nil || len(parseR.providers) == 0 {
 		return nil
@@ -225,6 +234,7 @@ func (parseR *Registry) ParseProviderInfos() []ProviderInfo {
 	return parseInfos
 }
 
+// ParseModelMetadata returns the provider model metadata.
 func (parseR *Registry) ParseModelMetadata(parseModel string) (ModelMetadata, string, error) {
 	parseCurrentProvider, parseResolvedModel, parseErr := parseR.ParseResolve(parseModel)
 	if parseErr != nil {
@@ -237,6 +247,7 @@ func (parseR *Registry) ParseModelMetadata(parseModel string) (ModelMetadata, st
 	return parseMetadata, parseResolvedModel, nil
 }
 
+// ParsePricing returns the pricing snapshot.
 func (parseR *Registry) ParsePricing(parseModel string) (ModelPricing, string, error) {
 	parseMetadata, parseResolvedModel, parseErr := parseR.ParseModelMetadata(parseModel)
 	if parseErr != nil {
@@ -245,6 +256,7 @@ func (parseR *Registry) ParsePricing(parseModel string) (ModelPricing, string, e
 	return parseMetadata.Pricing, parseResolvedModel, nil
 }
 
+// ParseHealthSnapshots returns the health snapshots.
 func (parseR *Registry) ParseHealthSnapshots() []ProviderHealth {
 	if parseR == nil || len(parseR.providers) == 0 {
 		return nil
@@ -256,6 +268,7 @@ func (parseR *Registry) ParseHealthSnapshots() []ProviderHealth {
 	return parseSnapshots
 }
 
+// ParseRequireCapability returns an error unless the requested capability is present.
 func (parseR *Registry) ParseRequireCapability(parseModel string, parseCapability Capability) (ChatProvider, string, ModelCapabilities, error) {
 	parseCurrentProvider, parseResolvedModel, parseErr := parseR.ParseResolve(parseModel)
 	if parseErr != nil {
@@ -272,6 +285,7 @@ func (parseR *Registry) ParseRequireCapability(parseModel string, parseCapabilit
 	return parseCurrentProvider, parseResolvedModel, parseCapabilities, nil
 }
 
+// ParseNormalizeRole normalizes one chat role for provider payloads.
 func ParseNormalizeRole(parseRole string) string {
 	parseResolvedRole := strings.TrimSpace(strings.ToLower(parseRole))
 	switch parseResolvedRole {
@@ -282,6 +296,7 @@ func ParseNormalizeRole(parseRole string) string {
 	}
 }
 
+// BuildConversationInput builds the provider-facing conversation input.
 func BuildConversationInput(parseHistory []ChatMessage, parseUserMessage string) string {
 	var parseBuilder strings.Builder
 	parseBuilder.WriteString("Continue this conversation naturally. The latest user turn is last.\n\n")

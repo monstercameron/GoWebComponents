@@ -14,12 +14,15 @@ const parseExternalIdentityLinkActionLinkExisting = "link_existing"
 const parseExternalIdentityLinkActionCreateUser = "create_user"
 
 type parseExternalIdentityLinkRequest struct {
-	ParseProviderKey          string
-	ParseProviderSubject      string
-	ParseVerifiedEmail        string
-	IsParseEmailVerified      bool
-	ParseSubjectLinkedUserIDs []int64
-	ParseEmailMatchedUsers    []parseExternalIdentityEmailMatch
+	ParseProviderKey           string
+	ParseProviderSubject       string
+	ParseVerifiedEmail         string
+	IsParseEmailVerified       bool
+	IsParsePolicyEnforced      bool
+	IsParsePasswordLinkAllowed bool
+	IsParseUserCreateAllowed   bool
+	ParseSubjectLinkedUserIDs  []int64
+	ParseEmailMatchedUsers     []parseExternalIdentityEmailMatch
 }
 
 type parseExternalIdentityEmailMatch struct {
@@ -37,6 +40,12 @@ type parseExternalIdentityLinkDecision struct {
 
 // parseResolveExternalIdentityLinkDecision enforces canonical account-linking policy for one external identity login.
 func parseResolveExternalIdentityLinkDecision(parseRequest parseExternalIdentityLinkRequest) (parseExternalIdentityLinkDecision, error) {
+	parseIsPasswordLinkAllowed := true
+	parseIsUserCreateAllowed := true
+	if parseRequest.IsParsePolicyEnforced {
+		parseIsPasswordLinkAllowed = parseRequest.IsParsePasswordLinkAllowed
+		parseIsUserCreateAllowed = parseRequest.IsParseUserCreateAllowed
+	}
 	parseProviderKey := parseNormalizeExternalIdentityProviderKey(parseRequest.ParseProviderKey)
 	if parseProviderKey == "" {
 		return parseExternalIdentityLinkDecision{ParseAction: parseExternalIdentityLinkActionReject}, status.Error(codes.InvalidArgument, "external auth provider key is required")
@@ -66,6 +75,9 @@ func parseResolveExternalIdentityLinkDecision(parseRequest parseExternalIdentity
 	parseEmailMatchedUsers := parseBuildExternalIdentityUniqueEmailMatches(parseRequest.ParseEmailMatchedUsers)
 	switch len(parseEmailMatchedUsers) {
 	case 0:
+		if !parseIsUserCreateAllowed {
+			return parseExternalIdentityLinkDecision{ParseAction: parseExternalIdentityLinkActionReject}, status.Error(codes.PermissionDenied, "workspace policy blocks external identity user creation")
+		}
 		return parseExternalIdentityLinkDecision{
 			ParseAction: parseExternalIdentityLinkActionCreateUser,
 			ParseReason: "verified_email_no_match",
@@ -74,6 +86,9 @@ func parseResolveExternalIdentityLinkDecision(parseRequest parseExternalIdentity
 		parseMatchedUser := parseEmailMatchedUsers[0]
 		if parseHasExternalIdentityProviderSubjectConflict(parseProviderSubject, parseMatchedUser.ParseProviderLinkedSubjects) {
 			return parseExternalIdentityLinkDecision{ParseAction: parseExternalIdentityLinkActionReject}, status.Error(codes.PermissionDenied, "provider account conflict for matched email user")
+		}
+		if parseMatchedUser.IsParsePasswordAuthEnabled && !parseIsPasswordLinkAllowed {
+			return parseExternalIdentityLinkDecision{ParseAction: parseExternalIdentityLinkActionReject}, status.Error(codes.PermissionDenied, "workspace policy blocks external identity link to password account")
 		}
 		return parseExternalIdentityLinkDecision{
 			ParseAction:                  parseExternalIdentityLinkActionLinkExisting,

@@ -69,6 +69,7 @@ func (parseLoader *parseCatalogLoader) parseLoadCatalogNamespace(parseNamespace 
 		IncludeNamespaces: []string{parseNamespace},
 	})
 	parseMessages := parseBuildCatalogNamespaceMessages(parseBootstrap.Messages, parseNamespace, parseLocale, parseFallbackLocale)
+	parseMessages = parseApplyCatalogLaunchTruthFilter(parseMessages, parseLocale)
 	return parseBuildCatalogNamespacePayload(parseNamespace, parseLocale, parseFallbackLocale, parseLoader.parseVersion, parseSourceWrite, parseMessages), nil
 }
 

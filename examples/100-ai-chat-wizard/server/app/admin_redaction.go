@@ -96,4 +96,3 @@ func parseRedactAdminBillingEventEntryByScope(parseScope parseAdminAccessScope, 
 	parseRedactedEntry.EventPayloadJson = "{}"
 	return &parseRedactedEntry
 }
-

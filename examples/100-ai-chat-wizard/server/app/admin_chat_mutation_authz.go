@@ -60,4 +60,3 @@ func parseAuthorizeAdminWorkspaceChatMutationScope(parseScope parseAdminAccessSc
 	}
 	return parseScope, nil
 }
-

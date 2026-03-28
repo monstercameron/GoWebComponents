@@ -114,18 +114,18 @@ func TestMemoryRPCFallbacksWithoutStore(parseT *testing.T) {
 	if parseErr != nil || len(parseListResp.GetMemories()) != 0 {
 		parseT.Fatalf("expected empty memory fallback response, resp=%+v err=%v", parseListResp, parseErr)
 	}
-	if _, parseErr2 := parseServer.UpsertUserMemory(parseCtx, &chatpb.UpsertUserMemoryRequest{}); parseErr2 != nil {
-		parseT.Fatalf("expected no-store UpsertUserMemory to no-op, got %v", parseErr2)
+	if _, parseErr2 := parseServer.UpsertUserMemory(parseCtx, &chatpb.UpsertUserMemoryRequest{}); status.Code(parseErr2) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable for no-store UpsertUserMemory, got %v", status.Code(parseErr2))
 	}
-	if _, parseErr3 := parseServer.DeleteUserMemory(parseCtx, &chatpb.DeleteUserMemoryRequest{}); parseErr3 != nil {
-		parseT.Fatalf("expected no-store DeleteUserMemory to no-op, got %v", parseErr3)
+	if _, parseErr3 := parseServer.DeleteUserMemory(parseCtx, &chatpb.DeleteUserMemoryRequest{}); status.Code(parseErr3) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable for no-store DeleteUserMemory, got %v", status.Code(parseErr3))
 	}
 	parseCustomPrompt, parseErr := parseServer.GetCustomSystemPrompt(parseCtx, &emptypb.Empty{})
 	if parseErr != nil || parseCustomPrompt.GetValue() != defaultCustomSystemPromptTemplate {
 		parseT.Fatalf("expected default custom prompt fallback, resp=%+v err=%v", parseCustomPrompt, parseErr)
 	}
-	if _, parseErr4 := parseServer.SetCustomSystemPrompt(parseCtx, wrapperspb.String("ignored")); parseErr4 != nil {
-		parseT.Fatalf("expected no-store SetCustomSystemPrompt to no-op, got %v", parseErr4)
+	if _, parseErr4 := parseServer.SetCustomSystemPrompt(parseCtx, wrapperspb.String("ignored")); status.Code(parseErr4) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable for no-store SetCustomSystemPrompt, got %v", status.Code(parseErr4))
 	}
 
 	parseServer.parseUnbindAuthenticatedPeer("peer-memory-fallbacks")

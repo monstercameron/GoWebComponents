@@ -23,7 +23,7 @@ type RateLimitSnapshot struct {
 	Source            string
 }
 
-// Empty reports whether the snapshot contains any usable quota information.
+// ParseEmpty returns the exported helper result.
 func (parseSnapshot RateLimitSnapshot) ParseEmpty() bool {
 	return parseSnapshot.RequestsPerMinute == (RateLimitBucket{}) &&
 		parseSnapshot.RequestsPerHour == (RateLimitBucket{}) &&

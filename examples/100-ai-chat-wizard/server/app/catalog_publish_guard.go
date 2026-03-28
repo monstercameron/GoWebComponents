@@ -11,12 +11,12 @@ import (
 )
 
 const (
-	parseCatalogSourceLayerGoEmbed            = "go_embed"
-	parseCatalogSourceLayerSiteOverride       = "site_override"
+	parseCatalogSourceLayerGoEmbed             = "go_embed"
+	parseCatalogSourceLayerSiteOverride        = "site_override"
 	parseCatalogSourceLayerEnvironmentOverride = "environment_override"
-	parseCatalogSourceLayerTenantOverride     = "tenant_override"
-	parseCatalogSourceLayerExperimentOverride = "experiment_override"
-	parseCatalogSourceLayerCampaignOverride   = "campaign_override"
+	parseCatalogSourceLayerTenantOverride      = "tenant_override"
+	parseCatalogSourceLayerExperimentOverride  = "experiment_override"
+	parseCatalogSourceLayerCampaignOverride    = "campaign_override"
 )
 
 // parseNormalizeCatalogSourceLayer normalizes one catalog source layer token.

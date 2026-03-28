@@ -41,6 +41,7 @@ type parseAuthOIDCStateWrite struct {
 	ReturnToURL     string
 	ExpectedSubject string
 	ExpiresAt       string
+	ConsumedAt      string
 	CreatedByUserID int64
 }
 
@@ -61,55 +62,52 @@ type parseAuthOIDCStateRow struct {
 }
 
 type parseWorkspaceAuthPolicyWrite struct {
-	WorkspaceID                  int64
-	IsPasswordAllowed            bool
-	IsExternalLoginAllowed       bool
-	IsSSORequired                bool
-	RequiredProviderKey          string
-	IsJITProvisioningAllowed     bool
-	IsLocalPasswordQAModeAllowed bool
-	UpdatedByUserID              int64
+	WorkspaceID              int64
+	IsPasswordAllowed        bool
+	IsExternalLoginAllowed   bool
+	IsSSORequired            bool
+	RequiredProviderKey      string
+	IsJITProvisioningAllowed bool
+	IsLocalPasswordQAAllowed bool
+	UpdatedByUserID          int64
 }
 
 type parseWorkspaceAuthPolicyRow struct {
-	WorkspaceID                  int64
-	IsPasswordAllowed            bool
-	IsExternalLoginAllowed       bool
-	IsSSORequired                bool
-	RequiredProviderKey          string
-	IsJITProvisioningAllowed     bool
-	IsLocalPasswordQAModeAllowed bool
-	UpdatedByUserID              int64
-	UpdatedAt                    string
+	WorkspaceID              int64
+	IsPasswordAllowed        bool
+	IsExternalLoginAllowed   bool
+	IsSSORequired            bool
+	RequiredProviderKey      string
+	IsJITProvisioningAllowed bool
+	IsLocalPasswordQAAllowed bool
+	UpdatedByUserID          int64
+	UpdatedAt                string
 }
 
-// parseBoolToInt64 converts one boolean flag into one sqlite-compatible integer value.
-func parseBoolToInt64(isParseEnabled bool) int64 {
-	if isParseEnabled {
-		return 1
-	}
-	return 0
+// parseNormalizeAuthProviderKey normalizes one provider key into one canonical external-auth value.
+func parseNormalizeAuthProviderKey(parseProviderKey string) string {
+	return parseNormalizeExternalIdentityProviderKey(parseProviderKey)
 }
 
-// parseNormalizeAuthIdentityProviderType normalizes one identity provider type with provider-key fallback.
-func parseNormalizeAuthIdentityProviderType(parseProviderType string, parseProviderKey string) string {
+// parseNormalizeAuthProviderType normalizes one provider type with provider-key fallback.
+func parseNormalizeAuthProviderType(parseProviderType string, parseProviderKey string) string {
 	parseProviderType = strings.TrimSpace(strings.ToLower(parseProviderType))
 	switch parseProviderType {
 	case "oidc", "saml":
 		return parseProviderType
 	}
-	if parseNormalizeExternalIdentityProviderKey(parseProviderKey) == parseWorkspaceAuthMethodSAML {
+	if parseProviderKey == parseWorkspaceAuthMethodSAML {
 		return "saml"
 	}
 	return "oidc"
 }
 
-// parseUpsertAuthIdentity persists one external identity row and returns the stored identity snapshot.
+// parseUpsertAuthIdentity persists one external identity row keyed by provider subject.
 func (parseS *Store) parseUpsertAuthIdentity(parseWrite parseAuthIdentityWrite) (parseAuthIdentityRow, error) {
 	if parseWrite.UserID <= 0 {
 		return parseAuthIdentityRow{}, errors.New("upsert auth identity: user id is required")
 	}
-	parseProviderKey := parseNormalizeExternalIdentityProviderKey(parseWrite.ProviderKey)
+	parseProviderKey := parseNormalizeAuthProviderKey(parseWrite.ProviderKey)
 	if parseProviderKey == "" {
 		return parseAuthIdentityRow{}, errors.New("upsert auth identity: provider key is required")
 	}
@@ -130,10 +128,10 @@ func (parseS *Store) parseUpsertAuthIdentity(parseWrite parseAuthIdentityWrite) 
 		parseS.queries.upsertAuthIdentity,
 		parseWrite.UserID,
 		parseProviderKey,
-		parseNormalizeAuthIdentityProviderType(parseWrite.ProviderType, parseProviderKey),
+		parseNormalizeAuthProviderType(parseWrite.ProviderType, parseProviderKey),
 		parseProviderSubject,
 		parseNormalizeAuthEmail(parseWrite.Email),
-		parseBoolToInt64(parseWrite.IsEmailVerified),
+		parseBuildBillingFlagValue(parseWrite.IsEmailVerified),
 		parseProfileJSON,
 		parseLastLoginAt,
 		parseNow,
@@ -146,87 +144,89 @@ func (parseS *Store) parseUpsertAuthIdentity(parseWrite parseAuthIdentityWrite) 
 	if parseRowsAffected, parseErr2 := parseResult.RowsAffected(); parseErr2 == nil && parseRowsAffected == 0 {
 		return parseAuthIdentityRow{}, errStoreUserMissing
 	}
-	parseRow, isParseFound, parseErr := parseS.parseGetAuthIdentityByProviderSubject(parseProviderKey, parseProviderSubject)
+	parseIdentityRow, isParseFound, parseErr := parseS.parseGetAuthIdentityByProviderSubject(parseProviderKey, parseProviderSubject)
 	if parseErr != nil {
 		return parseAuthIdentityRow{}, parseErr
 	}
 	if !isParseFound {
-		return parseAuthIdentityRow{}, errors.New("upsert auth identity: persisted row missing")
+		return parseAuthIdentityRow{}, errors.New("upsert auth identity: identity row missing after write")
 	}
-	return parseRow, nil
+	return parseIdentityRow, nil
 }
 
-// parseGetAuthIdentityByProviderSubject returns one identity row by provider+subject when present.
-func (parseS *Store) parseGetAuthIdentityByProviderSubject(parseProviderKey string, parseProviderSubject string) (parseAuthIdentityRow, bool, error) {
-	parseProviderKey = parseNormalizeExternalIdentityProviderKey(parseProviderKey)
+// parseGetAuthIdentityByProviderSubject returns one external identity row for one provider subject pair.
+func (parseS *Store) parseGetAuthIdentityByProviderSubject(parseProviderKey, parseProviderSubject string) (parseAuthIdentityRow, bool, error) {
+	parseProviderKey = parseNormalizeAuthProviderKey(parseProviderKey)
 	parseProviderSubject = strings.TrimSpace(parseProviderSubject)
 	if parseProviderKey == "" || parseProviderSubject == "" {
 		return parseAuthIdentityRow{}, false, nil
 	}
 	parseRow := parseS.db.QueryRow(parseS.queries.getAuthIdentityByProviderSubject, parseProviderKey, parseProviderSubject)
-	var parseIdentity parseAuthIdentityRow
+	var parseIdentityRow parseAuthIdentityRow
 	var parseIsEmailVerified int64
 	if parseErr := parseRow.Scan(
-		&parseIdentity.ID,
-		&parseIdentity.UserID,
-		&parseIdentity.ProviderKey,
-		&parseIdentity.ProviderType,
-		&parseIdentity.ProviderSubject,
-		&parseIdentity.Email,
+		&parseIdentityRow.ID,
+		&parseIdentityRow.UserID,
+		&parseIdentityRow.ProviderKey,
+		&parseIdentityRow.ProviderType,
+		&parseIdentityRow.ProviderSubject,
+		&parseIdentityRow.Email,
 		&parseIsEmailVerified,
-		&parseIdentity.ProfileJSON,
-		&parseIdentity.LastLoginAt,
-		&parseIdentity.CreatedAt,
-		&parseIdentity.UpdatedAt,
+		&parseIdentityRow.ProfileJSON,
+		&parseIdentityRow.LastLoginAt,
+		&parseIdentityRow.CreatedAt,
+		&parseIdentityRow.UpdatedAt,
 	); parseErr != nil {
 		if errors.Is(parseErr, sql.ErrNoRows) {
 			return parseAuthIdentityRow{}, false, nil
 		}
 		return parseAuthIdentityRow{}, false, parseErr
 	}
-	parseIdentity.IsEmailVerified = parseIsEmailVerified != 0
-	return parseIdentity, true, nil
+	parseIdentityRow.IsEmailVerified = parseIsEmailVerified != 0
+	return parseIdentityRow, true, nil
 }
 
-// parseListAuthIdentitiesByUser returns identity rows for one user newest-first.
+// parseListAuthIdentitiesByUser lists external identity rows for one user.
 func (parseS *Store) parseListAuthIdentitiesByUser(parseUserID int64) ([]parseAuthIdentityRow, error) {
 	if parseUserID <= 0 {
-		return nil, nil
+		return []parseAuthIdentityRow{}, nil
 	}
 	parseRows, parseErr := parseS.db.Query(parseS.queries.listAuthIdentitiesByUser, parseUserID)
 	if parseErr != nil {
 		return nil, parseErr
 	}
 	defer parseRows.Close()
-
-	parseIdentityRows := make([]parseAuthIdentityRow, 0)
+	parseIdentityRows := make([]parseAuthIdentityRow, 0, 4)
 	for parseRows.Next() {
-		var parseIdentity parseAuthIdentityRow
+		var parseIdentityRow parseAuthIdentityRow
 		var parseIsEmailVerified int64
 		if parseErr2 := parseRows.Scan(
-			&parseIdentity.ID,
-			&parseIdentity.UserID,
-			&parseIdentity.ProviderKey,
-			&parseIdentity.ProviderType,
-			&parseIdentity.ProviderSubject,
-			&parseIdentity.Email,
+			&parseIdentityRow.ID,
+			&parseIdentityRow.UserID,
+			&parseIdentityRow.ProviderKey,
+			&parseIdentityRow.ProviderType,
+			&parseIdentityRow.ProviderSubject,
+			&parseIdentityRow.Email,
 			&parseIsEmailVerified,
-			&parseIdentity.ProfileJSON,
-			&parseIdentity.LastLoginAt,
-			&parseIdentity.CreatedAt,
-			&parseIdentity.UpdatedAt,
+			&parseIdentityRow.ProfileJSON,
+			&parseIdentityRow.LastLoginAt,
+			&parseIdentityRow.CreatedAt,
+			&parseIdentityRow.UpdatedAt,
 		); parseErr2 != nil {
 			return nil, parseErr2
 		}
-		parseIdentity.IsEmailVerified = parseIsEmailVerified != 0
-		parseIdentityRows = append(parseIdentityRows, parseIdentity)
+		parseIdentityRow.IsEmailVerified = parseIsEmailVerified != 0
+		parseIdentityRows = append(parseIdentityRows, parseIdentityRow)
 	}
-	return parseIdentityRows, parseRows.Err()
+	if parseErr2 := parseRows.Err(); parseErr2 != nil {
+		return nil, parseErr2
+	}
+	return parseIdentityRows, nil
 }
 
-// parseDeleteAuthIdentityByScope deletes one provider identity for one user scope.
+// parseDeleteAuthIdentityByScope deletes one provider identity binding for one user.
 func (parseS *Store) parseDeleteAuthIdentityByScope(parseUserID int64, parseProviderKey string) error {
-	parseProviderKey = parseNormalizeExternalIdentityProviderKey(parseProviderKey)
+	parseProviderKey = parseNormalizeAuthProviderKey(parseProviderKey)
 	if parseUserID <= 0 || parseProviderKey == "" {
 		return nil
 	}
@@ -234,42 +234,47 @@ func (parseS *Store) parseDeleteAuthIdentityByScope(parseUserID int64, parseProv
 	return parseErr
 }
 
-// parseCreateAuthOIDCState persists one OIDC handshake state row and returns the stored snapshot.
+// parseCreateAuthOIDCState inserts one external-auth handshake state row.
 func (parseS *Store) parseCreateAuthOIDCState(parseWrite parseAuthOIDCStateWrite) (parseAuthOIDCStateRow, error) {
-	parseProviderKey := parseNormalizeExternalIdentityProviderKey(parseWrite.ProviderKey)
-	if parseProviderKey == "" {
-		return parseAuthOIDCStateRow{}, errors.New("create auth oidc state: provider key is required")
-	}
+	parseProviderKey := parseNormalizeAuthProviderKey(parseWrite.ProviderKey)
 	parseSessionKey := strings.TrimSpace(parseWrite.SessionKey)
 	parseStateTokenHash := strings.TrimSpace(parseWrite.StateTokenHash)
 	parseNonceTokenHash := strings.TrimSpace(parseWrite.NonceTokenHash)
 	parseExpiresAt := strings.TrimSpace(parseWrite.ExpiresAt)
-	if parseSessionKey == "" || parseStateTokenHash == "" || parseNonceTokenHash == "" || parseExpiresAt == "" {
-		return parseAuthOIDCStateRow{}, errors.New("create auth oidc state: session key, state token hash, nonce token hash, and expires at are required")
+	if parseProviderKey == "" || parseSessionKey == "" || parseStateTokenHash == "" || parseNonceTokenHash == "" || parseExpiresAt == "" {
+		return parseAuthOIDCStateRow{}, errors.New("create auth oidc state: provider key, session key, state hash, nonce hash, and expires at are required")
 	}
+	parseWorkspaceID := parseWrite.WorkspaceID
+	if parseWorkspaceID < 0 {
+		parseWorkspaceID = 0
+	}
+	parseCreatedByUserID := parseWrite.CreatedByUserID
+	if parseCreatedByUserID < 0 {
+		parseCreatedByUserID = 0
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseReturnToURL := strings.TrimSpace(parseWrite.ReturnToURL)
 	if parseReturnToURL == "" {
 		parseReturnToURL = "/"
 	}
-	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
 		parseS.queries.createAuthOIDCState,
 		parseProviderKey,
-		parseWrite.WorkspaceID,
+		parseWorkspaceID,
 		parseSessionKey,
 		parseStateTokenHash,
 		parseNonceTokenHash,
 		parseReturnToURL,
 		strings.TrimSpace(parseWrite.ExpectedSubject),
 		parseExpiresAt,
-		"",
-		parseWrite.CreatedByUserID,
+		strings.TrimSpace(parseWrite.ConsumedAt),
+		parseCreatedByUserID,
 		parseNow,
 		parseNow,
-		parseWrite.WorkspaceID,
-		parseWrite.WorkspaceID,
-		parseWrite.CreatedByUserID,
-		parseWrite.CreatedByUserID,
+		parseWorkspaceID,
+		parseWorkspaceID,
+		parseCreatedByUserID,
+		parseCreatedByUserID,
 	)
 	if parseErr != nil {
 		return parseAuthOIDCStateRow{}, parseErr
@@ -277,48 +282,48 @@ func (parseS *Store) parseCreateAuthOIDCState(parseWrite parseAuthOIDCStateWrite
 	if parseRowsAffected, parseErr2 := parseResult.RowsAffected(); parseErr2 == nil && parseRowsAffected == 0 {
 		return parseAuthOIDCStateRow{}, errStoreSuperuserScopeMissing
 	}
-	parseRow, isParseFound, parseErr := parseS.parseGetAuthOIDCStateByStateTokenHash(parseStateTokenHash)
+	parseStateRow, isParseFound, parseErr := parseS.parseGetAuthOIDCStateByStateTokenHash(parseStateTokenHash)
 	if parseErr != nil {
 		return parseAuthOIDCStateRow{}, parseErr
 	}
 	if !isParseFound {
-		return parseAuthOIDCStateRow{}, errors.New("create auth oidc state: persisted row missing")
+		return parseAuthOIDCStateRow{}, errors.New("create auth oidc state: row missing after write")
 	}
-	return parseRow, nil
+	return parseStateRow, nil
 }
 
-// parseGetAuthOIDCStateByStateTokenHash resolves one OIDC state row by state token hash.
+// parseGetAuthOIDCStateByStateTokenHash returns one external-auth handshake state row by state token hash.
 func (parseS *Store) parseGetAuthOIDCStateByStateTokenHash(parseStateTokenHash string) (parseAuthOIDCStateRow, bool, error) {
 	parseStateTokenHash = strings.TrimSpace(parseStateTokenHash)
 	if parseStateTokenHash == "" {
 		return parseAuthOIDCStateRow{}, false, nil
 	}
 	parseRow := parseS.db.QueryRow(parseS.queries.getAuthOIDCStateByStateTokenHash, parseStateTokenHash)
-	var parseState parseAuthOIDCStateRow
+	var parseStateRow parseAuthOIDCStateRow
 	if parseErr := parseRow.Scan(
-		&parseState.ID,
-		&parseState.ProviderKey,
-		&parseState.WorkspaceID,
-		&parseState.SessionKey,
-		&parseState.StateTokenHash,
-		&parseState.NonceTokenHash,
-		&parseState.ReturnToURL,
-		&parseState.ExpectedSubject,
-		&parseState.ExpiresAt,
-		&parseState.ConsumedAt,
-		&parseState.CreatedByUserID,
-		&parseState.CreatedAt,
-		&parseState.UpdatedAt,
+		&parseStateRow.ID,
+		&parseStateRow.ProviderKey,
+		&parseStateRow.WorkspaceID,
+		&parseStateRow.SessionKey,
+		&parseStateRow.StateTokenHash,
+		&parseStateRow.NonceTokenHash,
+		&parseStateRow.ReturnToURL,
+		&parseStateRow.ExpectedSubject,
+		&parseStateRow.ExpiresAt,
+		&parseStateRow.ConsumedAt,
+		&parseStateRow.CreatedByUserID,
+		&parseStateRow.CreatedAt,
+		&parseStateRow.UpdatedAt,
 	); parseErr != nil {
 		if errors.Is(parseErr, sql.ErrNoRows) {
 			return parseAuthOIDCStateRow{}, false, nil
 		}
 		return parseAuthOIDCStateRow{}, false, parseErr
 	}
-	return parseState, true, nil
+	return parseStateRow, true, nil
 }
 
-// parseConsumeAuthOIDCStateByStateTokenHash marks one OIDC state row consumed once and reports whether a row changed.
+// parseConsumeAuthOIDCStateByStateTokenHash marks one external-auth handshake state as consumed exactly once.
 func (parseS *Store) parseConsumeAuthOIDCStateByStateTokenHash(parseStateTokenHash string, parseConsumedAt time.Time) (bool, error) {
 	parseStateTokenHash = strings.TrimSpace(parseStateTokenHash)
 	if parseStateTokenHash == "" {
@@ -327,110 +332,108 @@ func (parseS *Store) parseConsumeAuthOIDCStateByStateTokenHash(parseStateTokenHa
 	if parseConsumedAt.IsZero() {
 		parseConsumedAt = time.Now().UTC()
 	}
-	parseConsumedAtText := parseConsumedAt.UTC().Format(time.RFC3339)
+	parseConsumedAtValue := parseConsumedAt.UTC().Format(time.RFC3339)
+	parseUpdatedAt := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
 		parseS.queries.consumeAuthOIDCStateByStateTokenHash,
-		parseConsumedAtText,
-		parseConsumedAtText,
+		parseConsumedAtValue,
+		parseUpdatedAt,
 		parseStateTokenHash,
 	)
 	if parseErr != nil {
 		return false, parseErr
 	}
-	parseRowsAffected, parseErr := parseResult.RowsAffected()
-	if parseErr != nil {
-		return false, parseErr
+	parseRowsAffected, parseErr2 := parseResult.RowsAffected()
+	if parseErr2 != nil {
+		return false, parseErr2
 	}
 	return parseRowsAffected > 0, nil
 }
 
-// parseDeleteExpiredAuthOIDCStates deletes expired OIDC state rows and returns the deleted row count.
-func (parseS *Store) parseDeleteExpiredAuthOIDCStates(parseBefore time.Time) (int64, error) {
-	if parseBefore.IsZero() {
-		parseBefore = time.Now().UTC()
+// parseDeleteExpiredAuthOIDCStates deletes expired external-auth handshake states and returns the number of rows removed.
+func (parseS *Store) parseDeleteExpiredAuthOIDCStates(parseNow time.Time) (int64, error) {
+	if parseNow.IsZero() {
+		parseNow = time.Now().UTC()
 	}
-	parseResult, parseErr := parseS.db.Exec(parseS.queries.deleteExpiredAuthOIDCStates, parseBefore.UTC().Format(time.RFC3339))
+	parseResult, parseErr := parseS.db.Exec(parseS.queries.deleteExpiredAuthOIDCStates, parseNow.UTC().Format(time.RFC3339))
 	if parseErr != nil {
 		return 0, parseErr
 	}
-	parseRowsAffected, parseErr := parseResult.RowsAffected()
-	if parseErr != nil {
-		return 0, parseErr
+	parseRowsAffected, parseErr2 := parseResult.RowsAffected()
+	if parseErr2 != nil {
+		return 0, parseErr2
 	}
 	return parseRowsAffected, nil
 }
 
-// parseUpsertWorkspaceAuthPolicy persists one workspace auth-policy row and returns the stored snapshot.
-func (parseS *Store) parseUpsertWorkspaceAuthPolicy(parseWrite parseWorkspaceAuthPolicyWrite) (parseWorkspaceAuthPolicyRow, error) {
+// parseUpsertWorkspaceAuthPolicy upserts one workspace login policy row.
+func (parseS *Store) parseUpsertWorkspaceAuthPolicy(parseWrite parseWorkspaceAuthPolicyWrite) error {
 	if parseWrite.WorkspaceID <= 0 {
-		return parseWorkspaceAuthPolicyRow{}, errors.New("upsert workspace auth policy: workspace id is required")
+		return errors.New("upsert workspace auth policy: workspace id is required")
 	}
-	parseRequiredProviderKey := parseNormalizeExternalIdentityProviderKey(parseWrite.RequiredProviderKey)
+	parseRequiredProviderKeyRaw := strings.TrimSpace(parseWrite.RequiredProviderKey)
+	parseRequiredProviderKey := parseNormalizeAuthProviderKey(parseRequiredProviderKeyRaw)
+	if parseRequiredProviderKeyRaw != "" && parseRequiredProviderKey == "" {
+		return errors.New("upsert workspace auth policy: required provider key is invalid")
+	}
 	if parseRequiredProviderKey != "" && !parseWrite.IsExternalLoginAllowed {
-		return parseWorkspaceAuthPolicyRow{}, errors.New("upsert workspace auth policy: required provider requires external login allowed")
+		return errors.New("upsert workspace auth policy: required provider requires external login allowed")
 	}
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
 		parseS.queries.upsertWorkspaceAuthPolicy,
 		parseWrite.WorkspaceID,
-		parseBoolToInt64(parseWrite.IsPasswordAllowed),
-		parseBoolToInt64(parseWrite.IsExternalLoginAllowed),
-		parseBoolToInt64(parseWrite.IsSSORequired),
+		parseBuildBillingFlagValue(parseWrite.IsPasswordAllowed),
+		parseBuildBillingFlagValue(parseWrite.IsExternalLoginAllowed),
+		parseBuildBillingFlagValue(parseWrite.IsSSORequired),
 		parseRequiredProviderKey,
-		parseBoolToInt64(parseWrite.IsJITProvisioningAllowed),
-		parseBoolToInt64(parseWrite.IsLocalPasswordQAModeAllowed),
+		parseBuildBillingFlagValue(parseWrite.IsJITProvisioningAllowed),
+		parseBuildBillingFlagValue(parseWrite.IsLocalPasswordQAAllowed),
 		parseWrite.UpdatedByUserID,
 		parseNow,
 		parseWrite.WorkspaceID,
 	)
 	if parseErr != nil {
-		return parseWorkspaceAuthPolicyRow{}, parseErr
+		return parseErr
 	}
 	if parseRowsAffected, parseErr2 := parseResult.RowsAffected(); parseErr2 == nil && parseRowsAffected == 0 {
-		return parseWorkspaceAuthPolicyRow{}, errStoreSuperuserScopeMissing
+		return errStoreSuperuserScopeMissing
 	}
-	parseRow, isParseFound, parseErr := parseS.parseGetWorkspaceAuthPolicyByWorkspace(parseWrite.WorkspaceID)
-	if parseErr != nil {
-		return parseWorkspaceAuthPolicyRow{}, parseErr
-	}
-	if !isParseFound {
-		return parseWorkspaceAuthPolicyRow{}, errors.New("upsert workspace auth policy: persisted row missing")
-	}
-	return parseRow, nil
+	return nil
 }
 
-// parseGetWorkspaceAuthPolicyByWorkspace returns one workspace auth-policy row when present.
+// parseGetWorkspaceAuthPolicyByWorkspace returns one persisted workspace auth policy row when present.
 func (parseS *Store) parseGetWorkspaceAuthPolicyByWorkspace(parseWorkspaceID int64) (parseWorkspaceAuthPolicyRow, bool, error) {
 	if parseWorkspaceID <= 0 {
 		return parseWorkspaceAuthPolicyRow{}, false, nil
 	}
 	parseRow := parseS.db.QueryRow(parseS.queries.getWorkspaceAuthPolicyByWorkspace, parseWorkspaceID)
-	var parsePolicy parseWorkspaceAuthPolicyRow
+	var parsePolicyRow parseWorkspaceAuthPolicyRow
 	var parseIsPasswordAllowed int64
 	var parseIsExternalLoginAllowed int64
 	var parseIsSSORequired int64
 	var parseIsJITProvisioningAllowed int64
-	var parseIsLocalPasswordQAModeAllowed int64
+	var parseIsLocalPasswordQAAllowed int64
 	if parseErr := parseRow.Scan(
-		&parsePolicy.WorkspaceID,
+		&parsePolicyRow.WorkspaceID,
 		&parseIsPasswordAllowed,
 		&parseIsExternalLoginAllowed,
 		&parseIsSSORequired,
-		&parsePolicy.RequiredProviderKey,
+		&parsePolicyRow.RequiredProviderKey,
 		&parseIsJITProvisioningAllowed,
-		&parseIsLocalPasswordQAModeAllowed,
-		&parsePolicy.UpdatedByUserID,
-		&parsePolicy.UpdatedAt,
+		&parseIsLocalPasswordQAAllowed,
+		&parsePolicyRow.UpdatedByUserID,
+		&parsePolicyRow.UpdatedAt,
 	); parseErr != nil {
 		if errors.Is(parseErr, sql.ErrNoRows) {
 			return parseWorkspaceAuthPolicyRow{}, false, nil
 		}
 		return parseWorkspaceAuthPolicyRow{}, false, parseErr
 	}
-	parsePolicy.IsPasswordAllowed = parseIsPasswordAllowed != 0
-	parsePolicy.IsExternalLoginAllowed = parseIsExternalLoginAllowed != 0
-	parsePolicy.IsSSORequired = parseIsSSORequired != 0
-	parsePolicy.IsJITProvisioningAllowed = parseIsJITProvisioningAllowed != 0
-	parsePolicy.IsLocalPasswordQAModeAllowed = parseIsLocalPasswordQAModeAllowed != 0
-	return parsePolicy, true, nil
+	parsePolicyRow.IsPasswordAllowed = parseIsPasswordAllowed != 0
+	parsePolicyRow.IsExternalLoginAllowed = parseIsExternalLoginAllowed != 0
+	parsePolicyRow.IsSSORequired = parseIsSSORequired != 0
+	parsePolicyRow.IsJITProvisioningAllowed = parseIsJITProvisioningAllowed != 0
+	parsePolicyRow.IsLocalPasswordQAAllowed = parseIsLocalPasswordQAAllowed != 0
+	return parsePolicyRow, true, nil
 }

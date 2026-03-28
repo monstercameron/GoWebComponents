@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -46,10 +47,20 @@ func parseRequireAdminMutationConfirmation(parseAction parseAdminMutationAction,
 
 // parseExecuteAdminMutationAction authorizes one admin mutation intent and applies runtime auth/session side effects.
 func (parseS *chatServer) parseExecuteAdminMutationAction(parseCtx context.Context, parseAction parseAdminMutationAction, parseTarget parseAdminMutationTarget) error {
+	parseTargetScope := parseResolveAdminMutationTargetScope(parseAction)
+	var parseMutationLogger *slog.Logger
 	if parseS != nil && parseS.logger != nil {
-		parseS.logger.Info(
+		parseMutationLogger = parseS.logger.With(parseBuildLogFieldAttrs(parseCtx, parseLogFieldSpec{
+			ParseAction:            strings.TrimSpace(string(parseAction)),
+			ParseTargetScope:       parseTargetScope,
+			ParseTargetUserID:      parseTarget.userID,
+			ParseTargetWorkspaceID: parseTarget.workspaceID,
+		})...)
+		parseMutationLogger.Info(
 			"rpc.admin mutation submit",
 			slog.String("action", strings.TrimSpace(string(parseAction))),
+			slog.String("actor.scope", "pending"),
+			slog.String("target.scope", parseTargetScope),
 			slog.Int64("target_user_id", parseTarget.userID),
 			slog.Int64("target_workspace_id", parseTarget.workspaceID),
 			slog.Bool("confirmed", parseTarget.isConfirmed),
@@ -57,10 +68,12 @@ func (parseS *chatServer) parseExecuteAdminMutationAction(parseCtx context.Conte
 	}
 	parseScope, parseErr := parseS.parseAuthorizeAdminMutationAction(parseCtx, parseAction, parseTarget)
 	if parseErr != nil {
-		if parseS != nil && parseS.logger != nil {
-			parseS.logger.Warn(
+		if parseMutationLogger != nil {
+			parseMutationLogger.Warn(
 				"rpc.admin mutation denied",
 				slog.String("action", strings.TrimSpace(string(parseAction))),
+				slog.String("actor.scope", "pending"),
+				slog.String("target.scope", parseTargetScope),
 				slog.Int64("target_user_id", parseTarget.userID),
 				slog.Int64("target_workspace_id", parseTarget.workspaceID),
 				slog.String("stage", "authorize"),
@@ -70,12 +83,21 @@ func (parseS *chatServer) parseExecuteAdminMutationAction(parseCtx context.Conte
 		}
 		return parseErr
 	}
+	if parseMutationLogger != nil {
+		parseMutationLogger = parseMutationLogger.With(parseBuildLogFieldAttrs(parseCtx, parseLogFieldSpec{
+			ParseActorScope:  parseBuildAdminMutationScopeLabel(parseScope),
+			ParseActorUserID: parseScope.adminUserID,
+			ParseWorkspaceID: parseResolveAdminScopeWorkspaceID(parseScope.workspaceIDs),
+		})...)
+	}
 	parseMutationReason, parseErr := parseRequireAdminMutationConfirmation(parseAction, parseTarget.isConfirmed, parseTarget.reason)
 	if parseErr != nil {
-		if parseS != nil && parseS.logger != nil {
-			parseS.logger.Warn(
+		if parseMutationLogger != nil {
+			parseMutationLogger.Warn(
 				"rpc.admin mutation denied",
 				slog.String("action", strings.TrimSpace(string(parseAction))),
+				slog.String("actor.scope", parseBuildAdminMutationScopeLabel(parseScope)),
+				slog.String("target.scope", parseTargetScope),
 				slog.Int64("admin_user_id", parseScope.adminUserID),
 				slog.Int64("target_user_id", parseTarget.userID),
 				slog.Int64("target_workspace_id", parseTarget.workspaceID),
@@ -87,10 +109,12 @@ func (parseS *chatServer) parseExecuteAdminMutationAction(parseCtx context.Conte
 		}
 		return parseErr
 	}
-	if parseS != nil && parseS.logger != nil {
-		parseS.logger.Info(
+	if parseMutationLogger != nil {
+		parseMutationLogger.Info(
 			"rpc.admin mutation confirmed",
 			slog.String("action", strings.TrimSpace(string(parseAction))),
+			slog.String("actor.scope", parseBuildAdminMutationScopeLabel(parseScope)),
+			slog.String("target.scope", parseTargetScope),
 			slog.Int64("admin_user_id", parseScope.adminUserID),
 			slog.Int64("target_user_id", parseTarget.userID),
 			slog.Int64("target_workspace_id", parseTarget.workspaceID),
@@ -101,10 +125,12 @@ func (parseS *chatServer) parseExecuteAdminMutationAction(parseCtx context.Conte
 		return status.Error(codes.Unavailable, "store unavailable")
 	}
 	if parseErr = parseS.parseApplyAdminMutationActionEffects(parseAction, parseTarget, parseScope.adminUserID, parseMutationReason); parseErr != nil {
-		if parseS != nil && parseS.logger != nil {
-			parseS.logger.Error(
+		if parseMutationLogger != nil {
+			parseMutationLogger.Error(
 				"rpc.admin mutation rollback required",
 				slog.String("action", strings.TrimSpace(string(parseAction))),
+				slog.String("actor.scope", parseBuildAdminMutationScopeLabel(parseScope)),
+				slog.String("target.scope", parseTargetScope),
 				slog.Int64("admin_user_id", parseScope.adminUserID),
 				slog.Int64("target_user_id", parseTarget.userID),
 				slog.Int64("target_workspace_id", parseTarget.workspaceID),
@@ -115,11 +141,13 @@ func (parseS *chatServer) parseExecuteAdminMutationAction(parseCtx context.Conte
 		}
 		return status.Errorf(codes.Internal, "admin mutation %s apply failed: %v", strings.TrimSpace(string(parseAction)), parseErr)
 	}
-	if parseErr = parseS.parseStoreAdminMutationAuditLog(parseAction, parseTarget, parseScope.adminUserID, parseMutationReason); parseErr != nil {
-		if parseS != nil && parseS.logger != nil {
-			parseS.logger.Error(
+	if parseErr = parseS.parseStoreAdminMutationAuditLog(parseCtx, parseAction, parseTarget, parseScope.adminUserID, parseMutationReason); parseErr != nil {
+		if parseMutationLogger != nil {
+			parseMutationLogger.Error(
 				"rpc.admin mutation audit write failed",
 				slog.String("action", strings.TrimSpace(string(parseAction))),
+				slog.String("actor.scope", parseBuildAdminMutationScopeLabel(parseScope)),
+				slog.String("target.scope", parseTargetScope),
 				slog.Int64("admin_user_id", parseScope.adminUserID),
 				slog.Int64("target_user_id", parseTarget.userID),
 				slog.Int64("target_workspace_id", parseTarget.workspaceID),
@@ -130,10 +158,12 @@ func (parseS *chatServer) parseExecuteAdminMutationAction(parseCtx context.Conte
 		}
 		return status.Errorf(codes.Internal, "admin mutation %s audit log failed: %v", strings.TrimSpace(string(parseAction)), parseErr)
 	}
-	if parseS.logger != nil {
-		parseS.logger.Info(
+	if parseMutationLogger != nil {
+		parseMutationLogger.Info(
 			"rpc.admin mutation success",
 			slog.String("action", strings.TrimSpace(string(parseAction))),
+			slog.String("actor.scope", parseBuildAdminMutationScopeLabel(parseScope)),
+			slog.String("target.scope", parseTargetScope),
 			slog.Int64("admin_user_id", parseScope.adminUserID),
 			slog.Int64("target_user_id", parseTarget.userID),
 			slog.Int64("target_workspace_id", parseTarget.workspaceID),
@@ -286,7 +316,7 @@ func (parseS *chatServer) parseApplyWorkspaceSuspendMutationEffects(parseWorkspa
 }
 
 // parseStoreAdminMutationAuditLog writes one operator audit row for one applied admin mutation.
-func (parseS *chatServer) parseStoreAdminMutationAuditLog(parseAction parseAdminMutationAction, parseTarget parseAdminMutationTarget, parseAdminUserID int64, parseReason string) error {
+func (parseS *chatServer) parseStoreAdminMutationAuditLog(parseCtx context.Context, parseAction parseAdminMutationAction, parseTarget parseAdminMutationTarget, parseAdminUserID int64, parseReason string) error {
 	parseTargetType := "user"
 	parseTargetID := fmt.Sprintf("%d", parseTarget.userID)
 	parseWorkspaceIDHint := parseS.parseResolveAuditWorkspaceIDForUser(parseTarget.userID)
@@ -310,6 +340,10 @@ func (parseS *chatServer) parseStoreAdminMutationAuditLog(parseAction parseAdmin
 	if parseWorkspaceID <= 0 {
 		return nil
 	}
+	parseAuditPayloadJSON := parseBuildAdminMutationTraceabilityPayloadJSON(parseCtx, "admin", parseTargetType)
+	if strings.TrimSpace(parseAuditPayloadJSON) == "" {
+		parseAuditPayloadJSON = `{"traceability":{}}`
+	}
 	_, parseErr = parseS.store.parseCreateAuditLog(parseAuditLogWrite{
 		ActorUserID: parseAdminUserID,
 		WorkspaceID: parseWorkspaceID,
@@ -317,9 +351,30 @@ func (parseS *chatServer) parseStoreAdminMutationAuditLog(parseAction parseAdmin
 		TargetType:  parseTargetType,
 		TargetID:    parseTargetID,
 		Summary:     fmt.Sprintf("%s: %s", strings.TrimSpace(string(parseAction)), strings.TrimSpace(parseReason)),
-		PayloadJSON: "{}",
+		PayloadJSON: parseNormalizeBillingJSON(parseAuditPayloadJSON),
 	})
 	return parseErr
+}
+
+// parseBuildAdminMutationTraceabilityPayloadJSON builds one typed traceability payload for admin mutation audit writes.
+func parseBuildAdminMutationTraceabilityPayloadJSON(parseCtx context.Context, parseActorScope string, parseTargetScope string) string {
+	parseRequestID, parseCorrelationID := parseExtractCorrelationFromContext(parseCtx)
+	parseTraceID, parseSpanID, _ := parseExtractTraceContextFromContext(parseCtx)
+	parseAuditPayload := map[string]any{
+		"traceability": map[string]any{
+			"request_id":     strings.TrimSpace(parseRequestID),
+			"correlation_id": strings.TrimSpace(parseCorrelationID),
+			"trace_id":       strings.TrimSpace(parseTraceID),
+			"span_id":        strings.TrimSpace(parseSpanID),
+			"actor_scope":    strings.TrimSpace(parseActorScope),
+			"target_scope":   strings.TrimSpace(parseTargetScope),
+		},
+	}
+	parseAuditPayloadJSONBytes, parseErr := json.Marshal(parseAuditPayload)
+	if parseErr != nil {
+		return `{"traceability":{}}`
+	}
+	return string(parseAuditPayloadJSONBytes)
 }
 
 // parseResolveAuditWorkspaceIDForUser resolves one active membership workspace id for audit-log scoping.

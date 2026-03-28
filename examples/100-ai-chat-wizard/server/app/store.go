@@ -87,7 +87,7 @@ type authUserRecord struct {
 
 const maxDBOpenConns = 8
 
-// openChatStore opens (or creates) the SQLite database at path and initialises the schema.
+// parseOpenChatStore opens or creates the SQLite database at path and initialises the schema.
 func parseOpenChatStore(parsePath string) (*Store, error) {
 	return parseOpenChatStoreWithRecovery(parsePath, true)
 }

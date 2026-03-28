@@ -11,10 +11,10 @@ import (
 type parseAdminOpsAction string
 
 const (
-	parseAdminOpsActionIncidentUpdate    parseAdminOpsAction = "ops.incident.update"
+	parseAdminOpsActionIncidentUpdate     parseAdminOpsAction = "ops.incident.update"
 	parseAdminOpsActionBackgroundJobRetry parseAdminOpsAction = "ops.background_job.retry"
-	parseAdminOpsActionNotificationRetry parseAdminOpsAction = "ops.notification.retry"
-	parseAdminOpsActionWebhookReplay     parseAdminOpsAction = "ops.webhook.replay"
+	parseAdminOpsActionNotificationRetry  parseAdminOpsAction = "ops.notification.retry"
+	parseAdminOpsActionWebhookReplay      parseAdminOpsAction = "ops.webhook.replay"
 )
 
 // parseAuthorizeAdminOpsActionScope enforces one fail-closed authz contract for ops retries/replays and incident updates.
@@ -76,4 +76,3 @@ func parseResolveAdminOpsActionAuditEventType(parseAction parseAdminOpsAction) s
 		return "admin.ops.unknown"
 	}
 }
-

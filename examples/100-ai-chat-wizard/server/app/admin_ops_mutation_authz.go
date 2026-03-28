@@ -38,4 +38,3 @@ func (parseS *chatServer) parseAuthorizeAdminOpsMutationScope(parseCtx context.C
 		return parseAdminAccessScope{}, status.Errorf(codes.InvalidArgument, "unsupported ops mutation action: %s", strings.TrimSpace(string(parseAction)))
 	}
 }
-

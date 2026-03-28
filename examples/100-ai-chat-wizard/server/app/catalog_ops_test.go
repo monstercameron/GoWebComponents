@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
@@ -75,6 +76,25 @@ func TestGetCatalogNamespaceRPC(parseT *testing.T) {
 	}
 	if !parseCachedResp.GetIsNotModified() || parseCachedResp.GetCatalog() != nil {
 		parseT.Fatalf("expected not-modified namespace response, got %+v", parseCachedResp)
+	}
+}
+
+// TestGetCatalogNamespaceRPCLaunchTruthGuard verifies launch-truth filtering runs on namespace RPC responses.
+func TestGetCatalogNamespaceRPCLaunchTruthGuard(parseT *testing.T) {
+	parseServer := parseNewFakeChatServer(parseNewTestStore(parseT), parseNewFakeProvider())
+	parseResp, parseErr := parseServer.GetCatalogNamespace(context.Background(), &chatpb.GetCatalogNamespaceRequest{
+		Namespace: "marketing",
+		Locale:    "en",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("GetCatalogNamespace marketing: %v", parseErr)
+	}
+	parseMessage := parseGetCatalogPayloadMessage(parseResp.GetCatalog().GetMessages(), "product.home.card.docqa.title")
+	if parseMessage == "" {
+		parseT.Fatal("expected launch-safe docqa title in marketing namespace")
+	}
+	if !strings.Contains(parseMessage, "planned for a later release") {
+		parseT.Fatalf("expected launch-safe docqa replacement, got %q", parseMessage)
 	}
 }
 

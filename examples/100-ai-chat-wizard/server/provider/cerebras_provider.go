@@ -21,6 +21,7 @@ type CerebrasProvider struct {
 	catalog Catalog
 }
 
+// ParseNewCerebrasProvider creates a Cerebras provider wired to the supplied catalog and API key.
 func ParseNewCerebrasProvider(parseApiKey string, parseCatalog Catalog) *CerebrasProvider {
 	parseTrimmedAPIKey := strings.TrimSpace(parseApiKey)
 	parseResolvedCatalog := parseNormalizeCatalog("cerebras", "Cerebras", parseCatalog)
@@ -30,18 +31,22 @@ func ParseNewCerebrasProvider(parseApiKey string, parseCatalog Catalog) *Cerebra
 	parseClient := openai.NewClient(
 		option.WithAPIKey(parseTrimmedAPIKey),
 		option.WithBaseURL(cerebrasBaseURL),
+		option.WithMiddleware(parseBuildTraceabilityMiddleware()),
 	)
 	return &CerebrasProvider{client: &parseClient, catalog: parseResolvedCatalog}
 }
 
+// ParseID returns the provider identifier.
 func (parseP *CerebrasProvider) ParseID() string {
 	return "cerebras"
 }
 
+// ParseAvailable reports whether the provider is available.
 func (parseP *CerebrasProvider) ParseAvailable() bool {
 	return parseP != nil && parseP.client != nil && len(parseP.catalog.Options) > 0
 }
 
+// ParseInfo returns the provider info snapshot.
 func (parseP *CerebrasProvider) ParseInfo() ProviderInfo {
 	return ProviderInfo{
 		ID:                 parseP.ParseID(),
@@ -55,22 +60,27 @@ func (parseP *CerebrasProvider) ParseInfo() ProviderInfo {
 	}
 }
 
+// ParseDefaultModel returns the default model for the provider.
 func (parseP *CerebrasProvider) ParseDefaultModel() string {
 	return strings.TrimSpace(parseP.catalog.DefaultModel)
 }
 
+// ParseSupportsModel reports whether the provider supports the requested model.
 func (parseP *CerebrasProvider) ParseSupportsModel(parseModel string) bool {
 	return parseP.catalog.ParseSupportsModel(parseModel)
 }
 
+// ParseModelOptions returns the provider model options.
 func (parseP *CerebrasProvider) ParseModelOptions() []ModelOption {
 	return parseP.catalog.ParseModelOptions()
 }
 
+// ParseModelMetadata returns the provider model metadata.
 func (parseP *CerebrasProvider) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
 	return parseP.catalog.ParseModelMetadata(parseModel)
 }
 
+// ParseCapabilities returns the capability snapshot.
 func (parseP *CerebrasProvider) ParseCapabilities(parseModel string) ModelCapabilities {
 	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
 		return parseMetadata.Capabilities
@@ -78,6 +88,7 @@ func (parseP *CerebrasProvider) ParseCapabilities(parseModel string) ModelCapabi
 	return ModelCapabilities{ProviderID: parseP.ParseID(), ProviderLabel: "Cerebras"}
 }
 
+// ParseHealth returns the health snapshot.
 func (parseP *CerebrasProvider) ParseHealth() ProviderHealth {
 	parseStatus := ProviderHealthUnavailable
 	if parseP.ParseAvailable() {
@@ -86,10 +97,12 @@ func (parseP *CerebrasProvider) ParseHealth() ProviderHealth {
 	return ProviderHealth{ProviderID: parseP.ParseID(), Status: parseStatus}
 }
 
+// ParseCurrentRateLimits returns the current rate-limit snapshot.
 func (parseP *CerebrasProvider) ParseCurrentRateLimits() RateLimitSnapshot {
 	return RateLimitSnapshot{}
 }
 
+// ParseGenerateTitle generates one conversation title.
 func (parseP *CerebrasProvider) ParseGenerateTitle(parseCtx context.Context, parseReq TitleRequest) (string, error) {
 	if !parseP.ParseAvailable() {
 		return "", ErrNoProvidersAvailable
@@ -116,6 +129,7 @@ func (parseP *CerebrasProvider) ParseGenerateTitle(parseCtx context.Context, par
 	return parseTitle, nil
 }
 
+// ParseExtractUserMemories extracts user-memory candidates from the current conversation.
 func (parseP *CerebrasProvider) ParseExtractUserMemories(parseCtx context.Context, parseReq MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
 	if !parseP.ParseAvailable() {
 		return nil, ErrNoProvidersAvailable
@@ -182,6 +196,7 @@ func parseResolveCerebrasMemoryCandidates(parseResponse *openai.ChatCompletion) 
 	return parseCandidates, nil
 }
 
+// ParseStreamChat streams one chat completion.
 func (parseP *CerebrasProvider) ParseStreamChat(parseCtx context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {
 	if !parseP.ParseAvailable() {
 		return ChatResult{}, ErrNoProvidersAvailable
@@ -271,6 +286,7 @@ func (parseP *CerebrasProvider) ParseStreamChat(parseCtx context.Context, parseR
 	}, nil
 }
 
+// ParseSynthesizeSpeech streams one speech-synthesis response.
 func (parseP *CerebrasProvider) ParseSynthesizeSpeech(parseCtx context.Context, parseReq SpeechRequest, parseEmit func(SpeechChunk) error) (SpeechResult, error) {
 	_ = parseCtx
 	_ = parseReq

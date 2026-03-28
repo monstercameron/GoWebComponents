@@ -35,4 +35,3 @@ func (parseS *chatServer) parseAuthorizeAdminChatDrilldownScope(parseCtx context
 		canViewToolTracePayload: false,
 	}, nil
 }
-

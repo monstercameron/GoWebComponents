@@ -79,24 +79,31 @@ type OpenAIProvider struct {
 	catalog Catalog
 }
 
+// ParseNewOpenAIProvider creates an OpenAI provider wired to the supplied catalog and API key.
 func ParseNewOpenAIProvider(parseApiKey string, parseCatalog Catalog) *OpenAIProvider {
 	parseTrimmedAPIKey := strings.TrimSpace(parseApiKey)
 	parseResolvedCatalog := parseNormalizeCatalog("openai", "OpenAI", parseCatalog)
 	if parseTrimmedAPIKey == "" {
 		return &OpenAIProvider{catalog: parseResolvedCatalog}
 	}
-	parseClient := openai.NewClient(option.WithAPIKey(parseTrimmedAPIKey))
+	parseClient := openai.NewClient(
+		option.WithAPIKey(parseTrimmedAPIKey),
+		option.WithMiddleware(parseBuildTraceabilityMiddleware()),
+	)
 	return &OpenAIProvider{client: &parseClient, catalog: parseResolvedCatalog}
 }
 
+// ParseID returns the provider identifier.
 func (parseP *OpenAIProvider) ParseID() string {
 	return "openai"
 }
 
+// ParseAvailable reports whether the provider is available.
 func (parseP *OpenAIProvider) ParseAvailable() bool {
 	return parseP != nil && parseP.client != nil && len(parseP.catalog.Options) > 0
 }
 
+// ParseInfo returns the provider info snapshot.
 func (parseP *OpenAIProvider) ParseInfo() ProviderInfo {
 	return ProviderInfo{
 		ID:                 parseP.ParseID(),
@@ -110,22 +117,27 @@ func (parseP *OpenAIProvider) ParseInfo() ProviderInfo {
 	}
 }
 
+// ParseDefaultModel returns the default model for the provider.
 func (parseP *OpenAIProvider) ParseDefaultModel() string {
 	return strings.TrimSpace(parseP.catalog.DefaultModel)
 }
 
+// ParseSupportsModel reports whether the provider supports the requested model.
 func (parseP *OpenAIProvider) ParseSupportsModel(parseModel string) bool {
 	return parseP.catalog.ParseSupportsModel(parseModel)
 }
 
+// ParseModelOptions returns the provider model options.
 func (parseP *OpenAIProvider) ParseModelOptions() []ModelOption {
 	return parseP.catalog.ParseModelOptions()
 }
 
+// ParseModelMetadata returns the provider model metadata.
 func (parseP *OpenAIProvider) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
 	return parseP.catalog.ParseModelMetadata(parseModel)
 }
 
+// ParseCapabilities returns the capability snapshot.
 func (parseP *OpenAIProvider) ParseCapabilities(parseModel string) ModelCapabilities {
 	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
 		return parseMetadata.Capabilities
@@ -133,6 +145,7 @@ func (parseP *OpenAIProvider) ParseCapabilities(parseModel string) ModelCapabili
 	return ModelCapabilities{ProviderID: parseP.ParseID(), ProviderLabel: "OpenAI"}
 }
 
+// ParseHealth returns the health snapshot.
 func (parseP *OpenAIProvider) ParseHealth() ProviderHealth {
 	parseStatus := ProviderHealthUnavailable
 	if parseP.ParseAvailable() {
@@ -141,10 +154,12 @@ func (parseP *OpenAIProvider) ParseHealth() ProviderHealth {
 	return ProviderHealth{ProviderID: parseP.ParseID(), Status: parseStatus}
 }
 
+// ParseCurrentRateLimits returns the current rate-limit snapshot.
 func (parseP *OpenAIProvider) ParseCurrentRateLimits() RateLimitSnapshot {
 	return RateLimitSnapshot{}
 }
 
+// ParseGenerateTitle generates one conversation title.
 func (parseP *OpenAIProvider) ParseGenerateTitle(parseCtx context.Context, parseReq TitleRequest) (string, error) {
 	if !parseP.ParseAvailable() {
 		return "", ErrNoProvidersAvailable
@@ -168,6 +183,7 @@ func (parseP *OpenAIProvider) ParseGenerateTitle(parseCtx context.Context, parse
 	return parseTitle, nil
 }
 
+// ParseExtractUserMemories extracts user-memory candidates from the current conversation.
 func (parseP *OpenAIProvider) ParseExtractUserMemories(parseCtx context.Context, parseReq MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
 	if !parseP.ParseAvailable() {
 		return nil, ErrNoProvidersAvailable
@@ -220,6 +236,7 @@ If nothing qualifies, return {"memories":[]}.`)),
 	return parseNormalizeMemoryCandidates(parsePayload.Memories), nil
 }
 
+// ParseStreamChat streams one chat completion.
 func (parseP *OpenAIProvider) ParseStreamChat(parseCtx context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {
 	if !parseP.ParseAvailable() {
 		return ChatResult{}, ErrNoProvidersAvailable
@@ -342,6 +359,7 @@ func (parseP *OpenAIProvider) ParseStreamChat(parseCtx context.Context, parseReq
 	}, nil
 }
 
+// ParseSynthesizeSpeech streams one speech-synthesis response.
 func (parseP *OpenAIProvider) ParseSynthesizeSpeech(parseCtx context.Context, parseReq SpeechRequest, parseEmit func(SpeechChunk) error) (SpeechResult, error) {
 	if !parseP.ParseAvailable() {
 		return SpeechResult{}, ErrNoProvidersAvailable

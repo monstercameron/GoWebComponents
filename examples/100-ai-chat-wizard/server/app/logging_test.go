@@ -138,3 +138,104 @@ func TestOTELLoggerDerivesBoundaryFromScope(parseT *testing.T) {
 		parseT.Fatalf("error.boundary = %v, want chat-wizard", parsePayload["error.boundary"])
 	}
 }
+
+func TestOTELLoggerRedactsSensitiveLogFields(parseT *testing.T) {
+	var parseOutput bytes.Buffer
+	parseLogger := parseNewOTELLogger(&parseOutput, serverServiceName)
+	parseLogger.Error(
+		"auth failed: Bearer abc.def.ghi",
+		slog.String("password", "super-secret-password"),
+		slog.String("authorization", "Bearer xyz.123"),
+		slog.String("provider_payload", `{"api_key":"sk-test"}`),
+		slog.Int("token_version", 3),
+	)
+
+	parseLogLine := strings.TrimSpace(parseOutput.String())
+	if parseLogLine == "" {
+		parseT.Fatal("expected one log line")
+	}
+
+	var parsePayload map[string]any
+	if parseErr := json.Unmarshal([]byte(parseLogLine), &parsePayload); parseErr != nil {
+		parseT.Fatalf("json.Unmarshal: %v", parseErr)
+	}
+	if parsePayload["password"] != parseLogRedactionText {
+		parseT.Fatalf("password = %v, want %s", parsePayload["password"], parseLogRedactionText)
+	}
+	if parsePayload["authorization"] != parseLogRedactionText {
+		parseT.Fatalf("authorization = %v, want %s", parsePayload["authorization"], parseLogRedactionText)
+	}
+	if parsePayload["provider_payload"] != parseLogRedactionText {
+		parseT.Fatalf("provider_payload = %v, want %s", parsePayload["provider_payload"], parseLogRedactionText)
+	}
+	if parsePayload["token_version"] != float64(3) {
+		parseT.Fatalf("token_version = %v, want 3", parsePayload["token_version"])
+	}
+	parseMessage, _ := parsePayload["message"].(string)
+	if strings.Contains(parseMessage, "abc.def.ghi") {
+		parseT.Fatalf("expected bearer token redaction in message, got %q", parseMessage)
+	}
+	if !strings.Contains(parseMessage, parseLogRedactionText) {
+		parseT.Fatalf("expected redaction marker in message, got %q", parseMessage)
+	}
+}
+
+func TestOTELLoggerRedactsSensitiveStructuredAnyPayloads(parseT *testing.T) {
+	var parseOutput bytes.Buffer
+	parseLogger := parseNewOTELLogger(&parseOutput, serverServiceName)
+	parseLogger.Info("client payload", slog.Any("attributes", map[string]any{
+		"api_key":       "sk-live-123",
+		"internal_note": "private escalation details",
+		"safe":          "visible",
+	}))
+
+	parseLogLine := strings.TrimSpace(parseOutput.String())
+	if parseLogLine == "" {
+		parseT.Fatal("expected one log line")
+	}
+
+	var parsePayload map[string]any
+	if parseErr := json.Unmarshal([]byte(parseLogLine), &parsePayload); parseErr != nil {
+		parseT.Fatalf("json.Unmarshal: %v", parseErr)
+	}
+	parseAttributesValue, parseOk := parsePayload["attributes"].(map[string]any)
+	if !parseOk {
+		parseT.Fatalf("attributes = %#v, want map", parsePayload["attributes"])
+	}
+	if parseAttributesValue["api_key"] != parseLogRedactionText {
+		parseT.Fatalf("attributes.api_key = %v, want %s", parseAttributesValue["api_key"], parseLogRedactionText)
+	}
+	if parseAttributesValue["internal_note"] != parseLogRedactionText {
+		parseT.Fatalf("attributes.internal_note = %v, want %s", parseAttributesValue["internal_note"], parseLogRedactionText)
+	}
+	if parseAttributesValue["safe"] != "visible" {
+		parseT.Fatalf("attributes.safe = %v, want visible", parseAttributesValue["safe"])
+	}
+}
+
+// TestScrubSecretStringRedactsCommonSecrets verifies the shared scrubber removes bearer tokens, API keys, cookies, and file paths.
+func TestScrubSecretStringRedactsCommonSecrets(parseT *testing.T) {
+	parseInput := `open C:\secrets\config.json with OPENAI_API_KEY=sk-live-123; Authorization: Bearer abc.def.ghi; cookie=session=abc`
+	parseOutput := parseScrubSecretString(parseInput)
+	if strings.Contains(parseOutput, "C:\\secrets\\config.json") {
+		parseT.Fatalf("expected file path redaction, got %q", parseOutput)
+	}
+	if strings.Contains(parseOutput, "OPENAI_API_KEY") || strings.Contains(parseOutput, "sk-live-123") {
+		parseT.Fatalf("expected env secret redaction, got %q", parseOutput)
+	}
+	if strings.Contains(parseOutput, "abc.def.ghi") || strings.Contains(parseOutput, "session=abc") {
+		parseT.Fatalf("expected token redaction, got %q", parseOutput)
+	}
+	if strings.Count(parseOutput, parseLogRedactionText) < 3 {
+		parseT.Fatalf("expected multiple redaction markers, got %q", parseOutput)
+	}
+}
+
+// BenchmarkScrubSecretString measures the shared secret-scrubbing helper overhead.
+func BenchmarkScrubSecretString(parseB *testing.B) {
+	parseInput := `open C:\secrets\config.json with OPENAI_API_KEY=sk-live-123; Authorization: Bearer abc.def.ghi; cookie=session=abc`
+	parseB.ResetTimer()
+	for parseN := 0; parseN < parseB.N; parseN++ {
+		_ = parseScrubSecretString(parseInput)
+	}
+}

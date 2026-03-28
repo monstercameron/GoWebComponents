@@ -14,7 +14,87 @@ import (
 	anthropicoption "github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
+	"google.golang.org/grpc/metadata"
 )
+
+// TestTraceabilityMiddlewareAddsRequestHeaders verifies provider requests inherit request and correlation metadata.
+func TestTraceabilityMiddlewareAddsRequestHeaders(parseT *testing.T) {
+	parseT.Run("openai", func(parseT2 *testing.T) {
+		parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			if parseGot := parseR.Header.Get("x-request-id"); parseGot != "req-provider-123" {
+				parseT2.Fatalf("x-request-id = %q, want req-provider-123", parseGot)
+			}
+			if parseGot := parseR.Header.Get("x-correlation-id"); parseGot != "corr-provider-456" {
+				parseT2.Fatalf("x-correlation-id = %q, want corr-provider-456", parseGot)
+			}
+			if parseGot := parseR.Header.Get("traceparent"); parseGot != "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" {
+				parseT2.Fatalf("traceparent = %q, want test traceparent", parseGot)
+			}
+			if parseGot := parseR.Header.Get("tracestate"); parseGot != "vendor=relay" {
+				parseT2.Fatalf("tracestate = %q, want vendor=relay", parseGot)
+			}
+			parseW.Header().Set("Content-Type", "application/json")
+			_, _ = parseW.Write([]byte(`{"id":"resp_title","object":"response","model":"gpt-5.4-nano","output":[{"id":"msg_title","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"  Provider Title  "}]}]}`))
+		}))
+		defer parseServer.Close()
+
+		parseClient := openai.NewClient(
+			option.WithAPIKey("test-key"),
+			option.WithBaseURL(parseServer.URL),
+			option.WithHTTPClient(parseServer.Client()),
+			option.WithMiddleware(parseBuildTraceabilityMiddleware()),
+		)
+		parseProvider := &OpenAIProvider{client: &parseClient, catalog: parseTestOpenAICatalog()}
+		parseCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
+			"x-request-id", "req-provider-123",
+			"x-correlation-id", "corr-provider-456",
+			"traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+			"tracestate", "vendor=relay",
+		))
+		parseTitle, parseErr := parseProvider.ParseGenerateTitle(parseCtx, TitleRequest{Prompt: "title", SystemPrompt: "be concise"})
+		if parseErr != nil {
+			parseT2.Fatalf("ParseGenerateTitle: %v", parseErr)
+		}
+		if parseTitle != "Provider Title" {
+			parseT2.Fatalf("ParseGenerateTitle() = %q, want Provider Title", parseTitle)
+		}
+	})
+
+	parseT.Run("anthropic", func(parseT2 *testing.T) {
+		parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			if parseGot := parseR.Header.Get("x-request-id"); parseGot != "req-provider-123" {
+				parseT2.Fatalf("x-request-id = %q, want req-provider-123", parseGot)
+			}
+			if parseGot := parseR.Header.Get("x-correlation-id"); parseGot != "corr-provider-456" {
+				parseT2.Fatalf("x-correlation-id = %q, want corr-provider-456", parseGot)
+			}
+			parseW.Header().Set("Content-Type", "application/json")
+			_, _ = parseW.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-4-5","content":[{"type":"text","text":"  Anthropic Title  "}],"usage":{"input_tokens":3,"output_tokens":5},"stop_reason":"end_turn","stop_sequence":""}`))
+		}))
+		defer parseServer.Close()
+
+		parseClient := anthropic.NewClient(
+			anthropicoption.WithAPIKey("test-key"),
+			anthropicoption.WithBaseURL(parseServer.URL),
+			anthropicoption.WithHTTPClient(parseServer.Client()),
+			anthropicoption.WithMiddleware(parseBuildTraceabilityMiddleware()),
+		)
+		parseProvider := &AnthropicProvider{client: &parseClient, catalog: parseTestAnthropicCatalog()}
+		parseCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
+			"x-request-id", "req-provider-123",
+			"x-correlation-id", "corr-provider-456",
+			"traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+			"tracestate", "vendor=relay",
+		))
+		parseTitle, parseErr := parseProvider.ParseGenerateTitle(parseCtx, TitleRequest{Prompt: "title", SystemPrompt: "be concise"})
+		if parseErr != nil {
+			parseT2.Fatalf("ParseGenerateTitle: %v", parseErr)
+		}
+		if parseTitle != "Anthropic Title" {
+			parseT2.Fatalf("ParseGenerateTitle() = %q, want Anthropic Title", parseTitle)
+		}
+	})
+}
 
 func TestOpenAIProviderHTTPBackedBranches(parseT *testing.T) {
 	parseT.Run("generate title and memories", func(parseT2 *testing.T) {

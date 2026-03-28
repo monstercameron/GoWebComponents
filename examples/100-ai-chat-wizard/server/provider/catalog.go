@@ -9,11 +9,13 @@ type Catalog struct {
 	TitleModel   string
 }
 
+// ParseSupportsModel reports whether the catalog supports the requested model.
 func (parseC Catalog) ParseSupportsModel(parseModel string) bool {
 	_, parseOk := parseC.ParseModelMetadata(parseModel)
 	return parseOk
 }
 
+// ParseModelMetadata returns the catalog metadata for one model.
 func (parseC Catalog) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
 	parseResolvedModel := strings.TrimSpace(strings.ToLower(parseModel))
 	for _, parseMetadata := range parseC.Models {
@@ -24,6 +26,7 @@ func (parseC Catalog) ParseModelMetadata(parseModel string) (ModelMetadata, bool
 	return ModelMetadata{}, false
 }
 
+// ParseModelOptions returns the catalog model picker options.
 func (parseC Catalog) ParseModelOptions() []ModelOption {
 	return append([]ModelOption(nil), parseC.Options...)
 }

@@ -720,6 +720,12 @@ CREATE TABLE IF NOT EXISTS workspace_sso_configs (
     id                         INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id               INTEGER NOT NULL REFERENCES workspaces(id),
     provider_key               TEXT NOT NULL DEFAULT '',
+    provider_type              TEXT NOT NULL DEFAULT 'oidc',
+    oidc_issuer_url            TEXT NOT NULL DEFAULT '',
+    oidc_client_id             TEXT NOT NULL DEFAULT '',
+    oidc_client_secret_ref     TEXT NOT NULL DEFAULT '',
+    oidc_scopes_json           TEXT NOT NULL DEFAULT '[]',
+    oidc_claims_json           TEXT NOT NULL DEFAULT '{}',
     saml_entrypoint            TEXT NOT NULL DEFAULT '',
     saml_issuer                TEXT NOT NULL DEFAULT '',
     saml_certificate_pem       TEXT NOT NULL DEFAULT '',
@@ -729,6 +735,12 @@ CREATE TABLE IF NOT EXISTS workspace_sso_configs (
     UNIQUE(workspace_id, provider_key)
 );
 CREATE INDEX IF NOT EXISTS idx_workspace_sso_configs_workspace_id ON workspace_sso_configs(workspace_id, id DESC);
+ALTER TABLE workspace_sso_configs ADD COLUMN IF NOT EXISTS provider_type TEXT NOT NULL DEFAULT 'oidc';
+ALTER TABLE workspace_sso_configs ADD COLUMN IF NOT EXISTS oidc_issuer_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE workspace_sso_configs ADD COLUMN IF NOT EXISTS oidc_client_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE workspace_sso_configs ADD COLUMN IF NOT EXISTS oidc_client_secret_ref TEXT NOT NULL DEFAULT '';
+ALTER TABLE workspace_sso_configs ADD COLUMN IF NOT EXISTS oidc_scopes_json TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE workspace_sso_configs ADD COLUMN IF NOT EXISTS oidc_claims_json TEXT NOT NULL DEFAULT '{}';
 CREATE TABLE IF NOT EXISTS data_retention_policies (
     id                         INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id               INTEGER NOT NULL DEFAULT 0 REFERENCES workspaces(id),

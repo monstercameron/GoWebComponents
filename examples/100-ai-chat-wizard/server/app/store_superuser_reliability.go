@@ -8,15 +8,21 @@ import (
 )
 
 type parseWorkspaceSSOConfigRow struct {
-	ID                 int64
-	WorkspaceID        int64
-	ProviderKey        string
-	SAMLEntrypoint     string
-	SAMLIssuer         string
-	SAMLCertificatePEM string
-	DomainsJSON        string
-	IsEnabled          bool
-	UpdatedAt          string
+	ID                  int64
+	WorkspaceID         int64
+	ProviderKey         string
+	ProviderType        string
+	OIDCIssuerURL       string
+	OIDCClientID        string
+	OIDCClientSecretRef string
+	OIDCScopesJSON      string
+	OIDCClaimsJSON      string
+	SAMLEntrypoint      string
+	SAMLIssuer          string
+	SAMLCertificatePEM  string
+	DomainsJSON         string
+	IsEnabled           bool
+	UpdatedAt           string
 }
 
 type parseDataRetentionPolicyRow struct {
@@ -53,13 +59,19 @@ type parseServiceLevelObjectiveRow struct {
 }
 
 type parseSuperuserWorkspaceSSOConfigWrite struct {
-	WorkspaceID        int64
-	ProviderKey        string
-	SAMLEntrypoint     string
-	SAMLIssuer         string
-	SAMLCertificatePEM string
-	DomainsJSON        string
-	IsEnabled          bool
+	WorkspaceID         int64
+	ProviderKey         string
+	ProviderType        string
+	OIDCIssuerURL       string
+	OIDCClientID        string
+	OIDCClientSecretRef string
+	OIDCScopesJSON      string
+	OIDCClaimsJSON      string
+	SAMLEntrypoint      string
+	SAMLIssuer          string
+	SAMLCertificatePEM  string
+	DomainsJSON         string
+	IsEnabled           bool
 }
 
 type parseSuperuserDataRetentionPolicyWrite struct {
@@ -131,6 +143,12 @@ func (parseS *Store) parseListWorkspaceSSOConfigs(parseLimit int64) ([]parseWork
 			&parseRow.ID,
 			&parseRow.WorkspaceID,
 			&parseRow.ProviderKey,
+			&parseRow.ProviderType,
+			&parseRow.OIDCIssuerURL,
+			&parseRow.OIDCClientID,
+			&parseRow.OIDCClientSecretRef,
+			&parseRow.OIDCScopesJSON,
+			&parseRow.OIDCClaimsJSON,
 			&parseRow.SAMLEntrypoint,
 			&parseRow.SAMLIssuer,
 			&parseRow.SAMLCertificatePEM,
@@ -159,6 +177,12 @@ func (parseS *Store) parseGetWorkspaceSSOConfigByScope(parseWorkspaceID int64, p
 		&parseConfigRow.ID,
 		&parseConfigRow.WorkspaceID,
 		&parseConfigRow.ProviderKey,
+		&parseConfigRow.ProviderType,
+		&parseConfigRow.OIDCIssuerURL,
+		&parseConfigRow.OIDCClientID,
+		&parseConfigRow.OIDCClientSecretRef,
+		&parseConfigRow.OIDCScopesJSON,
+		&parseConfigRow.OIDCClaimsJSON,
 		&parseConfigRow.SAMLEntrypoint,
 		&parseConfigRow.SAMLIssuer,
 		&parseConfigRow.SAMLCertificatePEM,
@@ -181,11 +205,24 @@ func (parseS *Store) parseUpsertSuperuserWorkspaceSSOConfig(parseWrite parseSupe
 	if parseWrite.WorkspaceID <= 0 || parseProviderKey == "" {
 		return parseWorkspaceSSOConfigRow{}, errors.New("upsert superuser workspace sso config: workspace id and provider key are required")
 	}
+	parseProviderType := parseNormalizeWorkspaceSSOProviderType(
+		parseWrite.ProviderType,
+		parseProviderKey,
+		parseWrite.SAMLEntrypoint,
+		parseWrite.SAMLIssuer,
+		parseWrite.SAMLCertificatePEM,
+	)
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
 		parseS.queries.upsertWorkspaceSSOConfig,
 		parseWrite.WorkspaceID,
 		parseProviderKey,
+		parseProviderType,
+		strings.TrimSpace(parseWrite.OIDCIssuerURL),
+		strings.TrimSpace(parseWrite.OIDCClientID),
+		strings.TrimSpace(parseWrite.OIDCClientSecretRef),
+		parseNormalizeSUJSONArray(parseWrite.OIDCScopesJSON),
+		parseNormalizeBillingJSON(parseWrite.OIDCClaimsJSON),
 		strings.TrimSpace(parseWrite.SAMLEntrypoint),
 		strings.TrimSpace(parseWrite.SAMLIssuer),
 		strings.TrimSpace(parseWrite.SAMLCertificatePEM),
@@ -224,6 +261,21 @@ func (parseS *Store) parseDeleteSuperuserWorkspaceSSOConfig(parseWorkspaceID int
 		return errStoreSuperuserScopeMissing
 	}
 	return nil
+}
+
+// parseNormalizeWorkspaceSSOProviderType normalizes one SSO provider type with compatibility inference for legacy SAML-only rows.
+func parseNormalizeWorkspaceSSOProviderType(parseProviderType, parseProviderKey, parseSAMLEntrypoint, parseSAMLIssuer, parseSAMLCertificatePEM string) string {
+	switch strings.TrimSpace(strings.ToLower(parseProviderType)) {
+	case "oidc", "saml":
+		return strings.TrimSpace(strings.ToLower(parseProviderType))
+	}
+	if parseNormalizeExternalIdentityProviderKey(parseProviderKey) == parseWorkspaceAuthMethodSAML {
+		return "saml"
+	}
+	if strings.TrimSpace(parseSAMLEntrypoint) != "" || strings.TrimSpace(parseSAMLIssuer) != "" || strings.TrimSpace(parseSAMLCertificatePEM) != "" {
+		return "saml"
+	}
+	return "oidc"
 }
 
 // parseListDataRetentionPolicies lists data-retention policies newest-first.

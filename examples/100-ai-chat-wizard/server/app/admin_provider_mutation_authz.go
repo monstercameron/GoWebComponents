@@ -11,11 +11,11 @@ import (
 type parseAdminProviderMutationAction string
 
 const (
-	parseAdminProviderMutationSetProviderEnabled  parseAdminProviderMutationAction = "provider.enabled.set"
-	parseAdminProviderMutationSetModelVisibility  parseAdminProviderMutationAction = "provider.model_visibility.set"
-	parseAdminProviderMutationSetFallbackRouting  parseAdminProviderMutationAction = "provider.fallback_routing.set"
-	parseAdminProviderMutationSetProviderLimit    parseAdminProviderMutationAction = "provider.limit.set"
-	parseAdminProviderMutationSetCostGuardrail    parseAdminProviderMutationAction = "provider.cost_guardrail.set"
+	parseAdminProviderMutationSetProviderEnabled parseAdminProviderMutationAction = "provider.enabled.set"
+	parseAdminProviderMutationSetModelVisibility parseAdminProviderMutationAction = "provider.model_visibility.set"
+	parseAdminProviderMutationSetFallbackRouting parseAdminProviderMutationAction = "provider.fallback_routing.set"
+	parseAdminProviderMutationSetProviderLimit   parseAdminProviderMutationAction = "provider.limit.set"
+	parseAdminProviderMutationSetCostGuardrail   parseAdminProviderMutationAction = "provider.cost_guardrail.set"
 )
 
 type parseAdminProviderBlastRadiusPreview struct {

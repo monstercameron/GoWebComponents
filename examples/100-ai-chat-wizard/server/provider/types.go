@@ -41,8 +41,7 @@ type ModelMetadata struct {
 	Pricing                   ModelPricing
 }
 
-// ModelOptionFromMetadata collapses a rich catalog entry into the compact UI
-// shape used by the current example picker.
+// ParseModelOptionFromMetadata collapses one rich catalog entry into the compact UI picker shape.
 func ParseModelOptionFromMetadata(parseMetadata ModelMetadata, parseNote string) ModelOption {
 	return ModelOption{
 		ID:           parseMetadata.ID,

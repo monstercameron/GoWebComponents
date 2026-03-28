@@ -123,8 +123,8 @@ func TestUserFacingStreamErrorVariants(parseT *testing.T) {
 	if !strings.Contains(parseGot, `Cerebras model "gpt-oss-120b" is unavailable`) {
 		parseT.Fatalf("cerebras rewrite = %q", parseGot)
 	}
-	if parseGot2 := parseUserFacingStreamError("anthropic", "claude", errors.New("provider timeout")); parseGot2 != "provider timeout" {
-		parseT.Fatalf("plain provider error = %q, want passthrough", parseGot2)
+	if parseGot2 := parseUserFacingStreamError("anthropic", "claude", errors.New("provider timeout")); parseGot2 != parsePublicErrorProviderMessage {
+		parseT.Fatalf("plain provider error = %q, want %q", parseGot2, parsePublicErrorProviderMessage)
 	}
 }
 

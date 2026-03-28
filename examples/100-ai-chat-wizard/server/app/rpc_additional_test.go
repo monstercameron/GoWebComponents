@@ -135,20 +135,23 @@ func TestRPCFallbacksWhenStoreOrProvidersAreUnavailable(parseT *testing.T) {
 	if parseErr != nil || len(parseListResp.Models) != 0 {
 		parseT.Fatalf("ListModelOptions fallback: resp=%+v err=%v", parseListResp, parseErr)
 	}
-	if _, parseErr2 := parseServer.SetSelectedTone(parseCtx, wrapperspb.String("professional")); parseErr2 != nil {
-		parseT.Fatalf("SetSelectedTone no-store should no-op, got %v", parseErr2)
+	if _, parseErr2 := parseServer.SetSelectedTone(parseCtx, wrapperspb.String("professional")); status.Code(parseErr2) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable for SetSelectedTone without store, got %v", status.Code(parseErr2))
 	}
-	if _, parseErr3 := parseServer.SetSelectedThinkingEnabled(parseCtx, wrapperspb.Bool(true)); parseErr3 != nil {
-		parseT.Fatalf("SetSelectedThinkingEnabled no-store should no-op, got %v", parseErr3)
+	if _, parseErr3 := parseServer.SetSelectedThinkingEnabled(parseCtx, wrapperspb.Bool(true)); status.Code(parseErr3) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable for SetSelectedThinkingEnabled without store, got %v", status.Code(parseErr3))
 	}
-	if _, parseErr4 := parseServer.SetSelectedThinkingEffort(parseCtx, wrapperspb.String("low")); parseErr4 != nil {
-		parseT.Fatalf("SetSelectedThinkingEffort no-store should no-op, got %v", parseErr4)
+	if _, parseErr4 := parseServer.SetSelectedThinkingEffort(parseCtx, wrapperspb.String("low")); status.Code(parseErr4) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable for SetSelectedThinkingEffort without store, got %v", status.Code(parseErr4))
 	}
-	if _, parseErr5 := parseServer.SetSelectedModel(parseCtx, wrapperspb.String(modelGPT54Mini)); parseErr5 != nil {
-		parseT.Fatalf("SetSelectedModel without registry/store should no-op, got %v", parseErr5)
+	if _, parseErr5 := parseServer.SetSelectedModel(parseCtx, wrapperspb.String(modelGPT54Mini)); status.Code(parseErr5) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable for SetSelectedModel without store, got %v", status.Code(parseErr5))
 	}
-	if _, parseErr6 := parseServer.SetCustomSystemPrompt(parseCtx, wrapperspb.String("Stay concise.")); parseErr6 != nil {
-		parseT.Fatalf("SetCustomSystemPrompt without store should no-op, got %v", parseErr6)
+	if _, parseErr6 := parseServer.SetCustomSystemPrompt(parseCtx, wrapperspb.String("Stay concise.")); status.Code(parseErr6) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable for SetCustomSystemPrompt without store, got %v", status.Code(parseErr6))
+	}
+	if _, parseErr7 := parseServer.SetUserName(parseCtx, &chatpb.SetUserNameRequest{Name: "Cam"}); status.Code(parseErr7) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable for SetUserName without store, got %v", status.Code(parseErr7))
 	}
 	parseServer.parseUnbindAuthenticatedPeer("peer-fallbacks")
 }

@@ -25,15 +25,21 @@ func parseRequireSuperuserReliabilityMutationConfirmation(isParseConfirmed bool,
 // parseBuildSuperuserWorkspaceSSOConfigEntry maps one workspace SSO config row into protobuf form.
 func parseBuildSuperuserWorkspaceSSOConfigEntry(parseRow parseWorkspaceSSOConfigRow) *chatpb.WorkspaceSSOConfigEntry {
 	return &chatpb.WorkspaceSSOConfigEntry{
-		Id:                 parseRow.ID,
-		WorkspaceId:        parseRow.WorkspaceID,
-		ProviderKey:        parseRow.ProviderKey,
-		SamlEntrypoint:     parseRow.SAMLEntrypoint,
-		SamlIssuer:         parseRow.SAMLIssuer,
-		SamlCertificatePem: parseRow.SAMLCertificatePEM,
-		DomainsJson:        parseRow.DomainsJSON,
-		IsEnabled:          parseRow.IsEnabled,
-		UpdatedAt:          parseRow.UpdatedAt,
+		Id:                  parseRow.ID,
+		WorkspaceId:         parseRow.WorkspaceID,
+		ProviderKey:         parseRow.ProviderKey,
+		SamlEntrypoint:      parseRow.SAMLEntrypoint,
+		SamlIssuer:          parseRow.SAMLIssuer,
+		SamlCertificatePem:  parseRow.SAMLCertificatePEM,
+		DomainsJson:         parseRow.DomainsJSON,
+		IsEnabled:           parseRow.IsEnabled,
+		UpdatedAt:           parseRow.UpdatedAt,
+		ProviderType:        parseRow.ProviderType,
+		OidcIssuerUrl:       parseRow.OIDCIssuerURL,
+		OidcClientId:        parseRow.OIDCClientID,
+		OidcClientSecretRef: parseRow.OIDCClientSecretRef,
+		OidcScopesJson:      parseRow.OIDCScopesJSON,
+		OidcClaimsJson:      parseRow.OIDCClaimsJSON,
 	}
 }
 
@@ -90,6 +96,12 @@ func (parseS *chatServer) SetSuperuserWorkspaceSSOConfig(parseCtx context.Contex
 	var parseSAMLEntrypoint string
 	var parseSAMLIssuer string
 	var parseSAMLCertificatePEM string
+	var parseProviderType string
+	var parseOIDCIssuerURL string
+	var parseOIDCClientID string
+	var parseOIDCClientSecretRef string
+	var parseOIDCScopesJSON string
+	var parseOIDCClaimsJSON string
 	var parseDomainsJSON string
 	var isParseEnabled bool
 	var parseReason string
@@ -100,6 +112,12 @@ func (parseS *chatServer) SetSuperuserWorkspaceSSOConfig(parseCtx context.Contex
 		parseSAMLEntrypoint = strings.TrimSpace(parseReq.GetSamlEntrypoint())
 		parseSAMLIssuer = strings.TrimSpace(parseReq.GetSamlIssuer())
 		parseSAMLCertificatePEM = strings.TrimSpace(parseReq.GetSamlCertificatePem())
+		parseProviderType = strings.TrimSpace(parseReq.GetProviderType())
+		parseOIDCIssuerURL = strings.TrimSpace(parseReq.GetOidcIssuerUrl())
+		parseOIDCClientID = strings.TrimSpace(parseReq.GetOidcClientId())
+		parseOIDCClientSecretRef = strings.TrimSpace(parseReq.GetOidcClientSecretRef())
+		parseOIDCScopesJSON = strings.TrimSpace(parseReq.GetOidcScopesJson())
+		parseOIDCClaimsJSON = strings.TrimSpace(parseReq.GetOidcClaimsJson())
 		parseDomainsJSON = strings.TrimSpace(parseReq.GetDomainsJson())
 		isParseEnabled = parseReq.GetIsEnabled()
 		parseReason = parseReq.GetReason()
@@ -113,13 +131,19 @@ func (parseS *chatServer) SetSuperuserWorkspaceSSOConfig(parseCtx context.Contex
 		return nil, status.Error(codes.Unavailable, "store unavailable")
 	}
 	parseRow, parseErr := parseS.store.parseUpsertSuperuserWorkspaceSSOConfig(parseSuperuserWorkspaceSSOConfigWrite{
-		WorkspaceID:        parseWorkspaceID,
-		ProviderKey:        parseProviderKey,
-		SAMLEntrypoint:     parseSAMLEntrypoint,
-		SAMLIssuer:         parseSAMLIssuer,
-		SAMLCertificatePEM: parseSAMLCertificatePEM,
-		DomainsJSON:        parseDomainsJSON,
-		IsEnabled:          isParseEnabled,
+		WorkspaceID:         parseWorkspaceID,
+		ProviderKey:         parseProviderKey,
+		ProviderType:        parseProviderType,
+		OIDCIssuerURL:       parseOIDCIssuerURL,
+		OIDCClientID:        parseOIDCClientID,
+		OIDCClientSecretRef: parseOIDCClientSecretRef,
+		OIDCScopesJSON:      parseOIDCScopesJSON,
+		OIDCClaimsJSON:      parseOIDCClaimsJSON,
+		SAMLEntrypoint:      parseSAMLEntrypoint,
+		SAMLIssuer:          parseSAMLIssuer,
+		SAMLCertificatePEM:  parseSAMLCertificatePEM,
+		DomainsJSON:         parseDomainsJSON,
+		IsEnabled:           isParseEnabled,
 	})
 	if parseErr != nil {
 		if parseErr == errStoreSuperuserScopeMissing {

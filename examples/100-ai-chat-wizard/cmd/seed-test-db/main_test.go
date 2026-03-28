@@ -9,6 +9,7 @@ import (
 	"time"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestLoadSeedQueriesLoadsExpectedStatements(parseT *testing.T) {
@@ -94,7 +95,9 @@ func TestRunSeedTestDBSeedsExpectedRows(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("runSeedTestDB(): %v", parseErr)
 	}
-	if !strings.Contains(parseSummary, parseDbPath) || !strings.Contains(parseSummary, "customer@email.com / password") {
+	if !strings.Contains(parseSummary, parseDbPath) ||
+		!strings.Contains(parseSummary, "customer@email.com / password") ||
+		!strings.Contains(parseSummary, "admin@email.com / password") {
 		parseT.Fatalf("unexpected seed summary %q", parseSummary)
 	}
 
@@ -110,6 +113,37 @@ func TestRunSeedTestDBSeedsExpectedRows(parseT *testing.T) {
 	}
 	if parseUserCount != 2 {
 		parseT.Fatalf("expected 2 users, got %d", parseUserCount)
+	}
+	parseExpectedUsers := map[string]bool{
+		"admin@email.com":    false,
+		"customer@email.com": false,
+	}
+	parseRows, parseErr := parseDb.Query(`SELECT email, password_hash FROM users`)
+	if parseErr != nil {
+		parseT.Fatalf("Query(users credentials): %v", parseErr)
+	}
+	defer parseRows.Close()
+	for parseRows.Next() {
+		var parseEmail string
+		var parsePasswordHash string
+		if parseErr2 := parseRows.Scan(&parseEmail, &parsePasswordHash); parseErr2 != nil {
+			parseT.Fatalf("Scan(users credentials): %v", parseErr2)
+		}
+		if _, isParseExpected := parseExpectedUsers[parseEmail]; !isParseExpected {
+			parseT.Fatalf("unexpected seeded user email %q", parseEmail)
+		}
+		if parseErr2 := bcrypt.CompareHashAndPassword([]byte(parsePasswordHash), []byte("password")); parseErr2 != nil {
+			parseT.Fatalf("expected seeded password hash to validate for %s: %v", parseEmail, parseErr2)
+		}
+		parseExpectedUsers[parseEmail] = true
+	}
+	if parseErr2 := parseRows.Err(); parseErr2 != nil {
+		parseT.Fatalf("Rows(users credentials): %v", parseErr2)
+	}
+	for parseEmail, isParseFound := range parseExpectedUsers {
+		if !isParseFound {
+			parseT.Fatalf("expected seeded user %q to exist", parseEmail)
+		}
 	}
 
 	var parseConversationCount int

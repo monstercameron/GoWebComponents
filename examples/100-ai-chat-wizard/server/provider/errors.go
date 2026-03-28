@@ -25,6 +25,7 @@ type NormalizedError struct {
 	Err        error
 }
 
+// ParseError returns the normalized error value.
 func (parseE *NormalizedError) ParseError() string {
 	if parseE == nil {
 		return "provider error"
@@ -38,10 +39,12 @@ func (parseE *NormalizedError) ParseError() string {
 	return fmt.Sprintf("%s provider error for model %q: %s", parseE.ProviderID, parseE.Model, parseE.Message)
 }
 
+// Error returns the provider error string.
 func (parseE *NormalizedError) Error() string {
 	return parseE.ParseError()
 }
 
+// ParseUnwrap returns the wrapped error.
 func (parseE *NormalizedError) ParseUnwrap() error {
 	if parseE == nil {
 		return nil
@@ -49,6 +52,7 @@ func (parseE *NormalizedError) ParseUnwrap() error {
 	return parseE.Err
 }
 
+// Unwrap returns the wrapped error.
 func (parseE *NormalizedError) Unwrap() error {
 	return parseE.ParseUnwrap()
 }

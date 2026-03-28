@@ -31,7 +31,7 @@ func parseCollectFirstChatFunnelStepsForPath(parseRequestPath string) []string {
 	switch parseCleanedPath {
 	case "/", "/home":
 		return []string{parseFirstChatStepLandingViewed}
-	case "/pricing":
+	case "/pricing", "/plans":
 		return []string{parseFirstChatStepPricingViewed}
 	case "/login", "/signup":
 		return []string{parseFirstChatStepCTAClicked, parseFirstChatStepAuthStarted}

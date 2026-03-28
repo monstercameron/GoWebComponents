@@ -188,7 +188,7 @@ func parseSeedSuperuserOperationalRows(parseT *testing.T, parseStore *Store, par
 	}); parseErr != nil {
 		parseT.Fatalf("parseUpsertWorkspaceInvitation: %v", parseErr)
 	}
-	if parseErr = parseStore.parseUpsertWebhookDelivery(parseWebhookDeliveryWrite{
+	if parseErr = parseStore.parseUpsertWebhookDelivery(context.Background(), parseWebhookDeliveryWrite{
 		EndpointID:         parseWebhookEndpointID,
 		EventType:          "invoice.paid",
 		DeliveryKey:        "delivery-001",
@@ -201,7 +201,7 @@ func parseSeedSuperuserOperationalRows(parseT *testing.T, parseStore *Store, par
 	}); parseErr != nil {
 		parseT.Fatalf("parseUpsertWebhookDelivery: %v", parseErr)
 	}
-	if parseErr = parseStore.parseUpsertWebhookDelivery(parseWebhookDeliveryWrite{
+	if parseErr = parseStore.parseUpsertWebhookDelivery(context.Background(), parseWebhookDeliveryWrite{
 		EndpointID:         parseWebhookEndpointID,
 		EventType:          "invoice.failed",
 		DeliveryKey:        "delivery-retry-001",
@@ -266,7 +266,7 @@ func parseSeedSuperuserOperationalRows(parseT *testing.T, parseStore *Store, par
 	}); parseErr != nil {
 		parseT.Fatalf("parseCreateIncidentUpdate: %v", parseErr)
 	}
-	if _, parseErr = parseStore.parseCreateNotificationOutbox(parseNotificationOutboxWrite{
+	if _, parseErr = parseStore.parseCreateNotificationOutbox(context.Background(), parseNotificationOutboxWrite{
 		WorkspaceID:     parseWorkspaceID,
 		UserID:          parseOwner.ID,
 		NotificationKey: "weekly-value-ready",

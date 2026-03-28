@@ -70,24 +70,31 @@ type AnthropicProvider struct {
 	catalog Catalog
 }
 
+// ParseNewAnthropicProvider creates an Anthropic provider wired to the supplied catalog and API key.
 func ParseNewAnthropicProvider(parseApiKey string, parseCatalog Catalog) *AnthropicProvider {
 	parseTrimmedAPIKey := strings.TrimSpace(parseApiKey)
 	parseResolvedCatalog := parseNormalizeCatalog("anthropic", "Anthropic", parseCatalog)
 	if parseTrimmedAPIKey == "" {
 		return &AnthropicProvider{catalog: parseResolvedCatalog}
 	}
-	parseClient := anthropic.NewClient(anthropicoption.WithAPIKey(parseTrimmedAPIKey))
+	parseClient := anthropic.NewClient(
+		anthropicoption.WithAPIKey(parseTrimmedAPIKey),
+		anthropicoption.WithMiddleware(parseBuildTraceabilityMiddleware()),
+	)
 	return &AnthropicProvider{client: &parseClient, catalog: parseResolvedCatalog}
 }
 
+// ParseID returns the provider identifier.
 func (parseP *AnthropicProvider) ParseID() string {
 	return "anthropic"
 }
 
+// ParseAvailable reports whether the provider is available.
 func (parseP *AnthropicProvider) ParseAvailable() bool {
 	return parseP != nil && parseP.client != nil && len(parseP.catalog.Options) > 0
 }
 
+// ParseInfo returns the provider info snapshot.
 func (parseP *AnthropicProvider) ParseInfo() ProviderInfo {
 	return ProviderInfo{
 		ID:                 parseP.ParseID(),
@@ -101,22 +108,27 @@ func (parseP *AnthropicProvider) ParseInfo() ProviderInfo {
 	}
 }
 
+// ParseDefaultModel returns the default model for the provider.
 func (parseP *AnthropicProvider) ParseDefaultModel() string {
 	return strings.TrimSpace(parseP.catalog.DefaultModel)
 }
 
+// ParseSupportsModel reports whether the provider supports the requested model.
 func (parseP *AnthropicProvider) ParseSupportsModel(parseModel string) bool {
 	return parseP.catalog.ParseSupportsModel(parseModel)
 }
 
+// ParseModelOptions returns the provider model options.
 func (parseP *AnthropicProvider) ParseModelOptions() []ModelOption {
 	return parseP.catalog.ParseModelOptions()
 }
 
+// ParseModelMetadata returns the provider model metadata.
 func (parseP *AnthropicProvider) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
 	return parseP.catalog.ParseModelMetadata(parseModel)
 }
 
+// ParseCapabilities returns the capability snapshot.
 func (parseP *AnthropicProvider) ParseCapabilities(parseModel string) ModelCapabilities {
 	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
 		return parseMetadata.Capabilities
@@ -124,6 +136,7 @@ func (parseP *AnthropicProvider) ParseCapabilities(parseModel string) ModelCapab
 	return ModelCapabilities{ProviderID: parseP.ParseID(), ProviderLabel: "Anthropic"}
 }
 
+// ParseHealth returns the health snapshot.
 func (parseP *AnthropicProvider) ParseHealth() ProviderHealth {
 	parseStatus := ProviderHealthUnavailable
 	if parseP.ParseAvailable() {
@@ -132,10 +145,12 @@ func (parseP *AnthropicProvider) ParseHealth() ProviderHealth {
 	return ProviderHealth{ProviderID: parseP.ParseID(), Status: parseStatus}
 }
 
+// ParseCurrentRateLimits returns the current rate-limit snapshot.
 func (parseP *AnthropicProvider) ParseCurrentRateLimits() RateLimitSnapshot {
 	return RateLimitSnapshot{}
 }
 
+// ParseGenerateTitle generates one conversation title.
 func (parseP *AnthropicProvider) ParseGenerateTitle(parseCtx context.Context, parseReq TitleRequest) (string, error) {
 	if !parseP.ParseAvailable() {
 		return "", ErrNoProvidersAvailable
@@ -160,6 +175,7 @@ func (parseP *AnthropicProvider) ParseGenerateTitle(parseCtx context.Context, pa
 	return parseTitle, nil
 }
 
+// ParseExtractUserMemories extracts user-memory candidates from the current conversation.
 func (parseP *AnthropicProvider) ParseExtractUserMemories(parseCtx context.Context, parseReq MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
 	if !parseP.ParseAvailable() {
 		return nil, ErrNoProvidersAvailable
@@ -214,6 +230,7 @@ Rules:
 	return parseNormalizeMemoryCandidates(parseCandidates), nil
 }
 
+// ParseStreamChat streams one chat completion.
 func (parseP *AnthropicProvider) ParseStreamChat(parseCtx context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {
 	if !parseP.ParseAvailable() {
 		return ChatResult{}, ErrNoProvidersAvailable
@@ -330,6 +347,7 @@ func (parseP *AnthropicProvider) ParseStreamChat(parseCtx context.Context, parse
 	}, nil
 }
 
+// ParseSynthesizeSpeech streams one speech-synthesis response.
 func (parseP *AnthropicProvider) ParseSynthesizeSpeech(parseCtx context.Context, parseReq SpeechRequest, parseEmit func(SpeechChunk) error) (SpeechResult, error) {
 	_ = parseCtx
 	_ = parseReq

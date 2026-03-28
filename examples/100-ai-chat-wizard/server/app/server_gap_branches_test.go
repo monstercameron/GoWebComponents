@@ -109,13 +109,13 @@ func TestAuthSessionRPCBranchesCoverUnavailableAuthAndLogout(parseT *testing.T) 
 		authUsers: map[string]authUser{"peer-auth": {ID: 7, Email: "logout@example.com"}},
 	}
 
-	if _, parseErr := parseServer.Signup(context.Background(), nil); status.Code(parseErr) != codes.Internal {
+	if _, parseErr := parseServer.Signup(context.Background(), nil); status.Code(parseErr) != codes.Unavailable {
 		parseT.Fatalf("expected signup auth-unavailable error, got %v", status.Code(parseErr))
 	}
-	if _, parseErr := parseServer.Login(context.Background(), nil); status.Code(parseErr) != codes.Internal {
+	if _, parseErr := parseServer.Login(context.Background(), nil); status.Code(parseErr) != codes.Unavailable {
 		parseT.Fatalf("expected login auth-unavailable error, got %v", status.Code(parseErr))
 	}
-	if _, parseErr := parseServer.RefreshSession(context.Background(), &emptypb.Empty{}); status.Code(parseErr) != codes.Internal {
+	if _, parseErr := parseServer.RefreshSession(context.Background(), &emptypb.Empty{}); status.Code(parseErr) != codes.Unavailable {
 		parseT.Fatalf("expected refresh auth-unavailable error, got %v", status.Code(parseErr))
 	}
 
@@ -150,7 +150,7 @@ func TestMemoryExtractionFailureBranches(parseT *testing.T) {
 		memoryExtractionSlots: make(chan struct{}, 1),
 		memoryExtractionModel: "missing-model",
 	}
-	parseMissingModelServer.parseExtractAndStoreUserMemories(parseUser.ID, "Remember this.")
+	parseMissingModelServer.parseExtractAndStoreUserMemories(context.Background(), parseUser.ID, "Remember this.")
 	parseMemories, parseErr := parseStore.parseListUserMemories(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("parseListUserMemories missing-model: %v", parseErr)
@@ -173,7 +173,7 @@ func TestMemoryExtractionFailureBranches(parseT *testing.T) {
 		memoryExtractionSlots: make(chan struct{}, 1),
 		memoryExtractionModel: modelGPT54,
 	}
-	parseFailingServer.parseExtractAndStoreUserMemories(parseUser.ID, "Remember this too.")
+	parseFailingServer.parseExtractAndStoreUserMemories(context.Background(), parseUser.ID, "Remember this too.")
 	parseMemories, parseErr = parseStore.parseListUserMemories(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("parseListUserMemories failing-provider: %v", parseErr)
@@ -205,7 +205,7 @@ func TestMemoryExtractionFailureBranches(parseT *testing.T) {
 		memoryExtractionModel: modelGPT54,
 	}
 	parseStore.parseClose()
-	parseSaveFailureServer.parseExtractAndStoreUserMemories(parseUser.ID, "Remember that I prefer concise replies.")
+	parseSaveFailureServer.parseExtractAndStoreUserMemories(context.Background(), parseUser.ID, "Remember that I prefer concise replies.")
 	parseLogOutput := parseLogs.String()
 	if !strings.Contains(parseLogOutput, "memory extraction save failed") || !strings.Contains(parseLogOutput, "save_failure_count=1") {
 		parseT.Fatalf("expected save-failure logs, got:\n%s", parseLogOutput)

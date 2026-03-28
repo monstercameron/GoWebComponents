@@ -113,7 +113,7 @@ func TestWorkspaceScopedWritesBlockedWhenSuspended(parseT *testing.T) {
 		parseT.Fatalf("parseUpsertSupportTicket error=%v want=%v", parseErr, errStoreWorkspaceSuspended)
 	}
 
-	if _, parseErr := parseStore.parseCreateNotificationOutbox(parseNotificationOutboxWrite{
+	if _, parseErr := parseStore.parseCreateNotificationOutbox(context.Background(), parseNotificationOutboxWrite{
 		WorkspaceID:     parseWorkspaceID,
 		UserID:          parseUser.ID,
 		NotificationKey: "runtime-notify",
@@ -227,7 +227,7 @@ func TestWebhookAndSupportMessageBlockedWhenWorkspaceSuspended(parseT *testing.T
 	if parseErr = parseStore.parseSetWorkspaceStatusByID(parseWorkspaceID, "suspended"); parseErr != nil {
 		parseT.Fatalf("parseSetWorkspaceStatusByID: %v", parseErr)
 	}
-	if parseErr = parseStore.parseUpsertWebhookDelivery(parseWebhookDeliveryWrite{
+	if parseErr = parseStore.parseUpsertWebhookDelivery(context.Background(), parseWebhookDeliveryWrite{
 		EndpointID:   parseEndpointRows[0].ID,
 		EventType:    "chat.completed",
 		DeliveryKey:  "runtime-delivery-suspended",
@@ -253,7 +253,7 @@ func TestDispatchNotificationOutboxPendingFailsSuspendedWorkspaceRows(parseT *te
 	parseWorkspaceID := parseMustEnsureWorkspaceMembership(parseT, parseStore, parseUser.ID, "ws-runtime-notify-dispatch")
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 
-	if _, parseErr := parseStore.parseCreateNotificationOutbox(parseNotificationOutboxWrite{
+	if _, parseErr := parseStore.parseCreateNotificationOutbox(context.Background(), parseNotificationOutboxWrite{
 		WorkspaceID:     parseWorkspaceID,
 		UserID:          parseUser.ID,
 		NotificationKey: "runtime-notify-dispatch",
@@ -271,7 +271,7 @@ func TestDispatchNotificationOutboxPendingFailsSuspendedWorkspaceRows(parseT *te
 	}
 
 	parseDeliverCount := 0
-	parseProcessed, parseErr := parseDispatchNotificationOutboxPending(parseStore, parseNow, 10, func(parseRow parseNotificationOutboxRow) error {
+	parseProcessed, parseErr := parseDispatchNotificationOutboxPending(context.Background(), parseStore, parseNow, 10, func(_ context.Context, parseRow parseNotificationOutboxRow) error {
 		parseDeliverCount++
 		return nil
 	})
@@ -299,7 +299,7 @@ func TestDispatchNotificationOutboxPendingFailsDisabledUserRows(parseT *testing.
 	parseWorkspaceID := parseMustEnsureWorkspaceMembership(parseT, parseStore, parseOwner.ID, "ws-runtime-notify-disabled")
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 
-	if _, parseErr := parseStore.parseCreateNotificationOutbox(parseNotificationOutboxWrite{
+	if _, parseErr := parseStore.parseCreateNotificationOutbox(context.Background(), parseNotificationOutboxWrite{
 		WorkspaceID:     parseWorkspaceID,
 		UserID:          parseDisabledUser.ID,
 		NotificationKey: "runtime-notify-dispatch-disabled-user",
@@ -322,7 +322,7 @@ func TestDispatchNotificationOutboxPendingFailsDisabledUserRows(parseT *testing.
 	}
 
 	parseDeliverCount := 0
-	parseProcessed, parseErr := parseDispatchNotificationOutboxPending(parseStore, parseNow, 10, func(parseRow parseNotificationOutboxRow) error {
+	parseProcessed, parseErr := parseDispatchNotificationOutboxPending(context.Background(), parseStore, parseNow, 10, func(_ context.Context, parseRow parseNotificationOutboxRow) error {
 		parseDeliverCount++
 		return nil
 	})
@@ -366,8 +366,8 @@ func TestHandleBackgroundJobsFailsSuspendedWorkspaceQueue(parseT *testing.T) {
 		parseT.Fatalf("parseSetWorkspaceStatusByID: %v", parseErr)
 	}
 
-	parseProcessed, parseErr := parseHandleBackgroundJobs(parseStore, parseNow, 10, parseBackgroundJobHandlers{
-		HandleWeeklySummary: func(parseRow parseBackgroundJobRow) error {
+	parseProcessed, parseErr := parseHandleBackgroundJobs(context.Background(), parseStore, parseNow, 10, parseBackgroundJobHandlers{
+		HandleWeeklySummary: func(_ context.Context, parseRow parseBackgroundJobRow) error {
 			parseT.Fatalf("unexpected handler invocation for suspended workspace job: %+v", parseRow)
 			return nil
 		},
@@ -396,6 +396,7 @@ func TestHandleBackgroundJobsFailsBlockedPayloadScope(parseT *testing.T) {
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 
 	if parseErr := parseStoreWeeklySummaryJob(
+		context.Background(),
 		parseStore,
 		"runtime-job-payload-disabled-user",
 		fmt.Sprintf(`{"workspace_id":%d,"user_id":%d}`, parseWorkspaceID, parseUser.ID),
@@ -412,8 +413,8 @@ func TestHandleBackgroundJobsFailsBlockedPayloadScope(parseT *testing.T) {
 		parseT.Fatalf("parseUpsertUserAccessState: %v", parseErr)
 	}
 
-	parseProcessed, parseErr := parseHandleBackgroundJobs(parseStore, parseNow, 10, parseBackgroundJobHandlers{
-		HandleWeeklySummary: func(parseRow parseBackgroundJobRow) error {
+	parseProcessed, parseErr := parseHandleBackgroundJobs(context.Background(), parseStore, parseNow, 10, parseBackgroundJobHandlers{
+		HandleWeeklySummary: func(_ context.Context, parseRow parseBackgroundJobRow) error {
 			parseT.Fatalf("unexpected handler invocation for blocked payload scope: %+v", parseRow)
 			return nil
 		},

@@ -394,6 +394,10 @@ func TestChatShellHandlerTracksFirstChatFunnelSteps(parseT *testing.T) {
 	if len(parsePricingSteps) != 1 || parsePricingSteps[0] != parseFirstChatStepPricingViewed {
 		parseT.Fatalf("pricing steps mismatch: %+v", parsePricingSteps)
 	}
+	parsePlansSteps := parseCollectFirstChatFunnelStepsForPath("/plans")
+	if len(parsePlansSteps) != 1 || parsePlansSteps[0] != parseFirstChatStepPricingViewed {
+		parseT.Fatalf("plans steps mismatch: %+v", parsePlansSteps)
+	}
 	parseAuthSteps := parseCollectFirstChatFunnelStepsForPath("/login")
 	if len(parseAuthSteps) != 2 || parseAuthSteps[0] != parseFirstChatStepCTAClicked || parseAuthSteps[1] != parseFirstChatStepAuthStarted {
 		parseT.Fatalf("auth route steps mismatch: %+v", parseAuthSteps)
@@ -450,5 +454,13 @@ func TestChatShellHandler(parseT *testing.T) {
 	parseLegacyRouteBody := parseLegacyRouteResp.Body.String()
 	if parseLegacyRouteResp.Code != http.StatusOK || !strings.Contains(parseLegacyRouteBody, `id="boot-shell"`) || !strings.Contains(parseLegacyRouteBody, "chat-bootstrap.js") {
 		parseT.Fatalf("expected legacy auth route to resolve to the client shell, got code=%d body=%q", parseLegacyRouteResp.Code, parseLegacyRouteResp.Body.String())
+	}
+
+	parsePublicInfoReq := httptest.NewRequest(http.MethodGet, "http://example.com/about", nil)
+	parsePublicInfoResp := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parsePublicInfoResp, parsePublicInfoReq)
+	parsePublicInfoBody := parsePublicInfoResp.Body.String()
+	if parsePublicInfoResp.Code != http.StatusOK || !strings.Contains(parsePublicInfoBody, `id="boot-shell"`) || !strings.Contains(parsePublicInfoBody, "chat-bootstrap.js") {
+		parseT.Fatalf("expected public info route to resolve to the client shell, got code=%d body=%q", parsePublicInfoResp.Code, parsePublicInfoResp.Body.String())
 	}
 }

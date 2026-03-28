@@ -106,6 +106,37 @@ func TestResolveExternalIdentityLinkDecisionRejectsInvalidProvider(parseT *testi
 	}
 }
 
+// TestResolveExternalIdentityLinkDecisionEnforcesPolicy verifies workspace-policy gates for password-link and create-user actions.
+func TestResolveExternalIdentityLinkDecisionEnforcesPolicy(parseT *testing.T) {
+	if _, parseErr := parseResolveExternalIdentityLinkDecision(parseExternalIdentityLinkRequest{
+		ParseProviderKey:           "oidc",
+		ParseProviderSubject:       "oidc-subject-policy-password-link",
+		ParseVerifiedEmail:         "customer@email.com",
+		IsParseEmailVerified:       true,
+		IsParsePolicyEnforced:      true,
+		IsParsePasswordLinkAllowed: false,
+		IsParseUserCreateAllowed:   true,
+		ParseEmailMatchedUsers: []parseExternalIdentityEmailMatch{
+			{ParseUserID: 1001, IsParsePasswordAuthEnabled: true},
+		},
+	}); status.Code(parseErr) != codes.PermissionDenied {
+		parseT.Fatalf("password link blocked by policy status code=%v want=%v", status.Code(parseErr), codes.PermissionDenied)
+	}
+
+	if _, parseErr := parseResolveExternalIdentityLinkDecision(parseExternalIdentityLinkRequest{
+		ParseProviderKey:           "oidc",
+		ParseProviderSubject:       "oidc-subject-policy-create",
+		ParseVerifiedEmail:         "new-user@example.com",
+		IsParseEmailVerified:       true,
+		IsParsePolicyEnforced:      true,
+		IsParsePasswordLinkAllowed: true,
+		IsParseUserCreateAllowed:   false,
+		ParseEmailMatchedUsers:     nil,
+	}); status.Code(parseErr) != codes.PermissionDenied {
+		parseT.Fatalf("create blocked by policy status code=%v want=%v", status.Code(parseErr), codes.PermissionDenied)
+	}
+}
+
 // BenchmarkResolveExternalIdentityLinkDecision measures account-link decision overhead for one verified email match.
 func BenchmarkResolveExternalIdentityLinkDecision(parseB *testing.B) {
 	parseRequest := parseExternalIdentityLinkRequest{

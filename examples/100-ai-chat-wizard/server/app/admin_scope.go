@@ -42,10 +42,14 @@ func (parseS *chatServer) parseRequireAdminSessionUserID(parseCtx context.Contex
 
 // parseRequireAdminAccessScope resolves one authenticated admin caller into platform or workspace scope.
 func (parseS *chatServer) parseRequireAdminAccessScope(parseCtx context.Context) (parseAdminAccessScope, error) {
+	var parseLogger *slog.Logger
+	if parseS != nil && parseS.logger != nil {
+		parseLogger = parseS.logger.With(parseResolveTraceabilityAttrs(parseCtx)...)
+	}
 	parseUserID, parseErr := parseS.parseRequireAdminSessionUserID(parseCtx)
 	if parseErr != nil {
-		if parseS != nil && parseS.logger != nil {
-			parseS.logger.Warn(
+		if parseLogger != nil {
+			parseLogger.Warn(
 				"rpc.admin role resolution denied",
 				slog.Int64("user_id", parseUserID),
 				slog.String("code", status.Code(parseErr).String()),
@@ -57,8 +61,8 @@ func (parseS *chatServer) parseRequireAdminAccessScope(parseCtx context.Context)
 	}
 	parseScope, parseErr := parseS.parseResolveAdminAccessScopeForUserID(parseUserID)
 	if parseErr != nil {
-		if parseS != nil && parseS.logger != nil {
-			parseS.logger.Warn(
+		if parseLogger != nil {
+			parseLogger.Warn(
 				"rpc.admin role resolution denied",
 				slog.Int64("user_id", parseUserID),
 				slog.String("code", status.Code(parseErr).String()),
@@ -73,7 +77,7 @@ func (parseS *chatServer) parseRequireAdminAccessScope(parseCtx context.Context)
 		if parseScope.isPlatformScope {
 			parseScopeType = "platform"
 		}
-		parseS.logger.Info(
+		parseLogger.Info(
 			"rpc.admin role resolution complete",
 			slog.Int64("user_id", parseUserID),
 			slog.String("scope", parseScopeType),
@@ -86,6 +90,10 @@ func (parseS *chatServer) parseRequireAdminAccessScope(parseCtx context.Context)
 
 // parseRequireAdminSliceScope resolves one admin scope and emits one structured denial log per slice on failures.
 func (parseS *chatServer) parseRequireAdminSliceScope(parseCtx context.Context, parseSliceKey string) (parseAdminAccessScope, error) {
+	var parseSliceLogger *slog.Logger
+	if parseS != nil && parseS.logger != nil {
+		parseSliceLogger = parseS.logger.With(parseResolveTraceabilityAttrs(parseCtx)...)
+	}
 	parseUserID, _ := parseS.parseRequireAdminSessionUserID(parseCtx)
 	parseScope, parseErr := parseS.parseRequireAdminAccessScope(parseCtx)
 	if parseErr == nil {
@@ -93,8 +101,8 @@ func (parseS *chatServer) parseRequireAdminSliceScope(parseCtx context.Context, 
 			parseSurfaceKey := parseResolveAdminDashboardSurfaceBySliceKey(parseSliceKey)
 			if !parseCanWorkspaceAdminAccessDashboardSurface(parseSurfaceKey) {
 				parseErr = status.Errorf(codes.PermissionDenied, "dashboard %s surface requires superuser role", parseSurfaceKey)
-				if parseS != nil && parseS.logger != nil {
-					parseS.logger.Warn(
+				if parseSliceLogger != nil {
+					parseSliceLogger.Warn(
 						"rpc.admin slice denied",
 						slog.String("admin_slice", strings.TrimSpace(parseSliceKey)),
 						slog.String("admin_surface", parseSurfaceKey),
@@ -109,8 +117,8 @@ func (parseS *chatServer) parseRequireAdminSliceScope(parseCtx context.Context, 
 		}
 		return parseScope, nil
 	}
-	if parseS != nil && parseS.logger != nil {
-		parseS.logger.Warn(
+	if parseSliceLogger != nil {
+		parseSliceLogger.Warn(
 			"rpc.admin slice denied",
 			slog.String("admin_slice", strings.TrimSpace(parseSliceKey)),
 			slog.Int64("user_id", parseUserID),

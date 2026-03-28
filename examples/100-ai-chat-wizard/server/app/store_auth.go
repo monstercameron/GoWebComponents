@@ -442,6 +442,91 @@ func (parseS *Store) parseCreateEmailVerificationToken(parseWrite parseEmailVeri
 	return parseResult.LastInsertId()
 }
 
+// parseGetEmailVerificationTokenByHash returns one email-verification token row for one token hash when present.
+func (parseS *Store) parseGetEmailVerificationTokenByHash(parseTokenHash string) (parseEmailVerificationTokenRow, bool, error) {
+	parseTokenHash = strings.TrimSpace(parseTokenHash)
+	if parseTokenHash == "" {
+		return parseEmailVerificationTokenRow{}, false, nil
+	}
+	parseRow := parseS.db.QueryRow(parseS.queries.getEmailVerificationTokenByHash, parseTokenHash)
+	var parseTokenRow parseEmailVerificationTokenRow
+	if parseErr := parseRow.Scan(
+		&parseTokenRow.ID,
+		&parseTokenRow.UserID,
+		&parseTokenRow.Email,
+		&parseTokenRow.Status,
+		&parseTokenRow.ExpiresAt,
+		&parseTokenRow.VerifiedAt,
+		&parseTokenRow.CreatedAt,
+	); parseErr != nil {
+		if errors.Is(parseErr, sql.ErrNoRows) {
+			return parseEmailVerificationTokenRow{}, false, nil
+		}
+		return parseEmailVerificationTokenRow{}, false, parseErr
+	}
+	return parseTokenRow, true, nil
+}
+
+// parseCountEmailVerificationTokenRequestsByEmailSince counts verification-token requests by email at-or-after one timestamp.
+func (parseS *Store) parseCountEmailVerificationTokenRequestsByEmailSince(parseEmail string, parseSince time.Time) (int64, error) {
+	parseEmail = parseNormalizeAuthEmail(parseEmail)
+	if parseEmail == "" {
+		return 0, nil
+	}
+	if parseSince.IsZero() {
+		parseSince = time.Now().UTC().Add(-1 * time.Hour)
+	}
+	parseRow := parseS.db.QueryRow(
+		`SELECT COUNT(1) FROM email_verification_tokens WHERE email = ? AND created_at >= ?`,
+		parseEmail,
+		parseSince.UTC().Format(time.RFC3339),
+	)
+	var parseCount int64
+	if parseErr := parseRow.Scan(&parseCount); parseErr != nil {
+		return 0, parseErr
+	}
+	return parseCount, nil
+}
+
+// parseResolveEmailVerificationStatusByEmail resolves one verification status from token lifecycle rows for one email.
+func (parseS *Store) parseResolveEmailVerificationStatusByEmail(parseEmail string, parseNow time.Time) (string, error) {
+	parseEmail = parseNormalizeAuthEmail(parseEmail)
+	if parseEmail == "" {
+		return "unknown", nil
+	}
+	if parseNow.IsZero() {
+		parseNow = time.Now().UTC()
+	}
+	parseRow := parseS.db.QueryRow(
+		`SELECT status, expires_at FROM email_verification_tokens WHERE email = ? ORDER BY id DESC LIMIT 1`,
+		parseEmail,
+	)
+	var parseStatus string
+	var parseExpiresAtRaw string
+	if parseErr := parseRow.Scan(&parseStatus, &parseExpiresAtRaw); parseErr != nil {
+		if errors.Is(parseErr, sql.ErrNoRows) {
+			return "unknown", nil
+		}
+		return "unknown", parseErr
+	}
+	parseStatus = strings.TrimSpace(strings.ToLower(parseStatus))
+	switch parseStatus {
+	case "verified":
+		return "verified", nil
+	case "pending":
+		parseExpiresAt, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(parseExpiresAtRaw))
+		if parseErr != nil {
+			return "unknown", nil
+		}
+		if parseNow.UTC().After(parseExpiresAt.UTC()) {
+			return "expired", nil
+		}
+		return "pending", nil
+	default:
+		return "unknown", nil
+	}
+}
+
 // parseConsumeEmailVerificationToken verifies one pending, unexpired email-verification token hash exactly once.
 func (parseS *Store) parseConsumeEmailVerificationToken(parseTokenHash string, parseNow time.Time) (parseEmailVerificationTokenRow, bool, error) {
 	parseTokenHash = strings.TrimSpace(parseTokenHash)
@@ -528,6 +613,74 @@ func (parseS *Store) parseCreatePasswordResetToken(parseWrite parsePasswordReset
 		return 0, errStoreUserMissing
 	}
 	return parseResult.LastInsertId()
+}
+
+// parseGetPasswordResetTokenByHash returns one password-reset token row for one token hash when present.
+func (parseS *Store) parseGetPasswordResetTokenByHash(parseTokenHash string) (parsePasswordResetTokenRow, bool, error) {
+	parseTokenHash = strings.TrimSpace(parseTokenHash)
+	if parseTokenHash == "" {
+		return parsePasswordResetTokenRow{}, false, nil
+	}
+	parseRow := parseS.db.QueryRow(parseS.queries.getPasswordResetTokenByHash, parseTokenHash)
+	var parseTokenRow parsePasswordResetTokenRow
+	if parseErr := parseRow.Scan(
+		&parseTokenRow.ID,
+		&parseTokenRow.UserID,
+		&parseTokenRow.Email,
+		&parseTokenRow.Status,
+		&parseTokenRow.RequestedByIP,
+		&parseTokenRow.ExpiresAt,
+		&parseTokenRow.ConsumedAt,
+		&parseTokenRow.CreatedAt,
+	); parseErr != nil {
+		if errors.Is(parseErr, sql.ErrNoRows) {
+			return parsePasswordResetTokenRow{}, false, nil
+		}
+		return parsePasswordResetTokenRow{}, false, parseErr
+	}
+	return parseTokenRow, true, nil
+}
+
+// parseCountPasswordResetTokenRequestsByEmailSince counts password-reset requests by email at-or-after one timestamp.
+func (parseS *Store) parseCountPasswordResetTokenRequestsByEmailSince(parseEmail string, parseSince time.Time) (int64, error) {
+	parseEmail = parseNormalizeAuthEmail(parseEmail)
+	if parseEmail == "" {
+		return 0, nil
+	}
+	if parseSince.IsZero() {
+		parseSince = time.Now().UTC().Add(-1 * time.Hour)
+	}
+	parseRow := parseS.db.QueryRow(
+		`SELECT COUNT(1) FROM password_reset_tokens WHERE email = ? AND created_at >= ?`,
+		parseEmail,
+		parseSince.UTC().Format(time.RFC3339),
+	)
+	var parseCount int64
+	if parseErr := parseRow.Scan(&parseCount); parseErr != nil {
+		return 0, parseErr
+	}
+	return parseCount, nil
+}
+
+// parseCountPasswordResetTokenRequestsByIPSince counts password-reset requests by request IP at-or-after one timestamp.
+func (parseS *Store) parseCountPasswordResetTokenRequestsByIPSince(parseRequestIP string, parseSince time.Time) (int64, error) {
+	parseRequestIP = strings.TrimSpace(parseRequestIP)
+	if parseRequestIP == "" {
+		return 0, nil
+	}
+	if parseSince.IsZero() {
+		parseSince = time.Now().UTC().Add(-1 * time.Hour)
+	}
+	parseRow := parseS.db.QueryRow(
+		`SELECT COUNT(1) FROM password_reset_tokens WHERE requested_by_ip = ? AND created_at >= ?`,
+		parseRequestIP,
+		parseSince.UTC().Format(time.RFC3339),
+	)
+	var parseCount int64
+	if parseErr := parseRow.Scan(&parseCount); parseErr != nil {
+		return 0, parseErr
+	}
+	return parseCount, nil
 }
 
 // parseConsumePasswordResetToken consumes one pending, unexpired password-reset token hash exactly once.

@@ -23,14 +23,14 @@ func TestAuthRPCsMapStoreUnavailableToClientErrors(parseT *testing.T) {
 	if _, parseErr := parseServer.Signup(context.Background(), &chatpb.SignupRequest{
 		Email:    "signup@example.com",
 		Password: "password123",
-	}); status.Code(parseErr) != codes.InvalidArgument {
-		parseT.Fatalf("expected signup store-unavailable error to be InvalidArgument, got %v", status.Code(parseErr))
+	}); status.Code(parseErr) != codes.Unavailable {
+		parseT.Fatalf("expected signup store-unavailable error to be Unavailable, got %v", status.Code(parseErr))
 	}
 	if _, parseErr := parseServer.Login(context.Background(), &chatpb.LoginRequest{
 		Email:    "login@example.com",
 		Password: "password123",
-	}); status.Code(parseErr) != codes.InvalidArgument {
-		parseT.Fatalf("expected login store-unavailable error to be InvalidArgument, got %v", status.Code(parseErr))
+	}); status.Code(parseErr) != codes.Unavailable {
+		parseT.Fatalf("expected login store-unavailable error to be Unavailable, got %v", status.Code(parseErr))
 	}
 }
 

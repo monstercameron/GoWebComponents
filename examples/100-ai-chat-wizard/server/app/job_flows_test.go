@@ -1,8 +1,14 @@
 package app
 
 import (
+	"bytes"
+	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
+
+	"google.golang.org/grpc/metadata"
 )
 
 // TestHandleBackgroundJobsLifecycle verifies typed system-job flow scheduling, retry, and completion state transitions.
@@ -10,21 +16,21 @@ func TestHandleBackgroundJobsLifecycle(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
 	parseNow := "2026-03-27T22:30:00Z"
 
-	if parseErr := parseStoreWeeklySummaryJob(parseStore, "job-weekly", `{}`, parseNow); parseErr != nil {
+	if parseErr := parseStoreWeeklySummaryJob(context.Background(), parseStore, "job-weekly", `{}`, parseNow); parseErr != nil {
 		parseT.Fatalf("parseStoreWeeklySummaryJob: %v", parseErr)
 	}
-	if parseErr := parseStoreDunningRetryJob(parseStore, "job-dunning", `{}`, parseNow); parseErr != nil {
+	if parseErr := parseStoreDunningRetryJob(context.Background(), parseStore, "job-dunning", `{}`, parseNow); parseErr != nil {
 		parseT.Fatalf("parseStoreDunningRetryJob: %v", parseErr)
 	}
-	if parseErr := parseStoreRetentionPurgeJob(parseStore, "job-retention", `{}`, parseNow); parseErr != nil {
+	if parseErr := parseStoreRetentionPurgeJob(context.Background(), parseStore, "job-retention", `{}`, parseNow); parseErr != nil {
 		parseT.Fatalf("parseStoreRetentionPurgeJob: %v", parseErr)
 	}
-	if parseErr := parseStoreHealthScoreRefreshJob(parseStore, "job-health", `{}`, "2026-03-27T23:30:00Z"); parseErr != nil {
+	if parseErr := parseStoreHealthScoreRefreshJob(context.Background(), parseStore, "job-health", `{}`, "2026-03-27T23:30:00Z"); parseErr != nil {
 		parseT.Fatalf("parseStoreHealthScoreRefreshJob: %v", parseErr)
 	}
 
-	parseProcessed, parseErr := parseHandleBackgroundJobs(parseStore, parseNow, 20, parseBackgroundJobHandlers{
-		HandleDunningRetry: func(parseRow parseBackgroundJobRow) error {
+	parseProcessed, parseErr := parseHandleBackgroundJobs(context.Background(), parseStore, parseNow, 20, parseBackgroundJobHandlers{
+		HandleDunningRetry: func(context.Context, parseBackgroundJobRow) error {
 			return errors.New("billing provider timeout")
 		},
 	})
@@ -56,7 +62,7 @@ func TestHandleBackgroundJobsLifecycle(parseT *testing.T) {
 		parseT.Fatalf("unexpected health row after first pass: found=%v row=%+v", hasParseRow, parseRow)
 	}
 
-	parseProcessed, parseErr = parseHandleBackgroundJobs(parseStore, "2026-03-27T22:31:30Z", 20, parseBackgroundJobHandlers{})
+	parseProcessed, parseErr = parseHandleBackgroundJobs(context.Background(), parseStore, "2026-03-27T22:31:30Z", 20, parseBackgroundJobHandlers{})
 	if parseErr != nil {
 		parseT.Fatalf("parseHandleBackgroundJobs second pass: %v", parseErr)
 	}
@@ -89,5 +95,40 @@ func BenchmarkResolveBackgroundJobScopeIDs(parseB *testing.B) {
 		if parseWorkspaceID != 42 || parseUserID != 108 {
 			parseB.Fatalf("unexpected scope ids workspace=%d user=%d", parseWorkspaceID, parseUserID)
 		}
+	}
+}
+
+// TestHandleBackgroundJobsLogsHandlerFailures verifies failed job handlers emit one boundary log entry.
+func TestHandleBackgroundJobsLogsHandlerFailures(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseNow := "2026-03-27T22:30:00Z"
+	if parseErr := parseStoreWeeklySummaryJob(context.Background(), parseStore, "job-weekly-log", `{}`, parseNow); parseErr != nil {
+		parseT.Fatalf("parseStoreWeeklySummaryJob: %v", parseErr)
+	}
+	var parseBuffer bytes.Buffer
+	parseOriginalLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&parseBuffer, nil)))
+	parseT.Cleanup(func() {
+		slog.SetDefault(parseOriginalLogger)
+	})
+
+	parseCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
+		requestIDMetadataKey, "req-job-log-123",
+		correlationIDMetadataKey, "corr-job-log-456",
+	))
+	parseProcessed, parseErr := parseHandleBackgroundJobs(parseCtx, parseStore, parseNow, 10, parseBackgroundJobHandlers{
+		HandleWeeklySummary: func(context.Context, parseBackgroundJobRow) error {
+			return errors.New("billing provider timeout")
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseHandleBackgroundJobs: %v", parseErr)
+	}
+	if parseProcessed != 1 {
+		parseT.Fatalf("expected 1 processed row, got %d", parseProcessed)
+	}
+	parseLogOutput := parseBuffer.String()
+	if !strings.Contains(parseLogOutput, "background job handler failed") || !strings.Contains(parseLogOutput, "job-weekly-log") {
+		parseT.Fatalf("expected job failure log, got %q", parseLogOutput)
 	}
 }

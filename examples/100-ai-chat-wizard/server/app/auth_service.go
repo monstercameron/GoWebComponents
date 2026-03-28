@@ -30,9 +30,24 @@ const correlationIDMetadataKey = "x-correlation-id"
 
 const authTokenTTL = 2 * time.Hour // Development default: 2 hours. Tighten to 1 hour in production.
 const emailVerificationTokenTTL = 24 * time.Hour
-const passwordResetTokenTTL = 30 * time.Minute
+const passwordResetTokenTTL = 15 * time.Minute
+const passwordResetRequestThrottleWindow = 15 * time.Minute
+const passwordResetRequestThrottleMaxPerEmail = int64(3)
+const passwordResetRequestThrottleMaxPerIP = int64(8)
+
+const parsePasswordRecoveryAuditEventRequest = "auth.recovery.request"
+const parsePasswordRecoveryAuditEventConsume = "auth.recovery.consume"
+
+const parsePasswordRecoveryAuditOutcomeRequested = "requested"
+const parsePasswordRecoveryAuditOutcomeThrottled = "throttled"
+const parsePasswordRecoveryAuditOutcomeMissingUser = "missing_user"
+const parsePasswordRecoveryAuditOutcomeConsumed = "consumed"
+const parsePasswordRecoveryAuditOutcomeExpired = "expired"
+const parsePasswordRecoveryAuditOutcomeReplayDenied = "replay_denied"
+const parsePasswordRecoveryAuditOutcomeInvalidToken = "invalid_token"
 
 var errInvalidCredentials = errors.New("invalid credentials")
+var errPasswordRecoveryUnavailable = errors.New("password recovery unavailable")
 
 type authUser struct {
 	ID    int64
@@ -160,6 +175,19 @@ func parseBuildOpaqueAuthFlowToken() string {
 func parseBuildAuthFlowTokenHash(parseRawToken string) string {
 	parseDigest := sha256.Sum256([]byte(strings.TrimSpace(parseRawToken)))
 	return hex.EncodeToString(parseDigest[:])
+}
+
+// parseBuildAuthAuditEmailHash returns one short deterministic email hash for recovery audit logs.
+func parseBuildAuthAuditEmailHash(parseEmail string) string {
+	parseEmail = parseNormalizeAuthEmail(parseEmail)
+	if parseEmail == "" {
+		return ""
+	}
+	parseEmailHash := parseBuildAuthFlowTokenHash(parseEmail)
+	if len(parseEmailHash) > 16 {
+		return parseEmailHash[:16]
+	}
+	return parseEmailHash
 }
 
 // issueToken issues one auth token with a new durable server-side session.
@@ -672,6 +700,36 @@ func parseRequestUsesHTTPS(parseR *http.Request) bool {
 	return strings.EqualFold(strings.TrimSpace(parseR.Header.Get("X-Forwarded-Proto")), "https")
 }
 
+// parseBuildTraceabilityContextFromRequest merges request, correlation, and trace headers into one request context.
+func parseBuildTraceabilityContextFromRequest(parseR *http.Request) context.Context {
+	if parseR == nil {
+		return context.Background()
+	}
+	parseIncomingMD, _ := metadata.FromIncomingContext(parseR.Context())
+	parsePairs := make([]string, 0, 8)
+	for _, parseKey := range []string{requestIDMetadataKey, correlationIDMetadataKey, traceParentMetadataKey, traceStateMetadataKey} {
+		if parseValue := strings.TrimSpace(parseR.Header.Get(parseKey)); parseValue != "" {
+			parsePairs = append(parsePairs, parseKey, parseValue)
+		}
+	}
+	if len(parsePairs) == 0 {
+		if len(parseIncomingMD) == 0 {
+			return parseR.Context()
+		}
+		return metadata.NewIncomingContext(parseR.Context(), parseIncomingMD)
+	}
+	if len(parseIncomingMD) > 0 {
+		parsePairsMD := metadata.Pairs(parsePairs...)
+		for parseKey, parseValues := range parseIncomingMD {
+			for _, parseValue := range parseValues {
+				parsePairsMD.Append(parseKey, parseValue)
+			}
+		}
+		return metadata.NewIncomingContext(parseR.Context(), parsePairsMD)
+	}
+	return metadata.NewIncomingContext(parseR.Context(), metadata.Pairs(parsePairs...))
+}
+
 func (parseA *authManager) parseRequireAuthenticatedPage(parseNext http.Handler) http.Handler {
 	return http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
 		if _, parseOk := parseA.parseAuthenticatedUserFromRequest(parseR); !parseOk {
@@ -679,7 +737,7 @@ func (parseA *authManager) parseRequireAuthenticatedPage(parseNext http.Handler)
 			http.Redirect(parseW, parseR, "/app", http.StatusSeeOther)
 			return
 		}
-		parseNext.ServeHTTP(parseW, parseR)
+		parseNext.ServeHTTP(parseW, parseR.Clone(parseBuildTraceabilityContextFromRequest(parseR)))
 	})
 }
 
@@ -691,10 +749,11 @@ func (parseA *authManager) parseRequireAuthenticatedTunnel(parseNext http.Handle
 			http.Error(parseW, "authentication required", http.StatusUnauthorized)
 			return
 		}
+		parseTraceableReq := parseR.Clone(parseBuildTraceabilityContextFromRequest(parseR))
 		if parseOnAuthenticated != nil {
-			parseOnAuthenticated(parseR, parseUser)
+			parseOnAuthenticated(parseTraceableReq, parseUser)
 		}
-		parseNext(parseW, parseR)
+		parseNext(parseW, parseTraceableReq)
 	}
 }
 
@@ -732,6 +791,7 @@ func (parseA *authManager) parseLogin(parseEmail, parsePassword string) (authUse
 	if parseA.store == nil {
 		return authUser{}, errors.New("store unavailable")
 	}
+	parseEmail = parseNormalizeAuthEmail(parseEmail)
 	parseRecord, parseErr := parseA.store.getUserAuthByEmail(parseEmail)
 	if parseErr != nil {
 		return authUser{}, errInvalidCredentials
@@ -740,6 +800,14 @@ func (parseA *authManager) parseLogin(parseEmail, parsePassword string) (authUse
 		return authUser{}, errInvalidCredentials
 	}
 	parseUser := authUser{ID: parseRecord.ID, Email: parseRecord.Email}
+	isParseLoginAllowed, parseErr := parseA.parseAuthorizeLoginSignupVerificationPolicy(parseUser.Email, time.Now().UTC())
+	if parseErr != nil {
+		return authUser{}, errSignupVerificationUnavailable
+	}
+	if !isParseLoginAllowed {
+		parseA.parseLogSignupVerificationAuditEvent(parseSignupVerificationAuditEventRequest, parseSignupVerificationAuditOutcomePolicyDenied, parseUser.ID, parseUser.Email)
+		return authUser{}, errInvalidCredentials
+	}
 	if _, parseOk := parseA.parseValidateActiveUser(parseUser, "login-password"); !parseOk {
 		return authUser{}, errInvalidCredentials
 	}
@@ -769,38 +837,117 @@ func (parseA *authManager) parseIssueEmailVerificationTokenForUser(parseUser aut
 	return parseRawToken, nil
 }
 
+// parseLogPasswordRecoveryAuditEvent emits one structured password-recovery audit event for operator diagnostics.
+func (parseA *authManager) parseLogPasswordRecoveryAuditEvent(parseEvent string, parseOutcome string, parseUserID int64, parseEmail string, parseRequestIP string) {
+	if parseA == nil || parseA.logger == nil {
+		return
+	}
+	parseA.logger.Info(
+		"auth recovery audit",
+		slog.String("event", strings.TrimSpace(parseEvent)),
+		slog.String("outcome", strings.TrimSpace(parseOutcome)),
+		slog.Int64("user_id", parseUserID),
+		slog.String("email_hash", parseBuildAuthAuditEmailHash(parseEmail)),
+		slog.String("request_ip", strings.TrimSpace(parseRequestIP)),
+	)
+}
+
+// parseIsPasswordResetRequestThrottled reports whether a password-reset request exceeds email/IP request budgets.
+func (parseA *authManager) parseIsPasswordResetRequestThrottled(parseEmail string, parseRequestIP string, parseNow time.Time) (bool, error) {
+	if parseA == nil || parseA.store == nil {
+		return false, errPasswordRecoveryUnavailable
+	}
+	if parseNow.IsZero() {
+		parseNow = time.Now().UTC()
+	}
+	parseSince := parseNow.UTC().Add(-1 * passwordResetRequestThrottleWindow)
+	parseEmailRequestCount, parseErr := parseA.store.parseCountPasswordResetTokenRequestsByEmailSince(parseEmail, parseSince)
+	if parseErr != nil {
+		return false, parseErr
+	}
+	if parseEmailRequestCount >= passwordResetRequestThrottleMaxPerEmail {
+		return true, nil
+	}
+	parseRequestIP = strings.TrimSpace(parseRequestIP)
+	if parseRequestIP == "" || strings.EqualFold(parseRequestIP, "self-service") {
+		return false, nil
+	}
+	parseIPRequestCount, parseErr := parseA.store.parseCountPasswordResetTokenRequestsByIPSince(parseRequestIP, parseSince)
+	if parseErr != nil {
+		return false, parseErr
+	}
+	if parseIPRequestCount >= passwordResetRequestThrottleMaxPerIP {
+		return true, nil
+	}
+	return false, nil
+}
+
+// parseResolvePasswordResetConsumeOutcome classifies one failed reset-token consume into one stable audit outcome.
+func (parseA *authManager) parseResolvePasswordResetConsumeOutcome(parseTokenHash string, parseNow time.Time) string {
+	if parseA == nil || parseA.store == nil {
+		return parsePasswordRecoveryAuditOutcomeInvalidToken
+	}
+	parseTokenRow, isParseTokenFound, parseErr := parseA.store.parseGetPasswordResetTokenByHash(parseTokenHash)
+	if parseErr != nil || !isParseTokenFound {
+		return parsePasswordRecoveryAuditOutcomeInvalidToken
+	}
+	if !strings.EqualFold(strings.TrimSpace(parseTokenRow.Status), "pending") {
+		return parsePasswordRecoveryAuditOutcomeReplayDenied
+	}
+	parseExpiresAt, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(parseTokenRow.ExpiresAt))
+	if parseErr != nil {
+		return parsePasswordRecoveryAuditOutcomeInvalidToken
+	}
+	if parseNow.UTC().After(parseExpiresAt.UTC()) {
+		return parsePasswordRecoveryAuditOutcomeExpired
+	}
+	return parsePasswordRecoveryAuditOutcomeReplayDenied
+}
+
 // parseBeginPasswordResetToken persists one pending password-reset token for one account when the email exists.
 func (parseA *authManager) parseBeginPasswordResetToken(parseEmail string, parseRequestIP string) (string, error) {
 	if parseA == nil || parseA.store == nil {
-		return "", errors.New("begin password reset token: store unavailable")
+		return "", errPasswordRecoveryUnavailable
 	}
 	parseEmail = parseNormalizeAuthEmail(parseEmail)
+	parseRequestIP = strings.TrimSpace(parseRequestIP)
 	if parseEmail == "" {
-		return "", errors.New("begin password reset token: email is required")
+		return "", errInvalidCredentials
+	}
+	parseNow := time.Now().UTC()
+	isParseThrottled, parseErr := parseA.parseIsPasswordResetRequestThrottled(parseEmail, parseRequestIP, parseNow)
+	if parseErr != nil {
+		return "", parseErr
+	}
+	if isParseThrottled {
+		parseA.parseLogPasswordRecoveryAuditEvent(parsePasswordRecoveryAuditEventRequest, parsePasswordRecoveryAuditOutcomeThrottled, 0, parseEmail, parseRequestIP)
+		return "", nil
 	}
 	parseRecord, parseErr := parseA.store.getUserAuthByEmail(parseEmail)
 	if parseErr != nil {
+		parseA.parseLogPasswordRecoveryAuditEvent(parsePasswordRecoveryAuditEventRequest, parsePasswordRecoveryAuditOutcomeMissingUser, 0, parseEmail, parseRequestIP)
 		return "", nil
 	}
 	parseRawToken := parseBuildOpaqueAuthFlowToken()
 	parseTokenHash := parseBuildAuthFlowTokenHash(parseRawToken)
-	parseExpiresAt := time.Now().UTC().Add(passwordResetTokenTTL).Format(time.RFC3339)
+	parseExpiresAt := parseNow.Add(passwordResetTokenTTL).Format(time.RFC3339)
 	if _, parseErr2 := parseA.store.parseCreatePasswordResetToken(parsePasswordResetTokenWrite{
 		UserID:        parseRecord.ID,
 		Email:         parseRecord.Email,
 		TokenHash:     parseTokenHash,
-		RequestedByIP: strings.TrimSpace(parseRequestIP),
+		RequestedByIP: parseRequestIP,
 		ExpiresAt:     parseExpiresAt,
 	}); parseErr2 != nil {
 		return "", parseErr2
 	}
+	parseA.parseLogPasswordRecoveryAuditEvent(parsePasswordRecoveryAuditEventRequest, parsePasswordRecoveryAuditOutcomeRequested, parseRecord.ID, parseRecord.Email, parseRequestIP)
 	return parseRawToken, nil
 }
 
 // parseCompletePasswordResetWithToken consumes one pending reset token, updates password hash, and revokes active sessions.
 func (parseA *authManager) parseCompletePasswordResetWithToken(parseResetToken, parseNewPassword string) error {
 	if parseA == nil || parseA.store == nil {
-		return errors.New("complete password reset token: store unavailable")
+		return errPasswordRecoveryUnavailable
 	}
 	parseResetToken = strings.TrimSpace(parseResetToken)
 	parseNewPassword = strings.TrimSpace(parseNewPassword)
@@ -811,26 +958,30 @@ func (parseA *authManager) parseCompletePasswordResetWithToken(parseResetToken, 
 		return errors.New("password must be at least 8 characters")
 	}
 	parseTokenHash := parseBuildAuthFlowTokenHash(parseResetToken)
-	parseTokenRow, parseOk, parseErr := parseA.store.parseConsumePasswordResetToken(parseTokenHash, time.Now().UTC())
+	parseNow := time.Now().UTC()
+	parseTokenRow, parseOk, parseErr := parseA.store.parseConsumePasswordResetToken(parseTokenHash, parseNow)
 	if parseErr != nil {
-		return parseErr
+		return errPasswordRecoveryUnavailable
 	}
 	if !parseOk || parseTokenRow.UserID <= 0 {
+		parseConsumeOutcome := parseA.parseResolvePasswordResetConsumeOutcome(parseTokenHash, parseNow)
+		parseA.parseLogPasswordRecoveryAuditEvent(parsePasswordRecoveryAuditEventConsume, parseConsumeOutcome, 0, "", "")
 		return errInvalidCredentials
 	}
 	parsePasswordHash, parseErr := bcrypt.GenerateFromPassword([]byte(parseNewPassword), bcrypt.DefaultCost)
 	if parseErr != nil {
-		return parseErr
+		return errPasswordRecoveryUnavailable
 	}
 	if parseErr2 := parseA.store.parseUpdateUserPasswordHash(parseTokenRow.UserID, string(parsePasswordHash)); parseErr2 != nil {
-		return parseErr2
+		return errPasswordRecoveryUnavailable
 	}
 	if _, parseErr2 := parseA.store.parseIncrementAuthTokenVersion(parseTokenRow.UserID); parseErr2 != nil {
-		return parseErr2
+		return errPasswordRecoveryUnavailable
 	}
 	if parseErr2 := parseA.store.parseRevokeAuthSessionsByUser(parseTokenRow.UserID); parseErr2 != nil {
-		return parseErr2
+		return errPasswordRecoveryUnavailable
 	}
+	parseA.parseLogPasswordRecoveryAuditEvent(parsePasswordRecoveryAuditEventConsume, parsePasswordRecoveryAuditOutcomeConsumed, parseTokenRow.UserID, parseTokenRow.Email, parseTokenRow.RequestedByIP)
 	return nil
 }
 

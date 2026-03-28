@@ -10,16 +10,16 @@ import (
 )
 
 const (
-	parseBillingLineTypePlatformFee   = "platform_fee"
-	parseBillingLineTypeUsageCost     = "usage_cost"
+	parseBillingLineTypePlatformFee    = "platform_fee"
+	parseBillingLineTypeUsageCost      = "usage_cost"
 	parseBillingLineTypeServicePremium = "service_premium"
 )
 
 type parseUsageBasedBillingPreview struct {
-	platformFeeCents   int64
-	usageCostCents     int64
+	platformFeeCents    int64
+	usageCostCents      int64
 	servicePremiumCents int64
-	totalCents         int64
+	totalCents          int64
 }
 
 // parseBuildUsageBasedBillingPreview computes one usage-based billing preview using platform fee plus usage plus service premium.
@@ -39,10 +39,10 @@ func parseBuildUsageBasedBillingPreview(parsePlatformFeeCents int64, parseUsageC
 	parseServicePremiumCents := int64(math.Round(float64(parseUsageCostCents*parseUsagePremiumBasisPoints) / 10_000.0))
 	parseTotalCents := parsePlatformFeeCents + parseUsageCostCents + parseServicePremiumCents
 	return parseUsageBasedBillingPreview{
-		platformFeeCents:   parsePlatformFeeCents,
-		usageCostCents:     parseUsageCostCents,
+		platformFeeCents:    parsePlatformFeeCents,
+		usageCostCents:      parseUsageCostCents,
 		servicePremiumCents: parseServicePremiumCents,
-		totalCents:         parseTotalCents,
+		totalCents:          parseTotalCents,
 	}, nil
 }
 

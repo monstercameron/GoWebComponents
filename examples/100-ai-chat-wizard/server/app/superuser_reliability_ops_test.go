@@ -37,8 +37,26 @@ func TestStoreSuperuserReliabilityControlFuncs(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("parseUpsertSuperuserWorkspaceSSOConfig: %v", parseErr)
 	}
-	if parseSSORow.WorkspaceID != parseWorkspaceID || parseSSORow.ProviderKey != "okta" {
+	if parseSSORow.WorkspaceID != parseWorkspaceID || parseSSORow.ProviderKey != "okta" || parseSSORow.ProviderType != "saml" {
 		parseT.Fatalf("unexpected sso row: %+v", parseSSORow)
+	}
+	parseOIDCSSORow, parseErr := parseStore.parseUpsertSuperuserWorkspaceSSOConfig(parseSuperuserWorkspaceSSOConfigWrite{
+		WorkspaceID:         parseWorkspaceID,
+		ProviderKey:         "oidc",
+		ProviderType:        "oidc",
+		OIDCIssuerURL:       "https://idp.example.com",
+		OIDCClientID:        "relaydesk-oidc-client",
+		OIDCClientSecretRef: "vault://relaydesk/oidc/client-secret",
+		OIDCScopesJSON:      `["openid","email","profile"]`,
+		OIDCClaimsJSON:      `{"email":"email","subject":"sub"}`,
+		DomainsJSON:         `["example.com"]`,
+		IsEnabled:           true,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertSuperuserWorkspaceSSOConfig(oidc): %v", parseErr)
+	}
+	if parseOIDCSSORow.ProviderType != "oidc" || parseOIDCSSORow.OIDCIssuerURL == "" || parseOIDCSSORow.OIDCClientID == "" {
+		parseT.Fatalf("unexpected oidc sso row: %+v", parseOIDCSSORow)
 	}
 
 	parseRetentionRow, parseErr := parseStore.parseUpsertSuperuserDataRetentionPolicy(parseSuperuserDataRetentionPolicyWrite{
@@ -165,6 +183,9 @@ func TestStoreSuperuserReliabilityControlFuncs(parseT *testing.T) {
 	if parseErr = parseStore.parseDeleteSuperuserWorkspaceSSOConfig(parseWorkspaceID, "okta"); parseErr != nil {
 		parseT.Fatalf("parseDeleteSuperuserWorkspaceSSOConfig: %v", parseErr)
 	}
+	if parseErr = parseStore.parseDeleteSuperuserWorkspaceSSOConfig(parseWorkspaceID, "oidc"); parseErr != nil {
+		parseT.Fatalf("parseDeleteSuperuserWorkspaceSSOConfig(oidc): %v", parseErr)
+	}
 
 	if _, hasParseRow, parseErr := parseStore.parseGetIncidentUpdateByID(parseIncidentUpdateRow.ID); parseErr != nil || hasParseRow {
 		parseT.Fatalf("expected deleted incident update row to be absent, found=%v err=%v", hasParseRow, parseErr)
@@ -183,6 +204,9 @@ func TestStoreSuperuserReliabilityControlFuncs(parseT *testing.T) {
 	}
 	if _, hasParseRow, parseErr := parseStore.parseGetWorkspaceSSOConfigByScope(parseWorkspaceID, "okta"); parseErr != nil || hasParseRow {
 		parseT.Fatalf("expected deleted sso row to be absent, found=%v err=%v", hasParseRow, parseErr)
+	}
+	if _, hasParseRow, parseErr := parseStore.parseGetWorkspaceSSOConfigByScope(parseWorkspaceID, "oidc"); parseErr != nil || hasParseRow {
+		parseT.Fatalf("expected deleted oidc sso row to be absent, found=%v err=%v", hasParseRow, parseErr)
 	}
 }
 
@@ -241,6 +265,9 @@ func TestStoreSuperuserReliabilityListFuncs(parseT *testing.T) {
 	if len(parseSSORows) == 0 || parseSSORows[0].WorkspaceID <= 0 || parseSSORows[0].ProviderKey == "" {
 		parseT.Fatalf("unexpected SSO list rows: %+v", parseSSORows)
 	}
+	if parseSSORows[0].ProviderType == "" {
+		parseT.Fatalf("expected SSO provider type to be populated: %+v", parseSSORows[0])
+	}
 
 	parseRetentionRows, parseErr := parseStore.parseListDataRetentionPolicies(0)
 	if parseErr != nil {
@@ -278,6 +305,7 @@ func TestSuperuserReliabilityControlRPCs(parseT *testing.T) {
 	parseSSOResp, parseErr := parseServer.SetSuperuserWorkspaceSSOConfig(parseSuperuserCtx, &chatpb.SetSuperuserWorkspaceSSOConfigRequest{
 		WorkspaceId:        parseWorkspaceID,
 		ProviderKey:        "okta",
+		ProviderType:       "saml",
 		SamlEntrypoint:     "https://idp.example.com/saml",
 		SamlIssuer:         "relaydesk",
 		SamlCertificatePem: "-----BEGIN CERTIFICATE-----test-----END CERTIFICATE-----",
@@ -289,8 +317,28 @@ func TestSuperuserReliabilityControlRPCs(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("SetSuperuserWorkspaceSSOConfig: %v", parseErr)
 	}
-	if parseSSOResp.GetConfig().GetProviderKey() != "okta" || parseSSOResp.GetStatus() != "updated" {
+	if parseSSOResp.GetConfig().GetProviderKey() != "okta" || parseSSOResp.GetConfig().GetProviderType() != "saml" || parseSSOResp.GetStatus() != "updated" {
 		parseT.Fatalf("unexpected SetSuperuserWorkspaceSSOConfig response: %+v", parseSSOResp)
+	}
+	parseOIDCSSOResp, parseErr := parseServer.SetSuperuserWorkspaceSSOConfig(parseSuperuserCtx, &chatpb.SetSuperuserWorkspaceSSOConfigRequest{
+		WorkspaceId:         parseWorkspaceID,
+		ProviderKey:         "oidc",
+		ProviderType:        "oidc",
+		OidcIssuerUrl:       "https://idp.example.com",
+		OidcClientId:        "relaydesk-oidc-client",
+		OidcClientSecretRef: "vault://relaydesk/oidc/client-secret",
+		OidcScopesJson:      `["openid","email","profile"]`,
+		OidcClaimsJson:      `{"email":"email","subject":"sub"}`,
+		DomainsJson:         `["example.com"]`,
+		IsEnabled:           true,
+		Confirm:             true,
+		Reason:              "oidc rollout",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("SetSuperuserWorkspaceSSOConfig(oidc): %v", parseErr)
+	}
+	if parseOIDCSSOResp.GetConfig().GetProviderType() != "oidc" || parseOIDCSSOResp.GetConfig().GetOidcIssuerUrl() == "" || parseOIDCSSOResp.GetConfig().GetOidcClientId() == "" {
+		parseT.Fatalf("unexpected SetSuperuserWorkspaceSSOConfig(oidc) response: %+v", parseOIDCSSOResp)
 	}
 
 	parseRetentionResp, parseErr := parseServer.SetSuperuserDataRetentionPolicy(parseSuperuserCtx, &chatpb.SetSuperuserDataRetentionPolicyRequest{
@@ -439,6 +487,14 @@ func TestSuperuserReliabilityControlRPCs(parseT *testing.T) {
 		Reason:      "cleanup sso",
 	}); parseErr != nil {
 		parseT.Fatalf("DeleteSuperuserWorkspaceSSOConfig: %v", parseErr)
+	}
+	if _, parseErr = parseServer.DeleteSuperuserWorkspaceSSOConfig(parseSuperuserCtx, &chatpb.DeleteSuperuserWorkspaceSSOConfigRequest{
+		WorkspaceId: parseWorkspaceID,
+		ProviderKey: "oidc",
+		Confirm:     true,
+		Reason:      "cleanup oidc sso",
+	}); parseErr != nil {
+		parseT.Fatalf("DeleteSuperuserWorkspaceSSOConfig(oidc): %v", parseErr)
 	}
 
 	parseNonSuperuser := parseMustCreateUser(parseT, parseStore, "non-su-reliability@example.com")
