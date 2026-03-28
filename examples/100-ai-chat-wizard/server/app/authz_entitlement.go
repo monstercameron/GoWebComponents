@@ -19,6 +19,86 @@ const billingEntitlementUsageConcurrentSends = "usage.concurrent_sends"
 const parseUsageBudgetDefaultSendsPerMinute int64 = 0
 const parseUsageBudgetDefaultConcurrentSends int64 = 0
 
+// parseBuildSendAccessDeniedStatus maps one send-gate error into one decision-shaped status with plan context.
+func parseBuildSendAccessDeniedStatus(parseErr error, parsePlanCode string) error {
+	if parseErr == nil {
+		return nil
+	}
+	parseDecision, parseAction, parseReason := parseResolveSendAccessDecision(parseErr)
+	parseDetail := parseResolveSendAccessDetail(parseErr)
+	parsePlan := parseNormalizeSendAccessPlan(parsePlanCode)
+	parseMessage := fmt.Sprintf(
+		`send_access decision=%s plan=%s action=%s first_paid_action=chat.send reason=%s detail=%q`,
+		parseDecision,
+		parsePlan,
+		parseAction,
+		parseReason,
+		parseDetail,
+	)
+	if parseDecision == "soft_upgrade" {
+		return status.Error(codes.FailedPrecondition, parseMessage)
+	}
+	parseCode := status.Code(parseErr)
+	if parseCode == codes.OK {
+		parseCode = codes.PermissionDenied
+	}
+	return status.Error(parseCode, parseMessage)
+}
+
+// parseResolveSendAccessDecision classifies one send-gate failure into decision, action, and reason keys.
+func parseResolveSendAccessDecision(parseErr error) (string, string, string) {
+	parseMessageLower := strings.ToLower(parseResolveSendAccessDetail(parseErr))
+	switch status.Code(parseErr) {
+	case codes.PermissionDenied:
+		if strings.Contains(parseMessageLower, "subscription entitlement missing") {
+			return "soft_upgrade", "upgrade", "entitlement_missing"
+		}
+		return "soft_upgrade", "upgrade", "entitlement_denied"
+	case codes.ResourceExhausted:
+		switch {
+		case strings.Contains(parseMessageLower, "monthly token quota exceeded"):
+			return "soft_upgrade", "upgrade", "usage_monthly_quota_exceeded"
+		case strings.Contains(parseMessageLower, "send rate limit exceeded"):
+			return "hard_block", "retry_later", "usage_rate_limited"
+		case strings.Contains(parseMessageLower, "concurrent send limit exceeded"):
+			return "hard_block", "retry_later", "usage_concurrency_limited"
+		default:
+			return "hard_block", "retry_later", "usage_exhausted"
+		}
+	case codes.Unauthenticated:
+		return "hard_block", "sign_in", "auth_required"
+	case codes.FailedPrecondition:
+		if strings.Contains(parseMessageLower, "subscription entitlement") {
+			return "soft_upgrade", "upgrade", "entitlement_precondition"
+		}
+		return "hard_block", "resolve_precondition", "send_precondition"
+	case codes.Internal, codes.Unavailable, codes.DeadlineExceeded:
+		return "hard_block", "retry_later", "backend_unavailable"
+	default:
+		return "hard_block", "contact_support", "send_denied"
+	}
+}
+
+// parseResolveSendAccessDetail extracts one concise detail string from one status error.
+func parseResolveSendAccessDetail(parseErr error) string {
+	if parseErr == nil {
+		return ""
+	}
+	if parseStatus, parseOk := status.FromError(parseErr); parseOk {
+		return strings.TrimSpace(parseStatus.Message())
+	}
+	return strings.TrimSpace(parseErr.Error())
+}
+
+// parseNormalizeSendAccessPlan normalizes one plan identifier for decision logging.
+func parseNormalizeSendAccessPlan(parsePlanCode string) string {
+	parsePlanCode = strings.TrimSpace(strings.ToLower(parsePlanCode))
+	if parsePlanCode == "" {
+		return "unknown"
+	}
+	return parsePlanCode
+}
+
 // parseRequireUserEntitlement enforces one billing entitlement gate for one authenticated user.
 func (parseS *chatServer) parseRequireUserEntitlement(parseUserID int64, parseEntitlementKey string) error {
 	parseEntitlementKey = strings.TrimSpace(parseEntitlementKey)

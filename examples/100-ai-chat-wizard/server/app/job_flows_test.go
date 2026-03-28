@@ -79,3 +79,15 @@ func TestHandleBackgroundJobsLifecycle(parseT *testing.T) {
 		parseT.Fatalf("unexpected health row after second pass: found=%v row=%+v", hasParseRow, parseRow)
 	}
 }
+
+// BenchmarkResolveBackgroundJobScopeIDs measures payload scope extraction cost for blocked-job policy checks.
+func BenchmarkResolveBackgroundJobScopeIDs(parseB *testing.B) {
+	parsePayloadJSON := `{"workspace_id":42,"user_id":"108","nested":{"ignored":true}}`
+	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+		parseWorkspaceID := parseResolveBackgroundJobWorkspaceID("system", parsePayloadJSON)
+		parseUserID := parseResolveBackgroundJobUserID(parsePayloadJSON)
+		if parseWorkspaceID != 42 || parseUserID != 108 {
+			parseB.Fatalf("unexpected scope ids workspace=%d user=%d", parseWorkspaceID, parseUserID)
+		}
+	}
+}

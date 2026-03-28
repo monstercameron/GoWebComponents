@@ -17,6 +17,20 @@ func parseDispatchNotificationOutboxPending(parseStore *Store, parseNow string, 
 
 	parseProcessedCount := 0
 	for _, parseRow := range parsePendingRows {
+		if parseErr2 := parseStore.parseRequireUserOperational(parseRow.UserID); parseErr2 != nil {
+			if parseUpdateErr := parseStore.parseUpdateNotificationOutboxStatus(parseRow.ID, "failed", "", parseNow, parseErr2.Error()); parseUpdateErr != nil {
+				return parseProcessedCount, parseUpdateErr
+			}
+			parseProcessedCount++
+			continue
+		}
+		if parseErr2 := parseStore.parseRequireWorkspaceOperational(parseRow.WorkspaceID); parseErr2 != nil {
+			if parseUpdateErr := parseStore.parseUpdateNotificationOutboxStatus(parseRow.ID, "failed", "", parseNow, parseErr2.Error()); parseUpdateErr != nil {
+				return parseProcessedCount, parseUpdateErr
+			}
+			parseProcessedCount++
+			continue
+		}
 		if parseDeliverErr := parseDeliver(parseRow); parseDeliverErr != nil {
 			if parseErr2 := parseStore.parseUpdateNotificationOutboxStatus(parseRow.ID, "failed", "", parseNow, parseDeliverErr.Error()); parseErr2 != nil {
 				return parseProcessedCount, parseErr2

@@ -121,8 +121,8 @@ func TestMemoryRPCFallbacksWithoutStore(parseT *testing.T) {
 		parseT.Fatalf("expected no-store DeleteUserMemory to no-op, got %v", parseErr3)
 	}
 	parseCustomPrompt, parseErr := parseServer.GetCustomSystemPrompt(parseCtx, &emptypb.Empty{})
-	if parseErr != nil || parseCustomPrompt.GetValue() != "" {
-		parseT.Fatalf("expected empty custom prompt fallback, resp=%+v err=%v", parseCustomPrompt, parseErr)
+	if parseErr != nil || parseCustomPrompt.GetValue() != defaultCustomSystemPromptTemplate {
+		parseT.Fatalf("expected default custom prompt fallback, resp=%+v err=%v", parseCustomPrompt, parseErr)
 	}
 	if _, parseErr4 := parseServer.SetCustomSystemPrompt(parseCtx, wrapperspb.String("ignored")); parseErr4 != nil {
 		parseT.Fatalf("expected no-store SetCustomSystemPrompt to no-op, got %v", parseErr4)

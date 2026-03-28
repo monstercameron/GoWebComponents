@@ -1,12 +1,16 @@
 package app
 
 import (
+	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
 
 var errStoreSuperuserScopeMissing = errors.New("store superuser scope missing")
+
+const parseWorkspaceJobSuppressionErrorPrefix = "workspace suspended:"
 
 type parseSURoleWrite struct {
 	RoleKey     string
@@ -382,6 +386,12 @@ type parseBackgroundJobRow struct {
 	UpdatedAt    string
 }
 
+type parseWorkspaceSuspendOperationalResult struct {
+	RevokedAPIKeys           int64
+	DisabledWebhookEndpoints int64
+	SuppressedBackgroundJobs int64
+}
+
 type parseExperimentWrite struct {
 	ExperimentKey string
 	Name          string
@@ -402,6 +412,69 @@ type parseExperimentRow struct {
 	StartAt       string
 	EndAt         string
 	UpdatedAt     string
+}
+
+type parseBillingPlanOverageRow struct {
+	ID                int64
+	PlanCode          string
+	MeterKey          string
+	IncludedUnits     int64
+	SoftLimitUnits    int64
+	HardLimitUnits    int64
+	OverageUnitSize   int64
+	OveragePriceCents int64
+	BillingInterval   string
+	UpdatedAt         string
+}
+
+type parseBillingQuotaPolicyRow struct {
+	ID              int64
+	PlanCode        string
+	QuotaKey        string
+	SoftLimitValue  int64
+	HardLimitValue  int64
+	ResetInterval   string
+	EnforcementMode string
+	UpdatedAt       string
+}
+
+type parseBillingUpgradeTriggerRow struct {
+	ID               int64
+	PlanCode         string
+	TriggerKey       string
+	ThresholdPercent int64
+	UpgradePlanCode  string
+	Message          string
+	CTALabel         string
+	CTAURL           string
+	IsEnabled        bool
+	UpdatedAt        string
+}
+
+type parseIncidentRow struct {
+	ID            int64
+	IncidentKey   string
+	SLOKey        string
+	Severity      string
+	Status        string
+	Title         string
+	Summary       string
+	StartedAt     string
+	ResolvedAt    string
+	PostmortemURL string
+	UpdatedAt     string
+}
+
+type parseWorkspaceCostGuardrailRow struct {
+	ID                     int64
+	WorkspaceID            int64
+	GuardrailKey           string
+	DailyBudgetCents       int64
+	MonthlyBudgetCents     int64
+	MaxCostPerRequestCents int64
+	AlertThresholdPercent  int64
+	ActionMode             string
+	UpdatedAt              string
 }
 
 // parseUpsertSURole persists one superuser role and its permission set.
@@ -724,6 +797,140 @@ func (parseS *Store) parseListWorkspaces(parseLimit int64) ([]parseWorkspaceRow,
 	return parseWorkspaceRows, parseRows.Err()
 }
 
+// parseGetWorkspaceByID resolves one workspace row by id.
+func (parseS *Store) parseGetWorkspaceByID(parseWorkspaceID int64) (parseWorkspaceRow, bool, error) {
+	if parseWorkspaceID <= 0 {
+		return parseWorkspaceRow{}, false, nil
+	}
+	parseRow := parseS.db.QueryRow(parseS.queries.getWorkspaceByID, parseWorkspaceID)
+	var parseWorkspace parseWorkspaceRow
+	if parseErr := parseRow.Scan(
+		&parseWorkspace.ID,
+		&parseWorkspace.WorkspaceKey,
+		&parseWorkspace.Slug,
+		&parseWorkspace.Name,
+		&parseWorkspace.PlanCode,
+		&parseWorkspace.Status,
+		&parseWorkspace.OwnerUserID,
+		&parseWorkspace.SettingsJSON,
+		&parseWorkspace.CreatedAt,
+		&parseWorkspace.UpdatedAt,
+	); parseErr != nil {
+		if errors.Is(parseErr, sql.ErrNoRows) {
+			return parseWorkspaceRow{}, false, nil
+		}
+		return parseWorkspaceRow{}, false, parseErr
+	}
+	return parseWorkspace, true, nil
+}
+
+// parseSetWorkspaceStatusByID updates one workspace status by id while preserving existing workspace fields.
+func (parseS *Store) parseSetWorkspaceStatusByID(parseWorkspaceID int64, parseStatus string) error {
+	parseWorkspace, isParseFound, parseErr := parseS.parseGetWorkspaceByID(parseWorkspaceID)
+	if parseErr != nil {
+		return parseErr
+	}
+	if !isParseFound {
+		return errStoreSuperuserScopeMissing
+	}
+	parseWorkspace.Status = strings.TrimSpace(parseStatus)
+	if parseWorkspace.Status == "" {
+		parseWorkspace.Status = "active"
+	}
+	return parseS.parseUpsertWorkspace(parseWorkspaceWrite{
+		WorkspaceKey: parseWorkspace.WorkspaceKey,
+		Slug:         parseWorkspace.Slug,
+		Name:         parseWorkspace.Name,
+		PlanCode:     parseWorkspace.PlanCode,
+		Status:       parseWorkspace.Status,
+		OwnerUserID:  parseWorkspace.OwnerUserID,
+		SettingsJSON: parseWorkspace.SettingsJSON,
+	})
+}
+
+// parseIsWorkspaceOperationalStatus reports whether one workspace status allows runtime operations.
+func parseIsWorkspaceOperationalStatus(parseStatus string) bool {
+	switch strings.TrimSpace(strings.ToLower(parseStatus)) {
+	case "", "active":
+		return true
+	default:
+		return false
+	}
+}
+
+// parseRequireWorkspaceOperational requires one existing active workspace before write-side operations proceed.
+func (parseS *Store) parseRequireWorkspaceOperational(parseWorkspaceID int64) error {
+	if parseWorkspaceID <= 0 {
+		return nil
+	}
+	parseWorkspace, isParseFound, parseErr := parseS.parseGetWorkspaceByID(parseWorkspaceID)
+	if parseErr != nil {
+		return parseErr
+	}
+	if !isParseFound {
+		return errStoreSuperuserScopeMissing
+	}
+	if !parseIsWorkspaceOperationalStatus(parseWorkspace.Status) {
+		return errStoreWorkspaceSuspended
+	}
+	return nil
+}
+
+// parseRequireUserOperational requires one existing runtime-operational user before user-scoped write-side operations proceed.
+func (parseS *Store) parseRequireUserOperational(parseUserID int64) error {
+	if parseUserID <= 0 {
+		return nil
+	}
+	isParseDisabled, parseErr := parseS.parseIsUserAccessDisabled(parseUserID)
+	if parseErr != nil {
+		return parseErr
+	}
+	if isParseDisabled {
+		return errStoreUserDisabled
+	}
+	parseBlockCount, parseErr := parseS.parseCountUserAuthBlocksByUser(parseUserID)
+	if parseErr != nil {
+		return parseErr
+	}
+	if parseBlockCount > 0 {
+		return errStoreUserAuthBlocked
+	}
+	return nil
+}
+
+// parseGetWebhookEndpointWorkspaceID resolves one webhook endpoint id into its workspace scope.
+func (parseS *Store) parseGetWebhookEndpointWorkspaceID(parseEndpointID int64) (int64, bool, error) {
+	if parseEndpointID <= 0 {
+		return 0, false, nil
+	}
+	parseRow := parseS.db.QueryRow("SELECT workspace_id FROM webhook_endpoints WHERE id = ?", parseEndpointID)
+	var parseWorkspaceID int64
+	if parseErr := parseRow.Scan(&parseWorkspaceID); parseErr != nil {
+		if errors.Is(parseErr, sql.ErrNoRows) {
+			return 0, false, nil
+		}
+		return 0, false, parseErr
+	}
+	return parseWorkspaceID, true, nil
+}
+
+// parseGetSupportTicketScopeByID resolves one support-ticket id into workspace and user scope values.
+func (parseS *Store) parseGetSupportTicketScopeByID(parseTicketID int64) (int64, int64, bool, error) {
+	if parseTicketID <= 0 {
+		return 0, 0, false, nil
+	}
+	parseRow := parseS.db.QueryRow("SELECT workspace_id, user_id FROM support_tickets WHERE id = ?", parseTicketID)
+	var parseWorkspaceID sql.NullInt64
+	var parseUserID sql.NullInt64
+	if parseErr := parseRow.Scan(&parseWorkspaceID, &parseUserID); parseErr != nil {
+		if errors.Is(parseErr, sql.ErrNoRows) {
+			return 0, 0, false, nil
+		}
+		return 0, 0, false, parseErr
+	}
+	return parseWorkspaceID.Int64, parseUserID.Int64, true, nil
+}
+
 // parseUpsertWorkspaceMembership persists one workspace membership row.
 func (parseS *Store) parseUpsertWorkspaceMembership(parseWrite parseWorkspaceMembershipWrite) error {
 	if parseWrite.WorkspaceID <= 0 || parseWrite.UserID <= 0 {
@@ -756,6 +963,88 @@ func (parseS *Store) parseListWorkspaceMemberships(parseLimit int64) ([]parseWor
 		parseLimit = 100
 	}
 	parseRows, parseErr := parseS.db.Query(parseS.queries.listWorkspaceMemberships, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseMembershipRows := make([]parseWorkspaceMembershipRow, 0)
+	for parseRows.Next() {
+		var parseRow parseWorkspaceMembershipRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.WorkspaceID,
+			&parseRow.UserID,
+			&parseRow.RoleKey,
+			&parseRow.Status,
+			&parseRow.InvitedByUserID,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseMembershipRows = append(parseMembershipRows, parseRow)
+	}
+	return parseMembershipRows, parseRows.Err()
+}
+
+// parseListWorkspaceMembershipsByUser lists all memberships for one user newest-first.
+func (parseS *Store) parseListWorkspaceMembershipsByUser(parseUserID int64) ([]parseWorkspaceMembershipRow, error) {
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listWorkspaceMembershipsByUser, parseUserID)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseMembershipRows := make([]parseWorkspaceMembershipRow, 0)
+	for parseRows.Next() {
+		var parseRow parseWorkspaceMembershipRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.WorkspaceID,
+			&parseRow.UserID,
+			&parseRow.RoleKey,
+			&parseRow.Status,
+			&parseRow.InvitedByUserID,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseMembershipRows = append(parseMembershipRows, parseRow)
+	}
+	return parseMembershipRows, parseRows.Err()
+}
+
+// parseCountWorkspaceMembershipsByUser counts membership rows for one user id.
+func (parseS *Store) parseCountWorkspaceMembershipsByUser(parseUserID int64) (int64, error) {
+	if parseUserID <= 0 {
+		return 0, nil
+	}
+	parseRow := parseS.db.QueryRow(parseS.queries.countWorkspaceMembershipsByUser, parseUserID)
+	var parseCount int64
+	if parseErr := parseRow.Scan(&parseCount); parseErr != nil {
+		return 0, parseErr
+	}
+	return parseCount, nil
+}
+
+// parseCountActiveWorkspaceMembershipsByUser counts active memberships in active workspaces for one user id.
+func (parseS *Store) parseCountActiveWorkspaceMembershipsByUser(parseUserID int64) (int64, error) {
+	if parseUserID <= 0 {
+		return 0, nil
+	}
+	parseRow := parseS.db.QueryRow(parseS.queries.countActiveWorkspaceMembershipsByUser, parseUserID)
+	var parseCount int64
+	if parseErr := parseRow.Scan(&parseCount); parseErr != nil {
+		return 0, parseErr
+	}
+	return parseCount, nil
+}
+
+// parseListWorkspaceMembershipsByWorkspace lists all memberships for one workspace newest-first.
+func (parseS *Store) parseListWorkspaceMembershipsByWorkspace(parseWorkspaceID int64) ([]parseWorkspaceMembershipRow, error) {
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listWorkspaceMembershipsByWorkspace, parseWorkspaceID)
 	if parseErr != nil {
 		return nil, parseErr
 	}
@@ -886,6 +1175,12 @@ func (parseS *Store) parseCreateAPIKey(parseWrite parseAPIKeyWrite) (int64, erro
 	if strings.TrimSpace(parseWrite.KeyID) == "" || parseWrite.WorkspaceID <= 0 || parseWrite.UserID <= 0 {
 		return 0, errors.New("create api key: key id, workspace id, and user id are required")
 	}
+	if parseErr := parseS.parseRequireUserOperational(parseWrite.UserID); parseErr != nil {
+		return 0, parseErr
+	}
+	if parseErr := parseS.parseRequireWorkspaceOperational(parseWrite.WorkspaceID); parseErr != nil {
+		return 0, parseErr
+	}
 	parseResult, parseErr := parseS.db.Exec(
 		parseS.queries.createAPIKey,
 		strings.TrimSpace(parseWrite.KeyID),
@@ -951,10 +1246,235 @@ func (parseS *Store) parseRevokeAPIKey(parseKeyID string) error {
 	return parseErr
 }
 
+// parseRevokeAPIKeysByUser marks one user's active API keys revoked and returns the number of updated rows.
+func (parseS *Store) parseRevokeAPIKeysByUser(parseUserID int64) (int64, error) {
+	if parseUserID <= 0 {
+		return 0, nil
+	}
+	parseResult, parseErr := parseS.db.Exec(
+		`UPDATE api_keys
+		 SET revoked_at = ?
+		 WHERE user_id = ?
+		   AND COALESCE(TRIM(revoked_at), '') = ''`,
+		time.Now().UTC().Format(time.RFC3339),
+		parseUserID,
+	)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	parseRowsAffected, parseErr := parseResult.RowsAffected()
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	return parseRowsAffected, nil
+}
+
+// parseBuildWorkspaceJobSuppressionError builds one stable suspension marker used to suppress and optionally restore workspace jobs.
+func parseBuildWorkspaceJobSuppressionError(parseReason string) string {
+	parseReason = strings.TrimSpace(parseReason)
+	if parseReason == "" {
+		parseReason = "workspace suspended"
+	}
+	return parseWorkspaceJobSuppressionErrorPrefix + " " + parseReason
+}
+
+// parseApplyWorkspaceSuspendOperationalEffects applies API-key, webhook, and background-job suppression for one suspended workspace transactionally.
+func (parseS *Store) parseApplyWorkspaceSuspendOperationalEffects(parseWorkspaceID int64, parseReason string) (parseWorkspaceSuspendOperationalResult, error) {
+	if parseWorkspaceID <= 0 {
+		return parseWorkspaceSuspendOperationalResult{}, errors.New("apply workspace suspend operational effects: workspace id is required")
+	}
+	parseQueueKey := fmt.Sprintf("workspace:%d", parseWorkspaceID)
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseReason = strings.TrimSpace(parseReason)
+	if parseReason == "" {
+		parseReason = "workspace suspended"
+	}
+	parseSuppressionError := parseBuildWorkspaceJobSuppressionError(parseReason)
+
+	parseTX, parseErr := parseS.db.Begin()
+	if parseErr != nil {
+		return parseWorkspaceSuspendOperationalResult{}, parseErr
+	}
+	defer func() {
+		if parseErr != nil {
+			_ = parseTX.Rollback()
+		}
+	}()
+
+	parseResult := parseWorkspaceSuspendOperationalResult{}
+	parseAPIKeyUpdateResult, parseErr := parseTX.Exec(
+		`UPDATE api_keys
+		 SET revoked_at = ?
+		 WHERE workspace_id = ?
+		   AND COALESCE(TRIM(revoked_at), '') = ''`,
+		parseNow,
+		parseWorkspaceID,
+	)
+	if parseErr != nil {
+		return parseWorkspaceSuspendOperationalResult{}, parseErr
+	}
+	if parseResult.RevokedAPIKeys, parseErr = parseAPIKeyUpdateResult.RowsAffected(); parseErr != nil {
+		return parseWorkspaceSuspendOperationalResult{}, parseErr
+	}
+
+	parseWebhookUpdateResult, parseErr := parseTX.Exec(
+		`UPDATE webhook_endpoints
+		 SET is_enabled = 0,
+		     updated_at = ?
+		 WHERE workspace_id = ?
+		   AND is_enabled <> 0`,
+		parseNow,
+		parseWorkspaceID,
+	)
+	if parseErr != nil {
+		return parseWorkspaceSuspendOperationalResult{}, parseErr
+	}
+	if parseResult.DisabledWebhookEndpoints, parseErr = parseWebhookUpdateResult.RowsAffected(); parseErr != nil {
+		return parseWorkspaceSuspendOperationalResult{}, parseErr
+	}
+
+	parseJobUpdateResult, parseErr := parseTX.Exec(
+		`UPDATE background_jobs
+		 SET status = 'failed',
+		     finished_at = ?,
+		     error_message = ?,
+		     updated_at = ?
+		 WHERE queue_key = ?
+		   AND status IN ('pending', 'running')`,
+		parseNow,
+		parseSuppressionError,
+		parseNow,
+		parseQueueKey,
+	)
+	if parseErr != nil {
+		return parseWorkspaceSuspendOperationalResult{}, parseErr
+	}
+	if parseResult.SuppressedBackgroundJobs, parseErr = parseJobUpdateResult.RowsAffected(); parseErr != nil {
+		return parseWorkspaceSuspendOperationalResult{}, parseErr
+	}
+
+	if parseErr = parseTX.Commit(); parseErr != nil {
+		return parseWorkspaceSuspendOperationalResult{}, parseErr
+	}
+	return parseResult, nil
+}
+
+// parseRestoreAPIKeysByUser clears revocation timestamps for one user's API keys and returns the number of updated rows.
+func (parseS *Store) parseRestoreAPIKeysByUser(parseUserID int64) (int64, error) {
+	if parseUserID <= 0 {
+		return 0, nil
+	}
+	parseResult, parseErr := parseS.db.Exec(
+		`UPDATE api_keys
+		 SET revoked_at = ''
+		 WHERE user_id = ?
+		   AND COALESCE(TRIM(revoked_at), '') <> ''`,
+		parseUserID,
+	)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	parseRowsAffected, parseErr := parseResult.RowsAffected()
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	return parseRowsAffected, nil
+}
+
+// parseRestoreWorkspaceOperationalEffects restores selected workspace-scoped capabilities and returns one count summary.
+func (parseS *Store) parseRestoreWorkspaceOperationalEffects(parseWorkspaceID int64, isParseRestoreAPIKeys bool, isParseRestoreWebhooks bool, isParseRestoreJobs bool) (parseWorkspaceSuspendOperationalResult, error) {
+	if parseWorkspaceID <= 0 {
+		return parseWorkspaceSuspendOperationalResult{}, errors.New("restore workspace operational effects: workspace id is required")
+	}
+	parseQueueKey := fmt.Sprintf("workspace:%d", parseWorkspaceID)
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseResult := parseWorkspaceSuspendOperationalResult{}
+
+	parseTX, parseErr := parseS.db.Begin()
+	if parseErr != nil {
+		return parseWorkspaceSuspendOperationalResult{}, parseErr
+	}
+	defer func() {
+		if parseErr != nil {
+			_ = parseTX.Rollback()
+		}
+	}()
+
+	if isParseRestoreAPIKeys {
+		parseAPIKeyUpdateResult, parseErr2 := parseTX.Exec(
+			`UPDATE api_keys
+			 SET revoked_at = ''
+			 WHERE workspace_id = ?
+			   AND COALESCE(TRIM(revoked_at), '') <> ''`,
+			parseWorkspaceID,
+		)
+		if parseErr2 != nil {
+			parseErr = parseErr2
+			return parseWorkspaceSuspendOperationalResult{}, parseErr
+		}
+		parseResult.RevokedAPIKeys, parseErr = parseAPIKeyUpdateResult.RowsAffected()
+		if parseErr != nil {
+			return parseWorkspaceSuspendOperationalResult{}, parseErr
+		}
+	}
+
+	if isParseRestoreWebhooks {
+		parseWebhookUpdateResult, parseErr2 := parseTX.Exec(
+			`UPDATE webhook_endpoints
+			 SET is_enabled = 1,
+			     updated_at = ?
+			 WHERE workspace_id = ?
+			   AND is_enabled = 0`,
+			parseNow,
+			parseWorkspaceID,
+		)
+		if parseErr2 != nil {
+			parseErr = parseErr2
+			return parseWorkspaceSuspendOperationalResult{}, parseErr
+		}
+		parseResult.DisabledWebhookEndpoints, parseErr = parseWebhookUpdateResult.RowsAffected()
+		if parseErr != nil {
+			return parseWorkspaceSuspendOperationalResult{}, parseErr
+		}
+	}
+
+	if isParseRestoreJobs {
+		parseJobUpdateResult, parseErr2 := parseTX.Exec(
+			`UPDATE background_jobs
+			 SET status = 'pending',
+			     finished_at = '',
+			     error_message = '',
+			     updated_at = ?
+			 WHERE queue_key = ?
+			   AND status = 'failed'
+			   AND error_message LIKE ?`,
+			parseNow,
+			parseQueueKey,
+			parseWorkspaceJobSuppressionErrorPrefix+"%",
+		)
+		if parseErr2 != nil {
+			parseErr = parseErr2
+			return parseWorkspaceSuspendOperationalResult{}, parseErr
+		}
+		parseResult.SuppressedBackgroundJobs, parseErr = parseJobUpdateResult.RowsAffected()
+		if parseErr != nil {
+			return parseWorkspaceSuspendOperationalResult{}, parseErr
+		}
+	}
+
+	if parseErr = parseTX.Commit(); parseErr != nil {
+		return parseWorkspaceSuspendOperationalResult{}, parseErr
+	}
+	return parseResult, nil
+}
+
 // parseUpsertWebhookEndpoint persists one webhook endpoint row.
 func (parseS *Store) parseUpsertWebhookEndpoint(parseWrite parseWebhookEndpointWrite) error {
 	if parseWrite.WorkspaceID <= 0 || strings.TrimSpace(parseWrite.TargetURL) == "" {
 		return errors.New("upsert webhook endpoint: workspace id and target url are required")
+	}
+	if parseErr := parseS.parseRequireWorkspaceOperational(parseWrite.WorkspaceID); parseErr != nil {
+		return parseErr
 	}
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
@@ -1020,6 +1540,16 @@ func (parseS *Store) parseListWebhookEndpoints(parseLimit int64) ([]parseWebhook
 func (parseS *Store) parseUpsertWebhookDelivery(parseWrite parseWebhookDeliveryWrite) error {
 	if parseWrite.EndpointID <= 0 || strings.TrimSpace(parseWrite.DeliveryKey) == "" {
 		return errors.New("upsert webhook delivery: endpoint id and delivery key are required")
+	}
+	parseWorkspaceID, isParseFound, parseErr := parseS.parseGetWebhookEndpointWorkspaceID(parseWrite.EndpointID)
+	if parseErr != nil {
+		return parseErr
+	}
+	if !isParseFound {
+		return errStoreSuperuserScopeMissing
+	}
+	if parseErr = parseS.parseRequireWorkspaceOperational(parseWorkspaceID); parseErr != nil {
+		return parseErr
 	}
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
@@ -1231,6 +1761,12 @@ func (parseS *Store) parseUpsertSupportTicket(parseWrite parseSupportTicketWrite
 	if parseTicketKey == "" {
 		return errors.New("upsert support ticket: ticket key is required")
 	}
+	if parseErr := parseS.parseRequireUserOperational(parseWrite.UserID); parseErr != nil {
+		return parseErr
+	}
+	if parseErr := parseS.parseRequireWorkspaceOperational(parseWrite.WorkspaceID); parseErr != nil {
+		return parseErr
+	}
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
 		parseS.queries.upsertSupportTicket,
@@ -1298,6 +1834,22 @@ func (parseS *Store) parseListSupportTickets(parseLimit int64) ([]parseSupportTi
 func (parseS *Store) parseCreateSupportTicketMessage(parseWrite parseSupportTicketMessageWrite) (int64, error) {
 	if parseWrite.TicketID <= 0 {
 		return 0, errors.New("create support ticket message: ticket id is required")
+	}
+	if parseErr := parseS.parseRequireUserOperational(parseWrite.AuthorUserID); parseErr != nil {
+		return 0, parseErr
+	}
+	parseWorkspaceID, parseTicketUserID, isParseFound, parseErr := parseS.parseGetSupportTicketScopeByID(parseWrite.TicketID)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	if !isParseFound {
+		return 0, errStoreSuperuserScopeMissing
+	}
+	if parseErr = parseS.parseRequireWorkspaceOperational(parseWorkspaceID); parseErr != nil {
+		return 0, parseErr
+	}
+	if parseErr = parseS.parseRequireUserOperational(parseTicketUserID); parseErr != nil {
+		return 0, parseErr
 	}
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
@@ -1420,6 +1972,12 @@ func (parseS *Store) parseListIncidentUpdates(parseLimit int64) ([]parseIncident
 func (parseS *Store) parseCreateNotificationOutbox(parseWrite parseNotificationOutboxWrite) (int64, error) {
 	if strings.TrimSpace(parseWrite.NotificationKey) == "" {
 		return 0, errors.New("create notification outbox: notification key is required")
+	}
+	if parseErr := parseS.parseRequireUserOperational(parseWrite.UserID); parseErr != nil {
+		return 0, parseErr
+	}
+	if parseErr := parseS.parseRequireWorkspaceOperational(parseWrite.WorkspaceID); parseErr != nil {
+		return 0, parseErr
 	}
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
@@ -1667,6 +2225,171 @@ func (parseS *Store) parseListExperiments(parseLimit int64) ([]parseExperimentRo
 		parseExperimentRows = append(parseExperimentRows, parseRow)
 	}
 	return parseExperimentRows, parseRows.Err()
+}
+
+// parseListBillingPlanOverages lists pricing overage controls newest-first.
+func (parseS *Store) parseListBillingPlanOverages(parseLimit int64) ([]parseBillingPlanOverageRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listBillingPlanOverages, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseOverageRows := make([]parseBillingPlanOverageRow, 0)
+	for parseRows.Next() {
+		var parseRow parseBillingPlanOverageRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.PlanCode,
+			&parseRow.MeterKey,
+			&parseRow.IncludedUnits,
+			&parseRow.SoftLimitUnits,
+			&parseRow.HardLimitUnits,
+			&parseRow.OverageUnitSize,
+			&parseRow.OveragePriceCents,
+			&parseRow.BillingInterval,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseOverageRows = append(parseOverageRows, parseRow)
+	}
+	return parseOverageRows, parseRows.Err()
+}
+
+// parseListBillingQuotaPolicies lists pricing quota policies newest-first.
+func (parseS *Store) parseListBillingQuotaPolicies(parseLimit int64) ([]parseBillingQuotaPolicyRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listBillingQuotaPolicies, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parsePolicyRows := make([]parseBillingQuotaPolicyRow, 0)
+	for parseRows.Next() {
+		var parseRow parseBillingQuotaPolicyRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.PlanCode,
+			&parseRow.QuotaKey,
+			&parseRow.SoftLimitValue,
+			&parseRow.HardLimitValue,
+			&parseRow.ResetInterval,
+			&parseRow.EnforcementMode,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parsePolicyRows = append(parsePolicyRows, parseRow)
+	}
+	return parsePolicyRows, parseRows.Err()
+}
+
+// parseListBillingUpgradeTriggers lists pricing upgrade-trigger controls newest-first.
+func (parseS *Store) parseListBillingUpgradeTriggers(parseLimit int64) ([]parseBillingUpgradeTriggerRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listBillingUpgradeTriggers, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseTriggerRows := make([]parseBillingUpgradeTriggerRow, 0)
+	for parseRows.Next() {
+		var parseRow parseBillingUpgradeTriggerRow
+		var parseIsEnabled int64
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.PlanCode,
+			&parseRow.TriggerKey,
+			&parseRow.ThresholdPercent,
+			&parseRow.UpgradePlanCode,
+			&parseRow.Message,
+			&parseRow.CTALabel,
+			&parseRow.CTAURL,
+			&parseIsEnabled,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseRow.IsEnabled = parseIsEnabled != 0
+		parseTriggerRows = append(parseTriggerRows, parseRow)
+	}
+	return parseTriggerRows, parseRows.Err()
+}
+
+// parseListIncidents lists incident rows newest-first.
+func (parseS *Store) parseListIncidents(parseLimit int64) ([]parseIncidentRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listIncidents, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseIncidentRows := make([]parseIncidentRow, 0)
+	for parseRows.Next() {
+		var parseRow parseIncidentRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.IncidentKey,
+			&parseRow.SLOKey,
+			&parseRow.Severity,
+			&parseRow.Status,
+			&parseRow.Title,
+			&parseRow.Summary,
+			&parseRow.StartedAt,
+			&parseRow.ResolvedAt,
+			&parseRow.PostmortemURL,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseIncidentRows = append(parseIncidentRows, parseRow)
+	}
+	return parseIncidentRows, parseRows.Err()
+}
+
+// parseListWorkspaceCostGuardrails lists workspace cost guardrail rows newest-first.
+func (parseS *Store) parseListWorkspaceCostGuardrails(parseLimit int64) ([]parseWorkspaceCostGuardrailRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listWorkspaceCostGuardrails, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseGuardrailRows := make([]parseWorkspaceCostGuardrailRow, 0)
+	for parseRows.Next() {
+		var parseRow parseWorkspaceCostGuardrailRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.WorkspaceID,
+			&parseRow.GuardrailKey,
+			&parseRow.DailyBudgetCents,
+			&parseRow.MonthlyBudgetCents,
+			&parseRow.MaxCostPerRequestCents,
+			&parseRow.AlertThresholdPercent,
+			&parseRow.ActionMode,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseGuardrailRows = append(parseGuardrailRows, parseRow)
+	}
+	return parseGuardrailRows, parseRows.Err()
 }
 
 // parseNormalizeSURoleKey normalizes one role key for superuser control-plane records.

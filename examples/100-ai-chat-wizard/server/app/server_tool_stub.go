@@ -35,7 +35,7 @@ func (parseS *chatServer) GetServerToolPolicy(parseCtx context.Context, parseReq
 
 // SetServerToolPolicy validates access and marks policy-write support as pending.
 func (parseS *chatServer) SetServerToolPolicy(parseCtx context.Context, parseReq *chatpb.SetServerToolPolicyRequest) (*chatpb.SetServerToolPolicyResponse, error) {
-	if _, parseErr := parseS.parseRequireSuperuserUserID(parseCtx); parseErr != nil {
+	if _, parseErr := parseS.parseRequireSuperuserMutationUserID(parseCtx, "server_tool_policy.set"); parseErr != nil {
 		return nil, parseErr
 	}
 	if parseReq == nil {
@@ -49,7 +49,7 @@ func (parseS *chatServer) RunServerTool(parseStream grpc.BidiStreamingServer[cha
 	if parseStream == nil {
 		return status.Error(codes.InvalidArgument, "RunServerTool stream is required")
 	}
-	if _, parseErr := parseS.parseRequireSuperuserUserID(parseStream.Context()); parseErr != nil {
+	if _, parseErr := parseS.parseRequireSuperuserMutationUserID(parseStream.Context(), "server_tool.run"); parseErr != nil {
 		return parseErr
 	}
 	return status.Error(codes.Unimplemented, "RunServerTool stub: terminal execution not implemented yet")

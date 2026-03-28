@@ -128,7 +128,7 @@ func TestRPCFallbacksWhenStoreOrProvidersAreUnavailable(parseT *testing.T) {
 		parseT.Fatalf("GetSelectedModel fallback: resp=%+v err=%v", parseModelResp, parseErr)
 	}
 	parseSystemPromptResp, parseErr := parseServer.GetCustomSystemPrompt(parseCtx, &emptypb.Empty{})
-	if parseErr != nil || parseSystemPromptResp.GetValue() != "" {
+	if parseErr != nil || parseSystemPromptResp.GetValue() != defaultCustomSystemPromptTemplate {
 		parseT.Fatalf("GetCustomSystemPrompt fallback: resp=%+v err=%v", parseSystemPromptResp, parseErr)
 	}
 	parseListResp, parseErr := parseServer.ListModelOptions(parseCtx, &chatpb.ListModelOptionsRequest{})

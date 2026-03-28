@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -8,11 +9,46 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/metadata"
 )
+
+// TestAuthManagerSessionValidationFailureLogging verifies session-validation failure logs include typed context fields.
+func TestAuthManagerSessionValidationFailureLogging(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	var parseLogOutput bytes.Buffer
+	parseLogger := parseNewOTELLogger(&parseLogOutput, serverServiceName)
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseLogger)
+
+	parseAuth.parseLogSessionValidationFailure(" session lookup failed ", &authClaims{
+		UserID:       42,
+		SessionID:    "sess-42",
+		TokenVersion: 3,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID: "jti-42",
+		},
+	}, errors.New("db unavailable"))
+
+	parseLogLine := strings.TrimSpace(parseLogOutput.String())
+	if parseLogLine == "" {
+		parseT.Fatal("expected one session-validation warning log line")
+	}
+	if !strings.Contains(parseLogLine, `"message":"auth: session validation failed"`) {
+		parseT.Fatalf("expected auth session validation log message, got %q", parseLogLine)
+	}
+	if !strings.Contains(parseLogLine, `"reason":"session lookup failed"`) {
+		parseT.Fatalf("expected reason field in log line, got %q", parseLogLine)
+	}
+	if !strings.Contains(parseLogLine, `"session_id":"sess-42"`) || !strings.Contains(parseLogLine, `"jti":"jti-42"`) {
+		parseT.Fatalf("expected session and jti context in log line, got %q", parseLogLine)
+	}
+	if !strings.Contains(parseLogLine, `"token_version":3`) || !strings.Contains(parseLogLine, `"error":"db unavailable"`) {
+		parseT.Fatalf("expected token_version and error fields in log line, got %q", parseLogLine)
+	}
+}
 
 func TestAuthManagerSignupLoginAndTokenRoundTrip(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
@@ -221,6 +257,120 @@ func TestAuthManagerNegativePaths(parseT *testing.T) {
 	}
 	if _, parseErr11 := parseAuth.parseToken(""); !errors.Is(parseErr11, errInvalidCredentials) {
 		parseT.Fatalf("expected empty token to return invalid credentials, got %v", parseErr11)
+	}
+}
+
+// TestAuthManagerPersistedTokenLifecycles verifies signup verification, reset-password, and update-password use persisted token tables.
+func TestAuthManagerPersistedTokenLifecycles(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseNewTestLogger())
+	parseUser, parseErr := parseAuth.parseSignup("lifecycle@example.com", "password123", "Lifecycle")
+	if parseErr != nil {
+		parseT.Fatalf("parseSignup: %v", parseErr)
+	}
+
+	var parseVerificationTokenHash string
+	if parseErr2 := parseStore.db.QueryRow(
+		`SELECT token_hash FROM email_verification_tokens WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
+		parseUser.ID,
+	).Scan(&parseVerificationTokenHash); parseErr2 != nil {
+		parseT.Fatalf("select email verification token hash: %v", parseErr2)
+	}
+	parseVerificationRow, hasParseVerificationRow, parseErr := parseStore.parseConsumeEmailVerificationToken(parseVerificationTokenHash, time.Now().UTC())
+	if parseErr != nil {
+		parseT.Fatalf("parseConsumeEmailVerificationToken: %v", parseErr)
+	}
+	if !hasParseVerificationRow || parseVerificationRow.UserID != parseUser.ID || parseVerificationRow.Status != "verified" {
+		parseT.Fatalf("unexpected verification row: has=%v row=%+v", hasParseVerificationRow, parseVerificationRow)
+	}
+	if _, hasParseSecondVerificationRow, parseErr2 := parseStore.parseConsumeEmailVerificationToken(parseVerificationTokenHash, time.Now().UTC()); parseErr2 != nil {
+		parseT.Fatalf("parseConsumeEmailVerificationToken second consume: %v", parseErr2)
+	} else if hasParseSecondVerificationRow {
+		parseT.Fatal("expected verification token to be one-time")
+	}
+
+	parseInitialToken, parseErr := parseAuth.issueToken(parseUser)
+	if parseErr != nil {
+		parseT.Fatalf("issueToken: %v", parseErr)
+	}
+	parseParsedToken, parseErr := jwt.ParseWithClaims(parseInitialToken, &authClaims{}, func(parseToken *jwt.Token) (interface{}, error) {
+		return parseAuth.secret, nil
+	})
+	if parseErr != nil {
+		parseT.Fatalf("jwt ParseWithClaims: %v", parseErr)
+	}
+	parseClaims, parseOk := parseParsedToken.Claims.(*authClaims)
+	if !parseOk || !parseParsedToken.Valid {
+		parseT.Fatalf("expected valid auth claims, got %#v", parseParsedToken.Claims)
+	}
+
+	parseUnknownResetToken, parseErr := parseAuth.parseBeginPasswordResetToken("missing@example.com", "203.0.113.1")
+	if parseErr != nil {
+		parseT.Fatalf("parseBeginPasswordResetToken missing user: %v", parseErr)
+	}
+	if strings.TrimSpace(parseUnknownResetToken) != "" {
+		parseT.Fatalf("expected unknown-email reset flow to return empty token, got %q", parseUnknownResetToken)
+	}
+
+	parseResetToken, parseErr := parseAuth.parseBeginPasswordResetToken(parseUser.Email, "203.0.113.2")
+	if parseErr != nil {
+		parseT.Fatalf("parseBeginPasswordResetToken: %v", parseErr)
+	}
+	if strings.TrimSpace(parseResetToken) == "" {
+		parseT.Fatal("expected non-empty reset token")
+	}
+	if parseErr2 := parseAuth.parseCompletePasswordResetWithToken(parseResetToken, "password456"); parseErr2 != nil {
+		parseT.Fatalf("parseCompletePasswordResetWithToken: %v", parseErr2)
+	}
+	if _, parseErr2 := parseAuth.parseLogin(parseUser.Email, "password123"); !errors.Is(parseErr2, errInvalidCredentials) {
+		parseT.Fatalf("expected old password login failure after reset, got %v", parseErr2)
+	}
+	if _, parseErr2 := parseAuth.parseLogin(parseUser.Email, "password456"); parseErr2 != nil {
+		parseT.Fatalf("expected new password login success after reset, got %v", parseErr2)
+	}
+	if _, parseErr2 := parseAuth.parseToken(parseInitialToken); !errors.Is(parseErr2, errInvalidCredentials) {
+		parseT.Fatalf("expected pre-reset token revocation, got %v", parseErr2)
+	}
+	if parseErr2 := parseAuth.parseCompletePasswordResetWithToken(parseResetToken, "password789"); !errors.Is(parseErr2, errInvalidCredentials) {
+		parseT.Fatalf("expected one-time reset token consume, got %v", parseErr2)
+	}
+	parseTokenVersion, parseErr := parseStore.parseGetAuthTokenVersion(parseUser.ID)
+	if parseErr != nil {
+		parseT.Fatalf("parseGetAuthTokenVersion: %v", parseErr)
+	}
+	if parseTokenVersion != 2 {
+		parseT.Fatalf("expected token version 2 after reset completion, got %d", parseTokenVersion)
+	}
+	parseSessionRow, hasParseSessionRow, parseErr := parseStore.parseGetAuthSessionBySessionID(parseClaims.SessionID)
+	if parseErr != nil {
+		parseT.Fatalf("parseGetAuthSessionBySessionID: %v", parseErr)
+	}
+	if !hasParseSessionRow || strings.TrimSpace(parseSessionRow.RevokedAt) == "" {
+		parseT.Fatalf("expected reset flow to revoke active sessions, got has=%v row=%+v", hasParseSessionRow, parseSessionRow)
+	}
+
+	if parseErr2 := parseAuth.parseUpdatePasswordWithCurrentPassword(parseUser.Email, "password456", "password789"); parseErr2 != nil {
+		parseT.Fatalf("parseUpdatePasswordWithCurrentPassword: %v", parseErr2)
+	}
+	if _, parseErr2 := parseAuth.parseLogin(parseUser.Email, "password456"); !errors.Is(parseErr2, errInvalidCredentials) {
+		parseT.Fatalf("expected previous password login failure after update-password, got %v", parseErr2)
+	}
+	if _, parseErr2 := parseAuth.parseLogin(parseUser.Email, "password789"); parseErr2 != nil {
+		parseT.Fatalf("expected updated password login success, got %v", parseErr2)
+	}
+	if parseErr2 := parseAuth.parseUpdatePasswordWithCurrentPassword(parseUser.Email, "wrong-current", "password999"); !errors.Is(parseErr2, errInvalidCredentials) {
+		parseT.Fatalf("expected update-password to require valid current password, got %v", parseErr2)
+	}
+
+	var parseConsumedSelfServiceResets int64
+	if parseErr2 := parseStore.db.QueryRow(
+		`SELECT COUNT(1) FROM password_reset_tokens WHERE user_id = ? AND requested_by_ip = 'self-service' AND status = 'consumed'`,
+		parseUser.ID,
+	).Scan(&parseConsumedSelfServiceResets); parseErr2 != nil {
+		parseT.Fatalf("count self-service reset rows: %v", parseErr2)
+	}
+	if parseConsumedSelfServiceResets < 1 {
+		parseT.Fatalf("expected at least one consumed self-service reset token row, got %d", parseConsumedSelfServiceResets)
 	}
 }
 

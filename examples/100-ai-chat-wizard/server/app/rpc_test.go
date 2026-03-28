@@ -212,6 +212,7 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "send@example.com")
 	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "free")
+	parseMustEnsureWorkspaceMembership(parseT, store, parseUser.ID, "ws-send-funnel")
 	parseFake := parseNewFakeProvider()
 	parseFake.streamChat = func(_ context.Context, parseReq2 provider.ChatRequest, parseEmit func(provider.ChatEvent) error) (provider.ChatResult, error) {
 		if parseErr := parseEmit(provider.ChatEvent{ThoughtDelta: "Thinking..."}); parseErr != nil {
@@ -334,6 +335,49 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 	if parseUsageEvents[0].TotalCostUSD <= 0 || parseUsageEvents[0].Status != "completed" {
 		parseT.Fatalf("unexpected usage event billing/status fields: %+v", parseUsageEvents[0])
 	}
+	parseAnalyticsRows, parseErr8 := store.parseListProductAnalyticsEvents(100)
+	if parseErr8 != nil {
+		parseT.Fatalf("parseListProductAnalyticsEvents: %v", parseErr8)
+	}
+	isParseHasFirstThreadCreated := false
+	isParseHasFirstSendStarted := false
+	isParseHasFirstReplyCompleted := false
+	for _, parseAnalyticsRow := range parseAnalyticsRows {
+		if parseAnalyticsRow.FunnelKey != parseFirstChatFunnelKey {
+			continue
+		}
+		switch parseAnalyticsRow.StepKey {
+		case parseFirstChatStepFirstThreadCreate:
+			isParseHasFirstThreadCreated = true
+		case parseFirstChatStepFirstSendStarted:
+			isParseHasFirstSendStarted = true
+		case parseFirstChatStepFirstReplyDone:
+			isParseHasFirstReplyCompleted = true
+		}
+	}
+	if !isParseHasFirstThreadCreated || !isParseHasFirstSendStarted || !isParseHasFirstReplyCompleted {
+		parseT.Fatalf("expected send funnel steps, got rows=%+v", parseAnalyticsRows)
+	}
+	parseMilestoneRows, parseErr10 := store.parseListUserActivationMilestones(200)
+	if parseErr10 != nil {
+		parseT.Fatalf("parseListUserActivationMilestones: %v", parseErr10)
+	}
+	isParseHasFirstThreadMilestone := false
+	isParseHasFirstReplyMilestone := false
+	for _, parseMilestoneRow := range parseMilestoneRows {
+		if parseMilestoneRow.UserID != parseUser.ID {
+			continue
+		}
+		switch parseMilestoneRow.MilestoneKey {
+		case parseStarterMilestoneFirstThreadCreated:
+			isParseHasFirstThreadMilestone = parseMilestoneRow.Status == "completed"
+		case parseStarterMilestoneFirstReplyCompleted:
+			isParseHasFirstReplyMilestone = parseMilestoneRow.Status == "completed"
+		}
+	}
+	if !isParseHasFirstThreadMilestone || !isParseHasFirstReplyMilestone {
+		parseT.Fatalf("expected starter milestones for first exchange, got rows=%+v", parseMilestoneRows)
+	}
 
 	parseDeadline := time.Now().Add(2 * time.Second)
 	for {
@@ -365,6 +409,57 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 			parseT.Fatal("timed out waiting for extracted user memory")
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// TestSendAppliesDefaultSystemPromptOnNewConversation verifies first-send conversation bootstrap uses the default runtime-templated system prompt.
+func TestSendAppliesDefaultSystemPromptOnNewConversation(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "send-default-prompt@example.com")
+	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "free")
+	parseFake := parseNewFakeProvider()
+	parseFake.streamChat = func(_ context.Context, _ provider.ChatRequest, parseEmit func(provider.ChatEvent) error) (provider.ChatResult, error) {
+		if parseEmitErr := parseEmit(provider.ChatEvent{TextDelta: "ack"}); parseEmitErr != nil {
+			return provider.ChatResult{}, parseEmitErr
+		}
+		return provider.ChatResult{
+			Model:            modelGPT54Mini,
+			PromptTokens:     11,
+			CompletionTokens: 3,
+			UsageSource:      provider.UsageSourceExact,
+		}, nil
+	}
+	parseFake.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
+	parseServer := parseNewFakeChatServer(store, parseFake)
+	parseCtx := parseBindAuthUser(parseServer, "peer-send-default-prompt", parseUser.ID, parseUser.Email)
+	parseStream := &fakeChatSendStream{ctx: parseCtx}
+
+	if parseErr := parseServer.Send(&chatpb.SendRequest{
+		Message: "Start a new thread with defaults.",
+		Model:   modelGPT54Mini,
+	}, parseStream); parseErr != nil {
+		parseT.Fatalf("Send: %v", parseErr)
+	}
+	parseConversations, parseErr := store.parseListConversations(parseUser.ID)
+	if parseErr != nil {
+		parseT.Fatalf("listConversations: %v", parseErr)
+	}
+	if len(parseConversations) != 1 {
+		parseT.Fatalf("expected one conversation row after first send, got %d", len(parseConversations))
+	}
+
+	parseSystemPrompt := parseFake.lastStreamChatRequest.SystemPrompt
+	if !strings.Contains(parseSystemPrompt, "Current runtime context:") {
+		parseT.Fatalf("expected default runtime context block in system prompt, got %q", parseSystemPrompt)
+	}
+	if !strings.Contains(parseSystemPrompt, "- No stored memories yet.") {
+		parseT.Fatalf("expected empty-memory fallback in default system prompt, got %q", parseSystemPrompt)
+	}
+	if strings.Contains(parseSystemPrompt, "{{date}}") || strings.Contains(parseSystemPrompt, "{{time}}") || strings.Contains(parseSystemPrompt, "{{memories}}") {
+		parseT.Fatalf("expected default system prompt placeholders to resolve, got %q", parseSystemPrompt)
+	}
+	if !strings.Contains(parseSystemPrompt, toneInstructionByID[defaultToneID]) {
+		parseT.Fatalf("expected default tone instruction in system prompt, got %q", parseSystemPrompt)
 	}
 }
 

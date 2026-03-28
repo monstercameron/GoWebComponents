@@ -3,6 +3,9 @@ package app
 import (
 	"context"
 	"log/slog"
+	"sort"
+	"strings"
+	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"google.golang.org/grpc/codes"
@@ -11,6 +14,7 @@ import (
 
 const defaultSuperuserListLimit = 100
 const maxSuperuserListLimit = 250
+const superuserMutationSessionMaxAge = 20 * time.Minute
 
 // parseClampSuperuserListLimit clamps one superuser snapshot list size into a safe range.
 func parseClampSuperuserListLimit(parseLimit int32) int32 {
@@ -21,6 +25,34 @@ func parseClampSuperuserListLimit(parseLimit int32) int32 {
 		return maxSuperuserListLimit
 	}
 	return parseLimit
+}
+
+// parseBuildSuperuserListQueryShape resolves one superuser slice-query contract with superuser list-limit clamps.
+func parseBuildSuperuserListQueryShape(parseLegacyLimit int32, parseQuery *chatpb.AdminListQuery) parseAdminListQueryShape {
+	parseLimit := parseLegacyLimit
+	if parseQuery != nil && parseQuery.GetLimit() > 0 {
+		parseLimit = parseQuery.GetLimit()
+	}
+	parseLimit = parseClampSuperuserListLimit(parseLimit)
+	parseOffset := int32(0)
+	parseSearch := ""
+	parseSortBy := ""
+	isParseSortAscending := false
+	if parseQuery != nil {
+		if parseQuery.GetOffset() > 0 {
+			parseOffset = parseQuery.GetOffset()
+		}
+		parseSearch = strings.TrimSpace(parseQuery.GetSearch())
+		parseSortBy = strings.TrimSpace(strings.ToLower(parseQuery.GetSortBy()))
+		isParseSortAscending = parseIsAdminSortDirectionAscending(parseQuery.GetSortDirection())
+	}
+	return parseAdminListQueryShape{
+		parseLimit:           parseLimit,
+		parseOffset:          parseOffset,
+		parseSearch:          parseSearch,
+		parseSortBy:          parseSortBy,
+		isParseSortAscending: isParseSortAscending,
+	}
 }
 
 // parseRequireSuperuserUserID resolves the authenticated user id and enforces the su role grant.
@@ -42,12 +74,55 @@ func (parseS *chatServer) parseRequireSuperuserUserID(parseCtx context.Context) 
 	return parseUserID, nil
 }
 
+// parseRequireSuperuserMutationUserID enforces su role plus one fresh session requirement for sensitive mutations.
+func (parseS *chatServer) parseRequireSuperuserMutationUserID(parseCtx context.Context, parseMutationKey string) (int64, error) {
+	parseUserID, parseErr := parseS.parseRequireSuperuserUserID(parseCtx)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	if parseS == nil || parseS.authManager == nil {
+		return parseUserID, nil
+	}
+	parseSessionUser, parseClaims, isParseSessionAuthenticated := parseS.authManager.parseAuthenticatedSessionFromContext(parseCtx)
+	if !isParseSessionAuthenticated || parseSessionUser.ID <= 0 || parseSessionUser.ID != parseUserID || parseClaims.IssuedAt == nil || parseClaims.IssuedAt.Time.IsZero() {
+		return 0, status.Error(codes.Unauthenticated, "superuser re-authentication required")
+	}
+	parseSessionAge := time.Since(parseClaims.IssuedAt.Time.UTC())
+	if parseSessionAge < 0 {
+		parseSessionAge = 0
+	}
+	if parseSessionAge <= superuserMutationSessionMaxAge {
+		return parseUserID, nil
+	}
+	if parseS.logger != nil {
+		parseS.logger.Warn(
+			"rpc.superuser mutation requires re-authentication",
+			slog.Int64("user_id", parseUserID),
+			slog.String("mutation_key", strings.TrimSpace(parseMutationKey)),
+			slog.Duration("session_age", parseSessionAge),
+			slog.Duration("max_session_age", superuserMutationSessionMaxAge),
+		)
+	}
+	return 0, status.Error(codes.Unauthenticated, "superuser re-authentication required")
+}
+
 // GetSuperuserControlPlane returns the superuser control-plane snapshot for authenticated su users.
 func (parseS *chatServer) GetSuperuserControlPlane(parseCtx context.Context, parseReq *chatpb.GetSuperuserControlPlaneRequest) (*chatpb.GetSuperuserControlPlaneResponse, error) {
 	parseLogger := parseS.logger.With(slog.String("rpc", "GetSuperuserControlPlane"))
-	if _, parseErr := parseS.parseRequireSuperuserUserID(parseCtx); parseErr != nil {
+	parseFetchStart := time.Now()
+	parseSuperuserUserID, parseErr := parseS.parseRequireSuperuserUserID(parseCtx)
+	if parseErr != nil {
 		return nil, parseErr
 	}
+	parseS.parseTrackAdminAuditEvent(
+		parseAdminAccessScope{isPlatformScope: true, adminUserID: parseSuperuserUserID},
+		"admin.dashboard.slice.view",
+		"slice",
+		"superuser-control-plane",
+		"Superuser control-plane slice viewed",
+		"{}",
+		0,
+	)
 	if parseS.store == nil {
 		parseLogger.Warn("rpc.GetSuperuserControlPlane: store unavailable")
 		return &chatpb.GetSuperuserControlPlaneResponse{}, nil
@@ -415,6 +490,17 @@ func (parseS *chatServer) GetSuperuserControlPlane(parseCtx context.Context, par
 			UpdatedAt:    parseBackgroundJob.UpdatedAt,
 		})
 	}
+	parseFetchDuration := time.Since(parseFetchStart)
+	if len(parseResponse.SiteConfigs) == 0 || len(parseResponse.FeatureFlags) == 0 {
+		parseLogger.Warn(
+			"rpc.GetSuperuserControlPlane: partial settings payload",
+			slog.Int("site_configs", len(parseResponse.SiteConfigs)),
+			slog.Int("feature_flags", len(parseResponse.FeatureFlags)),
+			slog.Duration("duration", parseFetchDuration),
+			slog.String("next_action", "verify settings bootstrap data and control-plane persistence"),
+		)
+	}
+	parseLogAdminFetchOutcome(parseLogger, "rpc.GetSuperuserControlPlane", "settings", "platform", parseFetchDuration, len(parseResponse.SiteConfigs)+len(parseResponse.FeatureFlags))
 
 	parseLogger.Info(
 		"rpc.GetSuperuserControlPlane: complete",
@@ -424,6 +510,377 @@ func (parseS *chatServer) GetSuperuserControlPlane(parseCtx context.Context, par
 		slog.Int("audit_logs", len(parseResponse.AuditLogs)),
 		slog.Int("auth_sessions", len(parseResponse.AuthSessions)),
 		slog.Int("background_jobs", len(parseResponse.BackgroundJobs)),
+		slog.Duration("duration", parseFetchDuration),
 	)
 	return parseResponse, nil
+}
+
+// GetSuperuserSlices returns typed global superuser slices for dashboard operations.
+func (parseS *chatServer) GetSuperuserSlices(parseCtx context.Context, parseReq *chatpb.GetSuperuserSlicesRequest) (*chatpb.GetSuperuserSlicesResponse, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "GetSuperuserSlices"))
+	parseSuperuserUserID, parseErr := parseS.parseRequireSuperuserUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	var parseLimit int32
+	var parseLookbackDays int32
+	var parseWorkspaceListQuery *chatpb.AdminListQuery
+	var parseWorkspaceStatusFilter string
+	var parseSupportListQuery *chatpb.AdminListQuery
+	var parseSupportStatusFilter string
+	var parseIncidentListQuery *chatpb.AdminListQuery
+	var parseIncidentStatusFilter string
+	if parseReq != nil {
+		parseLimit = parseReq.GetLimit()
+		parseLookbackDays = parseReq.GetLookbackDays()
+		parseWorkspaceListQuery = parseReq.GetWorkspaceListQuery()
+		parseWorkspaceStatusFilter = strings.TrimSpace(parseReq.GetWorkspaceStatus())
+		parseSupportListQuery = parseReq.GetSupportListQuery()
+		parseSupportStatusFilter = strings.TrimSpace(parseReq.GetSupportStatus())
+		parseIncidentListQuery = parseReq.GetIncidentListQuery()
+		parseIncidentStatusFilter = strings.TrimSpace(parseReq.GetIncidentStatus())
+	}
+	parseLimit = parseClampSuperuserListLimit(parseLimit)
+	parseWorkspaceListQueryShape := parseBuildSuperuserListQueryShape(parseLimit, parseWorkspaceListQuery)
+	parseSupportListQueryShape := parseBuildSuperuserListQueryShape(parseLimit, parseSupportListQuery)
+	parseIncidentListQueryShape := parseBuildSuperuserListQueryShape(parseLimit, parseIncidentListQuery)
+	parseLookbackDays = parseClampAdminLookbackDays(parseLookbackDays)
+	parseSince := parseBuildAdminSinceTimestamp(parseLookbackDays)
+	parseLogger.Info(
+		"rpc.GetSuperuserSlices: slice fetch",
+		slog.Int("limit", int(parseLimit)),
+		slog.Int("lookback_days", int(parseLookbackDays)),
+	)
+	parseScope := parseAdminAccessScope{isPlatformScope: true, adminUserID: parseSuperuserUserID}
+	parseS.parseTrackAdminAuditEvent(
+		parseScope,
+		"admin.dashboard.slice.view",
+		"slice",
+		"superuser",
+		"Superuser dashboard slices viewed",
+		"{}",
+		0,
+	)
+	parseS.parseTrackAdminAuditEvent(
+		parseScope,
+		"admin.dashboard.drilldown.access",
+		"workspace",
+		"superuser",
+		"Superuser drill-down access",
+		"{}",
+		0,
+	)
+	parseResponse := &chatpb.GetSuperuserSlicesResponse{
+		Users:                   make([]*chatpb.AdminUserSummary, 0),
+		UsageEvents:             make([]*chatpb.AdminUsageEvent, 0),
+		SupportTickets:          make([]*chatpb.SupportTicketEntry, 0),
+		BillingPlanOverages:     make([]*chatpb.BillingPlanOverageEntry, 0),
+		BillingQuotaPolicies:    make([]*chatpb.BillingQuotaPolicyEntry, 0),
+		BillingUpgradeTriggers:  make([]*chatpb.BillingUpgradeTriggerEntry, 0),
+		Incidents:               make([]*chatpb.IncidentEntry, 0),
+		Experiments:             make([]*chatpb.ExperimentEntry, 0),
+		Workspaces:              make([]*chatpb.WorkspaceEntry, 0),
+		WorkspaceCostGuardrails: make([]*chatpb.WorkspaceCostGuardrailEntry, 0),
+	}
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.GetSuperuserSlices: store unavailable")
+		return parseResponse, nil
+	}
+
+	parseUserRows, parseErr := parseS.store.parseListAdminUsers(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list superuser users: %v", parseErr)
+	}
+	parseUsageRows, parseErr := parseS.store.parseListAdminUsageEvents(parseSince, int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list superuser usage events: %v", parseErr)
+	}
+	parseSupportTicketRows, parseErr := parseS.store.parseListSupportTickets(parseAdminScopedScanLimit)
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list superuser support tickets: %v", parseErr)
+	}
+	parseOverageRows, parseErr := parseS.store.parseListBillingPlanOverages(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list superuser billing plan overages: %v", parseErr)
+	}
+	parseQuotaRows, parseErr := parseS.store.parseListBillingQuotaPolicies(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list superuser billing quota policies: %v", parseErr)
+	}
+	parseUpgradeTriggerRows, parseErr := parseS.store.parseListBillingUpgradeTriggers(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list superuser billing upgrade triggers: %v", parseErr)
+	}
+	parseIncidentRows, parseErr := parseS.store.parseListIncidents(parseAdminScopedScanLimit)
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list superuser incidents: %v", parseErr)
+	}
+	parseExperimentRows, parseErr := parseS.store.parseListExperiments(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list superuser experiments: %v", parseErr)
+	}
+	parseWorkspaceRows, parseErr := parseS.store.parseListWorkspaces(parseAdminScopedScanLimit)
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list superuser workspaces: %v", parseErr)
+	}
+	parseCostGuardrailRows, parseErr := parseS.store.parseListWorkspaceCostGuardrails(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list superuser workspace cost guardrails: %v", parseErr)
+	}
+
+	parseSupportTicketRows = parseFilterSupportTicketRows(parseSupportTicketRows, parseSupportStatusFilter, "", 0)
+	parseSupportTicketRows = parseFilterSupportTicketRowsBySearch(parseSupportTicketRows, parseSupportListQueryShape.parseSearch)
+	parseSortSupportTicketRows(parseSupportTicketRows, parseSupportListQueryShape.parseSortBy, parseSupportListQueryShape.isParseSortAscending)
+	parseSupportTicketRows = parseApplyAdminSliceWindow(parseSupportTicketRows, parseSupportListQueryShape.parseOffset, parseSupportListQueryShape.parseLimit)
+
+	parseIncidentRows = parseFilterSuperuserIncidentRows(parseIncidentRows, parseIncidentStatusFilter, parseIncidentListQueryShape.parseSearch)
+	parseSortSuperuserIncidentRows(parseIncidentRows, parseIncidentListQueryShape.parseSortBy, parseIncidentListQueryShape.isParseSortAscending)
+	parseIncidentRows = parseApplyAdminSliceWindow(parseIncidentRows, parseIncidentListQueryShape.parseOffset, parseIncidentListQueryShape.parseLimit)
+
+	parseWorkspaceRows = parseFilterSuperuserWorkspaceRows(parseWorkspaceRows, parseWorkspaceStatusFilter, parseWorkspaceListQueryShape.parseSearch)
+	parseSortSuperuserWorkspaceRows(parseWorkspaceRows, parseWorkspaceListQueryShape.parseSortBy, parseWorkspaceListQueryShape.isParseSortAscending)
+	parseWorkspaceRows = parseApplyAdminSliceWindow(parseWorkspaceRows, parseWorkspaceListQueryShape.parseOffset, parseWorkspaceListQueryShape.parseLimit)
+
+	for _, parseUserRow := range parseUserRows {
+		parseResponse.Users = append(parseResponse.Users, parseBuildAdminUserSummary(parseUserRow))
+	}
+	for _, parseUsageRow := range parseUsageRows {
+		parseResponse.UsageEvents = append(parseResponse.UsageEvents, parseBuildAdminUsageEvent(parseUsageRow))
+	}
+	for _, parseSupportTicketRow := range parseSupportTicketRows {
+		parseResponse.SupportTickets = append(parseResponse.SupportTickets, &chatpb.SupportTicketEntry{
+			Id:             parseSupportTicketRow.ID,
+			TicketKey:      parseSupportTicketRow.TicketKey,
+			WorkspaceId:    parseSupportTicketRow.WorkspaceID,
+			UserId:         parseSupportTicketRow.UserID,
+			Status:         parseSupportTicketRow.Status,
+			Priority:       parseSupportTicketRow.Priority,
+			Subject:        parseSupportTicketRow.Subject,
+			Body:           parseSupportTicketRow.Body,
+			AssigneeUserId: parseSupportTicketRow.AssigneeUserID,
+			ResolutionNote: parseSupportTicketRow.ResolutionNote,
+			CreatedAt:      parseSupportTicketRow.CreatedAt,
+			UpdatedAt:      parseSupportTicketRow.UpdatedAt,
+		})
+	}
+	for _, parseOverageRow := range parseOverageRows {
+		parseResponse.BillingPlanOverages = append(parseResponse.BillingPlanOverages, &chatpb.BillingPlanOverageEntry{
+			Id:                parseOverageRow.ID,
+			PlanCode:          parseOverageRow.PlanCode,
+			MeterKey:          parseOverageRow.MeterKey,
+			IncludedUnits:     parseOverageRow.IncludedUnits,
+			SoftLimitUnits:    parseOverageRow.SoftLimitUnits,
+			HardLimitUnits:    parseOverageRow.HardLimitUnits,
+			OverageUnitSize:   parseOverageRow.OverageUnitSize,
+			OveragePriceCents: parseOverageRow.OveragePriceCents,
+			BillingInterval:   parseOverageRow.BillingInterval,
+			UpdatedAt:         parseOverageRow.UpdatedAt,
+		})
+	}
+	for _, parseQuotaRow := range parseQuotaRows {
+		parseResponse.BillingQuotaPolicies = append(parseResponse.BillingQuotaPolicies, &chatpb.BillingQuotaPolicyEntry{
+			Id:              parseQuotaRow.ID,
+			PlanCode:        parseQuotaRow.PlanCode,
+			QuotaKey:        parseQuotaRow.QuotaKey,
+			SoftLimitValue:  parseQuotaRow.SoftLimitValue,
+			HardLimitValue:  parseQuotaRow.HardLimitValue,
+			ResetInterval:   parseQuotaRow.ResetInterval,
+			EnforcementMode: parseQuotaRow.EnforcementMode,
+			UpdatedAt:       parseQuotaRow.UpdatedAt,
+		})
+	}
+	for _, parseUpgradeTriggerRow := range parseUpgradeTriggerRows {
+		parseResponse.BillingUpgradeTriggers = append(parseResponse.BillingUpgradeTriggers, &chatpb.BillingUpgradeTriggerEntry{
+			Id:               parseUpgradeTriggerRow.ID,
+			PlanCode:         parseUpgradeTriggerRow.PlanCode,
+			TriggerKey:       parseUpgradeTriggerRow.TriggerKey,
+			ThresholdPercent: parseUpgradeTriggerRow.ThresholdPercent,
+			UpgradePlanCode:  parseUpgradeTriggerRow.UpgradePlanCode,
+			Message:          parseUpgradeTriggerRow.Message,
+			CtaLabel:         parseUpgradeTriggerRow.CTALabel,
+			CtaUrl:           parseUpgradeTriggerRow.CTAURL,
+			IsEnabled:        parseUpgradeTriggerRow.IsEnabled,
+			UpdatedAt:        parseUpgradeTriggerRow.UpdatedAt,
+		})
+	}
+	for _, parseIncidentRow := range parseIncidentRows {
+		parseResponse.Incidents = append(parseResponse.Incidents, &chatpb.IncidentEntry{
+			Id:            parseIncidentRow.ID,
+			IncidentKey:   parseIncidentRow.IncidentKey,
+			SloKey:        parseIncidentRow.SLOKey,
+			Severity:      parseIncidentRow.Severity,
+			Status:        parseIncidentRow.Status,
+			Title:         parseIncidentRow.Title,
+			Summary:       parseIncidentRow.Summary,
+			StartedAt:     parseIncidentRow.StartedAt,
+			ResolvedAt:    parseIncidentRow.ResolvedAt,
+			PostmortemUrl: parseIncidentRow.PostmortemURL,
+			UpdatedAt:     parseIncidentRow.UpdatedAt,
+		})
+	}
+	for _, parseExperimentRow := range parseExperimentRows {
+		parseResponse.Experiments = append(parseResponse.Experiments, &chatpb.ExperimentEntry{
+			Id:            parseExperimentRow.ID,
+			ExperimentKey: parseExperimentRow.ExperimentKey,
+			Name:          parseExperimentRow.Name,
+			Status:        parseExperimentRow.Status,
+			VariantsJson:  parseExperimentRow.VariantsJSON,
+			AudienceJson:  parseExperimentRow.AudienceJSON,
+			StartAt:       parseExperimentRow.StartAt,
+			EndAt:         parseExperimentRow.EndAt,
+			UpdatedAt:     parseExperimentRow.UpdatedAt,
+		})
+	}
+	for _, parseWorkspaceRow := range parseWorkspaceRows {
+		parseResponse.Workspaces = append(parseResponse.Workspaces, &chatpb.WorkspaceEntry{
+			Id:           parseWorkspaceRow.ID,
+			WorkspaceKey: parseWorkspaceRow.WorkspaceKey,
+			Slug:         parseWorkspaceRow.Slug,
+			Name:         parseWorkspaceRow.Name,
+			PlanCode:     parseWorkspaceRow.PlanCode,
+			Status:       parseWorkspaceRow.Status,
+			OwnerUserId:  parseWorkspaceRow.OwnerUserID,
+			SettingsJson: parseWorkspaceRow.SettingsJSON,
+			CreatedAt:    parseWorkspaceRow.CreatedAt,
+			UpdatedAt:    parseWorkspaceRow.UpdatedAt,
+		})
+	}
+	for _, parseCostGuardrailRow := range parseCostGuardrailRows {
+		parseResponse.WorkspaceCostGuardrails = append(parseResponse.WorkspaceCostGuardrails, &chatpb.WorkspaceCostGuardrailEntry{
+			Id:                     parseCostGuardrailRow.ID,
+			WorkspaceId:            parseCostGuardrailRow.WorkspaceID,
+			GuardrailKey:           parseCostGuardrailRow.GuardrailKey,
+			DailyBudgetCents:       parseCostGuardrailRow.DailyBudgetCents,
+			MonthlyBudgetCents:     parseCostGuardrailRow.MonthlyBudgetCents,
+			MaxCostPerRequestCents: parseCostGuardrailRow.MaxCostPerRequestCents,
+			AlertThresholdPercent:  parseCostGuardrailRow.AlertThresholdPercent,
+			ActionMode:             parseCostGuardrailRow.ActionMode,
+			UpdatedAt:              parseCostGuardrailRow.UpdatedAt,
+		})
+	}
+
+	parseLogger.Info(
+		"rpc.GetSuperuserSlices: complete",
+		slog.Int("users", len(parseResponse.Users)),
+		slog.Int("usage_events", len(parseResponse.UsageEvents)),
+		slog.Int("support_tickets", len(parseResponse.SupportTickets)),
+		slog.Int("pricing_overages", len(parseResponse.BillingPlanOverages)),
+		slog.Int("pricing_quotas", len(parseResponse.BillingQuotaPolicies)),
+		slog.Int("pricing_triggers", len(parseResponse.BillingUpgradeTriggers)),
+		slog.Int("incidents", len(parseResponse.Incidents)),
+		slog.Int("experiments", len(parseResponse.Experiments)),
+		slog.Int("workspaces", len(parseResponse.Workspaces)),
+		slog.Int("cost_guardrails", len(parseResponse.WorkspaceCostGuardrails)),
+	)
+	return parseResponse, nil
+}
+
+// parseFilterSuperuserWorkspaceRows filters workspace rows by optional status and search values.
+func parseFilterSuperuserWorkspaceRows(parseRows []parseWorkspaceRow, parseStatusFilter string, parseSearch string) []parseWorkspaceRow {
+	parseStatusFilter = strings.TrimSpace(strings.ToLower(parseStatusFilter))
+	parseSearch = strings.TrimSpace(strings.ToLower(parseSearch))
+	parseFilteredRows := make([]parseWorkspaceRow, 0, len(parseRows))
+	for _, parseRow := range parseRows {
+		if parseStatusFilter != "" && strings.TrimSpace(strings.ToLower(parseRow.Status)) != parseStatusFilter {
+			continue
+		}
+		if parseSearch != "" {
+			if !strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.WorkspaceKey)), parseSearch) &&
+				!strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.Slug)), parseSearch) &&
+				!strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.Name)), parseSearch) &&
+				!strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.PlanCode)), parseSearch) &&
+				!strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.Status)), parseSearch) &&
+				!strings.Contains(strings.TrimSpace(strings.ToLower(parseRow.SettingsJSON)), parseSearch) {
+				continue
+			}
+		}
+		parseFilteredRows = append(parseFilteredRows, parseRow)
+	}
+	return parseFilteredRows
+}
+
+// parseSortSuperuserWorkspaceRows sorts workspace rows by one typed sort key and direction.
+func parseSortSuperuserWorkspaceRows(parseRows []parseWorkspaceRow, parseSortBy string, isParseSortAscending bool) {
+	parseSortBy = strings.TrimSpace(strings.ToLower(parseSortBy))
+	if parseSortBy == "" {
+		return
+	}
+	sort.SliceStable(parseRows, func(parseLeftIndex, parseRightIndex int) bool {
+		parseLeftRow := parseRows[parseLeftIndex]
+		parseRightRow := parseRows[parseRightIndex]
+		switch parseSortBy {
+		case "id":
+			return parseCompareAdminInt64(parseLeftRow.ID, parseRightRow.ID, isParseSortAscending)
+		case "workspace_key":
+			return parseCompareAdminString(parseLeftRow.WorkspaceKey, parseRightRow.WorkspaceKey, isParseSortAscending)
+		case "slug":
+			return parseCompareAdminString(parseLeftRow.Slug, parseRightRow.Slug, isParseSortAscending)
+		case "name":
+			return parseCompareAdminString(parseLeftRow.Name, parseRightRow.Name, isParseSortAscending)
+		case "plan_code":
+			return parseCompareAdminString(parseLeftRow.PlanCode, parseRightRow.PlanCode, isParseSortAscending)
+		case "status":
+			return parseCompareAdminString(parseLeftRow.Status, parseRightRow.Status, isParseSortAscending)
+		case "created_at":
+			return parseCompareAdminString(parseLeftRow.CreatedAt, parseRightRow.CreatedAt, isParseSortAscending)
+		case "updated_at":
+			return parseCompareAdminString(parseLeftRow.UpdatedAt, parseRightRow.UpdatedAt, isParseSortAscending)
+		default:
+			return false
+		}
+	})
+}
+
+// parseFilterSuperuserIncidentRows filters incident rows by optional status and search values.
+func parseFilterSuperuserIncidentRows(parseRows []parseIncidentRow, parseStatusFilter string, parseSearch string) []parseIncidentRow {
+	parseStatusFilter = strings.TrimSpace(strings.ToLower(parseStatusFilter))
+	parseSearch = strings.TrimSpace(strings.ToLower(parseSearch))
+	parseFilteredRows := make([]parseIncidentRow, 0, len(parseRows))
+	for _, parseRow := range parseRows {
+		if parseStatusFilter != "" && strings.TrimSpace(strings.ToLower(parseRow.Status)) != parseStatusFilter {
+			continue
+		}
+		if parseSearch != "" {
+			if !strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.IncidentKey)), parseSearch) &&
+				!strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.SLOKey)), parseSearch) &&
+				!strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.Severity)), parseSearch) &&
+				!strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.Status)), parseSearch) &&
+				!strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.Title)), parseSearch) &&
+				!strings.Contains(strings.ToLower(strings.TrimSpace(parseRow.Summary)), parseSearch) {
+				continue
+			}
+		}
+		parseFilteredRows = append(parseFilteredRows, parseRow)
+	}
+	return parseFilteredRows
+}
+
+// parseSortSuperuserIncidentRows sorts incident rows by one typed sort key and direction.
+func parseSortSuperuserIncidentRows(parseRows []parseIncidentRow, parseSortBy string, isParseSortAscending bool) {
+	parseSortBy = strings.TrimSpace(strings.ToLower(parseSortBy))
+	if parseSortBy == "" {
+		return
+	}
+	sort.SliceStable(parseRows, func(parseLeftIndex, parseRightIndex int) bool {
+		parseLeftRow := parseRows[parseLeftIndex]
+		parseRightRow := parseRows[parseRightIndex]
+		switch parseSortBy {
+		case "id":
+			return parseCompareAdminInt64(parseLeftRow.ID, parseRightRow.ID, isParseSortAscending)
+		case "incident_key":
+			return parseCompareAdminString(parseLeftRow.IncidentKey, parseRightRow.IncidentKey, isParseSortAscending)
+		case "severity":
+			return parseCompareAdminString(parseLeftRow.Severity, parseRightRow.Severity, isParseSortAscending)
+		case "status":
+			return parseCompareAdminString(parseLeftRow.Status, parseRightRow.Status, isParseSortAscending)
+		case "started_at":
+			return parseCompareAdminString(parseLeftRow.StartedAt, parseRightRow.StartedAt, isParseSortAscending)
+		case "resolved_at":
+			return parseCompareAdminString(parseLeftRow.ResolvedAt, parseRightRow.ResolvedAt, isParseSortAscending)
+		case "updated_at":
+			return parseCompareAdminString(parseLeftRow.UpdatedAt, parseRightRow.UpdatedAt, isParseSortAscending)
+		default:
+			return false
+		}
+	})
 }

@@ -22,4 +22,30 @@ SELECT
     (SELECT COUNT(*)
      FROM usage_events
      WHERE created_at >= ?
-       AND status <> 'completed') AS window_failed_events;
+       AND status <> 'completed') AS window_failed_events,
+    (SELECT COUNT(*)
+     FROM billing_events
+     WHERE created_at >= ?) AS window_billing_events,
+    (SELECT COUNT(*)
+     FROM billing_invoices
+     WHERE created_at >= ?
+       AND LOWER(status) NOT IN ('paid', 'void')) AS window_open_invoices,
+    (SELECT COUNT(*)
+     FROM billing_dunning_events
+     WHERE created_at >= ?
+       AND LOWER(status) NOT IN ('resolved', 'closed', 'succeeded')) AS window_open_dunning_events,
+    (SELECT COUNT(*)
+     FROM incidents
+     WHERE LOWER(status) NOT IN ('resolved', 'closed')) AS open_incidents,
+    (SELECT COUNT(*)
+     FROM support_tickets
+     WHERE LOWER(status) NOT IN ('resolved', 'closed')) AS open_support_tickets,
+    (SELECT COUNT(*)
+     FROM experiments
+     WHERE LOWER(status) IN ('active', 'running', 'live')) AS active_experiments,
+    (SELECT COUNT(*)
+     FROM experiments
+     WHERE LOWER(status) IN ('paused', 'error', 'failed', 'rolled_back', 'stopped')) AS unhealthy_experiments,
+    (SELECT COUNT(*)
+     FROM experiment_assignments
+     WHERE assigned_at >= ?) AS window_experiment_assignments;

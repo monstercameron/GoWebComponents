@@ -20,6 +20,9 @@ import (
 var errUserAlreadyExists = errors.New("user already exists")
 var errStoreUserMissing = errors.New("store user missing")
 var errStoreConversationMissing = errors.New("store conversation missing")
+var errStoreUserDisabled = errors.New("store user disabled")
+var errStoreUserAuthBlocked = errors.New("store user auth blocked")
+var errStoreWorkspaceSuspended = errors.New("store workspace suspended")
 var newConversationPublicID = func() string { return uuid.NewString() }
 
 // Store wraps a SQLite database for chat history persistence.

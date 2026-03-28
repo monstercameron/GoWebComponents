@@ -200,6 +200,20 @@ type parseBillingEventRow struct {
 	CreatedAt        string
 }
 
+type parseBillingDunningEventRow struct {
+	ID             int64
+	CustomerID     int64
+	SubscriptionID int64
+	InvoiceID      int64
+	Status         string
+	AttemptCount   int64
+	FailureReason  string
+	NextAttemptAt  string
+	ResolvedAt     string
+	CreatedAt      string
+	UpdatedAt      string
+}
+
 type parseBillingPlanEntitlementRow struct {
 	EntitlementKey   string
 	EntitlementValue string
@@ -754,6 +768,101 @@ func (parseS *Store) parseListBillingEventsByCustomer(parseCustomerID, parseLimi
 		parseEvents = append(parseEvents, parseEvent)
 	}
 	return parseEvents, parseRows.Err()
+}
+
+// parseListBillingDunningEventsByCustomer lists dunning rows for one customer newest-first.
+func (parseS *Store) parseListBillingDunningEventsByCustomer(parseCustomerID, parseLimit int64) ([]parseBillingDunningEventRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 50
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listBillingDunningEventsByCustomer, parseCustomerID, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseEvents := make([]parseBillingDunningEventRow, 0)
+	for parseRows.Next() {
+		var parseEvent parseBillingDunningEventRow
+		if parseErr2 := parseRows.Scan(
+			&parseEvent.ID,
+			&parseEvent.CustomerID,
+			&parseEvent.SubscriptionID,
+			&parseEvent.InvoiceID,
+			&parseEvent.Status,
+			&parseEvent.AttemptCount,
+			&parseEvent.FailureReason,
+			&parseEvent.NextAttemptAt,
+			&parseEvent.ResolvedAt,
+			&parseEvent.CreatedAt,
+			&parseEvent.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseEvents = append(parseEvents, parseEvent)
+	}
+	return parseEvents, parseRows.Err()
+}
+
+// parseSetBillingDunningEventResolved updates one customer-owned dunning row to one resolved terminal state.
+func (parseS *Store) parseSetBillingDunningEventResolved(parseDunningEventID, parseCustomerID int64, parseStatus, parseResolvedAt string) error {
+	if parseDunningEventID <= 0 || parseCustomerID <= 0 {
+		return errors.New("set billing dunning event resolved: dunning event id and customer id are required")
+	}
+	parseResolvedStatus := strings.TrimSpace(parseStatus)
+	if parseResolvedStatus == "" {
+		parseResolvedStatus = "resolved"
+	}
+	parseResolvedAt = strings.TrimSpace(parseResolvedAt)
+	if parseResolvedAt == "" {
+		parseResolvedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseResult, parseErr := parseS.db.Exec(
+		parseS.queries.updateBillingDunningEventResolved,
+		parseResolvedStatus,
+		parseResolvedAt,
+		parseNow,
+		parseDunningEventID,
+		parseCustomerID,
+	)
+	if parseErr != nil {
+		return parseErr
+	}
+	parseRowsAffected, parseErr := parseResult.RowsAffected()
+	if parseErr == nil && parseRowsAffected == 0 {
+		return errStoreBillingScopeMissing
+	}
+	return nil
+}
+
+// parseSetBillingInvoiceResolution updates one customer-owned invoice status and paid-at timestamp.
+func (parseS *Store) parseSetBillingInvoiceResolution(parseInvoiceID, parseCustomerID int64, parseStatus, parsePaidAt string) error {
+	if parseInvoiceID <= 0 || parseCustomerID <= 0 {
+		return errors.New("set billing invoice resolution: invoice id and customer id are required")
+	}
+	parseInvoiceStatus := parseNormalizeBillingInvoiceStatus(parseStatus)
+	parsePaidAt = strings.TrimSpace(parsePaidAt)
+	if parsePaidAt == "" {
+		parsePaidAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseResult, parseErr := parseS.db.Exec(
+		parseS.queries.updateBillingInvoiceResolution,
+		parseInvoiceStatus,
+		parsePaidAt,
+		parseNow,
+		parseInvoiceID,
+		parseCustomerID,
+	)
+	if parseErr != nil {
+		return parseErr
+	}
+	parseRowsAffected, parseErr := parseResult.RowsAffected()
+	if parseErr == nil && parseRowsAffected == 0 {
+		return errStoreBillingScopeMissing
+	}
+	return nil
 }
 
 // parseListBillingPlanEntitlements lists static entitlements for one plan code.

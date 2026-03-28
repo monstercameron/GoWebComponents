@@ -64,6 +64,16 @@ func TestCustomPromptAndMemoryHelperFunctions(parseT *testing.T) {
 	if parseFiltered[0].Category != "preference" || parseFiltered[0].Key != "preference-prefers-concise-answers" {
 		parseT.Fatalf("unexpected normalized useful memory candidate: %+v", parseFiltered[0])
 	}
+	parseDedupedCandidates := filterUsefulUserMemories([]provider.UserMemoryCandidate{
+		{Key: "pref-short-low", Category: "preference", Summary: "Prefers concise answers", Detail: "Asked for concise responses", UsefulnessScore: 72, ConfidenceScore: 0.82},
+		{Key: "pref-short-high", Category: "preference", Summary: " Prefers   concise answers ", Detail: "Asked for concise responses", UsefulnessScore: 94, ConfidenceScore: 0.96},
+	})
+	if len(parseDedupedCandidates) != 1 {
+		parseT.Fatalf("expected deduped memory candidates length 1, got %+v", parseDedupedCandidates)
+	}
+	if parseDedupedCandidates[0].UsefulnessScore != 94 || parseDedupedCandidates[0].Key != "pref-short-high" {
+		parseT.Fatalf("expected strongest duplicate memory candidate to win, got %+v", parseDedupedCandidates[0])
+	}
 
 	parseMemoryBlock := buildUserMemoryPromptBlock([]userMemoryRow{
 		{Summary: "Prefers concise answers", Detail: "Prefers concise answers"},
@@ -74,6 +84,13 @@ func TestCustomPromptAndMemoryHelperFunctions(parseT *testing.T) {
 	}
 	if isParseContains := parseMemoryBlock == "- Prefers concise answers\n- Uses Neovim (Daily editor)"; !isParseContains {
 		parseT.Fatalf("unexpected memory prompt block: %q", parseMemoryBlock)
+	}
+	parseDedupedMemoryBlock := buildUserMemoryPromptBlock([]userMemoryRow{
+		{Category: "preference", Summary: "Prefers concise answers", Detail: "Asked for concise responses"},
+		{Category: "preference", Summary: " Prefers concise answers ", Detail: "Asked for concise responses"},
+	})
+	if parseDedupedMemoryBlock != "- Prefers concise answers (Asked for concise responses)" {
+		parseT.Fatalf("expected deduped memory prompt block to keep one line, got %q", parseDedupedMemoryBlock)
 	}
 
 	parseLongMemories := make([]userMemoryRow, 0, maxInjectedUserMemoryCount+3)
@@ -166,6 +183,58 @@ func TestExtractAndStoreUserMemoriesBranches(parseT *testing.T) {
 	parseServer.parseExtractAndStoreUserMemories(parseUser.ID, "   ")
 	if parseCallCount != 1 {
 		parseT.Fatalf("expected blank message extraction skip, got %d calls", parseCallCount)
+	}
+}
+
+// TestExtractAndStoreUserMemoriesReusesExistingKeys verifies extraction dedupe reuses stable keys so user edits stay coherent.
+func TestExtractAndStoreUserMemoriesReusesExistingKeys(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "memory-reuse@example.com")
+	if parseErr := store.parseUpsertUserMemory(parseUser.ID, userMemoryRow{
+		Key:             "manual-memory-key",
+		Category:        "preference",
+		Summary:         "Prefers concise answers",
+		Detail:          "Asked for concise responses",
+		SourceMessage:   "manual",
+		UsefulnessScore: 77,
+		ConfidenceScore: 0.78,
+		RubricReason:    "seed",
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertUserMemory seed: %v", parseErr)
+	}
+
+	parseFake := parseNewFakeProvider()
+	parseFake.extractUserMemories = func(_ context.Context, _ provider.MemoryExtractionRequest) ([]provider.UserMemoryCandidate, error) {
+		return []provider.UserMemoryCandidate{
+			{Key: "llm-memory-low", Category: "preference", Summary: "Prefers concise answers", Detail: "Asked for concise responses", UsefulnessScore: 81, ConfidenceScore: 0.81},
+			{Key: "llm-memory-high", Category: "preference", Summary: " Prefers   concise answers ", Detail: "Asked for concise responses", UsefulnessScore: 95, ConfidenceScore: 0.95},
+		}, nil
+	}
+
+	parseServer := &chatServer{
+		providerRegistry:      provider.ParseNewRegistry(parseFake),
+		defaultModel:          modelGPT54Mini,
+		store:                 store,
+		logger:                parseNewTestLogger(),
+		sessions:              map[string]*sessionState{},
+		authUsers:             map[string]authUser{},
+		memoryExtractionSlots: make(chan struct{}, 1),
+		memoryExtractionModel: modelGPT54,
+	}
+	parseServer.parseExtractAndStoreUserMemories(parseUser.ID, "Remember that I prefer concise answers.")
+
+	parseMemories, parseErr := store.parseListUserMemories(parseUser.ID)
+	if parseErr != nil {
+		parseT.Fatalf("parseListUserMemories: %v", parseErr)
+	}
+	if len(parseMemories) != 1 {
+		parseT.Fatalf("expected one deduped memory row, got %+v", parseMemories)
+	}
+	if parseMemories[0].Key != "manual-memory-key" {
+		parseT.Fatalf("expected extraction to reuse existing key, got %+v", parseMemories[0])
+	}
+	if parseMemories[0].UsefulnessScore != 95 || parseMemories[0].ConfidenceScore != 0.95 {
+		parseT.Fatalf("expected strongest duplicate candidate values to persist, got %+v", parseMemories[0])
 	}
 }
 

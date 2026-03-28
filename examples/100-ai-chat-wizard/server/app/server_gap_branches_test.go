@@ -106,7 +106,7 @@ func TestAuthSessionRPCBranchesCoverUnavailableAuthAndLogout(parseT *testing.T) 
 	parseServer := &chatServer{
 		logger:    parseNewTestLogger(),
 		sessions:  map[string]*sessionState{"peer-auth": {userID: 7, conversationID: 9}},
-		authUsers: map[string]authUser{},
+		authUsers: map[string]authUser{"peer-auth": {ID: 7, Email: "logout@example.com"}},
 	}
 
 	if _, parseErr := parseServer.Signup(context.Background(), nil); status.Code(parseErr) != codes.Internal {
@@ -125,6 +125,9 @@ func TestAuthSessionRPCBranchesCoverUnavailableAuthAndLogout(parseT *testing.T) 
 	}
 	if _, parseFound := parseServer.sessions["peer-auth"]; parseFound {
 		parseT.Fatalf("expected logout to clear peer session, got %#v", parseServer.sessions)
+	}
+	if _, parseFound := parseServer.authUsers["peer-auth"]; parseFound {
+		parseT.Fatalf("expected logout to clear peer auth user cache, got %#v", parseServer.authUsers)
 	}
 	if _, parseErr := parseServer.Logout(context.Background(), &emptypb.Empty{}); parseErr != nil {
 		parseT.Fatalf("Logout(no peer): %v", parseErr)

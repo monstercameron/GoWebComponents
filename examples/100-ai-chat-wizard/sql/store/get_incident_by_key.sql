@@ -1,0 +1,4 @@
+SELECT id, incident_key, slo_key, severity, status, title, summary, started_at, resolved_at, postmortem_url, updated_at
+FROM incidents
+WHERE incident_key = ?
+LIMIT 1;

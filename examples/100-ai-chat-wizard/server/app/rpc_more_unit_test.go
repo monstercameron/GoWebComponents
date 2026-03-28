@@ -75,6 +75,7 @@ func TestListAndLoadConversationBranches(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "list-load@example.com")
 	parseOther := parseMustCreateUser(parseT, store, "list-load-other@example.com")
+	parseMustEnsureWorkspaceMembership(parseT, store, parseUser.ID, "ws-list-load-owner")
 	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("createConversation: %v", parseErr)
@@ -133,6 +134,23 @@ func TestListAndLoadConversationBranches(parseT *testing.T) {
 	if parseLoadResp.GetMessages()[0].GetRole() != "assistant" {
 		parseT.Fatalf("expected normalized assistant role, got %q", parseLoadResp.GetMessages()[0].GetRole())
 	}
+	parseAnalyticsRows, parseErr := store.parseListProductAnalyticsEvents(100)
+	if parseErr != nil {
+		parseT.Fatalf("parseListProductAnalyticsEvents: %v", parseErr)
+	}
+	isParseHasThreadReopenedEvent := false
+	for _, parseAnalyticsRow := range parseAnalyticsRows {
+		if parseAnalyticsRow.UserID != parseUser.ID || parseAnalyticsRow.FunnelKey != parseFirstChatFunnelKey {
+			continue
+		}
+		if parseAnalyticsRow.StepKey == parseFirstChatStepThreadReopened {
+			isParseHasThreadReopenedEvent = true
+			break
+		}
+	}
+	if !isParseHasThreadReopenedEvent {
+		parseT.Fatalf("expected thread reopened analytics event, got rows=%+v", parseAnalyticsRows)
+	}
 
 	store.parseClose()
 	if _, parseErr4 := parseServer.ListConversations(parseCtx, &chatpb.ListConversationsRequest{}); status.Code(parseErr4) != codes.Internal {
@@ -143,6 +161,126 @@ func TestListAndLoadConversationBranches(parseT *testing.T) {
 	}
 	if _, parseErr6 := parseServer.LoadConversation(parseCtx, &chatpb.LoadConversationRequest{Id: parseConversationID}); status.Code(parseErr6) != codes.Internal {
 		parseT.Fatalf("expected internal LoadConversation error after store close, got %v", status.Code(parseErr6))
+	}
+}
+
+func TestListConversationsPagination(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, parseStore, "list-pagination@example.com")
+	parseServer := &chatServer{
+		defaultModel: modelGPT54Mini,
+		store:        parseStore,
+		logger:       parseNewTestLogger(),
+		sessions:     map[string]*sessionState{},
+		authUsers:    map[string]authUser{},
+	}
+	parseCtx := parseBindAuthUser(parseServer, "peer-list-pagination", parseUser.ID, parseUser.Email)
+
+	for parseIndex := 0; parseIndex < 5; parseIndex++ {
+		if _, parseErr := parseStore.parseCreateConversation(parseUser.ID); parseErr != nil {
+			parseT.Fatalf("parseCreateConversation(%d): %v", parseIndex, parseErr)
+		}
+	}
+
+	parseAllResp, parseErr := parseServer.ListConversations(parseCtx, &chatpb.ListConversationsRequest{})
+	if parseErr != nil {
+		parseT.Fatalf("ListConversations all: %v", parseErr)
+	}
+	if len(parseAllResp.GetConversations()) != 5 {
+		parseT.Fatalf("expected full list length=5, got %d", len(parseAllResp.GetConversations()))
+	}
+	if parseAllResp.GetHasMore() {
+		parseT.Fatalf("expected has_more=false for full-list mode, got true")
+	}
+
+	parsePage1Resp, parseErr := parseServer.ListConversations(parseCtx, &chatpb.ListConversationsRequest{PageSize: 2, PageOffset: 0})
+	if parseErr != nil {
+		parseT.Fatalf("ListConversations page1: %v", parseErr)
+	}
+	if len(parsePage1Resp.GetConversations()) != 2 || !parsePage1Resp.GetHasMore() || parsePage1Resp.GetNextOffset() != 2 {
+		parseT.Fatalf("unexpected page1 response: %+v", parsePage1Resp)
+	}
+
+	parsePage2Resp, parseErr := parseServer.ListConversations(parseCtx, &chatpb.ListConversationsRequest{PageSize: 2, PageOffset: 2})
+	if parseErr != nil {
+		parseT.Fatalf("ListConversations page2: %v", parseErr)
+	}
+	if len(parsePage2Resp.GetConversations()) != 2 || !parsePage2Resp.GetHasMore() || parsePage2Resp.GetNextOffset() != 4 {
+		parseT.Fatalf("unexpected page2 response: %+v", parsePage2Resp)
+	}
+
+	parsePage3Resp, parseErr := parseServer.ListConversations(parseCtx, &chatpb.ListConversationsRequest{PageSize: 2, PageOffset: 4})
+	if parseErr != nil {
+		parseT.Fatalf("ListConversations page3: %v", parseErr)
+	}
+	if len(parsePage3Resp.GetConversations()) != 1 || parsePage3Resp.GetHasMore() || parsePage3Resp.GetNextOffset() != 5 {
+		parseT.Fatalf("unexpected page3 response: %+v", parsePage3Resp)
+	}
+}
+
+func TestListConversationsSyncsStarterMilestones(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, parseStore, "starter-milestones@example.com")
+	parseServer := &chatServer{
+		defaultModel: modelGPT54Mini,
+		store:        parseStore,
+		logger:       parseNewTestLogger(),
+		sessions:     map[string]*sessionState{},
+		authUsers:    map[string]authUser{},
+	}
+	parseCtx := parseBindAuthUser(parseServer, "peer-starter-milestones", parseUser.ID, parseUser.Email)
+
+	parseListResp, parseErr := parseServer.ListConversations(parseCtx, &chatpb.ListConversationsRequest{})
+	if parseErr != nil {
+		parseT.Fatalf("ListConversations initial: %v", parseErr)
+	}
+	if len(parseListResp.GetConversations()) != 0 {
+		parseT.Fatalf("expected empty conversations for brand-new user, got %+v", parseListResp.GetConversations())
+	}
+	parseMilestoneRows, parseErr := parseStore.parseListUserActivationMilestones(200)
+	if parseErr != nil {
+		parseT.Fatalf("parseListUserActivationMilestones initial: %v", parseErr)
+	}
+	isParseHasFirstRunMilestone := false
+	for _, parseMilestoneRow := range parseMilestoneRows {
+		if parseMilestoneRow.UserID != parseUser.ID {
+			continue
+		}
+		if parseMilestoneRow.MilestoneKey == parseStarterMilestoneFirstRunDetected && parseMilestoneRow.Status == "completed" {
+			isParseHasFirstRunMilestone = true
+			break
+		}
+	}
+	if !isParseHasFirstRunMilestone {
+		parseT.Fatalf("expected %q milestone for new user, got rows=%+v", parseStarterMilestoneFirstRunDetected, parseMilestoneRows)
+	}
+
+	if _, parseErr2 := parseStore.parseCreateConversation(parseUser.ID); parseErr2 != nil {
+		parseT.Fatalf("parseCreateConversation: %v", parseErr2)
+	}
+	parseListResp2, parseErr := parseServer.ListConversations(parseCtx, &chatpb.ListConversationsRequest{})
+	if parseErr != nil {
+		parseT.Fatalf("ListConversations returning: %v", parseErr)
+	}
+	if len(parseListResp2.GetConversations()) != 1 {
+		parseT.Fatalf("expected one conversation for returning user, got %+v", parseListResp2.GetConversations())
+	}
+	parseMilestoneRows2, parseErr := parseStore.parseListUserActivationMilestones(200)
+	if parseErr != nil {
+		parseT.Fatalf("parseListUserActivationMilestones returning: %v", parseErr)
+	}
+	isParseHasReturningMilestone := false
+	for _, parseMilestoneRow := range parseMilestoneRows2 {
+		if parseMilestoneRow.UserID != parseUser.ID {
+			continue
+		}
+		if parseMilestoneRow.MilestoneKey == parseStarterMilestoneReturningUserDetected && parseMilestoneRow.Status == "completed" {
+			isParseHasReturningMilestone = true
+			break
+		}
+	}
+	if !isParseHasReturningMilestone {
+		parseT.Fatalf("expected %q milestone for returning user, got rows=%+v", parseStarterMilestoneReturningUserDetected, parseMilestoneRows2)
 	}
 }
 

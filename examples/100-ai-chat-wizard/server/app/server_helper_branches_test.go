@@ -67,11 +67,24 @@ func TestAuthAndStoreGuardHelperBranches(parseT *testing.T) {
 	if parseCode2 := status.Code(parseStatusForStoreGuard(errStoreConversationMissing)); parseCode2 != codes.FailedPrecondition {
 		parseT.Fatalf("expected conversation-missing guard to map to FailedPrecondition, got %v", parseCode2)
 	}
+	if parseCode3 := status.Code(parseStatusForStoreGuard(errStoreUserDisabled)); parseCode3 != codes.PermissionDenied {
+		parseT.Fatalf("expected user-disabled guard to map to PermissionDenied, got %v", parseCode3)
+	}
+	if parseCode4 := status.Code(parseStatusForStoreGuard(errStoreUserAuthBlocked)); parseCode4 != codes.PermissionDenied {
+		parseT.Fatalf("expected user-auth-blocked guard to map to PermissionDenied, got %v", parseCode4)
+	}
+	if parseCode5 := status.Code(parseStatusForStoreGuard(errStoreWorkspaceSuspended)); parseCode5 != codes.PermissionDenied {
+		parseT.Fatalf("expected workspace-suspended guard to map to PermissionDenied, got %v", parseCode5)
+	}
 	parsePlainErr := errors.New("plain error")
 	if !errors.Is(parseStatusForStoreGuard(parsePlainErr), parsePlainErr) {
 		parseT.Fatalf("expected non-guard error to pass through unchanged")
 	}
-	if !isStoreGuardError(errStoreUserMissing) || !isStoreGuardError(errStoreConversationMissing) {
+	if !isStoreGuardError(errStoreUserMissing) ||
+		!isStoreGuardError(errStoreConversationMissing) ||
+		!isStoreGuardError(errStoreUserDisabled) ||
+		!isStoreGuardError(errStoreUserAuthBlocked) ||
+		!isStoreGuardError(errStoreWorkspaceSuspended) {
 		parseT.Fatal("expected store guard errors to be recognized")
 	}
 	if isStoreGuardError(parsePlainErr) {

@@ -125,6 +125,42 @@ func TestChatShellRoutingHelpers(parseT *testing.T) {
 		}
 	})
 
+	parseT.Run("isAdminDashboardDeepLink", func(parseT25 *testing.T) {
+		parsePathCases := map[string]bool{
+			"/app/admin":           true,
+			"/app/admin/users":     true,
+			"/app/dashboard":       true,
+			"/app/dashboard/usage": true,
+			"/app/su":              true,
+			"/app/thread/abc":      false,
+			"/app/settings":        false,
+			"/pricing":             false,
+			"/":                    false,
+		}
+		for parsePath, parseWant := range parsePathCases {
+			if parseGot := parseIsAdminDashboardDeepLinkPath(parsePath); parseGot != parseWant {
+				parseT25.Fatalf("parseIsAdminDashboardDeepLinkPath(%q) = %v, want %v", parsePath, parseGot, parseWant)
+			}
+		}
+		parseRequestCases := []struct {
+			parseTarget string
+			parseWant   bool
+		}{
+			{parseTarget: "http://example.com/app/admin/users", parseWant: true},
+			{parseTarget: "http://example.com/app/dashboard?slice=usage", parseWant: true},
+			{parseTarget: "http://example.com/app/settings?panel=settings-admin-users", parseWant: true},
+			{parseTarget: "http://example.com/app/settings?panel=settings-dashboard-home", parseWant: true},
+			{parseTarget: "http://example.com/app/settings?panel=settings-profile", parseWant: false},
+			{parseTarget: "http://example.com/app/thread/demo", parseWant: false},
+		}
+		for _, parseCase := range parseRequestCases {
+			parseReq := httptest.NewRequest(http.MethodGet, parseCase.parseTarget, nil)
+			if parseGot := parseIsAdminDashboardDeepLinkRequest(parseReq); parseGot != parseCase.parseWant {
+				parseT25.Fatalf("parseIsAdminDashboardDeepLinkRequest(%q) = %v, want %v", parseCase.parseTarget, parseGot, parseCase.parseWant)
+			}
+		}
+	})
+
 	parseT.Run("cloneRequestWithPath", func(parseT3 *testing.T) {
 		parseReq := httptest.NewRequest(http.MethodGet, "http://example.com/old/path?br=true", nil)
 		parseCloned := parseCloneRequestWithPath(parseReq, "/app/chat.wasm")
@@ -176,6 +212,60 @@ func TestChatShellRoutingHelpers(parseT *testing.T) {
 		parseHandler.ServeHTTP(parseStaticWriter, httptest.NewRequest(http.MethodGet, "http://example.com/static/app.css", nil))
 		if len(parseServedPaths) < 2 || parseServedPaths[1] != "/static/app.css" {
 			parseT4.Fatalf("fallback file server path = %#v, want /static/app.css", parseServedPaths)
+		}
+	})
+
+	parseT.Run("chatShellHandlerForServerAdminDeepLinkGuard", func(parseT5 *testing.T) {
+		parseStore := parseNewTestStore(parseT5)
+		parseServer := parseNewChatServiceServer("", "", "", modelGPT54Mini, parseStore, parseNewTestLogger(), "all")
+		parseAdminUser := parseMustCreateUser(parseT5, parseStore, "admin-deeplink@example.com")
+		parseNormalUser := parseMustCreateUser(parseT5, parseStore, "normal-deeplink@example.com")
+		parseGrantSuperuserRole(parseT5, parseStore, parseAdminUser.ID)
+
+		parseAdminToken, parseErr := parseServer.authManager.issueToken(parseAdminUser)
+		if parseErr != nil {
+			parseT5.Fatalf("issue admin token: %v", parseErr)
+		}
+		parseNormalToken, parseErr := parseServer.authManager.issueToken(parseNormalUser)
+		if parseErr != nil {
+			parseT5.Fatalf("issue normal token: %v", parseErr)
+		}
+
+		parseFileServer := http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			_, _ = parseW.Write([]byte("file:" + parseR.URL.Path))
+		})
+		parseHandler := parseChatShellHandlerForServer(parseServer, parseFileServer)
+
+		parseBuildRequest := func(parsePath, parseToken string) *http.Request {
+			parseReq := httptest.NewRequest(http.MethodGet, "http://example.com"+parsePath, nil)
+			if strings.TrimSpace(parseToken) != "" {
+				parseReq.AddCookie(&http.Cookie{Name: authCookieName, Value: parseToken, Path: "/"})
+			}
+			return parseReq
+		}
+
+		parseUnauthDeepLinkResp := httptest.NewRecorder()
+		parseHandler.ServeHTTP(parseUnauthDeepLinkResp, parseBuildRequest("/app/admin/users", ""))
+		if parseUnauthDeepLinkResp.Code != http.StatusSeeOther || parseUnauthDeepLinkResp.Result().Header.Get("Location") != "/app" {
+			parseT5.Fatalf("expected unauth admin deep link redirect to /app, got code=%d location=%q", parseUnauthDeepLinkResp.Code, parseUnauthDeepLinkResp.Result().Header.Get("Location"))
+		}
+
+		parseNormalDeepLinkResp := httptest.NewRecorder()
+		parseHandler.ServeHTTP(parseNormalDeepLinkResp, parseBuildRequest("/app/dashboard/usage", parseNormalToken))
+		if parseNormalDeepLinkResp.Code != http.StatusSeeOther || parseNormalDeepLinkResp.Result().Header.Get("Location") != "/app" {
+			parseT5.Fatalf("expected non-admin deep link redirect to /app, got code=%d location=%q", parseNormalDeepLinkResp.Code, parseNormalDeepLinkResp.Result().Header.Get("Location"))
+		}
+
+		parseNormalThreadResp := httptest.NewRecorder()
+		parseHandler.ServeHTTP(parseNormalThreadResp, parseBuildRequest("/app/thread/demo-thread", parseNormalToken))
+		if parseNormalThreadResp.Code != http.StatusOK || !strings.Contains(parseNormalThreadResp.Body.String(), "chat-bootstrap.js") {
+			parseT5.Fatalf("expected non-admin thread route to serve shell, got code=%d body=%q", parseNormalThreadResp.Code, parseNormalThreadResp.Body.String())
+		}
+
+		parseAdminDeepLinkResp := httptest.NewRecorder()
+		parseHandler.ServeHTTP(parseAdminDeepLinkResp, parseBuildRequest("/app/admin/users", parseAdminToken))
+		if parseAdminDeepLinkResp.Code != http.StatusOK || !strings.Contains(parseAdminDeepLinkResp.Body.String(), "chat-bootstrap.js") {
+			parseT5.Fatalf("expected admin deep link shell render, got code=%d body=%q", parseAdminDeepLinkResp.Code, parseAdminDeepLinkResp.Body.String())
 		}
 	})
 }

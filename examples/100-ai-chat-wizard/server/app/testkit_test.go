@@ -259,6 +259,51 @@ func parseMustAssignBillingPlan(parseT *testing.T, parseStore *Store, parseUserI
 	}
 }
 
+// parseMustEnsureWorkspaceMembership seeds one active workspace membership for one user and returns the workspace id.
+func parseMustEnsureWorkspaceMembership(parseT *testing.T, parseStore *Store, parseUserID int64, parseWorkspaceKey string) int64 {
+	parseT.Helper()
+	parseWorkspaceKey = parseNormalizeSUKey(parseWorkspaceKey)
+	if parseWorkspaceKey == "" {
+		parseWorkspaceKey = fmt.Sprintf("ws-user-%d", parseUserID)
+	}
+	if parseErr := parseStore.parseUpsertWorkspace(parseWorkspaceWrite{
+		WorkspaceKey: parseWorkspaceKey,
+		Slug:         parseWorkspaceKey,
+		Name:         "Workspace " + parseWorkspaceKey,
+		PlanCode:     "free",
+		Status:       "active",
+		OwnerUserID:  parseUserID,
+		SettingsJSON: "{}",
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertWorkspace: %v", parseErr)
+	}
+	parseWorkspaceRows, parseErr := parseStore.parseListWorkspaces(200)
+	if parseErr != nil {
+		parseT.Fatalf("parseListWorkspaces: %v", parseErr)
+	}
+	parseWorkspaceID := int64(0)
+	for _, parseWorkspaceRow := range parseWorkspaceRows {
+		if parseWorkspaceRow.WorkspaceKey != parseWorkspaceKey {
+			continue
+		}
+		parseWorkspaceID = parseWorkspaceRow.ID
+		break
+	}
+	if parseWorkspaceID <= 0 {
+		parseT.Fatalf("workspace %q not found after upsert", parseWorkspaceKey)
+	}
+	if parseErr2 := parseStore.parseUpsertWorkspaceMembership(parseWorkspaceMembershipWrite{
+		WorkspaceID:     parseWorkspaceID,
+		UserID:          parseUserID,
+		RoleKey:         "owner",
+		Status:          "active",
+		InvitedByUserID: parseUserID,
+	}); parseErr2 != nil {
+		parseT.Fatalf("parseUpsertWorkspaceMembership: %v", parseErr2)
+	}
+	return parseWorkspaceID
+}
+
 func parseNewFakeProvider() *fakeProvider {
 	parseCapabilities := provider.ModelCapabilities{
 		ProviderID:       "fake",

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	serverLogDir         = "log"
+	serverLogDir         = "bin/runtime/logs"
 	serverLogFilename    = "chat-wizard-server.log"
 	clientLogFilename    = "chat-wizard-client.log"
 	serverServiceName    = "chat-wizard-server"

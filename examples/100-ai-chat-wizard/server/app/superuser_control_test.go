@@ -404,6 +404,101 @@ func parseSeedSuperuserGrowthRows(parseT *testing.T, parseStore *Store, parseOwn
 	}
 }
 
+// parseSeedSuperuserSliceRows inserts pricing-control, cost-guardrail, and usage rows for superuser slice RPC coverage.
+func parseSeedSuperuserSliceRows(parseT *testing.T, parseStore *Store, parseOwner authUser) {
+	parseT.Helper()
+
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseWorkspaces, parseErr := parseStore.parseListWorkspaces(10)
+	if parseErr != nil || len(parseWorkspaces) == 0 {
+		parseT.Fatalf("parseListWorkspaces slice lookup: rows=%+v err=%v", parseWorkspaces, parseErr)
+	}
+	parseWorkspaceID := parseWorkspaces[0].ID
+
+	parseConversationID, parseErr := parseStore.parseCreateConversation(parseOwner.ID)
+	if parseErr != nil {
+		parseT.Fatalf("parseCreateConversation slice seed: %v", parseErr)
+	}
+	if parseErr = parseStore.parseSaveConversationMessage(parseOwner.ID, parseConversationID, "user", "Need superuser usage telemetry.", "", 0, 0); parseErr != nil {
+		parseT.Fatalf("parseSaveConversationMessage slice seed: %v", parseErr)
+	}
+	if parseErr = parseStore.parseSaveUsageEvent(parseUsageEventWrite{
+		EventID:                 "evt-su-slice-usage-1",
+		UserID:                  parseOwner.ID,
+		ConversationID:          parseConversationID,
+		ProviderID:              "fake",
+		ModelID:                 modelGPT54Mini,
+		PromptTokens:            30,
+		CompletionTokens:        12,
+		UsageSource:             "exact",
+		ProviderRequestID:       "req-su-slice-usage-1",
+		InputCostPerMillionUSD:  0.25,
+		OutputCostPerMillionUSD: 2.00,
+		PricingCurrency:         "USD",
+		InputCostUSD:            0.10,
+		OutputCostUSD:           0.20,
+		TotalCostUSD:            0.30,
+		ClientID:                "client-su-slice",
+		Status:                  "completed",
+	}); parseErr != nil {
+		parseT.Fatalf("parseSaveUsageEvent slice seed: %v", parseErr)
+	}
+
+	if _, parseErr = parseStore.db.Exec(
+		`INSERT INTO billing_plan_overages (plan_code, meter_key, included_units, soft_limit_units, hard_limit_units, overage_unit_size, overage_price_cents, billing_interval, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"team",
+		"usage.tokens.monthly",
+		100000,
+		120000,
+		150000,
+		1000,
+		2,
+		"monthly",
+		parseNow,
+	); parseErr != nil {
+		parseT.Fatalf("seed billing_plan_overages: %v", parseErr)
+	}
+	if _, parseErr = parseStore.db.Exec(
+		`INSERT INTO billing_quota_policies (plan_code, quota_key, soft_limit_value, hard_limit_value, reset_interval, enforcement_mode, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"team",
+		"usage.requests.per_minute",
+		500,
+		750,
+		"monthly",
+		"block",
+		parseNow,
+	); parseErr != nil {
+		parseT.Fatalf("seed billing_quota_policies: %v", parseErr)
+	}
+	if _, parseErr = parseStore.db.Exec(
+		`INSERT INTO billing_upgrade_triggers (plan_code, trigger_key, threshold_percent, upgrade_plan_code, message, cta_label, cta_url, is_enabled, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"team",
+		"usage.tokens.threshold",
+		85,
+		"pro",
+		"Approaching quota limits",
+		"Upgrade plan",
+		"/app/settings?panel=settings-billing",
+		1,
+		parseNow,
+	); parseErr != nil {
+		parseT.Fatalf("seed billing_upgrade_triggers: %v", parseErr)
+	}
+	if _, parseErr = parseStore.db.Exec(
+		`INSERT INTO workspace_cost_guardrails (workspace_id, guardrail_key, daily_budget_cents, monthly_budget_cents, max_cost_per_request_cents, alert_threshold_percent, action_mode, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		parseWorkspaceID,
+		"default",
+		2500,
+		75000,
+		500,
+		80,
+		"notify",
+		parseNow,
+	); parseErr != nil {
+		parseT.Fatalf("seed workspace_cost_guardrails: %v", parseErr)
+	}
+}
+
 // TestStoreSuperuserControlPlaneLifecycle verifies the superuser store lifecycle across all new models.
 func TestStoreSuperuserControlPlaneLifecycle(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
@@ -511,11 +606,21 @@ func TestStoreSuperuserControlPlaneLifecycle(parseT *testing.T) {
 	if parseRows, parseErr := parseStore.parseListProductAnalyticsEvents(10); parseErr != nil || len(parseRows) == 0 {
 		parseT.Fatalf("parseListProductAnalyticsEvents: rows=%+v err=%v", parseRows, parseErr)
 	}
+	if parseRows, parseErr := parseStore.parseListProductAnalyticsEventsByUser(parseOwner.ID, 10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListProductAnalyticsEventsByUser: rows=%+v err=%v", parseRows, parseErr)
+	}
 	if parseRows, parseErr := parseStore.parseListExperimentAssignments(10); parseErr != nil || len(parseRows) == 0 {
 		parseT.Fatalf("parseListExperimentAssignments: rows=%+v err=%v", parseRows, parseErr)
 	}
 	if parseRows, parseErr := parseStore.parseListSubscriptionChurnFeedback(10); parseErr != nil || len(parseRows) == 0 {
 		parseT.Fatalf("parseListSubscriptionChurnFeedback: rows=%+v err=%v", parseRows, parseErr)
+	}
+	parseCustomer, isParseCustomerFound, parseErr := parseStore.parseGetBillingCustomerByUser(parseOwner.ID)
+	if parseErr != nil || !isParseCustomerFound {
+		parseT.Fatalf("parseGetBillingCustomerByUser superuser growth list: found=%v row=%+v err=%v", isParseCustomerFound, parseCustomer, parseErr)
+	}
+	if parseRows, parseErr := parseStore.parseListSubscriptionChurnFeedbackByCustomer(parseCustomer.ID, 10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListSubscriptionChurnFeedbackByCustomer: rows=%+v err=%v", parseRows, parseErr)
 	}
 	if parseRows, parseErr := parseStore.parseListExperiments(10); parseErr != nil || len(parseRows) == 0 {
 		parseT.Fatalf("parseListExperiments: rows=%+v err=%v", parseRows, parseErr)
@@ -530,6 +635,19 @@ func TestGetSuperuserControlPlaneRequiresSURole(parseT *testing.T) {
 	parseCtx := parseBindAuthUser(parseServer, "peer-superuser-denied", parseUser.ID, parseUser.Email)
 
 	_, parseErr := parseServer.GetSuperuserControlPlane(parseCtx, &chatpb.GetSuperuserControlPlaneRequest{})
+	if status.Code(parseErr) != codes.PermissionDenied {
+		parseT.Fatalf("expected permission denied, got %v", status.Code(parseErr))
+	}
+}
+
+// TestGetSuperuserSlicesRequiresSURole verifies the slice endpoint is gated by the su role.
+func TestGetSuperuserSlicesRequiresSURole(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, parseStore, "plain-user-slices@example.com")
+	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
+	parseCtx := parseBindAuthUser(parseServer, "peer-superuser-slices-denied", parseUser.ID, parseUser.Email)
+
+	_, parseErr := parseServer.GetSuperuserSlices(parseCtx, &chatpb.GetSuperuserSlicesRequest{})
 	if status.Code(parseErr) != codes.PermissionDenied {
 		parseT.Fatalf("expected permission denied, got %v", status.Code(parseErr))
 	}
@@ -582,5 +700,385 @@ func TestGetSuperuserControlPlaneReturnsExtendedOperationalSnapshot(parseT *test
 	}
 	if len(parseResp.GetIncidentUpdates()) == 0 || len(parseResp.GetNotificationOutbox()) == 0 || len(parseResp.GetBackgroundJobs()) == 0 {
 		parseT.Fatalf("expected incident/notification/job rows, got %+v", parseResp)
+	}
+}
+
+// TestGetSuperuserSlicesReturnsSnapshot verifies the superuser slice endpoint returns typed global slices.
+func TestGetSuperuserSlicesReturnsSnapshot(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseOwner := parseSeedSuperuserControlPlaneData(parseT, parseStore)
+	parseSeedSuperuserOperationalRows(parseT, parseStore, parseOwner)
+	parseSeedSuperuserSliceRows(parseT, parseStore, parseOwner)
+	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
+	parseCtx := parseBindAuthUser(parseServer, "peer-superuser-slices-allowed", parseOwner.ID, parseOwner.Email)
+
+	parseResp, parseErr := parseServer.GetSuperuserSlices(parseCtx, &chatpb.GetSuperuserSlicesRequest{
+		LookbackDays: 30,
+		Limit:        25,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("GetSuperuserSlices: %v", parseErr)
+	}
+	if len(parseResp.GetUsers()) == 0 || len(parseResp.GetUsageEvents()) == 0 || len(parseResp.GetSupportTickets()) == 0 {
+		parseT.Fatalf("expected user/usage/support slices, got %+v", parseResp)
+	}
+	if len(parseResp.GetBillingPlanOverages()) == 0 || len(parseResp.GetBillingQuotaPolicies()) == 0 || len(parseResp.GetBillingUpgradeTriggers()) == 0 {
+		parseT.Fatalf("expected pricing-control slices, got %+v", parseResp)
+	}
+	if len(parseResp.GetIncidents()) == 0 || len(parseResp.GetExperiments()) == 0 || len(parseResp.GetWorkspaces()) == 0 || len(parseResp.GetWorkspaceCostGuardrails()) == 0 {
+		parseT.Fatalf("expected incident/experiment/workspace/guardrail slices, got %+v", parseResp)
+	}
+	parseAuditRows, parseErr := parseStore.parseListAuditLogs(50)
+	if parseErr != nil {
+		parseT.Fatalf("parseListAuditLogs superuser slices: %v", parseErr)
+	}
+	hasParseSliceView := false
+	hasParseDrilldown := false
+	for _, parseAuditRow := range parseAuditRows {
+		if parseAuditRow.ActorUserID != parseOwner.ID {
+			continue
+		}
+		if parseAuditRow.EventType == "admin.dashboard.slice.view" && parseAuditRow.TargetID == "superuser" {
+			hasParseSliceView = true
+		}
+		if parseAuditRow.EventType == "admin.dashboard.drilldown.access" && parseAuditRow.TargetID == "superuser" {
+			hasParseDrilldown = true
+		}
+	}
+	if !hasParseSliceView || !hasParseDrilldown {
+		parseT.Fatalf("expected superuser slice/drilldown audit rows, got %+v", parseAuditRows)
+	}
+}
+
+// TestGetSuperuserSlicesAppliesListQueries verifies workspace, support, and incident slice list queries are applied.
+func TestGetSuperuserSlicesAppliesListQueries(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseOwner := parseSeedSuperuserControlPlaneData(parseT, parseStore)
+	parseSeedSuperuserOperationalRows(parseT, parseStore, parseOwner)
+	parseSeedSuperuserSliceRows(parseT, parseStore, parseOwner)
+	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
+	parseCtx := parseBindAuthUser(parseServer, "peer-superuser-slices-list-query", parseOwner.ID, parseOwner.Email)
+
+	if parseErr := parseStore.parseUpsertWorkspace(parseWorkspaceWrite{
+		WorkspaceKey: "alpha-space",
+		Slug:         "alpha-space",
+		Name:         "Alpha Space",
+		PlanCode:     "team",
+		Status:       "active",
+		OwnerUserID:  parseOwner.ID,
+		SettingsJSON: "{}",
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertWorkspace alpha-space: %v", parseErr)
+	}
+	if parseErr := parseStore.parseUpsertWorkspace(parseWorkspaceWrite{
+		WorkspaceKey: "beta-space",
+		Slug:         "beta-space",
+		Name:         "Beta Space",
+		PlanCode:     "team",
+		Status:       "active",
+		OwnerUserID:  parseOwner.ID,
+		SettingsJSON: "{}",
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertWorkspace beta-space: %v", parseErr)
+	}
+	if parseErr := parseStore.parseUpsertWorkspace(parseWorkspaceWrite{
+		WorkspaceKey: "zeta-space",
+		Slug:         "zeta-space",
+		Name:         "Zeta Space",
+		PlanCode:     "team",
+		Status:       "suspended",
+		OwnerUserID:  parseOwner.ID,
+		SettingsJSON: "{}",
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertWorkspace zeta-space: %v", parseErr)
+	}
+	parseWorkspaceRows, parseErr := parseStore.parseListWorkspaces(25)
+	if parseErr != nil {
+		parseT.Fatalf("parseListWorkspaces list-query seed lookup: %v", parseErr)
+	}
+	parseAlphaWorkspaceID := parseFindSuperuserWorkspaceIDByKey(parseWorkspaceRows, "alpha-space")
+	parseBetaWorkspaceID := parseFindSuperuserWorkspaceIDByKey(parseWorkspaceRows, "beta-space")
+	if parseAlphaWorkspaceID <= 0 || parseBetaWorkspaceID <= 0 {
+		parseT.Fatalf("expected seeded alpha/beta workspace ids, rows=%+v", parseWorkspaceRows)
+	}
+
+	if parseErr = parseStore.parseUpsertSupportTicket(parseSupportTicketWrite{
+		TicketKey:      "ticket-space-open-a",
+		WorkspaceID:    parseAlphaWorkspaceID,
+		UserID:         parseOwner.ID,
+		Status:         "open",
+		Priority:       "high",
+		Subject:        "Open issue A",
+		Body:           "Support queue seed A.",
+		AssigneeUserID: parseOwner.ID,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertSupportTicket ticket-space-open-a: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertSupportTicket(parseSupportTicketWrite{
+		TicketKey:      "ticket-space-open-b",
+		WorkspaceID:    parseBetaWorkspaceID,
+		UserID:         parseOwner.ID,
+		Status:         "open",
+		Priority:       "high",
+		Subject:        "Open issue B",
+		Body:           "Support queue seed B.",
+		AssigneeUserID: parseOwner.ID,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertSupportTicket ticket-space-open-b: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertSupportTicket(parseSupportTicketWrite{
+		TicketKey:      "ticket-space-resolved",
+		WorkspaceID:    parseAlphaWorkspaceID,
+		UserID:         parseOwner.ID,
+		Status:         "resolved",
+		Priority:       "normal",
+		Subject:        "Resolved issue",
+		Body:           "Support queue resolved seed.",
+		AssigneeUserID: parseOwner.ID,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertSupportTicket ticket-space-resolved: %v", parseErr)
+	}
+
+	if _, parseErr = parseStore.db.Exec(
+		`INSERT INTO incidents (incident_key, slo_key, severity, status, title, summary, started_at, resolved_at, postmortem_url, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"incident-space-open-a",
+		"slo-api-latency",
+		"major",
+		"open",
+		"Open incident A",
+		"seed open A",
+		"2026-03-28T00:00:00Z",
+		"",
+		"",
+		"2026-03-28T00:00:00Z",
+	); parseErr != nil {
+		parseT.Fatalf("seed incident-space-open-a: %v", parseErr)
+	}
+	if _, parseErr = parseStore.db.Exec(
+		`INSERT INTO incidents (incident_key, slo_key, severity, status, title, summary, started_at, resolved_at, postmortem_url, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"incident-space-open-b",
+		"slo-api-latency",
+		"major",
+		"open",
+		"Open incident B",
+		"seed open B",
+		"2026-03-28T00:01:00Z",
+		"",
+		"",
+		"2026-03-28T00:01:00Z",
+	); parseErr != nil {
+		parseT.Fatalf("seed incident-space-open-b: %v", parseErr)
+	}
+	if _, parseErr = parseStore.db.Exec(
+		`INSERT INTO incidents (incident_key, slo_key, severity, status, title, summary, started_at, resolved_at, postmortem_url, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"incident-space-resolved",
+		"slo-api-latency",
+		"minor",
+		"resolved",
+		"Resolved incident",
+		"seed resolved",
+		"2026-03-28T00:02:00Z",
+		"2026-03-28T00:03:00Z",
+		"",
+		"2026-03-28T00:03:00Z",
+	); parseErr != nil {
+		parseT.Fatalf("seed incident-space-resolved: %v", parseErr)
+	}
+
+	parseResp, parseErr := parseServer.GetSuperuserSlices(parseCtx, &chatpb.GetSuperuserSlicesRequest{
+		LookbackDays:    30,
+		Limit:           25,
+		WorkspaceStatus: "active",
+		SupportStatus:   "open",
+		IncidentStatus:  "open",
+		WorkspaceListQuery: &chatpb.AdminListQuery{
+			Search:        "-space",
+			SortBy:        "slug",
+			SortDirection: "asc",
+			Limit:         1,
+			Offset:        1,
+		},
+		SupportListQuery: &chatpb.AdminListQuery{
+			Search:        "ticket-space-open",
+			SortBy:        "ticket_key",
+			SortDirection: "asc",
+			Limit:         1,
+			Offset:        1,
+		},
+		IncidentListQuery: &chatpb.AdminListQuery{
+			Search:        "incident-space-open",
+			SortBy:        "incident_key",
+			SortDirection: "asc",
+			Limit:         1,
+			Offset:        1,
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("GetSuperuserSlices list query: %v", parseErr)
+	}
+	if len(parseResp.GetWorkspaces()) != 1 || parseResp.GetWorkspaces()[0].GetSlug() != "beta-space" {
+		parseT.Fatalf("expected one paged active workspace row for beta-space, got %+v", parseResp.GetWorkspaces())
+	}
+	if len(parseResp.GetSupportTickets()) != 1 || parseResp.GetSupportTickets()[0].GetTicketKey() != "ticket-space-open-b" {
+		parseT.Fatalf("expected one paged open support ticket row for ticket-space-open-b, got %+v", parseResp.GetSupportTickets())
+	}
+	if len(parseResp.GetIncidents()) != 1 || parseResp.GetIncidents()[0].GetIncidentKey() != "incident-space-open-b" {
+		parseT.Fatalf("expected one paged open incident row for incident-space-open-b, got %+v", parseResp.GetIncidents())
+	}
+}
+
+// TestGetSuperuserSlicesAppliesTypedListQueries verifies workspace, support, and incident list-query filtering on superuser slices.
+func TestGetSuperuserSlicesAppliesTypedListQueries(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseOwner := parseSeedSuperuserControlPlaneData(parseT, parseStore)
+	parseSeedSuperuserOperationalRows(parseT, parseStore, parseOwner)
+	parseSeedSuperuserSliceRows(parseT, parseStore, parseOwner)
+	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
+	parseCtx := parseBindAuthUser(parseServer, "peer-superuser-slices-list-query", parseOwner.ID, parseOwner.Email)
+
+	parseWorkspaces, parseErr := parseStore.parseListWorkspaces(10)
+	if parseErr != nil || len(parseWorkspaces) == 0 {
+		parseT.Fatalf("parseListWorkspaces seed lookup: rows=%+v err=%v", parseWorkspaces, parseErr)
+	}
+	parseBaseWorkspaceID := parseWorkspaces[0].ID
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+
+	if parseErr = parseStore.parseUpsertWorkspace(parseWorkspaceWrite{
+		WorkspaceKey: "beta",
+		Slug:         "beta",
+		Name:         "Beta Workspace",
+		PlanCode:     "pro",
+		Status:       "active",
+		OwnerUserID:  parseOwner.ID,
+		SettingsJSON: `{"region":"us"}`,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertWorkspace beta: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertWorkspace(parseWorkspaceWrite{
+		WorkspaceKey: "gamma",
+		Slug:         "gamma",
+		Name:         "Gamma Workspace",
+		PlanCode:     "pro",
+		Status:       "suspended",
+		OwnerUserID:  parseOwner.ID,
+		SettingsJSON: `{"region":"us"}`,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertWorkspace gamma: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertSupportTicket(parseSupportTicketWrite{
+		TicketKey:      "ticket-1002",
+		WorkspaceID:    parseBaseWorkspaceID,
+		UserID:         parseOwner.ID,
+		Status:         "open",
+		Priority:       "normal",
+		Subject:        "API usage question",
+		Body:           "Need throughput guidance.",
+		AssigneeUserID: parseOwner.ID,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertSupportTicket ticket-1002: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertSupportTicket(parseSupportTicketWrite{
+		TicketKey:      "ticket-closed",
+		WorkspaceID:    parseBaseWorkspaceID,
+		UserID:         parseOwner.ID,
+		Status:         "closed",
+		Priority:       "low",
+		Subject:        "Closed billing follow-up",
+		Body:           "Resolved.",
+		AssigneeUserID: parseOwner.ID,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertSupportTicket ticket-closed: %v", parseErr)
+	}
+	if _, parseErr = parseStore.db.Exec(
+		`INSERT INTO incidents (incident_key, slo_key, severity, status, title, summary, started_at, resolved_at, postmortem_url, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"incident-002",
+		"slo-api-latency",
+		"minor",
+		"open",
+		"API latency regression",
+		"regional API slowdown",
+		parseNow,
+		"",
+		"",
+		parseNow,
+	); parseErr != nil {
+		parseT.Fatalf("seed incident-002: %v", parseErr)
+	}
+	if _, parseErr = parseStore.db.Exec(
+		`INSERT INTO incidents (incident_key, slo_key, severity, status, title, summary, started_at, resolved_at, postmortem_url, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"incident-099",
+		"slo-api-latency",
+		"minor",
+		"resolved",
+		"API incident resolved",
+		"resolved incident",
+		parseNow,
+		parseNow,
+		"",
+		parseNow,
+	); parseErr != nil {
+		parseT.Fatalf("seed incident-099: %v", parseErr)
+	}
+
+	parseResp, parseErr := parseServer.GetSuperuserSlices(parseCtx, &chatpb.GetSuperuserSlicesRequest{
+		LookbackDays:    30,
+		Limit:           50,
+		WorkspaceStatus: "active",
+		WorkspaceListQuery: &chatpb.AdminListQuery{
+			Limit:         1,
+			Offset:        1,
+			Search:        "workspace",
+			SortBy:        "name",
+			SortDirection: "asc",
+		},
+		SupportStatus: "open",
+		SupportListQuery: &chatpb.AdminListQuery{
+			Limit:         1,
+			Offset:        1,
+			SortBy:        "ticket_key",
+			SortDirection: "asc",
+		},
+		IncidentStatus: "open",
+		IncidentListQuery: &chatpb.AdminListQuery{
+			Limit:         1,
+			Offset:        1,
+			Search:        "api",
+			SortBy:        "incident_key",
+			SortDirection: "asc",
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("GetSuperuserSlices list query: %v", parseErr)
+	}
+	if len(parseResp.GetWorkspaces()) != 1 || parseResp.GetWorkspaces()[0].GetName() != "Beta Workspace" {
+		parseT.Fatalf("unexpected workspace list-query rows: %+v", parseResp.GetWorkspaces())
+	}
+	if len(parseResp.GetSupportTickets()) != 1 || parseResp.GetSupportTickets()[0].GetTicketKey() != "ticket-1002" {
+		parseT.Fatalf("unexpected support list-query rows: %+v", parseResp.GetSupportTickets())
+	}
+	if len(parseResp.GetIncidents()) != 1 || parseResp.GetIncidents()[0].GetIncidentKey() != "incident-002" {
+		parseT.Fatalf("unexpected incident list-query rows: %+v", parseResp.GetIncidents())
+	}
+}
+
+// parseFindSuperuserWorkspaceIDByKey resolves one workspace id by workspace key.
+func parseFindSuperuserWorkspaceIDByKey(parseRows []parseWorkspaceRow, parseWorkspaceKey string) int64 {
+	for _, parseRow := range parseRows {
+		if parseRow.WorkspaceKey == parseWorkspaceKey {
+			return parseRow.ID
+		}
+	}
+	return 0
+}
+
+// BenchmarkParseFilterSuperuserWorkspaceRows reports micro-benchmark throughput for superuser workspace list filtering.
+func BenchmarkParseFilterSuperuserWorkspaceRows(parseB *testing.B) {
+	parseRows := []parseWorkspaceRow{
+		{ID: 1, WorkspaceKey: "alpha-space", Slug: "alpha-space", Name: "Alpha Space", PlanCode: "team", Status: "active", OwnerUserID: 10, SettingsJSON: "{}"},
+		{ID: 2, WorkspaceKey: "beta-space", Slug: "beta-space", Name: "Beta Space", PlanCode: "team", Status: "active", OwnerUserID: 10, SettingsJSON: "{}"},
+		{ID: 3, WorkspaceKey: "zeta-space", Slug: "zeta-space", Name: "Zeta Space", PlanCode: "team", Status: "suspended", OwnerUserID: 10, SettingsJSON: "{}"},
+	}
+	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+		_ = parseFilterSuperuserWorkspaceRows(parseRows, "active", "space")
 	}
 }

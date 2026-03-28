@@ -80,6 +80,9 @@ func TestServerLoggerFailureBranches(parseT *testing.T) {
 		}
 	}()
 
+	if parseErr4 := os.MkdirAll(filepath.Dir(serverLogDir), 0o755); parseErr4 != nil {
+		parseT.Fatalf("MkdirAll log parent dir: %v", parseErr4)
+	}
 	if parseErr4 := os.WriteFile(serverLogDir, []byte("not a directory"), 0o644); parseErr4 != nil {
 		parseT.Fatalf("WriteFile log sentinel: %v", parseErr4)
 	}

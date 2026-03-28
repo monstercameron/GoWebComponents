@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"net"
@@ -27,6 +29,8 @@ const requestIDMetadataKey = "x-request-id"
 const correlationIDMetadataKey = "x-correlation-id"
 
 const authTokenTTL = 2 * time.Hour // Development default: 2 hours. Tighten to 1 hour in production.
+const emailVerificationTokenTTL = 24 * time.Hour
+const passwordResetTokenTTL = 30 * time.Minute
 
 var errInvalidCredentials = errors.New("invalid credentials")
 
@@ -144,6 +148,17 @@ func parseDefaultDisplayNameFromEmail(parseEmail string) string {
 		return "User"
 	}
 	return parseLocalPart
+}
+
+// parseBuildOpaqueAuthFlowToken issues one opaque token for reset/verification workflows.
+func parseBuildOpaqueAuthFlowToken() string {
+	return uuid.NewString() + "." + uuid.NewString()
+}
+
+// parseBuildAuthFlowTokenHash returns one stable SHA-256 digest for one raw auth-flow token.
+func parseBuildAuthFlowTokenHash(parseRawToken string) string {
+	parseDigest := sha256.Sum256([]byte(strings.TrimSpace(parseRawToken)))
+	return hex.EncodeToString(parseDigest[:])
 }
 
 // issueToken issues one auth token with a new durable server-side session.
@@ -565,6 +580,51 @@ func (parseA *authManager) parseValidateActiveUser(parseUser authUser, parseSour
 		}
 		return authUser{}, false
 	}
+	isParseAccessDisabled, parseErr := parseA.store.parseIsUserAccessDisabled(parseUser.ID)
+	if parseErr != nil {
+		if parseA.logger != nil {
+			parseA.logger.Warn("auth: user access-state lookup failed",
+				slog.Int64("user_id", parseUser.ID),
+				slog.String("email", parseUser.Email),
+				slog.String("source", parseSource),
+				slog.String("error", parseErr.Error()),
+			)
+		}
+		return authUser{}, false
+	}
+	if isParseAccessDisabled {
+		if parseA.logger != nil {
+			parseA.logger.Warn("auth: user access is disabled",
+				slog.Int64("user_id", parseUser.ID),
+				slog.String("email", parseUser.Email),
+				slog.String("source", parseSource),
+			)
+		}
+		return authUser{}, false
+	}
+	parseBlockCount, parseErr := parseA.store.parseCountUserAuthBlocksByUser(parseUser.ID)
+	if parseErr != nil {
+		if parseA.logger != nil {
+			parseA.logger.Warn("auth: user auth block lookup failed",
+				slog.Int64("user_id", parseUser.ID),
+				slog.String("email", parseUser.Email),
+				slog.String("source", parseSource),
+				slog.String("error", parseErr.Error()),
+			)
+		}
+		return authUser{}, false
+	}
+	if parseBlockCount > 0 {
+		if parseA.logger != nil {
+			parseA.logger.Warn("auth: user authentication blocked",
+				slog.Int64("user_id", parseUser.ID),
+				slog.String("email", parseUser.Email),
+				slog.String("source", parseSource),
+				slog.Int64("block_count", parseBlockCount),
+			)
+		}
+		return authUser{}, false
+	}
 	return parseUser, true
 }
 
@@ -653,7 +713,11 @@ func (parseA *authManager) parseSignup(parseEmail, parsePassword, parseDisplayNa
 	if parseErr != nil {
 		return authUser{}, parseErr
 	}
-	return authUser{ID: parseUserID, Email: parseNormalizedEmail}, nil
+	parseUser := authUser{ID: parseUserID, Email: parseNormalizedEmail}
+	if _, parseErr2 := parseA.parseIssueEmailVerificationTokenForUser(parseUser); parseErr2 != nil {
+		return authUser{}, parseErr2
+	}
+	return parseUser, nil
 }
 
 func (parseA *authManager) parseLogin(parseEmail, parsePassword string) (authUser, error) {
@@ -667,5 +731,116 @@ func (parseA *authManager) parseLogin(parseEmail, parsePassword string) (authUse
 	if parseCompareErr := bcrypt.CompareHashAndPassword([]byte(parseRecord.PasswordHash), []byte(parsePassword)); parseCompareErr != nil {
 		return authUser{}, errInvalidCredentials
 	}
-	return authUser{ID: parseRecord.ID, Email: parseRecord.Email}, nil
+	parseUser := authUser{ID: parseRecord.ID, Email: parseRecord.Email}
+	if _, parseOk := parseA.parseValidateActiveUser(parseUser, "login-password"); !parseOk {
+		return authUser{}, errInvalidCredentials
+	}
+	return parseUser, nil
+}
+
+// parseIssueEmailVerificationTokenForUser persists one pending email-verification token for one newly signed-up user.
+func (parseA *authManager) parseIssueEmailVerificationTokenForUser(parseUser authUser) (string, error) {
+	if parseA == nil || parseA.store == nil {
+		return "", errors.New("issue email verification token: store unavailable")
+	}
+	parseEmail := parseNormalizeAuthEmail(parseUser.Email)
+	if parseUser.ID <= 0 || parseEmail == "" {
+		return "", errors.New("issue email verification token: user id and email are required")
+	}
+	parseRawToken := parseBuildOpaqueAuthFlowToken()
+	parseTokenHash := parseBuildAuthFlowTokenHash(parseRawToken)
+	parseExpiresAt := time.Now().UTC().Add(emailVerificationTokenTTL).Format(time.RFC3339)
+	if _, parseErr := parseA.store.parseCreateEmailVerificationToken(parseEmailVerificationTokenWrite{
+		UserID:    parseUser.ID,
+		Email:     parseEmail,
+		TokenHash: parseTokenHash,
+		ExpiresAt: parseExpiresAt,
+	}); parseErr != nil {
+		return "", parseErr
+	}
+	return parseRawToken, nil
+}
+
+// parseBeginPasswordResetToken persists one pending password-reset token for one account when the email exists.
+func (parseA *authManager) parseBeginPasswordResetToken(parseEmail string, parseRequestIP string) (string, error) {
+	if parseA == nil || parseA.store == nil {
+		return "", errors.New("begin password reset token: store unavailable")
+	}
+	parseEmail = parseNormalizeAuthEmail(parseEmail)
+	if parseEmail == "" {
+		return "", errors.New("begin password reset token: email is required")
+	}
+	parseRecord, parseErr := parseA.store.getUserAuthByEmail(parseEmail)
+	if parseErr != nil {
+		return "", nil
+	}
+	parseRawToken := parseBuildOpaqueAuthFlowToken()
+	parseTokenHash := parseBuildAuthFlowTokenHash(parseRawToken)
+	parseExpiresAt := time.Now().UTC().Add(passwordResetTokenTTL).Format(time.RFC3339)
+	if _, parseErr2 := parseA.store.parseCreatePasswordResetToken(parsePasswordResetTokenWrite{
+		UserID:        parseRecord.ID,
+		Email:         parseRecord.Email,
+		TokenHash:     parseTokenHash,
+		RequestedByIP: strings.TrimSpace(parseRequestIP),
+		ExpiresAt:     parseExpiresAt,
+	}); parseErr2 != nil {
+		return "", parseErr2
+	}
+	return parseRawToken, nil
+}
+
+// parseCompletePasswordResetWithToken consumes one pending reset token, updates password hash, and revokes active sessions.
+func (parseA *authManager) parseCompletePasswordResetWithToken(parseResetToken, parseNewPassword string) error {
+	if parseA == nil || parseA.store == nil {
+		return errors.New("complete password reset token: store unavailable")
+	}
+	parseResetToken = strings.TrimSpace(parseResetToken)
+	parseNewPassword = strings.TrimSpace(parseNewPassword)
+	if parseResetToken == "" || parseNewPassword == "" {
+		return errInvalidCredentials
+	}
+	if len(parseNewPassword) < 8 {
+		return errors.New("password must be at least 8 characters")
+	}
+	parseTokenHash := parseBuildAuthFlowTokenHash(parseResetToken)
+	parseTokenRow, parseOk, parseErr := parseA.store.parseConsumePasswordResetToken(parseTokenHash, time.Now().UTC())
+	if parseErr != nil {
+		return parseErr
+	}
+	if !parseOk || parseTokenRow.UserID <= 0 {
+		return errInvalidCredentials
+	}
+	parsePasswordHash, parseErr := bcrypt.GenerateFromPassword([]byte(parseNewPassword), bcrypt.DefaultCost)
+	if parseErr != nil {
+		return parseErr
+	}
+	if parseErr2 := parseA.store.parseUpdateUserPasswordHash(parseTokenRow.UserID, string(parsePasswordHash)); parseErr2 != nil {
+		return parseErr2
+	}
+	if _, parseErr2 := parseA.store.parseIncrementAuthTokenVersion(parseTokenRow.UserID); parseErr2 != nil {
+		return parseErr2
+	}
+	if parseErr2 := parseA.store.parseRevokeAuthSessionsByUser(parseTokenRow.UserID); parseErr2 != nil {
+		return parseErr2
+	}
+	return nil
+}
+
+// parseUpdatePasswordWithCurrentPassword rotates one password using current credentials via persisted reset-token lifecycle.
+func (parseA *authManager) parseUpdatePasswordWithCurrentPassword(parseEmail, parseCurrentPassword, parseNewPassword string) error {
+	parseEmail = parseNormalizeAuthEmail(parseEmail)
+	if parseEmail == "" || strings.TrimSpace(parseCurrentPassword) == "" {
+		return errInvalidCredentials
+	}
+	if _, parseErr := parseA.parseLogin(parseEmail, parseCurrentPassword); parseErr != nil {
+		return parseErr
+	}
+	parseResetToken, parseErr := parseA.parseBeginPasswordResetToken(parseEmail, "self-service")
+	if parseErr != nil {
+		return parseErr
+	}
+	if strings.TrimSpace(parseResetToken) == "" {
+		return errInvalidCredentials
+	}
+	return parseA.parseCompletePasswordResetWithToken(parseResetToken, parseNewPassword)
 }

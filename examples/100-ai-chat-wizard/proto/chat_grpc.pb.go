@@ -21,44 +21,92 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChatService_Signup_FullMethodName                     = "/chat.v1.ChatService/Signup"
-	ChatService_Login_FullMethodName                      = "/chat.v1.ChatService/Login"
-	ChatService_Logout_FullMethodName                     = "/chat.v1.ChatService/Logout"
-	ChatService_GetSession_FullMethodName                 = "/chat.v1.ChatService/GetSession"
-	ChatService_RefreshSession_FullMethodName             = "/chat.v1.ChatService/RefreshSession"
-	ChatService_GetClientIdentity_FullMethodName          = "/chat.v1.ChatService/GetClientIdentity"
-	ChatService_ReportClientLog_FullMethodName            = "/chat.v1.ChatService/ReportClientLog"
-	ChatService_GetLogTail_FullMethodName                 = "/chat.v1.ChatService/GetLogTail"
-	ChatService_GetServerToolPolicy_FullMethodName        = "/chat.v1.ChatService/GetServerToolPolicy"
-	ChatService_SetServerToolPolicy_FullMethodName        = "/chat.v1.ChatService/SetServerToolPolicy"
-	ChatService_GetAdminDashboard_FullMethodName          = "/chat.v1.ChatService/GetAdminDashboard"
-	ChatService_GetSuperuserControlPlane_FullMethodName   = "/chat.v1.ChatService/GetSuperuserControlPlane"
-	ChatService_ListAdminUsers_FullMethodName             = "/chat.v1.ChatService/ListAdminUsers"
-	ChatService_ListAdminUsageEvents_FullMethodName       = "/chat.v1.ChatService/ListAdminUsageEvents"
-	ChatService_ListAdminConversations_FullMethodName     = "/chat.v1.ChatService/ListAdminConversations"
-	ChatService_RunServerTool_FullMethodName              = "/chat.v1.ChatService/RunServerTool"
-	ChatService_Send_FullMethodName                       = "/chat.v1.ChatService/Send"
-	ChatService_ListConversations_FullMethodName          = "/chat.v1.ChatService/ListConversations"
-	ChatService_ResolveConversationRoute_FullMethodName   = "/chat.v1.ChatService/ResolveConversationRoute"
-	ChatService_LoadConversation_FullMethodName           = "/chat.v1.ChatService/LoadConversation"
-	ChatService_DeleteConversation_FullMethodName         = "/chat.v1.ChatService/DeleteConversation"
-	ChatService_SetUserName_FullMethodName                = "/chat.v1.ChatService/SetUserName"
-	ChatService_GetUserName_FullMethodName                = "/chat.v1.ChatService/GetUserName"
-	ChatService_ListUserMemories_FullMethodName           = "/chat.v1.ChatService/ListUserMemories"
-	ChatService_UpsertUserMemory_FullMethodName           = "/chat.v1.ChatService/UpsertUserMemory"
-	ChatService_DeleteUserMemory_FullMethodName           = "/chat.v1.ChatService/DeleteUserMemory"
-	ChatService_SynthesizeSpeech_FullMethodName           = "/chat.v1.ChatService/SynthesizeSpeech"
-	ChatService_ListModelOptions_FullMethodName           = "/chat.v1.ChatService/ListModelOptions"
-	ChatService_SetSelectedModel_FullMethodName           = "/chat.v1.ChatService/SetSelectedModel"
-	ChatService_GetSelectedModel_FullMethodName           = "/chat.v1.ChatService/GetSelectedModel"
-	ChatService_SetSelectedTone_FullMethodName            = "/chat.v1.ChatService/SetSelectedTone"
-	ChatService_GetSelectedTone_FullMethodName            = "/chat.v1.ChatService/GetSelectedTone"
-	ChatService_SetSelectedThinkingEnabled_FullMethodName = "/chat.v1.ChatService/SetSelectedThinkingEnabled"
-	ChatService_GetSelectedThinkingEnabled_FullMethodName = "/chat.v1.ChatService/GetSelectedThinkingEnabled"
-	ChatService_SetSelectedThinkingEffort_FullMethodName  = "/chat.v1.ChatService/SetSelectedThinkingEffort"
-	ChatService_GetSelectedThinkingEffort_FullMethodName  = "/chat.v1.ChatService/GetSelectedThinkingEffort"
-	ChatService_SetCustomSystemPrompt_FullMethodName      = "/chat.v1.ChatService/SetCustomSystemPrompt"
-	ChatService_GetCustomSystemPrompt_FullMethodName      = "/chat.v1.ChatService/GetCustomSystemPrompt"
+	ChatService_Signup_FullMethodName                               = "/chat.v1.ChatService/Signup"
+	ChatService_Login_FullMethodName                                = "/chat.v1.ChatService/Login"
+	ChatService_Logout_FullMethodName                               = "/chat.v1.ChatService/Logout"
+	ChatService_GetSession_FullMethodName                           = "/chat.v1.ChatService/GetSession"
+	ChatService_RefreshSession_FullMethodName                       = "/chat.v1.ChatService/RefreshSession"
+	ChatService_GetClientIdentity_FullMethodName                    = "/chat.v1.ChatService/GetClientIdentity"
+	ChatService_ReportClientLog_FullMethodName                      = "/chat.v1.ChatService/ReportClientLog"
+	ChatService_GetLogTail_FullMethodName                           = "/chat.v1.ChatService/GetLogTail"
+	ChatService_GetServerToolPolicy_FullMethodName                  = "/chat.v1.ChatService/GetServerToolPolicy"
+	ChatService_SetServerToolPolicy_FullMethodName                  = "/chat.v1.ChatService/SetServerToolPolicy"
+	ChatService_GetAdminDashboard_FullMethodName                    = "/chat.v1.ChatService/GetAdminDashboard"
+	ChatService_GetSuperuserControlPlane_FullMethodName             = "/chat.v1.ChatService/GetSuperuserControlPlane"
+	ChatService_ListAdminUsers_FullMethodName                       = "/chat.v1.ChatService/ListAdminUsers"
+	ChatService_ListAdminUsageEvents_FullMethodName                 = "/chat.v1.ChatService/ListAdminUsageEvents"
+	ChatService_ListAdminConversations_FullMethodName               = "/chat.v1.ChatService/ListAdminConversations"
+	ChatService_GetAdminReadOnlyReport_FullMethodName               = "/chat.v1.ChatService/GetAdminReadOnlyReport"
+	ChatService_SearchAdminUsers_FullMethodName                     = "/chat.v1.ChatService/SearchAdminUsers"
+	ChatService_GetAdminUserDetail_FullMethodName                   = "/chat.v1.ChatService/GetAdminUserDetail"
+	ChatService_DisableAdminUser_FullMethodName                     = "/chat.v1.ChatService/DisableAdminUser"
+	ChatService_RestoreAdminUser_FullMethodName                     = "/chat.v1.ChatService/RestoreAdminUser"
+	ChatService_GetAdminWorkspaceDetail_FullMethodName              = "/chat.v1.ChatService/GetAdminWorkspaceDetail"
+	ChatService_SuspendAdminWorkspace_FullMethodName                = "/chat.v1.ChatService/SuspendAdminWorkspace"
+	ChatService_RestoreAdminWorkspace_FullMethodName                = "/chat.v1.ChatService/RestoreAdminWorkspace"
+	ChatService_RevokeWorkspaceAPIKey_FullMethodName                = "/chat.v1.ChatService/RevokeWorkspaceAPIKey"
+	ChatService_PauseWorkspaceWebhookEndpoint_FullMethodName        = "/chat.v1.ChatService/PauseWorkspaceWebhookEndpoint"
+	ChatService_ListAdminBillingAccessOverrides_FullMethodName      = "/chat.v1.ChatService/ListAdminBillingAccessOverrides"
+	ChatService_ListAdminBillingEvents_FullMethodName               = "/chat.v1.ChatService/ListAdminBillingEvents"
+	ChatService_ListAdminBillingDunningEvents_FullMethodName        = "/chat.v1.ChatService/ListAdminBillingDunningEvents"
+	ChatService_SetAdminBillingAccessOverride_FullMethodName        = "/chat.v1.ChatService/SetAdminBillingAccessOverride"
+	ChatService_SetAdminBillingQuotaOverride_FullMethodName         = "/chat.v1.ChatService/SetAdminBillingQuotaOverride"
+	ChatService_ResolveAdminBillingFailedPayment_FullMethodName     = "/chat.v1.ChatService/ResolveAdminBillingFailedPayment"
+	ChatService_GetAdminBusinessDrilldown_FullMethodName            = "/chat.v1.ChatService/GetAdminBusinessDrilldown"
+	ChatService_ListAdminSupportTickets_FullMethodName              = "/chat.v1.ChatService/ListAdminSupportTickets"
+	ChatService_GetAdminSupportTicketDetail_FullMethodName          = "/chat.v1.ChatService/GetAdminSupportTicketDetail"
+	ChatService_AddAdminSupportInternalNote_FullMethodName          = "/chat.v1.ChatService/AddAdminSupportInternalNote"
+	ChatService_AssignAdminSupportTicket_FullMethodName             = "/chat.v1.ChatService/AssignAdminSupportTicket"
+	ChatService_EscalateAdminSupportTicket_FullMethodName           = "/chat.v1.ChatService/EscalateAdminSupportTicket"
+	ChatService_SetAdminFeatureFlag_FullMethodName                  = "/chat.v1.ChatService/SetAdminFeatureFlag"
+	ChatService_RollbackAdminExperiment_FullMethodName              = "/chat.v1.ChatService/RollbackAdminExperiment"
+	ChatService_UpdateAdminIncident_FullMethodName                  = "/chat.v1.ChatService/UpdateAdminIncident"
+	ChatService_GetAdminIncidentBlastRadius_FullMethodName          = "/chat.v1.ChatService/GetAdminIncidentBlastRadius"
+	ChatService_SetSuperuserBillingPlanOverage_FullMethodName       = "/chat.v1.ChatService/SetSuperuserBillingPlanOverage"
+	ChatService_DeleteSuperuserBillingPlanOverage_FullMethodName    = "/chat.v1.ChatService/DeleteSuperuserBillingPlanOverage"
+	ChatService_SetSuperuserBillingQuotaPolicy_FullMethodName       = "/chat.v1.ChatService/SetSuperuserBillingQuotaPolicy"
+	ChatService_DeleteSuperuserBillingQuotaPolicy_FullMethodName    = "/chat.v1.ChatService/DeleteSuperuserBillingQuotaPolicy"
+	ChatService_SetSuperuserBillingUpgradeTrigger_FullMethodName    = "/chat.v1.ChatService/SetSuperuserBillingUpgradeTrigger"
+	ChatService_DeleteSuperuserBillingUpgradeTrigger_FullMethodName = "/chat.v1.ChatService/DeleteSuperuserBillingUpgradeTrigger"
+	ChatService_SetSuperuserBillingDunningEvent_FullMethodName      = "/chat.v1.ChatService/SetSuperuserBillingDunningEvent"
+	ChatService_DeleteSuperuserBillingDunningEvent_FullMethodName   = "/chat.v1.ChatService/DeleteSuperuserBillingDunningEvent"
+	ChatService_SetSuperuserWorkspaceSSOConfig_FullMethodName       = "/chat.v1.ChatService/SetSuperuserWorkspaceSSOConfig"
+	ChatService_DeleteSuperuserWorkspaceSSOConfig_FullMethodName    = "/chat.v1.ChatService/DeleteSuperuserWorkspaceSSOConfig"
+	ChatService_SetSuperuserDataRetentionPolicy_FullMethodName      = "/chat.v1.ChatService/SetSuperuserDataRetentionPolicy"
+	ChatService_DeleteSuperuserDataRetentionPolicy_FullMethodName   = "/chat.v1.ChatService/DeleteSuperuserDataRetentionPolicy"
+	ChatService_SetSuperuserComplianceControl_FullMethodName        = "/chat.v1.ChatService/SetSuperuserComplianceControl"
+	ChatService_DeleteSuperuserComplianceControl_FullMethodName     = "/chat.v1.ChatService/DeleteSuperuserComplianceControl"
+	ChatService_SetSuperuserServiceLevelObjective_FullMethodName    = "/chat.v1.ChatService/SetSuperuserServiceLevelObjective"
+	ChatService_DeleteSuperuserServiceLevelObjective_FullMethodName = "/chat.v1.ChatService/DeleteSuperuserServiceLevelObjective"
+	ChatService_SetSuperuserIncident_FullMethodName                 = "/chat.v1.ChatService/SetSuperuserIncident"
+	ChatService_DeleteSuperuserIncident_FullMethodName              = "/chat.v1.ChatService/DeleteSuperuserIncident"
+	ChatService_SetSuperuserIncidentUpdate_FullMethodName           = "/chat.v1.ChatService/SetSuperuserIncidentUpdate"
+	ChatService_DeleteSuperuserIncidentUpdate_FullMethodName        = "/chat.v1.ChatService/DeleteSuperuserIncidentUpdate"
+	ChatService_GetSuperuserSlices_FullMethodName                   = "/chat.v1.ChatService/GetSuperuserSlices"
+	ChatService_GetWorkspaceAdminSlices_FullMethodName              = "/chat.v1.ChatService/GetWorkspaceAdminSlices"
+	ChatService_RunServerTool_FullMethodName                        = "/chat.v1.ChatService/RunServerTool"
+	ChatService_Send_FullMethodName                                 = "/chat.v1.ChatService/Send"
+	ChatService_ListConversations_FullMethodName                    = "/chat.v1.ChatService/ListConversations"
+	ChatService_ResolveConversationRoute_FullMethodName             = "/chat.v1.ChatService/ResolveConversationRoute"
+	ChatService_LoadConversation_FullMethodName                     = "/chat.v1.ChatService/LoadConversation"
+	ChatService_DeleteConversation_FullMethodName                   = "/chat.v1.ChatService/DeleteConversation"
+	ChatService_SetUserName_FullMethodName                          = "/chat.v1.ChatService/SetUserName"
+	ChatService_GetUserName_FullMethodName                          = "/chat.v1.ChatService/GetUserName"
+	ChatService_ListUserMemories_FullMethodName                     = "/chat.v1.ChatService/ListUserMemories"
+	ChatService_UpsertUserMemory_FullMethodName                     = "/chat.v1.ChatService/UpsertUserMemory"
+	ChatService_DeleteUserMemory_FullMethodName                     = "/chat.v1.ChatService/DeleteUserMemory"
+	ChatService_SynthesizeSpeech_FullMethodName                     = "/chat.v1.ChatService/SynthesizeSpeech"
+	ChatService_ListModelOptions_FullMethodName                     = "/chat.v1.ChatService/ListModelOptions"
+	ChatService_SetSelectedModel_FullMethodName                     = "/chat.v1.ChatService/SetSelectedModel"
+	ChatService_GetSelectedModel_FullMethodName                     = "/chat.v1.ChatService/GetSelectedModel"
+	ChatService_SetSelectedTone_FullMethodName                      = "/chat.v1.ChatService/SetSelectedTone"
+	ChatService_GetSelectedTone_FullMethodName                      = "/chat.v1.ChatService/GetSelectedTone"
+	ChatService_SetSelectedThinkingEnabled_FullMethodName           = "/chat.v1.ChatService/SetSelectedThinkingEnabled"
+	ChatService_GetSelectedThinkingEnabled_FullMethodName           = "/chat.v1.ChatService/GetSelectedThinkingEnabled"
+	ChatService_SetSelectedThinkingEffort_FullMethodName            = "/chat.v1.ChatService/SetSelectedThinkingEffort"
+	ChatService_GetSelectedThinkingEffort_FullMethodName            = "/chat.v1.ChatService/GetSelectedThinkingEffort"
+	ChatService_SetCustomSystemPrompt_FullMethodName                = "/chat.v1.ChatService/SetCustomSystemPrompt"
+	ChatService_GetCustomSystemPrompt_FullMethodName                = "/chat.v1.ChatService/GetCustomSystemPrompt"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -97,6 +145,102 @@ type ChatServiceClient interface {
 	ListAdminUsageEvents(ctx context.Context, in *ListAdminUsageEventsRequest, opts ...grpc.CallOption) (*ListAdminUsageEventsResponse, error)
 	// ListAdminConversations returns recent conversations with owner and spend rollups for authenticated superusers.
 	ListAdminConversations(ctx context.Context, in *ListAdminConversationsRequest, opts ...grpc.CallOption) (*ListAdminConversationsResponse, error)
+	// GetAdminReadOnlyReport returns one allowlisted read-only admin report slice without raw SQL passthrough.
+	GetAdminReadOnlyReport(ctx context.Context, in *GetAdminReadOnlyReportRequest, opts ...grpc.CallOption) (*GetAdminReadOnlyReportResponse, error)
+	// SearchAdminUsers returns typed user rows filtered by one query for authenticated admin callers.
+	SearchAdminUsers(ctx context.Context, in *SearchAdminUsersRequest, opts ...grpc.CallOption) (*SearchAdminUsersResponse, error)
+	// GetAdminUserDetail returns one typed user detail payload with recent sessions, usage, and audit rows.
+	GetAdminUserDetail(ctx context.Context, in *GetAdminUserDetailRequest, opts ...grpc.CallOption) (*GetAdminUserDetailResponse, error)
+	// DisableAdminUser applies one typed admin user-disable mutation.
+	DisableAdminUser(ctx context.Context, in *AdminUserMutationRequest, opts ...grpc.CallOption) (*AdminUserMutationResponse, error)
+	// RestoreAdminUser applies one typed admin user-restore mutation.
+	RestoreAdminUser(ctx context.Context, in *AdminUserMutationRequest, opts ...grpc.CallOption) (*AdminUserMutationResponse, error)
+	// GetAdminWorkspaceDetail returns one typed workspace detail payload for authenticated admin callers.
+	GetAdminWorkspaceDetail(ctx context.Context, in *GetAdminWorkspaceDetailRequest, opts ...grpc.CallOption) (*GetAdminWorkspaceDetailResponse, error)
+	// SuspendAdminWorkspace applies one typed workspace-suspend mutation.
+	SuspendAdminWorkspace(ctx context.Context, in *AdminWorkspaceMutationRequest, opts ...grpc.CallOption) (*AdminWorkspaceMutationResponse, error)
+	// RestoreAdminWorkspace applies one typed workspace-restore mutation.
+	RestoreAdminWorkspace(ctx context.Context, in *AdminWorkspaceMutationRequest, opts ...grpc.CallOption) (*AdminWorkspaceMutationResponse, error)
+	// RevokeWorkspaceAPIKey revokes one workspace API key in admin scope.
+	RevokeWorkspaceAPIKey(ctx context.Context, in *RevokeWorkspaceAPIKeyRequest, opts ...grpc.CallOption) (*RevokeWorkspaceAPIKeyResponse, error)
+	// PauseWorkspaceWebhookEndpoint disables one workspace webhook endpoint in admin scope.
+	PauseWorkspaceWebhookEndpoint(ctx context.Context, in *PauseWorkspaceWebhookRequest, opts ...grpc.CallOption) (*PauseWorkspaceWebhookResponse, error)
+	// ListAdminBillingAccessOverrides returns typed billing access overrides for one admin-target user.
+	ListAdminBillingAccessOverrides(ctx context.Context, in *ListAdminBillingAccessOverridesRequest, opts ...grpc.CallOption) (*ListAdminBillingAccessOverridesResponse, error)
+	// ListAdminBillingEvents returns typed billing event-inspection rows for one admin-target user.
+	ListAdminBillingEvents(ctx context.Context, in *ListAdminBillingEventsRequest, opts ...grpc.CallOption) (*ListAdminBillingEventsResponse, error)
+	// ListAdminBillingDunningEvents returns typed dunning-review rows for one admin-target user.
+	ListAdminBillingDunningEvents(ctx context.Context, in *ListAdminBillingDunningEventsRequest, opts ...grpc.CallOption) (*ListAdminBillingDunningEventsResponse, error)
+	// SetAdminBillingAccessOverride stores one typed admin billing access override for one target user.
+	SetAdminBillingAccessOverride(ctx context.Context, in *AdminBillingAccessOverrideMutationRequest, opts ...grpc.CallOption) (*AdminBillingAccessOverrideMutationResponse, error)
+	// SetAdminBillingQuotaOverride stores one typed admin billing quota override for one target user.
+	SetAdminBillingQuotaOverride(ctx context.Context, in *AdminBillingQuotaOverrideMutationRequest, opts ...grpc.CallOption) (*AdminBillingQuotaOverrideMutationResponse, error)
+	// ResolveAdminBillingFailedPayment marks one failed-payment path resolved for one target user and invoice.
+	ResolveAdminBillingFailedPayment(ctx context.Context, in *ResolveAdminBillingFailedPaymentRequest, opts ...grpc.CallOption) (*ResolveAdminBillingFailedPaymentResponse, error)
+	// GetAdminBusinessDrilldown returns one typed business drill-down snapshot for one admin-target user.
+	GetAdminBusinessDrilldown(ctx context.Context, in *GetAdminBusinessDrilldownRequest, opts ...grpc.CallOption) (*GetAdminBusinessDrilldownResponse, error)
+	// ListAdminSupportTickets returns one scoped support queue slice.
+	ListAdminSupportTickets(ctx context.Context, in *ListAdminSupportTicketsRequest, opts ...grpc.CallOption) (*ListAdminSupportTicketsResponse, error)
+	// GetAdminSupportTicketDetail returns one scoped support ticket detail with messages and account-linked action history.
+	GetAdminSupportTicketDetail(ctx context.Context, in *GetAdminSupportTicketDetailRequest, opts ...grpc.CallOption) (*GetAdminSupportTicketDetailResponse, error)
+	// AddAdminSupportInternalNote appends one internal note to one scoped support ticket.
+	AddAdminSupportInternalNote(ctx context.Context, in *AddAdminSupportInternalNoteRequest, opts ...grpc.CallOption) (*AddAdminSupportInternalNoteResponse, error)
+	// AssignAdminSupportTicket sets one assignee for one scoped support ticket.
+	AssignAdminSupportTicket(ctx context.Context, in *AssignAdminSupportTicketRequest, opts ...grpc.CallOption) (*AssignAdminSupportTicketResponse, error)
+	// EscalateAdminSupportTicket escalates one scoped support ticket with updated status and priority.
+	EscalateAdminSupportTicket(ctx context.Context, in *EscalateAdminSupportTicketRequest, opts ...grpc.CallOption) (*EscalateAdminSupportTicketResponse, error)
+	// SetAdminFeatureFlag applies one typed feature-flag toggle mutation for superusers.
+	SetAdminFeatureFlag(ctx context.Context, in *SetAdminFeatureFlagRequest, opts ...grpc.CallOption) (*SetAdminFeatureFlagResponse, error)
+	// RollbackAdminExperiment applies one typed experiment rollback mutation for superusers.
+	RollbackAdminExperiment(ctx context.Context, in *RollbackAdminExperimentRequest, opts ...grpc.CallOption) (*RollbackAdminExperimentResponse, error)
+	// UpdateAdminIncident applies one typed incident update/status mutation for scoped admin callers.
+	UpdateAdminIncident(ctx context.Context, in *UpdateAdminIncidentRequest, opts ...grpc.CallOption) (*UpdateAdminIncidentResponse, error)
+	// GetAdminIncidentBlastRadius returns one scoped incident blast-radius snapshot for one workspace.
+	GetAdminIncidentBlastRadius(ctx context.Context, in *GetAdminIncidentBlastRadiusRequest, opts ...grpc.CallOption) (*GetAdminIncidentBlastRadiusResponse, error)
+	// SetSuperuserBillingPlanOverage upserts one superuser pricing overage control row.
+	SetSuperuserBillingPlanOverage(ctx context.Context, in *SetSuperuserBillingPlanOverageRequest, opts ...grpc.CallOption) (*SetSuperuserBillingPlanOverageResponse, error)
+	// DeleteSuperuserBillingPlanOverage deletes one superuser pricing overage control row.
+	DeleteSuperuserBillingPlanOverage(ctx context.Context, in *DeleteSuperuserBillingPlanOverageRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingPlanOverageResponse, error)
+	// SetSuperuserBillingQuotaPolicy upserts one superuser pricing quota policy row.
+	SetSuperuserBillingQuotaPolicy(ctx context.Context, in *SetSuperuserBillingQuotaPolicyRequest, opts ...grpc.CallOption) (*SetSuperuserBillingQuotaPolicyResponse, error)
+	// DeleteSuperuserBillingQuotaPolicy deletes one superuser pricing quota policy row.
+	DeleteSuperuserBillingQuotaPolicy(ctx context.Context, in *DeleteSuperuserBillingQuotaPolicyRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingQuotaPolicyResponse, error)
+	// SetSuperuserBillingUpgradeTrigger upserts one superuser pricing upgrade-trigger row.
+	SetSuperuserBillingUpgradeTrigger(ctx context.Context, in *SetSuperuserBillingUpgradeTriggerRequest, opts ...grpc.CallOption) (*SetSuperuserBillingUpgradeTriggerResponse, error)
+	// DeleteSuperuserBillingUpgradeTrigger deletes one superuser pricing upgrade-trigger row.
+	DeleteSuperuserBillingUpgradeTrigger(ctx context.Context, in *DeleteSuperuserBillingUpgradeTriggerRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingUpgradeTriggerResponse, error)
+	// SetSuperuserBillingDunningEvent upserts one superuser billing dunning-event row.
+	SetSuperuserBillingDunningEvent(ctx context.Context, in *SetSuperuserBillingDunningEventRequest, opts ...grpc.CallOption) (*SetSuperuserBillingDunningEventResponse, error)
+	// DeleteSuperuserBillingDunningEvent deletes one superuser billing dunning-event row.
+	DeleteSuperuserBillingDunningEvent(ctx context.Context, in *DeleteSuperuserBillingDunningEventRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingDunningEventResponse, error)
+	// SetSuperuserWorkspaceSSOConfig upserts one superuser workspace SSO config row.
+	SetSuperuserWorkspaceSSOConfig(ctx context.Context, in *SetSuperuserWorkspaceSSOConfigRequest, opts ...grpc.CallOption) (*SetSuperuserWorkspaceSSOConfigResponse, error)
+	// DeleteSuperuserWorkspaceSSOConfig deletes one superuser workspace SSO config row.
+	DeleteSuperuserWorkspaceSSOConfig(ctx context.Context, in *DeleteSuperuserWorkspaceSSOConfigRequest, opts ...grpc.CallOption) (*DeleteSuperuserWorkspaceSSOConfigResponse, error)
+	// SetSuperuserDataRetentionPolicy upserts one superuser data-retention policy row.
+	SetSuperuserDataRetentionPolicy(ctx context.Context, in *SetSuperuserDataRetentionPolicyRequest, opts ...grpc.CallOption) (*SetSuperuserDataRetentionPolicyResponse, error)
+	// DeleteSuperuserDataRetentionPolicy deletes one superuser data-retention policy row.
+	DeleteSuperuserDataRetentionPolicy(ctx context.Context, in *DeleteSuperuserDataRetentionPolicyRequest, opts ...grpc.CallOption) (*DeleteSuperuserDataRetentionPolicyResponse, error)
+	// SetSuperuserComplianceControl upserts one superuser compliance-control row.
+	SetSuperuserComplianceControl(ctx context.Context, in *SetSuperuserComplianceControlRequest, opts ...grpc.CallOption) (*SetSuperuserComplianceControlResponse, error)
+	// DeleteSuperuserComplianceControl deletes one superuser compliance-control row.
+	DeleteSuperuserComplianceControl(ctx context.Context, in *DeleteSuperuserComplianceControlRequest, opts ...grpc.CallOption) (*DeleteSuperuserComplianceControlResponse, error)
+	// SetSuperuserServiceLevelObjective upserts one superuser SLO row.
+	SetSuperuserServiceLevelObjective(ctx context.Context, in *SetSuperuserServiceLevelObjectiveRequest, opts ...grpc.CallOption) (*SetSuperuserServiceLevelObjectiveResponse, error)
+	// DeleteSuperuserServiceLevelObjective deletes one superuser SLO row.
+	DeleteSuperuserServiceLevelObjective(ctx context.Context, in *DeleteSuperuserServiceLevelObjectiveRequest, opts ...grpc.CallOption) (*DeleteSuperuserServiceLevelObjectiveResponse, error)
+	// SetSuperuserIncident upserts one superuser incident row.
+	SetSuperuserIncident(ctx context.Context, in *SetSuperuserIncidentRequest, opts ...grpc.CallOption) (*SetSuperuserIncidentResponse, error)
+	// DeleteSuperuserIncident deletes one superuser incident row.
+	DeleteSuperuserIncident(ctx context.Context, in *DeleteSuperuserIncidentRequest, opts ...grpc.CallOption) (*DeleteSuperuserIncidentResponse, error)
+	// SetSuperuserIncidentUpdate upserts one superuser incident-update row.
+	SetSuperuserIncidentUpdate(ctx context.Context, in *SetSuperuserIncidentUpdateRequest, opts ...grpc.CallOption) (*SetSuperuserIncidentUpdateResponse, error)
+	// DeleteSuperuserIncidentUpdate deletes one superuser incident-update row.
+	DeleteSuperuserIncidentUpdate(ctx context.Context, in *DeleteSuperuserIncidentUpdateRequest, opts ...grpc.CallOption) (*DeleteSuperuserIncidentUpdateResponse, error)
+	// GetSuperuserSlices returns typed global superuser slices for dashboard operations.
+	GetSuperuserSlices(ctx context.Context, in *GetSuperuserSlicesRequest, opts ...grpc.CallOption) (*GetSuperuserSlicesResponse, error)
+	// GetWorkspaceAdminSlices returns workspace-scoped admin control slices for authenticated workspace admins.
+	GetWorkspaceAdminSlices(ctx context.Context, in *GetWorkspaceAdminSlicesRequest, opts ...grpc.CallOption) (*GetWorkspaceAdminSlicesResponse, error)
 	// RunServerTool opens a bidirectional terminal-execution bridge for approved server tools.
 	RunServerTool(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[RunServerToolRequest, RunServerToolEvent], error)
 	// Send starts a server-streaming RPC. The client sends one request and
@@ -299,6 +443,486 @@ func (c *chatServiceClient) ListAdminConversations(ctx context.Context, in *List
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListAdminConversationsResponse)
 	err := c.cc.Invoke(ctx, ChatService_ListAdminConversations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminReadOnlyReport(ctx context.Context, in *GetAdminReadOnlyReportRequest, opts ...grpc.CallOption) (*GetAdminReadOnlyReportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminReadOnlyReportResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminReadOnlyReport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SearchAdminUsers(ctx context.Context, in *SearchAdminUsersRequest, opts ...grpc.CallOption) (*SearchAdminUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchAdminUsersResponse)
+	err := c.cc.Invoke(ctx, ChatService_SearchAdminUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminUserDetail(ctx context.Context, in *GetAdminUserDetailRequest, opts ...grpc.CallOption) (*GetAdminUserDetailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminUserDetailResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminUserDetail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DisableAdminUser(ctx context.Context, in *AdminUserMutationRequest, opts ...grpc.CallOption) (*AdminUserMutationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminUserMutationResponse)
+	err := c.cc.Invoke(ctx, ChatService_DisableAdminUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) RestoreAdminUser(ctx context.Context, in *AdminUserMutationRequest, opts ...grpc.CallOption) (*AdminUserMutationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminUserMutationResponse)
+	err := c.cc.Invoke(ctx, ChatService_RestoreAdminUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminWorkspaceDetail(ctx context.Context, in *GetAdminWorkspaceDetailRequest, opts ...grpc.CallOption) (*GetAdminWorkspaceDetailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminWorkspaceDetailResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminWorkspaceDetail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SuspendAdminWorkspace(ctx context.Context, in *AdminWorkspaceMutationRequest, opts ...grpc.CallOption) (*AdminWorkspaceMutationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminWorkspaceMutationResponse)
+	err := c.cc.Invoke(ctx, ChatService_SuspendAdminWorkspace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) RestoreAdminWorkspace(ctx context.Context, in *AdminWorkspaceMutationRequest, opts ...grpc.CallOption) (*AdminWorkspaceMutationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminWorkspaceMutationResponse)
+	err := c.cc.Invoke(ctx, ChatService_RestoreAdminWorkspace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) RevokeWorkspaceAPIKey(ctx context.Context, in *RevokeWorkspaceAPIKeyRequest, opts ...grpc.CallOption) (*RevokeWorkspaceAPIKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeWorkspaceAPIKeyResponse)
+	err := c.cc.Invoke(ctx, ChatService_RevokeWorkspaceAPIKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) PauseWorkspaceWebhookEndpoint(ctx context.Context, in *PauseWorkspaceWebhookRequest, opts ...grpc.CallOption) (*PauseWorkspaceWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PauseWorkspaceWebhookResponse)
+	err := c.cc.Invoke(ctx, ChatService_PauseWorkspaceWebhookEndpoint_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListAdminBillingAccessOverrides(ctx context.Context, in *ListAdminBillingAccessOverridesRequest, opts ...grpc.CallOption) (*ListAdminBillingAccessOverridesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAdminBillingAccessOverridesResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListAdminBillingAccessOverrides_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListAdminBillingEvents(ctx context.Context, in *ListAdminBillingEventsRequest, opts ...grpc.CallOption) (*ListAdminBillingEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAdminBillingEventsResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListAdminBillingEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListAdminBillingDunningEvents(ctx context.Context, in *ListAdminBillingDunningEventsRequest, opts ...grpc.CallOption) (*ListAdminBillingDunningEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAdminBillingDunningEventsResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListAdminBillingDunningEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminBillingAccessOverride(ctx context.Context, in *AdminBillingAccessOverrideMutationRequest, opts ...grpc.CallOption) (*AdminBillingAccessOverrideMutationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminBillingAccessOverrideMutationResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminBillingAccessOverride_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminBillingQuotaOverride(ctx context.Context, in *AdminBillingQuotaOverrideMutationRequest, opts ...grpc.CallOption) (*AdminBillingQuotaOverrideMutationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminBillingQuotaOverrideMutationResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminBillingQuotaOverride_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ResolveAdminBillingFailedPayment(ctx context.Context, in *ResolveAdminBillingFailedPaymentRequest, opts ...grpc.CallOption) (*ResolveAdminBillingFailedPaymentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolveAdminBillingFailedPaymentResponse)
+	err := c.cc.Invoke(ctx, ChatService_ResolveAdminBillingFailedPayment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminBusinessDrilldown(ctx context.Context, in *GetAdminBusinessDrilldownRequest, opts ...grpc.CallOption) (*GetAdminBusinessDrilldownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminBusinessDrilldownResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminBusinessDrilldown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListAdminSupportTickets(ctx context.Context, in *ListAdminSupportTicketsRequest, opts ...grpc.CallOption) (*ListAdminSupportTicketsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAdminSupportTicketsResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListAdminSupportTickets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminSupportTicketDetail(ctx context.Context, in *GetAdminSupportTicketDetailRequest, opts ...grpc.CallOption) (*GetAdminSupportTicketDetailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminSupportTicketDetailResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminSupportTicketDetail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) AddAdminSupportInternalNote(ctx context.Context, in *AddAdminSupportInternalNoteRequest, opts ...grpc.CallOption) (*AddAdminSupportInternalNoteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddAdminSupportInternalNoteResponse)
+	err := c.cc.Invoke(ctx, ChatService_AddAdminSupportInternalNote_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) AssignAdminSupportTicket(ctx context.Context, in *AssignAdminSupportTicketRequest, opts ...grpc.CallOption) (*AssignAdminSupportTicketResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AssignAdminSupportTicketResponse)
+	err := c.cc.Invoke(ctx, ChatService_AssignAdminSupportTicket_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) EscalateAdminSupportTicket(ctx context.Context, in *EscalateAdminSupportTicketRequest, opts ...grpc.CallOption) (*EscalateAdminSupportTicketResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EscalateAdminSupportTicketResponse)
+	err := c.cc.Invoke(ctx, ChatService_EscalateAdminSupportTicket_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminFeatureFlag(ctx context.Context, in *SetAdminFeatureFlagRequest, opts ...grpc.CallOption) (*SetAdminFeatureFlagResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminFeatureFlagResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminFeatureFlag_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) RollbackAdminExperiment(ctx context.Context, in *RollbackAdminExperimentRequest, opts ...grpc.CallOption) (*RollbackAdminExperimentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RollbackAdminExperimentResponse)
+	err := c.cc.Invoke(ctx, ChatService_RollbackAdminExperiment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) UpdateAdminIncident(ctx context.Context, in *UpdateAdminIncidentRequest, opts ...grpc.CallOption) (*UpdateAdminIncidentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateAdminIncidentResponse)
+	err := c.cc.Invoke(ctx, ChatService_UpdateAdminIncident_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminIncidentBlastRadius(ctx context.Context, in *GetAdminIncidentBlastRadiusRequest, opts ...grpc.CallOption) (*GetAdminIncidentBlastRadiusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminIncidentBlastRadiusResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminIncidentBlastRadius_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserBillingPlanOverage(ctx context.Context, in *SetSuperuserBillingPlanOverageRequest, opts ...grpc.CallOption) (*SetSuperuserBillingPlanOverageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserBillingPlanOverageResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserBillingPlanOverage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserBillingPlanOverage(ctx context.Context, in *DeleteSuperuserBillingPlanOverageRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingPlanOverageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserBillingPlanOverageResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserBillingPlanOverage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserBillingQuotaPolicy(ctx context.Context, in *SetSuperuserBillingQuotaPolicyRequest, opts ...grpc.CallOption) (*SetSuperuserBillingQuotaPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserBillingQuotaPolicyResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserBillingQuotaPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserBillingQuotaPolicy(ctx context.Context, in *DeleteSuperuserBillingQuotaPolicyRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingQuotaPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserBillingQuotaPolicyResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserBillingQuotaPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserBillingUpgradeTrigger(ctx context.Context, in *SetSuperuserBillingUpgradeTriggerRequest, opts ...grpc.CallOption) (*SetSuperuserBillingUpgradeTriggerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserBillingUpgradeTriggerResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserBillingUpgradeTrigger_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserBillingUpgradeTrigger(ctx context.Context, in *DeleteSuperuserBillingUpgradeTriggerRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingUpgradeTriggerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserBillingUpgradeTriggerResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserBillingUpgradeTrigger_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserBillingDunningEvent(ctx context.Context, in *SetSuperuserBillingDunningEventRequest, opts ...grpc.CallOption) (*SetSuperuserBillingDunningEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserBillingDunningEventResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserBillingDunningEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserBillingDunningEvent(ctx context.Context, in *DeleteSuperuserBillingDunningEventRequest, opts ...grpc.CallOption) (*DeleteSuperuserBillingDunningEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserBillingDunningEventResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserBillingDunningEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserWorkspaceSSOConfig(ctx context.Context, in *SetSuperuserWorkspaceSSOConfigRequest, opts ...grpc.CallOption) (*SetSuperuserWorkspaceSSOConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserWorkspaceSSOConfigResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserWorkspaceSSOConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserWorkspaceSSOConfig(ctx context.Context, in *DeleteSuperuserWorkspaceSSOConfigRequest, opts ...grpc.CallOption) (*DeleteSuperuserWorkspaceSSOConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserWorkspaceSSOConfigResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserWorkspaceSSOConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserDataRetentionPolicy(ctx context.Context, in *SetSuperuserDataRetentionPolicyRequest, opts ...grpc.CallOption) (*SetSuperuserDataRetentionPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserDataRetentionPolicyResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserDataRetentionPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserDataRetentionPolicy(ctx context.Context, in *DeleteSuperuserDataRetentionPolicyRequest, opts ...grpc.CallOption) (*DeleteSuperuserDataRetentionPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserDataRetentionPolicyResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserDataRetentionPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserComplianceControl(ctx context.Context, in *SetSuperuserComplianceControlRequest, opts ...grpc.CallOption) (*SetSuperuserComplianceControlResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserComplianceControlResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserComplianceControl_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserComplianceControl(ctx context.Context, in *DeleteSuperuserComplianceControlRequest, opts ...grpc.CallOption) (*DeleteSuperuserComplianceControlResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserComplianceControlResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserComplianceControl_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserServiceLevelObjective(ctx context.Context, in *SetSuperuserServiceLevelObjectiveRequest, opts ...grpc.CallOption) (*SetSuperuserServiceLevelObjectiveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserServiceLevelObjectiveResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserServiceLevelObjective_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserServiceLevelObjective(ctx context.Context, in *DeleteSuperuserServiceLevelObjectiveRequest, opts ...grpc.CallOption) (*DeleteSuperuserServiceLevelObjectiveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserServiceLevelObjectiveResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserServiceLevelObjective_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserIncident(ctx context.Context, in *SetSuperuserIncidentRequest, opts ...grpc.CallOption) (*SetSuperuserIncidentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserIncidentResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserIncident_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserIncident(ctx context.Context, in *DeleteSuperuserIncidentRequest, opts ...grpc.CallOption) (*DeleteSuperuserIncidentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserIncidentResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserIncident_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetSuperuserIncidentUpdate(ctx context.Context, in *SetSuperuserIncidentUpdateRequest, opts ...grpc.CallOption) (*SetSuperuserIncidentUpdateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetSuperuserIncidentUpdateResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetSuperuserIncidentUpdate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) DeleteSuperuserIncidentUpdate(ctx context.Context, in *DeleteSuperuserIncidentUpdateRequest, opts ...grpc.CallOption) (*DeleteSuperuserIncidentUpdateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSuperuserIncidentUpdateResponse)
+	err := c.cc.Invoke(ctx, ChatService_DeleteSuperuserIncidentUpdate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetSuperuserSlices(ctx context.Context, in *GetSuperuserSlicesRequest, opts ...grpc.CallOption) (*GetSuperuserSlicesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSuperuserSlicesResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetSuperuserSlices_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetWorkspaceAdminSlices(ctx context.Context, in *GetWorkspaceAdminSlicesRequest, opts ...grpc.CallOption) (*GetWorkspaceAdminSlicesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWorkspaceAdminSlicesResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetWorkspaceAdminSlices_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -592,6 +1216,102 @@ type ChatServiceServer interface {
 	ListAdminUsageEvents(context.Context, *ListAdminUsageEventsRequest) (*ListAdminUsageEventsResponse, error)
 	// ListAdminConversations returns recent conversations with owner and spend rollups for authenticated superusers.
 	ListAdminConversations(context.Context, *ListAdminConversationsRequest) (*ListAdminConversationsResponse, error)
+	// GetAdminReadOnlyReport returns one allowlisted read-only admin report slice without raw SQL passthrough.
+	GetAdminReadOnlyReport(context.Context, *GetAdminReadOnlyReportRequest) (*GetAdminReadOnlyReportResponse, error)
+	// SearchAdminUsers returns typed user rows filtered by one query for authenticated admin callers.
+	SearchAdminUsers(context.Context, *SearchAdminUsersRequest) (*SearchAdminUsersResponse, error)
+	// GetAdminUserDetail returns one typed user detail payload with recent sessions, usage, and audit rows.
+	GetAdminUserDetail(context.Context, *GetAdminUserDetailRequest) (*GetAdminUserDetailResponse, error)
+	// DisableAdminUser applies one typed admin user-disable mutation.
+	DisableAdminUser(context.Context, *AdminUserMutationRequest) (*AdminUserMutationResponse, error)
+	// RestoreAdminUser applies one typed admin user-restore mutation.
+	RestoreAdminUser(context.Context, *AdminUserMutationRequest) (*AdminUserMutationResponse, error)
+	// GetAdminWorkspaceDetail returns one typed workspace detail payload for authenticated admin callers.
+	GetAdminWorkspaceDetail(context.Context, *GetAdminWorkspaceDetailRequest) (*GetAdminWorkspaceDetailResponse, error)
+	// SuspendAdminWorkspace applies one typed workspace-suspend mutation.
+	SuspendAdminWorkspace(context.Context, *AdminWorkspaceMutationRequest) (*AdminWorkspaceMutationResponse, error)
+	// RestoreAdminWorkspace applies one typed workspace-restore mutation.
+	RestoreAdminWorkspace(context.Context, *AdminWorkspaceMutationRequest) (*AdminWorkspaceMutationResponse, error)
+	// RevokeWorkspaceAPIKey revokes one workspace API key in admin scope.
+	RevokeWorkspaceAPIKey(context.Context, *RevokeWorkspaceAPIKeyRequest) (*RevokeWorkspaceAPIKeyResponse, error)
+	// PauseWorkspaceWebhookEndpoint disables one workspace webhook endpoint in admin scope.
+	PauseWorkspaceWebhookEndpoint(context.Context, *PauseWorkspaceWebhookRequest) (*PauseWorkspaceWebhookResponse, error)
+	// ListAdminBillingAccessOverrides returns typed billing access overrides for one admin-target user.
+	ListAdminBillingAccessOverrides(context.Context, *ListAdminBillingAccessOverridesRequest) (*ListAdminBillingAccessOverridesResponse, error)
+	// ListAdminBillingEvents returns typed billing event-inspection rows for one admin-target user.
+	ListAdminBillingEvents(context.Context, *ListAdminBillingEventsRequest) (*ListAdminBillingEventsResponse, error)
+	// ListAdminBillingDunningEvents returns typed dunning-review rows for one admin-target user.
+	ListAdminBillingDunningEvents(context.Context, *ListAdminBillingDunningEventsRequest) (*ListAdminBillingDunningEventsResponse, error)
+	// SetAdminBillingAccessOverride stores one typed admin billing access override for one target user.
+	SetAdminBillingAccessOverride(context.Context, *AdminBillingAccessOverrideMutationRequest) (*AdminBillingAccessOverrideMutationResponse, error)
+	// SetAdminBillingQuotaOverride stores one typed admin billing quota override for one target user.
+	SetAdminBillingQuotaOverride(context.Context, *AdminBillingQuotaOverrideMutationRequest) (*AdminBillingQuotaOverrideMutationResponse, error)
+	// ResolveAdminBillingFailedPayment marks one failed-payment path resolved for one target user and invoice.
+	ResolveAdminBillingFailedPayment(context.Context, *ResolveAdminBillingFailedPaymentRequest) (*ResolveAdminBillingFailedPaymentResponse, error)
+	// GetAdminBusinessDrilldown returns one typed business drill-down snapshot for one admin-target user.
+	GetAdminBusinessDrilldown(context.Context, *GetAdminBusinessDrilldownRequest) (*GetAdminBusinessDrilldownResponse, error)
+	// ListAdminSupportTickets returns one scoped support queue slice.
+	ListAdminSupportTickets(context.Context, *ListAdminSupportTicketsRequest) (*ListAdminSupportTicketsResponse, error)
+	// GetAdminSupportTicketDetail returns one scoped support ticket detail with messages and account-linked action history.
+	GetAdminSupportTicketDetail(context.Context, *GetAdminSupportTicketDetailRequest) (*GetAdminSupportTicketDetailResponse, error)
+	// AddAdminSupportInternalNote appends one internal note to one scoped support ticket.
+	AddAdminSupportInternalNote(context.Context, *AddAdminSupportInternalNoteRequest) (*AddAdminSupportInternalNoteResponse, error)
+	// AssignAdminSupportTicket sets one assignee for one scoped support ticket.
+	AssignAdminSupportTicket(context.Context, *AssignAdminSupportTicketRequest) (*AssignAdminSupportTicketResponse, error)
+	// EscalateAdminSupportTicket escalates one scoped support ticket with updated status and priority.
+	EscalateAdminSupportTicket(context.Context, *EscalateAdminSupportTicketRequest) (*EscalateAdminSupportTicketResponse, error)
+	// SetAdminFeatureFlag applies one typed feature-flag toggle mutation for superusers.
+	SetAdminFeatureFlag(context.Context, *SetAdminFeatureFlagRequest) (*SetAdminFeatureFlagResponse, error)
+	// RollbackAdminExperiment applies one typed experiment rollback mutation for superusers.
+	RollbackAdminExperiment(context.Context, *RollbackAdminExperimentRequest) (*RollbackAdminExperimentResponse, error)
+	// UpdateAdminIncident applies one typed incident update/status mutation for scoped admin callers.
+	UpdateAdminIncident(context.Context, *UpdateAdminIncidentRequest) (*UpdateAdminIncidentResponse, error)
+	// GetAdminIncidentBlastRadius returns one scoped incident blast-radius snapshot for one workspace.
+	GetAdminIncidentBlastRadius(context.Context, *GetAdminIncidentBlastRadiusRequest) (*GetAdminIncidentBlastRadiusResponse, error)
+	// SetSuperuserBillingPlanOverage upserts one superuser pricing overage control row.
+	SetSuperuserBillingPlanOverage(context.Context, *SetSuperuserBillingPlanOverageRequest) (*SetSuperuserBillingPlanOverageResponse, error)
+	// DeleteSuperuserBillingPlanOverage deletes one superuser pricing overage control row.
+	DeleteSuperuserBillingPlanOverage(context.Context, *DeleteSuperuserBillingPlanOverageRequest) (*DeleteSuperuserBillingPlanOverageResponse, error)
+	// SetSuperuserBillingQuotaPolicy upserts one superuser pricing quota policy row.
+	SetSuperuserBillingQuotaPolicy(context.Context, *SetSuperuserBillingQuotaPolicyRequest) (*SetSuperuserBillingQuotaPolicyResponse, error)
+	// DeleteSuperuserBillingQuotaPolicy deletes one superuser pricing quota policy row.
+	DeleteSuperuserBillingQuotaPolicy(context.Context, *DeleteSuperuserBillingQuotaPolicyRequest) (*DeleteSuperuserBillingQuotaPolicyResponse, error)
+	// SetSuperuserBillingUpgradeTrigger upserts one superuser pricing upgrade-trigger row.
+	SetSuperuserBillingUpgradeTrigger(context.Context, *SetSuperuserBillingUpgradeTriggerRequest) (*SetSuperuserBillingUpgradeTriggerResponse, error)
+	// DeleteSuperuserBillingUpgradeTrigger deletes one superuser pricing upgrade-trigger row.
+	DeleteSuperuserBillingUpgradeTrigger(context.Context, *DeleteSuperuserBillingUpgradeTriggerRequest) (*DeleteSuperuserBillingUpgradeTriggerResponse, error)
+	// SetSuperuserBillingDunningEvent upserts one superuser billing dunning-event row.
+	SetSuperuserBillingDunningEvent(context.Context, *SetSuperuserBillingDunningEventRequest) (*SetSuperuserBillingDunningEventResponse, error)
+	// DeleteSuperuserBillingDunningEvent deletes one superuser billing dunning-event row.
+	DeleteSuperuserBillingDunningEvent(context.Context, *DeleteSuperuserBillingDunningEventRequest) (*DeleteSuperuserBillingDunningEventResponse, error)
+	// SetSuperuserWorkspaceSSOConfig upserts one superuser workspace SSO config row.
+	SetSuperuserWorkspaceSSOConfig(context.Context, *SetSuperuserWorkspaceSSOConfigRequest) (*SetSuperuserWorkspaceSSOConfigResponse, error)
+	// DeleteSuperuserWorkspaceSSOConfig deletes one superuser workspace SSO config row.
+	DeleteSuperuserWorkspaceSSOConfig(context.Context, *DeleteSuperuserWorkspaceSSOConfigRequest) (*DeleteSuperuserWorkspaceSSOConfigResponse, error)
+	// SetSuperuserDataRetentionPolicy upserts one superuser data-retention policy row.
+	SetSuperuserDataRetentionPolicy(context.Context, *SetSuperuserDataRetentionPolicyRequest) (*SetSuperuserDataRetentionPolicyResponse, error)
+	// DeleteSuperuserDataRetentionPolicy deletes one superuser data-retention policy row.
+	DeleteSuperuserDataRetentionPolicy(context.Context, *DeleteSuperuserDataRetentionPolicyRequest) (*DeleteSuperuserDataRetentionPolicyResponse, error)
+	// SetSuperuserComplianceControl upserts one superuser compliance-control row.
+	SetSuperuserComplianceControl(context.Context, *SetSuperuserComplianceControlRequest) (*SetSuperuserComplianceControlResponse, error)
+	// DeleteSuperuserComplianceControl deletes one superuser compliance-control row.
+	DeleteSuperuserComplianceControl(context.Context, *DeleteSuperuserComplianceControlRequest) (*DeleteSuperuserComplianceControlResponse, error)
+	// SetSuperuserServiceLevelObjective upserts one superuser SLO row.
+	SetSuperuserServiceLevelObjective(context.Context, *SetSuperuserServiceLevelObjectiveRequest) (*SetSuperuserServiceLevelObjectiveResponse, error)
+	// DeleteSuperuserServiceLevelObjective deletes one superuser SLO row.
+	DeleteSuperuserServiceLevelObjective(context.Context, *DeleteSuperuserServiceLevelObjectiveRequest) (*DeleteSuperuserServiceLevelObjectiveResponse, error)
+	// SetSuperuserIncident upserts one superuser incident row.
+	SetSuperuserIncident(context.Context, *SetSuperuserIncidentRequest) (*SetSuperuserIncidentResponse, error)
+	// DeleteSuperuserIncident deletes one superuser incident row.
+	DeleteSuperuserIncident(context.Context, *DeleteSuperuserIncidentRequest) (*DeleteSuperuserIncidentResponse, error)
+	// SetSuperuserIncidentUpdate upserts one superuser incident-update row.
+	SetSuperuserIncidentUpdate(context.Context, *SetSuperuserIncidentUpdateRequest) (*SetSuperuserIncidentUpdateResponse, error)
+	// DeleteSuperuserIncidentUpdate deletes one superuser incident-update row.
+	DeleteSuperuserIncidentUpdate(context.Context, *DeleteSuperuserIncidentUpdateRequest) (*DeleteSuperuserIncidentUpdateResponse, error)
+	// GetSuperuserSlices returns typed global superuser slices for dashboard operations.
+	GetSuperuserSlices(context.Context, *GetSuperuserSlicesRequest) (*GetSuperuserSlicesResponse, error)
+	// GetWorkspaceAdminSlices returns workspace-scoped admin control slices for authenticated workspace admins.
+	GetWorkspaceAdminSlices(context.Context, *GetWorkspaceAdminSlicesRequest) (*GetWorkspaceAdminSlicesResponse, error)
 	// RunServerTool opens a bidirectional terminal-execution bridge for approved server tools.
 	RunServerTool(grpc.BidiStreamingServer[RunServerToolRequest, RunServerToolEvent]) error
 	// Send starts a server-streaming RPC. The client sends one request and
@@ -694,6 +1414,150 @@ func (UnimplementedChatServiceServer) ListAdminUsageEvents(context.Context, *Lis
 }
 func (UnimplementedChatServiceServer) ListAdminConversations(context.Context, *ListAdminConversationsRequest) (*ListAdminConversationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAdminConversations not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminReadOnlyReport(context.Context, *GetAdminReadOnlyReportRequest) (*GetAdminReadOnlyReportResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminReadOnlyReport not implemented")
+}
+func (UnimplementedChatServiceServer) SearchAdminUsers(context.Context, *SearchAdminUsersRequest) (*SearchAdminUsersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SearchAdminUsers not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminUserDetail(context.Context, *GetAdminUserDetailRequest) (*GetAdminUserDetailResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminUserDetail not implemented")
+}
+func (UnimplementedChatServiceServer) DisableAdminUser(context.Context, *AdminUserMutationRequest) (*AdminUserMutationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DisableAdminUser not implemented")
+}
+func (UnimplementedChatServiceServer) RestoreAdminUser(context.Context, *AdminUserMutationRequest) (*AdminUserMutationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestoreAdminUser not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminWorkspaceDetail(context.Context, *GetAdminWorkspaceDetailRequest) (*GetAdminWorkspaceDetailResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminWorkspaceDetail not implemented")
+}
+func (UnimplementedChatServiceServer) SuspendAdminWorkspace(context.Context, *AdminWorkspaceMutationRequest) (*AdminWorkspaceMutationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SuspendAdminWorkspace not implemented")
+}
+func (UnimplementedChatServiceServer) RestoreAdminWorkspace(context.Context, *AdminWorkspaceMutationRequest) (*AdminWorkspaceMutationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestoreAdminWorkspace not implemented")
+}
+func (UnimplementedChatServiceServer) RevokeWorkspaceAPIKey(context.Context, *RevokeWorkspaceAPIKeyRequest) (*RevokeWorkspaceAPIKeyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevokeWorkspaceAPIKey not implemented")
+}
+func (UnimplementedChatServiceServer) PauseWorkspaceWebhookEndpoint(context.Context, *PauseWorkspaceWebhookRequest) (*PauseWorkspaceWebhookResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PauseWorkspaceWebhookEndpoint not implemented")
+}
+func (UnimplementedChatServiceServer) ListAdminBillingAccessOverrides(context.Context, *ListAdminBillingAccessOverridesRequest) (*ListAdminBillingAccessOverridesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAdminBillingAccessOverrides not implemented")
+}
+func (UnimplementedChatServiceServer) ListAdminBillingEvents(context.Context, *ListAdminBillingEventsRequest) (*ListAdminBillingEventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAdminBillingEvents not implemented")
+}
+func (UnimplementedChatServiceServer) ListAdminBillingDunningEvents(context.Context, *ListAdminBillingDunningEventsRequest) (*ListAdminBillingDunningEventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAdminBillingDunningEvents not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminBillingAccessOverride(context.Context, *AdminBillingAccessOverrideMutationRequest) (*AdminBillingAccessOverrideMutationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminBillingAccessOverride not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminBillingQuotaOverride(context.Context, *AdminBillingQuotaOverrideMutationRequest) (*AdminBillingQuotaOverrideMutationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminBillingQuotaOverride not implemented")
+}
+func (UnimplementedChatServiceServer) ResolveAdminBillingFailedPayment(context.Context, *ResolveAdminBillingFailedPaymentRequest) (*ResolveAdminBillingFailedPaymentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResolveAdminBillingFailedPayment not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminBusinessDrilldown(context.Context, *GetAdminBusinessDrilldownRequest) (*GetAdminBusinessDrilldownResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminBusinessDrilldown not implemented")
+}
+func (UnimplementedChatServiceServer) ListAdminSupportTickets(context.Context, *ListAdminSupportTicketsRequest) (*ListAdminSupportTicketsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAdminSupportTickets not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminSupportTicketDetail(context.Context, *GetAdminSupportTicketDetailRequest) (*GetAdminSupportTicketDetailResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminSupportTicketDetail not implemented")
+}
+func (UnimplementedChatServiceServer) AddAdminSupportInternalNote(context.Context, *AddAdminSupportInternalNoteRequest) (*AddAdminSupportInternalNoteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddAdminSupportInternalNote not implemented")
+}
+func (UnimplementedChatServiceServer) AssignAdminSupportTicket(context.Context, *AssignAdminSupportTicketRequest) (*AssignAdminSupportTicketResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AssignAdminSupportTicket not implemented")
+}
+func (UnimplementedChatServiceServer) EscalateAdminSupportTicket(context.Context, *EscalateAdminSupportTicketRequest) (*EscalateAdminSupportTicketResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EscalateAdminSupportTicket not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminFeatureFlag(context.Context, *SetAdminFeatureFlagRequest) (*SetAdminFeatureFlagResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminFeatureFlag not implemented")
+}
+func (UnimplementedChatServiceServer) RollbackAdminExperiment(context.Context, *RollbackAdminExperimentRequest) (*RollbackAdminExperimentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RollbackAdminExperiment not implemented")
+}
+func (UnimplementedChatServiceServer) UpdateAdminIncident(context.Context, *UpdateAdminIncidentRequest) (*UpdateAdminIncidentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateAdminIncident not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminIncidentBlastRadius(context.Context, *GetAdminIncidentBlastRadiusRequest) (*GetAdminIncidentBlastRadiusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminIncidentBlastRadius not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserBillingPlanOverage(context.Context, *SetSuperuserBillingPlanOverageRequest) (*SetSuperuserBillingPlanOverageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserBillingPlanOverage not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserBillingPlanOverage(context.Context, *DeleteSuperuserBillingPlanOverageRequest) (*DeleteSuperuserBillingPlanOverageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserBillingPlanOverage not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserBillingQuotaPolicy(context.Context, *SetSuperuserBillingQuotaPolicyRequest) (*SetSuperuserBillingQuotaPolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserBillingQuotaPolicy not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserBillingQuotaPolicy(context.Context, *DeleteSuperuserBillingQuotaPolicyRequest) (*DeleteSuperuserBillingQuotaPolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserBillingQuotaPolicy not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserBillingUpgradeTrigger(context.Context, *SetSuperuserBillingUpgradeTriggerRequest) (*SetSuperuserBillingUpgradeTriggerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserBillingUpgradeTrigger not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserBillingUpgradeTrigger(context.Context, *DeleteSuperuserBillingUpgradeTriggerRequest) (*DeleteSuperuserBillingUpgradeTriggerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserBillingUpgradeTrigger not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserBillingDunningEvent(context.Context, *SetSuperuserBillingDunningEventRequest) (*SetSuperuserBillingDunningEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserBillingDunningEvent not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserBillingDunningEvent(context.Context, *DeleteSuperuserBillingDunningEventRequest) (*DeleteSuperuserBillingDunningEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserBillingDunningEvent not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserWorkspaceSSOConfig(context.Context, *SetSuperuserWorkspaceSSOConfigRequest) (*SetSuperuserWorkspaceSSOConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserWorkspaceSSOConfig not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserWorkspaceSSOConfig(context.Context, *DeleteSuperuserWorkspaceSSOConfigRequest) (*DeleteSuperuserWorkspaceSSOConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserWorkspaceSSOConfig not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserDataRetentionPolicy(context.Context, *SetSuperuserDataRetentionPolicyRequest) (*SetSuperuserDataRetentionPolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserDataRetentionPolicy not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserDataRetentionPolicy(context.Context, *DeleteSuperuserDataRetentionPolicyRequest) (*DeleteSuperuserDataRetentionPolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserDataRetentionPolicy not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserComplianceControl(context.Context, *SetSuperuserComplianceControlRequest) (*SetSuperuserComplianceControlResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserComplianceControl not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserComplianceControl(context.Context, *DeleteSuperuserComplianceControlRequest) (*DeleteSuperuserComplianceControlResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserComplianceControl not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserServiceLevelObjective(context.Context, *SetSuperuserServiceLevelObjectiveRequest) (*SetSuperuserServiceLevelObjectiveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserServiceLevelObjective not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserServiceLevelObjective(context.Context, *DeleteSuperuserServiceLevelObjectiveRequest) (*DeleteSuperuserServiceLevelObjectiveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserServiceLevelObjective not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserIncident(context.Context, *SetSuperuserIncidentRequest) (*SetSuperuserIncidentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserIncident not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserIncident(context.Context, *DeleteSuperuserIncidentRequest) (*DeleteSuperuserIncidentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserIncident not implemented")
+}
+func (UnimplementedChatServiceServer) SetSuperuserIncidentUpdate(context.Context, *SetSuperuserIncidentUpdateRequest) (*SetSuperuserIncidentUpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetSuperuserIncidentUpdate not implemented")
+}
+func (UnimplementedChatServiceServer) DeleteSuperuserIncidentUpdate(context.Context, *DeleteSuperuserIncidentUpdateRequest) (*DeleteSuperuserIncidentUpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSuperuserIncidentUpdate not implemented")
+}
+func (UnimplementedChatServiceServer) GetSuperuserSlices(context.Context, *GetSuperuserSlicesRequest) (*GetSuperuserSlicesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSuperuserSlices not implemented")
+}
+func (UnimplementedChatServiceServer) GetWorkspaceAdminSlices(context.Context, *GetWorkspaceAdminSlicesRequest) (*GetWorkspaceAdminSlicesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWorkspaceAdminSlices not implemented")
 }
 func (UnimplementedChatServiceServer) RunServerTool(grpc.BidiStreamingServer[RunServerToolRequest, RunServerToolEvent]) error {
 	return status.Errorf(codes.Unimplemented, "method RunServerTool not implemented")
@@ -1051,6 +1915,870 @@ func _ChatService_ListAdminConversations_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).ListAdminConversations(ctx, req.(*ListAdminConversationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminReadOnlyReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminReadOnlyReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminReadOnlyReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminReadOnlyReport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminReadOnlyReport(ctx, req.(*GetAdminReadOnlyReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SearchAdminUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchAdminUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SearchAdminUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SearchAdminUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SearchAdminUsers(ctx, req.(*SearchAdminUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminUserDetail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminUserDetailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminUserDetail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminUserDetail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminUserDetail(ctx, req.(*GetAdminUserDetailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DisableAdminUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminUserMutationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DisableAdminUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DisableAdminUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DisableAdminUser(ctx, req.(*AdminUserMutationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_RestoreAdminUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminUserMutationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).RestoreAdminUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_RestoreAdminUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).RestoreAdminUser(ctx, req.(*AdminUserMutationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminWorkspaceDetail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminWorkspaceDetailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminWorkspaceDetail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminWorkspaceDetail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminWorkspaceDetail(ctx, req.(*GetAdminWorkspaceDetailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SuspendAdminWorkspace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminWorkspaceMutationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SuspendAdminWorkspace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SuspendAdminWorkspace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SuspendAdminWorkspace(ctx, req.(*AdminWorkspaceMutationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_RestoreAdminWorkspace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminWorkspaceMutationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).RestoreAdminWorkspace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_RestoreAdminWorkspace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).RestoreAdminWorkspace(ctx, req.(*AdminWorkspaceMutationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_RevokeWorkspaceAPIKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeWorkspaceAPIKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).RevokeWorkspaceAPIKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_RevokeWorkspaceAPIKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).RevokeWorkspaceAPIKey(ctx, req.(*RevokeWorkspaceAPIKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_PauseWorkspaceWebhookEndpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PauseWorkspaceWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).PauseWorkspaceWebhookEndpoint(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_PauseWorkspaceWebhookEndpoint_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).PauseWorkspaceWebhookEndpoint(ctx, req.(*PauseWorkspaceWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListAdminBillingAccessOverrides_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAdminBillingAccessOverridesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListAdminBillingAccessOverrides(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListAdminBillingAccessOverrides_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListAdminBillingAccessOverrides(ctx, req.(*ListAdminBillingAccessOverridesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListAdminBillingEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAdminBillingEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListAdminBillingEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListAdminBillingEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListAdminBillingEvents(ctx, req.(*ListAdminBillingEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListAdminBillingDunningEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAdminBillingDunningEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListAdminBillingDunningEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListAdminBillingDunningEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListAdminBillingDunningEvents(ctx, req.(*ListAdminBillingDunningEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminBillingAccessOverride_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminBillingAccessOverrideMutationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminBillingAccessOverride(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminBillingAccessOverride_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminBillingAccessOverride(ctx, req.(*AdminBillingAccessOverrideMutationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminBillingQuotaOverride_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminBillingQuotaOverrideMutationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminBillingQuotaOverride(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminBillingQuotaOverride_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminBillingQuotaOverride(ctx, req.(*AdminBillingQuotaOverrideMutationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ResolveAdminBillingFailedPayment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveAdminBillingFailedPaymentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ResolveAdminBillingFailedPayment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ResolveAdminBillingFailedPayment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ResolveAdminBillingFailedPayment(ctx, req.(*ResolveAdminBillingFailedPaymentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminBusinessDrilldown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminBusinessDrilldownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminBusinessDrilldown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminBusinessDrilldown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminBusinessDrilldown(ctx, req.(*GetAdminBusinessDrilldownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListAdminSupportTickets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAdminSupportTicketsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListAdminSupportTickets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListAdminSupportTickets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListAdminSupportTickets(ctx, req.(*ListAdminSupportTicketsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminSupportTicketDetail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminSupportTicketDetailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminSupportTicketDetail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminSupportTicketDetail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminSupportTicketDetail(ctx, req.(*GetAdminSupportTicketDetailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_AddAdminSupportInternalNote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddAdminSupportInternalNoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).AddAdminSupportInternalNote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_AddAdminSupportInternalNote_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).AddAdminSupportInternalNote(ctx, req.(*AddAdminSupportInternalNoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_AssignAdminSupportTicket_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignAdminSupportTicketRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).AssignAdminSupportTicket(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_AssignAdminSupportTicket_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).AssignAdminSupportTicket(ctx, req.(*AssignAdminSupportTicketRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_EscalateAdminSupportTicket_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EscalateAdminSupportTicketRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).EscalateAdminSupportTicket(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_EscalateAdminSupportTicket_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).EscalateAdminSupportTicket(ctx, req.(*EscalateAdminSupportTicketRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminFeatureFlag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminFeatureFlagRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminFeatureFlag(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminFeatureFlag_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminFeatureFlag(ctx, req.(*SetAdminFeatureFlagRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_RollbackAdminExperiment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackAdminExperimentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).RollbackAdminExperiment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_RollbackAdminExperiment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).RollbackAdminExperiment(ctx, req.(*RollbackAdminExperimentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_UpdateAdminIncident_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAdminIncidentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).UpdateAdminIncident(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_UpdateAdminIncident_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).UpdateAdminIncident(ctx, req.(*UpdateAdminIncidentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminIncidentBlastRadius_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminIncidentBlastRadiusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminIncidentBlastRadius(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminIncidentBlastRadius_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminIncidentBlastRadius(ctx, req.(*GetAdminIncidentBlastRadiusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserBillingPlanOverage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserBillingPlanOverageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserBillingPlanOverage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserBillingPlanOverage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserBillingPlanOverage(ctx, req.(*SetSuperuserBillingPlanOverageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserBillingPlanOverage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserBillingPlanOverageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingPlanOverage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserBillingPlanOverage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingPlanOverage(ctx, req.(*DeleteSuperuserBillingPlanOverageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserBillingQuotaPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserBillingQuotaPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserBillingQuotaPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserBillingQuotaPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserBillingQuotaPolicy(ctx, req.(*SetSuperuserBillingQuotaPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserBillingQuotaPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserBillingQuotaPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingQuotaPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserBillingQuotaPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingQuotaPolicy(ctx, req.(*DeleteSuperuserBillingQuotaPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserBillingUpgradeTrigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserBillingUpgradeTriggerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserBillingUpgradeTrigger(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserBillingUpgradeTrigger_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserBillingUpgradeTrigger(ctx, req.(*SetSuperuserBillingUpgradeTriggerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserBillingUpgradeTrigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserBillingUpgradeTriggerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingUpgradeTrigger(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserBillingUpgradeTrigger_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingUpgradeTrigger(ctx, req.(*DeleteSuperuserBillingUpgradeTriggerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserBillingDunningEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserBillingDunningEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserBillingDunningEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserBillingDunningEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserBillingDunningEvent(ctx, req.(*SetSuperuserBillingDunningEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserBillingDunningEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserBillingDunningEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingDunningEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserBillingDunningEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserBillingDunningEvent(ctx, req.(*DeleteSuperuserBillingDunningEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserWorkspaceSSOConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserWorkspaceSSOConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserWorkspaceSSOConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserWorkspaceSSOConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserWorkspaceSSOConfig(ctx, req.(*SetSuperuserWorkspaceSSOConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserWorkspaceSSOConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserWorkspaceSSOConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserWorkspaceSSOConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserWorkspaceSSOConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserWorkspaceSSOConfig(ctx, req.(*DeleteSuperuserWorkspaceSSOConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserDataRetentionPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserDataRetentionPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserDataRetentionPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserDataRetentionPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserDataRetentionPolicy(ctx, req.(*SetSuperuserDataRetentionPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserDataRetentionPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserDataRetentionPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserDataRetentionPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserDataRetentionPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserDataRetentionPolicy(ctx, req.(*DeleteSuperuserDataRetentionPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserComplianceControl_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserComplianceControlRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserComplianceControl(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserComplianceControl_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserComplianceControl(ctx, req.(*SetSuperuserComplianceControlRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserComplianceControl_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserComplianceControlRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserComplianceControl(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserComplianceControl_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserComplianceControl(ctx, req.(*DeleteSuperuserComplianceControlRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserServiceLevelObjective_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserServiceLevelObjectiveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserServiceLevelObjective(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserServiceLevelObjective_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserServiceLevelObjective(ctx, req.(*SetSuperuserServiceLevelObjectiveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserServiceLevelObjective_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserServiceLevelObjectiveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserServiceLevelObjective(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserServiceLevelObjective_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserServiceLevelObjective(ctx, req.(*DeleteSuperuserServiceLevelObjectiveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserIncident_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserIncidentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserIncident(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserIncident_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserIncident(ctx, req.(*SetSuperuserIncidentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserIncident_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserIncidentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserIncident(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserIncident_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserIncident(ctx, req.(*DeleteSuperuserIncidentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetSuperuserIncidentUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetSuperuserIncidentUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetSuperuserIncidentUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetSuperuserIncidentUpdate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetSuperuserIncidentUpdate(ctx, req.(*SetSuperuserIncidentUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_DeleteSuperuserIncidentUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSuperuserIncidentUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).DeleteSuperuserIncidentUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_DeleteSuperuserIncidentUpdate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).DeleteSuperuserIncidentUpdate(ctx, req.(*DeleteSuperuserIncidentUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetSuperuserSlices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSuperuserSlicesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetSuperuserSlices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetSuperuserSlices_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetSuperuserSlices(ctx, req.(*GetSuperuserSlicesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetWorkspaceAdminSlices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWorkspaceAdminSlicesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetWorkspaceAdminSlices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetWorkspaceAdminSlices_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetWorkspaceAdminSlices(ctx, req.(*GetWorkspaceAdminSlicesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1510,6 +3238,198 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAdminConversations",
 			Handler:    _ChatService_ListAdminConversations_Handler,
+		},
+		{
+			MethodName: "GetAdminReadOnlyReport",
+			Handler:    _ChatService_GetAdminReadOnlyReport_Handler,
+		},
+		{
+			MethodName: "SearchAdminUsers",
+			Handler:    _ChatService_SearchAdminUsers_Handler,
+		},
+		{
+			MethodName: "GetAdminUserDetail",
+			Handler:    _ChatService_GetAdminUserDetail_Handler,
+		},
+		{
+			MethodName: "DisableAdminUser",
+			Handler:    _ChatService_DisableAdminUser_Handler,
+		},
+		{
+			MethodName: "RestoreAdminUser",
+			Handler:    _ChatService_RestoreAdminUser_Handler,
+		},
+		{
+			MethodName: "GetAdminWorkspaceDetail",
+			Handler:    _ChatService_GetAdminWorkspaceDetail_Handler,
+		},
+		{
+			MethodName: "SuspendAdminWorkspace",
+			Handler:    _ChatService_SuspendAdminWorkspace_Handler,
+		},
+		{
+			MethodName: "RestoreAdminWorkspace",
+			Handler:    _ChatService_RestoreAdminWorkspace_Handler,
+		},
+		{
+			MethodName: "RevokeWorkspaceAPIKey",
+			Handler:    _ChatService_RevokeWorkspaceAPIKey_Handler,
+		},
+		{
+			MethodName: "PauseWorkspaceWebhookEndpoint",
+			Handler:    _ChatService_PauseWorkspaceWebhookEndpoint_Handler,
+		},
+		{
+			MethodName: "ListAdminBillingAccessOverrides",
+			Handler:    _ChatService_ListAdminBillingAccessOverrides_Handler,
+		},
+		{
+			MethodName: "ListAdminBillingEvents",
+			Handler:    _ChatService_ListAdminBillingEvents_Handler,
+		},
+		{
+			MethodName: "ListAdminBillingDunningEvents",
+			Handler:    _ChatService_ListAdminBillingDunningEvents_Handler,
+		},
+		{
+			MethodName: "SetAdminBillingAccessOverride",
+			Handler:    _ChatService_SetAdminBillingAccessOverride_Handler,
+		},
+		{
+			MethodName: "SetAdminBillingQuotaOverride",
+			Handler:    _ChatService_SetAdminBillingQuotaOverride_Handler,
+		},
+		{
+			MethodName: "ResolveAdminBillingFailedPayment",
+			Handler:    _ChatService_ResolveAdminBillingFailedPayment_Handler,
+		},
+		{
+			MethodName: "GetAdminBusinessDrilldown",
+			Handler:    _ChatService_GetAdminBusinessDrilldown_Handler,
+		},
+		{
+			MethodName: "ListAdminSupportTickets",
+			Handler:    _ChatService_ListAdminSupportTickets_Handler,
+		},
+		{
+			MethodName: "GetAdminSupportTicketDetail",
+			Handler:    _ChatService_GetAdminSupportTicketDetail_Handler,
+		},
+		{
+			MethodName: "AddAdminSupportInternalNote",
+			Handler:    _ChatService_AddAdminSupportInternalNote_Handler,
+		},
+		{
+			MethodName: "AssignAdminSupportTicket",
+			Handler:    _ChatService_AssignAdminSupportTicket_Handler,
+		},
+		{
+			MethodName: "EscalateAdminSupportTicket",
+			Handler:    _ChatService_EscalateAdminSupportTicket_Handler,
+		},
+		{
+			MethodName: "SetAdminFeatureFlag",
+			Handler:    _ChatService_SetAdminFeatureFlag_Handler,
+		},
+		{
+			MethodName: "RollbackAdminExperiment",
+			Handler:    _ChatService_RollbackAdminExperiment_Handler,
+		},
+		{
+			MethodName: "UpdateAdminIncident",
+			Handler:    _ChatService_UpdateAdminIncident_Handler,
+		},
+		{
+			MethodName: "GetAdminIncidentBlastRadius",
+			Handler:    _ChatService_GetAdminIncidentBlastRadius_Handler,
+		},
+		{
+			MethodName: "SetSuperuserBillingPlanOverage",
+			Handler:    _ChatService_SetSuperuserBillingPlanOverage_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserBillingPlanOverage",
+			Handler:    _ChatService_DeleteSuperuserBillingPlanOverage_Handler,
+		},
+		{
+			MethodName: "SetSuperuserBillingQuotaPolicy",
+			Handler:    _ChatService_SetSuperuserBillingQuotaPolicy_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserBillingQuotaPolicy",
+			Handler:    _ChatService_DeleteSuperuserBillingQuotaPolicy_Handler,
+		},
+		{
+			MethodName: "SetSuperuserBillingUpgradeTrigger",
+			Handler:    _ChatService_SetSuperuserBillingUpgradeTrigger_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserBillingUpgradeTrigger",
+			Handler:    _ChatService_DeleteSuperuserBillingUpgradeTrigger_Handler,
+		},
+		{
+			MethodName: "SetSuperuserBillingDunningEvent",
+			Handler:    _ChatService_SetSuperuserBillingDunningEvent_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserBillingDunningEvent",
+			Handler:    _ChatService_DeleteSuperuserBillingDunningEvent_Handler,
+		},
+		{
+			MethodName: "SetSuperuserWorkspaceSSOConfig",
+			Handler:    _ChatService_SetSuperuserWorkspaceSSOConfig_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserWorkspaceSSOConfig",
+			Handler:    _ChatService_DeleteSuperuserWorkspaceSSOConfig_Handler,
+		},
+		{
+			MethodName: "SetSuperuserDataRetentionPolicy",
+			Handler:    _ChatService_SetSuperuserDataRetentionPolicy_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserDataRetentionPolicy",
+			Handler:    _ChatService_DeleteSuperuserDataRetentionPolicy_Handler,
+		},
+		{
+			MethodName: "SetSuperuserComplianceControl",
+			Handler:    _ChatService_SetSuperuserComplianceControl_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserComplianceControl",
+			Handler:    _ChatService_DeleteSuperuserComplianceControl_Handler,
+		},
+		{
+			MethodName: "SetSuperuserServiceLevelObjective",
+			Handler:    _ChatService_SetSuperuserServiceLevelObjective_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserServiceLevelObjective",
+			Handler:    _ChatService_DeleteSuperuserServiceLevelObjective_Handler,
+		},
+		{
+			MethodName: "SetSuperuserIncident",
+			Handler:    _ChatService_SetSuperuserIncident_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserIncident",
+			Handler:    _ChatService_DeleteSuperuserIncident_Handler,
+		},
+		{
+			MethodName: "SetSuperuserIncidentUpdate",
+			Handler:    _ChatService_SetSuperuserIncidentUpdate_Handler,
+		},
+		{
+			MethodName: "DeleteSuperuserIncidentUpdate",
+			Handler:    _ChatService_DeleteSuperuserIncidentUpdate_Handler,
+		},
+		{
+			MethodName: "GetSuperuserSlices",
+			Handler:    _ChatService_GetSuperuserSlices_Handler,
+		},
+		{
+			MethodName: "GetWorkspaceAdminSlices",
+			Handler:    _ChatService_GetWorkspaceAdminSlices_Handler,
 		},
 		{
 			MethodName: "ListConversations",

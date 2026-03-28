@@ -1,8 +1,10 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -62,6 +64,25 @@ func parseHandleBackgroundJobs(parseStore *Store, parseNow string, parseLimit in
 	parseProcessedCount := 0
 	for _, parseRow := range parseRows {
 		if strings.TrimSpace(parseRow.Status) != "pending" || !parseHasBackgroundJobTypeSupported(parseRow.JobType) || !parseHasBackgroundJobReady(parseRow.RunAfter, parseNow) {
+			continue
+		}
+		if parseOperationalErr := parseRequireBackgroundJobOperational(parseStore, parseRow.QueueKey, parseRow.PayloadJSON); parseOperationalErr != nil {
+			if parseErr2 := parseStore.parseUpsertBackgroundJob(parseBackgroundJobWrite{
+				JobKey:       parseRow.JobKey,
+				JobType:      parseRow.JobType,
+				QueueKey:     parseRow.QueueKey,
+				Status:       "failed",
+				AttemptCount: parseRow.AttemptCount,
+				MaxAttempts:  parseResolveBackgroundJobMaxAttempts(parseRow.MaxAttempts),
+				PayloadJSON:  parseRow.PayloadJSON,
+				RunAfter:     parseNow,
+				StartedAt:    parseNow,
+				FinishedAt:   parseNow,
+				ErrorMessage: parseOperationalErr.Error(),
+			}); parseErr2 != nil {
+				return parseProcessedCount, parseErr2
+			}
+			parseProcessedCount++
 			continue
 		}
 		parseAttemptCount := parseRow.AttemptCount + 1
@@ -128,6 +149,19 @@ func parseHandleBackgroundJobs(parseStore *Store, parseNow string, parseLimit in
 	return parseProcessedCount, nil
 }
 
+// parseResolveWorkspaceIDFromBackgroundQueueKey parses one queue key formatted as `workspace:<id>`.
+func parseResolveWorkspaceIDFromBackgroundQueueKey(parseQueueKey string) int64 {
+	parseQueueKey = strings.TrimSpace(strings.ToLower(parseQueueKey))
+	if !strings.HasPrefix(parseQueueKey, "workspace:") {
+		return 0
+	}
+	parseWorkspaceID, parseErr := strconv.ParseInt(strings.TrimSpace(strings.TrimPrefix(parseQueueKey, "workspace:")), 10, 64)
+	if parseErr != nil || parseWorkspaceID <= 0 {
+		return 0
+	}
+	return parseWorkspaceID
+}
+
 // parseStoreBackgroundJob writes one pending system background job row.
 func parseStoreBackgroundJob(parseStore *Store, parseJobKey, parseJobType, parsePayloadJSON, parseRunAfter string) error {
 	if parseStore == nil {
@@ -139,6 +173,10 @@ func parseStoreBackgroundJob(parseStore *Store, parseJobKey, parseJobType, parse
 	if !parseHasBackgroundJobTypeSupported(parseJobType) {
 		return fmt.Errorf("store background job: unsupported job type %q", parseJobType)
 	}
+	parsePayloadJSON = parseNormalizeBillingJSON(parsePayloadJSON)
+	if parseErr := parseRequireBackgroundJobOperational(parseStore, "system", parsePayloadJSON); parseErr != nil {
+		return parseErr
+	}
 	if strings.TrimSpace(parseRunAfter) == "" {
 		parseRunAfter = time.Now().UTC().Format(time.RFC3339)
 	}
@@ -149,12 +187,102 @@ func parseStoreBackgroundJob(parseStore *Store, parseJobKey, parseJobType, parse
 		Status:       "pending",
 		AttemptCount: 0,
 		MaxAttempts:  3,
-		PayloadJSON:  parseNormalizeBillingJSON(parsePayloadJSON),
+		PayloadJSON:  parsePayloadJSON,
 		RunAfter:     strings.TrimSpace(parseRunAfter),
 		StartedAt:    "",
 		FinishedAt:   "",
 		ErrorMessage: "",
 	})
+}
+
+// parseRequireBackgroundJobOperational enforces user-disable and workspace-suspend policy for queued job scope.
+func parseRequireBackgroundJobOperational(parseStore *Store, parseQueueKey string, parsePayloadJSON string) error {
+	if parseStore == nil {
+		return errors.New("require background job operational: store is required")
+	}
+	parseWorkspaceID := parseResolveBackgroundJobWorkspaceID(parseQueueKey, parsePayloadJSON)
+	if parseWorkspaceID > 0 {
+		if parseErr := parseStore.parseRequireWorkspaceOperational(parseWorkspaceID); parseErr != nil {
+			return parseErr
+		}
+	}
+	parseUserID := parseResolveBackgroundJobUserID(parsePayloadJSON)
+	if parseUserID > 0 {
+		if parseErr := parseStore.parseRequireUserOperational(parseUserID); parseErr != nil {
+			return parseErr
+		}
+	}
+	return nil
+}
+
+// parseResolveBackgroundJobWorkspaceID resolves one workspace id from queue key first, then payload JSON scope.
+func parseResolveBackgroundJobWorkspaceID(parseQueueKey string, parsePayloadJSON string) int64 {
+	if parseWorkspaceID := parseResolveWorkspaceIDFromBackgroundQueueKey(parseQueueKey); parseWorkspaceID > 0 {
+		return parseWorkspaceID
+	}
+	parsePayloadMap := parseResolveBackgroundJobPayloadMap(parsePayloadJSON)
+	return parseResolveBackgroundJobScopeID(parsePayloadMap, "workspace_id", "workspaceId")
+}
+
+// parseResolveBackgroundJobUserID resolves one user id from job payload JSON scope.
+func parseResolveBackgroundJobUserID(parsePayloadJSON string) int64 {
+	parsePayloadMap := parseResolveBackgroundJobPayloadMap(parsePayloadJSON)
+	return parseResolveBackgroundJobScopeID(parsePayloadMap, "user_id", "userId")
+}
+
+// parseResolveBackgroundJobPayloadMap parses one payload JSON object into a key-value map for scope extraction.
+func parseResolveBackgroundJobPayloadMap(parsePayloadJSON string) map[string]any {
+	parsePayloadJSON = strings.TrimSpace(parsePayloadJSON)
+	if parsePayloadJSON == "" {
+		return nil
+	}
+	parsePayloadMap := map[string]any{}
+	if parseErr := json.Unmarshal([]byte(parsePayloadJSON), &parsePayloadMap); parseErr != nil {
+		return nil
+	}
+	return parsePayloadMap
+}
+
+// parseResolveBackgroundJobScopeID resolves one numeric scope id by key variants from one parsed payload map.
+func parseResolveBackgroundJobScopeID(parsePayloadMap map[string]any, parseKeys ...string) int64 {
+	if len(parsePayloadMap) == 0 {
+		return 0
+	}
+	for _, parseKey := range parseKeys {
+		parseValue, hasParseValue := parsePayloadMap[strings.TrimSpace(parseKey)]
+		if !hasParseValue {
+			continue
+		}
+		parseScopeID, isParseFound := parseResolveBackgroundJobScopeValue(parseValue)
+		if !isParseFound {
+			continue
+		}
+		return parseScopeID
+	}
+	return 0
+}
+
+// parseResolveBackgroundJobScopeValue normalizes one payload scope value into a positive int64 id.
+func parseResolveBackgroundJobScopeValue(parseValue any) (int64, bool) {
+	switch parseTyped := parseValue.(type) {
+	case float64:
+		parseScopeID := int64(parseTyped)
+		return parseScopeID, parseScopeID > 0 && float64(parseScopeID) == parseTyped
+	case string:
+		parseScopeID, parseErr := strconv.ParseInt(strings.TrimSpace(parseTyped), 10, 64)
+		if parseErr != nil || parseScopeID <= 0 {
+			return 0, false
+		}
+		return parseScopeID, true
+	case json.Number:
+		parseScopeID, parseErr := parseTyped.Int64()
+		if parseErr != nil || parseScopeID <= 0 {
+			return 0, false
+		}
+		return parseScopeID, true
+	default:
+		return 0, false
+	}
 }
 
 // parseHandleBackgroundJobByType dispatches one job row to its typed handler callback.

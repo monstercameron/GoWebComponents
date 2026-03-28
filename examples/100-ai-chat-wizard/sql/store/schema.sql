@@ -4,6 +4,15 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     created_at    TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS user_access_states (
+    user_id             INTEGER PRIMARY KEY REFERENCES users(id),
+    status              TEXT NOT NULL DEFAULT 'active',
+    reason              TEXT NOT NULL DEFAULT '',
+    disabled_by_user_id INTEGER NOT NULL DEFAULT 0,
+    disabled_at         TEXT NOT NULL DEFAULT '',
+    updated_at          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_user_access_states_status ON user_access_states(status, user_id);
 CREATE TABLE IF NOT EXISTS auth_sessions (
     id                         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id                    INTEGER NOT NULL REFERENCES users(id),
@@ -25,6 +34,17 @@ CREATE TABLE IF NOT EXISTS auth_token_versions (
     token_version              INTEGER NOT NULL DEFAULT 1,
     updated_at                 TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS user_auth_blocks (
+    id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id                    INTEGER NOT NULL REFERENCES users(id),
+    block_key                  TEXT NOT NULL,
+    block_source               TEXT NOT NULL,
+    block_reason               TEXT NOT NULL DEFAULT '',
+    blocked_at                 TEXT NOT NULL,
+    updated_at                 TEXT NOT NULL,
+    UNIQUE(user_id, block_key)
+);
+CREATE INDEX IF NOT EXISTS idx_user_auth_blocks_user_id ON user_auth_blocks(user_id, id DESC);
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     id                         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id                    INTEGER NOT NULL REFERENCES users(id),

@@ -562,6 +562,43 @@ func (parseS *Store) parseListProductAnalyticsEvents(parseLimit int64) ([]parseP
 	return parseEventRows, parseRows.Err()
 }
 
+// parseListProductAnalyticsEventsByUser lists product-analytics events for one user newest-first.
+func (parseS *Store) parseListProductAnalyticsEventsByUser(parseUserID int64, parseLimit int64) ([]parseProductAnalyticsEventRow, error) {
+	if parseUserID <= 0 {
+		return nil, nil
+	}
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listProductAnalyticsEventsByUser, parseUserID, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseEventRows := make([]parseProductAnalyticsEventRow, 0)
+	for parseRows.Next() {
+		var parseRow parseProductAnalyticsEventRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.WorkspaceID,
+			&parseRow.UserID,
+			&parseRow.SessionKey,
+			&parseRow.EventName,
+			&parseRow.FunnelKey,
+			&parseRow.StepKey,
+			&parseRow.ExperimentKey,
+			&parseRow.VariantKey,
+			&parseRow.EventPropsJSON,
+			&parseRow.CreatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseEventRows = append(parseEventRows, parseRow)
+	}
+	return parseEventRows, parseRows.Err()
+}
+
 // parseUpsertExperimentAssignment persists one experiment-assignment row.
 func (parseS *Store) parseUpsertExperimentAssignment(parseWrite parseExperimentAssignmentWrite) error {
 	parseExperimentKey := parseNormalizeSUKey(parseWrite.ExperimentKey)
@@ -656,6 +693,40 @@ func (parseS *Store) parseListSubscriptionChurnFeedback(parseLimit int64) ([]par
 		parseLimit = 100
 	}
 	parseRows, parseErr := parseS.db.Query(parseS.queries.listSubscriptionChurnFeedback, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseFeedbackRows := make([]parseSubscriptionChurnFeedbackRow, 0)
+	for parseRows.Next() {
+		var parseRow parseSubscriptionChurnFeedbackRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.CustomerID,
+			&parseRow.SubscriptionID,
+			&parseRow.WorkspaceID,
+			&parseRow.ReasonKey,
+			&parseRow.Detail,
+			&parseRow.RecoveryOfferKey,
+			&parseRow.CreatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseFeedbackRows = append(parseFeedbackRows, parseRow)
+	}
+	return parseFeedbackRows, parseRows.Err()
+}
+
+// parseListSubscriptionChurnFeedbackByCustomer lists subscription-churn feedback for one customer newest-first.
+func (parseS *Store) parseListSubscriptionChurnFeedbackByCustomer(parseCustomerID int64, parseLimit int64) ([]parseSubscriptionChurnFeedbackRow, error) {
+	if parseCustomerID <= 0 {
+		return nil, nil
+	}
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listSubscriptionChurnFeedbackByCustomer, parseCustomerID, parseLimit)
 	if parseErr != nil {
 		return nil, parseErr
 	}

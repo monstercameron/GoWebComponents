@@ -4,7 +4,9 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -54,6 +56,32 @@ func (parseS *fakeRunServerToolStream) SendMsg(any) error {
 // RecvMsg satisfies the grpc stream contract for tests.
 func (parseS *fakeRunServerToolStream) RecvMsg(any) error {
 	return nil
+}
+
+// parseBuildStaleSessionToken re-signs one valid session token with one synthetic issued-at timestamp for freshness tests.
+func parseBuildStaleSessionToken(parseT *testing.T, parseAuth *authManager, parseFreshToken string, parseIssuedAt time.Time) string {
+	parseT.Helper()
+	parseClaims, parseErr := parseAuth.parseValidateSignedTokenClaims(parseFreshToken)
+	if parseErr != nil {
+		parseT.Fatalf("parseValidateSignedTokenClaims: %v", parseErr)
+	}
+	parseRegisteredClaims := parseClaims.RegisteredClaims
+	parseRegisteredClaims.IssuedAt = jwt.NewNumericDate(parseIssuedAt.UTC())
+	parseToken := jwt.NewWithClaims(jwt.SigningMethodHS256, authClaims{
+		UserID:           parseClaims.UserID,
+		Email:            parseClaims.Email,
+		SessionID:        parseClaims.SessionID,
+		TokenVersion:     parseClaims.TokenVersion,
+		RegisteredClaims: parseRegisteredClaims,
+	})
+	if parseAuth.signingKeyID != "" {
+		parseToken.Header["kid"] = parseAuth.signingKeyID
+	}
+	parseStaleToken, parseErr := parseToken.SignedString(parseAuth.secret)
+	if parseErr != nil {
+		parseT.Fatalf("SignedString stale token: %v", parseErr)
+	}
+	return parseStaleToken
 }
 
 // TestGetServerToolPolicyRequiresSURole verifies the policy endpoint remains superuser-gated.
@@ -111,6 +139,47 @@ func TestRunServerToolReturnsUnimplemented(parseT *testing.T) {
 	parseErr := parseServer.RunServerTool(&fakeRunServerToolStream{parseCtx: parseCtx})
 	if status.Code(parseErr) != codes.Unimplemented {
 		parseT.Fatalf("expected unimplemented, got %v", status.Code(parseErr))
+	}
+}
+
+// TestSensitiveSuperuserMutationsRequireFreshSession verifies stale superuser sessions must re-authenticate before sensitive mutations.
+func TestSensitiveSuperuserMutationsRequireFreshSession(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseServer := parseNewChatServiceServer("", "", "", modelGPT54Mini, parseStore, parseNewTestLogger())
+	parseServer.authManager = parseNewAuthManager("test-secret", parseStore, parseNewTestLogger())
+
+	parseSignupResp, parseErr := parseServer.Signup(context.Background(), &chatpb.SignupRequest{
+		Email:       "superuser-fresh-session@example.com",
+		Password:    "password123",
+		DisplayName: "Fresh Session Owner",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("Signup: %v", parseErr)
+	}
+	parseGrantSuperuserRole(parseT, parseStore, parseSignupResp.GetUserId())
+
+	parseLoginResp, parseErr := parseServer.Login(context.Background(), &chatpb.LoginRequest{
+		Email:    "superuser-fresh-session@example.com",
+		Password: "password123",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("Login: %v", parseErr)
+	}
+	parseFreshCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer "+parseLoginResp.GetAuthToken()))
+	if _, parseErr = parseServer.SetServerToolPolicy(parseFreshCtx, &chatpb.SetServerToolPolicyRequest{}); status.Code(parseErr) != codes.Unimplemented {
+		parseT.Fatalf("expected fresh-session SetServerToolPolicy to reach stub, got %v", status.Code(parseErr))
+	}
+	if parseErr = parseServer.RunServerTool(&fakeRunServerToolStream{parseCtx: parseFreshCtx}); status.Code(parseErr) != codes.Unimplemented {
+		parseT.Fatalf("expected fresh-session RunServerTool to reach stub, got %v", status.Code(parseErr))
+	}
+
+	parseStaleToken := parseBuildStaleSessionToken(parseT, parseServer.authManager, parseLoginResp.GetAuthToken(), time.Now().UTC().Add(-superuserMutationSessionMaxAge-time.Minute))
+	parseStaleCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer "+parseStaleToken))
+	if _, parseErr = parseServer.SetServerToolPolicy(parseStaleCtx, &chatpb.SetServerToolPolicyRequest{}); status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("expected stale-session SetServerToolPolicy to require re-authentication, got %v", status.Code(parseErr))
+	}
+	if parseErr = parseServer.RunServerTool(&fakeRunServerToolStream{parseCtx: parseStaleCtx}); status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("expected stale-session RunServerTool to require re-authentication, got %v", status.Code(parseErr))
 	}
 }
 

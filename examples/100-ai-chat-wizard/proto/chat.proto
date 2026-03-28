@@ -83,9 +83,14 @@ message ConversationSummary {
   string public_id  = 4; // stable public UUID used for browser routing
 }
 
-message ListConversationsRequest {}
+message ListConversationsRequest {
+  int32 page_size = 1;   // optional; 0 means return full list for backward compatibility
+  int32 page_offset = 2; // optional offset into newest-first conversation list
+}
 message ListConversationsResponse {
   repeated ConversationSummary conversations = 1;
+  bool has_more = 2;
+  int32 next_offset = 3;
 }
 
 message ResolveConversationRouteRequest {
@@ -167,11 +172,24 @@ message AuthResponse {
   string display_name = 4;
 }
 
+message AuthRoleSummary {
+  string scope = 1;
+  bool can_access_admin = 2;
+  bool is_superuser = 3;
+  repeated int64 workspace_admin_workspace_ids = 4;
+}
+
 message GetSessionResponse {
   bool authenticated = 1;
   int64 user_id = 2;
   string email = 3;
   string display_name = 4;
+  string session_status = 5;
+  string session_id = 6;
+  int64 token_version = 7;
+  string expires_at = 8;
+  int64 expires_in_seconds = 9;
+  AuthRoleSummary role_summary = 10;
 }
 
 message GetClientIdentityResponse {
@@ -335,6 +353,14 @@ message AdminDashboardSummary {
   int64 window_active_clients = 13;
   int64 window_completed_events = 14;
   int64 window_failed_events = 15;
+  int64 window_billing_events = 16;
+  int64 window_open_invoices = 17;
+  int64 window_open_dunning_events = 18;
+  int64 open_incidents = 19;
+  int64 open_support_tickets = 20;
+  int64 active_experiments = 21;
+  int64 unhealthy_experiments = 22;
+  int64 window_experiment_assignments = 23;
 }
 
 message AdminDashboardDailyUsage {
@@ -488,8 +514,17 @@ message GetAdminDashboardResponse {
   repeated AdminProviderSnapshot provider_snapshots = 9;
 }
 
+message AdminListQuery {
+  int32 limit = 1;
+  int32 offset = 2;
+  string search = 3;
+  string sort_by = 4;
+  string sort_direction = 5;
+}
+
 message ListAdminUsersRequest {
   int32 limit = 1;
+  AdminListQuery list_query = 2;
 }
 
 message ListAdminUsersResponse {
@@ -499,6 +534,9 @@ message ListAdminUsersResponse {
 message ListAdminUsageEventsRequest {
   int32 lookback_days = 1;
   int32 limit = 2;
+  string status = 3;
+  string provider_id = 4;
+  AdminListQuery list_query = 5;
 }
 
 message ListAdminUsageEventsResponse {
@@ -507,10 +545,507 @@ message ListAdminUsageEventsResponse {
 
 message ListAdminConversationsRequest {
   int32 limit = 1;
+  AdminListQuery list_query = 2;
 }
 
 message ListAdminConversationsResponse {
   repeated AdminConversationSummary conversations = 1;
+}
+
+message GetAdminReadOnlyReportRequest {
+  string report_key = 1;
+  int32 lookback_days = 2;
+  int32 limit = 3;
+}
+
+message GetAdminReadOnlyReportResponse {
+  string report_key = 1;
+  string scope = 2;
+  AdminDashboardSummary summary = 3;
+  repeated AdminUserSummary users = 4;
+  repeated AdminUsageEvent usage_events = 5;
+  repeated AdminConversationSummary conversations = 6;
+  int32 row_count = 7;
+}
+
+message SearchAdminUsersRequest {
+  string query = 1;
+  int32 limit = 2;
+}
+
+message SearchAdminUsersResponse {
+  repeated AdminUserSummary users = 1;
+}
+
+message GetAdminUserDetailRequest {
+  int64 user_id = 1;
+  int32 lookback_days = 2;
+  int32 limit = 3;
+}
+
+message AdminUserDetail {
+  AdminUserSummary user = 1;
+  repeated AuthSessionEntry recent_sessions = 2;
+  repeated AdminUsageEvent recent_usage_events = 3;
+  repeated AuditLogEntry recent_audit_logs = 4;
+}
+
+message GetAdminUserDetailResponse {
+  AdminUserDetail detail = 1;
+}
+
+message AdminUserMutationRequest {
+  int64 user_id = 1;
+  bool confirm = 2;
+  string reason = 3;
+}
+
+message AdminUserMutationResponse {
+  int64 user_id = 1;
+  string status = 2;
+}
+
+message GetAdminWorkspaceDetailRequest {
+  int64 workspace_id = 1;
+  int32 lookback_days = 2;
+  int32 limit = 3;
+}
+
+message AdminWorkspaceDetail {
+  WorkspaceEntry workspace = 1;
+  repeated WorkspaceMembershipEntry memberships = 2;
+  repeated WorkspaceInvitationEntry invitations = 3;
+  repeated APIKeyEntry api_keys = 4;
+  repeated WebhookEndpointEntry webhook_endpoints = 5;
+  repeated AuditLogEntry recent_audit_logs = 6;
+}
+
+message GetAdminWorkspaceDetailResponse {
+  AdminWorkspaceDetail detail = 1;
+}
+
+message AdminWorkspaceMutationRequest {
+  int64 workspace_id = 1;
+  bool confirm = 2;
+  string reason = 3;
+  bool restore_api_keys = 4;
+  bool restore_webhook_endpoints = 5;
+  bool restore_background_jobs = 6;
+}
+
+message AdminWorkspaceMutationResponse {
+  int64 workspace_id = 1;
+  string status = 2;
+}
+
+message RevokeWorkspaceAPIKeyRequest {
+  int64 workspace_id = 1;
+  string key_id = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message RevokeWorkspaceAPIKeyResponse {
+  int64 workspace_id = 1;
+  string key_id = 2;
+  string status = 3;
+}
+
+message PauseWorkspaceWebhookRequest {
+  int64 workspace_id = 1;
+  int64 endpoint_id = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message PauseWorkspaceWebhookResponse {
+  int64 workspace_id = 1;
+  int64 endpoint_id = 2;
+  string status = 3;
+}
+
+message AdminBillingAccessOverrideEntry {
+  int64 id = 1;
+  int64 customer_id = 2;
+  string override_key = 3;
+  string override_value = 4;
+  string reason = 5;
+  bool is_enabled = 6;
+  string starts_at = 7;
+  string ends_at = 8;
+  int64 actor_user_id = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message AdminBillingEventEntry {
+  int64 id = 1;
+  int64 customer_id = 2;
+  int64 subscription_id = 3;
+  int64 invoice_id = 4;
+  string event_type = 5;
+  string event_source = 6;
+  string event_summary = 7;
+  string event_payload_json = 8;
+  int64 actor_user_id = 9;
+  string created_at = 10;
+}
+
+message AdminBillingDunningEventEntry {
+  int64 id = 1;
+  int64 customer_id = 2;
+  int64 subscription_id = 3;
+  int64 invoice_id = 4;
+  string status = 5;
+  int64 attempt_count = 6;
+  string failure_reason = 7;
+  string next_attempt_at = 8;
+  string resolved_at = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message ListAdminBillingAccessOverridesRequest {
+  int64 user_id = 1;
+  string override_key = 2;
+  AdminListQuery list_query = 3;
+}
+
+message ListAdminBillingAccessOverridesResponse {
+  repeated AdminBillingAccessOverrideEntry overrides = 1;
+}
+
+message ListAdminBillingEventsRequest {
+  int64 user_id = 1;
+  int32 limit = 2;
+  string event_type = 3;
+  AdminListQuery list_query = 4;
+}
+
+message ListAdminBillingEventsResponse {
+  repeated AdminBillingEventEntry events = 1;
+}
+
+message ListAdminBillingDunningEventsRequest {
+  int64 user_id = 1;
+  int32 limit = 2;
+  string status = 3;
+  AdminListQuery list_query = 4;
+}
+
+message ListAdminBillingDunningEventsResponse {
+  repeated AdminBillingDunningEventEntry events = 1;
+}
+
+message AdminBillingAccessOverrideMutationRequest {
+  int64 user_id = 1;
+  string override_key = 2;
+  string override_value = 3;
+  string reason = 4;
+  bool is_enabled = 5;
+  string starts_at = 6;
+  string ends_at = 7;
+  bool confirm = 8;
+}
+
+message AdminBillingAccessOverrideMutationResponse {
+  int64 user_id = 1;
+  string override_key = 2;
+  string status = 3;
+}
+
+message AdminBillingQuotaOverrideMutationRequest {
+  int64 user_id = 1;
+  string quota_key = 2;
+  string quota_value = 3;
+  string reason = 4;
+  bool is_enabled = 5;
+  string starts_at = 6;
+  string ends_at = 7;
+  bool confirm = 8;
+}
+
+message AdminBillingQuotaOverrideMutationResponse {
+  int64 user_id = 1;
+  string quota_key = 2;
+  string status = 3;
+}
+
+message ResolveAdminBillingFailedPaymentRequest {
+  int64 user_id = 1;
+  int64 invoice_id = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message ResolveAdminBillingFailedPaymentResponse {
+  int64 user_id = 1;
+  int64 invoice_id = 2;
+  string invoice_status = 3;
+}
+
+message BillingCustomerEntry {
+  int64 id = 1;
+  int64 user_id = 2;
+  string provider_id = 3;
+  string provider_customer_id = 4;
+  string email = 5;
+  string display_name = 6;
+  string currency = 7;
+  string tax_exempt_status = 8;
+  string external_metadata_json = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message BillingSubscriptionEntry {
+  int64 id = 1;
+  int64 customer_id = 2;
+  string provider_id = 3;
+  string provider_subscription_id = 4;
+  string plan_code = 5;
+  string price_code = 6;
+  string status = 7;
+  string billing_interval = 8;
+  int64 quantity = 9;
+  string current_period_start = 10;
+  string current_period_end = 11;
+  bool is_cancel_at_period_end = 12;
+  string canceled_at = 13;
+  string trial_ends_at = 14;
+  string access_expires_at = 15;
+  string created_at = 16;
+  string updated_at = 17;
+}
+
+message BillingInvoiceEntry {
+  int64 id = 1;
+  int64 customer_id = 2;
+  int64 subscription_id = 3;
+  string provider_id = 4;
+  string provider_invoice_id = 5;
+  string status = 6;
+  string currency = 7;
+  int64 subtotal_cents = 8;
+  int64 tax_cents = 9;
+  int64 discount_cents = 10;
+  int64 total_cents = 11;
+  int64 amount_due_cents = 12;
+  int64 amount_paid_cents = 13;
+  string period_start = 14;
+  string period_end = 15;
+  string due_at = 16;
+  string paid_at = 17;
+  string hosted_invoice_url = 18;
+  string external_metadata_json = 19;
+  string created_at = 20;
+  string updated_at = 21;
+}
+
+message BillingInvoiceLineItemEntry {
+  int64 id = 1;
+  int64 invoice_id = 2;
+  string usage_event_id = 3;
+  string line_type = 4;
+  string description = 5;
+  int64 quantity = 6;
+  int64 unit_amount_cents = 7;
+  int64 amount_cents = 8;
+  string currency = 9;
+  string period_start = 10;
+  string period_end = 11;
+  string created_at = 12;
+}
+
+message ProductAnalyticsEventEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  int64 user_id = 3;
+  string session_key = 4;
+  string event_name = 5;
+  string funnel_key = 6;
+  string step_key = 7;
+  string experiment_key = 8;
+  string variant_key = 9;
+  string event_props_json = 10;
+  string created_at = 11;
+}
+
+message SubscriptionChurnFeedbackEntry {
+  int64 id = 1;
+  int64 customer_id = 2;
+  int64 subscription_id = 3;
+  int64 workspace_id = 4;
+  string reason_key = 5;
+  string detail = 6;
+  string recovery_offer_key = 7;
+  string created_at = 8;
+}
+
+message GetAdminBusinessDrilldownRequest {
+  int64 user_id = 1;
+  int32 limit = 2;
+}
+
+message GetAdminBusinessDrilldownResponse {
+  AdminUserSummary user = 1;
+  BillingCustomerEntry customer = 2;
+  repeated BillingSubscriptionEntry subscriptions = 3;
+  repeated BillingInvoiceEntry invoices = 4;
+  repeated BillingInvoiceLineItemEntry invoice_line_items = 5;
+  repeated AdminBillingAccessOverrideEntry access_overrides = 6;
+  repeated AdminBillingEventEntry billing_events = 7;
+  repeated AdminUsageEvent usage_events = 8;
+  repeated ProductAnalyticsEventEntry product_analytics_events = 9;
+  repeated SubscriptionChurnFeedbackEntry churn_feedback = 10;
+}
+
+message ListAdminSupportTicketsRequest {
+  int32 limit = 1;
+  string status = 2;
+  string priority = 3;
+  int64 assignee_user_id = 4;
+  AdminListQuery list_query = 5;
+}
+
+message ListAdminSupportTicketsResponse {
+  repeated SupportTicketEntry tickets = 1;
+}
+
+message GetAdminSupportTicketDetailRequest {
+  int64 ticket_id = 1;
+  int32 limit = 2;
+}
+
+message AdminSupportTicketDetail {
+  SupportTicketEntry ticket = 1;
+  repeated SupportTicketMessageEntry messages = 2;
+  repeated AuditLogEntry account_action_history = 3;
+}
+
+message GetAdminSupportTicketDetailResponse {
+  AdminSupportTicketDetail detail = 1;
+}
+
+message AddAdminSupportInternalNoteRequest {
+  int64 ticket_id = 1;
+  string body = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message AddAdminSupportInternalNoteResponse {
+  int64 ticket_id = 1;
+  int64 message_id = 2;
+  string status = 3;
+}
+
+message AssignAdminSupportTicketRequest {
+  int64 ticket_id = 1;
+  int64 assignee_user_id = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message AssignAdminSupportTicketResponse {
+  int64 ticket_id = 1;
+  int64 assignee_user_id = 2;
+  string status = 3;
+}
+
+message EscalateAdminSupportTicketRequest {
+  int64 ticket_id = 1;
+  string priority = 2;
+  string status = 3;
+  string resolution_note = 4;
+  bool confirm = 5;
+  string reason = 6;
+}
+
+message EscalateAdminSupportTicketResponse {
+  int64 ticket_id = 1;
+  string priority = 2;
+  string status = 3;
+}
+
+message SetAdminFeatureFlagRequest {
+  string flag_key = 1;
+  bool is_enabled = 2;
+  int64 rollout_percent = 3;
+  string audience_json = 4;
+  string payload_json = 5;
+  bool confirm = 6;
+  string reason = 7;
+}
+
+message SetAdminFeatureFlagResponse {
+  FeatureFlagEntry feature_flag = 1;
+}
+
+message RollbackAdminExperimentRequest {
+  string experiment_key = 1;
+  bool confirm = 2;
+  string reason = 3;
+}
+
+message RollbackAdminExperimentResponse {
+  ExperimentEntry experiment = 1;
+}
+
+message UpdateAdminIncidentRequest {
+  int64 incident_id = 1;
+  int64 workspace_id = 2;
+  string status = 3;
+  string message = 4;
+  bool is_public = 5;
+  bool confirm = 6;
+  string reason = 7;
+}
+
+message UpdateAdminIncidentResponse {
+  IncidentEntry incident = 1;
+  IncidentUpdateEntry incident_update = 2;
+}
+
+message GetAdminIncidentBlastRadiusRequest {
+  int64 workspace_id = 1;
+  int32 lookback_days = 2;
+}
+
+message AdminIncidentBlastRadius {
+  int64 workspace_id = 1;
+  int64 impacted_user_count = 2;
+  int64 recent_usage_event_count = 3;
+  double recent_usage_cost_usd = 4;
+  int64 open_support_ticket_count = 5;
+  int64 pending_background_job_count = 6;
+}
+
+message GetAdminIncidentBlastRadiusResponse {
+  AdminIncidentBlastRadius blast_radius = 1;
+}
+
+message GetWorkspaceAdminSlicesRequest {
+  int32 lookback_days = 1;
+  int32 limit = 2;
+}
+
+message WorkspaceAdminBillingSummary {
+  int64 customer_count = 1;
+  int64 active_subscription_count = 2;
+  int64 open_invoice_count = 3;
+  int64 dunning_event_count = 4;
+  double recent_usage_cost_usd = 5;
+}
+
+message GetWorkspaceAdminSlicesResponse {
+  repeated WorkspaceMembershipEntry memberships = 1;
+  repeated APIKeyEntry api_keys = 2;
+  repeated WebhookEndpointEntry webhook_endpoints = 3;
+  repeated AuditLogEntry audit_logs = 4;
+  repeated WorkspaceInvitationEntry invitations = 5;
+  repeated AdminUsageEvent usage_events = 6;
+  WorkspaceAdminBillingSummary billing_summary = 7;
 }
 
 message SuperuserPermission {
@@ -751,6 +1286,411 @@ message BackgroundJobEntry {
   string updated_at = 14;
 }
 
+message BillingPlanOverageEntry {
+  int64 id = 1;
+  string plan_code = 2;
+  string meter_key = 3;
+  int64 included_units = 4;
+  int64 soft_limit_units = 5;
+  int64 hard_limit_units = 6;
+  int64 overage_unit_size = 7;
+  int64 overage_price_cents = 8;
+  string billing_interval = 9;
+  string updated_at = 10;
+}
+
+message BillingQuotaPolicyEntry {
+  int64 id = 1;
+  string plan_code = 2;
+  string quota_key = 3;
+  int64 soft_limit_value = 4;
+  int64 hard_limit_value = 5;
+  string reset_interval = 6;
+  string enforcement_mode = 7;
+  string updated_at = 8;
+}
+
+message BillingUpgradeTriggerEntry {
+  int64 id = 1;
+  string plan_code = 2;
+  string trigger_key = 3;
+  int64 threshold_percent = 4;
+  string upgrade_plan_code = 5;
+  string message = 6;
+  string cta_label = 7;
+  string cta_url = 8;
+  bool is_enabled = 9;
+  string updated_at = 10;
+}
+
+message SetSuperuserBillingPlanOverageRequest {
+  string plan_code = 1;
+  string meter_key = 2;
+  int64 included_units = 3;
+  int64 soft_limit_units = 4;
+  int64 hard_limit_units = 5;
+  int64 overage_unit_size = 6;
+  int64 overage_price_cents = 7;
+  string billing_interval = 8;
+  bool confirm = 9;
+  string reason = 10;
+}
+
+message SetSuperuserBillingPlanOverageResponse {
+  BillingPlanOverageEntry overage = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserBillingPlanOverageRequest {
+  string plan_code = 1;
+  string meter_key = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message DeleteSuperuserBillingPlanOverageResponse {
+  string plan_code = 1;
+  string meter_key = 2;
+  string status = 3;
+}
+
+message SetSuperuserBillingQuotaPolicyRequest {
+  string plan_code = 1;
+  string quota_key = 2;
+  int64 soft_limit_value = 3;
+  int64 hard_limit_value = 4;
+  string reset_interval = 5;
+  string enforcement_mode = 6;
+  bool confirm = 7;
+  string reason = 8;
+}
+
+message SetSuperuserBillingQuotaPolicyResponse {
+  BillingQuotaPolicyEntry policy = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserBillingQuotaPolicyRequest {
+  string plan_code = 1;
+  string quota_key = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message DeleteSuperuserBillingQuotaPolicyResponse {
+  string plan_code = 1;
+  string quota_key = 2;
+  string status = 3;
+}
+
+message SetSuperuserBillingUpgradeTriggerRequest {
+  string plan_code = 1;
+  string trigger_key = 2;
+  int64 threshold_percent = 3;
+  string upgrade_plan_code = 4;
+  string message = 5;
+  string cta_label = 6;
+  string cta_url = 7;
+  bool is_enabled = 8;
+  bool confirm = 9;
+  string reason = 10;
+}
+
+message SetSuperuserBillingUpgradeTriggerResponse {
+  BillingUpgradeTriggerEntry trigger = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserBillingUpgradeTriggerRequest {
+  string plan_code = 1;
+  string trigger_key = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message DeleteSuperuserBillingUpgradeTriggerResponse {
+  string plan_code = 1;
+  string trigger_key = 2;
+  string status = 3;
+}
+
+message SetSuperuserBillingDunningEventRequest {
+  int64 id = 1;
+  int64 customer_id = 2;
+  int64 subscription_id = 3;
+  int64 invoice_id = 4;
+  string status = 5;
+  int64 attempt_count = 6;
+  string failure_reason = 7;
+  string next_attempt_at = 8;
+  string resolved_at = 9;
+  bool confirm = 10;
+  string reason = 11;
+}
+
+message SetSuperuserBillingDunningEventResponse {
+  AdminBillingDunningEventEntry event = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserBillingDunningEventRequest {
+  int64 id = 1;
+  bool confirm = 2;
+  string reason = 3;
+}
+
+message DeleteSuperuserBillingDunningEventResponse {
+  int64 id = 1;
+  string status = 2;
+}
+
+message WorkspaceSSOConfigEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  string provider_key = 3;
+  string saml_entrypoint = 4;
+  string saml_issuer = 5;
+  string saml_certificate_pem = 6;
+  string domains_json = 7;
+  bool is_enabled = 8;
+  string updated_at = 9;
+}
+
+message DataRetentionPolicyEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  string scope_key = 3;
+  int64 retention_days = 4;
+  string purge_mode = 5;
+  string legal_hold_json = 6;
+  string updated_at = 7;
+}
+
+message ComplianceControlEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  string control_key = 3;
+  string framework_key = 4;
+  string status = 5;
+  int64 owner_user_id = 6;
+  string evidence_url = 7;
+  string reviewed_at = 8;
+  string updated_at = 9;
+}
+
+message ServiceLevelObjectiveEntry {
+  int64 id = 1;
+  string slo_key = 2;
+  string service_name = 3;
+  double objective_percent = 4;
+  int64 window_days = 5;
+  int64 error_budget_minutes = 6;
+  string status_page_url = 7;
+  string updated_at = 8;
+}
+
+message SetSuperuserWorkspaceSSOConfigRequest {
+  int64 workspace_id = 1;
+  string provider_key = 2;
+  string saml_entrypoint = 3;
+  string saml_issuer = 4;
+  string saml_certificate_pem = 5;
+  string domains_json = 6;
+  bool is_enabled = 7;
+  bool confirm = 8;
+  string reason = 9;
+}
+
+message SetSuperuserWorkspaceSSOConfigResponse {
+  WorkspaceSSOConfigEntry config = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserWorkspaceSSOConfigRequest {
+  int64 workspace_id = 1;
+  string provider_key = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message DeleteSuperuserWorkspaceSSOConfigResponse {
+  int64 workspace_id = 1;
+  string provider_key = 2;
+  string status = 3;
+}
+
+message SetSuperuserDataRetentionPolicyRequest {
+  int64 workspace_id = 1;
+  string scope_key = 2;
+  int64 retention_days = 3;
+  string purge_mode = 4;
+  string legal_hold_json = 5;
+  bool confirm = 6;
+  string reason = 7;
+}
+
+message SetSuperuserDataRetentionPolicyResponse {
+  DataRetentionPolicyEntry policy = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserDataRetentionPolicyRequest {
+  int64 workspace_id = 1;
+  string scope_key = 2;
+  bool confirm = 3;
+  string reason = 4;
+}
+
+message DeleteSuperuserDataRetentionPolicyResponse {
+  int64 workspace_id = 1;
+  string scope_key = 2;
+  string status = 3;
+}
+
+message SetSuperuserComplianceControlRequest {
+  int64 workspace_id = 1;
+  string control_key = 2;
+  string framework_key = 3;
+  string status = 4;
+  int64 owner_user_id = 5;
+  string evidence_url = 6;
+  string reviewed_at = 7;
+  bool confirm = 8;
+  string reason = 9;
+}
+
+message SetSuperuserComplianceControlResponse {
+  ComplianceControlEntry control = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserComplianceControlRequest {
+  int64 workspace_id = 1;
+  string control_key = 2;
+  string framework_key = 3;
+  bool confirm = 4;
+  string reason = 5;
+}
+
+message DeleteSuperuserComplianceControlResponse {
+  int64 workspace_id = 1;
+  string control_key = 2;
+  string framework_key = 3;
+  string status = 4;
+}
+
+message SetSuperuserServiceLevelObjectiveRequest {
+  string slo_key = 1;
+  string service_name = 2;
+  double objective_percent = 3;
+  int64 window_days = 4;
+  int64 error_budget_minutes = 5;
+  string status_page_url = 6;
+  bool confirm = 7;
+  string reason = 8;
+}
+
+message SetSuperuserServiceLevelObjectiveResponse {
+  ServiceLevelObjectiveEntry slo = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserServiceLevelObjectiveRequest {
+  string slo_key = 1;
+  bool confirm = 2;
+  string reason = 3;
+}
+
+message DeleteSuperuserServiceLevelObjectiveResponse {
+  string slo_key = 1;
+  string status = 2;
+}
+
+message SetSuperuserIncidentRequest {
+  string incident_key = 1;
+  string slo_key = 2;
+  string severity = 3;
+  string status = 4;
+  string title = 5;
+  string summary = 6;
+  string started_at = 7;
+  string resolved_at = 8;
+  string postmortem_url = 9;
+  bool confirm = 10;
+  string reason = 11;
+}
+
+message SetSuperuserIncidentResponse {
+  IncidentEntry incident = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserIncidentRequest {
+  string incident_key = 1;
+  bool confirm = 2;
+  string reason = 3;
+}
+
+message DeleteSuperuserIncidentResponse {
+  string incident_key = 1;
+  string status = 2;
+}
+
+message SetSuperuserIncidentUpdateRequest {
+  int64 id = 1;
+  int64 incident_id = 2;
+  string status = 3;
+  string message = 4;
+  bool is_public = 5;
+  string published_at = 6;
+  int64 created_by_user_id = 7;
+  string created_at = 8;
+  bool confirm = 9;
+  string reason = 10;
+}
+
+message SetSuperuserIncidentUpdateResponse {
+  IncidentUpdateEntry incident_update = 1;
+  string status = 2;
+}
+
+message DeleteSuperuserIncidentUpdateRequest {
+  int64 id = 1;
+  bool confirm = 2;
+  string reason = 3;
+}
+
+message DeleteSuperuserIncidentUpdateResponse {
+  int64 id = 1;
+  string status = 2;
+}
+
+message IncidentEntry {
+  int64 id = 1;
+  string incident_key = 2;
+  string slo_key = 3;
+  string severity = 4;
+  string status = 5;
+  string title = 6;
+  string summary = 7;
+  string started_at = 8;
+  string resolved_at = 9;
+  string postmortem_url = 10;
+  string updated_at = 11;
+}
+
+message WorkspaceCostGuardrailEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  string guardrail_key = 3;
+  int64 daily_budget_cents = 4;
+  int64 monthly_budget_cents = 5;
+  int64 max_cost_per_request_cents = 6;
+  int64 alert_threshold_percent = 7;
+  string action_mode = 8;
+  string updated_at = 9;
+}
+
 message GetSuperuserControlPlaneRequest {
   int32 limit = 1;
 }
@@ -776,7 +1716,32 @@ message GetSuperuserControlPlaneResponse {
   repeated BackgroundJobEntry background_jobs = 18;
 }
 
+message GetSuperuserSlicesRequest {
+  int32 lookback_days = 1;
+  int32 limit = 2;
+  AdminListQuery workspace_list_query = 3;
+  string workspace_status = 4;
+  AdminListQuery support_list_query = 5;
+  string support_status = 6;
+  AdminListQuery incident_list_query = 7;
+  string incident_status = 8;
+}
+
+message GetSuperuserSlicesResponse {
+  repeated AdminUserSummary users = 1;
+  repeated AdminUsageEvent usage_events = 2;
+  repeated SupportTicketEntry support_tickets = 3;
+  repeated BillingPlanOverageEntry billing_plan_overages = 4;
+  repeated BillingQuotaPolicyEntry billing_quota_policies = 5;
+  repeated BillingUpgradeTriggerEntry billing_upgrade_triggers = 6;
+  repeated IncidentEntry incidents = 7;
+  repeated ExperimentEntry experiments = 8;
+  repeated WorkspaceEntry workspaces = 9;
+  repeated WorkspaceCostGuardrailEntry workspace_cost_guardrails = 10;
+}
+
 // ─── Text to speech ───────────────────────────────────────────────────────────
+
 
 message SynthesizeSpeechRequest {
   string text = 1;
@@ -825,6 +1790,102 @@ service ChatService {
   rpc ListAdminUsageEvents(ListAdminUsageEventsRequest) returns (ListAdminUsageEventsResponse);
   // ListAdminConversations returns recent conversations with owner and spend rollups for authenticated superusers.
   rpc ListAdminConversations(ListAdminConversationsRequest) returns (ListAdminConversationsResponse);
+  // GetAdminReadOnlyReport returns one allowlisted read-only admin report slice without raw SQL passthrough.
+  rpc GetAdminReadOnlyReport(GetAdminReadOnlyReportRequest) returns (GetAdminReadOnlyReportResponse);
+  // SearchAdminUsers returns typed user rows filtered by one query for authenticated admin callers.
+  rpc SearchAdminUsers(SearchAdminUsersRequest) returns (SearchAdminUsersResponse);
+  // GetAdminUserDetail returns one typed user detail payload with recent sessions, usage, and audit rows.
+  rpc GetAdminUserDetail(GetAdminUserDetailRequest) returns (GetAdminUserDetailResponse);
+  // DisableAdminUser applies one typed admin user-disable mutation.
+  rpc DisableAdminUser(AdminUserMutationRequest) returns (AdminUserMutationResponse);
+  // RestoreAdminUser applies one typed admin user-restore mutation.
+  rpc RestoreAdminUser(AdminUserMutationRequest) returns (AdminUserMutationResponse);
+  // GetAdminWorkspaceDetail returns one typed workspace detail payload for authenticated admin callers.
+  rpc GetAdminWorkspaceDetail(GetAdminWorkspaceDetailRequest) returns (GetAdminWorkspaceDetailResponse);
+  // SuspendAdminWorkspace applies one typed workspace-suspend mutation.
+  rpc SuspendAdminWorkspace(AdminWorkspaceMutationRequest) returns (AdminWorkspaceMutationResponse);
+  // RestoreAdminWorkspace applies one typed workspace-restore mutation.
+  rpc RestoreAdminWorkspace(AdminWorkspaceMutationRequest) returns (AdminWorkspaceMutationResponse);
+  // RevokeWorkspaceAPIKey revokes one workspace API key in admin scope.
+  rpc RevokeWorkspaceAPIKey(RevokeWorkspaceAPIKeyRequest) returns (RevokeWorkspaceAPIKeyResponse);
+  // PauseWorkspaceWebhookEndpoint disables one workspace webhook endpoint in admin scope.
+  rpc PauseWorkspaceWebhookEndpoint(PauseWorkspaceWebhookRequest) returns (PauseWorkspaceWebhookResponse);
+  // ListAdminBillingAccessOverrides returns typed billing access overrides for one admin-target user.
+  rpc ListAdminBillingAccessOverrides(ListAdminBillingAccessOverridesRequest) returns (ListAdminBillingAccessOverridesResponse);
+  // ListAdminBillingEvents returns typed billing event-inspection rows for one admin-target user.
+  rpc ListAdminBillingEvents(ListAdminBillingEventsRequest) returns (ListAdminBillingEventsResponse);
+  // ListAdminBillingDunningEvents returns typed dunning-review rows for one admin-target user.
+  rpc ListAdminBillingDunningEvents(ListAdminBillingDunningEventsRequest) returns (ListAdminBillingDunningEventsResponse);
+  // SetAdminBillingAccessOverride stores one typed admin billing access override for one target user.
+  rpc SetAdminBillingAccessOverride(AdminBillingAccessOverrideMutationRequest) returns (AdminBillingAccessOverrideMutationResponse);
+  // SetAdminBillingQuotaOverride stores one typed admin billing quota override for one target user.
+  rpc SetAdminBillingQuotaOverride(AdminBillingQuotaOverrideMutationRequest) returns (AdminBillingQuotaOverrideMutationResponse);
+  // ResolveAdminBillingFailedPayment marks one failed-payment path resolved for one target user and invoice.
+  rpc ResolveAdminBillingFailedPayment(ResolveAdminBillingFailedPaymentRequest) returns (ResolveAdminBillingFailedPaymentResponse);
+  // GetAdminBusinessDrilldown returns one typed business drill-down snapshot for one admin-target user.
+  rpc GetAdminBusinessDrilldown(GetAdminBusinessDrilldownRequest) returns (GetAdminBusinessDrilldownResponse);
+  // ListAdminSupportTickets returns one scoped support queue slice.
+  rpc ListAdminSupportTickets(ListAdminSupportTicketsRequest) returns (ListAdminSupportTicketsResponse);
+  // GetAdminSupportTicketDetail returns one scoped support ticket detail with messages and account-linked action history.
+  rpc GetAdminSupportTicketDetail(GetAdminSupportTicketDetailRequest) returns (GetAdminSupportTicketDetailResponse);
+  // AddAdminSupportInternalNote appends one internal note to one scoped support ticket.
+  rpc AddAdminSupportInternalNote(AddAdminSupportInternalNoteRequest) returns (AddAdminSupportInternalNoteResponse);
+  // AssignAdminSupportTicket sets one assignee for one scoped support ticket.
+  rpc AssignAdminSupportTicket(AssignAdminSupportTicketRequest) returns (AssignAdminSupportTicketResponse);
+  // EscalateAdminSupportTicket escalates one scoped support ticket with updated status and priority.
+  rpc EscalateAdminSupportTicket(EscalateAdminSupportTicketRequest) returns (EscalateAdminSupportTicketResponse);
+  // SetAdminFeatureFlag applies one typed feature-flag toggle mutation for superusers.
+  rpc SetAdminFeatureFlag(SetAdminFeatureFlagRequest) returns (SetAdminFeatureFlagResponse);
+  // RollbackAdminExperiment applies one typed experiment rollback mutation for superusers.
+  rpc RollbackAdminExperiment(RollbackAdminExperimentRequest) returns (RollbackAdminExperimentResponse);
+  // UpdateAdminIncident applies one typed incident update/status mutation for scoped admin callers.
+  rpc UpdateAdminIncident(UpdateAdminIncidentRequest) returns (UpdateAdminIncidentResponse);
+  // GetAdminIncidentBlastRadius returns one scoped incident blast-radius snapshot for one workspace.
+  rpc GetAdminIncidentBlastRadius(GetAdminIncidentBlastRadiusRequest) returns (GetAdminIncidentBlastRadiusResponse);
+  // SetSuperuserBillingPlanOverage upserts one superuser pricing overage control row.
+  rpc SetSuperuserBillingPlanOverage(SetSuperuserBillingPlanOverageRequest) returns (SetSuperuserBillingPlanOverageResponse);
+  // DeleteSuperuserBillingPlanOverage deletes one superuser pricing overage control row.
+  rpc DeleteSuperuserBillingPlanOverage(DeleteSuperuserBillingPlanOverageRequest) returns (DeleteSuperuserBillingPlanOverageResponse);
+  // SetSuperuserBillingQuotaPolicy upserts one superuser pricing quota policy row.
+  rpc SetSuperuserBillingQuotaPolicy(SetSuperuserBillingQuotaPolicyRequest) returns (SetSuperuserBillingQuotaPolicyResponse);
+  // DeleteSuperuserBillingQuotaPolicy deletes one superuser pricing quota policy row.
+  rpc DeleteSuperuserBillingQuotaPolicy(DeleteSuperuserBillingQuotaPolicyRequest) returns (DeleteSuperuserBillingQuotaPolicyResponse);
+  // SetSuperuserBillingUpgradeTrigger upserts one superuser pricing upgrade-trigger row.
+  rpc SetSuperuserBillingUpgradeTrigger(SetSuperuserBillingUpgradeTriggerRequest) returns (SetSuperuserBillingUpgradeTriggerResponse);
+  // DeleteSuperuserBillingUpgradeTrigger deletes one superuser pricing upgrade-trigger row.
+  rpc DeleteSuperuserBillingUpgradeTrigger(DeleteSuperuserBillingUpgradeTriggerRequest) returns (DeleteSuperuserBillingUpgradeTriggerResponse);
+  // SetSuperuserBillingDunningEvent upserts one superuser billing dunning-event row.
+  rpc SetSuperuserBillingDunningEvent(SetSuperuserBillingDunningEventRequest) returns (SetSuperuserBillingDunningEventResponse);
+  // DeleteSuperuserBillingDunningEvent deletes one superuser billing dunning-event row.
+  rpc DeleteSuperuserBillingDunningEvent(DeleteSuperuserBillingDunningEventRequest) returns (DeleteSuperuserBillingDunningEventResponse);
+  // SetSuperuserWorkspaceSSOConfig upserts one superuser workspace SSO config row.
+  rpc SetSuperuserWorkspaceSSOConfig(SetSuperuserWorkspaceSSOConfigRequest) returns (SetSuperuserWorkspaceSSOConfigResponse);
+  // DeleteSuperuserWorkspaceSSOConfig deletes one superuser workspace SSO config row.
+  rpc DeleteSuperuserWorkspaceSSOConfig(DeleteSuperuserWorkspaceSSOConfigRequest) returns (DeleteSuperuserWorkspaceSSOConfigResponse);
+  // SetSuperuserDataRetentionPolicy upserts one superuser data-retention policy row.
+  rpc SetSuperuserDataRetentionPolicy(SetSuperuserDataRetentionPolicyRequest) returns (SetSuperuserDataRetentionPolicyResponse);
+  // DeleteSuperuserDataRetentionPolicy deletes one superuser data-retention policy row.
+  rpc DeleteSuperuserDataRetentionPolicy(DeleteSuperuserDataRetentionPolicyRequest) returns (DeleteSuperuserDataRetentionPolicyResponse);
+  // SetSuperuserComplianceControl upserts one superuser compliance-control row.
+  rpc SetSuperuserComplianceControl(SetSuperuserComplianceControlRequest) returns (SetSuperuserComplianceControlResponse);
+  // DeleteSuperuserComplianceControl deletes one superuser compliance-control row.
+  rpc DeleteSuperuserComplianceControl(DeleteSuperuserComplianceControlRequest) returns (DeleteSuperuserComplianceControlResponse);
+  // SetSuperuserServiceLevelObjective upserts one superuser SLO row.
+  rpc SetSuperuserServiceLevelObjective(SetSuperuserServiceLevelObjectiveRequest) returns (SetSuperuserServiceLevelObjectiveResponse);
+  // DeleteSuperuserServiceLevelObjective deletes one superuser SLO row.
+  rpc DeleteSuperuserServiceLevelObjective(DeleteSuperuserServiceLevelObjectiveRequest) returns (DeleteSuperuserServiceLevelObjectiveResponse);
+  // SetSuperuserIncident upserts one superuser incident row.
+  rpc SetSuperuserIncident(SetSuperuserIncidentRequest) returns (SetSuperuserIncidentResponse);
+  // DeleteSuperuserIncident deletes one superuser incident row.
+  rpc DeleteSuperuserIncident(DeleteSuperuserIncidentRequest) returns (DeleteSuperuserIncidentResponse);
+  // SetSuperuserIncidentUpdate upserts one superuser incident-update row.
+  rpc SetSuperuserIncidentUpdate(SetSuperuserIncidentUpdateRequest) returns (SetSuperuserIncidentUpdateResponse);
+  // DeleteSuperuserIncidentUpdate deletes one superuser incident-update row.
+  rpc DeleteSuperuserIncidentUpdate(DeleteSuperuserIncidentUpdateRequest) returns (DeleteSuperuserIncidentUpdateResponse);
+  // GetSuperuserSlices returns typed global superuser slices for dashboard operations.
+  rpc GetSuperuserSlices(GetSuperuserSlicesRequest) returns (GetSuperuserSlicesResponse);
+  // GetWorkspaceAdminSlices returns workspace-scoped admin control slices for authenticated workspace admins.
+  rpc GetWorkspaceAdminSlices(GetWorkspaceAdminSlicesRequest) returns (GetWorkspaceAdminSlicesResponse);
   // RunServerTool opens a bidirectional terminal-execution bridge for approved server tools.
   rpc RunServerTool(stream RunServerToolRequest) returns (stream RunServerToolEvent);
   // Send starts a server-streaming RPC. The client sends one request and
@@ -874,3 +1935,4 @@ service ChatService {
   // GetCustomSystemPrompt retrieves user-configured system prompt additions.
   rpc GetCustomSystemPrompt(google.protobuf.Empty) returns (google.protobuf.StringValue);
 }
+

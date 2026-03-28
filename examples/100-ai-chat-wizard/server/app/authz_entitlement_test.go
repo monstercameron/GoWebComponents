@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +10,50 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func TestBuildSendAccessDeniedStatusSoftUpgradeForEntitlement(parseT *testing.T) {
+	parseErr := parseBuildSendAccessDeniedStatus(status.Error(codes.PermissionDenied, "subscription entitlement denied"), "free")
+	if status.Code(parseErr) != codes.FailedPrecondition {
+		parseT.Fatalf("expected failed precondition for soft-upgrade decision, got %v", status.Code(parseErr))
+	}
+	parseMessage := parseErr.Error()
+	if !strings.Contains(parseMessage, "decision=soft_upgrade") || !strings.Contains(parseMessage, "plan=free") || !strings.Contains(parseMessage, "action=upgrade") || !strings.Contains(parseMessage, "reason=entitlement_denied") {
+		parseT.Fatalf("expected structured soft-upgrade message, got %q", parseMessage)
+	}
+}
+
+func TestBuildSendAccessDeniedStatusSoftUpgradeForMonthlyQuota(parseT *testing.T) {
+	parseErr := parseBuildSendAccessDeniedStatus(status.Error(codes.ResourceExhausted, "monthly token quota exceeded: used=100 limit=100"), "team")
+	if status.Code(parseErr) != codes.FailedPrecondition {
+		parseT.Fatalf("expected failed precondition for monthly quota soft-upgrade, got %v", status.Code(parseErr))
+	}
+	parseMessage := parseErr.Error()
+	if !strings.Contains(parseMessage, "decision=soft_upgrade") || !strings.Contains(parseMessage, "plan=team") || !strings.Contains(parseMessage, "reason=usage_monthly_quota_exceeded") {
+		parseT.Fatalf("expected monthly soft-upgrade message, got %q", parseMessage)
+	}
+}
+
+func TestBuildSendAccessDeniedStatusHardBlockForRateLimit(parseT *testing.T) {
+	parseErr := parseBuildSendAccessDeniedStatus(status.Error(codes.ResourceExhausted, "send rate limit exceeded: limit_per_minute=1"), "pro")
+	if status.Code(parseErr) != codes.ResourceExhausted {
+		parseT.Fatalf("expected resource exhausted for hard rate limit block, got %v", status.Code(parseErr))
+	}
+	parseMessage := parseErr.Error()
+	if !strings.Contains(parseMessage, "decision=hard_block") || !strings.Contains(parseMessage, "plan=pro") || !strings.Contains(parseMessage, "action=retry_later") || !strings.Contains(parseMessage, "reason=usage_rate_limited") {
+		parseT.Fatalf("expected structured hard-block message, got %q", parseMessage)
+	}
+}
+
+func TestBuildSendAccessDeniedStatusHardBlockForAuthRequired(parseT *testing.T) {
+	parseErr := parseBuildSendAccessDeniedStatus(status.Error(codes.Unauthenticated, "authentication required"), "")
+	if status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("expected unauthenticated for auth-required hard block, got %v", status.Code(parseErr))
+	}
+	parseMessage := parseErr.Error()
+	if !strings.Contains(parseMessage, "decision=hard_block") || !strings.Contains(parseMessage, "plan=unknown") || !strings.Contains(parseMessage, "action=sign_in") || !strings.Contains(parseMessage, "reason=auth_required") {
+		parseT.Fatalf("expected auth-required hard-block message, got %q", parseMessage)
+	}
+}
 
 func TestRequireUserEntitlementDenyByDefault(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
@@ -112,6 +157,15 @@ func BenchmarkRequireUsageBudget(parseB *testing.B) {
 			parseB.Fatalf("parseRequireUsageBudget: %v", parseErr)
 		}
 		parseReleaseBudget()
+	}
+}
+
+func BenchmarkBuildSendAccessDeniedStatus(parseB *testing.B) {
+	parseInputErr := status.Error(codes.ResourceExhausted, "monthly token quota exceeded: used=100000 limit=100000")
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseBuildSendAccessDeniedStatus(parseInputErr, "team")
 	}
 }
 

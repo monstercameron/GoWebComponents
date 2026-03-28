@@ -49,6 +49,20 @@ func TestNormalizationAndPromptHelpers(parseT *testing.T) {
 	if strings.Count(parseTemplatedPrompt, "Prefers Neovim") != 1 {
 		parseT.Fatalf("expected memory to appear once when custom prompt injects memories, got prompt %q", parseTemplatedPrompt)
 	}
+	parseDefaultPrompt := buildSystemPrompt("balanced", "", nil)
+	if !strings.Contains(parseDefaultPrompt, "Current runtime context:") {
+		parseT.Fatalf("expected default system prompt template block, got %q", parseDefaultPrompt)
+	}
+	if strings.Contains(parseDefaultPrompt, "{{date}}") || strings.Contains(parseDefaultPrompt, "{{time}}") || strings.Contains(parseDefaultPrompt, "{{memories}}") {
+		parseT.Fatalf("expected default template placeholders to resolve, got %q", parseDefaultPrompt)
+	}
+	if !strings.Contains(parseDefaultPrompt, "- No stored memories yet.") {
+		parseT.Fatalf("expected default system prompt to include empty-memory fallback, got %q", parseDefaultPrompt)
+	}
+	parseDefaultWithMemories := buildSystemPrompt("balanced", "", parseMemories)
+	if strings.Count(parseDefaultWithMemories, "Prefers Neovim") != 1 {
+		parseT.Fatalf("expected default prompt memory injection to be deduplicated, got %q", parseDefaultWithMemories)
+	}
 	if buildUserMemoryPromptBlock(nil) != "" {
 		parseT.Fatal("expected empty memory block for nil memories")
 	}

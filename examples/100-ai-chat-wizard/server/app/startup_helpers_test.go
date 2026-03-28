@@ -188,6 +188,9 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 	if parseUnauthSession.GetAuthenticated() {
 		parseT.Fatalf("expected empty session without metadata auth, got %+v", parseUnauthSession)
 	}
+	if parseUnauthSession.GetSessionStatus() != "unauthenticated" {
+		parseT.Fatalf("expected unauthenticated session status, got %+v", parseUnauthSession)
+	}
 
 	parseAuthCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer "+parseLoginResp.GetAuthToken()))
 	parseSession, parseErr := parseServer.GetSession(parseAuthCtx, &emptypb.Empty{})
@@ -196,6 +199,47 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 	}
 	if !parseSession.GetAuthenticated() || parseSession.GetEmail() != "startup@example.com" || parseSession.GetDisplayName() != "Startup" {
 		parseT.Fatalf("unexpected authenticated session: %+v", parseSession)
+	}
+	if parseSession.GetSessionStatus() != "authenticated" || parseSession.GetSessionId() == "" || parseSession.GetTokenVersion() <= 0 || parseSession.GetExpiresAt() == "" || parseSession.GetExpiresInSeconds() <= 0 {
+		parseT.Fatalf("expected typed auth bootstrap session metadata, got %+v", parseSession)
+	}
+	if parseRoleSummary := parseSession.GetRoleSummary(); parseRoleSummary == nil || parseRoleSummary.GetScope() != "user" || parseRoleSummary.GetCanAccessAdmin() || parseRoleSummary.GetIsSuperuser() {
+		parseT.Fatalf("expected non-admin role summary, got %+v", parseRoleSummary)
+	}
+	parseMustEnsureWorkspaceMembership(parseT, store, parseSignupResp.GetUserId(), "ws-startup-auth-rpcs")
+	parseInstrumentedLoginResp, parseErr := parseServer.Login(context.Background(), &chatpb.LoginRequest{
+		Email:    "startup@example.com",
+		Password: "password123",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("Login with workspace membership: %v", parseErr)
+	}
+	parseAuthCtx = metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer "+parseInstrumentedLoginResp.GetAuthToken()))
+	if _, parseErr = parseServer.GetSession(parseAuthCtx, &emptypb.Empty{}); parseErr != nil {
+		parseT.Fatalf("GetSession after workspace membership: %v", parseErr)
+	}
+	parseAnalyticsRows, parseErr := store.parseListProductAnalyticsEvents(100)
+	if parseErr != nil {
+		parseT.Fatalf("parseListProductAnalyticsEvents: %v", parseErr)
+	}
+	isParseHasAuthStarted := false
+	isParseHasAuthCompleted := false
+	isParseHasAppBooted := false
+	for _, parseAnalyticsRow := range parseAnalyticsRows {
+		if parseAnalyticsRow.FunnelKey != parseFirstChatFunnelKey {
+			continue
+		}
+		switch parseAnalyticsRow.StepKey {
+		case parseFirstChatStepAuthStarted:
+			isParseHasAuthStarted = true
+		case parseFirstChatStepAuthCompleted:
+			isParseHasAuthCompleted = true
+		case parseFirstChatStepAppBooted:
+			isParseHasAppBooted = true
+		}
+	}
+	if !isParseHasAuthStarted || !isParseHasAuthCompleted || !isParseHasAppBooted {
+		parseT.Fatalf("expected auth funnel steps, got rows=%+v", parseAnalyticsRows)
 	}
 
 	parseRefreshResp, parseErr := parseServer.RefreshSession(parseAuthCtx, &emptypb.Empty{})
@@ -214,12 +258,143 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 	if _, parseErr2 := parseServer.Logout(parseAuthCtx, &emptypb.Empty{}); parseErr2 != nil {
 		parseT.Fatalf("Logout: %v", parseErr2)
 	}
-	parsePostLogoutSession, parseErr := parseServer.GetSession(parseAuthCtx, &emptypb.Empty{})
-	if parseErr != nil {
-		parseT.Fatalf("GetSession post-logout: %v", parseErr)
+	if _, parseErr = parseServer.GetSession(parseAuthCtx, &emptypb.Empty{}); status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("expected revoked session to return Unauthenticated, got %v", status.Code(parseErr))
 	}
-	if parsePostLogoutSession.GetAuthenticated() {
-		parseT.Fatalf("expected session to be revoked after logout, got %+v", parsePostLogoutSession)
+
+	parseMalformedCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer malformed.token.value"))
+	if _, parseErr = parseServer.GetSession(parseMalformedCtx, &emptypb.Empty{}); status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("expected malformed session token to return Unauthenticated, got %v", status.Code(parseErr))
+	}
+
+	parsePeerBoundCtx := parseBindAuthUser(parseServer, "peer-session-token-precedence", parseSignupResp.GetUserId(), parseSignupResp.GetEmail())
+	parseTokenPriorityCtx := metadata.NewIncomingContext(parsePeerBoundCtx, metadata.Pairs(authMetadataKey, "Bearer malformed.token.value"))
+	if _, parseErr = parseServer.GetSession(parseTokenPriorityCtx, &emptypb.Empty{}); status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("expected malformed metadata token to override peer fallback and return Unauthenticated, got %v", status.Code(parseErr))
+	}
+}
+
+func TestAdminAccessInvalidatesAfterRoleDowngradeAndSessionRevocation(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseNewTestLogger())
+	parseServer := parseNewChatServiceServer("", "", "", modelGPT54Mini, parseStore, parseNewTestLogger())
+	parseServer.authManager = parseAuth
+
+	parseSignupResp, parseErr := parseServer.Signup(context.Background(), &chatpb.SignupRequest{
+		Email:       "admin-access-cycle@example.com",
+		Password:    "password123",
+		DisplayName: "Admin Access Cycle",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("Signup: %v", parseErr)
+	}
+	parseGrantSuperuserRole(parseT, parseStore, parseSignupResp.GetUserId())
+
+	parseLoginResp, parseErr := parseServer.Login(context.Background(), &chatpb.LoginRequest{
+		Email:    "admin-access-cycle@example.com",
+		Password: "password123",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("Login: %v", parseErr)
+	}
+	parseAuthCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer "+parseLoginResp.GetAuthToken()))
+	if _, parseErr := parseServer.GetAdminDashboard(parseAuthCtx, &chatpb.GetAdminDashboardRequest{
+		LookbackDays: 7,
+		TopLimit:     5,
+		RecentLimit:  5,
+	}); parseErr != nil {
+		parseT.Fatalf("GetAdminDashboard baseline superuser: %v", parseErr)
+	}
+	parseSessionResp, parseErr := parseServer.GetSession(parseAuthCtx, &emptypb.Empty{})
+	if parseErr != nil {
+		parseT.Fatalf("GetSession baseline superuser: %v", parseErr)
+	}
+	if parseRoleSummary := parseSessionResp.GetRoleSummary(); parseRoleSummary == nil || !parseRoleSummary.GetCanAccessAdmin() || !parseRoleSummary.GetIsSuperuser() {
+		parseT.Fatalf("expected baseline superuser role summary, got %+v", parseRoleSummary)
+	}
+
+	if _, parseErr := parseStore.db.Exec(`DELETE FROM su_user_roles WHERE user_id = ? AND role_key = ?`, parseSignupResp.GetUserId(), "su"); parseErr != nil {
+		parseT.Fatalf("delete su_user_roles for downgrade: %v", parseErr)
+	}
+	parseSessionResp, parseErr = parseServer.GetSession(parseAuthCtx, &emptypb.Empty{})
+	if parseErr != nil {
+		parseT.Fatalf("GetSession after role downgrade: %v", parseErr)
+	}
+	if parseRoleSummary := parseSessionResp.GetRoleSummary(); parseRoleSummary == nil || parseRoleSummary.GetCanAccessAdmin() || parseRoleSummary.GetIsSuperuser() {
+		parseT.Fatalf("expected downgraded non-admin role summary, got %+v", parseRoleSummary)
+	}
+	if _, parseErr := parseServer.GetAdminDashboard(parseAuthCtx, &chatpb.GetAdminDashboardRequest{
+		LookbackDays: 7,
+		TopLimit:     5,
+		RecentLimit:  5,
+	}); status.Code(parseErr) != codes.PermissionDenied {
+		parseT.Fatalf("expected role downgrade to deny admin dashboard immediately, got %v", status.Code(parseErr))
+	}
+
+	parseGrantSuperuserRole(parseT, parseStore, parseSignupResp.GetUserId())
+	parseRefreshResp, parseErr := parseServer.RefreshSession(parseAuthCtx, &emptypb.Empty{})
+	if parseErr != nil {
+		parseT.Fatalf("RefreshSession after role re-grant: %v", parseErr)
+	}
+	parseRefreshedCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer "+parseRefreshResp.GetAuthToken()))
+	if _, parseErr := parseServer.GetAdminDashboard(parseRefreshedCtx, &chatpb.GetAdminDashboardRequest{
+		LookbackDays: 7,
+		TopLimit:     5,
+		RecentLimit:  5,
+	}); parseErr != nil {
+		parseT.Fatalf("GetAdminDashboard after role re-grant: %v", parseErr)
+	}
+
+	if parseErr := parseStore.parseRevokeAuthSessionsByUser(parseSignupResp.GetUserId()); parseErr != nil {
+		parseT.Fatalf("parseRevokeAuthSessionsByUser: %v", parseErr)
+	}
+	if _, parseErr := parseServer.GetAdminDashboard(parseRefreshedCtx, &chatpb.GetAdminDashboardRequest{
+		LookbackDays: 7,
+		TopLimit:     5,
+		RecentLimit:  5,
+	}); status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("expected session revocation to invalidate admin dashboard access, got %v", status.Code(parseErr))
+	}
+
+	parseReloginResp, parseErr := parseServer.Login(context.Background(), &chatpb.LoginRequest{
+		Email:    "admin-access-cycle@example.com",
+		Password: "password123",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("Login after revocation: %v", parseErr)
+	}
+	parseReloginCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer "+parseReloginResp.GetAuthToken()))
+	if _, parseErr := parseServer.GetAdminDashboard(parseReloginCtx, &chatpb.GetAdminDashboardRequest{
+		LookbackDays: 7,
+		TopLimit:     5,
+		RecentLimit:  5,
+	}); parseErr != nil {
+		parseT.Fatalf("GetAdminDashboard after relogin: %v", parseErr)
+	}
+	if _, parseErr := parseServer.Logout(parseReloginCtx, &emptypb.Empty{}); parseErr != nil {
+		parseT.Fatalf("Logout: %v", parseErr)
+	}
+	if _, parseErr := parseServer.GetAdminDashboard(parseReloginCtx, &chatpb.GetAdminDashboardRequest{
+		LookbackDays: 7,
+		TopLimit:     5,
+		RecentLimit:  5,
+	}); status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("expected logout to invalidate admin dashboard access immediately, got %v", status.Code(parseErr))
+	}
+}
+
+func TestChatShellHandlerTracksFirstChatFunnelSteps(parseT *testing.T) {
+	parseLandingSteps := parseCollectFirstChatFunnelStepsForPath("/")
+	if len(parseLandingSteps) != 1 || parseLandingSteps[0] != parseFirstChatStepLandingViewed {
+		parseT.Fatalf("landing steps mismatch: %+v", parseLandingSteps)
+	}
+	parsePricingSteps := parseCollectFirstChatFunnelStepsForPath("/pricing")
+	if len(parsePricingSteps) != 1 || parsePricingSteps[0] != parseFirstChatStepPricingViewed {
+		parseT.Fatalf("pricing steps mismatch: %+v", parsePricingSteps)
+	}
+	parseAuthSteps := parseCollectFirstChatFunnelStepsForPath("/login")
+	if len(parseAuthSteps) != 2 || parseAuthSteps[0] != parseFirstChatStepCTAClicked || parseAuthSteps[1] != parseFirstChatStepAuthStarted {
+		parseT.Fatalf("auth route steps mismatch: %+v", parseAuthSteps)
 	}
 }
 

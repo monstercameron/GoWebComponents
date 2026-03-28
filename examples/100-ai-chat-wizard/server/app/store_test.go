@@ -273,6 +273,89 @@ func TestStoreAuthSessionLifecycle(parseT *testing.T) {
 	}
 }
 
+// TestStoreAuthFlowTokenLifecycle verifies email-verification and password-reset tokens are one-time and expiry-bound.
+func TestStoreAuthFlowTokenLifecycle(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, parseStore, "auth-flow-tokens@example.com")
+	parseNow := time.Now().UTC()
+
+	parseEmailVerificationHash := parseBuildAuthFlowTokenHash(parseBuildOpaqueAuthFlowToken())
+	if _, parseErr := parseStore.parseCreateEmailVerificationToken(parseEmailVerificationTokenWrite{
+		UserID:    parseUser.ID,
+		Email:     parseUser.Email,
+		TokenHash: parseEmailVerificationHash,
+		ExpiresAt: parseNow.Add(20 * time.Minute).Format(time.RFC3339),
+	}); parseErr != nil {
+		parseT.Fatalf("parseCreateEmailVerificationToken: %v", parseErr)
+	}
+	parseVerifiedRow, hasParseVerifiedRow, parseErr := parseStore.parseConsumeEmailVerificationToken(parseEmailVerificationHash, parseNow.Add(1*time.Minute))
+	if parseErr != nil {
+		parseT.Fatalf("parseConsumeEmailVerificationToken first consume: %v", parseErr)
+	}
+	if !hasParseVerifiedRow || parseVerifiedRow.UserID != parseUser.ID || parseVerifiedRow.Status != "verified" || strings.TrimSpace(parseVerifiedRow.VerifiedAt) == "" {
+		parseT.Fatalf("unexpected verified token row: has=%v row=%+v", hasParseVerifiedRow, parseVerifiedRow)
+	}
+	if _, hasParseSecondVerifiedRow, parseErr2 := parseStore.parseConsumeEmailVerificationToken(parseEmailVerificationHash, parseNow.Add(2*time.Minute)); parseErr2 != nil {
+		parseT.Fatalf("parseConsumeEmailVerificationToken second consume: %v", parseErr2)
+	} else if hasParseSecondVerifiedRow {
+		parseT.Fatal("expected second email verification consume to fail closed")
+	}
+
+	parseExpiredEmailVerificationHash := parseBuildAuthFlowTokenHash(parseBuildOpaqueAuthFlowToken())
+	if _, parseErr := parseStore.parseCreateEmailVerificationToken(parseEmailVerificationTokenWrite{
+		UserID:    parseUser.ID,
+		Email:     parseUser.Email,
+		TokenHash: parseExpiredEmailVerificationHash,
+		ExpiresAt: parseNow.Add(-1 * time.Minute).Format(time.RFC3339),
+	}); parseErr != nil {
+		parseT.Fatalf("parseCreateEmailVerificationToken expired: %v", parseErr)
+	}
+	if _, hasParseExpiredRow, parseErr := parseStore.parseConsumeEmailVerificationToken(parseExpiredEmailVerificationHash, parseNow); parseErr != nil {
+		parseT.Fatalf("parseConsumeEmailVerificationToken expired: %v", parseErr)
+	} else if hasParseExpiredRow {
+		parseT.Fatal("expected expired email verification token to fail closed")
+	}
+
+	parsePasswordResetHash := parseBuildAuthFlowTokenHash(parseBuildOpaqueAuthFlowToken())
+	if _, parseErr := parseStore.parseCreatePasswordResetToken(parsePasswordResetTokenWrite{
+		UserID:        parseUser.ID,
+		Email:         parseUser.Email,
+		TokenHash:     parsePasswordResetHash,
+		RequestedByIP: "198.51.100.20",
+		ExpiresAt:     parseNow.Add(15 * time.Minute).Format(time.RFC3339),
+	}); parseErr != nil {
+		parseT.Fatalf("parseCreatePasswordResetToken: %v", parseErr)
+	}
+	parseConsumedResetRow, hasParseConsumedResetRow, parseErr := parseStore.parseConsumePasswordResetToken(parsePasswordResetHash, parseNow.Add(1*time.Minute))
+	if parseErr != nil {
+		parseT.Fatalf("parseConsumePasswordResetToken first consume: %v", parseErr)
+	}
+	if !hasParseConsumedResetRow || parseConsumedResetRow.UserID != parseUser.ID || parseConsumedResetRow.Status != "consumed" || strings.TrimSpace(parseConsumedResetRow.ConsumedAt) == "" {
+		parseT.Fatalf("unexpected consumed reset token row: has=%v row=%+v", hasParseConsumedResetRow, parseConsumedResetRow)
+	}
+	if _, hasParseSecondConsumedResetRow, parseErr2 := parseStore.parseConsumePasswordResetToken(parsePasswordResetHash, parseNow.Add(2*time.Minute)); parseErr2 != nil {
+		parseT.Fatalf("parseConsumePasswordResetToken second consume: %v", parseErr2)
+	} else if hasParseSecondConsumedResetRow {
+		parseT.Fatal("expected second password reset consume to fail closed")
+	}
+
+	parseExpiredPasswordResetHash := parseBuildAuthFlowTokenHash(parseBuildOpaqueAuthFlowToken())
+	if _, parseErr := parseStore.parseCreatePasswordResetToken(parsePasswordResetTokenWrite{
+		UserID:        parseUser.ID,
+		Email:         parseUser.Email,
+		TokenHash:     parseExpiredPasswordResetHash,
+		RequestedByIP: "198.51.100.21",
+		ExpiresAt:     parseNow.Add(-1 * time.Minute).Format(time.RFC3339),
+	}); parseErr != nil {
+		parseT.Fatalf("parseCreatePasswordResetToken expired: %v", parseErr)
+	}
+	if _, hasParseExpiredResetRow, parseErr := parseStore.parseConsumePasswordResetToken(parseExpiredPasswordResetHash, parseNow); parseErr != nil {
+		parseT.Fatalf("parseConsumePasswordResetToken expired: %v", parseErr)
+	} else if hasParseExpiredResetRow {
+		parseT.Fatal("expected expired password reset token to fail closed")
+	}
+}
+
 func TestCreateConversationRetriesPublicIDConflicts(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "uuid-retry@example.com")

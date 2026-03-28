@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -39,6 +40,12 @@ const maxInjectedUserMemoryRunes = 1200
 const userMemoryUsefulnessThreshold = 60
 const userMemoryConfidenceThreshold = 0.55
 const userMemoryExtractionTimeout = 8 * time.Second
+const defaultCustomSystemPromptTemplate = `Current runtime context:
+- Date: {{date}}
+- Time: {{time}}
+- Remembered user context:
+{{memories}}
+Use this context when relevant, but do not invent facts not present in user messages or memories.`
 
 const thoughtChunkModelPrefix = "__thought_delta__:"
 const thoughtChunkModelDone = "__thought_done__"
@@ -233,17 +240,35 @@ func (parseS *chatServer) clearPeerSession(parsePeerAddress string) {
 	delete(parseS.sessions, parsePeerAddress)
 }
 
+// parsePeerAddressFromContext resolves one stable peer address from one RPC context when available.
+func parsePeerAddressFromContext(parseCtx context.Context) (string, bool) {
+	parsePeerInfo, parseOk := peer.FromContext(parseCtx)
+	if !parseOk || parsePeerInfo.Addr == nil {
+		return "", false
+	}
+	parsePeerAddress := strings.TrimSpace(parsePeerInfo.Addr.String())
+	if parsePeerAddress == "" {
+		return "", false
+	}
+	return parsePeerAddress, true
+}
+
 func (parseS *chatServer) parseAuthenticatedUserFromContext(parseCtx context.Context) (authUser, bool) {
 	if parseS.authManager != nil {
 		if parseUser, parseOk := parseS.authManager.parseAuthenticatedUserFromContext(parseCtx); parseOk && parseUser.ID > 0 {
 			return parseUser, true
 		}
+		if _, parseTokenPresent := parseResolveAuthTokenFromContext(parseCtx); parseTokenPresent {
+			if parsePeerAddress, parseHasPeerAddress := parsePeerAddressFromContext(parseCtx); parseHasPeerAddress {
+				parseS.parseUnbindAuthenticatedPeer(parsePeerAddress)
+			}
+			return authUser{}, false
+		}
 	}
-	parsePeerInfo, parseOk2 := peer.FromContext(parseCtx)
-	if !parseOk2 || parsePeerInfo.Addr == nil {
+	parsePeerAddress, parseHasPeerAddress := parsePeerAddressFromContext(parseCtx)
+	if !parseHasPeerAddress {
 		return authUser{}, false
 	}
-	parsePeerAddress := parsePeerInfo.Addr.String()
 
 	parseS.authMutex.RLock()
 	parseUser2, parseFoundUser := parseS.authUsers[parsePeerAddress]
@@ -268,13 +293,21 @@ func parseStatusForStoreGuard(parseErr error) error {
 		return status.Error(codes.Unauthenticated, "authenticated user no longer exists; sign in again")
 	case errors.Is(parseErr, errStoreConversationMissing):
 		return status.Error(codes.FailedPrecondition, "conversation no longer exists; refresh and retry")
+	case errors.Is(parseErr, errStoreUserDisabled), errors.Is(parseErr, errStoreUserAuthBlocked):
+		return status.Error(codes.PermissionDenied, "user access is blocked")
+	case errors.Is(parseErr, errStoreWorkspaceSuspended):
+		return status.Error(codes.PermissionDenied, "workspace is suspended")
 	default:
 		return parseErr
 	}
 }
 
 func isStoreGuardError(parseErr error) bool {
-	return errors.Is(parseErr, errStoreUserMissing) || errors.Is(parseErr, errStoreConversationMissing)
+	return errors.Is(parseErr, errStoreUserMissing) ||
+		errors.Is(parseErr, errStoreConversationMissing) ||
+		errors.Is(parseErr, errStoreUserDisabled) ||
+		errors.Is(parseErr, errStoreUserAuthBlocked) ||
+		errors.Is(parseErr, errStoreWorkspaceSuspended)
 }
 
 func (parseS *chatServer) parseDisplayNameForUser(parseUserID int64, parseFallbackEmail string) string {
@@ -305,6 +338,9 @@ func (parseS *chatServer) Signup(parseCtx context.Context, parseReq *chatpb.Sign
 	if parseS.authManager == nil {
 		return nil, status.Error(codes.Internal, "auth unavailable")
 	}
+	parseS.parseTrackFirstChatFunnelStep(parseCtx, 0, parseFirstChatStepAuthStarted, map[string]any{
+		"method": "signup",
+	})
 	parseUser, parseErr := parseS.authManager.parseSignup(parseReq.GetEmail(), parseReq.GetPassword(), parseReq.GetDisplayName())
 	if parseErr != nil {
 		if errors.Is(parseErr, errUserAlreadyExists) {
@@ -312,10 +348,17 @@ func (parseS *chatServer) Signup(parseCtx context.Context, parseReq *chatpb.Sign
 		}
 		return nil, status.Error(codes.InvalidArgument, parseErr.Error())
 	}
+	parseS.parseTrackFirstChatFunnelStep(parseCtx, parseUser.ID, parseFirstChatStepAuthStarted, map[string]any{
+		"method":                "signup",
+		"resolved_after_signup": true,
+	})
 	parseToken, parseErr := parseS.authManager.issueTokenForContext(parseCtx, parseUser, "")
 	if parseErr != nil {
 		return nil, status.Error(codes.Internal, "issue auth token")
 	}
+	parseS.parseTrackFirstChatFunnelStep(parseCtx, parseUser.ID, parseFirstChatStepAuthCompleted, map[string]any{
+		"method": "signup",
+	})
 	return parseS.parseAuthResponseForUser(parseUser, parseToken), nil
 }
 
@@ -323,6 +366,9 @@ func (parseS *chatServer) Login(parseCtx context.Context, parseReq *chatpb.Login
 	if parseS.authManager == nil {
 		return nil, status.Error(codes.Internal, "auth unavailable")
 	}
+	parseS.parseTrackFirstChatFunnelStep(parseCtx, 0, parseFirstChatStepAuthStarted, map[string]any{
+		"method": "login",
+	})
 	parseUser, parseErr := parseS.authManager.parseLogin(parseReq.GetEmail(), parseReq.GetPassword())
 	if parseErr != nil {
 		if errors.Is(parseErr, errInvalidCredentials) {
@@ -330,10 +376,17 @@ func (parseS *chatServer) Login(parseCtx context.Context, parseReq *chatpb.Login
 		}
 		return nil, status.Error(codes.InvalidArgument, parseErr.Error())
 	}
+	parseS.parseTrackFirstChatFunnelStep(parseCtx, parseUser.ID, parseFirstChatStepAuthStarted, map[string]any{
+		"method":               "login",
+		"resolved_after_login": true,
+	})
 	parseToken, parseErr := parseS.authManager.issueTokenForContext(parseCtx, parseUser, "")
 	if parseErr != nil {
 		return nil, status.Error(codes.Internal, "issue auth token")
 	}
+	parseS.parseTrackFirstChatFunnelStep(parseCtx, parseUser.ID, parseFirstChatStepAuthCompleted, map[string]any{
+		"method": "login",
+	})
 	return parseS.parseAuthResponseForUser(parseUser, parseToken), nil
 }
 
@@ -343,22 +396,100 @@ func (parseS *chatServer) Logout(parseCtx context.Context, _ *emptypb.Empty) (*e
 			return nil, status.Errorf(codes.Internal, "revoke auth session: %v", parseErr)
 		}
 	}
-	if parsePeerInfo, parseOk := peer.FromContext(parseCtx); parseOk && parsePeerInfo.Addr != nil {
-		parseS.clearPeerSession(parsePeerInfo.Addr.String())
+	if parsePeerAddress, parseHasPeerAddress := parsePeerAddressFromContext(parseCtx); parseHasPeerAddress {
+		parseS.parseUnbindAuthenticatedPeer(parsePeerAddress)
 	}
 	return &emptypb.Empty{}, nil
 }
 
+// parseBuildAuthBootstrapRoleSummary resolves one user into one stable auth-bootstrap role summary.
+func (parseS *chatServer) parseBuildAuthBootstrapRoleSummary(parseUserID int64) *chatpb.AuthRoleSummary {
+	parseSummary := &chatpb.AuthRoleSummary{Scope: "user"}
+	if parseUserID <= 0 || parseS == nil || parseS.store == nil {
+		return parseSummary
+	}
+	parseScope, parseErr := parseS.parseResolveAdminAccessScopeForUserID(parseUserID)
+	if parseErr != nil {
+		if status.Code(parseErr) != codes.PermissionDenied && parseS.logger != nil {
+			parseS.logger.Warn(
+				"auth bootstrap role summary fallback",
+				slog.Int64("user_id", parseUserID),
+				slog.String("error", parseErr.Error()),
+			)
+		}
+		return parseSummary
+	}
+	parseSummary.CanAccessAdmin = true
+	if parseScope.isPlatformScope {
+		parseSummary.Scope = "superuser"
+		parseSummary.IsSuperuser = true
+		return parseSummary
+	}
+	parseSummary.Scope = "workspace_admin"
+	parseWorkspaceIDs := make([]int64, 0, len(parseScope.workspaceIDs))
+	for parseWorkspaceID := range parseScope.workspaceIDs {
+		parseWorkspaceIDs = append(parseWorkspaceIDs, parseWorkspaceID)
+	}
+	sort.Slice(parseWorkspaceIDs, func(parseI, parseJ int) bool {
+		return parseWorkspaceIDs[parseI] < parseWorkspaceIDs[parseJ]
+	})
+	parseSummary.WorkspaceAdminWorkspaceIds = parseWorkspaceIDs
+	return parseSummary
+}
+
+// parseBuildAuthExpirySeconds converts one absolute expiry timestamp into one non-negative remaining-second value.
+func parseBuildAuthExpirySeconds(parseExpiry time.Time) int64 {
+	if parseExpiry.IsZero() {
+		return 0
+	}
+	parseRemaining := time.Until(parseExpiry)
+	if parseRemaining <= 0 {
+		return 0
+	}
+	return int64(parseRemaining / time.Second)
+}
+
 func (parseS *chatServer) GetSession(parseCtx context.Context, _ *emptypb.Empty) (*chatpb.GetSessionResponse, error) {
 	parseUser, parseOk := parseS.parseAuthenticatedUserFromContext(parseCtx)
+	if parseOk && parseUser.ID > 0 {
+		parseResponse := &chatpb.GetSessionResponse{
+			Authenticated: true,
+			UserId:        parseUser.ID,
+			Email:         parseUser.Email,
+			DisplayName:   parseS.parseDisplayNameForUser(parseUser.ID, parseUser.Email),
+			SessionStatus: "authenticated",
+			RoleSummary:   parseS.parseBuildAuthBootstrapRoleSummary(parseUser.ID),
+		}
+		if parseS.authManager != nil {
+			if parseSessionUser, parseClaims, parseHasSession := parseS.authManager.parseAuthenticatedSessionFromContext(parseCtx); parseHasSession && parseSessionUser.ID == parseUser.ID {
+				parseResponse.SessionId = strings.TrimSpace(parseClaims.SessionID)
+				parseResponse.TokenVersion = parseClaims.TokenVersion
+				if parseClaims.ExpiresAt != nil {
+					parseExpiry := parseClaims.ExpiresAt.Time.UTC()
+					parseResponse.ExpiresAt = parseExpiry.Format(time.RFC3339)
+					parseResponse.ExpiresInSeconds = parseBuildAuthExpirySeconds(parseExpiry)
+				}
+			}
+		}
+		parseS.parseTrackFirstChatFunnelStep(parseCtx, parseUser.ID, parseFirstChatStepAppBooted, map[string]any{
+			"session_status": parseResponse.GetSessionStatus(),
+		})
+		return parseResponse, nil
+	}
+	if parseS.authManager != nil {
+		if _, parseTokenPresent := parseResolveAuthTokenFromContext(parseCtx); parseTokenPresent {
+			return nil, status.Error(codes.Unauthenticated, "session invalid or expired; sign in again")
+		}
+	}
 	if !parseOk || parseUser.ID <= 0 {
-		return &chatpb.GetSessionResponse{}, nil
+		return &chatpb.GetSessionResponse{
+			SessionStatus: "unauthenticated",
+			RoleSummary:   &chatpb.AuthRoleSummary{Scope: "user"},
+		}, nil
 	}
 	return &chatpb.GetSessionResponse{
-		Authenticated: true,
-		UserId:        parseUser.ID,
-		Email:         parseUser.Email,
-		DisplayName:   parseS.parseDisplayNameForUser(parseUser.ID, parseUser.Email),
+		SessionStatus: "unauthenticated",
+		RoleSummary:   &chatpb.AuthRoleSummary{Scope: "user"},
 	}, nil
 }
 
@@ -468,6 +599,14 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 			)
 			return status.Error(codes.Unauthenticated, "authenticated user no longer exists; sign in again")
 		}
+		if parseRuntimeErr := parseS.parseRequireChatRuntimeAccess(parseUserID); parseRuntimeErr != nil {
+			parseLogger.Warn("rpc.Send: runtime access denied",
+				slog.Int64("user_id", parseUserID),
+				slog.String("code", status.Code(parseRuntimeErr).String()),
+				slog.String("error", parseRuntimeErr.Error()),
+			)
+			return parseRuntimeErr
+		}
 		if parseReq.GetConversationId() > 0 {
 			parseOwned, parseOwnedErr := parseS.store.parseConversationOwnedByUser(parseUserID, parseReq.GetConversationId())
 			if parseOwnedErr != nil {
@@ -488,10 +627,10 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 		}
 	}
 
-	parseCustomSystemPrompt := ""
+	parseCustomSystemPrompt := defaultCustomSystemPromptTemplate
 	var parseInjectedUserMemories []userMemoryRow
 	if parseS.store != nil {
-		parseStoredPrompt, parsePromptErr := parseS.store.getSelectedSystemPrompt(parseUserID, "")
+		parseStoredPrompt, parsePromptErr := parseS.store.getSelectedSystemPrompt(parseUserID, defaultCustomSystemPromptTemplate)
 		if parsePromptErr != nil {
 			parseLogger.Warn("rpc.Send: custom system prompt lookup failed", slog.String("error", parsePromptErr.Error()))
 		} else {
@@ -572,13 +711,32 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 		})
 	}
 	if parseErr = parseS.parseRequireUserEntitlement(parseUserID, billingEntitlementChatSendEnabled); parseErr != nil {
-		return parseErr
+		parseSendAccessErr := parseBuildSendAccessDeniedStatus(parseErr, parseBillingPolicy.PlanCode)
+		parseLogger.Warn("rpc.Send: entitlement gate denied send",
+			slog.Int64("user_id", parseUserID),
+			slog.String("plan_code", parseBillingPolicy.PlanCode),
+			slog.String("status_code", status.Code(parseSendAccessErr).String()),
+			slog.String("error", parseSendAccessErr.Error()),
+		)
+		return parseSendAccessErr
 	}
 	parseReleaseUsageBudget := func() {}
 	if parseReleaseUsageBudget, parseErr = parseS.parseRequireUsageBudget(parseUserID); parseErr != nil {
-		return parseErr
+		parseSendAccessErr := parseBuildSendAccessDeniedStatus(parseErr, parseBillingPolicy.PlanCode)
+		parseLogger.Warn("rpc.Send: usage budget gate denied send",
+			slog.Int64("user_id", parseUserID),
+			slog.String("plan_code", parseBillingPolicy.PlanCode),
+			slog.String("status_code", status.Code(parseSendAccessErr).String()),
+			slog.String("error", parseSendAccessErr.Error()),
+		)
+		return parseSendAccessErr
 	}
 	defer parseReleaseUsageBudget()
+	parseS.parseTrackFirstChatFunnelStep(parseStream.Context(), parseUserID, parseFirstChatStepFirstSendStarted, map[string]any{
+		"requested_conversation_id": parseReq.GetConversationId(),
+		"history_len":               len(parseReq.History),
+		"model":                     parseResolvedModel,
+	})
 
 	var parseAssistantResponseBuffer strings.Builder
 	var parsePromptTokenCount int64
@@ -761,6 +919,7 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 	)
 
 	// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Persist the exchange ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
+	isParseFirstExchange := false
 	if parseS.store != nil {
 		var parseSavedMessageCount int
 		parseConversationID, parseSavedMessageCount, parseErr = parseS.parseLoadOrCreateConversationSession(parsePeerAddress, parseUserID, parseReq.GetConversationId(), len(parseReq.History))
@@ -775,12 +934,19 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 			}
 			return parseErr
 		} else {
+			isParseFirstExchange = parseSavedMessageCount == 0
 			parseLogger.Debug("rpc.Send: db: session resolved",
 				slog.Int64("user_id", parseUserID),
 				slog.Int64("conv_id", parseConversationID),
 				slog.Int("already_saved", parseSavedMessageCount),
 				slog.Int("history_len", len(parseReq.History)),
 			)
+			if parseReq.GetConversationId() <= 0 {
+				parseS.parseTrackFirstChatFunnelStep(parseStream.Context(), parseUserID, parseFirstChatStepFirstThreadCreate, map[string]any{
+					"conversation_id": parseConversationID,
+					"history_len":     len(parseReq.History),
+				})
+			}
 			// Save any history messages not yet persisted.
 			for parseHistoryIndex := parseSavedMessageCount; parseHistoryIndex < len(parseReq.History); parseHistoryIndex++ {
 				parseHistoryMessage2 := parseReq.History[parseHistoryIndex]
@@ -882,6 +1048,23 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 			}
 		}
 	}
+	if isParseFirstExchange {
+		parseS.parseUpsertStarterMilestone(parseUserID, parseStarterMilestoneFirstThreadCreated, map[string]any{
+			"conversation_id": parseConversationID,
+			"source":          "rpc.Send",
+		})
+		parseS.parseUpsertStarterMilestone(parseUserID, parseStarterMilestoneFirstReplyCompleted, map[string]any{
+			"conversation_id": parseConversationID,
+			"usage_event_id":  parseUsageEventID,
+			"source":          "rpc.Send",
+		})
+		parseS.parseTrackFirstChatFunnelStep(parseStream.Context(), parseUserID, parseFirstChatStepFirstReplyDone, map[string]any{
+			"conversation_id": parseConversationID,
+			"usage_event_id":  parseUsageEventID,
+			"provider_id":     parseChatProvider.ParseID(),
+			"model":           parseResolvedModel,
+		})
+	}
 
 	parseLogger.Info("rpc.Send: complete",
 		slog.Int64("conv_id", parseConversationID),
@@ -907,9 +1090,12 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 
 // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Conversation management RPCs ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
 
-func (parseS *chatServer) ListConversations(parseCtx context.Context, _ *chatpb.ListConversationsRequest) (*chatpb.ListConversationsResponse, error) {
+func (parseS *chatServer) ListConversations(parseCtx context.Context, parseReq *chatpb.ListConversationsRequest) (*chatpb.ListConversationsResponse, error) {
 	parseLogger := parseS.logger.With(slog.String("rpc", "ListConversations"))
 	parseLogger.Info("rpc.ListConversations: started")
+	if parseReq == nil {
+		parseReq = &chatpb.ListConversationsRequest{}
+	}
 	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
 	if parseErr != nil {
 		return nil, parseErr
@@ -924,8 +1110,11 @@ func (parseS *chatServer) ListConversations(parseCtx context.Context, _ *chatpb.
 		parseLogger.Error("rpc.ListConversations: db query failed", slog.String("error", parseErr.Error()))
 		return nil, status.Errorf(codes.Internal, "list conversations: %v", parseErr)
 	}
-	parseResponseSummaries := make([]*chatpb.ConversationSummary, 0, len(parseConversationSummaries))
-	for _, parseConversationSummary := range parseConversationSummaries {
+	parseStarterState := parseS.parseResolveStarterStateForConversationCount(parseUserID, len(parseConversationSummaries))
+	parseS.parseSyncStarterStateMilestones(parseUserID, parseStarterState)
+	parsePagedConversationSummaries, parseNextOffset, isHasMore := parsePaginateConversationSummaries(parseConversationSummaries, parseReq.GetPageSize(), parseReq.GetPageOffset())
+	parseResponseSummaries := make([]*chatpb.ConversationSummary, 0, len(parsePagedConversationSummaries))
+	for _, parseConversationSummary := range parsePagedConversationSummaries {
 		parsePreview := parseConversationSummary.Preview
 		if len(parsePreview) > 60 {
 			parsePreview = parsePreview[:60] + "..."
@@ -937,8 +1126,46 @@ func (parseS *chatServer) ListConversations(parseCtx context.Context, _ *chatpb.
 			Preview:   parsePreview,
 		})
 	}
-	parseLogger.Info("rpc.ListConversations: complete", slog.Int("count", len(parseResponseSummaries)))
-	return &chatpb.ListConversationsResponse{Conversations: parseResponseSummaries}, nil
+	parseLogger.Info("rpc.ListConversations: complete",
+		slog.Int("count", len(parseResponseSummaries)),
+		slog.Bool("has_more", isHasMore),
+		slog.Int("next_offset", int(parseNextOffset)),
+		slog.Int("total_count", len(parseConversationSummaries)),
+		slog.Int("requested_page_size", int(parseReq.GetPageSize())),
+		slog.Int("requested_page_offset", int(parseReq.GetPageOffset())),
+	)
+	return &chatpb.ListConversationsResponse{
+		Conversations: parseResponseSummaries,
+		HasMore:       isHasMore,
+		NextOffset:    parseNextOffset,
+	}, nil
+}
+
+// parsePaginateConversationSummaries slices newest-first summaries for one page request.
+//
+// A non-positive page size preserves backward compatibility by returning all rows.
+func parsePaginateConversationSummaries(parseSummaries []conversationSummaryRow, parsePageSizeRaw, parsePageOffsetRaw int32) ([]conversationSummaryRow, int32, bool) {
+	const parseMaxConversationPageSize = 200
+	parseSummaryCount := len(parseSummaries)
+	if parsePageSizeRaw <= 0 {
+		return parseSummaries, int32(parseSummaryCount), false
+	}
+	if parsePageSizeRaw > parseMaxConversationPageSize {
+		parsePageSizeRaw = parseMaxConversationPageSize
+	}
+	parsePageOffset := int(parsePageOffsetRaw)
+	if parsePageOffset < 0 {
+		parsePageOffset = 0
+	}
+	if parsePageOffset >= parseSummaryCount {
+		return []conversationSummaryRow{}, int32(parseSummaryCount), false
+	}
+	parsePageEnd := parsePageOffset + int(parsePageSizeRaw)
+	if parsePageEnd > parseSummaryCount {
+		parsePageEnd = parseSummaryCount
+	}
+	isHasMore := parsePageEnd < parseSummaryCount
+	return parseSummaries[parsePageOffset:parsePageEnd], int32(parsePageEnd), isHasMore
 }
 
 func (parseS *chatServer) ResolveConversationRoute(parseCtx context.Context, parseReq *chatpb.ResolveConversationRouteRequest) (*chatpb.ResolveConversationRouteResponse, error) {
@@ -989,6 +1216,13 @@ func (parseS *chatServer) LoadConversation(parseCtx context.Context, parseReq *c
 	parseResponseMessages := make([]*chatpb.ChatMessage, 0, len(parseConversationRows))
 	for _, parseRow := range parseConversationRows {
 		parseResponseMessages = append(parseResponseMessages, &chatpb.ChatMessage{Role: provider.ParseNormalizeRole(parseRow.Role), Content: parseRow.Content, ModelId: parseRow.ModelID, PromptTokens: parseRow.PromptTokens, CompletionTokens: parseRow.CompletionTokens})
+	}
+	if len(parseResponseMessages) > 0 {
+		parseS.parseTrackFirstChatFunnelStep(parseCtx, parseUserID, parseFirstChatStepThreadReopened, map[string]any{
+			"conversation_id": parseReq.GetId(),
+			"message_count":   len(parseResponseMessages),
+			"source":          "rpc.LoadConversation",
+		})
 	}
 	parseLogger.Info("rpc.LoadConversation: complete", slog.Int("messages", len(parseResponseMessages)))
 	return &chatpb.LoadConversationResponse{Messages: parseResponseMessages}, nil
@@ -1572,9 +1806,9 @@ func (parseS *chatServer) GetCustomSystemPrompt(parseCtx context.Context, _ *emp
 	}
 	if parseS.store == nil {
 		parseLogger.Warn("rpc.GetCustomSystemPrompt: store unavailable ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â returning default")
-		return wrapperspb.String(""), nil
+		return wrapperspb.String(defaultCustomSystemPromptTemplate), nil
 	}
-	parseCustomPrompt, parseErr := parseS.store.getSelectedSystemPrompt(parseUserID, "")
+	parseCustomPrompt, parseErr := parseS.store.getSelectedSystemPrompt(parseUserID, defaultCustomSystemPromptTemplate)
 	if parseErr != nil {
 		parseLogger.Error("rpc.GetCustomSystemPrompt: db query failed", slog.String("error", parseErr.Error()))
 		return nil, status.Errorf(codes.Internal, "get custom system prompt: %v", parseErr)
@@ -1669,7 +1903,7 @@ func parseSanitizeTextForTTS(parseSource string) string {
 // given tone ID. Falls back to balanced when the ID is unrecognised.
 func buildSystemPrompt(parseTone string, parseCustomPrompt string, parseMemories []userMemoryRow) string {
 	parseInstruction := toneInstructionByID[parseNormalizeSelectedToneID(parseTone)]
-	parseCustomPrompt = parseNormalizeCustomSystemPrompt(parseCustomPrompt)
+	parseCustomPrompt = parseResolveCustomSystemPrompt(parseCustomPrompt)
 	parseMemoryBlock := buildUserMemoryPromptBlock(parseMemories)
 	parseCustomPromptUsesMemories := strings.Contains(parseCustomPrompt, "{{memories}}")
 	parseCustomPrompt = parseResolveSystemPromptTemplate(parseCustomPrompt, parseMemoryBlock, time.Now())
@@ -1698,6 +1932,15 @@ func parseResolveSystemPromptTemplate(parsePrompt, parseMemoryBlock string, pars
 		"{{memories}}", parseResolvedMemories,
 	)
 	return parseReplacer.Replace(parseResolved)
+}
+
+// parseResolveCustomSystemPrompt returns the normalized user prompt or the system-default template.
+func parseResolveCustomSystemPrompt(parsePrompt string) string {
+	parseNormalizedPrompt := parseNormalizeCustomSystemPrompt(parsePrompt)
+	if parseNormalizedPrompt != "" {
+		return parseNormalizedPrompt
+	}
+	return defaultCustomSystemPromptTemplate
 }
 
 func parseNormalizeCustomSystemPrompt(parsePrompt string) string {
@@ -1775,11 +2018,32 @@ func (parseS *chatServer) parseExtractAndStoreUserMemories(parseUserID int64, pa
 	}
 
 	parseUsefulCandidates := filterUsefulUserMemories(parseCandidates)
+	parseExistingMemoryKeyBySignature := map[string]string{}
+	parseExistingMemories, parseErr := parseS.store.parseListUserMemories(parseUserID)
+	if parseErr != nil {
+		parseS.logger.Warn("memory extraction existing-memory lookup failed",
+			slog.Int64("user_id", parseUserID),
+			slog.String("provider", parseExtractionProvider.ParseID()),
+			slog.String("model", parseResolvedModel),
+			slog.String("error", parseErr.Error()),
+		)
+	} else {
+		parseExistingMemoryKeyBySignature = parseBuildUserMemorySignatureKeyMap(parseExistingMemories)
+	}
 	parseSavedCount := 0
 	parseSaveFailureCount := 0
 	for _, parseCandidate := range parseUsefulCandidates {
+		parseMemoryKey := parseNormalizeUserMemoryKey(parseCandidate.Key, parseCandidate.Category, parseCandidate.Summary)
+		parseMemorySignature := parseBuildUserMemorySignature(parseCandidate.Category, parseCandidate.Summary, parseCandidate.Detail)
+		if parseMemorySignature != "" {
+			if parseExistingMemoryKey, hasParseExistingMemoryKey := parseExistingMemoryKeyBySignature[parseMemorySignature]; hasParseExistingMemoryKey && strings.TrimSpace(parseExistingMemoryKey) != "" {
+				parseMemoryKey = strings.TrimSpace(parseExistingMemoryKey)
+			} else {
+				parseExistingMemoryKeyBySignature[parseMemorySignature] = parseMemoryKey
+			}
+		}
 		if parseErr2 := parseS.store.parseUpsertUserMemory(parseUserID, userMemoryRow{
-			Key:             parseNormalizeUserMemoryKey(parseCandidate.Key, parseCandidate.Category, parseCandidate.Summary),
+			Key:             parseMemoryKey,
 			Category:        parseNormalizeUserMemoryCategory(parseCandidate.Category),
 			Summary:         strings.TrimSpace(parseCandidate.Summary),
 			Detail:          strings.TrimSpace(parseCandidate.Detail),
@@ -1814,6 +2078,8 @@ func (parseS *chatServer) parseExtractAndStoreUserMemories(parseUserID int64, pa
 
 func filterUsefulUserMemories(parseCandidates []provider.UserMemoryCandidate) []provider.UserMemoryCandidate {
 	parseFiltered := make([]provider.UserMemoryCandidate, 0, len(parseCandidates))
+	parseSeenOrder := make([]string, 0, len(parseCandidates))
+	parseDedupedCandidates := make(map[string]provider.UserMemoryCandidate, len(parseCandidates))
 	for _, parseCandidate := range parseCandidates {
 		parseCandidate.Category = parseNormalizeUserMemoryCategory(parseCandidate.Category)
 		parseCandidate.Key = parseNormalizeUserMemoryKey(parseCandidate.Key, parseCandidate.Category, parseCandidate.Summary)
@@ -1828,9 +2094,82 @@ func filterUsefulUserMemories(parseCandidates []provider.UserMemoryCandidate) []
 		if parseCandidate.UsefulnessScore < userMemoryUsefulnessThreshold || parseCandidate.ConfidenceScore < userMemoryConfidenceThreshold {
 			continue
 		}
-		parseFiltered = append(parseFiltered, parseCandidate)
+		parseSignature := parseBuildUserMemorySignature(parseCandidate.Category, parseCandidate.Summary, parseCandidate.Detail)
+		if parseSignature == "" {
+			parseSignature = parseCandidate.Key
+		}
+		parseExistingCandidate, hasParseExistingCandidate := parseDedupedCandidates[parseSignature]
+		if !hasParseExistingCandidate {
+			parseDedupedCandidates[parseSignature] = parseCandidate
+			parseSeenOrder = append(parseSeenOrder, parseSignature)
+			continue
+		}
+		if parseShouldReplaceUserMemoryCandidate(parseExistingCandidate, parseCandidate) {
+			parseDedupedCandidates[parseSignature] = parseCandidate
+		}
+	}
+	for _, parseSignature := range parseSeenOrder {
+		parseFiltered = append(parseFiltered, parseDedupedCandidates[parseSignature])
 	}
 	return parseFiltered
+}
+
+// parseShouldReplaceUserMemoryCandidate reports whether one candidate should replace an existing deduplicated candidate.
+func parseShouldReplaceUserMemoryCandidate(parseCurrent provider.UserMemoryCandidate, parseCandidate provider.UserMemoryCandidate) bool {
+	if parseCandidate.UsefulnessScore != parseCurrent.UsefulnessScore {
+		return parseCandidate.UsefulnessScore > parseCurrent.UsefulnessScore
+	}
+	if parseCandidate.ConfidenceScore != parseCurrent.ConfidenceScore {
+		return parseCandidate.ConfidenceScore > parseCurrent.ConfidenceScore
+	}
+	parseCurrentDetail := strings.TrimSpace(parseCurrent.Detail)
+	parseCandidateDetail := strings.TrimSpace(parseCandidate.Detail)
+	if parseCurrentDetail == "" && parseCandidateDetail != "" {
+		return true
+	}
+	if parseCurrentDetail != "" && parseCandidateDetail == "" {
+		return false
+	}
+	return len([]rune(parseCandidate.Summary))+len([]rune(parseCandidate.Detail)) > len([]rune(parseCurrent.Summary))+len([]rune(parseCurrent.Detail))
+}
+
+// parseBuildUserMemorySignatureKeyMap indexes existing memory keys by normalized signature for stable extraction upserts.
+func parseBuildUserMemorySignatureKeyMap(parseMemories []userMemoryRow) map[string]string {
+	parseMemoryKeyBySignature := make(map[string]string, len(parseMemories))
+	for _, parseMemory := range parseMemories {
+		parseSignature := parseBuildUserMemorySignature(parseMemory.Category, parseMemory.Summary, parseMemory.Detail)
+		if parseSignature == "" {
+			continue
+		}
+		if _, hasParseSignature := parseMemoryKeyBySignature[parseSignature]; hasParseSignature {
+			continue
+		}
+		parseMemoryKeyBySignature[parseSignature] = strings.TrimSpace(parseMemory.Key)
+	}
+	return parseMemoryKeyBySignature
+}
+
+// parseBuildUserMemorySignature builds one stable dedupe signature for memory records.
+func parseBuildUserMemorySignature(parseCategory, parseSummary, parseDetail string) string {
+	parseCategory = parseNormalizeUserMemoryCategory(parseCategory)
+	parseSummary = parseNormalizeUserMemorySignaturePart(parseSummary)
+	if parseSummary == "" {
+		return ""
+	}
+	parseDetail = parseNormalizeUserMemorySignaturePart(parseDetail)
+	if parseDetail == "" || strings.EqualFold(parseDetail, parseSummary) {
+		return parseCategory + "|" + parseSummary
+	}
+	return parseCategory + "|" + parseSummary + "|" + parseDetail
+}
+
+// parseNormalizeUserMemorySignaturePart canonicalizes one signature fragment for dedupe comparisons.
+func parseNormalizeUserMemorySignaturePart(parseValue string) string {
+	parseValue = strings.TrimSpace(strings.ToLower(parseValue))
+	if parseValue == "" {
+		return ""
+	}
+	return strings.Join(strings.Fields(parseValue), " ")
 }
 
 func parseNormalizeUserMemoryCategory(parseCategory string) string {
@@ -1892,6 +2231,7 @@ func buildUserMemoryPromptBlock(parseMemories []userMemoryRow) string {
 	}
 	var parseBuilder strings.Builder
 	parseCount := 0
+	parseSeenSignatures := make(map[string]struct{}, len(parseMemories))
 	for _, parseMemory := range parseMemories {
 		if parseCount >= maxInjectedUserMemoryCount {
 			break
@@ -1899,6 +2239,13 @@ func buildUserMemoryPromptBlock(parseMemories []userMemoryRow) string {
 		parseSummary := strings.TrimSpace(parseMemory.Summary)
 		if parseSummary == "" {
 			continue
+		}
+		parseSignature := parseBuildUserMemorySignature(parseMemory.Category, parseMemory.Summary, parseMemory.Detail)
+		if parseSignature != "" {
+			if _, hasParseSignature := parseSeenSignatures[parseSignature]; hasParseSignature {
+				continue
+			}
+			parseSeenSignatures[parseSignature] = struct{}{}
 		}
 		parseBuilder.WriteString("- ")
 		parseBuilder.WriteString(parseSummary)
@@ -2041,11 +2388,23 @@ func parseValidateAuthSecretConfig(parseConfig serverRuntimeConfig) error {
 	return nil
 }
 
+// parseChatShellHandler serves the chat shell and static assets without one chat-service context.
 func parseChatShellHandler(parseFileServer http.Handler) http.Handler {
+	return parseChatShellHandlerForServer(nil, parseFileServer)
+}
+
+// parseChatShellHandlerForServer serves the chat shell and static assets with optional admin deep-link authz checks.
+func parseChatShellHandlerForServer(parseS *chatServer, parseFileServer http.Handler) http.Handler {
 	return http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
 		switch parseR.URL.Path {
 		case "/chat-bootstrap.js", "/app/chat-bootstrap.js":
 			parseServeChatBootstrapJS(parseW, parseR)
+			return
+		}
+		if parseS != nil {
+			parseS.parseTrackFirstChatFunnelShellRequest(parseR)
+		}
+		if parseHandleAdminDashboardDeepLinkGuard(parseW, parseR, parseS) {
 			return
 		}
 		parseRewritten := parseRewriteLegacyClientAssetRequest(parseR)
@@ -2059,6 +2418,121 @@ func parseChatShellHandler(parseFileServer http.Handler) http.Handler {
 		}
 		parseFileServer.ServeHTTP(parseW, parseR)
 	})
+}
+
+// parseHandleAdminDashboardDeepLinkGuard fail-closes unauthorized admin deep links by redirecting to the app root.
+func parseHandleAdminDashboardDeepLinkGuard(parseW http.ResponseWriter, parseR *http.Request, parseS *chatServer) bool {
+	if parseS == nil || parseR == nil {
+		return false
+	}
+	if !parseIsAdminDashboardDeepLinkRequest(parseR) {
+		return false
+	}
+	if parseS.authManager == nil {
+		if parseS.logger != nil {
+			parseS.logger.Warn(
+				"http.admin deep link denied",
+				slog.String("path", strings.TrimSpace(parseR.URL.Path)),
+				slog.String("code", codes.Unauthenticated.String()),
+				slog.String("error", "auth manager unavailable"),
+				slog.String("next_action", "initialize auth manager and retry admin route entry"),
+			)
+		}
+		http.Redirect(parseW, parseR, "/app", http.StatusSeeOther)
+		return true
+	}
+	parseUser, parseIsAuthenticated := parseS.authManager.parseAuthenticatedUserFromRequest(parseR)
+	if !parseIsAuthenticated || parseUser.ID <= 0 {
+		if parseS.logger != nil {
+			parseS.logger.Warn(
+				"http.admin deep link denied",
+				slog.String("path", strings.TrimSpace(parseR.URL.Path)),
+				slog.Int64("user_id", parseUser.ID),
+				slog.String("code", codes.Unauthenticated.String()),
+				slog.String("error", "authentication required"),
+				slog.String("next_action", "sign in and retry admin route entry"),
+			)
+		}
+		parseS.authManager.clearAuthCookie(parseW, parseR)
+		http.Redirect(parseW, parseR, "/app", http.StatusSeeOther)
+		return true
+	}
+	parseScope, parseErr := parseS.parseResolveAdminAccessScopeForUserID(parseUser.ID)
+	if parseErr != nil {
+		if parseS.logger != nil {
+			parseS.logger.Warn(
+				"http.admin deep link denied",
+				slog.String("path", strings.TrimSpace(parseR.URL.Path)),
+				slog.Int64("user_id", parseUser.ID),
+				slog.String("code", status.Code(parseErr).String()),
+				slog.String("error", parseErr.Error()),
+				slog.String("next_action", "verify role scope before retrying admin route entry"),
+			)
+		}
+		http.Redirect(parseW, parseR, "/app", http.StatusSeeOther)
+		return true
+	}
+	if parseS.logger != nil {
+		parseScopeType := "workspace"
+		if parseScope.isPlatformScope {
+			parseScopeType = "platform"
+		}
+		parseS.logger.Info(
+			"http.admin deep link allowed",
+			slog.String("path", strings.TrimSpace(parseR.URL.Path)),
+			slog.Int64("user_id", parseUser.ID),
+			slog.String("scope", parseScopeType),
+			slog.Int("workspace_count", len(parseScope.workspaceIDs)),
+		)
+	}
+	return false
+}
+
+// parseIsAdminDashboardDeepLinkRequest reports whether one HTTP request targets one dashboard/admin deep link.
+func parseIsAdminDashboardDeepLinkRequest(parseR *http.Request) bool {
+	if parseR == nil || parseR.URL == nil {
+		return false
+	}
+	if parseIsAdminDashboardDeepLinkPath(parseR.URL.Path) {
+		return true
+	}
+	parseCleanedPath := filepath.ToSlash(filepath.Clean("/" + strings.TrimLeft(strings.TrimSpace(parseR.URL.Path), "/")))
+	if parseCleanedPath != "/app/settings" {
+		return false
+	}
+	return parseIsAdminDashboardPanelKey(parseR.URL.Query().Get("panel"))
+}
+
+// parseIsAdminDashboardDeepLinkPath reports whether one HTTP path resolves to one admin/dashboard deep-link namespace.
+func parseIsAdminDashboardDeepLinkPath(parseRequestPath string) bool {
+	parseTrimmedPath := strings.TrimSpace(parseRequestPath)
+	if parseTrimmedPath == "" {
+		return false
+	}
+	parseCleanedPath := filepath.ToSlash(filepath.Clean("/" + strings.TrimLeft(parseTrimmedPath, "/")))
+	switch parseCleanedPath {
+	case "/admin", "/dashboard", "/su", "/app/admin", "/app/dashboard", "/app/su":
+		return true
+	default:
+		return strings.HasPrefix(parseCleanedPath, "/admin/") ||
+			strings.HasPrefix(parseCleanedPath, "/dashboard/") ||
+			strings.HasPrefix(parseCleanedPath, "/su/") ||
+			strings.HasPrefix(parseCleanedPath, "/app/admin/") ||
+			strings.HasPrefix(parseCleanedPath, "/app/dashboard/") ||
+			strings.HasPrefix(parseCleanedPath, "/app/su/")
+	}
+}
+
+// parseIsAdminDashboardPanelKey reports whether one settings panel key represents one dashboard/admin surface.
+func parseIsAdminDashboardPanelKey(parsePanelKey string) bool {
+	parseNormalizedKey := strings.ToLower(strings.TrimSpace(parsePanelKey))
+	if parseNormalizedKey == "" {
+		return false
+	}
+	return strings.Contains(parseNormalizedKey, "admin") ||
+		strings.Contains(parseNormalizedKey, "dashboard") ||
+		strings.Contains(parseNormalizedKey, "superuser") ||
+		strings.HasPrefix(parseNormalizedKey, "su-")
 }
 
 func parseRewriteLegacyClientAssetRequest(parseR *http.Request) *http.Request {
@@ -2251,7 +2725,7 @@ func ParseRun() {
 	// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Marketing pages (public, no auth required) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
 
 	// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Catch-all: bare "/" ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ marketing home; all other paths ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ chat shell ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
-	parseMux.Handle("/", parseChatShellHandler(parseFileServer))
+	parseMux.Handle("/", parseChatShellHandlerForServer(parseChatService, parseFileServer))
 
 	parseLogger.Info("server: starting",
 		slog.String("addr", parseAddr),
