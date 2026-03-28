@@ -2,6 +2,123 @@
 
 ## Checkpoints
 
+### 2026-03-28 18:05 America/New_York
+
+- completed todo: Rebalanced the example-100 backlog so Agent 4 owns more non-UI engineering, logging, traceability, and failure-handling work, while Agent 5 keeps only UI-facing error and canvas/chat-surface follow-up items.
+- files changed: `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: targeted `rg` and direct readback of `TODO.md` sections for Agent 4 and Agent 5 ownership
+- result: Passed. Logging/error/naming follow-up work now sits under Agent 4, UI-facing customer-error treatment remains under Agent 5, and the canvas/chat-surface styling follow-up is tracked as dedicated UI work instead of mixed backlog notes.
+- residual risk: This is backlog-only coordination work; implementation and test coverage for the new items are still pending.
+- next suggested todo: Resume the next unchecked item in Agent 4 or Agent 5 depending on whether the next slice is backend/error hardening or UI refinement.
+
+### 2026-03-28 09:52 America/New_York
+
+- completed todo: Implement Cerebras memory extraction parity in `ParseExtractUserMemories` with deterministic JSON-object parsing and provider-agnostic fallback normalization.
+- files changed: `examples/100-ai-chat-wizard/server/provider/cerebras_provider.go`, `examples/100-ai-chat-wizard/server/provider/provider_http_additional_test.go`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/provider -count=1 -run "^(TestCerebrasProviderStreamingHTTPBackedBranches|TestCerebrasProviderHTTPBackedBranches)$"`; `go test ./examples/100-ai-chat-wizard/server/provider -count=1`
+- result: Passed. Cerebras extraction now uses `response_format.type = json_object`, decodes candidates through the shared provider-agnostic parser, normalizes candidate bounds/keys/category via `parseNormalizeMemoryCandidates`, and safely falls back to an empty candidate list when payload parsing fails.
+- residual risk: This validates provider-level extraction behavior, but cross-provider extraction UX consistency in remembered-preferences UI still depends on downstream server/app integration coverage.
+- next suggested todo: Add first-class external-identity tables and store funcs for `auth_identities`, `auth_oidc_states`, and workspace auth policy (line 413).
+
+### 2026-03-28 09:48 America/New_York
+
+- completed todo: Implement Anthropic memory extraction parity in `ParseExtractUserMemories` with structured tool-output parsing, normalized candidate coercion, and malformed-response fallback safety.
+- files changed: `examples/100-ai-chat-wizard/server/provider/anthropic_provider.go`, `examples/100-ai-chat-wizard/server/provider/provider_helpers_test.go`, `examples/100-ai-chat-wizard/server/provider/provider_http_additional_test.go`, `examples/100-ai-chat-wizard/server/provider/provider_streaming_additional_test.go`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/provider -count=1 -run "^(TestAnthropicProviderHelperAndFallbackBranches|TestAnthropicProviderStreamingHTTPBackedBranches|TestAnthropicProviderHTTPBackedBranches)$"`; `go test ./examples/100-ai-chat-wizard/server/provider -count=1`
+- result: Passed. Anthropic extraction now sends an explicit tool-choice + JSON-schema contract (`extract_user_memories`), parses tool-use payloads with text compatibility fallback, coerces mixed key formats (`usefulness_score`/`usefulnessScore`, etc.), and returns an empty candidate list when provider output is malformed instead of surfacing parse errors.
+- residual risk: This change is provider-package covered, but end-to-end remembered-preferences UX behavior across full server flows still depends on integration paths outside the provider package.
+- next suggested todo: Implement Cerebras memory extraction parity in `ParseExtractUserMemories` (line 411).
+
+### 2026-03-28 13:52 America/New_York
+
+- completed todo: Replace stale control-mutation authz stubs with one live shared helper and remove placeholder `Unimplemented` seam tests.
+- files changed: `examples/100-ai-chat-wizard/server/app/admin_control_mutation_authz.go`, `examples/100-ai-chat-wizard/server/app/admin_control_mutation_authz_test.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestAdminControlMutationScopeBoundaries|TestStoreAdminControlMutationFuncs|TestAdminControlOpsRPCs|TestAdminControlOpsWorkspaceScope)$"`
+- result: Passed. Real control-plane RPCs continue to use the shared `parseAuthorizeAdminControlMutationScope` helper, and tests now assert live scope outcomes instead of `Unimplemented` placeholder behavior.
+- residual risk: Coverage is currently focused on authz/scope correctness; deeper mutation side-effect assertions remain in the dedicated control-ops tests.
+- next suggested todo: Implement Anthropic memory extraction parity in `ParseExtractUserMemories` (line 408).
+
+### 2026-03-28 13:43 America/New_York
+
+- completed todo: Implement `RunServerTool` end to end with typed runtime session management, stream-frame semantics, byte/time policy enforcement, execution audit persistence, and clean shutdown behavior.
+- files changed: `examples/100-ai-chat-wizard/server/app/server_tool_stub.go`, `examples/100-ai-chat-wizard/server/app/server_tool_runtime.go`, `examples/100-ai-chat-wizard/server/app/server_tool_stub_test.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestGetServerToolPolicyRequiresSURole|TestGetServerToolPolicyReturnsDefaults|TestSetServerToolPolicyRequiresDangerousChangeConfirmation|TestSetServerToolPolicyValidatesRuleArgumentPolicy|TestSetServerToolPolicyAppendsHistoryRows|TestRunServerToolRequiresStartPayload|TestRunServerToolEnforcesWhitelistAndArgumentPolicy|TestRunServerToolAllowedCommandStreamsStartedAndExit|TestRunServerToolStdinRequiresMatchingSessionID|TestSensitiveSuperuserMutationsRequireFreshSession|TestRunServerToolRequiresStream|TestGetServerToolPolicyReadsWhitelistFromSiteConfig)$"`
+- result: Passed. `RunServerTool` now executes approved commands, emits started/output/exit/error stream events, handles stdin/signal/close frames with session-id checks, enforces output-byte and timeout caps, and records started/completed/failed audit events.
+- residual risk: Runtime execution currently supports one active session per stream and relies on command-token parsing without quoted-arg support; broader shell/runtime parity and multi-session orchestration are intentionally out of scope for this slice.
+- next suggested todo: Replace the stale control-mutation authz stubs in `admin_control_mutation_authz.go` with one live shared helper used by the real feature-flag, experiment, and incident mutation RPCs (line 400).
+
+### 2026-03-28 13:24 America/New_York
+
+- completed todo: Implement `SetServerToolPolicy` end to end with persisted policy fields/rules, typed history store funcs + SQL, audit rows, and applied-snapshot response payload.
+- files changed: `examples/100-ai-chat-wizard/proto/chat.proto`, `examples/100-ai-chat-wizard/proto/chat.pb.go`, `examples/100-ai-chat-wizard/proto/chat_grpc.pb.go`, `examples/100-ai-chat-wizard/server/app/server_tool_stub.go`, `examples/100-ai-chat-wizard/server/app/server_tool_security.go`, `examples/100-ai-chat-wizard/server/app/store_server_tool_policy.go`, `examples/100-ai-chat-wizard/server/app/queries.go`, `examples/100-ai-chat-wizard/server/app/server_tool_stub_test.go`, `examples/100-ai-chat-wizard/sql/store/create_server_tool_policy_history.sql`, `examples/100-ai-chat-wizard/sql/store/list_server_tool_policy_history.sql`, `examples/100-ai-chat-wizard/sql/store/schema.sql`, `examples/100-ai-chat-wizard/sql/store/migrations.sql`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/chat.proto` (run in `examples/100-ai-chat-wizard`); `go test ./examples/100-ai-chat-wizard/proto -count=1`; `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestGetServerToolPolicyRequiresSURole|TestGetServerToolPolicyReturnsDefaults|TestSetServerToolPolicyRequiresDangerousChangeConfirmation|TestSetServerToolPolicyValidatesRuleArgumentPolicy|TestSetServerToolPolicyAppendsHistoryRows|TestRunServerToolRequiresStartPayload|TestRunServerToolEnforcesWhitelistAndArgumentPolicy|TestRunServerToolAllowedCommandStillFailsWhenRuntimeUnavailable|TestSensitiveSuperuserMutationsRequireFreshSession|TestRunServerToolRequiresStream|TestGetServerToolPolicyReadsWhitelistFromSiteConfig)$"`
+- result: Passed. `SetServerToolPolicy` now applies validated policy snapshots, writes immutable `server_tool_policy_history` rows, emits audit events for denied/set outcomes, and returns the applied snapshot fields directly in the mutation response.
+- residual risk: `RunServerTool` remains runtime-unavailable and only policy-gates start payloads; full terminal session manager/streaming semantics are still pending.
+- next suggested todo: Implement `RunServerTool` end to end (line 399).
+
+### 2026-03-28 Agent-5 Auth/Settings/Dashboard Copy
+
+- completed todos: /signup copy, / auth landing copy, /app/settings copy, dashboard-entry copy.
+- files changed: `examples/100-ai-chat-wizard/server/catalog/bundle.go`, `examples/100-ai-chat-wizard/client/app/dashboard.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go build ./examples/100-ai-chat-wizard/server/catalog/...`; `cmd /c "set GOOS=js&& set GOARCH=wasm&& go build ./examples/100-ai-chat-wizard/client/app/..."`
+- result: Passed. Signup hero rewritten to workspace-creation framing with billing-formula stat cards in EN/ES/FR. Auth landing rewritten to "Welcome back / Your workspace is one sign-in away" framing in EN/ES/FR. Reset hero tightened to workspace-return language. Settings copy: "TTS providers" → "Voice", profile nav summary is a real sentence, memories nav summary explains value not action, billing nav summary and help text are formula-explicit, profile usage title is time-bound. Dashboard: role banner lists what to check and where; slice subtitles rewritten in operator-action language; section renamed to "Admin surfaces"; account summary uses "Chats", "Model cost", "Service premium" labels.
+- residual risk: signup_shell.go may contain additional hardcoded copy not covered by bundle.go changes.
+- next suggested todo: Check signup_shell.go for un-rewritten hardcoded copy; then move to admin list views with search/filter/pagination.
+
+### 2026-03-28 10:35 America/New_York
+
+- completed todo: Replace the legacy local seed identities in `cmd/seed-test-db` with one stable QA pair, `customer@email.com / password` and `admin@email.com / password`, and keep role/bootstrap helpers aligned for local auth, first-chat, billing, and dashboard smoke flows.
+- files changed: `examples/100-ai-chat-wizard/cmd/seed-test-db/main.go`, `examples/100-ai-chat-wizard/cmd/seed-test-db/main_test.go`, `tools/gwc/main.go`, `tools/gwc/seed_test.go`, `test/playwrightgo/examples/example100_authenticated_happy_path_test.go`, `test/playwrightgo/examples/example100_admin_journey_test.go`, `test/playwrightgo/examples/example100_billing_summary_regression_test.go`, `test/playwrightgo/examples/example100_route_smoke_test.go`, `test/playwrightgo/examples/example100_visit_first_chat_test.go`, `test/playwrightgo/examples/example100_scroll_to_bottom_test.go`, `test/playwrightgo/examples/example100_admin_role_guard_test.go`, `examples/100-ai-chat-wizard/README.md`, `examples/100-ai-chat-wizard/MANUAL_SMOKE.md`, `examples/100-ai-chat-wizard/OPERATOR_RUNBOOK.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/cmd/seed-test-db -count=1`; `go test ./tools/gwc -count=1 -run "^(TestRunSeedJSONExecutesDefaultSeederWithKnownCredentials|TestPrintSeedSummary)$"`; `go test -c -tags playwrightgo -o ./bin/playwright_examples.test ./test/playwrightgo/examples`
+- result: Passed. Seed command now creates the canonical QA accounts directly (`customer@email.com`, `admin@email.com`) and related seed summaries, docs, and seeded-login Playwright regressions use the same credentials.
+- residual risk: Full Playwright runtime execution was compile-validated only; browser runtime timing/behavior still depends on local Playwright environment and should be executed separately when needed.
+- next suggested todo: Implement `SetServerToolPolicy` end to end (line 395).
+
+### 2026-03-29 Agent-5 Pricing Rewrite
+
+- completed todos: Pricing hero stat cards, plans h2, comparison table, and FAQ rewrite (EN/ES/FR); pricing shell compareRowKeys and footer link fixes.
+- files changed: `examples/100-ai-chat-wizard/server/catalog/bundle.go`, `examples/100-ai-chat-wizard/client/app/pricing_shell.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `cmd /c "set GOOS=js&& set GOARCH=wasm&& go build ./examples/100-ai-chat-wizard/client/app/..."`; `go build ./examples/100-ai-chat-wizard/server/catalog/...`
+- result: Passed. Hero stat cards now describe the billing formula (platform fee, actual AI usage, service premium) in EN/ES/FR. Plans h2 updated to workspace-framing copy. 8-row compare table (seats/models/shared/admin/api/residency/retention/sla) replaced with 6-row table (workspace mode, collaboration, admin controls, billing visibility, support, security/compliance) in all three locales. FAQ replaced with the 5 billing-formula-specific questions in EN/ES/FR. `compareRowKeys` in pricing_shell.go updated to match new 6 keys. Footer Company/Legal columns wired to real marketing routes instead of `#` placeholders.
+- residual risk: Pricing browser regression test (`TestExample100PricingRegression`) asserts absence of `unlimited` and `no token caps` language — passes. Compare table row count changed so snapshot-style tests checking exact row counts would need updating if they exist.
+- next suggested todo: Rewrite the kept `/signup` page with concrete conversion copy.
+
+### 2026-03-28 09:16 America/New_York
+
+- completed todo: Add typed server endpoints for boot-catalog injection and lazy namespace fetch, plus version/hash metadata so the client can cache catalogs safely and refetch only when content changes.
+- files changed: `examples/100-ai-chat-wizard/proto/chat.proto`, `examples/100-ai-chat-wizard/proto/chat.pb.go`, `examples/100-ai-chat-wizard/proto/chat_grpc.pb.go`, `examples/100-ai-chat-wizard/server/app/catalog_ops.go`, `examples/100-ai-chat-wizard/server/app/catalog_ops_test.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/chat.proto` (run in `examples/100-ai-chat-wizard`); `go test ./examples/100-ai-chat-wizard/proto -count=1`; `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestGetCatalogBootstrapRPC|TestGetCatalogBootstrapRPCNotModified|TestGetCatalogNamespaceRPC|TestBuildCatalogLoader)"`
+- result: Passed. Added typed catalog bootstrap and namespace RPCs with deterministic version/hash metadata and not-modified responses to support client cache validation and lazy namespace refetch.
+- residual risk: Client-side bootstrap wiring and lazy namespace consumption are still pending, so these RPCs are available but not yet used by the runtime.
+- next suggested todo: Add typed billing-plan fields, store funcs, SQL queries, and admin mutation RPCs for the usage-based pricing formula: `monthly_platform_fee_cents`, `usage_premium_basis_points`, `workspace_mode`, `min_seats`, `max_seats`, and the collaboration/admin capability flags that distinguish `Pro` from `Team`.
+
+### 2026-03-28 09:07 America/New_York
+
+- completed todo: Move the current client-owned strings into server-owned sources behind a loader interface that starts file- or Go-backed now and can later swap to DB/CMS storage without changing the client contract.
+- files changed: `examples/100-ai-chat-wizard/server/catalog/bundle.go`, `examples/100-ai-chat-wizard/client/app/i18n.go`, `examples/100-ai-chat-wizard/server/app/catalog_loader.go`, `examples/100-ai-chat-wizard/server/app/catalog_loader_test.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^TestBuildCatalogLoader"`; `go test ./examples/100-ai-chat-wizard/server/catalog -count=1`; `cmd /c "set GOOS=js&& set GOARCH=wasm&& go test -c -o ./bin/examples-100-ai-chat-wizard-client-app.test ./examples/100-ai-chat-wizard/client/app"`
+- result: Passed. Localization catalog registrations now live in a server-owned Go source package and the client imports that source, while server-side catalog loading is abstracted behind a pluggable source interface with Go-backed default and source-swap coverage.
+- residual risk: Loader seam is in place, but no RPC exposure exists yet; catalog payloads are not fetched lazily by namespace until the next Agent 3 endpoint todo is implemented.
+- next suggested todo: Add typed server endpoints for boot-catalog injection and lazy namespace fetch, plus version/hash metadata so the client can cache catalogs safely and refetch only when content changes.
+
+### 2026-03-28 09:00 America/New_York
+
+- completed todo: Add a typed server-owned catalog contract with namespace, locale, version, fallback-locale, source-layer metadata, and message payload fields so the client is not coupled to ad hoc copy transport.
+- files changed: examples/100-ai-chat-wizard/proto/chat.proto, examples/100-ai-chat-wizard/proto/chat.pb.go, examples/100-ai-chat-wizard/proto/chat_grpc.pb.go, examples/100-ai-chat-wizard/server/app/catalog_contract.go, examples/100-ai-chat-wizard/server/app/catalog_contract_test.go, examples/100-ai-chat-wizard/TODO.md, examples/100-ai-chat-wizard/CHANGELOG.md
+- validation run: protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/chat.proto (run in examples/100-ai-chat-wizard); go test ./examples/100-ai-chat-wizard/proto -count=1; go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^TestBuildCatalogNamespacePayload"
+- result: Passed. Added typed protobuf catalog contract messages and server-side deterministic builders that normalize locale/fallback/version/source metadata and compute stable content hashes from sorted message payloads.
+- residual risk: Contract-only slice is complete, but no server loader or RPC transport is wired yet, so client strings still come from client-owned bundles until the next Agent 3 todos land.
+- next suggested todo: Move the current client-owned strings into server-owned sources behind a loader interface that starts file- or Go-backed now and can later swap to DB/CMS storage without changing the client contract.
+
+### 2026-05-30 — Info pages
+
+- completed todos: Add real `/about`, `/contact`, `/privacy`, `/terms`, `/security`, `/status` pages with concrete business copy.
+- files changed: `examples/100-ai-chat-wizard/client/app/routes.go` (6 route constants + `isLandingRoute` update), `examples/100-ai-chat-wizard/client/app/app.go` (6 route registrations in `ParseRun`), `examples/100-ai-chat-wizard/client/app/i18n.go` (info page keys in EN/ES/FR), `examples/100-ai-chat-wizard/client/app/landing_shell.go` (6 page constants, `parseLandingPageForPath` cases, `setLandingDocumentTitle` cases, `renderInfoShell` dispatch), `examples/100-ai-chat-wizard/client/app/landing_info.go` (new file — all 6 page renderers + shared `renderInfoSection` and `renderInfoStatusSection` helpers), `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `cmd /c "set GOOS=js&& set GOARCH=wasm&& go build ./examples/100-ai-chat-wizard/client/app/..."`
+- result: Clean build. Footer links for About, Contact, Privacy, Terms, Security, and Status now render dedicated info pages inside the standard marketing chrome (header + footer) for unauthenticated visitors.
+- residual risk: Authenticated users navigating directly to an info URL fall through to the workspace shell (acceptable — these pages are only linked from the marketing footer). Translations for ES and FR are functional but not professionally copyedited.
+- next suggested todo: Tighten `/app/settings` content so each section title + summary + helper line describes one real user decision.
+
 ### 2026-03-28 08:30 America/New_York
 
 - completed todo: Add an `Ops` workflow regression that covers incident or failed-jobs summary -> queue detail -> retry or replay action -> audit-feed confirmation -> return to the same queue and time-range context.
@@ -1094,7 +1211,7 @@
 - validation run: `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100RouteSmokePricingAuthDashboard -v`
 - result: Passed. New route smoke validates `/pricing#faq`, unauthenticated `/app` auth form rendering, and authenticated `/app/settings?panel=settings-profile` in one browser run with `status=200` and zero console/page errors.
 - residual risk: This smoke confirms route availability and core shell mounts, but it does not yet assert model-label consistency or scroll-control behavior.
-- next suggested todo: Trace and fix the model-label mismatch where the picker shows `GPT-5.4 · Best` while message bubbles show `GPT-5.4 mini`.
+- next suggested todo: Trace and fix the model-label mismatch where the picker shows `GPT-5.4 � Best` while message bubbles show `GPT-5.4 mini`.
 
 ### 2026-03-27 23:02 America/New_York
 
@@ -1173,7 +1290,7 @@
 - completed todo: Run live browser startup smoke against `http://127.0.0.1:8095/` and capture startup console/runtime errors.
 - files changed: `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
 - validation run: `go run ./bin/example100_startup_smoke.go` (temporary local helper removed after execution)
-- result: Passed. Startup route `/` returned `200` with page title `RelayDesk – AI Chat Workspace`, `console_error_count=0`, and `page_error_count=0`.
+- result: Passed. Startup route `/` returned `200` with page title `RelayDesk � AI Chat Workspace`, `console_error_count=0`, and `page_error_count=0`.
 - residual risk: This checkpoint covers only initial load at `/`; route-specific startup regressions (pricing/auth/dashboard) still require dedicated browser assertions.
 - next suggested todo: Add a focused end-to-end regression that proves server start, WASM shell boot, and background worker boot.
 
@@ -1710,7 +1827,7 @@
 - validation run: `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100RouteSmokePricingAuthDashboard -v`
 - result: Passed. New route smoke validates `/pricing#faq`, unauthenticated `/app` auth form rendering, and authenticated `/app/settings?panel=settings-profile` in one browser run with `status=200` and zero console/page errors.
 - residual risk: This smoke confirms route availability and core shell mounts, but it does not yet assert model-label consistency or scroll-control behavior.
-- next suggested todo: Trace and fix the model-label mismatch where the picker shows `GPT-5.4 · Best` while message bubbles show `GPT-5.4 mini`.
+- next suggested todo: Trace and fix the model-label mismatch where the picker shows `GPT-5.4 � Best` while message bubbles show `GPT-5.4 mini`.
 
 ### 2026-03-27 23:02 America/New_York
 
@@ -1789,7 +1906,7 @@
 - completed todo: Run live browser startup smoke against `http://127.0.0.1:8095/` and capture startup console/runtime errors.
 - files changed: `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
 - validation run: `go run ./bin/example100_startup_smoke.go` (temporary local helper removed after execution)
-- result: Passed. Startup route `/` returned `200` with page title `RelayDesk – AI Chat Workspace`, `console_error_count=0`, and `page_error_count=0`.
+- result: Passed. Startup route `/` returned `200` with page title `RelayDesk � AI Chat Workspace`, `console_error_count=0`, and `page_error_count=0`.
 - residual risk: This checkpoint covers only initial load at `/`; route-specific startup regressions (pricing/auth/dashboard) still require dedicated browser assertions.
 - next suggested todo: Add a focused end-to-end regression that proves server start, WASM shell boot, and background worker boot.
 
@@ -1909,6 +2026,7 @@
 - result: Passed. The visible app brand and server-rendered page title now use the new product name, and the client app still compiles for js/wasm.
 - residual risk: This updates the primary visible branding, but supporting copy such as the empty-state headline still reads like an experiment rather than a polished product surface.
 - next suggested todo: Refresh the empty-state and onboarding copy so the rest of the home screen matches the new product branding.
+
 
 
 

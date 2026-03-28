@@ -89,8 +89,21 @@ go run ./examples/100-ai-chat-wizard/cmd/seed-test-db
 
 Seeded credentials:
 
-- `demo@example.com / password123`
-- `admin@example.com / password`
+- `customer@email.com / password`
+- `admin@email.com / password`
+
+What `cmd/seed-test-db` creates today:
+
+- two auth users (`customer@email.com`, `admin@email.com`)
+- two user-profile rows with default model/tone/thinking preferences
+- three demo conversations and messages for `customer@email.com`
+- schema defaults (including `su_roles` definitions) from `sql/store/schema.sql`
+
+What it does not create:
+
+- no `su_user_roles` grants (so `admin@email.com` is not automatically superuser)
+- no seeded workspace-admin membership graph for dashboard mutations
+- no seeded superuser control-plane mutations or override history
 
 ### 5. Choose provider mode
 
@@ -126,7 +139,7 @@ Open `http://127.0.0.1:8095/`.
 
 ### 7. Verify auth and first chat
 
-1. Log in with `demo@example.com / password123`.
+1. Log in with `customer@email.com / password`.
 2. Create a new thread and send one prompt.
 3. Refresh and confirm the thread reopens at `/app/thread/:publicID`.
 
@@ -137,6 +150,11 @@ go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100Start
 go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100AuthenticatedHappyPath -v
 go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100RouteSmokePricingAuthDashboard -v
 ```
+
+Superuser-only verification path:
+
+- `admin@email.com` can validate auth and denied-role behavior by default.
+- For allowed superuser browser checks, grant `su` to that user in the same `CHAT_DB_PATH` database (see `OPERATOR_RUNBOOK.md`, section `6`) and restart the managed server.
 
 ---
 
@@ -151,7 +169,7 @@ The server serves one shell-first SPA surface, and the client router decides whi
 | App root and thread routes | `/app`, `/app/thread/:publicID`, `/app/thread/:publicID/canvas/:canvasID` | Authenticated shell routes for conversation list, active thread replay, streaming replies, and canvas artifacts. |
 | Settings routes | `/app/settings?panel=settings-*` | Still part of the SPA app shell; query `panel` selects profile/tone/prompt/intelligence/speech/memories/language section. |
 | Legacy entry aliases | `/login`, `/logout`, `/thread/:legacyID` | Server still serves shell for compatibility; client normalizes into current `/app` route model. |
-| Admin/dashboard surfaces | No dedicated browser route yet in this example | Admin visibility is currently RPC-gated (superuser checks on admin/superuser RPCs), with route-level dashboard IA still pending. |
+| Admin/dashboard surfaces | `/app/dashboard`, `/app/dashboard/business`, `/app/dashboard/customers`, `/app/dashboard/chats`, `/app/dashboard/providers`, `/app/dashboard/ops` | Dedicated dashboard routes are part of the SPA route model; server still enforces role gates at RPC boundaries for admin/superuser data access. |
 | Static/runtime assets | `/chat-bootstrap.js`, `/app/chat.wasm`, `/worker/background-worker.wasm`, `/static/*`, `/healthz`, `/socket` | Not SPA routes; served directly by HTTP mux or gRPC bridge (`/socket`). |
 
 ### SPA vs server-shell behavior
@@ -160,6 +178,40 @@ The server serves one shell-first SPA surface, and the client router decides whi
 - The client-side router selects the active view and can normalize thread routes after conversation resolution.
 - Asset paths (WASM, JS, CSS, images, static files) bypass SPA shelling and are served directly.
 - Legacy `/chat.wasm` and `/background-worker.wasm` requests are rewritten to `/app/chat.wasm` and `/worker/background-worker.wasm`.
+
+---
+
+## Pricing philosophy and billing vocabulary
+
+### Plan boundary
+
+- `Pro`: one serious operator, personal workspace scope, individual execution depth.
+- `Team`: shared workspace with collaboration and admin relief for coordinated operators.
+- `Enterprise`: contract/security/compliance path with negotiated controls and procurement flow.
+
+### Billing model
+
+Monthly bill must be represented as:
+
+`platform fee + usage + service premium`
+
+- `platform fee`: fixed recurring subscription charge for the selected plan/workspace tier.
+- `usage`: raw provider model usage cost from metered token/tool consumption.
+- `service premium`: platform premium multiplier or basis-point markup applied to raw usage.
+
+### Customer-facing vocabulary contract
+
+Use these terms consistently in docs and UI:
+- `platform fee`
+- `usage`
+- `service premium`
+- `total`
+
+Avoid stale pricing language in customer copy:
+- `free`
+- `unlimited`
+- `all models included`
+- `no token caps`
 
 ---
 
@@ -185,6 +237,161 @@ This is the current runtime chain from first paint to streamed reply.
 3. Auth/session bootstrap resolves (`GetSession`, optional `RefreshSession`), then app state hydrates (`ListModelOptions`, profile/settings, conversations).
 4. Composer submit calls `Send`; server resolves provider/model, streams `ChatChunk` deltas, and writes usage + conversation state.
 5. Client applies streamed deltas, updates canonical thread route, and keeps session/thread state resumable across reloads.
+
+---
+
+## Local Truth vs Planned Future State
+
+This section separates what is already real in example 100 from what is still roadmap material.
+
+| Area | Local truth (implemented now) | Planned future state |
+|---|---|---|
+| Admin surfaces | Dedicated dashboard routes exist (`/app/dashboard` + slice routes). Core admin/superuser reads and diagnostics are wired with role guards and audit events. | Denser end-to-end operator journeys with fully completed UI + mutation loops for every slice. |
+| Workspace-admin scope | Workspace-admin scope resolution exists and can read scoped `Customers`/`Chats` slices with superuser-only surfaces denied. | Broader workspace-admin control plane (full action coverage, richer scoped queues/details, fewer read-heavy gaps). |
+| Superuser scope | Superuser-only RPCs (`GetAdminDashboard`, `GetSuperuserControlPlane`, `GetSuperuserSlices`, `GetLogTail`) are enforced and test-covered. | Full production-grade operator workflows with complete preview/rollback UX and exhaustive browser regressions. |
+| Server-owned i18n | Architecture and namespace ownership are documented; client still ships broad embedded catalogs while migration is in progress. | Server-delivered layered catalogs (boot + lazy namespace fetch), minimal embedded fallback strings, and publish/override workflows. |
+
+---
+
+## Stub-Removal Status
+
+This status table tracks placeholder seams so docs do not claim behavior is still stubbed once code goes live.
+
+| Seam | Status | Current truth |
+|---|---|---|
+| `server tools` (`SetServerToolPolicy`, `RunServerTool`) | Remaining placeholder | Authz + fresh-session checks exist, but both RPCs still return `Unimplemented` from `server/app/server_tool_stub.go`. |
+| `provider memory extraction` | Partial live conversion | Runtime extraction pipeline is live in `server/app/server.go`; `OpenAIProvider` and stub provider return extraction results, while Anthropic/Cerebras extraction paths still report not implemented. |
+| `entitlement fail-open guard` | Remaining placeholder | Send entitlement gate seam exists, but `parseRequireUserEntitlement` still has a documented fail-open fallback when billing state is unavailable (`server/app/authz_entitlement.go`). |
+| `control-mutation authz helper` | Partial live conversion | Live feature-flag/experiment/incident mutation RPCs are implemented in `server/app/admin_control_ops.go`, but legacy helper stubs in `server/app/admin_control_mutation_authz.go` still return `Unimplemented`. |
+
+---
+
+## Provider Memory Extraction Parity Contract
+
+Intended cross-provider contract for `ParseExtractUserMemories`:
+
+| Contract element | Required behavior |
+|---|---|
+| Candidate shape | Each candidate follows `provider.UserMemoryCandidate`: `key`, `category`, `summary`, `detail`, `usefulness_score` (0-100), `confidence_score` (0-1), `rubric_reason`. |
+| Score semantics | Server clamps scores and only persists candidates meeting current thresholds (`usefulness >= 60`, `confidence >= 0.55`) after dedupe and normalization. |
+| Malformed-response fallback | OpenAI path uses strict JSON schema first, then fallback object extraction (`parseExtractJSONObject`) before failing. Parse failures are logged and do not block chat reply flow. |
+| Provider unsupported behavior | Providers that cannot extract memories (currently Anthropic/Cerebras) return a clear `not implemented` error; runtime logs `memory extraction failed` and continues without saving memories. |
+| User-visible expectation | Memory extraction is asynchronous best-effort enrichment. Chat replies continue even when extraction is skipped, queue-limited, unavailable, or parse-failed. |
+
+Current provider status snapshot:
+
+- OpenAI: live extraction path with strict schema + fallback parsing.
+- Anthropic: extraction endpoint not implemented.
+- Cerebras: extraction endpoint not implemented.
+- Stub provider: deterministic no-op extraction (`nil` candidates, no error) for local flows.
+
+---
+
+## Release Notes and Upgrade Caveats (Placeholder Removal)
+
+Use this section when landing placeholder-removal changes so local/dev assumptions and tests are updated in the same release.
+
+### Entitlement fail-open fallback removal
+
+- Current placeholder: `parseRequireUserEntitlement` allows fail-open when billing state is unavailable.
+- When removed: send/authz paths become fail-closed if billing access control cannot be resolved.
+- Local/dev impact: seeded/local runs that previously sent chat without full billing state may start returning deny/precondition errors.
+- Test impact: update tests that currently assume send continues during missing billing state; seed explicit entitlement rows and assert deny/upgrade responses where appropriate.
+
+### Legacy control-mutation authz stub removal
+
+- Current placeholder: legacy helper stubs in `admin_control_mutation_authz.go` return `Unimplemented`.
+- When removed: those seams should route through live shared authz + mutation behavior, matching real control-plane RPC expectations.
+- Local/dev impact: callers relying on `Unimplemented` as expected behavior must switch to real allow/deny + persistence assertions.
+- Test impact: retire stub-only assertions in `admin_control_mutation_authz_test.go` and migrate to live mutation coverage patterns used by `admin_control_ops_test.go`.
+
+Release checklist for these removals:
+
+1. Update this section with exact rollout date/commit and changed behavior.
+2. Update manual smoke and operator runbook checks for new deny/error expectations.
+3. Replace obsolete stub-only tests with real allow/deny/outcome assertions.
+
+---
+
+## Auth Architecture End State
+
+Target model for external auth work:
+
+1. One user account per person in `users`, with many linked login methods (`password`, `google_oidc`, generic workspace `oidc`, later `saml`) attached as identities, not separate account systems.
+2. Workspace-level auth policy decides which login methods are allowed (`password allowed/blocked`, `external allowed`, `sso required`) for the selected workspace context.
+3. Password and external providers share one session/token issuance path (`auth_sessions` plus token version checks), so refresh/revoke/audit behavior stays consistent across methods.
+4. Authz remains role-based after login (normal user, workspace admin, superuser); login method does not bypass role scope.
+
+### External Auth Product Policy Decisions
+
+| Policy area | Decision |
+|---|---|
+| Same-email account auto-linking | Auto-link only when external provider email is verified and exactly matches one existing local user with no conflicting existing external identity for that provider+subject. |
+| Workspace-required SSO vs password | If workspace policy is `sso required`, password login is denied for that workspace context. Password can still be allowed for workspaces that do not require SSO. |
+| Multi-workspace policy conflicts | Resolve policy against the target workspace selected at login entry. If the workspace requires SSO, enforce SSO for that entry even if another workspace allows password. |
+| Superuser break-glass path | Local password remains required for superuser break-glass access in local/dev and emergency recovery flows; external login is optional and never the only superuser path. |
+
+### Privileged External-Auth Decision (Resolved)
+
+This is the explicit repo policy for privileged identities:
+
+| Privileged role | Password login | External login (`google_oidc` / `oidc` / `saml`) | Sensitive mutation gate | Fresh-session rule |
+|---|---|---|---|---|
+| Superuser | allowed and required as break-glass | allowed for normal session access | must re-auth with local password before sensitive superuser mutations | mutation session must be within `superuserMutationSessionMaxAge` |
+| Workspace admin | allowed | allowed when workspace policy allows external | role/scope authz still enforced; no login-method bypass | standard session validity rules apply |
+
+Implementation references:
+- `server/app/auth_privileged_policy.go` (`parseAuthorizePrivilegedLoginMethod`, `parseAuthorizePrivilegedMutationSession`)
+- `server/app/superuser_control.go` (`parseRequireSuperuserMutationUserID`)
+- `server/app/auth_service.go` JWT `amr` claim used for privileged mutation policy checks
+
+### Local Password Rollout Guardrail
+
+Google/OIDC rollout must preserve local email/password as a first-class path for:
+
+- quick QA (`customer@email.com / password`, `admin@email.com / password`)
+- seeded local testing on one shared `CHAT_DB_PATH`
+- offline development without mandatory external-provider dependencies
+
+Any auth change that breaks local password login in this example is a regression unless explicitly gated by a documented workspace policy test case.
+
+### Auth Provider Capability Matrix
+
+| Provider path | Current status | Target users | Required backend/runtime pieces | Required UI/runtime pieces |
+|---|---|---|---|---|
+| Password | fully wired | local QA, general users, superuser break-glass | user/password auth store, session issuance/revoke, reset/verify token lifecycle | login/signup/reset/update forms, session restore/logout |
+| Google OIDC | planned | consumer/prosumer users that prefer social login | start/callback handlers, state+nonce persistence, verified-email extraction, link-or-create, shared session issuance | login entry option, callback route handling, clear deny/error states |
+| Generic workspace OIDC | config-only | enterprise/workspace SSO | provider config + policy resolution, workspace callback binding, JIT membership rules | workspace SSO entry, workspace-aware callback and policy messaging |
+| SAML (future) | config-only (storage only) | enterprise IdP programs | canonical provider model compatibility, assertion/subject validation, policy enforcement | enterprise entry surfaces and callback/failure messaging |
+
+### Memory Extraction Provider Parity Decision (Resolved)
+
+Final implementation decision for remembered-preferences extraction:
+
+| Provider | Structured output approach | Parse fallback approach | Shared parity contract |
+|---|---|---|---|
+| OpenAI | Responses API with strict JSON-schema output | Extract JSON object from text if wrapper noise appears, then parse | `[]UserMemoryCandidate` normalized by category/score/key |
+| Anthropic | Messages API tool-use schema (`extract_user_memories`) with explicit tool choice | Fallback text payload parse for compatibility; malformed payload resolves to empty candidates | Same normalized candidate contract |
+| Cerebras | Chat Completions with `response_format.type = json_object` plus deterministic prompt contract | Deterministic strict parse, then JSON-object extraction fallback before surfacing parse failure | Same normalized candidate contract |
+
+Implementation invariants:
+- provider output must converge to one typed `UserMemoryCandidate` shape with stable field names (`key`, `category`, `summary`, `detail`, `usefulness_score`, `confidence_score`, `rubric_reason`)
+- normalization/clamping and key derivation are shared (`parseNormalizeMemoryCandidates`) so providers differ only in transport/runtime semantics
+- provider-specific extraction failures must not silently change stored schema or field meaning
+
+### Marketed Capability vs Implemented Capability (Auth/Trust)
+
+This note prevents docs and marketing copy from overstating auth/trust support before runtime exists.
+
+| Capability area | Marketed capability statement (allowed wording) | Implemented capability (current truth) | Risk if overstated |
+|---|---|---|---|
+| Google login | "Google login is planned for this example." | Not wired end to end yet: no live Google start/callback runtime in example 100 server handlers. | Users/operators expect a button/path that cannot complete login. |
+| Enterprise SSO | "Enterprise SSO configuration groundwork exists; runtime flow is not complete." | `workspace_sso_configs` and related policy direction exist, but generic OIDC/SAML runtime login flow is not fully implemented. | Enterprise trial flows fail at callback/policy steps and appear broken. |
+| Account linking | "Account linking rules are defined as target behavior." | Policy/design intent documented, but full provider identity linking and conflict resolution are not yet fully live. | Duplicate or ambiguous account assumptions leak into support docs. |
+| Trust controls (state/nonce/replay, policy denials, audit detail) | "Trust controls are partially implemented and expanding." | Password/session/authz controls are live; external-auth state/nonce/replay/return-to/provider-subject policy seams are implemented, while full external-auth start/callback runtime and complete auth audit trails remain pending. | Security posture appears stronger in docs than in executable runtime. |
+
+Operator documentation rule:
+- When a feature is not wired end to end, label it `planned` or `config-only` and avoid "available now" language.
 
 ---
 
@@ -374,12 +581,25 @@ referenced via a `replace` directive in the root `go.mod`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | _(optional)_ | OpenAI secret key |
-| `ANTHROPIC_API_KEY` | _(optional)_ | Anthropic secret key |
-| `CEREBRAS_API_KEY` | _(optional)_ | Cerebras secret key |
 | `LISTEN_ADDR` | `127.0.0.1:8095` | Server listen address |
+| `CHAT_ENV` | `development` | Runtime environment label. `production` enforces stricter auth-secret startup validation. |
+| `CHAT_AUTH_SECRET` | _(empty)_ | Primary JWT signing secret. Required when `CHAT_ENV=production` unless insecure fallback is explicitly enabled. |
+| `CHAT_ALLOW_INSECURE_AUTH_FALLBACK` | `false` | When truthy (`1/true/yes/on`), permits startup with development fallback auth secret even without `CHAT_AUTH_SECRET`. |
+| `CHAT_AUTH_SIGNING_KEYS` | _(optional)_ | Comma-separated key ring (`kid=secret,kid2=secret2`) used for JWT verification/rotation in addition to the primary secret. |
+| `CHAT_AUTH_ACTIVE_KID` | `primary` | Active JWT signing key ID. If missing or unknown, server falls back to the first available configured key ID. |
+| `CHAT_MODEL` | _(optional)_ | Default model override for runtime startup. |
+| `OPENAI_MODEL` | _(optional)_ | Legacy fallback default model used only when `CHAT_MODEL` is empty. |
+| `OPENAI_API_KEY` | _(optional)_ | OpenAI provider key. Required unless `CHAT_PROVIDER_STUBS` includes `openai`/`all`. |
+| `ANTHROPIC_API_KEY` | _(optional)_ | Anthropic provider key. Required unless `CHAT_PROVIDER_STUBS` includes `anthropic`/`all`. |
+| `CEREBRAS_API_KEY` | _(optional)_ | Cerebras provider key. Required unless `CHAT_PROVIDER_STUBS` includes `cerebras`/`all`. |
+| `CHAT_PROVIDER_STUBS` | _(empty)_ | Comma-separated stub provider list (`openai,anthropic,cerebras`) or `all` for full local stubs. |
 | `CHAT_DB_PATH` | `examples/100-ai-chat-wizard/bin/runtime/chat_history.db` | SQLite database path for auth and conversation persistence |
-| `CHAT_USAGE_PREMIUM_PERCENT` | `5` | Premium percentage added on top of usage-based costs for account total display |
+| `CHAT_USAGE_PREMIUM_PERCENT` | `5` | Service-premium percent added on top of raw usage costs. Invalid/negative values fall back to default; values above `1000` are clamped. |
+
+Usage-premium behavior:
+
+- Parsed once at server startup and applied to billing total calculations.
+- Exposed to the boot payload as `window.__relaydesk_usage_premium_percent` for client-side display parity.
 
 ---
 

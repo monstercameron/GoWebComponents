@@ -28,16 +28,16 @@ This flow documents how operators enter and use admin data surfaces today, and w
 | Stage | Route entry points | Role split behavior | Data dependencies and backend calls | Expected operator action |
 | --- | --- | --- | --- | --- |
 | 1. Public entry | `/`, `/home`, `/pricing` | All users start as public visitors. | Static shell delivery only. | Navigate to login. |
-| 2. Auth handoff | `/` or `/signup` -> `/app` | Authenticated identity is established, but no dashboard route is exposed yet. | `Login` or `Signup`, then `GetSession` during shell boot. | Enter authenticated shell. |
-| 3. Admin eligibility resolution | `/app` | Current enforced split is API-level: admin analytics/control-plane RPCs require superuser role (`su_user_roles`). Workspace-admin routing/UI split remains pending. | Superuser guard on `GetAdminDashboard`, `ListAdminUsers`, `ListAdminUsageEvents`, `ListAdminConversations`, `GetLogTail`, and `GetSuperuserControlPlane`. | Confirm operator has superuser grant before expecting admin data access. |
-| 4. Dashboard-home data fetch | Operational/admin client surface (no dedicated browser route in this example yet). | Superuser only. | `GetAdminDashboard` returns summary, usage series, provider/model/user leaderboards, recent usage events, recent users, recent conversations, and provider health/rate-limit snapshots. Backed by `usage_events`, `users`, `conversations`, `messages`, and provider runtime health. | Check global health, usage, and risk indicators before acting. |
-| 5. Slice drill-down | Same admin surface | Superuser only (today). | `ListAdminUsers`, `ListAdminUsageEvents`, `ListAdminConversations`, and `GetSuperuserControlPlane` for deeper operational records (`workspaces`, `workspace_memberships`, `api_keys`, `webhook_endpoints`, `audit_logs`, `support_tickets`, `experiments`, `auth_sessions`, `workspace_invitations`, `webhook_deliveries`, `support_ticket_messages`, `incident_updates`, `notification_outbox`, `background_jobs`). | Drill into user/workspace/usage detail before deciding interventions. |
+| 2. Auth handoff | `/` or `/signup` -> `/app` | Authenticated identity is established; dashboard-capable users can navigate into dedicated `/app/dashboard*` routes. | `Login` or `Signup`, then `GetSession` during shell boot. | Enter authenticated shell. |
+| 3. Admin eligibility resolution | `/app` | Current enforced split is API-level: workspace-admin and superuser scope are resolved at runtime, with superuser required for global and high-risk surfaces. | `parseRequireAdminSliceScope` enforces slice-level scope; superuser guard remains on `GetLogTail`, `GetSuperuserControlPlane`, and `GetSuperuserSlices`. | Confirm whether the actor should be scoped workspace admin or platform superuser before evaluating expected access. |
+| 4. Dashboard-home data fetch | `/app/dashboard` and slice routes under `/app/dashboard/*`. | Superuser only. | `GetAdminDashboard` returns summary, usage series, provider/model/user leaderboards, recent usage events, recent users, recent conversations, and provider health/rate-limit snapshots. Backed by `usage_events`, `users`, `conversations`, `messages`, and provider runtime health. | Check global health, usage, and risk indicators before acting. |
+| 5. Slice drill-down | Same admin surface | Workspace-admin has scoped `Customers`/`Chats` drill-down access; superuser has full cross-surface access. | `ListAdminUsers`, `ListAdminUsageEvents`, and `ListAdminConversations` provide scoped list/detail reads; superuser-only control-plane context remains in `GetSuperuserControlPlane`/`GetSuperuserSlices`/`GetLogTail`. | Drill into scoped detail first, then escalate to superuser-only surfaces when platform-wide context is required. |
 | 6. Ongoing observability | Same admin surface | Superuser only. | `GetLogTail` for server/client diagnostics, plus repeated dashboard/list RPC refreshes as needed. | Verify impact and monitor for regressions after operator decisions. |
 
 ### Role-Split Gap (Explicit)
 
 - Product target: normal user, workspace admin, and superuser should have distinct dashboard entry points and scoped data.
-- Current implementation in example 100: superuser-gated admin RPCs are enforced; workspace-admin-specific route and slice behavior is still pending.
+- Current implementation in example 100: workspace-admin scoped slice access exists for `Customers`/`Chats`, while global home/business/providers/ops and superuser control-plane endpoints remain superuser-gated.
 
 ## Admin Operational Workflows (Product Definition)
 
@@ -57,6 +57,26 @@ These workflows define intended operator behavior and data contracts. Example 10
 - Authorization should fail closed at RPC boundaries, not only in UI route guards.
 - Mutation success criteria includes session/cache invalidation where privilege or access scope changes.
 - Every workflow should emit immutable audit records tied to actor, scope, target, and timestamp.
+
+## Dashboard Day-In-The-Life Workflows
+
+This section defines the expected queue-to-detail-to-action loop for each dashboard surface so operators can make decisions with evidence instead of acting from summary cards only.
+
+| Surface | Queue or summary entry point | Required detail inspection | Typical operator action | Evidence required before mutate |
+| --- | --- | --- | --- | --- |
+| `Business` | Revenue summary, failed-payments queue, overage and churn signals | Customer subscription/invoice timeline, billing events, dunning state, recent usage trend | Resolve failed payment, set billing override, adjust pricing/plan controls | Platform fee + usage + service premium breakdown, affected customer count, invoice-state impact, rollback path |
+| `Customers` | Search/list by email, workspace key, plan, or account status | User timeline (sessions, usage, support, billing) and workspace timeline (members, keys, webhooks, audit) | Disable/restore user, suspend/restore workspace, support-linked action | Scope check (workspace vs platform), account/workspace blast radius, reason capture, recovery path |
+| `Chats` | Failed or slow reply queue, thread-volume and latency anomalies | Thread inspector, event/run detail, model/provider metadata, recent anomaly pattern | Adjust defaults entry point, triage provider/model failure class, route to support/ops | Failure trend confidence, sample event IDs, affected thread count, verification query for post-action state |
+| `Providers` | Provider/model health summary and cost/routing trend tables | Provider-scoped usage events, model-level drilldown, rate-limit/health snapshots, guardrail state | Toggle provider/model visibility policy, update fallback/routing policy, tighten guardrails | Affected scope count, fallback path viability, projected cost/latency impact, rollback steps |
+| `Ops` | Incident queue, failed jobs, notification/webhook reliability summary | Incident detail, blast-radius preview, queue detail rows, recent audit actions | Retry/replay/incident status update, flag/experiment rollback entry | Blast radius preview, queue-size impact, audit note, clear post-action validation query |
+
+### Dashboard Decision Points
+
+1. Confirm the route/query state captures the exact queue context you intend to operate on.
+2. Open detail from that queue context and verify identifiers match the summary signal.
+3. Validate blast radius and affected-record counts before any mutating action.
+4. Capture one explicit reason and expected outcome before submit.
+5. Return to the same filtered queue and confirm the action produced the expected state change.
 
 ## Public-Route Bug-Fix Workflow
 
