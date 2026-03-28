@@ -364,6 +364,26 @@ Any auth change that breaks local password login in this example is a regression
 | Generic workspace OIDC | config-only | enterprise/workspace SSO | provider config + policy resolution, workspace callback binding, JIT membership rules | workspace SSO entry, workspace-aware callback and policy messaging |
 | SAML (future) | config-only (storage only) | enterprise IdP programs | canonical provider model compatibility, assertion/subject validation, policy enforcement | enterprise entry surfaces and callback/failure messaging |
 
+### External-Auth Data Model Comparison
+
+`auth_identities` + `auth_oidc_states` + `workspace_auth_policies` are the current runtime seam that is most migration-resilient for Google/OIDC/SAML direction:
+
+- Shape A (runtime identity-linking seam):
+  - `auth_identities`: canonical person-level identity row with provider key/type, provider subject, verified email, and shared session target.
+  - `auth_oidc_states`: callback state/nonce persistence, expected-subject guard, return URL, and consumed tracking.
+  - `workspace_auth_policies`: per-workspace policy gate for local password, external login, required-provider enforcement, and JIT membership behavior.
+  - Shape A keeps account identity and workspace policy close together so provider-specific runtimes can plug in without changing downstream authorization contracts.
+
+- Shape B (enterprise SSO config bucket):
+  - `workspace_sso_configs`: per-workspace SSO config rows with provider key, SAML fields, domains, and `is_enabled`.
+  - Shape B is clean as long-term enterprise config storage and avoids adding provider runtime assumptions into the identity tables.
+
+This split lowers remigration risk when Google OIDC, generic OIDC, and SAML runtime paths land:
+
+- `Google OIDC` and `generic workspace OIDC` map to Shape A via state+nonce and identity/provider-subject rows.
+- `SAML` starts in Shape B as config-only metadata, then can move to active runtime with one dedicated callback/auth pipeline migration path.
+- shared identity resolution and workspace policy logic stay stable across current implementation and future enterprise provider additions.
+
 ### Memory Extraction Provider Parity Decision (Resolved)
 
 Final implementation decision for remembered-preferences extraction:
@@ -392,6 +412,64 @@ This note prevents docs and marketing copy from overstating auth/trust support b
 
 Operator documentation rule:
 - When a feature is not wired end to end, label it `planned` or `config-only` and avoid "available now" language.
+
+---
+
+### Paid Launch Truth Table
+
+This matrix is the release gate for public surface claims on `/home`, `/pricing`, `/signup`, and auth entry.
+
+| Surface | External claim | Status | Current truth |
+|---|---|---|---|
+| `/home` | Faster answers, fewer repeat questions, and one workspace for support, ops, and customer-facing teams. | shipped | The chat workspace, model routing, and public landing shell are live. |
+| `/home` | Internal docs, document Q&A, and team knowledge base. | future | The example does not ship live docs search or a knowledge-base runtime yet. |
+| `/home` | Enterprise-ready controls such as SSO, retention controls, and SLA guarantees. | config-only | Workspace auth-policy and SSO configuration storage exist, but the enterprise login runtime is still incomplete. |
+| `/pricing` | Seat-based pricing with a clear platform fee and usage-based billing. | shipped | The pricing and billing model is usage-based and surfaced in the app. |
+| `/pricing` | All models included. | config-only | Model availability is driven by the server catalog and provider configuration, not an unconditional blanket guarantee. |
+| `/pricing` | Enterprise review, procurement, SSO, and contract controls. | future | Those are still launch-direction claims rather than fully delivered runtime guarantees. |
+| `/signup` | Create a workspace and start solo before adding a team. | shipped | Local workspace signup and the quick-QA password path are live. |
+| `/signup` | Team onboarding and collaboration expansion. | future | Team collaboration exists in the product direction, but it is not a launch guarantee for the public signup flow. |
+| Auth entry | Local email/password login, password reset, and refresh-safe session restore. | shipped | Password auth, token lifecycle, and session persistence are live. |
+| Auth entry | Google login and workspace SSO entry paths. | config-only | External-auth policy/config storage exists, but the public entry copy must not imply universal runtime availability. |
+
+---
+
+### Pre-Launch Product Review Checklist
+
+Use this checklist before approving public copy changes for example 100.
+
+- Block release if `/home`, `/pricing`, `/signup`, or auth entry claims unsupported auth behavior such as Google login or enterprise SSO without a shipped or config-backed row in the paid-launch truth table.
+- Block release if marketing copy claims live docs search, document Q&A, or team knowledge base behavior that is not backed by the current runtime.
+- Block release if provider-brand or model-family copy does not match the live server catalog and the provider labels surfaced by the runtime.
+- Block release if any public capability claim lacks a `shipped`, `config-only`, or `future` status in the paid-launch truth table.
+
+---
+
+### Demo-Readiness Code Review Checklist
+
+Use this checklist when reviewing code changes for demo polish instead of prototype behavior.
+
+- Verify names follow the repo rules: verb-first helpers, domain subjects, and boolean prefixes where needed.
+- Verify functions stay small enough to scan quickly and that larger workflows are split into clear helpers.
+- Verify files live in the right domain area and avoid one-off historical dumping grounds.
+- Verify GoDoc and intent comments explain why the code exists, not just what the next line does.
+- Verify diagnostics are clear, customer-safe where needed, and actionable for operators.
+- Verify dead code, stale branches, and placeholder behavior are removed instead of left behind.
+- Verify server, transport, store, provider, and client layers agree on names, payload shapes, and error behavior.
+
+---
+
+### Variable-Name Quality Review Checklist
+
+Use this checklist when reviewing example 100 hot paths so name cleanup stays deliberate instead of turning into style churn.
+
+- Flag locals that hide their subject behind vague nouns like `data`, `info`, `result`, `state`, or `item` when a domain name is available.
+- Prefer verb-first helper names and domain subjects so auth, dashboard, billing, chat send, and logging paths read like actions instead of buckets.
+- Keep booleans explicit with `is`, `has`, `can`, or `should` so guard branches stay readable at call sites.
+- Rename helper inputs only when the new name clarifies the owned domain, the direction of the value, or the boundary being crossed.
+- Leave stable protocol, schema, and API field names alone unless the code is wrapping them in a clearer domain-specific alias.
+- Review the surrounding call chain before renaming so the new name matches the actual responsibility instead of one local line of code.
+- Prefer one small name cleanup per review pass when the code path is already changing for another reason.
 
 ---
 
@@ -497,6 +575,50 @@ examples/100-ai-chat-wizard/
 +-- TODO.md
 +-- CHANGELOG.md
 ```
+
+### Walkthrough Path Map
+
+If you want the cleanest end-to-end explanation of the example, start here:
+
+- Routing and boot: `client/main.go`, `client/app/routes.go`, `client/app/app_shell.go`, and `client/app/route_sync.go` show how the shell decides which surface to render and how it keeps URL state stable.
+- Auth: `client/app/auth.go`, `client/app/auth_shell.go`, `server/app/auth_service.go`, `server/app/auth_workspace_policy.go`, `server/app/auth_identity_linking.go`, and `server/app/auth_google_oidc.go` show login, policy, linking, and external-auth flow.
+- Chat streaming: `client/app/thread.go`, `client/app/stream.go`, `client/app/panel.go`, `server/app/server.go`, and `server/app/tunnel_handler.go` show send, stream, reconnect, and thread-state handling.
+- Billing: `client/app/settings_route.go`, `client/app/account_costs.go`, `server/app/billing_formula_guard.go`, `server/app/store_billing.go`, and `server/app/superuser_pricing_ops.go` show usage formulas, plan state, and operator pricing controls.
+- Dashboard reads: `client/app/dashboard.go`, `client/app/admin_data.go`, `server/app/admin_dashboard.go`, `server/app/admin_list_query.go`, `server/app/admin_business_ops.go`, and `server/app/admin_billing_ops.go` show the operator read path.
+- Admin mutations: `server/app/admin_mutation_authz.go`, `server/app/admin_mutation_effects.go`, `server/app/admin_control_ops.go`, `server/app/admin_provider_mutation_authz.go`, `server/app/admin_ops_action_authz.go`, and `server/app/admin_chat_mutation_authz.go` show the guarded mutation path.
+
+The short teaching version is:
+- `client/main.go` starts the shell.
+- `server/app/server.go` owns the gRPC entrypoint and routes.
+- `client/app/*` owns the browser story.
+- `server/app/*` owns the runtime truth, policy, and data access.
+
+### Repo Structure Map
+
+This is the purpose-first view of example 100:
+
+| Purpose | Primary folders | Representative files |
+|---|---|---|
+| Auth | `client/app/`, `server/app/`, `sql/store/` | `client/app/auth.go`, `client/app/auth_shell.go`, `server/app/auth_service.go`, `server/app/auth_workspace_policy.go`, `server/app/auth_identity_linking.go`, `server/app/auth_google_oidc.go`, `server/app/store_auth.go`, `server/app/store_auth_external.go` |
+| Chat | `client/app/`, `server/app/` | `client/app/thread.go`, `client/app/stream.go`, `client/app/composer.go`, `client/app/panel.go`, `server/app/funnel_first_chat.go`, `server/app/tunnel_handler.go`, `server/app/authz_entitlement.go` |
+| Dashboard | `client/app/`, `server/app/` | `client/app/dashboard.go`, `client/app/admin_data.go`, `client/app/admin_customers.go`, `server/app/admin_dashboard.go`, `server/app/admin_list_query.go`, `server/app/admin_business_ops.go`, `server/app/admin_billing_ops.go` |
+| Canvas | `client/app/` | `client/app/canvas.go`, `client/app/canvas_workspace.go`, `client/app/panel.go`, `client/app/worker_render_types.go` |
+| Billing | `client/app/`, `server/app/`, `sql/store/` | `client/app/account_costs.go`, `server/app/billing_formula_guard.go`, `server/app/store_billing.go`, `server/app/superuser_pricing_ops.go`, `sql/store/*.sql` billing queries |
+| SQL | `sql/store/` | `sql/store/schema.sql`, query files grouped by auth, billing, admin, growth, and ops concerns |
+| Runtime assets | `bin/` | `bin/runtime/`, `bin/client/`, `bin/server/`, managed logs and generated artifacts |
+| Docs | repo root + `docs/` | `README.md`, `FLOWS.md`, `MANUAL_SMOKE.md`, `SCHEMA_TABLES.md`, `DESIGN.md`, `DOCS_MAP.md`, `OPERATOR_RUNBOOK.md`, `docs/BUG_REPORT_TEMPLATES.md`, `docs/PERFORMANCE.md` |
+
+### Comment And GoDoc Style Checklist
+
+Use this style guide when adding or polishing comments in example 100.
+
+- Keep GoDoc short, direct, and purpose-first.
+- Start each GoDoc comment with the function name it documents.
+- Use package docs to explain why the package exists and what it owns.
+- Use file headers only when they add useful orientation for a reader.
+- Use intent comments for tricky blocks, invariants, and cross-layer boundaries.
+- Avoid mechanics comments that just repeat the next line of code.
+- Keep the tone consistent across client, server, store, provider, and SQL-adjacent helpers.
 
 ## Repo layout rules
 

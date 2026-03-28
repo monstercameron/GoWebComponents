@@ -2,6 +2,96 @@
 
 ## Checkpoints
 
+### 2026-03-28 11:41 America/New_York
+
+- completed todo: Group the current example-100 auth/runtime, client/admin, SQL-organization, and docs/testing-gap work into logical commit-ready slices.
+- files changed: `examples/100-ai-chat-wizard/server/app/*`, `examples/100-ai-chat-wizard/server/provider/*`, `examples/100-ai-chat-wizard/proto/*`, `examples/100-ai-chat-wizard/sql/store/*`, `examples/100-ai-chat-wizard/client/app/*`, `examples/100-ai-chat-wizard/client/backgroundworker/main.go`, `test/playwrightgo/examples/*`, `examples/100-ai-chat-wizard/README.md`, `examples/100-ai-chat-wizard/DESIGN.md`, `examples/100-ai-chat-wizard/MANUAL_SMOKE.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/docs/*`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `git diff --stat` over backend/runtime, client/test, and docs/backlog slices plus targeted readback of the new testing-gap entries added to `TODO.md`.
+- result: The current example-100 worktree is now checkpointed in the changelog as three logical slices: backend/auth-runtime plus SQL reorganization, client/admin UI plus Playwright coverage, and docs/backlog/audit updates including the full testing-gap sweep for god-tier demo readiness.
+- residual risk: This checkpoint records grouped worktree state before commit, not one narrowly validated feature landing; runtime/package validation still needs to be considered per slice when those commits are reviewed later.
+- next suggested todo: Commit the grouped backend/runtime, client/test, and docs/backlog slices separately and keep the loose root artifacts plus dirty submodule out of the example-history commits.
+
+### 2026-03-28 11:29 America/New_York
+
+- completed todo: Extend server shell route gating so `/plans`, `/about`, `/contact`, `/privacy`, `/terms`, `/security`, and `/status` are first-class direct-load routes with consistent public-route normalization.
+- files changed: `examples/100-ai-chat-wizard/server/app/server.go`, `examples/100-ai-chat-wizard/server/app/funnel_first_chat.go`, `examples/100-ai-chat-wizard/server/app/runtime_helpers_additional_test.go`, `examples/100-ai-chat-wizard/server/app/startup_helpers_test.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestChatShellRoutingHelpers|TestChatShellHandlerTracksFirstChatFunnelSteps|TestChatShellHandler)$"`
+- result: Passed. Public route shell delivery now includes `/plans` and the new info/legal routes, and first-chat funnel normalization now treats `/plans` as the same pricing-view step as `/pricing`.
+- residual risk: Browser-level hard-refresh/open-in-new-tab regression coverage for this route set is still pending and tracked separately.
+- next suggested todo: Add public password-reset request and update-password consume paths with token lifecycle and clear success/expired outcomes.
+
+### 2026-03-28 11:20 America/New_York
+
+- completed todo: Replace remaining store-unavailable no-op branches in launch-critical profile/settings writes (`SetCustomSystemPrompt`, `UpsertUserMemory`, `DeleteUserMemory`) with typed unavailable paths and correlated diagnostics.
+- files changed: `examples/100-ai-chat-wizard/server/app/server.go`, `examples/100-ai-chat-wizard/server/app/customer_safe_error_contract.go`, `examples/100-ai-chat-wizard/server/app/customer_safe_error_contract_test.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestBuildCustomerSafeErrorContractIncludesSupportReference|TestWrapCustomerSafeRPCErrorAttachesTypedDetails|TestBuildCustomerSafeErrorUnaryInterceptorSkipsOutOfScopeMethods|TestSettingsWriteRPCsNoStoreReturnTypedUnavailable|TestMemoryRPCFallbacksWithoutStore|TestMemoryRPCValidationAndErrorBranches)$"`
+- result: Passed. Store-unavailable write paths for custom prompt and user-memory mutations now fail closed through one typed contract helper (`parseBuildStoreUnavailableRPCStatus`) with customer-safe reference IDs and correlated operator lookup metadata.
+- residual risk: Read-only fallback RPCs (`GetUserName`, `ListUserMemories`, `GetCustomSystemPrompt`) still intentionally return defaults when store is nil; they should be reviewed separately if stricter outage behavior is required.
+- next suggested todo: Extend the server shell route gate so `/plans`, `/about`, `/contact`, `/privacy`, `/terms`, `/security`, and `/status` are direct-load first-class routes.
+
+### 2026-03-28 11:14 America/New_York
+
+- completed todo: Add one typed customer-safe error contract for chat/auth/settings/dashboard failures with friendly message, stable support/request ID, and server-log correlation path.
+- files changed: `examples/100-ai-chat-wizard/server/app/customer_safe_error_contract.go`, `examples/100-ai-chat-wizard/server/app/customer_safe_error_contract_test.go`, `examples/100-ai-chat-wizard/server/app/server.go`, `examples/100-ai-chat-wizard/client/app/user_error.go`, `examples/100-ai-chat-wizard/client/app/user_error_wasm_test.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestBuildCustomerSafeErrorContractIncludesSupportReference|TestWrapCustomerSafeRPCErrorAttachesTypedDetails|TestBuildCustomerSafeErrorUnaryInterceptorSkipsOutOfScopeMethods)$"`; `GOOS=js GOARCH=wasm go test -c -o ./bin/example100_client_user_error.test ./examples/100-ai-chat-wizard/client/app`
+- result: Passed. Added one scoped gRPC error-contract interceptor that wraps chat/auth/settings/dashboard failures with typed `ErrorInfo` metadata (`CUSTOMER_SAFE_ERROR_V1`) and logs one stable operator lookup path. Client error rendering now consumes typed contract message/reference data so user-visible failures keep friendly copy plus consistent Request IDs.
+- residual risk: The contract currently covers customer-facing RPC families by method mapping and metadata details; broader dashboard method additions should be kept in sync as new admin RPCs are added.
+- next suggested todo: Replace remaining store-unavailable no-op branches in `SetCustomSystemPrompt`, `UpsertUserMemory`, and `DeleteUserMemory` with typed unavailable/error paths plus correlated diagnostics.
+
+### 2026-03-28 10:34 America/New_York
+
+- completed todo: Implement policy-aware external identity link-or-create resolution.
+- files changed: `examples/100-ai-chat-wizard/server/app/auth_identity_linking.go`, `examples/100-ai-chat-wizard/server/app/auth_identity_linking_test.go`, `examples/100-ai-chat-wizard/server/app/auth_google_oidc.go`, `examples/100-ai-chat-wizard/server/app/auth_google_oidc_test.go`, `examples/100-ai-chat-wizard/TODO.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestResolveExternalIdentityLinkDecision|TestResolveExternalIdentityLinkDecisionRejectsInvalidProvider|TestResolveExternalIdentityLinkDecisionEnforcesPolicy|TestHandleOIDCProviderCallbackCreateUser|TestHandleOIDCProviderCallbackEnforcesWorkspaceLinkPolicy|TestHandleGoogleOIDCCallbackCreateUser|TestHandleGoogleOIDCCallbackLinkExisting)$"`; `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestResolveWorkspaceAuthPolicyDefaults|TestResolveWorkspaceAuthPolicyExplicit|TestResolveWorkspaceAuthPolicyInfersRequiredProvider|TestResolveWorkspaceAuthPolicyRejectsAmbiguousRequiredProvider)$"`
+- result: Passed. External identity decisioning now includes explicit policy gates for linking to existing password accounts and creating new users, while keeping ambiguous/unsafe subject-email match handling fail-closed. OIDC callback orchestration now feeds resolved workspace policy into link/create decisioning so policy-denied paths are enforced during callback handling.
+- residual risk: This enforces link/create gating at callback decision time, but typed audit records for policy-denied external-login events are still pending in the next todo.
+- next suggested todo: Add typed audit events and queryable auth records for external login start/callback/link/policy-denied paths.
+
+### 2026-03-28 10:30 America/New_York
+
+- completed todo: Add typed workspace auth-policy resolution for password/external/SSO-required/provider/JIT decisions.
+- files changed: `examples/100-ai-chat-wizard/server/app/auth_workspace_policy.go`, `examples/100-ai-chat-wizard/server/app/auth_workspace_policy_resolution_test.go`, `examples/100-ai-chat-wizard/TODO.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestAuthorizeWorkspaceLoginMethod|TestAuthorizeWorkspaceLoginMethodRejectsInvalidPolicy|TestAuthorizeWorkspaceSSORegressionMatrix|TestResolveWorkspaceAuthPolicyDefaults|TestResolveWorkspaceAuthPolicyExplicit|TestResolveWorkspaceAuthPolicyInfersRequiredProvider|TestResolveWorkspaceAuthPolicyRejectsAmbiguousRequiredProvider)$"`; `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestStoreSuperuserReliabilityControlFuncs|TestSuperuserReliabilityControlRPCs)$"`
+- result: Passed. Added one typed workspace policy-resolution contract (`parseWorkspaceAuthPolicyResolution`) and resolver (`parseResolveWorkspaceAuthPolicy`) that combines persisted `workspace_auth_policies` with enabled `workspace_sso_configs` to answer password-allowed, external-login-optional, SSO-required, required-provider, and JIT-provisioning outcomes in one place, with fail-closed handling for missing/ambiguous SSO provider selection.
+- residual risk: This adds the typed resolver seam and tests, but login RPC wiring that consumes the resolver for end-user auth UX still depends on remaining external-auth rollout items.
+- next suggested todo: Implement link-or-create account resolution policy seam so external identities attach/create/reject safely under workspace policy controls.
+
+### 2026-03-28 10:24 America/New_York
+
+- completed todo: Rework `workspace_sso_configs` so generic OIDC configuration is first-class while keeping SAML as a compatibility subtype.
+- files changed: `examples/100-ai-chat-wizard/sql/store/schema.sql`, `examples/100-ai-chat-wizard/sql/store/migrations.sql`, `examples/100-ai-chat-wizard/sql/store/upsert_workspace_sso_config.sql`, `examples/100-ai-chat-wizard/sql/store/list_workspace_sso_configs.sql`, `examples/100-ai-chat-wizard/sql/store/get_workspace_sso_config_by_scope.sql`, `examples/100-ai-chat-wizard/server/app/store_superuser_reliability.go`, `examples/100-ai-chat-wizard/server/app/superuser_reliability_ops.go`, `examples/100-ai-chat-wizard/server/app/superuser_reliability_ops_test.go`, `examples/100-ai-chat-wizard/proto/chat.proto`, `examples/100-ai-chat-wizard/proto/chat.pb.go`, `examples/100-ai-chat-wizard/TODO.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestStoreSuperuserReliabilityControlFuncs|TestStoreSuperuserReliabilityListFuncs|TestSuperuserReliabilityControlRPCs)$"`; `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestGetSuperuserControlPlaneReturnsSnapshot|TestGetSuperuserControlPlaneRequiresSURole)$"`; `go test ./examples/100-ai-chat-wizard/proto -count=1`
+- result: Passed. `workspace_sso_configs` now carries typed `provider_type` plus OIDC config fields (`oidc_issuer_url`, `oidc_client_id`, `oidc_client_secret_ref`, `oidc_scopes_json`, `oidc_claims_json`) across schema, SQL queries, store models, and superuser reliability RPC payloads. Legacy SAML fields remain supported, with provider-type inference preserving SAML-only rows as `saml`.
+- residual risk: While schema/store/RPC contracts now support generic OIDC config shape, runtime OIDC discovery/verification and workspace-level auth-policy enforcement wiring remain tracked in later auth todos.
+- next suggested todo: Add typed workspace auth-policy resolution so login can answer password/external/SSO-required/provider/JIT decisions (next Agent 3 unchecked item).
+
+### 2026-03-28 10:09 America/New_York
+
+- completed todo: Implement Google OIDC typed start/callback handlers with state+nonce persistence, link-or-create resolution, and auth-session token issuance.
+- files changed: `examples/100-ai-chat-wizard/server/app/auth_google_oidc.go`, `examples/100-ai-chat-wizard/server/app/auth_google_oidc_test.go`, `examples/100-ai-chat-wizard/TODO.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestHandleGoogleOIDCStartStoresState|TestHandleGoogleOIDCCallbackCreateUser|TestHandleGoogleOIDCCallbackLinkExisting)$"`; `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestAuthorizeExternalHandshake|TestResolveExternalIdentityLinkDecision|TestStoreAuthIdentityLifecycle|TestStoreAuthOIDCStateLifecycle|TestStoreWorkspaceAuthPolicyLifecycle|TestHandleGoogleOIDCStartStoresState|TestHandleGoogleOIDCCallbackCreateUser|TestHandleGoogleOIDCCallbackLinkExisting)$"`
+- result: Passed. Added `parseHandleGoogleOIDCStart` and `parseHandleGoogleOIDCCallback` orchestration over persisted OIDC state, callback guardrails, canonical identity upsert, verified-email account link-or-create decisioning, and final token issuance through existing auth-session infrastructure (`issueTokenForContextWithAuthMethod` with `google_oidc` method).
+- residual risk: These handlers are currently internal server-app seams; proto/RPC transport exposure and browser callback-route wiring remain pending for full end-to-end UI flow.
+- next suggested todo: Add generic OIDC provider path support so enterprise providers can reuse the same pipeline without Google-specific branching (line 417).
+
+### 2026-03-28 10:01 America/New_York
+
+- completed todo: Add one canonical external-auth provider model carrying provider key/type, subject, verified-email, profile payload, and last-login timestamps.
+- files changed: `examples/100-ai-chat-wizard/TODO.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestStoreAuthIdentityLifecycle)$"`
+- result: Passed. Canonical identity model fields are now explicitly represented and exercised through `parseAuthIdentityWrite`/`parseAuthIdentityRow` lifecycle coverage, matching the `auth_identities` schema contract used for Google/OIDC identity linking.
+- residual risk: This checkpoint codifies the shared persistence shape, but provider-specific callback payload mapping and RPC orchestration are still pending in the next OIDC implementation todos.
+- next suggested todo: Implement Google OIDC start/callback handlers with state+nonce persistence and final session issuance (line 416).
+
+### 2026-03-28 10:00 America/New_York
+
+- completed todo: Add first-class external-identity store funcs for `auth_identities`, `auth_oidc_states`, and workspace auth-policy persistence.
+- files changed: `examples/100-ai-chat-wizard/server/app/store_auth_external.go`, `examples/100-ai-chat-wizard/server/app/store_auth_external_test.go`, `examples/100-ai-chat-wizard/TODO.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestStoreAuthIdentityLifecycle|TestStoreAuthOIDCStateLifecycle|TestStoreWorkspaceAuthPolicyLifecycle)$"`
+- result: Passed. Added typed Store write/read/list/delete lifecycle funcs for external identity links, OIDC handshake state creation/consumption/expiry cleanup, and workspace auth-policy upsert/read behavior, with focused lifecycle tests validating each path.
+- residual risk: This slice adds persistence primitives only; end-to-end Google/OIDC start/callback RPC wiring and audit emission flows remain pending in later auth todos.
+- next suggested todo: Add one canonical provider model for external auth (`provider_key`, `provider_type`, subject, verified-email, profile payload, last-login timestamps) and thread it through the auth decision helpers (line 414).
+
 ### 2026-03-28 18:05 America/New_York
 
 - completed todo: Rebalanced the example-100 backlog so Agent 4 owns more non-UI engineering, logging, traceability, and failure-handling work, while Agent 5 keeps only UI-facing error and canvas/chat-surface follow-up items.
@@ -1410,6 +1500,15 @@
 - result: Passed. The visible app brand and server-rendered page title now use the new product name, and the client app still compiles for js/wasm.
 - residual risk: This updates the primary visible branding, but supporting copy such as the empty-state headline still reads like an experiment rather than a polished product surface.
 - next suggested todo: Refresh the empty-state and onboarding copy so the rest of the home screen matches the new product branding.
+
+### 2026-03-28 10:57 America/New_York
+
+- completed todo: Add typed external-auth audit events and queryable auth records for OIDC start/callback/link policy paths.
+- files changed: `examples/100-ai-chat-wizard/server/app/auth_external_audit.go`, `examples/100-ai-chat-wizard/server/app/auth_google_oidc.go`, `examples/100-ai-chat-wizard/server/app/auth_external_audit_test.go`, `examples/100-ai-chat-wizard/TODO.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestExternalAuthAuditSuccessLifecycle|TestExternalAuthAuditPolicyDeniedLifecycle|TestExternalAuthAuditIdentityUnlinkedLifecycle|TestHandleOIDCProviderCallbackEnforcesWorkspaceLinkPolicy|TestResolveExternalIdentityLinkDecisionEnforcesPolicy)$"`
+- result: Passed. External-auth lifecycle events now persist as typed audit rows with a valid actor path, and the query helper returns expected records for success, policy-denied, and identity-unlinked flows.
+- residual risk: Callback failures that occur before OIDC state lookup (or without a workspace scope) can still skip audit-row insertion when no valid actor can be resolved.
+- next suggested todo: Add one typed customer-safe error contract for chat/auth/settings/dashboard failures with friendly message + stable support/request ID correlation.
 
 ### 2026-03-28 16:20 America/New_York
 

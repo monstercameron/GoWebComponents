@@ -160,6 +160,20 @@ Bug-search checklist:
 4. Verify old password no longer works after successful reset.
 5. Verify reset flow preserves safe redirect behavior (no open redirect).
 
+### Password-recovery verification checklist
+
+Current status:
+- The server-side password-recovery lifecycle is implemented and package-tested.
+- The browser-facing request and consume flow still needs a dedicated end-to-end regression before this checklist can be fully exercised in automation.
+
+Checklist:
+1. Request a reset for an existing email and confirm the response stays neutral for unknown emails.
+2. Consume a valid reset token and confirm the new password works for login.
+3. Consume an expired token and confirm the UI shows a clear failure state without partial auth/session state.
+4. Retry a consumed token and confirm replay-denied behavior is explicit and non-destructive.
+5. Confirm the old password no longer works after a successful reset.
+6. Confirm the post-reset path returns the user to a safe login or app-entry route without open redirect behavior.
+
 ### Email verification lifecycle browser gap
 
 Current status:
@@ -183,6 +197,19 @@ Bug-search checklist:
 2. Add one deep-link slice assertion (`/app/dashboard/customers` or equivalent).
 3. Validate refresh/back/forward stability on dashboard routes.
 4. Capture denied-vs-allowed behavior for admin vs superuser paths.
+
+### Public direct-load route verification checklist
+
+Current status:
+- Public route shelling is browser-tested, but operator checks still benefit from one short route-by-route checklist after shell-routing changes.
+- The current direct-load matrix covers `/plans`, `/about`, `/contact`, `/privacy`, `/terms`, `/security`, and `/status`.
+
+Checklist:
+1. Open each route directly in a fresh tab or browser session.
+2. Hard refresh each route and confirm the pathname stays on the same page.
+3. Use back/forward navigation after one refresh and confirm the same route stays mounted.
+4. Confirm the route-specific anchor or heading is visible for each page.
+5. Confirm the browser console stays clean and no page errors are recorded.
 
 ### Workspace-admin browser-coverage gap
 

@@ -124,6 +124,38 @@ The design goal is predictable task completion over ornamental UI.
 | `Providers` | `GetProvidersDashboardSummary` | `ListProviderHealth`, `ListProviderCostSeries`, `ListProviderRoutingPolicies`, `ListProviderGuardrails` | `SetProviderEnabled`, `SetModelVisibility`, `SetProviderFallbackPolicy`, `SetProviderLimit`, `SetWorkspaceCostGuardrail` | `parseGetProvider*`, `parseListProvider*`, `parseStoreProvider*`; `sql/store/get_provider_*.sql`, `list_provider_*.sql`, `upsert_provider_*.sql` | `model_catalog`, `usage_events`, `workspace_model_routing_policies`, `workspace_cost_guardrails`, provider-health/rate-limit tables |
 | `Ops` | `GetOpsDashboardSummary` | `ListOpsIncidents`, `ListOpsJobFailures`, `ListOpsWebhookFailures`, `ListOpsAuditFeed` | `SetSiteConfig`, `SetFeatureFlag`, `SetRetentionPolicy`, `SetWebhookBehavior`, `SetIntegrationConfig` | `parseGetOps*`, `parseListOps*`, `parseStoreOps*`; `sql/store/get_ops_*.sql`, `list_ops_*.sql`, `upsert_ops_*.sql` | `site_config`, `feature_flags`, `audit_logs`, `service_level_objectives`, `incidents`, `incident_updates`, `background_jobs`, `notification_outbox`, `webhook_endpoints`, `webhook_deliveries` |
 
+### Dashboard data-source map
+
+- `Business` surface:
+  - KPI cards (`MRR trend`, `churn risk`, `active customers`, `failed-payment count`, `upgrade pressure`) -> `GetBusinessDashboardSummary`, `parseGetBusinessSummary` families, `get_business_summary.sql` + related `list_business_*.sql` reads (`billing_subscriptions`, `billing_invoices`, `billing_invoice_line_items`, `subscription_churn_feedback`, `billing_access_overrides`, `billing_events`, `billing_dunning_queue`), plus customer-level rollups in `billing_customers`.
+  - Trend blocks (`MRR trend`, `charge failure trend`, `plan migration trend`) -> `ListBusinessRevenueSeries`, `parseListBusinessSeries` + `list_business_revenue_series.sql` / `list_business_plan_mix_series.sql`.
+  - Lists (`top accounts`, `dunning queue`, `failed-payment cases`) -> `ListBusinessTopAccounts`, `ListBusinessDunningQueue`, `parseListBusiness*` + `list_business_top_accounts.sql` / `list_business_dunning_queue.sql`.
+  - Settings forms (`plan`, `quota`, `overage`, `upgrade trigger`, `dunning rule`) -> `Set/DeleteBusinessPlan`, `Set/DeleteBusinessQuotaPolicy`, `Set/DeleteBusinessOverageRule`, `Set/DeleteBusinessUpgradeTrigger`, `Set/DeleteBusinessDunningRule`, `parseStoreBusiness*` + `upsert_business_*.sql` / `delete_business_*.sql`.
+
+- `Customers` surface:
+  - KPI cards (`active users`, `active workspaces`, `disable/suspend posture`, `support backlog`) -> `GetCustomersDashboardSummary`, `parseGetCustomersSummary` families, `get_customers_summary.sql` + list helpers (`list_admin_users.sql`, `list_admin_support_tickets.sql`), tables `users`, `workspaces`, `workspace_memberships`, `auth_sessions`, `support_tickets`, `support_ticket_messages`.
+  - Trend blocks (`usage trend`, `support age trend`) -> `GetCustomersDashboardSummary`, `parseGetCustomersSummary`, `list_customer_usage_trends.sql` / `list_support_age_series.sql` (where available).
+  - Lists (`user list`, `workspace list`, `support queue`, `sessions`, `billing overrides`) -> `ListCustomers`, `ListCustomerSessions`, `ListCustomerUsage`, `ListCustomerSupport`, `parseListAdmin*`, `list_admin_users.sql` + `list_admin_support_tickets.sql` + `list_auth_sessions.sql`; tables in section summary.
+  - Settings forms (`billing access override`, `quota override`, workspace suspension`) -> `SetAdminBillingAccessOverride`, `SetAdminBillingQuotaOverride`, `SetAdminWorkspaceSuspend`, `SetAdminWorkspaceRestore`, `parseStoreCustomerSettings*` + `upsert_user_access_overrides.sql` / `upsert_workspace_admin_actions.sql`.
+
+- `Chats` surface:
+  - KPI cards (`first-chat conversion`, `reply success`, `reply latency`, `memory quality`, `model fallback rate`) -> `GetChatsDashboardSummary`, `parseGetChatsSummary` families, `get_chats_summary.sql`; tables `product_analytics_events`, `conversations`, `messages`, `usage_events`, `user_activation_milestones`.
+  - Trend blocks (`completion rate trend`, `latency trend`, `failure trend`) -> `ListChatHealthThreads`, `ListChatLatencySeries`, `ListChatFailures`, `parseListChat*` + `list_chat_health_threads.sql` / `list_chat_latency_series.sql` / `list_chat_failures.sql`.
+  - Lists (`thread health list`, `failure detail list`) -> same drill-down RPC families and list SQL (`list_chats_threads.sql`, `list_message_replies.sql`, `list_chat_failures.sql`).
+  - Settings forms (`system prompt`, `model defaults`, `memory rules`, `onboarding template`, `workflow publish`, `skill publish`) -> `SetSystemDefaultPrompt`, `SetModelDefaults`, `SetMemoryRules`, `SetOnboardingTemplate`, `PublishWorkflow`, `PublishSkill`, `parseStoreChatSettings*` + `upsert_system_prompt*.sql`, `upsert_chat_model_defaults.sql`, `upsert_memory_rules.sql`.
+
+- `Providers` surface:
+  - KPI cards (`provider reliability`, `cost per token`, `fallback rate`, `routing compliance`) -> `GetProvidersDashboardSummary`, `parseGetProvidersSummary`, `get_provider_summary.sql`; tables `usage_events`, `model_catalog`, `workspace_model_routing_policies`, `workspace_cost_guardrails`.
+  - Trend blocks (`latency trend`, `error trend`, `cost trend`) -> `ListProviderHealth`, `ListProviderCostSeries`, `ListProviderRoutingPolicies`, `parseListProvider*` + `list_provider_health.sql` / `list_provider_cost_series.sql`.
+  - Lists (`routing policy list`, `guardrail list`, `fallback event list`) -> `ListProviderRoutingPolicies`, `ListProviderGuardrails`, `parseListProvider*` + `list_provider_routing_policies.sql`, `list_provider_guardrails.sql`, `list_provider_fallback_events.sql` (if enabled).
+  - Settings forms (`enable/disable provider`, `model visibility`, `fallback policy`, `provider/workspace limit`, `cost guardrail`) -> `SetProviderEnabled`, `SetModelVisibility`, `SetProviderFallbackPolicy`, `SetProviderLimit`, `SetWorkspaceCostGuardrail`, `parseStoreProvider*` + `upsert_provider_enabled.sql`, `upsert_model_visibility.sql`, `upsert_provider_limits.sql`.
+
+- `Ops` surface:
+  - KPI cards (`incident health`, `job backlog`, `webhook reliability`, `notification reliability`, `audit risk`) -> `GetOpsDashboardSummary`, `parseGetOpsSummary`, `get_ops_summary.sql`; tables `incidents`, `incident_updates`, `background_jobs`, `notification_outbox`, `webhook_deliveries`, `audit_logs`.
+  - Trend blocks (`incident trend`, `job failure trend`, `webhook retry trend`) -> `ListOpsIncidents`, `ListOpsJobFailures`, `ListOpsWebhookFailures`, `parseListOps*` + `list_ops_incidents.sql`, `list_ops_job_failures.sql`, `list_ops_webhook_failures.sql`.
+  - Lists (`audit feed`, `job queue`, `webhook incident context`) -> `ListOpsAuditFeed`, `parseListOps*` + `list_ops_audit_feed.sql`, `list_ops_jobs.sql`, `list_ops_webhook_failures.sql`.
+  - Settings forms (`site config`, `feature flags`, `retention`, `webhook behavior`, `integration config`) -> `SetSiteConfig`, `SetFeatureFlag`, `SetRetentionPolicy`, `SetWebhookBehavior`, `SetIntegrationConfig`, `parseStoreOps*` + `upsert_site_config*.sql`, `upsert_feature_flags.sql`, `upsert_retention_policy.sql`, `upsert_webhook_behavior.sql`.
+
 ### Dashboard permissions model (planned)
 
 | Role | Surface access | List/detail scope | Settings/mutation scope |
