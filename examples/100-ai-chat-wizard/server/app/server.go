@@ -220,6 +220,59 @@ func (parseS *chatServer) parseMarkConversationMessagesSaved(parsePeerAddress st
 	}
 }
 
+// parsePersistFailedConversationMessages saves one failed exchange so reconnects do not leave an empty conversation shell behind.
+func (parseS *chatServer) parsePersistFailedConversationMessages(parseLogger *slog.Logger, parsePeerAddress string, parseUserID, parseRequestedConversationID, parseConversationID int64, parseSavedMessageCount int, parseHistory []*chatpb.ChatMessage, parseUserMessage, parseAssistantMessage, parseResolvedModel string) {
+	parsePersistedMessageCount := parseSavedMessageCount
+	for parseHistoryIndex := parseSavedMessageCount; parseHistoryIndex < len(parseHistory); parseHistoryIndex++ {
+		parseHistoryMessage := parseHistory[parseHistoryIndex]
+		if parseDbErr := parseS.store.parseSaveConversationMessage(parseUserID, parseConversationID, parseHistoryMessage.Role, parseHistoryMessage.Content, parseHistoryMessage.GetModelId(), parseHistoryMessage.GetPromptTokens(), parseHistoryMessage.GetCompletionTokens()); parseDbErr != nil {
+			parseLogger.Error("rpc.Send: db: save failed-stream history message failed",
+				slog.Int64("user_id", parseUserID),
+				slog.Int64("requested_conv_id", parseRequestedConversationID),
+				slog.Int64("conv_id", parseConversationID),
+				slog.Int("index", parseHistoryIndex),
+				slog.String("role", parseHistoryMessage.Role),
+				slog.String("error", parseDbErr.Error()),
+			)
+			if errors.Is(parseDbErr, errStoreConversationMissing) {
+				parseS.clearPeerSession(parsePeerAddress)
+			}
+			return
+		}
+		parsePersistedMessageCount++
+	}
+	if parseDbErr := parseS.store.parseSaveConversationMessage(parseUserID, parseConversationID, "user", parseUserMessage, "", 0, 0); parseDbErr != nil {
+		parseLogger.Error("rpc.Send: db: save failed-stream user message failed",
+			slog.Int64("user_id", parseUserID),
+			slog.Int64("requested_conv_id", parseRequestedConversationID),
+			slog.Int64("conv_id", parseConversationID),
+			slog.String("error", parseDbErr.Error()),
+		)
+		if errors.Is(parseDbErr, errStoreConversationMissing) {
+			parseS.clearPeerSession(parsePeerAddress)
+		}
+		return
+	}
+	parsePersistedMessageCount++
+	if strings.TrimSpace(parseAssistantMessage) != "" {
+		if parseDbErr := parseS.store.parseSaveConversationMessage(parseUserID, parseConversationID, "assistant", parseAssistantMessage, parseResolvedModel, 0, 0); parseDbErr != nil {
+			parseLogger.Error("rpc.Send: db: save failed-stream assistant message failed",
+				slog.Int64("user_id", parseUserID),
+				slog.Int64("requested_conv_id", parseRequestedConversationID),
+				slog.Int64("conv_id", parseConversationID),
+				slog.String("resolved_model", parseResolvedModel),
+				slog.String("error", parseDbErr.Error()),
+			)
+			if errors.Is(parseDbErr, errStoreConversationMissing) {
+				parseS.clearPeerSession(parsePeerAddress)
+			}
+			return
+		}
+		parsePersistedMessageCount++
+	}
+	parseS.parseMarkConversationMessagesSaved(parsePeerAddress, parsePersistedMessageCount)
+}
+
 func (parseS *chatServer) parseBindAuthenticatedPeer(parsePeerAddress string, parseUser authUser) {
 	parseS.authMutex.Lock()
 	defer parseS.authMutex.Unlock()
@@ -632,7 +685,7 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 		}
 		// Keep a failed usage ledger record so billing reconciliation can account for partial/error streams.
 		if parseS.store != nil {
-			parseSessionConversationID, _, parseSessionErr := parseS.parseLoadOrCreateConversationSession(parsePeerAddress, parseUserID, parseReq.GetConversationId(), len(parseReq.History))
+			parseSessionConversationID, parseSavedMessageCount, parseSessionErr := parseS.parseLoadOrCreateConversationSession(parsePeerAddress, parseUserID, parseReq.GetConversationId(), len(parseReq.History))
 			if parseSessionErr != nil {
 				parseLogger.Warn("rpc.Send: db: failed usage session resolution failed",
 					slog.Int64("user_id", parseUserID),
@@ -642,6 +695,18 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 			} else {
 				parseConversationID = parseSessionConversationID
 				parseErrorConversationID = parseSessionConversationID
+				parseS.parsePersistFailedConversationMessages(
+					parseLogger,
+					parsePeerAddress,
+					parseUserID,
+					parseReq.GetConversationId(),
+					parseSessionConversationID,
+					parseSavedMessageCount,
+					parseReq.History,
+					parseReq.Message,
+					parseAssistantResponseBuffer.String(),
+					parseResolvedModel,
+				)
 				parseErrorUsage := parseUsageEventWrite{
 					EventID:           uuid.NewString(),
 					UserID:            parseUserID,
@@ -2580,6 +2645,7 @@ func ParseRun() {
 	parseMux := http.NewServeMux()
 	parseMux.Handle("/socket", parseTunnelHandler)
 	parseMux.Handle("/socket/", parseTunnelHandler)
+	parseMux.HandleFunc("/api/public/auth/session/sync", parseChatService.parseHandlePublicAuthSessionSync)
 	parseMux.HandleFunc("/api/public/auth/password-reset/request", parseChatService.parseHandlePublicPasswordResetRequest)
 	parseMux.HandleFunc("/api/public/auth/password-reset/consume", parseChatService.parseHandlePublicPasswordResetConsume)
 	parseMux.HandleFunc("/api/public/auth/signup-verification/resend", parseChatService.parseHandlePublicSignupVerificationResend)
@@ -2699,6 +2765,9 @@ func parseNewPrecompressedWASMFileServer(parseRootDir string) http.Handler {
 	parseFileServer := http.FileServer(http.Dir(parseRootDir))
 
 	return http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		if parseR != nil && filepath.Ext(parseR.URL.Path) == ".wasm" {
+			parseSetNoStoreResponseHeaders(parseW)
+		}
 		if parseTryServeBrotliWASM(parseW, parseR, parseRootDir) {
 			return
 		}
@@ -2725,6 +2794,9 @@ func parseTryServeBrotliWASM(parseW http.ResponseWriter, parseR *http.Request, p
 	if !parseOk {
 		return false
 	}
+	if !parseShouldServeFreshBrotliArtifact(parseRootDir, parseRelativePath) {
+		return false
+	}
 	parseBrotliPath := filepath.Join(parseRootDir, parseRelativePath) + ".br"
 	parseArtifactInfo, parseErr := os.Stat(parseBrotliPath)
 	if parseErr != nil || parseArtifactInfo.IsDir() {
@@ -2740,11 +2812,27 @@ func parseTryServeBrotliWASM(parseW http.ResponseWriter, parseR *http.Request, p
 	}
 	defer parseOutputFile.Close()
 
+	parseSetNoStoreResponseHeaders(parseW)
 	parseW.Header().Set("Content-Encoding", "br")
 	parseW.Header().Set("Content-Type", "application/wasm")
 	parseW.Header().Set("Vary", "Accept-Encoding")
 	http.ServeContent(parseW, parseR, filepath.Base(parseR.URL.Path), parseArtifactInfo.ModTime(), parseOutputFile)
 	return true
+}
+
+// parseShouldServeFreshBrotliArtifact reports whether the Brotli sidecar exists and is at least as fresh as the raw wasm artifact.
+func parseShouldServeFreshBrotliArtifact(parseRootDir string, parseRelativePath string) bool {
+	parseBrotliPath := filepath.Join(parseRootDir, parseRelativePath) + ".br"
+	parseBrotliInfo, parseErr := os.Stat(parseBrotliPath)
+	if parseErr != nil || parseBrotliInfo.IsDir() || parseBrotliInfo.Size() <= 0 {
+		return false
+	}
+	parseRawPath := filepath.Join(parseRootDir, parseRelativePath)
+	parseRawInfo, parseErr := os.Stat(parseRawPath)
+	if parseErr != nil || parseRawInfo.IsDir() || parseRawInfo.Size() <= 0 {
+		return true
+	}
+	return !parseRawInfo.ModTime().After(parseBrotliInfo.ModTime())
 }
 
 func parseResolveRelativeAssetPath(parseRequestPath string) (string, bool) {

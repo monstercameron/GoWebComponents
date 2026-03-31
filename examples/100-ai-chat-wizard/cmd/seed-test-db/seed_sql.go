@@ -18,10 +18,10 @@ func parseLoadSeedQueries() (seedQueries, error) {
 	if parseQueries.schema, parseErr = sqlfiles.ParseLoad("store/schema.sql"); parseErr != nil {
 		return seedQueries{}, parseErr
 	}
-	if parseQueries.parseCreateUser, parseErr = sqlfiles.ParseLoad("store/create_user.sql"); parseErr != nil {
+	if parseQueries.parseCreateUser, parseErr = sqlfiles.ParseLoad("store/ops/create_user.sql"); parseErr != nil {
 		return seedQueries{}, parseErr
 	}
-	if parseQueries.upsertBillingUser, parseErr = sqlfiles.ParseLoad("store/upsert_billing_customer.sql"); parseErr != nil {
+	if parseQueries.upsertBillingUser, parseErr = sqlfiles.ParseLoad("store/billing/upsert_billing_customer.sql"); parseErr != nil {
 		return seedQueries{}, parseErr
 	}
 	if parseQueries.insertUserProfile, parseErr = sqlfiles.ParseLoad("seed/insert_user_profile.sql"); parseErr != nil {
@@ -30,7 +30,7 @@ func parseLoadSeedQueries() (seedQueries, error) {
 	if parseQueries.insertConversation, parseErr = sqlfiles.ParseLoad("seed/insert_conversation.sql"); parseErr != nil {
 		return seedQueries{}, parseErr
 	}
-	if parseQueries.insertMessage, parseErr = sqlfiles.ParseLoad("store/save_conversation_message.sql"); parseErr != nil {
+	if parseQueries.insertMessage, parseErr = sqlfiles.ParseLoad("store/chat/save_conversation_message.sql"); parseErr != nil {
 		return seedQueries{}, parseErr
 	}
 

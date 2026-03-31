@@ -570,8 +570,14 @@ func (parseS *Store) parseDeleteConversation(parseUserID, parseConversationID in
 	); parseErr2 != nil {
 		return parseErr2
 	}
-	if _, parseErr3 := parseTx.Exec(parseS.queries.deleteConversation, parseConversationID, parseUserID); parseErr3 != nil {
+	if _, parseErr3 := parseTx.Exec(
+		parseS.queries.deleteConversationUsageEvents,
+		parseConversationID, parseUserID,
+	); parseErr3 != nil {
 		return parseErr3
+	}
+	if _, parseErr4 := parseTx.Exec(parseS.queries.deleteConversation, parseConversationID, parseUserID); parseErr4 != nil {
+		return parseErr4
 	}
 	return parseTx.Commit()
 }

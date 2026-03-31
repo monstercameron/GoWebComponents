@@ -60,6 +60,33 @@ type parsePublicSignupVerificationResponse struct {
 	ParseRedirectTarget    string `json:"redirect_target,omitempty"`
 }
 
+// parseHandlePublicAuthSessionSync serves one same-origin endpoint that mirrors a valid bearer token into the auth cookie.
+func (parseS *chatServer) parseHandlePublicAuthSessionSync(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseR.Method == http.MethodDelete {
+		if parseS != nil && parseS.authManager != nil {
+			parseS.authManager.clearAuthCookie(parseW, parseR)
+		}
+		parseWritePublicNoContent(parseW)
+		return
+	}
+	if parseR.Method != http.MethodPost {
+		http.Error(parseW, "use POST to sync auth session", http.StatusMethodNotAllowed)
+		return
+	}
+	if parseS == nil || parseS.authManager == nil {
+		http.Error(parseW, "auth unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	_, parseToken, parseOk := parseS.authManager.parseAuthenticatedUserFromAuthorizationRequest(parseR)
+	if !parseOk || strings.TrimSpace(parseToken) == "" {
+		parseS.authManager.clearAuthCookie(parseW, parseR)
+		http.Error(parseW, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	parseS.authManager.setAuthCookie(parseW, parseR, parseToken)
+	parseWritePublicNoContent(parseW)
+}
+
 // parseHandlePublicPasswordResetRequest serves one public endpoint for password-reset token requests.
 func (parseS *chatServer) parseHandlePublicPasswordResetRequest(parseW http.ResponseWriter, parseR *http.Request) {
 	if parseR.Method != http.MethodPost {
@@ -459,4 +486,10 @@ func parseWritePublicSignupVerificationResponse(parseW http.ResponseWriter, pars
 	parseW.Header().Set("Cache-Control", "no-store")
 	parseW.WriteHeader(parseStatusCode)
 	_ = json.NewEncoder(parseW).Encode(parseResponse)
+}
+
+// parseWritePublicNoContent writes one no-store empty response for same-origin auth session sync endpoints.
+func parseWritePublicNoContent(parseW http.ResponseWriter) {
+	parseW.Header().Set("Cache-Control", "no-store")
+	parseW.WriteHeader(http.StatusNoContent)
 }

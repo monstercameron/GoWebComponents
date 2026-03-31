@@ -963,6 +963,7 @@ document.addEventListener('click', function(e) {
 })();`
 
 func parseServeChatShell(parseW http.ResponseWriter, _ *http.Request) {
+	parseSetNoStoreResponseHeaders(parseW)
 	parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
 	parseShellHTML := strings.Replace(chatShellHTML, "{{BOOT_STYLE}}", chatBootShellStyles, 1)
 	parseShellHTML = strings.Replace(parseShellHTML, "{{APP_VERSION}}", buildinfo.GetBuildAppVersion(), 1)
@@ -970,10 +971,21 @@ func parseServeChatShell(parseW http.ResponseWriter, _ *http.Request) {
 }
 
 func parseServeChatBootstrapJS(parseW http.ResponseWriter, _ *http.Request) {
+	parseSetNoStoreResponseHeaders(parseW)
 	parseW.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	parsePremiumLiteral := strconv.FormatFloat(parseCurrentChatUsagePremiumPercent(), 'f', 6, 64)
 	parsePlatformFeeLiteral := strconv.FormatFloat(parseCurrentChatPlatformFeeUSD(), 'f', 6, 64)
 	parseBootstrapBody := strings.Replace(chatBootstrapJS, "{{USAGE_PREMIUM_PERCENT}}", parsePremiumLiteral, 1)
 	parseBootstrapBody = strings.Replace(parseBootstrapBody, "{{PLATFORM_FEE_USD}}", parsePlatformFeeLiteral, 1)
 	_, _ = fmt.Fprint(parseW, parseBootstrapBody)
+}
+
+// parseSetNoStoreResponseHeaders applies one fail-safe no-store cache policy for mutable shell and artifact responses.
+func parseSetNoStoreResponseHeaders(parseW http.ResponseWriter) {
+	if parseW == nil {
+		return
+	}
+	parseW.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	parseW.Header().Set("Pragma", "no-cache")
+	parseW.Header().Set("Expires", "0")
 }

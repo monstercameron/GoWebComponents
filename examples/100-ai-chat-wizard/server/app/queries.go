@@ -61,6 +61,7 @@ type storeQueries struct {
 	listConversations                       string
 	loadConversation                        string
 	deleteConversationMessages              string
+	deleteConversationUsageEvents           string
 	deleteConversation                      string
 	getUserName                             string
 	setSelectedModel                        string
@@ -231,6 +232,14 @@ type storeQueries struct {
 	listAdminCustomerAccountTimelineEvents  string
 	listAdminProviderHealthTrends           string
 	listAdminProviderFallbackEvents         string
+	listAdminFailedBackgroundJobs           string
+	listAdminFailedNotifications            string
+	listAdminFailedWebhookDeliveries        string
+	listAdminIncidentTimeline               string
+	listAdminRecentOpsActions               string
+	getAdminBusinessMutationPreview         string
+	getAdminProviderMutationPreview         string
+	getAdminOpsMutationPreview              string
 	listAdminFailedPaymentBillingEvents     string
 	listAdminBillingDunningTimeline         string
 	refreshProviderUsageDailyRollups        string
@@ -371,6 +380,9 @@ func parseLoadStoreQueries() (storeQueries, error) {
 		return storeQueries{}, parseErr
 	}
 	if parseErr = parseLoadStoreQuery(&parseQueries.deleteConversationMessages, "store/ops/delete_conversation_messages.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseErr = parseLoadStoreQuery(&parseQueries.deleteConversationUsageEvents, "store/ops/delete_conversation_usage_events.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseErr = parseLoadStoreQuery(&parseQueries.deleteConversation, "store/ops/delete_conversation.sql"); parseErr != nil {
@@ -881,6 +893,30 @@ func parseLoadStoreQueries() (storeQueries, error) {
 		return storeQueries{}, parseErr
 	}
 	if parseErr = parseLoadStoreQuery(&parseQueries.listAdminProviderFallbackEvents, "store/admin/list_admin_provider_fallback_events.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseErr = parseLoadStoreQuery(&parseQueries.listAdminFailedBackgroundJobs, "store/admin/list_admin_failed_background_jobs.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseErr = parseLoadStoreQuery(&parseQueries.listAdminFailedNotifications, "store/admin/list_admin_failed_notifications.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseErr = parseLoadStoreQuery(&parseQueries.listAdminFailedWebhookDeliveries, "store/admin/list_admin_failed_webhook_deliveries.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseErr = parseLoadStoreQuery(&parseQueries.listAdminIncidentTimeline, "store/admin/list_admin_incident_timeline.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseErr = parseLoadStoreQuery(&parseQueries.listAdminRecentOpsActions, "store/admin/list_admin_recent_ops_actions.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseErr = parseLoadStoreQuery(&parseQueries.getAdminBusinessMutationPreview, "store/admin/get_admin_business_mutation_preview.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseErr = parseLoadStoreQuery(&parseQueries.getAdminProviderMutationPreview, "store/admin/get_admin_provider_mutation_preview.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseErr = parseLoadStoreQuery(&parseQueries.getAdminOpsMutationPreview, "store/admin/get_admin_ops_mutation_preview.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseErr = parseLoadStoreQuery(&parseQueries.listAdminFailedPaymentBillingEvents, "store/admin/list_admin_failed_payment_billing_events.sql"); parseErr != nil {

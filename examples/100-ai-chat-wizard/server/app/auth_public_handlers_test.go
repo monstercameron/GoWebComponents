@@ -38,6 +38,81 @@ func TestHandlePublicPasswordResetRequestReturnsLocalTokenForQA(parseT *testing.
 	}
 }
 
+// TestHandlePublicAuthSessionSyncSetsCookie verifies a valid bearer token is mirrored into the HTTP auth cookie.
+func TestHandlePublicAuthSessionSyncSetsCookie(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseNewTestLogger())
+	parseUser, parseErr := parseAuth.parseSignup("sync-cookie@example.com", "password123", "Sync Cookie")
+	if parseErr != nil {
+		parseT.Fatalf("parseSignup: %v", parseErr)
+	}
+	parseToken, parseErr := parseAuth.issueToken(parseUser)
+	if parseErr != nil {
+		parseT.Fatalf("issueToken: %v", parseErr)
+	}
+	parseServer := &chatServer{authManager: parseAuth}
+	parseRequest := httptest.NewRequest(http.MethodPost, "/api/public/auth/session/sync", nil)
+	parseRequest.Header.Set("Authorization", "Bearer "+parseToken)
+	parseResponse := httptest.NewRecorder()
+
+	parseServer.parseHandlePublicAuthSessionSync(parseResponse, parseRequest)
+
+	if parseResponse.Code != http.StatusNoContent {
+		parseT.Fatalf("status code = %d, want %d", parseResponse.Code, http.StatusNoContent)
+	}
+	parseCookies := parseResponse.Result().Cookies()
+	if len(parseCookies) != 1 {
+		parseT.Fatalf("expected one cookie, got %d", len(parseCookies))
+	}
+	if parseCookies[0].Name != authCookieName || parseCookies[0].Value != parseToken {
+		parseT.Fatalf("unexpected auth cookie: %+v", parseCookies[0])
+	}
+}
+
+// TestHandlePublicAuthSessionSyncRejectsMissingBearer verifies sync fails closed and clears cookies when authorization is absent.
+func TestHandlePublicAuthSessionSyncRejectsMissingBearer(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseNewTestLogger())
+	parseServer := &chatServer{authManager: parseAuth}
+	parseRequest := httptest.NewRequest(http.MethodPost, "/api/public/auth/session/sync", nil)
+	parseResponse := httptest.NewRecorder()
+
+	parseServer.parseHandlePublicAuthSessionSync(parseResponse, parseRequest)
+
+	if parseResponse.Code != http.StatusUnauthorized {
+		parseT.Fatalf("status code = %d, want %d", parseResponse.Code, http.StatusUnauthorized)
+	}
+	parseCookies := parseResponse.Result().Cookies()
+	if len(parseCookies) != 1 {
+		parseT.Fatalf("expected one cleared cookie, got %d", len(parseCookies))
+	}
+	if parseCookies[0].Name != authCookieName || parseCookies[0].MaxAge != -1 {
+		parseT.Fatalf("expected cleared auth cookie, got %+v", parseCookies[0])
+	}
+}
+
+// TestHandlePublicAuthSessionSyncClearsCookieOnDelete verifies logout cleanup can clear the HTTP auth cookie explicitly.
+func TestHandlePublicAuthSessionSyncClearsCookieOnDelete(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseNewTestLogger())
+	parseServer := &chatServer{authManager: parseAuth}
+	parseRequest := httptest.NewRequest(http.MethodDelete, "/api/public/auth/session/sync", nil)
+	parseResponse := httptest.NewRecorder()
+
+	parseServer.parseHandlePublicAuthSessionSync(parseResponse, parseRequest)
+
+	if parseResponse.Code != http.StatusNoContent {
+		parseT.Fatalf("status code = %d, want %d", parseResponse.Code, http.StatusNoContent)
+	}
+	parseCookies := parseResponse.Result().Cookies()
+	if len(parseCookies) != 1 {
+		parseT.Fatalf("expected one cleared cookie, got %d", len(parseCookies))
+	}
+	if parseCookies[0].Name != authCookieName || parseCookies[0].MaxAge != -1 {
+		parseT.Fatalf("expected cleared auth cookie, got %+v", parseCookies[0])
+	}
+}
+
 // TestHandlePublicPasswordResetConsumeSuccess verifies valid tokens update the password through the public consume endpoint.
 func TestHandlePublicPasswordResetConsumeSuccess(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)

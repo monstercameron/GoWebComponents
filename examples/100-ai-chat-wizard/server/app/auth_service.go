@@ -489,6 +489,14 @@ func parseResolveAuthTokenFromContext(parseCtx context.Context) (string, bool) {
 	return "", false
 }
 
+// parseResolveAuthTokenFromRequest extracts one auth token from one HTTP Authorization header.
+func parseResolveAuthTokenFromRequest(parseR *http.Request) (string, bool) {
+	if parseR == nil {
+		return "", false
+	}
+	return parseAuthTokenFromAuthorizationValue(parseR.Header.Get("Authorization"))
+}
+
 // parseResolveAuthMetadataFromContext resolves request user-agent and client IP metadata from one gRPC context.
 func parseResolveAuthMetadataFromContext(parseCtx context.Context) parseAuthRequestMetadata {
 	parseMetadata := parseAuthRequestMetadata{}
@@ -573,6 +581,27 @@ func (parseA *authManager) parseAuthenticatedUserFromRequest(parseR *http.Reques
 		return authUser{}, false
 	}
 	return parseA.parseValidateActiveUser(parseUser, "http-cookie")
+}
+
+// parseAuthenticatedUserFromAuthorizationRequest authenticates one HTTP request via authorization header.
+func (parseA *authManager) parseAuthenticatedUserFromAuthorizationRequest(parseR *http.Request) (authUser, string, bool) {
+	if parseA == nil {
+		return authUser{}, "", false
+	}
+	parseTokenString, parseOk := parseResolveAuthTokenFromRequest(parseR)
+	if !parseOk {
+		return authUser{}, "", false
+	}
+	parseMetadata := parseResolveAuthMetadataFromRequest(parseR)
+	parseUser, _, parseErr := parseA.parseTokenWithMetadata(parseTokenString, parseMetadata)
+	if parseErr != nil {
+		return authUser{}, "", false
+	}
+	parseValidatedUser, parseIsValid := parseA.parseValidateActiveUser(parseUser, "http-authorization")
+	if !parseIsValid {
+		return authUser{}, "", false
+	}
+	return parseValidatedUser, parseTokenString, true
 }
 
 // parseRevokeSessionFromContext revokes one authenticated session bound to one incoming gRPC context.

@@ -137,6 +137,9 @@ func TestBrotliServingAndShellEndpoints(parseT *testing.T) {
 	if parseResponse.Header.Get("Content-Encoding") != "br" {
 		parseT.Fatalf("expected Brotli encoding header, got %q", parseResponse.Header.Get("Content-Encoding"))
 	}
+	if parseResponse.Header.Get("Cache-Control") != "no-store, no-cache, must-revalidate" {
+		parseT.Fatalf("expected Brotli wasm to disable caching, got %q", parseResponse.Header.Get("Cache-Control"))
+	}
 
 	parseDefaultBrotliRequest := httptest.NewRequest(http.MethodGet, "http://example.com/app/chat.wasm", nil)
 	if !parseTryServeBrotliWASM(httptest.NewRecorder(), parseDefaultBrotliRequest, parseRootDir) {
@@ -160,11 +163,23 @@ func TestBrotliServingAndShellEndpoints(parseT *testing.T) {
 	if parseBrotliWriter.Result().Header.Get("Content-Encoding") != "br" {
 		parseT.Fatalf("expected precompressed wasm file server to serve br artifact, got %q", parseBrotliWriter.Result().Header.Get("Content-Encoding"))
 	}
+	if parseBrotliWriter.Result().Header.Get("Cache-Control") != "no-store, no-cache, must-revalidate" {
+		parseT.Fatalf("expected precompressed wasm to disable caching, got %q", parseBrotliWriter.Result().Header.Get("Cache-Control"))
+	}
+
+	parseRawWASMWriter := httptest.NewRecorder()
+	parseFileServer.ServeHTTP(parseRawWASMWriter, httptest.NewRequest(http.MethodGet, "http://example.com/app/chat.wasm?br=false", nil))
+	if parseRawWASMWriter.Result().Header.Get("Cache-Control") != "no-store, no-cache, must-revalidate" {
+		parseT.Fatalf("expected raw wasm to disable caching, got %q", parseRawWASMWriter.Result().Header.Get("Cache-Control"))
+	}
 
 	parseShellWriter := httptest.NewRecorder()
 	parseServeChatShell(parseShellWriter, httptest.NewRequest(http.MethodGet, "http://example.com/", nil))
 	if !strings.Contains(parseShellWriter.Body.String(), "chat-bootstrap.js") {
 		parseT.Fatal("expected shell HTML to include bootstrap script")
+	}
+	if parseShellWriter.Result().Header.Get("Cache-Control") != "no-store, no-cache, must-revalidate" {
+		parseT.Fatalf("expected shell HTML to disable caching, got %q", parseShellWriter.Result().Header.Get("Cache-Control"))
 	}
 	if !strings.Contains(parseShellWriter.Body.String(), "/static/css/tailwind.css") {
 		parseT.Fatal("expected shell HTML to include local Tailwind stylesheet")
@@ -181,8 +196,52 @@ func TestBrotliServingAndShellEndpoints(parseT *testing.T) {
 	if !strings.Contains(parseBootstrapWriter.Body.String(), "normalizeStandaloneBracketMath") {
 		parseT.Fatal("expected bootstrap JS to normalize standalone bracket math blocks")
 	}
+	if parseBootstrapWriter.Result().Header.Get("Cache-Control") != "no-store, no-cache, must-revalidate" {
+		parseT.Fatalf("expected bootstrap JS to disable caching, got %q", parseBootstrapWriter.Result().Header.Get("Cache-Control"))
+	}
 	if parseContentType := parseBootstrapWriter.Result().Header.Get("Content-Type"); !strings.Contains(parseContentType, "application/javascript") {
 		parseT.Fatalf("unexpected bootstrap content type: %q", parseContentType)
+	}
+}
+
+func TestBrotliServingSkipsStaleSidecar(parseT *testing.T) {
+	parseRootDir := parseT.TempDir()
+	parseArtifactDir := filepath.Join(parseRootDir, "app")
+	if parseErr := os.MkdirAll(parseArtifactDir, 0o755); parseErr != nil {
+		parseT.Fatalf("MkdirAll: %v", parseErr)
+	}
+	parseRawPath := filepath.Join(parseArtifactDir, "chat.wasm")
+	parseBrotliPath := parseRawPath + ".br"
+	if parseErr := os.WriteFile(parseRawPath, []byte("new-raw-wasm"), 0o644); parseErr != nil {
+		parseT.Fatalf("WriteFile raw: %v", parseErr)
+	}
+	if parseErr := os.WriteFile(parseBrotliPath, []byte("stale-brotli"), 0o644); parseErr != nil {
+		parseT.Fatalf("WriteFile br: %v", parseErr)
+	}
+	parseOlderTime := time.Date(2026, time.March, 28, 12, 0, 0, 0, time.UTC)
+	parseNewerTime := parseOlderTime.Add(2 * time.Hour)
+	if parseErr := os.Chtimes(parseBrotliPath, parseOlderTime, parseOlderTime); parseErr != nil {
+		parseT.Fatalf("Chtimes br: %v", parseErr)
+	}
+	if parseErr := os.Chtimes(parseRawPath, parseNewerTime, parseNewerTime); parseErr != nil {
+		parseT.Fatalf("Chtimes raw: %v", parseErr)
+	}
+	if parseShouldServeFreshBrotliArtifact(parseRootDir, filepath.ToSlash(filepath.Join("app", "chat.wasm"))) {
+		parseT.Fatal("expected stale brotli sidecar to be rejected when raw wasm is newer")
+	}
+	parseRequest := httptest.NewRequest(http.MethodGet, "http://example.com/app/chat.wasm", nil)
+	parseWriter := httptest.NewRecorder()
+	if parseTryServeBrotliWASM(parseWriter, parseRequest, parseRootDir) {
+		parseT.Fatal("expected stale brotli helper path to skip serving")
+	}
+	parseFileServer := parseNewPrecompressedWASMFileServer(parseRootDir)
+	parseRawWriter := httptest.NewRecorder()
+	parseFileServer.ServeHTTP(parseRawWriter, parseRequest)
+	if parseRawWriter.Result().Header.Get("Content-Encoding") != "" {
+		parseT.Fatalf("expected stale brotli sidecar to fall back to raw wasm, got encoding %q", parseRawWriter.Result().Header.Get("Content-Encoding"))
+	}
+	if parseRawWriter.Body.String() != "new-raw-wasm" {
+		parseT.Fatalf("expected raw wasm body after stale brotli fallback, got %q", parseRawWriter.Body.String())
 	}
 }
 

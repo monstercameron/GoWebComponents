@@ -198,8 +198,8 @@ func TestSendAndSpeechNegativeBranches(parseT *testing.T) {
 	if !parseLastChunk.GetDone() {
 		parseT.Fatalf("expected final error chunk with done=true, got %+v", parseLastChunk)
 	}
-	if !strings.Contains(parseLastChunk.GetError(), "boom") {
-		parseT.Fatalf("expected error chunk to include provider failure details, got %q", parseLastChunk.GetError())
+	if parseLastChunk.GetError() != parseUserFacingStreamError("fake", modelGPT54Mini, errors.New("boom")) {
+		parseT.Fatalf("expected sanitized provider error chunk, got %q", parseLastChunk.GetError())
 	}
 	if parseLastChunk.GetConversationId() <= 0 {
 		parseT.Fatalf("expected error chunk to include persisted conversation id, got %+v", parseLastChunk)
@@ -226,6 +226,16 @@ func TestSendAndSpeechNegativeBranches(parseT *testing.T) {
 	if parseUsageEvents[0].ProviderID != "fake" || parseUsageEvents[0].ModelID != modelGPT54Mini {
 		parseT.Fatalf("unexpected failed usage event provider/model: %+v", parseUsageEvents[0])
 	}
+	parseErrorConversationMessages, parseLoadErr := store.parseLoadConversation(parseUser.ID, parseLastChunk.GetConversationId())
+	if parseLoadErr != nil {
+		parseT.Fatalf("loadConversation after provider error: %v", parseLoadErr)
+	}
+	if len(parseErrorConversationMessages) != 1 {
+		parseT.Fatalf("expected failed provider stream to persist the user turn, got %+v", parseErrorConversationMessages)
+	}
+	if parseErrorConversationMessages[0].Role != "user" || parseErrorConversationMessages[0].Content != "Trigger error" {
+		parseT.Fatalf("unexpected failed provider stream message payload: %+v", parseErrorConversationMessages)
+	}
 
 	parseSpeechProvider := parseNewFakeProvider()
 	parseSpeechProvider.supportedModels[modelGPT54Mini] = provider.ModelCapabilities{
@@ -250,6 +260,118 @@ func TestSendAndSpeechNegativeBranches(parseT *testing.T) {
 	parseServer.parseUnbindAuthenticatedPeer("peer-negative-send")
 	parseErroringServer.parseUnbindAuthenticatedPeer("peer-error-send")
 	parseSpeechServer.parseUnbindAuthenticatedPeer("peer-negative-speech")
+}
+
+func TestSendPersistsFailedStreamDisconnectConversation(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "stream-disconnect@example.com")
+	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "free")
+
+	parseStreamingProvider := parseNewFakeProvider()
+	parseStreamingProvider.streamChat = func(_ context.Context, _ provider.ChatRequest, parseEmit func(provider.ChatEvent) error) (provider.ChatResult, error) {
+		if parseErr := parseEmit(provider.ChatEvent{TextDelta: "partial"}); parseErr != nil {
+			return provider.ChatResult{}, parseErr
+		}
+		if parseErr2 := parseEmit(provider.ChatEvent{TextDelta: " reply"}); parseErr2 != nil {
+			return provider.ChatResult{}, parseErr2
+		}
+		return provider.ChatResult{Model: modelGPT54Mini, PromptTokens: 5, CompletionTokens: 2}, nil
+	}
+	parseStreamingProvider.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
+	parseServer := parseNewFakeChatServer(store, parseStreamingProvider)
+	parseCtx := parseBindAuthUser(parseServer, "peer-stream-disconnect", parseUser.ID, parseUser.Email)
+	parseStream := &fakeChatSendStream{ctx: parseCtx, failAfter: 2, sendErr: errors.New("stream send failed")}
+
+	parseErr := parseServer.Send(&chatpb.SendRequest{Message: "Trigger disconnect", Model: modelGPT54Mini}, parseStream)
+	if status.Code(parseErr) != codes.Canceled {
+		parseT.Fatalf("expected canceled status for downstream stream disconnect, got %v", status.Code(parseErr))
+	}
+
+	parseConversations, parseListErr := store.parseListConversations(parseUser.ID)
+	if parseListErr != nil {
+		parseT.Fatalf("listConversations after disconnect: %v", parseListErr)
+	}
+	if len(parseConversations) != 1 {
+		parseT.Fatalf("expected one persisted conversation after disconnect, got %d", len(parseConversations))
+	}
+	if strings.TrimSpace(parseConversations[0].Preview) != "Trigger disconnect" {
+		parseT.Fatalf("expected user-message preview after disconnect, got %+v", parseConversations[0])
+	}
+	parseMessages, parseLoadErr := store.parseLoadConversation(parseUser.ID, parseConversations[0].ID)
+	if parseLoadErr != nil {
+		parseT.Fatalf("loadConversation after disconnect: %v", parseLoadErr)
+	}
+	if len(parseMessages) != 2 {
+		parseT.Fatalf("expected user + partial assistant after disconnect, got %+v", parseMessages)
+	}
+	if parseMessages[0].Role != "user" || parseMessages[0].Content != "Trigger disconnect" {
+		parseT.Fatalf("unexpected persisted user message after disconnect: %+v", parseMessages[0])
+	}
+	if parseMessages[1].Role != "assistant" || parseMessages[1].Content != "partial reply" {
+		parseT.Fatalf("unexpected persisted partial assistant after disconnect: %+v", parseMessages[1])
+	}
+	parseUsageEvents, parseUsageErr := store.parseListUsageEvents(parseUser.ID, 10)
+	if parseUsageErr != nil {
+		parseT.Fatalf("parseListUsageEvents after disconnect: %v", parseUsageErr)
+	}
+	if len(parseUsageEvents) != 1 || parseUsageEvents[0].Status != "failed" {
+		parseT.Fatalf("expected one failed usage event after disconnect, got %+v", parseUsageEvents)
+	}
+
+	parseServer.parseUnbindAuthenticatedPeer("peer-stream-disconnect")
+}
+
+func TestDeleteConversationRemovesFailedDisconnectThread(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "delete-failed-thread@example.com")
+	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "free")
+
+	parseStreamingProvider := parseNewFakeProvider()
+	parseStreamingProvider.streamChat = func(_ context.Context, _ provider.ChatRequest, parseEmit func(provider.ChatEvent) error) (provider.ChatResult, error) {
+		if parseErr := parseEmit(provider.ChatEvent{TextDelta: "partial"}); parseErr != nil {
+			return provider.ChatResult{}, parseErr
+		}
+		return provider.ChatResult{Model: modelGPT54Mini, PromptTokens: 5, CompletionTokens: 1}, nil
+	}
+	parseStreamingProvider.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
+	parseServer := parseNewFakeChatServer(store, parseStreamingProvider)
+	parseCtx := parseBindAuthUser(parseServer, "peer-delete-failed-thread", parseUser.ID, parseUser.Email)
+
+	parseStream := &fakeChatSendStream{ctx: parseCtx, failAfter: 1, sendErr: errors.New("stream send failed")}
+	parseErr := parseServer.Send(&chatpb.SendRequest{Message: "Delete me", Model: modelGPT54Mini}, parseStream)
+	if status.Code(parseErr) != codes.Canceled {
+		parseT.Fatalf("expected canceled status for downstream disconnect, got %v", status.Code(parseErr))
+	}
+
+	parseConversations, parseListErr := store.parseListConversations(parseUser.ID)
+	if parseListErr != nil {
+		parseT.Fatalf("listConversations before delete: %v", parseListErr)
+	}
+	if len(parseConversations) != 1 {
+		parseT.Fatalf("expected one failed conversation before delete, got %d", len(parseConversations))
+	}
+	parseConversationID := parseConversations[0].ID
+
+	if _, parseDeleteErr := parseServer.DeleteConversation(parseCtx, &chatpb.DeleteConversationRequest{Id: parseConversationID}); parseDeleteErr != nil {
+		parseT.Fatalf("DeleteConversation failed-stream thread: %v", parseDeleteErr)
+	}
+
+	parseRemaining, parseRemainingErr := store.parseListConversations(parseUser.ID)
+	if parseRemainingErr != nil {
+		parseT.Fatalf("listConversations after delete: %v", parseRemainingErr)
+	}
+	if len(parseRemaining) != 0 {
+		parseT.Fatalf("expected zero conversations after delete, got %+v", parseRemaining)
+	}
+	parseUsageEvents, parseUsageErr := store.parseListUsageEvents(parseUser.ID, 10)
+	if parseUsageErr != nil {
+		parseT.Fatalf("parseListUsageEvents after delete: %v", parseUsageErr)
+	}
+	if len(parseUsageEvents) != 0 {
+		parseT.Fatalf("expected failed-thread usage events to be removed on delete, got %+v", parseUsageEvents)
+	}
+
+	parseServer.parseUnbindAuthenticatedPeer("peer-delete-failed-thread")
 }
 
 func TestPreferenceAndConversationRPCErrorBranches(parseT *testing.T) {

@@ -128,11 +128,18 @@ func (parseP *fakeProvider) ParseSynthesizeSpeech(parseCtx context.Context, pars
 }
 
 type fakeChatSendStream struct {
-	ctx    context.Context
-	chunks []*chatpb.ChatChunk
+	ctx       context.Context
+	chunks    []*chatpb.ChatChunk
+	sendErr   error
+	failAfter int
+	sendCount int
 }
 
 func (parseS *fakeChatSendStream) Send(parseChunk *chatpb.ChatChunk) error {
+	parseS.sendCount++
+	if parseS.failAfter > 0 && parseS.sendCount >= parseS.failAfter && parseS.sendErr != nil {
+		return parseS.sendErr
+	}
 	if parseChunk == nil {
 		parseS.chunks = append(parseS.chunks, nil)
 		return nil

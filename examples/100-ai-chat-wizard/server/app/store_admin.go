@@ -177,6 +177,33 @@ type parseAdminChatFeatureUsageRow struct {
 	LastSeenAt  string
 }
 
+type parseAdminBusinessMutationPreviewRow struct {
+	CustomerCount                 int64
+	SubscriptionCount             int64
+	OpenInvoiceCount              int64
+	OpenDunningEventCount         int64
+	RecentFailedPaymentEventCount int64
+	RecentUsageEventCount         int64
+	RecentUsageCostUSD            float64
+}
+
+type parseAdminProviderMutationPreviewRow struct {
+	WorkspaceCount              int64
+	RoutingPolicyCount          int64
+	GuardrailCount              int64
+	RecentUsageEventCount       int64
+	RecentFailedUsageEventCount int64
+	RecentUsageCostUSD          float64
+}
+
+type parseAdminOpsMutationPreviewRow struct {
+	FailedBackgroundJobCount   int64
+	FailedNotificationCount    int64
+	FailedWebhookDeliveryCount int64
+	OpenIncidentCount          int64
+	RecentAdminActionCount     int64
+}
+
 const parseAdminControlScanLimit int64 = 5000
 
 // parseGetAdminDashboardSummary returns global and windowed counts for the admin dashboard.
@@ -379,6 +406,262 @@ func (parseS *Store) parseListAdminProviderFallbackEvents(parseSince string, par
 		parseSince = time.Now().UTC().Add(-30 * 24 * time.Hour).Format(time.RFC3339)
 	}
 	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminProviderFallbackEvents, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseAuditRows := make([]parseAuditLogRow, 0)
+	for parseRows.Next() {
+		var parseRow parseAuditLogRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.ActorUserID,
+			&parseRow.WorkspaceID,
+			&parseRow.EventType,
+			&parseRow.TargetType,
+			&parseRow.TargetID,
+			&parseRow.Summary,
+			&parseRow.PayloadJSON,
+			&parseRow.CreatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseAuditRows = append(parseAuditRows, parseRow)
+	}
+	return parseAuditRows, parseRows.Err()
+}
+
+// parseGetAdminBusinessMutationPreview returns one typed business mutation-preview count snapshot.
+func (parseS *Store) parseGetAdminBusinessMutationPreview(parseUserID int64, parseSince string) (parseAdminBusinessMutationPreviewRow, error) {
+	parseRow := parseS.db.QueryRow(
+		parseS.queries.getAdminBusinessMutationPreview,
+		parseUserID, parseUserID,
+		parseUserID, parseUserID,
+		parseUserID, parseUserID,
+		parseUserID, parseUserID,
+		parseUserID, parseUserID, parseSince,
+		parseUserID, parseUserID, parseSince,
+		parseUserID, parseUserID, parseSince,
+	)
+	var parsePreview parseAdminBusinessMutationPreviewRow
+	if parseErr := parseRow.Scan(
+		&parsePreview.CustomerCount,
+		&parsePreview.SubscriptionCount,
+		&parsePreview.OpenInvoiceCount,
+		&parsePreview.OpenDunningEventCount,
+		&parsePreview.RecentFailedPaymentEventCount,
+		&parsePreview.RecentUsageEventCount,
+		&parsePreview.RecentUsageCostUSD,
+	); parseErr != nil {
+		return parseAdminBusinessMutationPreviewRow{}, parseErr
+	}
+	return parsePreview, nil
+}
+
+// parseGetAdminProviderMutationPreview returns one typed provider mutation-preview count snapshot.
+func (parseS *Store) parseGetAdminProviderMutationPreview(parseWorkspaceID int64, parseProviderID string, parseModelID string, parseSince string) (parseAdminProviderMutationPreviewRow, error) {
+	parseProviderID = strings.TrimSpace(parseProviderID)
+	parseModelID = strings.TrimSpace(parseModelID)
+	parseRow := parseS.db.QueryRow(
+		parseS.queries.getAdminProviderMutationPreview,
+		parseWorkspaceID, parseWorkspaceID,
+		parseWorkspaceID, parseWorkspaceID,
+		parseModelID, parseModelID, parseModelID,
+		parseWorkspaceID, parseWorkspaceID,
+		parseSince, parseProviderID, parseProviderID, parseModelID, parseModelID,
+		parseSince, parseProviderID, parseProviderID, parseModelID, parseModelID,
+		parseSince, parseProviderID, parseProviderID, parseModelID, parseModelID,
+	)
+	var parsePreview parseAdminProviderMutationPreviewRow
+	if parseErr := parseRow.Scan(
+		&parsePreview.WorkspaceCount,
+		&parsePreview.RoutingPolicyCount,
+		&parsePreview.GuardrailCount,
+		&parsePreview.RecentUsageEventCount,
+		&parsePreview.RecentFailedUsageEventCount,
+		&parsePreview.RecentUsageCostUSD,
+	); parseErr != nil {
+		return parseAdminProviderMutationPreviewRow{}, parseErr
+	}
+	return parsePreview, nil
+}
+
+// parseGetAdminOpsMutationPreview returns one typed ops mutation-preview count snapshot.
+func (parseS *Store) parseGetAdminOpsMutationPreview(parseWorkspaceID int64, parseSince string) (parseAdminOpsMutationPreviewRow, error) {
+	parseRow := parseS.db.QueryRow(
+		parseS.queries.getAdminOpsMutationPreview,
+		parseSince,
+		parseSince, parseWorkspaceID, parseWorkspaceID,
+		parseSince, parseWorkspaceID, parseWorkspaceID,
+		parseSince, parseWorkspaceID, parseWorkspaceID,
+	)
+	var parsePreview parseAdminOpsMutationPreviewRow
+	if parseErr := parseRow.Scan(
+		&parsePreview.FailedBackgroundJobCount,
+		&parsePreview.FailedNotificationCount,
+		&parsePreview.FailedWebhookDeliveryCount,
+		&parsePreview.OpenIncidentCount,
+		&parsePreview.RecentAdminActionCount,
+	); parseErr != nil {
+		return parseAdminOpsMutationPreviewRow{}, parseErr
+	}
+	return parsePreview, nil
+}
+
+// parseListAdminFailedBackgroundJobs returns failed background-job rows for ops queue review.
+func (parseS *Store) parseListAdminFailedBackgroundJobs(parseSince string, parseLimit int64) ([]parseBackgroundJobRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminFailedBackgroundJobs, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseJobRows := make([]parseBackgroundJobRow, 0)
+	for parseRows.Next() {
+		var parseRow parseBackgroundJobRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.JobKey,
+			&parseRow.JobType,
+			&parseRow.QueueKey,
+			&parseRow.Status,
+			&parseRow.AttemptCount,
+			&parseRow.MaxAttempts,
+			&parseRow.PayloadJSON,
+			&parseRow.RunAfter,
+			&parseRow.StartedAt,
+			&parseRow.FinishedAt,
+			&parseRow.ErrorMessage,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseJobRows = append(parseJobRows, parseRow)
+	}
+	return parseJobRows, parseRows.Err()
+}
+
+// parseListAdminFailedNotifications returns failed notification rows for ops queue review.
+func (parseS *Store) parseListAdminFailedNotifications(parseSince string, parseLimit int64) ([]parseNotificationOutboxRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminFailedNotifications, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseNotificationRows := make([]parseNotificationOutboxRow, 0)
+	for parseRows.Next() {
+		var parseRow parseNotificationOutboxRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.WorkspaceID,
+			&parseRow.UserID,
+			&parseRow.NotificationKey,
+			&parseRow.ChannelKey,
+			&parseRow.TemplateKey,
+			&parseRow.Status,
+			&parseRow.Subject,
+			&parseRow.BodyText,
+			&parseRow.PayloadJSON,
+			&parseRow.DedupeKey,
+			&parseRow.ScheduledAt,
+			&parseRow.SentAt,
+			&parseRow.FailedAt,
+			&parseRow.ErrorMessage,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseNotificationRows = append(parseNotificationRows, parseRow)
+	}
+	return parseNotificationRows, parseRows.Err()
+}
+
+// parseListAdminFailedWebhookDeliveries returns failed webhook-delivery rows for ops queue review.
+func (parseS *Store) parseListAdminFailedWebhookDeliveries(parseSince string, parseLimit int64) ([]parseWebhookDeliveryRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminFailedWebhookDeliveries, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseDeliveryRows := make([]parseWebhookDeliveryRow, 0)
+	for parseRows.Next() {
+		var parseRow parseWebhookDeliveryRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.EndpointID,
+			&parseRow.EventType,
+			&parseRow.DeliveryKey,
+			&parseRow.RequestHeadersJSON,
+			&parseRow.RequestBodyJSON,
+			&parseRow.ResponseStatus,
+			&parseRow.ResponseBody,
+			&parseRow.AttemptCount,
+			&parseRow.DeliveredAt,
+			&parseRow.FailedAt,
+			&parseRow.NextRetryAt,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseDeliveryRows = append(parseDeliveryRows, parseRow)
+	}
+	return parseDeliveryRows, parseRows.Err()
+}
+
+// parseListAdminIncidentTimeline returns incident update rows for ops timeline review.
+func (parseS *Store) parseListAdminIncidentTimeline(parseSince string, parseLimit int64) ([]parseIncidentUpdateRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminIncidentTimeline, parseSince, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseIncidentRows := make([]parseIncidentUpdateRow, 0)
+	for parseRows.Next() {
+		var parseRow parseIncidentUpdateRow
+		var parseIsPublic int64
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.IncidentID,
+			&parseRow.Status,
+			&parseRow.Message,
+			&parseIsPublic,
+			&parseRow.PublishedAt,
+			&parseRow.CreatedByUserID,
+			&parseRow.CreatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseRow.IsPublic = parseIsPublic != 0
+		parseIncidentRows = append(parseIncidentRows, parseRow)
+	}
+	return parseIncidentRows, parseRows.Err()
+}
+
+// parseListAdminRecentOpsActions returns recent ops action audit rows for queue/action visibility.
+func (parseS *Store) parseListAdminRecentOpsActions(parseSince string, parseLimit int64) ([]parseAuditLogRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAdminRecentOpsActions, parseSince, parseLimit)
 	if parseErr != nil {
 		return nil, parseErr
 	}

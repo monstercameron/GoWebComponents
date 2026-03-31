@@ -190,5 +190,61 @@ func runSeedTestDB() (string, error) {
 		}
 	}
 
-	return fmt.Sprintf("seeded test DB: %s (users: customer@email.com / password, admin@email.com / password; customer user id: %d, admin user id: %d; conversations: %d, %d, %d)", parseDbPath, parseUserID, parseAdminUserID, parseId1, parseId2, parseId3), nil
+	// conv4 — billing and workspace context (realistic product-demo content)
+	parseR4, parseErr2 := parseDb.Exec(
+		parseQueries.insertConversation,
+		parseUserID, uuid.NewString(), parseNow.Add(-10*time.Minute).Format(time.RFC3339), "Workspace billing overview",
+	)
+	if parseErr2 != nil {
+		return "", fmt.Errorf("conv4: %w", parseErr2)
+	}
+	parseId4, _ := parseR4.LastInsertId()
+	for _, parseM4 := range []struct {
+		role, content    string
+		modelID          string
+		promptTokens     int
+		completionTokens int
+	}{
+		{"user", "How do I review my workspace billing?", "", 0, 0},
+		{"assistant", "Open Settings from the sidebar, then choose Billing. You will see three line items: platform fee (fixed monthly), usage cost (per-token AI turns), and service premium (routing and reliability layer). The running total updates after every AI turn so you always see the current-period spend without waiting for an invoice.", "gpt-5.4-mini", 130, 75},
+		{"user", "What counts as a token?", "", 0, 0},
+		{"assistant", "A token is roughly four characters of English text. Your prompt and the model reply are both counted. A typical workspace question-and-answer pair is 200 to 600 tokens. The billing panel shows prompt tokens and completion tokens separately so you can see which direction your usage is growing.", "gpt-5.4-mini", 95, 88},
+	} {
+		if _, parseErr7 := parseDb.Exec(
+			parseQueries.insertMessage,
+			parseId4, parseM4.role, parseM4.content, parseM4.modelID, parseM4.promptTokens, parseM4.completionTokens, parseNow.Add(-10*time.Minute).Format(time.RFC3339), parseId4, parseUserID,
+		); parseErr7 != nil {
+			return "", fmt.Errorf("msg conv4: %w", parseErr7)
+		}
+	}
+
+	// conv5 — admin incident and resolution (realistic admin-demo content)
+	parseR5, parseErr2 := parseDb.Exec(
+		parseQueries.insertConversation,
+		parseAdminUserID, uuid.NewString(), parseNow.Add(-45*time.Minute).Format(time.RFC3339), "Provider routing incident: resolved",
+	)
+	if parseErr2 != nil {
+		return "", fmt.Errorf("conv5: %w", parseErr2)
+	}
+	parseId5, _ := parseR5.LastInsertId()
+	for _, parseM5 := range []struct {
+		role, content    string
+		modelID          string
+		promptTokens     int
+		completionTokens int
+	}{
+		{"user", "We had elevated latency on the primary provider for 12 minutes starting at 14:22 UTC. What is the standard post-incident review checklist?", "", 0, 0},
+		{"assistant", "Standard post-incident review for a provider latency event: confirm the incident window using provider status and internal latency logs; record which workspace sessions were affected and whether fallback routing engaged; check if any billing events were duplicated or dropped during the window; draft a brief incident note for the ops audit feed with start time, duration, impact scope, and resolution action; update the SLO tracker if the window exceeded the monthly error budget threshold.", "gpt-5.4", 185, 140},
+		{"user", "Fallback routing engaged at 14:24 UTC. No billing duplication confirmed. Drafting the audit note now.", "", 0, 0},
+		{"assistant", "Good. Mark the incident Resolved in the Ops dashboard once the note is published. Include the fallback-engaged timestamp so the SLO report reflects the actual customer-visible impact window (14:22 to 14:24) rather than the full provider degradation window.", "gpt-5.4", 110, 65},
+	} {
+		if _, parseErr8 := parseDb.Exec(
+			parseQueries.insertMessage,
+			parseId5, parseM5.role, parseM5.content, parseM5.modelID, parseM5.promptTokens, parseM5.completionTokens, parseNow.Add(-45*time.Minute).Format(time.RFC3339), parseId5, parseAdminUserID,
+		); parseErr8 != nil {
+			return "", fmt.Errorf("msg conv5: %w", parseErr8)
+		}
+	}
+
+	return fmt.Sprintf("seeded test DB: %s (users: customer@email.com / password, admin@email.com / password; customer user id: %d, admin user id: %d; conversations: %d, %d, %d, %d, %d)", parseDbPath, parseUserID, parseAdminUserID, parseId1, parseId2, parseId3, parseId4, parseId5), nil
 }
