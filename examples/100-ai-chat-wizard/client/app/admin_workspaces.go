@@ -76,8 +76,6 @@ func renderAdminWSStatusBadge(parseStatus string) ui.Node {
 	return Span(Class(parseCls), Text(parseStatus))
 }
 
-
-
 // renderAdminWSDetailPanel renders the right-side detail panel for one workspace.
 func renderAdminWSDetailPanel(parseWS adminWorkspacesController) ui.Node {
 	parseSnap := parseWS.Data.WorkspaceDetail
@@ -139,14 +137,22 @@ func renderAdminWSActionBand(parseWS adminWorkspacesController, parseSnap adminW
 		Class("mb-5 space-y-2"),
 		If(parseWS.Data.MutationSuccess != "",
 			Div(
-				Class("rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-2 text-sm text-green-800 dark:text-green-300"),
-				Text(parseWS.Data.MutationSuccess),
+				Class("rounded-xl border border-green-500/20 bg-green-500/5 px-4 py-3"),
+				Div(Class("mb-1 text-[10px] uppercase tracking-[0.18em] text-green-400/55"), Text("Action receipt")),
+				P(Class("text-xs text-green-300"), Text(parseWS.Data.MutationSuccess)),
+				Div(
+					Class("mt-2 flex items-center gap-3 text-[10px] text-green-400/45"),
+					Span(Text("Recorded just now")),
+					Span(Class("text-green-400/20"), Text("·")),
+					Span(Text("Verify in workspace detail below")),
+				),
 			),
 		),
 		If(parseWS.Data.MutationError != "",
 			Div(
-				Class("rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-800 dark:text-red-300"),
-				Text(parseWS.Data.MutationError),
+				Class("flex flex-col gap-1 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-800 dark:text-red-300"),
+				Text(parseUserErrorMessage(parseWS.Data.MutationError)),
+				renderSupportIDChip(parseUserErrorRequestID(parseWS.Data.MutationError)),
 			),
 		),
 		Div(
@@ -384,8 +390,9 @@ func renderAdminWSConfirmModal(parseWS adminWorkspacesController) ui.Node {
 			),
 			If(parseWS.Data.MutationError != "",
 				Div(
-					Class("mb-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-800 dark:text-red-300"),
-					Text(parseWS.Data.MutationError),
+					Class("mb-3 flex flex-col gap-1 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-800 dark:text-red-300"),
+					Text(parseUserErrorMessage(parseWS.Data.MutationError)),
+					renderSupportIDChip(parseUserErrorRequestID(parseWS.Data.MutationError)),
 				),
 			),
 			Div(

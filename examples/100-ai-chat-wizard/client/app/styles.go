@@ -97,80 +97,6 @@ body {
   padding: 0.62rem 0.72rem;
 }
 
-.journey-progress-title-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.7rem;
-  margin-bottom: 0.5rem;
-}
-
-.journey-progress-kicker {
-  font-size: 0.64rem;
-  line-height: 1;
-  letter-spacing: 0.17em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.55);
-  white-space: nowrap;
-}
-
-.journey-progress-summary {
-  font-size: 0.74rem;
-  line-height: 1.35;
-  color: rgba(255,255,255,0.76);
-  text-align: right;
-}
-
-.journey-progress-track {
-  display: flex;
-  gap: 0.42rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.journey-progress-track::-webkit-scrollbar {
-  display: none;
-}
-
-.journey-progress-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.24rem;
-  padding: 0.28rem 0.48rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.09);
-  background: rgba(255,255,255,0.03);
-  color: rgba(255,255,255,0.54);
-  white-space: nowrap;
-  font-size: 0.65rem;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.journey-progress-step-done {
-  border-color: rgba(109, 243, 190, 0.28);
-  background: rgba(109, 243, 190, 0.12);
-  color: rgba(191,255,228,0.84);
-}
-
-.journey-progress-step-active {
-  border-color: rgba(0,217,255,0.5);
-  background: rgba(0,217,255,0.14);
-  color: rgba(215,246,255,0.95);
-  box-shadow: 0 0 0 1px rgba(0,217,255,0.2) inset;
-}
-
-.journey-progress-dot {
-  font-size: 0.7rem;
-  line-height: 1;
-}
-
-.journey-progress-label {
-  display: inline-block;
-  transform: translateY(0.02rem);
-}
-
 /* Page background shared by all marketing/auth pages */
 .page-bg {
   background-color: #050508;
@@ -299,7 +225,7 @@ input[type="submit"]:disabled {
   color: white;
   font-weight: 700;
   letter-spacing: 0.04em;
-  box-shadow: 0 10px 32px rgba(25,195,125,0.28);
+  box-shadow: 0 6px 20px rgba(25,195,125,0.14);
 }
 
 .boot-heading {
@@ -372,17 +298,8 @@ input[type="submit"]:disabled {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #19c37d 0%, #53d7ac 45%, #a2f4d8 100%);
-  box-shadow: 0 0 24px rgba(25,195,125,0.3);
+  box-shadow: 0 0 12px rgba(25,195,125,0.15);
   transition: width 220ms ease;
-}
-
-.boot-progress-fill::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
-  transform: translateX(-100%);
-  animation: boot-shimmer 1.6s linear infinite;
 }
 
 .boot-progress-fill.is-indeterminate {
@@ -425,17 +342,17 @@ input[type="submit"]:disabled {
   height: 0.38rem;
   border-radius: 999px;
   background: #53d7ac;
-  box-shadow: 0 0 10px rgba(83,215,172,0.8);
+  box-shadow: 0 0 6px rgba(83,215,172,0.4);
 }
 
 .boot-shell-error .boot-progress-fill {
   background: linear-gradient(90deg, #ef4444 0%, #fb7185 100%);
-  box-shadow: 0 0 18px rgba(239,68,68,0.28);
+  box-shadow: 0 0 9px rgba(239,68,68,0.14);
 }
 
 .boot-shell-error .boot-stage-dot {
   background: #fb7185;
-  box-shadow: 0 0 10px rgba(251,113,133,0.7);
+  box-shadow: 0 0 6px rgba(251,113,133,0.35);
 }
 
 @keyframes boot-spin {
@@ -474,14 +391,12 @@ input[type="submit"]:disabled {
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
-  background: linear-gradient(180deg, rgba(141,255,216,0.28), rgba(25,195,125,0.5));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 0 1px rgba(15,23,42,0.1);
-  transition: background 160ms ease, box-shadow 160ms ease;
+  background: rgba(255,255,255,0.22);
+  transition: background 160ms ease;
 }
 
 #chat-input::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(171,255,227,0.44), rgba(25,195,125,0.72));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 18px rgba(25,195,125,0.18);
+  background: rgba(255,255,255,0.32);
 }
 
 #chat-input::-webkit-scrollbar-corner {
@@ -508,14 +423,12 @@ input[type="submit"]:disabled {
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
-  background: linear-gradient(180deg, rgba(173,242,255,0.28), rgba(0,217,255,0.5));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 0 1px rgba(15,23,42,0.1);
-  transition: background 160ms ease, box-shadow 160ms ease;
+  background: rgba(255,255,255,0.22);
+  transition: background 160ms ease;
 }
 
 .chat-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(199,247,255,0.44), rgba(0,217,255,0.72));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 18px rgba(0,217,255,0.18);
+  background: rgba(255,255,255,0.32);
 }
 
 .chat-scrollbar::-webkit-scrollbar-corner {
@@ -612,22 +525,8 @@ input[type="submit"]:disabled {
 }
 
 @keyframes thought-heading-flicker {
-  0%, 100% {
-    opacity: 1;
-    text-shadow: 0 0 0 rgba(126,233,255,0);
-  }
-  33% {
-    opacity: 0.94;
-    text-shadow: 0 0 8px rgba(126,233,255,0.1);
-  }
-  58% {
-    opacity: 0.985;
-    text-shadow: 0 0 12px rgba(126,233,255,0.14);
-  }
-  74% {
-    opacity: 0.96;
-    text-shadow: 0 0 6px rgba(126,233,255,0.08);
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.92; }
 }
 
 .thought-section-heading-streaming .thought-section-title {
@@ -775,10 +674,9 @@ input[type="submit"]:disabled {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0.85rem 1rem 0.95rem;
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   border: 1px solid rgba(255,255,255,0.08);
-  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 14px 34px rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.03);
 }
 
 .prose .katex-display > .katex {
@@ -878,30 +776,24 @@ input[type="submit"]:disabled {
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(circle at 10% -14%, rgba(67, 233, 188, 0.18), transparent 34%),
-    radial-gradient(circle at 96% 4%, rgba(122, 169, 255, 0.18), transparent 32%),
-    radial-gradient(circle at 52% 120%, rgba(245, 186, 76, 0.14), transparent 32%),
+    radial-gradient(circle at 10% -14%, rgba(67, 233, 188, 0.09), transparent 34%),
+    radial-gradient(circle at 96% 4%, rgba(122, 169, 255, 0.09), transparent 32%),
+    radial-gradient(circle at 52% 120%, rgba(245, 186, 76, 0.07), transparent 32%),
     linear-gradient(180deg, #050b16 0%, #060e1a 52%, #050c16 100%);
 }
 
 .chat-toolbar-shell {
-  border-color: rgba(146, 255, 220, 0.16);
-  background:
-    linear-gradient(180deg, rgba(12, 24, 42, 0.9), rgba(8, 15, 29, 0.9)),
-    rgba(6, 12, 22, 0.82);
-  box-shadow: inset 0 1px 0 rgba(190, 255, 232, 0.08);
+  border-color: rgba(146, 255, 220, 0.08);
+  background: rgba(8, 15, 29, 0.92);
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,0.04);
 }
 
 .chat-thread-surface {
-  border: 1px solid rgba(146, 255, 220, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 1.4rem;
-  background:
-    linear-gradient(180deg, rgba(12, 26, 45, 0.74), rgba(9, 18, 33, 0.68)),
-    rgba(5, 12, 24, 0.54);
-  box-shadow:
-    inset 0 1px 0 rgba(190, 255, 232, 0.06),
-    0 20px 48px rgba(2, 8, 18, 0.44);
-  backdrop-filter: blur(10px);
+  background: rgba(9, 18, 34, 0.72);
+  box-shadow: 0 4px 16px rgba(2, 8, 18, 0.24);
+  backdrop-filter: blur(6px);
 }
 
 .sidebar-open {
@@ -983,10 +875,7 @@ input[type="submit"]:disabled {
 
 .control-group-card {
   border: 1px solid rgba(255,255,255,0.08);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)),
-    rgba(47,47,47,0.78);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  background: rgba(47,47,47,0.82);
   animation: controlStripIn 220ms ease-out both;
 }
 
@@ -1004,8 +893,7 @@ input[type="submit"]:disabled {
 
 .control-group-shell {
   border: 1px solid rgba(255,255,255,0.08);
-  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.018));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  background: rgba(255,255,255,0.03);
 }
 
 .toolbar-select {
@@ -1093,7 +981,7 @@ input[type="submit"]:disabled {
   color: #052016;
   background: linear-gradient(180deg, rgba(104,255,197,0.98), rgba(25,195,125,0.94));
   border-color: rgba(120,255,204,0.8);
-  box-shadow: 0 10px 24px rgba(25,195,125,0.2);
+  box-shadow: 0 6px 16px rgba(25,195,125,0.1);
 }
 
 .control-chip-idle {
@@ -1145,7 +1033,7 @@ input[type="submit"]:disabled {
   font-size: 0.92rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  box-shadow: 0 18px 48px rgba(0,0,0,0.34), 0 0 0 1px rgba(255,255,255,0.04) inset;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.24), 0 0 0 1px rgba(255,255,255,0.04) inset;
   transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
   animation: quoteSelectionChipIn 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }

@@ -4,6 +4,7 @@ package app
 
 import (
 	"context"
+	"strings"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"github.com/monstercameron/GoWebComponents/interop"
@@ -101,6 +102,28 @@ func parseBuildAccountCostSummaryFromBillingSummary(parseResp *chatpb.GetCustome
 	parseSummary.FailedThreadLookups = 0
 	if parseSummary.UsageCost > 0 {
 		parseSummary.PremiumPercent = (parseSummary.PremiumCost / parseSummary.UsageCost) * 100
+	}
+	// Extract plan name from server-provided plans, then subscription as fallback.
+	if parsePlans := parseResp.GetPlans(); len(parsePlans) > 0 {
+		if parsePlanName := strings.TrimSpace(parsePlans[0].GetPlanName()); parsePlanName != "" {
+			parseSummary.PlanLabel = parsePlanName
+		}
+	}
+	if parseSummary.PlanLabel == "" {
+		if parseSubs := parseResp.GetSubscriptions(); len(parseSubs) > 0 {
+			if parsePlanCode := strings.TrimSpace(parseSubs[0].GetPlanCode()); parsePlanCode != "" {
+				parseSummary.PlanLabel = parsePlanCode
+			}
+		}
+	}
+	// Extract recent invoices.
+	for _, parseInv := range parseResp.GetRecentInvoices() {
+		parseSummary.Invoices = append(parseSummary.Invoices, billingInvoiceRow{
+			PeriodStart: parseInv.GetPeriodStart(),
+			PeriodEnd:   parseInv.GetPeriodEnd(),
+			TotalCents:  parseInv.GetTotalCents(),
+			Status:      parseInv.GetStatus(),
+		})
 	}
 	return parseSummary
 }

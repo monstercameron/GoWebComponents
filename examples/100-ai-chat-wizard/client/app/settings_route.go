@@ -21,6 +21,7 @@ const (
 	settingsSectionMemories     = "settings-memories"
 	settingsSectionLanguage     = "settings-language"
 	settingsSectionBilling      = "settings-billing"
+	settingsSectionSecurity     = "settings-security"
 	defaultSettingsSectionID    = settingsSectionProfile
 )
 
@@ -28,7 +29,7 @@ func parseNormalizeSettingsSectionID(parseRaw string) string {
 	parseTrimmed := strings.ToLower(strings.TrimSpace(parseRaw))
 	parseTrimmed = strings.TrimPrefix(parseTrimmed, "#")
 	switch parseTrimmed {
-	case settingsSectionProfile, settingsSectionTone, settingsSectionPrompt, settingsSectionIntelligence, settingsSectionSpeech, settingsSectionMemories, settingsSectionLanguage, settingsSectionBilling:
+	case settingsSectionProfile, settingsSectionTone, settingsSectionPrompt, settingsSectionIntelligence, settingsSectionSpeech, settingsSectionMemories, settingsSectionLanguage, settingsSectionBilling, settingsSectionSecurity:
 		return parseTrimmed
 	default:
 		return ""

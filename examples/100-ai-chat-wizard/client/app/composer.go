@@ -53,7 +53,7 @@ func parseInputArea(parseProps composerProps) ui.Node {
 			),
 			Div(
 				ID(idChatInputWrap),
-				Class("relative flex items-end gap-3 rounded-[1.55rem] border border-[#8dffd8]/22 bg-[linear-gradient(160deg,rgba(14,27,45,0.94),rgba(8,15,27,0.96))] px-4 py-3 shadow-[0_24px_56px_rgba(2,8,18,0.52)] backdrop-blur-sm cursor-text"),
+				Class("relative flex items-end gap-3 rounded-[1.55rem] border border-white/8 bg-[#0c1929] px-4 py-3 shadow-[0_4px_16px_rgba(2,8,18,0.22)] backdrop-blur-sm cursor-text"),
 				Tag("textarea",
 					ID(idChatInput),
 					Class("min-h-[1.5rem] flex-1 resize-none bg-transparent text-[1.3125rem] leading-relaxed text-[#e8f9ff] placeholder:text-[#9cb2c9] focus:outline-none"),
@@ -80,10 +80,6 @@ func parseInputArea(parseProps composerProps) ui.Node {
 						Text("\u24d8"),
 					),
 				),
-			),
-			P(
-				Class("mt-2 px-1 text-xs leading-5 text-[#8a8a9a]"),
-				Text(parseProps.Journey.parseStepLabel+" - "+parseProps.Journey.parseBodyText),
 			),
 			renderComposerCostParallelRegion(parseProps),
 		),

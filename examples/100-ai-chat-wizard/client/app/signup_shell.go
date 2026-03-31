@@ -27,7 +27,7 @@ func renderSignupShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth
 				renderNavLink(marketingSignupRoute, marketingPricingRoute, parseIntl.T(n, "nav.pricing")),
 			),
 			renderLanguageSelector(parseIntl),
-			renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLandingRoute, false, false),
+			renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLoginRoute, false, false),
 		),
 		Main(
 			Class("relative z-10"),
@@ -102,12 +102,45 @@ func renderSignupBody(parseIntl i18n.Runtime, parseView appViewState, parseAuth 
 						),
 					),
 				),
+				// what happens after you sign up
+				renderSignupAfterSignupExplainer(),
 			),
 			// right — signup form card
 			Div(
 				Class("mx-auto w-full max-w-[520px] fade-up fade-up-d1"),
 				renderAuthFormCard(parseIntl, parseView, parseAuth, true),
 			),
+		),
+	)
+}
+
+// renderSignupAfterSignupExplainer renders a compact 4-step sequence that sets expectations
+// for what happens immediately after an account is created.
+func renderSignupAfterSignupExplainer() ui.Node {
+	type parseStep struct {
+		parseNum   string
+		parseTitle string
+		parseBody  string
+	}
+	parseSteps := []parseStep{
+		{"01", "Create workspace", "Name your workspace. One workspace per account on the Starter plan."},
+		{"02", "Confirm account", "Check your inbox for a confirmation link. Required before the first AI turn."},
+		{"03", "Land in chat", "Your workspace opens directly in the chat view. No dashboard tour. Start working."},
+		{"04", "Invite team later", "Seat invites are in Settings. You can start solo and add collaborators any time."},
+	}
+	return Div(
+		Class("mt-10 border-t border-white/[0.06] pt-8 sm:mt-12 sm:pt-10"),
+		Div(Class("mb-4 text-[10px] uppercase tracking-[0.18em] text-white/30"), Text("What happens next")),
+		Div(
+			Class("grid grid-cols-2 gap-3 sm:gap-4"),
+			Map(parseSteps, func(parseS parseStep) ui.Node {
+				return Div(
+					Class("rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-3"),
+					Div(Class("font-mono-tech mb-1 text-[10px] text-[#00d9ff]/60"), Text(parseS.parseNum)),
+					Div(Class("text-xs font-semibold text-[#f0f0f8]"), Text(parseS.parseTitle)),
+					P(Class("mt-1 text-[11px] leading-4 text-[#8a8a9a]"), Text(parseS.parseBody)),
+				)
+			}),
 		),
 	)
 }

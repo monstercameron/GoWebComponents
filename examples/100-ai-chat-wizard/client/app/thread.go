@@ -36,6 +36,7 @@ type messageListProps struct {
 	ScrollToBottom          ui.Handler
 	ApplyStarterPrompt      ui.Handler
 	Journey                 chatJourneyState
+	HandleSelectionMouse    ui.Handler
 }
 
 func parseMessageList(parseProps messageListProps) ui.Node {
@@ -90,12 +91,13 @@ func parseMessageList(parseProps messageListProps) ui.Node {
 		Div(
 			ID(idMessageList),
 			Class("chat-scrollbar chat-scrollbar--panel h-full overflow-y-auto"),
+			OnMouseUp(parseProps.HandleSelectionMouse),
 			Div(ID(idThreadScreen), Class("chat-thread-surface thread-screen max-w-[72rem] mx-auto my-3 px-4 py-4 flex flex-col gap-6"), parseRows),
 		),
 		If(parseProps.ShowScrollToBottom,
 			Button(
 				ID(idScrollToBottomBtn),
-				Class("absolute bottom-24 left-1/2 z-30 flex h-[4.5rem] w-[4.5rem] -translate-x-1/2 items-center justify-center rounded-full border-2 border-white/55 bg-[#171717]/94 text-[1.5rem] font-semibold text-white shadow-[0_20px_44px_rgba(0,0,0,0.38)] backdrop-blur transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-1 hover:border-[#00d9ff]/70 hover:bg-[#112035]/98 active:-translate-x-1/2 active:translate-y-0 active:scale-[0.97]"),
+				Class("absolute bottom-24 left-1/2 z-30 flex h-[4.5rem] w-[4.5rem] -translate-x-1/2 items-center justify-center rounded-full border-2 border-white/30 bg-[#171717]/94 text-[1.5rem] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.28)] backdrop-blur transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-1 hover:border-white/50 hover:bg-[#112035]/98 active:-translate-x-1/2 active:translate-y-0 active:scale-[0.97]"),
 				FromProps(Props{Aria: map[string]string{"label": "Scroll to bottom"}}),
 				OnClick(parseProps.ScrollToBottom),
 				Text("\u2193"),

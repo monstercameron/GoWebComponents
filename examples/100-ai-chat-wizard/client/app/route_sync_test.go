@@ -149,6 +149,7 @@ func TestPostLoginRouteIntentHelpers(parseT *testing.T) {
 func TestShouldResetDraftForRootRoute(parseT *testing.T) {
 	parseTests := []struct {
 		name                string
+		currentPath         string
 		threadRoutePublicID string
 		activeConvID        int64
 		activeConvPublicID  string
@@ -156,6 +157,7 @@ func TestShouldResetDraftForRootRoute(parseT *testing.T) {
 	}{
 		{
 			name:                "newly created thread without public id stays in place",
+			currentPath:         chatRouteRoot,
 			threadRoutePublicID: "",
 			activeConvID:        42,
 			activeConvPublicID:  "",
@@ -163,6 +165,7 @@ func TestShouldResetDraftForRootRoute(parseT *testing.T) {
 		},
 		{
 			name:                "loaded thread clears when user returns to root",
+			currentPath:         chatRouteRoot,
 			threadRoutePublicID: "",
 			activeConvID:        42,
 			activeConvPublicID:  "thread-public-id",
@@ -170,6 +173,7 @@ func TestShouldResetDraftForRootRoute(parseT *testing.T) {
 		},
 		{
 			name:                "thread route keeps active conversation",
+			currentPath:         "/app/thread/thread-public-id",
 			threadRoutePublicID: "thread-public-id",
 			activeConvID:        42,
 			activeConvPublicID:  "thread-public-id",
@@ -177,6 +181,7 @@ func TestShouldResetDraftForRootRoute(parseT *testing.T) {
 		},
 		{
 			name:                "missing active conversation never resets",
+			currentPath:         chatRouteRoot,
 			threadRoutePublicID: "",
 			activeConvID:        0,
 			activeConvPublicID:  "thread-public-id",
@@ -184,17 +189,26 @@ func TestShouldResetDraftForRootRoute(parseT *testing.T) {
 		},
 		{
 			name:                "blank public id is treated as unresolved",
+			currentPath:         chatRouteRoot,
 			threadRoutePublicID: " ",
 			activeConvID:        42,
 			activeConvPublicID:  " ",
+			want:                false,
+		},
+		{
+			name:                "dashboard route does not clear active conversation",
+			currentPath:         chatRouteDashboardCustomers,
+			threadRoutePublicID: "",
+			activeConvID:        42,
+			activeConvPublicID:  "thread-public-id",
 			want:                false,
 		},
 	}
 
 	for _, parseTest := range parseTests {
 		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
-			if parseGot := shouldResetDraftForRootRoute(parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID); parseGot != parseTest.want {
-				parseT2.Fatalf("shouldResetDraftForRootRoute(%q, %d, %q) = %v, want %v", parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID, parseGot, parseTest.want)
+			if parseGot := shouldResetDraftForRootRoute(parseTest.currentPath, parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldResetDraftForRootRoute(%q, %q, %d, %q) = %v, want %v", parseTest.currentPath, parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID, parseGot, parseTest.want)
 			}
 		})
 	}
@@ -203,6 +217,7 @@ func TestShouldResetDraftForRootRoute(parseT *testing.T) {
 func TestShouldWarnPendingRootRoute(parseT *testing.T) {
 	parseTests := []struct {
 		name                string
+		currentPath         string
 		threadRoutePublicID string
 		activeConvID        int64
 		activeConvPublicID  string
@@ -210,6 +225,7 @@ func TestShouldWarnPendingRootRoute(parseT *testing.T) {
 	}{
 		{
 			name:                "newly created thread without public id warns",
+			currentPath:         chatRouteRoot,
 			threadRoutePublicID: "",
 			activeConvID:        42,
 			activeConvPublicID:  "",
@@ -217,6 +233,7 @@ func TestShouldWarnPendingRootRoute(parseT *testing.T) {
 		},
 		{
 			name:                "loaded thread with public id does not warn",
+			currentPath:         chatRouteRoot,
 			threadRoutePublicID: "",
 			activeConvID:        42,
 			activeConvPublicID:  "thread-public-id",
@@ -224,6 +241,7 @@ func TestShouldWarnPendingRootRoute(parseT *testing.T) {
 		},
 		{
 			name:                "thread route does not warn",
+			currentPath:         "/app/thread/thread-public-id",
 			threadRoutePublicID: "thread-public-id",
 			activeConvID:        42,
 			activeConvPublicID:  "",
@@ -231,8 +249,17 @@ func TestShouldWarnPendingRootRoute(parseT *testing.T) {
 		},
 		{
 			name:                "missing active conversation does not warn",
+			currentPath:         chatRouteRoot,
 			threadRoutePublicID: "",
 			activeConvID:        0,
+			activeConvPublicID:  "",
+			want:                false,
+		},
+		{
+			name:                "dashboard route does not warn",
+			currentPath:         chatRouteDashboardHome,
+			threadRoutePublicID: "",
+			activeConvID:        42,
 			activeConvPublicID:  "",
 			want:                false,
 		},
@@ -240,8 +267,8 @@ func TestShouldWarnPendingRootRoute(parseT *testing.T) {
 
 	for _, parseTest := range parseTests {
 		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
-			if parseGot := shouldWarnPendingRootRoute(parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID); parseGot != parseTest.want {
-				parseT2.Fatalf("shouldWarnPendingRootRoute(%q, %d, %q) = %v, want %v", parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID, parseGot, parseTest.want)
+			if parseGot := shouldWarnPendingRootRoute(parseTest.currentPath, parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldWarnPendingRootRoute(%q, %q, %d, %q) = %v, want %v", parseTest.currentPath, parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID, parseGot, parseTest.want)
 			}
 		})
 	}
@@ -286,40 +313,52 @@ func TestShouldResolveConversationRoute(parseT *testing.T) {
 func TestShouldNormalizeActiveConversationRoute(parseT *testing.T) {
 	parseTests := []struct {
 		name                string
+		currentPath         string
 		threadRoutePublicID string
 		activeConvPublicID  string
 		want                bool
 	}{
 		{
 			name:                "root route follows active conversation",
+			currentPath:         chatRouteRoot,
 			threadRoutePublicID: "",
 			activeConvPublicID:  "thread-a",
 			want:                true,
 		},
 		{
 			name:                "matching thread route stays normalized",
+			currentPath:         "/app/thread/thread-a",
 			threadRoutePublicID: "thread-a",
 			activeConvPublicID:  "thread-a",
 			want:                true,
 		},
 		{
 			name:                "different thread route is preserved",
+			currentPath:         "/app/thread/thread-a",
 			threadRoutePublicID: "thread-a",
 			activeConvPublicID:  "thread-b",
 			want:                false,
 		},
 		{
 			name:                "blank active conversation cannot normalize",
+			currentPath:         chatRouteRoot,
 			threadRoutePublicID: "thread-a",
 			activeConvPublicID:  "",
+			want:                false,
+		},
+		{
+			name:                "dashboard route does not normalize back to thread",
+			currentPath:         chatRouteDashboardOps,
+			threadRoutePublicID: "",
+			activeConvPublicID:  "thread-a",
 			want:                false,
 		},
 	}
 
 	for _, parseTest := range parseTests {
 		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
-			if parseGot := shouldNormalizeActiveConversationRoute(parseTest.threadRoutePublicID, parseTest.activeConvPublicID); parseGot != parseTest.want {
-				parseT2.Fatalf("shouldNormalizeActiveConversationRoute(%q, %q) = %v, want %v", parseTest.threadRoutePublicID, parseTest.activeConvPublicID, parseGot, parseTest.want)
+			if parseGot := shouldNormalizeActiveConversationRoute(parseTest.currentPath, parseTest.threadRoutePublicID, parseTest.activeConvPublicID); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldNormalizeActiveConversationRoute(%q, %q, %q) = %v, want %v", parseTest.currentPath, parseTest.threadRoutePublicID, parseTest.activeConvPublicID, parseGot, parseTest.want)
 			}
 		})
 	}
@@ -352,21 +391,21 @@ func TestShouldNavigateLandingRoute(parseT *testing.T) {
 		want        bool
 	}{
 		{
-			name:        "home navigates to auth landing",
+			name:        "home navigates to login route",
 			currentPath: marketingHomeRoute,
-			targetPath:  authLandingRoute,
+			targetPath:  authLoginRoute,
 			want:        true,
 		},
 		{
-			name:        "same auth landing route is ignored",
-			currentPath: authLandingRoute,
-			targetPath:  authLandingRoute,
+			name:        "same login route is ignored",
+			currentPath: authLoginRoute,
+			targetPath:  authLoginRoute,
 			want:        false,
 		},
 		{
-			name:        "pricing navigates to auth landing",
+			name:        "pricing navigates to login route",
 			currentPath: marketingPricingRoute,
-			targetPath:  authLandingRoute,
+			targetPath:  authLoginRoute,
 			want:        true,
 		},
 		{

@@ -154,3 +154,21 @@ func parseBuildUserRequestID() string {
 	}
 	return strings.TrimSpace(parseBuildOpaqueMetadataID())
 }
+
+// parseUserErrorMessage extracts the customer-facing message portion from one formatted error text string.
+func parseUserErrorMessage(parseErrorText string) string {
+	parseErrorText = strings.TrimSpace(parseErrorText)
+	if parseIdx := strings.Index(parseErrorText, " Request ID: "); parseIdx >= 0 {
+		return strings.TrimSpace(parseErrorText[:parseIdx])
+	}
+	return parseErrorText
+}
+
+// parseUserErrorRequestID extracts the embedded request identifier from one formatted error text string.
+func parseUserErrorRequestID(parseErrorText string) string {
+	if parseIdx := strings.Index(parseErrorText, " Request ID: "); parseIdx >= 0 {
+		parseIDRaw := strings.TrimSpace(parseErrorText[parseIdx+len(" Request ID: "):])
+		return strings.TrimSuffix(parseIDRaw, ".")
+	}
+	return ""
+}

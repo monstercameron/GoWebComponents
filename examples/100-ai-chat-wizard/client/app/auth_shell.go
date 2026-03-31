@@ -30,6 +30,10 @@ func setAuthDocumentTitle(parseIntl i18n.Runtime, parseAuthMode string) {
 		parseTitle = parseIntl.T(c, "auth.forgotPassword") + " - " + parseIntl.T(c, "auth.loadingBrand")
 	case authModeUpdatePassword:
 		parseTitle = parseIntl.T(c, "auth.updatePassword") + " - " + parseIntl.T(c, "auth.loadingBrand")
+	case authModeVerifyEmail:
+		parseTitle = parseIntl.T(c, "auth.verifyEmailTitle") + " - " + parseIntl.T(c, "auth.loadingBrand")
+	case authModeExternalAuthFailure:
+		parseTitle = parseIntl.T(c, "auth.extAuthFailureTitle") + " - " + parseIntl.T(c, "auth.loadingBrand")
 	}
 	parseDoc.Set("title", parseTitle)
 }
@@ -164,10 +168,16 @@ func renderAuthLoadingShell(parseProps authLoadingShellProps) ui.Node {
 func renderAuthShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController) ui.Node {
 	setAuthDocumentTitle(parseIntl, parseView.AuthMode)
 	if parseView.AuthMode == authModeUpdatePassword {
-		return renderAuthUpdatePasswordShell(parseIntl, parseAuth)
+		return renderAuthUpdatePasswordShell(parseIntl, parseView, parseAuth)
 	}
 	if parseView.AuthMode == authModeReset {
-		return renderAuthResetShell(parseIntl, parseAuth)
+		return renderAuthResetShell(parseIntl, parseView, parseAuth)
+	}
+	if parseView.AuthMode == authModeVerifyEmail {
+		return renderAuthVerifyEmailShell(parseIntl, parseView, parseAuth)
+	}
+	if parseView.AuthMode == authModeExternalAuthFailure {
+		return renderAuthExternalFailureShell(parseIntl, parseView, parseAuth)
 	}
 	isSignup := parseView.AuthMode == authModeSignup
 	return Div(
@@ -194,7 +204,7 @@ func renderAuthHeader(parseIntl i18n.Runtime, isSignup bool) ui.Node {
 		parseSubtitleText = parseIntl.T(c, "auth.signUp")
 	}
 	parseSignupHref := marketingSignupRoute
-	parseLoginHref := authLandingRoute
+	parseLoginHref := authLoginRoute
 
 	return Header(
 		Class("relative z-20"),
@@ -327,7 +337,7 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 		parseSubmitLabel = parseIntl.T(c, "auth.createAccount")
 		parseSwitchText = parseIntl.T(c, "auth.signupFormSwitchText")
 		parseSwitchLinkText = parseIntl.T(c, "auth.signupFormSwitchLink")
-		parseSwitchHref = authLandingRoute
+		parseSwitchHref = authLoginRoute
 		parseEmailLabel = parseIntl.T(c, "auth.workEmail")
 		parsePasswordPlaceholder = parseIntl.T(c, "auth.createPasswordPlaceholder")
 	}
@@ -436,7 +446,10 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 			),
 			// error banner
 			If(parseView.AuthError != "",
-				Div(ID("auth-error-banner"), Class("rounded-[18px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-100"), Text(parseView.AuthError)),
+				Div(ID("auth-error-banner"), Class("flex flex-col gap-1 rounded-[18px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-100"),
+					Text(parseUserErrorMessage(parseView.AuthError)),
+					renderSupportIDChip(parseUserErrorRequestID(parseView.AuthError)),
+				),
 			),
 			// submit
 			Button(
@@ -447,6 +460,39 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 				DisabledIf(parseView.AuthSubmitting || !parseView.GRPCReady),
 				OnClick(parseAuth.HandleSubmit),
 				Text(parseSubmitLabel),
+			),
+		),
+		// alternate auth entry — social tier
+		Div(
+			Class("mt-5 flex items-center gap-3"),
+			Div(Class("h-px flex-1 bg-white/[0.06]")),
+			Span(Class("shrink-0 text-xs text-white/30"), Text(parseIntl.T(c, "auth.orDivider"))),
+			Div(Class("h-px flex-1 bg-white/[0.06]")),
+		),
+		Button(
+			Class("mt-3 inline-flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/10"),
+			// Google colourised logo mark — inline SVG keeps zero external deps
+			Tag("svg",
+				Attr("xmlns", "http://www.w3.org/2000/svg"),
+				Attr("viewBox", "0 0 24 24"),
+				Attr("aria-hidden", "true"),
+				Class("h-4 w-4 shrink-0"),
+				Tag("path", Attr("d", "M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"), Attr("fill", "#4285F4")),
+				Tag("path", Attr("d", "M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"), Attr("fill", "#34A853")),
+				Tag("path", Attr("d", "M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"), Attr("fill", "#FBBC05")),
+				Tag("path", Attr("d", "M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"), Attr("fill", "#EA4335")),
+			),
+			Text(parseIntl.T(c, "auth.continueWithGoogle")),
+		),
+		// enterprise tier — visible but subordinate so normal users are not distracted
+		Div(
+			Class("mt-4 rounded-[14px] border border-white/[0.05] bg-white/[0.03] px-4 py-3"),
+			Div(Class("mb-1.5 text-[10px] uppercase tracking-[0.16em] text-white/28"), Text("Enterprise")),
+			A(
+				Class("inline-flex items-center gap-1.5 text-sm text-white/55 transition hover:text-white/85"),
+				Href("#"),
+				Text(parseIntl.T(c, "auth.ssoEntry")),
+				Span(Class("text-white/30"), Text("→")),
 			),
 		),
 		// mode switch footer
@@ -464,14 +510,14 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 }
 
 // renderAuthResetShell renders the password-reset request page.
-func renderAuthResetShell(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
+func renderAuthResetShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController) ui.Node {
 	return Div(
 		Class("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
 		renderPageBackground(),
 		renderAuthResetHeader(parseIntl),
 		Main(
 			Class("relative z-10"),
-			renderAuthResetBody(parseIntl, parseAuth),
+			renderAuthResetBody(parseIntl, parseView, parseAuth),
 		),
 		renderMarketingFooter(parseIntl, renderStandardFooterColumns(parseIntl)...),
 	)
@@ -506,8 +552,8 @@ func renderAuthResetHeader(parseIntl i18n.Runtime) ui.Node {
 				renderLanguageSelector(parseIntl),
 				A(
 					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
-					Href(authLandingRoute),
-					OnClick(parseLandingNavigateHandler(authLandingRoute)),
+					Href(authLoginRoute),
+					OnClick(parseLandingNavigateHandler(authLoginRoute)),
 					Text(parseIntl.T(c, "auth.logIn")),
 				),
 				A(
@@ -522,7 +568,7 @@ func renderAuthResetHeader(parseIntl i18n.Runtime) ui.Node {
 }
 
 // renderAuthResetBody renders the two-column hero + reset form section.
-func renderAuthResetBody(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
+func renderAuthResetBody(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController) ui.Node {
 	c := chatI18nNamespace
 	parseStatCards := [][]string{
 		{parseIntl.T(c, "auth.resetStat1Title"), parseIntl.T(c, "auth.resetStat1Body")},
@@ -557,18 +603,70 @@ func renderAuthResetBody(parseIntl i18n.Runtime, parseAuth authSessionController
 					}),
 				),
 			),
-			// right: reset form card
+			// right: reset form card (mounted as a component to enable usestate for sent-success)
 			Div(
 				Class("mx-auto w-full max-w-[520px]"),
-				renderAuthResetFormCard(parseIntl, parseAuth),
+				ui.Component(renderAuthResetFormCardComponent, authResetFormCardProps{Intl: parseIntl, View: parseView, Auth: parseAuth}),
 			),
 		),
 	)
 }
 
-// renderAuthResetFormCard renders the glass email-submission form for password recovery.
-func renderAuthResetFormCard(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
+// authResetFormCardProps are the props for the reset-form component.
+type authResetFormCardProps struct {
+	Intl i18n.Runtime
+	View appViewState
+	Auth authSessionController
+}
+
+// renderAuthResetFormCardComponent is the component entry point for the reset form card.
+// It owns local "sent" state so the form can show a success confirmation without a route change.
+func renderAuthResetFormCardComponent(parseProps authResetFormCardProps) ui.Node {
+	parseIntl := parseProps.Intl
+	parseView := parseProps.View
+	parseAuth := parseProps.Auth
 	c := chatI18nNamespace
+
+	// Local sent state — true once the user clicks Send and the button fires.
+	isParseSent := ui.UseState(false)
+
+	handleSend := ui.UseEvent(func() {
+		if isParseSent.Get() {
+			return
+		}
+		// Mark sent optimistically; backend reset-link delivery is async / not yet wired.
+		isParseSent.Set(true)
+	})
+
+	// Success state — show a confirmation card.
+	if isParseSent.Get() {
+		return Div(
+			Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-8 sm:py-8"),
+			Div(
+				Class("mb-6"),
+				H2(Class("text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl"), Text(parseIntl.T(c, "auth.resetSentTitle"))),
+				P(Class("mt-3 text-sm leading-7 text-[#b8c2d9]"),
+					Text(parseIntl.T(c, "auth.resetSentBody")),
+				),
+			),
+			Div(
+				Class("rounded-[18px] border border-white/[0.06] bg-white/5 px-4 py-3 text-sm text-[#dfe6f7]"),
+				Text(parseView.AuthEmail),
+			),
+			Div(
+				Class("mt-6 rounded-[22px] bg-white/5 px-4 py-4 text-sm text-[#b8c2d9]"),
+				Text(parseIntl.T(c, "auth.resetRemembered")),
+				A(
+					Class("font-medium text-white transition hover:text-[#f5f7fb]"),
+					Href(authLoginRoute),
+					OnClick(parseAuth.HandleModeToggle),
+					Text(parseIntl.T(c, "auth.backToLogIn")),
+				),
+			),
+		)
+	}
+
+	// Normal reset request form.
 	return Div(
 		Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-8 sm:py-8"),
 		// form header
@@ -594,13 +692,25 @@ func renderAuthResetFormCard(parseIntl i18n.Runtime, parseAuth authSessionContro
 					Type("email"),
 					Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
 					Placeholder(parseIntl.T(c, "auth.companyEmailPlaceholder")),
+					Value(parseView.AuthEmail),
 					OnInput(parseAuth.HandleEmailInput),
+				),
+			),
+			// error banner
+			If(parseView.AuthError != "",
+				Div(ID("auth-reset-error-banner"), Class("flex flex-col gap-1 rounded-[18px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-100"),
+					Text(parseUserErrorMessage(parseView.AuthError)),
+					renderSupportIDChip(parseUserErrorRequestID(parseView.AuthError)),
 				),
 			),
 			// submit
 			Button(
-				Class("inline-flex w-full items-center justify-center rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px]"),
-				OnClick(parseAuth.HandleModeToggle),
+				Class(ClassNames(
+					"inline-flex w-full items-center justify-center rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px]",
+					When(parseView.AuthSubmitting, "cursor-progress opacity-70"),
+				)),
+				DisabledIf(parseView.AuthSubmitting || !parseView.GRPCReady),
+				OnClick(handleSend),
 				Text(parseIntl.T(c, "auth.sendResetLink")),
 			),
 		),
@@ -610,7 +720,7 @@ func renderAuthResetFormCard(parseIntl i18n.Runtime, parseAuth authSessionContro
 			Text(parseIntl.T(c, "auth.resetRemembered")),
 			A(
 				Class("font-medium text-white transition hover:text-[#f5f7fb]"),
-				Href(authLandingRoute),
+				Href(authLoginRoute),
 				OnClick(parseAuth.HandleModeToggle),
 				Text(parseIntl.T(c, "auth.backToLogIn")),
 			),
@@ -630,14 +740,14 @@ func renderAuthResetFormCard(parseIntl i18n.Runtime, parseAuth authSessionContro
 }
 
 // renderAuthUpdatePasswordShell renders the update-password page for account security settings.
-func renderAuthUpdatePasswordShell(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
+func renderAuthUpdatePasswordShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController) ui.Node {
 	return Div(
 		Class("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
 		renderPageBackground(),
 		renderAuthUpdatePasswordHeader(parseIntl),
 		Main(
 			Class("relative z-10"),
-			renderAuthUpdatePasswordBody(parseIntl, parseAuth),
+			renderAuthUpdatePasswordBody(parseIntl, parseView, parseAuth),
 		),
 		renderMarketingFooter(parseIntl, renderStandardFooterColumns(parseIntl)...),
 	)
@@ -670,8 +780,8 @@ func renderAuthUpdatePasswordHeader(parseIntl i18n.Runtime) ui.Node {
 				renderLanguageSelector(parseIntl),
 				A(
 					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
-					Href(authLandingRoute),
-					OnClick(parseLandingNavigateHandler(authLandingRoute)),
+					Href(authLoginRoute),
+					OnClick(parseLandingNavigateHandler(authLoginRoute)),
 					Text(parseIntl.T(c, "auth.logIn")),
 				),
 				A(
@@ -686,7 +796,7 @@ func renderAuthUpdatePasswordHeader(parseIntl i18n.Runtime) ui.Node {
 }
 
 // renderAuthUpdatePasswordBody renders the two-column hero + update-password form section.
-func renderAuthUpdatePasswordBody(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
+func renderAuthUpdatePasswordBody(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController) ui.Node {
 	c := chatI18nNamespace
 	parseStatCards := [][]string{
 		{parseIntl.T(c, "auth.updatePasswordStat1Title"), parseIntl.T(c, "auth.updatePasswordStat1Body")},
@@ -722,14 +832,14 @@ func renderAuthUpdatePasswordBody(parseIntl i18n.Runtime, parseAuth authSessionC
 			),
 			Div(
 				Class("mx-auto w-full max-w-[520px]"),
-				renderAuthUpdatePasswordFormCard(parseIntl, parseAuth),
+				renderAuthUpdatePasswordFormCard(parseIntl, parseView, parseAuth),
 			),
 		),
 	)
 }
 
 // renderAuthUpdatePasswordFormCard renders the glass form for changing an account password.
-func renderAuthUpdatePasswordFormCard(parseIntl i18n.Runtime, parseAuth authSessionController) ui.Node {
+func renderAuthUpdatePasswordFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController) ui.Node {
 	c := chatI18nNamespace
 	return Div(
 		Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-8 sm:py-8"),
@@ -779,8 +889,19 @@ func renderAuthUpdatePasswordFormCard(parseIntl i18n.Runtime, parseAuth authSess
 					Placeholder(parseIntl.T(c, "auth.confirmNewPasswordPlaceholder")),
 				),
 			),
+			// error banner
+			If(parseView.AuthError != "",
+				Div(ID("auth-update-password-error-banner"), Class("flex flex-col gap-1 rounded-[18px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-100"),
+					Text(parseUserErrorMessage(parseView.AuthError)),
+					renderSupportIDChip(parseUserErrorRequestID(parseView.AuthError)),
+				),
+			),
 			Button(
-				Class("inline-flex w-full items-center justify-center rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px]"),
+				Class(ClassNames(
+					"inline-flex w-full items-center justify-center rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px]",
+					When(parseView.AuthSubmitting, "cursor-progress opacity-70"),
+				)),
+				DisabledIf(parseView.AuthSubmitting || !parseView.GRPCReady),
 				OnClick(parseLandingNavigateHandler(chatRouteRoot)),
 				Text(parseIntl.T(c, "auth.updatePasswordSubmit")),
 			),
@@ -790,7 +911,7 @@ func renderAuthUpdatePasswordFormCard(parseIntl i18n.Runtime, parseAuth authSess
 			Text(parseIntl.T(c, "auth.updatePasswordHelp")),
 			A(
 				Class("font-medium text-white transition hover:text-[#f5f7fb]"),
-				Href(authLandingRoute),
+				Href(authLoginRoute),
 				OnClick(parseAuth.HandleModeToggle),
 				Text(parseIntl.T(c, "auth.returnToLogIn")),
 			),
@@ -803,6 +924,273 @@ func renderAuthUpdatePasswordFormCard(parseIntl i18n.Runtime, parseAuth authSess
 				Href(marketingSignupRoute),
 				OnClick(parseLandingNavigateHandler(marketingSignupRoute)),
 				Text(parseIntl.T(c, "auth.createOne")),
+			),
+		),
+	)
+}
+
+// authVerifyEmailShellProps are the props for the email verification shell.
+type authVerifyEmailShellProps struct {
+	Intl i18n.Runtime
+	View appViewState
+	Auth authSessionController
+}
+
+// renderAuthVerifyEmailShell renders the email-verification pending page.
+func renderAuthVerifyEmailShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController) ui.Node {
+	return Div(
+		Class("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
+		renderPageBackground(),
+		renderAuthVerifyEmailHeader(parseIntl),
+		Main(
+			Class("relative z-10"),
+			Div(
+				Class("mx-auto flex w-[min(1200px,calc(100%-24px))] items-center justify-center pb-20 pt-16 sm:w-[min(1200px,calc(100%-32px))] sm:pb-24 sm:pt-20 lg:w-[min(1200px,calc(100%-40px))]"),
+				ui.Component(renderAuthVerifyEmailCardComponent, authVerifyEmailShellProps{Intl: parseIntl, View: parseView, Auth: parseAuth}),
+			),
+		),
+		renderMarketingFooter(parseIntl, renderStandardFooterColumns(parseIntl)...),
+	)
+}
+
+// renderAuthVerifyEmailHeader renders the header bar for the email verification page.
+func renderAuthVerifyEmailHeader(parseIntl i18n.Runtime) ui.Node {
+	c := chatI18nNamespace
+	return Header(
+		Class("relative z-20"),
+		Div(
+			Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-wrap items-center justify-between gap-4 py-5 sm:w-[min(1200px,calc(100%-32px))] sm:py-6 lg:w-[min(1200px,calc(100%-40px))] lg:flex-nowrap lg:py-7"),
+			A(
+				Class("flex min-w-0 items-center gap-3 sm:gap-4"),
+				Href(marketingHomeRoute),
+				OnClick(parseLandingNavigateHandler(marketingHomeRoute)),
+				Img(
+					Src(brandChatIconURL),
+					Attr("alt", appBrandName),
+					Class("h-10 w-10 shrink-0 rounded-xl object-cover sm:h-11 sm:w-11"),
+				),
+				Div(
+					Class("min-w-0"),
+					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text(parseIntl.T(c, "auth.loadingBrand"))),
+					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseIntl.T(c, "auth.verifyEmailTitle"))),
+				),
+			),
+			Div(
+				Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
+				renderLanguageSelector(parseIntl),
+				A(
+					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
+					Href(authLoginRoute),
+					OnClick(parseLandingNavigateHandler(authLoginRoute)),
+					Text(parseIntl.T(c, "auth.logIn")),
+				),
+			),
+		),
+	)
+}
+
+// renderAuthVerifyEmailCardComponent is the hook-enabled component for the verification card.
+// It owns local resent state so the resend button can show a confirmation without a route change.
+func renderAuthVerifyEmailCardComponent(parseProps authVerifyEmailShellProps) ui.Node {
+	parseIntl := parseProps.Intl
+	parseView := parseProps.View
+	parseAuth := parseProps.Auth
+	c := chatI18nNamespace
+
+	// Local resent state — true once the user clicks Resend.
+	isParseResent := ui.UseState(false)
+
+	handleResend := ui.UseEvent(func() {
+		// Resend delivery is async / not yet wired to an RPC — optimistic UI only.
+		isParseResent.Set(true)
+	})
+
+	parseEmailDisplay := parseView.AuthEmail
+	if parseEmailDisplay == "" {
+		parseEmailDisplay = parseView.SessionEmail
+	}
+
+	return Div(
+		Class("mx-auto w-full max-w-[520px]"),
+		Div(
+			Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-8 sm:py-8"),
+			// icon badge
+			Div(
+				Class("mb-6 flex flex-col items-start gap-3"),
+				Div(Class("flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-2xl"), Text("✉️")),
+				Div(
+					H2(Class("text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl"), Text(parseIntl.T(c, "auth.verifyEmailHeading"))),
+					P(Class("mt-2 text-sm leading-7 text-[#b8c2d9]"), Text(parseIntl.T(c, "auth.verifyEmailBody"))),
+				),
+			),
+			// email address chip
+			If(parseEmailDisplay != "",
+				Div(
+					Class("mb-5 rounded-[18px] border border-white/[0.06] bg-white/5 px-4 py-3 text-sm text-[#dfe6f7]"),
+					Text(parseEmailDisplay),
+				),
+			),
+			// resent confirmation banner
+			If(isParseResent.Get(),
+				Div(Class("mb-5 flex flex-col gap-1 rounded-[18px] border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm leading-6 text-emerald-100"),
+					Text(parseIntl.T(c, "auth.verifyEmailResentConfirm")),
+				),
+			),
+			// error banner (e.g. expired / already-used token state)
+			If(parseView.AuthError != "",
+				Div(ID("auth-verify-error-banner"), Class("mb-5 flex flex-col gap-1 rounded-[18px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-100"),
+					Text(parseUserErrorMessage(parseView.AuthError)),
+					renderSupportIDChip(parseUserErrorRequestID(parseView.AuthError)),
+				),
+			),
+			// actions
+			Div(
+				Class("flex flex-col gap-3"),
+				// resend button — shown while not yet resent
+				If(!isParseResent.Get(),
+					Button(
+						Class("inline-flex w-full items-center justify-center rounded-full bg-white/10 px-5 py-3 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/20"),
+						OnClick(handleResend),
+						Text(parseIntl.T(c, "auth.verifyEmailResend")),
+					),
+				),
+				// continue to app
+				A(
+					Class("inline-flex w-full items-center justify-center rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px]"),
+					Href(chatRouteRoot),
+					OnClick(parseLandingNavigateHandler(chatRouteRoot)),
+					Text(parseIntl.T(c, "auth.verifyEmailContinue")),
+				),
+			),
+			// back to login
+			Div(
+				Class("mt-6 rounded-[22px] bg-white/5 px-4 py-4 text-sm text-[#b8c2d9]"),
+				Text(parseIntl.T(c, "auth.resetRemembered")),
+				A(
+					Class("font-medium text-white transition hover:text-[#f5f7fb]"),
+					Href(authLoginRoute),
+					OnClick(parseAuth.HandleModeToggle),
+					Text(parseIntl.T(c, "auth.backToLogIn")),
+				),
+			),
+		),
+	)
+}
+
+// authExternalFailureKind maps a raw failure reason to a structured display tuple.
+type authExternalFailureKind struct {
+	icon    string
+	heading string
+	body    string
+}
+
+// parseExternalFailureKind resolves the display copy for a given failure reason code.
+// Reason codes are short slugs stored in AuthError (e.g. "consent_denied").
+func parseExternalFailureKind(parseIntl i18n.Runtime, parseReason string) authExternalFailureKind {
+	c := chatI18nNamespace
+	switch parseReason {
+	case "consent_denied":
+		return authExternalFailureKind{
+			icon:    "🚫",
+			heading: parseIntl.T(c, "auth.extAuthConsentDeniedHeading"),
+			body:    parseIntl.T(c, "auth.extAuthConsentDeniedBody"),
+		}
+	case "expired_state":
+		return authExternalFailureKind{
+			icon:    "⏳",
+			heading: parseIntl.T(c, "auth.extAuthExpiredHeading"),
+			body:    parseIntl.T(c, "auth.extAuthExpiredBody"),
+		}
+	case "policy_mismatch":
+		return authExternalFailureKind{
+			icon:    "🔒",
+			heading: parseIntl.T(c, "auth.extAuthPolicyHeading"),
+			body:    parseIntl.T(c, "auth.extAuthPolicyBody"),
+		}
+	case "sso_required":
+		return authExternalFailureKind{
+			icon:    "🏢",
+			heading: parseIntl.T(c, "auth.extAuthSSORequiredHeading"),
+			body:    parseIntl.T(c, "auth.extAuthSSORequiredBody"),
+		}
+	default:
+		return authExternalFailureKind{
+			icon:    "⚠️",
+			heading: parseIntl.T(c, "auth.extAuthGenericHeading"),
+			body:    fmt.Sprintf("%s %s", parseIntl.T(c, "auth.extAuthGenericBody"), parseUserErrorRequestID(parseReason)),
+		}
+	}
+}
+
+// renderAuthExternalFailureShell renders a standalone page for external-auth callback failures.
+func renderAuthExternalFailureShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController) ui.Node {
+	return Div(
+		Class("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
+		renderPageBackground(),
+		renderAuthVerifyEmailHeader(parseIntl),
+		Main(
+			Class("relative z-10"),
+			Div(
+				Class("mx-auto flex w-[min(1200px,calc(100%-24px))] items-center justify-center pb-20 pt-16 sm:w-[min(1200px,calc(100%-32px))] sm:pb-24 sm:pt-20 lg:w-[min(1200px,calc(100%-40px))]"),
+				renderAuthExternalFailureCard(parseIntl, parseView, parseAuth),
+			),
+		),
+		renderMarketingFooter(parseIntl, renderStandardFooterColumns(parseIntl)...),
+	)
+}
+
+// renderAuthExternalFailureCard renders the external-auth error card, selecting
+// copy from the failure reason stored in AuthError.
+func renderAuthExternalFailureCard(parseIntl i18n.Runtime, parseView appViewState, parseAuth authSessionController) ui.Node {
+	c := chatI18nNamespace
+	parseKind := parseExternalFailureKind(parseIntl, parseView.AuthError)
+
+	return Div(
+		Class("mx-auto w-full max-w-[520px]"),
+		Div(
+			Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-8 sm:py-8"),
+			// icon + heading
+			Div(
+				Class("mb-6 flex flex-col items-start gap-3"),
+				Div(Class("flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-2xl"), Text(parseKind.icon)),
+				Div(
+					H2(Class("text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl"), Text(parseKind.heading)),
+					P(Class("mt-2 text-sm leading-7 text-[#b8c2d9]"), Text(parseKind.body)),
+				),
+			),
+			// support ID chip if the error string contains a request ID token
+			If(parseUserErrorRequestID(parseView.AuthError) != "",
+				Div(Class("mb-5"),
+					renderSupportIDChip(parseUserErrorRequestID(parseView.AuthError)),
+				),
+			),
+			// actions
+			Div(
+				Class("flex flex-col gap-3"),
+				// retry with the original provider
+				Button(
+					Class("inline-flex w-full items-center justify-center rounded-full bg-white/10 px-5 py-3 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/20"),
+					OnClick(parseAuth.HandleModeToggle),
+					Text(parseIntl.T(c, "auth.extAuthTryAgain")),
+				),
+				// always-available password login fallback
+				A(
+					Class("inline-flex w-full items-center justify-center rounded-full bg-white px-5 py-3.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px]"),
+					Href(authLoginRoute),
+					OnClick(parseLandingNavigateHandler(authLoginRoute)),
+					Text(parseIntl.T(c, "auth.extAuthUsePassword")),
+				),
+			),
+			// back to login footer
+			Div(
+				Class("mt-6 rounded-[22px] bg-white/5 px-4 py-4 text-sm text-[#b8c2d9]"),
+				Text(parseIntl.T(c, "auth.extAuthLoginFooter")),
+				A(
+					Class("font-medium text-white transition hover:text-[#f5f7fb]"),
+					Href(authLoginRoute),
+					OnClick(parseAuth.HandleModeToggle),
+					Text(parseIntl.T(c, "auth.backToLogIn")),
+				),
 			),
 		),
 	)

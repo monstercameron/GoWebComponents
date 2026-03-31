@@ -29,6 +29,7 @@ type authSessionController struct {
 	HandleModeToggle       ui.Handler
 	HandleForgotPassword   ui.Handler
 	HandleUpdatePassword   ui.Handler
+	HandleVerifyEmail      ui.Handler
 	HandleEmailInput       ui.Handler
 	HandlePasswordInput    ui.Handler
 	HandleDisplayNameInput ui.Handler
@@ -222,6 +223,9 @@ func parseUseAuthSession(
 				return
 			}
 			parsePersistAuthToken(parseResp.GetAuthToken())
+			if parseSyncErr := parseSyncAuthCookie(parseResp.GetAuthToken()); parseSyncErr != nil {
+				chatLog.Warn("auth cookie sync failed after refresh", logging.Fields{"error": parseSyncErr, "reason": parseReason})
+			}
 			parseLastRefreshAt.Set(time.Now())
 			if parseDisplayName := strings.TrimSpace(parseResp.GetDisplayName()); parseDisplayName != "" {
 				parseUserNameState.Set(parseDisplayName)
@@ -341,6 +345,9 @@ func parseUseAuthSession(
 			parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
 			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
 			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: parseSession.GetEmail()})
+			if parseSyncErr := parseSyncAuthCookie(parseToken2); parseSyncErr != nil {
+				chatLog.Warn("auth cookie sync failed after bootstrap", logging.Fields{"error": parseSyncErr})
+			}
 			parseLastRefreshAt.Set(time.Now())
 			if parseExpiresInSeconds := parseSession.GetExpiresInSeconds(); parseExpiresInSeconds > 0 && parseExpiresInSeconds <= int64(authRefreshLeadTime/time.Second) {
 				parseRefreshSession(false, "bootstrap")
@@ -422,6 +429,11 @@ func parseUseAuthSession(
 		parseApp.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
 	})
 
+	handleVerifyEmail := ui.UseEvent(func() {
+		parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeVerifyEmail})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+	})
+
 	handleEmailInput := ui.UseEvent(func(parseE ui.Event) {
 		parseApp.Dispatch(appAction{Type: appActionSetAuthEmail, AuthEmail: parseE.GetValue()})
 	})
@@ -482,6 +494,9 @@ func parseUseAuthSession(
 				return
 			}
 			parsePersistAuthToken(parseResp2.GetAuthToken())
+			if parseSyncErr := parseSyncAuthCookie(parseResp2.GetAuthToken()); parseSyncErr != nil {
+				chatLog.Warn("auth cookie sync failed after login", logging.Fields{"error": parseSyncErr, "email": parseResp2.GetEmail()})
+			}
 			parseUserNameState.Set(parseResp2.GetDisplayName())
 			parseApp.Dispatch(appAction{Type: appActionResetWorkspace})
 			parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: true})
@@ -522,6 +537,11 @@ func parseUseAuthSession(
 				_, _ = parseClient4.Logout(context.Background(), &emptypb.Empty{})
 			}()
 		}
+		go func() {
+			if parseClearErr := parseClearAuthCookie(); parseClearErr != nil {
+				chatLog.Warn("auth cookie clear failed after logout", logging.Fields{"error": parseClearErr})
+			}
+		}()
 		clearPersistedAuthToken()
 		parseUserNameState.Set("User")
 		parseApp.Dispatch(appAction{Type: appActionResetWorkspace})
@@ -541,6 +561,7 @@ func parseUseAuthSession(
 		HandleModeToggle:       handleModeToggle,
 		HandleForgotPassword:   handleForgotPassword,
 		HandleUpdatePassword:   handleUpdatePassword,
+		HandleVerifyEmail:      handleVerifyEmail,
 		HandleEmailInput:       handleEmailInput,
 		HandlePasswordInput:    handlePasswordInput,
 		HandleDisplayNameInput: handleDisplayNameInput,

@@ -30,23 +30,56 @@ func parseBuildStarterPrompts() []parseStarterPrompt {
 	}
 }
 
-// parseEmptyState renders the first-run chat empty state with explicit journey cues and starter prompt actions.
+// parseEmptyState renders the first-run chat empty state with explicit first-action guidance and starter prompt actions.
 func parseEmptyState(parseJourney chatJourneyState, parseApplyStarterPrompt ui.Handler) ui.Node {
 	parseStarterPrompts := parseBuildStarterPrompts()
 	return Div(
 		ID(idEmptyState),
-		Class("thread-screen flex flex-col items-center gap-4 text-white/40 select-none"),
+		Class("thread-screen flex flex-col items-center gap-6 text-white/40 select-none"),
 		Img(
 			Src(brandChatIconURL),
 			Attr("alt", appBrandName),
 			Class("h-16 w-16 rounded-full object-cover"),
 		),
-		P(Class("text-xs font-semibold uppercase tracking-[0.18em] text-[#7ee9ff] text-center"), Text(parseJourney.parseStepLabel)),
-		P(Class("text-2xl font-semibold text-[#f0f0f8] text-center tracking-[-0.02em]"), Text(parseJourney.parseHeadingText)),
-		P(Class("text-base text-center max-w-2xl text-[#8a8a9a]"), Text(parseJourney.parseBodyText)),
+		// three first-action cards
 		Div(
 			Class("w-full max-w-3xl"),
-			Div(Class("mb-2 text-left text-[11px] uppercase tracking-[0.16em] text-[#9eb9d8]"), Text("Starter prompts")),
+			Div(Class("mb-3 text-left text-[11px] uppercase tracking-[0.16em] text-[#9eb9d8]"), Text("Where to start")),
+			Div(
+				Class("grid gap-3 md:grid-cols-3"),
+				// action 1: ask first question — triggers the first starter prompt
+				Button(
+					Class("rounded-2xl border border-[#8fffd8]/18 bg-[#101a27] px-4 py-4 text-left transition-colors hover:bg-[#132235]"),
+					Data(dataStarterPrompt, parseStarterPrompts[0].parseText),
+					OnClick(parseApplyStarterPrompt),
+					Div(Class("mb-1 text-xs font-semibold text-[#eaf8ff]"), Text("Ask your first question")),
+					P(Class("text-[11px] leading-4 text-[#8a8a9a]"), Text("Start a thread and get an answer. Your workspace is ready, no further setup needed.")),
+				),
+				// action 2: billing visibility — links to settings billing panel
+				A(
+					Class("block rounded-2xl border border-white/[0.06] bg-[#101a27] px-4 py-4 text-left transition-colors hover:bg-[#132235]"),
+					Href(settingsRoutePath+"?"+settingsPanelQueryKey+"="+settingsSectionBilling),
+					Div(Class("mb-1 text-xs font-semibold text-[#eaf8ff]"), Text("Review billing visibility")),
+					P(Class("text-[11px] leading-4 text-[#8a8a9a]"), Text("See platform fee, usage cost, and current-period totals. Every AI turn is reflected in real time.")),
+				),
+				// action 3: workspace defaults — links to settings
+				A(
+					Class("block rounded-2xl border border-white/[0.06] bg-[#101a27] px-4 py-4 text-left transition-colors hover:bg-[#132235]"),
+					Href(settingsRoutePath),
+					Div(Class("mb-1 text-xs font-semibold text-[#eaf8ff]"), Text("Set workspace defaults")),
+					P(Class("text-[11px] leading-4 text-[#8a8a9a]"), Text("Choose your default model, set tone preferences, and configure system prompt defaults for every new thread.")),
+				),
+			),
+			// secondary guidance
+			P(
+				Class("mt-4 text-[11px] leading-5 text-[#8a8a9a]"),
+				Text("Your first thread's title is derived from your opening message. Model choice and system-prompt scope are configured in Settings. All thread history is stored per workspace."),
+			),
+		),
+		// starter prompts — secondary path for users who prefer guided options
+		Div(
+			Class("w-full max-w-3xl"),
+			Div(Class("mb-2 text-left text-[11px] uppercase tracking-[0.16em] text-[#9eb9d8]"), Text("Or try a starter prompt")),
 			Div(
 				Class("grid gap-2 md:grid-cols-3"),
 				Map(parseStarterPrompts, func(parsePrompt parseStarterPrompt) ui.Node {

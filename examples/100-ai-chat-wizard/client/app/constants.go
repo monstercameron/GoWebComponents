@@ -226,6 +226,13 @@ type threadCostSummary struct {
 	AllAssistantCostsExact bool
 }
 
+type billingInvoiceRow struct {
+	PeriodStart string
+	PeriodEnd   string
+	TotalCents  int64
+	Status      string
+}
+
 type accountCostSummary struct {
 	ThreadCount          int
 	PlatformFee          float64
@@ -238,6 +245,8 @@ type accountCostSummary struct {
 	HasCoverageGaps      bool
 	FailedThreadLookups  int
 	ExactThreadCostCount int
+	PlanLabel            string
+	Invoices             []billingInvoiceRow
 }
 
 type markdownRenderResult struct {
@@ -311,6 +320,8 @@ const authModeLogin = "login"
 const authModeSignup = "signup"
 const authModeReset = "reset"
 const authModeUpdatePassword = "update_password"
+const authModeVerifyEmail = "verify_email"
+const authModeExternalAuthFailure = "external_auth_failure"
 
 var availableTones = []toneOption{
 	{ID: "balanced"},

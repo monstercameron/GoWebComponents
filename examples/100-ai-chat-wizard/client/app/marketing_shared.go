@@ -90,7 +90,7 @@ func renderCtaSecondary(renderLabel, renderTargetPath string) ui.Node {
 // renderNavLink renders a router-aware nav link styled active when it matches the current path.
 func renderNavLink(renderCurrentPath, renderTargetPath, renderLabel string) ui.Node {
 	isActive := strings.TrimSpace(renderCurrentPath) == renderTargetPath ||
-		(renderTargetPath == authLandingRoute && strings.TrimSpace(renderCurrentPath) == marketingHomeRoute)
+		(renderTargetPath == authLoginRoute && strings.TrimSpace(renderCurrentPath) == marketingHomeRoute)
 	return A(
 		Class(ClassNames(
 			"nav-link text-xs font-medium uppercase tracking-[0.16em] transition",

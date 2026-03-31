@@ -13,6 +13,8 @@ import (
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/logging"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -31,6 +33,10 @@ type parseClientLogRelayState struct {
 
 var parseClientLogRelay = &parseClientLogRelayState{}
 var parseRelayLogger = logging.New("chat-wizard-client-relay")
+
+const parseClientLogRelayMaxAttempts = 3
+const parseClientLogRelayAttemptTimeout = 3 * time.Second
+const parseClientLogRelayBackoffBase = 250 * time.Millisecond
 
 // parseNewChatRelayLogger builds a scoped logger that mirrors entries locally and forwards them to the server.
 func parseNewChatRelayLogger(parseScope string) chatRelayLogger {
@@ -88,28 +94,70 @@ func parseForwardClientLogAsync(parseLevel string, parseScope string, parseMessa
 
 // parseSendClientLog sends one structured client log record to the server over gRPC.
 func parseSendClientLog(parseLevel string, parseScope string, parseMessage string, parseFields logging.Fields) {
-	parseClient, parseClientID, isParseReady := parseSnapshotClientLogRelay()
-	if !isParseReady || parseClient == nil || parseClientID == "" {
-		return
-	}
 	parseStructuredFields, parseErr := structpb.NewStruct(parseBuildClientLogFields(parseFields))
 	if parseErr != nil {
 		parseStructuredFields = nil
 	}
-	parseCtx, parseCancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer parseCancel()
-
-	_, parseErr2 := parseClient.ReportClientLog(parseAuthContextWithMetadata(parseCtx), &chatpb.ReportClientLogRequest{
-		ClientId:   parseClientID,
+	parseReq := &chatpb.ReportClientLogRequest{
 		Level:      strings.TrimSpace(parseLevel),
 		Scope:      strings.TrimSpace(parseScope),
 		Message:    parseMessage,
 		Fields:     parseStructuredFields,
 		ObservedAt: timestamppb.Now(),
-	})
-	if parseErr2 != nil {
-		parseRelayLogger.Warn(parseFormatClientLogRelayFailureMessage(parseLevel, parseScope, parseClientID), logging.Fields{"error": parseErr2})
 	}
+	var parseLastErr error
+	var parseClientID string
+	for parseAttempt := 1; parseAttempt <= parseClientLogRelayMaxAttempts; parseAttempt++ {
+		parseClient, parseAttemptClientID, isParseReady := parseSnapshotClientLogRelay()
+		if !isParseReady || parseClient == nil || parseAttemptClientID == "" {
+			return
+		}
+		parseClientID = parseAttemptClientID
+		parseReq.ClientId = parseClientID
+		parseCtx, parseCancel := context.WithTimeout(context.Background(), parseClientLogRelayAttemptTimeout)
+		_, parseErr2 := parseClient.ReportClientLog(parseAuthContextWithMetadata(parseCtx), parseReq)
+		parseCancel()
+		if parseErr2 == nil {
+			return
+		}
+		parseLastErr = parseErr2
+		if !parseShouldRetryClientLogRelay(parseErr2) || parseAttempt == parseClientLogRelayMaxAttempts {
+			break
+		}
+		time.Sleep(parseClientLogRelayBackoff(parseAttempt))
+	}
+	if parseLastErr != nil {
+		parseRelayLogger.Warn(parseFormatClientLogRelayFailureMessage(parseLevel, parseScope, parseClientID), logging.Fields{"error": parseLastErr})
+	}
+}
+
+// parseShouldRetryClientLogRelay reports whether one client-log relay failure is transient enough for another attempt.
+func parseShouldRetryClientLogRelay(parseErr error) bool {
+	if parseErr == nil {
+		return false
+	}
+	parseStatusErr, parseOk := status.FromError(parseErr)
+	if !parseOk {
+		return true
+	}
+	switch parseStatusErr.Code() {
+	case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled, codes.Unknown, codes.ResourceExhausted:
+		return true
+	default:
+		return false
+	}
+}
+
+// parseClientLogRelayBackoff returns the delay before the next client-log relay retry attempt.
+func parseClientLogRelayBackoff(parseAttempt int) time.Duration {
+	if parseAttempt <= 0 {
+		return parseClientLogRelayBackoffBase
+	}
+	parseDelay := parseClientLogRelayBackoffBase
+	for parseIndex := 1; parseIndex < parseAttempt; parseIndex++ {
+		parseDelay *= 2
+	}
+	return parseDelay
 }
 
 // parseSnapshotClientLogRelay reads one consistent relay snapshot for async forwarding.

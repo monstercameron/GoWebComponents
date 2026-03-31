@@ -11,10 +11,10 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-const messageBubbleBodyClass = "border border-[#8effd8]/16 bg-[linear-gradient(165deg,rgba(13,25,43,0.9),rgba(8,15,28,0.94))] text-[1.3125rem] leading-relaxed text-[#e8f9ff] px-5 py-3 shadow-[0_16px_38px_rgba(3,10,22,0.42)] backdrop-blur-sm"
+const messageBubbleBodyClass = "border border-[#8effd8]/8 bg-[#0c1929] text-[1.3125rem] leading-relaxed text-[#e8f9ff] px-5 py-3 shadow-[0_4px_12px_rgba(0,0,0,0.18)] backdrop-blur-sm"
 const assistantPlainTextMessageBubbleClass = messageBubbleBodyClass + " whitespace-pre-wrap max-w-full rounded-[1.35rem] rounded-bl-md"
 const assistantRichTextMessageBubbleClass = messageBubbleBodyClass + " rounded-[1.35rem] rounded-bl-md"
-const userPlainTextMessageBubbleClass = messageBubbleBodyClass + " whitespace-pre-wrap max-w-full rounded-[1.35rem] rounded-br-md border-[#6dd8ff]/32 bg-[linear-gradient(160deg,rgba(10,39,62,0.92),rgba(8,24,42,0.94))]"
+const userPlainTextMessageBubbleClass = messageBubbleBodyClass + " whitespace-pre-wrap max-w-full rounded-[1.35rem] rounded-br-md border-[#6dd8ff]/16 bg-[#0a2031]"
 
 type messageBubbleProps struct {
 	Intl                    i18n.Runtime
@@ -59,7 +59,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 		if len(parseSections) == 0 {
 			return nil
 		}
-		parseBubbleClass := "max-w-full min-w-0 rounded-[1.6rem] border border-[#00d9ff]/20 bg-[linear-gradient(180deg,rgba(14,32,40,0.86),rgba(10,22,31,0.76))] px-4 py-3 text-[1.125rem] leading-relaxed text-[#d7f6ff]/56 italic shadow-[0_12px_40px_rgba(0,0,0,0.22)] backdrop-blur-sm"
+		parseBubbleClass := "max-w-full min-w-0 rounded-[1.6rem] border border-white/8 bg-[#0c1e2b] px-4 py-3 text-[1.125rem] leading-relaxed text-[#d7f6ff]/56 italic shadow-[0_4px_12px_rgba(0,0,0,0.14)] backdrop-blur-sm"
 		return Div(
 			Class(parseBubbleClass),
 			Div(Class("mb-1 text-[0.68rem] uppercase tracking-[0.28em] text-[#7ee9ff]/70 not-italic"), Text(parseProps.Intl.T(chatI18nNamespace, "message.thinking"))),
@@ -117,7 +117,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 				Class("flex justify-end"),
 				Div(Class("w-full max-w-full flex flex-col gap-2"),
 					Tag("textarea",
-						Class("w-full rounded-2xl border border-[#8fffd8]/20 bg-[linear-gradient(160deg,rgba(14,27,45,0.94),rgba(8,15,27,0.96))] px-4 py-3 text-[1.3125rem] leading-relaxed text-[#e8f9ff] resize-none focus:outline-none"),
+						Class("w-full rounded-2xl border border-white/8 bg-[#0c1929] px-4 py-3 text-[1.3125rem] leading-relaxed text-[#e8f9ff] resize-none focus:outline-none"),
 						Rows(4),
 						Value(parseProps.EditValue),
 						OnInput(parseProps.HandleEditChange),
@@ -167,7 +167,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 				),
 			),
 			Div(
-				Class("h-8 w-8 rounded-full border border-[#00d9ff]/40 bg-gradient-to-br from-[#00d9ff]/28 to-[#3b82f6]/22 flex items-center justify-center shrink-0 text-xs font-semibold select-none"),
+				Class("h-10 w-10 rounded-full border border-white/12 bg-gradient-to-br from-white/8 to-white/4 flex items-center justify-center shrink-0 text-xs font-semibold select-none"),
 				Text(parseProps.UserInitials),
 			),
 		)

@@ -525,7 +525,7 @@ func parseUseAdminCustomers(
 					parseIsMutationPending.Set(false)
 					return
 				}
-				parseMutationError.Set(parseErr.Error())
+				parseMutationError.Set(parseBuildUserErrorText(userErrorScopeDashboard, parseErr))
 				parseIsMutationPending.Set(false)
 				chatLog.Warn("admin user mutation failed", logging.Fields{"action": parseAct, "user_id": parseID, "error": parseErr.Error()})
 				return
@@ -864,7 +864,7 @@ func parseUseAdminWorkspaces(
 					parseIsMutationPending.Set(false)
 					return
 				}
-				parseMutationError.Set(parseErr.Error())
+				parseMutationError.Set(parseBuildUserErrorText(userErrorScopeDashboard, parseErr))
 				parseIsMutationPending.Set(false)
 				chatLog.Warn("admin workspace mutation failed", logging.Fields{"action": parseAct, "workspace_id": parseID, "error": parseErr.Error()})
 				return

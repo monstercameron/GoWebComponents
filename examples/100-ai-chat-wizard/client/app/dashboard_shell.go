@@ -57,7 +57,8 @@ func renderDashboardTopBar(parseIntl i18n.Runtime, parseView appViewState) ui.No
 		If(parseIsSlice,
 			A(
 				Href(chatRouteDashboardHome),
-				Class("flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/60 transition-colors hover:bg-white/8 hover:text-white/90"),
+				OnClick(parseLandingNavigateHandler(chatRouteDashboardHome)),
+				Class("flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/60 no-underline transition-colors hover:bg-white/8 hover:text-white/90"),
 				Span(Text("\u2190")),
 				Span(Text("Dashboard")),
 			),
@@ -65,7 +66,8 @@ func renderDashboardTopBar(parseIntl i18n.Runtime, parseView appViewState) ui.No
 		If(!parseIsSlice,
 			A(
 				Href(chatRouteRoot),
-				Class("flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/60 transition-colors hover:bg-white/8 hover:text-white/90"),
+				OnClick(parseLandingNavigateHandler(chatRouteRoot)),
+				Class("flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/60 no-underline transition-colors hover:bg-white/8 hover:text-white/90"),
 				Span(Text("\u2190")),
 				Span(Text("Back to workspace")),
 			),
@@ -130,11 +132,12 @@ func parseDashboardRoleDescription(parseView appViewState) string {
 
 // dashboardSlice holds display metadata for a single admin dashboard slice tile.
 type dashboardSlice struct {
-	Label    string
-	Icon     string
-	Route    string
-	Subtitle string
-	IsReady  bool
+	Label        string
+	Icon         string
+	Route        string
+	Subtitle     string
+	IsReady      bool
+	Availability string // explicit state label shown when the tile is not ready; e.g. "Limited", "Superuser only", "Admin only"
 }
 
 // parseDashboardSlices returns the ordered list of admin dashboard tiles.
@@ -207,23 +210,48 @@ func renderDashboardSliceTile(parseSlice dashboardSlice, parseView appViewState)
 		P(Class("text-sm font-semibold text-white"), Text(parseSlice.Label)),
 		P(Class("mt-1 text-xs leading-5 text-white/45"), Text(parseSlice.Subtitle)),
 		If(!parseSlice.IsReady,
-			P(Class("mt-2 text-[10px] font-medium uppercase tracking-wide text-white/25"), Text("Coming soon")),
+			renderDashboardAvailabilityBadge(parseSlice.Availability),
 		),
 	)
 	if parseSlice.IsReady {
-		return A(Href(parseSlice.Route), Class(parseTileClass), parseInner)
+		return A(
+			Href(parseSlice.Route),
+			OnClick(parseLandingNavigateHandler(parseSlice.Route)),
+			Class(ClassNames(parseTileClass, "block no-underline")),
+			parseInner,
+		)
 	}
 	return Div(Class(parseTileClass), parseInner)
+}
+
+// renderDashboardAvailabilityBadge renders a small availability-state label for dashboard slice tiles that are not yet ready.
+func renderDashboardAvailabilityBadge(parseAvailability string) ui.Node {
+	parseLabel := parseAvailability
+	if parseLabel == "" {
+		parseLabel = "Not enabled"
+	}
+	return Div(
+		Class("mt-2 inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/30"),
+		Text(parseLabel),
+	)
 }
 
 // renderDashboardAccountSummary renders a compact account cost and session summary block.
 func renderDashboardAccountSummary(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
 	_ = parseIntl
 	parseHasCost := parseView.AccountCostSummary.HasAnyExactCosts && parseView.AccountCostSummary.TotalCost > 0
+	parseFreshnessLabel := "Store unavailable — showing defaults"
+	if parseHasCost {
+		parseFreshnessLabel = "Live provider snapshot"
+	}
 	return Div(
 		Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-		P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Your account this period")),
-		Div(Class("mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4"),
+		Div(
+			Class("mb-3 flex items-baseline justify-between gap-2"),
+			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Your account this period")),
+			Span(Class("text-[10px] text-white/25"), Text(parseFreshnessLabel)),
+		),
+		Div(Class("grid grid-cols-2 gap-3 sm:grid-cols-4"),
 			renderDashboardSummaryCard("Chats", formatDashboardInt(parseView.AccountCostSummary.ThreadCount)),
 			renderDashboardSummaryCard("Total spend", parseDashboardCostLabel(parseHasCost, parseView.AccountCostSummary.TotalCost)),
 			renderDashboardSummaryCard("Model cost", parseDashboardCostLabel(parseHasCost, parseView.AccountCostSummary.UsageCost)),

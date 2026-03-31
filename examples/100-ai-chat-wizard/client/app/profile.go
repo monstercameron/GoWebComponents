@@ -39,6 +39,14 @@ type profileSettingsController struct {
 	DeleteMemory       ui.Handler
 	HandleLocaleChange ui.Handler
 	Save               ui.Handler
+	DismissError       ui.Handler
+}
+
+const parseSettingsWriteTimeout = 8 * time.Second
+
+// parseBuildSettingsWriteContext returns one bounded context for asynchronous settings writes.
+func parseBuildSettingsWriteContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), parseSettingsWriteTimeout)
 }
 
 // useProfileSettings hides the username and settings persistence workflow
@@ -243,12 +251,15 @@ func parseUseProfileSettings(
 			parseClient3 := parseChatClientRef.Get()
 			if parseClient3 != nil {
 				go func() {
-					_, parseErr3 := parseClient3.SetUserName(context.Background(), &chatpb.SetUserNameRequest{Name: parseName})
+					parseCtx, parseCancel := parseBuildSettingsWriteContext()
+					defer parseCancel()
+					_, parseErr3 := parseClient3.SetUserName(parseCtx, &chatpb.SetUserNameRequest{Name: parseName})
 					if parseErr3 != nil {
 						if handleAuthFailure != nil && handleAuthFailure(parseErr3) {
 							return
 						}
 						chatLog.Error("set user name failed", logging.Fields{"error": parseErr3})
+						parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr3)})
 						return
 					}
 					parseUserNameFetchedAt.Set(time.Now())
@@ -275,14 +286,23 @@ func parseUseProfileSettings(
 			parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, nil)})
 			return
 		}
-		if _, parseErr4 := parseClient4.SetSelectedTone(context.Background(), wrapperspb.String(parseSelectedToneValue)); parseErr4 != nil {
-			chatLog.Error("set selected tone failed", logging.Fields{"error": parseErr4})
-			parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr4)})
-			parseSelectedToneCache.Invalidate()
-			return
-		}
 		go func() {
-			_, parseErr5 := parseClient4.SetSelectedThinkingEnabled(context.Background(), wrapperspb.Bool(parseSelectedThinkingEnabledValue))
+			parseCtx, parseCancel := parseBuildSettingsWriteContext()
+			defer parseCancel()
+			_, parseErr4 := parseClient4.SetSelectedTone(parseCtx, wrapperspb.String(parseSelectedToneValue))
+			if parseErr4 != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseErr4) {
+					return
+				}
+				chatLog.Error("set selected tone failed", logging.Fields{"error": parseErr4})
+				parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr4)})
+				parseSelectedToneCache.Invalidate()
+			}
+		}()
+		go func() {
+			parseCtx, parseCancel := parseBuildSettingsWriteContext()
+			defer parseCancel()
+			_, parseErr5 := parseClient4.SetSelectedThinkingEnabled(parseCtx, wrapperspb.Bool(parseSelectedThinkingEnabledValue))
 			if parseErr5 != nil {
 				if handleAuthFailure != nil && handleAuthFailure(parseErr5) {
 					return
@@ -294,7 +314,9 @@ func parseUseProfileSettings(
 		}()
 		if parseSelectedThinkingEnabledValue {
 			go func() {
-				_, parseErr6 := parseClient4.SetSelectedThinkingEffort(context.Background(), wrapperspb.String(parseSelectedThinkingEffortValue))
+				parseCtx, parseCancel := parseBuildSettingsWriteContext()
+				defer parseCancel()
+				_, parseErr6 := parseClient4.SetSelectedThinkingEffort(parseCtx, wrapperspb.String(parseSelectedThinkingEffortValue))
 				if parseErr6 != nil {
 					if handleAuthFailure != nil && handleAuthFailure(parseErr6) {
 						return
@@ -306,7 +328,9 @@ func parseUseProfileSettings(
 			}()
 		}
 		go func() {
-			_, parseErr7 := parseClient4.SetCustomSystemPrompt(context.Background(), wrapperspb.String(parseSystemPromptValue))
+			parseCtx, parseCancel := parseBuildSettingsWriteContext()
+			defer parseCancel()
+			_, parseErr7 := parseClient4.SetCustomSystemPrompt(parseCtx, wrapperspb.String(parseSystemPromptValue))
 			if parseErr7 != nil {
 				if handleAuthFailure != nil && handleAuthFailure(parseErr7) {
 					return
@@ -322,7 +346,9 @@ func parseUseProfileSettings(
 				continue
 			}
 			go func(parseMemoryKey string) {
-				if _, parseErr8 := parseClient4.DeleteUserMemory(context.Background(), &chatpb.DeleteUserMemoryRequest{Key: parseMemoryKey}); parseErr8 != nil {
+				parseCtx, parseCancel := parseBuildSettingsWriteContext()
+				defer parseCancel()
+				if _, parseErr8 := parseClient4.DeleteUserMemory(parseCtx, &chatpb.DeleteUserMemoryRequest{Key: parseMemoryKey}); parseErr8 != nil {
 					if handleAuthFailure != nil && handleAuthFailure(parseErr8) {
 						return
 					}
@@ -353,7 +379,9 @@ func parseUseProfileSettings(
 				},
 			}
 			go func(parseReq *chatpb.UpsertUserMemoryRequest) {
-				if _, parseErr9 := parseClient4.UpsertUserMemory(context.Background(), parseReq); parseErr9 != nil {
+				parseCtx, parseCancel := parseBuildSettingsWriteContext()
+				defer parseCancel()
+				if _, parseErr9 := parseClient4.UpsertUserMemory(parseCtx, parseReq); parseErr9 != nil {
 					if handleAuthFailure != nil && handleAuthFailure(parseErr9) {
 						return
 					}
@@ -473,6 +501,10 @@ func parseUseProfileSettings(
 		parseSaveSettings()
 	})
 
+	parseDismissError := ui.UseEvent(func() {
+		parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: ""})
+	})
+
 	return profileSettingsController{
 		Refresh:            parseRefresh,
 		Open:               parseOpen,
@@ -489,5 +521,6 @@ func parseUseProfileSettings(
 		DeleteMemory:       parseDeleteMemory,
 		HandleLocaleChange: handleLocaleChange,
 		Save:               parseSave,
+		DismissError:       parseDismissError,
 	}
 }

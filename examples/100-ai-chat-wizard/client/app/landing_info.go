@@ -34,7 +34,7 @@ func renderInfoShell(parseIntl i18n.Runtime, parsePage string) ui.Node {
 				renderNavLink("", marketingPricingRoute, parseIntl.T(n, "nav.pricing")),
 			),
 			renderLanguageSelector(parseIntl),
-			renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLandingRoute, false, true),
+			renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLoginRoute, false, true),
 			renderMarketingHeaderAction(parseIntl.T(n, "header.signUp"), marketingSignupRoute, false, false),
 			renderMarketingHeaderAction(parseIntl.T(n, "header.openApp"), chatRouteRoot, true, false),
 		),

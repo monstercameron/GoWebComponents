@@ -56,3 +56,47 @@ func TestShouldRenderLandingShellEarly(parseT *testing.T) {
 		})
 	}
 }
+
+func TestShouldRenderAuthLoadingShell(parseT *testing.T) {
+	parseTests := []struct {
+		name string
+		view appViewState
+		want bool
+	}{
+		{
+			name: "unresolved auth keeps loading shell",
+			view: appViewState{
+				AuthResolved:  false,
+				Authenticated: false,
+				GRPCReady:     false,
+			},
+			want: true,
+		},
+		{
+			name: "resolved authenticated session survives grpc reconnect",
+			view: appViewState{
+				AuthResolved:  true,
+				Authenticated: true,
+				GRPCReady:     false,
+			},
+			want: false,
+		},
+		{
+			name: "resolved unauthenticated session uses route shell not loading shell",
+			view: appViewState{
+				AuthResolved:  true,
+				Authenticated: false,
+				GRPCReady:     false,
+			},
+			want: false,
+		},
+	}
+
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := shouldRenderAuthLoadingShell(parseTest.view); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldRenderAuthLoadingShell(%+v) = %v, want %v", parseTest.view, parseGot, parseTest.want)
+			}
+		})
+	}
+}

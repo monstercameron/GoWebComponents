@@ -39,6 +39,7 @@ type appState struct {
 	AuthResolved            bool
 	Authenticated           bool
 	CanAccessAdmin          bool
+	IsSuperuser             bool
 	AuthMode                string
 	AuthError               string
 	AuthSubmitting          bool
@@ -100,6 +101,7 @@ const (
 	appActionSetAuthResolved            appActionType = "set_auth_resolved"
 	appActionSetAuthenticated           appActionType = "set_authenticated"
 	appActionSetCanAccessAdmin          appActionType = "set_can_access_admin"
+	appActionSetIsSuperuser             appActionType = "set_is_superuser"
 	appActionSetAuthMode                appActionType = "set_auth_mode"
 	appActionSetAuthError               appActionType = "set_auth_error"
 	appActionSetAuthSubmitting          appActionType = "set_auth_submitting"
@@ -159,6 +161,7 @@ type appAction struct {
 	AuthResolved            bool
 	Authenticated           bool
 	CanAccessAdmin          bool
+	IsSuperuser             bool
 	AuthMode                string
 	AuthError               string
 	AuthSubmitting          bool
@@ -214,6 +217,7 @@ func parseInitialAppState() appState {
 		AuthResolved:            false,
 		Authenticated:           false,
 		CanAccessAdmin:          false,
+		IsSuperuser:             false,
 		AuthMode:                authModeLogin,
 		AuthError:               "",
 		AuthSubmitting:          false,
@@ -412,6 +416,8 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 		parseNext.Authenticated = parseAction.Authenticated
 	case appActionSetCanAccessAdmin:
 		parseNext.CanAccessAdmin = parseAction.CanAccessAdmin
+	case appActionSetIsSuperuser:
+		parseNext.IsSuperuser = parseAction.IsSuperuser
 	case appActionSetAuthMode:
 		parseNext.AuthMode = parseAction.AuthMode
 	case appActionSetAuthError:
@@ -443,6 +449,7 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 		parseNext.DeleteTarget = 0
 		parseNext.CustomSystemPrompt = ""
 		parseNext.CanAccessAdmin = false
+		parseNext.IsSuperuser = false
 		parseNext.ShowNameModal = false
 		parseNext.SettingsError = ""
 		parseNext.NameInput = ""
@@ -455,6 +462,9 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 		parseNext.DeletedUserMemoryKeys = []string{}
 		parseNext.EditIdx = -1
 		parseNext.EditText = ""
+		// Reset the settings panel to the default section so the next account does not inherit
+		// the previous account's active panel selection.
+		parseNext.ActiveSettingsSection = defaultSettingsSectionID
 	case appActionSetShowNameModal:
 		parseNext.ShowNameModal = parseAction.ShowNameModal
 	case appActionSetActiveSettingsSection:

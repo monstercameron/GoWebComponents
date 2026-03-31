@@ -545,13 +545,6 @@ func parseSelectedModelForConversation(parseMessages []message, parseModels []mo
 				return parseNormalizeSelectedModelID(parseSwitchModel, parseModels, parseFallback)
 			}
 		}
-		if parseMessageItem.Role != roleAssistant {
-			continue
-		}
-		parseModelID := strings.TrimSpace(parseMessageItem.ModelID)
-		if parseModelID != "" {
-			return parseNormalizeSelectedModelID(parseModelID, parseModels, parseFallback)
-		}
 	}
 	return parseNormalizeSelectedModelID(parseFallback, parseModels, parseFallback)
 }

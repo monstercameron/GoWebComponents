@@ -36,6 +36,9 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 	parseCanvasRouteID := parseCurrentCanvasRouteID()
 
 	parseChatClientRef := ui.UseRef[chatpb.ChatServiceClient](nil)
+	// Fetch the server-owned catalog bootstrap once gRPC is ready and merge it into
+	// chatWizardBundle so server-managed copy replaces the client emergency fallback.
+	parseUseCatalogServerSync(parseCurrentState, parseChatClientRef, parseIntl.Locale())
 	parseMarkdownWorkerRef := ui.UseRef[*interop.Worker](nil)
 	parseMarkdownWorkerPoolRef := ui.UseRef[*interop.WorkerPool](nil)
 	parseMarkdownRenderInFlight := ui.UseRef(map[string]bool{})
@@ -113,7 +116,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 	parseTtsAudio := parseUseTTSAudio(parseCurrentState.ActiveConvID, parseModelCatalogState, parseChatClientRef, parseCurrentState.SelectedTTSProvider)
 	parseRedirectToAuthLanding := func(parseIntentPath string) {
 		parseStorePostLoginRouteIntent(parseIntentPath)
-		parseNav.Replace(authLandingRoute)
+		parseNav.Replace(authLoginRoute)
 	}
 	handleAuthFailure := func(parseErr error) bool {
 		if !handleUnauthenticatedRPC(parseApp, parseUserNameState, parseErr) {
@@ -145,6 +148,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 			parseRoleSummary = parseSession.GetRoleSummary()
 		}
 		parseApp.Dispatch(appAction{Type: appActionSetCanAccessAdmin, CanAccessAdmin: parseCanAccessAdminFromRoleSummary(parseRoleSummary)})
+		parseApp.Dispatch(appAction{Type: appActionSetIsSuperuser, IsSuperuser: parseRoleSummary != nil && parseRoleSummary.GetIsSuperuser()})
 		parseCurrentAuthPath := strings.TrimSpace(router.GetCurrentPath())
 		parseIntentPath := parseConsumePostLoginRouteIntent()
 		parsePostLoginPath := parseResolvePostLoginRoute(parseIntentPath, parseRoleSummary)
@@ -184,7 +188,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 		if !shouldRedirectUnauthenticatedRouteToLanding(parseCurrentPath, parseCurrentState.AuthResolved, parseCurrentState.Authenticated) {
 			return nil
 		}
-		if !shouldNavigateLandingRoute(strings.TrimSpace(router.GetCurrentPath()), authLandingRoute) {
+		if !shouldNavigateLandingRoute(strings.TrimSpace(router.GetCurrentPath()), authLoginRoute) {
 			return nil
 		}
 		chatLog.Warn("auth route guard redirected unauthenticated app route", logging.Fields{"path": parseCurrentPath})
@@ -295,7 +299,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 			parsePendingThreadRouteResolution.Set(parseThreadRoutePublicID)
 			parsePendingRootRouteWarningConvID.Set(0)
 			parseConversationList.ResolveRoute(parseThreadRoutePublicID)
-		case shouldResetDraftForRootRoute(parseThreadRoutePublicID, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID):
+		case shouldResetDraftForRootRoute(parseCurrentPath, parseThreadRoutePublicID, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID):
 			parsePendingThreadRouteResolution.Set("")
 			parseLastRouteMismatchWarning.Set("")
 			parsePendingRootRouteWarningConvID.Set(0)
@@ -307,7 +311,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 			parseApp.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: 0, ActiveConvPublicID: ""})
 			parseApp.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
 			parseApp.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
-		case shouldWarnPendingRootRoute(parseThreadRoutePublicID, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID):
+		case shouldWarnPendingRootRoute(parseCurrentPath, parseThreadRoutePublicID, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID):
 			parsePendingThreadRouteResolution.Set("")
 			parseLastRouteMismatchWarning.Set("")
 			if parsePendingRootRouteWarningConvID.Get() != parseCurrentState.ActiveConvID {
@@ -341,7 +345,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 			parseLastRouteNormalizationWarning.Set("")
 			return nil
 		}
-		if !shouldNormalizeActiveConversationRoute(parseThreadRoutePublicID, parseCurrentState.ActiveConvPublicID) {
+		if !shouldNormalizeActiveConversationRoute(parseCurrentPath, parseThreadRoutePublicID, parseCurrentState.ActiveConvPublicID) {
 			parseMismatchKey2 := parseRouteSyncMismatchKey(parseThreadRoutePublicID, parseCurrentState.ActiveConvPublicID)
 			if parseMismatchKey2 != "" && parseLastRouteNormalizationWarning.Get() != parseMismatchKey2 {
 				chatLog.Warn("suppressed route normalization while requested thread differs from active conversation", logging.Fields{
@@ -368,7 +372,8 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 		return nil
 	}, parseCurrentState.Authenticated, parseCurrentState.ActiveConvPublicID, parseCurrentState.CanvasSession.Active, parseCurrentState.CanvasSession.ArtifactID, parseCanvasRouteID, parseThreadRoutePublicID, parseCurrentPath)
 
-	parseView := parseDeriveAppViewState(parseCurrentState, parseCurrentPath, parseUserName, parseSidebarOpen, parseThoughtCacheByMessageState.Get(), parseCanvasCacheByMessageState.Get(), parseThreadCostSummary, parseAccountCostSummary, strings.TrimSpace(parseCanvasRouteID) != "", parseAdminDashboard)
+	parseAdminServerTools := parseUseAdminServerTools(parseCurrentState, parseChatClientRef, handleAuthFailure)
+	parseView := parseDeriveAppViewState(parseCurrentState, parseCurrentPath, parseUserName, parseSidebarOpen, parseThoughtCacheByMessageState.Get(), parseCanvasCacheByMessageState.Get(), parseThreadCostSummary, parseAccountCostSummary, strings.TrimSpace(parseCanvasRouteID) != "", parseAdminDashboard, parseUseCatalogServerSynced(), parseAdminServerTools)
 	parseOpenAdminDashboard := ui.UseEvent(func() {
 		if !parseApp.Get().CanAccessAdmin {
 			return
@@ -410,6 +415,9 @@ func ParseRun() {
 	parseRegisterRuntime2Regions()
 	parseR := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: chatRouteRoot})
 	parseR.Register(authLandingRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
+	})
+	parseR.Register(authLoginRoute, func(router.Attrs) *router.Element {
 		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())
 	})
 	parseR.Register(marketingHomeRoute, func(router.Attrs) *router.Element {

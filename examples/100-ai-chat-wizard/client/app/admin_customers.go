@@ -277,14 +277,22 @@ func renderAdminUserActionBand(parseCustomers adminCustomersController) ui.Node 
 		Class("mb-4 flex items-center gap-2 flex-wrap"),
 		If(parseData.MutationSuccess != "",
 			Div(
-				Class("w-full rounded-xl border border-green-500/20 bg-green-500/5 px-3 py-2 text-xs text-green-400"),
-				Text(parseData.MutationSuccess),
+				Class("w-full rounded-xl border border-green-500/20 bg-green-500/5 px-4 py-3"),
+				Div(Class("mb-1 text-[10px] uppercase tracking-[0.18em] text-green-400/55"), Text("Action receipt")),
+				P(Class("text-xs text-green-300"), Text(parseData.MutationSuccess)),
+				Div(
+					Class("mt-2 flex items-center gap-3 text-[10px] text-green-400/45"),
+					Span(Text("Recorded just now")),
+					Span(Class("text-green-400/20"), Text("·")),
+					Span(Text("Verify in user detail below")),
+				),
 			),
 		),
 		If(parseData.MutationError != "",
 			Div(
-				Class("w-full rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400"),
-				Text(parseData.MutationError),
+				Class("w-full flex flex-col gap-1 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400"),
+				Text(parseUserErrorMessage(parseData.MutationError)),
+				renderSupportIDChip(parseUserErrorRequestID(parseData.MutationError)),
 			),
 		),
 		// Disable button.
@@ -442,8 +450,9 @@ func renderAdminConfirmModal(parseCustomers adminCustomersController) ui.Node {
 			// Error banner.
 			If(parseData.MutationError != "",
 				Div(
-					Class("mb-4 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400"),
-					Text(parseData.MutationError),
+					Class("mb-4 flex flex-col gap-1 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400"),
+					Text(parseUserErrorMessage(parseData.MutationError)),
+					renderSupportIDChip(parseUserErrorRequestID(parseData.MutationError)),
 				),
 			),
 

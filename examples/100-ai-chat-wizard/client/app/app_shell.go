@@ -23,6 +23,7 @@ type appViewState struct {
 	AuthResolved           bool
 	Authenticated          bool
 	CanAccessAdmin         bool
+	IsSuperuser            bool
 	AuthMode               string
 	AuthError              string
 	AuthSubmitting         bool
@@ -65,18 +66,21 @@ type appViewState struct {
 	AccountCostSummary     accountCostSummary
 	ThinkingSupported      bool
 	MarkdownWorkerFallback bool
+	CatalogServerSynced    bool
 	CanvasSession          canvasSessionState
 	CanvasOnlyRoute        bool
 	AdminDashboardData     adminDashboardData
+	AdminServerTools       adminServerToolsData
 }
 
-func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string, parseUserName string, isSidebarOpen bool, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseThreadSummary threadCostSummary, parseAccountSummary accountCostSummary, isCanvasOnlyRoute bool, parseAdminDashboard adminDashboardData) appViewState {
+func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string, parseUserName string, isSidebarOpen bool, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseThreadSummary threadCostSummary, parseAccountSummary accountCostSummary, isCanvasOnlyRoute bool, parseAdminDashboard adminDashboardData, isCatalogServerSynced bool, parseAdminServerTools adminServerToolsData) appViewState {
 	return appViewState{
 		CurrentPath:            parseCurrentPath,
 		GRPCReady:              parseCurrentState.GRPCReady,
 		AuthResolved:           parseCurrentState.AuthResolved,
 		Authenticated:          parseCurrentState.Authenticated,
 		CanAccessAdmin:         parseCurrentState.CanAccessAdmin,
+		IsSuperuser:            parseCurrentState.IsSuperuser,
 		AuthMode:               parseCurrentState.AuthMode,
 		AuthError:              parseCurrentState.AuthError,
 		AuthSubmitting:         parseCurrentState.AuthSubmitting,
@@ -119,9 +123,11 @@ func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string
 		AccountCostSummary:     parseAccountSummary,
 		ThinkingSupported:      parseModelSupportsThinking(parseCurrentState.SelectedModel, parseCurrentState.ModelOptions, parseCurrentState.DefaultModel),
 		MarkdownWorkerFallback: parseCurrentState.MarkdownWorkerFallback,
+		CatalogServerSynced:    isCatalogServerSynced,
 		CanvasSession:          parseCurrentState.CanvasSession,
 		CanvasOnlyRoute:        isCanvasOnlyRoute,
 		AdminDashboardData:     parseAdminDashboard,
+		AdminServerTools:       parseAdminServerTools,
 	}
 }
 
@@ -156,13 +162,18 @@ func shouldRenderLandingShellEarly(parseView appViewState) bool {
 	return isLandingRoute(parseView.CurrentPath) && !parseView.Authenticated
 }
 
+// shouldRenderAuthLoadingShell returns whether the app should still show the boot/auth loading shell instead of the resolved route UI.
+func shouldRenderAuthLoadingShell(parseView appViewState) bool {
+	return !parseView.AuthResolved
+}
+
 func renderAppShell(parseProps appShellProps) ui.Node {
 	parseContent := renderWorkspaceShell(parseProps)
 	isWorkspace := true
 	if shouldRenderLandingShellEarly(parseProps.View) {
 		parseContent = renderLandingShell(parseProps.Intl, parseProps.View, parseProps.AuthSession)
 		isWorkspace = false
-	} else if !parseProps.View.GRPCReady || !parseProps.View.AuthResolved {
+	} else if shouldRenderAuthLoadingShell(parseProps.View) {
 		parseContent = ui.Component(renderAuthLoadingShell, authLoadingShellProps{View: parseProps.View})
 		isWorkspace = false
 	} else if !parseProps.View.Authenticated {
@@ -189,9 +200,9 @@ func renderAppShell(parseProps appShellProps) ui.Node {
 				"data-current-locale": parseProps.Intl.Locale(),
 			}}),
 			Class(parseOuterClass),
-			OnMouseUp(parseProps.QuoteSelection.HandleSelectionMouse),
 			parseContent,
 		),
+		renderDevToolsOverlay(parseProps.View),
 	)
 }
 
@@ -268,6 +279,7 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 			parseProps.ScrollMemory,
 			parseProps.View.CanvasSession,
 			parseProps.CanvasWorkspace,
+			parseProps.QuoteSelection.HandleSelectionMouse,
 		),
 		If(parseProps.View.CanvasSession.Active && parseProps.View.CanvasSession.LayoutMode == canvasLayoutOverlay,
 			Div(Class("fixed inset-0 z-40 flex min-h-0 min-w-0 bg-black/72 backdrop-blur-md overlay-in"),
@@ -278,6 +290,7 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 		renderDeleteConversationModal(parseProps.Intl, parseProps.View, parseProps.StopBubble, parseProps.ConversationList),
 		renderSpeechUpgradeModal(parseProps.Intl, parseProps.ShowSpeechModal, parseProps.SpeechModalError, parseProps.StopBubble, parseProps.CancelSpeechModal, parseProps.ConfirmSpeechModal),
 		renderSettingsModal(parseProps.Intl, parseProps.View, parseProps.StopBubble, parseProps.ProfileSettings, parseProps.AuthSession),
+		renderSettingsSaveErrorToast(parseProps.View, parseProps.ProfileSettings.DismissError),
 	)
 }
 
@@ -305,6 +318,26 @@ func renderDeleteConversationModal(parseIntl i18n.Runtime, parseView appViewStat
 					Text(parseIntl.T(chatI18nNamespace, "sidebar.deleteConversation")),
 				),
 			),
+		),
+	)
+}
+
+// renderSettingsSaveErrorToast renders a fixed amber toast when a settings save fails
+// after the modal has already closed, so the user still sees the error.
+func renderSettingsSaveErrorToast(parseView appViewState, parseDismiss ui.Handler) ui.Node {
+	if parseView.ShowSettingsModal || strings.TrimSpace(parseView.SettingsError) == "" {
+		return nil
+	}
+	return Div(
+		Class("fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-start gap-3 rounded-2xl border border-[#f59e0b]/24 bg-[#1a1200] px-4 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.4)] backdrop-blur-md modal-in max-w-sm w-[calc(100%-2rem)]"),
+		Span(Class("flex flex-col flex-1 text-sm text-[#ffd7a3] leading-5"),
+			Text(parseUserErrorMessage(parseView.SettingsError)),
+			renderSupportIDChip(parseUserErrorRequestID(parseView.SettingsError)),
+		),
+		Button(
+			Class("ml-1 flex-none text-[#ffd7a3]/60 hover:text-[#ffd7a3] transition-colors text-base leading-none"),
+			OnClick(parseDismiss),
+			Text("\u00d7"),
 		),
 	)
 }
@@ -359,6 +392,7 @@ func renderSettingsModal(parseIntl i18n.Runtime, parseView appViewState, parseSt
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionMemories, parseIntl.T(chatI18nNamespace, "modal.memories"), parseIntl.T(chatI18nNamespace, "modal.memoriesHelp"), parseProfileSettings.NavigateSection),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionLanguage, parseIntl.T(chatI18nNamespace, "modal.language"), parseLocaleLabel(parseView.LocaleInput), parseProfileSettings.NavigateSection),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionBilling, parseIntl.T(chatI18nNamespace, "modal.billingTitle"), parseIntl.T(chatI18nNamespace, "modal.billingNavSummary"), parseProfileSettings.NavigateSection),
+							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionSecurity, parseIntl.T(chatI18nNamespace, "modal.securityTitle"), parseIntl.T(chatI18nNamespace, "modal.securityNavSummary"), parseProfileSettings.NavigateSection),
 						),
 					),
 				),
@@ -563,6 +597,14 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 			),
 		)
 	case settingsSectionMemories:
+		// Count auto-extracted (non-managed) session memories for extraction parity feedback.
+		parseSessionMemCount := 0
+		for _, parseM := range parseView.UserMemories {
+			if !isManagedUserNameMemory(parseM) {
+				parseSessionMemCount++
+			}
+		}
+		isParseExtractionActive := parseSessionMemCount > 0
 		return Div(
 			ID(settingsSectionMemories),
 			Class("flex flex-col gap-4"),
@@ -575,6 +617,24 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 					Class("rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20"),
 					OnClick(parseProfileSettings.AddMemory),
 					Text(parseIntl.T(chatI18nNamespace, "modal.memoryAdd")),
+				),
+			),
+			// Extraction status row — visible parity signal showing whether the AI is producing memories.
+			Div(Class("flex items-start justify-between gap-3 rounded-[1.4rem] border border-white/8 bg-white/[0.02] px-4 py-3"),
+				Div(Class("min-w-0 flex-1"),
+					If(isParseExtractionActive,
+						P(Class("text-sm text-white/65"), Text("Session memories are being extracted from your chats.")),
+					),
+					If(!isParseExtractionActive,
+						P(Class("text-sm text-white/45"), Text("No session memories yet — the AI will build these automatically after your chats.")),
+					),
+					P(Class("mt-1 text-xs text-white/30"), Text("Memory extraction depends on your current AI model. Some models may not yet support automatic extraction.")),
+				),
+				If(isParseExtractionActive,
+					Span(Class("shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-emerald-400/80"), Text("Active")),
+				),
+				If(!isParseExtractionActive,
+					Span(Class("shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-amber-400/60"), Text("Pending")),
 				),
 			),
 			If(len(parseView.UserMemories) == 0,
@@ -610,12 +670,16 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 		parseHasUsage := parseView.AccountCostSummary.HasAnyExactCosts
 		parseHasBreakdown := parseView.AccountCostSummary.PlatformFee > 0 || parseHasUsage
 		parseCoverage := parseBillingCoverageText(parseView.AccountCostSummary)
+		parsePlanName := parseView.AccountCostSummary.PlanLabel
+		if parsePlanName == "" {
+			parsePlanName = parseIntl.T(chatI18nNamespace, "modal.billingPlanValue")
+		}
 		return Div(
 			ID(settingsSectionBilling),
 			Class("flex flex-col gap-4"),
 			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
 				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPlanLabel"))),
-				P(Class("mt-3 text-lg font-semibold text-white"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPlanValue"))),
+				P(Class("mt-3 text-lg font-semibold text-white"), Text(parsePlanName)),
 				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.billingHelp"))),
 			),
 			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
@@ -644,6 +708,33 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 					),
 				),
 			),
+			If(len(parseView.AccountCostSummary.Invoices) > 0,
+				Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Recent invoices")),
+					Div(Class("mt-3 flex flex-col gap-2"),
+						Map(parseView.AccountCostSummary.Invoices, func(parseInv billingInvoiceRow) ui.Node {
+							parsePeriodLabel := parseInv.PeriodStart
+							if len(parsePeriodLabel) > 10 {
+								parsePeriodLabel = parsePeriodLabel[:10]
+							}
+							if parsePeriodLabel == "" {
+								parsePeriodLabel = "Invoice"
+							}
+							isParseUnpaid := parseInv.Status == "open" || parseInv.Status == "past_due"
+							return Div(
+								Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+								P(Class("text-sm text-white/70"), Text(parsePeriodLabel)),
+								Div(Class("flex items-center gap-2"),
+									If(isParseUnpaid,
+										Span(Class("text-xs text-amber-400 px-1.5 py-0.5 rounded bg-amber-900/30"), Text(parseInv.Status)),
+									),
+									P(Class("text-sm font-medium text-white"), Text(formatCostUSD(float64(parseInv.TotalCents)/100.0))),
+								),
+							)
+						}),
+					),
+				),
+			),
 			If(parseCoverage != "",
 				Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
 					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.billingCoverageLabel"))),
@@ -654,6 +745,8 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 				),
 			),
 		)
+	case settingsSectionSecurity:
+		return renderSecuritySettingsPane(parseIntl, parseView)
 	default:
 		return Div(
 			ID(settingsSectionProfile),
@@ -711,6 +804,8 @@ func settingsSectionTitle(parseIntl i18n.Runtime, parseActiveSection string) str
 		return parseIntl.T(chatI18nNamespace, "modal.language")
 	case settingsSectionBilling:
 		return parseIntl.T(chatI18nNamespace, "modal.billingTitle")
+	case settingsSectionSecurity:
+		return parseIntl.T(chatI18nNamespace, "modal.securityTitle")
 	default:
 		return parseIntl.T(chatI18nNamespace, "modal.displayName")
 	}
@@ -735,6 +830,8 @@ func settingsSectionDescription(parseIntl i18n.Runtime, parseView appViewState, 
 		return parseLocaleLabel(parseView.LocaleInput)
 	case settingsSectionBilling:
 		return parseIntl.T(chatI18nNamespace, "modal.billingHelp")
+	case settingsSectionSecurity:
+		return parseIntl.T(chatI18nNamespace, "modal.securityHelp")
 	default:
 		return parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder")
 	}
@@ -756,6 +853,8 @@ func settingsSectionEyebrow(parseActiveSection string) string {
 		return "Language"
 	case settingsSectionBilling:
 		return "Billing"
+	case settingsSectionSecurity:
+		return "Security"
 	default:
 		return "Profile"
 	}
@@ -796,4 +895,63 @@ func parseToggleThoughtSectionHandler(parseApp ui.Reducer[appState, appAction]) 
 		}
 		parseApp.Dispatch(appAction{Type: appActionToggleThoughtSection, ThoughtSectionKey: parseSectionKey})
 	})
+}
+
+// renderSecuritySettingsPane renders the linked-login-methods surface in the Security settings section.
+// It is display-only — no proto RPC for mutating linked providers exists yet.
+func renderSecuritySettingsPane(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
+	c := chatI18nNamespace
+	// Determine whether the account has a password set from the session email presence
+	// (password login is always available when the user authenticated with email).
+	isParsePasswordLinked := strings.TrimSpace(parseView.SessionEmail) != ""
+
+	return Div(
+		ID(settingsSectionSecurity),
+		Class("flex flex-col gap-4"),
+		// linked methods header card
+		Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(c, "modal.securityLinkedMethodsLabel"))),
+			P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(c, "modal.securityLinkedMethodsHelp"))),
+		),
+		// password row
+		Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			Div(Class("flex items-center justify-between gap-3"),
+				Div(
+					P(Class("text-sm font-medium text-white"), Text(parseIntl.T(c, "modal.securityPasswordMethod"))),
+					P(Class("mt-1 text-xs text-white/45"), Text(parseView.SessionEmail)),
+				),
+				If(isParsePasswordLinked,
+					Span(Class("shrink-0 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300"), Text(parseIntl.T(c, "modal.securityLinked"))),
+				),
+				If(!isParsePasswordLinked,
+					Span(Class("shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/40"), Text(parseIntl.T(c, "modal.securityNotLinked"))),
+				),
+			),
+		),
+		// Google row (always shown — not yet linked, no RPC to link/unlink)
+		Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			Div(Class("flex items-center justify-between gap-3"),
+				Div(
+					P(Class("text-sm font-medium text-white"), Text(parseIntl.T(c, "modal.securityGoogleMethod"))),
+					P(Class("mt-1 text-xs text-white/45"), Text(parseIntl.T(c, "modal.securityGoogleHelp"))),
+				),
+				Span(Class("shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/40"), Text(parseIntl.T(c, "modal.securityNotLinked"))),
+			),
+		),
+		// Enterprise SSO row (always shown — availability depends on workspace plan)
+		Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			Div(Class("flex items-center justify-between gap-3"),
+				Div(
+					P(Class("text-sm font-medium text-white"), Text(parseIntl.T(c, "modal.securitySSOMethod"))),
+					P(Class("mt-1 text-xs text-white/45"), Text(parseIntl.T(c, "modal.securitySSOHelp"))),
+				),
+				Span(Class("shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-xs font-medium text-white/30"), Text(parseIntl.T(c, "modal.securityUnavailable"))),
+			),
+		),
+		// informational note about local password always being available for testing
+		Div(Class("rounded-[1.4rem] border border-amber-400/15 bg-amber-500/[0.05] p-4 sm:p-5"),
+			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-amber-300/60"), Text(parseIntl.T(c, "modal.securityNoteLabel"))),
+			P(Class("mt-2 text-sm leading-6 text-white/45"), Text(parseIntl.T(c, "modal.securityNoteBody"))),
+		),
+	)
 }

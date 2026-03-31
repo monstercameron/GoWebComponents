@@ -100,14 +100,15 @@ func renderLandingWhySection(parseIntl i18n.Runtime, _ string) ui.Node {
 						renderCtaSecondary(parseIntl.T(n, "why.secondaryCta"), marketingPricingRoute),
 					),
 				),
-				// right: stacked proof cards
+				// right: stacked proof cards anchored to real operational surfaces
 				Div(
 					Class("grid gap-4 sm:gap-5 scroll-reveal scroll-reveal-d1"),
 					Map(parseProofKeys, func(parseK string) ui.Node {
 						return Div(
 							Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-6"),
-							Div(Class("metric-glow font-mono-tech text-3xl font-bold text-[#00d9ff] sm:text-4xl"), Text(parseIntl.T(n, parseK+".number"))),
-							Div(Class("mt-2 text-base font-semibold text-[#f0f0f8]"), Text(parseIntl.T(n, parseK+".title"))),
+							// surface label — small-cap eyebrow, not a decorative metric number
+							Div(Class("mb-2 inline-flex rounded-full border border-[#00d9ff]/20 bg-[#00d9ff]/8 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00d9ff]/80"), Text(parseIntl.T(n, parseK+".number"))),
+							Div(Class("text-base font-semibold text-[#f0f0f8]"), Text(parseIntl.T(n, parseK+".title"))),
 							P(Class("mt-2 text-sm leading-6 text-[#8a8a9a]"), Text(parseIntl.T(n, parseK+".body"))),
 						)
 					}),
@@ -181,6 +182,297 @@ func renderLandingPricingSection(parseIntl i18n.Runtime, _ string) ui.Node {
 						),
 					)
 				}),
+			),
+		),
+	)
+}
+
+// renderLandingPersonaBand renders a trio of who-this-is-for cards with a before/after framing
+// for each named operator persona.
+func renderLandingPersonaBand() ui.Node {
+	type personaCard struct {
+		role, before, after string
+	}
+	parseCards := []personaCard{
+		{
+			role:   "Support lead drowning in repeat questions",
+			before: "Scattered prompts, no shared history, no audit trail.",
+			after:  "One workspace routing repeated questions to grounded answers with per-thread usage visibility.",
+		},
+		{
+			role:   "Ops manager juggling too many disconnected tools",
+			before: "Manual handoffs, billing gaps, no clear who-changed-what.",
+			after:  "Admin controls, audit log, billing visibility, and usage review from a single dashboard.",
+		},
+		{
+			role:   "Internal knowledge team keeping answers consistent",
+			before: "Different teammates getting different answers from the same prompt.",
+			after:  "Shared workspace defaults, model routing, and admin oversight of every chat send.",
+		},
+	}
+	return Section(
+		Class("pb-16 sm:pb-20 md:pb-24"),
+		Div(
+			Class("mx-auto w-[min(1200px,calc(100%-24px))] sm:w-[min(1200px,calc(100%-32px))] lg:w-[min(1200px,calc(100%-40px))]"),
+			Div(
+				Class("mb-8 sm:mb-10 scroll-reveal"),
+				renderSectionEyebrow("Who this is for"),
+				H2(Class("font-display mt-4 max-w-[24ch] text-3xl font-bold leading-tight tracking-[-0.04em] text-[#f0f0f8] sm:text-4xl"),
+					Text("Built for operators, not just users"),
+				),
+				P(Class("mt-4 max-w-[54ch] text-base leading-7 text-[#8a8a9a] sm:leading-8"),
+					Text("If you run a team that depends on consistent, accountable AI answers, RelayDesk was designed for your exact situation."),
+				),
+			),
+			Div(
+				Class("grid gap-4 sm:gap-5 lg:grid-cols-3 scroll-reveal scroll-reveal-d1"),
+				Map(parseCards, func(parseC personaCard) ui.Node {
+					return Div(
+						Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-6 py-7"),
+						P(Class("mb-5 text-sm font-semibold leading-snug text-[#f0f0f8]"), Text(parseC.role)),
+						Div(
+							Class("space-y-3"),
+							Div(
+								Class("rounded-xl border border-red-400/12 bg-red-500/5 px-4 py-3"),
+								Div(Class("mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-red-400/70"), Text("Before")),
+								P(Class("text-sm leading-6 text-[#8a8a9a]"), Text(parseC.before)),
+							),
+							Div(
+								Class("rounded-xl border border-[#00d9ff]/12 bg-[#00d9ff]/5 px-4 py-3"),
+								Div(Class("mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00d9ff]/70"), Text("After")),
+								P(Class("text-sm leading-6 text-[#8a8a9a]"), Text(parseC.after)),
+							),
+						),
+					)
+				}),
+			),
+		),
+	)
+}
+
+// renderLandingHowItWorksSection explains the product loop in four concrete steps anchored to real shipped surfaces.
+func renderLandingHowItWorksSection() ui.Node {
+	type workStep struct {
+		num, title, body string
+	}
+	parseSteps := []workStep{
+		{
+			num:   "01",
+			title: "Connect your workspace",
+			body:  "Set model routing, workspace defaults, and team access in Settings. Every chat inherits these choices without manual setup per thread.",
+		},
+		{
+			num:   "02",
+			title: "Start a workflow-backed chat",
+			body:  "Open a thread, pick your model, and send. The system logs every turn with cost, model ID, and latency from the first message.",
+		},
+		{
+			num:   "03",
+			title: "Route to the right model",
+			body:  "Admins pick which providers are active, set fallback order, and review routing cost from the Providers dashboard slice.",
+		},
+		{
+			num:   "04",
+			title: "Review usage and admin actions",
+			body:  "Every billing event, session, and admin mutation is visible in Business, Customers, and Ops. Nothing is hidden between dashboards.",
+		},
+	}
+	return Section(
+		Class("pb-16 sm:pb-20 md:pb-24"),
+		Div(
+			Class("mx-auto w-[min(1200px,calc(100%-24px))] sm:w-[min(1200px,calc(100%-32px))] lg:w-[min(1200px,calc(100%-40px))]"),
+			Div(
+				Class("mb-8 sm:mb-10 scroll-reveal"),
+				renderSectionEyebrow("How it works"),
+				H2(Class("font-display mt-4 max-w-[22ch] text-3xl font-bold leading-tight tracking-[-0.04em] text-[#f0f0f8] sm:text-4xl"),
+					Text("The product loop, in four steps"),
+				),
+			),
+			Div(
+				Class("grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4 scroll-reveal scroll-reveal-d1"),
+				Map(parseSteps, func(parseS workStep) ui.Node {
+					return Div(
+						Class("rounded-2xl border border-white/[0.06] bg-[#111118] p-5 sm:p-6"),
+						Div(Class("font-mono-tech mb-4 text-[2.5rem] font-bold leading-none tracking-tight text-white/10"), Text(parseS.num)),
+						P(Class("text-base font-semibold text-[#f0f0f8]"), Text(parseS.title)),
+						P(Class("mt-2 text-sm leading-6 text-[#8a8a9a]"), Text(parseS.body)),
+					)
+				}),
+			),
+		),
+	)
+}
+
+// renderLandingPreviewCluster renders three side-by-side product interface panels showing the chat,
+// settings, and dashboard surfaces as markup-based mockups. Panels are truthful to the shipped product.
+func renderLandingPreviewCluster() ui.Node {
+	return Section(
+		Class("pb-16 sm:pb-20 md:pb-24"),
+		Div(
+			Class("mx-auto w-[min(1200px,calc(100%-24px))] sm:w-[min(1200px,calc(100%-32px))] lg:w-[min(1200px,calc(100%-40px))]"),
+			Div(
+				Class("mb-8 sm:mb-10 scroll-reveal"),
+				renderSectionEyebrow("See it in action"),
+				H2(Class("font-display mt-4 max-w-[24ch] text-3xl font-bold leading-tight tracking-[-0.04em] text-[#f0f0f8] sm:text-4xl"),
+					Text("The product as software"),
+				),
+				P(Class("mt-4 max-w-[52ch] text-base leading-7 text-[#8a8a9a] sm:leading-8"),
+					Text("Three surfaces ship together: a workspace chat session, a settings and billing panel, and an admin dashboard. Each one is functional and live in this example."),
+				),
+			),
+			Div(
+				Class("grid gap-4 sm:gap-5 lg:grid-cols-3 scroll-reveal scroll-reveal-d1"),
+				renderLandingPreviewPanel("Chat workspace", "Thread view with model selector, streaming reply, cost logged per turn.", renderChatPreviewMockup()),
+				renderLandingPreviewPanel("Settings & billing", "Workspace defaults, model preference, display name, and session billing summary.", renderSettingsPreviewMockup()),
+				renderLandingPreviewPanel("Admin dashboard", "Business, customers, chats, providers, and ops from one admin surface.", renderDashboardPreviewMockup()),
+			),
+		),
+	)
+}
+
+// renderLandingPreviewPanel wraps one mock-UI panel with a window bar and a captioned label below.
+func renderLandingPreviewPanel(parseTitle, parseCaption string, parseContent ui.Node) ui.Node {
+	return Div(
+		Class("flex flex-col"),
+		Div(
+			Class("overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0e0e14]"),
+			Div(
+				Class("flex items-center gap-1.5 border-b border-white/[0.06] px-3 py-2.5"),
+				Div(Class("h-1.5 w-1.5 rounded-full bg-white/15")),
+				Div(Class("h-1.5 w-1.5 rounded-full bg-white/10")),
+				Div(Class("h-1.5 w-1.5 rounded-full bg-white/8")),
+				Div(Class("ml-3 h-3.5 flex-1 rounded-full bg-white/5")),
+			),
+			parseContent,
+		),
+		Div(
+			Class("mt-3 px-1"),
+			P(Class("text-sm font-semibold text-[#f0f0f8]"), Text(parseTitle)),
+			P(Class("mt-1 text-xs leading-5 text-[#8a8a9a]"), Text(parseCaption)),
+		),
+	)
+}
+
+// renderChatPreviewMockup renders a markup-based chat interface mock for the preview cluster.
+func renderChatPreviewMockup() ui.Node {
+	return Div(
+		Class("flex gap-3 p-4"),
+		Div(
+			Class("w-20 shrink-0"),
+			Div(Class("mb-2 h-5 rounded-lg bg-white/5")),
+			Div(Class("space-y-1"),
+				Div(Class("h-6 rounded-lg bg-[#132235]")),
+				Div(Class("h-6 rounded-lg bg-white/[0.03]")),
+				Div(Class("h-6 rounded-lg bg-white/[0.03]")),
+			),
+		),
+		Div(
+			Class("flex min-w-0 flex-1 flex-col gap-3"),
+			Div(Class("ml-auto w-4/5 rounded-2xl border border-[#8fffd8]/10 bg-[#132235] px-3 py-2"),
+				Div(Class("mb-1 h-1.5 w-3/4 rounded bg-white/20")),
+				Div(Class("h-1.5 w-1/2 rounded bg-white/12")),
+			),
+			Div(Class("w-full rounded-[1.25rem] border border-[#00d9ff]/10 bg-[#0d1a28] px-3 py-3"),
+				Div(Class("mb-2 flex items-center gap-2"),
+					Div(Class("h-4 w-4 rounded-full border border-[#00d9ff]/30 bg-[#00d9ff]/15")),
+					Div(Class("h-1.5 w-12 rounded bg-[#00d9ff]/25")),
+				),
+				Div(Class("space-y-1.5"),
+					Div(Class("h-1.5 w-full rounded bg-white/15")),
+					Div(Class("h-1.5 w-5/6 rounded bg-white/12")),
+					Div(Class("h-1.5 w-4/6 rounded bg-white/10")),
+				),
+			),
+			Div(Class("mt-1 flex items-center gap-2 rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-3 py-2"),
+				Div(Class("h-1.5 flex-1 rounded bg-white/10")),
+				Div(Class("h-5 w-5 rounded-full bg-white/90")),
+			),
+		),
+	)
+}
+
+// renderSettingsPreviewMockup renders a markup-based settings panel mock for the preview cluster.
+func renderSettingsPreviewMockup() ui.Node {
+	parseRows := []string{"Display name", "Email", "Model", "Thinking effort", "Billing"}
+	return Div(
+		Class("space-y-2 p-4"),
+		Div(Class("mb-3 h-4 w-20 rounded-lg bg-white/8")),
+		Map(parseRows, func(parseRow string) ui.Node {
+			return Div(
+				Class("flex items-center justify-between rounded-xl border border-white/[0.06] px-3 py-2"),
+				Div(Class("text-[11px] text-white/45"), Text(parseRow)),
+				Div(Class("h-1.5 w-14 rounded bg-white/12")),
+			)
+		}),
+	)
+}
+
+// renderDashboardPreviewMockup renders a markup-based admin dashboard mock for the preview cluster.
+func renderDashboardPreviewMockup() ui.Node {
+	parseTiles := []string{"Business", "Customers", "Chats", "Providers", "Ops"}
+	return Div(
+		Class("p-4"),
+		Div(Class("mb-3 flex items-center gap-2"),
+			Div(Class("h-4 w-16 rounded-lg bg-white/8")),
+			Div(Class("ml-auto h-3.5 w-14 rounded-full border border-white/10 bg-white/[0.04]")),
+		),
+		Div(
+			Class("grid grid-cols-2 gap-2"),
+			Map(parseTiles, func(parseTile string) ui.Node {
+				return Div(
+					Class("rounded-xl border border-white/8 bg-white/[0.03] px-3 py-3"),
+					Div(Class("text-[11px] text-white/50 mb-1.5"), Text(parseTile)),
+					Div(Class("h-1.5 w-full rounded bg-white/10")),
+					Div(Class("mt-1 h-1.5 w-4/5 rounded bg-white/8")),
+				)
+			}),
+		),
+	)
+}
+
+// renderLandingFrameworkCalloutStrip renders a compact GWC framework signal strip for framework-learner audiences.
+// It names the live GWC patterns used in RelayDesk and links each one to the README anchor or source.
+func renderLandingFrameworkCalloutStrip() ui.Node {
+	type parseCallout struct {
+		parseLabel string
+		parseDesc  string
+	}
+	parseCallouts := []parseCallout{
+		{"SSR bootstrap", "Server-owned shell HTML + JS loader. WASM mounts on top."},
+		{"Typed routes", "One Go WASM binary owns every public, auth, and workspace route."},
+		{"Streaming chat", "gRPC ChatChunk deltas applied incrementally via GoGRPCBridge."},
+		{"Worker tasks", "Background WASM worker offloads markdown and render metadata."},
+		{"Cross-tab sync", "state.Atom syncs sidebar, theme, and model selection across tabs."},
+		{"Server functions", "Typed gRPC RPCs — auth, chat, settings, admin, superuser."},
+	}
+	return Section(
+		Class("pb-12 sm:pb-14"),
+		Div(
+			Class("mx-auto w-[min(1200px,calc(100%-24px))] sm:w-[min(1200px,calc(100%-32px))] lg:w-[min(1200px,calc(100%-40px))]"),
+			Div(
+				Class("rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-6 sm:px-7 sm:py-8"),
+				Div(
+					Class("mb-5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"),
+					Div(
+						Div(Class("text-[10px] uppercase tracking-[0.18em] text-white/30"), Text("Built with GoWebComponents")),
+						P(Class("mt-1 text-sm font-medium text-white/60"), Text("Live framework patterns in this example")),
+					),
+					A(
+						Href("https://github.com/monstercameron/GoWebComponents"),
+						Class("mt-3 inline-flex items-center text-xs font-medium text-[#00d9ff] hover:text-white transition-colors sm:mt-0"),
+						Text("GWC source →"),
+					),
+				),
+				Div(
+					Class("grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"),
+					Map(parseCallouts, func(parseC parseCallout) ui.Node {
+						return Div(
+							Class("rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-3"),
+							Div(Class("mb-1 text-[11px] font-semibold text-[#00d9ff]/80"), Text(parseC.parseLabel)),
+							P(Class("text-[10px] leading-4 text-white/35"), Text(parseC.parseDesc)),
+						)
+					}),
+				),
 			),
 		),
 	)

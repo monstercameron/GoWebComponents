@@ -45,12 +45,16 @@ func renderDashboardDeniedBanner() ui.Node {
 
 // renderDashboardErrorBanner renders a general error notice for failed data fetches.
 func renderDashboardErrorBanner(parseErr string) ui.Node {
-	_ = parseErr
+	parseMessage := parseUserErrorMessage(parseErr)
+	if parseMessage == "" {
+		parseMessage = parseResolveUserFallbackMessage(userErrorScopeDashboard)
+	}
 	return Div(
 		ID("dashboard-error-banner"),
 		Class("rounded-[1.4rem] border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 text-sm text-yellow-400"),
 		P(Class("font-medium"), Text("Data unavailable")),
-		P(Class("mt-1 text-xs text-yellow-400/70"), Text(parseBuildUserErrorText(userErrorScopeDashboard, nil))),
+		P(Class("mt-1 text-xs text-yellow-400/70"), Text(parseMessage)),
+		renderSupportIDChip(parseUserErrorRequestID(parseErr)),
 	)
 }
 
@@ -373,7 +377,7 @@ func renderDashboardProvidersTable(parseSnaps []adminProviderRow) ui.Node {
 
 // â”€â”€â”€ Ops slice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// renderDashboardOps renders the Ops / platform health slice.
+// renderDashboardOps renders the Ops / platform health slice plus the superuser server-tools surface.
 func renderDashboardOps(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
 	_ = parseIntl
 	parseData := parseView.AdminDashboardData
@@ -401,6 +405,7 @@ func renderDashboardOps(parseIntl i18n.Runtime, parseView appViewState) ui.Node 
 		),
 		renderDashboardSectionHeader("Daily usage (30 days)"),
 		renderDashboardDailyTable(parseData.DailyUsage),
+		renderDashboardServerToolsPanel(parseView),
 	)
 }
 

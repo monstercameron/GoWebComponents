@@ -85,7 +85,7 @@ func TestNormalizeSelectedModelIDHandlesAliasesAndFallbacks(parseT *testing.T) {
 	}
 }
 
-func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(parseT *testing.T) {
+func TestSelectedModelForConversationPrefersLatestSwitchThenFallback(parseT *testing.T) {
 	parseT.Parallel()
 
 	parseTests := []struct {
@@ -104,16 +104,16 @@ func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(parseT *te
 			want:     "gpt-5.4-nano",
 		},
 		{
-			name: "blank switch falls back to latest assistant model",
+			name: "blank switch keeps fallback instead of inheriting assistant model",
 			messages: []message{
 				{Role: roleAssistant, ModelID: "gpt-5.4"},
 				{Role: roleSwitch, Content: "   "},
 			},
 			fallback: testDefaultModel,
-			want:     "gpt-5.4",
+			want:     testDefaultModel,
 		},
 		{
-			name: "unknown assistant model falls back to default",
+			name: "assistant-only history keeps fallback",
 			messages: []message{
 				{Role: roleAssistant, ModelID: "unknown-model"},
 			},

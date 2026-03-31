@@ -5,9 +5,10 @@ package app
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/server/catalog"
+	catalog "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/client/catalog"
 	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -45,6 +46,9 @@ func parseChatWizardRoot(parseProps chatWizardRouteProps) ui.Node {
 		PersistenceKey:   chatLocalePersistenceKey,
 		DetectBrowser:    true,
 	})
+	// Observe the catalog version atom so this root re-renders when the server catalog
+	// bootstrap merges into chatWizardBundle, propagating updated strings to all children.
+	_ = state.UseAtom(chatCatalogVersionAtomKey, 0).Get()
 	return i18n.Provider(i18n.ProviderProps{
 		Locale: parseLocale,
 		Bundle: chatWizardBundle,

@@ -86,8 +86,8 @@ func TestParseBuildChatJourneyState(parseT *testing.T) {
 			},
 			isStreaming:     false,
 			wantStageID:     "complete",
-			wantStepLabel:   "Step 7 of 7 - First reply complete",
-			wantHeadingText: "First reply delivered",
+			wantStepLabel:   "Step 7 of 7 - Conversation ready",
+			wantHeadingText: "Conversation ready",
 			wantPlaceholder: "Ask a follow-up...",
 		},
 		{
@@ -100,8 +100,8 @@ func TestParseBuildChatJourneyState(parseT *testing.T) {
 			},
 			isStreaming:     false,
 			wantStageID:     "complete",
-			wantStepLabel:   "Step 7 of 7 - Active thread",
-			wantHeadingText: "Continue the conversation",
+			wantStepLabel:   "Step 7 of 7 - Conversation ready",
+			wantHeadingText: "Conversation ready",
 			wantPlaceholder: "Continue the thread...",
 		},
 	}

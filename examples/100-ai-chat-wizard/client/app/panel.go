@@ -14,7 +14,7 @@ import (
 func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback bool, parseInputVal string, parseOnInput, parseOnKey, parseOnSend, parseApplyStarterPrompt ui.Handler, isParseCanAccessAdmin bool, parseOpenAdminEntry ui.Handler,
 	parseEditIdx int, parseEditText string, parseStartEdit, parseCancelEdit, handleEditChange, parseSubmitEdit, handleEditKey, parseDoFork, parseOpenCanvas, parseToggleThoughtSection ui.Handler,
 	parseModelOptions []modelOption, parseDefaultModelID string, parseThreadCostSummary threadCostSummary, parseAccountCostSummary accountCostSummary,
-	parseCurModel string, setProvider, setModel ui.Handler, isThinkingEnabled bool, parseThinkingEffort string, isThinkingSupported bool, setThinkingMode ui.Handler, parseUserInitials string, isSidebarOpen bool, parseOnToggleSidebar ui.Handler, parseExpandedThoughtSections map[string]bool, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseTtsAudio ttsAudioController, parseOnSpeechUpgrade func(), parseScrollMemory threadScrollMemory, parseCanvasSession canvasSessionState, parseCanvas canvasWorkspaceController) ui.Node {
+	parseCurModel string, setProvider, setModel ui.Handler, isThinkingEnabled bool, parseThinkingEffort string, isThinkingSupported bool, setThinkingMode ui.Handler, parseUserInitials string, isSidebarOpen bool, parseOnToggleSidebar ui.Handler, parseExpandedThoughtSections map[string]bool, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseTtsAudio ttsAudioController, parseOnSpeechUpgrade func(), parseScrollMemory threadScrollMemory, parseCanvasSession canvasSessionState, parseCanvas canvasWorkspaceController, parseHandleSelectionMouse ui.Handler) ui.Node {
 	parseIntl := i18n.UseI18n()
 	parseScrollToBottom := ui.UseEvent(func() {
 		parseScrollMemory.ParseScrollToBottom()
@@ -76,11 +76,6 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 		parseCueTitle = "Access is plan-gated"
 		parseCueBody = "Review plan or quota settings before retrying this request."
 	}
-	if parseJourneyState.parseStageID == "complete" && parseCueTitle == "" {
-		parseCueTone = "success"
-		parseCueTitle = "First reply complete"
-		parseCueBody = "Thread is live. Send a follow-up or open a new chat from the sidebar."
-	}
 	return Div(
 		Class("flex flex-col flex-1 min-w-0 h-full"),
 		renderMobileControlBar(parseIntl, parseProviderOptions, parseActiveProvider, parseVisibleModelOptions, parseDisplayModel, parseCurrentThinkingMode, parseRequiredCapability, isStreaming, isThinkingSupported, isParseCanAccessAdmin, parseOpenAdminEntry, setProvider, setModel, setThinkingMode),
@@ -89,12 +84,6 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 			Div(
 				FromProps(Props{Style: parseLeftStyle}),
 				Class("flex min-h-0 min-w-0 flex-1 flex-col"),
-				Div(
-					Class("px-4 pt-3"),
-					Div(Class("max-w-[72rem] mx-auto"),
-						renderJourneyProgressBand(parseJourneyState.parseStageID),
-					),
-				),
 				parseMessageList(messageListProps{
 					Intl:                    parseIntl,
 					Messages:                parseMsgs,
@@ -123,6 +112,7 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 					ScrollToBottom:          parseScrollToBottom,
 					ApplyStarterPrompt:      parseApplyStarterPrompt,
 					Journey:                 parseJourneyState,
+					HandleSelectionMouse:    parseHandleSelectionMouse,
 				}),
 				parseInputArea(composerProps{
 					Intl:               parseIntl,
@@ -149,7 +139,7 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 						"orientation": "vertical",
 						"label":       "Resize chat and canvas panes",
 					}}),
-					OnClick(parseCanvas.StartSplitDrag),
+					OnMouseDown(parseCanvas.StartSplitDrag),
 					OnKeyDown(parseCanvas.HandleSplitKey),
 					Div(Class("h-16 w-1 rounded-full bg-white/10")),
 				),
@@ -175,11 +165,11 @@ func renderMobileControlBar(parseIntl i18n.Runtime, parseProviderOptions []provi
 			Img(
 				Src(brandLogoURL),
 				Attr("alt", appBrandName),
-				Class("h-9 w-auto shrink-0 object-contain"),
+				Class("h-12 w-auto shrink-0 object-contain"),
 			),
 			If(isParseCanAccessAdmin,
 				Button(
-					Class("rounded-full border border-[#8effd8]/30 bg-[#0f2339]/72 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#cfffed] transition-colors hover:bg-[#143352]"),
+					Class("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50 transition-colors hover:bg-white/8 hover:text-white/70"),
 					OnClick(parseOpenAdminEntry),
 					Text("Admin"),
 				),
@@ -245,13 +235,13 @@ func renderDesktopControlBar(parseIntl i18n.Runtime, parseProviderOptions []prov
 			Img(
 				Src(brandLogoURL),
 				Attr("alt", appBrandName),
-				Class("h-9 w-auto shrink-0 object-contain"),
+				Class("h-12 w-auto shrink-0 object-contain"),
 			),
 		),
 		Div(Class("flex min-w-0 flex-1 items-center justify-end gap-2"),
 			If(isParseCanAccessAdmin,
 				Button(
-					Class("h-8 shrink-0 rounded-full border border-[#8effd8]/30 bg-[#0f2339]/72 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#cfffed] transition-colors hover:bg-[#143352]"),
+					Class("h-8 shrink-0 rounded-full border border-white/10 bg-white/5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50 transition-colors hover:bg-white/8 hover:text-white/70"),
 					OnClick(parseOpenAdminEntry),
 					Text("Admin dashboard"),
 				),

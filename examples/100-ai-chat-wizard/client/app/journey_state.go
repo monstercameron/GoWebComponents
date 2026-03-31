@@ -72,18 +72,18 @@ func parseBuildChatJourneyState(parseMessages []message, isParseStreaming bool) 
 		return chatJourneyState{
 			parseActiveStep:  7,
 			parseStageID:     "complete",
-			parseStepLabel:   "Step 7 of 7 - First reply complete",
-			parseHeadingText: "First reply delivered",
-			parseBodyText:    "You are now in a live thread. Continue with follow-ups or start a new chat from the sidebar.",
+			parseStepLabel:   "Step 7 of 7 - Conversation ready",
+			parseHeadingText: "Conversation ready",
+			parseBodyText:    "Continue when you're ready.",
 			parsePlaceholder: "Ask a follow-up...",
 		}
 	}
 	return chatJourneyState{
 		parseActiveStep:  7,
 		parseStageID:     "complete",
-		parseStepLabel:   "Step 7 of 7 - Active thread",
-		parseHeadingText: "Continue the conversation",
-		parseBodyText:    "Keep iterating in this thread, or branch into a new one when you want a separate context.",
+		parseStepLabel:   "Step 7 of 7 - Conversation ready",
+		parseHeadingText: "Conversation ready",
+		parseBodyText:    "Continue when you're ready.",
 		parsePlaceholder: "Continue the thread...",
 	}
 }
@@ -97,7 +97,7 @@ func parseBuildJourneySteps() []parseJourneyStep {
 		{parseID: "login", parseLabel: "Login", parseBody: "Sign in to continue"},
 		{parseID: "compose", parseLabel: "First prompt", parseBody: "Write your first question"},
 		{parseID: "streaming", parseLabel: "Streaming", parseBody: "Watch the first reply arrive"},
-		{parseID: "complete", parseLabel: "Post-reply", parseBody: "Continue in the same thread"},
+		{parseID: "complete", parseLabel: "Ready", parseBody: "Conversation ready"},
 	}
 }
 
@@ -153,33 +153,37 @@ func parseBuildJourneySummary(parseStageID string) string {
 	return parseSteps[0].parseBody
 }
 
-// renderJourneyProgressBand renders one shared step strip with completed and active stage emphasis.
+// renderJourneyProgressBand renders a compact one-line progress indicator: a thin
+// fill bar scaled to the current step fraction and a single "Step X of 7 · Label"
+// text. This replaces the previous seven-pill dot-track which dominated the page.
 func renderJourneyProgressBand(parseStageID string) ui.Node {
 	parseSteps := parseBuildJourneySteps()
 	parseActiveIndex := parseBuildJourneyStageIndex(parseStageID)
+	parseTotal := len(parseSteps)
+	// Fill fraction: completed steps are fully filled; active step is half-filled so
+	// the bar visually reads as "in progress" rather than done.
+	parseFillPct := 0
+	if parseTotal > 1 {
+		parseFillPct = (parseActiveIndex*100*2 + 100) / (parseTotal * 2)
+	}
+	parseLabel := "Step " + strconv.Itoa(parseActiveIndex+1) + " of " + strconv.Itoa(parseTotal) + " · " + parseBuildJourneySummary(parseStageID)
 	return Div(
 		Class("journey-progress-wrap"),
 		Div(
-			Class("journey-progress-title-row"),
-			Span(Class("journey-progress-kicker"), Text("First-chat journey")),
-			Span(Class("journey-progress-summary"), Text(parseBuildJourneySummary(parseStageID))),
-		),
-		Div(
-			Class("journey-progress-track"),
-			Map(parseSteps, func(parseStep parseJourneyStep) ui.Node {
-				parseStepIndex := parseBuildJourneyStageIndex(parseStep.parseID)
-				parseStepClass := "journey-progress-step"
-				if parseStepIndex < parseActiveIndex {
-					parseStepClass += " journey-progress-step-done"
-				} else if parseStepIndex == parseActiveIndex {
-					parseStepClass += " journey-progress-step-active"
-				}
-				return Div(
-					Class(parseStepClass),
-					Span(Class("journey-progress-dot"), Text("\u2022")),
-					Span(Class("journey-progress-label"), Text(parseStep.parseLabel)),
-				)
-			}),
+			Class("flex items-center gap-3"),
+			// thin fill bar
+			Div(
+				Class("relative h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-white/8"),
+				Div(
+					Class("absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#00d9ff]/60 to-[#00d9ff]/30 transition-all duration-500"),
+					Style(map[string]string{"width": strconv.Itoa(parseFillPct) + "%"}),
+				),
+			),
+			// current stage label — shrink-0 so it never wraps the bar
+			Span(
+				Class("shrink-0 text-[0.68rem] leading-none tracking-[0.04em] text-white/55"),
+				Text(parseLabel),
+			),
 		),
 	)
 }

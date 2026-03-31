@@ -33,7 +33,7 @@ type chatStreamController struct {
 	Fork               ui.Handler
 }
 
-const chatSendRPCDeadline = 8 * time.Second
+const chatSendRPCDeadline = 90 * time.Second
 
 // useChatStream hides the gRPC send/stream lifecycle and related composer
 // events behind one feature hook built from ordinary public hooks.

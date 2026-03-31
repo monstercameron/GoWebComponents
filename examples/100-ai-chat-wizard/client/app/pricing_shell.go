@@ -26,6 +26,7 @@ func renderPricingShell(parseIntl i18n.Runtime, _ appViewState) ui.Node {
 			renderPricingPlans(parseIntl),
 			renderPricingCompare(parseIntl),
 			renderPricingFAQ(parseIntl),
+			renderPricingTrustBand(parseIntl),
 			renderPricingContact(parseIntl),
 		),
 		renderMarketingFooter(
@@ -58,12 +59,11 @@ func renderPricingHeader(parseIntl i18n.Runtime) ui.Node {
 		marketingPricingRoute,
 		Tag("nav",
 			Class("hidden items-center gap-6 lg:flex"),
-			A(Class("text-sm text-[#8a8a9a] transition hover:text-[#f0f0f8]"), Href("#plans"), Text(parseIntl.T(n, "nav.plans"))),
-			A(Class("text-sm text-[#8a8a9a] transition hover:text-[#f0f0f8]"), Href("#compare"), Text(parseIntl.T(n, "nav.compare"))),
-			A(Class("text-sm text-[#8a8a9a] transition hover:text-[#f0f0f8]"), Href("#faq"), Text(parseIntl.T(n, "nav.faq"))),
+			renderNavLink(marketingPricingRoute, marketingHomeRoute, parseIntl.T(n, "nav.product")),
+			renderNavLink(marketingPricingRoute, marketingPricingRoute, parseIntl.T(n, "nav.pricing")),
 		),
 		renderLanguageSelector(parseIntl),
-		renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLandingRoute, false, true),
+		renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLoginRoute, false, true),
 		renderMarketingHeaderAction(parseIntl.T(n, "header.signUp"), marketingSignupRoute, false, false),
 		renderMarketingHeaderAction(parseIntl.T(n, "header.openApp"), chatRouteRoot, true, false),
 	)
@@ -258,6 +258,50 @@ func renderPricingFAQ(parseIntl i18n.Runtime) ui.Node {
 }
 
 // renderPricingContact renders the sales-contact CTA at the bottom of the pricing page.
+// renderPricingTrustBand renders a "what a serious buyer does next" escalation band with four CTA groups.
+func renderPricingTrustBand(parseIntl i18n.Runtime) ui.Node {
+	type parseCTAGroup struct {
+		parseLabel   string
+		parseCaption string
+		parseHref    string
+		parseAction  string
+	}
+	parseGroups := []parseCTAGroup{
+		{"Talk to sales", "We can walk through workspace setup, billing fit, and admin requirements before rollout.", "mailto:sales@relaydesk.com", "Email sales →"},
+		{"Ask about onboarding", "Our team covers seat provisioning, SSO options, and first-run guidance for every plan tier.", "mailto:hello@relaydesk.com", "Email team →"},
+		{"Review security", "Read our data handling policy, encryption posture, and audit controls before you commit.", marketingSecurityRoute, "Security docs →"},
+		{"Check status", "See current uptime, recent incidents, and scheduled maintenance across all services.", marketingStatusRoute, "Status page →"},
+	}
+	return Section(
+		Class("pb-16 sm:pb-20"),
+		Div(
+			Class("mx-auto w-[min(1200px,calc(100%-24px))] sm:w-[min(1200px,calc(100%-32px))] lg:w-[min(1200px,calc(100%-40px))]"),
+			Div(
+				Class("mb-8 text-center"),
+				renderSectionEyebrow("What a serious buyer does next"),
+				H2(Class("font-display mt-4 text-2xl font-bold tracking-[-0.03em] text-[#f0f0f8] sm:text-3xl"), Text("Evaluate with confidence")),
+				P(Class("mt-3 text-sm leading-6 text-[#8a8a9a]"), Text("No commitment required. Every path below gives you real answers before rollout.")),
+			),
+			Div(
+				Class("grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"),
+				Map(parseGroups, func(parseG parseCTAGroup) ui.Node {
+					return Div(
+						Class("rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 flex flex-col gap-3 scroll-reveal"),
+						Div(Class("text-xs font-semibold uppercase tracking-[0.14em] text-[#00d9ff]"), Text(parseG.parseLabel)),
+						P(Class("flex-1 text-xs leading-5 text-[#8a8a9a]"), Text(parseG.parseCaption)),
+						A(
+							Class("inline-flex items-center text-xs font-medium text-[#f0f0f8] hover:text-[#00d9ff] transition-colors"),
+							Href(parseG.parseHref),
+							Text(parseG.parseAction),
+						),
+					)
+				}),
+			),
+		),
+	)
+}
+
+// renderPricingContact renders the contact / reach-out section at the bottom of the pricing page.
 func renderPricingContact(parseIntl i18n.Runtime) ui.Node {
 	n := marketingI18nNamespace
 	return Section(

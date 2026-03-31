@@ -28,14 +28,32 @@ func parseResolvePostLoginRoute(parseIntentPath string, parseRoleSummary *chatpb
 	return parseIntentPath
 }
 
-func shouldResetDraftForRootRoute(parseThreadRoutePublicID string, parseActiveConvID int64, parseActiveConvPublicID string) bool {
+// shouldSyncConvRoute reports whether one route should participate in active-conversation route normalization.
+func shouldSyncConvRoute(parseCurrentPath string) bool {
+	parseCurrentPath = strings.TrimSpace(parseCurrentPath)
+	if parseCurrentPath == "" {
+		return false
+	}
+	return parseCurrentPath == chatRouteRoot ||
+		parseThreadRoutePublicIDFromPath(parseCurrentPath) != ""
+}
+
+// shouldResetDraftForRootRoute reports whether one true chat-root route should clear the loaded conversation draft.
+func shouldResetDraftForRootRoute(parseCurrentPath string, parseThreadRoutePublicID string, parseActiveConvID int64, parseActiveConvPublicID string) bool {
+	if !shouldSyncConvRoute(parseCurrentPath) || strings.TrimSpace(parseCurrentPath) != chatRouteRoot {
+		return false
+	}
 	if strings.TrimSpace(parseThreadRoutePublicID) != "" || parseActiveConvID <= 0 {
 		return false
 	}
 	return strings.TrimSpace(parseActiveConvPublicID) != ""
 }
 
-func shouldWarnPendingRootRoute(parseThreadRoutePublicID string, parseActiveConvID int64, parseActiveConvPublicID string) bool {
+// shouldWarnPendingRootRoute reports whether one true chat-root route should warn about an unresolved conversation public id.
+func shouldWarnPendingRootRoute(parseCurrentPath string, parseThreadRoutePublicID string, parseActiveConvID int64, parseActiveConvPublicID string) bool {
+	if !shouldSyncConvRoute(parseCurrentPath) || strings.TrimSpace(parseCurrentPath) != chatRouteRoot {
+		return false
+	}
 	if strings.TrimSpace(parseThreadRoutePublicID) != "" || parseActiveConvID <= 0 {
 		return false
 	}
@@ -50,7 +68,11 @@ func shouldResolveConversationRoute(parseThreadRoutePublicID, parseActiveConvPub
 	return parseRequestedPublicID != strings.TrimSpace(parseActiveConvPublicID)
 }
 
-func shouldNormalizeActiveConversationRoute(parseThreadRoutePublicID, parseActiveConvPublicID string) bool {
+// shouldNormalizeActiveConversationRoute reports whether one chat-root or thread route should normalize to the active conversation route.
+func shouldNormalizeActiveConversationRoute(parseCurrentPath string, parseThreadRoutePublicID, parseActiveConvPublicID string) bool {
+	if !shouldSyncConvRoute(parseCurrentPath) {
+		return false
+	}
 	parseActivePublicID := strings.TrimSpace(parseActiveConvPublicID)
 	if parseActivePublicID == "" {
 		return false
