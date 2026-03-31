@@ -8,6 +8,45 @@ models from OpenAI, Anthropic, and Cerebras catalogs through one runtime provide
 
 ---
 
+## Why this example matters for GWC
+
+Example 100 is the **flagship integration test** for the GoWebComponents framework. It is not primarily a SaaS demo — it exists to verify that every major framework pattern works together in one coherent, full-stack application.
+
+The specific GWC capabilities it demonstrates:
+
+| Pattern | Where it lives |
+|---|---|
+| **Single-shell routed SPA** | `client/app/app.go` + `client/app/routes.go` — one WASM app, multiple distinct route surfaces |
+| **Server-rendered public routes** | `server/app/server.go` — shell-first HTML delivery for `/`, `/home`, `/pricing`, `/signup` |
+| **WASM-authenticated workspace shell** | `client/app/app_shell.go` — session-gated workspace, settings, and dashboard surfaces |
+| **Typed gRPC bridge** | `client/app/grpc*.go`, `server/app/server.go` — typed RPCs over GoGRPCBridge WebSocket tunnel |
+| **Worker-backed rendering** | `client/backgroundworker/` — markdown and render metadata tasks offloaded to a background WASM worker |
+| **Cross-tab preference sync** | `client/app/prefs*.go`, `state/` — sidebar state, theme, and model selection persist and sync across tabs |
+| **Streaming progressive render** | `client/app/thread*.go` — server-streamed `ChatChunk` deltas applied incrementally to the thread view |
+| **Route-scoped async state** | `client/app/settings_*.go`, `client/app/dashboard_shell.go` — per-route data that loads on activation and redraws on RPC update |
+
+If a refactor silently breaks any row in this table, the example has stopped being a useful framework signal — regardless of whether product tests still pass.
+
+---
+
+## Start here
+
+These are the four highest-signal files. Read them in order before exploring anything else.
+
+### 1. `client/app/app.go` — top-level route dispatcher
+**Teaches:** how GWC routes WASM UI output based on URL path. `ParseApp` owns the single render path from "URL changed" to "correct surface rendered". Every public, auth, and workspace view forks from this one function. Understanding it is the prerequisite for understanding anything else.
+
+### 2. `client/app/app_shell.go` — authenticated workspace composition
+**Teaches:** multi-region UI composition under one stateful shell. `renderWorkspaceShell` assembles the sidebar, thread panel, settings modal, and canvas surface as a layered set of GWC nodes driven by one `appViewState`. Shows how large UI surfaces stay composable without a global state hack.
+
+### 3. `client/app/routes.go` + `server/app/server.go` — full routing contract
+**Teaches:** the split between client-side route selection and server-side shell delivery. The client defines what path maps to what view; the server defines which request paths get the SPA shell vs direct static responses. Reading both together is the only way to understand why public routes, auth routes, and app routes behave differently despite sharing one HTML document.
+
+### 4. `client/app/dashboard_shell.go` — representative complex surface
+**Teaches:** a complete async-loading surface pattern: RPC fetch on activation, typed view-model derivation, multi-panel tile grid, and role-gated content — all in one self-contained file. Once you understand dashboard, settings panels and admin surfaces follow the same structure.
+
+---
+
 ## Architecture
 
 ```
@@ -178,6 +217,40 @@ The server serves one shell-first SPA surface, and the client router decides whi
 - The client-side router selects the active view and can normalize thread routes after conversation resolution.
 - Asset paths (WASM, JS, CSS, images, static files) bypass SPA shelling and are served directly.
 - Legacy `/chat.wasm` and `/background-worker.wasm` requests are rewritten to `/app/chat.wasm` and `/worker/background-worker.wasm`.
+
+### Authenticated shell UI region → GWC pattern map
+
+This table maps the visible regions of the `/app` workspace shell to the GWC patterns and packages each one exercises. Use it as a reading guide when exploring `client/app/app_shell.go`.
+
+| UI region | Primary files | GWC pattern demonstrated |
+|---|---|---|
+| **Top control bar** | `client/app/canvas_top_bar.go`, `app_shell.go` | `ui` composition + route-aware conditional rendering; control state derived from `appViewState` without prop drilling |
+| **Sidebar** | `client/app/sidebar.go` | Async conversation list pagination, scroll-position memory (`cacheScrollPosition`), reactive open/closed toggle via `state.Atom` |
+| **Thread body** | `client/app/thread*.go` | Streaming partial render — `ChatChunk` deltas applied incrementally; background-worker markdown task dispatch over worker message bridge |
+| **Composer** | `client/app/composer.go` | Controlled text input with handler composition; disabled-during-stream state; starter-prompt injection |
+| **Settings modal** | `client/app/settings_*.go`, `app_shell.go` | Route-scoped panel selection via `?panel=` query param; persisted preference RPCs (`UpdateProfile`); cross-tab preference sync via `state` package |
+| **Canvas surface** | `client/app/canvas*.go` | Conditionally-mounted sub-route (`/canvas/:canvasID`); `iframe` sandboxing for untrusted HTML artifact rendering |
+| **Dashboard tiles** | `client/app/dashboard_shell.go` | Multi-surface async-loading pattern: RPC on activation, typed view-model derivation, role-gated content, tile grid |
+| **Admin drawers** | `client/app/admin_*.go` | Shared drawer/table composition reused across five slice surfaces; mutation banner pattern (confirm → submit → receipt) |
+
+### Public-route delivery and hydration model
+
+Public routes (`/`, `/home`, `/pricing`, `/signup`, `/security`, `/privacy`, `/terms`, `/status`, `/about`, `/contact`) are delivered as one HTML shell document and hydrated by the same WASM binary as the authenticated app. The ownership split:
+
+| Responsibility | Owner | File(s) |
+|---|---|---|
+| Shell HTML document | Server | `server/app/server.go` — `GET /home`, `/pricing`, etc. return the bootstrap shell |
+| Bootstrap loader | Server-owned JS | `chat-bootstrap.js` — shows loading state, fetches `app/chat.wasm`, hides on mount |
+| i18n bundle delivery | Server (with embedded fallback) | `server/app/i18n*.go`; client embeds catalog via `i18n/bundle/bundle.go` as compile-time fallback |
+| Route selection once mounted | WASM client | `client/app/app.go` `ParseApp` — reads `window.location.pathname` to select landing vs auth vs workspace shell |
+| Public-route rendering | WASM client | `client/app/landing_shell.go`, `pricing_shell.go`, `signup_shell.go`, `about_shell.go`, etc. |
+| Journey progress band | WASM client | `client/app/journey.go` — shared multi-step progress indicator shown on all public marketing routes |
+| Marketing footer / header | WASM client | `client/app/marketing_footer.go` — shared across all public routes via `renderMarketingFooter` |
+
+Key points for framework readers:
+- There is **no separate SSR build**. The server delivers a static shell; the WASM client owns all rendering including the public marketing pages.
+- **Route normalization happens client-side**: the server maps `/`, `/home`, `/pricing` etc. to the same shell document; the WASM client decides what to render based on the path.
+- **i18n** is embedded at WASM compile time today (*planned*: server-delivered lazy namespace fetch to reduce WASM binary size).
 
 ---
 
@@ -529,6 +602,25 @@ go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server stop -json
 
 ---
 
+## Source-linked UI inventory
+
+Each row maps a visible UI surface to its primary source files. Use this as a navigation index when reading or modifying a specific region.
+
+| Surface | Primary client files | Primary server files | SQL / data |
+|---|---|---|---|
+| Marketing shell | `client/app/landing_shell.go`, `client/app/landing_sections.go` | `server/app/server.go` (static route) | — |
+| Auth shell | `client/app/auth_shell.go`, `client/app/auth.go`, `client/app/auth_session.go` | `server/app/auth_service.go`, `server/app/auth_workspace_policy.go`, `server/app/auth_google_oidc.go` | `sql/store/store_auth.go` |
+| Workspace entrypoint | `client/app/app.go`, `client/app/app_shell.go`, `client/app/routes.go` | `server/app/server.go` boot RPC | — |
+| Chat thread | `client/app/thread.go`, `client/app/thread_view.go`, `client/app/panel.go`, `client/app/stream.go` | `server/app/tunnel_handler.go`, `server/app/authz_entitlement.go` | `sql/store/*.sql` chat history |
+| Composer | `client/app/composer.go`, `client/app/model_picker.go`, `client/app/model_prefs.go` | `server/app/grpc_server.go` send RPC | — |
+| Canvas pane | `client/app/canvas.go`, `client/app/canvas_workspace.go`, `client/app/canvas_patch.go` | `server/app/server.go` | — |
+| Settings panel | `client/app/settings_route.go`, `client/app/settings_profile.go`, `client/app/settings_security.go`, `client/app/account_costs.go` | `server/app/auth_service.go`, `server/app/billing_formula_guard.go` | `sql/store/store_billing.go` |
+| Admin dashboard | `client/app/dashboard_shell.go`, `client/app/admin_data.go`, `client/app/admin_customers.go`, `client/app/admin_providers.go` | `server/app/admin_dashboard.go`, `server/app/admin_list_query.go`, `server/app/admin_billing_ops.go` | `sql/store/` admin query files |
+| Admin mutations | `client/app/admin_ops.go`, `client/app/admin_server_tools.go` | `server/app/admin_mutation_authz.go`, `server/app/admin_mutation_effects.go`, `server/app/admin_control_ops.go` | `sql/store/` ops query files |
+| Worker markdown | `client/backgroundworker/worker.go`, `client/app/worker_render_types.go` | — | — |
+
+---
+
 ## File layout
 
 ```text
@@ -586,6 +678,19 @@ If you want the cleanest end-to-end explanation of the example, start here:
 - Billing: `client/app/settings_route.go`, `client/app/account_costs.go`, `server/app/billing_formula_guard.go`, `server/app/store_billing.go`, and `server/app/superuser_pricing_ops.go` show usage formulas, plan state, and operator pricing controls.
 - Dashboard reads: `client/app/dashboard.go`, `client/app/admin_data.go`, `server/app/admin_dashboard.go`, `server/app/admin_list_query.go`, `server/app/admin_business_ops.go`, and `server/app/admin_billing_ops.go` show the operator read path.
 - Admin mutations: `server/app/admin_mutation_authz.go`, `server/app/admin_mutation_effects.go`, `server/app/admin_control_ops.go`, `server/app/admin_provider_mutation_authz.go`, `server/app/admin_ops_action_authz.go`, and `server/app/admin_chat_mutation_authz.go` show the guarded mutation path.
+
+### Dashboard slice pattern — one structure reused five times
+
+The admin dashboard has five slices (Business, Customers, Chats, Providers, Ops). Each follows the same four-step structure. Once you can read one, you can read all five.
+
+| Step | Client | Server |
+|---|---|---|
+| 1. Route activation triggers data load | `dashboard_shell.go` dispatches the admin-data RPC on mount | `admin_dashboard.go` gate-checks role before running the query |
+| 2. Typed view-model derivation | `admin_data.go` maps the proto response into slice-specific view structs | `admin_list_query.go` builds paginated, typed results per slice |
+| 3. Tile grid render | `dashboard_shell.go` (overview) + `admin_customers.go`, `admin_providers.go`, etc. render the per-slice grid | — |
+| 4. Role gate | `dashboard_shell.go` checks `parseView.CanAccessAdmin` / `parseView.IsSuperuser` before rendering admin-only sections | `admin_mutation_authz.go` + `admin_ops_action_authz.go` enforce before every mutating RPC |
+
+**What this teaches for GWC:** route-scoped async state where each tab activates its own data fetch without blocking other tabs, and role-gated regions that are controlled at both the UI node level and the server RPC level. The same shape applies to settings panels: each settings section fetches its own data on activation and submits changes through a typed RPC.
 
 The short teaching version is:
 - `client/main.go` starts the shell.

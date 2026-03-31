@@ -2667,6 +2667,19 @@ func validateReleaseSmoke(parseConfig releaseConfig, parseManifestPath string, p
 	}
 	parseChecks = append(parseChecks, "wasm asset serves with application/wasm content type")
 	parseChecks = append(parseChecks, "boot-time startup probe completed")
+
+	// product-quality scan: flag placeholder copy and missing trust-route wiring
+	parseClientDir := filepath.Dir(parseConfig.appPath)
+	parseQualityChecks, parseQualityViolations, parseQErr := releaseSmokeScanProductQuality(parseClientDir)
+	if parseQErr != nil {
+		return nil, parseQErr
+	}
+	if len(parseQualityViolations) > 0 {
+		return nil, fmt.Errorf("release smoke product-quality scan found %d issue(s):\n%s",
+			len(parseQualityViolations), strings.Join(parseQualityViolations, "\n"))
+	}
+	parseChecks = append(parseChecks, parseQualityChecks...)
+
 	parseRecord2 := &releaseValidationRecord{
 		Path:                "wasm-release-validation.json",
 		Checks:              parseChecks,
@@ -2683,6 +2696,73 @@ func validateReleaseSmoke(parseConfig releaseConfig, parseManifestPath string, p
 		return nil, fmt.Errorf("write release validation report: %w", parseErr3)
 	}
 	return parseRecord2, nil
+}
+
+// releaseSmokeScanProductQuality walks Go source files in parseClientDir and checks for
+// known placeholder copy patterns and missing trust-route references before a release is accepted.
+// It returns a list of passing checks and a (possibly empty) list of violations.
+func releaseSmokeScanProductQuality(parseClientDir string) ([]string, []string, error) {
+	// literal Text() call bodies that indicate unfinished or placeholder UI copy
+	parsePlaceholderPatterns := []string{
+		`Text("Coming soon")`,
+		`Text("coming soon")`,
+		`Text("TODO")`,
+		`Text("Placeholder")`,
+		`Text("placeholder")`,
+		`Text("Lorem ipsum")`,
+	}
+	// source-level identifiers that must appear somewhere in the client when trust routes are wired
+	parseTrustSignals := []string{
+		"marketingSecurityRoute",
+		"marketingStatusRoute",
+		"marketingPrivacyRoute",
+		"marketingTermsRoute",
+	}
+
+	var parseAllSource strings.Builder
+	parseViolations := []string{}
+
+	parseWalkErr := filepath.WalkDir(parseClientDir, func(parsePath string, parseD fs.DirEntry, parseErr error) error {
+		if parseErr != nil {
+			return parseErr
+		}
+		if parseD.IsDir() || !strings.HasSuffix(parsePath, ".go") {
+			return nil
+		}
+		parseContents, parseReadErr := os.ReadFile(parsePath)
+		if parseReadErr != nil {
+			return parseReadErr
+		}
+		parseSource := string(parseContents)
+		parseAllSource.WriteString(parseSource)
+		parseRel, _ := filepath.Rel(parseClientDir, parsePath)
+		for _, parsePattern := range parsePlaceholderPatterns {
+			if strings.Contains(parseSource, parsePattern) {
+				parseViolations = append(parseViolations,
+					fmt.Sprintf("placeholder copy %q in %s", parsePattern, parseRel))
+			}
+		}
+		return nil
+	})
+	if parseWalkErr != nil {
+		return nil, nil, fmt.Errorf("scan client source for product quality: %w", parseWalkErr)
+	}
+
+	parseChecks := []string{}
+	parseAggregate := parseAllSource.String()
+	for _, parseSignal := range parseTrustSignals {
+		if strings.Contains(parseAggregate, parseSignal) {
+			parseChecks = append(parseChecks,
+				fmt.Sprintf("product-quality: trust route %q referenced in client source", parseSignal))
+		} else {
+			parseViolations = append(parseViolations,
+				fmt.Sprintf("product-quality: trust route %q not found in client source", parseSignal))
+		}
+	}
+	if len(parseViolations) == 0 {
+		parseChecks = append(parseChecks, "product-quality: no placeholder copy detected in client source")
+	}
+	return parseChecks, parseViolations, nil
 }
 
 func releaseSmokeFetchWasmHeaders(parseOutDir string, parseBinaryName string, parseArtifacts map[string]releaseArtifactRecord) (string, string, error) {

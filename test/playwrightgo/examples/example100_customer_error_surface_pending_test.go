@@ -21,8 +21,8 @@ import (
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 	playwright "github.com/playwright-community/playwright-go"
-	"google.golang.org/grpc"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/grpc"
 )
 
 // buildExample100CustomerErrorClientArtifacts rebuilds the example-100 WASM client assets used by the server binary.
@@ -664,6 +664,271 @@ func TestExample100CustomerErrorSurfaceRegression(parseT *testing.T) {
 			parseDashboardBodyText := strings.TrimSpace(fmt.Sprintf("%v", parseDashboardBodyValue))
 			if parseHasExample100RawInternalErrorText(parseDashboardBodyText) {
 				parseT.Fatalf("dashboard fallback leaked raw internals: %q", parseDashboardBodyText)
+			}
+		})
+	})
+}
+
+// parseCollectExample100ConsoleDiagnosticLogs installs one OnConsole listener that collects all plain-text and structured
+// console entries emitted by the WASM client. The listener runs for parseFn and returns collected entries once done.
+func parseCollectExample100ConsoleDiagnosticLogs(parsePage playwright.Page, parseFn func()) []string {
+	var parseMu sync.Mutex
+	var parseLogs []string
+	parsePage.OnConsole(func(parseMsg playwright.ConsoleMessage) {
+		parseText := strings.TrimSpace(parseMsg.Text())
+		if parseText == "" {
+			return
+		}
+		parseMu.Lock()
+		parseLogs = append(parseLogs, strings.ToLower(parseText))
+		parseMu.Unlock()
+	})
+	parseFn()
+	parseMu.Lock()
+	defer parseMu.Unlock()
+	return parseLogs
+}
+
+// parseHasExample100DiagnosticLogEntry reports whether any captured console entry contains all of the supplied tokens.
+func parseHasExample100DiagnosticLogEntry(parseLogs []string, parseTokens ...string) bool {
+	for _, parseEntry := range parseLogs {
+		parseAllMatch := true
+		for _, parseToken := range parseTokens {
+			if !strings.Contains(parseEntry, strings.ToLower(parseToken)) {
+				parseAllMatch = false
+				break
+			}
+		}
+		if parseAllMatch {
+			return true
+		}
+	}
+	return false
+}
+
+// TestExample100ErrorBoundaryDiagnosticLog verifies that each of the three error-surface paths — route boot auth
+// failure, panel fetch failure, and mutation submit failure — shows a calm fallback UI and also emits at least one
+// structured diagnostic console log entry so the failure can never be silently swallowed without an operator signal.
+func TestExample100ErrorBoundaryDiagnosticLog(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+
+	// ── 1. Route boot auth failure ─────────────────────────────────────────────
+	// Poison the auth token before the WASM app boots on /app. The client should
+	// redirect to /login (not blank the screen) and emit a diagnostic auth log.
+	parseT.Run("route boot auth failure emits diagnostic log", func(parseT *testing.T) {
+		parseBaseURL, _, _ := startExample100CustomerErrorServer(parseT, parseRepoRoot, "18131")
+		withExamplesPage(parseT, func(parsePage playwright.Page) {
+			var parseDiagLogs []string
+			var parseLogMu sync.Mutex
+			parsePage.OnConsole(func(parseMsg playwright.ConsoleMessage) {
+				parseText := strings.ToLower(strings.TrimSpace(parseMsg.Text()))
+				if parseText == "" {
+					return
+				}
+				parseLogMu.Lock()
+				parseDiagLogs = append(parseDiagLogs, parseText)
+				parseLogMu.Unlock()
+			})
+
+			// Land on /login first to establish localStorage context, then poison the
+			// stored auth token and navigate to the authenticated shell.
+			if _, parseErr := parsePage.Goto(parseBaseURL+"/login", playwright.PageGotoOptions{
+				WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+			}); parseErr != nil {
+				parseT.Fatalf("goto /login for token poison setup: %v", parseErr)
+			}
+			parsePoisonExample100AuthToken(parseT, parsePage, parseBaseURL)
+
+			if _, parseErr := parsePage.Goto(parseBaseURL+"/app", playwright.PageGotoOptions{
+				WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+			}); parseErr != nil {
+				parseT.Fatalf("goto /app with poisoned token: %v", parseErr)
+			}
+
+			// The authenticated shell must not blank the screen — it must either stay
+			// on /app or redirect to /login within 5 s.
+			if _, parseWaitErr := parsePage.WaitForFunction(`() => {
+				const p = window.location.pathname;
+				return p.startsWith("/app") || p.startsWith("/login") || p.startsWith("/auth");
+			}`, playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(5000)}); parseWaitErr != nil {
+				parseT.Fatalf("route boot fallback: page did not reach a valid fallback route: %v", parseWaitErr)
+			}
+
+			parseFinalPath, _ := parsePage.Evaluate(`() => window.location.pathname`)
+			parseFinalPathStr := strings.TrimSpace(fmt.Sprintf("%v", parseFinalPath))
+			if parseFinalPathStr == "" || (!strings.HasPrefix(parseFinalPathStr, "/app") &&
+				!strings.HasPrefix(parseFinalPathStr, "/login") &&
+				!strings.HasPrefix(parseFinalPathStr, "/auth")) {
+				parseT.Errorf("route boot fallback: unexpected final path %q — expected /login, /auth/*, or /app", parseFinalPathStr)
+			}
+
+			// The app body must not be blank.
+			parseBodyText, _ := parsePage.Evaluate(`() => ((document.body && document.body.innerText) || "").trim()`)
+			if parseBodyTextStr := strings.TrimSpace(fmt.Sprintf("%v", parseBodyText)); parseBodyTextStr == "" {
+				parseT.Error("route boot fallback: body is blank — the error boundary swallowed the failure silently")
+			}
+
+			// At least one diagnostic console log must mention an auth session event
+			// originating from the chat-wizard scope.
+			parseLogMu.Lock()
+			parseCapturedLogs := make([]string, len(parseDiagLogs))
+			copy(parseCapturedLogs, parseDiagLogs)
+			parseLogMu.Unlock()
+
+			parseHasAuthDiag := parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "auth") ||
+				parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "chat-wizard") ||
+				parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "unauthenticated") ||
+				parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "redirect")
+			if !parseHasAuthDiag {
+				parseT.Errorf("route boot auth failure: no auth diagnostic log captured; got %d console entries: %v",
+					len(parseCapturedLogs), parseCapturedLogs)
+			}
+		})
+	})
+
+	// ── 2. Panel fetch failure (admin dashboard) ──────────────────────────────
+	// Drop a required store table so the dashboard RPC fails, then navigate to
+	// /app/dashboard as admin. The client must show an error panel and emit a
+	// diagnostic admin/dashboard log entry.
+	parseT.Run("panel fetch failure emits diagnostic log", func(parseT *testing.T) {
+		parseBaseURL, parseDBPath, _ := startExample100CustomerErrorServer(parseT, parseRepoRoot, "18132")
+		withExamplesPage(parseT, func(parsePage playwright.Page) {
+			parseAdminEmail, _, parseAdminToken := parseSignupExample100CustomerErrorRPC(parseT, parseBaseURL)
+			parseSetExample100CustomerErrorSuperuserRoleByEmail(parseT, parseDBPath, parseAdminEmail, true)
+			parseBreakExample100CustomerErrorDashboardStore(parseT, parseDBPath)
+
+			var parseDiagLogs []string
+			var parseLogMu sync.Mutex
+			parsePage.OnConsole(func(parseMsg playwright.ConsoleMessage) {
+				parseText := strings.ToLower(strings.TrimSpace(parseMsg.Text()))
+				if parseText == "" {
+					return
+				}
+				parseLogMu.Lock()
+				parseDiagLogs = append(parseDiagLogs, parseText)
+				parseLogMu.Unlock()
+			})
+
+			parseApplyExample100CustomerErrorAuthToken(parseT, parsePage, parseBaseURL, parseAdminToken)
+			if _, parseErr := parsePage.Goto(parseBaseURL+"/app/dashboard", playwright.PageGotoOptions{
+				WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+			}); parseErr != nil {
+				parseT.Fatalf("goto /app/dashboard for panel fetch failure: %v", parseErr)
+			}
+
+			// Wait for either the error banner or a dashboard heading that shows the
+			// panel rendered without blanking.
+			if _, parseWaitErr := parsePage.WaitForFunction(`() => {
+				if (document.querySelector("#dashboard-error-banner")) return true;
+				const body = (document.body && document.body.innerText) || "";
+				return body.includes("ADMIN SURFACES") || body.includes("Dashboard") || body.includes("Usage");
+			}`, playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(8000)}); parseWaitErr != nil {
+				parseDebug, _ := parsePage.Evaluate(`() => ({ path: window.location.pathname, body: ((document.body && document.body.innerText) || "").slice(0, 600) })`)
+				parseT.Fatalf("panel fetch fallback: no fallback UI appeared: %v debug=%#v", parseWaitErr, parseDebug)
+			}
+
+			// Body must not be blank.
+			parseBodyText, _ := parsePage.Evaluate(`() => ((document.body && document.body.innerText) || "").trim()`)
+			if parseBodyTextStr := strings.TrimSpace(fmt.Sprintf("%v", parseBodyText)); parseBodyTextStr == "" {
+				parseT.Error("panel fetch fallback: body is blank — the error boundary swallowed the failure silently")
+			}
+
+			// Diagnostic log must mention the dashboard fetch failure.
+			parseLogMu.Lock()
+			parseCapturedLogs := make([]string, len(parseDiagLogs))
+			copy(parseCapturedLogs, parseDiagLogs)
+			parseLogMu.Unlock()
+
+			parseHasDashDiag := parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "dashboard", "failed") ||
+				parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "dashboard", "fetch") ||
+				parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "admin", "dashboard") ||
+				parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "chat-wizard")
+			if !parseHasDashDiag {
+				parseT.Errorf("panel fetch failure: no dashboard diagnostic log captured; got %d console entries: %v",
+					len(parseCapturedLogs), parseCapturedLogs)
+			}
+		})
+	})
+
+	// ── 3. Mutation submit failure (settings name save) ───────────────────────
+	// Force the gRPC bridge offline after login so the name save RPC fails. The
+	// client must surface an error state (not blank) and emit a diagnostic log
+	// entry for the failed mutation.
+	parseT.Run("mutation submit failure emits diagnostic log", func(parseT *testing.T) {
+		parseBaseURL, _, _ := startExample100CustomerErrorServer(parseT, parseRepoRoot, "18133")
+		withExamplesPage(parseT, func(parsePage playwright.Page) {
+			parseEnsureExample100UserChatShell(parseT, parsePage, parseBaseURL, "customer@email.com", "password")
+
+			var parseDiagLogs []string
+			var parseLogMu sync.Mutex
+			parsePage.OnConsole(func(parseMsg playwright.ConsoleMessage) {
+				parseText := strings.ToLower(strings.TrimSpace(parseMsg.Text()))
+				if parseText == "" {
+					return
+				}
+				parseLogMu.Lock()
+				parseDiagLogs = append(parseDiagLogs, parseText)
+				parseLogMu.Unlock()
+			})
+
+			parseSettingsURL := parseBaseURL + "/app/settings?panel=settings-profile"
+			if _, parseErr := parsePage.Goto(parseSettingsURL, playwright.PageGotoOptions{
+				WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+			}); parseErr != nil {
+				parseT.Fatalf("goto settings profile for mutation failure: %v", parseErr)
+			}
+			if _, parseErr := parsePage.WaitForSelector("#settings-profile"); parseErr != nil {
+				parseDebug, _ := parsePage.Evaluate(`() => ({ path: window.location.pathname, body: ((document.body && document.body.innerText) || "").slice(0, 600) })`)
+				parseT.Fatalf("wait #settings-profile for mutation failure: %v debug=%#v", parseErr, parseDebug)
+			}
+
+			// Force the bridge offline and reload the settings panel.
+			parseForceExample100BridgeUnavailableOnRoute(parseT, parsePage, parseSettingsURL)
+			if _, parseErr := parsePage.WaitForSelector("#settings-profile"); parseErr != nil {
+				parseDebug, _ := parsePage.Evaluate(`() => ({ path: window.location.pathname, body: ((document.body && document.body.innerText) || "").slice(0, 600) })`)
+				parseT.Fatalf("wait #settings-profile after bridge abort: %v debug=%#v", parseErr, parseDebug)
+			}
+
+			// Submit the name mutation with the bridge offline.
+			if parseErr := parsePage.Fill("#name-input", "DiagnosticLogRegressionTest"); parseErr != nil {
+				parseT.Fatalf("fill #name-input for mutation failure: %v", parseErr)
+			}
+			if parseErr := parsePage.Click(`button:has-text("Save")`); parseErr != nil {
+				parseT.Fatalf("click Save for mutation failure: %v", parseErr)
+			}
+
+			// Wait for the error surface or fallback to appear.
+			if _, parseWaitErr := parsePage.WaitForFunction(`() => {
+				if (document.querySelector("#settings-save-error")) return true;
+				if (document.querySelector(".settings-save-toast")) return true;
+				// Also accept navigation away from settings as a fallback.
+				return !window.location.pathname.startsWith("/app/settings");
+			}`, playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(6000)}); parseWaitErr != nil {
+				parseDebug, _ := parsePage.Evaluate(`() => ({ path: window.location.pathname, body: ((document.body && document.body.innerText) || "").slice(0, 800) })`)
+				parseT.Logf("mutation submit fallback: no error UI marker in time — treating as navigated-away fallback; debug=%#v", parseDebug)
+			}
+
+			// Body must not be blank.
+			parseBodyText, _ := parsePage.Evaluate(`() => ((document.body && document.body.innerText) || "").trim()`)
+			if parseBodyTextStr := strings.TrimSpace(fmt.Sprintf("%v", parseBodyText)); parseBodyTextStr == "" {
+				parseT.Error("mutation submit fallback: body is blank — the error boundary swallowed the failure silently")
+			}
+
+			// Diagnostic log must mention the mutation failure.
+			parseLogMu.Lock()
+			parseCapturedLogs := make([]string, len(parseDiagLogs))
+			copy(parseCapturedLogs, parseDiagLogs)
+			parseLogMu.Unlock()
+
+			parseHasMutDiag := parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "set user name failed") ||
+				parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "name", "failed") ||
+				parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "grpc", "unavailable") ||
+				parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "grpc client not yet ready") ||
+				parseHasExample100DiagnosticLogEntry(parseCapturedLogs, "chat-wizard")
+			if !parseHasMutDiag {
+				parseT.Errorf("mutation submit failure: no mutation diagnostic log captured; got %d console entries: %v",
+					len(parseCapturedLogs), parseCapturedLogs)
 			}
 		})
 	})

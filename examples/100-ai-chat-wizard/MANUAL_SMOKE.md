@@ -186,6 +186,20 @@ Bug-search checklist:
 3. Use an expired token and verify failure guidance plus resend direction.
 4. Confirm post-verify login/session behavior matches verified-account expectations.
 
+### Email-verification verification checklist
+
+Current status:
+- Verification token persistence and service behavior are package-tested.
+- The browser-facing verify/resend/post-verify flow still needs a dedicated end-to-end regression before this checklist can be fully exercised in automation.
+
+Checklist:
+1. Verify a fresh token and confirm the account transitions to verified state, then reaches the authenticated app shell without a second login step.
+2. Re-use a consumed verification token and confirm already-used behavior is explicit, non-destructive, and presents clear guidance (not a blank or error page).
+3. Submit an expired verification token and confirm the failure surface names the expiry cause and offers a visible resend path.
+4. Request a resend from the expired-token or unverified-banner state and confirm the response copy stays neutral for unknown or already-verified emails.
+5. Confirm the post-verify login or redirect path reaches a clean app-entry route without open-redirect behavior or stale auth state.
+6. Confirm the unverified-account banner is absent for a fully verified account on subsequent logins.
+
 ### Dashboard route smoke gap
 
 Current status:

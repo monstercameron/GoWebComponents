@@ -516,6 +516,11 @@ func OnMouseUp(parseCallback interface{}) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnMouseUp = toHandler(parseCallback) })
 }
 
+// OnMouseDown registers an onmousedown event handler on the Props.
+func OnMouseDown(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnMouseDown = toHandler(parseCallback) })
+}
+
 // OnFocus registers an onfocus event handler on the Props.
 func OnFocus(parseCallback interface{}) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnFocus = toHandler(parseCallback) })

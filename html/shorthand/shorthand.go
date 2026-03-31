@@ -349,7 +349,8 @@ func OnKeyDown(parseCallback interface{}) PropOption { return html.OnKeyDown(par
 func OnKeyUp(parseCallback interface{}) PropOption { return html.OnKeyUp(parseCallback) }
 
 // OnMouseUp delegates to [html.OnMouseUp].
-func OnMouseUp(parseCallback interface{}) PropOption { return html.OnMouseUp(parseCallback) }
+func OnMouseUp(parseCallback interface{}) PropOption   { return html.OnMouseUp(parseCallback) }
+func OnMouseDown(parseCallback interface{}) PropOption { return html.OnMouseDown(parseCallback) }
 
 // OnFocus delegates to [html.OnFocus].
 func OnFocus(parseCallback interface{}) PropOption { return html.OnFocus(parseCallback) }

@@ -57,8 +57,9 @@ type Props struct {
 	OnSubmit  ui.Handler
 	OnKeyDown ui.Handler
 	OnKeyUp   ui.Handler
-	OnMouseUp ui.Handler
-	OnFocus   ui.Handler
+	OnMouseUp   ui.Handler
+	OnMouseDown ui.Handler
+	OnFocus     ui.Handler
 	OnBlur    ui.Handler
 	OnScroll  ui.Handler
 }
@@ -423,6 +424,7 @@ func toRuntimeProps(parseProps Props) map[string]interface{} {
 	parseOnKeyDown := parseProps.OnKeyDown.Value()
 	parseOnKeyUp := parseProps.OnKeyUp.Value()
 	parseOnMouseUp := parseProps.OnMouseUp.Value()
+	parseOnMouseDown := parseProps.OnMouseDown.Value()
 	parseOnFocus := parseProps.OnFocus.Value()
 	parseOnBlur := parseProps.OnBlur.Value()
 	parseOnScroll := parseProps.OnScroll.Value()
@@ -558,6 +560,9 @@ func toRuntimeProps(parseProps Props) map[string]interface{} {
 		parseCount++
 	}
 	if parseOnMouseUp != nil {
+		parseCount++
+	}
+	if parseOnMouseDown != nil {
 		parseCount++
 	}
 	if parseOnFocus != nil {
@@ -717,6 +722,9 @@ func toRuntimeProps(parseProps Props) map[string]interface{} {
 	}
 	if parseOnMouseUp != nil {
 		parseValues["onmouseup"] = parseOnMouseUp
+	}
+	if parseOnMouseDown != nil {
+		parseValues["onmousedown"] = parseOnMouseDown
 	}
 	if parseOnFocus != nil {
 		parseValues["onfocus"] = parseOnFocus
