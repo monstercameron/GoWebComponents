@@ -50,3 +50,36 @@ func TestValidateDiagnosticTraceMetadataRejectsMissingAttemptIDs(parseT *testing
 		parseT.Fatalf("expected missing-attempt validation guidance, got %v", parseErr)
 	}
 }
+
+// TestValidateDiagnosticTraceMetadataRejectsWhitespaceAndSpecificMissingIDs verifies trace metadata rejects surrounding whitespace and each remaining required attempt identifier.
+func TestValidateDiagnosticTraceMetadataRejectsWhitespaceAndSpecificMissingIDs(parseT *testing.T) {
+	if parseErr := ValidateDiagnosticTraceMetadata(DiagnosticTraceMetadata{
+		IsDebug:            true,
+		TraceID:            " trace-123 ",
+		SchedulerAttemptID: 11,
+		WorkerAttemptID:    14,
+		CommitAttemptID:    19,
+	}); parseErr == nil {
+		parseT.Fatal("expected whitespace-padded trace ID to fail")
+	}
+
+	parseCases := []DiagnosticTraceMetadata{
+		{
+			IsDebug:            true,
+			TraceID:            "trace-123",
+			SchedulerAttemptID: 11,
+			CommitAttemptID:    19,
+		},
+		{
+			IsDebug:            true,
+			TraceID:            "trace-123",
+			SchedulerAttemptID: 11,
+			WorkerAttemptID:    14,
+		},
+	}
+	for _, parseCase := range parseCases {
+		if parseErr := ValidateDiagnosticTraceMetadata(parseCase); parseErr == nil {
+			parseT.Fatalf("expected incomplete trace metadata to fail for %+v", parseCase)
+		}
+	}
+}

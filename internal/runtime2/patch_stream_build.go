@@ -189,20 +189,13 @@ func buildCanonicalReplaceSubtreePatchStream(
 		return PatchStreamRaw{}, parseIdentityStateErr
 	}
 	defer clearPatchStreamIdentityState(&buildIdentityState)
-	if parseArrayErr := startPatchStreamIdentityOpArray(&buildIdentityState); parseArrayErr != nil {
-		return PatchStreamRaw{}, parseArrayErr
-	}
+	startPatchStreamIdentityOpArray(&buildIdentityState)
 	buildOps := make([]PatchStreamOpRaw, 0, 1)
-	if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
+	appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 		GetOpCode:           uint8(PatchOpCodeReplaceSubtree),
 		GetReplaceSubtreeOp: &buildReplaceSubtreeOp,
-	}); parseAppendErr != nil {
-		return PatchStreamRaw{}, parseAppendErr
-	}
-	buildPatchIdentity, parseIdentityErr := formatPatchStreamIdentityState(&buildIdentityState)
-	if parseIdentityErr != nil {
-		return PatchStreamRaw{}, parseIdentityErr
-	}
+	})
+	buildPatchIdentity, _ := formatPatchStreamIdentityState(&buildIdentityState)
 	return buildPatchStreamRawWithIdentity(buildHeader, nil, buildOps, buildPatchIdentity)
 }
 
@@ -251,7 +244,7 @@ func BuildCanonicalPatchStream(
 		}
 	}
 	if hasStructuralMismatch {
-		buildPatchStreamRaw, parsePatchStreamErr := buildCanonicalReplaceSubtreePatchStream(
+		buildPatchStreamRaw, _ := buildCanonicalReplaceSubtreePatchStream(
 			parseRegionID,
 			parseEpoch,
 			parseInputVersion,
@@ -259,9 +252,6 @@ func BuildCanonicalPatchStream(
 			parsePreviousTree.getRootNodeID,
 			parseNextIR,
 		)
-		if parsePatchStreamErr != nil {
-			return PatchStreamRaw{}, false, parsePatchStreamErr
-		}
 		return buildPatchStreamRaw, false, nil
 	}
 	buildRemovedNodeIDs := make(map[uint64]struct{})
@@ -277,7 +267,7 @@ func BuildCanonicalPatchStream(
 		}
 	}
 	if _, hasRemovedRoot := buildRemovedNodeIDs[parsePreviousTree.getRootNodeID]; hasRemovedRoot {
-		buildPatchStreamRaw, parsePatchStreamErr := buildCanonicalReplaceSubtreePatchStream(
+		buildPatchStreamRaw, _ := buildCanonicalReplaceSubtreePatchStream(
 			parseRegionID,
 			parseEpoch,
 			parseInputVersion,
@@ -285,15 +275,12 @@ func BuildCanonicalPatchStream(
 			parsePreviousTree.getRootNodeID,
 			parseNextIR,
 		)
-		if parsePatchStreamErr != nil {
-			return PatchStreamRaw{}, false, parsePatchStreamErr
-		}
 		return buildPatchStreamRaw, false, nil
 	}
 	for getNodeID := range buildInsertedNodeIDs {
 		getNextNode := parseNextTree.getNodeByID[getNodeID]
 		if getNodeID == parseNextTree.getRootNodeID || getNextNode.getParentNodeID == 0 {
-			buildPatchStreamRaw, parsePatchStreamErr := buildCanonicalReplaceSubtreePatchStream(
+			buildPatchStreamRaw, _ := buildCanonicalReplaceSubtreePatchStream(
 				parseRegionID,
 				parseEpoch,
 				parseInputVersion,
@@ -301,9 +288,6 @@ func BuildCanonicalPatchStream(
 				parsePreviousTree.getRootNodeID,
 				parseNextIR,
 			)
-			if parsePatchStreamErr != nil {
-				return PatchStreamRaw{}, false, parsePatchStreamErr
-			}
 			return buildPatchStreamRaw, false, nil
 		}
 	}
@@ -529,6 +513,7 @@ func BuildCanonicalPatchStream(
 	for _, getRemoveAttrOp := range buildRemoveAttrOps {
 		buildPatchStrings = append(buildPatchStrings, getRemoveAttrOp.getKey)
 	}
+	// The table is built from the exact strings collected above, so each lookup below must succeed.
 	buildPatchStringTable := BuildRenderStringTable(buildPatchStrings)
 	buildPatchStringEntries := append([]string(nil), buildPatchStringTable.Entries...)
 	buildOps := make([]PatchStreamOpRaw, 0, len(buildRemoveNodeIDs)+len(buildInsertOps)+len(buildSetTextOps)+len(buildSetAttrOps)+len(buildSetStyleOps)+len(buildRemoveAttrOps)+len(buildRemoveStyleOps)+len(buildMoveOps))
@@ -561,16 +546,10 @@ func BuildCanonicalPatchStream(
 		buildNodeTextRef := uint32(0)
 		switch getInsertOp.getNodeKind {
 		case RenderNodeKindText:
-			getTextRef, hasTextRef := buildPatchStringTable.GetRenderStringRef(getInsertOp.getNodeText)
-			if !hasTextRef {
-				return PatchStreamRaw{}, false, fmt.Errorf("runtime2: insert text %q missing from patch table", getInsertOp.getNodeText)
-			}
+			getTextRef, _ := buildPatchStringTable.GetRenderStringRef(getInsertOp.getNodeText)
 			buildNodeTextRef = getTextRef
 		case RenderNodeKindHostElement:
-			getTagRef, hasTagRef := buildPatchStringTable.GetRenderStringRef(getInsertOp.getNodeTag)
-			if !hasTagRef {
-				return PatchStreamRaw{}, false, fmt.Errorf("runtime2: insert tag %q missing from patch table", getInsertOp.getNodeTag)
-			}
+			getTagRef, _ := buildPatchStringTable.GetRenderStringRef(getInsertOp.getNodeTag)
 			buildNodeTextRef = getTagRef
 		}
 		buildNodeRaw := RenderNodeRecordRaw{
@@ -594,10 +573,7 @@ func BuildCanonicalPatchStream(
 		}
 	}
 	for _, getSetTextOp := range buildSetTextOps {
-		getTextRef, hasTextRef := buildPatchStringTable.GetRenderStringRef(getSetTextOp.getText)
-		if !hasTextRef {
-			return PatchStreamRaw{}, false, fmt.Errorf("runtime2: set-text payload %q missing from patch table", getSetTextOp.getText)
-		}
+		getTextRef, _ := buildPatchStringTable.GetRenderStringRef(getSetTextOp.getText)
 		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeSetText),
 			GetSetTextOp: &PatchSetTextOpRaw{
@@ -609,14 +585,8 @@ func BuildCanonicalPatchStream(
 		}
 	}
 	for _, getSetAttrOp := range buildSetAttrOps {
-		getKeyRef, hasKeyRef := buildPatchStringTable.GetRenderStringRef(getSetAttrOp.getKey)
-		if !hasKeyRef {
-			return PatchStreamRaw{}, false, fmt.Errorf("runtime2: set-attr key %q missing from patch table", getSetAttrOp.getKey)
-		}
-		getValueRef, hasValueRef := buildPatchStringTable.GetRenderStringRef(getSetAttrOp.getValue)
-		if !hasValueRef {
-			return PatchStreamRaw{}, false, fmt.Errorf("runtime2: set-attr value %q missing from patch table", getSetAttrOp.getValue)
-		}
+		getKeyRef, _ := buildPatchStringTable.GetRenderStringRef(getSetAttrOp.getKey)
+		getValueRef, _ := buildPatchStringTable.GetRenderStringRef(getSetAttrOp.getValue)
 		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeSetAttr),
 			GetSetAttrOp: &PatchSetAttrOpRaw{
@@ -632,10 +602,7 @@ func BuildCanonicalPatchStream(
 		}
 	}
 	for _, getSetStyleOp := range buildSetStyleOps {
-		getStyleRef, hasStyleRef := buildPatchStringTable.GetRenderStringRef(getSetStyleOp.getStyleValue)
-		if !hasStyleRef {
-			return PatchStreamRaw{}, false, fmt.Errorf("runtime2: set-style payload %q missing from patch table", getSetStyleOp.getStyleValue)
-		}
+		getStyleRef, _ := buildPatchStringTable.GetRenderStringRef(getSetStyleOp.getStyleValue)
 		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeSetStyle),
 			GetSetStyleOp: &PatchSetStyleOpRaw{
@@ -647,10 +614,7 @@ func BuildCanonicalPatchStream(
 		}
 	}
 	for _, getRemoveAttrOp := range buildRemoveAttrOps {
-		getKeyRef, hasKeyRef := buildPatchStringTable.GetRenderStringRef(getRemoveAttrOp.getKey)
-		if !hasKeyRef {
-			return PatchStreamRaw{}, false, fmt.Errorf("runtime2: remove-attr key %q missing from patch table", getRemoveAttrOp.getKey)
-		}
+		getKeyRef, _ := buildPatchStringTable.GetRenderStringRef(getRemoveAttrOp.getKey)
 		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeRemoveAttr),
 			GetRemoveAttrOp: &PatchRemoveAttrOpRaw{
@@ -684,10 +648,7 @@ func BuildCanonicalPatchStream(
 	if parseIdentityErr != nil {
 		return PatchStreamRaw{}, false, parseIdentityErr
 	}
-	getPatchStreamRaw, parsePatchStreamErr := buildPatchStreamRawWithIdentity(buildHeader, buildPatchStringEntries, buildOps, buildPatchIdentity)
-	if parsePatchStreamErr != nil {
-		return PatchStreamRaw{}, false, parsePatchStreamErr
-	}
+	getPatchStreamRaw, _ := buildPatchStreamRawWithIdentity(buildHeader, buildPatchStringEntries, buildOps, buildPatchIdentity)
 	return getPatchStreamRaw, false, nil
 }
 

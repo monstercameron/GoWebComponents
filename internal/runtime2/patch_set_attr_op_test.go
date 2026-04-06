@@ -69,3 +69,41 @@ func TestParsePatchSetAttrOpMissingAttrKeyReferenceFails(parseTesting *testing.T
 		parseTesting.Fatal("ParsePatchSetAttrOp(missing key ref) error = nil, want error")
 	}
 }
+
+// TestParsePatchSetAttrOpRejectsMissingOrUnknownTargets verifies set-attr payloads require a known target node ID before prop decoding.
+func TestParsePatchSetAttrOpRejectsMissingOrUnknownTargets(parseTesting *testing.T) {
+	buildStringTable := BuildRenderStringTable([]string{"class", "active"})
+	getClassRef, _ := buildStringTable.GetRenderStringRef("class")
+	getActiveRef, _ := buildStringTable.GetRenderStringRef("active")
+	testCases := []struct {
+		name              string
+		parseKnownNodeIDs map[uint64]struct{}
+		parseTargetNodeID uint64
+	}{
+		{
+			name:              "missing target",
+			parseKnownNodeIDs: map[uint64]struct{}{3: {}},
+			parseTargetNodeID: 0,
+		},
+		{
+			name:              "unknown target",
+			parseKnownNodeIDs: map[uint64]struct{}{3: {}},
+			parseTargetNodeID: 4,
+		},
+	}
+	for _, parseTestCase := range testCases {
+		parseTesting.Run(parseTestCase.name, func(parseSubTest *testing.T) {
+			_, parseErr := ParsePatchSetAttrOp(PatchSetAttrOpRaw{
+				TargetNodeID: parseTestCase.parseTargetNodeID,
+				Attr: RenderPropRecordRaw{
+					Kind:     uint8(RenderPropKindClass),
+					KeyRef:   getClassRef,
+					ValueRef: getActiveRef,
+				},
+			}, parseTestCase.parseKnownNodeIDs, buildStringTable)
+			if parseErr == nil {
+				parseSubTest.Fatalf("ParsePatchSetAttrOp(%s) error = nil, want error", parseTestCase.name)
+			}
+		})
+	}
+}

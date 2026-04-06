@@ -32,3 +32,10 @@ func TestParsePatchRemoveStyleOpUnknownTargetFails(parseTesting *testing.T) {
 		parseTesting.Fatal("ParsePatchRemoveStyleOp(unknown target) error = nil, want error")
 	}
 }
+
+// TestParsePatchRemoveStyleOpMissingTargetFails verifies remove-style payloads require a target node ID.
+func TestParsePatchRemoveStyleOpMissingTargetFails(parseTesting *testing.T) {
+	if _, parseErr := ParsePatchRemoveStyleOp(PatchRemoveStyleOpRaw{}, map[uint64]struct{}{8: {}}); parseErr == nil {
+		parseTesting.Fatal("ParsePatchRemoveStyleOp(missing target) error = nil, want error")
+	}
+}

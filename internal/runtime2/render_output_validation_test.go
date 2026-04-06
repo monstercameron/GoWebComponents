@@ -79,3 +79,63 @@ func TestValidateWorkerRenderableRenderOutputRejectsDirectDOMInteropKind(parseT 
 		parseT.Fatalf("expected direct DOM kind error details, got %v", parseErr)
 	}
 }
+
+// TestValidateWorkerRenderableRenderOutputTraversesNilPointersSlicesStructsAndMaps verifies the recursive validator accepts plain data, skips nil references, and rejects non-string-key portal and DOM interop markers.
+func TestValidateWorkerRenderableRenderOutputTraversesNilPointersSlicesStructsAndMaps(parseT *testing.T) {
+	type parseNestedRenderOutput struct {
+		Text string
+		Node *struct {
+			Kind string
+		}
+		Items []any
+	}
+
+	if parseErr := ValidateWorkerRenderableRenderOutput(nil); parseErr != nil {
+		parseT.Fatalf("ValidateWorkerRenderableRenderOutput(nil) returned error: %v", parseErr)
+	}
+	if parseErr := ValidateWorkerRenderableRenderOutput(17); parseErr != nil {
+		parseT.Fatalf("ValidateWorkerRenderableRenderOutput(primitive) returned error: %v", parseErr)
+	}
+
+	parseNested := parseNestedRenderOutput{
+		Text: "ok",
+		Node: &struct {
+			Kind string
+		}{Kind: "text"},
+		Items: []any{
+			nil,
+			"child",
+			[]string{"grandchild"},
+		},
+	}
+	if parseErr := ValidateWorkerRenderableRenderOutput(parseNested); parseErr != nil {
+		parseT.Fatalf("ValidateWorkerRenderableRenderOutput(nested safe output) returned error: %v", parseErr)
+	}
+
+	if parseErr := ValidateWorkerRenderableRenderOutput([]map[string]any{{"kind": "text"}}); parseErr != nil {
+		parseT.Fatalf("ValidateWorkerRenderableRenderOutput(slice of maps) returned error: %v", parseErr)
+	}
+
+	parsePortalMarker := map[int]any{
+		1: map[string]any{"kind": "portal"},
+	}
+	if parseErr := ValidateWorkerRenderableRenderOutput(parsePortalMarker); parseErr == nil {
+		parseT.Fatal("expected non-string-key portal marker to fail render-output validation")
+	}
+
+	parseDirectDOMInteropMarker := map[int]any{
+		1: map[string]any{"kind": "dom-interop"},
+	}
+	if parseErr := ValidateWorkerRenderableRenderOutput(parseDirectDOMInteropMarker); parseErr == nil {
+		parseT.Fatal("expected non-string-key direct DOM interop marker to fail render-output validation")
+	}
+
+	parsePortalStruct := struct {
+		Portal string
+	}{
+		Portal: "modal-root",
+	}
+	if parseErr := ValidateWorkerRenderableRenderOutput(parsePortalStruct); parseErr == nil {
+		parseT.Fatal("expected portal field name to fail render-output validation")
+	}
+}

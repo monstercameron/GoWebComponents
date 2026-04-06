@@ -26,6 +26,16 @@ func TestValidateProtocolVersionMatchRejectsMismatchedVersions(parseT *testing.T
 	}
 }
 
+// TestValidateProtocolVersionMatchRejectsMissingVersions verifies protocol version matching rejects missing expected and actual values.
+func TestValidateProtocolVersionMatchRejectsMissingVersions(parseT *testing.T) {
+	if parseErr := runtime2.ValidateProtocolVersionMatch("", runtime2.ProtocolVersionParallelV1); parseErr == nil {
+		parseT.Fatal("expected missing expected protocol version to fail")
+	}
+	if parseErr := runtime2.ValidateProtocolVersionMatch(runtime2.ProtocolVersionParallelV1, ""); parseErr == nil {
+		parseT.Fatal("expected missing actual protocol version to fail")
+	}
+}
+
 // TestParseProtocolVersionRejectsEmptyOrUnknownVersions verifies invalid versions fail validation.
 func TestParseProtocolVersionRejectsEmptyOrUnknownVersions(parseT *testing.T) {
 	parseCases := []string{"", "gwc.parallel.unknown"}

@@ -195,3 +195,38 @@ func TestParseHostPatchPayloadWithFallbackRejectsWrongVersionBeforeCommit(parseT
 		parseT.Fatal("expected wrong-version patch payload mismatch to fail parse before host commit")
 	}
 }
+
+// TestParseHostPatchPayloadWithFallbackRejectsNonPatchReadyEnvelope verifies host patch parsing requires a patch-ready control envelope.
+func TestParseHostPatchPayloadWithFallbackRejectsNonPatchReadyEnvelope(parseT *testing.T) {
+	if _, _, parsePatchErr := ParseHostPatchPayloadWithFallback(BuildControlReadyEnvelope(), nil, nil); parsePatchErr == nil {
+		parseT.Fatal("expected non-patch-ready control envelope to fail host patch parse")
+	}
+}
+
+// TestParseHostPatchPayloadWithFallbackSharedTierFallsBackToStructuredWithoutSharedPage verifies shared-tier host patch parsing falls back to structured-clone payload decoding when no shared page is available.
+func TestParseHostPatchPayloadWithFallbackSharedTierFallsBackToStructuredWithoutSharedPage(parseT *testing.T) {
+	parsePatchStream, _, parseStructuredEnvelopePayload := buildStructuredClonePatchEnvelopeForHostParseTest(parseT)
+	parsePatchReadyEnvelope, parsePatchReadyEnvelopeErr := BuildControlPatchReadyEnvelope(
+		RegionInstanceID(parsePatchStream.GetHeader.RegionID),
+		parsePatchStream.GetHeader.PatchVersion,
+		parsePatchStream.GetHeader.InputVersion,
+		TransportTierSharedBuffer,
+	)
+	if parsePatchReadyEnvelopeErr != nil {
+		parseT.Fatalf("BuildControlPatchReadyEnvelope returned error: %v", parsePatchReadyEnvelopeErr)
+	}
+	parseTransportTier, parseDecodedPatchStream, parseDecodedPatchStreamErr := ParseHostPatchPayloadWithFallback(
+		parsePatchReadyEnvelope,
+		parseStructuredEnvelopePayload,
+		nil,
+	)
+	if parseDecodedPatchStreamErr != nil {
+		parseT.Fatalf("ParseHostPatchPayloadWithFallback returned error: %v", parseDecodedPatchStreamErr)
+	}
+	if parseTransportTier != TransportTierStructuredClone {
+		parseT.Fatalf("expected shared-tier fallback to structured-clone, got %q", parseTransportTier)
+	}
+	if parseDecodedPatchStream.GetHeader.PatchVersion != parsePatchStream.GetHeader.PatchVersion {
+		parseT.Fatalf("expected decoded patch version %d, got %d", parsePatchStream.GetHeader.PatchVersion, parseDecodedPatchStream.GetHeader.PatchVersion)
+	}
+}

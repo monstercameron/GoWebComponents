@@ -91,3 +91,19 @@ func TestParseSSRShellMarkerAttributeValueRejectsMalformedPayload(parseT *testin
 		parseT.Fatal("expected ParseSSRShellMarkerAttributeValue(malformed payload) to fail")
 	}
 }
+
+// TestParseSSRShellMarkerRejectsMissingVersionAndPayload verifies SSR shell marker parsing rejects missing version identifiers and empty payloads.
+func TestParseSSRShellMarkerRejectsMissingVersionAndPayload(parseT *testing.T) {
+	if _, parseErr := ParseSSRShellMarkerVersion(""); parseErr == nil {
+		parseT.Fatal("expected ParseSSRShellMarkerVersion(empty) to fail")
+	}
+	if parseErr := ValidateSSRShellMarker(SSRShellMarker{
+		RegionInstanceID: RegionInstanceID("region-1"),
+		RendererID:       RendererID("dashboard.hot-panel"),
+	}); parseErr == nil {
+		parseT.Fatal("expected ValidateSSRShellMarker(missing version) to fail")
+	}
+	if _, parseErr := ParseSSRShellMarkerAttributeValue(" \n\t "); parseErr == nil {
+		parseT.Fatal("expected ParseSSRShellMarkerAttributeValue(empty payload) to fail")
+	}
+}

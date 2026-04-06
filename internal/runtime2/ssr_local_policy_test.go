@@ -15,3 +15,17 @@ func TestParseSSRShellAttachPolicyRejectsNonLocalModes(parseT *testing.T) {
 		parseT.Fatal("expected unsupported SSR shell attach policy to fail")
 	}
 }
+
+// TestParseSSRShellAttachPolicyAcceptsLocalOnlyAndRejectsEmpty verifies the current SSR attach policy parses successfully while empty input remains invalid.
+func TestParseSSRShellAttachPolicyAcceptsLocalOnlyAndRejectsEmpty(parseT *testing.T) {
+	parsePolicy, parseErr := ParseSSRShellAttachPolicy(string(SSRShellAttachPolicyLocalOnly))
+	if parseErr != nil {
+		parseT.Fatalf("ParseSSRShellAttachPolicy(local-only) returned error: %v", parseErr)
+	}
+	if parsePolicy != SSRShellAttachPolicyLocalOnly {
+		parseT.Fatalf("ParseSSRShellAttachPolicy(local-only) = %q, want %q", parsePolicy, SSRShellAttachPolicyLocalOnly)
+	}
+	if _, parseErr := ParseSSRShellAttachPolicy(""); parseErr == nil {
+		parseT.Fatal("expected empty SSR shell attach policy to fail")
+	}
+}

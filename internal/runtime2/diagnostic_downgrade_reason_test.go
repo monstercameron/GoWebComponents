@@ -54,3 +54,21 @@ func TestValidateDiagnosticDowngradeReasonRejectsUnsupportedReason(parseT *testi
 		parseT.Fatalf("expected reason validation guidance, got %v", parseErr)
 	}
 }
+
+// TestValidateDiagnosticDowngradeReasonRejectsMissingPathAndWhitespaceReason verifies downgrade diagnostics reject empty path identifiers and surrounding-whitespace reasons.
+func TestValidateDiagnosticDowngradeReasonRejectsMissingPathAndWhitespaceReason(parseT *testing.T) {
+	if _, parseErr := ParseDiagnosticDowngradePath(""); parseErr == nil {
+		parseT.Fatal("expected empty downgrade path to fail")
+	}
+
+	parseErr := ValidateDiagnosticDowngradeReason(DiagnosticDowngradeReason{
+		Path:   DiagnosticDowngradePathSharedMemory,
+		Reason: " unavailable ",
+	})
+	if parseErr == nil {
+		parseT.Fatal("expected surrounding-whitespace downgrade reason to fail")
+	}
+	if !strings.Contains(parseErr.Error(), "whitespace") {
+		parseT.Fatalf("expected whitespace validation guidance, got %v", parseErr)
+	}
+}

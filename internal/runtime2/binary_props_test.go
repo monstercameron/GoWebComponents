@@ -35,3 +35,12 @@ func TestBuildBinaryPropsValueRoundTripsSerializablePayload(parseT *testing.T) {
 		parseT.Fatalf("expected Count 3, got %#v", parseMap["Count"])
 	}
 }
+
+// TestBuildBinaryPropsValueRejectsNonSerializablePayload verifies props validation fails before binary encoding for unsupported values.
+func TestBuildBinaryPropsValueRejectsNonSerializablePayload(parseT *testing.T) {
+	if _, parseErr := runtime2.BuildBinaryPropsValue(map[string]any{
+		"callback": func() {},
+	}); parseErr == nil {
+		parseT.Fatal("expected BuildBinaryPropsValue to reject non-serializable props")
+	}
+}

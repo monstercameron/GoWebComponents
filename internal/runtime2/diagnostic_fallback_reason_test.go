@@ -65,3 +65,21 @@ func TestValidateDiagnosticFallbackReasonRejectsUnsupportedReason(parseT *testin
 		parseT.Fatalf("expected unsupported-reason error details, got %v", parseErr)
 	}
 }
+
+// TestValidateDiagnosticFallbackReasonRejectsMissingWhitespaceAndUnsupportedDomainReasons verifies malformed fallback diagnostics fail before the domain-specific recovery switch accepts them.
+func TestValidateDiagnosticFallbackReasonRejectsMissingWhitespaceAndUnsupportedDomainReasons(parseT *testing.T) {
+	parseCases := []DiagnosticFallbackReason{
+		{Domain: "", Reason: string(TransportFailureKindMalformedControlPayload)},
+		{Domain: " transport ", Reason: string(TransportFailureKindMalformedControlPayload)},
+		{Domain: "transport", Reason: ""},
+		{Domain: "transport", Reason: " malformed-control-payload "},
+		{Domain: "transport", Reason: string(DOMCommitFailureKindMissingNodeLookup)},
+		{Domain: "worker-death", Reason: string(TransportFailureKindMalformedControlPayload)},
+	}
+
+	for _, parseCase := range parseCases {
+		if parseErr := ValidateDiagnosticFallbackReason(parseCase); parseErr == nil {
+			parseT.Fatalf("expected malformed fallback diagnostic to fail for %+v", parseCase)
+		}
+	}
+}

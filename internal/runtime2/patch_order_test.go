@@ -70,3 +70,57 @@ func TestValidatePatchOrderMoveAfterRemoveSameNodeFails(parseTesting *testing.T)
 		parseTesting.Fatal("ValidatePatchOrder(move-after-remove) error = nil, want error")
 	}
 }
+
+// TestValidatePatchOrderRejectsMissingRequiredIDs verifies insert and move entries fail fast when required IDs are missing.
+func TestValidatePatchOrderRejectsMissingRequiredIDs(parseTesting *testing.T) {
+	parseKnownNodeIDs := map[uint64]struct{}{
+		1: {},
+	}
+	testCases := []struct {
+		name         string
+		parseEntries []PatchOrderEntry
+	}{
+		{
+			name: "insert parent node id",
+			parseEntries: []PatchOrderEntry{
+				{
+					OpCode: PatchOpCodeInsertNode,
+					NodeID: 10,
+				},
+			},
+		},
+		{
+			name: "insert node id",
+			parseEntries: []PatchOrderEntry{
+				{
+					OpCode:       PatchOpCodeInsertNode,
+					ParentNodeID: 1,
+				},
+			},
+		},
+		{
+			name: "move source node id",
+			parseEntries: []PatchOrderEntry{
+				{
+					OpCode:       PatchOpCodeMoveKeyedChild,
+					ParentNodeID: 1,
+				},
+			},
+		},
+		{
+			name: "remove node id",
+			parseEntries: []PatchOrderEntry{
+				{
+					OpCode: PatchOpCodeRemoveNode,
+				},
+			},
+		},
+	}
+	for _, parseTestCase := range testCases {
+		parseTesting.Run(parseTestCase.name, func(parseSubTest *testing.T) {
+			if parseErr := ValidatePatchOrder(parseTestCase.parseEntries, parseKnownNodeIDs); parseErr == nil {
+				parseSubTest.Fatalf("ValidatePatchOrder(%s) error = nil, want error", parseTestCase.name)
+			}
+		})
+	}
+}

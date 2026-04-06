@@ -49,3 +49,24 @@ func TestApplyRegionDOMCanonicalSnapshotReplacesRegionState(parseT *testing.T) {
 		parseT.Fatalf("text node text = %q, want %q", parseTextNode.GetText, "hello")
 	}
 }
+
+// TestApplyRegionDOMCanonicalSnapshotRejectsInvalidInputs verifies canonical snapshot apply fails fast on missing index, missing region ID, and malformed IR.
+func TestApplyRegionDOMCanonicalSnapshotRejectsInvalidInputs(parseT *testing.T) {
+	parseCanonicalIR, parseCanonicalErr := BuildCanonicalRenderIR(map[string]any{
+		"kind": "host-element",
+		"tag":  "div",
+	})
+	if parseCanonicalErr != nil {
+		parseT.Fatalf("BuildCanonicalRenderIR returned error: %v", parseCanonicalErr)
+	}
+
+	if _, parseApplyErr := ApplyRegionDOMCanonicalSnapshot(nil, "region-42", parseCanonicalIR); parseApplyErr == nil {
+		parseT.Fatal("expected nil region DOM index to fail")
+	}
+	if _, parseApplyErr := ApplyRegionDOMCanonicalSnapshot(BuildRegionDOMIndex(), "", parseCanonicalIR); parseApplyErr == nil {
+		parseT.Fatal("expected empty region ID to fail")
+	}
+	if _, parseApplyErr := ApplyRegionDOMCanonicalSnapshot(BuildRegionDOMIndex(), "region-42", CanonicalRenderIR{}); parseApplyErr == nil {
+		parseT.Fatal("expected malformed canonical render IR to fail")
+	}
+}

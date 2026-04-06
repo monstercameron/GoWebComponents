@@ -98,3 +98,24 @@ func TestBuildControlEnvelopeJSONRedactsDiagnosticText(parseT *testing.T) {
 		parseT.Fatalf("expected built control JSON to include token redaction marker, got %s", string(getJSONPayload))
 	}
 }
+
+// TestApplyControlDiagnosticRedactionIgnoresNilAndNonDiagnosticEnvelopes verifies the in-place diagnostic redaction helper is a no-op for nil, non-diagnostic, and empty-diagnostic envelopes.
+func TestApplyControlDiagnosticRedactionIgnoresNilAndNonDiagnosticEnvelopes(parseT *testing.T) {
+	var parseNilEnvelope *ControlEnvelope
+	applyControlDiagnosticRedaction(parseNilEnvelope)
+
+	parseReadyEnvelope := ControlEnvelope{
+		Kind:           ControlKindReady,
+		DiagnosticText: "token=abc-123",
+	}
+	applyControlDiagnosticRedaction(&parseReadyEnvelope)
+	if parseReadyEnvelope.DiagnosticText != "token=abc-123" {
+		parseT.Fatalf("expected non-diagnostic envelope to remain unchanged, got %q", parseReadyEnvelope.DiagnosticText)
+	}
+
+	parseDiagnosticEnvelope := ControlEnvelope{Kind: ControlKindDiagnostic}
+	applyControlDiagnosticRedaction(&parseDiagnosticEnvelope)
+	if parseDiagnosticEnvelope.DiagnosticText != "" {
+		parseT.Fatalf("expected empty diagnostic text to remain empty, got %q", parseDiagnosticEnvelope.DiagnosticText)
+	}
+}

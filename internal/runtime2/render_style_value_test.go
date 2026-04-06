@@ -51,6 +51,94 @@ func TestFormatRenderStyleValueUnsupportedNestedShapeFails(parseTesting *testing
 	}
 }
 
+// TestFormatRenderStyleValueWhitespaceNormalizedAcrossInputs verifies string and map style payloads normalize whitespace consistently.
+func TestFormatRenderStyleValueWhitespaceNormalizedAcrossInputs(parseTesting *testing.T) {
+	parseStringStyle, parseStringStyleErr := FormatRenderStyleValue(" margin : 0 ; color : red ; ")
+	if parseStringStyleErr != nil {
+		parseTesting.Fatalf("FormatRenderStyleValue(string style) error = %v", parseStringStyleErr)
+	}
+	if parseStringStyle != "color:red;margin:0" {
+		parseTesting.Fatalf("FormatRenderStyleValue(string style) = %q, want canonical ordering", parseStringStyle)
+	}
+
+	parseStringMapStyle, parseStringMapStyleErr := FormatRenderStyleValue(map[string]string{
+		" margin ": " 0 ",
+		" color ":  " red ",
+	})
+	if parseStringMapStyleErr != nil {
+		parseTesting.Fatalf("FormatRenderStyleValue(string map style) error = %v", parseStringMapStyleErr)
+	}
+	if parseStringMapStyle != parseStringStyle {
+		parseTesting.Fatalf("FormatRenderStyleValue(string map style) = %q, want %q", parseStringMapStyle, parseStringStyle)
+	}
+
+	parseAnyMapStyle, parseAnyMapStyleErr := FormatRenderStyleValue(map[string]interface{}{
+		" margin ": " 0 ",
+		" color ":  " red ",
+	})
+	if parseAnyMapStyleErr != nil {
+		parseTesting.Fatalf("FormatRenderStyleValue(any map style) error = %v", parseAnyMapStyleErr)
+	}
+	if parseAnyMapStyle != parseStringStyle {
+		parseTesting.Fatalf("FormatRenderStyleValue(any map style) = %q, want %q", parseAnyMapStyle, parseStringStyle)
+	}
+}
+
+// TestFormatRenderStyleValueRejectsInvalidStringAndCollisionShapes verifies malformed style segments and normalization collisions fail.
+func TestFormatRenderStyleValueRejectsInvalidStringAndCollisionShapes(parseTesting *testing.T) {
+	if _, parseErr := FormatRenderStyleValue("color"); parseErr == nil {
+		parseTesting.Fatal("expected invalid style segment to fail")
+	}
+	if _, parseErr := FormatRenderStyleValue(":red"); parseErr == nil {
+		parseTesting.Fatal("expected empty style key to fail")
+	}
+	if _, parseErr := FormatRenderStyleValue(map[string]interface{}{
+		"color":   "red",
+		" color ": "blue",
+	}); parseErr == nil {
+		parseTesting.Fatal("expected colliding normalized style keys to fail")
+	}
+}
+
+// TestFormatRenderStyleScalarCoversSupportedPrimitiveBranches verifies supported scalar style payloads normalize without relying on benchmark-only coverage.
+func TestFormatRenderStyleScalarCoversSupportedPrimitiveBranches(parseTesting *testing.T) {
+	parseCases := []struct {
+		parseName  string
+		parseValue interface{}
+		parseWant  string
+	}{
+		{parseName: "string", parseValue: "red", parseWant: "red"},
+		{parseName: "true", parseValue: true, parseWant: "true"},
+		{parseName: "false", parseValue: false, parseWant: "false"},
+		{parseName: "int", parseValue: int(-42), parseWant: "-42"},
+		{parseName: "int8", parseValue: int8(-8), parseWant: "-8"},
+		{parseName: "int16", parseValue: int16(-16), parseWant: "-16"},
+		{parseName: "int32", parseValue: int32(-32), parseWant: "-32"},
+		{parseName: "int64", parseValue: int64(-64), parseWant: "-64"},
+		{parseName: "uint", parseValue: uint(7), parseWant: "7"},
+		{parseName: "uint8", parseValue: uint8(8), parseWant: "8"},
+		{parseName: "uint16", parseValue: uint16(16), parseWant: "16"},
+		{parseName: "uint32", parseValue: uint32(32), parseWant: "32"},
+		{parseName: "uint64", parseValue: uint64(64), parseWant: "64"},
+		{parseName: "float32", parseValue: float32(12.5), parseWant: "12.5"},
+		{parseName: "float64", parseValue: float64(0.125), parseWant: "0.125"},
+	}
+
+	for _, parseCase := range parseCases {
+		parseGot, parseErr := formatRenderStyleScalar(parseCase.parseValue)
+		if parseErr != nil {
+			parseTesting.Fatalf("formatRenderStyleScalar(%s) error = %v", parseCase.parseName, parseErr)
+		}
+		if parseGot != parseCase.parseWant {
+			parseTesting.Fatalf("formatRenderStyleScalar(%s) = %q, want %q", parseCase.parseName, parseGot, parseCase.parseWant)
+		}
+	}
+
+	if _, parseErr := formatRenderStyleScalar(nil); parseErr == nil {
+		parseTesting.Fatal("expected nil style scalar to fail")
+	}
+}
+
 // BenchmarkFormatRenderStyleScalarCurrentVsLegacy compares the current scalar formatter against the previous fmt-based numeric normalization path.
 func BenchmarkFormatRenderStyleScalarCurrentVsLegacy(parseBenchmark *testing.B) {
 	parseValues := []interface{}{

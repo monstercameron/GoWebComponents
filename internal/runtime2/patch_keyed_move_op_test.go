@@ -63,3 +63,41 @@ func TestParsePatchKeyedMoveOpInvalidDestinationPositionFails(parseTesting *test
 		parseTesting.Fatal("ParsePatchKeyedMoveOp(invalid destination) error = nil, want error")
 	}
 }
+
+// TestParsePatchKeyedMoveOpRejectsMissingParentSourceAndSiblingBounds verifies keyed-move parsing rejects the remaining required identity and bounds branches.
+func TestParsePatchKeyedMoveOpRejectsMissingParentSourceAndSiblingBounds(parseTesting *testing.T) {
+	parseKnownNodeIDs := map[uint64]struct{}{
+		1: {},
+		3: {},
+	}
+
+	if _, parseErr := ParsePatchKeyedMoveOp(PatchKeyedMoveOpRaw{
+		SourceNodeID:     3,
+		DestinationIndex: 1,
+	}, parseKnownNodeIDs, map[uint64]uint32{1: 2}); parseErr == nil {
+		parseTesting.Fatal("expected missing parent node ID to fail")
+	}
+
+	if _, parseErr := ParsePatchKeyedMoveOp(PatchKeyedMoveOpRaw{
+		ParentNodeID:     7,
+		SourceNodeID:     3,
+		DestinationIndex: 1,
+	}, parseKnownNodeIDs, map[uint64]uint32{1: 2}); parseErr == nil {
+		parseTesting.Fatal("expected unknown parent node ID to fail")
+	}
+
+	if _, parseErr := ParsePatchKeyedMoveOp(PatchKeyedMoveOpRaw{
+		ParentNodeID:     1,
+		DestinationIndex: 1,
+	}, parseKnownNodeIDs, map[uint64]uint32{1: 2}); parseErr == nil {
+		parseTesting.Fatal("expected missing source node ID to fail")
+	}
+
+	if _, parseErr := ParsePatchKeyedMoveOp(PatchKeyedMoveOpRaw{
+		ParentNodeID:     1,
+		SourceNodeID:     3,
+		DestinationIndex: 1,
+	}, parseKnownNodeIDs, map[uint64]uint32{}); parseErr == nil {
+		parseTesting.Fatal("expected missing sibling bounds to fail")
+	}
+}

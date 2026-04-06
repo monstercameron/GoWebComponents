@@ -1,6 +1,9 @@
 package runtime2
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestHandleHostRegionPatchConsumeStructuredCloneCommits verifies structured-clone patch payload decode feeds host patch commit.
 func TestHandleHostRegionPatchConsumeStructuredCloneCommits(parseT *testing.T) {
@@ -179,5 +182,63 @@ func TestHandleHostRegionPatchConsumeRejectsWrongRegionPayload(parseT *testing.T
 	}
 	if parseDOMNode.GetText != "before" {
 		parseT.Fatalf("GetRegionDOMNode(root) text = %q, want %q", parseDOMNode.GetText, "before")
+	}
+}
+
+// TestParseStructuredClonePatchPayloadJSONRejectsInvalidPayloads verifies structured-clone patch decode rejects empty, malformed, and invalid-header payloads.
+func TestParseStructuredClonePatchPayloadJSONRejectsInvalidPayloads(parseT *testing.T) {
+	if _, parseErr := ParseStructuredClonePatchPayloadJSON(nil); parseErr == nil {
+		parseT.Fatal("ParseStructuredClonePatchPayloadJSON(nil) error = nil, want error")
+	}
+	if _, parseErr := ParseStructuredClonePatchPayloadJSON([]byte("{")); parseErr == nil {
+		parseT.Fatal("ParseStructuredClonePatchPayloadJSON(malformed JSON) error = nil, want error")
+	} else if !strings.Contains(parseErr.Error(), "decode structured-clone patch payload") {
+		parseT.Fatalf("ParseStructuredClonePatchPayloadJSON(malformed JSON) error = %q, want decode guidance", parseErr.Error())
+	}
+	if _, parseErr := ParseStructuredClonePatchPayloadJSON([]byte(`{}`)); parseErr == nil {
+		parseT.Fatal("ParseStructuredClonePatchPayloadJSON(invalid header) error = nil, want error")
+	}
+}
+
+// TestHandleHostRegionPatchConsumeRejectsInvalidInputsAndTransportFailures verifies host patch consume rejects nil adapters, invalid tiers, invalid structured payloads, and unreadable shared pages.
+func TestHandleHostRegionPatchConsumeRejectsInvalidInputsAndTransportFailures(parseT *testing.T) {
+	var parseNilHostRegionAdapter *HostRegionAdapter
+	if _, parseErr := parseNilHostRegionAdapter.HandleHostRegionPatchConsume(TransportTierStructuredClone, []byte(`{}`), nil, nil); parseErr == nil {
+		parseT.Fatal("HandleHostRegionPatchConsume(nil adapter) error = nil, want error")
+	}
+
+	buildHostRegionAdapter, parseAdapterErr := BuildHostRegionAdapter(RegionInstanceID("region-1"), []SchedulerShardID{"shard-a"})
+	if parseAdapterErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseAdapterErr)
+	}
+
+	if _, parseErr := buildHostRegionAdapter.HandleHostRegionPatchConsume("", nil, nil, nil); parseErr == nil {
+		parseT.Fatal("HandleHostRegionPatchConsume(empty tier) error = nil, want error")
+	}
+	if _, parseErr := buildHostRegionAdapter.HandleHostRegionPatchConsume(TransportTierStructuredClone, nil, nil, nil); parseErr == nil {
+		parseT.Fatal("HandleHostRegionPatchConsume(structured invalid payload) error = nil, want error")
+	}
+	if _, parseErr := buildHostRegionAdapter.HandleHostRegionPatchConsume(TransportTierSharedBuffer, nil, nil, nil); parseErr == nil {
+		parseT.Fatal("HandleHostRegionPatchConsume(shared nil page) error = nil, want error")
+	}
+}
+
+// TestHandleHostRegionPatchConsumeKnownPatchStreamRejectsInvalidInputsAndCommitErrors verifies known patch-stream consume rejects nil adapters, invalid tiers, and unmounted commit paths.
+func TestHandleHostRegionPatchConsumeKnownPatchStreamRejectsInvalidInputsAndCommitErrors(parseT *testing.T) {
+	var parseNilHostRegionAdapter *HostRegionAdapter
+	if _, parseErr := parseNilHostRegionAdapter.handleHostRegionPatchConsumeKnownPatchStream(TransportTierStructuredClone, PatchStreamRaw{}, nil); parseErr == nil {
+		parseT.Fatal("handleHostRegionPatchConsumeKnownPatchStream(nil adapter) error = nil, want error")
+	}
+
+	buildHostRegionAdapter, parseAdapterErr := BuildHostRegionAdapter(RegionInstanceID("region-1"), []SchedulerShardID{"shard-a"})
+	if parseAdapterErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseAdapterErr)
+	}
+
+	if _, parseErr := buildHostRegionAdapter.handleHostRegionPatchConsumeKnownPatchStream("", PatchStreamRaw{}, nil); parseErr == nil {
+		parseT.Fatal("handleHostRegionPatchConsumeKnownPatchStream(empty tier) error = nil, want error")
+	}
+	if _, parseErr := buildHostRegionAdapter.handleHostRegionPatchConsumeKnownPatchStream(TransportTierStructuredClone, PatchStreamRaw{}, nil); parseErr == nil {
+		parseT.Fatal("handleHostRegionPatchConsumeKnownPatchStream(unmounted region) error = nil, want error")
 	}
 }

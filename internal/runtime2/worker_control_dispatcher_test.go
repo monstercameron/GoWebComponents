@@ -210,6 +210,21 @@ func TestHandleWorkerControlEnvelopeRejectsUnsupportedKind(parseTesting *testing
 	}
 }
 
+// TestHandleWorkerControlEnvelopeRejectsNilRuntimeAndInvalidKind verifies worker control dispatch rejects nil runtimes and invalid control kinds before validation.
+func TestHandleWorkerControlEnvelopeRejectsNilRuntimeAndInvalidKind(parseTesting *testing.T) {
+	if _, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(nil, runtime2.BuildControlReadyEnvelope()); parseDispatchErr == nil {
+		parseTesting.Fatal("expected nil worker runtime to fail control dispatch")
+	}
+
+	parseWorkerRegionRuntime := buildWorkerControlDispatcherRuntime(parseTesting)
+	if _, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, runtime2.ControlEnvelope{
+		ProtocolVersion: runtime2.ProtocolVersionParallelV1,
+		Kind:            runtime2.ControlKind("invalid"),
+	}); parseDispatchErr == nil {
+		parseTesting.Fatal("expected invalid control kind to fail worker dispatch")
+	}
+}
+
 // TestHandleWorkerControlEnvelopeMountPassesSnapshotToRenderer verifies mount dispatch passes the full snapshot envelope to the worker renderer.
 func TestHandleWorkerControlEnvelopeMountPassesSnapshotToRenderer(parseTesting *testing.T) {
 	parseWorkerRegionRuntime := runtime2.BuildWorkerRegionRuntime()

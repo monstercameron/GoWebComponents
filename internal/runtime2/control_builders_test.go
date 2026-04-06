@@ -229,3 +229,44 @@ func TestBuildControlPongEnvelopeBuildsValidatedEnvelope(parseT *testing.T) {
 		parseT.Fatalf("ValidateControlEnvelope(pong builder output) returned error: %v", parseErr)
 	}
 }
+
+// TestBuildControlBuildersRejectInvalidInputs verifies the remaining control builders surface validation errors for malformed envelope payloads.
+func TestBuildControlBuildersRejectInvalidInputs(parseT *testing.T) {
+	if _, parseErr := runtime2.BuildControlCapabilitiesEnvelope(runtime2.CapabilityReport{
+		HasStructuredCloneSupport: true,
+	}); parseErr == nil {
+		parseT.Fatal("expected invalid capabilities payload to fail")
+	}
+
+	if _, parseErr := runtime2.BuildControlPatchReadyEnvelope("region-1", 7, 7, ""); parseErr == nil {
+		parseT.Fatal("expected missing patch-ready transport tier to fail")
+	}
+
+	if _, parseErr := runtime2.BuildControlMountEnvelope("", runtime2.SnapshotEnvelope{}); parseErr == nil {
+		parseT.Fatal("expected invalid mount envelope inputs to fail")
+	}
+
+	if _, parseErr := runtime2.BuildControlUpdateEnvelope(runtime2.SnapshotEnvelope{}); parseErr == nil {
+		parseT.Fatal("expected invalid update envelope inputs to fail")
+	}
+
+	if _, parseErr := runtime2.BuildControlEventEnvelope("region-1", runtime2.EventSlotDispatch{}); parseErr == nil {
+		parseT.Fatal("expected invalid event-slot payload to fail")
+	}
+
+	if _, parseErr := runtime2.BuildControlCancelEnvelope(""); parseErr == nil {
+		parseT.Fatal("expected empty cancel region ID to fail")
+	}
+
+	if _, parseErr := runtime2.BuildControlDisposeEnvelope(""); parseErr == nil {
+		parseT.Fatal("expected empty dispose region ID to fail")
+	}
+
+	if _, parseErr := runtime2.BuildControlRestartEnvelope("region-1", 0); parseErr == nil {
+		parseT.Fatal("expected missing restart epoch to fail")
+	}
+
+	if _, parseErr := runtime2.BuildControlPongEnvelope("", 0); parseErr == nil {
+		parseT.Fatal("expected invalid pong payload to fail")
+	}
+}

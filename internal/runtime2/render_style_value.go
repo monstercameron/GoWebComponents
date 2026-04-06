@@ -13,16 +13,21 @@ func FormatRenderStyleValue(parseRaw interface{}) (string, error) {
 	case string:
 		return formatRenderStyleString(parseStyleValue)
 	case map[string]string:
-		parseStyleMap := make(map[string]interface{}, len(parseStyleValue))
-		for parseKey, parseValue := range parseStyleValue {
-			parseStyleMap[parseKey] = parseValue
-		}
-		return formatRenderStyleMap(parseStyleMap)
+		return formatRenderStyleStringMap(parseStyleValue)
 	case map[string]interface{}:
 		return formatRenderStyleMap(parseStyleValue)
 	default:
 		return "", fmt.Errorf("runtime2: unsupported style payload type %T", parseRaw)
 	}
+}
+
+// formatRenderStyleStringMap canonicalizes one string-valued style map into sorted key order.
+func formatRenderStyleStringMap(parseRaw map[string]string) (string, error) {
+	parseStyleMap := make(map[string]interface{}, len(parseRaw))
+	for parseKey, parseValue := range parseRaw {
+		parseStyleMap[parseKey] = parseValue
+	}
+	return formatRenderStyleMap(parseStyleMap)
 }
 
 // formatRenderStyleString canonicalizes a style string into sorted key order.
@@ -50,17 +55,26 @@ func formatRenderStyleString(parseRaw string) (string, error) {
 
 // formatRenderStyleMap canonicalizes one style map into sorted key order.
 func formatRenderStyleMap(parseRaw map[string]interface{}) (string, error) {
+	parseNormalizedStyleMap := make(map[string]interface{}, len(parseRaw))
 	parseKeys := make([]string, 0, len(parseRaw))
-	for parseKey := range parseRaw {
-		if strings.TrimSpace(parseKey) == "" {
+	for parseKey, parseValue := range parseRaw {
+		parseNormalizedKey := strings.TrimSpace(parseKey)
+		if parseNormalizedKey == "" {
 			return "", fmt.Errorf("runtime2: style key is required")
 		}
-		parseKeys = append(parseKeys, parseKey)
+		if _, hasNormalizedKey := parseNormalizedStyleMap[parseNormalizedKey]; hasNormalizedKey {
+			return "", fmt.Errorf("runtime2: style key %q collides after normalization", parseNormalizedKey)
+		}
+		if parseStringValue, isStringValue := parseValue.(string); isStringValue {
+			parseValue = strings.TrimSpace(parseStringValue)
+		}
+		parseNormalizedStyleMap[parseNormalizedKey] = parseValue
+		parseKeys = append(parseKeys, parseNormalizedKey)
 	}
 	sort.Strings(parseKeys)
 	parseSegments := make([]string, 0, len(parseKeys))
 	for _, parseKey := range parseKeys {
-		formatStyleScalarValue, formatStyleScalarValueErr := formatRenderStyleScalar(parseRaw[parseKey])
+		formatStyleScalarValue, formatStyleScalarValueErr := formatRenderStyleScalar(parseNormalizedStyleMap[parseKey])
 		if formatStyleScalarValueErr != nil {
 			return "", fmt.Errorf("runtime2: style key %q is invalid: %w", parseKey, formatStyleScalarValueErr)
 		}
