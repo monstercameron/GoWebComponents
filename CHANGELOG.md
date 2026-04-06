@@ -2,6 +2,17 @@
 
 ## 2026-04-05
 
+### runtime2 event-slot metadata
+
+- Replaced the non-operative placeholder event-slot metadata slice with a normalized `v1` schema in `internal/runtime2/`.
+- Added validation and transport coverage for declared slot and event pairs, legacy placeholder-version normalization, and duplicate or malformed slot rejection.
+- Wired event-slot metadata through the runtime2 renderer registry so renderer capability metadata now carries validated slot declarations.
+
+### plugin support-tier promotion
+
+- Promoted `plugin` from experimental to supported companion in the package docs, root README, API policy, ecosystem docs, and comparison notes.
+- Updated the first-party `examples/99-plugin-host` copy so the example matches the supported-companion classification.
+
 ### core runtime and platform package refactors
 
 - Split several oversized core files into smaller focused units across `devtools/`, `fetch/`, `internal/runtime/`, `internal/runtime2/`, `interop/`, `router/`, `testkit/render/`, and `ui/` without changing the public package layout.
