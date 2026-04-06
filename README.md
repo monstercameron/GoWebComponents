@@ -224,7 +224,7 @@ The preferred public surface is:
 - `router`: hash routing, browser routing, params, query helpers, redirects, loaders, guards, metadata, nested layouts, and hydration-aware mount helpers
 - `devtools`: embeddable inspection, diagnostics, profiling hints, and snapshots
 - `head`: optional companion SSR head composition helpers for router metadata, social tags, robots tags, JSON-LD, alternate locale links, and resource hints
-- `plugin`: experimental companion host for explicit plugin manifests, capability-checked registration, and subsystem hook contributions layered on public APIs
+- `plugin`: supported companion host for explicit plugin manifests, capability-checked registration, and subsystem hook contributions layered on public APIs
 - `hotreload`: state-preserving development reload bridge and snapshot helpers for standalone wasm apps
 
 ## Feature Overview

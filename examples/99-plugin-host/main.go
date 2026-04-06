@@ -58,7 +58,7 @@ func seoPlugin() plugin.Plugin {
 				head.SocialTags(head.SocialMetadata{
 					Type:        "website",
 					Title:       "Plugin Host",
-					Description: "Experimental plugin host layered on companion APIs.",
+					Description: "Supported companion plugin host layered on public APIs.",
 					URL:         "https://example.local/plugins",
 					TwitterCard: "summary",
 				}),
@@ -383,7 +383,7 @@ func pluginExample() ui.Node {
 			html.Ul(html.Props{Class: "mt-3 grid gap-3 text-sm text-slate-300"}, parsePanels...),
 		),
 		shared.ExamplePanel("Implementation shape",
-			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("The plugin package is an experimental companion API. Plugins declare a manifest, require explicit capabilities, register through normal code, and contribute only the documented hooks the host enables.")),
+			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("The plugin package is a supported companion API. Plugins declare a manifest, require explicit capabilities, register through normal code, and contribute only the documented hooks the host enables.")),
 			shared.ExampleCode(
 				`host := plugin.NewHost(plugin.HostOptions{Capabilities: []plugin.Capability{...}})`,
 				`host.Register(seoPlugin())`,

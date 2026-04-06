@@ -233,7 +233,7 @@ Current measured browser comparison from [README.md](../README.md):
 ### Gaps actively being closed
 
 - stronger adoption and ecosystem documentation through [ADOPTION.md](ADOPTION.md) and [ECOSYSTEM.md](ECOSYSTEM.md)
-- explicit companion-package story for integrations such as `head` and the experimental `plugin` host
+- explicit companion-package story for integrations such as `head` and the supported-companion `plugin` host
 - continued performance work, including fine-grained reactivity and runtime benchmarks documented in [FINE_GRAINED_REACTIVITY.md](FINE_GRAINED_REACTIVITY.md) and [PERFORMANCE.md](PERFORMANCE.md)
 
 ## Compared To Vue

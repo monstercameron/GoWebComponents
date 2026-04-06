@@ -59,6 +59,7 @@ Current supported companion surface:
 
 - `devtools` public APIs such as `Panel`, `UseSnapshot`, `SnapshotNow`, and exported inspection types
 - `head` companion helpers such as `Compose`, `Render`, `RenderJSONLD`, `Merge`, `Resolve`, `MetaName`, `MetaProperty`, `Robots`, `OpenGraph`, `Twitter`, `SocialTags`, `AlternateLinks`, and `ResourceHints`
+- `plugin` companion helpers such as `Host`, `Plugin`, manifests, lifecycle helpers, and subsystem hook registration APIs
 
 Supported companion APIs follow the same major-version breaking-change rules as stable APIs, with one extra caveat: additive diagnostics are allowed in minor releases.
 
@@ -87,7 +88,6 @@ Current experimental surfaces are:
 - advanced cached-resource flows in `fetch.UseCachedResource`
 - advanced router data and lifecycle APIs including route loaders, `UseRevalidator`, guards, route-managed metadata, and layout-heavy hydration flows
 - optional SSR bootstrap transport details beyond the documented JSON bootstrap path, including alternative payload encodings
-- the `plugin` companion package, including `Host`, `Plugin`, manifests, lifecycle helpers, and subsystem hook registration APIs
 - the multi-client coordination proposal and current helper layer documented in `docs/MULTI_CLIENTS.md`
 
 Experimental means:

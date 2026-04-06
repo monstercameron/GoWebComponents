@@ -23,7 +23,7 @@ This doc exists to stop ecosystem growth from becoming an accidental second fram
 - the default extension story is companion packages plus package-specific integration points where the framework already has a clear ownership boundary
 - a shared plugin lifecycle should only be introduced after multiple extension categories need the same registration, cleanup, compatibility, and diagnostics contract
 
-The repo now also includes an experimental `plugin` companion package for explicit application-owned plugin hosts. That package is not a privileged core runtime registry; it is a companion abstraction built on documented public APIs.
+The repo now also includes a supported-companion `plugin` package for explicit application-owned plugin hosts. That package is not a privileged core runtime registry; it is a companion abstraction built on documented public APIs.
 
 ## Quick Decision Guide
 
@@ -581,7 +581,7 @@ It validates the ecosystem model by showing a real package that:
 - contributes optional helpers without changing core router or hydration semantics
 - fits the `Supported companion` tier because it builds on stable APIs and keeps additive semantics
 
-The repo also includes `plugin` as an experimental companion host for explicit manifest-based registration and hook contribution. Use it when an application or companion package wants one explicit integration surface; do not confuse it with a hidden core plugin registry.
+The repo also includes `plugin` as a supported companion host for explicit manifest-based registration and hook contribution. Use it when an application or companion package wants one explicit integration surface; do not confuse it with a hidden core plugin registry.
 
 ## Supported Companion Package: Query And Mutation Orchestration
 
@@ -858,7 +858,7 @@ For each companion package, the matrix should record:
 | Package | Tier | Min framework | Experimental deps | Test coverage | Ownership | Last verified | Migration guide | Known limitations |
 |---------|------|---------------|-------------------|---------------|-----------|---------------|-----------------|-------------------|
 | `head` | Supported Companion | v1 | No | Unit + SSR integration | Core team | Current | N/A (no breaking changes yet) | No dynamic per-request head outside SSR |
-| `plugin` | Experimental | v1 | Yes (plugin host lifecycle) | Unit + example-99 integration | Core team | Current | N/A (experimental) | No automatic plugin discovery; explicit registration only |
+| `plugin` | Supported Companion | v1 | No | Unit + example-99 integration | Core team | Current | N/A (no breaking changes yet) | No automatic plugin discovery; explicit registration only |
 | `fetch` (cache layer) | Supported Companion | v1 | No | Unit + SSR bootstrap + Playwright | Core team | Current | N/A (no breaking changes yet) | Entity normalization and infinite scroll orchestration are application-owned |
 | `fetch` (mutation queue) | Supported Companion | v1 | No | Unit + offline replay | Core team | Current | N/A (no breaking changes yet) | Conflict resolution policy is application-owned; no built-in retry backoff |
 | `ai/provider` | Experimental | v1 | Yes (`protobuf RPC` companion, transport-specific streaming patterns) | Example-100 integration + targeted server and client tests | Core team | Current | N/A (experimental) | Validated by RelayDesk only; prompt policy and server-side provider adapters remain application-owned |
