@@ -65,6 +65,17 @@ go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01
 
 For standalone wasm apps that want state-preserving reload, enable `hotreload.Enable()` in your app and use `gwc dev`.
 
+## Choose Your Path
+
+Use these entry docs instead of wandering the tree blindly:
+
+- Library user: [docs/START_HERE.md](docs/START_HERE.md) and [docs/REPO_MAP.md](docs/REPO_MAP.md)
+- Package author working in public APIs: [ui/README.md](ui/README.md), [html/README.md](html/README.md), [state/README.md](state/README.md), [fetch/README.md](fetch/README.md), [router/README.md](router/README.md)
+- Framework contributor: [internal/README.md](internal/README.md), [internal/runtime/README.md](internal/runtime/README.md), [internal/platform/README.md](internal/platform/README.md), [internal/runtime2/README.md](internal/runtime2/README.md)
+- Tooling contributor: [tools/README.md](tools/README.md), [docs/GWC.md](docs/GWC.md), [tools/gwc/docs/README.md](tools/gwc/docs/README.md)
+- Example explorer: [examples/README.md](examples/README.md)
+- Test or validation work: [test/README.md](test/README.md) and [docs/TESTING.md](docs/TESTING.md)
+
 ## Repository Layout
 
 If you are contributing to the repo rather than just consuming the module, use this map first:
@@ -78,7 +89,10 @@ If you are contributing to the repo rather than just consuming the module, use t
 - `docs/`: prose documentation and backlog tracking
 - `examples/`: examples, showcase apps, and validation fixtures
 - `agents/`, `scripts/`: local agent instructions and repository helper scripts
+- `third_party/`: pinned external dependencies and cached tool payloads used by this repo
+- `bin/`, `log/`: ignored local runtime outputs and local log sinks
 
+For the fuller human-oriented directory map, use [docs/REPO_MAP.md](docs/REPO_MAP.md).
 Local package maps live in the directory READMEs for the larger implementation areas, especially `internal/platform/`, `internal/runtime/`, `internal/runtime2/`, `tools/doc_ingest/`, and `tools/runnerconfig/`.
 
 ## Starter App Example
@@ -413,6 +427,7 @@ The implementation center of gravity is `internal/runtime/`:
 
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/README.md](docs/README.md)
+- [docs/REPO_MAP.md](docs/REPO_MAP.md)
 - [docs/START_HERE.md](docs/START_HERE.md)
 - [docs/WORKFLOWS.md](docs/WORKFLOWS.md)
 - [docs/WALKTHROUGHS.md](docs/WALKTHROUGHS.md)

@@ -18,11 +18,13 @@ Thumbs.db
 *.out
 
 # Build artifacts
-/bin/
+/bin/**
+!/bin/README.md
 /dist/
 /build/
 /.pages/
 /client
+/backgroundworker
 *.hotreload-manifest.json
 static/bin/
 go-compiler-wasm

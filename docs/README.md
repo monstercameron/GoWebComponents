@@ -14,11 +14,12 @@ This directory contains the project-level documentation that is still useful aft
 
 Read these first when you are new to the repo:
 
-1. `START_HERE.md`
-2. `WORKFLOWS.md`
-3. `WALKTHROUGHS.md`
-4. `REFERENCE_MAP.md`
-5. `TROUBLESHOOTING.md`
+1. `REPO_MAP.md`
+2. `START_HERE.md`
+3. `WORKFLOWS.md`
+4. `WALKTHROUGHS.md`
+5. `REFERENCE_MAP.md`
+6. `TROUBLESHOOTING.md`
 
 Jump directly to these when you already know the question category:
 
@@ -45,6 +46,9 @@ Jump directly to these when you already know the question category:
 
 ### `START_HERE.md`
 Recommended entrypoint for new adopters, including the preferred package surface, first example picks, and the modern path through the docs.
+
+### `REPO_MAP.md`
+Human-oriented top-level repository map that answers where to start by audience: library user, framework contributor, tooling contributor, example explorer, and test owner.
 
 ### `WORKFLOWS.md`
 Task-oriented guidance for common developer jobs such as building a client-only app, adding routing, adding SSR, testing, shipping a wasm build, and debugging hydration.
@@ -293,6 +297,7 @@ As of 2026-03-14:
 
 - [../README.md](../README.md)
 - [../CHANGELOG.md](../CHANGELOG.md)
+- [REPO_MAP.md](REPO_MAP.md)
 - [START_HERE.md](START_HERE.md)
 - [WORKFLOWS.md](WORKFLOWS.md)
 - [TESTING.md](TESTING.md)

@@ -6,6 +6,24 @@
 
 The `ui` library is the primary GWC UI runtime surface, including node construction, rendering orchestration, effects, and hydration helpers.
 
+## Start Here
+
+Use `ui` when you need:
+
+- component composition and rendering
+- hooks and local state
+- hydration or SSR bootstrap helpers
+- form helpers, async boundaries, overlays, and worker-task helpers
+
+Recommended reading order:
+
+1. [../README.md](../README.md) for the repo-level picture
+2. [../docs/START_HERE.md](../docs/START_HERE.md) for the guided learning path
+3. This README for the package surface
+4. [../examples/README.md](../examples/README.md) for runnable API examples
+
+If you are debugging implementation internals rather than using the public surface, jump to [../internal/runtime/README.md](../internal/runtime/README.md) instead of reading the API list below as architecture documentation.
+
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/ui` (`package ui`)

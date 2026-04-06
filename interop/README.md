@@ -6,6 +6,23 @@
 
 The `interop` library bridges Go values with JavaScript host capabilities and environment-specific adapters.
 
+## Start Here
+
+Use `interop` when you need:
+
+- browser globals like `window`, `document`, `history`, or `location`
+- storage, timers, clipboard, and DOM observation
+- workers, message channels, cross-tab channels, or popup-window channels
+- typed encode/decode helpers around browser message payloads
+
+Recommended reading order:
+
+1. [../README.md](../README.md)
+2. [../docs/WORKERS.md](../docs/WORKERS.md) when the task is worker-related
+3. [../examples/README.md](../examples/README.md) for runnable browser-interop examples
+
+If you are only looking for the public surface, the summary above is the entry point. The exhaustive API inventory below is reference material, not the best first-read onboarding path.
+
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/interop` (`package interop`)

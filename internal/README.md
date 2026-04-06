@@ -8,6 +8,19 @@ The `internal` folder contains implementation packages used by core runtime syst
 
 This folder contains internal-only GWC packages. Exported identifiers listed below are public within the module, but not part of the external import contract.
 
+## How To Use This Directory
+
+- If you are building an app with GoWebComponents, do not start here. Start with the public packages under `ui/`, `html/`, `state/`, `fetch/`, and `router/`.
+- If you are changing framework behavior, use this directory as the implementation map.
+- If you are debugging one concrete issue, pick the subsystem first instead of reading this folder top-to-bottom.
+
+Fast paths:
+
+- default runtime behavior: [runtime/README.md](runtime/README.md)
+- browser and mock adapters: [platform/README.md](platform/README.md)
+- worker-backed runtime experiments: [runtime2/README.md](runtime2/README.md)
+- repo-wide entry map: [../docs/REPO_MAP.md](../docs/REPO_MAP.md)
+
 ## Start Here
 
 - `internal/platform/README.md`: browser and mock platform adapter layout
