@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-04-05
+
+### core runtime and platform package refactors
+
+- Split several oversized core files into smaller focused units across `devtools/`, `fetch/`, `internal/runtime/`, `internal/runtime2/`, `interop/`, `router/`, `testkit/render/`, and `ui/` without changing the public package layout.
+- Hardened core runtime behavior and coverage:
+  - tightened `internal/runtime` adapter and scheduler contract coverage
+  - fixed `utils` goroutine-monitor lifecycle handling for `js/wasm`
+  - clarified `DOMNode` contract handling and expanded `mockdom` and `jsdom` validation
+  - restored runtime2 shard and host-region invariants with targeted regression and benchmark coverage
+
+### gwc tooling and livereload refactors
+
+- Split large `tools/gwc` command files into focused command helpers for benching, imports, release, startup rendering, test lanes, wasm variants, verification, and doctor flows.
+- Split `tools/livereload` into HTTP, path, and support helpers and kept `gwc dev` aligned with the full livereload source set.
+- Updated starter scaffold output and the matching goldens, and added the `fsnotify` module requirement needed by the current tooling path.
+
+### example app refactors and fixes
+
+- Split several oversized example files in `examples/00-example-0`, `examples/14-omi`, and `examples/100-ai-chat-wizard` into smaller focused files.
+- Refreshed example-backed docs and router snippets to match the shipped public router surface.
+- Landed focused example fixes around the portfolio contact form, seeded test expectations, readonly ops reporting, billing normalization, logging redaction, and SSO SQL paths.
+
+### docs backlog and reference refresh
+
+- Reduced `docs/TODO.md` to the active backlog, removed completed execution history from the root todo file, and refreshed the remaining maintainability notes.
+- Updated `docs/MULTITHREADED_RUNTIME_TODO.md` to reflect the runtime2 work that has already landed.
+- Refreshed related reference docs and editor snippets in `docs/ACCESSIBILITY.md`, `docs/API_POLICY.md`, `docs/ERROR_BOUNDARIES.md`, `docs/IDE_INTEGRATION.md`, `docs/MIGRATIONS.md`, `docs/VIRTUALIZATION.md`, `docs/WORKFLOWS.md`, and `docs/examples/gwc-vscode.code-snippets.json`.
+
+### docs ingestion planning assets
+
+- Added `docs/DOC_INGESTION_PLAN.md` and `docs/DOC_INGESTION_TODOS.md` to capture the repository docs-ingestion design and approval flow.
+- Added `docs/docs.sql` and `docs/seed_docs.ps1` to define and seed the docs-ingestion schema.
+
 ## 2026-03-28
 
 ### example 100: admin operator drilldowns, mutations, and rollups
