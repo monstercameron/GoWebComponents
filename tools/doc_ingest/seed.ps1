@@ -1,6 +1,9 @@
-﻿$ErrorActionPreference='Stop'
-$db = Join-Path $repo 'docs\docs.db'
-$schema = Join-Path $repo 'docs\docs.sql'
+$ErrorActionPreference='Stop'
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repo = Resolve-Path (Join-Path $scriptDir '..\..')
+$outDir = Join-Path $repo 'bin\doc_ingest'
+$db = Join-Path $outDir 'docs.db'
+$schema = Join-Path $scriptDir 'schema.sql'
 $paths = @(
   'docs/SERVER_FUNCTIONS.md',
   'docs/INTEROP.md',
@@ -14,6 +17,10 @@ $paths = @(
   'docs/deletemesoon/example-preview.html'
 )
 
+if (-not (Get-Command sqlite3 -ErrorAction SilentlyContinue)) {
+  throw 'sqlite3 is required on PATH to seed the docs ingestion database.'
+}
+if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir | Out-Null }
 if (Test-Path $db) { Remove-Item -Force $db }
 & sqlite3 $db ".read `"$schema`""
 
@@ -28,6 +35,11 @@ function Slugify([string]$v){
   $s = $s.Trim('-')
   if ($s.Length -gt 80) { $s = $s.Substring(0,80) }
   return $s
+}
+function Take-NextSortOrder([hashtable]$orders, [int]$docId){
+  $sortOrder = [int]$orders[$docId]
+  $orders[$docId] = $sortOrder + 1
+  return $sortOrder
 }
 
 $docId=1
@@ -55,13 +67,13 @@ foreach($path in $paths){
   if($ext -eq '.json') { $docId++; continue }
 
   if($ext -eq '.html'){
-    $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'title',1,'$(Escape-Sql $title)','$(Escape-Sql 'HTML preview shell and React runtime bootstrap page')','$(Escape-Sql ('{`"node`":`"html`"}') )', $(($orders[$docId]++)); ';
+    $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'title',1,'$(Escape-Sql $title)','$(Escape-Sql 'HTML preview shell and React runtime bootstrap page')','$(Escape-Sql '{`"node`":`"html`"}')', $(Take-NextSortOrder $orders $docId), NULL);"
     continue
   }
 
   $sections = Select-String -InputObject $txt -Pattern '^(#{1,6})\s+(.+)$' -AllMatches
   if($sections.Matches.Count -eq 0){
-    $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'paragraph',2,NULL,'$(Escape-Sql ($txt.Trim()))','$(Escape-Sql '{`"node`":`"paragraph`"}')', $($orders[$docId]++));"
+    $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'paragraph',2,NULL,'$(Escape-Sql ($txt.Trim()))','$(Escape-Sql '{`"node`":`"paragraph`"}')', $(Take-NextSortOrder $orders $docId), NULL);"
     $docId++
     continue
   }
@@ -81,7 +93,7 @@ foreach($path in $paths){
     $nodeType = if($b.Level -eq 1){ 'heading' } else { 'section' }
     $anchor = Slugify $b.Title
     $payload = @{ level=$b.Level; source='markdown' } | ConvertTo-Json -Compress
-    $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'$nodeType',$($b.Level),'$(Escape-Sql $b.Title)',NULL,'$(Escape-Sql $payload)', $($orders[$docId]++), '$(Escape-Sql $anchor)');"
+    $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'$nodeType',$($b.Level),'$(Escape-Sql $b.Title)',NULL,'$(Escape-Sql $payload)', $(Take-NextSortOrder $orders $docId), '$(Escape-Sql $anchor)');"
 
     $chunk = $b.Chunk
 
@@ -93,7 +105,7 @@ foreach($path in $paths){
       $code = $cm.Groups[2].Value.TrimEnd()
       if($code.Length -gt 600){ $code = $code.Substring(0,600) }
       $codePayload = @{ language=$lang; lines=($code -split "`n").Count; idx=$ci } | ConvertTo-Json -Compress
-      $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'code',3,'Code $ci','$(Escape-Sql $code)','$(Escape-Sql $codePayload)', $($orders[$docId]++), '$(Escape-Sql $anchor)');"
+      $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'code',3,'Code $ci','$(Escape-Sql $code)','$(Escape-Sql $codePayload)', $(Take-NextSortOrder $orders $docId), '$(Escape-Sql $anchor)');"
       $ci++
     }
 
@@ -103,7 +115,7 @@ foreach($path in $paths){
         $item = $matches['x'].Trim()
         $isChecked = $line -match '\[[xX]\]'
         $payload = @{ checked=[bool]$isChecked } | ConvertTo-Json -Compress
-        $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'checklist',3,NULL,'$(Escape-Sql $item)','$(Escape-Sql $payload)', $($orders[$docId]++), '$(Escape-Sql $anchor)');"
+        $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'checklist',3,NULL,'$(Escape-Sql $item)','$(Escape-Sql $payload)', $(Take-NextSortOrder $orders $docId), '$(Escape-Sql $anchor)');"
       }
     }
 
@@ -113,7 +125,7 @@ foreach($path in $paths){
       $text = $lm.Groups[1].Value
       $url = $lm.Groups[2].Value
       $payload = @{ text=$text; url=$url } | ConvertTo-Json -Compress
-      $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'link',3,'$(Escape-Sql $text)',NULL,'$(Escape-Sql $payload)', $($orders[$docId]++), '$(Escape-Sql $anchor)');"
+      $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'link',3,'$(Escape-Sql $text)',NULL,'$(Escape-Sql $payload)', $(Take-NextSortOrder $orders $docId), '$(Escape-Sql $anchor)');"
     }
 
     # Paragraph summary
@@ -123,7 +135,7 @@ foreach($path in $paths){
     if($plain.Length -gt 0){
       if($plain.Length -gt 700){ $plain = $plain.Substring(0,700) }
       $pp = @{ words=($plain -split '\s+').Count } | ConvertTo-Json -Compress
-      $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'paragraph',2,NULL,'$(Escape-Sql $plain)','$(Escape-Sql $pp)', $($orders[$docId]++), '$(Escape-Sql $anchor)');"
+      $insertSql += "INSERT INTO docs_node(document_id,node_type,level,title,body_text,payload_json,sort_order,section_anchor) VALUES ($docId,'paragraph',2,NULL,'$(Escape-Sql $plain)','$(Escape-Sql $pp)', $(Take-NextSortOrder $orders $docId), '$(Escape-Sql $anchor)');"
     }
   }
 
@@ -134,7 +146,11 @@ $benchText = Get-Content -Raw -Path (Join-Path $repo 'docs/benchmarks/reference.
 $insertSql += "INSERT INTO docs_run(document_id, source_kind, run_key, source_path, generated_at_utc, run_meta_json, payload_json) VALUES ((SELECT id FROM docs_document WHERE path='docs/benchmarks/reference.json'),'benchmark_json','bench-ref-2026-03-25','docs/benchmarks/reference.json','2026-03-25T15:17:41Z','$(Escape-Sql '{`"ingested`":true}')','$(Escape-Sql $benchText)');"
 
 # execute
-$seedFile = Join-Path $repo 'docs\_seed_rows.sql'
+$seedFile = Join-Path $outDir '_seed_rows.sql'
 Set-Content -Path $seedFile -Value ($insertSql -join "`n") -Encoding UTF8
-& sqlite3 $db < $seedFile
-& sqlite3 $db 'SELECT "docs_document" AS t, COUNT(*) FROM docs_document; SELECT "docs_node" AS t, COUNT(*) FROM docs_node; SELECT "docs_run" AS t, COUNT(*) FROM docs_run;'
+try {
+  Get-Content -Raw -Path $seedFile | & sqlite3 $db
+  & sqlite3 $db "SELECT 'docs_document' AS t, COUNT(*) FROM docs_document; SELECT 'docs_node' AS t, COUNT(*) FROM docs_node; SELECT 'docs_run' AS t, COUNT(*) FROM docs_run;"
+} finally {
+  if (Test-Path $seedFile) { Remove-Item -Force $seedFile }
+}

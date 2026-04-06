@@ -1,6 +1,7 @@
 ﻿## DOC_INGESTION_PLAN execution todos
 
 Approval flow: check one item at a time, implement only after explicit approval.
+Implementation assets for this plan live under `tools/doc_ingest/`. Generated local databases should be written under `bin/doc_ingest/` so `docs/` stays source-first.
 
 ### Ingestion scope
 Create one approval todo per repo-relative docs path.

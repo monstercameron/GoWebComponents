@@ -19,6 +19,14 @@ For each source document, the pipeline should:
 
 Default search should only return verified, active rows.
 
+Implementation Layout
+
+Keep the source-of-truth split clear:
+- `docs/` contains the prose corpus and the ingestion planning docs
+- `tools/doc_ingest/schema.sql` contains the local sqlite schema for docs ingestion
+- `tools/doc_ingest/seed.ps1` builds a local sqlite database from repo-root docs sources
+- generated sqlite outputs belong under `bin/doc_ingest/`, not under `docs/`
+
 Corpus Scope
 
 The initial corpus is the full docs/ set currently identified for GoWebComponents, including onboarding, reference, architecture, integration, troubleshooting, performance, TODO, and roadmap-oriented markdown files.

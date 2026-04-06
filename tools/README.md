@@ -108,5 +108,7 @@ Use `go run ./tools/gwc <command> -h` for the exact flag surface of a command.
 
 - `tools/gwc/` contains the launcher source.
 - `tools/livereload/` contains the live-reload implementation used by `gwc dev`.
+- `tools/runnerconfig/` contains the config loader and resolver used by launcher-owned workflows.
+- `tools/doc_ingest/` contains docs-ingestion bootstrap SQL and local seeding helpers.
 - Other files under `tools/` are implementation details or compatibility artifacts, not the documented primary workflow.
 - Legacy `tools/*.ps1` and `tools/*.sh` helper wrappers are deprecated compatibility shims. Use `go run ./tools/gwc ...` directly for new workflows.
