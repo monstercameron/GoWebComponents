@@ -347,6 +347,36 @@ func appendSnapshotDispatchValue(parseDst []byte, parseValue any) ([]byte, error
 		parseDst = append(parseDst, getSnapshotDispatchHashMarkerString)
 		parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(getValue)))
 		return append(parseDst, getValue...), nil
+	case []bool:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []int:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []int8:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []int16:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []int32:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []int64:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []uint:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []uint8:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []uint16:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []uint32:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []uint64:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []uintptr:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []float32:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []float64:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
+	case []string:
+		return appendSnapshotDispatchScalarList(parseDst, getValue)
 	case []any:
 		parseDst = append(parseDst, getSnapshotDispatchHashMarkerList)
 		parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(getValue)))
@@ -358,11 +388,140 @@ func appendSnapshotDispatchValue(parseDst []byte, parseValue any) ([]byte, error
 			}
 		}
 		return parseDst, nil
+	case map[string]bool:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]int:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]int8:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]int16:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]int32:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]int64:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]uint:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]uint8:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]uint16:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]uint32:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]uint64:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]uintptr:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]float32:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]float64:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
+	case map[string]string:
+		return appendSnapshotDispatchScalarMap(parseDst, getValue)
 	case map[string]any:
 		return appendSnapshotDispatchAnyMap(parseDst, getValue)
 	default:
 		return appendSnapshotDispatchReflect(parseDst, reflect.ValueOf(parseValue))
 	}
+}
+
+// appendSnapshotDispatchScalarList appends one canonical typed scalar slice without reflection fallback.
+func appendSnapshotDispatchScalarList[T serializableScalar](parseDst []byte, parseValue []T) ([]byte, error) {
+	parseDst = append(parseDst, getSnapshotDispatchHashMarkerList)
+	parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseValue)))
+	for _, getItem := range parseValue {
+		var parseErr error
+		parseDst, parseErr = appendSnapshotDispatchValue(parseDst, any(getItem))
+		if parseErr != nil {
+			return nil, parseErr
+		}
+	}
+	return parseDst, nil
+}
+
+// appendSnapshotDispatchScalarMap appends one canonical typed scalar map without reflection fallback.
+func appendSnapshotDispatchScalarMap[T serializableScalar](parseDst []byte, parseValue map[string]T) ([]byte, error) {
+	if parseValue == nil {
+		return append(parseDst, getSnapshotDispatchHashMarkerNil), nil
+	}
+	getMapLen := len(parseValue)
+	if getMapLen == 0 {
+		parseDst = append(parseDst, getSnapshotDispatchHashMarkerMap)
+		return appendSnapshotDispatchUint64(parseDst, 0), nil
+	}
+	if getMapLen == 1 {
+		return appendSnapshotDispatchScalarMapSingle(parseDst, parseValue)
+	}
+	if getMapLen == 2 {
+		return appendSnapshotDispatchScalarMapPair(parseDst, parseValue)
+	}
+	parseDst = append(parseDst, getSnapshotDispatchHashMarkerMap)
+	parseEntries, parseEntryCache := buildSnapshotDispatchMapEntryBuffer(getMapLen)
+	for parseKey, parseItem := range parseValue {
+		parseEntries = append(parseEntries, buildSnapshotDispatchMapEntry{
+			getKey:   parseKey,
+			getValue: any(parseItem),
+		})
+	}
+	defer storeSnapshotDispatchMapEntryBuffer(parseEntries, parseEntryCache)
+	sortSnapshotDispatchMapEntriesByKey(parseEntries)
+	parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseEntries)))
+	for _, parseEntry := range parseEntries {
+		parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseEntry.getKey)))
+		parseDst = append(parseDst, parseEntry.getKey...)
+		var parseErr error
+		parseDst, parseErr = appendSnapshotDispatchValue(parseDst, parseEntry.getValue)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+	}
+	return parseDst, nil
+}
+
+// appendSnapshotDispatchScalarMapSingle appends one canonical one-key typed scalar map without sort overhead.
+func appendSnapshotDispatchScalarMapSingle[T serializableScalar](parseDst []byte, parseValue map[string]T) ([]byte, error) {
+	parseDst = append(parseDst, getSnapshotDispatchHashMarkerMap)
+	parseDst = appendSnapshotDispatchUint64(parseDst, 1)
+	for parseKey, getItem := range parseValue {
+		parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseKey)))
+		parseDst = append(parseDst, parseKey...)
+		return appendSnapshotDispatchValue(parseDst, any(getItem))
+	}
+	return parseDst, nil
+}
+
+// appendSnapshotDispatchScalarMapPair appends one canonical two-key typed scalar map without pooled sorting.
+func appendSnapshotDispatchScalarMapPair[T serializableScalar](parseDst []byte, parseValue map[string]T) ([]byte, error) {
+	parseDst = append(parseDst, getSnapshotDispatchHashMarkerMap)
+	parseDst = appendSnapshotDispatchUint64(parseDst, 2)
+	var getLeftKey string
+	var getRightKey string
+	hasLeftKey := false
+	for parseKey := range parseValue {
+		if !hasLeftKey {
+			getLeftKey = parseKey
+			hasLeftKey = true
+			continue
+		}
+		getRightKey = parseKey
+		break
+	}
+	if getRightKey < getLeftKey {
+		getLeftKey, getRightKey = getRightKey, getLeftKey
+	}
+	var parseErr error
+	parseDst, parseErr = appendSnapshotDispatchScalarMapPairEntry(parseDst, getLeftKey, parseValue[getLeftKey])
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	return appendSnapshotDispatchScalarMapPairEntry(parseDst, getRightKey, parseValue[getRightKey])
+}
+
+// appendSnapshotDispatchScalarMapPairEntry appends one key/value entry inside a two-key typed scalar map fast path.
+func appendSnapshotDispatchScalarMapPairEntry[T serializableScalar](parseDst []byte, parseKey string, parseValue T) ([]byte, error) {
+	parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseKey)))
+	parseDst = append(parseDst, parseKey...)
+	return appendSnapshotDispatchValue(parseDst, any(parseValue))
 }
 
 // appendSnapshotDispatchAnyMap appends one canonical map[string]any value to parseDst.

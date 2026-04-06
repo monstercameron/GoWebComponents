@@ -276,6 +276,36 @@ func writeSnapshotDispatchFastHashValue(
 			return parseScratch, parseErr
 		}
 		return parseScratch, writeSnapshotDispatchFastHashString(parseHasher, getValue)
+	case []bool:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []int:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []int8:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []int16:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []int32:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []int64:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []uint:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []uint8:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []uint16:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []uint32:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []uint64:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []uintptr:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []float32:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []float64:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
+	case []string:
+		return writeSnapshotDispatchFastHashScalarList(parseHasher, getValue, parseScratch)
 	case []any:
 		if parseErr := writeSnapshotDispatchFastHashByteAndUint64(
 			parseHasher,
@@ -292,6 +322,36 @@ func writeSnapshotDispatchFastHashValue(
 			}
 		}
 		return parseScratch, nil
+	case map[string]bool:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]int:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]int8:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]int16:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]int32:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]int64:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]uint:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]uint8:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]uint16:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]uint32:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]uint64:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]uintptr:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]float32:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]float64:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
+	case map[string]string:
+		return writeSnapshotDispatchFastHashScalarMap(parseHasher, getValue, parseScratch)
 	case map[string]any:
 		return writeSnapshotDispatchFastHashAnyMap(parseHasher, getValue, nil, parseScratch)
 	default:
@@ -304,6 +364,119 @@ func writeSnapshotDispatchFastHashValue(
 		}
 		return parseEncodedValue[:0], nil
 	}
+}
+
+// writeSnapshotDispatchFastHashScalarList writes one canonical typed scalar slice into the fast hasher without reflection fallback.
+func writeSnapshotDispatchFastHashScalarList[T serializableScalar](
+	parseHasher *maphash.Hash,
+	parseValue []T,
+	parseScratch []byte,
+) ([]byte, error) {
+	if parseErr := writeSnapshotDispatchFastHashByteAndUint64(
+		parseHasher,
+		getSnapshotDispatchHashMarkerList,
+		uint64(len(parseValue)),
+	); parseErr != nil {
+		return parseScratch, parseErr
+	}
+	for _, getItem := range parseValue {
+		var parseErr error
+		parseScratch, parseErr = writeSnapshotDispatchFastHashValue(parseHasher, any(getItem), parseScratch)
+		if parseErr != nil {
+			return parseScratch, parseErr
+		}
+	}
+	return parseScratch, nil
+}
+
+// writeSnapshotDispatchFastHashScalarMap writes one canonical typed scalar map into the fast hasher without reflection fallback.
+func writeSnapshotDispatchFastHashScalarMap[T serializableScalar](
+	parseHasher *maphash.Hash,
+	parseValue map[string]T,
+	parseScratch []byte,
+) ([]byte, error) {
+	if parseValue == nil {
+		return parseScratch, writeSnapshotDispatchFastHashByte(parseHasher, getSnapshotDispatchHashMarkerNil)
+	}
+	getMapLen := len(parseValue)
+	if parseErr := writeSnapshotDispatchFastHashByteAndUint64(
+		parseHasher,
+		getSnapshotDispatchHashMarkerMap,
+		uint64(getMapLen),
+	); parseErr != nil {
+		return parseScratch, parseErr
+	}
+	if getMapLen == 0 {
+		return parseScratch, nil
+	}
+	if getMapLen == 1 {
+		return writeSnapshotDispatchFastHashScalarMapSingle(parseHasher, parseValue, parseScratch)
+	}
+	if getMapLen == 2 {
+		return writeSnapshotDispatchFastHashScalarMapPair(parseHasher, parseValue, parseScratch)
+	}
+	parseEntries, parseEntryCache := buildSnapshotDispatchMapEntryBuffer(getMapLen)
+	for parseKey, parseItem := range parseValue {
+		parseEntries = append(parseEntries, buildSnapshotDispatchMapEntry{
+			getKey:   parseKey,
+			getValue: any(parseItem),
+		})
+	}
+	defer storeSnapshotDispatchMapEntryBuffer(parseEntries, parseEntryCache)
+	sort.Slice(parseEntries, func(parseLeft int, parseRight int) bool {
+		return parseEntries[parseLeft].getKey < parseEntries[parseRight].getKey
+	})
+	for _, parseEntry := range parseEntries {
+		var parseErr error
+		parseScratch, parseErr = writeSnapshotDispatchFastHashAnyMapEntry(parseHasher, parseEntry.getKey, parseEntry.getValue, parseScratch)
+		if parseErr != nil {
+			return parseScratch, parseErr
+		}
+	}
+	return parseScratch, nil
+}
+
+// writeSnapshotDispatchFastHashScalarMapSingle writes one canonical one-key typed scalar map into the fast hasher without sort overhead.
+func writeSnapshotDispatchFastHashScalarMapSingle[T serializableScalar](
+	parseHasher *maphash.Hash,
+	parseValue map[string]T,
+	parseScratch []byte,
+) ([]byte, error) {
+	for parseKey, getValue := range parseValue {
+		return writeSnapshotDispatchFastHashAnyMapEntry(parseHasher, parseKey, any(getValue), parseScratch)
+	}
+	return parseScratch, nil
+}
+
+// writeSnapshotDispatchFastHashScalarMapPair writes one canonical two-key typed scalar map into the fast hasher without pooled sorting.
+func writeSnapshotDispatchFastHashScalarMapPair[T serializableScalar](
+	parseHasher *maphash.Hash,
+	parseValue map[string]T,
+	parseScratch []byte,
+) ([]byte, error) {
+	var getLeftKey string
+	var getRightKey string
+	hasLeftKey := false
+	for parseKey := range parseValue {
+		if !hasLeftKey {
+			getLeftKey = parseKey
+			hasLeftKey = true
+			continue
+		}
+		getRightKey = parseKey
+		break
+	}
+	if getRightKey < getLeftKey {
+		getLeftKey, getRightKey = getRightKey, getLeftKey
+	}
+	getLeftValue := parseValue[getLeftKey]
+	getRightValue := parseValue[getRightKey]
+	var parseErr error
+	parseScratch, parseErr = writeSnapshotDispatchFastHashAnyMapEntry(parseHasher, getLeftKey, any(getLeftValue), parseScratch)
+	if parseErr != nil {
+		return parseScratch, parseErr
+	}
+	return writeSnapshotDispatchFastHashAnyMapEntry(parseHasher, getRightKey, any(getRightValue), parseScratch)
 }
 
 // writeSnapshotDispatchFastHashFloat64 writes one canonical finite numeric payload into the fast hasher.

@@ -203,6 +203,61 @@ func TestBuildSnapshotDispatchHashIntoWithSourceIDsMatchesGeneric(parseT *testin
 	}
 }
 
+// TestBuildSnapshotDispatchHashTypedScalarContainersMatchEquivalentAnyContainers verifies typed scalar slices and maps preserve canonical dispatch hashes.
+func TestBuildSnapshotDispatchHashTypedScalarContainersMatchEquivalentAnyContainers(parseT *testing.T) {
+	getTypedEnvelope := SnapshotEnvelope{
+		RegionInstanceID: RegionInstanceID("region-typed-scalars"),
+		Epoch:            7,
+		InputVersion:     9,
+		SourceVersion:    13,
+		Props: map[string]any{
+			"labels": []string{"ops", "qa", "triage"},
+			"stats": map[string]int{
+				"closed":  9,
+				"pending": 4,
+			},
+		},
+		Sources: map[string]any{
+			"flags": map[string]bool{
+				"active": true,
+				"ready":  false,
+			},
+			"history": []int{1, 2, 3, 5, 8},
+		},
+	}
+	getAnyEnvelope := SnapshotEnvelope{
+		RegionInstanceID: getTypedEnvelope.RegionInstanceID,
+		Epoch:            getTypedEnvelope.Epoch,
+		InputVersion:     getTypedEnvelope.InputVersion,
+		SourceVersion:    getTypedEnvelope.SourceVersion,
+		Props: map[string]any{
+			"labels": []any{"ops", "qa", "triage"},
+			"stats": map[string]any{
+				"closed":  9,
+				"pending": 4,
+			},
+		},
+		Sources: map[string]any{
+			"flags": map[string]any{
+				"active": true,
+				"ready":  false,
+			},
+			"history": []any{1, 2, 3, 5, 8},
+		},
+	}
+	getTypedHash, parseTypedErr := buildSnapshotDispatchHash(getTypedEnvelope)
+	if parseTypedErr != nil {
+		parseT.Fatalf("buildSnapshotDispatchHash(typed) returned error: %v", parseTypedErr)
+	}
+	getAnyHash, parseAnyErr := buildSnapshotDispatchHash(getAnyEnvelope)
+	if parseAnyErr != nil {
+		parseT.Fatalf("buildSnapshotDispatchHash(any) returned error: %v", parseAnyErr)
+	}
+	if getTypedHash != getAnyHash {
+		parseT.Fatal("expected typed scalar containers to preserve canonical dispatch hash output")
+	}
+}
+
 // TestBuildSnapshotDispatchFastHashIntoWithSourceIDsMatchesBuffered verifies the streamed fast-hash path matches the buffered canonical payload hash.
 func TestBuildSnapshotDispatchFastHashIntoWithSourceIDsMatchesBuffered(parseT *testing.T) {
 	getSnapshotEnvelope := SnapshotEnvelope{
@@ -246,6 +301,53 @@ func TestBuildSnapshotDispatchFastHashIntoWithSourceIDsMatchesBuffered(parseT *t
 	}
 	if getBufferedFastHash != getStreamedFastHash {
 		parseT.Fatal("expected streamed fast hash to match the buffered canonical payload hash")
+	}
+}
+
+// TestBuildSnapshotDispatchFastHashIntoTypedScalarContainersMatchesBuffered verifies typed scalar containers preserve streamed fast-hash output.
+func TestBuildSnapshotDispatchFastHashIntoTypedScalarContainersMatchesBuffered(parseT *testing.T) {
+	getSnapshotEnvelope := SnapshotEnvelope{
+		RegionInstanceID: RegionInstanceID("region-fast-hash-typed-scalars"),
+		Epoch:            11,
+		InputVersion:     17,
+		SourceVersion:    23,
+		Props: map[string]any{
+			"labels": []string{"ops", "qa", "triage"},
+			"stats": map[string]int{
+				"closed":  9,
+				"pending": 4,
+			},
+		},
+		Sources: map[string]any{
+			"flags": map[string]bool{
+				"active": true,
+				"ready":  false,
+			},
+			"history": []int{1, 2, 3, 5, 8},
+		},
+	}
+	getPropsOrderedKeys := buildHostRegionDispatchPropsOrderedKeys(nil, getSnapshotEnvelope.Props.(map[string]any))
+	getBufferedPayload, parseBufferedErr := appendSnapshotDispatchEnvelopeWithSourceAndPropsKeys(
+		nil,
+		getSnapshotEnvelope,
+		[]string{"flags", "history"},
+		getPropsOrderedKeys,
+	)
+	if parseBufferedErr != nil {
+		parseT.Fatalf("appendSnapshotDispatchEnvelopeWithSourceAndPropsKeys returned error: %v", parseBufferedErr)
+	}
+	getBufferedFastHash := buildSnapshotDispatchFastHash(getBufferedPayload)
+	getStreamedFastHash, _, parseStreamedErr := buildSnapshotDispatchFastHashIntoWithSourceAndPropsKeys(
+		getSnapshotEnvelope,
+		[]string{"flags", "history"},
+		getPropsOrderedKeys,
+		nil,
+	)
+	if parseStreamedErr != nil {
+		parseT.Fatalf("buildSnapshotDispatchFastHashIntoWithSourceAndPropsKeys returned error: %v", parseStreamedErr)
+	}
+	if getBufferedFastHash != getStreamedFastHash {
+		parseT.Fatal("expected typed scalar containers to preserve streamed fast-hash output")
 	}
 }
 
