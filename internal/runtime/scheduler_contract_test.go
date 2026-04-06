@@ -28,7 +28,8 @@ func TestScheduleUpdateForFiber_MarksCleanAncestorsEvenIfLeafAlreadyDirty(parseT
 
 func TestRender_SchedulesWorkAndResetsDeletions(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
-	parseContainer := newTestDOMAdapter().CreateElement("div")
+	parseAdapter := newTestDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("div")
 	parseCurrentRoot := &Fiber{
 		typeOf:    "ROOT",
 		dom:       parseContainer,
@@ -36,6 +37,7 @@ func TestRender_SchedulesWorkAndResetsDeletions(parseT *testing.T) {
 		alternate: &Fiber{typeOf: "stale"},
 	}
 	parseRt := &Runtime{
+		domAdapter:   parseAdapter,
 		scheduler:   parseScheduler,
 		currentRoot: parseCurrentRoot,
 		deletions:   []*Fiber{{typeOf: "old"}},
@@ -70,14 +72,16 @@ func TestRender_SchedulesWorkAndResetsDeletions(parseT *testing.T) {
 
 func TestRender_ReusesPendingTimeoutWhenWorkAlreadyScheduled(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
-	parseFirstContainer := newTestDOMAdapter().CreateElement("div")
-	parseSecondContainer := newTestDOMAdapter().CreateElement("div")
+	parseAdapter := newTestDOMAdapter()
+	parseFirstContainer := parseAdapter.CreateElement("div")
+	parseSecondContainer := parseAdapter.CreateElement("div")
 	parseCurrentRoot := &Fiber{
 		typeOf: "ROOT",
 		dom:    parseFirstContainer,
 		props:  map[string]interface{}{"children": []interface{}{}},
 	}
 	parseRt := &Runtime{
+		domAdapter:      parseAdapter,
 		scheduler:       parseScheduler,
 		currentRoot:     parseCurrentRoot,
 		updateScheduled: true,

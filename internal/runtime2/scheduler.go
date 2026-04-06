@@ -66,7 +66,7 @@ func BuildScheduler(parseSchedulerShardIDs []SchedulerShardID) *Scheduler {
 
 // BuildSchedulerWithQueueLimit creates a scheduler with fixed live shard IDs and optional queue backpressure.
 func BuildSchedulerWithQueueLimit(parseSchedulerShardIDs []SchedulerShardID, parseSchedulerQueueLimit int) *Scheduler {
-	getSchedulerShardIDs := append([]SchedulerShardID(nil), parseSchedulerShardIDs...)
+	getSchedulerShardIDs := buildSchedulerShardList(parseSchedulerShardIDs)
 	getSchedulerQueueCapacity := len(getSchedulerShardIDs) * 64
 	if parseSchedulerQueueLimit > 0 {
 		getSchedulerQueueCapacity = parseSchedulerQueueLimit

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -53,6 +54,60 @@ func TestInitGlobalRuntime_CanUpgradeLazyGlobalRuntime(parseT *testing.T) {
 	}
 	if parseRt.scheduler != parseScheduler {
 		parseT.Fatal("expected InitGlobalRuntime to install scheduler on lazy-created global runtime")
+	}
+}
+
+func TestInitGlobalRuntime_PreservesExistingAdaptersOnPartialConfig(parseT *testing.T) {
+	resetGlobalRuntimeForTest()
+	defer resetGlobalRuntimeForTest()
+
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	InitGlobalRuntime(Config{HideRawPanicOutput: true})
+
+	parseRt := GetGlobalRuntime()
+	if parseRt.domAdapter != parseAdapter {
+		parseT.Fatal("expected partial InitGlobalRuntime to preserve DOM adapter")
+	}
+	if parseRt.scheduler != parseScheduler {
+		parseT.Fatal("expected partial InitGlobalRuntime to preserve scheduler")
+	}
+}
+
+func TestRender_PanicsWithoutDOMAdapter(parseT *testing.T) {
+	parseRt := NewRuntime(Config{})
+
+	defer func() {
+		parseRecovered := recover()
+		if parseRecovered == nil {
+			parseT.Fatal("expected Render to panic when DOM adapter is missing")
+		}
+		parseMessage := parseRecovered.(string)
+		if !strings.Contains(parseMessage, "Render requires a DOM adapter") {
+			parseT.Fatalf("expected actionable DOM adapter panic, got %q", parseMessage)
+		}
+	}()
+
+	parseRt.Render(&Element{Type: "div", Props: map[string]interface{}{}}, nil)
+}
+
+func TestRender_WithoutSchedulerRunsImmediately(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("div")
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+
+	parseRt.Render(&Element{Type: "div", Props: map[string]interface{}{"id": "app"}}, parseContainer)
+
+	if parseRt.currentRoot == nil {
+		parseT.Fatal("expected render without scheduler to commit immediately")
+	}
+	if parseRt.currentRoot.dom != parseContainer {
+		parseT.Fatal("expected immediate render to keep the target container as root dom")
+	}
+	if parseRt.updateScheduled {
+		parseT.Fatal("expected immediate render to settle updateScheduled")
 	}
 }
 

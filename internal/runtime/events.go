@@ -18,15 +18,15 @@ func (parseN *jsEventTargetNode) IsNull() bool {
 
 // Equals is a core package helper.
 func (parseN *jsEventTargetNode) Equals(parseOther DOMNode) bool {
-	if parseN == nil {
-		return parseOther == nil
+	if IsDOMNodeNull(parseN) {
+		return IsDOMNodeNull(parseOther)
 	}
 	parseOtherNode, parseOk := parseOther.(*jsEventTargetNode)
 	if !parseOk {
 		return false
 	}
-	if parseN.IsNull() || parseOtherNode.IsNull() {
-		return parseN.IsNull() == parseOtherNode.IsNull()
+	if IsDOMNodeNull(parseOtherNode) {
+		return false
 	}
 	return parseN.value.Equal(parseOtherNode.value)
 }

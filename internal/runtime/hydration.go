@@ -11,9 +11,9 @@ func (parseRt *Runtime) queueHydrationSubscription(parseAtomID string, parseFibe
 		return
 	}
 	parseRt.deferredHydrationSubscriptions = append(parseRt.deferredHydrationSubscriptions, hydrationSubscriptionAction{
-		atomID:      parseAtomID,
-		fiber:       parseFiber,
-		subscribe:   isSubscribe,
+		atomID:    parseAtomID,
+		fiber:     parseFiber,
+		subscribe: isSubscribe,
 	})
 }
 
@@ -100,7 +100,7 @@ func (parseRt *Runtime) claimHydrationNode(parseFiber *Fiber) (DOMNode, bool) {
 	parseBoundary := parseFiber.hydration
 	parseCandidate := parseRt.nextHydrationCandidate(parseBoundary.cursor)
 	parseBoundary.cursor = parseCandidate
-	if parseCandidate == nil || parseCandidate.IsNull() {
+	if IsDOMNodeNull(parseCandidate) {
 		parseRt.abortHydrationBoundary(parseBoundary, parseFiber, "missing DOM node for hydrated subtree")
 		return nil, false
 	}
@@ -129,7 +129,7 @@ func (parseRt *Runtime) finalizeHydrationBoundary(parseBoundary *hydrationBounda
 	}
 
 	parseExtra := parseRt.nextHydrationCandidate(parseBoundary.cursor)
-	if parseExtra == nil || parseExtra.IsNull() {
+	if IsDOMNodeNull(parseExtra) {
 		parseBoundary.cursor = nil
 		return
 	}
@@ -140,9 +140,9 @@ func (parseRt *Runtime) finalizeHydrationBoundary(parseBoundary *hydrationBounda
 	}
 	parseRt.reportHydrationDiagnostic(parseOwner, fmt.Sprintf("hydration discarded unexpected DOM nodes under %s", parseOwnerName))
 	parseRemoved := 0
-	for parseNode := parseExtra; parseNode != nil && !parseNode.IsNull(); {
+	for parseNode := parseExtra; !IsDOMNodeNull(parseNode); {
 		parseNext := parseRt.domAdapter.GetNextSibling(parseNode)
-		if parseBoundary.parent != nil && !parseBoundary.parent.IsNull() {
+		if !IsDOMNodeNull(parseBoundary.parent) {
 			parseRt.domAdapter.RemoveChild(parseBoundary.parent, parseNode)
 		}
 		parseRemoved++
@@ -167,9 +167,9 @@ func (parseRt *Runtime) abortHydrationBoundary(parseBoundary *hydrationBoundary,
 	parseRt.reportHydrationDiagnostic(parseOwner, fmt.Sprintf("hydration fell back to client rendering for %s: %s", parseOwnerName, strings.TrimSpace(parseReason)))
 
 	parseRemoved := 0
-	for parseNode := parseRt.nextHydrationCandidate(parseBoundary.cursor); parseNode != nil && !parseNode.IsNull(); {
+	for parseNode := parseRt.nextHydrationCandidate(parseBoundary.cursor); !IsDOMNodeNull(parseNode); {
 		parseNext := parseRt.domAdapter.GetNextSibling(parseNode)
-		if parseBoundary.parent != nil && !parseBoundary.parent.IsNull() {
+		if !IsDOMNodeNull(parseBoundary.parent) {
 			parseRt.domAdapter.RemoveChild(parseBoundary.parent, parseNode)
 		}
 		parseRemoved++
@@ -184,7 +184,7 @@ func (parseRt *Runtime) abortHydrationBoundary(parseBoundary *hydrationBoundary,
 
 // nextHydrationCandidate is a core package helper.
 func (parseRt *Runtime) nextHydrationCandidate(parseNode DOMNode) DOMNode {
-	for parseNode != nil && !parseNode.IsNull() {
+	for !IsDOMNodeNull(parseNode) {
 		if !parseRt.isIgnorableHydrationNode(parseNode) {
 			return parseNode
 		}
@@ -203,7 +203,7 @@ func (parseRt *Runtime) isIgnorableHydrationNode(parseNode DOMNode) bool {
 
 // matchesHydrationNode is a core package helper.
 func (parseRt *Runtime) matchesHydrationNode(parseFiber *Fiber, parseNode DOMNode) bool {
-	if parseFiber == nil || parseNode == nil || parseNode.IsNull() {
+	if parseFiber == nil || IsDOMNodeNull(parseNode) {
 		return false
 	}
 	if _, parseOk := parseFiber.typeOf.(*ReactiveRegionElementType); parseOk {
@@ -233,7 +233,7 @@ func (parseRt *Runtime) matchesHydrationNode(parseFiber *Fiber, parseNode DOMNod
 
 // detectHydrationTextMismatch is a core package helper.
 func (parseRt *Runtime) detectHydrationTextMismatch(parseFiber *Fiber, parseNode DOMNode) string {
-	if parseFiber == nil || parseNode == nil || parseNode.IsNull() {
+	if parseFiber == nil || IsDOMNodeNull(parseNode) {
 		return ""
 	}
 	if !isTextLikeFiber(parseFiber) {
@@ -249,7 +249,7 @@ func (parseRt *Runtime) detectHydrationTextMismatch(parseFiber *Fiber, parseNode
 
 // detectHydrationAttributeMismatches is a core package helper.
 func (parseRt *Runtime) detectHydrationAttributeMismatches(parseFiber *Fiber, parseNode DOMNode) []string {
-	if parseFiber == nil || parseNode == nil || parseNode.IsNull() || parseFiber.props == nil {
+	if parseFiber == nil || IsDOMNodeNull(parseNode) || parseFiber.props == nil {
 		return nil
 	}
 	parseTyp, parseOk := parseFiber.typeOf.(string)
@@ -363,7 +363,7 @@ func expectedHydrationFiberName(parseFiber *Fiber) string {
 
 // describeHydrationNode is a core package helper.
 func (parseRt *Runtime) describeHydrationNode(parseNode DOMNode) string {
-	if parseNode == nil || parseNode.IsNull() {
+	if IsDOMNodeNull(parseNode) {
 		return "null"
 	}
 	switch parseRt.domNodeType(parseNode) {

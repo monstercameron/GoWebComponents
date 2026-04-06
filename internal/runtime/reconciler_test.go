@@ -61,8 +61,8 @@ func (parseN *testDOMNode) IsNull() bool {
 }
 
 func (parseN *testDOMNode) Equals(parseOther DOMNode) bool {
-	if parseOther == nil {
-		return parseN == nil
+	if IsDOMNodeNull(parseN) {
+		return IsDOMNodeNull(parseOther)
 	}
 	return parseN == parseOther
 }

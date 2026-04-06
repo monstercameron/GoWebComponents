@@ -296,6 +296,54 @@ func TestBuildSnapshotDispatchFastHashIntoWithSourceAndPropsKeysMatchesBuffered(
 	}
 }
 
+// TestBuildSnapshotDispatchFastHashIntoWithSourceAndPropsEntriesMatchesBuffered verifies the streamed fast-hash path matches the buffered canonical payload hash when props use one pre-sorted compact entry layout.
+func TestBuildSnapshotDispatchFastHashIntoWithSourceAndPropsEntriesMatchesBuffered(parseT *testing.T) {
+	getSnapshotEnvelope := SnapshotEnvelope{
+		RegionInstanceID: RegionInstanceID("region-fast-hash-prop-layout"),
+		Epoch:            9,
+		InputVersion:     15,
+		SourceVersion:    27,
+		Props: map[string]any{
+			"count":   9,
+			"status":  "open",
+			"title":   "Orders",
+			"visible": true,
+		},
+		Sources: map[string]any{
+			"filters": map[string]any{
+				"status": "open",
+			},
+			"stats": map[string]any{
+				"pending": 4,
+			},
+		},
+	}
+	getPropsEntries := buildSnapshotDispatchPropEntries(getSnapshotEnvelope.Props.(map[string]any))
+	getPropsOrderedKeys := buildHostRegionDispatchPropsOrderedKeys(nil, getSnapshotEnvelope.Props.(map[string]any))
+	getBufferedPayload, parseBufferedErr := appendSnapshotDispatchEnvelopeWithSourceAndPropsKeys(
+		nil,
+		getSnapshotEnvelope,
+		[]string{"filters", "stats"},
+		getPropsOrderedKeys,
+	)
+	if parseBufferedErr != nil {
+		parseT.Fatalf("appendSnapshotDispatchEnvelopeWithSourceAndPropsKeys returned error: %v", parseBufferedErr)
+	}
+	getBufferedFastHash := buildSnapshotDispatchFastHash(getBufferedPayload)
+	getStreamedFastHash, _, parseStreamedErr := buildSnapshotDispatchFastHashIntoWithSourceAndPropsEntries(
+		getSnapshotEnvelope,
+		[]string{"filters", "stats"},
+		getPropsEntries,
+		nil,
+	)
+	if parseStreamedErr != nil {
+		parseT.Fatalf("buildSnapshotDispatchFastHashIntoWithSourceAndPropsEntries returned error: %v", parseStreamedErr)
+	}
+	if getBufferedFastHash != getStreamedFastHash {
+		parseT.Fatal("expected streamed fast hash with compact prop entries to match the buffered canonical payload hash")
+	}
+}
+
 // TestHandleHostRegionDispatchHashStoresFastHashState verifies host dispatch hashing stores fast-hash and version-vector guard state.
 func TestHandleHostRegionDispatchHashStoresFastHashState(parseT *testing.T) {
 	getHostRegionAdapter := &HostRegionAdapter{

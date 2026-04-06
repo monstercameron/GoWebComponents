@@ -41,19 +41,7 @@ func InitGlobalRuntime(parseConfig Config) {
 		return
 	}
 
-	globalRuntime.domAdapter = parseConfig.DOMAdapter
-	globalRuntime.eventAdapter = parseConfig.EventAdapter
-	globalRuntime.scheduler = parseConfig.Scheduler
-	globalRuntime.browserState = parseConfig.BrowserState
-	if globalRuntime.atomRegistry == nil {
-		globalRuntime.atomRegistry = NewAtomRegistry()
-	}
-	if globalRuntime.deletions == nil {
-		globalRuntime.deletions = make([]*Fiber, 0)
-	}
-	if globalRuntime.uiQueue == nil {
-		globalRuntime.uiQueue = make([]func(), 0)
-	}
+	applyRuntimeConfig(globalRuntime, parseConfig)
 }
 
 // Runtime represents the reconciliation and rendering engine.
@@ -208,22 +196,43 @@ type Config struct {
 // NewRuntime creates a new runtime instance.
 func NewRuntime(parseConfig Config) *Runtime {
 	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: parseConfig.HideRawPanicOutput, OnReport: parseConfig.OnUnhandledPanicReport})
-	// TODO: validate adapters are non-nil and fail fast; current code will panic later if any adapter is missing
-	return &Runtime{
-		domAdapter:   parseConfig.DOMAdapter,
-		eventAdapter: parseConfig.EventAdapter,
-		scheduler:    parseConfig.Scheduler,
-		browserState: parseConfig.BrowserState,
-		deletions:    make([]*Fiber, 0),
-		atomRegistry: NewAtomRegistry(),
-		uiQueue:      make([]func(), 0),
+	parseRuntime := &Runtime{}
+	applyRuntimeConfig(parseRuntime, parseConfig)
+	return parseRuntime
+}
+
+// applyRuntimeConfig installs one runtime config while preserving existing adapters when the incoming field is nil.
+func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
+	if parseRuntime == nil {
+		return
+	}
+	if parseConfig.DOMAdapter != nil {
+		parseRuntime.domAdapter = parseConfig.DOMAdapter
+	}
+	if parseConfig.EventAdapter != nil {
+		parseRuntime.eventAdapter = parseConfig.EventAdapter
+	}
+	if parseConfig.Scheduler != nil {
+		parseRuntime.scheduler = parseConfig.Scheduler
+	}
+	if parseConfig.BrowserState != nil {
+		parseRuntime.browserState = parseConfig.BrowserState
+	}
+	if parseRuntime.atomRegistry == nil {
+		parseRuntime.atomRegistry = NewAtomRegistry()
+	}
+	if parseRuntime.deletions == nil {
+		parseRuntime.deletions = make([]*Fiber, 0)
+	}
+	if parseRuntime.uiQueue == nil {
+		parseRuntime.uiQueue = make([]func(), 0)
 	}
 }
 
 // RenderTo renders an element to a DOM node specified by selector.
 func (parseRt *Runtime) RenderTo(parseSelector string, parseElement *Element) {
 	parseContainer := parseRt.queryContainer(parseSelector)
-	if parseContainer == nil || parseContainer.IsNull() {
+	if IsDOMNodeNull(parseContainer) {
 		parseMessage := "RenderTo failed because the target container selector was not found: " + parseSelector
 		panicFinalUnhandledPanicContext("runtime", PanicPhaseStartup, "RenderTo", parseSelector, nil, parseMessage)
 	}
@@ -236,7 +245,7 @@ func (parseRt *Runtime) RenderTo(parseSelector string, parseElement *Element) {
 // the public ui layer, and falls back per subtree if hydration cannot continue.
 func (parseRt *Runtime) HydrateTo(parseSelector string, parseElement *Element) {
 	parseContainer := parseRt.queryContainer(parseSelector)
-	if parseContainer == nil || parseContainer.IsNull() {
+	if IsDOMNodeNull(parseContainer) {
 		parseMessage := "HydrateTo failed because the target container selector was not found: " + parseSelector
 		panicFinalUnhandledPanicContext("runtime", PanicPhaseStartup, "HydrateTo", parseSelector, nil, parseMessage)
 	}
@@ -261,7 +270,7 @@ func (parseRt *Runtime) queryContainer(parseSelector string) DOMNode {
 
 // GetAttributeValue reports one attribute value from one DOM node when the active adapter exposes attribute reads.
 func (parseRt *Runtime) GetAttributeValue(parseNode DOMNode, parseName string) (string, bool) {
-	if parseRt == nil || parseRt.domAdapter == nil || parseNode == nil || parseNode.IsNull() {
+	if parseRt == nil || parseRt.domAdapter == nil || IsDOMNodeNull(parseNode) {
 		return "", false
 	}
 	if parseGetter, parseOk := parseRt.domAdapter.(interface {
@@ -274,7 +283,7 @@ func (parseRt *Runtime) GetAttributeValue(parseNode DOMNode, parseName string) (
 
 // GetTagName reports one normalized lower-case tag name from one DOM node when the active adapter exposes host tag reads.
 func (parseRt *Runtime) GetTagName(parseNode DOMNode) (string, bool) {
-	if parseRt == nil || parseRt.domAdapter == nil || parseNode == nil || parseNode.IsNull() {
+	if parseRt == nil || parseRt.domAdapter == nil || IsDOMNodeNull(parseNode) {
 		return "", false
 	}
 	getTagValue := parseRt.domAdapter.GetProperty(parseNode, "tagName")
@@ -311,13 +320,13 @@ func (parseRt *Runtime) FindNodesWithAttributeInTarget(parseTarget interface{}, 
 
 // findNodesWithAttribute traverses one DOM subtree and returns nodes whose attribute value is present and non-empty.
 func (parseRt *Runtime) findNodesWithAttribute(parseRoot DOMNode, parseName string) []DOMNode {
-	if parseRt == nil || parseRt.domAdapter == nil || parseRoot == nil || parseRoot.IsNull() || parseName == "" {
+	if parseRt == nil || parseRt.domAdapter == nil || IsDOMNodeNull(parseRoot) || parseName == "" {
 		return nil
 	}
 	parseMatches := make([]DOMNode, 0)
 	var parseWalk func(parseNode DOMNode)
 	parseWalk = func(parseNode DOMNode) {
-		if parseNode == nil || parseNode.IsNull() {
+		if IsDOMNodeNull(parseNode) {
 			return
 		}
 		if getAttributeValue, hasAttributeValue := parseRt.GetAttributeValue(parseNode, parseName); hasAttributeValue && strings.TrimSpace(getAttributeValue) != "" {
@@ -348,7 +357,7 @@ func (parseRt *Runtime) resolveContainer(parseTarget interface{}) DOMNode {
 // RenderInto renders an element tree into an explicit DOM node.
 func (parseRt *Runtime) RenderInto(parseTarget interface{}, parseElement *Element) error {
 	parseContainer := parseRt.resolveContainer(parseTarget)
-	if parseContainer == nil || parseContainer.IsNull() {
+	if IsDOMNodeNull(parseContainer) {
 		ReportDiagnostic("runtime", DiagnosticError, "RenderInto failed because the target node could not be resolved")
 		return fmt.Errorf("RenderInto: target node could not be resolved")
 	}
@@ -359,7 +368,7 @@ func (parseRt *Runtime) RenderInto(parseTarget interface{}, parseElement *Elemen
 // HydrateInto hydrates an element tree into an explicit DOM node.
 func (parseRt *Runtime) HydrateInto(parseTarget interface{}, parseElement *Element) error {
 	parseContainer := parseRt.resolveContainer(parseTarget)
-	if parseContainer == nil || parseContainer.IsNull() {
+	if IsDOMNodeNull(parseContainer) {
 		ReportDiagnostic("runtime", DiagnosticError, "HydrateInto failed because the target node could not be resolved")
 		return fmt.Errorf("HydrateInto: target node could not be resolved")
 	}

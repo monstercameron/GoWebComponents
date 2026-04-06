@@ -204,6 +204,16 @@ func actionableGoUseFuncDOMAdapterPanic() string {
 	})
 }
 
+// actionableRuntimeDOMAdapterPanic is a core package helper.
+func actionableRuntimeDOMAdapterPanic(parseSubject string) string {
+	return ActionableFrameworkPanic(ActionablePanicOptions{
+		Source:  "runtime",
+		Subject: parseSubject,
+		Message: parseSubject + " requires a DOM adapter",
+		Path:    parseSubject,
+	})
+}
+
 // actionableGoUseAtomRegistryPanic is a core package helper.
 func actionableGoUseAtomRegistryPanic() string {
 	return ActionableFrameworkPanic(ActionablePanicOptions{

@@ -127,3 +127,18 @@ func TestJSEventTargetNodeEquals(parseT *testing.T) {
 		parseT.Fatalf("expected non-nil node to not equal nil")
 	}
 }
+
+func TestJSEventTargetNodeNullHelpers(parseT *testing.T) {
+	var parseTypedNil DOMNode = (*jsEventTargetNode)(nil)
+	parseNullWrapper := DOMNode(&jsEventTargetNode{value: js.Null()})
+
+	if !IsDOMNodeNull(parseTypedNil) {
+		parseT.Fatal("expected typed nil event target node to report null")
+	}
+	if !IsDOMNodeNull(parseNullWrapper) {
+		parseT.Fatal("expected null js.Value wrapper to report null")
+	}
+	if !IsSameDOMNode(parseTypedNil, parseNullWrapper) {
+		parseT.Fatal("expected typed nil and null-wrapper event target nodes to compare equal")
+	}
+}

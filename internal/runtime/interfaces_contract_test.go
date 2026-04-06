@@ -15,6 +15,35 @@ func TestTestDOMNodeSatisfiesDOMNodeContract(parseT *testing.T) {
 	}
 }
 
+func TestDOMNodeNullHelpersTreatNilAndNullWrappersEquivalently(parseT *testing.T) {
+	var parseNilNode DOMNode
+	var parseTypedNil DOMNode = (*testDOMNode)(nil)
+	parseNullWrapper := DOMNode(&testDOMNode{isNull: true})
+	parseConcrete := DOMNode(&testDOMNode{tag: "div"})
+
+	if !IsDOMNodeNull(parseNilNode) {
+		parseT.Fatal("expected nil DOMNode interface to report null")
+	}
+	if !IsDOMNodeNull(parseTypedNil) {
+		parseT.Fatal("expected typed nil DOMNode to report null")
+	}
+	if !IsDOMNodeNull(parseNullWrapper) {
+		parseT.Fatal("expected explicit null wrapper to report null")
+	}
+	if IsDOMNodeNull(parseConcrete) {
+		parseT.Fatal("expected concrete DOM node to report non-null")
+	}
+	if !IsSameDOMNode(parseNilNode, parseTypedNil) {
+		parseT.Fatal("expected nil and typed nil nodes to compare equal")
+	}
+	if !IsSameDOMNode(parseTypedNil, parseNullWrapper) {
+		parseT.Fatal("expected typed nil and explicit null wrapper to compare equal")
+	}
+	if IsSameDOMNode(parseConcrete, parseNullWrapper) {
+		parseT.Fatal("expected concrete node and null wrapper to compare unequal")
+	}
+}
+
 func TestTestDOMAdapterSatisfiesCoreInterfaceContracts(parseT *testing.T) {
 	var parseAdapter DOMAdapter = newTestDOMAdapter()
 
@@ -32,7 +61,7 @@ func TestTestDOMAdapterSatisfiesCoreInterfaceContracts(parseT *testing.T) {
 	if parseGot := parseAdapter.GetProperty(parseParent, "value"); parseGot != 42 {
 		parseT.Fatalf("expected property round-trip, got %#v", parseGot)
 	}
-	if parseGot2 := parseAdapter.GetFirstChild(parseParent); parseGot2 == nil || parseGot2.IsNull() {
+	if parseGot2 := parseAdapter.GetFirstChild(parseParent); IsDOMNodeNull(parseGot2) {
 		parseT.Fatal("expected appended child to be reachable")
 	}
 	if len(parseAdapter.GetChildren(parseParent)) != 1 {

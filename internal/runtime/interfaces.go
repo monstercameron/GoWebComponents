@@ -1,10 +1,30 @@
 package runtime
 
 // DOMNode is an opaque reference to a platform-specific DOM node.
+//
+// Contract:
+// - implementations must treat a nil receiver as null and return true from IsNull
+// - nil interface values and explicit null-node wrappers are equivalent absence states
+// - callers should prefer IsDOMNodeNull and IsSameDOMNode instead of open-coding mixed nil and IsNull checks
 type DOMNode interface {
 	IsNull() bool
-	// TODO: clarify how nil vs IsNull interact for adapters to avoid mixed nil/IsNull checks
 	Equals(other DOMNode) bool
+}
+
+// IsDOMNodeNull reports whether a DOMNode is absent, whether that absence is represented as a nil interface or one explicit null-node wrapper.
+func IsDOMNodeNull(parseNode DOMNode) bool {
+	if parseNode == nil {
+		return true
+	}
+	return parseNode.IsNull()
+}
+
+// IsSameDOMNode reports whether two DOMNode values reference the same platform node, treating all null-node representations as equivalent.
+func IsSameDOMNode(parseLeft DOMNode, parseRight DOMNode) bool {
+	if IsDOMNodeNull(parseLeft) || IsDOMNodeNull(parseRight) {
+		return IsDOMNodeNull(parseLeft) == IsDOMNodeNull(parseRight)
+	}
+	return parseLeft.Equals(parseRight)
 }
 
 // DOMAdapter abstracts all DOM operations used by the runtime.

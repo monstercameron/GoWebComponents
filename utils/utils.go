@@ -36,9 +36,12 @@ var debugEnabled bool
 
 // init initializes goroutine monitoring.
 func init() {
-	// TODO: expose a shutdown hook to cancel goroutineMonitorContext; currently it can leak if never disabled explicitly
-	goroutineMonitorContext, goroutineMonitorCancel = context.WithCancel(context.Background())
 	baselineGoroutineCount = runtime.NumGoroutine()
+}
+
+// buildGoroutineMonitorContext returns one fresh cancellation scope for the background monitor.
+func buildGoroutineMonitorContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(context.Background())
 }
 
 // Debug namespace control - map of namespace to enabled status
@@ -199,26 +202,32 @@ func EnableGoroutineMonitoring() {
 		return
 	}
 
+	if goroutineMonitorCancel != nil {
+		goroutineMonitorCancel()
+	}
+	parseMonitorContext, parseMonitorCancel := buildGoroutineMonitorContext()
+	goroutineMonitorContext = parseMonitorContext
+	goroutineMonitorCancel = parseMonitorCancel
 	goroutineMonitoringEnabled = true
 	baselineGoroutineCount = runtime.NumGoroutine()
 
 	debugf("UTILS", "🔍 EnableGoroutineMonitoring: enabled with baseline %d goroutines\n", baselineGoroutineCount)
 
 	// Start monitoring goroutine in background
-	go func() {
+	go func(parseMonitorContext context.Context) {
 		parseTicker := time.NewTicker(goroutineCheckInterval)
 		defer parseTicker.Stop()
 
 		for {
 			select {
-			case <-goroutineMonitorContext.Done():
+			case <-parseMonitorContext.Done():
 				debugf("UTILS", "🛑 EnableGoroutineMonitoring: monitoring stopped\n")
 				return
 			case <-parseTicker.C:
 				checkGoroutineLeaks()
 			}
 		}
-	}()
+	}(parseMonitorContext)
 }
 
 // DisableGoroutineMonitoring stops goroutine leak monitoring
@@ -228,6 +237,11 @@ func DisableGoroutineMonitoring() {
 	}
 
 	goroutineMonitoringEnabled = false
+	if goroutineMonitorCancel != nil {
+		goroutineMonitorCancel()
+	}
+	goroutineMonitorContext = nil
+	goroutineMonitorCancel = nil
 	debugf("UTILS", "🔍 DisableGoroutineMonitoring: monitoring disabled\n")
 }
 

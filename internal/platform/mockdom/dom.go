@@ -2,6 +2,7 @@ package mockdom
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,11 +29,14 @@ func (parseN *MockDOMNode) IsNull() bool {
 }
 
 func (parseN *MockDOMNode) Equals(parseOther runtime.DOMNode) bool {
-	if parseOther == nil {
-		return parseN == nil
+	if parseN == nil {
+		return runtime.IsDOMNodeNull(parseOther)
+	}
+	if runtime.IsDOMNodeNull(parseOther) {
+		return false
 	}
 	parseOtherMock, parseOk := parseOther.(*MockDOMNode)
-	if !parseOk {
+	if !parseOk || parseOtherMock == nil {
 		return false
 	}
 	return parseN.ID == parseOtherMock.ID
@@ -65,8 +69,8 @@ func NewMockDOMAdapter() *MockDOMAdapter {
 	}
 }
 
-func (parseA *MockDOMAdapter) recordOp(parseOpType string, parseNodeID int, parseData interface{}) {
-	// TODO: guard operations with a lock; concurrent adapter calls can race when appending
+// recordOpLocked appends one operation entry while the adapter mutex is already held so DOM state and operation-log mutations stay serialized.
+func (parseA *MockDOMAdapter) recordOpLocked(parseOpType string, parseNodeID int, parseData interface{}) {
 	parseA.operations = append(parseA.operations, DOMOperation{
 		Type:      parseOpType,
 		NodeID:    parseNodeID,
@@ -89,7 +93,7 @@ func (parseA *MockDOMAdapter) CreateElement(parseTag string) runtime.DOMNode {
 		Children: make([]*MockDOMNode, 0),
 	}
 	parseA.nodeMap[parseNode.ID] = parseNode
-	parseA.recordOp("createElement", parseNode.ID, parseTag)
+	parseA.recordOpLocked("createElement", parseNode.ID, parseTag)
 	return parseNode
 }
 
@@ -106,7 +110,7 @@ func (parseA *MockDOMAdapter) CreateTextNode(parseText string) runtime.DOMNode {
 		Props:       make(map[string]interface{}),
 	}
 	parseA.nodeMap[parseNode.ID] = parseNode
-	parseA.recordOp("createTextNode", parseNode.ID, parseText)
+	parseA.recordOpLocked("createTextNode", parseNode.ID, parseText)
 	return parseNode
 }
 
@@ -115,7 +119,7 @@ func (parseA *MockDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName,
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
 		parseN.Attrs[parseName] = parseValue
-		parseA.recordOp("setAttribute", parseN.ID, map[string]string{parseName: parseValue})
+		parseA.recordOpLocked("setAttribute", parseN.ID, map[string]string{parseName: parseValue})
 	}
 }
 
@@ -134,7 +138,7 @@ func (parseA *MockDOMAdapter) RemoveAttribute(parseNode runtime.DOMNode, parseNa
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
 		delete(parseN.Attrs, parseName)
-		parseA.recordOp("removeAttribute", parseN.ID, parseName)
+		parseA.recordOpLocked("removeAttribute", parseN.ID, parseName)
 	}
 }
 
@@ -143,7 +147,7 @@ func (parseA *MockDOMAdapter) SetProperty(parseNode runtime.DOMNode, parseName s
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
 		parseN.Props[parseName] = parseValue
-		parseA.recordOp("setProperty", parseN.ID, map[string]interface{}{parseName: parseValue})
+		parseA.recordOpLocked("setProperty", parseN.ID, map[string]interface{}{parseName: parseValue})
 	}
 }
 
@@ -176,6 +180,41 @@ func (parseA *MockDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName s
 	return nil
 }
 
+// QuerySelector resolves one simple selector against the current mock DOM tree.
+//
+// The mock adapter only needs the subset used by framework tests: `#id` lookup
+// plus a basic tag-name fallback when no id selector is requested.
+func (parseA *MockDOMAdapter) QuerySelector(parseSelector string) interface{} {
+	parseTrimmedSelector := strings.TrimSpace(parseSelector)
+	if parseTrimmedSelector == "" {
+		return nil
+	}
+
+	parseA.mu.Lock()
+	defer parseA.mu.Unlock()
+
+	if strings.HasPrefix(parseTrimmedSelector, "#") {
+		parseWantedID := strings.TrimSpace(strings.TrimPrefix(parseTrimmedSelector, "#"))
+		if parseWantedID == "" {
+			return nil
+		}
+		for _, parseNode := range parseA.nodeMap {
+			if parseNode != nil && strings.TrimSpace(parseNode.Attrs["id"]) == parseWantedID {
+				return parseNode
+			}
+		}
+		return nil
+	}
+
+	parseWantedTag := strings.ToLower(parseTrimmedSelector)
+	for _, parseNode := range parseA.nodeMap {
+		if parseNode != nil && strings.ToLower(strings.TrimSpace(parseNode.Tag)) == parseWantedTag {
+			return parseNode
+		}
+	}
+	return nil
+}
+
 func (parseA *MockDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNode) {
 	parseP, parsePok := parseParent.(*MockDOMNode)
 	parseC, parseCok := parseChild.(*MockDOMNode)
@@ -184,7 +223,7 @@ func (parseA *MockDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNod
 		defer parseA.mu.Unlock()
 		parseP.Children = append(parseP.Children, parseC)
 		parseC.Parent = parseP
-		parseA.recordOp("appendChild", parseC.ID, map[string]int{"parentID": parseP.ID})
+		parseA.recordOpLocked("appendChild", parseC.ID, map[string]int{"parentID": parseP.ID})
 	}
 }
 
@@ -201,7 +240,7 @@ func (parseA *MockDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNod
 				break
 			}
 		}
-		parseA.recordOp("removeChild", parseC.ID, map[string]int{"parentID": parseP.ID})
+		parseA.recordOpLocked("removeChild", parseC.ID, map[string]int{"parentID": parseP.ID})
 	}
 }
 
@@ -219,7 +258,7 @@ func (parseA *MockDOMAdapter) InsertBefore(parseParent, parseNewNode, parseRefer
 				break
 			}
 		}
-		parseA.recordOp("insertBefore", parseN.ID, map[string]int{"parentID": parseP.ID, "beforeID": parseR.ID})
+		parseA.recordOpLocked("insertBefore", parseN.ID, map[string]int{"parentID": parseP.ID, "beforeID": parseR.ID})
 	}
 }
 
@@ -238,12 +277,14 @@ func (parseA *MockDOMAdapter) ReplaceChild(parseParent, parseNewNode, parseOldNo
 				break
 			}
 		}
-		parseA.recordOp("replaceChild", parseN.ID, map[string]int{"parentID": parseP.ID, "oldID": parseO.ID})
+		parseA.recordOpLocked("replaceChild", parseN.ID, map[string]int{"parentID": parseP.ID, "oldID": parseO.ID})
 	}
 }
 
 func (parseA *MockDOMAdapter) GetParent(parseNode runtime.DOMNode) runtime.DOMNode {
 	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
 		return parseN.Parent
 	}
 	return nil
@@ -291,7 +332,7 @@ func (parseA *MockDOMAdapter) SetStyle(parseNode runtime.DOMNode, parseProperty,
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
 		parseN.Styles[parseProperty] = parseValue
-		parseA.recordOp("setStyle", parseN.ID, map[string]string{parseProperty: parseValue})
+		parseA.recordOpLocked("setStyle", parseN.ID, map[string]string{parseProperty: parseValue})
 	}
 }
 
@@ -302,7 +343,7 @@ func (parseA *MockDOMAdapter) SetStyles(parseNode runtime.DOMNode, parseStyles m
 		for parseK, parseV := range parseStyles {
 			parseN.Styles[parseK] = parseV
 		}
-		parseA.recordOp("setStyles", parseN.ID, parseStyles)
+		parseA.recordOpLocked("setStyles", parseN.ID, parseStyles)
 	}
 }
 
@@ -318,7 +359,7 @@ func (parseA *MockDOMAdapter) SetInnerHTML(parseNode runtime.DOMNode, parseHtml 
 			parseN.Children = parseN.Children[:0]
 			parseN.TextContent = ""
 		}
-		parseA.recordOp("setInnerHTML", parseN.ID, parseHtml)
+		parseA.recordOpLocked("setInnerHTML", parseN.ID, parseHtml)
 	}
 }
 
@@ -327,7 +368,7 @@ func (parseA *MockDOMAdapter) SetTextContent(parseNode runtime.DOMNode, parseTex
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
 		parseN.TextContent = parseText
-		parseA.recordOp("setTextContent", parseN.ID, parseText)
+		parseA.recordOpLocked("setTextContent", parseN.ID, parseText)
 	}
 }
 
@@ -336,25 +377,28 @@ func (parseA *MockDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 	return parseFn
 }
 
-// Helper methods for testing
+// GetOperations returns one snapshot copy of the recorded DOM operation log for assertions.
 func (parseA *MockDOMAdapter) GetOperations() []DOMOperation {
 	parseA.mu.Lock()
 	defer parseA.mu.Unlock()
 	return append([]DOMOperation(nil), parseA.operations...)
 }
 
+// GetNode returns one live node handle for read-only assertions against adapter-owned state.
 func (parseA *MockDOMAdapter) GetNode(parseId int) *MockDOMNode {
 	parseA.mu.Lock()
 	defer parseA.mu.Unlock()
 	return parseA.nodeMap[parseId]
 }
 
+// ClearOperations resets the recorded DOM operation log.
 func (parseA *MockDOMAdapter) ClearOperations() {
 	parseA.mu.Lock()
 	defer parseA.mu.Unlock()
 	parseA.operations = make([]DOMOperation, 0)
 }
 
+// AssertOperation verifies one recorded operation type at one log index.
 func (parseA *MockDOMAdapter) AssertOperation(parseIndex int, parseExpectedType string) error {
 	parseA.mu.Lock()
 	defer parseA.mu.Unlock()

@@ -150,9 +150,16 @@ func (parseA *queryHydrationDOMAdapter) ResolveNode(parseValue interface{}) runt
 	return nil
 }
 
+// resetUIRuntime installs one fresh global runtime for one wasm ui test.
+func resetUIRuntime(parseConfig runtime.Config) {
+	runtime.SetCurrentFiber(nil)
+	parseConfig.Reset = true
+	runtime.InitGlobalRuntime(parseConfig)
+}
+
 func installUIHookContext(parseT *testing.T) {
 	parseT.Helper()
-	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
+	resetUIRuntime(runtime.Config{Scheduler: noOpScheduler{}})
 	runtime.SetCurrentFiber(&runtime.Fiber{})
 	parseT.Cleanup(func() {
 		runtime.SetCurrentFiber(nil)
@@ -162,7 +169,7 @@ func installUIHookContext(parseT *testing.T) {
 func installQueuedUIHookContext(parseT *testing.T) *queuedScheduler {
 	parseT.Helper()
 	parseScheduler := &queuedScheduler{}
-	runtime.InitGlobalRuntime(runtime.Config{Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{Scheduler: parseScheduler})
 	runtime.SetCurrentFiber(&runtime.Fiber{})
 	parseT.Cleanup(func() {
 		runtime.SetCurrentFiber(nil)
@@ -335,7 +342,7 @@ func TestHydrateRestoresBootstrapAtomsAndIDSeed(parseT *testing.T) {
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 	if parseErr := runtime.GetGlobalRuntime().RestoreAtomSnapshot(map[string]interface{}{"theme": "light"}); parseErr != nil {
 		parseT.Fatalf("unexpected initial atom restore error: %v", parseErr)
 	}
@@ -369,7 +376,7 @@ func TestRenderIntoRendersToExplicitNode(parseT *testing.T) {
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: noOpScheduler{}})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: noOpScheduler{}})
 
 	if parseErr := RenderInto(Text("hello"), parseContainer); parseErr != nil {
 		parseT.Fatalf("expected RenderInto to succeed, got %v", parseErr)
@@ -389,7 +396,7 @@ func TestParallelRegionRenderIntoMountsAndOwnerRemovalDisposesRuntime2Adapter(pa
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if !canParallelRegionUseRuntime2Lifecycle() {
 		parseT.Fatal("expected wasm parallel-region lifecycle support to be enabled")
@@ -440,7 +447,7 @@ func TestRenderIntoParallelRegionPostRenderAttach(parseT *testing.T) {
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
 		return Text(parseProps.Label)
@@ -499,7 +506,7 @@ func TestRenderIntoParallelRegionRuntimeStatusWorkerAttached(parseT *testing.T) 
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
 		return Text(parseProps.Label)
@@ -547,7 +554,7 @@ func TestParallelRegionRenderIntoAdvancesInputVersionAcrossRerenders(parseT *tes
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if !canParallelRegionUseRuntime2Lifecycle() {
 		parseT.Fatal("expected wasm parallel-region lifecycle support to be enabled")
@@ -608,7 +615,7 @@ func TestParallelRegionRenderIntoPropChangesDispatchRuntime2Update(parseT *testi
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
 		return Text(parseProps.Label)
@@ -691,7 +698,7 @@ func TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsShellDOMNode(parseT *test
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps renderParallelRegionRefreshProps) Node {
 		getItemNodes := make([]Node, 0, len(parseProps.GetItems))
@@ -773,7 +780,7 @@ func TestParallelRegionRenderIntoPreparedItemUpdateKeepsItemDOMNodes(parseT *tes
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps renderParallelRegionPreparedProps) Node {
 		getItemNodes := make([]Node, 0, len(parseProps.GetItems))
@@ -889,7 +896,7 @@ func TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsSiblingShellNodes(parseT 
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps renderParallelRegionRefreshProps) Node {
 		getItemNodes := make([]Node, 0, len(parseProps.GetItems))
@@ -984,7 +991,7 @@ func TestGetParallelRegionRuntimeStatusReportsPublicDispatchVersions(parseT *tes
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
 		return Text(parseProps.Label)
@@ -1059,7 +1066,7 @@ func TestParallelRegionCustomSchedulerShardsFlowIntoAssignedRuntimeStatus(parseT
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
 		return Text(parseProps.Label)
@@ -1129,7 +1136,7 @@ func TestParallelRegionTransitionWrappedRerendersUseDeferredDispatch(parseT *tes
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
 		return Text(parseProps.Label)
@@ -1214,7 +1221,7 @@ func TestParallelRegionRendererIdentityChangesTriggerStructuralRemount(parseT *t
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel-a", func(parseProps registerParallelRegionProps) Node {
 		return Text("A:" + parseProps.Label)
@@ -1291,7 +1298,7 @@ func TestParallelRegionRenderIntoDeclaredSourcesSupportRuntime2UpdateDispatch(pa
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("dashboard.hot-count", 1); parseErr != nil {
 		parseT.Fatalf("SetAtomValue(first) returned error: %v", parseErr)
 	}
@@ -1364,7 +1371,7 @@ func TestParallelRegionDeclaredSourceOnlyChangesDispatchRuntime2Update(parseT *t
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("dashboard.hot-count", 1); parseErr != nil {
 		parseT.Fatalf("SetAtomValue(first) returned error: %v", parseErr)
 	}
@@ -1427,7 +1434,7 @@ func TestHydrateIntoUsesExplicitNode(parseT *testing.T) {
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: noOpScheduler{}})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: noOpScheduler{}})
 
 	if _, parseErr := HydrateInto(Text("hello"), parseContainer); parseErr != nil {
 		parseT.Fatalf("expected HydrateInto to succeed, got %v", parseErr)
@@ -1459,7 +1466,7 @@ func TestHydrateIntoMarksParallelRegionAdapterHydrationComplete(parseT *testing.
 		runtimeInitialized = parsePreviousInitialized
 	})
 	parseScheduler := &queuedScheduler{}
-	runtime.InitGlobalRuntime(runtime.Config{
+	resetUIRuntime(runtime.Config{
 		DOMAdapter: parseAdapter,
 		Scheduler:  parseScheduler,
 	})
@@ -1535,7 +1542,7 @@ func TestGetParallelRegionRuntimeStatusReportsHydratedPublicAttachState(parseT *
 		runtimeInitialized = parsePreviousInitialized
 	})
 	parseScheduler := &queuedScheduler{}
-	runtime.InitGlobalRuntime(runtime.Config{
+	resetUIRuntime(runtime.Config{
 		DOMAdapter: parseAdapter,
 		Scheduler:  parseScheduler,
 	})
@@ -1604,7 +1611,7 @@ func TestHydrateMarksParallelRegionAdapterAnchorAndAttachBySelector(parseT *test
 		runtimeInitialized = parsePreviousInitialized
 	})
 	parseScheduler := &queuedScheduler{}
-	runtime.InitGlobalRuntime(runtime.Config{
+	resetUIRuntime(runtime.Config{
 		DOMAdapter: parseAdapter,
 		Scheduler:  parseScheduler,
 	})
@@ -1665,7 +1672,7 @@ func TestHandleParallelRegionHydrationNodesRejectsShellIdentityMismatch(parseT *
 		runtimeInitialized = parsePreviousInitialized
 	})
 	parseScheduler := &queuedScheduler{}
-	runtime.InitGlobalRuntime(runtime.Config{
+	resetUIRuntime(runtime.Config{
 		DOMAdapter: parseAdapter,
 		Scheduler:  parseScheduler,
 	})
@@ -1729,7 +1736,7 @@ func TestHandleParallelRegionHydrationNodesRejectsInvalidShellAnchor(parseT *tes
 		runtimeInitialized = parsePreviousInitialized
 	})
 	parseScheduler := &queuedScheduler{}
-	runtime.InitGlobalRuntime(runtime.Config{
+	resetUIRuntime(runtime.Config{
 		DOMAdapter: parseAdapter,
 		Scheduler:  parseScheduler,
 	})

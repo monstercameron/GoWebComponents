@@ -20,6 +20,18 @@ func (parseD *infiniteDeadline) TimeRemaining() float64 { return 1000 } // lots 
 // DidTimeout is a core package helper.
 func (parseD *infiniteDeadline) DidTimeout() bool { return false }
 
+// dispatchRuntimeWork schedules one continuation or runs it immediately when no scheduler is configured.
+func dispatchRuntimeWork(parseScheduler Scheduler, parseContinueWork func()) {
+	if parseContinueWork == nil {
+		return
+	}
+	if parseScheduler == nil {
+		parseContinueWork()
+		return
+	}
+	parseScheduler.SetTimeout(parseContinueWork, 0)
+}
+
 // getContinueWorkFn is a core package helper.
 func (parseRt *Runtime) getContinueWorkFn() func() {
 	if parseRt.continueWorkFn == nil {
@@ -68,7 +80,7 @@ func (parseRt *Runtime) ScheduleUpdate() {
 	parseContinueWork := parseRt.getContinueWorkFn()
 	parseScheduler := parseRt.scheduler
 	schedulerMu.Unlock()
-	parseScheduler.SetTimeout(parseContinueWork, 0)
+	dispatchRuntimeWork(parseScheduler, parseContinueWork)
 }
 
 // continueWorkLoop is a bound method to avoid closure allocation
@@ -114,12 +126,15 @@ func (parseRt *Runtime) workLoop(parseDeadline Deadline) {
 	} else if parseRt.nextUnitOfWork != nil {
 		// More work remains, schedule next iteration
 		// fmt.Printf("workLoop: more work remains, scheduling next iteration\n")
-		parseRt.scheduler.SetTimeout(parseRt.getContinueWorkFn(), 0)
+		dispatchRuntimeWork(parseRt.scheduler, parseRt.getContinueWorkFn())
 	}
 }
 
 // Render starts rendering a component tree
 func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
+	if parseRt.domAdapter == nil {
+		panic(actionableRuntimeDOMAdapterPanic("Render"))
+	}
 	parseStart := time.Now()
 	var (
 		shouldSchedule    bool
@@ -176,12 +191,15 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 	}
 	schedulerMu.Unlock()
 	if shouldSchedule {
-		parseScheduler.SetTimeout(parseContinueWork, 0)
+		dispatchRuntimeWork(parseScheduler, parseContinueWork)
 	}
 }
 
 // Hydrate starts a client resume attempt from an existing container.
 func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
+	if parseRt.domAdapter == nil {
+		panic(actionableRuntimeDOMAdapterPanic("Hydrate"))
+	}
 	parseStart := time.Now()
 	var (
 		shouldSchedule    bool
@@ -194,8 +212,8 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 	}
 
 	parseExistingChildren := 0
-	if parseRt.domAdapter != nil && parseContainer != nil && !parseContainer.IsNull() {
-		for parseNode := parseRt.domAdapter.GetFirstChild(parseContainer); parseNode != nil && !parseNode.IsNull(); parseNode = parseRt.domAdapter.GetNextSibling(parseNode) {
+	if parseRt.domAdapter != nil && !IsDOMNodeNull(parseContainer) {
+		for parseNode := parseRt.domAdapter.GetFirstChild(parseContainer); !IsDOMNodeNull(parseNode); parseNode = parseRt.domAdapter.GetNextSibling(parseNode) {
 			parseExistingChildren++
 		}
 	}
@@ -260,7 +278,7 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 	}
 	schedulerMu.Unlock()
 	if shouldSchedule {
-		parseScheduler.SetTimeout(parseContinueWork, 0)
+		dispatchRuntimeWork(parseScheduler, parseContinueWork)
 	}
 }
 
@@ -283,7 +301,11 @@ func (parseRt *Runtime) ScheduleUpdateForFiberWithOrigin(parseFiber *Fiber, pars
 		return
 	}
 	parseRt.profiling.scheduledFiberMarks++
-	parseOrigin = normalizeUpdateOrigin(parseOrigin, "hook")
+	parseCurrentOrigin := ""
+	if parseFiber.dirty || parseFiber.needsUpdate {
+		parseCurrentOrigin = parseFiber.updateOrigin
+	}
+	parseOrigin = buildScheduledUpdateOrigin(parseCurrentOrigin, parseOrigin, "hook")
 	parseFiber.updateOrigin = parseOrigin
 
 	// Mark fiber and parents as dirty
@@ -392,6 +414,22 @@ func normalizeUpdateOrigin(parseOrigin string, parseFallback string) string {
 		return parseTrimmed
 	}
 	return parseFallback
+}
+
+// buildScheduledUpdateOrigin merges one pending update origin with one new origin while preserving transition-lane classification.
+func buildScheduledUpdateOrigin(parseCurrentOrigin string, parseNextOrigin string, parseFallback string) string {
+	getCurrentOrigin := strings.TrimSpace(parseCurrentOrigin)
+	getNextOrigin := normalizeUpdateOrigin(parseNextOrigin, parseFallback)
+	if getCurrentOrigin == "" {
+		return getNextOrigin
+	}
+	if strings.HasPrefix(getCurrentOrigin, "transition") {
+		return getCurrentOrigin
+	}
+	if strings.HasPrefix(getNextOrigin, "transition") {
+		return getNextOrigin
+	}
+	return getNextOrigin
 }
 
 // resolveSubscribedFiberTarget is a core package helper.

@@ -169,6 +169,18 @@ func parseSchedulerShardList(parseSchedulerShardIDs []SchedulerShardID) ([]Sched
 	return getSchedulerShardList, nil
 }
 
+// buildSchedulerShardList canonicalizes one shard list for scheduler-owned lookups while preserving the existing nil-or-invalid builder behavior.
+func buildSchedulerShardList(parseSchedulerShardIDs []SchedulerShardID) []SchedulerShardID {
+	if len(parseSchedulerShardIDs) == 0 {
+		return nil
+	}
+	getSchedulerShardIDs, parseSchedulerShardIDsErr := parseSchedulerShardList(parseSchedulerShardIDs)
+	if parseSchedulerShardIDsErr != nil {
+		return append([]SchedulerShardID(nil), parseSchedulerShardIDs...)
+	}
+	return append([]SchedulerShardID(nil), getSchedulerShardIDs...)
+}
+
 // hasSchedulerShardID reports whether the shard list currently contains the target shard identity.
 func hasSchedulerShardID(parseSchedulerShardIDs []SchedulerShardID, parseSchedulerShardID SchedulerShardID) bool {
 	getSchedulerShardIndex := sort.Search(len(parseSchedulerShardIDs), func(getIndex int) bool {

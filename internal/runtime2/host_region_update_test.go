@@ -82,3 +82,30 @@ func TestHandleHostRegionUpdateRejectsStaleVersion(parseT *testing.T) {
 		parseT.Fatal("expected stale host update version to fail")
 	}
 }
+
+// TestHandleHostRegionUpdateRejectsExternalFallback verifies host updates still read fresh fallback state after the adapter cache is warm.
+func TestHandleHostRegionUpdateRejectsExternalFallback(parseT *testing.T) {
+	buildHostRegionAdapter, parseErr := runtime2.BuildHostRegionAdapter(
+		runtime2.RegionInstanceID("region-1"),
+		[]runtime2.SchedulerShardID{"shard-a"},
+	)
+	if parseErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseErr)
+	}
+	_, parseErr = buildHostRegionAdapter.HandleHostRegionMount(
+		runtime2.ParallelRegionSpec{
+			RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+			RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		},
+		1,
+	)
+	if parseErr != nil {
+		parseT.Fatalf("HandleHostRegionMount returned error: %v", parseErr)
+	}
+	if parseErr = buildHostRegionAdapter.GetHostRegionCoordinator().FallbackRegion(runtime2.RegionInstanceID("region-1")); parseErr != nil {
+		parseT.Fatalf("FallbackRegion returned error: %v", parseErr)
+	}
+	if _, parseErr = buildHostRegionAdapter.HandleHostRegionUpdate(2); parseErr == nil {
+		parseT.Fatal("expected host update during fallback to fail")
+	}
+}

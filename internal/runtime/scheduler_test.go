@@ -368,6 +368,43 @@ func TestScheduleSubscribedFiberUpdateWithOrigin_IgnoresDetachedSubscriberWhenTr
 	}
 }
 
+// TestScheduleUpdateForFiberWithOrigin_PreservesTransitionOriginAcrossMixedMarks verifies later non-transition marks do not erase a queued transition rerender.
+func TestScheduleUpdateForFiberWithOrigin_PreservesTransitionOriginAcrossMixedMarks(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRoot := &Fiber{
+		typeOf: "ROOT",
+		props:  make(map[string]interface{}),
+	}
+	parseOwner := &Fiber{typeOf: "owner", parent: parseRoot}
+	parseRoot.child = parseOwner
+	parseRt := &Runtime{
+		scheduler:   parseScheduler,
+		currentRoot: parseRoot,
+	}
+
+	parseRt.ScheduleUpdateForFiberWithOrigin(parseOwner, "atom")
+	if parseOwner.updateOrigin != "atom" {
+		parseT.Fatalf("expected first origin atom, got %q", parseOwner.updateOrigin)
+	}
+
+	parseRt.ScheduleUpdateForFiberWithOrigin(parseOwner, "transition")
+	if parseOwner.updateOrigin != "transition" {
+		parseT.Fatalf("expected transition mark to override pending atom mark, got %q", parseOwner.updateOrigin)
+	}
+
+	parseRt.ScheduleUpdateForFiberWithOrigin(parseOwner, "atom")
+	if parseOwner.updateOrigin != "transition" {
+		parseT.Fatalf("expected later atom mark to preserve queued transition origin, got %q", parseOwner.updateOrigin)
+	}
+
+	parseOwner.dirty = false
+	parseOwner.needsUpdate = false
+	parseRt.ScheduleUpdateForFiberWithOrigin(parseOwner, "atom")
+	if parseOwner.updateOrigin != "atom" {
+		parseT.Fatalf("expected fresh scheduling cycle to replace stale transition origin, got %q", parseOwner.updateOrigin)
+	}
+}
+
 func TestEnqueueUI(parseT *testing.T) {
 	isParseExecuted := false
 

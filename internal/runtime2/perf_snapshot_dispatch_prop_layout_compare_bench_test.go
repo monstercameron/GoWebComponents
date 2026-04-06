@@ -83,3 +83,63 @@ func BenchmarkSnapshotDispatchPropLayoutCurrentVsEntries(parseB *testing.B) {
 		}
 	})
 }
+
+// BenchmarkBuildSnapshotDispatchFastHashPropLayoutCurrentVsKeys compares ordered-key hashing against one pre-sorted compact props-entry layout on the streamed fast-hash path.
+func BenchmarkBuildSnapshotDispatchFastHashPropLayoutCurrentVsKeys(parseB *testing.B) {
+	getEnvelope := SnapshotEnvelope{
+		RegionInstanceID: RegionInstanceID("region-prop-layout-bench"),
+		Epoch:            11,
+		InputVersion:     23,
+		SourceVersion:    37,
+		Props:            buildSnapshotDispatchPropLayoutBenchmarkMap(),
+		Sources: map[string]any{
+			"filters": map[string]any{
+				"status": "open",
+				"owner":  "ops",
+			},
+			"stats": map[string]any{
+				"closed":  9,
+				"pending": 4,
+			},
+		},
+	}
+	getSourceIDs := []string{"filters", "stats"}
+	getPropsOrderedKeys := buildHostRegionDispatchPropsOrderedKeys(nil, getEnvelope.Props.(map[string]any))
+	getPropsEntries := buildSnapshotDispatchPropEntries(getEnvelope.Props.(map[string]any))
+
+	parseB.Run("current_cached_props_keys", func(parseB *testing.B) {
+		var getScratch []byte
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+			var parseErr error
+			_, getScratch, parseErr = buildSnapshotDispatchFastHashIntoWithSourceAndPropsKeys(
+				getEnvelope,
+				getSourceIDs,
+				getPropsOrderedKeys,
+				getScratch,
+			)
+			if parseErr != nil {
+				parseB.Fatalf("buildSnapshotDispatchFastHashIntoWithSourceAndPropsKeys returned error: %v", parseErr)
+			}
+		}
+	})
+
+	parseB.Run("current_compact_prop_entries", func(parseB *testing.B) {
+		var getScratch []byte
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+			var parseErr error
+			_, getScratch, parseErr = buildSnapshotDispatchFastHashIntoWithSourceAndPropsEntries(
+				getEnvelope,
+				getSourceIDs,
+				getPropsEntries,
+				getScratch,
+			)
+			if parseErr != nil {
+				parseB.Fatalf("buildSnapshotDispatchFastHashIntoWithSourceAndPropsEntries returned error: %v", parseErr)
+			}
+		}
+	})
+}

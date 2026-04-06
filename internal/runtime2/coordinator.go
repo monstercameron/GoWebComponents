@@ -204,6 +204,31 @@ func (parseCoordinator *Coordinator) UpdateRegion(parseRegionInstanceID RegionIn
 	return nil
 }
 
+// applyRegionDispatchedVersionTrusted stores one dispatched version for one trusted mounted region without re-validating its identifier.
+func (parseCoordinator *Coordinator) applyRegionDispatchedVersionTrusted(
+	parseRegionInstanceID RegionInstanceID,
+	parseInputVersion uint64,
+) error {
+	if parseCoordinator == nil {
+		return fmt.Errorf("runtime2: coordinator is required")
+	}
+	parseCoordinator.storeMu.Lock()
+	defer parseCoordinator.storeMu.Unlock()
+	parseEntry, parseEntryErr := parseCoordinator.getMutableCoordinatorEntryLocked(parseRegionInstanceID)
+	if parseEntryErr != nil {
+		return parseEntryErr
+	}
+	if parseEntry.IsFallback {
+		return fmt.Errorf("runtime2: coordinator entry %q is in fallback mode", parseRegionInstanceID)
+	}
+	if parseErr := ValidateMonotonicInputVersion(parseEntry.LastDispatchedVersion, parseInputVersion); parseErr != nil {
+		return parseErr
+	}
+	parseEntry.LastDispatchedVersion = parseInputVersion
+	parseEntry.CurrentState = CoordinatorStateActive
+	return nil
+}
+
 // UpdateRegionAndGetEntry records a dispatched region update and returns the updated entry.
 func (parseCoordinator *Coordinator) UpdateRegionAndGetEntry(parseRegionInstanceID RegionInstanceID, parseInputVersion uint64) (CoordinatorEntry, error) {
 	if parseCoordinator == nil {

@@ -39,6 +39,14 @@ func assertParallelRegionRenderError(parseT *testing.T, parseName string, parseF
 	}
 }
 
+// skipParallelRegionSSRTestOnWASM skips RenderToString-based parallel-region tests when wasm browser lifecycle support is active.
+func skipParallelRegionSSRTestOnWASM(parseT *testing.T) {
+	parseT.Helper()
+	if canParallelRegionUseRuntime2Lifecycle() {
+		parseT.Skip("RenderToString-based ParallelRegion assertions are covered by native tests; wasm coverage lives in ui_wasm_test.go")
+	}
+}
+
 // TestBuildParallelRegionRuntimeSpecMapsPublicSpec verifies the public generic spec maps into the runtime2 spec contract.
 func TestBuildParallelRegionRuntimeSpecMapsPublicSpec(parseT *testing.T) {
 	getRuntimeSpec, parseErr := buildParallelRegionRuntimeSpec(ParallelRegionSpec[buildParallelRegionRuntimeSpecProps]{
@@ -194,6 +202,7 @@ func TestGetParallelRegionRuntimeStatusReportsMissingForUntrackedRegion(parseT *
 
 // TestParallelRegionBuildsLocalFirstShell verifies public parallel regions render local-first content inside a stable shell marker.
 func TestParallelRegionBuildsLocalFirstShell(parseT *testing.T) {
+	skipParallelRegionSSRTestOnWASM(parseT)
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
 
@@ -258,12 +267,9 @@ func TestParallelRegionBuildsLocalFirstShell(parseT *testing.T) {
 
 // TestParallelRegionNativeFallbackKeepsLocalOnlyRendering verifies non-browser builds do not attach runtime2 host lifecycle state.
 func TestParallelRegionNativeFallbackKeepsLocalOnlyRendering(parseT *testing.T) {
+	skipParallelRegionSSRTestOnWASM(parseT)
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
-
-	if canParallelRegionUseRuntime2Lifecycle() {
-		parseT.Fatal("expected native parallel-region lifecycle support to stay disabled")
-	}
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
 		return Text(parseProps.Label)
 	}); parseErr != nil {
@@ -290,6 +296,7 @@ func TestParallelRegionNativeFallbackKeepsLocalOnlyRendering(parseT *testing.T) 
 
 // TestParallelRegionRejectsMissingRendererAtPublicUILayer verifies missing public registrations fail at render time with actionable guidance.
 func TestParallelRegionRejectsMissingRendererAtPublicUILayer(parseT *testing.T) {
+	skipParallelRegionSSRTestOnWASM(parseT)
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
 
@@ -307,6 +314,7 @@ func TestParallelRegionRejectsMissingRendererAtPublicUILayer(parseT *testing.T) 
 
 // TestParallelRegionRejectsInvalidPropsAtPublicUILayer verifies invalid public props fail before runtime2 dispatch.
 func TestParallelRegionRejectsInvalidPropsAtPublicUILayer(parseT *testing.T) {
+	skipParallelRegionSSRTestOnWASM(parseT)
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
 
@@ -329,6 +337,7 @@ func TestParallelRegionRejectsInvalidPropsAtPublicUILayer(parseT *testing.T) {
 
 // TestParallelRegionRejectsInvalidSourceIDAtPublicUILayer verifies invalid source IDs fail through the public ui surface.
 func TestParallelRegionRejectsInvalidSourceIDAtPublicUILayer(parseT *testing.T) {
+	skipParallelRegionSSRTestOnWASM(parseT)
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
 
@@ -352,6 +361,7 @@ func TestParallelRegionRejectsInvalidSourceIDAtPublicUILayer(parseT *testing.T) 
 
 // TestParallelRegionRejectsInvalidRegionInstanceIDAtPublicUILayer verifies invalid region IDs fail through the public ui surface.
 func TestParallelRegionRejectsInvalidRegionInstanceIDAtPublicUILayer(parseT *testing.T) {
+	skipParallelRegionSSRTestOnWASM(parseT)
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
 

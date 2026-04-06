@@ -1,6 +1,8 @@
 package mockdom
 
 import (
+	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -146,6 +148,54 @@ func TestMockDOMAdapterHandlesNonMockNodesAndNodeEquality(parseT *testing.T) {
 	}
 	if parseLeft.Equals(nil) {
 		parseT.Fatal("expected non-nil node to be unequal to nil")
+	}
+}
+
+func TestMockDOMAdapterConcurrentOperationCapture(parseT *testing.T) {
+	parseAdapter := NewMockDOMAdapter()
+	parseParent := parseAdapter.CreateElement("div")
+
+	const getWorkerCount = 24
+	var parseWaitGroup sync.WaitGroup
+	parseSnapshotStop := make(chan struct{})
+	parseSnapshotDone := make(chan struct{})
+
+	go func() {
+		defer close(parseSnapshotDone)
+		for {
+			select {
+			case <-parseSnapshotStop:
+				return
+			default:
+				_ = len(parseAdapter.GetOperations())
+			}
+		}
+	}()
+
+	parseWaitGroup.Add(getWorkerCount)
+	for parseIndex := 0; parseIndex < getWorkerCount; parseIndex++ {
+		go func(parseWorkerIndex int) {
+			defer parseWaitGroup.Done()
+			parseChild := parseAdapter.CreateElement("span")
+			parseAdapter.SetAttribute(parseChild, "data-worker", strconv.Itoa(parseWorkerIndex))
+			parseAdapter.AppendChild(parseParent, parseChild)
+		}(parseIndex)
+	}
+	parseWaitGroup.Wait()
+	close(parseSnapshotStop)
+	<-parseSnapshotDone
+
+	parseOperations := parseAdapter.GetOperations()
+	if len(parseOperations) != 1+(getWorkerCount*3) {
+		parseT.Fatalf("expected %d operations after concurrent writes, got %d", 1+(getWorkerCount*3), len(parseOperations))
+	}
+	if len(parseAdapter.GetChildren(parseParent)) != getWorkerCount {
+		parseT.Fatalf("expected %d appended children after concurrent writes, got %d", getWorkerCount, len(parseAdapter.GetChildren(parseParent)))
+	}
+	for _, parseChildNode := range parseAdapter.GetChildren(parseParent) {
+		if parseParentNode := parseAdapter.GetParent(parseChildNode); parseParentNode != parseParent {
+			parseT.Fatalf("expected child parent lookup to remain stable, got %#v", parseParentNode)
+		}
 	}
 }
 

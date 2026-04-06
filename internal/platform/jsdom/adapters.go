@@ -22,11 +22,17 @@ func NewWASMDOMNode(parseValue js.Value) runtime.DOMNode {
 }
 
 func (parseN *WASMDOMNode) IsNull() bool {
-	return parseN.value.IsNull() || parseN.value.IsUndefined()
+	return parseN == nil || parseN.value.IsNull() || parseN.value.IsUndefined()
 }
 
 func (parseN *WASMDOMNode) Equals(parseOther runtime.DOMNode) bool {
-	if parseOtherNode, parseOk := parseOther.(*WASMDOMNode); parseOk {
+	if parseN == nil {
+		return runtime.IsDOMNodeNull(parseOther)
+	}
+	if runtime.IsDOMNodeNull(parseOther) {
+		return false
+	}
+	if parseOtherNode, parseOk := parseOther.(*WASMDOMNode); parseOk && parseOtherNode != nil {
 		return parseN.value.Equal(parseOtherNode.value)
 	}
 	return false
@@ -150,7 +156,7 @@ func (parseA *WASMDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName,
 // GetAttribute reports one attribute value from one wasm DOM node.
 func (parseA *WASMDOMAdapter) GetAttribute(parseNode runtime.DOMNode, parseName string) string {
 	parseWasmNode, parseOk := parseNode.(*WASMDOMNode)
-	if !parseOk || parseWasmNode == nil || parseWasmNode.IsNull() {
+	if !parseOk || runtime.IsDOMNodeNull(parseWasmNode) {
 		return ""
 	}
 	parseAttributeValue := parseWasmNode.value.Call("getAttribute", parseName)
@@ -174,7 +180,7 @@ func (parseA *WASMDOMAdapter) SetProperty(parseNode runtime.DOMNode, parseName s
 }
 
 func (parseA *WASMDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName string) interface{} {
-	if parseNode == nil || parseNode.IsNull() {
+	if runtime.IsDOMNodeNull(parseNode) {
 		return nil
 	}
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
