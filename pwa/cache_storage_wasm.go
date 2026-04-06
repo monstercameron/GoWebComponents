@@ -61,6 +61,7 @@ func OpenCacheStorageManager() (CacheStorageManager, error) {
 	}, nil
 }
 
+// inspectCacheStorage reads one cache snapshot after sync or standalone inspection.
 func inspectCacheStorage(parseCtx context.Context, parseCaches js.Value, parsePlan CacheStoragePlan) (CacheStorageSnapshot, error) {
 	parseNames, parseErr := cacheStorageKeys(parseCtx, parseCaches)
 	if parseErr != nil {
@@ -92,6 +93,7 @@ func inspectCacheStorage(parseCtx context.Context, parseCaches js.Value, parsePl
 	return CacheStorageSnapshot{CacheName: parsePlan.CacheName, CachePrefix: parsePlan.CachePrefix, EntryCount: len(parseEntries), Entries: parseEntries, CacheNames: parseNames}, nil
 }
 
+// cacheStorageKeys returns the normalized cache names currently exposed by the browser.
 func cacheStorageKeys(parseCtx context.Context, parseCaches js.Value) ([]string, error) {
 	parseValue, parseErr := awaitCacheStorageValue(parseCtx, "CacheStorageManager.Keys", "caches.keys", parseCaches.Call("keys"))
 	if parseErr != nil {
@@ -104,9 +106,15 @@ func cacheStorageKeys(parseCtx context.Context, parseCaches js.Value) ([]string,
 	return parseNames, nil
 }
 
+// awaitCacheStorageValue resolves one cache-storage return value that may already be settled or may be promise-like.
 func awaitCacheStorageValue(parseCtx context.Context, parseOp string, parseTarget string, parseValue js.Value) (js.Value, error) {
 	if parseCtx == nil {
 		parseCtx = context.Background()
+	}
+	parseValueType := parseValue.Type()
+	// Primitive results are already settled values under syscall/js and do not safely expose promise methods.
+	if parseValueType != js.TypeObject && parseValueType != js.TypeFunction {
+		return parseValue, nil
 	}
 	parseThen := parseValue.Get("then")
 	if parseThen.Type() != js.TypeFunction {
@@ -161,6 +169,7 @@ func awaitCacheStorageValue(parseCtx context.Context, parseOp string, parseTarge
 	}
 }
 
+// cacheStorageUnavailable builds one consistent cache storage unavailable error.
 func cacheStorageUnavailable(parseOp string, parseTarget string) error {
 	return &interop.Error{Op: parseOp, Target: parseTarget, Code: interop.CodeUnavailable, Err: errors.New("cache storage helpers are unavailable in this build")}
 }

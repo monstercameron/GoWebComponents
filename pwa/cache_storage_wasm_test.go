@@ -8,6 +8,9 @@ import (
 	"sort"
 	"syscall/js"
 	"testing"
+	"time"
+
+	"github.com/monstercameron/GoWebComponents/interop"
 )
 
 func TestCacheStorageManagerSyncAndInspect(parseT *testing.T) {
@@ -42,6 +45,50 @@ func TestCacheStorageManagerSyncAndInspect(parseT *testing.T) {
 	}
 	if len(parseInspected.Entries) != 2 {
 		parseT.Fatalf("unexpected cache entries: %#v", parseInspected.Entries)
+	}
+}
+
+// TestCacheStorageWasmErrorsAndPromiseGuards verifies cache storage availability, plan validation, and promise await error handling.
+func TestCacheStorageWasmErrorsAndPromiseGuards(parseT *testing.T) {
+	parsePreviousCaches := js.Global().Get("caches")
+	js.Global().Set("caches", js.Undefined())
+	if _, parseErr := OpenCacheStorageManager(); !interop.IsCode(parseErr, interop.CodeUnavailable) {
+		parseT.Fatalf("expected unavailable cache storage error, got %v", parseErr)
+	}
+	js.Global().Set("caches", parsePreviousCaches)
+
+	parseRestore := installMockCacheStorage(parseT)
+	defer parseRestore()
+
+	parseManager, parseErr := OpenCacheStorageManager()
+	if parseErr != nil {
+		parseT.Fatalf("expected cache storage manager, got %v", parseErr)
+	}
+	if _, parseErr = parseManager.Sync(context.Background(), CacheStoragePlan{}); !interop.IsCode(parseErr, interop.CodeInvalid) {
+		parseT.Fatalf("expected empty cache name validation error, got %v", parseErr)
+	}
+
+	parseValue, parseErr := awaitCacheStorageValue(context.Background(), "Await", "target", js.ValueOf("ready"))
+	if parseErr != nil || parseValue.String() != "ready" {
+		parseT.Fatalf("expected non-promise values to return immediately, got value=%v err=%v", parseValue, parseErr)
+	}
+
+	parseRejectedPromise := js.Global().Get("Promise").Call("reject", "cache denied")
+	_, parseErr = awaitCacheStorageValue(context.Background(), "Await", "target", parseRejectedPromise)
+	if !interop.IsCode(parseErr, interop.CodePromiseRejected) {
+		parseT.Fatalf("expected rejected cache promise error, got %v", parseErr)
+	}
+
+	parsePendingExecutor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return nil
+	})
+	defer parsePendingExecutor.Release()
+	parsePendingPromise := js.Global().Get("Promise").New(parsePendingExecutor)
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer parseCancel()
+	_, parseErr = awaitCacheStorageValue(parseCtx, "Await", "target", parsePendingPromise)
+	if !interop.IsCode(parseErr, interop.CodeTimeout) {
+		parseT.Fatalf("expected timed out cache promise error, got %v", parseErr)
 	}
 }
 

@@ -7,6 +7,9 @@ import (
 	"context"
 	"syscall/js"
 	"testing"
+	"time"
+
+	"github.com/monstercameron/GoWebComponents/interop"
 )
 
 func setPWAServiceWorkerGlobal(parseName string, parseValue interface{}) func() {
@@ -45,6 +48,136 @@ func TestRegisterServiceWorkerReturnsLifecycleSnapshot(parseT *testing.T) {
 	}
 	if parseErr3 := parseRegistration.RegisterSync(context.Background(), "offline-demo-replay"); parseErr3 != nil {
 		parseT.Fatalf("expected background sync registration to succeed, got %v", parseErr3)
+	}
+}
+
+// TestServiceWorkerRegistrationWasmCoversLifecycleReloadAndErrorGuards verifies the remaining registration APIs cover lifecycle subscriptions, reload wiring, and validation failures.
+func TestServiceWorkerRegistrationWasmCoversLifecycleReloadAndErrorGuards(parseT *testing.T) {
+	parseRestore := installMockServiceWorkerEnvironment(parseT, false)
+	defer parseRestore()
+
+	parseRegistration, parseErr := RegisterServiceWorker(context.Background(), ServiceWorkerOptions{URL: " /sw.js ", Scope: " /app ", Type: " module ", UpdateViaCache: " all "})
+	if parseErr != nil {
+		parseT.Fatalf("expected service worker registration, got %v", parseErr)
+	}
+	if parseErr = parseRegistration.Update(context.Background()); parseErr != nil {
+		parseT.Fatalf("expected update to succeed, got %v", parseErr)
+	}
+	if parseRemoved, parseErr := parseRegistration.Unregister(context.Background()); parseErr != nil || !parseRemoved {
+		parseT.Fatalf("expected unregister to resolve true, got removed=%t err=%v", parseRemoved, parseErr)
+	}
+
+	parseSnapshots := []ServiceWorkerSnapshot{}
+	parseSub, parseErr := parseRegistration.SubscribeLifecycle(func(parseSnapshot ServiceWorkerSnapshot) {
+		parseSnapshots = append(parseSnapshots, parseSnapshot)
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected lifecycle subscription, got %v", parseErr)
+	}
+	defer parseSub.Cancel()
+	if len(parseSnapshots) == 0 || parseSnapshots[0].Scope != "/app" {
+		parseT.Fatalf("expected immediate lifecycle snapshot, got %+v", parseSnapshots)
+	}
+
+	parseWaiting := js.Global().Get("__pwaTestWaitingWorker")
+	parseWaiting.Set("state", string(ServiceWorkerStateActivated))
+	js.Global().Get("__pwaTestServiceWorkerRegistration").Call("dispatchEvent", map[string]interface{}{"type": "updatefound"})
+	parseWaiting.Call("dispatchEvent", map[string]interface{}{"type": "statechange"})
+	if len(parseSnapshots) < 3 {
+		parseT.Fatalf("expected lifecycle notifications for updatefound and statechange, got %d snapshots", len(parseSnapshots))
+	}
+
+	parseReloadCount := 0
+	parseReload := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseReloadCount++
+		return nil
+	})
+	defer parseReload.Release()
+	js.Global().Get("window").Get("location").Set("reload", parseReload)
+	parseReloadSub, parseErr := parseRegistration.ReloadOnControllerChange()
+	if parseErr != nil {
+		parseT.Fatalf("expected reload-on-controller-change subscription, got %v", parseErr)
+	}
+	js.Global().Get("__pwaTestServiceWorkerContainer").Call("dispatchEvent", map[string]interface{}{"type": "controllerchange"})
+	if parseReloadCount != 1 {
+		parseT.Fatalf("expected controllerchange reload, got %d reloads", parseReloadCount)
+	}
+	parseReloadSub.Cancel()
+
+	if parseErr = parseRegistration.RegisterSync(context.Background(), " "); !interop.IsCode(parseErr, interop.CodeInvalid) {
+		parseT.Fatalf("expected empty sync tag to fail validation, got %v", parseErr)
+	}
+	if _, parseErr = parseRegistration.SubscribeLifecycle(nil); !interop.IsCode(parseErr, interop.CodeInvalid) {
+		parseT.Fatalf("expected nil lifecycle handler validation error, got %v", parseErr)
+	}
+	js.Global().Get("__pwaTestServiceWorkerRegistration").Set("sync", js.Undefined())
+	if parseErr = parseRegistration.RegisterSync(context.Background(), "offline-demo-replay"); !interop.IsCode(parseErr, interop.CodeUnavailable) {
+		parseT.Fatalf("expected missing sync manager to be unavailable, got %v", parseErr)
+	}
+	parseSyncManager := js.Global().Get("Object").New()
+	parseSyncManager.Set("register", js.Undefined())
+	js.Global().Get("__pwaTestServiceWorkerRegistration").Set("sync", parseSyncManager)
+	if parseErr = parseRegistration.RegisterSync(context.Background(), "offline-demo-replay"); !interop.IsCode(parseErr, interop.CodeNotFunction) {
+		parseT.Fatalf("expected non-callable sync.register to fail, got %v", parseErr)
+	}
+	js.Global().Get("__pwaTestServiceWorkerRegistration").Set("waiting", js.Undefined())
+	if parseErr = parseRegistration.SkipWaiting(context.Background()); !interop.IsCode(parseErr, interop.CodeInvalid) {
+		parseT.Fatalf("expected missing waiting worker to fail, got %v", parseErr)
+	}
+	parseBrokenWaiting := js.Global().Get("Object").New()
+	parseBrokenWaiting.Set("postMessage", js.Undefined())
+	js.Global().Get("__pwaTestServiceWorkerRegistration").Set("waiting", parseBrokenWaiting)
+	if parseErr = parseRegistration.SkipWaiting(context.Background()); !interop.IsCode(parseErr, interop.CodeNotFunction) {
+		parseT.Fatalf("expected non-callable waiting.postMessage to fail, got %v", parseErr)
+	}
+	js.Global().Get("window").Get("location").Set("reload", js.Undefined())
+	if _, parseErr = parseRegistration.ReloadOnControllerChange(); !interop.IsCode(parseErr, interop.CodeNotFunction) {
+		parseT.Fatalf("expected non-callable location.reload to fail, got %v", parseErr)
+	}
+}
+
+// TestRegisterServiceWorkerWasmErrorsAndPromiseGuards verifies registration validation, container lookup failures, and promise await helpers surface structured errors.
+func TestRegisterServiceWorkerWasmErrorsAndPromiseGuards(parseT *testing.T) {
+	if _, parseErr := RegisterServiceWorker(context.Background(), ServiceWorkerOptions{}); !interop.IsCode(parseErr, interop.CodeInvalid) {
+		parseT.Fatalf("expected empty URL validation error, got %v", parseErr)
+	}
+
+	parseRestoreNavigator := setPWAServiceWorkerGlobal("navigator", js.Undefined())
+	parseRestoreWindow := setPWAServiceWorkerGlobal("window", js.Undefined())
+	if _, parseErr := RegisterServiceWorker(context.Background(), ServiceWorkerOptions{URL: "/sw.js"}); !interop.IsCode(parseErr, interop.CodeUnavailable) {
+		parseT.Fatalf("expected unavailable navigator.serviceWorker error, got %v", parseErr)
+	}
+	parseRestoreNavigator()
+	parseRestoreWindow()
+
+	parseRestore := installMockServiceWorkerEnvironment(parseT, false)
+	defer parseRestore()
+	js.Global().Get("__pwaTestServiceWorkerContainer").Set("register", js.Undefined())
+	if _, parseErr := RegisterServiceWorker(context.Background(), ServiceWorkerOptions{URL: "/sw.js"}); !interop.IsCode(parseErr, interop.CodeNotFunction) {
+		parseT.Fatalf("expected non-callable register error, got %v", parseErr)
+	}
+
+	parseValue, parseErr := awaitServiceWorkerValue(context.Background(), "Await", "target", js.ValueOf("ready"))
+	if parseErr != nil || parseValue.String() != "ready" {
+		parseT.Fatalf("expected non-promise values to return immediately, got value=%v err=%v", parseValue, parseErr)
+	}
+
+	parseRejectedPromise := js.Global().Get("Promise").Call("reject", "permission denied")
+	_, parseErr = awaitServiceWorkerValue(context.Background(), "Await", "target", parseRejectedPromise)
+	if !interop.IsCode(parseErr, interop.CodePromiseRejected) {
+		parseT.Fatalf("expected rejected promise error, got %v", parseErr)
+	}
+
+	parsePendingExecutor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return nil
+	})
+	defer parsePendingExecutor.Release()
+	parsePendingPromise := js.Global().Get("Promise").New(parsePendingExecutor)
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer parseCancel()
+	_, parseErr = awaitServiceWorkerValue(parseCtx, "Await", "target", parsePendingPromise)
+	if !interop.IsCode(parseErr, interop.CodeTimeout) {
+		parseT.Fatalf("expected timed out promise await error, got %v", parseErr)
 	}
 }
 
@@ -153,8 +286,14 @@ func installMockServiceWorkerEnvironment(parseT *testing.T, isAssertSyncRegistra
 
 	parseRestoreNavigator := setPWAServiceWorkerGlobal("navigator", parseNavigator)
 	parseRestoreWindow := setPWAServiceWorkerGlobal("window", parseWindow)
+	parseRestoreContainer := setPWAServiceWorkerGlobal("__pwaTestServiceWorkerContainer", parseContainer)
+	parseRestoreRegistration := setPWAServiceWorkerGlobal("__pwaTestServiceWorkerRegistration", parseRegistration)
+	parseRestoreWaiting := setPWAServiceWorkerGlobal("__pwaTestWaitingWorker", parseWaiting)
 	return func() {
 		parseRestoreNavigator()
 		parseRestoreWindow()
+		parseRestoreContainer()
+		parseRestoreRegistration()
+		parseRestoreWaiting()
 	}
 }

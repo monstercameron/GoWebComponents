@@ -86,6 +86,13 @@ func TestInspectDiagnosticsCollectsPWASnapshot(parseT *testing.T) {
 	}
 }
 
+// TestBuildMutationQueueDiagnosticsSourceWasmReturnsNilForMissingQueue verifies the diagnostics queue wrapper stays nil-safe.
+func TestBuildMutationQueueDiagnosticsSourceWasmReturnsNilForMissingQueue(parseT *testing.T) {
+	if parseSource := BuildMutationQueueDiagnosticsSource(nil); parseSource != nil {
+		parseT.Fatal("expected nil mutation queue diagnostics source for a missing queue")
+	}
+}
+
 func installEventTargetOnWindow(parseT *testing.T, parseWindow js.Value) {
 	parseT.Helper()
 	parseListeners := map[string][]js.Value{}

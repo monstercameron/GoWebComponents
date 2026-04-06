@@ -43,6 +43,7 @@ func RegisterServiceWorker(parseCtx context.Context, parseOptions ServiceWorkerO
 	return newServiceWorkerRegistration(parseContainer, parseRawRegistration), nil
 }
 
+// newServiceWorkerRegistration wraps one raw browser registration with stable Go helpers.
 func newServiceWorkerRegistration(parseContainer js.Value, parseRaw js.Value) ServiceWorkerRegistration {
 	parseSnapshot := func() ServiceWorkerSnapshot {
 		return serviceWorkerSnapshot(parseContainer, parseRaw)
@@ -175,6 +176,7 @@ type serviceWorkerEventAttachment struct {
 	fn        js.Func
 }
 
+// normalizeServiceWorkerOptions trims browser-facing registration options before validation.
 func normalizeServiceWorkerOptions(parseOptions ServiceWorkerOptions) ServiceWorkerOptions {
 	parseOptions.URL = strings.TrimSpace(parseOptions.URL)
 	parseOptions.Scope = strings.TrimSpace(parseOptions.Scope)
@@ -183,6 +185,7 @@ func normalizeServiceWorkerOptions(parseOptions ServiceWorkerOptions) ServiceWor
 	return parseOptions
 }
 
+// serviceWorkerContainer returns the browser service worker container when the API is present.
 func serviceWorkerContainer() (js.Value, error) {
 	parseNavigator := browserNavigator()
 	if parseNavigator.IsUndefined() || parseNavigator.IsNull() {
@@ -195,6 +198,7 @@ func serviceWorkerContainer() (js.Value, error) {
 	return parseContainer, nil
 }
 
+// serviceWorkerSnapshot captures one normalized view of the browser registration state.
 func serviceWorkerSnapshot(parseContainer js.Value, parseRaw js.Value) ServiceWorkerSnapshot {
 	return ServiceWorkerSnapshot{
 		Scope:         strings.TrimSpace(parseRaw.Get("scope").String()),
@@ -205,6 +209,7 @@ func serviceWorkerSnapshot(parseContainer js.Value, parseRaw js.Value) ServiceWo
 	}
 }
 
+// backgroundSyncCapabilities reports which background sync hooks are callable on the registration.
 func backgroundSyncCapabilities(parseRaw js.Value) BackgroundSyncCapabilities {
 	parseCapabilities := BackgroundSyncCapabilities{}
 	parseSyncManager := parseRaw.Get("sync")
@@ -218,6 +223,7 @@ func backgroundSyncCapabilities(parseRaw js.Value) BackgroundSyncCapabilities {
 	return parseCapabilities
 }
 
+// serviceWorkerVersion converts one browser worker handle into a stable version snapshot.
 func serviceWorkerVersion(parseWorker js.Value) ServiceWorkerVersion {
 	if parseWorker.IsUndefined() || parseWorker.IsNull() {
 		return ServiceWorkerVersion{}
@@ -228,9 +234,15 @@ func serviceWorkerVersion(parseWorker js.Value) ServiceWorkerVersion {
 	}
 }
 
+// awaitServiceWorkerValue resolves one browser return value that may already be settled or may be promise-like.
 func awaitServiceWorkerValue(parseCtx context.Context, parseOp string, parseTarget string, parseValue js.Value) (js.Value, error) {
 	if parseCtx == nil {
 		parseCtx = context.Background()
+	}
+	parseValueType := parseValue.Type()
+	// Primitive results are already settled values under syscall/js and do not safely expose promise methods.
+	if parseValueType != js.TypeObject && parseValueType != js.TypeFunction {
+		return parseValue, nil
 	}
 	parseThen := parseValue.Get("then")
 	if parseThen.Type() != js.TypeFunction {
@@ -288,6 +300,7 @@ func awaitServiceWorkerValue(parseCtx context.Context, parseOp string, parseTarg
 	}
 }
 
+// serviceWorkerUnavailable builds one consistent service worker unavailable error.
 func serviceWorkerUnavailable(parseOp string, parseTarget string) error {
 	return &interop.Error{Op: parseOp, Target: parseTarget, Code: interop.CodeUnavailable, Err: errors.New("service workers are unavailable in this build")}
 }

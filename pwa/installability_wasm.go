@@ -102,6 +102,7 @@ func ObserveInstallability(parseOptions InstallabilityOptions) (InstallabilityMa
 	}, nil
 }
 
+// detectInstalledDisplayMode reports whether the app is already running in an installed display mode.
 func detectInstalledDisplayMode(parseWindow js.Value) bool {
 	parseMatchMedia := parseWindow.Get("matchMedia")
 	if parseMatchMedia.Type() == js.TypeFunction {
@@ -120,6 +121,7 @@ func detectInstalledDisplayMode(parseWindow js.Value) bool {
 	return false
 }
 
+// installabilityReasons explains why the app is or is not currently installable.
 func installabilityReasons(parseWindow js.Value, parseState InstallabilityState) []string {
 	parseReasons := make([]string, 0, 4)
 	if !parseState.ManifestValid {
@@ -139,11 +141,17 @@ func installabilityReasons(parseWindow js.Value, parseState InstallabilityState)
 	return parseReasons
 }
 
+// awaitInstallabilityValue resolves one installability return value that may already be settled or may be promise-like.
 func awaitInstallabilityValue(parseCtx context.Context, parseOp string, parseTarget string, parseValue js.Value) (js.Value, error) {
 	if parseCtx == nil {
 		parseCtx = context.Background()
 	}
 	if parseValue.IsUndefined() || parseValue.IsNull() {
+		return parseValue, nil
+	}
+	parseValueType := parseValue.Type()
+	// Primitive results are already settled values under syscall/js and do not safely expose promise methods.
+	if parseValueType != js.TypeObject && parseValueType != js.TypeFunction {
 		return parseValue, nil
 	}
 	parseThen := parseValue.Get("then")
@@ -199,6 +207,7 @@ func awaitInstallabilityValue(parseCtx context.Context, parseOp string, parseTar
 	}
 }
 
+// installabilityUnavailable builds one consistent installability unavailable error.
 func installabilityUnavailable(parseOp string, parseTarget string) error {
 	return &interop.Error{Op: parseOp, Target: parseTarget, Code: interop.CodeUnavailable, Err: errors.New("installability helpers are unavailable in this build")}
 }

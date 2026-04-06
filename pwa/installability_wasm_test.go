@@ -7,6 +7,9 @@ import (
 	"context"
 	"syscall/js"
 	"testing"
+	"time"
+
+	"github.com/monstercameron/GoWebComponents/interop"
 )
 
 func TestObserveInstallabilityTracksPromptAvailabilityAndInstall(parseT *testing.T) {
@@ -62,6 +65,52 @@ func TestObserveInstallabilityTracksPromptAvailabilityAndInstall(parseT *testing
 	}
 	if len(parseSnapshots) < 3 {
 		parseT.Fatalf("expected multiple installability snapshots, got %d", len(parseSnapshots))
+	}
+}
+
+// TestInstallabilityWasmErrorsAndPromiseGuards verifies unavailable, validation, and promise-await error handling around installability helpers.
+func TestInstallabilityWasmErrorsAndPromiseGuards(parseT *testing.T) {
+	parseRestoreWindow := setPWAServiceWorkerGlobal("window", js.Undefined())
+	if _, parseErr := ObserveInstallability(InstallabilityOptions{}); !interop.IsCode(parseErr, interop.CodeUnavailable) {
+		parseT.Fatalf("expected unavailable window error, got %v", parseErr)
+	}
+	parseRestoreWindow()
+
+	_, parseRestore := installMockInstallabilityWindow(parseT)
+	defer parseRestore()
+
+	parseManager, parseErr := ObserveInstallability(InstallabilityOptions{})
+	if parseErr != nil {
+		parseT.Fatalf("expected installability manager, got %v", parseErr)
+	}
+	if _, parseErr = parseManager.Subscribe(nil); !interop.IsCode(parseErr, interop.CodeInvalid) {
+		parseT.Fatalf("expected nil subscription handler validation error, got %v", parseErr)
+	}
+	if _, parseErr = parseManager.Prompt(context.Background()); !interop.IsCode(parseErr, interop.CodeInvalid) {
+		parseT.Fatalf("expected missing prompt validation error, got %v", parseErr)
+	}
+
+	parseValue, parseErr := awaitInstallabilityValue(context.Background(), "Await", "target", js.ValueOf("ready"))
+	if parseErr != nil || parseValue.String() != "ready" {
+		parseT.Fatalf("expected non-promise installability values to return immediately, got value=%v err=%v", parseValue, parseErr)
+	}
+
+	parseRejectedPromise := js.Global().Get("Promise").Call("reject", "prompt denied")
+	_, parseErr = awaitInstallabilityValue(context.Background(), "Await", "target", parseRejectedPromise)
+	if !interop.IsCode(parseErr, interop.CodePromiseRejected) {
+		parseT.Fatalf("expected rejected installability promise error, got %v", parseErr)
+	}
+
+	parsePendingExecutor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return nil
+	})
+	defer parsePendingExecutor.Release()
+	parsePendingPromise := js.Global().Get("Promise").New(parsePendingExecutor)
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer parseCancel()
+	_, parseErr = awaitInstallabilityValue(parseCtx, "Await", "target", parsePendingPromise)
+	if !interop.IsCode(parseErr, interop.CodeTimeout) {
+		parseT.Fatalf("expected timed out installability promise error, got %v", parseErr)
 	}
 }
 
