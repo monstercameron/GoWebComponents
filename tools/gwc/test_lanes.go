@@ -1,0 +1,679 @@
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"regexp"
+	"runtime"
+	"sort"
+	"strings"
+)
+
+func (parseL launcher) runTest(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("test", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseApp := parseFs.String("app", "", "Path to the app main.go file or app directory")
+	parseMainPath := parseFs.String("main", "", "Legacy alias for -app")
+	parseRoot := parseFs.String("root", "", "Project root used for test lane resolution")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	var parseLaneFlags stringListFlag
+	parseFs.Var(&parseLaneFlags, "lane", "Test lane to run; repeat or comma-separate: unit, wasm, hydration, browser, release, all")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
+			return nil
+		}
+		return parseErr
+	}
+
+	parseConfig, parseErr2 := resolveTestConfig(testConfig{
+		appPath:  firstNonEmpty(*parseApp, *parseMainPath),
+		rootPath: *parseRoot,
+		lanes:    parseLaneFlags.Values(),
+		json:     *parseJsonOutput,
+	})
+	if parseErr2 != nil {
+		return parseErr2
+	}
+	if parseErr3 := enforceEnterpriseGoToolchainPolicy(parseConfig.rootPath, launcherActiveEnterpriseConfig.Policy); parseErr3 != nil {
+		return parseErr3
+	}
+	if parseErr4 := enforceEnterpriseRequiredTestLanes(parseConfig.lanes, launcherActiveEnterpriseConfig.Policy); parseErr4 != nil {
+		return parseErr4
+	}
+
+	parseSummary, parseErr2 := parseL.executeTest(parseConfig)
+	if parseErr2 != nil {
+		return parseErr2
+	}
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		return parseEncoder.Encode(parseSummary)
+	}
+	printTestSummary(parseSummary)
+	return nil
+}
+
+func resolveTestConfig(parseConfig testConfig) (testConfig, error) {
+	parseResolved := parseConfig
+	parseResolved.resolution = cloneResolutionTrace(parseConfig.resolution)
+	parseCwd, parseErr := testGetwd()
+	if parseErr != nil {
+		return testConfig{}, parseErr
+	}
+	if strings.TrimSpace(parseResolved.rootPath) == "" {
+		parseResolved.rootPath = parseCwd
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "root", "convention fallback")
+	} else {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "root", "explicit flag")
+	}
+	parseResolved.rootPath, parseErr = normalizePath(parseCwd, parseResolved.rootPath)
+	if parseErr != nil {
+		return testConfig{}, fmt.Errorf("resolve test root path: %w", parseErr)
+	}
+	if strings.TrimSpace(parseResolved.appPath) != "" {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "app", "explicit flag")
+		parseResolved.appPath, parseErr = normalizeExistingPath(parseCwd, parseResolved.appPath)
+		if parseErr != nil {
+			return testConfig{}, fmt.Errorf("resolve app path: %w", parseErr)
+		}
+	}
+	parseResolved.lanes, parseErr = normalizeTestLanes(parseResolved.lanes)
+	if parseErr != nil {
+		return testConfig{}, parseErr
+	}
+	return parseResolved, nil
+}
+
+func (parseL launcher) executeTest(parseConfig testConfig) (testSummary, error) {
+	parseSummary := testSummary{
+		OK:            true,
+		AppPath:       parseConfig.appPath,
+		ProjectRoot:   parseConfig.rootPath,
+		SelectedLanes: append([]string(nil), parseConfig.lanes...),
+		Lanes:         make([]testLaneSummary, 0, len(parseConfig.lanes)),
+		Resolution:    cloneResolutionTrace(parseConfig.resolution),
+	}
+	for _, parseLane := range parseConfig.lanes {
+		parseLaneSummary, parseErr := parseL.executeTestLane(parseConfig, parseLane)
+		if parseErr != nil {
+			return testSummary{}, parseErr
+		}
+		parseSummary.Lanes = append(parseSummary.Lanes, parseLaneSummary)
+		if !parseLaneSummary.OK && !parseLaneSummary.Skipped {
+			parseSummary.OK = false
+		}
+	}
+	return parseSummary, nil
+}
+
+func (parseL launcher) executeTestLane(parseConfig testConfig, parseLane string) (testLaneSummary, error) {
+	switch parseLane {
+	case "unit":
+		return parseL.runUnitTestLane(parseConfig.rootPath)
+	case "wasm":
+		return parseL.runWasmTestLane(parseConfig.rootPath, false)
+	case "hydration":
+		return parseL.runWasmTestLane(parseConfig.rootPath, true)
+	case "browser":
+		return parseL.runBrowserTestLane(parseConfig.rootPath)
+	case "release":
+		return parseL.runReleaseTestLane(parseConfig)
+	default:
+		return testLaneSummary{}, fmt.Errorf("unknown test lane %q", parseLane)
+	}
+}
+
+func (parseL launcher) runUnitTestLane(parseRootPath string) (testLaneSummary, error) {
+	parseOutputs := []string{}
+	parseOutput, parseErr := launcherRunCommand("go", []string{"test", "./..."}, parseRootPath, buildNativeGoEnv())
+	if parseOutput != "" {
+		parseOutputs = append(parseOutputs, parseOutput)
+	}
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	parseSummary := testLaneSummary{
+		Name:           "unit",
+		OK:             true,
+		Command:        "go test ./...",
+		PackagePattern: "./...",
+		Workspace:      parseRootPath,
+		Summary:        "Native Go tests passed.",
+	}
+	if parseRootPath == parseL.repoRoot {
+		parseNestedRoot, parseErr2 := resolveLauncherLivereloadWorkspace(parseL.repoRoot, parseRootPath)
+		if parseErr2 != nil {
+			return testLaneSummary{}, parseErr2
+		}
+		if fileExists(filepath.Join(parseNestedRoot, "go.mod")) {
+			parseNestedOutput, parseNestedErr := launcherRunCommand("go", []string{"test", "./..."}, parseNestedRoot, buildNativeGoEnv())
+			if parseNestedOutput != "" {
+				parseOutputs = append(parseOutputs, parseNestedOutput)
+			}
+			if parseNestedErr != nil {
+				return testLaneSummary{}, parseNestedErr
+			}
+			parseSummary.Summary = "Native Go tests passed, including the nested livereload workspace."
+		}
+	}
+	if len(parseOutputs) > 0 {
+		parseSummary.Output = strings.Join(parseOutputs, "\n")
+	}
+	return parseSummary, nil
+}
+
+func (parseL launcher) runWasmTestLane(parseRootPath string, isHydrationOnly bool) (testLaneSummary, error) {
+	parsePackages, parseErr := collectWasmTestPackages(parseRootPath, isHydrationOnly)
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	parseLaneName := "wasm"
+	parseSummaryText := "Discovered js/wasm Go test packages passed."
+	if isHydrationOnly {
+		parseLaneName = "hydration"
+		parseSummaryText = "Focused hydration js/wasm test packages passed."
+	}
+	if len(parsePackages) == 0 {
+		return testLaneSummary{
+			Name:      parseLaneName,
+			OK:        true,
+			Skipped:   true,
+			Workspace: parseRootPath,
+			Summary:   "No matching js/wasm test packages were found.",
+		}, nil
+	}
+	parseWasmExec, parseErr := testResolveWasmExec(parseL.repoRoot)
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	parseArgs := append([]string{"test", "-exec", parseWasmExec}, parsePackages...)
+	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseRootPath, buildWasmGoEnv())
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	return testLaneSummary{
+		Name:           parseLaneName,
+		OK:             true,
+		Command:        "go " + strings.Join(parseArgs, " "),
+		PackagePattern: strings.Join(parsePackages, " "),
+		Packages:       parsePackages,
+		Workspace:      parseRootPath,
+		Output:         parseOutput,
+		Summary:        parseSummaryText,
+	}, nil
+}
+
+func (parseL launcher) runBrowserTestLane(parseRootPath string) (testLaneSummary, error) {
+	parseWorkspace, parseErr := resolveBrowserWorkspace(parseL.repoRoot, parseRootPath)
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	if parseWorkspace == "" {
+		return testLaneSummary{
+			Name:      "browser",
+			OK:        true,
+			Skipped:   true,
+			Workspace: parseRootPath,
+			Summary:   "No browser test workspace was found for the requested root.",
+		}, nil
+	}
+	parsePackagePattern, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(parseWorkspace)
+	if !hasPlaywrightGoSuite {
+		return testLaneSummary{
+			Name:      "browser",
+			OK:        true,
+			Skipped:   true,
+			Workspace: parseWorkspace,
+			Summary:   "No Playwright-Go test package was found in the browser workspace.",
+		}, nil
+	}
+	parseArgs := []string{"test", "-tags", "playwrightgo", parsePackagePattern, "-run", "TestMainSuite", "-v"}
+	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	return testLaneSummary{
+		Name:           "browser",
+		OK:             true,
+		Command:        "go " + strings.Join(parseArgs, " "),
+		PackagePattern: parsePackagePattern,
+		Workspace:      parseWorkspace,
+		Output:         parseOutput,
+		Summary:        "Browser Playwright-Go suite passed.",
+	}, nil
+}
+
+func (parseL launcher) runReleaseTestLane(parseConfig testConfig) (testLaneSummary, error) {
+	parseReleaseOutDir, parseErr := createLauncherTempDir(parseConfig.rootPath, "gwc-test-release-")
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	parseReleaseConfig, parseErr := resolveReleaseConfig(releaseConfig{
+		appPath:  parseConfig.appPath,
+		rootPath: parseConfig.rootPath,
+		outDir:   parseReleaseOutDir,
+		profile:  "release",
+	})
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	if parseErr2 := enforceEnterpriseReleasePolicy(parseReleaseConfig, launcherActiveEnterpriseConfig.Policy); parseErr2 != nil {
+		return testLaneSummary{}, parseErr2
+	}
+	parseReleaseSummary, parseErr := testExecuteRelease(parseReleaseConfig)
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	return testLaneSummary{
+		Name:         "release",
+		OK:           true,
+		Summary:      "Release smoke build passed.",
+		OutDir:       parseReleaseSummary.OutDir,
+		ManifestPath: parseReleaseSummary.ManifestPath,
+		Workspace:    parseReleaseSummary.ProjectRoot,
+	}, nil
+}
+
+type stringListFlag struct {
+	values []string
+}
+
+func (parseF *stringListFlag) String() string {
+	return strings.Join(parseF.values, ",")
+}
+
+func (parseF *stringListFlag) Set(parseValue string) error {
+	for _, parsePart := range strings.Split(parseValue, ",") {
+		parseTrimmed := strings.TrimSpace(parsePart)
+		if parseTrimmed != "" {
+			parseF.values = append(parseF.values, parseTrimmed)
+		}
+	}
+	return nil
+}
+
+func (parseF *stringListFlag) Values() []string {
+	return append([]string(nil), parseF.values...)
+}
+
+func normalizeTestLanes(parseRequested []string) ([]string, error) {
+	if len(parseRequested) == 0 {
+		return []string{"unit", "wasm"}, nil
+	}
+	parseSeen := map[string]struct{}{}
+	parseNormalized := make([]string, 0, len(parseRequested))
+	parseAppendLane := func(parseLane2 string) {
+		if _, parseOk := parseSeen[parseLane2]; parseOk {
+			return
+		}
+		parseSeen[parseLane2] = struct{}{}
+		parseNormalized = append(parseNormalized, parseLane2)
+	}
+	for _, parseLane := range parseRequested {
+		switch strings.ToLower(strings.TrimSpace(parseLane)) {
+		case "all":
+			for _, parseCandidate := range testAllLanes {
+				parseAppendLane(parseCandidate)
+			}
+		case "unit", "native", "go-native":
+			parseAppendLane("unit")
+		case "wasm", "go-wasm":
+			parseAppendLane("wasm")
+		case "hydration", "hydrate":
+			parseAppendLane("hydration")
+		case "browser", "playwright":
+			parseAppendLane("browser")
+		case "release":
+			parseAppendLane("release")
+		default:
+			return nil, fmt.Errorf("unknown test lane %q", parseLane)
+		}
+	}
+	return parseNormalized, nil
+}
+
+func enforceEnterpriseRequiredTestLanes(parseSelectedLanes []string, parsePolicy launcherEnterprisePolicy) error {
+	if len(parsePolicy.RequiredTestLanes) == 0 {
+		return nil
+	}
+	parseSelected := map[string]struct{}{}
+	for _, parseLane := range parseSelectedLanes {
+		parseTrimmed := strings.TrimSpace(strings.ToLower(parseLane))
+		if parseTrimmed == "" {
+			continue
+		}
+		parseSelected[parseTrimmed] = struct{}{}
+	}
+	parseMissing := []string{}
+	for _, parseLane2 := range parsePolicy.RequiredTestLanes {
+		parseNormalized := strings.TrimSpace(strings.ToLower(parseLane2))
+		if parseNormalized == "" {
+			continue
+		}
+		if _, parseOk := parseSelected[parseNormalized]; !parseOk {
+			parseMissing = append(parseMissing, parseLane2)
+		}
+	}
+	if len(parseMissing) > 0 {
+		return fmt.Errorf("missing required test lanes: %s", strings.Join(parseMissing, ", "))
+	}
+	return nil
+}
+
+func enforceEnterpriseGoToolchainPolicy(parseRootPath string, parsePolicy launcherEnterprisePolicy) error {
+	if len(parsePolicy.ApprovedGoToolchains) == 0 {
+		return nil
+	}
+	parseActiveToolchain, parseErr := resolveActiveGoToolchain(parseRootPath)
+	if parseErr != nil {
+		return parseErr
+	}
+	for _, parseApproved := range parsePolicy.ApprovedGoToolchains {
+		if goToolchainApprovedByPolicy(parseActiveToolchain, parseApproved) {
+			return nil
+		}
+	}
+	return fmt.Errorf(
+		"active Go toolchain %q is not approved; allowed values: %s",
+		parseActiveToolchain,
+		strings.Join(parsePolicy.ApprovedGoToolchains, ", "),
+	)
+}
+
+func resolveActiveGoToolchain(parseRootPath string) (string, error) {
+	parseCwd := strings.TrimSpace(parseRootPath)
+	if parseCwd == "" {
+		parseCwd = "."
+	}
+	parseOutput, parseErr := launcherRunCommand("go", []string{"env", "GOVERSION"}, parseCwd, buildNativeGoEnv())
+	if parseErr != nil {
+		return "", fmt.Errorf("resolve active Go toolchain: %w", parseErr)
+	}
+	parseLines := strings.Split(strings.TrimSpace(parseOutput), "\n")
+	parseVersion := strings.ToLower(strings.TrimSpace(parseLines[0]))
+	if parseVersion == "" {
+		return "", errors.New("resolve active Go toolchain: go env GOVERSION returned empty output")
+	}
+	return parseVersion, nil
+}
+
+func goToolchainApprovedByPolicy(parseActiveToolchain string, parseApprovedValue string) bool {
+	parseActive := normalizeGoToolchainPolicyValue(parseActiveToolchain)
+	parseApproved := normalizeGoToolchainPolicyValue(parseApprovedValue)
+	if parseActive == "" || parseApproved == "" {
+		return false
+	}
+	if parseActive == parseApproved {
+		return true
+	}
+	if strings.HasSuffix(parseApproved, ".x") {
+		parsePrefix := strings.TrimSuffix(parseApproved, ".x")
+		if parsePrefix == "" {
+			return false
+		}
+		if parseActive == parsePrefix {
+			return true
+		}
+		return strings.HasPrefix(parseActive, parsePrefix+".")
+	}
+	return strings.HasPrefix(parseActive, parseApproved+".")
+}
+
+func normalizeGoToolchainPolicyValue(parseValue string) string {
+	parseValue = strings.TrimSpace(strings.ToLower(parseValue))
+	if parseValue == "" {
+		return ""
+	}
+	if strings.HasPrefix(parseValue, "go") {
+		return parseValue
+	}
+	return "go" + parseValue
+}
+
+func enforceEnterpriseReleasePolicy(parseConfig releaseConfig, parsePolicy launcherEnterprisePolicy) error {
+	if parsePolicy.RequireReleaseBudgets != nil && *parsePolicy.RequireReleaseBudgets && strings.TrimSpace(parseConfig.budgetsPath) == "" {
+		return errors.New("enterprise policy requires release budgets; provide -budgets or configure releaseBudgetsPath")
+	}
+	if parseRequiredCompression := strings.TrimSpace(parsePolicy.RequiredReleaseCompression); parseRequiredCompression != "" {
+		parseNormalizedRequired, parseErr := normalizeReleaseCompressionPolicy(parseRequiredCompression)
+		if parseErr != nil {
+			return fmt.Errorf("normalize enterprise required release compression: %w", parseErr)
+		}
+		if parseConfig.compression != parseNormalizedRequired {
+			return fmt.Errorf("release compression policy %q does not satisfy enterprise requirement %q", parseConfig.compression, parseNormalizedRequired)
+		}
+	}
+	if parsePattern := strings.TrimSpace(parsePolicy.ReleaseBinaryPattern); parsePattern != "" {
+		parseMatched, parseErr2 := regexp.MatchString(parsePattern, parseConfig.binaryName)
+		if parseErr2 != nil {
+			return fmt.Errorf("compile enterprise release binary pattern: %w", parseErr2)
+		}
+		if !parseMatched {
+			return fmt.Errorf("release binary name %q does not satisfy enterprise pattern %q", parseConfig.binaryName, parsePattern)
+		}
+	}
+	if parsePattern2 := strings.TrimSpace(parsePolicy.ReleaseManifestPattern); parsePattern2 != "" {
+		parseMatched2, parseErr3 := regexp.MatchString(parsePattern2, parseConfig.manifestName)
+		if parseErr3 != nil {
+			return fmt.Errorf("compile enterprise release manifest pattern: %w", parseErr3)
+		}
+		if !parseMatched2 {
+			return fmt.Errorf("release manifest name %q does not satisfy enterprise pattern %q", parseConfig.manifestName, parsePattern2)
+		}
+	}
+	return nil
+}
+
+func collectWasmTestPackages(parseRootPath string, isHydrationOnly bool) ([]string, error) {
+	parsePackages := map[string]struct{}{}
+	parseErr := filepath.WalkDir(parseRootPath, func(parsePath string, parseEntry fs.DirEntry, parseWalkErr error) error {
+		if parseWalkErr != nil {
+			return parseWalkErr
+		}
+		if parseEntry.IsDir() {
+			if shouldSkipTestWalkDir(parseEntry.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(parseEntry.Name(), "_wasm_test.go") {
+			return nil
+		}
+		if isHydrationOnly {
+			parseContent, parseErr2 := os.ReadFile(parsePath)
+			if parseErr2 != nil {
+				return parseErr2
+			}
+			if !isHydrationTestContent(string(parseContent)) {
+				return nil
+			}
+		}
+		parseRelDir, parseErr3 := filepath.Rel(parseRootPath, filepath.Dir(parsePath))
+		if parseErr3 != nil {
+			return parseErr3
+		}
+		parsePackagePath := "."
+		if parseRelDir != "." {
+			parsePackagePath = "./" + filepath.ToSlash(parseRelDir)
+		}
+		parsePackages[parsePackagePath] = struct{}{}
+		return nil
+	})
+	if parseErr != nil {
+		return nil, fmt.Errorf("collect js/wasm test packages: %w", parseErr)
+	}
+	parseOrdered := make([]string, 0, len(parsePackages))
+	for parsePkg := range parsePackages {
+		parseOrdered = append(parseOrdered, parsePkg)
+	}
+	sort.Strings(parseOrdered)
+	return parseOrdered, nil
+}
+
+func shouldSkipTestWalkDir(parseName string) bool {
+	return parseName == ".git" ||
+		parseName == "node_modules" ||
+		parseName == "dist" ||
+		parseName == "tmp" ||
+		parseName == "test-results" ||
+		parseName == "playwright-report" ||
+		parseName == "coverage"
+}
+
+func isHydrationTestContent(parseContent string) bool {
+	return strings.Contains(parseContent, "SmokeHydrate") ||
+		strings.Contains(parseContent, "Hydrate") ||
+		strings.Contains(parseContent, "Hydration")
+}
+
+func buildNativeGoEnv() []string {
+	parseEnv := []string{}
+	for _, parseEntry := range os.Environ() {
+		if strings.HasPrefix(parseEntry, "GOOS=") || strings.HasPrefix(parseEntry, "GOARCH=") {
+			continue
+		}
+		parseEnv = append(parseEnv, parseEntry)
+	}
+	return parseEnv
+}
+
+func buildWasmGoEnv() []string {
+	parseEnv := buildNativeGoEnv()
+	parseEnv = append(parseEnv, "GOOS=js", "GOARCH=wasm")
+	return parseEnv
+}
+
+func buildBrowserTestEnv() []string {
+	parseEnv := buildNativeGoEnv()
+	isParseWorkersSet := false
+	for _, parseEntry := range parseEnv {
+		if strings.HasPrefix(parseEntry, "PLAYWRIGHT_WORKERS=") {
+			isParseWorkersSet = true
+			break
+		}
+	}
+	if !isParseWorkersSet {
+		parseEnv = append(parseEnv, "PLAYWRIGHT_WORKERS=4")
+	}
+	return parseEnv
+}
+
+func resolveBrowserTestPackagePattern(parseWorkspace string) (string, bool) {
+	if strings.TrimSpace(parseWorkspace) == "" {
+		return "", false
+	}
+	parseCandidates := []struct {
+		path    string
+		pattern string
+	}{
+		{path: filepath.Join(parseWorkspace, "playwrightgo"), pattern: "./playwrightgo"},
+		{path: filepath.Join(parseWorkspace, "test", "playwrightgo"), pattern: "./test/playwrightgo"},
+	}
+	for _, parseCandidate := range parseCandidates {
+		parseInfo, parseErr := os.Stat(parseCandidate.path)
+		if parseErr != nil || !parseInfo.IsDir() {
+			continue
+		}
+		return parseCandidate.pattern, true
+	}
+	return "", false
+}
+
+func resolveWasmTestExec(parseRepoRoot string) (string, error) {
+	parseOverridePath, parseOk, parseErr := resolveLauncherConfiguredPath(parseRepoRoot, func(parsePaths launcherOverridePaths) string {
+		return parsePaths.GoWASMExec
+	}, "goWasmExec")
+	if parseErr != nil {
+		return "", parseErr
+	}
+	if parseOk {
+		if !fileExists(parseOverridePath) {
+			return "", fmt.Errorf("configured goWasmExec path does not exist: %s", parseOverridePath)
+		}
+		return parseOverridePath, nil
+	}
+	if parseValue := strings.TrimSpace(os.Getenv("GO_WASM_EXEC")); parseValue != "" {
+		return parseValue, nil
+	}
+	if runtime.GOOS == "windows" {
+		parseCandidate := filepath.Join(parseRepoRoot, "tools", "go_js_wasm_exec.bat")
+		if fileExists(parseCandidate) {
+			return parseCandidate, nil
+		}
+	}
+	return "", errors.New("GO_WASM_EXEC is not set and the repo js/wasm executor helper could not be resolved")
+}
+
+func resolveBrowserWorkspace(parseRepoRoot string, parseRootPath string) (string, error) {
+	parseOverridePath, parseOk, parseErr := resolveLauncherConfiguredPath(parseRootPath, func(parsePaths launcherOverridePaths) string {
+		return parsePaths.BrowserWorkspace
+	}, "browserWorkspace")
+	if parseErr != nil {
+		return "", parseErr
+	}
+	if parseOk {
+		parseInfo, parseStatErr := os.Stat(parseOverridePath)
+		if parseStatErr != nil || !parseInfo.IsDir() {
+			return "", fmt.Errorf("configured browserWorkspace path does not exist: %s", parseOverridePath)
+		}
+		if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(parseOverridePath); !hasPlaywrightGoSuite {
+			return "", fmt.Errorf("configured browserWorkspace does not contain a Playwright-Go suite: %s", parseOverridePath)
+		}
+		return parseOverridePath, nil
+	}
+	if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(parseRootPath); hasPlaywrightGoSuite {
+		return parseRootPath, nil
+	}
+	parseRepoWorkspace := filepath.Join(parseRepoRoot, "test")
+	if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(parseRepoWorkspace); hasPlaywrightGoSuite {
+		return parseRepoWorkspace, nil
+	}
+	return "", nil
+}
+
+func detectBrowserWorkspace(parseRepoRoot string, parseRootPath string) string {
+	parseWorkspace, parseErr := resolveBrowserWorkspace(parseRepoRoot, parseRootPath)
+	if parseErr != nil {
+		return ""
+	}
+	return parseWorkspace
+}
+
+func resolveLauncherLivereloadWorkspace(parseRepoRoot string, parseRootPath string) (string, error) {
+	parseOverridePath, parseOk, parseErr := resolveLauncherConfiguredPath(parseRootPath, func(parsePaths launcherOverridePaths) string {
+		return parsePaths.LivereloadWorkspace
+	}, "livereloadWorkspace")
+	if parseErr != nil {
+		return "", parseErr
+	}
+	if parseOk {
+		parseInfo, parseStatErr := os.Stat(parseOverridePath)
+		if parseStatErr != nil || !parseInfo.IsDir() {
+			return "", fmt.Errorf("configured livereloadWorkspace path does not exist: %s", parseOverridePath)
+		}
+		return parseOverridePath, nil
+	}
+	return filepath.Join(parseRepoRoot, "tools", "livereload"), nil
+}
+
+func resolveLauncherLivereloadClientScript(parseRootPath string, _ ...string) (string, bool, error) {
+	parseOverridePath, parseOk, parseErr := resolveLauncherConfiguredPath(parseRootPath, func(parsePaths launcherOverridePaths) string {
+		return parsePaths.LivereloadClientScript
+	}, "livereloadClientScript")
+	if parseErr != nil {
+		return "", false, parseErr
+	}
+	if parseOk {
+		if !fileExists(parseOverridePath) {
+			return "", false, fmt.Errorf("configured livereloadClientScript path does not exist: %s", parseOverridePath)
+		}
+		return parseOverridePath, true, nil
+	}
+	return "", false, nil
+}

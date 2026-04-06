@@ -6,12 +6,12 @@ This file is generated from the selected scaffold capabilities.
 
 - [ ] `router`: Route shell and navigation affordances are scaffolded in the starter layout.
 - [ ] `ssr`: Server rendering and hydration expectations are documented in the generated matrix.
-- [ ] `forms`: Form workflow placeholders are included so teams can wire typed form state quickly.
+- [ ] `forms`: Starter form interactions are scaffolded so teams can extend typed form state deliberately.
 - [ ] `fetch`: Async resource ownership is called out for data-loading and mutation setup.
 - [ ] `state`: Shared state ownership is planned as a first-class concern in this scaffold.
 - [ ] `devtools`: Devtools adoption is surfaced as part of the starter capability model.
 - [ ] `hot-reload`: State-preserving local reload is included as the recommended inner-loop path.
-- [ ] `browser-tests`: Playwright-Go smoke-test placeholders are generated under test/playwrightgo.
+- [ ] `browser-tests`: Playwright-Go smoke-test scaffolding is generated under test/playwrightgo.
 - [ ] `hydration`: Client boot and hydration ownership are expected from the first app shell.
 - [ ] `release-profile`: Release-minded defaults are encoded in launcher metadata and docs.
 - [ ] `dev-profile`: Fast local iteration is pre-wired through gwc dev defaults.

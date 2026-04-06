@@ -61,7 +61,10 @@ func (parseL launcher) runDev(parseArgs []string) error {
 		return parseErr2
 	}
 
-	parseForwarded := []string{"run", "./tools/livereload/livereload.go"}
+	parseForwarded, parseErr2 := buildLivereloadRunArgs()
+	if parseErr2 != nil {
+		return parseErr2
+	}
 	parseForwarded = append(parseForwarded, "-app", parseConfig.appPath)
 	if parseConfig.rootPath != "" {
 		parseForwarded = append(parseForwarded, "-root", parseConfig.rootPath)
@@ -109,6 +112,19 @@ func (parseL launcher) runDev(parseArgs []string) error {
 	parseCmd.Stdout = os.Stdout
 	parseCmd.Stderr = os.Stderr
 	return parseCmd.Run()
+}
+
+// buildLivereloadRunArgs returns the repo-root go run argument list for the
+// nested livereload module, including every non-test source file it needs.
+func buildLivereloadRunArgs() ([]string, error) {
+	return []string{
+		"run",
+		"tools/livereload/client_script.go",
+		"tools/livereload/livereload.go",
+		"tools/livereload/livereload_http.go",
+		"tools/livereload/livereload_paths.go",
+		"tools/livereload/livereload_support.go",
+	}, nil
 }
 
 func (parseL launcher) resolveDevConfig(parseConfig devConfig) (devConfig, error) {
