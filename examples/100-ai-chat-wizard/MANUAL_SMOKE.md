@@ -7,11 +7,13 @@ This is the human release-gate checklist for example 100.
 From repo root, prepare one shared local DB and build both WASM artifacts:
 
 ```powershell
-$env:CHAT_DB_PATH = "examples/100-ai-chat-wizard/bin/runtime/test_chat.db"
+$env:CHAT_DB_PATH = "examples/100-ai-chat-wizard/bin/runtime/chat_history.db"
 go run ./tools/gwc build -app .\examples\100-ai-chat-wizard\client\main.go -root .\examples\100-ai-chat-wizard\client -out .\examples\100-ai-chat-wizard\bin\client\app\chat.wasm -json
 go run ./tools/gwc build -app .\examples\100-ai-chat-wizard\client\backgroundworker\main.go -root .\examples\100-ai-chat-wizard\client\backgroundworker -out .\examples\100-ai-chat-wizard\bin\client\worker\background-worker.wasm -json
 go run ./examples/100-ai-chat-wizard/cmd/seed-test-db
 ```
+
+Managed `chat-wizard` start now seeds the target `CHAT_DB_PATH` automatically when the local runtime DB is missing or empty, but the explicit seed step above is still the cleanest pre-smoke reset.
 
 Start the managed example server:
 

@@ -243,12 +243,21 @@ func normalizeSeedCommandDir(parseCommandPath string) (string, error) {
 	return filepath.Dir(parseCommandPath), nil
 }
 
+// buildChatWizardRuntimeDatabasePath returns the default runtime database path for one Example 100 root.
+func buildChatWizardRuntimeDatabasePath(parseExampleRoot string) string {
+	parseExampleRoot = filepath.Clean(strings.TrimSpace(parseExampleRoot))
+	if parseExampleRoot == "" {
+		return ""
+	}
+	return filepath.Join(parseExampleRoot, "bin", "runtime", "chat_history.db")
+}
+
 func defaultSeedDatabasePath(parseCommandDir string) string {
 	if !isChatWizardSeedCommand(parseCommandDir) {
 		return ""
 	}
 	parseExampleRoot := filepath.Dir(filepath.Dir(parseCommandDir))
-	return filepath.Join(parseExampleRoot, "bin", "runtime", "test_chat.db")
+	return buildChatWizardRuntimeDatabasePath(parseExampleRoot)
 }
 
 func isChatWizardSeedCommand(parseCommandDir string) bool {

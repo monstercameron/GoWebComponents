@@ -18,7 +18,7 @@ cd C:\Users\Cam\Desktop\GoWebComponents
 Use one shared DB path for both server and seeding:
 
 ```powershell
-$env:CHAT_DB_PATH = "examples/100-ai-chat-wizard/bin/runtime/test_chat.db"
+$env:CHAT_DB_PATH = "examples/100-ai-chat-wizard/bin/runtime/chat_history.db"
 ```
 
 Provider mode:
@@ -45,6 +45,8 @@ go run ./tools/gwc build -app .\examples\100-ai-chat-wizard\client\backgroundwor
 ```powershell
 go run ./examples/100-ai-chat-wizard/cmd/seed-test-db
 ```
+
+The managed `chat-wizard` start path now seeds the target `CHAT_DB_PATH` automatically when the local runtime DB is missing or empty, but the explicit seed step remains the cleanest way to reset local auth and demo data.
 
 Seeded users:
 - `customer@email.com / password`
@@ -248,7 +250,7 @@ Purpose: deterministic local verification without external providers.
 Required env:
 
 ```powershell
-$env:CHAT_DB_PATH = "examples/100-ai-chat-wizard/bin/runtime/test_chat.db"
+$env:CHAT_DB_PATH = "examples/100-ai-chat-wizard/bin/runtime/chat_history.db"
 $env:CHAT_PROVIDER_STUBS = "all"
 ```
 

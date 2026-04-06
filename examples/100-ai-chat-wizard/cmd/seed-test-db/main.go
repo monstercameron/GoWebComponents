@@ -72,7 +72,7 @@ func main() {
 func runSeedTestDB() (string, error) {
 	parseDbPath := os.Getenv("CHAT_DB_PATH")
 	if parseDbPath == "" {
-		parseDbPath = "examples/100-ai-chat-wizard/bin/runtime/test_chat.db"
+		parseDbPath = "examples/100-ai-chat-wizard/bin/runtime/chat_history.db"
 	}
 	if parseDir := filepath.Dir(parseDbPath); parseDir != "." && parseDir != "" {
 		if parseErr := os.MkdirAll(parseDir, 0o755); parseErr != nil {

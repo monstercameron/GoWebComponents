@@ -29,7 +29,7 @@ func TestResolveSeedConfigDefaultsToChatWizardSeeder(parseT *testing.T) {
 	if parseConfig.commandPath != parseCommandDir {
 		parseT.Fatalf("expected command path %q, got %#v", parseCommandDir, parseConfig)
 	}
-	parseWantDB := filepath.Join(parseRoot, "examples", "100-ai-chat-wizard", "bin", "runtime", "test_chat.db")
+	parseWantDB := filepath.Join(parseRoot, "examples", "100-ai-chat-wizard", "bin", "runtime", "chat_history.db")
 	if parseConfig.dbPath != parseWantDB {
 		parseT.Fatalf("expected db path %q, got %#v", parseWantDB, parseConfig)
 	}
@@ -92,7 +92,7 @@ func TestRunSeedJSONExecutesDefaultSeederWithKnownCredentials(parseT *testing.T)
 	if parseCapturedCWD != parseCommandDir {
 		parseT.Fatalf("expected seed cwd %q, got %q", parseCommandDir, parseCapturedCWD)
 	}
-	parseWantDB := filepath.Join(parseRoot, "examples", "100-ai-chat-wizard", "bin", "runtime", "test_chat.db")
+	parseWantDB := filepath.Join(parseRoot, "examples", "100-ai-chat-wizard", "bin", "runtime", "chat_history.db")
 	if parseSummary.DatabasePath != parseWantDB {
 		parseT.Fatalf("expected summary db path %q, got %#v", parseWantDB, parseSummary)
 	}

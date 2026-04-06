@@ -24,6 +24,18 @@ func stageManagedProfileCommandDir(parseT *testing.T, parseRootPath string) {
 	}
 }
 
+// stageManagedProfileSeedCommandDir creates the managed chat-wizard seed command directory expected by launch preflight.
+func stageManagedProfileSeedCommandDir(parseT *testing.T, parseRootPath string) {
+	parseT.Helper()
+	parseCommandDir := filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "cmd", "seed-test-db")
+	if parseErr := os.MkdirAll(parseCommandDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir managed seed command dir: %v", parseErr)
+	}
+	if parseErr2 := os.WriteFile(filepath.Join(parseCommandDir, "main.go"), []byte("package main\nfunc main(){}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write managed seed command placeholder: %v", parseErr2)
+	}
+}
+
 // stageManagedPathServerDir creates a throwaway Go server package used for path-based managed lifecycle tests.
 func stageManagedPathServerDir(parseT *testing.T, parseRootPath string) string {
 	parseT.Helper()
@@ -100,12 +112,17 @@ func TestRunExamplesManagedStartWritesRuntimeState(parseT *testing.T) {
 	parseOriginalLaunch := examplesManagedLaunchProcess
 	parseOriginalWait := examplesManagedWaitServerReady
 	parseOriginalBuild := examplesManagedBuildBinary
+	parseOriginalBuildWASM := examplesManagedBuildWASM
 	parseT.Cleanup(func() {
 		examplesManagedLaunchProcess = parseOriginalLaunch
 		examplesManagedWaitServerReady = parseOriginalWait
 		examplesManagedBuildBinary = parseOriginalBuild
+		examplesManagedBuildWASM = parseOriginalBuildWASM
 	})
 	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
+	examplesManagedBuildWASM = func(parseTargetPath string, parseOutputPath string, parseWorkingDir string) error {
 		return nil
 	}
 
@@ -225,12 +242,17 @@ func TestRunExamplesManagedStartUsesArtifactRootOverride(parseT *testing.T) {
 	parseOriginalLaunch := examplesManagedLaunchProcess
 	parseOriginalWait := examplesManagedWaitServerReady
 	parseOriginalBuild := examplesManagedBuildBinary
+	parseOriginalBuildWASM := examplesManagedBuildWASM
 	parseT.Cleanup(func() {
 		examplesManagedLaunchProcess = parseOriginalLaunch
 		examplesManagedWaitServerReady = parseOriginalWait
 		examplesManagedBuildBinary = parseOriginalBuild
+		examplesManagedBuildWASM = parseOriginalBuildWASM
 	})
 	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
+	examplesManagedBuildWASM = func(parseTargetPath string, parseOutputPath string, parseWorkingDir string) error {
 		return nil
 	}
 	examplesManagedLaunchProcess = func(parseConfig examplesManagedLaunchConfig) (int, error) {
@@ -250,6 +272,191 @@ func TestRunExamplesManagedStartUsesArtifactRootOverride(parseT *testing.T) {
 	}
 	if _, parseErr3 := os.Stat(parseStatePath); parseErr3 != nil {
 		parseT.Fatalf("expected state at artifactRoot path: %v", parseErr3)
+	}
+}
+
+// TestResolveExamplesManagedLaunchConfigBuildsWASMArtifactsForDefaultProfile verifies the managed chat-wizard profile builds browser wasm artifacts before launching the server.
+func TestResolveExamplesManagedLaunchConfigBuildsWASMArtifactsForDefaultProfile(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	stageManagedProfileCommandDir(parseT, parseRootPath)
+
+	parseOriginalBuild := examplesManagedBuildBinary
+	parseOriginalBuildWASM := examplesManagedBuildWASM
+	parseT.Cleanup(func() {
+		examplesManagedBuildBinary = parseOriginalBuild
+		examplesManagedBuildWASM = parseOriginalBuildWASM
+	})
+	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
+
+	parseWASMCalls := make([]string, 0, 2)
+	examplesManagedBuildWASM = func(parseTargetPath string, parseOutputPath string, parseWorkingDir string) error {
+		parseWASMCalls = append(parseWASMCalls, parseTargetPath+"|"+parseOutputPath+"|"+parseWorkingDir)
+		return nil
+	}
+
+	parseLauncher := launcher{repoRoot: parseRootPath}
+	parseProfile, parseErr := resolveExamplesManagedProfile(parseLauncher, "chat-wizard")
+	if parseErr != nil {
+		parseT.Fatalf("resolve managed profile: %v", parseErr)
+	}
+
+	parseStatePath := filepath.Join(parseRootPath, "bin", "runtime", "examples-servers", "chat-wizard-local.json")
+	parseLogPath := filepath.Join(parseRootPath, "bin", "runtime", "examples-servers", "chat-wizard-local.log")
+	if _, parseErr2 := parseLauncher.resolveExamplesManagedLaunchConfig(parseProfile, parseStatePath, parseLogPath, "127.0.0.1:8095"); parseErr2 != nil {
+		parseT.Fatalf("resolve managed launch config: %v", parseErr2)
+	}
+
+	if len(parseWASMCalls) != 2 {
+		parseT.Fatalf("expected two wasm build calls, got %#v", parseWASMCalls)
+	}
+
+	parseWantClientCall := filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "client") +
+		"|" + filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "bin", "client", "app", "chat.wasm") +
+		"|" + parseRootPath
+	parseWantWorkerCall := filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "client", "backgroundworker") +
+		"|" + filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "bin", "client", "worker", "background-worker.wasm") +
+		"|" + parseRootPath
+	if parseWASMCalls[0] != parseWantClientCall {
+		parseT.Fatalf("unexpected client wasm build call: got %q want %q", parseWASMCalls[0], parseWantClientCall)
+	}
+	if parseWASMCalls[1] != parseWantWorkerCall {
+		parseT.Fatalf("unexpected worker wasm build call: got %q want %q", parseWASMCalls[1], parseWantWorkerCall)
+	}
+}
+
+// TestResolveExamplesManagedPathCommandBuildsWASMArtifactsForChatWizardServer verifies the path-based chat wizard flow reuses the managed wasm targets.
+func TestResolveExamplesManagedPathCommandBuildsWASMArtifactsForChatWizardServer(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	stageManagedProfileCommandDir(parseT, parseRootPath)
+
+	parseLauncher := launcher{repoRoot: parseRootPath}
+	parseProfile, parseErr := parseLauncher.resolveExamplesManagedPathCommand(filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "cmd", "server"))
+	if parseErr != nil {
+		parseT.Fatalf("resolve managed path command: %v", parseErr)
+	}
+	if len(parseProfile.buildWASMTargets) != 2 {
+		parseT.Fatalf("expected two wasm build targets, got %#v", parseProfile.buildWASMTargets)
+	}
+	if parseProfile.buildWASMTargets[0].outputPath != filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "bin", "client", "app", "chat.wasm") {
+		parseT.Fatalf("unexpected client wasm output path: %#v", parseProfile.buildWASMTargets[0])
+	}
+	if parseProfile.buildWASMTargets[1].outputPath != filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "bin", "client", "worker", "background-worker.wasm") {
+		parseT.Fatalf("unexpected worker wasm output path: %#v", parseProfile.buildWASMTargets[1])
+	}
+}
+
+// TestApplyExamplesManagedStartSeedsMissingChatWizardDatabase verifies managed chat-wizard start seeds the runtime DB when local auth state is missing.
+func TestApplyExamplesManagedStartSeedsMissingChatWizardDatabase(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	stageManagedProfileCommandDir(parseT, parseRootPath)
+	stageManagedProfileSeedCommandDir(parseT, parseRootPath)
+
+	parseOriginalLaunch := examplesManagedLaunchProcess
+	parseOriginalWait := examplesManagedWaitServerReady
+	parseOriginalBuild := examplesManagedBuildBinary
+	parseOriginalBuildWASM := examplesManagedBuildWASM
+	parseOriginalExecuteSeed := executeExamplesManagedSeed
+	parseOriginalInspectSeedState := inspectExamplesManagedChatWizardDatabaseSeedState
+	parseT.Cleanup(func() {
+		examplesManagedLaunchProcess = parseOriginalLaunch
+		examplesManagedWaitServerReady = parseOriginalWait
+		examplesManagedBuildBinary = parseOriginalBuild
+		examplesManagedBuildWASM = parseOriginalBuildWASM
+		executeExamplesManagedSeed = parseOriginalExecuteSeed
+		inspectExamplesManagedChatWizardDatabaseSeedState = parseOriginalInspectSeedState
+	})
+
+	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
+	examplesManagedBuildWASM = func(parseTargetPath string, parseOutputPath string, parseWorkingDir string) error {
+		return nil
+	}
+
+	parseCapturedSeedConfig := seedConfig{}
+	inspectExamplesManagedChatWizardDatabaseSeedState = func(parseDBPath string) (bool, error) {
+		return true, nil
+	}
+	executeExamplesManagedSeed = func(parseConfig seedConfig) (seedSummary, error) {
+		parseCapturedSeedConfig = parseConfig
+		return seedSummary{OK: true, DatabasePath: parseConfig.dbPath}, nil
+	}
+	examplesManagedLaunchProcess = func(parseConfig examplesManagedLaunchConfig) (int, error) {
+		return 9091, nil
+	}
+	examplesManagedWaitServerReady = func(parseState examplesManagedServerState, parseTimeout time.Duration) error {
+		return nil
+	}
+
+	parseLauncher := launcher{repoRoot: parseRootPath}
+	parseSummary, parseErr := parseLauncher.applyExamplesManagedStart("chat-wizard", "", "", "", "", 5*time.Second)
+	if parseErr != nil {
+		parseT.Fatalf("apply managed start: %v", parseErr)
+	}
+	if !parseSummary.OK || parseSummary.PID != 9091 {
+		parseT.Fatalf("unexpected managed start summary: %#v", parseSummary)
+	}
+	parseWantDB := filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "bin", "runtime", "chat_history.db")
+	if parseCapturedSeedConfig.dbPath != parseWantDB {
+		parseT.Fatalf("expected seed db path %q, got %#v", parseWantDB, parseCapturedSeedConfig)
+	}
+	parseWantSeedCommandPath := filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "cmd", "seed-test-db")
+	if parseCapturedSeedConfig.commandPath != parseWantSeedCommandPath {
+		parseT.Fatalf("expected seed command path %q, got %#v", parseWantSeedCommandPath, parseCapturedSeedConfig)
+	}
+}
+
+// TestBuildExamplesManagedWASMArtifactWritesBrotliSidecar verifies managed wasm builds emit the Brotli sidecar required by the chat bootstrap.
+func TestBuildExamplesManagedWASMArtifactWritesBrotliSidecar(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	parseTargetPath := filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "client")
+	parseOutputPath := filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "bin", "client", "app", "chat.wasm")
+	parseWorkingDir := parseRootPath
+
+	parseOriginalRun := launcherRunCommand
+	parseOriginalWriteBrotli := writeExamplesManagedBrotliSidecar
+	parseT.Cleanup(func() {
+		launcherRunCommand = parseOriginalRun
+		writeExamplesManagedBrotliSidecar = parseOriginalWriteBrotli
+	})
+
+	parseBuildCalls := []string{}
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCWD string, parseEnv []string) (string, error) {
+		parseBuildCalls = append(parseBuildCalls, parseCommand+"|"+strings.Join(parseArgs, " ")+"|"+parseCWD)
+		if parseErr := os.MkdirAll(filepath.Dir(parseOutputPath), 0o755); parseErr != nil {
+			parseT.Fatalf("mkdir output dir in stub: %v", parseErr)
+		}
+		if parseErr := os.WriteFile(parseOutputPath, []byte("wasm"), 0o644); parseErr != nil {
+			parseT.Fatalf("write wasm output in stub: %v", parseErr)
+		}
+		return "", nil
+	}
+
+	parseBrotliCalls := []string{}
+	writeExamplesManagedBrotliSidecar = func(parseSourcePath string, parseTargetPath string) error {
+		parseBrotliCalls = append(parseBrotliCalls, parseSourcePath+"|"+parseTargetPath)
+		if parseSourcePath != parseOutputPath {
+			parseT.Fatalf("unexpected brotli source path %q", parseSourcePath)
+		}
+		if parseErr := os.WriteFile(parseTargetPath, []byte("brotli"), 0o644); parseErr != nil {
+			parseT.Fatalf("write brotli output in stub: %v", parseErr)
+		}
+		return nil
+	}
+
+	if parseErr := buildExamplesManagedWASMArtifact(parseTargetPath, parseOutputPath, parseWorkingDir); parseErr != nil {
+		parseT.Fatalf("build managed wasm artifact: %v", parseErr)
+	}
+	if len(parseBuildCalls) != 1 {
+		parseT.Fatalf("expected one wasm build call, got %#v", parseBuildCalls)
+	}
+	if len(parseBrotliCalls) != 1 {
+		parseT.Fatalf("expected one brotli sidecar call, got %#v", parseBrotliCalls)
+	}
+	if _, parseErr := os.Stat(parseOutputPath + ".br"); parseErr != nil {
+		parseT.Fatalf("expected brotli sidecar output: %v", parseErr)
 	}
 }
 
@@ -324,14 +531,19 @@ func TestRunExamplesManagedRestartTerminatesAndStarts(parseT *testing.T) {
 	parseOriginalLaunch := examplesManagedLaunchProcess
 	parseOriginalWait := examplesManagedWaitServerReady
 	parseOriginalBuild := examplesManagedBuildBinary
+	parseOriginalBuildWASM := examplesManagedBuildWASM
 	parseT.Cleanup(func() {
 		examplesManagedCheckPIDRunning = parseOriginalCheck
 		examplesManagedTerminatePIDTree = parseOriginalTerminate
 		examplesManagedLaunchProcess = parseOriginalLaunch
 		examplesManagedWaitServerReady = parseOriginalWait
 		examplesManagedBuildBinary = parseOriginalBuild
+		examplesManagedBuildWASM = parseOriginalBuildWASM
 	})
 	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
+	examplesManagedBuildWASM = func(parseTargetPath string, parseOutputPath string, parseWorkingDir string) error {
 		return nil
 	}
 
@@ -448,13 +660,18 @@ func TestRunExamplesManagedStartCleansUpOnHealthFailure(parseT *testing.T) {
 	parseOriginalWait := examplesManagedWaitServerReady
 	parseOriginalTerminate := examplesManagedTerminatePIDTree
 	parseOriginalBuild := examplesManagedBuildBinary
+	parseOriginalBuildWASM := examplesManagedBuildWASM
 	parseT.Cleanup(func() {
 		examplesManagedLaunchProcess = parseOriginalLaunch
 		examplesManagedWaitServerReady = parseOriginalWait
 		examplesManagedTerminatePIDTree = parseOriginalTerminate
 		examplesManagedBuildBinary = parseOriginalBuild
+		examplesManagedBuildWASM = parseOriginalBuildWASM
 	})
 	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
+	examplesManagedBuildWASM = func(parseTargetPath string, parseOutputPath string, parseWorkingDir string) error {
 		return nil
 	}
 

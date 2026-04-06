@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,35 @@ import (
 	"testing"
 	"time"
 )
+
+// TestIsExamplesManagedChatWizardDatabaseSeedRequired covers missing, empty, and populated local auth DB states.
+func TestIsExamplesManagedChatWizardDatabaseSeedRequired(parseT *testing.T) {
+	parseMissingPath := filepath.Join(parseT.TempDir(), "missing.db")
+	if isParseSeedRequired, parseErr := isExamplesManagedChatWizardDatabaseSeedRequired(parseMissingPath); parseErr != nil || !isParseSeedRequired {
+		parseT.Fatalf("expected missing db to require seed, got required=%t err=%v", isParseSeedRequired, parseErr)
+	}
+
+	parseDBPath := filepath.Join(parseT.TempDir(), "chat_history.db")
+	parseDB, parseErr := sql.Open("sqlite3", "file:"+parseDBPath+"?_pragma=busy_timeout(5000)")
+	if parseErr != nil {
+		parseT.Fatalf("open sqlite db: %v", parseErr)
+	}
+	defer parseDB.Close()
+	if _, parseErr := parseDB.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL)`); parseErr != nil {
+		parseT.Fatalf("create users table: %v", parseErr)
+	}
+
+	if isParseSeedRequired, parseErr := isExamplesManagedChatWizardDatabaseSeedRequired(parseDBPath); parseErr != nil || !isParseSeedRequired {
+		parseT.Fatalf("expected empty users table to require seed, got required=%t err=%v", isParseSeedRequired, parseErr)
+	}
+
+	if _, parseErr := parseDB.Exec(`INSERT INTO users (email, password_hash, created_at) VALUES ('customer@email.com', 'hash', '2026-04-06T00:00:00Z')`); parseErr != nil {
+		parseT.Fatalf("insert user row: %v", parseErr)
+	}
+	if isParseSeedRequired, parseErr := isExamplesManagedChatWizardDatabaseSeedRequired(parseDBPath); parseErr != nil || isParseSeedRequired {
+		parseT.Fatalf("expected populated db to skip seed, got required=%t err=%v", isParseSeedRequired, parseErr)
+	}
+}
 
 // TestResolveExamplesManagedHelperBranches covers pure path, profile, state, env, and log helper branches.
 func TestResolveExamplesManagedHelperBranches(parseT *testing.T) {
