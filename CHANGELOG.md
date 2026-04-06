@@ -2,6 +2,36 @@
 
 ## 2026-04-06
 
+### repository navigation refresh
+
+- Added a human-first repository map in `docs/REPO_MAP.md` and linked it from the root README and docs index.
+- Added or tightened local entry docs for `bin/`, `log/`, `third_party/`, `internal/`, `ui/`, and `interop/` so contributors can find the right starting points faster.
+- Updated ignore rules so local runtime outputs stay out of source control while the new folder READMEs remain tracked.
+
+### core runtime hot-path and wasm storage cleanup
+
+- Replaced several formatting and normalization hot paths with cheaper builders across `internal/runtime/` and `internal/runtime2/`, including hook IDs, renderer feature-flag lookup, render-style scalar formatting, remove-attr dedupe keys, and scheduler shard IDs.
+- Added focused benchmark coverage for those core fast paths so the new implementations are compared directly against the legacy paths.
+- Hardened `interop/interop_wasm.go` storage access so non-callable browser storage methods return structured errors instead of panicking.
+
+### chat-wizard managed start and seeding alignment
+
+- Aligned Example 100 seeding and server runtime to the same default `chat_history.db` path.
+- Taught `gwc` managed chat-wizard start flows to auto-seed missing or empty local databases and to build the client and background-worker wasm artifacts plus Brotli sidecars before launch.
+- Updated the managed-start tests and operator smoke docs to match the repaired launch and seed flow.
+
+### example 100 runtime fallback and copy refresh
+
+- Made the composer `runtime2` display region fail open to inline rendering instead of panicking the app when region registration fails.
+- Fixed nil-billing handling in the account cost view so missing billing responses no longer imply a configured platform fee.
+- Corrected Example 100 README, in-app dev-tool pointers, and fallback catalog copy so the documented capabilities match the shipped example more closely.
+
+### example 100 worker render performance pass
+
+- Reduced redundant client worker work by gating refreshes on signatures, pruning request payloads, and removing extra clone staging before async worker dispatch.
+- Replaced large concatenated signature strings with compact rolling-hash signatures in the app and worker paths.
+- Reworked metadata extraction and conversion in the background worker to avoid full-content string copies, regex-heavy fenced-block parsing, and repeated label or fence normalization overhead, with focused wasm benchmark coverage for each step.
+
 ### runtime2 dispatch hashing and patch fallback
 
 - Added typed scalar slice and typed `map[string]scalar` fast paths to the buffered and streamed runtime2 dispatch-hash encoders, along with regression coverage and compare benches.
@@ -12,6 +42,11 @@
 - Added runtime2 semantic event control envelopes, worker event dispatch handling, metadata-only registry lookup and mutation helpers, and metadata-aware worker renderer registration.
 - Added `html.OnClickParallel(...)` and a bounded browser click bridge so local-first `ui.ParallelRegion(...)` nodes preserve their local click handlers while forwarding one semantic click event into runtime2 and committing the resulting worker patch.
 - Seeded worker region state from already-rendered public nodes for post-mount patching and refreshed the runtime2 authoring and backlog docs to match the shipped behavior.
+
+### GoGRPCBridge metadata forwarding
+
+- Updated the pinned `third_party/GoGRPCBridge` submodule so grpctunnel forwards request ID, correlation ID, `traceparent`, and `tracestate` bridge headers into backend gRPC metadata.
+- Added focused grpctunnel coverage proving the forwarded metadata reaches backend unary handlers.
 
 ## 2026-04-05
 
