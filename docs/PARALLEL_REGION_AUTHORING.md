@@ -1,6 +1,6 @@
 # Parallel Region Authoring
 
-Last updated: 2026-03-27
+Last updated: 2026-04-05
 
 This guide explains the current public `ui.ParallelRegion(...)` authoring surface.
 
@@ -18,14 +18,16 @@ Shipped today:
 - `ui.ParallelRegion(...)`
 - `ui.BuildParallelRegionSourceIDs(...)`
 - local-first shell rendering with stable runtime2 shell markers
+- worker-attached runtime2 patch consume and commit after local-first mount
+- bounded local-first click-slot bridging through `html.OnClickParallel(...)`
 
 Not shipped today:
 
-- worker-owned patch commit as a public default runtime path
-- interactive event-slot transport
+- worker-owned shell ownership as a public default runtime path
+- generic event-slot transport beyond the bounded public click-slot bridge
 - hook or effect execution inside worker-rendered output
 
-Rule: author regions today as worker-safe display surfaces even though the public shell still renders locally first.
+Rule: author regions today as worker-safe display surfaces even though the public shell still renders locally first and browser builds only attach worker commit after that owner render. Click-slot bridging is still local-first: the browser event runs the local handler first and then forwards one bounded semantic click event into runtime2.
 
 ## Public API
 
@@ -43,6 +45,14 @@ func ParallelRegion[T any](spec ParallelRegionSpec[T]) ui.Node
 
 func BuildParallelRegionSourceIDs(sources ...ui.ReactiveSource) ([]string, error)
 ```
+
+Bounded click-slot helper:
+
+```go
+func html.OnClickParallel(slotID string, callback interface{}) html.PropOption
+```
+
+Use it when one local-first region node needs to keep its local click handler and also forward a semantic click event into runtime2. The internal click-slot marker is stripped before DOM commit, so it does not leak into rendered output.
 
 ## Recommended Pattern
 
@@ -153,7 +163,7 @@ Current rule:
 - owner updates wrapped in `ui.StartTransition(...)` or `ui.UseTransition().Start(...)` are published as deferred runtime2 snapshot work
 - a later urgent rerender can supersede the deferred snapshot before it is dispatched
 
-That means transitions currently affect runtime2 dispatch priority, not the local-first shell contract. The region shell still belongs to the owner component today, while the runtime2 side receives deferred versus urgent update classification.
+That means transitions currently affect runtime2 dispatch priority, not the local-first shell contract. The region shell still starts in the owner component today, while the runtime2 side receives deferred versus urgent update classification and can attach for worker patch commit after the local render.
 
 Example:
 
@@ -225,4 +235,4 @@ Today `ui.ParallelRegion(...)`:
 - publishes browser-side rerender snapshots into runtime2 with monotonic input versions for dispatch, diagnostics, and transport selection
 - stays deterministic and local-only on native builds
 
-That means you can author the public shape now with a precise boundary: local shell ownership is current default behavior, and runtime2 dispatch is active without making worker-owned commit the default public runtime path.
+That means you can author the public shape now with a precise boundary: local shell ownership is current default behavior, and browser builds can still attach runtime2 for worker snapshot and patch commit without making worker-owned shell ownership the default public runtime path.
