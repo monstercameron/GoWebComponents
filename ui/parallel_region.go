@@ -50,10 +50,20 @@ var (
 	cacheParallelRegionRendererByID        = map[runtime2.RendererID]parallelRegionRendererEntry{}
 	storeParallelRegionAdapterMu           sync.RWMutex
 	cacheParallelRegionAdapterByID         = map[runtime2.RegionInstanceID]*runtime2.HostRegionAdapter{}
+	cacheParallelRegionRenderedNodeByID    = map[runtime2.RegionInstanceID]Node{}
 	cacheParallelRegionInputVersionByID    = map[runtime2.RegionInstanceID]uint64{}
 	cacheParallelRegionSchedulerShardsByID = map[runtime2.RegionInstanceID][]runtime2.SchedulerShardID{}
 	cacheParallelRegionHydrationMarkerByID = map[runtime2.RegionInstanceID]runtime2.SSRShellMarker{}
+	cacheParallelRegionWorkerRuntime       = runtime2.BuildWorkerRegionRuntime()
 )
+
+// buildParallelRegionRendererMetadata returns the current runtime2 capability metadata for public display-only regions.
+func buildParallelRegionRendererMetadata(parseEventSlotMetadata runtime2.EventSlotMetadata) runtime2.RendererMetadata {
+	return runtime2.RendererMetadata{
+		FeatureFlags:      []string{"display-only"},
+		EventSlotMetadata: parseEventSlotMetadata,
+	}
+}
 
 // buildParallelRegionRuntimeSpec converts one public parallel-region spec into the runtime2 contract.
 func buildParallelRegionRuntimeSpec[Props any](parseSpec ParallelRegionSpec[Props]) (runtime2.ParallelRegionSpec, error) {
@@ -83,7 +93,24 @@ func RegisterParallelRegion[Props any](parseRendererID string, parseRender func(
 	if _, hasParallelRegionRenderer := cacheParallelRegionRendererByID[getRendererID]; hasParallelRegionRenderer {
 		return fmt.Errorf("ui: parallel-region renderer %q is already registered", getRendererID)
 	}
-	if parseErr := runtime2.RegisterRenderer(getRendererID, func() {}, runtime2.RendererMetadata{}); parseErr != nil {
+	if parseErr := runtime2.RegisterRenderer(
+		getRendererID,
+		func() {},
+		buildParallelRegionRendererMetadata(runtime2.EventSlotMetadata{}),
+	); parseErr != nil {
+		return parseErr
+	}
+	if parseErr := cacheParallelRegionWorkerRuntime.RegisterWorkerRegionRendererWithRegisteredMetadata(
+		string(getRendererID),
+		func(parseMount runtime2.WorkerRegionMountSpec) (any, error) {
+			return buildParallelRegionWorkerRenderOutput(
+				runtime2.RegionInstanceID(parseMount.RegionID),
+				runtime2.RendererID(parseMount.RendererID),
+				parseMount.Snapshot.Props,
+				parseMount.RenderInput.GetEventSlot,
+			)
+		},
+	); parseErr != nil {
 		return parseErr
 	}
 	cacheParallelRegionRendererByID[getRendererID] = parallelRegionRendererEntry{
@@ -132,7 +159,18 @@ func buildParallelRegionReactiveNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 
 // buildParallelRegionRenderedNode renders one public parallel-region shell and forwards browser lifecycle updates into runtime2.
 func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpec, parseRender any, parseSchedulerShardIDs []runtime2.SchedulerShardID) Node {
+	getChild, parseRenderErr := buildParallelRegionLocalNode(parseRender, parseRuntimeSpec.Props)
+	if parseRenderErr != nil {
+		panic(fmt.Sprintf("ui: parallel-region local render failed: %v", parseRenderErr))
+	}
+	getChild, getEventSlotMetadata, parseBridgeErr := buildParallelRegionBridgedNode(parseRuntimeSpec, getChild)
+	if parseBridgeErr != nil {
+		panic(fmt.Sprintf("ui: parallel-region bridge setup failed: %v", parseBridgeErr))
+	}
 	if canParallelRegionUseRuntime2Lifecycle() {
+		if parseMetadataErr := handleParallelRegionRendererMetadata(parseRuntimeSpec.RendererID, getEventSlotMetadata); parseMetadataErr != nil {
+			panic(fmt.Sprintf("ui: parallel-region renderer metadata sync failed: %v", parseMetadataErr))
+		}
 		getParallelRegionHostAdapter, hasParallelRegionMounted, parseHostAdapterErr := buildParallelRegionHostAdapter(parseRuntimeSpec, parseSchedulerShardIDs)
 		if parseHostAdapterErr != nil {
 			panic(fmt.Sprintf("ui: parallel-region host adapter setup failed: %v", parseHostAdapterErr))
@@ -142,19 +180,29 @@ func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 		); parseSourceLookupErr != nil {
 			panic(fmt.Sprintf("ui: parallel-region source lookup setup failed: %v", parseSourceLookupErr))
 		}
+		storeParallelRegionRenderedNode(parseRuntimeSpec.RegionInstanceID, getChild)
 		getInputVersion := buildParallelRegionNextInputVersion(parseRuntimeSpec.RegionInstanceID)
-		if !hasParallelRegionMounted {
-			if parseDispatchErr := handleParallelRegionUpdateDispatch(getParallelRegionHostAdapter, parseRuntimeSpec, getInputVersion); parseDispatchErr != nil {
+		if hasParallelRegionMounted {
+			if parseWorkerMountErr := handleParallelRegionWorkerMount(getParallelRegionHostAdapter, parseRuntimeSpec, getInputVersion); parseWorkerMountErr != nil {
+				reportParallelRegionDiagnosticError("parallel-region worker mount bridge failed: " + parseWorkerMountErr.Error())
+			}
+		} else {
+			getDispatchResult, parseDispatchErr := handleParallelRegionUpdateDispatch(getParallelRegionHostAdapter, parseRuntimeSpec, getInputVersion)
+			if parseDispatchErr != nil {
 				panic(fmt.Sprintf("ui: parallel-region update dispatch failed: %v", parseDispatchErr))
+			}
+			if parseWorkerUpdateErr := handleParallelRegionWorkerUpdate(
+				getParallelRegionHostAdapter,
+				parseRuntimeSpec,
+				getInputVersion,
+				getDispatchResult,
+			); parseWorkerUpdateErr != nil {
+				reportParallelRegionDiagnosticError("parallel-region worker update bridge failed: " + parseWorkerUpdateErr.Error())
 			}
 		}
 		if parseAttachErr := handleParallelRegionPostRenderAttachByID(parseRuntimeSpec.RegionInstanceID); parseAttachErr != nil {
 			reportParallelRegionDiagnosticError("parallel-region post-render attach failed: " + parseAttachErr.Error())
 		}
-	}
-	getChild, parseRenderErr := buildParallelRegionLocalNode(parseRender, parseRuntimeSpec.Props)
-	if parseRenderErr != nil {
-		panic(fmt.Sprintf("ui: parallel-region local render failed: %v", parseRenderErr))
 	}
 	getShellMarker, parseMarkerErr := runtime2.BuildSSRShellMarkerAttributeValue(runtime2.SSRShellMarker{
 		Version:          runtime2.SSRShellMarkerVersionV1,
@@ -175,6 +223,32 @@ func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 	return renderParallelRegionShellNode(getShellProps, getChild)
 }
 
+// handleParallelRegionRendererMetadata merges one rendered public event-slot declaration set into shared runtime2 renderer metadata.
+func handleParallelRegionRendererMetadata(
+	parseRendererID runtime2.RendererID,
+	parseEventSlotMetadata runtime2.EventSlotMetadata,
+) error {
+	if len(parseEventSlotMetadata.Slots) == 0 {
+		return nil
+	}
+	getRendererMetadata, parseResolveErr := runtime2.ResolveRendererMetadata(parseRendererID)
+	if parseResolveErr != nil {
+		return parseResolveErr
+	}
+	getMergedEventSlotMetadata, parseMergeErr := buildParallelRegionMergedEventSlotMetadata(
+		getRendererMetadata.EventSlotMetadata,
+		parseEventSlotMetadata,
+	)
+	if parseMergeErr != nil {
+		return parseMergeErr
+	}
+	getRendererMetadata.EventSlotMetadata = getMergedEventSlotMetadata
+	if parseSetErr := runtime2.SetRendererMetadata(parseRendererID, getRendererMetadata); parseSetErr != nil {
+		return parseSetErr
+	}
+	return cacheParallelRegionWorkerRuntime.SetWorkerRegionRendererMetadata(string(parseRendererID), getRendererMetadata)
+}
+
 // handleParallelRegionPostRenderAttachByID marks one mounted parallel-region adapter worker-attached after commit.
 func handleParallelRegionPostRenderAttachByID(parseRegionInstanceID runtime2.RegionInstanceID) error {
 	if parseRegionInstanceID == "" {
@@ -188,15 +262,20 @@ func handleParallelRegionPostRenderAttachByID(parseRegionInstanceID runtime2.Reg
 	if getRegionDOMIndex == nil {
 		return fmt.Errorf("ui: parallel-region DOM index is required for post-render attach")
 	}
-	if parseAnchorErr := getRegionDOMIndex.SetRegionDOMNode(
-		string(parseRegionInstanceID),
-		1,
-		&runtime2.RegionDOMNode{
-			GetNodeID: 1,
-			GetTag:    "div",
-		},
-	); parseAnchorErr != nil {
-		return parseAnchorErr
+	getAnchorNode, parseAnchorLookupErr := getRegionDOMIndex.GetRegionDOMNode(string(parseRegionInstanceID), 1)
+	if parseAnchorLookupErr != nil {
+		if parseAnchorErr := getRegionDOMIndex.SetRegionDOMNode(
+			string(parseRegionInstanceID),
+			1,
+			&runtime2.RegionDOMNode{
+				GetNodeID: 1,
+				GetTag:    "div",
+			},
+		); parseAnchorErr != nil {
+			return parseAnchorErr
+		}
+	} else if getAnchorNode.GetTag != "" && getAnchorNode.GetTag != "div" {
+		return fmt.Errorf("ui: parallel-region shell anchor tag %q does not match expected public shell tag %q", getAnchorNode.GetTag, "div")
 	}
 	return getParallelRegionHostAdapter.HandleHostRegionPostRenderAttach()
 }
@@ -397,22 +476,25 @@ func buildParallelRegionSourceSnapshot(parseRegionInstanceID runtime2.RegionInst
 }
 
 // handleParallelRegionUpdateDispatch forwards one public rerender into runtime2 host update dispatch using the currently available snapshot transport tier.
-func handleParallelRegionUpdateDispatch(parseHostRegionAdapter *runtime2.HostRegionAdapter, parseRuntimeSpec runtime2.ParallelRegionSpec, parseInputVersion uint64) error {
+func handleParallelRegionUpdateDispatch(
+	parseHostRegionAdapter *runtime2.HostRegionAdapter,
+	parseRuntimeSpec runtime2.ParallelRegionSpec,
+	parseInputVersion uint64,
+) (runtime2.HostRegionUpdateDispatchTransportResult, error) {
 	if parseHostRegionAdapter == nil {
-		return fmt.Errorf("ui: parallel-region host adapter is required")
+		return runtime2.HostRegionUpdateDispatchTransportResult{}, fmt.Errorf("ui: parallel-region host adapter is required")
 	}
 	getDispatchPriority := runtime2.HostRegionDispatchPriorityUrgent
 	if isParallelRegionTransitionUpdate() {
 		getDispatchPriority = runtime2.HostRegionDispatchPriorityDeferred
 	}
-	_, parseDispatchErr := parseHostRegionAdapter.HandleHostRegionUpdateDispatchWithTransportPriority(
+	return parseHostRegionAdapter.HandleHostRegionUpdateDispatchWithTransportPriority(
 		parseRuntimeSpec,
 		parseInputVersion,
 		getDispatchPriority,
 		runtime2.GetCapabilityReport(),
 		nil,
 	)
-	return parseDispatchErr
 }
 
 // storeParallelRegionHydrationMarker caches one runtime2 shell marker for one hydrated-shell mapping.
@@ -480,10 +562,12 @@ func handleParallelRegionOwnerRemove(parseRegionInstanceID string) error {
 	storeParallelRegionAdapterMu.Lock()
 	getParallelRegionHostAdapter := cacheParallelRegionAdapterByID[getRegionInstanceID]
 	delete(cacheParallelRegionAdapterByID, getRegionInstanceID)
+	delete(cacheParallelRegionRenderedNodeByID, getRegionInstanceID)
 	delete(cacheParallelRegionInputVersionByID, getRegionInstanceID)
 	delete(cacheParallelRegionSchedulerShardsByID, getRegionInstanceID)
 	delete(cacheParallelRegionHydrationMarkerByID, getRegionInstanceID)
 	storeParallelRegionAdapterMu.Unlock()
+	cacheParallelRegionWorkerRuntime.HandleWorkerRegionDispose(parseRegionInstanceID)
 	if getParallelRegionHostAdapter == nil {
 		return nil
 	}
@@ -559,9 +643,11 @@ func resetParallelRegionRegistry() {
 	storeParallelRegionRendererMu.Unlock()
 	storeParallelRegionAdapterMu.Lock()
 	cacheParallelRegionAdapterByID = map[runtime2.RegionInstanceID]*runtime2.HostRegionAdapter{}
+	cacheParallelRegionRenderedNodeByID = map[runtime2.RegionInstanceID]Node{}
 	cacheParallelRegionInputVersionByID = map[runtime2.RegionInstanceID]uint64{}
 	cacheParallelRegionSchedulerShardsByID = map[runtime2.RegionInstanceID][]runtime2.SchedulerShardID{}
 	cacheParallelRegionHydrationMarkerByID = map[runtime2.RegionInstanceID]runtime2.SSRShellMarker{}
 	storeParallelRegionAdapterMu.Unlock()
+	cacheParallelRegionWorkerRuntime = runtime2.BuildWorkerRegionRuntime()
 	runtime2.ResetRendererRegistry()
 }

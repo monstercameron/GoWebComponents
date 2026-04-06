@@ -38,11 +38,25 @@ type WorkerRegionUpdateSpec struct {
 	Snapshot     SnapshotEnvelope
 }
 
+// WorkerRegionEventSpec describes one worker-side semantic event dispatch for an existing mounted region.
+type WorkerRegionEventSpec struct {
+	RegionID     string
+	InputVersion uint64
+	EventSlot    EventSlotDispatch
+}
+
 // WorkerRegionUpdateResult reports whether an update produced a patch-ready or explicit no-op outcome.
 type WorkerRegionUpdateResult struct {
 	HasPatchReady bool
 	IsNoOp        bool
 	IsCanceled    bool
+	PatchIR       PatchStreamRaw
+}
+
+// WorkerRegionEventResult reports whether a semantic event dispatch produced a patch-ready or explicit no-op outcome.
+type WorkerRegionEventResult struct {
+	HasPatchReady bool
+	IsNoOp        bool
 	PatchIR       PatchStreamRaw
 }
 
@@ -77,6 +91,7 @@ type WorkerRegionRestartResult struct {
 // WorkerRegionRuntime stores worker-side renderer registrations and mounted region state.
 type WorkerRegionRuntime struct {
 	storeWorkerRegionRendererByID         map[string]WorkerRegionRenderer
+	storeWorkerRegionRendererMetadataByID map[string]RendererMetadata
 	storeWorkerRegionRendererTrustedByID  map[string]bool
 	storeWorkerRegionStateByID            map[string]WorkerRegionState
 	storeWorkerRegionCanceledByID         map[string]uint64
@@ -89,6 +104,7 @@ type WorkerRegionRuntime struct {
 func BuildWorkerRegionRuntime() *WorkerRegionRuntime {
 	return &WorkerRegionRuntime{
 		storeWorkerRegionRendererByID:         make(map[string]WorkerRegionRenderer),
+		storeWorkerRegionRendererMetadataByID: make(map[string]RendererMetadata),
 		storeWorkerRegionRendererTrustedByID:  make(map[string]bool),
 		storeWorkerRegionStateByID:            make(map[string]WorkerRegionState),
 		storeWorkerRegionCanceledByID:         make(map[string]uint64),
@@ -100,6 +116,19 @@ func BuildWorkerRegionRuntime() *WorkerRegionRuntime {
 
 // RegisterWorkerRegionRenderer registers one worker-side renderer function by stable renderer ID.
 func (parseWorkerRegionRuntime *WorkerRegionRuntime) RegisterWorkerRegionRenderer(parseRendererID string, parseRender WorkerRegionRenderer) error {
+	return parseWorkerRegionRuntime.RegisterWorkerRegionRendererWithMetadata(
+		parseRendererID,
+		parseRender,
+		buildWorkerRegionDisplayRendererMetadata(),
+	)
+}
+
+// RegisterWorkerRegionRendererWithMetadata registers one worker-side renderer function together with capability metadata.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) RegisterWorkerRegionRendererWithMetadata(
+	parseRendererID string,
+	parseRender WorkerRegionRenderer,
+	parseMetadata RendererMetadata,
+) error {
 	if parseWorkerRegionRuntime == nil {
 		return fmt.Errorf("runtime2: worker region runtime is nil")
 	}
@@ -109,10 +138,55 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) RegisterWorkerRegionRendere
 	if parseRender == nil {
 		return fmt.Errorf("runtime2: renderer function is required")
 	}
+	if parseMetadataErr := ValidateRendererMetadata(parseMetadata); parseMetadataErr != nil {
+		return parseMetadataErr
+	}
 	if _, hasWorkerRegionRenderer := parseWorkerRegionRuntime.storeWorkerRegionRendererByID[parseRendererID]; hasWorkerRegionRenderer {
 		return fmt.Errorf("runtime2: renderer ID %q is already registered", parseRendererID)
 	}
 	parseWorkerRegionRuntime.storeWorkerRegionRendererByID[parseRendererID] = parseRender
+	parseWorkerRegionRuntime.storeWorkerRegionRendererMetadataByID[parseRendererID] = buildRendererMetadataCopy(parseMetadata)
+	return nil
+}
+
+// RegisterWorkerRegionRendererWithRegisteredMetadata registers one worker-side renderer function using metadata resolved from the shared runtime2 registry.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) RegisterWorkerRegionRendererWithRegisteredMetadata(
+	parseRendererID string,
+	parseRender WorkerRegionRenderer,
+) error {
+	getRendererID, parseRendererIDErr := ParseRendererID(parseRendererID)
+	if parseRendererIDErr != nil {
+		return parseRendererIDErr
+	}
+	getRendererMetadata, parseResolveErr := ResolveRendererMetadata(getRendererID)
+	if parseResolveErr != nil {
+		return parseResolveErr
+	}
+	return parseWorkerRegionRuntime.RegisterWorkerRegionRendererWithMetadata(
+		string(getRendererID),
+		parseRender,
+		getRendererMetadata,
+	)
+}
+
+// SetWorkerRegionRendererMetadata updates capability metadata for one registered worker renderer.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) SetWorkerRegionRendererMetadata(
+	parseRendererID string,
+	parseMetadata RendererMetadata,
+) error {
+	if parseWorkerRegionRuntime == nil {
+		return fmt.Errorf("runtime2: worker region runtime is nil")
+	}
+	if strings.TrimSpace(parseRendererID) == "" {
+		return fmt.Errorf("runtime2: renderer ID is required")
+	}
+	if parseMetadataErr := ValidateRendererMetadata(parseMetadata); parseMetadataErr != nil {
+		return parseMetadataErr
+	}
+	if _, hasWorkerRegionRenderer := parseWorkerRegionRuntime.storeWorkerRegionRendererByID[parseRendererID]; !hasWorkerRegionRenderer {
+		return fmt.Errorf("runtime2: renderer ID %q is not registered", parseRendererID)
+	}
+	parseWorkerRegionRuntime.storeWorkerRegionRendererMetadataByID[parseRendererID] = buildRendererMetadataCopy(parseMetadata)
 	return nil
 }
 
@@ -343,6 +417,133 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdate(pa
 	}, nil
 }
 
+// HandleWorkerRegionEvent renders one semantic event-slot dispatch against mounted worker state and reports patch-ready or no-op results.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) HandleWorkerRegionEvent(parseEvent WorkerRegionEventSpec) (WorkerRegionEventResult, error) {
+	return parseWorkerRegionRuntime.handleWorkerRegionEvent(parseEvent)
+}
+
+// handleWorkerRegionEvent renders one semantic event-slot dispatch against mounted worker state and reports patch-ready or no-op results.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionEvent(parseEvent WorkerRegionEventSpec) (WorkerRegionEventResult, error) {
+	if parseWorkerRegionRuntime == nil {
+		return WorkerRegionEventResult{}, fmt.Errorf("runtime2: worker region runtime is nil")
+	}
+	if strings.TrimSpace(parseEvent.RegionID) == "" {
+		return WorkerRegionEventResult{}, fmt.Errorf("runtime2: region ID is required")
+	}
+	parseNormalizedEventSlot, parseEventSlotErr := buildEventSlotDispatchNormalized(parseEvent.EventSlot)
+	if parseEventSlotErr != nil {
+		return WorkerRegionEventResult{}, parseEventSlotErr
+	}
+	getWorkerRegionState, hasWorkerRegionState := parseWorkerRegionRuntime.storeWorkerRegionStateByID[parseEvent.RegionID]
+	if !hasWorkerRegionState {
+		return WorkerRegionEventResult{}, fmt.Errorf("runtime2: unknown region ID %q", parseEvent.RegionID)
+	}
+	getEventInputVersion := parseEvent.InputVersion
+	if getEventInputVersion == 0 {
+		getEventInputVersion = getWorkerRegionState.InputVersion
+	}
+	if getEventInputVersion < getWorkerRegionState.InputVersion {
+		return WorkerRegionEventResult{}, fmt.Errorf(
+			"runtime2: stale event input version %d for region %q (latest=%d)",
+			getEventInputVersion,
+			parseEvent.RegionID,
+			getWorkerRegionState.InputVersion,
+		)
+	}
+	parseRendererMetadata, hasRendererMetadata := parseWorkerRegionRuntime.storeWorkerRegionRendererMetadataByID[getWorkerRegionState.RendererID]
+	if !hasRendererMetadata {
+		return WorkerRegionEventResult{}, fmt.Errorf("runtime2: renderer metadata for %q is not registered", getWorkerRegionState.RendererID)
+	}
+	if !hasEventSlotMetadataDispatch(parseRendererMetadata.EventSlotMetadata, parseNormalizedEventSlot) {
+		return WorkerRegionEventResult{}, fmt.Errorf(
+			"runtime2: renderer %q does not declare event slot %q for event %q",
+			getWorkerRegionState.RendererID,
+			parseNormalizedEventSlot.SlotID,
+			parseNormalizedEventSlot.EventType,
+		)
+	}
+	getWorkerRegionRenderer, hasWorkerRegionRenderer := parseWorkerRegionRuntime.storeWorkerRegionRendererByID[getWorkerRegionState.RendererID]
+	if !hasWorkerRegionRenderer {
+		return WorkerRegionEventResult{}, fmt.Errorf("runtime2: unknown renderer ID %q", getWorkerRegionState.RendererID)
+	}
+	buildRenderInput, _, parseRenderInputErr := buildWorkerRenderInputWithSourceOrderFromValidatedSnapshot(
+		getWorkerRegionState.Snapshot,
+		getWorkerRegionState.SourceIDs,
+	)
+	if parseRenderInputErr != nil {
+		return WorkerRegionEventResult{}, fmt.Errorf("runtime2: event render input is invalid: %w", parseRenderInputErr)
+	}
+	buildRenderInput.GetEventSlot = &EventSlotDispatch{
+		SlotID:    parseNormalizedEventSlot.SlotID,
+		EventType: parseNormalizedEventSlot.EventType,
+		Payload:   parseNormalizedEventSlot.Payload,
+	}
+	parseRenderIR, parseRenderErr := getWorkerRegionRenderer(WorkerRegionMountSpec{
+		RegionID:     getWorkerRegionState.RegionID,
+		RendererID:   getWorkerRegionState.RendererID,
+		Epoch:        getWorkerRegionState.Epoch,
+		InputVersion: getEventInputVersion,
+		Snapshot:     getWorkerRegionState.Snapshot,
+		RenderInput:  buildRenderInput,
+	})
+	if parseRenderErr != nil {
+		return WorkerRegionEventResult{}, fmt.Errorf(
+			"runtime2: render event region %q with renderer %q: %w",
+			parseEvent.RegionID,
+			getWorkerRegionState.RendererID,
+			parseRenderErr,
+		)
+	}
+	if parseWorkerRegionRuntime.shouldWorkerRegionValidateUpdateRenderOutput(getWorkerRegionState.RendererID) {
+		if parseErr := ValidateWorkerRenderableRenderOutput(parseRenderIR); parseErr != nil {
+			return WorkerRegionEventResult{}, fmt.Errorf(
+				"runtime2: render event region %q with renderer %q produced unsupported output: %w",
+				parseEvent.RegionID,
+				getWorkerRegionState.RendererID,
+				parseErr,
+			)
+		}
+	}
+	buildCanonicalRenderIR, parseCanonicalErr := BuildCanonicalRenderIR(parseRenderIR)
+	if parseCanonicalErr != nil {
+		return WorkerRegionEventResult{}, fmt.Errorf("runtime2: canonicalize event render output for region %q: %w", parseEvent.RegionID, parseCanonicalErr)
+	}
+	if IsCanonicalRenderIREqual(getWorkerRegionState.RenderIR, buildCanonicalRenderIR) {
+		getWorkerRegionState.InputVersion = getEventInputVersion
+		getWorkerRegionState.Snapshot.InputVersion = getEventInputVersion
+		parseWorkerRegionRuntime.storeWorkerRegionStateByID[parseEvent.RegionID] = getWorkerRegionState
+		return WorkerRegionEventResult{
+			IsNoOp: true,
+		}, nil
+	}
+	buildPatchVersion := parseWorkerRegionRuntime.storeWorkerRegionPatchVersionByID[parseEvent.RegionID] + 1
+	buildWorkerRegionPatch, buildNoOp, parsePatchErr := buildWorkerRegionUpdatePatch(
+		parseEvent.RegionID,
+		getWorkerRegionState.Epoch,
+		getEventInputVersion,
+		buildPatchVersion,
+		getWorkerRegionState.RenderIR,
+		buildCanonicalRenderIR,
+	)
+	if parsePatchErr != nil {
+		return WorkerRegionEventResult{}, parsePatchErr
+	}
+	getWorkerRegionState.InputVersion = getEventInputVersion
+	getWorkerRegionState.Snapshot.InputVersion = getEventInputVersion
+	getWorkerRegionState.RenderIR = buildCanonicalRenderIR
+	parseWorkerRegionRuntime.storeWorkerRegionStateByID[parseEvent.RegionID] = getWorkerRegionState
+	parseWorkerRegionRuntime.storeWorkerRegionPatchVersionByID[parseEvent.RegionID] = buildPatchVersion
+	if buildNoOp {
+		return WorkerRegionEventResult{
+			IsNoOp: true,
+		}, nil
+	}
+	return WorkerRegionEventResult{
+		HasPatchReady: true,
+		PatchIR:       buildWorkerRegionPatch,
+	}, nil
+}
+
 // buildWorkerRegionUpdatePatch builds one worker update patch, using a single-text-node fast path when safe.
 func buildWorkerRegionUpdatePatch(
 	parseRegionID string,
@@ -463,7 +664,18 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) shouldWorkerRegionValidateU
 	if parseWorkerRegionRuntime.isWorkerRegionUpdateValidationEnabled {
 		return true
 	}
+	parseRendererMetadata, hasRendererMetadata := parseWorkerRegionRuntime.storeWorkerRegionRendererMetadataByID[parseRendererID]
+	if !hasRendererMetadata || !HasRendererFeatureFlag(parseRendererMetadata, "display-only") {
+		return true
+	}
 	return !parseWorkerRegionRuntime.storeWorkerRegionRendererTrustedByID[parseRendererID]
+}
+
+// buildWorkerRegionDisplayRendererMetadata returns the default worker renderer capability metadata for first-slice display-only regions.
+func buildWorkerRegionDisplayRendererMetadata() RendererMetadata {
+	return RendererMetadata{
+		FeatureFlags: []string{"display-only"},
+	}
 }
 
 // parseResolveWorkerUpdateSnapshot resolves the snapshot attached to one update, falling back to the cached snapshot when absent.

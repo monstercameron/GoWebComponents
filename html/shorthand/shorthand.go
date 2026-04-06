@@ -333,6 +333,11 @@ func Attrs(parseValues map[string]interface{}) PropOption { return html.Attrs(pa
 // OnClick delegates to [html.OnClick].
 func OnClick(parseCallback interface{}) PropOption { return html.OnClick(parseCallback) }
 
+// OnClickParallel delegates to [html.OnClickParallel].
+func OnClickParallel(parseSlotID string, parseCallback interface{}) PropOption {
+	return html.OnClickParallel(parseSlotID, parseCallback)
+}
+
 // OnInput delegates to [html.OnInput].
 func OnInput(parseCallback interface{}) PropOption { return html.OnInput(parseCallback) }
 

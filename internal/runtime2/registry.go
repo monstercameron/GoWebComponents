@@ -74,6 +74,20 @@ func ValidateRendererMetadata(parseMetadata RendererMetadata) error {
 	return nil
 }
 
+// HasRendererFeatureFlag reports whether renderer metadata contains one normalized feature flag.
+func HasRendererFeatureFlag(parseMetadata RendererMetadata, parseFeatureFlag string) bool {
+	parseNormalizedFeatureFlag := strings.ToLower(strings.TrimSpace(parseFeatureFlag))
+	if parseNormalizedFeatureFlag == "" {
+		return false
+	}
+	for _, getFeatureFlag := range parseMetadata.FeatureFlags {
+		if strings.ToLower(strings.TrimSpace(getFeatureFlag)) == parseNormalizedFeatureFlag {
+			return true
+		}
+	}
+	return false
+}
+
 // isRendererRefLikeFeatureFlag reports whether one renderer metadata feature flag is a disallowed ref marker.
 func isRendererRefLikeFeatureFlag(parseFeatureFlag string) bool {
 	parseNormalizedFeatureFlag := strings.ToLower(strings.TrimSpace(parseFeatureFlag))
@@ -115,6 +129,39 @@ func ResolveRenderer(parseRendererID RendererID) (RegionRenderer, RendererMetada
 		return nil, RendererMetadata{}, fmt.Errorf("runtime2: renderer %q is not registered", parseRendererID)
 	}
 	return parseEntry.renderer, buildRendererMetadataCopy(parseEntry.metadata), nil
+}
+
+// ResolveRendererMetadata resolves registered renderer metadata by stable ID.
+func ResolveRendererMetadata(parseRendererID RendererID) (RendererMetadata, error) {
+	if _, parseErr := ParseRendererID(string(parseRendererID)); parseErr != nil {
+		return RendererMetadata{}, parseErr
+	}
+	storeRendererRegistryMu.RLock()
+	defer storeRendererRegistryMu.RUnlock()
+	parseEntry, parseExists := cacheRendererRegistryEntries[parseRendererID]
+	if !parseExists {
+		return RendererMetadata{}, fmt.Errorf("runtime2: renderer %q is not registered", parseRendererID)
+	}
+	return buildRendererMetadataCopy(parseEntry.metadata), nil
+}
+
+// SetRendererMetadata updates registered renderer metadata by stable ID.
+func SetRendererMetadata(parseRendererID RendererID, parseMetadata RendererMetadata) error {
+	if _, parseErr := ParseRendererID(string(parseRendererID)); parseErr != nil {
+		return parseErr
+	}
+	if parseErr := ValidateRendererMetadata(parseMetadata); parseErr != nil {
+		return parseErr
+	}
+	storeRendererRegistryMu.Lock()
+	defer storeRendererRegistryMu.Unlock()
+	parseEntry, parseExists := cacheRendererRegistryEntries[parseRendererID]
+	if !parseExists {
+		return fmt.Errorf("runtime2: renderer %q is not registered", parseRendererID)
+	}
+	parseEntry.metadata = buildRendererMetadataCopy(parseMetadata)
+	cacheRendererRegistryEntries[parseRendererID] = parseEntry
+	return nil
 }
 
 // ResetRendererRegistry clears the renderer registry for deterministic tests.

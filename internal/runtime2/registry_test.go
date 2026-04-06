@@ -92,6 +92,16 @@ func TestResolveRendererRejectsUnregisteredRenderer(parseT *testing.T) {
 	}
 }
 
+// TestResolveRendererMetadataRejectsUnregisteredRenderer verifies metadata lookup fails clearly for missing IDs.
+func TestResolveRendererMetadataRejectsUnregisteredRenderer(parseT *testing.T) {
+	ResetRendererRegistry()
+	parseT.Cleanup(ResetRendererRegistry)
+	parseRendererID, _ := ParseRendererID("dashboard.missing")
+	if _, parseErr := ResolveRendererMetadata(parseRendererID); parseErr == nil {
+		parseT.Fatal("expected ResolveRendererMetadata to fail for an unregistered renderer")
+	}
+}
+
 // TestResetRendererRegistryClearsEntries verifies test reset clears prior registrations.
 func TestResetRendererRegistryClearsEntries(parseT *testing.T) {
 	ResetRendererRegistry()
@@ -144,6 +154,79 @@ func TestRegisterRendererReturnsMetadata(parseT *testing.T) {
 	}
 }
 
+// TestResolveRendererMetadataReturnsCopy verifies metadata-only lookup returns the registered metadata by value.
+func TestResolveRendererMetadataReturnsCopy(parseT *testing.T) {
+	ResetRendererRegistry()
+	parseT.Cleanup(ResetRendererRegistry)
+	parseRendererID, _ := ParseRendererID("dashboard.hot-panel")
+	parseMetadata := RendererMetadata{
+		PropSchemaVersion: "props.v1",
+		FeatureFlags:      []string{"display-only"},
+		EventSlotMetadata: EventSlotMetadata{
+			Version: EventSlotMetadataVersionV1,
+			Slots: []EventSlotRecord{
+				{
+					SlotID:    "slot-1",
+					EventType: "click",
+				},
+			},
+		},
+	}
+	if parseErr := RegisterRenderer(parseRendererID, func() {}, parseMetadata); parseErr != nil {
+		parseT.Fatalf("RegisterRenderer returned error: %v", parseErr)
+	}
+	getResolvedMetadata, parseErr := ResolveRendererMetadata(parseRendererID)
+	if parseErr != nil {
+		parseT.Fatalf("ResolveRendererMetadata returned error: %v", parseErr)
+	}
+	getResolvedMetadata.FeatureFlags[0] = "mutated"
+	getResolvedMetadata.EventSlotMetadata.Slots[0].EventType = "submit"
+	getResolvedMetadataAgain, parseResolveErr := ResolveRendererMetadata(parseRendererID)
+	if parseResolveErr != nil {
+		parseT.Fatalf("ResolveRendererMetadata(second) returned error: %v", parseResolveErr)
+	}
+	if getResolvedMetadataAgain.FeatureFlags[0] != "display-only" {
+		parseT.Fatalf("expected feature flags to be copied, got %+v", getResolvedMetadataAgain.FeatureFlags)
+	}
+	if getResolvedMetadataAgain.EventSlotMetadata.Slots[0].EventType != "click" {
+		parseT.Fatalf("expected event-slot metadata to be copied, got %+v", getResolvedMetadataAgain.EventSlotMetadata)
+	}
+}
+
+// TestSetRendererMetadataUpdatesRegisteredMetadata verifies metadata updates replace the stored registry metadata by value.
+func TestSetRendererMetadataUpdatesRegisteredMetadata(parseT *testing.T) {
+	ResetRendererRegistry()
+	parseT.Cleanup(ResetRendererRegistry)
+	parseRendererID, _ := ParseRendererID("dashboard.hot-panel")
+	if parseErr := RegisterRenderer(parseRendererID, func() {}, RendererMetadata{
+		FeatureFlags: []string{"display-only"},
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterRenderer returned error: %v", parseErr)
+	}
+	parseUpdatedMetadata := RendererMetadata{
+		FeatureFlags: []string{"display-only"},
+		EventSlotMetadata: EventSlotMetadata{
+			Version: EventSlotMetadataVersionV1,
+			Slots: []EventSlotRecord{
+				{
+					SlotID:    "primary.action",
+					EventType: "click",
+				},
+			},
+		},
+	}
+	if parseErr := SetRendererMetadata(parseRendererID, parseUpdatedMetadata); parseErr != nil {
+		parseT.Fatalf("SetRendererMetadata returned error: %v", parseErr)
+	}
+	getResolvedMetadata, parseResolveErr := ResolveRendererMetadata(parseRendererID)
+	if parseResolveErr != nil {
+		parseT.Fatalf("ResolveRendererMetadata returned error: %v", parseResolveErr)
+	}
+	if len(getResolvedMetadata.EventSlotMetadata.Slots) != 1 || getResolvedMetadata.EventSlotMetadata.Slots[0].SlotID != "primary.action" {
+		parseT.Fatalf("expected updated event-slot metadata, got %+v", getResolvedMetadata.EventSlotMetadata)
+	}
+}
+
 // TestRegisterRendererRejectsInvalidMetadata verifies invalid metadata is rejected during registration.
 func TestRegisterRendererRejectsInvalidMetadata(parseT *testing.T) {
 	ResetRendererRegistry()
@@ -164,6 +247,22 @@ func TestValidateRendererMetadataRejectsRefFeatureFlag(parseT *testing.T) {
 	}
 	if parseErr := ValidateRendererMetadata(parseMetadata); parseErr == nil {
 		parseT.Fatal("expected ref-like metadata feature flag to fail")
+	}
+}
+
+// TestHasRendererFeatureFlagMatchesNormalizedValue verifies metadata feature-flag lookup is case-insensitive and trim-safe.
+func TestHasRendererFeatureFlagMatchesNormalizedValue(parseT *testing.T) {
+	parseMetadata := RendererMetadata{
+		FeatureFlags: []string{"display-only", "Derived-State"},
+	}
+	if !HasRendererFeatureFlag(parseMetadata, " display-only ") {
+		parseT.Fatal("expected display-only feature flag lookup to succeed")
+	}
+	if !HasRendererFeatureFlag(parseMetadata, "derived-state") {
+		parseT.Fatal("expected derived-state feature flag lookup to succeed")
+	}
+	if HasRendererFeatureFlag(parseMetadata, "interactive") {
+		parseT.Fatal("expected unknown feature flag lookup to fail")
 	}
 }
 

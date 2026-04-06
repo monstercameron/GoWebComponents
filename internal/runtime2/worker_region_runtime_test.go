@@ -73,6 +73,87 @@ func TestHandleWorkerRegionMountRejectsUnknownRendererID(parseTesting *testing.T
 	}
 }
 
+// TestRegisterWorkerRegionRendererWithRegisteredMetadataUsesRegistryMetadata verifies worker registration can reuse shared runtime2 registry metadata.
+func TestRegisterWorkerRegionRendererWithRegisteredMetadataUsesRegistryMetadata(parseTesting *testing.T) {
+	ResetRendererRegistry()
+	parseTesting.Cleanup(ResetRendererRegistry)
+	parseRendererID, parseRendererIDErr := ParseRendererID("dashboard.hot-panel")
+	if parseRendererIDErr != nil {
+		parseTesting.Fatalf("ParseRendererID returned error: %v", parseRendererIDErr)
+	}
+	parseRegisterErr := RegisterRenderer(parseRendererID, func() {}, RendererMetadata{
+		PropSchemaVersion: "props.v1",
+		FeatureFlags:      []string{"display-only", "derived-state"},
+		EventSlotMetadata: EventSlotMetadata{
+			Version: EventSlotMetadataVersionV1,
+			Slots: []EventSlotRecord{
+				{
+					SlotID:    "slot-1",
+					EventType: "click",
+				},
+			},
+		},
+	})
+	if parseRegisterErr != nil {
+		parseTesting.Fatalf("RegisterRenderer returned error: %v", parseRegisterErr)
+	}
+	parseWorkerRegionRuntime := BuildWorkerRegionRuntime()
+	parseWorkerRegisterErr := parseWorkerRegionRuntime.RegisterWorkerRegionRendererWithRegisteredMetadata(
+		"dashboard.hot-panel",
+		func(parseMount WorkerRegionMountSpec) (any, error) {
+			return map[string]any{
+				"kind": "div",
+			}, nil
+		},
+	)
+	if parseWorkerRegisterErr != nil {
+		parseTesting.Fatalf("RegisterWorkerRegionRendererWithRegisteredMetadata returned error: %v", parseWorkerRegisterErr)
+	}
+	getRendererMetadata := parseWorkerRegionRuntime.storeWorkerRegionRendererMetadataByID["dashboard.hot-panel"]
+	if getRendererMetadata.PropSchemaVersion != "props.v1" {
+		parseTesting.Fatalf("worker renderer prop schema version = %q, want props.v1", getRendererMetadata.PropSchemaVersion)
+	}
+	if !HasRendererFeatureFlag(getRendererMetadata, "display-only") || !HasRendererFeatureFlag(getRendererMetadata, "derived-state") {
+		parseTesting.Fatalf("worker renderer feature flags = %+v, want display-only and derived-state", getRendererMetadata.FeatureFlags)
+	}
+	if getRendererMetadata.EventSlotMetadata.Version != EventSlotMetadataVersionV1 {
+		parseTesting.Fatalf("worker renderer event-slot metadata = %+v, want v1", getRendererMetadata.EventSlotMetadata)
+	}
+	if len(getRendererMetadata.EventSlotMetadata.Slots) != 1 || getRendererMetadata.EventSlotMetadata.Slots[0].EventType != "click" {
+		parseTesting.Fatalf("worker renderer event-slot slots = %+v, want click slot", getRendererMetadata.EventSlotMetadata.Slots)
+	}
+}
+
+// TestSetWorkerRegionRendererMetadataUpdatesRegisteredRenderer verifies worker metadata can be updated after registration.
+func TestSetWorkerRegionRendererMetadataUpdatesRegisteredRenderer(parseTesting *testing.T) {
+	parseWorkerRegionRuntime := BuildWorkerRegionRuntime()
+	parseRegisterErr := parseWorkerRegionRuntime.RegisterWorkerRegionRenderer("dashboard.hot-panel", func(parseMount WorkerRegionMountSpec) (any, error) {
+		return map[string]any{"kind": "div"}, nil
+	})
+	if parseRegisterErr != nil {
+		parseTesting.Fatalf("RegisterWorkerRegionRenderer returned error: %v", parseRegisterErr)
+	}
+	parseUpdatedMetadata := RendererMetadata{
+		FeatureFlags: []string{"display-only"},
+		EventSlotMetadata: EventSlotMetadata{
+			Version: EventSlotMetadataVersionV1,
+			Slots: []EventSlotRecord{
+				{
+					SlotID:    "primary.action",
+					EventType: "click",
+				},
+			},
+		},
+	}
+	if parseSetErr := parseWorkerRegionRuntime.SetWorkerRegionRendererMetadata("dashboard.hot-panel", parseUpdatedMetadata); parseSetErr != nil {
+		parseTesting.Fatalf("SetWorkerRegionRendererMetadata returned error: %v", parseSetErr)
+	}
+	getRendererMetadata := parseWorkerRegionRuntime.storeWorkerRegionRendererMetadataByID["dashboard.hot-panel"]
+	if len(getRendererMetadata.EventSlotMetadata.Slots) != 1 || getRendererMetadata.EventSlotMetadata.Slots[0].SlotID != "primary.action" {
+		parseTesting.Fatalf("expected updated worker renderer event-slot metadata, got %+v", getRendererMetadata.EventSlotMetadata)
+	}
+}
+
 // TestHandleWorkerRegionMountRejectsPortalLikeRenderOutput verifies mount rejects portal-like renderer output.
 func TestHandleWorkerRegionMountRejectsPortalLikeRenderOutput(parseTesting *testing.T) {
 	parseWorkerRegionRuntime := BuildWorkerRegionRuntime()

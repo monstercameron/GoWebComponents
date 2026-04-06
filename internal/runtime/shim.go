@@ -62,6 +62,18 @@ func GoUseFuncGlobal(parseHandlerFn interface{}) interface{} {
 	return GoUseFunc(parseHandlerFn)
 }
 
+// BuildDOMWrappedFunctionGlobal wraps one plain Go callback with the active DOM adapter without requiring a hook call.
+func BuildDOMWrappedFunctionGlobal(parseHandlerFn interface{}) interface{} {
+	if parseHandlerFn == nil {
+		return nil
+	}
+	parseRuntime := GetGlobalRuntime()
+	if parseRuntime.domAdapter == nil {
+		panic(actionableRuntimeDOMAdapterPanic("BuildDOMWrappedFunctionGlobal"))
+	}
+	return parseRuntime.domAdapter.WrapFunction(parseHandlerFn)
+}
+
 // GoUseAtomGlobal wraps GoUseAtom with global runtime
 func GoUseAtomGlobal[T any](parseAtomID string, parseAtomInitialValue T) (func() T, func(T)) {
 	parseRuntime := GetGlobalRuntime()

@@ -112,6 +112,20 @@ func BuildControlUpdateEnvelope(parseSnapshot SnapshotEnvelope) (ControlEnvelope
 	return parseEnvelope, nil
 }
 
+// BuildControlEventEnvelope builds one validated semantic event-slot control envelope.
+func BuildControlEventEnvelope(parseRegionInstanceID RegionInstanceID, parseEventSlot EventSlotDispatch) (ControlEnvelope, error) {
+	parseEnvelope := ControlEnvelope{
+		ProtocolVersion:  ProtocolVersionParallelV1,
+		Kind:             ControlKindEvent,
+		RegionInstanceID: parseRegionInstanceID,
+		EventSlot:        &parseEventSlot,
+	}
+	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
+		return ControlEnvelope{}, parseErr
+	}
+	return parseEnvelope, nil
+}
+
 // BuildControlCancelEnvelope builds one validated cancel control envelope.
 func BuildControlCancelEnvelope(parseRegionInstanceID RegionInstanceID) (ControlEnvelope, error) {
 	parseEnvelope := ControlEnvelope{

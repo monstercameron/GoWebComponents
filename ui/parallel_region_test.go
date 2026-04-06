@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/internal/runtime2"
 )
 
@@ -109,8 +110,170 @@ func TestRegisterParallelRegionBridgesRuntime2Registry(parseT *testing.T) {
 	if reflect.ValueOf(getRender).Pointer() != reflect.ValueOf(parseRender).Pointer() {
 		parseT.Fatal("expected resolved public renderer to match the registered renderer")
 	}
-	if _, _, parseResolveRuntimeErr := runtime2.ResolveRenderer(runtime2.RendererID("dashboard.hot-panel")); parseResolveRuntimeErr != nil {
+	_, getRuntimeMetadata, parseResolveRuntimeErr := runtime2.ResolveRenderer(runtime2.RendererID("dashboard.hot-panel"))
+	if parseResolveRuntimeErr != nil {
 		parseT.Fatalf("runtime2.ResolveRenderer returned error: %v", parseResolveRuntimeErr)
+	}
+	if !runtime2.HasRendererFeatureFlag(getRuntimeMetadata, "display-only") {
+		parseT.Fatalf("expected runtime2 renderer metadata to include display-only feature flag, got %+v", getRuntimeMetadata)
+	}
+	if _, hasWorkerRenderer := cacheParallelRegionWorkerRuntime.GetWorkerRegionState("dashboard.hot-panel"); hasWorkerRenderer {
+		parseT.Fatal("did not expect worker runtime state before mount")
+	}
+}
+
+// TestBuildParallelRegionWorkerRenderOutputWrapsShell verifies the worker bridge converts cached public nodes into shell-wrapped runtime2 render output.
+func TestBuildParallelRegionWorkerRenderOutputWrapsShell(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	storeParallelRegionRenderedNode(
+		runtime2.RegionInstanceID("dashboard.hot-panel:worker-output"),
+		Fragment(Text("hello")),
+	)
+	parseRenderOutput, parseRenderErr := buildParallelRegionWorkerRenderOutput(
+		"dashboard.hot-panel:worker-output",
+		"",
+		nil,
+		nil,
+	)
+	if parseRenderErr != nil {
+		parseT.Fatalf("buildParallelRegionWorkerRenderOutput returned error: %v", parseRenderErr)
+	}
+	parseCanonicalIR, parseCanonicalErr := runtime2.BuildCanonicalRenderIR(parseRenderOutput)
+	if parseCanonicalErr != nil {
+		parseT.Fatalf("BuildCanonicalRenderIR returned error: %v", parseCanonicalErr)
+	}
+	parseRegionDOMIndex := runtime2.BuildRegionDOMIndex()
+	if _, parseApplyErr := runtime2.ApplyRegionDOMCanonicalSnapshot(parseRegionDOMIndex, "dashboard.hot-panel:worker-output", parseCanonicalIR); parseApplyErr != nil {
+		parseT.Fatalf("ApplyRegionDOMCanonicalSnapshot returned error: %v", parseApplyErr)
+	}
+	parseRootNode, parseRootLookupErr := parseRegionDOMIndex.GetRegionDOMNode("dashboard.hot-panel:worker-output", parseCanonicalIR.GetRootNodeID)
+	if parseRootLookupErr != nil {
+		parseT.Fatalf("GetRegionDOMNode(root) returned error: %v", parseRootLookupErr)
+	}
+	if parseRootNode.GetTag != "div" {
+		parseT.Fatalf("worker bridge root tag = %q, want %q", parseRootNode.GetTag, "div")
+	}
+}
+
+// TestBuildParallelRegionWorkerPropsOutputStripsInteractiveProps verifies display-only worker output drops local event handlers and bridge-only markers.
+func TestBuildParallelRegionWorkerPropsOutputStripsInteractiveProps(parseT *testing.T) {
+	getPropsOutput, getNodeKey, parsePropsErr := buildParallelRegionWorkerPropsOutput(map[string]interface{}{
+		"key":                       "slot-1",
+		"onclick":                   func() {},
+		parallelRegionClickSlotProp: "primary.action",
+		"data-testid":               "action",
+	})
+	if parsePropsErr != nil {
+		parseT.Fatalf("buildParallelRegionWorkerPropsOutput returned error: %v", parsePropsErr)
+	}
+	if getNodeKey != "slot-1" {
+		parseT.Fatalf("worker props key = %q, want %q", getNodeKey, "slot-1")
+	}
+	if _, hasClickHandler := getPropsOutput["onclick"]; hasClickHandler {
+		parseT.Fatalf("expected onclick to be stripped from worker props, got %+v", getPropsOutput)
+	}
+	if _, hasClickSlot := getPropsOutput[parallelRegionClickSlotProp]; hasClickSlot {
+		parseT.Fatalf("expected click-slot marker to be stripped from worker props, got %+v", getPropsOutput)
+	}
+	if getPropsOutput["data-testid"] != "action" {
+		parseT.Fatalf("expected unrelated props to remain, got %+v", getPropsOutput)
+	}
+}
+
+// TestBuildParallelRegionBridgedNodeStripsInternalClickSlotMarker verifies native builds strip bridge-only click-slot markers before local render output escapes.
+func TestBuildParallelRegionBridgedNodeStripsInternalClickSlotMarker(parseT *testing.T) {
+	getNode := runtime.CreateElement("button", map[string]interface{}{
+		parallelRegionClickSlotProp: "primary.action",
+		"onclick":                   func() {},
+	})
+	getBridgedNode, getEventSlotMetadata, parseBridgeErr := buildParallelRegionBridgedNode(runtime2.ParallelRegionSpec{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:strip-marker",
+	}, Node(getNode))
+	if parseBridgeErr != nil {
+		parseT.Fatalf("buildParallelRegionBridgedNode returned error: %v", parseBridgeErr)
+	}
+	if getEventSlotMetadata.Version != "" || len(getEventSlotMetadata.Slots) != 0 {
+		parseT.Fatalf("expected native bridge to keep empty event-slot metadata, got %+v", getEventSlotMetadata)
+	}
+	if _, hasMarker := getBridgedNode.Props[parallelRegionClickSlotProp]; hasMarker {
+		parseT.Fatalf("expected native bridge to strip click-slot marker, got %+v", getBridgedNode.Props)
+	}
+}
+
+// TestHandleParallelRegionWorkerUpdateCommitsPatch verifies the public bridge can mount worker state and commit one follow-up patch into runtime2 host status.
+func TestHandleParallelRegionWorkerUpdateCommitsPatch(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+	parseRuntimeSpec, parseRuntimeSpecErr := buildParallelRegionRuntimeSpec(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:bridge-commit",
+		Props: registerParallelRegionProps{
+			Label: "One",
+		},
+	})
+	if parseRuntimeSpecErr != nil {
+		parseT.Fatalf("buildParallelRegionRuntimeSpec returned error: %v", parseRuntimeSpecErr)
+	}
+	parseHostRegionAdapter, parseHostAdapterErr := runtime2.BuildHostRegionAdapter(
+		parseRuntimeSpec.RegionInstanceID,
+		[]runtime2.SchedulerShardID{"ui-parallel-region"},
+	)
+	if parseHostAdapterErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseHostAdapterErr)
+	}
+	if _, parseMountErr := parseHostRegionAdapter.HandleHostRegionMount(parseRuntimeSpec, 1); parseMountErr != nil {
+		parseT.Fatalf("HandleHostRegionMount returned error: %v", parseMountErr)
+	}
+	parseFirstNode, parseFirstNodeErr := buildParallelRegionLocalNode(
+		func(parseProps registerParallelRegionProps) Node {
+			return Text(parseProps.Label)
+		},
+		parseRuntimeSpec.Props,
+	)
+	if parseFirstNodeErr != nil {
+		parseT.Fatalf("buildParallelRegionLocalNode(first) returned error: %v", parseFirstNodeErr)
+	}
+	storeParallelRegionRenderedNode(parseRuntimeSpec.RegionInstanceID, parseFirstNode)
+	buildParallelRegionNextInputVersion(parseRuntimeSpec.RegionInstanceID)
+	if parseWorkerMountErr := handleParallelRegionWorkerMount(parseHostRegionAdapter, parseRuntimeSpec, 1); parseWorkerMountErr != nil {
+		parseT.Fatalf("handleParallelRegionWorkerMount returned error: %v", parseWorkerMountErr)
+	}
+	parseRuntimeSpec.Props = registerParallelRegionProps{
+		Label: "Two",
+	}
+	parseSecondNode, parseSecondNodeErr := buildParallelRegionLocalNode(
+		func(parseProps registerParallelRegionProps) Node {
+			return Text(parseProps.Label)
+		},
+		parseRuntimeSpec.Props,
+	)
+	if parseSecondNodeErr != nil {
+		parseT.Fatalf("buildParallelRegionLocalNode(second) returned error: %v", parseSecondNodeErr)
+	}
+	storeParallelRegionRenderedNode(parseRuntimeSpec.RegionInstanceID, parseSecondNode)
+	getInputVersion := buildParallelRegionNextInputVersion(parseRuntimeSpec.RegionInstanceID)
+	parseDispatchResult, parseDispatchErr := handleParallelRegionUpdateDispatch(parseHostRegionAdapter, parseRuntimeSpec, getInputVersion)
+	if parseDispatchErr != nil {
+		parseT.Fatalf("handleParallelRegionUpdateDispatch returned error: %v", parseDispatchErr)
+	}
+	if parseWorkerUpdateErr := handleParallelRegionWorkerUpdate(parseHostRegionAdapter, parseRuntimeSpec, getInputVersion, parseDispatchResult); parseWorkerUpdateErr != nil {
+		parseT.Fatalf("handleParallelRegionWorkerUpdate returned error: %v", parseWorkerUpdateErr)
+	}
+	parseRuntimeStatus, hasRuntimeStatus := parseHostRegionAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected host runtime status after worker patch commit")
+	}
+	if parseRuntimeStatus.GetLastCommittedVersion != 2 {
+		parseT.Fatalf("committed version = %d, want 2", parseRuntimeStatus.GetLastCommittedVersion)
 	}
 }
 

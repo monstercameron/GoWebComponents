@@ -486,6 +486,16 @@ func OnClick(parseCallback interface{}) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnClick = toHandler(parseCallback) })
 }
 
+// OnClickParallel registers one local click handler and marks the node as a public parallel-region click slot.
+func OnClickParallel(parseSlotID string, parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) {
+		parseProps.OnClick = toHandler(parseCallback)
+		parseProps.Data = mergeStringMap(parseProps.Data, map[string]string{
+			parallelRegionClickSlotDataKey: parseSlotID,
+		})
+	})
+}
+
 // OnInput registers an oninput event handler on the Props.
 func OnInput(parseCallback interface{}) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnInput = toHandler(parseCallback) })

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"syscall/js"
 	"testing"
 	"time"
@@ -1045,11 +1046,93 @@ func TestGetParallelRegionRuntimeStatusReportsPublicDispatchVersions(parseT *tes
 	if getStatus.GetLastDispatchedVersion != 2 {
 		parseT.Fatalf("expected dispatched version 2, got %d", getStatus.GetLastDispatchedVersion)
 	}
-	if getStatus.GetLastCommittedVersion != 0 {
-		parseT.Fatalf("expected committed version 0 before worker output, got %d", getStatus.GetLastCommittedVersion)
+	if getStatus.GetLastCommittedVersion != 2 {
+		parseT.Fatalf("expected committed version 2 after bridged worker patch commit, got %d", getStatus.GetLastCommittedVersion)
 	}
 	if getStatus.GetFallbackReason != "" {
 		parseT.Fatalf("expected empty fallback reason, got %q", getStatus.GetFallbackReason)
+	}
+}
+
+func TestParallelRegionClickEventBridgeCommitsWorkerPatch(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	isClicked := false
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		getLabel := parseProps.Label
+		if isClicked {
+			getLabel = "Clicked"
+		}
+		return Node(runtime.CreateElement("div", map[string]interface{}{
+			parallelRegionClickSlotProp: "primary.action",
+			"onclick": func() {
+				isClicked = true
+			},
+		}, Text(getLabel)))
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:click-event",
+		Props: registerParallelRegionProps{
+			Label: "Idle",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(first ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	if _, hasWorkerRegionState := cacheParallelRegionWorkerRuntime.GetWorkerRegionState("dashboard.hot-panel:click-event"); !hasWorkerRegionState {
+		parseT.Fatal("expected worker region state after initial public render")
+	}
+
+	getContainerNode, hasContainerNode := parseContainer.(*mockdom.MockDOMNode)
+	if !hasContainerNode {
+		parseT.Fatalf("expected mock DOM container, got %T", parseContainer)
+	}
+	if len(getContainerNode.Children) == 0 || len(getContainerNode.Children[0].Children) == 0 {
+		parseT.Fatalf("expected rendered button subtree, got %+v", getContainerNode.Children)
+	}
+	getButtonNode := getContainerNode.Children[0].Children[0]
+	getClickHandlerRaw := getButtonNode.Props["onclick"]
+	getClickHandler, hasClickHandler := getClickHandlerRaw.(func(runtime.GoEvent))
+	if !hasClickHandler {
+		parseT.Fatalf("expected wrapped onclick handler func(runtime.GoEvent), got %T", getClickHandlerRaw)
+	}
+	getClickHandler(runtime.GoEvent{})
+
+	if !isClicked {
+		parseT.Fatal("expected bridged click handler to preserve local click behavior")
+	}
+	getWorkerRegionState, hasWorkerRegionState := cacheParallelRegionWorkerRuntime.GetWorkerRegionState("dashboard.hot-panel:click-event")
+	if !hasWorkerRegionState {
+		parseT.Fatal("expected worker region state after bridged click event")
+	}
+	if !strings.Contains(strings.Join(getWorkerRegionState.RenderIR.GetStringTable.Entries, "|"), "Clicked") {
+		parseT.Fatalf("expected worker render IR to reflect bridged click render, got %+v", getWorkerRegionState.RenderIR.GetStringTable.Entries)
+	}
+	getStatus, hasStatus, parseStatusErr := GetParallelRegionRuntimeStatus("dashboard.hot-panel:click-event")
+	if parseStatusErr != nil {
+		parseT.Fatalf("GetParallelRegionRuntimeStatus returned error: %v", parseStatusErr)
+	}
+	if !hasStatus {
+		parseT.Fatal("expected public runtime status after bridged click event")
+	}
+	if getStatus.GetLastCommittedVersion != 2 {
+		parseT.Fatalf("expected committed version 2 after bridged click patch, got %d", getStatus.GetLastCommittedVersion)
 	}
 }
 

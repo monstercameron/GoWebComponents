@@ -51,17 +51,17 @@ type Props struct {
 	Aria  map[string]string
 	Raw   map[string]interface{}
 
-	OnClick   ui.Handler
-	OnInput   ui.Handler
-	OnChange  ui.Handler
-	OnSubmit  ui.Handler
-	OnKeyDown ui.Handler
-	OnKeyUp   ui.Handler
+	OnClick     ui.Handler
+	OnInput     ui.Handler
+	OnChange    ui.Handler
+	OnSubmit    ui.Handler
+	OnKeyDown   ui.Handler
+	OnKeyUp     ui.Handler
 	OnMouseUp   ui.Handler
 	OnMouseDown ui.Handler
 	OnFocus     ui.Handler
-	OnBlur    ui.Handler
-	OnScroll  ui.Handler
+	OnBlur      ui.Handler
+	OnScroll    ui.Handler
 }
 
 // CustomElementProps makes attribute-versus-property intent explicit for
@@ -74,6 +74,7 @@ type CustomElementProps struct {
 }
 
 const customElementPropertyPrefix = "__gwc_prop__:"
+const parallelRegionClickSlotDataKey = "gwc-parallel-click-slot"
 
 // Tag creates a node for an arbitrary HTML tag name.
 func Tag(parseName string, parseProps Props, parseChildren ...ui.Node) ui.Node {

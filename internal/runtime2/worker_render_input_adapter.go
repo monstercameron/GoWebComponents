@@ -18,6 +18,7 @@ type WorkerRenderInput struct {
 	GetProps         any
 	GetSourceVersion uint64
 	GetSourceEntries []WorkerRenderSourceEntry
+	GetEventSlot     *EventSlotDispatch
 }
 
 // BuildWorkerRenderInput builds deterministic worker renderer input from one validated snapshot envelope.

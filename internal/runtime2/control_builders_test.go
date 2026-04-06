@@ -104,6 +104,30 @@ func TestBuildControlUpdateEnvelopeBuildsValidatedEnvelope(parseT *testing.T) {
 	}
 }
 
+// TestBuildControlEventEnvelopeBuildsValidatedEnvelope verifies event-slot control builders produce one valid envelope.
+func TestBuildControlEventEnvelopeBuildsValidatedEnvelope(parseT *testing.T) {
+	parseEnvelope, parseErr := runtime2.BuildControlEventEnvelope("region-1", runtime2.EventSlotDispatch{
+		SlotID:    "primary.action",
+		EventType: "click",
+		Payload:   map[string]any{"source": "button"},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("BuildControlEventEnvelope returned error: %v", parseErr)
+	}
+	if parseEnvelope.Kind != runtime2.ControlKindEvent {
+		parseT.Fatalf("expected event kind, got %q", parseEnvelope.Kind)
+	}
+	if parseEnvelope.EventSlot == nil {
+		parseT.Fatal("expected event-slot payload to be present")
+	}
+	if parseEnvelope.EventSlot.SlotID != "primary.action" {
+		parseT.Fatalf("expected event slot %q, got %q", "primary.action", parseEnvelope.EventSlot.SlotID)
+	}
+	if parseErr := runtime2.ValidateControlEnvelope(parseEnvelope); parseErr != nil {
+		parseT.Fatalf("ValidateControlEnvelope(event builder output) returned error: %v", parseErr)
+	}
+}
+
 // TestBuildControlCancelEnvelopeBuildsValidatedEnvelope verifies cancel control builders produce one valid envelope.
 func TestBuildControlCancelEnvelopeBuildsValidatedEnvelope(parseT *testing.T) {
 	parseEnvelope, parseErr := runtime2.BuildControlCancelEnvelope("region-1")

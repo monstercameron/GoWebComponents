@@ -77,6 +77,61 @@ func TestHandleWorkerControlEnvelopeDispatchesUpdate(parseTesting *testing.T) {
 	}
 }
 
+// TestHandleWorkerControlEnvelopeDispatchesEvent verifies event envelopes route into HandleWorkerRegionEvent.
+func TestHandleWorkerControlEnvelopeDispatchesEvent(parseTesting *testing.T) {
+	parseWorkerRegionRuntime := runtime2.BuildWorkerRegionRuntime()
+	parseRegisterErr := parseWorkerRegionRuntime.RegisterWorkerRegionRendererWithMetadata(
+		"dashboard.hot-panel",
+		func(parseMount runtime2.WorkerRegionMountSpec) (any, error) {
+			parseEventText := "idle"
+			if parseMount.RenderInput.GetEventSlot != nil {
+				parseEventText = parseMount.RenderInput.GetEventSlot.EventType
+			}
+			return map[string]any{
+				"kind": "text",
+				"text": parseEventText,
+			}, nil
+		},
+		runtime2.RendererMetadata{
+			FeatureFlags: []string{"display-only"},
+			EventSlotMetadata: runtime2.EventSlotMetadata{
+				Version: runtime2.EventSlotMetadataVersionV1,
+				Slots: []runtime2.EventSlotRecord{
+					{SlotID: "primary.action", EventType: "click"},
+				},
+			},
+		},
+	)
+	if parseRegisterErr != nil {
+		parseTesting.Fatalf("RegisterWorkerRegionRendererWithMetadata returned error: %v", parseRegisterErr)
+	}
+	parseMountEnvelope, parseMountErr := runtime2.BuildControlMountEnvelope("dashboard.hot-panel", buildWorkerControlDispatcherSnapshot(parseTesting, 1))
+	if parseMountErr != nil {
+		parseTesting.Fatalf("BuildControlMountEnvelope returned error: %v", parseMountErr)
+	}
+	if _, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseMountEnvelope); parseDispatchErr != nil {
+		parseTesting.Fatalf("HandleWorkerControlEnvelope(mount) returned error: %v", parseDispatchErr)
+	}
+	parseEventEnvelope, parseEventErr := runtime2.BuildControlEventEnvelope("region-1", runtime2.EventSlotDispatch{
+		SlotID:    "primary.action",
+		EventType: "click",
+		Payload:   map[string]any{"source": "button"},
+	})
+	if parseEventErr != nil {
+		parseTesting.Fatalf("BuildControlEventEnvelope returned error: %v", parseEventErr)
+	}
+	parseDispatchResult, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseEventEnvelope)
+	if parseDispatchErr != nil {
+		parseTesting.Fatalf("HandleWorkerControlEnvelope(event) returned error: %v", parseDispatchErr)
+	}
+	if !parseDispatchResult.HasEventResult {
+		parseTesting.Fatal("expected event dispatch result")
+	}
+	if !parseDispatchResult.GetEventResult.HasPatchReady {
+		parseTesting.Fatalf("expected patch-ready event result, got %+v", parseDispatchResult.GetEventResult)
+	}
+}
+
 // TestHandleWorkerControlEnvelopeDispatchesCancel verifies cancel envelopes route into HandleWorkerRegionCancel.
 func TestHandleWorkerControlEnvelopeDispatchesCancel(parseTesting *testing.T) {
 	parseWorkerRegionRuntime := buildWorkerControlDispatcherRuntime(parseTesting)

@@ -17,6 +17,8 @@ const (
 	ControlKindMount ControlKind = "mount"
 	// ControlKindUpdate requests region update work.
 	ControlKindUpdate ControlKind = "update"
+	// ControlKindEvent requests one semantic event-slot dispatch against one mounted region.
+	ControlKindEvent ControlKind = "event"
 	// ControlKindCancel requests cancellation of in-flight region work.
 	ControlKindCancel ControlKind = "cancel"
 	// ControlKindDispose requests region disposal.
@@ -53,6 +55,7 @@ type ControlEnvelope struct {
 	InputVersion        uint64                     `json:"input_version,omitempty"`
 	PatchVersion        uint64                     `json:"patch_version,omitempty"`
 	TransportTier       TransportTier              `json:"transport_tier,omitempty"`
+	EventSlot           *EventSlotDispatch         `json:"event_slot,omitempty"`
 	Capabilities        *CapabilityReport          `json:"capabilities,omitempty"`
 	Snapshot            *SnapshotEnvelope          `json:"snapshot,omitempty"`
 	DiagnosticType      string                     `json:"diagnostic_type,omitempty"`
@@ -75,6 +78,7 @@ func ParseControlKind(parseRaw string) (ControlKind, error) {
 		ControlKindCapabilities,
 		ControlKindMount,
 		ControlKindUpdate,
+		ControlKindEvent,
 		ControlKindCancel,
 		ControlKindDispose,
 		ControlKindPatchReady,
@@ -240,6 +244,14 @@ func ValidateControlEnvelope(parseEnvelope ControlEnvelope) error {
 			return fmt.Errorf("runtime2: update snapshot input version mismatch")
 		}
 		return nil
+	case ControlKindEvent:
+		if _, parseErr := ParseRegionInstanceID(string(parseEnvelope.RegionInstanceID)); parseErr != nil {
+			return parseErr
+		}
+		if parseEnvelope.EventSlot == nil {
+			return fmt.Errorf("runtime2: event-slot payload is required")
+		}
+		return ValidateEventSlotDispatch(*parseEnvelope.EventSlot)
 	case ControlKindCancel, ControlKindDispose:
 		if _, parseErr := ParseRegionInstanceID(string(parseEnvelope.RegionInstanceID)); parseErr != nil {
 			return parseErr

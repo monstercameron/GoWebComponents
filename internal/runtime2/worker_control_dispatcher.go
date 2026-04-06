@@ -6,12 +6,14 @@ import "fmt"
 type WorkerControlDispatchResult struct {
 	HasMountResult   bool
 	HasUpdateResult  bool
+	HasEventResult   bool
 	HasCancelResult  bool
 	HasDisposeResult bool
 	HasRestartResult bool
 
 	GetMountState    WorkerRegionState
 	GetUpdateResult  WorkerRegionUpdateResult
+	GetEventResult   WorkerRegionEventResult
 	GetCancelResult  WorkerRegionCancelResult
 	GetDisposeResult WorkerRegionDisposeResult
 	GetRestartResult WorkerRegionRestartResult
@@ -26,7 +28,7 @@ func HandleWorkerControlEnvelope(
 		return WorkerControlDispatchResult{}, fmt.Errorf("runtime2: worker region runtime is nil")
 	}
 	switch parseEnvelope.Kind {
-	case ControlKindMount, ControlKindUpdate, ControlKindCancel, ControlKindDispose, ControlKindRestart:
+	case ControlKindMount, ControlKindUpdate, ControlKindEvent, ControlKindCancel, ControlKindDispose, ControlKindRestart:
 	default:
 		if _, parseKindErr := ParseControlKind(string(parseEnvelope.Kind)); parseKindErr != nil {
 			return WorkerControlDispatchResult{}, parseKindErr
@@ -75,6 +77,21 @@ func HandleWorkerControlEnvelope(
 		return WorkerControlDispatchResult{
 			HasUpdateResult: true,
 			GetUpdateResult: parseUpdateResult,
+		}, nil
+	case ControlKindEvent:
+		if parseEnvelope.EventSlot == nil {
+			return WorkerControlDispatchResult{}, fmt.Errorf("runtime2: event-slot payload is required")
+		}
+		parseEventResult, parseEventErr := parseWorkerRegionRuntime.HandleWorkerRegionEvent(WorkerRegionEventSpec{
+			RegionID:  getRegionID,
+			EventSlot: *parseEnvelope.EventSlot,
+		})
+		if parseEventErr != nil {
+			return WorkerControlDispatchResult{}, parseEventErr
+		}
+		return WorkerControlDispatchResult{
+			HasEventResult: true,
+			GetEventResult: parseEventResult,
 		}, nil
 	case ControlKindCancel:
 		parseCancelResult, parseCancelErr := parseWorkerRegionRuntime.HandleWorkerRegionCancel(WorkerRegionCancelSpec{
