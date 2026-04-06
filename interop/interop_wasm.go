@@ -46,38 +46,66 @@ func resolveStorage(parseName string) (Storage, error) {
 	if parseErr != nil {
 		return Storage{}, parseErr
 	}
+	parseGetItem := func(parseKey string) (parseValue string, isParseFound bool, parseErr2 error) {
+		defer recoverInteropException("Storage.GetItem", parseName+".getItem", &parseErr2)
+		if _, parseErr2 = getStorageMethod(parseRaw, parseName, "getItem", "Storage.GetItem"); parseErr2 != nil {
+			return "", false, parseErr2
+		}
+		parseValue2 := parseRaw.Call("getItem", parseKey)
+		if parseValue2.IsUndefined() || parseValue2.IsNull() {
+			return "", false, nil
+		}
+		return parseValue2.String(), true, nil
+	}
+	parseSetItem := func(parseKey string, parseValue string) (parseErr2 error) {
+		defer recoverInteropException("Storage.SetItem", parseName+".setItem", &parseErr2)
+		if _, parseErr2 = getStorageMethod(parseRaw, parseName, "setItem", "Storage.SetItem"); parseErr2 != nil {
+			return parseErr2
+		}
+		parseRaw.Call("setItem", parseKey, parseValue)
+		return nil
+	}
+	parseClear := func() (parseErr2 error) {
+		defer recoverInteropException("Storage.Clear", parseName+".clear", &parseErr2)
+		if _, parseErr2 = getStorageMethod(parseRaw, parseName, "clear", "Storage.Clear"); parseErr2 != nil {
+			return parseErr2
+		}
+		parseRaw.Call("clear")
+		return nil
+	}
 	return Storage{
-		getItem: func(parseKey string) (string, bool, error) {
-			parseValue := parseRaw.Call("getItem", parseKey)
-			if parseValue.IsUndefined() || parseValue.IsNull() {
-				return "", false, nil
-			}
-			return parseValue.String(), true, nil
-		},
+		getItem: parseGetItem,
 		getMany: func(parseKeys []string) (map[string]string, error) {
-			return storageGetMany(parseRaw, parseKeys), nil
+			parseValues := make(map[string]string, len(parseKeys))
+			for _, parseKey := range parseKeys {
+				parseValue, isParseFound, parseErr2 := parseGetItem(parseKey)
+				if parseErr2 != nil {
+					return nil, parseErr2
+				}
+				if isParseFound {
+					parseValues[parseKey] = parseValue
+				}
+			}
+			return parseValues, nil
 		},
-		setItem: func(parseKey2 string, parseValue3 string) error {
-			parseRaw.Call("setItem", parseKey2, parseValue3)
-			return nil
-		},
+		setItem: parseSetItem,
 		removeItem: func(parseKey3 string) (parseErr2 error) {
 			defer recoverInteropException("Storage.RemoveItem", parseName+".removeItem", &parseErr2)
-			parseRemoveItem := parseRaw.Get("removeItem")
-			if parseRemoveItem.Type() != js.TypeFunction {
-				return &Error{Op: "Storage.RemoveItem", Target: parseName + ".removeItem", Code: CodeNotFunction, Err: errors.New("storage removeItem is not callable")}
+			if _, parseErr2 = getStorageMethod(parseRaw, parseName, "removeItem", "Storage.RemoveItem"); parseErr2 != nil {
+				return parseErr2
 			}
 			parseRaw.Call("removeItem", parseKey3)
 			return nil
 		},
-		clear: func() error {
-			parseRaw.Call("clear")
-			return nil
-		},
+		clear: parseClear,
 		length: func() (int, error) {
 			return parseRaw.Get("length").Int(), nil
 		},
-		key: func(parseIndex int) (string, bool, error) {
+		key: func(parseIndex int) (parseKey string, isParseFound bool, parseErr2 error) {
+			defer recoverInteropException("Storage.Key", parseName+".key", &parseErr2)
+			if _, parseErr2 = getStorageMethod(parseRaw, parseName, "key", "Storage.Key"); parseErr2 != nil {
+				return "", false, parseErr2
+			}
 			parseValue2 := parseRaw.Call("key", parseIndex)
 			if parseValue2.IsUndefined() || parseValue2.IsNull() {
 				return "", false, nil
@@ -85,6 +113,15 @@ func resolveStorage(parseName string) (Storage, error) {
 			return parseValue2.String(), true, nil
 		},
 	}, nil
+}
+
+// getStorageMethod returns one callable storage method or a structured interoperability error.
+func getStorageMethod(parseRaw js.Value, parseName string, parseMethodName string, parseOp string) (js.Value, error) {
+	parseMethod := parseRaw.Get(parseMethodName)
+	if parseMethod.Type() != js.TypeFunction {
+		return js.Undefined(), &Error{Op: parseOp, Target: parseName + "." + parseMethodName, Code: CodeNotFunction, Err: errors.New("storage " + parseMethodName + " is not callable")}
+	}
+	return parseMethod, nil
 }
 
 // GetWindowLocation returns a Location backed by the browser window.location object.

@@ -745,6 +745,64 @@ func TestLocalStorageRemoveItemReturnsStructuredErrorWhenNotCallable(parseT *tes
 	}
 }
 
+func TestLocalStorageGetItemReturnsStructuredErrorWhenNotCallable(parseT *testing.T) {
+	parseStorage := js.Global().Get("Object").New()
+	parseStorage.Set("getItem", js.Undefined())
+	parseStorage.Set("setItem", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return nil
+	}))
+	parseStorage.Set("removeItem", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return nil
+	}))
+	parseStorage.Set("clear", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return nil
+	}))
+	parseStorage.Set("key", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return js.Null()
+	}))
+	parseStorage.Set("length", 0)
+
+	parseRestoreStorage := setGlobalValue("localStorage", parseStorage)
+	defer parseRestoreStorage()
+
+	parseLocal, parseErr := GetLocalStorage()
+	if parseErr != nil {
+		parseT.Fatalf("expected localStorage wrapper, got %v", parseErr)
+	}
+	if _, _, parseErr = parseLocal.GetItem("theme"); !IsCode(parseErr, CodeNotFunction) {
+		parseT.Fatalf("expected getItem to return CodeNotFunction, got %v", parseErr)
+	}
+}
+
+func TestLocalStorageSetItemReturnsStructuredErrorWhenNotCallable(parseT *testing.T) {
+	parseStorage := js.Global().Get("Object").New()
+	parseStorage.Set("getItem", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return js.Null()
+	}))
+	parseStorage.Set("setItem", js.Undefined())
+	parseStorage.Set("removeItem", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return nil
+	}))
+	parseStorage.Set("clear", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return nil
+	}))
+	parseStorage.Set("key", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return js.Null()
+	}))
+	parseStorage.Set("length", 0)
+
+	parseRestoreStorage := setGlobalValue("localStorage", parseStorage)
+	defer parseRestoreStorage()
+
+	parseLocal, parseErr := GetLocalStorage()
+	if parseErr != nil {
+		parseT.Fatalf("expected localStorage wrapper, got %v", parseErr)
+	}
+	if parseErr = parseLocal.SetItem("theme", "dark"); !IsCode(parseErr, CodeNotFunction) {
+		parseT.Fatalf("expected setItem to return CodeNotFunction, got %v", parseErr)
+	}
+}
+
 func TestLocalStorageRemoveItemPreservesMethodThisBinding(parseT *testing.T) {
 	parseStorage := js.Global().Get("Object").New()
 	parseStorage.Set("__removed", "")

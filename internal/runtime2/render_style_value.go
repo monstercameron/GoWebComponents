@@ -3,6 +3,7 @@ package runtime2
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -79,29 +80,29 @@ func formatRenderStyleScalar(parseRaw interface{}) (string, error) {
 		}
 		return "false", nil
 	case int:
-		return fmt.Sprintf("%d", parseValue), nil
+		return strconv.FormatInt(int64(parseValue), 10), nil
 	case int8:
-		return fmt.Sprintf("%d", parseValue), nil
+		return strconv.FormatInt(int64(parseValue), 10), nil
 	case int16:
-		return fmt.Sprintf("%d", parseValue), nil
+		return strconv.FormatInt(int64(parseValue), 10), nil
 	case int32:
-		return fmt.Sprintf("%d", parseValue), nil
+		return strconv.FormatInt(int64(parseValue), 10), nil
 	case int64:
-		return fmt.Sprintf("%d", parseValue), nil
+		return strconv.FormatInt(parseValue, 10), nil
 	case uint:
-		return fmt.Sprintf("%d", parseValue), nil
+		return strconv.FormatUint(uint64(parseValue), 10), nil
 	case uint8:
-		return fmt.Sprintf("%d", parseValue), nil
+		return strconv.FormatUint(uint64(parseValue), 10), nil
 	case uint16:
-		return fmt.Sprintf("%d", parseValue), nil
+		return strconv.FormatUint(uint64(parseValue), 10), nil
 	case uint32:
-		return fmt.Sprintf("%d", parseValue), nil
+		return strconv.FormatUint(uint64(parseValue), 10), nil
 	case uint64:
-		return fmt.Sprintf("%d", parseValue), nil
+		return strconv.FormatUint(parseValue, 10), nil
 	case float32:
-		return fmt.Sprintf("%g", parseValue), nil
+		return strconv.FormatFloat(float64(parseValue), 'g', -1, 32), nil
 	case float64:
-		return fmt.Sprintf("%g", parseValue), nil
+		return strconv.FormatFloat(parseValue, 'g', -1, 64), nil
 	case nil:
 		return "", fmt.Errorf("style value is nil")
 	default:

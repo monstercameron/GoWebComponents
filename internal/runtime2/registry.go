@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 // RegionRenderer identifies a worker-renderable region implementation.
@@ -57,7 +58,7 @@ func ValidateRendererMetadata(parseMetadata RendererMetadata) error {
 	}
 	parseSeenFeatureFlags := make(map[string]bool, len(parseMetadata.FeatureFlags))
 	for _, parseFeatureFlag := range parseMetadata.FeatureFlags {
-		if strings.TrimSpace(parseFeatureFlag) == "" {
+		if !parseRuntimeHasTrimmedNonWhitespaceText(parseFeatureFlag) {
 			return fmt.Errorf("runtime2: feature flag is required")
 		}
 		if isRendererRefLikeFeatureFlag(parseFeatureFlag) {
@@ -76,12 +77,11 @@ func ValidateRendererMetadata(parseMetadata RendererMetadata) error {
 
 // HasRendererFeatureFlag reports whether renderer metadata contains one normalized feature flag.
 func HasRendererFeatureFlag(parseMetadata RendererMetadata, parseFeatureFlag string) bool {
-	parseNormalizedFeatureFlag := strings.ToLower(strings.TrimSpace(parseFeatureFlag))
-	if parseNormalizedFeatureFlag == "" {
+	if !parseRuntimeHasTrimmedNonWhitespaceText(parseFeatureFlag) {
 		return false
 	}
 	for _, getFeatureFlag := range parseMetadata.FeatureFlags {
-		if strings.ToLower(strings.TrimSpace(getFeatureFlag)) == parseNormalizedFeatureFlag {
+		if parseMatchRendererFeatureFlagFold(getFeatureFlag, parseFeatureFlag) {
 			return true
 		}
 	}
@@ -90,8 +90,69 @@ func HasRendererFeatureFlag(parseMetadata RendererMetadata, parseFeatureFlag str
 
 // isRendererRefLikeFeatureFlag reports whether one renderer metadata feature flag is a disallowed ref marker.
 func isRendererRefLikeFeatureFlag(parseFeatureFlag string) bool {
-	parseNormalizedFeatureFlag := strings.ToLower(strings.TrimSpace(parseFeatureFlag))
-	return parseNormalizedFeatureFlag == "ref" || parseNormalizedFeatureFlag == "refs"
+	return parseMatchRendererFeatureFlagFold(parseFeatureFlag, "ref") || parseMatchRendererFeatureFlagFold(parseFeatureFlag, "refs")
+}
+
+// parseMatchRendererFeatureFlagFold reports whether two feature flags match ignoring surrounding whitespace and ASCII case, with Unicode-safe fallback semantics.
+func parseMatchRendererFeatureFlagFold(parseCurrent string, parseExpected string) bool {
+	parseCurrentStart, parseCurrentEnd, hasParseCurrentASCII := parseBuildRendererFeatureFlagASCIIBounds(parseCurrent)
+	parseExpectedStart, parseExpectedEnd, hasParseExpectedASCII := parseBuildRendererFeatureFlagASCIIBounds(parseExpected)
+	if !hasParseCurrentASCII || !hasParseExpectedASCII {
+		parseTrimmedCurrent := strings.TrimSpace(parseCurrent)
+		parseTrimmedExpected := strings.TrimSpace(parseExpected)
+		if parseTrimmedCurrent == "" || parseTrimmedExpected == "" {
+			return false
+		}
+		return strings.EqualFold(parseTrimmedCurrent, parseTrimmedExpected)
+	}
+	if parseCurrentStart == parseCurrentEnd || parseExpectedStart == parseExpectedEnd {
+		return false
+	}
+	if parseCurrentEnd-parseCurrentStart != parseExpectedEnd-parseExpectedStart {
+		return false
+	}
+	for parseIndex := 0; parseIndex < parseCurrentEnd-parseCurrentStart; parseIndex++ {
+		parseCurrentByte := parseCurrent[parseCurrentStart+parseIndex]
+		parseExpectedByte := parseExpected[parseExpectedStart+parseIndex]
+		if parseCurrentByte >= 'A' && parseCurrentByte <= 'Z' {
+			parseCurrentByte += 'a' - 'A'
+		}
+		if parseExpectedByte >= 'A' && parseExpectedByte <= 'Z' {
+			parseExpectedByte += 'a' - 'A'
+		}
+		if parseCurrentByte != parseExpectedByte {
+			return false
+		}
+	}
+	return true
+}
+
+// parseBuildRendererFeatureFlagASCIIBounds returns the trimmed ASCII slice bounds for one feature flag and reports whether ASCII-fast matching is safe.
+func parseBuildRendererFeatureFlagASCIIBounds(parseRaw string) (int, int, bool) {
+	for parseIndex := 0; parseIndex < len(parseRaw); parseIndex++ {
+		if parseRaw[parseIndex] >= utf8.RuneSelf {
+			return 0, 0, false
+		}
+	}
+	parseStart := 0
+	parseEnd := len(parseRaw)
+	for parseStart < parseEnd && parseIsRendererFeatureFlagWhitespace(parseRaw[parseStart]) {
+		parseStart++
+	}
+	for parseEnd > parseStart && parseIsRendererFeatureFlagWhitespace(parseRaw[parseEnd-1]) {
+		parseEnd--
+	}
+	return parseStart, parseEnd, true
+}
+
+// parseIsRendererFeatureFlagWhitespace reports whether one byte is treated as feature-flag surrounding whitespace.
+func parseIsRendererFeatureFlagWhitespace(parseByte byte) bool {
+	switch parseByte {
+	case ' ', '\t', '\n', '\r', '\f', '\v':
+		return true
+	default:
+		return false
+	}
 }
 
 // RegisterRenderer registers a region renderer and its metadata by stable ID.

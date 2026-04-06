@@ -3,6 +3,7 @@ package runtime2
 import (
 	"fmt"
 	"sort"
+	"strconv"
 )
 
 // SchedulerShardID identifies one live scheduler shard assignment.
@@ -46,7 +47,7 @@ func (parseSchedulerShardModel *SchedulerShardModel) GetSchedulerShardID(parseWo
 		return getSchedulerShardID, nil
 	}
 	parseSchedulerShardModel.storeSchedulerShardSequence++
-	buildSchedulerShardID := SchedulerShardID(fmt.Sprintf("shard-%d", parseSchedulerShardModel.storeSchedulerShardSequence))
+	buildSchedulerShardID := formatSchedulerShardID(parseSchedulerShardModel.storeSchedulerShardSequence)
 	parseSchedulerShardModel.storeSchedulerShardByWorkerKey[parseWorkerKey] = buildSchedulerShardID
 	return buildSchedulerShardID, nil
 }
@@ -211,4 +212,12 @@ func getSchedulerRegionFNV64a(parseRegionID string) uint64 {
 		getRegionHashValue *= getRegionHashPrime
 	}
 	return getRegionHashValue
+}
+
+// formatSchedulerShardID builds one scheduler shard ID from the monotonic shard sequence.
+func formatSchedulerShardID(parseSequence uint64) SchedulerShardID {
+	parseBuffer := make([]byte, 0, 6+20)
+	parseBuffer = append(parseBuffer, "shard-"...)
+	parseBuffer = strconv.AppendUint(parseBuffer, parseSequence, 10)
+	return SchedulerShardID(parseBuffer)
 }

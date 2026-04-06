@@ -14,8 +14,13 @@ type PatchRemoveAttrOp struct {
 	Key          string
 }
 
+type patchRemovedAttrKey struct {
+	parseTargetNodeID uint64
+	parseKey          string
+}
+
 // ParsePatchRemoveAttrOp decodes and validates one remove-attr patch op payload.
-func ParsePatchRemoveAttrOp(parseRaw PatchRemoveAttrOpRaw, parseKnownNodeIDs map[uint64]struct{}, parseStringTable RenderStringTable, parseRemovedAttrKeys map[string]struct{}) (PatchRemoveAttrOp, error) {
+func ParsePatchRemoveAttrOp(parseRaw PatchRemoveAttrOpRaw, parseKnownNodeIDs map[uint64]struct{}, parseStringTable RenderStringTable, parseRemovedAttrKeys map[patchRemovedAttrKey]struct{}) (PatchRemoveAttrOp, error) {
 	if parseRaw.TargetNodeID == 0 {
 		return PatchRemoveAttrOp{}, fmt.Errorf("runtime2: remove-attr op target node id is required")
 	}
@@ -26,7 +31,7 @@ func ParsePatchRemoveAttrOp(parseRaw PatchRemoveAttrOpRaw, parseKnownNodeIDs map
 	if getKeyErr != nil {
 		return PatchRemoveAttrOp{}, fmt.Errorf("runtime2: remove-attr op key reference %d is invalid: %w", parseRaw.KeyRef, getKeyErr)
 	}
-	parseAttrIdentifier := fmt.Sprintf("%d:%s", parseRaw.TargetNodeID, getKey)
+	parseAttrIdentifier := buildPatchRemovedAttrKey(parseRaw.TargetNodeID, getKey)
 	if _, hasRemovedAttrKey := parseRemovedAttrKeys[parseAttrIdentifier]; hasRemovedAttrKey {
 		return PatchRemoveAttrOp{}, fmt.Errorf("runtime2: remove-attr op key %q for node id %d was already removed", getKey, parseRaw.TargetNodeID)
 	}
@@ -35,4 +40,12 @@ func ParsePatchRemoveAttrOp(parseRaw PatchRemoveAttrOpRaw, parseKnownNodeIDs map
 		TargetNodeID: parseRaw.TargetNodeID,
 		Key:          getKey,
 	}, nil
+}
+
+// buildPatchRemovedAttrKey builds one typed remove-attr dedupe key for patch parsing.
+func buildPatchRemovedAttrKey(parseTargetNodeID uint64, parseKey string) patchRemovedAttrKey {
+	return patchRemovedAttrKey{
+		parseTargetNodeID: parseTargetNodeID,
+		parseKey:          parseKey,
+	}
 }

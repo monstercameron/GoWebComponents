@@ -1,8 +1,8 @@
 package runtime
 
 import (
-	"fmt"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 	"unsafe"
@@ -462,13 +462,23 @@ func GoUseId() string {
 			parseId := parseRt.idCounter
 			parseRt.idCounterMu.Unlock()
 
-			// Create ID in format: "gwc:<global-id>:<hook-position>"
-			// This ensures uniqueness and stability across renders
-			parseHooks.ids[parseIdIdx] = fmt.Sprintf("gwc:%d:%d", parseId, parsePosition)
+			// Create ID in format: "gwc:<global-id>:<hook-position>".
+			// This stays stable across renders without the fmt.Sprintf allocation path.
+			parseHooks.ids[parseIdIdx] = formatHookID(parseId, parsePosition)
 		}
 	}
 
 	return parseHooks.ids[parseIdIdx]
+}
+
+// formatHookID builds one stable hook ID using the runtime hook-global counter and hook position.
+func formatHookID(parseID int, parsePosition int) string {
+	parseBuffer := make([]byte, 0, 8+20+1+20)
+	parseBuffer = append(parseBuffer, "gwc:"...)
+	parseBuffer = strconv.AppendInt(parseBuffer, int64(parseID), 10)
+	parseBuffer = append(parseBuffer, ':')
+	parseBuffer = strconv.AppendInt(parseBuffer, int64(parsePosition), 10)
+	return string(parseBuffer)
 }
 
 // GoUseFunc validates and stores a function for event handling

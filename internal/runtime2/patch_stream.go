@@ -52,7 +52,7 @@ var storePatchStreamRemovedNodeIDScratchPool = sync.Pool{
 
 var storePatchStreamRemovedAttrKeyScratchPool = sync.Pool{
 	New: func() any {
-		return make(map[string]struct{})
+		return make(map[patchRemovedAttrKey]struct{})
 	},
 }
 
@@ -314,16 +314,16 @@ func clearPatchStreamRemovedNodeIDScratchMap(parseMap map[uint64]struct{}) {
 }
 
 // buildPatchStreamRemovedAttrKeyScratchMap acquires one reusable removed-attr scratch map.
-func buildPatchStreamRemovedAttrKeyScratchMap() map[string]struct{} {
-	parseMap, hasMap := storePatchStreamRemovedAttrKeyScratchPool.Get().(map[string]struct{})
+func buildPatchStreamRemovedAttrKeyScratchMap() map[patchRemovedAttrKey]struct{} {
+	parseMap, hasMap := storePatchStreamRemovedAttrKeyScratchPool.Get().(map[patchRemovedAttrKey]struct{})
 	if hasMap && parseMap != nil {
 		return parseMap
 	}
-	return make(map[string]struct{})
+	return make(map[patchRemovedAttrKey]struct{})
 }
 
 // clearPatchStreamRemovedAttrKeyScratchMap resets one removed-attr scratch map for pool reuse.
-func clearPatchStreamRemovedAttrKeyScratchMap(parseMap map[string]struct{}) {
+func clearPatchStreamRemovedAttrKeyScratchMap(parseMap map[patchRemovedAttrKey]struct{}) {
 	for parseAttrKey := range parseMap {
 		delete(parseMap, parseAttrKey)
 	}
@@ -550,7 +550,7 @@ func parseParsePatchStreamTransaction(
 	hasPatchKeyedMoveOpKnown := parseHasPatchKeyedMoveKnown
 	hasPatchKeyedMoveOp := parseHasPatchKeyedMove
 	var buildRemovedNodeIDs map[uint64]struct{}
-	var buildRemovedAttrKeys map[string]struct{}
+	var buildRemovedAttrKeys map[patchRemovedAttrKey]struct{}
 	defer func() {
 		if buildRemovedNodeIDs != nil {
 			clearPatchStreamRemovedNodeIDScratchMap(buildRemovedNodeIDs)

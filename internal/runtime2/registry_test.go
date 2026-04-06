@@ -1,6 +1,11 @@
 package runtime2
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+var parseRendererFeatureFlagBenchmarkSink bool
 
 // TestParseRendererIDRejectsEmptyOrWhitespace verifies renderer IDs require content.
 func TestParseRendererIDRejectsEmptyOrWhitespace(parseT *testing.T) {
@@ -264,6 +269,69 @@ func TestHasRendererFeatureFlagMatchesNormalizedValue(parseT *testing.T) {
 	if HasRendererFeatureFlag(parseMetadata, "interactive") {
 		parseT.Fatal("expected unknown feature flag lookup to fail")
 	}
+}
+
+// TestHasRendererFeatureFlagPreservesUnicodeFallback verifies feature-flag matching still follows TrimSpace and EqualFold semantics for non-ASCII inputs.
+func TestHasRendererFeatureFlagPreservesUnicodeFallback(parseT *testing.T) {
+	parseMetadata := RendererMetadata{
+		FeatureFlags: []string{"\u2003Display-Only\u2003", "Δemo"},
+	}
+	if !HasRendererFeatureFlag(parseMetadata, "display-only") {
+		parseT.Fatal("expected display-only lookup to match unicode-trimmed metadata")
+	}
+	if !HasRendererFeatureFlag(parseMetadata, "δEMO") {
+		parseT.Fatal("expected unicode case-insensitive lookup to succeed")
+	}
+}
+
+// BenchmarkHasRendererFeatureFlagCurrentVsLegacy compares the ASCII-fast feature-flag matcher against the previous trim-lower-scan path.
+func BenchmarkHasRendererFeatureFlagCurrentVsLegacy(parseB *testing.B) {
+	parseMetadata := RendererMetadata{
+		FeatureFlags: []string{
+			"display-only",
+			"Derived-State",
+			"worker-attached",
+			"analytics",
+			" hydration-ready ",
+			"\u2003Δemo\u2003",
+		},
+	}
+	parseQueries := []string{
+		"display-only",
+		" derived-state ",
+		"worker-attached",
+		"hydration-ready",
+		"δEMO",
+		"interactive",
+	}
+	parseB.Run("legacy", func(parseLegacyB *testing.B) {
+		parseLegacyB.ReportAllocs()
+		parseLegacyB.ResetTimer()
+		for parseIndex := 0; parseLegacyB.Loop(); parseIndex++ {
+			parseRendererFeatureFlagBenchmarkSink = parseHasRendererFeatureFlagLegacy(parseMetadata, parseQueries[parseIndex%len(parseQueries)])
+		}
+	})
+	parseB.Run("current", func(parseCurrentB *testing.B) {
+		parseCurrentB.ReportAllocs()
+		parseCurrentB.ResetTimer()
+		for parseIndex := 0; parseCurrentB.Loop(); parseIndex++ {
+			parseRendererFeatureFlagBenchmarkSink = HasRendererFeatureFlag(parseMetadata, parseQueries[parseIndex%len(parseQueries)])
+		}
+	})
+}
+
+// parseHasRendererFeatureFlagLegacy preserves the previous trim-lower-scan feature-flag matcher for benchmark comparison.
+func parseHasRendererFeatureFlagLegacy(parseMetadata RendererMetadata, parseFeatureFlag string) bool {
+	parseNormalizedFeatureFlag := strings.ToLower(strings.TrimSpace(parseFeatureFlag))
+	if parseNormalizedFeatureFlag == "" {
+		return false
+	}
+	for _, getFeatureFlag := range parseMetadata.FeatureFlags {
+		if strings.ToLower(strings.TrimSpace(getFeatureFlag)) == parseNormalizedFeatureFlag {
+			return true
+		}
+	}
+	return false
 }
 
 // TestRegisterRendererRejectsInvalidEventSlotMetadata verifies invalid event-slot metadata is rejected during registration.

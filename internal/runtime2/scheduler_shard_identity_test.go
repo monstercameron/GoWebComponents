@@ -1,6 +1,11 @@
 package runtime2
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
+
+var storeSchedulerShardIDBenchmarkSink SchedulerShardID
 
 // TestGetSchedulerShardIDKeepsStableWorkerShardPerLiveWorker verifies one live worker resolves to one stable shard ID.
 func TestGetSchedulerShardIDKeepsStableWorkerShardPerLiveWorker(getTesting *testing.T) {
@@ -55,4 +60,28 @@ func TestClearSchedulerShardIDAvoidsUnsafeReuseAfterDispose(getTesting *testing.
 	if getWorkerShardBeforeDispose == getWorkerShardAfterDispose {
 		getTesting.Fatalf("expected disposed shard ID to not be reused unsafely, before=%q after=%q", getWorkerShardBeforeDispose, getWorkerShardAfterDispose)
 	}
+}
+
+// BenchmarkFormatSchedulerShardIDCurrentVsLegacy compares the current shard-ID formatter against the previous fmt.Sprintf path.
+func BenchmarkFormatSchedulerShardIDCurrentVsLegacy(parseBenchmark *testing.B) {
+	parseSequences := []uint64{1, 42, 1234567}
+	parseBenchmark.Run("legacy", func(parseLegacyBenchmark *testing.B) {
+		parseLegacyBenchmark.ReportAllocs()
+		parseLegacyBenchmark.ResetTimer()
+		for parseIndex := 0; parseLegacyBenchmark.Loop(); parseIndex++ {
+			storeSchedulerShardIDBenchmarkSink = formatSchedulerShardIDLegacy(parseSequences[parseIndex%len(parseSequences)])
+		}
+	})
+	parseBenchmark.Run("current", func(parseCurrentBenchmark *testing.B) {
+		parseCurrentBenchmark.ReportAllocs()
+		parseCurrentBenchmark.ResetTimer()
+		for parseIndex := 0; parseCurrentBenchmark.Loop(); parseIndex++ {
+			storeSchedulerShardIDBenchmarkSink = formatSchedulerShardID(parseSequences[parseIndex%len(parseSequences)])
+		}
+	})
+}
+
+// formatSchedulerShardIDLegacy preserves the previous fmt.Sprintf shard-ID formatting path for benchmark comparison.
+func formatSchedulerShardIDLegacy(parseSequence uint64) SchedulerShardID {
+	return SchedulerShardID(fmt.Sprintf("shard-%d", parseSequence))
 }
