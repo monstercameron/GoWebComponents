@@ -1,6 +1,3 @@
-//go:build js && wasm
-// +build js,wasm
-
 package fetch
 
 import (
@@ -588,6 +585,7 @@ func resolveMutationQueueOptions(parseOptions []MutationQueueOptions) MutationQu
 	if parseOverrides.MaxDelay > 0 {
 		parseCfg.MaxDelay = parseOverrides.MaxDelay
 	}
+	parseCfg.DeleteOnCorruption = parseOverrides.DeleteOnCorruption
 	if parseOverrides.StorageResolver != nil {
 		parseCfg.StorageResolver = parseOverrides.StorageResolver
 	}

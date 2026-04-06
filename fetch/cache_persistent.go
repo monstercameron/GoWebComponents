@@ -1,6 +1,3 @@
-//go:build js && wasm
-// +build js,wasm
-
 package fetch
 
 import (
@@ -202,9 +199,14 @@ func openPersistentCacheStore(parseCtx context.Context) (interop.PersistentStore
 		}
 		return parseExisting, parseExistingErr
 	}
-	persistentCacheState.store = store
+	if parseErr2 == nil {
+		persistentCacheState.store = store
+		persistentCacheState.opened = true
+	} else {
+		persistentCacheState.store = interop.PersistentStore{}
+		persistentCacheState.opened = false
+	}
 	persistentCacheState.err = parseErr2
-	persistentCacheState.opened = true
 	persistentCacheState.mu.Unlock()
 	return store, parseErr2
 }

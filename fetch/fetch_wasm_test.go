@@ -15,6 +15,7 @@ import (
 	"syscall/js"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -50,6 +51,35 @@ func resetCachedResourcesForTest() {
 	})
 	for _, parseKey := range parseKeys {
 		DisposeResource(parseKey)
+	}
+}
+
+func getFetchTestFiberEffects(parseT *testing.T, parseFiber *runtime.Fiber) []runtime.Effect {
+	parseT.Helper()
+	parseFiberValue := reflect.ValueOf(parseFiber).Elem()
+	parseEffectsField := parseFiberValue.FieldByName("effects")
+	return reflect.NewAt(parseEffectsField.Type(), unsafe.Pointer(parseEffectsField.UnsafeAddr())).Elem().Interface().([]runtime.Effect)
+}
+
+func setFetchTestFiberEffects(parseT *testing.T, parseFiber *runtime.Fiber, parseEffects []runtime.Effect) {
+	parseT.Helper()
+	parseFiberValue := reflect.ValueOf(parseFiber).Elem()
+	parseEffectsField := parseFiberValue.FieldByName("effects")
+	reflect.NewAt(parseEffectsField.Type(), unsafe.Pointer(parseEffectsField.UnsafeAddr())).Elem().Set(reflect.ValueOf(parseEffects))
+}
+
+func resetFetchTestFiberHooks(parseT *testing.T, parseFiber *runtime.Fiber) {
+	parseT.Helper()
+	parseFiberValue := reflect.ValueOf(parseFiber).Elem()
+	parseHooksField := parseFiberValue.FieldByName("hooks")
+	parseHooksValue := reflect.NewAt(parseHooksField.Type(), unsafe.Pointer(parseHooksField.UnsafeAddr())).Elem()
+	if parseHooksValue.IsNil() {
+		parseT.Fatal("expected test fiber hooks to be initialized")
+	}
+	parseHooksStruct := parseHooksValue.Elem()
+	for _, parseField := range []string{"index", "stateIndex", "depIndex", "memoIndex", "callbackIndex", "refIndex", "idIndex", "fetchIndex", "funcIndex", "atomIndex", "cleanupIndex"} {
+		parseFieldValue := parseHooksStruct.FieldByName(parseField)
+		reflect.NewAt(parseFieldValue.Type(), unsafe.Pointer(parseFieldValue.UnsafeAddr())).Elem().SetInt(0)
 	}
 }
 
@@ -124,6 +154,156 @@ func TestUseResourceReturnsStableHandleShape(parseT *testing.T) {
 	}
 	parseResource.Reload()
 	parseResource.Cancel()
+}
+
+func TestUseResourceLoadsAndReloads(parseT *testing.T) {
+	installFetchHookContext(parseT)
+
+	parseValues := make(chan string, 2)
+	var parseLoads int32
+	parseFiber := runtime.GetCurrentFiber()
+	if parseFiber == nil {
+		parseT.Fatal("expected current fiber for UseResource wasm test")
+	}
+	parseResource := UseResource(func(parseCtx context.Context) (string, error) {
+		atomic.AddInt32(&parseLoads, 1)
+		select {
+		case <-parseCtx.Done():
+			return "", parseCtx.Err()
+		case parseValue := <-parseValues:
+			return parseValue, nil
+		}
+	}, "dep")
+	parseEffects := getFetchTestFiberEffects(parseT, parseFiber)
+	if len(parseEffects) != 1 {
+		parseT.Fatalf("expected one queued UseResource effect on first render, got %d", len(parseEffects))
+	}
+	parseEffects[0].Fn()
+
+	parseValues <- "first"
+	parseDeadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(parseDeadline) {
+		parseState := parseResource.Get()
+		if parseState.Ready {
+			if parseState.Value != "first" {
+				parseT.Fatalf("expected initial UseResource value, got %+v", parseState)
+			}
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	parseValues <- "second"
+	parseResource.Reload()
+	setFetchTestFiberEffects(parseT, parseFiber, nil)
+	resetFetchTestFiberHooks(parseT, parseFiber)
+	parseResource = UseResource(func(parseCtx context.Context) (string, error) {
+		atomic.AddInt32(&parseLoads, 1)
+		select {
+		case <-parseCtx.Done():
+			return "", parseCtx.Err()
+		case parseValue := <-parseValues:
+			return parseValue, nil
+		}
+	}, "dep")
+	parseEffects = getFetchTestFiberEffects(parseT, parseFiber)
+	if len(parseEffects) != 1 {
+		parseT.Fatalf("expected one queued UseResource effect on reload render, got %d", len(parseEffects))
+	}
+	parseEffects[0].Fn()
+	parseDeadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(parseDeadline) {
+		parseState := parseResource.Get()
+		if parseState.Ready && parseState.Value == "second" && atomic.LoadInt32(&parseLoads) >= 2 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	parseT.Fatalf("timed out waiting for UseResource reload; state=%+v loads=%d", parseResource.Get(), atomic.LoadInt32(&parseLoads))
+}
+
+func TestUseResourceIgnoresCanceledLoadCompletion(parseT *testing.T) {
+	installFetchHookContext(parseT)
+
+	parseFirstRelease := make(chan struct{})
+	parseSecondRelease := make(chan struct{})
+	var parseLoads int32
+	parseFiber := runtime.GetCurrentFiber()
+	if parseFiber == nil {
+		parseT.Fatal("expected current fiber for UseResource wasm test")
+	}
+	parseResource := UseResource(func(parseCtx context.Context) (string, error) {
+		switch atomic.AddInt32(&parseLoads, 1) {
+		case 1:
+			<-parseFirstRelease
+			return "first", nil
+		default:
+			select {
+			case <-parseCtx.Done():
+				return "", parseCtx.Err()
+			case <-parseSecondRelease:
+				return "second", nil
+			}
+		}
+	}, "dep")
+	parseEffects := getFetchTestFiberEffects(parseT, parseFiber)
+	if len(parseEffects) != 1 {
+		parseT.Fatalf("expected one queued UseResource effect on first render, got %d", len(parseEffects))
+	}
+	parseEffects[0].Fn()
+
+	parseDeadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(parseDeadline) {
+		if atomic.LoadInt32(&parseLoads) == 1 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	parseResource.Reload()
+	setFetchTestFiberEffects(parseT, parseFiber, nil)
+	resetFetchTestFiberHooks(parseT, parseFiber)
+	parseResource = UseResource(func(parseCtx context.Context) (string, error) {
+		switch atomic.AddInt32(&parseLoads, 1) {
+		case 1:
+			<-parseFirstRelease
+			return "first", nil
+		default:
+			select {
+			case <-parseCtx.Done():
+				return "", parseCtx.Err()
+			case <-parseSecondRelease:
+				return "second", nil
+			}
+		}
+	}, "dep")
+	parseEffects = getFetchTestFiberEffects(parseT, parseFiber)
+	if len(parseEffects) != 1 {
+		parseT.Fatalf("expected one queued UseResource effect on reload render, got %d", len(parseEffects))
+	}
+	parseEffects[0].Fn()
+	parseDeadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(parseDeadline) {
+		if atomic.LoadInt32(&parseLoads) >= 2 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	close(parseFirstRelease)
+	close(parseSecondRelease)
+
+	parseDeadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(parseDeadline) {
+		parseState := parseResource.Get()
+		if parseState.Ready && parseState.Value == "second" {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	parseT.Fatalf("timed out waiting for UseResource to ignore the canceled load; state=%+v loads=%d", parseResource.Get(), atomic.LoadInt32(&parseLoads))
 }
 
 func TestAsyncResourceZeroValue(parseT *testing.T) {

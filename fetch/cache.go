@@ -1,6 +1,3 @@
-//go:build js && wasm
-// +build js,wasm
-
 package fetch
 
 import (
@@ -163,11 +160,15 @@ func UseCachedResource[T any](parseKey string, parseLoader func(context.Context)
 
 	return CachedResource[T]{
 		get: func() CachedResourceState[T] {
+			if !shouldUseCachedHandle(parseKey, parseEntry) {
+				var parseZero CachedResourceState[T]
+				return parseZero
+			}
 			prepareCachedResourceEntry(parseKey, parseEntry)
 			return toPublicCachedState[T](currentCachedSnapshot(parseKey))
 		},
 		reload: func() {
-			if parseKey == "" || parseLoader == nil {
+			if parseKey == "" || parseLoader == nil || !shouldUseCachedHandle(parseKey, parseEntry) {
 				return
 			}
 			startCachedLoad(parseKey, parseEntry, func(parseCtx2 context.Context) (interface{}, error) {
@@ -175,21 +176,34 @@ func UseCachedResource[T any](parseKey string, parseLoader func(context.Context)
 			}, true, nil)
 		},
 		cancel: func() {
+			if !shouldUseCachedHandle(parseKey, parseEntry) {
+				return
+			}
 			cancelCachedLoad(parseKey)
 		},
 		invalidate: func() {
+			if !shouldUseCachedHandle(parseKey, parseEntry) {
+				return
+			}
 			InvalidateResource(parseKey)
 		},
 		dispose: func() {
+			if !shouldUseCachedHandle(parseKey, parseEntry) {
+				return
+			}
 			DisposeResource(parseKey)
 		},
 		set: func(parseValue T) {
+			if !shouldUseCachedHandle(parseKey, parseEntry) {
+				return
+			}
 			setCachedValue(parseKey, parseValue)
 		},
 		update: func(parseFn func(T) T) {
-			if parseFn == nil {
+			if parseFn == nil || !shouldUseCachedHandle(parseKey, parseEntry) {
 				return
 			}
+			cancelCachedLoad(parseKey)
 			updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
 				parseCurrent, _ := castCachedValue[T](parsePrev.Value)
 				parsePrev.Value = parseFn(parseCurrent)
@@ -405,6 +419,9 @@ func LoadCached[T any](parseCtx context.Context, parseKey string, parseLoader fu
 			parseValue, _ := castCachedValue[T](parseSnapshot.Value)
 			return parseValue, nil
 		}
+		if parseSnapshot.Error != nil && !parseSnapshot.Ready && !parseSnapshot.Loading {
+			return parseZero, parseSnapshot.Error
+		}
 
 		parseEntry.mu.Lock()
 		parseNeedsLoad := shouldLoadCachedEntry(parseSnapshot, parseEntry)
@@ -444,6 +461,19 @@ func resolveCacheOptions(parseOptions []CacheOptions) CacheOptions {
 		return CacheOptions{}
 	}
 	return parseOptions[0]
+}
+
+// shouldUseCachedHandle reports whether a cached-resource handle still owns the live registry entry for its key.
+func shouldUseCachedHandle(parseKey string, parseEntry *cachedResourceEntry) bool {
+	if parseKey == "" || parseEntry == nil {
+		return false
+	}
+
+	parseRaw, parseOk := cachedResourceRegistry.Load(parseKey)
+	if !parseOk {
+		return false
+	}
+	return parseRaw == parseEntry
 }
 
 // getCachedResourceEntry is an internal cache helper.
@@ -589,6 +619,7 @@ func setCachedValue[T any](parseKey string, parseValue T) {
 		return
 	}
 
+	cancelCachedLoad(parseKey)
 	updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
 		parsePrev.Value = parseValue
 		parsePrev.Loading = false
