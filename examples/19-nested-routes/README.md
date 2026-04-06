@@ -33,5 +33,5 @@ What it shows:
 - a dashboard shell kept alive across nested dashboard pages
 - a second nested settings shell under the dashboard route tree
 - a docs section with its own persistent layout and child outlet
-- explicit child rendering through `router.Outlet()`
+- explicit child rendering through `router.GetOutlet()`
 - param access inside nested leaf routes through `router.UseParams()`

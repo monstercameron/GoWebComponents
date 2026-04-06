@@ -33,7 +33,7 @@ func parseNewOTELLogger(parseWriter io.Writer, parseServiceName string) *slog.Lo
 	parseBase := slog.NewJSONHandler(parseWriter, &slog.HandlerOptions{
 		Level:     slog.LevelDebug,
 		AddSource: true,
-		ReplaceAttr: func(_ []string, parseAttr slog.Attr) slog.Attr {
+		ReplaceAttr: func(parseGroups []string, parseAttr slog.Attr) slog.Attr {
 			switch parseAttr.Key {
 			case slog.TimeKey:
 				parseAttr.Key = "timestamp"
@@ -43,7 +43,7 @@ func parseNewOTELLogger(parseWriter io.Writer, parseServiceName string) *slog.Lo
 			case slog.MessageKey:
 				parseAttr.Key = "message"
 			}
-			return parseRedactLogAttr(parseAttr)
+			return parseBuildRedactedLogAttr(strings.Join(parseGroups, "."), parseAttr)
 		},
 	})
 	return slog.New(&otelJSONHandler{next: parseBase, serviceName: strings.TrimSpace(parseServiceName)})

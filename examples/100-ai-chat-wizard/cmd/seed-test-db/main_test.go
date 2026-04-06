@@ -150,16 +150,16 @@ func TestRunSeedTestDBSeedsExpectedRows(parseT *testing.T) {
 	if parseErr3 := parseDb.QueryRow(`SELECT COUNT(*) FROM conversations`).Scan(&parseConversationCount); parseErr3 != nil {
 		parseT.Fatalf("QueryRow(conversations count): %v", parseErr3)
 	}
-	if parseConversationCount != 3 {
-		parseT.Fatalf("expected 3 conversations, got %d", parseConversationCount)
+	if parseConversationCount != 5 {
+		parseT.Fatalf("expected 5 conversations, got %d", parseConversationCount)
 	}
 
 	var parseMessageCount int
 	if parseErr4 := parseDb.QueryRow(`SELECT COUNT(*) FROM messages`).Scan(&parseMessageCount); parseErr4 != nil {
 		parseT.Fatalf("QueryRow(messages count): %v", parseErr4)
 	}
-	if parseMessageCount != 6 {
-		parseT.Fatalf("expected 6 messages, got %d", parseMessageCount)
+	if parseMessageCount != 14 {
+		parseT.Fatalf("expected 14 messages, got %d", parseMessageCount)
 	}
 }
 

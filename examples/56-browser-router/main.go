@@ -28,7 +28,7 @@ func browserPageView(parseProps browserPageProps) ui.Node {
 	parseInspection := router.InspectCurrentRoute()
 	return shared.ExamplePage(
 		parseProps.Title,
-		"router.NewRouter / history API",
+		"router.NewHistoryRouter / history API",
 		parseProps.Summary,
 		shared.ExamplePanel("Browser routes",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("History routers use clean paths, but they require server rewrites if you want refreshes and deep links to keep working.")),

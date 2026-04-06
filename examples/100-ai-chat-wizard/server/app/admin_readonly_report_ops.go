@@ -27,6 +27,20 @@ func parseBuildAdminReadOnlyReportScopeLabel(parseScope parseAdminAccessScope) s
 	return "workspace"
 }
 
+// parseResolveAdminReadOnlyReportSliceKey maps one allowlisted report key onto the dashboard slice used for scope gating.
+func parseResolveAdminReadOnlyReportSliceKey(parseReportKey string) string {
+	switch parseNormalizeAdminReadOnlyReportKey(parseReportKey) {
+	case parseAdminReadOnlyReportKeyUsers:
+		return "dashboard.users.read_only_report"
+	case parseAdminReadOnlyReportKeyUsage:
+		return "dashboard.usage.read_only_report"
+	case parseAdminReadOnlyReportKeyConversations:
+		return "dashboard.conversations.read_only_report"
+	default:
+		return "dashboard.home.read_only_report"
+	}
+}
+
 // GetAdminReadOnlyReport returns one allowlisted read-only admin report slice without exposing raw SQL passthrough.
 func (parseS *chatServer) GetAdminReadOnlyReport(parseCtx context.Context, parseReq *chatpb.GetAdminReadOnlyReportRequest) (*chatpb.GetAdminReadOnlyReportResponse, error) {
 	parseReportKey := parseAdminReadOnlyReportKeySummary
@@ -45,7 +59,7 @@ func (parseS *chatServer) GetAdminReadOnlyReport(parseCtx context.Context, parse
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "unsupported report key: %s", parseReportKey)
 	}
-	parseScope, parseErr := parseS.parseRequireAdminSliceScope(parseCtx, "admin-read-only-report")
+	parseScope, parseErr := parseS.parseRequireAdminSliceScope(parseCtx, parseResolveAdminReadOnlyReportSliceKey(parseReportKey))
 	if parseErr != nil {
 		return nil, parseErr
 	}

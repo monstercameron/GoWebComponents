@@ -332,10 +332,10 @@ This status table tracks placeholder seams so docs do not claim behavior is stil
 
 | Seam | Status | Current truth |
 |---|---|---|
-| `server tools` (`SetServerToolPolicy`, `RunServerTool`) | Remaining placeholder | Authz + fresh-session checks exist, but both RPCs still return `Unimplemented` from `server/app/server_tool_stub.go`. |
+| `server tools` (`SetServerToolPolicy`, `RunServerTool`) | Live implementation | `server/app/server_tool_stub.go` now enforces superuser authz, fresh-session checks, policy validation, and bidirectional server-tool runtime execution. |
 | `provider memory extraction` | Partial live conversion | Runtime extraction pipeline is live in `server/app/server.go`; `OpenAIProvider` and stub provider return extraction results, while Anthropic/Cerebras extraction paths still report not implemented. |
-| `entitlement fail-open guard` | Remaining placeholder | Send entitlement gate seam exists, but `parseRequireUserEntitlement` still has a documented fail-open fallback when billing state is unavailable (`server/app/authz_entitlement.go`). |
-| `control-mutation authz helper` | Partial live conversion | Live feature-flag/experiment/incident mutation RPCs are implemented in `server/app/admin_control_ops.go`, but legacy helper stubs in `server/app/admin_control_mutation_authz.go` still return `Unimplemented`. |
+| `entitlement fail-open guard` | Live implementation | `parseRequireUserEntitlement` in `server/app/authz_entitlement.go` now fails closed: unavailable billing state returns `codes.Unavailable`, and missing or denied entitlements return `codes.PermissionDenied`. |
+| `control-mutation authz helper` | Live implementation | `parseAuthorizeAdminControlMutationScope` in `server/app/admin_control_mutation_authz.go` now enforces the platform and workspace scope rules used by the live control-mutation RPCs. |
 
 ---
 
@@ -366,17 +366,15 @@ Use this section when landing placeholder-removal changes so local/dev assumptio
 
 ### Entitlement fail-open fallback removal
 
-- Current placeholder: `parseRequireUserEntitlement` allows fail-open when billing state is unavailable.
-- When removed: send/authz paths become fail-closed if billing access control cannot be resolved.
-- Local/dev impact: seeded/local runs that previously sent chat without full billing state may start returning deny/precondition errors.
-- Test impact: update tests that currently assume send continues during missing billing state; seed explicit entitlement rows and assert deny/upgrade responses where appropriate.
+- Current behavior: `parseRequireUserEntitlement` now fails closed when billing access control cannot be resolved.
+- Local/dev impact: seeded or local runs need explicit billing entitlement rows when chat send should succeed.
+- Test impact: assert `codes.Unavailable` or `codes.PermissionDenied` instead of expecting chat send to continue when billing state is missing or denied.
 
 ### Legacy control-mutation authz stub removal
 
-- Current placeholder: legacy helper stubs in `admin_control_mutation_authz.go` return `Unimplemented`.
-- When removed: those seams should route through live shared authz + mutation behavior, matching real control-plane RPC expectations.
-- Local/dev impact: callers relying on `Unimplemented` as expected behavior must switch to real allow/deny + persistence assertions.
-- Test impact: retire stub-only assertions in `admin_control_mutation_authz_test.go` and migrate to live mutation coverage patterns used by `admin_control_ops_test.go`.
+- Current behavior: `parseAuthorizeAdminControlMutationScope` now returns real allow or deny results for feature-flag, experiment, and incident mutations.
+- Local/dev impact: callers and operator flows should expect real permission and scope validation outcomes instead of `Unimplemented`.
+- Test impact: keep assertions aligned to live allow or deny behavior and shared mutation coverage instead of stub-only expectations.
 
 Release checklist for these removals:
 
@@ -837,4 +835,3 @@ Usage-premium behavior:
 - **Go WASM UI** — the entire frontend is Go; no JavaScript application code
 - **Hooks pattern for async state** — `UseState`, `UseEffect`, `UseRef`, goroutines
 - **Companion submodule pattern** — `GoGRPCBridge` consumed via `third_party/` + `go.mod replace`
-

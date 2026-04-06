@@ -1341,7 +1341,7 @@ Organization rules for this file:
 - [x] Add security and retention rules for durable offline data.
 	`docs/PWA.md`, `docs/CACHE.md`, `docs/OFFLINE_MUTATIONS.md`, and `docs/SECURITY.md` now define what may be persisted, which data classes are reconstructible versus sensitive, how logout or user-switch flows should purge durable state, and why durable offline stores must carry explicit retention windows instead of relying on browser eviction.
 - [x] Add production-grade PWA validation coverage.
-	The examples Playwright suite now covers installability signals and update requests, offline shell warmup plus stale-cache cleanup, Background Sync fallback messaging, conflict-aware replay resolution, offline navigation fallback, queued write replay, and multi-tab coordination through focused browser automation across `97-pwa-installability`, `97-pwa-offline-cache`, `97-pwa-multi-client`, and `94-cross-tab-sync`, with shared PWA or cross-tab helpers under `examples/tests/support/pwa.ts`.
+	The current repo does not ship focused Playwright-Go coverage for `97-pwa-installability`, `97-pwa-offline-cache`, `97-pwa-multi-client`, or `94-cross-tab-sync`, and there is no `examples/tests/support/pwa.ts` helper path in the tree. The current validation surface is package-level `pwa/*` coverage plus manual browser validation through the focused examples until a dedicated PWA browser suite lands.
 - [ ] Add a full offline-first reference app that combines the current pieces.
 	Ship one coherent example that exercises installability, shell caching, offline navigation, durable queued writes, replay, multi-tab ownership, and logout-safe data purging together instead of validating each slice only in isolation.
 - [ ] Define a framework-level offline-first sync model beyond queue replay.
@@ -1935,7 +1935,7 @@ Organization rules for this file:
 - [x] Integrate the live reload server with state snapshot transport.
 	Hot builds now request a snapshot from the client, carry the exported payload through `build_complete`, and let the browser reuse that snapshot on reload instead of relying only on a local-only fallback.
 - [x] Add examples and benchmarks for preserved-state development flows.
-	`test/specs/hot_reload_preserved_flow.spec.js` demonstrates counter, form, atom, and effect cleanup behavior across a hot reload, and `test/specs/hot_reload_preserved_flow_benchmark.spec.js` guards the snapshot round-trip timing.
+	The current repo validates preserved-state hot reload through `internal/runtime/hot_reload_test.go` and `tools/livereload/livereload_test.go`, which cover snapshot compatibility, remount fallback diagnostics, async restart semantics, and live-reload classification behavior. Dedicated browser-level preserved-flow regressions and benchmarks are still follow-up work.
 - [x] Add explicit opt-in reset controls for intentional state invalidation.
 	`hotreload.Configure(hotreload.Config{ResetKey: ...})` now stamps exported snapshots with a reset token and discards older snapshots when that token changes, giving developers a predictable way to force a clean restart after edits that should not preserve prior local or shared state.
 - [x] Add better in-browser diagnostics for preserve-versus-reset decisions.
@@ -2258,7 +2258,7 @@ Organization rules for this file:
 - [x] Add integration tests for runtime-to-devtools panic propagation.
 	`devtools/devtools_wasm_test.go` now proves that a wrapped fatal panic snapshot mirrors the runtime diagnostic and log metadata exactly, including stable code, message, docs, remediation, recoverability, top frame, consequence, and mirrored path or runtime fields.
 - [x] Add Playwright console tests for wrapped fatal panic output.
-	`test/specs/panic_contract.spec.js` now drives an intentionally crashing wasm render path and asserts the browser-observed wrapped panic contract, including the panic payload, stable code, `where:`, `path:`, `runtime:`, and grouped stack sections.
+	The current repo validates wrapped fatal panic behavior through `internal/runtime/panic_matrix_test.go`, `internal/runtime/panic_diagnostic_test.go`, and `devtools/devtools_wasm_test.go`, which cover fatal-versus-recovered panic classification, wrapped diagnostic metadata, actionable log formatting, and mirrored devtools snapshot fields. Dedicated browser-level panic-contract coverage remains follow-up work.
 - [x] Add Playwright regression tests for non-fatal boundaries.
 	The same focused Playwright coverage now exercises a boundary-owned render crash in `test/testapp/main.go`, verifies fallback UI renders, and asserts that no fatal wrapped panic block is printed when the runtime recovers locally.
 - [x] Add docs for the fatal panic log contract.

@@ -99,7 +99,7 @@ func (parseP *StubProvider) ParseGenerateTitle(_ context.Context, parseReq Title
 	}
 	parseTitle := parseUserPrompt
 	if len(parseTitle) > 48 {
-		parseTitle = strings.TrimSpace(parseTitle[:48]) + "â€¦"
+		parseTitle = strings.TrimSpace(parseTitle[:48]) + "..."
 	}
 	return fmt.Sprintf("%s stub: %s", parseP.label, parseTitle), nil
 }

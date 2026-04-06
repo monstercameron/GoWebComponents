@@ -1755,7 +1755,7 @@ Status legend:
 
 ## router
 
-- [x] History-router navigation implemented through `router.NewRouter(...)`, document-link interception, and `router.HydrateMount(...)`.
+- [x] History-router navigation implemented through `router.NewHistoryRouter(...)`, document-link interception, and `router.HydrateMount(...)`.
 - [x] Route metadata implemented through router options for title, description, and canonical updates.
 - [x] Route params and query-backed route state implemented for product, warehouse, inventory, and threshold-history paths.
 - [x] Route loaders implemented across public and internal Atlas routes, including the threshold-history overlay loader.

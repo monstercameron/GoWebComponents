@@ -232,7 +232,7 @@ func virtualizedFeedExample() ui.Node {
 					html.Div(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-5"},
 						html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Restoration anchor")),
 						html.H3(html.Props{ID: "restoration-anchor-title", Class: "mt-3 text-2xl font-bold text-white"}, html.Text(parseRestorationAnchor.Title)),
-						html.P(html.Props{ID: "restoration-anchor-id", Class: "mt-2 text-sm text-slate-400"}, html.Text(parseRestorationAnchor.ID+" â€¢ "+parseRestorationAnchor.Owner+" â€¢ "+parseRestorationAnchor.Severity)),
+						html.P(html.Props{ID: "restoration-anchor-id", Class: "mt-2 text-sm text-slate-400"}, html.Text(parseRestorationAnchor.ID+" - "+parseRestorationAnchor.Owner+" - "+parseRestorationAnchor.Severity)),
 						html.P(html.Props{Class: "mt-4 leading-7 text-slate-300"}, html.Text("Scroll the list down, prepend new rows, resize the viewport, and reload the page. The first visible stable row should remain anchored instead of snapping back to the start.")),
 					),
 					html.Div(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-slate-950/45 p-5"},

@@ -28,7 +28,7 @@ func parseBuildCatalogLaunchTruthConfig() parseCatalogLaunchTruthConfig {
 }
 
 var parseCatalogLaunchTruthMessageRules = map[string]parseCatalogLaunchTruthRule{
-	"hero.home.body":                    {parseLaunchCapabilities: []parseCatalogLaunchTruthCapability{parseCatalogLaunchTruthCapabilityDocsSearch, parseCatalogLaunchTruthCapabilityTeamKnowledge}},
+	"hero.home.body":                    {parseLaunchCapabilities: []parseCatalogLaunchTruthCapability{parseCatalogLaunchTruthCapabilityDocsSearch}},
 	"hero.pricing.body":                 {parseLaunchCapabilities: []parseCatalogLaunchTruthCapability{parseCatalogLaunchTruthCapabilityEnterpriseSSO}},
 	"product.home.body":                 {parseLaunchCapabilities: []parseCatalogLaunchTruthCapability{parseCatalogLaunchTruthCapabilityDocsSearch, parseCatalogLaunchTruthCapabilityTeamKnowledge}},
 	"product.home.card.docqa.title":     {parseLaunchCapabilities: []parseCatalogLaunchTruthCapability{parseCatalogLaunchTruthCapabilityDocsSearch}},

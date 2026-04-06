@@ -92,25 +92,52 @@ func parseScrubSecretJSONString(parseValue string) string {
 
 // parseRedactLogAttr applies key-based and value-based sensitive-field redaction to one slog attribute.
 func parseRedactLogAttr(parseAttr slog.Attr) slog.Attr {
+	return parseBuildRedactedLogAttr("", parseAttr)
+}
+
+// parseBuildRedactedLogAttr applies key-based and value-based log redaction while preserving the current nested key path.
+func parseBuildRedactedLogAttr(parseParentKeyPath string, parseAttr slog.Attr) slog.Attr {
 	parseKey := strings.TrimSpace(parseAttr.Key)
+	parseKeyPath := parseKey
+	if strings.TrimSpace(parseParentKeyPath) != "" {
+		parseKeyPath = strings.TrimSpace(parseParentKeyPath) + "." + parseKey
+	}
 	if parseIsSensitiveLogKey(parseKey) {
 		return slog.String(parseKey, parseLogRedactionText)
 	}
 	parseResolvedAttr := parseAttr.Value.Resolve()
 	switch parseResolvedAttr.Kind() {
 	case slog.KindString:
+		if parseShouldPreserveLogPathValue(parseKeyPath, parseResolvedAttr.String()) {
+			return slog.String(parseKey, strings.TrimSpace(parseResolvedAttr.String()))
+		}
 		return slog.String(parseKey, parseRedactLogString(parseResolvedAttr.String()))
 	case slog.KindAny:
-		return slog.Any(parseKey, parseRedactLogAnyValue(parseResolvedAttr.Any()))
+		return slog.Any(parseKey, parseRedactLogAnyValueWithKeyPath(parseKeyPath, parseResolvedAttr.Any()))
 	case slog.KindGroup:
 		parseGroupAttrs := parseResolvedAttr.Group()
 		parseRedactedGroupAttrs := make([]slog.Attr, 0, len(parseGroupAttrs))
 		for _, parseGroupAttr := range parseGroupAttrs {
-			parseRedactedGroupAttrs = append(parseRedactedGroupAttrs, parseRedactLogAttr(parseGroupAttr))
+			parseRedactedGroupAttrs = append(parseRedactedGroupAttrs, parseBuildRedactedLogAttr(parseKeyPath, parseGroupAttr))
 		}
 		return slog.Attr{Key: parseKey, Value: slog.GroupValue(parseRedactedGroupAttrs...)}
 	default:
 		return parseAttr
+	}
+}
+
+// parseShouldPreserveLogPathValue reports whether one path-like value is an allowed route field rather than a filesystem secret.
+func parseShouldPreserveLogPathValue(parseKeyPath string, parseValue string) bool {
+	parseNormalizedKeyPath := parseNormalizeLogKey(parseKeyPath)
+	parseValue = strings.TrimSpace(parseValue)
+	if parseValue == "" || !strings.HasPrefix(parseValue, "/") {
+		return false
+	}
+	switch parseNormalizedKeyPath {
+	case "route", "attributes_route", "request_path":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -145,32 +172,48 @@ func parseRedactLogString(parseValue string) string {
 
 // parseRedactLogAnyValue recursively redacts nested map/list structures used in slog.Any payloads.
 func parseRedactLogAnyValue(parseValue any) any {
+	return parseRedactLogAnyValueWithKeyPath("", parseValue)
+}
+
+// parseRedactLogAnyValueWithKeyPath recursively redacts nested slog.Any payloads while preserving the current nested key path.
+func parseRedactLogAnyValueWithKeyPath(parseParentKeyPath string, parseValue any) any {
 	switch parseTypedValue := parseValue.(type) {
 	case nil:
 		return nil
 	case string:
+		if parseShouldPreserveLogPathValue(parseParentKeyPath, parseTypedValue) {
+			return strings.TrimSpace(parseTypedValue)
+		}
 		return parseRedactLogString(parseTypedValue)
 	case error:
 		return parseRedactLogString(parseTypedValue.Error())
 	case map[string]any:
 		parseRedactedMap := make(map[string]any, len(parseTypedValue))
 		for parseMapKey, parseMapValue := range parseTypedValue {
+			parseKeyPath := strings.TrimSpace(parseMapKey)
+			if strings.TrimSpace(parseParentKeyPath) != "" {
+				parseKeyPath = strings.TrimSpace(parseParentKeyPath) + "." + strings.TrimSpace(parseMapKey)
+			}
 			if parseIsSensitiveLogKey(parseMapKey) {
 				parseRedactedMap[parseMapKey] = parseLogRedactionText
 				continue
 			}
-			parseRedactedMap[parseMapKey] = parseRedactLogAnyValue(parseMapValue)
+			parseRedactedMap[parseMapKey] = parseRedactLogAnyValueWithKeyPath(parseKeyPath, parseMapValue)
 		}
 		return parseRedactedMap
 	case []any:
 		parseRedactedSlice := make([]any, 0, len(parseTypedValue))
 		for _, parseSliceValue := range parseTypedValue {
-			parseRedactedSlice = append(parseRedactedSlice, parseRedactLogAnyValue(parseSliceValue))
+			parseRedactedSlice = append(parseRedactedSlice, parseRedactLogAnyValueWithKeyPath(parseParentKeyPath, parseSliceValue))
 		}
 		return parseRedactedSlice
 	case []string:
 		parseRedactedSlice := make([]string, 0, len(parseTypedValue))
 		for _, parseSliceValue := range parseTypedValue {
+			if parseShouldPreserveLogPathValue(parseParentKeyPath, parseSliceValue) {
+				parseRedactedSlice = append(parseRedactedSlice, strings.TrimSpace(parseSliceValue))
+				continue
+			}
 			parseRedactedSlice = append(parseRedactedSlice, parseRedactLogString(parseSliceValue))
 		}
 		return parseRedactedSlice

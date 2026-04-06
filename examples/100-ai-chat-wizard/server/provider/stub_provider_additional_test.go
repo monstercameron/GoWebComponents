@@ -60,7 +60,7 @@ func TestStubProviderGenerateTitleAndSpeech(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("GenerateTitle prompt: %v", parseErr)
 	}
-	if !strings.HasPrefix(parseTitle, "OpenAI stub: ") || !strings.Contains(parseTitle, "â€¦") {
+	if !strings.HasPrefix(parseTitle, "OpenAI stub: ") || !strings.Contains(parseTitle, "...") {
 		parseT.Fatalf("unexpected truncated title: %q", parseTitle)
 	}
 

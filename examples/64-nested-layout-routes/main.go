@@ -16,8 +16,8 @@ func nestedShell(parseTitle string) *router.Element {
 	parseInspection := router.InspectCurrentRoute()
 	return shared.ExamplePage(
 		parseTitle,
-		"Nested layout routes with router.Outlet()",
-		"A layout route stays mounted while more specific child routes render into router.Outlet(). That lets shared nav and chrome remain stable across nested navigation.",
+		"Nested layout routes with router.GetOutlet()",
+		"A layout route stays mounted while more specific child routes render into router.GetOutlet(). That lets shared nav and chrome remain stable across nested navigation.",
 		shared.ExamplePanel("Persistent layout shell",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
 				html.A(html.Props{Href: "#/dashboard/overview", Class: "rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200"}, html.Text("Overview")),

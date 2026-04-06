@@ -122,7 +122,7 @@ func RouteShell() ui.Node {
 
 	return html.Main(html.Props{},
 		html.H1(html.Props{ID: "route-page-heading", TabIndex: -1}, ui.Text("Current page")),
-		router.Outlet(),
+		router.GetOutlet(),
 	)
 }
 ```

@@ -44,7 +44,7 @@ func homePage(parseProps router.Attrs) ui.Node {
 		html.Div(html.Props{Class: "mx-auto max-w-6xl"},
 			html.Div(html.Props{Class: "rounded-[2.5rem] border border-white/10 bg-slate-950/80 p-8 shadow-[0_25px_90px_rgba(2,6,23,0.48)] md:p-12"},
 				html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.32em] text-cyan-300"}, html.Text("Nested Routes Demo")),
-				html.H1(html.Props{Class: "mt-4 max-w-3xl text-5xl font-black leading-tight text-white md:text-6xl"}, html.Text("Dashboard shells, nested settings pages, and docs navigation using router.Outlet().")),
+				html.H1(html.Props{Class: "mt-4 max-w-3xl text-5xl font-black leading-tight text-white md:text-6xl"}, html.Text("Dashboard shells, nested settings pages, and docs navigation using router.GetOutlet().")),
 				html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-slate-300"}, html.Text("This example keeps layout chrome mounted at each level while the leaf route changes beneath it. Open the dashboard, drill into settings, then switch across the docs section to see different outlet stacks.")),
 				html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-4"},
 					routeLink("Open Dashboard", "/dashboard/overview", router.GetCurrentPath()),
@@ -80,7 +80,7 @@ func dashboardLayout(parseProps router.Attrs) ui.Node {
 					),
 					html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/75 p-6 text-sm leading-7 text-slate-300 shadow-[0_18px_60px_rgba(2,6,23,0.42)]"},
 						html.P(html.Props{Class: "font-bold text-white"}, html.Text("What stays mounted")),
-						html.P(html.Props{Class: "mt-3"}, html.Text("This dashboard shell remains stable while child routes swap inside router.Outlet(). That keeps navigation, headings, and summary chrome in one place.")),
+						html.P(html.Props{Class: "mt-3"}, html.Text("This dashboard shell remains stable while child routes swap inside router.GetOutlet(). That keeps navigation, headings, and summary chrome in one place.")),
 					),
 				),
 				html.Main(html.Props{Class: "space-y-6"}, router.GetOutlet()),
@@ -175,7 +175,7 @@ func docsGettingStartedPage(parseProps router.Attrs) ui.Node {
 	return html.Article(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/75 p-8 shadow-[0_20px_70px_rgba(2,6,23,0.42)]"},
 		html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Docs Leaf")),
 		html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Getting started")),
-		html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-slate-300"}, html.Text("Start with a layout route for each major section, then register deeper leaves under that prefix. Parent layouts render their child route explicitly with router.Outlet().")),
+		html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-slate-300"}, html.Text("Start with a layout route for each major section, then register deeper leaves under that prefix. Parent layouts render their child route explicitly with router.GetOutlet().")),
 	)
 }
 

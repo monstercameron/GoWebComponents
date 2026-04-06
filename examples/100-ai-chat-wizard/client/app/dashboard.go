@@ -13,7 +13,7 @@ import (
 
 // renderDashboardHome is the top-level admin dashboard entry-point.
 // It dispatches to the correct slice renderer based on the current path.
-// â”€â”€â”€ Shared primitives â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Shared primitives.
 
 // renderDashboardLoadingState renders a centered loading indicator for slice surfaces.
 func renderDashboardLoadingState(parseLabel string) ui.Node {
@@ -100,7 +100,7 @@ func renderDashboardTable(parseHeaders []string, parseRows [][]string) ui.Node {
 	)
 }
 
-// â”€â”€â”€ Slice header helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Slice header helpers.
 
 // renderDashboardSliceHeader renders the breadcrumb-style heading for a slice view.
 func renderDashboardSliceHeader(parseIcon, parseTitle, parseSubtitle string) ui.Node {
@@ -116,7 +116,7 @@ func renderDashboardSliceHeader(parseIcon, parseTitle, parseSubtitle string) ui.
 	)
 }
 
-// â”€â”€â”€ Business slice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Business slice.
 
 // renderDashboardBusiness renders the Business analytics slice.
 func renderDashboardBusiness(parseIntl i18n.Runtime, parseView appViewState, parseAdminWorkspaces adminWorkspacesController) ui.Node {
@@ -199,7 +199,7 @@ func renderDashboardDailyTable(parseDays []adminDailyRow) ui.Node {
 	)
 }
 
-// â”€â”€â”€ Customers slice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Customers slice.
 
 // renderDashboardCustomers renders the Customers analytics slice.
 func renderDashboardCustomers(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
@@ -256,7 +256,7 @@ func renderDashboardRecentUsersTable(parseUsers []adminUserRow) ui.Node {
 	)
 }
 
-// â”€â”€â”€ Chats slice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Chats slice.
 
 // renderDashboardChats renders the Chats analytics slice.
 func renderDashboardChats(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
@@ -311,7 +311,7 @@ func renderDashboardRecentConvsTable(parseConvs []adminConvRow) ui.Node {
 	)
 }
 
-// â”€â”€â”€ Providers slice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Providers slice.
 
 // renderDashboardProviders renders the Providers health slice.
 func renderDashboardProviders(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
@@ -375,7 +375,7 @@ func renderDashboardProvidersTable(parseSnaps []adminProviderRow) ui.Node {
 	)
 }
 
-// â”€â”€â”€ Ops slice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Ops slice.
 
 // renderDashboardOps renders the Ops / platform health slice plus the superuser server-tools surface.
 func renderDashboardOps(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
@@ -409,9 +409,9 @@ func renderDashboardOps(parseIntl i18n.Runtime, parseView appViewState) ui.Node 
 	)
 }
 
-// â”€â”€â”€ Formatting helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Formatting helpers.
 
-// formatDashboardInt formats an int as a string for dashboard display, returning "â€”" for zero.
+// formatDashboardInt formats an int as a string for dashboard display, returning an em dash for zero.
 func formatDashboardInt(parseN int) string {
 	if parseN == 0 {
 		return "\u2014"
@@ -419,7 +419,7 @@ func formatDashboardInt(parseN int) string {
 	return itoa(parseN)
 }
 
-// formatDashboardInt64 formats an int64 for dashboard display, returning "â€”" for zero.
+// formatDashboardInt64 formats an int64 for dashboard display, returning an em dash for zero.
 func formatDashboardInt64(parseN int64) string {
 	if parseN == 0 {
 		return "\u2014"
