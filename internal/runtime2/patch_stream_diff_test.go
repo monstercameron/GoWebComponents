@@ -43,6 +43,55 @@ func parseBuildPatchStreamForTest(
 	return parsePatchStream
 }
 
+// parseBuildCanonicalIRWithShiftedRootIDForTest rewrites one canonical IR root node ID to exercise root-delta fallback behavior.
+func parseBuildCanonicalIRWithShiftedRootIDForTest(parseTesting *testing.T, parseCanonicalIR CanonicalRenderIR) CanonicalRenderIR {
+	parseTesting.Helper()
+	if len(parseCanonicalIR.GetNodeRecords) == 0 {
+		parseTesting.Fatal("expected canonical IR node records")
+	}
+	buildNodeRecords := append([]RenderNodeRecordRaw(nil), parseCanonicalIR.GetNodeRecords...)
+	buildExistingNodeIDs := make(map[uint64]struct{}, len(buildNodeRecords))
+	for _, getNodeRecord := range buildNodeRecords {
+		buildExistingNodeIDs[getNodeRecord.NodeID] = struct{}{}
+	}
+	buildRootNodeID := parseCanonicalIR.GetRootNodeID
+	buildRootRecordIndex := -1
+	for parseNodeIndex, getNodeRecord := range buildNodeRecords {
+		if getNodeRecord.NodeID == buildRootNodeID {
+			buildRootRecordIndex = parseNodeIndex
+			break
+		}
+	}
+	if buildRootRecordIndex < 0 {
+		parseTesting.Fatalf("expected root node record %d in canonical IR", buildRootNodeID)
+	}
+	delete(buildExistingNodeIDs, buildRootNodeID)
+	buildShiftedRootNodeID := buildRootNodeID + 1
+	if buildShiftedRootNodeID == 0 {
+		buildShiftedRootNodeID = 1
+	}
+	for {
+		if _, hasNodeID := buildExistingNodeIDs[buildShiftedRootNodeID]; !hasNodeID {
+			break
+		}
+		buildShiftedRootNodeID++
+		if buildShiftedRootNodeID == 0 {
+			buildShiftedRootNodeID = 1
+		}
+	}
+	buildNodeRecords[buildRootRecordIndex].NodeID = buildShiftedRootNodeID
+	buildShiftedIR := CanonicalRenderIR{
+		GetRootNodeID:  buildShiftedRootNodeID,
+		GetStringTable: parseCanonicalIR.GetStringTable,
+		GetNodeRecords: buildNodeRecords,
+		GetPropRecords: append([]RenderPropRecordRaw(nil), parseCanonicalIR.GetPropRecords...),
+	}
+	if _, parseTreeErr := ParseCanonicalRenderTree(buildShiftedIR); parseTreeErr != nil {
+		parseTesting.Fatalf("ParseCanonicalRenderTree(shifted root) returned error: %v", parseTreeErr)
+	}
+	return buildShiftedIR
+}
+
 // TestParsePatchStreamTransactionRejectsExcessiveOpCount verifies patch parsing fails fast when op volume exceeds the hard guard limit.
 func TestParsePatchStreamTransactionRejectsExcessiveOpCount(parseTesting *testing.T) {
 	parsePatchStreamRaw := PatchStreamRaw{
@@ -223,6 +272,66 @@ func TestBuildCanonicalPatchStreamGeneratesReplaceSubtree(parseTesting *testing.
 	}
 	if !hasReplaceSubtree {
 		parseTesting.Fatal("expected replace-subtree op in patch stream")
+	}
+}
+
+// TestBuildCanonicalPatchStreamRootIDDeltaFallsBackToReplaceSubtree verifies root insert-remove deltas reuse replace-subtree fallback instead of erroring.
+func TestBuildCanonicalPatchStreamRootIDDeltaFallsBackToReplaceSubtree(parseTesting *testing.T) {
+	parsePreviousIR := parseBuildCanonicalIRForTest(parseTesting, map[string]any{
+		"kind": "host-element",
+		"tag":  "div",
+		"children": []any{
+			map[string]any{"kind": "text", "text": "before"},
+		},
+	})
+	parseNextIR := parseBuildCanonicalIRForTest(parseTesting, map[string]any{
+		"kind": "host-element",
+		"tag":  "div",
+		"children": []any{
+			map[string]any{"kind": "text", "text": "after"},
+		},
+	})
+	parseShiftedNextIR := parseBuildCanonicalIRWithShiftedRootIDForTest(parseTesting, parseNextIR)
+	parsePatchStream, hasNoOp, parsePatchErr := BuildCanonicalPatchStream(
+		"region-a",
+		1,
+		2,
+		2,
+		parsePreviousIR,
+		parseShiftedNextIR,
+	)
+	if parsePatchErr != nil {
+		parseTesting.Fatalf("BuildCanonicalPatchStream returned error: %v", parsePatchErr)
+	}
+	if hasNoOp {
+		parseTesting.Fatal("BuildCanonicalPatchStream returned no-op for shifted root payloads")
+	}
+	if len(parsePatchStream.GetOps) != 1 {
+		parseTesting.Fatalf("expected one replace-subtree op, got %d ops", len(parsePatchStream.GetOps))
+	}
+	parseOpCode, parseOpCodeErr := ParsePatchOpCode(parsePatchStream.GetOps[0].GetOpCode)
+	if parseOpCodeErr != nil {
+		parseTesting.Fatalf("ParsePatchOpCode returned error: %v", parseOpCodeErr)
+	}
+	if parseOpCode != PatchOpCodeReplaceSubtree {
+		parseTesting.Fatalf("expected replace-subtree op, got %q", parseOpCode)
+	}
+	if parsePatchStream.GetOps[0].GetReplaceSubtreeOp == nil {
+		parseTesting.Fatal("expected replace-subtree payload")
+	}
+	if parsePatchStream.GetOps[0].GetReplaceSubtreeOp.TargetNodeID != parsePreviousIR.GetRootNodeID {
+		parseTesting.Fatalf(
+			"replace-subtree target node ID = %d, want previous root %d",
+			parsePatchStream.GetOps[0].GetReplaceSubtreeOp.TargetNodeID,
+			parsePreviousIR.GetRootNodeID,
+		)
+	}
+	if parsePatchStream.GetOps[0].GetReplaceSubtreeOp.Subtree.RootNodeID != parseShiftedNextIR.GetRootNodeID {
+		parseTesting.Fatalf(
+			"replace-subtree subtree root node ID = %d, want shifted next root %d",
+			parsePatchStream.GetOps[0].GetReplaceSubtreeOp.Subtree.RootNodeID,
+			parseShiftedNextIR.GetRootNodeID,
+		)
 	}
 }
 

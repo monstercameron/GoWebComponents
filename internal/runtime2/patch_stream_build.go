@@ -164,6 +164,48 @@ func buildCanonicalPatchKeyedMoveOps(
 	return buildMoveOps, nil
 }
 
+// buildCanonicalReplaceSubtreePatchStream emits one replace-subtree patch stream for full-root fallback cases.
+func buildCanonicalReplaceSubtreePatchStream(
+	parseRegionID string,
+	parseEpoch uint64,
+	parseInputVersion uint64,
+	parsePatchVersion uint64,
+	parseTargetNodeID uint64,
+	parseNextIR CanonicalRenderIR,
+) (PatchStreamRaw, error) {
+	buildReplaceSubtreeOp := PatchReplaceSubtreeOpRaw{
+		TargetNodeID: parseTargetNodeID,
+		Subtree:      parseBuildReplaceSubtreePayload(parseNextIR),
+	}
+	buildHeader := PatchStreamHeaderRaw{
+		ProtocolVersion: PatchStreamProtocolVersion,
+		RegionID:        parseRegionID,
+		Epoch:           parseEpoch,
+		InputVersion:    parseInputVersion,
+		PatchVersion:    parsePatchVersion,
+	}
+	buildIdentityState, parseIdentityStateErr := buildPatchStreamIdentityState(buildHeader, nil)
+	if parseIdentityStateErr != nil {
+		return PatchStreamRaw{}, parseIdentityStateErr
+	}
+	defer clearPatchStreamIdentityState(&buildIdentityState)
+	if parseArrayErr := startPatchStreamIdentityOpArray(&buildIdentityState); parseArrayErr != nil {
+		return PatchStreamRaw{}, parseArrayErr
+	}
+	buildOps := make([]PatchStreamOpRaw, 0, 1)
+	if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
+		GetOpCode:           uint8(PatchOpCodeReplaceSubtree),
+		GetReplaceSubtreeOp: &buildReplaceSubtreeOp,
+	}); parseAppendErr != nil {
+		return PatchStreamRaw{}, parseAppendErr
+	}
+	buildPatchIdentity, parseIdentityErr := formatPatchStreamIdentityState(&buildIdentityState)
+	if parseIdentityErr != nil {
+		return PatchStreamRaw{}, parseIdentityErr
+	}
+	return buildPatchStreamRawWithIdentity(buildHeader, nil, buildOps, buildPatchIdentity)
+}
+
 // BuildCanonicalPatchStream diffs previous and next canonical IR and emits one canonical typed patch stream.
 func BuildCanonicalPatchStream(
 	parseRegionID string,
@@ -209,37 +251,14 @@ func BuildCanonicalPatchStream(
 		}
 	}
 	if hasStructuralMismatch {
-		buildReplaceSubtreeOp := PatchReplaceSubtreeOpRaw{
-			TargetNodeID: parsePreviousTree.getRootNodeID,
-			Subtree:      parseBuildReplaceSubtreePayload(parseNextIR),
-		}
-		buildHeader := PatchStreamHeaderRaw{
-			ProtocolVersion: PatchStreamProtocolVersion,
-			RegionID:        parseRegionID,
-			Epoch:           parseEpoch,
-			InputVersion:    parseInputVersion,
-			PatchVersion:    parsePatchVersion,
-		}
-		buildIdentityState, parseIdentityStateErr := buildPatchStreamIdentityState(buildHeader, nil)
-		if parseIdentityStateErr != nil {
-			return PatchStreamRaw{}, false, parseIdentityStateErr
-		}
-		defer clearPatchStreamIdentityState(&buildIdentityState)
-		if parseArrayErr := startPatchStreamIdentityOpArray(&buildIdentityState); parseArrayErr != nil {
-			return PatchStreamRaw{}, false, parseArrayErr
-		}
-		buildOps := make([]PatchStreamOpRaw, 0, 1)
-		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
-			GetOpCode:           uint8(PatchOpCodeReplaceSubtree),
-			GetReplaceSubtreeOp: &buildReplaceSubtreeOp,
-		}); parseAppendErr != nil {
-			return PatchStreamRaw{}, false, parseAppendErr
-		}
-		buildPatchIdentity, parseIdentityErr := formatPatchStreamIdentityState(&buildIdentityState)
-		if parseIdentityErr != nil {
-			return PatchStreamRaw{}, false, parseIdentityErr
-		}
-		buildPatchStreamRaw, parsePatchStreamErr := buildPatchStreamRawWithIdentity(buildHeader, nil, buildOps, buildPatchIdentity)
+		buildPatchStreamRaw, parsePatchStreamErr := buildCanonicalReplaceSubtreePatchStream(
+			parseRegionID,
+			parseEpoch,
+			parseInputVersion,
+			parsePatchVersion,
+			parsePreviousTree.getRootNodeID,
+			parseNextIR,
+		)
 		if parsePatchStreamErr != nil {
 			return PatchStreamRaw{}, false, parsePatchStreamErr
 		}
@@ -255,6 +274,37 @@ func BuildCanonicalPatchStream(
 	for getNodeID := range parseNextTree.getNodeByID {
 		if _, hasNodeID := parsePreviousTree.getNodeByID[getNodeID]; !hasNodeID {
 			buildInsertedNodeIDs[getNodeID] = struct{}{}
+		}
+	}
+	if _, hasRemovedRoot := buildRemovedNodeIDs[parsePreviousTree.getRootNodeID]; hasRemovedRoot {
+		buildPatchStreamRaw, parsePatchStreamErr := buildCanonicalReplaceSubtreePatchStream(
+			parseRegionID,
+			parseEpoch,
+			parseInputVersion,
+			parsePatchVersion,
+			parsePreviousTree.getRootNodeID,
+			parseNextIR,
+		)
+		if parsePatchStreamErr != nil {
+			return PatchStreamRaw{}, false, parsePatchStreamErr
+		}
+		return buildPatchStreamRaw, false, nil
+	}
+	for getNodeID := range buildInsertedNodeIDs {
+		getNextNode := parseNextTree.getNodeByID[getNodeID]
+		if getNodeID == parseNextTree.getRootNodeID || getNextNode.getParentNodeID == 0 {
+			buildPatchStreamRaw, parsePatchStreamErr := buildCanonicalReplaceSubtreePatchStream(
+				parseRegionID,
+				parseEpoch,
+				parseInputVersion,
+				parsePatchVersion,
+				parsePreviousTree.getRootNodeID,
+				parseNextIR,
+			)
+			if parsePatchStreamErr != nil {
+				return PatchStreamRaw{}, false, parsePatchStreamErr
+			}
+			return buildPatchStreamRaw, false, nil
 		}
 	}
 	hasStructuralNodeDelta := len(buildRemovedNodeIDs) > 0 || len(buildInsertedNodeIDs) > 0

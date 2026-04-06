@@ -380,6 +380,78 @@ func TestHandleHostRegionPatchCommitCommitsReplaceSubtree(parseT *testing.T) {
 	}
 }
 
+// TestHandleHostRegionPatchCommitCommitsReplaceSubtreeForShiftedRootID verifies replace-subtree commits rebuild DOM state when the next subtree root node ID changes.
+func TestHandleHostRegionPatchCommitCommitsReplaceSubtreeForShiftedRootID(parseT *testing.T) {
+	buildHostRegionAdapter, parseAdapterErr := BuildHostRegionAdapter(RegionInstanceID("region-1"), []SchedulerShardID{"shard-a"})
+	if parseAdapterErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseAdapterErr)
+	}
+	_, parseMountErr := buildHostRegionAdapter.HandleHostRegionMount(ParallelRegionSpec{
+		RendererID:       RendererID("dashboard.hot-panel"),
+		RegionInstanceID: RegionInstanceID("region-1"),
+	}, 1)
+	if parseMountErr != nil {
+		parseT.Fatalf("HandleHostRegionMount returned error: %v", parseMountErr)
+	}
+	parsePreviousOutput := map[string]any{
+		"kind": "host-element",
+		"tag":  "div",
+		"children": []any{
+			map[string]any{"kind": "text", "text": "before"},
+		},
+	}
+	parseNextOutput := map[string]any{
+		"kind": "host-element",
+		"tag":  "div",
+		"children": []any{
+			map[string]any{"kind": "text", "text": "after"},
+		},
+	}
+	parsePreviousIR := parseBuildCanonicalIRForHostPatchTest(parseT, parsePreviousOutput)
+	parseNextIR := parseBuildCanonicalIRForHostPatchTest(parseT, parseNextOutput)
+	parseShiftedNextIR := parseBuildCanonicalIRWithShiftedRootIDForTest(parseT, parseNextIR)
+	parseSeedRegionDOMIndexFromCanonical(parseT, buildHostRegionAdapter.GetHostRegionDOMIndex(), "region-1", parsePreviousIR)
+	parsePatchStream, hasNoOp, parsePatchErr := BuildCanonicalPatchStream("region-1", 1, 2, 2, parsePreviousIR, parseShiftedNextIR)
+	if parsePatchErr != nil {
+		parseT.Fatalf("BuildCanonicalPatchStream returned error: %v", parsePatchErr)
+	}
+	if hasNoOp {
+		parseT.Fatal("BuildCanonicalPatchStream returned no-op for shifted root payloads")
+	}
+	parseResult, parseCommitErr := buildHostRegionAdapter.HandleHostRegionPatchCommit(parsePatchStream, nil)
+	if parseCommitErr != nil {
+		parseT.Fatalf("HandleHostRegionPatchCommit returned error: %v", parseCommitErr)
+	}
+	if !parseResult.HasCommitted {
+		parseT.Fatalf("HandleHostRegionPatchCommit expected committed result, got %+v", parseResult)
+	}
+	parseRegionNodeByID, hasRegionNodeByID := buildHostRegionAdapter.GetHostRegionDOMIndex().storeRegionDOMNodeByRegionID["region-1"]
+	if !hasRegionNodeByID {
+		parseT.Fatal("expected region DOM index entry after shifted-root replace-subtree commit")
+	}
+	if _, hasPreviousRoot := parseRegionNodeByID[parsePreviousIR.GetRootNodeID]; hasPreviousRoot {
+		parseT.Fatalf("expected previous root node ID %d to be removed after shifted-root commit", parsePreviousIR.GetRootNodeID)
+	}
+	parseShiftedRootNode, hasShiftedRootNode := parseRegionNodeByID[parseShiftedNextIR.GetRootNodeID]
+	if !hasShiftedRootNode {
+		parseT.Fatalf("expected shifted root node ID %d after replace-subtree commit", parseShiftedNextIR.GetRootNodeID)
+	}
+	if parseShiftedRootNode.GetTag != "div" {
+		parseT.Fatalf("shifted root tag = %q, want %q", parseShiftedRootNode.GetTag, "div")
+	}
+	if len(parseShiftedRootNode.GetChildNodeIDs) != 1 {
+		parseT.Fatalf("shifted root child count = %d, want 1", len(parseShiftedRootNode.GetChildNodeIDs))
+	}
+	parseChildNodeID := parseShiftedRootNode.GetChildNodeIDs[0]
+	parseChildNode, hasChildNode := parseRegionNodeByID[parseChildNodeID]
+	if !hasChildNode {
+		parseT.Fatalf("expected shifted child node ID %d after replace-subtree commit", parseChildNodeID)
+	}
+	if parseChildNode.GetText != "after" {
+		parseT.Fatalf("shifted child text = %q, want %q", parseChildNode.GetText, "after")
+	}
+}
+
 // TestHandleHostRegionPatchCommitAcceptsGapPatchVersionAndRejectsStalePatchVersion verifies no-op input-version gaps still accept the next patch version while stale patch versions are ignored before DOM commit.
 func TestHandleHostRegionPatchCommitAcceptsGapPatchVersionAndRejectsStalePatchVersion(parseT *testing.T) {
 	buildHostRegionAdapter, parseAdapterErr := BuildHostRegionAdapter(RegionInstanceID("region-1"), []SchedulerShardID{"shard-a"})
