@@ -65,6 +65,22 @@ go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01
 
 For standalone wasm apps that want state-preserving reload, enable `hotreload.Enable()` in your app and use `gwc dev`.
 
+## Repository Layout
+
+If you are contributing to the repo rather than just consuming the module, use this map first:
+
+- `ui/`, `html/`, `state/`, `fetch/`, `router/`: primary public library packages
+- `devtools/`, `head/`, `hotreload/`, `i18n/`, `logging/`, `plugin/`, `prerender/`, `pwa/`, `virtualization/`: companion public packages
+- `internal/platform/`, `internal/runtime/`, `internal/runtime2/`: platform adapters and runtime internals
+- `testkit/`: reusable consumer-facing test helpers
+- `test/`: repo-owned validation suites, fixtures, and browser coverage
+- `tools/gwc/`, `tools/livereload/`, `tools/runnerconfig/`, `tools/doc_ingest/`: developer tooling and repo automation
+- `docs/`: prose documentation and backlog tracking
+- `examples/`: examples, showcase apps, and validation fixtures
+- `agents/`, `scripts/`: local agent instructions and repository helper scripts
+
+Local package maps live in the directory READMEs for the larger implementation areas, especially `internal/platform/`, `internal/runtime/`, `internal/runtime2/`, `tools/doc_ingest/`, and `tools/runnerconfig/`.
+
 ## Starter App Example
 
 `main.go`:

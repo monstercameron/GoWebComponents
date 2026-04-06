@@ -7,6 +7,7 @@ This directory contains the project-level documentation that is still useful aft
 - This directory is the prose index for the current GoWebComponents runtime, platform guidance, and adoption surface.
 - New adopters should start with the guided entry docs rather than reading every file alphabetically.
 - Core package and runtime behavior now live primarily under `ui/`, `html/`, `state/`, `fetch/`, `router/`, and `internal/runtime/`.
+- Docs-ingestion planning documents stay here, but the ingestion bootstrap SQL and seeding script now live under `tools/doc_ingest/` so `docs/` stays prose-first.
 - This index is most useful when you need to choose the next document quickly or confirm where a topic belongs.
 
 ## Quick Reading Guide

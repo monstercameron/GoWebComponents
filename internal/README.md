@@ -8,6 +8,12 @@ The `internal` folder contains implementation packages used by core runtime syst
 
 This folder contains internal-only GWC packages. Exported identifiers listed below are public within the module, but not part of the external import contract.
 
+## Start Here
+
+- `internal/platform/README.md`: browser and mock platform adapter layout
+- `internal/runtime/README.md`: default single-threaded runtime file map
+- `internal/runtime2/README.md`: experimental multithreaded runtime file map
+
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/internal/diagnostics` (`package diagnostics`)
