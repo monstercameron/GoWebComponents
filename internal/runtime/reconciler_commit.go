@@ -247,6 +247,7 @@ func (parseRt *Runtime) commitRoot() {
 		parseRt.finalizeHydrationBoundary(parseRt.wipRoot.childHydration, parseRt.wipRoot)
 		// The root fiber's DOM node is the container
 		parseRt.commitWork(parseRt.wipRoot.child, parseRt.wipRoot.dom)
+		parseRt.applyCommittedChildOrder(parseRt.wipRoot.dom, parseRt.buildCommittedChildNodes(parseRt.wipRoot.child, nil))
 	}
 
 	parseRt.currentRoot = parseCommittedRoot
@@ -444,9 +445,92 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 	// Recursively commit children and siblings
 	if parseFiber.child != nil {
 		parseRt.commitWork(parseFiber.child, parseChildDomParent)
+		if !IsDOMNodeNull(parseChildDomParent) && (!IsDOMNodeNull(parseFiber.dom) || isPortal) {
+			parseRt.applyCommittedChildOrder(parseChildDomParent, parseRt.buildCommittedChildNodes(parseFiber.child, nil))
+		}
 	}
 	if parseFiber.sibling != nil {
 		parseRt.commitWork(parseFiber.sibling, parseDomParent)
+	}
+}
+
+// buildCommittedChildNodes is an internal reconciler helper.
+func (parseRt *Runtime) buildCommittedChildNodes(parseFiber *Fiber, parseNodes []DOMNode) []DOMNode {
+	for parseFiber != nil {
+		if parseRt.isPortalFiber(parseFiber) {
+			parseFiber = parseFiber.sibling
+			continue
+		}
+		if !IsDOMNodeNull(parseFiber.dom) {
+			parseNodes = append(parseNodes, parseFiber.dom)
+		} else if parseFiber.child != nil {
+			parseNodes = parseRt.buildCommittedChildNodes(parseFiber.child, parseNodes)
+		}
+		parseFiber = parseFiber.sibling
+	}
+	return parseNodes
+}
+
+// buildObservedChildNodes is an internal reconciler helper.
+func (parseRt *Runtime) buildObservedChildNodes(parseDomParent DOMNode) []DOMNode {
+	if parseRt == nil || parseRt.domAdapter == nil || IsDOMNodeNull(parseDomParent) {
+		return nil
+	}
+	parseNodes := make([]DOMNode, 0, 4)
+	for parseNode := parseRt.domAdapter.GetFirstChild(parseDomParent); !IsDOMNodeNull(parseNode); parseNode = parseRt.domAdapter.GetNextSibling(parseNode) {
+		parseNodes = append(parseNodes, parseNode)
+	}
+	return parseNodes
+}
+
+// isCommittedChildOrderStable is an internal reconciler helper.
+func isCommittedChildOrderStable(parseExpected, parseObserved []DOMNode) bool {
+	if len(parseExpected) != len(parseObserved) {
+		return false
+	}
+	for parseIndex, parseExpectedNode := range parseExpected {
+		if !IsSameDOMNode(parseExpectedNode, parseObserved[parseIndex]) {
+			return false
+		}
+	}
+	return true
+}
+
+// applyCommittedChildOrder is an internal reconciler helper.
+func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseExpected []DOMNode) {
+	if parseRt == nil || parseRt.domAdapter == nil || IsDOMNodeNull(parseDomParent) || len(parseExpected) == 0 {
+		return
+	}
+	parseObserved := parseRt.buildObservedChildNodes(parseDomParent)
+	if isCommittedChildOrderStable(parseExpected, parseObserved) {
+		return
+	}
+
+	for parseIndex, parseExpectedNode := range parseExpected {
+		parseObserved = parseRt.buildObservedChildNodes(parseDomParent)
+		if parseIndex < len(parseObserved) && IsSameDOMNode(parseObserved[parseIndex], parseExpectedNode) {
+			continue
+		}
+
+		isParseAttached := false
+		for _, parseObservedNode := range parseObserved {
+			if IsSameDOMNode(parseObservedNode, parseExpectedNode) {
+				isParseAttached = true
+				break
+			}
+		}
+
+		// Remove first so the test adapters and browser adapters both model a DOM move as one relocation, not one duplicate append.
+		if isParseAttached {
+			parseRt.domAdapter.RemoveChild(parseDomParent, parseExpectedNode)
+			parseObserved = parseRt.buildObservedChildNodes(parseDomParent)
+		}
+
+		if parseIndex < len(parseObserved) {
+			parseRt.domAdapter.InsertBefore(parseDomParent, parseExpectedNode, parseObserved[parseIndex])
+			continue
+		}
+		parseRt.domAdapter.AppendChild(parseDomParent, parseExpectedNode)
 	}
 }
 

@@ -524,7 +524,7 @@ func buildParallelRegionLocalNode(parseRender any, parseProps any) (Node, error)
 	if len(getResults) != 1 {
 		return nil, fmt.Errorf("ui: parallel-region renderer returned %d values", len(getResults))
 	}
-	if getResults[0].IsNil() {
+	if isParallelRegionRenderResultNil(getResults[0]) {
 		return nil, nil
 	}
 	getNode, hasNode := getResults[0].Interface().(Node)
@@ -551,6 +551,16 @@ func buildParallelRegionRenderArg(parseArgType reflect.Type, parseProps any) (re
 		getPropsValue.Type(),
 		parseArgType,
 	)
+}
+
+// isParallelRegionRenderResultNil reports whether one renderer return value is nil on a nilable reflect kind.
+func isParallelRegionRenderResultNil(parseValue reflect.Value) bool {
+	switch parseValue.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return parseValue.IsNil()
+	default:
+		return false
+	}
 }
 
 // handleParallelRegionOwnerRemove routes one public parallel-region owner removal into runtime2 cleanup and clears cached adapter state.

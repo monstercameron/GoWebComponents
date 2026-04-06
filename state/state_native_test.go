@@ -1,0 +1,346 @@
+//go:build !js || !wasm
+// +build !js !wasm
+
+package state
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math"
+	"reflect"
+	"strings"
+	"testing"
+	"unsafe"
+
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/interop"
+)
+
+// stateNativeNoOpScheduler keeps native state tests deterministic without scheduling background work.
+type stateNativeNoOpScheduler struct{}
+
+// RequestIdleCallback ignores native idle callback scheduling in state tests.
+func (stateNativeNoOpScheduler) RequestIdleCallback(parseCallback func(runtime.Deadline)) {}
+
+// SetTimeout ignores native timeout scheduling in state tests.
+func (stateNativeNoOpScheduler) SetTimeout(parseCallback func(), parseDelay int) {}
+
+// setStateTestStructField writes one unexported interop field so state tests can build lightweight native doubles.
+func setStateTestStructField(parseT *testing.T, parseTarget interface{}, parseField string, parseValue interface{}) {
+	parseT.Helper()
+	parseStructValue := reflect.ValueOf(parseTarget).Elem()
+	parseFieldValue := parseStructValue.FieldByName(parseField)
+	if !parseFieldValue.IsValid() {
+		parseT.Fatalf("missing field %q on %T", parseField, parseTarget)
+	}
+	reflect.NewAt(parseFieldValue.Type(), unsafe.Pointer(parseFieldValue.UnsafeAddr())).Elem().Set(reflect.ValueOf(parseValue))
+}
+
+// installStateNativeHookContext resets the global runtime and installs one active fiber for hook-based state tests.
+func installStateNativeHookContext(parseT *testing.T) {
+	parseT.Helper()
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: stateNativeNoOpScheduler{}, Reset: true})
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	parseT.Cleanup(func() {
+		runtime.SetCurrentFiber(nil)
+	})
+}
+
+// buildStateTestStorage returns one in-memory interop.Storage double for native snapshot tests.
+func buildStateTestStorage(parseT *testing.T) (interop.Storage, map[string]string) {
+	parseT.Helper()
+	parseStorage := interop.Storage{}
+	parseData := map[string]string{}
+	setStateTestStructField(parseT, &parseStorage, "getItem", func(parseKey string) (string, bool, error) {
+		parseValue, parseOk := parseData[parseKey]
+		return parseValue, parseOk, nil
+	})
+	setStateTestStructField(parseT, &parseStorage, "setItem", func(parseKey string, parseValue string) error {
+		parseData[parseKey] = parseValue
+		return nil
+	})
+	setStateTestStructField(parseT, &parseStorage, "removeItem", func(parseKey string) error {
+		delete(parseData, parseKey)
+		return nil
+	})
+	return parseStorage, parseData
+}
+
+// buildStateTestPersistentStore returns one in-memory interop.PersistentStore double for native persistent snapshot tests.
+func buildStateTestPersistentStore(parseT *testing.T) (interop.PersistentStore, map[string]string) {
+	parseT.Helper()
+	parseStore := interop.PersistentStore{}
+	parseData := map[string]string{}
+	setStateTestStructField(parseT, &parseStore, "backend", func() string { return "memory" })
+	setStateTestStructField(parseT, &parseStore, "getItem", func(parseCtx context.Context, parseKey string) (string, bool, error) {
+		_ = parseCtx
+		parseValue, parseOk := parseData[parseKey]
+		return parseValue, parseOk, nil
+	})
+	setStateTestStructField(parseT, &parseStore, "setItem", func(parseCtx context.Context, parseKey string, parseValue string) error {
+		_ = parseCtx
+		parseData[parseKey] = parseValue
+		return nil
+	})
+	return parseStore, parseData
+}
+
+// TestStateNativeAtomAndDerivedHelpers covers the shared hook wrappers and reactive text helpers on native builds.
+func TestStateNativeAtomAndDerivedHelpers(parseT *testing.T) {
+	installStateNativeHookContext(parseT)
+
+	parseCount := UseAtom("state-native-count", 2)
+	parseCount.Set(3)
+	parseCount.Update(func(parsePrev int) int { return parsePrev + 1 })
+	if parseCount.Get() != 4 {
+		parseT.Fatalf("expected atom wrapper to update shared value to 4, got %d", parseCount.Get())
+	}
+	if parseIDs := parseCount.ReactiveRegionSourceIDs(); len(parseIDs) != 1 || parseIDs[0] != "state-native-count" {
+		parseT.Fatalf("expected atom reactive source ids to include the atom id, got %v", parseIDs)
+	}
+
+	parseComputed := UseComputed(func() int {
+		return parseCount.Get() * 2
+	}, parseCount.Get())
+	if parseComputed.Get() != 8 {
+		parseT.Fatalf("expected computed wrapper to return 8, got %d", parseComputed.Get())
+	}
+
+	parseDerived := UseDerived("state-native-double", func() int {
+		return parseCount.Get() * 2
+	}, "state-native-count")
+	if parseDerived.Get() != 8 {
+		parseT.Fatalf("expected derived wrapper to return 8, got %d", parseDerived.Get())
+	}
+	parseCount.Set(5)
+	if parseDerived.Get() != 10 {
+		parseT.Fatalf("expected derived wrapper to observe latest atom value, got %d", parseDerived.Get())
+	}
+	if parseIDs2 := parseDerived.ReactiveRegionSourceIDs(); len(parseIDs2) != 1 || parseIDs2[0] != "state-native-double" {
+		parseT.Fatalf("expected derived reactive source ids to include the derived id, got %v", parseIDs2)
+	}
+
+	parseSelector := Select("state-native-parity", parseCount, func(parseValue int) string {
+		if parseValue%2 == 0 {
+			return "even"
+		}
+		return "odd"
+	})
+	if parseSelector.Get() != "odd" {
+		parseT.Fatalf("expected selector wrapper to project odd, got %q", parseSelector.Get())
+	}
+	if parseSelector.id == "" || !strings.Contains(parseSelector.id, "state-native-parity") || !strings.Contains(parseSelector.id, "state-native-count") {
+		parseT.Fatalf("expected selector id to include requested and source ids, got %q", parseSelector.id)
+	}
+
+	parseAtomText := parseCount.Text(func(parseValue int) string { return fmt.Sprintf("count:%d", parseValue) })
+	parseAtomGetter, _ := parseAtomText.Props[runtimeReactiveTextGetterProp()].(func() string)
+	if parseAtomGetter == nil || parseAtomGetter() != "count:5" {
+		parseT.Fatalf("expected atom text getter to render latest atom value, got nil=%t", parseAtomGetter == nil)
+	}
+	parseDerivedText := parseSelector.Text(func(parseValue string) string { return "parity:" + parseValue })
+	parseDerivedGetter, _ := parseDerivedText.Props[runtimeReactiveTextGetterProp()].(func() string)
+	if parseDerivedGetter == nil || parseDerivedGetter() != "parity:odd" {
+		parseT.Fatalf("expected derived text getter to render projected value, got nil=%t", parseDerivedGetter == nil)
+	}
+
+	if UseSelector[string, string]("state-native-empty-selector", nil, func(parseValue string) string { return parseValue }).Get() != "" {
+		parseT.Fatal("expected selector with nil source to return the zero value")
+	}
+	if UseSelector[int, string]("state-native-empty-project", parseCount, (func(int) string)(nil)).Get() != "" {
+		parseT.Fatal("expected selector with nil projector to return the zero value")
+	}
+
+	var parseZeroComputed Computed[string]
+	if parseZeroComputed.Get() != "" {
+		parseT.Fatalf("expected zero-value computed handle to return empty string, got %q", parseZeroComputed.Get())
+	}
+	var parseZeroDerived Derived[string]
+	if parseZeroDerived.Get() != "" {
+		parseT.Fatalf("expected zero-value derived handle to return empty string, got %q", parseZeroDerived.Get())
+	}
+}
+
+// TestStateNativeSnapshotHelpers covers shared in-memory snapshot selection, import, and JSON normalization.
+func TestStateNativeSnapshotHelpers(parseT *testing.T) {
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: stateNativeNoOpScheduler{}, Reset: true})
+	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("state-native-theme", "dark"); parseErr != nil {
+		parseT.Fatalf("expected atom seed to succeed, got %v", parseErr)
+	}
+	if parseErr2 := runtime.GetGlobalRuntime().SetAtomValue("state-native-count", 3); parseErr2 != nil {
+		parseT.Fatalf("expected second atom seed to succeed, got %v", parseErr2)
+	}
+
+	parseSnapshot, parseErr := GetSnapshot()
+	if parseErr != nil {
+		parseT.Fatalf("expected GetSnapshot to succeed, got %v", parseErr)
+	}
+	if parseSnapshot["state-native-theme"] != "dark" || parseSnapshot["state-native-count"] != 3 {
+		parseT.Fatalf("unexpected snapshot contents: %#v", parseSnapshot)
+	}
+	parseSelected := parseSnapshot.Select("state-native-theme")
+	if len(parseSelected) != 1 || parseSelected["state-native-theme"] != "dark" {
+		parseT.Fatalf("expected Select to keep only the requested key, got %#v", parseSelected)
+	}
+	parseClone := parseSnapshot.Select()
+	if len(parseClone) != len(parseSnapshot) {
+		parseT.Fatalf("expected zero-arg Select to clone the snapshot, got %#v", parseClone)
+	}
+
+	parseExported, parseErr2 := ExportSnapshot()
+	if parseErr2 != nil || parseExported["state-native-theme"] != "dark" {
+		parseT.Fatalf("expected ExportSnapshot to preserve atom values, snapshot=%#v err=%v", parseExported, parseErr2)
+	}
+
+	if parseErr3 := ApplySnapshot(Snapshot{"state-native-theme": "light"}); parseErr3 != nil {
+		parseT.Fatalf("expected ApplySnapshot to succeed, got %v", parseErr3)
+	}
+	if parseErr4 := ImportSnapshot(Snapshot{"state-native-count": 7}); parseErr4 != nil {
+		parseT.Fatalf("expected ImportSnapshot to succeed, got %v", parseErr4)
+	}
+	if parseValue, parseOk := runtime.GetGlobalRuntime().GetAtomValue("state-native-theme"); !parseOk || parseValue != "light" {
+		parseT.Fatalf("expected ApplySnapshot to update theme atom, got %#v ok=%t", parseValue, parseOk)
+	}
+	if parseValue2, parseOk2 := runtime.GetGlobalRuntime().GetAtomValue("state-native-count"); !parseOk2 || parseValue2 != 7 {
+		parseT.Fatalf("expected ImportSnapshot to update count atom, got %#v ok=%t", parseValue2, parseOk2)
+	}
+
+	parseData, parseErr5 := MarshalSnapshotJSON(nil)
+	if parseErr5 != nil || string(parseData) != "{}" {
+		parseT.Fatalf("expected nil snapshot JSON to encode as {}, got %q err=%v", string(parseData), parseErr5)
+	}
+	if parseEmpty, parseErr6 := UnmarshalSnapshotJSON(nil); parseErr6 != nil || len(parseEmpty) != 0 {
+		parseT.Fatalf("expected empty snapshot JSON to decode to an empty snapshot, snapshot=%#v err=%v", parseEmpty, parseErr6)
+	}
+	parseDecoded, parseErr7 := UnmarshalSnapshotJSON([]byte(`{"count":1,"ratio":1.5,"nested":{"items":[2,2.5]}}`))
+	if parseErr7 != nil {
+		parseT.Fatalf("expected UnmarshalSnapshotJSON to succeed, got %v", parseErr7)
+	}
+	if parseDecoded["count"] != 1 || parseDecoded["ratio"] != 1.5 {
+		parseT.Fatalf("expected snapshot normalization to preserve whole and fractional numbers, got %#v", parseDecoded)
+	}
+	parseNested, _ := parseDecoded["nested"].(map[string]interface{})
+	parseItems, _ := parseNested["items"].([]interface{})
+	if len(parseItems) != 2 || parseItems[0] != 2 || parseItems[1] != 2.5 {
+		parseT.Fatalf("expected nested snapshot normalization to preserve slice values, got %#v", parseItems)
+	}
+	if _, parseErr8 := UnmarshalSnapshotJSON([]byte(`{`)); parseErr8 == nil {
+		parseT.Fatal("expected invalid JSON to return an error")
+	}
+}
+
+// TestStateNativeSnapshotStorageHelpers covers browser-storage helpers through injected native storage doubles.
+func TestStateNativeSnapshotStorageHelpers(parseT *testing.T) {
+	parseStorage, parseData := buildStateTestStorage(parseT)
+	parsePrevLocal := loadStateLocalStorage
+	parsePrevSession := loadStateSessionStorage
+	loadStateLocalStorage = func() (interop.Storage, error) { return parseStorage, nil }
+	loadStateSessionStorage = func() (interop.Storage, error) { return interop.Storage{}, errors.New("session unavailable") }
+	parseT.Cleanup(func() {
+		loadStateLocalStorage = parsePrevLocal
+		loadStateSessionStorage = parsePrevSession
+	})
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: stateNativeNoOpScheduler{}, Reset: true})
+
+	parseSnapshot := Snapshot{"state-native-user": "alice", "state-native-ready": true}
+	if parseErr := SaveSnapshot("state-native-app", parseSnapshot, LocalStorage); parseErr != nil {
+		parseT.Fatalf("expected SaveSnapshot to succeed with injected storage, got %v", parseErr)
+	}
+	if _, parseOk := parseData["state-native-app"]; !parseOk {
+		parseT.Fatalf("expected SaveSnapshot to write into injected storage, data=%#v", parseData)
+	}
+
+	parseLoaded, parseOk, parseErr2 := LoadSnapshot("state-native-app", LocalStorage)
+	if parseErr2 != nil || !parseOk {
+		parseT.Fatalf("expected LoadSnapshot to succeed, snapshot=%#v ok=%t err=%v", parseLoaded, parseOk, parseErr2)
+	}
+	if parseLoaded["state-native-user"] != "alice" || parseLoaded["state-native-ready"] != true {
+		parseT.Fatalf("unexpected loaded snapshot: %#v", parseLoaded)
+	}
+	if parseRestored, parseErr3 := RestoreSnapshot("state-native-app", LocalStorage); parseErr3 != nil || !parseRestored {
+		parseT.Fatalf("expected RestoreSnapshot to succeed, restored=%t err=%v", parseRestored, parseErr3)
+	}
+	if parseValue, parseOk2 := runtime.GetGlobalRuntime().GetAtomValue("state-native-user"); !parseOk2 || parseValue != "alice" {
+		parseT.Fatalf("expected RestoreSnapshot to import the stored atom, got %#v ok=%t", parseValue, parseOk2)
+	}
+	if _, parseMissing, parseErr4 := LoadSnapshot("state-native-missing", LocalStorage); parseErr4 != nil || parseMissing {
+		parseT.Fatalf("expected missing storage key to miss cleanly, found=%t err=%v", parseMissing, parseErr4)
+	}
+
+	if parseErr5 := SaveSnapshot("state-native-bad", Snapshot{"bad": math.Inf(1)}, LocalStorage); parseErr5 == nil {
+		parseT.Fatal("expected SaveSnapshot to surface JSON encoding failures")
+	}
+	if _, _, parseErr6 := LoadSnapshot("state-native-app", StorageArea("cookieStorage")); parseErr6 == nil {
+		parseT.Fatal("expected LoadSnapshot to reject unsupported storage areas")
+	}
+	if parseRestored2, parseErr7 := RestoreSnapshot("state-native-app", SessionStorage); parseErr7 == nil || parseRestored2 {
+		parseT.Fatalf("expected unavailable session storage to fail restore, restored=%t err=%v", parseRestored2, parseErr7)
+	}
+}
+
+// TestStateNativePersistentSnapshotHelpers covers persistent snapshot helpers with one injected in-memory store.
+func TestStateNativePersistentSnapshotHelpers(parseT *testing.T) {
+	parseStore, parseData := buildStateTestPersistentStore(parseT)
+	parseOptions := PersistentSnapshotOptions{
+		StoreResolver: func(parseCtx context.Context) (interop.PersistentStore, error) {
+			if parseCtx == nil {
+				parseT.Fatal("expected persistent resolver context to be normalized")
+			}
+			return parseStore, nil
+		},
+	}
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: stateNativeNoOpScheduler{}, Reset: true})
+
+	parseSnapshot := Snapshot{"state-native-project": "atlas", "state-native-ready": true}
+	if parseErr := SavePersistentSnapshot(nil, "state-native-persistent", parseSnapshot, parseOptions); parseErr != nil {
+		parseT.Fatalf("expected SavePersistentSnapshot to succeed, got %v", parseErr)
+	}
+	if _, parseOk := parseData["state-native-persistent"]; !parseOk {
+		parseT.Fatalf("expected persistent save to write into the injected store, data=%#v", parseData)
+	}
+
+	parseLoaded, parseOk, parseErr2 := LoadPersistentSnapshot(nil, "state-native-persistent", parseOptions)
+	if parseErr2 != nil || !parseOk {
+		parseT.Fatalf("expected LoadPersistentSnapshot to succeed, snapshot=%#v ok=%t err=%v", parseLoaded, parseOk, parseErr2)
+	}
+	if parseLoaded["state-native-project"] != "atlas" || parseLoaded["state-native-ready"] != true {
+		parseT.Fatalf("unexpected persistent snapshot contents: %#v", parseLoaded)
+	}
+	if parseRestored, parseErr3 := RestorePersistentSnapshot(nil, "state-native-persistent", parseOptions); parseErr3 != nil || !parseRestored {
+		parseT.Fatalf("expected RestorePersistentSnapshot to succeed, restored=%t err=%v", parseRestored, parseErr3)
+	}
+	if parseValue, parseOk2 := runtime.GetGlobalRuntime().GetAtomValue("state-native-project"); !parseOk2 || parseValue != "atlas" {
+		parseT.Fatalf("expected persistent restore to import the stored atom, got %#v ok=%t", parseValue, parseOk2)
+	}
+
+	if parseResolved := resolvePersistentSnapshotOptions(nil); parseResolved.DatabaseName != "" || parseResolved.StoreName != "" || parseResolved.DeleteOnCorruption || parseResolved.FallbackResolver != nil || parseResolved.FallbackBackend != "" || parseResolved.StoreResolver != nil {
+		parseT.Fatalf("expected zero options to resolve to the zero value, got %#v", parseResolved)
+	}
+	if parseResolved2 := resolvePersistentSnapshotContext(nil); parseResolved2 == nil {
+		parseT.Fatal("expected resolvePersistentSnapshotContext to replace nil with context.Background")
+	}
+
+	parseFallbackStorage, _ := buildStateTestStorage(parseT)
+	parseStore2, parseErr4 := openPersistentSnapshotStore(nil, []PersistentSnapshotOptions{{
+		StoreResolver: nil,
+		FallbackResolver: func() (interop.Storage, error) {
+			return parseFallbackStorage, nil
+		},
+		FallbackBackend: "memory",
+		StoreName:       "native-state",
+		DatabaseName:    "native-state-db",
+	}})
+	if parseErr4 == nil || !strings.Contains(parseErr4.Error(), "unavailable") || parseStore2.Backend() != "" {
+		parseT.Fatalf("expected native openPersistentSnapshotStore fallback path to surface unavailability, store=%#v err=%v", parseStore2, parseErr4)
+	}
+
+	_, parseErr5 := openPersistentSnapshotStore(nil, []PersistentSnapshotOptions{{
+		StoreResolver: func(context.Context) (interop.PersistentStore, error) {
+			return interop.PersistentStore{}, errors.New("open failed")
+		},
+	}})
+	if parseErr5 == nil || !strings.Contains(parseErr5.Error(), "open failed") {
+		parseT.Fatalf("expected store resolver errors to surface, got %v", parseErr5)
+	}
+}

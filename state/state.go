@@ -1,6 +1,3 @@
-//go:build js && wasm
-// +build js,wasm
-
 package state
 
 import (
@@ -9,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/interop"
@@ -64,6 +60,11 @@ const (
 )
 
 const defaultPersistentSnapshotStoreName = "state-snapshots"
+
+var (
+	loadStateLocalStorage   = interop.GetLocalStorage
+	loadStateSessionStorage = interop.GetSessionStorage
+)
 
 // UseAtom provides shared global atoms with subscription-scoped rerenders.
 // Atoms are accessible from anywhere in the component tree by ID and
@@ -413,32 +414,31 @@ func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
 
 // SaveSnapshot stores a JSON-encoded snapshot in browser storage.
 func SaveSnapshot(parseKey string, parseSnapshot Snapshot, parseArea StorageArea) error {
-	parseStorage := getStorage(parseArea)
-	if !parseStorage.Truthy() {
-		return fmt.Errorf("%s is not available", parseArea)
+	parseStorage, parseErr := openSnapshotStorage(parseArea)
+	if parseErr != nil {
+		return parseErr
 	}
 
 	parseData, parseErr := MarshalSnapshotJSON(parseSnapshot)
 	if parseErr != nil {
 		return parseErr
 	}
-	parseStorage.Call("setItem", parseKey, string(parseData))
-	return nil
+	return parseStorage.SetItem(parseKey, string(parseData))
 }
 
 // LoadSnapshot reads and decodes a snapshot from browser storage.
 func LoadSnapshot(parseKey string, parseArea StorageArea) (Snapshot, bool, error) {
-	parseStorage := getStorage(parseArea)
-	if !parseStorage.Truthy() {
-		return nil, false, fmt.Errorf("%s is not available", parseArea)
+	parseStorage, parseErr := openSnapshotStorage(parseArea)
+	if parseErr != nil {
+		return nil, false, parseErr
 	}
 
-	parseValue := parseStorage.Call("getItem", parseKey)
-	if parseValue.IsNull() || parseValue.IsUndefined() {
-		return nil, false, nil
+	parseValue, parseOk, parseErr := parseStorage.GetItem(parseKey)
+	if parseErr != nil || !parseOk {
+		return nil, parseOk, parseErr
 	}
 
-	parseSnapshot, parseErr := UnmarshalSnapshotJSON([]byte(parseValue.String()))
+	parseSnapshot, parseErr := UnmarshalSnapshotJSON([]byte(parseValue))
 	if parseErr != nil {
 		return nil, false, parseErr
 	}
@@ -539,14 +539,16 @@ func resolvePersistentSnapshotContext(parseCtx context.Context) context.Context 
 	return context.Background()
 }
 
-// getStorage is a core package helper.
-func getStorage(parseArea StorageArea) js.Value {
-	parseGlobalObject := js.Global()
-	parseStorage := parseGlobalObject.Get(string(parseArea))
-	if parseStorage.Truthy() {
-		return parseStorage
+// openSnapshotStorage is a core package helper.
+func openSnapshotStorage(parseArea StorageArea) (interop.Storage, error) {
+	switch parseArea {
+	case LocalStorage:
+		return loadStateLocalStorage()
+	case SessionStorage:
+		return loadStateSessionStorage()
+	default:
+		return interop.Storage{}, fmt.Errorf("%s is not available", parseArea)
 	}
-	return js.Undefined()
 }
 
 // normalizeSnapshot is a core package helper.

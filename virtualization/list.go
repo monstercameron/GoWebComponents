@@ -1,7 +1,6 @@
 package virtualization
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -51,8 +50,8 @@ type rowBodyProps[T any] struct {
 }
 
 type restorationSnapshot struct {
-	ScrollTop float64
-	AnchorKey string
+	ScrollTop float64 `json:"scrollTop"`
+	AnchorKey string  `json:"anchorKey,omitempty"`
 }
 
 type restorationStoreState struct {
@@ -97,58 +96,27 @@ func List[T any](parseProps ListProps[T]) ui.Node {
 		parseProps.OnViewportChange(parseState2.Diagnostics().WithRowLifecycle(parseCounts.Mounts, parseCounts.Unmounts))
 	}
 
-	ui.UseEffect(func() func() {
-		parseDocument, parseErr2 := interop.GetDocument()
-		if parseErr2 != nil {
-			return nil
-		}
-		parseElement, parseOk, parseErr2 := parseDocument.ElementByID(parseListID)
-		if parseErr2 != nil || !parseOk {
-			return nil
-		}
-		if parseSnapshot, parseOk2 := loadRestorationSnapshot(parseListID); parseOk2 {
-			parseRestoreRef.Set(parseSnapshot)
-			_ = restoreElementScrollTop(parseElement, parseSnapshot, parseKeyIndexRef.Get(), parseProps.RowHeight, len(parseProps.Items), parseProps.Height)
-		}
-		parseSub, parseErr2 := ObserveOwnedViewport(parseElement, parseConfig, func(parseNext ViewportState) {
-			parseSnapshot2 := restorationSnapshot{ScrollTop: parseNext.ScrollTop}
-			parseAnchorKeys := parseKeysRef.Get()
-			if parseNext.Visible.Start >= 0 && parseNext.Visible.Start < len(parseAnchorKeys) {
-				parseSnapshot2.AnchorKey = parseAnchorKeys[parseNext.Visible.Start]
-			}
-			parseRestoreRef.Set(parseSnapshot2)
-			storeRestorationSnapshot(parseListID, parseSnapshot2)
-			persistRestorationSnapshot(parseListID, parseSnapshot2)
-			parseViewport.Set(parseNext)
-			parsePublishDiagnostics(parseNext)
-		})
-		if parseErr2 != nil {
-			return nil
-		}
-		return func() {
-			storeRestorationSnapshot(parseListID, parseRestoreRef.Get())
-			persistRestorationSnapshot(parseListID, parseRestoreRef.Get())
-			parseSub.Cancel()
-		}
-	}, parseListID, len(parseProps.Items), parseProps.Height, parseProps.RowHeight, parseProps.Overscan)
+	ui.UseEffect(buildListViewportEffect(
+		parseListID,
+		len(parseProps.Items),
+		parseProps.Height,
+		parseProps.RowHeight,
+		parseConfig,
+		parseKeysRef,
+		parseKeyIndexRef,
+		parseRestoreRef,
+		parseViewport,
+		parsePublishDiagnostics,
+	), parseListID, len(parseProps.Items), parseProps.Height, parseProps.RowHeight, parseProps.Overscan)
 
-	ui.UseEffect(func() func() {
-		parseDocument2, parseErr3 := interop.GetDocument()
-		if parseErr3 != nil {
-			return nil
-		}
-		parseElement2, parseOk3, parseErr3 := parseDocument2.ElementByID(parseListID)
-		if parseErr3 != nil || !parseOk3 {
-			return nil
-		}
-		parseSnapshot3, parseOk3 := loadRestorationSnapshot(parseListID)
-		if !parseOk3 {
-			return nil
-		}
-		parseRestoreRef.Set(parseSnapshot3)
-		_ = restoreElementScrollTop(parseElement2, parseSnapshot3, parseKeyIndex, parseProps.RowHeight, len(parseProps.Items), parseProps.Height)
-		return nil
-	}, parseListID, parseProps.Height, parseProps.RowHeight, keySignature(parseKeys))
+	ui.UseEffect(buildListRestorationEffect(
+		parseListID,
+		len(parseProps.Items),
+		parseProps.Height,
+		parseProps.RowHeight,
+		parseKeyIndex,
+		parseRestoreRef,
+	), parseListID, parseProps.Height, parseProps.RowHeight, keySignature(parseKeys))
 
 	parseState := parseViewport.Get()
 	parseRendered := clampRange(parseState.Rendered, len(parseProps.Items))
@@ -354,40 +322,6 @@ func loadRestorationSnapshot(parseId string) (restorationSnapshot, bool) {
 		return parseBrowserSnapshot, true
 	}
 	return restorationSnapshot{}, false
-}
-
-func persistRestorationSnapshot(parseId string, parseSnapshot restorationSnapshot) {
-	if parseId == "" {
-		return
-	}
-	parseStorage, parseErr := interop.GetSessionStorage()
-	if parseErr != nil {
-		return
-	}
-	parsePayload, parseErr := json.Marshal(parseSnapshot)
-	if parseErr != nil {
-		return
-	}
-	_ = parseStorage.SetItem(restorationStoragePrefix+parseId, string(parsePayload))
-}
-
-func loadPersistedRestorationSnapshot(parseId string) (restorationSnapshot, bool) {
-	if parseId == "" {
-		return restorationSnapshot{}, false
-	}
-	parseStorage, parseErr := interop.GetSessionStorage()
-	if parseErr != nil {
-		return restorationSnapshot{}, false
-	}
-	parseRaw, parseOk, parseErr := parseStorage.GetItem(restorationStoragePrefix + parseId)
-	if parseErr != nil || !parseOk || parseRaw == "" {
-		return restorationSnapshot{}, false
-	}
-	var parseSnapshot restorationSnapshot
-	if parseErr2 := json.Unmarshal([]byte(parseRaw), &parseSnapshot); parseErr2 != nil {
-		return restorationSnapshot{}, false
-	}
-	return parseSnapshot, parseOk
 }
 
 func restoreElementScrollTop(parseElement interop.Element, parseSnapshot restorationSnapshot, parseKeyIndex map[string]int, parseRowHeight float64, parseTotalItems int, parseViewportHeight float64) error {

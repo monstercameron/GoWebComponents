@@ -563,3 +563,574 @@ func TestParallelRegionRejectsInvalidRegionInstanceIDAtPublicUILayer(parseT *tes
 		return parseErr
 	}, "region instance ID is required")
 }
+
+// TestHandleParallelRegionEachNodeVisitsDepthFirstAndStopsOnError verifies subtree traversal order and early exit behavior.
+func TestHandleParallelRegionEachNodeVisitsDepthFirstAndStopsOnError(parseT *testing.T) {
+	getTree := runtime.CreateElement("section", nil,
+		runtime.CreateElement("h1", nil),
+		"ignored-text-child",
+		runtime.CreateElement("button", nil, runtime.CreateElement("span", nil)),
+	)
+	var getVisitedTags []string
+	parseVisitErr := handleParallelRegionEachNode(Node(getTree), func(parseNode Node) error {
+		if parseTag, parseOk := parseNode.Type.(string); parseOk {
+			getVisitedTags = append(getVisitedTags, parseTag)
+		}
+		if parseNode.Type == "button" {
+			return fmt.Errorf("stop")
+		}
+		return nil
+	})
+	if parseVisitErr == nil || !strings.Contains(parseVisitErr.Error(), "stop") {
+		parseT.Fatalf("expected visit error to stop traversal, got %v", parseVisitErr)
+	}
+	if !reflect.DeepEqual(getVisitedTags, []string{"section", "h1", "TEXT_ELEMENT", "button"}) {
+		parseT.Fatalf("visited tags = %+v, want depth-first stop at button", getVisitedTags)
+	}
+	if parseNilErr := handleParallelRegionEachNode(nil, nil); parseNilErr != nil {
+		parseT.Fatalf("expected nil root traversal to no-op, got %v", parseNilErr)
+	}
+}
+
+// TestBuildParallelRegionEventSlotMetadataAndMergeNormalizeSlots verifies slot metadata validation, empty handling, and deduplicating merges.
+func TestBuildParallelRegionEventSlotMetadataAndMergeNormalizeSlots(parseT *testing.T) {
+	getMetadata, parseMetadataErr := buildParallelRegionEventSlotMetadata([]runtime2.EventSlotRecord{{
+		SlotID:    "primary.action",
+		EventType: parallelRegionClickEventType,
+	}})
+	if parseMetadataErr != nil {
+		parseT.Fatalf("buildParallelRegionEventSlotMetadata(valid) returned error: %v", parseMetadataErr)
+	}
+	if getMetadata.Version != runtime2.EventSlotMetadataVersionV1 || len(getMetadata.Slots) != 1 {
+		parseT.Fatalf("event-slot metadata = %+v, want one normalized slot", getMetadata)
+	}
+	getEmptyMetadata, parseEmptyErr := buildParallelRegionEventSlotMetadata(nil)
+	if parseEmptyErr != nil {
+		parseT.Fatalf("buildParallelRegionEventSlotMetadata(empty) returned error: %v", parseEmptyErr)
+	}
+	if getEmptyMetadata.Version != "" || len(getEmptyMetadata.Slots) != 0 {
+		parseT.Fatalf("empty event-slot metadata = %+v, want zero value", getEmptyMetadata)
+	}
+	if _, parseInvalidErr := buildParallelRegionEventSlotMetadata([]runtime2.EventSlotRecord{{
+		SlotID:    "",
+		EventType: parallelRegionClickEventType,
+	}}); parseInvalidErr == nil {
+		parseT.Fatal("expected invalid event-slot metadata to fail")
+	}
+	getMergedMetadata, parseMergeErr := buildParallelRegionMergedEventSlotMetadata(
+		runtime2.EventSlotMetadata{
+			Version: runtime2.EventSlotMetadataVersionV1,
+			Slots: []runtime2.EventSlotRecord{{
+				SlotID:    "primary.action",
+				EventType: parallelRegionClickEventType,
+			}},
+		},
+		runtime2.EventSlotMetadata{
+			Version: runtime2.EventSlotMetadataVersionV1,
+			Slots: []runtime2.EventSlotRecord{
+				{SlotID: "primary.action", EventType: parallelRegionClickEventType},
+				{SlotID: "secondary.action", EventType: "keydown"},
+			},
+		},
+	)
+	if parseMergeErr != nil {
+		parseT.Fatalf("buildParallelRegionMergedEventSlotMetadata returned error: %v", parseMergeErr)
+	}
+	if !reflect.DeepEqual(getMergedMetadata.Slots, []runtime2.EventSlotRecord{
+		{SlotID: "primary.action", EventType: parallelRegionClickEventType},
+		{SlotID: "secondary.action", EventType: "keydown"},
+	}) {
+		parseT.Fatalf("merged event-slot metadata = %+v", getMergedMetadata)
+	}
+}
+
+// TestParallelRegionWorkerPropFiltersRecognizeBridgeOnlyProps verifies worker-output prop stripping covers both event props and bridge markers.
+func TestParallelRegionWorkerPropFiltersRecognizeBridgeOnlyProps(parseT *testing.T) {
+	if !hasParallelRegionWorkerEventProp("onclick") || !hasParallelRegionWorkerEventProp("onscroll") {
+		parseT.Fatal("expected interactive worker props to be detected")
+	}
+	if hasParallelRegionWorkerEventProp("data-testid") {
+		parseT.Fatal("did not expect non-event prop to be treated as worker event prop")
+	}
+	if !shouldParallelRegionStripWorkerProp(parallelRegionClickSlotProp) || !shouldParallelRegionStripWorkerProp("onchange") {
+		parseT.Fatal("expected bridge-only props to be stripped")
+	}
+	if shouldParallelRegionStripWorkerProp("class") {
+		parseT.Fatal("did not expect ordinary props to be stripped")
+	}
+}
+
+// TestReportParallelRegionDiagnosticErrorAndSharedRuntimeHelpers verifies shared runtime bridge helpers expose diagnostics, shells, transitions, and source atoms.
+func TestReportParallelRegionDiagnosticErrorAndSharedRuntimeHelpers(parseT *testing.T) {
+	runtime.ClearDiagnostics()
+	defer runtime.ClearDiagnostics()
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: mockdom.NewMockDOMAdapter(), Reset: true})
+	parseRuntime := runtime.GetGlobalRuntime()
+	if parseSetErr := parseRuntime.SetAtomValue("dashboard.count", 7); parseSetErr != nil {
+		parseT.Fatalf("SetAtomValue returned error: %v", parseSetErr)
+	}
+	reportParallelRegionDiagnosticError("parallel-region shared helper failure")
+	getDiagnostics := runtime.GetDiagnostics()
+	if len(getDiagnostics) != 1 || getDiagnostics[0].Source != "ui" || getDiagnostics[0].Severity != runtime.DiagnosticError {
+		parseT.Fatalf("diagnostics = %+v, want one ui error diagnostic", getDiagnostics)
+	}
+	getEmptyShell := renderParallelRegionShellNode(map[string]interface{}{"id": "shell"}, nil)
+	if getEmptyShell.Type != "div" || len(getEmptyShell.Children) != 0 {
+		parseT.Fatalf("empty shell = %+v, want div without children", getEmptyShell)
+	}
+	getChildShell := renderParallelRegionShellNode(map[string]interface{}{"id": "shell"}, Text("hot"))
+	if len(getChildShell.Children) != 1 {
+		parseT.Fatalf("shell child count = %d, want 1", len(getChildShell.Children))
+	}
+	if isParallelRegionTransitionUpdate() {
+		parseT.Fatal("did not expect transition update without current fiber")
+	}
+	getSourceValue, hasSourceValue := getParallelRegionSourceAtomValue("dashboard.count")
+	if !hasSourceValue || getSourceValue != 7 {
+		parseT.Fatalf("source atom value = %#v, ok=%t, want 7,true", getSourceValue, hasSourceValue)
+	}
+}
+
+// TestHandleParallelRegionRendererMetadataMergesSlotsIntoRegistry verifies slot declarations update the shared renderer registry without duplicating entries.
+func TestHandleParallelRegionRendererMetadataMergesSlotsIntoRegistry(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+	if parseErr := handleParallelRegionRendererMetadata("dashboard.hot-panel", runtime2.EventSlotMetadata{}); parseErr != nil {
+		parseT.Fatalf("handleParallelRegionRendererMetadata(empty) returned error: %v", parseErr)
+	}
+	getMetadata := runtime2.EventSlotMetadata{
+		Version: runtime2.EventSlotMetadataVersionV1,
+		Slots: []runtime2.EventSlotRecord{{
+			SlotID:    "primary.action",
+			EventType: parallelRegionClickEventType,
+		}},
+	}
+	if parseErr := handleParallelRegionRendererMetadata("dashboard.hot-panel", getMetadata); parseErr != nil {
+		parseT.Fatalf("handleParallelRegionRendererMetadata(first) returned error: %v", parseErr)
+	}
+	if parseErr := handleParallelRegionRendererMetadata("dashboard.hot-panel", getMetadata); parseErr != nil {
+		parseT.Fatalf("handleParallelRegionRendererMetadata(second) returned error: %v", parseErr)
+	}
+	_, getResolvedMetadata, parseResolveErr := runtime2.ResolveRenderer("dashboard.hot-panel")
+	if parseResolveErr != nil {
+		parseT.Fatalf("ResolveRenderer returned error: %v", parseResolveErr)
+	}
+	if len(getResolvedMetadata.EventSlotMetadata.Slots) != 1 || getResolvedMetadata.EventSlotMetadata.Slots[0].SlotID != "primary.action" {
+		parseT.Fatalf("resolved renderer metadata = %+v, want one merged slot", getResolvedMetadata.EventSlotMetadata)
+	}
+}
+
+// TestHandleParallelRegionPostRenderAttachHandlesMissingAndInvalidAnchors verifies post-render attach tolerates missing anchors and rejects mismatched shell tags.
+func TestHandleParallelRegionPostRenderAttachHandlesMissingAndInvalidAnchors(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+	if parseErr := handleParallelRegionPostRenderAttachByID(""); parseErr != nil {
+		parseT.Fatalf("handleParallelRegionPostRenderAttachByID(empty) returned error: %v", parseErr)
+	}
+	if parseErr := handleParallelRegionPostRenderAttachByID("dashboard.hot-panel:missing"); parseErr != nil {
+		parseT.Fatalf("handleParallelRegionPostRenderAttachByID(missing) returned error: %v", parseErr)
+	}
+	getRuntimeSpec, parseRuntimeSpecErr := buildParallelRegionRuntimeSpec(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:attach",
+		Props:            registerParallelRegionProps{Label: "Attach"},
+	})
+	if parseRuntimeSpecErr != nil {
+		parseT.Fatalf("buildParallelRegionRuntimeSpec returned error: %v", parseRuntimeSpecErr)
+	}
+	getHostAdapter, parseHostAdapterErr := runtime2.BuildHostRegionAdapter(getRuntimeSpec.RegionInstanceID, []runtime2.SchedulerShardID{"ui-parallel-region"})
+	if parseHostAdapterErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseHostAdapterErr)
+	}
+	if _, parseMountErr := getHostAdapter.HandleHostRegionMount(getRuntimeSpec, 1); parseMountErr != nil {
+		parseT.Fatalf("HandleHostRegionMount returned error: %v", parseMountErr)
+	}
+	storeParallelRegionAdapterMu.Lock()
+	cacheParallelRegionAdapterByID[getRuntimeSpec.RegionInstanceID] = getHostAdapter
+	storeParallelRegionAdapterMu.Unlock()
+	if parseAttachErr := handleParallelRegionPostRenderAttachByID(getRuntimeSpec.RegionInstanceID); parseAttachErr != nil {
+		parseT.Fatalf("handleParallelRegionPostRenderAttachByID(missing-anchor) returned error: %v", parseAttachErr)
+	}
+	getAnchorNode, parseAnchorLookupErr := getHostAdapter.GetHostRegionDOMIndex().GetRegionDOMNode(string(getRuntimeSpec.RegionInstanceID), 1)
+	if parseAnchorLookupErr != nil {
+		parseT.Fatalf("GetRegionDOMNode(anchor) returned error: %v", parseAnchorLookupErr)
+	}
+	if getAnchorNode.GetTag != "div" {
+		parseT.Fatalf("anchor tag = %q, want div", getAnchorNode.GetTag)
+	}
+	if parseSetErr := getHostAdapter.GetHostRegionDOMIndex().SetRegionDOMNode(string(getRuntimeSpec.RegionInstanceID), 1, &runtime2.RegionDOMNode{
+		GetNodeID: 1,
+		GetTag:    "span",
+	}); parseSetErr != nil {
+		parseT.Fatalf("SetRegionDOMNode returned error: %v", parseSetErr)
+	}
+	if parseAttachErr := handleParallelRegionPostRenderAttachByID(getRuntimeSpec.RegionInstanceID); parseAttachErr == nil || !strings.Contains(parseAttachErr.Error(), "shell anchor tag") {
+		parseT.Fatalf("expected invalid anchor tag error, got %v", parseAttachErr)
+	}
+}
+
+// TestBuildParallelRegionSchedulerShardIDsValidateInputs verifies default shards, trimming, and duplicate or blank validation.
+func TestBuildParallelRegionSchedulerShardIDsValidateInputs(parseT *testing.T) {
+	getDefaultShards, parseDefaultErr := buildParallelRegionSchedulerShardIDs(nil)
+	if parseDefaultErr != nil {
+		parseT.Fatalf("buildParallelRegionSchedulerShardIDs(default) returned error: %v", parseDefaultErr)
+	}
+	if !reflect.DeepEqual(getDefaultShards, []runtime2.SchedulerShardID{"ui-parallel-region"}) {
+		parseT.Fatalf("default scheduler shards = %+v", getDefaultShards)
+	}
+	getCustomShards, parseCustomErr := buildParallelRegionSchedulerShardIDs([]string{" primary ", "secondary"})
+	if parseCustomErr != nil {
+		parseT.Fatalf("buildParallelRegionSchedulerShardIDs(custom) returned error: %v", parseCustomErr)
+	}
+	if !reflect.DeepEqual(getCustomShards, []runtime2.SchedulerShardID{"primary", "secondary"}) {
+		parseT.Fatalf("custom scheduler shards = %+v", getCustomShards)
+	}
+	if _, parseBlankErr := buildParallelRegionSchedulerShardIDs([]string{" "}); parseBlankErr == nil {
+		parseT.Fatal("expected blank scheduler shard ID to fail")
+	}
+	if _, parseDuplicateErr := buildParallelRegionSchedulerShardIDs([]string{"primary", "primary"}); parseDuplicateErr == nil {
+		parseT.Fatal("expected duplicate scheduler shard IDs to fail")
+	}
+	getReactiveSources := buildParallelRegionReactiveSources([]string{"status", "user.id"})
+	if len(getReactiveSources) != 2 {
+		parseT.Fatalf("reactive source count = %d, want 2", len(getReactiveSources))
+	}
+}
+
+// TestBuildParallelRegionHostAdapterHandlesReuseRemountAndShardChanges verifies cached adapters reuse on identical specs, remount on renderer changes, and recreate on shard changes.
+func TestBuildParallelRegionHostAdapterHandlesReuseRemountAndShardChanges(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+	getRuntimeSpec, parseRuntimeSpecErr := buildParallelRegionRuntimeSpec(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:host-adapter",
+		Props:            registerParallelRegionProps{Label: "One"},
+	})
+	if parseRuntimeSpecErr != nil {
+		parseT.Fatalf("buildParallelRegionRuntimeSpec returned error: %v", parseRuntimeSpecErr)
+	}
+	getAdapter, getMounted, parseBuildErr := buildParallelRegionHostAdapter(getRuntimeSpec, []runtime2.SchedulerShardID{"primary"})
+	if parseBuildErr != nil {
+		parseT.Fatalf("buildParallelRegionHostAdapter(first) returned error: %v", parseBuildErr)
+	}
+	if !getMounted {
+		parseT.Fatal("expected first host adapter build to mount")
+	}
+	getSameAdapter, getRemounted, parseSameErr := buildParallelRegionHostAdapter(getRuntimeSpec, []runtime2.SchedulerShardID{"primary"})
+	if parseSameErr != nil {
+		parseT.Fatalf("buildParallelRegionHostAdapter(second) returned error: %v", parseSameErr)
+	}
+	if getSameAdapter != getAdapter || getRemounted {
+		parseT.Fatalf("expected same adapter without remount, got same=%t remounted=%t", getSameAdapter == getAdapter, getRemounted)
+	}
+	getRuntimeSpec.RendererID = "dashboard.hot-panel-alt"
+	getRemountAdapter, getDidRemount, parseRemountErr := buildParallelRegionHostAdapter(getRuntimeSpec, []runtime2.SchedulerShardID{"primary"})
+	if parseRemountErr != nil {
+		parseT.Fatalf("buildParallelRegionHostAdapter(remount) returned error: %v", parseRemountErr)
+	}
+	if getRemountAdapter != getAdapter || !getDidRemount {
+		parseT.Fatalf("expected structural remount on renderer change, got same=%t remounted=%t", getRemountAdapter == getAdapter, getDidRemount)
+	}
+	getRecreatedAdapter, getDidRecreate, parseShardErr := buildParallelRegionHostAdapter(getRuntimeSpec, []runtime2.SchedulerShardID{"secondary"})
+	if parseShardErr != nil {
+		parseT.Fatalf("buildParallelRegionHostAdapter(shard-change) returned error: %v", parseShardErr)
+	}
+	if getRecreatedAdapter == getAdapter || !getDidRecreate {
+		parseT.Fatalf("expected shard change to recreate adapter, got same=%t recreated=%t", getRecreatedAdapter == getAdapter, getDidRecreate)
+	}
+	if _, parseNilRemountErr := handleParallelRegionStructuralRemount(nil, getRuntimeSpec); parseNilRemountErr == nil {
+		parseT.Fatal("expected nil host adapter structural remount to fail")
+	}
+	if hasParallelRegionSchedulerShardChange([]runtime2.SchedulerShardID{"a"}, []runtime2.SchedulerShardID{"a"}) {
+		parseT.Fatal("did not expect identical scheduler shard lists to report changes")
+	}
+	if !hasParallelRegionSchedulerShardChange([]runtime2.SchedulerShardID{"a"}, []runtime2.SchedulerShardID{"b"}) {
+		parseT.Fatal("expected different scheduler shard lists to report changes")
+	}
+}
+
+// TestBuildParallelRegionSourceSnapshotValidatesTrackingAndAvailability verifies declared source snapshots require tracked versions and available atoms.
+func TestBuildParallelRegionSourceSnapshotValidatesTrackingAndAvailability(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: mockdom.NewMockDOMAdapter(), Reset: true})
+	getEmptyValues, getEmptyVersions, parseEmptyErr := buildParallelRegionSourceSnapshot("dashboard.hot-panel:sources", nil)
+	if parseEmptyErr != nil {
+		parseT.Fatalf("buildParallelRegionSourceSnapshot(empty) returned error: %v", parseEmptyErr)
+	}
+	if len(getEmptyValues) != 0 || len(getEmptyVersions) != 0 {
+		parseT.Fatalf("empty source snapshot = values:%+v versions:%+v", getEmptyValues, getEmptyVersions)
+	}
+	if _, _, parseVersionErr := buildParallelRegionSourceSnapshot("dashboard.hot-panel:sources", []string{"count"}); parseVersionErr == nil {
+		parseT.Fatal("expected untracked input version to fail")
+	}
+	buildParallelRegionNextInputVersion("dashboard.hot-panel:sources")
+	if _, _, parseMissingErr := buildParallelRegionSourceSnapshot("dashboard.hot-panel:sources", []string{"count"}); parseMissingErr == nil {
+		parseT.Fatal("expected missing source atom to fail")
+	}
+	if parseSetErr := runtime.GetGlobalRuntime().SetAtomValue("count", 3); parseSetErr != nil {
+		parseT.Fatalf("SetAtomValue returned error: %v", parseSetErr)
+	}
+	if _, _, parseWhitespaceErr := buildParallelRegionSourceSnapshot("dashboard.hot-panel:sources", []string{" count "}); parseWhitespaceErr == nil {
+		parseT.Fatal("expected source IDs with surrounding whitespace to fail")
+	}
+	getSourceValues, getSourceVersions, parseSourceErr := buildParallelRegionSourceSnapshot("dashboard.hot-panel:sources", []string{"count"})
+	if parseSourceErr != nil {
+		parseT.Fatalf("buildParallelRegionSourceSnapshot(valid) returned error: %v", parseSourceErr)
+	}
+	if getSourceValues["count"] != 3 || getSourceVersions["count"] != 1 {
+		parseT.Fatalf("source snapshot = values:%+v versions:%+v", getSourceValues, getSourceVersions)
+	}
+}
+
+// TestBuildParallelRegionLocalNodeRejectsInvalidRendererShapes verifies renderer shape, props conversion, and non-node return handling.
+func TestBuildParallelRegionLocalNodeRejectsInvalidRendererShapes(parseT *testing.T) {
+	if _, parseCallErr := buildParallelRegionLocalNode(nil, nil); parseCallErr == nil {
+		parseT.Fatal("expected non-callable renderer to fail")
+	}
+	if _, parseArityErr := buildParallelRegionLocalNode(func() Node { return Text("bad") }, nil); parseArityErr == nil {
+		parseT.Fatal("expected zero-arg renderer to fail")
+	}
+	if _, parseReturnErr := buildParallelRegionLocalNode(func(parseProps registerParallelRegionProps) string { return parseProps.Label }, registerParallelRegionProps{Label: "bad"}); parseReturnErr == nil {
+		parseT.Fatal("expected non-node renderer return type to fail without panicking")
+	}
+	type renderParallelRegionAliasProps registerParallelRegionProps
+	getNode, parseNodeErr := buildParallelRegionLocalNode(func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}, renderParallelRegionAliasProps{Label: "converted"})
+	if parseNodeErr != nil {
+		parseT.Fatalf("buildParallelRegionLocalNode(convertible) returned error: %v", parseNodeErr)
+	}
+	if getNode == nil || getNode.TextContent != "converted" {
+		parseT.Fatalf("converted node = %+v, want text node", getNode)
+	}
+	getNilNode, parseNilErr := buildParallelRegionLocalNode(func(parseProps registerParallelRegionProps) Node {
+		return nil
+	}, registerParallelRegionProps{})
+	if parseNilErr != nil || getNilNode != nil {
+		parseT.Fatalf("nil renderer node = %+v err=%v, want nil,nil", getNilNode, parseNilErr)
+	}
+	if _, parseMismatchErr := buildParallelRegionLocalNode(func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}, "bad-props"); parseMismatchErr == nil {
+		parseT.Fatal("expected mismatched props type to fail")
+	}
+}
+
+// TestBuildParallelRegionWorkerBridgeCoversConversionBranches verifies worker render conversion handles shell, props, fragments, and unsupported nodes clearly.
+func TestBuildParallelRegionWorkerBridgeCoversConversionBranches(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+	runtime2.ResetCapabilityReport()
+	parseT.Cleanup(runtime2.ResetCapabilityReport)
+	getFallbackReport := buildParallelRegionWorkerCapabilityReport()
+	if !getFallbackReport.HasStructuredCloneSupport || !getFallbackReport.HasWorkerSupport {
+		parseT.Fatalf("fallback capability report = %+v, want structured-clone fallback", getFallbackReport)
+	}
+	if parseOverrideErr := runtime2.SetCapabilityReportOverride(runtime2.CapabilityReport{
+		HasWorkerSupport:          true,
+		HasBinaryTransportSupport: true,
+	}); parseOverrideErr != nil {
+		parseT.Fatalf("SetCapabilityReportOverride returned error: %v", parseOverrideErr)
+	}
+	getOverrideReport := buildParallelRegionWorkerCapabilityReport()
+	if !getOverrideReport.HasBinaryTransportSupport {
+		parseT.Fatalf("override capability report = %+v, want binary transport support", getOverrideReport)
+	}
+	getShellOutput, parseShellErr := buildParallelRegionWorkerShellOutput(nil)
+	if parseShellErr != nil {
+		parseT.Fatalf("buildParallelRegionWorkerShellOutput(nil) returned error: %v", parseShellErr)
+	}
+	getShellMap, hasShellMap := getShellOutput.(map[string]any)
+	if !hasShellMap || getShellMap["tag"] != "div" {
+		parseT.Fatalf("shell output = %#v, want div shell map", getShellOutput)
+	}
+	getButtonNode := runtime.CreateElement("button", map[string]interface{}{
+		"key":         "action-1",
+		"class":       "primary",
+		"children":    "ignored",
+		"data-testid": "cta",
+	}, Text("Click"))
+	getNodeOutput, parseNodeErr := buildParallelRegionWorkerNodeOutput(Node(getButtonNode))
+	if parseNodeErr != nil {
+		parseT.Fatalf("buildParallelRegionWorkerNodeOutput(host) returned error: %v", parseNodeErr)
+	}
+	getElementOutput, hasElementOutput := getNodeOutput.(map[string]any)
+	if !hasElementOutput || getElementOutput["tag"] != "button" || getElementOutput["key"] != "action-1" {
+		parseT.Fatalf("worker host output = %#v", getNodeOutput)
+	}
+	getFragmentOutput, parseFragmentErr := buildParallelRegionWorkerNodeOutput(Fragment(Text("One"), Text("Two")))
+	if parseFragmentErr != nil {
+		parseT.Fatalf("buildParallelRegionWorkerNodeOutput(fragment) returned error: %v", parseFragmentErr)
+	}
+	getFragmentMap, hasFragmentMap := getFragmentOutput.(map[string]any)
+	if !hasFragmentMap || getFragmentMap["kind"] != "fragment" {
+		parseT.Fatalf("worker fragment output = %#v", getFragmentOutput)
+	}
+	if _, parsePortalErr := buildParallelRegionWorkerNodeOutput(&runtime.Element{Type: runtime.PortalNodeType}); parsePortalErr == nil {
+		parseT.Fatal("expected portal node conversion to fail")
+	}
+	if _, parseReactiveRegionErr := buildParallelRegionWorkerNodeOutput(&runtime.Element{Type: runtime.ReactiveRegionNodeType}); parseReactiveRegionErr == nil {
+		parseT.Fatal("expected reactive-region node conversion to fail")
+	}
+	if _, parseReactiveTextErr := buildParallelRegionWorkerNodeOutput(&runtime.Element{Type: runtime.ReactiveTextNodeType}); parseReactiveTextErr == nil {
+		parseT.Fatal("expected reactive-text node conversion to fail")
+	}
+	if _, parseUnknownErr := buildParallelRegionWorkerNodeOutput(&runtime.Element{Type: 123}); parseUnknownErr == nil {
+		parseT.Fatal("expected unknown node conversion to fail")
+	}
+	getChildrenOutput, parseChildrenErr := buildParallelRegionWorkerChildrenOutput([]interface{}{nil, Text("One"), "Two"})
+	if parseChildrenErr != nil {
+		parseT.Fatalf("buildParallelRegionWorkerChildrenOutput(valid) returned error: %v", parseChildrenErr)
+	}
+	if len(getChildrenOutput) != 2 {
+		parseT.Fatalf("worker children output count = %d, want 2", len(getChildrenOutput))
+	}
+	if _, parseChildTypeErr := buildParallelRegionWorkerChildrenOutput([]interface{}{1}); parseChildTypeErr == nil {
+		parseT.Fatal("expected unsupported child type to fail")
+	}
+	if _, _, parseKeyErr := buildParallelRegionWorkerPropsOutput(map[string]interface{}{"key": 7}); parseKeyErr == nil {
+		parseT.Fatal("expected non-string worker key prop to fail")
+	}
+}
+
+// TestBuildParallelRegionWorkerRenderOutputAndUpdateEdgeBranches verifies worker render recache, no-schedule updates, nil adapters, and missing scheduled snapshots.
+func TestBuildParallelRegionWorkerRenderOutputAndUpdateEdgeBranches(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+	getRenderOutput, parseRenderErr := buildParallelRegionWorkerRenderOutput(
+		"dashboard.hot-panel:worker-recache",
+		"dashboard.hot-panel",
+		registerParallelRegionProps{Label: "Worker"},
+		&runtime2.EventSlotDispatch{SlotID: "primary.action", EventType: parallelRegionClickEventType},
+	)
+	if parseRenderErr != nil {
+		parseT.Fatalf("buildParallelRegionWorkerRenderOutput(recache) returned error: %v", parseRenderErr)
+	}
+	if getRenderOutput == nil {
+		parseT.Fatal("expected worker render output after event-slot recache")
+	}
+	getRuntimeSpec, parseRuntimeSpecErr := buildParallelRegionRuntimeSpec(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:update-branches",
+		Props:            registerParallelRegionProps{Label: "One"},
+	})
+	if parseRuntimeSpecErr != nil {
+		parseT.Fatalf("buildParallelRegionRuntimeSpec returned error: %v", parseRuntimeSpecErr)
+	}
+	getHostAdapter, parseHostAdapterErr := runtime2.BuildHostRegionAdapter(getRuntimeSpec.RegionInstanceID, []runtime2.SchedulerShardID{"ui-parallel-region"})
+	if parseHostAdapterErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseHostAdapterErr)
+	}
+	if _, parseMountErr := getHostAdapter.HandleHostRegionMount(getRuntimeSpec, 1); parseMountErr != nil {
+		parseT.Fatalf("HandleHostRegionMount returned error: %v", parseMountErr)
+	}
+	getRenderedNode, parseNodeErr := buildParallelRegionLocalNode(func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}, getRuntimeSpec.Props)
+	if parseNodeErr != nil {
+		parseT.Fatalf("buildParallelRegionLocalNode returned error: %v", parseNodeErr)
+	}
+	storeParallelRegionRenderedNode(getRuntimeSpec.RegionInstanceID, getRenderedNode)
+	getInputVersion := buildParallelRegionNextInputVersion(getRuntimeSpec.RegionInstanceID)
+	if parseMountErr := handleParallelRegionWorkerMount(getHostAdapter, getRuntimeSpec, getInputVersion); parseMountErr != nil {
+		parseT.Fatalf("handleParallelRegionWorkerMount returned error: %v", parseMountErr)
+	}
+	if parseUpdateErr := handleParallelRegionWorkerUpdate(getHostAdapter, getRuntimeSpec, getInputVersion, runtime2.HostRegionUpdateDispatchTransportResult{}); parseUpdateErr != nil {
+		parseT.Fatalf("handleParallelRegionWorkerUpdate(no-schedule) returned error: %v", parseUpdateErr)
+	}
+	if parseUpdateErr := handleParallelRegionWorkerUpdate(nil, getRuntimeSpec, getInputVersion, runtime2.HostRegionUpdateDispatchTransportResult{}); parseUpdateErr == nil {
+		parseT.Fatal("expected nil host adapter update to fail")
+	}
+	if parseUpdateErr := handleParallelRegionWorkerUpdate(getHostAdapter, getRuntimeSpec, getInputVersion, runtime2.HostRegionUpdateDispatchTransportResult{
+		GetDispatchResult: runtime2.HostRegionUpdateDispatchResult{HasScheduled: true},
+	}); parseUpdateErr == nil {
+		parseT.Fatal("expected missing scheduled snapshot to fail")
+	}
+	if _, parseDispatchErr := handleParallelRegionUpdateDispatch(nil, getRuntimeSpec, getInputVersion); parseDispatchErr == nil {
+		parseT.Fatal("expected nil host adapter dispatch to fail")
+	}
+}
+
+// TestParallelRegionStatusAndSourceLookupHelpers verifies the remaining public helper adapters preserve cloned source IDs, source lookups, and status projections.
+func TestParallelRegionStatusAndSourceLookupHelpers(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: mockdom.NewMockDOMAdapter(), Reset: true})
+	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("status", "ready"); parseErr != nil {
+		parseT.Fatalf("SetAtomValue returned error: %v", parseErr)
+	}
+	getReactiveSource := parallelRegionReactiveSource{getSourceIDs: []string{"status"}}
+	getSourceIDs := getReactiveSource.ReactiveRegionSourceIDs()
+	if !reflect.DeepEqual(getSourceIDs, []string{"status"}) {
+		parseT.Fatalf("ReactiveRegionSourceIDs = %+v, want [status]", getSourceIDs)
+	}
+	getSourceIDs[0] = "mutated"
+	if !reflect.DeepEqual(getReactiveSource.ReactiveRegionSourceIDs(), []string{"status"}) {
+		parseT.Fatalf("ReactiveRegionSourceIDs should return a clone, got %+v", getReactiveSource.ReactiveRegionSourceIDs())
+	}
+	buildParallelRegionNextInputVersion("dashboard.hot-panel:lookup")
+	getLookup := buildParallelRegionSourceLookup("dashboard.hot-panel:lookup")
+	getSourceValues, getSourceVersions, parseLookupErr := getLookup([]string{"status"})
+	if parseLookupErr != nil {
+		parseT.Fatalf("source lookup returned error: %v", parseLookupErr)
+	}
+	if getSourceValues["status"] != "ready" || getSourceVersions["status"] != 1 {
+		parseT.Fatalf("source lookup = values:%+v versions:%+v", getSourceValues, getSourceVersions)
+	}
+	getProjectedStatus := buildParallelRegionStatus(runtime2.HostRegionRuntimeStatus{
+		GetRegionInstanceID:            "dashboard.hot-panel:lookup",
+		GetRegionMode:                  runtime2.HostRegionRuntimeModeWorkerAttached,
+		GetAssignedWorkerShard:         "worker-1",
+		GetRendererID:                  "dashboard.hot-panel",
+		GetEpoch:                       4,
+		GetIsHydrationComplete:         true,
+		HasHydratedShellAnchor:         true,
+		HasPostHydrationAttached:       true,
+		GetLastSnapshotVersion:         5,
+		GetLastDispatchedVersion:       5,
+		GetLastCommittedVersion:        5,
+		GetTransportTier:               runtime2.TransportTierBinary,
+		GetDroppedStalePatchCount:      2,
+		GetIgnoredStaleDiagnosticCount: 1,
+		GetFallbackReason:              "none",
+	})
+	if getProjectedStatus.GetRegionInstanceID != "dashboard.hot-panel:lookup" || getProjectedStatus.GetTransportTier != string(runtime2.TransportTierBinary) {
+		parseT.Fatalf("projected status = %+v", getProjectedStatus)
+	}
+	getRuntimeSpec, parseRuntimeSpecErr := buildParallelRegionRuntimeSpec(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:status-helper",
+		Props:            registerParallelRegionProps{Label: "Status"},
+	})
+	if parseRuntimeSpecErr != nil {
+		parseT.Fatalf("buildParallelRegionRuntimeSpec returned error: %v", parseRuntimeSpecErr)
+	}
+	getHostAdapter, parseHostAdapterErr := runtime2.BuildHostRegionAdapter(getRuntimeSpec.RegionInstanceID, []runtime2.SchedulerShardID{"ui-parallel-region"})
+	if parseHostAdapterErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseHostAdapterErr)
+	}
+	if _, parseMountErr := getHostAdapter.HandleHostRegionMount(getRuntimeSpec, 1); parseMountErr != nil {
+		parseT.Fatalf("HandleHostRegionMount returned error: %v", parseMountErr)
+	}
+	storeParallelRegionAdapterMu.Lock()
+	cacheParallelRegionAdapterByID[getRuntimeSpec.RegionInstanceID] = getHostAdapter
+	storeParallelRegionAdapterMu.Unlock()
+	getStatus, hasStatus, parseStatusErr := GetParallelRegionRuntimeStatus("dashboard.hot-panel:status-helper")
+	if parseStatusErr != nil {
+		parseT.Fatalf("GetParallelRegionRuntimeStatus returned error: %v", parseStatusErr)
+	}
+	if !hasStatus || getStatus.GetRegionInstanceID != "dashboard.hot-panel:status-helper" {
+		parseT.Fatalf("runtime status = %+v hasStatus=%t", getStatus, hasStatus)
+	}
+}

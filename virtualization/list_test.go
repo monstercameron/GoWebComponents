@@ -1,3 +1,6 @@
+//go:build !js || !wasm
+// +build !js !wasm
+
 package virtualization
 
 import (
@@ -12,6 +15,13 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
+// buildListTestNode renders List through a component wrapper so list tests stay within a valid hook context on both native and wasm targets.
+func buildListTestNode[T any](parseProps ListProps[T]) ui.Node {
+	return ui.CreateElement(func() ui.Node {
+		return List(parseProps)
+	})
+}
+
 func setInteropElementField(parseT *testing.T, parseElement *interop.Element, parseField string, parseValue interface{}) {
 	parseT.Helper()
 	parseStructValue := reflect.ValueOf(parseElement).Elem()
@@ -25,7 +35,7 @@ func setInteropElementField(parseT *testing.T, parseElement *interop.Element, pa
 func TestListRendersRowsAndEmptyState(parseT *testing.T) {
 	parseRows := []string{"a", "b", "c"}
 	parseDiagnosticCalls := 0
-	parseNode := List(ListProps[string]{
+	parseNode := buildListTestNode(ListProps[string]{
 		ID:         "list-a",
 		Items:      parseRows,
 		Height:     120,
@@ -56,7 +66,7 @@ func TestListRendersRowsAndEmptyState(parseT *testing.T) {
 		parseT.Fatalf("expected no viewport diagnostics in native SSR path, got %d", parseDiagnosticCalls)
 	}
 
-	parseAccessibleMarkup, parseErr := ui.RenderToString(List(ListProps[string]{
+	parseAccessibleMarkup, parseErr := ui.RenderToString(buildListTestNode(ListProps[string]{
 		OuterProps: html.Props{
 			ID:    "list-accessible",
 			Role:  "listbox",
@@ -94,7 +104,7 @@ func TestListRendersRowsAndEmptyState(parseT *testing.T) {
 		}
 	}
 
-	parseEmptyMarkup, parseErr := ui.RenderToString(List(ListProps[string]{
+	parseEmptyMarkup, parseErr := ui.RenderToString(buildListTestNode(ListProps[string]{
 		ID:        "list-empty",
 		Items:     nil,
 		Height:    120,
@@ -175,6 +185,17 @@ func TestListHelpersAndRestorationSnapshot(parseT *testing.T) {
 			ItemKey:   func(parseItem5 string) string { return parseItem5 },
 		})
 	})
+	if _, parseErr := ui.RenderToString(buildListTestNode(ListProps[string]{
+		ID:        "x",
+		Items:     []string{"a"},
+		Height:    100,
+		RowHeight: 20,
+		Overscan:  -1,
+		ItemKey:   func(parseItem6 string) string { return parseItem6 },
+		RenderRow: func(RowRenderProps[string]) ui.Node { return nil },
+	})); parseErr == nil || !strings.Contains(parseErr.Error(), "overscan") {
+		parseT.Fatalf("expected overscan render error, got %v", parseErr)
+	}
 
 	parseR := clampRange(Range{Start: -3, End: 20}, 5)
 	if parseR.Start != 0 || parseR.End != 5 {
@@ -270,12 +291,14 @@ func TestRenderRowsHelperHandlesEmptyAndPopulatedRanges(parseT *testing.T) {
 		parseT.Fatalf("expected empty rendered range to produce no rows, got %d", len(parseRows))
 	}
 
-	parseRows = renderRows(Range{Start: 0, End: 2}, Range{Start: 0, End: 1}, []string{"a", "b"}, 20, func(parseItem2 string) string {
-		return "key-" + parseItem2
-	}, func(parseProps RowRenderProps[string]) ui.Node {
-		return html.Div(html.Props{}, html.Text(parseProps.Key))
-	}, nil, nil)
-	parseMarkup, parseErr := ui.RenderToString(html.Div(html.Props{}, parseRows...))
+	parseMarkup, parseErr := ui.RenderToString(ui.CreateElement(func() ui.Node {
+		parseRows2 := renderRows(Range{Start: 0, End: 2}, Range{Start: 0, End: 1}, []string{"a", "b"}, 20, func(parseItem2 string) string {
+			return "key-" + parseItem2
+		}, func(parseProps RowRenderProps[string]) ui.Node {
+			return html.Div(html.Props{}, html.Text(parseProps.Key))
+		}, nil, nil)
+		return html.Div(html.Props{}, parseRows2...)
+	}))
 	if parseErr != nil {
 		parseT.Fatalf("render helper rows markup: %v", parseErr)
 	}

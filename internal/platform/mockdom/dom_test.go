@@ -151,6 +151,64 @@ func TestMockDOMAdapterHandlesNonMockNodesAndNodeEquality(parseT *testing.T) {
 	}
 }
 
+// TestMockDOMAdapterQueriesAttributesAndPropertyAliases covers selector lookup plus attribute and property aliases used by runtime tests.
+func TestMockDOMAdapterQueriesAttributesAndPropertyAliases(parseT *testing.T) {
+	parseAdapter := NewMockDOMAdapter()
+	parseRoot := parseAdapter.CreateElement("div")
+	parseLabel := parseAdapter.CreateElement("label")
+	parseTarget := parseAdapter.CreateElement("section")
+
+	parseAdapter.SetAttribute(parseLabel, "for", "email")
+	parseAdapter.SetAttribute(parseTarget, "id", " hero ")
+	parseAdapter.SetAttribute(parseTarget, "data-role", "banner")
+	parseAdapter.AppendChild(parseRoot, parseLabel)
+	parseAdapter.AppendChild(parseRoot, parseTarget)
+
+	if parseGot := parseAdapter.GetAttribute(parseTarget, "data-role"); parseGot != "banner" {
+		parseT.Fatalf("expected data-role attribute, got %q", parseGot)
+	}
+	if parseGot2 := parseAdapter.GetProperty(parseLabel, "htmlFor"); parseGot2 != "email" {
+		parseT.Fatalf("expected htmlFor alias to mirror for attr, got %#v", parseGot2)
+	}
+	if parseGot3 := parseAdapter.GetProperty(parseTarget, "tagName"); parseGot3 != "section" {
+		parseT.Fatalf("expected tagName alias to mirror tag, got %#v", parseGot3)
+	}
+	if parseGot4 := parseAdapter.GetProperty(parseTarget, "nodeName"); parseGot4 != "section" {
+		parseT.Fatalf("expected nodeName alias to mirror tag, got %#v", parseGot4)
+	}
+	if parseGot5 := parseAdapter.GetProperty(parseTarget, "data-role"); parseGot5 != "banner" {
+		parseT.Fatalf("expected GetProperty to fall back to attributes, got %#v", parseGot5)
+	}
+	if parseGot6 := parseAdapter.QuerySelector("  #hero "); parseGot6 != parseTarget {
+		parseT.Fatalf("expected id selector to resolve target node, got %#v", parseGot6)
+	}
+	if parseGot7 := parseAdapter.QuerySelector(" section "); parseGot7 != parseTarget {
+		parseT.Fatalf("expected tag selector to resolve target node, got %#v", parseGot7)
+	}
+	if parseGot8 := parseAdapter.QuerySelector("   "); parseGot8 != nil {
+		parseT.Fatalf("expected blank selector to return nil, got %#v", parseGot8)
+	}
+	if parseGot9 := parseAdapter.QuerySelector("#   "); parseGot9 != nil {
+		parseT.Fatalf("expected blank id selector to return nil, got %#v", parseGot9)
+	}
+	if parseGot10 := parseAdapter.QuerySelector("#missing"); parseGot10 != nil {
+		parseT.Fatalf("expected missing id selector to return nil, got %#v", parseGot10)
+	}
+	if parseGot11 := parseAdapter.QuerySelector("article"); parseGot11 != nil {
+		parseT.Fatalf("expected missing tag selector to return nil, got %#v", parseGot11)
+	}
+
+	parseAdapter.RemoveAttribute(parseTarget, "data-role")
+	if parseGot12 := parseAdapter.GetAttribute(parseTarget, "data-role"); parseGot12 != "" {
+		parseT.Fatalf("expected removed attribute to read back empty, got %q", parseGot12)
+	}
+
+	var parseNilNode *MockDOMNode
+	if !parseNilNode.Equals(nil) {
+		parseT.Fatal("expected nil mock node to compare equal to nil runtime node")
+	}
+}
+
 func TestMockDOMAdapterConcurrentOperationCapture(parseT *testing.T) {
 	parseAdapter := NewMockDOMAdapter()
 	parseParent := parseAdapter.CreateElement("div")
