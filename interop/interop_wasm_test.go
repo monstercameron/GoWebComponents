@@ -1768,10 +1768,7 @@ func TestNavigatorClipboardAwaitingPromise(parseT *testing.T) {
 		parseClipboard := js.Global().Get("Object").New()
 		parseWriteTextFn2 := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
 			parseExecutor := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
-				parseResolve := parseArgs6[0]
-				scheduleBrowserTask(&parseFuncs, func() {
-					parseResolve.Invoke(js.Undefined())
-				})
+				_ = parseArgs6
 				return nil
 			})
 			parseFuncs = append(parseFuncs, parseExecutor)

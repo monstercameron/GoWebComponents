@@ -12,8 +12,6 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
-var hotReloadEnabled bool
-
 // isDebugBuild returns false for production builds
 // This allows the compiler to completely eliminate debug calls
 func isDebugBuild() bool {
@@ -140,6 +138,11 @@ func WriteConsoleStructured(parseLevel, parseScope, parseMessage string, parseFi
 		parseEntry["scope"] = parseScope
 	}
 	for parseKey, parseValue := range parseFields {
+		// Preserve the envelope keys so downstream tooling can rely on a stable message/scope shape.
+		if parseKey == "message" || parseKey == "scope" {
+			parseEntry["field_"+parseKey] = parseValue
+			continue
+		}
 		parseEntry[parseKey] = parseValue
 	}
 	if _, parseErr2 := parseConsole.Call(parseNormalizedLevel, parseEntry); parseErr2 == nil {

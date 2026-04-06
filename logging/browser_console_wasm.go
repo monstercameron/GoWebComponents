@@ -76,10 +76,11 @@ func AttachBrowserConsole(parseOptions BrowserConsoleOptions) func() {
 			}
 			parseEvent := parseArgs4[0]
 			parseLogger.Error("window error", Fields{
-				"message": valueOrEmpty(parseEvent.Get("message").String()),
-				"source":  valueOrEmpty(parseEvent.Get("filename").String()),
-				"line":    safeNumber(parseEvent.Get("lineno")),
-				"column":  safeNumber(parseEvent.Get("colno")),
+				// Keep the structured event payload distinct from the top-level log message.
+				"errorMessage": valueOrEmpty(parseEvent.Get("message").String()),
+				"source":       valueOrEmpty(parseEvent.Get("filename").String()),
+				"line":         safeNumber(parseEvent.Get("lineno")),
+				"column":       safeNumber(parseEvent.Get("colno")),
 			})
 		}))
 	}

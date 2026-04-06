@@ -341,37 +341,9 @@ func GetDocument() (Document, error) {
 }
 
 var (
-	storageGetManyHelperOnce sync.Once
-	storageGetManyHelper     js.Value
 	documentByIDHelperOnce   sync.Once
 	documentByIDHelper       js.Value
 )
-
-func storageGetMany(parseRaw js.Value, parseKeys []string) map[string]string {
-	storageGetManyHelperOnce.Do(func() {
-		storageGetManyHelper = js.Global().Get("Function").New("storage", "keys", `
-			const result = {};
-			for (const key of keys) {
-				const value = storage.getItem(key);
-				if (value !== null && value !== undefined) {
-					result[key] = value;
-				}
-			}
-			return result;
-		`)
-	})
-	parseValues := storageGetManyHelper.Invoke(parseRaw, stringArrayValue(parseKeys))
-	if parseValues.IsUndefined() || parseValues.IsNull() {
-		return map[string]string{}
-	}
-	parseResult := make(map[string]string, len(parseKeys))
-	parseObjectKeys := js.Global().Get("Object").Call("keys", parseValues)
-	for parseIndex := 0; parseIndex < parseObjectKeys.Get("length").Int(); parseIndex++ {
-		parseKey := parseObjectKeys.Index(parseIndex).String()
-		parseResult[parseKey] = parseValues.Get(parseKey).String()
-	}
-	return parseResult
-}
 
 func documentElementsByID(parseRaw js.Value, parseIds []string) map[string]js.Value {
 	documentByIDHelperOnce.Do(func() {

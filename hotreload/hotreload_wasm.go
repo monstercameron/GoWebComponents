@@ -217,29 +217,34 @@ func installBridge(parseConfig Config) {
 		return
 	}
 
-	exportSub, parseErr = parseBridge.SetFunction("captureSnapshot", func(parseArgs ...interop.Value) any {
+	parseRegisterBridgeFunction := func(parseName string, parseHandler func(...interop.Value) any, parseSubscription *interop.Subscription) bool {
+		parseRegistered, parseSetErr := parseBridge.SetFunction(parseName, parseHandler)
+		if parseSetErr != nil {
+			uninstallBridge()
+			return false
+		}
+		*parseSubscription = parseRegistered
+		return true
+	}
+
+	if !parseRegisterBridgeFunction("captureSnapshot", func(parseArgs ...interop.Value) any {
 		parsePayload, parseErr3 := GetSnapshot()
 		if parseErr3 != nil {
 			return ""
 		}
 		return parsePayload
-	})
-	if parseErr != nil {
-		_ = parseGlobal.Delete(appBridgeGlobal)
+	}, &exportSub) {
 		return
 	}
 
-	prepareSub, parseErr = parseBridge.SetFunction("prepare", func(parseArgs2 ...interop.Value) any {
+	if !parseRegisterBridgeFunction("prepare", func(parseArgs2 ...interop.Value) any {
 		Prepare()
 		return nil
-	})
-	if parseErr != nil {
-		exportSub.Cancel()
-		_ = parseGlobal.Delete(appBridgeGlobal)
+	}, &prepareSub) {
 		return
 	}
 
-	importSub, parseErr = parseBridge.SetFunction("restoreSnapshot", func(parseArgs3 ...interop.Value) any {
+	if !parseRegisterBridgeFunction("restoreSnapshot", func(parseArgs3 ...interop.Value) any {
 		if len(parseArgs3) == 0 || !parseArgs3[0].Present() {
 			parseResult := hotReloadRestoreResult{Outcome: "skipped-empty", Message: "No hot reload snapshot was available to restore."}
 			lastRestoreResult = parseResult
@@ -249,6 +254,9 @@ func installBridge(parseConfig Config) {
 			}
 		}
 		parseResult2, parseErr4 := importSnapshot(parseArgs3[0].String())
+		if strings.HasPrefix(parseResult2.Outcome, "restored") {
+			parseResult2.Diagnostics = hotReloadDiagnostics()
+		}
 		parseResponse := map[string]any{
 			"outcome": parseResult2.Outcome,
 			"message": parseResult2.Message,
@@ -260,51 +268,29 @@ func installBridge(parseConfig Config) {
 			parseResponse["error"] = parseErr4.Error()
 		}
 		return parseResponse
-	})
-	if parseErr != nil {
-		exportSub.Cancel()
-		prepareSub.Cancel()
-		_ = parseGlobal.Delete(appBridgeGlobal)
+	}, &importSub) {
 		return
 	}
 
-	getLastRestoreResultSub, parseErr = parseBridge.SetFunction("getLastRestoreResult", func(parseArgs4 ...interop.Value) any {
+	if !parseRegisterBridgeFunction("getLastRestoreResult", func(parseArgs4 ...interop.Value) any {
 		return map[string]any{
 			"outcome":     lastRestoreResult.Outcome,
 			"message":     lastRestoreResult.Message,
 			"diagnostics": lastRestoreResult.Diagnostics,
 		}
-	})
-	if parseErr != nil {
-		exportSub.Cancel()
-		prepareSub.Cancel()
-		importSub.Cancel()
-		_ = parseGlobal.Delete(appBridgeGlobal)
+	}, &getLastRestoreResultSub) {
 		return
 	}
 
-	getDiagnosticsSub, parseErr = parseBridge.SetFunction("getHotReloadDiagnostics", func(parseArgs5 ...interop.Value) any {
+	if !parseRegisterBridgeFunction("getHotReloadDiagnostics", func(parseArgs5 ...interop.Value) any {
 		return hotReloadDiagnostics()
-	})
-	if parseErr != nil {
-		exportSub.Cancel()
-		prepareSub.Cancel()
-		importSub.Cancel()
-		getLastRestoreResultSub.Cancel()
-		_ = parseGlobal.Delete(appBridgeGlobal)
+	}, &getDiagnosticsSub) {
 		return
 	}
 
-	getActivitySub, parseErr = parseBridge.SetFunction("getHotReloadActivity", func(parseArgs6 ...interop.Value) any {
+	if !parseRegisterBridgeFunction("getHotReloadActivity", func(parseArgs6 ...interop.Value) any {
 		return hotReloadActivity()
-	})
-	if parseErr != nil {
-		exportSub.Cancel()
-		prepareSub.Cancel()
-		importSub.Cancel()
-		getLastRestoreResultSub.Cancel()
-		getDiagnosticsSub.Cancel()
-		_ = parseGlobal.Delete(appBridgeGlobal)
+	}, &getActivitySub) {
 		return
 	}
 
