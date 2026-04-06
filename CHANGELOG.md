@@ -2,6 +2,36 @@
 
 ## 2026-04-06
 
+### browser compatibility workflow checkout
+
+- Updated `.github/workflows/browser-compatibility.yml` to fetch submodules recursively so CI jobs that depend on the pinned `third_party/GoGRPCBridge` checkout can resolve modules and compile the browser suite.
+
+### core runtime state and virtualization coverage cleanup
+
+- Fixed a public `ui.ParallelRegion(...)` panic path by guarding `reflect.Value.IsNil()` behind nilable-kind checks.
+- Fixed mixed keyed and unkeyed child reordering in `internal/runtime/` so reused DOM nodes are moved into their committed sibling order instead of being left in stale positions.
+- Split browser-only virtualization helpers into focused native and wasm files, normalized persisted restoration JSON keys to `scrollTop` and `anchorKey`, and expanded `state`, `virtualization`, and `mockdom` coverage around the repaired paths.
+
+### runtime2 coverage and patch helper hardening
+
+- Fixed `internal/runtime2` style canonicalization so map-backed styles normalize the same way as equivalent string styles, including trimmed scalar values.
+- Added broad regression coverage across runtime2 patch-building, snapshot hashing, host-region, recovery, and transport helpers so the remaining low files in `internal/runtime2/` clear the per-file coverage floor.
+
+### fetch native coverage and cache correctness
+
+- Split browser-only fetch and upload transport code out of `fetch/fetch.go` into focused wasm and native files so shared cache and mutation logic is testable off-wasm.
+- Fixed stale cached-resource handle mutations after disposal or replacement, canceled in-flight loads before optimistic cache updates, retried persistent cache-store opens after failures, honored `DeleteOnCorruption`, and treated nil response bodies as empty text instead of `"<nil>"`.
+
+### browser support coverage and interop guards
+
+- Removed unused browser-storage batching code from `interop/interop_wasm.go` and aligned the wasm tests with native JavaScript throw behavior instead of Go callback panics.
+- Hardened hot-reload bridge registration cleanup, preserved structured console envelope keys under collisions, clarified browser console window-error field names, and expanded `devtools`, `router`, `logging`, `hotreload`, `i18n`, `interop`, and `utils` wasm coverage.
+
+### pwa promise guards and wasm coverage
+
+- Fixed `pwa` service worker, cache storage, and installability await helpers so primitive browser return values no longer panic when inspected for promise methods under `syscall/js`.
+- Added focused GoDocs and intent comments to the repaired `pwa` browser helpers and expanded wasm coverage for service worker lifecycle, cache diagnostics, and installability error handling.
+
 ### repository navigation refresh
 
 - Added a human-first repository map in `docs/REPO_MAP.md` and linked it from the root README and docs index.
