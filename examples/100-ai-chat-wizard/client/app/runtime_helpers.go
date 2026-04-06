@@ -60,6 +60,11 @@ func parseBuildMarkdownSourceKey(parseSourceBytes []byte) string {
 	return string(parseSourceBytes)
 }
 
+// parseShouldRefreshWorkerDerivedSignature reports whether one worker-derived view should refresh for the current signature.
+func parseShouldRefreshWorkerDerivedSignature(parseCurrentSignature string, parseAppliedSignature string) bool {
+	return parseCurrentSignature != parseAppliedSignature
+}
+
 // parseResolveBackgroundRenderRequester selects one request-capable worker target and the desired worker-lane count.
 func parseResolveBackgroundRenderRequester(parseMarkdownWorkerRef ui.Ref[*interop.Worker], parseMarkdownWorkerPoolRef ui.Ref[*interop.WorkerPool]) (interop.WorkerRequester, int) {
 	if parsePool := parseMarkdownWorkerPoolRef.Get(); parsePool != nil {
@@ -93,9 +98,47 @@ func parseBuildAssistantMessageMetadataItems(parseMessages []message) []renderWo
 			GetMessageIndex: parseMessageIndex,
 			GetContentBytes: parseContentBytes,
 			GetThoughtBytes: parseThoughtBytes,
+			GetContentText:  parseMessageItem.Content,
+			GetThoughtText:  parseMessageItem.Thought,
 		})
 	}
 	return parseItems
+}
+
+// parseBuildAssistantMessageMetadataDelta filters worker metadata requests down to changed assistant messages while retaining valid cache entries.
+func parseBuildAssistantMessageMetadataDelta(parseMessages []message, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry) ([]renderWorkerMessageMetadataMessageRequest, map[int]renderWorkerThoughtCacheEntry, map[int]renderWorkerCanvasCacheEntry) {
+	parseItems := make([]renderWorkerMessageMetadataMessageRequest, 0, len(parseMessages))
+	parseRetainedThoughtCacheByMessage := make(map[int]renderWorkerThoughtCacheEntry, len(parseMessages))
+	parseRetainedCanvasCacheByMessage := make(map[int]renderWorkerCanvasCacheEntry, len(parseMessages))
+	for parseMessageIndex, parseMessageItem := range parseMessages {
+		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
+			continue
+		}
+		parseContentText := parseMessageItem.Content
+		parseThoughtText := parseMessageItem.Thought
+		parseThoughtCacheEntry, hasParseThoughtCacheEntry := parseThoughtCacheByMessage[parseMessageIndex]
+		parseCanvasCacheEntry, hasParseCanvasCacheEntry := parseCanvasCacheByMessage[parseMessageIndex]
+		if hasParseThoughtCacheEntry && hasParseCanvasCacheEntry &&
+			parseThoughtCacheEntry.GetThoughtText == parseThoughtText &&
+			parseCanvasCacheEntry.GetContentText == parseContentText {
+			parseRetainedThoughtCacheByMessage[parseMessageIndex] = parseThoughtCacheEntry
+			parseRetainedCanvasCacheByMessage[parseMessageIndex] = parseCanvasCacheEntry
+			continue
+		}
+		parseContentBytes := []byte(parseContentText)
+		parseThoughtBytes := []byte(parseThoughtText)
+		if len(parseContentBytes) == 0 && len(parseThoughtBytes) == 0 {
+			continue
+		}
+		parseItems = append(parseItems, renderWorkerMessageMetadataMessageRequest{
+			GetMessageIndex: parseMessageIndex,
+			GetContentBytes: parseContentBytes,
+			GetThoughtBytes: parseThoughtBytes,
+			GetContentText:  parseContentText,
+			GetThoughtText:  parseThoughtText,
+		})
+	}
+	return parseItems, parseRetainedThoughtCacheByMessage, parseRetainedCanvasCacheByMessage
 }
 
 // parseBuildAssistantMessageMetadataWeights estimates chunking work weights from content and thought payload lengths.
@@ -109,6 +152,25 @@ func parseBuildAssistantMessageMetadataWeights(parseItems []renderWorkerMessageM
 		parseWeights = append(parseWeights, parseWeight)
 	}
 	return parseWeights
+}
+
+// parseBuildAssistantMessageMetadataFallback derives worker metadata synchronously for the requested assistant-message items.
+func parseBuildAssistantMessageMetadataFallback(parseItems []renderWorkerMessageMetadataMessageRequest) (map[int]renderWorkerThoughtCacheEntry, map[int]renderWorkerCanvasCacheEntry) {
+	parseThoughtCacheByMessage := make(map[int]renderWorkerThoughtCacheEntry, len(parseItems))
+	parseCanvasCacheByMessage := make(map[int]renderWorkerCanvasCacheEntry, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseContentText := parseResolveAssistantMessageMetadataContentText(parseItem)
+		parseThoughtText := parseResolveAssistantMessageMetadataThoughtText(parseItem)
+		parseThoughtCacheByMessage[parseItem.GetMessageIndex] = renderWorkerThoughtCacheEntry{
+			GetThoughtText: parseThoughtText,
+			GetSection:     parseThoughtSections(parseItem.GetMessageIndex, parseThoughtText),
+		}
+		parseCanvasCacheByMessage[parseItem.GetMessageIndex] = renderWorkerCanvasCacheEntry{
+			GetContentText: parseContentText,
+			GetArtifact:    canvasArtifactsFromMarkdown(parseItem.GetMessageIndex, parseContentText),
+		}
+	}
+	return parseThoughtCacheByMessage, parseCanvasCacheByMessage
 }
 
 // parseBuildRenderWorkerRequesterList builds one lane-indexable requester list for batched fan-out APIs.
@@ -133,6 +195,7 @@ func parseRequestAssistantMessageMetadata(parseCtx context.Context, parseRequest
 	if len(parseItems) == 0 {
 		return parseThoughtCacheByMessage, parseCanvasCacheByMessage, nil
 	}
+	parseTextByIndex := parseBuildAssistantMessageMetadataTextByIndex(parseItems)
 	parseWorkerCount := parseBatchCount
 	if parseWorkerCount < 1 {
 		parseWorkerCount = 1
@@ -175,17 +238,79 @@ func parseRequestAssistantMessageMetadata(parseCtx context.Context, parseRequest
 	}
 	for _, parseChunkResult := range parseChunkResults {
 		for _, parseMessageResult := range parseChunkResult.GetMessage {
+			parseMessageText := parseLookupAssistantMessageMetadataText(parseTextByIndex, parseMessageResult.GetMessageIndex)
 			parseThoughtCacheByMessage[parseMessageResult.GetMessageIndex] = renderWorkerThoughtCacheEntry{
-				GetThoughtText: string(parseMessageResult.GetThoughtBytes),
+				GetThoughtText: parseMessageText.GetThoughtText,
 				GetSection:     parseBuildThoughtSectionResultsFromWorker(parseMessageResult.GetMessageIndex, parseMessageResult.GetThoughtSection),
 			}
 			parseCanvasCacheByMessage[parseMessageResult.GetMessageIndex] = renderWorkerCanvasCacheEntry{
-				GetContentText: string(parseMessageResult.GetContentBytes),
+				GetContentText: parseMessageText.GetContentText,
 				GetArtifact:    parseBuildCanvasArtifactResultsFromWorker(parseMessageResult.GetMessageIndex, parseMessageResult.GetCanvasArtifact),
 			}
 		}
 	}
 	return parseThoughtCacheByMessage, parseCanvasCacheByMessage, nil
+}
+
+type renderWorkerMessageMetadataText struct {
+	GetContentText string
+	GetThoughtText string
+}
+
+// parseResolveAssistantMessageMetadataContentText returns the original metadata content text, preferring the local non-serialized field when available.
+func parseResolveAssistantMessageMetadataContentText(parseItem renderWorkerMessageMetadataMessageRequest) string {
+	if parseItem.GetContentText != "" || len(parseItem.GetContentBytes) == 0 {
+		return parseItem.GetContentText
+	}
+	return string(parseItem.GetContentBytes)
+}
+
+// parseResolveAssistantMessageMetadataThoughtText returns the original metadata thought text, preferring the local non-serialized field when available.
+func parseResolveAssistantMessageMetadataThoughtText(parseItem renderWorkerMessageMetadataMessageRequest) string {
+	if parseItem.GetThoughtText != "" || len(parseItem.GetThoughtBytes) == 0 {
+		return parseItem.GetThoughtText
+	}
+	return string(parseItem.GetThoughtBytes)
+}
+
+// parseBuildAssistantMessageMetadataTextByIndex projects original content and thought text into one dense message-index lookup used during worker result mapping.
+func parseBuildAssistantMessageMetadataTextByIndex(parseItems []renderWorkerMessageMetadataMessageRequest) []renderWorkerMessageMetadataText {
+	parseMaxMessageIndex := -1
+	for _, parseItem := range parseItems {
+		if parseItem.GetMessageIndex > parseMaxMessageIndex {
+			parseMaxMessageIndex = parseItem.GetMessageIndex
+		}
+	}
+	if parseMaxMessageIndex < 0 {
+		return nil
+	}
+	parseTextByIndex := make([]renderWorkerMessageMetadataText, parseMaxMessageIndex+1)
+	for _, parseItem := range parseItems {
+		parseTextByIndex[parseItem.GetMessageIndex] = renderWorkerMessageMetadataText{
+			GetContentText: parseResolveAssistantMessageMetadataContentText(parseItem),
+			GetThoughtText: parseResolveAssistantMessageMetadataThoughtText(parseItem),
+		}
+	}
+	return parseTextByIndex
+}
+
+// parseLookupAssistantMessageMetadataText returns one original metadata text pair for the given message index.
+func parseLookupAssistantMessageMetadataText(parseTextByIndex []renderWorkerMessageMetadataText, parseMessageIndex int) renderWorkerMessageMetadataText {
+	if parseMessageIndex < 0 || parseMessageIndex >= len(parseTextByIndex) {
+		return renderWorkerMessageMetadataText{}
+	}
+	return parseTextByIndex[parseMessageIndex]
+}
+
+// parseMergeAssistantMessageMetadataCaches merges changed-message metadata into the retained cache maps for the current assistant message set.
+func parseMergeAssistantMessageMetadataCaches(parseRetainedThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseRetainedCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseLoadedThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseLoadedCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry) (map[int]renderWorkerThoughtCacheEntry, map[int]renderWorkerCanvasCacheEntry) {
+	for parseMessageIndex, parseThoughtCacheEntry := range parseLoadedThoughtCacheByMessage {
+		parseRetainedThoughtCacheByMessage[parseMessageIndex] = parseThoughtCacheEntry
+	}
+	for parseMessageIndex, parseCanvasCacheEntry := range parseLoadedCanvasCacheByMessage {
+		parseRetainedCanvasCacheByMessage[parseMessageIndex] = parseCanvasCacheEntry
+	}
+	return parseRetainedThoughtCacheByMessage, parseRetainedCanvasCacheByMessage
 }
 
 // parseBuildMessageMetadataBatchRequest builds one lane-scoped chunk request payload from chunk-plan assignments.
@@ -209,14 +334,14 @@ func parseBuildThoughtSectionResultsFromWorker(parseMessageIndex int, parseSecti
 	if len(parseSectionResults) == 0 {
 		return nil
 	}
-	parseSections := make([]thoughtSection, 0, len(parseSectionResults))
+	parseSections := make([]thoughtSection, len(parseSectionResults))
 	for parseSectionIndex, parseSectionResult := range parseSectionResults {
 		parseHeading := string(parseSectionResult.GetHeadingBytes)
-		parseSections = append(parseSections, thoughtSection{
+		parseSections[parseSectionIndex] = thoughtSection{
 			Key:     parseThoughtSectionKey(parseMessageIndex, parseSectionIndex, parseHeading),
 			Heading: parseHeading,
 			Body:    string(parseSectionResult.GetBodyBytes),
-		})
+		}
 	}
 	return parseSections
 }
@@ -226,13 +351,13 @@ func parseBuildCanvasArtifactResultsFromWorker(parseMessageIndex int, parseArtif
 	if len(parseArtifactResults) == 0 {
 		return nil
 	}
-	parseArtifacts := make([]canvasArtifact, 0, len(parseArtifactResults))
-	for _, parseArtifactResult := range parseArtifactResults {
-		parseArtifacts = append(parseArtifacts, canvasArtifact{
+	parseArtifacts := make([]canvasArtifact, len(parseArtifactResults))
+	for parseArtifactIndex, parseArtifactResult := range parseArtifactResults {
+		parseArtifacts[parseArtifactIndex] = canvasArtifact{
 			ID:           string(parseArtifactResult.GetIDBytes),
 			MessageIndex: parseMessageIndex,
 			Label:        string(parseArtifactResult.GetLabelBytes),
-		})
+		}
 	}
 	return parseArtifacts
 }
@@ -269,51 +394,88 @@ func parseRequestWorkerRenderSignatures(parseCtx context.Context, parseRequester
 
 // parseBuildWorkerThreadCostSummaryRequest projects message/model state into one binary-heavy worker request payload.
 func parseBuildWorkerThreadCostSummaryRequest(parseGeneration uint64, parseMessages []message, parseModels []modelOption) renderWorkerThreadCostSummaryRequest {
-	parseWorkerMessages := make([]renderWorkerCostMessageRequest, 0, len(parseMessages))
-	for parseMessageIndex, parseMessageItem := range parseMessages {
-		parseWorkerMessages = append(parseWorkerMessages, renderWorkerCostMessageRequest{
-			GetMessageIndex:     parseMessageIndex,
-			GetRoleBytes:        []byte(parseMessageItem.Role),
-			GetHasContent:       strings.TrimSpace(parseMessageItem.Content) != "",
-			GetPending:          parseMessageItem.Pending,
-			GetModelIDBytes:     []byte(parseMessageItem.ModelID),
-			GetPromptTokens:     parseMessageItem.PromptTokens,
-			GetCompletionTokens: parseMessageItem.CompletionTokens,
-		})
-	}
-	parseWorkerModels := make([]renderWorkerCostModelRequest, 0, len(parseModels))
-	for _, parseModel := range parseModels {
-		parseWorkerModels = append(parseWorkerModels, renderWorkerCostModelRequest{
-			GetModelIDBytes:            []byte(parseModel.ID),
-			GetInputDollarsPerMillion:  parseModel.Pricing.InputDollarsPerMillion,
-			GetOutputDollarsPerMillion: parseModel.Pricing.OutputDollarsPerMillion,
-			GetCurrencyBytes:           []byte(parseModel.Pricing.Currency),
-		})
-	}
 	return renderWorkerThreadCostSummaryRequest{
 		GetGeneration: parseGeneration,
-		GetMessage:    parseWorkerMessages,
-		GetModel:      parseWorkerModels,
+		GetMessage:    parseBuildWorkerAssistantCostMessages(parseMessages),
+		GetModel:      parseBuildWorkerUsedCostModels(parseMessages, parseModels),
 	}
 }
 
 // parseBuildWorkerRenderSignatureRequest projects message/model state into one worker payload used for signature derivation.
 func parseBuildWorkerRenderSignatureRequest(parseGeneration uint64, parseMessages []message, parseModels []modelOption) renderWorkerSignatureRequest {
-	parseWorkerMessages := make([]renderWorkerSignatureMessageRequest, 0, len(parseMessages))
+	return renderWorkerSignatureRequest{
+		GetGeneration: parseGeneration,
+		GetMessage:    parseBuildWorkerAssistantSignatureMessages(parseMessages),
+		GetModel:      parseBuildWorkerUsedCostModels(parseMessages, parseModels),
+	}
+}
+
+// parseBuildUsedAssistantModelIDSet collects model IDs referenced by completed assistant messages with content.
+func parseBuildUsedAssistantModelIDSet(parseMessages []message) map[string]struct{} {
+	parseUsedModelIDs := make(map[string]struct{}, len(parseMessages))
+	for _, parseMessageItem := range parseMessages {
+		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
+			continue
+		}
+		if strings.TrimSpace(parseMessageItem.Content) == "" {
+			continue
+		}
+		parseModelID := strings.TrimSpace(parseMessageItem.ModelID)
+		if parseModelID == "" {
+			continue
+		}
+		parseUsedModelIDs[parseModelID] = struct{}{}
+	}
+	return parseUsedModelIDs
+}
+
+// parseBuildWorkerAssistantCostMessages projects completed assistant messages into the worker cost-summary request shape.
+func parseBuildWorkerAssistantCostMessages(parseMessages []message) []renderWorkerCostMessageRequest {
+	parseWorkerMessages := make([]renderWorkerCostMessageRequest, 0, len(parseMessages))
 	for parseMessageIndex, parseMessageItem := range parseMessages {
-		parseWorkerMessages = append(parseWorkerMessages, renderWorkerSignatureMessageRequest{
+		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
+			continue
+		}
+		if strings.TrimSpace(parseMessageItem.Content) == "" {
+			continue
+		}
+		parseWorkerMessages = append(parseWorkerMessages, renderWorkerCostMessageRequest{
 			GetMessageIndex:     parseMessageIndex,
-			GetRoleBytes:        []byte(parseMessageItem.Role),
-			GetContentBytes:     []byte(parseMessageItem.Content),
-			GetThoughtBytes:     []byte(parseMessageItem.Thought),
-			GetPending:          parseMessageItem.Pending,
 			GetModelIDBytes:     []byte(parseMessageItem.ModelID),
 			GetPromptTokens:     parseMessageItem.PromptTokens,
 			GetCompletionTokens: parseMessageItem.CompletionTokens,
 		})
 	}
-	parseWorkerModels := make([]renderWorkerCostModelRequest, 0, len(parseModels))
+	return parseWorkerMessages
+}
+
+// parseBuildWorkerAssistantSignatureMessages projects completed assistant messages into the worker render-signature request shape.
+func parseBuildWorkerAssistantSignatureMessages(parseMessages []message) []renderWorkerSignatureMessageRequest {
+	parseWorkerMessages := make([]renderWorkerSignatureMessageRequest, 0, len(parseMessages))
+	for parseMessageIndex, parseMessageItem := range parseMessages {
+		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
+			continue
+		}
+		parseWorkerMessages = append(parseWorkerMessages, renderWorkerSignatureMessageRequest{
+			GetMessageIndex:     parseMessageIndex,
+			GetContentBytes:     []byte(parseMessageItem.Content),
+			GetThoughtBytes:     []byte(parseMessageItem.Thought),
+			GetModelIDBytes:     []byte(parseMessageItem.ModelID),
+			GetPromptTokens:     parseMessageItem.PromptTokens,
+			GetCompletionTokens: parseMessageItem.CompletionTokens,
+		})
+	}
+	return parseWorkerMessages
+}
+
+// parseBuildWorkerUsedCostModels projects only pricing rows referenced by completed assistant messages, preserving model-option order for stable signatures.
+func parseBuildWorkerUsedCostModels(parseMessages []message, parseModels []modelOption) []renderWorkerCostModelRequest {
+	parseUsedModelIDs := parseBuildUsedAssistantModelIDSet(parseMessages)
+	parseWorkerModels := make([]renderWorkerCostModelRequest, 0, len(parseUsedModelIDs))
 	for _, parseModel := range parseModels {
+		if _, hasParseUsedModel := parseUsedModelIDs[parseModel.ID]; !hasParseUsedModel {
+			continue
+		}
 		parseWorkerModels = append(parseWorkerModels, renderWorkerCostModelRequest{
 			GetModelIDBytes:            []byte(parseModel.ID),
 			GetInputDollarsPerMillion:  parseModel.Pricing.InputDollarsPerMillion,
@@ -321,11 +483,7 @@ func parseBuildWorkerRenderSignatureRequest(parseGeneration uint64, parseMessage
 			GetCurrencyBytes:           []byte(parseModel.Pricing.Currency),
 		})
 	}
-	return renderWorkerSignatureRequest{
-		GetGeneration: parseGeneration,
-		GetMessage:    parseWorkerMessages,
-		GetModel:      parseWorkerModels,
-	}
+	return parseWorkerModels
 }
 
 // parseBuildWorkerThreadCostSummaryFromResult converts one worker summary payload into the app's summary domain shape.

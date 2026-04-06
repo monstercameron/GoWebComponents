@@ -3,9 +3,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"fmt"
+	"math"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -37,8 +39,6 @@ type renderWorkerCanvasArtifactResult struct {
 
 type renderWorkerMessageMetadataMessageResult struct {
 	GetMessageIndex   int                                `json:"messageIndex"`
-	GetContentBytes   []byte                             `json:"contentBytes"`
-	GetThoughtBytes   []byte                             `json:"thoughtBytes"`
 	GetThoughtSection []renderWorkerThoughtSectionResult `json:"thoughtSection"`
 	GetCanvasArtifact []renderWorkerCanvasArtifactResult `json:"canvasArtifact"`
 }
@@ -56,9 +56,6 @@ type renderWorkerMessageMetadataBatchResult struct {
 
 type renderWorkerCostMessageRequest struct {
 	GetMessageIndex     int    `json:"messageIndex"`
-	GetRoleBytes        []byte `json:"roleBytes"`
-	GetHasContent       bool   `json:"hasContent"`
-	GetPending          bool   `json:"pending"`
 	GetModelIDBytes     []byte `json:"modelIDBytes"`
 	GetPromptTokens     int    `json:"promptTokens"`
 	GetCompletionTokens int    `json:"completionTokens"`
@@ -96,10 +93,8 @@ type renderWorkerThreadCostSummaryResult struct {
 
 type renderWorkerSignatureMessageRequest struct {
 	GetMessageIndex     int    `json:"messageIndex"`
-	GetRoleBytes        []byte `json:"roleBytes"`
 	GetContentBytes     []byte `json:"contentBytes"`
 	GetThoughtBytes     []byte `json:"thoughtBytes"`
-	GetPending          bool   `json:"pending"`
 	GetModelIDBytes     []byte `json:"modelIDBytes"`
 	GetPromptTokens     int    `json:"promptTokens"`
 	GetCompletionTokens int    `json:"completionTokens"`
@@ -120,31 +115,31 @@ type renderWorkerSignatureResult struct {
 
 var renderWorkerFencedBlockPattern = regexp.MustCompile("(?s)```([^\\n`]*)\\n(.*?)\\n```")
 var renderWorkerFunctionPattern = regexp.MustCompile(`^\s*(?:export\s+default\s+|export\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)`)
+
+const parseSignatureSeed uint64 = 14695981039346656037
+const parseSignaturePrime uint64 = 1099511628211
+
 var renderWorkerClassPattern = regexp.MustCompile(`^\s*(?:export\s+default\s+|export\s+)?class\s+([A-Za-z_][A-Za-z0-9_]*)`)
 var renderWorkerConstPattern = regexp.MustCompile(`^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=`)
 
 // handleRenderMessageMetadataBatchRequest derives thought-section and canvas-label metadata for one or more message chunks.
 func handleRenderMessageMetadataBatchRequest(parseCtx context.Context, parseRequest renderWorkerMessageMetadataBatchRequest) (renderWorkerMessageMetadataBatchResult, error) {
 	_ = parseCtx
-	parseChunkResults := make([]renderWorkerMessageMetadataChunkResult, 0, len(parseRequest.GetChunkRequest))
-	for _, parseChunkRequest := range parseRequest.GetChunkRequest {
-		parseMessageResults := make([]renderWorkerMessageMetadataMessageResult, 0, len(parseChunkRequest.GetMessageItems))
-		for _, parseMessageItem := range parseChunkRequest.GetMessageItems {
-			parseContentBytes := parseMessageItem.GetContentBytes
-			parseThoughtBytes := parseMessageItem.GetThoughtBytes
-			parseMessageResults = append(parseMessageResults, renderWorkerMessageMetadataMessageResult{
+	parseChunkResults := make([]renderWorkerMessageMetadataChunkResult, len(parseRequest.GetChunkRequest))
+	for parseChunkIndex, parseChunkRequest := range parseRequest.GetChunkRequest {
+		parseMessageResults := make([]renderWorkerMessageMetadataMessageResult, len(parseChunkRequest.GetMessageItems))
+		for parseMessageIndex, parseMessageItem := range parseChunkRequest.GetMessageItems {
+			parseMessageResults[parseMessageIndex] = renderWorkerMessageMetadataMessageResult{
 				GetMessageIndex:   parseMessageItem.GetMessageIndex,
-				GetContentBytes:   parseContentBytes,
-				GetThoughtBytes:   parseThoughtBytes,
-				GetThoughtSection: parseBuildThoughtSectionResults(string(parseThoughtBytes)),
-				GetCanvasArtifact: parseBuildCanvasArtifactResults(parseMessageItem.GetMessageIndex, string(parseContentBytes)),
-			})
+				GetThoughtSection: parseBuildThoughtSectionResults(string(parseMessageItem.GetThoughtBytes)),
+				GetCanvasArtifact: parseBuildCanvasArtifactResultsFromBytes(parseMessageItem.GetMessageIndex, parseMessageItem.GetContentBytes),
+			}
 		}
-		parseChunkResults = append(parseChunkResults, renderWorkerMessageMetadataChunkResult{
+		parseChunkResults[parseChunkIndex] = renderWorkerMessageMetadataChunkResult{
 			GetGeneration: parseRequest.GetGeneration,
 			GetChunkIndex: parseChunkRequest.GetChunkIndex,
 			GetMessage:    parseMessageResults,
-		})
+		}
 	}
 	return renderWorkerMessageMetadataBatchResult{
 		GetGeneration: parseRequest.GetGeneration,
@@ -163,12 +158,6 @@ func handleRenderThreadCostSummaryRequest(parseCtx context.Context, parseRequest
 	parseModelByID := parseBuildModelByIDMap(parseRequest.GetModel)
 	parseAssistantMessageCount := 0
 	for _, parseMessageItem := range parseRequest.GetMessage {
-		if strings.TrimSpace(string(parseMessageItem.GetRoleBytes)) != "assistant" || parseMessageItem.GetPending {
-			continue
-		}
-		if !parseMessageItem.GetHasContent {
-			continue
-		}
 		parseAssistantMessageCount++
 		parseMessageCost, hasParseExactCost := parseBuildAssistantMessageCost(parseMessageItem, parseModelByID)
 		if !hasParseExactCost {
@@ -209,67 +198,95 @@ func parseBuildModelByIDMap(parseModels []renderWorkerCostModelRequest) map[stri
 	return parseModelByID
 }
 
+// parseApplySignatureByte mixes one delimiter or scalar byte into the rolling signature accumulator.
+func parseApplySignatureByte(parseHash *uint64, parseByte byte) {
+	*parseHash ^= uint64(parseByte)
+	*parseHash *= parseSignaturePrime
+}
+
+// parseApplySignatureBytes mixes one byte slice into the rolling signature accumulator with a field terminator.
+func parseApplySignatureBytes(parseHash *uint64, parseBytes []byte) {
+	for _, parseByte := range parseBytes {
+		parseApplySignatureByte(parseHash, parseByte)
+	}
+	parseApplySignatureByte(parseHash, 0)
+}
+
+// parseApplySignatureInt mixes one base-10 integer field into the rolling signature accumulator.
+func parseApplySignatureInt(parseHash *uint64, parseValue int) {
+	var parseScratch [24]byte
+	parseEncoded := strconv.AppendInt(parseScratch[:0], int64(parseValue), 10)
+	parseApplySignatureBytes(parseHash, parseEncoded)
+}
+
+// parseApplySignatureScaledFloat mixes one pricing field rounded to six decimal places into the rolling signature accumulator.
+func parseApplySignatureScaledFloat(parseHash *uint64, parseValue float64) {
+	parseApplySignatureInt(parseHash, int(math.Round(parseValue*1_000_000)))
+}
+
+// parseBuildSignatureString formats one rolling signature accumulator into a compact hexadecimal key.
+func parseBuildSignatureString(parseHash uint64) string {
+	return strconv.FormatUint(parseHash, 16)
+}
+
 // parseBuildRenderCompletedMarkdownSignature builds one signature over completed assistant markdown content.
 func parseBuildRenderCompletedMarkdownSignature(parseMessages []renderWorkerSignatureMessageRequest) string {
-	var parseBuilder strings.Builder
+	parseHash := parseSignatureSeed
+	hasParseContent := false
 	for _, parseMessageItem := range parseMessages {
-		if strings.TrimSpace(string(parseMessageItem.GetRoleBytes)) != "assistant" || parseMessageItem.GetPending {
-			continue
-		}
 		parseContentText := strings.TrimSpace(string(parseMessageItem.GetContentBytes))
 		if parseContentText == "" {
 			continue
 		}
-		parseBuilder.WriteString(string(parseMessageItem.GetContentBytes))
-		parseBuilder.WriteString("\n\x1f\n")
+		hasParseContent = true
+		parseApplySignatureByte(&parseHash, 'm')
+		parseApplySignatureBytes(&parseHash, parseMessageItem.GetContentBytes)
 	}
-	return parseBuilder.String()
+	if !hasParseContent {
+		return ""
+	}
+	return parseBuildSignatureString(parseHash)
 }
 
 // parseBuildRenderAssistantMetadataSignature builds one signature over assistant metadata inputs.
 func parseBuildRenderAssistantMetadataSignature(parseMessages []renderWorkerSignatureMessageRequest) string {
-	var parseBuilder strings.Builder
+	parseHash := parseSignatureSeed
+	hasParseMessage := false
 	for _, parseMessageItem := range parseMessages {
-		if strings.TrimSpace(string(parseMessageItem.GetRoleBytes)) != "assistant" || parseMessageItem.GetPending {
-			continue
-		}
-		parseBuilder.WriteString(parseBuildRenderWorkerMessageIndexString(parseMessageItem.GetMessageIndex))
-		parseBuilder.WriteString("|")
-		parseBuilder.WriteString(string(parseMessageItem.GetContentBytes))
-		parseBuilder.WriteString("|")
-		parseBuilder.WriteString(string(parseMessageItem.GetThoughtBytes))
-		parseBuilder.WriteString("\n\x1e\n")
+		hasParseMessage = true
+		parseApplySignatureByte(&parseHash, 'm')
+		parseApplySignatureInt(&parseHash, parseMessageItem.GetMessageIndex)
+		parseApplySignatureBytes(&parseHash, parseMessageItem.GetContentBytes)
+		parseApplySignatureBytes(&parseHash, parseMessageItem.GetThoughtBytes)
 	}
-	return parseBuilder.String()
+	if !hasParseMessage {
+		return ""
+	}
+	return parseBuildSignatureString(parseHash)
 }
 
 // parseBuildRenderThreadCostSignature builds one signature over model pricing and assistant usage rows.
 func parseBuildRenderThreadCostSignature(parseMessages []renderWorkerSignatureMessageRequest, parseModels []renderWorkerCostModelRequest) string {
-	var parseBuilder strings.Builder
+	parseHash := parseSignatureSeed
 	for _, parseModel := range parseModels {
-		parseBuilder.WriteString(fmt.Sprintf("model|%s|%.6f|%.6f|%s\n",
-			string(parseModel.GetModelIDBytes),
-			parseModel.GetInputDollarsPerMillion,
-			parseModel.GetOutputDollarsPerMillion,
-			string(parseModel.GetCurrencyBytes),
-		))
+		parseApplySignatureByte(&parseHash, 'o')
+		parseApplySignatureBytes(&parseHash, parseModel.GetModelIDBytes)
+		parseApplySignatureScaledFloat(&parseHash, parseModel.GetInputDollarsPerMillion)
+		parseApplySignatureScaledFloat(&parseHash, parseModel.GetOutputDollarsPerMillion)
+		parseApplySignatureBytes(&parseHash, parseModel.GetCurrencyBytes)
 	}
-	parseBuilder.WriteString("--\n")
+	parseApplySignatureByte(&parseHash, '-')
 	for _, parseMessageItem := range parseMessages {
-		if strings.TrimSpace(string(parseMessageItem.GetRoleBytes)) != "assistant" || parseMessageItem.GetPending {
-			continue
-		}
 		if strings.TrimSpace(string(parseMessageItem.GetContentBytes)) == "" {
 			continue
 		}
-		parseBuilder.WriteString(fmt.Sprintf("%d|%s|%d|%d\n",
-			parseMessageItem.GetMessageIndex,
-			string(parseMessageItem.GetModelIDBytes),
-			parseMessageItem.GetPromptTokens,
-			parseMessageItem.GetCompletionTokens,
-		))
+		parseApplySignatureByte(&parseHash, 'm')
+		parseApplySignatureInt(&parseHash, parseMessageItem.GetMessageIndex)
+		parseApplySignatureBytes(&parseHash, parseMessageItem.GetModelIDBytes)
+		parseApplySignatureInt(&parseHash, parseMessageItem.GetPromptTokens)
+		parseApplySignatureInt(&parseHash, parseMessageItem.GetCompletionTokens)
 	}
-	return parseBuilder.String()
+	return parseBuildSignatureString(parseHash)
 }
 
 // parseBuildRenderWorkerMessageIndexString converts one integer index into a stable base-10 string.
@@ -316,20 +333,27 @@ func parseBuildAssistantMessageCost(parseMessage renderWorkerCostMessageRequest,
 
 // parseBuildThoughtSectionResults parses one thought transcript into heading/body sections.
 func parseBuildThoughtSectionResults(parseThoughtText string) []renderWorkerThoughtSectionResult {
-	parseNormalizedText := strings.TrimSpace(strings.ReplaceAll(parseThoughtText, "\r\n", "\n"))
+	parseNormalizedText := parseThoughtText
+	if strings.Contains(parseNormalizedText, "\r\n") {
+		parseNormalizedText = strings.ReplaceAll(parseNormalizedText, "\r\n", "\n")
+	}
+	parseNormalizedText = strings.TrimSpace(parseNormalizedText)
 	if parseNormalizedText == "" {
 		return nil
 	}
-	parseLines := strings.Split(parseNormalizedText, "\n")
 	parseSectionResults := make([]renderWorkerThoughtSectionResult, 0, 4)
 	parseCurrentHeading := ""
-	parseCurrentBodyLines := make([]string, 0, len(parseLines))
+	parseCurrentBodyStart := -1
+	parseCurrentBodyEnd := -1
 	parseFlushCurrent := func() {
-		if parseCurrentHeading == "" && len(parseCurrentBodyLines) == 0 {
+		if parseCurrentHeading == "" && parseCurrentBodyStart < 0 {
 			return
 		}
 		parseHeading := strings.TrimSpace(parseCurrentHeading)
-		parseBody := strings.TrimSpace(strings.Join(parseCurrentBodyLines, "\n"))
+		parseBody := ""
+		if parseCurrentBodyStart >= 0 {
+			parseBody = strings.TrimSpace(parseNormalizedText[parseCurrentBodyStart:parseCurrentBodyEnd])
+		}
 		if parseHeading == "" {
 			parseHeading = "Thinking"
 		}
@@ -338,19 +362,36 @@ func parseBuildThoughtSectionResults(parseThoughtText string) []renderWorkerThou
 			GetBodyBytes:    []byte(parseBody),
 		})
 		parseCurrentHeading = ""
-		parseCurrentBodyLines = parseCurrentBodyLines[:0]
+		parseCurrentBodyStart = -1
+		parseCurrentBodyEnd = -1
 	}
-	for _, parseLine := range parseLines {
-		parseTrimmedLine := strings.TrimSpace(parseLine)
-		if len(parseSectionResults) == 0 && parseCurrentHeading == "" && len(parseCurrentBodyLines) == 0 && strings.EqualFold(parseTrimmedLine, "thinking") {
+
+	// Scan the normalized transcript once so section bodies reuse the original backing string instead of split/join staging.
+	for parseLineStart := 0; parseLineStart < len(parseNormalizedText); {
+		parseLineEnd := parseLineStart
+		for parseLineEnd < len(parseNormalizedText) && parseNormalizedText[parseLineEnd] != '\n' {
+			parseLineEnd++
+		}
+		parseNextLineStart := parseLineEnd
+		if parseNextLineStart < len(parseNormalizedText) && parseNormalizedText[parseNextLineStart] == '\n' {
+			parseNextLineStart++
+		}
+		parseTrimmedLine := strings.TrimSpace(parseNormalizedText[parseLineStart:parseLineEnd])
+		if len(parseSectionResults) == 0 && parseCurrentHeading == "" && parseCurrentBodyStart < 0 && strings.EqualFold(parseTrimmedLine, "thinking") {
+			parseLineStart = parseNextLineStart
 			continue
 		}
 		if parseHeading, hasParseHeading := parseBuildThoughtHeading(parseTrimmedLine); hasParseHeading {
 			parseFlushCurrent()
 			parseCurrentHeading = parseHeading
+			parseLineStart = parseNextLineStart
 			continue
 		}
-		parseCurrentBodyLines = append(parseCurrentBodyLines, parseLine)
+		if parseCurrentBodyStart < 0 {
+			parseCurrentBodyStart = parseLineStart
+		}
+		parseCurrentBodyEnd = parseNextLineStart
+		parseLineStart = parseNextLineStart
 	}
 	parseFlushCurrent()
 	if len(parseSectionResults) == 0 {
@@ -374,51 +415,199 @@ func parseBuildThoughtHeading(parseLine string) (string, bool) {
 
 // parseBuildCanvasArtifactResults derives one compact canvas artifact list with stable IDs and labels for one markdown message payload.
 func parseBuildCanvasArtifactResults(parseMessageIndex int, parseMarkdown string) []renderWorkerCanvasArtifactResult {
-	parseMatches := renderWorkerFencedBlockPattern.FindAllStringSubmatch(parseMarkdown, -1)
-	if len(parseMatches) == 0 {
+	return parseBuildCanvasArtifactResultsFromBytes(parseMessageIndex, []byte(parseMarkdown))
+}
+
+// parseBuildCanvasArtifactResultsFromBytes derives one compact canvas artifact list from markdown bytes without first copying the entire payload into a string.
+func parseBuildCanvasArtifactResultsFromBytes(parseMessageIndex int, parseMarkdown []byte) []renderWorkerCanvasArtifactResult {
+	parseFenceMarker := []byte("```")
+	parseFenceClosePrefix := []byte("\n```")
+	if !bytes.Contains(parseMarkdown, parseFenceMarker) {
 		return nil
 	}
-	parseArtifacts := make([]renderWorkerCanvasArtifactResult, 0, len(parseMatches))
-	for parseBlockIndex, parseMatch := range parseMatches {
-		if len(parseMatch) < 3 {
+	parseArtifacts := make([]renderWorkerCanvasArtifactResult, 0, 4)
+	parseSearchStart := 0
+	parseBlockIndex := 0
+
+	// Scan fenced code blocks directly so metadata extraction avoids regex match-slice staging and full markdown string copies on worker requests.
+	for parseSearchStart < len(parseMarkdown) {
+		parseOpenRel := bytes.Index(parseMarkdown[parseSearchStart:], parseFenceMarker)
+		if parseOpenRel < 0 {
+			break
+		}
+		parseOpenStart := parseSearchStart + parseOpenRel
+		parseInfoStart := parseOpenStart + len(parseFenceMarker)
+		parseInfoEndRel := bytes.IndexByte(parseMarkdown[parseInfoStart:], '\n')
+		if parseInfoEndRel < 0 {
+			break
+		}
+		parseInfoEnd := parseInfoStart + parseInfoEndRel
+		parseInfoRaw := parseMarkdown[parseInfoStart:parseInfoEnd]
+		if bytes.IndexByte(parseInfoRaw, '`') >= 0 {
+			parseSearchStart = parseOpenStart + 1
 			continue
 		}
-		parseInfo := strings.TrimSpace(parseMatch[1])
-		parseSource := strings.TrimSpace(parseMatch[2])
-		if parseSource == "" {
+		parseContentStart := parseInfoEnd + 1
+		parseCloseRel := bytes.Index(parseMarkdown[parseContentStart:], parseFenceClosePrefix)
+		if parseCloseRel < 0 {
+			break
+		}
+		parseCloseStart := parseContentStart + parseCloseRel
+		parseInfo := bytes.TrimSpace(parseInfoRaw)
+		parseSource := bytes.TrimSpace(parseMarkdown[parseContentStart:parseCloseStart])
+		if len(parseSource) == 0 {
+			parseBlockIndex++
+			parseSearchStart = parseCloseStart + len(parseFenceClosePrefix)
 			continue
 		}
-		parseLanguage, hasParseLanguage := parseBuildCanvasFenceLanguage(parseInfo)
+		parseLanguage, hasParseLanguage := parseBuildCanvasFenceLanguageBytes(parseInfo)
 		if !hasParseLanguage {
+			parseBlockIndex++
+			parseSearchStart = parseCloseStart + len(parseFenceClosePrefix)
 			continue
 		}
 		parseArtifacts = append(parseArtifacts, renderWorkerCanvasArtifactResult{
-			GetIDBytes:    []byte(fmt.Sprintf("m%d-b%d", parseMessageIndex, parseBlockIndex)),
-			GetLabelBytes: []byte(parseBuildCanvasArtifactLabel(parseLanguage, parseSource, parseBlockIndex)),
+			GetIDBytes:    parseBuildCanvasArtifactID(parseMessageIndex, parseBlockIndex),
+			GetLabelBytes: []byte(parseBuildCanvasArtifactLabel(parseLanguage, string(parseSource), parseBlockIndex)),
 		})
+		parseBlockIndex++
+		parseSearchStart = parseCloseStart + len(parseFenceClosePrefix)
+	}
+	if len(parseArtifacts) == 0 {
+		return nil
 	}
 	return parseArtifacts
 }
 
-// parseBuildCanvasFenceLanguage resolves one fenced code info string into one supported preview language.
-func parseBuildCanvasFenceLanguage(parseInfo string) (string, bool) {
-	parseFields := strings.Fields(strings.ToLower(strings.TrimSpace(parseInfo)))
-	if len(parseFields) == 0 {
+// parseBuildCanvasFenceLanguageBytes resolves one fenced code info byte slice into one supported preview language.
+func parseBuildCanvasFenceLanguageBytes(parseInfo []byte) (string, bool) {
+	parseInfo = bytes.TrimSpace(parseInfo)
+	if len(parseInfo) == 0 {
 		return "", false
 	}
-	for _, parseField := range parseFields {
-		if parseField == "canvas" {
+	parseFirstToken := []byte(nil)
+	parseTokenStart := -1
+	for parseIndex := 0; parseIndex <= len(parseInfo); parseIndex++ {
+		hasParseTokenByte := parseIndex < len(parseInfo)
+		if hasParseTokenByte && !parseIsCanvasFenceWhitespace(parseInfo[parseIndex]) {
+			if parseTokenStart < 0 {
+				parseTokenStart = parseIndex
+			}
+			continue
+		}
+		if parseTokenStart < 0 {
+			continue
+		}
+		parseToken := parseInfo[parseTokenStart:parseIndex]
+		if parseMatchCanvasFenceTokenBytes(parseToken, "canvas") {
 			return "canvas", true
 		}
+		if len(parseFirstToken) == 0 {
+			parseFirstToken = parseToken
+		}
+		parseTokenStart = -1
 	}
-	switch parseFields[0] {
-	case "html", "htm":
+	switch {
+	case parseMatchCanvasFenceTokenBytes(parseFirstToken, "html"), parseMatchCanvasFenceTokenBytes(parseFirstToken, "htm"):
 		return "html", true
-	case "javascript", "js":
+	case parseMatchCanvasFenceTokenBytes(parseFirstToken, "javascript"), parseMatchCanvasFenceTokenBytes(parseFirstToken, "js"):
 		return "javascript", true
 	default:
 		return "", false
 	}
+}
+
+// parseMatchCanvasFenceTokenBytes reports whether one fence-info token equals the expected keyword ignoring ASCII case.
+func parseMatchCanvasFenceTokenBytes(parseToken []byte, parseWant string) bool {
+	if len(parseToken) != len(parseWant) {
+		return false
+	}
+	for parseIndex := 0; parseIndex < len(parseWant); parseIndex++ {
+		parseByte := parseToken[parseIndex]
+		if parseByte >= 'A' && parseByte <= 'Z' {
+			parseByte += 'a' - 'A'
+		}
+		if parseByte != parseWant[parseIndex] {
+			return false
+		}
+	}
+	return true
+}
+
+// parseBuildCanvasArtifactID builds one stable canvas artifact ID without formatted string staging.
+func parseBuildCanvasArtifactID(parseMessageIndex int, parseBlockIndex int) []byte {
+	var parseScratch [32]byte
+	parseIDBytes := parseScratch[:0]
+	parseIDBytes = append(parseIDBytes, 'm')
+	parseIDBytes = strconv.AppendInt(parseIDBytes, int64(parseMessageIndex), 10)
+	parseIDBytes = append(parseIDBytes, '-', 'b')
+	parseIDBytes = strconv.AppendInt(parseIDBytes, int64(parseBlockIndex), 10)
+	return append([]byte(nil), parseIDBytes...)
+}
+
+// parseBuildCanvasFenceLanguage resolves one fenced code info string into one supported preview language.
+func parseBuildCanvasFenceLanguage(parseInfo string) (string, bool) {
+	parseInfo = strings.TrimSpace(parseInfo)
+	if parseInfo == "" {
+		return "", false
+	}
+	parseFirstToken := ""
+	parseTokenStart := -1
+	for parseIndex := 0; parseIndex <= len(parseInfo); parseIndex++ {
+		hasParseTokenByte := parseIndex < len(parseInfo)
+		if hasParseTokenByte && !parseIsCanvasFenceWhitespace(parseInfo[parseIndex]) {
+			if parseTokenStart < 0 {
+				parseTokenStart = parseIndex
+			}
+			continue
+		}
+		if parseTokenStart < 0 {
+			continue
+		}
+		parseToken := parseInfo[parseTokenStart:parseIndex]
+		if parseMatchCanvasFenceToken(parseToken, "canvas") {
+			return "canvas", true
+		}
+		if parseFirstToken == "" {
+			parseFirstToken = parseToken
+		}
+		parseTokenStart = -1
+	}
+	switch {
+	case parseMatchCanvasFenceToken(parseFirstToken, "html"), parseMatchCanvasFenceToken(parseFirstToken, "htm"):
+		return "html", true
+	case parseMatchCanvasFenceToken(parseFirstToken, "javascript"), parseMatchCanvasFenceToken(parseFirstToken, "js"):
+		return "javascript", true
+	default:
+		return "", false
+	}
+}
+
+// parseIsCanvasFenceWhitespace reports whether one byte is treated as fence-info whitespace.
+func parseIsCanvasFenceWhitespace(parseByte byte) bool {
+	switch parseByte {
+	case ' ', '\t', '\n', '\r', '\f', '\v':
+		return true
+	default:
+		return false
+	}
+}
+
+// parseMatchCanvasFenceToken reports whether one fence-info token equals the expected keyword ignoring ASCII case.
+func parseMatchCanvasFenceToken(parseToken string, parseWant string) bool {
+	if len(parseToken) != len(parseWant) {
+		return false
+	}
+	for parseIndex := 0; parseIndex < len(parseWant); parseIndex++ {
+		parseByte := parseToken[parseIndex]
+		if parseByte >= 'A' && parseByte <= 'Z' {
+			parseByte += 'a' - 'A'
+		}
+		if parseByte != parseWant[parseIndex] {
+			return false
+		}
+	}
+	return true
 }
 
 // parseBuildCanvasArtifactLabel builds one user-facing label for one canvas-preview artifact.
@@ -427,19 +616,80 @@ func parseBuildCanvasArtifactLabel(parseLanguage string, parseSource string, par
 	case "html":
 		return "HTML demo"
 	case "javascript":
-		if renderWorkerFunctionPattern.MatchString(parseSource) || strings.Contains(parseSource, "const App") {
+		if parseHasCanvasSourcePrefix(parseSource, "function ") ||
+			parseHasCanvasSourcePrefix(parseSource, "export function ") ||
+			parseHasCanvasSourcePrefix(parseSource, "export default function ") ||
+			strings.Contains(parseSource, "const App") {
 			return "App component"
 		}
 		return "JavaScript demo"
 	case "canvas":
-		if strings.Contains(strings.ToLower(parseSource), "<html") {
+		if parseContainsCanvasSourceFold(parseSource, "<html") {
 			return "Canvas page"
 		}
-		if renderWorkerClassPattern.MatchString(parseSource) || renderWorkerConstPattern.MatchString(parseSource) || strings.Contains(parseSource, "function App") || strings.Contains(parseSource, "const App") {
+		if parseHasCanvasSourcePrefix(parseSource, "class ") ||
+			parseHasCanvasSourcePrefix(parseSource, "export class ") ||
+			parseHasCanvasSourcePrefix(parseSource, "export default class ") ||
+			parseHasCanvasSourcePrefix(parseSource, "const ") ||
+			parseHasCanvasSourcePrefix(parseSource, "let ") ||
+			parseHasCanvasSourcePrefix(parseSource, "var ") ||
+			parseHasCanvasSourcePrefix(parseSource, "export const ") ||
+			parseHasCanvasSourcePrefix(parseSource, "export let ") ||
+			parseHasCanvasSourcePrefix(parseSource, "export var ") ||
+			strings.Contains(parseSource, "function App") ||
+			strings.Contains(parseSource, "const App") {
 			return "App component"
 		}
-		return fmt.Sprintf("Canvas block %d", parseBlockIndex+1)
+		return parseBuildCanvasBlockLabel(parseBlockIndex)
 	default:
-		return fmt.Sprintf("Canvas block %d", parseBlockIndex+1)
+		return parseBuildCanvasBlockLabel(parseBlockIndex)
 	}
+}
+
+// parseHasCanvasSourcePrefix reports whether one source starts with the expected prefix after leading whitespace.
+func parseHasCanvasSourcePrefix(parseSource string, parsePrefix string) bool {
+	parseIndex := 0
+	for parseIndex < len(parseSource) && parseIsCanvasFenceWhitespace(parseSource[parseIndex]) {
+		parseIndex++
+	}
+	return strings.HasPrefix(parseSource[parseIndex:], parsePrefix)
+}
+
+// parseContainsCanvasSourceFold reports whether one source contains the expected ASCII token ignoring case.
+func parseContainsCanvasSourceFold(parseSource string, parseNeedle string) bool {
+	if parseNeedle == "" {
+		return true
+	}
+	if len(parseNeedle) > len(parseSource) {
+		return false
+	}
+	parseLimit := len(parseSource) - len(parseNeedle)
+	for parseIndex := 0; parseIndex <= parseLimit; parseIndex++ {
+		if parseMatchCanvasSourceFold(parseSource[parseIndex:parseIndex+len(parseNeedle)], parseNeedle) {
+			return true
+		}
+	}
+	return false
+}
+
+// parseMatchCanvasSourceFold reports whether two ASCII strings match ignoring case.
+func parseMatchCanvasSourceFold(parseSource string, parseNeedle string) bool {
+	if len(parseSource) != len(parseNeedle) {
+		return false
+	}
+	for parseIndex := 0; parseIndex < len(parseNeedle); parseIndex++ {
+		parseByte := parseSource[parseIndex]
+		if parseByte >= 'A' && parseByte <= 'Z' {
+			parseByte += 'a' - 'A'
+		}
+		if parseByte != parseNeedle[parseIndex] {
+			return false
+		}
+	}
+	return true
+}
+
+// parseBuildCanvasBlockLabel builds one fallback block label without formatted string staging.
+func parseBuildCanvasBlockLabel(parseBlockIndex int) string {
+	return "Canvas block " + strconv.Itoa(parseBlockIndex+1)
 }

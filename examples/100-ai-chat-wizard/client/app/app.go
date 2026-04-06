@@ -66,31 +66,32 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 	parseHasWorkerRequester := parseMarkdownWorkerRef.Get() != nil || parseMarkdownWorkerPoolRef.Get() != nil
 
 	ui.UseEffect(func() func() {
-		parseMessages := append([]message(nil), parseDeferredMessages...)
-		parseModels := append([]modelOption(nil), parseCurrentState.ModelOptions...)
-		parseFallbackSignatures := parseBuildRenderSignatureState(parseMessages, parseModels)
 		if parseCurrentState.MarkdownWorkerFallback || !parseHasWorkerRequester {
-			parseRenderSignatureState.Set(parseFallbackSignatures)
+			parseRenderSignatureState.Set(parseBuildRenderSignatureState(parseDeferredMessages, parseCurrentState.ModelOptions))
 			return nil
 		}
 		parseRequester, _ := parseResolveBackgroundRenderRequester(parseMarkdownWorkerRef, parseMarkdownWorkerPoolRef)
 		if parseRequester == nil {
-			parseRenderSignatureState.Set(parseFallbackSignatures)
+			parseRenderSignatureState.Set(parseBuildRenderSignatureState(parseDeferredMessages, parseCurrentState.ModelOptions))
 			return nil
 		}
 		parseGeneration := parseRenderSignatureGenerationRef.Get() + 1
 		parseRenderSignatureGenerationRef.Set(parseGeneration)
-		go func(parseExpectedGeneration uint64, parseWorkerMessages []message, parseWorkerModels []modelOption, parseFallback renderWorkerSignatureState) {
+		// App state updates replace slice snapshots, so this render's message/model
+		// views are safe to hand to the async worker request without another clone.
+		parseMessages := parseDeferredMessages
+		parseModels := parseCurrentState.ModelOptions
+		go func(parseExpectedGeneration uint64, parseWorkerMessages []message, parseWorkerModels []modelOption) {
 			parseWorkerSignatures, parseErr := parseRequestWorkerRenderSignatures(context.Background(), parseRequester, parseExpectedGeneration, parseWorkerMessages, parseWorkerModels)
 			if parseErr != nil {
 				chatLog.Warn("render signature worker request failed; using synchronous fallback", logging.Fields{"error": parseErr})
-				parseWorkerSignatures = parseFallback
+				parseWorkerSignatures = parseBuildRenderSignatureState(parseWorkerMessages, parseWorkerModels)
 			}
 			if parseRenderSignatureGenerationRef.Get() != parseExpectedGeneration {
 				return
 			}
 			parseRenderSignatureState.Set(parseWorkerSignatures)
-		}(parseGeneration, parseMessages, parseModels, parseFallbackSignatures)
+		}(parseGeneration, parseMessages, parseModels)
 		return nil
 	}, parseCurrentState.MarkdownWorkerFallback, parseDeferredMessages, parseCurrentState.ModelOptions, parseHasWorkerRequester)
 

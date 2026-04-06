@@ -51,19 +51,67 @@ func renderMarkdownSync(parseMarkdown string) string {
 	return parseRenderedHTML2
 }
 
+const parseSignatureSeed uint64 = 14695981039346656037
+const parseSignaturePrime uint64 = 1099511628211
+
+// parseApplySignatureByte mixes one delimiter or scalar byte into the rolling signature accumulator.
+func parseApplySignatureByte(parseHash *uint64, parseByte byte) {
+	*parseHash ^= uint64(parseByte)
+	*parseHash *= parseSignaturePrime
+}
+
+// parseApplySignatureBytes mixes one byte slice into the rolling signature accumulator with a field terminator.
+func parseApplySignatureBytes(parseHash *uint64, parseBytes []byte) {
+	for _, parseByte := range parseBytes {
+		parseApplySignatureByte(parseHash, parseByte)
+	}
+	parseApplySignatureByte(parseHash, 0)
+}
+
+// parseApplySignatureString mixes one string field into the rolling signature accumulator without allocating a copy.
+func parseApplySignatureString(parseHash *uint64, parseText string) {
+	for parseIndex := 0; parseIndex < len(parseText); parseIndex++ {
+		parseApplySignatureByte(parseHash, parseText[parseIndex])
+	}
+	parseApplySignatureByte(parseHash, 0)
+}
+
+// parseApplySignatureInt mixes one base-10 integer field into the rolling signature accumulator.
+func parseApplySignatureInt(parseHash *uint64, parseValue int) {
+	var parseScratch [24]byte
+	parseEncoded := strconv.AppendInt(parseScratch[:0], int64(parseValue), 10)
+	parseApplySignatureBytes(parseHash, parseEncoded)
+}
+
+// parseApplySignatureScaledFloat mixes one pricing field rounded to six decimal places into the rolling signature accumulator.
+func parseApplySignatureScaledFloat(parseHash *uint64, parseValue float64) {
+	parseApplySignatureInt(parseHash, int(math.Round(parseValue*1_000_000)))
+}
+
+// parseBuildSignatureString formats one rolling signature accumulator into a compact hexadecimal key.
+func parseBuildSignatureString(parseHash uint64) string {
+	return strconv.FormatUint(parseHash, 16)
+}
+
 func parseCompletedAssistantMessagesMarkdownSignature(parseMessages []message) string {
-	var parseBuilder strings.Builder
+	parseHash := parseSignatureSeed
+	hasParseContent := false
 	for _, parseMessageItem := range parseMessages {
 		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
 			continue
 		}
-		if strings.TrimSpace(parseMessageItem.Content) == "" {
+		parseContentText := strings.TrimSpace(parseMessageItem.Content)
+		if parseContentText == "" {
 			continue
 		}
-		parseBuilder.WriteString(parseMessageItem.Content)
-		parseBuilder.WriteString("\n\x1f\n")
+		hasParseContent = true
+		parseApplySignatureByte(&parseHash, 'm')
+		parseApplySignatureString(&parseHash, parseMessageItem.Content)
 	}
-	return parseBuilder.String()
+	if !hasParseContent {
+		return ""
+	}
+	return parseBuildSignatureString(parseHash)
 }
 
 // ─── scroll ───────────────────────────────────────────────────────────────────
@@ -649,7 +697,15 @@ func parsePreviewLogText(parseText string, parseMaxLen int) string {
 }
 
 func parseThoughtSectionKey(parseMessageIndex, parseSectionIndex int, parseHeading string) string {
-	return fmt.Sprintf("%d:%d:%s", parseMessageIndex, parseSectionIndex, strings.TrimSpace(parseHeading))
+	parseHeading = strings.TrimSpace(parseHeading)
+	var parseScratch [48]byte
+	parseKeyBytes := parseScratch[:0]
+	parseKeyBytes = strconv.AppendInt(parseKeyBytes, int64(parseMessageIndex), 10)
+	parseKeyBytes = append(parseKeyBytes, ':')
+	parseKeyBytes = strconv.AppendInt(parseKeyBytes, int64(parseSectionIndex), 10)
+	parseKeyBytes = append(parseKeyBytes, ':')
+	parseKeyBytes = append(parseKeyBytes, parseHeading...)
+	return string(parseKeyBytes)
 }
 
 func parseMaterializeThoughtSections(parseMessageIndex int, parseCachedSections []thoughtSection) []thoughtSection {
@@ -754,11 +810,19 @@ func parseExactAssistantMessageCost(parseModelID string, parseModels []modelOpti
 }
 
 func parseThreadCostSummarySignature(parseMessages []message, parseModels []modelOption) string {
-	var parseBuilder strings.Builder
+	parseHash := parseSignatureSeed
+	parseUsedModelIDs := parseBuildUsedAssistantModelIDSet(parseMessages)
 	for _, parseOption := range parseModels {
-		parseBuilder.WriteString(fmt.Sprintf("model|%s|%.6f|%.6f|%s\n", parseOption.ID, parseOption.Pricing.InputDollarsPerMillion, parseOption.Pricing.OutputDollarsPerMillion, parseOption.Pricing.Currency))
+		if _, hasParseUsedModel := parseUsedModelIDs[parseOption.ID]; !hasParseUsedModel {
+			continue
+		}
+		parseApplySignatureByte(&parseHash, 'o')
+		parseApplySignatureString(&parseHash, parseOption.ID)
+		parseApplySignatureScaledFloat(&parseHash, parseOption.Pricing.InputDollarsPerMillion)
+		parseApplySignatureScaledFloat(&parseHash, parseOption.Pricing.OutputDollarsPerMillion)
+		parseApplySignatureString(&parseHash, parseOption.Pricing.Currency)
 	}
-	parseBuilder.WriteString("--\n")
+	parseApplySignatureByte(&parseHash, '-')
 	for parseMessageIndex, parseMessageItem := range parseMessages {
 		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
 			continue
@@ -766,9 +830,13 @@ func parseThreadCostSummarySignature(parseMessages []message, parseModels []mode
 		if strings.TrimSpace(parseMessageItem.Content) == "" {
 			continue
 		}
-		parseBuilder.WriteString(fmt.Sprintf("%d|%s|%d|%d\n", parseMessageIndex, parseMessageItem.ModelID, parseMessageItem.PromptTokens, parseMessageItem.CompletionTokens))
+		parseApplySignatureByte(&parseHash, 'm')
+		parseApplySignatureInt(&parseHash, parseMessageIndex)
+		parseApplySignatureString(&parseHash, parseMessageItem.ModelID)
+		parseApplySignatureInt(&parseHash, parseMessageItem.PromptTokens)
+		parseApplySignatureInt(&parseHash, parseMessageItem.CompletionTokens)
 	}
-	return parseBuilder.String()
+	return parseBuildSignatureString(parseHash)
 }
 
 func parseDeriveThreadCostSummary(parseMessages []message, parseModels []modelOption) threadCostSummary {

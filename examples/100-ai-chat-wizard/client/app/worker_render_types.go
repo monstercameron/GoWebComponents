@@ -2,12 +2,12 @@
 
 package app
 
-import "strings"
-
 type renderWorkerMessageMetadataMessageRequest struct {
 	GetMessageIndex int    `json:"messageIndex"`
 	GetContentBytes []byte `json:"contentBytes"`
 	GetThoughtBytes []byte `json:"thoughtBytes"`
+	GetContentText  string `json:"-"`
+	GetThoughtText  string `json:"-"`
 }
 
 type renderWorkerMessageMetadataChunkRequest struct {
@@ -32,8 +32,6 @@ type renderWorkerCanvasArtifactResult struct {
 
 type renderWorkerMessageMetadataMessageResult struct {
 	GetMessageIndex   int                                `json:"messageIndex"`
-	GetContentBytes   []byte                             `json:"contentBytes"`
-	GetThoughtBytes   []byte                             `json:"thoughtBytes"`
 	GetThoughtSection []renderWorkerThoughtSectionResult `json:"thoughtSection"`
 	GetCanvasArtifact []renderWorkerCanvasArtifactResult `json:"canvasArtifact"`
 }
@@ -51,9 +49,6 @@ type renderWorkerMessageMetadataBatchResult struct {
 
 type renderWorkerCostMessageRequest struct {
 	GetMessageIndex     int    `json:"messageIndex"`
-	GetRoleBytes        []byte `json:"roleBytes"`
-	GetHasContent       bool   `json:"hasContent"`
-	GetPending          bool   `json:"pending"`
 	GetModelIDBytes     []byte `json:"modelIDBytes"`
 	GetPromptTokens     int    `json:"promptTokens"`
 	GetCompletionTokens int    `json:"completionTokens"`
@@ -91,10 +86,8 @@ type renderWorkerThreadCostSummaryResult struct {
 
 type renderWorkerSignatureMessageRequest struct {
 	GetMessageIndex     int    `json:"messageIndex"`
-	GetRoleBytes        []byte `json:"roleBytes"`
 	GetContentBytes     []byte `json:"contentBytes"`
 	GetThoughtBytes     []byte `json:"thoughtBytes"`
-	GetPending          bool   `json:"pending"`
 	GetModelIDBytes     []byte `json:"modelIDBytes"`
 	GetPromptTokens     int    `json:"promptTokens"`
 	GetCompletionTokens int    `json:"completionTokens"`
@@ -140,19 +133,22 @@ func parseBuildRenderSignatureState(parseMessages []message, parseModels []model
 
 // parseBuildAssistantMessageMetadataSignature builds one stable signature for off-thread thought/canvas metadata derivation.
 func parseBuildAssistantMessageMetadataSignature(parseMessages []message) string {
-	var parseBuilder strings.Builder
+	parseHash := parseSignatureSeed
+	hasParseAssistantMessage := false
 	for parseMessageIndex, parseMessageItem := range parseMessages {
 		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
 			continue
 		}
-		parseBuilder.WriteString(parseBuildMessageIndexString(parseMessageIndex))
-		parseBuilder.WriteString("|")
-		parseBuilder.WriteString(parseMessageItem.Content)
-		parseBuilder.WriteString("|")
-		parseBuilder.WriteString(parseMessageItem.Thought)
-		parseBuilder.WriteString("\n\x1e\n")
+		hasParseAssistantMessage = true
+		parseApplySignatureByte(&parseHash, 'm')
+		parseApplySignatureInt(&parseHash, parseMessageIndex)
+		parseApplySignatureString(&parseHash, parseMessageItem.Content)
+		parseApplySignatureString(&parseHash, parseMessageItem.Thought)
 	}
-	return parseBuilder.String()
+	if !hasParseAssistantMessage {
+		return ""
+	}
+	return parseBuildSignatureString(parseHash)
 }
 
 // parseBuildMessageIndexString converts one index into a compact base-10 signature fragment.

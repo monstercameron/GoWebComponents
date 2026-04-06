@@ -4,9 +4,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 )
+
+var parseRenderTaskBenchmarkSink int
 
 // ─── parseBuildThoughtHeading ─────────────────────────────────────────────────
 
@@ -105,6 +108,27 @@ func TestParseBuildThoughtSectionResults(parseT *testing.T) {
 	})
 }
 
+// BenchmarkParseBuildThoughtSectionResultsCurrentVsLegacy compares the single-pass thought parser against the previous split/join implementation.
+func BenchmarkParseBuildThoughtSectionResultsCurrentVsLegacy(parseB *testing.B) {
+	parseThoughtText := parseBuildThoughtSectionBenchmarkText(72)
+	parseB.Run("legacy", func(parseLegacyB *testing.B) {
+		parseLegacyB.ReportAllocs()
+		parseLegacyB.ResetTimer()
+		for parseLegacyB.Loop() {
+			parseSections := parseBuildThoughtSectionResultsLegacy(parseThoughtText)
+			parseRenderTaskBenchmarkSink = len(parseSections)
+		}
+	})
+	parseB.Run("current", func(parseCurrentB *testing.B) {
+		parseCurrentB.ReportAllocs()
+		parseCurrentB.ResetTimer()
+		for parseCurrentB.Loop() {
+			parseSections := parseBuildThoughtSectionResults(parseThoughtText)
+			parseRenderTaskBenchmarkSink = len(parseSections)
+		}
+	})
+}
+
 // ─── parseBuildCanvasFenceLanguage ────────────────────────────────────────────
 
 // TestParseBuildCanvasFenceLanguage verifies fence-language resolution for supported and unsupported types.
@@ -136,6 +160,48 @@ func TestParseBuildCanvasFenceLanguage(parseT *testing.T) {
 			parseT.Errorf("parseBuildCanvasFenceLanguage(%q) lang=%q, want %q", parseCase.parseInfo, parseLang, parseCase.parseWantLang)
 		}
 	}
+}
+
+// BenchmarkParseBuildCanvasFenceLanguageCurrentVsLegacy compares the token-scan fence parser against the previous trim-lower-fields implementation.
+func BenchmarkParseBuildCanvasFenceLanguageCurrentVsLegacy(parseB *testing.B) {
+	parseInfos := []string{
+		"html",
+		"HTML",
+		"canvas html",
+		"js",
+		"javascript module",
+		"  canvas   javascript  ",
+		"go",
+		"python",
+		"",
+		"   ",
+	}
+	parseB.Run("legacy", func(parseLegacyB *testing.B) {
+		parseLegacyB.ReportAllocs()
+		parseLegacyB.ResetTimer()
+		for parseLegacyB.Loop() {
+			parseCount := 0
+			for _, parseInfo := range parseInfos {
+				if _, hasParseLanguage := parseBuildCanvasFenceLanguageLegacy(parseInfo); hasParseLanguage {
+					parseCount++
+				}
+			}
+			parseRenderTaskBenchmarkSink = parseCount
+		}
+	})
+	parseB.Run("current", func(parseCurrentB *testing.B) {
+		parseCurrentB.ReportAllocs()
+		parseCurrentB.ResetTimer()
+		for parseCurrentB.Loop() {
+			parseCount := 0
+			for _, parseInfo := range parseInfos {
+				if _, hasParseLanguage := parseBuildCanvasFenceLanguage(parseInfo); hasParseLanguage {
+					parseCount++
+				}
+			}
+			parseRenderTaskBenchmarkSink = parseCount
+		}
+	})
 }
 
 // ─── parseBuildCanvasArtifactLabel ───────────────────────────────────────────
@@ -186,6 +252,46 @@ func TestParseBuildCanvasArtifactLabel(parseT *testing.T) {
 	})
 }
 
+// BenchmarkParseBuildCanvasArtifactLabelCurrentVsLegacy compares the current prefix and fold helpers against the previous regex and lowercase label classifier.
+func BenchmarkParseBuildCanvasArtifactLabelCurrentVsLegacy(parseB *testing.B) {
+	parseCases := []struct {
+		parseLanguage string
+		parseSource   string
+		parseIndex    int
+	}{
+		{"html", "<div>Hello</div>", 0},
+		{"javascript", "function MyApp() {}", 0},
+		{"javascript", "console.log('hello')", 1},
+		{"canvas", "<HTML><body></body></HTML>", 0},
+		{"canvas", "class MyComponent {}", 0},
+		{"canvas", "export const Widget = () => {}", 1},
+		{"canvas", "console.log('test')", 2},
+		{"unknown", "anything", 3},
+	}
+	parseB.Run("legacy", func(parseLegacyB *testing.B) {
+		parseLegacyB.ReportAllocs()
+		parseLegacyB.ResetTimer()
+		for parseLegacyB.Loop() {
+			parseCount := 0
+			for _, parseCase := range parseCases {
+				parseCount += len(parseBuildCanvasArtifactLabelLegacy(parseCase.parseLanguage, parseCase.parseSource, parseCase.parseIndex))
+			}
+			parseRenderTaskBenchmarkSink = parseCount
+		}
+	})
+	parseB.Run("current", func(parseCurrentB *testing.B) {
+		parseCurrentB.ReportAllocs()
+		parseCurrentB.ResetTimer()
+		for parseCurrentB.Loop() {
+			parseCount := 0
+			for _, parseCase := range parseCases {
+				parseCount += len(parseBuildCanvasArtifactLabel(parseCase.parseLanguage, parseCase.parseSource, parseCase.parseIndex))
+			}
+			parseRenderTaskBenchmarkSink = parseCount
+		}
+	})
+}
+
 // ─── parseBuildCanvasArtifactResults ─────────────────────────────────────────
 
 // TestParseBuildCanvasArtifactResults verifies canvas artifact extraction from markdown message payloads.
@@ -230,6 +336,27 @@ func TestParseBuildCanvasArtifactResults(parseT *testing.T) {
 		}
 		if string(parseResults[1].GetIDBytes) != "m1-b1" {
 			parseT.Fatalf("second id=%q, want 'm1-b1'", string(parseResults[1].GetIDBytes))
+		}
+	})
+}
+
+// BenchmarkParseBuildCanvasArtifactResultsCurrentVsLegacy compares index-based fenced-block extraction against the previous string-submatch path.
+func BenchmarkParseBuildCanvasArtifactResultsCurrentVsLegacy(parseB *testing.B) {
+	parseMarkdown := parseBuildCanvasArtifactBenchmarkMarkdown(120)
+	parseB.Run("legacy", func(parseLegacyB *testing.B) {
+		parseLegacyB.ReportAllocs()
+		parseLegacyB.ResetTimer()
+		for parseLegacyB.Loop() {
+			parseArtifacts := parseBuildCanvasArtifactResultsLegacy(7, parseMarkdown)
+			parseRenderTaskBenchmarkSink = len(parseArtifacts)
+		}
+	})
+	parseB.Run("current", func(parseCurrentB *testing.B) {
+		parseCurrentB.ReportAllocs()
+		parseCurrentB.ResetTimer()
+		for parseCurrentB.Loop() {
+			parseArtifacts := parseBuildCanvasArtifactResults(7, parseMarkdown)
+			parseRenderTaskBenchmarkSink = len(parseArtifacts)
 		}
 	})
 }
@@ -287,7 +414,6 @@ func TestParseBuildAssistantMessageCost(parseT *testing.T) {
 			GetModelIDBytes:     []byte("gpt-4"),
 			GetPromptTokens:     1000,
 			GetCompletionTokens: 500,
-			GetHasContent:       true,
 		}
 		parseResult, isParseExact := parseBuildAssistantMessageCost(parseMsg, parseModelByID)
 		if !isParseExact {
@@ -307,7 +433,6 @@ func TestParseBuildAssistantMessageCost(parseT *testing.T) {
 			GetModelIDBytes:     []byte("unknown-model"),
 			GetPromptTokens:     100,
 			GetCompletionTokens: 50,
-			GetHasContent:       true,
 		}
 		_, isParseExact := parseBuildAssistantMessageCost(parseMsg, parseModelByID)
 		if isParseExact {
@@ -319,7 +444,6 @@ func TestParseBuildAssistantMessageCost(parseT *testing.T) {
 			GetModelIDBytes:     []byte("gpt-4"),
 			GetPromptTokens:     0,
 			GetCompletionTokens: 0,
-			GetHasContent:       true,
 		}
 		_, isParseExact := parseBuildAssistantMessageCost(parseMsg, parseModelByID)
 		if isParseExact {
@@ -349,11 +473,11 @@ func TestHandleRenderThreadCostSummaryRequest(parseT *testing.T) {
 			parseT.Fatal("expected AllAssistantCostsExact=false for empty message list")
 		}
 	})
-	parseT.Run("user-only message list produces no assistant costs", func(parseT *testing.T) {
+	parseT.Run("message without priced model produces no assistant costs", func(parseT *testing.T) {
 		parseResult, parseErr := handleRenderThreadCostSummaryRequest(context.Background(), renderWorkerThreadCostSummaryRequest{
 			GetGeneration: 1,
 			GetMessage: []renderWorkerCostMessageRequest{
-				{GetRoleBytes: []byte("user"), GetHasContent: true, GetPromptTokens: 100, GetCompletionTokens: 0},
+				{GetModelIDBytes: []byte("unknown"), GetPromptTokens: 100, GetCompletionTokens: 0},
 			},
 		})
 		if parseErr != nil {
@@ -368,8 +492,6 @@ func TestHandleRenderThreadCostSummaryRequest(parseT *testing.T) {
 			GetGeneration: 7,
 			GetMessage: []renderWorkerCostMessageRequest{
 				{
-					GetRoleBytes:        []byte("assistant"),
-					GetHasContent:       true,
 					GetModelIDBytes:     []byte("gpt-4"),
 					GetPromptTokens:     1000,
 					GetCompletionTokens: 500,
@@ -435,6 +557,9 @@ func TestHandleRenderMessageMetadataBatchRequest(parseT *testing.T) {
 		if len(parseMsgResults) != 1 {
 			parseT.Fatalf("expected 1 message result, got %d", len(parseMsgResults))
 		}
+		if len(parseMsgResults[0].GetThoughtSection) != 0 {
+			parseT.Fatalf("expected no thought sections for markdown-only message, got %d", len(parseMsgResults[0].GetThoughtSection))
+		}
 		if len(parseMsgResults[0].GetCanvasArtifact) != 1 {
 			parseT.Fatalf("expected 1 canvas artifact, got %d", len(parseMsgResults[0].GetCanvasArtifact))
 		}
@@ -459,11 +584,41 @@ func TestHandleRenderMessageMetadataBatchRequest(parseT *testing.T) {
 			parseT.Fatalf("expected 1 chunk, got %d", len(parseResult.GetChunk))
 		}
 		parseMsgResults := parseResult.GetChunk[0].GetMessage
+		if len(parseMsgResults[0].GetCanvasArtifact) != 0 {
+			parseT.Fatalf("expected no canvas artifacts for thought-only message, got %d", len(parseMsgResults[0].GetCanvasArtifact))
+		}
 		if len(parseMsgResults[0].GetThoughtSection) != 1 {
 			parseT.Fatalf("expected 1 thought section, got %d", len(parseMsgResults[0].GetThoughtSection))
 		}
 		if string(parseMsgResults[0].GetThoughtSection[0].GetHeadingBytes) != "Reasoning" {
 			parseT.Fatalf("heading=%q, want 'Reasoning'", string(parseMsgResults[0].GetThoughtSection[0].GetHeadingBytes))
+		}
+	})
+}
+
+// BenchmarkHandleRenderMessageMetadataBatchRequestCurrentVsLegacy compares the current fixed-size metadata batch assembly path against the previous append-heavy implementation.
+func BenchmarkHandleRenderMessageMetadataBatchRequestCurrentVsLegacy(parseB *testing.B) {
+	parseRequest := parseBuildRenderMessageMetadataBatchBenchmarkRequest(180, 4)
+	parseB.Run("legacy", func(parseLegacyB *testing.B) {
+		parseLegacyB.ReportAllocs()
+		parseLegacyB.ResetTimer()
+		for parseLegacyB.Loop() {
+			parseResult, parseErr := parseHandleRenderMessageMetadataBatchRequestLegacy(context.Background(), parseRequest)
+			if parseErr != nil {
+				parseLegacyB.Fatalf("parseHandleRenderMessageMetadataBatchRequestLegacy: %v", parseErr)
+			}
+			parseRenderTaskBenchmarkSink = len(parseResult.GetChunk)
+		}
+	})
+	parseB.Run("current", func(parseCurrentB *testing.B) {
+		parseCurrentB.ReportAllocs()
+		parseCurrentB.ResetTimer()
+		for parseCurrentB.Loop() {
+			parseResult, parseErr := handleRenderMessageMetadataBatchRequest(context.Background(), parseRequest)
+			if parseErr != nil {
+				parseCurrentB.Fatalf("handleRenderMessageMetadataBatchRequest: %v", parseErr)
+			}
+			parseRenderTaskBenchmarkSink = len(parseResult.GetChunk)
 		}
 	})
 }
@@ -491,9 +646,7 @@ func TestHandleRenderSignaturesRequest(parseT *testing.T) {
 			GetGeneration: 3,
 			GetMessage: []renderWorkerSignatureMessageRequest{
 				{
-					GetRoleBytes:    []byte("assistant"),
 					GetContentBytes: []byte("Hello world"),
-					GetPending:      false,
 				},
 			},
 		})
@@ -504,14 +657,12 @@ func TestHandleRenderSignaturesRequest(parseT *testing.T) {
 			parseT.Fatal("expected non-empty markdown signature for completed assistant message")
 		}
 	})
-	parseT.Run("pending assistant message is excluded from markdown signature", func(parseT *testing.T) {
+	parseT.Run("empty content is excluded from markdown signature", func(parseT *testing.T) {
 		parseResult, parseErr := handleRenderSignaturesRequest(context.Background(), renderWorkerSignatureRequest{
 			GetGeneration: 1,
 			GetMessage: []renderWorkerSignatureMessageRequest{
 				{
-					GetRoleBytes:    []byte("assistant"),
-					GetContentBytes: []byte("Pending response"),
-					GetPending:      true,
+					GetContentBytes: []byte("  "),
 				},
 			},
 		})
@@ -570,4 +721,219 @@ func TestParseBuildRenderWorkerMessageIndexString(parseT *testing.T) {
 			parseT.Errorf("parseBuildRenderWorkerMessageIndexString(%d)=%q, want %q", parseCase.parseInput, parseGot, parseCase.parseWant)
 		}
 	}
+}
+
+// parseBuildRenderMessageMetadataBatchBenchmarkRequest builds one deterministic metadata batch request for benchmark coverage.
+func parseBuildRenderMessageMetadataBatchBenchmarkRequest(parseMessageCount int, parseChunkCount int) renderWorkerMessageMetadataBatchRequest {
+	if parseMessageCount < 1 {
+		parseMessageCount = 1
+	}
+	if parseChunkCount < 1 {
+		parseChunkCount = 1
+	}
+	if parseChunkCount > parseMessageCount {
+		parseChunkCount = parseMessageCount
+	}
+	parseChunkRequests := make([]renderWorkerMessageMetadataChunkRequest, parseChunkCount)
+	for parseChunkIndex := 0; parseChunkIndex < parseChunkCount; parseChunkIndex++ {
+		parseChunkRequests[parseChunkIndex].GetChunkIndex = parseChunkIndex
+	}
+	for parseMessageIndex := 0; parseMessageIndex < parseMessageCount; parseMessageIndex++ {
+		parseChunkIndex := parseMessageIndex % parseChunkCount
+		parseChunkRequests[parseChunkIndex].GetMessageItems = append(parseChunkRequests[parseChunkIndex].GetMessageItems, renderWorkerMessageMetadataMessageRequest{
+			GetMessageIndex: parseMessageIndex,
+			GetContentBytes: []byte(fmt.Sprintf("```js\nconsole.log('message-%d')\n```\n```canvas\nconst App = () => <div>%d</div>\n```", parseMessageIndex, parseMessageIndex)),
+			GetThoughtBytes: []byte(fmt.Sprintf("**Reasoning**\nStep %d\n\n**Plan**\nDo work %d", parseMessageIndex, parseMessageIndex+1)),
+		})
+	}
+	return renderWorkerMessageMetadataBatchRequest{
+		GetGeneration:   1,
+		GetChunkRequest: parseChunkRequests,
+	}
+}
+
+// parseBuildThoughtSectionBenchmarkText builds one deterministic multi-section thought transcript for parser benchmarking.
+func parseBuildThoughtSectionBenchmarkText(parseSectionCount int) string {
+	if parseSectionCount < 1 {
+		parseSectionCount = 1
+	}
+	var parseBuilder strings.Builder
+	parseBuilder.Grow(parseSectionCount * 56)
+	parseBuilder.WriteString("Thinking\n")
+	for parseSectionIndex := 0; parseSectionIndex < parseSectionCount; parseSectionIndex++ {
+		parseBuilder.WriteString(fmt.Sprintf("**Section %d**\n", parseSectionIndex+1))
+		parseBuilder.WriteString(fmt.Sprintf("Reasoning step %d\n", parseSectionIndex+1))
+		parseBuilder.WriteString(fmt.Sprintf("Detail line %d\n\n", parseSectionIndex+1))
+	}
+	return parseBuilder.String()
+}
+
+// parseBuildThoughtSectionResultsLegacy preserves the previous split/join thought parser for benchmark comparison.
+func parseBuildThoughtSectionResultsLegacy(parseThoughtText string) []renderWorkerThoughtSectionResult {
+	parseNormalizedText := strings.TrimSpace(strings.ReplaceAll(parseThoughtText, "\r\n", "\n"))
+	if parseNormalizedText == "" {
+		return nil
+	}
+	parseLines := strings.Split(parseNormalizedText, "\n")
+	parseSectionResults := make([]renderWorkerThoughtSectionResult, 0, 4)
+	parseCurrentHeading := ""
+	parseCurrentBodyLines := make([]string, 0, len(parseLines))
+	parseFlushCurrent := func() {
+		if parseCurrentHeading == "" && len(parseCurrentBodyLines) == 0 {
+			return
+		}
+		parseHeading := strings.TrimSpace(parseCurrentHeading)
+		parseBody := strings.TrimSpace(strings.Join(parseCurrentBodyLines, "\n"))
+		if parseHeading == "" {
+			parseHeading = "Thinking"
+		}
+		parseSectionResults = append(parseSectionResults, renderWorkerThoughtSectionResult{
+			GetHeadingBytes: []byte(parseHeading),
+			GetBodyBytes:    []byte(parseBody),
+		})
+		parseCurrentHeading = ""
+		parseCurrentBodyLines = parseCurrentBodyLines[:0]
+	}
+	for _, parseLine := range parseLines {
+		parseTrimmedLine := strings.TrimSpace(parseLine)
+		if len(parseSectionResults) == 0 && parseCurrentHeading == "" && len(parseCurrentBodyLines) == 0 && strings.EqualFold(parseTrimmedLine, "thinking") {
+			continue
+		}
+		if parseHeading, hasParseHeading := parseBuildThoughtHeading(parseTrimmedLine); hasParseHeading {
+			parseFlushCurrent()
+			parseCurrentHeading = parseHeading
+			continue
+		}
+		parseCurrentBodyLines = append(parseCurrentBodyLines, parseLine)
+	}
+	parseFlushCurrent()
+	if len(parseSectionResults) == 0 {
+		parseSectionResults = append(parseSectionResults, renderWorkerThoughtSectionResult{
+			GetHeadingBytes: []byte("Thinking"),
+			GetBodyBytes:    []byte(parseNormalizedText),
+		})
+	}
+	return parseSectionResults
+}
+
+// parseBuildCanvasFenceLanguageLegacy preserves the previous trim-lower-fields fence parser for benchmark comparison.
+func parseBuildCanvasFenceLanguageLegacy(parseInfo string) (string, bool) {
+	parseFields := strings.Fields(strings.ToLower(strings.TrimSpace(parseInfo)))
+	if len(parseFields) == 0 {
+		return "", false
+	}
+	for _, parseField := range parseFields {
+		if parseField == "canvas" {
+			return "canvas", true
+		}
+	}
+	switch parseFields[0] {
+	case "html", "htm":
+		return "html", true
+	case "javascript", "js":
+		return "javascript", true
+	default:
+		return "", false
+	}
+}
+
+// parseBuildCanvasArtifactLabelLegacy preserves the previous regex and lowercase label classifier for benchmark comparison.
+func parseBuildCanvasArtifactLabelLegacy(parseLanguage string, parseSource string, parseBlockIndex int) string {
+	switch parseLanguage {
+	case "html":
+		return "HTML demo"
+	case "javascript":
+		if renderWorkerFunctionPattern.MatchString(parseSource) || strings.Contains(parseSource, "const App") {
+			return "App component"
+		}
+		return "JavaScript demo"
+	case "canvas":
+		if strings.Contains(strings.ToLower(parseSource), "<html") {
+			return "Canvas page"
+		}
+		if renderWorkerClassPattern.MatchString(parseSource) || renderWorkerConstPattern.MatchString(parseSource) || strings.Contains(parseSource, "function App") || strings.Contains(parseSource, "const App") {
+			return "App component"
+		}
+		return fmt.Sprintf("Canvas block %d", parseBlockIndex+1)
+	default:
+		return fmt.Sprintf("Canvas block %d", parseBlockIndex+1)
+	}
+}
+
+// parseBuildCanvasArtifactBenchmarkMarkdown builds one deterministic markdown payload with mixed supported and ignored fenced blocks.
+func parseBuildCanvasArtifactBenchmarkMarkdown(parseBlockCount int) string {
+	if parseBlockCount < 1 {
+		parseBlockCount = 1
+	}
+	var parseBuilder strings.Builder
+	parseBuilder.Grow(parseBlockCount * 96)
+	for parseBlockIndex := 0; parseBlockIndex < parseBlockCount; parseBlockIndex++ {
+		switch parseBlockIndex % 4 {
+		case 0:
+			parseBuilder.WriteString("```js\nconst App = () => <div>Hello</div>\n```\n")
+		case 1:
+			parseBuilder.WriteString("```canvas\n<html><body>canvas</body></html>\n```\n")
+		case 2:
+			parseBuilder.WriteString("```go\npackage main\n```\n")
+		default:
+			parseBuilder.WriteString("```html\n<div>demo</div>\n```\n")
+		}
+	}
+	return parseBuilder.String()
+}
+
+// parseHandleRenderMessageMetadataBatchRequestLegacy preserves the previous append-heavy metadata batch assembly path for benchmark comparison.
+func parseHandleRenderMessageMetadataBatchRequestLegacy(parseCtx context.Context, parseRequest renderWorkerMessageMetadataBatchRequest) (renderWorkerMessageMetadataBatchResult, error) {
+	_ = parseCtx
+	parseChunkResults := make([]renderWorkerMessageMetadataChunkResult, 0, len(parseRequest.GetChunkRequest))
+	for _, parseChunkRequest := range parseRequest.GetChunkRequest {
+		parseMessageResults := make([]renderWorkerMessageMetadataMessageResult, 0, len(parseChunkRequest.GetMessageItems))
+		for _, parseMessageItem := range parseChunkRequest.GetMessageItems {
+			parseMessageResults = append(parseMessageResults, renderWorkerMessageMetadataMessageResult{
+				GetMessageIndex:   parseMessageItem.GetMessageIndex,
+				GetThoughtSection: parseBuildThoughtSectionResults(string(parseMessageItem.GetThoughtBytes)),
+				GetCanvasArtifact: parseBuildCanvasArtifactResultsLegacy(parseMessageItem.GetMessageIndex, string(parseMessageItem.GetContentBytes)),
+			})
+		}
+		parseChunkResults = append(parseChunkResults, renderWorkerMessageMetadataChunkResult{
+			GetGeneration: parseRequest.GetGeneration,
+			GetChunkIndex: parseChunkRequest.GetChunkIndex,
+			GetMessage:    parseMessageResults,
+		})
+	}
+	return renderWorkerMessageMetadataBatchResult{
+		GetGeneration: parseRequest.GetGeneration,
+		GetChunk:      parseChunkResults,
+	}, nil
+}
+
+// parseBuildCanvasArtifactResultsLegacy preserves the previous append-heavy canvas artifact path for benchmark comparison.
+func parseBuildCanvasArtifactResultsLegacy(parseMessageIndex int, parseMarkdown string) []renderWorkerCanvasArtifactResult {
+	parseMatches := renderWorkerFencedBlockPattern.FindAllStringSubmatch(parseMarkdown, -1)
+	if len(parseMatches) == 0 {
+		return nil
+	}
+	parseArtifacts := make([]renderWorkerCanvasArtifactResult, 0, len(parseMatches))
+	for parseBlockIndex, parseMatch := range parseMatches {
+		if len(parseMatch) < 3 {
+			continue
+		}
+		parseInfo := strings.TrimSpace(parseMatch[1])
+		parseSource := strings.TrimSpace(parseMatch[2])
+		if parseSource == "" {
+			continue
+		}
+		parseLanguage, hasParseLanguage := parseBuildCanvasFenceLanguage(parseInfo)
+		if !hasParseLanguage {
+			continue
+		}
+		parseArtifacts = append(parseArtifacts, renderWorkerCanvasArtifactResult{
+			GetIDBytes:    []byte(fmt.Sprintf("m%d-b%d", parseMessageIndex, parseBlockIndex)),
+			GetLabelBytes: []byte(parseBuildCanvasArtifactLabel(parseLanguage, parseSource, parseBlockIndex)),
+		})
+	}
+	if len(parseArtifacts) == 0 {
+		return nil
+	}
+	return parseArtifacts
 }

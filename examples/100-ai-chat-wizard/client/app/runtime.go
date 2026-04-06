@@ -4,8 +4,6 @@ package app
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"strings"
 	"sync"
 	"syscall/js"
@@ -18,8 +16,6 @@ import (
 	"github.com/monstercameron/GoWebComponents/logging"
 	"github.com/monstercameron/GoWebComponents/ui"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/metadata"
 )
 
 type grpcMonitorResult struct {
@@ -60,6 +56,7 @@ func parseUseAppRuntime(
 ) {
 	parseMarkdownWorkerSubscriptionRef := ui.UseRef[*interop.Subscription](nil)
 	parseMetadataGenerationRef := ui.UseRef(uint64(0))
+	parseMetadataSignatureRef := ui.UseRef("")
 	parseThreadCostGenerationRef := ui.UseRef(uint64(0))
 
 	ui.UseEffect(func() func() {
@@ -453,6 +450,9 @@ func parseUseAppRuntime(
 		if parseApp.Get().MarkdownWorkerFallback {
 			return nil
 		}
+		if !parseShouldRefreshWorkerDerivedSignature(parseAssistantMetadataSignature, parseMetadataSignatureRef.Get()) {
+			return nil
+		}
 		parseRequester, parseBatchCount := parseResolveBackgroundRenderRequester(parseMarkdownWorkerRef, parseMarkdownWorkerPoolRef)
 		if parseRequester == nil {
 			parseThoughtCacheByMessage := map[int]renderWorkerThoughtCacheEntry{}
@@ -472,52 +472,54 @@ func parseUseAppRuntime(
 			}
 			parseThoughtCacheByMessageState.Set(parseThoughtCacheByMessage)
 			parseCanvasCacheByMessageState.Set(parseCanvasCacheByMessage)
+			parseMetadataSignatureRef.Set(parseAssistantMetadataSignature)
 			return nil
 		}
-		parseMessageItems := parseBuildAssistantMessageMetadataItems(parseApp.Get().Messages)
+		parseMessageItems, parseRetainedThoughtCacheByMessage, parseRetainedCanvasCacheByMessage := parseBuildAssistantMessageMetadataDelta(
+			parseApp.Get().Messages,
+			parseThoughtCacheByMessageState.Get(),
+			parseCanvasCacheByMessageState.Get(),
+		)
 		parseGeneration := parseMetadataGenerationRef.Get() + 1
 		parseMetadataGenerationRef.Set(parseGeneration)
 		if len(parseMessageItems) == 0 {
-			parseThoughtCacheByMessageState.Set(map[int]renderWorkerThoughtCacheEntry{})
-			parseCanvasCacheByMessageState.Set(map[int]renderWorkerCanvasCacheEntry{})
+			parseThoughtCacheByMessageState.Set(parseRetainedThoughtCacheByMessage)
+			parseCanvasCacheByMessageState.Set(parseRetainedCanvasCacheByMessage)
+			parseMetadataSignatureRef.Set(parseAssistantMetadataSignature)
 			return nil
 		}
-		go func(parseExpectedGeneration uint64, parseItems []renderWorkerMessageMetadataMessageRequest, parsePoolBatchCount int) {
+		// Metadata delta items are rebuilt for each effect run, so the async worker
+		// request can consume this snapshot directly without another copy.
+		go func(parseExpectedGeneration uint64, parseExpectedSignature string, parseItems []renderWorkerMessageMetadataMessageRequest, parsePoolBatchCount int, parseRetainedThoughtCache map[int]renderWorkerThoughtCacheEntry, parseRetainedCanvasCache map[int]renderWorkerCanvasCacheEntry) {
 			parseThoughtCacheByMessage, parseCanvasCacheByMessage, parseErr := parseRequestAssistantMessageMetadata(context.Background(), parseRequester, parseExpectedGeneration, parseItems, parsePoolBatchCount)
 			if parseErr != nil {
 				chatLog.Warn("message metadata worker request failed; using synchronous fallback", logging.Fields{"error": parseErr, "messages": len(parseItems)})
-				parseThoughtFallbackByMessage := map[int]renderWorkerThoughtCacheEntry{}
-				parseCanvasFallbackByMessage := map[int]renderWorkerCanvasCacheEntry{}
-				for _, parseItem := range parseItems {
-					parseContentText := string(parseItem.GetContentBytes)
-					parseThoughtText := string(parseItem.GetThoughtBytes)
-					parseThoughtFallbackByMessage[parseItem.GetMessageIndex] = renderWorkerThoughtCacheEntry{
-						GetThoughtText: parseThoughtText,
-						GetSection:     parseThoughtSections(parseItem.GetMessageIndex, parseThoughtText),
-					}
-					parseCanvasFallbackByMessage[parseItem.GetMessageIndex] = renderWorkerCanvasCacheEntry{
-						GetContentText: parseContentText,
-						GetArtifact:    canvasArtifactsFromMarkdown(parseItem.GetMessageIndex, parseContentText),
-					}
-				}
+				parseThoughtCacheByMessage, parseCanvasCacheByMessage = parseBuildAssistantMessageMetadataFallback(parseItems)
 				if parseMetadataGenerationRef.Get() == parseExpectedGeneration {
-					parseThoughtCacheByMessageState.Set(parseThoughtFallbackByMessage)
-					parseCanvasCacheByMessageState.Set(parseCanvasFallbackByMessage)
+					parseThoughtMergedCacheByMessage, parseCanvasMergedCacheByMessage := parseMergeAssistantMessageMetadataCaches(parseRetainedThoughtCache, parseRetainedCanvasCache, parseThoughtCacheByMessage, parseCanvasCacheByMessage)
+					parseThoughtCacheByMessageState.Set(parseThoughtMergedCacheByMessage)
+					parseCanvasCacheByMessageState.Set(parseCanvasMergedCacheByMessage)
+					parseMetadataSignatureRef.Set(parseExpectedSignature)
 				}
 				return
 			}
 			if parseMetadataGenerationRef.Get() != parseExpectedGeneration {
 				return
 			}
-			parseThoughtCacheByMessageState.Set(parseThoughtCacheByMessage)
-			parseCanvasCacheByMessageState.Set(parseCanvasCacheByMessage)
-		}(parseGeneration, append([]renderWorkerMessageMetadataMessageRequest(nil), parseMessageItems...), parseBatchCount)
+			parseThoughtMergedCacheByMessage, parseCanvasMergedCacheByMessage := parseMergeAssistantMessageMetadataCaches(parseRetainedThoughtCache, parseRetainedCanvasCache, parseThoughtCacheByMessage, parseCanvasCacheByMessage)
+			parseThoughtCacheByMessageState.Set(parseThoughtMergedCacheByMessage)
+			parseCanvasCacheByMessageState.Set(parseCanvasMergedCacheByMessage)
+			parseMetadataSignatureRef.Set(parseExpectedSignature)
+		}(parseGeneration, parseAssistantMetadataSignature, parseMessageItems, parseBatchCount, parseRetainedThoughtCacheByMessage, parseRetainedCanvasCacheByMessage)
 		return nil
-	}, parseApp.Get().MarkdownWorkerFallback, parseAssistantMetadataSignature, parseMarkdownRenderTick)
+	}, parseApp.Get().MarkdownWorkerFallback, parseAssistantMetadataSignature)
 
 	ui.UseEffect(func() func() {
 		if parseApp.Get().MarkdownWorkerFallback {
 			parseThreadCostSummarySignatureState.Set("")
+			return nil
+		}
+		if !parseShouldRefreshWorkerDerivedSignature(parseThreadCostSignature, parseThreadCostSummarySignatureState.Get()) {
 			return nil
 		}
 		parseRequester, _ := parseResolveBackgroundRenderRequester(parseMarkdownWorkerRef, parseMarkdownWorkerPoolRef)
@@ -528,8 +530,10 @@ func parseUseAppRuntime(
 		}
 		parseGeneration := parseThreadCostGenerationRef.Get() + 1
 		parseThreadCostGenerationRef.Set(parseGeneration)
-		parseMessages := append([]message(nil), parseApp.Get().Messages...)
-		parseModels := append([]modelOption(nil), parseApp.Get().ModelOptions...)
+		// App state updates replace message/model slices, so this render snapshot is
+		// safe to hand to the async worker request without another clone.
+		parseMessages := parseApp.Get().Messages
+		parseModels := parseApp.Get().ModelOptions
 		go func(parseExpectedGeneration uint64, parseWorkerMessages []message, parseWorkerModels []modelOption, parseExpectedSignature string) {
 			parseSummary, parseErr := parseRequestWorkerThreadCostSummary(context.Background(), parseRequester, parseExpectedGeneration, parseWorkerMessages, parseWorkerModels)
 			if parseErr != nil {
@@ -547,5 +551,5 @@ func parseUseAppRuntime(
 			parseThreadCostSummarySignatureState.Set(parseExpectedSignature)
 		}(parseGeneration, parseMessages, parseModels, parseThreadCostSignature)
 		return nil
-	}, parseApp.Get().MarkdownWorkerFallback, parseThreadCostSignature, parseMarkdownRenderTick)
+	}, parseApp.Get().MarkdownWorkerFallback, parseThreadCostSignature)
 }
