@@ -21,7 +21,7 @@ Use this order when upgrading an existing app into the current documented surfac
 
 1. Inventory imports and remove any direct dependency on `internal/*` or repo-only helpers.
 2. Move rendering and component authoring onto `ui`, `html`, and, when it improves readability, `html/shorthand`.
-3. Replace router compatibility helpers with the canonical `router.NewRouter(...)`, `Register(...)`, `Mount(...)`, and hook-based APIs.
+3. Replace router compatibility helpers with the canonical `router.NewHashRouter(...)` or `router.NewHistoryRouter(...)`, `Register(...)`, `Mount(...)`, and hook-based APIs.
 4. Replace custom SSR bootstrap or hydration glue with `ui.RenderToString(...)`, `ui.Hydrate(...)`, and router-aware hydration helpers where applicable.
 5. Move shared state, async resources, locale handling, interop, and diagnostics onto the documented public packages instead of app-local framework shims.
 6. Run native tests first, then add targeted `js/wasm` and browser validation for the routes, hydration, and browser-only paths that changed.
@@ -81,7 +81,7 @@ func Shell() ui.Element {
 }
 
 func MountApp() {
-	r := router.NewRouter(router.Options{})
+	r := router.NewHistoryRouter(router.RouterOptions{})
 	r.Register("/", Shell)
 	r.Mount("app")
 }
@@ -114,7 +114,7 @@ Migration guidance:
 
 ### Router
 
-The router surface in `v3.x` is centered on `NewHashRouter`, `NewRouter`, `Register`, `Mount`, `UseNavigate`, `UseParams`, `UseQuery`, `UseSearchParams`, `UseRevalidator`, and `Outlet()`.
+The router surface in `v3.x` is centered on `NewHashRouter`, `NewHistoryRouter`, `Register`, `Mount`, `UseNavigate`, `UseParams`, `UseQuery`, `UseSearchParams`, `UseRevalidator`, and `GetOutlet()`.
 
 If older code still uses compatibility helpers such as `GoRegisterRoute` or `GoGetRoute`, treat those as migration shims rather than preferred APIs.
 
@@ -123,7 +123,7 @@ Migration guidance:
 - register routes with canonical leading-slash paths
 - use `Register(...)` instead of compatibility registration helpers in new code
 - prefer route params, query helpers, redirects, guards, and metadata through documented `router.Options` flows rather than custom URL parsing
-- for nested UIs, register parent layouts with `router.Options{Layout: true}` and render child routes with `router.Outlet()`
+- for nested UIs, register parent layouts with `router.Options{Layout: true}` and render child routes with `router.GetOutlet()`
 - if the app hydrates server-rendered routes, move to `router.HydrateMount(...)` or the documented router hydration flow instead of custom boot code
 
 Review manually if your app depended on older path-normalization quirks, especially around trailing slashes, hash-prefixed inputs, or fallback-route assumptions.

@@ -26,7 +26,7 @@
   "GWC browser router": {
     "prefix": "gwc-router-basic",
     "body": [
-      "r := router.NewRouter()",
+      "r := router.NewHistoryRouter()",
       "r.Register(\"${1:/}\", func() ui.Node {",
       "\treturn html.Main(html.Props{}, html.Text(\"${2:Home}\"))",
       "})",

@@ -21,7 +21,7 @@ This means boundaries are for code failure isolation, not for masking hydration 
 
 Use this rule of thumb:
 
-- wrap `router.Outlet()` when the shell should survive leaf-route failures
+- wrap `router.GetOutlet()` when the shell should survive leaf-route failures
 - wrap the layout plus outlet together when shell and leaf should recover as one unit
 - use separate sibling boundaries when neighboring route branches should fail independently
 - align `ResetKeys` with route identity when navigation should intentionally clear a recovered error state
@@ -47,14 +47,14 @@ There is no router-only boundary type and no automatic route-boundary injection 
 
 That means:
 
-- a boundary around `router.Outlet()` only isolates the leaf route subtree rendered through that outlet
+- a boundary around `router.GetOutlet()` only isolates the leaf route subtree rendered through that outlet
 - a boundary around a layout shell and its outlet isolates both the layout render path and its current leaf
 - sibling layouts or sibling route branches need their own boundaries if they should fail independently
 - the router does not currently decide whether "route boundaries" mean leaf-only or shell-plus-leaf; placement in the UI tree is the authority
 
 Recommended placement rules:
 
-- wrap `router.Outlet()` when you want a persistent shell to survive route-leaf failures
+- wrap `router.GetOutlet()` when you want a persistent shell to survive route-leaf failures
 - wrap a larger layout subtree when the shell and leaf must recover together
 - keep reset keys aligned with route identity when navigation should clear the recovered state intentionally
 

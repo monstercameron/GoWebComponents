@@ -64,7 +64,7 @@ Its baseline entries cover:
 
 - stateful component setup with `ui.UseState(...)`
 - browser entrypoint mounting through `ui.Render(...)`
-- minimal path-based routing through `router.NewRouter(...)`
+- minimal path-based routing through `router.NewHistoryRouter(...)`
 - focused component-test setup through the public testing helpers
 
 The goal of this first bundle is not to automate architecture decisions. It is to make the current public surface easier to find from the editor without forcing a developer to start from grep alone.
@@ -97,7 +97,7 @@ High-value symbol groups for this treatment:
 
 - hooks such as `ui.UseState(...)`, `ui.UseEffect(...)`, `ui.UseForm(...)`, and `ui.UseTransition(...)`
 - shared-state helpers such as `state.UseAtom(...)`, `state.UseComputed(...)`, and `state.UseDerived(...)`
-- router entrypoints such as route loaders, `router.UseNavigate(...)`, `router.UseRevalidator(...)`, and `router.Outlet()`
+- router entrypoints such as route loaders, `router.UseNavigate(...)`, `router.UseRevalidator(...)`, and `router.GetOutlet()`
 - async helpers such as `fetch.UseResource[T](...)`, `fetch.UseCachedResource[T](...)`, and `fetch.Fetch(...)`
 - SSR and hydration helpers such as `ui.RenderToString(...)`, `ui.RenderBootstrapScript(...)`, and `ui.Hydrate(...)`
 - devtools and diagnostics helpers where the main question is when the tool belongs in product code versus debugging code

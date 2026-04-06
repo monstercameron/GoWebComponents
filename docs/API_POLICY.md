@@ -42,7 +42,7 @@ Current stable public surfaces are:
 - `html` typed element builders and documented `html.Props` behavior
 - `state` atoms, `UseComputed`, `UseDerived`, snapshot export or import helpers, and browser snapshot persistence helpers
 - `fetch` low-level `Fetch`, `UseFetch`, and typed `UseResource`
-- `router` core router creation, route registration, mounting, navigation, params, query helpers, redirects, and nested `Outlet()` composition
+- `router` core router creation, route registration, mounting, navigation, params, query helpers, redirects, and nested `GetOutlet()` composition
 - `ui.RenderToString`, `ui.Hydrate`, SSR bootstrap helpers, and `router.HydrateMount` when used through documented package APIs
 
 Stable means:

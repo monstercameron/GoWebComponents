@@ -497,8 +497,8 @@ Variable-height virtualization should remain a second-phase follow-up until the 
 That means any variable-height work should stay deferred until the project can point to all of the following on the fixed-height surface:
 
 - passing viewport-math regressions for the owned-scroll list contract
-- passing restoration and hydration regressions for the shipped example surfaces
-- browser benchmark coverage that compares the virtualized feed against a full-render baseline
+- passing package-level restoration snapshot and scroll-clamp regressions for the fixed-height primitive
+- documented manual verification for the shipped `examples/103-virtualized-feed` browser surface until dedicated browser regressions and benchmarks land
 - stable diagnostics budgets where measurement, invalidation, and scroll-correction churn remain zero for the fixed-height primitive
 
 If those fixed-height proofs stop holding, the project should treat that as a regression in the first primitive rather than expanding into measured-row support early.

@@ -78,8 +78,8 @@ Use this path when the app needs multiple pages, route params, loaders, redirect
 
 Public API:
 
-- `router.NewHashRouter`, `router.NewRouter`
-- `Register`, `Mount`, `router.Outlet()`
+- `router.NewHashRouter`, `router.NewHistoryRouter`
+- `Register`, `Mount`, `router.GetOutlet()`
 - `router.UseNavigate`, `router.UseParams`, `router.UseQuery`, `router.UseSearchParams`, `router.UseRevalidator`
 
 Runnable examples:
