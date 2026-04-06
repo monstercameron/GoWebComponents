@@ -46,6 +46,10 @@
 - Replaced the giant checked-in docs-ingestion SQL snapshot with a compact `tools/doc_ingest/schema.sql` schema file and a runnable `tools/doc_ingest/seed.ps1` local seed flow.
 - Updated the docs-ingestion plan, todo notes, and tools docs to point generated outputs at `bin/doc_ingest/` instead of writing databases and temp files back into `docs/`.
 
+### readme presentation refresh
+
+- Replaced the README hero image with the new ChatGPT-generated artwork and moved the asset into `docs/assets/chatgpt.png` so the top-level repo no longer carries the long original image filename.
+
 ## 2026-03-28
 
 ### example 100: admin operator drilldowns, mutations, and rollups
