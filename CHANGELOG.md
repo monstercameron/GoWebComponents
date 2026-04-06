@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-04-06
+
+### runtime2 dispatch hashing and patch fallback
+
+- Added typed scalar slice and typed `map[string]scalar` fast paths to the buffered and streamed runtime2 dispatch-hash encoders, along with regression coverage and compare benches.
+- Taught canonical patch diffing to fall back to `replace-subtree` for root-ID structural deltas and added canonical DOM snapshot seeding for rebuilding region DOM state from canonical IR.
+
+### public parallel-region click bridge
+
+- Added runtime2 semantic event control envelopes, worker event dispatch handling, metadata-only registry lookup and mutation helpers, and metadata-aware worker renderer registration.
+- Added `html.OnClickParallel(...)` and a bounded browser click bridge so local-first `ui.ParallelRegion(...)` nodes preserve their local click handlers while forwarding one semantic click event into runtime2 and committing the resulting worker patch.
+- Seeded worker region state from already-rendered public nodes for post-mount patching and refreshed the runtime2 authoring and backlog docs to match the shipped behavior.
+
 ## 2026-04-05
 
 ### runtime2 event-slot metadata
@@ -7,6 +20,7 @@
 - Replaced the non-operative placeholder event-slot metadata slice with a normalized `v1` schema in `internal/runtime2/`.
 - Added validation and transport coverage for declared slot and event pairs, legacy placeholder-version normalization, and duplicate or malformed slot rejection.
 - Wired event-slot metadata through the runtime2 renderer registry so renderer capability metadata now carries validated slot declarations.
+- Kept the legacy placeholder JSON helper names as compatibility wrappers over the normalized event-slot transport path and updated the runtime design notes to drop stale placeholder wording.
 
 ### plugin support-tier promotion
 
