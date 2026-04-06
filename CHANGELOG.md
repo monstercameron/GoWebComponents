@@ -34,6 +34,18 @@
 - Added `docs/DOC_INGESTION_PLAN.md` and `docs/DOC_INGESTION_TODOS.md` to capture the repository docs-ingestion design and approval flow.
 - Added `docs/docs.sql` and `docs/seed_docs.ps1` to define and seed the docs-ingestion schema.
 
+### repository layout maps
+
+- Added a repo-layout section to `README.md` so contributors can quickly locate the public packages, internals, tests, tools, docs, examples, and local helper folders.
+- Added local navigation READMEs for `agents/`, `scripts/`, `internal/platform/`, `internal/runtime/`, `internal/runtime2/`, and `tools/runnerconfig/`.
+- Tightened `docs/README.md`, `internal/README.md`, and related folder maps so the larger implementation areas are easier to navigate without scanning the tree by hand.
+
+### docs ingest tooling cleanup
+
+- Moved the executable docs-ingestion assets out of `docs/` and into `tools/doc_ingest/` so the docs folder stays prose-first.
+- Replaced the giant checked-in docs-ingestion SQL snapshot with a compact `tools/doc_ingest/schema.sql` schema file and a runnable `tools/doc_ingest/seed.ps1` local seed flow.
+- Updated the docs-ingestion plan, todo notes, and tools docs to point generated outputs at `bin/doc_ingest/` instead of writing databases and temp files back into `docs/`.
+
 ## 2026-03-28
 
 ### example 100: admin operator drilldowns, mutations, and rollups
