@@ -5,6 +5,7 @@ package router
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -77,6 +78,9 @@ type Router struct {
 	metadataState  routeMetadataState
 	guardState     navigationGuardState
 	debugState     routeDebugState
+	renderCurrentComponent func() *Element
+	isRenderApplyGuards    bool
+	renderVersion          int
 }
 
 type navigationGuardState struct {
@@ -335,7 +339,7 @@ func NewHashRouter(parseOptions ...RouterOptions) *Router {
 	}
 	parseCfg.DefaultRoute = normalizePath(parseCfg.DefaultRoute)
 
-	return &Router{
+	parseRouter := &Router{
 		routes:       make(map[string]routeFactory),
 		routeOptions: make(map[string]Options),
 		patterns:     []routePattern{},
@@ -346,6 +350,7 @@ func NewHashRouter(parseOptions ...RouterOptions) *Router {
 			active:  make(map[string]struct{}),
 		},
 	}
+	return parseRouter
 }
 
 // NewHistoryRouter creates a history-based router using the HTML5 History API.
@@ -373,7 +378,6 @@ func NewHistoryRouter(parseOptions ...RouterOptions) *Router {
 			active:  make(map[string]struct{}),
 		},
 	}
-
 	// Setup browser sync for history-based navigation
 	parseRouter.setupHistoryListener()
 
@@ -571,7 +575,29 @@ func (parseR *Router) renderCurrentRoute(isApplyGuards bool) {
 	}()
 	ensureInitialized()
 	parseRt := runtime.GetGlobalRuntime()
-	parseRouteElement := parseR.currentElement(isApplyGuards)
+	var parseRouteElement *Element
+	var parseRouteRecovered interface{}
+	func() {
+		defer func() {
+			parseRouteRecovered = recover()
+		}()
+		parseRouteElement = parseR.currentElement(isApplyGuards)
+	}()
+	if parseRouteRecovered != nil {
+		if !strings.Contains(fmt.Sprint(parseRouteRecovered), "called outside component context") {
+			panic(parseRouteRecovered)
+		}
+		if parseR.renderCurrentComponent == nil {
+			parseR.renderCurrentComponent = func() *Element {
+				return parseR.currentElement(parseR.isRenderApplyGuards)
+			}
+		}
+		parseR.isRenderApplyGuards = isApplyGuards
+		parseRouteElement = runtime.CreateElement(parseR.renderCurrentComponent, map[string]interface{}{
+			"version": parseR.renderVersion,
+		})
+		parseR.renderVersion++
+	}
 	if parseRouteElement == nil {
 		return
 	}

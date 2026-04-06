@@ -10,6 +10,7 @@ import (
 	appRouter "github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/test/browser"
 	"github.com/monstercameron/GoWebComponents/testkit/render"
+	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 // Fixture wraps one router plus a rendered route fixture.
@@ -20,6 +21,8 @@ type Fixture struct {
 	env     *browser.Environment
 	isHash  bool
 	cleaned bool
+	renderCurrentComponent func() ui.Node
+	renderVersion          int
 }
 
 // NewHash creates a hash-router test fixture.
@@ -32,6 +35,9 @@ func NewHash(parseTb testing.TB, parseOptions ...appRouter.RouterOptions) *Fixtu
 		isHash: true,
 	}
 	parseFixture.router = appRouter.NewHashRouter(parseOptions...)
+	parseFixture.renderCurrentComponent = func() ui.Node {
+		return parseFixture.router.Current()
+	}
 	parseTb.Cleanup(func() {
 		parseFixture.Cleanup()
 	})
@@ -51,6 +57,9 @@ func NewHistory(parseTb testing.TB, parseOptions ...appRouter.RouterOptions) *Fi
 		parseFixture.router = appRouter.NewHistoryRouter(parseOptions[0])
 	} else {
 		parseFixture.router = appRouter.NewHistoryRouter(appRouter.RouterOptions{})
+	}
+	parseFixture.renderCurrentComponent = func() ui.Node {
+		return parseFixture.router.Current()
 	}
 	parseTb.Cleanup(func() {
 		parseFixture.Cleanup()
@@ -77,7 +86,8 @@ func (parseF *Fixture) SetPath(parsePath string) {
 func (parseF *Fixture) Render() {
 	parseF.tb.Helper()
 	parseF.requireActive()
-	parseF.render.Render(parseF.router.Current())
+	parseF.render.Render(ui.CreateElement(parseF.renderCurrentComponent, parseF.renderVersion))
+	parseF.renderVersion++
 }
 
 // Navigate performs router navigation and rerenders the current route.

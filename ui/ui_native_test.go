@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -116,6 +117,13 @@ func TestReadBootstrapReferenceUnsupportedOnServer(parseT *testing.T) {
 }
 
 func TestCreateElementInvalidTypePanicIncludesActionableGuidance(parseT *testing.T) {
+	getPreviousPanicOptions := runtime.CurrentUnhandledPanicLoggingOptions()
+	runtime.ConfigureUnhandledPanicLogging(runtime.PanicLoggingOptions{
+		HideRawPanicOutput: true,
+		OnReport:           getPreviousPanicOptions.OnReport,
+	})
+	defer runtime.ConfigureUnhandledPanicLogging(getPreviousPanicOptions)
+
 	parseMarkup, parseErr := ui.RenderToString(ui.CreateElement(123))
 	if parseErr == nil {
 		parseT.Fatal("expected create-element misuse to surface as an SSR error")

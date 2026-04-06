@@ -12,9 +12,17 @@ import (
 	"time"
 )
 
-// stageManagedProfileCommandDir creates the managed chat-wizard command directory expected by profile resolution.
+// stageManagedProfileCommandDir creates the managed chat-wizard command directories expected by profile resolution and seed preflight.
 func stageManagedProfileCommandDir(parseT *testing.T, parseRootPath string) {
 	parseT.Helper()
+	parseModulePath := filepath.Join(parseRootPath, "go.mod")
+	if _, parseErr := os.Stat(parseModulePath); errors.Is(parseErr, os.ErrNotExist) {
+		if parseErr2 := os.WriteFile(parseModulePath, []byte("module example.com/managedtest\n\ngo 1.25.4\n"), 0644); parseErr2 != nil {
+			parseT.Fatalf("write managed go.mod: %v", parseErr2)
+		}
+	} else if parseErr != nil {
+		parseT.Fatalf("stat managed go.mod: %v", parseErr)
+	}
 	parseCommandDir := filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "cmd", "server")
 	if parseErr := os.MkdirAll(parseCommandDir, 0755); parseErr != nil {
 		parseT.Fatalf("mkdir managed command dir: %v", parseErr)
@@ -22,6 +30,7 @@ func stageManagedProfileCommandDir(parseT *testing.T, parseRootPath string) {
 	if parseErr2 := os.WriteFile(filepath.Join(parseCommandDir, "main.go"), []byte("package main\nfunc main(){}\n"), 0644); parseErr2 != nil {
 		parseT.Fatalf("write managed command placeholder: %v", parseErr2)
 	}
+	stageManagedProfileSeedCommandDir(parseT, parseRootPath)
 }
 
 // stageManagedProfileSeedCommandDir creates the managed chat-wizard seed command directory expected by launch preflight.

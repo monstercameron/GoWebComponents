@@ -201,20 +201,37 @@ func GetClipboard() (Clipboard, error) {
 	if parseErr != nil {
 		return Clipboard{}, parseErr
 	}
+	parseWrapped := Value{raw: parseRaw}
 	return Clipboard{
 		writeText: func(parseCtx context.Context, parseText string) error {
-			_, parseErr2 := awaitValue(parseCtx, "Clipboard.WriteText", "navigator.clipboard.writeText", parseRaw.Call("writeText", parseText))
+			parseValue, parseErr2 := parseWrapped.Call("writeText", parseText)
+			if parseErr2 != nil {
+				return parseErr2
+			}
+			parseRawValue, parseOk := parseValue.rawValue()
+			if !parseOk {
+				return unavailable("Clipboard.WriteText", "navigator.clipboard.writeText")
+			}
+			_, parseErr2 = awaitValue(parseCtx, "Clipboard.WriteText", "navigator.clipboard.writeText", parseRawValue)
 			return parseErr2
 		},
 		readText: func(parseCtx2 context.Context) (string, error) {
-			parseValue, parseErr3 := awaitValue(parseCtx2, "Clipboard.ReadText", "navigator.clipboard.readText", parseRaw.Call("readText"))
+			parseValue, parseErr3 := parseWrapped.Call("readText")
 			if parseErr3 != nil {
 				return "", parseErr3
 			}
-			if parseValue.IsUndefined() || parseValue.IsNull() {
+			parseRawValue, parseOk := parseValue.rawValue()
+			if !parseOk {
+				return "", unavailable("Clipboard.ReadText", "navigator.clipboard.readText")
+			}
+			parseResolved, parseErr3 := awaitValue(parseCtx2, "Clipboard.ReadText", "navigator.clipboard.readText", parseRawValue)
+			if parseErr3 != nil {
+				return "", parseErr3
+			}
+			if parseResolved.IsUndefined() || parseResolved.IsNull() {
 				return "", nil
 			}
-			return parseValue.String(), nil
+			return parseResolved.String(), nil
 		},
 	}, nil
 }

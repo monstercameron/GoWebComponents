@@ -33,7 +33,10 @@ jobs:
 
       - name: Build Example WASM Files
         shell: pwsh
-        run: ./examples/build.ps1
+        run: |
+          go run ./tools/gwc build -app .\examples\00-example-0\main.go -root .\examples\00-example-0 -profile ci -out .\bin\examples\example-0.wasm
+          go run ./tools/gwc build -app .\examples\01-counter\main.go -root .\examples\01-counter -profile ci -out .\bin\examples\counter.wasm
+          go run ./tools/gwc build -app .\examples\gwc-examples-site\main.go -root .\examples\gwc-examples-site -profile ci -out .\bin\examples\gwc-examples-site.wasm
 
       - name: Prepare Pages Artifact
         shell: pwsh
@@ -42,6 +45,9 @@ jobs:
           $builtExamplesDir = Join-Path $PWD 'bin\examples'
           $pagesStaticBinDir = Join-Path $pagesDir 'static\bin'
           $embeddedBinsDir = Join-Path $pagesDir '00-example-0\assets\bins'
+          $examplesDir = Join-Path $PWD 'examples'
+          $pagesExampleDirs = @('00-example-0', '01-counter', 'static')
+          $pagesCatalogExampleDirs = @('00-example-0', '01-counter')
 
           if (Test-Path $pagesDir) {
             Remove-Item $pagesDir -Recurse -Force
@@ -52,9 +58,20 @@ jobs:
           }
 
           New-Item -ItemType Directory -Path $pagesDir | Out-Null
-          Copy-Item examples\* $pagesDir -Recurse -Force
+          foreach ($exampleDir in $pagesExampleDirs) {
+            Copy-Item (Join-Path $examplesDir $exampleDir) $pagesDir -Recurse -Force
+          }
           New-Item -ItemType Directory -Path $pagesStaticBinDir -Force | Out-Null
           Get-ChildItem -Path $builtExamplesDir -Filter '*.wasm' | Copy-Item -Destination $pagesStaticBinDir -Force
+          $catalogPath = Join-Path $pagesDir 'static\catalog.json'
+          go run ./tools/gwc examples -export-static-catalog $catalogPath
+          $catalog = Get-Content $catalogPath -Raw | ConvertFrom-Json
+          $catalogExamples = @($catalog.examples | Where-Object { $pagesCatalogExampleDirs -contains $_.name })
+          $catalog.examples = $catalogExamples
+          $catalog.totalExamples = $catalogExamples.Count
+          $catalog.wasmExamples = @($catalogExamples | Where-Object { $_.usesWasm }).Count
+          $catalog.multiClientExamples = @($catalogExamples | Where-Object { $_.multiClient }).Count
+          $catalog | ConvertTo-Json -Depth 16 | Set-Content $catalogPath
 
           foreach ($requiredBinary in @('example-0.wasm', 'counter.wasm', 'gwc-examples-site.wasm')) {
             $requiredPath = Join-Path $pagesStaticBinDir $requiredBinary

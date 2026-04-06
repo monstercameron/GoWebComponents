@@ -93,8 +93,7 @@ func awaitValue(parseCtx context.Context, parseOp string, parseTarget string, pa
 		})
 		return nil
 	})
-	parseValue.Call("then", parseResolve)
-	parseValue.Call("catch", parseReject)
+	parseValue.Call("then", parseResolve, parseReject)
 
 	select {
 	case parseResolved := <-parseResolvedCh:

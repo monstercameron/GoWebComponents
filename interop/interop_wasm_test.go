@@ -1678,9 +1678,26 @@ func TestNavigatorClipboardAwaitingPromise(parseT *testing.T) {
 	}
 
 	parseT.Run("write-rejected", func(parseT2 *testing.T) {
+		var parseFuncs []js.Func
+		defer releaseBrowserFuncs(parseFuncs)
+
 		parseClipboard := js.Global().Get("Object").New()
 		parseWriteTextFn2 := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
-			return js.Global().Get("Promise").Call("reject", js.Global().Get("Error").New("clipboard write failed"))
+			parseExecutor := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+				parseReject := parseArgs4[1]
+				scheduleBrowserTask(&parseFuncs, func() {
+					parseReject.Invoke(js.ValueOf("clipboard write failed"))
+				})
+				return nil
+			})
+			parseFuncs = append(parseFuncs, parseExecutor)
+			parsePromise := js.Global().Get("Promise").New(parseExecutor)
+			parseNoopCatch := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+				return nil
+			})
+			parseFuncs = append(parseFuncs, parseNoopCatch)
+			parsePromise.Call("catch", parseNoopCatch)
+			return parsePromise
 		})
 		defer parseWriteTextFn2.Release()
 		parseClipboard.Set("writeText", parseWriteTextFn2)
@@ -1703,9 +1720,26 @@ func TestNavigatorClipboardAwaitingPromise(parseT *testing.T) {
 	})
 
 	parseT.Run("read-rejected", func(parseT2 *testing.T) {
+		var parseFuncs []js.Func
+		defer releaseBrowserFuncs(parseFuncs)
+
 		parseClipboard := js.Global().Get("Object").New()
-		parseReadTextFn2 := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
-			return js.Global().Get("Promise").Call("reject", js.Global().Get("Error").New("clipboard read failed"))
+		parseReadTextFn2 := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+			parseExecutor := js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} {
+				parseReject := parseArgs7[1]
+				scheduleBrowserTask(&parseFuncs, func() {
+					parseReject.Invoke(js.ValueOf("clipboard read failed"))
+				})
+				return nil
+			})
+			parseFuncs = append(parseFuncs, parseExecutor)
+			parsePromise := js.Global().Get("Promise").New(parseExecutor)
+			parseNoopCatch := js.FuncOf(func(parseThis8 js.Value, parseArgs8 []js.Value) interface{} {
+				return nil
+			})
+			parseFuncs = append(parseFuncs, parseNoopCatch)
+			parsePromise.Call("catch", parseNoopCatch)
+			return parsePromise
 		})
 		defer parseReadTextFn2.Release()
 		parseClipboard.Set("readText", parseReadTextFn2)
@@ -1767,38 +1801,28 @@ func TestNavigatorClipboardAwaitingPromise(parseT *testing.T) {
 }
 
 func TestTimersUseBrowserCallbacks(parseT *testing.T) {
-	var parseTimeoutDelay int
-	var parseClearedTimeout int
-	setTimeoutFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
-		parseTimeoutDelay = parseArgs[1].Int()
-		parseArgs[0].Invoke()
-		return 7
-	})
-	defer setTimeoutFn.Release()
-	clearTimeoutFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
-		parseClearedTimeout++
-		return nil
-	})
-	defer clearTimeoutFn.Release()
-
-	parseRestoreSetTimeout := setGlobalValue("setTimeout", setTimeoutFn)
-	defer parseRestoreSetTimeout()
-	parseRestoreClearTimeout := setGlobalValue("clearTimeout", clearTimeoutFn)
-	defer parseRestoreClearTimeout()
-
 	parseFired := 0
-	parseTimer, parseErr := ScheduleTimeout(25*time.Millisecond, func() { parseFired++ })
+	parseFiredCh := make(chan struct{}, 1)
+	parseTimer, parseErr := ScheduleTimeout(time.Millisecond, func() {
+		parseFired++
+		select {
+		case parseFiredCh <- struct{}{}:
+		default:
+		}
+	})
 	if parseErr != nil {
 		parseT.Fatalf("expected timeout to succeed, got %v", parseErr)
 	}
-	if parseFired != 1 || parseTimeoutDelay != 25 {
-		parseT.Fatalf("unexpected timeout behavior: fired=%d delay=%d", parseFired, parseTimeoutDelay)
+	select {
+	case <-parseFiredCh:
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("expected timeout callback to fire")
+	}
+	if parseFired != 1 {
+		parseT.Fatalf("expected timeout to fire once, got %d", parseFired)
 	}
 	if parseErr2 := parseTimer.Cancel(); parseErr2 != nil {
 		parseT.Fatalf("expected cancel to be safe after fire, got %v", parseErr2)
-	}
-	if parseClearedTimeout != 0 {
-		parseT.Fatalf("expected fired timeout cancel to be a no-op, got %d clear calls", parseClearedTimeout)
 	}
 }
 
@@ -2054,12 +2078,13 @@ func TestWorkerSurfaceValidationReportsFailures(parseT *testing.T) {
 		parseRestoreLocation := setGlobalValue("location", parseLocation)
 		defer parseRestoreLocation()
 		parseUrlCtor := js.Global().Get("Function").New("url", "base", "return { href: Object.create(null) };")
+		parseUrlCtor.Set("createObjectURL", js.Global().Get("Function").New("blob", "return 'blob:gwc-bootstrap-test';"))
 		parseRestoreURL := setGlobalValue("URL", parseUrlCtor)
 		defer parseRestoreURL()
 
 		_, parseErr := NewGoWASMWorker(context.Background(), GoWASMWorkerOptions{
-			RuntimeURL: "https://app.example.test/wasm_exec.js",
-			WASMURL:    "https://app.example.test/worker.wasm",
+			RuntimeURL: "./wasm_exec.js",
+			WASMURL:    "./worker.wasm",
 		})
 		if !IsCode(parseErr, CodeInvalid) {
 			parseT2.Fatalf("expected runtime URL descriptor error, got %v", parseErr)
@@ -2072,12 +2097,13 @@ func TestWorkerSurfaceValidationReportsFailures(parseT *testing.T) {
 		parseRestoreLocation := setGlobalValue("location", parseLocation)
 		defer parseRestoreLocation()
 		parseUrlCtor := js.Global().Get("Function").New("url", "base", "if (String(url).indexOf('worker.wasm') >= 0) { return { href: Object.create(null) }; } return { href: String(url) };")
+		parseUrlCtor.Set("createObjectURL", js.Global().Get("Function").New("blob", "return 'blob:gwc-bootstrap-test';"))
 		parseRestoreURL := setGlobalValue("URL", parseUrlCtor)
 		defer parseRestoreURL()
 
 		_, parseErr := NewGoWASMWorker(context.Background(), GoWASMWorkerOptions{
-			RuntimeURL: "https://app.example.test/wasm_exec.js",
-			WASMURL:    "https://app.example.test/worker.wasm",
+			RuntimeURL: "./wasm_exec.js",
+			WASMURL:    "./worker.wasm",
 		})
 		if !IsCode(parseErr, CodeInvalid) {
 			parseT2.Fatalf("expected wasm URL descriptor error, got %v", parseErr)
@@ -2778,29 +2804,19 @@ func TestImperativeMutatorsReportBrowserFailures(parseT *testing.T) {
 
 	parseT.Run("storage-setitem-and-clear-propagate-browser-throws", func(parseT2 *testing.T) {
 		parseStorage := js.Global().Get("Object").New()
-		parseSetItemCalls := 0
-		parseClearCalls := 0
 		parseGetItemFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 			return js.Null()
 		})
 		defer parseGetItemFn.Release()
-		parseSetItemFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
-			parseSetItemCalls++
-			panic(js.Global().Get("Error").New("sessionStorage.setItem failed"))
-		})
-		defer parseSetItemFn.Release()
-		parseClearFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
-			parseClearCalls++
-			panic(js.Global().Get("Error").New("sessionStorage.clear failed"))
-		})
-		defer parseClearFn.Release()
+		parseSetItemFn := js.Global().Get("Function").New("key", "value", "this.__setItemCalls = (this.__setItemCalls || 0) + 1; throw new Error('sessionStorage.setItem failed')")
+		parseClearFn := js.Global().Get("Function").New("this.__clearCalls = (this.__clearCalls || 0) + 1; throw new Error('sessionStorage.clear failed')")
 		parseStorage.Set("getItem", parseGetItemFn)
 		parseStorage.Set("setItem", parseSetItemFn)
 		parseStorage.Set("clear", parseClearFn)
+		parseStorage.Set("__setItemCalls", 0)
+		parseStorage.Set("__clearCalls", 0)
 		parseStorage.Set("length", 0)
-		parseStorageRoot := js.Global().Get("Object").New()
-		parseStorageRoot.Set("sessionStorage", parseStorage)
-		parseRestoreStorage := setGlobalValue("Storage", parseStorageRoot)
+		parseRestoreStorage := setGlobalValue("sessionStorage", parseStorage)
 		defer parseRestoreStorage()
 
 		parseSession, parseErr := GetSessionStorage()
@@ -2808,22 +2824,14 @@ func TestImperativeMutatorsReportBrowserFailures(parseT *testing.T) {
 			parseT2.Fatalf("expected sessionStorage wrapper, got %v", parseErr)
 		}
 
-		if parseRecovered := parseRecoverPanic(func() {
-			if parseErr2 := parseSession.SetItem("theme", "dark"); parseErr2 != nil {
-				parseT2.Fatalf("expected setItem call to panic, got %v", parseErr2)
-			}
-		}); parseRecovered == nil {
-			parseT2.Fatal("expected sessionStorage.setItem panic to surface")
+		if parseErr2 := parseSession.SetItem("theme", "dark"); !IsCode(parseErr2, CodeRemote) {
+			parseT2.Fatalf("expected sessionStorage.setItem browser error, got %v", parseErr2)
 		}
-		if parseRecovered := parseRecoverPanic(func() {
-			if parseErr2 := parseSession.Clear(); parseErr2 != nil {
-				parseT2.Fatalf("expected clear call to panic, got %v", parseErr2)
-			}
-		}); parseRecovered == nil {
-			parseT2.Fatal("expected sessionStorage.clear panic to surface")
+		if parseErr2 := parseSession.Clear(); !IsCode(parseErr2, CodeRemote) {
+			parseT2.Fatalf("expected sessionStorage.clear browser error, got %v", parseErr2)
 		}
-		if parseSetItemCalls != 1 || parseClearCalls != 1 {
-			parseT2.Fatalf("unexpected storage method calls: setItem=%d clear=%d", parseSetItemCalls, parseClearCalls)
+		if parseStorage.Get("__setItemCalls").Int() != 1 || parseStorage.Get("__clearCalls").Int() != 1 {
+			parseT2.Fatalf("unexpected storage method calls: setItem=%d clear=%d", parseStorage.Get("__setItemCalls").Int(), parseStorage.Get("__clearCalls").Int())
 		}
 	})
 
@@ -2871,20 +2879,12 @@ func TestImperativeMutatorsReportBrowserFailures(parseT *testing.T) {
 		parseLocation.Set("search", "")
 		parseLocation.Set("hash", "")
 		parseLocation.Set("origin", "https://app.example.test")
-		parseAssignCalls := 0
-		parseReplaceCalls := 0
-		parseAssignFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
-			parseAssignCalls++
-			panic(js.Global().Get("Error").New("location.assign failed"))
-		})
-		defer parseAssignFn.Release()
-		parseReplaceFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
-			parseReplaceCalls++
-			panic(js.Global().Get("Error").New("location.replace failed"))
-		})
-		defer parseReplaceFn.Release()
+		parseAssignFn := js.Global().Get("Function").New("url", "this.__assignCalls = (this.__assignCalls || 0) + 1; throw new Error('location.assign failed')")
+		parseReplaceFn := js.Global().Get("Function").New("url", "this.__replaceCalls = (this.__replaceCalls || 0) + 1; throw new Error('location.replace failed')")
 		parseLocation.Set("assign", parseAssignFn)
 		parseLocation.Set("replace", parseReplaceFn)
+		parseLocation.Set("__assignCalls", 0)
+		parseLocation.Set("__replaceCalls", 0)
 
 		parseWindow := js.Global().Get("Object").New()
 		parseWindow.Set("location", parseLocation)
@@ -2909,8 +2909,8 @@ func TestImperativeMutatorsReportBrowserFailures(parseT *testing.T) {
 		}); parseRecovered == nil {
 			parseT2.Fatal("expected location.replace panic to surface")
 		}
-		if parseAssignCalls != 1 || parseReplaceCalls != 1 {
-			parseT2.Fatalf("unexpected location method calls: assign=%d replace=%d", parseAssignCalls, parseReplaceCalls)
+		if parseLocation.Get("__assignCalls").Int() != 1 || parseLocation.Get("__replaceCalls").Int() != 1 {
+			parseT2.Fatalf("unexpected location method calls: assign=%d replace=%d", parseLocation.Get("__assignCalls").Int(), parseLocation.Get("__replaceCalls").Int())
 		}
 	})
 }

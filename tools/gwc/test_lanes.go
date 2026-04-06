@@ -480,6 +480,10 @@ func collectWasmTestPackages(parseRootPath string, isHydrationOnly bool) ([]stri
 			if shouldSkipTestWalkDir(parseEntry.Name()) {
 				return filepath.SkipDir
 			}
+			// Skip nested Go modules so root-lane package patterns stay valid.
+			if parsePath != parseRootPath && fileExists(filepath.Join(parsePath, "go.mod")) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if !strings.HasSuffix(parseEntry.Name(), "_wasm_test.go") {

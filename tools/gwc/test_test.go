@@ -51,18 +51,28 @@ func TestCollectWasmTestPackagesHydrationFilter(parseT *testing.T) {
 	if parseErr3 := os.WriteFile(filepath.Join(parseRoot, "hydration", "hydrate_wasm_test.go"), []byte("package hydration\nfunc TestHydrateFlow(t *testing.T) {}\n"), 0644); parseErr3 != nil {
 		parseT.Fatalf("write hydrate_wasm_test.go: %v", parseErr3)
 	}
+	parseNestedModule := filepath.Join(parseRoot, "third_party", "nested")
+	if parseErr4 := os.MkdirAll(parseNestedModule, 0755); parseErr4 != nil {
+		parseT.Fatalf("mkdir nested module: %v", parseErr4)
+	}
+	if parseErr5 := os.WriteFile(filepath.Join(parseNestedModule, "go.mod"), []byte("module example.com/nested\n\ngo 1.25.0\n"), 0644); parseErr5 != nil {
+		parseT.Fatalf("write nested go.mod: %v", parseErr5)
+	}
+	if parseErr6 := os.WriteFile(filepath.Join(parseNestedModule, "ignored_wasm_test.go"), []byte("package nested\nfunc TestIgnored(t *testing.T) {}\n"), 0644); parseErr6 != nil {
+		parseT.Fatalf("write ignored_wasm_test.go: %v", parseErr6)
+	}
 
-	parseAllPackages, parseErr4 := collectWasmTestPackages(parseRoot, false)
-	if parseErr4 != nil {
-		parseT.Fatalf("collect all wasm packages: %v", parseErr4)
+	parseAllPackages, parseErr7 := collectWasmTestPackages(parseRoot, false)
+	if parseErr7 != nil {
+		parseT.Fatalf("collect all wasm packages: %v", parseErr7)
 	}
 	if parseWant := []string{".", "./hydration"}; !reflect.DeepEqual(parseAllPackages, parseWant) {
 		parseT.Fatalf("expected all wasm packages %#v, got %#v", parseWant, parseAllPackages)
 	}
 
-	parseHydrationPackages, parseErr4 := collectWasmTestPackages(parseRoot, true)
-	if parseErr4 != nil {
-		parseT.Fatalf("collect hydration wasm packages: %v", parseErr4)
+	parseHydrationPackages, parseErr8 := collectWasmTestPackages(parseRoot, true)
+	if parseErr8 != nil {
+		parseT.Fatalf("collect hydration wasm packages: %v", parseErr8)
 	}
 	if parseWant2 := []string{"./hydration"}; !reflect.DeepEqual(parseHydrationPackages, parseWant2) {
 		parseT.Fatalf("expected hydration wasm packages %#v, got %#v", parseWant2, parseHydrationPackages)

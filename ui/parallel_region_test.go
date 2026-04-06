@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/internal/runtime2"
 )
@@ -30,6 +31,12 @@ func (parseSource buildParallelRegionSource) ReactiveRegionSourceIDs() []string 
 
 func assertParallelRegionRenderError(parseT *testing.T, parseName string, parseFn func() error, parseContains string) {
 	parseT.Helper()
+	getPreviousPanicOptions := runtime.CurrentUnhandledPanicLoggingOptions()
+	runtime.ConfigureUnhandledPanicLogging(runtime.PanicLoggingOptions{
+		HideRawPanicOutput: true,
+		OnReport:           getPreviousPanicOptions.OnReport,
+	})
+	defer runtime.ConfigureUnhandledPanicLogging(getPreviousPanicOptions)
 	parseErr := parseFn()
 	if parseErr == nil {
 		parseT.Fatalf("%s: expected render error", parseName)
@@ -184,6 +191,11 @@ func TestBuildParallelRegionWorkerPropsOutputStripsInteractiveProps(parseT *test
 
 // TestBuildParallelRegionBridgedNodeStripsInternalClickSlotMarker verifies native builds strip bridge-only click-slot markers before local render output escapes.
 func TestBuildParallelRegionBridgedNodeStripsInternalClickSlotMarker(parseT *testing.T) {
+	runtime.InitGlobalRuntime(runtime.Config{
+		DOMAdapter: mockdom.NewMockDOMAdapter(),
+		Reset:      true,
+	})
+
 	getNode := runtime.CreateElement("button", map[string]interface{}{
 		parallelRegionClickSlotProp: "primary.action",
 		"onclick":                   func() {},
@@ -195,7 +207,14 @@ func TestBuildParallelRegionBridgedNodeStripsInternalClickSlotMarker(parseT *tes
 	if parseBridgeErr != nil {
 		parseT.Fatalf("buildParallelRegionBridgedNode returned error: %v", parseBridgeErr)
 	}
-	if getEventSlotMetadata.Version != "" || len(getEventSlotMetadata.Slots) != 0 {
+	if canParallelRegionUseRuntime2Lifecycle() {
+		if getEventSlotMetadata.Version == "" || len(getEventSlotMetadata.Slots) != 1 {
+			parseT.Fatalf("expected wasm bridge to record one click slot, got %+v", getEventSlotMetadata)
+		}
+		if getEventSlotMetadata.Slots[0].SlotID != "primary.action" || getEventSlotMetadata.Slots[0].EventType != parallelRegionClickEventType {
+			parseT.Fatalf("expected click-slot metadata for primary.action, got %+v", getEventSlotMetadata)
+		}
+	} else if getEventSlotMetadata.Version != "" || len(getEventSlotMetadata.Slots) != 0 {
 		parseT.Fatalf("expected native bridge to keep empty event-slot metadata, got %+v", getEventSlotMetadata)
 	}
 	if _, hasMarker := getBridgedNode.Props[parallelRegionClickSlotProp]; hasMarker {

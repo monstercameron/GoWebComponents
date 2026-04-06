@@ -490,6 +490,9 @@ func resolveURL(parseOp string, parseInput string) (string, error) {
 	if parseTrimmed == "" {
 		return "", wrapError(parseOp, parseInput, CodeInvalid, errors.New("URL is empty"))
 	}
+	if strings.HasPrefix(parseTrimmed, "http://") || strings.HasPrefix(parseTrimmed, "https://") || strings.HasPrefix(parseTrimmed, "blob:") || strings.HasPrefix(parseTrimmed, "data:") {
+		return parseTrimmed, nil
+	}
 	parseUrlCtor, parseErr := globalProperty(parseOp, "URL")
 	if parseErr != nil {
 		return "", parseErr

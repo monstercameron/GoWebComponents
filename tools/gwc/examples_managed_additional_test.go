@@ -257,12 +257,14 @@ func TestApplyExamplesManagedStopAndRestartBranchHelpers(parseT *testing.T) {
 	parseOriginalLaunch := examplesManagedLaunchProcess
 	parseOriginalWait := examplesManagedWaitServerReady
 	parseOriginalBuild := examplesManagedBuildBinary
+	parseOriginalBuildWASM := examplesManagedBuildWASM
 	parseT.Cleanup(func() {
 		examplesManagedCheckPIDRunning = parseOriginalCheck
 		examplesManagedTerminatePIDTree = parseOriginalTerminate
 		examplesManagedLaunchProcess = parseOriginalLaunch
 		examplesManagedWaitServerReady = parseOriginalWait
 		examplesManagedBuildBinary = parseOriginalBuild
+		examplesManagedBuildWASM = parseOriginalBuildWASM
 	})
 
 	parseSummary, parseErr := parseLauncher.applyExamplesManagedStop("chat-wizard-local", "")
@@ -314,6 +316,9 @@ func TestApplyExamplesManagedStopAndRestartBranchHelpers(parseT *testing.T) {
 		return nil
 	}
 	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
+	examplesManagedBuildWASM = func(parseTargetPath string, parseOutputPath string, parseWorkingDir string) error {
 		return nil
 	}
 	examplesManagedLaunchProcess = func(parseConfig examplesManagedLaunchConfig) (int, error) {

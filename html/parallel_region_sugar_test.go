@@ -1,10 +1,14 @@
 package html
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/monstercameron/GoWebComponents/ui"
+)
 
 // TestOnClickParallelBuildsMarkerAndHandler verifies the helper sets both the local click handler and the bridge marker.
 func TestOnClickParallelBuildsMarkerAndHandler(parseT *testing.T) {
-	getProps := PropsOf(OnClickParallel("primary.action", func() {}))
+	getProps := PropsOf(OnClickParallel("primary.action", ui.WrapHandler(func() {})))
 	getRuntimeProps := toRuntimeProps(getProps)
 	if getRuntimeProps["onclick"] == nil {
 		parseT.Fatal("expected onclick handler in runtime props")
