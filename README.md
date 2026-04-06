@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="docs/assets/hero.jpg" alt="GoWebComponents Hero Image" width="900">
+    <img src="docs/assets/chatgpt.png" alt="GoWebComponents ChatGPT Hero Image" width="900">
 </p>
 
 # GoWebComponents
