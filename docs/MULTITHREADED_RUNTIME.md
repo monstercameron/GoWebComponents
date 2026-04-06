@@ -608,7 +608,7 @@ The first slice only needs:
 
 Later slices may add:
 
-- event slot placeholder
+- event slot marker
 - keyed fragment marker
 
 ### String table

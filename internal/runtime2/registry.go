@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// RegionRenderer identifies a worker-renderable region implementation placeholder.
+// RegionRenderer identifies a worker-renderable region implementation.
 type RegionRenderer func()
 
 // RendererID identifies one registered renderer implementation.
@@ -19,6 +19,7 @@ type RegionInstanceID string
 type RendererMetadata struct {
 	PropSchemaVersion string
 	FeatureFlags      []string
+	EventSlotMetadata EventSlotMetadata
 }
 
 type rendererRegistryEntry struct {
@@ -67,6 +68,9 @@ func ValidateRendererMetadata(parseMetadata RendererMetadata) error {
 		}
 		parseSeenFeatureFlags[parseFeatureFlag] = true
 	}
+	if parseErr := ValidateEventSlotMetadata(parseMetadata.EventSlotMetadata); parseErr != nil {
+		return parseErr
+	}
 	return nil
 }
 
@@ -94,10 +98,7 @@ func RegisterRenderer(parseRendererID RendererID, parseRenderer RegionRenderer, 
 	}
 	cacheRendererRegistryEntries[parseRendererID] = rendererRegistryEntry{
 		renderer: parseRenderer,
-		metadata: RendererMetadata{
-			PropSchemaVersion: parseMetadata.PropSchemaVersion,
-			FeatureFlags:      append([]string(nil), parseMetadata.FeatureFlags...),
-		},
+		metadata: buildRendererMetadataCopy(parseMetadata),
 	}
 	return nil
 }
@@ -113,10 +114,7 @@ func ResolveRenderer(parseRendererID RendererID) (RegionRenderer, RendererMetada
 	if !parseExists {
 		return nil, RendererMetadata{}, fmt.Errorf("runtime2: renderer %q is not registered", parseRendererID)
 	}
-	return parseEntry.renderer, RendererMetadata{
-		PropSchemaVersion: parseEntry.metadata.PropSchemaVersion,
-		FeatureFlags:      append([]string(nil), parseEntry.metadata.FeatureFlags...),
-	}, nil
+	return parseEntry.renderer, buildRendererMetadataCopy(parseEntry.metadata), nil
 }
 
 // ResetRendererRegistry clears the renderer registry for deterministic tests.
@@ -124,4 +122,21 @@ func ResetRendererRegistry() {
 	storeRendererRegistryMu.Lock()
 	defer storeRendererRegistryMu.Unlock()
 	cacheRendererRegistryEntries = map[RendererID]rendererRegistryEntry{}
+}
+
+// buildRendererMetadataCopy clones one renderer metadata payload for registry storage and lookup.
+func buildRendererMetadataCopy(parseMetadata RendererMetadata) RendererMetadata {
+	return RendererMetadata{
+		PropSchemaVersion: parseMetadata.PropSchemaVersion,
+		FeatureFlags:      append([]string(nil), parseMetadata.FeatureFlags...),
+		EventSlotMetadata: buildEventSlotMetadataCopy(parseMetadata.EventSlotMetadata),
+	}
+}
+
+// buildEventSlotMetadataCopy clones one event-slot metadata payload.
+func buildEventSlotMetadataCopy(parseMetadata EventSlotMetadata) EventSlotMetadata {
+	return EventSlotMetadata{
+		Version: parseMetadata.Version,
+		Slots:   append([]EventSlotRecord(nil), parseMetadata.Slots...),
+	}
 }

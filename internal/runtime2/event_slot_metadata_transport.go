@@ -6,29 +6,41 @@ import (
 	"strings"
 )
 
-// BuildEventSlotMetadataPlaceholderJSON encodes one placeholder event-slot metadata payload.
-func BuildEventSlotMetadataPlaceholderJSON(parseMetadata EventSlotMetadata) ([]byte, error) {
-	if parseErr := ValidateEventSlotMetadata(parseMetadata); parseErr != nil {
+// BuildEventSlotMetadataJSON encodes one validated event-slot metadata payload.
+func BuildEventSlotMetadataJSON(parseMetadata EventSlotMetadata) ([]byte, error) {
+	parseNormalizedMetadata, parseErr := buildEventSlotMetadataNormalized(parseMetadata)
+	if parseErr != nil {
 		return nil, parseErr
 	}
-	parsePayload, parseErr := json.Marshal(parseMetadata)
+	parsePayload, parseErr := json.Marshal(parseNormalizedMetadata)
 	if parseErr != nil {
-		return nil, fmt.Errorf("runtime2: encode event-slot metadata placeholder payload: %w", parseErr)
+		return nil, fmt.Errorf("runtime2: encode event-slot metadata payload: %w", parseErr)
 	}
 	return parsePayload, nil
 }
 
-// ParseEventSlotMetadataPlaceholderJSON decodes one placeholder event-slot metadata payload.
-func ParseEventSlotMetadataPlaceholderJSON(parsePayload []byte) (EventSlotMetadata, error) {
+// ParseEventSlotMetadataJSON decodes one validated event-slot metadata payload.
+func ParseEventSlotMetadataJSON(parsePayload []byte) (EventSlotMetadata, error) {
 	if strings.TrimSpace(string(parsePayload)) == "" {
-		return EventSlotMetadata{}, fmt.Errorf("runtime2: event-slot metadata placeholder payload is required")
+		return EventSlotMetadata{}, fmt.Errorf("runtime2: event-slot metadata payload is required")
 	}
 	var parseMetadata EventSlotMetadata
 	if parseErr := json.Unmarshal(parsePayload, &parseMetadata); parseErr != nil {
-		return EventSlotMetadata{}, fmt.Errorf("runtime2: decode event-slot metadata placeholder payload: %w", parseErr)
+		return EventSlotMetadata{}, fmt.Errorf("runtime2: decode event-slot metadata payload: %w", parseErr)
 	}
-	if parseErr := ValidateEventSlotMetadata(parseMetadata); parseErr != nil {
+	parseNormalizedMetadata, parseErr := buildEventSlotMetadataNormalized(parseMetadata)
+	if parseErr != nil {
 		return EventSlotMetadata{}, parseErr
 	}
-	return parseMetadata, nil
+	return parseNormalizedMetadata, nil
+}
+
+// BuildEventSlotMetadataPlaceholderJSON encodes one event-slot metadata payload through the legacy placeholder helper name.
+func BuildEventSlotMetadataPlaceholderJSON(parseMetadata EventSlotMetadata) ([]byte, error) {
+	return BuildEventSlotMetadataJSON(parseMetadata)
+}
+
+// ParseEventSlotMetadataPlaceholderJSON decodes one event-slot metadata payload through the legacy placeholder helper name.
+func ParseEventSlotMetadataPlaceholderJSON(parsePayload []byte) (EventSlotMetadata, error) {
+	return ParseEventSlotMetadataJSON(parsePayload)
 }

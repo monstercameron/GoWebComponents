@@ -5,10 +5,43 @@ import (
 	"testing"
 )
 
-// TestBuildAndParseEventSlotMetadataPlaceholderJSONRoundTrip verifies placeholder metadata has a dedicated stable JSON path.
+// TestBuildAndParseEventSlotMetadataJSONRoundTrip verifies event-slot metadata has a stable JSON path.
+func TestBuildAndParseEventSlotMetadataJSONRoundTrip(parseT *testing.T) {
+	parseMetadata := EventSlotMetadata{
+		Version: EventSlotMetadataVersionV1,
+		Slots: []EventSlotRecord{
+			{
+				SlotID:    "slot-1",
+				EventType: "click",
+			},
+		},
+	}
+	parsePayload, parseBuildErr := BuildEventSlotMetadataJSON(parseMetadata)
+	if parseBuildErr != nil {
+		parseT.Fatalf("BuildEventSlotMetadataJSON returned error: %v", parseBuildErr)
+	}
+	parseDecoded, parseParseErr := ParseEventSlotMetadataJSON(parsePayload)
+	if parseParseErr != nil {
+		parseT.Fatalf("ParseEventSlotMetadataJSON returned error: %v", parseParseErr)
+	}
+	if parseDecoded.Version != EventSlotMetadataVersionV1 {
+		parseT.Fatalf("decoded event-slot metadata version = %q, want %q", parseDecoded.Version, EventSlotMetadataVersionV1)
+	}
+	if len(parseDecoded.Slots) != 1 || parseDecoded.Slots[0].EventType != "click" {
+		parseT.Fatalf("decoded event-slot metadata slots = %+v, want one click slot", parseDecoded.Slots)
+	}
+}
+
+// TestBuildAndParseEventSlotMetadataPlaceholderJSONRoundTrip verifies the legacy placeholder helper names route through the stable JSON path.
 func TestBuildAndParseEventSlotMetadataPlaceholderJSONRoundTrip(parseT *testing.T) {
 	parseMetadata := EventSlotMetadata{
-		Version: EventSlotMetadataVersionPlaceholderV1,
+		Version: EventSlotMetadataVersionV1,
+		Slots: []EventSlotRecord{
+			{
+				SlotID:    "slot-1",
+				EventType: "click",
+			},
+		},
 	}
 	parsePayload, parseBuildErr := BuildEventSlotMetadataPlaceholderJSON(parseMetadata)
 	if parseBuildErr != nil {
@@ -18,58 +51,59 @@ func TestBuildAndParseEventSlotMetadataPlaceholderJSONRoundTrip(parseT *testing.
 	if parseParseErr != nil {
 		parseT.Fatalf("ParseEventSlotMetadataPlaceholderJSON returned error: %v", parseParseErr)
 	}
-	if parseDecoded.Version != EventSlotMetadataVersionPlaceholderV1 {
-		parseT.Fatalf("decoded event-slot metadata version = %q, want %q", parseDecoded.Version, EventSlotMetadataVersionPlaceholderV1)
-	}
-	if len(parseDecoded.Slots) != 0 {
-		parseT.Fatalf("decoded event-slot metadata slots = %+v, want non-operative empty slots", parseDecoded.Slots)
+	if parseDecoded.Version != EventSlotMetadataVersionV1 {
+		parseT.Fatalf("decoded event-slot metadata version = %q, want %q", parseDecoded.Version, EventSlotMetadataVersionV1)
 	}
 }
 
-// TestBuildEventSlotMetadataPlaceholderJSONRejectsInvalidShape verifies the placeholder encoder enforces metadata validation.
-func TestBuildEventSlotMetadataPlaceholderJSONRejectsInvalidShape(parseT *testing.T) {
-	_, parseErr := BuildEventSlotMetadataPlaceholderJSON(EventSlotMetadata{
+// TestBuildEventSlotMetadataJSONRejectsInvalidShape verifies the encoder enforces metadata validation.
+func TestBuildEventSlotMetadataJSONRejectsInvalidShape(parseT *testing.T) {
+	_, parseErr := BuildEventSlotMetadataJSON(EventSlotMetadata{
+		Version: EventSlotMetadataVersionV1,
 		Slots: []EventSlotRecord{
 			{
-				SlotID:    "slot-1",
+				SlotID:    "",
 				EventType: "click",
 			},
 		},
 	})
 	if parseErr == nil {
-		parseT.Fatal("expected BuildEventSlotMetadataPlaceholderJSON invalid shape to fail")
+		parseT.Fatal("expected BuildEventSlotMetadataJSON invalid shape to fail")
 	}
 }
 
-// TestParseEventSlotMetadataPlaceholderJSONRejectsMalformedPayload verifies malformed payloads fail decode.
-func TestParseEventSlotMetadataPlaceholderJSONRejectsMalformedPayload(parseT *testing.T) {
-	_, parseErr := ParseEventSlotMetadataPlaceholderJSON([]byte(`{"version":`))
+// TestParseEventSlotMetadataJSONRejectsMalformedPayload verifies malformed payloads fail decode.
+func TestParseEventSlotMetadataJSONRejectsMalformedPayload(parseT *testing.T) {
+	_, parseErr := ParseEventSlotMetadataJSON([]byte(`{"version":`))
 	if parseErr == nil {
-		parseT.Fatal("expected ParseEventSlotMetadataPlaceholderJSON malformed payload to fail")
+		parseT.Fatal("expected ParseEventSlotMetadataJSON malformed payload to fail")
 	}
-	if !strings.Contains(parseErr.Error(), "decode event-slot metadata placeholder payload") {
+	if !strings.Contains(parseErr.Error(), "decode event-slot metadata payload") {
 		parseT.Fatalf("expected decode error details, got %v", parseErr)
 	}
 }
 
-// TestParseEventSlotMetadataPlaceholderJSONRejectsUnsupportedVersion verifies unknown versions fail on decode.
-func TestParseEventSlotMetadataPlaceholderJSONRejectsUnsupportedVersion(parseT *testing.T) {
-	_, parseErr := ParseEventSlotMetadataPlaceholderJSON([]byte(`{"version":"gwc.parallel.event-slot.placeholder.v99"}`))
+// TestParseEventSlotMetadataJSONRejectsUnsupportedVersion verifies unknown versions fail on decode.
+func TestParseEventSlotMetadataJSONRejectsUnsupportedVersion(parseT *testing.T) {
+	_, parseErr := ParseEventSlotMetadataJSON([]byte(`{"version":"gwc.parallel.event-slot.v99"}`))
 	if parseErr == nil {
-		parseT.Fatal("expected ParseEventSlotMetadataPlaceholderJSON unknown version to fail")
+		parseT.Fatal("expected ParseEventSlotMetadataJSON unknown version to fail")
 	}
 	if !strings.Contains(parseErr.Error(), "unsupported") {
 		parseT.Fatalf("expected unsupported-version error details, got %v", parseErr)
 	}
 }
 
-// TestParseEventSlotMetadataPlaceholderJSONRejectsActiveSlots verifies decode blocks active slot declarations in slice one.
-func TestParseEventSlotMetadataPlaceholderJSONRejectsActiveSlots(parseT *testing.T) {
-	_, parseErr := ParseEventSlotMetadataPlaceholderJSON([]byte(`{"version":"gwc.parallel.event-slot.placeholder.v1","slots":[{"slot_id":"slot-1","event_type":"click"}]}`))
-	if parseErr == nil {
-		parseT.Fatal("expected ParseEventSlotMetadataPlaceholderJSON active slots to fail")
+// TestParseEventSlotMetadataJSONNormalizesLegacyPlaceholderVersion verifies legacy placeholder payloads still decode through the new schema.
+func TestParseEventSlotMetadataJSONNormalizesLegacyPlaceholderVersion(parseT *testing.T) {
+	parseDecoded, parseErr := ParseEventSlotMetadataJSON([]byte(`{"version":"gwc.parallel.event-slot.placeholder.v1","slots":[{"slot_id":"slot-1","event_type":"click"}]}`))
+	if parseErr != nil {
+		parseT.Fatalf("ParseEventSlotMetadataJSON returned error: %v", parseErr)
 	}
-	if !strings.Contains(parseErr.Error(), "active slots are unsupported") {
-		parseT.Fatalf("expected non-operative-slot error details, got %v", parseErr)
+	if parseDecoded.Version != EventSlotMetadataVersionV1 {
+		parseT.Fatalf("decoded event-slot metadata version = %q, want normalized %q", parseDecoded.Version, EventSlotMetadataVersionV1)
+	}
+	if len(parseDecoded.Slots) != 1 || parseDecoded.Slots[0].SlotID != "slot-1" {
+		parseT.Fatalf("decoded event-slot metadata slots = %+v, want one normalized slot", parseDecoded.Slots)
 	}
 }

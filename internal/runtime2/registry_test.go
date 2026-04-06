@@ -113,6 +113,15 @@ func TestRegisterRendererReturnsMetadata(parseT *testing.T) {
 	parseMetadata := RendererMetadata{
 		PropSchemaVersion: "props.v1",
 		FeatureFlags:      []string{"display-only", "derived-state"},
+		EventSlotMetadata: EventSlotMetadata{
+			Version: EventSlotMetadataVersionV1,
+			Slots: []EventSlotRecord{
+				{
+					SlotID:    "slot-1",
+					EventType: "click",
+				},
+			},
+		},
 	}
 	if parseErr := RegisterRenderer(parseRendererID, func() {}, parseMetadata); parseErr != nil {
 		parseT.Fatalf("RegisterRenderer returned error: %v", parseErr)
@@ -126,6 +135,12 @@ func TestRegisterRendererReturnsMetadata(parseT *testing.T) {
 	}
 	if len(parseResolvedMetadata.FeatureFlags) != 2 {
 		parseT.Fatalf("expected feature flags to round trip, got %+v", parseResolvedMetadata.FeatureFlags)
+	}
+	if parseResolvedMetadata.EventSlotMetadata.Version != EventSlotMetadataVersionV1 {
+		parseT.Fatalf("expected event-slot metadata version to round trip, got %+v", parseResolvedMetadata.EventSlotMetadata)
+	}
+	if len(parseResolvedMetadata.EventSlotMetadata.Slots) != 1 || parseResolvedMetadata.EventSlotMetadata.Slots[0].EventType != "click" {
+		parseT.Fatalf("expected event-slot metadata slots to round trip, got %+v", parseResolvedMetadata.EventSlotMetadata.Slots)
 	}
 }
 
@@ -149,5 +164,26 @@ func TestValidateRendererMetadataRejectsRefFeatureFlag(parseT *testing.T) {
 	}
 	if parseErr := ValidateRendererMetadata(parseMetadata); parseErr == nil {
 		parseT.Fatal("expected ref-like metadata feature flag to fail")
+	}
+}
+
+// TestRegisterRendererRejectsInvalidEventSlotMetadata verifies invalid event-slot metadata is rejected during registration.
+func TestRegisterRendererRejectsInvalidEventSlotMetadata(parseT *testing.T) {
+	ResetRendererRegistry()
+	parseT.Cleanup(ResetRendererRegistry)
+	parseRendererID, _ := ParseRendererID("dashboard.hot-panel")
+	parseMetadata := RendererMetadata{
+		EventSlotMetadata: EventSlotMetadata{
+			Version: EventSlotMetadataVersionV1,
+			Slots: []EventSlotRecord{
+				{
+					SlotID:    "",
+					EventType: "click",
+				},
+			},
+		},
+	}
+	if parseErr := RegisterRenderer(parseRendererID, func() {}, parseMetadata); parseErr == nil {
+		parseT.Fatal("expected invalid event-slot metadata to fail")
 	}
 }
