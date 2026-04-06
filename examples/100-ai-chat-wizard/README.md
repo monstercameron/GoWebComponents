@@ -19,9 +19,9 @@ The specific GWC capabilities it demonstrates:
 | **Single-shell routed SPA** | `client/app/app.go` + `client/app/routes.go` — one WASM app, multiple distinct route surfaces |
 | **Server-rendered public routes** | `server/app/server.go` — shell-first HTML delivery for `/`, `/home`, `/pricing`, `/signup` |
 | **WASM-authenticated workspace shell** | `client/app/app_shell.go` — session-gated workspace, settings, and dashboard surfaces |
-| **Typed gRPC bridge** | `client/app/grpc*.go`, `server/app/server.go` — typed RPCs over GoGRPCBridge WebSocket tunnel |
+| **Typed gRPC bridge** | `client/app/auth.go`, `client/app/stream.go`, `client/app/runtime.go`, `server/app/server.go` — typed RPCs over GoGRPCBridge WebSocket tunnel |
 | **Worker-backed rendering** | `client/backgroundworker/` — markdown and render metadata tasks offloaded to a background WASM worker |
-| **Cross-tab preference sync** | `client/app/prefs*.go`, `state/` — sidebar state, theme, and model selection persist and sync across tabs |
+| **Cross-tab preference sync** | `client/app/model_preferences.go`, `client/app/scroll_memory.go`, `state/` — sidebar state, scroll memory, and model selection persist and sync across tabs |
 | **Streaming progressive render** | `client/app/thread*.go` — server-streamed `ChatChunk` deltas applied incrementally to the thread view |
 | **Route-scoped async state** | `client/app/settings_*.go`, `client/app/dashboard_shell.go` — per-route data that loads on activation and redraws on RPC update |
 
@@ -108,7 +108,7 @@ git submodule update --init --recursive
 The server and `cmd/seed-test-db` must use the same `CHAT_DB_PATH`.
 
 ```powershell
-$env:CHAT_DB_PATH = "examples/100-ai-chat-wizard/bin/runtime/test_chat.db"
+$env:CHAT_DB_PATH = "examples/100-ai-chat-wizard/bin/runtime/chat_history.db"
 ```
 
 ### 3. Build both WASM artifacts
@@ -125,6 +125,8 @@ The server serves Brotli sidecars when present, but raw `.wasm` artifacts are en
 ```powershell
 go run ./examples/100-ai-chat-wizard/cmd/seed-test-db
 ```
+
+The managed `chat-wizard` start path now seeds the target `CHAT_DB_PATH` automatically when the local runtime DB is missing or empty, but running the seed command explicitly is still the deterministic way to reset the baseline demo state.
 
 Seeded credentials:
 
@@ -224,10 +226,10 @@ This table maps the visible regions of the `/app` workspace shell to the GWC pat
 
 | UI region | Primary files | GWC pattern demonstrated |
 |---|---|---|
-| **Top control bar** | `client/app/canvas_top_bar.go`, `app_shell.go` | `ui` composition + route-aware conditional rendering; control state derived from `appViewState` without prop drilling |
+| **Top control bar** | `client/app/app_shell.go`, `client/app/panel.go` | `ui` composition + route-aware conditional rendering; control state derived from `appViewState` without prop drilling |
 | **Sidebar** | `client/app/sidebar.go` | Async conversation list pagination, scroll-position memory (`cacheScrollPosition`), reactive open/closed toggle via `state.Atom` |
 | **Thread body** | `client/app/thread*.go` | Streaming partial render — `ChatChunk` deltas applied incrementally; background-worker markdown task dispatch over worker message bridge |
-| **Composer** | `client/app/composer.go` | Controlled text input with handler composition; disabled-during-stream state; starter-prompt injection |
+| **Composer** | `client/app/composer.go`, `client/app/composer_runtime2.go` | Controlled text input with handler composition; disabled-during-stream state; starter-prompt injection; runtime2-backed display-only cost summary via `ui.ParallelRegion(...)` |
 | **Settings modal** | `client/app/settings_*.go`, `app_shell.go` | Route-scoped panel selection via `?panel=` query param; persisted preference RPCs (`UpdateProfile`); cross-tab preference sync via `state` package |
 | **Canvas surface** | `client/app/canvas*.go` | Conditionally-mounted sub-route (`/canvas/:canvasID`); `iframe` sandboxing for untrusted HTML artifact rendering |
 | **Dashboard tiles** | `client/app/dashboard_shell.go` | Multi-surface async-loading pattern: RPC on activation, typed view-model derivation, role-gated content, tile grid |
@@ -241,11 +243,11 @@ Public routes (`/`, `/home`, `/pricing`, `/signup`, `/security`, `/privacy`, `/t
 |---|---|---|
 | Shell HTML document | Server | `server/app/server.go` — `GET /home`, `/pricing`, etc. return the bootstrap shell |
 | Bootstrap loader | Server-owned JS | `chat-bootstrap.js` — shows loading state, fetches `app/chat.wasm`, hides on mount |
-| i18n bundle delivery | Server (with embedded fallback) | `server/app/i18n*.go`; client embeds catalog via `i18n/bundle/bundle.go` as compile-time fallback |
+| i18n bundle delivery | Server (with embedded fallback) | `server/app/catalog_loader.go`; client embeds catalog via `client/catalog/*` as compile-time fallback |
 | Route selection once mounted | WASM client | `client/app/app.go` `ParseApp` — reads `window.location.pathname` to select landing vs auth vs workspace shell |
-| Public-route rendering | WASM client | `client/app/landing_shell.go`, `pricing_shell.go`, `signup_shell.go`, `about_shell.go`, etc. |
-| Journey progress band | WASM client | `client/app/journey.go` — shared multi-step progress indicator shown on all public marketing routes |
-| Marketing footer / header | WASM client | `client/app/marketing_footer.go` — shared across all public routes via `renderMarketingFooter` |
+| Public-route rendering | WASM client | `client/app/landing_shell.go`, `client/app/landing_info.go`, `client/app/pricing_shell.go`, `client/app/signup_shell.go` |
+| Journey progress band | WASM client | `client/app/journey_state.go` — shared multi-step progress indicator shown on all public marketing routes |
+| Marketing footer / header | WASM client | `client/app/marketing_shared.go`, `client/app/landing_sections.go` — shared across all public routes via `renderMarketingHeader(...)` and `renderMarketingFooter(...)` |
 
 Key points for framework readers:
 - There is **no separate SSR build**. The server delivers a static shell; the WASM client owns all rendering including the public marketing pages.
@@ -333,7 +335,7 @@ This status table tracks placeholder seams so docs do not claim behavior is stil
 | Seam | Status | Current truth |
 |---|---|---|
 | `server tools` (`SetServerToolPolicy`, `RunServerTool`) | Live implementation | `server/app/server_tool_stub.go` now enforces superuser authz, fresh-session checks, policy validation, and bidirectional server-tool runtime execution. |
-| `provider memory extraction` | Partial live conversion | Runtime extraction pipeline is live in `server/app/server.go`; `OpenAIProvider` and stub provider return extraction results, while Anthropic/Cerebras extraction paths still report not implemented. |
+| `provider memory extraction` | Live implementation | Runtime extraction pipeline is live in `server/app/server.go`; OpenAI, Anthropic, and Cerebras providers all normalize extraction candidates through the shared contract, while the stub provider remains a deterministic no-op for local flows. |
 | `entitlement fail-open guard` | Live implementation | `parseRequireUserEntitlement` in `server/app/authz_entitlement.go` now fails closed: unavailable billing state returns `codes.Unavailable`, and missing or denied entitlements return `codes.PermissionDenied`. |
 | `control-mutation authz helper` | Live implementation | `parseAuthorizeAdminControlMutationScope` in `server/app/admin_control_mutation_authz.go` now enforces the platform and workspace scope rules used by the live control-mutation RPCs. |
 
@@ -348,14 +350,14 @@ Intended cross-provider contract for `ParseExtractUserMemories`:
 | Candidate shape | Each candidate follows `provider.UserMemoryCandidate`: `key`, `category`, `summary`, `detail`, `usefulness_score` (0-100), `confidence_score` (0-1), `rubric_reason`. |
 | Score semantics | Server clamps scores and only persists candidates meeting current thresholds (`usefulness >= 60`, `confidence >= 0.55`) after dedupe and normalization. |
 | Malformed-response fallback | OpenAI path uses strict JSON schema first, then fallback object extraction (`parseExtractJSONObject`) before failing. Parse failures are logged and do not block chat reply flow. |
-| Provider unsupported behavior | Providers that cannot extract memories (currently Anthropic/Cerebras) return a clear `not implemented` error; runtime logs `memory extraction failed` and continues without saving memories. |
+| Provider failure behavior | Upstream or parse failures return an extraction error to the background enrichment path; runtime logs `memory extraction failed` and continues without blocking the chat reply flow. |
 | User-visible expectation | Memory extraction is asynchronous best-effort enrichment. Chat replies continue even when extraction is skipped, queue-limited, unavailable, or parse-failed. |
 
 Current provider status snapshot:
 
 - OpenAI: live extraction path with strict schema + fallback parsing.
-- Anthropic: extraction endpoint not implemented.
-- Cerebras: extraction endpoint not implemented.
+- Anthropic: live extraction path using tool-use output normalization.
+- Cerebras: live extraction path using JSON-object extraction plus fallback parsing.
 - Stub provider: deterministic no-op extraction (`nil` candidates, no error) for local flows.
 
 ---
@@ -607,15 +609,15 @@ Each row maps a visible UI surface to its primary source files. Use this as a na
 | Surface | Primary client files | Primary server files | SQL / data |
 |---|---|---|---|
 | Marketing shell | `client/app/landing_shell.go`, `client/app/landing_sections.go` | `server/app/server.go` (static route) | — |
-| Auth shell | `client/app/auth_shell.go`, `client/app/auth.go`, `client/app/auth_session.go` | `server/app/auth_service.go`, `server/app/auth_workspace_policy.go`, `server/app/auth_google_oidc.go` | `sql/store/store_auth.go` |
+| Auth shell | `client/app/auth_shell.go`, `client/app/auth.go`, `client/app/auth_shell_flows.go` | `server/app/auth_service.go`, `server/app/auth_workspace_policy.go`, `server/app/auth_google_oidc.go` | `sql/store/auth/*.sql`, `server/app/store_auth.go` |
 | Workspace entrypoint | `client/app/app.go`, `client/app/app_shell.go`, `client/app/routes.go` | `server/app/server.go` boot RPC | — |
-| Chat thread | `client/app/thread.go`, `client/app/thread_view.go`, `client/app/panel.go`, `client/app/stream.go` | `server/app/tunnel_handler.go`, `server/app/authz_entitlement.go` | `sql/store/*.sql` chat history |
-| Composer | `client/app/composer.go`, `client/app/model_picker.go`, `client/app/model_prefs.go` | `server/app/grpc_server.go` send RPC | — |
-| Canvas pane | `client/app/canvas.go`, `client/app/canvas_workspace.go`, `client/app/canvas_patch.go` | `server/app/server.go` | — |
-| Settings panel | `client/app/settings_route.go`, `client/app/settings_profile.go`, `client/app/settings_security.go`, `client/app/account_costs.go` | `server/app/auth_service.go`, `server/app/billing_formula_guard.go` | `sql/store/store_billing.go` |
-| Admin dashboard | `client/app/dashboard_shell.go`, `client/app/admin_data.go`, `client/app/admin_customers.go`, `client/app/admin_providers.go` | `server/app/admin_dashboard.go`, `server/app/admin_list_query.go`, `server/app/admin_billing_ops.go` | `sql/store/` admin query files |
-| Admin mutations | `client/app/admin_ops.go`, `client/app/admin_server_tools.go` | `server/app/admin_mutation_authz.go`, `server/app/admin_mutation_effects.go`, `server/app/admin_control_ops.go` | `sql/store/` ops query files |
-| Worker markdown | `client/backgroundworker/worker.go`, `client/app/worker_render_types.go` | — | — |
+| Chat thread | `client/app/thread.go`, `client/app/panel.go`, `client/app/stream.go` | `server/app/server_conversation_rpc.go`, `server/app/tunnel_handler.go`, `server/app/authz_entitlement.go` | `sql/store/chat/*.sql` |
+| Composer | `client/app/composer.go`, `client/app/composer_runtime2.go`, `client/app/model_preferences.go` | `server/app/server_conversation_rpc.go` send RPC | — |
+| Canvas pane | `client/app/canvas.go`, `client/app/canvas_workspace.go`, `client/app/panel.go` | `server/app/server.go` | — |
+| Settings panel | `client/app/settings_route.go`, `client/app/profile.go`, `client/app/account_costs.go`, `client/app/app_shell.go` | `server/app/auth_service.go`, `server/app/server_preferences.go`, `server/app/billing_formula_guard.go` | `sql/store/billing/*.sql` |
+| Admin dashboard | `client/app/dashboard_shell.go`, `client/app/admin_data.go`, `client/app/admin_customers.go`, `client/app/admin_workspaces.go`, `client/app/admin_server_tools.go` | `server/app/admin_dashboard.go`, `server/app/admin_list_query.go`, `server/app/admin_billing_ops.go`, `server/app/admin_support_ops.go` | `sql/store/admin/*.sql`, `sql/store/ops/*.sql` |
+| Admin mutations | `client/app/admin_server_tools.go`, `client/app/admin_server_tools_render.go`, `client/app/admin_workspaces.go` | `server/app/admin_mutation_authz.go`, `server/app/admin_mutation_effects.go`, `server/app/admin_control_ops.go`, `server/app/admin_provider_mutation_ops.go` | `sql/store/admin/*.sql`, `sql/store/ops/*.sql` |
+| Worker markdown | `client/backgroundworker/main.go`, `client/backgroundworker/render_tasks.go`, `client/app/worker_render_types.go` | — | — |
 
 ---
 
@@ -673,6 +675,7 @@ If you want the cleanest end-to-end explanation of the example, start here:
 - Routing and boot: `client/main.go`, `client/app/routes.go`, `client/app/app_shell.go`, and `client/app/route_sync.go` show how the shell decides which surface to render and how it keeps URL state stable.
 - Auth: `client/app/auth.go`, `client/app/auth_shell.go`, `server/app/auth_service.go`, `server/app/auth_workspace_policy.go`, `server/app/auth_identity_linking.go`, and `server/app/auth_google_oidc.go` show login, policy, linking, and external-auth flow.
 - Chat streaming: `client/app/thread.go`, `client/app/stream.go`, `client/app/panel.go`, `server/app/server.go`, and `server/app/tunnel_handler.go` show send, stream, reconnect, and thread-state handling.
+- runtime2 display region: `client/app/composer.go` and `client/app/composer_runtime2.go` show the current Example 100 `ui.ParallelRegion(...)` integration for the composer cost summary.
 - Billing: `client/app/settings_route.go`, `client/app/account_costs.go`, `server/app/billing_formula_guard.go`, `server/app/store_billing.go`, and `server/app/superuser_pricing_ops.go` show usage formulas, plan state, and operator pricing controls.
 - Dashboard reads: `client/app/dashboard.go`, `client/app/admin_data.go`, `server/app/admin_dashboard.go`, `server/app/admin_list_query.go`, `server/app/admin_business_ops.go`, and `server/app/admin_billing_ops.go` show the operator read path.
 - Admin mutations: `server/app/admin_mutation_authz.go`, `server/app/admin_mutation_effects.go`, `server/app/admin_control_ops.go`, `server/app/admin_provider_mutation_authz.go`, `server/app/admin_ops_action_authz.go`, and `server/app/admin_chat_mutation_authz.go` show the guarded mutation path.
@@ -685,7 +688,7 @@ The admin dashboard has five slices (Business, Customers, Chats, Providers, Ops)
 |---|---|---|
 | 1. Route activation triggers data load | `dashboard_shell.go` dispatches the admin-data RPC on mount | `admin_dashboard.go` gate-checks role before running the query |
 | 2. Typed view-model derivation | `admin_data.go` maps the proto response into slice-specific view structs | `admin_list_query.go` builds paginated, typed results per slice |
-| 3. Tile grid render | `dashboard_shell.go` (overview) + `admin_customers.go`, `admin_providers.go`, etc. render the per-slice grid | — |
+| 3. Tile grid render | `dashboard_shell.go` (overview) + `admin_customers.go`, `admin_workspaces.go`, `admin_server_tools.go`, etc. render the per-slice grid | — |
 | 4. Role gate | `dashboard_shell.go` checks `parseView.CanAccessAdmin` / `parseView.IsSuperuser` before rendering admin-only sections | `admin_mutation_authz.go` + `admin_ops_action_authz.go` enforce before every mutating RPC |
 
 **What this teaches for GWC:** route-scoped async state where each tab activates its own data fetch without blocking other tabs, and role-gated regions that are controlled at both the UI node level and the server RPC level. The same shape applies to settings panels: each settings section fetches its own data on activation and submits changes through a typed RPC.

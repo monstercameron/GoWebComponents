@@ -79,13 +79,19 @@ func parseBuildTourStops() []parseTourStop {
 		{
 			parseTitle:   "Model picker state",
 			parsePattern: "Cross-tab preference sync",
-			parseFile:    "client/app/model_prefs.go",
+			parseFile:    "client/app/model_preferences.go",
 			parseDesc:    "Model selection, tone, and thinking state persist across reloads and sync across browser tabs via the state package atom broadcast.",
+		},
+		{
+			parseTitle:   "Composer runtime2 region",
+			parsePattern: "Display-only ui.ParallelRegion",
+			parseFile:    "client/app/composer_runtime2.go",
+			parseDesc:    "Example 100 currently uses runtime2 in the composer cost summary. The renderer is registered once and mounted through a display-only parallel region on the public UI path.",
 		},
 		{
 			parseTitle:   "Streamed thread",
 			parsePattern: "Streaming progressive render",
-			parseFile:    "client/app/thread_view.go",
+			parseFile:    "client/app/stream.go",
 			parseDesc:    "ChatChunk deltas arrive over the gRPC tunnel and are applied incrementally to the thread view without buffering the full reply first.",
 		},
 		{
@@ -97,7 +103,7 @@ func parseBuildTourStops() []parseTourStop {
 		{
 			parseTitle:   "Settings panel",
 			parsePattern: "Route-scoped panels + persisted preferences",
-			parseFile:    "client/app/settings_profile.go",
+			parseFile:    "client/app/settings_route.go",
 			parseDesc:    "Query param ?panel= selects the active settings section. Each section loads its own data and submits changes via typed gRPC. Preferences persist server-side.",
 		},
 	}

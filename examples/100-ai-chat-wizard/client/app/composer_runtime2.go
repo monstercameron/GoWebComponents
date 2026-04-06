@@ -7,6 +7,7 @@ import (
 
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/i18n"
+	"github.com/monstercameron/GoWebComponents/logging"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -23,14 +24,24 @@ type renderComposerCostRegionProps struct {
 }
 
 var storeRuntime2RegionRegistrationOnce sync.Once
+var isRuntime2RegionRegistrationReady bool
+
+var handleComposerRuntime2RegionRegister = func(parseRendererID string, parseRender func(renderComposerCostRegionProps) ui.Node) error {
+	return ui.RegisterParallelRegion(parseRendererID, parseRender)
+}
 
 // parseRegisterRuntime2Regions registers example 100 display-only runtime2 region renderers.
 func parseRegisterRuntime2Regions() {
 	storeRuntime2RegionRegistrationOnce.Do(func() {
-		parseErr := ui.RegisterParallelRegion(renderComposerCostRendererID, renderComposerCostRegion)
+		parseErr := handleComposerRuntime2RegionRegister(renderComposerCostRendererID, renderComposerCostRegion)
 		if parseErr != nil {
-			panic(parseErr)
+			chatLog.Warn("composer runtime2 region registration failed; using inline fallback", logging.Fields{
+				"renderer_id": renderComposerCostRendererID,
+				"error":       parseErr,
+			})
+			return
 		}
+		isRuntime2RegionRegistrationReady = true
 	})
 }
 
@@ -95,9 +106,13 @@ func renderComposerCostRegion(parseRegionProps renderComposerCostRegionProps) ui
 
 // renderComposerCostParallelRegion renders the runtime2-backed display-only cost summary region.
 func renderComposerCostParallelRegion(parseComposerProps composerProps) ui.Node {
+	parseRegionProps := parseBuildComposerCostRegionProps(parseComposerProps)
+	if !isRuntime2RegionRegistrationReady {
+		return renderComposerCostRegion(parseRegionProps)
+	}
 	return ui.ParallelRegion(ui.ParallelRegionSpec[renderComposerCostRegionProps]{
 		RendererID:       renderComposerCostRendererID,
 		RegionInstanceID: renderComposerCostRegionID,
-		Props:            parseBuildComposerCostRegionProps(parseComposerProps),
+		Props:            parseRegionProps,
 	})
 }

@@ -76,8 +76,8 @@ func parseUseAccountCostSummary(
 }
 
 // parseBuildAccountCostSummaryFromBillingSummary maps one typed customer billing summary into the settings billing view model.
-func parseBuildAccountCostSummaryFromBillingSummary(parseResp *chatpb.GetCustomerBillingSummaryResponse, parseDefaultPremiumPercent float64, parseDefaultPlatformFee float64) accountCostSummary {
-	parseSummary := parseDeriveAccountCostSummary(nil, parseDefaultPremiumPercent, parseDefaultPlatformFee, 0)
+func parseBuildAccountCostSummaryFromBillingSummary(parseResp *chatpb.GetCustomerBillingSummaryResponse, parseDefaultPremiumPercent float64, _ float64) accountCostSummary {
+	parseSummary := parseDeriveAccountCostSummary(nil, parseDefaultPremiumPercent, 0, 0)
 	if parseResp == nil {
 		return parseSummary
 	}
