@@ -255,6 +255,9 @@ func TestWriteStructuredWasmUsesConsoleEntry(parseT *testing.T) {
 	if parseEntry.Get("scope").String() != "demo" || parseEntry.Get("count").Int() != 3 {
 		parseT.Fatalf("unexpected structured entry: scope=%q count=%d", parseEntry.Get("scope").String(), parseEntry.Get("count").Int())
 	}
+	if parseEntry.Get("severity_text").String() != "WARN" || parseEntry.Get("attributes").Get("count").Int() != 3 {
+		parseT.Fatalf("expected slog-like metadata and nested attributes, got %#v", parseEntry)
+	}
 }
 
 // TestAttachBrowserConsoleRegistersHandlersAndWritesEvents verifies the wasm browser logger wires handlers and logs structured events.

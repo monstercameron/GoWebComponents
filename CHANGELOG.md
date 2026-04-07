@@ -2,6 +2,12 @@
 
 ## 2026-04-06
 
+### core logging overhaul and wasm panic console capture
+
+- Reworked the core `logging` package into a shared structured record pipeline with native JSON-line output, browser `console.*` object output, low-ceremony key/value logging, and context-backed correlation plus trace enrichment.
+- Added focused native and `js/wasm` logging coverage for variadic field normalization, context metadata propagation, stable slog-like record fields, and browser-console level mapping.
+- Emitted framework-owned `js/wasm` panic reports as structured `console.error` records with slog-like level metadata, documented the panic-reporting contract in the reference manual, and added focused browser tests for panic capture plus hidden raw rethrow suppression.
+
 ### reference manual consolidation and api browser
 
 - Replaced the fragmented top-level `docs/*.md` app-authoring set with a consolidated `docs/REFERENCE_MANUAL/` chapter set and removed the legacy duplicate docs from the repository.

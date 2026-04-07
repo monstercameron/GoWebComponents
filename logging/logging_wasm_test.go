@@ -4,6 +4,7 @@
 package logging
 
 import (
+	"context"
 	"strings"
 	"syscall/js"
 	"testing"
@@ -35,6 +36,68 @@ func TestWriteStructuredWasmWritesStructuredEntry(parseT *testing.T) {
 	}
 	if parsePayload.Get("count").Int() != 3 {
 		parseT.Fatalf("expected structured field count=3, got %v", parsePayload.Get("count"))
+	}
+	if parsePayload.Get("severity_text").String() != "WARN" || parsePayload.Get("attributes").Get("count").Int() != 3 {
+		parseT.Fatalf("expected slog-like severity and attributes payload, got %#v", parsePayload)
+	}
+}
+
+// TestNewContextWasmWritesStoredMetadata verifies js console records include stored correlation and trace metadata.
+func TestNewContextWasmWritesStoredMetadata(parseT *testing.T) {
+	parseHarness := buildLoggingTestHarness(parseT)
+	defer parseHarness.cleanupFunc()
+
+	parseCtx := context.Background()
+	parseCtx = StoreCorrelationID(parseCtx, "corr-browser")
+	parseCtx = StoreTraceContext(parseCtx, TraceContext{
+		TraceID:    "0123456789abcdef0123456789abcdef",
+		SpanID:     "89abcdef01234567",
+		Flags:      "01",
+		TraceState: "surface=browser",
+	})
+
+	NewContext(parseCtx, "router").Info("navigation blocked", "route", "/admin")
+
+	parsePayload := findLoggingTestPayload(parseT, parseHarness.entriesValue, "navigation blocked")
+	if parsePayload.Get("correlation_id").String() != "corr-browser" || parsePayload.Get("trace_id").String() != "0123456789abcdef0123456789abcdef" || parsePayload.Get("span_id").String() != "89abcdef01234567" {
+		parseT.Fatalf("expected correlation and trace metadata in js console payload, got %#v", parsePayload)
+	}
+	if parsePayload.Get("traceparent").String() != "00-0123456789abcdef0123456789abcdef-89abcdef01234567-01" || parsePayload.Get("tracestate").String() != "surface=browser" {
+		parseT.Fatalf("expected trace headers in js console payload, got %#v", parsePayload)
+	}
+	if parsePayload.Get("attributes").Get("route").String() != "/admin" || parsePayload.Get("route").String() != "/admin" {
+		parseT.Fatalf("expected mirrored route attribute in js console payload, got %#v", parsePayload)
+	}
+}
+
+// TestLoggerMethodsWasmUseConsoleLevels verifies logger entrypoints map to the equivalent browser console level.
+func TestLoggerMethodsWasmUseConsoleLevels(parseT *testing.T) {
+	parseHarness := buildLoggingTestHarness(parseT)
+	defer parseHarness.cleanupFunc()
+
+	parseLogger := New("levels")
+	parseLogger.Debug("debug message")
+	parseLogger.Info("info message")
+	parseLogger.Warn("warn message")
+	parseLogger.Error("error message")
+	parseLogger.Log("trace", "trace message")
+	Log("custom", "levels", "custom message")
+
+	for _, parseWant := range []struct {
+		message string
+		level   string
+	}{
+		{message: "debug message", level: "debug"},
+		{message: "info message", level: "info"},
+		{message: "warn message", level: "warn"},
+		{message: "error message", level: "error"},
+		{message: "trace message", level: "trace"},
+		{message: "custom message", level: "log"},
+	} {
+		parsePayload := findLoggingTestPayload(parseT, parseHarness.entriesValue, parseWant.message)
+		if parsePayload.Get("level").String() != parseWant.level {
+			parseT.Fatalf("expected console level %q for %q, got %q", parseWant.level, parseWant.message, parsePayload.Get("level").String())
+		}
 	}
 }
 

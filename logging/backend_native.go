@@ -4,18 +4,18 @@
 package logging
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
 )
 
-func writeStructured(parseLogLevel, parseLogScope, parseLogMessage string, parseLogFields map[string]interface{}) {
-	parseLogPrefix := ""
-	if parseLogScope != "" {
-		parseLogPrefix = "[" + parseLogScope + "] "
-	}
-	if len(parseLogFields) == 0 {
-		fmt.Printf("%s%s: %s\n", parseLogPrefix, strings.ToUpper(parseLogLevel), parseLogMessage)
+// writeStructuredContext writes one JSON-encoded structured log record to stdout.
+func writeStructuredContext(parseLogContext context.Context, parseLogLevel, parseLogScope, parseLogMessage string, parseLogFields map[string]interface{}) {
+	parseRecord := buildLogRecord(parseLogContext, parseLogLevel, parseLogScope, parseLogMessage, parseLogFields)
+	parseEncodedRecord, parseErr := json.Marshal(parseRecord)
+	if parseErr != nil {
+		fmt.Printf("{\"level\":\"error\",\"message\":\"logging marshal failed\",\"error\":%q}\n", parseErr.Error())
 		return
 	}
-	fmt.Printf("%s%s: %s %v\n", parseLogPrefix, strings.ToUpper(parseLogLevel), parseLogMessage, parseLogFields)
+	fmt.Println(string(parseEncodedRecord))
 }

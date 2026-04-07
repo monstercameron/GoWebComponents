@@ -87,6 +87,12 @@ Key `ui` handles and objects:
 - [`Transition`](../../ui/ui.go): `Pending`, `Start`
 - [`Previous[T]`](../../ui/ui.go): `Get`, `Ok`
 - [`Channel[T]`](../../ui/ui.go): `Get`, `Ok`, `Closed`
+
+Runtime panic note:
+
+- `ErrorBoundary` handles recoverable subtree failures, and framework-owned unhandled panics on `js/wasm` are emitted as structured `console.error` records
+- `ui` initializes the browser runtime with hidden raw panic rethrow by default, so wrapped runtime panics are reported without replaying the raw panic through the browser console
+- this behavior applies to framework-owned render, event, effect, cleanup, deferred, and startup panic paths, not arbitrary application panics outside framework-managed entrypoints
 - [`Task[T]`](../../ui/ui.go): `Get`, `Start`, `Cancel`
 - [`WorkerTask[Request,Progress,Result]`](../../ui/worker_wasm.go): `Get`, `Start`, `Cancel`
 - [`Form[T]`](../../ui/form.go): `Get`, `Set`, `Update`, `SetField`, `Validate`, `ValidateAsync`, `Submit`, `SubmitWithIntent`, `ApplyServerErrors`, `ApplyServerActionResult`, `Reset`
@@ -457,15 +463,25 @@ Source anchors:
 
 - [logging/doc.go](../../logging/doc.go)
 - [logging/logging.go](../../logging/logging.go)
+- [logging/context.go](../../logging/context.go)
+- [logging/record.go](../../logging/record.go)
 - [logging/browser_console_wasm.go](../../logging/browser_console_wasm.go)
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
-| `New`, `Log`, `AttachBrowserConsole` | structured logging and browser-console attachment | [`Logger`](../../logging/logging.go), [`Fields`](../../logging/logging.go), [`BrowserConsoleOptions`](../../logging/browser_console_wasm.go) | `logger := logging.New("checkout")` |
+| `New`, `NewContext`, `Log`, `LogContext`, `AttachBrowserConsole`, `StoreCorrelationID`, `GetCorrelationID`, `StoreTraceContext`, `GetTraceContext` | structured logging, context-backed correlation and trace enrichment, and browser-console attachment | [`Logger`](../../logging/logging.go), [`Fields`](../../logging/logging.go), [`TraceContext`](../../logging/context.go), [`BrowserConsoleOptions`](../../logging/browser_console_wasm.go) | `logger := logging.New("checkout").WithContext(ctx)` |
 
 Key logging object:
 
-- [`Logger`](../../logging/logging.go): `Scope`, `Log`, `Debug`, `Info`, `Warn`, `Error`
+- [`Logger`](../../logging/logging.go): `Scope`, `WithContext`, `Log`, `Debug`, `Info`, `Warn`, `Error`
+
+Record shape notes:
+
+- native targets write one JSON log line per record
+- `js/wasm` targets send one structured object to `console.*`
+- records include `timestamp`, `level`, `severity_text`, `severity_number`, `scope`, `message`, and nested `attributes`
+- context-backed records may also include `correlation_id`, `trace_id`, `span_id`, `traceparent`, and `tracestate`
+- logger calls accept low-ceremony key/value pairs alongside `logging.Fields` and `slog.Attr`
 
 ## utils
 

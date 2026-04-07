@@ -8,7 +8,7 @@ It is the right chapter for:
 - launcher-driven test lanes through `go run ./tools/gwc test -lane ...`
 - in-browser diagnostics through `devtools.Panel(...)`, `devtools.UseSnapshot(...)`, and `devtools.SnapshotNow()`
 - error overlays, trace capture, bug bundles, support bundles, and snapshot comparison
-- structured logging through `logging.New(...)` and browser lifecycle logging through `logging.AttachBrowserConsole(...)`
+- structured logging through `logging.New(...)`, `logging.NewContext(...)`, and browser lifecycle logging through `logging.AttachBrowserConsole(...)`
 
 Use another chapter instead when:
 
@@ -40,7 +40,7 @@ These are the main `Supported companion` surfaces:
 - `test/render`, `test/hooks`, `test/router`, `test/ssr`, and `test/browser`
 - `devtools.Panel(...)`, `devtools.UseSnapshot(...)`, `devtools.SnapshotNow()`, and `devtools.CompareSnapshots(...)`
 - `devtools.CaptureTrace(...)`, `devtools.CaptureBugBundle(...)`, `devtools.CaptureSupportDiagnosticBundle(...)`, and the related import/export helpers
-- `logging.New(...)`, `Logger.Info(...)`, `Logger.Warn(...)`, `Logger.Error(...)`, and `logging.AttachBrowserConsole(...)`
+- `logging.New(...)`, `logging.NewContext(...)`, `Logger.WithContext(...)`, `Logger.Info(...)`, `Logger.Warn(...)`, `Logger.Error(...)`, `logging.LogContext(...)`, and `logging.AttachBrowserConsole(...)`
 
 Important operational boundaries:
 
@@ -120,7 +120,7 @@ func renderDiagnosticsShell() ui.Node {
 
 	ui.UseEffect(func() func() {
 		// Attach structured browser lifecycle logging while this shell is mounted.
-		getOpsLog.Info("mount diagnostics shell", logging.Fields{"route": getSnapshot.Route.Path})
+		getOpsLog.Info("mount diagnostics shell", "route", getSnapshot.Route.Path)
 		return logging.AttachBrowserConsole(logging.BrowserConsoleOptions{
 			Scope:           "diagnostics-shell",
 			LogNavigation:   true,
@@ -249,7 +249,17 @@ Use `devtools` in layers:
 Use `logging` similarly in layers:
 
 - `logging.New(...)` for feature-scoped structured logs
+- `logging.NewContext(...)`, `Logger.WithContext(...)`, or `logging.LogContext(...)` when correlation and trace metadata should be pulled from `context.Context`
 - `logging.AttachBrowserConsole(...)` when browser lifecycle and interaction logging is useful in development, diagnostics, or tests
+
+The current record shape is intentionally stable across native and `js/wasm` targets:
+
+- native builds emit one JSON log record per line
+- `js/wasm` builds emit the same structured object to `console.*`
+- records include `timestamp`, `level`, `severity_text`, `severity_number`, `scope`, `message`, and nested `attributes`
+- when context metadata is present, records also include `correlation_id`, `trace_id`, `span_id`, `traceparent`, and `tracestate`
+- call sites can stay low ceremony by passing key/value pairs, `logging.Fields`, or `slog.Attr`
+- framework-owned unhandled panics on `js/wasm` are also emitted as structured `console.error` records with the same slog-like level metadata, and `ui` initializes the runtime with raw panic rethrow hidden by default so wrapped runtime panics can be reported without tearing down the module
 
 ## Hot Reload And IDE Workflow
 
@@ -299,7 +309,7 @@ Use this triage order:
 | Failure surfacing | `devtools.ErrorOverlay`, `SetErrorOverlayActions` | `Supported companion` | development builds need focused runtime issue presentation and recovery actions | the app needs a generic production toast or alert system | keep it app-owned and development-focused |
 | Snapshot export and diff | `ExportSnapshotJSON`, `CompareSnapshots` | `Supported companion` | one regression needs structured before-or-after inspection | raw log lines already explain the issue | good for tree, route, diagnostics, and profiling drift |
 | Trace and bundle capture | `CaptureTrace`, `CaptureBugBundle`, `CaptureSupportDiagnosticBundle`, import/export helpers | `Supported companion` | local replay or support-safe export is needed | the issue can be diagnosed directly from a live panel | sanitize before external sharing |
-| Structured logs | `logging.New`, `Info`, `Warn`, `Error`, `AttachBrowserConsole` | `Supported companion` | operational events should be scoped, structured, and reviewable | ad hoc `fmt.Println` is being used as production diagnostics | logs are still browser-visible or exportable data |
+| Structured logs | `logging.New`, `logging.NewContext`, `Logger.WithContext`, `LogContext`, `Info`, `Warn`, `Error`, `AttachBrowserConsole` | `Supported companion` | operational events should be scoped, structured, reviewable, and correlation-friendly | ad hoc `fmt.Println` is being used as production diagnostics | native output is JSON-line structured; browser output is a structured `console.*` object |
 
 ## Design Notes And Boundaries
 
