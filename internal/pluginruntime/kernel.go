@@ -444,7 +444,7 @@ func (parseKernel *Kernel) appendDiagnostic(parsePluginID string, parseOperation
 		Path:     parsePluginID,
 		Runtime:  parseKernel.getInfo.APIVersion,
 		Next:     "Inspect the plugin health report and quarantined diagnostics.",
-		Docs:     "docs/PLUGIN_FRAMEWORK_PLAN.md",
+		Docs:     "docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md#internal-plugin-kernel",
 	})
 	parseKernel.getMu.Lock()
 	defer parseKernel.getMu.Unlock()

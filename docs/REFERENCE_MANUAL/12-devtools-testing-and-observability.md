@@ -22,7 +22,7 @@ The operations story is layered on purpose:
 
 1. focused public test helpers prove behavior against public APIs
 2. launcher lanes run the repo and app validation matrix repeatably
-3. `devtools` exposes live runtime inspection and debugging surfaces in the browser
+3. `devtools` exposes live runtime inspection and debugging surfaces in the browser, including kernel-backed plugin sections
 4. `logging` provides structured operational events
 5. bug and support bundles package debugging data for local or support workflows
 
@@ -46,7 +46,38 @@ Important operational boundaries:
 
 - `devtools.Panel(...)` and `devtools.ErrorOverlay(...)` are browser-only surfaces; on non-browser targets they resolve to empty or nil behavior instead of pretending inspection exists
 - `CaptureBugBundle(...)` is for local debugging, while `CaptureSupportDiagnosticBundle(...)` and `SanitizeBugCaptureBundleForSupport(...)` are the support-safe export path
+- the framework-owned plugin kernel that now feeds part of `devtools` remains internal; the public contract is still the `devtools` package plus the app-owned `plugin.Host` compatibility bridge
 - Playwright remains the real browser runner; the public testing helpers do not replace it
+
+## Devtools And The Internal Plugin Kernel
+
+`devtools` is still the supported public companion surface, but the current browser implementation now composes three devtools contribution sources:
+
+1. app-owned explicit devtools state set through the existing `SetExtensionSections(...)` and `SetErrorOverlayActions(...)` hooks
+2. app-owned `plugin.Host` compatibility sources registered through `ApplyHostExtensions(...)`
+3. kernel-owned contributions resolved live from the internal plugin kernel
+
+That composition matters because the public and internal stories are different:
+
+- `ApplyHostExtensions(...)` is a compatibility bridge for the public `plugin` host, not the deep framework plugin kernel
+- kernel-backed sections are additive rather than replacing app-owned sections
+- `Snapshot` now includes `Snapshot.Kernel`, which summarizes plugin-kernel API version, plugin health, and recent kernel diagnostic events
+- the first shipped built-in kernel plugin contributes kernel health and runtime2 metadata sections
+
+The current internal service families that can feed devtools are intentionally broader than the public `devtools` API:
+
+- runtime tree, diagnostics, profiling, and hydration
+- route and loader state
+- fetch, cache, and asset inspection
+- DOM, style, and event inspection
+- security and capture services
+- runtime2 metadata and worker-backed region status
+
+Public takeaway:
+
+- embed `devtools.Panel(...)` and `devtools.ErrorOverlay(...)` from app code as before
+- use `ApplyHostExtensions(...)` only when your app already owns a `plugin.Host`
+- do not depend on `internal/pluginruntime`; that kernel is implementation detail, not application API
 
 ## Minimal Example
 
@@ -261,6 +292,22 @@ The current record shape is intentionally stable across native and `js/wasm` tar
 - call sites can stay low ceremony by passing key/value pairs, `logging.Fields`, or `slog.Attr`
 - framework-owned unhandled panics on `js/wasm` are also emitted as structured `console.error` records with the same slog-like level metadata, and `ui` initializes the runtime with raw panic rethrow hidden by default so wrapped runtime panics can be reported without tearing down the module
 
+## Devtools Plugin Use Cases
+
+The internal kernel exists so `devtools` can grow beyond one static runtime tree snapshot without widening public runtime internals directly.
+
+The main devtools use cases the current architecture is shaped for are:
+
+- runtime tree, hook, profiling, and hydration inspection
+- DOM, style, and event inspection
+- route, loader, request, and response lifecycle inspection
+- worker-backed region, transport, and runtime2 status inspection
+- cache, asset, and offline-shell inspection
+- capture, replay, support-bundle, and diagnostic export flows
+- future theme, DOM-patch, and security-oriented inspection surfaces that still need to remain bounded and auditable
+
+Those use cases are implemented through internal typed services and interposers, not through a public raw callback API. That keeps the public `devtools` surface small while still allowing the framework to ship richer first-party inspection.
+
 ## Hot Reload And IDE Workflow
 
 Use hot reload as an explicit development tool, not as a second runtime guarantee.
@@ -306,7 +353,7 @@ Use this triage order:
 | Browser harness helpers | `test/browser.Install`, `NewCoordinationHarness` | `Supported companion` | browser-like environment or coordination setup should stay deterministic in tests | Playwright is already giving you the real browser path you need | useful for interop, worker, and cross-tab harnesses |
 | Launcher validation | `gwc test`, `gwc lint` | `Supported companion` | you need repeatable local or CI validation lanes | one focused package test is enough | use the smallest lane that covers the current change |
 | Live diagnostics | `devtools.UseSnapshot`, `devtools.SnapshotNow`, `devtools.Panel` | `Supported companion` | engineers need runtime tree, route, log, or diagnostic inspection | production users should see developer inspection surfaces | browser-only companion surface |
-| Failure surfacing | `devtools.ErrorOverlay`, `SetErrorOverlayActions` | `Supported companion` | development builds need focused runtime issue presentation and recovery actions | the app needs a generic production toast or alert system | keep it app-owned and development-focused |
+| Failure surfacing | `devtools.ErrorOverlay`, `SetErrorOverlayActions`, `ApplyHostExtensions` | `Supported companion` | development builds need focused runtime issue presentation and recovery actions | the app needs a generic production toast or alert system | app-owned state and `plugin.Host` compatibility actions compose with kernel-owned actions |
 | Snapshot export and diff | `ExportSnapshotJSON`, `CompareSnapshots` | `Supported companion` | one regression needs structured before-or-after inspection | raw log lines already explain the issue | good for tree, route, diagnostics, and profiling drift |
 | Trace and bundle capture | `CaptureTrace`, `CaptureBugBundle`, `CaptureSupportDiagnosticBundle`, import/export helpers | `Supported companion` | local replay or support-safe export is needed | the issue can be diagnosed directly from a live panel | sanitize before external sharing |
 | Structured logs | `logging.New`, `logging.NewContext`, `Logger.WithContext`, `LogContext`, `Info`, `Warn`, `Error`, `AttachBrowserConsole` | `Supported companion` | operational events should be scoped, structured, reviewable, and correlation-friendly | ad hoc `fmt.Println` is being used as production diagnostics | native output is JSON-line structured; browser output is a structured `console.*` object |
@@ -316,6 +363,7 @@ Use this triage order:
 - The public testing surface lives in companion packages because testing ergonomics should build on public behavior, not privileged runtime hooks.
 - The framework does not ship a custom runner. Ordinary Go testing plus Playwright remains the execution model.
 - `devtools` is an inspection surface, not a secret-safe telemetry channel. Treat snapshots, logs, and traces as browser-visible.
+- kernel-backed devtools sections are still browser-visible inspection. Treat plugin health, runtime2 status, route state, cache state, and capture summaries as diagnostics, not as hidden privileged channels.
 - Bug bundles are richer than support bundles by design. Local engineers may need replay fidelity; external support flows should default to sanitized export.
 - `logging.AttachBrowserConsole(...)` is useful for development and diagnostics, but it should be an explicit operational choice, not an always-on default.
 - Performance debugging uses both devtools and benchmarks: snapshots explain where, benchmarks prove how much.
@@ -345,6 +393,8 @@ go run ./tools/gwc build -app .\examples\66-devtools-panel\main.go -root .\examp
 go run ./tools/gwc build -app .\examples\67-use-snapshot\main.go -root .\examples\67-use-snapshot
 go run ./tools/gwc build -app .\examples\68-snapshot-now\main.go -root .\examples\68-snapshot-now
 go run ./tools/gwc build -app .\examples\69-devtools-diagnostics\main.go -root .\examples\69-devtools-diagnostics
+go run ./tools/gwc build -app .\examples\111-kernel-plugin-devtools\main.go -root .\examples\111-kernel-plugin-devtools
+go test -tags playwrightgo ./test/playwrightgo/kernelplugindevtools -timeout 5m -v
 ```
 
 When diagnosing a live bug:

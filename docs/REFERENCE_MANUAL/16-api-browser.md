@@ -18,6 +18,10 @@ Package GoDoc and source remain the final authority for exact fields and methods
 - use the `Parameter objects / handles` column when you need the props, options, or returned object types
 - jump back to the narrative chapters when you need architecture guidance instead of symbol lookup
 
+Important boundary:
+
+- the framework now has an internal plugin kernel under `internal/pluginruntime`, but it is intentionally omitted from this API browser because it is not public API; use [12](12-devtools-testing-and-observability.md) and [15](15-design-notes-and-boundaries.md) for the permanent boundary and composition rules
+
 ## Package Index
 
 | Package | Kind | Use it for | Main manual chapter |
@@ -33,7 +37,7 @@ Package GoDoc and source remain the final authority for exact fields and methods
 | `devtools` | supported companion | in-app inspection, snapshots, capture bundles, replay | [12](12-devtools-testing-and-observability.md) |
 | `head` | supported companion | SSR head composition over router metadata | [09](09-ssr-and-hydration.md), [15](15-design-notes-and-boundaries.md) |
 | `pwa` | supported companion | manifest, service worker, installability, cache storage diagnostics | [13](13-assets-deployment-and-pwa.md) |
-| `plugin` | supported companion | explicit plugin host, guards, panels, head/bootstrap providers | [15](15-design-notes-and-boundaries.md) |
+| `plugin` | supported companion | explicit application-owned plugin host, guards, panels, head/bootstrap providers | [15](15-design-notes-and-boundaries.md) |
 | `prerender` | support | static export helpers | [13](13-assets-deployment-and-pwa.md) |
 | `virtualization` | support | fixed-height virtualized list rendering and viewport math | [10](10-browser-interop-and-workers.md) |
 | `diagnostics` | support | structured diagnostic reports and HTTP error emission | [12](12-devtools-testing-and-observability.md) |
@@ -311,7 +315,10 @@ Source anchors:
 - [devtools/doc.go](../../devtools/doc.go)
 - [devtools/types.go](../../devtools/types.go)
 - [devtools/devtools_wasm.go](../../devtools/devtools_wasm.go)
+- [devtools/composed_sources.go](../../devtools/composed_sources.go)
+- [devtools/plugin_bridge.go](../../devtools/plugin_bridge.go)
 - [devtools/bug_capture.go](../../devtools/bug_capture.go)
+- [devtools/capture_service.go](../../devtools/capture_service.go)
 - [devtools/trace_capture.go](../../devtools/trace_capture.go)
 - [devtools/support_bundle.go](../../devtools/support_bundle.go)
 
@@ -319,7 +326,8 @@ Source anchors:
 | --- | --- | --- | --- |
 | `Panel`, `ErrorOverlay` | embeddable devtools overlay UI | [`PanelProps`](../../devtools/types.go), [`ErrorOverlayProps`](../../devtools/types.go) | `return devtools.Panel(devtools.PanelProps{})` |
 | `SnapshotNow`, `UseSnapshot`, `CompareSnapshots` | current inspection snapshots and diffing | [`Snapshot`](../../devtools/types.go), [`SnapshotComparison`](../../devtools/types.go) | `snapshot := devtools.SnapshotNow()` |
-| `ApplyHostExtensions` | install plugin-host devtools sections and overlay actions into the current devtools state | [`Host`](../../plugin/plugin.go), [`ExtensionSection`](../../devtools/extension_sections.go), [`ErrorOverlayAction`](../../devtools/error_overlay_actions.go) | `cleanup := devtools.ApplyHostExtensions(host)` |
+| `ApplyHostExtensions` | compose `plugin.Host` devtools sections and overlay actions into the current devtools state without replacing kernel-backed contributions | [`Host`](../../plugin/plugin.go), [`ExtensionSection`](../../devtools/extension_sections.go), [`ErrorOverlayAction`](../../devtools/error_overlay_actions.go) | `cleanup := devtools.ApplyHostExtensions(host)` |
+| `InspectComposedExtensionSections`, `InspectComposedErrorOverlayActions` | read the live composed app-owned, compatibility-host, and kernel-owned devtools contribution sets | [`ExtensionSection`](../../devtools/types.go), [`ErrorOverlayAction`](../../devtools/types.go) | `sections := devtools.InspectComposedExtensionSections()` |
 | `CaptureBugBundle`, `ImportBugCaptureBundleJSON`, `ExportBugCaptureBundleJSON`, `ReplayBugCaptureBundle` | bug-capture bundle capture, export, import, replay | [`BugCaptureBundle`](../../devtools/bug_capture.go) | `bundle := devtools.CaptureBugBundle("checkout-crash")` |
 | `CaptureSupportDiagnosticBundle`, `ImportSupportDiagnosticBundleJSON`, `ExportSupportDiagnosticBundleJSON`, `SanitizeBugCaptureBundleForSupport` | support-safe diagnostic bundle flows | [`SupportDiagnosticBundle`](../../devtools/support_bundle.go) | `supportBundle := devtools.CaptureSupportDiagnosticBundle("sync-failure")` |
 | `CaptureTrace`, `ImportTraceCaptureJSON`, `ExportTraceCaptureJSON`, `SetTraceReplay`, `CurrentTraceReplay`, `ClearTraceReplay` | trace capture and replay | [`TraceCapture`](../../devtools/trace_capture.go) | `trace := devtools.CaptureTrace("cold-start")` |
@@ -328,10 +336,16 @@ Source anchors:
 Key devtools objects:
 
 - [`Snapshot`](../../devtools/types.go)
+- [`KernelSnapshot`](../../devtools/types.go)
 - [`BugCaptureBundle`](../../devtools/bug_capture.go)
 - [`SupportDiagnosticBundle`](../../devtools/support_bundle.go)
 - [`TraceCapture`](../../devtools/trace_capture.go)
 - [`BoundaryInspection`](../../devtools/serialization_boundaries.go)
+
+Internal kernel note:
+
+- the deep framework plugin kernel that feeds some devtools sections is intentionally internal and not imported directly by apps
+- the public contract remains the `devtools` package plus the application-owned compatibility bridge through `plugin.Host`
 
 ## head
 
@@ -397,6 +411,11 @@ Plugin enums and compatibility markers:
 
 - `TierStable`, `TierSupportedCompanion`, `TierExperimental`, `TierInternal`
 - `CapabilityRouter`, `CapabilityAsyncData`, `CapabilityDevtools`, `CapabilitySSR`, `CapabilityForms`
+
+Boundary note:
+
+- `plugin` is the public application-owned companion host
+- the deeper framework plugin kernel that powers kernel-backed devtools lives under `internal/pluginruntime` and is not yet public API
 
 ## virtualization
 

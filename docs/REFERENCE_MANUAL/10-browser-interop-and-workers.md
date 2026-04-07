@@ -55,6 +55,28 @@ Advanced or more change-sensitive surfaces:
 
 Older docs may still mention `CurrentDocument()`, `DocumentEvents()`, or `WindowOpenerChannel(...)`. The current exported names are `GetDocument()`, `GetDocumentEvents()`, and `OpenWindowOpenerChannel(...)`.
 
+## Internal Interposer Boundary
+
+The framework now also uses an internal interposer layer when first-party plugins such as `devtools` need deep visibility into browser and worker state.
+
+That internal layer exists so the framework can normalize:
+
+- `runtime` versus `runtime2`
+- DOM adapter differences
+- event, worker, and transport details
+- route, fetch, asset, and security observations that originate in browser-owned code
+
+For app authors, the rule is still the same:
+
+- use the public `interop`, `ui`, `router`, `fetch`, and `pwa` APIs directly
+- do not depend on `internal/pluginruntime` or any interposer package
+- treat worker transport details such as structured-clone, binary, or shared-buffer paths as implementation details unless a public API documents them
+
+This boundary matters most for debugging and devtools:
+
+- devtools can inspect DOM, event, worker, and runtime2 state without freezing those implementation details into public application APIs
+- apps still own normal browser interaction code through the supported public packages
+
 ## Minimal Example
 
 Start with one component that keeps interop local: load a draft from storage, copy it to the clipboard, and listen for a typed custom event on the document event target.

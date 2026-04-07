@@ -73,7 +73,7 @@ GWC is intentionally not trying to be every framework shape at once.
 
 The repo's current non-goals are explicit:
 
-- no generic plugin lifecycle in core
+- no public generic plugin lifecycle in core; the current framework-owned kernel stays internal
 - no directive model separate from normal Go component composition
 - no framework-owned route-manifest generation or prerender enumeration in core
 - no compiler-required authoring path for ordinary apps
@@ -223,16 +223,84 @@ Use this decision order whenever a new capability is proposed:
 1. application-owned composition on current public APIs
 2. package-owned extension point where one subsystem clearly owns the concern
 3. supported companion package for optional or policy-heavy reusable features
-4. shared plugin lifecycle only if multiple real extension categories prove the same need
+4. internal shared plugin lifecycle only if multiple real extension categories prove the same need, and only publish it after the SPI is stable
 
 Current examples of that policy:
 
 - `router.RouteContract` is runtime-first, while route registries, prerender lists, and metadata grouping stay app-owned
 - `devtools`, `head`, and `plugin` are companion surfaces rather than core runtime internals
+- the public `plugin` package stays the application-owned companion host, while `internal/pluginruntime` owns the framework's internal deep-plugin kernel
 - virtualization is intentionally aimed at a supported companion package first
 - compiler-assisted features remain opt-in experiments rather than a second default authoring model
 
 Core also does not define a directive model today because typed Go composition, hooks, and helper functions already cover the intended authoring path.
+
+## Internal Plugin Kernel
+
+Deep framework plugins now use an internal kernel rather than the public `plugin` package.
+
+That split is intentional:
+
+- the public `plugin` package remains the supported application-owned companion host
+- the framework-owned kernel lives under `internal/pluginruntime`
+- `devtools` is the first shipped consumer of that internal kernel
+- the kernel is not yet a public semver-stable extension contract
+
+Use this boundary table when deciding which layer owns an extension:
+
+| Layer | Ownership | Stability | Use it for | Do not use it for |
+| --- | --- | --- | --- | --- |
+| `plugin` | application-owned public companion | `Supported companion` | route guards, request observers, app-owned devtools sections or actions, head providers, bootstrap payloads, form validators | deep framework inspection, runtime internals, hidden lifecycle control |
+| `internal/pluginruntime` | framework-owned internal kernel | `Internal` | first-party plugins, health tracking, guarded plugin startup, typed service lookup, contribution registration | app code, third-party plugin contracts, semver promises |
+| interposers | framework-owned adapters | `Internal` | hiding `runtime` versus `runtime2`, DOM adapter, router, fetch, asset, and security implementation details behind stable kernel service contracts | exposing raw internal structs to plugins |
+
+Current built-in internal service families are:
+
+- runtime and diagnostics summaries
+- route and fetch or cache inspection
+- DOM, style, and event inspection
+- asset, cache, and release inspection
+- security and capture services
+- runtime2 metadata for worker-backed and transport-backed regions
+
+Current built-in internal contribution families are:
+
+- devtools sections
+- devtools actions
+- devtools panels
+
+The current shipped slice is deliberately narrow:
+
+- `devtools` reads kernel-backed sections and actions through the internal kernel
+- `ApplyHostExtensions(...)` remains the compatibility bridge for application-owned `plugin.Host` contributions
+- app-owned devtools state, compatibility host state, and kernel-owned contributions compose additively instead of replacing one another
+
+## Interposers, Safety, And Performance
+
+The internal kernel is built around an interposer layer.
+
+Interposers exist so that plugin-facing services can stay stable while implementation details keep moving:
+
+- plugins talk to normalized service contracts
+- the kernel talks to interposers
+- interposers adapt `internal/runtime`, `internal/runtime2`, browser adapters, router state, fetch state, asset state, and security state
+
+This avoids freezing internal runtime structures just because one plugin needs deep visibility.
+
+Kernel safety and performance rules are also explicit:
+
+- every plugin entrypoint is guarded and panic-isolated
+- the kernel tracks plugin health and can quarantine a misbehaving plugin without crashing the framework
+- plugin work is classified internally as `hot`, `warm`, or `background`
+- activation is explicit through `boot`, `view`, `session`, and `opportunistic` policies
+- deep plugins read bounded normalized snapshots and issue typed commands instead of holding raw mutable runtime pointers
+- DOM, event, network, asset, and security inspection must stay auditable and bounded rather than becoming an arbitrary callback escape hatch
+
+For app code, the main takeaway is simple:
+
+- use the public `plugin` package when you need an application-owned companion host
+- use the public `devtools` package when you need embeddable inspection surfaces
+- do not depend on `internal/pluginruntime` or any interposer path directly
 
 ## Scheduling Boundaries
 
@@ -312,6 +380,7 @@ Several areas remain intentionally bounded:
 - virtualization is treated as companion-package territory first
 - server-interactive UI and richer streaming SSR stay experimental until latency, backpressure, offline, and reconnect behavior are defensible
 - multithreaded runtime and `runtime2` work remain performance and architecture experiments, not the default app model
+- the internal plugin kernel may normalize `runtime` and `runtime2` for first-party plugins, but that does not upgrade `runtime2` itself into the default app model
 - worker pools, shared buffers, and alternative transports should be earned by measured workload pressure
 
 ## Migration And Release Discipline
@@ -335,7 +404,8 @@ Release discipline also requires:
 
 - depending on `internal/*` because it seems convenient during one refactor
 - spreading experimental APIs across the whole app instead of hiding them behind a wrapper
-- expecting core to own plugin lifecycle, directives, route manifests, or compiler transforms that the docs still classify as app-owned or experimental
+- expecting the public `plugin` package to be the deep framework kernel, or expecting the internal kernel to be a public compatibility promise already
+- expecting core to own directives, route manifests, or compiler transforms that the docs still classify as app-owned or experimental
 - treating transitions as if they were true time-sliced rendering
 - shipping secrets or privileged policy details in bootstrap, storage, logs, or exported snapshots
 - assuming examples alone upgrade a surface from experimental to stable

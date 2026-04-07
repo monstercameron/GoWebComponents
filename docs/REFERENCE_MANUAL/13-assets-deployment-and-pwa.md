@@ -61,6 +61,17 @@ Important app-owned boundaries:
 - cache headers, CDN invalidation, HTTPS, and host-level content types
 - offline route-opening policy, purge rules, and user-visible update prompting
 
+## Release Manifest, Cache Plans, And Inspection
+
+The repo now treats the emitted release and cache-planning artifacts as the authoritative handoff between build, offline delivery, and inspection.
+
+That means:
+
+- `wasm-release-manifest.json` is the normalized source for service-worker asset planning, cache-storage planning, and higher-level asset inspection
+- `BuildServiceWorkerAssetPlan(...)` and `BuildCacheStoragePlan(...)` are the typed contracts; do not rebuild cache policy from ad hoc DOM or network scraping
+- diagnostics and devtools should inspect manifest, registration, and cache-plan state first, then compare that with actual browser cache residency
+- if a future asset-management or cache-policy plugin exists, it should consume these typed plans and diagnostics instead of inferring release behavior from file-layout conventions alone
+
 ## Minimal Example
 
 Start with the smallest installable baseline: create a valid manifest and register the service worker from explicit client bootstrap code.
