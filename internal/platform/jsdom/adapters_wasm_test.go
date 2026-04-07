@@ -3,7 +3,10 @@
 
 package jsdom
 
-import "testing"
+import (
+	"syscall/js"
+	"testing"
+)
 
 func TestWASMDOMAdapter_NestedBatchesKeepParentBoundaries(parseT *testing.T) {
 	parseCleanup := installBenchmarkDOM()
@@ -70,5 +73,78 @@ func TestWASMDOMAdapter_FragmentReuseDoesNotReplayChildren(parseT *testing.T) {
 	}
 	if parseSecondTag := parseChildren.Index(1).Get("tagName").String(); parseSecondTag != "span" {
 		parseT.Fatalf("expected second child tag span, got %q", parseSecondTag)
+	}
+}
+
+func TestWASMDOMAdapter_AppendChildFallsBackToAppendChild(parseT *testing.T) {
+	parseCleanup := installBenchmarkDOM()
+	defer parseCleanup()
+
+	parseArrayCtor := js.Global().Get("Array")
+	parseObjectCtor := js.Global().Get("Object")
+	parseParent := parseObjectCtor.New()
+	parseChild := parseObjectCtor.New()
+	parseChildren := parseArrayCtor.New()
+	parseParent.Set("children", parseChildren)
+	parseParent.Set("append", js.Undefined())
+
+	parseAppendChild := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
+			return nil
+		}
+		parseThis.Get("children").Call("push", parseArgs[0])
+		parseArgs[0].Set("parentNode", parseThis)
+		return parseArgs[0]
+	})
+	parseParent.Set("appendChild", parseAppendChild)
+	parseT.Cleanup(parseAppendChild.Release)
+
+	parseAdapter := NewWASMDOMAdapter()
+	parseAdapter.AppendChild(&WASMDOMNode{value: parseParent}, &WASMDOMNode{value: parseChild})
+
+	if parseGot := parseChildren.Get("length").Int(); parseGot != 1 {
+		parseT.Fatalf("expected appendChild fallback to add one child, got %d", parseGot)
+	}
+	if !parseChild.Get("parentNode").Equal(parseParent) {
+		parseT.Fatal("expected appendChild fallback to set parentNode")
+	}
+}
+
+func TestWASMDOMAdapter_EndBatchFallsBackToAppendChild(parseT *testing.T) {
+	parseCleanup := installBenchmarkDOM()
+	defer parseCleanup()
+
+	parseArrayCtor := js.Global().Get("Array")
+	parseObjectCtor := js.Global().Get("Object")
+	parseParent := parseObjectCtor.New()
+	parseFirst := parseObjectCtor.New()
+	parseSecond := parseObjectCtor.New()
+	parseChildren := parseArrayCtor.New()
+	parseParent.Set("children", parseChildren)
+	parseParent.Set("append", js.Undefined())
+
+	parseAppendChild := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
+			return nil
+		}
+		parseThis.Get("children").Call("push", parseArgs[0])
+		parseArgs[0].Set("parentNode", parseThis)
+		return parseArgs[0]
+	})
+	parseParent.Set("appendChild", parseAppendChild)
+	parseT.Cleanup(parseAppendChild.Release)
+
+	parseAdapter := NewWASMDOMAdapter()
+	parseParentNode := &WASMDOMNode{value: parseParent}
+	parseAdapter.BeginBatch(parseParentNode)
+	parseAdapter.AppendChild(parseParentNode, &WASMDOMNode{value: parseFirst})
+	parseAdapter.AppendChild(parseParentNode, &WASMDOMNode{value: parseSecond})
+	parseAdapter.EndBatch()
+
+	if parseGot := parseChildren.Get("length").Int(); parseGot != 2 {
+		parseT.Fatalf("expected batched appendChild fallback to add two children, got %d", parseGot)
+	}
+	if !parseFirst.Get("parentNode").Equal(parseParent) || !parseSecond.Get("parentNode").Equal(parseParent) {
+		parseT.Fatal("expected batched appendChild fallback to set parentNode on each child")
 	}
 }

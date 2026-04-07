@@ -22,4 +22,12 @@ This folder contains the experimental multithreaded runtime and its transport, s
 - Start in `scheduler.go` and `host_region_adapter.go` for host-side behavior changes.
 - Start in `worker_region_runtime.go` for worker execution changes.
 
+## Plugin Interposer Inventory
+
+The current internal plugin-kernel bridge for runtime2 is intentionally narrow:
+
+- `plugininterposer.go` exposes package-level capability reporting through `BuildRuntime2MetaService()`
+- the exported capability surface currently comes from `capabilities.go`
+- richer status, diagnostics, hydration, fallback, and downgrade summaries remain implementation-owned and should be promoted only when they can be normalized without leaking unstable internals
+
 This folder is still implementation-owned and not part of the stable external API surface.

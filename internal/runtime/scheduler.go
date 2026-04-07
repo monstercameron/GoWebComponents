@@ -377,14 +377,14 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	}
 	parseRt.profiling.scheduledFiberMarks++
 	parseRt.profiling.scheduledGranularMarks++
-	parseFiber.dirty = true
-	parseFiber.subtreeDirty = true
-	parseFiber.needsUpdate = true
-	parseRt.markFiberSubtreeDirty(parseFiber.parent)
 	parseCurrentOrigin := ""
 	if parseFiber.dirty || parseFiber.needsUpdate {
 		parseCurrentOrigin = parseFiber.updateOrigin
 	}
+	parseFiber.dirty = true
+	parseFiber.subtreeDirty = true
+	parseFiber.needsUpdate = true
+	parseRt.markFiberSubtreeDirty(parseFiber.parent)
 	parseFiber.updateOrigin = buildScheduledUpdateOrigin(parseCurrentOrigin, parseOrigin, "fine-grained")
 	if !parseRt.updateScheduled {
 		parseRt.ScheduleUpdate()

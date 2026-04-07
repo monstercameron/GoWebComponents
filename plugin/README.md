@@ -4,7 +4,9 @@
 
 ## High-Level Overview
 
-The `plugin` library defines extension contracts and plugin lifecycle helpers for integrating app-specific behavior into GWC.
+The `plugin` library defines the public, app-owned companion extension host for integrating application-specific behavior into GWC.
+
+This package is not the deep framework plugin kernel. The new kernel lives under `internal/pluginruntime` and is reserved for framework-owned services and trusted internal plugins such as kernel-backed devtools contributions.
 
 ## Public APIs
 

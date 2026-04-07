@@ -3,7 +3,10 @@
 
 package ui
 
-import "github.com/monstercameron/GoWebComponents/internal/runtime2"
+import (
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+)
 
 // buildParallelRegionBridgedNode strips bridge-only event slot markers on non-browser targets without changing local handler behavior.
 func buildParallelRegionBridgedNode(
@@ -16,6 +19,7 @@ func buildParallelRegionBridgedNode(
 			return nil
 		}
 		delete(parseCurrentNode.Props, parallelRegionClickSlotProp)
+		runtime.RefreshElementHostProps(parseCurrentNode)
 		return nil
 	})
 	if parseBridgeErr != nil {

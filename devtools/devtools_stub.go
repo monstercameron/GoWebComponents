@@ -14,7 +14,10 @@ func SnapshotNow() Snapshot {
 }
 
 func snapshotNowLive() Snapshot {
-	return Snapshot{}
+	return Snapshot{
+		Kernel:     snapshotKernelState(),
+		Extensions: InspectComposedExtensionSections(),
+	}
 }
 
 // UseSnapshot returns an empty snapshot on non-browser targets.

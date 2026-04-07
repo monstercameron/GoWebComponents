@@ -2,6 +2,7 @@
 // companion packages and example integrations.
 //
 // The package is a supported companion API. It does not grant privileged
-// runtime access, and it does not change the core rule that GoWebComponents
-// itself has no hidden global plugin registry.
+// runtime access, and it does not replace the internal framework-owned plugin
+// kernel used for deep devtools and service interposition. Companion plugins
+// remain app-owned integrations over a Host instance.
 package plugin

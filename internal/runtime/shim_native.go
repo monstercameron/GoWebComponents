@@ -31,6 +31,11 @@ func GoUseIdGlobal() string {
 	return GoUseId()
 }
 
+// BuildDOMWrappedFunctionIfReadyGlobal reports that DOM callback wrapping is unavailable on non-browser targets.
+func BuildDOMWrappedFunctionIfReadyGlobal(parseHandlerFn interface{}) (interface{}, bool) {
+	return nil, false
+}
+
 // GoUseAtomGlobal wraps GoUseAtom with the global runtime on non-browser targets.
 func GoUseAtomGlobal[T any](parseAtomID string, parseAtomInitialValue T) (func() T, func(T)) {
 	parseRuntime := GetGlobalRuntime()

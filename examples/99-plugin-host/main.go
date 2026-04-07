@@ -20,6 +20,8 @@ import (
 
 const pluginLogKey = "catalog-plugin-example-log"
 
+const companionHostStory = "This example demonstrates the public companion host, not the internal framework plugin kernel."
+
 func appendHostLog(parseHost *plugin.Host, parseMessage string) {
 	parseCurrent, parseOk := parseHost.Value(pluginLogKey)
 	parseEntries, _ := parseCurrent.([]string)
@@ -334,7 +336,7 @@ func pluginExample() ui.Node {
 	return shared.ExamplePage(
 		"Plugin Host",
 		"plugin.Host, plugin.Plugin",
-		"Register explicit companion plugins, declare capabilities, contribute subsystem hooks, and keep registration or cleanup in normal application code instead of hidden runtime discovery.",
+		"Register explicit companion plugins, declare capabilities, contribute subsystem hooks, and keep registration or cleanup in normal application code instead of hidden runtime discovery. " + companionHostStory,
 		shared.ExamplePanel("Host summary",
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300", ID: "plugin-host-summary"}, html.Text("The host exposes explicit capabilities, manifest metadata, and ordered registration without giving plugins privileged runtime access.")),
 			html.Div(html.Props{Class: "mt-4 grid gap-4 md:grid-cols-3"},

@@ -20,8 +20,8 @@ func devtoolsPanelExample() ui.Node {
 	return ui.Fragment(
 		shared.ExamplePage(
 			"devtools.Panel",
-			"Embed the runtime inspection overlay inside the app",
-			"The panel is the all-in-one in-browser inspection surface: route state, runtime stats, diagnostics, profiling hotspots, and the committed component tree.",
+			"Embed the kernel-backed runtime inspection overlay inside the app",
+			"The panel is the all-in-one in-browser inspection surface: route state, runtime stats, diagnostics, profiling hotspots, the committed component tree, and internal kernel-backed devtools sections.",
 			shared.ExamplePanel("Live app state",
 				html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Use the button below, then open the devtools panel in the bottom-right corner to see the tree and hook state update.")),
 				html.Div(html.Props{Class: "mt-6 flex gap-3"},

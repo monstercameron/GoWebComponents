@@ -6,6 +6,13 @@
 
 The `devtools` library provides debugging and inspection surfaces for GWC applications, including runtime snapshots and developer-focused overlays.
 
+Devtools now resolves contributions from three layers:
+- app-owned sections and actions registered directly through the `SetExtensionSections` and `SetErrorOverlayActions` helpers
+- compatibility host contributions registered through `ApplyHostExtensions`
+- kernel-owned contributions resolved live from the internal framework plugin kernel
+
+`ApplyHostExtensions` remains a compatibility seam for the public companion host. It no longer overwrites app-owned devtools state.
+
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/devtools` (`package devtools`)

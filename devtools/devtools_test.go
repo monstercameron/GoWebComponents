@@ -486,7 +486,7 @@ func TestExtensionSectionsRoundTripClonedState(parseT *testing.T) {
 	}
 }
 
-func TestApplyHostExtensionsMapsAndRestoresHostContributions(parseT *testing.T) {
+func TestApplyHostExtensionsComposesAndRemovesHostContributions(parseT *testing.T) {
 	parseT.Cleanup(ResetExtensionSections)
 	parseT.Cleanup(ResetErrorOverlayActions)
 
@@ -522,16 +522,16 @@ func TestApplyHostExtensionsMapsAndRestoresHostContributions(parseT *testing.T) 
 	SetErrorOverlayActions([]ErrorOverlayAction{{Label: "Existing", Run: func(ErrorOverlayActionContext) {}}})
 
 	parseCleanup := ApplyHostExtensions(parseHost)
-	parseSections := InspectExtensionSections()
-	if len(parseSections) != 1 || parseSections[0].Name != "Companion" || parseSections[0].Summary["state"] != "ready" || parseSections[0].Lines[0] != "line one" {
-		parseT.Fatalf("InspectExtensionSections() = %+v, want mapped host section", parseSections)
+	parseSections := InspectComposedExtensionSections()
+	if len(parseSections) != 2 || parseSections[0].Name != "Existing" || parseSections[1].Name != "Companion" || parseSections[1].Summary["state"] != "ready" || parseSections[1].Lines[0] != "line one" {
+		parseT.Fatalf("InspectComposedExtensionSections() = %+v, want composed sections", parseSections)
 	}
 
-	parseActions := InspectErrorOverlayActions()
-	if len(parseActions) != 1 || parseActions[0].Label != "Retry loader" || parseActions[0].MatchCodes[0] != "GWC-ROUTER-LOADER-FAILED" {
-		parseT.Fatalf("InspectErrorOverlayActions() = %+v, want mapped host action", parseActions)
+	parseActions := InspectComposedErrorOverlayActions()
+	if len(parseActions) != 2 || parseActions[0].Label != "Existing" || parseActions[1].Label != "Retry loader" || parseActions[1].MatchCodes[0] != "GWC-ROUTER-LOADER-FAILED" {
+		parseT.Fatalf("InspectComposedErrorOverlayActions() = %+v, want composed actions", parseActions)
 	}
-	parseActions[0].Run(ErrorOverlayActionContext{
+	parseActions[1].Run(ErrorOverlayActionContext{
 		Issue: ErrorOverlayIssue{
 			Source:   "router",
 			Code:     "GWC-ROUTER-LOADER-FAILED",
@@ -546,13 +546,43 @@ func TestApplyHostExtensionsMapsAndRestoresHostContributions(parseT *testing.T) 
 	}
 
 	parseCleanup()
-	parseRestoredSections := InspectExtensionSections()
+	parseRestoredSections := InspectComposedExtensionSections()
 	if len(parseRestoredSections) != 1 || parseRestoredSections[0].Name != "Existing" || parseRestoredSections[0].Summary["state"] != "baseline" {
-		parseT.Fatalf("expected cleanup to restore prior extension sections, got %+v", parseRestoredSections)
+		parseT.Fatalf("expected cleanup to preserve app-owned extension sections, got %+v", parseRestoredSections)
 	}
-	parseRestoredActions := InspectErrorOverlayActions()
+	parseRestoredActions := InspectComposedErrorOverlayActions()
 	if len(parseRestoredActions) != 1 || parseRestoredActions[0].Label != "Existing" {
-		parseT.Fatalf("expected cleanup to restore prior overlay actions, got %+v", parseRestoredActions)
+		parseT.Fatalf("expected cleanup to preserve app-owned overlay actions, got %+v", parseRestoredActions)
+	}
+}
+
+func TestApplyHostExtensionsReevaluatesProvidersLive(parseT *testing.T) {
+	parseT.Cleanup(ResetExtensionSections)
+	parseT.Cleanup(ResetErrorOverlayActions)
+
+	parseHost := plugin.NewHost(plugin.HostOptions{Capabilities: []plugin.Capability{plugin.CapabilityDevtools}})
+	parseState := "ready"
+	if parseErr := parseHost.AddDevtoolsSectionProvider(func() plugin.DevtoolsSection {
+		return plugin.DevtoolsSection{
+			Name:    "Companion",
+			Summary: map[string]string{"state": parseState},
+		}
+	}); parseErr != nil {
+		parseT.Fatalf("AddDevtoolsSectionProvider() error = %v", parseErr)
+	}
+
+	parseCleanup := ApplyHostExtensions(parseHost)
+	parseT.Cleanup(parseCleanup)
+
+	parseSections := InspectComposedExtensionSections()
+	if len(parseSections) != 1 || parseSections[0].Summary["state"] != "ready" {
+		parseT.Fatalf("expected initial host section, got %+v", parseSections)
+	}
+
+	parseState = "updated"
+	parseSections = InspectComposedExtensionSections()
+	if len(parseSections) != 1 || parseSections[0].Summary["state"] != "updated" {
+		parseT.Fatalf("expected host sections to reevaluate live, got %+v", parseSections)
 	}
 }
 

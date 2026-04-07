@@ -3,6 +3,7 @@ package templatelowering
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -23,7 +24,7 @@ func TestGeneratedLandingMatchesTemplateOutput(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("ReadFile(%q) error = %v", parseGeneratedPath, parseErr)
 	}
-	if parseGot != string(parseWantBytes) {
+	if normalizeTemplateLoweringLineEndings(parseGot) != normalizeTemplateLoweringLineEndings(string(parseWantBytes)) {
 		parseT.Fatalf("generated output drifted from checked-in Go file")
 	}
 }
@@ -39,4 +40,9 @@ func TestRenderLandingReturnsNode(parseT *testing.T) {
 	if parseNode == nil {
 		parseT.Fatal("RenderLanding() returned nil")
 	}
+}
+
+// normalizeTemplateLoweringLineEndings keeps generator drift checks stable across CRLF and LF checkouts.
+func normalizeTemplateLoweringLineEndings(parseSource string) string {
+	return strings.ReplaceAll(parseSource, "\r\n", "\n")
 }

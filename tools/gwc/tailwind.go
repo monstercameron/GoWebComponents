@@ -287,8 +287,11 @@ func resolveTailwindBinaryPath(parseConfig tailwindConfig) (string, error) {
 func resolveTailwindAssetName(parseGoos string, parseGoarch string) (string, error) {
 	switch parseGoos {
 	case "windows":
-		if parseGoarch == "amd64" {
+		switch parseGoarch {
+		case "amd64":
 			return "tailwindcss-windows-x64.exe", nil
+		case "arm64":
+			return "tailwindcss-windows-arm64.exe", nil
 		}
 	case "darwin":
 		switch parseGoarch {

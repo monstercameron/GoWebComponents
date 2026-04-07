@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/internal/runtime2"
 )
@@ -216,6 +217,12 @@ func TestBuildParallelRegionBridgedNodeStripsInternalClickSlotMarker(parseT *tes
 	}
 	if _, hasMarker := getBridgedNode.Props[parallelRegionClickSlotProp]; hasMarker {
 		parseT.Fatalf("expected native bridge to strip click-slot marker, got %+v", getBridgedNode.Props)
+	}
+	if canParallelRegionUseRuntime2Lifecycle() {
+		parseHandlerType := reflect.TypeOf(getBridgedNode.Props["onclick"])
+		if parseHandlerType == nil || parseHandlerType.String() != "func(runtime.GoEvent)" {
+			parseT.Fatalf("expected wasm bridge to wrap onclick handler, got %T", getBridgedNode.Props["onclick"])
+		}
 	}
 }
 
@@ -514,7 +521,10 @@ func TestParallelRegionNativeFallbackKeepsLocalOnlyRendering(parseT *testing.T) 
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
-		return Text(parseProps.Label)
+		return runtime.CreateElement("button", map[string]interface{}{
+			parallelRegionClickSlotProp: "primary.action",
+			"onclick":                   func() {},
+		}, Text(parseProps.Label))
 	}); parseErr != nil {
 		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
 	}
@@ -1064,8 +1074,15 @@ func TestBuildParallelRegionWorkerBridgeCoversConversionBranches(parseT *testing
 func TestBuildParallelRegionWorkerRenderOutputAndUpdateEdgeBranches(parseT *testing.T) {
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
+	runtime.InitGlobalRuntime(runtime.Config{
+		DOMAdapter: mockdom.NewMockDOMAdapter(),
+		Reset:      true,
+	})
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
-		return Text(parseProps.Label)
+		return runtime.CreateElement("button", map[string]interface{}{
+			parallelRegionClickSlotProp: "primary.action",
+			"onclick":                   func() {},
+		}, Text(parseProps.Label))
 	}); parseErr != nil {
 		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
 	}
@@ -1084,6 +1101,19 @@ func TestBuildParallelRegionWorkerRenderOutputAndUpdateEdgeBranches(parseT *test
 	}
 	if getRenderOutput == nil {
 		parseT.Fatal("expected worker render output after event-slot recache")
+	}
+	getRecachedNode, hasRecachedNode := resolveParallelRegionRenderedNode("dashboard.hot-panel:worker-recache")
+	if !hasRecachedNode {
+		parseT.Fatal("expected worker event-slot recache to store one rendered node")
+	}
+	if getRecachedNode == nil {
+		parseT.Fatal("expected worker event-slot recache to keep one non-nil rendered node")
+	}
+	if canParallelRegionUseRuntime2Lifecycle() {
+		parseHandlerType := reflect.TypeOf(getRecachedNode.Props["onclick"])
+		if parseHandlerType == nil || parseHandlerType.String() != "func(runtime.GoEvent)" {
+			parseT.Fatalf("expected worker event-slot recache to preserve bridged onclick handler, got %T", getRecachedNode.Props["onclick"])
+		}
 	}
 	getRuntimeSpec, parseRuntimeSpecErr := buildParallelRegionRuntimeSpec(ParallelRegionSpec[registerParallelRegionProps]{
 		RendererID:       "dashboard.hot-panel",
@@ -1197,5 +1227,178 @@ func TestParallelRegionStatusAndSourceLookupHelpers(parseT *testing.T) {
 	}
 	if !hasStatus || getStatus.GetRegionInstanceID != "dashboard.hot-panel:status-helper" {
 		parseT.Fatalf("runtime status = %+v hasStatus=%t", getStatus, hasStatus)
+	}
+}
+
+// TestBuildUIRuntime2MetaSnapshotNormalizesTrackedRegions verifies tracked parallel-region adapters flow into the runtime2 plugin service.
+func TestBuildUIRuntime2MetaSnapshotNormalizesTrackedRegions(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+	parseT.Cleanup(runtime2.ResetCapabilityReport)
+
+	parseCapabilityReport := runtime2.BuildCapabilityReport(runtime2.CapabilitySource{
+		HasWorkerSupport:                true,
+		HasMessagePortSupport:           true,
+		HasStructuredCloneSupport:       true,
+		HasBinaryTransportSupport:       true,
+		HasSharedBufferSupport:          true,
+		HasSharedMemoryTransportSupport: true,
+	})
+	if parseErr := runtime2.SetCapabilityReportOverride(parseCapabilityReport); parseErr != nil {
+		parseT.Fatalf("SetCapabilityReportOverride returned error: %v", parseErr)
+	}
+	getHostAdapter, parseHostAdapterErr := runtime2.BuildHostRegionAdapter(
+		runtime2.RegionInstanceID("dashboard.hot-panel:meta"),
+		[]runtime2.SchedulerShardID{"shard-a"},
+	)
+	if parseHostAdapterErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseHostAdapterErr)
+	}
+	getHostAdapter.SetHostRegionRoundTripTimingEnabled(true)
+	if _, parseMountErr := getHostAdapter.HandleHostRegionMount(runtime2.ParallelRegionSpec{
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		RegionInstanceID: runtime2.RegionInstanceID("dashboard.hot-panel:meta"),
+		Props:            map[string]any{"title": "Orders"},
+	}, 1); parseMountErr != nil {
+		parseT.Fatalf("HandleHostRegionMount returned error: %v", parseMountErr)
+	}
+	getSharedSnapshotPage, parseSharedPageErr := runtime2.BuildSharedSnapshotPage(4096)
+	if parseSharedPageErr != nil {
+		parseT.Fatalf("BuildSharedSnapshotPage returned error: %v", parseSharedPageErr)
+	}
+	if _, parseDispatchErr := getHostAdapter.HandleHostRegionUpdateDispatchWithTransport(
+		runtime2.ParallelRegionSpec{
+			RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+			RegionInstanceID: runtime2.RegionInstanceID("dashboard.hot-panel:meta"),
+			Props:            map[string]any{"title": "Orders"},
+		},
+		2,
+		parseCapabilityReport,
+		getSharedSnapshotPage,
+	); parseDispatchErr != nil {
+		parseT.Fatalf("HandleHostRegionUpdateDispatchWithTransport returned error: %v", parseDispatchErr)
+	}
+	if parseHydrationErr := getHostAdapter.HandleHostRegionHydrationComplete(); parseHydrationErr != nil {
+		parseT.Fatalf("HandleHostRegionHydrationComplete returned error: %v", parseHydrationErr)
+	}
+	if parseAnchorErr := getHostAdapter.HandleHostRegionRegisterHydratedShellAnchor(1, "div"); parseAnchorErr != nil {
+		parseT.Fatalf("HandleHostRegionRegisterHydratedShellAnchor returned error: %v", parseAnchorErr)
+	}
+	if _, parseAttachErr := getHostAdapter.HandleHostRegionPostHydrationAttach(); parseAttachErr != nil {
+		parseT.Fatalf("HandleHostRegionPostHydrationAttach returned error: %v", parseAttachErr)
+	}
+	parseDiagnosticEnvelope, parseDiagnosticErr := runtime2.BuildControlDiagnosticEnvelope("dashboard.hot-panel:meta", runtime2.ControlDiagnosticEnvelopeSpec{
+		DiagnosticType: runtime2.DiagnosticEventKindPatchReady,
+		DiagnosticText: "patch ready",
+		TransportTier:  runtime2.TransportTierSharedBuffer,
+		DiagnosticTiming: &runtime2.DiagnosticTimingMetrics{
+			QueueNanos:  7,
+			RenderNanos: 9,
+		},
+		DiagnosticSize: &runtime2.DiagnosticSizeMetrics{
+			SnapshotBytes: 256,
+			PatchBytes:    64,
+		},
+		DiagnosticDowngrade: &runtime2.DiagnosticDowngradeReason{
+			Path:   runtime2.DiagnosticDowngradePathSharedMemory,
+			Reason: string(runtime2.SharedPatchDowngradeReasonInvalidSharedPage),
+		},
+	})
+	if parseDiagnosticErr != nil {
+		parseT.Fatalf("BuildControlDiagnosticEnvelope returned error: %v", parseDiagnosticErr)
+	}
+	if _, parseControlErr := runtime2.HandleHostControlEnvelope(getHostAdapter, parseDiagnosticEnvelope); parseControlErr != nil {
+		parseT.Fatalf("HandleHostControlEnvelope returned error: %v", parseControlErr)
+	}
+	storeParallelRegionAdapterMu.Lock()
+	cacheParallelRegionAdapterByID[runtime2.RegionInstanceID("dashboard.hot-panel:meta")] = getHostAdapter
+	storeParallelRegionAdapterMu.Unlock()
+
+	getSnapshot, parseSnapshotErr := runtime2.BuildRuntime2MetaService().GetRuntime2MetaSnapshot(pluginruntime.QueryBudget{})
+	if parseSnapshotErr != nil {
+		parseT.Fatalf("GetRuntime2MetaSnapshot returned error: %v", parseSnapshotErr)
+	}
+	if getSnapshot.Meta.BackendID != string(pluginruntime.BackendIDRuntime2) || getSnapshot.Meta.Truncated {
+		parseT.Fatalf("unexpected runtime2 meta snapshot metadata: %+v", getSnapshot.Meta)
+	}
+	if len(getSnapshot.Regions) != 1 {
+		parseT.Fatalf("expected one runtime2 region snapshot, got %+v", getSnapshot.Regions)
+	}
+	getRegion := getSnapshot.Regions[0]
+	if getRegion.RegionInstanceID != "dashboard.hot-panel:meta" || getRegion.RegionMode != string(runtime2.HostRegionRuntimeModeWorkerAttached) {
+		parseT.Fatalf("unexpected runtime2 region snapshot: %+v", getRegion)
+	}
+	if !getRegion.IsHydrationComplete || !getRegion.HasHydratedShellAnchor || !getRegion.HasPostHydrationAttached {
+		parseT.Fatalf("expected hydrated worker-attached runtime2 region snapshot, got %+v", getRegion)
+	}
+	if getRegion.TransportTier != string(runtime2.TransportTierSharedBuffer) || getRegion.DiagnosticCount != 1 {
+		parseT.Fatalf("expected shared transport tier and one diagnostic, got %+v", getRegion)
+	}
+	if len(getSnapshot.Diagnostics) != 1 {
+		parseT.Fatalf("expected one runtime2 diagnostic snapshot, got %+v", getSnapshot.Diagnostics)
+	}
+	getDiagnostic := getSnapshot.Diagnostics[0]
+	if getDiagnostic.RegionInstanceID != "dashboard.hot-panel:meta" ||
+		getDiagnostic.Type != string(runtime2.DiagnosticEventKindPatchReady) ||
+		getDiagnostic.TransportTier != string(runtime2.TransportTierSharedBuffer) ||
+		getDiagnostic.DowngradeReason != string(runtime2.SharedPatchDowngradeReasonInvalidSharedPage) {
+		parseT.Fatalf("unexpected runtime2 diagnostic snapshot: %+v", getDiagnostic)
+	}
+	if !getSnapshot.Capabilities["hasWorkerSupport"] || !getSnapshot.Capabilities["hasSharedMemoryTransportSupport"] {
+		parseT.Fatalf("expected capability metadata to be preserved, got %+v", getSnapshot.Capabilities)
+	}
+}
+
+// TestBuildUIRuntime2MetaSnapshotAppliesBudgetAndStableOrdering verifies runtime2 plugin snapshots sort and truncate deterministically.
+func TestBuildUIRuntime2MetaSnapshotAppliesBudgetAndStableOrdering(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+	parseT.Cleanup(runtime2.ResetCapabilityReport)
+
+	if parseErr := runtime2.SetCapabilityReportOverride(runtime2.CapabilityReport{
+		HasWorkerSupport:          true,
+		HasStructuredCloneSupport: true,
+	}); parseErr != nil {
+		parseT.Fatalf("SetCapabilityReportOverride returned error: %v", parseErr)
+	}
+	for _, parseRegionID := range []string{"dashboard.hot-panel:zeta", "dashboard.hot-panel:alpha"} {
+		getHostAdapter, parseHostAdapterErr := runtime2.BuildHostRegionAdapter(runtime2.RegionInstanceID(parseRegionID), []runtime2.SchedulerShardID{"shard-a"})
+		if parseHostAdapterErr != nil {
+			parseT.Fatalf("BuildHostRegionAdapter(%q) returned error: %v", parseRegionID, parseHostAdapterErr)
+		}
+		if _, parseMountErr := getHostAdapter.HandleHostRegionMount(runtime2.ParallelRegionSpec{
+			RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+			RegionInstanceID: runtime2.RegionInstanceID(parseRegionID),
+		}, 1); parseMountErr != nil {
+			parseT.Fatalf("HandleHostRegionMount(%q) returned error: %v", parseRegionID, parseMountErr)
+		}
+		parseDiagnosticEnvelope, parseDiagnosticErr := runtime2.BuildControlDiagnosticEnvelope(runtime2.RegionInstanceID(parseRegionID), runtime2.ControlDiagnosticEnvelopeSpec{
+			DiagnosticType: runtime2.DiagnosticEventKindUpdate,
+			DiagnosticText: "update " + parseRegionID,
+			TransportTier:  runtime2.TransportTierStructuredClone,
+		})
+		if parseDiagnosticErr != nil {
+			parseT.Fatalf("BuildControlDiagnosticEnvelope(%q) returned error: %v", parseRegionID, parseDiagnosticErr)
+		}
+		if _, parseControlErr := runtime2.HandleHostControlEnvelope(getHostAdapter, parseDiagnosticEnvelope); parseControlErr != nil {
+			parseT.Fatalf("HandleHostControlEnvelope(%q) returned error: %v", parseRegionID, parseControlErr)
+		}
+		storeParallelRegionAdapterMu.Lock()
+		cacheParallelRegionAdapterByID[runtime2.RegionInstanceID(parseRegionID)] = getHostAdapter
+		storeParallelRegionAdapterMu.Unlock()
+	}
+
+	getSnapshot, parseSnapshotErr := runtime2.BuildRuntime2MetaService().GetRuntime2MetaSnapshot(pluginruntime.QueryBudget{MaxItems: 1})
+	if parseSnapshotErr != nil {
+		parseT.Fatalf("GetRuntime2MetaSnapshot returned error: %v", parseSnapshotErr)
+	}
+	if !getSnapshot.Meta.Truncated {
+		parseT.Fatalf("expected budgeted runtime2 snapshot to be truncated, got %+v", getSnapshot.Meta)
+	}
+	if len(getSnapshot.Regions) != 1 || getSnapshot.Regions[0].RegionInstanceID != "dashboard.hot-panel:alpha" {
+		parseT.Fatalf("expected sorted runtime2 region truncation, got %+v", getSnapshot.Regions)
+	}
+	if len(getSnapshot.Diagnostics) != 1 || getSnapshot.Diagnostics[0].RegionInstanceID != "dashboard.hot-panel:alpha" {
+		parseT.Fatalf("expected sorted runtime2 diagnostic truncation, got %+v", getSnapshot.Diagnostics)
 	}
 }

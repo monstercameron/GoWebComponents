@@ -548,6 +548,29 @@ func (parseR *Router) Revalidate() {
 	parseR.renderCurrentRoute(false)
 }
 
+// RetryLoader clears one active loader entry by key and renders the current route again.
+func (parseR *Router) RetryLoader(parseKey string) error {
+	parseTrimmed := strings.TrimSpace(parseKey)
+	if parseTrimmed == "" {
+		return fmt.Errorf("router: loader key is required")
+	}
+	parseR.loaderState.mu.Lock()
+	parseEntry := parseR.loaderState.entries[parseTrimmed]
+	_, hasActive := parseR.loaderState.active[parseTrimmed]
+	if parseEntry == nil && !hasActive {
+		parseR.loaderState.mu.Unlock()
+		runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "route loader retry failed because the loader key was not active: "+parseTrimmed)
+		return fmt.Errorf("router: loader key %q is not active", parseTrimmed)
+	}
+	if parseEntry != nil && parseEntry.cancel != nil {
+		parseEntry.cancel()
+	}
+	delete(parseR.loaderState.entries, parseTrimmed)
+	parseR.loaderState.mu.Unlock()
+	parseR.renderCurrentRoute(false)
+	return nil
+}
+
 // IsLoading reports whether the current route loader is pending.
 func (parseR *Router) IsLoading() bool {
 	parseR.loaderState.mu.Lock()
@@ -774,6 +797,11 @@ func NavigateReplace(parsePath string) {
 // Revalidate clears the current route loader result and runs the route again.
 func Revalidate() {
 	GetRouter().Revalidate()
+}
+
+// RetryLoader clears one loader entry by key and re-runs the current route render.
+func RetryLoader(parseKey string) error {
+	return GetRouter().RetryLoader(parseKey)
 }
 
 // GetCurrentPath returns the current route path from the global router.

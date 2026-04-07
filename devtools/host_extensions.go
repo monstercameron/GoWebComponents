@@ -2,15 +2,11 @@ package devtools
 
 import "github.com/monstercameron/GoWebComponents/plugin"
 
-// ApplyHostExtensions installs host-owned devtools sections and overlay actions, then returns a cleanup that restores the previous state.
+// ApplyHostExtensions registers one compatibility host source and returns a cleanup that removes it.
 func ApplyHostExtensions(parseHost *plugin.Host) func() {
-	parsePreviousSections := InspectExtensionSections()
-	parsePreviousActions := InspectErrorOverlayActions()
-	SetExtensionSections(buildHostExtensionSections(parseHost))
-	SetErrorOverlayActions(buildHostOverlayActions(parseHost))
+	parseRegistrationID := registerHostExtensionSource(parseHost)
 	return func() {
-		SetExtensionSections(parsePreviousSections)
-		SetErrorOverlayActions(parsePreviousActions)
+		unregisterHostExtensionSource(parseRegistrationID)
 	}
 }
 

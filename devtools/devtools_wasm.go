@@ -54,7 +54,8 @@ func snapshotNowLive() Snapshot {
 		MultiClient:  InspectMultiClient(),
 		Boundaries:   InspectSerializationBoundaries(),
 		Coordination: InspectCoordination(),
-		Extensions:   InspectExtensionSections(),
+		Kernel:       snapshotKernelState(),
+		Extensions:   InspectComposedExtensionSections(),
 		Tree:         mapNode(parseRtSnapshot.Root),
 		Stats:        mapStats(parseRtSnapshot.Stats),
 		Profiling:    mapProfiling(parseRtSnapshot.Profiling),
@@ -244,7 +245,7 @@ func ErrorOverlay(parseProps ErrorOverlayProps) ui.Node {
 
 	parseSnapshot := UseSnapshot(parseInterval)
 	parseIssues := collectOverlayIssues(parseSnapshot)
-	parseActions := InspectErrorOverlayActions()
+	parseActions := InspectComposedErrorOverlayActions()
 	parseDismissed := ui.UseState(false)
 	parseSignature := overlayIssueFingerprint(parseIssues)
 	ui.UseEffect(func() func() {

@@ -214,7 +214,7 @@ func (parseA *WASMDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNod
 		}
 	}
 
-	parseParentNode.value.Call("append", parseChildNode.value)
+	appendDOMChildren(parseParentNode.value, parseChildNode.value)
 }
 
 func (parseA *WASMDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNode) {
@@ -469,9 +469,31 @@ func (parseA *WASMDOMAdapter) EndBatch() {
 	parseState := parseA.batchStack[parseDepth-1]
 	parseA.batchStack = parseA.batchStack[:parseDepth-1]
 	if parseState.parent != nil && len(parseState.children) > 0 {
-		parseState.parent.value.Call("append", parseState.children...)
+		appendDOMChildren(parseState.parent.value, parseState.children...)
 	}
 	parseA.storeBatchChildren(parseState.children)
+}
+
+// appendDOMChildren appends one or more child nodes, falling back to appendChild when append is unavailable.
+func appendDOMChildren(parseParent js.Value, parseChildren ...interface{}) {
+	if parseParent.IsNull() || parseParent.IsUndefined() || len(parseChildren) == 0 {
+		return
+	}
+	parseAppend := parseParent.Get("append")
+	if !parseAppend.IsNull() && !parseAppend.IsUndefined() && parseAppend.Type() == js.TypeFunction {
+		parseParent.Call("append", parseChildren...)
+		return
+	}
+	parseAppendChild := parseParent.Get("appendChild")
+	if parseAppendChild.IsNull() || parseAppendChild.IsUndefined() || parseAppendChild.Type() != js.TypeFunction {
+		return
+	}
+	for _, parseChild := range parseChildren {
+		if parseChild == nil {
+			continue
+		}
+		parseParent.Call("appendChild", parseChild)
+	}
 }
 
 // getBatchChildren returns one reusable DOM argument buffer for append-style bridge calls.

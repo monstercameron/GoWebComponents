@@ -79,6 +79,15 @@ type queuedScheduler struct {
 	timeouts      []func()
 }
 
+type buildUIWrapHandlerMarkerAdapter struct {
+	*mockdom.MockDOMAdapter
+}
+
+// WrapFunction marks wrapped DOM handlers so wasm helper tests can assert the wrapper path ran.
+func (parseAdapter buildUIWrapHandlerMarkerAdapter) WrapFunction(parseFn interface{}) interface{} {
+	return "wrapped-handler"
+}
+
 type queuedDeadline struct{}
 
 type reactiveRegionTestSource struct {
@@ -1098,6 +1107,13 @@ func TestParallelRegionClickEventBridgeCommitsWorkerPatch(parseT *testing.T) {
 	if _, hasWorkerRegionState := cacheParallelRegionWorkerRuntime.GetWorkerRegionState("dashboard.hot-panel:click-event"); !hasWorkerRegionState {
 		parseT.Fatal("expected worker region state after initial public render")
 	}
+	getCachedRenderedNode, hasCachedRenderedNode := resolveParallelRegionRenderedNode("dashboard.hot-panel:click-event")
+	if !hasCachedRenderedNode {
+		parseT.Fatal("expected cached rendered node after initial public render")
+	}
+	if _, hasWrappedCachedHandler := getCachedRenderedNode.Props["onclick"].(func(runtime.GoEvent)); !hasWrappedCachedHandler {
+		parseT.Fatalf("expected cached rendered node to keep bridged onclick handler, got %T", getCachedRenderedNode.Props["onclick"])
+	}
 
 	getContainerNode, hasContainerNode := parseContainer.(*mockdom.MockDOMNode)
 	if !hasContainerNode {
@@ -1110,7 +1126,12 @@ func TestParallelRegionClickEventBridgeCommitsWorkerPatch(parseT *testing.T) {
 	getClickHandlerRaw := getButtonNode.Props["onclick"]
 	getClickHandler, hasClickHandler := getClickHandlerRaw.(func(runtime.GoEvent))
 	if !hasClickHandler {
-		parseT.Fatalf("expected wrapped onclick handler func(runtime.GoEvent), got %T", getClickHandlerRaw)
+		parseT.Fatalf(
+			"expected wrapped onclick handler func(runtime.GoEvent), got %T on tag %q with props %+v",
+			getClickHandlerRaw,
+			getButtonNode.Tag,
+			getButtonNode.Props,
+		)
 	}
 	getClickHandler(runtime.GoEvent{})
 
@@ -1133,6 +1154,60 @@ func TestParallelRegionClickEventBridgeCommitsWorkerPatch(parseT *testing.T) {
 	}
 	if getStatus.GetLastCommittedVersion != 2 {
 		parseT.Fatalf("expected committed version 2 after bridged click patch, got %d", getStatus.GetLastCommittedVersion)
+	}
+}
+
+func TestBuildParallelRegionRenderedNodePreservesBridgedClickHandler(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Node(runtime.CreateElement("div", map[string]interface{}{
+			parallelRegionClickSlotProp: "primary.action",
+			"onclick": func() {
+			},
+		}, Text(parseProps.Label)))
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	getRuntimeSpec, parseRuntimeSpecErr := buildParallelRegionRuntimeSpec(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:rendered-node-click-bridge",
+		Props: registerParallelRegionProps{
+			Label: "Idle",
+		},
+	})
+	if parseRuntimeSpecErr != nil {
+		parseT.Fatalf("buildParallelRegionRuntimeSpec returned error: %v", parseRuntimeSpecErr)
+	}
+
+	getRenderedNode := buildParallelRegionRenderedNode(getRuntimeSpec, func(parseProps registerParallelRegionProps) Node {
+		return Node(runtime.CreateElement("div", map[string]interface{}{
+			parallelRegionClickSlotProp: "primary.action",
+			"onclick": func() {
+			},
+		}, Text(parseProps.Label)))
+	}, []runtime2.SchedulerShardID{"ui-parallel-region"})
+	if getRenderedNode == nil || len(getRenderedNode.Children) == 0 {
+		parseT.Fatalf("expected rendered parallel-region shell child, got %#v", getRenderedNode)
+	}
+	getInteractiveNode, hasInteractiveNode := getRenderedNode.Children[0].(*runtime.Element)
+	if !hasInteractiveNode {
+		parseT.Fatalf("expected rendered parallel-region child element, got %T", getRenderedNode.Children[0])
+	}
+	if _, hasWrappedHandler := getInteractiveNode.Props["onclick"].(func(runtime.GoEvent)); !hasWrappedHandler {
+		parseT.Fatalf("expected rendered parallel-region child to keep bridged onclick handler, got %T", getInteractiveNode.Props["onclick"])
 	}
 }
 
@@ -1981,15 +2056,25 @@ func TestUseCompositeNavigationHandlesKeyboardFlow(parseT *testing.T) {
 
 func TestUseAnnouncerRendersPoliteAndAssertiveRegions(parseT *testing.T) {
 	installUIHookContext(parseT)
-	parseMessageText := func(parseNode *runtime.Element) string {
-		if parseNode == nil || len(parseNode.Children) == 0 {
+	var parseMessageText func(*runtime.Element) string
+	parseMessageText = func(parseNode *runtime.Element) string {
+		if parseNode == nil {
+			return ""
+		}
+		if parseNode.TextContent != "" {
+			return parseNode.TextContent
+		}
+		if len(parseNode.Children) == 0 {
 			return ""
 		}
 		switch parseChild := parseNode.Children[0].(type) {
 		case string:
 			return parseChild
 		case *runtime.Element:
-			return parseChild.TextContent
+			if parseChild.TextContent != "" {
+				return parseChild.TextContent
+			}
+			return parseMessageText(parseChild)
 		default:
 			return ""
 		}
@@ -2154,6 +2239,18 @@ func TestRefAndHandlerHelpers(parseT *testing.T) {
 	parseHandler := WrapHandler("wrapped")
 	if parseHandler.Value() != "wrapped" {
 		parseT.Fatalf("expected raw handler value, got %#v", parseHandler.Value())
+	}
+
+	runtime.InitGlobalRuntime(runtime.Config{
+		DOMAdapter: buildUIWrapHandlerMarkerAdapter{
+			MockDOMAdapter: mockdom.NewMockDOMAdapter(),
+		},
+		Scheduler: noOpScheduler{},
+		Reset:     true,
+	})
+	parseWrappedHandler := WrapHandler(func() {}).Value()
+	if parseWrappedHandler != "wrapped-handler" {
+		parseT.Fatalf("expected wrapped handler marker, got %#v", parseWrappedHandler)
 	}
 }
 

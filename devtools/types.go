@@ -457,6 +457,7 @@ type Snapshot struct {
 	MultiClient  MultiClient
 	Boundaries   BoundaryInspection
 	Coordination Coordination
+	Kernel       KernelSnapshot
 	Extensions   []ExtensionSection
 	Tree         *Node
 	Stats        Stats
@@ -538,4 +539,29 @@ type SupportDiagnosticBundle struct {
 	Label      string
 	CapturedAt string
 	Trace      TraceCapture
+}
+
+// KernelSnapshot is the top-level devtools view of plugin kernel state.
+type KernelSnapshot struct {
+	APIVersion string
+	Plugins    []KernelPluginHealth
+	Events     []KernelPluginEvent
+}
+
+// KernelPluginHealth stores one plugin health summary.
+type KernelPluginHealth struct {
+	ID         string
+	State      string
+	Reason     string
+	Message    string
+	ErrorCount int
+}
+
+// KernelPluginEvent stores one plugin diagnostic summary.
+type KernelPluginEvent struct {
+	PluginID  string
+	Operation string
+	Reason    string
+	Message   string
+	When      time.Time
 }

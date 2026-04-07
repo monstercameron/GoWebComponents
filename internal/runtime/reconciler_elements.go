@@ -180,6 +180,14 @@ func getElementFiberProps(parseElem *Element) map[string]interface{} {
 	return parseElem.Props
 }
 
+// RefreshElementHostProps rebuilds one element's cached host-prop view after post-creation prop mutation.
+func RefreshElementHostProps(parseElem *Element) {
+	if parseElem == nil {
+		return
+	}
+	parseElem.getHostProps, parseElem.getHostAttrs, parseElem.isCompactHostProps = buildElementHostProps(parseElem.Type, parseElem.Props)
+}
+
 // buildElement builds one virtual DOM element and stores the normalized children slice on the props map.
 func buildElement(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
 	if len(parseChildren) == 0 {

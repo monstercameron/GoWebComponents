@@ -2,6 +2,19 @@
 
 ## 2026-04-07
 
+### core plugin kernel and first-pass devtools plugin
+
+- Added an internal plugin kernel plus typed interposer-backed services for runtime, router, fetch, UI, assets, security, and devtools so first-party plugins can reach deeply into framework state without binding to unstable runtime implementation details.
+- Reworked `devtools` to compose app-owned sections and actions with kernel-owned plugin contributions, added the first-pass kernel bridge and capture service, and documented the new companion-host versus kernel split across the package docs and READMEs.
+- Added the kernel-plugin devtools example and focused Playwright coverage proving the pluginized devtools flow renders live framework sections through the new kernel path.
+- Added the implementation plan and granular implementation backlog docs for the plugin framework so the shipped kernel surface, rollout, and remaining follow-on work stay explicit.
+
+### wasm and browser regression hardening for the plugin pass
+
+- Fixed `ui.WrapHandler(...)` and parallel-region event bridging so late-installed bridged handlers are wrapped through the active DOM adapter instead of panicking or leaving stale host props cached in the runtime.
+- Hardened `internal/platform/jsdom` append behavior for browser test shims, stabilized browser-compiler generator assertions across Windows line endings, restored the embedded livereload client asset, and taught `gwc tailwind` about Windows `arm64` binaries.
+- Added focused native and `js/wasm` regression coverage around the repaired handler bridge, jsdom append fallback, and parallel-region worker event paths while also validating the broader non-example native, wasm, browser, and Playwright suites.
+
 ### plugin-host devtools extension seam
 
 - Extended the `plugin` companion host with capability-gated devtools section and overlay-action providers so consumer-owned plugins can contribute richer diagnostics UI without widening runtime internals or relying on hidden discovery.

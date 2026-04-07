@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/internal/platform/jsdom"
+	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
@@ -659,6 +660,14 @@ func UseEvent(parseFn interface{}) Handler {
 
 // WrapHandler wraps an already-prepared handler value.
 func WrapHandler(parseValue interface{}) Handler {
+	if parseValue != nil {
+		parseValueType := reflect.TypeOf(parseValue)
+		if parseValueType != nil && parseValueType.Kind() == reflect.Func {
+			if parseWrappedValue, isWrapped := runtime.BuildDOMWrappedFunctionIfReadyGlobal(parseValue); isWrapped {
+				return Handler{value: parseWrappedValue}
+			}
+		}
+	}
 	return Handler{value: parseValue}
 }
 
@@ -680,6 +689,9 @@ func ensureInitialized() {
 		BrowserState:       jsdom.NewWASMBrowserState(),
 		HideRawPanicOutput: true,
 	})
+	if _, parseErr := pluginruntime.BootGlobalKernel(pluginruntime.BootstrapOptions{}); parseErr != nil {
+		runtime.ReportDiagnostic("pluginruntime", runtime.DiagnosticWarning, "plugin kernel bootstrap failed: "+parseErr.Error())
+	}
 	runtimeInitialized = true
 }
 

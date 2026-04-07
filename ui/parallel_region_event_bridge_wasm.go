@@ -26,6 +26,7 @@ func buildParallelRegionBridgedNode(
 		getSlotValueRaw, hasSlotValue := parseCurrentNode.Props[parallelRegionClickSlotProp]
 		delete(parseCurrentNode.Props, parallelRegionClickSlotProp)
 		if !hasSlotValue {
+			runtime.RefreshElementHostProps(parseCurrentNode)
 			return nil
 		}
 		getSlotID, hasSlotID := getSlotValueRaw.(string)
@@ -49,6 +50,7 @@ func buildParallelRegionBridgedNode(
 			return parseHandlerErr
 		}
 		parseCurrentNode.Props["onclick"] = getBridgedClickHandler
+		runtime.RefreshElementHostProps(parseCurrentNode)
 		getSlotRecords = append(getSlotRecords, runtime2.EventSlotRecord{
 			SlotID:    getSlotID,
 			EventType: parallelRegionClickEventType,

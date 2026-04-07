@@ -179,6 +179,14 @@ func buildParallelRegionWorkerRenderOutput(parseMount runtime2.WorkerRegionMount
 		if parseRenderErr != nil {
 			return nil, parseRenderErr
 		}
+		getRenderedNode, _, parseBridgeErr := buildParallelRegionBridgedNode(runtime2.ParallelRegionSpec{
+			RendererID:       runtime2.RendererID(parseMount.RendererID),
+			RegionInstanceID: runtime2.RegionInstanceID(parseMount.RegionID),
+			Props:            parseMount.Snapshot.Props,
+		}, getRenderedNode)
+		if parseBridgeErr != nil {
+			return nil, parseBridgeErr
+		}
 		storeParallelRegionRenderedNode(runtime2.RegionInstanceID(parseMount.RegionID), getRenderedNode)
 	}
 	parseNode, hasNode := resolveParallelRegionRenderedNode(runtime2.RegionInstanceID(parseMount.RegionID))
