@@ -85,6 +85,11 @@ var (
 			return make(map[interface{}]*Fiber, 16)
 		},
 	}
+	getFiberIndexMapPool = sync.Pool{
+		New: func() interface{} {
+			return make(map[*Fiber]int, 16)
+		},
+	}
 	fiberScratchSlicePool = fiberScratchPool{
 		pool: sync.Pool{
 			New: func() interface{} {
@@ -150,8 +155,150 @@ func ensureFineGrainedTwinLink(parseOldFiber *Fiber, parseNewFiber *Fiber) {
 	}
 }
 
+// buildFiberNeedsUpdate reports whether one reused fiber should keep its subtree on the update path.
+func (parseRt *Runtime) buildFiberNeedsUpdate(parseOldFiber *Fiber, parseElem *Element) bool {
+	if parseOldFiber == nil || parseElem == nil {
+		return true
+	}
+
+	isDirty := parseRt.isFiberDirty(parseOldFiber)
+	if isDirty || parseOldFiber.needsUpdate {
+		return true
+	}
+
+	if parseT, parseOk := parseElem.Type.(string); parseOk && parseT == "TEXT_ELEMENT" {
+		parseOldText := parseOldFiber.textContent
+		if parseOldText == "" && parseOldFiber.props != nil {
+			parseOldText, _ = parseOldFiber.props["nodeValue"].(string)
+		}
+		parseNewText := parseElem.TextContent
+		if parseNewText == "" && parseElem.Props != nil {
+			parseNewText, _ = parseElem.Props["nodeValue"].(string)
+		}
+		return parseOldText != parseNewText
+	}
+
+	return !propsEqual(parseOldFiber.props, parseElem.Props)
+}
+
+// buildUpdatedFiber clones one reused fiber with the current element payload and update flags.
+func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *Fiber, parseElem *Element) *Fiber {
+	if parseWipFiber == nil || parseOldFiber == nil || parseElem == nil {
+		return nil
+	}
+
+	parseEffectTag := buildUpdateEffectTag(parseElem.Type)
+	parseNewFiber := acquireWorkInProgress(parseOldFiber)
+	*parseNewFiber = Fiber{
+		typeOf:            parseOldFiber.typeOf,
+		props:             parseElem.Props,
+		textContent:       parseElem.TextContent,
+		dom:               parseOldFiber.dom,
+		parent:            parseWipFiber,
+		alternate:         parseOldFiber,
+		effectTag:         parseEffectTag,
+		dirty:             parseRt.buildFiberNeedsUpdate(parseOldFiber, parseElem),
+		needsUpdate:       parseOldFiber.needsUpdate,
+		hooks:             parseOldFiber.hooks,
+		eventCallbacks:    parseOldFiber.eventCallbacks,
+		hydration:         parseWipFiber.childHydration,
+		reactiveAtomID:    parseOldFiber.reactiveAtomID,
+		reactiveSourceIDs: parseOldFiber.reactiveSourceIDs,
+		fineGrained:       parseOldFiber.fineGrained,
+		updateOrigin:      parseOldFiber.updateOrigin,
+	}
+	ensureFineGrainedTwinLink(parseOldFiber, parseNewFiber)
+	parseRt.handleClonedFiberSubscriptionMove(parseOldFiber, parseNewFiber)
+	return parseNewFiber
+}
+
+// buildPlacementFiber builds one new placement fiber for an inserted or replaced element.
+func buildPlacementFiber(parseWipFiber *Fiber, parseElem *Element, parseOldFiber *Fiber) *Fiber {
+	if parseWipFiber == nil || parseElem == nil {
+		return nil
+	}
+
+	parseNewFiber := acquireWorkInProgress(nil)
+	*parseNewFiber = Fiber{
+		typeOf:       parseElem.Type,
+		props:        parseElem.Props,
+		textContent:  parseElem.TextContent,
+		parent:       parseWipFiber,
+		effectTag:    "PLACEMENT",
+		dirty:        true,
+		hydration:    parseWipFiber.childHydration,
+		fineGrained:  isFineGrainedType(parseElem.Type),
+		updateOrigin: oldFiberUpdateOrigin(parseOldFiber, parseElem.Type),
+	}
+	return parseNewFiber
+}
+
+// buildUpdateEffectTag returns the effect tag used when one reused fiber keeps its existing DOM node.
+func buildUpdateEffectTag(parseTypeOf interface{}) string {
+	if parseT, parseOk := parseTypeOf.(string); parseOk && parseT == "FRAGMENT" {
+		return ""
+	}
+	return "UPDATE"
+}
+
+// hasElementFiberKeyMatch reports whether one element and one existing fiber carry the same keyed identity in the same position.
+func hasElementFiberKeyMatch(parseElem *Element, parseFiber *Fiber) bool {
+	if parseElem == nil || parseFiber == nil {
+		return false
+	}
+	isParseElemKeyed := hasElementKey(parseElem)
+	isParseFiberKeyed := hasFiberKey(parseFiber)
+	if isParseElemKeyed != isParseFiberKeyed {
+		return false
+	}
+	if !isParseElemKeyed {
+		return true
+	}
+	return fastEqual(parseElem.Props["key"], parseFiber.props["key"])
+}
+
+// tryReconcileKeyedChildrenInOrder fast-paths keyed lists that kept the same sibling order.
+func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, parseElements []interface{}, parseOldFirst *Fiber) bool {
+	if parseWipFiber == nil {
+		return false
+	}
+
+	parseOldFiber := parseOldFirst
+	var parseFirstChild *Fiber
+	var parsePrevSibling *Fiber
+
+	for _, parseElement := range parseElements {
+		parseElem, parseOk := parseElement.(*Element)
+		if !parseOk || parseElem == nil {
+			return false
+		}
+		if parseOldFiber == nil {
+			return false
+		}
+		if !sameFiberType(parseElem, parseOldFiber) || !hasElementFiberKeyMatch(parseElem, parseOldFiber) {
+			return false
+		}
+
+		parseNewFiber := parseRt.buildUpdatedFiber(parseWipFiber, parseOldFiber, parseElem)
+		if parseFirstChild == nil {
+			parseFirstChild = parseNewFiber
+		} else if parsePrevSibling != nil {
+			parsePrevSibling.sibling = parseNewFiber
+		}
+		parsePrevSibling = parseNewFiber
+		parseOldFiber = parseOldFiber.sibling
+	}
+
+	if parseOldFiber != nil {
+		return false
+	}
+	parseWipFiber.child = parseFirstChild
+	return true
+}
+
 // GetCurrentFiber returns the fiber currently being processed
 func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []interface{}) {
+	parseWipFiber.needsChildOrder = false
 	// Fast path: empty elements
 	if len(parseElements) == 0 {
 		if parseWipFiber.alternate != nil && parseWipFiber.alternate.child != nil {
@@ -210,71 +357,15 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 				}
 
 				if isParseSameType {
-					// UPDATE logic - optimized path
-					// Check if this fiber or its subtree needs update
-					isDirty := parseRt.isFiberDirty(parseOldFiber2)
-					isParseNeedsUpdate := isDirty || parseOldFiber2.needsUpdate
-
-					if !isParseNeedsUpdate {
-						if parseT, parseOk3 := parseElem.Type.(string); parseOk3 && parseT == "TEXT_ELEMENT" {
-							parseOldText := parseOldFiber2.textContent
-							if parseOldText == "" && parseOldFiber2.props != nil {
-								parseOldText, _ = parseOldFiber2.props["nodeValue"].(string)
-							}
-							parseNewText := parseElem.TextContent
-							if parseNewText == "" && parseElem.Props != nil {
-								parseNewText, _ = parseElem.Props["nodeValue"].(string)
-							}
-							isParseNeedsUpdate = parseOldText != parseNewText
-						} else {
-							isParseNeedsUpdate = !propsEqual(parseOldFiber2.props, parseElem.Props)
-						}
-					}
-
-					parseEffectTag := "UPDATE"
-					if !isParseNeedsUpdate {
-						parseEffectTag = ""
-					}
-
-					// Get from pool and reset
-					parseNewFiber = acquireWorkInProgress(parseOldFiber2)
-					*parseNewFiber = Fiber{
-						typeOf:            parseOldFiber2.typeOf,
-						props:             parseElem.Props,
-						textContent:       parseElem.TextContent,
-						dom:               parseOldFiber2.dom,
-						parent:            parseWipFiber,
-						alternate:         parseOldFiber2,
-						effectTag:         parseEffectTag,
-						dirty:             isParseNeedsUpdate,
-						needsUpdate:       parseOldFiber2.needsUpdate,
-						hooks:             parseOldFiber2.hooks,
-						eventCallbacks:    parseOldFiber2.eventCallbacks,
-						hydration:         parseWipFiber.childHydration,
-						reactiveAtomID:    parseOldFiber2.reactiveAtomID,
-						reactiveSourceIDs: parseOldFiber2.reactiveSourceIDs,
-						fineGrained:       parseOldFiber2.fineGrained,
-						updateOrigin:      parseOldFiber2.updateOrigin,
-					}
-					ensureFineGrainedTwinLink(parseOldFiber2, parseNewFiber)
-					parseRt.handleClonedFiberSubscriptionMove(parseOldFiber2, parseNewFiber)
-
+					parseNewFiber = parseRt.buildUpdatedFiber(parseWipFiber, parseOldFiber2, parseElem)
 					// Advance oldFiber
 					parseOldFiber2 = parseOldFiber2.sibling
 				} else {
 					// REPLACE logic (Placement + Deletion)
-					parseNewFiber = acquireWorkInProgress(parseOldFiber2)
-					*parseNewFiber = Fiber{
-						typeOf:       parseElem.Type,
-						props:        parseElem.Props,
-						textContent:  parseElem.TextContent,
-						parent:       parseWipFiber,
-						effectTag:    "PLACEMENT",
-						dirty:        true,
-						hydration:    parseWipFiber.childHydration,
-						fineGrained:  isFineGrainedType(parseElem.Type),
-						updateOrigin: oldFiberUpdateOrigin(parseOldFiber2, parseElem.Type),
+					if parseOldFiber2.sibling != nil || parseIndex < parseElemCount-1 {
+						parseWipFiber.needsChildOrder = true
 					}
+					parseNewFiber = buildPlacementFiber(parseWipFiber, parseElem, parseOldFiber2)
 
 					// Mark old fiber for deletion
 					parseOldFiber2.effectTag = "DELETION"
@@ -309,18 +400,7 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 
 		if parseElement2 != nil {
 			if parseElem2, parseOk4 := parseElement2.(*Element); parseOk4 && parseElem2 != nil {
-				parseNewFiber2 = acquireWorkInProgress(nil)
-				*parseNewFiber2 = Fiber{
-					typeOf:       parseElem2.Type,
-					props:        parseElem2.Props,
-					textContent:  parseElem2.TextContent,
-					parent:       parseWipFiber,
-					effectTag:    "PLACEMENT",
-					dirty:        true,
-					hydration:    parseWipFiber.childHydration,
-					fineGrained:  isFineGrainedType(parseElem2.Type),
-					updateOrigin: oldFiberUpdateOrigin(nil, parseElem2.Type),
-				}
+				parseNewFiber2 = buildPlacementFiber(parseWipFiber, parseElem2, nil)
 			}
 		}
 
@@ -370,12 +450,16 @@ func shouldUseKeyedReconciliation(parseElements []interface{}, parseWipFiber *Fi
 
 // reconcileKeyedChildren is an internal reconciler helper.
 func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElements []interface{}) {
+	parseWipFiber.needsChildOrder = false
 	parseOldByKey := keyedFiberMapPool.Get().(map[interface{}]*Fiber)
 	parseOldFallbackKeyed := fiberScratchSlicePool.get()
 	parseOldUnkeyed := fiberScratchSlicePool.get()
+	parseOldIndexByFiber := getFiberIndexMapPool.Get().(map[*Fiber]int)
 	defer func() {
 		clear(parseOldByKey)
 		keyedFiberMapPool.Put(parseOldByKey)
+		clear(parseOldIndexByFiber)
+		getFiberIndexMapPool.Put(parseOldIndexByFiber)
 		fiberScratchSlicePool.clear(parseOldFallbackKeyed)
 		fiberScratchSlicePool.clear(parseOldUnkeyed)
 	}()
@@ -384,8 +468,14 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 	if parseWipFiber.alternate != nil {
 		parseOldFirst = parseWipFiber.alternate.child
 	}
+	if parseRt.tryReconcileKeyedChildrenInOrder(parseWipFiber, parseElements, parseOldFirst) {
+		return
+	}
 
+	parseOldIndex := 0
 	for parseOldFiber := parseOldFirst; parseOldFiber != nil; parseOldFiber = parseOldFiber.sibling {
+		parseOldIndexByFiber[parseOldFiber] = parseOldIndex
+		parseOldIndex++
 		if parseKey, parseOk := fiberComparableKey(parseOldFiber); parseOk {
 			parseOldByKey[parseKey] = parseOldFiber
 		} else if hasFiberKey(parseOldFiber) {
@@ -396,6 +486,7 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 	}
 
 	parseUnkeyedIndex := 0
+	parseLastMatchedOldIndex := -1
 	var parsePrevSibling *Fiber
 	isParseFirstChildSet := false
 
@@ -420,69 +511,26 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 
 		var parseNewFiber *Fiber
 		if parseMatchedOld != nil && sameFiberType(parseElem, parseMatchedOld) {
-			isDirty := parseRt.isFiberDirty(parseMatchedOld)
-			isParseNeedsUpdate := isDirty || parseMatchedOld.needsUpdate
-
-			if !isParseNeedsUpdate {
-				if parseT, parseOk3 := parseElem.Type.(string); parseOk3 && parseT == "TEXT_ELEMENT" {
-					parseOldText := parseMatchedOld.textContent
-					if parseOldText == "" && parseMatchedOld.props != nil {
-						parseOldText, _ = parseMatchedOld.props["nodeValue"].(string)
-					}
-					parseNewText := parseElem.TextContent
-					if parseNewText == "" && parseElem.Props != nil {
-						parseNewText, _ = parseElem.Props["nodeValue"].(string)
-					}
-					isParseNeedsUpdate = parseOldText != parseNewText
-				} else {
-					isParseNeedsUpdate = !propsEqual(parseMatchedOld.props, parseElem.Props)
+			if parseMatchedOldIndex, hasParseMatchedOldIndex := parseOldIndexByFiber[parseMatchedOld]; hasParseMatchedOldIndex {
+				if parseMatchedOldIndex < parseLastMatchedOldIndex {
+					parseWipFiber.needsChildOrder = true
+				}
+				if parseMatchedOldIndex > parseLastMatchedOldIndex {
+					parseLastMatchedOldIndex = parseMatchedOldIndex
 				}
 			}
 
-			parseEffectTag := "UPDATE"
-			if !isParseNeedsUpdate {
-				parseEffectTag = ""
-			}
-
-			parseNewFiber = acquireWorkInProgress(parseMatchedOld)
-			*parseNewFiber = Fiber{
-				typeOf:            parseMatchedOld.typeOf,
-				props:             parseElem.Props,
-				textContent:       parseElem.TextContent,
-				dom:               parseMatchedOld.dom,
-				parent:            parseWipFiber,
-				alternate:         parseMatchedOld,
-				effectTag:         parseEffectTag,
-				dirty:             isParseNeedsUpdate,
-				needsUpdate:       parseMatchedOld.needsUpdate,
-				hooks:             parseMatchedOld.hooks,
-				eventCallbacks:    parseMatchedOld.eventCallbacks,
-				hydration:         parseWipFiber.childHydration,
-				reactiveAtomID:    parseMatchedOld.reactiveAtomID,
-				reactiveSourceIDs: parseMatchedOld.reactiveSourceIDs,
-				fineGrained:       parseMatchedOld.fineGrained,
-				updateOrigin:      parseMatchedOld.updateOrigin,
-			}
-			ensureFineGrainedTwinLink(parseMatchedOld, parseNewFiber)
-			parseRt.handleClonedFiberSubscriptionMove(parseMatchedOld, parseNewFiber)
+			parseNewFiber = parseRt.buildUpdatedFiber(parseWipFiber, parseMatchedOld, parseElem)
 		} else {
+			if len(parseOldByKey) > 0 || hasRemainingFallbackKeyed(parseOldFallbackKeyed) || parseUnkeyedIndex < len(parseOldUnkeyed) {
+				parseWipFiber.needsChildOrder = true
+			}
 			if parseMatchedOld != nil {
 				parseMatchedOld.effectTag = "DELETION"
 				parseRt.deletions = append(parseRt.deletions, parseMatchedOld)
 			}
 
-			parseNewFiber = acquireWorkInProgress(nil)
-			*parseNewFiber = Fiber{
-				typeOf:       parseElem.Type,
-				props:        parseElem.Props,
-				textContent:  parseElem.TextContent,
-				parent:       parseWipFiber,
-				effectTag:    "PLACEMENT",
-				dirty:        true,
-				hydration:    parseWipFiber.childHydration,
-				fineGrained:  isFineGrainedType(parseElem.Type),
-				updateOrigin: oldFiberUpdateOrigin(nil, parseElem.Type),
-			}
+			parseNewFiber = buildPlacementFiber(parseWipFiber, parseElem, nil)
 		}
 
 		if !isParseFirstChildSet {
@@ -510,6 +558,16 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 		parseOldFiber4.effectTag = "DELETION"
 		parseRt.deletions = append(parseRt.deletions, parseOldFiber4)
 	}
+}
+
+// hasRemainingFallbackKeyed reports whether one keyed fallback slice still carries unmatched entries.
+func hasRemainingFallbackKeyed(parseOldFibers []*Fiber) bool {
+	for _, parseOldFiber := range parseOldFibers {
+		if parseOldFiber != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // sameFiberType is an internal reconciler helper.
@@ -659,6 +717,49 @@ func propsEqual(parseA, parseB map[string]interface{}) bool {
 		}
 
 		if !fastEqual(parseV1, parseV2) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// propsEqualIgnoringChildren compares two property maps while ignoring child slices.
+func propsEqualIgnoringChildren(parseA, parseB map[string]interface{}) bool {
+	if len(parseA) == 0 && len(parseB) == 0 {
+		return true
+	}
+
+	parseALen := len(parseA)
+	parseBLen := len(parseB)
+	if _, hasParseChildrenA := parseA["children"]; hasParseChildrenA {
+		parseALen--
+	}
+	if _, hasParseChildrenB := parseB["children"]; hasParseChildrenB {
+		parseBLen--
+	}
+	if parseALen != parseBLen {
+		return false
+	}
+
+	for parseK, parseV1 := range parseA {
+		if parseK == "children" {
+			continue
+		}
+		parseV2, parseOk := parseB[parseK]
+		if !parseOk {
+			return false
+		}
+		if !fastEqual(parseV1, parseV2) {
+			return false
+		}
+	}
+
+	for parseK := range parseB {
+		if parseK == "children" {
+			continue
+		}
+		if _, parseOk := parseA[parseK]; !parseOk {
 			return false
 		}
 	}

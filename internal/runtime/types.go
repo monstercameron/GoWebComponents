@@ -44,8 +44,9 @@ type Fiber struct {
 	alternate *Fiber
 
 	// Flags - grouped with tree pointers for fast traversal checks (Cache Line 0)
-	dirty       bool
-	needsUpdate bool
+	dirty           bool
+	needsUpdate     bool
+	needsChildOrder bool
 	// 6 bytes padding here to align next 8-byte field
 
 	// Component info
@@ -122,6 +123,12 @@ type fetchValue struct {
 type funcHandlerValue struct {
 	fn      interface{} // The user's function (func(), func(string), func(js.Value), etc.)
 	wrapper interface{} // The wrapped js.Func (or equivalent)
+	cell    *funcHandlerCell
+}
+
+type funcHandlerCell struct {
+	owner *Fiber
+	fn    interface{}
 }
 
 // RefValue represents a reference object that persists across renders.

@@ -514,14 +514,6 @@ func GoUseFunc(parseFn interface{}) interface{} {
 		panic(actionableGoUseFuncDOMAdapterPanic())
 	}
 
-	parseWrapper := parseRt.domAdapter.WrapFunction(parseRt.wrapEventHandler(parseFiber, parseFn))
-
-	// Store it
-	parseHandlerVal := funcHandlerValue{
-		fn:      parseFn,
-		wrapper: parseWrapper,
-	}
-
 	if len(parseHooks.funcs) <= parseFuncIdx {
 		parseNeeded := parseFuncIdx + 1
 		if parseNeeded <= cap(parseHooks.funcs) {
@@ -531,19 +523,40 @@ func GoUseFunc(parseFn interface{}) interface{} {
 			copy(parseNewFuncs, parseHooks.funcs)
 			parseHooks.funcs = parseNewFuncs
 		}
-		parseHooks.funcs[parseFuncIdx] = parseHandlerVal
-	} else {
-		// Release old wrapper if it exists to prevent memory leaks
-		parseOldHandler := parseHooks.funcs[parseFuncIdx]
-		if parseOldHandler.wrapper != nil {
-			if parseReleasable, parseOk := parseOldHandler.wrapper.(interface{ Release() }); parseOk {
-				parseReleasable.Release()
-			}
-		}
-		parseHooks.funcs[parseFuncIdx] = parseHandlerVal
 	}
 
-	return parseWrapper
+	parseHandlerVal := parseHooks.funcs[parseFuncIdx]
+	if parseHandlerVal.wrapper != nil && parseHandlerVal.cell != nil && reflect.TypeOf(parseHandlerVal.fn) == reflect.TypeOf(parseFn) {
+		parseHandlerVal.fn = parseFn
+		parseHandlerVal.cell.fn = parseFn
+		parseHandlerVal.cell.owner = parseFiber
+		parseHooks.funcs[parseFuncIdx] = parseHandlerVal
+		return parseHandlerVal.wrapper
+	}
+
+	releaseFuncHandlerWrapper(parseHandlerVal.wrapper)
+	parseCell := &funcHandlerCell{
+		owner: parseFiber,
+		fn:    parseFn,
+	}
+	parseHandlerVal = funcHandlerValue{
+		fn:      parseFn,
+		wrapper: parseRt.domAdapter.WrapFunction(parseRt.wrapEventHandlerCell(parseCell)),
+		cell:    parseCell,
+	}
+	parseHooks.funcs[parseFuncIdx] = parseHandlerVal
+
+	return parseHandlerVal.wrapper
+}
+
+// releaseFuncHandlerWrapper releases one wrapped event handler when the adapter exposes cleanup.
+func releaseFuncHandlerWrapper(parseWrapper interface{}) {
+	if parseWrapper == nil {
+		return
+	}
+	if parseReleasable, parseOk := parseWrapper.(interface{ Release() }); parseOk {
+		parseReleasable.Release()
+	}
 }
 
 // areDepsEqual compares dependency arrays

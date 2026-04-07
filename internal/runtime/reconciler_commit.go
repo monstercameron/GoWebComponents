@@ -247,7 +247,9 @@ func (parseRt *Runtime) commitRoot() {
 		parseRt.finalizeHydrationBoundary(parseRt.wipRoot.childHydration, parseRt.wipRoot)
 		// The root fiber's DOM node is the container
 		parseRt.commitWork(parseRt.wipRoot.child, parseRt.wipRoot.dom)
-		parseRt.applyCommittedChildOrder(parseRt.wipRoot.dom, parseRt.buildCommittedChildNodes(parseRt.wipRoot.child, nil))
+		if parseRt.shouldRepairCommittedChildOrder(parseRt.wipRoot) {
+			parseRt.applyCommittedChildOrder(parseRt.wipRoot.dom, parseRt.buildCommittedChildNodes(parseRt.wipRoot.child, nil))
+		}
 	}
 
 	parseRt.currentRoot = parseCommittedRoot
@@ -399,10 +401,12 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 					}
 				} else {
 					// Regular element - update properties
-					parseStart5 := time.Now()
-					parseRt.updateDomProperties(parseFiber.dom, parseFiber.alternate.props, parseFiber.props)
-					parseFiber.commitDurationNs += time.Since(parseStart5).Nanoseconds()
-					parseRt.recordFineGrainedDescendantCommit(parseFiber)
+					if !propsEqualIgnoringChildren(parseFiber.alternate.props, parseFiber.props) {
+						parseStart5 := time.Now()
+						parseRt.updateDomProperties(parseFiber.dom, parseFiber.alternate.props, parseFiber.props)
+						parseFiber.commitDurationNs += time.Since(parseStart5).Nanoseconds()
+						parseRt.recordFineGrainedDescendantCommit(parseFiber)
+					}
 				}
 			}
 		} else if parseFiber.effectTag == "DELETION" {
@@ -444,14 +448,70 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 
 	// Recursively commit children and siblings
 	if parseFiber.child != nil {
+		parseBatchAdapter, parseSupportsBatching := parseRt.domAdapter.(interface {
+			BeginBatch(DOMNode)
+			EndBatch()
+		})
+		isParseBatching := parseSupportsBatching && parseRt.shouldBatchCommittedPlacements(parseFiber, parseChildDomParent)
+		if isParseBatching {
+			parseBatchAdapter.BeginBatch(parseChildDomParent)
+		}
 		parseRt.commitWork(parseFiber.child, parseChildDomParent)
-		if !IsDOMNodeNull(parseChildDomParent) && (!IsDOMNodeNull(parseFiber.dom) || isPortal) {
+		if isParseBatching {
+			parseBatchAdapter.EndBatch()
+		}
+		if parseRt.shouldRepairCommittedChildOrder(parseFiber) && !IsDOMNodeNull(parseChildDomParent) && (!IsDOMNodeNull(parseFiber.dom) || isPortal) {
 			parseRt.applyCommittedChildOrder(parseChildDomParent, parseRt.buildCommittedChildNodes(parseFiber.child, nil))
 		}
 	}
 	if parseFiber.sibling != nil {
 		parseRt.commitWork(parseFiber.sibling, parseDomParent)
 	}
+}
+
+// shouldRepairCommittedChildOrder reports whether one fiber subtree needs a post-commit DOM order repair pass.
+func (parseRt *Runtime) shouldRepairCommittedChildOrder(parseFiber *Fiber) bool {
+	return parseFiber != nil && parseFiber.needsChildOrder
+}
+
+// countCommittedPlacementChildren counts DOM-bearing placements that append directly into the current parent.
+func (parseRt *Runtime) countCommittedPlacementChildren(parseFiber *Fiber) int {
+	parseCount := 0
+	for parseFiber != nil {
+		if parseRt.isPortalFiber(parseFiber) {
+			parseFiber = parseFiber.sibling
+			continue
+		}
+		if !IsDOMNodeNull(parseFiber.dom) {
+			if parseFiber.effectTag == "PLACEMENT" {
+				parseCount++
+			}
+			parseFiber = parseFiber.sibling
+			continue
+		}
+		if parseFiber.child != nil {
+			parseCount += parseRt.countCommittedPlacementChildren(parseFiber.child)
+		}
+		parseFiber = parseFiber.sibling
+	}
+	return parseCount
+}
+
+// shouldBatchCommittedPlacements reports whether one child subtree can safely batch appends into one parent.
+func (parseRt *Runtime) shouldBatchCommittedPlacements(parseFiber *Fiber, parseDomParent DOMNode) bool {
+	if parseRt == nil || parseRt.domAdapter == nil || parseFiber == nil || IsDOMNodeNull(parseDomParent) {
+		return false
+	}
+	if parseRt.shouldRepairCommittedChildOrder(parseFiber) {
+		return false
+	}
+	if _, parseOk := parseRt.domAdapter.(interface {
+		BeginBatch(DOMNode)
+		EndBatch()
+	}); !parseOk {
+		return false
+	}
+	return parseRt.countCommittedPlacementChildren(parseFiber.child) >= 2
 }
 
 // buildCommittedChildNodes is an internal reconciler helper.

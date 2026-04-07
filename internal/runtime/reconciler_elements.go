@@ -23,40 +23,56 @@ func IsCurrentFiberTransitionUpdate() bool {
 	return false
 }
 
-// CreateElement creates a new virtual DOM element
+// CreateElement creates a new virtual DOM element.
 func CreateElement(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+	return buildElement(parseTyp, cloneElementProps(parseProps), parseChildren...)
+}
+
+// CreateElementOwned creates a new virtual DOM element and takes ownership of the provided props map.
+func CreateElementOwned(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+	return buildElement(parseTyp, parseProps, parseChildren...)
+}
+
+// cloneElementProps clones one props map so callers can safely retain and reuse their original input.
+func cloneElementProps(parseProps map[string]interface{}) map[string]interface{} {
+	if len(parseProps) == 0 {
+		return nil
+	}
+
+	getProps := make(map[string]interface{}, len(parseProps)+1)
+	for parseKey, parseValue := range parseProps {
+		getProps[parseKey] = parseValue
+	}
+	return getProps
+}
+
+// buildElement builds one virtual DOM element and stores the normalized children slice on the props map.
+func buildElement(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
 	if len(parseChildren) == 0 {
 		parseChildren = emptyChildren
 	}
 
-	// Process children: wrap strings in TEXT_ELEMENT
-	// We modify the children slice in-place to avoid allocation since it's a varargs slice
-	for parseI, parseChild := range parseChildren {
-		if parseStr, parseOk := parseChild.(string); parseOk {
-			parseChildren[parseI] = &Element{
+	// Normalize string children once so downstream reconciliation sees only Elements.
+	for parseIndex, parseChild := range parseChildren {
+		if parseText, hasParseText := parseChild.(string); hasParseText {
+			parseChildren[parseIndex] = &Element{
 				Type:        "TEXT_ELEMENT",
-				TextContent: parseStr,
-				// Props:    nil, // No props map needed!
-				Children: emptyChildren,
+				TextContent: parseText,
+				Children:    emptyChildren,
 			}
 		}
 	}
 
-	parsePropsLen := len(parseProps)
-	parseElem := &Element{
+	if parseProps == nil {
+		parseProps = make(map[string]interface{}, 1)
+	}
+	parseProps["children"] = parseChildren
+
+	return &Element{
 		Type:     parseTyp,
-		Props:    make(map[string]interface{}, parsePropsLen+1),
+		Props:    parseProps,
 		Children: parseChildren,
 	}
-
-	if parsePropsLen > 0 {
-		for parseK, parseV := range parseProps {
-			parseElem.Props[parseK] = parseV
-		}
-	}
-	parseElem.Props["children"] = parseChildren
-
-	return parseElem
 }
 
 // flattenFragments is an internal reconciler helper.

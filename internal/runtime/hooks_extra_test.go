@@ -7,6 +7,7 @@ import (
 
 type releasableWrapper struct {
 	released *int
+	fn       interface{}
 }
 
 func (parseW *releasableWrapper) Release() {
@@ -19,7 +20,7 @@ type funcWrapTestAdapter struct {
 }
 
 func (parseA *funcWrapTestAdapter) WrapFunction(parseFn interface{}) interface{} {
-	return &releasableWrapper{released: parseA.releasedCount}
+	return &releasableWrapper{released: parseA.releasedCount, fn: parseFn}
 }
 
 func TestIsNilableType(parseT *testing.T) {
@@ -34,7 +35,61 @@ func TestIsNilableType(parseT *testing.T) {
 	}
 }
 
-func TestGoUseFunc_ReleasesOldWrapperOnRerender(parseT *testing.T) {
+func TestGoUseFunc_ReusesWrapperOnSameSignatureRerender(parseT *testing.T) {
+	resetGlobalRuntimeForTest()
+	defer resetGlobalRuntimeForTest()
+
+	parseReleased := 0
+	parseAdapter := &funcWrapTestAdapter{
+		testDOMAdapter: newTestDOMAdapter(),
+		releasedCount:  &parseReleased,
+	}
+	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
+
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
+	defer SetCurrentFiber(nil)
+
+	parseCalled := ""
+	parseFirst := GoUseFunc(func() {
+		parseCalled = "first"
+	})
+	if parseFirst == nil {
+		parseT.Fatal("expected wrapped function on first render")
+	}
+
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.funcIndex = 0
+
+	parseSecond := GoUseFunc(func() {
+		parseCalled = "second"
+	})
+	if parseSecond == nil {
+		parseT.Fatal("expected wrapped function on second render")
+	}
+	if parseReleased != 0 {
+		parseT.Fatalf("expected wrapper reuse to avoid release, got %d releases", parseReleased)
+	}
+	if parseFirst != parseSecond {
+		parseT.Fatal("expected same-signature rerender to reuse wrapper")
+	}
+
+	parseWrapped, parseOk := parseSecond.(*releasableWrapper)
+	if !parseOk {
+		parseT.Fatalf("expected releasable wrapper type, got %T", parseSecond)
+	}
+
+	parseWrappedFn, parseOk2 := parseWrapped.fn.(func())
+	if !parseOk2 {
+		parseT.Fatalf("expected wrapped fn type func(), got %T", parseWrapped.fn)
+	}
+	parseWrappedFn()
+	if parseCalled != "second" {
+		parseT.Fatalf("expected reused wrapper to dispatch latest closure, got %q", parseCalled)
+	}
+}
+
+func TestGoUseFunc_ReleasesWrapperWhenSignatureChanges(parseT *testing.T) {
 	resetGlobalRuntimeForTest()
 	defer resetGlobalRuntimeForTest()
 
@@ -57,12 +112,15 @@ func TestGoUseFunc_ReleasesOldWrapperOnRerender(parseT *testing.T) {
 	parseFiber.hooks.index = 0
 	parseFiber.hooks.funcIndex = 0
 
-	parseSecond := GoUseFunc(func() {})
+	parseSecond := GoUseFunc(func(parseValue string) {})
 	if parseSecond == nil {
 		parseT.Fatal("expected wrapped function on second render")
 	}
 	if parseReleased != 1 {
-		parseT.Fatalf("expected old wrapper to be released once, got %d", parseReleased)
+		parseT.Fatalf("expected signature change to release old wrapper once, got %d", parseReleased)
+	}
+	if parseFirst == parseSecond {
+		parseT.Fatal("expected signature change to allocate a new wrapper")
 	}
 }
 

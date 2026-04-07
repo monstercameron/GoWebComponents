@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 type nativeProps struct {
@@ -21,6 +23,16 @@ func nativeComponent(parseProps nativeProps) Node {
 
 func nativeZeroArgComponent() Node {
 	return Text("zero")
+}
+
+func nativeMapPropsComponent(parseProps map[string]interface{}) Node {
+	parseLabel, _ := parseProps["label"].(string)
+	return Text("map " + parseLabel)
+}
+
+func nativeAttrsPropsComponent(parseProps runtime.Attrs) Node {
+	parseLabel, _ := parseProps["label"].(string)
+	return Text("attrs " + parseLabel)
 }
 
 func TestNativeStateAndHookHelpers(parseT *testing.T) {
@@ -136,6 +148,22 @@ func TestNativeServerOnlyHelpersAndRenderComponent(parseT *testing.T) {
 	}
 	if parseMarkup != "zero" {
 		parseT.Fatalf("CreateElement zero-arg markup = %q, want zero", parseMarkup)
+	}
+
+	parseMarkup, parseErr = RenderToString(renderComponent(nativeMapPropsComponent, map[string]interface{}{propsKey: runtime.Attrs{"label": "fast"}}))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(renderComponent map props) error = %v", parseErr)
+	}
+	if parseMarkup != "map fast" {
+		parseT.Fatalf("map props markup = %q, want map fast", parseMarkup)
+	}
+
+	parseMarkup, parseErr = RenderToString(renderComponent(nativeAttrsPropsComponent, map[string]interface{}{propsKey: map[string]interface{}{"label": "path"}}))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(renderComponent attrs props) error = %v", parseErr)
+	}
+	if parseMarkup != "attrs path" {
+		parseT.Fatalf("attrs props markup = %q, want attrs path", parseMarkup)
 	}
 
 	parseNode := Text("passthrough")

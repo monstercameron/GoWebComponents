@@ -1490,6 +1490,36 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 		)
 	}
 
+	getControlsNode := ui.UseMemo(func() ui.Node {
+		return html.Div(
+			html.Props{ID: "benchmark-controls", Class: "mt-8 grid gap-3 md:grid-cols-3 xl:grid-cols-5"},
+			html.Button(html.Props{ID: "btn-core-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleCoreRender}, html.Text("Render Core Items")),
+			html.Button(html.Props{ID: "btn-core-stress-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleCoreStressRender}, html.Text("Render Core Stress")),
+			html.Button(html.Props{ID: "btn-core-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreUpdate}, html.Text("Update Core Items")),
+			html.Button(html.Props{ID: "btn-core-append", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreAppend}, html.Text("Append Core Rows")),
+			html.Button(html.Props{ID: "btn-core-prepend", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCorePrepend}, html.Text("Prepend Core Rows")),
+			html.Button(html.Props{ID: "btn-core-reverse", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreReverse}, html.Text("Reverse Core Rows")),
+			html.Button(html.Props{ID: "btn-core-filter", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreFilter}, html.Text("Filter Core Rows")),
+			html.Button(html.Props{ID: "btn-core-sort", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreSort}, html.Text("Sort Core Rows")),
+			html.Button(html.Props{ID: "btn-core-clear", Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-900/60", OnClick: handleCoreClear}, html.Text("Clear Core Items")),
+			html.Button(html.Props{ID: "btn-content-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleContentRender}, html.Text("Render Content Cards")),
+			html.Button(html.Props{ID: "btn-content-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleContentUpdate}, html.Text("Update Content Cards")),
+			html.Button(html.Props{ID: "btn-content-clear", Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-900/60", OnClick: handleContentClear}, html.Text("Clear Content Cards")),
+			html.Button(html.Props{ID: "btn-primitive-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handlePrimitiveRender}, html.Text("Render Primitive Grid")),
+			html.Button(html.Props{ID: "btn-primitive-text-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveTextUpdate}, html.Text("Update Primitive Text")),
+			html.Button(html.Props{ID: "btn-primitive-attr-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveAttributeUpdate}, html.Text("Update Primitive Attrs")),
+			html.Button(html.Props{ID: "btn-primitive-append", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveAppend}, html.Text("Append Primitive Rows")),
+			html.Button(html.Props{ID: "btn-primitive-remove", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveRemove}, html.Text("Remove Primitive Rows")),
+			html.Button(html.Props{ID: "btn-primitive-clear", Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-900/60", OnClick: handlePrimitiveClear}, html.Text("Clear Primitive Grid")),
+			html.Button(html.Props{ID: "btn-deep-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleDeepRender}, html.Text("Render Deep Tree")),
+			html.Button(html.Props{ID: "btn-deep-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleDeepUpdate}, html.Text("Update Deep Tree")),
+			html.Button(html.Props{ID: "btn-enterprise-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleEnterpriseRender}, html.Text("Render Enterprise Workspace")),
+			html.Button(html.Props{ID: "btn-enterprise-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleEnterpriseSubtreeUpdate}, html.Text("Update Enterprise Section")),
+			html.Button(html.Props{ID: "btn-hooks-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleHooksRender}, html.Text("Render Hook Grid")),
+			html.Button(html.Props{ID: "btn-refresh", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleRefresh}, html.Text("Refresh Current View")),
+		)
+	})
+
 	return html.Div(
 		html.Props{
 			ID:    "benchmark-app",
@@ -1512,35 +1542,9 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 				),
 				html.P(
 					html.Props{Class: "mt-4 max-w-4xl text-sm leading-7 text-slate-300"},
-					html.Text("This page exposes one benchmark subject with a stable DOM contract. The same browser-side Playwright harness drives React 18, runtime1, runtime2 with one Go WASM worker for chunk preparation, and runtime2 with a configurable Go WASM worker count for the same off-main-thread preparation step."),
+					html.Text("This page exposes one benchmark subject with a stable DOM contract. The same browser-side Playwright harness drives React 19.2.4, runtime1, runtime2 with one Go WASM worker for chunk preparation, and runtime2 with a configurable Go WASM worker count for the same off-main-thread preparation step."),
 				),
-				html.Div(
-					html.Props{ID: "benchmark-controls", Class: "mt-8 grid gap-3 md:grid-cols-3 xl:grid-cols-5"},
-					html.Button(html.Props{ID: "btn-core-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleCoreRender}, html.Text("Render Core Items")),
-					html.Button(html.Props{ID: "btn-core-stress-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleCoreStressRender}, html.Text("Render Core Stress")),
-					html.Button(html.Props{ID: "btn-core-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreUpdate}, html.Text("Update Core Items")),
-					html.Button(html.Props{ID: "btn-core-append", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreAppend}, html.Text("Append Core Rows")),
-					html.Button(html.Props{ID: "btn-core-prepend", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCorePrepend}, html.Text("Prepend Core Rows")),
-					html.Button(html.Props{ID: "btn-core-reverse", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreReverse}, html.Text("Reverse Core Rows")),
-					html.Button(html.Props{ID: "btn-core-filter", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreFilter}, html.Text("Filter Core Rows")),
-					html.Button(html.Props{ID: "btn-core-sort", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreSort}, html.Text("Sort Core Rows")),
-					html.Button(html.Props{ID: "btn-core-clear", Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-900/60", OnClick: handleCoreClear}, html.Text("Clear Core Items")),
-					html.Button(html.Props{ID: "btn-content-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleContentRender}, html.Text("Render Content Cards")),
-					html.Button(html.Props{ID: "btn-content-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleContentUpdate}, html.Text("Update Content Cards")),
-					html.Button(html.Props{ID: "btn-content-clear", Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-900/60", OnClick: handleContentClear}, html.Text("Clear Content Cards")),
-					html.Button(html.Props{ID: "btn-primitive-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handlePrimitiveRender}, html.Text("Render Primitive Grid")),
-					html.Button(html.Props{ID: "btn-primitive-text-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveTextUpdate}, html.Text("Update Primitive Text")),
-					html.Button(html.Props{ID: "btn-primitive-attr-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveAttributeUpdate}, html.Text("Update Primitive Attrs")),
-					html.Button(html.Props{ID: "btn-primitive-append", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveAppend}, html.Text("Append Primitive Rows")),
-					html.Button(html.Props{ID: "btn-primitive-remove", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveRemove}, html.Text("Remove Primitive Rows")),
-					html.Button(html.Props{ID: "btn-primitive-clear", Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-900/60", OnClick: handlePrimitiveClear}, html.Text("Clear Primitive Grid")),
-					html.Button(html.Props{ID: "btn-deep-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleDeepRender}, html.Text("Render Deep Tree")),
-					html.Button(html.Props{ID: "btn-deep-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleDeepUpdate}, html.Text("Update Deep Tree")),
-					html.Button(html.Props{ID: "btn-enterprise-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleEnterpriseRender}, html.Text("Render Enterprise Workspace")),
-					html.Button(html.Props{ID: "btn-enterprise-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleEnterpriseSubtreeUpdate}, html.Text("Update Enterprise Section")),
-					html.Button(html.Props{ID: "btn-hooks-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleHooksRender}, html.Text("Render Hook Grid")),
-					html.Button(html.Props{ID: "btn-refresh", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleRefresh}, html.Text("Refresh Current View")),
-				),
+				getControlsNode,
 				html.Div(
 					html.Props{ID: "benchmark-metrics", Class: "mt-8 grid gap-3 md:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-10"},
 					getMetricNodes...,

@@ -227,7 +227,7 @@ func CreateElement(parseComponent interface{}, parseProps ...interface{}) Node {
 		parseRawProps3[propsKey] = parseProps[0]
 	}
 
-	return runtime.CreateElement(getComponentHandle(parseComponent), parseRawProps3)
+	return runtime.CreateElementOwned(getComponentHandle(parseComponent), parseRawProps3)
 }
 
 // runtimeErrorBoundary is a core package helper.
@@ -688,6 +688,15 @@ func renderComponent(parseComponent interface{}, parseRawProps map[string]interf
 		return nil
 	}
 
+	switch parseTypedComponent := parseComponent.(type) {
+	case func() Node:
+		return parseTypedComponent()
+	case func(map[string]interface{}) Node:
+		return parseTypedComponent(getComponentMapProps(parseRawProps))
+	case func(runtime.Attrs) Node:
+		return parseTypedComponent(getComponentAttrsProps(parseRawProps))
+	}
+
 	parseComponentValue := reflect.ValueOf(parseComponent)
 	if !parseComponentValue.IsValid() || parseComponentValue.Kind() != reflect.Func {
 		panic(actionableCreateElementPanic("ui.CreateElement requires a component function or ui.Node"))
@@ -749,6 +758,44 @@ func getComponentMeta(parseComponentType reflect.Type) componentMeta {
 
 	parseStored, _ := componentMetaCache.LoadOrStore(parseComponentType, parseMeta)
 	return parseStored.(componentMeta)
+}
+
+// getComponentMapProps resolves one component props payload as a plain map for direct-call fast paths.
+func getComponentMapProps(parseRawProps map[string]interface{}) map[string]interface{} {
+	if parseRawProps == nil {
+		return nil
+	}
+	parseProvidedProps, parseOk := parseRawProps[propsKey]
+	if !parseOk || parseProvidedProps == nil {
+		return nil
+	}
+	switch parseTypedProps := parseProvidedProps.(type) {
+	case map[string]interface{}:
+		return parseTypedProps
+	case runtime.Attrs:
+		return map[string]interface{}(parseTypedProps)
+	default:
+		return nil
+	}
+}
+
+// getComponentAttrsProps resolves one component props payload as runtime.Attrs for direct-call fast paths.
+func getComponentAttrsProps(parseRawProps map[string]interface{}) runtime.Attrs {
+	if parseRawProps == nil {
+		return nil
+	}
+	parseProvidedProps, parseOk := parseRawProps[propsKey]
+	if !parseOk || parseProvidedProps == nil {
+		return nil
+	}
+	switch parseTypedProps := parseProvidedProps.(type) {
+	case runtime.Attrs:
+		return parseTypedProps
+	case map[string]interface{}:
+		return runtime.Attrs(parseTypedProps)
+	default:
+		return nil
+	}
 }
 
 // toInterfaces is a core package helper.

@@ -78,7 +78,7 @@ const parallelRegionClickSlotDataKey = "gwc-parallel-click-slot"
 
 // Tag creates a node for an arbitrary HTML tag name.
 func Tag(parseName string, parseProps Props, parseChildren ...ui.Node) ui.Node {
-	return runtime.CreateElement(parseName, toRuntimeProps(parseProps), toInterfaces(parseChildren)...)
+	return runtime.CreateElementOwned(parseName, toRuntimeProps(parseProps), toInterfaces(parseChildren)...)
 }
 
 // Link creates a typed link element.
@@ -92,7 +92,7 @@ func CustomElement(parseName string, parseProps CustomElementProps, parseChildre
 	parseValues := toRuntimeProps(parseProps.Props)
 	parseCount := len(parseProps.Attributes) + len(parseProps.Presence) + len(parseProps.Properties)
 	if parseCount == 0 {
-		return runtime.CreateElement(parseName, parseValues, toInterfaces(parseChildren)...)
+		return runtime.CreateElementOwned(parseName, parseValues, toInterfaces(parseChildren)...)
 	}
 	if parseValues == nil {
 		parseValues = make(map[string]interface{}, parseCount)
@@ -108,7 +108,7 @@ func CustomElement(parseName string, parseProps CustomElementProps, parseChildre
 	for parseKey3, parseValue2 := range parseProps.Properties {
 		parseValues[customElementPropertyPrefix+parseKey3] = parseValue2
 	}
-	return runtime.CreateElement(parseName, parseValues, toInterfaces(parseChildren)...)
+	return runtime.CreateElementOwned(parseName, parseValues, toInterfaces(parseChildren)...)
 }
 
 // Fragment groups children without introducing an extra host element.

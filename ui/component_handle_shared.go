@@ -11,6 +11,17 @@ import (
 )
 
 var componentHandleCache sync.Map
+var getComponentIdentityCache sync.Map
+
+type componentIdentityCacheKey struct {
+	getType    reflect.Type
+	getPointer uintptr
+}
+
+type componentIdentityCacheValue struct {
+	getPrettyName    string
+	getQualifiedName string
+}
 
 // getComponentHandle is a core package helper.
 func getComponentHandle(parseComponent interface{}) *runtime.ComponentType {
@@ -46,11 +57,30 @@ func describeComponentIdentity(parseComponent interface{}) (string, string) {
 
 	parseValue := reflect.ValueOf(parseComponent)
 	if parseValue.IsValid() && parseValue.Kind() == reflect.Func {
+		getCacheKey := componentIdentityCacheKey{
+			getType:    parseValue.Type(),
+			getPointer: parseValue.Pointer(),
+		}
+		if parseCached, hasParseCached := getComponentIdentityCache.Load(getCacheKey); hasParseCached {
+			getCached := parseCached.(componentIdentityCacheValue)
+			return getCached.getPrettyName, getCached.getQualifiedName
+		}
 		if parseFn := goRuntime.FuncForPC(parseValue.Pointer()); parseFn != nil {
 			parseQualified := parseFn.Name()
-			return trimComponentName(parseQualified), parseQualified
+			getIdentity := componentIdentityCacheValue{
+				getPrettyName:    trimComponentName(parseQualified),
+				getQualifiedName: parseQualified,
+			}
+			getComponentIdentityCache.Store(getCacheKey, getIdentity)
+			return getIdentity.getPrettyName, getIdentity.getQualifiedName
 		}
-		return reflect.TypeOf(parseComponent).String(), fmt.Sprintf("%s@%x", reflect.TypeOf(parseComponent).String(), parseValue.Pointer())
+		parseQualified := fmt.Sprintf("%s@%x", reflect.TypeOf(parseComponent).String(), parseValue.Pointer())
+		getIdentity := componentIdentityCacheValue{
+			getPrettyName:    reflect.TypeOf(parseComponent).String(),
+			getQualifiedName: parseQualified,
+		}
+		getComponentIdentityCache.Store(getCacheKey, getIdentity)
+		return getIdentity.getPrettyName, getIdentity.getQualifiedName
 	}
 
 	parseRendered := reflect.TypeOf(parseComponent).String()
