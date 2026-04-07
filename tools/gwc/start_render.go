@@ -96,7 +96,7 @@ func App() ui.Node {
 func main() {
 	utils.DisableAllDebug()
 	ui.Render(ui.CreateElement(App), "#app")
-	select {}
+	utils.WaitForever()
 }
 `, parseRepoModulePath+"/html", parseRepoModulePath+"/ui", parseRepoModulePath+"/utils", parseCapabilityState, parseSelection.ProjectName, parseSelection.Description, parseSelection.Author, parseSelection.Version, parseSelection.Preset.Name, parseSelection.ModulePath, parseSelection.Preset.Description, "Features: "+parseFeatureList, parseFeatureCards, parseCapabilityWidgets)
 }

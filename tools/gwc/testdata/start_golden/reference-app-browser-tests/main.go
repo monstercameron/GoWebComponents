@@ -156,5 +156,5 @@ func App() ui.Node {
 func main() {
 	utils.DisableAllDebug()
 	ui.Render(ui.CreateElement(App), "#app")
-	select {}
+	utils.WaitForever()
 }

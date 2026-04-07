@@ -60,6 +60,11 @@ func EnableAllDebug() {}
 // DisableAllDebug is a production stub that does nothing.
 func DisableAllDebug() {}
 
+// WaitForever blocks indefinitely so js/wasm programs stay alive for events.
+func WaitForever() {
+	select {}
+}
+
 // GetDebugStatus always returns all-false in production builds.
 func GetDebugStatus() map[string]bool {
 	return map[string]bool{

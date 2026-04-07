@@ -214,7 +214,7 @@ func implementationCopy(parseTitle, parseFeature string) (string, []string, []st
 	parseCode := []string{
 		"func main() {",
 		"    ui.Render(ui.CreateElement(exampleComponent), \"#app\")",
-		"    select {}",
+		"    utils.WaitForever()",
 		"}",
 	}
 
@@ -237,7 +237,7 @@ func implementationCopy(parseTitle, parseFeature string) (string, []string, []st
 		parseBullets = append([]string{
 			"The selector must already exist in the document. If the mount target is missing, the runtime has nowhere to attach the tree.",
 			"Render is a full client mount, not hydration. Use ui.Hydrate when the DOM already contains matching SSR or prerendered markup that should be resumed instead of replaced.",
-			"Keep main small: initialize dependencies, mount once, and block with select {} so the Go wasm runtime stays alive for events and rerenders.",
+			"Keep main small: initialize dependencies, mount once, and block with utils.WaitForever() so the Go wasm runtime stays alive for events and rerenders.",
 		}, parseBullets...)
 	case parseSubject == "ui.RenderToString":
 		parseLead = "This example centers on server-side HTML generation, so the important implementation detail is when markup is produced versus when interactivity is attached later."
@@ -262,7 +262,7 @@ func implementationCopy(parseTitle, parseFeature string) (string, []string, []st
 		parseCode = []string{
 			"func main() {",
 			"    _, _ = ui.Hydrate(ui.CreateElement(exampleComponent), \"#app\")",
-			"    select {}",
+			"    utils.WaitForever()",
 			"}",
 		}
 	case strings.HasPrefix(parseSubject, "router.") || strings.Contains(strings.ToLower(parseFeature), "route"):
@@ -277,7 +277,7 @@ func implementationCopy(parseTitle, parseFeature string) (string, []string, []st
 			"    r := router.NewHashRouter(router.RouterOptions{DefaultRoute: \"/\"})",
 			"    r.Register(\"/\", page)",
 			"    r.Mount(\"#app\")",
-			"    select {}",
+			"    utils.WaitForever()",
 			"}",
 		}
 	case strings.HasPrefix(parseSubject, "state."):

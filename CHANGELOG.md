@@ -8,6 +8,11 @@
 - Added `devtools.ApplyHostExtensions(...)` to map host-owned devtools contributions into the existing extension-section and error-overlay state, with cleanup that restores the prior app-owned devtools wiring.
 - Covered the new seam with focused `plugin` and `devtools` tests for capability enforcement, cloned reads, rollback safety after failed setup, and host-to-devtools action-context mapping.
 
+### waitforever starter and example wiring cleanup
+
+- Added the production `utils.WaitForever()` stub so release-tag `js/wasm` programs can block on one named helper instead of open-coded `select {}` loops.
+- Replaced raw `select {}` keeps-alive paths in Example 21, catalog implementation copy, launcher import output, launcher start output, and the starter golden files with `utils.WaitForever()` so the generated guidance and emitted app skeletons stay aligned.
+
 ### runtime2 renderer and benchmark performance pass
 
 - Reduced `runtime2` host and commit overhead with append-only and remove-only patch-transaction fast paths, narrower rollback snapshots, cheaper insert-only host patch cache handling, and focused compare benchmarks for the new commit paths.

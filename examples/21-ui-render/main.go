@@ -34,7 +34,7 @@ func renderExample() ui.Node {
 			shared.ExampleCode(
 				"func main() {",
 				"    ui.Render(ui.CreateElement(renderExample), \"#app\")",
-				"    select {}",
+				"    utils.WaitForever()",
 				"}",
 			),
 		),
@@ -44,5 +44,5 @@ func renderExample() ui.Node {
 func main() {
 	utils.DisableAllDebug()
 	ui.Render(ui.CreateElement(renderExample), "#app")
-	select {}
+	utils.WaitForever()
 }

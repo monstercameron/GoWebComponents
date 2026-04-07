@@ -69,7 +69,7 @@ func App() ui.Node {
 func main() {
 	utils.DisableAllDebug()
 	ui.Render(ui.CreateElement(App), "#%s")
-	select {}
+	utils.WaitForever()
 }
 `, parseRepoModulePath+"/html", parseRepoModulePath+"/ui", parseRepoModulePath+"/utils", parseRootExpr, importedMountID), nil
 }
