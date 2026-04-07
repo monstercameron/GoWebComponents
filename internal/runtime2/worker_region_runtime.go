@@ -90,27 +90,29 @@ type WorkerRegionRestartResult struct {
 
 // WorkerRegionRuntime stores worker-side renderer registrations and mounted region state.
 type WorkerRegionRuntime struct {
-	storeWorkerRegionRendererByID         map[string]WorkerRegionRenderer
-	storeWorkerRegionRendererMetadataByID map[string]RendererMetadata
-	storeWorkerRegionRendererTrustedByID  map[string]bool
-	storeWorkerRegionStateByID            map[string]WorkerRegionState
-	storeWorkerRegionCanceledByID         map[string]uint64
-	storeWorkerRegionEpochFloorByID       map[string]uint64
-	storeWorkerRegionPatchVersionByID     map[string]uint64
-	isWorkerRegionUpdateValidationEnabled bool
+	storeWorkerRegionRendererByID                        map[string]WorkerRegionRenderer
+	storeWorkerRegionRendererMetadataByID                map[string]RendererMetadata
+	storeWorkerRegionRendererTrustedByID                 map[string]bool
+	storeWorkerRegionRendererUpdateValidationEnabledByID map[string]bool
+	storeWorkerRegionStateByID                           map[string]WorkerRegionState
+	storeWorkerRegionCanceledByID                        map[string]uint64
+	storeWorkerRegionEpochFloorByID                      map[string]uint64
+	storeWorkerRegionPatchVersionByID                    map[string]uint64
+	isWorkerRegionUpdateValidationEnabled                bool
 }
 
 // BuildWorkerRegionRuntime creates a worker-region runtime with empty renderer and region state maps.
 func BuildWorkerRegionRuntime() *WorkerRegionRuntime {
 	return &WorkerRegionRuntime{
-		storeWorkerRegionRendererByID:         make(map[string]WorkerRegionRenderer),
-		storeWorkerRegionRendererMetadataByID: make(map[string]RendererMetadata),
-		storeWorkerRegionRendererTrustedByID:  make(map[string]bool),
-		storeWorkerRegionStateByID:            make(map[string]WorkerRegionState),
-		storeWorkerRegionCanceledByID:         make(map[string]uint64),
-		storeWorkerRegionEpochFloorByID:       make(map[string]uint64),
-		storeWorkerRegionPatchVersionByID:     make(map[string]uint64),
-		isWorkerRegionUpdateValidationEnabled: true,
+		storeWorkerRegionRendererByID:                        make(map[string]WorkerRegionRenderer),
+		storeWorkerRegionRendererMetadataByID:                make(map[string]RendererMetadata),
+		storeWorkerRegionRendererTrustedByID:                 make(map[string]bool),
+		storeWorkerRegionRendererUpdateValidationEnabledByID: make(map[string]bool),
+		storeWorkerRegionStateByID:                           make(map[string]WorkerRegionState),
+		storeWorkerRegionCanceledByID:                        make(map[string]uint64),
+		storeWorkerRegionEpochFloorByID:                      make(map[string]uint64),
+		storeWorkerRegionPatchVersionByID:                    make(map[string]uint64),
+		isWorkerRegionUpdateValidationEnabled:                true,
 	}
 }
 
@@ -215,6 +217,21 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) SetWorkerRegionUpdateValida
 		return
 	}
 	parseWorkerRegionRuntime.isWorkerRegionUpdateValidationEnabled = parseIsEnabled
+}
+
+// SetWorkerRegionRendererUpdateValidationEnabled enables or disables update-path render-output validation for one registered renderer.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) SetWorkerRegionRendererUpdateValidationEnabled(parseRendererID string, parseIsEnabled bool) error {
+	if parseWorkerRegionRuntime == nil {
+		return fmt.Errorf("runtime2: worker region runtime is nil")
+	}
+	if strings.TrimSpace(parseRendererID) == "" {
+		return fmt.Errorf("runtime2: renderer ID is required")
+	}
+	if _, hasWorkerRegionRenderer := parseWorkerRegionRuntime.storeWorkerRegionRendererByID[parseRendererID]; !hasWorkerRegionRenderer {
+		return fmt.Errorf("runtime2: renderer ID %q is not registered", parseRendererID)
+	}
+	parseWorkerRegionRuntime.storeWorkerRegionRendererUpdateValidationEnabledByID[parseRendererID] = parseIsEnabled
+	return nil
 }
 
 // HandleWorkerRegionMount resolves one renderer, builds initial render IR, and stores worker region state.
@@ -660,6 +677,9 @@ func parseResolveWorkerSingleTextNodeRecord(parseIR CanonicalRenderIR) (RenderNo
 func (parseWorkerRegionRuntime *WorkerRegionRuntime) shouldWorkerRegionValidateUpdateRenderOutput(parseRendererID string) bool {
 	if parseWorkerRegionRuntime == nil {
 		return true
+	}
+	if parseIsEnabled, hasRendererOverride := parseWorkerRegionRuntime.storeWorkerRegionRendererUpdateValidationEnabledByID[parseRendererID]; hasRendererOverride {
+		return parseIsEnabled
 	}
 	if parseWorkerRegionRuntime.isWorkerRegionUpdateValidationEnabled {
 		return true

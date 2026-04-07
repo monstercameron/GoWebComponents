@@ -243,7 +243,7 @@ func buildBenchmarkWorkerCoreBatchWithCache(parseWorkerName string, parseRequest
 		GetChunks:         getChunkResults,
 		GetWorker:         strings.TrimSpace(parseWorkerName),
 		GetWorkDigest:     getBatchDigest,
-		GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+		GetWorkDurationMS: time.Since(parseStartedAt).Seconds() * 1000,
 		GetGeneration:     parseRequest.GetGeneration,
 		GetCacheHitCount:  getCacheHitCount,
 	}
@@ -289,7 +289,7 @@ func buildBenchmarkWorkerContentBatchWithCache(parseWorkerName string, parseRequ
 		GetChunks:         getChunkResults,
 		GetWorker:         strings.TrimSpace(parseWorkerName),
 		GetWorkDigest:     getBatchDigest,
-		GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+		GetWorkDurationMS: time.Since(parseStartedAt).Seconds() * 1000,
 		GetGeneration:     parseRequest.GetGeneration,
 		GetCacheHitCount:  getCacheHitCount,
 	}
@@ -347,7 +347,7 @@ func buildBenchmarkWorkerCoreChunkWithCache(parseWorkerName string, parseChunkIn
 				GetItems:          getPreparedItems,
 				GetWorker:         strings.TrimSpace(parseWorkerName),
 				GetWorkDigest:     getBatchDigest,
-				GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+				GetWorkDurationMS: time.Since(parseStartedAt).Seconds() * 1000,
 				GetGeneration:     parseGeneration,
 			}
 			getBenchmarkWorkerChunkResultMu.Lock()
@@ -401,7 +401,7 @@ func buildBenchmarkWorkerCoreChunkWithCache(parseWorkerName string, parseChunkIn
 		GetItems:          getPreparedItems,
 		GetWorker:         strings.TrimSpace(parseWorkerName),
 		GetWorkDigest:     getBatchDigest,
-		GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+		GetWorkDurationMS: time.Since(parseStartedAt).Seconds() * 1000,
 		GetGeneration:     parseGeneration,
 	}
 	getBenchmarkWorkerChunkResultMu.Lock()
@@ -462,7 +462,7 @@ func buildBenchmarkWorkerContentChunkWithCache(parseWorkerName string, parseChun
 				GetItems:          getPreparedItems,
 				GetWorker:         strings.TrimSpace(parseWorkerName),
 				GetWorkDigest:     getBatchDigest,
-				GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+				GetWorkDurationMS: time.Since(parseStartedAt).Seconds() * 1000,
 				GetGeneration:     parseGeneration,
 			}
 			getBenchmarkWorkerChunkResultMu.Lock()
@@ -516,7 +516,7 @@ func buildBenchmarkWorkerContentChunkWithCache(parseWorkerName string, parseChun
 		GetItems:          getPreparedItems,
 		GetWorker:         strings.TrimSpace(parseWorkerName),
 		GetWorkDigest:     getBatchDigest,
-		GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+		GetWorkDurationMS: time.Since(parseStartedAt).Seconds() * 1000,
 		GetGeneration:     parseGeneration,
 	}
 	getBenchmarkWorkerChunkResultMu.Lock()

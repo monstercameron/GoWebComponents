@@ -68,7 +68,7 @@ type BenchmarkWorkerCoreChunkResult struct {
 	GetItems          []BenchmarkPreparedCoreItem `json:"items"`
 	GetWorker         string                      `json:"worker"`
 	GetWorkDigest     uint64                      `json:"workDigest"`
-	GetWorkDurationMS int64                       `json:"workDurationMs"`
+	GetWorkDurationMS float64                     `json:"workDurationMs"`
 	GetGeneration     uint64                      `json:"generation"`
 	HasStale          bool                        `json:"stale"`
 }
@@ -87,7 +87,7 @@ type BenchmarkWorkerContentChunkResult struct {
 	GetItems          []BenchmarkPreparedContentCard `json:"items"`
 	GetWorker         string                         `json:"worker"`
 	GetWorkDigest     uint64                         `json:"workDigest"`
-	GetWorkDurationMS int64                          `json:"workDurationMs"`
+	GetWorkDurationMS float64                        `json:"workDurationMs"`
 	GetGeneration     uint64                         `json:"generation"`
 	HasStale          bool                           `json:"stale"`
 }
@@ -111,7 +111,7 @@ type BenchmarkWorkerCoreBatchResult struct {
 	GetChunks         []BenchmarkWorkerCoreChunkResult `json:"chunks"`
 	GetWorker         string                           `json:"worker"`
 	GetWorkDigest     uint64                           `json:"workDigest"`
-	GetWorkDurationMS int64                            `json:"workDurationMs"`
+	GetWorkDurationMS float64                          `json:"workDurationMs"`
 	GetGeneration     uint64                           `json:"generation"`
 	GetCacheHitCount  int                              `json:"cacheHitCount"`
 	HasStale          bool                             `json:"stale"`
@@ -136,7 +136,7 @@ type BenchmarkWorkerContentBatchResult struct {
 	GetChunks         []BenchmarkWorkerContentChunkResult `json:"chunks"`
 	GetWorker         string                              `json:"worker"`
 	GetWorkDigest     uint64                              `json:"workDigest"`
-	GetWorkDurationMS int64                               `json:"workDurationMs"`
+	GetWorkDurationMS float64                             `json:"workDurationMs"`
 	GetGeneration     uint64                              `json:"generation"`
 	GetCacheHitCount  int                                 `json:"cacheHitCount"`
 	HasStale          bool                                `json:"stale"`
@@ -179,7 +179,7 @@ func BuildBenchmarkWorkerCoreChunkResult(parseWorkerName string, parseRequest Be
 		GetItems:          getPreparedItems,
 		GetWorker:         strings.TrimSpace(parseWorkerName),
 		GetWorkDigest:     getBatchDigest,
-		GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+		GetWorkDurationMS: time.Since(parseStartedAt).Seconds() * 1000,
 		GetGeneration:     parseRequest.GetGeneration,
 	}
 }
@@ -199,7 +199,7 @@ func BuildBenchmarkWorkerContentChunkResult(parseWorkerName string, parseRequest
 		GetItems:          getPreparedItems,
 		GetWorker:         strings.TrimSpace(parseWorkerName),
 		GetWorkDigest:     getBatchDigest,
-		GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+		GetWorkDurationMS: time.Since(parseStartedAt).Seconds() * 1000,
 		GetGeneration:     parseRequest.GetGeneration,
 	}
 }

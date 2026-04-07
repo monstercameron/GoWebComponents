@@ -420,6 +420,33 @@ func hasPatchTrackSiblingCountByParent(
 	return buildHasPatchKeyedMoveOp
 }
 
+// findPatchRemoveOnlyStartIndex reports the first op index whose suffix contains only remove-node ops, or len(parseOps) when no remove-only suffix exists.
+func findPatchRemoveOnlyStartIndex(parseOps []PatchStreamOpRaw) int {
+	getRemoveOnlyStartIndex := len(parseOps)
+	for parseOpIndex := len(parseOps) - 1; parseOpIndex >= 0; parseOpIndex-- {
+		if parseOps[parseOpIndex].GetOpCode != uint8(PatchOpCodeRemoveNode) {
+			break
+		}
+		getRemoveOnlyStartIndex = parseOpIndex
+	}
+	return getRemoveOnlyStartIndex
+}
+
+// hasPatchOnlyAppendInsertOps reports whether one raw patch stream contains only anchor-free insert ops, which can validate against the base known-node set plus one small added-node overlay.
+func hasPatchOnlyAppendInsertOps(parseOps []PatchStreamOpRaw) bool {
+	if len(parseOps) < 2 {
+		return false
+	}
+	for _, getRawOp := range parseOps {
+		if getRawOp.GetOpCode != uint8(PatchOpCodeInsertNode) ||
+			getRawOp.GetInsertOp == nil ||
+			getRawOp.GetInsertOp.AnchorNodeID != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // ParsePatchStreamTransaction decodes one patch stream, validates patch semantics and idempotency, and returns a commit transaction.
 func ParsePatchStreamTransaction(
 	parseRaw PatchStreamRaw,
@@ -529,6 +556,9 @@ func parseParsePatchStreamTransaction(
 			getPatchStreamOpWarnLimit,
 		)
 	}
+	if hasPatchOnlyAppendInsertOps(parseRaw.GetOps) {
+		return parseBuildPatchStreamAppendOnlyTransaction(parseHeader, parseStringTable, parseRaw.GetOps, parseKnownNodeIDs)
+	}
 	buildKnownNodeIDs := parseKnownNodeIDs
 	hasCopiedKnownNodeIDs := false
 	defer func() {
@@ -565,6 +595,7 @@ func parseParsePatchStreamTransaction(
 		GetRegionID: parseHeader.RegionID,
 		GetOps:      make([]RegionPatchOp, 0, len(parseRaw.GetOps)),
 	}
+	getRemoveOnlyStartIndex := findPatchRemoveOnlyStartIndex(parseRaw.GetOps)
 	for parseOpIndex, getRawOp := range parseRaw.GetOps {
 		parseOpCode, parseOpCodeErr := ParsePatchOpCode(getRawOp.GetOpCode)
 		if parseOpCodeErr != nil {
@@ -616,11 +647,16 @@ func parseParsePatchStreamTransaction(
 			if buildRemovedNodeIDs == nil {
 				buildRemovedNodeIDs = buildPatchStreamRemovedNodeIDScratchMap()
 			}
-			parseKnownNodeIDsForMutation := getPatchMutableKnownNodeIDs(
-				parseKnownNodeIDs,
-				&buildKnownNodeIDs,
-				&hasCopiedKnownNodeIDs,
-			)
+			parseKnownNodeIDsForMutation := buildKnownNodeIDs
+			if !hasCopiedKnownNodeIDs && parseOpIndex >= getRemoveOnlyStartIndex {
+				parseKnownNodeIDsForMutation = parseKnownNodeIDs
+			} else {
+				parseKnownNodeIDsForMutation = getPatchMutableKnownNodeIDs(
+					parseKnownNodeIDs,
+					&buildKnownNodeIDs,
+					&hasCopiedKnownNodeIDs,
+				)
+			}
 			parseRemoveOp, parseRemoveErr := ParsePatchRemoveOp(*getRawOp.GetRemoveOp, parseKnownNodeIDsForMutation, buildRemovedNodeIDs)
 			if parseRemoveErr != nil {
 				return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d remove is invalid: %w", parseOpIndex, parseRemoveErr)
@@ -629,7 +665,9 @@ func parseParsePatchStreamTransaction(
 				GetKind:   RegionPatchOpKindRemoveNode,
 				GetNodeID: parseRemoveOp.TargetNodeID,
 			})
-			delete(parseKnownNodeIDsForMutation, parseRemoveOp.TargetNodeID)
+			if hasCopiedKnownNodeIDs {
+				delete(parseKnownNodeIDsForMutation, parseRemoveOp.TargetNodeID)
+			}
 		case PatchOpCodeSetText:
 			if getRawOp.GetSetTextOp == nil {
 				return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d set-text payload is required", parseOpIndex)
@@ -736,6 +774,89 @@ func parseParsePatchStreamTransaction(
 		GetHeader:      parseHeader,
 		GetTransaction: buildTransaction,
 	}, true, nil
+}
+
+// parseBuildPatchStreamAppendOnlyTransaction decodes one append-only insert patch stream using one added-node overlay instead of cloning the full known-node set.
+func parseBuildPatchStreamAppendOnlyTransaction(
+	parseHeader PatchStreamHeader,
+	parseStringTable RenderStringTable,
+	parseRawOps []PatchStreamOpRaw,
+	parseKnownNodeIDs map[uint64]struct{},
+) (PatchStreamParseResult, bool, error) {
+	buildAddedNodeIDs := make(map[uint64]struct{}, len(parseRawOps))
+	buildTransaction := RegionPatchTransaction{
+		GetRegionID: parseHeader.RegionID,
+		GetOps:      make([]RegionPatchOp, 0, len(parseRawOps)),
+	}
+	for parseOpIndex, getRawOp := range parseRawOps {
+		if getRawOp.GetInsertOp == nil {
+			return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d insert payload is required", parseOpIndex)
+		}
+		parseInsertOp, parseInsertErr := parseParsePatchAppendOnlyInsertOp(*getRawOp.GetInsertOp, parseKnownNodeIDs, buildAddedNodeIDs)
+		if parseInsertErr != nil {
+			return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d insert is invalid: %w", parseOpIndex, parseInsertErr)
+		}
+		buildInsertNode, parseInsertNodeErr := parseBuildRegionDOMNodeFromPatchRecord(parseInsertOp.Node, parseStringTable)
+		if parseInsertNodeErr != nil {
+			return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d insert node is invalid: %w", parseOpIndex, parseInsertNodeErr)
+		}
+		buildTransaction.GetOps = append(buildTransaction.GetOps, RegionPatchOp{
+			GetKind:         RegionPatchOpKindInsertNode,
+			GetParentNodeID: parseInsertOp.ParentNodeID,
+			GetBeforeNodeID: 0,
+			GetInsertNode:   buildInsertNode,
+		})
+		buildAddedNodeIDs[parseInsertOp.Node.NodeID] = struct{}{}
+	}
+	return PatchStreamParseResult{
+		GetHeader:      parseHeader,
+		GetTransaction: buildTransaction,
+	}, true, nil
+}
+
+// parseParsePatchAppendOnlyInsertOp validates one append-only insert op against the existing region nodes plus any node IDs introduced earlier in the same patch.
+func parseParsePatchAppendOnlyInsertOp(
+	parseRaw PatchInsertOpRaw,
+	parseKnownNodeIDs map[uint64]struct{},
+	parseAddedNodeIDs map[uint64]struct{},
+) (PatchInsertOp, error) {
+	if parseRaw.ParentNodeID == 0 {
+		return PatchInsertOp{}, fmt.Errorf("runtime2: insert op parent reference is required")
+	}
+	if !hasPatchKnownNodeID(parseKnownNodeIDs, parseAddedNodeIDs, parseRaw.ParentNodeID) {
+		return PatchInsertOp{}, fmt.Errorf("runtime2: insert op parent node id %d is unknown", parseRaw.ParentNodeID)
+	}
+	if parseRaw.AnchorNodeID != 0 {
+		return PatchInsertOp{}, fmt.Errorf("runtime2: insert op anchor node id %d is unsupported for append-only validation", parseRaw.AnchorNodeID)
+	}
+	if hasPatchKnownNodeID(parseKnownNodeIDs, parseAddedNodeIDs, parseRaw.Node.NodeID) {
+		return PatchInsertOp{}, fmt.Errorf("runtime2: insert op node id %d already exists", parseRaw.Node.NodeID)
+	}
+	parseNodeRecord, parseErr := ParseRenderNodeRecord(parseRaw.Node)
+	if parseErr != nil {
+		return PatchInsertOp{}, fmt.Errorf("runtime2: insert op node payload is invalid: %w", parseErr)
+	}
+	return PatchInsertOp{
+		ParentNodeID: parseRaw.ParentNodeID,
+		AnchorNodeID: 0,
+		Node:         parseNodeRecord,
+	}, nil
+}
+
+// hasPatchKnownNodeID reports whether one node ID exists either in the committed known-node set or in the patch-local added-node overlay.
+func hasPatchKnownNodeID(
+	parseKnownNodeIDs map[uint64]struct{},
+	parseAddedNodeIDs map[uint64]struct{},
+	parseNodeID uint64,
+) bool {
+	if parseNodeID == 0 {
+		return false
+	}
+	if _, hasAddedNodeID := parseAddedNodeIDs[parseNodeID]; hasAddedNodeID {
+		return true
+	}
+	_, hasKnownNodeID := parseKnownNodeIDs[parseNodeID]
+	return hasKnownNodeID
 }
 
 // parseHasPatchKeyedMoveOp reports whether one raw patch stream includes keyed-move operations.

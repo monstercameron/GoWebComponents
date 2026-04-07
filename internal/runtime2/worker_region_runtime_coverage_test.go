@@ -83,6 +83,27 @@ func TestWorkerRegionRuntimeRegistrationAndConfigurationGuards(parseTesting *tes
 	if parseErr := parseWorkerRegionRuntime.SetWorkerRegionRendererTrusted("dashboard.hot-panel", false); parseErr != nil {
 		parseTesting.Fatalf("SetWorkerRegionRendererTrusted(false) error = %v", parseErr)
 	}
+	if parseErr := parseNilUpdateRuntime.SetWorkerRegionRendererUpdateValidationEnabled("dashboard.hot-panel", false); parseErr == nil {
+		parseTesting.Fatal("SetWorkerRegionRendererUpdateValidationEnabled(nil runtime) error = nil, want error")
+	}
+	if parseErr := parseWorkerRegionRuntime.SetWorkerRegionRendererUpdateValidationEnabled("", false); parseErr == nil {
+		parseTesting.Fatal("SetWorkerRegionRendererUpdateValidationEnabled(blank renderer ID) error = nil, want error")
+	}
+	if parseErr := parseWorkerRegionRuntime.SetWorkerRegionRendererUpdateValidationEnabled("dashboard.missing", false); parseErr == nil {
+		parseTesting.Fatal("SetWorkerRegionRendererUpdateValidationEnabled(unregistered renderer) error = nil, want error")
+	}
+	if parseErr := parseWorkerRegionRuntime.SetWorkerRegionRendererUpdateValidationEnabled("dashboard.hot-panel", false); parseErr != nil {
+		parseTesting.Fatalf("SetWorkerRegionRendererUpdateValidationEnabled(false) error = %v", parseErr)
+	}
+	if parseWorkerRegionRuntime.storeWorkerRegionRendererUpdateValidationEnabledByID["dashboard.hot-panel"] {
+		parseTesting.Fatal("expected renderer update validation override to store false")
+	}
+	if parseErr := parseWorkerRegionRuntime.SetWorkerRegionRendererUpdateValidationEnabled("dashboard.hot-panel", true); parseErr != nil {
+		parseTesting.Fatalf("SetWorkerRegionRendererUpdateValidationEnabled(true) error = %v", parseErr)
+	}
+	if !parseWorkerRegionRuntime.storeWorkerRegionRendererUpdateValidationEnabledByID["dashboard.hot-panel"] {
+		parseTesting.Fatal("expected renderer update validation override to store true")
+	}
 
 	parseNilUpdateRuntime.SetWorkerRegionUpdateValidationEnabled(false)
 	parseWorkerRegionRuntime.SetWorkerRegionUpdateValidationEnabled(false)

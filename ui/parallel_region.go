@@ -37,8 +37,16 @@ type ParallelRegionStatus struct {
 	GetFallbackReason              string
 }
 
+// ParallelRegionWorkerRendererConfig stores optional trust and validation settings for one public worker-native renderer.
+type ParallelRegionWorkerRendererConfig struct {
+	IsTrusted                        bool
+	HasUpdateValidationOverride      bool
+	ShouldValidateUpdateRenderOutput bool
+}
+
 type parallelRegionRendererEntry struct {
-	getRender any
+	getRender       any
+	getWorkerRender runtime2.WorkerRegionRenderer
 }
 
 type parallelRegionReactiveSource struct {
@@ -103,18 +111,56 @@ func RegisterParallelRegion[Props any](parseRendererID string, parseRender func(
 	if parseErr := cacheParallelRegionWorkerRuntime.RegisterWorkerRegionRendererWithRegisteredMetadata(
 		string(getRendererID),
 		func(parseMount runtime2.WorkerRegionMountSpec) (any, error) {
-			return buildParallelRegionWorkerRenderOutput(
-				runtime2.RegionInstanceID(parseMount.RegionID),
-				runtime2.RendererID(parseMount.RendererID),
-				parseMount.Snapshot.Props,
-				parseMount.RenderInput.GetEventSlot,
-			)
+			return buildParallelRegionWorkerRenderOutput(parseMount)
 		},
 	); parseErr != nil {
 		return parseErr
 	}
 	cacheParallelRegionRendererByID[getRendererID] = parallelRegionRendererEntry{
 		getRender: parseRender,
+	}
+	return nil
+}
+
+// SetParallelRegionWorkerRenderer registers one explicit worker-native renderer for an already-registered public parallel region.
+func SetParallelRegionWorkerRenderer(parseRendererID string, parseRender runtime2.WorkerRegionRenderer) error {
+	return SetParallelRegionWorkerRendererWithConfig(parseRendererID, parseRender, ParallelRegionWorkerRendererConfig{})
+}
+
+// SetParallelRegionWorkerRendererWithConfig registers one explicit worker-native renderer with optional trust and validation settings.
+func SetParallelRegionWorkerRendererWithConfig(
+	parseRendererID string,
+	parseRender runtime2.WorkerRegionRenderer,
+	parseConfig ParallelRegionWorkerRendererConfig,
+) error {
+	getRendererID, parseRendererIDErr := runtime2.ParseRendererID(parseRendererID)
+	if parseRendererIDErr != nil {
+		return parseRendererIDErr
+	}
+	if parseRender == nil {
+		return fmt.Errorf("ui: parallel-region worker renderer is required")
+	}
+	storeParallelRegionRendererMu.Lock()
+	defer storeParallelRegionRendererMu.Unlock()
+	getParallelRegionRendererEntry, hasParallelRegionRenderer := cacheParallelRegionRendererByID[getRendererID]
+	if !hasParallelRegionRenderer {
+		return fmt.Errorf("ui: parallel-region renderer %q is not registered", getRendererID)
+	}
+	if getParallelRegionRendererEntry.getWorkerRender != nil {
+		return fmt.Errorf("ui: parallel-region worker renderer %q is already registered", getRendererID)
+	}
+	getParallelRegionRendererEntry.getWorkerRender = parseRender
+	cacheParallelRegionRendererByID[getRendererID] = getParallelRegionRendererEntry
+	if parseTrustErr := cacheParallelRegionWorkerRuntime.SetWorkerRegionRendererTrusted(string(getRendererID), parseConfig.IsTrusted); parseTrustErr != nil {
+		return parseTrustErr
+	}
+	if parseConfig.HasUpdateValidationOverride {
+		if parseValidationErr := cacheParallelRegionWorkerRuntime.SetWorkerRegionRendererUpdateValidationEnabled(
+			string(getRendererID),
+			parseConfig.ShouldValidateUpdateRenderOutput,
+		); parseValidationErr != nil {
+			return parseValidationErr
+		}
 	}
 	return nil
 }
@@ -346,17 +392,26 @@ func (parseSource parallelRegionReactiveSource) ReactiveRegionSourceIDs() []stri
 
 // resolveParallelRegionRenderer resolves one registered public parallel-region renderer by stable ID.
 func resolveParallelRegionRenderer(parseRendererID string) (any, error) {
+	getParallelRegionRendererEntry, parseResolveErr := resolveParallelRegionRendererEntry(parseRendererID)
+	if parseResolveErr != nil {
+		return nil, parseResolveErr
+	}
+	return getParallelRegionRendererEntry.getRender, nil
+}
+
+// resolveParallelRegionRendererEntry resolves one registered public parallel-region renderer entry by stable ID.
+func resolveParallelRegionRendererEntry(parseRendererID string) (parallelRegionRendererEntry, error) {
 	getRendererID, parseRendererIDErr := runtime2.ParseRendererID(parseRendererID)
 	if parseRendererIDErr != nil {
-		return nil, parseRendererIDErr
+		return parallelRegionRendererEntry{}, parseRendererIDErr
 	}
 	storeParallelRegionRendererMu.RLock()
 	defer storeParallelRegionRendererMu.RUnlock()
 	getParallelRegionRendererEntry, hasParallelRegionRenderer := cacheParallelRegionRendererByID[getRendererID]
 	if !hasParallelRegionRenderer {
-		return nil, fmt.Errorf("ui: parallel-region renderer %q is not registered", getRendererID)
+		return parallelRegionRendererEntry{}, fmt.Errorf("ui: parallel-region renderer %q is not registered", getRendererID)
 	}
-	return getParallelRegionRendererEntry.getRender, nil
+	return getParallelRegionRendererEntry, nil
 }
 
 // buildParallelRegionHostAdapter creates and mounts one runtime2 host adapter for a public parallel region when browser lifecycle support is active.
@@ -488,13 +543,27 @@ func handleParallelRegionUpdateDispatch(
 	if isParallelRegionTransitionUpdate() {
 		getDispatchPriority = runtime2.HostRegionDispatchPriorityDeferred
 	}
+	getCapabilityReport := buildParallelRegionCapabilityReport()
 	return parseHostRegionAdapter.HandleHostRegionUpdateDispatchWithTransportPriority(
 		parseRuntimeSpec,
 		parseInputVersion,
 		getDispatchPriority,
-		runtime2.GetCapabilityReport(),
+		getCapabilityReport,
 		nil,
 	)
+}
+
+// buildParallelRegionCapabilityReport resolves runtime2 transport capabilities and lazily initializes live runtime detection when unset.
+func buildParallelRegionCapabilityReport() runtime2.CapabilityReport {
+	getCapabilityReport := runtime2.GetCapabilityReport()
+	if getCapabilityReport.HasWorkerSupport {
+		return getCapabilityReport
+	}
+	getInitializedCapabilityReport, parseInitErr := runtime2.InitCapabilityReportFromRuntime()
+	if parseInitErr != nil {
+		return getCapabilityReport
+	}
+	return getInitializedCapabilityReport
 }
 
 // storeParallelRegionHydrationMarker caches one runtime2 shell marker for one hydrated-shell mapping.

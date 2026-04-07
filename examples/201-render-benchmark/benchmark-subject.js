@@ -387,11 +387,11 @@
         if (!getNode) {
             return 0;
         }
-        const getMatch = getNode.textContent.match(/-?\d+/);
+        const getMatch = getNode.textContent.match(/-?\d+(?:\.\d+)?/);
         if (!getMatch) {
             return 0;
         }
-        return Number.parseInt(getMatch[0], 10);
+        return Number.parseFloat(getMatch[0]);
     }
 
     function handleSubjectClick(parseSelector) {

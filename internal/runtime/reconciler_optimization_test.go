@@ -13,6 +13,7 @@ type optimizationTestAdapter struct {
 	getFirstChildCount     int
 	getNextSiblingCount    int
 	insertBeforeCount      int
+	replaceChildrenCount   int
 	beginBatchCount        int
 	endBatchCount          int
 }
@@ -72,6 +73,12 @@ func (parseA *optimizationTestAdapter) InsertBefore(parseParent DOMNode, parseNe
 	parseA.testDOMAdapter.InsertBefore(parseParent, parseNewChild, parseRefChild)
 }
 
+// ReplaceChildren records one wholesale child replacement for optimization coverage.
+func (parseA *optimizationTestAdapter) ReplaceChildren(parseParent DOMNode, parseChildren []DOMNode) {
+	parseA.replaceChildrenCount++
+	parseA.testDOMAdapter.ReplaceChildren(parseParent, parseChildren)
+}
+
 func (parseA *optimizationTestAdapter) BeginBatch(parseParent DOMNode) {
 	parseA.beginBatchCount++
 }
@@ -90,6 +97,7 @@ func (parseA *optimizationTestAdapter) resetCounts() {
 	parseA.getFirstChildCount = 0
 	parseA.getNextSiblingCount = 0
 	parseA.insertBeforeCount = 0
+	parseA.replaceChildrenCount = 0
 	parseA.beginBatchCount = 0
 	parseA.endBatchCount = 0
 }
@@ -436,6 +444,125 @@ func TestCommitRootRepairsChildOrderWhenKeyedChildrenMove(parseT *testing.T) {
 		if parseChild.attributes["id"] != parseExpectedID {
 			parseT.Fatalf("expected child order %v, got id %q at index %d", parseExpectedIDs, parseChild.attributes["id"], parseIndex)
 		}
+	}
+}
+
+func TestApplyCommittedChildOrderReusesObservedChildScan(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseNodeA := parseAdapter.CreateElement("div")
+	parseNodeB := parseAdapter.CreateElement("div")
+	parseNodeC := parseAdapter.CreateElement("div")
+
+	parseAdapter.AppendChild(parseParent, parseNodeC)
+	parseAdapter.AppendChild(parseParent, parseNodeA)
+	parseAdapter.AppendChild(parseParent, parseNodeB)
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, []DOMNode{parseNodeA, parseNodeB, parseNodeC})
+
+	if parseAdapter.getFirstChildCount != 1 {
+		parseT.Fatalf("expected one observed-child scan, got %d first-child reads", parseAdapter.getFirstChildCount)
+	}
+	if parseAdapter.getNextSiblingCount != 3 {
+		parseT.Fatalf("expected one observed-child walk across three children, got %d next-sibling reads", parseAdapter.getNextSiblingCount)
+	}
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != 3 {
+		parseT.Fatalf("expected one repaired child set, got %d children", len(parseChildren))
+	}
+	if !IsSameDOMNode(parseChildren[0], parseNodeA) || !IsSameDOMNode(parseChildren[1], parseNodeB) || !IsSameDOMNode(parseChildren[2], parseNodeC) {
+		parseT.Fatalf("expected repaired child order A,B,C, got %#v", parseChildren)
+	}
+}
+
+// TestApplyCommittedChildOrderUsesReplaceChildrenFastPath verifies large reorder repairs collapse to one replaceChildren call when the observed child set matches.
+func TestApplyCommittedChildOrderUsesReplaceChildrenFastPath(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	getExpected := make([]DOMNode, 0, getCommittedChildReplaceThreshold)
+
+	for getIndex := 0; getIndex < getCommittedChildReplaceThreshold; getIndex++ {
+		getNode := parseAdapter.CreateElement("div")
+		getExpected = append(getExpected, getNode)
+	}
+	for getIndex := len(getExpected) - 1; getIndex >= 0; getIndex-- {
+		parseAdapter.AppendChild(parseParent, getExpected[getIndex])
+	}
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, getExpected)
+
+	if parseAdapter.replaceChildrenCount != 1 {
+		parseT.Fatalf("expected one replaceChildren fast path call, got %d", parseAdapter.replaceChildrenCount)
+	}
+	if parseAdapter.insertBeforeCount != 0 {
+		parseT.Fatalf("expected replaceChildren fast path to skip incremental inserts, got %d", parseAdapter.insertBeforeCount)
+	}
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != len(getExpected) {
+		parseT.Fatalf("expected %d repaired children, got %d", len(getExpected), len(parseChildren))
+	}
+	for getIndex, getExpectedNode := range getExpected {
+		if !IsSameDOMNode(parseChildren[getIndex], getExpectedNode) {
+			parseT.Fatalf("expected child %d to match repaired order", getIndex)
+		}
+	}
+}
+
+// TestApplyCommittedChildOrderSkipsReplaceChildrenWithUnexpectedObservedNode verifies the wholesale fast path does not drop unexpected siblings that the incremental repair logic preserves.
+func TestApplyCommittedChildOrderSkipsReplaceChildrenWithUnexpectedObservedNode(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	getExpected := make([]DOMNode, 0, getCommittedChildReplaceThreshold)
+
+	for getIndex := 0; getIndex < getCommittedChildReplaceThreshold; getIndex++ {
+		getNode := parseAdapter.CreateElement("div")
+		getExpected = append(getExpected, getNode)
+	}
+	getUnexpected := parseAdapter.CreateElement("aside")
+	parseAdapter.AppendChild(parseParent, getUnexpected)
+	for getIndex := len(getExpected) - 1; getIndex >= 0; getIndex-- {
+		parseAdapter.AppendChild(parseParent, getExpected[getIndex])
+	}
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, getExpected)
+
+	if parseAdapter.replaceChildrenCount != 0 {
+		parseT.Fatalf("expected unexpected observed child to skip replaceChildren, got %d calls", parseAdapter.replaceChildrenCount)
+	}
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != len(getExpected)+1 {
+		parseT.Fatalf("expected unexpected child to be preserved, got %d children", len(parseChildren))
+	}
+	if !IsSameDOMNode(parseChildren[len(parseChildren)-1], getUnexpected) {
+		parseT.Fatal("expected unexpected child to remain attached")
+	}
+}
+
+// TestShouldBatchCommittedPlacementsKeepsBatchingWithChildOrderRepair verifies keyed placement subtrees can still use append batching before the post-commit child-order repair pass.
+func TestShouldBatchCommittedPlacementsKeepsBatchingWithChildOrderRepair(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	parseFiber := &Fiber{
+		needsChildOrder: true,
+		child: &Fiber{
+			effectTag: "PLACEMENT",
+			dom:       parseAdapter.CreateElement("div"),
+			sibling: &Fiber{
+				effectTag: "PLACEMENT",
+				dom:       parseAdapter.CreateElement("div"),
+			},
+		},
+	}
+
+	if !parseRt.shouldBatchCommittedPlacements(parseFiber, parseParent) {
+		parseT.Fatal("expected child-order repair subtree to keep placement batching enabled")
 	}
 }
 

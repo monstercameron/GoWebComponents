@@ -46,21 +46,24 @@ func (parseN *WASMDOMNode) Value() js.Value {
 
 // WASMDOMAdapter implements runtime.DOMAdapter for browser/WASM.
 type WASMDOMAdapter struct {
-	document         js.Value
-	createElement    js.Value
-	createTextNode   js.Value
-	querySelector    js.Value
-	querySelectorAll js.Value
-	getElementByID   js.Value
-	getByClassName   js.Value
-	getByTagName     js.Value
+	document             js.Value
+	createElement        js.Value
+	createTextNode       js.Value
+	querySelector        js.Value
+	querySelectorAll     js.Value
+	getElementByID       js.Value
+	getByClassName       js.Value
+	getByTagName         js.Value
+	storeTemplate        js.Value
+	storeTemplateContent js.Value
 	// Batch operation support
-	batchStack []wasmBatchState
+	batchStack             []wasmBatchState
+	storeBatchChildrenPool [][]interface{}
 }
 
 type wasmBatchState struct {
 	parent   *WASMDOMNode
-	children []js.Value
+	children []interface{}
 }
 
 var _ runtime.DOMAdapter = (*WASMDOMAdapter)(nil)
@@ -68,16 +71,19 @@ var _ runtime.DOMAdapter = (*WASMDOMAdapter)(nil)
 // NewWASMDOMAdapter creates a DOM adapter backed by the browser document.
 func NewWASMDOMAdapter() *WASMDOMAdapter {
 	parseDoc := js.Global().Get("document")
+	getTemplate := parseDoc.Call("createElement", "template")
 	return &WASMDOMAdapter{
 		document: parseDoc,
 		// Bind methods to document to ensure correct 'this' context when Invoked
-		createElement:    parseDoc.Get("createElement").Call("bind", parseDoc),
-		createTextNode:   parseDoc.Get("createTextNode").Call("bind", parseDoc),
-		querySelector:    parseDoc.Get("querySelector").Call("bind", parseDoc),
-		querySelectorAll: parseDoc.Get("querySelectorAll").Call("bind", parseDoc),
-		getElementByID:   parseDoc.Get("getElementById").Call("bind", parseDoc),
-		getByClassName:   parseDoc.Get("getElementsByClassName").Call("bind", parseDoc),
-		getByTagName:     parseDoc.Get("getElementsByTagName").Call("bind", parseDoc),
+		createElement:        parseDoc.Get("createElement").Call("bind", parseDoc),
+		createTextNode:       parseDoc.Get("createTextNode").Call("bind", parseDoc),
+		querySelector:        parseDoc.Get("querySelector").Call("bind", parseDoc),
+		querySelectorAll:     parseDoc.Get("querySelectorAll").Call("bind", parseDoc),
+		getElementByID:       parseDoc.Get("getElementById").Call("bind", parseDoc),
+		getByClassName:       parseDoc.Get("getElementsByClassName").Call("bind", parseDoc),
+		getByTagName:         parseDoc.Get("getElementsByTagName").Call("bind", parseDoc),
+		storeTemplate:        getTemplate,
+		storeTemplateContent: getTemplate.Get("content"),
 	}
 }
 
@@ -117,11 +123,19 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 	if parseA.document.IsNull() || parseA.document.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
 	}
+	if len(parseAttrs) == 0 {
+		parseNode := parseA.createElement.Invoke(parseTag)
+		if parseNode.IsNull() || parseNode.IsUndefined() {
+			return &WASMDOMNode{value: js.Null()}
+		}
+		if parseText != "" {
+			parseNode.Set("textContent", parseText)
+		}
+		return &WASMDOMNode{value: parseNode}
+	}
 	if getHTML, hasHTML := buildHostElementHTML(parseTag, parseAttrs, parseText); hasHTML {
-		parseTemplate := parseA.createElement.Invoke("template")
-		parseTemplate.Set("innerHTML", getHTML)
-		parseContent := parseTemplate.Get("content")
-		parseNode := parseContent.Get("firstChild")
+		parseA.storeTemplate.Set("innerHTML", getHTML)
+		parseNode := parseA.storeTemplateContent.Get("firstChild")
 		if parseNode.IsNull() || parseNode.IsUndefined() {
 			return &WASMDOMNode{value: js.Null()}
 		}
@@ -200,7 +214,7 @@ func (parseA *WASMDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNod
 		}
 	}
 
-	parseParentNode.value.Call("appendChild", parseChildNode.value)
+	parseParentNode.value.Call("append", parseChildNode.value)
 }
 
 func (parseA *WASMDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNode) {
@@ -209,7 +223,11 @@ func (parseA *WASMDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNod
 	if !parseOk1 || !parseOk2 {
 		return
 	}
-	parseParentNode.value.Call("removeChild", parseChildNode.value)
+	parseChildParent := parseChildNode.value.Get("parentNode")
+	if parseChildParent.IsNull() || parseChildParent.IsUndefined() || !parseChildParent.Equal(parseParentNode.value) {
+		return
+	}
+	parseChildNode.value.Call("remove")
 }
 
 func (parseA *WASMDOMAdapter) InsertBefore(parseParent, parseNewNode, parseReferenceNode runtime.DOMNode) {
@@ -217,7 +235,11 @@ func (parseA *WASMDOMAdapter) InsertBefore(parseParent, parseNewNode, parseRefer
 	parseNewN, parseOk2 := parseNewNode.(*WASMDOMNode)
 	parseRefN, parseOk3 := parseReferenceNode.(*WASMDOMNode)
 	if parseOk1 && parseOk2 && parseOk3 {
-		parseParentN.value.Call("insertBefore", parseNewN.value, parseRefN.value)
+		parseRefParent := parseRefN.value.Get("parentNode")
+		if parseRefParent.IsNull() || parseRefParent.IsUndefined() || !parseRefParent.Equal(parseParentN.value) {
+			return
+		}
+		parseRefN.value.Call("before", parseNewN.value)
 	}
 }
 
@@ -226,8 +248,35 @@ func (parseA *WASMDOMAdapter) ReplaceChild(parseParent, parseNewNode, parseOldNo
 	parseNewN, parseOk2 := parseNewNode.(*WASMDOMNode)
 	parseOldN, parseOk3 := parseOldNode.(*WASMDOMNode)
 	if parseOk1 && parseOk2 && parseOk3 {
-		parseParentN.value.Call("replaceChild", parseNewN.value, parseOldN.value)
+		parseOldParent := parseOldN.value.Get("parentNode")
+		if parseOldParent.IsNull() || parseOldParent.IsUndefined() || !parseOldParent.Equal(parseParentN.value) {
+			return
+		}
+		parseOldN.value.Call("replaceWith", parseNewN.value)
 	}
+}
+
+// ReplaceChildren replaces one parent child list in one DOM bridge call.
+func (parseA *WASMDOMAdapter) ReplaceChildren(parseParent runtime.DOMNode, parseChildren []runtime.DOMNode) {
+	parseParentNode, parseOk := parseParent.(*WASMDOMNode)
+	if !parseOk {
+		return
+	}
+	if len(parseChildren) == 0 {
+		parseParentNode.value.Call("replaceChildren")
+		return
+	}
+	getArgs := parseA.getBatchChildren()
+	for _, parseChild := range parseChildren {
+		parseChildNode, parseChildOk := parseChild.(*WASMDOMNode)
+		if !parseChildOk {
+			parseA.storeBatchChildren(getArgs)
+			return
+		}
+		getArgs = append(getArgs, parseChildNode.value)
+	}
+	parseParentNode.value.Call("replaceChildren", getArgs...)
+	parseA.storeBatchChildren(getArgs)
 }
 
 func (parseA *WASMDOMAdapter) QuerySelector(parseSelector string) interface{} {
@@ -406,7 +455,7 @@ func (parseA *WASMDOMAdapter) SetStyles(parseNode runtime.DOMNode, parseStyles m
 // BeginBatch starts batching DOM operations for a parent node
 func (parseA *WASMDOMAdapter) BeginBatch(parseParent runtime.DOMNode) {
 	if parseParentNode, parseOk := parseParent.(*WASMDOMNode); parseOk {
-		parseA.batchStack = append(parseA.batchStack, wasmBatchState{parent: parseParentNode, children: make([]js.Value, 0, 8)})
+		parseA.batchStack = append(parseA.batchStack, wasmBatchState{parent: parseParentNode, children: parseA.getBatchChildren()})
 	}
 }
 
@@ -420,12 +469,34 @@ func (parseA *WASMDOMAdapter) EndBatch() {
 	parseState := parseA.batchStack[parseDepth-1]
 	parseA.batchStack = parseA.batchStack[:parseDepth-1]
 	if parseState.parent != nil && len(parseState.children) > 0 {
-		parseFragment := parseA.document.Call("createDocumentFragment")
-		for _, parseChild := range parseState.children {
-			parseFragment.Call("appendChild", parseChild)
-		}
-		parseState.parent.value.Call("appendChild", parseFragment)
+		parseState.parent.value.Call("append", parseState.children...)
 	}
+	parseA.storeBatchChildren(parseState.children)
+}
+
+// getBatchChildren returns one reusable DOM argument buffer for append-style bridge calls.
+func (parseA *WASMDOMAdapter) getBatchChildren() []interface{} {
+	if parseA == nil {
+		return make([]interface{}, 0, 8)
+	}
+	getPoolIndex := len(parseA.storeBatchChildrenPool) - 1
+	if getPoolIndex < 0 {
+		return make([]interface{}, 0, 8)
+	}
+	getChildren := parseA.storeBatchChildrenPool[getPoolIndex]
+	parseA.storeBatchChildrenPool = parseA.storeBatchChildrenPool[:getPoolIndex]
+	return getChildren[:0]
+}
+
+// storeBatchChildren stores one DOM argument buffer for later append-style bridge-call reuse.
+func (parseA *WASMDOMAdapter) storeBatchChildren(parseChildren []interface{}) {
+	if parseA == nil || parseChildren == nil {
+		return
+	}
+	for getIndex := range parseChildren {
+		parseChildren[getIndex] = nil
+	}
+	parseA.storeBatchChildrenPool = append(parseA.storeBatchChildrenPool, parseChildren[:0])
 }
 
 // BatchSetAttributes sets multiple attributes without paying one extra Go callback hop.

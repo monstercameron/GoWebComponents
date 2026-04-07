@@ -221,6 +221,14 @@ func (parseA *MockDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNod
 	if parsePok && parseCok {
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
+		if parseC.Parent != nil {
+			for parseIndex, parseExistingChild := range parseC.Parent.Children {
+				if parseExistingChild.ID == parseC.ID {
+					parseC.Parent.Children = append(parseC.Parent.Children[:parseIndex], parseC.Parent.Children[parseIndex+1:]...)
+					break
+				}
+			}
+		}
 		parseP.Children = append(parseP.Children, parseC)
 		parseC.Parent = parseP
 		parseA.recordOpLocked("appendChild", parseC.ID, map[string]int{"parentID": parseP.ID})
@@ -251,6 +259,14 @@ func (parseA *MockDOMAdapter) InsertBefore(parseParent, parseNewNode, parseRefer
 	if parsePok && parseNok && parseRok {
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
+		if parseN.Parent != nil {
+			for parseIndex, parseExistingChild := range parseN.Parent.Children {
+				if parseExistingChild.ID == parseN.ID {
+					parseN.Parent.Children = append(parseN.Parent.Children[:parseIndex], parseN.Parent.Children[parseIndex+1:]...)
+					break
+				}
+			}
+		}
 		for parseI, parseCh := range parseP.Children {
 			if parseCh.ID == parseR.ID {
 				parseP.Children = append(parseP.Children[:parseI], append([]*MockDOMNode{parseN}, parseP.Children[parseI:]...)...)

@@ -43,7 +43,7 @@ const (
 	benchmarkEnterpriseTargetSectionID        = "section-3"
 	benchmarkRuntime3ShardCount               = 4
 	benchmarkRuntime3CoreRenderBundleItems    = 96
-	benchmarkRuntime3CoreRenderBundleMaxItems = benchmarkCoreStressListSize
+	benchmarkRuntime3CoreRenderBundleMaxItems = benchmarkCoreStressListSize + benchmarkCoreAppendCount
 	benchmarkRuntime3ContentRenderBundleItems = 16
 
 	benchmarkRuntime3CoreRendererID    = "examples.render-benchmark.runtime3.core"
@@ -632,8 +632,11 @@ func buildBenchmarkRuntime3SchedulerShardIDs(parseMode string) []string {
 // buildBenchmarkRuntime3RenderShardIDs trims the scheduler shard list to the fanout one render pass can actually use.
 func buildBenchmarkRuntime3RenderShardIDs(parseMode string, parseRenderRegionCount int) []string {
 	getSchedulerShardIDs := buildBenchmarkRuntime3SchedulerShardIDs(parseMode)
-	if parseRenderRegionCount < 1 || len(getSchedulerShardIDs) <= parseRenderRegionCount {
-		return getSchedulerShardIDs
+	if parseRenderRegionCount < 1 {
+		return nil
+	}
+	if len(getSchedulerShardIDs) <= parseRenderRegionCount {
+		return append([]string(nil), getSchedulerShardIDs...)
 	}
 	return append([]string(nil), getSchedulerShardIDs[:parseRenderRegionCount]...)
 }
@@ -760,7 +763,7 @@ func buildBenchmarkRuntime3CoreRegionNodes(parseMode string, parseCoreChunks []b
 	getModeKey := buildBenchmarkRuntime3ModeKey(parseMode)
 	_ = parseRefreshToken
 	getRenderChunks := buildBenchmarkRuntime3CoreRenderChunks(parseCoreChunks)
-	getSchedulerShardIDs := buildBenchmarkRuntime3RenderShardIDs(parseMode, len(getRenderChunks))
+	getSchedulerShardIDs := buildBenchmarkRuntime3SchedulerShardIDs(parseMode)
 	getRegionNodes := make([]ui.Node, 0, len(getRenderChunks))
 	for parseChunkIndex, getChunk := range getRenderChunks {
 		getRegionNodes = append(getRegionNodes, ui.ParallelRegion(ui.ParallelRegionSpec[renderBenchmarkRuntime3CoreProps]{
@@ -1455,7 +1458,7 @@ func buildBenchmarkRuntime3Node(parseMode string, parseView string, parseCoreIte
 				Class: "grid gap-2",
 				Data:  map[string]string{"refresh-token": strconv.Itoa(parseRefreshToken)},
 			},
-			// Keep one region per prepared chunk so append-only updates can preserve unchanged regions.
+			// Keep render bundles stable so worker fanout does not leak into extra region commits.
 			buildBenchmarkRuntime3CoreRegionNodes(parseMode, getCoreRegionChunks, parseRefreshToken)...,
 		)
 	}
@@ -1514,7 +1517,7 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 			parsePrevious.GetAdaptiveChunkCount = len(getPreparedChunks)
 			parsePrevious.GetCacheHitCount = getCacheHitCount
 			parsePrevious.GetPreparedItems = len(parseCoreItems)
-			parsePrevious.GetLastBatchMS = time.Since(parseStartedAt).Milliseconds()
+			parsePrevious.GetLastBatchMS = time.Since(parseStartedAt).Seconds() * 1000
 			parsePrevious.GetErrorText = ""
 			return parsePrevious
 		})
@@ -1924,7 +1927,7 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 			html.Div(html.Props{Class: "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"}, html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-cyan-100"}, html.Text("Worker Count")), html.P(html.Props{ID: "metric-worker-count", Class: "mt-2 text-lg font-semibold text-white"}, html.Text(strconv.Itoa(getWorkerSnapshot.GetWorkerCount)))),
 			html.Div(html.Props{Class: "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"}, html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-cyan-100"}, html.Text("Batch Count")), html.P(html.Props{ID: "metric-worker-batch-count", Class: "mt-2 text-lg font-semibold text-white"}, html.Text(strconv.Itoa(getWorkerSnapshot.GetPreparedBatchCount)))),
 			html.Div(html.Props{Class: "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"}, html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-cyan-100"}, html.Text("Prepared Items")), html.P(html.Props{ID: "metric-worker-items", Class: "mt-2 text-lg font-semibold text-white"}, html.Text(strconv.Itoa(getWorkerSnapshot.GetPreparedItems)))),
-			html.Div(html.Props{Class: "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"}, html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-cyan-100"}, html.Text("Last Batch")), html.P(html.Props{ID: "metric-worker-batch-ms", Class: "mt-2 text-lg font-semibold text-white"}, html.Text(strconv.FormatInt(getWorkerSnapshot.GetLastBatchMS, 10)+" ms"))),
+			html.Div(html.Props{Class: "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"}, html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-cyan-100"}, html.Text("Last Batch")), html.P(html.Props{ID: "metric-worker-batch-ms", Class: "mt-2 text-lg font-semibold text-white"}, html.Text(strconv.FormatFloat(getWorkerSnapshot.GetLastBatchMS, 'f', 3, 64)+" ms"))),
 		)
 	}
 

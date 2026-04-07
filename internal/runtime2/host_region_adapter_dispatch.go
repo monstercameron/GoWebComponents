@@ -323,13 +323,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPatchCommit(par
 	}
 	buildRegionID := string(parseHostRegionAdapter.storeRegionInstanceID)
 	hasPatchKeyedMoveOp := parseHasPatchKeyedMoveOp(parsePatch.GetOps)
-	var buildKnownNodeIDs map[uint64]struct{}
-	var buildSiblingCountByParent map[uint64]uint32
-	if hasPatchKeyedMoveOp {
-		buildKnownNodeIDs, buildSiblingCountByParent = BuildRegionDOMPatchLookupMaps(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
-	} else {
-		buildKnownNodeIDs = BuildKnownNodeIDsForRegionDOMIndex(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
-	}
+	buildKnownNodeIDs, buildSiblingCountByParent := parseHostRegionAdapter.getHostRegionPatchLookupState(hasPatchKeyedMoveOp)
 	parsePatchResult, hasPatchApply, parsePatchErr := ParsePatchStreamTransactionWithKeyedMoveHint(
 		parsePatch,
 		buildRegionID,
@@ -364,11 +358,24 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPatchCommit(par
 			HasIgnored: true,
 		}, nil
 	}
+	canApplyLookupTransaction := parseHostRegionAdapter.canHostRegionPatchLookupApplyTransaction(parsePatchResult.GetTransaction)
+	getLookupDelta := hostRegionPatchLookupDelta{}
+	hasLookupDelta := false
+	if !canApplyLookupTransaction {
+		getLookupDelta, hasLookupDelta = parseHostRegionAdapter.buildHostRegionPatchLookupDelta(parsePatchResult.GetTransaction)
+	}
 	_, parseTransactionErr := parseDOMCommitter.CommitRegionPatchTransaction(parsePatchResult.GetTransaction)
 	if parseTransactionErr != nil {
 		parseFailureKind := parseGetHostRegionDOMFailureKind(parseTransactionErr)
 		_ = parseHostRegionAdapter.HandleHostRegionDOMPatchTransactionFailure(parseFailureKind, parsePatchResult.GetHeader.InputVersion)
 		return HostRegionWorkerOutputResult{}, parseTransactionErr
+	}
+	if hasLookupDelta {
+		if !parseHostRegionAdapter.applyHostRegionPatchLookupDelta(getLookupDelta) {
+			parseHostRegionAdapter.clearHostRegionPatchLookupCache()
+		}
+	} else if !parseHostRegionAdapter.applyHostRegionPatchLookupTransaction(parsePatchResult.GetTransaction) {
+		parseHostRegionAdapter.clearHostRegionPatchLookupCache()
 	}
 	parseWorkerOutputResult, parseWorkerOutputErr := parseHostRegionAdapter.parseHandleHostRegionWorkerOutputCommit(parsePatchResult.GetHeader.InputVersion)
 	if parseWorkerOutputErr != nil {

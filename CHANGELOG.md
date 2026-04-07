@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-07
+
+### runtime2 renderer and benchmark performance pass
+
+- Reduced `runtime2` host and commit overhead with append-only and remove-only patch-transaction fast paths, narrower rollback snapshots, cheaper insert-only host patch cache handling, and focused compare benchmarks for the new commit paths.
+- Cut `js/wasm` DOM bridge cost in `internal/platform/jsdom` and `internal/runtime` by caching prepared host mounts, reusing variadic batch buffers, keeping append batching active through child-order repair, and broadening reconciler optimization coverage and micro-benchmarks.
+- Improved Example 201 worker-backed benchmark paths by adding worker-native parallel-region rendering hooks, more adaptive worker batching and cache reuse, and clearer worker timing diagnostics for the React 19 comparison runs.
+
 ## 2026-04-06
 
 ### runtime1 render-path and example 201 benchmark pass

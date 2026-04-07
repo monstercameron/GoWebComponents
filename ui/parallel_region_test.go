@@ -138,12 +138,9 @@ func TestBuildParallelRegionWorkerRenderOutputWrapsShell(parseT *testing.T) {
 		runtime2.RegionInstanceID("dashboard.hot-panel:worker-output"),
 		Fragment(Text("hello")),
 	)
-	parseRenderOutput, parseRenderErr := buildParallelRegionWorkerRenderOutput(
-		"dashboard.hot-panel:worker-output",
-		"",
-		nil,
-		nil,
-	)
+	parseRenderOutput, parseRenderErr := buildParallelRegionWorkerRenderOutput(runtime2.WorkerRegionMountSpec{
+		RegionID: "dashboard.hot-panel:worker-output",
+	})
 	if parseRenderErr != nil {
 		parseT.Fatalf("buildParallelRegionWorkerRenderOutput returned error: %v", parseRenderErr)
 	}
@@ -313,6 +310,70 @@ func TestRegisterParallelRegionRejectsDuplicatePublicRegistration(parseT *testin
 	}
 	if !strings.Contains(parseErr.Error(), "already registered") {
 		parseT.Fatalf("duplicate RegisterParallelRegion error = %q, want already-registered guidance", parseErr.Error())
+	}
+}
+
+// TestSetParallelRegionWorkerRendererUsesExplicitWorkerRenderOutput verifies configured public regions can provide worker-native render output without cached ui.Node conversion.
+func TestSetParallelRegionWorkerRendererUsesExplicitWorkerRenderOutput(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+	if parseErr := SetParallelRegionWorkerRendererWithConfig(
+		"dashboard.hot-panel",
+		func(parseMount runtime2.WorkerRegionMountSpec) (any, error) {
+			parseProps, hasProps := parseMount.Snapshot.Props.(registerParallelRegionProps)
+			if !hasProps {
+				return nil, fmt.Errorf("worker props type = %T", parseMount.Snapshot.Props)
+			}
+			return map[string]any{
+				"kind": "text",
+				"text": parseProps.Label + " worker",
+			}, nil
+		},
+		ParallelRegionWorkerRendererConfig{
+			IsTrusted:                        true,
+			HasUpdateValidationOverride:      true,
+			ShouldValidateUpdateRenderOutput: false,
+		},
+	); parseErr != nil {
+		parseT.Fatalf("SetParallelRegionWorkerRendererWithConfig returned error: %v", parseErr)
+	}
+	parseRenderOutput, parseRenderErr := buildParallelRegionWorkerRenderOutput(runtime2.WorkerRegionMountSpec{
+		RegionID:   "dashboard.hot-panel:worker-native",
+		RendererID: "dashboard.hot-panel",
+		Snapshot: runtime2.SnapshotEnvelope{
+			Props: registerParallelRegionProps{Label: "Hot"},
+		},
+	})
+	if parseRenderErr != nil {
+		parseT.Fatalf("buildParallelRegionWorkerRenderOutput(explicit) returned error: %v", parseRenderErr)
+	}
+	parseCanonicalIR, parseCanonicalErr := runtime2.BuildCanonicalRenderIR(parseRenderOutput)
+	if parseCanonicalErr != nil {
+		parseT.Fatalf("BuildCanonicalRenderIR returned error: %v", parseCanonicalErr)
+	}
+	parseRegionDOMIndex := runtime2.BuildRegionDOMIndex()
+	if _, parseApplyErr := runtime2.ApplyRegionDOMCanonicalSnapshot(parseRegionDOMIndex, "dashboard.hot-panel:worker-native", parseCanonicalIR); parseApplyErr != nil {
+		parseT.Fatalf("ApplyRegionDOMCanonicalSnapshot returned error: %v", parseApplyErr)
+	}
+	getRootNode, parseRootLookupErr := parseRegionDOMIndex.GetRegionDOMNode("dashboard.hot-panel:worker-native", parseCanonicalIR.GetRootNodeID)
+	if parseRootLookupErr != nil {
+		parseT.Fatalf("GetRegionDOMNode(root) returned error: %v", parseRootLookupErr)
+	}
+	if len(getRootNode.GetChildNodeIDs) != 1 {
+		parseT.Fatalf("root child count = %d, want 1", len(getRootNode.GetChildNodeIDs))
+	}
+	getChildNode, parseChildLookupErr := parseRegionDOMIndex.GetRegionDOMNode("dashboard.hot-panel:worker-native", getRootNode.GetChildNodeIDs[0])
+	if parseChildLookupErr != nil {
+		parseT.Fatalf("GetRegionDOMNode(child) returned error: %v", parseChildLookupErr)
+	}
+	if getChildNode.GetText != "Hot worker" {
+		parseT.Fatalf("worker child text = %q, want %q", getChildNode.GetText, "Hot worker")
 	}
 }
 
@@ -1008,12 +1069,16 @@ func TestBuildParallelRegionWorkerRenderOutputAndUpdateEdgeBranches(parseT *test
 	}); parseErr != nil {
 		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
 	}
-	getRenderOutput, parseRenderErr := buildParallelRegionWorkerRenderOutput(
-		"dashboard.hot-panel:worker-recache",
-		"dashboard.hot-panel",
-		registerParallelRegionProps{Label: "Worker"},
-		&runtime2.EventSlotDispatch{SlotID: "primary.action", EventType: parallelRegionClickEventType},
-	)
+	getRenderOutput, parseRenderErr := buildParallelRegionWorkerRenderOutput(runtime2.WorkerRegionMountSpec{
+		RegionID:   "dashboard.hot-panel:worker-recache",
+		RendererID: "dashboard.hot-panel",
+		Snapshot: runtime2.SnapshotEnvelope{
+			Props: registerParallelRegionProps{Label: "Worker"},
+		},
+		RenderInput: runtime2.WorkerRenderInput{
+			GetEventSlot: &runtime2.EventSlotDispatch{SlotID: "primary.action", EventType: parallelRegionClickEventType},
+		},
+	})
 	if parseRenderErr != nil {
 		parseT.Fatalf("buildParallelRegionWorkerRenderOutput(recache) returned error: %v", parseRenderErr)
 	}

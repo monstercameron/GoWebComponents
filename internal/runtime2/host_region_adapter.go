@@ -48,6 +48,9 @@ type HostRegionAdapter struct {
 	storeHostRegionDispatchPropsEntries              []buildSnapshotDispatchMapEntry
 	storeHostRegionDispatchPropsOrderedKeys          []string
 	storeHostRegionDispatchPropsScratchKeys          []string
+	storeHostRegionPatchKnownNodeIDs                 map[uint64]struct{}
+	storeHostRegionPatchSiblingCountByParent         map[uint64]uint32
+	storeHostRegionPatchLookupVersion                uint64
 	storeHostRegionCoordinatorCacheEpoch             uint64
 	storeHostRegionCoordinatorCacheRendererID        RendererID
 	storeHostRegionCoordinatorCacheSourceIDs         []string
@@ -87,6 +90,8 @@ type HostRegionAdapter struct {
 	hasHostRegionDispatchSourceVersionTuple          bool
 	hasHostRegionDispatchVersionVector               bool
 	hasHostRegionDispatchPropsLayoutFresh            bool
+	hasHostRegionPatchLookupCache                    bool
+	hasHostRegionPatchSiblingCountCache              bool
 	hasHostRegionCoordinatorCache                    bool
 	hasHostRegionSourceSnapshotCache                 bool
 	hasHostRegionSnapshotPropsCacheToken             bool

@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const getCommittedChildReplaceThreshold = 8
+
 type preparedHostDOMAdapter interface {
 	CreatePreparedElement(tag string, attrs []HostAttr, text string) DOMNode
 }
@@ -573,8 +575,19 @@ func (parseRt *Runtime) shouldRepairCommittedChildOrder(parseFiber *Fiber) bool 
 	return parseFiber != nil && parseFiber.needsChildOrder
 }
 
-// countCommittedPlacementChildren counts DOM-bearing placements that append directly into the current parent.
-func (parseRt *Runtime) countCommittedPlacementChildren(parseFiber *Fiber) int {
+// hasCommittedPlacementChildrenAtLeast reports whether one subtree contains at least the requested number of DOM-bearing placements.
+func (parseRt *Runtime) hasCommittedPlacementChildrenAtLeast(parseFiber *Fiber, parseLimit int) bool {
+	if parseRt == nil || parseLimit <= 0 {
+		return true
+	}
+	return parseRt.countCommittedPlacementChildrenUntil(parseFiber, parseLimit) >= parseLimit
+}
+
+// countCommittedPlacementChildrenUntil counts DOM-bearing placements until the requested threshold is satisfied.
+func (parseRt *Runtime) countCommittedPlacementChildrenUntil(parseFiber *Fiber, parseLimit int) int {
+	if parseRt == nil || parseLimit <= 0 {
+		return 0
+	}
 	parseCount := 0
 	for parseFiber != nil {
 		if parseRt.isPortalFiber(parseFiber) {
@@ -584,12 +597,18 @@ func (parseRt *Runtime) countCommittedPlacementChildren(parseFiber *Fiber) int {
 		if !IsDOMNodeNull(parseFiber.dom) {
 			if parseFiber.effectTag == "PLACEMENT" {
 				parseCount++
+				if parseCount >= parseLimit {
+					return parseCount
+				}
 			}
 			parseFiber = parseFiber.sibling
 			continue
 		}
 		if parseFiber.child != nil {
-			parseCount += parseRt.countCommittedPlacementChildren(parseFiber.child)
+			parseCount += parseRt.countCommittedPlacementChildrenUntil(parseFiber.child, parseLimit-parseCount)
+			if parseCount >= parseLimit {
+				return parseCount
+			}
 		}
 		parseFiber = parseFiber.sibling
 	}
@@ -601,16 +620,13 @@ func (parseRt *Runtime) shouldBatchCommittedPlacements(parseFiber *Fiber, parseD
 	if parseRt == nil || parseRt.domAdapter == nil || parseFiber == nil || IsDOMNodeNull(parseDomParent) {
 		return false
 	}
-	if parseRt.shouldRepairCommittedChildOrder(parseFiber) {
-		return false
-	}
 	if _, parseOk := parseRt.domAdapter.(interface {
 		BeginBatch(DOMNode)
 		EndBatch()
 	}); !parseOk {
 		return false
 	}
-	return parseRt.countCommittedPlacementChildren(parseFiber.child) >= 2
+	return parseRt.hasCommittedPlacementChildrenAtLeast(parseFiber.child, 2)
 }
 
 // buildCommittedChildNodes is an internal reconciler helper.
@@ -664,33 +680,86 @@ func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseEx
 	if isCommittedChildOrderStable(parseExpected, parseObserved) {
 		return
 	}
+	if parseReplaceAdapter, parseOk := parseRt.domAdapter.(interface {
+		ReplaceChildren(DOMNode, []DOMNode)
+	}); parseOk && len(parseExpected) >= getCommittedChildReplaceThreshold && canReplaceCommittedChildren(parseExpected, parseObserved) {
+		parseReplaceAdapter.ReplaceChildren(parseDomParent, parseExpected)
+		return
+	}
 
 	for parseIndex, parseExpectedNode := range parseExpected {
-		parseObserved = parseRt.buildObservedChildNodes(parseDomParent)
 		if parseIndex < len(parseObserved) && IsSameDOMNode(parseObserved[parseIndex], parseExpectedNode) {
 			continue
 		}
 
-		isParseAttached := false
-		for _, parseObservedNode := range parseObserved {
-			if IsSameDOMNode(parseObservedNode, parseExpectedNode) {
-				isParseAttached = true
-				break
-			}
-		}
+		getObservedIndex := parseFindObservedChildNodeIndex(parseObserved, parseExpectedNode, parseIndex)
+		isParseAttached := getObservedIndex >= 0
 
-		// Remove first so the test adapters and browser adapters both model a DOM move as one relocation, not one duplicate append.
 		if isParseAttached {
-			parseRt.domAdapter.RemoveChild(parseDomParent, parseExpectedNode)
-			parseObserved = parseRt.buildObservedChildNodes(parseDomParent)
+			parseObserved = parseRemoveObservedChildNode(parseObserved, getObservedIndex)
 		}
 
 		if parseIndex < len(parseObserved) {
 			parseRt.domAdapter.InsertBefore(parseDomParent, parseExpectedNode, parseObserved[parseIndex])
+			parseObserved = parseInsertObservedChildNode(parseObserved, parseIndex, parseExpectedNode)
 			continue
 		}
 		parseRt.domAdapter.AppendChild(parseDomParent, parseExpectedNode)
+		parseObserved = append(parseObserved, parseExpectedNode)
 	}
+}
+
+// canReplaceCommittedChildren reports whether one wholesale replaceChildren call preserves the current repair semantics.
+func canReplaceCommittedChildren(parseExpected []DOMNode, parseObserved []DOMNode) bool {
+	if len(parseExpected) != len(parseObserved) {
+		return false
+	}
+	for _, parseObservedNode := range parseObserved {
+		if parseFindObservedChildNodeIndex(parseExpected, parseObservedNode, 0) < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// parseFindObservedChildNodeIndex reports one node index inside the observed child order, starting at parseFromIndex.
+func parseFindObservedChildNodeIndex(parseObserved []DOMNode, parseNode DOMNode, parseFromIndex int) int {
+	if parseFromIndex < 0 {
+		parseFromIndex = 0
+	}
+	if parseFromIndex >= len(parseObserved) {
+		return -1
+	}
+	for parseIndex := parseFromIndex; parseIndex < len(parseObserved); parseIndex++ {
+		if IsSameDOMNode(parseObserved[parseIndex], parseNode) {
+			return parseIndex
+		}
+	}
+	return -1
+}
+
+// parseRemoveObservedChildNode removes one observed child entry in place so child-order repair can avoid rebuilding DOM observation state.
+func parseRemoveObservedChildNode(parseObserved []DOMNode, parseIndex int) []DOMNode {
+	if parseIndex < 0 || parseIndex >= len(parseObserved) {
+		return parseObserved
+	}
+	copy(parseObserved[parseIndex:], parseObserved[parseIndex+1:])
+	parseObserved[len(parseObserved)-1] = nil
+	return parseObserved[:len(parseObserved)-1]
+}
+
+// parseInsertObservedChildNode inserts one observed child entry in place so child-order repair can keep one synchronized local view of DOM order.
+func parseInsertObservedChildNode(parseObserved []DOMNode, parseIndex int, parseNode DOMNode) []DOMNode {
+	if parseIndex < 0 {
+		parseIndex = 0
+	}
+	if parseIndex >= len(parseObserved) {
+		return append(parseObserved, parseNode)
+	}
+	parseObserved = append(parseObserved, nil)
+	copy(parseObserved[parseIndex+1:], parseObserved[parseIndex:])
+	parseObserved[parseIndex] = parseNode
+	return parseObserved
 }
 
 // oldFiberUpdateOrigin is an internal reconciler helper.

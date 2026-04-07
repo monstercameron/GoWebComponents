@@ -175,6 +175,47 @@ func TestPatchStreamScratchAndLookupHelpers(parseTesting *testing.T) {
 	if hasPatchTrackSiblingCountByParent(parseOps, map[uint64]uint32{}, &parseHasMove, &parseHasMoveKnown, 0) {
 		parseTesting.Fatal("expected empty sibling-count map to skip keyed-move tracking")
 	}
+	if hasPatchOnlyAppendInsertOps(nil) {
+		parseTesting.Fatal("expected nil append-only patch stream to return false")
+	}
+	if hasPatchOnlyAppendInsertOps([]PatchStreamOpRaw{{GetOpCode: uint8(PatchOpCodeInsertNode), GetInsertOp: &PatchInsertOpRaw{ParentNodeID: 1, Node: RenderNodeRecordRaw{NodeID: 2}}}}) {
+		parseTesting.Fatal("expected single-op append-only patch stream to return false")
+	}
+	if !hasPatchOnlyAppendInsertOps([]PatchStreamOpRaw{
+		{GetOpCode: uint8(PatchOpCodeInsertNode), GetInsertOp: &PatchInsertOpRaw{ParentNodeID: 1, Node: RenderNodeRecordRaw{NodeID: 2}}},
+		{GetOpCode: uint8(PatchOpCodeInsertNode), GetInsertOp: &PatchInsertOpRaw{ParentNodeID: 2, Node: RenderNodeRecordRaw{NodeID: 3}}},
+	}) {
+		parseTesting.Fatal("expected multi-op anchor-free insert patch stream to be append-only")
+	}
+	if hasPatchOnlyAppendInsertOps([]PatchStreamOpRaw{
+		{GetOpCode: uint8(PatchOpCodeInsertNode), GetInsertOp: &PatchInsertOpRaw{ParentNodeID: 1, AnchorNodeID: 7, Node: RenderNodeRecordRaw{NodeID: 2}}},
+		{GetOpCode: uint8(PatchOpCodeInsertNode), GetInsertOp: &PatchInsertOpRaw{ParentNodeID: 1, Node: RenderNodeRecordRaw{NodeID: 3}}},
+	}) {
+		parseTesting.Fatal("expected anchored insert patch stream to skip append-only fast path")
+	}
+	if getStartIndex := findPatchRemoveOnlyStartIndex(nil); getStartIndex != 0 {
+		parseTesting.Fatalf("findPatchRemoveOnlyStartIndex(nil) = %d, want 0", getStartIndex)
+	}
+	if getStartIndex := findPatchRemoveOnlyStartIndex([]PatchStreamOpRaw{
+		{GetOpCode: uint8(PatchOpCodeSetText)},
+		{GetOpCode: uint8(PatchOpCodeRemoveNode)},
+		{GetOpCode: uint8(PatchOpCodeRemoveNode)},
+	}); getStartIndex != 1 {
+		parseTesting.Fatalf("findPatchRemoveOnlyStartIndex(set/remove/remove) = %d, want 1", getStartIndex)
+	}
+	if getStartIndex := findPatchRemoveOnlyStartIndex([]PatchStreamOpRaw{
+		{GetOpCode: uint8(PatchOpCodeRemoveNode)},
+		{GetOpCode: uint8(PatchOpCodeSetText)},
+		{GetOpCode: uint8(PatchOpCodeRemoveNode)},
+	}); getStartIndex != 2 {
+		parseTesting.Fatalf("findPatchRemoveOnlyStartIndex(remove/set/remove) = %d, want 2", getStartIndex)
+	}
+	if getStartIndex := findPatchRemoveOnlyStartIndex([]PatchStreamOpRaw{
+		{GetOpCode: uint8(PatchOpCodeSetText)},
+		{GetOpCode: uint8(PatchOpCodeSetAttr)},
+	}); getStartIndex != 2 {
+		parseTesting.Fatalf("findPatchRemoveOnlyStartIndex(no remove suffix) = %d, want 2", getStartIndex)
+	}
 
 	if !parseHasCanonicalStringTableSortedUnique([]string{}) {
 		parseTesting.Fatal("expected empty string table to be canonical")
@@ -254,6 +295,117 @@ func TestPatchStreamScratchAndLookupHelpers(parseTesting *testing.T) {
 	parseSiblingCountsByParent := BuildSiblingCountByParentForRegionDOMIndex(parseRegionDOMIndex, "region-a")
 	if parseSiblingCountsByParent[1] != 2 {
 		parseTesting.Fatalf("expected sibling count 2 for parent 1, got %d", parseSiblingCountsByParent[1])
+	}
+}
+
+// TestParsePatchStreamTransactionAppendOnlySupportsNestedInsertedParents verifies append-only patch streams validate child inserts against parents introduced earlier in the same patch without cloning the base known-node set.
+func TestParsePatchStreamTransactionAppendOnlySupportsNestedInsertedParents(parseTesting *testing.T) {
+	parseStringTable := BuildRenderStringTable([]string{"div", "span"})
+	parsePatchStream := PatchStreamRaw{
+		GetHeader: PatchStreamHeaderRaw{
+			ProtocolVersion: PatchStreamProtocolVersion,
+			RegionID:        "region-a",
+			Epoch:           1,
+			InputVersion:    2,
+			PatchVersion:    2,
+		},
+		GetStringTable: parseStringTable.Entries,
+		GetOps: []PatchStreamOpRaw{
+			{
+				GetOpCode: uint8(PatchOpCodeInsertNode),
+				GetInsertOp: &PatchInsertOpRaw{
+					ParentNodeID: 1,
+					Node: RenderNodeRecordRaw{
+						NodeID:  2,
+						Kind:    uint8(RenderNodeKindHostElement),
+						TextRef: 0,
+					},
+				},
+			},
+			{
+				GetOpCode: uint8(PatchOpCodeInsertNode),
+				GetInsertOp: &PatchInsertOpRaw{
+					ParentNodeID: 2,
+					Node: RenderNodeRecordRaw{
+						NodeID:  3,
+						Kind:    uint8(RenderNodeKindHostElement),
+						TextRef: 1,
+					},
+				},
+			},
+		},
+		GetPatchIdentity: "append-only-nested",
+	}
+	parseParseResult, hasPatchApply, parseParseErr := ParsePatchStreamTransaction(
+		parsePatchStream,
+		"region-a",
+		1,
+		map[uint64]struct{}{1: {}},
+		nil,
+		nil,
+	)
+	if parseParseErr != nil {
+		parseTesting.Fatalf("ParsePatchStreamTransaction(append-only nested) error = %v", parseParseErr)
+	}
+	if !hasPatchApply {
+		parseTesting.Fatal("ParsePatchStreamTransaction(append-only nested) expected apply=true")
+	}
+	if len(parseParseResult.GetTransaction.GetOps) != 2 {
+		parseTesting.Fatalf("ParsePatchStreamTransaction(append-only nested) op count = %d, want 2", len(parseParseResult.GetTransaction.GetOps))
+	}
+	if parseParseResult.GetTransaction.GetOps[0].GetParentNodeID != 1 || parseParseResult.GetTransaction.GetOps[1].GetParentNodeID != 2 {
+		parseTesting.Fatalf("ParsePatchStreamTransaction(append-only nested) parent chain = [%d %d], want [1 2]", parseParseResult.GetTransaction.GetOps[0].GetParentNodeID, parseParseResult.GetTransaction.GetOps[1].GetParentNodeID)
+	}
+}
+
+// TestParsePatchStreamTransactionAppendOnlyRejectsDuplicateInsertedNodeIDs verifies append-only patch validation rejects duplicate node IDs introduced in the same patch.
+func TestParsePatchStreamTransactionAppendOnlyRejectsDuplicateInsertedNodeIDs(parseTesting *testing.T) {
+	parseStringTable := BuildRenderStringTable([]string{"div"})
+	parsePatchStream := PatchStreamRaw{
+		GetHeader: PatchStreamHeaderRaw{
+			ProtocolVersion: PatchStreamProtocolVersion,
+			RegionID:        "region-a",
+			Epoch:           1,
+			InputVersion:    2,
+			PatchVersion:    2,
+		},
+		GetStringTable: parseStringTable.Entries,
+		GetOps: []PatchStreamOpRaw{
+			{
+				GetOpCode: uint8(PatchOpCodeInsertNode),
+				GetInsertOp: &PatchInsertOpRaw{
+					ParentNodeID: 1,
+					Node: RenderNodeRecordRaw{
+						NodeID:  2,
+						Kind:    uint8(RenderNodeKindHostElement),
+						TextRef: 0,
+					},
+				},
+			},
+			{
+				GetOpCode: uint8(PatchOpCodeInsertNode),
+				GetInsertOp: &PatchInsertOpRaw{
+					ParentNodeID: 1,
+					Node: RenderNodeRecordRaw{
+						NodeID:  2,
+						Kind:    uint8(RenderNodeKindHostElement),
+						TextRef: 0,
+					},
+				},
+			},
+		},
+		GetPatchIdentity: "append-only-duplicate",
+	}
+	_, _, parseParseErr := ParsePatchStreamTransaction(
+		parsePatchStream,
+		"region-a",
+		1,
+		map[uint64]struct{}{1: {}},
+		nil,
+		nil,
+	)
+	if parseParseErr == nil || !strings.Contains(parseParseErr.Error(), "already exists") {
+		parseTesting.Fatalf("ParsePatchStreamTransaction(append-only duplicate) error = %v, want duplicate-node error", parseParseErr)
 	}
 }
 

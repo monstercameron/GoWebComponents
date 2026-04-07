@@ -142,7 +142,7 @@ func buildParallelRegionWorkerSnapshot(
 
 // buildParallelRegionWorkerCapabilityReport resolves one patch-transport capability report for the public in-process bridge.
 func buildParallelRegionWorkerCapabilityReport() runtime2.CapabilityReport {
-	parseCapabilityReport := runtime2.GetCapabilityReport()
+	parseCapabilityReport := buildParallelRegionCapabilityReport()
 	if parseCapabilityReport.HasStructuredCloneSupport ||
 		parseCapabilityReport.HasBinaryTransportSupport ||
 		parseCapabilityReport.HasSharedMemoryTransportSupport {
@@ -158,26 +158,32 @@ func buildParallelRegionWorkerCapabilityReport() runtime2.CapabilityReport {
 }
 
 // buildParallelRegionWorkerRenderOutput converts one already-rendered public node into display-only runtime2 render output.
-func buildParallelRegionWorkerRenderOutput(
-	parseRegionInstanceID runtime2.RegionInstanceID,
-	parseRendererID runtime2.RendererID,
-	parseProps any,
-	parseEventSlot *runtime2.EventSlotDispatch,
-) (any, error) {
-	if parseEventSlot != nil {
-		getRender, parseResolveErr := resolveParallelRegionRenderer(string(parseRendererID))
+func buildParallelRegionWorkerRenderOutput(parseMount runtime2.WorkerRegionMountSpec) (any, error) {
+	getParallelRegionRendererEntry := parallelRegionRendererEntry{}
+	if parseMount.RendererID != "" {
+		getResolvedParallelRegionRendererEntry, parseResolveErr := resolveParallelRegionRendererEntry(parseMount.RendererID)
 		if parseResolveErr != nil {
 			return nil, parseResolveErr
 		}
-		getRenderedNode, parseRenderErr := buildParallelRegionLocalNode(getRender, parseProps)
+		getParallelRegionRendererEntry = getResolvedParallelRegionRendererEntry
+	}
+	if getParallelRegionRendererEntry.getWorkerRender != nil {
+		parseChildOutput, parseRenderErr := getParallelRegionRendererEntry.getWorkerRender(parseMount)
 		if parseRenderErr != nil {
 			return nil, parseRenderErr
 		}
-		storeParallelRegionRenderedNode(parseRegionInstanceID, getRenderedNode)
+		return buildParallelRegionWorkerShellOutputFromRenderOutput(parseChildOutput), nil
 	}
-	parseNode, hasNode := resolveParallelRegionRenderedNode(parseRegionInstanceID)
+	if parseMount.RenderInput.GetEventSlot != nil {
+		getRenderedNode, parseRenderErr := buildParallelRegionLocalNode(getParallelRegionRendererEntry.getRender, parseMount.Snapshot.Props)
+		if parseRenderErr != nil {
+			return nil, parseRenderErr
+		}
+		storeParallelRegionRenderedNode(runtime2.RegionInstanceID(parseMount.RegionID), getRenderedNode)
+	}
+	parseNode, hasNode := resolveParallelRegionRenderedNode(runtime2.RegionInstanceID(parseMount.RegionID))
 	if !hasNode {
-		return nil, fmt.Errorf("ui: rendered parallel-region node %q is not cached", parseRegionInstanceID)
+		return nil, fmt.Errorf("ui: rendered parallel-region node %q is not cached", parseMount.RegionID)
 	}
 	return buildParallelRegionWorkerShellOutput(parseNode)
 }
@@ -188,6 +194,11 @@ func buildParallelRegionWorkerShellOutput(parseNode Node) (any, error) {
 	if parseChildErr != nil {
 		return nil, parseChildErr
 	}
+	return buildParallelRegionWorkerShellOutputFromRenderOutput(parseChildOutput), nil
+}
+
+// buildParallelRegionWorkerShellOutputFromRenderOutput wraps one worker-rendered child output in the stable shell element used by the public parallel-region path.
+func buildParallelRegionWorkerShellOutputFromRenderOutput(parseChildOutput any) any {
 	parseShellOutput := map[string]any{
 		"kind": "host-element",
 		"tag":  "div",
@@ -195,7 +206,7 @@ func buildParallelRegionWorkerShellOutput(parseNode Node) (any, error) {
 	if parseChildOutput != nil {
 		parseShellOutput["children"] = []any{parseChildOutput}
 	}
-	return parseShellOutput, nil
+	return parseShellOutput
 }
 
 // buildParallelRegionWorkerNodeOutput converts one rendered public node subtree into runtime2 display-only render output.

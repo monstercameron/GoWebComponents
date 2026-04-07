@@ -165,6 +165,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionMount(parseSpec
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionTuple = nil
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionScratch = nil
 	parseHostRegionAdapter.clearHostRegionDispatchPropsLayout()
+	parseHostRegionAdapter.clearHostRegionPatchLookupCache()
 	parseHostRegionAdapter.hasHostRegionDispatchSourceVersionTuple = false
 	parseHostRegionAdapter.hasHostRegionDispatchVersionVector = false
 	parseHostRegionAdapter.storeHostRegionCoordinatorCacheState(
@@ -297,6 +298,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionDispose() (Host
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionTuple = nil
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionScratch = nil
 	parseHostRegionAdapter.clearHostRegionDispatchPropsLayout()
+	parseHostRegionAdapter.clearHostRegionPatchLookupCache()
 	parseHostRegionAdapter.hasHostRegionDispatchSourceVersionTuple = false
 	parseHostRegionAdapter.hasHostRegionDispatchVersionVector = false
 	parseHostRegionAdapter.clearHostRegionCoordinatorCacheState()

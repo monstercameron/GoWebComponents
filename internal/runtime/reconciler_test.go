@@ -106,6 +106,14 @@ func (parseA *testDOMAdapter) CreateTextNode(parseText string) DOMNode {
 
 func (parseA *testDOMAdapter) AppendChild(parseParent, parseChild DOMNode) {
 	if parseP, parseOk := parseParent.(*testDOMNode); parseOk {
+		if parseC, parseOk2 := parseChild.(*testDOMNode); parseOk2 && parseC.parent != nil {
+			for parseIndex, parseExistingChild := range parseC.parent.children {
+				if parseExistingChild.Equals(parseChild) {
+					parseC.parent.children = append(parseC.parent.children[:parseIndex], parseC.parent.children[parseIndex+1:]...)
+					break
+				}
+			}
+		}
 		parseP.children = append(parseP.children, parseChild)
 		if parseC, parseOk2 := parseChild.(*testDOMNode); parseOk2 {
 			parseC.parent = parseP
@@ -129,6 +137,14 @@ func (parseA *testDOMAdapter) RemoveChild(parseParent, parseChild DOMNode) {
 
 func (parseA *testDOMAdapter) InsertBefore(parseParent, parseNewChild, parseRefChild DOMNode) {
 	if parseP, parseOk := parseParent.(*testDOMNode); parseOk {
+		if parseInserted, parseOk2 := parseNewChild.(*testDOMNode); parseOk2 && parseInserted.parent != nil {
+			for parseIndex, parseExistingChild := range parseInserted.parent.children {
+				if parseExistingChild.Equals(parseNewChild) {
+					parseInserted.parent.children = append(parseInserted.parent.children[:parseIndex], parseInserted.parent.children[parseIndex+1:]...)
+					break
+				}
+			}
+		}
 		for parseI, parseC := range parseP.children {
 			if parseC.Equals(parseRefChild) {
 				parseP.children = append(parseP.children[:parseI], append([]DOMNode{parseNewChild}, parseP.children[parseI:]...)...)
@@ -160,6 +176,40 @@ func (parseA *testDOMAdapter) ReplaceChild(parseParent, parseNewChild, parseOldC
 			}
 		}
 	}
+}
+
+// ReplaceChildren replaces one parent child list while preserving move semantics for already-attached nodes.
+func (parseA *testDOMAdapter) ReplaceChildren(parseParent DOMNode, parseChildren []DOMNode) {
+	parseParentNode, parseOk := parseParent.(*testDOMNode)
+	if !parseOk {
+		return
+	}
+	for _, parseOldChild := range parseParentNode.children {
+		if parseFindObservedChildNodeIndex(parseChildren, parseOldChild, 0) >= 0 {
+			continue
+		}
+		if parseOldNode, parseOldOk := parseOldChild.(*testDOMNode); parseOldOk {
+			parseOldNode.parent = nil
+		}
+	}
+	getNextChildren := make([]DOMNode, 0, len(parseChildren))
+	for _, parseChild := range parseChildren {
+		parseChildNode, parseChildOk := parseChild.(*testDOMNode)
+		if !parseChildOk {
+			continue
+		}
+		if parseChildNode.parent != nil && parseChildNode.parent != parseParentNode {
+			for parseIndex, parseSibling := range parseChildNode.parent.children {
+				if parseSibling.Equals(parseChild) {
+					parseChildNode.parent.children = append(parseChildNode.parent.children[:parseIndex], parseChildNode.parent.children[parseIndex+1:]...)
+					break
+				}
+			}
+		}
+		parseChildNode.parent = parseParentNode
+		getNextChildren = append(getNextChildren, parseChild)
+	}
+	parseParentNode.children = getNextChildren
 }
 
 func (parseA *testDOMAdapter) GetParent(parseNode DOMNode) DOMNode {

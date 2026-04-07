@@ -28,6 +28,7 @@ func installBenchmarkDOM() func() {
 		parseNode.Set("tagName", parseTag)
 		parseNode.Set("attributes", parseObjectCtor.New())
 		parseNode.Set("children", parseArrayCtor.New())
+		parseNode.Set("parentNode", js.Null())
 		return parseNode
 	})
 
@@ -38,13 +39,34 @@ func installBenchmarkDOM() func() {
 			parseChildren := parseThis2.Get("children")
 			parseLength := parseFragmentChildren.Get("length").Int()
 			for parseI := 0; parseI < parseLength; parseI++ {
-				parseChildren.Call("push", parseFragmentChildren.Index(parseI))
+				parseFragmentChild := parseFragmentChildren.Index(parseI)
+				parseChildren.Call("push", parseFragmentChild)
+				parseFragmentChild.Set("parentNode", parseThis2)
 			}
 			parseChild.Set("children", parseArrayCtor.New())
 			return parseChild
 		}
 		parseThis2.Get("children").Call("push", parseChild)
+		parseChild.Set("parentNode", parseThis2)
 		return parseArgs2[0]
+	})
+	parseAppendNodes := js.FuncOf(func(parseThisAppend js.Value, parseArgsAppend []js.Value) interface{} {
+		for _, parseChild := range parseArgsAppend {
+			if parseChild.Get("isFragment").Truthy() {
+				parseFragmentChildren := parseChild.Get("children")
+				parseLength := parseFragmentChildren.Get("length").Int()
+				for parseI := 0; parseI < parseLength; parseI++ {
+					parseFragmentChild := parseFragmentChildren.Index(parseI)
+					parseThisAppend.Get("children").Call("push", parseFragmentChild)
+					parseFragmentChild.Set("parentNode", parseThisAppend)
+				}
+				parseChild.Set("children", parseArrayCtor.New())
+				continue
+			}
+			parseThisAppend.Get("children").Call("push", parseChild)
+			parseChild.Set("parentNode", parseThisAppend)
+		}
+		return nil
 	})
 	parseRemoveChild := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
 		parseChildren2 := parseThis3.Get("children")
@@ -52,10 +74,27 @@ func installBenchmarkDOM() func() {
 		for parseI2 := 0; parseI2 < parseLength2; parseI2++ {
 			if parseChildren2.Index(parseI2).Equal(parseArgs3[0]) {
 				parseChildren2.Call("splice", parseI2, 1)
+				parseArgs3[0].Set("parentNode", js.Null())
 				break
 			}
 		}
 		return parseArgs3[0]
+	})
+	parseRemoveNode := js.FuncOf(func(parseThisRemove js.Value, parseArgsRemove []js.Value) interface{} {
+		parseParent := parseThisRemove.Get("parentNode")
+		if parseParent.IsNull() || parseParent.IsUndefined() {
+			return nil
+		}
+		parseChildren := parseParent.Get("children")
+		parseLength := parseChildren.Get("length").Int()
+		for parseI := 0; parseI < parseLength; parseI++ {
+			if parseChildren.Index(parseI).Equal(parseThisRemove) {
+				parseChildren.Call("splice", parseI, 1)
+				parseThisRemove.Set("parentNode", js.Null())
+				break
+			}
+		}
+		return nil
 	})
 	setAttribute := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
 		parseThis4.Get("attributes").Set(parseArgs4[0].String(), parseArgs4[1].String())
@@ -67,7 +106,29 @@ func installBenchmarkDOM() func() {
 	})
 	parseInsertBefore := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
 		parseThis6.Get("children").Call("push", parseArgs6[0])
+		parseArgs6[0].Set("parentNode", parseThis6)
 		return parseArgs6[0]
+	})
+	parseBeforeNode := js.FuncOf(func(parseThisBefore js.Value, parseArgsBefore []js.Value) interface{} {
+		parseParent := parseThisBefore.Get("parentNode")
+		if parseParent.IsNull() || parseParent.IsUndefined() {
+			return nil
+		}
+		parseChildren := parseParent.Get("children")
+		parseLength := parseChildren.Get("length").Int()
+		parseRefIndex := parseLength
+		for parseI := 0; parseI < parseLength; parseI++ {
+			if parseChildren.Index(parseI).Equal(parseThisBefore) {
+				parseRefIndex = parseI
+				break
+			}
+		}
+		for _, parseChild := range parseArgsBefore {
+			parseChildren.Call("splice", parseRefIndex, 0, parseChild)
+			parseChild.Set("parentNode", parseParent)
+			parseRefIndex++
+		}
+		return nil
 	})
 	parseReplaceChild := js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} {
 		parseChildren3 := parseThis7.Get("children")
@@ -75,10 +136,29 @@ func installBenchmarkDOM() func() {
 		for parseI3 := 0; parseI3 < parseLength3; parseI3++ {
 			if parseChildren3.Index(parseI3).Equal(parseArgs7[1]) {
 				parseChildren3.SetIndex(parseI3, parseArgs7[0])
+				parseArgs7[0].Set("parentNode", parseThis7)
+				parseArgs7[1].Set("parentNode", js.Null())
 				return parseArgs7[1]
 			}
 		}
 		return parseArgs7[1]
+	})
+	parseReplaceWith := js.FuncOf(func(parseThisReplace js.Value, parseArgsReplace []js.Value) interface{} {
+		parseParent := parseThisReplace.Get("parentNode")
+		if parseParent.IsNull() || parseParent.IsUndefined() {
+			return nil
+		}
+		parseChildren := parseParent.Get("children")
+		parseLength := parseChildren.Get("length").Int()
+		for parseI := 0; parseI < parseLength; parseI++ {
+			if parseChildren.Index(parseI).Equal(parseThisReplace) {
+				parseChildren.SetIndex(parseI, parseArgsReplace[0])
+				parseArgsReplace[0].Set("parentNode", parseParent)
+				parseThisReplace.Set("parentNode", js.Null())
+				break
+			}
+		}
+		return nil
 	})
 	parseAddEventListener := js.FuncOf(func(parseThis8 js.Value, parseArgs8 []js.Value) interface{} {
 		return nil
@@ -86,27 +166,45 @@ func installBenchmarkDOM() func() {
 	parseRemoveEventListener := js.FuncOf(func(parseThis9 js.Value, parseArgs9 []js.Value) interface{} {
 		return nil
 	})
+	parseStoreNodeMethods := func(parseNode js.Value) {
+		parseNode.Set("appendChild", parseAppendChild)
+		parseNode.Set("append", parseAppendNodes)
+		parseNode.Set("removeChild", parseRemoveChild)
+		parseNode.Set("remove", parseRemoveNode)
+		parseNode.Set("insertBefore", parseInsertBefore)
+		parseNode.Set("before", parseBeforeNode)
+		parseNode.Set("replaceChild", parseReplaceChild)
+		parseNode.Set("replaceWith", parseReplaceWith)
+	}
 
 	parseElementCtor := js.FuncOf(func(parseThis10 js.Value, parseArgs10 []js.Value) interface{} {
 		return parseObjectCtor.New()
 	})
 	parseProto := parseObjectCtor.New()
 	parseProto.Set("appendChild", parseAppendChild)
+	parseProto.Set("append", parseAppendNodes)
 	parseProto.Set("removeChild", parseRemoveChild)
+	parseProto.Set("remove", parseRemoveNode)
 	parseProto.Set("setAttribute", setAttribute)
 	parseProto.Set("removeAttribute", parseRemoveAttribute)
 	parseProto.Set("insertBefore", parseInsertBefore)
+	parseProto.Set("before", parseBeforeNode)
 	parseProto.Set("replaceChild", parseReplaceChild)
+	parseProto.Set("replaceWith", parseReplaceWith)
 	parseProto.Set("addEventListener", parseAddEventListener)
 	parseProto.Set("removeEventListener", parseRemoveEventListener)
 	parseElementCtor.Set("prototype", parseProto)
 
 	parseDocCreateElement := js.FuncOf(func(parseThis11 js.Value, parseArgs11 []js.Value) interface{} {
-		return parseMakeNode.Invoke(parseArgs11[0].String())
+		parseNode := parseMakeNode.Invoke(parseArgs11[0].String())
+		parseStoreNodeMethods(parseNode)
+		return parseNode
 	})
 	parseDocCreateTextNode := js.FuncOf(func(parseThis12 js.Value, parseArgs12 []js.Value) interface{} {
 		parseNode2 := parseObjectCtor.New()
 		parseNode2.Set("textContent", parseArgs12[0].String())
+		parseNode2.Set("parentNode", js.Null())
+		parseStoreNodeMethods(parseNode2)
 		return parseNode2
 	})
 	parseDocCreateFragment := js.FuncOf(func(parseThis13 js.Value, parseArgs13 []js.Value) interface{} {
@@ -114,25 +212,35 @@ func installBenchmarkDOM() func() {
 		parseFrag.Set("isFragment", true)
 		parseFrag.Set("children", parseArrayCtor.New())
 		parseFrag.Set("appendChild", parseAppendChild)
+		parseFrag.Set("append", parseAppendNodes)
+		parseFrag.Set("parentNode", js.Null())
 		return parseFrag
 	})
 	parseDocQuerySelector := js.FuncOf(func(parseThis14 js.Value, parseArgs14 []js.Value) interface{} {
-		return parseMakeNode.Invoke("div")
+		parseNode := parseMakeNode.Invoke("div")
+		parseStoreNodeMethods(parseNode)
+		return parseNode
 	})
 	parseDocQuerySelectorAll := js.FuncOf(func(parseThis15 js.Value, parseArgs15 []js.Value) interface{} {
 		parseList := parseArrayCtor.New()
-		parseList.Call("push", parseMakeNode.Invoke("div"))
+		parseNode := parseMakeNode.Invoke("div")
+		parseStoreNodeMethods(parseNode)
+		parseList.Call("push", parseNode)
 		parseList.Set("item", js.FuncOf(func(parseThis16 js.Value, parseArgs16 []js.Value) interface{} {
 			return parseThis16.Index(parseArgs16[0].Int())
 		}))
 		return parseList
 	})
 	parseDocGetElementById := js.FuncOf(func(parseThis17 js.Value, parseArgs17 []js.Value) interface{} {
-		return parseMakeNode.Invoke("div")
+		parseNode := parseMakeNode.Invoke("div")
+		parseStoreNodeMethods(parseNode)
+		return parseNode
 	})
 	parseDocGetElementsByClassName := js.FuncOf(func(parseThis18 js.Value, parseArgs18 []js.Value) interface{} {
 		parseList2 := parseArrayCtor.New()
-		parseList2.Call("push", parseMakeNode.Invoke("div"))
+		parseNode := parseMakeNode.Invoke("div")
+		parseStoreNodeMethods(parseNode)
+		parseList2.Call("push", parseNode)
 		parseList2.Set("item", js.FuncOf(func(parseThis19 js.Value, parseArgs19 []js.Value) interface{} {
 			return parseThis19.Index(parseArgs19[0].Int())
 		}))
@@ -140,7 +248,9 @@ func installBenchmarkDOM() func() {
 	})
 	parseDocGetElementsByTagName := js.FuncOf(func(parseThis20 js.Value, parseArgs20 []js.Value) interface{} {
 		parseList3 := parseArrayCtor.New()
-		parseList3.Call("push", parseMakeNode.Invoke("div"))
+		parseNode := parseMakeNode.Invoke("div")
+		parseStoreNodeMethods(parseNode)
+		parseList3.Call("push", parseNode)
 		parseList3.Set("item", js.FuncOf(func(parseThis21 js.Value, parseArgs21 []js.Value) interface{} {
 			return parseThis21.Index(parseArgs21[0].Int())
 		}))
@@ -164,11 +274,15 @@ func installBenchmarkDOM() func() {
 		parseGlobal.Set("Element", parsePrevElement)
 		parseMakeNode.Release()
 		parseAppendChild.Release()
+		parseAppendNodes.Release()
 		parseRemoveChild.Release()
+		parseRemoveNode.Release()
 		setAttribute.Release()
 		parseRemoveAttribute.Release()
 		parseInsertBefore.Release()
+		parseBeforeNode.Release()
 		parseReplaceChild.Release()
+		parseReplaceWith.Release()
 		parseAddEventListener.Release()
 		parseRemoveEventListener.Release()
 		parseDocCreateElement.Release()
@@ -295,6 +409,69 @@ func BenchmarkWASMDOMAdapterBatchAppend16(parseB *testing.B) {
 		}
 		parseAdapter.EndBatch()
 	}
+}
+
+// BenchmarkWASMDOMAdapterAppendChildCurrentVsLegacy compares the current append-based mutator path against the previous appendChild-returning bridge call.
+func BenchmarkWASMDOMAdapterAppendChildCurrentVsLegacy(parseB *testing.B) {
+	parseCleanup := installBenchmarkDOM()
+	defer parseCleanup()
+
+	parseAdapter := NewWASMDOMAdapter()
+	parseB.Run("current_append", func(parseB *testing.B) {
+		parseB.ReportAllocs()
+		for parseI := 0; parseI < parseB.N; parseI++ {
+			parseParent := parseAdapter.CreateElement("div")
+			parseChild := parseAdapter.CreateElement("span")
+			parseAdapter.AppendChild(parseParent, parseChild)
+		}
+	})
+	parseB.Run("legacy_appendChild", func(parseB *testing.B) {
+		parseB.ReportAllocs()
+		for parseI := 0; parseI < parseB.N; parseI++ {
+			parseParent := parseAdapter.CreateElement("div").(*WASMDOMNode)
+			parseChild := parseAdapter.CreateElement("span").(*WASMDOMNode)
+			parseParent.value.Call("appendChild", parseChild.value)
+		}
+	})
+}
+
+// BenchmarkWASMDOMAdapterBatchAppend16CurrentVsLegacy compares the current single-call append batch flush against the previous fragment-plus-appendChild loop.
+func BenchmarkWASMDOMAdapterBatchAppend16CurrentVsLegacy(parseB *testing.B) {
+	parseCleanup := installBenchmarkDOM()
+	defer parseCleanup()
+
+	parseAdapter := NewWASMDOMAdapter()
+	parseDocument := js.Global().Get("document")
+	parseB.Run("current_append", func(parseB *testing.B) {
+		parseB.ReportAllocs()
+		for parseI := 0; parseI < parseB.N; parseI++ {
+			parseParent := parseAdapter.CreateElement("div")
+			parseChildren := make([]runtime.DOMNode, 16)
+			for parseChildIndex := range parseChildren {
+				parseChildren[parseChildIndex] = parseAdapter.CreateElement("span")
+			}
+			parseAdapter.BeginBatch(parseParent)
+			for _, parseChild := range parseChildren {
+				parseAdapter.AppendChild(parseParent, parseChild)
+			}
+			parseAdapter.EndBatch()
+		}
+	})
+	parseB.Run("legacy_fragment_appendChild", func(parseB *testing.B) {
+		parseB.ReportAllocs()
+		for parseI := 0; parseI < parseB.N; parseI++ {
+			parseParent := parseAdapter.CreateElement("div").(*WASMDOMNode)
+			parseChildren := make([]runtime.DOMNode, 16)
+			for parseChildIndex := range parseChildren {
+				parseChildren[parseChildIndex] = parseAdapter.CreateElement("span")
+			}
+			parseFragment := parseDocument.Call("createDocumentFragment")
+			for _, parseChild := range parseChildren {
+				parseFragment.Call("appendChild", parseChild.(*WASMDOMNode).value)
+			}
+			parseParent.value.Call("appendChild", parseFragment)
+		}
+	})
 }
 
 func BenchmarkWASMEventAdapterAddRemoveListener(parseB *testing.B) {
