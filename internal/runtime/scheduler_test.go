@@ -217,6 +217,90 @@ func TestScheduleUpdateForFiberWithOrigin_UsesSpecificTrigger(parseT *testing.T)
 	}
 }
 
+func TestScheduleOwnedFiberUpdateWithOrigin_UsesLiveAlternateGranularPath(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRoot := &Fiber{
+		typeOf: "ROOT",
+		props:  make(map[string]interface{}),
+	}
+	parseLiveOwner := &Fiber{typeOf: "owner", parent: parseRoot}
+	parseRoot.child = parseLiveOwner
+
+	parseStaleOwner := &Fiber{typeOf: "owner", alternate: parseLiveOwner}
+	parseLiveOwner.alternate = parseStaleOwner
+
+	parseRt := &Runtime{
+		scheduler:   parseScheduler,
+		currentRoot: parseRoot,
+	}
+
+	parseRt.ScheduleOwnedFiberUpdateWithOrigin(parseStaleOwner, "local-state")
+
+	if !parseLiveOwner.dirty || !parseLiveOwner.needsUpdate {
+		parseT.Fatal("expected live owner alternate to carry the scheduled update")
+	}
+	if parseLiveOwner.updateOrigin != "local-state" {
+		parseT.Fatalf("expected live owner update origin local-state, got %q", parseLiveOwner.updateOrigin)
+	}
+	if parseRoot.dirty || parseRoot.needsUpdate {
+		parseT.Fatal("expected root to remain clean for owned granular scheduling")
+	}
+	if parseStaleOwner.dirty || parseStaleOwner.needsUpdate {
+		parseT.Fatal("expected stale owner to remain unscheduled")
+	}
+	if parseRt.profiling.scheduledGranularMarks != 1 {
+		parseT.Fatalf("expected one granular scheduling mark, got %d", parseRt.profiling.scheduledGranularMarks)
+	}
+}
+
+func TestScheduleOwnedFiberUpdateWithOrigin_UsesDetachedOwnerFallbackBeforeMount(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRoot := &Fiber{
+		typeOf: "ROOT",
+		props:  make(map[string]interface{}),
+	}
+	parseOwner := &Fiber{typeOf: "owner"}
+	parseRt := &Runtime{
+		scheduler:   parseScheduler,
+		currentRoot: parseRoot,
+	}
+
+	parseRt.ScheduleOwnedFiberUpdateWithOrigin(parseOwner, "local-state")
+
+	if !parseOwner.dirty || !parseOwner.needsUpdate {
+		parseT.Fatal("expected detached owner fallback to mark owner for update before mount")
+	}
+	if parseOwner.updateOrigin != "local-state" {
+		parseT.Fatalf("expected detached owner fallback origin local-state, got %q", parseOwner.updateOrigin)
+	}
+	if parseRt.profiling.scheduledGranularMarks != 0 {
+		parseT.Fatalf("expected detached owner fallback to avoid granular scheduling, got %d", parseRt.profiling.scheduledGranularMarks)
+	}
+}
+
+func TestScheduleOwnedFiberUpdateWithOrigin_IgnoresDetachedOwnerWhenTreeIsMounted(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRoot := &Fiber{
+		typeOf: "ROOT",
+		props:  make(map[string]interface{}),
+	}
+	parseRoot.child = &Fiber{typeOf: "app", parent: parseRoot}
+	parseOwner := &Fiber{typeOf: "owner"}
+	parseRt := &Runtime{
+		scheduler:   parseScheduler,
+		currentRoot: parseRoot,
+	}
+
+	parseRt.ScheduleOwnedFiberUpdateWithOrigin(parseOwner, "local-state")
+
+	if parseOwner.dirty || parseOwner.needsUpdate {
+		parseT.Fatal("expected detached owner to stay ignored once a live tree is mounted")
+	}
+	if parseRt.profiling.scheduledFiberMarks != 0 {
+		parseT.Fatalf("expected no scheduled marks for ignored detached owner, got %d", parseRt.profiling.scheduledFiberMarks)
+	}
+}
+
 func TestScheduleSubscribedFiberUpdateWithOrigin_UsesGranularOrigin(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := &Runtime{

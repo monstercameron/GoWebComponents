@@ -263,7 +263,12 @@ func (parseRt *Runtime) commitRoot() {
 	parseRt.updateScheduled = false
 
 	// Run effects after the committed tree is current and hydration gates are lifted.
-	parseRt.runEffects(parseCommittedRoot)
+	if parseRt.tracksPendingEffects {
+		parseRt.runPendingEffects()
+		parseRt.tracksPendingEffects = false
+	} else {
+		parseRt.runEffects(parseCommittedRoot)
+	}
 
 	if parseWasHydrating {
 		parseRt.finishHydrationMetrics(false, "")
@@ -1041,8 +1046,27 @@ func bumpEffectEpochs(parseFiber *Fiber) {
 	}
 }
 
-// runEffects runs all effects for a fiber tree
-func (parseRt *Runtime) runEffects(parseFiber *Fiber) {
+// queuePendingEffectFiber records one fiber that scheduled post-commit effects during the current render pass.
+func (parseRt *Runtime) queuePendingEffectFiber(parseFiber *Fiber) {
+	if parseRt == nil || parseFiber == nil || len(parseFiber.effects) == 0 {
+		return
+	}
+	parseRt.pendingEffectFibers = append(parseRt.pendingEffectFibers, parseFiber)
+}
+
+// runPendingEffects runs only the fibers that scheduled effects during the current render pass.
+func (parseRt *Runtime) runPendingEffects() {
+	if parseRt == nil || len(parseRt.pendingEffectFibers) == 0 {
+		return
+	}
+	for _, parseFiber := range parseRt.pendingEffectFibers {
+		parseRt.runFiberEffects(parseFiber)
+	}
+	parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
+}
+
+// runFiberEffects runs one fiber's queued effects without traversing descendants.
+func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
 	if parseFiber == nil {
 		return
 	}
@@ -1115,6 +1139,15 @@ func (parseRt *Runtime) runEffects(parseFiber *Fiber) {
 			}
 		}
 	}
+}
+
+// runEffects runs all effects for a fiber tree
+func (parseRt *Runtime) runEffects(parseFiber *Fiber) {
+	if parseFiber == nil {
+		return
+	}
+
+	parseRt.runFiberEffects(parseFiber)
 
 	// Recursively run effects for children and siblings
 	if parseFiber.child != nil {

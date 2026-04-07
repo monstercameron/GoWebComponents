@@ -75,6 +75,12 @@ func (parseRt *Runtime) ScheduleUpdate() {
 	} else {
 		parseRt.deletions = parseRt.deletions[:0]
 	}
+	if parseRt.pendingEffectFibers == nil {
+		parseRt.pendingEffectFibers = make([]*Fiber, 0)
+	} else {
+		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
+	}
+	parseRt.tracksPendingEffects = true
 
 	// Schedule work loop
 	parseContinueWork := parseRt.getContinueWorkFn()
@@ -170,6 +176,12 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 	} else {
 		parseRt.deletions = parseRt.deletions[:0]
 	}
+	if parseRt.pendingEffectFibers == nil {
+		parseRt.pendingEffectFibers = make([]*Fiber, 0)
+	} else {
+		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
+	}
+	parseRt.tracksPendingEffects = true
 
 	parseDurationNs := time.Since(parseStart).Nanoseconds()
 	parseRt.profiling.renderCalls++
@@ -257,6 +269,12 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 	} else {
 		parseRt.deletions = parseRt.deletions[:0]
 	}
+	if parseRt.pendingEffectFibers == nil {
+		parseRt.pendingEffectFibers = make([]*Fiber, 0)
+	} else {
+		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
+	}
+	parseRt.tracksPendingEffects = true
 
 	parseDurationNs := time.Since(parseStart).Nanoseconds()
 	parseRt.profiling.renderCalls++
@@ -356,10 +374,34 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	parseRt.profiling.scheduledGranularMarks++
 	parseFiber.dirty = true
 	parseFiber.needsUpdate = true
-	parseFiber.updateOrigin = normalizeUpdateOrigin(parseOrigin, "fine-grained")
+	parseCurrentOrigin := ""
+	if parseFiber.dirty || parseFiber.needsUpdate {
+		parseCurrentOrigin = parseFiber.updateOrigin
+	}
+	parseFiber.updateOrigin = buildScheduledUpdateOrigin(parseCurrentOrigin, parseOrigin, "fine-grained")
 	if !parseRt.updateScheduled {
 		parseRt.ScheduleUpdate()
 	}
+}
+
+// ScheduleOwnedFiberUpdate chooses the narrowest safe scheduling path for one component-owned update.
+func (parseRt *Runtime) ScheduleOwnedFiberUpdate(parseFiber *Fiber) {
+	parseRt.ScheduleOwnedFiberUpdateWithOrigin(parseFiber, "local-state")
+}
+
+// ScheduleOwnedFiberUpdateWithOrigin chooses the narrowest safe scheduling path for one component-owned update and records the triggering cause.
+func (parseRt *Runtime) ScheduleOwnedFiberUpdateWithOrigin(parseFiber *Fiber, parseOrigin string) {
+	if parseFiber == nil {
+		return
+	}
+	getTargetFiber := parseRt.resolveOwnedFiberTarget(parseFiber)
+	if getTargetFiber == nil {
+		if parseRt.currentRoot == nil || parseRt.currentRoot.child == nil {
+			parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber, parseOrigin)
+		}
+		return
+	}
+	parseRt.ScheduleGranularUpdateForFiberWithOrigin(getTargetFiber, parseOrigin)
 }
 
 // ScheduleSubscribedFiberUpdate chooses the narrowest safe scheduling path for a subscription target.
@@ -448,6 +490,23 @@ func (parseRt *Runtime) resolveSubscribedFiberTarget(parseFiber *Fiber) *Fiber {
 	}
 	if parseFiber.parent == nil && parseFiber.alternate == nil && parseRt.currentRoot != nil && parseRt.currentRoot.child == nil {
 		return parseFiber
+	}
+	return nil
+}
+
+// resolveOwnedFiberTarget resolves one component-owned update target onto the live tree when possible.
+func (parseRt *Runtime) resolveOwnedFiberTarget(parseFiber *Fiber) *Fiber {
+	if parseRt == nil || parseFiber == nil {
+		return parseFiber
+	}
+	if parseRt.isFiberInCurrentTree(parseFiber) {
+		return parseFiber
+	}
+	if parseFiber.alternate != nil && parseRt.isFiberInCurrentTree(parseFiber.alternate) {
+		return parseFiber.alternate
+	}
+	if parseMappedFiber := parseRt.buildSubscribedFiberFromAncestorAlternate(parseFiber); parseMappedFiber != nil {
+		return parseMappedFiber
 	}
 	return nil
 }

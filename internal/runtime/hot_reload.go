@@ -872,6 +872,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 			parseFiber.hooks.hotReloadRestore = nil
 		}
 		parseRt.recordComponentRenderTrace(parseFiber, renderDurationNs)
+		parseRt.queuePendingEffectFiber(parseFiber)
 		return parseElement, false, nil
 	}
 

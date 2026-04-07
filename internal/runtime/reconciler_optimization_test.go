@@ -253,3 +253,45 @@ func TestCommitRootBatchesStablePlacementChildren(parseT *testing.T) {
 		parseT.Fatalf("expected balanced batch calls, got begin=%d end=%d", parseAdapter.beginBatchCount, parseAdapter.endBatchCount)
 	}
 }
+
+func TestRunPendingEffectsPreservesQueuedOrder(parseT *testing.T) {
+	parseRt := &Runtime{}
+	parseCalls := make([]string, 0, 2)
+
+	parseParent := &Fiber{
+		hooks: &Hooks{cleanups: make([]func(), 1)},
+		effects: []Effect{{
+			Fn: func() func() {
+				parseCalls = append(parseCalls, "parent")
+				return nil
+			},
+			CleanupIndex: 0,
+		}},
+	}
+	parseChild := &Fiber{
+		hooks: &Hooks{cleanups: make([]func(), 1)},
+		effects: []Effect{{
+			Fn: func() func() {
+				parseCalls = append(parseCalls, "child")
+				return nil
+			},
+			CleanupIndex: 0,
+		}},
+	}
+
+	parseRt.queuePendingEffectFiber(nil)
+	parseRt.queuePendingEffectFiber(&Fiber{})
+	parseRt.queuePendingEffectFiber(parseParent)
+	parseRt.queuePendingEffectFiber(parseChild)
+	parseRt.runPendingEffects()
+
+	if len(parseCalls) != 2 {
+		parseT.Fatalf("expected two queued effects to run, got %d", len(parseCalls))
+	}
+	if parseCalls[0] != "parent" || parseCalls[1] != "child" {
+		parseT.Fatalf("expected queued effect order [parent child], got %v", parseCalls)
+	}
+	if len(parseRt.pendingEffectFibers) != 0 {
+		parseT.Fatalf("expected pending effect queue to be cleared, got %d entries", len(parseRt.pendingEffectFibers))
+	}
+}

@@ -181,6 +181,7 @@ func TestGoUseState_SchedulesUpdateForLatestHookOwner(parseT *testing.T) {
 		hooks:     parseOldFiber.hooks,
 		alternate: parseOldFiber,
 	}
+	parseCurrentRoot.child = parseCurrentFiber
 	parseCurrentFiber.hooks.owner = parseCurrentFiber
 	parseRt.currentRoot = parseCurrentRoot
 
@@ -189,11 +190,17 @@ func TestGoUseState_SchedulesUpdateForLatestHookOwner(parseT *testing.T) {
 	if !parseCurrentFiber.dirty || !parseCurrentFiber.needsUpdate {
 		parseT.Fatal("expected current hook owner to be marked dirty")
 	}
-	if !parseCurrentRoot.dirty || !parseCurrentRoot.needsUpdate {
-		parseT.Fatal("expected current root path to be marked dirty")
+	if parseCurrentRoot.dirty || parseCurrentRoot.needsUpdate {
+		parseT.Fatal("did not expect current root path to be marked dirty for component-owned state")
 	}
 	if parseOldRoot.dirty || parseOldRoot.needsUpdate {
 		parseT.Fatal("did not expect stale fiber ancestry to receive the update")
+	}
+	if parseCurrentFiber.updateOrigin != "local-state" {
+		parseT.Fatalf("expected current hook owner update origin local-state, got %q", parseCurrentFiber.updateOrigin)
+	}
+	if parseRt.profiling.scheduledGranularMarks != 1 {
+		parseT.Fatalf("expected one granular scheduling mark, got %d", parseRt.profiling.scheduledGranularMarks)
 	}
 	if len(parseScheduler.timeouts) != 1 {
 		parseT.Fatalf("expected one scheduled timeout, got %d", len(parseScheduler.timeouts))

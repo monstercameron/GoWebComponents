@@ -152,7 +152,7 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(in
 			if parseTargetFiber == nil {
 				parseTargetFiber = parseFiber
 			}
-			parseRt.ScheduleUpdateForFiberWithOrigin(parseTargetFiber, parseUpdateOrigin)
+			parseRt.ScheduleOwnedFiberUpdateWithOrigin(parseTargetFiber, parseUpdateOrigin)
 		}
 
 		if parseRt != nil && parseRt.ShouldDeferStateUpdates() {

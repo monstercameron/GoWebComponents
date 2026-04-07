@@ -55,6 +55,8 @@ type Runtime struct {
 	currentRoot             *Fiber
 	nextUnitOfWork          *Fiber
 	deletions               []*Fiber
+	pendingEffectFibers     []*Fiber
+	tracksPendingEffects    bool
 	updateScheduled         bool
 	continueWorkFn          func()
 	pendingBoundaryRecovery bool
@@ -223,6 +225,9 @@ func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
 	}
 	if parseRuntime.deletions == nil {
 		parseRuntime.deletions = make([]*Fiber, 0)
+	}
+	if parseRuntime.pendingEffectFibers == nil {
+		parseRuntime.pendingEffectFibers = make([]*Fiber, 0)
 	}
 	if parseRuntime.uiQueue == nil {
 		parseRuntime.uiQueue = make([]func(), 0)
