@@ -2,6 +2,12 @@
 
 ## 2026-04-06
 
+### reference manual consolidation and api browser
+
+- Replaced the fragmented top-level `docs/*.md` app-authoring set with a consolidated `docs/REFERENCE_MANUAL/` chapter set and removed the legacy duplicate docs from the repository.
+- Added ordered topic pagination across the manual plus a dense `16-api-browser.md` chapter that catalogs the public packages, high-level usage, key parameter objects, returned handles, and source anchors.
+- Rewired root docs, package READMEs, example READMEs, agent guidance, and devtools doc pointers to point at the consolidated manual, and removed the obsolete docs-ingestion planning and `tools/doc_ingest/` assets.
+
 ### browser compatibility workflow checkout
 
 - Updated `.github/workflows/browser-compatibility.yml` to fetch submodules recursively so CI jobs that depend on the pinned `third_party/GoGRPCBridge` checkout can resolve modules and compile the browser suite.

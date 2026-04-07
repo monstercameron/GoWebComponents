@@ -18,7 +18,7 @@ Use `interop` when you need:
 Recommended reading order:
 
 1. [../README.md](../README.md)
-2. [../docs/WORKERS.md](../docs/WORKERS.md) when the task is worker-related
+2. [../docs/REFERENCE_MANUAL/10-browser-interop-and-workers.md](../docs/REFERENCE_MANUAL/10-browser-interop-and-workers.md) when the task is worker-related
 3. [../examples/README.md](../examples/README.md) for runnable browser-interop examples
 
 If you are only looking for the public surface, the summary above is the entry point. The exhaustive API inventory below is reference material, not the best first-read onboarding path.

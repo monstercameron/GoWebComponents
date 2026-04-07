@@ -98,10 +98,10 @@ Use `go run ./tools/gwc <command> -h` for the exact flag surface of a command.
 
 ## Core Docs
 
-- [docs/GWC.md](../docs/GWC.md): canonical launcher guide and common workflows
-- [docs/RUNNER_CONFIG.md](../docs/RUNNER_CONFIG.md): `gwc-runner.json` contract and override paths
-- [docs/TESTING.md](../docs/TESTING.md): testing surface and launcher-owned validation lanes
-- [docs/PERFORMANCE.md](../docs/PERFORMANCE.md): benchmark guidance and scored reports
+- [docs/REFERENCE_MANUAL/02-gwc-workflows.md](../docs/REFERENCE_MANUAL/02-gwc-workflows.md): canonical launcher guide, starter rules, and common workflows
+- [docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md](../docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md): testing surface and launcher-owned validation lanes
+- [docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md](../docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md): release, wasm, and deployment guidance
+- [docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md](../docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md): stability and policy boundaries behind launcher behavior
 - [tools/gwc/docs/README.md](./gwc/docs/README.md): code layout for the launcher package itself
 
 ## Implementation Notes
@@ -109,6 +109,5 @@ Use `go run ./tools/gwc <command> -h` for the exact flag surface of a command.
 - `tools/gwc/` contains the launcher source.
 - `tools/livereload/` contains the live-reload implementation used by `gwc dev`.
 - `tools/runnerconfig/` contains the config loader and resolver used by launcher-owned workflows.
-- `tools/doc_ingest/` contains docs-ingestion bootstrap SQL and local seeding helpers.
 - Other files under `tools/` are implementation details or compatibility artifacts, not the documented primary workflow.
 - Legacy `tools/*.ps1` and `tools/*.sh` helper wrappers are deprecated compatibility shims. Use `go run ./tools/gwc ...` directly for new workflows.

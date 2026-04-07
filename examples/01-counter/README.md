@@ -48,5 +48,5 @@ Then open `http://127.0.0.1:8090/examples/01-counter/counter.html`.
 ## Related Docs
 
 - `examples/README.md`
-- `docs/START_HERE.md`
-- `docs/WORKFLOWS.md`
+- `docs/REFERENCE_MANUAL/01-getting-started.md`
+- `docs/REFERENCE_MANUAL/02-gwc-workflows.md`

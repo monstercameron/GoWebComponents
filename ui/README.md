@@ -18,7 +18,7 @@ Use `ui` when you need:
 Recommended reading order:
 
 1. [../README.md](../README.md) for the repo-level picture
-2. [../docs/START_HERE.md](../docs/START_HERE.md) for the guided learning path
+2. [../docs/REFERENCE_MANUAL/04-ui-rendering-and-hooks.md](../docs/REFERENCE_MANUAL/04-ui-rendering-and-hooks.md) for the guided `ui` learning path
 3. This README for the package surface
 4. [../examples/README.md](../examples/README.md) for runnable API examples
 

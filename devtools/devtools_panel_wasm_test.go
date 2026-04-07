@@ -391,7 +391,7 @@ func buildDevtoolsTestReplaySnapshot() Snapshot {
 			Severity:       SeverityError,
 			Classification: Classification(runtime.DiagnosticCorrectness),
 			Code:           "GWC-ROUTER-LOADER-FAILED",
-			Docs:           "docs/ACTIONABLE_ERRORS.md#gwc-router-loader-failed",
+			Docs:           "docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md#actionable-errors-and-troubleshooting",
 			Remediation:    "Retry the failing loader",
 			Recoverable:    true,
 			TopFrame:       "router/loader.go:42",
@@ -471,7 +471,7 @@ func TestRenderErrorOverlayWasmWithReplaySnapshot(parseT *testing.T) {
 		Severity:    SeverityError,
 		Code:        "GWC-ROUTER-LOADER-FAILED",
 		Message:     "route loader failed",
-		Docs:        "docs/ACTIONABLE_ERRORS.md#gwc-router-loader-failed",
+		Docs:        "docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md#actionable-errors-and-troubleshooting",
 		TopFrame:    "router/loader.go:42",
 		Path:        "/dashboard/reports/7",
 		Remediation: "Retry the failing loader",
@@ -497,7 +497,7 @@ func TestRenderErrorOverlayWasmWithReplaySnapshot(parseT *testing.T) {
 		"Retry loader",
 		"hydration mismatch forced replacement",
 		"Inspect hydration",
-		"docs/ACTIONABLE_ERRORS.md#gwc-router-loader-failed",
+		"docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md#actionable-errors-and-troubleshooting",
 	} {
 		if !strings.Contains(parseMarkup, parseExpected) {
 			parseT.Fatalf("expected overlay markup to include %q\n%s", parseExpected, parseMarkup)

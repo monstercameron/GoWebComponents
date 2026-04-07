@@ -46,10 +46,10 @@ Main commands
 doctor bootstrap start examples dev serve build release test verify files import tailwind bench wasm dashboard seed
 
 Primary docs
-docs/GWC.md
-docs/RUNNER_CONFIG.md
-docs/TESTING.md
-docs/PERFORMANCE.md
+docs/REFERENCE_MANUAL/02-gwc-workflows.md
+docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md
+docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md
+docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md
 tools/README.md
 
 Help

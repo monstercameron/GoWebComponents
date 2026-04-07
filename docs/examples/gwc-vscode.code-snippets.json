@@ -18,7 +18,7 @@
       "func main() {",
       "\tutils.DisableAllDebug()",
       "\tui.Render(ui.CreateElement(${1:App}), \"${2:#app}\")",
-      "\tselect {}",
+      "\tutils.WaitForever()",
       "}"
     ],
     "description": "Render one GoWebComponents app into a browser selector from main.go."
@@ -119,3 +119,4 @@
     "description": "Create a shared cached async resource with stale-aware refresh policy."
   }
 }
+

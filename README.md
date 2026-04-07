@@ -50,7 +50,7 @@ Requirements:
 
 The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and `hotreload`.
 
-The repo-standard workflow uses the `gwc` runner under `tools/gwc`. See [docs/GWC.md](docs/GWC.md) for the canonical launcher guide.
+The repo-standard workflow uses the `gwc` runner under `tools/gwc`. See [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md) for the canonical launcher guide.
 
 Useful entrypoints:
 
@@ -69,12 +69,12 @@ For standalone wasm apps that want state-preserving reload, enable `hotreload.En
 
 Use these entry docs instead of wandering the tree blindly:
 
-- Library user: [docs/START_HERE.md](docs/START_HERE.md) and [docs/REPO_MAP.md](docs/REPO_MAP.md)
+- Library user: [docs/REFERENCE_MANUAL/README.md](docs/REFERENCE_MANUAL/README.md) and [docs/REFERENCE_MANUAL/01-getting-started.md](docs/REFERENCE_MANUAL/01-getting-started.md)
 - Package author working in public APIs: [ui/README.md](ui/README.md), [html/README.md](html/README.md), [state/README.md](state/README.md), [fetch/README.md](fetch/README.md), [router/README.md](router/README.md)
 - Framework contributor: [internal/README.md](internal/README.md), [internal/runtime/README.md](internal/runtime/README.md), [internal/platform/README.md](internal/platform/README.md), [internal/runtime2/README.md](internal/runtime2/README.md)
-- Tooling contributor: [tools/README.md](tools/README.md), [docs/GWC.md](docs/GWC.md), [tools/gwc/docs/README.md](tools/gwc/docs/README.md)
+- Tooling contributor: [tools/README.md](tools/README.md), [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md), [tools/gwc/docs/README.md](tools/gwc/docs/README.md)
 - Example explorer: [examples/README.md](examples/README.md)
-- Test or validation work: [test/README.md](test/README.md) and [docs/TESTING.md](docs/TESTING.md)
+- Test or validation work: [test/README.md](test/README.md) and [docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md](docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md)
 
 ## Repository Layout
 
@@ -85,15 +85,15 @@ If you are contributing to the repo rather than just consuming the module, use t
 - `internal/platform/`, `internal/runtime/`, `internal/runtime2/`: platform adapters and runtime internals
 - `testkit/`: reusable consumer-facing test helpers
 - `test/`: repo-owned validation suites, fixtures, and browser coverage
-- `tools/gwc/`, `tools/livereload/`, `tools/runnerconfig/`, `tools/doc_ingest/`: developer tooling and repo automation
+- `tools/gwc/`, `tools/livereload/`, `tools/runnerconfig/`: developer tooling and repo automation
 - `docs/`: prose documentation and backlog tracking
 - `examples/`: examples, showcase apps, and validation fixtures
 - `agents/`, `scripts/`: local agent instructions and repository helper scripts
 - `third_party/`: pinned external dependencies and cached tool payloads used by this repo
 - `bin/`, `log/`: ignored local runtime outputs and local log sinks
 
-For the fuller human-oriented directory map, use [docs/REPO_MAP.md](docs/REPO_MAP.md).
-Local package maps live in the directory READMEs for the larger implementation areas, especially `internal/platform/`, `internal/runtime/`, `internal/runtime2/`, `tools/doc_ingest/`, and `tools/runnerconfig/`.
+For the fuller human-oriented docs entrypoint, use [docs/REFERENCE_MANUAL/README.md](docs/REFERENCE_MANUAL/README.md).
+Local package maps live in the directory READMEs for the larger implementation areas, especially `internal/platform/`, `internal/runtime/`, `internal/runtime2/`, and `tools/runnerconfig/`.
 
 ## Starter App Example
 
@@ -107,6 +107,7 @@ import (
 
     . "github.com/monstercameron/GoWebComponents/html/shorthand"
     "github.com/monstercameron/GoWebComponents/ui"
+    "github.com/monstercameron/GoWebComponents/utils"
 )
 
 type StarterAppProps struct {
@@ -178,7 +179,7 @@ func main() {
         Title:        "Starter App",
         InitialCount: 0,
     }), "#app")
-    select {}
+    utils.WaitForever()
 }
 ```
 
@@ -359,7 +360,7 @@ $env:GOARCH = "wasm"
 go test -exec .\tools\go_js_wasm_exec.bat ./internal/platform/jsdom -run ^$ -bench . -benchmem
 ```
 
-Release-style wasm comparisons and benchmark reporting are driven through [docs/GWC.md](docs/GWC.md), [tools/README.md](tools/README.md), and [docs/PERFORMANCE.md](docs/PERFORMANCE.md), especially `gwc build`, `gwc release`, and `gwc bench`.
+Release-style wasm comparisons and benchmark reporting are driven through [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md), [docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md](docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md), [docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md](docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md), and [tools/README.md](tools/README.md), especially `gwc build`, `gwc release`, and `gwc bench`.
 
 Latest browser comparison run on 2026-03-16:
 
@@ -426,19 +427,14 @@ The implementation center of gravity is `internal/runtime/`:
 ## Documentation
 
 - [CHANGELOG.md](CHANGELOG.md)
-- [docs/README.md](docs/README.md)
-- [docs/REPO_MAP.md](docs/REPO_MAP.md)
-- [docs/START_HERE.md](docs/START_HERE.md)
-- [docs/WORKFLOWS.md](docs/WORKFLOWS.md)
-- [docs/WALKTHROUGHS.md](docs/WALKTHROUGHS.md)
-- [docs/REFERENCE_MAP.md](docs/REFERENCE_MAP.md)
-- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-- [docs/FORMS.md](docs/FORMS.md)
-- [docs/API_POLICY.md](docs/API_POLICY.md)
-- [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md)
-- [docs/HEAD_MANAGEMENT.md](docs/HEAD_MANAGEMENT.md)
-- [docs/MIGRATIONS.md](docs/MIGRATIONS.md)
-- [docs/TODO.md](docs/TODO.md)
+- [docs/REFERENCE_MANUAL/README.md](docs/REFERENCE_MANUAL/README.md)
+- [docs/REFERENCE_MANUAL/01-getting-started.md](docs/REFERENCE_MANUAL/01-getting-started.md)
+- [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md)
+- [docs/REFERENCE_MANUAL/03-app-shapes.md](docs/REFERENCE_MANUAL/03-app-shapes.md)
+- [docs/REFERENCE_MANUAL/09-ssr-and-hydration.md](docs/REFERENCE_MANUAL/09-ssr-and-hydration.md)
+- [docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md](docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md)
+- [docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md](docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md)
+- [docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md](docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md)
 - [examples/README.md](examples/README.md)
 - [test/README.md](test/README.md)
 - [tools/README.md](tools/README.md)
@@ -448,3 +444,4 @@ The implementation center of gravity is `internal/runtime/`:
 - Older references to `fiber/` are obsolete; the runtime now lives under `internal/runtime/`.
 - The repo-standard workflow now goes through `go run ./tools/gwc ...` instead of ad hoc local launcher scripts.
 - The browser-compiler example may generate large local package archives under `examples/13-browser-compiler/static/pkg/`; those artifacts should remain ignored.
+

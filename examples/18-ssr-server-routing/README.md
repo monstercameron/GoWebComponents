@@ -67,7 +67,7 @@ Pair this example with `examples/70-render-to-string` when you want the same com
 
 ## Observability recipe
 
-This example is also the current end-to-end observability reference for one server-rendered request plus hydration resume. Pair it with [OBSERVABILITY.md](C:/Users/Cam/Desktop/GoWebComponents/docs/OBSERVABILITY.md) when you want to:
+This example is also the current end-to-end observability reference for one server-rendered request plus hydration resume. Pair it with [docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md](../../docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md) when you want to:
 
 - create one request correlation id at HTTP request entry
 - attach it to `ui.RenderToStringObserved(...)` and the observed bootstrap helpers

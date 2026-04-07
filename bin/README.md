@@ -19,4 +19,4 @@ Rules:
 Canonical workflow docs:
 
 - [../tools/README.md](../tools/README.md)
-- [../docs/GWC.md](../docs/GWC.md)
+- [../docs/REFERENCE_MANUAL/02-gwc-workflows.md](../docs/REFERENCE_MANUAL/02-gwc-workflows.md)

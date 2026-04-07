@@ -412,7 +412,7 @@ func collectOverlayIssues(parseSnapshot Snapshot) []ErrorOverlayIssue {
 			Source:   "hydration",
 			Code:     "GWC-HYDRATION-FAILED",
 			Message:  emptyFallback(parseSnapshot.Hydration.Failure, "hydration failed during client resume"),
-			Docs:     "docs/ACTIONABLE_ERRORS.md#gwc-runtime-panic-hydration",
+			Docs:     "docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md#actionable-errors-and-troubleshooting",
 		})
 	}
 	return parseIssues

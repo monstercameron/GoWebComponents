@@ -17,8 +17,8 @@ This folder contains the experimental multithreaded runtime and its transport, s
 
 ## Start Here
 
-- Read `docs/MULTITHREADED_RUNTIME.md` for the design.
-- Read `docs/MULTITHREADED_RUNTIME_TODO.md` for the current execution backlog.
+- Read [../../docs/REFERENCE_MANUAL/10-browser-interop-and-workers.md](../../docs/REFERENCE_MANUAL/10-browser-interop-and-workers.md) for the worker and browser-coordination boundary.
+- Read [../../docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md](../../docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md) for the current experimental and non-default runtime posture.
 - Start in `scheduler.go` and `host_region_adapter.go` for host-side behavior changes.
 - Start in `worker_region_runtime.go` for worker execution changes.
 

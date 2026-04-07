@@ -6,7 +6,7 @@ This example is a focused request-time rendered form flow that demonstrates:
 - server-side validation round-trips that preserve submitted values on the same page
 - `multipart/form-data` uploads with typed `html.Props{EncType: ...}` markup
 - `303 See Other` redirects after successful quote requests and file uploads
-- the progressive half of the shared server-action contract documented in `docs/SERVER_ACTIONS.md`
+- the progressive half of the shared server-action and form-ownership contract summarized in `docs/REFERENCE_MANUAL/11-forms-accessibility-and-i18n.md`
 
 ## Run The Server
 
