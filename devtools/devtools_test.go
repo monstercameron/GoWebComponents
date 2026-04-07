@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/plugin"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -482,6 +483,76 @@ func TestExtensionSectionsRoundTripClonedState(parseT *testing.T) {
 	ResetExtensionSections()
 	if parseGot := InspectExtensionSections(); len(parseGot) != 0 {
 		parseT.Fatalf("ResetExtensionSections() left residual state: %+v", parseGot)
+	}
+}
+
+func TestApplyHostExtensionsMapsAndRestoresHostContributions(parseT *testing.T) {
+	parseT.Cleanup(ResetExtensionSections)
+	parseT.Cleanup(ResetErrorOverlayActions)
+
+	parseHost := plugin.NewHost(plugin.HostOptions{Capabilities: []plugin.Capability{plugin.CapabilityDevtools}})
+	if parseErr := parseHost.AddDevtoolsSectionProvider(func() plugin.DevtoolsSection {
+		return plugin.DevtoolsSection{
+			Name:    "Companion",
+			Summary: map[string]string{"state": "ready"},
+			Lines:   []string{"line one"},
+		}
+	}); parseErr != nil {
+		parseT.Fatalf("AddDevtoolsSectionProvider() error = %v", parseErr)
+	}
+
+	isParseInvoked := false
+	if parseErr2 := parseHost.AddDevtoolsActionProvider(func() []plugin.DevtoolsAction {
+		return []plugin.DevtoolsAction{{
+			Label:        "Retry loader",
+			MatchCodes:   []string{"GWC-ROUTER-LOADER-FAILED"},
+			MatchSources: []string{"router"},
+			Run: func(parseContext plugin.DevtoolsActionContext) {
+				isParseInvoked = true
+				if parseContext.Host != parseHost || parseContext.IssueCode != "GWC-ROUTER-LOADER-FAILED" || parseContext.IssueSource != "router" || parseContext.IssuePath != "/reports" || parseContext.IssueMessage != "route loader failed" || parseContext.IssueDocs != "docs/router" || parseContext.IssueTopFrame != "renderReports" {
+					parseT.Fatalf("unexpected mapped host action context: %+v", parseContext)
+				}
+			},
+		}}
+	}); parseErr2 != nil {
+		parseT.Fatalf("AddDevtoolsActionProvider() error = %v", parseErr2)
+	}
+
+	SetExtensionSections([]ExtensionSection{{Name: "Existing", Summary: map[string]string{"state": "baseline"}}})
+	SetErrorOverlayActions([]ErrorOverlayAction{{Label: "Existing", Run: func(ErrorOverlayActionContext) {}}})
+
+	parseCleanup := ApplyHostExtensions(parseHost)
+	parseSections := InspectExtensionSections()
+	if len(parseSections) != 1 || parseSections[0].Name != "Companion" || parseSections[0].Summary["state"] != "ready" || parseSections[0].Lines[0] != "line one" {
+		parseT.Fatalf("InspectExtensionSections() = %+v, want mapped host section", parseSections)
+	}
+
+	parseActions := InspectErrorOverlayActions()
+	if len(parseActions) != 1 || parseActions[0].Label != "Retry loader" || parseActions[0].MatchCodes[0] != "GWC-ROUTER-LOADER-FAILED" {
+		parseT.Fatalf("InspectErrorOverlayActions() = %+v, want mapped host action", parseActions)
+	}
+	parseActions[0].Run(ErrorOverlayActionContext{
+		Issue: ErrorOverlayIssue{
+			Source:   "router",
+			Code:     "GWC-ROUTER-LOADER-FAILED",
+			Message:  "route loader failed",
+			TopFrame: "renderReports",
+			Path:     "/reports",
+			Docs:     "docs/router",
+		},
+	})
+	if !isParseInvoked {
+		parseT.Fatal("expected mapped host overlay action to remain callable")
+	}
+
+	parseCleanup()
+	parseRestoredSections := InspectExtensionSections()
+	if len(parseRestoredSections) != 1 || parseRestoredSections[0].Name != "Existing" || parseRestoredSections[0].Summary["state"] != "baseline" {
+		parseT.Fatalf("expected cleanup to restore prior extension sections, got %+v", parseRestoredSections)
+	}
+	parseRestoredActions := InspectErrorOverlayActions()
+	if len(parseRestoredActions) != 1 || parseRestoredActions[0].Label != "Existing" {
+		parseT.Fatalf("expected cleanup to restore prior overlay actions, got %+v", parseRestoredActions)
 	}
 }
 

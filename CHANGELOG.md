@@ -2,6 +2,12 @@
 
 ## 2026-04-07
 
+### plugin-host devtools extension seam
+
+- Extended the `plugin` companion host with capability-gated devtools section and overlay-action providers so consumer-owned plugins can contribute richer diagnostics UI without widening runtime internals or relying on hidden discovery.
+- Added `devtools.ApplyHostExtensions(...)` to map host-owned devtools contributions into the existing extension-section and error-overlay state, with cleanup that restores the prior app-owned devtools wiring.
+- Covered the new seam with focused `plugin` and `devtools` tests for capability enforcement, cloned reads, rollback safety after failed setup, and host-to-devtools action-context mapping.
+
 ### runtime2 renderer and benchmark performance pass
 
 - Reduced `runtime2` host and commit overhead with append-only and remove-only patch-transaction fast paths, narrower rollback snapshots, cheaper insert-only host patch cache handling, and focused compare benchmarks for the new commit paths.

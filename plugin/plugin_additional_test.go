@@ -17,7 +17,7 @@ func TestHostNilValidationAndCloneHelpers(parseT *testing.T) {
 	if parseErr2 := parseNilHost.Close(); parseErr2 != nil {
 		parseT.Fatalf("nil host Close() error = %v", parseErr2)
 	}
-	if parseNilHost.Capabilities() != nil || parseNilHost.Plugins() != nil || parseNilHost.BootstrapData() != nil || parseNilHost.ValidateForm(FormSubmission{}) != nil {
+	if parseNilHost.Capabilities() != nil || parseNilHost.Plugins() != nil || parseNilHost.BootstrapData() != nil || parseNilHost.ValidateForm(FormSubmission{}) != nil || parseNilHost.DevtoolsSections() != nil || parseNilHost.DevtoolsActions() != nil {
 		parseT.Fatal("nil host helper methods should return nil slices/maps")
 	}
 	if parseDecision := parseNilHost.EvaluateRoute(RouteRequest{Path: "/"}); parseDecision.Outcome != GuardAllow {
@@ -91,6 +91,12 @@ func TestHostValidationPanelsBootstrapAndCleanup(parseT *testing.T) {
 	if parseErr5 := parseHost.AddPanelProvider(nil); parseErr5 != nil {
 		parseT.Fatalf("AddPanelProvider(nil) error = %v", parseErr5)
 	}
+	if parseErr5b := parseHost.AddDevtoolsSectionProvider(nil); parseErr5b != nil {
+		parseT.Fatalf("AddDevtoolsSectionProvider(nil) error = %v", parseErr5b)
+	}
+	if parseErr5c := parseHost.AddDevtoolsActionProvider(nil); parseErr5c != nil {
+		parseT.Fatalf("AddDevtoolsActionProvider(nil) error = %v", parseErr5c)
+	}
 	if parseErr6 := parseHost.AddHeadProvider(nil); parseErr6 != nil {
 		parseT.Fatalf("AddHeadProvider(nil) error = %v", parseErr6)
 	}
@@ -109,6 +115,32 @@ func TestHostValidationPanelsBootstrapAndCleanup(parseT *testing.T) {
 	parsePanels := parseHost.Panels()
 	if len(parsePanels) != 1 || parsePanels[0].ID != "inspect" {
 		parseT.Fatalf("Panels() = %+v, want one valid panel", parsePanels)
+	}
+
+	_ = parseHost.AddDevtoolsSectionProvider(func() DevtoolsSection {
+		return DevtoolsSection{Name: "Companion", Summary: map[string]string{"state": "ready"}, Lines: []string{"line one"}}
+	})
+	parseSections := parseHost.DevtoolsSections()
+	parseSections[0].Summary["state"] = "mutated"
+	parseSections[0].Lines[0] = "mutated"
+	parseSections[0].Name = "mutated"
+	if parseNextSections := parseHost.DevtoolsSections(); len(parseNextSections) != 1 || parseNextSections[0].Name != "Companion" || parseNextSections[0].Summary["state"] != "ready" || parseNextSections[0].Lines[0] != "line one" {
+		parseT.Fatalf("DevtoolsSections() = %+v, want cloned section values", parseNextSections)
+	}
+
+	_ = parseHost.AddDevtoolsActionProvider(func() []DevtoolsAction {
+		return []DevtoolsAction{{
+			Label:        "Retry loader",
+			MatchCodes:   []string{"GWC-ROUTER-LOADER-FAILED"},
+			MatchSources: []string{"router"},
+			Run:          func(DevtoolsActionContext) {},
+		}}
+	})
+	parseActions := parseHost.DevtoolsActions()
+	parseActions[0].Label = "mutated"
+	parseActions[0].MatchCodes[0] = "mutated"
+	if parseNextActions := parseHost.DevtoolsActions(); len(parseNextActions) != 1 || parseNextActions[0].Label != "Retry loader" || parseNextActions[0].MatchCodes[0] != "GWC-ROUTER-LOADER-FAILED" {
+		parseT.Fatalf("DevtoolsActions() = %+v, want cloned action values", parseNextActions)
 	}
 
 	_ = parseHost.AddHeadProvider(func() ui.Node {
@@ -213,6 +245,12 @@ func TestHostSkipBranchesForNilProvidersAndEmptyOutputs(parseT *testing.T) {
 	if parseNilHost.Panels() != nil {
 		parseT.Fatal("nil host Panels() should return nil")
 	}
+	if parseNilHost.DevtoolsSections() != nil {
+		parseT.Fatal("nil host DevtoolsSections() should return nil")
+	}
+	if parseNilHost.DevtoolsActions() != nil {
+		parseT.Fatal("nil host DevtoolsActions() should return nil")
+	}
 	if parseNilHost.HeadNodes() != nil {
 		parseT.Fatal("nil host HeadNodes() should return nil")
 	}
@@ -242,6 +280,28 @@ func TestHostSkipBranchesForNilProvidersAndEmptyOutputs(parseT *testing.T) {
 	}
 	if parsePanels := parseHost.Panels(); len(parsePanels) != 1 || parsePanels[0].ID != "valid" {
 		parseT.Fatalf("Panels() = %+v, want one valid panel", parsePanels)
+	}
+
+	parseHost.devtoolsSectionProviders = []DevtoolsSectionProvider{
+		nil,
+		func() DevtoolsSection { return DevtoolsSection{} },
+		func() DevtoolsSection {
+			return DevtoolsSection{Name: "Companion", Summary: map[string]string{"state": "ready"}}
+		},
+	}
+	if parseSections := parseHost.DevtoolsSections(); len(parseSections) != 1 || parseSections[0].Name != "Companion" {
+		parseT.Fatalf("DevtoolsSections() = %+v, want one valid section", parseSections)
+	}
+
+	parseHost.devtoolsActionProviders = []DevtoolsActionProvider{
+		nil,
+		func() []DevtoolsAction { return []DevtoolsAction{{Label: "ignored"}} },
+		func() []DevtoolsAction {
+			return []DevtoolsAction{{Label: "Retry", MatchCodes: []string{"GWC-ROUTER-FAILED"}, Run: func(DevtoolsActionContext) {}}}
+		},
+	}
+	if parseActions := parseHost.DevtoolsActions(); len(parseActions) != 1 || parseActions[0].Label != "Retry" {
+		parseT.Fatalf("DevtoolsActions() = %+v, want one valid action", parseActions)
 	}
 
 	parseHost.headProviders = []HeadProvider{
@@ -315,6 +375,22 @@ func TestCapabilityGatedAddersReturnMissingCapabilityErrors(parseT *testing.T) {
 			name: "panel provider",
 			call: func() error {
 				return parseHost.AddPanelProvider(func() Panel { return Panel{ID: "p", Title: "Panel"} })
+			},
+			want: `capability "devtools" is not enabled`,
+		},
+		{
+			name: "devtools section provider",
+			call: func() error {
+				return parseHost.AddDevtoolsSectionProvider(func() DevtoolsSection { return DevtoolsSection{Name: "Companion"} })
+			},
+			want: `capability "devtools" is not enabled`,
+		},
+		{
+			name: "devtools action provider",
+			call: func() error {
+				return parseHost.AddDevtoolsActionProvider(func() []DevtoolsAction {
+					return []DevtoolsAction{{Label: "Retry", Run: func(DevtoolsActionContext) {}}}
+				})
 			},
 			want: `capability "devtools" is not enabled`,
 		},

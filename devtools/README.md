@@ -9,7 +9,7 @@ The `devtools` library provides debugging and inspection surfaces for GWC applic
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/devtools` (`package devtools`)
-- Functions: `CaptureBugBundle`, `CaptureSupportDiagnosticBundle`, `CaptureTrace`, `ClearTraceReplay`, `CompareSnapshots`, `CurrentTraceReplay`, `ErrorOverlay`, `ExportBugCaptureBundleJSON`, `ExportSnapshotJSON`, `ExportSupportDiagnosticBundleJSON`, `ExportTraceCaptureJSON`, `ImportBugCaptureBundleJSON`, `ImportSupportDiagnosticBundleJSON`, `ImportTraceCaptureJSON`, `InspectBootstrapBoundaries`, `InspectCoordination`, `InspectErrorOverlayActions`, `InspectExtensionSections`, `InspectMultiClient`, `InspectSerializationBoundaries`, `Panel`, `ReplayBugCaptureBundle`, `ResetCoordinationInspection`, `ResetErrorOverlayActions`, `ResetExtensionSections`, `ResetMultiClientInspection`, `ResetSerializationBoundaryInspection`, `SanitizeBugCaptureBundleForSupport`, `SetCoordinationInspection`, `SetErrorOverlayActions`, `SetExtensionSections`, `SetMultiClientInspection`, `SetSerializationBoundaryInspection`, `SetTraceReplay`, `SnapshotNow`, `UseSnapshot`
+- Functions: `ApplyHostExtensions`, `CaptureBugBundle`, `CaptureSupportDiagnosticBundle`, `CaptureTrace`, `ClearTraceReplay`, `CompareSnapshots`, `CurrentTraceReplay`, `ErrorOverlay`, `ExportBugCaptureBundleJSON`, `ExportSnapshotJSON`, `ExportSupportDiagnosticBundleJSON`, `ExportTraceCaptureJSON`, `ImportBugCaptureBundleJSON`, `ImportSupportDiagnosticBundleJSON`, `ImportTraceCaptureJSON`, `InspectBootstrapBoundaries`, `InspectCoordination`, `InspectErrorOverlayActions`, `InspectExtensionSections`, `InspectMultiClient`, `InspectSerializationBoundaries`, `Panel`, `ReplayBugCaptureBundle`, `ResetCoordinationInspection`, `ResetErrorOverlayActions`, `ResetExtensionSections`, `ResetMultiClientInspection`, `ResetSerializationBoundaryInspection`, `SanitizeBugCaptureBundleForSupport`, `SetCoordinationInspection`, `SetErrorOverlayActions`, `SetExtensionSections`, `SetMultiClientInspection`, `SetSerializationBoundaryInspection`, `SetTraceReplay`, `SnapshotNow`, `UseSnapshot`
 - Types: `Boundary`, `BoundaryInspection`, `Branch`, `BugCaptureBundle`, `CacheEntry`, `Classification`, `ComponentRenderTrace`, `Coordination`, `Diagnostic`, `ErrorOverlayAction`, `ErrorOverlayActionContext`, `ErrorOverlayIssue`, `ErrorOverlayProps`, `ExtensionSection`, `FlamegraphFrame`, `Hook`, `HydrationDebug`, `Log`, `LogLevel`, `MultiClient`, `MultiClientFailure`, `MultiClientPeer`, `MultiClientTraffic`, `Node`, `PanelProps`, `Profiling`, `ProfilingEvent`, `ProfilingPhaseTotals`, `ReplayEntry`, `Route`, `RouteLoader`, `RouteMetadata`, `RouteRedirect`, `RouteStack`, `Severity`, `Snapshot`, `SnapshotComparison`, `StartupProfiling`, `Stats`, `SupportDiagnosticBundle`, `SyncEvent`, `TraceCapture`, `WorkerJob`
 - Variables: _none_
 - Constants: `SeverityError`, `SeverityInfo`, `SeverityWarning`
@@ -25,6 +25,7 @@ The `devtools` library provides debugging and inspection surfaces for GWC applic
 - `doc.go` - Package-level Go documentation
 - `error_overlay_actions.go` - Core implementation for error_overlay_actions
 - `extension_sections.go` - Core implementation for extension_sections
+- `host_extensions.go` - Core implementation for host_extensions
 - `multi_client_state.go` - Core implementation for multi_client_state
 - `README.md` - Folder-level documentation
 - `serialization_boundaries.go` - Core implementation for serialization_boundaries
@@ -46,6 +47,7 @@ devtools/
 |-- doc.go
 |-- error_overlay_actions.go
 |-- extension_sections.go
+|-- host_extensions.go
 |-- multi_client_state.go
 |-- README.md
 |-- serialization_boundaries.go

@@ -76,15 +76,17 @@ type Host struct {
 	cleanups     []CleanupFunc
 	values       map[string]interface{}
 
-	routeGuards         []RouteGuard
-	navigationObservers []NavigationObserver
-	cacheDecorators     []CacheKeyDecorator
-	requestObservers    []RequestObserver
-	panelProviders      []PanelProvider
-	headProviders       []HeadProvider
-	bootstrapProviders  []BootstrapProvider
-	formValidators      []FormValidator
-	submitObservers     []SubmitObserver
+	routeGuards              []RouteGuard
+	navigationObservers      []NavigationObserver
+	cacheDecorators          []CacheKeyDecorator
+	requestObservers         []RequestObserver
+	panelProviders           []PanelProvider
+	devtoolsSectionProviders []DevtoolsSectionProvider
+	devtoolsActionProviders  []DevtoolsActionProvider
+	headProviders            []HeadProvider
+	bootstrapProviders       []BootstrapProvider
+	formValidators           []FormValidator
+	submitObservers          []SubmitObserver
 }
 
 type RouteRequest struct {
@@ -132,6 +134,33 @@ type Panel struct {
 }
 
 type PanelProvider func() Panel
+
+type DevtoolsSection struct {
+	Name    string
+	Summary map[string]string
+	Lines   []string
+}
+
+type DevtoolsSectionProvider func() DevtoolsSection
+
+type DevtoolsActionContext struct {
+	Host          *Host
+	IssueCode     string
+	IssueSource   string
+	IssuePath     string
+	IssueMessage  string
+	IssueDocs     string
+	IssueTopFrame string
+}
+
+type DevtoolsAction struct {
+	Label        string
+	MatchCodes   []string
+	MatchSources []string
+	Run          func(DevtoolsActionContext)
+}
+
+type DevtoolsActionProvider func() []DevtoolsAction
 
 type HeadProvider func() ui.Node
 
@@ -409,6 +438,69 @@ func (parseHost *Host) Panels() []Panel {
 	return parsePanels
 }
 
+// AddDevtoolsSectionProvider registers a provider that contributes one devtools extension section.
+func (parseHost *Host) AddDevtoolsSectionProvider(parseProvider DevtoolsSectionProvider) error {
+	if parseErr := parseHost.requireCapability(CapabilityDevtools); parseErr != nil {
+		return parseErr
+	}
+	if parseProvider == nil {
+		return nil
+	}
+	parseHost.devtoolsSectionProviders = append(parseHost.devtoolsSectionProviders, parseProvider)
+	return nil
+}
+
+// DevtoolsSections collects and returns all valid devtools extension sections from registered providers.
+func (parseHost *Host) DevtoolsSections() []DevtoolsSection {
+	if parseHost == nil {
+		return nil
+	}
+	parseSections := make([]DevtoolsSection, 0, len(parseHost.devtoolsSectionProviders))
+	for _, parseProvider := range parseHost.devtoolsSectionProviders {
+		if parseProvider == nil {
+			continue
+		}
+		parseSection := parseProvider()
+		if strings.TrimSpace(parseSection.Name) == "" {
+			continue
+		}
+		parseSections = append(parseSections, cloneDevtoolsSection(parseSection))
+	}
+	return parseSections
+}
+
+// AddDevtoolsActionProvider registers a provider that contributes one or more error-overlay recovery actions.
+func (parseHost *Host) AddDevtoolsActionProvider(parseProvider DevtoolsActionProvider) error {
+	if parseErr := parseHost.requireCapability(CapabilityDevtools); parseErr != nil {
+		return parseErr
+	}
+	if parseProvider == nil {
+		return nil
+	}
+	parseHost.devtoolsActionProviders = append(parseHost.devtoolsActionProviders, parseProvider)
+	return nil
+}
+
+// DevtoolsActions collects and returns all valid devtools recovery actions from registered providers.
+func (parseHost *Host) DevtoolsActions() []DevtoolsAction {
+	if parseHost == nil {
+		return nil
+	}
+	parseActions := make([]DevtoolsAction, 0)
+	for _, parseProvider := range parseHost.devtoolsActionProviders {
+		if parseProvider == nil {
+			continue
+		}
+		for _, parseAction := range parseProvider() {
+			if strings.TrimSpace(parseAction.Label) == "" || parseAction.Run == nil {
+				continue
+			}
+			parseActions = append(parseActions, cloneDevtoolsAction(parseAction))
+		}
+	}
+	return parseActions
+}
+
 // AddHeadProvider registers a provider that contributes ui.Node elements to the document head.
 func (parseHost *Host) AddHeadProvider(parseProvider HeadProvider) error {
 	if parseErr := parseHost.requireCapability(CapabilitySSR); parseErr != nil {
@@ -541,18 +633,20 @@ func Redirect(parsePath, parseReason string) GuardDecision {
 }
 
 type registrySnapshot struct {
-	routeGuards         int
-	navigationObservers int
-	cacheDecorators     int
-	requestObservers    int
-	panelProviders      int
-	headProviders       int
-	bootstrapProviders  int
-	formValidators      int
-	submitObservers     int
-	cleanups            int
-	plugins             int
-	values              map[string]interface{}
+	routeGuards              int
+	navigationObservers      int
+	cacheDecorators          int
+	requestObservers         int
+	panelProviders           int
+	devtoolsSectionProviders int
+	devtoolsActionProviders  int
+	headProviders            int
+	bootstrapProviders       int
+	formValidators           int
+	submitObservers          int
+	cleanups                 int
+	plugins                  int
+	values                   map[string]interface{}
 }
 
 func (parseHost *Host) snapshot() registrySnapshot {
@@ -561,18 +655,20 @@ func (parseHost *Host) snapshot() registrySnapshot {
 		parseValues[parseKey] = parseValue
 	}
 	return registrySnapshot{
-		routeGuards:         len(parseHost.routeGuards),
-		navigationObservers: len(parseHost.navigationObservers),
-		cacheDecorators:     len(parseHost.cacheDecorators),
-		requestObservers:    len(parseHost.requestObservers),
-		panelProviders:      len(parseHost.panelProviders),
-		headProviders:       len(parseHost.headProviders),
-		bootstrapProviders:  len(parseHost.bootstrapProviders),
-		formValidators:      len(parseHost.formValidators),
-		submitObservers:     len(parseHost.submitObservers),
-		cleanups:            len(parseHost.cleanups),
-		plugins:             len(parseHost.plugins),
-		values:              parseValues,
+		routeGuards:              len(parseHost.routeGuards),
+		navigationObservers:      len(parseHost.navigationObservers),
+		cacheDecorators:          len(parseHost.cacheDecorators),
+		requestObservers:         len(parseHost.requestObservers),
+		panelProviders:           len(parseHost.panelProviders),
+		devtoolsSectionProviders: len(parseHost.devtoolsSectionProviders),
+		devtoolsActionProviders:  len(parseHost.devtoolsActionProviders),
+		headProviders:            len(parseHost.headProviders),
+		bootstrapProviders:       len(parseHost.bootstrapProviders),
+		formValidators:           len(parseHost.formValidators),
+		submitObservers:          len(parseHost.submitObservers),
+		cleanups:                 len(parseHost.cleanups),
+		plugins:                  len(parseHost.plugins),
+		values:                   parseValues,
 	}
 }
 
@@ -582,6 +678,8 @@ func (parseHost *Host) rollback(parseSnapshot registrySnapshot) {
 	parseHost.cacheDecorators = parseHost.cacheDecorators[:parseSnapshot.cacheDecorators]
 	parseHost.requestObservers = parseHost.requestObservers[:parseSnapshot.requestObservers]
 	parseHost.panelProviders = parseHost.panelProviders[:parseSnapshot.panelProviders]
+	parseHost.devtoolsSectionProviders = parseHost.devtoolsSectionProviders[:parseSnapshot.devtoolsSectionProviders]
+	parseHost.devtoolsActionProviders = parseHost.devtoolsActionProviders[:parseSnapshot.devtoolsActionProviders]
 	parseHost.headProviders = parseHost.headProviders[:parseSnapshot.headProviders]
 	parseHost.bootstrapProviders = parseHost.bootstrapProviders[:parseSnapshot.bootstrapProviders]
 	parseHost.formValidators = parseHost.formValidators[:parseSnapshot.formValidators]
@@ -651,6 +749,33 @@ func cloneManifest(parseManifest Manifest) Manifest {
 	parseClone := parseManifest
 	if parseManifest.Requires != nil {
 		parseClone.Requires = append([]Capability(nil), parseManifest.Requires...)
+	}
+	return parseClone
+}
+
+// cloneDevtoolsSection returns a cloned devtools section value.
+func cloneDevtoolsSection(parseSection DevtoolsSection) DevtoolsSection {
+	parseClone := parseSection
+	if parseSection.Summary != nil {
+		parseClone.Summary = make(map[string]string, len(parseSection.Summary))
+		for parseKey, parseValue := range parseSection.Summary {
+			parseClone.Summary[parseKey] = parseValue
+		}
+	}
+	if parseSection.Lines != nil {
+		parseClone.Lines = append([]string(nil), parseSection.Lines...)
+	}
+	return parseClone
+}
+
+// cloneDevtoolsAction returns a cloned devtools action value.
+func cloneDevtoolsAction(parseAction DevtoolsAction) DevtoolsAction {
+	parseClone := parseAction
+	if parseAction.MatchCodes != nil {
+		parseClone.MatchCodes = append([]string(nil), parseAction.MatchCodes...)
+	}
+	if parseAction.MatchSources != nil {
+		parseClone.MatchSources = append([]string(nil), parseAction.MatchSources...)
 	}
 	return parseClone
 }

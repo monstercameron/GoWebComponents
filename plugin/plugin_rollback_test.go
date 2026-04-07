@@ -77,3 +77,41 @@ func TestRegisterRollbackTrimsAddedValuesAndContributions(parseT *testing.T) {
 		parseT.Fatalf("expected failed plugin not to be registered, got %+v", parseHost.Plugins())
 	}
 }
+
+func TestRegisterRollbackTrimsAddedDevtoolsContributions(parseT *testing.T) {
+	parseHost := NewHost(HostOptions{Capabilities: []Capability{CapabilityDevtools}})
+
+	parseErr := parseHost.Register(Define(Manifest{
+		ID:          "rollback-devtools",
+		Version:     "0.1.0",
+		Description: "exercise devtools rollback",
+		Tier:        TierExperimental,
+		Requires:    []Capability{CapabilityDevtools},
+	}, func(parseHost2 *Host) (CleanupFunc, error) {
+		_ = parseHost2.AddDevtoolsSectionProvider(func() DevtoolsSection {
+			return DevtoolsSection{Name: "Companion", Summary: map[string]string{"state": "ready"}}
+		})
+		_ = parseHost2.AddDevtoolsActionProvider(func() []DevtoolsAction {
+			return []DevtoolsAction{{
+				Label:        "Retry",
+				MatchCodes:   []string{"GWC-ROUTER-FAILED"},
+				MatchSources: []string{"router"},
+				Run:          func(DevtoolsActionContext) {},
+			}}
+		})
+		return nil, errors.New("force devtools setup failure")
+	}))
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "setup failed for \"rollback-devtools\"") {
+		parseT.Fatalf("expected setup failure error, got %v", parseErr)
+	}
+
+	if parseSections := parseHost.DevtoolsSections(); len(parseSections) != 0 {
+		parseT.Fatalf("expected devtools sections to roll back, got %+v", parseSections)
+	}
+	if parseActions := parseHost.DevtoolsActions(); len(parseActions) != 0 {
+		parseT.Fatalf("expected devtools actions to roll back, got %+v", parseActions)
+	}
+	if len(parseHost.Plugins()) != 0 {
+		parseT.Fatalf("expected failed plugin not to be registered, got %+v", parseHost.Plugins())
+	}
+}
