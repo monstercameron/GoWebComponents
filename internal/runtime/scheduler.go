@@ -64,6 +64,7 @@ func (parseRt *Runtime) ScheduleUpdate() {
 		typeOf:    parseRt.currentRoot.typeOf,
 		dom:       parseRt.currentRoot.dom,
 		props:     parseRt.currentRoot.props,
+		children:  parseRt.currentRoot.children,
 		alternate: parseRt.currentRoot,
 		dirty:     true,
 	}
@@ -161,10 +162,12 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 	}
 
 	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
+	parseChildren := []interface{}{parseElement}
 	*parseRt.wipRoot = Fiber{
 		typeOf:    "ROOT",
 		dom:       parseContainer,
-		props:     map[string]interface{}{"children": []interface{}{parseElement}},
+		props:     map[string]interface{}{"children": parseChildren},
+		children:  parseChildren,
 		alternate: parseRt.currentRoot,
 		dirty:     true,
 	}
@@ -254,10 +257,12 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 	}
 
 	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
+	parseChildren := []interface{}{parseElement}
 	*parseRt.wipRoot = Fiber{
 		typeOf:    "ROOT",
 		dom:       parseContainer,
-		props:     map[string]interface{}{"children": []interface{}{parseElement}},
+		props:     map[string]interface{}{"children": parseChildren},
+		children:  parseChildren,
 		alternate: parseRt.currentRoot,
 		dirty:     true,
 		hydration: newHydrationBoundary(parseContainer, parseRt.domAdapter.GetFirstChild(parseContainer)),
@@ -373,7 +378,9 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	parseRt.profiling.scheduledFiberMarks++
 	parseRt.profiling.scheduledGranularMarks++
 	parseFiber.dirty = true
+	parseFiber.subtreeDirty = true
 	parseFiber.needsUpdate = true
+	parseRt.markFiberSubtreeDirty(parseFiber.parent)
 	parseCurrentOrigin := ""
 	if parseFiber.dirty || parseFiber.needsUpdate {
 		parseCurrentOrigin = parseFiber.updateOrigin
@@ -381,6 +388,13 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	parseFiber.updateOrigin = buildScheduledUpdateOrigin(parseCurrentOrigin, parseOrigin, "fine-grained")
 	if !parseRt.updateScheduled {
 		parseRt.ScheduleUpdate()
+	}
+}
+
+// markFiberSubtreeDirty marks one live ancestor chain as carrying descendant work.
+func (parseRt *Runtime) markFiberSubtreeDirty(parseFiber *Fiber) {
+	for parseCursor := parseFiber; parseCursor != nil; parseCursor = parseCursor.parent {
+		parseCursor.subtreeDirty = true
 	}
 }
 

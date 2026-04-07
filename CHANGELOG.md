@@ -2,6 +2,12 @@
 
 ## 2026-04-06
 
+### runtime1 render-path and example 201 benchmark pass
+
+- Reduced `runtime1` host-render overhead across reconciliation and DOM commit by separating host-only props, adding direct-text host storage, tightening compact host mount paths, caching component render metadata, and broadening targeted runtime coverage and benchmarks.
+- Improved Example 201’s benchmark surface and harness by trimming unnecessary primitive/deep-tree benchmark work, updating the local React 19 benchmark bundle path, and fixing benchmark report gaps around worker metrics and score inputs.
+- Validated the shipped `runtime1` slice with focused package tests plus the scoped Example 201 Playwright benchmark run instead of the unrelated broader browser suites.
+
 ### core logging overhaul and wasm panic console capture
 
 - Reworked the core `logging` package into a shared structured record pipeline with native JSON-line output, browser `console.*` object output, low-ceremony key/value logging, and context-backed correlation plus trace enrichment.

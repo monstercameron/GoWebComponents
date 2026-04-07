@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+type preparedHostDOMAdapter interface {
+	CreatePreparedElement(tag string, attrs []HostAttr, text string) DOMNode
+}
+
 func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
 	var parseDom DOMNode
 
@@ -20,10 +24,28 @@ func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
 			// Fragments don't create DOM nodes - children are rendered directly
 			return nil
 		default:
-			// Regular element (not TEXT_ELEMENT or FRAGMENT)
-			parseDom = parseRt.domAdapter.CreateElement(parseT)
-			// Apply properties only for non-text elements
-			parseRt.updateDomProperties(parseDom, nil, parseFiber.props)
+			if parseFiber.isCompactHostProps {
+				if parsePreparedAdapter, parsePreparedOk := parseRt.domAdapter.(preparedHostDOMAdapter); parsePreparedOk {
+					parsePreparedText := ""
+					if parseFiber.hasDirectText {
+						parsePreparedText = parseFiber.textContent
+					}
+					parseDom = parsePreparedAdapter.CreatePreparedElement(parseT, parseFiber.getHostAttrs, parsePreparedText)
+				}
+			}
+			if IsDOMNodeNull(parseDom) {
+				// Regular element (not TEXT_ELEMENT or FRAGMENT)
+				parseDom = parseRt.domAdapter.CreateElement(parseT)
+				if parseFiber.isCompactHostProps {
+					parseRt.applyCompactHostAttrs(parseDom, parseFiber.getHostAttrs)
+				} else {
+					// Apply properties only for non-text elements
+					parseRt.updateDomProperties(parseDom, nil, parseFiber.props)
+				}
+				if parseFiber.hasDirectText {
+					parseRt.domAdapter.SetTextContent(parseDom, parseFiber.textContent)
+				}
+			}
 		}
 	}
 	if _, parseOk2 := parseFiber.typeOf.(*PortalElementType); parseOk2 {
@@ -38,6 +60,26 @@ func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
 	// Function components don't have DOM nodes - they render their children
 
 	return parseDom
+}
+
+// applyCompactHostAttrs applies one pre-normalized string-attr slice without the generic prop meta walk.
+func (parseRt *Runtime) applyCompactHostAttrs(parseDom DOMNode, parseAttrs []HostAttr) {
+	if parseRt == nil || IsDOMNodeNull(parseDom) || len(parseAttrs) == 0 {
+		return
+	}
+	if parseBatchAdapter, parseBatchOk := parseRt.domAdapter.(interface {
+		BatchSetAttributes(DOMNode, map[string]string)
+	}); parseBatchOk && len(parseAttrs) >= 3 {
+		parseAttrBatch := make(map[string]string, len(parseAttrs))
+		for _, parseAttr := range parseAttrs {
+			parseAttrBatch[parseAttr.Name] = parseAttr.Value
+		}
+		parseBatchAdapter.BatchSetAttributes(parseDom, parseAttrBatch)
+		return
+	}
+	for _, parseAttr := range parseAttrs {
+		parseRt.domAdapter.SetAttribute(parseDom, parseAttr.Name, parseAttr.Value)
+	}
 }
 
 // updateDomProperties updates DOM properties with optimized batching when available
@@ -125,13 +167,55 @@ func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, par
 func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map[string]interface{}, isSupportsBatching bool, parseBatchAdapter interface {
 	BatchSetAttributes(DOMNode, map[string]string)
 }, isPreserveHydrationState bool) {
-	var parseAttrBatch map[string]string
+	var (
+		parseAttrBatch                            map[string]string
+		parseFirstAttrName, parseFirstAttrValue   string
+		parseSecondAttrName, parseSecondAttrValue string
+		parseAttrCount                            int
+	)
 	parseFlushAttrBatch := func() {
-		if !isSupportsBatching || len(parseAttrBatch) == 0 {
+		if parseAttrCount == 0 {
 			return
 		}
-		parseBatchAdapter.BatchSetAttributes(parseDom, parseAttrBatch)
-		clear(parseAttrBatch)
+		if parseAttrBatch != nil {
+			parseBatchAdapter.BatchSetAttributes(parseDom, parseAttrBatch)
+			clear(parseAttrBatch)
+			parseAttrBatch = nil
+		} else {
+			parseRt.domAdapter.SetAttribute(parseDom, parseFirstAttrName, parseFirstAttrValue)
+			if parseAttrCount > 1 {
+				parseRt.domAdapter.SetAttribute(parseDom, parseSecondAttrName, parseSecondAttrValue)
+			}
+		}
+		parseFirstAttrName = ""
+		parseFirstAttrValue = ""
+		parseSecondAttrName = ""
+		parseSecondAttrValue = ""
+		parseAttrCount = 0
+	}
+	parseStoreAttr := func(parseName string, parseValue string) {
+		if !isSupportsBatching {
+			parseRt.domAdapter.SetAttribute(parseDom, parseName, parseValue)
+			return
+		}
+
+		// Avoid allocating the batch map for the common one- and two-attribute mount paths.
+		switch parseAttrCount {
+		case 0:
+			parseFirstAttrName = parseName
+			parseFirstAttrValue = parseValue
+		case 1:
+			parseSecondAttrName = parseName
+			parseSecondAttrValue = parseValue
+		case 2:
+			parseAttrBatch = make(map[string]string, len(parseNewProps))
+			parseAttrBatch[parseFirstAttrName] = parseFirstAttrValue
+			parseAttrBatch[parseSecondAttrName] = parseSecondAttrValue
+			parseAttrBatch[parseName] = parseValue
+		default:
+			parseAttrBatch[parseName] = parseValue
+		}
+		parseAttrCount++
 	}
 
 	for parseName, parseValue := range parseNewProps {
@@ -149,43 +233,22 @@ func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map
 
 		switch parseMeta.kind {
 		case propKindStyle:
-			parseFlushAttrBatch()
 			if parseStyles, parseOk := parseValue.(map[string]string); parseOk {
+				parseFlushAttrBatch()
 				parseRt.domAdapter.SetStyles(parseDom, parseStyles)
 			} else if parseStr, parseOk2 := parseValue.(string); parseOk2 {
-				if isSupportsBatching {
-					if parseAttrBatch == nil {
-						parseAttrBatch = make(map[string]string, len(parseNewProps))
-					}
-					parseAttrBatch[parseMeta.attrName] = parseStr
-				} else {
-					parseRt.domAdapter.SetAttribute(parseDom, parseMeta.attrName, parseStr)
-				}
+				parseStoreAttr(parseMeta.attrName, parseStr)
 			}
 		case propKindClass:
 			if parseStr2, parseOk3 := parseValue.(string); parseOk3 {
-				if isSupportsBatching {
-					if parseAttrBatch == nil {
-						parseAttrBatch = make(map[string]string, len(parseNewProps))
-					}
-					parseAttrBatch[parseMeta.attrName] = parseStr2
-				} else {
-					parseRt.domAdapter.SetAttribute(parseDom, parseMeta.attrName, parseStr2)
-				}
+				parseStoreAttr(parseMeta.attrName, parseStr2)
 			}
 		case propKindSpecialProperty:
 			parseFlushAttrBatch()
 			parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseValue)
 		default:
 			if parseStr3, parseOk4 := parseValue.(string); parseOk4 {
-				if isSupportsBatching {
-					if parseAttrBatch == nil {
-						parseAttrBatch = make(map[string]string, len(parseNewProps))
-					}
-					parseAttrBatch[parseMeta.attrName] = parseStr3
-				} else {
-					parseRt.domAdapter.SetAttribute(parseDom, parseMeta.attrName, parseStr3)
-				}
+				parseStoreAttr(parseMeta.attrName, parseStr3)
 			} else {
 				parseFlushAttrBatch()
 				parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseValue)
@@ -246,7 +309,18 @@ func (parseRt *Runtime) commitRoot() {
 	if parseRt.wipRoot != nil && parseRt.wipRoot.child != nil {
 		parseRt.finalizeHydrationBoundary(parseRt.wipRoot.childHydration, parseRt.wipRoot)
 		// The root fiber's DOM node is the container
+		parseBatchAdapter, parseSupportsBatching := parseRt.domAdapter.(interface {
+			BeginBatch(DOMNode)
+			EndBatch()
+		})
+		isParseBatching := parseSupportsBatching && parseRt.shouldBatchCommittedPlacements(parseRt.wipRoot, parseRt.wipRoot.dom)
+		if isParseBatching {
+			parseBatchAdapter.BeginBatch(parseRt.wipRoot.dom)
+		}
 		parseRt.commitWork(parseRt.wipRoot.child, parseRt.wipRoot.dom)
+		if isParseBatching {
+			parseBatchAdapter.EndBatch()
+		}
 		if parseRt.shouldRepairCommittedChildOrder(parseRt.wipRoot) {
 			parseRt.applyCommittedChildOrder(parseRt.wipRoot.dom, parseRt.buildCommittedChildNodes(parseRt.wipRoot.child, nil))
 		}
@@ -353,9 +427,14 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 	}
 
 	if !isPortal && !IsDOMNodeNull(parseDomParent) {
-		if parseFiber.effectTag == "PLACEMENT" && !IsDOMNodeNull(parseFiber.dom) {
+		if parseFiber.effectTag == "PLACEMENT" {
 			parseStart := time.Now()
-			parseRt.domAdapter.AppendChild(parseDomParent, parseFiber.dom)
+			if IsDOMNodeNull(parseFiber.dom) {
+				parseFiber.dom = parseRt.createDom(parseFiber)
+			}
+			if !IsDOMNodeNull(parseFiber.dom) {
+				parseRt.domAdapter.AppendChild(parseDomParent, parseFiber.dom)
+			}
 			parseFiber.commitDurationNs += time.Since(parseStart).Nanoseconds()
 			if parseFiber.fineGrained {
 				parseRt.profiling.fineGrainedCommits++
@@ -384,6 +463,9 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 					BatchSetAttributes(DOMNode, map[string]string)
 				})
 				parseRt.applyInitialDomProps(parseFiber.dom, parseFiber.props, parseSupportsBatching, parseBatchAdapter, parseFiber.hydrated)
+				if parseFiber.hasDirectText && parseRt.domNodeText(parseFiber.dom) != parseFiber.textContent {
+					parseRt.domAdapter.SetTextContent(parseFiber.dom, parseFiber.textContent)
+				}
 				parseFiber.commitDurationNs += time.Since(parseStart3).Nanoseconds()
 				parseRt.recordFineGrainedDescendantCommit(parseFiber)
 			}
@@ -406,9 +488,21 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 					}
 				} else {
 					// Regular element - update properties
+					isParseCommitted := false
+					parseStart5 := time.Now()
+					if parseFiber.alternate.hasDirectText != parseFiber.hasDirectText || (parseFiber.hasDirectText && parseFiber.alternate.textContent != parseFiber.textContent) {
+						if parseFiber.hasDirectText {
+							parseRt.domAdapter.SetTextContent(parseFiber.dom, parseFiber.textContent)
+						} else {
+							parseRt.domAdapter.SetTextContent(parseFiber.dom, "")
+						}
+						isParseCommitted = true
+					}
 					if !propsEqualIgnoringChildren(parseFiber.alternate.props, parseFiber.props) {
-						parseStart5 := time.Now()
 						parseRt.updateDomProperties(parseFiber.dom, parseFiber.alternate.props, parseFiber.props)
+						isParseCommitted = true
+					}
+					if isParseCommitted {
 						parseFiber.commitDurationNs += time.Since(parseStart5).Nanoseconds()
 						parseRt.recordFineGrainedDescendantCommit(parseFiber)
 					}
@@ -658,6 +752,9 @@ func hasFineGrainedAncestor(parseFiber *Fiber) bool {
 func (parseRt *Runtime) recordFineGrainedDescendantCommit(parseFiber *Fiber) {
 	if parseRt == nil || parseFiber == nil || parseFiber.fineGrained || !hasFineGrainedAncestor(parseFiber) {
 		return
+	}
+	if parseFiber.hasDirectText {
+		parseRt.profiling.fineGrainedDescendantTextCommits++
 	}
 	if isTextLikeFiber(parseFiber) {
 		parseRt.profiling.fineGrainedDescendantTextCommits++

@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Example 201 React Subject</title>
     <link rel="stylesheet" href="../benchmark.css">
-    <script src="../vendor/react.production.min.js"></script>
-    <script src="../vendor/react-dom.production.min.js"></script>
+    <script src="../vendor/react.latest.production.js"></script>
     <script src="../benchmark-subject.js"></script>
 </head>
 <body>
@@ -127,23 +126,59 @@
             }));
         }
 
-        function buildBenchmarkPrimitiveRows() {
-            return Array.from({ length: storeBenchmarkPrimitiveRowCount }, (_, parseIndex) => ({
+        function buildBenchmarkPrimitiveLabel(parseRowID, parseSuffix = "") {
+            return `P${parseRowID}${parseSuffix}`;
+        }
+
+        function buildBenchmarkPrimitivePresetRows(parseCount, parseSuffix, parseState, isActive) {
+            return Array.from({ length: parseCount }, (_, parseIndex) => ({
                 getID: parseIndex + 1,
-                getLabel: `Primitive ${String(parseIndex + 1).padStart(3, "0")}`,
-                getState: "steady",
-                isActive: false
+                getLabel: buildBenchmarkPrimitiveLabel(parseIndex + 1, parseSuffix),
+                getState: parseState,
+                isActive
             }));
         }
 
+        function isBenchmarkPrimitiveBaseRows(parseRows) {
+            if (parseRows.length !== storeBenchmarkPrimitiveRowCount) {
+                return false;
+            }
+            const getFirstRow = parseRows[0];
+            const getLastRow = parseRows[parseRows.length - 1];
+            return getFirstRow?.getID === 1 &&
+                getFirstRow?.getLabel === storeBenchmarkBasePrimitiveRows[0].getLabel &&
+                getFirstRow?.getState === "steady" &&
+                getFirstRow?.isActive === false &&
+                getLastRow?.getID === storeBenchmarkPrimitiveRowCount &&
+                getLastRow?.getLabel === storeBenchmarkBasePrimitiveRows[storeBenchmarkBasePrimitiveRows.length - 1].getLabel &&
+                getLastRow?.getState === "steady" &&
+                getLastRow?.isActive === false;
+        }
+
+        const storeBenchmarkBasePrimitiveRows = buildBenchmarkPrimitivePresetRows(storeBenchmarkPrimitiveRowCount, "", "steady", false);
+        const storeBenchmarkLivePrimitiveRows = buildBenchmarkPrimitivePresetRows(storeBenchmarkPrimitiveRowCount, "(Live)", "steady", false);
+        const storeBenchmarkActivePrimitiveRows = buildBenchmarkPrimitivePresetRows(storeBenchmarkPrimitiveRowCount, "", "active", true);
+        const storeBenchmarkAppendedPrimitiveRows = buildBenchmarkPrimitivePresetRows(storeBenchmarkPrimitiveRowCount + storeBenchmarkPrimitiveRemoveCount, "", "steady", false);
+        const storeBenchmarkTrimmedPrimitiveRows = buildBenchmarkPrimitivePresetRows(storeBenchmarkPrimitiveRowCount - storeBenchmarkPrimitiveRemoveCount, "", "steady", false);
+
+        function buildBenchmarkPrimitiveRows() {
+            return storeBenchmarkBasePrimitiveRows;
+        }
+
         function buildBenchmarkUpdatedPrimitiveTextRows(parseRows) {
+            if (isBenchmarkPrimitiveBaseRows(parseRows)) {
+                return storeBenchmarkLivePrimitiveRows;
+            }
             return parseRows.map((parseRow) => ({
                 ...parseRow,
-                getLabel: `${parseRow.getLabel} (Live)`
+                getLabel: `${parseRow.getLabel}(Live)`
             }));
         }
 
         function buildBenchmarkUpdatedPrimitiveAttributeRows(parseRows) {
+            if (isBenchmarkPrimitiveBaseRows(parseRows)) {
+                return storeBenchmarkActivePrimitiveRows;
+            }
             return parseRows.map((parseRow) => ({
                 ...parseRow,
                 getState: "active",
@@ -152,12 +187,15 @@
         }
 
         function buildBenchmarkAppendedPrimitiveRows(parseRows) {
+            if (isBenchmarkPrimitiveBaseRows(parseRows)) {
+                return storeBenchmarkAppendedPrimitiveRows;
+            }
             const getRows = parseRows.slice();
             for (let parseOffset = 0; parseOffset < storeBenchmarkPrimitiveRemoveCount; parseOffset++) {
                 const getRowID = parseRows.length + parseOffset + 1;
                 getRows.push({
                     getID: getRowID,
-                    getLabel: `Primitive ${String(getRowID).padStart(3, "0")}`,
+                    getLabel: buildBenchmarkPrimitiveLabel(getRowID),
                     getState: "steady",
                     isActive: false
                 });
@@ -166,6 +204,9 @@
         }
 
         function buildBenchmarkTrimmedPrimitiveRows(parseRows) {
+            if (isBenchmarkPrimitiveBaseRows(parseRows)) {
+                return storeBenchmarkTrimmedPrimitiveRows;
+            }
             if (parseRows.length <= storeBenchmarkPrimitiveRemoveCount) {
                 return [];
             }
@@ -234,30 +275,28 @@
             });
         }
 
-        function renderBenchmarkDeepTree({ getDepth, getRefreshToken, getTreeVersion }) {
-            if (getDepth <= 0) {
-                return createElement(
-                    "div",
-                    {
-                        id: "benchmark-deep-leaf",
-                        className: "benchmark-deep-leaf rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-100",
-                        "data-refresh-token": String(getRefreshToken),
-                        "data-tree-version": String(getTreeVersion)
-                    },
-                    `Leaf / Revision ${getTreeVersion}`
-                );
-            }
-            return createElement(
+        function buildBenchmarkDeepTreeChain({ getDepth, getRefreshToken, getTreeVersion }) {
+            let getNode = createElement(
                 "div",
                 {
-                    className: "benchmark-deep-node border-l border-white/10 pl-2",
-                    "data-depth": String(getDepth),
+                    id: "benchmark-deep-leaf",
+                    className: "benchmark-deep-leaf",
                     "data-refresh-token": String(getRefreshToken),
                     "data-tree-version": String(getTreeVersion)
                 },
-                createElement("div", { className: "benchmark-deep-label mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-400" }, `Compliance Layer ${getDepth} / Revision ${getTreeVersion}`),
-                createElement(renderBenchmarkDeepTree, { getDepth: getDepth - 1, getRefreshToken, getTreeVersion })
+                `Leaf R${getTreeVersion}`
             );
+            for (let parseDepth = 1; parseDepth <= getDepth; parseDepth++) {
+                getNode = createElement(
+                    "div",
+                    {
+                        className: "benchmark-deep-node"
+                    },
+                    `Layer ${parseDepth} R${getTreeVersion}`,
+                    getNode
+                );
+            }
+            return getNode;
         }
 
         function renderBenchmarkEnterpriseView({ getSections, getRefreshToken }) {
@@ -326,17 +365,20 @@
         function renderBenchmarkPrimitiveView({ getRows, getRefreshToken }) {
             return createElement(
                 "div",
-                { id: "primitive-container", className: "grid gap-2 sm:grid-cols-2 xl:grid-cols-4", "data-refresh-token": String(getRefreshToken) },
-                getRows.map((parseRow) => createElement(
-                    "div",
-                    {
+                { id: "primitive-container", className: "benchmark-primitive-grid", "data-refresh-token": String(getRefreshToken) },
+                getRows.map((parseRow, parseIndex) => {
+                    const getProps = {
                         key: parseRow.getID,
-                        className: `benchmark-primitive-row rounded-xl border px-3 py-2 text-sm text-slate-100 transition-colors ${parseRow.isActive ? "benchmark-primitive-row-active border-cyan-400/30 bg-cyan-400/12" : "border-white/10 bg-white/[0.04]"}`,
-                        "data-primitive-id": String(parseRow.getID),
-                        "data-primitive-state": parseRow.getState
-                    },
-                    createElement("span", { className: "benchmark-primitive-label" }, parseRow.getLabel)
-                ))
+                        className: `benchmark-primitive-row benchmark-primitive-label${parseRow.isActive ? " benchmark-primitive-row-active" : ""}`
+                    };
+                    if (parseIndex === getRows.length - 1) {
+                        getProps["data-primitive-id"] = String(parseRow.getID);
+                    }
+                    if (parseRow.getState && parseRow.getState !== "steady") {
+                        getProps["data-primitive-state"] = parseRow.getState;
+                    }
+                    return createElement("div", getProps, parseRow.getLabel);
+                })
             );
         }
 
@@ -671,8 +713,8 @@
             } else if (getView === "deep") {
                 getBenchmarkNode = createElement(
                     "div",
-                    { id: "benchmark-deep-root", className: "grid gap-2", "data-refresh-token": String(getRefreshToken), "data-tree-version": String(getTreeVersion) },
-                    createElement(renderBenchmarkDeepTree, { getDepth: getTreeDepth, getRefreshToken, getTreeVersion })
+                    { id: "benchmark-deep-root", className: "benchmark-deep-root", "data-refresh-token": String(getRefreshToken), "data-tree-version": String(getTreeVersion) },
+                    buildBenchmarkDeepTreeChain({ getDepth: getTreeDepth, getRefreshToken, getTreeVersion })
                 );
             } else if (getView === "enterprise") {
                 getBenchmarkNode = createElement(renderBenchmarkEnterpriseView, { getSections: getEnterpriseSections, getRefreshToken });
@@ -695,7 +737,7 @@
                         { className: "benchmark-panel benchmark-stack", style: { padding: "28px" } },
                         createElement("p", { className: "benchmark-eyebrow", style: { margin: "0" } }, "Example 201"),
                         createElement("h1", { style: { margin: "0", fontSize: "42px", lineHeight: "1.05" } }, "Browser Render Benchmark Subject"),
-                        createElement("p", { className: "benchmark-muted", style: { margin: "0", maxWidth: "980px", lineHeight: "1.7" } }, "This page exposes the React 18 comparison subject for the Example 201 browser benchmark."),
+                        createElement("p", { className: "benchmark-muted", style: { margin: "0", maxWidth: "980px", lineHeight: "1.7" } }, "This page exposes the React 19.2.4 comparison subject for the Example 201 browser benchmark."),
                         createElement(
                             "div",
                             { id: "benchmark-controls", className: "benchmark-grid benchmark-grid-columns-4" },

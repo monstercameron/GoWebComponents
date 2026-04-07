@@ -661,16 +661,6 @@ func buildExample201ScalingRows(parseScenarioRows []example201ScenarioRow) []exa
 		if len(getFrameworks) == 0 {
 			continue
 		}
-		hasExample201PositiveBatch := false
-		for _, getFramework := range getFrameworks {
-			if getFramework.GetWorkerBatchMeanMs > 0 {
-				hasExample201PositiveBatch = true
-				break
-			}
-		}
-		if !hasExample201PositiveBatch {
-			continue
-		}
 		sort.Slice(getFrameworks, func(parseLeft int, parseRight int) bool {
 			return getFrameworks[parseLeft].GetWorkerCountMean < getFrameworks[parseRight].GetWorkerCountMean
 		})
@@ -682,6 +672,10 @@ func buildExample201ScalingRows(parseScenarioRows []example201ScenarioRow) []exa
 			}
 			if getBaselineBatchMeanMs > 0 && getFrameworks[parseIndex].GetWorkerBatchMeanMs > 0 {
 				getFrameworks[parseIndex].GetRelativeBatchSpeedup = getBaselineBatchMeanMs / getFrameworks[parseIndex].GetWorkerBatchMeanMs
+				continue
+			}
+			if getBaselineBatchMeanMs <= 0 && getFrameworks[parseIndex].GetWorkerBatchMeanMs <= 0 {
+				getFrameworks[parseIndex].GetRelativeBatchSpeedup = 1
 			}
 		}
 		getRows = append(getRows, example201ScalingRow{
@@ -775,7 +769,7 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 	getBuilder.WriteString("- Important boundary: the `runtime2` subjects here still keep DOM ownership on the main thread.\n")
 	getBuilder.WriteString("- Worker note: each `Runtime 2 (N Workers)` subject opens the requested Go WASM worker count to prepare core and content chunks before the local runtime2 shell commits DOM updates.\n")
 	getBuilder.WriteString("- Non-worker note: deep-tree, primitive, hook-grid, and enterprise-workspace subtree scenarios remain main-thread-owned today, so the worker-backed benefit is expected to concentrate in the core and content scenarios.\n")
-	getBuilder.WriteString("- React subject note: the page uses vendored React 18 UMD files under `examples/201-render-benchmark/vendor/`, so the comparison stays local to the repo server.\n\n")
+	getBuilder.WriteString("- React subject note: the page uses a vendored React 19.2.4 browser bundle under `examples/201-render-benchmark/vendor/`, so the comparison stays local to the repo server.\n\n")
 	getBuilder.WriteString("- Finish lines: `DOM Ready` means the scenario correctness contract became true. `Paint Proxy` means one `requestAnimationFrame` boundary after the DOM-ready checkpoint.\n")
 	getBuilder.WriteString("- Primary comparison: category summaries and scenario ordering use `DOM Ready` as the lead timing. `Paint Proxy` stays in the report as secondary frame-bound context only.\n")
 	getBuilder.WriteString(fmt.Sprintf("- Score reference: `%s` on `%s` from route `%s`. `DOM Score` is `100 * geometric_mean(reference DOM Ready / measured DOM Ready)`.\n", parseReference.GetReferenceLabel, parseReference.GetReferenceBrowser, parseReference.GetRoute))
@@ -1007,7 +1001,7 @@ func TestBuildExample201ScenarioRowsFromReportUsesFixedReferenceScore(parseT *te
 		GetFrameworks: []example201FrameworkResult{
 			{
 				GetFramework: "react",
-				GetLabel:     "React 18",
+				GetLabel:     "React 19.2.4",
 				GetScenarioResults: []example201ScenarioResult{
 					{
 						GetScenarioID:         "core-render",
@@ -1082,7 +1076,7 @@ func TestBuildExample201CategoryRowsUseFixedReferenceScore(parseT *testing.T) {
 			GetCategory:      "Initial Render",
 			GetFrameworks: []example201ScenarioCell{
 				{GetFramework: "runtime1", GetLabel: "Runtime 1", GetDomReadyMeanMs: 10, GetPaintVisibleMeanMs: 30, GetRelativeDomReady: 1, HasDomScoreReference: true, GetDomReadyScoreFactor: 2, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 15, GetDomReadySpeedupVsReact: 2.5},
-				{GetFramework: "react", GetLabel: "React 18", GetDomReadyMeanMs: 25, GetPaintVisibleMeanMs: 33, GetRelativeDomReady: 2.5, HasDomScoreReference: true, GetDomReadyScoreFactor: 0.8, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 0, GetDomReadySpeedupVsReact: 1},
+				{GetFramework: "react", GetLabel: "React 19.2.4", GetDomReadyMeanMs: 25, GetPaintVisibleMeanMs: 33, GetRelativeDomReady: 2.5, HasDomScoreReference: true, GetDomReadyScoreFactor: 0.8, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 0, GetDomReadySpeedupVsReact: 1},
 			},
 		},
 		{
@@ -1091,7 +1085,7 @@ func TestBuildExample201CategoryRowsUseFixedReferenceScore(parseT *testing.T) {
 			GetCategory:      "Initial Render",
 			GetFrameworks: []example201ScenarioCell{
 				{GetFramework: "runtime1", GetLabel: "Runtime 1", GetDomReadyMeanMs: 9, GetPaintVisibleMeanMs: 29, GetRelativeDomReady: 1, HasDomScoreReference: true, GetDomReadyScoreFactor: 2, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 9, GetDomReadySpeedupVsReact: 2},
-				{GetFramework: "react", GetLabel: "React 18", GetDomReadyMeanMs: 18, GetPaintVisibleMeanMs: 31, GetRelativeDomReady: 2, HasDomScoreReference: true, GetDomReadyScoreFactor: 1, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 0, GetDomReadySpeedupVsReact: 1},
+				{GetFramework: "react", GetLabel: "React 19.2.4", GetDomReadyMeanMs: 18, GetPaintVisibleMeanMs: 31, GetRelativeDomReady: 2, HasDomScoreReference: true, GetDomReadyScoreFactor: 1, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 0, GetDomReadySpeedupVsReact: 1},
 			},
 		},
 	})
@@ -1122,6 +1116,51 @@ func TestBuildExample201CategoryRowsUseFixedReferenceScore(parseT *testing.T) {
 	}
 	if getFrameworks[1].GetDomScore != 89 {
 		parseT.Fatalf("expected React category score to be 89, got %d", getFrameworks[1].GetDomScore)
+	}
+}
+
+// TestBuildExample201ScalingRowsKeepsZeroBatchRows verifies scaling rows stay visible when worker batch duration quantizes to zero.
+func TestBuildExample201ScalingRowsKeepsZeroBatchRows(parseT *testing.T) {
+	getRows := buildExample201ScalingRows([]example201ScenarioRow{
+		{
+			GetScenarioID:    "core-render",
+			GetScenarioLabel: "Core Render",
+			GetCategory:      "Initial Render",
+			GetFrameworks: []example201ScenarioCell{
+				{
+					GetFramework:               "runtime2-workers1",
+					GetLabel:                   "Runtime 2 (1 Worker)",
+					HasWorkerMetrics:           true,
+					GetWorkerCountMean:         1,
+					GetWorkerBatchMeanMs:       0,
+					GetWorkerPreparedItemsMean: 40,
+					GetDomReadyMeanMs:          5,
+					GetPaintVisibleMeanMs:      16,
+				},
+				{
+					GetFramework:               "runtime2-workers4",
+					GetLabel:                   "Runtime 2 (4 Workers)",
+					HasWorkerMetrics:           true,
+					GetWorkerCountMean:         4,
+					GetWorkerBatchMeanMs:       0,
+					GetWorkerPreparedItemsMean: 40,
+					GetDomReadyMeanMs:          6,
+					GetPaintVisibleMeanMs:      16.5,
+				},
+			},
+		},
+	})
+	if len(getRows) != 1 {
+		parseT.Fatalf("expected one scaling row, got %d", len(getRows))
+	}
+	if len(getRows[0].GetFrameworks) != 2 {
+		parseT.Fatalf("expected two scaling cells, got %d", len(getRows[0].GetFrameworks))
+	}
+	if getRows[0].GetFrameworks[0].GetRelativeBatchSpeedup != 1 {
+		parseT.Fatalf("expected zero-batch baseline speedup to normalize to 1, got %.3f", getRows[0].GetFrameworks[0].GetRelativeBatchSpeedup)
+	}
+	if getRows[0].GetFrameworks[1].GetRelativeBatchSpeedup != 1 {
+		parseT.Fatalf("expected zero-batch peer speedup to normalize to 1, got %.3f", getRows[0].GetFrameworks[1].GetRelativeBatchSpeedup)
 	}
 }
 

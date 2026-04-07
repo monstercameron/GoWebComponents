@@ -12,6 +12,7 @@ import (
 
 var componentHandleCache sync.Map
 var getComponentIdentityCache sync.Map
+var getComponentRenderCache sync.Map
 
 type componentIdentityCacheKey struct {
 	getType    reflect.Type
@@ -36,17 +37,86 @@ func getComponentHandle(parseComponent interface{}) *runtime.ComponentType {
 
 	if parseCached, parseOk := componentHandleCache.Load(parseIdentity); parseOk {
 		handle := parseCached.(*runtime.ComponentType)
-		handle.SetImplementation(parseComponent)
+		handle.SetImplementationRenderer(parseComponent, buildComponentRenderer(parseComponent))
 		return handle
 	}
 
-	handle := runtime.NewComponentType(parseIdentity, parsePrettyName, parseQualifiedName, parseComponent, func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
-		return renderComponent(parseImplementation, parseRawProps)
-	})
+	handle := runtime.NewComponentType(parseIdentity, parsePrettyName, parseQualifiedName, parseComponent, buildComponentRenderer(parseComponent))
 	parseStored, _ := componentHandleCache.LoadOrStore(parseIdentity, handle)
 	parseResolved := parseStored.(*runtime.ComponentType)
-	parseResolved.SetImplementation(parseComponent)
+	parseResolved.SetImplementationRenderer(parseComponent, buildComponentRenderer(parseComponent))
 	return parseResolved
+}
+
+// buildComponentRenderer prepares one reusable renderer closure for a component implementation signature.
+func buildComponentRenderer(parseComponent interface{}) func(interface{}, map[string]interface{}) *runtime.Element {
+	if parseComponent == nil {
+		return nil
+	}
+
+	switch parseComponent.(type) {
+	case func() Node:
+		return func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+			parseTypedImplementation, parseOk := parseImplementation.(func() Node)
+			if !parseOk {
+				return renderComponent(parseImplementation, parseRawProps)
+			}
+			return parseTypedImplementation()
+		}
+	case func(map[string]interface{}) Node:
+		return func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+			parseTypedImplementation, parseOk := parseImplementation.(func(map[string]interface{}) Node)
+			if !parseOk {
+				return renderComponent(parseImplementation, parseRawProps)
+			}
+			return parseTypedImplementation(getComponentMapProps(parseRawProps))
+		}
+	case func(runtime.Attrs) Node:
+		return func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+			parseTypedImplementation, parseOk := parseImplementation.(func(runtime.Attrs) Node)
+			if !parseOk {
+				return renderComponent(parseImplementation, parseRawProps)
+			}
+			return parseTypedImplementation(getComponentAttrsProps(parseRawProps))
+		}
+	}
+
+	parseComponentType := reflect.TypeOf(parseComponent)
+	if parseComponentType == nil || parseComponentType.Kind() != reflect.Func {
+		return func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+			return renderComponent(parseImplementation, parseRawProps)
+		}
+	}
+	if parseCached, parseOk := getComponentRenderCache.Load(parseComponentType); parseOk {
+		return parseCached.(func(interface{}, map[string]interface{}) *runtime.Element)
+	}
+
+	parseMeta := getComponentMeta(parseComponentType)
+	parseRenderer := func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+		parseImplementationValue := reflect.ValueOf(parseImplementation)
+		if !parseImplementationValue.IsValid() || parseImplementationValue.Kind() != reflect.Func {
+			panic(actionableCreateElementPanic("ui.CreateElement requires a component function or ui.Node"))
+		}
+
+		var parseResults []reflect.Value
+		if parseMeta.hasArg {
+			var parseArgBuf [1]reflect.Value
+			parseArgBuf[0] = parseMeta.getArgValue(parseRawProps)
+			parseResults = parseImplementationValue.Call(parseArgBuf[:])
+		} else {
+			parseResults = parseImplementationValue.Call(nil)
+		}
+
+		if len(parseResults) == 0 || !parseResults[0].IsValid() || parseResults[0].IsNil() {
+			return nil
+		}
+
+		parseElement, _ := parseResults[0].Interface().(*runtime.Element)
+		return parseElement
+	}
+
+	parseStored, _ := getComponentRenderCache.LoadOrStore(parseComponentType, parseRenderer)
+	return parseStored.(func(interface{}, map[string]interface{}) *runtime.Element)
 }
 
 // describeComponentIdentity is a core package helper.

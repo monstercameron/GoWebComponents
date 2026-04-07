@@ -36,8 +36,11 @@ const (
 )
 
 const (
-	getBenchmarkWorkerCoreFastPathMaxItems = 64
-	getBenchmarkWorkerCoreFastPathCacheMax = 4096
+	getBenchmarkWorkerCoreFastPathMaxItems    = 64
+	getBenchmarkWorkerCoreFastPathCacheMax    = 4096
+	getBenchmarkWorkerContentFastPathMaxItems = 24
+	getBenchmarkWorkerContentFastPathCacheMax = 2048
+	getBenchmarkWorkerMinimumItemsPerChunk    = 32
 )
 
 type buildBenchmarkWorkerState struct {
@@ -83,6 +86,8 @@ var warnBenchmarkWorkerChunkDispatchOnce sync.Once
 var warnBenchmarkWorkerCoreFastPathOnce sync.Once
 var getBenchmarkWorkerCoreFastPathCacheMu sync.RWMutex
 var getBenchmarkWorkerCoreFastPathCacheByKey = map[string]benchmarkshared.BenchmarkPreparedCoreItem{}
+var getBenchmarkWorkerContentFastPathCacheMu sync.RWMutex
+var getBenchmarkWorkerContentFastPathCacheByKey = map[string]benchmarkshared.BenchmarkPreparedContentCard{}
 
 // hasBenchmarkWorkerMode reports whether one benchmark mode should offload chunk preparation to a Go WASM worker fleet.
 func hasBenchmarkWorkerMode(parseMode string) bool {
@@ -150,12 +155,34 @@ func hasBenchmarkWorkerCoreFastPath(parseMode string, parseItemCount int) bool {
 	}
 	getFastPathText := strings.ToLower(strings.TrimSpace(buildBenchmarkQueryValues().Get("runtime2CoreFastPath")))
 	switch getFastPathText {
+	case "1", "true", "on", "local":
+		return true
+	case "", "auto":
+		return true
+	case "0", "false", "off", "worker":
+		return false
+	default:
+		fmt.Printf("[render-benchmark/runtime2][warn] unknown runtime2CoreFastPath=%q, defaulting to auto\n", getFastPathText)
+		return true
+	}
+}
+
+// hasBenchmarkWorkerContentFastPath reports whether one runtime2 content batch should bypass worker RPC and use local cached preparation.
+func hasBenchmarkWorkerContentFastPath(parseMode string, parseItemCount int) bool {
+	if !hasBenchmarkWorkerMode(parseMode) || parseItemCount < 1 || parseItemCount > getBenchmarkWorkerContentFastPathMaxItems {
+		return false
+	}
+	if buildBenchmarkWorkerWorkScale() > 1 {
+		return false
+	}
+	getFastPathText := strings.ToLower(strings.TrimSpace(buildBenchmarkQueryValues().Get("runtime2ContentFastPath")))
+	switch getFastPathText {
 	case "", "1", "true", "on", "auto", "local":
 		return true
 	case "0", "false", "off", "worker":
 		return false
 	default:
-		fmt.Printf("[render-benchmark/runtime2][warn] unknown runtime2CoreFastPath=%q, defaulting to enabled\n", getFastPathText)
+		fmt.Printf("[render-benchmark/runtime2][warn] unknown runtime2ContentFastPath=%q, defaulting to auto\n", getFastPathText)
 		return true
 	}
 }
@@ -299,6 +326,25 @@ func buildBenchmarkCoreItemsClone(parseItems []benchmarkshared.BenchmarkCoreRowD
 	return getItems
 }
 
+// buildBenchmarkContentItemsClone copies one content-item slice so prepared snapshots can be compared safely across updates.
+func buildBenchmarkContentItemsClone(parseItems []benchmarkshared.BenchmarkContentCardData) []benchmarkshared.BenchmarkContentCardData {
+	if len(parseItems) < 1 {
+		return nil
+	}
+	getItems := make([]benchmarkshared.BenchmarkContentCardData, len(parseItems))
+	for parseItemIndex, getItem := range parseItems {
+		getItems[parseItemIndex] = benchmarkshared.BenchmarkContentCardData{
+			GetID:      getItem.GetID,
+			GetTitle:   getItem.GetTitle,
+			GetSummary: getItem.GetSummary,
+			GetStatus:  getItem.GetStatus,
+			GetMeta:    getItem.GetMeta,
+			GetTags:    append([]string(nil), getItem.GetTags...),
+		}
+	}
+	return getItems
+}
+
 // buildBenchmarkCoreChunkItemCount counts prepared core items across one chunk result slice.
 func buildBenchmarkCoreChunkItemCount(parseChunks []benchmarkshared.BenchmarkWorkerCoreChunkResult) int {
 	getItemCount := 0
@@ -355,6 +401,13 @@ func buildBenchmarkWorkerAutoChunkCount(parseMode string, parseWorkerState build
 		default:
 			getAdaptiveChunkCount = getWorkerCount * 2
 		}
+	}
+	getMaximumChunkCount := (parseItemCount + getBenchmarkWorkerMinimumItemsPerChunk - 1) / getBenchmarkWorkerMinimumItemsPerChunk
+	if getMaximumChunkCount < 1 {
+		getMaximumChunkCount = 1
+	}
+	if getAdaptiveChunkCount > getMaximumChunkCount {
+		getAdaptiveChunkCount = getMaximumChunkCount
 	}
 	if getAdaptiveChunkCount > parseItemCount {
 		getAdaptiveChunkCount = parseItemCount
@@ -521,6 +574,53 @@ func buildBenchmarkWorkerLanePlans(parseWorkerCount int, parseChunkPlans []build
 	return getLanePlans
 }
 
+// buildBenchmarkWorkerDirtyChunkCount counts how many chunk plans actually contain at least one dirty item index.
+func buildBenchmarkWorkerDirtyChunkCount(parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseDirtyItemIndexes []int) int {
+	if len(parseChunkPlans) < 1 || len(parseDirtyItemIndexes) < 1 {
+		return 0
+	}
+	getDirtyChunkCount := 0
+	for _, getChunkPlan := range parseChunkPlans {
+		for _, getDirtyIndex := range parseDirtyItemIndexes {
+			if getDirtyIndex < getChunkPlan.GetStart || getDirtyIndex >= getChunkPlan.GetEnd {
+				continue
+			}
+			getDirtyChunkCount++
+			break
+		}
+	}
+	return getDirtyChunkCount
+}
+
+// buildBenchmarkWorkerActiveCount resolves how many worker lanes should participate in one batch based on actual parallel work volume.
+func buildBenchmarkWorkerActiveCount(parseWorkerCount int, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseDirtyItemIndexes []int) int {
+	if parseWorkerCount < 2 || len(parseChunkPlans) < 2 {
+		return 1
+	}
+	getParallelChunkCount := len(parseChunkPlans)
+	getDirtyChunkCount := buildBenchmarkWorkerDirtyChunkCount(parseChunkPlans, parseDirtyItemIndexes)
+	if getDirtyChunkCount > 0 && getDirtyChunkCount < getParallelChunkCount {
+		getParallelChunkCount = getDirtyChunkCount
+	}
+	getActiveCount := (getParallelChunkCount + 2) / 3
+	switch {
+	case getParallelChunkCount <= 2:
+		getActiveCount = 1
+	case getParallelChunkCount <= 4 && getActiveCount > 2:
+		getActiveCount = 2
+	}
+	if getActiveCount < 1 {
+		getActiveCount = 1
+	}
+	if getActiveCount > parseWorkerCount {
+		getActiveCount = parseWorkerCount
+	}
+	if getActiveCount > len(parseChunkPlans) {
+		getActiveCount = len(parseChunkPlans)
+	}
+	return getActiveCount
+}
+
 // openBenchmarkWorkerFleet opens the Go WASM worker fleet used by the runtime2 benchmark modes.
 func openBenchmarkWorkerFleet(parseCtx context.Context, parseMode string) ([]interop.Worker, error) {
 	getWorkerCount := buildBenchmarkWorkerCount(parseMode)
@@ -619,6 +719,7 @@ func handleBenchmarkWorkerPrepareEffect(
 	parseCoreChunkCacheByDependencyRef ui.Ref[map[uint64][]benchmarkshared.BenchmarkWorkerCoreChunkResult],
 	parseContentChunkCacheByDependencyRef ui.Ref[map[uint64][]benchmarkshared.BenchmarkWorkerContentChunkResult],
 	parseLastCorePreparedItemsRef ui.Ref[[]benchmarkshared.BenchmarkCoreRowData],
+	parseLastContentPreparedItemsRef ui.Ref[[]benchmarkshared.BenchmarkContentCardData],
 	parseCoreChunkState ui.State[[]benchmarkshared.BenchmarkWorkerCoreChunkResult],
 	parseContentChunkState ui.State[[]benchmarkshared.BenchmarkWorkerContentChunkResult],
 	parseWorkerState ui.State[buildBenchmarkWorkerState],
@@ -634,6 +735,7 @@ func handleBenchmarkWorkerPrepareEffect(
 		if parseView == "core" && len(parseCoreItems) == 0 {
 			parseCoreChunkState.Set(nil)
 			parseLastCorePreparedItemsRef.Set(nil)
+			parseLastContentPreparedItemsRef.Set(nil)
 			parseWorkerState.Update(func(parsePrevious buildBenchmarkWorkerState) buildBenchmarkWorkerState {
 				parsePrevious.IsPreparing = false
 				parsePrevious.GetPreparedChunks = 0
@@ -649,6 +751,7 @@ func handleBenchmarkWorkerPrepareEffect(
 		if parseView == "content" && len(parseContentItems) == 0 {
 			parseContentChunkState.Set(nil)
 			parseLastCorePreparedItemsRef.Set(nil)
+			parseLastContentPreparedItemsRef.Set(nil)
 			parseWorkerState.Update(func(parsePrevious buildBenchmarkWorkerState) buildBenchmarkWorkerState {
 				parsePrevious.IsPreparing = false
 				parsePrevious.GetPreparedChunks = 0
@@ -663,6 +766,7 @@ func handleBenchmarkWorkerPrepareEffect(
 		}
 		if parseView != "core" && parseView != "content" {
 			parseLastCorePreparedItemsRef.Set(nil)
+			parseLastContentPreparedItemsRef.Set(nil)
 			parseWorkerState.Update(func(parsePrevious buildBenchmarkWorkerState) buildBenchmarkWorkerState {
 				parsePrevious.IsPreparing = false
 				parsePrevious.GetErrorText = ""
@@ -678,6 +782,7 @@ func handleBenchmarkWorkerPrepareEffect(
 			if hasCachedCoreChunks {
 				parseCoreChunkState.Set(getCachedCoreChunks)
 				parseLastCorePreparedItemsRef.Set(buildBenchmarkCoreItemsClone(parseCoreItems))
+				parseLastContentPreparedItemsRef.Set(nil)
 				parseWorkerState.Update(func(parsePrevious buildBenchmarkWorkerState) buildBenchmarkWorkerState {
 					parsePrevious.IsPreparing = false
 					parsePrevious.IsReady = true
@@ -698,6 +803,7 @@ func handleBenchmarkWorkerPrepareEffect(
 			if hasCachedContentChunks {
 				parseContentChunkState.Set(getCachedContentChunks)
 				parseLastCorePreparedItemsRef.Set(nil)
+				parseLastContentPreparedItemsRef.Set(buildBenchmarkContentItemsClone(parseContentItems))
 				parseWorkerState.Update(func(parsePrevious buildBenchmarkWorkerState) buildBenchmarkWorkerState {
 					parsePrevious.IsPreparing = false
 					parsePrevious.IsReady = true
@@ -780,6 +886,7 @@ func handleBenchmarkWorkerPrepareEffect(
 				storeBenchmarkWorkerCoreChunkCache(parseCoreChunkCacheByDependencyRef, getCoreItemsDependency, getPreparedCoreChunks)
 				parseCoreChunkState.Set(getPreparedCoreChunks)
 				parseLastCorePreparedItemsRef.Set(buildBenchmarkCoreItemsClone(parseCoreItems))
+				parseLastContentPreparedItemsRef.Set(nil)
 				parseWorkerState.Update(func(parsePrevious buildBenchmarkWorkerState) buildBenchmarkWorkerState {
 					parsePrevious.IsPreparing = false
 					parsePrevious.IsReady = true
@@ -796,6 +903,7 @@ func handleBenchmarkWorkerPrepareEffect(
 			}
 
 			parseLastCorePreparedItemsRef.Set(nil)
+			getLastContentItems := parseLastContentPreparedItemsRef.Get()
 			// progressive partial delivery: emit partial chunk state as each worker lane responds
 			onPartialContentLaneDone := func(getPartialChunks []benchmarkshared.BenchmarkWorkerContentChunkResult) {
 				if parseGeneration != parseGenerationRef.Get() {
@@ -803,7 +911,11 @@ func handleBenchmarkWorkerPrepareEffect(
 				}
 				parseContentChunkState.Set(cloneBenchmarkWorkerContentChunks(getPartialChunks))
 			}
-			getBatchReport, parseErr := requestBenchmarkWorkerContentChunks(parseCtx, getWorkers, parseMode, parseContentItems, parseWorkerSnapshot, parseGeneration, nil, onPartialContentLaneDone)
+			var getContentItemsDirtyIndexes []int
+			if len(getLastContentItems) == len(parseContentItems) {
+				getContentItemsDirtyIndexes = buildBenchmarkWorkerContentItemDirtyIndexes(getLastContentItems, parseContentItems)
+			}
+			getBatchReport, parseErr := requestBenchmarkWorkerContentChunks(parseCtx, getWorkers, parseMode, parseContentItems, parseWorkerSnapshot, parseGeneration, getContentItemsDirtyIndexes, onPartialContentLaneDone)
 			if parseCtx.Err() != nil {
 				return
 			}
@@ -821,6 +933,7 @@ func handleBenchmarkWorkerPrepareEffect(
 			}
 			storeBenchmarkWorkerContentChunkCache(parseContentChunkCacheByDependencyRef, getContentItemsDependency, getBatchReport.GetChunks)
 			parseContentChunkState.Set(cloneBenchmarkWorkerContentChunks(getBatchReport.GetChunks))
+			parseLastContentPreparedItemsRef.Set(buildBenchmarkContentItemsClone(parseContentItems))
 			parseWorkerState.Update(func(parsePrevious buildBenchmarkWorkerState) buildBenchmarkWorkerState {
 				parsePrevious.IsPreparing = false
 				parsePrevious.IsReady = true
@@ -1091,6 +1204,17 @@ func buildBenchmarkWorkerCoreFastPathCacheKey(parseItem benchmarkshared.Benchmar
 	return strconv.Itoa(parseWorkScale) + "|" + strconv.Itoa(parseItem.GetID) + "|" + parseItem.GetText
 }
 
+// buildBenchmarkWorkerContentFastPathCacheKey builds one stable local fast-path cache key from content payload fields and work scale.
+func buildBenchmarkWorkerContentFastPathCacheKey(parseItem benchmarkshared.BenchmarkContentCardData, parseWorkScale int) string {
+	return strconv.Itoa(parseWorkScale) +
+		"|" + strconv.Itoa(parseItem.GetID) +
+		"|" + parseItem.GetTitle +
+		"|" + parseItem.GetSummary +
+		"|" + parseItem.GetStatus +
+		"|" + parseItem.GetMeta +
+		"|" + strings.Join(parseItem.GetTags, ",")
+}
+
 // clearBenchmarkWorkerCoreFastPathCache clears local cache-backed prepared core items when the cache reaches one hard cap.
 func clearBenchmarkWorkerCoreFastPathCache() {
 	getBenchmarkWorkerCoreFastPathCacheMu.Lock()
@@ -1098,6 +1222,15 @@ func clearBenchmarkWorkerCoreFastPathCache() {
 	getBenchmarkWorkerCoreFastPathCacheByKey = map[string]benchmarkshared.BenchmarkPreparedCoreItem{}
 	getBenchmarkWorkerCoreFastPathCacheMu.Unlock()
 	fmt.Printf("[render-benchmark/runtime2][warn] cleared local core fast-path cache entries=%d limit=%d\n", getCachedEntryCount, getBenchmarkWorkerCoreFastPathCacheMax)
+}
+
+// clearBenchmarkWorkerContentFastPathCache clears local cache-backed prepared content items when the cache reaches one hard cap.
+func clearBenchmarkWorkerContentFastPathCache() {
+	getBenchmarkWorkerContentFastPathCacheMu.Lock()
+	getCachedEntryCount := len(getBenchmarkWorkerContentFastPathCacheByKey)
+	getBenchmarkWorkerContentFastPathCacheByKey = map[string]benchmarkshared.BenchmarkPreparedContentCard{}
+	getBenchmarkWorkerContentFastPathCacheMu.Unlock()
+	fmt.Printf("[render-benchmark/runtime2][warn] cleared local content fast-path cache entries=%d limit=%d\n", getCachedEntryCount, getBenchmarkWorkerContentFastPathCacheMax)
 }
 
 // requestBenchmarkWorkerCoreChunksByLocalCache prepares one core batch on the main runtime with one reusable local prepared-item cache.
@@ -1143,9 +1276,53 @@ func requestBenchmarkWorkerCoreChunksByLocalCache(parseItems []benchmarkshared.B
 	}, getCacheHitCount
 }
 
+// requestBenchmarkWorkerContentChunksByLocalCache prepares one content batch on the main runtime with one reusable local prepared-item cache.
+func requestBenchmarkWorkerContentChunksByLocalCache(parseItems []benchmarkshared.BenchmarkContentCardData, parseWorkScale int, parseGeneration uint64) ([]benchmarkshared.BenchmarkWorkerContentChunkResult, int) {
+	parseStartedAt := time.Now()
+	getPreparedItems := make([]benchmarkshared.BenchmarkPreparedContentCard, len(parseItems))
+	getCacheHitCount := 0
+	var getWorkDigest uint64
+	hasCacheOverLimit := false
+	for parseItemIndex, parseItem := range parseItems {
+		getCacheKey := buildBenchmarkWorkerContentFastPathCacheKey(parseItem, parseWorkScale)
+		getBenchmarkWorkerContentFastPathCacheMu.RLock()
+		getCachedItem, hasCachedItem := getBenchmarkWorkerContentFastPathCacheByKey[getCacheKey]
+		getBenchmarkWorkerContentFastPathCacheMu.RUnlock()
+		if hasCachedItem {
+			getPreparedItems[parseItemIndex] = getCachedItem
+			getWorkDigest ^= getCachedItem.GetDigest
+			getCacheHitCount++
+			continue
+		}
+		getPreparedItem := benchmarkshared.BuildBenchmarkPreparedContentCard(parseItem, parseItemIndex, parseWorkScale)
+		getPreparedItems[parseItemIndex] = getPreparedItem
+		getWorkDigest ^= getPreparedItem.GetDigest
+		getBenchmarkWorkerContentFastPathCacheMu.Lock()
+		getBenchmarkWorkerContentFastPathCacheByKey[getCacheKey] = getPreparedItem
+		if len(getBenchmarkWorkerContentFastPathCacheByKey) > getBenchmarkWorkerContentFastPathCacheMax {
+			hasCacheOverLimit = true
+		}
+		getBenchmarkWorkerContentFastPathCacheMu.Unlock()
+	}
+	if hasCacheOverLimit {
+		clearBenchmarkWorkerContentFastPathCache()
+	}
+	return []benchmarkshared.BenchmarkWorkerContentChunkResult{
+		{
+			GetChunkIndex:     0,
+			GetItems:          getPreparedItems,
+			GetWorker:         getBenchmarkWorkerCoreFastPath,
+			GetWorkDigest:     getWorkDigest,
+			GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+			GetGeneration:     parseGeneration,
+		},
+	}, getCacheHitCount
+}
+
 // requestBenchmarkWorkerCoreChunksByBatch sends one multi-chunk core preparation request per worker lane.
 func requestBenchmarkWorkerCoreChunksByBatch(parseCtx context.Context, parseWorkers []interop.Worker, parseItems []benchmarkshared.BenchmarkCoreRowData, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseWorkScale int, parseGeneration uint64, parseDirtyItemIndexes []int, onPartialChunks func([]benchmarkshared.BenchmarkWorkerCoreChunkResult)) ([]benchmarkshared.BenchmarkWorkerCoreChunkResult, int, error) {
-	getLanePlans := buildBenchmarkWorkerLanePlans(len(parseWorkers), parseChunkPlans)
+	getActiveWorkerCount := buildBenchmarkWorkerActiveCount(len(parseWorkers), parseChunkPlans, parseDirtyItemIndexes)
+	getLanePlans := buildBenchmarkWorkerLanePlans(getActiveWorkerCount, parseChunkPlans)
 	getResults := make([]benchmarkshared.BenchmarkWorkerCoreChunkResult, len(parseChunkPlans))
 	hasResultByChunkIndex := make([]bool, len(parseChunkPlans))
 	getCacheHitCount := 0
@@ -1320,6 +1497,14 @@ func requestBenchmarkWorkerContentChunks(parseCtx context.Context, parseWorkers 
 	if len(parseWorkers) < 1 {
 		return getReport, fmt.Errorf("runtime2 benchmark worker fleet is empty for mode %s", parseMode)
 	}
+	getWorkScale := buildBenchmarkWorkerWorkScale()
+	if hasBenchmarkWorkerContentFastPath(parseMode, len(parseItems)) {
+		getChunks, getCacheHitCount := requestBenchmarkWorkerContentChunksByLocalCache(parseItems, getWorkScale, parseGeneration)
+		getReport.GetChunks = getChunks
+		getReport.GetAdaptiveChunkCount = len(getChunks)
+		getReport.GetCacheHitCount = getCacheHitCount
+		return getReport, nil
+	}
 	getAdaptiveChunkCount := buildBenchmarkWorkerAutoChunkCount(parseMode, parseWorkerState, len(parseItems))
 	getItemWeights := buildBenchmarkWorkerContentItemWeights(parseItems)
 	getChunkBounds := buildBenchmarkWorkerAdaptiveChunkBoundsFromWeights(getItemWeights, getAdaptiveChunkCount)
@@ -1327,7 +1512,6 @@ func requestBenchmarkWorkerContentChunks(parseCtx context.Context, parseWorkers 
 	if len(getChunkPlans) < 1 {
 		return getReport, nil
 	}
-	getWorkScale := buildBenchmarkWorkerWorkScale()
 	getDispatchMode := buildBenchmarkWorkerDispatchMode()
 	getCacheHitCount := 0
 	var getChunks []benchmarkshared.BenchmarkWorkerContentChunkResult
@@ -1349,7 +1533,8 @@ func requestBenchmarkWorkerContentChunks(parseCtx context.Context, parseWorkers 
 
 // requestBenchmarkWorkerContentChunksByBatch sends one multi-chunk content preparation request per worker lane.
 func requestBenchmarkWorkerContentChunksByBatch(parseCtx context.Context, parseWorkers []interop.Worker, parseItems []benchmarkshared.BenchmarkContentCardData, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseWorkScale int, parseGeneration uint64, parseDirtyItemIndexes []int, onPartialChunks func([]benchmarkshared.BenchmarkWorkerContentChunkResult)) ([]benchmarkshared.BenchmarkWorkerContentChunkResult, int, error) {
-	getLanePlans := buildBenchmarkWorkerLanePlans(len(parseWorkers), parseChunkPlans)
+	getActiveWorkerCount := buildBenchmarkWorkerActiveCount(len(parseWorkers), parseChunkPlans, parseDirtyItemIndexes)
+	getLanePlans := buildBenchmarkWorkerLanePlans(getActiveWorkerCount, parseChunkPlans)
 	getResults := make([]benchmarkshared.BenchmarkWorkerContentChunkResult, len(parseChunkPlans))
 	hasResultByChunkIndex := make([]bool, len(parseChunkPlans))
 	getCacheHitCount := 0

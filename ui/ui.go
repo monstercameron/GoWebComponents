@@ -18,9 +18,10 @@ const propsKey = "__ui_props"
 var runtimeInitialized bool
 
 type componentMeta struct {
-	hasArg  bool
-	argType reflect.Type
-	zeroArg reflect.Value
+	hasArg      bool
+	argType     reflect.Type
+	zeroArg     reflect.Value
+	getArgValue func(map[string]interface{}) reflect.Value
 }
 
 var componentMetaCache sync.Map
@@ -706,23 +707,8 @@ func renderComponent(parseComponent interface{}, parseRawProps map[string]interf
 
 	var parseResults []reflect.Value
 	if parseMeta.hasArg {
-		parseArg := parseMeta.zeroArg
-		if parseProvided, parseOk := parseRawProps[propsKey]; parseOk {
-			parseProvidedValue := reflect.ValueOf(parseProvided)
-			if parseProvidedValue.IsValid() {
-				switch {
-				case parseProvidedValue.Type() == parseMeta.argType:
-					parseArg = parseProvidedValue
-				case parseProvidedValue.Type().AssignableTo(parseMeta.argType):
-					parseArg = parseProvidedValue
-				case parseProvidedValue.Type().ConvertibleTo(parseMeta.argType):
-					parseArg = parseProvidedValue.Convert(parseMeta.argType)
-				}
-			}
-		}
-
 		var parseArgBuf [1]reflect.Value
-		parseArgBuf[0] = parseArg
+		parseArgBuf[0] = parseMeta.getArgValue(parseRawProps)
 		parseResults = parseComponentValue.Call(parseArgBuf[:])
 	} else {
 		parseResults = parseComponentValue.Call(nil)
@@ -754,10 +740,38 @@ func getComponentMeta(parseComponentType reflect.Type) componentMeta {
 		parseMeta.hasArg = true
 		parseMeta.argType = parseComponentType.In(0)
 		parseMeta.zeroArg = reflect.Zero(parseMeta.argType)
+		parseMeta.getArgValue = buildComponentArgValueLoader(parseMeta.argType, parseMeta.zeroArg)
 	}
 
 	parseStored, _ := componentMetaCache.LoadOrStore(parseComponentType, parseMeta)
 	return parseStored.(componentMeta)
+}
+
+// buildComponentArgValueLoader builds one cached props-to-argument resolver for one typed component signature.
+func buildComponentArgValueLoader(parseArgType reflect.Type, parseZeroArg reflect.Value) func(map[string]interface{}) reflect.Value {
+	return func(parseRawProps map[string]interface{}) reflect.Value {
+		if parseRawProps == nil {
+			return parseZeroArg
+		}
+		parseProvided, parseOk := parseRawProps[propsKey]
+		if !parseOk {
+			return parseZeroArg
+		}
+		parseProvidedValue := reflect.ValueOf(parseProvided)
+		if !parseProvidedValue.IsValid() {
+			return parseZeroArg
+		}
+		switch {
+		case parseProvidedValue.Type() == parseArgType:
+			return parseProvidedValue
+		case parseProvidedValue.Type().AssignableTo(parseArgType):
+			return parseProvidedValue
+		case parseProvidedValue.Type().ConvertibleTo(parseArgType):
+			return parseProvidedValue.Convert(parseArgType)
+		default:
+			return parseZeroArg
+		}
+	}
 }
 
 // getComponentMapProps resolves one component props payload as a plain map for direct-call fast paths.

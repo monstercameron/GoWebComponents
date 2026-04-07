@@ -4,6 +4,8 @@
 package jsdom
 
 import (
+	"html"
+	"strings"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -52,25 +54,13 @@ type WASMDOMAdapter struct {
 	getElementByID   js.Value
 	getByClassName   js.Value
 	getByTagName     js.Value
-	// Cached methods for performance
-	appendChild         js.Value
-	removeChild         js.Value
-	setAttribute        js.Value
-	removeAttribute     js.Value
-	insertBefore        js.Value
-	replaceChild        js.Value
-	addEventListener    js.Value
-	removeEventListener js.Value
-	createFragment      js.Value
-	batchSetAttributes  js.Func
 	// Batch operation support
-	fragmentPool []js.Value
-	batchStack   []wasmBatchState
+	batchStack []wasmBatchState
 }
 
 type wasmBatchState struct {
 	parent   *WASMDOMNode
-	fragment js.Value
+	children []js.Value
 }
 
 var _ runtime.DOMAdapter = (*WASMDOMAdapter)(nil)
@@ -78,19 +68,6 @@ var _ runtime.DOMAdapter = (*WASMDOMAdapter)(nil)
 // NewWASMDOMAdapter creates a DOM adapter backed by the browser document.
 func NewWASMDOMAdapter() *WASMDOMAdapter {
 	parseDoc := js.Global().Get("document")
-	// Pre-cache DOM prototype methods
-	parseElemProto := js.Global().Get("Element").Get("prototype")
-	parseBatchSetAttributes := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
-		parseNode := parseArgs[0]
-		parseAttrs := parseArgs[1]
-		parseKeys := js.Global().Get("Object").Call("keys", parseAttrs)
-		parseLength := parseKeys.Get("length").Int()
-		for parseI := 0; parseI < parseLength; parseI++ {
-			parseKey := parseKeys.Index(parseI).String()
-			parseNode.Call("setAttribute", parseKey, parseAttrs.Get(parseKey).String())
-		}
-		return nil
-	})
 	return &WASMDOMAdapter{
 		document: parseDoc,
 		// Bind methods to document to ensure correct 'this' context when Invoked
@@ -101,17 +78,6 @@ func NewWASMDOMAdapter() *WASMDOMAdapter {
 		getElementByID:   parseDoc.Get("getElementById").Call("bind", parseDoc),
 		getByClassName:   parseDoc.Get("getElementsByClassName").Call("bind", parseDoc),
 		getByTagName:     parseDoc.Get("getElementsByTagName").Call("bind", parseDoc),
-		createFragment:   parseDoc.Get("createDocumentFragment").Call("bind", parseDoc),
-		// Cache element methods (not bound, will use Call)
-		appendChild:         parseElemProto.Get("appendChild"),
-		removeChild:         parseElemProto.Get("removeChild"),
-		setAttribute:        parseElemProto.Get("setAttribute"),
-		removeAttribute:     parseElemProto.Get("removeAttribute"),
-		insertBefore:        parseElemProto.Get("insertBefore"),
-		replaceChild:        parseElemProto.Get("replaceChild"),
-		addEventListener:    parseElemProto.Get("addEventListener"),
-		removeEventListener: parseElemProto.Get("removeEventListener"),
-		batchSetAttributes:  parseBatchSetAttributes,
 	}
 }
 
@@ -146,10 +112,36 @@ func (parseA *WASMDOMAdapter) CreateTextNode(parseText string) runtime.DOMNode {
 	return &WASMDOMNode{value: parseTextNode}
 }
 
+// CreatePreparedElement creates one compact host element using one conservative template fast path when it is safe to do so.
+func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs []runtime.HostAttr, parseText string) runtime.DOMNode {
+	if parseA.document.IsNull() || parseA.document.IsUndefined() {
+		return &WASMDOMNode{value: js.Null()}
+	}
+	if getHTML, hasHTML := buildHostElementHTML(parseTag, parseAttrs, parseText); hasHTML {
+		parseTemplate := parseA.createElement.Invoke("template")
+		parseTemplate.Set("innerHTML", getHTML)
+		parseContent := parseTemplate.Get("content")
+		parseNode := parseContent.Get("firstChild")
+		if parseNode.IsNull() || parseNode.IsUndefined() {
+			return &WASMDOMNode{value: js.Null()}
+		}
+		return &WASMDOMNode{value: parseNode}
+	}
+	parseNode := parseA.createElement.Invoke(parseTag)
+	if parseNode.IsNull() || parseNode.IsUndefined() {
+		return &WASMDOMNode{value: js.Null()}
+	}
+	getNode := &WASMDOMNode{value: parseNode}
+	parseA.BatchSetAttributes(getNode, buildHostAttrMap(parseAttrs))
+	if parseText != "" {
+		parseNode.Set("textContent", parseText)
+	}
+	return getNode
+}
+
 func (parseA *WASMDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName, parseValue string) {
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
-		// Use cached method for better performance
-		parseA.setAttribute.Call("call", parseWasmNode.value, parseName, parseValue)
+		parseWasmNode.value.Call("setAttribute", parseName, parseValue)
 	}
 }
 
@@ -168,7 +160,7 @@ func (parseA *WASMDOMAdapter) GetAttribute(parseNode runtime.DOMNode, parseName 
 
 func (parseA *WASMDOMAdapter) RemoveAttribute(parseNode runtime.DOMNode, parseName string) {
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
-		parseA.removeAttribute.Call("call", parseWasmNode.value, parseName)
+		parseWasmNode.value.Call("removeAttribute", parseName)
 	}
 }
 
@@ -199,17 +191,16 @@ func (parseA *WASMDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNod
 		return
 	}
 
-	// If in batch mode for this specific parent, append to the top-most fragment.
+	// If in batch mode for this specific parent, buffer nodes locally and flush once at EndBatch.
 	if parseDepth := len(parseA.batchStack); parseDepth > 0 {
-		parseState := parseA.batchStack[parseDepth-1]
+		parseState := &parseA.batchStack[parseDepth-1]
 		if parseState.parent == parseParentNode {
-			parseA.appendChild.Call("call", parseState.fragment, parseChildNode.value)
+			parseState.children = append(parseState.children, parseChildNode.value)
 			return
 		}
 	}
 
-	// Use cached method via Call (faster than method lookup each time)
-	parseA.appendChild.Call("call", parseParentNode.value, parseChildNode.value)
+	parseParentNode.value.Call("appendChild", parseChildNode.value)
 }
 
 func (parseA *WASMDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNode) {
@@ -218,8 +209,7 @@ func (parseA *WASMDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNod
 	if !parseOk1 || !parseOk2 {
 		return
 	}
-	// Use cached method
-	parseA.removeChild.Call("call", parseParentNode.value, parseChildNode.value)
+	parseParentNode.value.Call("removeChild", parseChildNode.value)
 }
 
 func (parseA *WASMDOMAdapter) InsertBefore(parseParent, parseNewNode, parseReferenceNode runtime.DOMNode) {
@@ -227,7 +217,7 @@ func (parseA *WASMDOMAdapter) InsertBefore(parseParent, parseNewNode, parseRefer
 	parseNewN, parseOk2 := parseNewNode.(*WASMDOMNode)
 	parseRefN, parseOk3 := parseReferenceNode.(*WASMDOMNode)
 	if parseOk1 && parseOk2 && parseOk3 {
-		parseA.insertBefore.Call("call", parseParentN.value, parseNewN.value, parseRefN.value)
+		parseParentN.value.Call("insertBefore", parseNewN.value, parseRefN.value)
 	}
 }
 
@@ -236,7 +226,7 @@ func (parseA *WASMDOMAdapter) ReplaceChild(parseParent, parseNewNode, parseOldNo
 	parseNewN, parseOk2 := parseNewNode.(*WASMDOMNode)
 	parseOldN, parseOk3 := parseOldNode.(*WASMDOMNode)
 	if parseOk1 && parseOk2 && parseOk3 {
-		parseA.replaceChild.Call("call", parseParentN.value, parseNewN.value, parseOldN.value)
+		parseParentN.value.Call("replaceChild", parseNewN.value, parseOldN.value)
 	}
 }
 
@@ -416,15 +406,7 @@ func (parseA *WASMDOMAdapter) SetStyles(parseNode runtime.DOMNode, parseStyles m
 // BeginBatch starts batching DOM operations for a parent node
 func (parseA *WASMDOMAdapter) BeginBatch(parseParent runtime.DOMNode) {
 	if parseParentNode, parseOk := parseParent.(*WASMDOMNode); parseOk {
-		parseDepth := len(parseA.batchStack)
-		var parseFragment js.Value
-		if parseDepth < len(parseA.fragmentPool) {
-			parseFragment = parseA.fragmentPool[parseDepth]
-		} else {
-			parseFragment = parseA.createFragment.Invoke()
-			parseA.fragmentPool = append(parseA.fragmentPool, parseFragment)
-		}
-		parseA.batchStack = append(parseA.batchStack, wasmBatchState{parent: parseParentNode, fragment: parseFragment})
+		parseA.batchStack = append(parseA.batchStack, wasmBatchState{parent: parseParentNode, children: make([]js.Value, 0, 8)})
 	}
 }
 
@@ -437,24 +419,128 @@ func (parseA *WASMDOMAdapter) EndBatch() {
 
 	parseState := parseA.batchStack[parseDepth-1]
 	parseA.batchStack = parseA.batchStack[:parseDepth-1]
-	if parseState.parent != nil {
-		// Single DOM call to append all children
-		parseA.appendChild.Call("call", parseState.parent.value, parseState.fragment)
+	if parseState.parent != nil && len(parseState.children) > 0 {
+		parseFragment := parseA.document.Call("createDocumentFragment")
+		for _, parseChild := range parseState.children {
+			parseFragment.Call("appendChild", parseChild)
+		}
+		parseState.parent.value.Call("appendChild", parseFragment)
 	}
 }
 
-// BatchSetAttributes sets multiple attributes in a single boundary crossing
+// BatchSetAttributes sets multiple attributes without paying one extra Go callback hop.
 func (parseA *WASMDOMAdapter) BatchSetAttributes(parseNode runtime.DOMNode, parseAttrs map[string]string) {
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
 		if len(parseAttrs) == 0 {
 			return
 		}
-
-		parsePayload := js.Global().Get("Object").New()
 		for parseName, parseValue := range parseAttrs {
-			parsePayload.Set(parseName, parseValue)
+			parseWasmNode.value.Call("setAttribute", parseName, parseValue)
 		}
-		parseA.batchSetAttributes.Invoke(parseWasmNode.value, parsePayload)
+	}
+}
+
+// buildHostAttrMap converts one compact host-attr slice into one string map for shared batching code.
+func buildHostAttrMap(parseAttrs []runtime.HostAttr) map[string]string {
+	if len(parseAttrs) == 0 {
+		return nil
+	}
+	getAttrs := make(map[string]string, len(parseAttrs))
+	for _, parseAttr := range parseAttrs {
+		getAttrs[parseAttr.Name] = parseAttr.Value
+	}
+	return getAttrs
+}
+
+// buildHostElementHTML formats one compact host element as one HTML string when the tag and attrs are safe.
+func buildHostElementHTML(parseTag string, parseAttrs []runtime.HostAttr, parseText string) (string, bool) {
+	var parseBuilder strings.Builder
+	if !buildHostElementHTMLInto(&parseBuilder, parseTag, parseAttrs, parseText) {
+		return "", false
+	}
+	return parseBuilder.String(), true
+}
+
+// buildHostElementHTMLInto appends one compact host element HTML fragment into parseBuilder when the tag and attrs are safe.
+func buildHostElementHTMLInto(parseBuilder *strings.Builder, parseTag string, parseAttrs []runtime.HostAttr, parseText string) bool {
+	if parseBuilder == nil || !hasSafeHostHTMLTag(parseTag) {
+		return false
+	}
+	if parseText != "" && hasVoidHTMLElementTag(parseTag) {
+		return false
+	}
+	parseBuilder.WriteByte('<')
+	parseBuilder.WriteString(parseTag)
+	for _, parseAttr := range parseAttrs {
+		if !hasSafeHostHTMLAttrName(parseAttr.Name) {
+			return false
+		}
+		parseBuilder.WriteByte(' ')
+		parseBuilder.WriteString(parseAttr.Name)
+		parseBuilder.WriteString(`="`)
+		parseBuilder.WriteString(html.EscapeString(parseAttr.Value))
+		parseBuilder.WriteByte('"')
+	}
+	parseBuilder.WriteByte('>')
+	if parseText != "" {
+		parseBuilder.WriteString(html.EscapeString(parseText))
+	}
+	if !hasVoidHTMLElementTag(parseTag) {
+		parseBuilder.WriteString("</")
+		parseBuilder.WriteString(parseTag)
+		parseBuilder.WriteByte('>')
+	}
+	return true
+}
+
+// hasSafeHostHTMLTag reports whether one tag can safely round-trip through the conservative template fast path.
+func hasSafeHostHTMLTag(parseTag string) bool {
+	if strings.TrimSpace(parseTag) == "" {
+		return false
+	}
+	for _, parseRune := range parseTag {
+		switch {
+		case parseRune >= 'a' && parseRune <= 'z':
+		case parseRune >= 'A' && parseRune <= 'Z':
+		case parseRune >= '0' && parseRune <= '9':
+		case parseRune == '-':
+		default:
+			return false
+		}
+	}
+	switch strings.ToLower(parseTag) {
+	case "svg", "math":
+		return false
+	default:
+		return true
+	}
+}
+
+// hasSafeHostHTMLAttrName reports whether one attr name can safely round-trip through the conservative template fast path.
+func hasSafeHostHTMLAttrName(parseName string) bool {
+	if strings.TrimSpace(parseName) == "" {
+		return false
+	}
+	for _, parseRune := range parseName {
+		switch {
+		case parseRune >= 'a' && parseRune <= 'z':
+		case parseRune >= 'A' && parseRune <= 'Z':
+		case parseRune >= '0' && parseRune <= '9':
+		case parseRune == '-', parseRune == '_', parseRune == ':':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// hasVoidHTMLElementTag reports whether one tag omits its closing tag in HTML parsing mode.
+func hasVoidHTMLElementTag(parseTag string) bool {
+	switch strings.ToLower(strings.TrimSpace(parseTag)) {
+	case "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr":
+		return true
+	default:
+		return false
 	}
 }
 

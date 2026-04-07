@@ -2,10 +2,27 @@ package runtime
 
 // Element represents a virtual DOM node.
 type Element struct {
-	Type        interface{}
-	Props       map[string]interface{}
-	Children    []interface{}
-	TextContent string // Optimization for TEXT_ELEMENT to avoid map allocation
+	Type               interface{}
+	Props              map[string]interface{}
+	Children           []interface{}
+	TextContent        string // Optimization for TEXT_ELEMENT to avoid map allocation
+	getHostProps       map[string]interface{}
+	getHostAttrs       []HostAttr
+	isCompactHostProps bool
+	hasDirectText      bool
+}
+
+// HostAttr stores one normalized string attribute for one compact host mount.
+type HostAttr struct {
+	Name  string
+	Value string
+}
+
+// HostMountSpec stores one simple host mount description for one batched DOM append path.
+type HostMountSpec struct {
+	Tag   string
+	Attrs []HostAttr
+	Text  string
 }
 
 // PortalElementType marks a subtree whose committed DOM children should render
@@ -44,18 +61,24 @@ type Fiber struct {
 	alternate *Fiber
 
 	// Flags - grouped with tree pointers for fast traversal checks (Cache Line 0)
-	dirty           bool
-	needsUpdate     bool
-	needsChildOrder bool
+	dirty               bool
+	subtreeDirty        bool
+	needsUpdate         bool
+	needsChildReconcile bool
+	needsChildOrder     bool
 	// 6 bytes padding here to align next 8-byte field
 
 	// Component info
-	hooks          *Hooks
-	props          map[string]interface{}
-	contextValues  map[int64]interface{}
-	hydration      *hydrationBoundary
-	childHydration *hydrationBoundary
-	hydrated       bool
+	hooks              *Hooks
+	props              map[string]interface{}
+	children           []interface{}
+	getHostAttrs       []HostAttr
+	contextValues      map[int64]interface{}
+	hydration          *hydrationBoundary
+	childHydration     *hydrationBoundary
+	hydrated           bool
+	hasDirectText      bool
+	isCompactHostProps bool
 
 	// Interfaces and Strings (16 bytes each)
 	typeOf      interface{}

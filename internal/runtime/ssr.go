@@ -137,7 +137,9 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 		return nil
 	}
 
-	if parseErr := renderChildrenToString(parseBuilder, parseElement.Children); parseErr != nil {
+	if parseElement.hasDirectText {
+		parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
+	} else if parseErr := renderChildrenToString(parseBuilder, getElementChildren(parseElement)); parseErr != nil {
 		return parseErr
 	}
 

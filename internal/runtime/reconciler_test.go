@@ -279,6 +279,39 @@ func (parseA *testDOMAdapter) SetInnerHTML(parseNode DOMNode, parseHtml string) 
 func (parseA *testDOMAdapter) SetTextContent(parseNode DOMNode, parseText string) {
 	if parseN, parseOk := parseNode.(*testDOMNode); parseOk {
 		parseN.text = parseText
+		if parseN.nodeType == "text" {
+			return
+		}
+		if len(parseN.children) == 1 {
+			if parseTextChild, parseOk2 := parseN.children[0].(*testDOMNode); parseOk2 && parseTextChild.nodeType == "text" {
+				if parseText == "" {
+					parseTextChild.parent = nil
+					parseN.children = parseN.children[:0]
+					return
+				}
+				parseTextChild.text = parseText
+				return
+			}
+		}
+		for _, parseChild := range parseN.children {
+			if parseTextChild, parseOk2 := parseChild.(*testDOMNode); parseOk2 {
+				parseTextChild.parent = nil
+			}
+		}
+		parseN.children = parseN.children[:0]
+		if parseText == "" {
+			return
+		}
+		parseChildNode := &testDOMNode{
+			nodeType:   "text",
+			text:       parseText,
+			attributes: make(map[string]string),
+			properties: make(map[string]interface{}),
+			styles:     make(map[string]string),
+			children:   make([]DOMNode, 0),
+			parent:     parseN,
+		}
+		parseN.children = append(parseN.children, parseChildNode)
 	}
 }
 

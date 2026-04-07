@@ -842,6 +842,10 @@
             const getDomReadyAt = performance.now();
             await handleSubjectAnimationFrames(1);
             const getPaintVisibleAt = performance.now();
+            if (getWorkerBefore) {
+                await handleSubjectTaskTick();
+                await handleSubjectAnimationFrames(1);
+            }
             const getWorkerAfter = buildSubjectWorkerSnapshot();
             const getMutationStats = getMutationProbe.handleStop();
             const getLongTaskStats = getLongTaskProbe.handleStop();

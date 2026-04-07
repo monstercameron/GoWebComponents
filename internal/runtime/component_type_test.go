@@ -43,3 +43,30 @@ func TestComponentTypeRenderUsesUpdatedImplementation(parseT *testing.T) {
 		parseT.Fatalf("expected updated implementation result, got %#v", parseSecond)
 	}
 }
+
+func TestComponentTypeRenderUsesUpdatedRendererWhenSignatureChanges(parseT *testing.T) {
+	handle := NewComponentType(
+		"component:Example",
+		"Example",
+		"component:Example",
+		func() *Element { return &Element{Type: "TEXT_ELEMENT", TextContent: "first"} },
+		func(parseImplementation interface{}, parseProps map[string]interface{}) *Element {
+			return parseImplementation.(func() *Element)()
+		},
+	)
+
+	handle.SetImplementationRenderer(
+		func(parseProps map[string]interface{}) *Element {
+			parseText, _ := parseProps["label"].(string)
+			return &Element{Type: "TEXT_ELEMENT", TextContent: parseText}
+		},
+		func(parseImplementation interface{}, parseProps map[string]interface{}) *Element {
+			return parseImplementation.(func(map[string]interface{}) *Element)(parseProps)
+		},
+	)
+
+	parseRendered := handle.Render(map[string]interface{}{"label": "second"})
+	if parseRendered == nil || parseRendered.TextContent != "second" {
+		parseT.Fatalf("expected updated renderer result, got %#v", parseRendered)
+	}
+}

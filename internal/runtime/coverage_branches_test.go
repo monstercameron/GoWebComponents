@@ -296,12 +296,12 @@ func TestReconciler_BatchedDomAndEffectCoverage(parseT *testing.T) {
 			"children": []interface{}{},
 		})
 	}
-	parseRt.updateDomProperties(parseDom, nil, map[string]interface{}{
+	parseRt.applyInitialDomProps(parseDom, map[string]interface{}{
 		"id":       "root",
 		"class":    "panel",
 		"style":    "display:block",
 		"children": []interface{}{},
-	})
+	}, true, parseAdapter, false)
 	if len(parseAdapter.batches) == 0 {
 		parseT.Fatal("expected batched attribute adapter path to run")
 	}

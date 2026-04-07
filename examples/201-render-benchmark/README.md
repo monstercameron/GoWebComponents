@@ -2,7 +2,7 @@
 
 This example provides a browser-side benchmark runner that compares:
 
-- React 18
+- React 19.2.4
 - runtime1, the current GoWebComponents runtime
 - runtime2 at a worker-scaling matrix of 1, 2, 4, and 8 Go WASM workers preparing the same chunks before the local runtime2 shell commits DOM updates
 

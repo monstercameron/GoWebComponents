@@ -4,20 +4,42 @@ import "testing"
 
 type optimizationTestAdapter struct {
 	*testDOMAdapter
-	setAttributeCount    int
-	removeAttributeCount int
-	setPropertyCount     int
-	setTextContentCount  int
-	getFirstChildCount   int
-	getNextSiblingCount  int
-	insertBeforeCount    int
-	beginBatchCount      int
-	endBatchCount        int
+	setAttributeCount      int
+	batchSetAttributeCount int
+	removeAttributeCount   int
+	createPreparedCount    int
+	setPropertyCount       int
+	setTextContentCount    int
+	getFirstChildCount     int
+	getNextSiblingCount    int
+	insertBeforeCount      int
+	beginBatchCount        int
+	endBatchCount          int
 }
 
 func (parseA *optimizationTestAdapter) SetAttribute(parseNode DOMNode, parseName string, parseValue string) {
 	parseA.setAttributeCount++
 	parseA.testDOMAdapter.SetAttribute(parseNode, parseName, parseValue)
+}
+
+func (parseA *optimizationTestAdapter) BatchSetAttributes(parseNode DOMNode, parseAttrs map[string]string) {
+	parseA.batchSetAttributeCount++
+	for parseName, parseValue := range parseAttrs {
+		parseA.testDOMAdapter.SetAttribute(parseNode, parseName, parseValue)
+	}
+}
+
+// CreatePreparedElement records one compact host prepared mount for optimization coverage.
+func (parseA *optimizationTestAdapter) CreatePreparedElement(parseTag string, parseAttrs []HostAttr, parseText string) DOMNode {
+	parseA.createPreparedCount++
+	parseNode := parseA.testDOMAdapter.CreateElement(parseTag)
+	for _, parseAttr := range parseAttrs {
+		parseA.testDOMAdapter.SetAttribute(parseNode, parseAttr.Name, parseAttr.Value)
+	}
+	if parseText != "" {
+		parseA.testDOMAdapter.SetTextContent(parseNode, parseText)
+	}
+	return parseNode
 }
 
 func (parseA *optimizationTestAdapter) RemoveAttribute(parseNode DOMNode, parseName string) {
@@ -60,7 +82,9 @@ func (parseA *optimizationTestAdapter) EndBatch() {
 
 func (parseA *optimizationTestAdapter) resetCounts() {
 	parseA.setAttributeCount = 0
+	parseA.batchSetAttributeCount = 0
 	parseA.removeAttributeCount = 0
+	parseA.createPreparedCount = 0
 	parseA.setPropertyCount = 0
 	parseA.setTextContentCount = 0
 	parseA.getFirstChildCount = 0
@@ -68,6 +92,29 @@ func (parseA *optimizationTestAdapter) resetCounts() {
 	parseA.insertBeforeCount = 0
 	parseA.beginBatchCount = 0
 	parseA.endBatchCount = 0
+}
+
+// TestCreateDomUsesPreparedCompactHostMount verifies compact host mounts take the prepared fast path instead of generic attr/text writes.
+func TestCreateDomUsesPreparedCompactHostMount(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseContainer := parseAdapter.CreateElement("root")
+
+	parseRt.Render(CreateElement("div", map[string]interface{}{
+		"id":         "row-1",
+		"className":  "card",
+		"data-state": "live",
+	}, "hello"), parseContainer)
+
+	if parseAdapter.createPreparedCount != 1 {
+		parseT.Fatalf("expected one prepared host mount, got %d", parseAdapter.createPreparedCount)
+	}
+	if parseAdapter.setAttributeCount != 0 {
+		parseT.Fatalf("expected prepared host mount to skip generic attr writes, got %d", parseAdapter.setAttributeCount)
+	}
+	if parseAdapter.setTextContentCount != 0 {
+		parseT.Fatalf("expected prepared host mount to skip generic text writes, got %d", parseAdapter.setTextContentCount)
+	}
 }
 
 func TestPropsEqualIgnoringChildrenTreatsChildSliceChangesAsStable(parseT *testing.T) {
@@ -93,34 +140,38 @@ func TestPropsEqualIgnoringChildrenTreatsChildSliceChangesAsStable(parseT *testi
 	}
 }
 
-func TestReconcileChildrenReusesHostUpdateWhenOnlyChildrenChange(parseT *testing.T) {
+func TestReconcileChildrenSeparatesHostChildReconcileWhenOnlyChildrenChange(parseT *testing.T) {
 	parseRt := &Runtime{}
-	parseOldHost := CreateElement("div", map[string]interface{}{"id": "host"}, "before")
+	parseOldHost := CreateElement("div", map[string]interface{}{"id": "host"}, CreateElement("span", nil, "before"))
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
 		props:  map[string]interface{}{},
 		alternate: &Fiber{
 			child: &Fiber{
-				typeOf: parseOldHost.Type,
-				props:  parseOldHost.Props,
-				dom:    (&testDOMAdapter{}).CreateElement("div"),
+				typeOf:   parseOldHost.Type,
+				props:    parseOldHost.Props,
+				children: getElementChildren(parseOldHost),
+				dom:      (&testDOMAdapter{}).CreateElement("div"),
 			},
 		},
 	}
 
 	parseRt.reconcileChildren(parseRoot, []interface{}{
-		CreateElement("div", map[string]interface{}{"id": "host"}, "after"),
+		CreateElement("div", map[string]interface{}{"id": "host"}, CreateElement("span", nil, "after")),
 	})
 
 	parseChild := parseRoot.child
 	if parseChild == nil {
 		parseT.Fatal("expected reconciled child fiber")
 	}
-	if parseChild.effectTag != "UPDATE" {
-		parseT.Fatalf("expected reused host fiber to retain UPDATE effect, got %q", parseChild.effectTag)
+	if parseChild.effectTag != "" {
+		parseT.Fatalf("expected child-only host reconcile to avoid UPDATE effect, got %q", parseChild.effectTag)
 	}
-	if !parseChild.dirty {
-		parseT.Fatal("expected child-only change to keep subtree dirty for child reconciliation")
+	if parseChild.dirty {
+		parseT.Fatal("expected child-only change to avoid self-dirty host updates")
+	}
+	if !parseChild.needsChildReconcile {
+		parseT.Fatal("expected child-only change to request child reconciliation")
 	}
 }
 
@@ -129,10 +180,10 @@ func TestRenderSkipsCommittedHostPropWritesWhenOnlyChildrenChange(parseT *testin
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseContainer := parseAdapter.CreateElement("root")
 
-	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, "before"), parseContainer)
+	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, CreateElement("span", nil, "before")), parseContainer)
 	parseAdapter.resetCounts()
 
-	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, "after"), parseContainer)
+	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, CreateElement("span", nil, "after")), parseContainer)
 
 	if parseAdapter.setAttributeCount != 0 {
 		parseT.Fatalf("expected no attribute writes on stable host props, got %d", parseAdapter.setAttributeCount)
@@ -152,14 +203,167 @@ func TestRenderSkipsCommittedHostPropWritesWhenOnlyChildrenChange(parseT *testin
 		parseT.Fatalf("expected host node type *testDOMNode, got %T", parseRootChildren[0])
 	}
 	if len(parseHost.children) != 1 {
-		parseT.Fatalf("expected one text child, got %d", len(parseHost.children))
+		parseT.Fatalf("expected one span child, got %d", len(parseHost.children))
 	}
-	parseTextNode, parseOk2 := parseHost.children[0].(*testDOMNode)
+	parseSpanNode, parseOk2 := parseHost.children[0].(*testDOMNode)
 	if !parseOk2 {
-		parseT.Fatalf("expected text child type *testDOMNode, got %T", parseHost.children[0])
+		parseT.Fatalf("expected span child type *testDOMNode, got %T", parseHost.children[0])
+	}
+	if len(parseSpanNode.children) != 1 {
+		parseT.Fatalf("expected span text child, got %d", len(parseSpanNode.children))
+	}
+	parseTextNode, parseOk3 := parseSpanNode.children[0].(*testDOMNode)
+	if !parseOk3 {
+		parseT.Fatalf("expected span text child type *testDOMNode, got %T", parseSpanNode.children[0])
 	}
 	if parseTextNode.text != "after" {
-		parseT.Fatalf("expected updated child text %q, got %q", "after", parseTextNode.text)
+		parseT.Fatalf("expected updated nested text %q, got %q", "after", parseTextNode.text)
+	}
+}
+
+func TestCreateElementStoresDirectHostTextChild(parseT *testing.T) {
+	parseElem := CreateElement("span", map[string]interface{}{"id": "label"}, "hello")
+
+	if !parseElem.hasDirectText {
+		parseT.Fatal("expected single host string child to use direct text storage")
+	}
+	if parseElem.TextContent != "hello" {
+		parseT.Fatalf("expected direct text %q, got %q", "hello", parseElem.TextContent)
+	}
+	if len(getElementChildren(parseElem)) != 0 {
+		parseT.Fatalf("expected no structural children, got %d", len(getElementChildren(parseElem)))
+	}
+	parseChildren, parseOk := parseElem.Props["children"].([]interface{})
+	if !parseOk || len(parseChildren) != 1 {
+		parseT.Fatalf("expected legacy props children to remain visible, got %#v", parseElem.Props["children"])
+	}
+}
+
+func TestRenderUsesDirectHostTextWithoutTextFiber(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseContainer := parseAdapter.CreateElement("root")
+
+	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, "hello"), parseContainer)
+
+	if parseRt.currentRoot == nil || parseRt.currentRoot.child == nil {
+		parseT.Fatal("expected committed host fiber")
+	}
+	parseHostFiber := parseRt.currentRoot.child
+	if !parseHostFiber.hasDirectText {
+		parseT.Fatal("expected committed host fiber to keep direct text flag")
+	}
+	if parseHostFiber.child != nil {
+		parseT.Fatal("expected direct host text to avoid text child fibers")
+	}
+	parseRootChildren := parseAdapter.GetChildren(parseContainer)
+	if len(parseRootChildren) != 1 {
+		parseT.Fatalf("expected one host child, got %d", len(parseRootChildren))
+	}
+	parseHostNode, parseOk := parseRootChildren[0].(*testDOMNode)
+	if !parseOk {
+		parseT.Fatalf("expected host node type *testDOMNode, got %T", parseRootChildren[0])
+	}
+	if len(parseHostNode.children) != 1 {
+		parseT.Fatalf("expected one text DOM child, got %d", len(parseHostNode.children))
+	}
+	parseTextNode, parseOk2 := parseHostNode.children[0].(*testDOMNode)
+	if !parseOk2 || parseTextNode.text != "hello" {
+		parseT.Fatalf("expected host text DOM child %q, got %#v", "hello", parseHostNode.children[0])
+	}
+}
+
+func TestRenderTransitionsDirectHostTextToElementChildren(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseContainer := parseAdapter.CreateElement("root")
+
+	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, "before"), parseContainer)
+	parseAdapter.resetCounts()
+	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, CreateElement("span", map[string]interface{}{"id": "next"}, "after")), parseContainer)
+
+	parseRootChildren := parseAdapter.GetChildren(parseContainer)
+	parseHostNode, parseOk := parseRootChildren[0].(*testDOMNode)
+	if !parseOk {
+		parseT.Fatalf("expected host node type *testDOMNode, got %T", parseRootChildren[0])
+	}
+	if len(parseHostNode.children) != 1 {
+		parseT.Fatalf("expected direct text to be cleared before child placement, got %d children", len(parseHostNode.children))
+	}
+	parseSpanNode, parseOk2 := parseHostNode.children[0].(*testDOMNode)
+	if !parseOk2 || parseSpanNode.tag != "span" {
+		parseT.Fatalf("expected span child after direct-text transition, got %#v", parseHostNode.children[0])
+	}
+	if parseAdapter.setTextContentCount == 0 {
+		parseT.Fatal("expected direct text transition to clear host text content")
+	}
+}
+
+func TestHydrateUsesDirectHostTextWithoutTextFiber(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseContainer := parseAdapter.CreateElement("root")
+	parseServerNode := parseAdapter.CreateElement("p")
+	parseAdapter.SetTextContent(parseServerNode, "server")
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
+
+	parseRt.Hydrate(CreateElement("p", map[string]interface{}{"id": "greeting"}, "client"), parseContainer)
+
+	if parseRt.currentRoot == nil || parseRt.currentRoot.child == nil {
+		parseT.Fatal("expected hydrated host fiber")
+	}
+	parseHostFiber := parseRt.currentRoot.child
+	if !parseHostFiber.hasDirectText {
+		parseT.Fatal("expected hydrated host fiber to keep direct text flag")
+	}
+	if parseHostFiber.child != nil {
+		parseT.Fatal("expected hydrated direct host text to avoid text child fibers")
+	}
+	parseRootChildren := parseAdapter.GetChildren(parseContainer)
+	parseHostNode, parseOk := parseRootChildren[0].(*testDOMNode)
+	if !parseOk {
+		parseT.Fatalf("expected hydrated host node type *testDOMNode, got %T", parseRootChildren[0])
+	}
+	if len(parseHostNode.children) != 1 {
+		parseT.Fatalf("expected one hydrated text DOM child, got %d", len(parseHostNode.children))
+	}
+	parseTextNode, parseOk2 := parseHostNode.children[0].(*testDOMNode)
+	if !parseOk2 || parseTextNode.text != "client" {
+		parseT.Fatalf("expected hydrated text %q, got %#v", "client", parseHostNode.children[0])
+	}
+}
+
+func TestApplyInitialDomPropsSkipsBatchMapForTwoStringAttrs(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseDom := parseAdapter.CreateElement("div")
+
+	parseRt.updateDomProperties(parseDom, nil, map[string]interface{}{
+		"id":        "row-1",
+		"className": "card",
+	})
+
+	if parseAdapter.batchSetAttributeCount != 0 {
+		parseT.Fatalf("expected small attr mount path to avoid batch map, got %d batch calls", parseAdapter.batchSetAttributeCount)
+	}
+	if parseAdapter.setAttributeCount != 2 {
+		parseT.Fatalf("expected direct attribute writes for two attrs, got %d", parseAdapter.setAttributeCount)
+	}
+}
+
+func TestApplyInitialDomPropsBatchesThreeStringAttrs(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseDom := parseAdapter.CreateElement("div")
+
+	parseRt.updateDomProperties(parseDom, nil, map[string]interface{}{
+		"id":         "row-1",
+		"className":  "card",
+		"data-state": "live",
+	})
+
+	if parseAdapter.batchSetAttributeCount != 1 {
+		parseT.Fatalf("expected three-attr mount path to use one batch call, got %d", parseAdapter.batchSetAttributeCount)
 	}
 }
 
@@ -251,6 +455,54 @@ func TestCommitRootBatchesStablePlacementChildren(parseT *testing.T) {
 	}
 	if parseAdapter.beginBatchCount != parseAdapter.endBatchCount {
 		parseT.Fatalf("expected balanced batch calls, got begin=%d end=%d", parseAdapter.beginBatchCount, parseAdapter.endBatchCount)
+	}
+}
+
+func TestCommitRootBatchesRootLevelPlacements(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseContainer := parseAdapter.CreateElement("root")
+
+	parseRt.Render(CreateElement("FRAGMENT", nil,
+		CreateElement("div", map[string]interface{}{"id": "a"}, "a"),
+		CreateElement("div", map[string]interface{}{"id": "b"}, "b"),
+		CreateElement("div", map[string]interface{}{"id": "c"}, "c"),
+	), parseContainer)
+
+	if parseAdapter.beginBatchCount == 0 || parseAdapter.endBatchCount == 0 {
+		parseT.Fatalf("expected root-level placements to use batch adapter, got begin=%d end=%d", parseAdapter.beginBatchCount, parseAdapter.endBatchCount)
+	}
+	if parseAdapter.beginBatchCount != parseAdapter.endBatchCount {
+		parseT.Fatalf("expected balanced root batch calls, got begin=%d end=%d", parseAdapter.beginBatchCount, parseAdapter.endBatchCount)
+	}
+}
+
+func TestPerformUnitOfWorkReusesCleanSubtreeWithoutCloning(parseT *testing.T) {
+	parseRt := &Runtime{}
+	parseOldGrandchild := &Fiber{typeOf: "span"}
+	parseOldChild := &Fiber{typeOf: "div", child: parseOldGrandchild}
+	parseOldGrandchild.parent = parseOldChild
+	parseOldParent := &Fiber{typeOf: "section", child: parseOldChild}
+	parseOldChild.parent = parseOldParent
+
+	parseNewParent := &Fiber{
+		typeOf:    "section",
+		alternate: parseOldParent,
+	}
+
+	parseNext := parseRt.performUnitOfWork(parseNewParent)
+
+	if parseNext != nil {
+		parseT.Fatalf("expected clean subtree bailout to skip descendants, got next %v", parseNext)
+	}
+	if parseNewParent.child != parseOldChild {
+		parseT.Fatal("expected clean subtree bailout to reuse committed child chain")
+	}
+	if parseOldChild.parent != parseNewParent {
+		parseT.Fatal("expected reused child chain to relink to the new parent fiber")
+	}
+	if parseOldGrandchild.parent != parseOldChild {
+		parseT.Fatal("expected reused descendants to preserve their existing parent chain")
 	}
 }
 

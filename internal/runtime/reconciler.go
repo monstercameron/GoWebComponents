@@ -155,15 +155,32 @@ func ensureFineGrainedTwinLink(parseOldFiber *Fiber, parseNewFiber *Fiber) {
 	}
 }
 
-// buildFiberNeedsUpdate reports whether one reused fiber should keep its subtree on the update path.
+// buildFiberNeedsUpdate reports whether one reused fiber should keep its own render/update path active.
 func (parseRt *Runtime) buildFiberNeedsUpdate(parseOldFiber *Fiber, parseElem *Element) bool {
+	isParseNeedsUpdate, _ := parseRt.buildFiberNeedsWork(parseOldFiber, parseElem)
+	return isParseNeedsUpdate
+}
+
+// buildFiberNeedsChildReconcile reports whether one reused fiber only needs child reconciliation work.
+func (parseRt *Runtime) buildFiberNeedsChildReconcile(parseOldFiber *Fiber, parseElem *Element) bool {
+	_, isParseNeedsChildReconcile := parseRt.buildFiberNeedsWork(parseOldFiber, parseElem)
+	return isParseNeedsChildReconcile
+}
+
+// buildFiberNeedsWork separates self updates from child-only reconciliation work on one reused fiber.
+func (parseRt *Runtime) buildFiberNeedsWork(parseOldFiber *Fiber, parseElem *Element) (bool, bool) {
 	if parseOldFiber == nil || parseElem == nil {
-		return true
+		return true, false
 	}
+	parseElemProps := getElementFiberProps(parseElem)
+	parseElemChildren := getElementChildren(parseElem)
 
 	isDirty := parseRt.isFiberDirty(parseOldFiber)
 	if isDirty || parseOldFiber.needsUpdate {
-		return true
+		return true, false
+	}
+	if parseOldFiber.needsChildReconcile {
+		return false, true
 	}
 
 	if parseT, parseOk := parseElem.Type.(string); parseOk && parseT == "TEXT_ELEMENT" {
@@ -175,10 +192,47 @@ func (parseRt *Runtime) buildFiberNeedsUpdate(parseOldFiber *Fiber, parseElem *E
 		if parseNewText == "" && parseElem.Props != nil {
 			parseNewText, _ = parseElem.Props["nodeValue"].(string)
 		}
-		return parseOldText != parseNewText
+		return parseOldText != parseNewText, false
 	}
 
-	return !propsEqual(parseOldFiber.props, parseElem.Props)
+	if parseOldFiber.hasDirectText || parseElem.hasDirectText {
+		if parseOldFiber.hasDirectText != parseElem.hasDirectText {
+			return true, true
+		}
+		if parseOldFiber.textContent != parseElem.TextContent {
+			return true, false
+		}
+		if propsEqualIgnoringChildren(parseOldFiber.props, parseElemProps) {
+			return false, false
+		}
+		return true, false
+	}
+
+	if propsEqual(parseOldFiber.props, parseElemProps) {
+		if childrenEqual(getFiberChildren(parseOldFiber), parseElemChildren) {
+			return false, false
+		}
+		return false, true
+	}
+	if propsEqualIgnoringChildren(parseOldFiber.props, parseElemProps) {
+		return false, true
+	}
+
+	return true, false
+}
+
+// childrenEqual compares one structural children slice using the same pointer-oriented semantics as propsEqual.
+func childrenEqual(parseA []interface{}, parseB []interface{}) bool {
+	if len(parseA) == 0 && len(parseB) == 0 {
+		return true
+	}
+	if len(parseA) != len(parseB) {
+		return false
+	}
+	if len(parseA) == 0 {
+		return true
+	}
+	return &parseA[0] == &parseB[0]
 }
 
 // buildUpdatedFiber clones one reused fiber with the current element payload and update flags.
@@ -187,25 +241,33 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 		return nil
 	}
 
-	parseEffectTag := buildUpdateEffectTag(parseElem.Type)
+	isParseNeedsUpdate, isParseNeedsChildReconcile := parseRt.buildFiberNeedsWork(parseOldFiber, parseElem)
+	parseEffectTag := buildUpdateEffectTag(parseElem.Type, isParseNeedsUpdate)
+	parseElemProps := getElementFiberProps(parseElem)
 	parseNewFiber := acquireWorkInProgress(parseOldFiber)
 	*parseNewFiber = Fiber{
-		typeOf:            parseOldFiber.typeOf,
-		props:             parseElem.Props,
-		textContent:       parseElem.TextContent,
-		dom:               parseOldFiber.dom,
-		parent:            parseWipFiber,
-		alternate:         parseOldFiber,
-		effectTag:         parseEffectTag,
-		dirty:             parseRt.buildFiberNeedsUpdate(parseOldFiber, parseElem),
-		needsUpdate:       parseOldFiber.needsUpdate,
-		hooks:             parseOldFiber.hooks,
-		eventCallbacks:    parseOldFiber.eventCallbacks,
-		hydration:         parseWipFiber.childHydration,
-		reactiveAtomID:    parseOldFiber.reactiveAtomID,
-		reactiveSourceIDs: parseOldFiber.reactiveSourceIDs,
-		fineGrained:       parseOldFiber.fineGrained,
-		updateOrigin:      parseOldFiber.updateOrigin,
+		typeOf:              parseOldFiber.typeOf,
+		props:               parseElemProps,
+		children:            getElementChildren(parseElem),
+		getHostAttrs:        parseElem.getHostAttrs,
+		textContent:         parseElem.TextContent,
+		dom:                 parseOldFiber.dom,
+		parent:              parseWipFiber,
+		alternate:           parseOldFiber,
+		effectTag:           parseEffectTag,
+		dirty:               isParseNeedsUpdate,
+		subtreeDirty:        parseOldFiber.subtreeDirty,
+		needsUpdate:         parseOldFiber.needsUpdate,
+		needsChildReconcile: isParseNeedsChildReconcile,
+		hooks:               parseOldFiber.hooks,
+		eventCallbacks:      parseOldFiber.eventCallbacks,
+		hydration:           parseWipFiber.childHydration,
+		reactiveAtomID:      parseOldFiber.reactiveAtomID,
+		reactiveSourceIDs:   parseOldFiber.reactiveSourceIDs,
+		fineGrained:         parseOldFiber.fineGrained,
+		hasDirectText:       parseElem.hasDirectText,
+		isCompactHostProps:  parseElem.isCompactHostProps,
+		updateOrigin:        parseOldFiber.updateOrigin,
 	}
 	ensureFineGrainedTwinLink(parseOldFiber, parseNewFiber)
 	parseRt.handleClonedFiberSubscriptionMove(parseOldFiber, parseNewFiber)
@@ -218,23 +280,31 @@ func buildPlacementFiber(parseWipFiber *Fiber, parseElem *Element, parseOldFiber
 		return nil
 	}
 
+	parseElemProps := getElementFiberProps(parseElem)
 	parseNewFiber := acquireWorkInProgress(nil)
 	*parseNewFiber = Fiber{
-		typeOf:       parseElem.Type,
-		props:        parseElem.Props,
-		textContent:  parseElem.TextContent,
-		parent:       parseWipFiber,
-		effectTag:    "PLACEMENT",
-		dirty:        true,
-		hydration:    parseWipFiber.childHydration,
-		fineGrained:  isFineGrainedType(parseElem.Type),
-		updateOrigin: oldFiberUpdateOrigin(parseOldFiber, parseElem.Type),
+		typeOf:             parseElem.Type,
+		props:              parseElemProps,
+		children:           getElementChildren(parseElem),
+		getHostAttrs:       parseElem.getHostAttrs,
+		textContent:        parseElem.TextContent,
+		parent:             parseWipFiber,
+		effectTag:          "PLACEMENT",
+		dirty:              true,
+		hydration:          parseWipFiber.childHydration,
+		fineGrained:        isFineGrainedType(parseElem.Type),
+		hasDirectText:      parseElem.hasDirectText,
+		isCompactHostProps: parseElem.isCompactHostProps,
+		updateOrigin:       oldFiberUpdateOrigin(parseOldFiber, parseElem.Type),
 	}
 	return parseNewFiber
 }
 
 // buildUpdateEffectTag returns the effect tag used when one reused fiber keeps its existing DOM node.
-func buildUpdateEffectTag(parseTypeOf interface{}) string {
+func buildUpdateEffectTag(parseTypeOf interface{}, isParseNeedsUpdate bool) string {
+	if !isParseNeedsUpdate {
+		return ""
+	}
 	if parseT, parseOk := parseTypeOf.(string); parseOk && parseT == "FRAGMENT" {
 		return ""
 	}
@@ -826,12 +896,16 @@ func (parseRt *Runtime) clearFiberDirty(parseFiber *Fiber) {
 	}
 
 	parseFiber.dirty = false
+	parseFiber.subtreeDirty = false
 	parseFiber.needsUpdate = false
+	parseFiber.needsChildReconcile = false
 
 	parseAlternate := parseFiber.alternate
 	if parseAlternate != nil && parseAlternate != parseFiber {
 		parseAlternate.dirty = false
+		parseAlternate.subtreeDirty = false
 		parseAlternate.needsUpdate = false
+		parseAlternate.needsChildReconcile = false
 	}
 }
 
@@ -853,20 +927,29 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 		return parseNext
 	}
 
-	// Check if fiber or any alternate is dirty
-	isDirty := parseRt.isFiberDirty(parseFiber)
+	// Distinguish self work from descendant-only work so clean owners can forward updates without rerendering.
+	isParseSelfDirty := parseRt.isFiberDirty(parseFiber) || parseFiber.needsChildReconcile
+	isParseSubtreeOnly := !isParseSelfDirty && parseFiber.subtreeDirty
 
-	// Skip non-dirty fibers (optimization)
-	if !isDirty {
+	// Reuse the committed child chain when neither the fiber nor any descendant needs work.
+	if !isParseSelfDirty && !isParseSubtreeOnly {
+		if parseFiber.hooks != nil {
+			parseFiber.hooks.owner = parseFiber
+		}
+		parseRt.reuseFiberChildSubtree(parseFiber)
+		return parseFinalize(parseRt.getNextSiblingUnitOfWork(parseFiber))
+	}
+
+	// Clear dirty flags on fiber and alternates
+	parseRt.clearFiberDirty(parseFiber)
+
+	if isParseSubtreeOnly {
 		if parseFiber.hooks != nil {
 			parseFiber.hooks.owner = parseFiber
 		}
 		parseRt.cloneChildFibers(parseFiber)
 		return parseFinalize(parseRt.getNextUnitOfWork(parseFiber))
 	}
-
-	// Clear dirty flags on fiber and alternates
-	parseRt.clearFiberDirty(parseFiber)
 
 	if parseFiber.contextValues == nil && parseFiber.parent != nil {
 		parseFiber.contextValues = parseFiber.parent.contextValues
@@ -878,7 +961,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 	if parseFiber.typeOf == nil || parseFiber.typeOf == "ROOT" {
 		// Root fiber - reconcile children
 		parseFiber.childHydration = parseFiber.hydration
-		if parseChildren, parseOk := parseFiber.props["children"].([]interface{}); parseOk {
+		if parseChildren := getFiberChildren(parseFiber); parseChildren != nil {
 			parseRt.reconcileChildren(parseFiber, parseChildren)
 		}
 	} else {
@@ -902,11 +985,21 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 				parseFiber.childHydration = nil
 			}
 
-			if parsePropsChildren, parseOk3 := parseFiber.props["children"]; parseOk3 {
-				if parseElements, parseElementsOk := parsePropsChildren.([]interface{}); parseElementsOk {
-					parseRt.reconcileChildren(parseFiber, parseElements)
-				}
+			if parseTyped == "TEXT_ELEMENT" {
+				parseFiber.childHydration = nil
+				parseRt.reconcileChildren(parseFiber, emptyChildren)
+				break
 			}
+			if parseFiber.hasDirectText {
+				parseFiber.childHydration = nil
+				parseRt.reconcileChildren(parseFiber, emptyChildren)
+				break
+			}
+			if parseChildren := getFiberChildren(parseFiber); parseChildren != nil {
+				parseRt.reconcileChildren(parseFiber, parseChildren)
+				break
+			}
+			parseRt.reconcileChildren(parseFiber, emptyChildren)
 
 		case *ContextProviderType:
 			parseValue := parseTyped.Descriptor.DefaultValue
@@ -927,20 +1020,16 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 				markSubtreeNeedsUpdate(parseFiber.alternate.child, "context")
 			}
 
-			if parsePropsChildren2, parseOk5 := parseFiber.props["children"]; parseOk5 {
-				if parseElements2, parseElementsOk2 := parsePropsChildren2.([]interface{}); parseElementsOk2 {
-					parseRt.reconcileChildren(parseFiber, parseElements2)
-					break
-				}
+			if parseChildren := getFiberChildren(parseFiber); parseChildren != nil {
+				parseRt.reconcileChildren(parseFiber, parseChildren)
+				break
 			}
 			parseRt.reconcileChildren(parseFiber, emptyChildren)
 
 		case *PortalElementType:
-			if parsePropsChildren3, parseOk6 := parseFiber.props["children"]; parseOk6 {
-				if parseElements3, parseElementsOk3 := parsePropsChildren3.([]interface{}); parseElementsOk3 {
-					parseRt.reconcileChildren(parseFiber, parseElements3)
-					break
-				}
+			if parseChildren := getFiberChildren(parseFiber); parseChildren != nil {
+				parseRt.reconcileChildren(parseFiber, parseChildren)
+				break
 			}
 			parseRt.reconcileChildren(parseFiber, emptyChildren)
 
@@ -1008,6 +1097,16 @@ func (parseRt *Runtime) getNextUnitOfWork(parseFiber *Fiber) *Fiber {
 		parseNextFiber = parseNextFiber.parent
 	}
 
+	return nil
+}
+
+// getNextSiblingUnitOfWork determines the next unit of work without descending into the current fiber's children.
+func (parseRt *Runtime) getNextSiblingUnitOfWork(parseFiber *Fiber) *Fiber {
+	for parseNextFiber := parseFiber; parseNextFiber != nil; parseNextFiber = parseNextFiber.parent {
+		if parseNextFiber.sibling != nil {
+			return parseNextFiber.sibling
+		}
+	}
 	return nil
 }
 

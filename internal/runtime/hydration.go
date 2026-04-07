@@ -236,10 +236,15 @@ func (parseRt *Runtime) detectHydrationTextMismatch(parseFiber *Fiber, parseNode
 	if parseFiber == nil || IsDOMNodeNull(parseNode) {
 		return ""
 	}
-	if !isTextLikeFiber(parseFiber) {
+	parseExpected := ""
+	switch {
+	case isTextLikeFiber(parseFiber):
+		parseExpected = textLikeFiberValue(parseFiber)
+	case parseFiber.hasDirectText:
+		parseExpected = parseFiber.textContent
+	default:
 		return ""
 	}
-	parseExpected := textLikeFiberValue(parseFiber)
 	parseActual := parseRt.domNodeText(parseNode)
 	if parseActual == parseExpected {
 		return ""

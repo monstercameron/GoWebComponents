@@ -147,3 +147,48 @@ body {
 .benchmark-rank-slower {
     color: #fde68a;
 }
+
+.benchmark-primitive-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.benchmark-primitive-row {
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f1f5f9;
+    font-size: 14px;
+    line-height: 1.35;
+    padding: 8px 12px;
+}
+
+.benchmark-primitive-row-active {
+    border-color: rgba(34, 211, 238, 0.30);
+    background: rgba(34, 211, 238, 0.12);
+}
+
+.benchmark-deep-root {
+    display: grid;
+    gap: 8px;
+}
+
+.benchmark-deep-node {
+    border-left: 1px solid rgba(255, 255, 255, 0.10);
+    color: #94a3b8;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    padding-left: 8px;
+    text-transform: uppercase;
+}
+
+.benchmark-deep-leaf {
+    border: 1px solid rgba(34, 211, 238, 0.20);
+    border-radius: 12px;
+    background: rgba(34, 211, 238, 0.10);
+    color: #cffafe;
+    font-size: 12px;
+    line-height: 1.35;
+    padding: 8px 12px;
+}

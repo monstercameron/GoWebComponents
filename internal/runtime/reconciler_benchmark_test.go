@@ -66,6 +66,15 @@ func BenchmarkCreateElementHostWithTextChildren(parseB *testing.B) {
 	}
 }
 
+func BenchmarkCreateElementHostWithDirectTextChild(parseB *testing.B) {
+	parseProps := map[string]interface{}{"id": "root", "className": "card", "role": "button"}
+
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = CreateElement("button", parseProps, "alpha")
+	}
+}
+
 func BenchmarkPropsEqualChildrenSamePointer(parseB *testing.B) {
 	parseChildren := []interface{}{&Element{Type: "span"}}
 	parseProps := map[string]interface{}{

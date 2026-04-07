@@ -74,7 +74,7 @@
             getSubjects.push(
                 {
                     getFramework: "react",
-                    getLabel: "React 18",
+                    getLabel: "React 19.2.4",
                     getURL: "./react/"
                 },
                 {
@@ -246,7 +246,7 @@
 
     async function handleRunnerLoadScoreReference() {
         const getReferenceURL = new URL("./score-reference.json", window.location.href);
-        getReferenceURL.searchParams.set("v", "20260327");
+        getReferenceURL.searchParams.set("v", "20260407");
         const getResponse = await window.fetch(getReferenceURL.toString(), {
             cache: "no-store"
         });

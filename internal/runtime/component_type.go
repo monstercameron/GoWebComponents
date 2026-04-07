@@ -1,6 +1,11 @@
 package runtime
 
-import "sync"
+import "sync/atomic"
+
+type componentRenderState struct {
+	getImplementation interface{}
+	getRender         func(interface{}, map[string]interface{}) *Element
+}
 
 // ComponentType provides a stable runtime-recognized component handle that can
 // carry logical identity separately from the current callable implementation.
@@ -9,20 +14,21 @@ type ComponentType struct {
 	Name          string
 	QualifiedName string
 
-	mu             sync.RWMutex
-	implementation interface{}
-	render         func(interface{}, map[string]interface{}) *Element
+	getState atomic.Value
 }
 
 // NewComponentType constructs a component handle recognized by the runtime.
 func NewComponentType(parseComponentID string, parseComponentName string, parseComponentQualifiedName string, parseComponentImplementation interface{}, render func(interface{}, map[string]interface{}) *Element) *ComponentType {
-	return &ComponentType{
-		ID:             parseComponentID,
-		Name:           parseComponentName,
-		QualifiedName:  parseComponentQualifiedName,
-		implementation: parseComponentImplementation,
-		render:         render,
+	getComponentType := &ComponentType{
+		ID:            parseComponentID,
+		Name:          parseComponentName,
+		QualifiedName: parseComponentQualifiedName,
 	}
+	getComponentType.getState.Store(componentRenderState{
+		getImplementation: parseComponentImplementation,
+		getRender:         render,
+	})
+	return getComponentType
 }
 
 // Render invokes the current implementation attached to the component handle.
@@ -31,25 +37,38 @@ func (parseComponentType *ComponentType) Render(parseComponentProps map[string]i
 		return nil
 	}
 
-	parseComponentType.mu.RLock()
-	parseCurrentImplementation := parseComponentType.implementation
-	render := parseComponentType.render
-	parseComponentType.mu.RUnlock()
-
-	if parseCurrentImplementation == nil || render == nil {
+	parseStateValue := parseComponentType.getState.Load()
+	if parseStateValue == nil {
 		return nil
 	}
-	return render(parseCurrentImplementation, parseComponentProps)
+	parseState := parseStateValue.(componentRenderState)
+
+	if parseState.getImplementation == nil || parseState.getRender == nil {
+		return nil
+	}
+	return parseState.getRender(parseState.getImplementation, parseComponentProps)
 }
 
 // SetImplementation updates the current implementation for a stable component handle.
 func (parseComponentType *ComponentType) SetImplementation(parseComponentImplementation interface{}) {
+	parseComponentType.SetImplementationRenderer(parseComponentImplementation, nil)
+}
+
+// SetImplementationRenderer updates the current implementation and, when provided, swaps in one matching renderer.
+func (parseComponentType *ComponentType) SetImplementationRenderer(parseComponentImplementation interface{}, parseRender func(interface{}, map[string]interface{}) *Element) {
 	if parseComponentType == nil {
 		return
 	}
-	parseComponentType.mu.Lock()
-	parseComponentType.implementation = parseComponentImplementation
-	parseComponentType.mu.Unlock()
+	parseCurrentStateValue := parseComponentType.getState.Load()
+	parseCurrentState := componentRenderState{}
+	if parseCurrentStateValue != nil {
+		parseCurrentState = parseCurrentStateValue.(componentRenderState)
+	}
+	parseCurrentState.getImplementation = parseComponentImplementation
+	if parseRender != nil {
+		parseCurrentState.getRender = parseRender
+	}
+	parseComponentType.getState.Store(parseCurrentState)
 }
 
 // IdentityKey returns the logical identity used to compare component handles.

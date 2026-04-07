@@ -33,6 +33,63 @@ func CreateElementOwned(parseTyp interface{}, parseProps map[string]interface{},
 	return buildElement(parseTyp, parseProps, parseChildren...)
 }
 
+// buildElementHostProps creates one host-only props map and optional compact string attrs for one public element payload.
+func buildElementHostProps(parseTyp interface{}, parseProps map[string]interface{}) (map[string]interface{}, []HostAttr, bool) {
+	parseTag, parseOk := parseTyp.(string)
+	if !parseOk || parseTag == "TEXT_ELEMENT" || parseTag == "FRAGMENT" {
+		return nil, nil, false
+	}
+	if len(parseProps) == 0 {
+		return nil, nil, true
+	}
+
+	getHostProps := make(map[string]interface{}, len(parseProps))
+	getHostAttrs := make([]HostAttr, 0, len(parseProps))
+	isCompactHostProps := true
+	for parseName, parseValue := range parseProps {
+		if parseName == "children" {
+			continue
+		}
+		getHostProps[parseName] = parseValue
+		if parseName == "key" || parseValue == nil {
+			continue
+		}
+		parseMeta := getPropMeta(parseName)
+		if parseMeta.kind == propKindSkip {
+			continue
+		}
+		parseAttrName := parseMeta.attrName
+		if parseAttrName == "" {
+			parseAttrName = parseName
+		}
+		switch parseMeta.kind {
+		case propKindSpecialProperty:
+			isCompactHostProps = false
+		case propKindStyle:
+			parseTextValue, parseTextOk := parseValue.(string)
+			if !parseTextOk {
+				isCompactHostProps = false
+				continue
+			}
+			getHostAttrs = append(getHostAttrs, HostAttr{Name: parseAttrName, Value: parseTextValue})
+		default:
+			parseTextValue, parseTextOk := parseValue.(string)
+			if !parseTextOk {
+				isCompactHostProps = false
+				continue
+			}
+			getHostAttrs = append(getHostAttrs, HostAttr{Name: parseAttrName, Value: parseTextValue})
+		}
+	}
+	if len(getHostProps) == 0 {
+		getHostProps = nil
+	}
+	if !isCompactHostProps {
+		getHostAttrs = nil
+	}
+	return getHostProps, getHostAttrs, isCompactHostProps
+}
+
 // cloneElementProps clones one props map so callers can safely retain and reuse their original input.
 func cloneElementProps(parseProps map[string]interface{}) map[string]interface{} {
 	if len(parseProps) == 0 {
@@ -46,10 +103,106 @@ func cloneElementProps(parseProps map[string]interface{}) map[string]interface{}
 	return getProps
 }
 
+// canStoreElementDirectText reports whether one host element can carry its only string child directly on the host fiber.
+func canStoreElementDirectText(parseTyp interface{}, parseChildren []interface{}) (bool, string) {
+	if len(parseChildren) != 1 {
+		return false, ""
+	}
+	parseTag, parseOk := parseTyp.(string)
+	if !parseOk || parseTag == "TEXT_ELEMENT" || parseTag == "FRAGMENT" {
+		return false, ""
+	}
+	parseText, hasParseText := parseChildren[0].(string)
+	if !hasParseText {
+		return false, ""
+	}
+	return true, parseText
+}
+
+// getElementChildren returns one element's structural children while tolerating legacy props-backed child storage.
+func getElementChildren(parseElem *Element) []interface{} {
+	if parseElem == nil {
+		return nil
+	}
+	if parseElem.hasDirectText {
+		if parseElem.Children != nil {
+			return parseElem.Children
+		}
+		return emptyChildren
+	}
+	if parseElem.Children != nil {
+		if len(parseElem.Children) == 0 {
+			if parseChildren, parseOk := parseElem.Props["children"].([]interface{}); parseOk && len(parseChildren) > 0 {
+				return parseChildren
+			}
+		}
+		return parseElem.Children
+	}
+	if parseChildren, parseOk := parseElem.Props["children"].([]interface{}); parseOk {
+		return parseChildren
+	}
+	return nil
+}
+
+// getFiberChildren returns one fiber's structural child slice while tolerating legacy props-backed child storage.
+func getFiberChildren(parseFiber *Fiber) []interface{} {
+	if parseFiber == nil {
+		return nil
+	}
+	if parseFiber.hasDirectText {
+		if parseFiber.children != nil {
+			return parseFiber.children
+		}
+		return emptyChildren
+	}
+	if parseFiber.children != nil {
+		if len(parseFiber.children) == 0 {
+			if parseChildren, parseOk := parseFiber.props["children"].([]interface{}); parseOk && len(parseChildren) > 0 {
+				return parseChildren
+			}
+		}
+		return parseFiber.children
+	}
+	if parseChildren, parseOk := parseFiber.props["children"].([]interface{}); parseOk {
+		return parseChildren
+	}
+	return nil
+}
+
+// getElementFiberProps resolves one element's internal working props bag.
+func getElementFiberProps(parseElem *Element) map[string]interface{} {
+	if parseElem == nil {
+		return nil
+	}
+	if parseElem.getHostProps != nil || parseElem.isCompactHostProps {
+		return parseElem.getHostProps
+	}
+	return parseElem.Props
+}
+
 // buildElement builds one virtual DOM element and stores the normalized children slice on the props map.
 func buildElement(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
 	if len(parseChildren) == 0 {
 		parseChildren = emptyChildren
+	}
+
+	getHostProps, getHostAttrs, isCompactHostProps := buildElementHostProps(parseTyp, parseProps)
+
+	if isParseDirectText, parseDirectText := canStoreElementDirectText(parseTyp, parseChildren); isParseDirectText {
+		if parseProps == nil {
+			parseProps = make(map[string]interface{}, 1)
+		}
+		parseProps["children"] = parseChildren
+		return &Element{
+			Type:               parseTyp,
+			Props:              parseProps,
+			Children:           emptyChildren,
+			TextContent:        parseDirectText,
+			getHostProps:       getHostProps,
+			getHostAttrs:       getHostAttrs,
+			isCompactHostProps: isCompactHostProps,
+			hasDirectText:      true,
+		}
 	}
 
 	// Normalize string children once so downstream reconciliation sees only Elements.
@@ -69,9 +222,12 @@ func buildElement(parseTyp interface{}, parseProps map[string]interface{}, parse
 	parseProps["children"] = parseChildren
 
 	return &Element{
-		Type:     parseTyp,
-		Props:    parseProps,
-		Children: parseChildren,
+		Type:               parseTyp,
+		Props:              parseProps,
+		Children:           parseChildren,
+		getHostProps:       getHostProps,
+		getHostAttrs:       getHostAttrs,
+		isCompactHostProps: isCompactHostProps,
 	}
 }
 
@@ -106,7 +262,7 @@ func flattenFragments(parseElements []interface{}) ([]interface{}, bool) {
 			continue
 		}
 		if parseT2, parseOk4 := parseElem2.Type.(string); parseOk4 && parseT2 == "FRAGMENT" {
-			if parseChildren, parseOk5 := parseElem2.Props["children"].([]interface{}); parseOk5 {
+			if parseChildren := getElementChildren(parseElem2); parseChildren != nil {
 				parseRes, parseAllocated := flattenFragments(parseChildren)
 				parseFlattened = append(parseFlattened, parseRes...)
 				if parseAllocated {
@@ -138,22 +294,28 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 		}
 		parseNewFiber := acquireWorkInProgress(parseOldFiber)
 		*parseNewFiber = Fiber{
-			typeOf:            parseOldFiber.typeOf,
-			props:             parseOldFiber.props,
-			textContent:       parseOldFiber.textContent,
-			dom:               parseOldFiber.dom,
-			parent:            parseParent,
-			alternate:         parseOldFiber,
-			effectTag:         parseEffectTag,
-			dirty:             parseOldFiber.dirty,
-			needsUpdate:       parseOldFiber.needsUpdate,
-			hooks:             parseOldFiber.hooks, // Share hooks for non-updated components
-			eventCallbacks:    parseOldFiber.eventCallbacks,
-			contextValues:     parseOldFiber.contextValues,
-			reactiveAtomID:    parseOldFiber.reactiveAtomID,
-			reactiveSourceIDs: parseOldFiber.reactiveSourceIDs,
-			fineGrained:       parseOldFiber.fineGrained,
-			updateOrigin:      parseOldFiber.updateOrigin,
+			typeOf:              parseOldFiber.typeOf,
+			props:               parseOldFiber.props,
+			children:            parseOldFiber.children,
+			getHostAttrs:        parseOldFiber.getHostAttrs,
+			textContent:         parseOldFiber.textContent,
+			dom:                 parseOldFiber.dom,
+			parent:              parseParent,
+			alternate:           parseOldFiber,
+			effectTag:           parseEffectTag,
+			dirty:               parseOldFiber.dirty,
+			subtreeDirty:        parseOldFiber.subtreeDirty,
+			needsUpdate:         parseOldFiber.needsUpdate,
+			needsChildReconcile: parseOldFiber.needsChildReconcile,
+			hooks:               parseOldFiber.hooks, // Share hooks for non-updated components
+			eventCallbacks:      parseOldFiber.eventCallbacks,
+			contextValues:       parseOldFiber.contextValues,
+			reactiveAtomID:      parseOldFiber.reactiveAtomID,
+			reactiveSourceIDs:   parseOldFiber.reactiveSourceIDs,
+			fineGrained:         parseOldFiber.fineGrained,
+			hasDirectText:       parseOldFiber.hasDirectText,
+			isCompactHostProps:  parseOldFiber.isCompactHostProps,
+			updateOrigin:        parseOldFiber.updateOrigin,
 		}
 		if parseNewFiber.hooks != nil {
 			parseNewFiber.hooks.owner = parseNewFiber
@@ -168,6 +330,36 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 		}
 		parsePrevSibling = parseNewFiber
 		parseOldFiber = parseOldFiber.sibling
+	}
+}
+
+// reuseFiberChildSubtree relinks one committed child chain under the current fiber without cloning descendants.
+func (parseRt *Runtime) reuseFiberChildSubtree(parseParent *Fiber) {
+	if parseParent == nil || parseParent.alternate == nil {
+		return
+	}
+	parseParent.child = parseParent.alternate.child
+	if parseParent.child != nil {
+		parseRt.sanitizeFiberSubtree(parseParent.child, parseParent)
+	}
+}
+
+// sanitizeFiberSubtree relinks one reused committed subtree and clears stale work flags before commit traversal.
+func (parseRt *Runtime) sanitizeFiberSubtree(parseFiber *Fiber, parseParent *Fiber) {
+	for parseCurrent := parseFiber; parseCurrent != nil; parseCurrent = parseCurrent.sibling {
+		parseCurrent.parent = parseParent
+		parseCurrent.effectTag = ""
+		parseCurrent.dirty = false
+		parseCurrent.subtreeDirty = false
+		parseCurrent.needsUpdate = false
+		parseCurrent.needsChildReconcile = false
+		parseCurrent.needsChildOrder = false
+		if parseCurrent.hooks != nil {
+			parseCurrent.hooks.owner = parseCurrent
+		}
+		if parseCurrent.child != nil {
+			parseRt.sanitizeFiberSubtree(parseCurrent.child, parseCurrent)
+		}
 	}
 }
 

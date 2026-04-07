@@ -208,11 +208,9 @@ func (parseRt *Runtime) renderBoundaryChildren(parseBoundary *Fiber) {
 		return
 	}
 
-	if parsePropsChildren, parseOk := parseBoundary.props["children"]; parseOk {
-		if parseElements, parseElementsOk := parsePropsChildren.([]interface{}); parseElementsOk {
-			parseRt.reconcileChildren(parseBoundary, parseElements)
-			return
-		}
+	if parseChildren := getFiberChildren(parseBoundary); parseChildren != nil {
+		parseRt.reconcileChildren(parseBoundary, parseChildren)
+		return
 	}
 	parseRt.reconcileChildren(parseBoundary, emptyChildren)
 }
