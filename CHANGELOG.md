@@ -13,6 +13,10 @@
 - Added the production `utils.WaitForever()` stub so release-tag `js/wasm` programs can block on one named helper instead of open-coded `select {}` loops.
 - Replaced raw `select {}` keeps-alive paths in Example 21, catalog implementation copy, launcher import output, launcher start output, and the starter golden files with `utils.WaitForever()` so the generated guidance and emitted app skeletons stay aligned.
 
+### example 100 customer-error fixture seeding cleanup
+
+- Simplified the Example 100 customer-error Playwright setup to reuse the deterministic happy-path database seeding helper instead of copying a prebuilt runtime fixture database from disk.
+
 ### runtime2 renderer and benchmark performance pass
 
 - Reduced `runtime2` host and commit overhead with append-only and remove-only patch-transaction fast paths, narrower rollback snapshots, cheaper insert-only host patch cache handling, and focused compare benchmarks for the new commit paths.

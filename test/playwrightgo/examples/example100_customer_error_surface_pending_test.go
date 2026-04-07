@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -35,17 +34,10 @@ func buildExample100CustomerErrorClientArtifacts(parseT *testing.T, parseRepoRoo
 	}
 }
 
-// copyExample100CustomerErrorDatabase copies one existing runtime fixture database into the test temp directory.
+// copyExample100CustomerErrorDatabase seeds one deterministic runtime fixture database into the test temp directory.
 func copyExample100CustomerErrorDatabase(parseT *testing.T, parseRepoRoot string, parseDBPath string) {
 	parseT.Helper()
-	parseSourceDBPath := filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "bin", "runtime", "test_chat.db")
-	parseBytes, parseErr := os.ReadFile(parseSourceDBPath)
-	if parseErr != nil {
-		parseT.Fatalf("read example 100 fixture db: %v", parseErr)
-	}
-	if parseErr := os.WriteFile(parseDBPath, parseBytes, 0o644); parseErr != nil {
-		parseT.Fatalf("write example 100 test db copy: %v", parseErr)
-	}
+	seedExample100HappyPathDatabase(parseT, parseRepoRoot, parseDBPath)
 }
 
 // seedExample100CustomerErrorAdminUser ensures customer and admin login accounts exist with expected passwords.
