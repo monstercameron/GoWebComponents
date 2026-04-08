@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-04-08
+
+### grouped examples layout and public site refresh
+
+- Reorganized the runnable examples into grouped `examples/public`, `examples/server`, and `examples/testing` trees, removed checked-in generated host HTML entrypoints, and updated repo docs, launcher paths, livereload expectations, and Playwright fixtures to match the new layout.
+- Added `gwc examples build-public-site`, staged preview hosts plus mirrored source under `examples/public-examples-site/assets/`, and updated the Pages workflow to publish the renamed public examples site with embedded example wasm binaries.
+- Introduced `examples/internal/exampleboot` plus selector-aware example logging so embedded and standalone public examples can share mount, hydrate, and keepalive behavior without duplicating host glue.
+
+### plugin runtime and devtools hardening follow-up
+
+- Fixed plugin host and internal plugin kernel cleanup and reboot behavior so closed kernels reject reuse, builtin services rebind on reboot, repeated host extension registration reference-counts correctly, and closed hosts drop stale contributions.
+- Repaired runtime effect scheduling and early UI event capture so first-render effects still run after commit and kernel-backed UI event services can observe interactions before the first snapshot read.
+- Replaced goroutine-based devtools snapshot polling on `js/wasm` with browser timers, broadened shorthand prop handling for the public examples site rendering surface, and tightened focused regression coverage around the repaired paths.
+
 ## 2026-04-07
 
 ### core plugin kernel and first-pass devtools plugin
