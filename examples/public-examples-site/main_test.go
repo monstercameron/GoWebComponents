@@ -660,14 +660,19 @@ func TestRenderDetailPanelAndDisplaySurfaceStates(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("renderDisplaySurface embedded example returned error: %v", parseErr)
 	}
-	for _, parseSnippet6 := range []string{labelExampleSource, "Go + hooks + typed HTML", "func Counter() ui.Node"} {
+	for _, parseSnippet6 := range []string{labelExampleSource, buttonLoadPreview, buttonShowSource, messagePreviewDeferred, messageSourceDeferred} {
 		if !strings.Contains(parseEmbeddedExampleMarkup, parseSnippet6) {
 			parseT.Fatalf("embedded example surface missing %q: %s", parseSnippet6, parseEmbeddedExampleMarkup)
 		}
 	}
-	for _, parseSnippet7 := range []string{"iframe", "assets/examples/counter/index.html", "Open standalone"} {
+	for _, parseSnippet7 := range []string{"assets/examples/counter/index.html", "Open standalone"} {
 		if !strings.Contains(parseEmbeddedExampleMarkup, parseSnippet7) {
 			parseT.Fatalf("embedded example preview missing %q: %s", parseSnippet7, parseEmbeddedExampleMarkup)
+		}
+	}
+	for _, parseSnippet8 := range []string{"iframe", "func Counter() ui.Node"} {
+		if strings.Contains(parseEmbeddedExampleMarkup, parseSnippet8) {
+			parseT.Fatalf("embedded example surface should defer %q until requested: %s", parseSnippet8, parseEmbeddedExampleMarkup)
 		}
 	}
 
@@ -679,10 +684,13 @@ func TestRenderDetailPanelAndDisplaySurfaceStates(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("renderDisplaySurface source-first example returned error: %v", parseErr)
 	}
-	for _, parseSnippet := range []string{labelSourceFirstExample, "Browser Router", "router setup"} {
+	for _, parseSnippet := range []string{labelSourceFirstExample, "Browser Router", buttonShowSource, messageSourceDeferred} {
 		if !strings.Contains(parseSourceFirstMarkup, parseSnippet) {
 			parseT.Fatalf("source-first example surface missing %q: %s", parseSnippet, parseSourceFirstMarkup)
 		}
+	}
+	if strings.Contains(parseSourceFirstMarkup, "router setup") {
+		parseT.Fatalf("source-first example surface should defer source rendering until requested: %s", parseSourceFirstMarkup)
 	}
 
 	parsePlaceholderMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{}, false))
@@ -728,6 +736,46 @@ func TestRenderCounterExampleInteractions(parseT *testing.T) {
 	reset.Click()
 	if !strings.Contains(parseFixture.Text(), labelStateTonePrefix+toneReady) {
 		parseT.Fatalf("expected ready tone after reset, got %q", parseFixture.Text())
+	}
+}
+
+func TestRenderDeferredExamplePanels(parseT *testing.T) {
+	parseFixture := render.New(parseT)
+	parseFixture.Render(ui.CreateElement(renderCounterExample, contentPanelProps{
+		Item:          testEmbeddedExampleItem(),
+		MarkdownBody:  "func Counter() ui.Node {\n  return Button()\n}",
+		MarkdownReady: true,
+	}))
+
+	if strings.Contains(parseFixture.Text(), "func Counter() ui.Node") {
+		parseT.Fatalf("expected embedded example source to stay hidden until requested, got %q", parseFixture.Text())
+	}
+
+	parseShowSource := parseFixture.ByRole("button", buttonShowSource)
+	if parseShowSource == nil {
+		parseT.Fatal("expected show source button")
+	}
+	parseShowSource.Click()
+	if !strings.Contains(parseFixture.Text(), "func Counter() ui.Node") {
+		parseT.Fatalf("expected embedded example source after reveal, got %q", parseFixture.Text())
+	}
+
+	parseHideSource := parseFixture.ByRole("button", buttonHideSource)
+	if parseHideSource == nil {
+		parseT.Fatal("expected hide source button")
+	}
+	parseHideSource.Click()
+	if strings.Contains(parseFixture.Text(), "func Counter() ui.Node") {
+		parseT.Fatalf("expected embedded example source to hide again, got %q", parseFixture.Text())
+	}
+
+	parseLoadPreview := parseFixture.ByRole("button", buttonLoadPreview)
+	if parseLoadPreview == nil {
+		parseT.Fatal("expected start preview button")
+	}
+	parseLoadPreview.Click()
+	if parseFixture.ByRole("button", buttonLoadPreview) != nil {
+		parseT.Fatalf("expected start preview button to disappear after loading preview, got %q", parseFixture.Text())
 	}
 }
 

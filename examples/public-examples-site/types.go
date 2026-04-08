@@ -57,12 +57,17 @@ type docsItem struct {
 
 type contentPanelProps struct {
 	Item            docsItem
+	IsPreviewLoaded bool
+	IsSourceVisible bool
 	MarkdownBody    string
 	MarkdownLoading bool
 	MarkdownReady   bool
 	MarkdownError   string
 	AnchorScrollID  int
+	OnLoadPreview   ui.Handler
+	OnHideSource    ui.Handler
 	OnRetryMarkdown ui.Handler
+	OnShowSource    ui.Handler
 }
 
 type catalogHeroProps struct {
@@ -102,12 +107,17 @@ type catalogSidebarProps struct {
 type detailPanelProps struct {
 	SelectedItem    docsItem
 	HasSelectedItem bool
+	IsPreviewLoaded bool
+	IsSourceVisible bool
 	MarkdownBody    string
 	MarkdownLoading bool
 	MarkdownReady   bool
 	MarkdownError   string
 	AnchorScrollID  int
+	OnLoadPreview   ui.Handler
+	OnHideSource    ui.Handler
 	OnRetryMarkdown ui.Handler
+	OnShowSource    ui.Handler
 }
 
 type docsCatalog struct {

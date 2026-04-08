@@ -213,6 +213,53 @@ func buildExamplesPublicSitePreviewHostHTML() string {
         #app[data-boot="pending"] {
             visibility: hidden;
         }
+
+        #app {
+            container-type: inline-size;
+        }
+
+        #app p[class*="text-slate-300"],
+        #app p[class*="text-slate-400"],
+        #app p[class*="text-slate-200"],
+        #app p[class*="text-cyan-50/80"],
+        #app p[class*="text-cyan-100/80"],
+        #app p[class*="text-emerald-50/90"],
+        #app p[class*="text-rose-100"],
+        #app p[class*="leading-7"],
+        #app p[class*="leading-8"] {
+            font-size: 0.78rem !important;
+            line-height: 1.4 !important;
+            max-width: 40rem;
+            text-wrap: balance;
+        }
+
+        #app .gwc-example-panel p[class*="text-slate-300"],
+        #app .gwc-example-panel p[class*="text-slate-400"],
+        #app .gwc-example-panel p[class*="text-slate-200"],
+        #app .gwc-example-panel p[class*="text-cyan-50/80"],
+        #app .gwc-example-panel p[class*="text-cyan-100/80"],
+        #app .gwc-example-panel p[class*="text-emerald-50/90"],
+        #app .gwc-example-panel p[class*="text-rose-100"],
+        #app .gwc-example-panel p[class*="leading-7"],
+        #app .gwc-example-panel p[class*="leading-8"] {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        #app .gwc-example-panel ul[class*="text-slate-300"],
+        #app .gwc-example-panel ul[class*="text-slate-200"],
+        #app .gwc-example-panel ul[class*="text-slate-400"] {
+            gap: 0.45rem !important;
+            margin-top: 0.5rem !important;
+        }
+
+        #app .gwc-example-panel ul[class*="text-slate-300"] li:nth-child(n+3),
+        #app .gwc-example-panel ul[class*="text-slate-200"] li:nth-child(n+3),
+        #app .gwc-example-panel ul[class*="text-slate-400"] li:nth-child(n+3) {
+            display: none;
+        }
     </style>
 </head>
 <body class="bg-[#08111d] text-white min-h-screen example-shell">
@@ -245,6 +292,88 @@ func buildExamplesPublicSitePreviewHostHTML() string {
             const errorBox = document.getElementById("preview-error-box");
             const pageVersion = new URLSearchParams(window.location.search).get("v");
             const wasmURL = pageVersion ? "./app.wasm?v=" + encodeURIComponent(pageVersion) : "./app.wasm";
+            const previewCacheName = "gwc-public-examples-preview-v2";
+            const previewCacheLegacyName = "gwc-public-examples-preview-v1";
+            const previewCacheRecordsKey = "gwc-public-examples-preview-records-v2";
+            const previewCacheMaxAgeMs = 10 * 60 * 1000;
+            const previewCacheRetainCount = 2;
+
+            function getPreviewCacheURL(url) {
+                try {
+                    return new URL(url, window.location.href).href;
+                } catch (error) {
+                    return url;
+                }
+            }
+
+            function getPreviewCacheGroup(url) {
+                try {
+                    const cacheURL = new URL(url, window.location.href);
+                    return cacheURL.origin + cacheURL.pathname;
+                } catch (error) {
+                    return url;
+                }
+            }
+
+            function getPreviewCacheRecords() {
+                if (typeof localStorage === "undefined") {
+                    return [];
+                }
+                try {
+                    const rawValue = localStorage.getItem(previewCacheRecordsKey);
+                    const parsedValue = JSON.parse(rawValue || "[]");
+                    if (!Array.isArray(parsedValue)) {
+                        return [];
+                    }
+                    return parsedValue.filter((record) => record && typeof record.url === "string" && typeof record.usedAt === "number");
+                } catch (error) {
+                    return [];
+                }
+            }
+
+            function storePreviewCacheRecords(records) {
+                if (typeof localStorage === "undefined") {
+                    return;
+                }
+                try {
+                    localStorage.setItem(previewCacheRecordsKey, JSON.stringify(records));
+                } catch (error) {
+                    return;
+                }
+            }
+
+            async function clearPreviewCacheOverflow(activeURL) {
+                if (typeof caches === "undefined" || !caches || typeof caches.open !== "function") {
+                    return;
+                }
+
+                if (typeof caches.delete === "function") {
+                    try {
+                        await caches.delete(previewCacheLegacyName);
+                    } catch (error) {
+                        // Ignore best-effort cache cleanup failures.
+                    }
+                }
+
+                const cache = await caches.open(previewCacheName);
+                const cacheKeys = await cache.keys();
+                const cacheURLs = new Set(cacheKeys.map((request) => request.url));
+                const activeRecord = { url: activeURL, usedAt: Date.now() };
+
+                let records = getPreviewCacheRecords().filter((record) => cacheURLs.has(record.url) && activeRecord.usedAt-record.usedAt <= previewCacheMaxAgeMs);
+                const activeGroup = getPreviewCacheGroup(activeRecord.url);
+                records = records.filter((record) => getPreviewCacheGroup(record.url) !== activeGroup);
+                records.unshift(activeRecord);
+
+                const retainRecords = records.slice(0, previewCacheRetainCount);
+                const retainURLs = new Set(retainRecords.map((record) => record.url));
+                for (const request of cacheKeys) {
+                    if (!retainURLs.has(request.url)) {
+                        await cache.delete(request);
+                    }
+                }
+                storePreviewCacheRecords(retainRecords);
+            }
 
             function setProgress(percent, options) {
                 const resolved = options || {};
@@ -288,9 +417,15 @@ func buildExamplesPublicSitePreviewHostHTML() string {
                     message: "Requesting the example WebAssembly binary..."
                 });
 
-                const response = await fetch(url);
+                const response = await fetch(url, { cache: "no-store" });
                 if (!response.ok) {
                     throw new Error("The example WebAssembly binary could not be fetched (" + response.status + " " + response.statusText + ").");
+                }
+                if (typeof caches !== "undefined" && caches && typeof caches.open === "function") {
+                    const cacheURL = getPreviewCacheURL(url);
+                    const cache = await caches.open(previewCacheName);
+                    await cache.put(cacheURL, response.clone());
+                    await clearPreviewCacheOverflow(cacheURL);
                 }
 
                 if (shouldStreamInstantiate(response)) {
@@ -348,6 +483,27 @@ func buildExamplesPublicSitePreviewHostHTML() string {
                 return { shouldStream: false, bytes };
             }
 
+            async function loadCachedWasmWithProgress(url) {
+                if (typeof caches !== "undefined" && caches && typeof caches.open === "function") {
+                    const cacheURL = getPreviewCacheURL(url);
+                    const cache = await caches.open(previewCacheName);
+                    const cachedResponse = await cache.match(cacheURL);
+                    if (cachedResponse) {
+                        await clearPreviewCacheOverflow(cacheURL);
+                        setProgress(60, {
+                            indeterminate: true,
+                            phase: "Cache",
+                            message: "Loading cached example WebAssembly..."
+                        });
+                        if (shouldStreamInstantiate(cachedResponse)) {
+                            return { shouldStream: true, response: cachedResponse };
+                        }
+                        return { shouldStream: false, bytes: new Uint8Array(await cachedResponse.arrayBuffer()) };
+                    }
+                }
+                return fetchWasmWithProgress(url);
+            }
+
             try {
                 if (typeof WebAssembly === "undefined") {
                     throw new Error("WebAssembly is not available in this browser.");
@@ -359,7 +515,7 @@ func buildExamplesPublicSitePreviewHostHTML() string {
                     throw new Error("Fetch is not available in this browser.");
                 }
 
-                const wasmPayload = await fetchWasmWithProgress(wasmURL);
+                const wasmPayload = await loadCachedWasmWithProgress(wasmURL);
 
                 const go = new Go();
                 let result;

@@ -2362,7 +2362,7 @@ func TestRunExamplesBuildPublicSiteStagesWasmBinaries(parseT *testing.T) {
 	if buildErr != nil {
 		parseT.Fatalf("expected counter preview index.html to exist: %v", buildErr)
 	}
-	if !strings.Contains(string(buildCounterPreviewIndexBytes), "./app.wasm") {
+	if !strings.Contains(string(buildCounterPreviewIndexBytes), "./app.wasm") || !strings.Contains(string(buildCounterPreviewIndexBytes), "loadCachedWasmWithProgress") || !strings.Contains(string(buildCounterPreviewIndexBytes), "clearPreviewCacheOverflow") || !strings.Contains(string(buildCounterPreviewIndexBytes), "previewCacheRetainCount = 2") {
 		parseT.Fatalf("expected counter preview host to boot app.wasm, got %q", string(buildCounterPreviewIndexBytes))
 	}
 

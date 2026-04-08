@@ -297,22 +297,30 @@ func renderCounterExample(parsePanelProps contentPanelProps) ui.Node {
 	ui.UseEffect(func() func() {
 		// Reset the demo whenever the user switches to a different catalog item.
 		parseCounterValue.Set(0)
-		log.Info("counter reset", map[string]interface{}{"itemID": parsePanelProps.Item.ID})
+		if isPageDebugLoggingEnabled() {
+			log.Info("counter reset", map[string]interface{}{"itemID": parsePanelProps.Item.ID})
+		}
 		return nil
 	}, parsePanelProps.Item.ID)
 	parseDecrementCount := ui.UseEvent(func() {
 		parseNextValue := parseCounterValue.Get() - 1
 		parseCounterValue.Set(parseNextValue)
-		log.Info("counter decremented", map[string]interface{}{"itemID": parsePanelProps.Item.ID, "next": parseNextValue})
+		if isPageDebugLoggingEnabled() {
+			log.Info("counter decremented", map[string]interface{}{"itemID": parsePanelProps.Item.ID, "next": parseNextValue})
+		}
 	})
 	parseIncrementCount := ui.UseEvent(func() {
 		parseNextValue2 := parseCounterValue.Get() + 1
 		parseCounterValue.Set(parseNextValue2)
-		log.Info("counter incremented", map[string]interface{}{"itemID": parsePanelProps.Item.ID, "next": parseNextValue2})
+		if isPageDebugLoggingEnabled() {
+			log.Info("counter incremented", map[string]interface{}{"itemID": parsePanelProps.Item.ID, "next": parseNextValue2})
+		}
 	})
 	resetCount := ui.UseEvent(func() {
 		parseCounterValue.Set(0)
-		log.Info("counter manually reset", map[string]interface{}{"itemID": parsePanelProps.Item.ID})
+		if isPageDebugLoggingEnabled() {
+			log.Info("counter manually reset", map[string]interface{}{"itemID": parsePanelProps.Item.ID})
+		}
 	})
 	parseStateToneLabel := toneReady
 	if parseCounterValue.Get() > 0 {
@@ -357,7 +365,6 @@ func renderCounterExample(parsePanelProps contentPanelProps) ui.Node {
 
 // renderSourceOnlyExample renders one example card when the docs shell should show the code and guidance instead of live-mounting the wasm binary.
 func renderSourceOnlyExample(parsePanelProps contentPanelProps) ui.Node {
-	parseSourceNode := renderExampleSourceNode(parsePanelProps)
 	parseLearningPoints := Map(buildExampleLearningPoints(parsePanelProps.Item), func(parsePoint string) ui.Node {
 		return Li(Text(parsePoint))
 	})
@@ -387,7 +394,25 @@ func renderSourceOnlyExample(parsePanelProps contentPanelProps) ui.Node {
 					Ul(Class("mt-4 space-y-3 text-sm leading-6 text-slate-200"), parseLearningPoints),
 				),
 			),
-			Div(Class("min-w-0 space-y-2"), parseSourceNode),
+			Div(Class("min-w-0 space-y-2"),
+				IfElse(parsePanelProps.IsSourceVisible,
+					Div(Class("space-y-2"),
+						Div(Class("flex justify-end"),
+							Button(Type("button"), OnClick(parsePanelProps.OnHideSource), Class("cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"), Text(buttonHideSource)),
+						),
+						renderExampleSourceNode(parsePanelProps),
+					),
+					Div(Class("rounded-[24px] border border-white/10 bg-slate-950/50 p-5"),
+						Div(Class("flex flex-wrap items-center justify-between gap-3"),
+							Div(Class("min-w-0"),
+								Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleSource)),
+								P(Class("mt-3 text-sm leading-7 text-slate-300"), Text(messageSourceDeferred)),
+							),
+							Button(Type("button"), OnClick(parsePanelProps.OnShowSource), Class("cursor-pointer rounded-2xl border border-cyan-300/25 bg-cyan-400/12 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/18"), Text(buttonShowSource)),
+						),
+					),
+				),
+			),
 		),
 	)
 }
@@ -426,7 +451,6 @@ func renderExampleSourceNode(parsePanelProps contentPanelProps) ui.Node {
 
 func renderEmbeddedExample(parsePanelProps contentPanelProps) ui.Node {
 	parsePreviewURL := previewExampleURL(parsePanelProps.Item.Content.PreviewPath)
-	parseSourceNode := renderExampleSourceNode(parsePanelProps)
 	parseConceptNodes := renderExampleConceptChipNodes(buildExampleConceptLabels(parsePanelProps.Item))
 	parseLearningPoints := Map(buildExampleLearningPoints(parsePanelProps.Item), func(parsePoint string) ui.Node {
 		return Li(Text(parsePoint))
@@ -450,7 +474,7 @@ func renderEmbeddedExample(parsePanelProps contentPanelProps) ui.Node {
 		Div(Class("mt-3 min-w-0 grid flex-1 gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]"),
 			Div(Class("min-w-0 space-y-2"),
 				Div(Class("overflow-hidden rounded-[20px] border border-white/10 bg-[#081420] shadow-inner shadow-black/20"),
-					IfElse(parsePreviewURL != "",
+					IfElse(parsePanelProps.IsPreviewLoaded && parsePreviewURL != "",
 						Iframe(
 							Src(parsePreviewURL),
 							Title(parsePanelProps.Item.Title+" example preview"),
@@ -459,7 +483,23 @@ func renderEmbeddedExample(parsePanelProps contentPanelProps) ui.Node {
 							Attr("allow", "clipboard-read; clipboard-write"),
 						),
 						Div(Class("flex min-h-[420px] items-center justify-center px-4 py-6 text-sm text-slate-400"),
-							Text("Preview host is unavailable for this example."),
+							Div(Class("max-w-md rounded-[22px] border border-white/10 bg-white/[0.04] p-5 text-left"),
+								Div(Class("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text(labelPreviewPaused)),
+								P(Class("mt-3 leading-7 text-slate-300"), Text(messagePreviewDeferred)),
+								IfElse(parsePreviewURL != "",
+									Div(Class("mt-5 flex flex-wrap gap-2"),
+										Button(Type("button"), OnClick(parsePanelProps.OnLoadPreview), Class("cursor-pointer rounded-2xl border border-cyan-300/25 bg-cyan-400/12 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/18"), Text(buttonLoadPreview)),
+										A(
+											Href(parsePreviewURL),
+											Attr("target", "_blank"),
+											Attr("rel", "noreferrer noopener"),
+											Class("rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"),
+											Text(labelStandalonePreview),
+										),
+									),
+									P(Class("mt-5 leading-7 text-slate-400"), Text("Preview host is unavailable for this example.")),
+								),
+							),
 						),
 					),
 				),
@@ -477,7 +517,23 @@ func renderEmbeddedExample(parsePanelProps contentPanelProps) ui.Node {
 					Div(Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Text(labelStudyPrompts)),
 					Ul(Class("mt-4 space-y-3 text-sm leading-6 text-slate-200"), parseLearningPoints),
 				),
-				parseSourceNode,
+				IfElse(parsePanelProps.IsSourceVisible,
+					Div(Class("space-y-2"),
+						Div(Class("flex justify-end"),
+							Button(Type("button"), OnClick(parsePanelProps.OnHideSource), Class("cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"), Text(buttonHideSource)),
+						),
+						renderExampleSourceNode(parsePanelProps),
+					),
+					Div(Class("rounded-[24px] border border-white/10 bg-slate-950/50 p-5"),
+						Div(Class("flex flex-wrap items-center justify-between gap-3"),
+							Div(Class("min-w-0"),
+								Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleSource)),
+								P(Class("mt-3 text-sm leading-7 text-slate-300"), Text(messageSourceDeferred)),
+							),
+							Button(Type("button"), OnClick(parsePanelProps.OnShowSource), Class("cursor-pointer rounded-2xl border border-cyan-300/25 bg-cyan-400/12 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/18"), Text(buttonShowSource)),
+						),
+					),
+				),
 			),
 		),
 	)
@@ -640,7 +696,7 @@ func renderDetailPanel(parseProps detailPanelProps) ui.Node {
 				),
 			),
 		),
-		Div(ID("demo"), Class("scrollbar-stable min-w-0 min-h-0 flex-1 overflow-y-auto p-2 sm:p-3"), renderDisplaySurface(contentPanelProps{Item: parseProps.SelectedItem, MarkdownBody: parseProps.MarkdownBody, MarkdownLoading: parseProps.MarkdownLoading, MarkdownReady: parseProps.MarkdownReady, MarkdownError: parseProps.MarkdownError, OnRetryMarkdown: parseProps.OnRetryMarkdown}, parseProps.HasSelectedItem)),
+		Div(ID("demo"), Class("scrollbar-stable min-w-0 min-h-0 flex-1 overflow-y-auto p-2 sm:p-3"), renderDisplaySurface(contentPanelProps{Item: parseProps.SelectedItem, IsPreviewLoaded: parseProps.IsPreviewLoaded, IsSourceVisible: parseProps.IsSourceVisible, MarkdownBody: parseProps.MarkdownBody, MarkdownLoading: parseProps.MarkdownLoading, MarkdownReady: parseProps.MarkdownReady, MarkdownError: parseProps.MarkdownError, OnLoadPreview: parseProps.OnLoadPreview, OnHideSource: parseProps.OnHideSource, OnRetryMarkdown: parseProps.OnRetryMarkdown, OnShowSource: parseProps.OnShowSource}, parseProps.HasSelectedItem)),
 	)
 }
 
@@ -651,27 +707,34 @@ func renderDocsDemosSite() ui.Node {
 		return loadCatalogResource(parseCtx, parseCatalogURL)
 	}, fetch.CacheOptions{StaleAfter: 45 * time.Second})
 	parseCatalogRequest := parseCatalogResource.Get()
+	isDebugLoggingEnabled := isPageDebugLoggingEnabled()
 	parseRetryCatalogLoad := ui.UseEvent(func() {
-		log.Info("catalog refetch requested", map[string]interface{}{"url": parseCatalogURL})
+		if isDebugLoggingEnabled {
+			log.Info("catalog refetch requested", map[string]interface{}{"url": parseCatalogURL})
+		}
 		parseCatalogResource.Reload()
 	})
 	ui.UseEffect(func() func() {
 		switch {
 		case parseCatalogRequest.Loading:
-			log.Info("catalog cache loading", map[string]interface{}{"url": parseCatalogURL, "stale": parseCatalogRequest.Stale, "ready": parseCatalogRequest.Ready})
+			if isDebugLoggingEnabled {
+				log.Info("catalog cache loading", map[string]interface{}{"url": parseCatalogURL, "stale": parseCatalogRequest.Stale, "ready": parseCatalogRequest.Ready})
+			}
 		case parseCatalogRequest.Error != nil:
 			log.Error("catalog cache failed", map[string]interface{}{"url": parseCatalogURL, "error": parseCatalogRequest.Error.Error()})
 		case parseCatalogRequest.Ready:
-			log.Info("catalog cache ready", map[string]interface{}{
-				"url":         parseCatalogURL,
-				"modules":     len(parseCatalogRequest.Value.Modules),
-				"statuses":    len(parseCatalogRequest.Value.Statuses),
-				"levels":      len(parseCatalogRequest.Value.Levels),
-				"filters":     len(parseCatalogRequest.Value.Filters),
-				"sortOptions": len(parseCatalogRequest.Value.SortOptions),
-				"items":       len(parseCatalogRequest.Value.Items),
-				"stale":       parseCatalogRequest.Stale,
-			})
+			if isDebugLoggingEnabled {
+				log.Info("catalog cache ready", map[string]interface{}{
+					"url":         parseCatalogURL,
+					"modules":     len(parseCatalogRequest.Value.Modules),
+					"statuses":    len(parseCatalogRequest.Value.Statuses),
+					"levels":      len(parseCatalogRequest.Value.Levels),
+					"filters":     len(parseCatalogRequest.Value.Filters),
+					"sortOptions": len(parseCatalogRequest.Value.SortOptions),
+					"items":       len(parseCatalogRequest.Value.Items),
+					"stale":       parseCatalogRequest.Stale,
+				})
+			}
 		}
 		return nil
 	}, parseCatalogRequest.Loading, parseCatalogRequest.Ready, parseCatalogRequest.Stale, fmt.Sprint(parseCatalogRequest.Error), len(parseCatalogRequest.Value.Items))
@@ -686,26 +749,38 @@ func renderDocsDemosSite() ui.Node {
 	parseSelectedItemID := ui.UseState(0)
 	parseAnchorScrollItemID := ui.UseState(0)
 	parseAnchorScrollRequestID := ui.UseState(0)
+	parseLoadedPreviewItemID := ui.UseState(0)
+	parseVisibleSourceItemID := ui.UseState(0)
 
 	parseUpdateSearchQuery := ui.UseEvent(func(parseEvent ui.InputEvent) {
 		parseSearchQuery.Set(parseEvent.GetValue())
-		log.Info("search query updated", map[string]interface{}{"query": parseEvent.GetValue()})
+		if isDebugLoggingEnabled {
+			log.Info("search query updated", map[string]interface{}{"query": parseEvent.GetValue()})
+		}
 	})
 	parseUpdateStatusFilter := ui.UseEvent(func(parseEvent2 ui.ChangeEvent) {
 		parseSelectedStatusFilter.Set(parseEvent2.GetValue())
-		log.Info("status filter updated", map[string]interface{}{"status": parseEvent2.GetValue()})
+		if isDebugLoggingEnabled {
+			log.Info("status filter updated", map[string]interface{}{"status": parseEvent2.GetValue()})
+		}
 	})
 	parseUpdateLevelFilter := ui.UseEvent(func(parseEvent3 ui.ChangeEvent) {
 		parseSelectedLevelFilter.Set(parseEvent3.GetValue())
-		log.Info("level filter updated", map[string]interface{}{"level": parseEvent3.GetValue()})
+		if isDebugLoggingEnabled {
+			log.Info("level filter updated", map[string]interface{}{"level": parseEvent3.GetValue()})
+		}
 	})
 	parseUpdateModuleFilter := ui.UseEvent(func(parseEvent4 ui.ChangeEvent) {
 		parseSelectedModuleFilter.Set(parseEvent4.GetValue())
-		log.Info("module filter updated", map[string]interface{}{"module": parseEvent4.GetValue()})
+		if isDebugLoggingEnabled {
+			log.Info("module filter updated", map[string]interface{}{"module": parseEvent4.GetValue()})
+		}
 	})
 	parseUpdateSortOrder := ui.UseEvent(func(parseEvent5 ui.ChangeEvent) {
 		parseSelectedSortOrder.Set(parseEvent5.GetValue())
-		log.Info("sort order updated", map[string]interface{}{"sort": parseEvent5.GetValue()})
+		if isDebugLoggingEnabled {
+			log.Info("sort order updated", map[string]interface{}{"sort": parseEvent5.GetValue()})
+		}
 	})
 	resetFilters := ui.UseEvent(func() {
 		parseActiveTypeFilter.Set(kindExample)
@@ -713,13 +788,18 @@ func renderDocsDemosSite() ui.Node {
 		parseSelectedLevelFilter.Set(allFilterValue)
 		parseSelectedModuleFilter.Set(allFilterValue)
 		parseSelectedSortOrder.Set(sortRelevance)
-		log.Info("filters reset", map[string]interface{}{
-			"type":   kindExample,
-			"status": allFilterValue,
-			"level":  allFilterValue,
-			"module": allFilterValue,
-			"sort":   sortRelevance,
-		})
+		parseSelectedItemID.Set(0)
+		parseLoadedPreviewItemID.Set(0)
+		parseVisibleSourceItemID.Set(0)
+		if isDebugLoggingEnabled {
+			log.Info("filters reset", map[string]interface{}{
+				"type":   kindExample,
+				"status": allFilterValue,
+				"level":  allFilterValue,
+				"module": allFilterValue,
+				"sort":   sortRelevance,
+			})
+		}
 	})
 	hasActiveFilters := parseSelectedStatusFilter.Get() != allFilterValue || parseSelectedLevelFilter.Get() != allFilterValue || parseSelectedModuleFilter.Get() != allFilterValue || parseSelectedSortOrder.Get() != sortRelevance
 
@@ -739,16 +819,18 @@ func renderDocsDemosSite() ui.Node {
 		return sortItems(filterItems(parseExampleItems, parseDeferredSearchQuery, parseActiveTypeFilter.Get(), parseSelectedStatusFilter.Get(), parseSelectedLevelFilter.Get(), parseSelectedModuleFilter.Get()), parseSelectedSortOrder.Get())
 	}, len(parseExampleItems), parseDeferredSearchQuery, parseActiveTypeFilter.Get(), parseSelectedStatusFilter.Get(), parseSelectedLevelFilter.Get(), parseSelectedModuleFilter.Get(), parseSelectedSortOrder.Get())
 	ui.UseEffect(func() func() {
-		log.Info("filters applied", map[string]interface{}{
-			"query":       parseSearchQuery.Get(),
-			"deferred":    parseDeferredSearchQuery,
-			"type":        parseActiveTypeFilter.Get(),
-			"status":      parseSelectedStatusFilter.Get(),
-			"level":       parseSelectedLevelFilter.Get(),
-			"module":      parseSelectedModuleFilter.Get(),
-			"sort":        parseSelectedSortOrder.Get(),
-			"resultCount": len(parseFilteredItems),
-		})
+		if isDebugLoggingEnabled {
+			log.Info("filters applied", map[string]interface{}{
+				"query":       parseSearchQuery.Get(),
+				"deferred":    parseDeferredSearchQuery,
+				"type":        parseActiveTypeFilter.Get(),
+				"status":      parseSelectedStatusFilter.Get(),
+				"level":       parseSelectedLevelFilter.Get(),
+				"module":      parseSelectedModuleFilter.Get(),
+				"sort":        parseSelectedSortOrder.Get(),
+				"resultCount": len(parseFilteredItems),
+			})
+		}
 		return nil
 	}, parseSearchQuery.Get(), parseDeferredSearchQuery, parseActiveTypeFilter.Get(), parseSelectedStatusFilter.Get(), parseSelectedLevelFilter.Get(), parseSelectedModuleFilter.Get(), parseSelectedSortOrder.Get(), filteredItemsSignature(parseFilteredItems))
 	ui.UseEffect(func() func() {
@@ -756,11 +838,18 @@ func renderDocsDemosSite() ui.Node {
 		if len(parseFilteredItems) == 0 {
 			parseSelectedItemID.Set(0)
 			parseAnchorScrollItemID.Set(0)
+			parseLoadedPreviewItemID.Set(0)
+			parseVisibleSourceItemID.Set(0)
 			clearRequestedDemoAnchor()
-			log.Info("selection cleared", map[string]interface{}{"reason": "no filtered items"})
+			if isDebugLoggingEnabled {
+				log.Info("selection cleared", map[string]interface{}{"reason": "no filtered items"})
+			}
 			return nil
 		}
 		parseCurrentSelectedID := parseSelectedItemID.Get()
+		if parseCurrentSelectedID == 0 {
+			return nil
+		}
 		for _, parseItem := range parseFilteredItems {
 			if parseItem.ID == parseCurrentSelectedID {
 				return nil
@@ -769,9 +858,11 @@ func renderDocsDemosSite() ui.Node {
 		parseSelectedItemID.Set(parseFilteredItems[0].ID)
 		parseAnchorScrollItemID.Set(0)
 		clearRequestedDemoAnchor()
-		log.Info("selection repaired", map[string]interface{}{"selectedItemID": parseFilteredItems[0].ID})
+		if isDebugLoggingEnabled {
+			log.Info("selection repaired", map[string]interface{}{"selectedItemID": parseFilteredItems[0].ID})
+		}
 		return nil
-	}, filteredItemsSignature(parseFilteredItems), parseSelectedItemID.Get())
+	}, filteredItemsSignature(parseFilteredItems), parseSelectedItemID.Get(), isDebugLoggingEnabled)
 
 	parseSelectedCatalogItem, hasSelectedItem := findSelectedItem(parseFilteredItems, parseSelectedItemID.Get())
 	parseSelectedDocURL := ""
@@ -786,7 +877,9 @@ func renderDocsDemosSite() ui.Node {
 		if parseSelectedDocURL == "" {
 			return
 		}
-		log.Info("markdown refetch requested", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath})
+		if isDebugLoggingEnabled {
+			log.Info("markdown refetch requested", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath})
+		}
 		parseMarkdownResource.Reload()
 	})
 	ui.UseEffect(func() func() {
@@ -795,11 +888,15 @@ func renderDocsDemosSite() ui.Node {
 		}
 		switch {
 		case parseMarkdownRequest.Loading:
-			log.Info("markdown cache loading", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath, "ready": parseMarkdownRequest.Ready, "stale": parseMarkdownRequest.Stale})
+			if isDebugLoggingEnabled {
+				log.Info("markdown cache loading", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath, "ready": parseMarkdownRequest.Ready, "stale": parseMarkdownRequest.Stale})
+			}
 		case parseMarkdownRequest.Error != nil:
 			log.Error("markdown cache failed", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath, "error": parseMarkdownRequest.Error.Error()})
 		case parseMarkdownRequest.Ready:
-			log.Info("markdown cache ready", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath, "bytes": len(parseMarkdownRequest.Value)})
+			if isDebugLoggingEnabled {
+				log.Info("markdown cache ready", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath, "bytes": len(parseMarkdownRequest.Value)})
+			}
 		}
 		return nil
 	}, parseSelectedDocURL, parseMarkdownRequest.Loading, parseMarkdownRequest.Ready, parseMarkdownRequest.Stale, errorString(parseMarkdownRequest.Error), len(parseMarkdownRequest.Value), parseSelectedItemID.Get())
@@ -810,8 +907,13 @@ func renderDocsDemosSite() ui.Node {
 		parseSelectedLevelFilter.Set(allFilterValue)
 		parseSelectedModuleFilter.Set(allFilterValue)
 		parseSelectedSortOrder.Set(sortRelevance)
+		parseSelectedItemID.Set(getCatalogItemIDByTitle(parseExampleItems, "Counter"))
+		parseLoadedPreviewItemID.Set(0)
+		parseVisibleSourceItemID.Set(0)
 		clearRequestedDemoAnchor()
-		log.Info("quick filter selected", map[string]interface{}{"type": kindExample})
+		if isDebugLoggingEnabled {
+			log.Info("quick filter selected", map[string]interface{}{"type": kindExample})
+		}
 	})
 	parseInspectPackageAPIs := ui.UseEvent(func() {
 		parseActiveTypeFilter.Set(kindExample)
@@ -819,18 +921,52 @@ func renderDocsDemosSite() ui.Node {
 		parseSelectedStatusFilter.Set(allFilterValue)
 		parseSelectedModuleFilter.Set(allFilterValue)
 		parseSelectedSortOrder.Set(sortLevel)
+		parseSelectedItemID.Set(0)
+		parseLoadedPreviewItemID.Set(0)
+		parseVisibleSourceItemID.Set(0)
 		clearRequestedDemoAnchor()
-		log.Info("quick filter selected", map[string]interface{}{"type": kindExample, "level": levelAdvanced})
+		if isDebugLoggingEnabled {
+			log.Info("quick filter selected", map[string]interface{}{"type": kindExample, "level": levelAdvanced})
+		}
+	})
+	parseLoadSelectedPreview := ui.UseEvent(func() {
+		if !hasSelectedItem {
+			return
+		}
+		parseLoadedPreviewItemID.Set(parseSelectedCatalogItem.ID)
+		if isDebugLoggingEnabled {
+			log.Info("preview requested", map[string]interface{}{"itemID": parseSelectedCatalogItem.ID, "title": parseSelectedCatalogItem.Title})
+		}
+	})
+	parseShowSelectedSource := ui.UseEvent(func() {
+		if !hasSelectedItem {
+			return
+		}
+		parseVisibleSourceItemID.Set(parseSelectedCatalogItem.ID)
+		if isDebugLoggingEnabled {
+			log.Info("source revealed", map[string]interface{}{"itemID": parseSelectedCatalogItem.ID, "title": parseSelectedCatalogItem.Title})
+		}
+	})
+	parseHideSelectedSource := ui.UseEvent(func() {
+		if !hasSelectedItem {
+			return
+		}
+		parseVisibleSourceItemID.Set(0)
+		if isDebugLoggingEnabled {
+			log.Info("source hidden", map[string]interface{}{"itemID": parseSelectedCatalogItem.ID, "title": parseSelectedCatalogItem.Title})
+		}
 	})
 	ui.UseEffect(func() func() {
 		if !hasSelectedItem {
 			return nil
 		}
-		log.Info("detail item selected", map[string]interface{}{
-			"itemID": parseSelectedCatalogItem.ID,
-			"title":  parseSelectedCatalogItem.Title,
-			"type":   parseSelectedCatalogItem.Type,
-		})
+		if isDebugLoggingEnabled {
+			log.Info("detail item selected", map[string]interface{}{
+				"itemID": parseSelectedCatalogItem.ID,
+				"title":  parseSelectedCatalogItem.Title,
+				"type":   parseSelectedCatalogItem.Type,
+			})
+		}
 		return nil
 	}, parseSelectedItemID.Get(), filteredItemsSignature(parseFilteredItems))
 
@@ -845,7 +981,9 @@ func renderDocsDemosSite() ui.Node {
 			} else {
 				clearRequestedDemoAnchor()
 			}
-			log.Info("catalog card clicked", map[string]interface{}{"itemID": parseSelectedCardID, "title": parseItem2.Title})
+			if isDebugLoggingEnabled {
+				log.Info("catalog card clicked", map[string]interface{}{"itemID": parseSelectedCardID, "title": parseItem2.Title})
+			}
 		}))
 	})
 	parseItemNodes = append(parseItemNodes, If(len(parseFilteredItems) == 0,
@@ -883,7 +1021,7 @@ func renderDocsDemosSite() ui.Node {
 					}),
 					Main(Class("mt-2 flex w-full flex-1 flex-col gap-2 lg:min-h-0 lg:flex-row"),
 						ui.Component(renderCatalogSidebar, catalogSidebarProps{SearchQuery: parseSearchQuery.Get(), ResultCount: len(parseFilteredItems), HasActiveFilters: hasActiveFilters, Statuses: parseVisibleStatuses, Levels: parseVisibleLevels, Modules: parseVisibleModules, SortOptions: parseCatalogRequest.Value.SortOptions, SelectedStatusFilter: parseSelectedStatusFilter.Get(), SelectedLevelFilter: parseSelectedLevelFilter.Get(), SelectedModuleFilter: parseSelectedModuleFilter.Get(), SelectedSortOrder: parseSelectedSortOrder.Get(), ItemNodes: parseItemNodes, OnSearchInput: parseUpdateSearchQuery, OnStatusChange: parseUpdateStatusFilter, OnLevelChange: parseUpdateLevelFilter, OnModuleChange: parseUpdateModuleFilter, OnSortChange: parseUpdateSortOrder, OnResetFilters: resetFilters}),
-						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: parseSelectedCatalogItem, HasSelectedItem: hasSelectedItem, MarkdownBody: parseMarkdownRequest.Value, MarkdownLoading: parseMarkdownRequest.Loading, MarkdownReady: parseMarkdownRequest.Ready, MarkdownError: errorString(parseMarkdownRequest.Error), AnchorScrollID: parseAnchorScrollID, OnRetryMarkdown: parseRetryMarkdownLoad}),
+						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: parseSelectedCatalogItem, HasSelectedItem: hasSelectedItem, IsPreviewLoaded: hasSelectedItem && parseLoadedPreviewItemID.Get() == parseSelectedCatalogItem.ID, IsSourceVisible: hasSelectedItem && parseVisibleSourceItemID.Get() == parseSelectedCatalogItem.ID, MarkdownBody: parseMarkdownRequest.Value, MarkdownLoading: parseMarkdownRequest.Loading, MarkdownReady: parseMarkdownRequest.Ready, MarkdownError: errorString(parseMarkdownRequest.Error), AnchorScrollID: parseAnchorScrollID, OnLoadPreview: parseLoadSelectedPreview, OnHideSource: parseHideSelectedSource, OnRetryMarkdown: parseRetryMarkdownLoad, OnShowSource: parseShowSelectedSource}),
 					),
 				),
 			)
@@ -897,8 +1035,10 @@ func main() {
 		}
 	}()
 
-	logging.AttachBrowserConsole(logging.BrowserConsoleOptions{Scope: "public-examples-site"})
 	utils.DisableAllDebug()
+	if isPageDebugLoggingEnabled() {
+		logging.AttachBrowserConsole(logging.BrowserConsoleOptions{Scope: "public-examples-site"})
+	}
 	ui.Render(ui.Component(renderDocsDemosSite), "#app")
 	utils.WaitForever()
 }

@@ -65,6 +65,7 @@ const (
 	labelConceptFocus        = "Concept focus"
 	labelStudyPrompts        = "What to notice"
 	labelLivePreview         = "Live preview"
+	labelPreviewPaused       = "Preview paused"
 	labelPreviewMode         = "Isolated runtime preview"
 	labelStandalonePreview   = "Open standalone"
 	labelReferenceSearch     = "Reference search"
@@ -80,7 +81,9 @@ const (
 	messageDocLoading      = "Loading the selected example source..."
 	messageDocUnavailable  = "This concept does not define a source markdown document."
 	messageDocEmpty        = "The selected markdown document loaded, but it did not contain renderable content."
+	messagePreviewDeferred = "Preview startup is deferred until you ask for it so the gallery stays responsive while you browse."
 	messageReferenceSearch = "Search functions in this reference..."
+	messageSourceDeferred  = "Source rendering is deferred until you open it so large mirrored files stay out of the hot render path."
 	messageSourceFirstDemo = "This example builds to wasm, but the gallery keeps it source-first because it depends on standalone document scaffolding or browser-global behavior."
 
 	contentKindLabelArticle = "Markdown article"
@@ -93,12 +96,15 @@ const (
 	toneNegative = "Negative"
 
 	buttonBrowseExamples     = "Start with counter"
+	buttonLoadPreview        = "Start preview"
 	buttonInspectPackageAPIs = "Explore advanced patterns"
 	buttonResetFilters       = "Reset filters"
 	buttonRetryDocument      = "Retry document"
 	buttonDecrement          = "Decrement"
+	buttonHideSource         = "Hide source"
 	buttonIncrement          = "Increment"
 	buttonReset              = "Reset"
+	buttonShowSource         = "Show source"
 
 	labelStateTonePrefix   = "State tone: "
 	catalogDataRelativeURL = "assets/data/catalog.json"

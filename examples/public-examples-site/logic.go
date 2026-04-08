@@ -78,6 +78,46 @@ func appendPageVersion(parseResolvedURL string) string {
 	return parseParsedURL.String()
 }
 
+// getPageQueryValue resolves one query parameter from window.location.search.
+func getPageQueryValue(parseName string) string {
+	parseTrimmedName := strings.TrimSpace(parseName)
+	if parseTrimmedName == "" {
+		return ""
+	}
+	parseWindow := js.Global().Get("window")
+	if parseWindow.IsUndefined() || parseWindow.IsNull() {
+		return ""
+	}
+	parseLocation := parseWindow.Get("location")
+	if parseLocation.IsUndefined() || parseLocation.IsNull() {
+		return ""
+	}
+	parseSearch := parseLocation.Get("search")
+	if parseSearch.IsUndefined() || parseSearch.IsNull() {
+		return ""
+	}
+	parseParams := js.Global().Get("URLSearchParams")
+	if parseParams.Type() != js.TypeFunction {
+		return ""
+	}
+	parsePageParams := parseParams.New(parseSearch.String())
+	parseValue := parsePageParams.Call("get", parseTrimmedName)
+	if parseValue.IsUndefined() || parseValue.IsNull() {
+		return ""
+	}
+	return strings.TrimSpace(parseValue.String())
+}
+
+// isPageDebugLoggingEnabled reports whether the gallery should emit verbose browser logging.
+func isPageDebugLoggingEnabled() bool {
+	switch normalizeLowercase(getPageQueryValue("debug")) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 // decodeCatalogJSON validates the fetched JSON payload before the UI reads from it.
 func decodeCatalogJSON(parsePayload []byte) (docsCatalog, error) {
 	var parseCatalog docsCatalog
@@ -264,6 +304,20 @@ func findSelectedItem(parseItems []docsItem, parseSelectedID int) (docsItem, boo
 		}
 	}
 	return docsItem{}, false
+}
+
+// getCatalogItemIDByTitle resolves one catalog item ID by its display title.
+func getCatalogItemIDByTitle(parseItems []docsItem, parseTitle string) int {
+	parseExpectedTitle := normalizeLowercase(parseTitle)
+	if parseExpectedTitle == "" {
+		return 0
+	}
+	for _, parseItem := range parseItems {
+		if normalizeLowercase(parseItem.Title) == parseExpectedTitle {
+			return parseItem.ID
+		}
+	}
+	return 0
 }
 
 // filteredItemsSignature produces a compact dependency key for filtered item lists.

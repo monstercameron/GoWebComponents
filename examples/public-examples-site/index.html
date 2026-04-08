@@ -115,6 +115,81 @@
     </div>
     <div id="app" data-boot="pending"></div>
     <script>
+        const loadRuntimeCacheName = 'gwc-public-examples-runtime-v1';
+        const loadEmbedCacheName = 'gwc-public-examples-embed-v2';
+        const loadEmbedRecordsKey = 'gwc-public-examples-embed-records-v2';
+        const loadEmbedMaxAgeMs = 10 * 60 * 1000;
+        const loadEmbedRetainCount = 2;
+
+        function getEmbedCacheURL(url) {
+            try {
+                return new URL(url, window.location.href).href;
+            } catch (error) {
+                return url;
+            }
+        }
+
+        function getEmbedCacheGroup(url) {
+            try {
+                const cacheURL = new URL(url, window.location.href);
+                return cacheURL.origin + cacheURL.pathname;
+            } catch (error) {
+                return url;
+            }
+        }
+
+        function getEmbedCacheRecords() {
+            if (typeof localStorage === 'undefined') {
+                return [];
+            }
+            try {
+                const rawValue = localStorage.getItem(loadEmbedRecordsKey);
+                const parsedValue = JSON.parse(rawValue || '[]');
+                if (!Array.isArray(parsedValue)) {
+                    return [];
+                }
+                return parsedValue.filter((record) => record && typeof record.url === 'string' && typeof record.usedAt === 'number');
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function storeEmbedCacheRecords(records) {
+            if (typeof localStorage === 'undefined') {
+                return;
+            }
+            try {
+                localStorage.setItem(loadEmbedRecordsKey, JSON.stringify(records));
+            } catch (error) {
+                return;
+            }
+        }
+
+        async function clearEmbedCacheOverflow(activeURL) {
+            if (typeof caches === 'undefined' || !caches || typeof caches.open !== 'function') {
+                return;
+            }
+
+            const cache = await caches.open(loadEmbedCacheName);
+            const cacheKeys = await cache.keys();
+            const cacheURLs = new Set(cacheKeys.map((request) => request.url));
+            const activeRecord = { url: activeURL, usedAt: Date.now() };
+
+            let records = getEmbedCacheRecords().filter((record) => cacheURLs.has(record.url) && activeRecord.usedAt - record.usedAt <= loadEmbedMaxAgeMs);
+            const activeGroup = getEmbedCacheGroup(activeRecord.url);
+            records = records.filter((record) => getEmbedCacheGroup(record.url) !== activeGroup);
+            records.unshift(activeRecord);
+
+            const retainRecords = records.slice(0, loadEmbedRetainCount);
+            const retainURLs = new Set(retainRecords.map((record) => record.url));
+            for (const request of cacheKeys) {
+                if (!retainURLs.has(request.url)) {
+                    await cache.delete(request);
+                }
+            }
+            storeEmbedCacheRecords(retainRecords);
+        }
+
         window.__gwcMountEmbeddedExample = (() => {
             const mounts = new Map();
 
@@ -148,9 +223,15 @@
                     message: 'Requesting the embedded WebAssembly binary...'
                 });
 
-                const response = await fetch(url);
+                const response = await fetch(url, { cache: 'no-store' });
                 if (!response.ok) {
                     throw new Error('The embedded wasm binary could not be fetched (' + response.status + ' ' + response.statusText + ').');
+                }
+                if ('caches' in globalThis) {
+                    const loadCacheURL = getEmbedCacheURL(url);
+                    const loadCache = await caches.open(loadEmbedCacheName);
+                    await loadCache.put(loadCacheURL, response.clone());
+                    await clearEmbedCacheOverflow(loadCacheURL);
                 }
 
                 if (shouldStreamInstantiate(response)) {
@@ -206,6 +287,33 @@
                     offset += chunk.length;
                 }
                 return { shouldStream: false, bytes };
+            }
+
+            async function loadCachedWasmWithProgress(url, onProgress) {
+                if (!('caches' in globalThis)) {
+                    return fetchWasmWithProgress(url, onProgress);
+                }
+
+                const loadCacheURL = getEmbedCacheURL(url);
+                const loadCache = await caches.open(loadEmbedCacheName);
+                const loadCachedResponse = await loadCache.match(loadCacheURL);
+                if (!loadCachedResponse) {
+                    return fetchWasmWithProgress(url, onProgress);
+                }
+
+                await clearEmbedCacheOverflow(loadCacheURL);
+                onProgress(70, {
+                    indeterminate: true,
+                    phase: 'Loading',
+                    message: 'Loading embedded WebAssembly from local cache...'
+                });
+                if (shouldStreamInstantiate(loadCachedResponse)) {
+                    return { shouldStream: true, response: loadCachedResponse };
+                }
+                return {
+                    shouldStream: false,
+                    bytes: new Uint8Array(await loadCachedResponse.arrayBuffer())
+                };
             }
 
             return async function mountEmbeddedExample(options) {
@@ -291,7 +399,7 @@
 
                 try {
                     ensureCompatibility();
-                    const wasmPayload = await fetchWasmWithProgress(options.wasmURL, setProgress);
+                    const wasmPayload = await loadCachedWasmWithProgress(options.wasmURL, setProgress);
                     if (mounts.get(options.rootID) !== state || document.getElementById(options.rootID) !== root) {
                         return;
                     }
@@ -405,9 +513,13 @@
                     message: 'Requesting the WebAssembly binary...'
                 });
 
-                const response = await fetch(url);
+                const response = await fetch(url, { cache: 'no-store' });
                 if (!response.ok) {
                     throw new Error('The WebAssembly binary could not be fetched (' + response.status + ' ' + response.statusText + ').');
+                }
+                if ('caches' in globalThis) {
+                    const loadCache = await caches.open(loadRuntimeCacheName);
+                    await loadCache.put(url, response.clone());
                 }
 
                 if (shouldStreamInstantiate(response)) {
@@ -465,6 +577,31 @@
                 return { shouldStream: false, bytes };
             }
 
+            async function loadCachedWasmWithProgress(url) {
+                if (!('caches' in globalThis)) {
+                    return fetchWasmWithProgress(url);
+                }
+
+                const loadCache = await caches.open(loadRuntimeCacheName);
+                const loadCachedResponse = await loadCache.match(url);
+                if (!loadCachedResponse) {
+                    return fetchWasmWithProgress(url);
+                }
+
+                setProgress(70, {
+                    indeterminate: true,
+                    phase: 'Loading',
+                    message: 'Loading WebAssembly from local cache...'
+                });
+                if (shouldStreamInstantiate(loadCachedResponse)) {
+                    return { shouldStream: true, response: loadCachedResponse };
+                }
+                return {
+                    shouldStream: false,
+                    bytes: new Uint8Array(await loadCachedResponse.arrayBuffer())
+                };
+            }
+
             async function enforceMinimumVisibleTime() {
                 const elapsed = performance.now() - bootStartedAt;
                 const remaining = minimumVisibleMs - elapsed;
@@ -475,7 +612,7 @@
 
             try {
                 ensureCompatibility();
-                const wasmPayload = await fetchWasmWithProgress(wasmURL);
+                const wasmPayload = await loadCachedWasmWithProgress(wasmURL);
 
                 const go = new Go();
                 let result;

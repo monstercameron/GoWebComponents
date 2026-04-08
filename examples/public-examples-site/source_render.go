@@ -88,6 +88,18 @@ func isQuickCounterSnippet(parseSource string) bool {
 		strings.Contains(parseNormalized, "Textf(\"Clicked %d times\", currentCount)")
 }
 
+// isSourceHighlightEnabled reports whether the custom highlighter should run for one source blob.
+func isSourceHighlightEnabled(parseSource string) bool {
+	parseNormalized := strings.ReplaceAll(parseSource, "\r\n", "\n")
+	if len(parseNormalized) > 12000 {
+		return false
+	}
+	if strings.Count(parseNormalized, "\n") > 220 {
+		return false
+	}
+	return true
+}
+
 func isGoIdentifierStart(parseChar byte) bool {
 	return parseChar == '_' || unicode.IsLetter(rune(parseChar))
 }
@@ -242,13 +254,20 @@ func renderHighlightedGoSource(parseSource string) ui.Node {
 }
 
 func renderSourceSnippetCard(parseTitle, parseBadge, parseSource string) ui.Node {
+	parseSourceNode := Code(Text(parseSource))
+	switch {
+	case isQuickCounterSnippet(parseSource):
+		parseSourceNode = renderQuickCounterSnippetCode()
+	case isSourceHighlightEnabled(parseSource):
+		parseSourceNode = renderHighlightedGoSource(parseSource)
+	}
 	return Div(Class("min-w-0 rounded-[24px] border border-cyan-300/15 bg-[#050d18]/85 p-4 shadow-xl shadow-black/20"),
 		Div(Class("flex items-center justify-between gap-3"),
 			Div(Class("text-[11px] uppercase tracking-[0.18em] text-cyan-200"), Text(parseTitle)),
 			Div(Class("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400"), Text(parseBadge)),
 		),
 		Pre(Class("mt-3 overflow-x-auto rounded-[18px] border border-white/10 bg-black/20 p-4 text-[13px] leading-6 text-slate-200"),
-			IfElse(isQuickCounterSnippet(parseSource), renderQuickCounterSnippetCode(), renderHighlightedGoSource(parseSource)),
+			parseSourceNode,
 		),
 	)
 }
