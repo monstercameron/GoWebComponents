@@ -10,6 +10,7 @@ import (
 	"syscall/js"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -119,7 +120,6 @@ func App() ui.Node {
 		return fmt.Sprintf("%d chars | %d tokens | %d solves", len(strings.TrimSpace(parseExpression.Get())), parseTokens, parseEvaluationCount.Get())
 	}, parseExpression.Get(), parseEvaluationCount.Get())
 
-	parseRootClass := "relative min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
 	parseCardClass := "overflow-hidden rounded-3xl bg-white/[0.02] shadow-2xl backdrop-blur-xl ring-1 ring-white/[0.05]"
 	parseHeroCardClass := "overflow-hidden rounded-3xl bg-gradient-to-b from-white/[0.03] to-white/[0.01] shadow-2xl backdrop-blur-xl ring-1 ring-white/10"
 	parseTextPrimary := "text-white"
@@ -430,7 +430,7 @@ func App() ui.Node {
 	parseAboutSection := html.Section(html.Props{Class: parseCardClass},
 		html.Div(html.Props{Class: "p-8"},
 			html.H3(html.Props{Class: "mb-4 " + parseLabelClass}, html.Text("About")),
-			html.P(html.Props{Class: "mb-4 text-sm leading-relaxed " + parseTextSecondary}, html.Text("Modern calculator built with GoWebComponents - featuring reactive state, effects, atoms, and composition.")),
+			html.P(html.Props{Class: "mb-4 text-sm leading-relaxed " + parseTextSecondary}, html.Text("Evaluate expressions, persist theme and angle preferences, and keep derived display state in sync with one reactive input surface.")),
 			html.Div(html.Props{Class: "flex flex-wrap gap-2"},
 				html.Span(html.Props{Class: parseBadgeClass + " " + parseTextSecondary}, html.Text("Session: "+parseSessionRef.Get())),
 				html.Span(html.Props{Class: parseBadgeClass + " " + parseTextSecondary}, html.Text(parseStatsText)),
@@ -438,11 +438,13 @@ func App() ui.Node {
 		),
 	)
 
-	parseMainContent := html.Main(html.Props{Class: "mx-auto max-w-4xl space-y-6"}, parseDisplaySection, parseComposerSection, parseAboutSection)
-
-	return html.Div(html.Props{Class: parseRootClass},
-		html.Div(html.Props{Class: "pointer-events-none absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-blue-500/5"}),
-		html.Div(html.Props{Class: "relative z-10 mx-auto max-w-[90rem] px-6 py-8"}, parseMainContent),
+	return shared.ExamplePage(
+		"Calculator",
+		"ui.UseMemo + state.UseAtom",
+		"Evaluate expressions, persist calculator preferences, and compare display state with keypad input in one reactive surface.",
+		shared.ExamplePanel("Display", parseDisplaySection),
+		shared.ExamplePanel("Controls", parseComposerSection),
+		shared.ExamplePanel("Status", parseAboutSection),
 	)
 }
 

@@ -10,6 +10,7 @@ import (
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -71,41 +72,35 @@ func bootstrapI18nExample(parsePayload ui.SSRBootstrap) ui.Node {
 		Child: ui.CreateElement(func() ui.Node {
 			parseIntl := i18n.UseI18n()
 			return html.Div(html.Props{
-				Class: "min-h-screen bg-[#08111d] text-slate-100",
 				Raw: map[string]interface{}{
 					"dir":                      string(parseIntl.Direction()),
 					"lang":                     parseIntl.Locale(),
 					"data-bootstrapped-locale": parsePayload.I18n.Locale,
 				},
 			},
-				html.Div(html.Props{Class: "mx-auto max-w-3xl px-6 py-12"},
-					html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl"},
-						html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("SSR locale bootstrap")),
-						html.H1(html.Props{ID: "bootstrap-locale-headline", Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text(parseIntl.T("bootstrap", "headline", i18n.Arguments{"name": "Cam"}))),
-						html.P(html.Props{ID: "bootstrap-locale-summary", Class: "mt-4 text-lg leading-8 text-slate-300"}, html.Text(parseIntl.T("bootstrap", "summary"))),
-						html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-							html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
-								html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Bootstrap locale")),
-								html.P(html.Props{ID: "bootstrap-locale-value", Class: "mt-3 text-2xl font-black text-white"}, html.Text(parsePayload.I18n.Locale)),
-							),
-							html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
-								html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Loaded locales")),
-								html.P(html.Props{ID: "bootstrap-locale-count", Class: "mt-3 text-2xl font-black text-white"}, html.Text(fmt.Sprintf("%d", len(parseBundle.Locales())))),
-							),
-							html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
-								html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Transferred messages")),
-								html.P(html.Props{ID: "bootstrap-message-count", Class: "mt-3 text-2xl font-black text-white"}, html.Text(fmt.Sprintf("%d", bootstrapMessageCount(parsePayload.I18n.Messages)))),
-							),
+				shared.ExamplePage(
+					"SSR Locale Bootstrap",
+					"ui.SSRBootstrap.I18n",
+					"Restore locale and translated messages from the server bootstrap payload before the first interactive render.",
+					shared.ExamplePanel("Locale State",
+						html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
+							shared.ExampleStat("Bootstrap Locale", parsePayload.I18n.Locale),
+							shared.ExampleStat("Loaded Locales", fmt.Sprintf("%d", len(parseBundle.Locales()))),
+							shared.ExampleStat("Messages", fmt.Sprintf("%d", bootstrapMessageCount(parsePayload.I18n.Messages))),
 						),
-						html.Div(html.Props{Class: "mt-6 rounded-2xl border border-white/10 bg-white/5 p-4"},
-							html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Client bootstrap status")),
+						html.Div(html.Props{Class: "rounded-[20px] border border-white/10 bg-white/5 p-4"},
+							html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Client Bootstrap Status")),
 							html.P(html.Props{ID: "bootstrap-client-status", Class: "mt-3 text-sm leading-7 text-slate-200"}, html.Text("Waiting for client bootstrap status...")),
 						),
-						html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-							html.Button(html.Props{ID: "bootstrap-switch-en", Class: "rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100", OnClick: ui.UseEvent(func() { parseIntl.SetLocale("en") })}, html.Text("English")),
-							html.Button(html.Props{ID: "bootstrap-switch-fr", Class: "rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100", OnClick: ui.UseEvent(func() { parseIntl.SetLocale("fr") })}, html.Text("Francais")),
+					),
+					shared.ExamplePanel("Translations",
+						html.P(html.Props{ID: "bootstrap-locale-headline", Class: "text-3xl font-semibold tracking-tight text-white"}, html.Text(parseIntl.T("bootstrap", "headline", i18n.Arguments{"name": "Cam"}))),
+						html.P(html.Props{ID: "bootstrap-locale-summary", Class: "text-sm leading-6 text-slate-300"}, html.Text(parseIntl.T("bootstrap", "summary"))),
+						html.Div(html.Props{Class: "flex flex-wrap gap-2"},
+							html.Button(html.Props{ID: "bootstrap-switch-en", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0 active:scale-95", OnClick: ui.UseEvent(func() { parseIntl.SetLocale("en") })}, html.Text("English")),
+							html.Button(html.Props{ID: "bootstrap-switch-fr", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0 active:scale-95", OnClick: ui.UseEvent(func() { parseIntl.SetLocale("fr") })}, html.Text("Francais")),
 						),
-						html.P(html.Props{ID: "bootstrap-locale-note", Class: "mt-6 text-sm leading-7 text-slate-400"}, html.Text(parseIntl.T("bootstrap", "note"))),
+						html.P(html.Props{ID: "bootstrap-locale-note", Class: "text-sm leading-6 text-slate-400"}, html.Text(parseIntl.T("bootstrap", "note"))),
 					),
 				),
 			)

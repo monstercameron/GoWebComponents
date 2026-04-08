@@ -18,6 +18,11 @@ func TestExampleComponentsRenderMarkup(parseT *testing.T) {
 			parseT.Fatalf("ExamplePage markup missing %q\n%s", parseExpected, parseMarkup)
 		}
 	}
+	for _, parseUnexpected := range []string{"Overview", "Functional", "Implementation", "Purpose"} {
+		if strings.Contains(parseMarkup, parseUnexpected) {
+			parseT.Fatalf("ExamplePage markup unexpectedly contains %q\n%s", parseUnexpected, parseMarkup)
+		}
+	}
 
 	parseCode, parseErr := ui.RenderToString(ExampleCode("line one", "line two"))
 	if parseErr != nil {

@@ -35,8 +35,8 @@ func main() {
 	// Initialize and mount the global router
 	parseR := router.GetRouter()
 	parseR.Register(portfolioHomeRoute, DocsWebsite)
-	parseR.Register(portfolioDocsRoute, DocsPage)
-	parseR.Register(portfolioCatchAllRoute, NotFoundPage)
+	parseR.Register(portfolioDocsRoute, renderDocsPageCompact)
+	parseR.Register(portfolioCatchAllRoute, renderNotFoundPageCompact)
 
 	exampleboot.RenderExampleRouter(parseR)
 

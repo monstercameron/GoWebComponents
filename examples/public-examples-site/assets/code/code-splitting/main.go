@@ -6,10 +6,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -34,14 +35,6 @@ func navButton(parseLabel, parsePath, parseCurrentPath string, parseNavigate fun
 	return html.Button(html.Props{Type: "button", OnClick: ui.UseEvent(func() { parseNavigate(parsePath) }), Class: parseClassName}, html.Text(parseLabel))
 }
 
-func shellPanel(parseTitle, parseSubtitle string, parseLinks ...ui.Node) ui.Node {
-	return html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/75 p-6 shadow-[0_20px_70px_rgba(2,6,23,0.42)]"},
-		html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text(parseTitle)),
-		html.H2(html.Props{Class: "mt-3 text-3xl font-black text-white"}, html.Text(parseSubtitle)),
-		html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-3"}, parseLinks...),
-	)
-}
-
 func lazyPanel(parsePanelKey, parseLabel, parseSummary string) ui.Node {
 	parseVersion := ui.UseState(1)
 	parseRefresh := ui.UseEvent(func() {
@@ -59,7 +52,7 @@ func lazyPanel(parsePanelKey, parseLabel, parseSummary string) ui.Node {
 			return html.Div(html.Props{Class: "rounded-[1.5rem] border border-cyan-400/30 bg-cyan-500/10 p-6 text-cyan-50"},
 				html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-200"}, html.Text("Deferred panel")),
 				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(parseLabel)),
-				html.P(html.Props{Class: "mt-3 leading-7 text-cyan-50/80"}, html.Text(fmt.Sprintf("%s Version %d resolves after the route shell is already on screen.", parseLabel, parseVersion.Get()))),
+				html.P(html.Props{Class: "mt-3 leading-7 text-cyan-50/80"}, html.Text(fmt.Sprintf("%s version %d resolves after the route shell is already on screen.", parseLabel, parseVersion.Get()))),
 				html.P(html.Props{Class: "mt-3 leading-7 text-cyan-50/80"}, html.Text(parseSummary)),
 				html.P(html.Props{Class: "mt-4 text-sm font-semibold text-cyan-100"}, html.Text(fmt.Sprintf("Chunk key: %s", parsePanelKey))),
 			), nil
@@ -85,10 +78,7 @@ func lazyPanel(parsePanelKey, parseLabel, parseSummary string) ui.Node {
 				html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Lazy subtree")),
 				html.H3(html.Props{Class: "mt-2 text-2xl font-black text-white"}, html.Text(parseLabel)),
 			),
-			html.Button(html.Props{
-				OnClick: parseRefresh,
-				Class:   "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/30",
-			}, html.Text("Reload panel")),
+			shared.ExampleButton("Reload panel", parseRefresh),
 		),
 		html.P(html.Props{Class: "max-w-3xl text-base leading-7 text-slate-300"}, html.Text(parseSummary)),
 		parsePanel,
@@ -99,21 +89,22 @@ func homePageView() ui.Node {
 	parseCurrentPath := router.GetCurrentPath()
 	parseNav := router.UseNavigate()
 	parseGoTo := func(parsePath string) { parseNav.Navigate(parsePath) }
-	return html.Div(html.Props{Class: "min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.18),_transparent_28%),linear-gradient(180deg,#08111d_0%,#030712_100%)] px-6 py-10 text-slate-100"},
-		html.Div(html.Props{Class: "mx-auto max-w-6xl"},
-			html.Div(html.Props{Class: "rounded-[2.5rem] border border-white/10 bg-slate-950/80 p-8 shadow-[0_25px_90px_rgba(2,6,23,0.48)] md:p-12"},
-				html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.32em] text-cyan-300"}, html.Text("Route and component splitting")),
-				html.H1(html.Props{Class: "mt-4 max-w-3xl text-5xl font-black leading-tight text-white md:text-6xl"}, html.Text("Keep route shells stable while lazy panels resolve underneath them.")),
-				html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-slate-300"}, html.Text("This demo keeps the route shell mounted across navigation, while each leaf route resolves a deferred panel on demand. It is a compact reference for route-family boundaries, lazy child boundaries, and fallback behavior.")),
-				html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-4"},
-					navButton("Open Catalog", "/catalog", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-					navButton("Open Operations", "/operations", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-				),
-				html.Div(html.Props{Class: "mt-8 grid gap-4 md:grid-cols-3"},
-					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200"}, html.Text("Route shells stay in the base app tree while the outlet changes underneath them.")),
-					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200"}, html.Text("Each leaf route owns a lazy subtree with explicit pending and error fallbacks.")),
-					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200"}, html.Text("Reloading a lazy panel reruns the deferred work without remounting the surrounding shell.")),
-				),
+
+	return shared.ExamplePage(
+		"Code Splitting",
+		"router.HashRouter + ui.Lazy",
+		"Keep route-family chrome stable while leaf panels load on demand.",
+		shared.ExamplePanel("Navigate",
+			html.Div(html.Props{Class: "flex flex-wrap gap-3"},
+				navButton("Catalog family", "/catalog/overview", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Operations family", "/operations/queue", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+			),
+		),
+		shared.ExamplePanel("Signals",
+			html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
+				shared.ExampleStat("Shell", "Stable"),
+				shared.ExampleStat("Families", "2"),
+				shared.ExampleStat("Reloads", "Explicit"),
 			),
 		),
 	)
@@ -127,32 +118,24 @@ func catalogLayoutView() ui.Node {
 	parseCurrentPath := router.GetCurrentPath()
 	parseNav := router.UseNavigate()
 	parseGoTo := func(parsePath string) { parseNav.Navigate(parsePath) }
-	return html.Div(html.Props{Class: "min-h-screen bg-[linear-gradient(180deg,#08111d_0%,#020617_100%)] px-6 py-8 text-slate-100"},
-		html.Div(html.Props{Class: "mx-auto max-w-6xl"},
-			html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/10 bg-slate-950/85 px-6 py-5 text-slate-100 shadow-[0_24px_80px_rgba(2,6,23,0.45)]"},
-				html.Div(html.Props{},
-					html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Catalog Shell")),
-					html.H1(html.Props{Class: "mt-2 text-3xl font-black"}, html.Text("Catalog route family")),
-				),
-				html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-					navButton("Home", "/", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-					navButton("Catalog", "/catalog", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-					navButton("Operations", "/operations", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-				),
-			),
-			html.Div(html.Props{Class: "mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]"},
-				html.Aside(html.Props{Class: "space-y-6"},
-					shellPanel("Route shell", "Stable navigation and shared chrome"),
-					html.Div(html.Props{Class: "rounded-[2rem] border border-cyan-500/20 bg-cyan-950/35 p-6 text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.4)]"},
-						html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.24em] text-cyan-300"}, html.Text("What this proves")),
-						html.P(html.Props{Class: "mt-3 leading-7 text-slate-200"}, html.Text("The catalog route family stays mounted while the deferred panel resolves underneath the shared shell.")),
-					),
-				),
-				html.Main(html.Props{Class: "space-y-6"},
-					lazyPanel("catalog-shell", "Catalog overview panel", "The deferred panel summarizes first-paint state for the catalog route family."),
-				),
+	parseWorkspace := router.GetOutlet()
+	if parseWorkspace == nil {
+		parseWorkspace = lazyPanel("catalog-shell", "Catalog overview panel", "The deferred panel resolves after the catalog shell is already visible.")
+	}
+
+	return shared.ExamplePage(
+		"Code Splitting",
+		"Catalog route family",
+		"Use a layout route to keep navigation mounted while child content changes under it.",
+		shared.ExamplePanel("Navigate",
+			html.Div(html.Props{Class: "flex flex-wrap gap-3"},
+				navButton("Home", "/", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Overview", "/catalog/overview", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Insights", "/catalog/insights", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Operations", "/operations/queue", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
 			),
 		),
+		shared.ExamplePanel("Workspace", parseWorkspace),
 	)
 }
 
@@ -164,32 +147,24 @@ func operationsLayoutView() ui.Node {
 	parseCurrentPath := router.GetCurrentPath()
 	parseNav := router.UseNavigate()
 	parseGoTo := func(parsePath string) { parseNav.Navigate(parsePath) }
-	return html.Div(html.Props{Class: "min-h-screen bg-[linear-gradient(180deg,#111827_0%,#020617_100%)] px-6 py-8 text-slate-100"},
-		html.Div(html.Props{Class: "mx-auto max-w-6xl"},
-			html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/10 bg-slate-950/85 px-6 py-5 text-slate-100 shadow-[0_24px_80px_rgba(2,6,23,0.45)]"},
-				html.Div(html.Props{},
-					html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-amber-300"}, html.Text("Operations Shell")),
-					html.H1(html.Props{Class: "mt-2 text-3xl font-black"}, html.Text("Operations route family")),
-				),
-				html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-					navButton("Home", "/", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100"),
-					navButton("Catalog", "/catalog", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100"),
-					navButton("Operations", "/operations", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100"),
-				),
-			),
-			html.Div(html.Props{Class: "mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]"},
-				html.Aside(html.Props{Class: "space-y-6"},
-					shellPanel("Route shell", "Independent shell with the same lazy pattern"),
-					html.Div(html.Props{Class: "rounded-[2rem] border border-amber-500/20 bg-amber-950/35 p-6 text-slate-100 shadow-[0_18px_60px_rgba(2,6,23,0.4)]"},
-						html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.24em] text-amber-300"}, html.Text("What this proves")),
-						html.P(html.Props{Class: "mt-3 leading-7 text-slate-200"}, html.Text("The operations route family has its own shell and can swap to the catalog family without losing the persistent nav and layout chrome.")),
-					),
-				),
-				html.Main(html.Props{Class: "space-y-6"},
-					lazyPanel("operations-shell", "Operations queue panel", "The deferred queue panel resolves independently from the catalog family and uses the same lazy boundary rules."),
-				),
+	parseWorkspace := router.GetOutlet()
+	if parseWorkspace == nil {
+		parseWorkspace = lazyPanel("operations-shell", "Operations queue panel", "The deferred queue resolves under the operations shell without disturbing navigation.")
+	}
+
+	return shared.ExamplePage(
+		"Code Splitting",
+		"Operations route family",
+		"Separate route families can reuse the same lazy pattern while keeping their own shell state.",
+		shared.ExamplePanel("Navigate",
+			html.Div(html.Props{Class: "flex flex-wrap gap-3"},
+				navButton("Home", "/", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Catalog", "/catalog/overview", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Queue", "/operations/queue", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Risk", "/operations/risk", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
 			),
 		),
+		shared.ExamplePanel("Workspace", parseWorkspace),
 	)
 }
 
@@ -198,13 +173,13 @@ func operationsLayout(_ router.Attrs) *router.Element {
 }
 
 func catalogOverviewView() ui.Node {
-	return html.Div(html.Props{Class: "space-y-6"},
-		html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/75 p-8 shadow-[0_20px_70px_rgba(2,6,23,0.42)]"},
-			html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Leaf Route")),
-			html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Catalog overview")),
-			html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-slate-300"}, html.Text("This leaf route lives under the catalog shell, so the shared navigation stays mounted while the outlet content changes.")),
+	return html.Div(html.Props{Class: "space-y-4"},
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
+			shared.ExampleStat("Route", "/catalog/overview"),
+			shared.ExampleStat("Shell", "Catalog"),
+			shared.ExampleStat("Leaf", "Overview"),
 		),
-		lazyPanel("catalog-overview", "Catalog overview panel", "The deferred panel summarizes first-paint state for the catalog route family."),
+		lazyPanel("catalog-overview", "Catalog overview panel", "This leaf route resolves under the catalog shell and keeps the route-family controls in place."),
 	)
 }
 
@@ -213,13 +188,13 @@ func catalogOverviewPage(_ router.Attrs) *router.Element {
 }
 
 func catalogInsightsView() ui.Node {
-	return html.Div(html.Props{Class: "space-y-6"},
-		html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/75 p-8 shadow-[0_20px_70px_rgba(2,6,23,0.42)]"},
-			html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Leaf Route")),
-			html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Catalog insights")),
-			html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-slate-300"}, html.Text("Switching to a different child route keeps the catalog shell mounted while the lazy subtree resolves fresh content for the new route.")),
+	return html.Div(html.Props{Class: "space-y-4"},
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
+			shared.ExampleStat("Route", "/catalog/insights"),
+			shared.ExampleStat("Shell", "Catalog"),
+			shared.ExampleStat("Leaf", "Insights"),
 		),
-		lazyPanel("catalog-insights", "Catalog insights panel", "The deferred subtree refreshes when the route family changes or when you reload it explicitly."),
+		lazyPanel("catalog-insights", "Catalog insights panel", "Switching child routes swaps the deferred panel while the catalog frame stays mounted."),
 	)
 }
 
@@ -228,13 +203,13 @@ func catalogInsightsPage(_ router.Attrs) *router.Element {
 }
 
 func operationsQueueView() ui.Node {
-	return html.Div(html.Props{Class: "space-y-6"},
-		html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/75 p-8 shadow-[0_20px_70px_rgba(2,6,23,0.42)]"},
-			html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-amber-300"}, html.Text("Leaf Route")),
-			html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Operations queue")),
-			html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-slate-300"}, html.Text("This route family keeps its own shell and lazy panel while staying isolated from the catalog stack.")),
+	return html.Div(html.Props{Class: "space-y-4"},
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
+			shared.ExampleStat("Route", "/operations/queue"),
+			shared.ExampleStat("Shell", "Operations"),
+			shared.ExampleStat("Leaf", "Queue"),
 		),
-		lazyPanel("operations-queue", "Operations queue panel", "The queue panel represents deferred, route-specific work inside the operations family."),
+		lazyPanel("operations-queue", "Operations queue panel", "This family keeps its own shell and lazy leaf behavior isolated from the catalog stack."),
 	)
 }
 
@@ -243,13 +218,13 @@ func operationsQueuePage(_ router.Attrs) *router.Element {
 }
 
 func operationsRiskView() ui.Node {
-	return html.Div(html.Props{Class: "space-y-6"},
-		html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/75 p-8 shadow-[0_20px_70px_rgba(2,6,23,0.42)]"},
-			html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-amber-300"}, html.Text("Leaf Route")),
-			html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Operations risk")),
-			html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-slate-300"}, html.Text("A second route family confirms that the shell swap stays stable even when the deferred subtree changes identity.")),
+	return html.Div(html.Props{Class: "space-y-4"},
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
+			shared.ExampleStat("Route", "/operations/risk"),
+			shared.ExampleStat("Shell", "Operations"),
+			shared.ExampleStat("Leaf", "Risk"),
 		),
-		lazyPanel("operations-risk", "Operations risk panel", "The risk panel resolves independently from the catalog family and uses the same lazy boundary rules."),
+		lazyPanel("operations-risk", "Operations risk panel", "A second leaf route confirms that only the lazy subtree changes identity inside the operations family."),
 	)
 }
 
@@ -258,17 +233,20 @@ func operationsRiskPage(_ router.Attrs) *router.Element {
 }
 
 func notFoundView() ui.Node {
+	parseCurrentPath := router.GetCurrentPath()
 	parseNav := router.UseNavigate()
 	parseGoTo := func(parsePath string) { parseNav.Navigate(parsePath) }
-	return html.Div(html.Props{Class: "min-h-screen bg-[linear-gradient(180deg,#08111d_0%,#020617_100%)] px-6 py-10 text-slate-100"},
-		html.Div(html.Props{Class: "mx-auto max-w-4xl rounded-[2.5rem] border border-white/10 bg-slate-950/80 p-10 shadow-[0_24px_80px_rgba(2,6,23,0.45)]"},
-			html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Not Found")),
-			html.H1(html.Props{Class: "mt-3 text-5xl font-black text-white"}, html.Text("That route does not exist.")),
-			html.P(html.Props{Class: "mt-5 text-lg leading-8 text-slate-300"}, html.Text("Use the demo links to jump back into the catalog or operations route trees.")),
-			html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-4"},
-				navButton("Home", "/", router.GetCurrentPath(), parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-				navButton("Catalog", "/catalog/overview", router.GetCurrentPath(), parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-				navButton("Operations", "/operations/queue", router.GetCurrentPath(), parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+
+	return shared.ExamplePage(
+		"Code Splitting",
+		"Not found",
+		"Unknown routes should still route users back into a valid family quickly.",
+		shared.ExamplePanel("Current route", shared.ExampleStat("Path", parseCurrentPath)),
+		shared.ExamplePanel("Navigate",
+			html.Div(html.Props{Class: "flex flex-wrap gap-3"},
+				navButton("Home", "/", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Catalog", "/catalog/overview", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Operations", "/operations/queue", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
 			),
 		),
 	)

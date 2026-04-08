@@ -17,9 +17,9 @@ func AppRouter(_ Attrs) *Element {
 	})
 
 	// Register application routes
-	parseR.Register(portfolioHomeRoute, DocsWebsite)      // Main personal website
-	parseR.Register(portfolioDocsRoute, DocsPage)         // API documentation
-	parseR.Register(portfolioCatchAllRoute, NotFoundPage) // 404 fallback for unmatched routes
+	parseR.Register(portfolioHomeRoute, DocsWebsite)                   // Main personal website
+	parseR.Register(portfolioDocsRoute, renderDocsPageCompact)         // API documentation
+	parseR.Register(portfolioCatchAllRoute, renderNotFoundPageCompact) // 404 fallback for unmatched routes
 
 	// Return active route component (handles re-rendering automatically)
 	return parseR.Current()
@@ -33,8 +33,8 @@ func GetSiteRouter() *router.Router {
 
 	// Register application routes
 	parseR.Register(portfolioHomeRoute, DocsWebsite)
-	parseR.Register(portfolioDocsRoute, DocsPage)
-	parseR.Register(portfolioCatchAllRoute, NotFoundPage)
+	parseR.Register(portfolioDocsRoute, renderDocsPageCompact)
+	parseR.Register(portfolioCatchAllRoute, renderNotFoundPageCompact)
 
 	return parseR
 }

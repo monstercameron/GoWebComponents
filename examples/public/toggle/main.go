@@ -9,6 +9,7 @@ import (
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	h "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -21,25 +22,20 @@ func ToggleExample() ui.Node {
 		isOn.Set(!parseCurrentState)
 	})
 
-	return h.Div(
-		h.FromProps(h.Props{
-			Class: "min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white p-4",
-		}),
-		h.Div(
-			h.Class("max-w-md w-full bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm p-8 shadow-2xl"),
-			h.H2(
-				h.Class("text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500"),
-				"Toggle Example",
-			),
+	return shared.ExamplePage(
+		"Toggle",
+		"ui.UseState",
+		"Flip one local boolean and watch the rendered state respond immediately.",
+		shared.ExamplePanel("State",
 			h.Div(
-				h.Class("flex flex-col items-center justify-center mb-10"),
+				h.Class("flex flex-col items-center justify-center gap-4"),
 				h.Div(
 					h.Class(func() string {
-						parseBase := "w-24 h-24 rounded-full flex items-center justify-center text-4xl mb-6 transition-all duration-500 shadow-lg "
+						parseBase := "flex h-24 w-24 items-center justify-center rounded-full border text-3xl font-semibold tracking-[0.18em] transition-all duration-300 "
 						if parseCurrentState {
-							return parseBase + "bg-green-500/20 text-green-400 shadow-green-500/20 border border-green-500/50"
+							return parseBase + "border-emerald-400/30 bg-emerald-400/10 text-emerald-100"
 						}
-						return parseBase + "bg-red-500/20 text-red-400 shadow-red-500/20 border border-red-500/50"
+						return parseBase + "border-rose-400/30 bg-rose-400/10 text-rose-100"
 					}()),
 					h.Text(func() string {
 						if parseCurrentState {
@@ -48,31 +44,27 @@ func ToggleExample() ui.Node {
 						return "OFF"
 					}),
 				),
-				h.P(
-					h.Class("text-gray-400 uppercase tracking-widest text-xs font-semibold"),
-					h.Textf("System Status: %s", func() string {
+				h.Div(
+					h.Class("grid w-full gap-3 sm:grid-cols-2"),
+					shared.ExampleStat("Signal", func() string {
 						if parseCurrentState {
-							return "ACTIVE"
+							return "Active"
 						}
-						return "INACTIVE"
+						return "Idle"
 					}()),
+					shared.ExampleStat("Boolean", fmt.Sprintf("%t", parseCurrentState)),
 				),
 			),
-			h.Button(
-				h.OnClick(parseToggle),
-				h.Class(func() string {
-					parseBase2 := "w-full px-6 py-4 font-bold rounded-lg transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] "
+		),
+		shared.ExamplePanel("Controls",
+			h.Div(
+				h.Class("flex flex-wrap gap-2"),
+				shared.ExampleButton(func() string {
 					if parseCurrentState {
-						return parseBase2 + "bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300"
+						return "Turn Off"
 					}
-					return parseBase2 + "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-purple-500/20"
-				}()),
-				h.Text(func() string {
-					if parseCurrentState {
-						return "Power Down System"
-					}
-					return "Initialize System"
-				}),
+					return "Turn On"
+				}(), parseToggle),
 			),
 		),
 	)

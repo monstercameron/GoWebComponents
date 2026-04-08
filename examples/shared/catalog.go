@@ -8,21 +8,66 @@ import (
 )
 
 func ExamplePage(parseTitle, parseFeature, parseSummary string, parseContent ...ui.Node) ui.Node {
-	parseDocumentation := ExampleDocumentation(parseTitle, parseFeature, parseSummary)
-	parseContent = append(parseContent, parseDocumentation...)
+	parseFeature = strings.TrimSpace(parseFeature)
+	parseSummary = strings.TrimSpace(parseSummary)
 
-	parseChildren := []ui.Node{
-		html.Div(html.Props{Class: "mx-auto max-w-6xl px-6 py-12"},
-			html.Div(html.Props{Class: "rounded-[2.25rem] border border-cyan-300/15 bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(15,23,42,0.76))] p-8 shadow-[0_24px_60px_rgba(2,6,23,0.45)] backdrop-blur-sm"},
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text(parseFeature)),
-				html.H1(html.Props{Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text(parseTitle)),
-				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(parseSummary)),
+	parseHeaderChildren := make([]ui.Node, 0, 3)
+	if parseFeature != "" {
+		parseHeaderChildren = append(parseHeaderChildren,
+			html.Div(html.Props{Class: "inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-400/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-100"},
+				html.Span(html.Props{Class: "h-2 w-2 rounded-full bg-cyan-300"}),
+				html.Text(parseFeature),
 			),
-			html.Div(html.Props{Class: "mt-8 grid gap-6"}, parseContent...),
-		),
+		)
+	}
+	parseHeaderChildren = append(parseHeaderChildren,
+		html.H1(html.Props{Class: "text-3xl font-semibold tracking-tight text-white sm:text-4xl"}, html.Text(parseTitle)),
+	)
+	if parseSummary != "" {
+		parseHeaderChildren = append(parseHeaderChildren,
+			html.P(html.Props{Class: "max-w-2xl text-sm leading-6 text-slate-300"}, html.Text(parseSummary)),
+		)
 	}
 
-	return html.Div(html.Props{Class: "min-h-screen text-slate-100"}, parseChildren...)
+	return html.Div(html.Props{Class: "gwc-example-shell min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_26%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.10),transparent_20%),linear-gradient(180deg,#020617_0%,#07111f_42%,#0f172a_100%)] text-slate-100"},
+		html.Tag("style", html.Props{}, html.Text(`
+.gwc-example-shell .gwc-example-panel p[class*="text-slate-300"],
+.gwc-example-shell .gwc-example-panel p[class*="text-slate-400"],
+.gwc-example-shell .gwc-example-panel p[class*="text-slate-200"],
+.gwc-example-shell .gwc-example-panel p[class*="text-cyan-50/80"],
+.gwc-example-shell .gwc-example-panel p[class*="text-cyan-100/80"],
+.gwc-example-shell .gwc-example-panel p[class*="text-emerald-50/90"],
+.gwc-example-shell .gwc-example-panel p[class*="text-rose-100"] {
+  font-size: 0.78rem !important;
+  line-height: 1.4 !important;
+  max-width: 40rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-wrap: balance;
+}
+.gwc-example-shell .gwc-example-panel ul[class*="text-slate-300"],
+.gwc-example-shell .gwc-example-panel ul[class*="text-slate-200"],
+.gwc-example-shell .gwc-example-panel ul[class*="text-slate-400"] {
+  gap: 0.45rem !important;
+  margin-top: 0.5rem !important;
+}
+.gwc-example-shell .gwc-example-panel ul[class*="text-slate-300"] li:nth-child(n+3),
+.gwc-example-shell .gwc-example-panel ul[class*="text-slate-200"] li:nth-child(n+3),
+.gwc-example-shell .gwc-example-panel ul[class*="text-slate-400"] li:nth-child(n+3) {
+  display: none;
+}
+`)),
+		html.Div(html.Props{Class: "mx-auto box-border flex min-h-screen w-full max-w-6xl items-start px-4 py-4 sm:px-5 sm:py-5"},
+			html.Div(html.Props{Class: "box-border w-full rounded-[24px] border border-white/10 bg-white/[0.05] p-4 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-5"},
+				html.Div(html.Props{Class: "border-b border-white/10 pb-4"},
+					html.Div(html.Props{Class: "space-y-3"}, parseHeaderChildren...),
+				),
+				html.Div(html.Props{Class: "mt-5 grid gap-4"}, parseContent...),
+			),
+		),
+	)
 }
 
 func ExampleDocumentation(parseTitle, parseFeature, parseSummary string) []ui.Node {
@@ -382,33 +427,36 @@ func ExampleBulletList(parseItems ...string) ui.Node {
 			continue
 		}
 		parseChildren = append(parseChildren,
-			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3"}, html.Text(parseTrimmed)),
+			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-2.5"}, html.Text(parseTrimmed)),
 		)
 	}
-	return html.Ul(html.Props{Class: "mt-5 grid gap-3 text-sm leading-7 text-slate-300"}, parseChildren...)
+	return html.Ul(html.Props{Class: "mt-4 grid gap-2 text-sm leading-6 text-slate-300"}, parseChildren...)
 }
 
 func ExamplePanel(parseTitle string, parseBody ...ui.Node) ui.Node {
-	parseChildren := append([]ui.Node{
-		html.H2(html.Props{Class: "text-xl font-bold text-white"}, html.Text(parseTitle)),
-	}, parseBody...)
-	return html.Div(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-slate-950/55 p-6 backdrop-blur-sm shadow-[0_18px_36px_rgba(2,6,23,0.32)]"}, parseChildren...)
+	parseChildren := []ui.Node{
+		html.Div(html.Props{Class: "border-b border-white/10 pb-3"},
+			html.H2(html.Props{Class: "text-lg font-semibold tracking-tight text-white sm:text-xl"}, html.Text(parseTitle)),
+		),
+		html.Div(html.Props{Class: "mt-4 space-y-3"}, parseBody...),
+	}
+	return html.Div(html.Props{Class: "gwc-example-panel rounded-[22px] border border-white/10 bg-slate-950/45 p-4 shadow-inner shadow-black/20 sm:p-5"}, parseChildren...)
 }
 
 func ExampleButton(parseLabel string, parseHandler ui.Handler) ui.Node {
 	return html.Button(
 		html.Props{
 			OnClick: parseHandler,
-			Class:   "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80",
+			Class:   "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0 active:scale-95",
 		},
 		html.Text(parseLabel),
 	)
 }
 
 func ExampleStat(parseLabel, parseValue string) ui.Node {
-	return html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/60 p-4"},
+	return html.Div(html.Props{Class: "rounded-[20px] border border-white/10 bg-slate-950/60 p-4 shadow-inner shadow-black/20"},
 		html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text(parseLabel)),
-		html.P(html.Props{Class: "mt-3 text-3xl font-black text-white"}, html.Text(parseValue)),
+		html.P(html.Props{Class: "mt-3 break-words text-3xl font-semibold tracking-tight text-white"}, html.Text(parseValue)),
 	)
 }
 
@@ -417,7 +465,7 @@ func ExampleCode(parseLines ...string) ui.Node {
 	for _, parseLine := range parseLines {
 		parseChildren = append(parseChildren, html.Text(parseLine+"\n"))
 	}
-	return html.Pre(html.Props{Class: "overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-slate-300"},
+	return html.Pre(html.Props{Class: "overflow-x-auto rounded-[22px] border border-white/10 bg-[#081420] p-4 font-mono text-sm leading-6 text-slate-200 shadow-inner shadow-black/20"},
 		html.Code(html.Props{}, parseChildren...),
 	)
 }

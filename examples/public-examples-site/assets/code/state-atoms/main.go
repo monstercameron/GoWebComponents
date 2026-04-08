@@ -5,9 +5,10 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
-
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -24,41 +25,41 @@ func CounterDisplay() ui.Node {
 	parseTheme := state.UseAtom(ThemeAtom, "light")
 	parseThemeLabel := state.UseComputed(func() string {
 		if parseTheme.Get() == "dark" {
-			return "Dark theme active"
+			return "Dark"
 		}
-		return "Light theme active"
+		return "Light"
 	}, parseTheme.Get())
 	parseCountSummary := state.UseComputed(func() string {
-		parseValue := parseCount.Get()
-		parseSign := "even"
-		if parseValue%2 != 0 {
-			parseSign = "odd"
+		if parseCount.Get()%2 != 0 {
+			return "Odd"
 		}
-		return fmt.Sprintf("%d is %s", parseValue, parseSign)
+		return "Even"
 	}, parseCount.Get())
 
-	parseTextColor := "text-gray-900"
+	parseSurfaceClass := "rounded-[20px] border border-amber-200/10 bg-amber-50/[0.03] p-5"
 	if parseTheme.Get() == "dark" {
-		parseTextColor = "text-white"
+		parseSurfaceClass = "rounded-[20px] border border-slate-400/15 bg-slate-950/80 p-5"
 	}
 
 	return html.Div(
-		html.Props{Class: "text-center p-8 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm shadow-2xl"},
-		html.H2(
-			html.Props{Class: "text-2xl font-bold " + parseTextColor + " mb-4"},
-			html.Text("Current Count"),
+		html.Props{Class: parseSurfaceClass},
+		html.Div(
+			html.Props{Class: "flex flex-wrap items-start justify-between gap-4"},
+			html.Div(
+				html.Props{Class: "space-y-2"},
+				html.Div(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"}, html.Text("Shared counter")),
+				html.Div(html.Props{Class: "font-mono text-6xl font-semibold tracking-tight text-white"}, html.Text(fmt.Sprintf("%d", parseCount.Get()))),
+			),
+			html.Div(
+				html.Props{Class: "rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-100"},
+				html.Text("Two components read the same atoms"),
+			),
 		),
 		html.Div(
-			html.Props{Class: "text-7xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 font-mono tracking-tighter"},
-			html.Text(fmt.Sprintf("%d", parseCount.Get())),
-		),
-		html.P(
-			html.Props{Class: "mt-4 text-sm text-gray-400"},
-			html.Text(parseThemeLabel.Get()),
-		),
-		html.P(
-			html.Props{Class: "mt-1 text-xs uppercase tracking-[0.2em] text-gray-500"},
-			html.Text(parseCountSummary.Get()),
+			html.Props{Class: "mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"},
+			shared.ExampleStat("Theme", parseThemeLabel.Get()),
+			shared.ExampleStat("Parity", parseCountSummary.Get()),
+			shared.ExampleStat("Atom ID", CounterAtom),
 		),
 	)
 }
@@ -78,84 +79,38 @@ func Controls() ui.Node {
 	parseToggleTheme := ui.UseEvent(func() {
 		if parseTheme.Get() == "light" {
 			parseTheme.Set("dark")
-		} else {
-			parseTheme.Set("light")
+			return
 		}
+		parseTheme.Set("light")
 	})
 
 	return html.Div(
-		html.Props{Class: "flex flex-col space-y-6"},
+		html.Props{Class: "space-y-4"},
 		html.Div(
-			html.Props{Class: "flex justify-center space-x-6"},
-			html.Button(
-				html.Props{
-					Class:   "w-16 h-16 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-2xl text-white transition-all duration-200 hover:scale-110 active:scale-95",
-					OnClick: parseDecrement,
-				},
-				html.Text("-"),
-			),
-			html.Button(
-				html.Props{
-					Class:   "w-16 h-16 flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600 rounded-full text-2xl text-white shadow-lg shadow-purple-500/20 transition-all duration-200 hover:scale-110 active:scale-95",
-					OnClick: parseIncrement,
-				},
-				html.Text("+"),
-			),
-		),
-		html.Button(
-			html.Props{
-				Class:   "px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg font-medium transition-colors duration-200",
-				OnClick: parseToggleTheme,
-			},
-			html.Text(func() string {
+			html.Props{Class: "flex flex-wrap gap-2"},
+			shared.ExampleButton("Decrement", parseDecrement),
+			shared.ExampleButton("Increment", parseIncrement),
+			shared.ExampleButton(func() string {
 				if parseTheme.Get() == "light" {
-					return "ðŸŒ™ Switch to Dark Mode"
+					return "Switch Theme: Dark"
 				}
-				return "â˜€ï¸ Switch to Light Mode"
-			}()),
+				return "Switch Theme: Light"
+			}(), parseToggleTheme),
+		),
+		html.P(
+			html.Props{Class: "rounded-[20px] border border-white/10 bg-slate-950/60 px-4 py-4 text-sm leading-6 text-slate-300"},
+			html.Text("Use one set of controls here, then watch the separate display panel update from the same shared counter and theme atoms."),
 		),
 	)
 }
 
 func App() ui.Node {
-	parseTheme := state.UseAtom(ThemeAtom, "light")
-
-	parseContainerClass := "min-h-screen transition-colors duration-500 flex items-center justify-center p-4"
-	if parseTheme.Get() == "dark" {
-		parseContainerClass += " bg-[#0a0a0a]"
-	} else {
-		parseContainerClass += " bg-gray-100"
-	}
-
-	parseCardClass := "max-w-md w-full rounded-2xl shadow-2xl p-8 transition-colors duration-500"
-	if parseTheme.Get() == "dark" {
-		parseCardClass += " bg-black/40 border border-white/10"
-	} else {
-		parseCardClass += " bg-white"
-	}
-
-	return html.Div(
-		html.Props{Class: parseContainerClass},
-		html.Div(
-			html.Props{Class: parseCardClass},
-			html.Div(
-				html.Props{Class: "text-center mb-10"},
-				html.H1(
-					html.Props{Class: "text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500"},
-					html.Text("Global State (Atoms)"),
-				),
-				html.P(
-					html.Props{Class: "mt-2 text-gray-500"},
-					html.Text("State shared across independent components"),
-				),
-			),
-			html.Div(
-				html.Props{Class: "space-y-10"},
-				ui.CreateElement(CounterDisplay),
-				html.Div(html.Props{Class: "border-t border-white/10"}),
-				ui.CreateElement(Controls),
-			),
-		),
+	return shared.ExamplePage(
+		"State Atoms",
+		"state.UseAtom",
+		"Share one counter and one theme value across separate components without prop wiring.",
+		shared.ExamplePanel("Shared Values", ui.CreateElement(CounterDisplay)),
+		shared.ExamplePanel("Controls", ui.CreateElement(Controls)),
 	)
 }
 

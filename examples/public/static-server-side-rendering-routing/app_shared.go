@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -132,29 +133,26 @@ func bootstrapTransport(parsePayload ui.SSRBootstrap) string {
 
 func renderDemoShell(parseView demoShellView, parseActions ...ui.Node) ui.Node {
 	parsePage := renderPage(parseView, parseActions...)
-
-	return html.Div(html.Props{Class: "min-h-screen bg-[#06131f] text-slate-100"},
-		html.Div(html.Props{Class: "mx-auto max-w-6xl px-6 py-10"},
-			html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_42%),rgba(15,23,42,0.92)] p-8 shadow-2xl"},
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("SSR Routing Demo")),
-				html.H1(html.Props{Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text("Server render first, hydrate into advanced routes")),
-				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text("This demo serves a real SSR shell, restores a bootstrap sidecar, reuses matching DOM during hydration, and then continues as a hash-router app with params, redirects, guards, loaders, query state, and manual revalidation.")),
-				html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-3"},
-					navLink("Overview", routeHomeHash, parseView.ActivePath == "/"),
-					navLink("Docs", routeDocsSSRHash, strings.HasPrefix(parseView.ActivePath, "/docs")),
-					navLink("Search", routeSearchHash, strings.HasPrefix(parseView.ActivePath, "/search")),
-					navLink("Protected", routeSecureHash, strings.HasPrefix(parseView.ActivePath, "/secure")),
-					navLink("Legacy Redirect", routeLegacyHash, strings.HasPrefix(parseView.ActivePath, "/legacy")),
-					navLink("Sign In", routeSignInHash, strings.HasPrefix(parseView.ActivePath, "/signin")),
-				),
-				html.Div(html.Props{Class: "mt-8 grid gap-4 md:grid-cols-3"},
-					statCard("Bootstrap route", emptyFallback(parseView.BootstrapPath, "/docs/"+guideSectionSSR)),
-					statCard("Transport", emptyFallback(parseView.Transport, transportJSONSidecar)),
-					statCard("Revision", fmt.Sprintf("%d", parseView.LoadRevision)),
-				),
+	return shared.ExamplePage(
+		"SSR Routing",
+		"ui.Hydrate + router.Loader",
+		"Server render first, hydrate matching DOM, and continue with params, query state, redirects, guards, and loader-driven navigation.",
+		shared.ExamplePanel("Route Controls",
+			html.Div(html.Props{Class: "flex flex-wrap gap-2"},
+				navLink("Overview", routeHomeHash, parseView.ActivePath == "/"),
+				navLink("Docs", routeDocsSSRHash, strings.HasPrefix(parseView.ActivePath, "/docs")),
+				navLink("Search", routeSearchHash, strings.HasPrefix(parseView.ActivePath, "/search")),
+				navLink("Protected", routeSecureHash, strings.HasPrefix(parseView.ActivePath, "/secure")),
+				navLink("Legacy Redirect", routeLegacyHash, strings.HasPrefix(parseView.ActivePath, "/legacy")),
+				navLink("Sign In", routeSignInHash, strings.HasPrefix(parseView.ActivePath, "/signin")),
 			),
-			html.Div(html.Props{Class: "mt-8"}, parsePage),
+			html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
+				shared.ExampleStat("Bootstrap Route", emptyFallback(parseView.BootstrapPath, "/docs/"+guideSectionSSR)),
+				shared.ExampleStat("Transport", emptyFallback(parseView.Transport, transportJSONSidecar)),
+				shared.ExampleStat("Revision", fmt.Sprintf("%d", parseView.LoadRevision)),
+			),
 		),
+		shared.ExamplePanel("Route Output", parsePage),
 	)
 }
 

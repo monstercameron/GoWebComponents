@@ -9,6 +9,7 @@ import (
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -27,14 +28,14 @@ func TodoItem(parseProps TodoItemProps) ui.Node {
 	parseRemove := ui.UseEvent(parseProps.OnRemove)
 
 	return html.Li(html.Props{
-		Class: "flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-lg mb-2 group hover:border-white/10 transition-all",
+		Class: "flex items-center justify-between gap-3 rounded-[20px] border border-white/10 bg-slate-950/60 px-4 py-3",
 	},
 		html.Span(html.Props{
-			Class: "text-gray-200",
+			Class: "min-w-0 break-words text-slate-100",
 		}, html.Text(parseProps.Text)),
 		html.Button(html.Props{
 			OnClick: parseRemove,
-			Class:   "px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded hover:bg-red-500/20 transition-colors text-sm opacity-0 group-hover:opacity-100",
+			Class:   "rounded-2xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/15",
 		}, html.Text("Remove")),
 	)
 }
@@ -79,45 +80,45 @@ func TodoList() ui.Node {
 		})
 	})
 
-	return html.Div(html.Props{
-		Class: "min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white p-4",
-	},
-		html.Div(html.Props{
-			Class: "max-w-2xl w-full bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm p-8 shadow-2xl",
-		},
-			html.H2(html.Props{
-				Class: "text-3xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500",
-			}, html.Text("Todo List")),
-
-			html.Div(html.Props{Class: "flex gap-3 mb-8"},
+	return shared.ExamplePage(
+		"Todo Basic",
+		"ui.UseState",
+		"Manage one local slice of todos with add, remove, and reset actions.",
+		shared.ExamplePanel("Composer",
+			html.Div(html.Props{Class: "flex flex-wrap gap-3"},
 				html.Input(html.Props{
 					Type:        "text",
 					Value:       parseCurrentNewTodo,
 					OnInput:     handleInput,
 					Placeholder: "Enter a new todo...",
-					Class:       "flex-1 px-4 py-3 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-white placeholder-gray-600 transition-all",
+					Class:       "min-w-[220px] flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none",
 				}),
 				html.Button(html.Props{
 					OnClick: parseAddTodo,
-					Class:   "px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity shadow-lg shadow-purple-500/20",
+					Class:   "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0 active:scale-95",
 				}, html.Text("Add")),
 			),
-
+			html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-2"},
+				shared.ExampleStat("Tasks", fmt.Sprintf("%d", len(parseCurrentTodos))),
+				shared.ExampleStat("Input", func() string {
+					if parseCurrentNewTodo == "" {
+						return "Empty"
+					}
+					return "Ready"
+				}()),
+			),
+		),
+		shared.ExamplePanel("List",
 			html.Div(html.Props{
-				Class: "flex justify-between items-center mb-4 px-1",
+				Class: "flex items-center justify-between gap-3",
 			},
-				html.P(html.Props{
-					Class: "text-gray-400 text-sm font-medium",
-				}, html.Textf("Tasks: %d", len(parseCurrentTodos))),
-
 				html.Button(html.Props{
 					OnClick: clearAll,
-					Class:   "text-xs text-gray-500 hover:text-red-400 transition-colors",
+					Class:   "rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100",
 				}, html.Text("Clear All")),
 			),
-
 			html.If(len(parseCurrentTodos) == 0,
-				html.P(html.Props{Class: "rounded-lg border border-dashed border-white/10 px-4 py-6 text-center text-sm text-gray-500"}, html.Text("No tasks yet. Add your first item above.")),
+				html.P(html.Props{Class: "rounded-[20px] border border-dashed border-white/10 px-4 py-6 text-center text-sm text-slate-400"}, html.Text("No tasks yet. Add your first item above.")),
 			),
 			html.Unless(len(parseCurrentTodos) == 0,
 				html.Ul(html.Props{

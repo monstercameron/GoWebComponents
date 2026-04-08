@@ -5,8 +5,10 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"strings"
 	"time"
 
@@ -102,62 +104,77 @@ func formPage(parseRegistration ui.Form[FormData], parseValidate func(FormData) 
 		}
 	})
 
-	return html.Div(html.Props{Class: "min-h-screen bg-[#0a0a0a] flex flex-col justify-center py-12 sm:px-6 lg:px-8"},
-		html.Div(html.Props{Class: "sm:mx-auto sm:w-full sm:max-w-md"},
-			html.Div(html.Props{Class: "text-center mb-8"},
-				html.H2(html.Props{Class: "text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500"}, html.Text("Create your account")),
-				html.P(html.Props{Class: "mt-2 text-sm text-gray-400"}, html.Text("Join our community today")),
-			),
-			html.Div(html.Props{Class: "bg-white/5 border border-white/10 py-8 px-4 shadow-2xl sm:rounded-xl sm:px-10 backdrop-blur-sm"},
-				html.Form(html.Props{},
-					func() ui.Node {
-						if parseRegistration.FormError() == "" {
-							return nil
-						}
-						return html.Div(html.Props{Class: "mb-5 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"}, html.Text(parseRegistration.FormError()))
-					}(),
-					ui.CreateElement(InputField, InputFieldProps{Label: "Username", Name: "username", InputType: "text", Value: parseCurrentForm.Username, ErrorMsg: parseCurrentErrors["Username"], OnChange: handleChange("Username")}),
-					ui.CreateElement(InputField, InputFieldProps{Label: "Email Address", Name: "email", InputType: "email", Value: parseCurrentForm.Email, ErrorMsg: parseCurrentErrors["Email"], OnChange: handleChange("Email")}),
-					ui.CreateElement(InputField, InputFieldProps{Label: "Password", Name: "password", InputType: "password", Value: parseCurrentForm.Password, ErrorMsg: parseCurrentErrors["Password"], OnChange: handleChange("Password")}),
-					ui.CreateElement(InputField, InputFieldProps{Label: "Confirm Password", Name: "confirm_password", InputType: "password", Value: parseCurrentForm.ConfirmPass, ErrorMsg: parseCurrentErrors["ConfirmPass"], OnChange: handleChange("ConfirmPass")}),
-					html.Div(html.Props{Class: "mb-5"},
-						html.Label(html.Props{Class: "block text-sm font-medium text-gray-400 mb-2"}, html.Text("Account Type")),
-						html.Select(html.Props{Class: "block w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-white", Value: parseCurrentForm.AccountType, OnChange: ui.UseEvent(func(parseE3 ui.Event) {
-							parseRegistration.SetField("AccountType", parseE3.GetValue())
-						})},
-							html.Option(html.Props{Value: "personal", Selected: parseCurrentForm.AccountType == "personal"}, html.Text("Personal")),
-							html.Option(html.Props{Value: "business", Selected: parseCurrentForm.AccountType == "business"}, html.Text("Business")),
-							html.Option(html.Props{Value: "enterprise", Selected: parseCurrentForm.AccountType == "enterprise"}, html.Text("Enterprise")),
-						),
+	return shared.ExamplePage(
+		"Advanced Form",
+		"ui.UseForm + router",
+		"Validate a routed signup form with sync checks, async checks, and a dedicated success route.",
+		shared.ExamplePanel("Registration",
+			html.Form(html.Props{},
+				func() ui.Node {
+					if parseRegistration.FormError() == "" {
+						return nil
+					}
+					return html.Div(html.Props{Class: "mb-5 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"}, html.Text(parseRegistration.FormError()))
+				}(),
+				ui.CreateElement(InputField, InputFieldProps{Label: "Username", Name: "username", InputType: "text", Value: parseCurrentForm.Username, ErrorMsg: parseCurrentErrors["Username"], OnChange: handleChange("Username")}),
+				ui.CreateElement(InputField, InputFieldProps{Label: "Email Address", Name: "email", InputType: "email", Value: parseCurrentForm.Email, ErrorMsg: parseCurrentErrors["Email"], OnChange: handleChange("Email")}),
+				ui.CreateElement(InputField, InputFieldProps{Label: "Password", Name: "password", InputType: "password", Value: parseCurrentForm.Password, ErrorMsg: parseCurrentErrors["Password"], OnChange: handleChange("Password")}),
+				ui.CreateElement(InputField, InputFieldProps{Label: "Confirm Password", Name: "confirm_password", InputType: "password", Value: parseCurrentForm.ConfirmPass, ErrorMsg: parseCurrentErrors["ConfirmPass"], OnChange: handleChange("ConfirmPass")}),
+				html.Div(html.Props{Class: "mb-5"},
+					html.Label(html.Props{Class: "mb-2 block text-sm font-medium text-gray-400"}, html.Text("Account Type")),
+					html.Select(html.Props{Class: "block w-full rounded-lg border border-white/10 bg-black/20 px-4 py-3 text-sm text-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500", Value: parseCurrentForm.AccountType, OnChange: ui.UseEvent(func(parseE3 ui.Event) {
+						parseRegistration.SetField("AccountType", parseE3.GetValue())
+					})},
+						html.Option(html.Props{Value: "personal", Selected: parseCurrentForm.AccountType == "personal"}, html.Text("Personal")),
+						html.Option(html.Props{Value: "business", Selected: parseCurrentForm.AccountType == "business"}, html.Text("Business")),
+						html.Option(html.Props{Value: "enterprise", Selected: parseCurrentForm.AccountType == "enterprise"}, html.Text("Enterprise")),
 					),
-					html.Div(html.Props{Class: "flex items-center mb-8"},
-						html.Input(html.Props{ID: "newsletter", Type: "checkbox", Class: "h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-600 rounded bg-black/20", Checked: parseCurrentForm.Newsletter, OnChange: ui.UseEvent(func(parseE4 ui.Event) {
-							parseRegistration.SetField("Newsletter", parseE4.IsChecked())
-						})}),
-						html.Label(html.Props{For: "newsletter", Class: "ml-2 block text-sm text-gray-300"}, html.Text("Subscribe to our newsletter")),
-					),
-					html.Div(html.Props{Class: "mb-4 text-xs text-slate-400"}, html.Text(func() string {
-						if parseRegistration.Validating() {
-							return "Running async validation"
-						}
-						if parseRegistration.DirtyAny() {
-							return "Form has unsaved changes"
-						}
-						return "Form is pristine"
-					}())),
-					html.Button(html.Props{Type: "button", OnClick: handleSubmit, Disabled: parseRegistration.Submitting() || parseRegistration.Validating(), Class: "w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-500/20"}, html.Text(func() string {
-						if parseRegistration.Validating() {
-							return "Checking Account..."
-						}
-						if parseRegistration.Submitting() {
-							return "Creating Account..."
-						}
-						if parseRegistration.SubmitError() != nil {
-							return "Retry Sign Up"
-						}
-						return "Sign Up"
-					}())),
 				),
+				html.Div(html.Props{Class: "mb-8 flex items-center"},
+					html.Input(html.Props{ID: "newsletter", Type: "checkbox", Class: "h-4 w-4 rounded border-gray-600 bg-black/20 text-blue-600 focus:ring-blue-500", Checked: parseCurrentForm.Newsletter, OnChange: ui.UseEvent(func(parseE4 ui.Event) {
+						parseRegistration.SetField("Newsletter", parseE4.IsChecked())
+					})}),
+					html.Label(html.Props{For: "newsletter", Class: "ml-2 block text-sm text-gray-300"}, html.Text("Subscribe to our newsletter")),
+				),
+				html.Div(html.Props{Class: "mb-4 text-xs text-slate-400"}, html.Text(func() string {
+					if parseRegistration.Validating() {
+						return "Running async validation"
+					}
+					if parseRegistration.DirtyAny() {
+						return "Form has unsaved changes"
+					}
+					return "Form is pristine"
+				}())),
+				html.Button(html.Props{Type: "button", OnClick: handleSubmit, Disabled: parseRegistration.Submitting() || parseRegistration.Validating(), Class: "flex w-full justify-center rounded-lg border border-transparent bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-purple-500/20 transition-all hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"}, html.Text(func() string {
+					if parseRegistration.Validating() {
+						return "Checking Account..."
+					}
+					if parseRegistration.Submitting() {
+						return "Creating Account..."
+					}
+					if parseRegistration.SubmitError() != nil {
+						return "Retry Sign Up"
+					}
+					return "Sign Up"
+				}())),
+			),
+		),
+		shared.ExamplePanel("State",
+			html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"},
+				shared.ExampleStat("Account", parseCurrentForm.AccountType),
+				shared.ExampleStat("Newsletter", fmt.Sprintf("%t", parseCurrentForm.Newsletter)),
+				shared.ExampleStat("Status", func() string {
+					if parseRegistration.Validating() {
+						return "Validating"
+					}
+					if parseRegistration.Submitting() {
+						return "Submitting"
+					}
+					if parseRegistration.DirtyAny() {
+						return "Dirty"
+					}
+					return "Ready"
+				}()),
 			),
 		),
 	)

@@ -4,6 +4,7 @@
 package main
 
 import (
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -13,17 +14,14 @@ import (
 // interactive examples into a cohesive single-page application experience.
 func DocsWebsite(parseProps Attrs) *Element {
 	return html.Div(html.Props{Class: "min-h-screen bg-[#0a0a0a] text-white selection:bg-blue-500/30"},
-		ui.CreateElement(NavBar),
-		ui.CreateElement(PersonalHeroSection),
-		ui.CreateElement(PersonalAboutSection),
-		ui.CreateElement(PersonalSkillsSection),
-		ui.CreateElement(PersonalYouTubeSection),
-		ui.CreateElement(PortfolioProjectsSection),
-		ui.CreateElement(GWCShowcaseSection),
-		ui.CreateElement(GWCExamplesSection),
-		ui.CreateElement(WhyGoWebComponentsSection),
-		ui.CreateElement(ContactSection),
-		ui.CreateElement(FooterSection),
-		ui.CreateElement(ScrollToTopButton),
+		shared.ExamplePage(
+			"Portfolio Site",
+			"routed multi-section app",
+			"Show a personal landing page, project gallery, and framework examples without turning the demo into a long-form marketing page.",
+			shared.ExamplePanel("Hero", ui.CreateElement(PersonalHeroSection)),
+			shared.ExamplePanel("Projects", ui.CreateElement(PortfolioProjectsSection)),
+			shared.ExamplePanel("Examples", ui.CreateElement(GWCExamplesSection)),
+			shared.ExamplePanel("Contact", ui.CreateElement(ContactSection)),
+		),
 	)
 }

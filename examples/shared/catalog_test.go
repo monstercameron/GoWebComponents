@@ -65,13 +65,16 @@ func TestExampleComponentsRenderExpectedMarkup(parseT *testing.T) {
 	}
 	for _, parseExpected := range []string{
 		"Catalog demo",
+		"ui.UseState",
 		"Short summary",
-		"Overview",
-		"Functional",
-		"Implementation",
 	} {
 		if !strings.Contains(parseMarkup, parseExpected) {
 			parseT.Fatalf("expected ExamplePage markup to contain %q, got %s", parseExpected, parseMarkup)
+		}
+	}
+	for _, parseUnexpected := range []string{"Overview", "Functional", "Implementation", "Purpose"} {
+		if strings.Contains(parseMarkup, parseUnexpected) {
+			parseT.Fatalf("expected ExamplePage markup to omit %q, got %s", parseUnexpected, parseMarkup)
 		}
 	}
 

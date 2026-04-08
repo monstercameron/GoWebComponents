@@ -11,6 +11,7 @@ import (
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/fetch"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -51,21 +52,21 @@ func loadJSON[T any](parseCtx context.Context, parseUrl string) (T, error) {
 
 func UserCard(parseUser User) ui.Node {
 	return html.Div(
-		html.Props{Class: "bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-sm hover:bg-white/10 transition-all duration-300"},
+		html.Props{Class: "rounded-[20px] border border-white/10 bg-slate-950/60 p-5 transition-all duration-300 hover:border-cyan-300/20 hover:bg-slate-950/80"},
 		html.Div(
 			html.Props{Class: "flex items-center space-x-4 mb-4"},
 			html.Div(
-				html.Props{Class: "w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg"},
+				html.Props{Class: "flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/10 text-xl font-bold text-cyan-100"},
 				html.Text(string(parseUser.Name[0])),
 			),
 			html.Div(
 				html.Props{},
 				html.H3(html.Props{Class: "text-lg font-bold text-white"}, html.Text(parseUser.Name)),
-				html.P(html.Props{Class: "text-sm text-blue-400"}, html.Text("@"+parseUser.Username)),
+				html.P(html.Props{Class: "text-sm text-cyan-300"}, html.Text("@"+parseUser.Username)),
 			),
 		),
 		html.Div(
-			html.Props{Class: "space-y-2 text-sm text-gray-400"},
+			html.Props{Class: "space-y-2 text-sm text-slate-400"},
 			html.P(
 				html.Props{Class: "flex items-center"},
 				html.Span(html.Props{Class: "mr-2"}, html.Text("Email")),
@@ -111,9 +112,9 @@ func App() ui.Node {
 			}
 
 			return html.Div(
-				html.Props{Class: "mt-6 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 text-sm text-cyan-100"},
-				html.P(html.Props{Class: "font-semibold"}, html.Text("Async UI primitive demo")),
-				html.P(html.Props{Class: "mt-2 text-cyan-50/80"}, html.Text("This note is resolved through ui.Lazy, while the surrounding panels use ui.AsyncBoundary instead of open-coded loading branches.")),
+				html.Props{Class: "mt-6 rounded-[20px] border border-cyan-500/20 bg-cyan-500/5 p-4 text-sm text-cyan-100"},
+				html.P(html.Props{Class: "font-semibold"}, html.Text("Deferred note")),
+				html.P(html.Props{Class: "mt-2 text-cyan-50/80"}, html.Text("This block resolves through ui.Lazy while the list and detail panels use ui.AsyncBoundary.")),
 			), nil
 		},
 		Dependencies: []interface{}{parseSelectedUserID.Get()},
@@ -222,18 +223,18 @@ func App() ui.Node {
 				),
 			}),
 			html.Div(
-				html.Props{Class: "bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-sm h-fit sticky top-6"},
-				html.H2(html.Props{Class: "text-xl font-bold text-white mb-2"}, html.Text("Selected User")),
-				html.P(html.Props{Class: "text-sm text-gray-400 mb-6"}, html.Text("This panel uses ui.AsyncBoundary around fetch.UseCachedResource state, and the note below is deferred through ui.Lazy.")),
+				html.Props{Class: "sticky top-6 h-fit rounded-[22px] border border-white/10 bg-slate-950/60 p-6"},
+				html.H2(html.Props{Class: "mb-2 text-xl font-bold text-white"}, html.Text("Selected User")),
+				html.P(html.Props{Class: "mb-6 text-sm text-slate-400"}, html.Text("Inspect cached detail state, reload behavior, and optimistic edits for one selected record.")),
 				html.Div(
-					html.Props{Class: "mb-6 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-gray-300"},
+					html.Props{Class: "mb-6 rounded-[20px] border border-white/10 bg-black/20 p-4 text-sm text-slate-300"},
 					html.P(html.Props{Class: "font-semibold text-white"}, html.Text("Shared cache status")),
-					html.P(html.Props{Class: "mt-2 text-gray-400"}, html.Text(fmt.Sprintf("%d users cached; background reloads are deduplicated across panels.", len(parseSummaryState.Value)))),
+					html.P(html.Props{Class: "mt-2 text-slate-400"}, html.Text(fmt.Sprintf("%d users cached; reloads are deduplicated across both panels.", len(parseSummaryState.Value)))),
 					func() ui.Node {
 						if parseSummaryState.UpdatedAt.IsZero() {
-							return html.P(html.Props{Class: "mt-2 text-gray-500"}, html.Text("No successful shared query yet."))
+							return html.P(html.Props{Class: "mt-2 text-slate-500"}, html.Text("No successful shared query yet."))
 						}
-						return html.P(html.Props{Class: "mt-2 text-gray-500"}, html.Text("Last shared update: "+parseSummaryState.UpdatedAt.Format(time.Kitchen)))
+						return html.P(html.Props{Class: "mt-2 text-slate-500"}, html.Text("Last shared update: "+parseSummaryState.UpdatedAt.Format(time.Kitchen)))
 					}(),
 				),
 				ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
@@ -286,52 +287,53 @@ func App() ui.Node {
 		)
 	}
 
-	return html.Div(
-		html.Props{Class: "min-h-screen bg-[#0a0a0a] text-white py-12 px-4 sm:px-6 lg:px-8"},
-		html.Div(
-			html.Props{Class: "max-w-7xl mx-auto"},
+	return shared.ExamplePage(
+		"Fetch",
+		"fetch.UseCachedResource + ui.AsyncBoundary",
+		"Load shared list data, inspect one detail record, and compare reload, cancel, and optimistic update paths.",
+		shared.ExamplePanel("Resource Controls",
 			html.Div(
-				html.Props{Class: "text-center mb-12"},
-				html.H1(
-					html.Props{Class: "text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 sm:text-5xl sm:tracking-tight lg:text-6xl"},
-					html.Text("User Directory"),
+				html.Props{Class: "flex flex-wrap gap-2"},
+				html.Button(
+					html.Props{
+						Class:   "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0 active:scale-95",
+						OnClick: handleRefresh,
+					},
+					html.Text(func() string {
+						if parseUsersState.Loading || parseDetailState.Loading {
+							return "Refreshing"
+						}
+						return "Reload Resources"
+					}()),
 				),
-				html.P(
-					html.Props{Class: "mt-5 max-w-xl mx-auto text-xl text-gray-400"},
-					html.Text("Demonstrating shared cached queries, stale-while-revalidate refreshes, optimistic mutation, and explicit async boundaries."),
+				html.Button(
+					html.Props{
+						Class:   "rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-300/30 hover:text-cyan-100 active:translate-y-0 active:scale-95",
+						OnClick: handleInvalidateShared,
+					},
+					html.Text("Invalidate Shared Query"),
 				),
-				html.Div(
-					html.Props{Class: "mt-8 flex flex-wrap items-center justify-center gap-3"},
-					html.Button(
-						html.Props{
-							Class:   "inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 shadow-lg shadow-purple-500/20 transition-all duration-200",
-							OnClick: handleRefresh,
-						},
-						html.Text(func() string {
-							if parseUsersState.Loading || parseDetailState.Loading {
-								return "Refreshing..."
-							}
-							return "Reload Resources"
-						}()),
-					),
-					html.Button(
-						html.Props{
-							Class:   "inline-flex items-center px-6 py-3 text-base font-medium rounded-lg text-cyan-100 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 transition-all duration-200",
-							OnClick: handleInvalidateShared,
-						},
-						html.Text("Invalidate Shared Query"),
-					),
-					html.Button(
-						html.Props{
-							Class:   "inline-flex items-center px-6 py-3 text-base font-medium rounded-lg text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200",
-							OnClick: handleCancel,
-						},
-						html.Text("Cancel In-Flight Work"),
-					),
+				html.Button(
+					html.Props{
+						Class:   "rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-300/30 hover:text-cyan-100 active:translate-y-0 active:scale-95",
+						OnClick: handleCancel,
+					},
+					html.Text("Cancel In-Flight Work"),
 				),
 			),
-			parseContent,
+			html.Div(
+				html.Props{Class: "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"},
+				shared.ExampleStat("Users", fmt.Sprintf("%d", len(parseSummaryState.Value))),
+				shared.ExampleStat("Selected ID", fmt.Sprintf("%d", parseSelectedUserID.Get())),
+				shared.ExampleStat("Cache", func() string {
+					if parseSummaryState.UpdatedAt.IsZero() {
+						return "Cold"
+					}
+					return "Warm"
+				}()),
+			),
 		),
+		shared.ExamplePanel("Directory", parseContent),
 	)
 }
 

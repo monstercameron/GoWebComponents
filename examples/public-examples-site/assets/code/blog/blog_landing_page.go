@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -90,41 +91,12 @@ func HeaderComponent() ui.Node {
 func HeroSection() ui.Node {
 	fmt.Println("HeroSection: rendering hero banner with CTA buttons")
 
-	return html.Section(html.Props{
-		ID:    "home",
-		Class: "py-24 px-6 relative overflow-hidden",
-	},
-		html.Div(html.Props{
-			Class: "absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-4xl bg-blue-500/10 blur-[100px] -z-10 rounded-full",
-		}),
-		html.Div(html.Props{
-			Class: "container mx-auto text-center relative z-10",
-		},
-			html.H2(html.Props{
-				Class: "text-6xl font-extrabold text-white mb-8 tracking-tight",
-			}, html.Text("Welcome to TechBlog")),
-			html.P(html.Props{
-				Class: "text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed",
-			}, html.Text("Discover the latest trends in technology, programming, and web development. Join our community of passionate developers and tech enthusiasts.")),
-			html.Div(html.Props{
-				Class: "flex justify-center space-x-6",
-			},
-				html.Button(html.Props{
-					Class: "bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-lg font-bold hover:opacity-90 transition-all shadow-lg shadow-purple-500/20",
-				}, html.Text("Start Reading")),
-				html.Button(html.Props{
-					Class: "bg-white/5 border border-white/10 text-white px-8 py-4 rounded-lg font-bold hover:bg-white/10 transition-all",
-				}, html.Text("Subscribe")),
-			),
-			html.Div(html.Props{
-				Class: "mt-16 space-y-4 opacity-50 hover:opacity-100 transition-opacity",
-			},
-				html.H3(html.Props{
-					Class: "text-sm font-semibold text-gray-500 uppercase tracking-widest",
-				}, html.Text("Component Reference Demo")),
-				ui.CreateElement(TestComponent),
-				ui.CreateElement(AnotherTestComponent),
-			),
+	return html.Div(html.Props{Class: "rounded-[22px] border border-white/10 bg-slate-950/60 p-8 text-center"},
+		html.H2(html.Props{Class: "text-4xl font-semibold tracking-tight text-white"}, html.Text("TechBlog")),
+		html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("Show one reusable hero, three post cards, and one newsletter action to explain a simple editorial landing page.")),
+		html.Div(html.Props{Class: "mt-6 flex flex-wrap justify-center gap-3"},
+			shared.ExampleButton("Start Reading", ui.UseEvent(func() {})),
+			shared.ExampleButton("Subscribe", ui.UseEvent(func() {})),
 		),
 	)
 }
@@ -364,16 +336,12 @@ func FooterComponent() ui.Node {
 func BlogLandingPage() ui.Node {
 	fmt.Println("BlogLandingPage: constructing main page layout")
 
-	return html.Div(html.Props{
-		Class: "min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-blue-500/30",
-	},
-		ui.CreateElement(HeaderComponent),
-		html.Main(html.Props{},
-			ui.CreateElement(HeroSection),
-			ui.CreateElement(FeaturedPostsSection),
-			ui.CreateElement(AboutSection),
-			ui.CreateElement(NewsletterSection),
-		),
-		ui.CreateElement(FooterComponent),
+	return shared.ExamplePage(
+		"Blog Landing Page",
+		"html + ui.CreateElement",
+		"Compose an editorial landing page from reusable sections, post cards, and a compact signup surface.",
+		shared.ExamplePanel("Hero", ui.CreateElement(HeroSection)),
+		shared.ExamplePanel("Featured Posts", ui.CreateElement(FeaturedPostsSection)),
+		shared.ExamplePanel("Subscribe", ui.CreateElement(NewsletterSection)),
 	)
 }

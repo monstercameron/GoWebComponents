@@ -9,7 +9,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
-
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/router"
@@ -37,18 +37,18 @@ var routeLocales = []string{"en", "fr", "ar"}
 var routeContent = map[string]localeRouteContent{
 	"en": {
 		Title:   "Locale-prefixed pricing route",
-		Summary: "The loader resolves the active locale from the URL prefix, then picks content for that locale without duplicating the route component per market.",
-		Loader:  "Application loaders own locale-specific data selection; the i18n package only normalizes prefixes and path resolution.",
+		Summary: "Resolve the active locale from the URL prefix and reuse one route component for each market.",
+		Loader:  "The route loader chooses locale-specific content while i18n normalizes prefixes and path resolution.",
 	},
 	"fr": {
 		Title:   "Route tarifaire avec prefixe de langue",
-		Summary: "Le chargeur lit le prefixe de langue dans l'URL puis choisit le contenu adapte sans dupliquer tout le composant de route.",
-		Loader:  "Le chargeur applicatif choisit le contenu localise; le package i18n fournit surtout la normalisation de prefixe et la resolution du chemin.",
+		Summary: "Lire le prefixe dans l URL puis servir le bon contenu sans dupliquer le composant de route.",
+		Loader:  "Le loader choisit le contenu localise et i18n gere la resolution du chemin.",
 	},
 	"ar": {
-		Title:   "مسار تسعير مع بادئة لغة",
-		Summary: "يستخرج المحمل اللغة النشطة من بادئة المسار ثم يختار المحتوى المناسب بدون تكرار مكون الصفحة لكل سوق.",
-		Loader:  "المحمل في التطبيق يختار المحتوى المحلي، بينما يوفر i18n تطبيع البادئة وتحليل المسار فقط.",
+		Title:   "Arabic locale pricing route",
+		Summary: "Keep one pricing page component and switch locale behavior through the route prefix.",
+		Loader:  "The loader maps URL prefix to locale data before rendering the routed view.",
 	},
 }
 
@@ -72,32 +72,27 @@ func localeRouteView(parseProps localeRoutePageProps) ui.Node {
 		})
 	}
 
-	return html.Div(html.Props{Class: "min-h-screen bg-[#08111d] text-slate-100", Raw: map[string]interface{}{"dir": parseDirection, "lang": parseProps.Locale, "data-route-locale": parseProps.Locale}},
-		html.Div(html.Props{Class: "mx-auto max-w-4xl px-6 py-12"},
-			html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl"},
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Locale routing guidance")),
-				html.H1(html.Props{ID: "locale-routing-title", Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text(parseProps.Title)),
-				html.P(html.Props{ID: "locale-routing-summary", Class: "mt-4 text-lg leading-8 text-slate-300"}, html.Text(parseProps.Summary)),
-				html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
-						html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Locale")),
-						html.P(html.Props{ID: "locale-routing-locale", Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseProps.Locale)),
-					),
-					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
-						html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Base path")),
-						html.P(html.Props{ID: "locale-routing-base", Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseProps.BasePath)),
-					),
-					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
-						html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Localized path")),
-						html.P(html.Props{ID: "locale-routing-path", Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseProps.LocalizedPath)),
-					),
+	return html.Div(html.Props{Raw: map[string]interface{}{"dir": parseDirection, "lang": parseProps.Locale, "data-route-locale": parseProps.Locale}},
+		shared.ExamplePage(
+			"Locale Routing",
+			"i18n.ResolvePath + router.Loader",
+			"Resolve locale from the URL prefix and keep one routed view alive across localized paths.",
+			shared.ExamplePanel("Route State",
+				html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
+					shared.ExampleStat("Locale", parseProps.Locale),
+					shared.ExampleStat("Base Path", parseProps.BasePath),
+					shared.ExampleStat("Localized Path", parseProps.LocalizedPath),
 				),
-				html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-					html.Button(html.Props{ID: "locale-route-en", Class: "rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100", OnClick: parseGoLocale("en")}, html.Text("English route")),
-					html.Button(html.Props{ID: "locale-route-fr", Class: "rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100", OnClick: parseGoLocale("fr")}, html.Text("Route francaise")),
-					html.Button(html.Props{ID: "locale-route-ar", Class: "rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-100", OnClick: parseGoLocale("ar")}, html.Text("المسار العربي")),
+			),
+			shared.ExamplePanel("Switch Locale",
+				html.Div(html.Props{Class: "flex flex-wrap gap-2"},
+					shared.ExampleButton("English", parseGoLocale("en")),
+					shared.ExampleButton("Francais", parseGoLocale("fr")),
+					shared.ExampleButton("Arabic", parseGoLocale("ar")),
 				),
-				html.P(html.Props{ID: "locale-routing-loader", Class: "mt-6 text-sm leading-7 text-slate-400"}, html.Text(parseProps.Loader)),
+				html.P(html.Props{ID: "locale-routing-title", Class: "text-lg font-semibold text-white"}, html.Text(parseProps.Title)),
+				html.P(html.Props{ID: "locale-routing-summary", Class: "text-sm leading-6 text-slate-300"}, html.Text(parseProps.Summary)),
+				html.P(html.Props{ID: "locale-routing-loader", Class: "text-sm leading-6 text-slate-400"}, html.Text(parseProps.Loader)),
 			),
 		),
 	)

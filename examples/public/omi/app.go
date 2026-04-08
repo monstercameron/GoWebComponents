@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/devtools"
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/fetch"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/router"
@@ -160,82 +161,65 @@ func Shell(parseProps ShellProps) ui.Node {
 		return nil
 	}, parseProps.Title, parseTheme.Get())
 
-	parseThemePanelClass := "min-h-screen text-slate-100 selection:bg-cyan-400/20 "
+	parseThemePanelClass := "text-slate-100 selection:bg-cyan-400/20"
+	parseSurfaceClass := "rounded-[20px] border border-slate-800/80 bg-[#0d1722]/82 p-4 shadow-inner shadow-black/20"
 	if parseTheme.Get() == "signal" {
-		parseThemePanelClass += "bg-[#0d1319]"
-	} else {
-		parseThemePanelClass += "bg-[#071018]"
+		parseSurfaceClass = "rounded-[20px] border border-cyan-500/20 bg-cyan-950/20 p-4 shadow-inner shadow-black/20"
 	}
 
-	return html.Div(html.Props{
-		Class: parseThemePanelClass,
-	},
-		html.Header(html.Props{
-			Class: "border-b border-slate-800/80 bg-[#0d1722]/88 backdrop-blur-xl sticky top-0 z-50",
-		},
+	parseStatusNodes := []ui.Node{
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
+			shared.ExampleStat("Route", parseProps.Title),
+			shared.ExampleStat("Theme", strings.ToUpper(parseTheme.Get())),
+			shared.ExampleStat("Shared search", strings.TrimSpace(parseSearch.Get()+" ")+func() string {
+				if strings.TrimSpace(parseSearch.Get()) == "" {
+					return "idle"
+				}
+				return "active"
+			}()),
+		),
+	}
+
+	if parseNotice.Get().Title != "" {
+		parseAccent := "border-cyan-900/80 bg-cyan-950/50 text-cyan-100"
+		if parseNotice.Get().Level == "warn" {
+			parseAccent = "border-amber-900/80 bg-amber-950/45 text-amber-100"
+		}
+		parseStatusNodes = append(parseStatusNodes,
 			html.Div(html.Props{
-				Class: "mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-4",
+				Class: "rounded-2xl border px-5 py-4 " + parseAccent,
 			},
-				html.Div(html.Props{},
-					html.P(html.Props{
-						Class: "text-xs uppercase tracking-[0.35em] text-cyan-300",
-					}, html.Text("OMI")),
-					html.H1(html.Props{
-						Class: "text-2xl font-black tracking-tight",
-					}, html.Text("Omni Hooks Showcase")),
+				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
+					html.Div(html.Props{},
+						html.Strong(html.Props{Class: "block text-sm uppercase tracking-[0.25em]"}, html.Text(parseNotice.Get().Title)),
+						html.P(html.Props{Class: "mt-2 text-sm leading-6"}, html.Text(parseNotice.Get().Body)),
+					),
+					shared.ExampleButton("Dismiss", clearNotice),
 				),
-				html.Nav(html.Props{
-					Class: "flex flex-wrap items-center gap-3",
-				},
+			),
+		)
+	}
+
+	return html.Div(html.Props{Class: parseThemePanelClass},
+		shared.ExamplePage(
+			"OMI",
+			"state atoms + route loaders",
+			"Shared atoms, route loaders, guarded routes, and devtools inside one routed app shell.",
+			shared.ExamplePanel("Navigate",
+				html.Div(html.Props{Class: "flex flex-wrap gap-3"},
 					ui.CreateElement(NavLink, NavLinkProps{Label: "Overview", Path: "/", Active: parseProps.ActivePath == "/"}),
 					ui.CreateElement(NavLink, NavLinkProps{Label: "Data Lab", Path: "/data", Active: parseProps.ActivePath == "/data"}),
 					ui.CreateElement(NavLink, NavLinkProps{Label: "Search", Path: "/search", Active: parseProps.ActivePath == "/search"}),
 					ui.CreateElement(NavLink, NavLinkProps{Label: "Secure", Path: "/secure", Active: parseProps.ActivePath == "/secure"}),
 					ui.CreateElement(NavLink, NavLinkProps{Label: "Playground", Path: "/playground", Active: parseProps.ActivePath == "/playground"}),
-				),
-				html.Div(html.Props{
-					Class: "flex items-center gap-3",
-				},
-					html.Small(html.Props{
-						Class: "hidden text-right text-xs uppercase tracking-[0.25em] text-slate-400 md:block",
-					}, html.Text("Shared search: "+parseSearch.Get())),
-					html.Button(html.Props{
-						OnClick: parseToggleTheme,
-						Class:   "rounded-full border border-slate-700/80 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800/90",
-					}, html.Text("Theme: "+strings.ToUpper(parseTheme.Get()))),
+					shared.ExampleButton("Theme: "+strings.ToUpper(parseTheme.Get()), parseToggleTheme),
 				),
 			),
+			shared.ExamplePanel("Status", parseStatusNodes...),
+			shared.ExamplePanel("Workspace",
+				html.Div(html.Props{Class: parseSurfaceClass}, parseProps.Page),
+			),
 		),
-		func() ui.Node {
-			if parseNotice.Get().Title == "" {
-				return nil
-			}
-
-			parseAccent := "border-cyan-900/80 bg-cyan-950/50 text-cyan-100"
-			if parseNotice.Get().Level == "warn" {
-				parseAccent = "border-amber-900/80 bg-amber-950/45 text-amber-100"
-			}
-
-			return html.Div(html.Props{
-				Class: "mx-auto mt-6 max-w-6xl rounded-2xl border px-5 py-4 " + parseAccent,
-			},
-				html.Div(html.Props{
-					Class: "flex items-start justify-between gap-4",
-				},
-					html.Div(html.Props{},
-						html.Strong(html.Props{Class: "block text-sm uppercase tracking-[0.25em]"}, html.Text(parseNotice.Get().Title)),
-						html.P(html.Props{Class: "mt-2 text-sm leading-6"}, html.Text(parseNotice.Get().Body)),
-					),
-					html.Button(html.Props{
-						OnClick: clearNotice,
-						Class:   "rounded-full border border-slate-700/80 bg-slate-900/60 px-3 py-1 text-xs font-bold hover:bg-slate-800/90",
-					}, html.Text("Dismiss")),
-				),
-			)
-		}(),
-		html.Main(html.Props{
-			Class: "mx-auto max-w-6xl px-6 py-10",
-		}, parseProps.Page),
 		ui.CreateElement(devtools.Panel, devtools.PanelProps{
 			Title:           "OMI Devtools",
 			InitiallyOpen:   false,

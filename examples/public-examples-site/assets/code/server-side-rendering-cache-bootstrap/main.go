@@ -12,6 +12,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/fetch"
 	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/html"
@@ -124,54 +125,45 @@ func cacheCard(parseTitle string, parsePolicy fetch.CacheResumePolicy, parseSumm
 }
 
 func statBlock(parseLabel, parseValue string) ui.Node {
-	return html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
-		html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text(parseLabel)),
-		html.P(html.Props{Class: "mt-3 text-lg font-black text-white"}, html.Text(parseValue)),
-	)
+	return shared.ExampleStat(parseLabel, parseValue)
 }
 
 func actionButton(parseLabel string, parseHandler ui.Handler) ui.Node {
-	return html.Button(html.Props{
-		OnClick: parseHandler,
-		Class:   "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80",
-	}, html.Text(parseLabel))
+	return shared.ExampleButton(parseLabel, parseHandler)
 }
 
 func app() ui.Node {
-	return html.Div(html.Props{Class: "min-h-screen bg-[#08111d] text-slate-100"},
-		html.Div(html.Props{Class: "mx-auto max-w-6xl px-6 py-12"},
-			html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl"},
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("SSR shared-cache bootstrap")),
-				html.H1(html.Props{Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text("Seed fetch cache state before hydration")),
-				html.P(html.Props{Class: "mt-4 max-w-4xl text-lg leading-8 text-slate-300"}, html.Text("This page restores shared-cache entries from ui.SSRBootstrap.Data before hydration. The three cards show trust-once, stale-while-revalidate, and always-refetch resume behavior against the same public fetch cache surface.")),
-				html.Div(html.Props{Class: "mt-8 grid gap-6 lg:grid-cols-3"},
-					cacheCard(
-						"Trust bootstrap once",
-						fetch.CacheResumeTrustOnce,
-						"Use the seeded value as fresh data until explicit reload, invalidation, or normal stale timing says otherwise.",
-						"catalog:trust",
-						loadTrust,
-					),
-					cacheCard(
-						"Stale while revalidate",
-						fetch.CacheResumeStaleWhileRevalidate,
-						"Start with the server snapshot, but mark it stale because the embedded timestamp is already beyond the allowed freshness window.",
-						"catalog:swr",
-						loadStale,
-					),
-					cacheCard(
-						"Always refetch",
-						fetch.CacheResumeAlwaysRefetch,
-						"Keep the seed visible for first paint, but force an authoritative client pass on the first subscriber regardless of freshness.",
-						"catalog:always",
-						loadAlways,
-					),
+	return shared.ExamplePage(
+		"SSR Cache Bootstrap",
+		"ui.SSRBootstrap + fetch.UseCachedResource",
+		"Seed fetch cache state before hydration and compare three different resume policies against the same shared resource surface.",
+		shared.ExamplePanel("Resume Policies",
+			html.Div(html.Props{Class: "grid gap-6 lg:grid-cols-3"},
+				cacheCard(
+					"Trust Bootstrap Once",
+					fetch.CacheResumeTrustOnce,
+					"Treat the bootstrap value as fresh until normal invalidation or stale timing says otherwise.",
+					"catalog:trust",
+					loadTrust,
 				),
-				html.Div(html.Props{Class: "mt-8 rounded-[1.5rem] border border-white/10 bg-white/5 p-6"},
-					html.P(html.Props{Class: "text-xs uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Security and serialization")),
-					html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Bootstrap cache entries should stay JSON-shaped, omit secrets, and remain small enough for the first HTML response. The shared cache only improves startup and reuse; it does not make client data authoritative.")),
+				cacheCard(
+					"Stale While Revalidate",
+					fetch.CacheResumeStaleWhileRevalidate,
+					"Show the bootstrap value immediately, then refresh it in the background.",
+					"catalog:swr",
+					loadStale,
+				),
+				cacheCard(
+					"Always Refetch",
+					fetch.CacheResumeAlwaysRefetch,
+					"Keep first paint fast but force an authoritative client reload on the first subscriber.",
+					"catalog:always",
+					loadAlways,
 				),
 			),
+		),
+		shared.ExamplePanel("Notes",
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Bootstrap cache entries should stay JSON-shaped, omit secrets, and stay small enough for the first HTML response.")),
 		),
 	)
 }

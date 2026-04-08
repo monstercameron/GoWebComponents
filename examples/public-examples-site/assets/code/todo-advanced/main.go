@@ -10,6 +10,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/examples/shared"
 
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -186,7 +187,7 @@ func TodoInput(parseProps TodoInputProps) ui.Node {
 
 	return html.Form(html.PropsOf(
 		html.OnSubmit(handleSubmit),
-		html.Class("bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-sm mb-6"),
+		html.Class("rounded-[22px] border border-white/10 bg-slate-950/60 p-6"),
 	),
 		html.H3(html.PropsOf(html.Class("text-lg font-bold mb-4 text-white")), html.Text("Add Todo")),
 		html.Div(html.PropsOf(html.Class("mb-4")),
@@ -234,7 +235,7 @@ func TodoInput(parseProps TodoInputProps) ui.Node {
 		),
 		html.Button(html.PropsOf(
 			html.Type("submit"),
-			html.Class("w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:opacity-90 transition-opacity font-semibold shadow-lg shadow-purple-500/20"),
+			html.Class("w-full rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-6 py-3 font-semibold text-cyan-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0 active:scale-95"),
 		), html.Text("Add Todo")),
 	)
 }
@@ -247,7 +248,7 @@ func TodoFilters(parseProps TodoFiltersProps) ui.Node {
 		return "px-4 py-2 bg-white/5 text-gray-400 rounded-lg hover:bg-white/10 text-sm"
 	}
 
-	return html.Div(html.PropsOf(html.Class("bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-sm mb-6")),
+	return html.Div(html.PropsOf(html.Class("rounded-[22px] border border-white/10 bg-slate-950/60 p-6")),
 		html.H3(html.PropsOf(html.Class("text-lg font-bold mb-4 text-white")), html.Text("Filters")),
 		html.Div(html.PropsOf(html.Class("grid grid-cols-2 gap-4")),
 			html.Div(html.Props{},
@@ -366,20 +367,26 @@ func TodoApp() ui.Node {
 		}
 	}
 
-	return html.Div(html.PropsOf(html.Class("min-h-screen bg-[#0a0a0a] text-white p-8")),
-		html.Div(html.PropsOf(html.Class("max-w-4xl mx-auto")),
-			html.H1(html.PropsOf(html.Class("text-4xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500")), html.Text("Advanced Todo App")),
+	return shared.ExamplePage(
+		"Todo Advanced",
+		"ui.UseState + html.MapKeyed",
+		"Manage richer todo data with filtering, priority badges, categories, due dates, and keyed list updates.",
+		shared.ExamplePanel("Composer",
 			ui.CreateElement(TodoInput, TodoInputProps{OnAdd: parseAddTodo}),
+		),
+		shared.ExamplePanel("Filters",
 			ui.CreateElement(TodoFilters, TodoFiltersProps{
 				Filter:   parseCurrentFilter,
 				OnChange: func(parseNext4 TodoFilter) { filter.Set(parseNext4) },
 			}),
-			html.Div(html.PropsOf(html.Class("bg-white/5 border border-white/10 p-4 rounded-lg mb-6 flex gap-6 text-sm text-gray-400")),
-				html.Span(html.Props{}, html.Textf("Total: %d", parseTotal)),
-				html.Span(html.Props{}, html.Textf("Active: %d", parseActive)),
-				html.Span(html.Props{}, html.Textf("Completed: %d", parseCompleted)),
+		),
+		shared.ExamplePanel("List",
+			html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-3"},
+				shared.ExampleStat("Total", fmt.Sprintf("%d", parseTotal)),
+				shared.ExampleStat("Active", fmt.Sprintf("%d", parseActive)),
+				shared.ExampleStat("Completed", fmt.Sprintf("%d", parseCompleted)),
 			),
-			html.Div(html.PropsOf(html.Class("bg-white/5 border border-white/10 rounded-xl overflow-hidden")),
+			html.Div(html.PropsOf(html.Class("rounded-[22px] border border-white/10 bg-slate-950/60 overflow-hidden")),
 				html.Ul(html.PropsOf(html.Class("divide-y divide-white/5")), parseTodoItems...),
 			),
 		),
