@@ -42,7 +42,7 @@ func RegisterBuiltinPlugin(parseRegistration PluginRegistration) error {
 	storeBootstrapState.getBuiltin = append(storeBootstrapState.getBuiltin, parseRegistration)
 	getKernel := storeBootstrapState.getGlobalKernel
 	storeBootstrapState.getMu.Unlock()
-	if getKernel == nil {
+	if getKernel == nil || getKernel.isClosed() {
 		return nil
 	}
 	return getKernel.startPlugin(mergedRegistration{
@@ -74,7 +74,7 @@ func RegisterBuiltinService(parseRegistration ServiceRegistration) error {
 		storeBootstrapState.getServices[parseIndex] = parseRegistration
 		getKernel := storeBootstrapState.getGlobalKernel
 		storeBootstrapState.getMu.Unlock()
-		if getKernel != nil {
+		if getKernel != nil && !getKernel.isClosed() {
 			getKernel.SetService(parseRegistration.Key, parseRegistration.Value)
 		}
 		return nil
@@ -82,7 +82,7 @@ func RegisterBuiltinService(parseRegistration ServiceRegistration) error {
 	storeBootstrapState.getServices = append(storeBootstrapState.getServices, parseRegistration)
 	getKernel := storeBootstrapState.getGlobalKernel
 	storeBootstrapState.getMu.Unlock()
-	if getKernel != nil {
+	if getKernel != nil && !getKernel.isClosed() {
 		getKernel.SetService(parseRegistration.Key, parseRegistration.Value)
 	}
 	return nil
@@ -99,7 +99,7 @@ func RegisteredBuiltinServices() []ServiceRegistration {
 func BootGlobalKernel(parseOptions BootstrapOptions) (*Kernel, error) {
 	storeBootstrapState.getMu.Lock()
 	defer storeBootstrapState.getMu.Unlock()
-	if storeBootstrapState.getGlobalKernel != nil {
+	if storeBootstrapState.getGlobalKernel != nil && !storeBootstrapState.getGlobalKernel.isClosed() {
 		return storeBootstrapState.getGlobalKernel, nil
 	}
 	buildKernel, parseErr := NewKernel(BootstrapOptions{

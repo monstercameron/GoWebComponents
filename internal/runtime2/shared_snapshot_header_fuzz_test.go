@@ -22,8 +22,8 @@ func FuzzParseSharedSnapshotPageHeader(parseF *testing.F) {
 		if parseParseErr != nil {
 			return
 		}
-		if parseHeader.Kind != runtime2.SharedSnapshotPageKindSnapshot {
-			parseT.Fatalf("expected kind %d, got %d", runtime2.SharedSnapshotPageKindSnapshot, parseHeader.Kind)
+		if parseHeader.Kind != runtime2.SharedSnapshotPageKindSnapshot && parseHeader.Kind != runtime2.SharedSnapshotPageKindPatch {
+			parseT.Fatalf("expected known page kind, got %d", parseHeader.Kind)
 		}
 		if parseHeader.Status != runtime2.SharedSnapshotPageStatusWriting && parseHeader.Status != runtime2.SharedSnapshotPageStatusComplete {
 			parseT.Fatalf("expected known status value, got %d", parseHeader.Status)

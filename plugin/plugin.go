@@ -251,6 +251,19 @@ func (parseHost *Host) Close() error {
 			parseJoined = errors.Join(parseJoined, parseErr)
 		}
 	}
+	parseHost.routeGuards = nil
+	parseHost.navigationObservers = nil
+	parseHost.cacheDecorators = nil
+	parseHost.requestObservers = nil
+	parseHost.panelProviders = nil
+	parseHost.devtoolsSectionProviders = nil
+	parseHost.devtoolsActionProviders = nil
+	parseHost.headProviders = nil
+	parseHost.bootstrapProviders = nil
+	parseHost.formValidators = nil
+	parseHost.submitObservers = nil
+	parseHost.plugins = nil
+	parseHost.values = map[string]interface{}{}
 	parseHost.cleanups = nil
 	return parseJoined
 }

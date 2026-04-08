@@ -81,7 +81,6 @@ func (parseRt *Runtime) ScheduleUpdate() {
 	} else {
 		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
 	}
-	parseRt.tracksPendingEffects = true
 
 	// Schedule work loop
 	parseContinueWork := parseRt.getContinueWorkFn()
@@ -184,7 +183,6 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 	} else {
 		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
 	}
-	parseRt.tracksPendingEffects = true
 
 	parseDurationNs := time.Since(parseStart).Nanoseconds()
 	parseRt.profiling.renderCalls++
@@ -279,7 +277,6 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 	} else {
 		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
 	}
-	parseRt.tracksPendingEffects = true
 
 	parseDurationNs := time.Since(parseStart).Nanoseconds()
 	parseRt.profiling.renderCalls++

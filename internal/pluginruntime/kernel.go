@@ -37,6 +37,7 @@ type Kernel struct {
 	getStartOrder []string
 	getHealth     *healthStateStore
 	getEvents     []PluginDiagnostic
+	getClosed     bool
 }
 
 // NewKernel constructs and starts one kernel from bootstrap options.
@@ -88,6 +89,9 @@ func (parseKernel *Kernel) ResolveService(parseKey ServiceKey) (any, bool) {
 	}
 	parseKernel.getMu.RLock()
 	defer parseKernel.getMu.RUnlock()
+	if parseKernel.getClosed {
+		return nil, false
+	}
 	getService, hasService := parseKernel.getServices[parseKey]
 	return getService, hasService
 }
@@ -99,6 +103,9 @@ func (parseKernel *Kernel) SetService(parseKey ServiceKey, parseValue any) {
 	}
 	parseKernel.getMu.Lock()
 	defer parseKernel.getMu.Unlock()
+	if parseKernel.getClosed {
+		return
+	}
 	parseKernel.getServices[parseKey] = parseValue
 }
 
@@ -125,15 +132,24 @@ func (parseKernel *Kernel) Close() error {
 	if parseKernel == nil {
 		return nil
 	}
-	parseKernel.getMu.RLock()
+	parseKernel.getMu.Lock()
+	if parseKernel.getClosed {
+		parseKernel.getMu.Unlock()
+		return nil
+	}
 	buildOrder := append([]string(nil), parseKernel.getStartOrder...)
-	parseKernel.getMu.RUnlock()
+	parseKernel.getMu.Unlock()
 	var buildJoined error
 	for parseIndex := len(buildOrder) - 1; parseIndex >= 0; parseIndex-- {
 		if parseErr := parseKernel.stopPlugin(buildOrder[parseIndex]); parseErr != nil {
 			buildJoined = errors.Join(buildJoined, parseErr)
 		}
 	}
+	parseKernel.getMu.Lock()
+	parseKernel.getClosed = true
+	parseKernel.getStartOrder = nil
+	parseKernel.getPlugins = map[string]*pluginState{}
+	parseKernel.getMu.Unlock()
 	return buildJoined
 }
 
@@ -143,6 +159,10 @@ func (parseKernel *Kernel) ListDevtoolsSections() []DevtoolsSection {
 		return nil
 	}
 	parseKernel.getMu.RLock()
+	if parseKernel.getClosed {
+		parseKernel.getMu.RUnlock()
+		return nil
+	}
 	buildContributions := parseKernel.listContributionsLocked(ContributionKindDevtoolsSection)
 	parseKernel.getMu.RUnlock()
 	buildSections := make([]DevtoolsSection, 0)
@@ -169,6 +189,10 @@ func (parseKernel *Kernel) ListDevtoolsActions() []DevtoolsAction {
 		return nil
 	}
 	parseKernel.getMu.RLock()
+	if parseKernel.getClosed {
+		parseKernel.getMu.RUnlock()
+		return nil
+	}
 	buildContributions := parseKernel.listContributionsLocked(ContributionKindDevtoolsAction)
 	parseKernel.getMu.RUnlock()
 	buildActions := make([]DevtoolsAction, 0)
@@ -224,7 +248,14 @@ func (parseKernel *Kernel) registerCleanup(parsePluginID string, parseCleanup Cl
 
 // startPlugin starts one plugin registration and stores its lifecycle state.
 func (parseKernel *Kernel) startPlugin(parseRegistration mergedRegistration) error {
+	if parseKernel == nil {
+		return fmt.Errorf("pluginruntime: kernel is required")
+	}
 	parseKernel.getMu.RLock()
+	if parseKernel.getClosed {
+		parseKernel.getMu.RUnlock()
+		return fmt.Errorf("pluginruntime: kernel is closed")
+	}
 	_, hasPlugin := parseKernel.getPlugins[parseRegistration.getManifest.ID]
 	parseKernel.getMu.RUnlock()
 	if hasPlugin {
@@ -311,7 +342,29 @@ func (parseKernel *Kernel) stopPlugin(parsePluginID string) error {
 		}
 	}
 	parseKernel.storeHealth(parsePluginID, HealthStateStopped, HealthReasonStopped, "", 0)
+	parseKernel.getMu.Lock()
+	delete(parseKernel.getPlugins, parsePluginID)
+	for parseIndex, getStartedPluginID := range parseKernel.getStartOrder {
+		if getStartedPluginID != parsePluginID {
+			continue
+		}
+		copy(parseKernel.getStartOrder[parseIndex:], parseKernel.getStartOrder[parseIndex+1:])
+		parseKernel.getStartOrder[len(parseKernel.getStartOrder)-1] = ""
+		parseKernel.getStartOrder = parseKernel.getStartOrder[:len(parseKernel.getStartOrder)-1]
+		break
+	}
+	parseKernel.getMu.Unlock()
 	return buildJoined
+}
+
+// isClosed reports whether the kernel has been closed and must be rebooted before reuse.
+func (parseKernel *Kernel) isClosed() bool {
+	if parseKernel == nil {
+		return true
+	}
+	parseKernel.getMu.RLock()
+	defer parseKernel.getMu.RUnlock()
+	return parseKernel.getClosed
 }
 
 // listContributionsLocked collects contributions of one kind under the kernel lock.

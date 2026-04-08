@@ -341,10 +341,10 @@ func (parseRt *Runtime) commitRoot() {
 	// Run effects after the committed tree is current and hydration gates are lifted.
 	if parseRt.tracksPendingEffects {
 		parseRt.runPendingEffects()
-		parseRt.tracksPendingEffects = false
 	} else {
 		parseRt.runEffects(parseCommittedRoot)
 	}
+	parseRt.tracksPendingEffects = false
 
 	if parseWasHydrating {
 		parseRt.finishHydrationMetrics(false, "")
@@ -1217,6 +1217,7 @@ func (parseRt *Runtime) queuePendingEffectFiber(parseFiber *Fiber) {
 	if parseRt == nil || parseFiber == nil || len(parseFiber.effects) == 0 {
 		return
 	}
+	parseRt.tracksPendingEffects = true
 	parseRt.pendingEffectFibers = append(parseRt.pendingEffectFibers, parseFiber)
 }
 

@@ -165,4 +165,19 @@ func TestHostAggregatesContributionsAndCleanup(parseT *testing.T) {
 	if strings.Join(parseOrder, ",") != "second,first" {
 		parseT.Fatalf("expected reverse cleanup order, got %v", parseOrder)
 	}
+	if parseDecisionAfterClose := parseHost.EvaluateRoute(RouteRequest{Path: "/admin"}); parseDecisionAfterClose.Outcome != GuardAllow {
+		parseT.Fatalf("expected close to clear route guards, got %+v", parseDecisionAfterClose)
+	}
+	if parsePanelsAfterClose := parseHost.Panels(); len(parsePanelsAfterClose) != 0 {
+		parseT.Fatalf("expected close to clear panels, got %+v", parsePanelsAfterClose)
+	}
+	if parsePluginsAfterClose := parseHost.Plugins(); len(parsePluginsAfterClose) != 0 {
+		parseT.Fatalf("expected close to clear plugin manifests, got %+v", parsePluginsAfterClose)
+	}
+	if parseBootstrapAfterClose := parseHost.BootstrapData(); len(parseBootstrapAfterClose) != 0 {
+		parseT.Fatalf("expected close to clear bootstrap providers, got %+v", parseBootstrapAfterClose)
+	}
+	if _, parseOk := parseHost.Value("last-route"); parseOk {
+		parseT.Fatal("expected close to clear host values")
+	}
 }

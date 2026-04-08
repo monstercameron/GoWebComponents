@@ -586,6 +586,38 @@ func TestApplyHostExtensionsReevaluatesProvidersLive(parseT *testing.T) {
 	}
 }
 
+func TestApplyHostExtensionsDeduplicatesRepeatedHostRegistration(parseT *testing.T) {
+	parseT.Cleanup(ResetExtensionSections)
+	parseT.Cleanup(ResetErrorOverlayActions)
+
+	parseHost := plugin.NewHost(plugin.HostOptions{Capabilities: []plugin.Capability{plugin.CapabilityDevtools}})
+	if parseErr := parseHost.AddDevtoolsSectionProvider(func() plugin.DevtoolsSection {
+		return plugin.DevtoolsSection{Name: "Companion"}
+	}); parseErr != nil {
+		parseT.Fatalf("AddDevtoolsSectionProvider() error = %v", parseErr)
+	}
+
+	parseCleanupOne := ApplyHostExtensions(parseHost)
+	parseCleanupTwo := ApplyHostExtensions(parseHost)
+
+	parseSections := InspectComposedExtensionSections()
+	if len(parseSections) != 1 || parseSections[0].Name != "Companion" {
+		parseT.Fatalf("expected repeated host registration to compose once, got %+v", parseSections)
+	}
+
+	parseCleanupOne()
+	parseSections = InspectComposedExtensionSections()
+	if len(parseSections) != 1 || parseSections[0].Name != "Companion" {
+		parseT.Fatalf("expected one outstanding registration to keep host sections visible, got %+v", parseSections)
+	}
+
+	parseCleanupTwo()
+	parseSections = InspectComposedExtensionSections()
+	if len(parseSections) != 0 {
+		parseT.Fatalf("expected final cleanup to remove host sections, got %+v", parseSections)
+	}
+}
+
 func TestSupportDiagnosticBundleExportRedactsSensitiveValues(parseT *testing.T) {
 	parseBundle := BugCaptureBundle{
 		Version:    currentBugCaptureBundleVersion,

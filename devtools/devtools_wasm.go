@@ -6,6 +6,7 @@ package devtools
 import (
 	"fmt"
 	"strings"
+	"syscall/js"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/fetch"
@@ -123,23 +124,15 @@ func UseSnapshot(parseRefreshInterval time.Duration) Snapshot {
 	parseState := ui.UseState(SnapshotNow())
 	ui.UseEffect(func() func() {
 		parseState.Set(SnapshotNow())
-		parseTicker := time.NewTicker(parseInterval)
-		parseStop := make(chan struct{})
-
-		go func() {
-			for {
-				select {
-				case <-parseStop:
-					return
-				case <-parseTicker.C:
-					parseState.Set(SnapshotNow())
-				}
-			}
-		}()
+		parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseState.Set(SnapshotNow())
+			return nil
+		})
+		parseTimerID := js.Global().Call("setInterval", parseCallback, parseInterval.Milliseconds())
 
 		return func() {
-			close(parseStop)
-			parseTicker.Stop()
+			js.Global().Call("clearInterval", parseTimerID)
+			parseCallback.Release()
 		}
 	}, parseInterval)
 

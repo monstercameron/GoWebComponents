@@ -286,6 +286,43 @@ func TestKernelReportsActionErrorsWithoutPanicking(parseT *testing.T) {
 	}
 }
 
+func TestKernelCloseRemovesStoppedPluginContributions(parseT *testing.T) {
+	buildKernel, parseErr := NewKernel(BootstrapOptions{
+		Registrations: []PluginRegistration{{
+			Factory: func() Plugin {
+				return buildTestPlugin{
+					buildManifest: Manifest{ID: "close-plugin", Version: "1.0.0", ActivationPolicy: ActivationPolicyBoot},
+					buildStart: func(parseContext Context) (Handle, error) {
+						return nil, parseContext.RegisterContribution(ContributionRegistration{
+							Metadata: ContributionMetadata{
+								ID:               "close-section",
+								Kind:             ContributionKindDevtoolsSection,
+								ExecutionClass:   ExecutionClassWarm,
+								ActivationPolicy: ActivationPolicyBoot,
+							},
+							Value: DevtoolsSectionProviderFunc(func() ([]DevtoolsSection, error) {
+								return []DevtoolsSection{{Name: "close"}}, nil
+							}),
+						})
+					},
+				}
+			},
+		}},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("NewKernel() error = %v", parseErr)
+	}
+	if getSections := buildKernel.ListDevtoolsSections(); len(getSections) != 1 || getSections[0].Name != "close" {
+		parseT.Fatalf("expected one section before close, got %+v", getSections)
+	}
+	if parseErr2 := buildKernel.Close(); parseErr2 != nil {
+		parseT.Fatalf("Close() error = %v", parseErr2)
+	}
+	if getSections := buildKernel.ListDevtoolsSections(); len(getSections) != 0 {
+		parseT.Fatalf("expected no sections after close, got %+v", getSections)
+	}
+}
+
 // TestBootGlobalKernelMergesBuiltinServices verifies built-in services participate in global boot.
 func TestBootGlobalKernelMergesBuiltinServices(parseT *testing.T) {
 	parseT.Cleanup(func() {
@@ -342,6 +379,64 @@ func TestRegisterBuiltinPluginAfterBootStartsImmediately(parseT *testing.T) {
 	getSections := buildKernel.ListDevtoolsSections()
 	if len(getSections) != 1 || getSections[0].Name != "late" {
 		parseT.Fatalf("expected late plugin section after boot, got %+v", getSections)
+	}
+}
+
+func TestBootGlobalKernelRebuildsAfterClose(parseT *testing.T) {
+	parseT.Cleanup(func() {
+		if parseErr := ResetGlobalKernelForTesting(); parseErr != nil {
+			parseT.Fatalf("ResetGlobalKernelForTesting() error = %v", parseErr)
+		}
+	})
+
+	parseStarts := 0
+	if parseErr := RegisterBuiltinPlugin(PluginRegistration{
+		Factory: func() Plugin {
+			return buildTestPlugin{
+				buildManifest: Manifest{ID: "reboot-plugin", Version: "1.0.0", ActivationPolicy: ActivationPolicyBoot},
+				buildStart: func(parseContext Context) (Handle, error) {
+					parseStarts++
+					return nil, parseContext.RegisterContribution(ContributionRegistration{
+						Metadata: ContributionMetadata{
+							ID:               "reboot-section",
+							Kind:             ContributionKindDevtoolsSection,
+							ExecutionClass:   ExecutionClassWarm,
+							ActivationPolicy: ActivationPolicyBoot,
+						},
+						Value: DevtoolsSectionProviderFunc(func() ([]DevtoolsSection, error) {
+							return []DevtoolsSection{{Name: "reboot"}}, nil
+						}),
+					})
+				},
+			}
+		},
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterBuiltinPlugin() error = %v", parseErr)
+	}
+
+	buildKernel, parseErr := BootGlobalKernel(BootstrapOptions{})
+	if parseErr != nil {
+		parseT.Fatalf("BootGlobalKernel() error = %v", parseErr)
+	}
+	if parseStarts != 1 {
+		parseT.Fatalf("expected one initial plugin start, got %d", parseStarts)
+	}
+	if parseErr2 := buildKernel.Close(); parseErr2 != nil {
+		parseT.Fatalf("Close() error = %v", parseErr2)
+	}
+
+	buildRebootedKernel, parseErr3 := BootGlobalKernel(BootstrapOptions{})
+	if parseErr3 != nil {
+		parseT.Fatalf("BootGlobalKernel() reboot error = %v", parseErr3)
+	}
+	if buildRebootedKernel == buildKernel {
+		parseT.Fatal("expected BootGlobalKernel() to replace a closed kernel instance")
+	}
+	if parseStarts != 2 {
+		parseT.Fatalf("expected closed global kernel to reboot built-ins, got %d starts", parseStarts)
+	}
+	if getSections := buildRebootedKernel.ListDevtoolsSections(); len(getSections) != 1 || getSections[0].Name != "reboot" {
+		parseT.Fatalf("expected rebooted kernel section, got %+v", getSections)
 	}
 }
 

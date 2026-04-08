@@ -5,6 +5,7 @@ package kernelplugindevtools_test
 
 import (
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -92,6 +93,21 @@ func waitForKernelPluginDevtoolsHealthyURL(parseT *testing.T, parseURL string, p
 	parseT.Fatalf("health check timed out: %s", parseURL)
 }
 
+// getKernelPluginDevtoolsFreePort reserves one loopback TCP port number for the focused browser test server.
+func getKernelPluginDevtoolsFreePort(parseT *testing.T) string {
+	parseT.Helper()
+	parseListener, parseErr := net.Listen("tcp", "127.0.0.1:0")
+	if parseErr != nil {
+		parseT.Fatalf("listen for free port: %v", parseErr)
+	}
+	defer parseListener.Close()
+	parseAddress, parseOk := parseListener.Addr().(*net.TCPAddr)
+	if !parseOk {
+		parseT.Fatalf("unexpected listener address type %T", parseListener.Addr())
+	}
+	return strconv.Itoa(parseAddress.Port)
+}
+
 // withKernelPluginDevtoolsPage opens one Chromium page and runs the provided callback.
 func withKernelPluginDevtoolsPage(parseT *testing.T, parseFn func(playwright.Page)) {
 	parseT.Helper()
@@ -159,8 +175,8 @@ func buildKernelPluginDevtoolsExampleWasm(parseT *testing.T, parseRepoRoot strin
 	getCommand := exec.Command(
 		"go",
 		"run", "./tools/gwc", "build",
-		"-app", "./examples/111-kernel-plugin-devtools/main.go",
-		"-root", "./examples/111-kernel-plugin-devtools",
+		"-app", "./examples/testing/kernel-plugin-devtools/main.go",
+		"-root", "./examples/testing/kernel-plugin-devtools",
 		"-out", "./examples/static/bin/kernel-plugin-devtools.wasm",
 	)
 	getCommand.Dir = parseRepoRoot
@@ -227,7 +243,7 @@ func TestKernelPluginDevtoolsExampleBrowser(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	getRepoRoot := kernelPluginDevtoolsRepoRootFromFile(parseFile)
 	buildKernelPluginDevtoolsExampleWasm(parseT, getRepoRoot)
-	getBaseURL := startKernelPluginDevtoolsServer(parseT, getRepoRoot, "18111")
+	getBaseURL := startKernelPluginDevtoolsServer(parseT, getRepoRoot, getKernelPluginDevtoolsFreePort(parseT))
 
 	withKernelPluginDevtoolsPage(parseT, func(parsePage playwright.Page) {
 		getConsoleErrors := make([]string, 0, 8)
@@ -265,7 +281,7 @@ func TestKernelPluginDevtoolsExampleBrowser(parseT *testing.T) {
 				getPageErrors = append(getPageErrors, strings.TrimSpace(parseErr.Error()))
 			}
 		})
-		if _, parseErr := parsePage.Goto(getBaseURL+"/examples/111-kernel-plugin-devtools/kernel-plugin-devtools.html", playwright.PageGotoOptions{
+		if _, parseErr := parsePage.Goto(getBaseURL+"/examples/testing/kernel-plugin-devtools/kernel-plugin-devtools.html", playwright.PageGotoOptions{
 			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 		}); parseErr != nil {
 			parseT.Fatalf("goto example 111 route: %v", parseErr)
@@ -325,6 +341,20 @@ func TestKernelPluginDevtoolsExampleBrowser(parseT *testing.T) {
 			parseBodyText, _ := parsePage.TextContent("body")
 			getStoredConsoleErrors := getKernelPluginDevtoolsStoredConsoleErrors(parsePage)
 			parseT.Fatalf("wait for runtime2 region text: %v body=%q console=%q", parseWaitErr, parseBodyText, strings.Join(append(getConsoleErrors, getStoredConsoleErrors...), " || "))
+		}
+		if _, parseWaitErr := parsePage.WaitForSelector("text=events: 3", playwright.PageWaitForSelectorOptions{
+			Timeout: playwright.Float(10000),
+		}); parseWaitErr != nil {
+			parseBodyText, _ := parsePage.TextContent("body")
+			getStoredConsoleErrors := getKernelPluginDevtoolsStoredConsoleErrors(parsePage)
+			parseT.Fatalf("wait for refreshed kernel event count: %v body=%q console=%q", parseWaitErr, parseBodyText, strings.Join(append(getConsoleErrors, getStoredConsoleErrors...), " || "))
+		}
+		if _, parseWaitErr := parsePage.WaitForSelector("text=latest event: click on button", playwright.PageWaitForSelectorOptions{
+			Timeout: playwright.Float(10000),
+		}); parseWaitErr != nil {
+			parseBodyText, _ := parsePage.TextContent("body")
+			getStoredConsoleErrors := getKernelPluginDevtoolsStoredConsoleErrors(parsePage)
+			parseT.Fatalf("wait for refreshed kernel latest event: %v body=%q console=%q", parseWaitErr, parseBodyText, strings.Join(append(getConsoleErrors, getStoredConsoleErrors...), " || "))
 		}
 		if _, parseWaitErr := parsePage.WaitForSelector("text=style variables:", playwright.PageWaitForSelectorOptions{
 			Timeout: playwright.Float(10000),

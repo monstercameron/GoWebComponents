@@ -679,6 +679,7 @@ func (parseH Handler) Value() interface{} {
 // ensureInitialized is a core package helper.
 func ensureInitialized() {
 	if runtimeInitialized {
+		ensureUIEventListeners()
 		return
 	}
 
@@ -692,6 +693,7 @@ func ensureInitialized() {
 	if _, parseErr := pluginruntime.BootGlobalKernel(pluginruntime.BootstrapOptions{}); parseErr != nil {
 		runtime.ReportDiagnostic("pluginruntime", runtime.DiagnosticWarning, "plugin kernel bootstrap failed: "+parseErr.Error())
 	}
+	ensureUIEventListeners()
 	runtimeInitialized = true
 }
 

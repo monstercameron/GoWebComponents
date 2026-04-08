@@ -7,9 +7,11 @@ import (
 )
 
 var hostExtensionSources struct {
-	getMu     sync.RWMutex
-	getNextID int
-	getHosts  map[int]*plugin.Host
+	getMu        sync.RWMutex
+	getNextID    int
+	getHosts     map[int]*plugin.Host
+	getHostIDs   map[*plugin.Host]int
+	getRefCounts map[int]int
 }
 
 // InspectComposedExtensionSections returns app-owned, host-owned, and kernel-owned extension sections.
@@ -38,9 +40,21 @@ func registerHostExtensionSource(parseHost *plugin.Host) int {
 	if hostExtensionSources.getHosts == nil {
 		hostExtensionSources.getHosts = map[int]*plugin.Host{}
 	}
+	if hostExtensionSources.getHostIDs == nil {
+		hostExtensionSources.getHostIDs = map[*plugin.Host]int{}
+	}
+	if hostExtensionSources.getRefCounts == nil {
+		hostExtensionSources.getRefCounts = map[int]int{}
+	}
+	if getExistingID, hasExistingID := hostExtensionSources.getHostIDs[parseHost]; hasExistingID {
+		hostExtensionSources.getRefCounts[getExistingID]++
+		return getExistingID
+	}
 	hostExtensionSources.getNextID++
 	getID := hostExtensionSources.getNextID
 	hostExtensionSources.getHosts[getID] = parseHost
+	hostExtensionSources.getHostIDs[parseHost] = getID
+	hostExtensionSources.getRefCounts[getID] = 1
 	return getID
 }
 
@@ -51,7 +65,17 @@ func unregisterHostExtensionSource(parseID int) {
 	}
 	hostExtensionSources.getMu.Lock()
 	defer hostExtensionSources.getMu.Unlock()
+	getHost, hasHost := hostExtensionSources.getHosts[parseID]
+	if !hasHost {
+		return
+	}
+	if getRefCount := hostExtensionSources.getRefCounts[parseID]; getRefCount > 1 {
+		hostExtensionSources.getRefCounts[parseID] = getRefCount - 1
+		return
+	}
 	delete(hostExtensionSources.getHosts, parseID)
+	delete(hostExtensionSources.getRefCounts, parseID)
+	delete(hostExtensionSources.getHostIDs, getHost)
 }
 
 // inspectHostExtensionSections resolves current host-owned sections from all registered compatibility sources.

@@ -195,3 +195,26 @@ func TestBenchmarkStyleListUpdateSettlesAndUpdatesDOM(parseT *testing.T) {
 		parseT.Fatalf("expected all scheduled work to settle, found %d pending callbacks", len(parseScheduler.timeouts))
 	}
 }
+
+func TestRenderRunsQueuedEffectsAfterCommit(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	isParseExecuted := false
+	parseComponent := func() *Element {
+		GoUseEffect(func() func() {
+			isParseExecuted = true
+			return nil
+		})
+		return CreateElement("div", nil)
+	}
+
+	parseContainer := parseAdapter.CreateElement("div")
+	parseRt.Render(CreateElement(parseComponent, nil), parseContainer)
+	drainScheduledTimeouts(parseT, parseScheduler, 10)
+
+	if !isParseExecuted {
+		parseT.Fatal("expected initial render commit to run queued effects")
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/internal/runtime2"
 	"github.com/monstercameron/GoWebComponents/interop"
@@ -187,10 +188,88 @@ func installQueuedUIHookContext(parseT *testing.T) *queuedScheduler {
 	return parseScheduler
 }
 
+// resetUIEventStateForTesting clears one event-service listener state snapshot for isolated wasm tests.
+func resetUIEventStateForTesting() {
+	storeUIEventState.getMu.Lock()
+	defer storeUIEventState.getMu.Unlock()
+	for _, parseListener := range storeUIEventState.getListeners {
+		parseListener.Release()
+	}
+	storeUIEventState.hasStarted = false
+	storeUIEventState.getListeners = nil
+	storeUIEventState.getRecords = nil
+}
+
+// installUIEventDocumentForTesting installs one mock browser document that records added event listeners.
+func installUIEventDocumentForTesting(parseT *testing.T) map[string]js.Value {
+	parseT.Helper()
+	parseGlobal := js.Global()
+	parseObjectCtor := parseGlobal.Get("Object")
+	parsePrevDocument := parseGlobal.Get("document")
+	buildListeners := map[string]js.Value{}
+
+	parseDocument := parseObjectCtor.New()
+	parseBody := parseObjectCtor.New()
+	parseRoot := parseObjectCtor.New()
+	parseAddEventListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) < 2 {
+			return nil
+		}
+		buildListeners[strings.TrimSpace(parseArgs[0].String())] = parseArgs[1]
+		return nil
+	})
+	parseDocument.Set("body", parseBody)
+	parseDocument.Set("documentElement", parseRoot)
+	parseDocument.Set("addEventListener", parseAddEventListener)
+	parseGlobal.Set("document", parseDocument)
+
+	parseT.Cleanup(func() {
+		parseGlobal.Set("document", parsePrevDocument)
+		parseAddEventListener.Release()
+	})
+	return buildListeners
+}
+
 func TestCreateElementReturnsExistingNode(parseT *testing.T) {
 	parseExisting := runtime.Div(map[string]interface{}{"id": "existing"})
 	if parseGot := CreateElement(parseExisting); parseGot != parseExisting {
 		parseT.Fatal("expected CreateElement to return existing node unchanged")
+	}
+}
+
+// TestEnsureUIEventListenersCapturePreSnapshotEvent verifies early user interactions are captured before the first snapshot read.
+func TestEnsureUIEventListenersCapturePreSnapshotEvent(parseT *testing.T) {
+	resetUIEventStateForTesting()
+	parseT.Cleanup(resetUIEventStateForTesting)
+	parseListeners := installUIEventDocumentForTesting(parseT)
+
+	ensureUIEventListeners()
+
+	parseClickListener, hasClickListener := parseListeners["click"]
+	if !hasClickListener || parseClickListener.IsUndefined() || parseClickListener.IsNull() {
+		parseT.Fatal("expected ensureUIEventListeners to install the click event listener")
+	}
+
+	parseTarget := js.Global().Get("Object").New()
+	parseTarget.Set("nodeName", "BUTTON")
+	parseTarget.Set("id", "kernel-plugin-theme")
+	parseEvent := js.Global().Get("Object").New()
+	parseEvent.Set("target", parseTarget)
+	parseClickListener.Invoke(parseEvent)
+
+	parseSnapshot, parseErr := buildUIEventService{}.GetEventSnapshot(pluginruntime.QueryBudget{MaxItems: 8})
+	if parseErr != nil {
+		parseT.Fatalf("read UI event snapshot: %v", parseErr)
+	}
+	if len(parseSnapshot.Events) != 1 {
+		parseT.Fatalf("expected one captured click event, got %+v", parseSnapshot.Events)
+	}
+	parseLatestEvent := parseSnapshot.Events[len(parseSnapshot.Events)-1]
+	if parseLatestEvent.Type != "click" {
+		parseT.Fatalf("expected click event type, got %+v", parseLatestEvent)
+	}
+	if parseLatestEvent.Target != "button#kernel-plugin-theme" {
+		parseT.Fatalf("expected themed button target, got %+v", parseLatestEvent)
 	}
 }
 
