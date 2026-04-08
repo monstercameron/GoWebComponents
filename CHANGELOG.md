@@ -14,6 +14,18 @@
 - Repaired runtime effect scheduling and early UI event capture so first-render effects still run after commit and kernel-backed UI event services can observe interactions before the first snapshot read.
 - Replaced goroutine-based devtools snapshot polling on `js/wasm` with browser timers, broadened shorthand prop handling for the public examples site rendering surface, and tightened focused regression coverage around the repaired paths.
 
+### public examples site performance and cache lifetime fixes
+
+- Reduced the public examples browser hot path by deferring preview and source rendering until requested, turning debug event logging off by default, and falling back to plain source rendering for large files instead of always running the expensive tokenizer path.
+- Added bounded Cache Storage handling for preview wasm binaries so the shell keeps only the current and most recent example builds, expires stale entries, removes superseded versions, and clears the older preview cache namespace to avoid steady RAM and storage growth.
+- Regenerated the checked-in public examples shell plus preview hosts so the staged site reflects the deferred loading, bounded preview cache lifetime, and lighter browser-side rendering behavior.
+
+### public example presentation normalization
+
+- Restyled the shared example shell and the remaining bespoke public demos to match the compact counter example more closely, removing docs-like framing, trimming duplicate purpose copy, and emphasizing the live control surface.
+- Added compact routed wrappers for the portfolio docs and not-found flows, then refreshed the mirrored `examples/public-examples-site/assets/code/` source tree so the public catalog reflects the clearer purpose-first example layouts.
+- Applied the same compact text treatment to the generated preview host so the public examples browser de-emphasizes long explanatory paragraphs and oversized bullet lists across the staged catalog.
+
 ## 2026-04-07
 
 ### core plugin kernel and first-pass devtools plugin
