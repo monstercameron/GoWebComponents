@@ -7,14 +7,14 @@ import (
 )
 
 func TestNewLoggerRetainsScope(parseT *testing.T) {
-	parseLogger := New(" example-0 ")
-	if parseLogger.Scope() != "example-0" {
+	parseLogger := New(" public-examples-site ")
+	if parseLogger.Scope() != "public-examples-site" {
 		parseT.Fatalf("expected trimmed scope, got %q", parseLogger.Scope())
 	}
 }
 
 func TestAttachBrowserConsoleNoopOnNonBrowserTargets(parseT *testing.T) {
-	parseCleanup := AttachBrowserConsole(BrowserConsoleOptions{Scope: "example-0"})
+	parseCleanup := AttachBrowserConsole(BrowserConsoleOptions{Scope: "public-examples-site"})
 	if parseCleanup == nil {
 		parseT.Fatal("expected cleanup function")
 	}

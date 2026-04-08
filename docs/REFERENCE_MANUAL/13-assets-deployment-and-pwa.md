@@ -41,7 +41,7 @@ Use one of these deployment shapes on purpose:
 - installable shell: ship a manifest, register a service worker explicitly, and keep scope plus update behavior visible in app code
 - offline-first app shell: combine service-worker shell caching, reconstructible read caches, and durable mutation replay without confusing any one layer for the source of truth
 
-`examples/102-static-export-site` is the current static-host reference. The `97-pwa-*` examples are the current installability and offline reference slice.
+`examples/server/static-export-site` is the current static-host reference. The `97-pwa-*` examples are the current installability and offline reference slice.
 
 ## Stability Note
 
@@ -406,13 +406,13 @@ That split is what keeps the PWA helpers useful at scale:
 Use the smallest commands that prove the deployment slice you changed:
 
 - installability and service-worker wiring:
-  `go run ./tools/gwc serve -root .\\examples\\97-pwa-installability -port 8097`
+  `go run ./tools/gwc serve -root .\\examples\\public\\pwa-installability -port 8097`
 - offline cache, queue, and diagnostics helpers:
-  `go run ./tools/gwc serve -root .\\examples\\97-pwa-offline-cache -port 8098`
+  `go run ./tools/gwc serve -root .\\examples\\public\\pwa-offline-cache -port 8098`
 - release artifact and manifest emission:
-  `go run ./tools/gwc release -app .\\examples\\97-pwa-offline-cache\\main.go -root .\\examples\\97-pwa-offline-cache -out-dir .\\bin\\pwa-offline-cache -validate-smoke`
+  `go run ./tools/gwc release -app .\\examples\\public\\pwa-offline-cache\\main.go -root .\\examples\\public\\pwa-offline-cache -out-dir .\\bin\\pwa-offline-cache -validate-smoke`
 - static export output shape:
-  `go run ./examples/102-static-export-site`
+  `go run ./examples/server/static-export-site`
 
 When the deployment change is browser-sensitive, add at least one evergreen desktop pass and one Mobile Safari or constrained-device pass before calling the change production-ready.
 

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"syscall/js"
+
+	"github.com/monstercameron/GoWebComponents/interop"
 )
 
 var retainedCallbacks []js.Func
@@ -155,7 +157,15 @@ func installMountObserver(parseLabel string, parseDocument js.Value) {
 	if !parseObserverCtor.Truthy() {
 		return
 	}
-	parseRoot := parseDocument.Call("querySelector", "#app")
+	parseSelector := "#app"
+	parseEnv, parseErr := interop.GetWindowEnv()
+	if parseErr == nil {
+		parseSelector = parseEnv.String("__gwcExampleMountSelector", parseSelector)
+	}
+
+	// Follow the same host-provided selector the example runtime uses so embedded
+	// mounts and standalone mounts log the correct render surface.
+	parseRoot := parseDocument.Call("querySelector", parseSelector)
 	if !parseRoot.Truthy() {
 		parseRoot = parseDocument.Get("body")
 	}

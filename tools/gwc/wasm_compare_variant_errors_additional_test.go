@@ -204,7 +204,7 @@ func TestExecuteWasmCompareToolchainCoversErrorBranches(parseT *testing.T) {
 		}
 
 		_, parseErr := executeWasmCompareToolchain(wasmToolchainConfig{
-			packagePath:           "./examples/21-ui-render",
+			packagePath:           "./examples/public/ui-render",
 			baselineGoExecutable:  "go-baseline",
 			candidateGoExecutable: "go-candidate",
 			binaryName:            "app.wasm",
@@ -266,7 +266,7 @@ func TestExecuteWasmCompareToolchainCoversErrorBranches(parseT *testing.T) {
 		}
 
 		_, parseErr := executeWasmCompareToolchain(wasmToolchainConfig{
-			packagePath:             "./examples/21-ui-render",
+			packagePath:             "./examples/public/ui-render",
 			baselineGoExecutable:    "go-baseline",
 			candidateGoExecutable:   "go-candidate",
 			binaryName:              "app.wasm",

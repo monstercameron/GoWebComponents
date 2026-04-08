@@ -194,7 +194,7 @@ func startAtlasExamplesServer(parseT *testing.T, parseRepoRoot string, parsePort
 		parseRepoRoot,
 		[]string{"ATLAS_ADDR=" + parseAddress},
 		"go",
-		"run", "./examples/86-atlas-commerce-os/server",
+		"run", "./examples/server/atlas-commerce-os/server",
 	)
 	parseT.Cleanup(parseStop)
 	parseBaseURL := "http://" + parseAddress

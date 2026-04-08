@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel"
-	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 	playwright "github.com/playwright-community/playwright-go"
@@ -27,7 +27,7 @@ import (
 // buildExample100CustomerErrorClientArtifacts rebuilds the example-100 WASM client assets used by the server binary.
 func buildExample100CustomerErrorClientArtifacts(parseT *testing.T, parseRepoRoot string) {
 	parseT.Helper()
-	parseBuildCommand := exec.Command("go", "run", "./examples/100-ai-chat-wizard/cmd/build-client")
+	parseBuildCommand := exec.Command("go", "run", "./examples/server/ai-chat-wizard/cmd/build-client")
 	parseBuildCommand.Dir = parseRepoRoot
 	if parseBuildOutput, parseBuildErr := parseBuildCommand.CombinedOutput(); parseBuildErr != nil {
 		parseT.Fatalf("build example 100 client artifacts: %v\n%s", parseBuildErr, strings.TrimSpace(string(parseBuildOutput)))

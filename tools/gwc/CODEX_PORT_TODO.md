@@ -21,8 +21,8 @@ This list tracks migration of remaining shell-script features into `go run ./too
 ### 2026-03-25 12:15 -04:00
 
 - completed todo: Kickoff port: add `gwc bench compare`, add simple benchmark score graphs, and add signed-out top "Open chat" entry in RelayDesk auth shell.
-- files changed: `tools/gwc/bench.go`, `tools/gwc/bench_test.go`, `tools/gwc/main.go`, `examples/100-ai-chat-wizard/client/app/auth_shell.go`, `examples/100-ai-chat-wizard/client/app/i18n.go`, `tools/gwc/CODEX_PORT_TODO.md`
-- validation run: `go test ./tools/gwc -run "TestRunBenchmarkCompare|TestBenchmarkScoreGraph|TestRunBenchmarkWritesJSONReport" -count=1`; `GOOS=js GOARCH=wasm go test -c -o ./bin/examples-100-ai-chat-wizard-client-app.test ./examples/100-ai-chat-wizard/client/app`
+- files changed: `tools/gwc/bench.go`, `tools/gwc/bench_test.go`, `tools/gwc/main.go`, `examples/server/ai-chat-wizard/client/app/auth_shell.go`, `examples/server/ai-chat-wizard/client/app/i18n.go`, `tools/gwc/CODEX_PORT_TODO.md`
+- validation run: `go test ./tools/gwc -run "TestRunBenchmarkCompare|TestBenchmarkScoreGraph|TestRunBenchmarkWritesJSONReport" -count=1`; `GOOS=js GOARCH=wasm go test -c -o ./bin/examples-100-ai-chat-wizard-client-app.test ./examples/server/ai-chat-wizard/client/app`
 - result: Passed. `gwc bench compare` now covers benchstat compare parity, `gwc bench` now emits simple inline score bars, and the signed-out auth shell now exposes a top "Open chat" action.
 - residual risk: `gwc bench compare` currently requires explicit `-baseline` and `-candidate` flags (it does not yet support positional args), and there is no browser-level visual regression for the new auth-shell top action.
 - next suggested todo: Port the legacy bench-runtime wrappers into `gwc` as a raw benchmark capture mode.

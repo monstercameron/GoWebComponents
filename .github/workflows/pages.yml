@@ -34,66 +34,35 @@ jobs:
       - name: Build Example WASM Files
         shell: pwsh
         run: |
-          go run ./tools/gwc build -app .\examples\00-example-0\main.go -root .\examples\00-example-0 -profile ci -out .\bin\examples\example-0.wasm
-          go run ./tools/gwc build -app .\examples\01-counter\main.go -root .\examples\01-counter -profile ci -out .\bin\examples\counter.wasm
-          go run ./tools/gwc build -app .\examples\gwc-examples-site\main.go -root .\examples\gwc-examples-site -profile ci -out .\bin\examples\gwc-examples-site.wasm
+          go run ./tools/gwc examples build-public-site -profile ci
 
       - name: Prepare Pages Artifact
         shell: pwsh
         run: |
           $pagesDir = Join-Path $PWD '.pages'
-          $builtExamplesDir = Join-Path $PWD 'bin\examples'
-          $pagesStaticBinDir = Join-Path $pagesDir 'static\bin'
-          $embeddedBinsDir = Join-Path $pagesDir '00-example-0\assets\bins'
           $examplesDir = Join-Path $PWD 'examples'
-          $pagesExampleDirs = @('00-example-0', '01-counter', 'static')
-          $pagesCatalogExampleDirs = @('00-example-0', '01-counter')
+          $pagesExampleDirs = @('public-examples-site', 'static')
 
           if (Test-Path $pagesDir) {
             Remove-Item $pagesDir -Recurse -Force
-          }
-
-          if (-not (Test-Path $builtExamplesDir)) {
-            throw "Built example binaries were not found at $builtExamplesDir"
           }
 
           New-Item -ItemType Directory -Path $pagesDir | Out-Null
           foreach ($exampleDir in $pagesExampleDirs) {
             Copy-Item (Join-Path $examplesDir $exampleDir) $pagesDir -Recurse -Force
           }
-          New-Item -ItemType Directory -Path $pagesStaticBinDir -Force | Out-Null
-          Get-ChildItem -Path $builtExamplesDir -Filter '*.wasm' | Copy-Item -Destination $pagesStaticBinDir -Force
-          $catalogPath = Join-Path $pagesDir 'static\catalog.json'
-          go run ./tools/gwc examples -export-static-catalog $catalogPath
-          $catalog = Get-Content $catalogPath -Raw | ConvertFrom-Json
-          $catalogExamples = @($catalog.examples | Where-Object { $pagesCatalogExampleDirs -contains $_.name })
-          $catalog.examples = $catalogExamples
-          $catalog.totalExamples = $catalogExamples.Count
-          $catalog.wasmExamples = @($catalogExamples | Where-Object { $_.usesWasm }).Count
-          $catalog.multiClientExamples = @($catalogExamples | Where-Object { $_.multiClient }).Count
-          $catalog | ConvertTo-Json -Depth 16 | Set-Content $catalogPath
-
-          foreach ($requiredBinary in @('example-0.wasm', 'counter.wasm', 'gwc-examples-site.wasm')) {
-            $requiredPath = Join-Path $pagesStaticBinDir $requiredBinary
-            if (-not (Test-Path $requiredPath)) {
-              throw "Required Pages binary missing after staging: $requiredPath"
-            }
-          }
-
-          New-Item -ItemType Directory -Path $embeddedBinsDir -Force | Out-Null
-          Copy-Item (Join-Path $builtExamplesDir 'counter.wasm') (Join-Path $embeddedBinsDir '01-counter.wasm') -Force
 
           @'
           <!doctype html>
           <html lang="en">
             <head>
               <meta charset="utf-8">
-              <meta http-equiv="refresh" content="0; url=./00-example-0/example-0.html">
+              <meta http-equiv="refresh" content="0; url=./public-examples-site/index.html">
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <title>GoWebComponents Docs</title>
             </head>
             <body>
-              <p>Redirecting to <a href="./00-example-0/example-0.html">the docs site</a>...</p>
+              <p>Redirecting to <a href="./public-examples-site/index.html">the docs site</a>...</p>
             </body>
           </html>
           '@ | Set-Content -Path (Join-Path $pagesDir 'index.html')

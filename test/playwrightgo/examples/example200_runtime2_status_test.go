@@ -101,8 +101,8 @@ func buildExample200Runtime2MainWasm(parseT *testing.T, parseRepoRoot string) {
 	getCommand := exec.Command(
 		"go",
 		"run", "./tools/gwc", "build",
-		"-app", "./examples/200-runtime2-status/main.go",
-		"-root", "./examples/200-runtime2-status",
+		"-app", "./examples/testing/runtime2-status/main.go",
+		"-root", "./examples/testing/runtime2-status",
 		"-out", "./examples/static/bin/runtime2-status.wasm",
 	)
 	getCommand.Dir = parseRepoRoot
@@ -117,8 +117,8 @@ func buildExample200Runtime2WorkerWasm(parseT *testing.T, parseRepoRoot string) 
 	getCommand := exec.Command(
 		"go",
 		"run", "./tools/gwc", "build",
-		"-app", "./examples/200-runtime2-status/backgroundworker/main.go",
-		"-root", "./examples/200-runtime2-status/backgroundworker",
+		"-app", "./examples/testing/runtime2-status/backgroundworker/main.go",
+		"-root", "./examples/testing/runtime2-status/backgroundworker",
 		"-out", "./bin/runtime2-status-worker.wasm",
 	)
 	getCommand.Dir = parseRepoRoot
@@ -210,7 +210,7 @@ func waitForExample200RuntimeReady(parseT *testing.T, parsePage playwright.Page,
 // captureExample200RuntimeExecutionArtifact captures runtime2 execution signals for one example 200 browser run.
 func captureExample200RuntimeExecutionArtifact(parseT *testing.T, parsePage playwright.Page, parseBaseURL string) example200RuntimeExecutionArtifact {
 	parseT.Helper()
-	getRoute := "/examples/200-runtime2-status/runtime2-status.html"
+	getRoute := "/examples/testing/runtime2-status/runtime2-status.html"
 	getArtifact := example200RuntimeExecutionArtifact{
 		GetRoute:                getRoute,
 		GetInitialAppRenderPass: -1,

@@ -5,7 +5,7 @@ import "testing"
 func TestParseWasmReleaseManifestJSONValidatesAndNormalizes(parseT *testing.T) {
 	parseManifest, parseErr := ParseWasmReleaseManifestJSON([]byte(`
 {
-  "package": " ./examples/86-atlas-commerce-os/client ",
+  "package": " ./examples/server/atlas-commerce-os/client ",
   "profile": " production ",
   "goos": " js ",
   "goarch": " wasm ",
@@ -17,7 +17,7 @@ func TestParseWasmReleaseManifestJSONValidatesAndNormalizes(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("expected release manifest parse to succeed, got %v", parseErr)
 	}
-	if parseManifest.Package != "./examples/86-atlas-commerce-os/client" {
+	if parseManifest.Package != "./examples/server/atlas-commerce-os/client" {
 		parseT.Fatalf("unexpected normalized package: %q", parseManifest.Package)
 	}
 	if parseManifest.Artifacts["wasm"].Path != "dist/app.1234.wasm" || parseManifest.Artifacts["wasm"].SHA256 != "abcd" {

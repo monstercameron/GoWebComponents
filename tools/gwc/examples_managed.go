@@ -614,7 +614,7 @@ func resolveExamplesManagedProfile(parseL launcher, parseProfileName string) (ex
 			buildTargetPath:   parseCommandDir,
 			buildWASMTargets:  resolveExamplesManagedChatWizardWASMTargets(parseL.repoRoot, parseCommandDir),
 			commandPath:       "go",
-			commandArgs:       []string{"run", "./examples/100-ai-chat-wizard/cmd/server"},
+			commandArgs:       []string{"run", "./examples/server/ai-chat-wizard/cmd/server"},
 			commandDir:        parseL.repoRoot,
 			defaultHost:       defaultHost,
 			defaultPort:       "8095",

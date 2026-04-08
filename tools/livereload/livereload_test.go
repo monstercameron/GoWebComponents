@@ -144,7 +144,7 @@ func TestBuildStatusMarshalsStateSnapshot(parseT *testing.T) {
 }
 
 func TestDescribeUpdateCompatibilityPlanHotReload(parseT *testing.T) {
-	parseClassification := newUpdateClassification("small", "hot", "UI changes: example components", []string{"examples/98-hot-reload/main.go"})
+	parseClassification := newUpdateClassification("small", "hot", "UI changes: example components", []string{"examples/public/hot-reload/main.go"})
 
 	if !parseClassification.Plan.PreserveState {
 		parseT.Fatalf("expected hot reload classification to preserve state, got %#v", parseClassification.Plan)
@@ -203,7 +203,7 @@ func TestBuildChangedComponentManifestExtractsTopLevelComponents(parseT *testing
 	if parseErr := os.WriteFile(filepath.Join(parseWorkspaceDir, "go.mod"), []byte("module example.com/test\n"), 0o644); parseErr != nil {
 		parseT.Fatalf("failed to write go.mod fixture: %v", parseErr)
 	}
-	parseAppDir := filepath.Join(parseWorkspaceDir, "examples", "98-hot-reload")
+	parseAppDir := filepath.Join(parseWorkspaceDir, "examples", "public", "hot-reload")
 	if parseErr2 := os.MkdirAll(parseAppDir, 0o755); parseErr2 != nil {
 		parseT.Fatalf("failed to create app dir: %v", parseErr2)
 	}
@@ -237,10 +237,10 @@ var Banner = func() ui.Node { return nil }
 	if len(parseManifest.Components) != 2 {
 		parseT.Fatalf("expected 2 changed components, got %#v", parseManifest.Components)
 	}
-	if parseManifest.Components[0].QualifiedName != "example.com/test/examples/98-hot-reload.App" {
+	if parseManifest.Components[0].QualifiedName != "example.com/test/examples/public/hot-reload.App" {
 		parseT.Fatalf("unexpected first component: %#v", parseManifest.Components[0])
 	}
-	if parseManifest.Components[1].QualifiedName != "example.com/test/examples/98-hot-reload.Banner" {
+	if parseManifest.Components[1].QualifiedName != "example.com/test/examples/public/hot-reload.Banner" {
 		parseT.Fatalf("unexpected second component: %#v", parseManifest.Components[1])
 	}
 }
@@ -251,8 +251,8 @@ func TestWriteChangedComponentManifestPersistsJSON(parseT *testing.T) {
 	parseServer := &LiveReloadServer{manifestPath: parseManifestPath}
 	parseManifest := &ChangedComponentManifest{
 		ReloadType:   "hot",
-		ChangedFiles: []string{"examples/98-hot-reload/main.go"},
-		Components:   []ChangedComponent{{Name: "App", QualifiedName: "example.com/test/examples/98-hot-reload.App", File: "examples/98-hot-reload/main.go"}},
+		ChangedFiles: []string{"examples/public/hot-reload/main.go"},
+		Components:   []ChangedComponent{{Name: "App", QualifiedName: "example.com/test/examples/public/hot-reload.App", File: "examples/public/hot-reload/main.go"}},
 	}
 
 	if parseErr := parseServer.writeChangedComponentManifest(parseManifest); parseErr != nil {
@@ -262,7 +262,7 @@ func TestWriteChangedComponentManifestPersistsJSON(parseT *testing.T) {
 	if parseErr2 != nil {
 		parseT.Fatalf("expected manifest file to exist, got %v", parseErr2)
 	}
-	if !strings.Contains(string(parseContent), "example.com/test/examples/98-hot-reload.App") {
+	if !strings.Contains(string(parseContent), "example.com/test/examples/public/hot-reload.App") {
 		parseT.Fatalf("expected manifest file to contain component identity, got %s", parseContent)
 	}
 }
@@ -353,7 +353,7 @@ func TestResolveModuleRootFindsNearestGoMod(parseT *testing.T) {
 	if parseErr := os.WriteFile(filepath.Join(parseWorkspaceDir, "go.mod"), []byte("module example.com/test\n"), 0o644); parseErr != nil {
 		parseT.Fatalf("failed to write go.mod fixture: %v", parseErr)
 	}
-	parseExampleDir := filepath.Join(parseWorkspaceDir, "examples", "98-hot-reload")
+	parseExampleDir := filepath.Join(parseWorkspaceDir, "examples", "public", "hot-reload")
 	if parseErr2 := os.MkdirAll(parseExampleDir, 0o755); parseErr2 != nil {
 		parseT.Fatalf("failed to create example dir: %v", parseErr2)
 	}
@@ -368,7 +368,7 @@ func TestNewLiveReloadServerUsesModuleRootForWatching(parseT *testing.T) {
 	if parseErr := os.WriteFile(filepath.Join(parseWorkspaceDir, "go.mod"), []byte("module example.com/test\n"), 0o644); parseErr != nil {
 		parseT.Fatalf("failed to write go.mod fixture: %v", parseErr)
 	}
-	parseExampleDir := filepath.Join(parseWorkspaceDir, "examples", "98-hot-reload")
+	parseExampleDir := filepath.Join(parseWorkspaceDir, "examples", "public", "hot-reload")
 	if parseErr2 := os.MkdirAll(parseExampleDir, 0o755); parseErr2 != nil {
 		parseT.Fatalf("failed to create example dir: %v", parseErr2)
 	}
@@ -395,7 +395,7 @@ func TestNewLiveReloadServerUsesModuleRootForWatching(parseT *testing.T) {
 	if parseServer.buildDir != parseExampleDir {
 		parseT.Fatalf("expected build dir %q, got %q", parseExampleDir, parseServer.buildDir)
 	}
-	parseWantOutputPath := filepath.Join(parseWorkspaceDir, "bin", "examples", "98-hot-reload", "main.wasm")
+	parseWantOutputPath := filepath.Join(parseWorkspaceDir, "bin", "examples", "public", "hot-reload", "main.wasm")
 	if parseServer.outputPath != parseWantOutputPath {
 		parseT.Fatalf("expected output path %q, got %q", parseWantOutputPath, parseServer.outputPath)
 	}
@@ -549,8 +549,8 @@ func TestNewHTTPHandlerServesStatusEndpoint(parseT *testing.T) {
 
 func TestNewHTTPHandlerServesResolvedWasmOutsideProjectRoot(parseT *testing.T) {
 	parseWorkspaceDir := parseT.TempDir()
-	parseProjectRoot := filepath.Join(parseWorkspaceDir, "examples", "98-hot-reload")
-	parseOutputPath := filepath.Join(parseWorkspaceDir, "bin", "examples", "98-hot-reload", "main.wasm")
+	parseProjectRoot := filepath.Join(parseWorkspaceDir, "examples", "public", "hot-reload")
+	parseOutputPath := filepath.Join(parseWorkspaceDir, "bin", "examples", "public", "hot-reload", "main.wasm")
 	if parseErr := os.MkdirAll(parseProjectRoot, 0o755); parseErr != nil {
 		parseT.Fatalf("failed to create project root: %v", parseErr)
 	}

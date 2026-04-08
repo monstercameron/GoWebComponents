@@ -280,7 +280,7 @@ func buildExample201ScoreFactor(parseReferenceMs float64, parseMeasuredMs float6
 func buildExample201ExpectedWorkerCounts(parseRoute string) []int {
 	getRoute := parseRoute
 	if strings.TrimSpace(getRoute) == "" {
-		getRoute = "/examples/201-render-benchmark/?iterations=7&warmups=2&seed=20101"
+		getRoute = "/examples/testing/render-benchmark/?iterations=7&warmups=2&seed=20101"
 	}
 	getParsedRoute, parseErr := url.Parse(getRoute)
 	if parseErr != nil {
@@ -332,7 +332,7 @@ func buildExample201ExpectedWorkerCounts(parseRoute string) []int {
 func buildExample201ExpectedFrameworkIDs(parseRoute string) []string {
 	getRoute := parseRoute
 	if strings.TrimSpace(getRoute) == "" {
-		getRoute = "/examples/201-render-benchmark/?iterations=7&warmups=2&seed=20101"
+		getRoute = "/examples/testing/render-benchmark/?iterations=7&warmups=2&seed=20101"
 	}
 	getParsedRoute, parseErr := url.Parse(getRoute)
 	if parseErr != nil {
@@ -369,12 +369,12 @@ func buildExample201ScalingRouteWithDispatch(parseDispatch string) string {
 	getQuery.Set("runtime2WorkerCounts", "1,2,4,8")
 	getQuery.Set("runtime2WorkScale", "12")
 	getQuery.Set("runtime2Dispatch", getDispatch)
-	return "/examples/201-render-benchmark/?" + getQuery.Encode()
+	return "/examples/testing/render-benchmark/?" + getQuery.Encode()
 }
 
 // buildExample201OneAndFourWorkerRoute returns the mixed-framework route limited to React, runtime1, RT2x1, and RT2x4.
 func buildExample201OneAndFourWorkerRoute() string {
-	return "/examples/201-render-benchmark/?iterations=7&warmups=2&seed=20101&runtime2WorkerCounts=1,4"
+	return "/examples/testing/render-benchmark/?iterations=7&warmups=2&seed=20101&runtime2WorkerCounts=1,4"
 }
 
 // buildExample201BenchmarkWasm builds the shared Go benchmark subject through gwc into the examples wasm output directory.
@@ -384,8 +384,8 @@ func buildExample201BenchmarkWasm(parseT *testing.T, parseRepoRoot string) strin
 	getCommand := exec.Command(
 		"go",
 		"run", "./tools/gwc", "build",
-		"-app", "./examples/201-render-benchmark/main.go",
-		"-root", "./examples/201-render-benchmark",
+		"-app", "./examples/testing/render-benchmark/main.go",
+		"-root", "./examples/testing/render-benchmark",
 		"-out", "./bin/examples/render-benchmark.wasm",
 	)
 	getCommand.Dir = parseRepoRoot
@@ -399,7 +399,7 @@ func buildExample201BenchmarkWasm(parseT *testing.T, parseRepoRoot string) strin
 func buildExample201BenchmarkWorkerWasm(parseT *testing.T, parseRepoRoot string) string {
 	parseT.Helper()
 	getOutputPath := filepath.Join(parseRepoRoot, "bin", "examples", "render-benchmark-worker.wasm")
-	getCommand := exec.Command("go", "build", "-o", getOutputPath, "./examples/201-render-benchmark/backgroundworker")
+	getCommand := exec.Command("go", "build", "-o", getOutputPath, "./examples/testing/render-benchmark/backgroundworker")
 	getCommand.Dir = parseRepoRoot
 	getCommand.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if getOutput, parseErr := getCommand.CombinedOutput(); parseErr != nil {
@@ -413,7 +413,7 @@ func buildExample201Artifact(parseT *testing.T, parsePage playwright.Page, parse
 	parseT.Helper()
 	getRoute := parseRoute
 	if strings.TrimSpace(getRoute) == "" {
-		getRoute = "/examples/201-render-benchmark/?iterations=7&warmups=2&seed=20101"
+		getRoute = "/examples/testing/render-benchmark/?iterations=7&warmups=2&seed=20101"
 	}
 	if _, parseErr := parsePage.Goto(parseBaseURL+getRoute, playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
@@ -769,7 +769,7 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 	getBuilder.WriteString("- Important boundary: the `runtime2` subjects here still keep DOM ownership on the main thread.\n")
 	getBuilder.WriteString("- Worker note: each `Runtime 2 (N Workers)` subject opens the requested Go WASM worker count to prepare core and content chunks before the local runtime2 shell commits DOM updates.\n")
 	getBuilder.WriteString("- Non-worker note: deep-tree, primitive, hook-grid, and enterprise-workspace subtree scenarios remain main-thread-owned today, so the worker-backed benefit is expected to concentrate in the core and content scenarios.\n")
-	getBuilder.WriteString("- React subject note: the page uses a vendored React 19.2.4 browser bundle under `examples/201-render-benchmark/vendor/`, so the comparison stays local to the repo server.\n\n")
+	getBuilder.WriteString("- React subject note: the page uses a vendored React 19.2.4 browser bundle under `examples/testing/render-benchmark/vendor/`, so the comparison stays local to the repo server.\n\n")
 	getBuilder.WriteString("- Finish lines: `DOM Ready` means the scenario correctness contract became true. `Paint Proxy` means one `requestAnimationFrame` boundary after the DOM-ready checkpoint.\n")
 	getBuilder.WriteString("- Primary comparison: category summaries and scenario ordering use `DOM Ready` as the lead timing. `Paint Proxy` stays in the report as secondary frame-bound context only.\n")
 	getBuilder.WriteString(fmt.Sprintf("- Score reference: `%s` on `%s` from route `%s`. `DOM Score` is `100 * geometric_mean(reference DOM Ready / measured DOM Ready)`.\n", parseReference.GetReferenceLabel, parseReference.GetReferenceBrowser, parseReference.GetRoute))
@@ -1245,7 +1245,7 @@ func TestExample201BrowserBenchmarkHonorsConfiguredWorkerCounts(parseT *testing.
 	buildExample201BenchmarkWorkerWasm(parseT, getRepoRoot)
 	getBaseURL := startExamplesCatalogServer(parseT, getRepoRoot, "18101")
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
-		getArtifact := buildExample201Artifact(parseT, parsePage, getBaseURL, "/examples/201-render-benchmark/?iterations=2&warmups=1&seed=20101&runtime2WorkerCounts=2,8")
+		getArtifact := buildExample201Artifact(parseT, parsePage, getBaseURL, "/examples/testing/render-benchmark/?iterations=2&warmups=1&seed=20101&runtime2WorkerCounts=2,8")
 		getExpectedLabels := map[string]string{
 			"runtime2-workers2": "Runtime 2 (2 Workers)",
 			"runtime2-workers8": "Runtime 2 (8 Workers)",

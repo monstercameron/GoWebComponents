@@ -1,0 +1,1406 @@
+//go:build js && wasm
+// +build js,wasm
+
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"strconv"
+	"syscall/js"
+	"time"
+
+	"github.com/monstercameron/GoWebComponents/router"
+)
+
+// GWCShowcaseSection presents GoWebComponents capabilities with feature cards.
+
+// Uses dark theme styling to create visual contrast and highlight the framework's
+
+// professional grade features and developer experience benefits.
+
+func GWCShowcaseSection(_ Attrs) *Element {
+
+	return Section(
+
+		Attrs{
+
+			"id": "gwc-showcase",
+
+			"class": "py-20 bg-gradient-to-br from-gray-900/50 to-purple-900/20 border-b border-white/10 text-white",
+		},
+
+		Div(
+
+			Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
+
+			Div(
+
+				Attrs{"class": "text-center mb-16"},
+
+				H2(
+
+					Attrs{"class": "text-4xl font-bold mb-4"},
+
+					"GoWebComponents Showcase",
+				),
+
+				P(
+
+					Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"},
+
+					"Discover the innovative features and capabilities that make GoWebComponents unique",
+				),
+			),
+
+			Div(
+
+				Attrs{"class": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"},
+
+				GWCFeatureCard("⚡", "Lightning Fast", "WebAssembly performance with Go's efficiency and memory safety"),
+
+				GWCFeatureCard("🛡️", "Type Safety", "Compile-time error checking eliminates runtime surprises"),
+
+				GWCFeatureCard("🎯", "Developer Experience", "Hot reload, debugging tools, and familiar Go syntax"),
+
+				GWCFeatureCard("🏗️", "Component Architecture", "Reusable, composable components with clear data flow"),
+
+				GWCFeatureCard("🎨", "Modern UI", "Beautiful interfaces with Tailwind CSS integration"),
+
+				GWCFeatureCard("🚀", "Production Ready", "Battle-tested framework with real-world applications"),
+
+				GWCFeatureCard("🔒", "Advanced Form", "Validation • Effects • Memo • Go Routines"),
+			),
+		),
+	)
+
+}
+
+// GWCFeatureCard renders individual framework features with glassmorphism styling.
+
+// Designed for dark backgrounds with semi-transparent cards and hover interactions.
+
+func GWCFeatureCard(parseIcon, parseTitle, parseDescription string) *Element {
+
+	return Div(
+
+		Attrs{"class": "bg-white/5 backdrop-blur-sm p-6 rounded-xl hover:bg-white/10 transition-all duration-300 border border-white/10"},
+
+		Div(Attrs{"class": "text-3xl mb-4"}, parseIcon),
+
+		H3(Attrs{"class": "text-xl font-semibold mb-3"}, parseTitle),
+
+		P(Attrs{"class": "text-gray-400"}, parseDescription),
+	)
+
+}
+
+// GWCExamplesSection displays interactive mini-applications demonstrating GoWebComponents.
+
+// Features 3D flip cards, source code viewing, and lazy loading for optimal performance.
+
+// Includes an advanced form example with on-demand GitHub source fetching.
+
+func GWCExamplesSection(_ Attrs) *Element {
+
+	return Section(
+
+		Attrs{
+
+			"id": "examples",
+
+			"class": "py-20 bg-transparent",
+		},
+
+		Div(
+
+			Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
+
+			Div(
+
+				Attrs{"class": "text-center mb-16"},
+
+				H2(
+
+					Attrs{"class": "text-4xl font-bold text-white mb-4"},
+
+					"Mini Apps Gallery",
+				),
+
+				P(
+
+					Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"},
+
+					"7 interactive mini applications showcasing GoWebComponents capabilities",
+				),
+			),
+
+			Div(
+
+				Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto"},
+
+				CreateElement(MiniAppCard, Attrs{
+					"icon":        "🖱️",
+					"title":       "Click Counter",
+					"description": "State management basics",
+					"component":   MiniClickCounter,
+					"sourceCode":  clickCounterSource,
+				}),
+
+				CreateElement(MiniAppCard, Attrs{
+					"icon":        "🎲",
+					"title":       "Random Number",
+					"description": "Effects and events",
+					"component":   MiniRandomizer,
+					"sourceCode":  randomizerSource,
+				}),
+
+				CreateElement(MiniAppCard, Attrs{
+					"icon":        "📝",
+					"title":       "Quick Note",
+					"description": "Input handling",
+					"component":   MiniNotepad,
+					"sourceCode":  notepadSource,
+				}),
+
+				CreateElement(MiniAppCard, Attrs{
+					"icon":        "🎨",
+					"title":       "Color Picker",
+					"description": "Dynamic styling",
+					"component":   MiniColorPicker,
+					"sourceCode":  colorPickerSource,
+				}),
+
+				CreateElement(MiniAppCard, Attrs{
+					"icon":        "⏱️",
+					"title":       "Timer",
+					"description": "Real-time updates",
+					"component":   MiniTimer,
+					"sourceCode":  timerSource,
+				}),
+
+				CreateElement(MiniAppCard, Attrs{
+					"icon":        "📊",
+					"title":       "Vote Counter",
+					"description": "Multiple states",
+					"component":   MiniVoting,
+					"sourceCode":  votingSource,
+				}),
+
+				// Full-width advanced example
+
+				Div(
+
+					Attrs{"class": "md:col-span-2"},
+
+					AdvancedFormShowcase(nil),
+				),
+			),
+		),
+	)
+
+}
+
+// AdvancedFormShowcase integrates the complex form example with GitHub source loading.
+
+// Demonstrates UseFetch hook usage and lazy content loading patterns.
+
+func AdvancedFormShowcase(_ Attrs) *Element {
+
+	return CreateElement(LazyMiniAppCard, Attrs{
+		"icon":        "🔒",
+		"title":       "Advanced Form",
+		"description": "Validation • Effects • Memo • Go Routines • UseFetch",
+		"component":   AdvancedFormExample,
+		"sourceUrl":   "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go",
+	})
+
+}
+
+// LazyMiniAppCard renders a 3D flip card with app demo and source code viewing.
+
+// Features lazy loading of source code from GitHub, loading states, error handling,
+
+// and smooth 3D flip animations between app view and code view.
+
+func LazyMiniAppCard(parseProps Attrs) *Element {
+	parseIcon := parseProps["icon"].(string)
+	parseTitle := parseProps["title"].(string)
+	parseDescription := parseProps["description"].(string)
+	parseComponent := parseProps["component"].(func(Attrs) *Element)
+	parseSourceUrl := parseProps["sourceUrl"].(string)
+
+	parseShowSource, setShowSource := UseState(false)
+
+	parseSourceLoaded, setSourceLoaded := UseState(false)
+
+	shouldFetch, setShouldFetch := UseState(false)
+
+	// Use UseFetch but only when shouldFetch is true
+
+	parseFetchUrl := func() string {
+
+		if shouldFetch() {
+
+			return parseSourceUrl
+
+		}
+
+		return "" // Empty URL means no fetch
+
+	}()
+
+	getFetchState, _ := UseFetch(parseFetchUrl)
+
+	parseFetchState := getFetchState()
+
+	// Determine current source code and loading state
+
+	var parseSourceCode string
+
+	var isLoading bool
+
+	if !parseSourceLoaded() {
+
+		parseSourceCode = "// Click 'View Code' to load source from GitHub..."
+
+		isLoading = false
+
+	} else if parseFetchState.Loading {
+
+		parseSourceCode = ""
+
+		isLoading = true
+
+	} else if parseFetchState.Error != "" {
+
+		parseSourceCode = fmt.Sprintf("// Error fetching source code: %s\n// Please check the URL: %s", parseFetchState.Error, parseSourceUrl)
+
+		isLoading = false
+
+	} else if parseFetchState.Data != nil {
+
+		parseSourceCode = fmt.Sprintf("%v", parseFetchState.Data)
+
+		isLoading = false
+
+	} else {
+
+		parseSourceCode = "// Source code not available"
+
+		isLoading = false
+
+	}
+
+	parseToggleSource := UseEvent(func(parseEvent MouseEvent) {
+
+		if !parseShowSource() && !parseSourceLoaded() {
+
+			// First time viewing source - trigger the API call
+
+			setSourceLoaded(true)
+
+			setShouldFetch(true)
+
+			// The fetch will trigger automatically when shouldFetch becomes true
+
+		}
+
+		setShowSource(!parseShowSource())
+
+	})
+
+	parseCopyToClipboard := UseEvent(func(parseEvent2 MouseEvent) {
+
+		if !isLoading && parseSourceCode != "" && parseSourceLoaded() {
+
+			js.Global().Get("navigator").Get("clipboard").Call("writeText", parseSourceCode)
+
+		}
+
+	})
+
+	return Div(
+
+		Attrs{
+
+			"class": "relative group",
+
+			"style": "perspective: 1000px; min-height: 450px;",
+		},
+
+		// 3D Flip Container with Shadow
+
+		Div(
+
+			Attrs{
+
+				"class": "relative w-full min-h-[450px] transition-all duration-700 bg-white/5 rounded-xl shadow-lg hover:shadow-xl border border-white/10 backdrop-blur-sm",
+
+				"style": func() string {
+
+					if parseShowSource() {
+
+						return "transform: rotateY(180deg); transform-style: preserve-3d;"
+
+					}
+
+					return "transform: rotateY(0deg); transform-style: preserve-3d;"
+
+				}(),
+			},
+
+			// Front Side - App View
+
+			Div(
+
+				Attrs{
+
+					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden flex flex-col",
+
+					"style": "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(0deg);",
+				},
+
+				// Header
+
+				Div(
+
+					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
+
+					Div(
+
+						Attrs{"class": "flex items-center justify-between"},
+
+						Div(
+
+							Attrs{"class": "flex items-center space-x-2"},
+
+							Span(Attrs{"class": "text-2xl"}, parseIcon),
+
+							Div(nil,
+
+								H3(Attrs{"class": "font-semibold text-white"}, parseTitle),
+
+								P(Attrs{"class": "text-xs text-gray-400"}, parseDescription),
+							),
+						),
+
+						Button(
+
+							Attrs{
+
+								"class": "text-xs px-3 py-1 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-105",
+
+								"onclick": parseToggleSource,
+							},
+
+							"</> View Code",
+						),
+					),
+				),
+
+				// App Component
+
+				Div(
+
+					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-transparent"},
+
+					CreateElement(parseComponent, nil),
+				),
+			),
+
+			// Back Side - Code View
+
+			Div(
+
+				Attrs{
+
+					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden bg-gray-900",
+
+					"style": "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(180deg);",
+				},
+
+				Div(
+
+					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
+
+					Div(
+
+						Attrs{"class": "flex items-center justify-between"},
+
+						Div(
+
+							Attrs{"class": "flex items-center space-x-2"},
+
+							Span(Attrs{"class": "text-green-400 text-lg"}, "{}"),
+
+							H3(Attrs{"class": "font-semibold text-white text-sm"}, parseTitle+" Source"),
+						),
+
+						Button(
+
+							Attrs{
+
+								"class": "text-xs px-3 py-1 bg-blue-600 text-white rounded-full hover:bg-blue-500 transition-all duration-300 hover:scale-105",
+
+								"onclick": parseToggleSource,
+							},
+
+							"🎨 View App",
+						),
+					),
+				),
+
+				Div(
+
+					Attrs{"class": "relative p-6 pb-12 h-full"},
+
+					func() *Element {
+						// Only render content when showSource is true (back side is visible)
+						if !parseSourceLoaded() {
+							// Not loaded yet, show placeholder
+							return Pre(
+								Attrs{"class": "text-gray-400 text-sm font-mono whitespace-pre-wrap"},
+								Code(nil, Text("// Click 'View Code' to load source from GitHub...")),
+							)
+						}
+
+						if isLoading {
+
+							// Show loading spinner
+
+							return Div(
+
+								Attrs{"class": "flex items-center justify-center h-full"},
+
+								Div(
+
+									Attrs{"class": "text-center"},
+
+									Div(Attrs{"class": "inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-400 mb-4"}),
+
+									P(Attrs{"class": "text-green-400 text-sm"}, "Loading source code from GitHub..."),
+								),
+							)
+
+						}
+
+						// Show source code
+						return HighlightGoCode(parseSourceCode)
+
+					}(),
+
+					// Floating Clipboard Button (only show when not loading)
+
+					func() *Element {
+						if !parseShowSource() {
+							return nil
+						}
+
+						if !isLoading && parseSourceCode != "" && parseSourceLoaded() {
+
+							return Button(
+
+								Attrs{
+
+									"class": "absolute top-8 right-8 p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg shadow-lg transition-all duration-300 hover:scale-110 opacity-80 hover:opacity-100",
+
+									"onclick": parseCopyToClipboard,
+
+									"title": "Copy to clipboard",
+								},
+
+								Span(Attrs{"class": "text-base"}, "📋"),
+							)
+
+						}
+
+						return Div(nil) // Empty div when loading
+
+					}(),
+				),
+			),
+		),
+	)
+
+}
+
+// MiniAppCard creates a mini app showcase card with 3D flip animation and clipboard
+
+func MiniAppCard(parseProps Attrs) *Element {
+	parseIcon := parseProps["icon"].(string)
+	parseTitle := parseProps["title"].(string)
+	parseDescription := parseProps["description"].(string)
+	parseComponent := parseProps["component"].(func(Attrs) *Element)
+	parseSourceCode := parseProps["sourceCode"].(string)
+
+	parseShowSource, setShowSource := UseState(false)
+
+	parseToggleSource := UseEvent(func(parseEvent MouseEvent) {
+
+		setShowSource(!parseShowSource())
+
+	})
+
+	parseCopyToClipboard := UseEvent(func(parseEvent2 MouseEvent) {
+
+		js.Global().Get("navigator").Get("clipboard").Call("writeText", parseSourceCode)
+
+		// Could add a toast notification here
+
+	})
+
+	return Div(
+
+		Attrs{
+
+			"class": "relative group",
+
+			"style": "perspective: 1000px; min-height: 450px;",
+		},
+
+		// 3D Flip Container with Shadow
+
+		Div(
+
+			Attrs{
+
+				"class": "relative w-full min-h-[450px] transition-all duration-700 bg-white/5 rounded-xl shadow-lg hover:shadow-xl border border-white/10 backdrop-blur-sm",
+
+				"style": func() string {
+
+					if parseShowSource() {
+
+						return "transform: rotateY(180deg); transform-style: preserve-3d;"
+
+					}
+
+					return "transform: rotateY(0deg); transform-style: preserve-3d;"
+
+				}(),
+			},
+
+			// Front Side - App View
+
+			Div(
+
+				Attrs{
+
+					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden flex flex-col",
+
+					"style": "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(0deg);",
+				},
+
+				// Header
+
+				Div(
+
+					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
+
+					Div(
+
+						Attrs{"class": "flex items-center justify-between"},
+
+						Div(
+
+							Attrs{"class": "flex items-center space-x-2"},
+
+							Span(Attrs{"class": "text-2xl"}, parseIcon),
+
+							Div(nil,
+
+								H3(Attrs{"class": "font-semibold text-white"}, parseTitle),
+
+								P(Attrs{"class": "text-xs text-gray-400"}, parseDescription),
+							),
+						),
+
+						Button(
+
+							Attrs{
+
+								"class": "text-xs px-3 py-1 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-105",
+
+								"onclick": parseToggleSource,
+							},
+
+							"</> View Code",
+						),
+					),
+				),
+
+				// App Component
+
+				Div(
+
+					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-transparent"},
+
+					CreateElement(parseComponent, nil),
+				),
+			),
+
+			// Back Side - Code View
+
+			Div(
+
+				Attrs{
+
+					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden bg-gray-900",
+
+					"style": "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(180deg);",
+				},
+
+				Div(
+
+					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
+
+					Div(
+
+						Attrs{"class": "flex items-center justify-between"},
+
+						Div(
+
+							Attrs{"class": "flex items-center space-x-2"},
+
+							Span(Attrs{"class": "text-green-400 text-lg"}, "{}"),
+
+							H3(Attrs{"class": "font-semibold text-white text-sm"}, parseTitle+" Source"),
+						),
+
+						Button(
+
+							Attrs{
+
+								"class": "text-xs px-3 py-1 bg-blue-600 text-white rounded-full hover:bg-blue-500 transition-all duration-300 hover:scale-105",
+
+								"onclick": parseToggleSource,
+							},
+
+							"🎨 View App",
+						),
+					),
+				),
+
+				Div(
+
+					Attrs{"class": "relative p-6 pb-12 h-full"},
+
+					func() *Element {
+						if !parseShowSource() {
+							return nil
+						}
+						return HighlightGoCode(parseSourceCode)
+					}(),
+
+					// Floating Clipboard Button
+
+					func() *Element {
+						if !parseShowSource() {
+							return nil
+						}
+						return Button(
+
+							Attrs{
+
+								"class": "absolute top-8 right-8 p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg shadow-lg transition-all duration-300 hover:scale-110 opacity-80 hover:opacity-100",
+
+								"onclick": parseCopyToClipboard,
+
+								"title": "Copy to clipboard",
+							},
+
+							Span(Attrs{"class": "text-base"}, "📋"),
+						)
+					}(),
+				),
+			),
+		),
+	)
+
+}
+
+// Mini App 1: Click Counter
+
+func MiniClickCounter(parseProps Attrs) *Element {
+
+	parseClickCount, setClickCount := UseState(0)
+
+	parseIncrementClicks := UseEvent(func(parseEvent MouseEvent) {
+
+		setClickCount(parseClickCount() + 1)
+
+	})
+
+	resetClicks := UseEvent(func(parseEvent2 MouseEvent) {
+
+		setClickCount(0)
+
+	})
+
+	return Div(
+
+		Attrs{"class": "text-center space-y-3"},
+
+		P(Attrs{"class": "text-2xl font-bold text-blue-400"}, Text(strconv.Itoa(parseClickCount()))),
+
+		Div(
+
+			Attrs{"class": "space-x-2"},
+
+			Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": parseIncrementClicks}, "+1"),
+
+			Button(Attrs{"class": "px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": resetClicks}, "Reset"),
+		),
+	)
+
+}
+
+// Mini App 2: Random Number Generator
+
+func MiniRandomizer(parseProps Attrs) *Element {
+
+	parseRandomNum, setRandomNum := UseState(42)
+
+	// Initialize random seed once when component mounts
+	UseEffect(func() func() {
+		rand.Seed(time.Now().UnixNano())
+		return nil
+	})
+
+	parseGenerateRandom := UseEvent(func(parseEvent MouseEvent) {
+		// Use Go's native random number generator
+		parseNewNum := rand.Intn(100) + 1
+		setRandomNum(parseNewNum)
+	})
+
+	return Div(
+
+		Attrs{"class": "text-center space-y-3"},
+
+		P(Attrs{"class": "text-2xl font-bold text-purple-400"}, Text(strconv.Itoa(parseRandomNum()))),
+
+		Button(Attrs{"class": "px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700", "onclick": parseGenerateRandom}, "Generate"),
+	)
+
+}
+
+// Mini App 3: Quick Note
+
+func MiniNotepad(parseProps Attrs) *Element {
+
+	parseNoteText, setNoteText := UseState("Sample note text")
+
+	parseUpdateNote := UseEvent(func(parseEvent MouseEvent) {
+
+		if parseNoteText() == "Sample note text" {
+
+			setNoteText("Updated note!")
+
+		} else {
+
+			setNoteText("Sample note text")
+
+		}
+
+	})
+
+	return Div(
+
+		Attrs{"class": "space-y-3"},
+
+		Div(
+
+			Attrs{"class": "w-full p-3 border border-white/10 rounded text-sm bg-black/20 min-h-16"},
+
+			P(Attrs{"class": "text-white"}, parseNoteText()),
+		),
+
+		Div(
+
+			Attrs{"class": "flex justify-between items-center"},
+
+			Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": parseUpdateNote}, "Edit Note"),
+
+			P(Attrs{"class": "text-xs text-gray-400"}, Text(strconv.Itoa(len(parseNoteText()))), " characters"),
+		),
+	)
+
+}
+
+// Mini App 4: Color Picker
+
+func MiniColorPicker(parseProps Attrs) *Element {
+
+	parseSelectedColor, setSelectedColor := UseState("bg-blue-500")
+
+	parseColors := []string{"bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-purple-500", "bg-pink-500"}
+
+	parseColorButtons := make([]interface{}, len(parseColors))
+
+	for parseI, parseColor := range parseColors {
+
+		parseCurrentColor := parseColor
+
+		parseColorButtons[parseI] = Button(Attrs{
+
+			"class": "w-6 h-6 rounded-full " + parseColor + " hover:scale-110 transition-transform",
+
+			"onclick": UseEvent(func(parseEvent MouseEvent) {
+
+				setSelectedColor(parseCurrentColor)
+
+			}),
+		})
+
+	}
+
+	return Div(
+
+		Attrs{"class": "space-y-3"},
+
+		Div(Attrs{"class": "w-full h-16 rounded " + parseSelectedColor()}),
+
+		Div(Attrs{"class": "flex space-x-2 justify-center"}, parseColorButtons...),
+	)
+
+}
+
+// Mini App 5: Simple Timer
+
+func MiniTimer(parseProps Attrs) *Element {
+
+	parseTimerCount, setTimerCount := UseState(0)
+
+	parseTimerRunning, setTimerRunning := UseState(false)
+
+	parseToggleTimer := UseEvent(func(parseEvent MouseEvent) {
+
+		setTimerRunning(!parseTimerRunning())
+
+	})
+
+	resetTimer := UseEvent(func(parseEvent2 MouseEvent) {
+
+		setTimerCount(0)
+
+		setTimerRunning(false)
+	})
+
+	// Define tick handler using UseEvent
+	parseTick := UseEvent(func() {
+		setTimerCount(parseTimerCount() + 1)
+	})
+
+	UseEffect(func() func() {
+		if parseTimerRunning() {
+			parseTimeoutID := js.Global().Call("setTimeout", parseTick, 1000)
+			_ = parseTimeoutID
+		}
+		return nil
+	})
+
+	return Div(
+		Attrs{"class": "text-center space-y-3"},
+		P(Attrs{"class": "text-2xl font-bold text-green-400"}, Text(strconv.Itoa(parseTimerCount())), "s"),
+		Div(
+
+			Attrs{"class": "space-x-2"},
+
+			Button(Attrs{"class": "px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": parseToggleTimer}, func() string {
+
+				if parseTimerRunning() {
+
+					return "Stop"
+
+				}
+
+				return "Start"
+
+			}()),
+
+			Button(Attrs{"class": "px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": resetTimer}, "Reset"),
+		),
+	)
+
+}
+
+// Mini App 6: Vote Counter
+
+func MiniVoting(parseProps Attrs) *Element {
+
+	parseUpvotes, setUpvotes := UseState(12)
+
+	parseDownvotes, setDownvotes := UseState(3)
+
+	parseAddUpvote := UseEvent(func(parseEvent MouseEvent) {
+
+		setUpvotes(parseUpvotes() + 1)
+
+	})
+
+	parseAddDownvote := UseEvent(func(parseEvent2 MouseEvent) {
+
+		setDownvotes(parseDownvotes() + 1)
+
+	})
+
+	parseTotalVotes := parseUpvotes() + parseDownvotes()
+
+	parseUpvotePercentage := 0
+
+	if parseTotalVotes > 0 {
+
+		parseUpvotePercentage = (parseUpvotes() * 100) / parseTotalVotes
+
+	}
+
+	return Div(
+
+		Attrs{"class": "space-y-3"},
+
+		Div(
+
+			Attrs{"class": "flex justify-between items-center"},
+
+			Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": parseAddUpvote},
+
+				Span(nil, "👍"),
+
+				Span(nil, Text(strconv.Itoa(parseUpvotes()))),
+			),
+
+			Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": parseAddDownvote},
+
+				Span(nil, "👎"),
+
+				Span(nil, Text(strconv.Itoa(parseDownvotes()))),
+			),
+		),
+
+		P(Attrs{"class": "text-xs text-gray-400 text-center"}, Text(strconv.Itoa(parseUpvotePercentage)), "% approval"),
+	)
+
+}
+
+// Source code strings for each mini app
+
+var clickCounterSource = `func MiniClickCounter(props Attrs) *Element {
+
+    clickCount, setClickCount := UseState(0)
+
+	incrementClicks := UseEvent(func(event MouseEvent) {
+
+        setClickCount(clickCount() + 1)
+
+    })
+
+	resetClicks := UseEvent(func(event MouseEvent) {
+
+        setClickCount(0)
+
+    })
+
+    return Div(
+
+        Attrs{"class": "text-center space-y-3"},
+
+        P(Attrs{"class": "text-2xl font-bold text-indigo-600"}, 
+
+          Text(strconv.Itoa(clickCount()))),
+
+        Div(Attrs{"class": "space-x-2"},
+
+            Button(Attrs{"onclick": incrementClicks}, "+1"),
+
+            Button(Attrs{"onclick": resetClicks}, "Reset"),
+
+        ),
+
+    )
+
+}`
+
+var randomizerSource = `func MiniRandomizer(props Attrs) *Element {
+
+    randomNum, setRandomNum := UseState(42)
+
+    UseEffect(func() {
+
+        rand.Seed(time.Now().UnixNano())
+
+        return
+
+    })
+
+	generateRandom := UseEvent(func(event MouseEvent) {
+
+        newNum := rand.Intn(100) + 1
+
+        setRandomNum(newNum)
+
+    })
+
+    return Div(
+
+        Attrs{"class": "text-center space-y-3"},
+
+        P(Attrs{"class": "text-2xl font-bold text-purple-600"}, 
+
+          Text(strconv.Itoa(randomNum()))),
+
+        Button(Attrs{"onclick": generateRandom}, "Generate"),
+
+    )
+
+}`
+
+var notepadSource = `func MiniNotepad(props Attrs) *Element {
+
+    noteText, setNoteText := UseState("Type here...")
+
+	handleInput := UseEvent(func(event InputEvent) {
+
+        setNoteText(event.Target.Get("value").String())
+
+    })
+
+    return Div(Attrs{"class": "space-y-3"},
+
+        Textarea(Attrs{
+
+            "value": noteText(),
+
+            "oninput": handleInput,
+
+            "placeholder": "Type your note...",
+
+        }),
+
+        P(nil, Text(strconv.Itoa(len(noteText()))), " characters"),
+
+    )
+
+}`
+
+var colorPickerSource = `func MiniColorPicker(props Attrs) *Element {
+
+    selectedColor, setSelectedColor := UseState("bg-blue-500")
+
+    colors := []string{"bg-red-500", "bg-blue-500", 
+
+                      "bg-green-500", "bg-yellow-500"}
+
+    colorButtons := make([]interface{}, len(colors))
+
+    for i, color := range colors {
+
+        currentColor := color
+
+        colorButtons[i] = Button(Attrs{
+
+            "class": "w-6 h-6 rounded-full " + color,
+
+			"onclick": UseEvent(func(event MouseEvent) {
+
+                setSelectedColor(currentColor)
+
+            }),
+
+        })
+
+    }
+
+    return Div(Attrs{"class": "space-y-3"},
+
+        Div(Attrs{"class": "w-full h-16 rounded " + selectedColor()}),
+
+        Div(Attrs{"class": "flex space-x-2"}, colorButtons...),
+
+    )
+
+}`
+
+var timerSource = `func MiniTimer(props Attrs) *Element {
+
+    timerCount, setTimerCount := UseState(0)
+
+    timerRunning, setTimerRunning := UseState(false)
+
+	toggleTimer := UseEvent(func(event MouseEvent) {
+
+        setTimerRunning(!timerRunning())
+
+    })
+
+    UseEffect(func() {
+
+        if timerRunning() {
+
+            js.Global().Call("setTimeout", js.FuncOf(
+
+                func(this js.Value, args []js.Value) interface{} {
+
+                    setTimerCount(timerCount() + 1)
+
+                    return nil
+
+                }), 1000)
+
+        }
+
+        return
+
+    })
+
+    return Div(Attrs{"class": "text-center space-y-3"},
+
+        P(nil, Text(strconv.Itoa(timerCount())), "s"),
+
+        Button(Attrs{"onclick": toggleTimer}, 
+
+               timerRunning() ? "Stop" : "Start"),
+
+    )
+
+}`
+
+var votingSource = `func MiniVoting(props Attrs) *Element {
+
+    upvotes, setUpvotes := UseState(12)
+
+    downvotes, setDownvotes := UseState(3)
+
+	addUpvote := UseEvent(func(event MouseEvent) {
+
+        setUpvotes(upvotes() + 1)
+
+    })
+
+	addDownvote := UseEvent(func(event MouseEvent) {
+
+        setDownvotes(downvotes() + 1)
+
+    })
+
+    totalVotes := upvotes() + downvotes()
+
+    upvotePercentage := (upvotes() * 100) / totalVotes
+
+    return Div(Attrs{"class": "space-y-3"},
+
+        Div(Attrs{"class": "flex justify-between"},
+
+            Button(Attrs{"onclick": addUpvote}, "👍 ", upvotes()),
+
+            Button(Attrs{"onclick": addDownvote}, "👎 ", downvotes()),
+
+        ),
+
+        P(nil, Text(strconv.Itoa(upvotePercentage)), "% approval"),
+
+    )
+
+}`
+
+// WhyGoWebComponentsSection explains the benefits and rationale behind GoWebComponents
+
+func WhyGoWebComponentsSection(_ Attrs) *Element {
+
+	return Div(
+
+		Attrs{"id": "features"},
+
+		Section(
+
+			Attrs{
+
+				"id": "api",
+
+				"class": "py-20 bg-gradient-to-br from-gray-900/50 to-blue-900/20 border-t border-white/10",
+			},
+			Div(
+
+				Attrs{"class": "container mx-auto px-6"},
+
+				Div(
+
+					Attrs{"class": "max-w-4xl mx-auto text-center mb-16"},
+
+					H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-8 text-white"}, "Why GoWebComponents?"),
+
+					P(
+
+						Attrs{"class": "text-xl text-gray-300 leading-relaxed mb-8"},
+
+						"Born from the need to build complex, performant web applications without the JavaScript ecosystem's complexity. ",
+
+						"GoWebComponents brings Go's elegance, safety, and performance to the frontend.",
+					),
+				),
+
+				// Comparison cards
+
+				Div(
+
+					Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto"},
+
+					// Traditional approach
+
+					Div(
+
+						Attrs{"class": "bg-red-900/10 border border-red-500/20 rounded-2xl p-8 backdrop-blur-sm"},
+
+						H3(Attrs{"class": "text-2xl font-bold text-red-300 mb-6 flex items-center"},
+
+							Span(Attrs{"class": "mr-3"}, "❌"),
+
+							"Traditional Web Development"),
+
+						Ul(Attrs{"class": "space-y-4 text-red-200"},
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Complex build pipelines and toolchains"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Runtime errors and type coercion issues"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Separate backend/frontend codebases"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Heavy node_modules dependencies"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"State management complexity"),
+						),
+					),
+
+					// GoWebComponents approach
+
+					Div(
+
+						Attrs{"class": "bg-green-900/10 border border-green-500/20 rounded-2xl p-8 backdrop-blur-sm"},
+
+						H3(Attrs{"class": "text-2xl font-bold text-green-300 mb-6 flex items-center"},
+
+							Span(Attrs{"class": "mr-3"}, "✅"),
+
+							"GoWebComponents Approach"),
+
+						Ul(Attrs{"class": "space-y-4 text-green-200"},
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Single Go codebase for everything"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Compile-time error checking"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Shared types and logic"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Zero external dependencies"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Built-in state management"),
+						),
+					),
+				),
+
+				// Stats section
+
+				Div(
+
+					Attrs{"class": "mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto"},
+
+					StatCard("10x", "Faster Development", "No build tools, instant feedback"),
+
+					StatCard("100%", "Type Safe", "Go's compiler catches all errors"),
+
+					StatCard("0", "Dependencies", "Pure Go, no node_modules"),
+				),
+
+				// Documentation CTA
+
+				Div(
+
+					Attrs{"class": "mt-16 text-center"},
+
+					func() *Element {
+
+						// Store UseEvent result in variable for proper event handling
+
+						parseNavigateToDocs := UseEvent(func(parseEvent MouseEvent) {
+
+							router.Navigate("/docs")
+
+						})
+
+						return Div(
+
+							Attrs{"class": "bg-white/5 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/10 max-w-2xl mx-auto"},
+
+							H3(
+
+								Attrs{"class": "text-2xl font-bold text-white mb-4"},
+
+								"Ready to Get Started?",
+							),
+
+							P(
+
+								Attrs{"class": "text-gray-300 mb-6"},
+
+								"Explore our comprehensive documentation with API references, tutorials, and best practices to build your next web application with GoWebComponents.",
+							),
+
+							Button(
+
+								Attrs{
+
+									"class": "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 font-semibold text-lg cursor-pointer",
+
+									"onclick": parseNavigateToDocs,
+								},
+
+								"📚 View Documentation",
+							),
+						)
+
+					}(),
+				),
+			),
+		),
+	)
+
+}

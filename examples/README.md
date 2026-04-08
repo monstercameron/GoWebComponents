@@ -20,9 +20,25 @@ go run ./tools/gwc examples
 Then open:
 
 - `http://127.0.0.1:8090/examples`
-- `http://127.0.0.1:8090/examples/01-counter/counter.html`
+- `http://127.0.0.1:8090/examples/public-examples-site/`
 
-The `/examples` page opens the styled showcase catalog. If you need the raw auto-generated folder listing for diagnostics, use `/examples/list`.
+The `/examples` route redirects into the public examples site. If you need the raw auto-generated folder listing for diagnostics, use `/examples/list`.
+
+## Build Public Site WASM
+
+To refresh the public examples site shell and the first embedded example binary locally:
+
+```powershell
+go run ./tools/gwc examples build-public-site
+```
+
+That command builds:
+
+- `public-examples-site.wasm` into the launcher examples wasm directory
+- `counter.wasm` into the launcher examples wasm directory
+- mirrored copies into `examples/static/bin/` for direct static preview tools such as VS Code Live Server
+- a staged embedded copy at `examples/public-examples-site/assets/bins/counter.wasm`
+- a refreshed source mirror of `examples/public/` under `examples/public-examples-site/assets/code/`
 
 ## Example Inventory
 
@@ -221,4 +237,4 @@ For the developer-facing manual verification checklist that covers every numbere
 ## Notes
 
 - Older docs referenced ad hoc live reload commands as the primary example workflow. The primary documented path is now `gwc examples`.
-- The browser-compiler example may generate a large local package archive tree under `examples/13-browser-compiler/static/pkg/`. That output is ignored and should stay out of git.
+- The browser-compiler example may generate a large local package archive tree under `examples/public/browser-compiler/static/pkg/`. That output is ignored and should stay out of git.

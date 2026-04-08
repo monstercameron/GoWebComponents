@@ -354,7 +354,7 @@ func (parseL launcher) runWasmCompare(parseArgs []string) error {
 func (parseL launcher) runWasmCompareCompression(parseArgs []string) error {
 	parseFs := flag.NewFlagSet("wasm compare-compression", flag.ContinueOnError)
 	parseFs.SetOutput(os.Stdout)
-	parsePackagePath := parseFs.String("package", "./examples/21-ui-render", "Package path to build")
+	parsePackagePath := parseFs.String("package", "./examples/public/ui-render", "Package path to build")
 	parseOutDir := parseFs.String("out-dir", filepath.Join("bin", "wasm-compression-comparison"), "Output directory for comparison artifacts")
 	parseBinaryName := parseFs.String("binary-name", "app.wasm", "Wasm artifact filename")
 	parseSummaryName := parseFs.String("summary-name", "wasm-compression-comparison.json", "Summary JSON filename")
@@ -393,7 +393,7 @@ func (parseL launcher) runWasmCompareCompression(parseArgs []string) error {
 func (parseL launcher) runWasmCompareCache(parseArgs []string) error {
 	parseFs := flag.NewFlagSet("wasm compare-cache", flag.ContinueOnError)
 	parseFs.SetOutput(os.Stdout)
-	parsePackagePath := parseFs.String("package", "./examples/21-ui-render", "Package path to build")
+	parsePackagePath := parseFs.String("package", "./examples/public/ui-render", "Package path to build")
 	parseOutDir := parseFs.String("out-dir", filepath.Join("bin", "wasm-build-cache-comparison"), "Output directory for comparison artifacts")
 	parseBinaryName := parseFs.String("binary-name", "app.wasm", "Wasm artifact filename")
 	parseSummaryName := parseFs.String("summary-name", "wasm-build-cache-comparison.json", "Summary JSON filename")

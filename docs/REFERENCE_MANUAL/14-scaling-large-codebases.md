@@ -29,9 +29,9 @@ Large GWC apps scale best when they follow five rules:
 
 The strongest repo references are:
 
-- `examples/86-atlas-commerce-os` for a production-shaped SSR and hydration app split into `client/`, `shared/`, `server/`, and `docs/`
-- `examples/100-ai-chat-wizard` for a single-shell product app with route families, server APIs, worker-backed rendering, client caches, and an operator run flow
-- `examples/101-static-islands` for deliberate selective activation when content-heavy pages should not hydrate one full-page runtime
+- `examples/server/atlas-commerce-os` for a production-shaped SSR and hydration app split into `client/`, `shared/`, `server/`, and `docs/`
+- `examples/server/ai-chat-wizard` for a single-shell product app with route families, server APIs, worker-backed rendering, client caches, and an operator run flow
+- `examples/public/static-islands` for deliberate selective activation when content-heavy pages should not hydrate one full-page runtime
 
 ## Stability Note
 
@@ -300,13 +300,13 @@ Why this scales:
 Use the repo's product-shaped examples as reference layouts, not just as demos:
 
 ```text
-examples/86-atlas-commerce-os/
+examples/server/atlas-commerce-os/
   client/
   shared/
   server/
   docs/
 
-examples/100-ai-chat-wizard/
+examples/server/ai-chat-wizard/
   client/app/
   client/cachecore/
   server/app/
@@ -323,7 +323,7 @@ Read those structures this way:
 - `sql/` or persistence-specific folders own database contracts and migration assets
 - `docs/` owns route maps, design notes, runbooks, smoke checklists, and backlog checkpoints that should not live only in PR threads
 
-When a route family is mostly static and content-heavy, `examples/101-static-islands` shows the other valid scaling path: keep the content shell inert and hydrate only explicit browser islands. That is still one intentional ownership model, not an accident.
+When a route family is mostly static and content-heavy, `examples/public/static-islands` shows the other valid scaling path: keep the content shell inert and hydrate only explicit browser islands. That is still one intentional ownership model, not an accident.
 
 ## Ownership Model
 
@@ -441,7 +441,7 @@ Review at least these questions:
 - are release, rollback, and browser-support expectations documented beside the app
 - are security, auth, and bootstrap boundaries explicit enough for the team that will own production
 
-`examples/86-atlas-commerce-os` is the best medium-size reference for SSR, hydration, auth-aware shells, and shared contracts. `examples/100-ai-chat-wizard` is the best operational reference for seeded local data, route-family growth, and journey-based smoke validation.
+`examples/server/atlas-commerce-os` is the best medium-size reference for SSR, hydration, auth-aware shells, and shared contracts. `examples/server/ai-chat-wizard` is the best operational reference for seeded local data, route-family growth, and journey-based smoke validation.
 
 ## Review And Onboarding Rules
 

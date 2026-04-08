@@ -82,7 +82,7 @@ func TestCollectFilesReportFiltersByExtensionAndExcludedDirs(parseT *testing.T) 
 		"README.md":                  "docs",
 		"nested/keep.JS":             "nested js",
 		"nested/keep.txt":            "nested text",
-		"examples/01-counter/app.js": "excluded example",
+		"examples/public/counter/app.js": "excluded example",
 		"node_modules/pkg/index.js":  "excluded dependency",
 		".git/hooks/post-checkout":   "excluded git",
 	} {

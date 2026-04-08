@@ -34,9 +34,9 @@ func stageExampleWasmFixtures(parseT *testing.T, parseBinaryNames ...string) str
 
 func TestFilterExampleLinksMatchesKeywordsAcrossNameAndHref(parseT *testing.T) {
 	parseLinks := []exampleLink{
-		{Name: "01-counter", Href: "/examples/01-counter/"},
-		{Name: "17-ssr-routing", Href: "/examples/17-ssr-routing/"},
-		{Name: "86-atlas-commerce-os", Href: "/examples/86-atlas-commerce-os/"},
+		{Name: "01-counter", Href: "/examples/public/counter/"},
+		{Name: "17-ssr-routing", Href: "/examples/public/static-server-side-rendering-routing/"},
+		{Name: "86-atlas-commerce-os", Href: "/examples/server/atlas-commerce-os/"},
 	}
 
 	parseGot := filterExampleLinks(parseLinks, "atlas commerce")
@@ -59,7 +59,7 @@ func TestFilterExampleLinksMatchesKeywordsAcrossNameAndHref(parseT *testing.T) {
 }
 
 func TestRenderExamplesListingHTMLIncludesSearchState(parseT *testing.T) {
-	parseHtml := renderExamplesListingHTML([]exampleLink{{Name: "01-counter", Href: "/examples/01-counter/"}}, `atlas "search"`)
+	parseHtml := renderExamplesListingHTML([]exampleLink{{Name: "01-counter", Href: "/examples/public/counter/"}}, `atlas "search"`)
 	for _, parseExpected := range []string{"name=\"q\"", "Filtered examples for", "atlas &quot;search&quot;", "01-counter"} {
 		if !strings.Contains(parseHtml, parseExpected) {
 			parseT.Fatalf("expected examples HTML to contain %q", parseExpected)
@@ -517,7 +517,7 @@ func TestExamplesRouteGeneratesWasmHostPage(parseT *testing.T) {
 		examplesWasmDir: stageExampleWasmFixtures(parseT, "counter.wasm"),
 	}
 	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
-	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/01-counter/", nil)
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/public/counter/", nil)
 	parseRecorder := httptest.NewRecorder()
 
 	parseHandler.ServeHTTP(parseRecorder, parseRequest)
@@ -609,7 +609,7 @@ func TestExamplesRouteRedirectsToTrailingSlash(parseT *testing.T) {
 		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
 	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
-	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/01-counter", nil)
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/public/counter", nil)
 	parseRecorder := httptest.NewRecorder()
 
 	parseHandler.ServeHTTP(parseRecorder, parseRequest)
@@ -617,7 +617,7 @@ func TestExamplesRouteRedirectsToTrailingSlash(parseT *testing.T) {
 	if parseRecorder.Code != http.StatusFound {
 		parseT.Fatalf("expected clean example route redirect, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	if parseLocation := parseRecorder.Header().Get("Location"); parseLocation != "/examples/01-counter/" {
+	if parseLocation := parseRecorder.Header().Get("Location"); parseLocation != "/examples/public/counter/" {
 		parseT.Fatalf("expected redirect to trailing slash route, got %q", parseLocation)
 	}
 }
@@ -633,7 +633,7 @@ func TestExamplesHTMLRouteRedirectsToCleanRoute(parseT *testing.T) {
 		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
 	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
-	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/01-counter/counter.html", nil)
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/public/counter/counter.html", nil)
 	parseRecorder := httptest.NewRecorder()
 
 	parseHandler.ServeHTTP(parseRecorder, parseRequest)
@@ -641,7 +641,7 @@ func TestExamplesHTMLRouteRedirectsToCleanRoute(parseT *testing.T) {
 	if parseRecorder.Code != http.StatusFound {
 		parseT.Fatalf("expected html route redirect, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	if parseLocation := parseRecorder.Header().Get("Location"); parseLocation != "/examples/01-counter/" {
+	if parseLocation := parseRecorder.Header().Get("Location"); parseLocation != "/examples/public/counter/" {
 		parseT.Fatalf("expected redirect to clean example route, got %q", parseLocation)
 	}
 }
@@ -657,7 +657,7 @@ func TestExamplesNonHTMLAssetRoutePassesThrough(parseT *testing.T) {
 		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
 	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
-	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/97-pwa-offline-cache/sw.js", nil)
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/public/progressive-web-app-offline-cache/sw.js", nil)
 	parseRecorder := httptest.NewRecorder()
 
 	parseHandler.ServeHTTP(parseRecorder, parseRequest)
@@ -1056,7 +1056,7 @@ package app
 import (
 	"database/sql"
 
-	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/server/app"
+	"github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/server/app"
 	"github.com/monstercameron/GoWebComponents/fetch"
 )
 
@@ -2227,6 +2227,207 @@ func TestRunExamplesWritesStaticCatalogAndReportsOutputPath(parseT *testing.T) {
 	}
 }
 
+// TestRunExamplesBuildPublicSiteStagesWasmBinaries verifies that the launcher-owned public site build writes the site shell and first embedded example wasm binaries into their runtime locations.
+func TestRunExamplesBuildPublicSiteStagesWasmBinaries(parseT *testing.T) {
+	buildRoot := parseT.TempDir()
+	buildExamplesDir := filepath.Join(buildRoot, "examples")
+	buildStaticDir := filepath.Join(buildExamplesDir, "static")
+	buildWasmDir := filepath.Join(buildRoot, "bin", "examples")
+	buildCatalogPath := filepath.Join(buildExamplesDir, "public-examples-site", "assets", "data", "catalog.json")
+
+	if buildErr := os.MkdirAll(filepath.Join(buildExamplesDir, "public-examples-site"), 0755); buildErr != nil {
+		parseT.Fatalf("mkdir public-examples-site: %v", buildErr)
+	}
+	if buildErr := os.MkdirAll(filepath.Join(buildExamplesDir, "public", "counter"), 0755); buildErr != nil {
+		parseT.Fatalf("mkdir counter example: %v", buildErr)
+	}
+	if buildErr := os.MkdirAll(filepath.Join(buildExamplesDir, "public", "text-input"), 0755); buildErr != nil {
+		parseT.Fatalf("mkdir text-input example: %v", buildErr)
+	}
+	if buildErr := os.WriteFile(filepath.Join(buildExamplesDir, "public-examples-site", "main.go"), []byte("package main\nfunc main() {}\n"), 0644); buildErr != nil {
+		parseT.Fatalf("write public-examples-site main.go: %v", buildErr)
+	}
+	if buildErr := os.WriteFile(filepath.Join(buildExamplesDir, "public", "counter", "main.go"), []byte("package main\nfunc main() {}\n"), 0644); buildErr != nil {
+		parseT.Fatalf("write counter main.go: %v", buildErr)
+	}
+	if buildErr := os.WriteFile(filepath.Join(buildExamplesDir, "public", "counter", "README.md"), []byte("# Counter\n"), 0644); buildErr != nil {
+		parseT.Fatalf("write counter README: %v", buildErr)
+	}
+	if buildErr := os.WriteFile(filepath.Join(buildExamplesDir, "public", "text-input", "main.go"), []byte("package main\nfunc main() {}\n"), 0644); buildErr != nil {
+		parseT.Fatalf("write text-input main.go: %v", buildErr)
+	}
+	if buildErr := os.MkdirAll(filepath.Join(buildExamplesDir, "public-examples-site", "assets", "code", "stale-example"), 0755); buildErr != nil {
+		parseT.Fatalf("mkdir stale mirror dir: %v", buildErr)
+	}
+	if buildErr := os.WriteFile(filepath.Join(buildExamplesDir, "public-examples-site", "assets", "code", "stale-example", "old.go"), []byte("package stale\n"), 0644); buildErr != nil {
+		parseT.Fatalf("write stale mirror file: %v", buildErr)
+	}
+	if buildErr := os.MkdirAll(filepath.Dir(buildCatalogPath), 0755); buildErr != nil {
+		parseT.Fatalf("mkdir catalog dir: %v", buildErr)
+	}
+	buildCatalogJSON := `{"modules":["all","core","forms","state"],"statuses":["all","experimental","stable"],"levels":["all","Beginner","Core","Intermediate","Advanced"],"filters":["All","Concept","API","Example"],"sortOptions":[{"value":"relevance","label":"Relevance"},{"value":"alpha","label":"A-Z"},{"value":"level","label":"Level"}],"items":[{"id":1,"title":"Overview","status":"stable","module":"core","type":"Concept","level":"Core","tags":["overview"],"blurb":"Base concept entry.","readTime":"5 min read","content":{"kind":"article","sourcePath":"assets/docs/overview.md","sections":[{"heading":"Overview","paragraphs":["Base concept entry."]}]}}]}`
+	if buildErr := os.WriteFile(buildCatalogPath, []byte(buildCatalogJSON), 0644); buildErr != nil {
+		parseT.Fatalf("write catalog fixture: %v", buildErr)
+	}
+
+	buildOriginalExecuteExamplesBuild := executeExamplesBuild
+	parseT.Cleanup(func() {
+		executeExamplesBuild = buildOriginalExecuteExamplesBuild
+	})
+
+	buildCalls := make([]buildConfig, 0, 3)
+	executeExamplesBuild = func(buildConfig buildConfig) (buildSummary, error) {
+		buildCalls = append(buildCalls, buildConfig)
+		if buildErr := os.MkdirAll(filepath.Dir(buildConfig.outputPath), 0755); buildErr != nil {
+			return buildSummary{}, buildErr
+		}
+		if buildErr := os.WriteFile(buildConfig.outputPath, []byte(filepath.Base(buildConfig.outputPath)), 0644); buildErr != nil {
+			return buildSummary{}, buildErr
+		}
+		return buildSummary{
+			OK:          true,
+			Profile:     buildProfile{Name: buildConfig.profile},
+			AppPath:     buildConfig.appPath,
+			ProjectRoot: buildConfig.rootPath,
+			PackageDir:  filepath.Dir(buildConfig.appPath),
+			OutputPath:  buildConfig.outputPath,
+			Resolution:  buildConfig.resolution,
+		}, nil
+	}
+
+	buildLauncher := launcher{
+		repoRoot:        buildRoot,
+		examplesDir:     buildExamplesDir,
+		staticDir:       buildStaticDir,
+		examplesWasmDir: buildWasmDir,
+	}
+	if buildErr := buildLauncher.runExamples([]string{"build-public-site"}); buildErr != nil {
+		parseT.Fatalf("run examples build-public-site: %v", buildErr)
+	}
+
+	if len(buildCalls) != 3 {
+		parseT.Fatalf("expected three build calls, got %d", len(buildCalls))
+	}
+
+	buildCoreWasmPath := filepath.Join(buildWasmDir, "public-examples-site.wasm")
+	if _, buildErr := os.Stat(buildCoreWasmPath); buildErr != nil {
+		parseT.Fatalf("expected public-examples-site wasm to exist: %v", buildErr)
+	}
+
+	buildCounterWasmPath := filepath.Join(buildWasmDir, "counter.wasm")
+	if _, buildErr := os.Stat(buildCounterWasmPath); buildErr != nil {
+		parseT.Fatalf("expected counter wasm to exist: %v", buildErr)
+	}
+
+	buildStaticCorePath := filepath.Join(buildStaticDir, "bin", "public-examples-site.wasm")
+	if _, buildErr := os.Stat(buildStaticCorePath); buildErr != nil {
+		parseT.Fatalf("expected static public-examples-site wasm copy to exist: %v", buildErr)
+	}
+
+	buildStaticCounterPath := filepath.Join(buildStaticDir, "bin", "counter.wasm")
+	if _, buildErr := os.Stat(buildStaticCounterPath); buildErr != nil {
+		parseT.Fatalf("expected static counter wasm copy to exist: %v", buildErr)
+	}
+
+	buildEmbeddedCounterPath := filepath.Join(buildExamplesDir, "public-examples-site", "assets", "bins", "counter.wasm")
+	buildEmbeddedCounterBytes, buildErr := os.ReadFile(buildEmbeddedCounterPath)
+	if buildErr != nil {
+		parseT.Fatalf("expected embedded counter wasm copy to exist: %v", buildErr)
+	}
+	if string(buildEmbeddedCounterBytes) != "counter.wasm" {
+		parseT.Fatalf("unexpected embedded counter wasm copy contents: %q", string(buildEmbeddedCounterBytes))
+	}
+
+	buildTextInputWasmPath := filepath.Join(buildWasmDir, "text-input.wasm")
+	if _, buildErr := os.Stat(buildTextInputWasmPath); buildErr != nil {
+		parseT.Fatalf("expected text-input wasm to exist: %v", buildErr)
+	}
+
+	buildStaticTextInputPath := filepath.Join(buildStaticDir, "bin", "text-input.wasm")
+	if _, buildErr := os.Stat(buildStaticTextInputPath); buildErr != nil {
+		parseT.Fatalf("expected static text-input wasm copy to exist: %v", buildErr)
+	}
+
+	buildEmbeddedTextInputPath := filepath.Join(buildExamplesDir, "public-examples-site", "assets", "bins", "text-input.wasm")
+	buildEmbeddedTextInputBytes, buildErr := os.ReadFile(buildEmbeddedTextInputPath)
+	if buildErr != nil {
+		parseT.Fatalf("expected embedded text-input wasm copy to exist: %v", buildErr)
+	}
+	if string(buildEmbeddedTextInputBytes) != "text-input.wasm" {
+		parseT.Fatalf("unexpected embedded text-input wasm copy contents: %q", string(buildEmbeddedTextInputBytes))
+	}
+
+	buildCounterPreviewIndexPath := filepath.Join(buildExamplesDir, "public-examples-site", "assets", "examples", "counter", "index.html")
+	buildCounterPreviewIndexBytes, buildErr := os.ReadFile(buildCounterPreviewIndexPath)
+	if buildErr != nil {
+		parseT.Fatalf("expected counter preview index.html to exist: %v", buildErr)
+	}
+	if !strings.Contains(string(buildCounterPreviewIndexBytes), "./app.wasm") {
+		parseT.Fatalf("expected counter preview host to boot app.wasm, got %q", string(buildCounterPreviewIndexBytes))
+	}
+
+	buildCounterPreviewWasmPath := filepath.Join(buildExamplesDir, "public-examples-site", "assets", "examples", "counter", "app.wasm")
+	buildCounterPreviewWasmBytes, buildErr := os.ReadFile(buildCounterPreviewWasmPath)
+	if buildErr != nil {
+		parseT.Fatalf("expected counter preview wasm to exist: %v", buildErr)
+	}
+	if string(buildCounterPreviewWasmBytes) != "counter.wasm" {
+		parseT.Fatalf("unexpected counter preview wasm copy contents: %q", string(buildCounterPreviewWasmBytes))
+	}
+
+	buildTextInputPreviewIndexPath := filepath.Join(buildExamplesDir, "public-examples-site", "assets", "examples", "text-input", "index.html")
+	if _, buildErr := os.Stat(buildTextInputPreviewIndexPath); buildErr != nil {
+		parseT.Fatalf("expected text-input preview index.html to exist: %v", buildErr)
+	}
+
+	buildLoggerScriptPath := filepath.Join(buildStaticDir, "script", "example-logger.js")
+	buildLoggerScriptBytes, buildErr := os.ReadFile(buildLoggerScriptPath)
+	if buildErr != nil {
+		parseT.Fatalf("expected example logger script to exist: %v", buildErr)
+	}
+	if !strings.Contains(string(buildLoggerScriptBytes), "window.__gwcExampleLogger") {
+		parseT.Fatalf("expected example logger script contents, got %q", string(buildLoggerScriptBytes))
+	}
+
+	buildMirroredCounterPath := filepath.Join(buildExamplesDir, "public-examples-site", "assets", "code", "counter", "main.go")
+	if _, buildErr := os.Stat(buildMirroredCounterPath); buildErr != nil {
+		parseT.Fatalf("expected mirrored counter main.go to exist: %v", buildErr)
+	}
+
+	buildMirroredTextInputPath := filepath.Join(buildExamplesDir, "public-examples-site", "assets", "code", "text-input", "main.go")
+	if _, buildErr := os.Stat(buildMirroredTextInputPath); buildErr != nil {
+		parseT.Fatalf("expected mirrored text-input main.go to exist: %v", buildErr)
+	}
+
+	buildMirroredCounterReadmePath := filepath.Join(buildExamplesDir, "public-examples-site", "assets", "code", "counter", "README.md")
+	if _, buildErr := os.Stat(buildMirroredCounterReadmePath); buildErr != nil {
+		parseT.Fatalf("expected mirrored counter README to exist: %v", buildErr)
+	}
+
+	buildStaleMirrorPath := filepath.Join(buildExamplesDir, "public-examples-site", "assets", "code", "stale-example", "old.go")
+	if _, buildErr := os.Stat(buildStaleMirrorPath); !os.IsNotExist(buildErr) {
+		parseT.Fatalf("expected stale mirror file to be removed, got err=%v", buildErr)
+	}
+
+	buildCatalogBytes, buildErr := os.ReadFile(buildCatalogPath)
+	if buildErr != nil {
+		parseT.Fatalf("expected regenerated catalog to exist: %v", buildErr)
+	}
+	for _, buildSnippet := range []string{`"title": "Counter"`, `"embedPath": "assets/bins/counter.wasm"`, `"previewPath": "assets/examples/counter/index.html"`, `"title": "Text Input"`, `"sourcePath": "assets/code/text-input/main.go"`} {
+		if !strings.Contains(string(buildCatalogBytes), buildSnippet) {
+			parseT.Fatalf("expected regenerated catalog to contain %q, got %s", buildSnippet, string(buildCatalogBytes))
+		}
+	}
+}
+
+// TestRunExamplesBuildPublicSiteHelp verifies that the public site build action exposes ordinary flag help without starting a server.
+func TestRunExamplesBuildPublicSiteHelp(parseT *testing.T) {
+	buildLauncher := launcher{examplesDir: parseT.TempDir(), staticDir: parseT.TempDir()}
+	if buildErr := buildLauncher.runExamples([]string{"build-public-site", "-help"}); buildErr != nil {
+		parseT.Fatalf("expected build-public-site help to succeed, got %v", buildErr)
+	}
+}
+
 func TestRunExamplesErrorsWhenExamplesDirectoryIsMissing(parseT *testing.T) {
 	parseLauncher := launcher{examplesDir: filepath.Join(parseT.TempDir(), "missing")}
 	parseErr := parseLauncher.runExamples(nil)
@@ -2987,7 +3188,7 @@ func TestResolveGeneratedExamplePageReturnsFalseForNonWasmExample(parseT *testin
 		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
 
-	parsePage, parseOk, parseErr := parseLauncher.resolveGeneratedExamplePage("/examples/88-web-components/")
+	parsePage, parseOk, parseErr := parseLauncher.resolveGeneratedExamplePage("/examples/public/web-components/")
 	if parseErr != nil {
 		parseT.Fatalf("resolve generated example page: %v", parseErr)
 	}
@@ -3117,7 +3318,7 @@ func TestExamplesHandlerExactAndErrorRoutes(parseT *testing.T) {
 	parseBrokenLauncher := launcher{repoRoot: parseBrokenRoot, examplesDir: parseBrokenExamplesPath, staticDir: filepath.Join(parseBrokenRoot, "static")}
 	parseBrokenHandler := parseBrokenLauncher.newExamplesHandler("127.0.0.1", "8090")
 	parseRecorder2 := httptest.NewRecorder()
-	parseBrokenHandler.ServeHTTP(parseRecorder2, httptest.NewRequest(http.MethodGet, "/examples/01-counter/", nil))
+	parseBrokenHandler.ServeHTTP(parseRecorder2, httptest.NewRequest(http.MethodGet, "/examples/public/counter/", nil))
 	if parseRecorder2.Code != http.StatusNotFound {
 		parseT.Fatalf("expected file-backed examples root to fall through with 404, got code=%d body=%s", parseRecorder2.Code, parseRecorder2.Body.String())
 	}
@@ -3143,7 +3344,7 @@ func TestExamplesHandlerAppliesHeadersToServedAssets(parseT *testing.T) {
 	parseHandler := (launcher{repoRoot: parseRoot, examplesDir: parseExamplesDir, staticDir: parseStaticDir}).newExamplesHandler("127.0.0.1", "8090")
 
 	parseExampleRecorder := httptest.NewRecorder()
-	parseHandler.ServeHTTP(parseExampleRecorder, httptest.NewRequest(http.MethodGet, "/examples/01-counter/notes.txt", nil))
+	parseHandler.ServeHTTP(parseExampleRecorder, httptest.NewRequest(http.MethodGet, "/examples/public/counter/notes.txt", nil))
 	if parseExampleRecorder.Code != http.StatusOK {
 		parseT.Fatalf("expected example asset to be served, got %d body=%s", parseExampleRecorder.Code, parseExampleRecorder.Body.String())
 	}
@@ -3326,7 +3527,7 @@ func TestExamplesCatalogHelpersCoverGeneratedAndFallbackBranches(parseT *testing
 		parseT.Fatalf("expected multi-client tags, got %#v", parseEntry)
 	}
 
-	parsePage, parseOk, parseErr5 := parseLauncher.resolveGeneratedExamplePage("/examples/97-multi-client-presence/")
+	parsePage, parseOk, parseErr5 := parseLauncher.resolveGeneratedExamplePage("/examples/public/multi-client-presence/")
 	if parseErr5 != nil {
 		parseT.Fatalf("resolve generated example page: %v", parseErr5)
 	}
@@ -3357,7 +3558,7 @@ func TestResolveExampleCatalogEntryAndHandlerSurfaceStatErrors(parseT *testing.T
 
 	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
 	parseRecorder := httptest.NewRecorder()
-	parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, "/examples/01-counter/", nil))
+	parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, "/examples/public/counter/", nil))
 	if parseRecorder.Code != http.StatusInternalServerError {
 		parseT.Fatalf("expected invalid example route to surface 500, got %d body=%s", parseRecorder.Code, parseRecorder.Body.String())
 	}
@@ -3442,7 +3643,7 @@ func TestExamplesRenderingDefaultsAndGeneratedManifest(parseT *testing.T) {
 	}
 
 	parseLauncher := launcher{examplesDir: parseExamplesDir, staticDir: parseStaticDir}
-	parsePage, parseOk, parseErr6 := parseLauncher.resolveGeneratedExamplePage("/examples/01-counter/")
+	parsePage, parseOk, parseErr6 := parseLauncher.resolveGeneratedExamplePage("/examples/public/counter/")
 	if parseErr6 != nil {
 		parseT.Fatalf("resolve generated example page: %v", parseErr6)
 	}

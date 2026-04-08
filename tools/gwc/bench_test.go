@@ -24,7 +24,7 @@ package fetch
 import "testing"
 func BenchmarkFetchMicro(b *testing.B) {}
 `,
-		"examples/01-counter/micro_benchmark_test.go": `package ignore
+		"examples/public/counter/micro_benchmark_test.go": `package ignore
 import "testing"
 func BenchmarkIgnored(b *testing.B) {}
 `,

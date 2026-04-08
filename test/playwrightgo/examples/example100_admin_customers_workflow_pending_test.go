@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
 	playwright "github.com/playwright-community/playwright-go"
 )
 

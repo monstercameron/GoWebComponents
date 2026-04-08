@@ -61,7 +61,7 @@ func TestRunWasmMeasureWritesManifestAndArtifacts(parseT *testing.T) {
 
 	parseErr3 = (launcher{}).runWasm([]string{
 		"measure",
-		"-package", "./examples/21-ui-render",
+		"-package", "./examples/public/ui-render",
 		"-out-dir", parseOutDir,
 		"-binary-name", "test.wasm",
 		"-manifest-name", "report.json",
@@ -229,7 +229,7 @@ func TestRunWasmCompareCompressionWritesSummaryWithoutOptimizer(parseT *testing.
 
 	if parseErr4 := (launcher{}).runWasm([]string{
 		"compare-compression",
-		"-package", "./examples/21-ui-render",
+		"-package", "./examples/public/ui-render",
 		"-out-dir", parseOutDir,
 		"-summary-name", "summary.json",
 		"-json",
@@ -344,7 +344,7 @@ func TestRunWasmCompareCompressionIncludesOptimizedVariants(parseT *testing.T) {
 
 	if parseErr6 := (launcher{}).runWasm([]string{
 		"compare-compression",
-		"-package", "./examples/21-ui-render",
+		"-package", "./examples/public/ui-render",
 		"-out-dir", parseOutDir,
 		"-summary-name", "summary.json",
 		"-json",
@@ -465,7 +465,7 @@ func TestRunWasmCompareCompressionFailsOnParityMismatch(parseT *testing.T) {
 
 	parseErr6 := (launcher{}).runWasm([]string{
 		"compare-compression",
-		"-package", "./examples/21-ui-render",
+		"-package", "./examples/public/ui-render",
 		"-out-dir", parseOutDir,
 		"-summary-name", "summary.json",
 		"-json",
@@ -677,7 +677,7 @@ func TestRunWasmCompareToolchainDetectsRegression(parseT *testing.T) {
 
 	parseErr3 = (launcher{}).runWasm([]string{
 		"compare-toolchain",
-		"-package", "./examples/21-ui-render",
+		"-package", "./examples/public/ui-render",
 		"-baseline-go", "go-baseline",
 		"-candidate-go", "go-candidate",
 		"-out-dir", parseOutDir,
@@ -773,7 +773,7 @@ func TestRunWasmCompareToolchainUsesCustomBinaryName(parseT *testing.T) {
 
 	if parseErr4 := (launcher{}).runWasm([]string{
 		"compare-toolchain",
-		"-package", "./examples/21-ui-render",
+		"-package", "./examples/public/ui-render",
 		"-baseline-go", "go-baseline",
 		"-candidate-go", "go-candidate",
 		"-binary-name", "custom.wasm",

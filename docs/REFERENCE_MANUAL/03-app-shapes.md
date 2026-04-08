@@ -270,8 +270,8 @@ The default business-app posture is:
 Start here:
 
 - `ui.UseForm[T]` for hydrated local form state
-- `examples/51-use-form` for the local form owner
-- `examples/87-ssr-secure-forms` for request-time forms, CSRF, server validation, multipart uploads, and redirects
+- `examples/public/use-form` for the local form owner
+- `examples/server/server-side-rendering-secure-forms` for request-time forms, CSRF, server validation, multipart uploads, and redirects
 
 Use this shape when:
 
@@ -376,7 +376,7 @@ go run ./tools/gwc verify -app .\examples\18-ssr-server-routing\main.go -root .\
 Forms-heavy:
 
 ```powershell
-go run ./examples/87-ssr-secure-forms
+go run ./examples/server/server-side-rendering-secure-forms
 ```
 
 Static/PWA-oriented:

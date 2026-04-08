@@ -48,7 +48,7 @@ func startExample100StartupServer(parseT *testing.T, parseRepoRoot string, parse
 			"CHAT_LOG_DIR=" + parseLogDir,
 		},
 		"go",
-		"run", "./examples/100-ai-chat-wizard/cmd/server",
+		"run", "./examples/server/ai-chat-wizard/cmd/server",
 	)
 	parseT.Cleanup(parseStop)
 

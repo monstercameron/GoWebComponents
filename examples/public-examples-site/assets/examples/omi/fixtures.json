@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Core Hooks Panel",
+    "category": "hooks",
+    "summary": "Demonstrates UseState, UseEffect, UseRef, UseId, UseCallback, and UseEvent in the routed shell.",
+    "hooks": ["UseState", "UseEffect", "UseRef", "UseId", "UseCallback", "UseEvent"]
+  },
+  {
+    "name": "Shared State Bus",
+    "category": "state",
+    "summary": "Theme, search, and notice atoms stay synchronized across all three routes.",
+    "hooks": ["UseAtom", "Update", "shared notifications"]
+  },
+  {
+    "name": "Hash Router Shell",
+    "category": "routing",
+    "summary": "The example mounts a hash router and renders typed page components for each route.",
+    "hooks": ["NewHashRouter", "Register", "Navigate", "Mount"]
+  },
+  {
+    "name": "Fixture Data Lab",
+    "category": "hooks",
+    "summary": "Manual fetch plus memoized filtering with a local fixture file keeps the example deterministic.",
+    "hooks": ["UseFetch", "UseMemo", "manual refetch"]
+  }
+]

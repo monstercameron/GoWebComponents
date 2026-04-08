@@ -38,7 +38,7 @@ go run ./tools/gwc examples
 Main catalog URLs:
 
 - `http://127.0.0.1:8090/examples`
-- `http://127.0.0.1:8090/examples/01-counter/counter.html`
+- `http://127.0.0.1:8090/examples/public-examples-site/`
 
 Standalone SSR server for `18-ssr-server-routing`:
 
@@ -46,7 +46,7 @@ Standalone SSR server for `18-ssr-server-routing`:
 Set-Location .\examples
 .\build.ps1 -Example "18-ssr-server-routing"
 Set-Location ..
-go run ./examples/18-ssr-server-routing
+go run ./examples/server/server-side-rendering-routing
 ```
 
 Standalone SSR server URLs:
@@ -64,7 +64,7 @@ Set-Location .\examples
 New-Item -ItemType Directory -Path ..\bin\examples -Force | Out-Null
 go build -o ..\bin\examples\atlas-commerce-os.wasm .\86-atlas-commerce-os\client
 Set-Location ..
-go run ./examples/86-atlas-commerce-os/server
+go run ./examples/server/atlas-commerce-os/server
 ```
 
 Standalone Atlas SSR URLs:
@@ -87,7 +87,7 @@ Standalone Atlas SSR URLs:
 
 ### Integrated Apps
 
-- `00-example-0`: Load the docs catalog, wait for the result count to appear, switch to the `Example` filter, open `Go Counter Demo`, then return to `All` and open `ui.UseState and Local State` plus `Start With GoWebComponents`. Expected: the catalog shell loads without page or console errors, the `#demo` container updates for example, API, and concept content, and the counter demo can increment, decrement, and reset while the detail panel stays synchronized.
+- `public-examples-site`: Load the docs catalog, wait for the result count to appear, switch to the `Example` filter, open `Go Counter Demo`, then return to `All` and open `ui.UseState and Local State` plus `Start With GoWebComponents`. Expected: the catalog shell loads without page or console errors, the `#demo` container updates for example, API, and concept content, and the counter demo can increment, decrement, and reset while the detail panel stays synchronized.
 - `01-counter`: Click increment twice, decrement once, and reset. Expected: the count changes `0 -> 2 -> 1 -> 0` and the stat card stays in sync.
 - `02-text-input`: Type text, wait for the debounce window, then clear it. Expected: live preview updates immediately, debounced preview catches up, and both counts return to zero on clear.
 - `03-toggle`: Toggle on and off several times. Expected: the visual state and any boolean label remain synchronized with each click.
@@ -140,7 +140,7 @@ Standalone Atlas SSR URLs:
 - `71-hydrate`: Verify prerendered markup is visible immediately, then click the buttons after wasm starts. Expected: hydration resumes the existing DOM and later updates stay interactive.
 - `73-ssr-bootstrap`: Load the static bootstrap page and verify the inline bootstrap content resumes into the hydrated UI. Expected: inline JSON data is reused and the prerendered content survives startup.
 - `101-static-islands`: Load the prerendered marketing page and wait for wasm startup. Expected: the static hero and proof sections stay unchanged, only the pricing rail and quote card become interactive, and the in-page budget pills populate startup plus per-island hydration timings. Then click tier chips, `Book a walkthrough`, and `Next note`. Expected: only the island-local values update and the interaction budget pills report a fresh timing instead of forcing a whole-page takeover.
-- `102-static-export-site`: Run `go run ./examples/102-static-export-site`, then serve `examples/102-static-export-site/dist` from a plain static file server. Expected: `/`, `/pricing/`, and `/docs/getting-started/` all load as prerendered HTML files without a custom Go request handler in front of them.
+- `102-static-export-site`: Run `go run ./examples/server/static-export-site`, then serve `examples/server/static-export-site/dist` from a plain static file server. Expected: `/`, `/pricing/`, and `/docs/getting-started/` all load as prerendered HTML files without a custom Go request handler in front of them.
 - `76-use-effect`: Trigger dependency changes and cleanup behavior. Expected: effect-run and cleanup counters move in the expected order and document-side effects stay in sync.
 - `77-accessible-overlay`: Open the modal, cycle focus with Tab and Shift+Tab, then close it with Escape. Expected: focus stays inside the dialog while open, the background shell is hidden from assistive technology, and focus returns to the trigger on close.
 - `78-composite-navigation`: Focus the tabs and listbox, then use arrow keys, Home or End, and first-letter typeahead. Expected: the active item updates without bespoke keyboard wiring in the page component.

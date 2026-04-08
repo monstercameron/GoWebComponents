@@ -286,7 +286,7 @@ Current repo examples cover:
 - `ui.RenderToString(...)` for server-rendered HTML generation on native Go targets
 - `ui.Hydrate(...)` for resuming matching DOM in the browser
 - bootstrap payload helpers for transferring route data, atoms, IDs, and initialization data
-- request-time SSR with route-aware hydration under `examples/18-ssr-server-routing`
+- request-time SSR with route-aware hydration under `examples/server/server-side-rendering-routing`
 - SSR bootstrap and route-data reuse demos under the numbered example catalog
 
 The hydration model in this repo already includes DOM reuse, transferred bootstrap state, mismatch diagnostics, and subtree fallback on structural mismatch.
@@ -305,7 +305,7 @@ Primary URLs:
 
 - Styled showcase: `http://127.0.0.1:8090/examples`
 - Raw filesystem listing: `http://127.0.0.1:8090/examples/list`
-- Example entrypoint: `http://127.0.0.1:8090/examples/01-counter/counter.html`
+- Example entrypoint: `http://127.0.0.1:8090/examples/public-examples-site/`
 - Health check: `http://127.0.0.1:8090/healthz`
 
 Use the showcase when you want to browse by feature. Use the filesystem listing when you want direct diagnostics against the real folder structure.
@@ -443,5 +443,5 @@ The implementation center of gravity is `internal/runtime/`:
 
 - Older references to `fiber/` are obsolete; the runtime now lives under `internal/runtime/`.
 - The repo-standard workflow now goes through `go run ./tools/gwc ...` instead of ad hoc local launcher scripts.
-- The browser-compiler example may generate large local package archives under `examples/13-browser-compiler/static/pkg/`; those artifacts should remain ignored.
+- The browser-compiler example may generate large local package archives under `examples/public/browser-compiler/static/pkg/`; those artifacts should remain ignored.
 

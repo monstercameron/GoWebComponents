@@ -53,6 +53,11 @@ type examplesCatalogPayload struct {
 	Examples            []exampleCatalogEntry `json:"examples"`
 }
 
+type exampleRouteInfo struct {
+	Name      string
+	RoutePath string
+}
+
 var examplesListen = net.Listen
 
 var examplesServe = func(server *http.Server, listener net.Listener) error {
@@ -67,12 +72,32 @@ var examplesCatalogMarshalIndent = json.MarshalIndent
 
 var renderExamplesToString = ui.RenderToString
 
+var exampleCatalogRouteAliasPaths = map[string]string{
+	"09-atoms":                "public/state-atoms",
+	"17-ssr-routing":          "public/static-server-side-rendering-routing",
+	"18-ssr-server-routing":   "server/server-side-rendering-routing",
+	"33-lazy":                 "public/lazy-loading",
+	"71-hydrate":              "public/hydration",
+	"73-ssr-bootstrap":        "server/server-side-rendering-bootstrap",
+	"74-ssr-route-data-reuse": "public/server-side-rendering-route-data-reuse",
+	"84-ssr-i18n-bootstrap":   "public/server-side-rendering-internationalization-bootstrap",
+	"93-ssr-cache-bootstrap":  "public/server-side-rendering-cache-bootstrap",
+	"97-pwa-installability":   "public/progressive-web-app-installability",
+	"97-pwa-multi-client":     "public/progressive-web-app-multi-client",
+	"97-pwa-offline-cache":    "public/progressive-web-app-offline-cache",
+}
+
+var executeExamplesBuild = executeBuild
+
 func (parseL launcher) runExamples(parseArgs []string) error {
 	if isExamplesManagedAction(parseArgs) {
 		return parseL.runExamplesManaged(parseArgs)
 	}
 	if len(parseArgs) >= 2 && isExamplesManagedPathCommand(parseArgs[0], parseArgs[1:]) {
 		return parseL.runExamplesManaged(buildExamplesManagedPathCommandArgs(parseArgs[0], parseArgs[1:]))
+	}
+	if len(parseArgs) > 0 && strings.EqualFold(strings.TrimSpace(parseArgs[0]), "build-public-site") {
+		return parseL.runExamplesBuildPublicSite(parseArgs[1:])
 	}
 
 	parseFs := flag.NewFlagSet("examples", flag.ContinueOnError)
@@ -113,7 +138,7 @@ func (parseL launcher) runExamples(parseArgs []string) error {
 
 	fmt.Printf("GWC examples server listening on http://%s\n", parseAddr)
 	fmt.Printf("Examples: http://%s\n", parseAddr)
-	fmt.Printf("Counter:  http://%s/examples/01-counter/\n", parseAddr)
+	fmt.Printf("Counter:  http://%s/examples/public/counter/\n", parseAddr)
 
 	if parseErr5 := examplesServe(parseServer, parseListener); parseErr5 != nil && !errors.Is(parseErr5, http.ErrServerClosed) {
 		return parseErr5
@@ -196,46 +221,49 @@ func (parseL launcher) newExamplesHandler(parseHost string, parsePort string) ht
 			_, _ = parseW6.Write([]byte(renderExamplesAppShellHTML("/examples/", "/examples/")))
 			return
 		}
-		if strings.HasSuffix(strings.ToLower(parseR6.URL.Path), ".html") {
-			parseDirName := strings.TrimSpace(strings.Split(parseTrimmed, "/")[0])
-			if parseDirName != "" {
-				http.Redirect(parseW6, parseR6, "/examples/"+parseDirName+"/", http.StatusFound)
-				return
+		parseRouteInfo, parseHasRoute, parseErr3 := parseL.resolveExampleRouteInfo(parseR6.URL.Path)
+		if parseErr3 != nil {
+			parseErrorCode := "examples_route_failed"
+			if strings.HasSuffix(strings.ToLower(parseR6.URL.Path), ".html") {
+				parseErrorCode = "examples_html_route_failed"
 			}
-			parseExamplePage, parseOk, parseErr3 := parseL.resolveGeneratedExamplePage(parseR6.URL.Path)
-			if parseErr3 != nil {
-				writeJSON(parseW6, http.StatusInternalServerError, map[string]string{
-					"error": "examples_html_route_failed",
-					"hint":  parseErr3.Error(),
-				})
-				return
-			}
-			if parseOk {
-				parseW6.Header().Set("Content-Type", "text/html; charset=utf-8")
-				parseW6.WriteHeader(http.StatusOK)
-				_, _ = parseW6.Write([]byte(renderGeneratedExampleHTML(parseExamplePage)))
-				return
-			}
-		}
-		if !strings.Contains(parseTrimmed, "/") {
-			http.Redirect(parseW6, parseR6, parseR6.URL.Path+"/", http.StatusFound)
+			writeJSON(parseW6, http.StatusInternalServerError, map[string]string{
+				"error": parseErrorCode,
+				"hint":  parseErr3.Error(),
+			})
 			return
 		}
-		if strings.Count(strings.Trim(parseTrimmed, "/"), "/") == 0 {
-			parseExamplePage2, parseOk2, parseErr4 := parseL.resolveGeneratedExamplePage(parseR6.URL.Path)
-			if parseErr4 != nil {
-				writeJSON(parseW6, http.StatusInternalServerError, map[string]string{
-					"error": "examples_route_failed",
-					"hint":  parseErr4.Error(),
-				})
-				return
-			}
-			if parseOk2 {
-				parseW6.Header().Set("Content-Type", "text/html; charset=utf-8")
-				parseW6.WriteHeader(http.StatusOK)
-				_, _ = parseW6.Write([]byte(renderGeneratedExampleHTML(parseExamplePage2)))
-				return
-			}
+		if parseHasRoute && filepath.ToSlash(parseR6.URL.Path) != parseRouteInfo.RoutePath {
+			http.Redirect(parseW6, parseR6, parseRouteInfo.RoutePath, http.StatusFound)
+			return
+		}
+		parseExamplePage, parseOk, parseErr4 := parseL.resolveGeneratedExamplePage(parseR6.URL.Path)
+		if parseErr4 != nil {
+			writeJSON(parseW6, http.StatusInternalServerError, map[string]string{
+				"error": "examples_route_failed",
+				"hint":  parseErr4.Error(),
+			})
+			return
+		}
+		if parseOk {
+			parseW6.Header().Set("Content-Type", "text/html; charset=utf-8")
+			parseW6.WriteHeader(http.StatusOK)
+			_, _ = parseW6.Write([]byte(renderGeneratedExampleHTML(parseExamplePage)))
+			return
+		}
+		parseAssetAliasPath, parseHasAssetAlias, parseErr5 := parseL.resolveExampleAssetAliasPath(parseR6.URL.Path)
+		if parseErr5 != nil {
+			writeJSON(parseW6, http.StatusInternalServerError, map[string]string{
+				"error": "examples_route_failed",
+				"hint":  parseErr5.Error(),
+			})
+			return
+		}
+		if parseHasAssetAlias {
+			parseRewritten := parseR6.Clone(parseR6.Context())
+			parseRewritten.URL.Path = parseAssetAliasPath
+			parseExamplesServer.ServeHTTP(parseW6, parseRewritten)
+			return
 		}
 		parseExamplesServer.ServeHTTP(parseW6, parseR6)
 	})
@@ -273,15 +301,183 @@ func (parseL launcher) buildExamplesListing() ([]exampleLink, error) {
 }
 
 func (parseL launcher) buildExamplesCatalog() (examplesCatalogPayload, error) {
+	parseCatalog, isParseLoaded, parseErr := parseL.buildExampleManifestCatalog(false)
+	if parseErr != nil || isParseLoaded {
+		return parseCatalog, parseErr
+	}
 	return parseL.buildExamplesCatalogWithHref(func(parseDirPath string, parseDirName string, parseHtmlFile string) string {
 		return "/examples/" + parseDirName + "/"
 	})
 }
 
 func (parseL launcher) buildStaticExamplesCatalog() (examplesCatalogPayload, error) {
+	parseCatalog, isParseLoaded, parseErr := parseL.buildExampleManifestCatalog(true)
+	if parseErr != nil || isParseLoaded {
+		return parseCatalog, parseErr
+	}
 	return parseL.buildExamplesCatalogWithHref(func(parseDirPath string, parseDirName string, parseHtmlFile string) string {
 		return "../" + parseDirName + "/" + parseHtmlFile
 	})
+}
+
+// loadExampleCatalogManifest loads the committed examples catalog manifest when it is available.
+func (parseL launcher) loadExampleCatalogManifest() (examplesCatalogPayload, bool, error) {
+	parseManifestPath := filepath.Join(parseL.staticDir, "catalog.json")
+	if !fileExists(parseManifestPath) {
+		return examplesCatalogPayload{}, false, nil
+	}
+	parseContent, parseErr := os.ReadFile(parseManifestPath)
+	if parseErr != nil {
+		return examplesCatalogPayload{}, false, fmt.Errorf("read examples catalog manifest: %w", parseErr)
+	}
+	var parseCatalog examplesCatalogPayload
+	if parseErr2 := json.Unmarshal(parseContent, &parseCatalog); parseErr2 != nil {
+		return examplesCatalogPayload{}, false, fmt.Errorf("decode examples catalog manifest: %w", parseErr2)
+	}
+	return parseCatalog, true, nil
+}
+
+// resolveExampleCurrentDir maps one legacy catalog name onto the current grouped examples directory.
+func (parseL launcher) resolveExampleCurrentDir(parseLegacyName string) (string, bool, error) {
+	parseLegacyName = strings.TrimSpace(parseLegacyName)
+	if parseLegacyName == "" {
+		return "", false, nil
+	}
+	parseCheckDir := func(parseRelativeDir string) (string, bool, error) {
+		parseRelativeDir = strings.TrimSpace(parseRelativeDir)
+		if parseRelativeDir == "" {
+			return "", false, nil
+		}
+		parseDirPath := filepath.Join(parseL.examplesDir, filepath.FromSlash(parseRelativeDir))
+		parseInfo, parseErr := os.Stat(parseDirPath)
+		if parseErr != nil {
+			if os.IsNotExist(parseErr) {
+				return "", false, nil
+			}
+			return "", false, parseErr
+		}
+		if !parseInfo.IsDir() {
+			return "", false, nil
+		}
+		return filepath.ToSlash(parseRelativeDir), true, nil
+	}
+
+	if parseRelativeDir, parseOk, parseErr := parseCheckDir(parseLegacyName); parseErr != nil || parseOk {
+		return parseRelativeDir, parseOk, parseErr
+	}
+	if parseAliasDir, ok := exampleCatalogRouteAliasPaths[parseLegacyName]; ok {
+		if parseRelativeDir, parseOk, parseErr := parseCheckDir(parseAliasDir); parseErr != nil || parseOk {
+			return parseRelativeDir, parseOk, parseErr
+		}
+	}
+
+	parseSlug := parseLegacyName
+	if parseParts := strings.SplitN(parseLegacyName, "-", 2); len(parseParts) == 2 {
+		parseSlug = parseParts[1]
+	}
+	for _, parseGroup := range []string{"public", "server", "testing"} {
+		parseRelativeDir := filepath.ToSlash(filepath.Join(parseGroup, parseSlug))
+		if parseResolvedDir, parseOk, parseErr := parseCheckDir(parseRelativeDir); parseErr != nil || parseOk {
+			return parseResolvedDir, parseOk, parseErr
+		}
+	}
+	return "", false, nil
+}
+
+// buildExampleCatalogEntryFromManifest builds one catalog entry from the committed examples manifest plus current filesystem state.
+func (parseL launcher) buildExampleCatalogEntryFromManifest(parseManifestEntry exampleCatalogEntry, isParseStaticHref bool) (exampleCatalogEntry, bool, error) {
+	parseRelativeDir, parseOk, parseErr := parseL.resolveExampleCurrentDir(parseManifestEntry.Name)
+	if parseErr != nil || !parseOk {
+		return exampleCatalogEntry{}, parseOk, parseErr
+	}
+	parseDirPath := filepath.Join(parseL.examplesDir, filepath.FromSlash(parseRelativeDir))
+	parseHTMLFile := strings.TrimSpace(parseManifestEntry.HTMLFile)
+	if parseHTMLFile == "" {
+		parseHTMLFile2, parseOk2, parseErr2 := firstHTMLFileName(parseDirPath)
+		if parseErr2 != nil || !parseOk2 {
+			return exampleCatalogEntry{}, parseOk2, parseErr2
+		}
+		parseHTMLFile = parseHTMLFile2
+	}
+
+	parseWasmBinary := strings.TrimSpace(parseManifestEntry.WasmBinary)
+	isParseUsesWasm := false
+	if parseWasmBinary != "" {
+		if fileExists(filepath.Join(parseL.resolvedExamplesWasmDir(), parseWasmBinary)) {
+			isParseUsesWasm = true
+		} else {
+			parseWasmBinary = ""
+		}
+	}
+	if !isParseUsesWasm && parseWasmBinary == "" {
+		parseHTMLPath := filepath.Join(parseDirPath, parseHTMLFile)
+		if fileExists(parseHTMLPath) {
+			parseDetectedWasmBinary, isParseDetectedWasm, parseErr3 := detectAvailableExampleWasmBinary(parseL.resolvedExamplesWasmDir(), parseHTMLPath)
+			if parseErr3 != nil {
+				return exampleCatalogEntry{}, false, parseErr3
+			}
+			parseWasmBinary = parseDetectedWasmBinary
+			isParseUsesWasm = isParseDetectedWasm
+		}
+	}
+
+	parseHref := "/examples/" + parseRelativeDir + "/"
+	if isParseStaticHref {
+		parseHref = "../" + parseManifestEntry.Name + "/" + parseHTMLFile
+	}
+	parseTags := exampleCatalogTags(parseManifestEntry.Name, parseWasmBinary, isParseUsesWasm)
+	return exampleCatalogEntry{
+		Name:        parseManifestEntry.Name,
+		Href:        parseHref,
+		HTMLFile:    parseHTMLFile,
+		Title:       firstNonEmpty(strings.TrimSpace(parseManifestEntry.Title), defaultExampleTitle(parseManifestEntry.Name, parseHTMLFile)),
+		UsesWasm:    isParseUsesWasm,
+		WasmBinary:  parseWasmBinary,
+		MultiClient: hasAnyTag(parseTags, "multi-client", "cross-tab", "multi-window"),
+		Tags:        parseTags,
+	}, true, nil
+}
+
+// buildExampleManifestCatalog builds one examples catalog from the committed manifest when it is available.
+func (parseL launcher) buildExampleManifestCatalog(isParseStaticHref bool) (examplesCatalogPayload, bool, error) {
+	parseManifest, isParseLoaded, parseErr := parseL.loadExampleCatalogManifest()
+	if parseErr != nil || !isParseLoaded {
+		return examplesCatalogPayload{}, isParseLoaded, parseErr
+	}
+
+	parseCatalogEntries := make([]exampleCatalogEntry, 0, len(parseManifest.Examples))
+	for _, parseManifestEntry := range parseManifest.Examples {
+		parseCatalogEntry, parseOk, parseErr2 := parseL.buildExampleCatalogEntryFromManifest(parseManifestEntry, isParseStaticHref)
+		if parseErr2 != nil {
+			return examplesCatalogPayload{}, true, parseErr2
+		}
+		if !parseOk {
+			return examplesCatalogPayload{}, true, fmt.Errorf("resolve current example directory for %s", parseManifestEntry.Name)
+		}
+		parseCatalogEntries = append(parseCatalogEntries, parseCatalogEntry)
+	}
+	sort.Slice(parseCatalogEntries, func(parseI, parseJ int) bool {
+		return parseCatalogEntries[parseI].Name < parseCatalogEntries[parseJ].Name
+	})
+
+	parseWasmCount := 0
+	parseMultiClientCount := 0
+	for _, parseCatalogEntry := range parseCatalogEntries {
+		if parseCatalogEntry.UsesWasm {
+			parseWasmCount++
+		}
+		if parseCatalogEntry.MultiClient {
+			parseMultiClientCount++
+		}
+	}
+
+	return examplesCatalogPayload{
+		GeneratedAt:         time.Now().UTC().Format(time.RFC3339),
+		TotalExamples:       len(parseCatalogEntries),
+		WasmExamples:        parseWasmCount,
+		MultiClientExamples: parseMultiClientCount,
+		Examples:            parseCatalogEntries,
+	}, true, nil
 }
 
 func (parseL launcher) buildExamplesCatalogWithHref(parseResolveHref func(dirPath string, dirName string, htmlFile string) string) (examplesCatalogPayload, error) {
@@ -431,6 +627,18 @@ func (parseL launcher) resolveExampleCatalogEntry(parseDirName string) (exampleC
 	if parseDirName == "" {
 		return exampleCatalogEntry{}, false, nil
 	}
+	parseManifest, isParseLoaded, parseErr := parseL.loadExampleCatalogManifest()
+	if parseErr != nil {
+		return exampleCatalogEntry{}, false, parseErr
+	}
+	if isParseLoaded {
+		for _, parseManifestEntry := range parseManifest.Examples {
+			if parseManifestEntry.Name != parseDirName {
+				continue
+			}
+			return parseL.buildExampleCatalogEntryFromManifest(parseManifestEntry, false)
+		}
+	}
 	parseDirPath := filepath.Join(parseL.examplesDir, parseDirName)
 	parseInfo, parseErr := os.Stat(parseDirPath)
 	if parseErr != nil {
@@ -447,17 +655,157 @@ func (parseL launcher) resolveExampleCatalogEntry(parseDirName string) (exampleC
 	})
 }
 
-func (parseL launcher) resolveGeneratedExamplePage(parseRoutePath string) (generatedExamplePage, bool, error) {
+// resolveExampleLegacyNameFromGroupedRoute maps one grouped route slug back to one numbered catalog directory when only flat directories are available.
+func (parseL launcher) resolveExampleLegacyNameFromGroupedRoute(parseGroup string, parseSlug string) (string, bool, error) {
+	parseGroup = strings.TrimSpace(parseGroup)
+	parseSlug = strings.TrimSpace(parseSlug)
+	if parseGroup == "" || parseSlug == "" {
+		return "", false, nil
+	}
+	parseInfo, parseErr := os.Stat(parseL.examplesDir)
+	if parseErr != nil {
+		if os.IsNotExist(parseErr) {
+			return "", false, nil
+		}
+		return "", false, parseErr
+	}
+	if !parseInfo.IsDir() {
+		return "", false, nil
+	}
+	parseEntries, parseErr := os.ReadDir(parseL.examplesDir)
+	if parseErr != nil {
+		if os.IsNotExist(parseErr) {
+			return "", false, nil
+		}
+		return "", false, parseErr
+	}
+	parsePattern := regexp.MustCompile(`^\d+-`)
+	parseExpectedRoute := filepath.ToSlash(filepath.Join(parseGroup, parseSlug))
+	for _, parseEntry := range parseEntries {
+		if !parseEntry.IsDir() || !parsePattern.MatchString(parseEntry.Name()) {
+			continue
+		}
+		parseLegacyName := parseEntry.Name()
+		if filepath.ToSlash(exampleCatalogRouteAliasPaths[parseLegacyName]) == parseExpectedRoute {
+			return parseLegacyName, true, nil
+		}
+		if parseParts := strings.SplitN(parseLegacyName, "-", 2); len(parseParts) == 2 && parseParts[1] == parseSlug {
+			return parseLegacyName, true, nil
+		}
+	}
+	return "", false, nil
+}
+
+// resolveExampleAssetAliasPath maps grouped asset routes onto flat numbered example directories when the current filesystem still uses legacy flat paths.
+func (parseL launcher) resolveExampleAssetAliasPath(parseRoutePath string) (string, bool, error) {
+	parseManifest, isParseLoaded, parseErr := parseL.loadExampleCatalogManifest()
+	if parseErr != nil {
+		return "", false, parseErr
+	}
+	if isParseLoaded && len(parseManifest.Examples) > 0 {
+		return "", false, nil
+	}
 	parseTrimmed := strings.Trim(strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(parseRoutePath)), "/examples/"), "/")
 	if parseTrimmed == "" {
-		return generatedExamplePage{}, false, nil
+		return "", false, nil
 	}
 	parseParts := strings.Split(parseTrimmed, "/")
-	parseDirName := strings.TrimSpace(parseParts[0])
-	if parseDirName == "" {
+	if len(parseParts) < 3 {
+		return "", false, nil
+	}
+	parseGroup := strings.TrimSpace(parseParts[0])
+	if parseGroup != "public" && parseGroup != "server" && parseGroup != "testing" {
+		return "", false, nil
+	}
+	parseLegacyName, parseOk, parseErr2 := parseL.resolveExampleLegacyNameFromGroupedRoute(parseGroup, strings.TrimSpace(parseParts[1]))
+	if parseErr2 != nil || !parseOk {
+		return "", parseOk, parseErr2
+	}
+	return "/examples/" + parseLegacyName + "/" + strings.Join(parseParts[2:], "/"), true, nil
+}
+
+// resolveExampleRouteInfo maps one examples request path onto one legacy catalog name plus its canonical route.
+func (parseL launcher) resolveExampleRouteInfo(parseRoutePath string) (exampleRouteInfo, bool, error) {
+	parseTrimmed := strings.Trim(strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(parseRoutePath)), "/examples/"), "/")
+	if parseTrimmed == "" {
+		return exampleRouteInfo{}, false, nil
+	}
+	parseParts := strings.Split(parseTrimmed, "/")
+
+	parseManifest, isParseLoaded, parseErr := parseL.loadExampleCatalogManifest()
+	if parseErr != nil {
+		return exampleRouteInfo{}, false, parseErr
+	}
+	if isParseLoaded {
+		for _, parseManifestEntry := range parseManifest.Examples {
+			parseRelativeDir, parseOk, parseErr2 := parseL.resolveExampleCurrentDir(parseManifestEntry.Name)
+			if parseErr2 != nil {
+				return exampleRouteInfo{}, false, parseErr2
+			}
+			if !parseOk {
+				continue
+			}
+			parseRouteRelative := strings.Trim(parseRelativeDir, "/")
+			parseHTMLRoute := parseRouteRelative
+			if strings.TrimSpace(parseManifestEntry.HTMLFile) != "" {
+				parseHTMLRoute += "/" + parseManifestEntry.HTMLFile
+			}
+			switch parseTrimmed {
+			case parseRouteRelative, parseHTMLRoute, parseManifestEntry.Name, parseManifestEntry.Name + "/" + parseManifestEntry.HTMLFile:
+				return exampleRouteInfo{Name: parseManifestEntry.Name, RoutePath: "/examples/" + parseRouteRelative + "/"}, true, nil
+			}
+		}
+	}
+
+	if len(parseParts) == 1 || (len(parseParts) == 2 && strings.HasSuffix(strings.ToLower(parseParts[1]), ".html")) {
+		parseLegacyName := strings.TrimSpace(parseParts[0])
+		if parseLegacyName != "" {
+			parseEntry, parseOk, parseErr2 := parseL.resolveExampleCatalogEntry(parseLegacyName)
+			if parseErr2 != nil {
+				return exampleRouteInfo{}, false, parseErr2
+			}
+			if parseOk {
+				return exampleRouteInfo{Name: parseEntry.Name, RoutePath: "/examples/" + parseLegacyName + "/"}, true, nil
+			}
+		}
+	}
+
+	if len(parseParts) == 2 || (len(parseParts) == 3 && strings.HasSuffix(strings.ToLower(parseParts[2]), ".html")) {
+		parseGroup := strings.TrimSpace(parseParts[0])
+		if parseGroup == "public" || parseGroup == "server" || parseGroup == "testing" {
+			parseInfo, parseErr2 := os.Stat(parseL.examplesDir)
+			if parseErr2 != nil {
+				if os.IsNotExist(parseErr2) {
+					return exampleRouteInfo{}, false, parseErr2
+				}
+				return exampleRouteInfo{}, false, parseErr2
+			}
+			if !parseInfo.IsDir() {
+				return exampleRouteInfo{}, false, nil
+			}
+			parseSlug := strings.TrimSpace(parseParts[1])
+			parseLegacyName, parseOk, parseErr3 := parseL.resolveExampleLegacyNameFromGroupedRoute(parseGroup, parseSlug)
+			if parseErr3 != nil {
+				return exampleRouteInfo{}, false, parseErr3
+			}
+			if parseOk {
+				return exampleRouteInfo{Name: parseLegacyName, RoutePath: "/examples/" + parseGroup + "/" + parseSlug + "/"}, true, nil
+			}
+		}
+	}
+	return exampleRouteInfo{}, false, nil
+}
+
+func (parseL launcher) resolveGeneratedExamplePage(parseRoutePath string) (generatedExamplePage, bool, error) {
+	parseRouteInfo, parseOk, parseErr := parseL.resolveExampleRouteInfo(parseRoutePath)
+	if parseErr != nil || !parseOk {
+		return generatedExamplePage{}, parseOk, parseErr
+	}
+	parseNormalizedPath := filepath.ToSlash(strings.TrimSpace(parseRoutePath))
+	if parseNormalizedPath != parseRouteInfo.RoutePath {
 		return generatedExamplePage{}, false, nil
 	}
-	parseEntry, parseOk, parseErr := parseL.resolveExampleCatalogEntry(parseDirName)
+	parseEntry, parseOk, parseErr := parseL.resolveExampleCatalogEntry(parseRouteInfo.Name)
 	if parseErr != nil || !parseOk {
 		return generatedExamplePage{}, parseOk, parseErr
 	}
@@ -465,18 +813,22 @@ func (parseL launcher) resolveGeneratedExamplePage(parseRoutePath string) (gener
 		return generatedExamplePage{}, false, nil
 	}
 	parseManifestHref := ""
-	if fileExists(filepath.Join(parseL.examplesDir, parseDirName, "manifest.webmanifest")) {
+	parseRelativeDir, parseOk2, parseErr2 := parseL.resolveExampleCurrentDir(parseEntry.Name)
+	if parseErr2 != nil {
+		return generatedExamplePage{}, false, parseErr2
+	}
+	if parseOk2 && fileExists(filepath.Join(parseL.examplesDir, filepath.FromSlash(parseRelativeDir), "manifest.webmanifest")) {
 		parseManifestHref = "./manifest.webmanifest"
 	}
 
 	return generatedExamplePage{
-		RoutePath:     parseRoutePath,
-		DirName:       parseDirName,
+		RoutePath:     parseRouteInfo.RoutePath,
+		DirName:       parseEntry.Name,
 		HTMLFile:      parseEntry.HTMLFile,
-		Title:         firstNonEmpty(parseEntry.Title, defaultExampleTitle(parseDirName, parseEntry.HTMLFile)),
+		Title:         firstNonEmpty(parseEntry.Title, defaultExampleTitle(parseEntry.Name, parseEntry.HTMLFile)),
 		WasmBinary:    parseEntry.WasmBinary,
 		ManifestHref:  parseManifestHref,
-		Description:   fmt.Sprintf("Generated wasm host page for %s. The Go examples server sends the compiled wasm bundle and a #app mount container to the browser.", parseDirName),
+		Description:   fmt.Sprintf("Generated wasm host page for %s. The Go examples server sends the compiled wasm bundle and a #app mount container to the browser.", parseEntry.Name),
 		GeneratedFrom: parseEntry.HTMLFile,
 	}, true, nil
 }
@@ -833,15 +1185,22 @@ func renderExamplesBootstrapDataScript(parseDocument examplesShellDocument) stri
 
 func renderExamplesBootstrapScript(parseWasmURL string, parseFailureTitle string, parseFailureMessage string, parseFailureHref string, parseFailureLinkLabel string) string {
 	return "const GWC_EXAMPLES_CACHE = 'gwc-examples-runtime-v1';\n" +
+		"async function instantiateCachedWasm(response, importObject) {\n" +
+		"  const contentType = (response.headers.get('content-type') || '').toLowerCase();\n" +
+		"  if (typeof WebAssembly.instantiateStreaming === 'function' && contentType.includes('application/wasm')) {\n" +
+		"    return WebAssembly.instantiateStreaming(Promise.resolve(response), importObject);\n" +
+		"  }\n" +
+		"  const bytes = await response.arrayBuffer();\n" +
+		"  return WebAssembly.instantiate(bytes, importObject);\n" +
+		"}\n" +
 		"async function loadCachedWasm(url, importObject) {\n" +
 		"  if (!('caches' in globalThis)) {\n" +
 		"    const response = await fetch(url, { cache: 'no-store' });\n" +
 		"    if (!response.ok) {\n" +
 		"      throw new Error('Failed to fetch wasm: ' + response.status + ' ' + response.statusText);\n" +
 		"    }\n" +
-		"    const bytes = await response.arrayBuffer();\n" +
 		"    console.info('[gwc examples] wasm source: network (no Cache Storage)', url);\n" +
-		"    return WebAssembly.instantiate(bytes, importObject);\n" +
+		"    return instantiateCachedWasm(response, importObject);\n" +
 		"  }\n" +
 		"  const cache = await caches.open(GWC_EXAMPLES_CACHE);\n" +
 		"  let response = await cache.match(url);\n" +
@@ -854,9 +1213,8 @@ func renderExamplesBootstrapScript(parseWasmURL string, parseFailureTitle string
 		"    await cache.put(url, response.clone());\n" +
 		"    source = 'network';\n" +
 		"  }\n" +
-		"  const bytes = await response.arrayBuffer();\n" +
 		"  console.info('[gwc examples] wasm source: ' + source, url);\n" +
-		"  return WebAssembly.instantiate(bytes, importObject);\n" +
+		"  return instantiateCachedWasm(response, importObject);\n" +
 		"}\n" +
 		"const go = new Go();\n" +
 		"loadCachedWasm(" + jsStringLiteral(parseWasmURL) + ", go.importObject)\n" +

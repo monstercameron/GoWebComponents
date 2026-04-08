@@ -23,12 +23,15 @@ Thumbs.db
 /dist/
 /build/
 /.pages/
+/.pages-validate/
 /client
 /backgroundworker
 *.hotreload-manifest.json
 static/bin/
 go-compiler-wasm
 go-source
+/public-examples-site
+/static-islands
 examples/13-browser-compiler/static/pkg/
 test/benchmark/bin/
 

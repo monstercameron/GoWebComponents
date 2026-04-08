@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 	playwright "github.com/playwright-community/playwright-go"

@@ -58,7 +58,7 @@ From the repo root, the shortest practical path is:
 4. use `go run ./tools/gwc dev -app .\main.go` for the inner loop
 5. use `go run ./tools/gwc build`, `test`, and `verify` once the app stabilizes
 
-If you are evaluating from the examples catalog instead of building a new app immediately, start with [examples/01-counter](../../examples/01-counter), [examples/21-ui-render](../../examples/21-ui-render), [examples/75-use-state](../../examples/75-use-state), and [examples/76-use-effect](../../examples/76-use-effect).
+If you are evaluating from the examples catalog instead of building a new app immediately, start with [examples/public/counter](../../examples/public/counter), [examples/public/ui-render](../../examples/public/ui-render), [examples/public/use-state](../../examples/public/use-state), and [examples/public/use-effect](../../examples/public/use-effect).
 
 ## Minimal Example
 

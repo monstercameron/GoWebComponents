@@ -1,0 +1,13 @@
+{
+  "route": {
+    "path": "/docs/ssr",
+    "params": {
+      "section": "ssr"
+    }
+  },
+  "data": {
+    "transport": "json-sidecar",
+    "demo": "ssr-routing"
+  },
+  "idSeed": 17
+}

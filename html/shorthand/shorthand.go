@@ -82,6 +82,9 @@ func Html(parseArgs ...interface{}) ui.Node { return Tag("html", parseArgs...) }
 // Img delegates to [html.Img].
 func Img(parseArgs ...interface{}) ui.Node { return Tag("img", parseArgs...) }
 
+// Iframe delegates to [html.Iframe].
+func Iframe(parseArgs ...interface{}) ui.Node { return Tag("iframe", parseArgs...) }
+
 // Input delegates to [html.Input].
 func Input(parseArgs ...interface{}) ui.Node { return Tag("input", parseArgs...) }
 
@@ -390,6 +393,12 @@ func splitArgs(parseArgs ...interface{}) (Props, []ui.Node) {
 		switch parseTyped := parseArg.(type) {
 		case nil:
 			continue
+		case Props:
+			parseProps = parseTyped
+		case *Props:
+			if parseTyped != nil {
+				parseProps = *parseTyped
+			}
 		case propsInput:
 			parseProps = parseTyped.value
 		case PropOption:
