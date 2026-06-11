@@ -2804,8 +2804,12 @@ func TestAsyncBoundaryReturnsContentWhenNotPending(parseT *testing.T) {
 	installUIHookContext(parseT)
 
 	parseContent := Text("ready")
-	if parseGot := AsyncBoundary(AsyncBoundaryProps{Content: parseContent}); parseGot != parseContent {
-		parseT.Fatal("expected async boundary to render content when not pending")
+	parseGot := AsyncBoundary(AsyncBoundaryProps{Content: parseContent})
+	if parseGot == nil || parseGot.Type != runtime.AsyncBoundaryNodeType {
+		parseT.Fatalf("expected async boundary marker, got %#v", parseGot)
+	}
+	if parseGot.Props["content"] != parseContent {
+		parseT.Fatalf("expected boundary content prop to be preserved, got %#v", parseGot.Props["content"])
 	}
 }
 
@@ -2813,8 +2817,12 @@ func TestAsyncBoundaryReturnsFallbackAndErrorFallback(parseT *testing.T) {
 	installUIHookContext(parseT)
 
 	parseFallback := Text("loading")
-	if parseGot := AsyncBoundary(AsyncBoundaryProps{Pending: true, Fallback: parseFallback}); parseGot != parseFallback {
-		parseT.Fatal("expected async boundary to render fallback while pending")
+	parseGot := AsyncBoundary(AsyncBoundaryProps{Pending: true, Fallback: parseFallback})
+	if parseGot == nil || parseGot.Type != runtime.AsyncBoundaryNodeType {
+		parseT.Fatalf("expected async boundary marker, got %#v", parseGot)
+	}
+	if parseGot.Props["pending"] != true || parseGot.Props["fallback"] != parseFallback {
+		parseT.Fatalf("expected pending fallback props, got %#v", parseGot.Props)
 	}
 
 	parseErrorNode := Text("error")
@@ -2827,8 +2835,12 @@ func TestAsyncBoundaryReturnsFallbackAndErrorFallback(parseT *testing.T) {
 			return parseErrorNode
 		},
 	})
-	if parseGot2 != parseErrorNode {
-		parseT.Fatal("expected async boundary to render error fallback")
+	if parseGot2 == nil || parseGot2.Type != runtime.AsyncBoundaryNodeType {
+		parseT.Fatalf("expected async boundary marker for error branch, got %#v", parseGot2)
+	}
+	parseFallbackFn, parseOk := parseGot2.Props["errorFallback"].(func(error) Node)
+	if !parseOk || parseFallbackFn(errors.New("boom")) != parseErrorNode {
+		parseT.Fatalf("expected async boundary to preserve error fallback, got %#v", parseGot2.Props["errorFallback"])
 	}
 }
 
@@ -2942,8 +2954,11 @@ func TestLazyRendersFallbackOnInitialLoad(parseT *testing.T) {
 		},
 		Fallback: parseFallback,
 	})
-	if parseGot != parseFallback {
-		parseT.Fatal("expected lazy helper to render fallback on initial load")
+	if parseGot == nil || parseGot.Type != runtime.AsyncBoundaryNodeType {
+		parseT.Fatalf("expected lazy helper to return async boundary marker, got %#v", parseGot)
+	}
+	if parseGot.Props["pending"] != true || parseGot.Props["fallback"] != parseFallback {
+		parseT.Fatalf("expected lazy helper to preserve pending fallback props, got %#v", parseGot.Props)
 	}
 }
 

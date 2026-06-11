@@ -14,11 +14,11 @@ impact; exactly three active items carry the next-work marker.
   all-or-nothing. Add chunked HTML streaming with out-of-order boundary
   flushing (React `renderToPipeableStream` equivalent) so a slow data
   dependency streams a shell with placeholders instead of stalling TTFB.
-- [ ] [next] **Real suspension for async data** - `AsyncBoundary` is prop-driven
-  (`Pending`/`Error` flags). Components cannot suspend mid-render and resume
-  when data arrives; suspension is what enables streamed boundaries and
-  removes manual loading-state plumbing from every component.
-- [ ] **TinyGo build profile** - the ~1.4 MB brotli floor is the standard Go
+- [x] **Real suspension for async data** - `AsyncBoundary` now supports
+  render-time `ui.SuspendUntil` / `ui.Await` suspension, runtime fallback
+  capture, retry when the async signal resolves, SSR fallback rendering, API
+  baseline coverage, and focused native/wasm tests.
+- [ ] [next] **TinyGo build profile** - the ~1.4 MB brotli floor is the standard Go
   runtime's price. Hooks-layer reflection/generics probably block TinyGo
   today. Run a one-day feasibility spike first; even a constrained TinyGo
   profile for leaf apps changes the size story.
@@ -36,9 +36,10 @@ impact; exactly three active items carry the next-work marker.
   browser realtime hooks with bounded message/error buffers, capped reconnect
   backoff, heartbeat state, native unsupported stubs, and wasm transport
   tests.
-- [ ] **Query-cache ergonomics** - fetch cache lacks tag-based invalidation,
-  pagination/infinite-query helpers, and high-level optimistic updates (the
-  mutation queue is lower level than React Query's API).
+- [x] **Query-cache ergonomics** - `fetch` now provides tag-aware `UseQuery`
+  and `LoadQuery`, `InvalidateQueryTag(s)` / `DisposeQueryTag`, paginated
+  `UseInfiniteQuery`, and rollback-capable optimistic cache updates on top of
+  the existing shared cache.
 - [ ] **Browser devtools extension** - devtools exist as in-page panels only.
   Ship a Chrome/Firefox extension (component tree, props/state inspection,
   atom graph, commit profiling). The plugin kernel was shaped for this.

@@ -863,6 +863,14 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 			defer func() {
 				if parseRecovered := recover(); parseRecovered != nil {
 					var isHandled bool
+					if parseSuspension, parseOk := AsSuspension(parseRecovered); parseOk {
+						parseNextFromBoundary, isHandled = parseRt.recoverAsyncBoundarySuspension(parseFiber.parent, parseSuspension)
+						if !isHandled {
+							panic(markUnhandledPanic(parseFiber, boundaryPhaseRender, parseRecovered))
+						}
+						isHandledPanic = true
+						return
+					}
 					if panicPhaseMayRecoverWithBoundary(PanicPhaseRender) {
 						parseNextFromBoundary, isHandled = parseRt.recoverBoundaryError(parseFiber.parent, parseRecovered, boundaryPhaseRender)
 					}

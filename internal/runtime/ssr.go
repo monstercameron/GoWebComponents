@@ -100,6 +100,9 @@ func renderElementToString(parseBuilder *strings.Builder, parseElement *Element)
 	if _, parseOk6 := parseElement.Type.(*ErrorBoundaryType); parseOk6 {
 		return renderErrorBoundaryToString(parseBuilder, parseElement)
 	}
+	if _, parseOk7 := parseElement.Type.(*AsyncBoundaryElementType); parseOk7 {
+		return renderAsyncBoundaryToString(parseBuilder, parseElement)
+	}
 
 	parseResolved, parseErr := resolveComponentElement(parseElement)
 	if parseErr != nil {
@@ -144,6 +147,52 @@ func renderErrorBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 	}()
 
 	return renderChildrenToString(parseBuilder, parseElement.Children)
+}
+
+// renderAsyncBoundaryToString renders async fallback content when a child suspends.
+func renderAsyncBoundaryToString(parseBuilder *strings.Builder, parseElement *Element) (parseErr error) {
+	if parseElement == nil {
+		return nil
+	}
+	if parseErr2, _ := parseElement.Props["error"].(error); parseErr2 != nil {
+		return renderAsyncBoundaryFallbackToString(parseBuilder, parseElement, parseErr2)
+	}
+	if parsePending, _ := parseElement.Props["pending"].(bool); parsePending {
+		return renderAsyncBoundaryFallbackToString(parseBuilder, parseElement, nil)
+	}
+
+	defer func() {
+		parseRecovered := recover()
+		if parseRecovered == nil {
+			return
+		}
+		if _, parseOk := AsSuspension(parseRecovered); parseOk {
+			parseErr = renderAsyncBoundaryFallbackToString(parseBuilder, parseElement, nil)
+			return
+		}
+		panic(parseRecovered)
+	}()
+
+	if parseContent, _ := parseElement.Props["content"].(*Element); parseContent != nil {
+		return renderElementToString(parseBuilder, parseContent)
+	}
+	return renderChildrenToString(parseBuilder, parseElement.Children)
+}
+
+// renderAsyncBoundaryFallbackToString renders the best available async fallback.
+func renderAsyncBoundaryFallbackToString(parseBuilder *strings.Builder, parseElement *Element, parseErr error) error {
+	if parseElement == nil || parseElement.Props == nil {
+		return nil
+	}
+	if parseErr != nil {
+		if parseFallbackFn, _ := parseElement.Props["errorFallback"].(func(error) *Element); parseFallbackFn != nil {
+			return renderElementToString(parseBuilder, parseFallbackFn(parseErr))
+		}
+	}
+	if parseFallback, _ := parseElement.Props["fallback"].(*Element); parseFallback != nil {
+		return renderElementToString(parseBuilder, parseFallback)
+	}
+	return nil
 }
 
 // renderHostElementToString is a core package helper.

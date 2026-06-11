@@ -144,12 +144,23 @@ func TestNativeUseContextAndAsyncBoundaryBranches(parseT *testing.T) {
 	}()
 
 	parseErrorFallback := Text("error-fallback")
-	if parseGot := AsyncBoundary(AsyncBoundaryProps{Error: errNativeHelperTestMessage("boom"), ErrorFallback: func(error) Node { return parseErrorFallback }}); parseGot != parseErrorFallback {
-		parseT.Fatalf("expected AsyncBoundary to render error fallback, got %#v", parseGot)
+	parseErrorMarkup, parseErrorRenderErr := RenderToString(AsyncBoundary(AsyncBoundaryProps{
+		Error:         errNativeHelperTestMessage("boom"),
+		ErrorFallback: func(error) Node { return parseErrorFallback },
+	}))
+	if parseErrorRenderErr != nil {
+		parseT.Fatalf("unexpected AsyncBoundary error fallback render error: %v", parseErrorRenderErr)
+	}
+	if parseErrorMarkup != "error-fallback" {
+		parseT.Fatalf("expected AsyncBoundary error fallback markup, got %q", parseErrorMarkup)
 	}
 	parseTimeoutFallback := Text("timeout-fallback")
-	if parseGot2 := AsyncBoundary(AsyncBoundaryProps{Pending: true, Timeout: time.Second, TimeoutFallback: parseTimeoutFallback, Fallback: Text("fallback")}); parseGot2 != parseTimeoutFallback {
-		parseT.Fatalf("expected AsyncBoundary timeout branch, got %#v", parseGot2)
+	parseTimeoutMarkup, parseTimeoutRenderErr := RenderToString(AsyncBoundary(AsyncBoundaryProps{Pending: true, Timeout: time.Second, TimeoutFallback: parseTimeoutFallback, Fallback: Text("fallback")}))
+	if parseTimeoutRenderErr != nil {
+		parseT.Fatalf("unexpected AsyncBoundary timeout render error: %v", parseTimeoutRenderErr)
+	}
+	if parseTimeoutMarkup != "timeout-fallback" {
+		parseT.Fatalf("expected AsyncBoundary timeout fallback markup, got %q", parseTimeoutMarkup)
 	}
 	UseEffect(func() func() { return nil })
 	_ = UseContext(parseTheme)

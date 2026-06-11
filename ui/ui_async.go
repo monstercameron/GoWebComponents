@@ -290,28 +290,22 @@ func AsyncBoundary(parseProps AsyncBoundaryProps) Node {
 
 	parseState2 := parsePhase.Get()
 	if parseProps.Error != nil {
-		if parseProps.ErrorFallback != nil {
-			return parseProps.ErrorFallback(parseProps.Error)
-		}
-		if parseProps.Fallback != nil {
-			return parseProps.Fallback
-		}
-		return nil
+		return createAsyncBoundaryElement(parseProps, false, nil)
 	}
 
 	if !parseProps.Pending {
-		return parseProps.Content
+		return createAsyncBoundaryElement(parseProps, false, nil)
 	}
 
 	if parseState2.timedOut && parseProps.TimeoutFallback != nil {
-		return parseProps.TimeoutFallback
+		return createAsyncBoundaryElement(parseProps, true, parseProps.TimeoutFallback)
 	}
 
 	if parseState2.fallbackVisible {
-		return parseProps.Fallback
+		return createAsyncBoundaryElement(parseProps, true, nil)
 	}
 
-	return parseProps.Content
+	return createAsyncBoundaryElement(parseProps, false, nil)
 }
 
 // UseLazyNode asynchronously resolves a ui.Node and tracks loading/error state.

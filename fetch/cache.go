@@ -43,6 +43,7 @@ type CachedResourceState[T any] struct {
 
 // CachedResource exposes shared cached resource state and mutation helpers.
 type CachedResource[T any] struct {
+	key        string
 	get        func() CachedResourceState[T]
 	reload     func()
 	cancel     func()
@@ -63,6 +64,7 @@ type cachedResourceSnapshot struct {
 
 type CachedResourceInspection struct {
 	Key             string
+	Tags            []string
 	Loading         bool
 	Ready           bool
 	Stale           bool
@@ -159,6 +161,7 @@ func UseCachedResource[T any](parseKey string, parseLoader func(context.Context)
 	}, parseKey)
 
 	return CachedResource[T]{
+		key: parseKey,
 		get: func() CachedResourceState[T] {
 			if !shouldUseCachedHandle(parseKey, parseEntry) {
 				var parseZero CachedResourceState[T]
@@ -329,6 +332,7 @@ func DisposeResource(parseKey string) {
 
 	clearCachedSnapshot(parseKey)
 	deletePersistentCachedSnapshot(parseKey)
+	unregisterQueryKey(parseKey)
 }
 
 // InspectCachedResources returns a stable snapshot of shared cache state for diagnostics and devtools.
@@ -356,6 +360,7 @@ func InspectCachedResources() []CachedResourceInspection {
 
 		parseInspections = append(parseInspections, CachedResourceInspection{
 			Key:             cacheKey,
+			Tags:            QueryTagsForKey(cacheKey),
 			Loading:         parseSnapshot.Loading,
 			Ready:           parseSnapshot.Ready,
 			Stale:           parseSnapshot.Stale,

@@ -45,10 +45,13 @@ type buildConfig struct {
 }
 
 type buildProfile struct {
-	Name     string `json:"name"`
-	Trimpath bool   `json:"trimpath"`
-	Ldflags  string `json:"ldflags,omitempty"`
-	BuildVCS string `json:"buildvcs,omitempty"`
+	Name      string `json:"name"`
+	Toolchain string `json:"toolchain,omitempty"`
+	Target    string `json:"target,omitempty"`
+	Trimpath  bool   `json:"trimpath"`
+	Ldflags   string `json:"ldflags,omitempty"`
+	BuildVCS  string `json:"buildvcs,omitempty"`
+	Opt       string `json:"opt,omitempty"`
 	// Tags carries build tags for the profile.  Release-shaped profiles set
 	// "production" so framework dev-only surfaces (devtools panels, hot-reload
 	// scaffolding) are excluded from shipped artifacts.
@@ -287,6 +290,16 @@ var releaseRunCommand = func(command string, args []string, cwd string, env []st
 	return launcherRunCommand(command, args, cwd, env)
 }
 
+var buildLookPath = exec.LookPath
+
+var buildRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+	cmd := exec.Command(command, args...)
+	cmd.Dir = cwd
+	cmd.Env = env
+	output, err := cmd.CombinedOutput()
+	return string(output), err
+}
+
 var releasePlaywrightInstall = func(options *playwright.RunOptions) error {
 	return playwright.Install(options)
 }
@@ -481,6 +494,7 @@ func buildLauncherFailureDiagnostic(parseArgs []string, parseErr error) launcher
 	case strings.Contains(parseLower, "resolve ") ||
 		strings.Contains(parseLower, "parse ") ||
 		strings.Contains(parseLower, "unknown ") ||
+		strings.Contains(parseLower, "requires tinygo") ||
 		strings.Contains(parseLower, "required") ||
 		strings.Contains(parseLower, "configured ") ||
 		strings.Contains(parseLower, "does not exist") ||
@@ -708,6 +722,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 func printBuildSummary(parseSummary buildSummary) {
 	fmt.Println("GWC build")
 	fmt.Printf("  profile:      %s\n", parseSummary.Profile.Name)
+	fmt.Printf("  toolchain:    %s\n", firstNonEmpty(parseSummary.Profile.Toolchain, "go"))
+	fmt.Printf("  target:       %s\n", firstNonEmpty(parseSummary.Profile.Target, "js/wasm"))
 	fmt.Printf("  app:          %s\n", parseSummary.AppPath)
 	fmt.Printf("  project root: %s\n", parseSummary.ProjectRoot)
 	fmt.Printf("  package dir:  %s\n", parseSummary.PackageDir)
@@ -717,6 +733,7 @@ func printBuildSummary(parseSummary buildSummary) {
 	fmt.Printf("  trimpath:     %t\n", parseSummary.Profile.Trimpath)
 	fmt.Printf("  ldflags:      %s\n", firstNonEmpty(parseSummary.Profile.Ldflags, "<none>"))
 	fmt.Printf("  buildvcs:     %s\n", firstNonEmpty(parseSummary.Profile.BuildVCS, "default"))
+	fmt.Printf("  opt:          %s\n", firstNonEmpty(parseSummary.Profile.Opt, "<none>"))
 	fmt.Printf("  tags:         %s\n", firstNonEmpty(parseSummary.Profile.Tags, "<none>"))
 	for _, parseWarning := range parseSummary.SizeWarnings {
 		fmt.Printf("  ⚠ %s\n", parseWarning)
@@ -727,6 +744,8 @@ func printBuildSummary(parseSummary buildSummary) {
 func printReleaseSummary(parseSummary releaseSummary) {
 	fmt.Println("GWC release")
 	fmt.Printf("  profile:      %s\n", parseSummary.Profile.Name)
+	fmt.Printf("  toolchain:    %s\n", firstNonEmpty(parseSummary.Profile.Toolchain, "go"))
+	fmt.Printf("  target:       %s\n", firstNonEmpty(parseSummary.Profile.Target, "js/wasm"))
 	fmt.Printf("  app:          %s\n", parseSummary.AppPath)
 	fmt.Printf("  project root: %s\n", parseSummary.ProjectRoot)
 	fmt.Printf("  package dir:  %s\n", parseSummary.PackageDir)

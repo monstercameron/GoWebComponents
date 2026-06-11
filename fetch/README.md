@@ -9,8 +9,8 @@ The `fetch` library handles async data loading, typed resources, shared cache be
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/fetch` (`package fetch`)
-- Functions: `AsMutationConflictError`, `Cancel`, `Clear`, `Close`, `ConfigurePersistentCache`, `DecodeJSON`, `Dispose`, `DisposeResource`, `Done`, `Enqueue`, `Error`, `Fetch`, `Get`, `GetMutationConflict`, `InspectCachedResources`, `Invalidate`, `InvalidateResource`, `IsMutationConflict`, `List`, `LoadCached`, `NewMutationConflict`, `Open`, `OpenMutationQueue`, `Refetch`, `Reload`, `Remove`, `Replay`, `ReplayWithOptions`, `RestoreCacheBootstrap`, `ReturnChannel`, `Send`, `Set`, `SweepCachedResources`, `Text`, `Unwrap`, `Update`, `Upload`, `UseCachedResource`, `UseEventSource`, `UseFetch`, `UseResource`, `UseWebSocket`
-- Types: `AsyncResource`, `CacheBootstrap`, `CacheBootstrapEntry`, `CacheOptions`, `CacheResumePolicy`, `CachedResource`, `CachedResourceInspection`, `CachedResourceState`, `EventSource`, `EventSourceOptions`, `HTTPError`, `MultipartBody`, `MultipartFile`, `MutationConflict`, `MutationConflictError`, `MutationConflictHandler`, `MutationConflictResolution`, `MutationDraft`, `MutationExecutor`, `MutationQueue`, `MutationQueueOptions`, `MutationReplayOptions`, `MutationReplayReport`, `MutationResolutionAction`, `MutationState`, `Options`, `PersistentCacheOptions`, `QueuedMutation`, `RealtimeError`, `RealtimeMessage`, `RealtimeState`, `RealtimeStatus`, `Resource`, `ResourceState`, `Result`, `State`, `UploadUpdate`, `WebSocket`, `WebSocketOptions`
+- Functions: `ApplyOptimisticUpdate`, `AsMutationConflictError`, `Cancel`, `Clear`, `Close`, `ConfigurePersistentCache`, `DecodeJSON`, `Dispose`, `DisposeQueryTag`, `DisposeResource`, `Done`, `Enqueue`, `Error`, `Fetch`, `Get`, `GetMutationConflict`, `InspectCachedResources`, `Invalidate`, `InvalidateQueryTag`, `InvalidateQueryTags`, `InvalidateResource`, `IsMutationConflict`, `List`, `LoadCached`, `LoadQuery`, `NewMutationConflict`, `Open`, `OpenMutationQueue`, `QueryKeysForTag`, `QueryTagsForKey`, `Refetch`, `Reload`, `Remove`, `Replay`, `ReplayWithOptions`, `RestoreCacheBootstrap`, `ReturnChannel`, `Send`, `Set`, `SweepCachedResources`, `Text`, `Unwrap`, `Update`, `Upload`, `UseCachedResource`, `UseEventSource`, `UseFetch`, `UseInfiniteQuery`, `UseQuery`, `UseResource`, `UseWebSocket`
+- Types: `AsyncResource`, `CacheBootstrap`, `CacheBootstrapEntry`, `CacheOptions`, `CacheResumePolicy`, `CachedResource`, `CachedResourceInspection`, `CachedResourceState`, `EventSource`, `EventSourceOptions`, `HTTPError`, `InfiniteQuery`, `InfiniteQueryData`, `InfiniteQueryOptions`, `InfiniteQueryState`, `MultipartBody`, `MultipartFile`, `MutationConflict`, `MutationConflictError`, `MutationConflictHandler`, `MutationConflictResolution`, `MutationDraft`, `MutationExecutor`, `MutationQueue`, `MutationQueueOptions`, `MutationReplayOptions`, `MutationReplayReport`, `MutationResolutionAction`, `MutationState`, `OptimisticUpdate`, `Options`, `PersistentCacheOptions`, `Query`, `QueryOptions`, `QueryPage`, `QueryPageRequest`, `QueuedMutation`, `RealtimeError`, `RealtimeMessage`, `RealtimeState`, `RealtimeStatus`, `Resource`, `ResourceState`, `Result`, `State`, `UploadUpdate`, `WebSocket`, `WebSocketOptions`
 - Variables: _none_
 - Constants: `CacheBootstrapDataKey`, `CacheResumeAlwaysRefetch`, `CacheResumeStaleWhileRevalidate`, `CacheResumeTrustOnce`, `MutationDead`, `MutationQueued`, `MutationResolutionDead`, `MutationResolutionRemove`, `MutationResolutionReplace`, `MutationResolutionRetry`, `MutationRetrying`, `RealtimeClosed`, `RealtimeConnecting`, `RealtimeIdle`, `RealtimeOpen`, `RealtimeReconnecting`, `RealtimeUnsupported`
 
@@ -23,6 +23,7 @@ The `fetch` library handles async data loading, typed resources, shared cache be
 - `fetch_wasm_test.go` - Tests for fetch_wasm behavior
 - `mutation_queue.go` - Core implementation for mutation_queue
 - `mutation_queue_wasm_test.go` - Tests for mutation_queue_wasm behavior
+- `query_cache.go` - Tag-aware query, pagination, and optimistic rollback helpers
 - `realtime.go` - Shared bounded WebSocket and EventSource hook state
 - `realtime_native.go` - Native unsupported realtime stubs
 - `realtime_wasm.go` - Browser WebSocket and EventSource transports
@@ -47,6 +48,29 @@ if state.Open {
 }
 ```
 
+## Query Cache
+
+`UseQuery` is the higher-level cache wrapper for application data. It uses the
+same shared cache as `UseCachedResource`, adds tags for invalidating related
+keys together, and returns rollback handles for optimistic mutation flows.
+`UseInfiniteQuery` stores pages under one cache key and appends additional
+pages with `LoadNext`.
+
+```go
+users := fetch.UseQuery("users:list", loadUsers, fetch.QueryOptions{
+    Tags: []string{"users"},
+})
+
+rollback := users.OptimisticUpdate(func(prev []User) []User {
+    return append(prev, User{Name: "Ada"})
+})
+if err := saveUser(); err != nil {
+    rollback.Rollback()
+}
+
+fetch.InvalidateQueryTag("users")
+```
+
 ## File Map
 
 ```text
@@ -58,6 +82,7 @@ fetch/
 |-- fetch_wasm_test.go
 |-- mutation_queue.go
 |-- mutation_queue_wasm_test.go
+|-- query_cache.go
 |-- realtime.go
 |-- realtime_native.go
 |-- realtime_wasm.go

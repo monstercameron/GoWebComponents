@@ -542,22 +542,11 @@ func UseContext[T any](parseContext *Context[T]) T {
 
 // AsyncBoundary renders children resolving async loading, error, and pending states on the server.
 func AsyncBoundary(parseProps AsyncBoundaryProps) Node {
-	if parseProps.Error != nil {
-		if parseProps.ErrorFallback != nil {
-			return parseProps.ErrorFallback(parseProps.Error)
-		}
-		if parseProps.Fallback != nil {
-			return parseProps.Fallback
-		}
-		return nil
+	parseFallback := parseProps.Fallback
+	if parseProps.Pending && parseProps.Timeout > 0 && parseProps.TimeoutFallback != nil {
+		parseFallback = parseProps.TimeoutFallback
 	}
-	if parseProps.Pending {
-		if parseProps.Timeout > 0 && parseProps.TimeoutFallback != nil {
-			return parseProps.TimeoutFallback
-		}
-		return parseProps.Fallback
-	}
-	return parseProps.Content
+	return createAsyncBoundaryElement(parseProps, parseProps.Pending, parseFallback)
 }
 
 // UseLazyNode executes the loader synchronously on the server and returns the result as a LazyNode.

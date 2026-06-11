@@ -48,6 +48,13 @@ type ReactiveRegionElementType struct{}
 // ReactiveRegionNodeType marks anchored fine-grained update regions.
 var ReactiveRegionNodeType = &ReactiveRegionElementType{}
 
+// AsyncBoundaryElementType marks a subtree that can recover render-time
+// suspensions by rendering fallback content until the suspended work resolves.
+type AsyncBoundaryElementType struct{}
+
+// AsyncBoundaryNodeType marks async fallback boundaries.
+var AsyncBoundaryNodeType = &AsyncBoundaryElementType{}
+
 // Effect represents a side effect to be run after render.
 type Effect struct {
 	Fn           func() func()
@@ -101,6 +108,8 @@ type Fiber struct {
 	cleanupDurationNs int64
 	boundaryError     error
 	boundaryPhase     string
+	asyncSuspension   *Suspension
+	asyncWait         <-chan struct{}
 	reactiveAtomID    string
 	reactiveSourceIDs []string
 	fineGrained       bool

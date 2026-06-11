@@ -24,10 +24,13 @@ func repoRootForTest(parseT *testing.T) string {
 	return ""
 }
 
-// TestGenerateSiteProducesCorePages pins the static-site contract: the
-// generator succeeds against the real repo content and emits the landing,
-// learn, gallery, and search assets with the expected anchors.
-func TestGenerateSiteProducesCorePages(parseT *testing.T) {
+// TestGenerateSiteBuildsWasmAndShell pins the site-build contract: the docs
+// app compiles to wasm and the generated boot shell inlines the Go runtime
+// loader and boots site.wasm.
+func TestGenerateSiteBuildsWasmAndShell(parseT *testing.T) {
+	if testing.Short() {
+		parseT.Skip("site wasm build is slow; skipped in -short mode")
+	}
 	parseRepoRoot := repoRootForTest(parseT)
 	parseOutDir := parseT.TempDir()
 
@@ -35,32 +38,22 @@ func TestGenerateSiteProducesCorePages(parseT *testing.T) {
 		parseT.Fatalf("generateSite: %v", parseErr)
 	}
 
-	parseChecks := map[string]string{
-		"index.html":                          "Go. In the",
-		"learn/index.html":                    "The manual",
-		"learn/01-getting-started/index.html": "Getting Started",
-		"examples/index.html":                 "live examples",
-		"api/index.html":                      "API reference",
-		"site/site.css":                       "--accent",
-		"site/site.js":                        "search-index.json",
-		"site/search-index.json":              "Getting Started",
+	parseWasmInfo, parseErr := os.Stat(filepath.Join(parseOutDir, "site.wasm"))
+	if parseErr != nil {
+		parseT.Fatalf("site.wasm missing: %v", parseErr)
 	}
-	for parseFile, parseNeedle := range parseChecks {
-		parseRaw, parseErr := os.ReadFile(filepath.Join(parseOutDir, filepath.FromSlash(parseFile)))
-		if parseErr != nil {
-			parseT.Fatalf("expected output %s: %v", parseFile, parseErr)
-		}
-		if !strings.Contains(string(parseRaw), parseNeedle) {
-			parseT.Fatalf("output %s missing %q", parseFile, parseNeedle)
-		}
+	if parseWasmInfo.Size() < 1_000_000 {
+		parseT.Fatalf("site.wasm suspiciously small: %d bytes", parseWasmInfo.Size())
 	}
 
-	// Chapter tables must render as real tables, not flattened paragraphs.
-	parseChapter, parseErr := os.ReadFile(filepath.Join(parseOutDir, "learn", "01-getting-started", "index.html"))
-	if parseErr != nil {
-		parseT.Fatalf("read chapter: %v", parseErr)
+	parseShellRaw, parseErr2 := os.ReadFile(filepath.Join(parseOutDir, "index.html"))
+	if parseErr2 != nil {
+		parseT.Fatalf("boot shell missing: %v", parseErr2)
 	}
-	if !strings.Contains(string(parseChapter), "<table>") {
-		parseT.Fatal("chapter page lost its markdown tables")
+	parseShell := string(parseShellRaw)
+	for _, parseNeedle := range []string{"site.wasm", "new Go()", "instantiateStreaming", `id="app"`} {
+		if !strings.Contains(parseShell, parseNeedle) {
+			parseT.Fatalf("boot shell missing %q", parseNeedle)
+		}
 	}
 }

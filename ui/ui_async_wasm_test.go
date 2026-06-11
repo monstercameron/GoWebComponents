@@ -73,14 +73,24 @@ func TestAsyncBoundaryBranchesWASM(parseT *testing.T) {
 		return parseGotDone
 	})
 
-	if parseGotError != parseErrorNode {
+	if parseGotError == nil || parseGotError.Type != runtime.AsyncBoundaryNodeType {
 		parseT.Fatalf("error branch rendered %#v", parseGotError)
 	}
-	if parseGotPending != parseFallback {
-		parseT.Fatalf("pending branch rendered %#v", parseGotPending)
+	parseErrorFallbackFn, parseOk := parseGotError.Props["errorFallback"].(func(error) Node)
+	if !parseOk || parseErrorFallbackFn(errors.New("boom")) != parseErrorNode {
+		parseT.Fatalf("error branch did not preserve error fallback, props=%#v", parseGotError.Props)
 	}
-	if parseGotDone != parseContent {
-		parseT.Fatalf("done branch rendered %#v", parseGotDone)
+	if parseGotPending == nil {
+		parseT.Fatal("pending branch rendered nil")
+	}
+	if parseGotPending.Type != runtime.AsyncBoundaryNodeType || parseGotPending.Props["pending"] != true || parseGotPending.Props["fallback"] != parseFallback {
+		parseT.Fatalf("pending branch rendered %#v props=%#v", parseGotPending, parseGotPending.Props)
+	}
+	if parseGotDone == nil {
+		parseT.Fatal("done branch rendered nil")
+	}
+	if parseGotDone.Type != runtime.AsyncBoundaryNodeType || parseGotDone.Props["content"] != parseContent {
+		parseT.Fatalf("done branch rendered %#v props=%#v", parseGotDone, parseGotDone.Props)
 	}
 }
 

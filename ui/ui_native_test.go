@@ -155,11 +155,37 @@ func TestRenderUnsupportedOnServerPanicUsesUnifiedContract(parseT *testing.T) {
 func TestAsyncBoundaryAndLazyOnServer(parseT *testing.T) {
 	parseFallback := ui.Text("loading")
 	parseContent := ui.Text("ready")
-	if parseGot := ui.AsyncBoundary(ui.AsyncBoundaryProps{Content: parseContent}); parseGot != parseContent {
-		parseT.Fatal("expected AsyncBoundary to return content when not pending on server")
+	parseContentMarkup, parseContentErr := ui.RenderToString(ui.AsyncBoundary(ui.AsyncBoundaryProps{Content: parseContent}))
+	if parseContentErr != nil {
+		parseT.Fatalf("unexpected async content render error: %v", parseContentErr)
 	}
-	if parseGot2 := ui.AsyncBoundary(ui.AsyncBoundaryProps{Pending: true, Fallback: parseFallback}); parseGot2 != parseFallback {
-		parseT.Fatal("expected AsyncBoundary to return fallback when pending on server")
+	if parseContentMarkup != "ready" {
+		parseT.Fatalf("expected AsyncBoundary content markup, got %q", parseContentMarkup)
+	}
+	parsePendingMarkup, parsePendingErr := ui.RenderToString(ui.AsyncBoundary(ui.AsyncBoundaryProps{Pending: true, Fallback: parseFallback}))
+	if parsePendingErr != nil {
+		parseT.Fatalf("unexpected async pending render error: %v", parsePendingErr)
+	}
+	if parsePendingMarkup != "loading" {
+		parseT.Fatalf("expected AsyncBoundary fallback markup, got %q", parsePendingMarkup)
+	}
+
+	parseDone := make(chan struct{})
+	parseSuspending := func() ui.Node {
+		return ui.Text(ui.Await(ui.SuspenseValue[string]{
+			Done:   parseDone,
+			Reason: "load greeting",
+		}))
+	}
+	parseSuspendedMarkup, parseSuspendedErr := ui.RenderToString(ui.AsyncBoundary(ui.AsyncBoundaryProps{
+		Fallback: parseFallback,
+		Content:  ui.CreateElement(parseSuspending),
+	}))
+	if parseSuspendedErr != nil {
+		parseT.Fatalf("unexpected suspended render error: %v", parseSuspendedErr)
+	}
+	if parseSuspendedMarkup != "loading" {
+		parseT.Fatalf("expected Await suspension fallback markup, got %q", parseSuspendedMarkup)
 	}
 
 	parseLazy := ui.UseLazyNode(func(parseCtx context.Context) (ui.Node, error) {

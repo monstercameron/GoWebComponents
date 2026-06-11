@@ -38,6 +38,7 @@ func setFetchTestStructField(parseT *testing.T, parseTarget interface{}, parseFi
 // resetFetchTestCacheState clears shared fetch package globals between native tests.
 func resetFetchTestCacheState() {
 	cachedResourceRegistry = sync.Map{}
+	queryTagIndex = sync.Map{}
 	ConfigurePersistentCache(PersistentCacheOptions{})
 }
 

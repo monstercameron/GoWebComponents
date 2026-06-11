@@ -1058,6 +1058,9 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 		case *ErrorBoundaryType:
 			parseRt.renderBoundaryChildren(parseFiber)
 
+		case *AsyncBoundaryElementType:
+			parseRt.renderAsyncBoundaryChildren(parseFiber)
+
 		default:
 			parseFiber.childHydration = parseFiber.hydration
 			parseElement, parseHandledPanic, parseNextFromBoundary := parseRt.renderFunctionComponent(parseFiber)

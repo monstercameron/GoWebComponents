@@ -118,7 +118,7 @@ func (parseL launcher) runBuild(parseArgs []string) error {
 	parseRoot := parseFs.String("root", "", "Project root used for output resolution")
 	parseOut := parseFs.String("out", "", "WASM output path")
 	parseOutput := parseFs.String("output", "", "Legacy alias for -out")
-	parseProfile := parseFs.String("profile", "", "Build profile: development, ci, benchmark, or release")
+	parseProfile := parseFs.String("profile", "", "Build profile: development, ci, benchmark, release, or tinygo")
 	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
@@ -254,13 +254,15 @@ func resolveBuildProfile(parseProfile string) (buildProfile, error) {
 	case "", "development", "dev":
 		// -w skips DWARF: meaningfully faster links for the dev loop and a
 		// smaller artifact, with no cost to browser debugging.
-		return buildProfile{Name: "development", Trimpath: false, Ldflags: "-w"}, nil
+		return buildProfile{Name: "development", Toolchain: "go", Target: "js/wasm", Trimpath: false, Ldflags: "-w"}, nil
 	case "ci", "verification", "verify":
-		return buildProfile{Name: "ci", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false", Tags: "production"}, nil
+		return buildProfile{Name: "ci", Toolchain: "go", Target: "js/wasm", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false", Tags: "production"}, nil
 	case "benchmark", "bench":
-		return buildProfile{Name: "benchmark", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false", Tags: "production"}, nil
+		return buildProfile{Name: "benchmark", Toolchain: "go", Target: "js/wasm", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false", Tags: "production"}, nil
 	case "release", "production", "prod":
-		return buildProfile{Name: "release", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false", Tags: "production"}, nil
+		return buildProfile{Name: "release", Toolchain: "go", Target: "js/wasm", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false", Tags: "production"}, nil
+	case "tinygo", "tiny", "tinygo-release":
+		return buildProfile{Name: "tinygo", Toolchain: "tinygo", Target: "wasm", Opt: "z", Tags: "production"}, nil
 	default:
 		return buildProfile{}, fmt.Errorf("unknown build profile %q", parseProfile)
 	}
@@ -479,31 +481,17 @@ func executeBuild(parseConfig buildConfig) (buildSummary, error) {
 		return buildSummary{}, fmt.Errorf("create build output directory: %w", parseErr3)
 	}
 
-	buildArgs := []string{"build", "-o", parseConfig.outputPath}
-	if parseProfile.Trimpath {
-		buildArgs = append(buildArgs, "-trimpath")
-	}
-	if strings.TrimSpace(parseProfile.Ldflags) != "" {
-		buildArgs = append(buildArgs, "-ldflags="+parseProfile.Ldflags)
-	}
-	if strings.TrimSpace(parseProfile.BuildVCS) != "" {
-		buildArgs = append(buildArgs, "-buildvcs="+parseProfile.BuildVCS)
-	}
-	if strings.TrimSpace(parseProfile.Tags) != "" {
-		buildArgs = append(buildArgs, "-tags", parseProfile.Tags)
-	}
-	buildArgs = append(buildArgs, ".")
-
-	parseCmd := exec.Command("go", buildArgs...)
-	parseCmd.Dir = parsePackageDir
-	parseCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
-	parseOutput, parseErr := parseCmd.CombinedOutput()
+	parseCommand, buildArgs, parseEnv, parseErr := buildCommandForProfile(parseProfile, parseConfig.outputPath)
 	if parseErr != nil {
-		parseTrimmed := strings.TrimSpace(string(parseOutput))
+		return buildSummary{}, parseErr
+	}
+	parseOutput, parseErr := buildRunCommand(parseCommand, buildArgs, parsePackageDir, parseEnv)
+	if parseErr != nil {
+		parseTrimmed := strings.TrimSpace(parseOutput)
 		if parseTrimmed == "" {
-			return buildSummary{}, fmt.Errorf("go build failed: %w", parseErr)
+			return buildSummary{}, fmt.Errorf("%s build failed: %w", parseCommand, parseErr)
 		}
-		return buildSummary{}, fmt.Errorf("go build failed: %s", parseTrimmed)
+		return buildSummary{}, fmt.Errorf("%s build failed: %s", parseCommand, parseTrimmed)
 	}
 
 	parseArtifactBytes, parseErr := os.ReadFile(parseConfig.outputPath)
@@ -527,6 +515,44 @@ func executeBuild(parseConfig buildConfig) (buildSummary, error) {
 		Resolution:   cloneResolutionTrace(parseConfig.resolution),
 		SizeWarnings: detectHeavyWASMImports(parsePackageDir),
 	}, nil
+}
+
+func buildCommandForProfile(parseProfile buildProfile, parseOutputPath string) (string, []string, []string, error) {
+	parseToolchain := strings.TrimSpace(strings.ToLower(firstNonEmpty(parseProfile.Toolchain, "go")))
+	switch parseToolchain {
+	case "go":
+		buildArgs := []string{"build", "-o", parseOutputPath}
+	if parseProfile.Trimpath {
+		buildArgs = append(buildArgs, "-trimpath")
+	}
+	if strings.TrimSpace(parseProfile.Ldflags) != "" {
+		buildArgs = append(buildArgs, "-ldflags="+parseProfile.Ldflags)
+	}
+	if strings.TrimSpace(parseProfile.BuildVCS) != "" {
+		buildArgs = append(buildArgs, "-buildvcs="+parseProfile.BuildVCS)
+	}
+	if strings.TrimSpace(parseProfile.Tags) != "" {
+		buildArgs = append(buildArgs, "-tags", parseProfile.Tags)
+	}
+	buildArgs = append(buildArgs, ".")
+		return "go", buildArgs, buildWasmGoEnv(), nil
+	case "tinygo":
+		if _, parseErr := buildLookPath("tinygo"); parseErr != nil {
+			return "", nil, nil, fmt.Errorf("tinygo build profile requires TinyGo on PATH; install TinyGo or choose -profile release: %w", parseErr)
+		}
+		parseTarget := strings.TrimSpace(firstNonEmpty(parseProfile.Target, "wasm"))
+		buildArgs := []string{"build", "-target=" + parseTarget, "-o", parseOutputPath}
+		if strings.TrimSpace(parseProfile.Opt) != "" {
+			buildArgs = append(buildArgs, "-opt="+strings.TrimSpace(parseProfile.Opt))
+		}
+		if strings.TrimSpace(parseProfile.Tags) != "" {
+			buildArgs = append(buildArgs, "-tags", parseProfile.Tags)
+		}
+		buildArgs = append(buildArgs, ".")
+		return "tinygo", buildArgs, os.Environ(), nil
+	default:
+		return "", nil, nil, fmt.Errorf("unsupported build toolchain %q", parseProfile.Toolchain)
+	}
 }
 
 // heavyWASMImports maps stdlib packages that disproportionately inflate wasm
@@ -665,9 +691,12 @@ func executeRelease(parseConfig releaseConfig) (releaseSummary, error) {
 		"goos":    "js",
 		"goarch":  "wasm",
 		"flags": map[string]interface{}{
+			"toolchain":            firstNonEmpty(buildSummary.Profile.Toolchain, "go"),
+			"target":               firstNonEmpty(buildSummary.Profile.Target, "js/wasm"),
 			"trimpath":             buildSummary.Profile.Trimpath,
 			"ldflags":              buildSummary.Profile.Ldflags,
 			"buildvcs":             firstNonEmpty(buildSummary.Profile.BuildVCS, "default"),
+			"opt":                  buildSummary.Profile.Opt,
 			"compression":          !parseConfig.skipCompression,
 			"compressionPolicy":    parseConfig.compression,
 			"compareManifest":      parseConfig.compareManifest,
@@ -730,9 +759,12 @@ func executeRelease(parseConfig releaseConfig) (releaseSummary, error) {
 		ManifestPath: parseManifestPath,
 		Artifacts:    parseArtifacts,
 		Flags: map[string]interface{}{
+			"toolchain":            firstNonEmpty(buildSummary.Profile.Toolchain, "go"),
+			"target":               firstNonEmpty(buildSummary.Profile.Target, "js/wasm"),
 			"trimpath":             buildSummary.Profile.Trimpath,
 			"ldflags":              buildSummary.Profile.Ldflags,
 			"buildvcs":             firstNonEmpty(buildSummary.Profile.BuildVCS, "default"),
+			"opt":                  buildSummary.Profile.Opt,
 			"compression":          !parseConfig.skipCompression,
 			"compressionPolicy":    parseConfig.compression,
 			"compareManifest":      parseConfig.compareManifest,

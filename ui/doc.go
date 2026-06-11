@@ -83,8 +83,8 @@
 // AsyncBoundary is an explicit async rendering primitive for loading and error
 // fallbacks around a subtree. Lazy builds on top of it by resolving a ui.Node
 // asynchronously and routing the result through the same boundary semantics.
-// The first implementation is intentionally explicit: callers pass Pending,
-// Error, and fallback nodes rather than relying on implicit promise throwing.
+// Components can also call SuspendUntil or Await during render to suspend the
+// subtree until a data dependency signals readiness.
 // ErrorBoundary is the sibling recovery primitive for unexpected panics during
 // render, effect, cleanup, and event-handler execution. It renders a fallback
 // subtree instead of letting a child failure tear down the entire app tree.
