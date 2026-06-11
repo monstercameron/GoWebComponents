@@ -528,11 +528,21 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 			if parseFiber.alternate != nil {
 				parseRt.deleteFiberSubtree(parseFiber.child, parseRt.resolvePortalParent(parseFiber.alternate))
 			}
+			// Remember the unresolved target so the next commit retries the
+			// placement once the target element exists, instead of leaving
+			// the portal permanently empty.
+			parseFiber.portalUnresolved = true
 			if parseFiber.sibling != nil {
 				parseRt.commitWork(parseFiber.sibling, parseDomParent)
 			}
 			return
 		}
+		if parseFiber.alternate != nil && parseFiber.alternate.portalUnresolved {
+			// The target failed to resolve on a previous commit; the subtree
+			// was never created, so force it through the placement path now.
+			markPortalSubtreeForPlacement(parseFiber.child)
+		}
+		parseFiber.portalUnresolved = false
 	}
 
 	// Determine the parent DOM node for children
@@ -1378,5 +1388,18 @@ func (parseRt *Runtime) runEffects(parseFiber *Fiber) {
 	}
 	if parseFiber.sibling != nil {
 		parseRt.runEffects(parseFiber.sibling)
+	}
+}
+
+// markPortalSubtreeForPlacement re-tags a portal subtree whose target failed
+// to resolve on a previous commit: the fibers exist but never created DOM, so
+// they must run the placement path once the target element appears.
+func markPortalSubtreeForPlacement(parseFiber *Fiber) {
+	for parseCursor := parseFiber; parseCursor != nil; parseCursor = parseCursor.sibling {
+		// DOM nodes may already exist (created during render, never attached
+		// because the first commit had no target); the placement path appends
+		// existing nodes, so tag unconditionally.
+		parseCursor.effectTag = effectTagPlacement
+		markPortalSubtreeForPlacement(parseCursor.child)
 	}
 }

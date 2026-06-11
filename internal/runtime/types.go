@@ -66,6 +66,7 @@ type Fiber struct {
 	dirty               bool
 	subtreeDirty        bool
 	needsUpdate         bool
+	portalUnresolved    bool // portal target selector did not resolve at commit; retry on the next commit
 	needsChildReconcile bool
 	needsChildOrder     bool
 	// 6 bytes padding here to align next 8-byte field
