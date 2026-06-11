@@ -291,13 +291,24 @@ func PropsOf(parseOptions ...PropOption) Props {
 // WithProps applies additive prop options onto an existing Props value.
 func WithProps(parseBase Props, parseOptions ...PropOption) Props {
 	parseProps := cloneProps(parseBase)
+	ApplyPropOptions(&parseProps, parseOptions...)
+	return parseProps
+}
+
+// ApplyPropOptions applies options to parseProps in place, without the
+// defensive clone WithProps performs.  Callers must own parseProps (and any
+// maps it references): accumulation loops that build one fresh Props per
+// element use this to avoid paying a full Props clone per option argument.
+func ApplyPropOptions(parseProps *Props, parseOptions ...PropOption) {
+	if parseProps == nil {
+		return
+	}
 	for _, parseOption := range parseOptions {
 		if parseOption == nil {
 			continue
 		}
-		parseOption.apply(&parseProps)
+		parseOption.apply(parseProps)
 	}
-	return parseProps
 }
 
 // ID sets the id attribute on a Props.

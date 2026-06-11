@@ -150,11 +150,7 @@ func renderErrorBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, parseElement *Element) error {
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
-
-	for _, parseAttr := range serializeProps(parseElement.Props) {
-		parseBuilder.WriteByte(' ')
-		parseBuilder.WriteString(parseAttr)
-	}
+	writeSSRProps(parseBuilder, parseElement.Props)
 	parseBuilder.WriteByte('>')
 
 	if isVoidElement(parseTag) {
@@ -277,6 +273,55 @@ func serializeProps(parseProps map[string]interface{}) []string {
 		}
 	}
 	return parseAttrs
+}
+
+// writeSSRProps writes sorted, validated attributes directly into the builder.
+// It is the streaming twin of serializeProps: per-attribute it avoids the
+// intermediate `name="value"` string (and the slice holding them) that the
+// builder would immediately copy — the serializer's largest allocation source.
+func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]interface{}) {
+	if len(parseProps) == 0 {
+		return
+	}
+	parseKeys := make([]string, 0, len(parseProps))
+	for parseKey, parseValue := range parseProps {
+		if shouldSkipSSRProp(parseKey, parseValue) {
+			continue
+		}
+		parseKeys = append(parseKeys, parseKey)
+	}
+	sort.Strings(parseKeys)
+	for _, parseKey := range parseKeys {
+		parseName := normalizeSSRAttrName(parseKey)
+		if !isValidSSRAttrName(parseName) {
+			continue
+		}
+		switch parseTyped := parseProps[parseKey].(type) {
+		case bool:
+			if parseTyped {
+				parseBuilder.WriteByte(' ')
+				parseBuilder.WriteString(parseName)
+			}
+		case string:
+			parseBuilder.WriteByte(' ')
+			parseBuilder.WriteString(parseName)
+			parseBuilder.WriteString(`="`)
+			parseBuilder.WriteString(html.EscapeString(parseTyped))
+			parseBuilder.WriteByte('"')
+		case map[string]string:
+			parseBuilder.WriteByte(' ')
+			parseBuilder.WriteString(parseName)
+			parseBuilder.WriteString(`="`)
+			parseBuilder.WriteString(html.EscapeString(serializeStyleMap(parseTyped)))
+			parseBuilder.WriteByte('"')
+		default:
+			parseBuilder.WriteByte(' ')
+			parseBuilder.WriteString(parseName)
+			parseBuilder.WriteString(`="`)
+			parseBuilder.WriteString(html.EscapeString(fmt.Sprint(parseTyped)))
+			parseBuilder.WriteByte('"')
+		}
+	}
 }
 
 // shouldSkipSSRProp is a core package helper.

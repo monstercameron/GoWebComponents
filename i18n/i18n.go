@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -763,7 +764,22 @@ func pluralCategoryForLocale(parseLocale string, parseValue float64) PluralCateg
 	}
 }
 
+// localeCandidateCache memoizes resolved candidate chains: NormalizeLocale
+// re-parses BCP-47 tags through x/text on every call (~75% of Translate
+// allocations), and apps use a handful of locale combinations at most.
+var localeCandidateCache sync.Map // "locale|fallback|default" -> []string
+
 func localeCandidates(parseLocale string, parseFallbackLocale string, parseDefaultLocale string) []string {
+	parseCacheKey := parseLocale + "|" + parseFallbackLocale + "|" + parseDefaultLocale
+	if parseCached, parseOk := localeCandidateCache.Load(parseCacheKey); parseOk {
+		return parseCached.([]string)
+	}
+	parseResolved := buildLocaleCandidates(parseLocale, parseFallbackLocale, parseDefaultLocale)
+	localeCandidateCache.Store(parseCacheKey, parseResolved)
+	return parseResolved
+}
+
+func buildLocaleCandidates(parseLocale string, parseFallbackLocale string, parseDefaultLocale string) []string {
 	parseCandidates := []string{}
 	for _, parseRaw := range []string{parseLocale, primaryLanguage(parseLocale), parseFallbackLocale, primaryLanguage(parseFallbackLocale), parseDefaultLocale, primaryLanguage(parseDefaultLocale)} {
 		parseNormalized := NormalizeLocale(parseRaw)

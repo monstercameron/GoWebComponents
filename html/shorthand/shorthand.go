@@ -458,9 +458,12 @@ func splitArgs(parseArgs ...interface{}) (Props, []ui.Node) {
 		case propsInput:
 			parseProps = mergeProps(parseProps, parseTyped.value)
 		case PropOption:
-			parseProps = html.WithProps(parseProps, parseTyped)
+			// parseProps is a fresh local (and mergeProps copies any adopted
+			// maps), so options apply in place — WithProps would pay one full
+			// Props clone per option argument.
+			html.ApplyPropOptions(&parseProps, parseTyped)
 		case []PropOption:
-			parseProps = html.WithProps(parseProps, parseTyped...)
+			html.ApplyPropOptions(&parseProps, parseTyped...)
 		default:
 			parseChildInputs = append(parseChildInputs, parseArg)
 		}
