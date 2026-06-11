@@ -44,29 +44,29 @@ func NewMockScheduler(isSynchronous bool) *MockScheduler {
 
 func (parseS *MockScheduler) RequestIdleCallback(parseCallback func(deadline runtime.Deadline)) {
 	parseS.mu.Lock()
-	defer parseS.mu.Unlock()
-
 	if parseS.synchronous {
-		// Execute immediately for deterministic testing
-		parseDeadline := &MockDeadline{
-			timeRemaining: 16.0, // Simulate 16ms available
-			didTimeout:    false,
-		}
-		parseCallback(parseDeadline)
-	} else {
-		parseS.pendingCallbacks = append(parseS.pendingCallbacks, parseCallback)
+		// Release before invoking: callbacks legitimately schedule more work,
+		// and holding the non-reentrant mutex across them self-deadlocks.
+		parseS.mu.Unlock()
+		parseCallback(&MockDeadline{timeRemaining: 16.0, didTimeout: false})
+		return
 	}
+	parseS.pendingCallbacks = append(parseS.pendingCallbacks, parseCallback)
+	parseS.mu.Unlock()
 }
 
 func (parseS *MockScheduler) SetTimeout(parseCallback func(), parseDelay int) {
 	parseS.mu.Lock()
-	defer parseS.mu.Unlock()
-
 	if parseS.synchronous {
+		// Release before invoking: callbacks legitimately schedule more work
+		// (a state set inside an effect re-enters ScheduleUpdate), and holding
+		// the non-reentrant mutex across the callback self-deadlocks.
+		parseS.mu.Unlock()
 		parseCallback()
-	} else {
-		parseS.timeouts = append(parseS.timeouts, parseCallback)
+		return
 	}
+	parseS.timeouts = append(parseS.timeouts, parseCallback)
+	parseS.mu.Unlock()
 }
 
 // FlushIdleCallbacks executes all pending idle callbacks
