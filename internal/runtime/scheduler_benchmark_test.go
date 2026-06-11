@@ -1,4 +1,4 @@
-package runtime
+﻿package runtime
 
 import "testing"
 
@@ -87,6 +87,7 @@ func BenchmarkRender(parseB *testing.B) {
 	}
 	parseRt := &Runtime{
 		scheduler:   parseScheduler,
+		domAdapter:  parseAdapter,
 		currentRoot: parseCurrentRoot,
 		deletions:   make([]*Fiber, 0, 8),
 	}
@@ -115,6 +116,7 @@ func BenchmarkRenderSteadyState(parseB *testing.B) {
 	}
 	parseRt := &Runtime{
 		scheduler:   parseScheduler,
+		domAdapter:  parseAdapter,
 		currentRoot: parseCurrentRoot,
 		deletions:   make([]*Fiber, 0, 8),
 	}

@@ -52,13 +52,10 @@ func (parseRt *Runtime) ScheduleUpdate() {
 
 	parseRt.updateScheduled = true
 
-	// Optimization: Break the alternate chain on the current root to prevent memory leaks
-	// and long traversals during isFiberDirty checks.
-	if parseRt.currentRoot != nil {
-		parseRt.currentRoot.alternate = nil
-	}
-
-	// Reuse the previous alternate root when available to reduce per-update allocations.
+	// Reuse the previous alternate root when available to reduce per-update
+	// allocations.  The roots form a stable two-fiber cycle (current.alternate
+	// is the previous generation, which becomes the next wip), so there is no
+	// growing chain to leak and isFiberDirty only ever follows one hop.
 	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
 	*parseRt.wipRoot = Fiber{
 		typeOf:    parseRt.currentRoot.typeOf,

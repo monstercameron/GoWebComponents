@@ -138,13 +138,17 @@ func acquireWorkInProgress(parseOldFiber *Fiber) *Fiber {
 }
 
 // ensureFineGrainedTwinLink is an internal reconciler helper.
+//
+// The back-link is set unconditionally (not just for fine-grained fibers):
+// acquireWorkInProgress can only reuse the previous generation's fiber when
+// parseOldFiber.alternate points at it, so an unconditional link is what makes
+// double-buffering actually work — without it every child fiber was freshly
+// allocated on every render.
 func ensureFineGrainedTwinLink(parseOldFiber *Fiber, parseNewFiber *Fiber) {
 	if parseOldFiber == nil || parseNewFiber == nil {
 		return
 	}
-	if parseOldFiber.fineGrained || parseNewFiber.fineGrained {
-		parseOldFiber.alternate = parseNewFiber
-	}
+	parseOldFiber.alternate = parseNewFiber
 }
 
 // buildFiberNeedsUpdate reports whether one reused fiber should keep its own render/update path active.

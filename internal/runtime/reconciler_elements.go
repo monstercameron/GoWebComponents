@@ -43,14 +43,17 @@ func buildElementHostProps(parseTyp interface{}, parseProps map[string]interface
 		return nil, nil, true
 	}
 
-	getHostProps := make(map[string]interface{}, len(parseProps))
+	// Host fibers alias the element's props map directly instead of building a
+	// separate host-only copy: every entry point clones or owns the map before
+	// reaching here, and the DOM differ skips propKindSkip entries (including
+	// "children"), so the copy only added one map allocation per host element
+	// per render — the single largest allocation site in component updates.
 	getHostAttrs := make([]HostAttr, 0, len(parseProps))
 	isCompactHostProps := true
 	for parseName, parseValue := range parseProps {
 		if parseName == "children" {
 			continue
 		}
-		getHostProps[parseName] = parseValue
 		if parseName == "key" || parseValue == nil {
 			continue
 		}
@@ -81,13 +84,10 @@ func buildElementHostProps(parseTyp interface{}, parseProps map[string]interface
 			getHostAttrs = append(getHostAttrs, HostAttr{Name: parseAttrName, Value: parseTextValue})
 		}
 	}
-	if len(getHostProps) == 0 {
-		getHostProps = nil
-	}
 	if !isCompactHostProps {
 		getHostAttrs = nil
 	}
-	return getHostProps, getHostAttrs, isCompactHostProps
+	return parseProps, getHostAttrs, isCompactHostProps
 }
 
 // cloneElementProps clones one props map so callers can safely retain and reuse their original input.
