@@ -83,6 +83,11 @@ func App() ui.Node {
 	}
 	parseRootChildren = append(parseRootChildren, parseOverlay...)
 
+	// Portal target rendered by the example itself so it works under any
+	// hosting shell (the generated catalog shell only provides #app).  It must
+	// precede the portal elements in the tree: portals resolve their target at
+	// commit time and an unresolved target is not retried.
+	parseRootChildren = append([]ui.Node{html.Div(html.Props{ID: "portal-root"})}, parseRootChildren...)
 	return html.Div(html.Props{}, parseRootChildren...)
 }
 

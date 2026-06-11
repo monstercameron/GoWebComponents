@@ -112,6 +112,9 @@ func overlayAnchorExample() ui.Node {
 				),
 			),
 		),
+		// Portal target rendered by the example itself so it works under
+		// any hosting shell (the generated catalog shell only provides #app).
+		html.Div(html.Props{ID: "overlay-anchor-root"}),
 		parseMenuOverlay,
 		parseTooltipOverlay,
 	)
