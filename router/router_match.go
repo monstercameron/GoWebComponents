@@ -68,6 +68,13 @@ func matchRoutePattern(parsePattern, parsePath string) (map[string]string, bool)
 			if parseErr != nil || parseDecoded == "" {
 				return nil, false
 			}
+			// Reject params whose decoded value contains a path separator (#49).
+			// A candidate like %2F decodes to "/" which would effectively match a
+			// multi-segment path against a single-segment pattern — the standard
+			// router policy is to treat such candidates as non-matching.
+			if strings.Contains(parseDecoded, "/") {
+				return nil, false
+			}
 			parseParams[parseName] = parseDecoded
 			continue
 		}

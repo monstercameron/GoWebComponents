@@ -12,6 +12,19 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
+// parseWaitForCondition polls parseCheck every 2ms until it returns true or parseTimeout elapses.
+func parseWaitForCondition(parseT *testing.T, parseTimeout time.Duration, parseCheck func() bool) {
+	parseT.Helper()
+	parseDeadline := time.Now().Add(parseTimeout)
+	for time.Now().Before(parseDeadline) {
+		if parseCheck() {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	parseT.Fatal("timed out waiting for condition")
+}
+
 type sugarStringer string
 
 func (parseS sugarStringer) String() string {
@@ -484,7 +497,7 @@ func TestTemporalWrappers(parseT *testing.T) {
 	parseDebounced(ui.Event{})
 	parseDebounced(ui.Event{})
 	parseDebounced(ui.Event{})
-	time.Sleep(50 * time.Millisecond)
+	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseDebouncedCount == 1 })
 	if parseDebouncedCount != 1 {
 		parseT.Fatalf("expected debounced callback once, got %d", parseDebouncedCount)
 	}
@@ -496,12 +509,12 @@ func TestTemporalWrappers(parseT *testing.T) {
 	}
 	parseThrottled(ui.Event{})
 	parseThrottled(ui.Event{})
-	time.Sleep(10 * time.Millisecond)
+	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseThrottledCount >= 1 })
 	if parseThrottledCount != 1 {
 		parseT.Fatalf("expected immediate throttled callback, got %d", parseThrottledCount)
 	}
 	parseThrottled(ui.Event{})
-	time.Sleep(40 * time.Millisecond)
+	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseThrottledCount >= 2 })
 	if parseThrottledCount != 2 {
 		parseT.Fatalf("expected trailing throttled callback, got %d", parseThrottledCount)
 	}

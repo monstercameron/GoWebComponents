@@ -12,6 +12,12 @@ import (
 )
 
 func (parseR *Router) renderResolvedRouteStack(parseRoutes []resolvedRoute, parseQuery url.Values, parseQueryKey string, isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64) *Element {
+	return parseR.renderResolvedRouteStackWithDepth(parseRoutes, parseQuery, parseQueryKey, isApplyGuards, parseGuardCtx, parseAttemptID, 0)
+}
+
+// renderResolvedRouteStackWithDepth is an internal router helper that tracks redirect
+// depth to prevent infinite redirect loops (#44/#45).
+func (parseR *Router) renderResolvedRouteStackWithDepth(parseRoutes []resolvedRoute, parseQuery url.Values, parseQueryKey string, isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64, parseRedirectDepth int) *Element {
 	parseLoaderKeys := make([]string, 0, len(parseRoutes))
 	for _, parseRoute := range parseRoutes {
 		if parseRoute.option.Loader != nil {
@@ -19,18 +25,23 @@ func (parseR *Router) renderResolvedRouteStack(parseRoutes []resolvedRoute, pars
 		}
 	}
 	parseR.prepareLoaderState(parseLoaderKeys)
-	return parseR.renderRouteLevel(parseRoutes, 0, parseQuery, parseQueryKey, isApplyGuards, parseGuardCtx, parseAttemptID)
+	return parseR.renderRouteLevel(parseRoutes, 0, parseQuery, parseQueryKey, isApplyGuards, parseGuardCtx, parseAttemptID, parseRedirectDepth)
 }
 
 // renderRouteLevel is an internal router helper.
-func (parseR *Router) renderRouteLevel(parseRoutes []resolvedRoute, parseIndex int, parseQuery url.Values, parseQueryKey string, isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64) *Element {
+func (parseR *Router) renderRouteLevel(parseRoutes []resolvedRoute, parseIndex int, parseQuery url.Values, parseQueryKey string, isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64, parseRedirectDepth int) *Element {
 	parseMatch := parseRoutes[parseIndex]
 	if isApplyGuards {
-		if parseBlocked := parseR.applyBeforeEnterGuard(parseMatch.path, parseMatch.option, parseMatch.params, parseQuery, parseGuardCtx, parseAttemptID); parseBlocked != nil {
+		if parseBlocked := parseR.applyBeforeEnterGuard(parseMatch.path, parseMatch.option, parseMatch.params, parseQuery, parseGuardCtx, parseAttemptID, parseRedirectDepth); parseBlocked != nil {
 			return parseBlocked
 		}
+		// Propagate guard cancellation: if a sibling or ancestor cancelled the attempt,
+		// abort mid-recursion rather than rendering a partial layout (#55).
+		if (parseGuardCtx != nil && parseGuardCtx.Err() != nil) || (parseAttemptID != 0 && !parseR.guardAttemptActive(parseAttemptID)) {
+			return nil
+		}
 	}
-	if parseRedirected := parseR.applyRouteOptions(parseMatch.path, parseMatch.option, parseQuery); parseRedirected != nil {
+	if parseRedirected := parseR.applyRouteOptions(parseMatch.path, parseMatch.option, parseQuery, isApplyGuards, parseGuardCtx, parseAttemptID, parseRedirectDepth); parseRedirected != nil {
 		return parseRedirected
 	}
 
@@ -61,7 +72,14 @@ func (parseR *Router) renderRouteLevel(parseRoutes []resolvedRoute, parseIndex i
 
 	var parseOutlet *Element
 	if parseIndex+1 < len(parseRoutes) {
-		parseOutlet = parseR.renderRouteLevel(parseRoutes, parseIndex+1, parseQuery, parseQueryKey, isApplyGuards, parseGuardCtx, parseAttemptID)
+		parseOutlet = parseR.renderRouteLevel(parseRoutes, parseIndex+1, parseQuery, parseQueryKey, isApplyGuards, parseGuardCtx, parseAttemptID, parseRedirectDepth)
+		// Propagate cancellation from nested levels (#55): if the child render aborted
+		// due to a guard cancellation, the whole stack should abort too.
+		if isApplyGuards && parseOutlet == nil && parseIndex+1 < len(parseRoutes) {
+			if (parseGuardCtx != nil && parseGuardCtx.Err() != nil) || (parseAttemptID != 0 && !parseR.guardAttemptActive(parseAttemptID)) {
+				return nil
+			}
+		}
 	}
 
 	parsePrevParams, parsePrevData, parsePrevOutlet := withRouteRenderContext(parseMatch.params, parseData, parseOutlet)
@@ -165,7 +183,7 @@ func (parseR *Router) routeContext(parsePath string, parseParams map[string]stri
 }
 
 // applyBeforeEnterGuard is an internal router helper.
-func (parseR *Router) applyBeforeEnterGuard(parsePath string, parseOption Options, parseParams map[string]string, parseQuery url.Values, parseGuardCtx context.Context, parseAttemptID uint64) *Element {
+func (parseR *Router) applyBeforeEnterGuard(parsePath string, parseOption Options, parseParams map[string]string, parseQuery url.Values, parseGuardCtx context.Context, parseAttemptID uint64, parseRedirectDepth int) *Element {
 	if parseOption.BeforeEnter == nil && parseOption.BeforeEnterAsync == nil {
 		return nil
 	}
@@ -197,8 +215,17 @@ func (parseR *Router) applyBeforeEnterGuard(parsePath string, parseOption Option
 		runtime.ReportProfilingEvent("router", "guard.before_enter", "redirect", parsePath, 0, map[string]string{
 			"to": parseNormalized,
 		})
+		// Abort guard-redirect chains that exceed the depth limit (e.g. two guards
+		// redirecting to each other) instead of recursing forever.
+		if parseRedirectDepth >= maxRedirectDepth {
+			runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "redirect depth limit reached, aborting before-enter redirect from "+parsePath+" to "+parseNormalized)
+			return nil
+		}
 		parseR.replaceLocation(parseNormalized)
-		return parseR.currentElement(false)
+		// Evaluate guards on the redirect target (#45) WITHIN the same guard attempt:
+		// starting a new attempt via currentElement would cancel the outer attempt's
+		// context, making the caller discard the rendered redirect target.
+		return parseR.renderRedirectTarget(true, parseGuardCtx, parseAttemptID, parseRedirectDepth+1)
 	}
 	if !parseDecision.Blocked && !parseDecision.Denied {
 		return nil
@@ -243,7 +270,7 @@ func (parseR *Router) applyBeforeEnterGuard(parsePath string, parseOption Option
 }
 
 // applyRouteOptions is an internal router helper.
-func (parseR *Router) applyRouteOptions(parsePath string, parseOption Options, parseQuery url.Values) *Element {
+func (parseR *Router) applyRouteOptions(parsePath string, parseOption Options, parseQuery url.Values, isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64, parseRedirectDepth int) *Element {
 	parseR.applyRouteMetadata(parseOption)
 	if parseOption.Redirect == "" {
 		return nil
@@ -256,11 +283,43 @@ func (parseR *Router) applyRouteOptions(parsePath string, parseOption Options, p
 		return nil
 	}
 
+	// Abort redirect chains that exceed the depth limit to prevent infinite loops.
+	if parseRedirectDepth >= maxRedirectDepth {
+		runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "redirect depth limit reached, aborting redirect from "+parseCurrentTarget+" to "+parseRedirectTarget)
+		return nil
+	}
+
 	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "route redirect applied", "", map[string]string{
 		"from": parseCurrentTarget,
 		"to":   parseRedirectTarget,
 	})
 	parseR.recordRedirectDebug("route-option", parseCurrentTarget, parseRedirectTarget)
 	parseR.replaceLocation(parseRedirectTarget)
-	return parseR.currentElement(false)
+	// Evaluate guards on the redirect target (#44) WITHIN the caller's guard attempt:
+	// starting a new attempt via currentElement would cancel the outer attempt's
+	// context, making the caller discard the rendered redirect target.
+	return parseR.renderRedirectTarget(isApplyGuards, parseGuardCtx, parseAttemptID, parseRedirectDepth+1)
+}
+
+// renderRedirectTarget re-resolves the (already replaced) location and renders the
+// resulting route stack within the SAME guard attempt as the caller. It mirrors the
+// resolution logic of currentElementWithDepth but deliberately does not call
+// beginGuardAttempt, which would cancel the outer attempt's context (#44/#45).
+func (parseR *Router) renderRedirectTarget(isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64, parseRedirectDepth int) *Element {
+	parsePath := parseR.GetCurrentRouterPath()
+	if parsePath == "" {
+		parsePath = parseR.defaultRoute
+	}
+	parseQuery := getCurrentQueryValues()
+	parseQueryKey := parseQuery.Encode()
+	parseResolved := parseR.resolveRouteStack(parsePath)
+	if !parseResolved.found {
+		parseR.cancelLoaderIfActive()
+		currentRouteData = nil
+		currentRouteOutlet = nil
+		return runtime.Div(nil, runtime.Text(routeNotFoundText))
+	}
+	parseLeaf := parseResolved.routes[len(parseResolved.routes)-1]
+	currentParams = copyParams(parseLeaf.params)
+	return parseR.renderResolvedRouteStackWithDepth(parseResolved.routes, parseQuery, parseQueryKey, isApplyGuards, parseGuardCtx, parseAttemptID, parseRedirectDepth)
 }

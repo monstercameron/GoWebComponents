@@ -634,6 +634,15 @@ func normalizeSSRStateUpdate(parseUpdate SSRStateUpdate) (SSRStateUpdate, error)
 	if parseUpdate.Upserts == nil {
 		parseUpdate.Upserts = map[string]SSRPayloadEnvelope{}
 	}
+	// Finding #59: collect all key/envelope changes first, then apply them
+	// after the loop ends to avoid inserting new keys during range iteration
+	// (unspecified visitation behavior per the Go specification).
+	type parseUpsertChange struct {
+		oldKey string
+		newKey string
+		env    SSRPayloadEnvelope
+	}
+	parseChanges := make([]parseUpsertChange, 0, len(parseUpdate.Upserts))
 	for parseKey, parseEnvelope := range parseUpdate.Upserts {
 		parseTrimmedKey := strings.TrimSpace(parseKey)
 		if parseTrimmedKey == "" {
@@ -652,10 +661,13 @@ func normalizeSSRStateUpdate(parseUpdate SSRStateUpdate) (SSRStateUpdate, error)
 		if parseErr2 != nil {
 			return SSRStateUpdate{}, parseErr2
 		}
-		if parseTrimmedKey != parseKey {
-			delete(parseUpdate.Upserts, parseKey)
+		parseChanges = append(parseChanges, parseUpsertChange{oldKey: parseKey, newKey: parseTrimmedKey, env: parseNormalized})
+	}
+	for _, parseChange := range parseChanges {
+		if parseChange.newKey != parseChange.oldKey {
+			delete(parseUpdate.Upserts, parseChange.oldKey)
 		}
-		parseUpdate.Upserts[parseTrimmedKey] = parseNormalized
+		parseUpdate.Upserts[parseChange.newKey] = parseChange.env
 	}
 	if len(parseUpdate.Deletes) > 0 {
 		parseTrimmedDeletes := make([]string, 0, len(parseUpdate.Deletes))

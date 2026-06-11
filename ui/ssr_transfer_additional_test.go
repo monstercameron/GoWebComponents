@@ -1,4 +1,4 @@
-package ui
+﻿package ui
 
 import (
 	"strings"
@@ -141,5 +141,63 @@ func TestScopedBootstrapReadHelpers(parseT *testing.T) {
 	}
 	if _, parseOk4, parseErr7 := ReadSessionBootstrapHint[map[string]string](parseBootstrap, "missing"); parseErr7 != nil || parseOk4 {
 		parseT.Fatalf("expected missing session hint to return ok=false, got ok=%t err=%v", parseOk4, parseErr7)
+	}
+}
+
+// TestEscapeJSONForInlineScriptLineSeparators is a regression test for finding #56.
+// Raw U+2028 (LINE SEPARATOR) and U+2029 (PARAGRAPH SEPARATOR) embedded in JSON
+// can break HTML inline script parsing. escapeJSONForInlineScript must replace
+// both codepoints with their 6-char ASCII equivalents.
+func TestEscapeJSONForInlineScriptLineSeparators(parseT *testing.T) {
+	parseLineSep := string([]rune{0x2028})
+	parseParaSep := string([]rune{0x2029})
+	parseInput := "hello" + parseLineSep + "world" + parseParaSep + "end"
+	parseOutput := escapeJSONForInlineScript(parseInput)
+
+	// Must not contain the raw codepoints.
+	if strings.ContainsRune(parseOutput, 0x2028) {
+		parseT.Fatalf("escapeJSONForInlineScript() output contains raw U+2028: %q", parseOutput)
+	}
+	if strings.ContainsRune(parseOutput, 0x2029) {
+		parseT.Fatalf("escapeJSONForInlineScript() output contains raw U+2029: %q", parseOutput)
+	}
+
+	// Must contain the 6-char ASCII escape sequences.
+	if !strings.Contains(parseOutput, "\\u2028") {
+		parseT.Fatalf("escapeJSONForInlineScript() output missing \u2028 escape: %q", parseOutput)
+	}
+	if !strings.Contains(parseOutput, "\\u2029") {
+		parseT.Fatalf("escapeJSONForInlineScript() output missing \u2029 escape: %q", parseOutput)
+	}
+}
+
+// TestNormalizeSSRStateUpdateKeyTrimmingAllApplied is a regression test for finding #59.
+// When upsert keys require whitespace trimming, all keys must be normalized
+// correctly even when the old-key and new-key sets overlap.
+func TestNormalizeSSRStateUpdateKeyTrimmingAllApplied(parseT *testing.T) {
+	parseUpdate := SSRStateUpdate{
+		Upserts: map[string]SSRPayloadEnvelope{
+			" alpha ": {Encoding: SSRPayloadEncodingText, Text: "a"},
+			" beta ":  {Encoding: SSRPayloadEncodingText, Text: "b"},
+			"gamma":   {Encoding: SSRPayloadEncodingText, Text: "c"},
+		},
+	}
+	parseResult, parseErr := normalizeSSRStateUpdate(parseUpdate)
+	if parseErr != nil {
+		parseT.Fatalf("normalizeSSRStateUpdate() error = %v", parseErr)
+	}
+
+	// All three keys must be present under their trimmed form.
+	for _, parseKey := range []string{"alpha", "beta", "gamma"} {
+		if _, parseOk := parseResult.Upserts[parseKey]; !parseOk {
+			parseT.Errorf("normalizeSSRStateUpdate() missing trimmed key %q; upserts = %v", parseKey, parseResult.Upserts)
+		}
+	}
+
+	// Padded originals must have been removed.
+	for _, parseOldKey := range []string{" alpha ", " beta "} {
+		if _, parseOk := parseResult.Upserts[parseOldKey]; parseOk {
+			parseT.Errorf("normalizeSSRStateUpdate() untrimmed key %q still present; upserts = %v", parseOldKey, parseResult.Upserts)
+		}
 	}
 }

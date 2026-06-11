@@ -471,6 +471,12 @@ func installRouterBrowserEnv(parseT testing.TB) {
 	routerRuntimeInitialized = false
 
 	parseT.Cleanup(func() {
+		// Flush the JS event loop before tearing the env down: the runtime
+		// scheduler queues work via setTimeout/requestIdleCallback during the
+		// test, and those callbacks must run while the fake document/window
+		// functions are still alive.  Releasing them first produces async
+		// "call to released function" errors after the test has passed.
+		flushPendingEventLoopWork()
 		parseGlobal.Set("document", parsePrevDoc)
 		parseGlobal.Set("Element", parsePrevElement)
 		parseGlobal.Set("window", parsePrevWindow)
@@ -503,4 +509,21 @@ func installRouterBrowserEnv(parseT testing.TB) {
 		parseBack.Release()
 		parseForward.Release()
 	})
+}
+
+// flushPendingEventLoopWork parks the test goroutine until timers queued before
+// this call (the runtime scheduler's pending work-loop continuations) have run.
+// Two rounds are used because a flushed callback may schedule one more tick.
+func flushPendingEventLoopWork() {
+	for parseRound := 0; parseRound < 2; parseRound++ {
+		parseDone := make(chan struct{})
+		var parseFlush js.Func
+		parseFlush = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseFlush.Release()
+			close(parseDone)
+			return nil
+		})
+		js.Global().Call("setTimeout", parseFlush, 1)
+		<-parseDone
+	}
 }

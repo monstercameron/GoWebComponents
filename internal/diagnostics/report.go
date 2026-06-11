@@ -2,7 +2,6 @@ package diagnostics
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"runtime/debug"
 	"strconv"
@@ -137,14 +136,6 @@ func Emit(parseReport Report) {
 		return
 	}
 	_, _ = fmt.Fprintln(os.Stderr, parseFormatted)
-}
-
-// WriteHTTPError emits the report and writes it as a plain-text HTTP error response.
-func WriteHTTPError(parseW http.ResponseWriter, parseStatus int, parseReport Report) {
-	Emit(parseReport)
-	parseW.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	parseW.WriteHeader(parseStatus)
-	_, _ = parseW.Write([]byte(parseReport.Formatted()))
 }
 
 func parseFrames(parseStack []byte, parseExtraSkip []string) []frame {

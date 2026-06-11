@@ -14,6 +14,9 @@ type Props struct {
 	Title        string
 	Type         string
 	Name         string
+	// Value is the input/option value.  An empty string is silently omitted by
+	// toRuntimeProps; use html.Value("") (the PropOption) or Raw["value"]="" to
+	// explicitly emit an empty controlled-input value.
 	Value        string
 	Placeholder  string
 	Accept       string
@@ -35,6 +38,8 @@ type Props struct {
 
 	Rows     int
 	Cols     int
+	// TabIndex of 0 is silently omitted by toRuntimeProps; use html.TabIndex(0)
+	// (the PropOption) or Raw["tabIndex"]=0 to make tabindex=0 explicit.
 	TabIndex int
 
 	Checked   bool
@@ -244,6 +249,11 @@ func Hr(parseProps Props) ui.Node {
 // Img creates an img image element.
 func Img(parseProps Props) ui.Node {
 	return Tag("img", parseProps)
+}
+
+// Iframe creates an iframe element.
+func Iframe(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("iframe", parseProps, parseChildren...)
 }
 
 // Input creates an input element.

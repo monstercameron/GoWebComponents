@@ -446,12 +446,25 @@ func (parseRt *Runtime) buildSubscribedHasFineGrainedAncestor(parseFiber *Fiber)
 	if parseRt == nil || parseFiber == nil {
 		return false
 	}
+	// Single upward pass: every ancestor on this chain shares one root, so the
+	// in-current-tree check costs one O(depth) walk for the whole chain instead
+	// of one per fine-grained ancestor (previously O(depth²) per notification).
+	parseHasFineGrained := false
+	parseRoot := parseFiber
+	for parseCursor := parseFiber.parent; parseCursor != nil; parseCursor = parseCursor.parent {
+		if parseCursor.fineGrained {
+			parseHasFineGrained = true
+		}
+		parseRoot = parseCursor
+	}
+	if parseHasFineGrained && parseRoot == parseRt.currentRoot {
+		return true
+	}
+	// Slow fallback for fibers whose live chain is not rooted in the current
+	// tree: a fine-grained ancestor may still be reachable via its alternate.
 	for parseCursor := parseFiber.parent; parseCursor != nil; parseCursor = parseCursor.parent {
 		if !parseCursor.fineGrained {
 			continue
-		}
-		if parseRt.isFiberInCurrentTree(parseCursor) {
-			return true
 		}
 		if parseCursor.alternate != nil && parseCursor.alternate.fineGrained && parseRt.isFiberInCurrentTree(parseCursor.alternate) {
 			return true

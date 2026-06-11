@@ -8,32 +8,28 @@ import (
 // AtomRegistry manages global state atoms with fine-grained reactivity.
 // Each atom has a unique ID and tracks which fibers are subscribed to it.
 type AtomRegistry struct {
-	mu             sync.RWMutex
-	atoms          map[string]interface{}
-	subscriptions  map[string]map[*Fiber]bool // atomID -> set of subscribed fibers
-	derived        map[string]derivedAtom
-	dependents     map[string]map[string]bool // source atom id -> derived ids
-	subscriberPool sync.Pool
+	mu            sync.RWMutex
+	atoms         map[string]interface{}
+	subscriptions map[string]map[*Fiber]bool // atomID -> set of subscribed fibers
+	derived       map[string]derivedAtom
+	dependents    map[string]map[string]bool // source atom id -> derived ids
 }
 
 type derivedAtom struct {
-	deps    []string
-	compute func() interface{}
-	active  bool
+	deps       []string
+	compute    func() interface{}
+	active     bool
+	generation uint64 // incremented each time the entry is replaced by RegisterDerivedAtom
 }
 
 // NewAtomRegistry creates a new atom registry.
 func NewAtomRegistry() *AtomRegistry {
-	parseRegistry := &AtomRegistry{
+	return &AtomRegistry{
 		atoms:         make(map[string]interface{}),
 		subscriptions: make(map[string]map[*Fiber]bool),
 		derived:       make(map[string]derivedAtom),
 		dependents:    make(map[string]map[string]bool),
 	}
-	parseRegistry.subscriberPool.New = func() interface{} {
-		return make([]*Fiber, 0, 16)
-	}
-	return parseRegistry
 }
 
 // RegisterDerivedAtom registers or replaces a derived atom and computes its current value.
@@ -51,6 +47,7 @@ func (parseAr *AtomRegistry) RegisterDerivedAtom(parseId string, parseDeps []str
 	}
 
 	parseAr.mu.Lock()
+	parseNextGen := uint64(0)
 	if parseExisting, parseOk := parseAr.derived[parseId]; parseOk {
 		for _, parseDep2 := range parseExisting.deps {
 			if parseDependents := parseAr.dependents[parseDep2]; parseDependents != nil {
@@ -60,6 +57,7 @@ func (parseAr *AtomRegistry) RegisterDerivedAtom(parseId string, parseDeps []str
 				}
 			}
 		}
+		parseNextGen = parseExisting.generation + 1
 	}
 	for _, parseDep3 := range parseDeps {
 		if parseAr.hasDerivedDependencyPathLocked(parseDep3, parseId, map[string]bool{}) {
@@ -70,7 +68,7 @@ func (parseAr *AtomRegistry) RegisterDerivedAtom(parseId string, parseDeps []str
 		}
 	}
 	parseCloneDeps := append([]string(nil), parseDeps...)
-	parseAr.derived[parseId] = derivedAtom{deps: parseCloneDeps, compute: parseCompute, active: true}
+	parseAr.derived[parseId] = derivedAtom{deps: parseCloneDeps, compute: parseCompute, active: true, generation: parseNextGen}
 	for _, parseDep4 := range parseCloneDeps {
 		if parseAr.dependents[parseDep4] == nil {
 			parseAr.dependents[parseDep4] = make(map[string]bool)
@@ -227,8 +225,12 @@ func (parseAr *AtomRegistry) recomputeDerived(parseId string, parseTrail map[str
 		return nil, nil
 	}
 
+	// Capture the generation counter before releasing the lock.  A concurrent
+	// RegisterDerivedAtom may replace derived[parseId] (bumping generation) while
+	// compute() runs; we must not overwrite the newer value it already stored.
+	parseExpectedGen := parseDerived.generation
 	parseValue := parseDerived.compute()
-	parseFibers, parseChanged := parseAr.setValueAndCollectSubscribersIfChanged(parseId, parseValue)
+	parseFibers, parseChanged := parseAr.setDerivedValueIfGenerationMatches(parseId, parseExpectedGen, parseValue)
 	if !parseChanged {
 		return nil, nil
 	}
@@ -242,17 +244,66 @@ func (parseAr *AtomRegistry) recomputeDerived(parseId string, parseTrail map[str
 	return parseFibers, nil
 }
 
+// setDerivedValueIfGenerationMatches writes parseValue only when derived[parseId] still
+// carries parseExpectedGen (meaning RegisterDerivedAtom has not replaced the
+// entry since we last read it) and the value has changed.  Guards against a
+// stale recomputation overwriting a fresher value from a concurrent registration.
+func (parseAr *AtomRegistry) setDerivedValueIfGenerationMatches(
+	parseId string,
+	parseExpectedGen uint64,
+	parseValue interface{},
+) ([]*Fiber, bool) {
+	parseAr.mu.Lock()
+	parseCurrent, parseOk := parseAr.derived[parseId]
+	if !parseOk || !parseCurrent.active || parseCurrent.generation != parseExpectedGen {
+		// A newer registration already computed and stored its own value; discard ours.
+		parseAr.mu.Unlock()
+		return nil, false
+	}
+	if parsePrev, parsePrevOk := parseAr.atoms[parseId]; parsePrevOk && fastEqual(parsePrev, parseValue) {
+		parseAr.mu.Unlock()
+		return nil, false
+	}
+	parseAr.atoms[parseId] = parseValue
+	parseFibers := parseAr.collectSubscribersLocked(parseId)
+	parseAr.mu.Unlock()
+	return parseFibers, true
+}
+
 // notifyFibersUnique is a core package helper.
 func notifyFibersUnique(parseFibers []*Fiber, parseNotify func(*Fiber)) {
 	if parseNotify == nil || len(parseFibers) == 0 {
 		return
 	}
-	parseSeen := make(map[*Fiber]bool, len(parseFibers))
+	// Fast path: skip map allocation for small subscriber counts (covers the common case).
+	if len(parseFibers) <= 4 {
+		var parseSeen [4]*Fiber
+		parseN := 0
+		for _, parseFiber := range parseFibers {
+			if parseFiber == nil {
+				continue
+			}
+			parseDup := false
+			for parseI := 0; parseI < parseN; parseI++ {
+				if parseSeen[parseI] == parseFiber {
+					parseDup = true
+					break
+				}
+			}
+			if !parseDup {
+				parseSeen[parseN] = parseFiber
+				parseN++
+				parseNotify(parseFiber)
+			}
+		}
+		return
+	}
+	parseSeenMap := make(map[*Fiber]bool, len(parseFibers))
 	for _, parseFiber := range parseFibers {
-		if parseFiber == nil || parseSeen[parseFiber] {
+		if parseFiber == nil || parseSeenMap[parseFiber] {
 			continue
 		}
-		parseSeen[parseFiber] = true
+		parseSeenMap[parseFiber] = true
 		parseNotify(parseFiber)
 	}
 }

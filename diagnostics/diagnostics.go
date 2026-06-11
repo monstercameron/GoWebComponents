@@ -1,8 +1,6 @@
 package diagnostics
 
 import (
-	"net/http"
-
 	internaldiagnostics "github.com/monstercameron/GoWebComponents/internal/diagnostics"
 )
 
@@ -18,9 +16,4 @@ func NewReport(parseOptions Options) Report {
 // Emit dispatches a diagnostics report to all registered listeners.
 func Emit(parseReport Report) {
 	internaldiagnostics.Emit(parseReport)
-}
-
-// WriteHTTPError writes the report as an HTTP error response with the given status code.
-func WriteHTTPError(parseW http.ResponseWriter, parseStatus int, parseReport Report) {
-	internaldiagnostics.WriteHTTPError(parseW, parseStatus, parseReport)
 }

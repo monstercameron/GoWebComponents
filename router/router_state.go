@@ -372,6 +372,11 @@ func (parseR *Router) ensureLoaderResult(parseKey string, parseLoader LoaderFunc
 		if parseDoc.IsUndefined() || parseDoc.IsNull() || parseElem.IsUndefined() || parseElem.IsNull() {
 			return
 		}
+		// Skip re-render if this router has been unmounted/replaced since the
+		// loader was launched (finding #46: stale goroutine guard).
+		if parseR.disposed {
+			return
+		}
 		parseR.renderCurrentRoute(false)
 	}()
 

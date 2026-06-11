@@ -1631,3 +1631,126 @@ func TestReadReturnToRejectsExternalTargets(parseT *testing.T) {
 		parseT.Fatalf("expected fallback for external return target, got %q", parseGot)
 	}
 }
+
+// TestRedirectViaRouteOptionsEvaluatesGuardsOnTarget is a regression test for #44:
+// a route with Options.Redirect must still evaluate BeforeEnter guards on the redirect target.
+func TestRedirectViaRouteOptionsEvaluatesGuardsOnTarget(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/old")
+
+	parseGuardCalled := false
+	parseR.Register("/old", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("old"))
+	}, Options{Redirect: "/new"})
+	parseR.Register("/new", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("new"))
+	}, Options{
+		BeforeEnter: func(parseCtx RouteContext) GuardResult {
+			parseGuardCalled = true
+			return BlockNavigation("not allowed")
+		},
+	})
+	parseR.Register("/login", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("login"))
+	})
+
+	parseElem := parseR.Current()
+	if parseElem == nil {
+		parseT.Fatal("expected element after redirect")
+	}
+	if !parseGuardCalled {
+		parseT.Fatal("guard on redirect target must be evaluated (#44)")
+	}
+}
+
+// TestBeforeEnterGuardRedirectEvaluatesGuardsOnTarget is a regression test for #45:
+// when a BeforeEnter guard itself redirects, the redirect target must also have its
+// own guards evaluated.
+func TestBeforeEnterGuardRedirectEvaluatesGuardsOnTarget(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/protected")
+
+	parseSecondGuardCalled := false
+	parseR.Register("/protected", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("protected"))
+	}, Options{
+		BeforeEnter: func(parseCtx RouteContext) GuardResult {
+			return RedirectNavigation("/intermediate")
+		},
+	})
+	parseR.Register("/intermediate", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("intermediate"))
+	}, Options{
+		BeforeEnter: func(parseCtx RouteContext) GuardResult {
+			parseSecondGuardCalled = true
+			return BlockNavigation("intermediate blocked")
+		},
+	})
+	parseR.Register("/login", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("login"))
+	})
+
+	parseElem := parseR.Current()
+	if parseElem == nil {
+		parseT.Fatal("expected element after guard redirect chain")
+	}
+	if !parseSecondGuardCalled {
+		parseT.Fatal("guard on guard-redirect target must be evaluated (#45)")
+	}
+}
+
+// TestMatchRoutePatternRejectsPercentEncodedSlash is a regression test for #49:
+// a percent-encoded slash (%2F) in a URL segment decodes to '/' and must not be
+// treated as a valid single-segment param value.
+func TestMatchRoutePatternRejectsPercentEncodedSlash(parseT *testing.T) {
+	if parseParams, parseOk := matchRoutePattern("/user/:id", "/user/%2Fadmin"); parseOk {
+		parseT.Fatalf("expected percent-encoded slash to be rejected, got params %v (#49)", parseParams)
+	}
+}
+
+// TestMatchRoutePatternAcceptsNormalPercentEncoding verifies that ordinary
+// percent-encoding (not a slash) still works after the #49 fix.
+func TestMatchRoutePatternAcceptsNormalPercentEncoding(parseT *testing.T) {
+	parseParams, parseOk := matchRoutePattern("/item/:name", "/item/hello%20world")
+	if !parseOk {
+		parseT.Fatal("expected normal percent-encoding to match")
+	}
+	if parseParams["name"] != "hello world" {
+		parseT.Fatalf("expected decoded param 'hello world', got %q", parseParams["name"])
+	}
+}
+
+// TestRedirectDepthLimitPreventsInfiniteLoop verifies that a chain of redirects
+// that exceeds maxRedirectDepth is aborted cleanly rather than looping forever.
+func TestRedirectDepthLimitPreventsInfiniteLoop(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/a")
+
+	parseR.Register("/a", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("a"))
+	}, Options{Redirect: "/b"})
+	parseR.Register("/b", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("b"))
+	}, Options{Redirect: "/c"})
+	parseR.Register("/c", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("c"))
+	}, Options{Redirect: "/d"})
+	parseR.Register("/d", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("d"))
+	}, Options{Redirect: "/e"})
+	parseR.Register("/e", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("e"))
+	}, Options{Redirect: "/f"})
+	parseR.Register("/f", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("f"))
+	}, Options{Redirect: "/g"})
+	parseR.Register("/g", func(parseProps Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("g"))
+	})
+
+	// Should not panic or loop; returns nil or a fallback after depth limit.
+	parseR.Current()
+}

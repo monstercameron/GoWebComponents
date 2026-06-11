@@ -108,7 +108,10 @@ func (parseRt *Runtime) recordProfilingEventLocked(parseEvent ProfilingEvent) {
 
 	parseRt.profiling.events = append(parseRt.profiling.events, parseEvent)
 	if len(parseRt.profiling.events) > maxProfilingEvents {
-		parseRt.profiling.events = append([]ProfilingEvent(nil), parseRt.profiling.events[len(parseRt.profiling.events)-maxProfilingEvents:]...)
+		// Trim in-place: shift the tail down without allocating a new backing array.
+		parseTail := parseRt.profiling.events[len(parseRt.profiling.events)-maxProfilingEvents:]
+		parseRt.profiling.events = parseRt.profiling.events[:maxProfilingEvents]
+		copy(parseRt.profiling.events, parseTail)
 	}
 }
 

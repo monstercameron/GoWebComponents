@@ -127,6 +127,12 @@ func (parseC Channel[T]) Closed() bool {
 //
 // The task only runs when Start is called. In-flight work is cancelled when the
 // component unmounts or when Cancel is called explicitly.
+//
+// The context passed to parseRun is derived from context.Background(). Component
+// or request-scoped deadline/value propagation is not currently supported; callers
+// that need deadline or value propagation should wrap the provided context inside
+// parseRun using context.WithDeadline or context.WithValue before passing it to
+// downstream calls.
 func UseTask[T any](parseRun func(context.Context) (T, error)) Task[T] {
 	parseState := UseState(TaskState[T]{})
 	parseCancelRef := UseRef((context.CancelFunc)(nil))

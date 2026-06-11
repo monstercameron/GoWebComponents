@@ -1,6 +1,9 @@
 package runtime
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestRenderToStringHostTree(parseT *testing.T) {
 	parseElement := CreateElement("div", map[string]interface{}{
@@ -77,6 +80,50 @@ func TestRenderToStringSkipsChildrenKeyAndHandlers(parseT *testing.T) {
 
 	if parseHtml != `<button id="save">Save</button>` {
 		parseT.Fatalf("unexpected button html: %s", parseHtml)
+	}
+}
+
+// TestSerializeSSRAttrRejectsMaliciousName is a regression test for finding #57.
+// A crafted attribute name like `x onmouseover=alert(1) y` must be silently
+// dropped rather than written unescaped into the HTML output.
+func TestSerializeSSRAttrRejectsMaliciousName(parseT *testing.T) {
+	parseMalicious := `x onmouseover=alert(1) y`
+	parseOut, parseOk := serializeSSRAttr(parseMalicious, "value")
+	if parseOk {
+		parseT.Fatalf("serializeSSRAttr() accepted malicious name %q, got %q", parseMalicious, parseOut)
+	}
+	if parseOut != "" {
+		parseT.Fatalf("serializeSSRAttr() returned non-empty output for malicious name: %q", parseOut)
+	}
+
+	// Ensure the attr is also absent from rendered HTML.
+	parseElement := CreateElement("div", map[string]interface{}{
+		parseMalicious: "injected",
+		"id":           "safe",
+	})
+	parseHtml, parseErr := RenderToString(parseElement)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
+	}
+	if strings.Contains(parseHtml, "onmouseover") {
+		parseT.Fatalf("rendered HTML contains injected attribute name: %s", parseHtml)
+	}
+	if !strings.Contains(parseHtml, `id="safe"`) {
+		parseT.Fatalf("rendered HTML missing safe attribute: %s", parseHtml)
+	}
+}
+
+// TestSerializeSSRAttrMapDeterministicOrder is a regression test for finding #58.
+// A map[string]string attribute value that is not "style" must serialize with
+// sorted keys so the output is deterministic across runs.
+func TestSerializeSSRAttrMapDeterministicOrder(parseT *testing.T) {
+	parseAttr1, parseOk1 := serializeSSRAttr("data-info", map[string]string{"z": "last", "a": "first", "m": "mid"})
+	parseAttr2, parseOk2 := serializeSSRAttr("data-info", map[string]string{"m": "mid", "z": "last", "a": "first"})
+	if !parseOk1 || !parseOk2 {
+		parseT.Fatal("serializeSSRAttr() unexpectedly rejected valid map attribute")
+	}
+	if parseAttr1 != parseAttr2 {
+		parseT.Fatalf("serializeSSRAttr() produced different outputs for same map with different insertion order:\n  %s\n  %s", parseAttr1, parseAttr2)
 	}
 }
 

@@ -85,7 +85,10 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 		}
 		parseResponse := parseArgs[0]
 		parseOk := parseResponse.Get("ok")
-		if parseOk.Truthy() && !parseOk.Bool() {
+		// Finding #60: for a JS false value Truthy() returns false, so the
+		// original `Truthy() && !Bool()` branch never fired for 4xx/5xx.
+		// Use a type-based check instead so false is correctly detected.
+		if parseOk.Type() == js.TypeBoolean && !parseOk.Bool() {
 			return parsePromiseCtor.Call("reject", fmt.Sprintf("bootstrap fetch failed with status %d", parseResponse.Get("status").Int()))
 		}
 		return parseResponse.Call("arrayBuffer")

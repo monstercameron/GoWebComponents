@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -180,5 +181,119 @@ func TestHotReloadHooksRestoreAndCompatibilityHelpers(parseT *testing.T) {
 	parseComponentFiber.hooks.signature = []string{"state", "effect"}
 	if componentSnapshotFullyCompatible(parseRestore, parseComponentFiber) {
 		parseT.Fatalf("expected full compatibility to fail after hook signature change")
+	}
+}
+
+// TestHotReloadHookKindPrefixCompatibleDirectionality verifies fix #62:
+// a snapshot with MORE hooks than the current component must NOT be treated as
+// compatible, because restoring it would map stale slots into wrong hook positions.
+func TestHotReloadHookKindPrefixCompatibleDirectionality(parseT *testing.T) {
+	// Equal lists are always compatible.
+	if !hotReloadHookKindPrefixCompatible([]string{"state", "memo"}, []string{"state", "memo"}) {
+		parseT.Fatal("equal lists should be prefix-compatible")
+	}
+	// Snapshot is a proper prefix of current (hook added): compatible.
+	if !hotReloadHookKindPrefixCompatible([]string{"state"}, []string{"state", "memo"}) {
+		parseT.Fatal("snapshot shorter than current should be prefix-compatible")
+	}
+	// Snapshot is longer than current (hook removed): NOT compatible.
+	if hotReloadHookKindPrefixCompatible([]string{"state", "memo"}, []string{"state"}) {
+		parseT.Fatal("snapshot longer than current must not be prefix-compatible (fix #62)")
+	}
+	// Mismatched kind in overlap position: not compatible regardless of length.
+	if hotReloadHookKindPrefixCompatible([]string{"state", "ref"}, []string{"state", "memo"}) {
+		parseT.Fatal("mismatched kind in prefix position should not be compatible")
+	}
+	// Empty snapshot is always a prefix.
+	if !hotReloadHookKindPrefixCompatible(nil, []string{"state"}) {
+		parseT.Fatal("empty snapshot should be prefix-compatible with any current list")
+	}
+	// Both empty.
+	if !hotReloadHookKindPrefixCompatible(nil, nil) {
+		parseT.Fatal("both empty should be prefix-compatible")
+	}
+}
+
+// TestSerializableCompatibleRejectsHookRemoval verifies fix #62 at the
+// componentSnapshotSerializableCompatible layer: a snapshot that had MORE
+// serializable hooks than the current component must fail the check.
+func TestSerializableCompatibleRejectsHookRemoval(parseT *testing.T) {
+	// Snapshot recorded state+memo; current component only has state (memo removed).
+	parseSnapshot := &HotReloadComponentSnapshot{
+		Signature: ComponentSignature{
+			Kind:          "component",
+			Name:          "Counter",
+			QualifiedName: "example/Counter",
+			HookKinds:     []string{"state", "memo"},
+		},
+	}
+	parseFiberFewerHooks := &Fiber{
+		typeOf: newHotReloadTestComponent("Counter"),
+		hooks:  &Hooks{signature: []string{"state"}},
+	}
+	if componentSnapshotSerializableCompatible(parseSnapshot, parseFiberFewerHooks) {
+		parseT.Fatal("serializable compatibility must be rejected when snapshot has more hooks than current (fix #62)")
+	}
+	// Adding a hook (snapshot had fewer) is still compatible.
+	parseFiberMoreHooks := &Fiber{
+		typeOf: newHotReloadTestComponent("Counter"),
+		hooks:  &Hooks{signature: []string{"state", "memo", "ref"}},
+	}
+	if !componentSnapshotSerializableCompatible(parseSnapshot, parseFiberMoreHooks) {
+		parseT.Fatal("serializable compatibility should pass when current has more hooks than snapshot")
+	}
+}
+
+// TestCoercionFailureEmitsDiagnostic verifies fix #63: when coerceHotReloadValue
+// cannot convert a snapshot value to the current state type, GoUseState must
+// fall back to the initial value AND emit a hot-reload warning diagnostic.
+func TestCoercionFailureEmitsDiagnostic(parseT *testing.T) {
+	ClearDiagnostics()
+	ClearLogs()
+	defer ClearDiagnostics()
+	defer ClearLogs()
+
+	// Build a snapshot whose state slot holds a value that cannot be coerced to
+	// the struct type we will use in the reloaded component.
+	type Counter struct{ N int }
+	// A function value is not JSON-serializable, so coercion to Counter will fail.
+	parseIncompatible := func() {}
+	parseRestore := &HotReloadComponentSnapshot{
+		Signature: ComponentSignature{
+			Kind:          "component",
+			Name:          "CoerceTest",
+			QualifiedName: "example/CoerceTest",
+			HookKinds:     []string{"state"},
+		},
+		States: []interface{}{parseIncompatible},
+	}
+
+	parseRoot := &Fiber{typeOf: "ROOT"}
+	parseFiber := &Fiber{
+		typeOf: newHotReloadTestComponent("CoerceTest"),
+		parent: parseRoot,
+		hooks:  &Hooks{owner: nil, hotReloadRestore: parseRestore},
+	}
+	currentFiber = parseFiber
+
+	// GoUseState will attempt to coerce the snapshot value (a func) to Counter.
+	// Coercion must fail, fall back to initial, and emit a diagnostic.
+	parseInitial := Counter{N: 42}
+	parseGetter, _ := GoUseState[Counter](nil, parseInitial)
+
+	parseGot := parseGetter()
+	if parseGot != parseInitial {
+		parseT.Fatalf("expected initial value %v on coercion failure, got %v", parseInitial, parseGot)
+	}
+
+	parseDiags := GetDiagnostics()
+	if len(parseDiags) == 0 {
+		parseT.Fatal("expected a diagnostic to be emitted on coercion failure (fix #63)")
+	}
+	if parseDiags[0].Severity != DiagnosticWarning {
+		parseT.Fatalf("expected warning severity, got %+v", parseDiags[0])
+	}
+	if !strings.Contains(parseDiags[0].Message, "hot reload state restore dropped") {
+		parseT.Fatalf("expected 'hot reload state restore dropped' in message, got %q", parseDiags[0].Message)
 	}
 }

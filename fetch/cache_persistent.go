@@ -70,7 +70,11 @@ func ConfigurePersistentCache(parseOptions PersistentCacheOptions) {
 	persistentCacheState.opened = false
 	persistentCacheState.mu.Unlock()
 	if parseOpened {
-		_ = store.Close()
+		if parseCloseErr := store.Close(); parseCloseErr != nil {
+			runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache store close failed", "", map[string]string{
+				"message": parseCloseErr.Error(),
+			})
+		}
 	}
 }
 
@@ -195,7 +199,11 @@ func openPersistentCacheStore(parseCtx context.Context) (interop.PersistentStore
 		parseExistingErr := persistentCacheState.err
 		persistentCacheState.mu.Unlock()
 		if parseErr2 == nil {
-			_ = store.Close()
+			if parseDupCloseErr := store.Close(); parseDupCloseErr != nil {
+				runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache duplicate store close failed", "", map[string]string{
+					"message": parseDupCloseErr.Error(),
+				})
+			}
 		}
 		return parseExisting, parseExistingErr
 	}
@@ -292,6 +300,9 @@ func persistCachedSnapshot(parseKey string) {
 	parseEntry.mu.Lock()
 	parsePersist := parseEntry.persist
 	parseLastLoaded := parseEntry.lastLoaded
+	// Capture the request sequence under the lock so the background goroutine can
+	// skip the write if a newer update has already superseded this snapshot.
+	parseCapturedSeq := parseEntry.requestSeq
 	parseEntry.mu.Unlock()
 	if !parsePersist {
 		return
@@ -310,6 +321,18 @@ func persistCachedSnapshot(parseKey string) {
 	}
 	parseRecord := persistedCachedResource{Value: parseEncoded, UpdatedAt: parseSnapshot.UpdatedAt, LastLoaded: parseLastLoaded}
 	go func() {
+		// Skip the write if a newer load has already updated the entry since we
+		// captured the snapshot, to avoid persisting a superseded value.
+		parseEntryRaw, parseStillPresent := cachedResourceRegistry.Load(parseKey)
+		if parseStillPresent {
+			parseWriteEntry := parseEntryRaw.(*cachedResourceEntry)
+			parseWriteEntry.mu.Lock()
+			parseCurrentSeq := parseWriteEntry.requestSeq
+			parseWriteEntry.mu.Unlock()
+			if parseCurrentSeq != parseCapturedSeq {
+				return
+			}
+		}
 		store, storeErr := openPersistentCacheStore(context.Background())
 		if storeErr != nil {
 			runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache write failed", "", map[string]string{
@@ -337,7 +360,12 @@ func deletePersistentCachedSnapshot(parseKey string) {
 		if parseErr != nil {
 			return
 		}
-		_ = store.RemoveItem(context.Background(), parseKey)
+		if parseRemoveErr := store.RemoveItem(context.Background(), parseKey); parseRemoveErr != nil {
+			runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache delete failed", "", map[string]string{
+				"key":     parseKey,
+				"message": parseRemoveErr.Error(),
+			})
+		}
 	}()
 }
 

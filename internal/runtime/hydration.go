@@ -114,6 +114,20 @@ func (parseRt *Runtime) claimHydrationNode(parseFiber *Fiber) (DOMNode, bool) {
 	if parseTextWarning := parseRt.detectHydrationTextMismatch(parseFiber, parseCandidate); parseTextWarning != "" {
 		parseRt.recordHydrationMismatch()
 		parseRt.reportHydrationDiagnostic(parseFiber, parseTextWarning)
+		// Finding #61: in non-strict mode reportHydrationDiagnostic only logs;
+		// the mismatched server node is adopted as-is and stale content persists.
+		// Patch the DOM node's text to the client (expected) value so the
+		// adopted node reflects what the virtual tree describes.
+		if !parseRt.strictHydration && parseRt.domAdapter != nil {
+			parseExpectedText := ""
+			switch {
+			case isTextLikeFiber(parseFiber):
+				parseExpectedText = textLikeFiberValue(parseFiber)
+			case parseFiber.hasDirectText:
+				parseExpectedText = parseFiber.textContent
+			}
+			parseRt.domAdapter.SetTextContent(parseCandidate, parseExpectedText)
+		}
 	}
 	for _, parseWarning := range parseRt.detectHydrationAttributeMismatches(parseFiber, parseCandidate) {
 		parseRt.recordHydrationMismatch()

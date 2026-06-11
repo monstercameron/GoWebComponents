@@ -271,6 +271,8 @@ func RegisterElementRoute(parsePath string, parseElemRef js.Value) {
 
 var globalRouter = NewHashRouter()
 var cleanupOnce sync.Once
+var cleanupMu sync.Mutex
+var cleanupHandlers []js.Func
 
 // ensureInitialized is an internal router helper.
 func ensureInitialized() {
@@ -287,16 +289,27 @@ func ensureInitialized() {
 	routerRuntimeInitialized = true
 }
 
-// registerCleanup is an internal router helper.
+// registerCleanup registers a js.Func to be released when the page unloads.
+// All registered handlers are released together by a single beforeunload listener.
 func registerCleanup(parseHandler js.Func) {
+	cleanupMu.Lock()
+	cleanupHandlers = append(cleanupHandlers, parseHandler)
+	cleanupMu.Unlock()
+
 	cleanupOnce.Do(func() {
 		parseWindow := js.Global().Get("window")
 		if !parseWindow.Truthy() || !parseWindow.Get("addEventListener").Truthy() {
 			return
 		}
-		// Register unload listener to release the hashchange handler to avoid leaks in hot reload.
+		// Register a single unload listener that releases all accumulated handlers.
 		parseUnload := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
-			parseHandler.Release()
+			cleanupMu.Lock()
+			parseAll := cleanupHandlers
+			cleanupHandlers = nil
+			cleanupMu.Unlock()
+			for _, parseH := range parseAll {
+				parseH.Release()
+			}
 			return nil
 		})
 		parseWindow.Call("addEventListener", "beforeunload", parseUnload)

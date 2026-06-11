@@ -194,20 +194,47 @@ func (parseRt *Runtime) restoreSelectiveHotReloadSnapshot(parseSnapshot HotReloa
 }
 
 // captureHotReloadComponentSnapshots is an internal hot-reload helper.
+// It uses an explicit stack to avoid unbounded recursion on deep fiber trees.
 func captureHotReloadComponentSnapshots(parseFiber *Fiber, parseSnapshots *[]HotReloadComponentSnapshot) {
 	if parseFiber == nil {
 		return
 	}
 
-	if parseKind, _ := describeFiber(parseFiber); parseKind == "component" {
-		if parseSnapshot := captureHotReloadComponentSnapshot(parseFiber); parseSnapshot != nil {
-			*parseSnapshots = append(*parseSnapshots, *parseSnapshot)
+	parseStack := make([]*Fiber, 0, 32)
+	parseStack = append(parseStack, parseFiber)
+	for len(parseStack) > 0 {
+		parseCurrent := parseStack[len(parseStack)-1]
+		parseStack = parseStack[:len(parseStack)-1]
+		if parseCurrent == nil {
+			continue
+		}
+
+		if parseKind, _ := describeFiber(parseCurrent); parseKind == "component" {
+			if parseSnapshot := captureHotReloadComponentSnapshot(parseCurrent); parseSnapshot != nil {
+				*parseSnapshots = append(*parseSnapshots, *parseSnapshot)
+			}
+		}
+
+		// Push siblings then child so children are processed before siblings
+		// (preserving the original preorder traversal order).
+		for parseSibling := parseCurrent.child; parseSibling != nil; parseSibling = parseSibling.sibling {
+			parseStack = append(parseStack, parseSibling)
+		}
+		// Reverse the siblings we just pushed so they come out left-to-right.
+		parseChildStart := len(parseStack) - countFiberSiblings(parseCurrent.child)
+		for parseLeft, parseRight := parseChildStart, len(parseStack)-1; parseLeft < parseRight; parseLeft, parseRight = parseLeft+1, parseRight-1 {
+			parseStack[parseLeft], parseStack[parseRight] = parseStack[parseRight], parseStack[parseLeft]
 		}
 	}
+}
 
-	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
-		captureHotReloadComponentSnapshots(parseChild, parseSnapshots)
+// countFiberSiblings counts the number of direct children of a fiber.
+func countFiberSiblings(parseFirst *Fiber) int {
+	parseCount := 0
+	for parseSibling := parseFirst; parseSibling != nil; parseSibling = parseSibling.sibling {
+		parseCount++
 	}
+	return parseCount
 }
 
 // captureHotReloadComponentSnapshot is an internal hot-reload helper.
@@ -527,9 +554,14 @@ func filterHotReloadSerializableKinds(parseKinds []string) []string {
 }
 
 // hotReloadHookKindPrefixCompatible is an internal hot-reload helper.
+// It returns true only when the snapshot (parsePrevious) is a prefix of the
+// current hook list (parseCurrent), i.e. the current component has at least as
+// many serializable hooks as the snapshot and the leading kinds all match.
+// This ensures that if hooks were removed the restore is rejected, preventing
+// stale snapshot slots from being mapped into wrong hook positions.
 func hotReloadHookKindPrefixCompatible(parsePrevious, parseCurrent []string) bool {
 	if len(parsePrevious) > len(parseCurrent) {
-		parsePrevious, parseCurrent = parseCurrent, parsePrevious
+		return false
 	}
 	for parseIndex, parseKind := range parsePrevious {
 		if parseCurrent[parseIndex] != parseKind {

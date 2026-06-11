@@ -39,17 +39,30 @@ func useManagedOverlayFocus(parseOptions managedOverlayFocusOptions) {
 		if parseOptions.Open && !parsePreviouslyOpen && parseOptions.RestoreFocus {
 			parseManager.RememberActive()
 		}
+		var parsePendingRestore *js.Func
 		if !parseOptions.Open && parsePreviouslyOpen && parseOptions.RestoreFocus {
+			parseIsFired := false
 			var parseRestore js.Func
 			parseRestore = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				if parseIsFired {
+					return nil
+				}
+				parseIsFired = true
 				parseManager.Restore()
 				parseRestore.Release()
+				parsePendingRestore = nil
 				return nil
 			})
+			parsePendingRestore = &parseRestore
 			js.Global().Call("setTimeout", parseRestore, 0)
 		}
 		parseWasOpen.Set(parseOptions.Open)
-		return nil
+		return func() {
+			if parsePendingRestore != nil {
+				parsePendingRestore.Release()
+				parsePendingRestore = nil
+			}
+		}
 	}, parseOptions.Open, parseOptions.RestoreFocus)
 
 	UseEffect(func() func() {

@@ -256,6 +256,43 @@ func TestNativeTagWrappersExposeExpectedElementTypes(parseT *testing.T) {
 	}
 }
 
+// TestPropOptionValueEmptyStringEmitsKey verifies that Value("") routes through
+// Raw so that toRuntimeProps emits the "value" key even when the string is empty
+// (#74 regression guard).
+func TestPropOptionValueEmptyStringEmitsKey(parseT *testing.T) {
+	parseEncoded := toRuntimeProps(PropsOf(Value("")))
+	if _, parseOk := parseEncoded["value"]; !parseOk {
+		parseT.Fatalf("expected 'value' key to be present for Value(\"\"), got %#v", parseEncoded)
+	}
+	if parseEncoded["value"] != "" {
+		parseT.Fatalf("expected value==\"\", got %#v", parseEncoded["value"])
+	}
+}
+
+// TestPropOptionTabIndexZeroEmitsKey verifies that TabIndex(0) routes through
+// Raw so that toRuntimeProps emits the "tabIndex" key even when the value is
+// zero (#75 regression guard).
+func TestPropOptionTabIndexZeroEmitsKey(parseT *testing.T) {
+	parseEncoded := toRuntimeProps(PropsOf(TabIndex(0)))
+	if _, parseOk := parseEncoded["tabIndex"]; !parseOk {
+		parseT.Fatalf("expected 'tabIndex' key to be present for TabIndex(0), got %#v", parseEncoded)
+	}
+	if parseEncoded["tabIndex"] != 0 {
+		parseT.Fatalf("expected tabIndex==0, got %#v", parseEncoded["tabIndex"])
+	}
+}
+
+// TestBooleanPropsFalseOmitted verifies that the Props struct zero-values for
+// boolean fields (Disabled, Checked, Selected) are not emitted by toRuntimeProps
+// because the reconciler's shouldReset mechanism handles removal on re-render.
+// This is the expected behavior, not a bug (#76 false-positive guard).
+func TestBooleanPropsFalseOmitted(parseT *testing.T) {
+	parseEncoded := toRuntimeProps(Props{Disabled: false, Checked: false, Selected: false})
+	if parseEncoded != nil {
+		parseT.Fatalf("expected nil props map for all-false booleans (reconciler handles reset), got %#v", parseEncoded)
+	}
+}
+
 func TestNativeConvenienceHelpers(parseT *testing.T) {
 	parseHidden := HiddenInput("csrf", "token")
 	if parseHidden.Type != "input" || parseHidden.Props["type"] != "hidden" || parseHidden.Props["name"] != "csrf" || parseHidden.Props["value"] != "token" {

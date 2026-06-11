@@ -190,8 +190,7 @@ func (parseM *overlayStackManager) snapshot(parseId string, parseFallback overla
 func (parseM *overlayStackManager) notify(parseSubscribers []overlaySubscriber) {
 	for _, parseSubscriber := range parseSubscribers {
 		if parseSubscriber.id > 0 && parseSubscriber.notify != nil {
-			parseCallback := parseSubscriber.notify
-			go parseCallback()
+			parseSubscriber.notify()
 		}
 	}
 }

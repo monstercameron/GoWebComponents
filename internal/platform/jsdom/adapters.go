@@ -59,6 +59,11 @@ type WASMDOMAdapter struct {
 	// Batch operation support
 	batchStack             []wasmBatchState
 	storeBatchChildrenPool [][]interface{}
+	// appendChecked is true once we have verified that DOM nodes support the
+	// multi-arg append() method; appendFast is true if they do (false = use
+	// appendChild fallback).  Both are set on the first appendDOMChildren call.
+	appendChecked bool
+	appendFast    bool
 }
 
 type wasmBatchState struct {
@@ -214,7 +219,7 @@ func (parseA *WASMDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNod
 		}
 	}
 
-	appendDOMChildren(parseParentNode.value, parseChildNode.value)
+	parseA.appendDOMChildren(parseParentNode.value, parseChildNode.value)
 }
 
 func (parseA *WASMDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNode) {
@@ -469,18 +474,23 @@ func (parseA *WASMDOMAdapter) EndBatch() {
 	parseState := parseA.batchStack[parseDepth-1]
 	parseA.batchStack = parseA.batchStack[:parseDepth-1]
 	if parseState.parent != nil && len(parseState.children) > 0 {
-		appendDOMChildren(parseState.parent.value, parseState.children...)
+		parseA.appendDOMChildren(parseState.parent.value, parseState.children...)
 	}
 	parseA.storeBatchChildren(parseState.children)
 }
 
 // appendDOMChildren appends one or more child nodes, falling back to appendChild when append is unavailable.
-func appendDOMChildren(parseParent js.Value, parseChildren ...interface{}) {
+// The append capability is probed once and cached on the adapter so subsequent calls skip the property lookup.
+func (parseA *WASMDOMAdapter) appendDOMChildren(parseParent js.Value, parseChildren ...interface{}) {
 	if parseParent.IsNull() || parseParent.IsUndefined() || len(parseChildren) == 0 {
 		return
 	}
-	parseAppend := parseParent.Get("append")
-	if !parseAppend.IsNull() && !parseAppend.IsUndefined() && parseAppend.Type() == js.TypeFunction {
+	if !parseA.appendChecked {
+		parseAppend := parseParent.Get("append")
+		parseA.appendFast = !parseAppend.IsNull() && !parseAppend.IsUndefined() && parseAppend.Type() == js.TypeFunction
+		parseA.appendChecked = true
+	}
+	if parseA.appendFast {
 		parseParent.Call("append", parseChildren...)
 		return
 	}
@@ -912,7 +922,9 @@ func (parseD *wasmDeadline) DidTimeout() bool {
 
 // WASMBrowserState implements runtime.BrowserState for browser/WASM.
 type WASMBrowserState struct {
-	window js.Value
+	window              js.Value
+	popStateHandle      js.Func // retained so it can be released and is not GC'd
+	popStateRegistered  bool    // true once a popstate listener has been set
 }
 
 var _ runtime.BrowserState = (*WASMBrowserState)(nil)
@@ -940,12 +952,20 @@ func (parseB *WASMBrowserState) GetCurrentPath() string {
 }
 
 func (parseB *WASMBrowserState) OnPopState(parseCallback func(path string)) {
-	parseB.window.Call("addEventListener", "popstate", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+	// Release any previously registered popstate listener before replacing it.
+	if parseB.popStateRegistered {
+		parseB.window.Call("removeEventListener", "popstate", parseB.popStateHandle)
+		parseB.popStateHandle.Release()
+		parseB.popStateRegistered = false
+	}
+	parseB.popStateHandle = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 		parseLocation := parseB.window.Get("location")
 		parsePath := parseLocation.Get("pathname").String()
 		parseCallback(parsePath)
 		return nil
-	}))
+	})
+	parseB.popStateRegistered = true
+	parseB.window.Call("addEventListener", "popstate", parseB.popStateHandle)
 }
 
 func (parseB *WASMBrowserState) SetItem(parseKey, parseValue string) error {

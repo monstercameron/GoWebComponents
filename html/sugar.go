@@ -326,7 +326,18 @@ func Title(parseValue string) PropOption {
 }
 
 // Value sets the value attribute on a Props.
+//
+// When parseValue is the empty string the key is written into Raw["value"] so
+// that toRuntimeProps emits it even for an empty controlled input.  Using
+// Props.Value="" directly is silently dropped by toRuntimeProps; prefer
+// html.Value("") or html.Attr("value","") when you need to clear a controlled
+// input via the typed-builder path.
 func Value(parseValue string) PropOption {
+	if parseValue == "" {
+		return optionFunc(func(parseProps *Props) {
+			parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]interface{}{"value": ""})
+		})
+	}
 	return optionFunc(func(parseProps *Props) { parseProps.Value = parseValue })
 }
 
@@ -361,7 +372,16 @@ func Rows(parseValue int) PropOption {
 }
 
 // TabIndex sets the tabindex attribute on a Props.
+//
+// When parseValue is 0 the key is written into Raw["tabIndex"] so that
+// toRuntimeProps emits it explicitly.  Props.TabIndex==0 is silently dropped
+// by toRuntimeProps; prefer html.TabIndex(0) when tabindex=0 is intentional.
 func TabIndex(parseValue int) PropOption {
+	if parseValue == 0 {
+		return optionFunc(func(parseProps *Props) {
+			parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]interface{}{"tabIndex": 0})
+		})
+	}
 	return optionFunc(func(parseProps *Props) { parseProps.TabIndex = parseValue })
 }
 

@@ -77,41 +77,27 @@ var (
 // Type parameter T can be any Go type. The hook uses generic type parameters
 // for type safety.
 //
-// Returns:
-//   - A getter function that returns the current atom value
-//   - A setter function that updates the atom and triggers re-renders in all subscribers
+// Returns an [Atom][T] handle with Get, Set, and Update methods.
 //
 // Example - Theme Management:
 //
-//	// In theme switcher component
-//	func ThemeSwitcher(props dom.Attrs) *fiber.Element {
-//	    theme, setTheme := state.UseAtom("appTheme", "light")
+//	// In a theme-switcher component
+//	theme := state.UseAtom("appTheme", "light")
 //
-//	    toggle := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-//	        if theme() == "light" {
-//	            setTheme("dark")
-//	        } else {
-//	            setTheme("light")
-//	        }
-//	        return nil
-//	    })
-//
-//	    return dom.Button(map[string]interface{}{"onclick": toggle},
-//	        fmt.Sprintf("Switch to %s mode", theme()))
-//	}
-//
-//	// In header component - automatically updates when theme changes
-//	func Header(props dom.Attrs) *fiber.Element {
-//	    theme, _ := state.UseAtom("appTheme", "light")
-//
-//	    bgColor := "white"
-//	    if theme() == "dark" {
-//	        bgColor = "#333"
+//	toggle := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+//	    if theme.Get() == "light" {
+//	        theme.Set("dark")
+//	    } else {
+//	        theme.Set("light")
 //	    }
+//	    return nil
+//	})
 //
-//	    return dom.Header(map[string]interface{}{
-//	        "style": map[string]string{"background-color": bgColor},
-//	    }, dom.H1(nil, "My App"))
+//	// In a header component — re-renders automatically when theme changes
+//	theme := state.UseAtom("appTheme", "light")
+//	bgColor := "white"
+//	if theme.Get() == "dark" {
+//	    bgColor = "#333"
 //	}
 //
 // Example - User Authentication:
@@ -122,18 +108,17 @@ var (
 //	    Email    string
 //	}
 //
-//	func LoginButton(props dom.Attrs) *fiber.Element {
-//	    user, setUser := state.UseAtom("currentUser", User{})
+//	user := state.UseAtom("currentUser", User{})
 //
-//	    login := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-//	        setUser(User{ID: 1, Username: "johndoe", Email: "john@example.com"})
-//	        return nil
-//	    })
+//	login := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+//	    user.Set(User{ID: 1, Username: "johndoe", Email: "john@example.com"})
+//	    return nil
+//	})
 //
-//	    if user().ID == 0 {
-//	        return dom.Button(map[string]interface{}{"onclick": login}, "Login")
-//	    }
-//	    return dom.Span(nil, fmt.Sprintf("Welcome, %s", user().Username))
+//	if user.Get().ID == 0 {
+//	    // render login button
+//	} else {
+//	    // render welcome message using user.Get().Username
 //	}
 //
 // Thread Safety:
@@ -147,8 +132,7 @@ var (
 // Best Practices:
 //   - Use descriptive atom IDs (e.g., "currentUser", "appTheme", "shoppingCart")
 //   - Initialize atoms with appropriate default values
-//
-// Consider using structured types (structs) for complex state
+//   - Use structured types (structs) for complex state
 //   - Avoid storing large amounts of data in atoms (use for coordination, not caching)
 func UseAtom[T any](parseId string, parseInitialValue T) Atom[T] {
 	get, set := runtime.GoUseAtomGlobal(parseId, parseInitialValue)
@@ -273,6 +257,8 @@ func UseSelector[T any, U any](parseId string, parseSource selectorSource[T], pa
 }
 
 // Select is a compatibility wrapper around UseSelector.
+//
+// Deprecated: Use UseSelector.
 func Select[T any, U any](parseId string, parseSource selectorSource[T], parseProject func(T) U) Derived[U] {
 	return UseSelector(parseId, parseSource, parseProject)
 }
@@ -409,7 +395,11 @@ func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
 	if parseSnapshot == nil {
 		return Snapshot{}, nil
 	}
-	return normalizeSnapshot(parseSnapshot).(Snapshot), nil
+	parseNormalized, parseOk := normalizeSnapshot(parseSnapshot).(Snapshot)
+	if !parseOk {
+		return nil, fmt.Errorf("state: snapshot normalization returned unexpected type")
+	}
+	return parseNormalized, nil
 }
 
 // SaveSnapshot stores a JSON-encoded snapshot in browser storage.
@@ -455,6 +445,10 @@ func RestoreSnapshot(parseKey string, parseArea StorageArea) (bool, error) {
 }
 
 // SavePersistentSnapshot stores a JSON-encoded snapshot in IndexedDB-first durable browser storage.
+//
+// If parseCtx is nil it is replaced with context.Background(). If parseCtx is
+// already cancelled the underlying store resolver will receive a cancelled
+// context and is expected to return an error, which is propagated to the caller.
 func SavePersistentSnapshot(parseCtx context.Context, parseKey string, parseSnapshot Snapshot, parseOptions ...PersistentSnapshotOptions) error {
 	store, parseErr := openPersistentSnapshotStore(parseCtx, parseOptions)
 	if parseErr != nil {
@@ -468,6 +462,10 @@ func SavePersistentSnapshot(parseCtx context.Context, parseKey string, parseSnap
 }
 
 // LoadPersistentSnapshot reads and decodes a snapshot from IndexedDB-first durable browser storage.
+//
+// If parseCtx is nil it is replaced with context.Background(). If parseCtx is
+// already cancelled the underlying store resolver will receive a cancelled
+// context and is expected to return an error, which is propagated to the caller.
 func LoadPersistentSnapshot(parseCtx context.Context, parseKey string, parseOptions ...PersistentSnapshotOptions) (Snapshot, bool, error) {
 	store, parseErr := openPersistentSnapshotStore(parseCtx, parseOptions)
 	if parseErr != nil {
@@ -485,6 +483,10 @@ func LoadPersistentSnapshot(parseCtx context.Context, parseKey string, parseOpti
 }
 
 // RestorePersistentSnapshot loads a durable snapshot and imports it into the current runtime.
+//
+// If parseCtx is nil it is replaced with context.Background(). If parseCtx is
+// already cancelled the underlying store resolver will receive a cancelled
+// context and is expected to return an error, which is propagated to the caller.
 func RestorePersistentSnapshot(parseCtx context.Context, parseKey string, parseOptions ...PersistentSnapshotOptions) (bool, error) {
 	parseSnapshot, parseOk, parseErr := LoadPersistentSnapshot(parseCtx, parseKey, parseOptions...)
 	if parseErr != nil || !parseOk {
@@ -573,7 +575,9 @@ func normalizeSnapshot(parseValue interface{}) interface{} {
 		}
 		return parseNormalized3
 	case float64:
-		if math.Trunc(parseTyped) == parseTyped {
+		if math.Trunc(parseTyped) == parseTyped &&
+			parseTyped >= math.MinInt64 && parseTyped <= math.MaxInt64 &&
+			parseTyped >= -1<<53 && parseTyped <= 1<<53 {
 			return int(parseTyped)
 		}
 		return parseTyped

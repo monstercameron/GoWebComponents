@@ -37,6 +37,12 @@ func A(parseArgs ...interface{}) ui.Node { return Tag("a", parseArgs...) }
 // Article delegates to [html.Article].
 func Article(parseArgs ...interface{}) ui.Node { return Tag("article", parseArgs...) }
 
+// Aside delegates to [html.Aside].
+func Aside(parseArgs ...interface{}) ui.Node { return Tag("aside", parseArgs...) }
+
+// Blockquote delegates to [html.Blockquote].
+func Blockquote(parseArgs ...interface{}) ui.Node { return Tag("blockquote", parseArgs...) }
+
 // Body delegates to [html.Body].
 func Body(parseArgs ...interface{}) ui.Node { return Tag("body", parseArgs...) }
 
@@ -52,8 +58,20 @@ func Code(parseArgs ...interface{}) ui.Node { return Tag("code", parseArgs...) }
 // Details delegates to [html.Details].
 func Details(parseArgs ...interface{}) ui.Node { return Tag("details", parseArgs...) }
 
+// Dialog delegates to [html.Dialog].
+func Dialog(parseArgs ...interface{}) ui.Node { return Tag("dialog", parseArgs...) }
+
 // Div delegates to [html.Div].
 func Div(parseArgs ...interface{}) ui.Node { return Tag("div", parseArgs...) }
+
+// Em delegates to [html.Em].
+func Em(parseArgs ...interface{}) ui.Node { return Tag("em", parseArgs...) }
+
+// Fieldset delegates to [html.Fieldset].
+func Fieldset(parseArgs ...interface{}) ui.Node { return Tag("fieldset", parseArgs...) }
+
+// Footer delegates to [html.Footer].
+func Footer(parseArgs ...interface{}) ui.Node { return Tag("footer", parseArgs...) }
 
 // Form delegates to [html.Form].
 func Form(parseArgs ...interface{}) ui.Node { return Tag("form", parseArgs...) }
@@ -67,6 +85,15 @@ func H2(parseArgs ...interface{}) ui.Node { return Tag("h2", parseArgs...) }
 // H3 delegates to [html.H3].
 func H3(parseArgs ...interface{}) ui.Node { return Tag("h3", parseArgs...) }
 
+// H4 delegates to [html.H4].
+func H4(parseArgs ...interface{}) ui.Node { return Tag("h4", parseArgs...) }
+
+// H5 delegates to [html.H5].
+func H5(parseArgs ...interface{}) ui.Node { return Tag("h5", parseArgs...) }
+
+// H6 delegates to [html.H6].
+func H6(parseArgs ...interface{}) ui.Node { return Tag("h6", parseArgs...) }
+
 // Head delegates to [html.Head].
 func Head(parseArgs ...interface{}) ui.Node { return Tag("head", parseArgs...) }
 
@@ -78,6 +105,12 @@ func Hr(parseArgs ...interface{}) ui.Node { return Tag("hr", parseArgs...) }
 
 // Html delegates to [html.Html].
 func Html(parseArgs ...interface{}) ui.Node { return Tag("html", parseArgs...) }
+
+// HiddenInput creates a hidden input element with the given name and value,
+// delegating to [html.HiddenInput].
+func HiddenInput(parseName string, parseValue string) ui.Node {
+	return html.HiddenInput(parseName, parseValue)
+}
 
 // Img delegates to [html.Img].
 func Img(parseArgs ...interface{}) ui.Node { return Tag("img", parseArgs...) }
@@ -91,6 +124,9 @@ func Input(parseArgs ...interface{}) ui.Node { return Tag("input", parseArgs...)
 // Label delegates to [html.Label].
 func Label(parseArgs ...interface{}) ui.Node { return Tag("label", parseArgs...) }
 
+// Legend delegates to [html.Legend].
+func Legend(parseArgs ...interface{}) ui.Node { return Tag("legend", parseArgs...) }
+
 // Li delegates to [html.Li].
 func Li(parseArgs ...interface{}) ui.Node { return Tag("li", parseArgs...) }
 
@@ -102,6 +138,9 @@ func Mark(parseArgs ...interface{}) ui.Node { return Tag("mark", parseArgs...) }
 
 // Meta delegates to [html.Meta].
 func Meta(parseArgs ...interface{}) ui.Node { return Tag("meta", parseArgs...) }
+
+// Nav delegates to [html.Nav].
+func Nav(parseArgs ...interface{}) ui.Node { return Tag("nav", parseArgs...) }
 
 // NoScript delegates to [html.NoScript].
 func NoScript(parseArgs ...interface{}) ui.Node { return Tag("noscript", parseArgs...) }
@@ -124,8 +163,14 @@ func Section(parseArgs ...interface{}) ui.Node { return Tag("section", parseArgs
 // Select delegates to [html.Select].
 func Select(parseArgs ...interface{}) ui.Node { return Tag("select", parseArgs...) }
 
+// Small delegates to [html.Small].
+func Small(parseArgs ...interface{}) ui.Node { return Tag("small", parseArgs...) }
+
 // Span delegates to [html.Span].
 func Span(parseArgs ...interface{}) ui.Node { return Tag("span", parseArgs...) }
+
+// Strong delegates to [html.Strong].
+func Strong(parseArgs ...interface{}) ui.Node { return Tag("strong", parseArgs...) }
 
 // Summary delegates to [html.Summary].
 func Summary(parseArgs ...interface{}) ui.Node { return Tag("summary", parseArgs...) }
@@ -144,6 +189,12 @@ func Th(parseArgs ...interface{}) ui.Node { return Tag("th", parseArgs...) }
 
 // Thead delegates to [html.Thead].
 func Thead(parseArgs ...interface{}) ui.Node { return Tag("thead", parseArgs...) }
+
+// Textarea delegates to [html.Textarea].
+func Textarea(parseArgs ...interface{}) ui.Node { return Tag("textarea", parseArgs...) }
+
+// Time delegates to [html.Time].
+func Time(parseArgs ...interface{}) ui.Node { return Tag("time", parseArgs...) }
 
 // Tr delegates to [html.Tr].
 func Tr(parseArgs ...interface{}) ui.Node { return Tag("tr", parseArgs...) }
@@ -386,6 +437,11 @@ func Throttle(parseInterval time.Duration, parseCallback interface{}) interface{
 }
 
 // splitArgs is a core package helper.
+//
+// A bare Props value is merged onto the accumulated state rather than replacing
+// it, so that earlier PropOption values (e.g. OnClick handlers) are not dropped
+// when a later Props{} argument sets only a subset of fields.  Later values win
+// on conflict, matching last-write-wins semantics across the whole argument list.
 func splitArgs(parseArgs ...interface{}) (Props, []ui.Node) {
 	var parseProps Props
 	parseChildInputs := make([]interface{}, 0, len(parseArgs))
@@ -394,13 +450,13 @@ func splitArgs(parseArgs ...interface{}) (Props, []ui.Node) {
 		case nil:
 			continue
 		case Props:
-			parseProps = parseTyped
+			parseProps = mergeProps(parseProps, parseTyped)
 		case *Props:
 			if parseTyped != nil {
-				parseProps = *parseTyped
+				parseProps = mergeProps(parseProps, *parseTyped)
 			}
 		case propsInput:
-			parseProps = parseTyped.value
+			parseProps = mergeProps(parseProps, parseTyped.value)
 		case PropOption:
 			parseProps = html.WithProps(parseProps, parseTyped)
 		case []PropOption:
@@ -410,4 +466,190 @@ func splitArgs(parseArgs ...interface{}) (Props, []ui.Node) {
 		}
 	}
 	return parseProps, html.Children(parseChildInputs...)
+}
+
+// mergeProps copies the non-zero fields of parseIncoming over parseBase and
+// returns the result.  It is a pure value merge with no side effects: event
+// handlers are copied as-is rather than re-registered through PropOption
+// constructors (which on the WASM build register hooks and therefore must only
+// run inside a component render).  Later values win on conflict; map fields
+// are merged key-wise with incoming entries overriding base entries.
+func mergeProps(parseBase Props, parseIncoming Props) Props {
+	parseOut := parseBase
+
+	if parseIncoming.ID != "" {
+		parseOut.ID = parseIncoming.ID
+	}
+	if parseIncoming.Class != "" {
+		parseOut.Class = parseIncoming.Class
+	}
+	if parseIncoming.Key != "" {
+		parseOut.Key = parseIncoming.Key
+	}
+	if parseIncoming.Slot != "" {
+		parseOut.Slot = parseIncoming.Slot
+	}
+	if parseIncoming.Title != "" {
+		parseOut.Title = parseIncoming.Title
+	}
+	if parseIncoming.Type != "" {
+		parseOut.Type = parseIncoming.Type
+	}
+	if parseIncoming.Name != "" {
+		parseOut.Name = parseIncoming.Name
+	}
+	if parseIncoming.Value != "" {
+		parseOut.Value = parseIncoming.Value
+	}
+	if parseIncoming.Placeholder != "" {
+		parseOut.Placeholder = parseIncoming.Placeholder
+	}
+	if parseIncoming.Accept != "" {
+		parseOut.Accept = parseIncoming.Accept
+	}
+	if parseIncoming.Href != "" {
+		parseOut.Href = parseIncoming.Href
+	}
+	if parseIncoming.Src != "" {
+		parseOut.Src = parseIncoming.Src
+	}
+	if parseIncoming.Alt != "" {
+		parseOut.Alt = parseIncoming.Alt
+	}
+	if parseIncoming.For != "" {
+		parseOut.For = parseIncoming.For
+	}
+	if parseIncoming.Role != "" {
+		parseOut.Role = parseIncoming.Role
+	}
+	if parseIncoming.Target != "" {
+		parseOut.Target = parseIncoming.Target
+	}
+	if parseIncoming.Rel != "" {
+		parseOut.Rel = parseIncoming.Rel
+	}
+	if parseIncoming.As != "" {
+		parseOut.As = parseIncoming.As
+	}
+	if parseIncoming.Action != "" {
+		parseOut.Action = parseIncoming.Action
+	}
+	if parseIncoming.Method != "" {
+		parseOut.Method = parseIncoming.Method
+	}
+	if parseIncoming.EncType != "" {
+		parseOut.EncType = parseIncoming.EncType
+	}
+	if parseIncoming.AutoComplete != "" {
+		parseOut.AutoComplete = parseIncoming.AutoComplete
+	}
+	if parseIncoming.Min != "" {
+		parseOut.Min = parseIncoming.Min
+	}
+	if parseIncoming.Max != "" {
+		parseOut.Max = parseIncoming.Max
+	}
+	if parseIncoming.Step != "" {
+		parseOut.Step = parseIncoming.Step
+	}
+
+	if parseIncoming.Rows != 0 {
+		parseOut.Rows = parseIncoming.Rows
+	}
+	if parseIncoming.Cols != 0 {
+		parseOut.Cols = parseIncoming.Cols
+	}
+	if parseIncoming.TabIndex != 0 {
+		parseOut.TabIndex = parseIncoming.TabIndex
+	}
+
+	if parseIncoming.Checked {
+		parseOut.Checked = true
+	}
+	if parseIncoming.Disabled {
+		parseOut.Disabled = true
+	}
+	if parseIncoming.Selected {
+		parseOut.Selected = true
+	}
+	if parseIncoming.Required {
+		parseOut.Required = true
+	}
+	if parseIncoming.ReadOnly {
+		parseOut.ReadOnly = true
+	}
+	if parseIncoming.Hidden {
+		parseOut.Hidden = true
+	}
+	if parseIncoming.Multiple {
+		parseOut.Multiple = true
+	}
+	if parseIncoming.AutoFocus {
+		parseOut.AutoFocus = true
+	}
+
+	parseOut.Style = mergeStringMap(parseOut.Style, parseIncoming.Style)
+	parseOut.Data = mergeStringMap(parseOut.Data, parseIncoming.Data)
+	parseOut.Aria = mergeStringMap(parseOut.Aria, parseIncoming.Aria)
+	if len(parseIncoming.Raw) != 0 {
+		parseMergedRaw := make(map[string]interface{}, len(parseOut.Raw)+len(parseIncoming.Raw))
+		for parseK, parseV := range parseOut.Raw {
+			parseMergedRaw[parseK] = parseV
+		}
+		for parseK, parseV := range parseIncoming.Raw {
+			parseMergedRaw[parseK] = parseV
+		}
+		parseOut.Raw = parseMergedRaw
+	}
+
+	if parseIncoming.OnClick.Value() != nil {
+		parseOut.OnClick = parseIncoming.OnClick
+	}
+	if parseIncoming.OnInput.Value() != nil {
+		parseOut.OnInput = parseIncoming.OnInput
+	}
+	if parseIncoming.OnChange.Value() != nil {
+		parseOut.OnChange = parseIncoming.OnChange
+	}
+	if parseIncoming.OnSubmit.Value() != nil {
+		parseOut.OnSubmit = parseIncoming.OnSubmit
+	}
+	if parseIncoming.OnKeyDown.Value() != nil {
+		parseOut.OnKeyDown = parseIncoming.OnKeyDown
+	}
+	if parseIncoming.OnKeyUp.Value() != nil {
+		parseOut.OnKeyUp = parseIncoming.OnKeyUp
+	}
+	if parseIncoming.OnMouseUp.Value() != nil {
+		parseOut.OnMouseUp = parseIncoming.OnMouseUp
+	}
+	if parseIncoming.OnMouseDown.Value() != nil {
+		parseOut.OnMouseDown = parseIncoming.OnMouseDown
+	}
+	if parseIncoming.OnFocus.Value() != nil {
+		parseOut.OnFocus = parseIncoming.OnFocus
+	}
+	if parseIncoming.OnBlur.Value() != nil {
+		parseOut.OnBlur = parseIncoming.OnBlur
+	}
+	if parseIncoming.OnScroll.Value() != nil {
+		parseOut.OnScroll = parseIncoming.OnScroll
+	}
+
+	return parseOut
+}
+
+// mergeStringMap merges parseIncoming over parseBase without mutating either.
+func mergeStringMap(parseBase map[string]string, parseIncoming map[string]string) map[string]string {
+	if len(parseIncoming) == 0 {
+		return parseBase
+	}
+	parseMerged := make(map[string]string, len(parseBase)+len(parseIncoming))
+	for parseK, parseV := range parseBase {
+		parseMerged[parseK] = parseV
+	}
+	for parseK, parseV := range parseIncoming {
+		parseMerged[parseK] = parseV
+	}
+	return parseMerged
 }

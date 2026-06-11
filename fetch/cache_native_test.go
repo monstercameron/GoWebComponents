@@ -6,6 +6,7 @@ package fetch
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -259,4 +260,68 @@ func TestFetchNativeLoadCachedBranches(parseT *testing.T) {
 	}
 	cancelCachedLoad("slow")
 	close(parseRelease)
+}
+
+// TestFetchNativeCachedResourceFailingLoaderNoRetryStorm is a regression test for
+// finding #50: UseCachedResource previously included parseSnapshot.UpdatedAt in its
+// UseEffect dependency list. updateCachedSnapshot bumps UpdatedAt even on error,
+// which caused the effect to re-fire after every failed load, creating an infinite
+// retry storm. The fix removes UpdatedAt from the effect deps, so a failing loader
+// fires exactly once and does not re-schedule itself.
+func TestFetchNativeCachedResourceFailingLoaderNoRetryStorm(parseT *testing.T) {
+	installFetchTestHookContext(parseT)
+
+	var parseLoads int32
+	parseKey := "failing-resource"
+	parseEntry := getCachedResourceEntry(parseKey)
+	configureCachedResourceEntry[string](parseKey, parseEntry, CacheOptions{})
+
+	// Run the loader directly (simulating what UseCachedResource would trigger) and
+	// let it complete with an error.
+	parseWaiters, parseStarted := startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (interface{}, error) {
+		_ = parseCtx
+		atomic.AddInt32(&parseLoads, 1)
+		return nil, fmt.Errorf("load error")
+	}, false, nil)
+	if !parseStarted {
+		parseT.Fatal("expected startCachedLoad to launch the first load")
+	}
+
+	// Wait for the first load to finish.
+	waitForCachedResource(context.Background(), parseWaiters) //nolint:errcheck
+	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+		parseSnapshot := currentCachedSnapshot(parseKey)
+		return !parseSnapshot.Loading && parseSnapshot.Error != nil
+	})
+
+	// Snapshot has an error and UpdatedAt is set. Simulate the effect re-evaluation
+	// that the old code would have triggered: call startCachedLoad again with the same
+	// snapshot (no shouldLoad predicate changes other than UpdatedAt). Under the old
+	// code this would start another load; under the fix it must not.
+	parseSnapshot := currentCachedSnapshot(parseKey)
+	if parseSnapshot.Error == nil {
+		parseT.Fatal("expected error snapshot after failing load")
+	}
+
+	// shouldLoadCachedEntry must report false for a non-ready, non-stale, non-pending
+	// entry that already has an error — there is nothing that would trigger a reload.
+	parseEntry.mu.Lock()
+	parseShouldLoad := shouldLoadCachedEntry(parseSnapshot, parseEntry)
+	parseEntry.mu.Unlock()
+	if parseShouldLoad {
+		parseT.Fatal("shouldLoadCachedEntry must return false after a failed load to prevent retry storms")
+	}
+
+	// A second startCachedLoad call (not forced) must be a no-op.
+	_, parseStarted2 := startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (interface{}, error) {
+		_ = parseCtx
+		atomic.AddInt32(&parseLoads, 1)
+		return nil, fmt.Errorf("should not run")
+	}, false, nil)
+	if parseStarted2 {
+		parseT.Fatal("startCachedLoad must not start a second load after a failed non-stale non-invalidated load")
+	}
+	if atomic.LoadInt32(&parseLoads) != 1 {
+		parseT.Fatalf("expected exactly one loader invocation, got %d", atomic.LoadInt32(&parseLoads))
+	}
 }

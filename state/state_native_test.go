@@ -344,3 +344,88 @@ func TestStateNativePersistentSnapshotHelpers(parseT *testing.T) {
 		parseT.Fatalf("expected store resolver errors to surface, got %v", parseErr5)
 	}
 }
+
+// TestStateNativeUnmarshalSnapshotJSONTypeAssertion is a regression test for #42.
+// It verifies that UnmarshalSnapshotJSON does not panic on the normal path and
+// returns a properly typed Snapshot (not a bare map[string]interface{}).
+func TestStateNativeUnmarshalSnapshotJSONTypeAssertion(parseT *testing.T) {
+	// Normal round-trip: marshal a Snapshot then unmarshal it — must not panic.
+	parseOriginal := Snapshot{"alpha": "hello", "beta": true, "gamma": 42}
+	parseData, parseErr := MarshalSnapshotJSON(parseOriginal)
+	if parseErr != nil {
+		parseT.Fatalf("expected MarshalSnapshotJSON to succeed, got %v", parseErr)
+	}
+	parseResult, parseErr2 := UnmarshalSnapshotJSON(parseData)
+	if parseErr2 != nil {
+		parseT.Fatalf("expected UnmarshalSnapshotJSON to succeed, got %v", parseErr2)
+	}
+	if parseResult["alpha"] != "hello" || parseResult["beta"] != true || parseResult["gamma"] != 42 {
+		parseT.Fatalf("expected round-tripped snapshot to preserve values, got %#v", parseResult)
+	}
+
+	// Verify the returned value is usable as a Snapshot (Select, ApplySnapshot, etc.).
+	parseSelected := parseResult.Select("alpha")
+	if len(parseSelected) != 1 || parseSelected["alpha"] != "hello" {
+		parseT.Fatalf("expected Select on round-tripped snapshot to work, got %#v", parseSelected)
+	}
+
+	// Deeply nested JSON must also not panic.
+	parseNested, parseErr3 := UnmarshalSnapshotJSON([]byte(`{"outer":{"inner":{"deep":99}},"list":[1,2,3]}`))
+	if parseErr3 != nil {
+		parseT.Fatalf("expected nested UnmarshalSnapshotJSON to succeed, got %v", parseErr3)
+	}
+	parseOuter, parseOk := parseNested["outer"].(map[string]interface{})
+	if !parseOk {
+		parseT.Fatalf("expected outer to be map[string]interface{}, got %T", parseNested["outer"])
+	}
+	parseInner, parseOk2 := parseOuter["inner"].(map[string]interface{})
+	if !parseOk2 || parseInner["deep"] != 99 {
+		parseT.Fatalf("expected deep nested value to be 99, got %#v", parseOuter)
+	}
+}
+
+// TestStateNativeNormalizeSnapshotFloatRangeGuard is a regression test for #43.
+// It verifies that float64 values outside the safe-integer range are not
+// converted to int (avoiding precision loss and platform overflow).
+func TestStateNativeNormalizeSnapshotFloatRangeGuard(parseT *testing.T) {
+	// Values within safe-integer range should be converted to int.
+	parseCases := []struct {
+		parseInput    float64
+		parseWantInt  bool
+		parseWantDesc string
+	}{
+		{0, true, "zero"},
+		{1, true, "one"},
+		{-1, true, "negative one"},
+		{1 << 53, true, "2^53 boundary"},
+		{-(1 << 53), true, "-(2^53) boundary"},
+		{1.5, false, "fractional"},
+		{float64(1<<53) + 2, false, "2^53+2 (above safe boundary)"},
+		{-(float64(1<<53) + 2), false, "-(2^53+2) (below safe boundary)"},
+		{math.MaxFloat64, false, "MaxFloat64"},
+		{-math.MaxFloat64, false, "-MaxFloat64"},
+	}
+	for _, parseCase := range parseCases {
+		parseGot := normalizeSnapshot(parseCase.parseInput)
+		if parseCase.parseWantInt {
+			if _, parseIsInt := parseGot.(int); !parseIsInt {
+				parseT.Errorf("normalizeSnapshot(%v) [%s]: expected int, got %T(%v)", parseCase.parseInput, parseCase.parseWantDesc, parseGot, parseGot)
+			}
+		} else {
+			if _, parseIsFloat := parseGot.(float64); !parseIsFloat {
+				parseT.Errorf("normalizeSnapshot(%v) [%s]: expected float64, got %T(%v)", parseCase.parseInput, parseCase.parseWantDesc, parseGot, parseGot)
+			}
+		}
+	}
+
+	// JSON round-trip: a large integer-valued float must survive without truncation.
+	parseLarge := float64(1<<53) + 2 // 9007199254740994 — above safe range
+	parseJSON := []byte(fmt.Sprintf(`{"big":%v}`, parseLarge))
+	parseSnap, parseErr := UnmarshalSnapshotJSON(parseJSON)
+	if parseErr != nil {
+		parseT.Fatalf("expected large-float unmarshal to succeed, got %v", parseErr)
+	}
+	if _, parseIsFloat := parseSnap["big"].(float64); !parseIsFloat {
+		parseT.Errorf("expected out-of-safe-range whole float64 to stay as float64, got %T(%v)", parseSnap["big"], parseSnap["big"])
+	}
+}

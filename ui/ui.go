@@ -482,6 +482,9 @@ func (parseS State[T]) Update(parseFn func(T) T) {
 }
 
 // UseReducer creates reducer-driven local state.
+// Dispatched actions are applied via UseState's functional updater, which
+// serializes reducer invocations through the runtime scheduler — each dispatch
+// receives the latest committed state as its previous-state argument.
 func UseReducer[S any, A any](parseReducer func(S, A) S, parseInitialState S) Reducer[S, A] {
 	parseState := UseState(parseInitialState)
 	return Reducer[S, A]{

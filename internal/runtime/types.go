@@ -1,5 +1,7 @@
 package runtime
 
+import "reflect"
+
 // Element represents a virtual DOM node.
 type Element struct {
 	Type               interface{}
@@ -150,8 +152,10 @@ type funcHandlerValue struct {
 }
 
 type funcHandlerCell struct {
-	owner *Fiber
-	fn    interface{}
+	owner  *Fiber
+	fn     interface{}
+	fnVal  reflect.Value // cached reflect.Value of fn; updated whenever fn changes
+	fnType reflect.Type  // cached reflect.Type of fn; updated whenever fn changes
 }
 
 // RefValue represents a reference object that persists across renders.

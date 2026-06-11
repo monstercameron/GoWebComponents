@@ -8,6 +8,19 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
+// parseWaitForCondition polls parseCheck every 2ms until it returns true or parseTimeout elapses.
+func parseWaitForCondition(parseT *testing.T, parseTimeout time.Duration, parseCheck func() bool) {
+	parseT.Helper()
+	parseDeadline := time.Now().Add(parseTimeout)
+	for time.Now().Before(parseDeadline) {
+		if parseCheck() {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	parseT.Fatal("timed out waiting for condition")
+}
+
 func TestTagAndSplitArgsSupportPropsSlicesAndChildren(parseT *testing.T) {
 	parseNode := Tag("section",
 		FromProps(Props{Class: "base", Data: map[string]string{"kind": "panel"}}),
@@ -39,27 +52,39 @@ func TestWrapperTagFunctionsExposeExpectedTypes(parseT *testing.T) {
 	}{
 		{name: "A", node: A(), tag: "a"},
 		{name: "Article", node: Article(), tag: "article"},
+		{name: "Aside", node: Aside(), tag: "aside"},
+		{name: "Blockquote", node: Blockquote(), tag: "blockquote"},
 		{name: "Body", node: Body(), tag: "body"},
 		{name: "Button", node: Button(), tag: "button"},
 		{name: "Br", node: Br(), tag: "br"},
 		{name: "Code", node: Code(), tag: "code"},
 		{name: "Details", node: Details(), tag: "details"},
+		{name: "Dialog", node: Dialog(), tag: "dialog"},
 		{name: "Div", node: Div(), tag: "div"},
+		{name: "Em", node: Em(), tag: "em"},
+		{name: "Fieldset", node: Fieldset(), tag: "fieldset"},
+		{name: "Footer", node: Footer(), tag: "footer"},
 		{name: "Form", node: Form(), tag: "form"},
 		{name: "H1", node: H1(), tag: "h1"},
 		{name: "H2", node: H2(), tag: "h2"},
 		{name: "H3", node: H3(), tag: "h3"},
+		{name: "H4", node: H4(), tag: "h4"},
+		{name: "H5", node: H5(), tag: "h5"},
+		{name: "H6", node: H6(), tag: "h6"},
 		{name: "Head", node: Head(), tag: "head"},
 		{name: "Header", node: Header(), tag: "header"},
 		{name: "Hr", node: Hr(), tag: "hr"},
 		{name: "Html", node: Html(), tag: "html"},
+		{name: "Iframe", node: Iframe(), tag: "iframe"},
 		{name: "Img", node: Img(), tag: "img"},
 		{name: "Input", node: Input(), tag: "input"},
 		{name: "Label", node: Label(), tag: "label"},
+		{name: "Legend", node: Legend(), tag: "legend"},
 		{name: "Li", node: Li(), tag: "li"},
 		{name: "Main", node: Main(), tag: "main"},
 		{name: "Mark", node: Mark(), tag: "mark"},
 		{name: "Meta", node: Meta(), tag: "meta"},
+		{name: "Nav", node: Nav(), tag: "nav"},
 		{name: "NoScript", node: NoScript(), tag: "noscript"},
 		{name: "Option", node: Option(), tag: "option"},
 		{name: "P", node: P(), tag: "p"},
@@ -67,13 +92,17 @@ func TestWrapperTagFunctionsExposeExpectedTypes(parseT *testing.T) {
 		{name: "Script", node: Script(), tag: "script"},
 		{name: "Section", node: Section(), tag: "section"},
 		{name: "Select", node: Select(), tag: "select"},
+		{name: "Small", node: Small(), tag: "small"},
 		{name: "Span", node: Span(), tag: "span"},
+		{name: "Strong", node: Strong(), tag: "strong"},
 		{name: "Summary", node: Summary(), tag: "summary"},
 		{name: "Table", node: Table(), tag: "table"},
 		{name: "Tbody", node: Tbody(), tag: "tbody"},
 		{name: "Td", node: Td(), tag: "td"},
+		{name: "Textarea", node: Textarea(), tag: "textarea"},
 		{name: "Th", node: Th(), tag: "th"},
 		{name: "Thead", node: Thead(), tag: "thead"},
+		{name: "Time", node: Time(), tag: "time"},
 		{name: "Tr", node: Tr(), tag: "tr"},
 		{name: "Ul", node: Ul(), tag: "ul"},
 	}
@@ -84,6 +113,15 @@ func TestWrapperTagFunctionsExposeExpectedTypes(parseT *testing.T) {
 				parseT2.Fatalf("expected %s tag, got %#v", parseTt.tag, parseTt.node)
 			}
 		})
+	}
+
+	// HiddenInput is a non-varargs convenience builder.
+	parseHidden := HiddenInput("csrf", "tok")
+	if parseHidden == nil || parseHidden.Type != "input" ||
+		parseHidden.Props["type"] != "hidden" ||
+		parseHidden.Props["name"] != "csrf" ||
+		parseHidden.Props["value"] != "tok" {
+		parseT.Fatalf("expected HiddenInput props, got %#v", parseHidden)
 	}
 }
 
@@ -146,15 +184,6 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(parseT *testing.T) {
 		AriaSet(map[string]string{"describedby": "copy"}),
 		Attr("data-extra", "yes"),
 		Attrs(map[string]interface{}{"data-raw": "ok"}),
-		OnClick(func() {}),
-		OnInput(func(ui.InputEvent) {}),
-		OnChange(func(ui.ChangeEvent) {}),
-		OnSubmit(func(ui.FormEvent) {}),
-		OnKeyDown(func(ui.KeyboardEvent) {}),
-		OnKeyUp(func(ui.KeyboardEvent) {}),
-		OnMouseUp(func(ui.MouseEvent) {}),
-		OnFocus(func(ui.FocusEvent) {}),
-		OnBlur(func(ui.FocusEvent) {}),
 	)
 	parseProps = WithProps(parseProps, Class("override"))
 	parseElem := Button(FromProps(parseProps), "save")
@@ -164,9 +193,9 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(parseT *testing.T) {
 	if parseElem.Props["data-mode"] != "demo" || parseElem.Props["data-kind"] != "field" || parseElem.Props["aria-label"] != "Field" || parseElem.Props["aria-describedby"] != "copy" {
 		parseT.Fatalf("expected data and aria props, got %#v", parseElem.Props)
 	}
-	if parseElem.Props["onclick"] == nil || parseElem.Props["oninput"] == nil || parseElem.Props["onchange"] == nil || parseElem.Props["onsubmit"] == nil || parseElem.Props["onkeydown"] == nil || parseElem.Props["onkeyup"] == nil || parseElem.Props["onmouseup"] == nil || parseElem.Props["onfocus"] == nil || parseElem.Props["onblur"] == nil {
-		parseT.Fatalf("expected event props, got %#v", parseElem.Props)
-	}
+	// Event-handler PropOption coverage lives in the native-only
+	// TestHelperReexportsEventHandlerOptions: on the WASM build handler
+	// options register hooks and require component context.
 
 	parseItems := []int{1, 2, 3}
 	if parseMapped := Map(parseItems, func(parseV int) ui.Node { return Textf("%d", parseV) }); len(parseMapped) != 3 {
@@ -223,7 +252,7 @@ func TestTemporalWrappersExecuteThroughDelegation(parseT *testing.T) {
 	}
 	parseDebounced(ui.Event{})
 	parseDebounced(ui.Event{})
-	time.Sleep(35 * time.Millisecond)
+	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseDebouncedCount == 1 })
 	if parseDebouncedCount != 1 {
 		parseT.Fatalf("expected one debounced callback, got %d", parseDebouncedCount)
 	}
@@ -235,7 +264,7 @@ func TestTemporalWrappersExecuteThroughDelegation(parseT *testing.T) {
 	}
 	parseThrottled(ui.Event{})
 	parseThrottled(ui.Event{})
-	time.Sleep(35 * time.Millisecond)
+	parseWaitForCondition(parseT, 2*time.Second, func() bool { return parseThrottledCount >= 2 })
 	if parseThrottledCount != 2 {
 		parseT.Fatalf("expected immediate plus trailing throttled callbacks, got %d", parseThrottledCount)
 	}

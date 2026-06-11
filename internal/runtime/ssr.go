@@ -8,6 +8,30 @@ import (
 	"strings"
 )
 
+// isValidSSRAttrName reports whether a name conforms to the HTML attribute
+// name production (XML/HTML-safe subset): ^[a-zA-Z_:][a-zA-Z0-9_.:-]*$.
+// Hand-rolled instead of a regexp so wasm builds do not link the regexp
+// package (~290 kB) for a single pattern.
+func isValidSSRAttrName(parseName string) bool {
+	if parseName == "" {
+		return false
+	}
+	for parseIdx := 0; parseIdx < len(parseName); parseIdx++ {
+		parseC := parseName[parseIdx]
+		parseIsAlpha := (parseC >= 'a' && parseC <= 'z') || (parseC >= 'A' && parseC <= 'Z')
+		if parseIdx == 0 {
+			if !parseIsAlpha && parseC != '_' && parseC != ':' {
+				return false
+			}
+			continue
+		}
+		if !parseIsAlpha && !(parseC >= '0' && parseC <= '9') && parseC != '_' && parseC != '.' && parseC != ':' && parseC != '-' {
+			return false
+		}
+	}
+	return true
+}
+
 // RenderToString renders a virtual element tree to HTML.
 //
 // This is the first internal SSR slice: it supports host elements, text nodes,
@@ -283,6 +307,11 @@ func normalizeSSRAttrName(parseKey string) string {
 
 // serializeSSRAttr is a core package helper.
 func serializeSSRAttr(parseName string, parseValue interface{}) (string, bool) {
+	// Finding #57: reject attribute names that do not conform to the HTML/XML
+	// attribute name production to prevent injection via a crafted name.
+	if !isValidSSRAttrName(parseName) {
+		return "", false
+	}
 	switch parseTyped := parseValue.(type) {
 	case bool:
 		if !parseTyped {
@@ -292,9 +321,7 @@ func serializeSSRAttr(parseName string, parseValue interface{}) (string, bool) {
 	case string:
 		return parseName + `="` + html.EscapeString(parseTyped) + `"`, true
 	case map[string]string:
-		if parseName != "style" {
-			return parseName + `="` + html.EscapeString(fmt.Sprint(parseTyped)) + `"`, true
-		}
+		// Serialized with sorted keys so SSR output is deterministic (#58).
 		return parseName + `="` + html.EscapeString(serializeStyleMap(parseTyped)) + `"`, true
 	default:
 		return parseName + `="` + html.EscapeString(fmt.Sprint(parseValue)) + `"`, true

@@ -74,12 +74,6 @@ var (
 			},
 		},
 	}
-	// Fiber pool to reduce allocations
-	fiberPool = sync.Pool{
-		New: func() interface{} {
-			return &Fiber{}
-		},
-	}
 	keyedFiberMapPool = sync.Pool{
 		New: func() interface{} {
 			return make(map[interface{}]*Fiber, 16)
@@ -140,9 +134,7 @@ func acquireWorkInProgress(parseOldFiber *Fiber) *Fiber {
 		*parseReused = Fiber{}
 		return parseReused
 	}
-	parseReused2 := fiberPool.Get().(*Fiber)
-	*parseReused2 = Fiber{}
-	return parseReused2
+	return new(Fiber)
 }
 
 // ensureFineGrainedTwinLink is an internal reconciler helper.

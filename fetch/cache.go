@@ -145,7 +145,7 @@ func UseCachedResource[T any](parseKey string, parseLoader func(context.Context)
 			return parseLoader(parseCtx)
 		}, false, nil)
 		return nil
-	}, parseKey, parseSnapshot.Ready, parseSnapshot.Stale, parseSnapshot.Loading, parseSnapshot.UpdatedAt, parseResolved.StaleAfter)
+	}, parseKey, parseSnapshot.Ready, parseSnapshot.Stale, parseSnapshot.Loading, parseResolved.StaleAfter)
 
 	ui.UseEffect(func() func() {
 		if parseKey == "" {
@@ -599,18 +599,31 @@ func currentCachedSnapshot(parseKey string) cachedResourceSnapshot {
 	return parseSnapshot
 }
 
+// cachedSnapshotMu serializes read-modify-write cycles on cached resource
+// snapshots.  Without it, a loader goroutine's transform can interleave with a
+// Set/Update on the render side (read old → ... → write old) and silently
+// discard the other writer's value.
+var cachedSnapshotMu sync.Mutex
+
 // updateCachedSnapshot is an internal cache helper.
 func updateCachedSnapshot(parseKey string, parseUpdate func(cachedResourceSnapshot) cachedResourceSnapshot) {
 	if parseKey == "" || parseUpdate == nil {
 		return
 	}
 
+	cachedSnapshotMu.Lock()
+	defer cachedSnapshotMu.Unlock()
 	parseSnapshot := parseUpdate(currentCachedSnapshot(parseKey))
 	parseRt := runtime.GetGlobalRuntime()
 	if parseRt == nil {
 		return
 	}
-	_ = parseRt.RestoreAtomSnapshot(map[string]interface{}{cachedResourceAtomID(parseKey): parseSnapshot})
+	if parseRestoreErr := parseRt.RestoreAtomSnapshot(map[string]interface{}{cachedResourceAtomID(parseKey): parseSnapshot}); parseRestoreErr != nil {
+		runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "cached resource snapshot restore failed", "", map[string]string{
+			"key":     parseKey,
+			"message": parseRestoreErr.Error(),
+		})
+	}
 }
 
 // setCachedValue is an internal cache helper.
@@ -707,7 +720,10 @@ func startCachedLoad(parseKey string, parseEntry *cachedResourceEntry, parseLoad
 		}
 		parseStillInvalidated := parseEntry.invalidated
 		parseEntry.mu.Unlock()
-		parseDone.Close()
+		// Wake waiters only AFTER the result snapshot below has been published:
+		// closing first lets a waiter re-read the snapshot before the value or
+		// error lands, and LoadCached then returns a zero value with nil error.
+		defer parseDone.Close()
 
 		if parseRequestCtx.Err() != nil {
 			updateCachedSnapshot(parseKey, func(parsePrev2 cachedResourceSnapshot) cachedResourceSnapshot {
@@ -758,6 +774,12 @@ func shouldLoadCachedEntry(parseSnapshot cachedResourceSnapshot, parseEntry *cac
 		return true
 	}
 	if !parseSnapshot.Ready {
+		// An error state that is neither loading nor explicitly invalidated/stale
+		// must not auto-retry — doing so would cause an infinite storm when the
+		// loader keeps failing (finding #50).
+		if parseSnapshot.Error != nil && !parseSnapshot.Loading && !parseEntry.invalidated && !parseSnapshot.Stale {
+			return false
+		}
 		return !parseSnapshot.Loading
 	}
 	if parseEntry.invalidated || parseSnapshot.Stale {

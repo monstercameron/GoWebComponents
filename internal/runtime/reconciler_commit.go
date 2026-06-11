@@ -956,38 +956,82 @@ func (parseRt *Runtime) syncFineGrainedSubscriptions(parseFiber *Fiber, parseSou
 		parseFiber.fineGrained = len(parsePrevious) > 0
 		return
 	}
-	parsePreviousSet := make(map[string]struct{}, len(parsePrevious))
-	for _, parseId := range parsePrevious {
-		parsePreviousSet[parseId] = struct{}{}
-	}
-	parseNextSet := make(map[string]struct{}, len(parseSourceIDs))
-	for _, parseId2 := range parseSourceIDs {
-		parseNextSet[parseId2] = struct{}{}
-	}
-	for _, parseOldID := range parsePrevious {
-		if _, parseKeep := parseNextSet[parseOldID]; parseKeep {
-			continue
-		}
-		if parseRt.hydrating {
-			parseRt.queueHydrationSubscription(parseOldID, parseFiber, false)
-			if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
-				parseRt.queueHydrationSubscription(parseOldID, parseFiber.alternate, false)
+	// For small subscription sets use inline linear search to avoid map allocation.
+	if len(parsePrevious) <= 4 && len(parseSourceIDs) <= 4 {
+		for _, parseOldID := range parsePrevious {
+			parseKeep := false
+			for _, parseCheckID := range parseSourceIDs {
+				if parseCheckID == parseOldID {
+					parseKeep = true
+					break
+				}
 			}
-		} else {
-			parseRt.atomRegistry.Unsubscribe(parseOldID, parseFiber)
-			if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
-				parseRt.atomRegistry.Unsubscribe(parseOldID, parseFiber.alternate)
+			if parseKeep {
+				continue
+			}
+			if parseRt.hydrating {
+				parseRt.queueHydrationSubscription(parseOldID, parseFiber, false)
+				if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
+					parseRt.queueHydrationSubscription(parseOldID, parseFiber.alternate, false)
+				}
+			} else {
+				parseRt.atomRegistry.Unsubscribe(parseOldID, parseFiber)
+				if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
+					parseRt.atomRegistry.Unsubscribe(parseOldID, parseFiber.alternate)
+				}
 			}
 		}
-	}
-	for _, parseNewID := range parseSourceIDs {
-		if _, parseAlready := parsePreviousSet[parseNewID]; parseAlready {
-			continue
+		for _, parseNewID := range parseSourceIDs {
+			parseAlready := false
+			for _, parseCheckID2 := range parsePrevious {
+				if parseCheckID2 == parseNewID {
+					parseAlready = true
+					break
+				}
+			}
+			if parseAlready {
+				continue
+			}
+			if parseRt.hydrating {
+				parseRt.queueHydrationSubscription(parseNewID, parseFiber, true)
+			} else {
+				parseRt.atomRegistry.Subscribe(parseNewID, parseFiber)
+			}
 		}
-		if parseRt.hydrating {
-			parseRt.queueHydrationSubscription(parseNewID, parseFiber, true)
-		} else {
-			parseRt.atomRegistry.Subscribe(parseNewID, parseFiber)
+	} else {
+		parsePreviousSet := make(map[string]struct{}, len(parsePrevious))
+		for _, parseId := range parsePrevious {
+			parsePreviousSet[parseId] = struct{}{}
+		}
+		parseNextSet := make(map[string]struct{}, len(parseSourceIDs))
+		for _, parseId2 := range parseSourceIDs {
+			parseNextSet[parseId2] = struct{}{}
+		}
+		for _, parseOldID := range parsePrevious {
+			if _, parseKeep := parseNextSet[parseOldID]; parseKeep {
+				continue
+			}
+			if parseRt.hydrating {
+				parseRt.queueHydrationSubscription(parseOldID, parseFiber, false)
+				if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
+					parseRt.queueHydrationSubscription(parseOldID, parseFiber.alternate, false)
+				}
+			} else {
+				parseRt.atomRegistry.Unsubscribe(parseOldID, parseFiber)
+				if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
+					parseRt.atomRegistry.Unsubscribe(parseOldID, parseFiber.alternate)
+				}
+			}
+		}
+		for _, parseNewID := range parseSourceIDs {
+			if _, parseAlready := parsePreviousSet[parseNewID]; parseAlready {
+				continue
+			}
+			if parseRt.hydrating {
+				parseRt.queueHydrationSubscription(parseNewID, parseFiber, true)
+			} else {
+				parseRt.atomRegistry.Subscribe(parseNewID, parseFiber)
+			}
 		}
 	}
 	parseFiber.reactiveSourceIDs = append([]string(nil), parseSourceIDs...)
@@ -1140,11 +1184,25 @@ func (parseRt *Runtime) movePortalSubtree(parseFiber *Fiber, parseOldParent, par
 	parseRt.movePortalSubtree(parseFiber.sibling, parseOldParent, parseNewParent)
 }
 
-// runCleanups runs all cleanup functions for a fiber and its children
+// runCleanups runs all cleanup functions for a fiber and its child subtree.
+// It deliberately does NOT traverse the argument fiber's own sibling chain:
+// commitDeletion passes a DELETION-tagged fiber whose old-tree siblings may
+// survive (their Hooks objects are shared with their live alternates), so
+// cleaning the sibling chain would tear down effects and release event-handler
+// wrappers on components that are still mounted.
 func (parseRt *Runtime) runCleanups(parseFiber *Fiber) {
 	if parseFiber == nil {
 		return
 	}
+	parseRt.runFiberCleanups(parseFiber)
+	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
+		parseRt.runCleanups(parseChild)
+	}
+}
+
+// runFiberCleanups runs the cleanups and releases the event-handler wrappers
+// for a single fiber, without traversing children or siblings.
+func (parseRt *Runtime) runFiberCleanups(parseFiber *Fiber) {
 
 	// Run this fiber's cleanups
 	if parseFiber.hooks != nil {
@@ -1174,14 +1232,13 @@ func (parseRt *Runtime) runCleanups(parseFiber *Fiber) {
 				parseFiber.hooks.cleanups[parseIndex] = nil
 			}
 		}
-	}
-
-	// Recursively run cleanups for children and siblings
-	if parseFiber.child != nil {
-		parseRt.runCleanups(parseFiber.child)
-	}
-	if parseFiber.sibling != nil {
-		parseRt.runCleanups(parseFiber.sibling)
+		// Release any wrapped event-handler funcs (e.g. js.Func in WASM) so the
+		// JS GC bridge can free them.  The wrapper slot is zeroed to prevent a
+		// double-release if runCleanups is called again (e.g. hot-reload path).
+		for parseIdx := range parseFiber.hooks.funcs {
+			releaseFuncHandlerWrapper(parseFiber.hooks.funcs[parseIdx].wrapper)
+			parseFiber.hooks.funcs[parseIdx] = funcHandlerValue{}
+		}
 	}
 }
 

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"sync"
@@ -101,6 +102,21 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(in
 			parseRestoredValue = parseInitialValue
 		} else if parseCoerced, parseOk2 := coerceHotReloadValue(parseRestoredValue, reflect.TypeOf(parseInitialValue)); parseOk2 {
 			parseRestoredValue = parseCoerced
+		} else {
+			// Coercion failed: the snapshot value is incompatible with the
+			// current state type.  Fall back to the initial value so we do not
+			// silently store an untyped value into the wrong slot, and report a
+			// diagnostic so the developer can see what happened.
+			parseSnapshotType := fmt.Sprintf("%T", parseRestoredValue)
+			parseRestoredValue = parseInitialValue
+			ReportDiagnosticWithContext(
+				"runtime",
+				DiagnosticWarning,
+				fmt.Sprintf("hot reload state restore dropped for hook slot %d: snapshot value %s is not coercible to %T; using initial value",
+					parseStateIdx, parseSnapshotType, parseInitialValue),
+				diagnosticPathForFiber(parseFiber),
+				diagnosticComponentStack(parseFiber),
+			)
 		}
 		parseFiber.hooks.states[parseStateIdx*2] = parseRestoredValue
 		parseFiber.hooks.states[parseStateIdx*2+1] = parseRestoredValue
@@ -526,9 +542,11 @@ func GoUseFunc(parseFn interface{}) interface{} {
 	}
 
 	parseHandlerVal := parseHooks.funcs[parseFuncIdx]
-	if parseHandlerVal.wrapper != nil && parseHandlerVal.cell != nil && reflect.TypeOf(parseHandlerVal.fn) == reflect.TypeOf(parseFn) {
+	parseFnType := reflect.TypeOf(parseFn)
+	if parseHandlerVal.wrapper != nil && parseHandlerVal.cell != nil && parseHandlerVal.cell.fnType == parseFnType {
 		parseHandlerVal.fn = parseFn
 		parseHandlerVal.cell.fn = parseFn
+		parseHandlerVal.cell.fnVal = reflect.ValueOf(parseFn)
 		parseHandlerVal.cell.owner = parseFiber
 		parseHooks.funcs[parseFuncIdx] = parseHandlerVal
 		return parseHandlerVal.wrapper
@@ -536,8 +554,10 @@ func GoUseFunc(parseFn interface{}) interface{} {
 
 	releaseFuncHandlerWrapper(parseHandlerVal.wrapper)
 	parseCell := &funcHandlerCell{
-		owner: parseFiber,
-		fn:    parseFn,
+		owner:  parseFiber,
+		fn:     parseFn,
+		fnVal:  reflect.ValueOf(parseFn),
+		fnType: parseFnType,
 	}
 	parseHandlerVal = funcHandlerValue{
 		fn:      parseFn,
@@ -666,6 +686,51 @@ func fastEqual(parseA, parseB interface{}) bool {
 		if parseVb15, parseOk15 := parseB.(uintptr); parseOk15 {
 			return parseVa == parseVb15
 		}
+	// Common collection types: use reference equality (same-pointer ⇒ equal, different pointer ⇒ not equal).
+	// This matches React's shallow-identity semantics for dep arrays.
+	case []string:
+		if parseVb16, parseOk16 := parseB.([]string); parseOk16 {
+			if len(parseVa) == 0 && len(parseVb16) == 0 {
+				return true
+			}
+			return len(parseVa) > 0 && len(parseVb16) > 0 &&
+				&parseVa[0] == &parseVb16[0] && len(parseVa) == len(parseVb16)
+		}
+		return false
+	case []int:
+		if parseVb17, parseOk17 := parseB.([]int); parseOk17 {
+			if len(parseVa) == 0 && len(parseVb17) == 0 {
+				return true
+			}
+			return len(parseVa) > 0 && len(parseVb17) > 0 &&
+				&parseVa[0] == &parseVb17[0] && len(parseVa) == len(parseVb17)
+		}
+		return false
+	case []interface{}:
+		if parseVb18, parseOk18 := parseB.([]interface{}); parseOk18 {
+			if len(parseVa) == 0 && len(parseVb18) == 0 {
+				return true
+			}
+			return len(parseVa) > 0 && len(parseVb18) > 0 &&
+				&parseVa[0] == &parseVb18[0] && len(parseVa) == len(parseVb18)
+		}
+		return false
+	case map[string]interface{}:
+		// Map identity semantics: equal only when both are nil or both are the
+		// same map object (one reflect pointer compare; the type switch already
+		// avoided the more expensive TypeOf calls on both sides).
+		if parseVb19, parseOk19 := parseB.(map[string]interface{}); parseOk19 {
+			if parseVa == nil || parseVb19 == nil {
+				return parseVa == nil && parseVb19 == nil
+			}
+			return reflect.ValueOf(parseVa).Pointer() == reflect.ValueOf(parseVb19).Pointer()
+		}
+		return false
+	case time.Time:
+		if parseVb20, parseOk20 := parseB.(time.Time); parseOk20 {
+			return parseVa.Equal(parseVb20)
+		}
+		return false
 	}
 
 	// Get types only for non-primitive fallbacks.

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -147,15 +148,20 @@ func UseResource[T any](parseLoader func(context.Context) (T, error), parseDeps 
 	parseState := ui.UseState(ResourceState[T]{})
 	parseReloadTick := ui.UseState(0)
 	parseCancelRef := ui.UseRef((context.CancelFunc)(nil))
-	parseRequestSeq := ui.UseRef(0)
+	// parseRequestSeqRef is rendered as an atomic so the loader goroutine can
+	// safely read it on native builds without a data race with the render thread.
+	parseRequestSeqRef := ui.UseRef((*atomic.Int32)(nil))
+	if parseRequestSeqRef.Get() == nil {
+		parseRequestSeqRef.Set(new(atomic.Int32))
+	}
+	parseRequestSeq := parseRequestSeqRef.Get()
 
 	parseStartLoad := func() {
 		if parseCancel := parseCancelRef.Get(); parseCancel != nil {
 			parseCancel()
 		}
 
-		parseRequestSeq.Set(parseRequestSeq.Get() + 1)
-		parseSeq := parseRequestSeq.Get()
+		parseSeq := parseRequestSeq.Add(1)
 		parseCtx, parseCancel2 := context.WithCancel(context.Background())
 		parseCancelRef.Set(parseCancel2)
 
@@ -167,7 +173,7 @@ func UseResource[T any](parseLoader func(context.Context) (T, error), parseDeps 
 
 		go func() {
 			parseValue, parseErr := parseLoader(parseCtx)
-			if parseCtx.Err() != nil || parseRequestSeq.Get() != parseSeq {
+			if parseCtx.Err() != nil || parseRequestSeq.Load() != parseSeq {
 				return
 			}
 
@@ -259,6 +265,8 @@ func parseRawHeaders(parseRaw string) map[string]string {
 
 // ReturnChannel returns a fetch result channel to the pool for reuse.
 // With the new implementation channels are one-shot, so this is a no-op kept for API compatibility.
+//
+// Deprecated: channels are now one-shot and do not need to be returned. This function is a no-op and will be removed in a future release.
 func ReturnChannel(parseCh <-chan Result) {
 	_ = parseCh
 }

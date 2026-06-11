@@ -73,6 +73,7 @@ type Router struct {
 	targetSelector string
 	targetElement  js.Value
 	listening      bool
+	disposed       bool   // set when the router is unmounted; stale loader goroutines check this flag
 	routerType     string // "hash" or "history"
 	loaderState    loaderState
 	metadataState  routeMetadataState
@@ -413,6 +414,9 @@ func (parseR *Router) setupHistoryListener() {
 }
 
 // GoRegisterRoute registers a route on the router instance.
+//
+// Deprecated: Use Register instead. GoRegisterRoute exists for compatibility with
+// earlier API consumers and delegates directly to Register.
 func (parseR *Router) GoRegisterRoute(parsePath string, parseComponent interface{}, parseOptions ...Options) {
 	parseR.Register(parsePath, parseComponent, parseOptions...)
 }
@@ -465,6 +469,9 @@ func (parseR *Router) Register(parsePath string, parseComponent interface{}, par
 }
 
 // GoGetRoute returns the element for the current route.
+//
+// Deprecated: Use Current instead. GoGetRoute exists for compatibility with
+// earlier API consumers and delegates directly to Current.
 func (parseR *Router) GoGetRoute() *Element {
 	return parseR.Current()
 }
@@ -474,9 +481,28 @@ func (parseR *Router) Current() *Element {
 	return parseR.currentElement(true)
 }
 
+// setGlobalRouter updates the global router, marking the previous one as disposed
+// so any in-flight loader goroutines on it do not trigger stale re-renders (#46).
+func setGlobalRouter(parseNew *Router) {
+	if globalRouter != nil && globalRouter != parseNew {
+		globalRouter.disposed = true
+	}
+	globalRouter = parseNew
+}
+
+// maxRedirectDepth is the maximum number of chained redirects before aborting
+// to prevent infinite redirect loops when a redirect target itself redirects.
+const maxRedirectDepth = 5
+
 // currentElement is an internal router helper.
 func (parseR *Router) currentElement(isApplyGuards bool) *Element {
-	globalRouter = parseR
+	return parseR.currentElementWithDepth(isApplyGuards, 0)
+}
+
+// currentElementWithDepth is an internal router helper that tracks redirect depth
+// to prevent infinite loops when a redirect target itself has a redirect or guard redirect.
+func (parseR *Router) currentElementWithDepth(isApplyGuards bool, parseRedirectDepth int) *Element {
+	setGlobalRouter(parseR)
 	parsePath := parseR.GetCurrentRouterPath()
 	if parsePath == "" {
 		parsePath = parseR.defaultRoute
@@ -490,13 +516,13 @@ func (parseR *Router) currentElement(isApplyGuards bool) *Element {
 		if isApplyGuards {
 			parseCtx, parseAttemptID := parseR.beginGuardAttempt()
 			defer parseR.finishGuardAttempt(parseAttemptID)
-			parseRendered := parseR.renderResolvedRouteStack(parseResolved.routes, parseQuery, parseQueryKey, true, parseCtx, parseAttemptID)
+			parseRendered := parseR.renderResolvedRouteStackWithDepth(parseResolved.routes, parseQuery, parseQueryKey, true, parseCtx, parseAttemptID, parseRedirectDepth)
 			if parseCtx.Err() != nil || !parseR.guardAttemptActive(parseAttemptID) {
 				return nil
 			}
 			return parseRendered
 		}
-		return parseR.renderResolvedRouteStack(parseResolved.routes, parseQuery, parseQueryKey, false, nil, 0)
+		return parseR.renderResolvedRouteStackWithDepth(parseResolved.routes, parseQuery, parseQueryKey, false, nil, 0, parseRedirectDepth)
 	}
 
 	parseR.cancelLoaderIfActive()
@@ -508,7 +534,7 @@ func (parseR *Router) currentElement(isApplyGuards bool) *Element {
 
 // Mount renders the router into a DOM node selected by CSS selector and wires hashchange listeners.
 func (parseR *Router) Mount(parseSelector string) {
-	globalRouter = parseR
+	setGlobalRouter(parseR)
 	parseR.targetSelector = parseSelector
 	parseR.targetElement = js.Null()
 	parseR.renderCurrentRoute(true)
@@ -518,7 +544,7 @@ func (parseR *Router) Mount(parseSelector string) {
 // HydrateMount binds the router to an already-hydrated DOM target and only
 // wires future route updates/listeners without forcing an immediate rerender.
 func (parseR *Router) HydrateMount(parseSelector string) {
-	globalRouter = parseR
+	setGlobalRouter(parseR)
 	parseR.targetSelector = parseSelector
 	parseR.targetElement = js.Null()
 	parseR.ensureListener()
@@ -526,7 +552,7 @@ func (parseR *Router) HydrateMount(parseSelector string) {
 
 // MountElement renders the router into an existing DOM element reference.
 func (parseR *Router) MountElement(parseElem js.Value) {
-	globalRouter = parseR
+	setGlobalRouter(parseR)
 	parseR.targetElement = parseElem
 	parseR.targetSelector = ""
 	parseR.renderCurrentRoute(true)
@@ -536,7 +562,7 @@ func (parseR *Router) MountElement(parseElem js.Value) {
 // HydrateMountElement binds the router to an already-hydrated DOM element and
 // only wires future route updates/listeners without forcing an immediate rerender.
 func (parseR *Router) HydrateMountElement(parseElem js.Value) {
-	globalRouter = parseR
+	setGlobalRouter(parseR)
 	parseR.targetElement = parseElem
 	parseR.targetSelector = ""
 	parseR.ensureListener()
@@ -642,6 +668,13 @@ func (parseR *Router) ensureListener() {
 		return
 	}
 	parseR.listening = true
+
+	// History routers already register both popstate and hashchange listeners in
+	// setupHistoryListener (called from NewHistoryRouter). Adding another hashchange
+	// listener here would cause double re-renders on every hash navigation.
+	if parseR.routerType == routerTypeHistory {
+		return
+	}
 
 	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 		parseR.renderCurrentRoute(true)

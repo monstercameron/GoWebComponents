@@ -177,15 +177,14 @@ func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.W
 			}
 
 			parseCancelRef.Set(nil)
-			parseState.Set(WorkerTaskState[Progress, Result]{
-				Value:         parseValue,
-				Progress:      parseState.Get().Progress,
-				ProgressReady: parseState.Get().ProgressReady,
-				Running:       false,
-				Ready:         true,
-				Cancelled:     false,
-				Started:       true,
-				Error:         nil,
+			parseState.Update(func(parsePrev6 WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
+				parsePrev6.Value = parseValue
+				parsePrev6.Running = false
+				parsePrev6.Ready = true
+				parsePrev6.Cancelled = false
+				parsePrev6.Started = true
+				parsePrev6.Error = nil
+				return parsePrev6
 			})
 		}(parsePayload)
 	}

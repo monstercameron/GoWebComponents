@@ -486,15 +486,28 @@ func TestRunCleanups_NilFiber(parseT *testing.T) {
 	parseRt.runCleanups(nil)
 }
 
-func TestRunCleanups_TraversesSiblingChain(parseT *testing.T) {
+func TestRunCleanups_DoesNotTraverseArgumentSiblings(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseCount := 0
-	parseSibling := &Fiber{hooks: &Hooks{cleanups: []func(){func() { parseCount++ }}}}
+	parseSiblingCount := 0
+	parseSibling := &Fiber{hooks: &Hooks{cleanups: []func(){func() { parseSiblingCount++ }}}}
 	parseChild := &Fiber{hooks: &Hooks{cleanups: []func(){func() { parseCount++ }}}, sibling: parseSibling}
 
+	// The argument fiber's own sibling chain must NOT be cleaned: commitDeletion
+	// passes a deleted fiber whose old-tree siblings may still be live.
 	parseRt.runCleanups(parseChild)
+	if parseCount != 1 || parseSiblingCount != 0 {
+		parseT.Fatalf("expected only the argument fiber cleaned, got self=%d sibling=%d", parseCount, parseSiblingCount)
+	}
 
-	if parseCount != 2 {
-		parseT.Fatal("expected cleanup traversal to include siblings")
+	// But sibling chains of CHILDREN (inside the subtree) are traversed.
+	parseCount = 0
+	parseSiblingCount = 0
+	parseParent := &Fiber{child: parseChild}
+	parseChild.hooks = &Hooks{cleanups: []func(){func() { parseCount++ }}}
+	parseSibling.hooks = &Hooks{cleanups: []func(){func() { parseSiblingCount++ }}}
+	parseRt.runCleanups(parseParent)
+	if parseCount != 1 || parseSiblingCount != 1 {
+		parseT.Fatalf("expected full child subtree cleaned, got child=%d childSibling=%d", parseCount, parseSiblingCount)
 	}
 }

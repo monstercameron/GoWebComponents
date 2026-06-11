@@ -28,7 +28,8 @@ func (parseRuntime *Runtime) wrapEventHandlerCell(parseCell *funcHandlerCell) in
 			}
 		}()
 
-		parseCurrentFnValue := reflect.ValueOf(parseCell.fn)
+		// Use the cached reflect.Value so reflect.ValueOf is not called on every event dispatch.
+		parseCurrentFnValue := parseCell.fnVal
 		if !parseCurrentFnValue.IsValid() || parseCurrentFnValue.Kind() != reflect.Func {
 			return buildEventResultValues(parseFnType)
 		}
