@@ -439,7 +439,13 @@ func LoadCached[T any](parseCtx context.Context, parseKey string, parseLoader fu
 				return parseZero, parseSnapshot.Error
 			}
 			if parseWaiters == nil {
-				return parseZero, nil
+				// Not ready, no error, nothing to wait on, and no load needed:
+				// this only happens when the snapshot was read before a
+				// concurrent Set/cancel cleared the entry (stale Loading=true).
+				// The cancel path writes a corrected snapshot immediately after
+				// clearing, so re-reading converges — returning here would hand
+				// the caller a zero value with a nil error.
+				continue
 			}
 			if parseErr := waitForCachedResource(parseCtx, parseWaiters); parseErr != nil {
 				return parseZero, parseErr

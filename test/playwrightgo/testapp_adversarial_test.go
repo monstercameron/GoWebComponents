@@ -1,4 +1,4 @@
-﻿//go:build playwrightgo
+//go:build playwrightgo
 
 package playwrightgo_test
 
