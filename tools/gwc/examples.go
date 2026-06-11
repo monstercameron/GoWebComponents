@@ -149,7 +149,9 @@ func (parseL launcher) runExamples(parseArgs []string) error {
 func (parseL launcher) newExamplesHandler(parseHost string, parsePort string) http.Handler {
 	parseExamplesServer := http.StripPrefix("/examples/", http.FileServer(http.Dir(parseL.examplesDir)))
 	parseStaticServer := http.StripPrefix("/static/", http.FileServer(http.Dir(parseL.staticDir)))
-	parseWasmServer := http.StripPrefix("/static/bin/", http.FileServer(http.Dir(parseL.resolvedExamplesWasmDir())))
+	// Wasm artifacts are multi-megabyte and gzip ~4-5x smaller; serving them
+	// uncompressed makes cold start network-bound on anything but localhost.
+	parseWasmServer := newGzipWASMHandler(http.StripPrefix("/static/bin/", http.FileServer(http.Dir(parseL.resolvedExamplesWasmDir()))))
 
 	parseMux := http.NewServeMux()
 	parseMux.HandleFunc("/healthz", func(parseW http.ResponseWriter, parseR *http.Request) {
