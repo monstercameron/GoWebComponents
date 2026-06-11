@@ -213,13 +213,27 @@ func buildElement(parseTyp interface{}, parseProps map[string]interface{}, parse
 		}
 	}
 
-	// Normalize string children once so downstream reconciliation sees only Elements.
-	for parseIndex, parseChild := range parseChildren {
-		if parseText, hasParseText := parseChild.(string); hasParseText {
-			parseChildren[parseIndex] = &Element{
-				Type:        "TEXT_ELEMENT",
-				TextContent: parseText,
-				Children:    emptyChildren,
+	// Normalize string children once so downstream reconciliation sees only
+	// Elements.  All text elements for one parent share a single backing array
+	// so N string children cost one allocation instead of N.
+	parseTextCount := 0
+	for _, parseChild := range parseChildren {
+		if _, hasParseText := parseChild.(string); hasParseText {
+			parseTextCount++
+		}
+	}
+	if parseTextCount > 0 {
+		parseTextElems := make([]Element, parseTextCount)
+		parseTextIdx := 0
+		for parseIndex, parseChild := range parseChildren {
+			if parseText, hasParseText := parseChild.(string); hasParseText {
+				parseTextElems[parseTextIdx] = Element{
+					Type:        "TEXT_ELEMENT",
+					TextContent: parseText,
+					Children:    emptyChildren,
+				}
+				parseChildren[parseIndex] = &parseTextElems[parseTextIdx]
+				parseTextIdx++
 			}
 		}
 	}

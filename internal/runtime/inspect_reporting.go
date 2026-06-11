@@ -42,12 +42,16 @@ func reportDiagnosticWithContextDetails(parseSource string, parseSeverity Diagno
 	parseStackKey := strings.Join(parseComponentStack, " > ")
 	parseClassification := classifyDiagnostic(parseTrimmedSource, parseSeverity, parseTrimmedMessage)
 	parseDetails := diagnosticMetadata(parseTrimmedSource, parseSeverity, parseClassification, parseTrimmedMessage)
-	parseFields := diagnosticContextFields(parseTrimmedPath, parseComponentStack, parseTopFrame, parseConsequence, parseExtraFields)
 	if shouldEscalateDiagnosticStrictly(parseTrimmedSource, parseSeverity, parseClassification, parseDetails) {
 		escalateStrictDiagnostic(parseTrimmedSource, parseDetails, parseTrimmedMessage, parseTrimmedPath, parseComponentStack)
 	}
 
-	parseKey := string(parseSeverity) + "|" + parseTrimmedSource + "|" + parseTrimmedMessage + "|" + parseTrimmedPath + "|" + parseStackKey + "|" + diagnosticFieldsKey(parseFields)
+	// Dedup-first: the key is derived from the same inputs the context-fields
+	// map is built from, so repeat diagnostics (e.g. a missing-key warning
+	// firing every render) increment a counter without paying the field-map,
+	// clone, and log construction below.
+	parseKey := string(parseSeverity) + "|" + parseTrimmedSource + "|" + parseTrimmedMessage + "|" + parseTrimmedPath + "|" + parseStackKey + "|" +
+		strings.TrimSpace(parseTopFrame) + "|" + strings.TrimSpace(parseConsequence) + "|" + diagnosticFieldsKey(parseExtraFields)
 
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
@@ -55,6 +59,7 @@ func reportDiagnosticWithContextDetails(parseSource string, parseSeverity Diagno
 		diagnostics[parseIndex].Count++
 		return
 	}
+	parseFields := diagnosticContextFields(parseTrimmedPath, parseComponentStack, parseTopFrame, parseConsequence, parseExtraFields)
 
 	diagnosticIndex[parseKey] = len(diagnostics)
 	diagnostics = append(diagnostics, Diagnostic{
