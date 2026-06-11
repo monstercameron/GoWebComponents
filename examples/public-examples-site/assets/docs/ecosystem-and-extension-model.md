@@ -595,4 +595,4 @@ That rule keeps the ecosystem story consistent with the broader framework direct
 - [API_POLICY.md](api-stability-and-support-policy.md)
 - [HEAD_MANAGEMENT.md](head-management-and-seo-surface.md)
 - [ASSETS.md](assets.md)
-- [TODO.md](gowebcomponents-todo.md)
+- [TODO.md](gowebcomponents-todo.md) public mirror; repo-root `todos.md` is canonical

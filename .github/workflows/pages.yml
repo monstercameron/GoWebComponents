@@ -29,7 +29,7 @@ jobs:
           go-version: '1.25.4'
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Build Example WASM Files
         shell: pwsh
@@ -52,25 +52,16 @@ jobs:
             Copy-Item (Join-Path $examplesDir $exampleDir) $pagesDir -Recurse -Force
           }
 
-          @'
-          <!doctype html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8">
-              <meta http-equiv="refresh" content="0; url=./public-examples-site/index.html">
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>GoWebComponents Docs</title>
-            </head>
-            <body>
-              <p>Redirecting to <a href="./public-examples-site/index.html">the docs site</a>...</p>
-            </body>
-          </html>
-          '@ | Set-Content -Path (Join-Path $pagesDir 'index.html')
-
           New-Item -ItemType File -Path (Join-Path $pagesDir '.nojekyll') | Out-Null
 
+      - name: Generate Static Docs Site
+        shell: pwsh
+        run: |
+          go run ./tools/sitegen -root . -out .pages
+          if ($LASTEXITCODE -ne 0) { throw "sitegen failed" }
+
       - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: .pages
 
@@ -83,4 +74,4 @@ jobs:
     steps:
       - name: Deploy To GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

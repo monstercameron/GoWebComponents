@@ -4,7 +4,8 @@ This backlog tracks missing, incomplete, or experimental framework capabilities 
 
 ## At A Glance
 
-- This file is the active framework backlog, not a changelog and not end-user documentation.
+- This file is the public documentation mirror of the framework backlog, not a changelog and not end-user documentation.
+- The canonical active backlog and priority markers now live in the repo-root `todos.md`.
 - Open work stays near the top so current priorities are visible without digging through completed history.
 - The backlog mixes product-surface gaps, documentation gaps, runtime follow-up, and ecosystem maturity work because all of them affect framework readiness.
 - Completed items should remain concise proof of shipped direction, not become the dominant content of the file.
@@ -1247,8 +1248,8 @@ Organization rules for this file:
 	`docs/PRERENDER.md` now records the intended split between fully static pages, fully hydrated pages, and future selective activation, while keeping prerendered resume on the normal hydration contract.
 - [ ] Define a first-class islands or selective-hydration model.
 	Move beyond future-looking notes by specifying the ownership model for static regions versus selectively activated islands, how island boundaries compose with routing and async boundaries, and what guarantees remain for SSR and hydration correctness.
-- [ ] Add one islands-style reference example and budget-driven validation.
-	Ship a content-heavy page or marketing-style route that hydrates only selected interactive regions, then measure startup, hydration, and interaction costs so selective activation is evaluated as a real product feature instead of a design note.
+- [x] Add one islands-style reference example.
+	`examples/public/static-islands` is now the reference example seed. Keep budget-driven validation and the first-class selective-hydration API in the canonical repo-root `todos.md` item for selective / progressive hydration instead of duplicating a second public TODO.
 - [x] Add invalidation and rebuild guidance for prerendered content.
 	`docs/PRERENDER.md` now defines the intended rebuild triggers for route content, shared layouts, asset manifests, and expanded route data in local development and CI.
 - [ ] Add a first-party static export example.
@@ -1282,7 +1283,7 @@ Organization rules for this file:
 - [x] Publish an explicit browser support matrix.
 	List the minimum supported desktop and mobile browsers, including Safari and mobile Safari expectations, so adopters know which environments the runtime and examples are expected to work in.
 - [x] Define the required browser feature baseline for the wasm runtime.
-	Document which web platform features are assumed by core packages, router behavior, fetch helpers, workers, devtools, and SSR hydration so compatibility is based on concrete capabilities rather than vague Ã¢â‚¬Å“modern browserÃ¢â‚¬Â language.
+	Document which web platform features are assumed by core packages, router behavior, fetch helpers, workers, devtools, and SSR hydration so compatibility is based on concrete capabilities rather than vague "modern browser" language.
 - [x] Define the project stance on polyfills and shims.
 	`docs/BROWSER_SUPPORT.md` now defines the no-framework-polyfill stance, the application-owned compatibility boundary, and how new feature dependencies should be communicated.
 - [x] Add progressive-enhancement boundaries for partial support cases.
@@ -1487,7 +1488,7 @@ Organization rules for this file:
 	Let `gwc start` and `gwc doctor` verify Go, browser-test dependencies, and runtime assets early, then optionally run project initialization steps such as `go mod tidy` and first-build asset copying after scaffold generation.
 - [x] Document environment prerequisites and platform expectations clearly.
 	`docs/ONBOARDING.md` now defines the intended Go, Node, browser, and Windows/macOS/Linux baseline in one place and points to the browser support contract where relevant.
-- [x] Add a Ã¢â‚¬Å“choose your pathÃ¢â‚¬Â onboarding flow for new adopters.
+- [x] Add a "choose your path" onboarding flow for new adopters.
 	`docs/ONBOARDING.md` now defines the intended path chooser for client-rendered, routed, SSR, forms-heavy, and static/prerender-oriented adoption modes.
 
 ### Build feedback loop ergonomics
@@ -2157,7 +2158,7 @@ Organization rules for this file:
 
 - [ ] Add richer component-stack and failure context for runtime errors.
 	Include component ancestry, route context, active async resource state, and hydration phase details when render, effect, loader, or interop failures are reported.
-- [ ] Add a Ã¢â‚¬Å“why did this rerender?Ã¢â‚¬Â inspection surface.
+- [ ] Add a "why did this rerender?" inspection surface.
 	The current devtools baseline already shows the committed tree, hook summaries, route inspection, cache inspection, diagnostics, and profiling hotspots; add causal rerender attribution on top of that baseline so developers can see whether a rerender was triggered by props, local state, context, atoms, route changes, loader updates, or parent rerenders.
 - [ ] Add hook-slot and state-transition inspection.
 	Deepen the existing hook-summary view into selected-component inspection that exposes current hook values, dependency snapshots, recent transitions, and effect lifecycle state during development.

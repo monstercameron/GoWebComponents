@@ -131,14 +131,14 @@ jobs:
           echo "archive_name=${archive_name}" >> "$GITHUB_OUTPUT"
 
       - name: Generate Build Provenance
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             ${{ steps.archive.outputs.archive_name }}
             ${{ steps.archive.outputs.archive_name }}.sha256
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           name: ${{ steps.tag.outputs.release_tag }}

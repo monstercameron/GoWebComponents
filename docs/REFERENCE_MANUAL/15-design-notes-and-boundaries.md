@@ -40,7 +40,7 @@ Use these tiers when deciding what your app can rely on:
 
 | Tier | Meaning | Current examples | Change policy |
 | --- | --- | --- | --- |
-| `Stable` | long-term production surface in core | `ui`, `html`, `state`, `fetch`, `router`, documented SSR and hydration entrypoints | breaking changes only in major releases with migration guidance |
+| `Stable` | long-term production surface in core | `ui`, `html`, `state`, `fetch`, `flags`, `router`, documented SSR and hydration entrypoints | breaking changes only in major releases with migration guidance |
 | `Supported companion` | production-safe integration surface outside the smallest core | `devtools`, `head`, `plugin` | major-version breaking changes only; additive diagnostics or fields may grow in minor releases |
 | `Experimental` | public and usable, but still proving shape or lifecycle | transitions, deferred values, async boundaries, `fetch.UseCachedResource`, advanced router loaders or guards, alternative bootstrap transports, compiler-assisted experiments | shape may change in minor releases with release notes and migration guidance |
 | `Internal` | unsupported implementation detail or repo-only helper | `internal/*`, example glue, runtime internals, repo tooling harnesses | no semver promise for consumer apps |

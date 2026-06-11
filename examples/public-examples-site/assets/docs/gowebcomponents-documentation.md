@@ -47,7 +47,7 @@ Jump directly to these when you already know the question category:
 - `api-stability-and-support-policy.md`: stability tiers, semver rules, deprecation lifecycle, and support expectations.
 - `ecosystem-and-extension-model.md`: current stance on plugins, directives, companion packages, and extension lifecycle boundaries.
 - `migration-guide.md`: release-to-release upgrade guidance for the current package layout.
-- `gowebcomponents-todo.md`: current project backlog and near-term work.
+- `gowebcomponents-todo.md`: public backlog mirror; the repo-root `todos.md` is canonical for current priorities and near-term work.
 - `documentation-push-todo.md`: documentation-program backlog for repo-wide coverage, API mapping, and cross-linking.
 
 ### Runtime, Rendering, And State

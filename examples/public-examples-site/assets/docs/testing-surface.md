@@ -153,7 +153,7 @@ The testing companion surface owns consumer ergonomics for:
 
 ## Implementation Order
 
-The remaining backlog in [TODO.md](gowebcomponents-todo.md) should build this surface in this order:
+The remaining backlog should build this surface in this order; use the repo-root `todos.md` as the canonical active backlog and [TODO.md](gowebcomponents-todo.md) as the public mirror:
 
 1. `test/render` plus shared deterministic flush helpers
 2. accessibility-first query semantics and example tests
@@ -166,5 +166,5 @@ The remaining backlog in [TODO.md](gowebcomponents-todo.md) should build this su
 - [WORKFLOWS.md](common-workflows.md#test-a-component-or-app-flow)
 - [ADOPTION.md](adoption-baseline.md#2-testing-recipe)
 - [ECOSYSTEM.md](ecosystem-and-extension-model.md)
-- [TODO.md](gowebcomponents-todo.md)
+- [TODO.md](gowebcomponents-todo.md) public mirror; repo-root `todos.md` is canonical
 - [../test/README.md](../test/README.md)

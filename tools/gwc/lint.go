@@ -54,6 +54,7 @@ type lintConfig struct {
 	disableLinters []string
 	noConfig       bool
 	fastOnly       bool
+	skipHookRules  bool
 	json           bool
 	resolution     map[string]string
 }
@@ -84,6 +85,7 @@ type lintSummary struct {
 	Paths          []string          `json:"paths"`
 	ConfigPath     string            `json:"configPath,omitempty"`
 	NoConfig       bool              `json:"noConfig,omitempty"`
+	HookRules      bool              `json:"hookRules"`
 	ReportPath     string            `json:"reportPath,omitempty"`
 	DurationMs     int64             `json:"durationMs"`
 	IssueCount     int               `json:"issueCount"`
@@ -104,6 +106,7 @@ func (parseL launcher) runLint(parseArgs []string) error {
 	parseReportPath := parseFs.String("out", "", "Optional path to write the rendered report")
 	parseTimeout := parseFs.String("timeout", "", "Optional golangci-lint timeout such as 2m or 30s")
 	parseFastOnly := parseFs.Bool("fast-only", false, "Run only fast linters")
+	parseSkipHookRules := parseFs.Bool("skip-hook-rules", false, "Disable built-in GWC hook call-order checks")
 	parseJSON := parseFs.Bool("json", false, "Emit a machine-readable JSON report")
 	var parsePaths stringListFlag
 	var parseEnableLinters stringListFlag
@@ -129,6 +132,7 @@ func (parseL launcher) runLint(parseArgs []string) error {
 		disableLinters: parseDisableLinters.Values(),
 		noConfig:       *parseNoConfig,
 		fastOnly:       *parseFastOnly,
+		skipHookRules:  *parseSkipHookRules,
 		json:           *parseJSON,
 	})
 	if parseErr != nil {
@@ -242,6 +246,7 @@ func parseLintConfig(parseConfig lintConfig) (lintConfig, error) {
 	parseResolved.enableLinters = parseLintList(parseConfig.enableLinters)
 	parseResolved.disableLinters = parseLintList(parseConfig.disableLinters)
 	parseResolved.fastOnly = parseConfig.fastOnly
+	parseResolved.skipHookRules = parseConfig.skipHookRules
 	parseResolved.json = parseConfig.json
 	return parseResolved, nil
 }
@@ -335,10 +340,18 @@ func buildLintSummary(parseConfig lintConfig) (lintSummary, bool, error) {
 	if parseErr != nil {
 		return lintSummary{}, false, fmt.Errorf("parse golangci-lint JSON output: %w", parseErr)
 	}
+	if !parseConfig.skipHookRules {
+		parseHookIssues, parseErr2 := collectLintHookRuleIssues(parseConfig.rootPath, parseConfig.paths)
+		if parseErr2 != nil {
+			return lintSummary{}, false, parseErr2
+		}
+		parseIssues = append(parseIssues, parseHookIssues...)
+		sortLintIssues(parseIssues)
+	}
 	parseConfigPath := parseLintActiveConfigPath(parseConfig, parseExecutablePath, parseMajorVersion)
 	parseLinterCounts, parseSeverityCounts := buildLintCounts(parseIssues)
 	parseSummary := lintSummary{
-		OK:             parseResult.exitCode == 0,
+		OK:             parseResult.exitCode == 0 && len(parseIssues) == 0,
 		Tool:           "golangci-lint",
 		ToolPath:       parseExecutablePath,
 		ToolVersion:    parseToolVersion,
@@ -347,6 +360,7 @@ func buildLintSummary(parseConfig lintConfig) (lintSummary, bool, error) {
 		Paths:          append([]string(nil), parseConfig.paths...),
 		ConfigPath:     parseConfigPath,
 		NoConfig:       parseConfig.noConfig,
+		HookRules:      !parseConfig.skipHookRules,
 		DurationMs:     parseDuration.Milliseconds(),
 		IssueCount:     len(parseIssues),
 		Issues:         parseIssues,
@@ -354,7 +368,7 @@ func buildLintSummary(parseConfig lintConfig) (lintSummary, bool, error) {
 		SeverityCounts: parseSeverityCounts,
 		Resolution:     cloneResolutionTrace(parseConfig.resolution),
 	}
-	return parseSummary, parseResult.exitCode == 1, nil
+	return parseSummary, parseResult.exitCode == 1 || len(parseIssues) > 0, nil
 }
 
 // resolveLintExecutablePath resolves golangci-lint and installs it when the default tool is missing.
@@ -608,6 +622,12 @@ func parseLintIssues(parseOutput string, parseRootPath string) ([]lintIssueRecor
 		}
 		parseIssues = append(parseIssues, parseLintIssueRecord(parseIssueMap, parseRootPath))
 	}
+	sortLintIssues(parseIssues)
+	return parseIssues, nil
+}
+
+// sortLintIssues applies the stable lint issue ordering used by reports.
+func sortLintIssues(parseIssues []lintIssueRecord) {
 	sort.Slice(parseIssues, func(parseI int, parseJ int) bool {
 		parseLeft := parseIssues[parseI]
 		parseRight := parseIssues[parseJ]
@@ -625,7 +645,6 @@ func parseLintIssues(parseOutput string, parseRootPath string) ([]lintIssueRecor
 		}
 		return parseLeft.Message < parseRight.Message
 	})
-	return parseIssues, nil
 }
 
 // parseLintIssueRecord translates one raw golangci-lint issue into launcher metadata.
@@ -764,6 +783,11 @@ func formatLintReport(parseSummary lintSummary) string {
 		parseBuilder.WriteString(fmt.Sprintf("  config:       %s\n", parseSummary.ConfigPath))
 	default:
 		parseBuilder.WriteString("  config:       <auto>\n")
+	}
+	if parseSummary.HookRules {
+		parseBuilder.WriteString("  hook rules:   enabled\n")
+	} else {
+		parseBuilder.WriteString("  hook rules:   disabled\n")
 	}
 	parseBuilder.WriteString(fmt.Sprintf("  duration:     %dms\n", parseSummary.DurationMs))
 	parseBuilder.WriteString(fmt.Sprintf("  issues:       %d\n", parseSummary.IssueCount))

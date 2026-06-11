@@ -4,6 +4,7 @@
 //   - UseFetch for low-level fetch state around a URL and browser-style refetching
 //   - UseResource for typed, context-aware async loading in non-trivial components
 //   - UseCachedResource for shared cached async state with deduplication and invalidation
+//   - UseWebSocket and UseEventSource for bounded browser realtime streams
 //   - OpenMutationQueue for durable offline write replay in browser storage
 //
 // UseResource is the preferred choice when callers want typed results,
@@ -43,6 +44,8 @@
 //   - UseFetch: Hook for manual raw fetch state management via a handle
 //   - UseResource: Typed async resource hook for context-aware loaders
 //   - UseCachedResource: Shared typed cache hook with stale-while-revalidate behavior
+//   - UseWebSocket: Bounded WebSocket hook with reconnect, backoff, and optional heartbeat
+//   - UseEventSource: Bounded EventSource hook with reconnect, backoff, and heartbeat timeout tracking
 //   - OpenMutationQueue: Durable queued write storage plus replay helpers for offline workflows
 //   - Fetch: Low-level fetch function returning a channel for manual control
 //
@@ -60,6 +63,12 @@
 //   - Accepts a stable cache key plus a loader of type func(context.Context) (T, error)
 //   - Returns a typed handle with Get, Reload, Cancel, Invalidate, Set, and Update methods
 //   - Reuses cached values across components, deduplicates in-flight reloads, and keeps ready data visible during background refreshes
+//
+// The realtime hooks:
+//   - Return handles with bounded RealtimeState snapshots
+//   - Keep only the newest MaxMessages and MaxErrors entries
+//   - Reconnect with capped exponential backoff
+//   - Compile on non-browser targets with RealtimeUnsupported state
 //
 // For more control, use the Fetch function directly:
 //

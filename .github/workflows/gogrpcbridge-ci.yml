@@ -40,12 +40,12 @@ jobs:
 
     steps:
       - name: Checkout repository with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
 
@@ -61,12 +61,12 @@ jobs:
 
     steps:
       - name: Checkout repository with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
 
@@ -94,12 +94,12 @@ jobs:
 
     steps:
       - name: Checkout repository with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
 
@@ -114,12 +114,12 @@ jobs:
 
     steps:
       - name: Checkout repository with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
 
@@ -132,12 +132,12 @@ jobs:
 
     steps:
       - name: Checkout repository with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
 
@@ -154,12 +154,12 @@ jobs:
 
     steps:
       - name: Checkout repository with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
 
@@ -181,12 +181,12 @@ jobs:
 
     steps:
       - name: Checkout repository with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
 
@@ -204,7 +204,7 @@ jobs:
 
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
 
@@ -251,12 +251,12 @@ jobs:
 
     steps:
       - name: Checkout repository with submodules
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
 
@@ -265,7 +265,7 @@ jobs:
 
       - name: Upload benchmark trend summary
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gogrpcbridge-benchmark-trend
           path: third_party/GoGRPCBridge/bin/quality/trend.json

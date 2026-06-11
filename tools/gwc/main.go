@@ -800,7 +800,7 @@ func printUsage() {
 	fmt.Println("  dev        Run the native gwc dev orchestration path with integrated livereload runtime")
 	fmt.Println("  serve      Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures")
 	fmt.Println("  files      List project files with repeatable extension and directory filters")
-	fmt.Println("  lint       Run golangci-lint, capture structured findings, and render a text or JSON review report (review alias supported)")
+	fmt.Println("  lint       Run golangci-lint plus built-in GWC hook rules, then render a text or JSON review report (review alias supported)")
 	fmt.Println("  init       Non-interactive project initialization that writes gwc-start.json and lifecycle defaults")
 	fmt.Println("  inspect    Build higher-level route, dependency, ownership, and file-type project reports")
 	fmt.Println("  upgrade    Non-interactive lifecycle upgrade for gwc-start.json schema and runtime assets")

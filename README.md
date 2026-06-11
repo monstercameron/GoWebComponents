@@ -34,6 +34,7 @@ Import public packages from the module path exactly as declared in `go.mod`:
 ```go
 import (
   "github.com/monstercameron/GoWebComponents/fetch"
+  "github.com/monstercameron/GoWebComponents/flags"
   "github.com/monstercameron/GoWebComponents/hotreload"
   "github.com/monstercameron/GoWebComponents/html"
     . "github.com/monstercameron/GoWebComponents/html/shorthand"
@@ -48,7 +49,7 @@ Requirements:
 - Go 1.25+
 - A browser with WebAssembly support
 
-The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and `hotreload`.
+The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `state`, `fetch`, `flags`, `router`, `devtools`, and `hotreload`.
 
 The repo-standard workflow uses the `gwc` runner under `tools/gwc`. See [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md) for the canonical launcher guide.
 
@@ -70,7 +71,7 @@ For standalone wasm apps that want state-preserving reload, enable `hotreload.En
 Use these entry docs instead of wandering the tree blindly:
 
 - Library user: [docs/REFERENCE_MANUAL/README.md](docs/REFERENCE_MANUAL/README.md) and [docs/REFERENCE_MANUAL/01-getting-started.md](docs/REFERENCE_MANUAL/01-getting-started.md)
-- Package author working in public APIs: [ui/README.md](ui/README.md), [html/README.md](html/README.md), [state/README.md](state/README.md), [fetch/README.md](fetch/README.md), [router/README.md](router/README.md)
+- Package author working in public APIs: [ui/README.md](ui/README.md), [html/README.md](html/README.md), [state/README.md](state/README.md), [fetch/README.md](fetch/README.md), [flags/README.md](flags/README.md), [router/README.md](router/README.md)
 - Framework contributor: [internal/README.md](internal/README.md), [internal/runtime/README.md](internal/runtime/README.md), [internal/platform/README.md](internal/platform/README.md), [internal/runtime2/README.md](internal/runtime2/README.md)
 - Tooling contributor: [tools/README.md](tools/README.md), [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md), [tools/gwc/docs/README.md](tools/gwc/docs/README.md)
 - Example explorer: [examples/README.md](examples/README.md)
@@ -80,7 +81,7 @@ Use these entry docs instead of wandering the tree blindly:
 
 If you are contributing to the repo rather than just consuming the module, use this map first:
 
-- `ui/`, `html/`, `state/`, `fetch/`, `router/`: primary public library packages
+- `ui/`, `html/`, `state/`, `fetch/`, `flags/`, `router/`: primary public library packages
 - `devtools/`, `head/`, `hotreload/`, `i18n/`, `logging/`, `plugin/`, `prerender/`, `pwa/`, `virtualization/`: companion public packages
 - `internal/platform/`, `internal/runtime/`, `internal/runtime2/`: platform adapters and runtime internals
 - `testkit/`: reusable consumer-facing test helpers
@@ -235,7 +236,8 @@ The preferred public surface is:
 - `html`: stable typed HTML builders and DOM prop metadata
 - `html/shorthand`: mixed-argument authoring sugar, helper funcs, and dot-import-friendly host tags layered on `html`
 - `state`: atom-based shared state, derived state, computed values, and snapshot helpers
-- `fetch`: browser fetch helpers, typed resources, and imperative fetch flows
+- `fetch`: browser fetch helpers, typed resources, realtime hooks, and imperative fetch flows
+- `flags`: browser-visible feature flag and deterministic experiment helpers
 - `router`: hash routing, browser routing, params, query helpers, redirects, loaders, guards, metadata, nested layouts, and hydration-aware mount helpers
 - `devtools`: embeddable inspection, diagnostics, profiling hints, and snapshots
 - `head`: optional companion SSR head composition helpers for router metadata, social tags, robots tags, JSON-LD, alternate locale links, and resource hints
@@ -253,7 +255,7 @@ The preferred public surface is:
 ### State and Data
 
 - Shared atom-based state with subscriptions, derived atoms, computed values, snapshot export or import, and optional browser-storage restore flows
-- Fetch helpers including low-level `UseFetch`, typed `UseResource[T]`, and imperative `Fetch(...)`
+- Fetch helpers including low-level `UseFetch`, typed `UseResource[T]`, realtime `UseWebSocket` / `UseEventSource`, and imperative `Fetch(...)`
 
 ### Routing
 
@@ -406,7 +408,7 @@ Generated wasm binaries and local browser-compiler package archives should stay 
 Current repo state as reflected in the codebase:
 
 - Core runtime lives in `internal/runtime/`
-- Preferred public packages are `ui`, `html`, `html/shorthand`, `state`, `fetch`, `router`, `devtools`, and `hotreload`
+- Preferred public packages are `ui`, `html`, `html/shorthand`, `state`, `fetch`, `flags`, `router`, `devtools`, and `hotreload`
 - Example and test fixture code now builds through current `ui`/`html` bridge helpers and shorthand sugar instead of older compatibility layers
 - Native `internal/runtime` statement coverage is `100%`
 - Native runtime tests pass with `go test ./internal/runtime`

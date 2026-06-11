@@ -8,6 +8,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	extast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/text"
 )
 
@@ -52,7 +54,7 @@ func RenderMarkdown(parseMarkdown string, parseOptions ...MarkdownRenderOptions)
 		parseConfig = parseOptions[0]
 	}
 	parseSource := []byte(parseMarkdown)
-	parseRoot := goldmark.New().Parser().Parse(text.NewReader(parseSource))
+	parseRoot := goldmark.New(goldmark.WithExtensions(extension.Table)).Parser().Parse(text.NewReader(parseSource))
 	return renderMarkdownBlocks(parseRoot, parseSource, parseConfig)
 }
 
@@ -142,6 +144,8 @@ func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig Mar
 		return renderMarkdownCodeBlock(strings.TrimRight(markdownLinesText(parseTyped.Lines(), parseSource), "\n"), parseConfig), true
 	case *ast.ThematicBreak:
 		return Hr(propsWithClass(parseClasses.HorizontalRule)), true
+	case *extast.Table:
+		return renderMarkdownTable(parseTyped, parseSource, parseConfig), true
 	default:
 		parseTextValue := strings.TrimSpace(markdownPlainText(parseNode, parseSource))
 		if parseTextValue == "" {
@@ -149,6 +153,41 @@ func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig Mar
 		}
 		return P(propsWithClass(parseClasses.Paragraph), Text(parseTextValue)), true
 	}
+}
+
+// renderMarkdownTable converts a GFM table into thead/tbody markup.
+func renderMarkdownTable(parseTable *extast.Table, parseSource []byte, parseConfig MarkdownRenderOptions) ui.Node {
+	var parseHeadRows []ui.Node
+	var parseBodyRows []ui.Node
+	for parseChild := parseTable.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
+		switch parseRow := parseChild.(type) {
+		case *extast.TableHeader:
+			parseHeadRows = append(parseHeadRows, renderMarkdownTableRow(parseRow, parseSource, parseConfig, true))
+		case *extast.TableRow:
+			parseBodyRows = append(parseBodyRows, renderMarkdownTableRow(parseRow, parseSource, parseConfig, false))
+		}
+	}
+	parseSections := make([]ui.Node, 0, 2)
+	if len(parseHeadRows) > 0 {
+		parseSections = append(parseSections, Tag("thead", Props{}, parseHeadRows...))
+	}
+	if len(parseBodyRows) > 0 {
+		parseSections = append(parseSections, Tag("tbody", Props{}, parseBodyRows...))
+	}
+	return Tag("table", Props{}, parseSections...)
+}
+
+// renderMarkdownTableRow converts one table row's cells into th/td nodes.
+func renderMarkdownTableRow(parseRow ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, isParseHeader bool) ui.Node {
+	parseCellTag := "td"
+	if isParseHeader {
+		parseCellTag = "th"
+	}
+	var parseCells []ui.Node
+	for parseCell := parseRow.FirstChild(); parseCell != nil; parseCell = parseCell.NextSibling() {
+		parseCells = append(parseCells, Tag(parseCellTag, Props{}, renderMarkdownInlines(parseCell, parseSource, parseConfig)...))
+	}
+	return Tag("tr", Props{}, parseCells...)
 }
 
 // renderMarkdownCodeBlock is a core package helper.

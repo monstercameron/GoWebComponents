@@ -31,6 +31,7 @@ Important boundary:
 | `html/shorthand` | core companion | mixed-argument host tag wrappers over `html` | [05](05-html-authoring.md) |
 | `state` | core | shared atoms, selectors, derived values, snapshots | [06](06-state-and-reactivity.md) |
 | `fetch` | core | typed resources, shared cache, mutation queue, uploads | [07](07-data-loading-and-mutations.md) |
+| `flags` | core | browser-visible feature flags and deterministic experiment assignment | [15](15-design-notes-and-boundaries.md) |
 | `router` | core | routers, route contracts, params, guards, metadata | [08](08-routing.md) |
 | `interop` | core | browser APIs, workers, storage, channels, JS bridges | [10](10-browser-interop-and-workers.md) |
 | `i18n` | companion | locale state, translation catalogs, formatting, locale routing | [11](11-forms-accessibility-and-i18n.md) |
@@ -199,6 +200,7 @@ Source anchors:
 - [fetch/cache.go](../../fetch/cache.go)
 - [fetch/cache_persistent.go](../../fetch/cache_persistent.go)
 - [fetch/mutation_queue.go](../../fetch/mutation_queue.go)
+- [fetch/realtime.go](../../fetch/realtime.go)
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -207,6 +209,7 @@ Source anchors:
 | `UseCachedResource`, `InvalidateResource`, `DisposeResource`, `InspectCachedResources`, `SweepCachedResources`, `LoadCached`, `ConfigurePersistentCache`, `RestoreCacheBootstrap` | shared cached async state, invalidation, resume and inspection | [`CachedResource[T]`](../../fetch/cache.go), [`CachedResourceState[T]`](../../fetch/cache.go), [`CacheOptions`](../../fetch/cache.go), [`PersistentCacheOptions`](../../fetch/cache_persistent.go), [`CacheBootstrap`](../../fetch/cache_persistent.go) | `orders := fetch.UseCachedResource("orders:list", loadOrders)` |
 | `Fetch`, `Upload`, `ReturnChannel` | low-level request and upload primitives | [`Options`](../../fetch/fetch.go), [`Result`](../../fetch/fetch.go), [`UploadUpdate`](../../fetch/fetch.go), [`MultipartBody`](../../fetch/fetch.go), [`MultipartFile`](../../fetch/fetch.go) | `resultCh := fetch.Fetch("/api/export", fetch.Options{Method: "POST"})` |
 | `OpenMutationQueue`, `NewMutationConflict`, `GetMutationConflict`, `AsMutationConflictError`, `IsMutationConflict` | durable offline write replay and conflict handling | [`MutationQueue`](../../fetch/mutation_queue.go), [`MutationQueueOptions`](../../fetch/mutation_queue.go), [`MutationDraft`](../../fetch/mutation_queue.go), [`QueuedMutation`](../../fetch/mutation_queue.go), [`MutationReplayOptions`](../../fetch/mutation_queue.go), [`MutationConflict`](../../fetch/mutation_queue.go), [`MutationConflictResolution`](../../fetch/mutation_queue.go) | `queue, err := fetch.OpenMutationQueue()` |
+| `UseWebSocket`, `UseEventSource` | bounded browser realtime streams with reconnect, backoff, and heartbeat state | [`WebSocket`](../../fetch/realtime.go), [`WebSocketOptions`](../../fetch/realtime.go), [`EventSource`](../../fetch/realtime.go), [`EventSourceOptions`](../../fetch/realtime.go), [`RealtimeState`](../../fetch/realtime.go) | `socket := fetch.UseWebSocket("wss://example.test/live")` |
 
 Key fetch objects:
 
@@ -214,10 +217,25 @@ Key fetch objects:
 - [`AsyncResource[T]`](../../fetch/fetch.go): `Get`, `Reload`, `Cancel`
 - [`CachedResource[T]`](../../fetch/cache.go): `Get`, `Reload`, `Cancel`, `Invalidate`, `Dispose`, `Set`, `Update`
 - [`MutationQueue`](../../fetch/mutation_queue.go): `Enqueue`, `List`, `Remove`, `Clear`, `Replay`, `ReplayWithOptions`
+- [`WebSocket`](../../fetch/realtime.go): `Get`, `Open`, `Close`, `Send`
+- [`EventSource`](../../fetch/realtime.go): `Get`, `Open`, `Close`
 
 Constants and keys:
 
 - `CacheBootstrapDataKey`
+
+## flags
+
+Import with `import "github.com/monstercameron/GoWebComponents/flags"`.
+
+Use this package only for evaluated, non-secret decisions that are safe for
+browser-visible state.
+
+| Surface | Use it for | Parameter objects / handles | Call shape |
+| --- | --- | --- | --- |
+| `BuildSet`, `GetFlag`, `GetEnabled`, `GetValue` | browser-visible feature flag evaluation | [`Set`](../../flags/flags.go), [`Flag`](../../flags/flags.go) | `enabled := flagSet.GetEnabled("new-nav", false)` |
+| `GetAssignment` | deterministic weighted experiment assignment | [`Experiment`](../../flags/flags.go), [`Variant`](../../flags/flags.go), [`Assignment`](../../flags/flags.go) | `assignment := flagSet.GetAssignment("pricing-copy", userID)` |
+| `UseRegistry`, `UseFlag`, `UseExperiment` | hook-backed shared flag and experiment reads | [`Registry`](../../flags/flags.go), [`FlagHandle`](../../flags/flags.go), [`ExperimentHandle`](../../flags/flags.go) | `flag := flags.UseFlag("new-nav", false)` |
 
 ## router
 
