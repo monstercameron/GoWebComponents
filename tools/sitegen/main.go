@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,12 +28,33 @@ var siteJS string
 func main() {
 	parseRepoRoot := flag.String("root", ".", "repository root")
 	parseOutDir := flag.String("out", "examples/site-dist", "output directory for the generated site")
+	parseServeAddr := flag.String("serve", "", "after generating, serve the site locally on this address (e.g. 127.0.0.1:8090)")
 	flag.Parse()
 
 	if parseErr := generateSite(*parseRepoRoot, *parseOutDir); parseErr != nil {
 		fmt.Fprintln(os.Stderr, "sitegen:", parseErr)
 		os.Exit(1)
 	}
+	if *parseServeAddr != "" {
+		if parseErr := servePreview(*parseRepoRoot, *parseOutDir, *parseServeAddr); parseErr != nil {
+			fmt.Fprintln(os.Stderr, "sitegen:", parseErr)
+			os.Exit(1)
+		}
+	}
+}
+
+// servePreview hosts the generated site with the same path layout as the
+// GitHub Pages deployment: the catalog app and shared static assets are
+// mounted beside the prerendered pages.
+func servePreview(parseRepoRoot string, parseOutDir string, parseAddr string) error {
+	parseMux := http.NewServeMux()
+	parseMux.Handle("/public-examples-site/", http.StripPrefix("/public-examples-site/",
+		http.FileServer(http.Dir(filepath.Join(parseRepoRoot, "examples", "public-examples-site")))))
+	parseMux.Handle("/static/", http.StripPrefix("/static/",
+		http.FileServer(http.Dir(filepath.Join(parseRepoRoot, "examples", "static")))))
+	parseMux.Handle("/", http.FileServer(http.Dir(parseOutDir)))
+	fmt.Printf("sitegen: serving site at http://%s/\n", parseAddr)
+	return http.ListenAndServe(parseAddr, parseMux)
 }
 
 // generateSite renders every static page and writes site assets.
