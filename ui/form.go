@@ -6,6 +6,8 @@ package ui
 import (
 	"reflect"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 type FieldErrors map[string]string
@@ -470,6 +472,7 @@ func (parseF Form[T]) ValidateAsync(parseValidate func(T) (FieldErrors, string),
 	})
 
 	go func(parseValue T, parseExpectedSeq int) {
+		defer runtime.RecoverContainedPanic("ui", "UseForm validator")
 		parseErrors, parseFormError := parseValidate(parseValue)
 		isParseValid := len(parseErrors) == 0 && parseFormError == ""
 		parseF.state.Update(func(parsePrev2 formState[T]) formState[T] {
@@ -503,6 +506,7 @@ func (parseF Form[T]) Submit(parseRun func(T) error) {
 		return parsePrev
 	})
 	go func(parseValue T) {
+		defer runtime.RecoverContainedPanic("ui", "UseForm submit runner")
 		parseErr := parseRun(parseValue)
 		parseF.state.Update(func(parsePrev2 formState[T]) formState[T] {
 			parsePrev2.submitting = false
@@ -535,6 +539,7 @@ func (parseF Form[T]) SubmitWithIntent(parseIntent string, parseRun func(T, stri
 		return parsePrev
 	})
 	go func(parseValue T, parseActiveIntent string) {
+		defer runtime.RecoverContainedPanic("ui", "UseForm intent runner")
 		parseErr := parseRun(parseValue, parseActiveIntent)
 		parseF.state.Update(func(parsePrev2 formState[T]) formState[T] {
 			parsePrev2.submitting = false

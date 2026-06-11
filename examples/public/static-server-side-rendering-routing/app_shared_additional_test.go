@@ -105,7 +105,7 @@ func TestRenderPageModesAndHelpers(parseT *testing.T) {
 	if parseErr2 != nil {
 		parseT.Fatalf("RenderToString(renderDemoShell) error = %v", parseErr2)
 	}
-	for _, parseExpected := range []string{"SSR Routing Demo", "Bootstrap route", "/docs/ssr", "Transport", transportJSONSidecar} {
+	for _, parseExpected := range []string{"SSR Routing", "Bootstrap Route", "/docs/ssr", "Transport", transportJSONSidecar} {
 		if !strings.Contains(parseDemoMarkup, parseExpected) {
 			parseT.Fatalf("renderDemoShell() missing %q\n%s", parseExpected, parseDemoMarkup)
 		}

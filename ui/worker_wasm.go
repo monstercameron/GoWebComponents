@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 // WorkerTaskState describes the lifecycle of a worker-backed task together with
@@ -73,6 +74,7 @@ func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.W
 		})
 
 		go func(parseRequestPayload Request) {
+			defer runtime.RecoverContainedPanic("ui", "UseWorkerTask request")
 			parseWorkerState := parseWorkerStateRef.Get()
 			var parseWorker interop.Worker
 			for {

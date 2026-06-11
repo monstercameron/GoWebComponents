@@ -255,6 +255,8 @@ func panicDiagnosticCode(parsePhase boundaryPhase) string {
 		return "GWC-RUNTIME-PANIC-DEFERRED"
 	case PanicPhaseSSR:
 		return "GWC-RUNTIME-PANIC-SSR"
+	case PanicPhaseAsync:
+		return "GWC-RUNTIME-PANIC-ASYNC"
 	default:
 		return "GWC-RUNTIME-PANIC"
 	}
@@ -281,6 +283,8 @@ func panicDiagnosticDocs(parsePhase boundaryPhase) string {
 		return actionableErrorsDoc + "#gwc-runtime-panic-deferred"
 	case PanicPhaseSSR:
 		return actionableErrorsDoc + "#gwc-runtime-panic-ssr"
+	case PanicPhaseAsync:
+		return actionableErrorsDoc + "#gwc-runtime-panic-async"
 	default:
 		return actionableErrorsDoc
 	}
@@ -312,6 +316,8 @@ func panicDiagnosticRemediation(parsePhase boundaryPhase) string {
 		return parsePrefix + "inspect the deferred callback or transition work named by where/path first; replace panic-based control flow with explicit errors or guarded branches."
 	case PanicPhaseSSR:
 		return parsePrefix + "inspect the server render path named by where/path first; surface the returned error to the request handler instead of treating it as a transport-level panic."
+	case PanicPhaseAsync:
+		return parsePrefix + "inspect the async task named by where/path first; the panicking goroutine was contained and abandoned, so fix its body to return explicit errors instead of panicking."
 	default:
 		return parsePrefix + "inspect the where/path fields first, then replace panic-based control flow with guarded branches, explicit errors, fallback UI, or a boundary when recovery is expected."
 	}

@@ -233,6 +233,7 @@ func startPersistentCachedRestore(parseKey string, parseEntry *cachedResourceEnt
 	}
 
 	go func(parseDone *cachedResourceWaiters, parseDesiredType reflect.Type) {
+		defer runtime.RecoverContainedPanic("fetch", "persistent cache hydrate")
 		defer parseDone.Close()
 		store, parseErr := openPersistentCacheStore(context.Background())
 		if parseErr == nil {
@@ -321,6 +322,7 @@ func persistCachedSnapshot(parseKey string) {
 	}
 	parseRecord := persistedCachedResource{Value: parseEncoded, UpdatedAt: parseSnapshot.UpdatedAt, LastLoaded: parseLastLoaded}
 	go func() {
+		defer runtime.RecoverContainedPanic("fetch", "persistent cache write")
 		// Skip the write if a newer load has already updated the entry since we
 		// captured the snapshot, to avoid persisting a superseded value.
 		parseEntryRaw, parseStillPresent := cachedResourceRegistry.Load(parseKey)
@@ -356,6 +358,7 @@ func deletePersistentCachedSnapshot(parseKey string) {
 		return
 	}
 	go func() {
+		defer runtime.RecoverContainedPanic("fetch", "persistent cache invalidate")
 		store, parseErr := openPersistentCacheStore(context.Background())
 		if parseErr != nil {
 			return

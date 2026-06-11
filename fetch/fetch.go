@@ -172,6 +172,7 @@ func UseResource[T any](parseLoader func(context.Context) (T, error), parseDeps 
 		})
 
 		go func() {
+			defer runtime.RecoverContainedPanic("fetch", "UseResource loader")
 			parseValue, parseErr := parseLoader(parseCtx)
 			if parseCtx.Err() != nil || parseRequestSeq.Load() != parseSeq {
 				return

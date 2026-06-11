@@ -72,6 +72,7 @@ func awaitValue(parseCtx context.Context, parseOp string, parseTarget string, pa
 		parseReject.Release()
 	}
 	parseResolve = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("awaitValue callback")
 		parseOnce.Do(func() {
 			if len(parseArgs) > 0 {
 				parseResolvedCh <- parseArgs[0]
@@ -83,6 +84,7 @@ func awaitValue(parseCtx context.Context, parseOp string, parseTarget string, pa
 		return nil
 	})
 	parseReject = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		defer RecoverContainedPanic("awaitValue callback")
 		parseOnce.Do(func() {
 			if len(parseArgs2) > 0 {
 				parseRejectedCh <- parseArgs2[0]

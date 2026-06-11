@@ -707,6 +707,7 @@ func startCachedLoad(parseKey string, parseEntry *cachedResourceEntry, parseLoad
 	})
 
 	go func(parseRequestSeq uint64, parseRequestCtx context.Context, parseDone *cachedResourceWaiters) {
+		defer runtime.RecoverContainedPanic("fetch", "cached resource loader")
 		parseValue, parseErr := parseLoader(parseRequestCtx)
 
 		parseEntry.mu.Lock()

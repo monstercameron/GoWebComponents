@@ -7,6 +7,8 @@ import (
 	"context"
 	"reflect"
 	"time"
+
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 // UseDeferredValue keeps returning the last committed value until a transition updates it.
@@ -51,6 +53,7 @@ func UseChannel[T any](parseCh <-chan T) Channel[T] {
 
 		parseStop := make(chan struct{})
 		go func() {
+			defer runtime.RecoverContainedPanic("ui", "UseChannel subscription")
 			for {
 				select {
 				case <-parseStop:
@@ -158,6 +161,7 @@ func UseTask[T any](parseRun func(context.Context) (T, error)) Task[T] {
 		})
 
 		go func() {
+			defer runtime.RecoverContainedPanic("ui", "UseTask runner")
 			parseValue, parseErr := parseRun(parseCtx)
 			if parseCtx.Err() != nil || parseRequestSeq.Get() != parseSeq {
 				return
@@ -245,6 +249,7 @@ func AsyncBoundary(parseProps AsyncBoundaryProps) Node {
 		parseStop := make(chan struct{})
 		if parseProps.Delay > 0 {
 			go func(parseDelay time.Duration) {
+				defer runtime.RecoverContainedPanic("ui", "AsyncBoundary delay timer")
 				parseTimer := time.NewTimer(parseDelay)
 				defer parseTimer.Stop()
 
@@ -262,6 +267,7 @@ func AsyncBoundary(parseProps AsyncBoundaryProps) Node {
 
 		if parseProps.Timeout > 0 {
 			go func(parseTimeout time.Duration) {
+				defer runtime.RecoverContainedPanic("ui", "AsyncBoundary timeout timer")
 				parseTimer2 := time.NewTimer(parseTimeout)
 				defer parseTimer2.Stop()
 
@@ -337,6 +343,7 @@ func UseLazyNode(parseLoader func(context.Context) (Node, error), parseDeps ...i
 		})
 
 		go func() {
+			defer runtime.RecoverContainedPanic("ui", "UseLazyNode loader")
 			parseNode, parseErr := parseLoader(parseCtx)
 			if parseCtx.Err() != nil || parseRequestSeq.Get() != parseSeq {
 				return
@@ -449,6 +456,7 @@ func UseDebounced[T any](parseValue T, parseDelay time.Duration) Debounced[T] {
 
 		parseStop := make(chan struct{})
 		go func(parseNext T, parseExpected int) {
+			defer runtime.RecoverContainedPanic("ui", "UseDebounced timer")
 			parseTimer := time.NewTimer(parseDelay)
 			defer parseTimer.Stop()
 
@@ -530,6 +538,7 @@ func UseThrottled[T any](parseValue T, parseInterval time.Duration) Throttled[T]
 		parseRemaining := parseInterval - parseNow.Sub(parseLastEmit.Get())
 		parseStop := make(chan struct{})
 		go func(parseNext T, parseExpected int, parseWait time.Duration) {
+			defer runtime.RecoverContainedPanic("ui", "UseThrottled timer")
 			parseTimer := time.NewTimer(parseWait)
 			defer parseTimer.Stop()
 

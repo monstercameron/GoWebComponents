@@ -24,6 +24,7 @@ const (
 	PanicPhaseStartup   PanicPhase = "startup"
 	PanicPhaseDeferred  PanicPhase = "deferred"
 	PanicPhaseSSR       PanicPhase = "ssr"
+	PanicPhaseAsync     PanicPhase = "async"
 
 	boundaryPhaseRender  boundaryPhase = PanicPhaseRender
 	boundaryPhaseEffect  boundaryPhase = PanicPhaseEffect

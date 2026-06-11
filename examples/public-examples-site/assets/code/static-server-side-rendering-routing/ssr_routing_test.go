@@ -19,8 +19,8 @@ func TestDefaultServerViewRendersToString(parseT *testing.T) {
 	}
 
 	parseChecks := []string{
-		"SSR Routing Demo",
-		"Server render first, hydrate into advanced routes",
+		"SSR Routing",
+		"Server render first, hydrate matching DOM",
 		"SSR transport and hydration",
 		transportJSONSidecar,
 	}

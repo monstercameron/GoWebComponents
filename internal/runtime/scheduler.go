@@ -95,6 +95,7 @@ func (parseRt *Runtime) continueWorkLoop() {
 				parseFiber = parseRt.hydrationDiagnosticFiber(parseRt.wipRoot)
 			}
 			_, _ = finalizeUnhandledPanicContext("runtime", PanicPhaseDeferred, panicSubject(parseFiber), diagnosticPathForFiber(parseFiber), diagnosticComponentStack(parseFiber), parseRecovered)
+			parseRt.recoverWorkLoopState()
 			return
 		}
 	}()

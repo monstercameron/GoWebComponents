@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 const DefaultCSRFHeaderName = "X-CSRF-Token"
@@ -481,6 +483,7 @@ func (parseF Form[T]) ValidateAsync(parseValidate func(T) (FieldErrors, string),
 	parseF.mu.Unlock()
 
 	go func(parseValue T, parseExpectedSeq int) {
+		defer runtime.RecoverContainedPanic("ui", "UseForm validator")
 		parseErrors, parseFormError := parseValidate(parseValue)
 		isParseValid := len(parseErrors) == 0 && parseFormError == ""
 		parseF.mu.Lock()
@@ -512,6 +515,7 @@ func (parseF Form[T]) Submit(parseRun func(T) error) {
 	parseF.mu.Unlock()
 
 	go func(parseValue T) {
+		defer runtime.RecoverContainedPanic("ui", "UseForm submit runner")
 		parseErr := parseRun(parseValue)
 		parseF.mu.Lock()
 		if parseF.state != nil {
@@ -545,6 +549,7 @@ func (parseF Form[T]) SubmitWithIntent(parseIntent string, parseRun func(T, stri
 	parseF.mu.Unlock()
 
 	go func(parseValue T, parseActiveIntent string) {
+		defer runtime.RecoverContainedPanic("ui", "UseForm intent runner")
 		parseErr := parseRun(parseValue, parseActiveIntent)
 		parseF.mu.Lock()
 		if parseF.state != nil {

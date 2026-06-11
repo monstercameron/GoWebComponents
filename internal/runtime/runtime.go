@@ -34,7 +34,7 @@ func InitGlobalRuntime(parseConfig Config) {
 	globalRuntimeMu.Lock()
 	defer globalRuntimeMu.Unlock()
 
-	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: parseConfig.HideRawPanicOutput, OnReport: parseConfig.OnUnhandledPanicReport})
+	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: configHidesRawPanicOutput(parseConfig), OnReport: parseConfig.OnUnhandledPanicReport})
 
 	if globalRuntime == nil || parseConfig.Reset {
 		globalRuntime = NewRuntime(parseConfig)
@@ -186,18 +186,31 @@ func recordSlowOperationDiagnostic(parseKind string, parseFiber *Fiber, parseDur
 
 // Config holds runtime adapter configuration.
 type Config struct {
-	DOMAdapter             DOMAdapter
-	EventAdapter           EventAdapter
-	Scheduler              Scheduler
-	BrowserState           BrowserState
-	Reset                  bool
-	HideRawPanicOutput     bool
+	DOMAdapter   DOMAdapter
+	EventAdapter EventAdapter
+	Scheduler    Scheduler
+	BrowserState BrowserState
+	Reset        bool
+	// HideRawPanicOutput is deprecated: crash containment (structured report,
+	// no raw rethrow) is now the default. Use ShowRawPanicOutput to opt back
+	// into re-panicking with the raw Go panic output.
+	HideRawPanicOutput bool
+	// ShowRawPanicOutput re-throws contained panics with their raw output
+	// after the structured report. In wasm this kills the page; only enable
+	// it for debugging native test runs.
+	ShowRawPanicOutput     bool
 	OnUnhandledPanicReport func(PanicReport)
+}
+
+// configHidesRawPanicOutput resolves the containment default: panics are
+// contained unless the caller explicitly opts into raw output.
+func configHidesRawPanicOutput(parseConfig Config) bool {
+	return !parseConfig.ShowRawPanicOutput
 }
 
 // NewRuntime creates a new runtime instance.
 func NewRuntime(parseConfig Config) *Runtime {
-	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: parseConfig.HideRawPanicOutput, OnReport: parseConfig.OnUnhandledPanicReport})
+	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: configHidesRawPanicOutput(parseConfig), OnReport: parseConfig.OnUnhandledPanicReport})
 	parseRuntime := &Runtime{}
 	applyRuntimeConfig(parseRuntime, parseConfig)
 	return parseRuntime

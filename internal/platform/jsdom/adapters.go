@@ -651,11 +651,13 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 	switch parseF := parseFn.(type) {
 	case func():
 		return js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			parseF()
 			return nil
 		})
 	case func(string):
 		return js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs2) == 0 {
 				parseF("")
 				return nil
@@ -675,6 +677,7 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 		})
 	case func(js.Value):
 		return js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs3) > 0 {
 				parseF(parseArgs3[0])
 			}
@@ -682,11 +685,13 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 		})
 	case func() error:
 		return js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			parseF()
 			return nil
 		})
 	case func(js.Value) error:
 		return js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs5) > 0 {
 				parseF(parseArgs5[0])
 			}
@@ -694,6 +699,7 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 		})
 	case func(runtime.GoEvent):
 		return js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs6) > 0 {
 				parseF(runtime.NewGoEvent(parseArgs6[0]))
 			}
@@ -701,6 +707,7 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 		})
 	case func(runtime.GoEvent) error:
 		return js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs7) > 0 {
 				parseF(runtime.NewGoEvent(parseArgs7[0]))
 			}
@@ -745,6 +752,7 @@ func (parseH *wasmEventHandler) Release() {
 func (parseA *WASMEventAdapter) CreateEventHandler(parseFn func(runtime.Event)) runtime.EventHandler {
 	// Create a wasmEvent wrapper
 	parseJsFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer runtime.RecoverContainedPanic("dom", "event handler bridge")
 		if len(parseArgs) > 0 {
 			parseEvent := &wasmEvent{value: parseArgs[0]}
 			parseFn(parseEvent)
@@ -857,13 +865,13 @@ func (parseS *WASMScheduler) RequestIdleCallback(parseCallback func(runtime.Dead
 	// Wrap the callback - release after execution
 	var parseJsFn js.Func
 	parseJsFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer parseJsFn.Release()
+		defer runtime.RecoverContainedPanic("scheduler", "idle callback")
 		parseDeadline := &wasmDeadline{}
 		if len(parseArgs) > 0 {
 			parseDeadline.value = parseArgs[0]
 		}
 		parseCallback(parseDeadline)
-		// Release after callback executes
-		parseJsFn.Release()
 		return nil
 	})
 
@@ -881,9 +889,9 @@ func (parseS *WASMScheduler) SetTimeout(parseCallback func(), parseDelay int) {
 	// This ensures that goroutines calling setState can enqueue updates before workLoop processes them
 	var parseJsFn js.Func
 	parseJsFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer parseJsFn.Release()
+		defer runtime.RecoverContainedPanic("scheduler", "timeout callback")
 		parseCallback()
-		// Release after callback executes
-		parseJsFn.Release()
 		return nil
 	})
 
@@ -959,6 +967,7 @@ func (parseB *WASMBrowserState) OnPopState(parseCallback func(path string)) {
 		parseB.popStateRegistered = false
 	}
 	parseB.popStateHandle = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer runtime.RecoverContainedPanic("browser", "popstate listener")
 		parseLocation := parseB.window.Get("location")
 		parsePath := parseLocation.Get("pathname").String()
 		parseCallback(parsePath)

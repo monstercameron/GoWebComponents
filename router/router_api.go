@@ -303,6 +303,7 @@ func registerCleanup(parseHandler js.Func) {
 		}
 		// Register a single unload listener that releases all accumulated handlers.
 		parseUnload := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("router", "registerCleanup callback")
 			cleanupMu.Lock()
 			parseAll := cleanupHandlers
 			cleanupHandlers = nil

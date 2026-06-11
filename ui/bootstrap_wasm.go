@@ -4,6 +4,7 @@
 package ui
 
 import (
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"fmt"
 	"syscall/js"
 )
@@ -80,6 +81,7 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 	var parseCatchFn js.Func
 
 	parseResponseFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer runtime.RecoverContainedPanic("ui", "ReadBootstrapReference callback")
 		if len(parseArgs) == 0 {
 			return parsePromiseCtor.Call("reject", "missing fetch response")
 		}
@@ -95,6 +97,7 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 	})
 
 	parseDataFn = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		defer runtime.RecoverContainedPanic("ui", "ReadBootstrapReference callback")
 		if len(parseArgs2) == 0 {
 			parseResultCh <- fetchResult{err: fmt.Errorf("bootstrap fetch returned no data")}
 			return nil
@@ -108,6 +111,7 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 	})
 
 	parseCatchFn = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		defer runtime.RecoverContainedPanic("ui", "ReadBootstrapReference callback")
 		parseMessage := "bootstrap fetch failed"
 		if len(parseArgs3) > 0 {
 			parseMessage = parseArgs3[0].String()

@@ -285,6 +285,7 @@ func TestUnhandledEventPanicReportsActionableDiagnostic(parseT *testing.T) {
 	ClearLogs()
 	defer ClearDiagnostics()
 	defer ClearLogs()
+	withPanicLoggingOptions(parseT, PanicLoggingOptions{HideRawPanicOutput: false})
 
 	parseRt := &Runtime{}
 	parseRoot := &Fiber{typeOf: "ROOT"}
@@ -329,7 +330,7 @@ func TestUnhandledEffectPanicReportsActionableDiagnostic(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, ShowRawPanicOutput: true})
 	parseContainer := parseAdapter.CreateElement("div")
 
 	var parseRecovered string
@@ -400,7 +401,7 @@ func TestUnhandledCleanupPanicReportsActionableDiagnostic(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, ShowRawPanicOutput: true})
 	parseContainer := parseAdapter.CreateElement("div")
 
 	parseRt.Render(CreateElement(panicDiagnosticCleanupComponent, nil), parseContainer)
@@ -439,7 +440,7 @@ func TestStartupPanicUsesWrappedMessage(parseT *testing.T) {
 	defer ClearDiagnostics()
 	defer ClearLogs()
 
-	parseRt := NewRuntime(Config{DOMAdapter: newQueryTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseRt := NewRuntime(Config{DOMAdapter: newQueryTestDOMAdapter(), Scheduler: newTestScheduler(), ShowRawPanicOutput: true})
 	var parseRecovered string
 	parseOutput := captureStdout(parseT, func() {
 		parseRecovered = recoverPanicString(parseT, func() {
@@ -461,7 +462,7 @@ func TestStrictHydrationPanicUsesWrappedMessage(parseT *testing.T) {
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, ShowRawPanicOutput: true})
 	parseContainer := parseAdapter.CreateElement("div")
 	parseServerNode := parseAdapter.CreateElement("span")
 	parseAdapter.AppendChild(parseContainer, parseServerNode)
@@ -488,7 +489,7 @@ func TestDeferredPanicUsesWrappedMessage(parseT *testing.T) {
 	defer ClearLogs()
 
 	parseScheduler := newTestScheduler()
-	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: parseScheduler})
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: parseScheduler, ShowRawPanicOutput: true})
 	parseRt.ScheduleTransition(func() {
 		panic("deferred boom")
 	})
@@ -511,6 +512,7 @@ func TestSSRRenderPanicUsesWrappedMessage(parseT *testing.T) {
 	ClearLogs()
 	defer ClearDiagnostics()
 	defer ClearLogs()
+	withPanicLoggingOptions(parseT, PanicLoggingOptions{HideRawPanicOutput: false})
 
 	var parseRecovered string
 	parseOutput := captureStdout(parseT, func() {

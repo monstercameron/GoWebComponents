@@ -133,7 +133,7 @@ func TestRenderTo_UsesQuerySelectorAndSchedulesRender(parseT *testing.T) {
 }
 
 func TestRenderTo_PanicsWhenSelectorMissing(parseT *testing.T) {
-	parseRt := NewRuntime(Config{DOMAdapter: newQueryTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseRt := NewRuntime(Config{DOMAdapter: newQueryTestDOMAdapter(), Scheduler: newTestScheduler(), ShowRawPanicOutput: true})
 
 	defer func() {
 		if recover() == nil {
@@ -166,7 +166,7 @@ func TestHydrateTo_UsesQuerySelectorAndSchedulesHydration(parseT *testing.T) {
 }
 
 func TestHydrateTo_PanicsWhenSelectorMissing(parseT *testing.T) {
-	parseRt := NewRuntime(Config{DOMAdapter: newQueryTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseRt := NewRuntime(Config{DOMAdapter: newQueryTestDOMAdapter(), Scheduler: newTestScheduler(), ShowRawPanicOutput: true})
 
 	defer func() {
 		if recover() == nil {

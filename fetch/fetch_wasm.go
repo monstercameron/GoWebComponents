@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"syscall/js"
+
+	gwcruntime "github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 // Fetch performs an asynchronous HTTP fetch operation and returns a channel for the result.
@@ -19,6 +21,7 @@ func Fetch(parseUrl string, parseOptions Options) <-chan Result {
 	parseCh := make(chan Result, 1)
 
 	go func() {
+		defer gwcruntime.RecoverContainedPanic("fetch", "Do request")
 		parseFetchFunction := js.Global().Get("fetch")
 		if !parseFetchFunction.Truthy() {
 			parseCh <- Result{Err: errors.New("fetch API unavailable in this environment")}
@@ -62,6 +65,7 @@ func Fetch(parseUrl string, parseOptions Options) <-chan Result {
 		var parseReject js.Func
 
 		parseResolve = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			defer gwcruntime.RecoverContainedPanic("fetch", "Fetch callback")
 			defer parseResolve.Release()
 			defer parseReject.Release()
 
@@ -72,6 +76,7 @@ func Fetch(parseUrl string, parseOptions Options) <-chan Result {
 			parseTextPromise := parseResp.Call("text")
 
 			parseBodyThen = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+				defer gwcruntime.RecoverContainedPanic("fetch", "Fetch callback")
 				defer parseBodyThen.Release()
 				defer parseBodyCatch.Release()
 				parseResult := Result{
@@ -92,6 +97,7 @@ func Fetch(parseUrl string, parseOptions Options) <-chan Result {
 			})
 
 			parseBodyCatch = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+				defer gwcruntime.RecoverContainedPanic("fetch", "Fetch callback")
 				defer parseBodyThen.Release()
 				defer parseBodyCatch.Release()
 				parseCh <- Result{
@@ -108,6 +114,7 @@ func Fetch(parseUrl string, parseOptions Options) <-chan Result {
 		})
 
 		parseReject = js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			defer gwcruntime.RecoverContainedPanic("fetch", "Fetch callback")
 			defer parseResolve.Release()
 			defer parseReject.Release()
 			parseCh <- Result{Err: fmt.Errorf("fetch failed: %v", parseArgs4)}
@@ -126,6 +133,7 @@ func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-c
 	parseCh := make(chan UploadUpdate, 8)
 
 	go func() {
+		defer gwcruntime.RecoverContainedPanic("fetch", "Upload request")
 		parseXhrCtor := js.Global().Get("XMLHttpRequest")
 		if !parseXhrCtor.Truthy() {
 			parseCh <- UploadUpdate{Done: true, Result: Result{Err: errors.New("XMLHttpRequest unavailable in this environment")}}
@@ -189,6 +197,7 @@ func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-c
 		}
 
 		parseProgressFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			defer gwcruntime.RecoverContainedPanic("fetch", "Upload callback")
 			if len(parseArgs) == 0 {
 				return nil
 			}
@@ -207,6 +216,7 @@ func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-c
 		isProgressRegistered = true
 
 		parseLoadFn = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			defer gwcruntime.RecoverContainedPanic("fetch", "Upload callback")
 			parseStatus := parseXhr.Get("status").Int()
 			parseStatusText := parseXhr.Get("statusText").String()
 			parseResponseText := parseXhr.Get("responseText")
@@ -232,12 +242,14 @@ func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-c
 		isLoadRegistered = true
 
 		parseErrorFn = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			defer gwcruntime.RecoverContainedPanic("fetch", "Upload callback")
 			parseFinalize(UploadUpdate{Done: true, Result: Result{Err: errors.New("upload request failed")}})
 			return nil
 		})
 		isErrorRegistered = true
 
 		parseAbortFn = js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			defer gwcruntime.RecoverContainedPanic("fetch", "Upload callback")
 			parseErr2 := errors.New("upload aborted")
 			if parseCtx != nil && parseCtx.Err() != nil {
 				parseErr2 = parseCtx.Err()
@@ -256,6 +268,7 @@ func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-c
 
 		if parseCtx != nil {
 			go func() {
+				defer gwcruntime.RecoverContainedPanic("fetch", "Upload abort watcher")
 				select {
 				case <-parseCtx.Done():
 					parseXhr.Call("abort")
@@ -281,6 +294,7 @@ func responseHeadersToMap(parseHeaders js.Value) map[string]string {
 	}
 	parseValues := map[string]string{}
 	parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer gwcruntime.RecoverContainedPanic("fetch", "responseHeadersToMap callback")
 		if len(parseArgs) < 2 {
 			return nil
 		}

@@ -4,6 +4,7 @@
 package ui
 
 import (
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -291,6 +292,7 @@ func ensureUIEventListeners() {
 	for _, parseType := range []string{"click", "input", "change", "submit", "keydown"} {
 		buildType := parseType
 		getListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) any {
+			defer runtime.RecoverContainedPanic("ui", "ensureUIEventListeners callback")
 			if len(parseArgs) == 0 {
 				return nil
 			}

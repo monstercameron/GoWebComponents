@@ -4,6 +4,7 @@
 package ui
 
 import (
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"strings"
 	"syscall/js"
 )
@@ -114,6 +115,7 @@ func UseFocusTrap(parseOptions FocusTrapOptions) {
 		}
 
 		parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("ui", "UseFocusTrap callback")
 			if len(parseArgs) == 0 {
 				return nil
 			}
@@ -153,6 +155,7 @@ func UseFocusTrap(parseOptions FocusTrapOptions) {
 			if parseOptions.RestoreFocus {
 				var parseRestore js.Func
 				parseRestore = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+					defer runtime.RecoverContainedPanic("ui", "UseFocusTrap callback")
 					parseManager.Restore()
 					parseRestore.Release()
 					return nil
@@ -174,6 +177,7 @@ func useOverlayEscape(isActive bool, parseOnDismiss func()) {
 			return nil
 		}
 		parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("ui", "useOverlayEscape callback")
 			if len(parseArgs) == 0 {
 				return nil
 			}

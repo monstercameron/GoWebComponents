@@ -108,6 +108,7 @@ func openIndexedDBPersistentStoreWithRecovery(parseCtx context.Context, parseCon
 	}
 
 	parseOnUpgrade = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("openIndexedDBPersistentStoreWithRecovery callback")
 		parseDb := parseRequest.Get("result")
 		if parseDb.IsUndefined() || parseDb.IsNull() {
 			parseUpgradeErr = wrapError("OpenPersistentStore", parseConfig.name, CodeUnavailable, errors.New("indexedDB open request returned no database handle"))
@@ -127,6 +128,7 @@ func openIndexedDBPersistentStoreWithRecovery(parseCtx context.Context, parseCon
 		return nil
 	})
 	parseOnSuccess = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		defer RecoverContainedPanic("openIndexedDBPersistentStoreWithRecovery callback")
 		if parseUpgradeErr != nil {
 			reportPersistentStoreFailure(parseFailureCh, persistentStoreFailure{code: CodeInvalid, message: parseUpgradeErr.Error()})
 			return nil
@@ -145,10 +147,12 @@ func openIndexedDBPersistentStoreWithRecovery(parseCtx context.Context, parseCon
 		return nil
 	})
 	parseOnError = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		defer RecoverContainedPanic("openIndexedDBPersistentStoreWithRecovery callback")
 		reportPersistentStoreFailure(parseFailureCh, classifyPersistentStoreFailure(parseRequest.Get("error"), "indexedDB open request failed"))
 		return nil
 	})
 	parseOnBlocked = js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		defer RecoverContainedPanic("openIndexedDBPersistentStoreWithRecovery callback")
 		if parseConfig.onBlocked != nil {
 			parseConfig.onBlocked(PersistentStoreBlockedEvent{
 				DatabaseName:     parseConfig.databaseName,
@@ -189,6 +193,7 @@ func newIndexedDBPersistentStore(parseDb js.Value, parseConfig persistentStoreCo
 	parseTarget := parseConfig.databaseName + "/" + parseConfig.name
 	var parseOnVersionChange js.Func
 	parseOnVersionChange = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("newIndexedDBPersistentStore callback")
 		if parseCloseFn := parseDb.Get("close"); parseCloseFn.Type() == js.TypeFunction {
 			parseDb.Call("close")
 		}
@@ -333,10 +338,12 @@ func awaitIDBRequest(parseCtx context.Context, parseOp string, parseTarget strin
 		parseOnError.Release()
 	}
 	parseOnSuccess = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("awaitIDBRequest callback")
 		reportPersistentStoreResult(parseResultCh, parseRequest.Get("result"))
 		return nil
 	})
 	parseOnError = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		defer RecoverContainedPanic("awaitIDBRequest callback")
 		reportPersistentStoreFailure(parseFailureCh, classifyPersistentStoreFailure(parseRequest.Get("error"), "indexedDB request failed"))
 		return nil
 	})
@@ -411,6 +418,7 @@ func deleteIndexedDBDatabase(parseCtx context.Context, parseDatabaseName string)
 		parseOnBlocked.Release()
 	}
 	parseOnSuccess = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("deleteIndexedDBDatabase callback")
 		select {
 		case parseResultCh <- struct{}{}:
 		default:
@@ -418,10 +426,12 @@ func deleteIndexedDBDatabase(parseCtx context.Context, parseDatabaseName string)
 		return nil
 	})
 	parseOnError = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		defer RecoverContainedPanic("deleteIndexedDBDatabase callback")
 		reportPersistentStoreFailure(parseFailureCh, classifyPersistentStoreFailure(parseRequest.Get("error"), "indexedDB delete request failed"))
 		return nil
 	})
 	parseOnBlocked = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		defer RecoverContainedPanic("deleteIndexedDBDatabase callback")
 		reportPersistentStoreFailure(parseFailureCh, persistentStoreFailure{code: CodeBlocked, message: "indexedDB delete is blocked by another open tab, worker, or window"})
 		return nil
 	})

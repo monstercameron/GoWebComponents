@@ -287,6 +287,7 @@ func (parseV Value) SetFunction(parseName string, parseHandler func(args ...Valu
 	var parseOnce sync.Once
 	var parseCallback js.Func
 	parseCallback = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("SetFunction callback")
 		parseWrapped := make([]Value, len(parseArgs))
 		for parseIndex, parseArg := range parseArgs {
 			parseWrapped[parseIndex] = Value{raw: parseArg}

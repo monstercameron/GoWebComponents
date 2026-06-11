@@ -131,6 +131,7 @@ func newBroadcastCrossTabChannel(parseName string, parseSource string, parseRaw 
 				return Subscription{}, parseErr3
 			}
 			parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				defer RecoverContainedPanic("newBroadcastCrossTabChannel callback")
 				if len(parseArgs) == 0 {
 					handler(CrossTabEnvelope{Name: parseName}, wrapError("CrossTabChannel.Subscribe", parseName, CodeDecode, errors.New("broadcast message event is missing")))
 					return nil
@@ -226,6 +227,7 @@ func newStorageCrossTabChannel(parseName string, parseSource string, parseStorag
 				return Subscription{}, parseErr5
 			}
 			parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				defer RecoverContainedPanic("newStorageCrossTabChannel callback")
 				if len(parseArgs) == 0 {
 					return nil
 				}
@@ -313,6 +315,7 @@ func newWindowChannel(parseName string, parseTargetOrigin string, parsePeer js.V
 				return Subscription{}, wrapError("WindowChannel.Subscribe", parseName, CodeInvalid, errors.New("handler is nil"))
 			}
 			parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				defer RecoverContainedPanic("newWindowChannel callback")
 				if len(parseArgs) == 0 {
 					handler(WindowEnvelope{Name: parseName}, wrapError("WindowChannel.Subscribe", parseName, CodeDecode, errors.New("message event is missing")))
 					return nil

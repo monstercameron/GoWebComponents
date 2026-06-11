@@ -157,15 +157,18 @@ func (parseS *browserWorkerState) subscribe(parseHandler func(WorkerMessage, err
 		return Subscription{}, parseErr
 	}
 	parseMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("subscribe callback")
 		parseMessage, parseErr2 := workerMessageFromEvent("Worker.Subscribe", parseS.options.URL, parseArgs)
 		parseHandler(parseMessage, parseErr2)
 		return nil
 	})
 	parseErrorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		defer RecoverContainedPanic("subscribe callback")
 		parseHandler(WorkerMessage{}, wrapError("Worker.Subscribe", parseS.options.URL, CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2))))
 		return nil
 	})
 	parseMessageErrorFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		defer RecoverContainedPanic("subscribe callback")
 		parseHandler(WorkerMessage{}, wrapError("Worker.Subscribe", parseS.options.URL, CodeDecode, errors.New(workerRemoteErrorSummary(parseArgs3))))
 		return nil
 	})
@@ -202,6 +205,7 @@ func (parseS *browserWorkerState) request(parseCtx context.Context, parseName st
 	parseResultCh := make(chan WorkerMessage, 1)
 	parseErrCh := make(chan error, 1)
 	parseMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("request callback")
 		parseMessage, parseDecodeErr := workerMessageFromEvent("Worker.Request", parseName, parseArgs)
 		if parseDecodeErr != nil {
 			if parseOnProgress != nil {
@@ -226,10 +230,12 @@ func (parseS *browserWorkerState) request(parseCtx context.Context, parseName st
 		return nil
 	})
 	parseErrorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		defer RecoverContainedPanic("request callback")
 		parseErrCh <- wrapError("Worker.Request", parseName, CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2)))
 		return nil
 	})
 	parseMessageErrorFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		defer RecoverContainedPanic("request callback")
 		parseErrCh <- wrapError("Worker.Request", parseName, CodeDecode, errors.New(workerRemoteErrorSummary(parseArgs3)))
 		return nil
 	})
@@ -372,11 +378,13 @@ func (parseS *browserMessagePortState) subscribe(parseHandler func(MessagePortMe
 	}
 	startMessagePort(parseRaw)
 	parseMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("subscribe callback")
 		parseMessage, parseMessageErr := messagePortMessageFromEvent("MessagePort.Subscribe", parseS.target, parseArgs)
 		parseHandler(parseMessage, parseMessageErr)
 		return nil
 	})
 	parseMessageErrorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		defer RecoverContainedPanic("subscribe callback")
 		parseHandler(MessagePortMessage{}, wrapError("MessagePort.Subscribe", parseS.target, CodeDecode, errors.New(workerRemoteErrorSummary(parseArgs2))))
 		return nil
 	})
@@ -406,6 +414,7 @@ func waitWorkerReady(parseCtx context.Context, parseRaw js.Value, parseTarget st
 	parseReadyCh := make(chan struct{}, 1)
 	parseErrCh := make(chan error, 1)
 	parseMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("waitWorkerReady callback")
 		parseMessage, parseErr := workerMessageFromEvent("NewWorker", parseTarget, parseArgs)
 		if parseErr != nil {
 			parseErrCh <- parseErr
@@ -421,10 +430,12 @@ func waitWorkerReady(parseCtx context.Context, parseRaw js.Value, parseTarget st
 		return nil
 	})
 	parseErrorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		defer RecoverContainedPanic("waitWorkerReady callback")
 		parseErrCh <- wrapError("NewWorker", parseTarget, CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2)))
 		return nil
 	})
 	parseMessageErrorFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		defer RecoverContainedPanic("waitWorkerReady callback")
 		parseErrCh <- wrapError("NewWorker", parseTarget, CodeDecode, errors.New(workerRemoteErrorSummary(parseArgs3)))
 		return nil
 	})

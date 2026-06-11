@@ -292,6 +292,17 @@ The current record shape is intentionally stable across native and `js/wasm` tar
 - call sites can stay low ceremony by passing key/value pairs, `logging.Fields`, or `slog.Attr`
 - framework-owned unhandled panics on `js/wasm` are also emitted as structured `console.error` records with the same slog-like level metadata, and `ui` initializes the runtime with raw panic rethrow hidden by default so wrapped runtime panics can be reported without tearing down the module
 
+### Crash Containment
+
+A panic that escapes any goroutine or host callback in wasm exits the whole Go program and leaves the page dead. The runtime contains crashes at every boundary it owns instead:
+
+- every framework goroutine (`UseTask`, `UseChannel`, `UseLazyNode`, `UseForm` runners, fetch/cache loaders, debounce/throttle timers) and every `js.FuncOf` host callback (event bridges, timers, promise handlers, worker messages, IndexedDB events) recovers panics and emits one structured `[GWC-RUNTIME-PANIC-*]` console report with `where`/`path`/`error`/`next` fields and app/framework/platform stack buckets, so an agent or developer can locate the crash from the console alone
+- a render panic with no error boundary abandons the in-flight render and resets scheduling state; the last committed tree stays mounted and the next clean update renders normally (the page degrades partially instead of dying)
+- containment is the default for every runtime configuration; `runtime.Config.ShowRawPanicOutput` opts back into re-panicking with raw output for native debugging
+- application background work should use `ui.SafeGo(subject, fn)` instead of the bare `go` statement so app goroutine panics get the same report-and-survive treatment
+
+True runtime fatals (for example concurrent map writes or stack exhaustion) cannot be recovered by Go and still terminate the module; containment covers all `panic`-based failures.
+
 ## Devtools Plugin Use Cases
 
 The internal kernel exists so `devtools` can grow beyond one static runtime tree snapshot without widening public runtime internals directly.

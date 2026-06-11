@@ -3,7 +3,11 @@
 
 package ui
 
-import "syscall/js"
+import (
+	"syscall/js"
+
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
+)
 
 type managedOverlayFocusOptions struct {
 	Open                  bool
@@ -44,6 +48,7 @@ func useManagedOverlayFocus(parseOptions managedOverlayFocusOptions) {
 			parseIsFired := false
 			var parseRestore js.Func
 			parseRestore = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				defer runtime.RecoverContainedPanic("ui", "useManagedOverlayFocus callback")
 				if parseIsFired {
 					return nil
 				}
@@ -97,6 +102,7 @@ func useManagedOverlayFocus(parseOptions managedOverlayFocusOptions) {
 		}
 
 		parseListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("ui", "useManagedOverlayFocus callback")
 			if len(parseArgs2) == 0 {
 				return nil
 			}
@@ -147,6 +153,7 @@ func useOverlayOutsideDismiss(isActive bool, parseSurfaceSelector string, parseO
 			return nil
 		}
 		parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			defer runtime.RecoverContainedPanic("ui", "useOverlayOutsideDismiss callback")
 			if len(parseArgs) == 0 {
 				return nil
 			}

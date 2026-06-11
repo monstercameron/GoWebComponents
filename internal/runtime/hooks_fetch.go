@@ -95,6 +95,7 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 
 		// Start fetch in a goroutine
 		go func() {
+			defer containAsyncPanic("runtime", "UseFetch request")
 			// Use syscall/js to call fetch API
 			parseFetch := js.Global().Get("fetch")
 			if !parseFetch.Truthy() {
@@ -116,6 +117,7 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 			var parseThen, parseCatch js.Func
 
 			parseThen = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				defer containAsyncPanic("runtime", "GoUseFetch callback")
 				defer parseThen.Release()
 				defer parseCatch.Release()
 
@@ -141,6 +143,7 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 
 				var parseTextThen, parseTextCatch js.Func
 				parseTextThen = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+					defer containAsyncPanic("runtime", "GoUseFetch callback")
 					defer parseTextThen.Release()
 					defer parseTextCatch.Release()
 
@@ -157,6 +160,7 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 				})
 
 				parseTextCatch = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+					defer containAsyncPanic("runtime", "GoUseFetch callback")
 					defer parseTextThen.Release()
 					defer parseTextCatch.Release()
 
@@ -177,6 +181,7 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 			})
 
 			parseCatch = js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+				defer containAsyncPanic("runtime", "GoUseFetch callback")
 				defer parseThen.Release()
 				defer parseCatch.Release()
 

@@ -86,6 +86,7 @@ func newEventTarget(parseName string, parseRaw js.Value) EventTarget {
 				return Subscription{}, unavailable("EventTarget.Listen", parseName)
 			}
 			parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				defer RecoverContainedPanic("newEventTarget callback")
 				if len(parseArgs) == 0 {
 					handler(BrowserEvent{Type: parseEventName2})
 					return nil
@@ -218,6 +219,7 @@ func observeResize(parseName string, parseRaw js.Value, parseHandler func(Resize
 		return Subscription{}, unavailable("Element.ObserveResize", parseName)
 	}
 	parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("observeResize callback")
 		if len(parseArgs) == 0 {
 			return nil
 		}
@@ -249,6 +251,7 @@ func observeIntersection(parseName string, parseRaw js.Value, parseOptions Inter
 		return Subscription{}, unavailable("Element.ObserveIntersection", parseName)
 	}
 	parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("observeIntersection callback")
 		if len(parseArgs) == 0 {
 			return nil
 		}

@@ -247,6 +247,7 @@ func ScheduleTimeout(parseDelay time.Duration, parseFn func()) (Timer, error) {
 		parseId       js.Value
 	)
 	parseCallback = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("ScheduleTimeout callback")
 		parseOnce.Do(func() {
 			parseCallback.Release()
 		})
@@ -276,6 +277,7 @@ func ScheduleInterval(parseInterval time.Duration, parseFn func()) (Timer, error
 		parseId       js.Value
 	)
 	parseCallback = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer RecoverContainedPanic("ScheduleInterval callback")
 		parseFn()
 		return nil
 	})
@@ -397,6 +399,7 @@ func GetMediaQuery(parseQuery string) (MediaQueryList, error) {
 				return Subscription{}, wrapError("MatchMedia.Subscribe", parseQuery, CodeInvalid, errors.New("handler is nil"))
 			}
 			parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				defer RecoverContainedPanic("GetMediaQuery callback")
 				parseEvent := parseRaw
 				if len(parseArgs) > 0 && !parseArgs[0].IsUndefined() && !parseArgs[0].IsNull() {
 					parseEvent = parseArgs[0]

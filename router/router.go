@@ -394,12 +394,14 @@ func (parseR *Router) setupHistoryListener() {
 
 	// Handler for browser back/forward buttons
 	parsePopstateHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer runtime.RecoverContainedPanic("router", "setupHistoryListener callback")
 		parseR.renderCurrentRoute(true)
 		return nil
 	})
 
 	parseWindow.Call("addEventListener", browserEventPop, parsePopstateHandler)
 	parseHashchangeHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer runtime.RecoverContainedPanic("router", "setupHistoryListener callback")
 		// History routers still need hashchange rerenders for in-page fragment navigation.
 		// Without this, links like "#faq" update the URL but shared route components never
 		// see a new location snapshot, which breaks anchor state and browser back/forward.
@@ -677,6 +679,7 @@ func (parseR *Router) ensureListener() {
 	}
 
 	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer runtime.RecoverContainedPanic("router", "ensureListener callback")
 		parseR.renderCurrentRoute(true)
 		return nil
 	})

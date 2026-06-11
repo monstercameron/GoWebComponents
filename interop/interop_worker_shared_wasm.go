@@ -400,11 +400,13 @@ func GetWorkerScope() (WorkerScope, error) {
 				return Subscription{}, wrapError("WorkerScope.Subscribe", "worker", CodeInvalid, errors.New("handler is nil"))
 			}
 			parseMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				defer RecoverContainedPanic("GetWorkerScope callback")
 				parseMessage, parseMessageErr := workerMessageFromEvent("WorkerScope.Subscribe", "worker", parseArgs)
 				handler(parseMessage, parseMessageErr)
 				return nil
 			})
 			parseErrorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+				defer RecoverContainedPanic("GetWorkerScope callback")
 				handler(WorkerMessage{}, wrapError("WorkerScope.Subscribe", "worker", CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2))))
 				return nil
 			})

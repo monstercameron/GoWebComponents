@@ -386,6 +386,8 @@ func panicConsequence(parsePhase PanicPhase) string {
 		return "deferred runtime work panicked outside a recovering boundary; the scheduled task aborted and the app should be treated as failed."
 	case PanicPhaseSSR:
 		return "server rendering failed before HTML could be returned; treat the request as failed and surface the error upstream."
+	case PanicPhaseAsync:
+		return "the panic was contained at an async boundary; the task was abandoned but the committed UI stays mounted and interactive."
 	default:
 		return "no recovering boundary handled this panic; the runtime stopped and the app should be treated as failed."
 	}
