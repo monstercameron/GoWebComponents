@@ -95,6 +95,10 @@ func accessibleOverlayExample() ui.Node {
 				),
 			),
 		),
+		// The portal target must exist in the DOM before the overlay commits;
+		// rendering it here keeps the example self-contained instead of
+		// depending on the hosting HTML shell to provide the root element.
+		html.Div(html.Props{ID: "accessible-overlay-root"}),
 		parseOverlay,
 	)
 }
