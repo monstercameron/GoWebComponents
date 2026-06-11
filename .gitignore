@@ -123,6 +123,7 @@ temp/
 *.tmp
 *.patch
 *.txt
+!tools/livereload/scripts/livereload-client.txt
 
 # Diagnostics artifacts
 /diagnostics/*
