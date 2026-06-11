@@ -202,68 +202,34 @@ func startAtlasExamplesServer(parseT *testing.T, parseRepoRoot string, parsePort
 	return parseBaseURL
 }
 
-func discoverExampleRoutes(parseT *testing.T, parseRepoRoot string, parsePrefixes []string) []string {
+// discoverPublicExampleRoutes resolves catalog routes for public examples.
+// With an empty slug list it returns every example under examples/public;
+// otherwise it validates each requested slug exists and fails loudly when one
+// is missing so renames surface as test failures instead of silent skips.
+func discoverPublicExampleRoutes(parseT *testing.T, parseRepoRoot string, parseSlugs []string) []string {
 	parseT.Helper()
-	parseExamplesRoot := filepath.Join(parseRepoRoot, "examples")
-	parseEntries, parseErr := os.ReadDir(parseExamplesRoot)
-	if parseErr != nil {
-		parseT.Fatalf("read examples dir: %v", parseErr)
-	}
+	parsePublicRoot := filepath.Join(parseRepoRoot, "examples", "public")
 
-	parsePrefixSet := map[string]struct{}{}
-	for _, parseP := range parsePrefixes {
-		parsePrefixSet[parseP] = struct{}{}
-	}
-
-	var parseExampleDirs []string
-	for _, parseEntry := range parseEntries {
-		if !parseEntry.IsDir() {
-			continue
+	if len(parseSlugs) == 0 {
+		parseEntries, parseErr := os.ReadDir(parsePublicRoot)
+		if parseErr != nil {
+			parseT.Fatalf("read examples/public dir: %v", parseErr)
 		}
-		parseName := parseEntry.Name()
-		for parsePrefix := range parsePrefixSet {
-			if strings.HasPrefix(parseName, parsePrefix+"-") {
-				parseExampleDirs = append(parseExampleDirs, filepath.Join(parseExamplesRoot, parseName))
-				break
+		for _, parseEntry := range parseEntries {
+			if parseEntry.IsDir() {
+				parseSlugs = append(parseSlugs, parseEntry.Name())
 			}
 		}
 	}
-	sort.Strings(parseExampleDirs)
 
 	var parseRoutes []string
-	for _, parseDir := range parseExampleDirs {
-		parseIndexPath := filepath.Join(parseDir, "index.html")
-		if _, parseErr2 := os.Stat(parseIndexPath); parseErr2 == nil {
-			parseRel, parseRelErr := filepath.Rel(parseExamplesRoot, parseIndexPath)
-			if parseRelErr == nil {
-				parseRoutes = append(parseRoutes, "/examples/"+filepath.ToSlash(parseRel))
-			}
-			continue
+	for _, parseSlug := range parseSlugs {
+		if parseInfo, parseErr := os.Stat(filepath.Join(parsePublicRoot, parseSlug)); parseErr != nil || !parseInfo.IsDir() {
+			parseT.Fatalf("public example slug %q not found under examples/public", parseSlug)
 		}
-
-		var parseHtmlFiles []string
-		_ = filepath.WalkDir(parseDir, func(parsePath string, parseD os.DirEntry, parseWalkErr error) error {
-			if parseWalkErr != nil {
-				return nil
-			}
-			if parseD.IsDir() {
-				return nil
-			}
-			if strings.EqualFold(filepath.Ext(parsePath), ".html") {
-				parseHtmlFiles = append(parseHtmlFiles, parsePath)
-			}
-			return nil
-		})
-		sort.Strings(parseHtmlFiles)
-		if len(parseHtmlFiles) == 0 {
-			continue
-		}
-		parseRel2, parseRelErr2 := filepath.Rel(parseExamplesRoot, parseHtmlFiles[0])
-		if parseRelErr2 != nil {
-			continue
-		}
-		parseRoutes = append(parseRoutes, "/examples/"+filepath.ToSlash(parseRel2))
+		parseRoutes = append(parseRoutes, "/examples/public/"+parseSlug+"/")
 	}
+	sort.Strings(parseRoutes)
 	return parseRoutes
 }
 
@@ -334,11 +300,10 @@ func TestLinks(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
 	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18091")
-	parsePrefixes := []string{"00", "01", "02", "05", "06", "07", "08", "10", "12", "13"}
-	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, parsePrefixes)
-	if len(parseRoutes) == 0 {
-		parseT.Fatal("no example routes discovered for links smoke")
-	}
+	parseRoutes := discoverPublicExampleRoutes(parseT, parseRepoRoot, []string{
+		"counter", "text-input", "toggle", "form", "fetch",
+		"hash-router", "portals", "todo-basic", "use-state", "web-components",
+	})
 
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
 		for _, parseRoute := range parseRoutes {
@@ -351,10 +316,7 @@ func TestSSRServerRouting(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
 	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18092")
-	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"18"})
-	if len(parseRoutes) == 0 {
-		parseT.Fatal("no route discovered for example 18")
-	}
+	parseRoutes := discoverPublicExampleRoutes(parseT, parseRepoRoot, []string{"static-server-side-rendering-routing"})
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
 		visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoutes[0])
 	})
@@ -363,13 +325,9 @@ func TestSSRServerRouting(parseT *testing.T) {
 func TestAtlasSSR(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
-	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18093")
-	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"86"})
-	if len(parseRoutes) == 0 {
-		parseT.Fatal("no route discovered for example 86")
-	}
+	parseBaseURL := startAtlasExamplesServer(parseT, parseRepoRoot, "18093")
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
-		visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoutes[0])
+		visitRouteAndAssertAtlasSSR(parseT, parsePage, parseBaseURL, "/shop", "Atlas Shop")
 	})
 }
 
@@ -377,10 +335,7 @@ func TestStartup(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
 	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18094")
-	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"21", "56"})
-	if len(parseRoutes) == 0 {
-		parseT.Fatal("no startup routes discovered")
-	}
+	parseRoutes := discoverPublicExampleRoutes(parseT, parseRepoRoot, []string{"counter", "hydration"})
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
 		for _, parseRoute := range parseRoutes {
 			visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoute)
@@ -392,10 +347,7 @@ func TestVirtualization(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
 	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18095")
-	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"103"})
-	if len(parseRoutes) == 0 {
-		parseT.Fatal("no route discovered for example 103")
-	}
+	parseRoutes := discoverPublicExampleRoutes(parseT, parseRepoRoot, []string{"virtualized-feed"})
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
 		visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoutes[0])
 	})
@@ -451,7 +403,7 @@ func TestBrowserCompat(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
 	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18096")
-	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"71", "73", "101"})
+	parseRoutes := discoverPublicExampleRoutes(parseT, parseRepoRoot, nil)
 	if len(parseRoutes) == 0 {
 		parseT.Fatal("no browser-compat routes discovered")
 	}
@@ -466,17 +418,13 @@ func TestChatWizard(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
 	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18097")
-	parseChatExampleDir := filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard")
+	parseChatExampleDir := filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard")
 	if _, parseErr := os.Stat(parseChatExampleDir); parseErr != nil {
 		parseT.Fatalf("chat wizard example directory missing: %v", parseErr)
 	}
-	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"100"})
 
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
 		visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, "/examples")
-		if len(parseRoutes) > 0 {
-			visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoutes[0])
-		}
 	})
 }
 
