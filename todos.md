@@ -18,11 +18,12 @@ impact; exactly three active items carry the next-work marker.
   render-time `ui.SuspendUntil` / `ui.Await` suspension, runtime fallback
   capture, retry when the async signal resolves, SSR fallback rendering, API
   baseline coverage, and focused native/wasm tests.
-- [ ] [next] **TinyGo build profile** - the ~1.4 MB brotli floor is the standard Go
-  runtime's price. Hooks-layer reflection/generics probably block TinyGo
-  today. Run a one-day feasibility spike first; even a constrained TinyGo
-  profile for leaf apps changes the size story.
-- [ ] **Route-level code splitting** - Go wasm ships as one binary.
+- [x] **TinyGo build profile** - `gwc build` / `gwc release` now accept a
+  guarded `tinygo` profile that runs `tinygo build -target=wasm -opt=z -tags
+  production`, records toolchain/target metadata in JSON summaries and release
+  manifests, fails early with an install hint when TinyGo is unavailable, and
+  documents the constrained leaf-app compatibility boundary.
+- [ ] [next] **Route-level code splitting** - Go wasm ships as one binary.
   Multi-binary loading exists in examples (multi-client-binary, benchmark
   worker) but there is no lazy-chunk API for loading route logic on demand.
 
@@ -123,6 +124,90 @@ impact; exactly three active items carry the next-work marker.
 - [ ] **Long-session memory hygiene** - no GC-pressure monitoring or leak
   diagnostics for week-long dashboard sessions, which is where wasm apps
   fail quietly.
+
+## Capability reviews (2026-06-11) - build items + what to test
+
+### PWA / offline mode
+
+- [ ] **Generated service worker + manifest for the docs site** - sitegen
+  generates `sw.js` from `pwa.BuildCacheStoragePlan` output and
+  `manifest.json` from a `pwa.Manifest` value (same generated-artifact
+  pattern as the boot shell; nothing authored); the app registers via
+  `pwa.RegisterServiceWorker` at boot.
+  Test for: registration lifecycle reaches `activated` in a real browser;
+  precache list exactly matches the release-manifest SHA set (no silent
+  drops); a full offline reload serves shell + site.wasm + catalog from
+  CacheStorage (playwright `context.SetOffline(true)`); deploying a new
+  build hash evicts stale caches and serves the new wasm (no
+  half-old/half-new mix); SW update flow does not strand an open tab.
+- [ ] **Offline mutation replay hardening** - `fetch.MutationQueue` exists;
+  prove it under adversarial conditions.
+  Test for: mutations enqueued offline replay exactly once after
+  reconnect (no dupes on rapid online/offline flaps); replay order
+  preserved; executor failure leaves the entry queued, not dropped;
+  queue survives a page reload mid-outage (IndexedDB persistence);
+  `pwa.InspectDiagnostics` queue counts match reality.
+- [ ] **Installability flow e2e** - `pwa.ObserveInstallability` exists but
+  has no browser test.
+  Test for: beforeinstallprompt capture, prompt() round trip, and state
+  cleanup on dismissal (chromium supports faking the event).
+
+### Session / long-term web storage
+
+- [ ] **`UsePersistedState[T](key, initial, area)` hook** - bind a UseState
+  to localStorage/sessionStorage/IndexedDB with write-through and
+  cross-tab change subscription.
+  Test for: state survives unmount/remount and full reload; storage
+  `storage`-event from a second tab updates the first tab's component
+  (two playwright pages, one context); JSON round-trip of non-trivial T
+  (structs, slices); corrupted stored value falls back to initial
+  instead of panicking (crash containment must catch decode panics);
+  quota-exceeded write surfaces an error state, does not wedge renders.
+- [ ] **`RequestPersistentStorage` helper** - wrap
+  `navigator.storage.persist()`; diagnostics already read the flag.
+  Test for: persisted flag flips after grant (headless chromium grants
+  silently); denial path returns false without error; native build
+  returns the unavailable stub.
+- [ ] **Snapshot schema versioning** (promotes the enterprise contracts
+  item) - add a version field + migration hook to
+  `state.SaveSnapshot`/`SavePersistentSnapshot` payloads.
+  Test for: v(N) snapshot restores through a registered v(N-1)->v(N)
+  migration; unknown future version is rejected loudly, not silently
+  dropped; missing-version legacy payloads still restore (compat path);
+  partial migration failure restores nothing (atomicity).
+- [ ] **Typed cookie helper** - first-class document.cookie access for
+  session-adjacent apps (read/write/expire, SameSite/Secure attrs).
+  Test for: attribute round-trips, expiry honored, and unavailability
+  on native builds.
+
+### Cross-component eventing
+
+- [ ] **`events.UseTopic[T](topic)` fan-out bus** - typed in-app pub/sub
+  with delivery to every subscriber, subscriptions tied to component
+  lifecycle (atoms have fan-out but state semantics; channels have event
+  semantics but single-receiver delivery).
+  Test for: N subscribers each receive each published event exactly once
+  (no coalescing of rapid bursts); publish order preserved per
+  subscriber; unmounted components stop receiving and leak no
+  subscriptions (registry size returns to baseline - pairs with the
+  bounded-internal-state item); late subscriber receives nothing by
+  default (no replay) with replay-last-value opt-in tested separately;
+  publishing from a goroutine is safe (threading-model rules) or routed
+  through a guarded dispatch; a panicking subscriber is contained and
+  does not stop delivery to the remaining subscribers.
+- [ ] **Cross-root eventing guidance + test** - components in different GWC
+  roots / exported custom elements communicating via
+  `interop.GetDocumentEvents()` CustomEvents.
+  Test for: typed detail payload round-trip through Dispatch/Subscribe;
+  subscription cleanup releases the underlying js.Func (no released-
+  function warnings); events cross from a GWC tree into a plugin-host
+  panel and back.
+- [ ] **Cross-tab eventing soak** - `SubscribeDecodedCrossTab[T]` works in
+  the example; pin it with a test.
+  Test for: typed envelope round-trip between two pages in one browser
+  context; decode error of a malformed envelope surfaces via the error
+  callback, not a contained panic; channel close mid-flight does not
+  crash either tab.
 
 ## Maintenance backlog (carried from the test/perf campaign)
 
