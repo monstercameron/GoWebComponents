@@ -59,6 +59,65 @@ impact; the recommended next three are marked ⭐.
   no OTLP browser exporter.
 - [ ] **Feature flags / experimentation hooks** — none exist.
 
+## Enterprise tier — runtime architecture
+
+- [ ] ⭐ **Multi-instance runtimes** — `globalRuntime` is a singleton: two GWC
+  apps (or two GWC versions via micro-frontends) on one page share one
+  runtime, atom registry, and scheduler, so a crash reset or hot reload in
+  one app touches the other. Make `Runtime` instantiable per root with
+  isolated atom registries.
+- [ ] ⭐ **Priority-lane scheduling with backpressure** — one work queue today:
+  background data floods compete equally with keystroke re-renders, nothing
+  coalesces update storms (N atom writes → N dispatches), and a started
+  render cannot be interrupted. The React-lanes / Solid-scheduler gap.
+- [ ] **Bounded internal state** — `uiQueue`, pending-effect lists, and
+  loader/diagnostic registries grow with usage; adopt a framework-wide
+  policy of bounded ring buffers with eviction, plus instrumentation of
+  fiber-tree size and listener counts over time.
+
+## Enterprise tier — contracts & guarantees
+
+- [ ] ⭐ **Public API stability contract** — no compat guard, frozen API
+  surface, or deprecation mechanism for `ui`/`router`/`fetch`/`state`. The
+  bridge submodule already has `api_compat_guard`; copy the pattern to the
+  framework's own public packages.
+- [ ] **Specified failure-mode matrix** — crash containment exists but its
+  guarantees are informal. Document per phase (render/effect/event/async)
+  what state is trustworthy after a contained panic, and pin each cell with
+  a test.
+- [ ] **Versioned wire protocols** — the hydration bootstrap sidecar,
+  hot-reload WebSocket messages, and state snapshots carry no version
+  fields or compat negotiation; mismatches fail undiagnosably instead of
+  cleanly.
+- [ ] **Versioned state-snapshot migration** — hot-reload snapshots restore
+  by component path and shape with no schema version or migration hook, so
+  snapshots silently drop on refactor.
+
+## Enterprise tier — enforcement & correctness
+
+- [ ] **Threading-model enforcement** — hooks are render-thread-only by
+  convention; calling one from a goroutine corrupts state. Detect and
+  report at runtime in dev, and enforce at build via a vet analyzer
+  (pairs with the hooks-rules analyzer above).
+- [ ] **Strict mode** — strict hydration exists, but no general dev-time
+  strict mode: double-invoke renders to flush impure components, warn on
+  setState-during-render, detect asymmetric effect cleanups.
+- [ ] **Deterministic replay** — capture/replay of an update stream for
+  reproducing production bugs; profiling already records events
+  internally, but nothing exports or replays them.
+- [ ] **Migration tooling** — no codemods or upgrade assistant between
+  framework versions; the parse-prefix conventions and generated shells
+  make mechanical migrations very automatable.
+
+## Enterprise tier — resilience
+
+- [ ] **Fetch circuit breakers / retry policy** — the cache and mutation
+  queue exist, but there's no declarative retry/backoff/circuit-breaker
+  policy for flaky enterprise networks.
+- [ ] **Long-session memory hygiene** — no GC-pressure monitoring or leak
+  diagnostics for week-long dashboard sessions, which is where wasm apps
+  die quietly.
+
 ## Maintenance backlog (carried from the test/perf campaign)
 
 - [ ] Lazy DOM binding — the remaining named lever for the React DOM-ready
