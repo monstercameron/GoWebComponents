@@ -265,7 +265,7 @@ func ReactiveRegion(render func() Node, parseSources ...ReactiveSource) Node {
 			parseIds = append(parseIds, parseId)
 		}
 	}
-	return runtime.CreateElement(runtime.ReactiveRegionNodeType, map[string]interface{}{
+	return runtime.CreateElementOwned(runtime.ReactiveRegionNodeType, map[string]interface{}{
 		"__gwc_reactive_region_source_ids": parseIds,
 		"__gwc_reactive_region_render": func() *runtime.Element {
 			if render == nil {
@@ -292,7 +292,7 @@ func Portal(parseProps PortalProps) Node {
 		parseRawProps["portalTargetNode"] = parseProps.Target.Node
 	}
 
-	return runtime.CreateElement(runtime.PortalNodeType, parseRawProps, parseChildren...)
+	return runtime.CreateElementOwned(runtime.PortalNodeType, parseRawProps, parseChildren...)
 }
 
 // Render mounts the UI tree into the DOM element matched by selector.

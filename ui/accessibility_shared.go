@@ -406,7 +406,7 @@ func (parseA Announcer) Region() Node {
 
 // announcementRegionNode is a core package helper.
 func announcementRegionNode(parseId string, parseMode string, parseState announcementState) Node {
-	return runtime.CreateElement("div", map[string]interface{}{
+	return runtime.CreateElementOwned("div", map[string]interface{}{
 		"id":          parseId,
 		"role":        "status",
 		"aria-live":   parseMode,
@@ -424,7 +424,7 @@ func announcementRegionNode(parseId string, parseMode string, parseState announc
 		},
 	},
 		runtime.CreateElement("span", nil, parseState.message),
-		runtime.CreateElement("span", map[string]interface{}{"aria-hidden": "true"}, fmt.Sprintf("-%d", parseState.sequence)),
+		runtime.CreateElementOwned("span", map[string]interface{}{"aria-hidden": "true"}, fmt.Sprintf("-%d", parseState.sequence)),
 	)
 }
 

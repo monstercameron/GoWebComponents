@@ -57,7 +57,7 @@ func createContextProviderElement(parseProvider contextProviderComponent, parseR
 		parseProps["value"] = parseContextValue
 	}
 
-	return runtime.CreateElement(parseRuntimeProvider, parseProps, parseChildren...)
+	return runtime.CreateElementOwned(parseRuntimeProvider, parseProps, parseChildren...)
 }
 
 // extractContextProviderValue is a core package helper.

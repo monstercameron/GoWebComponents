@@ -138,7 +138,7 @@ func Overlay(parseProps OverlayProps) Node {
 		parseSurfaceProps["data-overlay-positioning"] = parseProps.Positioning
 	}
 
-	parseSurface := runtime.CreateElement("div", parseSurfaceProps, toInterfaces(parseChildren)...)
+	parseSurface := runtime.CreateElementOwned("div", parseSurfaceProps, toInterfaces(parseChildren)...)
 	parseOverlay := Node(parseSurface)
 	if isParseShowBackdrop {
 		parseBackdropStyle := cloneOverlayStyle(parseProps.BackdropStyle)
@@ -150,7 +150,7 @@ func Overlay(parseProps OverlayProps) Node {
 		if parseDismissHandler.value != nil {
 			parseBackdropProps["onclick"] = parseDismissHandler.value
 		}
-		parseOverlay = runtime.CreateElement("div", parseBackdropProps, parseSurface)
+		parseOverlay = runtime.CreateElementOwned("div", parseBackdropProps, parseSurface)
 	}
 
 	if parseProps.Target.Selector != "" || parseProps.Target.Node != nil {

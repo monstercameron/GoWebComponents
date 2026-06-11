@@ -17,7 +17,7 @@ func HotReloadBoundary(parseBoundaryProps HotReloadBoundaryProps) Node {
 	}
 	parseBoundaryChildren = append(parseBoundaryChildren, toInterfaces(parseBoundaryProps.Children)...)
 
-	return runtime.CreateElement("FRAGMENT", map[string]interface{}{
+	return runtime.CreateElementOwned("FRAGMENT", map[string]interface{}{
 		"key": hotReloadBoundaryKey(parseBoundaryProps.ResetKeys),
 	}, parseBoundaryChildren...)
 }

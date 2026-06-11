@@ -28,7 +28,7 @@ func createErrorBoundaryElement(parseBoundary runtimeErrorBoundaryComponent, par
 	}
 
 	parseChildren := extractErrorBoundaryChildren(parseRawProps)
-	return runtime.CreateElement(parseRuntimeBoundary, parsePropsMap, parseChildren...)
+	return runtime.CreateElementOwned(parseRuntimeBoundary, parsePropsMap, parseChildren...)
 }
 
 // extractErrorBoundaryFallback is a core package helper.
