@@ -472,7 +472,9 @@ func describeDevPlan(parseConfig devConfig) devPlanSummary {
 	}
 	parseAppMode := "client-only-wasm"
 	parseServerMode := "livereload-wasm"
-	if strings.Contains(strings.ToLower(filepath.ToSlash(strings.TrimSpace(parseConfig.appPath))), "/cmd/web/main.go") {
+	parseNormalizedAppPath := strings.ToLower(filepath.ToSlash(strings.TrimSpace(parseConfig.appPath)))
+	if strings.HasSuffix(parseNormalizedAppPath, "/cmd/web/main.go") ||
+		parseNormalizedAppPath == "cmd/web/main.go" {
 		parseAppMode = "server-app"
 		parseServerMode = "server-entrypoint"
 	}

@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -114,6 +115,12 @@ const (
 	MessageTypeStateSnapshot  MessageType = "state_snapshot"
 	MessageTypeDebounceStatus MessageType = "debounce_status"
 	MessageTypeCurrentStatus  MessageType = "current_status"
+	// MessageTypeAssetSwap tells clients to hot-swap changed static assets
+	// (stylesheets) in place without a wasm rebuild or page reload.
+	MessageTypeAssetSwap MessageType = "asset_swap"
+	// MessageTypeWatcherDegraded warns clients that file watching is degraded
+	// and some source changes may no longer trigger rebuilds.
+	MessageTypeWatcherDegraded MessageType = "watcher_degraded"
 )
 
 type WebSocketMessage struct {
@@ -133,6 +140,10 @@ type BuildStatus struct {
 	StateSnapshot string                    `json:"stateSnapshot,omitempty"`
 	ManifestPath  string                    `json:"manifestPath,omitempty"`
 	Manifest      *ChangedComponentManifest `json:"manifest,omitempty"`
+	// Timings carries per-stage pipeline durations in milliseconds (classifyMs,
+	// compileMs, totalMs) plus artifactBytes, so clients can show a precise
+	// save-to-paint breakdown and teams can budget dev-loop latency.
+	Timings map[string]int64 `json:"timings,omitempty"`
 }
 
 type ChangedComponentManifest struct {
@@ -235,6 +246,11 @@ type LiveReloadServer struct {
 	stateSnapshotMu      sync.Mutex
 	modulePath           string
 	manifestPath         string
+	changedAssets        map[string]time.Time // Changed static assets (css) pending an asset_swap broadcast
+	assetDebounceTimer   *time.Timer
+	wasmGzipMu           sync.Mutex // guards the gzip artifact cache below
+	wasmGzipCache        []byte     // gzip-compressed wasm artifact, keyed by mtime
+	wasmGzipModTime      time.Time
 }
 
 func livereloadReport(parseSubject string, parsePath string, parseSummary string, parseConsequence string, parseNext string) diagnostics.Report {
@@ -423,7 +439,7 @@ func (parseLrs *LiveReloadServer) Start() error {
 
 	// Start HTTP server in a goroutine
 	go func() {
-		fmt.Printf("🌐 Live reload server starting on http://%s\n", netAddr(parseLrs.host, parseLrs.port))
+		fmt.Printf("Ã°Å¸Å’Â Live reload server starting on http://%s\n", netAddr(parseLrs.host, parseLrs.port))
 		if parseErr2 := parseLrs.httpServer.ListenAndServe(); parseErr2 != nil && parseErr2 != http.ErrServerClosed {
 			emitLivereloadError("LiveReloadServer.Start.ListenAndServe", netAddr(parseLrs.host, parseLrs.port), parseErr2, "the HTTP listener stopped unexpectedly and browser clients can no longer connect.", "Inspect the bind address and listener lifetime for the livereload server.")
 		}
@@ -433,15 +449,15 @@ func (parseLrs *LiveReloadServer) Start() error {
 	parseC := make(chan os.Signal, 1)
 	signal.Notify(parseC, os.Interrupt, syscall.SIGTERM)
 
-	fmt.Println("🔄 Live reload started. Watching for .go file changes...")
-	fmt.Printf("📂 Watching directory: %s\n", parseLrs.watchRoot)
+	fmt.Println("Ã°Å¸â€â€ž Live reload started. Watching for .go file changes...")
+	fmt.Printf("Ã°Å¸â€œâ€š Watching directory: %s\n", parseLrs.watchRoot)
 	if parseLrs.watchRoot != parseLrs.projectRoot {
-		fmt.Printf("🗂️  Serving project root: %s\n", parseLrs.projectRoot)
+		fmt.Printf("Ã°Å¸â€”â€šÃ¯Â¸Â  Serving project root: %s\n", parseLrs.projectRoot)
 	}
-	fmt.Printf("🧩 Building from: %s\n", parseLrs.buildDir)
-	fmt.Printf("⏱️  Debounce time: %v\n", debounceTime)
-	fmt.Printf("🌐 Server running on http://%s\n", netAddr(parseLrs.host, parseLrs.port))
-	fmt.Println("🛑 Press Ctrl+C to stop")
+	fmt.Printf("Ã°Å¸Â§Â© Building from: %s\n", parseLrs.buildDir)
+	fmt.Printf("Ã¢ÂÂ±Ã¯Â¸Â  Debounce time: %v\n", debounceTime)
+	fmt.Printf("Ã°Å¸Å’Â Server running on http://%s\n", netAddr(parseLrs.host, parseLrs.port))
+	fmt.Println("Ã°Å¸â€ºâ€˜ Press Ctrl+C to stop")
 
 	// Trigger initial build
 	parseLrs.triggerBuild()
@@ -460,9 +476,15 @@ func (parseLrs *LiveReloadServer) Start() error {
 					return
 				}
 				emitLivereloadError("LiveReloadServer.Start.watcher", parseLrs.watchRoot, parseErr3, "file watching degraded and future source changes may not trigger rebuilds.", "Inspect filesystem watcher limits and the watched root for this livereload session.")
+				// Surface degradation to connected browsers, not just stdout:
+				// a dev who saves and sees nothing must not have to guess why.
+				parseLrs.broadcastMessage(MessageTypeWatcherDegraded, map[string]string{
+					"error":     parseErr3.Error(),
+					"watchRoot": parseLrs.watchRoot,
+				})
 
 			case <-parseC:
-				fmt.Println("\n🛑 Shutting down live reload server...")
+				fmt.Println("\nÃ°Å¸â€ºâ€˜ Shutting down live reload server...")
 				parseLrs.cleanup()
 				os.Exit(0)
 			}
@@ -489,7 +511,7 @@ func (parseLrs *LiveReloadServer) handleWebSocket(parseW http.ResponseWriter, pa
 	parseLrs.clients[parseConn] = parseSession
 	parseLrs.clientsMutex.Unlock()
 
-	fmt.Printf("🔌 WebSocket client connected (total: %d)\n", len(parseLrs.clients))
+	fmt.Printf("Ã°Å¸â€Å’ WebSocket client connected (total: %d)\n", len(parseLrs.clients))
 
 	// Send current build status to the new client
 	parseLrs.sendCurrentBuildStatus(parseConn)
@@ -499,7 +521,7 @@ func (parseLrs *LiveReloadServer) handleWebSocket(parseW http.ResponseWriter, pa
 		parseLrs.clientsMutex.Lock()
 		delete(parseLrs.clients, parseConn)
 		parseLrs.clientsMutex.Unlock()
-		fmt.Printf("🔌 WebSocket client disconnected (remaining: %d)\n", len(parseLrs.clients))
+		fmt.Printf("Ã°Å¸â€Å’ WebSocket client disconnected (remaining: %d)\n", len(parseLrs.clients))
 	}()
 
 	// Keep connection alive and handle messages
@@ -516,9 +538,7 @@ func (parseLrs *LiveReloadServer) handleWebSocket(parseW http.ResponseWriter, pa
 		}
 		if parseMessage.Type == MessageTypeStateSnapshot {
 			if parsePayload, parseOk := parseMessage.Payload.(string); parseOk && strings.TrimSpace(parsePayload) != "" {
-				parseLrs.stateSnapshotMu.Lock()
-				parseLrs.pendingStateSnapshot = parsePayload
-				parseLrs.stateSnapshotMu.Unlock()
+				parseLrs.storePendingStateSnapshot(parsePayload)
 			}
 		}
 	}
@@ -564,9 +584,7 @@ func (parseLrs *LiveReloadServer) handleWebSocketManaged(parseW http.ResponseWri
 		}
 		if parseMessage.Type == MessageTypeStateSnapshot {
 			if parsePayload, parseOk := parseMessage.Payload.(string); parseOk && strings.TrimSpace(parsePayload) != "" {
-				parseLrs.stateSnapshotMu.Lock()
-				parseLrs.pendingStateSnapshot = parsePayload
-				parseLrs.stateSnapshotMu.Unlock()
+				parseLrs.storePendingStateSnapshot(parsePayload)
 			}
 		}
 	}
@@ -594,7 +612,7 @@ func (parseLrs *LiveReloadServer) sendCurrentBuildStatus(parseConn *websocket.Co
 			if !parseLrs.lastBuildStatus.Success {
 				parseStatusText = "failed"
 			}
-			fmt.Printf("📤 Sent current build status (%s) to new client\n", parseStatusText)
+			fmt.Printf("Ã°Å¸â€œÂ¤ Sent current build status (%s) to new client\n", parseStatusText)
 		}
 	} else {
 		// Try to check current build state by attempting a quick build check
@@ -604,7 +622,7 @@ func (parseLrs *LiveReloadServer) sendCurrentBuildStatus(parseConn *websocket.Co
 
 func (parseLrs *LiveReloadServer) checkCurrentBuildState(parseConn *websocket.Conn) {
 	// Do a quick build check to see if the current code compiles
-	fmt.Println("🔍 Checking current build state for new client...")
+	fmt.Println("Ã°Å¸â€Â Checking current build state for new client...")
 	if parseErr := os.MkdirAll(filepath.Dir(parseLrs.outputPath), 0o755); parseErr != nil {
 		emitLivereloadError("LiveReloadServer.checkCurrentBuildState.mkdir", filepath.Dir(parseLrs.outputPath), parseErr, "the livereload output directory could not be created before the status check build.", "Inspect the configured build root and directory permissions for the livereload artifact path.")
 		return
@@ -659,7 +677,7 @@ func (parseLrs *LiveReloadServer) checkCurrentBuildState(parseConn *websocket.Co
 			PhaseSummary: "serving the latest successful output",
 			StaleOutput:  false,
 		}
-		fmt.Println("✅ Current build state: OK")
+		fmt.Println("Ã¢Å“â€¦ Current build state: OK")
 	}
 
 	// Store this as the current build status
@@ -724,7 +742,7 @@ func (parseLrs *LiveReloadServer) addWatchers(parseRoot string) error {
 			if parseErr != nil {
 				emitLivereloadError("LiveReloadServer.addWatchers", parsePath, parseErr, "changes under this directory will not trigger rebuilds because the watcher could not attach.", "Inspect filesystem watcher limits, permissions, and directory availability for this path.")
 			} else {
-				fmt.Printf("👀 Watching: %s\n", parsePath)
+				fmt.Printf("Ã°Å¸â€˜â‚¬ Watching: %s\n", parsePath)
 			}
 		}
 
@@ -733,27 +751,106 @@ func (parseLrs *LiveReloadServer) addWatchers(parseRoot string) error {
 }
 
 func (parseLrs *LiveReloadServer) handleFileEvent(parseEvent fsnotify.Event) {
-	// Only handle .go files
-	if !strings.HasSuffix(parseEvent.Name, ".go") {
-		return
-	}
-
-	// Skip temporary files and test files
+	// Skip temporary files and editor backup files
 	if strings.Contains(parseEvent.Name, ".tmp") || strings.Contains(parseEvent.Name, "~") {
 		return
 	}
 
 	// Only handle write and create events
-	if parseEvent.Op&fsnotify.Write == fsnotify.Write || parseEvent.Op&fsnotify.Create == fsnotify.Create {
-		fmt.Printf("📝 File changed: %s\n", parseEvent.Name)
+	if parseEvent.Op&fsnotify.Write != fsnotify.Write && parseEvent.Op&fsnotify.Create != fsnotify.Create {
+		return
+	}
 
-		// Track the changed file
+	// Newly created directories must be attached to the watcher, or changes
+	// under them will silently never trigger rebuilds.
+	if parseEvent.Op&fsnotify.Create == fsnotify.Create {
+		if parseInfo, parseStatErr := os.Stat(parseEvent.Name); parseStatErr == nil && parseInfo.IsDir() {
+			parseName := parseInfo.Name()
+			if !strings.HasPrefix(parseName, ".") && parseName != "vendor" && parseName != "node_modules" && parseName != "bin" {
+				if parseAddErr := parseLrs.addWatchers(parseEvent.Name); parseAddErr != nil {
+					emitLivereloadError("LiveReloadServer.handleFileEvent.addWatchers", parseEvent.Name, parseAddErr, "changes under this new directory will not trigger rebuilds.", "Inspect filesystem watcher limits and permissions for this path.")
+				}
+			}
+			return
+		}
+	}
+
+	switch {
+	case strings.HasSuffix(parseEvent.Name, ".go"):
+		fmt.Printf("Ã°Å¸â€œÂ File changed: %s\n", parseEvent.Name)
 		parseLrs.mutex.Lock()
 		parseLrs.changedFiles[parseEvent.Name] = time.Now()
 		parseLrs.mutex.Unlock()
-
 		parseLrs.debounceAndBuild()
+	case strings.HasSuffix(parseEvent.Name, ".css"):
+		// Stylesheets hot-swap in place: no wasm rebuild, no page reload.
+		if parseLrs.isBuildArtifactPath(parseEvent.Name) {
+			return
+		}
+		fmt.Printf("Ã°Å¸Å½Â¨ Stylesheet changed: %s\n", parseEvent.Name)
+		parseLrs.queueAssetSwap(parseEvent.Name)
+	case strings.HasSuffix(parseEvent.Name, ".html") || strings.HasSuffix(parseEvent.Name, ".js"):
+		// Markup/static script changes need a page reload but never a rebuild.
+		if parseLrs.isBuildArtifactPath(parseEvent.Name) {
+			return
+		}
+		fmt.Printf("Ã°Å¸â€œâ€ž Static file changed, reloading page: %s\n", parseEvent.Name)
+		parseLrs.broadcastMessage(MessageTypeReload, map[string]string{
+			"reason": "static file changed: " + filepath.Base(parseEvent.Name),
+		})
 	}
+}
+
+// isBuildArtifactPath reports whether a path points at generated build output
+// (which changes on every rebuild and must not feed back into the watcher).
+func (parseLrs *LiveReloadServer) isBuildArtifactPath(parsePath string) bool {
+	parseNormalized := filepath.ToSlash(parsePath)
+	if strings.Contains(parseNormalized, "/bin/") || strings.Contains(parseNormalized, "/dist/") {
+		return true
+	}
+	if parseLrs.outputPath != "" {
+		parseOutputDir := filepath.ToSlash(filepath.Dir(parseLrs.outputPath))
+		if parseOutputDir != "." && strings.HasPrefix(parseNormalized, parseOutputDir+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// queueAssetSwap batches changed stylesheets briefly, then broadcasts a single
+// asset_swap message so clients refresh the matching <link> tags in place.
+func (parseLrs *LiveReloadServer) queueAssetSwap(parsePath string) {
+	parseLrs.mutex.Lock()
+	if parseLrs.changedAssets == nil {
+		parseLrs.changedAssets = make(map[string]time.Time)
+	}
+	parseLrs.changedAssets[parsePath] = time.Now()
+	if parseLrs.assetDebounceTimer != nil {
+		parseLrs.assetDebounceTimer.Stop()
+	}
+	parseLrs.assetDebounceTimer = time.AfterFunc(100*time.Millisecond, func() {
+		parseLrs.mutex.Lock()
+		parseAssets := parseLrs.changedAssets
+		parseLrs.changedAssets = nil
+		parseLrs.assetDebounceTimer = nil
+		parseLrs.mutex.Unlock()
+
+		parsePaths := make([]string, 0, len(parseAssets))
+		for parseAsset := range parseAssets {
+			parseRel, parseRelErr := filepath.Rel(parseLrs.projectRoot, parseAsset)
+			if parseRelErr != nil || strings.HasPrefix(parseRel, "..") {
+				parseRel = filepath.Base(parseAsset)
+			}
+			parsePaths = append(parsePaths, "/"+filepath.ToSlash(parseRel))
+		}
+		sort.Strings(parsePaths)
+		fmt.Printf("Ã°Å¸Å½Â¨ Hot-swapping %d stylesheet(s): %s\n", len(parsePaths), strings.Join(parsePaths, ", "))
+		parseLrs.broadcastMessage(MessageTypeAssetSwap, map[string]interface{}{
+			"assets": parsePaths,
+			"kind":   "css",
+		})
+	})
+	parseLrs.mutex.Unlock()
 }
 
 func (parseLrs *LiveReloadServer) debounceAndBuild() {
@@ -762,7 +859,7 @@ func (parseLrs *LiveReloadServer) debounceAndBuild() {
 
 	if parseLrs.currentBuild != nil && parseLrs.currentBuild.Process != nil {
 		if !parseLrs.buildQueued {
-			fmt.Printf("⏭️  Build already running (PID: %d); queueing one follow-up rebuild\n", parseLrs.currentBuild.Process.Pid)
+			fmt.Printf("Ã¢ÂÂ­Ã¯Â¸Â  Build already running (PID: %d); queueing one follow-up rebuild\n", parseLrs.currentBuild.Process.Pid)
 		}
 		parseLrs.buildQueued = true
 		parseLrs.broadcastMessage(MessageTypeDebounceStatus, map[string]interface{}{
@@ -792,27 +889,27 @@ func (parseLrs *LiveReloadServer) debounceAndBuild() {
 	if parseLrs.changeCount == 1 {
 		// First change - use longer debounce to give user time to continue typing
 		parseSmartDebounceTime = debounceTime
-		fmt.Printf("⏱️  First change detected, waiting %v for more changes...\n", parseSmartDebounceTime)
+		fmt.Printf("Ã¢ÂÂ±Ã¯Â¸Â  First change detected, waiting %v for more changes...\n", parseSmartDebounceTime)
 	} else if parseLrs.changeCount <= 3 && parseTimeSinceFirstChange < 10*time.Second {
 		// Multiple quick changes - user is actively typing, extend wait
 		parseSmartDebounceTime = debounceTime
-		fmt.Printf("⏱️  Change #%d detected, extending wait %v (user actively typing)...\n", parseLrs.changeCount, parseSmartDebounceTime)
+		fmt.Printf("Ã¢ÂÂ±Ã¯Â¸Â  Change #%d detected, extending wait %v (user actively typing)...\n", parseLrs.changeCount, parseSmartDebounceTime)
 	} else {
 		// Many changes or been waiting a while - use shorter debounce
 		parseSmartDebounceTime = quickDebounceTime
-		fmt.Printf("⏱️  Change #%d detected, using quick debounce %v...\n", parseLrs.changeCount, parseSmartDebounceTime)
+		fmt.Printf("Ã¢ÂÂ±Ã¯Â¸Â  Change #%d detected, using quick debounce %v...\n", parseLrs.changeCount, parseSmartDebounceTime)
 	}
 
 	// Don't wait longer than maxDebounceTime total
 	if parseTimeSinceFirstChange > maxDebounceTime-parseSmartDebounceTime {
 		parseSmartDebounceTime = maxDebounceTime - parseTimeSinceFirstChange
 		if parseSmartDebounceTime <= 0 {
-			fmt.Printf("⏰ Maximum debounce time reached, building immediately\n")
+			fmt.Printf("Ã¢ÂÂ° Maximum debounce time reached, building immediately\n")
 			parseLrs.resetDebounceState()
 			go parseLrs.triggerBuild()
 			return
 		}
-		fmt.Printf("⏰ Approaching max debounce time, will build in %v\n", parseSmartDebounceTime)
+		fmt.Printf("Ã¢ÂÂ° Approaching max debounce time, will build in %v\n", parseSmartDebounceTime)
 	}
 
 	// Reset the debounce timer
@@ -826,7 +923,7 @@ func (parseLrs *LiveReloadServer) debounceAndBuild() {
 			parseLrs.maxDebounceTimer.Stop()
 		}
 		parseLrs.maxDebounceTimer = time.AfterFunc(maxDebounceTime, func() {
-			fmt.Printf("⏰ Maximum debounce time (%v) reached, forcing build\n", maxDebounceTime)
+			fmt.Printf("Ã¢ÂÂ° Maximum debounce time (%v) reached, forcing build\n", maxDebounceTime)
 			parseLrs.mutex.Lock()
 			parseLrs.resetDebounceState()
 			parseLrs.mutex.Unlock()
@@ -852,11 +949,13 @@ func (parseLrs *LiveReloadServer) debounceAndBuild() {
 
 func (parseLrs *LiveReloadServer) triggerBuild() {
 	// Classify the update before building
+	parseClassifyStart := time.Now()
 	parseClassification := parseLrs.classifyUpdate()
-	fmt.Printf("🔍 Update classification: %s (%s) - %s\n",
+	parseClassifyMs := time.Since(parseClassifyStart).Milliseconds()
+	fmt.Printf("Ã°Å¸â€Â Update classification: %s (%s) - %s\n",
 		parseClassification.Type, parseClassification.ReloadType, parseClassification.Reason)
 
-	fmt.Println("🔨 Starting WASM build...")
+	fmt.Println("Ã°Å¸â€Â¨ Starting WASM build...")
 	parseStartTime := time.Now()
 
 	buildStatus := BuildStatus{
@@ -896,7 +995,9 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 		parseLrs.broadcastMessage(MessageTypeBuildError, *parseLrs.lastBuildStatus)
 		return
 	}
-	parseCmd := exec.Command(buildCommand, "build", "-o", parseLrs.outputPath)
+	// Dev builds skip DWARF generation (-ldflags=-w): the linker dominates
+	// rebuild latency and debug info is not consumed by browser dev sessions.
+	parseCmd := exec.Command(buildCommand, "build", "-ldflags=-w", "-o", parseLrs.outputPath)
 
 	parseCmd.Dir = parseLrs.buildDir
 	parseCmd.Env = append(os.Environ(), buildEnv...)
@@ -906,7 +1007,7 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 	parseCmd.Stdout = io.MultiWriter(os.Stdout, &parseStdout)
 	parseCmd.Stderr = io.MultiWriter(os.Stderr, &parseStderr)
 
-	fmt.Printf("🏗️  Build process started (PID: will be available after start)\n")
+	fmt.Printf("Ã°Å¸Ââ€”Ã¯Â¸Â  Build process started (PID: will be available after start)\n")
 
 	// Start the build process (non-blocking)
 	parseErr2 := parseCmd.Start()
@@ -932,7 +1033,7 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 	parseLrs.currentBuild = parseCmd
 	parseLrs.mutex.Unlock()
 
-	fmt.Printf("🏗️  Build process running (PID: %d)\n", parseCmd.Process.Pid)
+	fmt.Printf("Ã°Å¸Ââ€”Ã¯Â¸Â  Build process running (PID: %d)\n", parseCmd.Process.Pid)
 
 	// Wait for the build to complete
 	parseErr2 = parseCmd.Wait()
@@ -942,7 +1043,7 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 	// Check if the process was killed vs completed naturally
 	if parseErr2 != nil {
 		if parseCmd.ProcessState != nil && parseCmd.ProcessState.String() == "signal: killed" {
-			fmt.Printf("⏹️  Build was cancelled after %v\n", parseDuration)
+			fmt.Printf("Ã¢ÂÂ¹Ã¯Â¸Â  Build was cancelled after %v\n", parseDuration)
 		} else {
 			// Get the actual build error output
 			buildError := strings.TrimSpace(parseStderr.String())
@@ -983,6 +1084,22 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 			}
 		}
 
+		parseTimings := map[string]int64{
+			"classifyMs": parseClassifyMs,
+			"compileMs":  parseDuration.Milliseconds(),
+			"totalMs":    time.Since(parseClassifyStart).Milliseconds(),
+		}
+		if parseArtifactInfo, parseStatErr := os.Stat(parseLrs.outputPath); parseStatErr == nil {
+			parseTimings["artifactBytes"] = parseArtifactInfo.Size()
+			// Pre-compress now so the browser's reload fetch is served from
+			// cache immediately, and the transfer size is known up front.
+			if parseGzipBytes := parseLrs.precompressWASMArtifact(parseArtifactInfo.ModTime()); parseGzipBytes > 0 {
+				parseTimings["artifactGzipBytes"] = parseGzipBytes
+				fmt.Printf("📦 Artifact: %.2f MB raw / %.2f MB gzip transfer\n",
+					float64(parseArtifactInfo.Size())/1024/1024, float64(parseGzipBytes)/1024/1024)
+			}
+		}
+
 		buildStatus := BuildStatus{
 			Success:      true,
 			Duration:     parseDuration.String(),
@@ -992,6 +1109,7 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 			StaleOutput:  true,
 			ManifestPath: parseLrs.manifestPath,
 			Manifest:     parseManifest,
+			Timings:      parseTimings,
 		}
 		if buildStatus.ReloadType == "hot" {
 			buildStatus.StateSnapshot = parseLrs.takePendingStateSnapshot()
@@ -999,7 +1117,7 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 			parseLrs.clearPendingStateSnapshot()
 		}
 
-		fmt.Printf("✅ Build completed successfully in %v\n", parseDuration)
+		fmt.Printf("Ã¢Å“â€¦ Build completed successfully in %v\n", parseDuration)
 		parseLrs.mutex.Lock()
 		parseLrs.lastBuildStatus = &buildStatus
 		parseLrs.mutex.Unlock()
@@ -1013,7 +1131,7 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 	parseLrs.mutex.Unlock()
 
 	if parseQueuedRebuild {
-		fmt.Println("🔁 Running queued rebuild for changes that landed during the previous compile")
+		fmt.Println("Ã°Å¸â€Â Running queued rebuild for changes that landed during the previous compile")
 		go parseLrs.triggerBuild()
 	}
 }
@@ -1094,7 +1212,7 @@ func (parseLrs *LiveReloadServer) cleanup() {
 	}
 
 	if parseLrs.currentBuild != nil && parseLrs.currentBuild.Process != nil {
-		fmt.Println("🛑 Killing running build process...")
+		fmt.Println("Ã°Å¸â€ºâ€˜ Killing running build process...")
 		terminateLivereloadProcessTree(parseLrs.currentBuild)
 		_ = parseLrs.currentBuild.Wait()
 	}

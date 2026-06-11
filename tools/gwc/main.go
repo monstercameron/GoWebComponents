@@ -49,6 +49,10 @@ type buildProfile struct {
 	Trimpath bool   `json:"trimpath"`
 	Ldflags  string `json:"ldflags,omitempty"`
 	BuildVCS string `json:"buildvcs,omitempty"`
+	// Tags carries build tags for the profile.  Release-shaped profiles set
+	// "production" so framework dev-only surfaces (devtools panels, hot-reload
+	// scaffolding) are excluded from shipped artifacts.
+	Tags string `json:"tags,omitempty"`
 }
 
 type buildSummary struct {
@@ -61,6 +65,9 @@ type buildSummary struct {
 	Bytes       int64             `json:"bytes"`
 	SHA256      string            `json:"sha256"`
 	Resolution  map[string]string `json:"resolution,omitempty"`
+	// SizeWarnings lists heavyweight stdlib import chains detected in the wasm
+	// dependency graph (net/http, regexp, ...) with actionable guidance.
+	SizeWarnings []string `json:"sizeWarnings,omitempty"`
 }
 
 type releaseConfig struct {
@@ -710,6 +717,10 @@ func printBuildSummary(parseSummary buildSummary) {
 	fmt.Printf("  trimpath:     %t\n", parseSummary.Profile.Trimpath)
 	fmt.Printf("  ldflags:      %s\n", firstNonEmpty(parseSummary.Profile.Ldflags, "<none>"))
 	fmt.Printf("  buildvcs:     %s\n", firstNonEmpty(parseSummary.Profile.BuildVCS, "default"))
+	fmt.Printf("  tags:         %s\n", firstNonEmpty(parseSummary.Profile.Tags, "<none>"))
+	for _, parseWarning := range parseSummary.SizeWarnings {
+		fmt.Printf("  ⚠ %s\n", parseWarning)
+	}
 	printResolutionTrace(parseSummary.Resolution, []string{"app", "root", "output", "profile"}, "  ")
 }
 

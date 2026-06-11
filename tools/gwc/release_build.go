@@ -252,13 +252,15 @@ func resolveBuildConfig(parseConfig buildConfig) (buildConfig, error) {
 func resolveBuildProfile(parseProfile string) (buildProfile, error) {
 	switch strings.TrimSpace(strings.ToLower(parseProfile)) {
 	case "", "development", "dev":
-		return buildProfile{Name: "development", Trimpath: false}, nil
+		// -w skips DWARF: meaningfully faster links for the dev loop and a
+		// smaller artifact, with no cost to browser debugging.
+		return buildProfile{Name: "development", Trimpath: false, Ldflags: "-w"}, nil
 	case "ci", "verification", "verify":
-		return buildProfile{Name: "ci", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false"}, nil
+		return buildProfile{Name: "ci", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false", Tags: "production"}, nil
 	case "benchmark", "bench":
-		return buildProfile{Name: "benchmark", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false"}, nil
+		return buildProfile{Name: "benchmark", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false", Tags: "production"}, nil
 	case "release", "production", "prod":
-		return buildProfile{Name: "release", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false"}, nil
+		return buildProfile{Name: "release", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false", Tags: "production"}, nil
 	default:
 		return buildProfile{}, fmt.Errorf("unknown build profile %q", parseProfile)
 	}
@@ -487,6 +489,9 @@ func executeBuild(parseConfig buildConfig) (buildSummary, error) {
 	if strings.TrimSpace(parseProfile.BuildVCS) != "" {
 		buildArgs = append(buildArgs, "-buildvcs="+parseProfile.BuildVCS)
 	}
+	if strings.TrimSpace(parseProfile.Tags) != "" {
+		buildArgs = append(buildArgs, "-tags", parseProfile.Tags)
+	}
 	buildArgs = append(buildArgs, ".")
 
 	parseCmd := exec.Command("go", buildArgs...)
@@ -511,16 +516,58 @@ func executeBuild(parseConfig buildConfig) (buildSummary, error) {
 	}
 	parseHash := sha256.Sum256(parseArtifactBytes)
 	return buildSummary{
-		OK:          true,
-		Profile:     parseProfile,
-		AppPath:     parseConfig.appPath,
-		ProjectRoot: parseConfig.rootPath,
-		PackageDir:  parsePackageDir,
-		OutputPath:  parseConfig.outputPath,
-		Bytes:       parseArtifactInfo.Size(),
-		SHA256:      fmt.Sprintf("%x", parseHash[:]),
-		Resolution:  cloneResolutionTrace(parseConfig.resolution),
+		OK:           true,
+		Profile:      parseProfile,
+		AppPath:      parseConfig.appPath,
+		ProjectRoot:  parseConfig.rootPath,
+		PackageDir:   parsePackageDir,
+		OutputPath:   parseConfig.outputPath,
+		Bytes:        parseArtifactInfo.Size(),
+		SHA256:       fmt.Sprintf("%x", parseHash[:]),
+		Resolution:   cloneResolutionTrace(parseConfig.resolution),
+		SizeWarnings: detectHeavyWASMImports(parsePackageDir),
 	}, nil
+}
+
+// heavyWASMImports maps stdlib packages that disproportionately inflate wasm
+// artifacts to actionable guidance.  One careless import anywhere in an app's
+// dependency chain taxes every build forever, so every gwc build surfaces them.
+var heavyWASMImports = map[string]string{
+	"net/http":      "~1 MB (drags crypto/tls + x509 + DNS); browser apps should use the framework fetch package or js interop instead",
+	"regexp":        "~290 kB; for simple patterns a hand-rolled match avoids linking the regexp engine",
+	"encoding/xml":  "~300 kB; prefer encoding/json or a manual parser in wasm builds",
+	"text/template": "~250 kB (plus reflect pressure); prefer direct string building in wasm builds",
+	"html/template": "~400 kB; prefer the framework's html package for markup in wasm builds",
+	"database/sql":  "driver-dependent but heavy; databases belong on the server side of a wasm app",
+}
+
+// detectHeavyWASMImports inspects the app's js/wasm dependency graph and
+// returns a warning per known-heavy stdlib package found.  Failures are
+// silent (nil): this is advisory tooling and must never break a build.
+func detectHeavyWASMImports(parsePackageDir string) []string {
+	parseCmd := exec.Command("go", "list", "-deps", ".")
+	parseCmd.Dir = parsePackageDir
+	parseCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+	parseOutput, parseErr := parseCmd.Output()
+	if parseErr != nil {
+		return nil
+	}
+	parseDeps := make(map[string]bool)
+	for _, parseLine := range strings.Split(string(parseOutput), "\n") {
+		parseDeps[strings.TrimSpace(parseLine)] = true
+	}
+	parseHeavy := make([]string, 0, len(heavyWASMImports))
+	for parsePkg := range heavyWASMImports {
+		if parseDeps[parsePkg] {
+			parseHeavy = append(parseHeavy, parsePkg)
+		}
+	}
+	sort.Strings(parseHeavy)
+	parseWarnings := make([]string, 0, len(parseHeavy))
+	for _, parsePkg := range parseHeavy {
+		parseWarnings = append(parseWarnings, fmt.Sprintf("wasm size: %s is linked — %s", parsePkg, heavyWASMImports[parsePkg]))
+	}
+	return parseWarnings
 }
 
 func executeRelease(parseConfig releaseConfig) (releaseSummary, error) {

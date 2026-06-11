@@ -54,11 +54,12 @@ func (parseLrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 			return newUpdateClassification("big", "full", "Main function or entry point changed", parseChangedFiles)
 		}
 
-		if strings.Contains(parseRelPath, "fiber/fiber.go") ||
-			strings.Contains(parseRelPath, "fiber/hooks.go") ||
-			strings.Contains(parseRelPath, "fiber/types.go") ||
-			strings.Contains(parseRelPath, "fiber/state_management.go") {
-			return newUpdateClassification("big", "full", "Core fiber system changed", parseChangedFiles)
+		// Core runtime/scheduler/platform changes invalidate hook state layouts
+		// and DOM bookkeeping, so a clean full reload is the safe choice.
+		if strings.Contains(parseRelPath, "internal/runtime/") ||
+			strings.Contains(parseRelPath, "internal/platform/") ||
+			strings.Contains(parseRelPath, "hotreload/") {
+			return newUpdateClassification("big", "full", "Core runtime changed", parseChangedFiles)
 		}
 
 		if strings.Contains(parseRelPath, "go.mod") || strings.Contains(parseRelPath, "go.sum") {
@@ -70,6 +71,12 @@ func (parseLrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 		}
 		if strings.Contains(parseRelPath, "website/") {
 			parseHotReloadReasons = append(parseHotReloadReasons, "website components")
+		}
+		// Application source outside the framework core: hot reload with state
+		// restore is the default — the changed-component manifest plus the
+		// runtime's selective remount handle incompatible hook changes safely.
+		if !strings.Contains(parseRelPath, "internal/") {
+			parseHotReloadReasons = append(parseHotReloadReasons, "app components")
 		}
 	}
 
@@ -93,6 +100,20 @@ func (parseLrs *LiveReloadServer) requestStateSnapshot() {
 	parseLrs.broadcastMessage(MessageTypeStateExport, map[string]string{
 		"reason": "hot_reload",
 	})
+}
+
+// storePendingStateSnapshot records a client's exported state for the next hot
+// reload.  With several connected tabs the last writer wins; that is the
+// intended policy, but it is diagnosed so multi-client sessions can see when
+// one tab's state displaced another's.
+func (parseLrs *LiveReloadServer) storePendingStateSnapshot(parsePayload string) {
+	parseLrs.stateSnapshotMu.Lock()
+	parsePrevious := parseLrs.pendingStateSnapshot
+	parseLrs.pendingStateSnapshot = parsePayload
+	parseLrs.stateSnapshotMu.Unlock()
+	if parsePrevious != "" && parsePrevious != parsePayload {
+		fmt.Println("ℹ️  Multiple clients exported state for this reload; using the most recent snapshot (last writer wins)")
+	}
 }
 
 func (parseLrs *LiveReloadServer) takePendingStateSnapshot() string {

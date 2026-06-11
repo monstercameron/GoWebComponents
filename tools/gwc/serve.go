@@ -285,6 +285,22 @@ func (parseConfig serveConfig) resolveRequestPath(parseRequestPath string) (stri
 	if parseResolvedTarget != parseResolvedRoot && !strings.HasPrefix(parseResolvedTarget, parseResolvedRoot+string(filepath.Separator)) {
 		return "", fmt.Errorf("path %q escapes root", parseRequestPath)
 	}
+	// Resolve symlinks to prevent a symlink inside the root from pointing
+	// outside it and escaping the prefix guard above.
+	parseSymlinkRoot, parseRootSymlinkErr := filepath.EvalSymlinks(parseResolvedRoot)
+	if parseRootSymlinkErr != nil {
+		parseSymlinkRoot = parseResolvedRoot
+	}
+	parseSymlinkTarget, parseTargetSymlinkErr := filepath.EvalSymlinks(parseResolvedTarget)
+	if parseTargetSymlinkErr != nil {
+		// Target does not exist yet (e.g. requested file is missing); skip the
+		// symlink check and let the caller's os.Stat produce a 404.
+		return parseResolvedTarget, nil
+	}
+	parseSymlinkTarget = filepath.Clean(parseSymlinkTarget)
+	if parseSymlinkTarget != parseSymlinkRoot && !strings.HasPrefix(parseSymlinkTarget, parseSymlinkRoot+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes root via symlink", parseRequestPath)
+	}
 	return parseResolvedTarget, nil
 }
 

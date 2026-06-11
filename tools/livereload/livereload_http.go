@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -26,9 +28,7 @@ func (parseLrs *LiveReloadServer) newHTTPHandler() http.Handler {
 	}
 	parseServedWASMPath := parseLrs.servedWASMPath()
 	if parseServedWASMPath != "" {
-		parseMux.HandleFunc(parseServedWASMPath, func(parseW http.ResponseWriter, parseR *http.Request) {
-			http.ServeFile(parseW, parseR, parseLrs.outputPath)
-		})
+		parseMux.HandleFunc(parseServedWASMPath, parseLrs.handleWASMArtifact)
 	}
 	parseMux.HandleFunc("/", func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
 		if parseR2.URL.Path == "/" {
@@ -44,6 +44,33 @@ func (parseLrs *LiveReloadServer) newHTTPHandler() http.Handler {
 	})
 	parseMux.HandleFunc("/ws", parseLrs.handleWebSocketManaged)
 	return parseMux
+}
+
+// handleWASMArtifact serves the build output, gzip-compressed when the client
+// accepts it.  The compressed bytes are cached and keyed by artifact mtime, so
+// each rebuild pays compression once instead of per-request.  This shrinks the
+// dominant transfer (the multi-MB wasm) roughly 4-5x, which matters for
+// tunneled/remote dev sessions and multi-client teams.
+func (parseLrs *LiveReloadServer) handleWASMArtifact(parseW http.ResponseWriter, parseR *http.Request) {
+	parseInfo, parseErr := os.Stat(parseLrs.outputPath)
+	if parseErr != nil || !strings.Contains(parseR.Header.Get("Accept-Encoding"), "gzip") {
+		http.ServeFile(parseW, parseR, parseLrs.outputPath)
+		return
+	}
+
+	if parseLrs.precompressWASMArtifact(parseInfo.ModTime()) == 0 {
+		http.ServeFile(parseW, parseR, parseLrs.outputPath)
+		return
+	}
+	parseLrs.wasmGzipMu.Lock()
+	parseCompressed := parseLrs.wasmGzipCache
+	parseLrs.wasmGzipMu.Unlock()
+
+	parseW.Header().Set("Content-Type", "application/wasm")
+	parseW.Header().Set("Content-Encoding", "gzip")
+	parseW.Header().Set("Content-Length", fmt.Sprintf("%d", len(parseCompressed)))
+	parseW.Header().Set("Cache-Control", "no-cache")
+	_, _ = parseW.Write(parseCompressed)
 }
 
 func (parseLrs *LiveReloadServer) statusURL() string {
@@ -272,4 +299,31 @@ func (parseLrs *LiveReloadServer) servedWASMPath() string {
 		return "/main.wasm"
 	}
 	return "/" + filepath.ToSlash(parseBase)
+}
+
+// precompressWASMArtifact ensures the gzip cache matches the artifact with the
+// given mtime, compressing if needed, and returns the compressed size in bytes
+// (0 on failure).  Called after each successful build (so the first reload
+// fetch is served from cache) and lazily from the artifact handler.
+func (parseLrs *LiveReloadServer) precompressWASMArtifact(parseModTime time.Time) int64 {
+	parseLrs.wasmGzipMu.Lock()
+	defer parseLrs.wasmGzipMu.Unlock()
+	if parseLrs.wasmGzipModTime.Equal(parseModTime) && parseLrs.wasmGzipCache != nil {
+		return int64(len(parseLrs.wasmGzipCache))
+	}
+	parseRaw, parseReadErr := os.ReadFile(parseLrs.outputPath)
+	if parseReadErr != nil {
+		return 0
+	}
+	var parseBuf bytes.Buffer
+	parseWriter, _ := gzip.NewWriterLevel(&parseBuf, gzip.BestSpeed)
+	if _, parseWriteErr := parseWriter.Write(parseRaw); parseWriteErr != nil {
+		return 0
+	}
+	if parseCloseErr := parseWriter.Close(); parseCloseErr != nil {
+		return 0
+	}
+	parseLrs.wasmGzipCache = parseBuf.Bytes()
+	parseLrs.wasmGzipModTime = parseModTime
+	return int64(len(parseLrs.wasmGzipCache))
 }

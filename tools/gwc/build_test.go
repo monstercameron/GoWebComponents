@@ -40,12 +40,16 @@ func TestResolveBuildProfileAliases(parseT *testing.T) {
 		wantName  string
 		trimpath  bool
 		wantFlags string
+		wantTags  string
 	}{
-		{input: "development", wantName: "development", trimpath: false, wantFlags: ""},
-		{input: "dev", wantName: "development", trimpath: false, wantFlags: ""},
-		{input: "ci", wantName: "ci", trimpath: true, wantFlags: "-s -w"},
-		{input: "bench", wantName: "benchmark", trimpath: true, wantFlags: "-s -w"},
-		{input: "prod", wantName: "release", trimpath: true, wantFlags: "-s -w"},
+		// Development links fast (-w skips DWARF) and keeps dev-only framework
+		// surfaces; release-shaped profiles strip fully and exclude dev-only
+		// code via the production build tag.
+		{input: "development", wantName: "development", trimpath: false, wantFlags: "-w", wantTags: ""},
+		{input: "dev", wantName: "development", trimpath: false, wantFlags: "-w", wantTags: ""},
+		{input: "ci", wantName: "ci", trimpath: true, wantFlags: "-s -w", wantTags: "production"},
+		{input: "bench", wantName: "benchmark", trimpath: true, wantFlags: "-s -w", wantTags: "production"},
+		{input: "prod", wantName: "release", trimpath: true, wantFlags: "-s -w", wantTags: "production"},
 	}
 	for _, parseTest := range parseTests {
 		parseT.Run(parseTest.input, func(parseT2 *testing.T) {
@@ -61,6 +65,9 @@ func TestResolveBuildProfileAliases(parseT *testing.T) {
 			}
 			if parseProfile.Ldflags != parseTest.wantFlags {
 				parseT2.Fatalf("expected ldflags %q, got %#v", parseTest.wantFlags, parseProfile)
+			}
+			if parseProfile.Tags != parseTest.wantTags {
+				parseT2.Fatalf("expected tags %q, got %#v", parseTest.wantTags, parseProfile)
 			}
 		})
 	}
@@ -471,4 +478,31 @@ func TestExecuteBuildDirectBranches(parseT *testing.T) {
 			parseT5.Fatalf("expected artifact metadata, got %#v", parseSummary)
 		}
 	})
+}
+
+// TestDetectHeavyWASMImports verifies the size-hygiene warnings fire for known
+// heavy stdlib packages in a real wasm dependency graph and stay silent for
+// packages that are not linked.
+func TestDetectHeavyWASMImports(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseWarnings := detectHeavyWASMImports(filepath.Join(parseRepoRoot, "test", "testapp"))
+
+	parseHasRegexp := false
+	for _, parseWarning := range parseWarnings {
+		if strings.Contains(parseWarning, "net/http is linked") {
+			parseT.Fatalf("net/http must not be linked into wasm test app (diagnostics http split regressed): %v", parseWarnings)
+		}
+		if strings.Contains(parseWarning, "regexp is linked") {
+			parseHasRegexp = true
+		}
+	}
+	// runtime2's diagnostic redaction legitimately uses regexp today; the
+	// warning documents the cost. If that dependency is ever removed, this
+	// assertion should flip to require no warnings at all.
+	if !parseHasRegexp {
+		parseT.Fatalf("expected regexp size warning for test app, got %v", parseWarnings)
+	}
 }

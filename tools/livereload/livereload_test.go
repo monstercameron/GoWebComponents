@@ -1388,14 +1388,59 @@ func TestClassifyUpdateBranches(parseT *testing.T) {
 		}
 	})
 
-	parseT.Run("logic changes default to full reload", func(parseT5 *testing.T) {
+	parseT.Run("app logic changes default to hot reload", func(parseT5 *testing.T) {
 		parseServer4 := &LiveReloadServer{
 			projectRoot:  parseProjectRoot,
 			changedFiles: map[string]time.Time{filepath.Join(parseProjectRoot, "pkg", "logic.go"): time.Now()},
 		}
 		parseClassification4 := parseServer4.classifyUpdate()
-		if parseClassification4.ReloadType != "full" || !strings.Contains(parseClassification4.Reason, "Logic changes") {
-			parseT5.Fatalf("expected logic-change full reload, got %+v", parseClassification4)
+		if parseClassification4.ReloadType != "hot" || !strings.Contains(parseClassification4.Reason, "app components") {
+			parseT5.Fatalf("expected app-logic hot reload (state snapshot + selective remount handle safety), got %+v", parseClassification4)
+		}
+	})
+
+	parseT.Run("core runtime changes force full reload", func(parseT6 *testing.T) {
+		parseServer5 := &LiveReloadServer{
+			projectRoot:  parseProjectRoot,
+			changedFiles: map[string]time.Time{filepath.Join(parseProjectRoot, "internal", "runtime", "reconciler.go"): time.Now()},
+		}
+		parseClassification5 := parseServer5.classifyUpdate()
+		if parseClassification5.ReloadType != "full" || !strings.Contains(parseClassification5.Reason, "Core runtime") {
+			parseT6.Fatalf("expected core-runtime full reload, got %+v", parseClassification5)
+		}
+	})
+}
+
+func TestHandleFileEventAssetAndArtifactBranches(parseT *testing.T) {
+	parseProjectRoot := parseT.TempDir()
+
+	parseT.Run("build artifact paths are ignored", func(parseT2 *testing.T) {
+		parseServer := &LiveReloadServer{projectRoot: parseProjectRoot, outputPath: filepath.Join(parseProjectRoot, "bin", "main.wasm")}
+		if !parseServer.isBuildArtifactPath(filepath.Join(parseProjectRoot, "bin", "styles.css")) {
+			parseT2.Fatal("expected bin/ css to be classified as build artifact")
+		}
+		if parseServer.isBuildArtifactPath(filepath.Join(parseProjectRoot, "assets", "styles.css")) {
+			parseT2.Fatal("expected source css to not be classified as build artifact")
+		}
+	})
+
+	parseT.Run("css change queues asset swap without build", func(parseT3 *testing.T) {
+		parseServer2 := &LiveReloadServer{
+			projectRoot:  parseProjectRoot,
+			changedFiles: map[string]time.Time{},
+			clients:      map[*websocket.Conn]ClientSession{},
+		}
+		parseServer2.queueAssetSwap(filepath.Join(parseProjectRoot, "assets", "styles.css"))
+		parseServer2.mutex.Lock()
+		parsePending := len(parseServer2.changedAssets)
+		parseTimerSet := parseServer2.assetDebounceTimer != nil
+		parseServer2.mutex.Unlock()
+		if parsePending != 1 || !parseTimerSet {
+			parseT3.Fatalf("expected one pending asset and an armed debounce timer, got pending=%d timer=%v", parsePending, parseTimerSet)
+		}
+		// The asset path must never enter the Go-build changed-files set.
+		if len(parseServer2.changedFiles) != 0 {
+			parseT3.Fatalf("expected css change to bypass the build pipeline, got %+v", parseServer2.changedFiles)
 		}
 	})
 }
