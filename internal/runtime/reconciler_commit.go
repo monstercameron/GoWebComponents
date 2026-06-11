@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"strings"
-	"time"
 )
 
 const getCommittedChildReplaceThreshold = 8
@@ -273,9 +272,9 @@ func shouldPreserveHydrationInitialProperty(parseName string) bool {
 
 // commitRoot commits all changes to the DOM
 func (parseRt *Runtime) commitRoot() {
-	parseStart := time.Now()
+	parseStart := commitTimingStart()
 	defer func() {
-		parseDurationNs := time.Since(parseStart).Nanoseconds()
+		parseDurationNs := commitTimingSinceNs(parseStart)
 		parseRt.profiling.commitCount++
 		parseRt.profiling.lastCommitDurationNs = parseDurationNs
 		parseRt.profiling.totalCommitDurationNs += parseDurationNs
@@ -430,14 +429,14 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 
 	if !isPortal && !IsDOMNodeNull(parseDomParent) {
 		if parseFiber.effectTag == "PLACEMENT" {
-			parseStart := time.Now()
+			parseStart := commitTimingStart()
 			if IsDOMNodeNull(parseFiber.dom) {
 				parseFiber.dom = parseRt.createDom(parseFiber)
 			}
 			if !IsDOMNodeNull(parseFiber.dom) {
 				parseRt.domAdapter.AppendChild(parseDomParent, parseFiber.dom)
 			}
-			parseFiber.commitDurationNs += time.Since(parseStart).Nanoseconds()
+			parseFiber.commitDurationNs += commitTimingSinceNs(parseStart)
 			if parseFiber.fineGrained {
 				parseRt.profiling.fineGrainedCommits++
 			} else {
@@ -451,16 +450,16 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 				} else if parseNewValue == "" && parseFiber.props != nil {
 					parseNewValue, _ = parseFiber.props["nodeValue"].(string)
 				}
-				parseStart2 := time.Now()
+				parseStart2 := commitTimingStart()
 				parseRt.domAdapter.SetTextContent(parseFiber.dom, parseNewValue)
-				parseFiber.commitDurationNs += time.Since(parseStart2).Nanoseconds()
+				parseFiber.commitDurationNs += commitTimingSinceNs(parseStart2)
 				if parseFiber.fineGrained {
 					parseRt.profiling.fineGrainedCommits++
 				} else {
 					parseRt.recordFineGrainedDescendantCommit(parseFiber)
 				}
 			} else {
-				parseStart3 := time.Now()
+				parseStart3 := commitTimingStart()
 				parseBatchAdapter, parseSupportsBatching := parseRt.domAdapter.(interface {
 					BatchSetAttributes(DOMNode, map[string]string)
 				})
@@ -468,7 +467,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 				if parseFiber.hasDirectText && parseRt.domNodeText(parseFiber.dom) != parseFiber.textContent {
 					parseRt.domAdapter.SetTextContent(parseFiber.dom, parseFiber.textContent)
 				}
-				parseFiber.commitDurationNs += time.Since(parseStart3).Nanoseconds()
+				parseFiber.commitDurationNs += commitTimingSinceNs(parseStart3)
 				parseRt.recordFineGrainedDescendantCommit(parseFiber)
 			}
 		} else if parseFiber.effectTag == "UPDATE" && !IsDOMNodeNull(parseFiber.dom) {
@@ -479,9 +478,9 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 					parseNewValue2 := textLikeFiberValue(parseFiber)
 
 					if parseOldValue != parseNewValue2 {
-						parseStart4 := time.Now()
+						parseStart4 := commitTimingStart()
 						parseRt.domAdapter.SetTextContent(parseFiber.dom, parseNewValue2)
-						parseFiber.commitDurationNs += time.Since(parseStart4).Nanoseconds()
+						parseFiber.commitDurationNs += commitTimingSinceNs(parseStart4)
 						if parseFiber.fineGrained {
 							parseRt.profiling.fineGrainedCommits++
 						} else {
@@ -491,7 +490,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 				} else {
 					// Regular element - update properties
 					isParseCommitted := false
-					parseStart5 := time.Now()
+					parseStart5 := commitTimingStart()
 					if parseFiber.alternate.hasDirectText != parseFiber.hasDirectText || (parseFiber.hasDirectText && parseFiber.alternate.textContent != parseFiber.textContent) {
 						if parseFiber.hasDirectText {
 							parseRt.domAdapter.SetTextContent(parseFiber.dom, parseFiber.textContent)
@@ -505,7 +504,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 						isParseCommitted = true
 					}
 					if isParseCommitted {
-						parseFiber.commitDurationNs += time.Since(parseStart5).Nanoseconds()
+						parseFiber.commitDurationNs += commitTimingSinceNs(parseStart5)
 						parseRt.recordFineGrainedDescendantCommit(parseFiber)
 					}
 				}
@@ -1208,7 +1207,7 @@ func (parseRt *Runtime) runFiberCleanups(parseFiber *Fiber) {
 	if parseFiber.hooks != nil {
 		for parseIndex, parseCleanup := range parseFiber.hooks.cleanups {
 			if parseCleanup != nil {
-				parseStart := time.Now()
+				parseStart := commitTimingStart()
 				var isHandled bool
 				func() {
 					defer func() {
@@ -1223,7 +1222,7 @@ func (parseRt *Runtime) runFiberCleanups(parseFiber *Fiber) {
 					}()
 					parseCleanup()
 				}()
-				parseDurationNs := time.Since(parseStart).Nanoseconds()
+				parseDurationNs := commitTimingSinceNs(parseStart)
 				parseFiber.cleanupDurationNs += parseDurationNs
 				parseRt.profiling.cleanupExecutions++
 				parseRt.profiling.lastCleanupDurationNs = parseDurationNs
@@ -1302,7 +1301,7 @@ func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
 
 	// Unroll for common small effect counts
 	if parseEffectCount == 1 {
-		parseStart := time.Now()
+		parseStart := commitTimingStart()
 		parseCleanup := func() func() {
 			var parseCleanup2 func()
 			var isHandled bool
@@ -1321,7 +1320,7 @@ func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
 			}()
 			return parseCleanup2
 		}()
-		parseDurationNs := time.Since(parseStart).Nanoseconds()
+		parseDurationNs := commitTimingSinceNs(parseStart)
 		parseFiber.effectDurationNs += parseDurationNs
 		parseRt.profiling.effectExecutions++
 		parseRt.profiling.lastEffectDurationNs = parseDurationNs
@@ -1333,7 +1332,7 @@ func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
 	} else {
 		for parseI := 0; parseI < parseEffectCount; parseI++ {
 			parseEffect := &parseEffects[parseI]
-			parseStart2 := time.Now()
+			parseStart2 := commitTimingStart()
 			parseCleanup3 := func() func() {
 				var parseCleanup4 func()
 				var isHandled2 bool
@@ -1352,7 +1351,7 @@ func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
 				}()
 				return parseCleanup4
 			}()
-			parseDurationNs2 := time.Since(parseStart2).Nanoseconds()
+			parseDurationNs2 := commitTimingSinceNs(parseStart2)
 			parseFiber.effectDurationNs += parseDurationNs2
 			parseRt.profiling.effectExecutions++
 			parseRt.profiling.lastEffectDurationNs = parseDurationNs2

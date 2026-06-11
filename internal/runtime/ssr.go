@@ -332,7 +332,9 @@ func shouldSkipSSRProp(parseKey string, parseValue interface{}) bool {
 	if strings.HasPrefix(parseKey, "__gwc_prop__:") {
 		return true
 	}
-	if strings.HasPrefix(strings.ToLower(parseKey), "on") {
+	// Case-insensitive "on" prefix without strings.ToLower: the lowered copy
+	// allocated one string per event-handler prop per element per render.
+	if len(parseKey) >= 2 && (parseKey[0] == 'o' || parseKey[0] == 'O') && (parseKey[1] == 'n' || parseKey[1] == 'N') {
 		return true
 	}
 	return false
