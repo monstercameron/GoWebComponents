@@ -58,7 +58,7 @@ func TestReconcileChildren_TextNodeUpdate(parseT *testing.T) {
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
 	}
-	if parseWipFiber.child.effectTag != "UPDATE" {
+	if parseWipFiber.child.effectTag != effectTagUpdate {
 		parseT.Error("Expected UPDATE for text node")
 	}
 	if parseWipFiber.child.props["nodeValue"] != "New" {
@@ -90,7 +90,7 @@ func TestReconcileChildren_ElementToTextNodeChange(parseT *testing.T) {
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
 	}
-	if parseWipFiber.child.effectTag != "PLACEMENT" {
+	if parseWipFiber.child.effectTag != effectTagPlacement {
 		parseT.Error("Expected PLACEMENT for type change from element to text")
 	}
 	if len(parseRt.deletions) != 1 {
@@ -122,7 +122,7 @@ func TestReconcileChildren_TextNodeToElementChange(parseT *testing.T) {
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
 	}
-	if parseWipFiber.child.effectTag != "PLACEMENT" {
+	if parseWipFiber.child.effectTag != effectTagPlacement {
 		parseT.Error("Expected PLACEMENT for type change from text to element")
 	}
 	if len(parseRt.deletions) != 1 {
@@ -300,7 +300,7 @@ func TestReconcileChildren_LongChainNoKeys(parseT *testing.T) {
 	parseChild := parseWipFiber.child
 	for parseChild != nil {
 		parseCount++
-		if parseChild.effectTag != "UPDATE" {
+		if parseChild.effectTag != effectTagUpdate {
 			parseT.Errorf("Expected UPDATE for position %d, got %s", parseCount, parseChild.effectTag)
 		}
 		parseChild = parseChild.sibling

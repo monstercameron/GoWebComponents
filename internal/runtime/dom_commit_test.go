@@ -515,7 +515,7 @@ func TestCommitWork_PlacementSingleElement(parseT *testing.T) {
 	parseChildDOM := parseAdapter.CreateElement("span")
 
 	parseParent := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseParentDOM}
-	parseChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: parseChildDOM, parent: parseParent, effectTag: "PLACEMENT"}
+	parseChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: parseChildDOM, parent: parseParent, effectTag: effectTagPlacement}
 
 	parseRt.commitWork(parseChild, parseParentDOM)
 
@@ -541,7 +541,7 @@ func TestCommitWork_PlacementMultipleElements(parseT *testing.T) {
 			props:     make(map[string]interface{}),
 			dom:       parseChildDOM,
 			parent:    parseParent,
-			effectTag: "PLACEMENT",
+			effectTag: effectTagPlacement,
 		}
 
 		if parseI > 0 {
@@ -573,7 +573,7 @@ func TestCommitWork_UpdateElement(parseT *testing.T) {
 		dom:       parseDom,
 		parent:    parseParent,
 		alternate: parseAlternate,
-		effectTag: "UPDATE",
+		effectTag: effectTagUpdate,
 	}
 
 	parseRt.commitWork(parseFiber, parseParent.dom)
@@ -600,7 +600,7 @@ func TestCommitWork_UpdateNoAlternate(parseT *testing.T) {
 		props:     map[string]interface{}{"id": "test"},
 		dom:       parseDom,
 		parent:    parseParent,
-		effectTag: "UPDATE",
+		effectTag: effectTagUpdate,
 		alternate: nil, // No alternate
 	}
 
@@ -684,7 +684,7 @@ func TestCommitRoot_WithDeletions(parseT *testing.T) {
 	parseAdapter.AppendChild(parseParentDOM, parseChildDOM)
 
 	parseParent := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseParentDOM}
-	parseChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: parseChildDOM, parent: parseParent, effectTag: "DELETION"}
+	parseChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: parseChildDOM, parent: parseParent, effectTag: effectTagDeletion}
 
 	parseRt.deletions = []*Fiber{parseChild}
 	parseRt.wipRoot = parseParent
@@ -712,7 +712,7 @@ func TestCommitRoot_WithEffects(parseT *testing.T) {
 		props:     make(map[string]interface{}),
 		dom:       parseAdapter.CreateElement("div"),
 		effects:   []Effect{{Fn: func() func() { isParseEffectRan = true; return nil }}},
-		effectTag: "PLACEMENT",
+		effectTag: effectTagPlacement,
 	}
 
 	parseRoot := &Fiber{
@@ -748,7 +748,7 @@ func TestCommitRoot_MultipleDeletions(parseT *testing.T) {
 			props:     make(map[string]interface{}),
 			dom:       parseChildDOM,
 			parent:    parseParent,
-			effectTag: "DELETION",
+			effectTag: effectTagDeletion,
 		}
 	}
 
@@ -1004,7 +1004,7 @@ func TestCommitWork_FunctionComponentWithHostChild(parseT *testing.T) {
 		props:     make(map[string]interface{}),
 		dom:       parseChildDOM,
 		parent:    parseFuncFiber,
-		effectTag: "PLACEMENT",
+		effectTag: effectTagPlacement,
 	}
 
 	parseFuncFiber.child = parseHostFiber

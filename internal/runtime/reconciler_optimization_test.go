@@ -172,7 +172,7 @@ func TestReconcileChildrenSeparatesHostChildReconcileWhenOnlyChildrenChange(pars
 	if parseChild == nil {
 		parseT.Fatal("expected reconciled child fiber")
 	}
-	if parseChild.effectTag != "" {
+	if parseChild.effectTag != effectTagNone {
 		parseT.Fatalf("expected child-only host reconcile to avoid UPDATE effect, got %q", parseChild.effectTag)
 	}
 	if parseChild.dirty {
@@ -552,10 +552,10 @@ func TestShouldBatchCommittedPlacementsKeepsBatchingWithChildOrderRepair(parseT 
 	parseFiber := &Fiber{
 		needsChildOrder: true,
 		child: &Fiber{
-			effectTag: "PLACEMENT",
+			effectTag: effectTagPlacement,
 			dom:       parseAdapter.CreateElement("div"),
 			sibling: &Fiber{
-				effectTag: "PLACEMENT",
+				effectTag: effectTagPlacement,
 				dom:       parseAdapter.CreateElement("div"),
 			},
 		},

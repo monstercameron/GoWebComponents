@@ -310,9 +310,9 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 	parseOldFiber := parseParent.alternate.child
 
 	for parseOldFiber != nil {
-		parseEffectTag := ""
+		parseEffectTag := effectTagNone
 		if parseOldFiber.dirty || parseOldFiber.needsUpdate {
-			parseEffectTag = "UPDATE"
+			parseEffectTag = effectTagUpdate
 		}
 		parseNewFiber := acquireWorkInProgress(parseOldFiber)
 		*parseNewFiber = Fiber{
@@ -370,7 +370,7 @@ func (parseRt *Runtime) reuseFiberChildSubtree(parseParent *Fiber) {
 func (parseRt *Runtime) sanitizeFiberSubtree(parseFiber *Fiber, parseParent *Fiber) {
 	for parseCurrent := parseFiber; parseCurrent != nil; parseCurrent = parseCurrent.sibling {
 		parseCurrent.parent = parseParent
-		parseCurrent.effectTag = ""
+		parseCurrent.effectTag = effectTagNone
 		parseCurrent.dirty = false
 		parseCurrent.subtreeDirty = false
 		parseCurrent.needsUpdate = false

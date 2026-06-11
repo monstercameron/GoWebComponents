@@ -285,7 +285,7 @@ func buildPlacementFiber(parseWipFiber *Fiber, parseElem *Element, parseOldFiber
 		getHostAttrs:       parseElem.getHostAttrs,
 		textContent:        parseElem.TextContent,
 		parent:             parseWipFiber,
-		effectTag:          "PLACEMENT",
+		effectTag:          effectTagPlacement,
 		dirty:              true,
 		hydration:          parseWipFiber.childHydration,
 		fineGrained:        isFineGrainedType(parseElem.Type),
@@ -297,14 +297,14 @@ func buildPlacementFiber(parseWipFiber *Fiber, parseElem *Element, parseOldFiber
 }
 
 // buildUpdateEffectTag returns the effect tag used when one reused fiber keeps its existing DOM node.
-func buildUpdateEffectTag(parseTypeOf interface{}, isParseNeedsUpdate bool) string {
+func buildUpdateEffectTag(parseTypeOf interface{}, isParseNeedsUpdate bool) effectTagKind {
 	if !isParseNeedsUpdate {
-		return ""
+		return effectTagNone
 	}
 	if parseT, parseOk := parseTypeOf.(string); parseOk && parseT == "FRAGMENT" {
-		return ""
+		return effectTagNone
 	}
-	return "UPDATE"
+	return effectTagUpdate
 }
 
 // hasElementFiberKeyMatch reports whether one element and one existing fiber carry the same keyed identity in the same position.
@@ -371,7 +371,7 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 			// Delete all old children
 			parseOldFiber := parseWipFiber.alternate.child
 			for parseOldFiber != nil {
-				parseOldFiber.effectTag = "DELETION"
+				parseOldFiber.effectTag = effectTagDeletion
 				parseRt.deletions = append(parseRt.deletions, parseOldFiber)
 				parseOldFiber = parseOldFiber.sibling
 			}
@@ -434,13 +434,13 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 					parseNewFiber = buildPlacementFiber(parseWipFiber, parseElem, parseOldFiber2)
 
 					// Mark old fiber for deletion
-					parseOldFiber2.effectTag = "DELETION"
+					parseOldFiber2.effectTag = effectTagDeletion
 					parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
 					parseOldFiber2 = parseOldFiber2.sibling
 				}
 			}
 		} else {
-			parseOldFiber2.effectTag = "DELETION"
+			parseOldFiber2.effectTag = effectTagDeletion
 			parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
 			parseOldFiber2 = parseOldFiber2.sibling
 		}
@@ -484,7 +484,7 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 
 	// Loop 3: Deletion (Remaining old fibers)
 	for parseOldFiber2 != nil {
-		parseOldFiber2.effectTag = "DELETION"
+		parseOldFiber2.effectTag = effectTagDeletion
 		parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
 		parseOldFiber2 = parseOldFiber2.sibling
 	}
@@ -592,7 +592,7 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 				parseWipFiber.needsChildOrder = true
 			}
 			if parseMatchedOld != nil {
-				parseMatchedOld.effectTag = "DELETION"
+				parseMatchedOld.effectTag = effectTagDeletion
 				parseRt.deletions = append(parseRt.deletions, parseMatchedOld)
 			}
 
@@ -609,19 +609,19 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 	}
 
 	for _, parseOldFiber2 := range parseOldByKey {
-		parseOldFiber2.effectTag = "DELETION"
+		parseOldFiber2.effectTag = effectTagDeletion
 		parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
 	}
 	for _, parseOldFiber3 := range parseOldFallbackKeyed {
 		if parseOldFiber3 == nil {
 			continue
 		}
-		parseOldFiber3.effectTag = "DELETION"
+		parseOldFiber3.effectTag = effectTagDeletion
 		parseRt.deletions = append(parseRt.deletions, parseOldFiber3)
 	}
 	for ; parseUnkeyedIndex < len(parseOldUnkeyed); parseUnkeyedIndex++ {
 		parseOldFiber4 := parseOldUnkeyed[parseUnkeyedIndex]
-		parseOldFiber4.effectTag = "DELETION"
+		parseOldFiber4.effectTag = effectTagDeletion
 		parseRt.deletions = append(parseRt.deletions, parseOldFiber4)
 	}
 }
@@ -970,7 +970,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 				if parseHydratedDOM, parseOk2 := parseRt.claimHydrationNode(parseFiber); parseOk2 {
 					parseFiber.dom = parseHydratedDOM
 					parseFiber.hydrated = true
-					parseFiber.effectTag = "HYDRATE"
+					parseFiber.effectTag = effectTagHydrate
 					parseFiber.childHydration = newHydrationBoundary(parseHydratedDOM, parseRt.domAdapter.GetFirstChild(parseHydratedDOM))
 				} else {
 					parseFiber.dom = parseRt.createDom(parseFiber)
@@ -1036,7 +1036,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 				if parseHydratedDOM2, parseOk7 := parseRt.claimHydrationNode(parseFiber); parseOk7 {
 					parseFiber.dom = parseHydratedDOM2
 					parseFiber.hydrated = true
-					parseFiber.effectTag = "HYDRATE"
+					parseFiber.effectTag = effectTagHydrate
 				} else {
 					parseFiber.dom = parseRt.createDom(parseFiber)
 					parseFiber.hydrated = false

@@ -69,9 +69,9 @@ func TestReconcileChildren_RerenderNoChanges(parseT *testing.T) {
 	parseFiber := parseParentFiber2.child
 	for parseFiber != nil {
 		switch parseFiber.effectTag {
-		case "PLACEMENT":
+		case effectTagPlacement:
 			parsePlacementCount++
-		case "UPDATE":
+		case effectTagUpdate:
 			parseUpdateCount++
 		}
 		parseFiber = parseFiber.sibling
@@ -108,7 +108,7 @@ func TestReconcileChildren_RerenderSameComponentTwice(parseT *testing.T) {
 	parseRt.reconcileChildren(parseParentFiber, parseElements1)
 
 	// Verify first child was created as PLACEMENT
-	if parseParentFiber.child == nil || parseParentFiber.child.effectTag != "PLACEMENT" {
+	if parseParentFiber.child == nil || parseParentFiber.child.effectTag != effectTagPlacement {
 		parseT.Error("First render should create PLACEMENT fiber")
 	}
 
@@ -129,7 +129,7 @@ func TestReconcileChildren_RerenderSameComponentTwice(parseT *testing.T) {
 	parseRt.reconcileChildren(parseParentFiber2, parseElements2)
 
 	// Should be UPDATE, not PLACEMENT
-	if parseParentFiber2.child.effectTag != "UPDATE" {
+	if parseParentFiber2.child.effectTag != effectTagUpdate {
 		parseT.Errorf("Second render should UPDATE existing component, got %s", parseParentFiber2.child.effectTag)
 	}
 

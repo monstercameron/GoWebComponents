@@ -428,7 +428,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 	}
 
 	if !isPortal && !IsDOMNodeNull(parseDomParent) {
-		if parseFiber.effectTag == "PLACEMENT" {
+		if parseFiber.effectTag == effectTagPlacement {
 			parseStart := commitTimingStart()
 			if IsDOMNodeNull(parseFiber.dom) {
 				parseFiber.dom = parseRt.createDom(parseFiber)
@@ -442,7 +442,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 			} else {
 				parseRt.recordFineGrainedDescendantCommit(parseFiber)
 			}
-		} else if parseFiber.effectTag == "HYDRATE" && !IsDOMNodeNull(parseFiber.dom) {
+		} else if parseFiber.effectTag == effectTagHydrate && !IsDOMNodeNull(parseFiber.dom) {
 			if isTextLikeFiber(parseFiber) {
 				parseNewValue := parseFiber.textContent
 				if _, parseOk := parseFiber.typeOf.(*ReactiveTextElementType); parseOk {
@@ -470,7 +470,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 				parseFiber.commitDurationNs += commitTimingSinceNs(parseStart3)
 				parseRt.recordFineGrainedDescendantCommit(parseFiber)
 			}
-		} else if parseFiber.effectTag == "UPDATE" && !IsDOMNodeNull(parseFiber.dom) {
+		} else if parseFiber.effectTag == effectTagUpdate && !IsDOMNodeNull(parseFiber.dom) {
 			if parseFiber.alternate != nil {
 				if isTextLikeFiber(parseFiber) {
 					// Update text content
@@ -509,7 +509,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 					}
 				}
 			}
-		} else if parseFiber.effectTag == "DELETION" {
+		} else if parseFiber.effectTag == effectTagDeletion {
 			// fmt.Printf("DEBUG: Committing deletion for %v\n", fiber.typeOf)
 			parseRt.commitDeletion(parseFiber, parseDomParent)
 			return
@@ -517,7 +517,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 	}
 
 	if isPortal {
-		if parseFiber.effectTag == "DELETION" {
+		if parseFiber.effectTag == effectTagDeletion {
 			parseRt.commitDeletion(parseFiber, parsePortalParent)
 			return
 		}
@@ -594,7 +594,7 @@ func (parseRt *Runtime) countCommittedPlacementChildrenUntil(parseFiber *Fiber, 
 			continue
 		}
 		if !IsDOMNodeNull(parseFiber.dom) {
-			if parseFiber.effectTag == "PLACEMENT" {
+			if parseFiber.effectTag == effectTagPlacement {
 				parseCount++
 				if parseCount >= parseLimit {
 					return parseCount

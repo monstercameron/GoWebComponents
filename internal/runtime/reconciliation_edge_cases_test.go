@@ -57,7 +57,7 @@ func TestReconcileChildren_SingleElement(parseT *testing.T) {
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created")
 	}
-	if parseWipFiber.child.effectTag != "PLACEMENT" {
+	if parseWipFiber.child.effectTag != effectTagPlacement {
 		parseT.Error("Expected PLACEMENT for new element")
 	}
 }
@@ -135,7 +135,7 @@ func TestReconcileChildren_OldFiberWithoutSibling(parseT *testing.T) {
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created")
 	}
-	if parseWipFiber.child.effectTag != "UPDATE" {
+	if parseWipFiber.child.effectTag != effectTagUpdate {
 		parseT.Error("Expected UPDATE effectTag for matching type")
 	}
 }
@@ -187,7 +187,7 @@ func TestReconcileChildren_TypeChange(parseT *testing.T) {
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created")
 	}
-	if parseWipFiber.child.effectTag != "PLACEMENT" {
+	if parseWipFiber.child.effectTag != effectTagPlacement {
 		parseT.Error("Expected PLACEMENT for type change")
 	}
 	if len(parseRt.deletions) != 1 {
@@ -217,7 +217,7 @@ func TestReconcileChildren_SameTypeUpdate(parseT *testing.T) {
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created")
 	}
-	if parseWipFiber.child.effectTag != "UPDATE" {
+	if parseWipFiber.child.effectTag != effectTagUpdate {
 		parseT.Error("Expected UPDATE for same type")
 	}
 	if parseWipFiber.child.props["id"] != "new" {
@@ -311,7 +311,7 @@ func TestReconcileChildren_KeyedElementAddition(parseT *testing.T) {
 	if parseWipFiber.child.sibling.props["key"] != "b" {
 		parseT.Error("Expected second child key 'b'")
 	}
-	if parseWipFiber.child.sibling.effectTag != "PLACEMENT" {
+	if parseWipFiber.child.sibling.effectTag != effectTagPlacement {
 		parseT.Error("Expected PLACEMENT for new element")
 	}
 }
@@ -362,7 +362,7 @@ func TestReconcileChildren_NoOldChildrenAddNew(parseT *testing.T) {
 	parseChild := parseWipFiber.child
 	for parseChild != nil {
 		parseCount++
-		if parseChild.effectTag != "PLACEMENT" {
+		if parseChild.effectTag != effectTagPlacement {
 			parseT.Error("Expected PLACEMENT for all new elements")
 		}
 		parseChild = parseChild.sibling
@@ -565,7 +565,7 @@ func TestReconcileChildren_NewLongerThanOld(parseT *testing.T) {
 	parseChild := parseWipFiber.child
 	for parseChild != nil {
 		parseCount++
-		if parseChild.effectTag == "PLACEMENT" {
+		if parseChild.effectTag == effectTagPlacement {
 			parsePlacementCount++
 		}
 		parseChild = parseChild.sibling
@@ -639,7 +639,7 @@ func TestReconcileChildren_SameFunctionComponent(parseT *testing.T) {
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
 	}
-	if parseWipFiber.child.effectTag != "UPDATE" {
+	if parseWipFiber.child.effectTag != effectTagUpdate {
 		parseT.Error("Expected UPDATE for same function component")
 	}
 }
@@ -673,7 +673,7 @@ func TestReconcileChildren_DifferentFunctionComponents(parseT *testing.T) {
 		parseT.Fatal("Expected child")
 	}
 	// Different functions should cause replacement
-	if parseWipFiber.child.effectTag != "PLACEMENT" {
+	if parseWipFiber.child.effectTag != effectTagPlacement {
 		parseT.Error("Expected PLACEMENT for different function component")
 	}
 }
@@ -1092,7 +1092,7 @@ func TestReconcileChildren_NoAlternateNoOldFiber(parseT *testing.T) {
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
 	}
-	if parseWipFiber.child.effectTag != "PLACEMENT" {
+	if parseWipFiber.child.effectTag != effectTagPlacement {
 		parseT.Error("Expected PLACEMENT when no old fiber exists")
 	}
 }
@@ -1232,9 +1232,9 @@ func TestReconcileChildren_AlternatingUpdatesAndPlacements(parseT *testing.T) {
 	parseChild := parseWipFiber.child
 	for parseChild != nil {
 		switch parseChild.effectTag {
-		case "UPDATE":
+		case effectTagUpdate:
 			parseUpdateCount++
-		case "PLACEMENT":
+		case effectTagPlacement:
 			parsePlacementCount++
 		}
 		parseChild = parseChild.sibling

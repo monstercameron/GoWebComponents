@@ -86,7 +86,7 @@ type Fiber struct {
 	typeOf      interface{}
 	dom         DOMNode
 	textContent string
-	effectTag   string
+	effectTag   effectTagKind
 
 	// Slices (24 bytes each)
 	effects        []Effect
@@ -209,3 +209,32 @@ type Hooks struct {
 
 // Attrs is a convenience type for component props.
 type Attrs map[string]interface{}
+
+// effectTagKind classifies the commit-phase work a fiber needs.  A one-byte
+// enum instead of a string: the tag is compared in the hottest commit branches
+// and stored on every fiber, where the string cost 16 bytes plus a string
+// comparison per check.
+type effectTagKind uint8
+
+const (
+	effectTagNone effectTagKind = iota
+	effectTagPlacement
+	effectTagUpdate
+	effectTagDeletion
+	effectTagHydrate
+)
+
+func (parseTag effectTagKind) String() string {
+	switch parseTag {
+	case effectTagPlacement:
+		return "PLACEMENT"
+	case effectTagUpdate:
+		return "UPDATE"
+	case effectTagDeletion:
+		return "DELETION"
+	case effectTagHydrate:
+		return "HYDRATE"
+	default:
+		return ""
+	}
+}

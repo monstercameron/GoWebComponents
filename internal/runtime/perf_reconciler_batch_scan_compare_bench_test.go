@@ -12,7 +12,7 @@ func buildPlacementBatchBenchmarkTree(parseAdapter DOMAdapter, parseLeafCount in
 		parseLeaf := &Fiber{
 			typeOf:    "div",
 			dom:       parseAdapter.CreateElement("div"),
-			effectTag: "PLACEMENT",
+			effectTag: effectTagPlacement,
 			parent:    parseWrapperB,
 		}
 		if parseWrapperB.child == nil {
@@ -34,7 +34,7 @@ func countCommittedPlacementChildrenLegacy(parseRuntime *Runtime, parseFiber *Fi
 			continue
 		}
 		if !IsDOMNodeNull(parseFiber.dom) {
-			if parseFiber.effectTag == "PLACEMENT" {
+			if parseFiber.effectTag == effectTagPlacement {
 				parseCount++
 			}
 			parseFiber = parseFiber.sibling

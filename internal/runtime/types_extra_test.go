@@ -45,7 +45,7 @@ func TestFiber_HoldsRuntimeStatePointers(parseT *testing.T) {
 		hooks:       parseHooks,
 		dirty:       true,
 		needsUpdate: true,
-		effectTag:   "UPDATE",
+		effectTag:   effectTagUpdate,
 	}
 
 	if parseChild.parent != parseParent {
@@ -57,7 +57,7 @@ func TestFiber_HoldsRuntimeStatePointers(parseT *testing.T) {
 	if !parseChild.dirty || !parseChild.needsUpdate {
 		parseT.Fatal("expected fiber flags to remain set")
 	}
-	if parseChild.effectTag != "UPDATE" {
+	if parseChild.effectTag != effectTagUpdate {
 		parseT.Fatal("expected fiber effect tag to remain set")
 	}
 }

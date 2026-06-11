@@ -182,7 +182,7 @@ func TestCommitWork_NilParentDOM(parseT *testing.T) {
 		props:     make(map[string]interface{}),
 		dom:       parseAdapter.CreateElement("div"),
 		parent:    parseParent,
-		effectTag: "PLACEMENT",
+		effectTag: effectTagPlacement,
 	}
 
 	// Should handle case where parent has no DOM (function component)
@@ -324,7 +324,7 @@ func TestCommitRoot_WithEffects_EdgeCase(parseT *testing.T) {
 		props:     make(map[string]interface{}),
 		dom:       parseAdapter.CreateElement("div"),
 		effects:   []Effect{{Fn: func() func() { isParseEffectRan = true; return nil }}},
-		effectTag: "PLACEMENT",
+		effectTag: effectTagPlacement,
 	}
 
 	parseRoot := &Fiber{

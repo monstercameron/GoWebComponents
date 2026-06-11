@@ -303,7 +303,7 @@ func TestCommitWork_ResolvesParentFromAncestors(parseT *testing.T) {
 	parseParentDOM := parseAdapter.CreateElement("div")
 	parseRoot := &Fiber{typeOf: "ROOT", dom: parseParentDOM}
 	parseFunctionParent := &Fiber{typeOf: func(map[string]interface{}) *Element { return nil }, parent: parseRoot}
-	parseChild := &Fiber{typeOf: "span", dom: parseAdapter.CreateElement("span"), parent: parseFunctionParent, effectTag: "PLACEMENT"}
+	parseChild := &Fiber{typeOf: "span", dom: parseAdapter.CreateElement("span"), parent: parseFunctionParent, effectTag: effectTagPlacement}
 
 	parseRt.commitWork(parseChild, nil)
 
@@ -325,7 +325,7 @@ func TestCommitWork_TextUpdateUsesFallbackProps(parseT *testing.T) {
 			dom:    parseTextDOM,
 			props:  map[string]interface{}{"nodeValue": "old"},
 		},
-		effectTag: "UPDATE",
+		effectTag: effectTagUpdate,
 	}
 
 	parseRt.commitWork(parseFiber, parseAdapter.CreateElement("div"))
@@ -340,8 +340,8 @@ func TestCommitWork_TraversesChildrenAndSiblings(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 	parseParentDOM := parseAdapter.CreateElement("div")
 	parseParent := &Fiber{typeOf: "section", dom: parseParentDOM}
-	parseChild := &Fiber{typeOf: "span", dom: parseAdapter.CreateElement("span"), parent: parseParent, effectTag: "PLACEMENT"}
-	parseSibling := &Fiber{typeOf: "p", dom: parseAdapter.CreateElement("p"), parent: parseParent, effectTag: "PLACEMENT"}
+	parseChild := &Fiber{typeOf: "span", dom: parseAdapter.CreateElement("span"), parent: parseParent, effectTag: effectTagPlacement}
+	parseSibling := &Fiber{typeOf: "p", dom: parseAdapter.CreateElement("p"), parent: parseParent, effectTag: effectTagPlacement}
 	parseParent.child = parseChild
 	parseChild.sibling = parseSibling
 
@@ -354,7 +354,7 @@ func TestCommitWork_TraversesChildrenAndSiblings(parseT *testing.T) {
 
 func TestCommitWork_UpdateWithoutAlternateDoesNotPanic(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	parseFiber := &Fiber{typeOf: "div", dom: parseRt.domAdapter.CreateElement("div"), effectTag: "UPDATE"}
+	parseFiber := &Fiber{typeOf: "div", dom: parseRt.domAdapter.CreateElement("div"), effectTag: effectTagUpdate}
 
 	parseRt.commitWork(parseFiber, parseRt.domAdapter.CreateElement("div"))
 }

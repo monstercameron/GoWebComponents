@@ -63,25 +63,25 @@ func TestFiber_DOMReference(parseT *testing.T) {
 }
 
 func TestFiber_EffectTag_Placement(parseT *testing.T) {
-	parseFiber := &Fiber{effectTag: "PLACEMENT"}
+	parseFiber := &Fiber{effectTag: effectTagPlacement}
 
-	if parseFiber.effectTag != "PLACEMENT" {
+	if parseFiber.effectTag != effectTagPlacement {
 		parseT.Error("Expected effectTag to be PLACEMENT")
 	}
 }
 
 func TestFiber_EffectTag_Update(parseT *testing.T) {
-	parseFiber := &Fiber{effectTag: "UPDATE"}
+	parseFiber := &Fiber{effectTag: effectTagUpdate}
 
-	if parseFiber.effectTag != "UPDATE" {
+	if parseFiber.effectTag != effectTagUpdate {
 		parseT.Error("Expected effectTag to be UPDATE")
 	}
 }
 
 func TestFiber_EffectTag_Deletion(parseT *testing.T) {
-	parseFiber := &Fiber{effectTag: "DELETION"}
+	parseFiber := &Fiber{effectTag: effectTagDeletion}
 
-	if parseFiber.effectTag != "DELETION" {
+	if parseFiber.effectTag != effectTagDeletion {
 		parseT.Error("Expected effectTag to be DELETION")
 	}
 }
@@ -336,7 +336,7 @@ func TestFiber_ManyChildren(parseT *testing.T) {
 func TestFiber_NoEffectTag(parseT *testing.T) {
 	parseFiber := &Fiber{}
 
-	if parseFiber.effectTag != "" {
+	if parseFiber.effectTag != effectTagNone {
 		parseT.Error("Expected effectTag to be empty")
 	}
 }

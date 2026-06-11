@@ -480,7 +480,7 @@ func TestReconcileChildren_NewChildren(parseT *testing.T) {
 		parseT.Errorf("Expected first child to be span, got %v", parseParent.child.typeOf)
 	}
 
-	if parseParent.child.effectTag != "PLACEMENT" {
+	if parseParent.child.effectTag != effectTagPlacement {
 		parseT.Errorf("Expected PLACEMENT tag, got %s", parseParent.child.effectTag)
 	}
 
@@ -523,7 +523,7 @@ func TestReconcileChildren_UpdateExisting(parseT *testing.T) {
 		parseT.Fatal("Expected parent to have a child")
 	}
 
-	if parseParent.child.effectTag != "UPDATE" {
+	if parseParent.child.effectTag != effectTagUpdate {
 		parseT.Errorf("Expected UPDATE tag for same type, got %s", parseParent.child.effectTag)
 	}
 
@@ -569,7 +569,7 @@ func TestReconcileChildren_DeleteOldChildren(parseT *testing.T) {
 		parseT.Errorf("Expected span to be deleted, got %v", parseRt.deletions[0].typeOf)
 	}
 
-	if parseRt.deletions[0].effectTag != "DELETION" {
+	if parseRt.deletions[0].effectTag != effectTagDeletion {
 		parseT.Errorf("Expected DELETION tag, got %s", parseRt.deletions[0].effectTag)
 	}
 }
@@ -614,7 +614,7 @@ func TestReconcileChildren_ReplaceWithDifferentType(parseT *testing.T) {
 		parseT.Errorf("Expected new child to be span, got %v", parseParent.child.typeOf)
 	}
 
-	if parseParent.child.effectTag != "PLACEMENT" {
+	if parseParent.child.effectTag != effectTagPlacement {
 		parseT.Errorf("Expected PLACEMENT tag, got %s", parseParent.child.effectTag)
 	}
 }
@@ -790,7 +790,7 @@ func TestCommitRoot_ProcessesDeletions(parseT *testing.T) {
 		props:     make(map[string]interface{}),
 		dom:       parseChildDOM,
 		parent:    parseParent,
-		effectTag: "DELETION",
+		effectTag: effectTagDeletion,
 	}
 
 	parseRt.deletions = []*Fiber{parseChild}
@@ -831,7 +831,7 @@ func TestCommitWork_Placement(parseT *testing.T) {
 		props:     make(map[string]interface{}),
 		dom:       parseChildDOM,
 		parent:    parseParent,
-		effectTag: "PLACEMENT",
+		effectTag: effectTagPlacement,
 	}
 
 	parseRt.commitWork(parseChild, parseParentDOM)
@@ -872,7 +872,7 @@ func TestCommitWork_Update(parseT *testing.T) {
 		dom:       parseDom,
 		parent:    parseParent,
 		alternate: parseAlternate,
-		effectTag: "UPDATE",
+		effectTag: effectTagUpdate,
 	}
 
 	parseRt.commitWork(parseFiber, parseParent.dom)
@@ -906,7 +906,7 @@ func TestCommitWork_RecursiveCommit(parseT *testing.T) {
 		props:     make(map[string]interface{}),
 		dom:       parseChild1DOM,
 		parent:    parseParent,
-		effectTag: "PLACEMENT",
+		effectTag: effectTagPlacement,
 	}
 
 	parseChild2 := &Fiber{
@@ -914,7 +914,7 @@ func TestCommitWork_RecursiveCommit(parseT *testing.T) {
 		props:     make(map[string]interface{}),
 		dom:       parseChild2DOM,
 		parent:    parseParent,
-		effectTag: "PLACEMENT",
+		effectTag: effectTagPlacement,
 	}
 
 	parseChild1.sibling = parseChild2

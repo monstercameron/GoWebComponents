@@ -308,7 +308,7 @@ func BenchmarkCommitWorkPlacementChain16(parseB *testing.B) {
 			typeOf:    "div",
 			dom:       parseAdapter.CreateElement("div"),
 			parent:    parseParent,
-			effectTag: "PLACEMENT",
+			effectTag: effectTagPlacement,
 		}
 		if parseFirst == nil {
 			parseFirst = parseFiber
