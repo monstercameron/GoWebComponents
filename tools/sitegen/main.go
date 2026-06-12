@@ -3,10 +3,14 @@
 // The site itself is a pure GWC application (examples/site): every page,
 // style, and behavior is Go compiled to wasm. This tool compiles that app
 // and generates the single boot shell — the only HTML in the deployed
-// artifact, and it is generated here, never authored.
+// artifact, and it is generated here, never authored. It also emits a
+// Web App Manifest (manifest.json) and a versioned service worker (sw.js)
+// so the site is installable and works offline after the first load.
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"net/http"
@@ -14,6 +18,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/pwa"
 )
 
 func main() {
@@ -55,7 +61,8 @@ const ogImageSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height=
 <text x="80" y="600" font-family="ui-monospace,Consolas,monospace" font-size="26" fill="#22d3ee">pure Go, compiled to WebAssembly</text>
 </svg>`
 
-// generateSite compiles the docs site wasm app and writes the boot shell.
+// generateSite compiles the docs site wasm app and writes the boot shell,
+// brand assets, Web App Manifest, and service worker.
 func generateSite(parseRepoRoot string, parseOutDir string) error {
 	if parseErr := os.MkdirAll(parseOutDir, 0o755); parseErr != nil {
 		return fmt.Errorf("create output dir: %w", parseErr)
@@ -86,15 +93,152 @@ func generateSite(parseRepoRoot string, parseOutDir string) error {
 		return fmt.Errorf("write og image: %w", parseErr4)
 	}
 
+	// Derive a short cache-busting version from the wasm binary so a new build
+	// automatically evicts the browser's stale service-worker cache.
+	parseWasmBytes, parseErr5 := os.ReadFile(parseWasmPath)
+	if parseErr5 != nil {
+		return fmt.Errorf("read site.wasm for cache version: %w", parseErr5)
+	}
+	parseCacheVersion := wasmCacheVersion(parseWasmBytes)
+
+	// Web App Manifest — makes the site installable.
+	parseManifestJSON, parseErr6 := buildManifestJSON()
+	if parseErr6 != nil {
+		return fmt.Errorf("build manifest.json: %w", parseErr6)
+	}
+	if parseErr7 := os.WriteFile(filepath.Join(parseOutDir, "manifest.json"), parseManifestJSON, 0o644); parseErr7 != nil {
+		return fmt.Errorf("write manifest.json: %w", parseErr7)
+	}
+
+	// Service worker — offline-capable cache-first shell with versioned eviction.
+	parseSWAssets := []string{"index.html", "site.wasm", "favicon.svg", "og-image.svg", "manifest.json"}
+	parseSWJS := buildServiceWorkerJS(parseCacheVersion, parseSWAssets)
+	if parseErr8 := os.WriteFile(filepath.Join(parseOutDir, "sw.js"), []byte(parseSWJS), 0o644); parseErr8 != nil {
+		return fmt.Errorf("write sw.js: %w", parseErr8)
+	}
+
 	parseInfo, _ := os.Stat(parseWasmPath)
 	fmt.Printf("sitegen: built site.wasm (%.1f MB) and generated boot shell in %s\n",
 		float64(parseInfo.Size())/(1024*1024), parseOutDir)
 	return nil
 }
 
+// wasmCacheVersion returns a 12-hex-character prefix of the SHA-256 of the
+// wasm binary. A new build always yields a new cache name, which triggers the
+// service worker's activate handler to delete all previous caches.
+func wasmCacheVersion(parseWasmBytes []byte) string {
+	parseSum := sha256.Sum256(parseWasmBytes)
+	return hex.EncodeToString(parseSum[:])[:12]
+}
+
+// buildManifestJSON returns indented JSON for the site's Web App Manifest
+// using the canonical pwa.Manifest type and pwa.MarshalManifestJSONIndented.
+func buildManifestJSON() ([]byte, error) {
+	parseManifest := pwa.Manifest{
+		Name:            "GoWebComponents",
+		ShortName:       "GWC",
+		StartURL:        ".",
+		Display:         pwa.ManifestDisplayStandalone,
+		ThemeColor:      "#0a0f1a",
+		BackgroundColor: "#22d3ee",
+		Icons: []pwa.ManifestImage{
+			{
+				Src:     "favicon.svg",
+				Type:    "image/svg+xml",
+				Sizes:   "any",
+				Purpose: "any maskable",
+			},
+		},
+	}
+	return pwa.MarshalManifestJSONIndented(parseManifest, "", "  ")
+}
+
+// buildServiceWorkerJS generates a vanilla-JS service worker that precaches
+// the shell artifacts under a versioned cache name. On install it fetches all
+// assets into the cache; on fetch it serves cache-first with a network
+// fallback; on activate it deletes every cache whose name starts with the
+// shared prefix but does not match the current version, so stale builds are
+// evicted automatically.
+//
+// parseCacheVersion is a short hash derived from the wasm binary (see
+// wasmCacheVersion). parseAssets is the list of URLs to precache relative to
+// the service worker scope.
+func buildServiceWorkerJS(parseCacheVersion string, parseAssets []string) string {
+	// Build the JS array literal for the precache list.
+	var parsePrecache strings.Builder
+	parsePrecache.WriteString("[")
+	for parseI, parseAsset := range parseAssets {
+		if parseI > 0 {
+			parsePrecache.WriteString(", ")
+		}
+		parsePrecache.WriteString("\"")
+		parsePrecache.WriteString(parseAsset)
+		parsePrecache.WriteString("\"")
+	}
+	parsePrecache.WriteString("]")
+
+	// The service worker is assembled with double-quoted Go strings so it can
+	// safely live inside a file separate from the backtick boot-shell template.
+	var parseSW strings.Builder
+	parseSW.WriteString("// Generated by sitegen — do not edit.\n")
+	parseSW.WriteString("var CACHE_PREFIX = \"gwc-shell\";\n")
+	parseSW.WriteString("var CACHE_VERSION = \"gwc-shell-" + parseCacheVersion + "\";\n")
+	parseSW.WriteString("var PRECACHE_ASSETS = " + parsePrecache.String() + ";\n")
+	parseSW.WriteString("\n")
+	parseSW.WriteString("self.addEventListener(\"install\", function(event) {\n")
+	parseSW.WriteString("  event.waitUntil(\n")
+	parseSW.WriteString("    caches.open(CACHE_VERSION).then(function(cache) {\n")
+	parseSW.WriteString("      return cache.addAll(PRECACHE_ASSETS);\n")
+	parseSW.WriteString("    }).then(function() {\n")
+	parseSW.WriteString("      return self.skipWaiting();\n")
+	parseSW.WriteString("    })\n")
+	parseSW.WriteString("  );\n")
+	parseSW.WriteString("});\n")
+	parseSW.WriteString("\n")
+	parseSW.WriteString("self.addEventListener(\"activate\", function(event) {\n")
+	parseSW.WriteString("  event.waitUntil(\n")
+	parseSW.WriteString("    caches.keys().then(function(keys) {\n")
+	parseSW.WriteString("      return Promise.all(\n")
+	parseSW.WriteString("        keys\n")
+	parseSW.WriteString("          .filter(function(key) {\n")
+	parseSW.WriteString("            return key.indexOf(CACHE_PREFIX) === 0 && key !== CACHE_VERSION;\n")
+	parseSW.WriteString("          })\n")
+	parseSW.WriteString("          .map(function(key) { return caches.delete(key); })\n")
+	parseSW.WriteString("      );\n")
+	parseSW.WriteString("    }).then(function() {\n")
+	parseSW.WriteString("      return self.clients.claim();\n")
+	parseSW.WriteString("    })\n")
+	parseSW.WriteString("  );\n")
+	parseSW.WriteString("});\n")
+	parseSW.WriteString("\n")
+	parseSW.WriteString("self.addEventListener(\"fetch\", function(event) {\n")
+	parseSW.WriteString("  if (event.request.method !== \"GET\") { return; }\n")
+	parseSW.WriteString("  event.respondWith(\n")
+	parseSW.WriteString("    caches.match(event.request).then(function(cached) {\n")
+	parseSW.WriteString("      if (cached) { return cached; }\n")
+	parseSW.WriteString("      return fetch(event.request).then(function(response) {\n")
+	parseSW.WriteString("        if (!response || response.status !== 200 || response.type === \"opaque\") {\n")
+	parseSW.WriteString("          return response;\n")
+	parseSW.WriteString("        }\n")
+	parseSW.WriteString("        var toCache = response.clone();\n")
+	parseSW.WriteString("        caches.open(CACHE_VERSION).then(function(cache) {\n")
+	parseSW.WriteString("          cache.put(event.request, toCache);\n")
+	parseSW.WriteString("        });\n")
+	parseSW.WriteString("        return response;\n")
+	parseSW.WriteString("      }).catch(function() {\n")
+	parseSW.WriteString("        return caches.match(\"index.html\");\n")
+	parseSW.WriteString("      });\n")
+	parseSW.WriteString("    })\n")
+	parseSW.WriteString("  );\n")
+	parseSW.WriteString("});\n")
+
+	return parseSW.String()
+}
+
 // buildBootShell generates the single HTML document that boots the wasm app.
 // The Go runtime loader (wasm_exec.js) is inlined from the local toolchain so
 // the deployed artifact is exactly one shell plus one wasm binary.
+// The shell also links the Web App Manifest and registers the service worker.
 func buildBootShell() (string, error) {
 	parseGoroot, parseErr := exec.Command("go", "env", "GOROOT").Output()
 	if parseErr != nil {
@@ -112,8 +256,10 @@ func buildBootShell() (string, error) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Build React-class web UIs in pure Go: fine-grained reactivity, SSR with hydration, and crash containment built in.">
+<meta name="theme-color" content="#0a0f1a">
 <title>GoWebComponents — Go-native UIs for the browser</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="manifest.json">
 <meta property="og:type" content="website">
 <meta property="og:title" content="GoWebComponents — Go-native UIs for the browser">
 <meta property="og:description" content="Build React-class web UIs in pure Go: fine-grained reactivity, SSR with hydration, and crash containment built in.">
@@ -178,6 +324,11 @@ html,body{margin:0;background:#0a0f1a;color:#64748b;font:14px ui-monospace,Conso
 			var boot = document.getElementById("boot");
 			if (boot) boot.textContent = "failed to start: " + err;
 		});
+	// Register the service worker after the wasm boot is underway.
+	// Failure is swallowed so a missing sw.js never blocks the app.
+	if ("serviceWorker" in navigator) {
+		navigator.serviceWorker.register("sw.js").catch(function () {});
+	}
 })();
 </script>
 </body>

@@ -155,7 +155,7 @@ impact; exactly three active items carry the next-work marker.
 
 ### PWA / offline mode
 
-- [ ] **Generated service worker + manifest for the docs site** - sitegen
+- [~] **Generated service worker + manifest for the docs site** - sitegen
   generates `sw.js` from `pwa.BuildCacheStoragePlan` output and
   `manifest.json` from a `pwa.Manifest` value (same generated-artifact
   pattern as the boot shell; nothing authored); the app registers via
@@ -166,6 +166,19 @@ impact; exactly three active items carry the next-work marker.
   CacheStorage (playwright `context.SetOffline(true)`); deploying a new
   build hash evicts stale caches and serves the new wasm (no
   half-old/half-new mix); SW update flow does not strand an open tab.
+  Done (2026-06-12, generation): tools/sitegen now emits manifest.json
+  (from a canonical `pwa.Manifest` value via
+  `pwa.MarshalManifestJSONIndented` - name/short_name/start_url/standalone/
+  theme+background colors/svg icon) and sw.js (cache name
+  `gwc-shell-<12-hex of site.wasm>`, precaches index/site.wasm/favicon/
+  og-image/manifest, cache-first + network fallback, activate-time
+  eviction of stale gwc-shell-* caches, skipWaiting+clients.claim). Boot
+  shell adds `<meta theme-color>` + `<link rel=manifest>` and registers
+  the SW after boot (failure swallowed). Cache version = wasm SHA so a new
+  build auto-evicts stale caches. 4 native tests (manifest validity, SW
+  content, boot wiring, version determinism) + the full-site integration
+  test pass; coexists with crash-loop safe mode. Remaining: the browser
+  e2e (registration->activated, offline reload, stale-cache eviction).
 - [~] **Offline mutation replay hardening** - `fetch.MutationQueue` exists;
   prove it under adversarial conditions.
   Test for: mutations enqueued offline replay exactly once after
