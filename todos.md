@@ -925,7 +925,7 @@ impact; exactly three active items carry the next-work marker.
   `public/state-atoms`). The guard is green at zero, so no debt baseline
   was needed.
 
-- [ ] **Doc-drift guard - extend to commands (a) and flags (c)** - the
+- [~] **Doc-drift guard - extend to commands (a) and flags (c)** - the
   shipped `docs/doclint` guard resolves repo paths but does not yet
   execute the fenced `gwc` commands or verify that flags named in docs
   (`-profile tinygo`, `-compression gzip+brotli`, etc.) still exist on
@@ -933,6 +933,15 @@ impact; exactly three active items carry the next-work marker.
   Fix: add a command-execution lane (sandboxed, network-off, against a
   throwaway build dir) and a flag-existence check that parses `gwc
   <cmd> -h` output for every flag mentioned in docs.
+  Partial (2026-06-11): part (c) flag-existence shipped in
+  docs/doclint/flags.go - `ExtractKnownGwcFlags` parses every gwc flag
+  definition (name-first AND flag.Var-second-arg styles, 107 flags) and
+  `ScanDocGwcFlags` reports any `-flag` on a gwc command line in docs that
+  is not defined. `TestDocsGwcFlagsExist` is the guard (currently green);
+  `TestScanDocGwcFlagsCatchesPlantedUnknown` proves a planted removed flag
+  is caught while a non-gwc line's flags are ignored. Found+confirmed all
+  current doc flags resolve. Remaining: part (a) actually executing the
+  fenced commands in a sandboxed lane.
   Test for: a planted removed flag and a planted failing command both
   fail the lane; legitimate commands pass; the lane is opt-in/slow-tagged
   so it does not bloat the default unit run.
