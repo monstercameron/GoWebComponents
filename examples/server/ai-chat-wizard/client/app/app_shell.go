@@ -7,6 +7,7 @@ import (
 
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/i18n"
+	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/logging"
 	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -187,6 +188,23 @@ func renderAppShell(parseProps appShellProps) ui.Node {
 		wasStreamingRef.Set(parseProps.View.IsStreaming)
 		return nil
 	}, parseProps.View.IsStreaming)
+	// The browser tab title follows the active conversation
+	// (interop.Document.SetTitle); falls back to the brand title on
+	// non-thread surfaces. Keyed on the resolved string so the effect only
+	// fires when the visible title actually changes.
+	parseTabTitle := appBrandName + " – AI Chat Workspace"
+	for _, parseSummary := range parseProps.View.ConversationList {
+		if parseSummary.ID == parseProps.View.ActiveConversationID && strings.TrimSpace(parseSummary.Preview) != "" {
+			parseTabTitle = strings.TrimSpace(parseSummary.Preview) + " — " + appBrandName
+			break
+		}
+	}
+	ui.UseEffect(func() func() {
+		if parseDocument, parseErr := interop.GetDocument(); parseErr == nil {
+			_ = parseDocument.SetTitle(parseTabTitle)
+		}
+		return nil
+	}, parseTabTitle)
 	// UI density is a persisted preference (ui.UsePersistedState): it survives
 	// reloads via localStorage and syncs across tabs through the storage event.
 	parseDensity := ui.UsePersistedState[string]("chatwizard.ui.density", "comfortable", ui.PersistLocal)
