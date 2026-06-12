@@ -63,9 +63,15 @@ impact; exactly three active items carry the next-work marker.
   IsSettled, dt-clamped/NaN-safe), standard easings (Linear, quad/cubic
   in/out/in-out, input-clamped) + `Interpolate`, and `ComputeFLIP`
   (translate+scale delta, divide-by-zero guarded). 16 tests green;
-  native+wasm. Remaining: the RAF-driven UseSpring hook and the gesture
-  layer (browser-bound follow-up; no requestAnimationFrame helper exists
-  yet).
+  native+wasm. RAF hook DONE (2026-06-12): added
+  `interop.RequestAnimationFrame(cb) (cancel)` (wasm one-shot, js.Func
+  released after fire / on cancel - no leak; native no-op stub) and
+  `ui.UseSpring(target, anim.SpringConfig) float64` - a UseEffect rAF loop
+  steps the spring with per-frame dt (clamped) and re-requests until
+  settled, cancelling the in-flight frame on unmount/target-change.
+  Verified in real browser (`TestUseSpringAnimates`): a value animates
+  frame-by-frame (41 -> 332 overshoot -> settles at 300, wobbly preset),
+  not a jump. Remaining: the gesture layer (drag/pan/pinch).
 - [ ] **Scheduler ergonomics and instrumentation** - keep this as the
   documentation/devtools follow-up for the enterprise priority-lane and
   backpressure work below, rather than tracking a second scheduler
@@ -898,12 +904,22 @@ impact; exactly three active items carry the next-work marker.
   a release build). Remaining: a dedicated badge-transition browser e2e -
   belongs in the dev-loop browser harness (tools/gwc/
   dev_loop_browser_e2e_test.go) that drives the real gwc dev server.
-- [ ] **`gwc init` time-to-first-pixel guarantee** - scaffolding works but
+- [x] **`gwc init` time-to-first-pixel guarantee** - scaffolding works but
   no CI test proves `gwc init` output builds and renders on a clean
   machine across the offered presets.
   Test for: each preset scaffold runs `go mod tidy` + `gwc build` clean
   and mounts a non-empty tree in a headless browser; a broken preset
   fails the lane with the offending preset named.
+  Done (2026-06-12): the preset scaffold path (`gwc start`, with
+  lifecycle metadata still covered by `gwc init`) now emits a visible
+  first-pixel fallback shell outside `#app`, removes it once wasm mounts,
+  and keeps structured boot-error display for startup failures. Added a
+  Playwright-tagged all-presets smoke test that generates every default
+  starter, runs tidy via scaffold generation, builds `bin/main.wasm`, serves
+  the generated app, waits for `#app .counter`, asserts non-empty mounted
+  text, and reports the offending preset key on failure. The starter
+  templates workflow now runs both the existing tidy/test/build loop and the
+  headless browser first-pixel smoke.
 
 ### Discoverability & polish
 
