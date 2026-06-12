@@ -636,13 +636,24 @@ impact; exactly three active items carry the next-work marker.
 
 ## Enterprise tier - isolation & conformance
 
-- [ ] **Shadow-DOM style isolation for exported custom elements** - no
+- [~] **Shadow-DOM style isolation for exported custom elements** - no
   shadow-root helpers exist; embedded GWC widgets leak styles both ways.
   Test for: a GWC custom element mounted in a hostile host page (global
   CSS resets, conflicting class names) renders identically to its
   isolated baseline; host styles do not bleed in and widget styles do
   not bleed out; events and portals still work across the shadow
   boundary; focus trap and announcer behave inside shadow roots.
+  Done (2026-06-12, real browser): the export path ALREADY renders widgets
+  into a shadow root (`ui.RenderInto(node, shadowRoot)` with `:host`-scoped
+  styles - exported-custom-element example). `TestShadowDOMStyleIsolation`
+  proves isolation: it injects hostile `* { color:red !important; border:
+  10px magenta }` into the host document, confirms a normal host div DOES
+  pick it up (rgb(255,0,0)), then asserts the shadow `.tile` does NOT
+  (stays rgb(226,232,240) / cyan border) - inbound isolation holds; and a
+  host-page `section.tile` is unaffected by the widget's scoped styles -
+  outbound isolation holds. (Inherited font-size flows in per CSS spec -
+  flagged informational, not a defect.) Remaining: portals-across-boundary
+  and focus-trap/announcer-inside-shadow assertions.
 - [x] **Cross-browser conformance matrix** - webkit/firefox run only in
   the Atlas smoke; the framework behavior suite is chromium-only.
   Test for: the core browser suite (events, hydration, router, storage,
@@ -944,12 +955,23 @@ impact; exactly three active items carry the next-work marker.
   step into release.yml. Remaining: flip the gate to blocking once
   releases adopt version headers (the historical log is date-based), and
   surface LatestEntry on the docs site.
-- [ ] **Starter templates beyond init presets** - `gwc init` offers presets
+- [x] **Starter templates beyond init presets** - `gwc init` offers presets
   but there is no gallery of opinionated starters (dashboard, marketing
   site, blog, authed app shell) a team can clone as a real starting point.
   Test for: each starter scaffolds, `go mod tidy` + `gwc build` clean, and
   mounts a non-empty tree headless; a CI lane builds every starter; each
   links from the docs site.
+  Done (2026-06-12): `gwc start` now exposes opinionated presets for
+  dashboard, marketing site, content blog, and authed app shell in addition to
+  the existing minimal/routed/SSR/reference starters. Added
+  `TestDefaultStarterTemplatesScaffoldTidyTestAndBuild`, which scaffolds every
+  default preset in contributor-linked mode, lets generation run `go mod tidy`,
+  runs the generated `starter_test.go` suite, and verifies `gwc build` emits a
+  non-empty wasm artifact. Added `.github/workflows/starter-templates.yml`.
+  Documented the gallery in `docs/STARTERS.md`, linked it from README and the
+  reference manual, and added a searchable docs-site `Starter Templates` entry.
+  Fixed the generated starter test string-list helper so SSR/content starters
+  no longer emit uncompilable `range nil` loops.
 - [x] **Production-readiness checklist doc** - nothing collects the
   go-live steps (release profile, compression, CSP, SRI, service worker,
   perf budget, error transport, a11y audit) into one gated checklist.
@@ -1253,3 +1275,37 @@ impact; exactly three active items carry the next-work marker.
   `actions/upload-pages-artifact`, `actions/deploy-pages`,
   `actions/upload-artifact`, `actions/attest-build-provenance`, and
   `softprops/action-gh-release`.
+
+## Go 1.26 toolchain modernization (2026-06-12)
+
+Survey: `go fix ./...` under Go 1.26 (go1.26.3 installed) against a temp
+clone found ~540 files / +1,122 -1,713 lines of applicable modernizations;
+fixed tree passed build, vet, and js/wasm example builds.
+
+- [ ] **Bump go.mod to go 1.26** - unlocks `new(expr)` and self-referential
+  generic type params; Green Tea GC becomes default, ~30% lower cgo
+  overhead, better slice stack-allocation for free.
+- [ ] **Apply `go fix ./...` modernizers (root module)** - the measured
+  inventory: `interface{}` -> `any` (~657 lines, heaviest in
+  html/shorthand/shorthand.go, html/sugar.go, ui/ui_native.go,
+  plugin/plugin.go), `for i := range n` (94 sites), built-in `min`/`max`
+  (47), `maps.`/`slices.` helpers (59), `strings.SplitSeq`/`CutPrefix`/etc.
+  (33), `wg.Go()` (4), `new(expr)` (24 sites - tools/gwc/release_artifacts.go
+  ~13, interop/intl_test.go, tools/gwc/release_startup.go, tools/gwc/wasm.go,
+  tools/livereload/livereload_http.go). Run twice: first pass leaves ~3
+  conflicting fixes in internal/runtime for the second pass.
+  Test for: native + js/wasm builds green; vet green; the example wasm
+  mains still compile under GOOS=js GOARCH=wasm; no behavior change
+  (mechanical rewrites only).
+- [ ] **Review the skipped `omitempty` -> `omitzero` candidates** - go fix
+  flagged ~25 JSON-tag conversions across fetch, interop, pwa, ui,
+  runnerconfig, tools/gwc but skipped them as behavior changes; each needs
+  a case-by-case wire-compat review (empty-slice/zero-struct semantics).
+- [ ] **Nested module tools/livereload** - same bump + fix pass (it is its
+  own module; `go -C tools/livereload fix ./.`).
+- [x] **Decide third_party/GoGRPCBridge separately** - vendored module with
+  its own go directive and CI; do not blanket-rewrite it from the root.
+  Done: documented the root modernization boundary in `third_party/README.md`;
+  `third_party/GoGRPCBridge` keeps its own `go.mod`, `toolchain` directive,
+  runner, and CI, and any future toolchain bump should happen inside that
+  submodule lifecycle before updating the root pin.
