@@ -453,12 +453,21 @@ impact; exactly three active items carry the next-work marker.
   remaining are Go-stdlib toolchain advisories. Remaining: promote the
   scan to blocking with a documented suppression file + a CI Go-toolchain
   patch bump, and attach a CycloneDX SBOM in the release workflow.
-- [ ] **Reproducible-build verification** - trimpath is set but nothing
+- [x] **Reproducible-build verification** - trimpath is set but nothing
   verifies two builds of one commit are bit-identical, which the
   provenance attestation implicitly promises.
   Test for: a CI job builds the release wasm twice in clean dirs and
   compares SHA-256; intentional nondeterminism (embedded timestamp
   fixture) is caught by the check.
+  Done (2026-06-12): new tools/reprobuild package - `BuildWasmSHA` builds
+  a package to js/wasm with the release flags (-trimpath -ldflags "-s -w")
+  into a clean TempDir and returns its SHA-256. `TestReproducibleWasmBuild`
+  builds examples/public/counter TWICE in separate dirs and asserts the
+  digests are byte-identical (verified: both = same SHA). `SHAMatches` +
+  `TestSHAMatchesCatchesDifference` self-test that a one-character digest
+  difference (as an embedded timestamp would cause) is caught and an empty
+  digest never counts as a match. Runs in CI via `go test ./...` (skips in
+  -short).
 
 ## Enterprise tier - data governance
 
