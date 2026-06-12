@@ -50,6 +50,13 @@ jobs:
           & "$(go env GOPATH)\bin\govulncheck.exe" ./...
         shell: pwsh
 
+      - name: Generate CycloneDX SBOM
+        # Emits a dependency SBOM whose component list is derived from the
+        # resolved module graph (go list -m -json all), attachable to the release.
+        run: |
+          go run ./tools/sbom/cmd/sbom bin/sbom.cyclonedx.json
+        shell: pwsh
+
       - name: CHANGELOG Entry Check (informational)
         # Verifies the tag being released has a CHANGELOG.md section. Non-blocking
         # for now because the historical CHANGELOG uses date headers; promote to

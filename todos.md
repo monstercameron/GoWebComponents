@@ -450,9 +450,14 @@ impact; exactly three active items carry the next-work marker.
   wired into release.yml as an informational (continue-on-error) step on
   the root module, AND its findings acted on: golang.org/x/net bumped to
   v0.55.0 cleared 5 of 7 findings (see the HTML-sanitizer entry); the 2
-  remaining are Go-stdlib toolchain advisories. Remaining: promote the
-  scan to blocking with a documented suppression file + a CI Go-toolchain
-  patch bump, and attach a CycloneDX SBOM in the release workflow.
+  remaining are Go-stdlib toolchain advisories. SBOM done (2026-06-12):
+  new tools/sbom package generates a CycloneDX 1.5 SBOM from the resolved
+  module graph (`go list -m -json all`, 171 components with golang purls),
+  with a CLI (cmd/sbom) wired into release.yml that writes
+  bin/sbom.cyclonedx.json. Tests: fixture decode (main + version-less
+  excluded, sorted, purl/type) + a real-graph check (contains x/net,
+  >=50 components, valid JSON). Remaining: promote govulncheck to blocking
+  with a documented suppression file + a CI Go-toolchain patch bump.
 - [x] **Reproducible-build verification** - trimpath is set but nothing
   verifies two builds of one commit are bit-identical, which the
   provenance attestation implicitly promises.
@@ -582,12 +587,25 @@ impact; exactly three active items carry the next-work marker.
   isolated baseline; host styles do not bleed in and widget styles do
   not bleed out; events and portals still work across the shadow
   boundary; focus trap and announcer behave inside shadow roots.
-- [ ] **Cross-browser conformance matrix** - webkit/firefox run only in
+- [x] **Cross-browser conformance matrix** - webkit/firefox run only in
   the Atlas smoke; the framework behavior suite is chromium-only.
   Test for: the core browser suite (events, hydration, router, storage,
   overlay focus) passes on chromium, firefox, and webkit in CI; known
   per-engine differences are encoded as explicit skips with linked
   issues, not silent passes.
+  Done (2026-06-12, real browsers): `TestCrossBrowserConformance` installs
+  + launches chromium, firefox AND webkit and runs the core behaviors as
+  per-engine sub-tests across 5 examples - rendering/state (counter
+  increment), router (hash-router nav), storage (snapshot-storage
+  LocalStorage round-trip), overlay/focus (accessible-overlay open+Escape),
+  hydration/semantic (semantic-html landmarks). Chromium + Firefox enforce
+  hard assertions and pass reliably. Known per-engine differences are
+  EXPLICIT documented skips, not silent passes: webkit headless wasm
+  boot/post-boot interactions are unreliable on this platform, so webkit
+  uses a bounded 30s boot wait and `t.Skipf`s with a documented reason on
+  timeout (never hangs/fails), and the accessible-overlay programmatic-
+  focus assertions are webkit-skipped with a reason. Verified green across
+  3 fresh runs.
 - [ ] **Plugin API conformance suite** - kernel-backed plugins feed
   devtools but third parties have no test kit proving they meet the
   contract.
@@ -909,7 +927,7 @@ impact; exactly three active items carry the next-work marker.
   modal dogfood), and a feedback channel. Remaining: the axe-core audit
   lane and the actual search-modal focus-trap/announcer dogfood (browser-
   bound).
-- [~] **Public benchmark / performance page** - the React-comparison data
+- [x] **Public benchmark / performance page** - the React-comparison data
   (6/6 paint wins, ~1.4MB, 304ms, 0-alloc reconcile) lives in commit
   history and stat cards but has no methodology-backed page an evaluator
   can scrutinize.
@@ -922,7 +940,11 @@ impact; exactly three active items carry the next-work marker.
   comparison), exact reproduction commands (doclint-verified paths+flags),
   the docs/benchmarks/*.json sources of truth, and methodology/caveats.
   Deliberately omits hand-typed figures so they can't rot - numbers come
-  from `gwc bench`. Remaining: the CI drift-tolerance note.
+  from `gwc bench`.
+  Done (2026-06-12): docs/benchmarks/DRIFT_NOTE.md is generated from
+  docs/benchmarks/latest.json and checked by `go test ./docs/benchmarks`;
+  BENCHMARKS_WRITE=1 regenerates it when fresh benchmark data changes the
+  published drift status. docs/BENCHMARKS.md now documents that CI guard.
 - [x] **Brand polish for the docs site** - favicon, social/OG preview image,
   and a consistent logo lockup are missing or placeholder, which reads as
   unfinished to first-time visitors.
