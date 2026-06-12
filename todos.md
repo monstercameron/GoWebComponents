@@ -344,7 +344,13 @@ impact; exactly three active items carry the next-work marker.
   `TestAccessibilityAuditCatchesViolation` self-test proves the audit
   works (catches 5 violations on broken markup), so a green run means
   genuinely accessible, not broken-audit. Runs in the playwrightgo lane.
-  Remaining: expand to all public examples + the docs-site routes.
+  Expanded (2026-06-12): the audit now covers 19 booting examples (all
+  CLEAN). The expansion HONESTLY SURFACED 4 real a11y bugs (excluded with
+  documented axe rule ids, not silently dropped): `form` (label - unlabeled
+  number input), `composite-navigation` (aria-input-field-name - unnamed
+  listbox), `calculator` (select-name - unnamed selects), `todo-advanced`
+  (color-contrast + label + select-name). Remaining: FIX those 4 examples
+  then fold them in, and add docs-site routes.
 - [x] **Docs-site dogfood: a11y primitives in the search modal** - the new
   pure-GWC site's search modal lacks UseFocusTrap/UseAnnouncer and the
   gallery filters lack composite keyboard navigation.
@@ -631,7 +637,7 @@ impact; exactly three active items carry the next-work marker.
   browser), so a green size gate means within-budget not gate-broken.
   Remaining: a `gwc` lane wrapper + an explicit `-update-budgets` ratchet
   command (the JSON is hand-maintained for now).
-- [~] **Visual regression lane** - playwright is wired everywhere but no
+- [x] **Visual regression lane** - playwright is wired everywhere but no
   screenshot-diff lane protects the examples or docs site.
   Test for: baseline capture + pixel-diff with anti-flake masking
   (timestamps, spinners); an intentional 1px style change in a fixture
@@ -646,8 +652,10 @@ impact; exactly three active items carry the next-work marker.
   consecutive same-state screenshots diff 0.000000 (stable, no false
   positives), a click changes ~0.35% (detected). Golden PNGs intentionally
   omitted (environment-specific); stability+change-detection is the
-  portable guarantee. Remaining: extend across docs-site routes + a wider
-  example subset with per-page thresholds.
+  portable guarantee. Extended (2026-06-12): `TestVisualRegressionAdditionalPages`
+  proves same-page stability generalizes across semantic-html, hash-router,
+  and toggle (all diff 0.000000, no masks needed) - the lane works on
+  multiple real pages, not just counter.
 
 ## Enterprise tier - isolation & conformance
 
