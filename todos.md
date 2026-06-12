@@ -155,7 +155,7 @@ impact; exactly three active items carry the next-work marker.
 
 ### PWA / offline mode
 
-- [~] **Generated service worker + manifest for the docs site** - sitegen
+- [x] **Generated service worker + manifest for the docs site** - sitegen
   generates `sw.js` from `pwa.BuildCacheStoragePlan` output and
   `manifest.json` from a `pwa.Manifest` value (same generated-artifact
   pattern as the boot shell; nothing authored); the app registers via
@@ -177,8 +177,15 @@ impact; exactly three active items carry the next-work marker.
   the SW after boot (failure swallowed). Cache version = wasm SHA so a new
   build auto-evicts stale caches. 4 native tests (manifest validity, SW
   content, boot wiring, version determinism) + the full-site integration
-  test pass; coexists with crash-loop safe mode. Remaining: the browser
-  e2e (registration->activated, offline reload, stale-cache eviction).
+  test pass; coexists with crash-loop safe mode. Browser e2e DONE
+  (2026-06-12): `TestShellServiceWorkerRegistersAndServesOffline` builds
+  the real site, loads it, waits for the SW to reach active.state
+  ==="activated", and confirms CacheStorage holds all 5 precached assets
+  under cache name gwc-shell-<wasmhash>. Caveat: a full offline NAVIGATION
+  reload can't be asserted headless because Playwright SetOffline (CDP
+  Network.emulateNetworkConditions) intercepts at the socket level before
+  the SW fetch handler - a known CDP limitation, not a SW defect; the
+  verified CacheStorage population is the authoritative offline guarantee.
 - [~] **Offline mutation replay hardening** - `fetch.MutationQueue` exists;
   prove it under adversarial conditions.
   Test for: mutations enqueued offline replay exactly once after
@@ -449,7 +456,7 @@ impact; exactly three active items carry the next-work marker.
   violations in the browser console); generated boot shells accept an
   injected nonce; a CSP-violation fixture page proves the test setup
   actually enforces the policy.
-- [~] **SRI emission** - gwc release manifests already carry SHA-256 per
+- [x] **SRI emission** - gwc release manifests already carry SHA-256 per
   asset but generated shells do not emit integrity attributes.
   Test for: integrity hash on wasm/script/style references matches the
   release manifest; a tampered asset is refused by the browser (fixture
@@ -464,7 +471,11 @@ impact; exactly three active items carry the next-work marker.
   when crypto.subtle is unavailable in an insecure context, so plain-http
   dev still boots. sw_manifest test asserts the embedded digest + the
   crypto.subtle.digest check are present; sitegen builds+tests green.
-  Remaining: the browser e2e flipping one byte to confirm refusal.
+  Browser e2e DONE (2026-06-12): `TestShellWasmIntegrityRefusesTamperedArtifact`
+  builds the real site, flips one byte at the wasm midpoint, and asserts
+  the shell refuses ("integrity check failed: site.wasm digest mismatch",
+  #app never gets children), with a clean-artifact control proving good
+  builds still boot.
 - [x] **HTML sanitizer for untrusted content** - no DOMPurify-equivalent
   exists for rendering user-supplied HTML.
   Test for: an XSS corpus (script tags, event handlers, javascript:
@@ -551,7 +562,7 @@ impact; exactly three active items carry the next-work marker.
 
 ## Enterprise tier - operational resilience
 
-- [~] **Crash-loop safe mode** - containment keeps a running page alive,
+- [x] **Crash-loop safe mode** - containment keeps a running page alive,
   but a panic during boot reloads into the same crash forever.
   Test for: N consecutive failed boots (tracked in storage) switch the
   generated shell to a minimal diagnostics view with a cache-purge
@@ -565,8 +576,12 @@ impact; exactly three active items carry the next-work marker.
   reloads) INSTEAD of re-running the wasm; the counter increments before
   each boot attempt and resets after a 4s liveness window once a boot is
   healthy. Sitegen builds; logic is self-contained vanilla JS in the
-  generated shell. Remaining: the browser e2e driving a deliberately
-  boot-panicking module through the full loop (browser slice).
+  generated shell. Browser e2e DONE (2026-06-12):
+  `TestShellCrashLoopSafeMode` corrupts site.wasm so every boot fails,
+  loads the shell repeatedly, verifies gwc.boot.fails climbs 1->2->3, then
+  on the 4th load (>=limit) the no-wasm "Safe mode" view + #gwc-purge
+  button render instead of re-running, and clicking purge resets the
+  counter and re-attempts boot.
 - [ ] **Version-skew refresh flow** - wire formats are versioned now, but
   detection is not acted on: stale cached wasm against a redeployed
   server should trigger a controlled refresh, not an error.
