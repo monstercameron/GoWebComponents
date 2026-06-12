@@ -21,6 +21,7 @@ Use this quick chooser:
 - serving HTML first and resuming on the client: start with Add SSR And Hydration
 - validating runtime, browser, or hydration behavior: start with Test A Component Or App Flow
 - preparing deployment output: start with Ship A Production Wasm Build
+- investigating browser crashes or wasm stack frames: start with Debug A Wasm Browser Issue
 - investigating client resume mismatches: start with Debug Hydration Issues
 
 This page is intentionally task-first. It should help a team choose a supported path quickly instead of discovering it indirectly from package boundaries.
@@ -202,6 +203,30 @@ Testing and validation:
 - [PWA.md](pwa-and-offline-app-support.md)
 - [WASM_RELEASES.md](wasm-build-profiles-and-release-engineering.md)
 - [TROUBLESHOOTING.md](troubleshooting.md#missing-wasm_execjs)
+
+## Debug A Wasm Browser Issue
+
+Use this path when a browser-only panic, pause, or stack frame needs to be correlated back to Go source.
+
+Public API and tools:
+
+- `go run ./tools/gwc build -app .\path\to\main.go -profile debug`
+- `go run ./tools/gwc serve -root .\static -wasm-file .\bin\debug\app.wasm`
+- `go run ./tools/gwc release -app .\path\to\main.go -profile debug -compression none` when the issue only reproduces from packaged output
+- runtime crash reports and browser console stacks
+
+Production caveats:
+
+- The debug profile uses the Go `js/wasm` toolchain with untrimmed local paths and `-gcflags=all=-N -l`.
+- Current Go `js/wasm` artifacts provide symbolized wasm frames, not browser source maps or `.debug_*` DWARF sections.
+- Keep debug artifacts out of production deploys unless a support workflow explicitly needs a temporary, access-controlled reproduction build.
+- Use TinyGo source-stepping experiments only for app slices that are already TinyGo-compatible.
+
+Testing and validation:
+
+- [tools/README.md](../tools/README.md)
+- [WASM_RELEASES.md](wasm-build-profiles-and-release-engineering.md)
+- [TROUBLESHOOTING.md](troubleshooting.md#wasm-build-failures)
 
 ## Debug Hydration Issues
 

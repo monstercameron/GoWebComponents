@@ -99,7 +99,9 @@ Installs or reconfigures the bridge with explicit options.
 Current config fields:
 
 - `AtomIDs`: optional allowlist of atom ids to export through the snapshot bridge
-- `ResetKey`: optional explicit snapshot version. When it changes, older snapshots are discarded instead of restored
+- `ResetKey`: optional invalidation key. When it changes, older snapshots are discarded instead of restored
+- `SnapshotVersion`: app-owned schema version for hot-reload snapshots
+- `SnapshotMigrations`: ordered migrations for atom state plus component path or identity aliases
 
 ### `hotreload.Disable()`
 
@@ -109,11 +111,11 @@ Removes the browser bridge from the page.
 
 Reports whether the bridge is currently enabled in the running app.
 
-### `hotreload.ExportSnapshot()`
+### `hotreload.GetSnapshot()`
 
 Returns the current JSON payload used by the live-reload client.
 
-### `hotreload.ImportSnapshot(payload)`
+### `hotreload.ApplySnapshot(payload)`
 
 Restores a previously exported payload.
 
@@ -167,10 +169,12 @@ The hot reload loop is:
 2. before the old bundle is replaced, the browser exports a snapshot payload
 3. the app runtime runs `hotreload.Prepare()` to clean up stale effect-owned resources
 4. the client swaps in the rebuilt wasm module
-5. the app restores the snapshot through `hotreload.ImportSnapshot(...)`
+5. the app restores the snapshot through `hotreload.ApplySnapshot(...)`
 6. if the swap fails, the client falls back to a full page reload and reuses the stored snapshot on the next load
 
 `ResetKey` provides the first explicit reset control. This is the opt-in answer for edits where preserved state would be misleading, such as changing a state initializer from `ui.UseState(4)` to `ui.UseState(5)` and wanting the next rebuild to start fresh.
+
+`SnapshotVersion` and `SnapshotMigrations` are for compatible refactors. Use them when an old browser snapshot should be transformed into the new atom keys or component paths instead of being discarded.
 
 ## Example Surfaces
 

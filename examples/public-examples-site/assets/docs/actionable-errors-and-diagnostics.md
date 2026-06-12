@@ -230,6 +230,16 @@ Expected remediation:
 - move the hook call into a component function rendered through `ui.CreateElement(...)`
 - do not call framework hooks in package init code, route registration helpers, or other ordinary helpers that are not rendering components
 
+### GWC-RUNTIME-HOOK-THREADING
+
+Use for hook entrypoints called from a goroutine other than the goroutine that owns the active render fiber.
+
+Expected remediation:
+
+- call hooks only from the component render body
+- move background work into `UseEffect`, `UseTask`, `UseChannel`, `SafeGo`, or event handlers that update existing hook state instead of creating new hook slots
+- run `gwc lint` in CI so `gwc-hooks` catches direct hook calls inside `go func` launches before wasm builds
+
 ### GWC-RUNTIME-HOOK-FUNC-TYPE
 
 Use for `GoUseFunc(...)` calls that receive a non-function value.

@@ -244,6 +244,23 @@
         return parseReferenceMs / parseMeasuredMs;
     }
 
+    function buildRunnerDomReadyRepresentativeMs(parseScenarioResult) {
+        const getRepresentativeMs = Number(parseScenarioResult?.getDomReadyRepresentativeMs || 0);
+        if (Number.isFinite(getRepresentativeMs) && getRepresentativeMs > 0) {
+            return getRepresentativeMs;
+        }
+        const getMeanMs = Number(parseScenarioResult?.getDomReadyMeanMs || 0);
+        return Number.isFinite(getMeanMs) && getMeanMs > 0 ? getMeanMs : 0;
+    }
+
+    function formatRunnerDomReadyStability(parseFramework) {
+        const getCV = Number(parseFramework.getDomReadyCoefficientOfVariation || 0);
+        if (!parseFramework.hasDomReadyBimodalSamples) {
+            return `CV ${getCV.toFixed(3)}`;
+        }
+        return `bimodal gap ${parseFramework.getDomReadyBimodalGapMs.toFixed(3)} ms, CV ${getCV.toFixed(3)}`;
+    }
+
     async function handleRunnerLoadScoreReference() {
         const getReferenceURL = new URL("./score-reference.json", window.location.href);
         getReferenceURL.searchParams.set("v", "20260407");
@@ -329,13 +346,23 @@
                 if (!getScenarioResult) {
                     continue;
                 }
-                getFastestDomReady = Math.min(getFastestDomReady, getScenarioResult.getDomReadyMeanMs);
+                const getDomReadyRepresentativeMs = buildRunnerDomReadyRepresentativeMs(getScenarioResult);
+                getFastestDomReady = Math.min(getFastestDomReady, getDomReadyRepresentativeMs);
                 getFastestPaintVisible = Math.min(getFastestPaintVisible, getScenarioResult.getPaintVisibleMeanMs);
                 getRow.getFrameworks.push({
                     getFramework: getFramework.getFramework,
                     getLabel: getFramework.getLabel,
+                    getDomReadyRepresentativeMs: getDomReadyRepresentativeMs,
+                    getDomReadyRepresentativeSource: getScenarioResult.getDomReadyRepresentativeSource || "mean",
                     getDomReadyMeanMs: getScenarioResult.getDomReadyMeanMs,
                     getDomReadyMedianMs: getScenarioResult.getDomReadyMedianMs,
+                    getDomReadyCoefficientOfVariation: getScenarioResult.getDomReadyCoefficientOfVariation || 0,
+                    hasDomReadyBimodalSamples: !!getScenarioResult.hasDomReadyBimodalSamples,
+                    getDomReadyBimodalGapMs: getScenarioResult.getDomReadyBimodalGapMs || 0,
+                    getDomReadyBimodalLowMeanMs: getScenarioResult.getDomReadyBimodalLowMeanMs || 0,
+                    getDomReadyBimodalHighMeanMs: getScenarioResult.getDomReadyBimodalHighMeanMs || 0,
+                    getDomReadyBimodalLowCount: getScenarioResult.getDomReadyBimodalLowCount || 0,
+                    getDomReadyBimodalHighCount: getScenarioResult.getDomReadyBimodalHighCount || 0,
                     getPaintVisibleMeanMs: getScenarioResult.getPaintVisibleMeanMs,
                     getPaintVisibleMedianMs: getScenarioResult.getPaintVisibleMedianMs,
                     getPaintAfterDomMeanMs: getScenarioResult.getPaintAfterDomMeanMs,
@@ -354,14 +381,14 @@
                 });
             }
             const getReactFramework = getRow.getFrameworks.find((parseFramework) => parseFramework.getFramework === "react");
-            const getReactDomReadyMs = getReactFramework ? getReactFramework.getDomReadyMeanMs : 0;
+            const getReactDomReadyMs = getReactFramework ? getReactFramework.getDomReadyRepresentativeMs : 0;
             for (const getFramework of getRow.getFrameworks) {
-                getFramework.getRelativeDomReady = Number((getFramework.getDomReadyMeanMs / getFastestDomReady).toFixed(3));
+                getFramework.getRelativeDomReady = Number((getFramework.getDomReadyRepresentativeMs / getFastestDomReady).toFixed(3));
                 if (getScenarioReference?.getDomReadyMeanMs > 0) {
                     getFramework.hasDomScoreReference = true;
                     getFramework.isWorkerRelevant = !!getScenarioReference.isWorkerRelevant;
                     getFramework.getDomReadyReferenceMs = getScenarioReference.getDomReadyMeanMs;
-                    getFramework.getDomReadyScoreFactor = Number(buildRunnerScoreFactor(getScenarioReference.getDomReadyMeanMs, getFramework.getDomReadyMeanMs).toFixed(3));
+                    getFramework.getDomReadyScoreFactor = Number(buildRunnerScoreFactor(getScenarioReference.getDomReadyMeanMs, getFramework.getDomReadyRepresentativeMs).toFixed(3));
                     getFramework.getDomScore = buildRunnerDomScore(getFramework.getDomReadyScoreFactor);
                 } else {
                     getFramework.hasDomScoreReference = false;
@@ -370,10 +397,10 @@
                     getFramework.getDomReadyScoreFactor = 0;
                     getFramework.getDomScore = 0;
                 }
-                if (getReactDomReadyMs > 0 && getFramework.getDomReadyMeanMs > 0) {
+                if (getReactDomReadyMs > 0 && getFramework.getDomReadyRepresentativeMs > 0) {
                     getFramework.hasReactBaseline = true;
-                    getFramework.getDomReadyDeltaVsReactMs = Number((getReactDomReadyMs - getFramework.getDomReadyMeanMs).toFixed(3));
-                    getFramework.getDomReadySpeedupVsReact = Number((getReactDomReadyMs / getFramework.getDomReadyMeanMs).toFixed(3));
+                    getFramework.getDomReadyDeltaVsReactMs = Number((getReactDomReadyMs - getFramework.getDomReadyRepresentativeMs).toFixed(3));
+                    getFramework.getDomReadySpeedupVsReact = Number((getReactDomReadyMs / getFramework.getDomReadyRepresentativeMs).toFixed(3));
                 } else {
                     getFramework.hasReactBaseline = false;
                     getFramework.getDomReadyDeltaVsReactMs = 0;
@@ -384,10 +411,10 @@
                 getFramework.getRelativePaintVisible = Number((getFramework.getPaintVisibleMeanMs / getFastestPaintVisible).toFixed(3));
             }
             getRow.getFrameworks.sort((parseLeft, parseRight) => {
-                if (parseLeft.getDomReadyMeanMs === parseRight.getDomReadyMeanMs) {
+                if (parseLeft.getDomReadyRepresentativeMs === parseRight.getDomReadyRepresentativeMs) {
                     return parseLeft.getPaintVisibleMeanMs - parseRight.getPaintVisibleMeanMs;
                 }
-                return parseLeft.getDomReadyMeanMs - parseRight.getDomReadyMeanMs;
+                return parseLeft.getDomReadyRepresentativeMs - parseRight.getDomReadyRepresentativeMs;
             });
             getScenarioRows.push(getRow);
         }
@@ -414,6 +441,7 @@
                         getDomReadyRelativeProduct: 1,
                         getPaintVisibleRelativeProduct: 1,
                         getDomReadyScoreFactorProduct: 1,
+                        getDomReadyRepresentativeSumMs: 0,
                         getDomReadySumMs: 0,
                         getPaintVisibleSumMs: 0,
                         getDomReadyDeltaVsReactSumMs: 0,
@@ -427,6 +455,7 @@
                     const getCategoryFramework = getFrameworkMap.get(getFramework.getFramework);
                     getCategoryFramework.getDomReadyRelativeProduct *= Math.max(getFramework.getRelativeDomReady, 0.0001);
                     getCategoryFramework.getPaintVisibleRelativeProduct *= Math.max(getFramework.getRelativePaintVisible, 0.0001);
+                    getCategoryFramework.getDomReadyRepresentativeSumMs += getFramework.getDomReadyRepresentativeMs;
                     getCategoryFramework.getDomReadySumMs += getFramework.getDomReadyMeanMs;
                     getCategoryFramework.getPaintVisibleSumMs += getFramework.getPaintVisibleMeanMs;
                     if (getFramework.hasDomScoreReference) {
@@ -450,6 +479,7 @@
                 getScenarioCount: parseFramework.getScenarioCount,
                 getScenarioWins: parseFramework.getScenarioWins,
                 hasReactBaseline: parseFramework.hasReactBaseline,
+                getDomReadyRepresentativeMs: Number((parseFramework.getDomReadyRepresentativeSumMs / parseFramework.getScenarioCount).toFixed(3)),
                 getDomReadyMeanMs: Number((parseFramework.getDomReadySumMs / parseFramework.getScenarioCount).toFixed(3)),
                 getPaintVisibleMeanMs: Number((parseFramework.getPaintVisibleSumMs / parseFramework.getScenarioCount).toFixed(3)),
                 getDomReadyGeometricRelative: Number(Math.pow(parseFramework.getDomReadyRelativeProduct, 1 / parseFramework.getScenarioCount).toFixed(3)),
@@ -495,7 +525,7 @@
                     return null;
                 }
                 const getBaselineBatchMs = getWorkerFrameworks[0].getWorkerBatchMeanMs || 0;
-                const getBaselineDomReadyMs = getWorkerFrameworks[0].getDomReadyMeanMs || 0;
+                const getBaselineDomReadyMs = getWorkerFrameworks[0].getDomReadyRepresentativeMs || 0;
                 return {
                     getScenarioID: parseScenarioRow.getScenarioID,
                     getScenarioLabel: parseScenarioRow.getScenarioLabel,
@@ -506,9 +536,10 @@
                         getWorkerBatchMeanMs: parseFramework.getWorkerBatchMeanMs,
                         getWorkerPreparedItemsMean: parseFramework.getWorkerPreparedItemsMean,
                         getDomReadyMeanMs: parseFramework.getDomReadyMeanMs,
+                        getDomReadyRepresentativeMs: parseFramework.getDomReadyRepresentativeMs,
                         getPaintVisibleMeanMs: parseFramework.getPaintVisibleMeanMs,
-                        getRelativeDomReadySpeedup: getBaselineDomReadyMs > 0 && parseFramework.getDomReadyMeanMs > 0
-                            ? Number((getBaselineDomReadyMs / parseFramework.getDomReadyMeanMs).toFixed(3))
+                        getRelativeDomReadySpeedup: getBaselineDomReadyMs > 0 && parseFramework.getDomReadyRepresentativeMs > 0
+                            ? Number((getBaselineDomReadyMs / parseFramework.getDomReadyRepresentativeMs).toFixed(3))
                             : 0,
                         getRelativeBatchSpeedup: getBaselineBatchMs > 0 && parseFramework.getWorkerBatchMeanMs > 0
                             ? Number((getBaselineBatchMs / parseFramework.getWorkerBatchMeanMs).toFixed(3))
@@ -535,6 +566,7 @@
                 <tr>
                     <td>${parseFramework.getLabel}</td>
                     <td>${parseFramework.getDomScore}</td>
+                    <td>${parseFramework.getDomReadyRepresentativeMs.toFixed(3)} ms</td>
                     <td>${parseFramework.getDomReadyMeanMs.toFixed(3)} ms</td>
                     <td>${parseFramework.hasReactBaseline ? `${parseFramework.getDomReadyDeltaVsReactMs >= 0 ? "+" : ""}${parseFramework.getDomReadyDeltaVsReactMs.toFixed(3)} ms` : "n/a"}</td>
                     <td>${parseFramework.getPaintVisibleMeanMs.toFixed(3)} ms</td>
@@ -553,7 +585,8 @@
                             <tr>
                                 <th>Framework</th>
                                 <th>DOM Score</th>
-                                <th>Avg DOM Ready</th>
+                                <th>Avg DOM Ready Rep.</th>
+                                <th>Avg DOM Ready Mean</th>
                                 <th>Avg DOM vs React</th>
                                 <th>Avg Paint Proxy</th>
                                 <th>Geom. DOM Score Factor</th>
@@ -569,7 +602,7 @@
             const getFrameworkRows = parseScalingRow.getFrameworks.map((parseFramework) => `
                 <tr>
                     <td>${parseFramework.getLabel}</td>
-                    <td>${parseFramework.getDomReadyMeanMs.toFixed(3)} ms</td>
+                    <td>${parseFramework.getDomReadyRepresentativeMs.toFixed(3)} ms</td>
                     <td>${parseFramework.getRelativeDomReadySpeedup.toFixed(3)}x</td>
                     <td>${parseFramework.getWorkerBatchMeanMs.toFixed(3)} ms</td>
                     <td>${parseFramework.getRelativeBatchSpeedup.toFixed(3)}x</td>
@@ -588,7 +621,7 @@
                         <thead>
                             <tr>
                                 <th>Framework</th>
-                                <th>DOM Ready</th>
+                                <th>DOM Ready Rep.</th>
                                 <th>DOM Ready Speedup vs Smallest Worker Count</th>
                                 <th>Worker Batch</th>
                                 <th>Worker Batch Speedup vs Smallest Worker Count</th>
@@ -611,7 +644,9 @@
                     <tr>
                         <td>${parseFramework.getLabel}</td>
                         <td>${parseFramework.getDomScore}</td>
+                        <td>${parseFramework.getDomReadyRepresentativeMs.toFixed(3)} ms</td>
                         <td>${parseFramework.getDomReadyMeanMs.toFixed(3)} ms</td>
+                        <td>${formatRunnerDomReadyStability(parseFramework)}</td>
                         <td>${parseFramework.getPaintVisibleMeanMs.toFixed(3)} ms</td>
                         <td>${parseFramework.getPaintAfterDomMeanMs.toFixed(3)} ms</td>
                         <td>${parseFramework.getChildListMutationMean.toFixed(1)} / ${parseFramework.getAttributeMutationMean.toFixed(1)} / ${parseFramework.getCharacterDataMutationMean.toFixed(1)}</td>
@@ -636,7 +671,9 @@
                             <tr>
                                 <th>Framework</th>
                                 <th>DOM Score</th>
-                                <th>DOM Ready</th>
+                                <th>DOM Ready Rep.</th>
+                                <th>DOM Ready Mean</th>
+                                <th>DOM Stability</th>
                                 <th>Paint Proxy</th>
                                 <th>Paint-After-DOM</th>
                                 <th>Mutations C/A/T</th>

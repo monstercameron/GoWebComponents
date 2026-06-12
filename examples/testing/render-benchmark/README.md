@@ -55,6 +55,7 @@ The report also includes an RT2-only worker-scaling section that compares:
 - DOM-ready and paint-proxy timings for context
 
 The report avoids one mixed overall multiplier across all scenarios. It groups results by category, keeps `DOM Ready` as the uncapped lead timing, and still shows same-run `DOM vs React` deltas as a diagnostic.
+Benchmark JSON now also records `DOM Ready` standard deviation, coefficient of variation, spread ratio, and a bimodality-aware `DOM Ready Rep.` value. The representative equals the mean for unimodal samples; if a churn run splits into two stable timing clusters, the report flags the gap and uses the dominant cluster, with equal cluster ties choosing the slower cluster. The original mean, median, and sorted samples remain in the JSON and Markdown report for auditability.
 `DOM Score` is now a fixed-reference integer score from `examples/testing/render-benchmark/score-reference.json`, where `100` equals the checked-in Example 201 reference profile rather than whichever framework happened to run in the current report.
 The report also separates the worker-relevant overall headline from the full-surface overall score so deep-tree, primitive, hook-grid, and enterprise-workspace subtree scenarios do not distort the runtime2 worker story.
 

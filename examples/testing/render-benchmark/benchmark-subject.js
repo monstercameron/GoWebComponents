@@ -729,18 +729,115 @@
         };
     }
 
+    function buildSubjectRoundedNumber(parseValue) {
+        if (!Number.isFinite(parseValue)) {
+            return 0;
+        }
+        return Number(parseValue.toFixed(3));
+    }
+
+    function buildSubjectMean(parseValues) {
+        if (!Array.isArray(parseValues) || parseValues.length === 0) {
+            return 0;
+        }
+        return parseValues.reduce((parseTotal, parseValue) => parseTotal + parseValue, 0) / parseValues.length;
+    }
+
     function buildSubjectMetricSummary(parseValues) {
-        const getSortedValues = parseValues.slice().sort((parseLeft, parseRight) => parseLeft - parseRight);
+        const getSortedValues = parseValues
+            .map((parseValue) => Number(parseValue))
+            .filter((parseValue) => Number.isFinite(parseValue))
+            .sort((parseLeft, parseRight) => parseLeft - parseRight);
+        if (getSortedValues.length === 0) {
+            return {
+                getMean: 0,
+                getMedian: 0,
+                getMin: 0,
+                getMax: 0,
+                getP95: 0,
+                getStdDev: 0,
+                getCoefficientOfVariation: 0,
+                getSpreadRatio: 0,
+                getRepresentative: 0,
+                getRepresentativeSource: "empty",
+                hasBimodalSamples: false,
+                getBimodalGap: 0,
+                getBimodalLowMean: 0,
+                getBimodalHighMean: 0,
+                getBimodalLowCount: 0,
+                getBimodalHighCount: 0,
+                getSamples: []
+            };
+        }
         const getMedianIndex = Math.floor(getSortedValues.length / 2);
         const getP95Index = Math.min(getSortedValues.length - 1, Math.floor(getSortedValues.length * 0.95));
-        const getSum = getSortedValues.reduce((parseTotal, parseValue) => parseTotal + parseValue, 0);
+        const getMean = buildSubjectMean(getSortedValues);
+        const getVariance = buildSubjectMean(getSortedValues.map((parseValue) => {
+            const getDistance = parseValue - getMean;
+            return getDistance * getDistance;
+        }));
+        const getStdDev = Math.sqrt(getVariance);
+        const getCoefficientOfVariation = Math.abs(getMean) > 0 ? getStdDev / Math.abs(getMean) : 0;
+        const getSpreadRatio = getSortedValues[0] > 0 ? getSortedValues[getSortedValues.length - 1] / getSortedValues[0] : 0;
+        let getBestSplit = null;
+        if (getSortedValues.length >= 5) {
+            for (let parseIndex = 2; parseIndex <= getSortedValues.length - 2; parseIndex++) {
+                const getLowValues = getSortedValues.slice(0, parseIndex);
+                const getHighValues = getSortedValues.slice(parseIndex);
+                const getGap = getSortedValues[parseIndex] - getSortedValues[parseIndex - 1];
+                const getLowSpread = getLowValues[getLowValues.length - 1] - getLowValues[0];
+                const getHighSpread = getHighValues[getHighValues.length - 1] - getHighValues[0];
+                if (getBestSplit && getBestSplit.getGap >= getGap) {
+                    continue;
+                }
+                getBestSplit = {
+                    getGap: getGap,
+                    getLowMean: buildSubjectMean(getLowValues),
+                    getHighMean: buildSubjectMean(getHighValues),
+                    getLowCount: getLowValues.length,
+                    getHighCount: getHighValues.length,
+                    getLowSpread: getLowSpread,
+                    getHighSpread: getHighSpread
+                };
+            }
+        }
+        const getBimodalGapThreshold = Math.max(0.25, Math.abs(getMean) * 0.2);
+        const hasBimodalSamples = !!getBestSplit &&
+            getCoefficientOfVariation >= 0.18 &&
+            getBestSplit.getGap >= getBimodalGapThreshold &&
+            getBestSplit.getGap >= Math.max(getBestSplit.getLowSpread, getBestSplit.getHighSpread, 0.001) * 1.5;
+        let getRepresentative = getMean;
+        let getRepresentativeSource = "mean";
+        if (hasBimodalSamples) {
+            if (getBestSplit.getLowCount > getBestSplit.getHighCount) {
+                getRepresentative = getBestSplit.getLowMean;
+                getRepresentativeSource = "dominant-low-cluster";
+            } else if (getBestSplit.getHighCount > getBestSplit.getLowCount) {
+                getRepresentative = getBestSplit.getHighMean;
+                getRepresentativeSource = "dominant-high-cluster";
+            } else {
+                getRepresentative = getBestSplit.getHighMean;
+                getRepresentativeSource = "conservative-high-cluster";
+            }
+        }
         return {
-            getMean: Number((getSum / getSortedValues.length).toFixed(3)),
-            getMedian: Number(getSortedValues[getMedianIndex].toFixed(3)),
-            getMin: Number(getSortedValues[0].toFixed(3)),
-            getMax: Number(getSortedValues[getSortedValues.length - 1].toFixed(3)),
-            getP95: Number(getSortedValues[getP95Index].toFixed(3)),
-            getSamples: getSortedValues.map((parseValue) => Number(parseValue.toFixed(3)))
+            getMean: buildSubjectRoundedNumber(getMean),
+            getMedian: buildSubjectRoundedNumber(getSortedValues[getMedianIndex]),
+            getMin: buildSubjectRoundedNumber(getSortedValues[0]),
+            getMax: buildSubjectRoundedNumber(getSortedValues[getSortedValues.length - 1]),
+            getP95: buildSubjectRoundedNumber(getSortedValues[getP95Index]),
+            getStdDev: buildSubjectRoundedNumber(getStdDev),
+            getCoefficientOfVariation: buildSubjectRoundedNumber(getCoefficientOfVariation),
+            getSpreadRatio: buildSubjectRoundedNumber(getSpreadRatio),
+            getRepresentative: buildSubjectRoundedNumber(getRepresentative),
+            getRepresentativeSource: getRepresentativeSource,
+            hasBimodalSamples: hasBimodalSamples,
+            getBimodalGap: hasBimodalSamples ? buildSubjectRoundedNumber(getBestSplit.getGap) : 0,
+            getBimodalLowMean: hasBimodalSamples ? buildSubjectRoundedNumber(getBestSplit.getLowMean) : 0,
+            getBimodalHighMean: hasBimodalSamples ? buildSubjectRoundedNumber(getBestSplit.getHighMean) : 0,
+            getBimodalLowCount: hasBimodalSamples ? getBestSplit.getLowCount : 0,
+            getBimodalHighCount: hasBimodalSamples ? getBestSplit.getHighCount : 0,
+            getSamples: getSortedValues.map((parseValue) => buildSubjectRoundedNumber(parseValue))
         };
     }
 
@@ -788,6 +885,17 @@
             getDomReadyMaxMs: getDomReadyStats.getMax,
             getDomReadyP95Ms: getDomReadyStats.getP95,
             getDomReadySamplesMs: getDomReadyStats.getSamples,
+            getDomReadyStdDevMs: getDomReadyStats.getStdDev,
+            getDomReadyCoefficientOfVariation: getDomReadyStats.getCoefficientOfVariation,
+            getDomReadySpreadRatio: getDomReadyStats.getSpreadRatio,
+            getDomReadyRepresentativeMs: getDomReadyStats.getRepresentative,
+            getDomReadyRepresentativeSource: getDomReadyStats.getRepresentativeSource,
+            hasDomReadyBimodalSamples: getDomReadyStats.hasBimodalSamples,
+            getDomReadyBimodalGapMs: getDomReadyStats.getBimodalGap,
+            getDomReadyBimodalLowMeanMs: getDomReadyStats.getBimodalLowMean,
+            getDomReadyBimodalHighMeanMs: getDomReadyStats.getBimodalHighMean,
+            getDomReadyBimodalLowCount: getDomReadyStats.getBimodalLowCount,
+            getDomReadyBimodalHighCount: getDomReadyStats.getBimodalHighCount,
             getPaintVisibleMeanMs: getPaintVisibleStats.getMean,
             getPaintVisibleMedianMs: getPaintVisibleStats.getMedian,
             getPaintVisibleMinMs: getPaintVisibleStats.getMin,

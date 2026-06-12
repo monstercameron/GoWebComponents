@@ -2,7 +2,7 @@
 
 This page defines the current wasm build-profile and release-engineering model for GoWebComponents applications.
 
-Use it when deciding how local development builds, CI verification builds, benchmark builds, and production release builds should differ, and which production-oriented build flags are the default safe baseline.
+Use it when deciding how local development builds, source-debug builds, CI verification builds, benchmark builds, and production release builds should differ, and which production-oriented build flags are the default safe baseline.
 
 ## Current Status
 
@@ -17,13 +17,17 @@ The current wasm build profiles are explicit, not one generic `go build` command
 The current canonical profiles are:
 
 - development build:
-  optimized for local iteration, easier debugging, and compatibility with local dev servers
+  optimized for local iteration and compatibility with local dev servers
+- source-debug build:
+  optimized for browser crash and stack-frame correlation with untrimmed local paths and disabled compiler optimization
 - CI verification build:
   optimized for deterministic validation that the target package still builds and boots under the documented release-like settings
 - benchmark build:
   optimized for repeatable measurement with the flags and artifact shape clearly recorded beside the benchmark output
 - production release build:
   optimized for deployable size, stable paths, and predictable runtime behavior in staging or production hosting
+- TinyGo build:
+  optimized for constrained leaf apps that can compile with TinyGo's `wasm` target and should be evaluated for smaller shipped artifacts
 
 The repo now exposes the baseline build-profile runner through:
 
@@ -31,7 +35,7 @@ The repo now exposes the baseline build-profile runner through:
 go run ./tools/gwc build -app .\path\to\main.go -profile ci
 ```
 
-That command currently covers single-target js/wasm builds and JSON build summaries.
+That command currently covers single-target wasm builds and JSON build summaries. The standard profiles use the Go toolchain with `GOOS=js GOARCH=wasm`; `-profile debug` adds `-gcflags=all=-N -l` without `-trimpath` or strip flags; `-profile tinygo` uses `tinygo build -target=wasm -opt=z -tags production` and fails early with an install hint when TinyGo is not on `PATH`.
 
 The repo now also exposes the baseline release packager through:
 
@@ -43,10 +47,12 @@ That release command emits the raw release-profile wasm artifact, supports `-com
 
 Recommended differences by profile:
 
-- development builds may preserve fuller debug metadata and simpler artifact naming
+- development builds should stay fast and small enough for the inner loop
+- debug builds should preserve untrimmed local paths and record `gcflags` in build or release summaries
 - CI verification builds should prove that the chosen production-oriented flags still compile and pass smoke checks
 - benchmark builds should record the exact flags and compression context used, so size and startup numbers stay attributable
 - production builds should use the documented release baseline consistently instead of ad hoc per-app flag choices
+- TinyGo builds should start as a compatibility spike for leaf apps; unsupported runtime, reflection, or package dependencies should fail the build instead of silently weakening application behavior
 
 ## Recommended Production Build Flags
 
@@ -69,8 +75,24 @@ Why this baseline:
 Tradeoffs:
 
 - stripped artifacts are harder to debug in-browser
-- production flag choices should be paired with a separate debug-friendly build path, not used blindly for every local workflow
+- production flag choices should be paired with `gwc build -profile debug` for browser investigation, not used blindly for every local workflow
 - if a team needs richer postmortem debugging, it should keep a parallel debug artifact policy instead of weakening the release baseline accidentally
+
+Debug profile starting point:
+
+```powershell
+go run ./tools/gwc build -app .\path\to\main.go -profile debug -out .\bin\debug\app.wasm
+```
+
+Use this when you need symbolized wasm stack frames, untrimmed local paths, and less surprising browser pauses while correlating DevTools output or crash reports to Go source. Current Go `js/wasm` builds do not emit browser source maps or `.debug_*` DWARF sections, so this is a symbolized-stack workflow rather than full browser source stepping.
+
+TinyGo profile starting point:
+
+```powershell
+go run ./tools/gwc build -app .\path\to\main.go -profile tinygo
+```
+
+Use it when the app is intentionally small and its dependencies are known to compile under TinyGo. Keep the standard Go release profile as the compatibility baseline until CI proves the TinyGo artifact boots and passes the same smoke checks.
 
 ## Debug Info And Metadata Policy
 

@@ -67,12 +67,13 @@ Source anchors:
 - [ui/ssr_bootstrap.go](../../ui/ssr_bootstrap.go)
 - [ui/ssr_transfer.go](../../ui/ssr_transfer.go)
 - [ui/ssr_observability.go](../../ui/ssr_observability.go)
+- [ui/ssr_stream.go](../../ui/ssr_stream.go)
 - [ui/worker_wasm.go](../../ui/worker_wasm.go)
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
 | `CreateElement`, `Component`, `Fragment`, `Text` | core node composition | [`Node`](../../ui/ui.go), [`Element`](../../ui/ui.go) | `ui.CreateElement(renderApp, appProps{})` |
-| `Render`, `RenderInto`, `RenderToString`, `RenderToStringObserved`, `Hydrate`, `HydrateInto` | browser mount, SSR HTML, hydration attach | [`HydrationOptions`](../../ui/hydration.go), [`SSRObservabilityOptions`](../../ui/ssr_observability.go), [`SSRBootstrap`](../../ui/ssr_bootstrap.go) | `ui.Render(ui.CreateElement(renderApp, nil), "#app")` |
+| `Render`, `RenderInto`, `RenderToString`, `RenderToStringObserved`, `RenderToStream`, `RenderToStreamObserved`, `Hydrate`, `HydrateInto` | browser mount, SSR HTML, streaming SSR shell/chunks, hydration attach | [`HydrationOptions`](../../ui/hydration.go), [`SSRObservabilityOptions`](../../ui/ssr_observability.go), [`SSRStreamOptions`](../../ui/ssr_stream.go), [`SSRBootstrap`](../../ui/ssr_bootstrap.go) | `ui.Render(ui.CreateElement(renderApp, nil), "#app")` |
 | `UseState`, `UseReducer`, `UseRef`, `UsePrevious`, `UseId`, `UseEffect`, `UseMemo`, `UseCallback`, `UseEvent`, `WrapHandler` | local state and event wiring | [`State[T]`](../../ui/ui.go), [`Reducer[S,A]`](../../ui/ui.go), [`Ref[T]`](../../ui/ui.go), [`Previous[T]`](../../ui/ui.go), [`Handler`](../../ui/ui.go) | `storeCount := ui.UseState(0)` |
 | `StartTransition`, `UseTransition`, `UseDeferredValue`, `UseDebounced`, `UseThrottled`, `UseChannel`, `UseTask`, `UseWorkerTask` | scheduling, rate limiting, channel/task consumption, worker-backed jobs | [`Transition`](../../ui/ui.go), [`Debounced[T]`](../../ui/ui.go), [`Throttled[T]`](../../ui/ui.go), [`Channel[T]`](../../ui/ui.go), [`Task[T]`](../../ui/ui.go), [`WorkerTask[Request,Progress,Result]`](../../ui/worker_wasm.go) | `searchTransition := ui.UseTransition()` |
 | `AsyncBoundary`, `UseLazyNode`, `Lazy`, `ErrorBoundary` | async subtree fallbacks and panic recovery | [`AsyncBoundaryProps`](../../ui/ui.go), [`LazyProps`](../../ui/ui.go), [`LazyNode`](../../ui/ui.go), [`ErrorBoundaryProps`](../../ui/ui.go) | `return ui.AsyncBoundary(ui.AsyncBoundaryProps{Pending: state.Loading, Content: body})` |
@@ -396,7 +397,7 @@ Source anchors:
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
 | `MarshalManifestJSON`, `MarshalManifestJSONIndented` | normalized and validated manifest JSON emission | [`Manifest`](../../pwa/manifest.go), [`ManifestImage`](../../pwa/manifest.go), [`ManifestShortcut`](../../pwa/manifest.go), [`RelatedApplication`](../../pwa/manifest.go) | `manifestJSON, err := pwa.MarshalManifestJSON(manifest)` |
-| `RegisterServiceWorker`, `BuildServiceWorkerAssetPlan`, `ParseWasmReleaseManifestJSON` | service worker registration and release-manifest planning | [`ServiceWorkerOptions`](../../pwa/service_worker.go), [`ServiceWorkerRegistration`](../../pwa/service_worker.go), [`ServiceWorkerAssetPlan`](../../pwa/release_manifest.go), [`ServiceWorkerAssetPlanOptions`](../../pwa/release_manifest.go), [`WasmReleaseManifest`](../../pwa/release_manifest.go) | `registration, err := pwa.RegisterServiceWorker(ctx, options)` |
+| `RegisterServiceWorker`, `BuildServiceWorkerAssetPlan`, `ParseWasmReleaseManifestJSON` | service worker registration and release-manifest planning | [`ServiceWorkerOptions`](../../pwa/service_worker.go), [`ServiceWorkerRegistration`](../../pwa/service_worker.go), [`ServiceWorkerAssetPlan`](../../pwa/release_manifest.go), [`ServiceWorkerAssetPlanOptions`](../../pwa/release_manifest.go), [`WasmReleaseManifest`](../../pwa/release_manifest.go), [`WasmReleaseFlags`](../../pwa/release_manifest.go) | `registration, err := pwa.RegisterServiceWorker(ctx, options)` |
 | `OpenCacheStorageManager`, `BuildCacheStoragePlan` | cache storage inspection and asset planning | [`CacheStorageManager`](../../pwa/cache_storage.go), [`CacheStoragePlan`](../../pwa/cache_storage.go), [`CacheStoragePlanOptions`](../../pwa/cache_storage.go) | `manager, err := pwa.OpenCacheStorageManager()` |
 | `ObserveInstallability` | install-prompt state and prompt handling | [`InstallabilityManager`](../../pwa/installability.go), [`InstallabilityOptions`](../../pwa/installability.go), [`InstallabilityState`](../../pwa/installability.go) | `installManager, err := pwa.ObserveInstallability(options)` |
 | `InspectDiagnostics` | PWA diagnostics snapshotting | [`DiagnosticsOptions`](../../pwa/diagnostics.go), [`DiagnosticsSnapshot`](../../pwa/diagnostics.go) | `diagnostics, err := pwa.InspectDiagnostics(ctx)` |
@@ -491,7 +492,7 @@ Source anchors:
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
-| `Enable`, `Configure`, `Disable`, `Enabled`, `IsEnabled`, `Prepare`, `GetSnapshot`, `ApplySnapshot` | development-state hot reload bridge | [`Config`](../../hotreload/hotreload.go) | `hotreload.Configure(hotreload.Config{AtomIDs: []string{"session"}, ResetKey: "layout-v2"})` |
+| `Enable`, `Configure`, `Disable`, `Enabled`, `IsEnabled`, `Prepare`, `GetSnapshot`, `ApplySnapshot` | development-state hot reload bridge with optional schema migrations | [`Config`](../../hotreload/hotreload.go), [`SnapshotMigration`](../../hotreload/hotreload.go), [`SnapshotMigrationContext`](../../hotreload/hotreload.go) | `hotreload.Configure(hotreload.Config{AtomIDs: []string{"session"}, ResetKey: "layout-v2", SnapshotVersion: 2})` |
 
 ## logging
 

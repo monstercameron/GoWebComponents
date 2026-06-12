@@ -340,15 +340,25 @@ Treat these as deployment rules, not optional polish:
 Treat build profiles and output modes as explicit release policy:
 
 - development builds optimize for iteration and diagnostics
+- debug builds preserve local source paths and record `gcflags` for browser
+  crash/DevTools correlation
 - CI builds prove the app still compiles and boots under release-like settings
 - benchmark builds record the exact flags and compression context used
 - release builds optimize for deployable artifact shape and reproducible manifests
+- TinyGo builds are explicit constrained-profile experiments for leaf apps that
+  can compile under TinyGo's `wasm` target
 
 Keep these related but distinct:
 
 - code splitting is an application-owned loading strategy, not a hidden framework default
 - prerender is build-time HTML generation, not request-time SSR and not a synonym for installability
 - build experiments should preserve the same release-manifest and asset-lookup contracts before they are trusted in production
+- source-debug artifacts should be built with `gwc build -profile debug` or
+  `gwc release -profile debug`; do not infer debug flags from an ad hoc
+  `go build` command that is not recorded in the release summary
+- TinyGo is an opt-in compiler profile, not a silent fallback; use
+  `go run ./tools/gwc build -app .\main.go -profile tinygo` only when CI proves
+  the app's runtime and package dependencies are TinyGo-compatible
 
 When in doubt, prove the output through `gwc build`, `gwc release`, and the `gwc wasm ...` comparison tools instead of hand-assembling release conclusions from one ad hoc `go build`.
 

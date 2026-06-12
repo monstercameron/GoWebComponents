@@ -31,46 +31,57 @@ type example201ScenarioLabel struct {
 }
 
 type example201ScenarioResult struct {
-	GetFramework                 string    `json:"getFramework"`
-	GetScenarioID                string    `json:"getScenarioID"`
-	GetScenarioLabel             string    `json:"getScenarioLabel"`
-	GetCategory                  string    `json:"getCategory"`
-	GetRequestedWork             string    `json:"getRequestedWork"`
-	GetCorrectnessCheck          string    `json:"getCorrectnessCheck"`
-	GetFinishLine                string    `json:"getFinishLine"`
-	GetIterationCount            int       `json:"getIterationCount"`
-	GetDomReadyMeanMs            float64   `json:"getDomReadyMeanMs"`
-	GetDomReadyMedianMs          float64   `json:"getDomReadyMedianMs"`
-	GetDomReadyMinMs             float64   `json:"getDomReadyMinMs"`
-	GetDomReadyMaxMs             float64   `json:"getDomReadyMaxMs"`
-	GetDomReadyP95Ms             float64   `json:"getDomReadyP95Ms"`
-	GetDomReadySamplesMs         []float64 `json:"getDomReadySamplesMs"`
-	GetPaintVisibleMeanMs        float64   `json:"getPaintVisibleMeanMs"`
-	GetPaintVisibleMedianMs      float64   `json:"getPaintVisibleMedianMs"`
-	GetPaintVisibleMinMs         float64   `json:"getPaintVisibleMinMs"`
-	GetPaintVisibleMaxMs         float64   `json:"getPaintVisibleMaxMs"`
-	GetPaintVisibleP95Ms         float64   `json:"getPaintVisibleP95Ms"`
-	GetPaintVisibleSamplesMs     []float64 `json:"getPaintVisibleSamplesMs"`
-	GetPaintAfterDomMeanMs       float64   `json:"getPaintAfterDomMeanMs"`
-	GetPaintAfterDomMedianMs     float64   `json:"getPaintAfterDomMedianMs"`
-	GetPaintAfterDomP95Ms        float64   `json:"getPaintAfterDomP95Ms"`
-	GetMutationRecordMean        float64   `json:"getMutationRecordMean"`
-	GetChildListMutationMean     float64   `json:"getChildListMutationMean"`
-	GetAttributeMutationMean     float64   `json:"getAttributeMutationMean"`
-	GetCharacterDataMutationMean float64   `json:"getCharacterDataMutationMean"`
-	GetAddedNodeMean             float64   `json:"getAddedNodeMean"`
-	GetRemovedNodeMean           float64   `json:"getRemovedNodeMean"`
-	GetLongTaskCountMean         float64   `json:"getLongTaskCountMean"`
-	GetLongTaskDurationMeanMs    float64   `json:"getLongTaskDurationMeanMs"`
-	HasHeapDelta                 bool      `json:"hasHeapDelta"`
-	GetHeapDeltaMeanBytes        float64   `json:"getHeapDeltaMeanBytes"`
-	GetHeapDeltaMedianBytes      float64   `json:"getHeapDeltaMedianBytes"`
-	GetHeapDeltaP95Bytes         float64   `json:"getHeapDeltaP95Bytes"`
-	HasWorkerMetrics             bool      `json:"hasWorkerMetrics"`
-	GetWorkerCountMean           float64   `json:"getWorkerCountMean"`
-	GetWorkerBatchCountMean      float64   `json:"getWorkerBatchCountMean"`
-	GetWorkerBatchMeanMs         float64   `json:"getWorkerBatchMeanMs"`
-	GetWorkerPreparedItemsMean   float64   `json:"getWorkerPreparedItemsMean"`
+	GetFramework                      string    `json:"getFramework"`
+	GetScenarioID                     string    `json:"getScenarioID"`
+	GetScenarioLabel                  string    `json:"getScenarioLabel"`
+	GetCategory                       string    `json:"getCategory"`
+	GetRequestedWork                  string    `json:"getRequestedWork"`
+	GetCorrectnessCheck               string    `json:"getCorrectnessCheck"`
+	GetFinishLine                     string    `json:"getFinishLine"`
+	GetIterationCount                 int       `json:"getIterationCount"`
+	GetDomReadyMeanMs                 float64   `json:"getDomReadyMeanMs"`
+	GetDomReadyMedianMs               float64   `json:"getDomReadyMedianMs"`
+	GetDomReadyMinMs                  float64   `json:"getDomReadyMinMs"`
+	GetDomReadyMaxMs                  float64   `json:"getDomReadyMaxMs"`
+	GetDomReadyP95Ms                  float64   `json:"getDomReadyP95Ms"`
+	GetDomReadySamplesMs              []float64 `json:"getDomReadySamplesMs"`
+	GetDomReadyStdDevMs               float64   `json:"getDomReadyStdDevMs"`
+	GetDomReadyCoefficientOfVariation float64   `json:"getDomReadyCoefficientOfVariation"`
+	GetDomReadySpreadRatio            float64   `json:"getDomReadySpreadRatio"`
+	GetDomReadyRepresentativeMs       float64   `json:"getDomReadyRepresentativeMs"`
+	GetDomReadyRepresentativeSource   string    `json:"getDomReadyRepresentativeSource"`
+	HasDomReadyBimodalSamples         bool      `json:"hasDomReadyBimodalSamples"`
+	GetDomReadyBimodalGapMs           float64   `json:"getDomReadyBimodalGapMs"`
+	GetDomReadyBimodalLowMeanMs       float64   `json:"getDomReadyBimodalLowMeanMs"`
+	GetDomReadyBimodalHighMeanMs      float64   `json:"getDomReadyBimodalHighMeanMs"`
+	GetDomReadyBimodalLowCount        int       `json:"getDomReadyBimodalLowCount"`
+	GetDomReadyBimodalHighCount       int       `json:"getDomReadyBimodalHighCount"`
+	GetPaintVisibleMeanMs             float64   `json:"getPaintVisibleMeanMs"`
+	GetPaintVisibleMedianMs           float64   `json:"getPaintVisibleMedianMs"`
+	GetPaintVisibleMinMs              float64   `json:"getPaintVisibleMinMs"`
+	GetPaintVisibleMaxMs              float64   `json:"getPaintVisibleMaxMs"`
+	GetPaintVisibleP95Ms              float64   `json:"getPaintVisibleP95Ms"`
+	GetPaintVisibleSamplesMs          []float64 `json:"getPaintVisibleSamplesMs"`
+	GetPaintAfterDomMeanMs            float64   `json:"getPaintAfterDomMeanMs"`
+	GetPaintAfterDomMedianMs          float64   `json:"getPaintAfterDomMedianMs"`
+	GetPaintAfterDomP95Ms             float64   `json:"getPaintAfterDomP95Ms"`
+	GetMutationRecordMean             float64   `json:"getMutationRecordMean"`
+	GetChildListMutationMean          float64   `json:"getChildListMutationMean"`
+	GetAttributeMutationMean          float64   `json:"getAttributeMutationMean"`
+	GetCharacterDataMutationMean      float64   `json:"getCharacterDataMutationMean"`
+	GetAddedNodeMean                  float64   `json:"getAddedNodeMean"`
+	GetRemovedNodeMean                float64   `json:"getRemovedNodeMean"`
+	GetLongTaskCountMean              float64   `json:"getLongTaskCountMean"`
+	GetLongTaskDurationMeanMs         float64   `json:"getLongTaskDurationMeanMs"`
+	HasHeapDelta                      bool      `json:"hasHeapDelta"`
+	GetHeapDeltaMeanBytes             float64   `json:"getHeapDeltaMeanBytes"`
+	GetHeapDeltaMedianBytes           float64   `json:"getHeapDeltaMedianBytes"`
+	GetHeapDeltaP95Bytes              float64   `json:"getHeapDeltaP95Bytes"`
+	HasWorkerMetrics                  bool      `json:"hasWorkerMetrics"`
+	GetWorkerCountMean                float64   `json:"getWorkerCountMean"`
+	GetWorkerBatchCountMean           float64   `json:"getWorkerBatchCountMean"`
+	GetWorkerBatchMeanMs              float64   `json:"getWorkerBatchMeanMs"`
+	GetWorkerPreparedItemsMean        float64   `json:"getWorkerPreparedItemsMean"`
 }
 
 type example201FrameworkResult struct {
@@ -134,35 +145,44 @@ type example201ScenarioRow struct {
 }
 
 type example201ScenarioCell struct {
-	GetFramework                 string
-	GetLabel                     string
-	GetDomReadyMeanMs            float64
-	GetDomReadyMedianMs          float64
-	GetPaintVisibleMeanMs        float64
-	GetPaintVisibleMedianMs      float64
-	GetPaintAfterDomMeanMs       float64
-	GetChildListMutationMean     float64
-	GetAttributeMutationMean     float64
-	GetCharacterDataMutationMean float64
-	GetAddedNodeMean             float64
-	GetRemovedNodeMean           float64
-	GetLongTaskCountMean         float64
-	GetLongTaskDurationMeanMs    float64
-	GetRelativeDomReady          float64
-	GetRelativePaintVisible      float64
-	HasDomScoreReference         bool
-	IsWorkerRelevant             bool
-	GetDomReadyReferenceMs       float64
-	GetDomReadyScoreFactor       float64
-	HasReactBaseline             bool
-	GetDomReadyDeltaVsReactMs    float64
-	GetDomReadySpeedupVsReact    float64
-	GetDomScore                  int
-	HasWorkerMetrics             bool
-	GetWorkerCountMean           float64
-	GetWorkerBatchCountMean      float64
-	GetWorkerBatchMeanMs         float64
-	GetWorkerPreparedItemsMean   float64
+	GetFramework                      string
+	GetLabel                          string
+	GetDomReadyRepresentativeMs       float64
+	GetDomReadyRepresentativeSource   string
+	GetDomReadyMeanMs                 float64
+	GetDomReadyMedianMs               float64
+	GetDomReadyCoefficientOfVariation float64
+	HasDomReadyBimodalSamples         bool
+	GetDomReadyBimodalGapMs           float64
+	GetDomReadyBimodalLowMeanMs       float64
+	GetDomReadyBimodalHighMeanMs      float64
+	GetDomReadyBimodalLowCount        int
+	GetDomReadyBimodalHighCount       int
+	GetPaintVisibleMeanMs             float64
+	GetPaintVisibleMedianMs           float64
+	GetPaintAfterDomMeanMs            float64
+	GetChildListMutationMean          float64
+	GetAttributeMutationMean          float64
+	GetCharacterDataMutationMean      float64
+	GetAddedNodeMean                  float64
+	GetRemovedNodeMean                float64
+	GetLongTaskCountMean              float64
+	GetLongTaskDurationMeanMs         float64
+	GetRelativeDomReady               float64
+	GetRelativePaintVisible           float64
+	HasDomScoreReference              bool
+	IsWorkerRelevant                  bool
+	GetDomReadyReferenceMs            float64
+	GetDomReadyScoreFactor            float64
+	HasReactBaseline                  bool
+	GetDomReadyDeltaVsReactMs         float64
+	GetDomReadySpeedupVsReact         float64
+	GetDomScore                       int
+	HasWorkerMetrics                  bool
+	GetWorkerCountMean                float64
+	GetWorkerBatchCountMean           float64
+	GetWorkerBatchMeanMs              float64
+	GetWorkerPreparedItemsMean        float64
 }
 
 type example201CategoryRow struct {
@@ -178,6 +198,7 @@ type example201CategoryCell struct {
 	GetScoreScenarioCount            int
 	GetScenarioWins                  int
 	GetReactScenarioCount            int
+	GetDomReadyRepresentativeMs      float64
 	GetDomReadyMeanMs                float64
 	GetPaintVisibleMeanMs            float64
 	GetDomReadyDeltaVsReactMs        float64
@@ -196,15 +217,16 @@ type example201ScalingRow struct {
 }
 
 type example201ScalingCell struct {
-	GetFramework               string
-	GetLabel                   string
-	GetWorkerCountMean         float64
-	GetWorkerBatchMeanMs       float64
-	GetWorkerPreparedItemMean  float64
-	GetDomReadyMeanMs          float64
-	GetPaintVisibleMeanMs      float64
-	GetRelativeDomReadySpeedup float64
-	GetRelativeBatchSpeedup    float64
+	GetFramework                string
+	GetLabel                    string
+	GetWorkerCountMean          float64
+	GetWorkerBatchMeanMs        float64
+	GetWorkerPreparedItemMean   float64
+	GetDomReadyRepresentativeMs float64
+	GetDomReadyMeanMs           float64
+	GetPaintVisibleMeanMs       float64
+	GetRelativeDomReadySpeedup  float64
+	GetRelativeBatchSpeedup     float64
 }
 
 type example201OverallScoreCell struct {
@@ -241,7 +263,7 @@ func buildExample201IntegerScore(parseSpeedup float64) int {
 
 // buildExample201ScoreReferencePath returns the checked-in Example 201 score reference path.
 func buildExample201ScoreReferencePath(parseRepoRoot string) string {
-	return filepath.Join(parseRepoRoot, "examples", "201-render-benchmark", "score-reference.json")
+	return filepath.Join(parseRepoRoot, "examples", "testing", "render-benchmark", "score-reference.json")
 }
 
 // loadExample201ScoreReference reads the checked-in Example 201 score reference profile.
@@ -274,6 +296,201 @@ func buildExample201ScoreFactor(parseReferenceMs float64, parseMeasuredMs float6
 		return 0
 	}
 	return parseReferenceMs / parseMeasuredMs
+}
+
+type example201MetricDistribution struct {
+	GetSampleCount            int
+	GetMean                   float64
+	GetRepresentative         float64
+	GetRepresentativeSource   string
+	GetCoefficientOfVariation float64
+	HasBimodalSamples         bool
+	GetBimodalGap             float64
+	GetBimodalLowMean         float64
+	GetBimodalHighMean        float64
+	GetBimodalLowCount        int
+	GetBimodalHighCount       int
+}
+
+func roundExample201Metric(parseValue float64) float64 {
+	if math.IsNaN(parseValue) || math.IsInf(parseValue, 0) {
+		return 0
+	}
+	return math.Round(parseValue*1000) / 1000
+}
+
+func buildExample201Mean(parseValues []float64) float64 {
+	if len(parseValues) == 0 {
+		return 0
+	}
+	getTotal := 0.0
+	for _, getValue := range parseValues {
+		getTotal += getValue
+	}
+	return getTotal / float64(len(parseValues))
+}
+
+func buildExample201MetricDistribution(parseValues []float64) example201MetricDistribution {
+	getValues := make([]float64, 0, len(parseValues))
+	for _, getValue := range parseValues {
+		if math.IsNaN(getValue) || math.IsInf(getValue, 0) {
+			continue
+		}
+		getValues = append(getValues, getValue)
+	}
+	sort.Float64s(getValues)
+	if len(getValues) == 0 {
+		return example201MetricDistribution{
+			GetRepresentativeSource: "empty",
+		}
+	}
+	getMean := buildExample201Mean(getValues)
+	getVarianceValues := make([]float64, 0, len(getValues))
+	for _, getValue := range getValues {
+		getDistance := getValue - getMean
+		getVarianceValues = append(getVarianceValues, getDistance*getDistance)
+	}
+	getStdDev := math.Sqrt(buildExample201Mean(getVarianceValues))
+	getCoefficientOfVariation := 0.0
+	if math.Abs(getMean) > 0 {
+		getCoefficientOfVariation = getStdDev / math.Abs(getMean)
+	}
+	type example201Split struct {
+		getGap        float64
+		getLowMean    float64
+		getHighMean   float64
+		getLowCount   int
+		getHighCount  int
+		getLowSpread  float64
+		getHighSpread float64
+	}
+	var getBestSplit *example201Split
+	if len(getValues) >= 5 {
+		for parseIndex := 2; parseIndex <= len(getValues)-2; parseIndex++ {
+			getLowValues := getValues[:parseIndex]
+			getHighValues := getValues[parseIndex:]
+			getGap := getValues[parseIndex] - getValues[parseIndex-1]
+			if getBestSplit != nil && getBestSplit.getGap >= getGap {
+				continue
+			}
+			getBestSplit = &example201Split{
+				getGap:        getGap,
+				getLowMean:    buildExample201Mean(getLowValues),
+				getHighMean:   buildExample201Mean(getHighValues),
+				getLowCount:   len(getLowValues),
+				getHighCount:  len(getHighValues),
+				getLowSpread:  getLowValues[len(getLowValues)-1] - getLowValues[0],
+				getHighSpread: getHighValues[len(getHighValues)-1] - getHighValues[0],
+			}
+		}
+	}
+	getRepresentative := getMean
+	getRepresentativeSource := "mean"
+	getHasBimodalSamples := false
+	if getBestSplit != nil {
+		getGapThreshold := math.Max(0.25, math.Abs(getMean)*0.2)
+		getSpreadThreshold := math.Max(math.Max(getBestSplit.getLowSpread, getBestSplit.getHighSpread), 0.001) * 1.5
+		getHasBimodalSamples = getCoefficientOfVariation >= 0.18 &&
+			getBestSplit.getGap >= getGapThreshold &&
+			getBestSplit.getGap >= getSpreadThreshold
+	}
+	if getHasBimodalSamples {
+		if getBestSplit.getLowCount > getBestSplit.getHighCount {
+			getRepresentative = getBestSplit.getLowMean
+			getRepresentativeSource = "dominant-low-cluster"
+		} else if getBestSplit.getHighCount > getBestSplit.getLowCount {
+			getRepresentative = getBestSplit.getHighMean
+			getRepresentativeSource = "dominant-high-cluster"
+		} else {
+			getRepresentative = getBestSplit.getHighMean
+			getRepresentativeSource = "conservative-high-cluster"
+		}
+	}
+	getDistribution := example201MetricDistribution{
+		GetSampleCount:            len(getValues),
+		GetMean:                   roundExample201Metric(getMean),
+		GetRepresentative:         roundExample201Metric(getRepresentative),
+		GetRepresentativeSource:   getRepresentativeSource,
+		GetCoefficientOfVariation: roundExample201Metric(getCoefficientOfVariation),
+		HasBimodalSamples:         getHasBimodalSamples,
+	}
+	if getHasBimodalSamples {
+		getDistribution.GetBimodalGap = roundExample201Metric(getBestSplit.getGap)
+		getDistribution.GetBimodalLowMean = roundExample201Metric(getBestSplit.getLowMean)
+		getDistribution.GetBimodalHighMean = roundExample201Metric(getBestSplit.getHighMean)
+		getDistribution.GetBimodalLowCount = getBestSplit.getLowCount
+		getDistribution.GetBimodalHighCount = getBestSplit.getHighCount
+	}
+	return getDistribution
+}
+
+type example201DomReadyDistribution struct {
+	GetRepresentativeMs       float64
+	GetRepresentativeSource   string
+	GetCoefficientOfVariation float64
+	HasBimodalSamples         bool
+	GetBimodalGapMs           float64
+	GetBimodalLowMeanMs       float64
+	GetBimodalHighMeanMs      float64
+	GetBimodalLowCount        int
+	GetBimodalHighCount       int
+}
+
+func buildExample201DomReadyDistribution(parseScenario example201ScenarioResult) example201DomReadyDistribution {
+	getSampleDistribution := buildExample201MetricDistribution(parseScenario.GetDomReadySamplesMs)
+	getRepresentativeMs := parseScenario.GetDomReadyRepresentativeMs
+	getRepresentativeSource := parseScenario.GetDomReadyRepresentativeSource
+	if getRepresentativeMs <= 0 && getSampleDistribution.GetSampleCount > 0 {
+		getRepresentativeMs = getSampleDistribution.GetRepresentative
+	}
+	if getRepresentativeMs <= 0 {
+		getRepresentativeMs = parseScenario.GetDomReadyMeanMs
+	}
+	if getRepresentativeSource == "" {
+		if getSampleDistribution.GetRepresentativeSource != "" && getSampleDistribution.GetRepresentativeSource != "empty" {
+			getRepresentativeSource = getSampleDistribution.GetRepresentativeSource
+		} else {
+			getRepresentativeSource = "mean"
+		}
+	}
+	getCoefficientOfVariation := parseScenario.GetDomReadyCoefficientOfVariation
+	if getCoefficientOfVariation == 0 && getSampleDistribution.GetSampleCount > 0 {
+		getCoefficientOfVariation = getSampleDistribution.GetCoefficientOfVariation
+	}
+	getHasBimodalSamples := parseScenario.HasDomReadyBimodalSamples || getSampleDistribution.HasBimodalSamples
+	getBimodalGapMs := parseScenario.GetDomReadyBimodalGapMs
+	getBimodalLowMeanMs := parseScenario.GetDomReadyBimodalLowMeanMs
+	getBimodalHighMeanMs := parseScenario.GetDomReadyBimodalHighMeanMs
+	getBimodalLowCount := parseScenario.GetDomReadyBimodalLowCount
+	getBimodalHighCount := parseScenario.GetDomReadyBimodalHighCount
+	if getHasBimodalSamples && getSampleDistribution.HasBimodalSamples {
+		if getBimodalGapMs == 0 {
+			getBimodalGapMs = getSampleDistribution.GetBimodalGap
+		}
+		if getBimodalLowMeanMs == 0 {
+			getBimodalLowMeanMs = getSampleDistribution.GetBimodalLowMean
+		}
+		if getBimodalHighMeanMs == 0 {
+			getBimodalHighMeanMs = getSampleDistribution.GetBimodalHighMean
+		}
+		if getBimodalLowCount == 0 {
+			getBimodalLowCount = getSampleDistribution.GetBimodalLowCount
+		}
+		if getBimodalHighCount == 0 {
+			getBimodalHighCount = getSampleDistribution.GetBimodalHighCount
+		}
+	}
+	return example201DomReadyDistribution{
+		GetRepresentativeMs:       getRepresentativeMs,
+		GetRepresentativeSource:   getRepresentativeSource,
+		GetCoefficientOfVariation: getCoefficientOfVariation,
+		HasBimodalSamples:         getHasBimodalSamples,
+		GetBimodalGapMs:           getBimodalGapMs,
+		GetBimodalLowMeanMs:       getBimodalLowMeanMs,
+		GetBimodalHighMeanMs:      getBimodalHighMeanMs,
+		GetBimodalLowCount:        getBimodalLowCount,
+		GetBimodalHighCount:       getBimodalHighCount,
+	}
 }
 
 // buildExample201ExpectedWorkerCounts resolves the runtime2 worker counts implied by one benchmark route.
@@ -481,6 +698,10 @@ func buildExample201ScenarioRowsFromReport(parseReport example201Report, parseRe
 			GetFinishLine:       getScenarioLabel.GetFinishLine,
 		}
 		getReactScenario, hasReactScenario := getReactScenarioByID[getScenarioLabel.GetScenarioID]
+		getReactDomReadyDistribution := example201DomReadyDistribution{}
+		if hasReactScenario {
+			getReactDomReadyDistribution = buildExample201DomReadyDistribution(getReactScenario)
+		}
 		getReferenceScenario, hasReferenceScenario := getReferenceScenarioByID[getScenarioLabel.GetScenarioID]
 		getFastestDomReady := 0.0
 		getFastestPaintVisible := 0.0
@@ -489,41 +710,51 @@ func buildExample201ScenarioRowsFromReport(parseReport example201Report, parseRe
 				if getScenario.GetScenarioID != getScenarioLabel.GetScenarioID {
 					continue
 				}
+				getDomReadyDistribution := buildExample201DomReadyDistribution(getScenario)
 				getCell := example201ScenarioCell{
-					GetFramework:                 getFramework.GetFramework,
-					GetLabel:                     getFramework.GetLabel,
-					GetDomReadyMeanMs:            getScenario.GetDomReadyMeanMs,
-					GetDomReadyMedianMs:          getScenario.GetDomReadyMedianMs,
-					GetPaintVisibleMeanMs:        getScenario.GetPaintVisibleMeanMs,
-					GetPaintVisibleMedianMs:      getScenario.GetPaintVisibleMedianMs,
-					GetPaintAfterDomMeanMs:       getScenario.GetPaintAfterDomMeanMs,
-					GetChildListMutationMean:     getScenario.GetChildListMutationMean,
-					GetAttributeMutationMean:     getScenario.GetAttributeMutationMean,
-					GetCharacterDataMutationMean: getScenario.GetCharacterDataMutationMean,
-					GetAddedNodeMean:             getScenario.GetAddedNodeMean,
-					GetRemovedNodeMean:           getScenario.GetRemovedNodeMean,
-					GetLongTaskCountMean:         getScenario.GetLongTaskCountMean,
-					GetLongTaskDurationMeanMs:    getScenario.GetLongTaskDurationMeanMs,
-					HasWorkerMetrics:             getScenario.HasWorkerMetrics,
-					GetWorkerCountMean:           getScenario.GetWorkerCountMean,
-					GetWorkerBatchCountMean:      getScenario.GetWorkerBatchCountMean,
-					GetWorkerBatchMeanMs:         getScenario.GetWorkerBatchMeanMs,
-					GetWorkerPreparedItemsMean:   getScenario.GetWorkerPreparedItemsMean,
+					GetFramework:                      getFramework.GetFramework,
+					GetLabel:                          getFramework.GetLabel,
+					GetDomReadyRepresentativeMs:       getDomReadyDistribution.GetRepresentativeMs,
+					GetDomReadyRepresentativeSource:   getDomReadyDistribution.GetRepresentativeSource,
+					GetDomReadyMeanMs:                 getScenario.GetDomReadyMeanMs,
+					GetDomReadyMedianMs:               getScenario.GetDomReadyMedianMs,
+					GetDomReadyCoefficientOfVariation: getDomReadyDistribution.GetCoefficientOfVariation,
+					HasDomReadyBimodalSamples:         getDomReadyDistribution.HasBimodalSamples,
+					GetDomReadyBimodalGapMs:           getDomReadyDistribution.GetBimodalGapMs,
+					GetDomReadyBimodalLowMeanMs:       getDomReadyDistribution.GetBimodalLowMeanMs,
+					GetDomReadyBimodalHighMeanMs:      getDomReadyDistribution.GetBimodalHighMeanMs,
+					GetDomReadyBimodalLowCount:        getDomReadyDistribution.GetBimodalLowCount,
+					GetDomReadyBimodalHighCount:       getDomReadyDistribution.GetBimodalHighCount,
+					GetPaintVisibleMeanMs:             getScenario.GetPaintVisibleMeanMs,
+					GetPaintVisibleMedianMs:           getScenario.GetPaintVisibleMedianMs,
+					GetPaintAfterDomMeanMs:            getScenario.GetPaintAfterDomMeanMs,
+					GetChildListMutationMean:          getScenario.GetChildListMutationMean,
+					GetAttributeMutationMean:          getScenario.GetAttributeMutationMean,
+					GetCharacterDataMutationMean:      getScenario.GetCharacterDataMutationMean,
+					GetAddedNodeMean:                  getScenario.GetAddedNodeMean,
+					GetRemovedNodeMean:                getScenario.GetRemovedNodeMean,
+					GetLongTaskCountMean:              getScenario.GetLongTaskCountMean,
+					GetLongTaskDurationMeanMs:         getScenario.GetLongTaskDurationMeanMs,
+					HasWorkerMetrics:                  getScenario.HasWorkerMetrics,
+					GetWorkerCountMean:                getScenario.GetWorkerCountMean,
+					GetWorkerBatchCountMean:           getScenario.GetWorkerBatchCountMean,
+					GetWorkerBatchMeanMs:              getScenario.GetWorkerBatchMeanMs,
+					GetWorkerPreparedItemsMean:        getScenario.GetWorkerPreparedItemsMean,
 				}
 				if hasReferenceScenario {
 					getCell.HasDomScoreReference = getReferenceScenario.GetDomReadyMeanMs > 0
 					getCell.IsWorkerRelevant = getReferenceScenario.IsWorkerRelevant
 					getCell.GetDomReadyReferenceMs = getReferenceScenario.GetDomReadyMeanMs
-					getCell.GetDomReadyScoreFactor = buildExample201ScoreFactor(getReferenceScenario.GetDomReadyMeanMs, getScenario.GetDomReadyMeanMs)
+					getCell.GetDomReadyScoreFactor = buildExample201ScoreFactor(getReferenceScenario.GetDomReadyMeanMs, getDomReadyDistribution.GetRepresentativeMs)
 					getCell.GetDomScore = buildExample201IntegerScore(getCell.GetDomReadyScoreFactor)
 				}
-				if hasReactScenario && getReactScenario.GetDomReadyMeanMs > 0 && getScenario.GetDomReadyMeanMs > 0 {
+				if hasReactScenario && getReactDomReadyDistribution.GetRepresentativeMs > 0 && getDomReadyDistribution.GetRepresentativeMs > 0 {
 					getCell.HasReactBaseline = true
-					getCell.GetDomReadyDeltaVsReactMs = getReactScenario.GetDomReadyMeanMs - getScenario.GetDomReadyMeanMs
-					getCell.GetDomReadySpeedupVsReact = getReactScenario.GetDomReadyMeanMs / getScenario.GetDomReadyMeanMs
+					getCell.GetDomReadyDeltaVsReactMs = getReactDomReadyDistribution.GetRepresentativeMs - getDomReadyDistribution.GetRepresentativeMs
+					getCell.GetDomReadySpeedupVsReact = getReactDomReadyDistribution.GetRepresentativeMs / getDomReadyDistribution.GetRepresentativeMs
 				}
-				if getFastestDomReady == 0 || getScenario.GetDomReadyMeanMs < getFastestDomReady {
-					getFastestDomReady = getScenario.GetDomReadyMeanMs
+				if getFastestDomReady == 0 || getDomReadyDistribution.GetRepresentativeMs < getFastestDomReady {
+					getFastestDomReady = getDomReadyDistribution.GetRepresentativeMs
 				}
 				if getFastestPaintVisible == 0 || getScenario.GetPaintVisibleMeanMs < getFastestPaintVisible {
 					getFastestPaintVisible = getScenario.GetPaintVisibleMeanMs
@@ -532,16 +763,16 @@ func buildExample201ScenarioRowsFromReport(parseReport example201Report, parseRe
 			}
 		}
 		sort.Slice(getRow.GetFrameworks, func(parseLeft int, parseRight int) bool {
-			if getRow.GetFrameworks[parseLeft].GetDomReadyMeanMs == getRow.GetFrameworks[parseRight].GetDomReadyMeanMs {
+			if getRow.GetFrameworks[parseLeft].GetDomReadyRepresentativeMs == getRow.GetFrameworks[parseRight].GetDomReadyRepresentativeMs {
 				return getRow.GetFrameworks[parseLeft].GetPaintVisibleMeanMs < getRow.GetFrameworks[parseRight].GetPaintVisibleMeanMs
 			}
-			return getRow.GetFrameworks[parseLeft].GetDomReadyMeanMs < getRow.GetFrameworks[parseRight].GetDomReadyMeanMs
+			return getRow.GetFrameworks[parseLeft].GetDomReadyRepresentativeMs < getRow.GetFrameworks[parseRight].GetDomReadyRepresentativeMs
 		})
 		for parseIndex := range getRow.GetFrameworks {
 			if getFastestDomReady == 0 {
 				getRow.GetFrameworks[parseIndex].GetRelativeDomReady = 0
 			} else {
-				getRow.GetFrameworks[parseIndex].GetRelativeDomReady = getRow.GetFrameworks[parseIndex].GetDomReadyMeanMs / getFastestDomReady
+				getRow.GetFrameworks[parseIndex].GetRelativeDomReady = getRow.GetFrameworks[parseIndex].GetDomReadyRepresentativeMs / getFastestDomReady
 			}
 			if getFastestPaintVisible == 0 {
 				getRow.GetFrameworks[parseIndex].GetRelativePaintVisible = 0
@@ -586,6 +817,7 @@ func buildExample201CategoryRows(parseScenarioRows []example201ScenarioRow) []ex
 				getCellsByCategoryAndFramework[getScenarioRow.GetCategory][getFramework.GetFramework] = getFrameworkCell
 			}
 			getFrameworkCell.GetScenarioCount++
+			getFrameworkCell.GetDomReadyRepresentativeMs += getFramework.GetDomReadyRepresentativeMs
 			getFrameworkCell.GetDomReadyMeanMs += getFramework.GetDomReadyMeanMs
 			getFrameworkCell.GetPaintVisibleMeanMs += getFramework.GetPaintVisibleMeanMs
 			getFrameworkCell.GetDomReadyGeometricRelative *= math.Max(getFramework.GetRelativeDomReady, 0.0001)
@@ -608,6 +840,7 @@ func buildExample201CategoryRows(parseScenarioRows []example201ScenarioRow) []ex
 	for getCategory, getRow := range getRowsByCategory {
 		getFrameworkRows := make([]example201CategoryCell, 0, len(getCellsByCategoryAndFramework[getCategory]))
 		for _, getFrameworkCell := range getCellsByCategoryAndFramework[getCategory] {
+			getFrameworkCell.GetDomReadyRepresentativeMs = getFrameworkCell.GetDomReadyRepresentativeMs / float64(getFrameworkCell.GetScenarioCount)
 			getFrameworkCell.GetDomReadyMeanMs = getFrameworkCell.GetDomReadyMeanMs / float64(getFrameworkCell.GetScenarioCount)
 			getFrameworkCell.GetPaintVisibleMeanMs = getFrameworkCell.GetPaintVisibleMeanMs / float64(getFrameworkCell.GetScenarioCount)
 			getFrameworkCell.GetDomReadyGeometricRelative = math.Pow(getFrameworkCell.GetDomReadyGeometricRelative, 1/float64(getFrameworkCell.GetScenarioCount))
@@ -649,13 +882,14 @@ func buildExample201ScalingRows(parseScenarioRows []example201ScenarioRow) []exa
 				continue
 			}
 			getFrameworks = append(getFrameworks, example201ScalingCell{
-				GetFramework:              getFramework.GetFramework,
-				GetLabel:                  getFramework.GetLabel,
-				GetWorkerCountMean:        getFramework.GetWorkerCountMean,
-				GetWorkerBatchMeanMs:      getFramework.GetWorkerBatchMeanMs,
-				GetWorkerPreparedItemMean: getFramework.GetWorkerPreparedItemsMean,
-				GetDomReadyMeanMs:         getFramework.GetDomReadyMeanMs,
-				GetPaintVisibleMeanMs:     getFramework.GetPaintVisibleMeanMs,
+				GetFramework:                getFramework.GetFramework,
+				GetLabel:                    getFramework.GetLabel,
+				GetWorkerCountMean:          getFramework.GetWorkerCountMean,
+				GetWorkerBatchMeanMs:        getFramework.GetWorkerBatchMeanMs,
+				GetWorkerPreparedItemMean:   getFramework.GetWorkerPreparedItemsMean,
+				GetDomReadyRepresentativeMs: getFramework.GetDomReadyRepresentativeMs,
+				GetDomReadyMeanMs:           getFramework.GetDomReadyMeanMs,
+				GetPaintVisibleMeanMs:       getFramework.GetPaintVisibleMeanMs,
 			})
 		}
 		if len(getFrameworks) == 0 {
@@ -665,10 +899,10 @@ func buildExample201ScalingRows(parseScenarioRows []example201ScenarioRow) []exa
 			return getFrameworks[parseLeft].GetWorkerCountMean < getFrameworks[parseRight].GetWorkerCountMean
 		})
 		getBaselineBatchMeanMs := getFrameworks[0].GetWorkerBatchMeanMs
-		getBaselineDomReadyMeanMs := getFrameworks[0].GetDomReadyMeanMs
+		getBaselineDomReadyMeanMs := getFrameworks[0].GetDomReadyRepresentativeMs
 		for parseIndex := range getFrameworks {
-			if getBaselineDomReadyMeanMs > 0 && getFrameworks[parseIndex].GetDomReadyMeanMs > 0 {
-				getFrameworks[parseIndex].GetRelativeDomReadySpeedup = getBaselineDomReadyMeanMs / getFrameworks[parseIndex].GetDomReadyMeanMs
+			if getBaselineDomReadyMeanMs > 0 && getFrameworks[parseIndex].GetDomReadyRepresentativeMs > 0 {
+				getFrameworks[parseIndex].GetRelativeDomReadySpeedup = getBaselineDomReadyMeanMs / getFrameworks[parseIndex].GetDomReadyRepresentativeMs
 			}
 			if getBaselineBatchMeanMs > 0 && getFrameworks[parseIndex].GetWorkerBatchMeanMs > 0 {
 				getFrameworks[parseIndex].GetRelativeBatchSpeedup = getBaselineBatchMeanMs / getFrameworks[parseIndex].GetWorkerBatchMeanMs
@@ -746,6 +980,21 @@ func formatExample201ReactDomText(parseCell example201ScenarioCell) string {
 	return fmt.Sprintf("%s / %.3fx", formatExample201SignedMilliseconds(parseCell.GetDomReadyDeltaVsReactMs), parseCell.GetDomReadySpeedupVsReact)
 }
 
+func formatExample201DomReadyStability(parseCell example201ScenarioCell) string {
+	if !parseCell.HasDomReadyBimodalSamples {
+		return fmt.Sprintf("CV %.3f", parseCell.GetDomReadyCoefficientOfVariation)
+	}
+	return fmt.Sprintf(
+		"bimodal gap %.3f ms, low %d @ %.3f ms, high %d @ %.3f ms, CV %.3f",
+		parseCell.GetDomReadyBimodalGapMs,
+		parseCell.GetDomReadyBimodalLowCount,
+		parseCell.GetDomReadyBimodalLowMeanMs,
+		parseCell.GetDomReadyBimodalHighCount,
+		parseCell.GetDomReadyBimodalHighMeanMs,
+		parseCell.GetDomReadyCoefficientOfVariation,
+	)
+}
+
 // formatExample201BenchmarkMarkdown renders the browser benchmark artifact into a human-readable Markdown report.
 func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseReference example201ScoreReference) string {
 	var getBuilder strings.Builder
@@ -771,7 +1020,7 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 	getBuilder.WriteString("- Non-worker note: deep-tree, primitive, hook-grid, and enterprise-workspace subtree scenarios remain main-thread-owned today, so the worker-backed benefit is expected to concentrate in the core and content scenarios.\n")
 	getBuilder.WriteString("- React subject note: the page uses a vendored React 19.2.4 browser bundle under `examples/testing/render-benchmark/vendor/`, so the comparison stays local to the repo server.\n\n")
 	getBuilder.WriteString("- Finish lines: `DOM Ready` means the scenario correctness contract became true. `Paint Proxy` means one `requestAnimationFrame` boundary after the DOM-ready checkpoint.\n")
-	getBuilder.WriteString("- Primary comparison: category summaries and scenario ordering use `DOM Ready` as the lead timing. `Paint Proxy` stays in the report as secondary frame-bound context only.\n")
+	getBuilder.WriteString("- Primary comparison: category summaries and scenario ordering use `DOM Ready Rep.` as the lead timing. It equals the mean unless samples split into two stable clusters; bimodal ties choose the slower cluster. `Paint Proxy` stays in the report as secondary frame-bound context only.\n")
 	getBuilder.WriteString(fmt.Sprintf("- Score reference: `%s` on `%s` from route `%s`. `DOM Score` is `100 * geometric_mean(reference DOM Ready / measured DOM Ready)`.\n", parseReference.GetReferenceLabel, parseReference.GetReferenceBrowser, parseReference.GetRoute))
 	getBuilder.WriteString("- Mixed-framework score direction: higher `DOM Score` is faster than the fixed reference profile. `DOM vs React` stays as a separate same-run diagnostic column.\n")
 	getBuilder.WriteString("- Worker diagnostics: worker-backed subjects also report whether the measured run triggered chunk preparation, the mean batch count, the last-batch duration, and the prepared-item count for that run window.\n")
@@ -810,8 +1059,8 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 	}
 	getBuilder.WriteString("\n")
 	getBuilder.WriteString("## Category Summary\n\n")
-	getBuilder.WriteString("| Category | Framework | DOM Score | Avg DOM Ready | Avg DOM vs React | Avg Paint Proxy | Geom. DOM Score Factor | Wins |\n")
-	getBuilder.WriteString("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+	getBuilder.WriteString("| Category | Framework | DOM Score | Avg DOM Ready Rep. | Avg DOM Ready Mean | Avg DOM vs React | Avg Paint Proxy | Geom. DOM Score Factor | Wins |\n")
+	getBuilder.WriteString("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
 	for _, getCategoryRow := range getCategoryRows {
 		for _, getFramework := range getCategoryRow.GetFrameworks {
 			getDomVsReactText := "n/a"
@@ -823,10 +1072,11 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 				getGeomSpeedText = fmt.Sprintf("%.3fx", getFramework.GetDomReadyGeometricSpeedup)
 			}
 			getBuilder.WriteString(fmt.Sprintf(
-				"| %s | %s | %d | %.3f ms | %s | %.3f ms | %s | %d |\n",
+				"| %s | %s | %d | %.3f ms | %.3f ms | %s | %.3f ms | %s | %d |\n",
 				getCategoryRow.GetCategory,
 				getFramework.GetLabel,
 				getFramework.GetDomScore,
+				getFramework.GetDomReadyRepresentativeMs,
 				getFramework.GetDomReadyMeanMs,
 				getDomVsReactText,
 				getFramework.GetPaintVisibleMeanMs,
@@ -840,12 +1090,13 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 		getBuilder.WriteString(fmt.Sprintf("### %s\n\n", getScalingRow.GetScenarioLabel))
 		getBuilder.WriteString(fmt.Sprintf("- Category: `%s`\n", getScalingRow.GetCategory))
 		getBuilder.WriteString("- RT2 scaling view: DOM-ready is the primary end-to-end signal here, worker batch shows off-thread prep cost, and paint-proxy stays secondary because it can quantize to one frame.\n\n")
-		getBuilder.WriteString("| Framework | DOM Ready Mean | DOM Ready Speedup vs Smallest Worker Count | Worker Batch Mean | Worker Batch Speedup vs Smallest Worker Count | Prepared Items | Paint Proxy Mean |\n")
-		getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+		getBuilder.WriteString("| Framework | DOM Ready Rep. | DOM Ready Mean | DOM Ready Speedup vs Smallest Worker Count | Worker Batch Mean | Worker Batch Speedup vs Smallest Worker Count | Prepared Items | Paint Proxy Mean |\n")
+		getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
 		for _, getFramework := range getScalingRow.GetFrameworks {
 			getBuilder.WriteString(fmt.Sprintf(
-				"| %s | %.3f ms | %.3fx | %.3f ms | %.3fx | %.1f | %.3f ms |\n",
+				"| %s | %.3f ms | %.3f ms | %.3fx | %.3f ms | %.3fx | %.1f | %.3f ms |\n",
 				getFramework.GetLabel,
+				getFramework.GetDomReadyRepresentativeMs,
 				getFramework.GetDomReadyMeanMs,
 				getFramework.GetRelativeDomReadySpeedup,
 				getFramework.GetWorkerBatchMeanMs,
@@ -865,12 +1116,13 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 		for _, getScalingRow := range getStressRows {
 			getBuilder.WriteString(fmt.Sprintf("### %s\n\n", getScalingRow.GetScenarioLabel))
 			getBuilder.WriteString(fmt.Sprintf("- Category: `%s`\n", getScalingRow.GetCategory))
-			getBuilder.WriteString("| Framework | DOM Ready Mean | DOM Ready Speedup vs Smallest Worker Count | Worker Batch Mean | Worker Batch Speedup vs Smallest Worker Count | Prepared Items | Paint Proxy Mean |\n")
-			getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+			getBuilder.WriteString("| Framework | DOM Ready Rep. | DOM Ready Mean | DOM Ready Speedup vs Smallest Worker Count | Worker Batch Mean | Worker Batch Speedup vs Smallest Worker Count | Prepared Items | Paint Proxy Mean |\n")
+			getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
 			for _, getFramework := range getScalingRow.GetFrameworks {
 				getBuilder.WriteString(fmt.Sprintf(
-					"| %s | %.3f ms | %.3fx | %.3f ms | %.3fx | %.1f | %.3f ms |\n",
+					"| %s | %.3f ms | %.3f ms | %.3fx | %.3f ms | %.3fx | %.1f | %.3f ms |\n",
 					getFramework.GetLabel,
+					getFramework.GetDomReadyRepresentativeMs,
 					getFramework.GetDomReadyMeanMs,
 					getFramework.GetRelativeDomReadySpeedup,
 					getFramework.GetWorkerBatchMeanMs,
@@ -889,19 +1141,21 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 		getBuilder.WriteString(fmt.Sprintf("- Requested work: %s\n", getScenarioRow.GetRequestedWork))
 		getBuilder.WriteString(fmt.Sprintf("- Correctness check: %s\n", getScenarioRow.GetCorrectnessCheck))
 		getBuilder.WriteString(fmt.Sprintf("- Finish line: %s\n\n", getScenarioRow.GetFinishLine))
-		getBuilder.WriteString("| Framework | DOM Score | DOM Ready Mean | DOM Ready Median | Paint Proxy Mean | Paint Proxy Median | Paint-After-DOM | Mutations C/A/T | Nodes + / - | Worker Batches / Last Batch / Items | Long Tasks | DOM vs React |\n")
-		getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+		getBuilder.WriteString("| Framework | DOM Score | DOM Ready Rep. | DOM Ready Mean | DOM Ready Median | DOM Stability | Paint Proxy Mean | Paint Proxy Median | Paint-After-DOM | Mutations C/A/T | Nodes + / - | Worker Batches / Last Batch / Items | Long Tasks | DOM vs React |\n")
+		getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
 		for _, getFramework := range getScenarioRow.GetFrameworks {
 			getWorkerText := "n/a"
 			if getFramework.HasWorkerMetrics {
 				getWorkerText = fmt.Sprintf("%.1f / %.3f ms / %.1f", getFramework.GetWorkerBatchCountMean, getFramework.GetWorkerBatchMeanMs, getFramework.GetWorkerPreparedItemsMean)
 			}
 			getBuilder.WriteString(fmt.Sprintf(
-				"| %s | %d | %.3f ms | %.3f ms | %.3f ms | %.3f ms | %.3f ms | %.1f / %.1f / %.1f | %.1f / %.1f | %s | %.1f / %.3f ms | %s |\n",
+				"| %s | %d | %.3f ms | %.3f ms | %.3f ms | %s | %.3f ms | %.3f ms | %.3f ms | %.1f / %.1f / %.1f | %.1f / %.1f | %s | %.1f / %.3f ms | %s |\n",
 				getFramework.GetLabel,
 				getFramework.GetDomScore,
+				getFramework.GetDomReadyRepresentativeMs,
 				getFramework.GetDomReadyMeanMs,
 				getFramework.GetDomReadyMedianMs,
+				formatExample201DomReadyStability(getFramework),
 				getFramework.GetPaintVisibleMeanMs,
 				getFramework.GetPaintVisibleMedianMs,
 				getFramework.GetPaintAfterDomMeanMs,
@@ -975,6 +1229,262 @@ func buildExample201WorkerMetricMeans(parseReport example201Report) (float64, fl
 		return 0, 0, 0
 	}
 	return getWorkerBatchSum / float64(getSampleCount), getDomReadySum / float64(getSampleCount), getSampleCount
+}
+
+func requireExample201Near(parseT *testing.T, parseLabel string, parseGot float64, parseWant float64) {
+	parseT.Helper()
+	if math.Abs(parseGot-parseWant) > 0.001 {
+		parseT.Fatalf("%s: expected %.3f, got %.3f", parseLabel, parseWant, parseGot)
+	}
+}
+
+// TestBuildExample201MetricDistributionDetectsBimodalSamples verifies the distribution helper separates stable churn timing clusters.
+func TestBuildExample201MetricDistributionDetectsBimodalSamples(parseT *testing.T) {
+	getBimodal := buildExample201MetricDistribution([]float64{1, 1.1, 1.2, 10, 10.1, 10.2, 10.3})
+	if !getBimodal.HasBimodalSamples {
+		parseT.Fatalf("expected bimodal samples, got %+v", getBimodal)
+	}
+	if getBimodal.GetRepresentativeSource != "dominant-high-cluster" {
+		parseT.Fatalf("expected dominant high-cluster representative, got %q", getBimodal.GetRepresentativeSource)
+	}
+	requireExample201Near(parseT, "dominant high representative", getBimodal.GetRepresentative, 10.15)
+	requireExample201Near(parseT, "bimodal gap", getBimodal.GetBimodalGap, 8.8)
+	if getBimodal.GetBimodalLowCount != 3 || getBimodal.GetBimodalHighCount != 4 {
+		parseT.Fatalf("unexpected cluster counts: %+v", getBimodal)
+	}
+
+	getTie := buildExample201MetricDistribution([]float64{1, 1.1, 1.2, 8, 8.1, 8.2})
+	if !getTie.HasBimodalSamples {
+		parseT.Fatalf("expected tie samples to be bimodal, got %+v", getTie)
+	}
+	if getTie.GetRepresentativeSource != "conservative-high-cluster" {
+		parseT.Fatalf("expected conservative tie handling, got %q", getTie.GetRepresentativeSource)
+	}
+	requireExample201Near(parseT, "tie representative", getTie.GetRepresentative, 8.1)
+
+	getUnimodal := buildExample201MetricDistribution([]float64{1, 1.1, 1.2, 1.3, 1.4})
+	if getUnimodal.HasBimodalSamples {
+		parseT.Fatalf("expected unimodal samples to stay unflagged, got %+v", getUnimodal)
+	}
+	requireExample201Near(parseT, "unimodal mean representative", getUnimodal.GetRepresentative, 1.2)
+
+	getTiny := buildExample201MetricDistribution([]float64{1, 8, 8.1, 8.2})
+	if getTiny.HasBimodalSamples {
+		parseT.Fatalf("expected tiny sample set to avoid bimodal classification, got %+v", getTiny)
+	}
+
+	getFiltered := buildExample201MetricDistribution([]float64{0, 1, 2, math.NaN(), math.Inf(1)})
+	if getFiltered.GetSampleCount != 3 {
+		parseT.Fatalf("expected non-finite values to be filtered, got %+v", getFiltered)
+	}
+	requireExample201Near(parseT, "filtered mean", getFiltered.GetMean, 1)
+}
+
+// TestBuildExample201ScenarioRowsUsesBimodalRepresentativeTiming verifies row scoring and React deltas use the representative timing instead of a naive arithmetic mean.
+func TestBuildExample201ScenarioRowsUsesBimodalRepresentativeTiming(parseT *testing.T) {
+	getReference := example201ScoreReference{
+		GetScenarioReference: []example201ScoreReferenceScenario{
+			{
+				GetScenarioID:     "core-append",
+				GetScenarioLabel:  "Core Append",
+				GetCategory:       "Structural Churn",
+				GetDomReadyMeanMs: 14.616,
+				IsWorkerRelevant:  true,
+			},
+			{
+				GetScenarioID:     "core-render",
+				GetScenarioLabel:  "Core Render",
+				GetCategory:       "Initial Render",
+				GetDomReadyMeanMs: 20,
+				IsWorkerRelevant:  true,
+			},
+		},
+	}
+	getRows := buildExample201ScenarioRowsFromReport(example201Report{
+		GetScenarioLabels: []example201ScenarioLabel{
+			{
+				GetScenarioID:    "core-append",
+				GetScenarioLabel: "Core Append",
+				GetCategory:      "Structural Churn",
+			},
+			{
+				GetScenarioID:    "core-render",
+				GetScenarioLabel: "Core Render",
+				GetCategory:      "Initial Render",
+			},
+		},
+		GetFrameworks: []example201FrameworkResult{
+			{
+				GetFramework: "runtime1",
+				GetLabel:     "Runtime 1",
+				GetScenarioResults: []example201ScenarioResult{
+					{
+						GetScenarioID:         "core-append",
+						GetDomReadyMeanMs:     6.271,
+						GetDomReadySamplesMs:  []float64{1, 1.1, 1.2, 10, 10.1, 10.2, 10.3},
+						GetPaintVisibleMeanMs: 12,
+					},
+					{
+						GetScenarioID:         "core-render",
+						GetDomReadyMeanMs:     10,
+						GetPaintVisibleMeanMs: 30,
+					},
+				},
+			},
+			{
+				GetFramework: "react",
+				GetLabel:     "React 19.2.4",
+				GetScenarioResults: []example201ScenarioResult{
+					{
+						GetScenarioID:         "core-append",
+						GetDomReadyMeanMs:     7.3,
+						GetDomReadySamplesMs:  []float64{7, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6},
+						GetPaintVisibleMeanMs: 11,
+					},
+					{
+						GetScenarioID:         "core-render",
+						GetDomReadyMeanMs:     25,
+						GetPaintVisibleMeanMs: 33,
+					},
+				},
+			},
+		},
+	}, getReference)
+	if len(getRows) != 2 {
+		parseT.Fatalf("expected two scenario rows, got %d", len(getRows))
+	}
+	getAppendRow := getRows[0]
+	if getAppendRow.GetScenarioID != "core-append" {
+		parseT.Fatalf("expected first row to be core-append, got %s", getAppendRow.GetScenarioID)
+	}
+	if getAppendRow.GetFrameworks[0].GetFramework != "react" {
+		parseT.Fatalf("expected representative timing to sort React before bimodal runtime1, got %+v", getAppendRow.GetFrameworks)
+	}
+	getCellsByFramework := map[string]example201ScenarioCell{}
+	for _, getFramework := range getAppendRow.GetFrameworks {
+		getCellsByFramework[getFramework.GetFramework] = getFramework
+	}
+	getRuntime1 := getCellsByFramework["runtime1"]
+	if !getRuntime1.HasDomReadyBimodalSamples {
+		parseT.Fatalf("expected runtime1 churn samples to be flagged as bimodal: %+v", getRuntime1)
+	}
+	requireExample201Near(parseT, "runtime1 representative", getRuntime1.GetDomReadyRepresentativeMs, 10.15)
+	if getRuntime1.GetDomScore != 144 {
+		parseT.Fatalf("expected score to use representative timing, got %d", getRuntime1.GetDomScore)
+	}
+	requireExample201Near(parseT, "runtime1 delta vs React", getRuntime1.GetDomReadyDeltaVsReactMs, -2.85)
+
+	getRenderCellsByFramework := map[string]example201ScenarioCell{}
+	for _, getFramework := range getRows[1].GetFrameworks {
+		getRenderCellsByFramework[getFramework.GetFramework] = getFramework
+	}
+	if getRenderCellsByFramework["runtime1"].GetDomScore != 200 {
+		parseT.Fatalf("expected non-churn scoring to keep mean timing fallback, got %d", getRenderCellsByFramework["runtime1"].GetDomScore)
+	}
+}
+
+// TestBuildExample201CategoryRowsUseRepresentativeTimingForChurn verifies category summaries are not skewed by bimodal arithmetic means.
+func TestBuildExample201CategoryRowsUseRepresentativeTimingForChurn(parseT *testing.T) {
+	getRows := buildExample201CategoryRows([]example201ScenarioRow{
+		{
+			GetScenarioID:    "core-append",
+			GetScenarioLabel: "Core Append",
+			GetCategory:      "Structural Churn",
+			GetFrameworks: []example201ScenarioCell{
+				{GetFramework: "react", GetLabel: "React 19.2.4", GetDomReadyRepresentativeMs: 7.3, GetDomReadyMeanMs: 7.3, GetPaintVisibleMeanMs: 11, GetRelativeDomReady: 1, HasDomScoreReference: true, GetDomReadyScoreFactor: 2, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 0, GetDomReadySpeedupVsReact: 1},
+				{GetFramework: "runtime1", GetLabel: "Runtime 1", GetDomReadyRepresentativeMs: 10.15, GetDomReadyMeanMs: 6.271, GetPaintVisibleMeanMs: 12, GetRelativeDomReady: 1.39, HasDomScoreReference: true, GetDomReadyScoreFactor: 1.44, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: -2.85, GetDomReadySpeedupVsReact: 0.719},
+			},
+		},
+	})
+	if len(getRows) != 1 {
+		parseT.Fatalf("expected one category row, got %d", len(getRows))
+	}
+	getCellsByFramework := map[string]example201CategoryCell{}
+	for _, getFramework := range getRows[0].GetFrameworks {
+		getCellsByFramework[getFramework.GetFramework] = getFramework
+	}
+	requireExample201Near(parseT, "category representative", getCellsByFramework["runtime1"].GetDomReadyRepresentativeMs, 10.15)
+	requireExample201Near(parseT, "category mean still visible", getCellsByFramework["runtime1"].GetDomReadyMeanMs, 6.271)
+	requireExample201Near(parseT, "category DOM vs React", getCellsByFramework["runtime1"].GetDomReadyDeltaVsReactMs, -2.85)
+}
+
+// TestFormatExample201BenchmarkMarkdownIncludesBimodalDiagnostics verifies generated reports expose the churn distribution signal.
+func TestFormatExample201BenchmarkMarkdownIncludesBimodalDiagnostics(parseT *testing.T) {
+	getMarkdown := formatExample201BenchmarkMarkdown(example201Artifact{
+		GetGeneratedAt: "2026-06-11T00:00:00Z",
+		GetBrowser:     "chromium-test",
+		GetRoute:       "/examples/testing/render-benchmark/?iterations=7&warmups=2&seed=20101",
+		GetReport: example201Report{
+			GetIterations:     7,
+			GetWarmups:        2,
+			GetSeed:           20101,
+			GetScenarioOrder:  []string{"core-append"},
+			GetFrameworkOrder: []string{"runtime1", "react"},
+			GetScenarioLabels: []example201ScenarioLabel{
+				{
+					GetScenarioID:    "core-append",
+					GetScenarioLabel: "Core Append",
+					GetCategory:      "Structural Churn",
+				},
+			},
+			GetFrameworks: []example201FrameworkResult{
+				{
+					GetFramework: "runtime1",
+					GetLabel:     "Runtime 1",
+					GetScenarioResults: []example201ScenarioResult{
+						{
+							GetScenarioID:         "core-append",
+							GetDomReadyMeanMs:     6.271,
+							GetDomReadySamplesMs:  []float64{1, 1.1, 1.2, 10, 10.1, 10.2, 10.3},
+							GetPaintVisibleMeanMs: 12,
+						},
+					},
+				},
+				{
+					GetFramework: "react",
+					GetLabel:     "React 19.2.4",
+					GetScenarioResults: []example201ScenarioResult{
+						{
+							GetScenarioID:         "core-append",
+							GetDomReadyMeanMs:     7.3,
+							GetDomReadySamplesMs:  []float64{7, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6},
+							GetPaintVisibleMeanMs: 11,
+						},
+					},
+				},
+			},
+		},
+	}, example201ScoreReference{
+		GetReferenceLabel:   "unit reference",
+		GetReferenceBrowser: "chromium-test",
+		GetRoute:            "/examples/testing/render-benchmark/",
+		GetScenarioReference: []example201ScoreReferenceScenario{
+			{GetScenarioID: "core-append", GetScenarioLabel: "Core Append", GetCategory: "Structural Churn", GetDomReadyMeanMs: 14.616, IsWorkerRelevant: true},
+		},
+	})
+	for _, getNeedle := range []string{"DOM Ready Rep.", "Avg DOM Ready Mean", "bimodal gap 8.800 ms", "| Runtime 1 | 144 | 10.150 ms | 6.271 ms"} {
+		if !strings.Contains(getMarkdown, getNeedle) {
+			parseT.Fatalf("expected markdown to contain %q\n%s", getNeedle, getMarkdown)
+		}
+	}
+}
+
+// TestExample201ScoreReferencePathUsesActiveBenchmarkReference verifies the report formatter reads the same populated reference file as the browser runner.
+func TestExample201ScoreReferencePathUsesActiveBenchmarkReference(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	getRepoRoot := examplesRepoRootFromFile(parseFile)
+	getReferencePath := buildExample201ScoreReferencePath(getRepoRoot)
+	if !strings.Contains(getReferencePath, filepath.Join("examples", "testing", "render-benchmark", "score-reference.json")) {
+		parseT.Fatalf("expected active render-benchmark score reference path, got %s", getReferencePath)
+	}
+	getReference := loadExample201ScoreReference(parseT, getRepoRoot)
+	if len(getReference.GetScenarioReference) == 0 {
+		parseT.Fatalf("expected populated score reference, got %+v", getReference)
+	}
+	getScenarioByID := buildExample201ScoreReferenceScenarioByID(getReference)
+	if getScenarioByID["core-append"].GetDomReadyMeanMs <= 0 || getScenarioByID["core-filter"].GetDomReadyMeanMs <= 0 {
+		parseT.Fatalf("expected churn scenarios in score reference, got %+v", getScenarioByID)
+	}
 }
 
 // TestBuildExample201ScenarioRowsFromReportUsesFixedReferenceScore verifies the mixed-framework scenario rows use the checked score reference instead of recentering on React.
