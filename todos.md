@@ -1717,3 +1717,93 @@ test lane (`gwc test -lane coverage`), so it is NOT listed here.
   advisories; a bump that breaks the build is rolled back (the tree is left
   building); `--dry-run` reports the planned bumps without writing go.mod;
   the framework's own version is distinguished from third-party deps.
+
+## Test correctness gaps (2026-06-12 review) - add tests
+
+Specific weak/missing CORRECTNESS tests found by reviewing source vs `_test.go`
+in the public framework packages (verified against the code, not coverage-for-
+coverage's-sake). Each is a happy-path-only or absent assertion where a real
+bug would slip through. Scope excluded tools/gwc (parallel-active) and the
+ai-chat-wizard example. Pure-Go logic only - host-testable.
+
+- [ ] **anim: easing interior values + settle/interpolate semantics** - the
+  easing tests only assert clamping (t<0 -> 0, t>1 -> 1), so a sign error in
+  the interior expansion passes; `Interpolate` is only ever tested with
+  `Linear`; `IsSettled` is only exercised as a loop-exit (its `&&` epsilon
+  logic is never pinned at the boundary).
+  Test for: `EaseOutCubic(0.5)==0.875`, `EaseInCubic(0.5)==0.125`,
+  `EaseInOutCubic(0.25)==0.0625`; `Interpolate(0,10,0.5,EaseInQuad)==2.5` (not
+  5.0); a spring with `position=1.0001,target=1.0,velocity=0.0001,eps=0.001`
+  reports `IsSettled()==false`, false again with zero velocity but non-zero
+  position error, true only when both are within epsilon.
+- [ ] **events: concurrency window + unsubscribe idempotency** - the
+  concurrency test only uses pre-registered subscribers (never races
+  `Subscribe` against `Publish`), and no test calls the unsubscribe closure
+  twice.
+  Test for: race `Subscribe("t",h)` against `Publish("t",1)` under `-race` with
+  no data race and no dropped delivery; `unsub();unsub()` does not panic and the
+  subscriber count returns to zero. (Note: `-race` is unavailable on the
+  windows/arm64 dev host - gate or run this lane where the race detector exists.)
+- [ ] **state: snapshot edge values (NaN/Inf, nil, select)** - `normalizeSnapshot`
+  routes floats by `math.Trunc(v)==v`; NaN/Inf behavior is unspecified by any
+  test (NaN must stay `float64`, never become `int`); `Snapshot.Select` is only
+  tested with string/bool, never a nil value.
+  Test for: `normalizeSnapshot(math.NaN())` and `normalizeSnapshot(math.Inf(1))`
+  return `float64` without panic; `Snapshot{"k":nil}.Select("k")` returns
+  `len==1` with `["k"]==nil` and `ApplySnapshot` of it does not panic.
+- [ ] **flags: empty-value fallback, bucket stability, pre-cancelled Poll** -
+  `GetValue` returns the fallback when a present+enabled flag has `Value:""`
+  (untested, and a latent trap - document the intent); `getBucket`'s FNV32a
+  output is never pinned, so a hash change would silently re-assign A/B cohorts;
+  `RemoteProvider.Poll` is never given an already-cancelled context.
+  Test for: enabled flag with `Value:""` yields the fallback (asserted +
+  documented); `getBucket("pricing","v1","customer-123",100)` equals a pinned
+  integer; `Poll` with a pre-cancelled ctx returns `context.Canceled` and calls
+  `Refresh` at most once.
+- [ ] **i18n: repeated placeholder, negative plural counts, BCP-47 path
+  segment** - `interpolateTemplate` is never tested with a placeholder that
+  appears twice (a `ReplaceAll`->`Replace(...,1)` regression would pass);
+  `pluralCategoryForLocale` is never given a negative count despite the abs
+  guard; `ResolvePath` is never given a full BCP-47 tag (`en-US`) as the first
+  segment.
+  Test for: `interpolateTemplate("{name} and {name}",{"name":"Ada"})=="Ada and
+  Ada"`; `pluralCategoryForLocale("en",-1)==PluralOne` and
+  `pluralCategoryForLocale("ru",-11)==PluralMany`; `ResolvePath("/en-US/dashboard",
+  {Supported:["en","fr"],Default:"en"})` yields `Locale=="en"`,
+  `BasePath=="/dashboard"` (does not strip `en-US` as a locale prefix).
+- [ ] **sanitize: unicode control-char URL bypass + empty-input contract** -
+  `stripControlChars` only removes bytes `> 0x20` survivors (it strips `<=0x20`),
+  so zero-width/line-separator code points (U+200B, U+2028, U+2029) pass through
+  and could disguise a scheme; `Sanitize("")`/`"   "` behavior is unspecified.
+  Test for: `Sanitize` of `<a href="java​script:alert(1)">x</a>` emits no
+  `href`; `Sanitize("")==""`, `Sanitize("   ")==""`, `Sanitize("hello")=="hello"`.
+- [ ] **virtualization: out-of-range scroll + empty-list clamp** -
+  `ComputeViewportState` is never given a `scrollTop` beyond
+  `TotalItems*RowHeight`; `clampRange` is never given `total==0` with a stale
+  non-zero range. Both must never produce `Start>End` (downstream render panics).
+  Test for: `ComputeViewportState({TotalItems:10,RowHeight:20},5000,100)` yields
+  `Visible==Range{10,10}`, `Rendered=={10,10}`, `Visible.Len()==0`;
+  `clampRange(Range{2,8},0)==Range{0,0}`.
+- [ ] **fetch: resilience zero-value foot-guns + nil optimistic update** -
+  `RetryPolicy.delay` is only tested with `Multiplier=2.0` (a `Multiplier:0`
+  silently disables backoff -> zero-delay thundering herd);
+  `CircuitBreaker` is only tested with `HalfOpenMaxCalls:1` (the zero value
+  means UNLIMITED half-open probes, per the `&& >0` guard - never pinned);
+  `ApplyOptimisticUpdate` with a nil fn has a guard returning an inert handle
+  that no test exercises.
+  Test for: `RetryPolicy{BaseDelay:100ms,MaxDelay:1s,Multiplier:0,Jitter:0}.delay(3,zero)==0`
+  (+ a doc warning); a breaker with `HalfOpenMaxCalls:0` permits 100 probes
+  after `OpenDuration` (pin + document the unlimited semantics);
+  `ApplyOptimisticUpdate[string]("k",nil)` has `Active()==false` and
+  `Commit()`/`Rollback()` are no-op (no panic).
+- [ ] **ui hooks: deeper-read pass for effect/reducer/persisted-state edge
+  cases** - the `ui` package has the largest exported surface (363 symbols, ~19k
+  LOC) at the lowest test-file ratio; the review above sampled the leaf packages
+  first. Do a focused correctness pass on the hooks whose bugs are silent:
+  `UseEffect` dependency-change vs cleanup ordering and skipped re-run on equal
+  deps, `UseReducer` action ordering/batching, `UseMemo`/`UseCallback` deps
+  identity, `UsePersistedState` corrupted-value fallback + quota-error state,
+  `UseDebounced`/`UseThrottled` timing boundaries.
+  Test for: define per-hook assertions that fail if the deps comparison, cleanup
+  order, or batching is wrong (not just "renders without error"). (Sequential
+  Sonnet review agent, one at a time - this is the follow-up sweep.)
