@@ -353,9 +353,13 @@ impact; exactly three active items carry the next-work marker.
   listener and `Release()`s the js.Func (verified in interop_wasm.go - no
   leak). Native/SSR returns false / light via the stub. Builds native +
   wasm; `TestPreferenceHooksDefaultWithoutMediaQueries` and
-  `TestColorSchemeConstants` green. Remaining: a playwright EmulateMedia
-  browser test for the live-flip path (logic in place; needs the browser
-  lane).
+  `TestColorSchemeConstants` green. Live-flip VERIFIED (2026-06-12, real
+  browser): `TestPreferenceHooksLiveFlip` builds a GWC wasm fixture using
+  both hooks, sets `EmulateMedia(ColorSchemeDark, ReducedMotionReduce)` -
+  #scheme="dark"/#motion="true" at mount - then flips EmulateMedia to
+  light/no-preference WITHOUT reload and the rendered values update live
+  (the MediaQueryList.Subscribe fires and the component re-renders), and a
+  third flip confirms the subscription stays live (no duplication).
 
 ### Internationalization
 
@@ -936,7 +940,7 @@ impact; exactly three active items carry the next-work marker.
   RenderMarkdown, sanitize), and honestly marks the not-yet-automated
   items (CSP/SRI/SBOM/perf-gate/visual-regression/canary) as backlog
   rather than referencing flags that do not exist.
-- [~] **Consistent deprecation surfacing + naming-convention doc** - legacy
+- [x] **Consistent deprecation surfacing + naming-convention doc** - legacy
   flag aliases and any deprecated APIs warn inconsistently, and the
   pervasive `parse`-prefix local convention is undocumented for
   contributors and readers.
@@ -950,8 +954,11 @@ impact; exactly three active items carry the next-work marker.
   `Warn(api, replacement)` emits a one-time GWC-DEPRECATION structured
   diagnostic (via the public diagnostics sink) with the replacement in
   `next:`, deduped per API by sync.Map; `WarnEmitted` test seam; 5 tests;
-  native+wasm. Remaining: the lint check that flags new deprecations
-  missing the warning.
+  native+wasm. Done (2026-06-12): `gwc lint` now adds a
+  `gwc-deprecations` parser rule for exported deprecated functions/methods
+  that omit `deprecation.Warn(...)`, skips generated Go files, and covers the
+  rule with focused tests. Existing deprecated wrappers in fetch/router/state
+  now emit the warning.
 - [x] **Docs-site accessibility statement + dogfood pass** - the docs site
   is now the flagship app but has no accessibility statement and (noted in
   the a11y section) does not yet use its own focus-trap/announcer
