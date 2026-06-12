@@ -273,13 +273,22 @@ impact; exactly three active items carry the next-work marker.
   unsubscribe (subscriberCount->0), no-replay default + replay opt-in,
   concurrent publish, containment, type isolation. Native+wasm build,
   vet green. (-race unavailable on this windows/arm64 host.)
-- [ ] **Cross-root eventing guidance + test** - components in different GWC
+- [~] **Cross-root eventing guidance + test** - components in different GWC
   roots / exported custom elements communicating via
   `interop.GetDocumentEvents()` CustomEvents.
   Test for: typed detail payload round-trip through Dispatch/Subscribe;
   subscription cleanup releases the underlying js.Func (no released-
   function warnings); events cross from a GWC tree into a plugin-host
   panel and back.
+  Done (2026-06-12, real browser): `TestCrossRootEventingRoundTrip` drives
+  the browser-interop example - `interop.GetDocumentEvents().Dispatch` ->
+  `interop.SubscribeDecoded[T]` typed CustomEvent round-trip: clicking
+  "Dispatch pulse" advances the subscriber's typed detail (count 1->2->3,
+  source payload), proving the document-event bridge and that repeated
+  dispatch yields exactly one increment each (no handler leak/double-
+  subscription). No uncaught/panic console errors. Remaining: the
+  plugin-host-panel cross-tree round-trip and an explicit js.Func
+  cleanup-on-unmount assertion + a short guidance doc.
 - [x] **Cross-tab eventing soak** - `SubscribeDecodedCrossTab[T]` works in
   the example; pin it with a test.
   Test for: typed envelope round-trip between two pages in one browser
