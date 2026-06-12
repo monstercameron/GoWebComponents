@@ -3,6 +3,7 @@ module github.com/monstercameron/GoWebComponents
 go 1.26.0
 
 require (
+	agenthub v0.0.0
 	github.com/alecthomas/chroma/v2 v2.23.1
 	github.com/andybalholm/brotli v1.2.0
 	github.com/anthropics/anthropic-sdk-go v1.27.1
@@ -32,6 +33,8 @@ require (
 )
 
 replace github.com/monstercameron/GoGRPCBridge => ./third_party/GoGRPCBridge
+
+replace agenthub => ./tools/agenthub
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
