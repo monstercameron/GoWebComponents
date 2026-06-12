@@ -31,20 +31,17 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.4"
+          go-version: "1.26.0"
 
       - name: Run Go Unit Tests
         run: |
           go test -v -count=1 ./...
         shell: pwsh
 
-      - name: Vulnerability Scan (govulncheck, informational)
+      - name: Vulnerability Scan (govulncheck)
         # Surfaces known vulnerabilities in the root module's call graph.
-        # Non-blocking for now: repo-controlled dependency findings should be
-        # fixed (e.g. bump the module), while Go-stdlib advisories are cleared
-        # by keeping the toolchain current. Promote to blocking with a
-        # documented suppression file once the toolchain pin is patched.
-        continue-on-error: true
+        # This gate is blocking. Any accepted exception must be documented in
+        # security/govulncheck-suppressions.md and should have a tracked expiry.
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           & "$(go env GOPATH)\bin\govulncheck.exe" ./...
@@ -57,12 +54,16 @@ jobs:
           go run ./tools/sbom/cmd/sbom bin/sbom.cyclonedx.json
         shell: pwsh
 
-      - name: CHANGELOG Entry Check (informational)
-        # Verifies the tag being released has a CHANGELOG.md section. Non-blocking
-        # for now because the historical CHANGELOG uses date headers; promote to
-        # blocking (drop continue-on-error) once releases adopt version headers
-        # (e.g. "## v3.0.46") under the Keep-a-Changelog [Unreleased] convention.
-        continue-on-error: true
+      - name: Upload CycloneDX SBOM
+        uses: actions/upload-artifact@v6
+        with:
+          name: cyclonedx-sbom
+          path: bin/sbom.cyclonedx.json
+          if-no-files-found: error
+
+      - name: CHANGELOG Entry Check
+        # Verifies the tag being released has a CHANGELOG.md section. This is a
+        # blocking release gate so tags do not ship with generated notes only.
         run: |
           $tag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "${{ github.event.inputs.release_tag }}" }
           go run ./tools/changelogcheck/cmd/changelogcheck CHANGELOG.md $tag
@@ -132,6 +133,12 @@ jobs:
           fi
           echo "release_tag=${release_tag}" >> "$GITHUB_OUTPUT"
 
+      - name: Download CycloneDX SBOM
+        uses: actions/download-artifact@v6
+        with:
+          name: cyclonedx-sbom
+          path: release-assets
+
       - name: Create Tag For Manual Release
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -175,6 +182,7 @@ jobs:
           files: |
             ${{ steps.archive.outputs.archive_name }}
             ${{ steps.archive.outputs.archive_name }}.sha256
+            release-assets/sbom.cyclonedx.json
           generate_release_notes: true
           body: |
             Release ${{ steps.tag.outputs.release_tag }}
