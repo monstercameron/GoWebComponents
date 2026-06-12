@@ -2248,15 +2248,16 @@ func TestSubscribeDecodedProjectsTypedCustomEventDetail(parseT *testing.T) {
 	var (
 		parseReceived DecodedCustomEvent[ratingChange]
 		parseGotErr   error
+		parseCalls    int
 	)
 	parseSub, parseErr := SubscribeDecoded(parseTarget, "rating-change", func(parseEvent2 DecodedCustomEvent[ratingChange], parseErr3 error) {
 		parseReceived = parseEvent2
 		parseGotErr = parseErr3
+		parseCalls++
 	})
 	if parseErr != nil {
 		parseT.Fatalf("expected decoded subscription to succeed, got %v", parseErr)
 	}
-	defer parseSub.Cancel()
 
 	if parseErr2 := parseTarget.Dispatch("rating-change", map[string]any{"score": 5, "source": "widget"}); parseErr2 != nil {
 		parseT.Fatalf("expected dispatch to succeed, got %v", parseErr2)
@@ -2266,6 +2267,13 @@ func TestSubscribeDecodedProjectsTypedCustomEventDetail(parseT *testing.T) {
 	}
 	if parseReceived.Type != "rating-change" || parseReceived.Detail.Score != 5 || parseReceived.Detail.Source != "widget" {
 		parseT.Fatalf("unexpected decoded event payload: %+v", parseReceived)
+	}
+	parseSub.Cancel()
+	if parseErr2 := parseTarget.Dispatch("rating-change", map[string]any{"score": 9, "source": "after-cancel"}); parseErr2 != nil {
+		parseT.Fatalf("expected dispatch after cancel to succeed without invoking released handler, got %v", parseErr2)
+	}
+	if parseCalls != 1 || parseReceived.Detail.Score != 5 {
+		parseT.Fatalf("expected canceled subscription to stop future calls, calls=%d received=%+v", parseCalls, parseReceived)
 	}
 }
 

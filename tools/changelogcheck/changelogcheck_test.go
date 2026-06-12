@@ -3,6 +3,7 @@ package changelogcheck
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -146,5 +147,29 @@ func TestCheckFileMissingFileReturnsError(t *testing.T) {
 	_, parseErr := CheckFile(filepath.Join(t.TempDir(), "nonexistent.md"), "1.0.0")
 	if parseErr == nil {
 		t.Error("CheckFile on nonexistent file: want error, got nil")
+	}
+}
+
+func TestLatestEntryIsSurfacedInDocsSiteMirror(t *testing.T) {
+	parseRepoRoot := filepath.Clean(filepath.Join("..", ".."))
+	parseChangelog, parseErr := os.ReadFile(filepath.Join(parseRepoRoot, "CHANGELOG.md"))
+	if parseErr != nil {
+		t.Fatalf("read CHANGELOG.md: %v", parseErr)
+	}
+	parseHeader, _, parseOk := LatestEntry(string(parseChangelog))
+	if !parseOk {
+		t.Fatal("expected root CHANGELOG.md to expose a latest entry")
+	}
+	parseDocsPath := filepath.Join(parseRepoRoot, "examples", "public-examples-site", "assets", "docs", "latest-release-notes.md")
+	parseDocs, parseErr := os.ReadFile(parseDocsPath)
+	if parseErr != nil {
+		t.Fatalf("read docs latest-release-notes: %v", parseErr)
+	}
+	parseDocsText := string(parseDocs)
+	if !strings.Contains(parseDocsText, "## "+parseHeader) {
+		t.Fatalf("docs latest-release-notes does not surface LatestEntry header %q:\n%s", parseHeader, parseDocsText)
+	}
+	if !strings.Contains(parseDocsText, "tools/changelogcheck.LatestEntry") {
+		t.Fatalf("docs latest-release-notes should name the parser-backed source:\n%s", parseDocsText)
 	}
 }

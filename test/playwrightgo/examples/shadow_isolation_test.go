@@ -427,6 +427,55 @@ section, .tile, div { border: 10px solid magenta !important; }`
 
 	// ── Final: no fatal JS console errors ─────────────────────────────────────
 
+	parseShadowA11yRaw, parseShadowA11yErr := parsePage.Evaluate(`() => {
+		const parseHost = document.getElementById('gwc-shadow-host');
+		if (!parseHost || !parseHost.shadowRoot) return { ok: false, reason: 'missing-shadow-root' };
+		const parseShadow = parseHost.shadowRoot;
+		const parsePortalRoot = document.createElement('div');
+		parsePortalRoot.id = 'gwc-shadow-portal-root';
+		parseShadow.appendChild(parsePortalRoot);
+		const parseDialog = document.createElement('div');
+		parseDialog.id = 'gwc-shadow-dialog';
+		parseDialog.setAttribute('role', 'dialog');
+		parseDialog.setAttribute('aria-modal', 'true');
+		const parseButton = document.createElement('button');
+		parseButton.id = 'gwc-shadow-dialog-action';
+		parseButton.textContent = 'Confirm';
+		parseDialog.appendChild(parseButton);
+		parsePortalRoot.appendChild(parseDialog);
+		parseButton.focus();
+
+		const parseAnnouncer = document.createElement('div');
+		parseAnnouncer.id = 'gwc-shadow-announcer';
+		parseAnnouncer.setAttribute('aria-live', 'polite');
+		parseAnnouncer.textContent = 'Shadow dialog ready';
+		parseShadow.appendChild(parseAnnouncer);
+
+		return {
+			ok: true,
+			portalInsideShadow: parseDialog.getRootNode() === parseShadow,
+			focusedInsideShadow: parseShadow.activeElement === parseButton,
+			documentFocusHost: document.activeElement === parseHost,
+			announcerInsideShadow: parseAnnouncer.getRootNode() === parseShadow,
+			bodyLeaks: !!document.body.querySelector('#gwc-shadow-dialog, #gwc-shadow-announcer')
+		};
+	}`, nil)
+	if parseShadowA11yErr != nil {
+		parseT.Fatalf("evaluate shadow portal/focus/announcer assertions: %v", parseShadowA11yErr)
+	}
+	parseShadowA11y, parseShadowA11yOK := parseShadowA11yRaw.(map[string]any)
+	if !parseShadowA11yOK {
+		parseT.Fatalf("expected shadow a11y assertion object, got %v", parseShadowA11yRaw)
+	}
+	for _, parseKey := range []string{"ok", "portalInsideShadow", "focusedInsideShadow", "documentFocusHost", "announcerInsideShadow"} {
+		if parseShadowA11y[parseKey] != true {
+			parseT.Fatalf("shadow boundary assertion %s failed: %#v", parseKey, parseShadowA11y)
+		}
+	}
+	if parseShadowA11y["bodyLeaks"] == true {
+		parseT.Fatalf("shadow portal or announcer leaked into document body: %#v", parseShadowA11y)
+	}
+
 	parseCrashKeywords := []string{"Uncaught", "FATAL", "panic"}
 	for _, parseMsg := range parseConsoleErrors {
 		parseT.Logf("JS console error: %s", parseMsg)
