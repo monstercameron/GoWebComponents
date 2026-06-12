@@ -748,7 +748,7 @@ func TestRunBuildAutoRunsDoctorOnBuildFailureAndHonorsOptOut(parseT *testing.T) 
 	if parseReadErr != nil {
 		parseT.Fatalf("read stdout: %v", parseReadErr)
 	}
-	if !strings.Contains(parseOutput, "gwc doctor detected environment issues") || !strings.Contains(parseOutput, "missing go") {
+	if !strings.Contains(parseOutput, "gwc doctor detected environment issues") || !strings.Contains(parseOutput, "go was not found on PATH") {
 		parseT.Fatalf("expected automatic doctor diagnosis, got:\n%s", parseOutput)
 	}
 

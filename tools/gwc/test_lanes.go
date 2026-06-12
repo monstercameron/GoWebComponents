@@ -26,7 +26,7 @@ func (parseL launcher) runTest(parseArgs []string) error {
 	parseWatchOnce := parseFs.Bool("once", false, "With -watch, run one watched test pass and exit")
 	parseWatchDebounce := parseFs.Duration("debounce", 500*time.Millisecond, "With -watch, polling debounce interval")
 	var parseLaneFlags stringListFlag
-	parseFs.Var(&parseLaneFlags, "lane", "Test lane to run; repeat or comma-separate: unit, race, wasm, hydration, browser, perf, release, all")
+	parseFs.Var(&parseLaneFlags, "lane", "Test lane to run; repeat or comma-separate: unit, race, wasm, hydration, browser, perf, i18n, agent, agent-browser, release, all")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
@@ -146,6 +146,12 @@ func (parseL launcher) executeTestLane(parseConfig testConfig, parseLane string)
 		return parseL.runBrowserTestLane(parseConfig.rootPath)
 	case "perf":
 		return parseL.runPerfBudgetTestLane(parseConfig.rootPath)
+	case "i18n":
+		return parseL.runI18nCompletenessTestLane(parseConfig.rootPath)
+	case "agent":
+		return parseL.runAgentBridgeTestLane(parseConfig.rootPath)
+	case "agent-browser":
+		return parseL.runAgentBridgeHeadlessTestLane(parseConfig.rootPath)
 	case "release":
 		return parseL.runReleaseTestLane(parseConfig)
 	default:
@@ -343,6 +349,109 @@ func (parseL launcher) runPerfBudgetTestLane(parseRootPath string) (testLaneSumm
 	}, nil
 }
 
+func (parseL launcher) runI18nCompletenessTestLane(parseRootPath string) (testLaneSummary, error) {
+	parsePackagePath := filepath.Join(parseRootPath, "i18n", "extract")
+	parseInfo, parseStatErr := os.Stat(parsePackagePath)
+	if parseStatErr != nil || !parseInfo.IsDir() {
+		return testLaneSummary{
+			Name:      "i18n",
+			OK:        true,
+			Skipped:   true,
+			Workspace: parseRootPath,
+			Summary:   "No i18n/extract package was found for the requested root.",
+		}, nil
+	}
+	parseArgs := []string{"test", "./i18n/extract"}
+	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseRootPath, buildNativeGoEnv())
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	return testLaneSummary{
+		Name:           "i18n",
+		OK:             true,
+		Command:        "go " + strings.Join(parseArgs, " "),
+		PackagePattern: "./i18n/extract",
+		Workspace:      parseRootPath,
+		Output:         parseOutput,
+		Summary:        "i18n extraction and locale completeness checks passed.",
+	}, nil
+}
+
+func (parseL launcher) runAgentBridgeTestLane(parseRootPath string) (testLaneSummary, error) {
+	parseOutputs := []string{}
+	parseRootArgs := []string{"test", "./agentbridge", "./internal/runtime"}
+	parseRootOutput, parseRootErr := launcherRunCommand("go", parseRootArgs, parseRootPath, buildNativeGoEnv())
+	if parseRootOutput != "" {
+		parseOutputs = append(parseOutputs, parseRootOutput)
+	}
+	if parseRootErr != nil {
+		return testLaneSummary{}, parseRootErr
+	}
+	for _, parseSubmodule := range []string{filepath.Join("tools", "agenthub"), filepath.Join("tools", "livereload")} {
+		parseWorkspace := filepath.Join(parseRootPath, parseSubmodule)
+		if !fileExists(filepath.Join(parseWorkspace, "go.mod")) {
+			continue
+		}
+		parseOutput, parseErr := launcherRunCommand("go", []string{"test", "./..."}, parseWorkspace, buildNativeGoEnv())
+		if parseOutput != "" {
+			parseOutputs = append(parseOutputs, parseOutput)
+		}
+		if parseErr != nil {
+			return testLaneSummary{}, parseErr
+		}
+	}
+	return testLaneSummary{
+		Name:           "agent",
+		OK:             true,
+		Command:        "go test ./agentbridge ./internal/runtime; (cd tools/agenthub && go test ./...); (cd tools/livereload && go test ./...)",
+		PackagePattern: "./agentbridge ./internal/runtime tools/agenthub/... tools/livereload/...",
+		Workspace:      parseRootPath,
+		Output:         strings.Join(parseOutputs, "\n"),
+		Summary:        "Agent bridge, hub, and livereload integration tests passed.",
+	}, nil
+}
+
+func (parseL launcher) runAgentBridgeHeadlessTestLane(parseRootPath string) (testLaneSummary, error) {
+	parseWorkspace, parseErr := resolveBrowserWorkspace(parseL.repoRoot, parseRootPath)
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	if parseWorkspace == "" {
+		return testLaneSummary{
+			Name:      "agent-browser",
+			OK:        true,
+			Skipped:   true,
+			Workspace: parseRootPath,
+			Summary:   "No browser test workspace was found for the requested root.",
+		}, nil
+	}
+	parsePackagePattern, hasDogfoodSuite := resolveAgentBridgeHeadlessTestPackagePattern(parseWorkspace)
+	if !hasDogfoodSuite {
+		return testLaneSummary{
+			Name:      "agent-browser",
+			OK:        true,
+			Skipped:   true,
+			Workspace: parseWorkspace,
+			Summary:   "No ai-chat-wizard agent bridge dogfood Playwright-Go test was found.",
+		}, nil
+	}
+	parseRunPattern := "TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless"
+	parseArgs := []string{"test", "-tags", "playwrightgo", parsePackagePattern, "-run", parseRunPattern, "-v"}
+	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	return testLaneSummary{
+		Name:           "agent-browser",
+		OK:             true,
+		Command:        "go " + strings.Join(parseArgs, " "),
+		PackagePattern: parsePackagePattern,
+		Workspace:      parseWorkspace,
+		Output:         parseOutput,
+		Summary:        "Headless agent bridge dogfood Playwright-Go test passed.",
+	}, nil
+}
+
 func (parseL launcher) runReleaseTestLane(parseConfig testConfig) (testLaneSummary, error) {
 	parseReleaseOutDir, parseErr := createLauncherTempDir(parseConfig.rootPath, "gwc-test-release-")
 	if parseErr != nil {
@@ -427,6 +536,12 @@ func normalizeTestLanes(parseRequested []string) ([]string, error) {
 			parseAppendLane("browser")
 		case "perf", "performance", "perf-budget", "budget":
 			parseAppendLane("perf")
+		case "i18n", "locales", "locale":
+			parseAppendLane("i18n")
+		case "agent", "agentbridge", "agent-bridge", "bridge":
+			parseAppendLane("agent")
+		case "agent-browser", "agent-e2e", "bridge-e2e", "headless-bridge":
+			parseAppendLane("agent-browser")
 		case "release":
 			parseAppendLane("release")
 		default:
@@ -724,6 +839,50 @@ func resolvePerfBudgetTestPackagePattern(parseWorkspace string) (string, bool) {
 		return parseCandidate.pattern, true
 	}
 	return "", false
+}
+
+func resolveAgentBridgeHeadlessTestPackagePattern(parseWorkspace string) (string, bool) {
+	if strings.TrimSpace(parseWorkspace) == "" {
+		return "", false
+	}
+	parseCandidates := []struct {
+		path    string
+		pattern string
+	}{
+		{path: filepath.Join(parseWorkspace, "test", "playwrightgo", "examples"), pattern: "./test/playwrightgo/examples"},
+		{path: filepath.Join(parseWorkspace, "playwrightgo", "examples"), pattern: "./playwrightgo/examples"},
+	}
+	for _, parseCandidate := range parseCandidates {
+		parseInfo, parseErr := os.Stat(parseCandidate.path)
+		if parseErr != nil || !parseInfo.IsDir() {
+			continue
+		}
+		if containsAgentBridgeDogfoodTest(parseCandidate.path) {
+			return parseCandidate.pattern, true
+		}
+	}
+	return "", false
+}
+
+func containsAgentBridgeDogfoodTest(parsePackagePath string) bool {
+	parseEntries, parseErr := os.ReadDir(parsePackagePath)
+	if parseErr != nil {
+		return false
+	}
+	parsePattern := regexp.MustCompile(`func\s+(TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless)\s*\(`)
+	for _, parseEntry := range parseEntries {
+		if parseEntry.IsDir() || !strings.HasSuffix(parseEntry.Name(), "_test.go") {
+			continue
+		}
+		parsePayload, parseReadErr := os.ReadFile(filepath.Join(parsePackagePath, parseEntry.Name()))
+		if parseReadErr != nil {
+			continue
+		}
+		if parsePattern.Match(parsePayload) {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveWasmTestExec(parseRepoRoot string) (string, error) {

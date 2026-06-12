@@ -224,6 +224,133 @@ func TestLiveReloadClientSurvivesSeveralHotReloads(parseT *testing.T) {
 	})
 }
 
+func TestLiveReloadClientBuildStatusBadgeTransitions(parseT *testing.T) {
+	parseClientScript, parseErr := os.ReadFile(filepath.Join("..", "livereload", "scripts", "livereload-client.txt"))
+	if parseErr != nil {
+		parseT.Fatalf("read livereload client script: %v", parseErr)
+	}
+
+	parseConnected := make(chan *websocket.Conn, 1)
+	parseUpgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+	var parseConnMu sync.Mutex
+	var parseConn *websocket.Conn
+
+	parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		switch parseR.URL.Path {
+		case "/ws":
+			parseWSConn, parseUpgradeErr := parseUpgrader.Upgrade(parseW, parseR, nil)
+			if parseUpgradeErr != nil {
+				parseT.Errorf("upgrade websocket: %v", parseUpgradeErr)
+				return
+			}
+			parseConnMu.Lock()
+			parseConn = parseWSConn
+			parseConnMu.Unlock()
+			select {
+			case parseConnected <- parseWSConn:
+			default:
+			}
+			for {
+				var parseMsg liveReloadClientWSMessage
+				if parseReadErr := parseWSConn.ReadJSON(&parseMsg); parseReadErr != nil {
+					return
+				}
+			}
+		case "/wasm_exec.js":
+			parseW.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+			_, _ = parseW.Write([]byte("window.__wasmExecLoads = (window.__wasmExecLoads || 0) + 1;\n"))
+		case "/app.wasm":
+			parseW.Header().Set("Content-Type", "application/wasm")
+			_, _ = parseW.Write([]byte("\x00asm"))
+		default:
+			parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = parseW.Write([]byte(liveReloadClientFixtureHTML(string(parseClientScript))))
+		}
+	}))
+	defer parseServer.Close()
+	parseT.Cleanup(func() {
+		parseConnMu.Lock()
+		defer parseConnMu.Unlock()
+		if parseConn != nil {
+			_ = parseConn.Close()
+		}
+	})
+
+	withLiveReloadClientPage(parseT, func(parsePage playwright.Page) {
+		if _, parseErr2 := parsePage.Goto(parseServer.URL, playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr2 != nil {
+			parseT.Fatalf("goto live reload fixture: %v", parseErr2)
+		}
+		if _, parseErr2 := parsePage.WaitForFunction(`() => window.GoLiveReload && document.getElementById('gwc-status-icon')`, nil); parseErr2 != nil {
+			parseT.Fatalf("wait for live reload status badge: %v", parseErr2)
+		}
+		parseWSConn := waitForLiveReloadClientConnection(parseT, parseConnected)
+
+		writeLiveReloadClientMessage(parseT, parseWSConn, "build_start", map[string]any{
+			"status": map[string]any{
+				"phase":       "compiling",
+				"reloadType":  "hot",
+				"staleOutput": true,
+			},
+		})
+		waitForLiveReloadClientIconColor(parseT, parsePage, "rgb(37, 99, 235)", "building")
+
+		writeLiveReloadClientMessage(parseT, parseWSConn, "build_error", map[string]any{
+			"error":        "fixture compile failed",
+			"phase":        "blocked_on_error",
+			"staleOutput":  true,
+			"phaseSummary": "blocked on fixture compile failure",
+		})
+		waitForLiveReloadClientIconColor(parseT, parsePage, "rgb(220, 38, 38)", "error")
+		if _, parseErr2 := parsePage.WaitForFunction(`() => {
+			const badge = document.getElementById('gwc-error-badge');
+			return badge && badge.style.display === 'flex' && badge.textContent === '1';
+		}`, nil); parseErr2 != nil {
+			parseT.Fatalf("wait for build error badge: %v", parseErr2)
+		}
+
+		writeLiveReloadClientMessage(parseT, parseWSConn, "build_start", map[string]any{
+			"status": map[string]any{
+				"phase":       "compiling",
+				"reloadType":  "hot",
+				"staleOutput": true,
+			},
+		})
+		waitForLiveReloadClientIconColor(parseT, parsePage, "rgb(37, 99, 235)", "building after error")
+
+		writeLiveReloadClientMessage(parseT, parseWSConn, "build_complete", map[string]any{
+			"success":      true,
+			"duration":     "1ms",
+			"reloadType":   "hot",
+			"phase":        "serving_output",
+			"staleOutput":  false,
+			"stateSnapshot": nil,
+			"timings":      map[string]any{"compileMs": 1, "artifactBytes": 4},
+		})
+		waitForLiveReloadClientIconColor(parseT, parsePage, "rgb(5, 150, 105)", "ready")
+		if _, parseErr2 := parsePage.WaitForFunction(`() => {
+			const badge = document.getElementById('gwc-error-badge');
+			return badge && badge.style.display === 'none';
+		}`, nil); parseErr2 != nil {
+			parseT.Fatalf("wait for error badge to clear: %v", parseErr2)
+		}
+	})
+}
+
+func waitForLiveReloadClientIconColor(parseT *testing.T, parsePage playwright.Page, parseWant string, parseLabel string) {
+	parseT.Helper()
+	parseExpr := fmt.Sprintf(`() => {
+		const icon = document.getElementById('gwc-status-icon');
+		return icon && getComputedStyle(icon).backgroundColor === %q;
+	}`, parseWant)
+	if _, parseErr := parsePage.WaitForFunction(parseExpr, nil); parseErr != nil {
+		parseColor, _ := parsePage.Evaluate(`() => {
+			const icon = document.getElementById('gwc-status-icon');
+			return icon ? getComputedStyle(icon).backgroundColor : '<missing>';
+		}`, nil)
+		parseT.Fatalf("wait for %s icon color %s: %v (current=%v)", parseLabel, parseWant, parseErr, parseColor)
+	}
+}
+
 func liveReloadClientFixtureHTML(parseClientScript string) string {
 	return `<!doctype html>
 <html>

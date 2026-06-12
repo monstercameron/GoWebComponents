@@ -27,7 +27,7 @@ func TestNormalizeTestLanesDefaultsAndAliases(parseT *testing.T) {
 		if parseErr2 != nil {
 			parseT3.Fatalf("normalize test lanes: %v", parseErr2)
 		}
-		parseWant2 := []string{"unit", "hydration", "race", "wasm", "browser", "perf", "release"}
+		parseWant2 := []string{"unit", "hydration", "race", "wasm", "browser", "perf", "i18n", "agent", "agent-browser", "release"}
 		if !reflect.DeepEqual(parseGot2, parseWant2) {
 			parseT3.Fatalf("expected normalized lanes %#v, got %#v", parseWant2, parseGot2)
 		}
@@ -50,6 +50,39 @@ func TestNormalizeTestLanesDefaultsAndAliases(parseT *testing.T) {
 			parseT4.Fatalf("normalize test lanes: %v", parseErr3)
 		}
 		parseWant3 := []string{"perf"}
+		if !reflect.DeepEqual(parseGot3, parseWant3) {
+			parseT4.Fatalf("expected normalized lanes %#v, got %#v", parseWant3, parseGot3)
+		}
+	})
+
+	parseT.Run("i18n aliases", func(parseT4 *testing.T) {
+		parseGot3, parseErr3 := normalizeTestLanes([]string{"locale", "locales", "i18n"})
+		if parseErr3 != nil {
+			parseT4.Fatalf("normalize test lanes: %v", parseErr3)
+		}
+		parseWant3 := []string{"i18n"}
+		if !reflect.DeepEqual(parseGot3, parseWant3) {
+			parseT4.Fatalf("expected normalized lanes %#v, got %#v", parseWant3, parseGot3)
+		}
+	})
+
+	parseT.Run("agent aliases", func(parseT4 *testing.T) {
+		parseGot3, parseErr3 := normalizeTestLanes([]string{"agentbridge", "agent-bridge", "bridge", "agent"})
+		if parseErr3 != nil {
+			parseT4.Fatalf("normalize test lanes: %v", parseErr3)
+		}
+		parseWant3 := []string{"agent"}
+		if !reflect.DeepEqual(parseGot3, parseWant3) {
+			parseT4.Fatalf("expected normalized lanes %#v, got %#v", parseWant3, parseGot3)
+		}
+	})
+
+	parseT.Run("agent browser aliases", func(parseT4 *testing.T) {
+		parseGot3, parseErr3 := normalizeTestLanes([]string{"agent-e2e", "bridge-e2e", "headless-bridge", "agent-browser"})
+		if parseErr3 != nil {
+			parseT4.Fatalf("normalize test lanes: %v", parseErr3)
+		}
+		parseWant3 := []string{"agent-browser"}
 		if !reflect.DeepEqual(parseGot3, parseWant3) {
 			parseT4.Fatalf("expected normalized lanes %#v, got %#v", parseWant3, parseGot3)
 		}
@@ -726,6 +759,142 @@ func TestRunPerfBudgetTestLaneSuccessAndSkipPaths(parseT *testing.T) {
 	}
 	if !parseSummary.Skipped || parseSummary.Workspace == "" {
 		parseT.Fatalf("expected skipped perf lane summary, got %#v", parseSummary)
+	}
+}
+
+func TestRunI18nCompletenessTestLaneSuccessAndSkipPaths(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseRoot, "i18n", "extract"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir i18n extract package: %v", parseErr)
+	}
+
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() { launcherRunCommand = parseOriginalRunCommand })
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("expected go command, got %q", parseCommand)
+		}
+		parseExpectedArgs := []string{"test", "./i18n/extract"}
+		if !reflect.DeepEqual(parseArgs, parseExpectedArgs) {
+			parseT.Fatalf("expected args %#v, got %#v", parseExpectedArgs, parseArgs)
+		}
+		if parseCwd != parseRoot {
+			parseT.Fatalf("expected workspace cwd %q, got %q", parseRoot, parseCwd)
+		}
+		return "i18n ok", nil
+	}
+
+	parseSummary, parseErr := (launcher{repoRoot: parseRoot}).runI18nCompletenessTestLane(parseRoot)
+	if parseErr != nil {
+		parseT.Fatalf("run i18n test lane: %v", parseErr)
+	}
+	if parseSummary.Skipped || !parseSummary.OK || parseSummary.Command == "" || !strings.Contains(parseSummary.Output, "i18n ok") {
+		parseT.Fatalf("expected successful i18n summary, got %#v", parseSummary)
+	}
+
+	parseSummary, parseErr = (launcher{repoRoot: parseT.TempDir()}).runI18nCompletenessTestLane(parseT.TempDir())
+	if parseErr != nil {
+		parseT.Fatalf("run i18n skipped lane: %v", parseErr)
+	}
+	if !parseSummary.Skipped || parseSummary.Workspace == "" {
+		parseT.Fatalf("expected skipped i18n lane summary, got %#v", parseSummary)
+	}
+}
+
+func TestRunAgentBridgeTestLaneRunsRootAndSubmoduleSuites(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	for _, parseDir := range []string{
+		filepath.Join(parseRoot, "agentbridge"),
+		filepath.Join(parseRoot, "internal", "runtime"),
+		filepath.Join(parseRoot, "tools", "agenthub"),
+		filepath.Join(parseRoot, "tools", "livereload"),
+	} {
+		if parseErr := os.MkdirAll(parseDir, 0o755); parseErr != nil {
+			parseT.Fatalf("mkdir %s: %v", parseDir, parseErr)
+		}
+	}
+	for _, parseGoMod := range []string{
+		filepath.Join(parseRoot, "tools", "agenthub", "go.mod"),
+		filepath.Join(parseRoot, "tools", "livereload", "go.mod"),
+	} {
+		if parseErr := os.WriteFile(parseGoMod, []byte("module test\n\ngo 1.26.0\n"), 0o644); parseErr != nil {
+			parseT.Fatalf("write %s: %v", parseGoMod, parseErr)
+		}
+	}
+
+	parseCalls := []string{}
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() { launcherRunCommand = parseOriginalRunCommand })
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("expected go command, got %q", parseCommand)
+		}
+		parseCalls = append(parseCalls, parseCwd+"|"+strings.Join(parseArgs, " "))
+		return "ok " + filepath.Base(parseCwd), nil
+	}
+
+	parseSummary, parseErr := (launcher{repoRoot: parseRoot}).runAgentBridgeTestLane(parseRoot)
+	if parseErr != nil {
+		parseT.Fatalf("run agent lane: %v", parseErr)
+	}
+	if !parseSummary.OK || parseSummary.Name != "agent" || !strings.Contains(parseSummary.Output, "agenthub") || !strings.Contains(parseSummary.Output, "livereload") {
+		parseT.Fatalf("expected successful agent summary, got %#v", parseSummary)
+	}
+	if len(parseCalls) != 3 {
+		parseT.Fatalf("calls = %#v, want root + two submodules", parseCalls)
+	}
+}
+
+func TestRunAgentBridgeHeadlessTestLaneSuccessAndSkipPaths(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parsePackageDir := filepath.Join(parseRoot, "test", "playwrightgo", "examples")
+	if parseErr := os.MkdirAll(parsePackageDir, 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir agent browser package: %v", parseErr)
+	}
+	parseTestSource := `package examples
+
+import "testing"
+
+func TestExample100AgentBridgeDogfood(parseT *testing.T) {}
+`
+	if parseErr := os.WriteFile(filepath.Join(parsePackageDir, "agent_bridge_dogfood_test.go"), []byte(parseTestSource), 0o644); parseErr != nil {
+		parseT.Fatalf("write dogfood test: %v", parseErr)
+	}
+
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() { launcherRunCommand = parseOriginalRunCommand })
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("expected go command, got %q", parseCommand)
+		}
+		parseExpectedArgs := []string{"test", "-tags", "playwrightgo", "./test/playwrightgo/examples", "-run", "TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless", "-v"}
+		if !reflect.DeepEqual(parseArgs, parseExpectedArgs) {
+			parseT.Fatalf("expected args %#v, got %#v", parseExpectedArgs, parseArgs)
+		}
+		if parseCwd != parseRoot {
+			parseT.Fatalf("expected cwd %q, got %q", parseRoot, parseCwd)
+		}
+		return "agent browser ok", nil
+	}
+
+	parseSummary, parseErr := (launcher{repoRoot: parseRoot}).runAgentBridgeHeadlessTestLane(parseRoot)
+	if parseErr != nil {
+		parseT.Fatalf("run agent browser lane: %v", parseErr)
+	}
+	if parseSummary.Name != "agent-browser" || parseSummary.Skipped || !parseSummary.OK || !strings.Contains(parseSummary.Output, "agent browser ok") {
+		parseT.Fatalf("expected successful agent browser summary, got %#v", parseSummary)
+	}
+
+	parseEmptyRoot := parseT.TempDir()
+	if parseErr2 := os.MkdirAll(filepath.Join(parseEmptyRoot, "test", "playwrightgo", "examples"), 0o755); parseErr2 != nil {
+		parseT.Fatalf("mkdir empty package: %v", parseErr2)
+	}
+	parseSummary, parseErr = (launcher{repoRoot: parseEmptyRoot}).runAgentBridgeHeadlessTestLane(parseEmptyRoot)
+	if parseErr != nil {
+		parseT.Fatalf("run skipped agent browser lane: %v", parseErr)
+	}
+	if !parseSummary.Skipped || !strings.Contains(parseSummary.Summary, "No ai-chat-wizard agent bridge dogfood") {
+		parseT.Fatalf("expected skipped agent browser summary, got %#v", parseSummary)
 	}
 }
 

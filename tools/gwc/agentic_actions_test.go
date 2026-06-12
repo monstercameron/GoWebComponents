@@ -165,11 +165,33 @@ func TestRunCheckJSONReportsConventionDiagnostics(parseT *testing.T) {
 func TestMCPManifestAndCheckToolCall(parseT *testing.T) {
 	parseManifest := buildMCPManifest()
 	parseToolNames := map[string]bool{}
+	parseToolByName := map[string]mcpTool{}
 	for _, parseTool := range parseManifest.Tools {
 		parseToolNames[parseTool.Name] = true
+		parseToolByName[parseTool.Name] = parseTool
 	}
 	if !parseToolNames["gwc_check"] || !parseToolNames["gwc_mutate"] || !parseToolNames["gwc_scaffold"] {
 		parseT.Fatalf("expected agentic tools in manifest, got %#v", parseToolNames)
+	}
+	for _, parseName := range []string{"gwc_sessions", "gwc_snapshot", "gwc_query", "gwc_logs", "gwc_crash_report", "gwc_recording", "gwc_lease", "gwc_set_atom", "gwc_set_state", "gwc_mount", "gwc_unmount", "gwc_delete_atom", "gwc_emit", "gwc_publish", "gwc_navigate", "gwc_snapshot_diff", "gwc_rebuild", "gwc_export_test"} {
+		if !parseToolNames[parseName] {
+			parseT.Fatalf("expected live bridge MCP tool %q in manifest", parseName)
+		}
+	}
+	if parseToolByName["gwc_snapshot"].Annotations["readOnlyHint"] != true {
+		parseT.Fatalf("expected gwc_snapshot to be read-only, got %#v", parseToolByName["gwc_snapshot"].Annotations)
+	}
+	if parseToolByName["gwc_set_atom"].Annotations["destructiveHint"] != true {
+		parseT.Fatalf("expected gwc_set_atom to be mutating, got %#v", parseToolByName["gwc_set_atom"].Annotations)
+	}
+	if parseToolByName["gwc_logs"].Annotations["readOnlyHint"] != true || parseToolByName["gwc_crash_report"].Annotations["readOnlyHint"] != true {
+		parseT.Fatalf("expected logs/crash-report to be read-only, got logs=%#v crash=%#v", parseToolByName["gwc_logs"].Annotations, parseToolByName["gwc_crash_report"].Annotations)
+	}
+	if parseToolByName["gwc_lease"].Annotations["destructiveHint"] != true || parseToolByName["gwc_delete_atom"].Annotations["destructiveHint"] != true {
+		parseT.Fatalf("expected lease/delete-atom to be mutating, got lease=%#v delete=%#v", parseToolByName["gwc_lease"].Annotations, parseToolByName["gwc_delete_atom"].Annotations)
+	}
+	if parseToolByName["gwc_rebuild"].Annotations["destructiveHint"] != true || parseToolByName["gwc_export_test"].Annotations["destructiveHint"] != true {
+		parseT.Fatalf("expected rebuild/export-test to be mutating, got rebuild=%#v export=%#v", parseToolByName["gwc_rebuild"].Annotations, parseToolByName["gwc_export_test"].Annotations)
 	}
 	if parseToolNames["gwc_mcp"] {
 		parseT.Fatalf("mcp server should not expose itself as a tool")
@@ -200,5 +222,25 @@ func TestMCPManifestAndCheckToolCall(parseT *testing.T) {
 	parseText := parseContent[0]["text"].(string)
 	if !strings.Contains(parseText, `"command": "check"`) || !strings.Contains(parseText, `"ok": true`) {
 		parseT.Fatalf("expected check envelope in MCP content, got:\n%s", parseText)
+	}
+
+	parseBridgeArguments, parseErr3 := json.Marshal(map[string]any{
+		"name":      "gwc_snapshot",
+		"arguments": map[string]any{"args": []string{"-session", "sess-missing"}},
+	})
+	if parseErr3 != nil {
+		parseT.Fatalf("marshal bridge tool call: %v", parseErr3)
+	}
+	parseBridgeResult, parseErr4 := executeMCPToolCall(launcher{}, parseBridgeArguments)
+	if parseErr4 != nil {
+		parseT.Fatalf("execute bridge mcp tool: %v", parseErr4)
+	}
+	if !parseBridgeResult["isError"].(bool) {
+		parseT.Fatalf("expected no-session bridge mcp tool call to be an MCP error, got %#v", parseBridgeResult)
+	}
+	parseBridgeContent := parseBridgeResult["content"].([]map[string]interface{})
+	parseBridgeText := parseBridgeContent[0]["text"].(string)
+	if !strings.Contains(parseBridgeText, "GWC-AGENTBRIDGE-NO-SESSION") || !strings.Contains(parseBridgeText, "?gwc-dev=agent") {
+		parseT.Fatalf("expected no-session diagnostic in MCP content, got:\n%s", parseBridgeText)
 	}
 }

@@ -411,7 +411,7 @@ var testGetwd = os.Getwd
 
 var seedGetwd = os.Getwd
 
-var testAllLanes = []string{"unit", "race", "wasm", "hydration", "browser", "perf", "release"}
+var testAllLanes = []string{"unit", "race", "wasm", "hydration", "browser", "perf", "i18n", "agent", "agent-browser", "release"}
 
 var errStopWalk = errors.New("gwc-stop-walk")
 
@@ -497,16 +497,20 @@ func listLauncherCommandRegistry() []launcherCommandMetadata {
 		{Name: "build", Summary: "Build a js/wasm app with an explicit launcher profile.", JSON: true, Mutating: true},
 		{Name: "check", Summary: "Run agent-shaped diagnostics across tests and source conventions.", JSON: true},
 		{Name: "clean", Summary: "Remove launcher-owned build artifacts, caches, and generated outputs with dry-run support.", JSON: true, Mutating: true},
+		{Name: "crash-report", Summary: "Fetch the latest live agent bridge crash report for a session.", JSON: true},
 		{Name: "dashboard", Summary: "Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard.", JSON: true},
 		{Name: "deadcode", Summary: "Report exported symbols with no static in-repo dependents.", JSON: true},
 		{Name: "deploy", Summary: "Package validated release artifacts through explicit deployment adapters.", JSON: true, Mutating: true},
 		{Name: "dev", Summary: "Run the native gwc dev orchestration path with integrated livereload runtime.", JSON: true, Mutating: true, LongRunning: true},
 		{Name: "deps", Aliases: []string{"update"}, Summary: "Inspect Go module dependencies and apply guarded dependency updates.", JSON: true, Mutating: true},
+		{Name: "delete-atom", Summary: "Delete a live agent bridge atom when safe or explicitly forced.", JSON: true, Mutating: true},
 		{Name: "doctor", Summary: "Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors.", JSON: true},
 		{Name: "docs", Summary: "Generate exported API documentation from the static GWC model.", JSON: true, Mutating: true},
+		{Name: "emit", Summary: "Emit a live agent bridge event handler payload.", JSON: true, Mutating: true},
 		{Name: "env", Summary: "Print launcher-relevant environment variables and current values.", JSON: true},
 		{Name: "examples", Summary: "Serve the examples catalog or run managed example-server lifecycle actions.", JSON: true, Mutating: true, LongRunning: true},
 		{Name: "export", Summary: "Alias for prerender.", JSON: true, Mutating: true},
+		{Name: "export-test", Summary: "Generate a testkit Go test from a live-session recording.", JSON: true, Mutating: true},
 		{Name: "files", Summary: "List project files with repeatable extension and directory filters.", JSON: true},
 		{Name: "fmt", Summary: "Format Go source, normalize line endings, and report/fix GWC doc-comment conventions.", JSON: true, Mutating: true},
 		{Name: "help", Aliases: []string{"-h", "--help"}, Summary: "Print human help or structured command metadata.", JSON: true},
@@ -514,25 +518,39 @@ func listLauncherCommandRegistry() []launcherCommandMetadata {
 		{Name: "init", Summary: "Non-interactive project initialization that writes gwc-start.json and lifecycle defaults.", JSON: true, Mutating: true},
 		{Name: "inspect", Summary: "Build higher-level route, dependency, ownership, and file-type project reports.", JSON: true},
 		{Name: "lint", Aliases: []string{"review"}, Summary: "Run golangci-lint plus built-in GWC hook rules, then render a text or JSON review report.", JSON: true},
+		{Name: "lease", Summary: "Acquire, release, or explicitly steal a live agent bridge write lease.", JSON: true, Mutating: true},
+		{Name: "logs", Summary: "Fetch retained live agent bridge logs and diagnostics.", JSON: true},
 		{Name: "mcp", Summary: "Serve JSON-capable gwc commands as MCP tools over stdio, or print the tool manifest as JSON.", JSON: true},
 		{Name: "migrate", Summary: "Non-interactive migration helper with compatibility API findings, safe rewrites, and report export.", JSON: true, Mutating: true},
 		{Name: "model", Summary: "Emit a static component manifest for agent planning.", JSON: true},
+		{Name: "mount", Summary: "Mount a bridge-registered component into a live agent session.", JSON: true, Mutating: true},
 		{Name: "mutate", Summary: "Apply safe AST-backed source mutations with dry-run and JSON diff output.", JSON: true, Mutating: true},
+		{Name: "navigate", Summary: "Navigate a live agent bridge router session.", JSON: true, Mutating: true},
 		{Name: "explain", Summary: "Resolve diagnostic error codes and framework capabilities.", JSON: true},
 		{Name: "observe", Summary: "Query redacted runtime/crash telemetry streams.", JSON: true},
 		{Name: "probe", Summary: "Run a browser-oracle probe for a URL or example target.", JSON: true},
 		{Name: "prerender", Summary: "Build one static export output with route HTML, wasm artifacts, and a manifest.", JSON: true, Mutating: true},
+		{Name: "publish", Summary: "Publish a live agent bridge topic event.", JSON: true, Mutating: true},
+		{Name: "query", Summary: "Query live agent bridge nodes by semantic selectors.", JSON: true},
 		{Name: "release", Summary: "Package a js/wasm release with manifest and compressed sidecars.", JSON: true, Mutating: true},
+		{Name: "rebuild", Summary: "Rebuild a live agent session and restore state through the hub JSON API.", JSON: true, Mutating: true},
+		{Name: "recording", Summary: "Fetch or clear a live agent bridge command recording.", JSON: true, Mutating: true},
 		{Name: "render", Summary: "Render a component through the headless SSR oracle.", JSON: true},
 		{Name: "scaffold", Summary: "Generate components, hooks, examples, or starter apps without prompts.", JSON: true, Mutating: true},
 		{Name: "search", Summary: "Search exported APIs by intent.", JSON: true},
 		{Name: "seed", Summary: "Provision local dev identities and fixture data through a seed package.", JSON: true, Mutating: true},
 		{Name: "serve", Summary: "Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures.", JSON: true, LongRunning: true},
+		{Name: "sessions", Summary: "List live gwc agent bridge sessions.", JSON: true},
+		{Name: "set-atom", Summary: "Set a live agent bridge atom value.", JSON: true, Mutating: true},
+		{Name: "set-state", Summary: "Set a live agent bridge hook state slot.", JSON: true, Mutating: true},
 		{Name: "size", Summary: "Attribute wasm/native artifact size by package and symbol using go tool nm.", JSON: true},
+		{Name: "snapshot", Summary: "Read a live agent bridge runtime snapshot.", JSON: true},
+		{Name: "snapshot-diff", Summary: "Diff two agent bridge snapshots by stable ref.", JSON: true},
 		{Name: "start", Summary: "Run the scaffold TUI for preset and project setup.", JSON: true, Mutating: true},
 		{Name: "tailwind", Summary: "Build shared Tailwind CSS and generated class manifests through the launcher-owned Tailwind path.", JSON: true, Mutating: true},
-		{Name: "test", Summary: "Run explicit launcher-owned test lanes such as unit, race, wasm, hydration, browser, and release.", JSON: true},
+		{Name: "test", Summary: "Run explicit launcher-owned test lanes such as unit, race, wasm, hydration, browser, agent, agent-browser, and release.", JSON: true},
 		{Name: "upgrade", Summary: "Non-interactive lifecycle upgrade for gwc-start.json schema and runtime assets.", JSON: true, Mutating: true},
+		{Name: "unmount", Summary: "Unmount a bridge-mounted component from a live agent session.", JSON: true, Mutating: true},
 		{Name: "verify", Summary: "Run app-local Go tests when present and perform a CI-profile wasm build.", JSON: true, Mutating: true},
 		{Name: "watch", Summary: "Watch Go files and rerun selected launcher-owned test lanes.", JSON: true, LongRunning: true},
 		{Name: "wasm", Summary: "Run wasm-focused build experiment helpers such as wasm measure.", JSON: true, Mutating: true},
@@ -1052,6 +1070,10 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runUpgradeCommand(parseL, parseArgs)
 	case "mcp":
 		return runMCPCommand(parseL, parseArgs)
+	case "rebuild":
+		return runRebuildCommand(parseL, parseArgs)
+	case "export-test":
+		return runExportTestCommand(parseL, parseArgs)
 	case "migrate":
 		return runMigrateCommand(parseL, parseArgs)
 	case "mutate":
@@ -1090,6 +1112,10 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runWasmCommand(parseL, parseArgs)
 	case "watch":
 		return runWatchCommand(parseL, parseArgs)
+	case "sessions", "snapshot", "query", "describe", "wait-for", "set-atom", "set-state", "mount", "unmount", "delete-atom", "emit", "publish", "navigate", "logs", "crash-report", "recording", "lease":
+		return runLiveBridgeCommand(parseL, parseCommand, parseArgs)
+	case "snapshot-diff":
+		return runSnapshotDiffCommand(parseL, parseArgs)
 	default:
 		if isExamplesManagedPathCommand(parseCommand, parseArgs) {
 			return parseL.runExamplesManaged(buildExamplesManagedPathCommandArgs(parseCommand, parseArgs))
@@ -1207,7 +1233,7 @@ func printUsage() {
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
 	fmt.Println("  check      Run agent-shaped diagnostics across tests and source conventions")
 	fmt.Println("  clean      Remove launcher-owned build artifacts, caches, and generated outputs")
-	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, race, wasm, hydration, browser, and release")
+	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, race, wasm, hydration, browser, agent, agent-browser, and release")
 	fmt.Println("  watch      Watch Go files and rerun selected launcher-owned test lanes")
 	fmt.Println("  examples   Serve the examples catalog or run managed example-server lifecycle actions (start|status|stop|restart)")
 	fmt.Println("  dev        Run the native gwc dev orchestration path with integrated livereload runtime")
@@ -1233,6 +1259,7 @@ func printUsage() {
 	fmt.Println("  migrate    Non-interactive migration helper with compatibility API findings, safe rewrites, and report export")
 	fmt.Println("  prerender  Build one static export output with route HTML, wasm artifacts, and a manifest")
 	fmt.Println("  export     Alias for `prerender`")
+	fmt.Println("  export-test Generate a testkit Go test from a live-session recording")
 	fmt.Println("  tailwind   Build shared Tailwind CSS and generated class manifests through the launcher-owned Tailwind path")
 	fmt.Println("  dashboard  Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard")
 	fmt.Println("  doctor     Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors")
@@ -1241,6 +1268,7 @@ func printUsage() {
 	fmt.Println("  seed       Provision local dev identities and fixture data through a seed package")
 	fmt.Println("  import     Convert a static HTML or JSX file into an inspectable GWC project")
 	fmt.Println("  release    Package a js/wasm release with manifest and compressed sidecars")
+	fmt.Println("  rebuild    Rebuild a live agent session and restore state through the hub JSON API")
 	fmt.Println("  scaffold   Generate components, hooks, examples, or starter apps without prompts")
 	fmt.Println("  verify     Run app-local Go tests when present and perform a CI-profile wasm build")
 	fmt.Println("  wasm       Run wasm-focused build experiment helpers such as `wasm measure`")
