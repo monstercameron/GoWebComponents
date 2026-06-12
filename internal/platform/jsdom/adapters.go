@@ -174,7 +174,9 @@ func (parseA *WASMDOMAdapter) getElementsByTagNameMethod() js.Value {
 }
 
 func (parseA *WASMDOMAdapter) ensureStoreTemplate() bool {
-	if parseA.isStoreTemplateBound && !parseA.storeTemplate.IsNull() && !parseA.storeTemplate.IsUndefined() {
+	if parseA.isStoreTemplateBound &&
+		!parseA.storeTemplate.IsNull() && !parseA.storeTemplate.IsUndefined() &&
+		!parseA.storeTemplateContent.IsNull() && !parseA.storeTemplateContent.IsUndefined() {
 		return true
 	}
 	parseCreateElement := parseA.getCreateElement()
@@ -849,17 +851,45 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 type WASMEventAdapter struct {
 	addEventListener    js.Value
 	removeEventListener js.Value
+	isMethodsBound      bool
 }
 
 var _ runtime.EventAdapter = (*WASMEventAdapter)(nil)
 
 // NewWASMEventAdapter creates an event adapter backed by browser DOM listeners.
 func NewWASMEventAdapter() *WASMEventAdapter {
-	parseElemProto := js.Global().Get("Element").Get("prototype")
-	return &WASMEventAdapter{
-		addEventListener:    parseElemProto.Get("addEventListener"),
-		removeEventListener: parseElemProto.Get("removeEventListener"),
+	return &WASMEventAdapter{}
+}
+
+func (parseA *WASMEventAdapter) ensureEventMethods() bool {
+	if parseA == nil {
+		return false
 	}
+	if parseA.isMethodsBound &&
+		!parseA.addEventListener.IsNull() && !parseA.addEventListener.IsUndefined() &&
+		!parseA.removeEventListener.IsNull() && !parseA.removeEventListener.IsUndefined() {
+		return true
+	}
+	parseElement := js.Global().Get("Element")
+	if parseElement.IsNull() || parseElement.IsUndefined() {
+		return false
+	}
+	parseElemProto := parseElement.Get("prototype")
+	if parseElemProto.IsNull() || parseElemProto.IsUndefined() {
+		return false
+	}
+	parseAddEventListener := parseElemProto.Get("addEventListener")
+	parseRemoveEventListener := parseElemProto.Get("removeEventListener")
+	if parseAddEventListener.IsNull() || parseAddEventListener.IsUndefined() || parseAddEventListener.Type() != js.TypeFunction {
+		return false
+	}
+	if parseRemoveEventListener.IsNull() || parseRemoveEventListener.IsUndefined() || parseRemoveEventListener.Type() != js.TypeFunction {
+		return false
+	}
+	parseA.addEventListener = parseAddEventListener
+	parseA.removeEventListener = parseRemoveEventListener
+	parseA.isMethodsBound = true
+	return true
 }
 
 // wasmEventHandler wraps a js.Func for event handling.
@@ -896,6 +926,9 @@ func (parseA *WASMEventAdapter) ReleaseEventHandler(parseHandler runtime.EventHa
 }
 
 func (parseA *WASMEventAdapter) AddEventListener(parseNode runtime.DOMNode, parseEventType string, parseHandler runtime.EventHandler) {
+	if !parseA.ensureEventMethods() {
+		return
+	}
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
 		if parseWasmHandler, parseOk2 := parseHandler.(*wasmEventHandler); parseOk2 {
 			parseA.addEventListener.Call("call", parseWasmNode.value, parseEventType, parseWasmHandler.fn)
@@ -904,6 +937,9 @@ func (parseA *WASMEventAdapter) AddEventListener(parseNode runtime.DOMNode, pars
 }
 
 func (parseA *WASMEventAdapter) RemoveEventListener(parseNode runtime.DOMNode, parseEventType string, parseHandler runtime.EventHandler) {
+	if !parseA.ensureEventMethods() {
+		return
+	}
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
 		if parseWasmHandler, parseOk2 := parseHandler.(*wasmEventHandler); parseOk2 {
 			parseA.removeEventListener.Call("call", parseWasmNode.value, parseEventType, parseWasmHandler.fn)
