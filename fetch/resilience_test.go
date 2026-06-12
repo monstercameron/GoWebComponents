@@ -102,6 +102,19 @@ func TestBackoffDelaySequence(parseT *testing.T) {
 	}
 }
 
+func TestRetryDelayZeroMultiplierPinsZeroDelayFootGun(parseT *testing.T) {
+	parseRetry := RetryPolicy{
+		BaseDelay:  100 * time.Millisecond,
+		MaxDelay:   time.Second,
+		Multiplier: 0,
+		Jitter:     0,
+	}
+
+	if parseDelay := parseRetry.delay(3, parseZeroRand); parseDelay != 0 {
+		parseT.Fatalf("expected zero multiplier to compute zero delay for attempt 3, got %v", parseDelay)
+	}
+}
+
 // TestRetryExhaustsMaxAttempts verifies that an always-failing operation is
 // called exactly MaxAttempts times and the last error is returned.
 func TestRetryExhaustsMaxAttempts(parseT *testing.T) {
@@ -311,6 +324,33 @@ func TestCircuitBreakerHalfOpenReopen(parseT *testing.T) {
 	}
 	if parseBreaker.State() != StateOpen {
 		parseT.Fatalf("expected breaker to re-open after failing half-open probe, got %v", parseBreaker.State())
+	}
+}
+
+func TestCircuitBreakerHalfOpenZeroMaxCallsAllowsUnlimitedProbes(parseT *testing.T) {
+	parseConfig := BreakerConfig{
+		FailureThreshold: 1,
+		OpenDuration:     time.Second,
+		HalfOpenMaxCalls: 0,
+	}
+	parseBreaker := NewCircuitBreaker(parseConfig)
+
+	parseFakeNow := time.Now()
+	parseBreaker.setNow(func() time.Time { return parseFakeNow })
+	parseBreaker.recordFailure()
+	if parseBreaker.State() != StateOpen {
+		parseT.Fatal("expected breaker to open after one failure")
+	}
+
+	parseFakeNow = parseFakeNow.Add(parseConfig.OpenDuration + time.Millisecond)
+	for parseI := 0; parseI < 100; parseI++ {
+		parseAllowed, parseErr := parseBreaker.allow()
+		if parseErr != nil || !parseAllowed {
+			parseT.Fatalf("expected unlimited half-open probe %d to be allowed, allowed=%t err=%v", parseI+1, parseAllowed, parseErr)
+		}
+	}
+	if parseBreaker.State() != StateHalfOpen {
+		parseT.Fatalf("expected breaker to stay half-open while probes remain unresolved, got %v", parseBreaker.State())
 	}
 }
 

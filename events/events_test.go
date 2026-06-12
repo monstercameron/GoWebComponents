@@ -98,6 +98,20 @@ func TestUnsubscribeStopsDeliveryAndLeavesNoLeak(t *testing.T) {
 	}
 }
 
+func TestUnsubscribeIsIdempotent(t *testing.T) {
+	parseTopic := "test.unsub.idempotent"
+	resetTopic(parseTopic)
+
+	parseUnsub := Subscribe(parseTopic, func(_ int) {})
+	parseUnsub()
+	parseUnsub()
+	parseUnsub()
+
+	if parseN := subscriberCount(parseTopic); parseN != 0 {
+		t.Fatalf("subscriber count after repeated unsubscribe = %d, want 0", parseN)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // 4. Late subscriber: default = no replay; WithReplayLast = one replay.
 // ---------------------------------------------------------------------------
@@ -171,6 +185,53 @@ func TestConcurrentPublishNoRaceAndAllDelivered(t *testing.T) {
 	parseGot := atomic.LoadInt64(&parseTotalReceived)
 	if parseGot != parseWant {
 		t.Fatalf("delivered %d values, want %d", parseGot, parseWant)
+	}
+}
+
+func TestSubscribePublishConcurrencyWindow(t *testing.T) {
+	parseTopic := "test.subscribe-publish-window"
+	resetTopic(parseTopic)
+
+	const parseSubscribers = 16
+	const parsePublishes = 200
+
+	var parseReady sync.WaitGroup
+	parseReady.Add(parseSubscribers)
+	var parseStart sync.WaitGroup
+	parseStart.Add(1)
+
+	var parseDelivered int64
+	var parseWG sync.WaitGroup
+	for range parseSubscribers {
+		parseWG.Go(func() {
+			parseUnsub := Subscribe(parseTopic, func(_ int) {
+				atomic.AddInt64(&parseDelivered, 1)
+			})
+			defer parseUnsub()
+			parseReady.Done()
+			parseStart.Wait()
+		})
+	}
+	parseReady.Wait()
+
+	var parsePublishWG sync.WaitGroup
+	for range 4 {
+		parsePublishWG.Go(func() {
+			for parseI := range parsePublishes {
+				Publish(parseTopic, parseI)
+			}
+		})
+	}
+	parsePublishWG.Wait()
+	parseStart.Done()
+	parseWG.Wait()
+
+	parseWant := int64(parseSubscribers * parsePublishes * 4)
+	if parseGot := atomic.LoadInt64(&parseDelivered); parseGot != parseWant {
+		t.Fatalf("delivered %d values, want %d", parseGot, parseWant)
+	}
+	if parseN := subscriberCount(parseTopic); parseN != 0 {
+		t.Fatalf("subscriber count after concurrency window = %d, want 0", parseN)
 	}
 }
 

@@ -106,6 +106,42 @@ func TestRenderMarkdownRendersSemanticHTML(parseT *testing.T) {
 	}
 }
 
+func TestRenderMarkdownEscapesRawHTMLAndEnablesGFM(parseT *testing.T) {
+	parseSource := strings.Join([]string{
+		"<section><strong>raw</strong></section>",
+		"",
+		"Paragraph with <span>inline</span> and ~~old~~.",
+		"",
+		"https://example.test/gfm",
+		"",
+		"- [x] Done",
+		"- [ ] Todo",
+		"",
+		"| A | B |",
+		"| - | - |",
+		"| 1 | 2 |",
+	}, "\n")
+
+	parseNodes := RenderMarkdown(parseSource)
+	parseMarkup, parseErr := ui.RenderToString(Div(Props{}, parseNodes...))
+	if parseErr != nil {
+		parseT.Fatalf("expected markdown render to stringify, got %v", parseErr)
+	}
+
+	for _, parseSnippet := range []string{
+		`&lt;section&gt;&lt;strong&gt;raw&lt;/strong&gt;&lt;/section&gt;`,
+		`Paragraph with &lt;span&gt;inline&lt;/span&gt; and <del>old</del>.`,
+		`<a href="https://example.test/gfm">https://example.test/gfm</a>`,
+		`<input checked disabled type="checkbox">`,
+		`<input disabled type="checkbox">`,
+		`<table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>`,
+	} {
+		if !strings.Contains(parseMarkup, parseSnippet) {
+			parseT.Fatalf("expected GFM/raw-HTML markdown markup to contain %q, got %s", parseSnippet, parseMarkup)
+		}
+	}
+}
+
 func TestRenderMarkdownAppliesOptions(parseT *testing.T) {
 	parseNodes := RenderMarkdown("## Heading\n\n[Docs](guide.md)\n\n```txt\nhello\n```", MarkdownRenderOptions{
 		SourcePath:     "assets/docs/start-here.md",

@@ -204,6 +204,10 @@ func TestListHelpersAndRestorationSnapshot(parseT *testing.T) {
 	if parseR.Start != 4 || parseR.End != 4 {
 		parseT.Fatalf("expected end clamp to start, got %+v", parseR)
 	}
+	parseR = clampRange(Range{Start: 2, End: 8}, 0)
+	if parseR.Start != 0 || parseR.End != 0 {
+		parseT.Fatalf("expected empty-list range clamp, got %+v", parseR)
+	}
 
 	if px(12.4) != "12px" {
 		parseT.Fatalf("unexpected px output")

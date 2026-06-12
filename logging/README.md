@@ -6,6 +6,10 @@
 
 The `logging` library provides structured logging surfaces and adapters used by the GWC runtime and tools.
 
+## Telemetry Redaction
+
+Use `ConfigureTelemetryRedaction` to install one process-wide telemetry policy before emitting logs, panic reports, or devtools exports. Field names are matched case-insensitively after punctuation normalization, nested JSON-like values are walked recursively, and redactor failures fail closed by dropping the affected field. With no configured policy, telemetry is emitted unchanged.
+
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/logging` (`package logging`)

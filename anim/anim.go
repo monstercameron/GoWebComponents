@@ -1,7 +1,7 @@
 // Package anim provides deterministic animation primitives for the
 // GoWebComponents framework: a semi-implicit Euler spring solver, a standard
-// set of easing functions, and a FLIP (First-Last-Invert-Play) delta
-// calculator. All exported symbols are pure functions or plain structs with no
+// set of easing functions, FLIP (First-Last-Invert-Play) deltas, and pure
+// pointer gesture helpers. All exported symbols are pure functions or plain structs with no
 // side effects, no I/O, and no dependency on wall-clock time or randomness —
 // a future requestAnimationFrame hook drives them by supplying elapsed seconds.
 //
@@ -265,4 +265,121 @@ func ComputeFLIP(parseFirst, parseLast Rect) FLIPTransform {
 		ScaleX:     parseScaleX,
 		ScaleY:     parseScaleY,
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Gesture helpers
+// ---------------------------------------------------------------------------
+
+// Point is a two-dimensional coordinate in client or layout space.
+type Point struct {
+	X float64
+	Y float64
+}
+
+// GestureSample is one timestamped pointer position. Time is expressed in
+// seconds and is caller-owned, so tests and browser integrations can use a
+// deterministic clock.
+type GestureSample struct {
+	ID   string
+	X    float64
+	Y    float64
+	Time float64
+}
+
+// PanGesture describes the state of a one-pointer drag/pan interaction.
+type PanGesture struct {
+	Start     Point
+	Current   Point
+	Delta     Point
+	Velocity  Point
+	StartTime float64
+	Time      float64
+	Active    bool
+}
+
+// StartPan begins a one-pointer pan gesture from parseSample.
+func StartPan(parseSample GestureSample) PanGesture {
+	parsePoint := Point{X: parseSample.X, Y: parseSample.Y}
+	return PanGesture{
+		Start:     parsePoint,
+		Current:   parsePoint,
+		StartTime: parseSample.Time,
+		Time:      parseSample.Time,
+		Active:    true,
+	}
+}
+
+// Move advances a pan gesture to parseSample, updating total delta and
+// instantaneous velocity. Non-positive elapsed time produces zero velocity.
+func (parseG PanGesture) Move(parseSample GestureSample) PanGesture {
+	parseNext := parseG
+	parsePrevious := parseG.Current
+	parsePreviousTime := parseG.Time
+	parseNext.Current = Point{X: parseSample.X, Y: parseSample.Y}
+	parseNext.Time = parseSample.Time
+	parseNext.Delta = Point{
+		X: parseNext.Current.X - parseNext.Start.X,
+		Y: parseNext.Current.Y - parseNext.Start.Y,
+	}
+	parseDt := parseSample.Time - parsePreviousTime
+	if parseDt > 0 {
+		parseNext.Velocity = Point{
+			X: (parseNext.Current.X - parsePrevious.X) / parseDt,
+			Y: (parseNext.Current.Y - parsePrevious.Y) / parseDt,
+		}
+	} else {
+		parseNext.Velocity = Point{}
+	}
+	parseNext.Active = true
+	return parseNext
+}
+
+// End marks a pan gesture inactive while preserving its final deltas.
+func (parseG PanGesture) End() PanGesture {
+	parseG.Active = false
+	parseG.Velocity = Point{}
+	return parseG
+}
+
+// PinchGesture describes the scale/center produced by a two-pointer pinch.
+type PinchGesture struct {
+	StartA        Point
+	StartB        Point
+	CurrentA      Point
+	CurrentB      Point
+	StartDistance float64
+	Distance      float64
+	Scale         float64
+	Center        Point
+	Active        bool
+}
+
+// ComputePinch calculates the current two-pointer pinch scale and center. A
+// zero start distance is treated as identity scale to avoid divide-by-zero.
+func ComputePinch(parseStartA, parseStartB, parseCurrentA, parseCurrentB Point) PinchGesture {
+	parseStartDistance := pointDistance(parseStartA, parseStartB)
+	parseDistance := pointDistance(parseCurrentA, parseCurrentB)
+	parseScale := 1.0
+	if parseStartDistance > 0 {
+		parseScale = parseDistance / parseStartDistance
+	}
+	return PinchGesture{
+		StartA:        parseStartA,
+		StartB:        parseStartB,
+		CurrentA:      parseCurrentA,
+		CurrentB:      parseCurrentB,
+		StartDistance: parseStartDistance,
+		Distance:      parseDistance,
+		Scale:         parseScale,
+		Center: Point{
+			X: (parseCurrentA.X + parseCurrentB.X) / 2,
+			Y: (parseCurrentA.Y + parseCurrentB.Y) / 2,
+		},
+		Active: true,
+	}
+}
+
+func pointDistance(parseA, parseB Point) float64 {
+	return math.Hypot(parseA.X-parseB.X, parseA.Y-parseB.Y)
 }

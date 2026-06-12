@@ -32,6 +32,78 @@ func TestParseWasmReleaseManifestJSONValidatesAndNormalizes(parseT *testing.T) {
 	}
 }
 
+func TestChooseWasmRolloutIsDeterministicAndRollbackForcesStable(parseT *testing.T) {
+	parseStable := WasmReleaseManifest{
+		Package: "./examples/app",
+		Profile: "production",
+		GOOS:    "js",
+		GOARCH:  "wasm",
+		BuildID: "stable-build",
+		Artifacts: map[string]WasmReleaseArtifact{
+			"wasm": {Path: "stable.wasm", SHA256: "stable-sha"},
+		},
+	}
+	parseCanary := WasmReleaseManifest{
+		Package: "./examples/app",
+		Profile: "production",
+		GOOS:    "js",
+		GOARCH:  "wasm",
+		BuildID: "canary-build",
+		Artifacts: map[string]WasmReleaseArtifact{
+			"wasm": {Path: "canary.wasm", SHA256: "canary-sha"},
+		},
+	}
+	parseConfig := WasmRolloutConfig{Stable: parseStable, Canary: parseCanary, CanaryPercent: 25, Salt: "deploy-1", CacheTTLSeconds: 60}
+	parseFirst, parseErr := ChooseWasmRollout(parseConfig, "client-123")
+	if parseErr != nil {
+		parseT.Fatalf("ChooseWasmRollout: %v", parseErr)
+	}
+	parseSecond, parseErr := ChooseWasmRollout(parseConfig, "client-123")
+	if parseErr != nil {
+		parseT.Fatalf("ChooseWasmRollout second: %v", parseErr)
+	}
+	if parseFirst != parseSecond {
+		parseT.Fatalf("expected stable cohort assignment across reloads, got %+v then %+v", parseFirst, parseSecond)
+	}
+	if parseFirst.BuildID == "" || parseFirst.SHA256 == "" {
+		parseT.Fatalf("expected decision to expose build metadata, got %+v", parseFirst)
+	}
+
+	parseRollback, parseErr := ChooseWasmRollout(WasmRolloutConfig{Stable: parseStable, Canary: parseCanary, CanaryPercent: 100, Rollback: true, CacheTTLSeconds: 300}, "client-123")
+	if parseErr != nil {
+		parseT.Fatalf("ChooseWasmRollout rollback: %v", parseErr)
+	}
+	if parseRollback.Cohort != "stable" || parseRollback.BuildID != "stable-build" || !parseRollback.RolledBack || parseRollback.CacheTTLSeconds != 1 {
+		parseT.Fatalf("expected rollback to force stable within one short TTL, got %+v", parseRollback)
+	}
+}
+
+func TestEvaluateVersionSkewRefreshOneShotAndSnapshotRestore(parseT *testing.T) {
+	parseDecision := EvaluateVersionSkewRefresh(VersionSkewRefreshInput{
+		ClientBuildID:      "old",
+		ServerBuildID:      "new",
+		StateSnapshotJSON:  []byte(`{"state":{"theme":"dark"}}`),
+		VersionsCanMigrate: true,
+	})
+	if !parseDecision.Mismatch || !parseDecision.ShouldReload || !parseDecision.BypassCache || !parseDecision.RestoreAfterReload {
+		parseT.Fatalf("expected one forced reload with snapshot restore, got %+v", parseDecision)
+	}
+	if string(parseDecision.SnapshotBeforeReload) != `{"state":{"theme":"dark"}}` {
+		parseT.Fatalf("expected snapshot to be carried across refresh, got %q", parseDecision.SnapshotBeforeReload)
+	}
+
+	parseLoopGuard := EvaluateVersionSkewRefresh(VersionSkewRefreshInput{
+		ClientBuildID:      "old",
+		ServerBuildID:      "new",
+		ReloadAlreadyTried: true,
+		StateSnapshotJSON:  []byte(`{"state":{"theme":"dark"}}`),
+		VersionsCanMigrate: true,
+	})
+	if !parseLoopGuard.Mismatch || parseLoopGuard.ShouldReload || !parseLoopGuard.LoopGuarded || parseLoopGuard.RestoreAfterReload {
+		parseT.Fatalf("expected persistent mismatch to be loop-guarded, got %+v", parseLoopGuard)
+	}
+}
+
 func TestWasmReleaseManifestJSONWireShapePreservesFlagsObject(parseT *testing.T) {
 	parseEncoded, parseErr := json.Marshal(WasmReleaseManifest{})
 	if parseErr != nil {

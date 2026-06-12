@@ -37,12 +37,22 @@ type Props struct {
 	Min          string
 	Max          string
 	Step         string
+	Pattern      string
+	Lang         string
+	Dir          string
+	Width        string
+	Height       string
+	Loading      string
 
 	Rows int
 	Cols int
 	// TabIndex of 0 is silently omitted by toRuntimeProps; use html.TabIndex(0)
 	// (the PropOption) or Raw["tabIndex"]=0 to make tabindex=0 explicit.
-	TabIndex int
+	TabIndex  int
+	MaxLength int
+	MinLength int
+	ColSpan   int
+	RowSpan   int
 
 	Checked   bool
 	Disabled  bool
@@ -52,23 +62,43 @@ type Props struct {
 	Hidden    bool
 	Multiple  bool
 	AutoFocus bool
+	Open      bool
 
 	Style map[string]string
 	Data  map[string]string
 	Aria  map[string]string
 	Raw   map[string]any
 
-	OnClick     ui.Handler
-	OnInput     ui.Handler
-	OnChange    ui.Handler
-	OnSubmit    ui.Handler
-	OnKeyDown   ui.Handler
-	OnKeyUp     ui.Handler
-	OnMouseUp   ui.Handler
-	OnMouseDown ui.Handler
-	OnFocus     ui.Handler
-	OnBlur      ui.Handler
-	OnScroll    ui.Handler
+	OnClick         ui.Handler
+	OnInput         ui.Handler
+	OnChange        ui.Handler
+	OnSubmit        ui.Handler
+	OnKeyDown       ui.Handler
+	OnKeyUp         ui.Handler
+	OnMouseUp       ui.Handler
+	OnMouseDown     ui.Handler
+	OnMouseEnter    ui.Handler
+	OnMouseLeave    ui.Handler
+	OnDoubleClick   ui.Handler
+	OnContextMenu   ui.Handler
+	OnWheel         ui.Handler
+	OnTransitionEnd ui.Handler
+	OnAnimationEnd  ui.Handler
+	OnLoad          ui.Handler
+	OnError         ui.Handler
+	OnPointerDown   ui.Handler
+	OnPointerMove   ui.Handler
+	OnPointerUp     ui.Handler
+	OnTouchStart    ui.Handler
+	OnTouchMove     ui.Handler
+	OnTouchEnd      ui.Handler
+	OnDragStart     ui.Handler
+	OnDragOver      ui.Handler
+	OnDrop          ui.Handler
+	OnDragEnd       ui.Handler
+	OnFocus         ui.Handler
+	OnBlur          ui.Handler
+	OnScroll        ui.Handler
 }
 
 // CustomElementProps makes attribute-versus-property intent explicit for
@@ -448,25 +478,192 @@ func Ul(parseProps Props, parseChildren ...ui.Node) ui.Node {
 	return Tag("ul", parseProps, parseChildren...)
 }
 
+// Ol creates an ol ordered-list element.
+func Ol(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("ol", parseProps, parseChildren...)
+}
+
+// Tfoot creates a tfoot table section.
+func Tfoot(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("tfoot", parseProps, parseChildren...)
+}
+
+// Caption creates a table caption element.
+func Caption(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("caption", parseProps, parseChildren...)
+}
+
+// Colgroup creates a colgroup table element.
+func Colgroup(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("colgroup", parseProps, parseChildren...)
+}
+
+// Col creates a col table element.
+func Col(parseProps Props) ui.Node { return Tag("col", parseProps) }
+
+// Video creates a video media element.
+func Video(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("video", parseProps, parseChildren...)
+}
+
+// Audio creates an audio media element.
+func Audio(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("audio", parseProps, parseChildren...)
+}
+
+// Source creates a source media element.
+func Source(parseProps Props) ui.Node { return Tag("source", parseProps) }
+
+// Track creates a track media element.
+func Track(parseProps Props) ui.Node { return Tag("track", parseProps) }
+
+// Canvas creates a canvas element.
+func Canvas(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("canvas", parseProps, parseChildren...)
+}
+
+// Optgroup creates an optgroup element.
+func Optgroup(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("optgroup", parseProps, parseChildren...)
+}
+
+// Datalist creates a datalist element.
+func Datalist(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("datalist", parseProps, parseChildren...)
+}
+
+// Output creates an output element.
+func Output(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("output", parseProps, parseChildren...)
+}
+
+// Progress creates a progress element.
+func Progress(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("progress", parseProps, parseChildren...)
+}
+
+// Meter creates a meter element.
+func Meter(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("meter", parseProps, parseChildren...)
+}
+
+// Figure creates a figure element.
+func Figure(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("figure", parseProps, parseChildren...)
+}
+
+// Figcaption creates a figcaption element.
+func Figcaption(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("figcaption", parseProps, parseChildren...)
+}
+
+// Picture creates a picture element.
+func Picture(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("picture", parseProps, parseChildren...)
+}
+
+// Abbr creates an abbr element.
+func Abbr(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("abbr", parseProps, parseChildren...)
+}
+
+// Kbd creates a kbd element.
+func Kbd(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("kbd", parseProps, parseChildren...)
+}
+
+// Sub creates a sub element.
+func Sub(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("sub", parseProps, parseChildren...)
+}
+
+// Sup creates a sup element.
+func Sup(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("sup", parseProps, parseChildren...)
+}
+
+// Del creates a del element.
+func Del(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("del", parseProps, parseChildren...)
+}
+
+// Ins creates an ins element.
+func Ins(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("ins", parseProps, parseChildren...)
+}
+
+// B creates a b element.
+func B(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("b", parseProps, parseChildren...)
+}
+
+// I creates an i element.
+func I(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("i", parseProps, parseChildren...)
+}
+
+// U creates a u element.
+func U(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("u", parseProps, parseChildren...)
+}
+
+// Svg creates an svg element with the SVG namespace attribute set by default.
+func Svg(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	if parseProps.Raw == nil {
+		parseProps.Raw = map[string]any{"xmlns": "http://www.w3.org/2000/svg"}
+		return Tag("svg", parseProps, parseChildren...)
+	}
+	if _, parseHasXMLNS := parseProps.Raw["xmlns"]; !parseHasXMLNS {
+		parseProps.Raw = maps.Clone(parseProps.Raw)
+		parseProps.Raw["xmlns"] = "http://www.w3.org/2000/svg"
+	}
+	return Tag("svg", parseProps, parseChildren...)
+}
+
+// Path creates an svg path element.
+func Path(parseProps Props) ui.Node { return Tag("path", parseProps) }
+
+// Circle creates an svg circle element.
+func Circle(parseProps Props) ui.Node { return Tag("circle", parseProps) }
+
+// Rect creates an svg rect element.
+func Rect(parseProps Props) ui.Node { return Tag("rect", parseProps) }
+
+// G creates an svg group element.
+func G(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("g", parseProps, parseChildren...)
+}
+
+// Line creates an svg line element.
+func Line(parseProps Props) ui.Node { return Tag("line", parseProps) }
+
+// Polyline creates an svg polyline element.
+func Polyline(parseProps Props) ui.Node { return Tag("polyline", parseProps) }
+
+// Polygon creates an svg polygon element.
+func Polygon(parseProps Props) ui.Node { return Tag("polygon", parseProps) }
+
+// Defs creates an svg defs element.
+func Defs(parseProps Props, parseChildren ...ui.Node) ui.Node {
+	return Tag("defs", parseProps, parseChildren...)
+}
+
+// Use creates an svg use element.
+func Use(parseProps Props) ui.Node { return Tag("use", parseProps) }
+
 // toRuntimeCompactProps builds props and compact host attrs in one pass for
 // typed Props that contain only string attributes plus the skipped key prop.
 func toRuntimeCompactProps(parseProps Props) (map[string]any, []runtime.HostAttr, bool) {
-	parseOnClick := parseProps.OnClick.Value()
-	parseOnInput := parseProps.OnInput.Value()
-	parseOnChange := parseProps.OnChange.Value()
-	parseOnSubmit := parseProps.OnSubmit.Value()
-	parseOnKeyDown := parseProps.OnKeyDown.Value()
-	parseOnKeyUp := parseProps.OnKeyUp.Value()
-	parseOnMouseUp := parseProps.OnMouseUp.Value()
-	parseOnMouseDown := parseProps.OnMouseDown.Value()
-	parseOnFocus := parseProps.OnFocus.Value()
-	parseOnBlur := parseProps.OnBlur.Value()
-	parseOnScroll := parseProps.OnScroll.Value()
+	parseEvents := runtimeEventProps(parseProps)
 
 	if parseProps.Value != "" ||
 		parseProps.Rows != 0 ||
 		parseProps.Cols != 0 ||
 		parseProps.TabIndex != 0 ||
+		parseProps.MaxLength != 0 ||
+		parseProps.MinLength != 0 ||
+		parseProps.ColSpan != 0 ||
+		parseProps.RowSpan != 0 ||
 		parseProps.Checked ||
 		parseProps.Disabled ||
 		parseProps.Selected ||
@@ -475,19 +672,10 @@ func toRuntimeCompactProps(parseProps Props) (map[string]any, []runtime.HostAttr
 		parseProps.Hidden ||
 		parseProps.Multiple ||
 		parseProps.AutoFocus ||
+		parseProps.Open ||
 		parseProps.Style != nil ||
 		len(parseProps.Raw) != 0 ||
-		parseOnClick != nil ||
-		parseOnInput != nil ||
-		parseOnChange != nil ||
-		parseOnSubmit != nil ||
-		parseOnKeyDown != nil ||
-		parseOnKeyUp != nil ||
-		parseOnMouseUp != nil ||
-		parseOnMouseDown != nil ||
-		parseOnFocus != nil ||
-		parseOnBlur != nil ||
-		parseOnScroll != nil {
+		len(parseEvents) != 0 {
 		return nil, nil, false
 	}
 
@@ -525,6 +713,12 @@ func toRuntimeCompactProps(parseProps Props) (map[string]any, []runtime.HostAttr
 	parseCountStringAttr(parseProps.Min)
 	parseCountStringAttr(parseProps.Max)
 	parseCountStringAttr(parseProps.Step)
+	parseCountStringAttr(parseProps.Pattern)
+	parseCountStringAttr(parseProps.Lang)
+	parseCountStringAttr(parseProps.Dir)
+	parseCountStringAttr(parseProps.Width)
+	parseCountStringAttr(parseProps.Height)
+	parseCountStringAttr(parseProps.Loading)
 
 	if parseCount == 0 {
 		return nil, nil, true
@@ -566,6 +760,12 @@ func toRuntimeCompactProps(parseProps Props) (map[string]any, []runtime.HostAttr
 	parseStoreAttr("min", "min", parseProps.Min)
 	parseStoreAttr("max", "max", parseProps.Max)
 	parseStoreAttr("step", "step", parseProps.Step)
+	parseStoreAttr("pattern", "pattern", parseProps.Pattern)
+	parseStoreAttr("lang", "lang", parseProps.Lang)
+	parseStoreAttr("dir", "dir", parseProps.Dir)
+	parseStoreAttr("width", "width", parseProps.Width)
+	parseStoreAttr("height", "height", parseProps.Height)
+	parseStoreAttr("loading", "loading", parseProps.Loading)
 
 	for parseKey, parseValue := range parseProps.Data {
 		parseName := "data-" + parseKey
@@ -583,19 +783,9 @@ func toRuntimeCompactProps(parseProps Props) (map[string]any, []runtime.HostAttr
 
 // toRuntimeProps is a core package helper.
 func toRuntimeProps(parseProps Props) map[string]any {
-	parseOnClick := parseProps.OnClick.Value()
-	parseOnInput := parseProps.OnInput.Value()
-	parseOnChange := parseProps.OnChange.Value()
-	parseOnSubmit := parseProps.OnSubmit.Value()
-	parseOnKeyDown := parseProps.OnKeyDown.Value()
-	parseOnKeyUp := parseProps.OnKeyUp.Value()
-	parseOnMouseUp := parseProps.OnMouseUp.Value()
-	parseOnMouseDown := parseProps.OnMouseDown.Value()
-	parseOnFocus := parseProps.OnFocus.Value()
-	parseOnBlur := parseProps.OnBlur.Value()
-	parseOnScroll := parseProps.OnScroll.Value()
+	parseEvents := runtimeEventProps(parseProps)
 
-	parseCount := len(parseProps.Data) + len(parseProps.Aria) + len(parseProps.Raw)
+	parseCount := len(parseProps.Data) + len(parseProps.Aria) + len(parseProps.Raw) + len(parseEvents)
 	if parseProps.ID != "" {
 		parseCount++
 	}
@@ -671,6 +861,24 @@ func toRuntimeProps(parseProps Props) map[string]any {
 	if parseProps.Step != "" {
 		parseCount++
 	}
+	if parseProps.Pattern != "" {
+		parseCount++
+	}
+	if parseProps.Lang != "" {
+		parseCount++
+	}
+	if parseProps.Dir != "" {
+		parseCount++
+	}
+	if parseProps.Width != "" {
+		parseCount++
+	}
+	if parseProps.Height != "" {
+		parseCount++
+	}
+	if parseProps.Loading != "" {
+		parseCount++
+	}
 	if parseProps.Rows != 0 {
 		parseCount++
 	}
@@ -678,6 +886,18 @@ func toRuntimeProps(parseProps Props) map[string]any {
 		parseCount++
 	}
 	if parseProps.TabIndex != 0 {
+		parseCount++
+	}
+	if parseProps.MaxLength != 0 {
+		parseCount++
+	}
+	if parseProps.MinLength != 0 {
+		parseCount++
+	}
+	if parseProps.ColSpan != 0 {
+		parseCount++
+	}
+	if parseProps.RowSpan != 0 {
 		parseCount++
 	}
 	if parseProps.Checked {
@@ -704,40 +924,10 @@ func toRuntimeProps(parseProps Props) map[string]any {
 	if parseProps.AutoFocus {
 		parseCount++
 	}
+	if parseProps.Open {
+		parseCount++
+	}
 	if parseProps.Style != nil {
-		parseCount++
-	}
-	if parseOnClick != nil {
-		parseCount++
-	}
-	if parseOnInput != nil {
-		parseCount++
-	}
-	if parseOnChange != nil {
-		parseCount++
-	}
-	if parseOnSubmit != nil {
-		parseCount++
-	}
-	if parseOnKeyDown != nil {
-		parseCount++
-	}
-	if parseOnKeyUp != nil {
-		parseCount++
-	}
-	if parseOnMouseUp != nil {
-		parseCount++
-	}
-	if parseOnMouseDown != nil {
-		parseCount++
-	}
-	if parseOnFocus != nil {
-		parseCount++
-	}
-	if parseOnBlur != nil {
-		parseCount++
-	}
-	if parseOnScroll != nil {
 		parseCount++
 	}
 
@@ -821,6 +1011,24 @@ func toRuntimeProps(parseProps Props) map[string]any {
 	if parseProps.Step != "" {
 		parseValues["step"] = parseProps.Step
 	}
+	if parseProps.Pattern != "" {
+		parseValues["pattern"] = parseProps.Pattern
+	}
+	if parseProps.Lang != "" {
+		parseValues["lang"] = parseProps.Lang
+	}
+	if parseProps.Dir != "" {
+		parseValues["dir"] = parseProps.Dir
+	}
+	if parseProps.Width != "" {
+		parseValues["width"] = parseProps.Width
+	}
+	if parseProps.Height != "" {
+		parseValues["height"] = parseProps.Height
+	}
+	if parseProps.Loading != "" {
+		parseValues["loading"] = parseProps.Loading
+	}
 	if parseProps.Rows != 0 {
 		parseValues["rows"] = parseProps.Rows
 	}
@@ -829,6 +1037,18 @@ func toRuntimeProps(parseProps Props) map[string]any {
 	}
 	if parseProps.TabIndex != 0 {
 		parseValues["tabIndex"] = parseProps.TabIndex
+	}
+	if parseProps.MaxLength != 0 {
+		parseValues["maxLength"] = parseProps.MaxLength
+	}
+	if parseProps.MinLength != 0 {
+		parseValues["minLength"] = parseProps.MinLength
+	}
+	if parseProps.ColSpan != 0 {
+		parseValues["colSpan"] = parseProps.ColSpan
+	}
+	if parseProps.RowSpan != 0 {
+		parseValues["rowSpan"] = parseProps.RowSpan
 	}
 	if parseProps.Checked {
 		parseValues["checked"] = true
@@ -854,6 +1074,9 @@ func toRuntimeProps(parseProps Props) map[string]any {
 	if parseProps.AutoFocus {
 		parseValues["autofocus"] = true
 	}
+	if parseProps.Open {
+		parseValues["open"] = true
+	}
 	if parseProps.Style != nil {
 		parseValues["style"] = parseProps.Style
 	}
@@ -868,44 +1091,59 @@ func toRuntimeProps(parseProps Props) map[string]any {
 			parseValues["aria-"+parseKey2] = parseValue2
 		}
 	}
-	if parseOnClick != nil {
-		parseValues["onclick"] = parseOnClick
-	}
-	if parseOnInput != nil {
-		parseValues["oninput"] = parseOnInput
-	}
-	if parseOnChange != nil {
-		parseValues["onchange"] = parseOnChange
-	}
-	if parseOnSubmit != nil {
-		parseValues["onsubmit"] = parseOnSubmit
-	}
-	if parseOnKeyDown != nil {
-		parseValues["onkeydown"] = parseOnKeyDown
-	}
-	if parseOnKeyUp != nil {
-		parseValues["onkeyup"] = parseOnKeyUp
-	}
-	if parseOnMouseUp != nil {
-		parseValues["onmouseup"] = parseOnMouseUp
-	}
-	if parseOnMouseDown != nil {
-		parseValues["onmousedown"] = parseOnMouseDown
-	}
-	if parseOnFocus != nil {
-		parseValues["onfocus"] = parseOnFocus
-	}
-	if parseOnBlur != nil {
-		parseValues["onblur"] = parseOnBlur
-	}
-	if parseOnScroll != nil {
-		parseValues["onscroll"] = parseOnScroll
+	for _, parseEvent := range parseEvents {
+		parseValues[parseEvent.name] = parseEvent.value
 	}
 	if len(parseProps.Raw) != 0 {
 		maps.Copy(parseValues, parseProps.Raw)
 	}
 
 	return parseValues
+}
+
+type eventProp struct {
+	name  string
+	value any
+}
+
+func runtimeEventProps(parseProps Props) []eventProp {
+	var parseEvents []eventProp
+	appendEventProp := func(parseName string, parseHandler ui.Handler) {
+		if parseValue := parseHandler.Value(); parseValue != nil {
+			parseEvents = append(parseEvents, eventProp{name: parseName, value: parseValue})
+		}
+	}
+	appendEventProp("onclick", parseProps.OnClick)
+	appendEventProp("oninput", parseProps.OnInput)
+	appendEventProp("onchange", parseProps.OnChange)
+	appendEventProp("onsubmit", parseProps.OnSubmit)
+	appendEventProp("onkeydown", parseProps.OnKeyDown)
+	appendEventProp("onkeyup", parseProps.OnKeyUp)
+	appendEventProp("onmouseup", parseProps.OnMouseUp)
+	appendEventProp("onmousedown", parseProps.OnMouseDown)
+	appendEventProp("onmouseenter", parseProps.OnMouseEnter)
+	appendEventProp("onmouseleave", parseProps.OnMouseLeave)
+	appendEventProp("ondblclick", parseProps.OnDoubleClick)
+	appendEventProp("oncontextmenu", parseProps.OnContextMenu)
+	appendEventProp("onwheel", parseProps.OnWheel)
+	appendEventProp("ontransitionend", parseProps.OnTransitionEnd)
+	appendEventProp("onanimationend", parseProps.OnAnimationEnd)
+	appendEventProp("onload", parseProps.OnLoad)
+	appendEventProp("onerror", parseProps.OnError)
+	appendEventProp("onpointerdown", parseProps.OnPointerDown)
+	appendEventProp("onpointermove", parseProps.OnPointerMove)
+	appendEventProp("onpointerup", parseProps.OnPointerUp)
+	appendEventProp("ontouchstart", parseProps.OnTouchStart)
+	appendEventProp("ontouchmove", parseProps.OnTouchMove)
+	appendEventProp("ontouchend", parseProps.OnTouchEnd)
+	appendEventProp("ondragstart", parseProps.OnDragStart)
+	appendEventProp("ondragover", parseProps.OnDragOver)
+	appendEventProp("ondrop", parseProps.OnDrop)
+	appendEventProp("ondragend", parseProps.OnDragEnd)
+	appendEventProp("onfocus", parseProps.OnFocus)
+	appendEventProp("onblur", parseProps.OnBlur)
+	appendEventProp("onscroll", parseProps.OnScroll)
+	return parseEvents
 }
 
 // toInterfaces is a core package helper.

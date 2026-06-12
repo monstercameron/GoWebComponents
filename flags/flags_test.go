@@ -46,6 +46,16 @@ func TestGetFlagFallsBackWhenMissing(parseT *testing.T) {
 	}
 }
 
+func TestGetValueFallsBackWhenPresentFlagValueEmpty(parseT *testing.T) {
+	parseSet := BuildSet(map[string]Flag{
+		"theme": {Enabled: true, Value: "", Reason: "remote-empty"},
+	}, nil)
+
+	if parseGot := parseSet.GetValue("theme", "system"); parseGot != "system" {
+		parseT.Fatalf("expected empty present flag value to use fallback, got %q", parseGot)
+	}
+}
+
 func TestGetAssignmentIsDeterministic(parseT *testing.T) {
 	parseSet := BuildSet(nil, map[string]Experiment{
 		"pricing": {
@@ -69,6 +79,16 @@ func TestGetAssignmentIsDeterministic(parseT *testing.T) {
 	}
 	if parseFirst.Bucket < 0 || parseFirst.Bucket >= 100 {
 		parseT.Fatalf("bucket out of range: %+v", parseFirst)
+	}
+}
+
+func TestGetBucketStability(parseT *testing.T) {
+	parseBucket := getBucket("pricing", "v1", "customer-123", 100)
+	if parseBucket != 59 {
+		parseT.Fatalf("getBucket changed cohort assignment: got %d, want 59", parseBucket)
+	}
+	if parseBucket2 := getBucket("pricing", "v1", "customer-123", 100); parseBucket2 != parseBucket {
+		parseT.Fatalf("getBucket changed between calls: first=%d second=%d", parseBucket, parseBucket2)
 	}
 }
 

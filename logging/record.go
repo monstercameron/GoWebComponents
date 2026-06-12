@@ -236,7 +236,12 @@ func buildLogAttributes(parseLogFields map[string]any) map[string]any {
 		if parseStoredKey == "" {
 			continue
 		}
-		parseAttributes[parseStoredKey] = normalizeLogValue(parseFieldValue)
+		parseNormalized := normalizeLogValue(parseFieldValue)
+		parseRedacted, parseKeep := RedactTelemetryField("log.attributes."+parseStoredKey, parseStoredKey, parseNormalized)
+		if !parseKeep {
+			continue
+		}
+		parseAttributes[parseStoredKey] = RedactTelemetryValue("log.attributes."+parseStoredKey, parseRedacted)
 	}
 	return parseAttributes
 }

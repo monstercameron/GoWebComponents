@@ -6,6 +6,10 @@
 
 The `pwa` library contains progressive web app helpers such as persistence, diagnostics, and client capability integrations.
 
+## WASM Release Safety
+
+`WasmReleaseManifest` carries an optional `BuildID` that participates in revisions and rollout decisions. `ChooseWasmRollout` assigns clients to stable or canary artifacts deterministically from client ID plus salt, while rollback forces stable selection with a cache TTL capped to one second. `EvaluateVersionSkewRefresh` provides the one-shot cache-bypassing reload decision and carries a state snapshot forward only when the caller reports that the two versions can migrate.
+
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/pwa` (`package pwa`)

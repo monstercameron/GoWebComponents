@@ -145,6 +145,24 @@ func TestShowTogglesHiddenWithoutRemoving(parseT *testing.T) {
 	}
 }
 
+func TestShowClonesPropsBeforeHiding(parseT *testing.T) {
+	parseNode := Div(Props{Raw: map[string]any{"data-state": "shared"}}, Text("content"))
+	parseHidden := Show(false, parseNode)
+	if parseHidden == parseNode {
+		parseT.Fatal("expected Show(false, node) to return a cloned node")
+	}
+	if _, parseOk := parseNode.Props["hidden"]; parseOk {
+		parseT.Fatalf("expected source node props to stay visible, got %#v", parseNode.Props)
+	}
+	if parseHidden.Props["hidden"] != true {
+		parseT.Fatalf("expected hidden clone prop, got %#v", parseHidden.Props)
+	}
+	parseHidden.Props["data-state"] = "changed"
+	if parseNode.Props["data-state"] != "shared" {
+		parseT.Fatalf("expected source props map to stay unaliased, got %#v", parseNode.Props)
+	}
+}
+
 // TestWithChildrenAppends verifies WithChildren appends children and skips nil.
 func TestWithChildrenAppends(parseT *testing.T) {
 	parseNode := WithChildren(Div(Props{}, Text("a")), Text("b"), nil, Text("c"))
@@ -157,5 +175,55 @@ func TestWithChildrenAppends(parseT *testing.T) {
 	}
 	if WithChildren(nil, Text("x")) != nil {
 		parseT.Fatal("expected WithChildren(nil, ...) to stay nil")
+	}
+}
+
+var benchmarkMergePropsSink Props
+
+func BenchmarkMergePropsHotPath(parseB *testing.B) {
+	parseBase := Props{
+		ID:       "card-1",
+		Class:    "card quiet",
+		Title:    "Base",
+		Role:     "region",
+		TabIndex: -1,
+		Style: map[string]string{
+			"display": "grid",
+			"gap":     "8px",
+			"color":   "black",
+		},
+		Data: map[string]string{
+			"owner": "base",
+			"slot":  "body",
+		},
+		Aria: map[string]string{
+			"label": "Base card",
+		},
+		Raw: map[string]any{
+			"data-base": "1",
+			"draggable": true,
+		},
+	}
+	parseOverride := Props{
+		Class:       "card selected",
+		Placeholder: "Search",
+		Disabled:    true,
+		Style: map[string]string{
+			"color":       "blue",
+			"font-weight": "600",
+		},
+		Data: map[string]string{
+			"owner": "override",
+		},
+		Aria: map[string]string{
+			"selected": "true",
+		},
+		Raw: map[string]any{
+			"data-override": "1",
+		},
+	}
+	parseB.ReportAllocs()
+	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+		benchmarkMergePropsSink = MergeProps(parseBase, parseOverride)
 	}
 }

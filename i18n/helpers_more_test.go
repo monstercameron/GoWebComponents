@@ -97,6 +97,9 @@ func TestResolveTemplateAndInterpolationBranches(parseT *testing.T) {
 	if parseGot9 := interpolateTemplate("Hello {name} at {when}", Arguments{"name": testStringer("Cam"), "when": parseTs}); !strings.Contains(parseGot9, "Cam") || !strings.Contains(parseGot9, "2026-03-25 12:34:56 +0000 UTC") {
 		parseT.Fatalf("unexpected interpolated template output: %q", parseGot9)
 	}
+	if parseGot10 := interpolateTemplate("{name} and {name}", Arguments{"name": "Ada"}); parseGot10 != "Ada and Ada" {
+		parseT.Fatalf("expected repeated placeholder replacement, got %q", parseGot10)
+	}
 }
 
 func TestLocaleAndRouteHelperBranches(parseT *testing.T) {
@@ -254,6 +257,9 @@ func TestFormattingAndRouteHelperEdgeBranches(parseT *testing.T) {
 	}
 	if parseGot10 := pluralCategoryForLocale("en", -1); parseGot10 != PluralOne {
 		parseT.Fatalf("expected negative english value to normalize to one, got %q", parseGot10)
+	}
+	if parseGot10b := pluralCategoryForLocale("ru", -11); parseGot10b != PluralMany {
+		parseT.Fatalf("expected negative russian value to normalize to many, got %q", parseGot10b)
 	}
 	if parseGot11 := pluralCategoryForLocale("ar", 100); parseGot11 != PluralOther {
 		parseT.Fatalf("expected arabic default plural branch, got %q", parseGot11)

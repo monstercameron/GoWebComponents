@@ -185,6 +185,9 @@ func (parseP *RemoteProvider) Poll(
 	parseSleep func(context.Context, time.Duration) error,
 ) error {
 	for {
+		if parseErr := parseCtx.Err(); parseErr != nil {
+			return parseErr
+		}
 		_ = parseP.Refresh(parseCtx)
 		if parseErr := parseSleep(parseCtx, parseInterval); parseErr != nil {
 			return parseCtx.Err()

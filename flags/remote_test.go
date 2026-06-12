@@ -293,3 +293,29 @@ func TestPollKeepsThroughFailuresThenSucceeds(parseT *testing.T) {
 		parseT.Fatalf("LastError should be nil after success, got %v", parseP.LastError())
 	}
 }
+
+func TestPollPreCancelledContextReturnsWithoutRefresh(parseT *testing.T) {
+	var parseFetchCount int32
+	var parseSleepCount int32
+	parseP := NewRemoteProvider(parseSetA, func(context.Context) (Set, error) {
+		atomic.AddInt32(&parseFetchCount, 1)
+		return parseSetB, nil
+	})
+
+	parseCtx, parseCancel := context.WithCancel(context.Background())
+	parseCancel()
+
+	parseErr := parseP.Poll(parseCtx, time.Millisecond, func(context.Context, time.Duration) error {
+		atomic.AddInt32(&parseSleepCount, 1)
+		return nil
+	})
+	if !errors.Is(parseErr, context.Canceled) {
+		parseT.Fatalf("expected context.Canceled, got %v", parseErr)
+	}
+	if atomic.LoadInt32(&parseFetchCount) != 0 {
+		parseT.Fatalf("expected pre-cancelled poll not to refresh, got %d fetches", parseFetchCount)
+	}
+	if atomic.LoadInt32(&parseSleepCount) != 0 {
+		parseT.Fatalf("expected pre-cancelled poll not to sleep, got %d sleeps", parseSleepCount)
+	}
+}

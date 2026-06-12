@@ -78,11 +78,13 @@ func ComputeViewportState(parseConfig ViewportConfig, parseScrollTop, parseViewp
 		parseViewportHeight = 0
 	}
 
+	parseTotalHeight := float64(parseNormalized.TotalItems) * parseNormalized.RowHeight
+
 	parseState := ViewportState{
 		ScrollTop:      parseScrollTop,
 		ViewportHeight: parseViewportHeight,
 		TotalItems:     parseNormalized.TotalItems,
-		TotalHeight:    float64(parseNormalized.TotalItems) * parseNormalized.RowHeight,
+		TotalHeight:    parseTotalHeight,
 		RowHeight:      parseNormalized.RowHeight,
 		Overscan:       parseNormalized.Overscan,
 	}

@@ -4,6 +4,7 @@ package sanitize
 
 import (
 	"strings"
+	"unicode"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -79,6 +80,10 @@ func Sanitize(parseHTML string, parseOptions ...Policy) string {
 // Sanitize parses parseHTML and returns an XSS-safe HTML string using the
 // receiver policy as the allowlist.
 func (parsePolicy Policy) Sanitize(parseHTML string) string {
+	if strings.TrimSpace(parseHTML) == "" {
+		return ""
+	}
+
 	parseContextNode := &html.Node{
 		Type:     html.ElementNode,
 		Data:     "div",
@@ -217,12 +222,13 @@ func (parsePolicy Policy) isSafeURL(parseURL string) bool {
 // stripControlChars removes ASCII control characters (Unicode code points
 // 0x00–0x20) that can be embedded in URLs to disguise scheme names.
 func stripControlChars(parseInput string) string {
-	parseBuf := make([]byte, 0, len(parseInput))
-	for parseI := 0; parseI < len(parseInput); parseI++ {
-		parseByte := parseInput[parseI]
-		if parseByte > 0x20 {
-			parseBuf = append(parseBuf, parseByte)
+	var parseBuf strings.Builder
+	parseBuf.Grow(len(parseInput))
+	for _, parseRune := range parseInput {
+		if unicode.IsSpace(parseRune) || unicode.IsControl(parseRune) || unicode.Is(unicode.Cf, parseRune) {
+			continue
 		}
+		parseBuf.WriteRune(parseRune)
 	}
-	return string(parseBuf)
+	return parseBuf.String()
 }

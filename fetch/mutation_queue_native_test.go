@@ -234,3 +234,75 @@ func TestFetchNativeMutationQueueStorageAndReplay(parseT *testing.T) {
 		parseT.Fatal("expected corrupted stored queue JSON to fail List")
 	}
 }
+
+func TestFetchNativeMutationQueueReplayFailureSchedulesRetryAndDefers(parseT *testing.T) {
+	parseStore, _ := buildFetchTestPersistentStore(parseT)
+	parseNow := time.Date(2026, time.April, 6, 14, 0, 0, 0, time.UTC)
+	parseQueue, parseErr := OpenMutationQueue(MutationQueueOptions{
+		StorageKey:  "offline-retry",
+		MaxAttempts: 3,
+		BaseDelay:   time.Second,
+		MaxDelay:    time.Second,
+		StoreResolver: func(parseCtx context.Context) (interop.PersistentStore, error) {
+			_ = parseCtx
+			return parseStore, nil
+		},
+		Now: func() time.Time { return parseNow },
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected mutation queue open success, got %v", parseErr)
+	}
+	parseEntry, parseErr := parseQueue.Enqueue(MutationDraft{URL: "/api/offline", Kind: "note.save"})
+	if parseErr != nil {
+		parseT.Fatalf("expected enqueue success, got %v", parseErr)
+	}
+
+	var parseAttempts int
+	parseReport, parseErr := parseQueue.Replay(context.Background(), func(parseCtx context.Context, parseMutation QueuedMutation) error {
+		_ = parseCtx
+		if parseMutation.ID != parseEntry.ID {
+			parseT.Fatalf("unexpected replay mutation: %+v", parseMutation)
+		}
+		parseAttempts++
+		return errors.New("network still offline")
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected failing executor to be captured in queue state, got %v", parseErr)
+	}
+	if parseAttempts != 1 || parseReport.Retried != 1 || parseReport.Remaining != 1 || parseReport.Succeeded != 0 {
+		parseT.Fatalf("unexpected first replay report: attempts=%d report=%+v", parseAttempts, parseReport)
+	}
+
+	parseEntries, parseErr := parseQueue.List()
+	if parseErr != nil || len(parseEntries) != 1 {
+		parseT.Fatalf("expected one queued retry entry, entries=%+v err=%v", parseEntries, parseErr)
+	}
+	parseRetry := parseEntries[0]
+	if parseRetry.State != MutationRetrying || parseRetry.Attempts != 1 || parseRetry.LastError != "network still offline" {
+		parseT.Fatalf("expected retry state to persist executor failure, got %+v", parseRetry)
+	}
+	if !parseRetry.NextAttemptAt.Equal(parseNow.Add(time.Second)) {
+		parseT.Fatalf("unexpected next retry time: %s", parseRetry.NextAttemptAt)
+	}
+
+	parseReport, parseErr = parseQueue.Replay(context.Background(), func(parseCtx context.Context, parseMutation QueuedMutation) error {
+		_ = parseCtx
+		_ = parseMutation
+		parseAttempts++
+		return nil
+	})
+	if parseErr != nil || parseAttempts != 1 || parseReport.Deferred != 1 || parseReport.Remaining != 1 {
+		parseT.Fatalf("expected retry entry to defer before NextAttemptAt, attempts=%d report=%+v err=%v", parseAttempts, parseReport, parseErr)
+	}
+
+	parseNow = parseNow.Add(time.Second)
+	parseReport, parseErr = parseQueue.Replay(context.Background(), func(parseCtx context.Context, parseMutation QueuedMutation) error {
+		_ = parseCtx
+		_ = parseMutation
+		parseAttempts++
+		return nil
+	})
+	if parseErr != nil || parseAttempts != 2 || parseReport.Succeeded != 1 || parseReport.Remaining != 0 {
+		parseT.Fatalf("expected due retry to replay exactly once and clear, attempts=%d report=%+v err=%v", parseAttempts, parseReport, parseErr)
+	}
+}

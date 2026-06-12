@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -82,6 +83,24 @@ func ClassNames(parseParts ...any) string {
 	parseFragments := make([]string, 0, len(parseParts))
 	appendClassFragments(&parseFragments, parseParts...)
 	return strings.Join(parseFragments, " ")
+}
+
+// ClassMap returns a deterministic class string from true-valued map entries.
+func ClassMap(parseValues map[string]bool) string {
+	if len(parseValues) == 0 {
+		return ""
+	}
+	parseClasses := make([]string, 0, len(parseValues))
+	for parseClass, parseEnabled := range parseValues {
+		if parseEnabled {
+			parseClass = strings.TrimSpace(parseClass)
+			if parseClass != "" {
+				parseClasses = append(parseClasses, parseClass)
+			}
+		}
+	}
+	sort.Strings(parseClasses)
+	return strings.Join(parseClasses, " ")
 }
 
 // If returns the node only when the condition is true.
@@ -373,14 +392,109 @@ func Src(parseValue string) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.Src = parseValue })
 }
 
+// Alt sets the alt attribute on a Props.
+func Alt(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Alt = parseValue })
+}
+
 // Role sets the role attribute on a Props.
 func Role(parseValue string) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.Role = parseValue })
 }
 
+// Lang sets the lang attribute on a Props.
+func Lang(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Lang = parseValue })
+}
+
+// Dir sets the dir attribute on a Props.
+func Dir(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Dir = parseValue })
+}
+
+// Target sets the target attribute on a Props.
+func Target(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Target = parseValue })
+}
+
+// Rel sets the rel attribute on a Props.
+func Rel(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Rel = parseValue })
+}
+
+// Accept sets the accept attribute on a Props.
+func Accept(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Accept = parseValue })
+}
+
+// AutoComplete sets the autocomplete attribute on a Props.
+func AutoComplete(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.AutoComplete = parseValue })
+}
+
+// Min sets the min attribute on a Props.
+func Min(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Min = parseValue })
+}
+
+// Max sets the max attribute on a Props.
+func Max(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Max = parseValue })
+}
+
+// Step sets the step attribute on a Props.
+func Step(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Step = parseValue })
+}
+
+// Pattern sets the pattern attribute on a Props.
+func Pattern(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Pattern = parseValue })
+}
+
+// MaxLength sets the maxLength property on a Props.
+func MaxLength(parseValue int) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.MaxLength = parseValue })
+}
+
+// MinLength sets the minLength property on a Props.
+func MinLength(parseValue int) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.MinLength = parseValue })
+}
+
+// ColSpan sets the colSpan property on a Props.
+func ColSpan(parseValue int) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.ColSpan = parseValue })
+}
+
+// RowSpan sets the rowSpan property on a Props.
+func RowSpan(parseValue int) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.RowSpan = parseValue })
+}
+
+// Width sets the width attribute on a Props.
+func Width(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Width = parseValue })
+}
+
+// Height sets the height attribute on a Props.
+func Height(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Height = parseValue })
+}
+
+// Loading sets the loading attribute on a Props.
+func Loading(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Loading = parseValue })
+}
+
 // Rows sets the rows attribute on a Props.
 func Rows(parseValue int) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.Rows = parseValue })
+}
+
+// Cols sets the cols attribute on a Props.
+func Cols(parseValue int) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Cols = parseValue })
 }
 
 // TabIndex sets the tabindex attribute on a Props.
@@ -449,6 +563,33 @@ func AutoFocus(parseValues ...bool) PropOption {
 		isParseEnabled = parseValues[0]
 	}
 	return optionFunc(func(parseProps *Props) { parseProps.AutoFocus = isParseEnabled })
+}
+
+// Multiple sets the multiple boolean on a Props; passes true when no argument is given.
+func Multiple(parseValues ...bool) PropOption {
+	isParseEnabled := true
+	if len(parseValues) > 0 {
+		isParseEnabled = parseValues[0]
+	}
+	return optionFunc(func(parseProps *Props) { parseProps.Multiple = isParseEnabled })
+}
+
+// Open sets the open boolean on a Props; passes true when no argument is given.
+func Open(parseValues ...bool) PropOption {
+	isParseEnabled := true
+	if len(parseValues) > 0 {
+		isParseEnabled = parseValues[0]
+	}
+	return optionFunc(func(parseProps *Props) { parseProps.Open = isParseEnabled })
+}
+
+// Hidden sets the hidden boolean on a Props; passes true when no argument is given.
+func Hidden(parseValues ...bool) PropOption {
+	isParseEnabled := true
+	if len(parseValues) > 0 {
+		isParseEnabled = parseValues[0]
+	}
+	return optionFunc(func(parseProps *Props) { parseProps.Hidden = isParseEnabled })
 }
 
 // DisabledIf sets the disabled boolean conditionally on a Props.
@@ -576,6 +717,110 @@ func OnBlur(parseCallback any) PropOption {
 // OnScroll registers an onscroll event handler on the Props.
 func OnScroll(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnScroll = toHandler(parseCallback) })
+}
+
+// OnPointerDown registers an onpointerdown event handler on the Props.
+func OnPointerDown(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnPointerDown = toHandler(parseCallback) })
+}
+
+// OnPointerMove registers an onpointermove event handler on the Props.
+func OnPointerMove(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnPointerMove = toHandler(parseCallback) })
+}
+
+// OnPointerUp registers an onpointerup event handler on the Props.
+func OnPointerUp(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnPointerUp = toHandler(parseCallback) })
+}
+
+// OnTouchStart registers an ontouchstart event handler on the Props.
+func OnTouchStart(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnTouchStart = toHandler(parseCallback) })
+}
+
+// OnTouchMove registers an ontouchmove event handler on the Props.
+func OnTouchMove(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnTouchMove = toHandler(parseCallback) })
+}
+
+// OnTouchEnd registers an ontouchend event handler on the Props.
+func OnTouchEnd(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnTouchEnd = toHandler(parseCallback) })
+}
+
+// OnDragStart registers an ondragstart event handler on the Props.
+func OnDragStart(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnDragStart = toHandler(parseCallback) })
+}
+
+// OnDragOver registers an ondragover event handler on the Props.
+func OnDragOver(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnDragOver = toHandler(parseCallback) })
+}
+
+// OnDrop registers an ondrop event handler on the Props.
+func OnDrop(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnDrop = toHandler(parseCallback) })
+}
+
+// OnDragEnd registers an ondragend event handler on the Props.
+func OnDragEnd(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnDragEnd = toHandler(parseCallback) })
+}
+
+// OnMouseEnter registers an onmouseenter event handler on the Props.
+func OnMouseEnter(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnMouseEnter = toHandler(parseCallback) })
+}
+
+// OnMouseLeave registers an onmouseleave event handler on the Props.
+func OnMouseLeave(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnMouseLeave = toHandler(parseCallback) })
+}
+
+// OnDoubleClick registers an ondblclick event handler on the Props.
+func OnDoubleClick(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnDoubleClick = toHandler(parseCallback) })
+}
+
+// OnContextMenu registers an oncontextmenu event handler on the Props.
+func OnContextMenu(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnContextMenu = toHandler(parseCallback) })
+}
+
+// OnWheel registers an onwheel event handler on the Props.
+func OnWheel(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnWheel = toHandler(parseCallback) })
+}
+
+// OnTransitionEnd registers an ontransitionend event handler on the Props.
+func OnTransitionEnd(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnTransitionEnd = toHandler(parseCallback) })
+}
+
+// OnAnimationEnd registers an onanimationend event handler on the Props.
+func OnAnimationEnd(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnAnimationEnd = toHandler(parseCallback) })
+}
+
+// OnLoad registers an onload event handler on the Props.
+func OnLoad(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnLoad = toHandler(parseCallback) })
+}
+
+// OnError registers an onerror event handler on the Props.
+func OnError(parseCallback any) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnError = toHandler(parseCallback) })
+}
+
+// Passive marks an event callback to be attached as a passive listener when the
+// runtime adapter supports listener options.
+func Passive(parseCallback any) any {
+	if parsePassive, parseOk := parseCallback.(runtime.PassiveEventHandler); parseOk {
+		return parsePassive
+	}
+	return runtime.PassiveEventHandler{Handler: parseCallback}
 }
 
 // Prevent wraps a callback so the event default is prevented before callback execution.
@@ -755,6 +1000,12 @@ func toHandler(parseCallback any) ui.Handler {
 		return ui.Handler{}
 	case ui.Handler:
 		return parseTyped
+	case runtime.PassiveEventHandler:
+		parseWrapped := toHandler(parseTyped.Handler)
+		if parseWrapped.Value() == nil {
+			return ui.Handler{}
+		}
+		return ui.WrapHandler(runtime.PassiveEventHandler{Handler: parseWrapped.Value()})
 	}
 	return ui.UseEvent(parseCallback)
 }
@@ -1055,11 +1306,14 @@ func Show(isCondition bool, parseNode ui.Node) ui.Node {
 	if parseNode == nil || isCondition {
 		return parseNode
 	}
-	if parseNode.Props == nil {
-		parseNode.Props = make(map[string]any, 1)
+	parseClone := *parseNode
+	if parseNode.Props != nil {
+		parseClone.Props = cloneAnyMap(parseNode.Props)
+	} else {
+		parseClone.Props = make(map[string]any, 1)
 	}
-	parseNode.Props["hidden"] = true
-	return parseNode
+	parseClone.Props["hidden"] = true
+	return &parseClone
 }
 
 // WithChildren appends children to an already-built node and returns it. Nil

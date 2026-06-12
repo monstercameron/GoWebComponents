@@ -74,6 +74,21 @@ func TestFetchNativeQueryTagsAndOptimisticRollback(parseT *testing.T) {
 	}
 }
 
+func TestApplyOptimisticUpdateNilFnReturnsInactiveHandle(parseT *testing.T) {
+	installFetchTestHookContext(parseT)
+
+	parseUpdate := ApplyOptimisticUpdate[string]("nil-optimistic", nil)
+	if parseUpdate.Active() {
+		parseT.Fatal("expected nil optimistic update function to return inactive handle")
+	}
+
+	parseUpdate.Commit()
+	parseUpdate.Rollback()
+	if _, parseOk := cachedResourceRegistry.Load("nil-optimistic"); parseOk {
+		parseT.Fatal("expected nil optimistic update to avoid creating a cache entry")
+	}
+}
+
 func TestFetchNativeLoadQueryRegistersTagsAndInvalidatesOnce(parseT *testing.T) {
 	installFetchTestHookContext(parseT)
 

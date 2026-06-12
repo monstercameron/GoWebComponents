@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"strings"
+	"sync"
 
 	"github.com/monstercameron/GoWebComponents/deprecation"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -42,6 +43,11 @@ type selectorSource[T any] interface {
 // Snapshot stores exported atom values by atom ID.
 type Snapshot map[string]any
 
+// SnapshotMigration upgrades one snapshot payload between adjacent schema
+// versions. Implementations must return a fresh snapshot or an error; errors
+// abort the restore before any atom state is changed.
+type SnapshotMigration func(Snapshot) (Snapshot, error)
+
 // StorageArea names a browser storage backend.
 type StorageArea string
 
@@ -76,7 +82,26 @@ type snapshotWireEnvelope struct {
 var (
 	loadStateLocalStorage   = interop.GetLocalStorage
 	loadStateSessionStorage = interop.GetSessionStorage
+	snapshotMigrationMu     sync.RWMutex
+	snapshotMigrations      = map[int]SnapshotMigration{}
 )
+
+// RegisterSnapshotMigration registers one adjacent snapshot schema migration
+// from parseFromVersion to parseFromVersion+1. Register migrations at app boot
+// before loading stored snapshots. Passing nil removes the migration.
+func RegisterSnapshotMigration(parseFromVersion int, parseMigration SnapshotMigration) error {
+	if parseFromVersion < 0 || parseFromVersion >= currentSnapshotVersion {
+		return fmt.Errorf("state: snapshot migration source version %d is unsupported", parseFromVersion)
+	}
+	snapshotMigrationMu.Lock()
+	defer snapshotMigrationMu.Unlock()
+	if parseMigration == nil {
+		delete(snapshotMigrations, parseFromVersion)
+		return nil
+	}
+	snapshotMigrations[parseFromVersion] = parseMigration
+	return nil
+}
 
 // UseAtom provides shared global atoms with subscription-scoped rerenders.
 // Atoms are accessible from anywhere in the component tree by ID and
@@ -423,7 +448,8 @@ func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
 			if parseProtocol != snapshotWireProtocol {
 				return nil, fmt.Errorf("state: unsupported snapshot protocol %q", parseProtocol)
 			}
-			if _, parseErr3 := normalizeSnapshotVersion(parseEnvelope.Version); parseErr3 != nil {
+			parseVersion, parseErr3 := normalizeSnapshotVersion(parseEnvelope.Version)
+			if parseErr3 != nil {
 				return nil, parseErr3
 			}
 			if parseEnvelope.State == nil {
@@ -433,7 +459,7 @@ func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
 			if !parseOk {
 				return nil, fmt.Errorf("state: snapshot normalization returned unexpected type")
 			}
-			return parseNormalized, nil
+			return migrateSnapshot(parseVersion, parseNormalized)
 		}
 	}
 
@@ -456,12 +482,39 @@ func normalizeSnapshotVersion(parseVersion int) (int, error) {
 		return 0, fmt.Errorf("state: unsupported snapshot version %d", parseVersion)
 	}
 	if parseVersion == 0 {
-		return currentSnapshotVersion, nil
+		return 0, nil
 	}
 	if parseVersion > currentSnapshotVersion {
 		return 0, fmt.Errorf("state: unsupported snapshot version %d", parseVersion)
 	}
 	return parseVersion, nil
+}
+
+func migrateSnapshot(parseVersion int, parseSnapshot Snapshot) (Snapshot, error) {
+	if parseVersion >= currentSnapshotVersion {
+		return parseSnapshot, nil
+	}
+	parseCurrent := parseSnapshot.Select()
+	for parseFrom := parseVersion; parseFrom < currentSnapshotVersion; parseFrom++ {
+		snapshotMigrationMu.RLock()
+		parseMigration := snapshotMigrations[parseFrom]
+		snapshotMigrationMu.RUnlock()
+		if parseMigration == nil {
+			if parseFrom == 0 {
+				return parseCurrent, nil
+			}
+			return nil, fmt.Errorf("state: missing snapshot migration from version %d to %d", parseFrom, parseFrom+1)
+		}
+		parseNext, parseErr := parseMigration(parseCurrent.Select())
+		if parseErr != nil {
+			return nil, fmt.Errorf("state: migrate snapshot from version %d to %d: %w", parseFrom, parseFrom+1, parseErr)
+		}
+		if parseNext == nil {
+			parseNext = Snapshot{}
+		}
+		parseCurrent = parseNext.Select()
+	}
+	return parseCurrent, nil
 }
 
 // SaveSnapshot stores a JSON-encoded snapshot in browser storage.

@@ -203,6 +203,120 @@ func Tr(parseArgs ...any) ui.Node { return Tag("tr", parseArgs...) }
 // Ul delegates to [html.Ul].
 func Ul(parseArgs ...any) ui.Node { return Tag("ul", parseArgs...) }
 
+// Ol delegates to [html.Ol].
+func Ol(parseArgs ...any) ui.Node { return Tag("ol", parseArgs...) }
+
+// Tfoot delegates to [html.Tfoot].
+func Tfoot(parseArgs ...any) ui.Node { return Tag("tfoot", parseArgs...) }
+
+// Caption delegates to [html.Caption].
+func Caption(parseArgs ...any) ui.Node { return Tag("caption", parseArgs...) }
+
+// Colgroup delegates to [html.Colgroup].
+func Colgroup(parseArgs ...any) ui.Node { return Tag("colgroup", parseArgs...) }
+
+// Col delegates to [html.Col].
+func Col(parseArgs ...any) ui.Node { return Tag("col", parseArgs...) }
+
+// Video delegates to [html.Video].
+func Video(parseArgs ...any) ui.Node { return Tag("video", parseArgs...) }
+
+// Audio delegates to [html.Audio].
+func Audio(parseArgs ...any) ui.Node { return Tag("audio", parseArgs...) }
+
+// Source delegates to [html.Source].
+func Source(parseArgs ...any) ui.Node { return Tag("source", parseArgs...) }
+
+// Track delegates to [html.Track].
+func Track(parseArgs ...any) ui.Node { return Tag("track", parseArgs...) }
+
+// Canvas delegates to [html.Canvas].
+func Canvas(parseArgs ...any) ui.Node { return Tag("canvas", parseArgs...) }
+
+// Optgroup delegates to [html.Optgroup].
+func Optgroup(parseArgs ...any) ui.Node { return Tag("optgroup", parseArgs...) }
+
+// Datalist delegates to [html.Datalist].
+func Datalist(parseArgs ...any) ui.Node { return Tag("datalist", parseArgs...) }
+
+// Output delegates to [html.Output].
+func Output(parseArgs ...any) ui.Node { return Tag("output", parseArgs...) }
+
+// Progress delegates to [html.Progress].
+func Progress(parseArgs ...any) ui.Node { return Tag("progress", parseArgs...) }
+
+// Meter delegates to [html.Meter].
+func Meter(parseArgs ...any) ui.Node { return Tag("meter", parseArgs...) }
+
+// Figure delegates to [html.Figure].
+func Figure(parseArgs ...any) ui.Node { return Tag("figure", parseArgs...) }
+
+// Figcaption delegates to [html.Figcaption].
+func Figcaption(parseArgs ...any) ui.Node { return Tag("figcaption", parseArgs...) }
+
+// Picture delegates to [html.Picture].
+func Picture(parseArgs ...any) ui.Node { return Tag("picture", parseArgs...) }
+
+// Abbr delegates to [html.Abbr].
+func Abbr(parseArgs ...any) ui.Node { return Tag("abbr", parseArgs...) }
+
+// Kbd delegates to [html.Kbd].
+func Kbd(parseArgs ...any) ui.Node { return Tag("kbd", parseArgs...) }
+
+// Sub delegates to [html.Sub].
+func Sub(parseArgs ...any) ui.Node { return Tag("sub", parseArgs...) }
+
+// Sup delegates to [html.Sup].
+func Sup(parseArgs ...any) ui.Node { return Tag("sup", parseArgs...) }
+
+// Del delegates to [html.Del].
+func Del(parseArgs ...any) ui.Node { return Tag("del", parseArgs...) }
+
+// Ins delegates to [html.Ins].
+func Ins(parseArgs ...any) ui.Node { return Tag("ins", parseArgs...) }
+
+// B delegates to [html.B].
+func B(parseArgs ...any) ui.Node { return Tag("b", parseArgs...) }
+
+// I delegates to [html.I].
+func I(parseArgs ...any) ui.Node { return Tag("i", parseArgs...) }
+
+// U delegates to [html.U].
+func U(parseArgs ...any) ui.Node { return Tag("u", parseArgs...) }
+
+// Svg delegates to [html.Svg].
+func Svg(parseArgs ...any) ui.Node {
+	parseProps, parseChildren := splitArgs(parseArgs...)
+	return html.Svg(parseProps, parseChildren...)
+}
+
+// Path delegates to [html.Path].
+func Path(parseArgs ...any) ui.Node { return Tag("path", parseArgs...) }
+
+// Circle delegates to [html.Circle].
+func Circle(parseArgs ...any) ui.Node { return Tag("circle", parseArgs...) }
+
+// Rect delegates to [html.Rect].
+func Rect(parseArgs ...any) ui.Node { return Tag("rect", parseArgs...) }
+
+// G delegates to [html.G].
+func G(parseArgs ...any) ui.Node { return Tag("g", parseArgs...) }
+
+// Line delegates to [html.Line].
+func Line(parseArgs ...any) ui.Node { return Tag("line", parseArgs...) }
+
+// Polyline delegates to [html.Polyline].
+func Polyline(parseArgs ...any) ui.Node { return Tag("polyline", parseArgs...) }
+
+// Polygon delegates to [html.Polygon].
+func Polygon(parseArgs ...any) ui.Node { return Tag("polygon", parseArgs...) }
+
+// Defs delegates to [html.Defs].
+func Defs(parseArgs ...any) ui.Node { return Tag("defs", parseArgs...) }
+
+// Use delegates to [html.Use].
+func Use(parseArgs ...any) ui.Node { return Tag("use", parseArgs...) }
+
 // Text delegates to [html.Text].
 func Text(parseContent any) ui.Node { return html.Text(parseContent) }
 
@@ -224,6 +338,9 @@ func When(isCondition bool, parseClassName string) string {
 
 // ClassNames delegates to [html.ClassNames].
 func ClassNames(parseParts ...any) string { return html.ClassNames(parseParts...) }
+
+// ClassMap delegates to [html.ClassMap].
+func ClassMap(parseValues map[string]bool) string { return html.ClassMap(parseValues) }
 
 // If delegates to [html.If].
 func If(isCondition bool, parseNode ui.Node) ui.Node { return html.If(isCondition, parseNode) }
@@ -422,11 +539,68 @@ func Href(parseValue string) PropOption { return html.Href(parseValue) }
 // Src delegates to [html.Src].
 func Src(parseValue string) PropOption { return html.Src(parseValue) }
 
+// Alt delegates to [html.Alt].
+func Alt(parseValue string) PropOption { return html.Alt(parseValue) }
+
 // Role delegates to [html.Role].
 func Role(parseValue string) PropOption { return html.Role(parseValue) }
 
+// Lang delegates to [html.Lang].
+func Lang(parseValue string) PropOption { return html.Lang(parseValue) }
+
+// Dir delegates to [html.Dir].
+func Dir(parseValue string) PropOption { return html.Dir(parseValue) }
+
+// Target delegates to [html.Target].
+func Target(parseValue string) PropOption { return html.Target(parseValue) }
+
+// Rel delegates to [html.Rel].
+func Rel(parseValue string) PropOption { return html.Rel(parseValue) }
+
+// Accept delegates to [html.Accept].
+func Accept(parseValue string) PropOption { return html.Accept(parseValue) }
+
+// AutoComplete delegates to [html.AutoComplete].
+func AutoComplete(parseValue string) PropOption { return html.AutoComplete(parseValue) }
+
+// Min delegates to [html.Min].
+func Min(parseValue string) PropOption { return html.Min(parseValue) }
+
+// Max delegates to [html.Max].
+func Max(parseValue string) PropOption { return html.Max(parseValue) }
+
+// Step delegates to [html.Step].
+func Step(parseValue string) PropOption { return html.Step(parseValue) }
+
+// Pattern delegates to [html.Pattern].
+func Pattern(parseValue string) PropOption { return html.Pattern(parseValue) }
+
+// MaxLength delegates to [html.MaxLength].
+func MaxLength(parseValue int) PropOption { return html.MaxLength(parseValue) }
+
+// MinLength delegates to [html.MinLength].
+func MinLength(parseValue int) PropOption { return html.MinLength(parseValue) }
+
+// ColSpan delegates to [html.ColSpan].
+func ColSpan(parseValue int) PropOption { return html.ColSpan(parseValue) }
+
+// RowSpan delegates to [html.RowSpan].
+func RowSpan(parseValue int) PropOption { return html.RowSpan(parseValue) }
+
+// Width delegates to [html.Width].
+func Width(parseValue string) PropOption { return html.Width(parseValue) }
+
+// Height delegates to [html.Height].
+func Height(parseValue string) PropOption { return html.Height(parseValue) }
+
+// Loading delegates to [html.Loading].
+func Loading(parseValue string) PropOption { return html.Loading(parseValue) }
+
 // Rows delegates to [html.Rows].
 func Rows(parseValue int) PropOption { return html.Rows(parseValue) }
+
+// Cols delegates to [html.Cols].
+func Cols(parseValue int) PropOption { return html.Cols(parseValue) }
 
 // TabIndex delegates to [html.TabIndex].
 func TabIndex(parseValue int) PropOption { return html.TabIndex(parseValue) }
@@ -448,6 +622,15 @@ func ReadOnly(parseValues ...bool) PropOption { return html.ReadOnly(parseValues
 
 // AutoFocus delegates to [html.AutoFocus].
 func AutoFocus(parseValues ...bool) PropOption { return html.AutoFocus(parseValues...) }
+
+// Multiple delegates to [html.Multiple].
+func Multiple(parseValues ...bool) PropOption { return html.Multiple(parseValues...) }
+
+// Open delegates to [html.Open].
+func Open(parseValues ...bool) PropOption { return html.Open(parseValues...) }
+
+// Hidden delegates to [html.Hidden].
+func Hidden(parseValues ...bool) PropOption { return html.Hidden(parseValues...) }
 
 // DisabledIf delegates to [html.DisabledIf].
 func DisabledIf(isCondition bool) PropOption { return html.DisabledIf(isCondition) }
@@ -515,6 +698,66 @@ func OnBlur(parseCallback any) PropOption { return html.OnBlur(parseCallback) }
 // OnScroll delegates to [html.OnScroll].
 func OnScroll(parseCallback any) PropOption { return html.OnScroll(parseCallback) }
 
+// OnPointerDown delegates to [html.OnPointerDown].
+func OnPointerDown(parseCallback any) PropOption { return html.OnPointerDown(parseCallback) }
+
+// OnPointerMove delegates to [html.OnPointerMove].
+func OnPointerMove(parseCallback any) PropOption { return html.OnPointerMove(parseCallback) }
+
+// OnPointerUp delegates to [html.OnPointerUp].
+func OnPointerUp(parseCallback any) PropOption { return html.OnPointerUp(parseCallback) }
+
+// OnTouchStart delegates to [html.OnTouchStart].
+func OnTouchStart(parseCallback any) PropOption { return html.OnTouchStart(parseCallback) }
+
+// OnTouchMove delegates to [html.OnTouchMove].
+func OnTouchMove(parseCallback any) PropOption { return html.OnTouchMove(parseCallback) }
+
+// OnTouchEnd delegates to [html.OnTouchEnd].
+func OnTouchEnd(parseCallback any) PropOption { return html.OnTouchEnd(parseCallback) }
+
+// OnDragStart delegates to [html.OnDragStart].
+func OnDragStart(parseCallback any) PropOption { return html.OnDragStart(parseCallback) }
+
+// OnDragOver delegates to [html.OnDragOver].
+func OnDragOver(parseCallback any) PropOption { return html.OnDragOver(parseCallback) }
+
+// OnDrop delegates to [html.OnDrop].
+func OnDrop(parseCallback any) PropOption { return html.OnDrop(parseCallback) }
+
+// OnDragEnd delegates to [html.OnDragEnd].
+func OnDragEnd(parseCallback any) PropOption { return html.OnDragEnd(parseCallback) }
+
+// OnMouseEnter delegates to [html.OnMouseEnter].
+func OnMouseEnter(parseCallback any) PropOption { return html.OnMouseEnter(parseCallback) }
+
+// OnMouseLeave delegates to [html.OnMouseLeave].
+func OnMouseLeave(parseCallback any) PropOption { return html.OnMouseLeave(parseCallback) }
+
+// OnDoubleClick delegates to [html.OnDoubleClick].
+func OnDoubleClick(parseCallback any) PropOption { return html.OnDoubleClick(parseCallback) }
+
+// OnContextMenu delegates to [html.OnContextMenu].
+func OnContextMenu(parseCallback any) PropOption { return html.OnContextMenu(parseCallback) }
+
+// OnWheel delegates to [html.OnWheel].
+func OnWheel(parseCallback any) PropOption { return html.OnWheel(parseCallback) }
+
+// OnTransitionEnd delegates to [html.OnTransitionEnd].
+func OnTransitionEnd(parseCallback any) PropOption { return html.OnTransitionEnd(parseCallback) }
+
+// OnAnimationEnd delegates to [html.OnAnimationEnd].
+func OnAnimationEnd(parseCallback any) PropOption { return html.OnAnimationEnd(parseCallback) }
+
+// OnLoad delegates to [html.OnLoad].
+func OnLoad(parseCallback any) PropOption { return html.OnLoad(parseCallback) }
+
+// OnError delegates to [html.OnError].
+func OnError(parseCallback any) PropOption { return html.OnError(parseCallback) }
+
+// Passive delegates to [html.Passive].
+func Passive(parseCallback any) any { return html.Passive(parseCallback) }
+
 // Prevent delegates to [html.Prevent].
 func Prevent(parseCallback any) any { return html.Prevent(parseCallback) }
 
@@ -573,164 +816,7 @@ func splitArgs(parseArgs ...any) (Props, []ui.Node) {
 // run inside a component render).  Later values win on conflict; map fields
 // are merged key-wise with incoming entries overriding base entries.
 func mergeProps(parseBase Props, parseIncoming Props) Props {
-	parseOut := parseBase
-
-	if parseIncoming.ID != "" {
-		parseOut.ID = parseIncoming.ID
-	}
-	if parseIncoming.Class != "" {
-		parseOut.Class = parseIncoming.Class
-	}
-	if parseIncoming.Key != "" {
-		parseOut.Key = parseIncoming.Key
-	}
-	if parseIncoming.Slot != "" {
-		parseOut.Slot = parseIncoming.Slot
-	}
-	if parseIncoming.Title != "" {
-		parseOut.Title = parseIncoming.Title
-	}
-	if parseIncoming.Type != "" {
-		parseOut.Type = parseIncoming.Type
-	}
-	if parseIncoming.Name != "" {
-		parseOut.Name = parseIncoming.Name
-	}
-	if parseIncoming.Value != "" {
-		parseOut.Value = parseIncoming.Value
-	}
-	if parseIncoming.Placeholder != "" {
-		parseOut.Placeholder = parseIncoming.Placeholder
-	}
-	if parseIncoming.Accept != "" {
-		parseOut.Accept = parseIncoming.Accept
-	}
-	if parseIncoming.Href != "" {
-		parseOut.Href = parseIncoming.Href
-	}
-	if parseIncoming.Src != "" {
-		parseOut.Src = parseIncoming.Src
-	}
-	if parseIncoming.Alt != "" {
-		parseOut.Alt = parseIncoming.Alt
-	}
-	if parseIncoming.For != "" {
-		parseOut.For = parseIncoming.For
-	}
-	if parseIncoming.Role != "" {
-		parseOut.Role = parseIncoming.Role
-	}
-	if parseIncoming.Target != "" {
-		parseOut.Target = parseIncoming.Target
-	}
-	if parseIncoming.Rel != "" {
-		parseOut.Rel = parseIncoming.Rel
-	}
-	if parseIncoming.As != "" {
-		parseOut.As = parseIncoming.As
-	}
-	if parseIncoming.Action != "" {
-		parseOut.Action = parseIncoming.Action
-	}
-	if parseIncoming.Method != "" {
-		parseOut.Method = parseIncoming.Method
-	}
-	if parseIncoming.EncType != "" {
-		parseOut.EncType = parseIncoming.EncType
-	}
-	if parseIncoming.AutoComplete != "" {
-		parseOut.AutoComplete = parseIncoming.AutoComplete
-	}
-	if parseIncoming.Min != "" {
-		parseOut.Min = parseIncoming.Min
-	}
-	if parseIncoming.Max != "" {
-		parseOut.Max = parseIncoming.Max
-	}
-	if parseIncoming.Step != "" {
-		parseOut.Step = parseIncoming.Step
-	}
-
-	if parseIncoming.Rows != 0 {
-		parseOut.Rows = parseIncoming.Rows
-	}
-	if parseIncoming.Cols != 0 {
-		parseOut.Cols = parseIncoming.Cols
-	}
-	if parseIncoming.TabIndex != 0 {
-		parseOut.TabIndex = parseIncoming.TabIndex
-	}
-
-	if parseIncoming.Checked {
-		parseOut.Checked = true
-	}
-	if parseIncoming.Disabled {
-		parseOut.Disabled = true
-	}
-	if parseIncoming.Selected {
-		parseOut.Selected = true
-	}
-	if parseIncoming.Required {
-		parseOut.Required = true
-	}
-	if parseIncoming.ReadOnly {
-		parseOut.ReadOnly = true
-	}
-	if parseIncoming.Hidden {
-		parseOut.Hidden = true
-	}
-	if parseIncoming.Multiple {
-		parseOut.Multiple = true
-	}
-	if parseIncoming.AutoFocus {
-		parseOut.AutoFocus = true
-	}
-
-	parseOut.Style = mergeStringMap(parseOut.Style, parseIncoming.Style)
-	parseOut.Data = mergeStringMap(parseOut.Data, parseIncoming.Data)
-	parseOut.Aria = mergeStringMap(parseOut.Aria, parseIncoming.Aria)
-	if len(parseIncoming.Raw) != 0 {
-		parseMergedRaw := make(map[string]any, len(parseOut.Raw)+len(parseIncoming.Raw))
-		maps.Copy(parseMergedRaw, parseOut.Raw)
-		maps.Copy(parseMergedRaw, parseIncoming.Raw)
-		parseOut.Raw = parseMergedRaw
-	}
-
-	if parseIncoming.OnClick.Value() != nil {
-		parseOut.OnClick = parseIncoming.OnClick
-	}
-	if parseIncoming.OnInput.Value() != nil {
-		parseOut.OnInput = parseIncoming.OnInput
-	}
-	if parseIncoming.OnChange.Value() != nil {
-		parseOut.OnChange = parseIncoming.OnChange
-	}
-	if parseIncoming.OnSubmit.Value() != nil {
-		parseOut.OnSubmit = parseIncoming.OnSubmit
-	}
-	if parseIncoming.OnKeyDown.Value() != nil {
-		parseOut.OnKeyDown = parseIncoming.OnKeyDown
-	}
-	if parseIncoming.OnKeyUp.Value() != nil {
-		parseOut.OnKeyUp = parseIncoming.OnKeyUp
-	}
-	if parseIncoming.OnMouseUp.Value() != nil {
-		parseOut.OnMouseUp = parseIncoming.OnMouseUp
-	}
-	if parseIncoming.OnMouseDown.Value() != nil {
-		parseOut.OnMouseDown = parseIncoming.OnMouseDown
-	}
-	if parseIncoming.OnFocus.Value() != nil {
-		parseOut.OnFocus = parseIncoming.OnFocus
-	}
-	if parseIncoming.OnBlur.Value() != nil {
-		parseOut.OnBlur = parseIncoming.OnBlur
-	}
-	if parseIncoming.OnScroll.Value() != nil {
-		parseOut.OnScroll = parseIncoming.OnScroll
-	}
-
-	return parseOut
+	return html.MergeProps(parseBase, parseIncoming)
 }
 
 // mergeStringMap merges parseIncoming over parseBase without mutating either.

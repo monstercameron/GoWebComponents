@@ -474,7 +474,7 @@ func ResolvePath(parsePath string, parseOptions RouteOptions) ResolvedPath {
 	if len(parseSegments) > 0 {
 		parseCandidate := NormalizeLocale(parseSegments[0])
 		if localeAllowed(parseCandidate, parseResolved.SupportedLocales) {
-			parseLocale = parseCandidate
+			parseLocale = chooseRoutePrefixLocale(parseCandidate, parseResolved.SupportedLocales, parseResolved.DefaultLocale)
 			isParsePrefixPresent = true
 			parseRemaining := strings.Join(parseSegments[1:], "/")
 			if parseRemaining == "" {
@@ -849,6 +849,29 @@ func chooseSupportedLocale(parseLocale string, parseSupported []string, parseFal
 	}
 	parsePrimary := primaryLanguage(parseNormalized)
 	for _, parseCandidate := range normalizeLocales(parseSupported) {
+		if primaryLanguage(parseCandidate) == parsePrimary {
+			return parseCandidate
+		}
+	}
+	return fallbackString(parseFallbackLocale, parseNormalized)
+}
+
+func chooseRoutePrefixLocale(parseLocale string, parseSupported []string, parseFallbackLocale string) string {
+	parseNormalized := NormalizeLocale(parseLocale)
+	if parseNormalized == "" {
+		return NormalizeLocale(parseFallbackLocale)
+	}
+	if len(parseSupported) == 0 {
+		return parseNormalized
+	}
+	parseSupportedLocales := normalizeLocales(parseSupported)
+	for _, parseCandidate := range parseSupportedLocales {
+		if parseCandidate == parseNormalized {
+			return parseCandidate
+		}
+	}
+	parsePrimary := primaryLanguage(parseNormalized)
+	for _, parseCandidate := range parseSupportedLocales {
 		if primaryLanguage(parseCandidate) == parsePrimary {
 			return parseCandidate
 		}

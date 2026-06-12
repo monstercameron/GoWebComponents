@@ -68,7 +68,7 @@ func RenderMarkdown(parseMarkdown string, parseOptions ...MarkdownRenderOptions)
 		parseConfig = parseOptions[0]
 	}
 	parseSource := []byte(parseMarkdown)
-	parseRoot := goldmark.New(goldmark.WithExtensions(extension.Table)).Parser().Parse(text.NewReader(parseSource))
+	parseRoot := goldmark.New(goldmark.WithExtensions(extension.GFM)).Parser().Parse(text.NewReader(parseSource))
 	return renderMarkdownBlocks(parseRoot, parseSource, parseConfig)
 }
 
@@ -135,6 +135,8 @@ func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig Mar
 		}
 	case *ast.Paragraph:
 		return P(propsWithClass(parseClasses.Paragraph), renderMarkdownInlines(parseTyped, parseSource, parseConfig)...), true
+	case *ast.TextBlock:
+		return P(propsWithClass(parseClasses.Paragraph), renderMarkdownInlines(parseTyped, parseSource, parseConfig)...), true
 	case *ast.Blockquote:
 		return Blockquote(propsWithClass(parseClasses.Blockquote), renderMarkdownBlocks(parseTyped, parseSource, parseConfig)...), true
 	case *ast.List:
@@ -151,13 +153,27 @@ func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig Mar
 		parseClassName = joinMarkdownClasses(parseClassName, parseClasses.UnorderedList)
 		return Ul(propsWithClass(parseClassName), parseItems...), true
 	case *ast.ListItem:
-		return Li(propsWithClass(parseClasses.ListItem), renderMarkdownBlocks(parseTyped, parseSource, parseConfig)...), true
+		parseItems := renderMarkdownBlocks(parseTyped, parseSource, parseConfig)
+		if !markdownNodeContainsTaskCheckBox(parseTyped) {
+			if isParseChecked, isParseTask := markdownTaskListItemState(parseTyped, parseSource); isParseTask {
+				parseItems = append([]ui.Node{renderMarkdownTaskCheckBox(&extast.TaskCheckBox{IsChecked: isParseChecked})}, parseItems...)
+			}
+		}
+		return Li(propsWithClass(parseClasses.ListItem), parseItems...), true
 	case *ast.FencedCodeBlock:
 		return renderMarkdownCodeBlock(strings.TrimRight(markdownLinesText(parseTyped.Lines(), parseSource), "\n"), parseConfig), true
 	case *ast.CodeBlock:
 		return renderMarkdownCodeBlock(strings.TrimRight(markdownLinesText(parseTyped.Lines(), parseSource), "\n"), parseConfig), true
 	case *ast.ThematicBreak:
 		return Hr(propsWithClass(parseClasses.HorizontalRule)), true
+	case *ast.HTMLBlock:
+		parseRaw := strings.TrimSpace(markdownRawHTMLBlockText(parseTyped, parseSource))
+		if parseRaw == "" {
+			return nil, false
+		}
+		return P(propsWithClass(parseClasses.Paragraph), Text(parseRaw)), true
+	case *extast.TaskCheckBox:
+		return renderMarkdownTaskCheckBox(parseTyped), true
 	case *extast.Table:
 		return renderMarkdownTable(parseTyped, parseSource, parseConfig), true
 	default:
@@ -261,6 +277,16 @@ func renderMarkdownInline(parseNode ast.Node, parseSource []byte, parseConfig Ma
 		parseProps2.Target = parseConfig.LinkTarget
 		parseProps2.Rel = parseConfig.LinkRel
 		return []ui.Node{A(parseProps2, Text(parseHref))}
+	case *ast.RawHTML:
+		parseRaw := strings.TrimSpace(string(parseTyped.Segments.Value(parseSource)))
+		if parseRaw == "" {
+			return nil
+		}
+		return []ui.Node{Text(parseRaw)}
+	case *extast.Strikethrough:
+		return []ui.Node{Del(Props{}, renderMarkdownInlines(parseTyped, parseSource, parseConfig)...)}
+	case *extast.TaskCheckBox:
+		return []ui.Node{renderMarkdownTaskCheckBox(parseTyped)}
 	default:
 		parseTextValue2 := markdownPlainText(parseTyped, parseSource)
 		if parseTextValue2 == "" {
@@ -268,6 +294,71 @@ func renderMarkdownInline(parseNode ast.Node, parseSource []byte, parseConfig Ma
 		}
 		return []ui.Node{Text(parseTextValue2)}
 	}
+}
+
+func renderMarkdownTaskCheckBox(parseNode *extast.TaskCheckBox) ui.Node {
+	parseProps := Props{Type: "checkbox", Disabled: true}
+	if parseNode != nil && parseNode.IsChecked {
+		parseProps.Checked = true
+	}
+	return Input(parseProps)
+}
+
+func markdownNodeContainsTaskCheckBox(parseNode ast.Node) bool {
+	if parseNode == nil {
+		return false
+	}
+	for parseChild := parseNode.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
+		if _, parseOk := parseChild.(*extast.TaskCheckBox); parseOk {
+			return true
+		}
+		if markdownNodeContainsTaskCheckBox(parseChild) {
+			return true
+		}
+	}
+	return false
+}
+
+func markdownTaskListItemState(parseItem *ast.ListItem, parseSource []byte) (bool, bool) {
+	if parseItem == nil || parseItem.FirstChild() == nil {
+		return false, false
+	}
+	parseLines := parseItem.FirstChild().Lines()
+	if parseLines == nil || parseLines.Len() == 0 {
+		return false, false
+	}
+	parseStart := parseLines.At(0).Start
+	if parseStart > len(parseSource) {
+		return false, false
+	}
+	parseLineStart := parseStart
+	for parseLineStart > 0 && parseSource[parseLineStart-1] != '\n' && parseSource[parseLineStart-1] != '\r' {
+		parseLineStart--
+	}
+	parsePrefix := string(parseSource[parseLineStart:parseStart])
+	parseMarkerStart := strings.LastIndex(parsePrefix, "[")
+	if parseMarkerStart < 0 {
+		return false, false
+	}
+	switch strings.TrimSpace(parsePrefix[parseMarkerStart:]) {
+	case "[x]", "[X]":
+		return true, true
+	case "[ ]":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+func markdownRawHTMLBlockText(parseBlock *ast.HTMLBlock, parseSource []byte) string {
+	if parseBlock == nil {
+		return ""
+	}
+	parseValue := markdownLinesText(parseBlock.Lines(), parseSource)
+	if parseBlock.HasClosure() {
+		parseValue += string(parseBlock.ClosureLine.Value(parseSource))
+	}
+	return parseValue
 }
 
 // markdownLinesText is a core package helper.

@@ -150,6 +150,25 @@ func TestClassHelpersNormalizeWhitespaceAndConditionals(parseT *testing.T) {
 	}
 }
 
+func TestClassMapIsDeterministicAndComposes(parseT *testing.T) {
+	parseClasses := ClassMap(map[string]bool{
+		"zeta":    true,
+		" alpha ": true,
+		"hidden":  false,
+		"beta":    true,
+		"":        true,
+	})
+	if parseClasses != "alpha beta zeta" {
+		parseT.Fatalf("expected sorted true-valued classes, got %q", parseClasses)
+	}
+	if parseEmpty := ClassMap(map[string]bool{"hidden": false}); parseEmpty != "" {
+		parseT.Fatalf("expected empty ClassMap for all-false input, got %q", parseEmpty)
+	}
+	if parseCombined := ClassNames("base", parseClasses, When(true, "active")); parseCombined != "base alpha beta zeta active" {
+		parseT.Fatalf("expected ClassMap to compose inside ClassNames, got %q", parseCombined)
+	}
+}
+
 func TestConditionalHelpersSelectExpectedNodes(parseT *testing.T) {
 	parseTrueNode := Span(Props{}, Text("true"))
 	parseFalseNode := Span(Props{}, Text("false"))
@@ -396,6 +415,39 @@ func TestPropsOfAndOptionHelpers(parseT *testing.T) {
 	}
 }
 
+func TestExpandedAttributeHelpersRenderExactHTML(parseT *testing.T) {
+	parseNode := Div(Props{},
+		A(PropsOf(Href("/docs"), Target("_blank"), Rel("noreferrer")), Text("docs")),
+		Img(PropsOf(Src("/hero.png"), Alt("Hero"), Width("320"), Height("180"), Loading("lazy"))),
+		Input(PropsOf(
+			Type("text"),
+			Accept("image/*"),
+			AutoComplete("off"),
+			Min("1"),
+			Max("10"),
+			Step("2"),
+			Pattern("[0-9]+"),
+			MaxLength(6),
+			MinLength(2),
+			Multiple(),
+			Required(),
+			Hidden(),
+		)),
+		Table(Props{}, Tbody(Props{}, Tr(Props{}, Td(PropsOf(ColSpan(2), RowSpan(3)), Text("cell"))))),
+		Details(PropsOf(Open(), Lang("ar"), Dir("rtl")), Summary(Props{}, Text("summary"))),
+	)
+
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("expected expanded attributes to render, got %v", parseErr)
+	}
+
+	const want = `<div><a href="/docs" rel="noreferrer" target="_blank">docs</a><img alt="Hero" height="180" loading="lazy" src="/hero.png" width="320"><input accept="image/*" autocomplete="off" hidden max="10" maxLength="6" min="1" minLength="2" multiple pattern="[0-9]+" required step="2" type="text"><table><tbody><tr><td colSpan="2" rowSpan="3">cell</td></tr></tbody></table><details dir="rtl" lang="ar" open><summary>summary</summary></details></div>`
+	if parseMarkup != want {
+		parseT.Fatalf("unexpected expanded attribute markup\nwant: %s\n got: %s", want, parseMarkup)
+	}
+}
+
 func TestEventOptionHelpersWrapHandlers(parseT *testing.T) {
 	if goRuntime.GOOS == "js" && goRuntime.GOARCH == "wasm" {
 		parseT.Skip("event helpers depend on hook context on js/wasm")
@@ -445,6 +497,75 @@ func TestEventOptionHelpersWrapHandlers(parseT *testing.T) {
 
 	if parseClicks != 0 || parseInputs != 0 || parseChanges != 0 || parseSubmits != 0 || parseKeydowns != 0 || parseKeyups != 0 || parseMouseups != 0 || parseFocuses != 0 || parseBlurs != 0 {
 		parseT.Fatalf("expected handlers not to execute during props assembly, got clicks=%d inputs=%d changes=%d submits=%d keydowns=%d keyups=%d mouseups=%d focuses=%d blurs=%d", parseClicks, parseInputs, parseChanges, parseSubmits, parseKeydowns, parseKeyups, parseMouseups, parseFocuses, parseBlurs)
+	}
+}
+
+func TestExpandedEventOptionHelpersEmitNativePropsAndPassive(parseT *testing.T) {
+	if goRuntime.GOOS == "js" && goRuntime.GOARCH == "wasm" {
+		parseT.Skip("event helpers depend on hook context on js/wasm")
+	}
+
+	parsePassiveCallback := func() {}
+	parsePassive, parseOk := Passive(parsePassiveCallback).(runtime.PassiveEventHandler)
+	if !parseOk {
+		parseT.Fatalf("expected Passive to return a runtime passive handler, got %#v", Passive(parsePassiveCallback))
+	}
+	if parsePassive.Handler == nil {
+		parseT.Fatal("expected Passive to preserve callback payload")
+	}
+
+	parseNode := Div(PropsOf(
+		OnPointerDown(parsePassive),
+		OnPointerMove(func(ui.Event) {}),
+		OnPointerUp(func(ui.Event) {}),
+		OnTouchStart(func(ui.Event) {}),
+		OnTouchMove(func(ui.Event) {}),
+		OnTouchEnd(func(ui.Event) {}),
+		OnDragStart(func(ui.Event) {}),
+		OnDragOver(func(ui.Event) {}),
+		OnDrop(func(ui.Event) {}),
+		OnDragEnd(func(ui.Event) {}),
+		OnMouseDown(func(ui.Event) {}),
+		OnMouseEnter(func(ui.Event) {}),
+		OnMouseLeave(func(ui.Event) {}),
+		OnDoubleClick(func(ui.Event) {}),
+		OnContextMenu(func(ui.Event) {}),
+		OnWheel(func(ui.Event) {}),
+		OnTransitionEnd(func(ui.Event) {}),
+		OnAnimationEnd(func(ui.Event) {}),
+		OnLoad(func(ui.Event) {}),
+		OnError(func(ui.Event) {}),
+	))
+
+	for _, parseName := range []string{
+		"onpointerdown",
+		"onpointermove",
+		"onpointerup",
+		"ontouchstart",
+		"ontouchmove",
+		"ontouchend",
+		"ondragstart",
+		"ondragover",
+		"ondrop",
+		"ondragend",
+		"onmousedown",
+		"onmouseenter",
+		"onmouseleave",
+		"ondblclick",
+		"oncontextmenu",
+		"onwheel",
+		"ontransitionend",
+		"onanimationend",
+		"onload",
+		"onerror",
+	} {
+		if parseNode.Props[parseName] == nil {
+			parseT.Fatalf("expected %s event prop to be emitted, props=%#v", parseName, parseNode.Props)
+		}
+	}
+
+	if _, parsePassiveOk := parseNode.Props["onpointerdown"].(runtime.PassiveEventHandler); !parsePassiveOk {
+		parseT.Fatalf("expected passive pointerdown prop, got %#v", parseNode.Props["onpointerdown"])
 	}
 }
 
@@ -602,6 +723,29 @@ func TestVoidTagsRemainSimpleWithPropsOf(parseT *testing.T) {
 	}
 	if parseInputMarkup != `<input type="text" value="hello">` {
 		parseT.Fatalf("expected input markup, got %q", parseInputMarkup)
+	}
+}
+
+func TestSVGHelperInjectsXMLNSWithoutMutatingRawMap(parseT *testing.T) {
+	parseRaw := map[string]any{"viewBox": "0 0 10 10"}
+	parseMarkup, parseErr := ui.RenderToString(Svg(Props{Raw: parseRaw}, Circle(Props{Raw: map[string]any{"cx": 5, "cy": 5, "r": 4}})))
+	if parseErr != nil {
+		parseT.Fatalf("expected svg render, got %v", parseErr)
+	}
+	const want = `<svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg"><circle cx="5" cy="5" r="4"></circle></svg>`
+	if parseMarkup != want {
+		parseT.Fatalf("unexpected svg markup\nwant: %s\n got: %s", want, parseMarkup)
+	}
+	if _, parseMutated := parseRaw["xmlns"]; parseMutated {
+		parseT.Fatalf("expected Svg helper not to mutate caller Raw map, got %#v", parseRaw)
+	}
+
+	parseCustomMarkup, parseErr := ui.RenderToString(Svg(Props{Raw: map[string]any{"xmlns": "urn:custom"}}))
+	if parseErr != nil {
+		parseT.Fatalf("expected custom svg render, got %v", parseErr)
+	}
+	if parseCustomMarkup != `<svg xmlns="urn:custom"></svg>` {
+		parseT.Fatalf("expected custom xmlns to be preserved, got %q", parseCustomMarkup)
 	}
 }
 

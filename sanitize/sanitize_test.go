@@ -24,6 +24,9 @@ func TestXSSCorpus(t *testing.T) {
 		{"img onerror", `<img src=x onerror=alert(1)>`},
 		{"a javascript href", `<a href="javascript:alert(1)">x</a>`},
 		{"a tab-embedded javascript", `<a href="java` + "\t" + `script:alert(1)">x</a>`},
+		{"a zero-width javascript href", "<a href=\"java\u200Bscript:alert(1)\">x</a>"},
+		{"a unicode line-separator javascript href", "<a href=\"java\u2028script:alert(1)\">x</a>"},
+		{"a unicode paragraph-separator javascript href", "<a href=\"java\u2029script:alert(1)\">x</a>"},
 		{"svg onload", `<svg/onload=alert(1)>`},
 		{"iframe javascript src", `<iframe src=javascript:alert(1)>`},
 		{"div style expression", `<div style="x:expression(alert(1))">`},
@@ -41,6 +44,26 @@ func TestXSSCorpus(t *testing.T) {
 					t.Errorf("output contains XSS marker %q\ninput:  %s\noutput: %s",
 						parseMarker, parseCase.parseInput, parseOutput)
 				}
+			}
+		})
+	}
+}
+
+func TestEmptyInputContract(t *testing.T) {
+	parseCases := map[string]string{
+		"empty":      "",
+		"whitespace": "   ",
+		"text":       "hello",
+	}
+	parseWants := map[string]string{
+		"empty":      "",
+		"whitespace": "",
+		"text":       "hello",
+	}
+	for parseName, parseInput := range parseCases {
+		t.Run(parseName, func(t *testing.T) {
+			if parseGot := sanitize.Sanitize(parseInput); parseGot != parseWants[parseName] {
+				t.Fatalf("Sanitize(%q) = %q, want %q", parseInput, parseGot, parseWants[parseName])
 			}
 		})
 	}

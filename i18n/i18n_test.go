@@ -109,6 +109,11 @@ func TestRouteHelpers(parseT *testing.T) {
 	if parseResolved.Locale != "fr" || parseResolved.BasePath != "/pricing" || parseResolved.LocalizedPath != "/fr/pricing?plan=team" || !parseResolved.PrefixPresent {
 		parseT.Fatalf("unexpected resolved path: %+v", parseResolved)
 	}
+
+	parseResolved = ResolvePath("/en-US/dashboard", RouteOptions{SupportedLocales: []string{"en", "fr"}, DefaultLocale: "en"})
+	if parseResolved.Locale != "en" || parseResolved.BasePath != "/dashboard" || !parseResolved.PrefixPresent {
+		parseT.Fatalf("unexpected BCP-47 resolved path: %+v", parseResolved)
+	}
 }
 
 func TestSSRBootstrapRoundTrip(parseT *testing.T) {

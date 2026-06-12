@@ -144,6 +144,25 @@ func TestEaseInOutQuadSymmetry(t *testing.T) {
 	}
 }
 
+func TestCubicEasingInteriorValues(t *testing.T) {
+	parseCases := []struct {
+		parseName string
+		parseEase Easing
+		parseIn   float64
+		parseWant float64
+	}{
+		{"EaseInCubic", EaseInCubic, 0.5, 0.125},
+		{"EaseOutCubic", EaseOutCubic, 0.5, 0.875},
+		{"EaseInOutCubic", EaseInOutCubic, 0.25, 0.0625},
+	}
+	for _, parseCase := range parseCases {
+		parseGot := parseCase.parseEase(parseCase.parseIn)
+		if math.Abs(parseGot-parseCase.parseWant) > 1e-12 {
+			t.Fatalf("%s(%v) = %.12f, want %.12f", parseCase.parseName, parseCase.parseIn, parseGot, parseCase.parseWant)
+		}
+	}
+}
+
 // TestEasingClampBelowZero confirms that all easings clamp negative inputs to
 // 0 rather than producing out-of-range or unspecified values.
 func TestEasingClampBelowZero(t *testing.T) {
@@ -208,6 +227,13 @@ func TestInterpolateLinear(t *testing.T) {
 	}
 }
 
+func TestInterpolateAppliesEasingFunction(t *testing.T) {
+	parseGot := Interpolate(0, 10, 0.5, EaseInQuad)
+	if math.Abs(parseGot-2.5) > 1e-12 {
+		t.Fatalf("Interpolate(0,10,0.5,EaseInQuad) = %.12f, want 2.5", parseGot)
+	}
+}
+
 // TestInterpolateBoundaries checks that Interpolate returns the endpoints
 // exactly at t=0 and t=1.
 func TestInterpolateBoundaries(t *testing.T) {
@@ -216,6 +242,26 @@ func TestInterpolateBoundaries(t *testing.T) {
 	}
 	if parseGot := Interpolate(3, 7, 1, Linear); math.Abs(parseGot-7) > 1e-9 {
 		t.Errorf("Interpolate at t=1: got %.6f, want 7", parseGot)
+	}
+}
+
+func TestSpringIsSettledBoundarySemantics(t *testing.T) {
+	parseSpring := NewSpring(GentleSpring(), 1)
+	parseSpring.SetTarget(1)
+	if !parseSpring.IsSettled(0.001) {
+		t.Fatal("expected exact target with zero velocity to be settled")
+	}
+
+	parseNearlySettled := NewSpring(GentleSpring(), 1.0005)
+	parseNearlySettled.SetTarget(1)
+	if !parseNearlySettled.IsSettled(0.001) {
+		t.Fatal("expected position inside tolerance to be settled")
+	}
+
+	parseOutside := NewSpring(GentleSpring(), 1.002)
+	parseOutside.SetTarget(1)
+	if parseOutside.IsSettled(0.001) {
+		t.Fatal("expected position outside tolerance to remain unsettled")
 	}
 }
 
@@ -299,5 +345,61 @@ func TestComputeFLIPIdentity(t *testing.T) {
 	if math.Abs(parseFLIP.ScaleX-1) > parseTol || math.Abs(parseFLIP.ScaleY-1) > parseTol {
 		t.Errorf("identity FLIP has non-unit scale: (%v, %v)",
 			parseFLIP.ScaleX, parseFLIP.ScaleY)
+	}
+}
+
+func TestPanGestureTracksDeltaVelocityAndEnd(t *testing.T) {
+	parseGesture := StartPan(GestureSample{ID: "p1", X: 10, Y: 20, Time: 1})
+	if !parseGesture.Active || parseGesture.Start != (Point{X: 10, Y: 20}) {
+		t.Fatalf("unexpected started pan gesture: %+v", parseGesture)
+	}
+
+	parseGesture = parseGesture.Move(GestureSample{ID: "p1", X: 18, Y: 14, Time: 1.2})
+	if parseGesture.Delta != (Point{X: 8, Y: -6}) {
+		t.Fatalf("unexpected pan delta: %+v", parseGesture.Delta)
+	}
+	if math.Abs(parseGesture.Velocity.X-40) > 1e-9 || math.Abs(parseGesture.Velocity.Y-(-30)) > 1e-9 {
+		t.Fatalf("unexpected pan velocity: %+v", parseGesture.Velocity)
+	}
+
+	parseGesture = parseGesture.Move(GestureSample{ID: "p1", X: 19, Y: 13, Time: 1.2})
+	if parseGesture.Velocity != (Point{}) {
+		t.Fatalf("expected zero velocity for non-positive dt, got %+v", parseGesture.Velocity)
+	}
+
+	parseEnded := parseGesture.End()
+	if parseEnded.Active || parseEnded.Velocity != (Point{}) || parseEnded.Delta != parseGesture.Delta {
+		t.Fatalf("unexpected ended pan gesture: %+v", parseEnded)
+	}
+}
+
+func TestComputePinchScaleCenterAndZeroDistance(t *testing.T) {
+	parsePinch := ComputePinch(
+		Point{X: 0, Y: 0},
+		Point{X: 10, Y: 0},
+		Point{X: -5, Y: 0},
+		Point{X: 15, Y: 0},
+	)
+	if !parsePinch.Active {
+		t.Fatal("expected pinch to be active")
+	}
+	if math.Abs(parsePinch.StartDistance-10) > 1e-9 || math.Abs(parsePinch.Distance-20) > 1e-9 {
+		t.Fatalf("unexpected pinch distances: %+v", parsePinch)
+	}
+	if math.Abs(parsePinch.Scale-2) > 1e-9 {
+		t.Fatalf("unexpected pinch scale: %v", parsePinch.Scale)
+	}
+	if parsePinch.Center != (Point{X: 5, Y: 0}) {
+		t.Fatalf("unexpected pinch center: %+v", parsePinch.Center)
+	}
+
+	parseDegenerate := ComputePinch(
+		Point{X: 2, Y: 2},
+		Point{X: 2, Y: 2},
+		Point{X: 2, Y: 2},
+		Point{X: 5, Y: 6},
+	)
+	if math.Abs(parseDegenerate.Scale-1) > 1e-9 {
+		t.Fatalf("expected zero-distance pinch to keep identity scale, got %v", parseDegenerate.Scale)
 	}
 }

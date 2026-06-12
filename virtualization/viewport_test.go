@@ -91,6 +91,17 @@ func TestComputeViewportStateVisibleRangeRegressions(parseT *testing.T) {
 			wantVisible:    Range{Start: 0, End: 4},
 			wantRendered:   Range{Start: 0, End: 6},
 		},
+		{
+			name: "out of range scroll produces empty end range",
+			config: ViewportConfig{
+				TotalItems: 10,
+				RowHeight:  20,
+			},
+			scrollTop:      5000,
+			viewportHeight: 100,
+			wantVisible:    Range{Start: 10, End: 10},
+			wantRendered:   Range{Start: 10, End: 10},
+		},
 	}
 
 	for _, parseTest := range parseTests {

@@ -6,6 +6,10 @@
 
 The `state` library provides shared state primitives and hook-based integration for component-level and app-level state management.
 
+## Snapshot Versions
+
+`SaveSnapshot` and `SavePersistentSnapshot` emit versioned envelopes. `RegisterSnapshotMigration` installs migrations for restoring older envelopes; future versions are rejected, legacy unversioned payloads are treated as version 0, and failed migrations leave the existing atom values untouched.
+
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/state` (`package state`)

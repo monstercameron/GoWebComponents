@@ -27,7 +27,9 @@ type RetryPolicy struct {
 	MaxDelay time.Duration
 
 	// Multiplier scales the delay between successive retries. A value of 2.0
-	// doubles the delay after each failure.
+	// doubles the delay after each failure. A zero multiplier is honored as
+	// zero, so attempts after the second compute a zero delay; prefer
+	// DefaultRetryPolicy or an explicit positive multiplier for real backoff.
 	Multiplier float64
 
 	// Jitter is a fractional spread added to each delay to prevent thundering
@@ -101,7 +103,8 @@ type BreakerConfig struct {
 
 	// HalfOpenMaxCalls is the maximum number of calls allowed in the half-open
 	// state before the breaker re-opens (if all half-open calls succeed, it
-	// instead resets to closed).
+	// instead resets to closed). Zero or negative values allow unlimited
+	// half-open probes until a probe records success or failure.
 	HalfOpenMaxCalls int
 }
 

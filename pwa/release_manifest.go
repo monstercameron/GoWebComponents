@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -28,6 +29,7 @@ type WasmReleaseManifest struct {
 	Profile   string                         `json:"profile,omitempty"`
 	GOOS      string                         `json:"goos,omitempty"`
 	GOARCH    string                         `json:"goarch,omitempty"`
+	BuildID   string                         `json:"buildId,omitempty"`
 	Flags     WasmReleaseFlags               `json:"flags"`
 	Artifacts map[string]WasmReleaseArtifact `json:"artifacts,omitempty"`
 }
@@ -46,6 +48,43 @@ type ServiceWorkerAssetPlan struct {
 	ImmutableURLs    []string
 	ShellURLs        []string
 	PrecacheURLs     []string
+}
+
+type WasmRolloutConfig struct {
+	Stable          WasmReleaseManifest
+	Canary          WasmReleaseManifest
+	CanaryPercent   int
+	Salt            string
+	CacheTTLSeconds int
+	Rollback        bool
+}
+
+type WasmRolloutDecision struct {
+	Cohort           string
+	BuildID          string
+	WasmURL          string
+	SHA256           string
+	ManifestRevision string
+	CacheTTLSeconds  int
+	RolledBack       bool
+}
+
+type VersionSkewRefreshInput struct {
+	ClientBuildID      string
+	ServerBuildID      string
+	ReloadAlreadyTried bool
+	StateSnapshotJSON  []byte
+	VersionsCanMigrate bool
+}
+
+type VersionSkewRefreshDecision struct {
+	Mismatch             bool
+	ShouldReload         bool
+	BypassCache          bool
+	LoopGuarded          bool
+	SnapshotBeforeReload []byte
+	RestoreAfterReload   bool
+	Reason               string
 }
 
 // ParseWasmReleaseManifestJSON parses and validates a WasmReleaseManifest from JSON bytes.
@@ -67,6 +106,7 @@ func (parseM WasmReleaseManifest) Normalized() WasmReleaseManifest {
 	parseNormalized.Profile = strings.TrimSpace(parseNormalized.Profile)
 	parseNormalized.GOOS = strings.TrimSpace(parseNormalized.GOOS)
 	parseNormalized.GOARCH = strings.TrimSpace(parseNormalized.GOARCH)
+	parseNormalized.BuildID = strings.TrimSpace(parseNormalized.BuildID)
 	parseNormalized.Flags.LDFlags = strings.TrimSpace(parseNormalized.Flags.LDFlags)
 	parseNormalized.Flags.GCFlags = strings.TrimSpace(parseNormalized.Flags.GCFlags)
 	parseNormalized.Flags.BuildVCS = strings.TrimSpace(parseNormalized.Flags.BuildVCS)
@@ -124,13 +164,103 @@ func (parseM WasmReleaseManifest) Revision() string {
 	}
 	sort.Strings(parseKeys)
 	parseParts := make([]string, 0, len(parseKeys)+3)
-	parseParts = append(parseParts, parseNormalized.Package, parseNormalized.Profile, parseNormalized.GOOS+"/"+parseNormalized.GOARCH)
+	parseParts = append(parseParts, parseNormalized.Package, parseNormalized.Profile, parseNormalized.GOOS+"/"+parseNormalized.GOARCH, parseNormalized.BuildID)
 	for _, parseName2 := range parseKeys {
 		parseArtifact := parseNormalized.Artifacts[parseName2]
 		parseParts = append(parseParts, parseName2+":"+parseArtifact.Path+":"+parseArtifact.SHA256)
 	}
 	parseSum := sha256.Sum256([]byte(strings.Join(parseParts, "|")))
 	return hex.EncodeToString(parseSum[:])
+}
+
+// ChooseWasmRollout deterministically assigns one client to the stable or
+// canary wasm artifact. Rollback forces every client to stable immediately and
+// caps the response TTL at one second so caches converge quickly.
+func ChooseWasmRollout(parseConfig WasmRolloutConfig, parseClientID string) (WasmRolloutDecision, error) {
+	parseConfig.Stable = parseConfig.Stable.Normalized()
+	parseConfig.Canary = parseConfig.Canary.Normalized()
+	if parseErr := parseConfig.Stable.Validate(); parseErr != nil {
+		return WasmRolloutDecision{}, fmt.Errorf("stable manifest: %w", parseErr)
+	}
+	if parseConfig.CanaryPercent < 0 || parseConfig.CanaryPercent > 100 {
+		return WasmRolloutDecision{}, fmt.Errorf("pwa rollout canary percent must be between 0 and 100")
+	}
+	parseTTL := parseConfig.CacheTTLSeconds
+	if parseTTL < 0 {
+		parseTTL = 0
+	}
+	if parseConfig.Rollback {
+		if parseTTL == 0 || parseTTL > 1 {
+			parseTTL = 1
+		}
+		return buildWasmRolloutDecision("stable", parseConfig.Stable, parseTTL, true), nil
+	}
+	isCanary := false
+	if parseConfig.CanaryPercent > 0 {
+		if parseErr := parseConfig.Canary.Validate(); parseErr != nil {
+			return WasmRolloutDecision{}, fmt.Errorf("canary manifest: %w", parseErr)
+		}
+		isCanary = wasmRolloutBucket(parseClientID, parseConfig.Salt) < parseConfig.CanaryPercent
+	}
+	if isCanary {
+		return buildWasmRolloutDecision("canary", parseConfig.Canary, parseTTL, false), nil
+	}
+	return buildWasmRolloutDecision("stable", parseConfig.Stable, parseTTL, false), nil
+}
+
+// EvaluateVersionSkewRefresh decides whether a stale wasm/client build should
+// perform one cache-bypassing reload and carry a compatible state snapshot
+// across that refresh.
+func EvaluateVersionSkewRefresh(parseInput VersionSkewRefreshInput) VersionSkewRefreshDecision {
+	parseClient := strings.TrimSpace(parseInput.ClientBuildID)
+	parseServer := strings.TrimSpace(parseInput.ServerBuildID)
+	if parseClient == "" || parseServer == "" || parseClient == parseServer {
+		return VersionSkewRefreshDecision{Reason: "versions match"}
+	}
+	parseDecision := VersionSkewRefreshDecision{
+		Mismatch: true,
+		Reason:   "client build differs from server build",
+	}
+	if parseInput.ReloadAlreadyTried {
+		parseDecision.LoopGuarded = true
+		parseDecision.Reason = "version mismatch persists after one forced reload"
+		return parseDecision
+	}
+	parseDecision.ShouldReload = true
+	parseDecision.BypassCache = true
+	parseDecision.SnapshotBeforeReload = append([]byte(nil), parseInput.StateSnapshotJSON...)
+	parseDecision.RestoreAfterReload = parseInput.VersionsCanMigrate && len(parseDecision.SnapshotBeforeReload) > 0
+	return parseDecision
+}
+
+func buildWasmRolloutDecision(parseCohort string, parseManifest WasmReleaseManifest, parseTTL int, isRollback bool) WasmRolloutDecision {
+	parseWasm := parseManifest.Artifacts["wasm"]
+	parseRevision := parseManifest.Revision()
+	return WasmRolloutDecision{
+		Cohort:           parseCohort,
+		BuildID:          parseManifestBuildID(parseManifest),
+		WasmURL:          parseWasm.Path,
+		SHA256:           parseWasm.SHA256,
+		ManifestRevision: parseRevision,
+		CacheTTLSeconds:  parseTTL,
+		RolledBack:       isRollback,
+	}
+}
+
+func parseManifestBuildID(parseManifest WasmReleaseManifest) string {
+	if parseManifest.BuildID != "" {
+		return parseManifest.BuildID
+	}
+	return parseManifest.Revision()[:12]
+}
+
+func wasmRolloutBucket(parseClientID string, parseSalt string) int {
+	parseClientID = strings.TrimSpace(parseClientID)
+	if parseClientID == "" {
+		parseClientID = "anonymous"
+	}
+	parseSum := sha256.Sum256([]byte(strings.TrimSpace(parseSalt) + "\x00" + parseClientID))
+	return int(parseSum[0]) % 100
 }
 
 // BuildServiceWorkerAssetPlan builds a ServiceWorkerAssetPlan from a validated WasmReleaseManifest.

@@ -247,6 +247,65 @@ func TestStateNativeSnapshotHelpers(parseT *testing.T) {
 	}
 }
 
+func TestStateNativeSnapshotSchemaMigration(parseT *testing.T) {
+	parsePrev := snapshotMigrations
+	snapshotMigrations = map[int]SnapshotMigration{}
+	parseT.Cleanup(func() {
+		snapshotMigrations = parsePrev
+	})
+
+	if parseErr := RegisterSnapshotMigration(0, func(parseSnapshot Snapshot) (Snapshot, error) {
+		parseNext := parseSnapshot.Select()
+		parseNext["theme"] = parseNext["old_theme"]
+		delete(parseNext, "old_theme")
+		parseNext["migrated"] = true
+		return parseNext, nil
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterSnapshotMigration returned error: %v", parseErr)
+	}
+
+	parseMigrated, parseErr2 := UnmarshalSnapshotJSON([]byte(`{"protocol":"gwc.state.snapshot","version":0,"state":{"old_theme":"dark"}}`))
+	if parseErr2 != nil {
+		parseT.Fatalf("expected v0 snapshot migration to succeed, got %v", parseErr2)
+	}
+	if parseMigrated["theme"] != "dark" || parseMigrated["migrated"] != true {
+		parseT.Fatalf("unexpected migrated snapshot: %#v", parseMigrated)
+	}
+
+	if parseErr3 := RegisterSnapshotMigration(0, nil); parseErr3 != nil {
+		parseT.Fatalf("expected nil migration to unregister, got %v", parseErr3)
+	}
+	parseLegacy, parseErr4 := UnmarshalSnapshotJSON([]byte(`{"protocol":"gwc.state.snapshot","state":{"theme":"legacy"}}`))
+	if parseErr4 != nil || parseLegacy["theme"] != "legacy" {
+		parseT.Fatalf("expected missing-version legacy envelope to restore without migration, snapshot=%#v err=%v", parseLegacy, parseErr4)
+	}
+}
+
+func TestStateNativeSnapshotMigrationFailureIsAtomic(parseT *testing.T) {
+	parsePrev := snapshotMigrations
+	snapshotMigrations = map[int]SnapshotMigration{}
+	parseT.Cleanup(func() {
+		snapshotMigrations = parsePrev
+	})
+	if parseErr := RegisterSnapshotMigration(0, func(Snapshot) (Snapshot, error) {
+		return nil, errors.New("boom")
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterSnapshotMigration returned error: %v", parseErr)
+	}
+
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: stateNativeNoOpScheduler{}, Reset: true})
+	if parseErr := ApplySnapshot(Snapshot{"state-native-migration-atomic": "before"}); parseErr != nil {
+		parseT.Fatalf("seed ApplySnapshot returned error: %v", parseErr)
+	}
+	parseSnapshot, parseErr2 := UnmarshalSnapshotJSON([]byte(`{"protocol":"gwc.state.snapshot","version":0,"state":{"state-native-migration-atomic":"after"}}`))
+	if parseErr2 == nil || parseSnapshot != nil {
+		parseT.Fatalf("expected migration failure to return no snapshot, snapshot=%#v err=%v", parseSnapshot, parseErr2)
+	}
+	if parseValue, parseOk := runtime.GetGlobalRuntime().GetAtomValue("state-native-migration-atomic"); !parseOk || parseValue != "before" {
+		parseT.Fatalf("expected failed migration not to mutate atom state, got %#v ok=%t", parseValue, parseOk)
+	}
+}
+
 // TestStateNativeSnapshotStorageHelpers covers browser-storage helpers through injected native storage doubles.
 func TestStateNativeSnapshotStorageHelpers(parseT *testing.T) {
 	parseStorage, parseData := buildStateTestStorage(parseT)
@@ -293,6 +352,51 @@ func TestStateNativeSnapshotStorageHelpers(parseT *testing.T) {
 	}
 	if parseRestored2, parseErr7 := RestoreSnapshot("state-native-app", SessionStorage); parseErr7 == nil || parseRestored2 {
 		parseT.Fatalf("expected unavailable session storage to fail restore, restored=%t err=%v", parseRestored2, parseErr7)
+	}
+}
+
+func TestStateNativeSnapshotMigrationAndAtomicRestore(parseT *testing.T) {
+	parseStorage, parseData := buildStateTestStorage(parseT)
+	parsePrevLocal := loadStateLocalStorage
+	loadStateLocalStorage = func() (interop.Storage, error) { return parseStorage, nil }
+	parseT.Cleanup(func() {
+		loadStateLocalStorage = parsePrevLocal
+		_ = RegisterSnapshotMigration(0, nil)
+	})
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: stateNativeNoOpScheduler{}, Reset: true})
+	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("state-native-migrated", "current"); parseErr != nil {
+		parseT.Fatalf("seed current atom: %v", parseErr)
+	}
+
+	if parseErr := RegisterSnapshotMigration(0, func(parseSnapshot Snapshot) (Snapshot, error) {
+		parseNext := parseSnapshot.Select()
+		parseNext["state-native-migrated"] = "upgraded:" + fmt.Sprint(parseNext["legacy"])
+		delete(parseNext, "legacy")
+		return parseNext, nil
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterSnapshotMigration: %v", parseErr)
+	}
+	parseData["state-native-legacy"] = `{"protocol":"gwc.state.snapshot","version":0,"state":{"legacy":"v0"}}`
+	parseRestored, parseErr := RestoreSnapshot("state-native-legacy", LocalStorage)
+	if parseErr != nil || !parseRestored {
+		parseT.Fatalf("RestoreSnapshot migrated legacy payload = %t, %v", parseRestored, parseErr)
+	}
+	if parseValue, parseOk := runtime.GetGlobalRuntime().GetAtomValue("state-native-migrated"); !parseOk || parseValue != "upgraded:v0" {
+		parseT.Fatalf("expected migrated atom value, got %#v ok=%t", parseValue, parseOk)
+	}
+
+	if parseErr := RegisterSnapshotMigration(0, func(Snapshot) (Snapshot, error) {
+		return nil, errors.New("migration failed")
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterSnapshotMigration failing hook: %v", parseErr)
+	}
+	parseData["state-native-failing-migration"] = `{"protocol":"gwc.state.snapshot","version":0,"state":{"state-native-migrated":"bad"}}`
+	parseRestored, parseErr = RestoreSnapshot("state-native-failing-migration", LocalStorage)
+	if parseErr == nil || parseRestored {
+		parseT.Fatalf("expected failed migration to abort restore, restored=%t err=%v", parseRestored, parseErr)
+	}
+	if parseValue, parseOk := runtime.GetGlobalRuntime().GetAtomValue("state-native-migrated"); !parseOk || parseValue != "upgraded:v0" {
+		parseT.Fatalf("expected failed migration to leave atom unchanged, got %#v ok=%t", parseValue, parseOk)
 	}
 }
 
@@ -444,5 +548,31 @@ func TestStateNativeNormalizeSnapshotFloatRangeGuard(parseT *testing.T) {
 	}
 	if _, parseIsFloat := parseSnap["big"].(float64); !parseIsFloat {
 		parseT.Errorf("expected out-of-safe-range whole float64 to stay as float64, got %T(%v)", parseSnap["big"], parseSnap["big"])
+	}
+}
+
+func TestStateNativeSnapshotEdgeValues(parseT *testing.T) {
+	parseNaN := normalizeSnapshot(math.NaN())
+	parseNaNFloat, parseNaNOk := parseNaN.(float64)
+	if !parseNaNOk || !math.IsNaN(parseNaNFloat) {
+		parseT.Fatalf("normalizeSnapshot(NaN) = %T(%v), want float64 NaN", parseNaN, parseNaN)
+	}
+
+	parseInf := normalizeSnapshot(math.Inf(1))
+	parseInfFloat, parseInfOk := parseInf.(float64)
+	if !parseInfOk || !math.IsInf(parseInfFloat, 1) {
+		parseT.Fatalf("normalizeSnapshot(+Inf) = %T(%v), want float64 +Inf", parseInf, parseInf)
+	}
+
+	parseSnapshot := Snapshot{"nil-value": nil, "number": 1}
+	parseSelected := parseSnapshot.Select("nil-value", "missing")
+	if len(parseSelected) != 1 {
+		parseT.Fatalf("Select should preserve present nil value only, got %#v", parseSelected)
+	}
+	if parseValue, parseExists := parseSelected["nil-value"]; !parseExists || parseValue != nil {
+		parseT.Fatalf("Select did not preserve nil value, got value=%#v exists=%t", parseValue, parseExists)
+	}
+	if parseErr := ApplySnapshot(Snapshot{"state-native-nil": nil}); parseErr != nil {
+		parseT.Fatalf("ApplySnapshot with nil value returned error: %v", parseErr)
 	}
 }
