@@ -846,13 +846,23 @@ impact; exactly three active items carry the next-work marker.
   warn-only=silent). Remaining: wire the same `diagnoseEnvironmentOnFailure`
   helper into `gwc build` (runBuild lives in release_build.go, currently
   edited by the concurrent session - deferred to avoid a collision).
-- [ ] **Browser build-status indicator in `gwc dev`** - the 304ms rebuild
+- [~] **Browser build-status indicator in `gwc dev`** - the 304ms rebuild
   is only visible as terminal text; developers watching the browser get
   no signal. Add a small corner badge (building / ready / error) and an
   optional rebuild-failure notification when the terminal is unfocused.
   Test for: badge reflects building->ready transitions over the livereload
   channel in an e2e; error state shows on a failed rebuild and clears on
   the next success; badge is dev-only and never ships to production.
+  Already implemented (verified 2026-06-12): the livereload client script
+  (tools/livereload/scripts/livereload-client.txt) renders a status badge
+  (`#livereload-status` / `#gwc-status-panel` / `#gwc-status-icon` /
+  `#gwc-error-badge`) driven by the `build_start`/`build_complete`/
+  `build_error` WebSocket messages via `showStatus`/`showBuildStatusPopup`/
+  `handleDebounceStatus`, with Ready/Building/Build-failed states. It is
+  dev-only (the client script is injected only under livereload, never in
+  a release build). Remaining: a dedicated badge-transition browser e2e -
+  belongs in the dev-loop browser harness (tools/gwc/
+  dev_loop_browser_e2e_test.go) that drives the real gwc dev server.
 - [ ] **`gwc init` time-to-first-pixel guarantee** - scaffolding works but
   no CI test proves `gwc init` output builds and renders on a clean
   machine across the offered presets.
@@ -1297,12 +1307,23 @@ fixed tree passed build, vet, and js/wasm example builds.
   Test for: native + js/wasm builds green; vet green; the example wasm
   mains still compile under GOOS=js GOARCH=wasm; no behavior change
   (mechanical rewrites only).
-- [ ] **Review the skipped `omitempty` -> `omitzero` candidates** - go fix
+- [x] **Review the skipped `omitempty` -> `omitzero` candidates** - go fix
   flagged ~25 JSON-tag conversions across fetch, interop, pwa, ui,
   runnerconfig, tools/gwc but skipped them as behavior changes; each needs
   a case-by-case wire-compat review (empty-slice/zero-struct semantics).
-- [ ] **Nested module tools/livereload** - same bump + fix pass (it is its
+  Done: reviewed the affected cache, mutation, interop, release manifest,
+  SSR bootstrap, runner-config, enterprise-config, and scaffold metadata
+  fields. Kept the old wire shape by preserving previously emitted zero-value
+  struct/time fields instead of switching them to `omitzero`; documented the
+  convention in `docs/CONVENTIONS.md` and added JSON-shape regression tests.
+- [x] **Nested module tools/livereload** - same bump + fix pass (it is its
   own module; `go -C tools/livereload fix ./.`).
+  Done: `tools/livereload/go.mod` is on `go 1.26.0`, the nested `go fix`
+  pass was rerun, and the mechanical rewrites are limited to `any`,
+  `strings.SplitSeq`/`CutPrefix`, ineffective struct-field `omitempty`
+  cleanup, and the nested `x/sys` refresh. Verified with
+  `go -C tools/livereload test ./... -count=1`, `go -C tools/livereload test
+  . -count=1`, and focused `tools/gwc` nested-livereload launcher tests.
 - [x] **Decide third_party/GoGRPCBridge separately** - vendored module with
   its own go directive and CI; do not blanket-rewrite it from the root.
   Done: documented the root modernization boundary in `third_party/README.md`;
