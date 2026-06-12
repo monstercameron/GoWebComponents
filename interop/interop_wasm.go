@@ -195,6 +195,42 @@ func GetWindowHistory() (History, error) {
 	}, nil
 }
 
+// RequestPersistentStorage asks the browser to grant persistent storage for
+// the origin via navigator.storage.persist(). A denial is a normal answer, not
+// an error: it returns (false, nil). An error is returned only when the Storage
+// Manager API is unavailable or the call itself fails.
+func RequestPersistentStorage(parseCtx context.Context) (bool, error) {
+	return storageManagerBool(parseCtx, "RequestPersistentStorage", "persist")
+}
+
+// IsStoragePersisted reports whether the origin already has persistent storage,
+// via navigator.storage.persisted().
+func IsStoragePersisted(parseCtx context.Context) (bool, error) {
+	return storageManagerBool(parseCtx, "IsStoragePersisted", "persisted")
+}
+
+// storageManagerBool calls a boolean-returning navigator.storage promise method.
+func storageManagerBool(parseCtx context.Context, parseName string, parseMethod string) (bool, error) {
+	parseRaw, parseErr := globalPath(parseName, "navigator", "storage")
+	if parseErr != nil {
+		return false, parseErr
+	}
+	parseWrapped := Value{raw: parseRaw}
+	parseValue, parseErr2 := parseWrapped.Call(parseMethod)
+	if parseErr2 != nil {
+		return false, parseErr2
+	}
+	parseRawValue, parseOk := parseValue.rawValue()
+	if !parseOk {
+		return false, unavailable(parseName, "navigator.storage."+parseMethod)
+	}
+	parseResolved, parseErr3 := awaitValue(parseCtx, parseName, "navigator.storage."+parseMethod, parseRawValue)
+	if parseErr3 != nil {
+		return false, parseErr3
+	}
+	return parseResolved.Bool(), nil
+}
+
 // GetClipboard returns a Clipboard backed by navigator.clipboard.
 func GetClipboard() (Clipboard, error) {
 	parseRaw, parseErr := globalPath("Clipboard", "navigator", "clipboard")

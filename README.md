@@ -23,6 +23,21 @@ It is aimed at teams that want to build browser UI in Go without dropping into a
 
 ## Quick Start
 
+### 30-second golden path
+
+Clone the repo and run a real example with rebuild-on-save:
+
+```powershell
+go run ./tools/gwc doctor
+go run ./tools/gwc dev -app .\examples\public\counter\main.go
+```
+
+`gwc dev` builds the app to wasm, serves it, and live-reloads on every save.
+To scaffold your own app, use `go run ./tools/gwc start` (interactive) or browse
+the catalog with `go run ./tools/gwc examples`.
+
+### Add to an existing module
+
 Install the module:
 
 ```bash

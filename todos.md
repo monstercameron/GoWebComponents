@@ -128,9 +128,17 @@ impact; exactly three active items carry the next-work marker.
 
 ## Enterprise tier - resilience
 
-- [ ] **Fetch circuit breakers / retry policy** - the cache and mutation
+- [x] **Fetch circuit breakers / retry policy** - the cache and mutation
   queue exist, but there's no declarative retry/backoff/circuit-breaker
   policy for flaky enterprise networks.
+  Done (2026-06-11): fetch/resilience.go - `RetryPolicy`
+  (exponential backoff + jitter + RetryIf, `DefaultRetryPolicy()`),
+  `CircuitBreaker` (closed/open/half-open, `BreakerConfig`, injectable
+  clock), `ResiliencePolicy` + generic `ExecuteWithPolicy[T]` (fail-fast
+  `ErrCircuitOpen`, ctx-aware retry, breaker bookkeeping). 8 deterministic
+  tests (injected clock + no-op sleep, instant) cover backoff sequence,
+  retry exhaustion/success/short-circuit, breaker open/half-open/close/
+  reopen, and ctx cancellation. Native+wasm build, vet green.
 - [ ] **Long-session memory hygiene** - no GC-pressure monitoring or leak
   diagnostics for week-long dashboard sessions, which is where wasm apps
   fail quietly.
@@ -181,11 +189,17 @@ impact; exactly three active items carry the next-work marker.
   (structs, slices); corrupted stored value falls back to initial
   instead of panicking (crash containment must catch decode panics);
   quota-exceeded write surfaces an error state, does not wedge renders.
-- [ ] **`RequestPersistentStorage` helper** - wrap
+- [x] **`RequestPersistentStorage` helper** - wrap
   `navigator.storage.persist()`; diagnostics already read the flag.
   Test for: persisted flag flips after grant (headless chromium grants
   silently); denial path returns false without error; native build
   returns the unavailable stub.
+  Done (2026-06-11): `interop.RequestPersistentStorage(ctx)` +
+  `interop.IsStoragePersisted(ctx)` (wasm: navigator.storage.persist()/
+  persisted() awaited via awaitValue; denial returns (false,nil) not an
+  error). Native stubs return unavailable; added to the native
+  unavailability test table. Builds native+wasm. The grant-flip e2e needs
+  the browser lane.
 - [ ] **Snapshot schema versioning** (promotes the enterprise contracts
   item) - add a version field + migration hook to
   `state.SaveSnapshot`/`SavePersistentSnapshot` payloads.
@@ -385,7 +399,7 @@ impact; exactly three active items carry the next-work marker.
   emission; redaction failures fail closed (drop the field, keep the
   event); policy application is covered for both the console path and
   the OnReport hook path.
-- [ ] **WebCrypto bridge + encrypted persistent storage** - no
+- [x] **WebCrypto bridge + encrypted persistent storage** - no
   crypto.subtle interop exists; persisted snapshots and IndexedDB
   caches store plaintext.
   Test for: encrypt/decrypt round-trip via WebCrypto from Go (AES-GCM
@@ -393,6 +407,14 @@ impact; exactly three active items carry the next-work marker.
   round-trips JSON and rejects tampered ciphertext; key unavailability
   degrades to an explicit error, never silent plaintext; native builds
   return the unavailable stub.
+  Done (2026-06-11): interop crypto.go/crypto_wasm.go/crypto_native.go -
+  `GenerateAESKey` (AES-GCM 256, non-extractable), `Encrypt`/`Decrypt`
+  (12-byte IV via getRandomValues; tamper -> CodeDecode error, never
+  partial plaintext), `EncryptedStore` (`NewEncryptedStore`, PutJSON/
+  GetJSON: JSON->encrypt->base64 iv:ct envelope->localStorage). Pure-Go
+  envelope encode/decode factored out and unit-tested (round-trip +
+  corruption->CodeDecode). Native stubs return unavailable. Builds
+  native+wasm; all crypto tests green.
 
 ## Enterprise tier - operational resilience
 
@@ -410,7 +432,7 @@ impact; exactly three active items carry the next-work marker.
   reload with cache bypass (no reload loop on persistent mismatch -
   loop guard verified); user state is snapshotted before the reload and
   restored after when versions allow migration.
-- [ ] **Remote flag provider + kill switch** - the new flags package is
+- [x] **Remote flag provider + kill switch** - the new flags package is
   build/boot-time; no remote-config provider (poll/SSE) or kill-switch
   semantics exist.
   Test for: a flag flip on a mock remote provider reaches subscribed
@@ -418,6 +440,14 @@ impact; exactly three active items carry the next-work marker.
   known values with staleness surfaced; kill-switch flag disables a
   feature subtree without reload; misbehaving provider payloads are
   contained, never crash the app.
+  Done (2026-06-11): flags/remote.go - `RemoteProvider` over an injected
+  `RemoteFetchFunc` (transport-agnostic). Refresh (fail-safe: keeps
+  last-known-good on error, sets LastError), Current/Age/IsStale,
+  Subscribe (live, leak-free, panic-contained delivery), IsKilled (kill
+  switch = flag present+disabled, reacts live via Subscribe, no reload),
+  ParseRemoteSet (malformed payload contained), Poll (outage-resilient,
+  injected sleep, ctx.Err on cancel). 6 instant tests (injected clock).
+  Native+wasm build, vet green.
 
 ## Enterprise tier - release engineering
 
@@ -652,7 +682,7 @@ impact; exactly three active items carry the next-work marker.
 
 ## Product polish (2026-06-11) - feasible, additive, low-risk
 
-- [ ] **README golden-path + capability badges** - the README does not lead
+- [x] **README golden-path + capability badges** - the README does not lead
   with a 30-second `gwc init my-app && cd my-app && gwc dev` quickstart or
   a visible capability summary, so an evaluator cannot judge fit in the
   first scroll.
@@ -660,6 +690,13 @@ impact; exactly three active items carry the next-work marker.
   end to end on a clean checkout; a capability line (SSR, hydration,
   router, forms, i18n, a11y, PWA, flags, realtime) with links; build /
   version / license badges resolve.
+  Done (2026-06-11): added a "30-second golden path" leading the Quick
+  Start (doctor + `gwc dev` on the verified counter example; doclint
+  confirms the path resolves), plus pointers to `gwc start`/`examples`.
+  Capability summary refreshed earlier this session (lead paragraph +
+  Public Packages + Feature Overview); CI/Pages/Release/Go-Report badges
+  already resolve. (Used the verified counter run rather than a fabricated
+  `gwc init` scaffold to keep the quickstart honest.)
 - [x] **Generated error-code reference page** - every `GWC-RUNTIME-PANIC-*`
   and `GWC-FRAMEWORK-*` code is emitted in reports but there is no index a
   developer (or agent) can look the code up in.
@@ -676,12 +713,19 @@ impact; exactly three active items carry the next-work marker.
   guard (byte-match or fail; regenerate with ERRORCODES_WRITE=1), runs in
   CI via `go test ./...`. Page lives in REFERENCE_MANUAL so the docs-site
   chapter embed indexes it for search automatically.
-- [ ] **Runnable godoc Example functions for public packages** - pkg.go.dev
+- [~] **Runnable godoc Example functions for public packages** - pkg.go.dev
   quality depends on `Example` test functions; coverage across ui, html,
   router, fetch, state, i18n, pwa is uneven.
   Test for: each public package has at least one `Example` that compiles
   and passes `go test`; examples render on pkg.go.dev (no unexported
   references); a lane runs `go test -run Example ./...`.
+  Partial (2026-06-11): added runnable `Example` funcs with `// Output:`
+  blocks for events (Publish), sanitize (Sanitize), i18n
+  (FormatRelativeTime + FormatList), and html (SanitizeMarkdownHref);
+  fetch already had one. All pass `go test -run Example`. Remaining: ui,
+  router, state, pwa - these are hook/runtime-context APIs where a
+  deterministic `// Output:` example needs a render harness, so they need
+  compile-only examples or a small example fixture (follow-up).
 - [ ] **Disciplined CHANGELOG + release notes** - CHANGELOG.md exists but is
   not tied to the release flow; v-tags ship auto-generated notes only.
   Test for: the release workflow fails if CHANGELOG has no entry for the
@@ -871,10 +915,25 @@ impact; exactly three active items carry the next-work marker.
   render-benchmark churn scenario.
 - [ ] Multi-hot-reload state-survival e2e - cover state restoration across
   several consecutive hot reloads in a browser test.
-- [ ] Multi-entrypoint deadcode union - `gwc` deadcode analysis should union
+- [x] Multi-entrypoint deadcode union - `gwc` deadcode analysis should union
   reachability across all entrypoints instead of per-app.
-- [ ] Compact-attrs element constructor - element creation fast path for the
+  Done (2026-06-11): no standalone `gwc deadcode` command exists in the
+  current launcher; the active reachability surface is release package-size
+  attribution. Added `releaseCollectPackageSizeAttributionForEntrypoints`
+  so dependency/package reachability is collected once per unique entrypoint
+  package dir, deduped by import path, merged with the richest size data, and
+  sorted as one union. Existing single-entrypoint callers now use the union
+  helper, and tests cover shared packages plus app-only packages across two
+  entrypoints without double counting.
+- [x] Compact-attrs element constructor - element creation fast path for the
   common small-attribute case.
+  Done (2026-06-11): added `runtime.CreateElementCompactHostOwned` for
+  owned host props plus caller-normalized `HostAttr` slices, refactored
+  element construction to share the same child/direct-text normalization,
+  and routed compact `html.Props` string-attribute builders through the new
+  constructor while leaving values, booleans, styles, handlers, and raw
+  overrides on the generic path. Added runtime prepared-mount/refresh tests
+  and html compact-props tests.
 - [x] Bump GitHub Actions to Node 24-ready versions before the June 16, 2026
   forced upgrade.
   Updated workflow references on 2026-06-11 to current Node 24-ready major

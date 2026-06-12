@@ -27,6 +27,8 @@ func TestNativeInteropConstructorsReportUnavailable(parseT *testing.T) {
 		{name: "GetDocumentEvents", err: func() error { _, parseErr8 := GetDocumentEvents(); return parseErr8 }()},
 		{name: "GetDocument", err: func() error { _, parseErr9 := GetDocument(); return parseErr9 }()},
 		{name: "GetMediaQuery", err: func() error { _, parseErr10 := GetMediaQuery("(prefers-color-scheme: dark)"); return parseErr10 }()},
+		{name: "RequestPersistentStorage", err: func() error { _, parseErrRP := RequestPersistentStorage(context.TODO()); return parseErrRP }()},
+		{name: "IsStoragePersisted", err: func() error { _, parseErrIP := IsStoragePersisted(context.TODO()); return parseErrIP }()},
 		{name: "ImportModule", err: func() error { _, parseErr11 := ImportModule(context.TODO(), "/demo.js"); return parseErr11 }()},
 		{name: "OpenWorker", err: func() error {
 			_, parseErr12 := OpenWorker(context.TODO(), WorkerOptions{URL: "/worker.js"})

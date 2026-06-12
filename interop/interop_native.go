@@ -78,6 +78,20 @@ func GetMediaQuery(parseMediaQuery string) (MediaQueryList, error) {
 	return MediaQueryList{}, unavailable("GetMediaQuery", parseMediaQuery)
 }
 
+// RequestPersistentStorage is a non-browser stub that always returns an
+// unavailable error.
+func RequestPersistentStorage(parseCtx context.Context) (bool, error) {
+	_ = parseCtx
+	return false, unavailable("RequestPersistentStorage", "navigator.storage.persist")
+}
+
+// IsStoragePersisted is a non-browser stub that always returns an unavailable
+// error.
+func IsStoragePersisted(parseCtx context.Context) (bool, error) {
+	_ = parseCtx
+	return false, unavailable("IsStoragePersisted", "navigator.storage.persisted")
+}
+
 // ImportModule is a non-browser stub that always returns an unavailable error.
 func ImportModule(parseImportCtx context.Context, parseImportSpecifier string) (Module, error) {
 	_ = parseImportCtx
