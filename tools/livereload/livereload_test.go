@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"agenthub"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
 	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
@@ -60,6 +61,51 @@ func TestLiveReloadOriginValidation(parseT *testing.T) {
 	parseReq.Header.Set("Origin", "https://evil.example.test")
 	if !parseOpenServer.originAllowed(parseReq) {
 		parseT.Fatal("expected allowAnyOrigin to accept a foreign Origin")
+	}
+}
+
+func TestLiveReloadAgentHubRouteAndBootstrapInjection(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseIndexPath := filepath.Join(parseRoot, "index.html")
+	if parseErr := os.WriteFile(parseIndexPath, []byte(`<!doctype html><html><body><main>app</main></body></html>`), 0o644); parseErr != nil {
+		parseT.Fatalf("write index: %v", parseErr)
+	}
+	parseHub, parseErr := agenthub.NewAgentHub()
+	if parseErr != nil {
+		parseT.Fatalf("new agent hub: %v", parseErr)
+	}
+	parseServer := &LiveReloadServer{
+		projectRoot: parseRoot,
+		indexPath:   parseIndexPath,
+		outputPath:  filepath.Join(parseRoot, "bin", "main.wasm"),
+		host:        "127.0.0.1",
+		port:        "8090",
+		modulePath:  "example.com/app",
+		agentHub:    parseHub,
+		clients:     map[*websocket.Conn]ClientSession{},
+	}
+	parseHandler := parseServer.newHTTPHandler()
+
+	parseHTMLReq := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8090/", nil)
+	parseHTMLRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseHTMLRec, parseHTMLReq)
+	parseHTML := parseHTMLRec.Body.String()
+	if !strings.Contains(parseHTML, "window.__GWC_AGENT_BRIDGE") {
+		parseT.Fatalf("served HTML missing agent bridge bootstrap: %s", parseHTML)
+	}
+	if !strings.Contains(parseHTML, parseHub.Token()) {
+		parseT.Fatal("served HTML missing minted agent token")
+	}
+
+	parseAgentReq := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8090/gwc-agent?token=wrong", nil)
+	parseAgentReq.RemoteAddr = "127.0.0.1:49152"
+	parseAgentRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseAgentRec, parseAgentReq)
+	if parseAgentRec.Code != http.StatusForbidden {
+		parseT.Fatalf("/gwc-agent wrong-token status = %d, want %d", parseAgentRec.Code, http.StatusForbidden)
+	}
+	if !strings.Contains(parseAgentRec.Body.String(), "agent token") {
+		parseT.Fatalf("/gwc-agent response = %q, want token rejection", parseAgentRec.Body.String())
 	}
 }
 

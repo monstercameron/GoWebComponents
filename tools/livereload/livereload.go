@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"agenthub"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
 	"github.com/monstercameron/GoWebComponents/diagnostics"
@@ -298,6 +299,7 @@ type LiveReloadServer struct {
 	wasmGzipModTime      time.Time
 	upgrader             websocket.Upgrader // per-server upgrader with Origin validation
 	allowAnyOrigin       bool               // opt-out of Origin validation (tunnel/LAN dev)
+	agentHub             *agenthub.AgentHub
 }
 
 func livereloadReport(parseSubject string, parsePath string, parseSummary string, parseConsequence string, parseNext string) diagnostics.Report {
@@ -452,6 +454,10 @@ func NewLiveReloadServerWithOptions(parseOptions LiveReloadOptions) (*LiveReload
 	}
 
 	parseManifestPath := parseOutputPath + ".hotreload-manifest.json"
+	parseAgentHub, parseErr := agenthub.NewAgentHub()
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
 	parseServer := &LiveReloadServer{
 		watcher:          parseWatcher,
@@ -470,6 +476,7 @@ func NewLiveReloadServerWithOptions(parseOptions LiveReloadOptions) (*LiveReload
 		changedFiles:     make(map[string]time.Time),
 		modulePath:       resolveModulePath(parseWatchRoot),
 		manifestPath:     parseManifestPath,
+		agentHub:         parseAgentHub,
 	}
 	// Validate the WebSocket Origin per server so a visited website cannot open
 	// the dev reload socket on localhost (cross-site WebSocket hijacking).

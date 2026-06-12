@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"agenthub"
 	"github.com/gorilla/websocket"
 	"github.com/monstercameron/GoWebComponents/diagnostics"
 )
@@ -22,6 +23,9 @@ func (parseLrs *LiveReloadServer) newHTTPHandler() http.Handler {
 	parseFileServer := http.FileServer(http.Dir(parseLrs.projectRoot))
 	parseMux.HandleFunc("/__gwc/status", parseLrs.handleStatus)
 	parseMux.HandleFunc("/__gwc/clients/disconnect", parseLrs.handleClientDisconnect)
+	if parseLrs.agentHub != nil {
+		agenthub.RouteAgentHub(parseMux, parseLrs.agentHub)
+	}
 	if parseLrs.staticDir != "" {
 		parseStaticFileServer := http.StripPrefix("/static/", http.FileServer(http.Dir(parseLrs.staticDir)))
 		parseMux.Handle("/static/", parseStaticFileServer)
@@ -269,6 +273,9 @@ func (parseLrs *LiveReloadServer) handleHTML(parseW http.ResponseWriter, parseR 
 	}
 
 	parseConfigScript := fmt.Sprintf("\n<script>\nwindow.__GWC_LIVERELOAD_CONFIG = Object.assign({}, window.__GWC_LIVERELOAD_CONFIG || {}, { wasmPath: %q, projectRoot: %q });\n</script>", parseLrs.servedWASMPath(), filepath.ToSlash(parseLrs.projectRoot))
+	if parseLrs.agentHub != nil {
+		parseConfigScript += fmt.Sprintf("\n<script>\nwindow.__GWC_AGENT_BRIDGE = Object.assign({}, window.__GWC_AGENT_BRIDGE || {}, { token: %q, appId: %q, buildId: %q });\n</script>", parseLrs.agentHub.Token(), filepath.ToSlash(parseLrs.projectRoot), parseLrs.modulePath)
+	}
 	parseLiveReloadScript := fmt.Sprintf("%s\n<script>\n%s\n</script>", parseConfigScript, string(parseScriptContent))
 	parseModifiedContent := strings.Replace(string(parseHtmlContent), "</body>", parseLiveReloadScript+"\n</body>", 1)
 
