@@ -298,7 +298,7 @@ impact; exactly three active items carry the next-work marker.
 
 ### Accessibility (visually impaired)
 
-- [ ] **Automated a11y audit in the browser suites** - the primitives
+- [~] **Automated a11y audit in the browser suites** - the primitives
   (UseAnnouncer, UseFocusTrap, UseCompositeNavigation, AccessibleOverlay)
   exist but no axe-core-style audit runs in CI, so contrast/label/name
   regressions ship silently.
@@ -306,6 +306,16 @@ impact; exactly three active items carry the next-work marker.
   serious/critical level; the audit runs inside the existing playwright
   lanes; intentional violations in a fixture page are detected (the
   audit itself is tested, not just wired); docs-site routes included.
+  Done (2026-06-12, real browser): axe-core (v4.12.1, vendored at
+  testdata/axe.min.js) injected via AddScriptTag. `TestAccessibilityAudit-
+  PublicExamples` audits 6 booting wasm examples (counter, todo-basic,
+  form-accessibility, accessible-overlay, semantic-html, routed-
+  accessibility) against wcag2a/wcag2aa and FAILS hard (rule id + impact +
+  node + help URL) on any serious/critical - all 6 are CLEAN.
+  `TestAccessibilityAuditCatchesViolation` self-test proves the audit
+  works (catches 5 violations on broken markup), so a green run means
+  genuinely accessible, not broken-audit. Runs in the playwrightgo lane.
+  Remaining: expand to all public examples + the docs-site routes.
 - [ ] **Docs-site dogfood: a11y primitives in the search modal** - the new
   pure-GWC site's search modal lacks UseFocusTrap/UseAnnouncer and the
   gallery filters lack composite keyboard navigation.
