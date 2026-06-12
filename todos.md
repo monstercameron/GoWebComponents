@@ -1970,3 +1970,64 @@ through the `sanitize` package, trusted markup through `Markdown`.
   yet built; deterministic sorted output from the true-valued keys.
   Test for: only true-valued keys appear; sorted/deterministic; empty -> "";
   composes inside `ClassNames`.
+
+## Research concerns / open questions (2026-06-12)
+
+Decisions and investigations surfaced during this session that must be resolved
+BEFORE building the dependent item - not coverage tasks. Each is a question with
+why it matters, so the answer can be settled deliberately rather than defaulted.
+
+- [ ] **MCP consumer model: local stdio vs shipped HTTP+auth** - the `gwc mcp`
+  design forks on who consumes it: (a) you driving Claude Code against gwc
+  locally -> a stdio server, no auth, fastest; (b) an agent capability shipped to
+  gwc's users -> a documented HTTP surface with an auth/permission story and
+  read-only-vs-mutating tool gating. Pick one for the first implementation; the
+  todo is scoped to support both but the surfaces differ. Blocks: `gwc mcp`.
+- [ ] **Semantic-search embedding strategy** - `gwc search` must choose its
+  embedder: a vendored local model (offline, deterministic, lower quality) vs a
+  pluggable/remote embedder (higher quality, network + nondeterminism). The hard
+  requirement is reproducibility for a fixed index+query so the fixture tests can
+  exist. Decide before building, since it determines the index format and the test
+  harness. Blocks: `gwc search`.
+- [ ] **`gwc size` wasm attribution method** - investigate what actually
+  attributes wasm bytes to packages/symbols accurately: `go tool nm -size` on the
+  pre-link object vs parsing the wasm name/custom sections vs DWARF. Determine
+  whether attribution sums to ~the artifact size (section overhead), and how the
+  TinyGo profile (different toolchain/sections) is handled or reported as
+  unsupported. Blocks: `gwc size`.
+- [ ] **Race-detector lane for concurrency correctness** - the `events` (and
+  future atom/scheduler) concurrency tests need `-race`, which is unavailable on
+  this windows/arm64 dev host. Decide where the race lane runs (CI on amd64
+  linux?) and wire the concurrency tests to it, so the Subscribe/Publish-window
+  and double-unsubscribe tests are actually exercised under the detector rather
+  than silently skipped. Blocks: the events item in the test-correctness section.
+- [ ] **Markdown raw-HTML UX + GFM extension scope** - `RenderMarkdown` silently
+  DROPS embedded raw HTML (no RawHTML/HTMLBlock case) and enables only the Table
+  extension. Two decisions: (1) is silent-drop the right author UX, or should raw
+  HTML be escaped and shown as visible text (less surprising) - silent-drop can
+  read as "my content vanished"; (2) which other GFM features to enable
+  (task lists, strikethrough, extended autolinks). Both affect docs-site authoring
+  and the `Markdown` shorthand. Note: the no-raw-HTML-SINK security property is
+  NOT in question - only drop-vs-escape and feature scope.
+- [ ] **MergeProps reflection on the render hot path** - `MergeProps` uses
+  reflection over the Props struct. If callers use it per-render (prop forwarding
+  in a hot component), reflection allocation/iteration may show up. Benchmark it;
+  if it is hot, decide between an explicit field-by-field merge or codegen. Until
+  measured this is a latent perf concern, not a correctness one.
+- [ ] **`Show` in-place mutation safety** - `Show(false, node)` mutates the passed
+  node's Props map in place (sets hidden). Investigate whether that is safe when
+  the same node value is reused across renders or shared, or whether Show should
+  operate on a clone. The control-flow `WithKey`/`WithChildren` helpers share this
+  build-time-mutation pattern, so the answer generalizes to all node-mutating
+  shorthand. Low risk for the intended build-once usage; confirm before
+  documenting it as reuse-safe.
+- [ ] **Dedicated SVG helper surface** - decide whether `Svg`/`Path`/etc warrant a
+  namespaced SVG helper set (correct xmlns handling, the SVG attribute vocabulary)
+  rather than raw `Tag("svg", ...)`. SVG attributes and namespacing differ enough
+  from HTML that sugar may be worth it - or may be scope creep. Scopes the element-
+  builder completeness item.
+- [ ] **AGENTS.md Today/Planned drift** - the parallel session is implementing the
+  agentic gwc commands (agentic.go/mutate/observe/mcp/help already in the
+  dispatch). Once those land and build, re-verify each and PROMOTE it from the
+  Planned column to Today in AGENTS.md's SDLC table, so the doc does not understate
+  shipped capability. Follow-up bookkeeping, not research.
