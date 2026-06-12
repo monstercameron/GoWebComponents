@@ -40,6 +40,9 @@ const (
 	// ErrorCodeForbidden means the app is not in agent mode or the caller
 	// lacks the session write lease.
 	ErrorCodeForbidden = "forbidden"
+	// ErrorCodeTimeout means a wait command reached its deadline before the
+	// requested runtime condition became true.
+	ErrorCodeTimeout = "timeout"
 )
 
 // EnvelopeError is the structured failure attached to a non-ok ack.
