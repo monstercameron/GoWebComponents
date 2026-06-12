@@ -220,33 +220,12 @@ func TestAccessibilityAuditPublicExamples(parseT *testing.T) {
 	// Expanded from 6 to 19 examples covering:
 	//   - Interactive primitives: counter, toggle, text-input
 	//   - State management:       use-state, use-reducer, use-effect, use-callback, context-api, state-atoms
-	//   - Forms & inputs:         html-forms, form-accessibility
+	//   - Forms & inputs:         html-forms, form-accessibility, form, todo-advanced
 	//   - Overlay / focus:        accessible-overlay, overlay-stack
 	//   - Routing:                hash-router, browser-router, route-params, routed-accessibility
 	//   - Semantic markup:        semantic-html, todo-basic
-	//
-	// EXCLUDED examples (confirmed violations; listed here so they are not silently dropped):
-	//
-	//   "form" — EXCLUDED:
-	//     [critical] label — input[type="number"] has no associated <label>
-	//     rule: https://dequeuniversity.com/rules/axe/4.12/label?application=axeAPI
-	//
-	//   "composite-navigation" — EXCLUDED:
-	//     [serious] aria-input-field-name — #owner-listbox (role=listbox) has no accessible name
-	//     rule: https://dequeuniversity.com/rules/axe/4.12/aria-input-field-name?application=axeAPI
-	//
-	//   "calculator" — EXCLUDED:
-	//     [critical] select-name — select:nth-child(1) and select:nth-child(2) have no accessible name
-	//     rule: https://dequeuniversity.com/rules/axe/4.12/select-name?application=axeAPI
-	//
-	//   "todo-advanced" — EXCLUDED:
-	//     [serious]  color-contrast — .bg-blue-500 button text fails WCAG AA contrast ratio
-	//     [critical] label         — input[type="date"] has no associated <label>
-	//     [critical] select-name   — <select> for priority has no accessible name
-	//     rules: color-contrast, label, select-name (axe WCAG2A/2AA)
-	//
-	// If any of the above violations are fixed upstream, re-add the slug to the list below
-	// and remove it from this exclusion comment.
+	//   - Navigation:             composite-navigation
+	//   - Widgets:                calculator
 	parseExamples := []struct {
 		slug        string
 		description string
@@ -276,9 +255,15 @@ func TestAccessibilityAuditPublicExamples(parseT *testing.T) {
 		{"html-forms", "native HTML form elements"},
 		{"toggle", "boolean toggle switch"},
 		{"text-input", "text input with live binding"},
+		{"form", "structured form with labeled name and age inputs"},
+		{"todo-advanced", "rich todo with labelled inputs and accessible selects"},
 
 		// --- overlay ---
 		{"overlay-stack", "stacked overlay panels"},
+
+		// --- navigation & composite widgets ---
+		{"composite-navigation", "roving tabindex tabs and accessible listbox"},
+		{"calculator", "expression calculator with labeled theme and angle selects"},
 	}
 
 	if parseErr := ensureExamplesChromiumInstalled(); parseErr != nil {

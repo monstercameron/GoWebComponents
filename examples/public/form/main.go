@@ -47,9 +47,11 @@ func PersonForm() ui.Node {
 			html.Div(html.PropsOf(html.Class("space-y-6")),
 				html.Div(html.Props{},
 					html.Label(html.PropsOf(
+						html.For("form-name"),
 						html.Class("block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"),
 					), html.Text("Name")),
 					html.Input(html.PropsOf(
+						html.ID("form-name"),
 						html.Type("text"),
 						html.Value(parseCurrentPerson.Name),
 						html.OnInput(parseUpdateName),
@@ -60,9 +62,11 @@ func PersonForm() ui.Node {
 
 				html.Div(html.Props{},
 					html.Label(html.PropsOf(
+						html.For("form-age"),
 						html.Class("block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"),
 					), html.Text("Age")),
 					html.Input(html.PropsOf(
+						html.ID("form-age"),
 						html.Type("number"),
 						html.Value(strconv.Itoa(parseCurrentPerson.Age)),
 						html.OnInput(parseUpdateAge),

@@ -327,7 +327,7 @@ impact; exactly three active items carry the next-work marker.
 
 ### Accessibility (visually impaired)
 
-- [~] **Automated a11y audit in the browser suites** - the primitives
+- [x] **Automated a11y audit in the browser suites** - the primitives
   (UseAnnouncer, UseFocusTrap, UseCompositeNavigation, AccessibleOverlay)
   exist but no axe-core-style audit runs in CI, so contrast/label/name
   regressions ship silently.
@@ -349,8 +349,13 @@ impact; exactly three active items carry the next-work marker.
   documented axe rule ids, not silently dropped): `form` (label - unlabeled
   number input), `composite-navigation` (aria-input-field-name - unnamed
   listbox), `calculator` (select-name - unnamed selects), `todo-advanced`
-  (color-contrast + label + select-name). Remaining: FIX those 4 examples
-  then fold them in, and add docs-site routes.
+  (color-contrast + label + select-name). FIXED + folded in (2026-06-12):
+  form got a `<label for>`/`id` pair; composite-navigation's listbox an
+  aria-label; calculator's two selects aria-labels; todo-advanced labels +
+  aria-labels + a contrast bump (text-gray-200 / bg-blue-700 white = ~5.7:1,
+  clears AA). The audit now covers 23 examples, ALL clean, with the
+  self-test still proving it catches violations. Minor follow-up: add the
+  docs-site shell routes to the audited set.
 - [x] **Docs-site dogfood: a11y primitives in the search modal** - the new
   pure-GWC site's search modal lacks UseFocusTrap/UseAnnouncer and the
   gallery filters lack composite keyboard navigation.
@@ -1336,11 +1341,14 @@ fixed tree passed build, vet, and js/wasm example builds.
   when any fixes conflict (internal/runtime reported "applied 1798 of
   1801; 119 files updated" on every rerun with zero file changes) - work
   around by running fixers individually (`go fix -any -rangeint ...
-  ./pkg`). Verified: native + wasm builds, `go vet ./...` clean (also
-  fixed a real vet finding: ai-chat-wizard admin_redaction.go shallow-
-  copied protobuf messages including their mutex -> proto.Clone),
-  touched-package tests green (tools/gwc must run solo - known port
-  contention in the parallel multi-package run).
+  ./pkg`). Final verification: `go fix -diff ./...`, `go vet ./...`,
+  `go test ./...`, wasm test-binary compile for core wasm packages, and
+  representative `GOOS=js GOARCH=wasm` example builds all pass. Root
+  `tools/gwc` dev-loop fixtures now use per-test temp roots, `tools/sitegen`
+  pins the integrity-checked `WebAssembly.instantiate` boot path, and root
+  `go.mod` directly pins `github.com/fsnotify/fsnotify` via `tools/tools.go`
+  because `gwc dev` launches `tools/livereload` by file path from the root
+  module.
   Companion lint sweep (2026-06-12): `gwc lint` (golangci-lint 1.64.8 +
   gwc-hooks) over the 47 non-example packages went 41 issues -> 0
   (errcheck/gosimple/ineffassign/staticcheck/unused/gwc-hooks). Real bug
