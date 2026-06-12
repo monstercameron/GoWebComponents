@@ -90,16 +90,11 @@ func parseAssistantMessageMetaRow(parseProps assistantMessageMetaProps) ui.Node 
 							parseProps.OnTTSToggle()
 						}
 					}),
-					Text(func() string {
-						switch {
-						case parseProps.TTSStatus.IsLoading:
-							return parseProps.Intl.T(chatI18nNamespace, "assistant.loading")
-						case parseProps.TTSStatus.IsPlaying:
-							return parseProps.Intl.T(chatI18nNamespace, "assistant.pause")
-						default:
-							return parseProps.Intl.T(chatI18nNamespace, "assistant.play")
-						}
-					}()),
+					Cond(
+						Match(parseProps.TTSStatus.IsLoading, Text(parseProps.Intl.T(chatI18nNamespace, "assistant.loading"))),
+						Match(parseProps.TTSStatus.IsPlaying, Text(parseProps.Intl.T(chatI18nNamespace, "assistant.pause"))),
+						Otherwise(Text(parseProps.Intl.T(chatI18nNamespace, "assistant.play"))),
+					),
 				),
 				If(!parseProps.TTSStatus.Supported,
 					Span(Class("px-2 py-1 text-xs text-white/25 select-none"), Text(parseProps.Intl.T(chatI18nNamespace, "assistant.speechUnavailable"))),

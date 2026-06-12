@@ -486,23 +486,10 @@ input[type="submit"]:disabled {
 
 .thought-section-heading-enter {
   animation: thought-heading-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  /* --stagger-i is set per card from Go (StyleVar in bubble.go), so the entry
+     stagger scales to any section count instead of capping at nth-child(5). */
+  animation-delay: calc(var(--stagger-i, 0) * 45ms);
   will-change: opacity, transform, filter;
-}
-
-.thought-section-card:nth-child(2) .thought-section-heading-enter {
-  animation-delay: 45ms;
-}
-
-.thought-section-card:nth-child(3) .thought-section-heading-enter {
-  animation-delay: 90ms;
-}
-
-.thought-section-card:nth-child(4) .thought-section-heading-enter {
-  animation-delay: 135ms;
-}
-
-.thought-section-card:nth-child(5) .thought-section-heading-enter {
-  animation-delay: 180ms;
 }
 
 @keyframes thought-heading-flicker {

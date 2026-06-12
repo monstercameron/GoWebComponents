@@ -55,7 +55,7 @@ func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStream
 				Href(settingsRoutePath+"?"+settingsPanelQueryKey+"="+settingsSectionBilling),
 				Class("block rounded-xl border border-white/[0.05] bg-white/[0.03] px-3 py-2 transition-colors hover:bg-white/[0.05]"),
 				Div(Class("text-[10px] uppercase tracking-[0.18em] text-white/25"), Text("Workspace")),
-				Div(Class("mt-0.5 truncate text-xs font-medium text-white/55"), Text(parseUserName+"'s workspace")),
+				Div(Class("mt-0.5 truncate text-xs font-medium text-white/55"), Textf("%s's workspace", parseUserName)),
 				Div(Class("mt-1 text-[10px] text-white/30"), Text("Starter · Settings & billing →")),
 			),
 		),
@@ -84,52 +84,53 @@ func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStream
 		Div(
 			ID(idConvList),
 			Class("chat-scrollbar chat-scrollbar--sidebar flex-1 overflow-y-auto px-2 pt-3 flex flex-col gap-0.5"),
-			IfElse(
-				len(parseConvList) == 0,
-				Span(Class("text-white/30 text-xs px-2"), Text(parseIntl.T(chatI18nNamespace, "sidebar.noConversations"))),
-				Div(Class("flex flex-col gap-0.5"),
-					// MapKeyed keys each row by conversation ID so deletes and
-					// pagination reconcile by identity, keeping the conv-row
-					// entry/removal animations attached to the right rows.
-					MapKeyed(parseConvList, func(parseSummary convSummary) any { return parseSummary.ID }, func(parseSummary convSummary) ui.Node {
-						isActive := parseSummary.ID == parseActiveConvID
-						parseIdStr := fmt.Sprintf("%d", parseSummary.ID)
-						parsePreview := parseSummary.Preview
-						if len(parsePreview) > sidebarPreviewLen {
-							parsePreview = parsePreview[:sidebarPreviewLen] + "..."
-						}
-						if parsePreview == "" {
-							parsePreview = parseIntl.T(chatI18nNamespace, "sidebar.emptyConversation")
-						}
-						parseRelativeTime := parseConversationRelativeTime(parseIntl, parseSummary.StartedAt)
-						return Div(
-							Class(ClassNames(
-								"conv-row group flex items-center rounded-2xl border text-sm transition-colors",
-								When(isActive, "border-[#8e7bff]/25 bg-[#8e7bff]/[0.08] text-[#f1eeff] font-medium"),
-								When(!isActive, "border-transparent text-white/60 hover:border-white/10 hover:bg-[#181830] hover:text-[#f1eeff]"),
-								When(isStreaming, "pointer-events-none opacity-60"),
-							)),
+			// MapKeyedOr is the keyed empty-state idiom: rows reconcile by
+			// conversation ID (animations stay attached to the right rows
+			// across deletes/pagination) and the no-conversations fallback
+			// renders when the list is empty.
+			MapKeyedOr(parseConvList,
+				func(parseSummary convSummary) any { return parseSummary.ID },
+				func(parseSummary convSummary) ui.Node {
+					isActive := parseSummary.ID == parseActiveConvID
+					parseIdStr := fmt.Sprintf("%d", parseSummary.ID)
+					parsePreview := parseSummary.Preview
+					if len(parsePreview) > sidebarPreviewLen {
+						parsePreview = parsePreview[:sidebarPreviewLen] + "..."
+					}
+					if parsePreview == "" {
+						parsePreview = parseIntl.T(chatI18nNamespace, "sidebar.emptyConversation")
+					}
+					parseRelativeTime := parseConversationRelativeTime(parseIntl, parseSummary.StartedAt)
+					return Div(
+						Class(ClassNames(
+							"conv-row group flex items-center rounded-2xl border text-sm transition-colors",
+							When(isActive, "border-[#8e7bff]/25 bg-[#8e7bff]/[0.08] text-[#f1eeff] font-medium"),
+							When(!isActive, "border-transparent text-white/60 hover:border-white/10 hover:bg-[#181830] hover:text-[#f1eeff]"),
+							When(isStreaming, "pointer-events-none opacity-60"),
+						)),
+						// Assistive tech hears which conversation is open.
+						AttrIf(isActive, "aria-current", "page"),
+						Data(dataConvID, parseIdStr),
+						Data(dataConvRow, "1"),
+						Button(
+							Class("flex-1 text-left px-3 py-2 min-w-0"),
 							Data(dataConvID, parseIdStr),
-							Data(dataConvRow, "1"),
-							Button(
-								Class("flex-1 text-left px-3 py-2 min-w-0"),
-								Data(dataConvID, parseIdStr),
-								OnClick(parseOnLoadConv),
-								Div(Class("truncate"), Text(parsePreview)),
-								If(parseRelativeTime != "",
-									Div(Class("mt-0.5 truncate text-[10px] text-white/25 transition-colors group-hover:text-white/40"), Text(parseRelativeTime)),
-								),
+							OnClick(parseOnLoadConv),
+							Div(Class("truncate"), Text(parsePreview)),
+							If(parseRelativeTime != "",
+								Div(Class("mt-0.5 truncate text-[10px] text-white/25 transition-colors group-hover:text-white/40"), Text(parseRelativeTime)),
 							),
-							Button(
-								Class("shrink-0 p-2 mr-2 rounded-xl opacity-0 group-hover:opacity-100 text-white/35 hover:text-red-400 hover:bg-white/10 transition-all duration-200 ease-out"),
-								FromProps(Props{Aria: map[string]string{"label": parseIntl.T(chatI18nNamespace, "sidebar.deleteConversation")}}),
-								Data(dataConvID, parseIdStr),
-								OnClick(parseOnDeleteConv),
-								parseConversationDeleteIcon(),
-							),
-						)
-					}),
-				),
+						),
+						Button(
+							Class("shrink-0 p-2 mr-2 rounded-xl opacity-0 group-hover:opacity-100 text-white/35 hover:text-red-400 hover:bg-white/10 transition-all duration-200 ease-out"),
+							FromProps(Props{Aria: map[string]string{"label": parseIntl.T(chatI18nNamespace, "sidebar.deleteConversation")}}),
+							Data(dataConvID, parseIdStr),
+							OnClick(parseOnDeleteConv),
+							parseConversationDeleteIcon(),
+						),
+					)
+				},
+				Span(Class("text-white/30 text-xs px-2"), Text(parseIntl.T(chatI18nNamespace, "sidebar.noConversations"))),
 			),
 		),
 		Div(Class("mt-auto border-t border-white/[0.06]"),

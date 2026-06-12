@@ -69,11 +69,16 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 			Class(parseBubbleClass),
 			Div(Class("mb-1 text-[0.68rem] uppercase tracking-[0.28em] text-[#a99bff]/80 not-italic"), Text(parseProps.Intl.T(chatI18nNamespace, "message.thinking"))),
 			Div(Class("flex flex-col gap-2"),
-				Map(parseSections, func(parseSection thoughtSection) ui.Node {
+				// MapIndexed + StyleVar drive the entry stagger through one
+				// --stagger-i custom property per card (animation-delay:
+				// calc(var(--stagger-i) * 45ms) in styles.go), so the stagger
+				// is unbounded instead of capped by nth-child rules.
+				MapIndexed(parseSections, func(parseSectionIdx int, parseSection thoughtSection) ui.Node {
 					parseExpanded := parseProps.ExpandedThoughtSections[parseSection.Key]
 					isParseShowBody := parseExpanded && parseSection.Body != ""
 					return Div(
 						Class("thought-section-card rounded-2xl border border-[#8e7bff]/12 bg-black/14 overflow-hidden"),
+						StyleVar("--stagger-i", strconv.Itoa(parseSectionIdx)),
 						Button(
 							Class(ClassNames(
 								"thought-section-heading thought-section-heading-enter w-full flex items-center gap-3 px-3 py-2 text-left transition-colors not-italic",
