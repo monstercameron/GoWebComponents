@@ -1865,3 +1865,65 @@ html/shorthand suites green, wasm build clean, vet clean.
   Test for: non-nil pointer renders from the dereferenced value (and NOT the
   fallback); nil pointer renders exactly the fallback; no nil-deref panic;
   exact-HTML-string assertion for both branches.
+
+## html/shorthand surface completeness (2026-06-12)
+
+Completeness goal for the non-control-flow helper surface (the control-flow five
+above are done). Everything here is reachable today via `Tag(...)`/`Attr(...)`,
+so these add sugar + discoverability, not new capability. Confirm html/shorthand
+is idle (not parallel-active) before editing. Split by effort: attribute/element
+helpers are one-line delegations like the existing `Src`/`Class`/`Span`; the
+event handlers need a `_wasm.go` event-binding path + browser tests, so they are
+real work, not a batch.
+
+- [ ] **Pointer / touch / drag event handlers + `Passive` modifier (gesture-
+  layer prerequisite)** - the planned animation gesture layer (drag/pan/pinch -
+  see the Animation primitives partial) cannot be built ergonomically without
+  these, and none exist: `OnPointerDown`/`OnPointerMove`/`OnPointerUp`,
+  `OnTouchStart`/`OnTouchMove`/`OnTouchEnd`, `OnDragStart`/`OnDragOver`/`OnDrop`/
+  `OnDragEnd`, and a `Passive(cb)` modifier for passive listeners. Each needs the
+  real `_wasm.go` event-binding path (not pure-Go), with native no-op parity.
+  Test for: a browser test (playwrightgo lane) that a pointer/touch/drag handler
+  fires with the correct event payload and is released on unmount (no js.Func
+  leak); `Passive` registers a passive listener (preventDefault is a no-op);
+  native build compiles with the handlers as no-ops.
+- [ ] **Secondary event handlers** - common, non-blocking: `OnMouseEnter`/
+  `OnMouseLeave`, `OnDoubleClick`, `OnContextMenu`, `OnWheel`, plus
+  `OnTransitionEnd`/`OnAnimationEnd` (natural partners to the `anim` package) and
+  `OnLoad`/`OnError` (img/script). Same `_wasm.go` binding + native-parity
+  pattern as the existing `OnClick`/`OnScroll`.
+  Test for: each handler fires on its DOM event in a browser test and releases
+  its js.Func on unmount; native build compiles with no-ops.
+- [ ] **Attribute helpers - a11y, forms, table, misc** - one-line delegations
+  filling everyday gaps (you have `Src` but no `Alt`; `Required`/`ReadOnly` but no
+  validation attrs):
+  - a11y/i18n: `Alt`, `Lang`, `Dir` (RTL - pairs with the i18n Arabic formatting)
+  - anchors: `Target`, `Rel` (`Rel` also pairs with the markdown link-target work)
+  - input validation: `Min`, `Max`, `Step`, `Pattern`, `MaxLength`, `MinLength`,
+    `Multiple`, `Accept`, `AutoComplete`
+  - table: `ColSpan`, `RowSpan`
+  - misc: `Width`, `Height`, `Loading` (lazy img), `Open` (details/dialog),
+    `Hidden`
+  Test for: each emits the correct attribute (exact-HTML-string), mirrors the
+  existing `Src`/`Type` PropOption pattern, and round-trips through the typed-html
+  path; boolean attrs (`Multiple`/`Open`/`Hidden`) follow the existing
+  `Disabled`/`Checked` `...bool` convention.
+- [ ] **Element builders - missing tags** - sugar wrappers over `Tag(...)`:
+  - lists: `Ol` (you have `Ul`/`Li` but no ordered list - glaring)
+  - table: `Tfoot`, `Caption`, `Colgroup`, `Col`
+  - media/graphics: `Video`, `Audio`, `Source`, `Track`, `Canvas` (`Svg`/`Path`
+    may warrant a dedicated SVG helper set - decide separately)
+  - forms/structure: `Optgroup`, `Datalist`, `Output`, `Progress`, `Meter`,
+    `Figure`, `Figcaption`, `Picture`
+  - inline text semantics: `Abbr`, `Kbd`, `Sub`, `Sup`, `Del`, `Ins`, `B`, `I`,
+    `U` (you have `Strong`/`Em`/`Code`/`Small`/`Mark`)
+  Test for: each renders the correct tag with mixed attr/child varargs
+  (exact-HTML-string), included in the shorthand-parity test against typed html;
+  void/self-closing elements (`Source`, `Track`, `Col`) stay void.
+- [ ] **`ClassMap(map[string]bool)` - conditional class-map sugar** - borderline
+  (styling, not control-flow) but the same declarative spirit as the shipped
+  five; complements `ClassNames` + `When` for the Vue/Solid class-object idiom.
+  Builds a class string from the map's true-valued keys.
+  Test for: only true-valued keys appear; output ordering is deterministic
+  (sorted, since Go map iteration is random); empty map -> empty string;
+  composes inside `ClassNames`.
