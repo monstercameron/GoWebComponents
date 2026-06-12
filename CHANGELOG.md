@@ -44,6 +44,14 @@
 
 ### Changed
 
+- **ai-chat-wizard "Aurora" redesign** — ground-up design-token CSS system
+  (violet accent, Geist/Space Grotesk/Geist Mono type), open-canvas assistant
+  replies in a 46rem reading column, floating composer, and a framework-API
+  showcase: `anim` springs baked into CSS keyframes, `ui.UsePersistedState`
+  density toggle, `ui.UsePrefersReducedMotion`, `ui.UseAnnouncer` stream
+  completion, `i18n.FormatRelativeTime` sidebar timestamps, browser-ICU cost
+  formatting via `interop.IntlFormatNumber`, and the new shorthand helpers
+  (`MapKeyed`, `MapKeyedIndexed`, `Repeat`).
 - **Go 1.26 toolchain** — root and `tools/livereload` go.mod bumped to
   `go 1.26.0` (Green Tea GC by default, lower cgo overhead, better slice
   stack-allocation), and the `go fix` modernizer suite applied module-wide
@@ -65,6 +73,14 @@
 
 ### Fixed
 
+- `logging` (wasm) — console output now leads with the message string before
+  the structured record: the record object's console preview shows only a few
+  properties in nondeterministic Go-map order, which made messages unreadable
+  in devtools and browser-test log matching flaky.
+- ai-chat-wizard — stub providers stream word-by-word with configurable pacing
+  (`CHAT_STUB_CHUNK_DELAY_MS`; `0` restores single-shot), fixing the
+  happy-path browser test that raced the instant single-delta stream; the
+  server also accepts the legacy `CHAT_STUB_PROVIDERS` spelling.
 - `logging` — `slog.Attr` values passed as log args were collapsed to their
   string form because the `fmt.Stringer` case matched first; Attrs now
   normalize to key/value maps as intended.

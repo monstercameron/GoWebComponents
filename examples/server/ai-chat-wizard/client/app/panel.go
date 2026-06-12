@@ -292,7 +292,7 @@ func renderDesktopControlBar(parseIntl i18n.Runtime, parseProviderOptions []prov
 
 func renderToolbarSelect(parseContainerClass, parseLabel, parseValue string, isDisabled bool, parseOnChange ui.Handler, parseOptions []ui.Node) ui.Node {
 	return Label(Class(ClassNames(
-		"flex min-w-0 items-center gap-2 rounded-2xl border border-[#88ffd8]/20 bg-[#091525]/70 px-2.5 py-1.5",
+		"flex min-w-0 items-center gap-2 rounded-2xl border border-[#88ffd8]/20 bg-[#10101c]/70 px-2.5 py-1.5",
 		parseContainerClass,
 	)),
 		Span(Class("control-group-label shrink-0 min-w-[5.4rem]"), Text(parseLabel)),
@@ -301,7 +301,7 @@ func renderToolbarSelect(parseContainerClass, parseLabel, parseValue string, isD
 			DisabledIf(isDisabled),
 			OnChange(parseOnChange),
 			Class(ClassNames(
-				"toolbar-select h-8 min-w-0 flex-1 rounded-[0.95rem] border border-[#8fffd8]/22 bg-[#0d192a]/84 px-2.5 text-sm text-[#e6f8ff] outline-none",
+				"toolbar-select h-8 min-w-0 flex-1 rounded-[0.95rem] border border-[#8fffd8]/22 bg-[#13141f]/84 px-2.5 text-sm text-[#e6f8ff] outline-none",
 				When(isDisabled, "cursor-not-allowed opacity-60"),
 			)),
 			parseOptions,

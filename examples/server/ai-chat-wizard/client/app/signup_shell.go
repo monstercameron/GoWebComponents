@@ -73,7 +73,7 @@ func renderSignupBody(parseIntl i18n.Runtime, parseView appViewState, parseAuth 
 					Text(parseIntl.T(c, "auth.signupHeroTitle")),
 				),
 				P(
-					Class("mt-5 max-w-[56ch] text-base leading-7 text-[#8a8a9a] sm:mt-6 sm:text-lg sm:leading-8"),
+					Class("mt-5 max-w-[56ch] text-base leading-7 text-[#9b9bb1] sm:mt-6 sm:text-lg sm:leading-8"),
 					Text(parseIntl.T(c, "auth.signupHeroBody")),
 				),
 				// stat / proof cards
@@ -81,9 +81,9 @@ func renderSignupBody(parseIntl i18n.Runtime, parseView appViewState, parseAuth 
 					Class("mt-8 grid gap-4 sm:grid-cols-3 sm:gap-5 scroll-reveal"),
 					Map(parseStatCards, func(parseCard []string) ui.Node {
 						return Div(
-							Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6"),
+							Class("rounded-2xl border border-white/[0.06] bg-[#13131e] px-5 py-6"),
 							Div(Class("text-lg font-semibold tracking-[-0.04em] text-[#f0f0f8] sm:text-xl"), Text(parseCard[0])),
-							P(Class("mt-2 text-sm leading-6 text-[#8a8a9a]"), Text(parseCard[1])),
+							P(Class("mt-2 text-sm leading-6 text-[#9b9bb1]"), Text(parseCard[1])),
 						)
 					}),
 				),
@@ -96,7 +96,7 @@ func renderSignupBody(parseIntl i18n.Runtime, parseView appViewState, parseAuth 
 						Class("flex items-center gap-2"),
 						renderStatusDot(),
 						Div(
-							Class("font-mono-tech text-xs text-[#8a8a9a]"),
+							Class("font-mono-tech text-xs text-[#9b9bb1]"),
 							Span(Class("font-semibold text-[#4ade80]"), Text(parseIntl.T(marketingI18nNamespace, "metric.uptime.value"))),
 							Text(" "+parseIntl.T(marketingI18nNamespace, "metric.uptime.label")),
 						),
@@ -136,9 +136,9 @@ func renderSignupAfterSignupExplainer() ui.Node {
 			Map(parseSteps, func(parseS parseStep) ui.Node {
 				return Div(
 					Class("rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-3"),
-					Div(Class("font-mono-tech mb-1 text-[10px] text-[#00d9ff]/60"), Text(parseS.parseNum)),
+					Div(Class("font-mono-tech mb-1 text-[10px] text-[#8e7bff]/60"), Text(parseS.parseNum)),
 					Div(Class("text-xs font-semibold text-[#f0f0f8]"), Text(parseS.parseTitle)),
-					P(Class("mt-1 text-[11px] leading-4 text-[#8a8a9a]"), Text(parseS.parseBody)),
+					P(Class("mt-1 text-[11px] leading-4 text-[#9b9bb1]"), Text(parseS.parseBody)),
 				)
 			}),
 		),

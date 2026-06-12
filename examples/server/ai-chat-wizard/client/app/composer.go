@@ -32,15 +32,15 @@ func parseInputArea(parseProps composerProps) ui.Node {
 	case "warning":
 		parseCueClass = "border-[#f6b84b]/35 bg-[#f6b84b]/10 text-[#ffe8b8]"
 	case "upgrade":
-		parseCueClass = "border-[#87d8ff]/38 bg-[#0f3a58]/34 text-[#d7f0ff]"
+		parseCueClass = "border-[#8e7bff]/40 bg-[#241f4a]/40 text-[#e2dcff]"
 	case "success":
-		parseCueClass = "border-[#8effd8]/34 bg-[#12382e]/34 text-[#d8fff1]"
+		parseCueClass = "border-[#5eead4]/30 bg-[#123a32]/35 text-[#d8fff1]"
 	default:
-		parseCueClass = "border-[#8effd8]/24 bg-[#0f2339]/40 text-[#d4e7fb]"
+		parseCueClass = "border-[#8e7bff]/20 bg-[#1a1a2c]/50 text-[#d6d5e8]"
 	}
 	return Div(
-		Class("shrink-0 pb-0.5 px-4"),
-		Div(Class("max-w-[72rem] mx-auto"),
+		Class("shrink-0 px-4 pb-3"),
+		Div(Class("max-w-[46rem] mx-auto"),
 			If(strings.TrimSpace(parseProps.CueTitle) != "",
 				Div(
 					Class("mb-2 rounded-2xl border px-4 py-3"),
@@ -53,10 +53,10 @@ func parseInputArea(parseProps composerProps) ui.Node {
 			),
 			Div(
 				ID(idChatInputWrap),
-				Class("relative flex items-end gap-3 rounded-[1.55rem] border border-white/8 bg-[#0c1929] px-4 py-3 shadow-[0_4px_16px_rgba(2,8,18,0.22)] backdrop-blur-sm cursor-text"),
+				Class("relative flex items-end gap-3 rounded-[1.75rem] border border-white/[0.1] bg-[#17161f] px-5 py-3.5 shadow-[0_16px_48px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] cursor-text transition-[border-color,box-shadow] duration-200 focus-within:border-[#8e7bff]/50 focus-within:shadow-[0_0_0_3px_rgba(142,123,255,0.14),0_16px_48px_rgba(0,0,0,0.55)]"),
 				Tag("textarea",
 					ID(idChatInput),
-					Class("min-h-[1.5rem] flex-1 resize-none bg-transparent text-[1.3125rem] leading-relaxed text-[#e8f9ff] placeholder:text-[#9cb2c9] focus:outline-none"),
+					Class("min-h-[1.5rem] flex-1 resize-none bg-transparent text-[1.0625rem] leading-[1.7] text-[#ededf4] placeholder:text-[#7a7d99] focus:outline-none"),
 					Placeholder(parseProps.Journey.parsePlaceholder),
 					Value(parseProps.Value),
 					OnInput(parseProps.OnInput),
@@ -66,9 +66,9 @@ func parseInputArea(parseProps composerProps) ui.Node {
 					Button(
 						ID(idSendBtn),
 						Class(ClassNames(
-							"h-9 w-9 flex items-center justify-center rounded-full transition-colors shrink-0",
-							When(isParseSendable, "bg-[#00d9ff] text-[#05111d] hover:bg-[#33e3ff]"),
-							When(!isParseSendable, "bg-[#14314a] text-[#7e99b5] cursor-not-allowed"),
+							"h-9 w-9 flex items-center justify-center rounded-full transition-all duration-200 shrink-0",
+							When(isParseSendable, "bg-gradient-to-br from-[#8e7bff] to-[#6d5ce6] text-white shadow-[0_2px_12px_rgba(142,123,255,0.45)] hover:from-[#a99bff] hover:to-[#8e7bff] hover:shadow-[0_2px_16px_rgba(142,123,255,0.6)]"),
+							When(!isParseSendable, "bg-[#1d1e2c] text-[#5c5e75] cursor-not-allowed"),
 						)),
 						DisabledIf(!isParseSendable),
 						OnClick(parseProps.OnSend),

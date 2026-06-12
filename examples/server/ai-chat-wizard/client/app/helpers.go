@@ -875,16 +875,39 @@ func parseDeriveThreadCostSummary(parseMessages []message, parseModels []modelOp
 	return parseSummary
 }
 
+// parseCurrentUILocale is published by renderAppShell each render so non-hook
+// helpers (cost formatting on many paths) can reach the active locale without
+// threading it through every call site. wasm renders are single-threaded.
+var parseCurrentUILocale = "en"
+
+// formatCostUSD formats a USD amount through the browser's full ICU
+// (interop.IntlFormatNumber, locale-aware separators and currency placement)
+// and falls back to the fixed fmt path when Intl is unavailable (native/SSR,
+// very old browsers).
 func formatCostUSD(parseCost float64) string {
+	parseMaxFractionDigits := costFractionDigits(parseCost)
+	parseFormatted, parseErr := interop.IntlFormatNumber(parseCurrentUILocale, parseCost, interop.IntlNumberOptions{
+		Style:                 "currency",
+		Currency:              "USD",
+		MinimumFractionDigits: 2,
+		MaximumFractionDigits: parseMaxFractionDigits,
+	})
+	if parseErr == nil && strings.TrimSpace(parseFormatted) != "" {
+		return parseFormatted
+	}
+	return fmt.Sprintf("$%.*f", parseMaxFractionDigits, parseCost)
+}
+
+func costFractionDigits(parseCost float64) int {
 	switch {
 	case parseCost >= 1:
-		return fmt.Sprintf("$%.2f", parseCost)
+		return 2
 	case parseCost >= 0.01:
-		return fmt.Sprintf("$%.3f", parseCost)
+		return 3
 	case parseCost >= 0.001:
-		return fmt.Sprintf("$%.4f", parseCost)
+		return 4
 	default:
-		return fmt.Sprintf("$%.5f", parseCost)
+		return 5
 	}
 }
 

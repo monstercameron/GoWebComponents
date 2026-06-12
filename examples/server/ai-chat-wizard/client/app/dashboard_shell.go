@@ -53,7 +53,7 @@ func renderDashboardTopBar(parseIntl i18n.Runtime, parseView appViewState) ui.No
 	_ = parseIntl
 	parseIsSlice := parseView.CurrentPath != chatRouteDashboardHome
 	return Div(
-		Class("flex items-center gap-3 border-b border-white/10 bg-[#111118] px-5 py-3"),
+		Class("flex items-center gap-3 border-b border-white/10 bg-[#13131e] px-5 py-3"),
 		If(parseIsSlice,
 			A(
 				Href(chatRouteDashboardHome),

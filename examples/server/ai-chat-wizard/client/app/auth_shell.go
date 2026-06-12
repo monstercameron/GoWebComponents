@@ -122,7 +122,7 @@ func renderAuthLoadingShell(parseProps authLoadingShellProps) ui.Node {
 			Div(
 				Class("relative h-[2px] overflow-hidden rounded-full bg-white/[0.08]"),
 				Div(
-					Class("absolute inset-y-0 left-0 rounded-full bg-[#00d9ff] transition-all duration-300"),
+					Class("absolute inset-y-0 left-0 rounded-full bg-[#8e7bff] transition-all duration-300"),
 					Style(map[string]string{"width": fmt.Sprintf("%d%%", parsePct)}),
 				),
 			),
@@ -142,15 +142,15 @@ func renderAuthLoadingShell(parseProps authLoadingShellProps) ui.Node {
 			Div(
 				Class("relative h-10 w-10"),
 				Div(Class("absolute inset-0 rounded-full border border-white/[0.08]"), nil),
-				Div(Class("absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#00d9ff]"), nil),
+				Div(Class("absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#8e7bff]"), nil),
 			),
 		)
 	}
 
 	return Div(
-		Class("flex min-h-screen items-center justify-center bg-[#050508] px-6 text-[#f0f0f8]"),
+		Class("flex min-h-screen items-center justify-center bg-[#070710] px-6 text-[#f0f0f8]"),
 		Div(
-			Class("w-full max-w-lg rounded-2xl border border-white/[0.06] bg-[#111118] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.72)]"),
+			Class("w-full max-w-lg rounded-2xl border border-white/[0.06] bg-[#13131e] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.72)]"),
 			Div(
 				Class("mb-8 flex items-center justify-between"),
 				Div(
@@ -223,7 +223,7 @@ func renderAuthHeader(parseIntl i18n.Runtime, isSignup bool) ui.Node {
 				Div(
 					Class("min-w-0"),
 					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text(parseIntl.T(c, "auth.loadingBrand"))),
-					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseSubtitleText)),
+					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b4b8d0] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseSubtitleText)),
 				),
 			),
 			// actions
@@ -232,7 +232,7 @@ func renderAuthHeader(parseIntl i18n.Runtime, isSignup bool) ui.Node {
 				renderLanguageSelector(parseIntl),
 				If(!isSignup,
 					A(
-						Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
+						Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#e0e3f2] transition hover:bg-white/15 sm:inline-flex"),
 						Href(parseSignupHref),
 						OnClick(parseLandingNavigateHandler(parseSignupHref)),
 						Text(parseIntl.T(c, "auth.signUp")),
@@ -240,7 +240,7 @@ func renderAuthHeader(parseIntl i18n.Runtime, isSignup bool) ui.Node {
 				),
 				If(isSignup,
 					A(
-						Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
+						Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#e0e3f2] transition hover:bg-white/15 sm:inline-flex"),
 						Href(parseLoginHref),
 						OnClick(parseLandingNavigateHandler(parseLoginHref)),
 						Text(parseIntl.T(c, "auth.logIn")),
@@ -302,9 +302,9 @@ func renderAuthBody(parseIntl i18n.Runtime, parseView appViewState, parseAuth au
 					Class("mt-8 grid gap-4 sm:grid-cols-3 sm:gap-5"),
 					Map(parseStatCards, func(parseCard []string) ui.Node {
 						return Div(
-							Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6"),
+							Class("rounded-2xl border border-white/[0.06] bg-[#13131e] px-5 py-6"),
 							Div(Class("text-lg font-semibold tracking-[-0.04em] text-white sm:text-xl"), Text(parseCard[0])),
-							P(Class("mt-2 text-sm leading-6 text-[#b8c2d9]"), Text(parseCard[1])),
+							P(Class("mt-2 text-sm leading-6 text-[#b4b8d0]"), Text(parseCard[1])),
 						)
 					}),
 				),
@@ -343,13 +343,13 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 	}
 
 	return Div(
-		Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-8 sm:py-8"),
+		Class("rounded-2xl border border-white/[0.06] bg-[#13131e] px-5 py-6 sm:px-8 sm:py-8"),
 		// form header
 		Div(
 			Class("mb-6"),
-			Div(Class("text-sm font-semibold text-[#dfe6f7]"), Text(parseFormSubLabel)),
+			Div(Class("text-sm font-semibold text-[#e0e3f2]"), Text(parseFormSubLabel)),
 			H2(Class("mt-2 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl"), Text(parseHeadingText)),
-			P(Class("mt-3 text-sm leading-7 text-[#b8c2d9]"), Text(parseSubText)),
+			P(Class("mt-3 text-sm leading-7 text-[#b4b8d0]"), Text(parseSubText)),
 		),
 		// fields
 		Div(
@@ -358,14 +358,14 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 			If(isSignup,
 				Div(
 					Tag("label",
-						Class("mb-2 block text-sm font-medium text-[#dfe6f7]"),
+						Class("mb-2 block text-sm font-medium text-[#e0e3f2]"),
 						For(idAuthNameInput),
 						Text(parseIntl.T(c, "auth.fullName")),
 					),
 					Input(
 						ID(idAuthNameInput),
 						Type("text"),
-						Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
+						Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b4b8d0] outline-none transition focus:bg-white/15"),
 						Placeholder(parseIntl.T(c, "auth.fullNamePlaceholder")),
 						Value(parseView.AuthDisplayName),
 						OnInput(parseAuth.HandleDisplayNameInput),
@@ -375,14 +375,14 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 			// email
 			Div(
 				Tag("label",
-					Class("mb-2 block text-sm font-medium text-[#dfe6f7]"),
+					Class("mb-2 block text-sm font-medium text-[#e0e3f2]"),
 					For(idAuthEmailInput),
 					Text(parseEmailLabel),
 				),
 				Input(
 					ID(idAuthEmailInput),
 					Type("email"),
-					Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
+					Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b4b8d0] outline-none transition focus:bg-white/15"),
 					Placeholder(parseIntl.T(chatI18nNamespace, "auth.emailPlaceholder")),
 					Value(parseView.AuthEmail),
 					OnInput(parseAuth.HandleEmailInput),
@@ -393,13 +393,13 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 				Div(
 					Class("mb-2 flex items-center justify-between gap-3"),
 					Tag("label",
-						Class("block text-sm font-medium text-[#dfe6f7]"),
+						Class("block text-sm font-medium text-[#e0e3f2]"),
 						For(idAuthPasswordInput),
 						Text(parseIntl.T(c, "auth.password")),
 					),
 					If(!isSignup,
 						A(
-							Class("text-sm text-[#b8c2d9] transition hover:text-white"),
+							Class("text-sm text-[#b4b8d0] transition hover:text-white"),
 							Href("#"),
 							OnClick(parseAuth.HandleForgotPassword),
 							Text(parseIntl.T(c, "auth.forgotPassword")),
@@ -409,7 +409,7 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 				Input(
 					ID(idAuthPasswordInput),
 					Type("password"),
-					Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
+					Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b4b8d0] outline-none transition focus:bg-white/15"),
 					Placeholder(parsePasswordPlaceholder),
 					Value(parseView.AuthPassword),
 					OnInput(parseAuth.HandlePasswordInput),
@@ -420,12 +420,12 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 			If(isSignup,
 				Div(
 					Tag("label",
-						Class("mb-2 block text-sm font-medium text-[#dfe6f7]"),
+						Class("mb-2 block text-sm font-medium text-[#e0e3f2]"),
 						Text(parseIntl.T(c, "auth.confirmPassword")),
 					),
 					Input(
 						Type("password"),
-						Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b8c2d9] outline-none transition focus:bg-white/15"),
+						Class("w-full rounded-[18px] bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-[#b4b8d0] outline-none transition focus:bg-white/15"),
 						Placeholder(parseIntl.T(c, "auth.confirmPasswordPlaceholder")),
 					),
 				),
@@ -433,7 +433,7 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 			// terms agreement (signup only)
 			If(isSignup,
 				Tag("label",
-					Class("flex items-start gap-3 text-sm text-[#dfe6f7]"),
+					Class("flex items-start gap-3 text-sm text-[#e0e3f2]"),
 					Input(Type("checkbox"), Class("mt-1 h-4 w-4 rounded bg-white/10")),
 					Span(
 						Text(parseIntl.T(c, "auth.termsText")),
@@ -470,7 +470,7 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 			Div(Class("h-px flex-1 bg-white/[0.06]")),
 		),
 		Button(
-			Class("mt-3 inline-flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/10"),
+			Class("mt-3 inline-flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-[#e0e3f2] transition hover:bg-white/10"),
 			// Google colourised logo mark — inline SVG keeps zero external deps
 			Tag("svg",
 				Attr("xmlns", "http://www.w3.org/2000/svg"),
@@ -497,7 +497,7 @@ func renderAuthFormCard(parseIntl i18n.Runtime, parseView appViewState, parseAut
 		),
 		// mode switch footer
 		Div(
-			Class("mt-6 rounded-[22px] bg-white/5 px-4 py-4 text-sm text-[#b8c2d9]"),
+			Class("mt-6 rounded-[22px] bg-white/5 px-4 py-4 text-sm text-[#b4b8d0]"),
 			Text(parseSwitchText+" "),
 			A(
 				Class("font-medium text-white transition hover:text-[#f5f7fb]"),

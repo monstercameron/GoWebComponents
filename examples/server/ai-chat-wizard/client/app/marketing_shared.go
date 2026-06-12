@@ -33,7 +33,7 @@ func renderBrandMark() ui.Node {
 // renderHeroBadge renders a pill eyebrow label above hero headlines.
 func renderHeroBadge(renderText string) ui.Node {
 	return Div(
-		Class("mb-5 inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.04] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a8a9a] sm:mb-7 sm:px-4 sm:text-[11px]"),
+		Class("mb-5 inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.04] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.22em] text-[#9b9bb1] sm:mb-7 sm:px-4 sm:text-[11px]"),
 		Text(renderText),
 	)
 }
@@ -41,7 +41,7 @@ func renderHeroBadge(renderText string) ui.Node {
 // renderSectionEyebrow renders the uppercase tracking label used above section H2s.
 func renderSectionEyebrow(renderText string) ui.Node {
 	return Div(
-		Class("text-[10px] font-semibold uppercase tracking-[0.22em] text-[#00d9ff]/70 sm:text-[11px]"),
+		Class("text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8e7bff]/70 sm:text-[11px]"),
 		Text(renderText),
 	)
 }
@@ -70,7 +70,7 @@ func renderMonoLabel(renderText string) ui.Node {
 // renderCtaPrimary renders the primary CTA button — electric cyan fill, black text.
 func renderCtaPrimary(renderLabel, renderTargetPath string) ui.Node {
 	return A(
-		Class("cta-btn inline-flex items-center justify-center rounded-full bg-[#00d9ff] px-5 py-3 text-sm font-semibold text-black transition hover:-translate-y-[1px] hover:bg-[#33e3ff] sm:px-6 sm:py-3.5"),
+		Class("cta-btn inline-flex items-center justify-center rounded-full bg-[#8e7bff] px-5 py-3 text-sm font-semibold text-black transition hover:-translate-y-[1px] hover:bg-[#a99bff] sm:px-6 sm:py-3.5"),
 		Href(renderTargetPath),
 		OnClick(parseLandingNavigateHandler(renderTargetPath)),
 		Text(renderLabel),
@@ -95,7 +95,7 @@ func renderNavLink(renderCurrentPath, renderTargetPath, renderLabel string) ui.N
 		Class(ClassNames(
 			"nav-link text-xs font-medium uppercase tracking-[0.16em] transition",
 			When(isActive, "text-[#f0f0f8]"),
-			When(!isActive, "text-[#8a8a9a] hover:text-[#f0f0f8]"),
+			When(!isActive, "text-[#9b9bb1] hover:text-[#f0f0f8]"),
 		)),
 		Href(renderTargetPath),
 		OnClick(parseLandingNavigateHandler(renderTargetPath)),
@@ -129,7 +129,7 @@ func renderMarketingHeader(parseIntl i18n.Runtime, renderCurrentPath string, ren
 		renderActionArgs = append(renderActionArgs, renderAction)
 	}
 	return Header(
-		Class("sticky top-0 z-20 border-b border-white/[0.05] bg-[#050508]/80 backdrop-blur-sm"),
+		Class("sticky top-0 z-20 border-b border-white/[0.05] bg-[#070710]/80 backdrop-blur-sm"),
 		Div(
 			Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-wrap items-center justify-between gap-4 py-4 sm:w-[min(1200px,calc(100%-32px))] sm:py-5 lg:w-[min(1200px,calc(100%-40px))] lg:flex-nowrap"),
 			renderMarketingBrand(parseIntl, renderCurrentPath),
@@ -151,7 +151,7 @@ func renderMarketingBrand(parseIntl i18n.Runtime, renderCurrentPath string) ui.N
 		Div(
 			Class("min-w-0"),
 			Div(Class("font-display truncate text-[14px] font-semibold tracking-[-0.02em] text-[#f0f0f8] sm:text-[15px]"), Text(parseIntl.T(n, "brand.name"))),
-			Div(Class("truncate text-[9px] uppercase tracking-[0.22em] text-[#8a8a9a] sm:text-[10px]"), Text(parseIntl.T(n, "brand.tagline"))),
+			Div(Class("truncate text-[9px] uppercase tracking-[0.22em] text-[#9b9bb1] sm:text-[10px]"), Text(parseIntl.T(n, "brand.tagline"))),
 		),
 	)
 }
@@ -165,7 +165,7 @@ func renderMarketingFooter(parseIntl i18n.Runtime, renderColumns ...ui.Node) ui.
 		renderColArgs = append(renderColArgs, renderCol)
 	}
 	return Tag("footer",
-		Class("relative z-10 border-t border-white/[0.05] bg-[#050508]"),
+		Class("relative z-10 border-t border-white/[0.05] bg-[#070710]"),
 		// main row: brand + columns
 		Div(
 			Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-col gap-10 py-10 sm:w-[min(1200px,calc(100%-32px))] sm:flex-row sm:items-start sm:justify-between sm:py-12 lg:w-[min(1200px,calc(100%-40px))]"),
@@ -177,7 +177,7 @@ func renderMarketingFooter(parseIntl i18n.Runtime, renderColumns ...ui.Node) ui.
 					renderBrandMark(),
 					Div(Class("font-display text-[14px] font-semibold tracking-[-0.02em] text-[#f0f0f8]"), Text(parseIntl.T(n, "brand.name"))),
 				),
-				P(Class("mt-4 text-sm leading-6 text-[#8a8a9a]"), Text(parseIntl.T(n, "brand.blurb"))),
+				P(Class("mt-4 text-sm leading-6 text-[#9b9bb1]"), Text(parseIntl.T(n, "brand.blurb"))),
 			),
 			Div(renderColArgs...),
 		),
@@ -185,7 +185,7 @@ func renderMarketingFooter(parseIntl i18n.Runtime, renderColumns ...ui.Node) ui.
 		Div(
 			Class("border-t border-white/[0.04]"),
 			Div(
-				Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-col gap-3 py-4 text-xs text-[#8a8a9a] sm:w-[min(1200px,calc(100%-32px))] sm:flex-row sm:items-center sm:justify-between lg:w-[min(1200px,calc(100%-40px))]"),
+				Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-col gap-3 py-4 text-xs text-[#9b9bb1] sm:w-[min(1200px,calc(100%-32px))] sm:flex-row sm:items-center sm:justify-between lg:w-[min(1200px,calc(100%-40px))]"),
 				Div(Text(parseIntl.T(n, "footer.copyright"))),
 				Div(
 					Class("flex flex-wrap items-center gap-4"),
@@ -201,7 +201,7 @@ func renderMarketingFooter(parseIntl i18n.Runtime, renderColumns ...ui.Node) ui.
 // renderFooterColumn renders a titled footer link column.
 func renderFooterColumn(renderTitle string, renderLinks ...ui.Node) ui.Node {
 	renderUlArgs := make([]interface{}, 0, len(renderLinks)+1)
-	renderUlArgs = append(renderUlArgs, Class("mt-3 space-y-2.5 text-sm text-[#8a8a9a] sm:mt-4"))
+	renderUlArgs = append(renderUlArgs, Class("mt-3 space-y-2.5 text-sm text-[#9b9bb1] sm:mt-4"))
 	for _, renderLink := range renderLinks {
 		renderUlArgs = append(renderUlArgs, renderLink)
 	}
@@ -225,7 +225,7 @@ func renderMarketingHeroHeading(renderEyebrow, renderHeadline, renderBody string
 			Text(renderHeadline),
 		),
 		P(
-			Class("mt-5 max-w-[56ch] text-base leading-7 text-[#8a8a9a] sm:mt-6 sm:text-lg sm:leading-8"),
+			Class("mt-5 max-w-[56ch] text-base leading-7 text-[#9b9bb1] sm:mt-6 sm:text-lg sm:leading-8"),
 			Text(renderBody),
 		),
 		Div(renderArgs...),
@@ -267,7 +267,7 @@ func renderMarketingHeaderBrand(parseIntl i18n.Runtime, renderSubtitle, renderTa
 			Div(
 				Class("min-w-0"),
 				Div(Class("font-display truncate text-[14px] font-semibold tracking-[-0.02em] text-[#f0f0f8] sm:text-[15px]"), Text(parseIntl.T(n, "brand.name"))),
-				Div(Class("truncate text-[9px] uppercase tracking-[0.22em] text-[#8a8a9a] sm:text-[10px]"), Text(renderSubtitle)),
+				Div(Class("truncate text-[9px] uppercase tracking-[0.22em] text-[#9b9bb1] sm:text-[10px]"), Text(renderSubtitle)),
 			),
 		)
 	}
@@ -279,7 +279,7 @@ func renderMarketingHeaderBrand(parseIntl i18n.Runtime, renderSubtitle, renderTa
 		Div(
 			Class("min-w-0"),
 			Div(Class("font-display truncate text-[14px] font-semibold tracking-[-0.02em] text-[#f0f0f8] sm:text-[15px]"), Text(parseIntl.T(n, "brand.name"))),
-			Div(Class("truncate text-[9px] uppercase tracking-[0.22em] text-[#8a8a9a] sm:text-[10px]"), Text(renderSubtitle)),
+			Div(Class("truncate text-[9px] uppercase tracking-[0.22em] text-[#9b9bb1] sm:text-[10px]"), Text(renderSubtitle)),
 		),
 	)
 }
@@ -288,7 +288,7 @@ func renderMarketingHeaderBrand(parseIntl i18n.Runtime, renderSubtitle, renderTa
 func renderMarketingHeaderAction(renderLabel, renderTargetPath string, isPrimary, isHiddenOnSmall bool) ui.Node {
 	if isPrimary {
 		return A(
-			Class("inline-flex items-center justify-center rounded-full bg-[#00d9ff] px-4 py-2.5 text-sm font-semibold text-black transition hover:-translate-y-[1px] hover:bg-[#33e3ff] sm:px-5"),
+			Class("inline-flex items-center justify-center rounded-full bg-[#8e7bff] px-4 py-2.5 text-sm font-semibold text-black transition hover:-translate-y-[1px] hover:bg-[#a99bff] sm:px-5"),
 			Href(renderTargetPath),
 			OnClick(parseLandingNavigateHandler(renderTargetPath)),
 			Text(renderLabel),
@@ -374,7 +374,7 @@ func renderLanguageSelector(parseIntl i18n.Runtime) ui.Node {
 		OnChange(func(parseE ui.Event) {
 			parseIntl.SetLocale(parseE.GetValue())
 		}),
-		Class("h-8 cursor-pointer rounded-lg border border-white/[0.08] bg-transparent px-2 text-sm text-[#8a8a9a] outline-none transition hover:border-white/[0.12] hover:text-[#f0f0f8]"),
+		Class("h-8 cursor-pointer rounded-lg border border-white/[0.08] bg-transparent px-2 text-sm text-[#9b9bb1] outline-none transition hover:border-white/[0.12] hover:text-[#f0f0f8]"),
 		parseOptionNodes,
 	)
 }

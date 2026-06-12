@@ -11,10 +11,15 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-const messageBubbleBodyClass = "border border-[#8effd8]/8 bg-[#0c1929] text-[1.3125rem] leading-relaxed text-[#e8f9ff] px-5 py-3 shadow-[0_4px_12px_rgba(0,0,0,0.18)] backdrop-blur-sm"
-const assistantPlainTextMessageBubbleClass = messageBubbleBodyClass + " whitespace-pre-wrap max-w-full rounded-[1.35rem] rounded-bl-md"
-const assistantRichTextMessageBubbleClass = messageBubbleBodyClass + " rounded-[1.35rem] rounded-bl-md"
-const userPlainTextMessageBubbleClass = messageBubbleBodyClass + " whitespace-pre-wrap max-w-full rounded-[1.35rem] rounded-br-md border-[#6dd8ff]/16 bg-[#0a2031]"
+// msg-bubble-assistant / msg-bubble-user are stable behavioral markers for
+// tests and devtools; keep them when restyling the presentation classes.
+//
+// Assistant replies render open-canvas — no card, no border — so the answer
+// reads like a document; only the user's turns are pills.
+const assistantMessageBodyClass = "msg-bubble-assistant max-w-full text-[1.0625rem] leading-[1.75] text-[#e8e7f2]"
+const assistantPlainTextMessageBubbleClass = assistantMessageBodyClass + " whitespace-pre-wrap"
+const assistantRichTextMessageBubbleClass = assistantMessageBodyClass
+const userPlainTextMessageBubbleClass = "msg-bubble-user whitespace-pre-wrap max-w-[85%] rounded-[1.3rem] rounded-br-[0.4rem] border border-[#8e7bff]/25 bg-gradient-to-br from-[#272252] to-[#1b1836] px-4 py-2.5 text-[1rem] leading-[1.65] text-[#f1eeff] shadow-[0_6px_20px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]"
 
 type messageBubbleProps struct {
 	Intl                    i18n.Runtime
@@ -59,26 +64,26 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 		if len(parseSections) == 0 {
 			return nil
 		}
-		parseBubbleClass := "max-w-full min-w-0 rounded-[1.6rem] border border-white/8 bg-[#0c1e2b] px-4 py-3 text-[1.125rem] leading-relaxed text-[#d7f6ff]/56 italic shadow-[0_4px_12px_rgba(0,0,0,0.14)] backdrop-blur-sm"
+		parseBubbleClass := "max-w-full min-w-0 rounded-[1.6rem] border border-[#8e7bff]/12 bg-[#14151d]/85 px-4 py-3 text-[1rem] leading-[1.65] text-[#c9c8e0]/60 italic shadow-[0_4px_16px_rgba(0,0,0,0.25)] backdrop-blur-md"
 		return Div(
 			Class(parseBubbleClass),
-			Div(Class("mb-1 text-[0.68rem] uppercase tracking-[0.28em] text-[#7ee9ff]/70 not-italic"), Text(parseProps.Intl.T(chatI18nNamespace, "message.thinking"))),
+			Div(Class("mb-1 text-[0.68rem] uppercase tracking-[0.28em] text-[#a99bff]/80 not-italic"), Text(parseProps.Intl.T(chatI18nNamespace, "message.thinking"))),
 			Div(Class("flex flex-col gap-2"),
 				Map(parseSections, func(parseSection thoughtSection) ui.Node {
 					parseExpanded := parseProps.ExpandedThoughtSections[parseSection.Key]
 					isParseShowBody := parseExpanded && parseSection.Body != ""
 					return Div(
-						Class("thought-section-card rounded-2xl border border-[#00d9ff]/12 bg-black/14 overflow-hidden"),
+						Class("thought-section-card rounded-2xl border border-[#8e7bff]/12 bg-black/14 overflow-hidden"),
 						Button(
 							Class(ClassNames(
 								"thought-section-heading thought-section-heading-enter w-full flex items-center gap-3 px-3 py-2 text-left transition-colors not-italic",
-								When(parseExpanded, "bg-[#00d9ff]/10 text-[#e7fbff]"),
-								When(!parseExpanded, "text-[#d7f6ff]/80 hover:bg-white/6"),
+								When(parseExpanded, "bg-[#8e7bff]/10 text-[#edebfb]"),
+								When(!parseExpanded, "text-[#d8d6ec]/80 hover:bg-white/6"),
 								When(isStreaming, "thought-section-heading-streaming"),
 							)),
 							Data(dataThoughtSection, parseSection.Key),
 							OnClick(parseProps.ToggleThoughtSection),
-							Span(Class("text-[0.72rem] font-mono text-[#7ee9ff]/74"), Text(func() string {
+							Span(Class("text-[0.72rem] font-mono text-[#b9aeff]/74"), Text(func() string {
 								if parseExpanded {
 									return "[-]"
 								}
@@ -86,7 +91,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 							}())),
 							Span(Class("thought-section-title flex-1 min-w-0 font-semibold"), Text(parseThoughtHeadingLabel(parseProps.Intl, parseSection.Heading))),
 							If(isStreaming,
-								Span(Class("thought-section-live text-[0.68rem] uppercase tracking-[0.2em] text-[#7ee9ff]/62"), Text(parseProps.Intl.T(chatI18nNamespace, "message.live"))),
+								Span(Class("thought-section-live text-[0.68rem] uppercase tracking-[0.2em] text-[#b9aeff]/62"), Text(parseProps.Intl.T(chatI18nNamespace, "message.live"))),
 							),
 						),
 						If(isParseShowBody,
@@ -117,7 +122,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 				Class("flex justify-end"),
 				Div(Class("w-full max-w-full flex flex-col gap-2"),
 					Tag("textarea",
-						Class("w-full rounded-2xl border border-white/8 bg-[#0c1929] px-4 py-3 text-[1.3125rem] leading-relaxed text-[#e8f9ff] resize-none focus:outline-none"),
+						Class("w-full rounded-2xl border border-white/8 bg-[#15161f] px-4 py-3 text-[1.0625rem] leading-[1.7] text-[#ededf4] resize-none focus:outline-none"),
 						Rows(4),
 						Value(parseProps.EditValue),
 						OnInput(parseProps.HandleEditChange),
@@ -130,7 +135,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 							Text(parseProps.Intl.T(chatI18nNamespace, "message.cancel")),
 						),
 						Button(
-							Class("rounded-lg border border-[#7fe9ff]/55 bg-[#00d9ff] px-3 py-1.5 text-xs font-medium text-[#05111d] transition-colors hover:bg-[#33e3ff]"),
+							Class("rounded-lg border border-[#b9aeff]/55 bg-[#8e7bff] px-3 py-1.5 text-xs font-medium text-[#0a0a14] transition-colors hover:bg-[#a99bff]"),
 							OnClick(parseProps.SubmitEdit),
 							Text(parseProps.Intl.T(chatI18nNamespace, "message.saveResend")),
 						),
@@ -183,11 +188,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 			ID(idStreamingBubble),
 			Class("flex items-start gap-3"),
 			parseAssistantAvatar(),
-			Div(Class("thinking-dots"),
-				Span(),
-				Span(),
-				Span(),
-			),
+			Div(Class("thinking-dots"), Repeat(3, Span())),
 		)
 	}
 
@@ -221,7 +222,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 				),
 				Div(Class(assistantRichTextMessageBubbleClass),
 					Tag("div", FromProps(Props{
-						Class: "prose text-[1.3125rem] text-white/90 min-w-0",
+						Class: "prose text-[1.0625rem] leading-[1.75] text-[#e8e7f2] min-w-0",
 						Raw:   map[string]interface{}{innerHTMLProp: parseRendered},
 					})),
 				),
@@ -269,7 +270,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 			),
 			Div(Class(assistantRichTextMessageBubbleClass),
 				Tag("div", FromProps(Props{
-					Class: "prose text-[1.3125rem] text-white/90 min-w-0",
+					Class: "prose text-[1.0625rem] leading-[1.75] text-[#e8e7f2] min-w-0",
 					Raw:   map[string]interface{}{innerHTMLProp: parseRendered2},
 				})),
 			),

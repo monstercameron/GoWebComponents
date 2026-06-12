@@ -4,17 +4,35 @@ package app
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
+// parseConversationRelativeTime renders a conversation start timestamp as a
+// locale-aware relative phrase ("3 days ago") via i18n.FormatRelativeTime,
+// returning "" when the wire timestamp doesn't parse.
+func parseConversationRelativeTime(parseIntl i18n.Runtime, parseStartedAt string) string {
+	parseTrimmed := strings.TrimSpace(parseStartedAt)
+	if parseTrimmed == "" {
+		return ""
+	}
+	for _, parseLayout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05", "2006-01-02T15:04:05"} {
+		if parseParsed, parseErr := time.Parse(parseLayout, parseTrimmed); parseErr == nil {
+			return i18n.FormatRelativeTime(parseIntl.Locale(), parseParsed, time.Now())
+		}
+	}
+	return ""
+}
+
 func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStreaming bool, parseUserName, parseUserInitials string, isOpen bool, parseOnNew, parseOnLoadConv, parseOnDeleteConv, parseOnEditName, parseOnToggle ui.Handler, isParseCanAccessAdmin bool, parseOnOpenAdmin ui.Handler) ui.Node {
 	parseIntl := i18n.UseI18n()
 	return Div(
 		Class(ClassNames(
-			"sidebar flex-col shrink-0 bg-[#0a1018] border-r border-[#8fffd8]/12 h-full overflow-hidden hidden md:flex",
+			"sidebar flex-col shrink-0 bg-[#0b0a12] border-r border-white/[0.04] h-full overflow-hidden hidden md:flex",
 			When(isOpen, "sidebar-open"),
 			When(!isOpen, "sidebar-closed"),
 		)),
@@ -44,7 +62,7 @@ func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStream
 		Div(Class("px-2 mt-2"),
 			Button(
 				Class(ClassNames(
-					"flex items-center gap-2 w-full px-3 py-2 rounded-2xl text-sm text-[#b8c2d9] border border-white/8 bg-[#101a27] hover:bg-[#132235] transition-colors",
+					"flex items-center gap-2 w-full px-3 py-2 rounded-2xl text-sm text-[#b4b8d0] border border-white/8 bg-[#12121c] hover:bg-[#181830] transition-colors",
 					When(isStreaming, "opacity-50 cursor-not-allowed"),
 				)),
 				DisabledIf(isStreaming),
@@ -70,7 +88,10 @@ func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStream
 				len(parseConvList) == 0,
 				Span(Class("text-white/30 text-xs px-2"), Text(parseIntl.T(chatI18nNamespace, "sidebar.noConversations"))),
 				Div(Class("flex flex-col gap-0.5"),
-					Map(parseConvList, func(parseSummary convSummary) ui.Node {
+					// MapKeyed keys each row by conversation ID so deletes and
+					// pagination reconcile by identity, keeping the conv-row
+					// entry/removal animations attached to the right rows.
+					MapKeyed(parseConvList, func(parseSummary convSummary) any { return parseSummary.ID }, func(parseSummary convSummary) ui.Node {
 						isActive := parseSummary.ID == parseActiveConvID
 						parseIdStr := fmt.Sprintf("%d", parseSummary.ID)
 						parsePreview := parseSummary.Preview
@@ -80,20 +101,24 @@ func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStream
 						if parsePreview == "" {
 							parsePreview = parseIntl.T(chatI18nNamespace, "sidebar.emptyConversation")
 						}
+						parseRelativeTime := parseConversationRelativeTime(parseIntl, parseSummary.StartedAt)
 						return Div(
 							Class(ClassNames(
 								"conv-row group flex items-center rounded-2xl border text-sm transition-colors",
-								When(isActive, "border-white/20 bg-white/8 text-[#f2fbff] font-medium"),
-								When(!isActive, "border-transparent text-white/60 hover:border-white/10 hover:bg-[#132235] hover:text-[#f2fbff]"),
+								When(isActive, "border-[#8e7bff]/25 bg-[#8e7bff]/[0.08] text-[#f1eeff] font-medium"),
+								When(!isActive, "border-transparent text-white/60 hover:border-white/10 hover:bg-[#181830] hover:text-[#f1eeff]"),
 								When(isStreaming, "pointer-events-none opacity-60"),
 							)),
 							Data(dataConvID, parseIdStr),
 							Data(dataConvRow, "1"),
 							Button(
-								Class("flex-1 text-left px-3 py-2 truncate min-w-0"),
+								Class("flex-1 text-left px-3 py-2 min-w-0"),
 								Data(dataConvID, parseIdStr),
 								OnClick(parseOnLoadConv),
-								Text(parsePreview),
+								Div(Class("truncate"), Text(parsePreview)),
+								If(parseRelativeTime != "",
+									Div(Class("mt-0.5 truncate text-[10px] text-white/25 transition-colors group-hover:text-white/40"), Text(parseRelativeTime)),
+								),
 							),
 							Button(
 								Class("shrink-0 p-2 mr-2 rounded-xl opacity-0 group-hover:opacity-100 text-white/35 hover:text-red-400 hover:bg-white/10 transition-all duration-200 ease-out"),

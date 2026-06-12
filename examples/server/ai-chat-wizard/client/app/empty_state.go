@@ -44,50 +44,50 @@ func parseEmptyState(parseJourney chatJourneyState, parseApplyStarterPrompt ui.H
 		// three first-action cards
 		Div(
 			Class("w-full max-w-3xl"),
-			Div(Class("mb-3 text-left text-[11px] uppercase tracking-[0.16em] text-[#9eb9d8]"), Text("Where to start")),
+			Div(Class("mb-3 text-left text-[11px] uppercase tracking-[0.16em] text-[#9c9fbd]"), Text("Where to start")),
 			Div(
 				Class("grid gap-3 md:grid-cols-3"),
 				// action 1: ask first question — triggers the first starter prompt
 				Button(
-					Class("rounded-2xl border border-[#8fffd8]/18 bg-[#101a27] px-4 py-4 text-left transition-colors hover:bg-[#132235]"),
+					Class("rounded-2xl border border-[#8fffd8]/18 bg-[#12121c] px-4 py-4 text-left transition-colors hover:bg-[#181830]"),
 					Data(dataStarterPrompt, parseStarterPrompts[0].parseText),
 					OnClick(parseApplyStarterPrompt),
-					Div(Class("mb-1 text-xs font-semibold text-[#eaf8ff]"), Text("Ask your first question")),
-					P(Class("text-[11px] leading-4 text-[#8a8a9a]"), Text("Start a thread and get an answer. Your workspace is ready, no further setup needed.")),
+					Div(Class("mb-1 text-xs font-semibold text-[#ecebf7]"), Text("Ask your first question")),
+					P(Class("text-[11px] leading-4 text-[#9b9bb1]"), Text("Start a thread and get an answer. Your workspace is ready, no further setup needed.")),
 				),
 				// action 2: billing visibility — links to settings billing panel
 				A(
-					Class("block rounded-2xl border border-white/[0.06] bg-[#101a27] px-4 py-4 text-left transition-colors hover:bg-[#132235]"),
+					Class("block rounded-2xl border border-white/[0.06] bg-[#12121c] px-4 py-4 text-left transition-colors hover:bg-[#181830]"),
 					Href(settingsRoutePath+"?"+settingsPanelQueryKey+"="+settingsSectionBilling),
-					Div(Class("mb-1 text-xs font-semibold text-[#eaf8ff]"), Text("Review billing visibility")),
-					P(Class("text-[11px] leading-4 text-[#8a8a9a]"), Text("See platform fee, usage cost, and current-period totals. Every AI turn is reflected in real time.")),
+					Div(Class("mb-1 text-xs font-semibold text-[#ecebf7]"), Text("Review billing visibility")),
+					P(Class("text-[11px] leading-4 text-[#9b9bb1]"), Text("See platform fee, usage cost, and current-period totals. Every AI turn is reflected in real time.")),
 				),
 				// action 3: workspace defaults — links to settings
 				A(
-					Class("block rounded-2xl border border-white/[0.06] bg-[#101a27] px-4 py-4 text-left transition-colors hover:bg-[#132235]"),
+					Class("block rounded-2xl border border-white/[0.06] bg-[#12121c] px-4 py-4 text-left transition-colors hover:bg-[#181830]"),
 					Href(settingsRoutePath),
-					Div(Class("mb-1 text-xs font-semibold text-[#eaf8ff]"), Text("Set workspace defaults")),
-					P(Class("text-[11px] leading-4 text-[#8a8a9a]"), Text("Choose your default model, set tone preferences, and configure system prompt defaults for every new thread.")),
+					Div(Class("mb-1 text-xs font-semibold text-[#ecebf7]"), Text("Set workspace defaults")),
+					P(Class("text-[11px] leading-4 text-[#9b9bb1]"), Text("Choose your default model, set tone preferences, and configure system prompt defaults for every new thread.")),
 				),
 			),
 			// secondary guidance
 			P(
-				Class("mt-4 text-[11px] leading-5 text-[#8a8a9a]"),
+				Class("mt-4 text-[11px] leading-5 text-[#9b9bb1]"),
 				Text("Your first thread's title is derived from your opening message. Model choice and system-prompt scope are configured in Settings. All thread history is stored per workspace."),
 			),
 		),
 		// starter prompts — secondary path for users who prefer guided options
 		Div(
 			Class("w-full max-w-3xl"),
-			Div(Class("mb-2 text-left text-[11px] uppercase tracking-[0.16em] text-[#9eb9d8]"), Text("Or try a starter prompt")),
+			Div(Class("mb-2 text-left text-[11px] uppercase tracking-[0.16em] text-[#9c9fbd]"), Text("Or try a starter prompt")),
 			Div(
 				Class("grid gap-2 md:grid-cols-3"),
 				Map(parseStarterPrompts, func(parsePrompt parseStarterPrompt) ui.Node {
 					return Button(
-						Class("rounded-2xl border border-[#8fffd8]/18 bg-[#101a27] px-3 py-3 text-left text-sm text-[#dff5ff] transition-colors hover:bg-[#132235]"),
+						Class("rounded-2xl border border-[#8fffd8]/18 bg-[#12121c] px-3 py-3 text-left text-sm text-[#dff5ff] transition-colors hover:bg-[#181830]"),
 						Data(dataStarterPrompt, parsePrompt.parseText),
 						OnClick(parseApplyStarterPrompt),
-						Span(Class("font-semibold text-[#eaf8ff]"), Text(parsePrompt.parseLabel)),
+						Span(Class("font-semibold text-[#ecebf7]"), Text(parsePrompt.parseLabel)),
 					)
 				}),
 			),

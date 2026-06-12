@@ -51,11 +51,11 @@ func parseMessageList(parseProps messageListProps) ui.Node {
 		)
 	}
 
-	parseRows := make([]ui.Node, 0, len(parseProps.Messages)+1)
-	for parseIdx, parseMsg := range parseProps.Messages {
-		isEditing := parseProps.EditIdx == parseIdx && parseMsg.Role == roleUser
-		parseRows = append(parseRows, WithKey(
-			parseMessageBubble(messageBubbleProps{
+	parseRows := MapKeyedIndexed(parseProps.Messages,
+		func(parseIdx int, _ message) any { return parseIdx },
+		func(parseIdx int, parseMsg message) ui.Node {
+			isEditing := parseProps.EditIdx == parseIdx && parseMsg.Role == roleUser
+			return parseMessageBubble(messageBubbleProps{
 				Intl:                    parseProps.Intl,
 				Message:                 parseMsg,
 				Index:                   parseIdx,
@@ -80,10 +80,8 @@ func parseMessageList(parseProps messageListProps) ui.Node {
 				CanvasCacheByMessage:    parseProps.CanvasCacheByMessage,
 				TTSAudio:                parseProps.TTSAudio,
 				OnSpeechUpgrade:         parseProps.OnSpeechUpgrade,
-			}),
-			parseIdx,
-		))
-	}
+			})
+		})
 	parseRows = append(parseRows, Div(ID(idScrollAnchor)))
 
 	return Div(
@@ -92,12 +90,12 @@ func parseMessageList(parseProps messageListProps) ui.Node {
 			ID(idMessageList),
 			Class("chat-scrollbar chat-scrollbar--panel h-full overflow-y-auto"),
 			OnMouseUp(parseProps.HandleSelectionMouse),
-			Div(ID(idThreadScreen), Class("chat-thread-surface thread-screen max-w-[72rem] mx-auto my-3 px-4 py-4 flex flex-col gap-6"), parseRows),
+			Div(ID(idThreadScreen), Class("thread-screen mx-auto w-full max-w-[46rem] px-4 pt-8 pb-6 flex flex-col gap-8"), parseRows),
 		),
 		If(parseProps.ShowScrollToBottom,
 			Button(
 				ID(idScrollToBottomBtn),
-				Class("absolute bottom-24 left-1/2 z-30 flex h-[4.5rem] w-[4.5rem] -translate-x-1/2 items-center justify-center rounded-full border-2 border-white/30 bg-[#171717]/94 text-[1.5rem] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.28)] backdrop-blur transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-1 hover:border-white/50 hover:bg-[#112035]/98 active:-translate-x-1/2 active:translate-y-0 active:scale-[0.97]"),
+				Class("absolute bottom-6 left-1/2 z-30 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-white/[0.12] bg-[#16151f]/95 text-sm text-white/70 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-md transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-0.5 hover:border-[#8e7bff]/45 hover:text-white active:-translate-x-1/2 active:translate-y-0 active:scale-95"),
 				FromProps(Props{Aria: map[string]string{"label": "Scroll to bottom"}}),
 				OnClick(parseProps.ScrollToBottom),
 				Text("\u2193"),

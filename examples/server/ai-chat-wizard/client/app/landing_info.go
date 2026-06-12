@@ -93,7 +93,7 @@ func renderInfoAbout(parseIntl i18n.Runtime) ui.Node {
 			Text(parseIntl.T(n, "about.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#8a8a9a] sm:text-lg sm:leading-8"),
+			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "about.body")),
 		),
 		Div(
@@ -115,7 +115,7 @@ func renderInfoContact(parseIntl i18n.Runtime) ui.Node {
 			Text(parseIntl.T(n, "info.contact.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#8a8a9a] sm:text-lg sm:leading-8"),
+			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "info.contact.body")),
 		),
 		Div(
@@ -160,7 +160,7 @@ func renderInfoContactCard(renderTitle, renderBody, renderEmail string) ui.Node 
 			Text(renderTitle),
 		),
 		P(
-			Class("mt-2 text-sm leading-6 text-[#8a8a9a]"),
+			Class("mt-2 text-sm leading-6 text-[#9b9bb1]"),
 			Text(renderBody),
 		),
 		emailNode,
@@ -178,7 +178,7 @@ func renderInfoPrivacy(parseIntl i18n.Runtime) ui.Node {
 			Text(parseIntl.T(n, "info.privacy.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#8a8a9a] sm:text-lg sm:leading-8"),
+			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "info.privacy.body")),
 		),
 		Div(
@@ -202,7 +202,7 @@ func renderInfoTerms(parseIntl i18n.Runtime) ui.Node {
 			Text(parseIntl.T(n, "info.terms.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#8a8a9a] sm:text-lg sm:leading-8"),
+			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "info.terms.body")),
 		),
 		Div(
@@ -227,7 +227,7 @@ func renderInfoSecurity(parseIntl i18n.Runtime) ui.Node {
 			Text(parseIntl.T(n, "info.security.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#8a8a9a] sm:text-lg sm:leading-8"),
+			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "info.security.body")),
 		),
 		Div(
@@ -252,7 +252,7 @@ func renderInfoStatus(parseIntl i18n.Runtime) ui.Node {
 			Text(parseIntl.T(n, "info.status.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#8a8a9a] sm:text-lg sm:leading-8"),
+			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "info.status.body")),
 		),
 		Div(
@@ -290,7 +290,7 @@ func renderInfoSection(renderTitle, renderBody string) ui.Node {
 			Text(renderTitle),
 		),
 		P(
-			Class("mt-2 text-sm leading-6 text-[#8a8a9a]"),
+			Class("mt-2 text-sm leading-6 text-[#9b9bb1]"),
 			Text(renderBody),
 		),
 	)
@@ -299,7 +299,7 @@ func renderInfoSection(renderTitle, renderBody string) ui.Node {
 // renderInfoStatusSection renders a titled status row, optionally with an operational indicator.
 func renderInfoStatusSection(renderTitle, renderValue string, isOperational bool) ui.Node {
 	indicatorClass := "inline-block h-2 w-2 rounded-full bg-[#4a4a6a]"
-	valueClass := "text-sm leading-6 text-[#8a8a9a]"
+	valueClass := "text-sm leading-6 text-[#9b9bb1]"
 	if isOperational {
 		indicatorClass = "inline-block h-2 w-2 rounded-full bg-emerald-400"
 		valueClass = "text-sm font-medium leading-6 text-emerald-400"

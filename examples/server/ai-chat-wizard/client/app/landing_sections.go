@@ -31,7 +31,7 @@ func renderLandingProductSection(parseIntl i18n.Runtime, parsePage string) ui.No
 					Class("scroll-reveal"),
 					renderSectionEyebrow(parseIntl.T(n, parseEyebrowKey)),
 					H2(Class("font-display mt-4 max-w-[12ch] text-3xl font-bold leading-tight tracking-[-0.04em] text-[#f0f0f8] sm:text-4xl"), Text(parseIntl.T(n, parseH2Key))),
-					P(Class("mt-4 max-w-[46ch] text-base leading-7 text-[#8a8a9a] sm:leading-8"), Text(parseIntl.T(n, parseBodyKey))),
+					P(Class("mt-4 max-w-[46ch] text-base leading-7 text-[#9b9bb1] sm:leading-8"), Text(parseIntl.T(n, parseBodyKey))),
 				),
 				// right: 2x2 feature cards
 				renderLandingProductCards(parseIntl, parsePage),
@@ -65,10 +65,10 @@ func renderLandingProductCards(parseIntl i18n.Runtime, parsePage string) ui.Node
 		Class("grid gap-4 sm:gap-5 md:grid-cols-2 scroll-reveal scroll-reveal-d1"),
 		Map(parseCards, func(parseC productCard) ui.Node {
 			return Article(
-				Class("feature-card rounded-2xl bg-[#111118] border border-white/[0.06] px-5 py-6 sm:px-6 sm:py-7"),
+				Class("feature-card rounded-2xl bg-[#13131e] border border-white/[0.06] px-5 py-6 sm:px-6 sm:py-7"),
 				Div(Class("text-2xl"), Text(parseC.icon)),
 				H3(Class("mt-3 text-base font-semibold text-[#f0f0f8] sm:text-lg"), Text(parseIntl.T(n, parseC.prefix+".title"))),
-				P(Class("mt-2 text-sm leading-6 text-[#8a8a9a]"), Text(parseIntl.T(n, parseC.prefix+".body"))),
+				P(Class("mt-2 text-sm leading-6 text-[#9b9bb1]"), Text(parseIntl.T(n, parseC.prefix+".body"))),
 			)
 		}),
 	)
@@ -87,13 +87,13 @@ func renderLandingWhySection(parseIntl i18n.Runtime, _ string) ui.Node {
 				Class("grid gap-4 sm:gap-5 lg:grid-cols-[1.10fr_.90fr]"),
 				// left: pull-quote card
 				Div(
-					Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-6 py-8 sm:px-8 sm:py-10 scroll-reveal"),
+					Class("rounded-2xl border border-white/[0.06] bg-[#13131e] px-6 py-8 sm:px-8 sm:py-10 scroll-reveal"),
 					renderSectionEyebrow(parseIntl.T(n, "why.eyebrow")),
 					P(
 						Class("font-display mt-6 text-2xl font-bold italic leading-snug tracking-[-0.02em] text-[#f0f0f8] sm:text-3xl md:text-4xl"),
 						Text(parseIntl.T(n, "why.quote")),
 					),
-					P(Class("mt-6 max-w-[52ch] text-base leading-7 text-[#8a8a9a] sm:leading-8"), Text(parseIntl.T(n, "why.body"))),
+					P(Class("mt-6 max-w-[52ch] text-base leading-7 text-[#9b9bb1] sm:leading-8"), Text(parseIntl.T(n, "why.body"))),
 					Div(
 						Class("mt-8 flex flex-wrap gap-3"),
 						renderCtaPrimary(parseIntl.T(n, "why.primaryCta"), chatRouteRoot),
@@ -105,11 +105,11 @@ func renderLandingWhySection(parseIntl i18n.Runtime, _ string) ui.Node {
 					Class("grid gap-4 sm:gap-5 scroll-reveal scroll-reveal-d1"),
 					Map(parseProofKeys, func(parseK string) ui.Node {
 						return Div(
-							Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-6"),
+							Class("rounded-2xl border border-white/[0.06] bg-[#13131e] px-5 py-6 sm:px-6"),
 							// surface label — small-cap eyebrow, not a decorative metric number
-							Div(Class("mb-2 inline-flex rounded-full border border-[#00d9ff]/20 bg-[#00d9ff]/8 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00d9ff]/80"), Text(parseIntl.T(n, parseK+".number"))),
+							Div(Class("mb-2 inline-flex rounded-full border border-[#8e7bff]/20 bg-[#8e7bff]/8 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8e7bff]/80"), Text(parseIntl.T(n, parseK+".number"))),
 							Div(Class("text-base font-semibold text-[#f0f0f8]"), Text(parseIntl.T(n, parseK+".title"))),
-							P(Class("mt-2 text-sm leading-6 text-[#8a8a9a]"), Text(parseIntl.T(n, parseK+".body"))),
+							P(Class("mt-2 text-sm leading-6 text-[#9b9bb1]"), Text(parseIntl.T(n, parseK+".body"))),
 						)
 					}),
 				),
@@ -141,41 +141,41 @@ func renderLandingPricingSection(parseIntl i18n.Runtime, _ string) ui.Node {
 				Class("mb-10 max-w-[640px] scroll-reveal"),
 				renderSectionEyebrow(parseIntl.T(n, "pricing.section.eyebrow")),
 				H2(Class("font-display mt-4 text-3xl font-bold tracking-[-0.04em] text-[#f0f0f8] sm:text-4xl"), Text(parseIntl.T(n, "pricing.section.h2"))),
-				P(Class("mt-4 text-base leading-7 text-[#8a8a9a]"), Text(parseIntl.T(n, "pricing.section.body"))),
+				P(Class("mt-4 text-base leading-7 text-[#9b9bb1]"), Text(parseIntl.T(n, "pricing.section.body"))),
 			),
 			Div(
 				Class("grid gap-4 sm:gap-5 lg:grid-cols-3 scroll-reveal scroll-reveal-d1"),
 				Map(parseTiers, func(parseT pricingTier) ui.Node {
-					parseCardClass := "rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-7 sm:px-6 sm:py-8"
+					parseCardClass := "rounded-2xl border border-white/[0.06] bg-[#13131e] px-5 py-7 sm:px-6 sm:py-8"
 					if parseT.featured {
-						parseCardClass = "pricing-card-featured rounded-2xl border bg-[#111118] px-5 py-7 sm:px-6 sm:py-8"
+						parseCardClass = "pricing-card-featured rounded-2xl border bg-[#13131e] px-5 py-7 sm:px-6 sm:py-8"
 					} else if parseT.enterprise {
-						parseCardClass = "pricing-card-enterprise rounded-2xl bg-[#111118] px-5 py-7 sm:px-6 sm:py-8"
+						parseCardClass = "pricing-card-enterprise rounded-2xl bg-[#13131e] px-5 py-7 sm:px-6 sm:py-8"
 					}
 					parseBadgeText := parseIntl.T(n, parseT.prefix+".badge")
 					var parseBadge ui.Node
 					if parseBadgeText != "" {
-						parseBadge = Div(Class("mb-4 inline-flex rounded-full bg-[#00d9ff]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#00d9ff]"), Text(parseBadgeText))
+						parseBadge = Div(Class("mb-4 inline-flex rounded-full bg-[#8e7bff]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8e7bff]"), Text(parseBadgeText))
 					}
 					parseSuffixText := parseIntl.T(n, parseT.prefix+".suffix")
 					var parseSuffix ui.Node
 					if parseSuffixText != "" {
-						parseSuffix = Span(Class("font-mono-tech text-lg text-[#8a8a9a]"), Text(parseSuffixText))
+						parseSuffix = Span(Class("font-mono-tech text-lg text-[#9b9bb1]"), Text(parseSuffixText))
 					}
 					parsePriceClass := "font-mono-tech mt-4 text-4xl font-bold tracking-[-0.04em] text-[#f0f0f8] sm:text-5xl"
 					if parseT.featured {
-						parsePriceClass = "font-mono-tech mt-4 text-4xl font-bold tracking-[-0.04em] text-[#00d9ff] sm:text-5xl"
+						parsePriceClass = "font-mono-tech mt-4 text-4xl font-bold tracking-[-0.04em] text-[#8e7bff] sm:text-5xl"
 					}
 					return Div(
 						Class(parseCardClass),
 						parseBadge,
-						Div(Class("text-sm font-semibold uppercase tracking-[0.12em] text-[#8a8a9a]"), Text(parseIntl.T(n, parseT.prefix+".name"))),
+						Div(Class("text-sm font-semibold uppercase tracking-[0.12em] text-[#9b9bb1]"), Text(parseIntl.T(n, parseT.prefix+".name"))),
 						Div(
 							Class(parsePriceClass),
 							Text(parseIntl.T(n, parseT.prefix+".price")),
 							parseSuffix,
 						),
-						P(Class("mt-4 text-sm leading-6 text-[#8a8a9a]"), Text(parseIntl.T(n, parseT.prefix+".body"))),
+						P(Class("mt-4 text-sm leading-6 text-[#9b9bb1]"), Text(parseIntl.T(n, parseT.prefix+".body"))),
 						Div(
 							Class("mt-6"),
 							renderCtaPrimary(parseIntl.T(n, parseT.prefix+".cta"), parseT.ctaRoute),
@@ -220,7 +220,7 @@ func renderLandingPersonaBand() ui.Node {
 				H2(Class("font-display mt-4 max-w-[24ch] text-3xl font-bold leading-tight tracking-[-0.04em] text-[#f0f0f8] sm:text-4xl"),
 					Text("Built for operators, not just users"),
 				),
-				P(Class("mt-4 max-w-[54ch] text-base leading-7 text-[#8a8a9a] sm:leading-8"),
+				P(Class("mt-4 max-w-[54ch] text-base leading-7 text-[#9b9bb1] sm:leading-8"),
 					Text("If you run a team that depends on consistent, accountable AI answers, RelayDesk was designed for your exact situation."),
 				),
 			),
@@ -228,19 +228,19 @@ func renderLandingPersonaBand() ui.Node {
 				Class("grid gap-4 sm:gap-5 lg:grid-cols-3 scroll-reveal scroll-reveal-d1"),
 				Map(parseCards, func(parseC personaCard) ui.Node {
 					return Div(
-						Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-6 py-7"),
+						Class("rounded-2xl border border-white/[0.06] bg-[#13131e] px-6 py-7"),
 						P(Class("mb-5 text-sm font-semibold leading-snug text-[#f0f0f8]"), Text(parseC.role)),
 						Div(
 							Class("space-y-3"),
 							Div(
 								Class("rounded-xl border border-red-400/12 bg-red-500/5 px-4 py-3"),
 								Div(Class("mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-red-400/70"), Text("Before")),
-								P(Class("text-sm leading-6 text-[#8a8a9a]"), Text(parseC.before)),
+								P(Class("text-sm leading-6 text-[#9b9bb1]"), Text(parseC.before)),
 							),
 							Div(
-								Class("rounded-xl border border-[#00d9ff]/12 bg-[#00d9ff]/5 px-4 py-3"),
-								Div(Class("mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00d9ff]/70"), Text("After")),
-								P(Class("text-sm leading-6 text-[#8a8a9a]"), Text(parseC.after)),
+								Class("rounded-xl border border-[#8e7bff]/12 bg-[#8e7bff]/5 px-4 py-3"),
+								Div(Class("mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8e7bff]/70"), Text("After")),
+								P(Class("text-sm leading-6 text-[#9b9bb1]"), Text(parseC.after)),
 							),
 						),
 					)
@@ -292,10 +292,10 @@ func renderLandingHowItWorksSection() ui.Node {
 				Class("grid gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4 scroll-reveal scroll-reveal-d1"),
 				Map(parseSteps, func(parseS workStep) ui.Node {
 					return Div(
-						Class("rounded-2xl border border-white/[0.06] bg-[#111118] p-5 sm:p-6"),
+						Class("rounded-2xl border border-white/[0.06] bg-[#13131e] p-5 sm:p-6"),
 						Div(Class("font-mono-tech mb-4 text-[2.5rem] font-bold leading-none tracking-tight text-white/10"), Text(parseS.num)),
 						P(Class("text-base font-semibold text-[#f0f0f8]"), Text(parseS.title)),
-						P(Class("mt-2 text-sm leading-6 text-[#8a8a9a]"), Text(parseS.body)),
+						P(Class("mt-2 text-sm leading-6 text-[#9b9bb1]"), Text(parseS.body)),
 					)
 				}),
 			),
@@ -316,7 +316,7 @@ func renderLandingPreviewCluster() ui.Node {
 				H2(Class("font-display mt-4 max-w-[24ch] text-3xl font-bold leading-tight tracking-[-0.04em] text-[#f0f0f8] sm:text-4xl"),
 					Text("The product as software"),
 				),
-				P(Class("mt-4 max-w-[52ch] text-base leading-7 text-[#8a8a9a] sm:leading-8"),
+				P(Class("mt-4 max-w-[52ch] text-base leading-7 text-[#9b9bb1] sm:leading-8"),
 					Text("Three surfaces ship together: a workspace chat session, a settings and billing panel, and an admin dashboard. Each one is functional and live in this example."),
 				),
 			),
@@ -348,7 +348,7 @@ func renderLandingPreviewPanel(parseTitle, parseCaption string, parseContent ui.
 		Div(
 			Class("mt-3 px-1"),
 			P(Class("text-sm font-semibold text-[#f0f0f8]"), Text(parseTitle)),
-			P(Class("mt-1 text-xs leading-5 text-[#8a8a9a]"), Text(parseCaption)),
+			P(Class("mt-1 text-xs leading-5 text-[#9b9bb1]"), Text(parseCaption)),
 		),
 	)
 }
@@ -361,21 +361,21 @@ func renderChatPreviewMockup() ui.Node {
 			Class("w-20 shrink-0"),
 			Div(Class("mb-2 h-5 rounded-lg bg-white/5")),
 			Div(Class("space-y-1"),
-				Div(Class("h-6 rounded-lg bg-[#132235]")),
+				Div(Class("h-6 rounded-lg bg-[#181830]")),
 				Div(Class("h-6 rounded-lg bg-white/[0.03]")),
 				Div(Class("h-6 rounded-lg bg-white/[0.03]")),
 			),
 		),
 		Div(
 			Class("flex min-w-0 flex-1 flex-col gap-3"),
-			Div(Class("ml-auto w-4/5 rounded-2xl border border-[#8fffd8]/10 bg-[#132235] px-3 py-2"),
+			Div(Class("ml-auto w-4/5 rounded-2xl border border-[#8fffd8]/10 bg-[#181830] px-3 py-2"),
 				Div(Class("mb-1 h-1.5 w-3/4 rounded bg-white/20")),
 				Div(Class("h-1.5 w-1/2 rounded bg-white/12")),
 			),
-			Div(Class("w-full rounded-[1.25rem] border border-[#00d9ff]/10 bg-[#0d1a28] px-3 py-3"),
+			Div(Class("w-full rounded-[1.25rem] border border-[#8e7bff]/10 bg-[#13141f] px-3 py-3"),
 				Div(Class("mb-2 flex items-center gap-2"),
-					Div(Class("h-4 w-4 rounded-full border border-[#00d9ff]/30 bg-[#00d9ff]/15")),
-					Div(Class("h-1.5 w-12 rounded bg-[#00d9ff]/25")),
+					Div(Class("h-4 w-4 rounded-full border border-[#8e7bff]/30 bg-[#8e7bff]/15")),
+					Div(Class("h-1.5 w-12 rounded bg-[#8e7bff]/25")),
 				),
 				Div(Class("space-y-1.5"),
 					Div(Class("h-1.5 w-full rounded bg-white/15")),
@@ -459,7 +459,7 @@ func renderLandingFrameworkCalloutStrip() ui.Node {
 					),
 					A(
 						Href("https://github.com/monstercameron/GoWebComponents"),
-						Class("mt-3 inline-flex items-center text-xs font-medium text-[#00d9ff] hover:text-white transition-colors sm:mt-0"),
+						Class("mt-3 inline-flex items-center text-xs font-medium text-[#8e7bff] hover:text-white transition-colors sm:mt-0"),
 						Text("GWC source →"),
 					),
 				),
@@ -468,7 +468,7 @@ func renderLandingFrameworkCalloutStrip() ui.Node {
 					Map(parseCallouts, func(parseC parseCallout) ui.Node {
 						return Div(
 							Class("rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-3"),
-							Div(Class("mb-1 text-[11px] font-semibold text-[#00d9ff]/80"), Text(parseC.parseLabel)),
+							Div(Class("mb-1 text-[11px] font-semibold text-[#8e7bff]/80"), Text(parseC.parseLabel)),
 							P(Class("text-[10px] leading-4 text-white/35"), Text(parseC.parseDesc)),
 						)
 					}),

@@ -205,7 +205,7 @@ func captureExample100AuthenticatedHappyPath(parseT *testing.T, parsePage playwr
 	}
 	parseArtifact.HasPromptAfterSend = true
 	if _, parseErr := parsePage.WaitForFunction(
-		`() => document.querySelectorAll("#message-list .rounded-br-md").length >= 1 && document.querySelectorAll("#message-list .rounded-bl-md").length >= 1`,
+		`() => document.querySelectorAll("#message-list .msg-bubble-user").length >= 1 && document.querySelectorAll("#message-list .msg-bubble-assistant").length >= 1`,
 		nil,
 	); parseErr != nil {
 		parseT.Fatalf("wait for user+assistant message bubbles: %v", parseErr)

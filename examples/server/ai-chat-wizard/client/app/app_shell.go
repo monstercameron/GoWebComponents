@@ -168,6 +168,29 @@ func shouldRenderAuthLoadingShell(parseView appViewState) bool {
 }
 
 func renderAppShell(parseProps appShellProps) ui.Node {
+	// Publish the active locale for non-hook helpers (browser-ICU cost
+	// formatting) before any of this render's children format values.
+	parseCurrentUILocale = parseProps.Intl.Locale()
+	// Honor the OS reduced-motion preference live (ui.UsePrefersReducedMotion
+	// re-renders on preference flips); the .reduce-motion class disables the
+	// marketing and streaming animations in styles.go.
+	isReduceMotion := ui.UsePrefersReducedMotion()
+	// Screen-reader announcement when a streamed assistant reply finishes:
+	// visually the stream just stops, so without this there is no non-visual
+	// completion signal.
+	parseAnnouncer := ui.UseAnnouncer()
+	wasStreamingRef := ui.UseRef(false)
+	ui.UseEffect(func() func() {
+		if wasStreamingRef.Get() && !parseProps.View.IsStreaming {
+			parseAnnouncer.Polite(parseProps.Intl.T(chatI18nNamespace, "thread.replyComplete"))
+		}
+		wasStreamingRef.Set(parseProps.View.IsStreaming)
+		return nil
+	}, parseProps.View.IsStreaming)
+	// UI density is a persisted preference (ui.UsePersistedState): it survives
+	// reloads via localStorage and syncs across tabs through the storage event.
+	parseDensity := ui.UsePersistedState[string]("chatwizard.ui.density", "comfortable", ui.PersistLocal)
+	isCompactDensity := parseDensity.Get() == "compact"
 	parseContent := renderWorkspaceShell(parseProps)
 	isWorkspace := true
 	if shouldRenderLandingShellEarly(parseProps.View) {
@@ -193,16 +216,45 @@ func renderAppShell(parseProps appShellProps) ui.Node {
 	}
 	return Div(
 		Tag("style", Text(chatWizardStyles)),
+		Tag("style", Text(chatWizardMotionStyles)),
 		Div(
 			FromProps(Props{Raw: map[string]interface{}{
 				"dir":                 string(parseProps.Intl.Direction()),
 				"lang":                parseProps.Intl.Locale(),
 				"data-current-locale": parseProps.Intl.Locale(),
 			}}),
-			Class(parseOuterClass),
+			Class(ClassNames(
+				parseOuterClass,
+				When(isReduceMotion, "reduce-motion"),
+				When(isCompactDensity, "density-compact"),
+			)),
 			parseContent,
 		),
+		If(isWorkspace, renderDensityToggle(parseProps.Intl, isCompactDensity, func() {
+			if isCompactDensity {
+				parseDensity.Set("comfortable")
+				return
+			}
+			parseDensity.Set("compact")
+		})),
+		parseAnnouncer.Region(),
 		renderDevToolsOverlay(parseProps.View),
+	)
+}
+
+// renderDensityToggle is the persisted-density control: a quiet fixed chip in
+// the bottom-right corner of the workspace.
+func renderDensityToggle(parseIntl i18n.Runtime, isCompact bool, parseOnToggle func()) ui.Node {
+	parseLabel := parseIntl.T(chatI18nNamespace, "shell.densityCompact")
+	if isCompact {
+		parseLabel = parseIntl.T(chatI18nNamespace, "shell.densityComfortable")
+	}
+	return Button(
+		ID("density-toggle"),
+		Class("fixed bottom-3 right-3 z-40 rounded-full border border-white/[0.08] bg-[#13122080] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-white/35 backdrop-blur-md transition-colors hover:border-[#8e7bff]/40 hover:text-white/70"),
+		FromProps(Props{Aria: map[string]string{"label": parseLabel}}),
+		OnClick(parseOnToggle),
+		Text(parseLabel),
 	)
 }
 
@@ -302,7 +354,7 @@ func renderDeleteConversationModal(parseIntl i18n.Runtime, parseView appViewStat
 		Class("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
 		OnClick(parseConversationList.CancelDelete),
 		Div(
-			Class("bg-[#111118] border border-white/[0.08] rounded-[1.35rem] p-6 max-w-sm w-full mx-4 flex flex-col gap-4 modal-in"),
+			Class("bg-[#13131e] border border-white/[0.08] rounded-[1.35rem] p-6 max-w-sm w-full mx-4 flex flex-col gap-4 modal-in"),
 			OnClick(parseStopBubble),
 			P(Class("text-white font-semibold text-base"), Text(parseIntl.T(chatI18nNamespace, "modal.deleteTitle"))),
 			P(Class("text-white/60 text-sm"), Text(parseIntl.T(chatI18nNamespace, "modal.deleteBody"))),
@@ -447,7 +499,7 @@ func renderSpeechUpgradeModal(parseIntl i18n.Runtime, isShow bool, parseErrorTex
 		Class("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
 		OnClick(parseCancel),
 		Div(
-			Class("bg-[#111118] border border-white/[0.08] rounded-[1.35rem] p-6 max-w-md w-full mx-4 flex flex-col gap-4 modal-in"),
+			Class("bg-[#13131e] border border-white/[0.08] rounded-[1.35rem] p-6 max-w-md w-full mx-4 flex flex-col gap-4 modal-in"),
 			OnClick(parseStopBubble),
 			P(Class("text-white font-semibold text-base"), Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderTitle"))),
 			P(Class("text-white/60 text-sm leading-6"), Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderBody"))),
@@ -461,7 +513,7 @@ func renderSpeechUpgradeModal(parseIntl i18n.Runtime, isShow bool, parseErrorTex
 					Text(parseIntl.T(chatI18nNamespace, "message.cancel")),
 				),
 				Button(
-					Class("px-4 py-2 text-sm rounded-xl bg-[#00d9ff] text-[#05111d] hover:bg-[#33e3ff] transition-colors font-medium"),
+					Class("px-4 py-2 text-sm rounded-xl bg-[#8e7bff] text-[#0a0a14] hover:bg-[#a99bff] transition-colors font-medium"),
 					OnClick(parseConfirm),
 					Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderConfirm")),
 				),

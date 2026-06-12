@@ -175,7 +175,7 @@ func renderJourneyProgressBand(parseStageID string) ui.Node {
 			Div(
 				Class("relative h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-white/8"),
 				Div(
-					Class("absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#00d9ff]/60 to-[#00d9ff]/30 transition-all duration-500"),
+					Class("absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#8e7bff]/60 to-[#8e7bff]/30 transition-all duration-500"),
 					Style(map[string]string{"width": strconv.Itoa(parseFillPct) + "%"}),
 				),
 			),

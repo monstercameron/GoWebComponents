@@ -137,13 +137,13 @@ func renderDevTourOverlay(parseView appViewState) ui.Node {
 		Class("fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md"),
 		OnClick(parseDismiss),
 		Div(
-			Class("relative mx-4 w-full max-w-2xl rounded-2xl border border-white/[0.10] bg-[#0d1117] p-6 shadow-2xl"),
+			Class("relative mx-4 w-full max-w-2xl rounded-2xl border border-white/[0.10] bg-[#0e0e16] p-6 shadow-2xl"),
 			OnClick(ui.UseEvent(func(parseE ui.Event) { parseE.StopPropagation() })),
 			// Header
 			Div(
 				Class("mb-5 flex items-start justify-between gap-4"),
 				Div(
-					Div(Class("text-[10px] uppercase tracking-[0.18em] text-[#00d9ff]/60"), Text("GoWebComponents framework tour")),
+					Div(Class("text-[10px] uppercase tracking-[0.18em] text-[#8e7bff]/60"), Text("GoWebComponents framework tour")),
 					H2(Class("mt-1 text-lg font-semibold text-white"), Text("Example 100 — Pattern tour")),
 					P(Class("mt-1 text-xs text-white/40"), Text("Each stop maps a visible UI surface to the GWC pattern it demonstrates. Append ?gwc-dev=panel to inspect live runtime state.")),
 				),
@@ -159,7 +159,7 @@ func renderDevTourOverlay(parseView appViewState) ui.Node {
 				Map(parseStops, func(parseStop parseTourStop) ui.Node {
 					return Div(
 						Class("rounded-xl border border-white/[0.07] bg-white/[0.03] p-4"),
-						Div(Class("mb-0.5 text-[10px] uppercase tracking-[0.14em] text-[#00d9ff]/60"), Text(parseStop.parsePattern)),
+						Div(Class("mb-0.5 text-[10px] uppercase tracking-[0.14em] text-[#8e7bff]/60"), Text(parseStop.parsePattern)),
 						Div(Class("text-sm font-semibold text-white"), Text(parseStop.parseTitle)),
 						P(Class("mt-1 text-[11px] leading-4 text-white/40"), Text(parseStop.parseDesc)),
 						Div(Class("mt-2 font-mono text-[10px] text-white/20"), Text(parseStop.parseFile)),
@@ -222,12 +222,12 @@ func renderDevPanelOverlay(parseView appViewState) ui.Node {
 	return Div(
 		Class("fixed bottom-4 right-4 z-[100] w-72"),
 		Div(
-			Class("rounded-2xl border border-white/[0.10] bg-[#0d1117] shadow-2xl"),
+			Class("rounded-2xl border border-white/[0.10] bg-[#0e0e16] shadow-2xl"),
 			// Panel header
 			Div(
 				Class("flex items-center justify-between border-b border-white/[0.07] px-4 py-2.5"),
 				Div(
-					Class("text-[10px] uppercase tracking-[0.18em] text-[#00d9ff]/60"),
+					Class("text-[10px] uppercase tracking-[0.18em] text-[#8e7bff]/60"),
 					Text("GWC dev panel"),
 				),
 				Button(

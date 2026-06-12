@@ -422,7 +422,7 @@ func renderAdminConfirmModal(parseCustomers adminCustomersController) ui.Node {
 	return Div(
 		Class("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"),
 		Div(
-			Class("w-full max-w-md rounded-[1.6rem] border border-white/10 bg-[#111118] p-6 shadow-2xl"),
+			Class("w-full max-w-md rounded-[1.6rem] border border-white/10 bg-[#13131e] p-6 shadow-2xl"),
 			// Modal header.
 			Div(Class("mb-4"),
 				P(Class("text-base font-semibold text-white"), Text(parseTitle)),
