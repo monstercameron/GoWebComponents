@@ -261,12 +261,21 @@ impact; exactly three active items carry the next-work marker.
   subscription cleanup releases the underlying js.Func (no released-
   function warnings); events cross from a GWC tree into a plugin-host
   panel and back.
-- [ ] **Cross-tab eventing soak** - `SubscribeDecodedCrossTab[T]` works in
+- [x] **Cross-tab eventing soak** - `SubscribeDecodedCrossTab[T]` works in
   the example; pin it with a test.
   Test for: typed envelope round-trip between two pages in one browser
   context; decode error of a malformed envelope surfaces via the error
   callback, not a contained panic; channel close mid-flight does not
   crash either tab.
+  Done (2026-06-12, real browser): `TestCrossTabEventingSoak`
+  (test/playwrightgo/examples) launches headless Chromium, opens TWO pages
+  in ONE BrowserContext at the cross-tab-sync example, and verifies typed
+  delivery across tabs - theme/auth/draft broadcasts from page A are
+  received on page B (envelope round-trip), the diagnostics panel reports
+  the resolved transport (BroadcastChannel/localStorage, never pending),
+  and after page A closes mid-session page B stays interactive (cache
+  invalidation still fires). Fails on any uncaught/panic console error.
+  Independently re-run green (~5.5s).
 
 ### Accessibility (visually impaired)
 
