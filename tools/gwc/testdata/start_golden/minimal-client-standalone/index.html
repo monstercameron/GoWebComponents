@@ -222,16 +222,50 @@
 			color: #ffd4d4;
 			border: 1px solid rgba(255, 107, 107, 0.24);
 		}
+		.first-pixel .panel {
+			border-color: rgba(97, 218, 251, 0.18);
+		}
+		.first-pixel-status {
+			margin: 0;
+			font-size: 0.9rem;
+			color: #8ca2c7;
+		}
 	</style>
 </head>
 <body>
+	<div id="gwc-first-pixel" class="shell first-pixel" data-gwc-first-pixel="true" role="status" aria-live="polite">
+		<div class="panel">
+			<div class="brand-row">
+				<div class="brand-mark">GWC</div>
+				<div>
+					<p class="eyebrow">GoWebComponents Starter</p>
+					<p class="brand-copy">Preparing golden-minimal-client</p>
+				</div>
+			</div>
+			<h1>golden-minimal-client</h1>
+			<p class="first-pixel-status">Starting the wasm app...</p>
+		</div>
+	</div>
 	<div id="app"></div>
 	<div id="boot-error"></div>
 	<script>
 		const go = new Go();
 		const errorBox = document.getElementById('boot-error');
+		const appRoot = document.getElementById('app');
+		const firstPixel = document.getElementById('gwc-first-pixel');
+		const removeFirstPixel = () => {
+			if (appRoot && appRoot.children.length > 0 && firstPixel && firstPixel.isConnected) {
+				firstPixel.remove();
+			}
+		};
+		if (appRoot && firstPixel && typeof MutationObserver === 'function') {
+			new MutationObserver(removeFirstPixel).observe(appRoot, { childList: true });
+		}
 		WebAssembly.instantiateStreaming(fetch('./bin/main.wasm'), go.importObject)
-			.then(result => go.run(result.instance))
+			.then(result => {
+				removeFirstPixel();
+				return go.run(result.instance);
+			})
 			.catch(error => {
 				errorBox.style.display = 'block';
 				errorBox.textContent = 'Failed to start wasm app: ' + String(error);

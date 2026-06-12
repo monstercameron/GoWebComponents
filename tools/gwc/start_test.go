@@ -1883,6 +1883,24 @@ func TestRenderScaffoldMainReferenceAppIncludesCommonPathWidgets(parseT *testing
 	}
 }
 
+func TestRenderScaffoldHTMLIncludesFirstPixelFallback(parseT *testing.T) {
+	parseHTML := renderScaffoldHTML(startSelection{ProjectName: "starter-app"})
+	for _, parseExpected := range []string{
+		`<div id="gwc-first-pixel"`,
+		`<div id="app"></div>`,
+		`data-gwc-first-pixel="true"`,
+		`role="status"`,
+		`Preparing starter-app`,
+		`Starting the wasm app...`,
+		`new MutationObserver(removeFirstPixel).observe(appRoot, { childList: true });`,
+		`WebAssembly.instantiateStreaming(fetch('./bin/main.wasm')`,
+	} {
+		if !strings.Contains(parseHTML, parseExpected) {
+			parseT.Fatalf("expected scaffold HTML to contain %q, got:\n%s", parseExpected, parseHTML)
+		}
+	}
+}
+
 func TestSeedScaffoldGoSumAllowsMissingRepoFile(parseT *testing.T) {
 	parseTargetDir := parseT.TempDir()
 	parseLauncher := launcher{repoRoot: parseT.TempDir()}

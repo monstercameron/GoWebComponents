@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,8 @@ import (
 const (
 	defaultHost = "127.0.0.1"
 	defaultPort = "8090"
+
+	buildLauncherResultEnvelopeSchemaVersion = "gwc.agentic.v1"
 )
 
 type launcher struct {
@@ -432,6 +435,131 @@ type launcherFailureDiagnostic struct {
 	Override string `json:"override,omitempty"`
 }
 
+// launcherCommandMetadata describes one command in the gwc registry.
+type launcherCommandMetadata struct {
+	Name        string   `json:"name"`
+	Aliases     []string `json:"aliases,omitempty"`
+	Summary     string   `json:"summary"`
+	JSON        bool     `json:"json"`
+	Mutating    bool     `json:"mutating"`
+	LongRunning bool     `json:"longRunning,omitempty"`
+}
+
+// launcherEnvelopeDiagnostic is the diagnostic shape used by gwc JSON envelopes.
+type launcherEnvelopeDiagnostic struct {
+	Phase    string `json:"phase,omitempty"`
+	Category string `json:"category,omitempty"`
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	File     string `json:"file,omitempty"`
+	Line     int    `json:"line,omitempty"`
+	FixHint  string `json:"fixHint,omitempty"`
+	Override string `json:"override,omitempty"`
+}
+
+// launcherEnvelopeError is the error shape used by gwc JSON envelopes.
+type launcherEnvelopeError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+var errLauncherJSONEnvelopeWritten = errors.New("gwc json envelope written")
+
+type launcherJSONEnvelopeWrittenError struct {
+	err error
+}
+
+// Error returns the wrapped command failure message.
+func (parseErr launcherJSONEnvelopeWrittenError) Error() string {
+	if parseErr.err == nil {
+		return errLauncherJSONEnvelopeWritten.Error()
+	}
+	return parseErr.err.Error()
+}
+
+// Unwrap returns the underlying command failure.
+func (parseErr launcherJSONEnvelopeWrittenError) Unwrap() error {
+	return parseErr.err
+}
+
+// Is reports whether the error marks an already-written JSON envelope.
+func (parseErr launcherJSONEnvelopeWrittenError) Is(parseTarget error) bool {
+	return parseTarget == errLauncherJSONEnvelopeWritten
+}
+
+// listLauncherCommandRegistry returns the command metadata that backs JSON support checks.
+func listLauncherCommandRegistry() []launcherCommandMetadata {
+	return []launcherCommandMetadata{
+		{Name: "bench", Aliases: []string{"benchmark"}, Summary: "Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output.", JSON: true},
+		{Name: "bootstrap", Summary: "Run prerequisite checks, then start a scaffold or examples bootstrap flow.", JSON: true, Mutating: true, LongRunning: true},
+		{Name: "build", Summary: "Build a js/wasm app with an explicit launcher profile.", JSON: true, Mutating: true},
+		{Name: "check", Summary: "Run agent-shaped diagnostics across tests and source conventions.", JSON: true},
+		{Name: "dashboard", Summary: "Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard.", JSON: true},
+		{Name: "deploy", Summary: "Package validated release artifacts through explicit deployment adapters.", JSON: true, Mutating: true},
+		{Name: "dev", Summary: "Run the native gwc dev orchestration path with integrated livereload runtime.", JSON: true, Mutating: true, LongRunning: true},
+		{Name: "doctor", Summary: "Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors.", JSON: true},
+		{Name: "env", Summary: "Print launcher-relevant environment variables and current values.", JSON: true},
+		{Name: "examples", Summary: "Serve the examples catalog or run managed example-server lifecycle actions.", JSON: true, Mutating: true, LongRunning: true},
+		{Name: "export", Summary: "Alias for prerender.", JSON: true, Mutating: true},
+		{Name: "files", Summary: "List project files with repeatable extension and directory filters.", JSON: true},
+		{Name: "help", Aliases: []string{"-h", "--help"}, Summary: "Print human help or structured command metadata.", JSON: true},
+		{Name: "import", Summary: "Convert a static HTML or JSX file into an inspectable GWC project.", JSON: true, Mutating: true},
+		{Name: "init", Summary: "Non-interactive project initialization that writes gwc-start.json and lifecycle defaults.", JSON: true, Mutating: true},
+		{Name: "inspect", Summary: "Build higher-level route, dependency, ownership, and file-type project reports.", JSON: true},
+		{Name: "lint", Aliases: []string{"review"}, Summary: "Run golangci-lint plus built-in GWC hook rules, then render a text or JSON review report.", JSON: true},
+		{Name: "mcp", Summary: "Serve JSON-capable gwc commands as MCP tools over stdio, or print the tool manifest as JSON.", JSON: true},
+		{Name: "migrate", Summary: "Non-interactive migration helper with compatibility API findings, safe rewrites, and report export.", JSON: true, Mutating: true},
+		{Name: "model", Summary: "Emit a static component manifest for agent planning.", JSON: true},
+		{Name: "mutate", Summary: "Apply safe AST-backed source mutations with dry-run and JSON diff output.", JSON: true, Mutating: true},
+		{Name: "explain", Summary: "Resolve diagnostic error codes and framework capabilities.", JSON: true},
+		{Name: "observe", Summary: "Query redacted runtime/crash telemetry streams.", JSON: true},
+		{Name: "probe", Summary: "Run a browser-oracle probe for a URL or example target.", JSON: true},
+		{Name: "prerender", Summary: "Build one static export output with route HTML, wasm artifacts, and a manifest.", JSON: true, Mutating: true},
+		{Name: "release", Summary: "Package a js/wasm release with manifest and compressed sidecars.", JSON: true, Mutating: true},
+		{Name: "render", Summary: "Render a component through the headless SSR oracle.", JSON: true},
+		{Name: "scaffold", Summary: "Generate components, hooks, examples, or starter apps without prompts.", JSON: true, Mutating: true},
+		{Name: "search", Summary: "Search exported APIs by intent.", JSON: true},
+		{Name: "seed", Summary: "Provision local dev identities and fixture data through a seed package.", JSON: true, Mutating: true},
+		{Name: "serve", Summary: "Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures.", JSON: true, LongRunning: true},
+		{Name: "start", Summary: "Run the scaffold TUI for preset and project setup.", JSON: true, Mutating: true},
+		{Name: "tailwind", Summary: "Build shared Tailwind CSS and generated class manifests through the launcher-owned Tailwind path.", JSON: true, Mutating: true},
+		{Name: "test", Summary: "Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release.", JSON: true},
+		{Name: "upgrade", Summary: "Non-interactive lifecycle upgrade for gwc-start.json schema and runtime assets.", JSON: true, Mutating: true},
+		{Name: "verify", Summary: "Run app-local Go tests when present and perform a CI-profile wasm build.", JSON: true, Mutating: true},
+		{Name: "wasm", Summary: "Run wasm-focused build experiment helpers such as wasm measure.", JSON: true, Mutating: true},
+	}
+}
+
+// getLauncherCommandMetadata looks up command metadata by canonical name or alias.
+func getLauncherCommandMetadata(parseCommand string) (launcherCommandMetadata, bool) {
+	parseCommand = strings.ToLower(strings.TrimSpace(parseCommand))
+	if parseCommand == "" {
+		return launcherCommandMetadata{}, false
+	}
+	for _, parseMetadata := range listLauncherCommandRegistry() {
+		if parseMetadata.Name == parseCommand {
+			return parseMetadata, true
+		}
+		for _, parseAlias := range parseMetadata.Aliases {
+			if strings.EqualFold(strings.TrimSpace(parseAlias), parseCommand) {
+				return parseMetadata, true
+			}
+		}
+	}
+	return launcherCommandMetadata{}, false
+}
+
+// normalizeLauncherCommandName returns the stable registry name for a command token.
+func normalizeLauncherCommandName(parseCommand string, parseArgs []string) string {
+	if isExamplesManagedPathCommand(parseCommand, parseArgs) {
+		return "examples"
+	}
+	if parseMetadata, parseOk := getLauncherCommandMetadata(parseCommand); parseOk {
+		return parseMetadata.Name
+	}
+	return strings.TrimSpace(parseCommand)
+}
+
 func launcherCommandAndArgs(parseArgs []string) (string, []string) {
 	_, parseRemaining, parseErr := parseLauncherGlobalCLIOptions(parseArgs)
 	if parseErr != nil {
@@ -444,12 +572,8 @@ func launcherCommandAndArgs(parseArgs []string) (string, []string) {
 }
 
 func launcherCommandSupportsJSON(parseCommand string) bool {
-	switch strings.TrimSpace(strings.ToLower(parseCommand)) {
-	case "bench", "benchmark", "build", "deploy", "dev", "doctor", "env", "examples", "export", "files", "init", "inspect", "lint", "migrate", "prerender", "release", "review", "seed", "tailwind", "test", "upgrade", "verify", "wasm":
-		return true
-	default:
-		return false
-	}
+	parseMetadata, parseOk := getLauncherCommandMetadata(parseCommand)
+	return parseOk && parseMetadata.JSON
 }
 
 func launcherJSONRequestedForCommand(parseCommand string, parseArgs []string) bool {
@@ -460,9 +584,24 @@ func launcherJSONRequestedForCommand(parseCommand string, parseArgs []string) bo
 		return false
 	}
 	for _, parseArg := range parseArgs {
-		parseTrimmed := strings.TrimSpace(strings.ToLower(parseArg))
-		if parseTrimmed == "-json" || parseTrimmed == "--json" || strings.HasPrefix(parseTrimmed, "-json=") || strings.HasPrefix(parseTrimmed, "--json=") {
+		if hasLauncherJSONFlag(parseArg) {
 			return true
+		}
+	}
+	return false
+}
+
+// hasLauncherJSONFlag reports whether one argument explicitly requests JSON output.
+func hasLauncherJSONFlag(parseArg string) bool {
+	parseTrimmed := strings.TrimSpace(strings.ToLower(parseArg))
+	switch parseTrimmed {
+	case "-json", "--json":
+		return true
+	}
+	for _, parsePrefix := range []string{"-json=", "--json="} {
+		if strings.HasPrefix(parseTrimmed, parsePrefix) {
+			parseValue := strings.TrimSpace(strings.TrimPrefix(parseTrimmed, parsePrefix))
+			return parseValue != "false" && parseValue != "0"
 		}
 	}
 	return false
@@ -558,14 +697,176 @@ func detectRunnerOverrideField(parseMessage string) string {
 	return ""
 }
 
+// buildLauncherResultEnvelopePayload builds a stable JSON result envelope around command output.
+func buildLauncherResultEnvelopePayload(parseCommand string, parseArgs []string, parseOutput string, parseErr error) map[string]any {
+	parseData, parseDataObject := decodeLauncherResultData(parseOutput)
+	if parseErr == nil && isLauncherResultEnvelopeObject(parseDataObject) {
+		return parseDataObject
+	}
+
+	isParseOK := parseErr == nil
+	if parseDataOK, parseHasOK := parseDataObject["ok"].(bool); parseHasOK && !parseDataOK {
+		isParseOK = false
+	}
+	parsePayload := map[string]any{
+		"schemaVersion": buildLauncherResultEnvelopeSchemaVersion,
+		"command":       normalizeLauncherCommandName(parseCommand, parseArgs),
+		"ok":            isParseOK,
+		"data":          parseData,
+		"diagnostics":   []launcherEnvelopeDiagnostic{},
+		"error":         nil,
+	}
+	mergeLauncherEnvelopeData(parsePayload, parseDataObject)
+	if parseErr != nil {
+		parseDiagnostic := buildLauncherFailureDiagnostic(append([]string{parseCommand}, parseArgs...), parseErr)
+		parseDiagnostic.Command = normalizeLauncherCommandName(parseCommand, parseArgs)
+		parseEnvelopeDiagnostic := launcherEnvelopeDiagnostic{
+			Phase:    parseDiagnostic.Phase,
+			Category: parseDiagnostic.Category,
+			Code:     parseDiagnostic.Code,
+			Message:  parseDiagnostic.Message,
+			FixHint:  launcherEnvelopeFixHint(parseDiagnostic.Code),
+			Override: parseDiagnostic.Override,
+		}
+		parsePayload["diagnostics"] = []launcherEnvelopeDiagnostic{parseEnvelopeDiagnostic}
+		parsePayload["error"] = launcherEnvelopeError{Code: parseDiagnostic.Code, Message: parseDiagnostic.Message}
+
+		// Preserve the previous flat diagnostic shape for existing decoders while
+		// agent callers move to diagnostics[] and error.
+		parsePayload["phase"] = parseDiagnostic.Phase
+		parsePayload["category"] = parseDiagnostic.Category
+		parsePayload["code"] = parseDiagnostic.Code
+		parsePayload["message"] = parseDiagnostic.Message
+		if parseDiagnostic.Override != "" {
+			parsePayload["override"] = parseDiagnostic.Override
+		}
+	}
+	return parsePayload
+}
+
+// buildLauncherErrorEnvelopePayload builds a stable JSON envelope for errors outside dispatch.
+func buildLauncherErrorEnvelopePayload(parseArgs []string, parseErr error) map[string]any {
+	parseCommand, parseCommandArgs := launcherCommandAndArgs(parseArgs)
+	return buildLauncherResultEnvelopePayload(parseCommand, parseCommandArgs, "", parseErr)
+}
+
+// decodeLauncherResultData decodes existing command JSON output into envelope data.
+func decodeLauncherResultData(parseOutput string) (any, map[string]any) {
+	parseTrimmed := bytes.TrimSpace([]byte(parseOutput))
+	if len(parseTrimmed) == 0 {
+		parseData := map[string]any{}
+		return parseData, parseData
+	}
+
+	var parseValue any
+	parseDecoder := json.NewDecoder(bytes.NewReader(parseTrimmed))
+	parseDecoder.UseNumber()
+	if parseErr := parseDecoder.Decode(&parseValue); parseErr == nil {
+		parseRemainder := bytes.TrimSpace(parseTrimmed[int(parseDecoder.InputOffset()):])
+		if len(parseRemainder) == 0 {
+			if parseObject, parseOk := parseValue.(map[string]any); parseOk {
+				return parseObject, parseObject
+			}
+			return parseValue, map[string]any{}
+		}
+	}
+	parseData := map[string]any{"output": strings.TrimRight(parseOutput, "\r\n")}
+	return parseData, parseData
+}
+
+// isLauncherResultEnvelopeObject reports whether data already has the stable envelope shape.
+func isLauncherResultEnvelopeObject(parseObject map[string]any) bool {
+	if len(parseObject) == 0 {
+		return false
+	}
+	_, hasSchema := parseObject["schemaVersion"]
+	_, hasCommand := parseObject["command"]
+	_, hasOK := parseObject["ok"]
+	_, hasData := parseObject["data"]
+	_, hasDiagnostics := parseObject["diagnostics"]
+	_, hasError := parseObject["error"]
+	return hasSchema && hasCommand && hasOK && hasData && hasDiagnostics && hasError
+}
+
+// mergeLauncherEnvelopeData mirrors object data at top level for older callers.
+func mergeLauncherEnvelopeData(parsePayload map[string]any, parseData map[string]any) {
+	for parseKey, parseValue := range parseData {
+		switch parseKey {
+		case "schemaVersion", "command", "data", "diagnostics", "error", "ok":
+			continue
+		default:
+			parsePayload[parseKey] = parseValue
+		}
+	}
+}
+
+// launcherEnvelopeFixHint returns a machine-usable hint for known diagnostic codes.
+func launcherEnvelopeFixHint(parseCode string) string {
+	switch parseCode {
+	case "invalid_configuration":
+		return "Check the command flags and any gwc-runner.json path overrides, then retry."
+	case "invalid_runner_override":
+		return "Fix or remove the configured runner override path."
+	case "policy_violation":
+		return "Review the active policy pack or choose inputs allowed by policy."
+	case "code_failure":
+		return "Inspect the command output and fix the reported Go build or test failure."
+	case "audit_failed":
+		return "Resolve or suppress the audit finding according to the selected audit policy."
+	case "checks_failed":
+		return "Inspect failed checks and rerun the command after remediation."
+	case "smoke_failed":
+		return "Inspect the release smoke report and browser startup evidence."
+	case "startup_failed":
+		return "Check port availability and runtime server configuration."
+	default:
+		return ""
+	}
+}
+
+// writeLauncherResultEnvelope writes one indented JSON envelope.
+func writeLauncherResultEnvelope(parseW io.Writer, parsePayload map[string]any) error {
+	parseEncoder := json.NewEncoder(parseW)
+	parseEncoder.SetIndent("", "  ")
+	return parseEncoder.Encode(parsePayload)
+}
+
+// captureLauncherStdout captures command stdout without risking pipe-buffer deadlocks.
+func captureLauncherStdout(parseRun func() error) (string, error) {
+	parseOriginalStdout := os.Stdout
+	parseTempFile, parseErr := os.CreateTemp("", "gwc-json-stdout-*.tmp")
+	if parseErr != nil {
+		return "", parseErr
+	}
+	parseTempPath := parseTempFile.Name()
+	defer os.Remove(parseTempPath)
+
+	os.Stdout = parseTempFile
+	defer func() {
+		os.Stdout = parseOriginalStdout
+	}()
+	parseRunErr := parseRun()
+	parseCloseErr := parseTempFile.Close()
+
+	parseBytes, parseReadErr := os.ReadFile(parseTempPath)
+	if parseRunErr != nil {
+		return string(parseBytes), parseRunErr
+	}
+	if parseCloseErr != nil {
+		return string(parseBytes), parseCloseErr
+	}
+	if parseReadErr != nil {
+		return string(parseBytes), parseReadErr
+	}
+	return string(parseBytes), nil
+}
+
 func printLauncherError(parseW io.Writer, parseArgs []string, parseErr error) {
 	if parseW == nil {
 		return
 	}
 	if launcherRequestedJSONOutput(parseArgs) {
-		parseEncoder := json.NewEncoder(parseW)
-		parseEncoder.SetIndent("", "  ")
-		if parseEncodeErr := parseEncoder.Encode(buildLauncherFailureDiagnostic(parseArgs, parseErr)); parseEncodeErr == nil {
+		if parseEncodeErr := writeLauncherResultEnvelope(parseW, buildLauncherErrorEnvelopePayload(parseArgs, parseErr)); parseEncodeErr == nil {
 			return
 		}
 	}
@@ -573,6 +874,10 @@ func printLauncherError(parseW io.Writer, parseArgs []string, parseErr error) {
 }
 
 var mainPrintError = func(err error) {
+	if launcherRequestedJSONOutput(mainArgs()[1:]) {
+		printLauncherError(os.Stdout, mainArgs()[1:], err)
+		return
+	}
 	printLauncherError(os.Stderr, mainArgs()[1:], err)
 }
 
@@ -596,6 +901,10 @@ func main() {
 	}
 
 	if parseErr2 := mainRunLauncher(parseL, mainArgs()[1:]); parseErr2 != nil {
+		if errors.Is(parseErr2, errLauncherJSONEnvelopeWritten) {
+			mainExit(1)
+			return
+		}
 		mainPrintError(parseErr2)
 		mainExit(1)
 	}
@@ -617,8 +926,11 @@ func (parseL launcher) run(parseArgs []string) error {
 
 	switch parseCommand {
 	case "help", "-h", "--help":
-		printUsage()
-		return nil
+		if launcherJSONRequestedForCommand(parseCommand, parseCommandArgs) {
+			parseCommand = "help"
+			break
+		}
+		return runHelpCommand(parseL, parseCommandArgs)
 	}
 
 	parseCwd, parseCwdErr := launcherConfigGetwd()
@@ -647,6 +959,24 @@ func (parseL launcher) run(parseArgs []string) error {
 		return parseErr3
 	}
 
+	if parseJsonOutputRequested {
+		parseCapturedOutput, parseDispatchErr := captureLauncherStdout(func() error {
+			return parseL.dispatchCommand(parseCommand, parseCommandArgs)
+		})
+		parsePostHookErr := runLauncherCommandHooks(launcherActiveEnterpriseConfig.Hooks, "post", parseCommand, parseCommandArgs, parseL.repoRoot, launcherActiveEnterpriseSources)
+		parseEnvelopeErr := parseDispatchErr
+		if parseEnvelopeErr == nil {
+			parseEnvelopeErr = parsePostHookErr
+		}
+		if parseWriteErr := writeLauncherResultEnvelope(os.Stdout, buildLauncherResultEnvelopePayload(parseCommand, parseCommandArgs, parseCapturedOutput, parseEnvelopeErr)); parseWriteErr != nil {
+			return parseWriteErr
+		}
+		if parseEnvelopeErr != nil {
+			return launcherJSONEnvelopeWrittenError{err: parseEnvelopeErr}
+		}
+		return nil
+	}
+
 	parseDispatchErr := parseL.dispatchCommand(parseCommand, parseCommandArgs)
 	parsePostHookErr := runLauncherCommandHooks(launcherActiveEnterpriseConfig.Hooks, "post", parseCommand, parseCommandArgs, parseL.repoRoot, launcherActiveEnterpriseSources)
 	if parseDispatchErr != nil {
@@ -666,6 +996,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runExamplesCommand(parseL, parseArgs)
 	case "build":
 		return runBuildCommand(parseL, parseArgs)
+	case "check":
+		return runCheckCommand(parseL, parseArgs)
 	case "bench", "benchmark":
 		return runBenchmarkCommand(parseL, parseArgs)
 	case "release":
@@ -678,14 +1010,33 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runFilesCommand(parseL, parseArgs)
 	case "lint", "review":
 		return runLintCommand(parseL, parseArgs)
+	case "help":
+		return runHelpCommand(parseL, parseArgs)
 	case "init":
 		return runInitCommand(parseL, parseArgs)
 	case "inspect":
+		if agenticArgsContainFlag(parseArgs, "impact") {
+			return runInspectImpactCommand(parseL, parseArgs)
+		}
 		return runInspectCommand(parseL, parseArgs)
+	case "model":
+		return runModelCommand(parseL, parseArgs)
+	case "render":
+		return runRenderCommand(parseL, parseArgs)
+	case "probe":
+		return runProbeCommand(parseL, parseArgs)
+	case "explain":
+		return runExplainCommand(parseL, parseArgs)
+	case "search":
+		return runSearchCommand(parseL, parseArgs)
 	case "upgrade":
 		return runUpgradeCommand(parseL, parseArgs)
+	case "mcp":
+		return runMCPCommand(parseL, parseArgs)
 	case "migrate":
 		return runMigrateCommand(parseL, parseArgs)
+	case "mutate":
+		return runMutateCommand(parseL, parseArgs)
 	case "prerender":
 		return runPrerenderCommand(parseL, parseArgs)
 	case "export":
@@ -700,12 +1051,16 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runDeployCommand(parseL, parseArgs)
 	case "env":
 		return runEnvCommand(parseL, parseArgs)
+	case "observe":
+		return runObserveCommand(parseL, parseArgs)
 	case "verify":
 		return runVerifyCommand(parseL, parseArgs)
 	case "seed":
 		return runSeedCommand(parseL, parseArgs)
 	case "import":
 		return runImportCommand(parseL, parseArgs)
+	case "scaffold":
+		return runAgenticScaffoldCommand(parseL, parseArgs)
 	case "start":
 		return runStartCommand(parseL, parseArgs)
 	case "bootstrap":
@@ -718,6 +1073,17 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		}
 		return fmt.Errorf("unknown command %q", parseCommand)
 	}
+}
+
+func agenticArgsContainFlag(parseArgs []string, parseFlag string) bool {
+	parseFlag = strings.TrimLeft(strings.ToLower(strings.TrimSpace(parseFlag)), "-")
+	for _, parseArg := range parseArgs {
+		parseTrimmed := strings.TrimLeft(strings.ToLower(strings.TrimSpace(parseArg)), "-")
+		if parseTrimmed == parseFlag || strings.HasPrefix(parseTrimmed, parseFlag+"=") {
+			return true
+		}
+	}
+	return false
 }
 
 func printBuildSummary(parseSummary buildSummary) {
@@ -816,6 +1182,7 @@ func printUsage() {
 	fmt.Println("Commands:")
 	fmt.Println("  bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output")
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
+	fmt.Println("  check      Run agent-shaped diagnostics across tests and source conventions")
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release")
 	fmt.Println("  examples   Serve the examples catalog or run managed example-server lifecycle actions (start|status|stop|restart)")
 	fmt.Println("  dev        Run the native gwc dev orchestration path with integrated livereload runtime")
@@ -824,6 +1191,14 @@ func printUsage() {
 	fmt.Println("  lint       Run golangci-lint plus built-in GWC hook rules, then render a text or JSON review report (review alias supported)")
 	fmt.Println("  init       Non-interactive project initialization that writes gwc-start.json and lifecycle defaults")
 	fmt.Println("  inspect    Build higher-level route, dependency, ownership, and file-type project reports")
+	fmt.Println("  model      Emit a static component manifest for agent planning")
+	fmt.Println("  mcp        Serve JSON-capable gwc commands as MCP tools over stdio, or print the tool manifest as JSON")
+	fmt.Println("  mutate     Apply safe AST-backed source mutations with dry-run and JSON diff output")
+	fmt.Println("  render     Render a component through the headless SSR oracle")
+	fmt.Println("  probe      Run a browser-oracle probe for a URL or example target")
+	fmt.Println("  explain    Resolve diagnostic error codes and framework capabilities")
+	fmt.Println("  search     Search exported APIs by intent")
+	fmt.Println("  observe    Query redacted runtime/crash telemetry streams")
 	fmt.Println("  upgrade    Non-interactive lifecycle upgrade for gwc-start.json schema and runtime assets")
 	fmt.Println("  migrate    Non-interactive migration helper with compatibility API findings, safe rewrites, and report export")
 	fmt.Println("  prerender  Build one static export output with route HTML, wasm artifacts, and a manifest")
@@ -836,6 +1211,7 @@ func printUsage() {
 	fmt.Println("  seed       Provision local dev identities and fixture data through a seed package")
 	fmt.Println("  import     Convert a static HTML or JSX file into an inspectable GWC project")
 	fmt.Println("  release    Package a js/wasm release with manifest and compressed sidecars")
+	fmt.Println("  scaffold   Generate components, hooks, examples, or starter apps without prompts")
 	fmt.Println("  verify     Run app-local Go tests when present and perform a CI-profile wasm build")
 	fmt.Println("  wasm       Run wasm-focused build experiment helpers such as `wasm measure`")
 	fmt.Println("  start      Run the scaffold TUI for preset and project setup")

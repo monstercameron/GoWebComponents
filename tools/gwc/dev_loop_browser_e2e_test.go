@@ -66,6 +66,133 @@ func TestDevLoopBrowserPreservesStateAcrossSeveralHotReloads(parseT *testing.T) 
 	})
 }
 
+func TestDevLoopBrowserRuntimePanicOverlayRecoversOnCleanRender(parseT *testing.T) {
+	if testing.Short() {
+		parseT.Skip("skipping browser runtime overlay e2e in short mode")
+	}
+
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseModulePath, parseErr := (launcher{repoRoot: parseRepoRoot}).readRepoModulePath()
+	if parseErr != nil {
+		parseT.Fatalf("read repo module path: %v", parseErr)
+	}
+
+	parseAppRoot := filepath.Join(parseT.TempDir(), "runtime-overlay-browser-e2e")
+	writeRuntimePanicOverlayFixture(parseT, parseRepoRoot, parseAppRoot, parseModulePath, true)
+	prepareHotReloadBrowserFixtureModule(parseT, parseAppRoot)
+
+	parseRootURL, parseOutput, parseProcessExited, parseProcessErr := startHotReloadBrowserDevServer(parseT, parseRepoRoot, parseAppRoot)
+
+	withLiveReloadClientPage(parseT, func(parsePage playwright.Page) {
+		parsePage.OnConsole(func(parseMsg playwright.ConsoleMessage) {
+			if parseMsg.Type() == "error" || strings.Contains(parseMsg.Text(), "[gwc]") {
+				parseT.Logf("browser console [%s]: %s", parseMsg.Type(), parseMsg.Text())
+			}
+		})
+
+		if _, parseErr2 := parsePage.Goto(parseRootURL, playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr2 != nil {
+			parseT.Fatalf("goto runtime overlay fixture: %v\n%s", parseErr2, parseOutput.String())
+		}
+		waitForHotReloadBrowserClient(parseT, parseRootURL, parseProcessExited, parseProcessErr, parseOutput)
+		if _, parseErr2 := parsePage.WaitForFunction(`() => {
+			const overlay = document.getElementById("gwc-runtime-error-overlay");
+			return !!overlay &&
+				overlay.textContent.includes("GWC-RUNTIME-PANIC-RENDER") &&
+				overlay.textContent.includes("overlay render boom") &&
+				overlay.textContent.includes("where") &&
+				overlay.textContent.includes("next");
+		}`, playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(120000)}); parseErr2 != nil {
+			parseBody, _ := parsePage.TextContent("body")
+			parseT.Fatalf("wait for runtime panic overlay: %v\nbody:\n%s\nserver:\n%s", parseErr2, parseBody, parseOutput.String())
+		}
+
+		parseCopied, parseErr2 := parsePage.Evaluate(`() => {
+			const buttons = Array.from(document.querySelectorAll("#gwc-runtime-error-overlay button"));
+			const copy = buttons.find((button) => button.textContent.includes("Copy report"));
+			if (!copy) return "";
+			copy.click();
+			return window.__gwcRuntimeErrorOverlayLastCopied || "";
+		}`)
+		if parseErr2 != nil {
+			parseT.Fatalf("click overlay copy action: %v", parseErr2)
+		}
+		parseCopiedText, _ := parseCopied.(string)
+		if !strings.Contains(parseCopiedText, "overlay render boom") || !strings.Contains(parseCopiedText, "next:") {
+			parseT.Fatalf("expected copy action to capture structured report fields, got %q", parseCopiedText)
+		}
+
+		writeRuntimePanicOverlayApp(parseT, parseAppRoot, parseModulePath, false)
+		if _, parseErr2 := parsePage.WaitForFunction(`() => {
+			const clean = document.getElementById("clean-root");
+			const overlay = document.getElementById("gwc-runtime-error-overlay");
+			return !!clean && clean.textContent.includes("clean render recovered") && !overlay;
+		}`, playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr2 != nil {
+			parseBody, _ := parsePage.TextContent("body")
+			parseStatus := readHotReloadBrowserStatus(parseRootURL)
+			parseT.Fatalf("wait for clean render and overlay dismissal: %v\nbody:\n%s\nstatus:\n%s\nserver:\n%s", parseErr2, parseBody, parseStatus, parseOutput.String())
+		}
+
+		parseContained, parseErr2 := parsePage.Evaluate(`() => {
+			const originalAppend = document.body.appendChild;
+			let continued = false;
+			document.body.appendChild = function() {
+				throw new Error("append blocked for containment test");
+			};
+			try {
+				window.dispatchEvent(new CustomEvent("gwc:runtime-panic", {
+					detail: {
+						scope: "runtime.panic",
+						code: "GWC-RUNTIME-PANIC-RENDER",
+						error: "contained overlay boom",
+						where: "widgets/app.go:12",
+						next: "fix the render branch",
+						attributes: { appFrames: ["widgets/app.go:12"] }
+					}
+				}));
+				continued = true;
+			} finally {
+				document.body.appendChild = originalAppend;
+			}
+			return continued && !document.getElementById("gwc-runtime-error-overlay");
+		}`)
+		if parseErr2 != nil {
+			parseT.Fatalf("exercise contained overlay failure path: %v", parseErr2)
+		}
+		if parseContainedBool, _ := parseContained.(bool); !parseContainedBool {
+			parseT.Fatalf("expected overlay failure path to be contained, got %#v", parseContained)
+		}
+
+		if _, parseErr2 := parsePage.Evaluate(`() => {
+			window.dispatchEvent(new CustomEvent("gwc:runtime-panic", {
+				detail: {
+					scope: "runtime.panic",
+					code: "GWC-RUNTIME-PANIC-RENDER",
+					error: "synthetic editor link boom",
+					where: "widgets/app.go:12",
+					next: "open the failing render frame",
+					attributes: { appFrames: ["widgets/app.go:12"] }
+				}
+			}));
+		}`); parseErr2 != nil {
+			parseT.Fatalf("dispatch synthetic runtime panic event: %v", parseErr2)
+		}
+		if _, parseErr2 := parsePage.WaitForSelector(`#gwc-runtime-error-overlay [data-gwc-open-editor]`, playwright.PageWaitForSelectorOptions{Timeout: playwright.Float(10000)}); parseErr2 != nil {
+			parseT.Fatalf("wait for open-in-editor action: %v", parseErr2)
+		}
+		parseHref, parseErr2 := parsePage.Evaluate(`() => document.querySelector("#gwc-runtime-error-overlay [data-gwc-open-editor]").getAttribute("href")`)
+		if parseErr2 != nil {
+			parseT.Fatalf("read open-in-editor href: %v", parseErr2)
+		}
+		parseHrefText, _ := parseHref.(string)
+		if !strings.HasPrefix(parseHrefText, "vscode://file/") || !strings.Contains(parseHrefText, "/widgets/app.go:12") {
+			parseT.Fatalf("expected open-in-editor link to resolve app frame, got %q", parseHrefText)
+		}
+	})
+}
+
 func startHotReloadBrowserDevServer(parseT *testing.T, parseRepoRoot string, parseAppRoot string) (string, *bytes.Buffer, <-chan struct{}, *error) {
 	parseT.Helper()
 
@@ -291,6 +418,74 @@ func writeHotReloadBrowserFixture(parseT *testing.T, parseRepoRoot string, parse
 	writeHotReloadBrowserApp(parseT, parseAppRoot, parseModulePath)
 	writeHotReloadBrowserChangedPanel(parseT, filepath.Join(parseAppRoot, "widgets", "changed_panel.go"), parseVersion)
 	copyHotReloadBrowserWASMExec(parseT, parseAppRoot)
+}
+
+func writeRuntimePanicOverlayFixture(parseT *testing.T, parseRepoRoot string, parseAppRoot string, parseModulePath string, isPanicking bool) {
+	parseT.Helper()
+	if parseErr := os.MkdirAll(filepath.Join(parseAppRoot, "widgets"), 0o755); parseErr != nil {
+		parseT.Fatalf("create runtime overlay fixture dirs: %v", parseErr)
+	}
+	parseGoMod := fmt.Sprintf("module example.com/gwc-runtime-overlay-browser-e2e\n\ngo 1.25.0\n\nrequire %s v0.0.0\n\nreplace %s => %s\n", parseModulePath, parseModulePath, filepath.ToSlash(parseRepoRoot))
+	writeHotReloadBrowserFile(parseT, filepath.Join(parseAppRoot, "go.mod"), parseGoMod)
+	writeHotReloadBrowserIndex(parseT, parseAppRoot)
+	writeRuntimePanicOverlayMain(parseT, parseAppRoot, parseModulePath)
+	writeRuntimePanicOverlayApp(parseT, parseAppRoot, parseModulePath, isPanicking)
+	copyHotReloadBrowserWASMExec(parseT, parseAppRoot)
+}
+
+func writeRuntimePanicOverlayMain(parseT *testing.T, parseAppRoot string, parseModulePath string) {
+	parseT.Helper()
+	writeHotReloadBrowserFile(parseT, filepath.Join(parseAppRoot, "main.go"), fmt.Sprintf(`//go:build js && wasm
+// +build js,wasm
+
+package main
+
+import (
+	"example.com/gwc-runtime-overlay-browser-e2e/widgets"
+	"%s/hotreload"
+	"%s/ui"
+	"%s/utils"
+)
+
+func main() {
+	hotreload.Enable()
+	ui.Render(ui.CreateElement(widgets.App), "#app")
+	utils.WaitForever()
+}
+`, parseModulePath, parseModulePath, parseModulePath))
+}
+
+func writeRuntimePanicOverlayApp(parseT *testing.T, parseAppRoot string, parseModulePath string, isPanicking bool) {
+	parseT.Helper()
+	parsePath := filepath.Join(parseAppRoot, "widgets", "app.go")
+	if isPanicking {
+		writeHotReloadBrowserFile(parseT, parsePath, fmt.Sprintf(`package widgets
+
+import (
+	"%s/html"
+	"%s/ui"
+)
+
+var _ = html.Div
+
+func App() ui.Node {
+	panic("overlay render boom")
+}
+`, parseModulePath, parseModulePath))
+		return
+	}
+
+	writeHotReloadBrowserFile(parseT, parsePath, fmt.Sprintf(`package widgets
+
+import (
+	"%s/html"
+	"%s/ui"
+)
+
+func App() ui.Node {
+	return html.Div(html.Props{ID: "clean-root"}, html.Text("clean render recovered"))
+}
+`, parseModulePath, parseModulePath))
 }
 
 func prepareHotReloadBrowserFixtureModule(parseT *testing.T, parseAppRoot string) {

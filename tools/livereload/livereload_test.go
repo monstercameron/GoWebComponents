@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1115,7 +1116,9 @@ func TestHandleHTMLInjectsClientScriptAndWasmConfig(parseT *testing.T) {
 		parseT.Fatalf("expected HTML handler success, got %d with body %q", parseRecorder.Code, parseRecorder.Body.String())
 	}
 	parseBody := parseRecorder.Body.String()
-	if !strings.Contains(parseBody, "window.__GWC_LIVERELOAD_CONFIG") || !strings.Contains(parseBody, `wasmPath: "/dist/main.wasm"`) {
+	if !strings.Contains(parseBody, "window.__GWC_LIVERELOAD_CONFIG") ||
+		!strings.Contains(parseBody, `wasmPath: "/dist/main.wasm"`) ||
+		!strings.Contains(parseBody, `projectRoot: `+strconv.Quote(filepath.ToSlash(parseProjectRoot))) {
 		parseT.Fatalf("expected HTML injection to include wasm config, got %q", parseBody)
 	}
 	if !strings.Contains(parseBody, "console.log('livereload');") {
@@ -1156,6 +1159,15 @@ func TestHandleHTMLInjectsEmbeddedClientScriptByDefault(parseT *testing.T) {
 	}
 	if !strings.Contains(parseBody, liveReloadProtocol) {
 		parseT.Fatalf("expected embedded livereload client script to include protocol metadata, got %q", parseBody)
+	}
+	for _, parseExpected := range []string{
+		"installRuntimePanicConsoleBridge",
+		"gwc-runtime-error-overlay",
+		"gwc:runtime-panic",
+	} {
+		if !strings.Contains(parseBody, parseExpected) {
+			parseT.Fatalf("expected embedded client script to include runtime overlay bridge %q, got %q", parseExpected, parseBody)
+		}
 	}
 }
 

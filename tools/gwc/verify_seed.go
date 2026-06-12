@@ -17,6 +17,7 @@ func (parseL launcher) runVerify(parseArgs []string) error {
 	parseMainPath := parseFs.String("main", "", "(deprecated) alias for -app; use -app")
 	parseRoot := parseFs.String("root", "", "Project root used for test and build resolution")
 	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	parseAgent := parseFs.Bool("agent", false, "Emit agent-native NDJSON verification events")
 	parseSkipTests := parseFs.Bool("skip-tests", false, "Skip running go test even when *_test.go files are present")
 	parseAudit := parseFs.Bool("audit", false, "Run the golden-path app audit as part of verify")
 	parseAuditPolicy := parseFs.String("audit-policy", "strict", "Golden-path audit policy: strict or advisory")
@@ -30,6 +31,13 @@ func (parseL launcher) runVerify(parseArgs []string) error {
 			return nil
 		}
 		return parseErr
+	}
+	if *parseAgent && *parseJsonOutput {
+		return errors.New("verify -agent cannot be combined with -json; agent mode already emits NDJSON")
+	}
+	var parseAgentStream *agentEventStream
+	if *parseAgent {
+		parseAgentStream = newAgentEventStream(os.Stdout, "verify")
 	}
 
 	parsePluginResults, parseErr2 := runLauncherPluginsForCapability("verify_check", "verify", parseArgs, parseL.repoRoot, launcherActiveEnterpriseSources)
@@ -68,9 +76,34 @@ func (parseL launcher) runVerify(parseArgs []string) error {
 			PackagePattern: "./...",
 		},
 	}
+	if parseAgentStream != nil {
+		if parseErr6 := parseAgentStream.emit(agentEvent{
+			Event: "verify.plan",
+			Phase: "plan",
+			OK:    buildAgentBool(true),
+			Data: map[string]any{
+				"appPath":     parseSummary.AppPath,
+				"projectRoot": parseSummary.ProjectRoot,
+				"resolution":  parseSummary.Resolution,
+			},
+		}); parseErr6 != nil {
+			return parseErr6
+		}
+	}
 
 	if *parseSkipTests {
 		parseSummary.Tests.Skipped = true
+		if parseErr6 := emitAgentVerifyCheck(parseAgentStream, agentVerifyCheckRecord{
+			Name:    "go-test",
+			Status:  "skipped",
+			OK:      true,
+			Skipped: true,
+			Evidence: map[string]any{
+				"reason": "skip-tests flag",
+			},
+		}); parseErr6 != nil {
+			return parseErr6
+		}
 	} else {
 		hasTests, parseErr6 := projectHasGoTests(buildConfig.rootPath)
 		if parseErr6 != nil {
@@ -82,19 +115,73 @@ func (parseL launcher) runVerify(parseArgs []string) error {
 				parseSummary.Tests.Output = parseOutput
 			}
 			if parseErr7 != nil {
+				parseSummary.OK = false
+				parseDiagnostic := buildAgentDiagnosticFromError("GWC_AGENT_VERIFY_TEST_FAILED", parseErr7.Error(), "error")
+				if parseErr8 := emitAgentVerifyCheck(parseAgentStream, agentVerifyCheckRecord{
+					Name:       "go-test",
+					Status:     "failed",
+					OK:         false,
+					Evidence:   parseSummary.Tests,
+					Diagnostic: &parseDiagnostic,
+				}); parseErr8 != nil {
+					return parseErr8
+				}
+				if parseErr8 := emitAgentVerifySummary(parseAgentStream, parseSummary); parseErr8 != nil {
+					return parseErr8
+				}
 				return parseErr7
 			}
 			parseSummary.Tests.Ran = true
+			if parseErr8 := emitAgentVerifyCheck(parseAgentStream, agentVerifyCheckRecord{
+				Name:     "go-test",
+				Status:   "passed",
+				OK:       true,
+				Evidence: parseSummary.Tests,
+			}); parseErr8 != nil {
+				return parseErr8
+			}
 		} else {
 			parseSummary.Tests.Skipped = true
+			if parseErr7 := emitAgentVerifyCheck(parseAgentStream, agentVerifyCheckRecord{
+				Name:    "go-test",
+				Status:  "skipped",
+				OK:      true,
+				Skipped: true,
+				Evidence: map[string]any{
+					"reason": "no Go test files found",
+				},
+			}); parseErr7 != nil {
+				return parseErr7
+			}
 		}
 	}
 
 	buildSummary, parseErr2 := verifyExecuteBuild(buildConfig)
 	if parseErr2 != nil {
+		parseSummary.OK = false
+		parseDiagnostic := buildAgentDiagnosticFromError("GWC_AGENT_VERIFY_BUILD_FAILED", parseErr2.Error(), "error")
+		if parseErr6 := emitAgentVerifyCheck(parseAgentStream, agentVerifyCheckRecord{
+			Name:       "wasm-build",
+			Status:     "failed",
+			OK:         false,
+			Diagnostic: &parseDiagnostic,
+		}); parseErr6 != nil {
+			return parseErr6
+		}
+		if parseErr6 := emitAgentVerifySummary(parseAgentStream, parseSummary); parseErr6 != nil {
+			return parseErr6
+		}
 		return parseErr2
 	}
 	parseSummary.Build = buildSummary
+	if parseErr6 := emitAgentVerifyCheck(parseAgentStream, agentVerifyCheckRecord{
+		Name:     "wasm-build",
+		Status:   "passed",
+		OK:       true,
+		Evidence: buildSummary,
+	}); parseErr6 != nil {
+		return parseErr6
+	}
 	parseSummary.OK = true
 	var parseVerifyErr error
 	if *parseAudit {
@@ -120,9 +207,68 @@ func (parseL launcher) runVerify(parseArgs []string) error {
 			parseSummary.OK = false
 			parseVerifyErr = fmt.Errorf("verify audit found %s-severity findings that need attention", parseMinSeverity)
 		}
+		parseAuditStatus := "passed"
+		parseAuditOK := true
+		var parseAuditDiagnostic *agentDiagnostic
+		if parseVerifyErr != nil {
+			parseAuditStatus = "failed"
+			parseAuditOK = false
+			parseDiagnostic := buildAgentDiagnosticFromError("GWC_AGENT_VERIFY_AUDIT_FAILED", parseVerifyErr.Error(), "error")
+			parseAuditDiagnostic = &parseDiagnostic
+		}
+		if parseErr8 := emitAgentVerifyCheck(parseAgentStream, agentVerifyCheckRecord{
+			Name:       "golden-path-audit",
+			Status:     parseAuditStatus,
+			OK:         parseAuditOK,
+			Evidence:   parseSummary.Audit,
+			Diagnostic: parseAuditDiagnostic,
+			Metadata: map[string]string{
+				"minimumSeverity": parseMinSeverity,
+			},
+		}); parseErr8 != nil {
+			return parseErr8
+		}
+	} else if parseAgentStream != nil {
+		if parseErr8 := emitAgentVerifyCheck(parseAgentStream, agentVerifyCheckRecord{
+			Name:    "golden-path-audit",
+			Status:  "skipped",
+			OK:      true,
+			Skipped: true,
+			Evidence: map[string]any{
+				"reason": "audit flag not set",
+			},
+		}); parseErr8 != nil {
+			return parseErr8
+		}
+	}
+	if parseAgentStream != nil {
+		parseHydration, parseCommit := buildAgentTraceRepresentations()
+		if parseErr8 := emitAgentVerifyCheck(parseAgentStream, agentVerifyCheckRecord{
+			Name:     "hydration-diff",
+			Status:   parseHydration.Status,
+			OK:       true,
+			Skipped:  parseHydration.Status == "skipped",
+			Evidence: parseHydration,
+		}); parseErr8 != nil {
+			return parseErr8
+		}
+		if parseErr8 := emitAgentVerifyCheck(parseAgentStream, agentVerifyCheckRecord{
+			Name:     "commit-trace",
+			Status:   parseCommit.Status,
+			OK:       true,
+			Skipped:  parseCommit.Status == "skipped",
+			Evidence: parseCommit,
+		}); parseErr8 != nil {
+			return parseErr8
+		}
+		if parseErr8 := emitAgentVerifySummary(parseAgentStream, parseSummary); parseErr8 != nil {
+			return parseErr8
+		}
 	}
 
-	if *parseJsonOutput {
+	if *parseAgent {
+		// Agent mode has already emitted the complete NDJSON event stream.
+	} else if *parseJsonOutput {
 		parseEncoder := json.NewEncoder(os.Stdout)
 		parseEncoder.SetIndent("", "  ")
 		if parseErr9 := parseEncoder.Encode(parseSummary); parseErr9 != nil {

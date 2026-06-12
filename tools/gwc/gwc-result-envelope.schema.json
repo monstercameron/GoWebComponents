@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gowebcomponents.dev/schemas/gwc-result-envelope.schema.json",
+  "title": "GWC command result envelope",
+  "type": "object",
+  "required": ["schemaVersion", "command", "ok", "data", "diagnostics", "error"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "gwc.agentic.v1"
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "data": true,
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "phase": { "type": "string" },
+          "category": { "type": "string" },
+          "code": { "type": "string", "minLength": 1 },
+          "message": { "type": "string" },
+          "file": { "type": "string" },
+          "line": { "type": "integer", "minimum": 1 },
+          "fixHint": { "type": "string" },
+          "override": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string", "minLength": 1 },
+            "message": { "type": "string" }
+          },
+          "additionalProperties": true
+        }
+      ]
+    }
+  },
+  "additionalProperties": true
+}

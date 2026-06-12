@@ -95,6 +95,33 @@ func TestResolveBuildProfileAliases(parseT *testing.T) {
 	}
 }
 
+func TestProductionBuildProfilesKeepDevRuntimeOverlayOutOfBuildCommand(parseT *testing.T) {
+	for _, parseInput := range []string{"ci", "bench", "prod"} {
+		parseT.Run(parseInput, func(parseT2 *testing.T) {
+			parseProfile, parseErr := resolveBuildProfile(parseInput)
+			if parseErr != nil {
+				parseT2.Fatalf("resolve build profile: %v", parseErr)
+			}
+			parseCommand, parseArgs, _, parseErr := buildCommandForProfile(parseProfile, "out.wasm")
+			if parseErr != nil {
+				parseT2.Fatalf("build command for production profile: %v", parseErr)
+			}
+			if parseCommand != "go" {
+				parseT2.Fatalf("expected production profile to use go build, got %q", parseCommand)
+			}
+			parseJoined := strings.Join(parseArgs, "\x00")
+			if !strings.Contains(parseJoined, "-tags\x00production") {
+				parseT2.Fatalf("expected production build tag in args, got %#v", parseArgs)
+			}
+			for _, parseForbidden := range []string{"livereload", "__GWC_LIVERELOAD_CONFIG", "gwc-runtime-error-overlay"} {
+				if strings.Contains(parseJoined, parseForbidden) {
+					parseT2.Fatalf("production build command should not include dev overlay marker %q, got %#v", parseForbidden, parseArgs)
+				}
+			}
+		})
+	}
+}
+
 func TestBuildCommandForDebugProfilePreservesSourceDebugFlags(parseT *testing.T) {
 	parseProfile, parseErr := resolveBuildProfile("source-debug")
 	if parseErr != nil {

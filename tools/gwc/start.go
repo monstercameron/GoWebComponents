@@ -131,6 +131,8 @@ func (parseL launcher) runStart(parseArgs []string) error {
 	parseSkipRuntimeAssets := parseFs.Bool("skip-runtime-assets", false, "Skip copying runtime assets such as wasm_exec.js into the generated scaffold")
 	parseProjectMode := parseFs.String("mode", string(scaffoldProjectModeStandalone), "Scaffold mode: standalone or contributor-linked")
 	parseInitGit := parseFs.Bool("init-git", false, "Initialize a fresh git repository in the generated scaffold root")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit the start result as JSON when managed by the launcher envelope")
+	_ = parseJsonOutput
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
@@ -225,6 +227,8 @@ func (parseL launcher) runBootstrap(parseArgs []string) error {
 	parseExamplesMode := parseFs.Bool("examples", false, "Run the examples catalog flow after prerequisite checks")
 	parseHost := parseFs.String("host", defaultHost, "Host used by bootstrap prerequisite checks")
 	parsePort := parseFs.String("port", "8080", "Port used by bootstrap prerequisite checks")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit the bootstrap result as JSON when managed by the launcher envelope")
+	_ = parseJsonOutput
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil

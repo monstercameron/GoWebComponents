@@ -39,6 +39,7 @@ func (parseL launcher) runDev(parseArgs []string) error {
 	parsePort := parseFs.String("port", "", "Port to bind")
 	parseHot := parseFs.Bool("hot", true, "Always use hot reload on successful rebuilds")
 	parseTui := parseFs.Bool("tui", false, "Show an interactive status TUI while gwc dev runs")
+	parseAgent := parseFs.Bool("agent", false, "Emit agent-native NDJSON dev-loop events")
 	parseClientScript := parseFs.String("client-script", "", "Optional override path to a custom livereload client script")
 	parseDryRun := parseFs.Bool("dry-run", false, "Resolve the dev plan and exit without starting the server")
 	parseJsonOutput := parseFs.Bool("json", false, "Print the resolved dev plan as JSON")
@@ -48,6 +49,12 @@ func (parseL launcher) runDev(parseArgs []string) error {
 			return nil
 		}
 		return parseErr
+	}
+	if *parseAgent && *parseJsonOutput {
+		return errors.New("dev -agent cannot be combined with -json; agent mode already emits NDJSON")
+	}
+	if *parseAgent && *parseTui {
+		return errors.New("dev -agent cannot be combined with -tui")
 	}
 
 	parseConfig, parseErr2 := parseL.resolveDevConfig(devConfig{
@@ -90,6 +97,9 @@ func (parseL launcher) runDev(parseArgs []string) error {
 		parseForwarded = append(parseForwarded, "-client-script", parseResolvedClientScript)
 	}
 
+	if *parseAgent {
+		return runDevAgent(parseL, parseConfig, parseForwarded, *parseDryRun, *parseNoDoctor)
+	}
 	if *parseJsonOutput {
 		if parseErr3 := printDevPlanJSON(parseConfig); parseErr3 != nil {
 			return parseErr3

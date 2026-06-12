@@ -22,6 +22,13 @@
     let lastClientSwapMs = 0; // wall time of the last wasm fetch+instantiate+boot
     let buildHistory = [];
     let lastBuildClassification = null;
+    let lastRuntimeError = null;
+    const runtimeOverlayState = {
+        visible: false,
+        shownAt: 0,
+        observerInstalled: false,
+        consoleInstalled: false
+    };
 
     function phaseLabel(phase) {
         switch (phase) {
@@ -158,6 +165,14 @@
             return lastHotReloadActivity.slice();
         },
 
+        getLastRuntimeError: function() {
+            return lastRuntimeError ? Object.assign({}, lastRuntimeError) : null;
+        },
+
+        hideRuntimeErrorOverlay: function() {
+            hideRuntimeErrorOverlay();
+        },
+
         triggerHotReload: function(snapshotOverride) {
             performHotReload(snapshotOverride);
         }
@@ -244,6 +259,362 @@
             }
         });
         return false;
+    }
+
+    function configuredProjectRoot() {
+        const config = window.__GWC_LIVERELOAD_CONFIG;
+        if (!config || typeof config !== 'object') {
+            return '';
+        }
+        if (typeof config.projectRoot !== 'string') {
+            return '';
+        }
+        return config.projectRoot.trim();
+    }
+
+    function safeRuntimeOverlay(operation) {
+        try {
+            return operation();
+        } catch (error) {
+            const originalConsole = window.__gwcOriginalConsoleError || (window.console && window.console.error);
+            if (typeof originalConsole === 'function') {
+                try {
+                    originalConsole.call(window.console, '[gwc] runtime error overlay failed safely:', error);
+                } catch (_) {
+                    // Keep the application alive even if console forwarding is broken.
+                }
+            }
+        }
+        return undefined;
+    }
+
+    function runtimePanicArray(value) {
+        return Array.isArray(value) ? value.filter(function(item) { return typeof item === 'string' && item.trim(); }) : [];
+    }
+
+    function runtimePanicText(value) {
+        if (typeof value !== 'string') {
+            return '';
+        }
+        return value.trim();
+    }
+
+    function isStructuredRuntimePanicRecord(value) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            return false;
+        }
+        const code = runtimePanicText(value.code);
+        const scope = runtimePanicText(value.scope);
+        if (scope === 'runtime.panic') {
+            return true;
+        }
+        return code.indexOf('GWC-RUNTIME-PANIC-') === 0;
+    }
+
+    function normalizeRuntimePanicRecord(value) {
+        if (!isStructuredRuntimePanicRecord(value)) {
+            return null;
+        }
+        const attrs = value.attributes && typeof value.attributes === 'object' ? value.attributes : {};
+        const issue = {
+            code: runtimePanicText(value.code || attrs.code),
+            source: runtimePanicText(value.source || attrs.source),
+            phase: runtimePanicText(value.phase || attrs.phase),
+            subject: runtimePanicText(value.subject || attrs.subject),
+            where: runtimePanicText(value.where || attrs.where),
+            path: runtimePanicText(value.path || attrs.path),
+            error: runtimePanicText(value.error || attrs.error || attrs.summary),
+            runtime: runtimePanicText(value.runtime || attrs.runtime),
+            next: runtimePanicText(value.next || value.remediation || attrs.next || attrs.remediation),
+            docs: runtimePanicText(value.docs || attrs.docs),
+            formatted: runtimePanicText(value.formatted),
+            appFrames: runtimePanicArray(attrs.appFrames || value.appFrames),
+            frameworkFrames: runtimePanicArray(attrs.frameworkFrames || value.frameworkFrames),
+            platformFrames: runtimePanicArray(attrs.platformFrames || value.platformFrames),
+            componentStack: runtimePanicArray(attrs.componentStack || value.componentStack)
+        };
+        if (!issue.error) {
+            issue.error = runtimePanicText(value.message);
+        }
+        if (!issue.where && issue.appFrames.length > 0) {
+            issue.where = issue.appFrames[0];
+        }
+        return issue;
+    }
+
+    function runtimeOverlayCopyText(issue) {
+        if (!issue) return '';
+        const lines = [];
+        if (issue.formatted) {
+            lines.push(issue.formatted);
+        } else {
+            if (issue.code) lines.push('code: ' + issue.code);
+            if (issue.where) lines.push('where: ' + issue.where);
+            if (issue.path) lines.push('path: ' + issue.path);
+            if (issue.error) lines.push('error: ' + issue.error);
+            if (issue.runtime) lines.push('runtime: ' + issue.runtime);
+            if (issue.next) lines.push('next: ' + issue.next);
+            if (issue.docs) lines.push('docs: ' + issue.docs);
+            if (issue.appFrames.length) lines.push('app:\n  ' + issue.appFrames.join('\n  '));
+            if (issue.frameworkFrames.length) lines.push('framework:\n  ' + issue.frameworkFrames.join('\n  '));
+            if (issue.platformFrames.length) lines.push('platform:\n  ' + issue.platformFrames.join('\n  '));
+        }
+        return lines.join('\n');
+    }
+
+    function parseRuntimeSourceLocation(text) {
+        const value = runtimePanicText(text);
+        if (!value) {
+            return null;
+        }
+        const match = value.match(/([A-Za-z]:[\\/][^:\n]+?\.go|\/[^:\n]+?\.go|(?:\.{1,2}[\\/])?[^:\s]+\.go):(\d+)/);
+        if (!match) {
+            return null;
+        }
+        let file = match[1].replace(/\\/g, '/');
+        const line = match[2];
+        if (!/^[A-Za-z]:\//.test(file) && file.charAt(0) !== '/') {
+            const root = configuredProjectRoot().replace(/\\/g, '/').replace(/\/+$/, '');
+            if (root) {
+                file = root + '/' + file.replace(/^\.?\//, '');
+            }
+        }
+        return { file: file, line: line };
+    }
+
+    function runtimePanicSourceLocation(issue) {
+        if (!issue) {
+            return null;
+        }
+        const candidates = [issue.where, issue.path]
+            .concat(issue.appFrames || [])
+            .concat(issue.frameworkFrames || []);
+        for (let index = 0; index < candidates.length; index++) {
+            const location = parseRuntimeSourceLocation(candidates[index]);
+            if (location) {
+                return location;
+            }
+        }
+        return null;
+    }
+
+    function runtimePanicEditorURL(issue) {
+        const location = runtimePanicSourceLocation(issue);
+        if (!location) {
+            return '';
+        }
+        return 'vscode://file/' + encodeURI(location.file) + ':' + encodeURIComponent(location.line);
+    }
+
+    function appendRuntimeOverlayField(parent, label, value, extraClass) {
+        if (!value) return;
+        const row = document.createElement('div');
+        row.className = 'gwc-runtime-overlay-field' + (extraClass ? ' ' + extraClass : '');
+        const key = document.createElement('span');
+        key.className = 'gwc-runtime-overlay-key';
+        key.textContent = label;
+        const body = document.createElement('span');
+        body.className = 'gwc-runtime-overlay-value';
+        body.textContent = value;
+        row.appendChild(key);
+        row.appendChild(body);
+        parent.appendChild(row);
+    }
+
+    function appendRuntimeOverlayFrames(parent, label, frames) {
+        if (!Array.isArray(frames) || frames.length === 0) return;
+        const section = document.createElement('section');
+        section.className = 'gwc-runtime-overlay-stack';
+        const heading = document.createElement('h3');
+        heading.textContent = label;
+        section.appendChild(heading);
+        frames.forEach(function(frame) {
+            const line = document.createElement('code');
+            line.textContent = frame;
+            section.appendChild(line);
+        });
+        parent.appendChild(section);
+    }
+
+    function ensureRuntimeErrorOverlayStyle() {
+        if (document.getElementById('gwc-runtime-error-overlay-style')) {
+            return;
+        }
+        const style = document.createElement('style');
+        style.id = 'gwc-runtime-error-overlay-style';
+        style.textContent = [
+            '#gwc-runtime-error-overlay{position:fixed;inset:0;z-index:2147483647;background:rgba(9,9,11,.94);color:#fee2e2;font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;padding:28px;overflow:auto;backdrop-filter:blur(2px)}',
+            '#gwc-runtime-error-overlay [data-gwc-runtime-shell]{max-width:980px;margin:0 auto;border:1px solid rgba(248,113,113,.32);background:rgba(24,24,27,.96);box-shadow:0 24px 80px rgba(0,0,0,.46);border-radius:12px;padding:18px}',
+            '#gwc-runtime-error-overlay header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}',
+            '#gwc-runtime-error-overlay h2{margin:0;color:#fff;font:700 18px/1.25 system-ui,sans-serif}',
+            '#gwc-runtime-error-overlay p{margin:6px 0 0;color:#fecaca}',
+            '#gwc-runtime-error-overlay button,#gwc-runtime-error-overlay a{border:1px solid rgba(248,113,113,.35);background:rgba(69,10,10,.88);color:#fee2e2;border-radius:999px;padding:7px 10px;text-decoration:none;cursor:pointer;font:12px/1.2 system-ui,sans-serif;white-space:nowrap}',
+            '#gwc-runtime-error-overlay [data-gwc-runtime-actions]{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}',
+            '#gwc-runtime-error-overlay .gwc-runtime-overlay-field{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;padding:7px 0;border-top:1px solid rgba(248,113,113,.14)}',
+            '#gwc-runtime-error-overlay .gwc-runtime-overlay-key{color:#fca5a5;text-transform:uppercase;font-size:11px;letter-spacing:.08em}',
+            '#gwc-runtime-error-overlay .gwc-runtime-overlay-value{color:#fee2e2;white-space:pre-wrap;word-break:break-word}',
+            '#gwc-runtime-error-overlay .gwc-runtime-overlay-error .gwc-runtime-overlay-value{color:#fff;font-weight:700}',
+            '#gwc-runtime-error-overlay .gwc-runtime-overlay-stack{margin-top:14px;border-top:1px solid rgba(248,113,113,.18);padding-top:10px}',
+            '#gwc-runtime-error-overlay .gwc-runtime-overlay-stack h3{margin:0 0 8px;color:#fca5a5;font:700 12px/1.3 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.08em}',
+            '#gwc-runtime-error-overlay .gwc-runtime-overlay-stack code{display:block;color:#fecaca;white-space:pre-wrap;word-break:break-word;padding:3px 0}'
+        ].join('\n');
+        safeRuntimeOverlay(function() {
+            appendToDocumentTarget('head', style);
+        });
+    }
+
+    function hideRuntimeErrorOverlay() {
+        safeRuntimeOverlay(function() {
+            const overlay = document.getElementById('gwc-runtime-error-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+            runtimeOverlayState.visible = false;
+        });
+    }
+
+    function showRuntimeErrorOverlay(issue) {
+        safeRuntimeOverlay(function() {
+            if (!issue) return;
+            ensureRuntimeErrorOverlayStyle();
+            lastRuntimeError = issue;
+            runtimeOverlayState.visible = true;
+            runtimeOverlayState.shownAt = Date.now();
+
+            const existing = document.getElementById('gwc-runtime-error-overlay');
+            if (existing) {
+                existing.remove();
+            }
+
+            const overlay = document.createElement('div');
+            overlay.id = 'gwc-runtime-error-overlay';
+            overlay.setAttribute('role', 'alertdialog');
+            overlay.setAttribute('aria-modal', 'true');
+            overlay.setAttribute('aria-label', 'GWC runtime error overlay');
+
+            const shell = document.createElement('div');
+            shell.setAttribute('data-gwc-runtime-shell', 'true');
+            const header = document.createElement('header');
+            const titleWrap = document.createElement('div');
+            const title = document.createElement('h2');
+            title.textContent = 'Runtime panic';
+            const subtitle = document.createElement('p');
+            subtitle.textContent = issue.code || 'GWC runtime failure';
+            titleWrap.appendChild(title);
+            titleWrap.appendChild(subtitle);
+
+            const actions = document.createElement('div');
+            actions.setAttribute('data-gwc-runtime-actions', 'true');
+            const copyButton = document.createElement('button');
+            copyButton.type = 'button';
+            copyButton.textContent = 'Copy report';
+            copyButton.addEventListener('click', function() {
+                const text = runtimeOverlayCopyText(issue);
+                window.__gwcRuntimeErrorOverlayLastCopied = text;
+                copyToClipboard(text);
+            });
+            actions.appendChild(copyButton);
+
+            const editorURL = runtimePanicEditorURL(issue);
+            if (editorURL) {
+                const openLink = document.createElement('a');
+                openLink.href = editorURL;
+                openLink.textContent = 'Open in editor';
+                openLink.setAttribute('data-gwc-open-editor', 'true');
+                actions.appendChild(openLink);
+            }
+
+            const dismissButton = document.createElement('button');
+            dismissButton.type = 'button';
+            dismissButton.textContent = 'Dismiss';
+            dismissButton.addEventListener('click', hideRuntimeErrorOverlay);
+            actions.appendChild(dismissButton);
+            header.appendChild(titleWrap);
+            header.appendChild(actions);
+            shell.appendChild(header);
+
+            appendRuntimeOverlayField(shell, 'where', issue.where);
+            appendRuntimeOverlayField(shell, 'path', issue.path);
+            appendRuntimeOverlayField(shell, 'error', issue.error, 'gwc-runtime-overlay-error');
+            appendRuntimeOverlayField(shell, 'runtime', issue.runtime);
+            appendRuntimeOverlayField(shell, 'next', issue.next);
+            appendRuntimeOverlayField(shell, 'docs', issue.docs);
+            if (issue.componentStack && issue.componentStack.length) {
+                appendRuntimeOverlayField(shell, 'components', issue.componentStack.join(' > '));
+            }
+            appendRuntimeOverlayFrames(shell, 'app stack', issue.appFrames);
+            appendRuntimeOverlayFrames(shell, 'framework stack', issue.frameworkFrames);
+            appendRuntimeOverlayFrames(shell, 'platform stack', issue.platformFrames);
+
+            overlay.appendChild(shell);
+            appendToDocumentTarget('body', overlay);
+        });
+    }
+
+    function showRuntimeErrorOverlayFromRecord(record) {
+        const issue = normalizeRuntimePanicRecord(record);
+        if (issue) {
+            showRuntimeErrorOverlay(issue);
+        }
+    }
+
+    function installRuntimePanicConsoleBridge() {
+        if (runtimeOverlayState.consoleInstalled) {
+            return;
+        }
+        runtimeOverlayState.consoleInstalled = true;
+        safeRuntimeOverlay(function() {
+            const consoleRef = window.console = window.console || {};
+            const originalError = typeof consoleRef.error === 'function' ? consoleRef.error : function() {};
+            window.__gwcOriginalConsoleError = originalError;
+            consoleRef.error = function() {
+                const args = Array.prototype.slice.call(arguments);
+                for (let index = 0; index < args.length; index++) {
+                    if (isStructuredRuntimePanicRecord(args[index])) {
+                        showRuntimeErrorOverlayFromRecord(args[index]);
+                        break;
+                    }
+                }
+                return originalError.apply(consoleRef, args);
+            };
+        });
+        safeRuntimeOverlay(function() {
+            window.addEventListener('gwc:runtime-panic', function(event) {
+                showRuntimeErrorOverlayFromRecord(event && event.detail);
+            });
+        });
+    }
+
+    function installRuntimeOverlayRecoveryObserver() {
+        if (runtimeOverlayState.observerInstalled) {
+            return;
+        }
+        runtimeOverlayState.observerInstalled = true;
+
+        const install = function() {
+            safeRuntimeOverlay(function() {
+                const appRoot = document.getElementById('app');
+                if (!appRoot || typeof MutationObserver !== 'function') {
+                    return;
+                }
+                const observer = new MutationObserver(function() {
+                    if (!runtimeOverlayState.visible) {
+                        return;
+                    }
+                    if (Date.now() - runtimeOverlayState.shownAt < 150) {
+                        return;
+                    }
+                    hideRuntimeErrorOverlay();
+                });
+                observer.observe(appRoot, { childList: true, subtree: true, characterData: true });
+            });
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', install);
+        } else {
+            install();
+        }
     }
 
     function summarizeHotReloadFailure(reason, error) {
@@ -826,6 +1197,7 @@
                     if (buildHistory.length > 10) buildHistory.pop(); // Keep last 10 builds
                     buildErrors = []; // Clear errors on successful build
                     hideErrorOverlay();
+                    hideRuntimeErrorOverlay();
                     updateGWCIcon();
                     
                     if (reloadType === 'hot') {
@@ -938,6 +1310,7 @@
                         if (buildErrors.length > 5) buildErrors.shift();
                     } else {
                         buildErrors = []; // Clear errors on successful status
+                        hideRuntimeErrorOverlay();
                     }
                     
                     buildHistory.unshift(lastBuildStatus);
@@ -1792,6 +2165,9 @@
     appendToDocumentTarget('head', style);
     
     // Create icon on load
+    installRuntimePanicConsoleBridge();
+    installRuntimeOverlayRecoveryObserver();
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', createGWCIcon);
     } else {

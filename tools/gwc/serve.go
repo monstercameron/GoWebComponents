@@ -80,6 +80,8 @@ func (parseL launcher) runServe(parseArgs []string) error {
 	parseWasmFile := parseFs.String("wasm-file", "", "Optional path to the wasm artifact served at -wasm-route")
 	parseWasmExecRoute := parseFs.String("wasm-exec-route", "/wasm_exec.js", "Route path for the active Go toolchain wasm_exec.js helper")
 	parseDisableWasmExec := parseFs.Bool("no-wasm-exec", false, "Disable automatic serving of wasm_exec.js")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit the serve startup result as JSON when managed by the launcher envelope")
+	_ = parseJsonOutput
 	var parseFixtures serveFixtureFlag
 	parseFs.Var(&parseFixtures, "fixture-json", "Serve a JSON fixture file at a route using /route=path; repeatable")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {

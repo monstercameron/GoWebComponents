@@ -268,7 +268,7 @@ func (parseLrs *LiveReloadServer) handleHTML(parseW http.ResponseWriter, parseR 
 		return
 	}
 
-	parseConfigScript := fmt.Sprintf("\n<script>\nwindow.__GWC_LIVERELOAD_CONFIG = Object.assign({}, window.__GWC_LIVERELOAD_CONFIG || {}, { wasmPath: %q });\n</script>", parseLrs.servedWASMPath())
+	parseConfigScript := fmt.Sprintf("\n<script>\nwindow.__GWC_LIVERELOAD_CONFIG = Object.assign({}, window.__GWC_LIVERELOAD_CONFIG || {}, { wasmPath: %q, projectRoot: %q });\n</script>", parseLrs.servedWASMPath(), filepath.ToSlash(parseLrs.projectRoot))
 	parseLiveReloadScript := fmt.Sprintf("%s\n<script>\n%s\n</script>", parseConfigScript, string(parseScriptContent))
 	parseModifiedContent := strings.Replace(string(parseHtmlContent), "</body>", parseLiveReloadScript+"\n</body>", 1)
 
