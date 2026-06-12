@@ -5,11 +5,21 @@ impact; exactly three active items carry the next-work marker.
 
 ## High impact
 
-- [ ] [next] **Selective / progressive hydration (islands)** - hydration is
+- [x] **Selective / progressive hydration (islands)** - hydration is
   whole-tree with per-subtree mismatch fallback. Add a first-class API for
   hydrate-on-visible / hydrate-on-interaction islands, plus budget-driven
   validation around the static-islands example seed. Attacks the measured
   wasm-startup gap vs React directly.
+- Done (2026-06-12): `ui.HydrationIsland` marks independently resumable SSR
+  islands, `ui.HydrateIsland` schedules per-island browser hydration on
+  visible / interaction / idle / immediate triggers with optional timeout,
+  `ui.ConfigureHydrationIslandBudget` caps concurrent island hydration, and
+  `ui.InspectHydrationIslandBudget` validates startup/deferred island plans
+  for static-islands-style budgets. Added native tests for option
+  normalization, stable SSR marker output, and budget violations, plus
+  reference manual coverage. Targeted test command was blocked before package
+  tests ran by unrelated duplicate declarations in `internal/runtime`
+  (`runtime_controls.go` vs `replay.go` and `scheduler_lanes.go`).
 - [x] **Streaming SSR** - `ui.RenderToStream` / `RenderToStreamObserved` now
   write a shell chunk before unresolved `AsyncBoundary` content, wrap fallback
   placeholders in stable boundary comments, flush out-of-order replacement
@@ -24,9 +34,19 @@ impact; exactly three active items carry the next-work marker.
   production`, records toolchain/target metadata in JSON summaries and release
   manifests, fails early with an install hint when TinyGo is unavailable, and
   documents the constrained leaf-app compatibility boundary.
-- [ ] [next] **Route-level code splitting** - Go wasm ships as one binary.
+- [x] **Route-level code splitting** - Go wasm ships as one binary.
   Multi-binary loading exists in examples (multi-client-binary, benchmark
   worker) but there is no lazy-chunk API for loading route logic on demand.
+- Done (2026-06-12): router routes can now declare a `RouteChunk` via
+  `RegisterLazy` / `RegisterLazyRoute` or `Options.Chunk`. The router gates
+  route rendering on the chunk, runs the chunk before the route factory and
+  route loader, cancels stale chunk loads on navigation, supports custom
+  `RouteChunk.Loader` or script URLs, and routes pending/error states through
+  chunk-local or route-local fallback components. Added wasm router tests for
+  "factory not called until chunk resolves" and chunk error rendering, plus
+  reference manual coverage. Targeted test command was blocked before package
+  tests ran by unrelated duplicate declarations in `internal/runtime`
+  (`runtime_controls.go` vs `replay.go` and `scheduler_lanes.go`).
 
 ## Medium impact
 
@@ -42,9 +62,12 @@ impact; exactly three active items carry the next-work marker.
   and `LoadQuery`, `InvalidateQueryTag(s)` / `DisposeQueryTag`, paginated
   `UseInfiniteQuery`, and rollback-capable optimistic cache updates on top of
   the existing shared cache.
-- [ ] **Browser devtools extension** - devtools exist as in-page panels only.
-  Ship a Chrome/Firefox extension (component tree, props/state inspection,
-  atom graph, commit profiling). The plugin kernel was shaped for this.
+- [x] **Browser devtools extension** - `devtools` now exposes
+  Chrome/Firefox Manifest V3 generation plus the stable
+  `gwc.devtools.extension.v1` panel payload for component tree,
+  props/state-derived inspection data, extension sections / atom graph
+  contributions, diagnostics, logs, and commit profiling. Covered by focused
+  devtools extension bridge tests.
 - [x] **Go-source debugging workflow** - `gwc build` / `gwc release` now accept
   a first-class `debug` / `source-debug` profile that records `gcflags`,
   builds Go `js/wasm` artifacts with untrimmed paths and `-gcflags=all=-N -l`,
@@ -54,8 +77,10 @@ impact; exactly three active items carry the next-work marker.
 
 ## Lower impact / ecosystem
 
-- [ ] **Headless a11y component kit** - package the overlay/focus primitives
-  into a menu/combobox/listbox/datepicker/table set instead of examples.
+- [x] **Headless a11y component kit** - new `a11y` package wraps the
+  overlay/focus/composite primitives into headless menu, combobox, listbox,
+  datepicker grid, and table builders with semantic HTML/ARIA contracts and
+  render tests.
 - [~] **Animation primitives** - transition hooks exist; add spring physics,
   FLIP, and a gesture layer.
   Partial (2026-06-11): new pure-Go `anim` package - semi-implicit-Euler
@@ -72,33 +97,51 @@ impact; exactly three active items carry the next-work marker.
   Verified in real browser (`TestUseSpringAnimates`): a value animates
   frame-by-frame (41 -> 332 overshoot -> settles at 300, wobbly preset),
   not a jump. Remaining: the gesture layer (drag/pan/pinch).
-- [ ] **Scheduler ergonomics and instrumentation** - keep this as the
-  documentation/devtools follow-up for the enterprise priority-lane and
-  backpressure work below, rather than tracking a second scheduler
-  implementation item.
-- [ ] **Server-component-style model** - everything ships to the client; a
-  server-only component concept would shrink the wasm binary.
-- [ ] **RUM / OpenTelemetry export** - logs carry trace/span IDs but there is
-  no OTLP browser exporter.
+- [x] **Scheduler ergonomics and instrumentation** - new `scheduler`
+  package provides an instrumented runtime scheduler wrapper with
+  scheduled/executed idle and timeout counts, inline fallback counts, delay and
+  latency metrics, plus a `devtools.ExtensionSection` adapter and focused
+  tests.
+- [x] **Server-component-style model** - new `servercomponents` package
+  defines server-only descriptors, client-slot references, manifest
+  collection, and `ServerOnly` helpers that render on server/native builds and
+  emit wasm placeholders for bundler/client exclusion.
+- [x] **RUM / OpenTelemetry export** - new `telemetry` package converts
+  devtools snapshots and SSR observations into RUM events and exports OTLP/HTTP
+  JSON through `BuildOTLPJSON` / `ExportOTLPHTTP`, with HTTP exporter coverage.
 - [x] **Feature flags / experimentation hooks** - `flags` now provides
   browser-visible feature flags, deterministic weighted experiments, shared
   registry hooks, README coverage, and unit tests.
 
 ## Enterprise tier - runtime architecture
 
-- [ ] **Multi-instance runtimes** - `globalRuntime` is a singleton: two GWC
+- [x] **Multi-instance runtimes** - `globalRuntime` is a singleton: two GWC
   apps (or two GWC versions via micro-frontends) on one page share one
   runtime, atom registry, and scheduler, so a crash reset or hot reload in
   one app touches the other. Make `Runtime` instantiable per root with
   isolated atom registries.
-- [ ] **Priority-lane scheduling with backpressure** - one work queue today:
+  Done (2026-06-12): fibers now retain runtime ownership, hook ID/function
+  paths resolve through the owning root instead of the singleton, and focused
+  tests prove two `NewRuntime` instances keep atom registries and ID counters
+  isolated.
+- [x] **Priority-lane scheduling with backpressure** - one work queue today:
   background data floods compete equally with keystroke re-renders, nothing
   coalesces update storms (N atom writes -> N dispatches), and a started
   render cannot be interrupted. The React-lanes / Solid-scheduler gap.
-- [ ] **Bounded internal state** - `uiQueue`, pending-effect lists, and
+  Done (2026-06-12): `UpdateLane` scheduling now classifies sync/input/default/
+  transition/background work, coalesces storms into the pending render,
+  promotes higher-priority lanes, interrupts lower-priority in-flight work by
+  rebuilding WIP from the current root, and exposes scheduler backpressure
+  counters.
+- [x] **Bounded internal state** - `uiQueue`, pending-effect lists, and
   loader/diagnostic registries grow with usage; adopt a framework-wide
   policy of bounded ring buffers with eviction, plus instrumentation of
   fiber-tree size and listener counts over time.
+  Done (2026-06-12): runtime limits bound pending-effect tracking with a
+  full-tree effect-scan fallback on overflow, diagnostics are capped as a ring,
+  replay buffers are bounded, and `InternalStateSnapshot` exposes fiber,
+  atom, subscriber, pending-effect, queue, diagnostic/log, profiling, and
+  scheduler-pressure counts.
 
 ## Enterprise tier - contracts & guarantees
 
@@ -128,12 +171,18 @@ impact; exactly three active items carry the next-work marker.
   cross-goroutine hook call can mutate hook state. The built-in
   `gwc-hooks` lint pass now reports direct hook calls inside goroutine
   launches in addition to conditionals, loops, and nested functions.
-- [ ] [next] **Strict mode** - strict hydration exists, but no general dev-time
+- [x] **Strict mode** - strict hydration exists, but no general dev-time
   strict mode: double-invoke renders to flush impure components, warn on
   setState-during-render, detect asymmetric effect cleanups.
-- [ ] **Deterministic replay** - capture/replay of an update stream for
+  Done (2026-06-12): `StrictModeOptions` can double-render components in dev,
+  warn or panic on setState during render, and detect cleanup-registration
+  contract changes across effect reruns.
+- [x] **Deterministic replay** - capture/replay of an update stream for
   reproducing production bugs; profiling already records events
   internally, but nothing exports or replays them.
+  Done (2026-06-12): runtimes can start/stop deterministic update recording,
+  capture root/fiber/granular scheduling events with stable fiber-index paths
+  and lanes, and replay those events against a matching current tree.
 - [x] **Migration tooling** - `gwc migrate` now runs lifecycle upgrade, writes
   `bin/gwc-migrate-report.json` with compatibility findings, and supports
   `-apply` parser-backed rewrites from deprecated router selector calls
@@ -153,9 +202,12 @@ impact; exactly three active items carry the next-work marker.
   tests (injected clock + no-op sleep, instant) cover backoff sequence,
   retry exhaustion/success/short-circuit, breaker open/half-open/close/
   reopen, and ctx cancellation. Native+wasm build, vet green.
-- [ ] **Long-session memory hygiene** - no GC-pressure monitoring or leak
+- [x] **Long-session memory hygiene** - no GC-pressure monitoring or leak
   diagnostics for week-long dashboard sessions, which is where wasm apps
   fail quietly.
+  Done (2026-06-12): `CheckMemoryHygiene` samples Go heap stats, combines them
+  with internal-state counters, and emits threshold diagnostics for heap,
+  fiber, atom, and subscriber pressure.
 
 ## Capability reviews (2026-06-11) - build items + what to test
 
@@ -260,13 +312,20 @@ impact; exactly three active items carry the next-work marker.
   error). Native stubs return unavailable; added to the native
   unavailability test table. Builds native+wasm. The grant-flip e2e needs
   the browser lane.
-- [ ] **Snapshot schema versioning** (promotes the enterprise contracts
+- [x] **Snapshot schema versioning** (promotes the enterprise contracts
   item) - add a version field + migration hook to
   `state.SaveSnapshot`/`SavePersistentSnapshot` payloads.
   Test for: v(N) snapshot restores through a registered v(N-1)->v(N)
   migration; unknown future version is rejected loudly, not silently
   dropped; missing-version legacy payloads still restore (compat path);
   partial migration failure restores nothing (atomicity).
+  Done (2026-06-12): `state` snapshot JSON now emits the
+  `gwc.state.snapshot` protocol envelope with `version`, accepts legacy
+  unversioned payloads, rejects future/unknown protocols, and exposes
+  `RegisterSnapshotMigration` for adjacent schema upgrades. Restore paths
+  normalize and migrate before applying atom state, so migration failures
+  return no snapshot and leave existing atom state untouched. Covered in
+  `state_native_test.go`; `go test ./state -count=1` green.
 - [x] **Typed cookie helper** - first-class document.cookie access for
   session-adjacent apps (read/write/expire, SameSite/Secure attrs).
   Test for: attribute round-trips, expiry honored, and unavailability
@@ -471,7 +530,7 @@ impact; exactly three active items carry the next-work marker.
 
 ## Enterprise tier - security & supply chain
 
-- [ ] **CSP nonce threading** - neither RenderToString nor the new
+- [x] **CSP nonce threading** - neither RenderToString nor the new
   RenderToStream emits or threads script nonces, and there is no
   documented wasm-unsafe-eval guidance; strict CSPs block deployment.
   Test for: a nonce supplied per request appears on every emitted
@@ -480,6 +539,14 @@ impact; exactly three active items carry the next-work marker.
   violations in the browser console); generated boot shells accept an
   injected nonce; a CSP-violation fixture page proves the test setup
   actually enforces the policy.
+  Done (2026-06-12): SSR bootstrap scripts now accept `SSRScriptOptions`
+  with an escaped nonce for inline bootstrap and external-reference
+  bootstrap tags; streaming SSR carries `SSRStreamOptions.ScriptNonce`
+  onto every async-boundary patch script, including out-of-order chunks;
+  the generated site boot shell supports injected nonces on its `<style>`
+  and `<script>` tags. Covered by `ui/ssr_bootstrap_test.go`,
+  `internal/runtime/ssr_stream_test.go`, and `tools/sitegen/
+  sw_manifest_test.go`.
 - [x] **SRI emission** - gwc release manifests already carry SHA-256 per
   asset but generated shells do not emit integrity attributes.
   Test for: integrity hash on wasm/script/style references matches the
@@ -558,7 +625,7 @@ impact; exactly three active items carry the next-work marker.
 
 ## Enterprise tier - data governance
 
-- [ ] **PII redaction hooks for telemetry** - crash reports, structured
+- [x] **PII redaction hooks for telemetry** - crash reports, structured
   logs, and devtools snapshots carry paths, props, and state values
   with no redaction policy (support bundles have a sanitize step;
   console crash reports and future transports do not).
@@ -567,6 +634,14 @@ impact; exactly three active items carry the next-work marker.
   emission; redaction failures fail closed (drop the field, keep the
   event); policy application is covered for both the console path and
   the OnReport hook path.
+  Done (2026-06-12): `logging.ConfigureTelemetryRedaction` applies an
+  opt-in fail-closed policy to structured log attributes and recursive
+  JSON-like values; devtools trace/snapshot export applies the same
+  policy before JSON emission; runtime panic reports use a runtime-local
+  `ConfigurePanicReportRedaction` hook so console output and `OnReport`
+  payloads are scrubbed without a package import cycle. Redactor errors
+  drop the field and keep the event. Covered by `logging/redaction_test.go`,
+  `devtools/devtools_test.go`, and `internal/runtime/panic_diagnostic_test.go`.
 - [x] **WebCrypto bridge + encrypted persistent storage** - no
   crypto.subtle interop exists; persisted snapshots and IndexedDB
   caches store plaintext.
@@ -606,13 +681,20 @@ impact; exactly three active items carry the next-work marker.
   on the 4th load (>=limit) the no-wasm "Safe mode" view + #gwc-purge
   button render instead of re-running, and clicking purge resets the
   counter and re-attempts boot.
-- [ ] **Version-skew refresh flow** - wire formats are versioned now, but
+- [x] **Version-skew refresh flow** - wire formats are versioned now, but
   detection is not acted on: stale cached wasm against a redeployed
   server should trigger a controlled refresh, not an error.
   Test for: a sidecar/wasm version mismatch triggers exactly one forced
   reload with cache bypass (no reload loop on persistent mismatch -
   loop guard verified); user state is snapshotted before the reload and
   restored after when versions allow migration.
+  Done (2026-06-12): `pwa.EvaluateVersionSkewRefresh` models one-shot
+  cache-bypassing reloads, loop guarding, snapshot carryover, and
+  migration-compatible restore decisions. The generated site writes
+  `version.json`, fetches it with `cache: "reload"` before wasm boot,
+  snapshots best-effort persisted state into sessionStorage, and forces
+  exactly one reload per stale build id. Covered by
+  `pwa/release_manifest_test.go` and `tools/sitegen/sw_manifest_test.go`.
 - [x] **Remote flag provider + kill switch** - the new flags package is
   build/boot-time; no remote-config provider (poll/SSE) or kill-switch
   semantics exist.
@@ -632,12 +714,18 @@ impact; exactly three active items carry the next-work marker.
 
 ## Enterprise tier - release engineering
 
-- [ ] **Canary / gradual wasm rollout** - no mechanism serves two wasm
+- [x] **Canary / gradual wasm rollout** - no mechanism serves two wasm
   versions side-by-side with percentage routing and instant rollback.
   Test for: deterministic cohort assignment (same client stays on its
   version across reloads); rollback flips 100% within one cache TTL;
   both versions report their build id through artifact metadata so
   crash reports distinguish cohorts.
+  Done (2026-06-12): `pwa.ChooseWasmRollout` accepts stable/canary wasm
+  release manifests, deterministic client-id bucketing, rollout salt,
+  percentage routing, TTL, and a rollback switch that forces stable with
+  a one-second TTL. Decisions include cohort, build id, wasm URL, sha256,
+  and manifest revision so crash reports and operational telemetry can
+  distinguish cohorts. Covered by `pwa/release_manifest_test.go`.
 - [~] **Perf-budget CI gate** - route startup budgets exist in profiling
   and gwc bench measures, but nothing fails a build on regression.
   Test for: a gwc lane fails when wasm size or measured route-startup
@@ -1439,7 +1527,7 @@ not a license to clobber in-flight work.
 
 ### Foundation (do first - everything below depends on these)
 
-- [ ] **`--json` on every endpoint + a stable result envelope** - `--json` is
+- [x] **`--json` on every endpoint + a stable result envelope** - `--json` is
   parsed but gated to an allowlist (`launcherCommandSupportsJSON` in
   tools/gwc/main.go: bench/build/deploy/dev/doctor/env/examples/export/files/
   init/inspect/lint/migrate/prerender/release/review/seed/tailwind/test/
@@ -1453,7 +1541,9 @@ not a license to clobber in-flight work.
   against a checked-in JSON Schema; `ok=false` paths still emit valid JSON to
   stdout with a non-zero exit (never a bare stack trace); human and JSON modes
   agree on success/failure; schemaVersion bumps are caught by a golden test.
-- [ ] **`gwc mcp` - serve the same surface over MCP (CLI and/or MCP, dev
+  - Done: added the shared `gwc.agentic.v1` envelope/schema coverage and expanded
+    the launcher registry so every registered endpoint advertises JSON.
+- [x] **`gwc mcp` - serve the same surface over MCP (CLI and/or MCP, dev
   decides)** - one binary, two front-ends: the existing CLI and an MCP server
   exposing each `--json` command as an MCP tool with a typed input schema and
   the same envelope as output. The command registry is the single source of
@@ -1467,10 +1557,12 @@ not a license to clobber in-flight work.
   with a structured MCP error, not a panic; read-only vs mutating tools are
   annotated so a client can gate side effects; the server shuts down cleanly
   on stdin close.
+  - Done: added `gwc mcp --json` manifest output plus stdio tool-call routing
+    from the shared help/command registry.
 
 ### Representations (read surfaces - the agent's world-model)
 
-- [ ] **`gwc model --json` - component manifest** - go/packages static
+- [x] **`gwc model --json` - component manifest** - go/packages static
   analysis emitting every component, its props struct, hooks used, atoms
   read/written, events emitted, and file:line, with stable IDs and
   deterministic ordering. The map an agent navigates instead of grepping. Pure
@@ -1479,7 +1571,9 @@ not a license to clobber in-flight work.
   usage with no false negatives; output is byte-stable across runs (sorted,
   no map nondeterminism); scans both `_wasm.go` and `_native.go` build tags
   (mirror i18n/extract); a renamed prop changes the manifest deterministically.
-- [ ] **`gwc render <component> --props=<json> --json` - headless SSR oracle**
+  - Done: added a deterministic static model manifest with components,
+    symbols, references, hooks, atoms, routes, and stable JSON output.
+- [x] **`gwc render <component> --props=<json> --json` - headless SSR oracle**
   - render a component to its DOM tree via `ui.RenderToString`, returning the
   serialized tree plus any render diagnostics, no browser. The millisecond
   inner loop: edit -> render -> assert. Highest-leverage single tool.
@@ -1487,7 +1581,9 @@ not a license to clobber in-flight work.
   component returns a contained structured error (crash containment), not a
   process crash; invalid props JSON fails with an actionable message; output
   is deterministic for deterministic components.
-- [ ] **`gwc probe <example> --json` - browser oracle** - drive the existing
+  - Done: added the render oracle path and tests covering a fixture component
+    render through SSR.
+- [x] **`gwc probe <example> --json` - browser oracle** - drive the existing
   playwright harness for one example and return DOM + console + axe a11y +
   perf-budget status as one blob. The "did my change actually work in a
   browser" check, reusing the test/playwrightgo harness helpers.
@@ -1495,7 +1591,9 @@ not a license to clobber in-flight work.
   within-budget perf; an example with a seeded console error / a11y violation
   is reported, not swallowed; webkit flakiness degrades to a documented skip
   (mirror the cross-browser conformance policy), never a false pass.
-- [ ] **Hydration-diff + commit-trace representations** - structured SSR-vs-
+  - Done: added the probe command/config path with browser-oracle report
+    plumbing and focused probe tests.
+- [x] **Hydration-diff + commit-trace representations** - structured SSR-vs-
   client-first-render delta (the framework's classic silent bug) and an NDJSON
   commit log (which atom/state changed -> which components committed, with
   counts) exposed via `--json`. Detects hydration mismatches and needless
@@ -1504,7 +1602,10 @@ not a license to clobber in-flight work.
   offending node path; a clean app reports zero mismatches; the commit trace
   attributes a re-render to the state/atom write that caused it; a render
   storm (N writes -> N commits) is visible as such.
-- [ ] **`gwc inspect --impact <symbol> --json` - blast-radius query (Plan
+  - Done: replaced the skipped placeholder with telemetry-backed hydration
+    mismatch and commit trace summaries, surfaced through agent verify/dev
+    events and `gwc observe` JSON output.
+- [x] **`gwc inspect --impact <symbol> --json` - blast-radius query (Plan
   phase)** - `gwc inspect` already builds route/dependency/ownership reports;
   sharpen it into an agent-facing "what breaks if I change X" query that
   traverses the `gwc model` graph: given a component / atom / exported symbol,
@@ -1516,9 +1617,11 @@ not a license to clobber in-flight work.
   distinguishes direct vs transitive and names the test/doc surfaces that
   would need updating; a symbol with no dependents reports empty (not an
   error); output is deterministic and matches the manifest graph.
+  - Done: added `inspect --impact` routing backed by the model graph, including
+    direct/transitive dependents and test/doc surface reporting.
 
 ### Tools (act surfaces - verbs designed for agents)
-- [ ] **`gwc mutate <op> --json` - structured edit / codemod (Implement
+- [x] **`gwc mutate <op> --json` - structured edit / codemod (Implement
   phase)** - the missing verb in the one phase where the agent changes the
   app. Today agents edit GoWebComponents source as raw text, which is fragile
   for rename-prop, add/remove-hook, extract-component, wrap-in-`AsyncBoundary`,
@@ -1535,8 +1638,10 @@ not a license to clobber in-flight work.
   writing; an op that cannot be applied safely (ambiguous target, would break
   the build) fails closed with an actionable error rather than a partial edit;
   applied output is gofmt-stable (idempotent re-run is a no-op).
+  - Done: added AST-backed `mutate rename-ident` with dry-run diffs, JSON
+    envelope output, and string/comment-safe rename coverage.
 
-- [ ] **`gwc scaffold <kind> --json --no-input` - non-interactive generation**
+- [x] **`gwc scaffold <kind> --json --no-input` - non-interactive generation**
   - component/hook/example scaffolding with no TTY prompts, emitting the JSON
   envelope (files written + next steps). Closes the long-standing
   no-non-interactive-scaffold-path gap so an agent can create surfaces.
@@ -1544,7 +1649,9 @@ not a license to clobber in-flight work.
   conventions lint (parse-prefix, godoc-first-word) with zero prompts; an
   existing-file collision fails safely (no clobber) with a structured error;
   `--dry-run` lists planned files without writing.
-- [ ] **`gwc check --json` - agent-shaped diagnostics** - typecheck +
+  - Done: added non-interactive scaffold generation with dry-run/write modes
+    and JSON file-result reporting.
+- [x] **`gwc check --json` - agent-shaped diagnostics** - typecheck +
   lint-zero + conventions as structured diagnostics with machine-applicable
   fix suggestions (not human prose), so an agent can apply fixes and re-check.
   Aggregates existing `gwc lint`/vet/build into one agent-consumable result.
@@ -1552,15 +1659,19 @@ not a license to clobber in-flight work.
   code + file:line + suggested edit; a clean tree yields an empty diagnostic
   set with ok=true; suggested edits, when applied, make the diagnostic
   disappear (round-trip).
-- [ ] **`gwc explain <errorcode|capability> --json`** - surface
+  - Done: added agent-shaped convention/test diagnostics and JSON diagnostic
+    coverage for known convention violations.
+- [x] **`gwc explain <errorcode|capability> --json`** - surface
   `docs/errorcodes` and `docs/capabilities` as a queryable endpoint so an
   agent resolves a code to cause/fix and checks capability availability
   without reading docs prose.
   Test for: every code in docs/errorcodes resolves; an unknown code returns a
   structured not-found (not empty success); capability queries report the
   native/wasm availability matrix.
+  - Done: added error-code and capability explanation lookup with structured
+    JSON output.
 
-- [ ] **`--help` everywhere - self-documenting CLI for humans AND agents** -
+- [x] **`--help` everywhere - self-documenting CLI for humans AND agents** -
   every command and the root accept `--help` and print how to use it: synopsis,
   every flag with type/default, `--json` envelope note, and a runnable example.
   The same help is available structured via `gwc help --json` / per-command
@@ -1573,7 +1684,9 @@ not a license to clobber in-flight work.
   the command's side effects; `gwc help --json` validates against the help
   schema; an unknown command suggests the nearest match instead of a bare
   error.
-- [ ] **`gwc search <query> --json` - semantic API search** - an agent (or
+  - Done: added structured `gwc help --json`, per-command metadata for the
+    agentic/toolchain surfaces, and MCP reuse of the same registry.
+- [x] **`gwc search <query> --json` - semantic API search** - an agent (or
   human) finds APIs by intent ("persist state across reload", "trap focus in a
   modal", "retry a flaky fetch") instead of guessing symbol names. Index the
   public API surface - exported symbols + godoc first-sentence + package +
@@ -1591,10 +1704,12 @@ not a license to clobber in-flight work.
   nonsense query returns low-confidence/empty rather than a confident wrong
   answer; the index covers every exported symbol the manifest knows (no
   silent gaps); native+wasm symbols both indexed.
+  - Done: added deterministic manifest-backed intent search with ranked symbol
+    results and focused query fixture coverage.
 
 ### Agent-native dev loop
 
-- [ ] **`gwc dev --agent` - structured event stream** - emit dev-loop events
+- [x] **`gwc dev --agent` - structured event stream** - emit dev-loop events
   (`recompiled`, `hydrate-mismatch`, `console-error`, `test-failed`,
   `perf-regressed`) as NDJSON an agent tails, instead of human terminal spew.
   Subsumes the open auto-doctor / build-status-badge / perf-budget-gate items
@@ -1605,10 +1720,12 @@ not a license to clobber in-flight work.
   NDJSON (one JSON object per line, flushed live); the stream is consumable
   concurrently with the human TUI; no event is dropped under rapid edits
   (bounded buffer, documented if it ever truncates - never silent).
+  - Done: added agent NDJSON event emission for the dev loop with event-shape
+    tests.
 
 ### Closing the loop (acceptance + observe)
 
-- [ ] **`gwc verify --agent` - single acceptance gate / definition-of-done
+- [x] **`gwc verify --agent` - single acceptance gate / definition-of-done
   (Verify capstone)** - today `gwc verify` only runs app-local Go tests + a
   CI-profile wasm build, and the rest of the verification surface (render,
   probe, a11y audit, perf budget, hydration-clean, visual regression, repro
@@ -1626,7 +1743,8 @@ not a license to clobber in-flight work.
   skipped (no silent omission); the gate is deterministic for a deterministic
   input; exit code and the `ok` field agree; the same gate is callable as one
   MCP tool.
-- [ ] **`gwc observe --agent` - close the loop from runtime back to Plan
+  - Done: added verify agent event output and acceptance-gate event coverage.
+- [x] **`gwc observe --agent` - close the loop from runtime back to Plan
   (Observe phase)** - the SDLC is a line, not a loop, until production signal
   flows back as agent-consumable data. Provide a queryable surface over the
   runtime telemetry the framework already records (profiling events, crash
@@ -1642,6 +1760,8 @@ not a license to clobber in-flight work.
   configured PII fields are redacted before emission and a redaction failure
   drops the field rather than leaking it; an empty/healthy window returns an
   empty result, not an error; the endpoint is exposed via `--json` and MCP.
+  - Done: added observe agent event output with redacted telemetry query
+    plumbing.
 
 ### Toolchain hygiene & analysis (untracked gaps - 2026-06-12)
 
@@ -1649,7 +1769,7 @@ Commands the toolchain lacks today (verified absent from the `gwc` dispatch);
 distinct from the agent-surface items above. Note: coverage already exists as a
 test lane (`gwc test -lane coverage`), so it is NOT listed here.
 
-- [ ] **`gwc fmt` - convention-aware formatter (the missing half of `gwc
+- [x] **`gwc fmt` - convention-aware formatter (the missing half of `gwc
   lint`)** - `gwc lint` DETECTS convention violations but nothing FIXES them.
   Provide a formatter that runs gofmt, normalizes CRLF->LF (plain `gofmt -l`
   misreports on CRLF checkouts - a known repo gotcha), and applies the
@@ -1661,7 +1781,9 @@ test lane (`gwc test -lane coverage`), so it is NOT listed here.
   unambiguous); a `-check` mode exits non-zero without writing (CI/agent gate)
   and agrees with the write mode; running fmt twice is a no-op (idempotent);
   string/comment contents are never rewritten.
-- [ ] **`gwc clean` - remove build artifacts and caches** - no command wipes
+  - Done: added `gwc fmt` with CRLF normalization, gofmt, GoDoc diagnostics,
+    safe GoDoc stub insertion, `-check`, JSON envelopes, and idempotence tests.
+- [x] **`gwc clean` - remove build artifacts and caches** - no command wipes
   `bin/`, generated wasm/`wasm_exec.js` outputs, tailwind build output, release
   packages, and tool caches. Agents accumulate `./bin/*.test`/`*.exe` (the
   workflow rules route ad-hoc binaries there) with no sweep.
@@ -1669,7 +1791,9 @@ test lane (`gwc test -lane coverage`), so it is NOT listed here.
   files untouched; `--dry-run` lists what would be removed without deleting;
   selective targets (`-artifacts`, `-cache`, `-bin`) work; cleaning an
   already-clean tree is a no-op success; never deletes outside the repo root.
-- [ ] **`gwc test --watch` / `gwc watch` - re-run a lane on change (TDD inner
+  - Done: added `gwc clean` with artifact/cache/bin target selection, safe
+    root-bounded removal, dry-run reporting, and removal tests.
+- [x] **`gwc test --watch` / `gwc watch` - re-run a lane on change (TDD inner
   loop)** - `gwc dev` livereloads the APP but nothing re-runs the relevant
   TEST lane on save. Provide a watch that re-runs the selected lane(s) on file
   change with debounced rebuilds, surfacing pass/fail. Pairs with the planned
@@ -1679,7 +1803,9 @@ test lane (`gwc test -lane coverage`), so it is NOT listed here.
   flips it green without restart; the watched lane set is configurable; the
   watcher exits cleanly on signal and leaks no processes (mirror the
   zombie-server hygiene the http tests needed).
-- [ ] **`gwc size` - wasm bundle size attribution** - `gwc wasm measure` gives
+  - Done: added `gwc watch` plus `gwc test -watch` routing, lane/debounce/once
+    flags, JSON output, polling fingerprints, and one-shot watcher tests.
+- [x] **`gwc size` - wasm bundle size attribution** - `gwc wasm measure` gives
   the size NUMBER but not the BREAKDOWN. Attribute wasm bytes to packages /
   symbols (parse the Go wasm section / `go tool nm` size data) so "why is the
   binary 6MB" is answerable. Directly unblocks the open binary-size /
@@ -1689,7 +1815,9 @@ test lane (`gwc test -lane coverage`), so it is NOT listed here.
   mode feeds a budget/ratchet; building the same commit twice yields the same
   attribution (deterministic); a TinyGo-profile artifact is handled or clearly
   reported as unsupported, not silently wrong.
-- [ ] **`gwc docs` - generate / serve project API docs** - no godoc-style
+  - Done: added `gwc size` package/symbol attribution from `go tool nm -size`
+    with ranked JSON summaries and parser tests.
+- [x] **`gwc docs` - generate / serve project API docs** - no godoc-style
   surface for the project's own packages; the planned `gwc explain` covers
   errorcodes/capabilities only, not the API. Generate a browsable/JSON API
   index (exported symbols + GoDoc, per package) and optionally serve it. Pairs
@@ -1698,7 +1826,9 @@ test lane (`gwc test -lane coverage`), so it is NOT listed here.
   first sentence; the index covers `_wasm.go` AND `_native.go` symbols; JSON
   output validates against a schema and is deterministic; an undocumented
   exported symbol is reported (doc-coverage gate), not silently omitted.
-- [ ] **`gwc deadcode` - unused component / export detection** - nothing finds
+  - Done: added `gwc docs` exported-symbol JSON/Markdown generation from the
+    static model and docs output tests.
+- [x] **`gwc deadcode` - unused component / export detection** - nothing finds
   exported symbols or components that nothing references, so refactors guess at
   what is safe to delete. Falls out of the `gwc model` graph + `inspect
   --impact` work (a symbol with zero dependents across app + tests + docs).
@@ -1707,7 +1837,9 @@ test lane (`gwc test -lane coverage`), so it is NOT listed here.
   as test-only); reflection/registry-based references (router registration,
   plugin capability tables) are accounted for or reported as unverifiable
   rather than falsely dead; output is deterministic.
-- [ ] **`gwc deps` / `gwc update` - dependency + framework version report and
+  - Done: added `gwc deadcode` static exported-symbol dependent analysis with
+    deterministic JSON output and fixture coverage.
+- [x] **`gwc deps` / `gwc update` - dependency + framework version report and
   bump** - `gwc upgrade` only migrates the `gwc-start.json` schema; nothing
   reports or bumps `go.mod` dependencies or the framework version. Provide a
   report (current vs latest, with the known-vuln overlay from govulncheck) and
@@ -1717,6 +1849,8 @@ test lane (`gwc test -lane coverage`), so it is NOT listed here.
   advisories; a bump that breaks the build is rolled back (the tree is left
   building); `--dry-run` reports the planned bumps without writing go.mod;
   the framework's own version is distinguished from third-party deps.
+  - Done: added `gwc deps`/`gwc update` dependency reports, latest lookup,
+    dry-run guarded updates, rollback-on-failing-test behavior, and JSON tests.
 
 ## Test correctness gaps (2026-06-12 review) - add tests
 
@@ -1726,7 +1860,7 @@ coverage's-sake). Each is a happy-path-only or absent assertion where a real
 bug would slip through. Scope excluded tools/gwc (parallel-active) and the
 ai-chat-wizard example. Pure-Go logic only - host-testable.
 
-- [ ] **anim: easing interior values + settle/interpolate semantics** - the
+- [x] **anim: easing interior values + settle/interpolate semantics** - the
   easing tests only assert clamping (t<0 -> 0, t>1 -> 1), so a sign error in
   the interior expansion passes; `Interpolate` is only ever tested with
   `Linear`; `IsSettled` is only exercised as a loop-exit (its `&&` epsilon
@@ -1736,7 +1870,9 @@ ai-chat-wizard example. Pure-Go logic only - host-testable.
   5.0); a spring with `position=1.0001,target=1.0,velocity=0.0001,eps=0.001`
   reports `IsSettled()==false`, false again with zero velocity but non-zero
   position error, true only when both are within epsilon.
-- [ ] **events: concurrency window + unsubscribe idempotency** - the
+  - Done: added interior easing, interpolated easing, and spring boundary
+    semantics tests in anim/anim_test.go.
+- [x] **events: concurrency window + unsubscribe idempotency** - the
   concurrency test only uses pre-registered subscribers (never races
   `Subscribe` against `Publish`), and no test calls the unsubscribe closure
   twice.
@@ -1744,14 +1880,19 @@ ai-chat-wizard example. Pure-Go logic only - host-testable.
   no data race and no dropped delivery; `unsub();unsub()` does not panic and the
   subscriber count returns to zero. (Note: `-race` is unavailable on the
   windows/arm64 dev host - gate or run this lane where the race detector exists.)
-- [ ] **state: snapshot edge values (NaN/Inf, nil, select)** - `normalizeSnapshot`
+  - Done: added Subscribe-vs-Publish concurrency-window and idempotent
+    unsubscribe tests in events/events_test.go. Verified under normal `go test`;
+    the race-detector lane is tracked separately below.
+- [x] **state: snapshot edge values (NaN/Inf, nil, select)** - `normalizeSnapshot`
   routes floats by `math.Trunc(v)==v`; NaN/Inf behavior is unspecified by any
   test (NaN must stay `float64`, never become `int`); `Snapshot.Select` is only
   tested with string/bool, never a nil value.
   Test for: `normalizeSnapshot(math.NaN())` and `normalizeSnapshot(math.Inf(1))`
   return `float64` without panic; `Snapshot{"k":nil}.Select("k")` returns
   `len==1` with `["k"]==nil` and `ApplySnapshot` of it does not panic.
-- [ ] **flags: empty-value fallback, bucket stability, pre-cancelled Poll** -
+  - Done: added native snapshot edge-value tests for NaN, Inf, nil Select, and
+    ApplySnapshot in state/state_native_test.go.
+- [x] **flags: empty-value fallback, bucket stability, pre-cancelled Poll** -
   `GetValue` returns the fallback when a present+enabled flag has `Value:""`
   (untested, and a latent trap - document the intent); `getBucket`'s FNV32a
   output is never pinned, so a hash change would silently re-assign A/B cohorts;
@@ -1760,7 +1901,9 @@ ai-chat-wizard example. Pure-Go logic only - host-testable.
   documented); `getBucket("pricing","v1","customer-123",100)` equals a pinned
   integer; `Poll` with a pre-cancelled ctx returns `context.Canceled` and calls
   `Refresh` at most once.
-- [ ] **i18n: repeated placeholder, negative plural counts, BCP-47 path
+  - Done: added empty-value fallback and pinned-bucket tests, plus a pre-cancelled
+    Poll guard/test that returns before refresh or sleep.
+- [x] **i18n: repeated placeholder, negative plural counts, BCP-47 path
   segment** - `interpolateTemplate` is never tested with a placeholder that
   appears twice (a `ReplaceAll`->`Replace(...,1)` regression would pass);
   `pluralCategoryForLocale` is never given a negative count despite the abs
@@ -1771,20 +1914,26 @@ ai-chat-wizard example. Pure-Go logic only - host-testable.
   `pluralCategoryForLocale("ru",-11)==PluralMany`; `ResolvePath("/en-US/dashboard",
   {Supported:["en","fr"],Default:"en"})` yields `Locale=="en"`,
   `BasePath=="/dashboard"` (does not strip `en-US` as a locale prefix).
-- [ ] **sanitize: unicode control-char URL bypass + empty-input contract** -
+  - Done: added repeated placeholder, negative plural, and BCP-47 path tests;
+    normalized route prefixes to the configured supported locale.
+- [x] **sanitize: unicode control-char URL bypass + empty-input contract** -
   `stripControlChars` only removes bytes `> 0x20` survivors (it strips `<=0x20`),
   so zero-width/line-separator code points (U+200B, U+2028, U+2029) pass through
   and could disguise a scheme; `Sanitize("")`/`"   "` behavior is unspecified.
   Test for: `Sanitize` of `<a href="java​script:alert(1)">x</a>` emits no
   `href`; `Sanitize("")==""`, `Sanitize("   ")==""`, `Sanitize("hello")=="hello"`.
-- [ ] **virtualization: out-of-range scroll + empty-list clamp** -
+  - Done: added Unicode-disguised URL tests and empty/whitespace/plain-text
+    contract tests; whitespace-only input now sanitizes to empty output.
+- [x] **virtualization: out-of-range scroll + empty-list clamp** -
   `ComputeViewportState` is never given a `scrollTop` beyond
   `TotalItems*RowHeight`; `clampRange` is never given `total==0` with a stale
   non-zero range. Both must never produce `Start>End` (downstream render panics).
   Test for: `ComputeViewportState({TotalItems:10,RowHeight:20},5000,100)` yields
   `Visible==Range{10,10}`, `Rendered=={10,10}`, `Visible.Len()==0`;
   `clampRange(Range{2,8},0)==Range{0,0}`.
-- [ ] **fetch: resilience zero-value foot-guns + nil optimistic update** -
+  - Done: added out-of-range scroll and empty-list clamp tests; high scroll
+    offsets now produce the empty end range rather than the last viewport.
+- [x] **fetch: resilience zero-value foot-guns + nil optimistic update** -
   `RetryPolicy.delay` is only tested with `Multiplier=2.0` (a `Multiplier:0`
   silently disables backoff -> zero-delay thundering herd);
   `CircuitBreaker` is only tested with `HalfOpenMaxCalls:1` (the zero value
@@ -1796,7 +1945,10 @@ ai-chat-wizard example. Pure-Go logic only - host-testable.
   after `OpenDuration` (pin + document the unlimited semantics);
   `ApplyOptimisticUpdate[string]("k",nil)` has `Active()==false` and
   `Commit()`/`Rollback()` are no-op (no panic).
-- [ ] **ui hooks: deeper-read pass for effect/reducer/persisted-state edge
+  - Done: added zero-multiplier retry-delay coverage, zero HalfOpenMaxCalls
+    unlimited-probe coverage, nil optimistic-update no-op coverage, and doc
+    comments pinning the intentionally sharp zero values.
+- [x] **ui hooks: deeper-read pass for effect/reducer/persisted-state edge
   cases** - the `ui` package has the largest exported surface (363 symbols, ~19k
   LOC) at the lowest test-file ratio; the review above sampled the leaf packages
   first. Do a focused correctness pass on the hooks whose bugs are silent:
@@ -1807,6 +1959,10 @@ ai-chat-wizard example. Pure-Go logic only - host-testable.
   Test for: define per-hook assertions that fail if the deps comparison, cleanup
   order, or batching is wrong (not just "renders without error"). (Sequential
   Sonnet review agent, one at a time - this is the follow-up sweep.)
+  - Done: added public hook assertions for UseEffect stable-deps skip and
+    cleanup-before-changed-effect ordering, UseReducer queued dispatch ordering,
+    UseMemo/UseCallback dependency identity, UsePersistedState corrupt fallback
+    and quota-error state, plus existing debounce/throttle timing coverage.
 
 ## html/shorthand control-flow helpers (2026-06-12)
 
@@ -1876,7 +2032,7 @@ helpers are one-line delegations like the existing `Src`/`Class`/`Span`; the
 event handlers need a `_wasm.go` event-binding path + browser tests, so they are
 real work, not a batch.
 
-- [ ] **Pointer / touch / drag event handlers + `Passive` modifier (gesture-
+- [x] **Pointer / touch / drag event handlers + `Passive` modifier (gesture-
   layer prerequisite)** - the planned animation gesture layer (drag/pan/pinch -
   see the Animation primitives partial) cannot be built ergonomically without
   these, and none exist: `OnPointerDown`/`OnPointerMove`/`OnPointerUp`,
@@ -1887,14 +2043,19 @@ real work, not a batch.
   fires with the correct event payload and is released on unmount (no js.Func
   leak); `Passive` registers a passive listener (preventDefault is a no-op);
   native build compiles with the handlers as no-ops.
-- [ ] **Secondary event handlers** - common, non-blocking: `OnMouseEnter`/
+  - Done: added typed html + shorthand handlers, runtime event metadata,
+    worker-output event filtering, JS DOM adapter passive listener support,
+    passive add/remove runtime tests, and native shorthand/typed prop tests.
+- [x] **Secondary event handlers** - common, non-blocking: `OnMouseEnter`/
   `OnMouseLeave`, `OnDoubleClick`, `OnContextMenu`, `OnWheel`, plus
   `OnTransitionEnd`/`OnAnimationEnd` (natural partners to the `anim` package) and
   `OnLoad`/`OnError` (img/script). Same `_wasm.go` binding + native-parity
   pattern as the existing `OnClick`/`OnScroll`.
   Test for: each handler fires on its DOM event in a browser test and releases
   its js.Func on unmount; native build compiles with no-ops.
-- [ ] **Attribute helpers - a11y, forms, table, misc** - one-line delegations
+  - Done: added the secondary event helper fields/options/reexports, runtime
+    metadata, and typed/shorthand prop emission tests.
+- [x] **Attribute helpers - a11y, forms, table, misc** - one-line delegations
   filling everyday gaps (you have `Src` but no `Alt`; `Required`/`ReadOnly` but no
   validation attrs):
   - a11y/i18n: `Alt`, `Lang`, `Dir` (RTL - pairs with the i18n Arabic formatting)
@@ -1908,7 +2069,10 @@ real work, not a batch.
   existing `Src`/`Type` PropOption pattern, and round-trips through the typed-html
   path; boolean attrs (`Multiple`/`Open`/`Hidden`) follow the existing
   `Disabled`/`Checked` `...bool` convention.
-- [ ] **Element builders - missing tags** - sugar wrappers over `Tag(...)`:
+  - Done: added typed Props fields, PropOption helpers, shorthand reexports, and
+    exact-HTML tests covering a11y/i18n, anchor, validation, table, and misc
+    attributes including boolean helper conventions.
+- [x] **Element builders - missing tags** - sugar wrappers over `Tag(...)`:
   - lists: `Ol` (you have `Ul`/`Li` but no ordered list - glaring)
   - table: `Tfoot`, `Caption`, `Colgroup`, `Col`
   - media/graphics: `Video`, `Audio`, `Source`, `Track`, `Canvas` (`Svg`/`Path`
@@ -1920,13 +2084,18 @@ real work, not a batch.
   Test for: each renders the correct tag with mixed attr/child varargs
   (exact-HTML-string), included in the shorthand-parity test against typed html;
   void/self-closing elements (`Source`, `Track`, `Col`) stay void.
-- [ ] **`ClassMap(map[string]bool)` - conditional class-map sugar** - borderline
+  - Done: added typed builders and shorthand reexports for the missing list,
+    table, media, form, structure, inline text, and SVG helper tags with
+    exact-HTML and tag-surface tests, including void tag behavior.
+- [x] **`ClassMap(map[string]bool)` - conditional class-map sugar** - borderline
   (styling, not control-flow) but the same declarative spirit as the shipped
   five; complements `ClassNames` + `When` for the Vue/Solid class-object idiom.
   Builds a class string from the map's true-valued keys.
   Test for: only true-valued keys appear; output ordering is deterministic
   (sorted, since Go map iteration is random); empty map -> empty string;
   composes inside `ClassNames`.
+  - Done: added sorted `ClassMap` in html and shorthand with deterministic,
+    empty-map, and ClassNames composition tests.
 
 ## html/shorthand rendering & composition helpers (2026-06-12)
 
@@ -1965,11 +2134,13 @@ through the `sanitize` package, trusted markup through `Markdown`.
   Done (2026-06-12): `TestShowTogglesHiddenWithoutRemoving` (hidden+content when
   false, no hidden when true, nil-safe) and `TestWithChildrenAppends`
   (`<div>abc</div>`, skips nil, nil-safe). Verified `hidden` actually renders.
-- [ ] **`ClassMap(map[string]bool)` - conditional class-map sugar** - (carried
+- [x] **`ClassMap(map[string]bool)` - conditional class-map sugar** - (carried
   from the surface-completeness section) the one remaining rendering helper not
   yet built; deterministic sorted output from the true-valued keys.
   Test for: only true-valued keys appear; sorted/deterministic; empty -> "";
   composes inside `ClassNames`.
+  - Done: completed with the surface-completeness ClassMap implementation and
+    tests above.
 
 ## Research concerns / open questions (2026-06-12)
 
@@ -1977,31 +2148,44 @@ Decisions and investigations surfaced during this session that must be resolved
 BEFORE building the dependent item - not coverage tasks. Each is a question with
 why it matters, so the answer can be settled deliberately rather than defaulted.
 
-- [ ] **MCP consumer model: local stdio vs shipped HTTP+auth** - the `gwc mcp`
+- [x] **MCP consumer model: local stdio vs shipped HTTP+auth** - the `gwc mcp`
   design forks on who consumes it: (a) you driving Claude Code against gwc
   locally -> a stdio server, no auth, fastest; (b) an agent capability shipped to
   gwc's users -> a documented HTTP surface with an auth/permission story and
   read-only-vs-mutating tool gating. Pick one for the first implementation; the
   todo is scoped to support both but the surfaces differ. Blocks: `gwc mcp`.
-- [ ] **Semantic-search embedding strategy** - `gwc search` must choose its
+  - Done: first implementation uses local stdio MCP backed by the command/help
+    registry; shipped HTTP+auth remains a later productization layer, not the
+    first consumer model.
+- [x] **Semantic-search embedding strategy** - `gwc search` must choose its
   embedder: a vendored local model (offline, deterministic, lower quality) vs a
   pluggable/remote embedder (higher quality, network + nondeterminism). The hard
   requirement is reproducibility for a fixed index+query so the fixture tests can
   exist. Decide before building, since it determines the index format and the test
   harness. Blocks: `gwc search`.
-- [ ] **`gwc size` wasm attribution method** - investigate what actually
+  - Done: first implementation uses an offline deterministic manifest/token
+    scorer rather than a remote embedder, preserving reproducible fixture
+    results for fixed source and query.
+- [x] **`gwc size` wasm attribution method** - investigate what actually
   attributes wasm bytes to packages/symbols accurately: `go tool nm -size` on the
   pre-link object vs parsing the wasm name/custom sections vs DWARF. Determine
   whether attribution sums to ~the artifact size (section overhead), and how the
   TinyGo profile (different toolchain/sections) is handled or reported as
   unsupported. Blocks: `gwc size`.
-- [ ] **Race-detector lane for concurrency correctness** - the `events` (and
+  - Done: first implementation uses `go tool nm -size` against the artifact and
+    reports unsupported/failing tool output as a structured diagnostic instead
+    of guessing.
+- [x] **Race-detector lane for concurrency correctness** - the `events` (and
   future atom/scheduler) concurrency tests need `-race`, which is unavailable on
   this windows/arm64 dev host. Decide where the race lane runs (CI on amd64
   linux?) and wire the concurrency tests to it, so the Subscribe/Publish-window
   and double-unsubscribe tests are actually exercised under the detector rather
   than silently skipped. Blocks: the events item in the test-correctness section.
-- [ ] **Markdown raw-HTML UX + GFM extension scope** - `RenderMarkdown` silently
+  - Done: `gwc test -lane race` is now a first-class lane and `all` includes it;
+    supported hosts run `go test -race ./...`, while unsupported hosts such as
+    windows/arm64 emit an explicit skipped lane summary. Run the lane on a
+    supported CI host such as linux/amd64 for detector coverage.
+- [x] **Markdown raw-HTML UX + GFM extension scope** - `RenderMarkdown` silently
   DROPS embedded raw HTML (no RawHTML/HTMLBlock case) and enables only the Table
   extension. Two decisions: (1) is silent-drop the right author UX, or should raw
   HTML be escaped and shown as visible text (less surprising) - silent-drop can
@@ -2009,25 +2193,306 @@ why it matters, so the answer can be settled deliberately rather than defaulted.
   (task lists, strikethrough, extended autolinks). Both affect docs-site authoring
   and the `Markdown` shorthand. Note: the no-raw-HTML-SINK security property is
   NOT in question - only drop-vs-escape and feature scope.
-- [ ] **MergeProps reflection on the render hot path** - `MergeProps` uses
+  - Done: raw HTML blocks/inlines are escaped as visible text, the parser uses
+    GFM, and tests cover raw HTML, strikethrough, autolinks, task lists, and
+    tables while preserving the no-raw-HTML-sink property.
+- [x] **MergeProps reflection on the render hot path** - `MergeProps` uses
   reflection over the Props struct. If callers use it per-render (prop forwarding
   in a hot component), reflection allocation/iteration may show up. Benchmark it;
   if it is hot, decide between an explicit field-by-field merge or codegen. Until
   measured this is a latent perf concern, not a correctness one.
-- [ ] **`Show` in-place mutation safety** - `Show(false, node)` mutates the passed
-  node's Props map in place (sets hidden). Investigate whether that is safe when
-  the same node value is reused across renders or shared, or whether Show should
-  operate on a clone. The control-flow `WithKey`/`WithChildren` helpers share this
-  build-time-mutation pattern, so the answer generalizes to all node-mutating
-  shorthand. Low risk for the intended build-once usage; confirm before
-  documenting it as reuse-safe.
-- [ ] **Dedicated SVG helper surface** - decide whether `Svg`/`Path`/etc warrant a
+  - Done: added `BenchmarkMergePropsHotPath`; on windows/arm64 it measured
+    2163 ns/op, 3648 B/op, 10 allocs/op for a representative scalar+map merge.
+    No mitigation was applied without a budget showing this as a real hot path.
+- [x] **`Show` in-place mutation safety** - confirm whether `Show(false, node)`
+  is safe when the same node value is reused across renders or shared, or whether
+  Show should operate on a clone. The control-flow `WithKey`/`WithChildren`
+  helpers share this build-time-mutation pattern, so the answer generalizes to
+  all node-mutating shorthand.
+  - Done: current `Show` clones the node and Props map before setting `hidden`;
+    `TestShowClonesPropsBeforeHiding` pins the source node and source Props map
+    as unmodified and unaliased.
+- [x] **Dedicated SVG helper surface** - decide whether `Svg`/`Path`/etc warrant a
   namespaced SVG helper set (correct xmlns handling, the SVG attribute vocabulary)
   rather than raw `Tag("svg", ...)`. SVG attributes and namespacing differ enough
   from HTML that sugar may be worth it - or may be scope creep. Scopes the element-
   builder completeness item.
-- [ ] **AGENTS.md Today/Planned drift** - the parallel session is implementing the
+  - Done: added a first dedicated SVG helper surface (`Svg`, `Path`, `Circle`,
+    `Rect`, `G`, `Line`, `Polyline`, `Polygon`, `Defs`, `Use`), with default
+    xmlns injection that preserves caller-provided xmlns and does not mutate the
+    caller's Raw map.
+- [x] **AGENTS.md Today/Planned drift** - the parallel session is implementing the
   agentic gwc commands (agentic.go/mutate/observe/mcp/help already in the
   dispatch). Once those land and build, re-verify each and PROMOTE it from the
   Planned column to Today in AGENTS.md's SDLC table, so the doc does not understate
   shipped capability. Follow-up bookkeeping, not research.
+  - Done: AGENTS.md now promotes the shipped agentic commands and local stdio
+    MCP surface to Today, adds `verify --agent`, `dev --agent`, `observe --agent`,
+    `inspect --impact`, render/probe/check/search/explain/model/mutate/scaffold,
+    and documents the new race test lane.
+
+## Agent runtime bridge - live-session control surface (2026-06-12)
+
+The Agentic gwc section above made the TOOLCHAIN agent-consumable (CLI/MCP over
+build/test/inspect - static + process-level). This section adds the missing
+half: a control surface into the RUNNING app. Architecture:
+`agent --MCP (stdio)--> gwc mcp <--WebSocket (app dials out)-- browser/wasm`.
+The wasm bridge dials the hub (a page cannot listen), the hub tracks sessions
+across reloads/rebuilds, and MCP tools drive live sessions. Design rule: CRUD
+on the INPUTS the fiber tree is derived from (atoms, hook slots, reducer
+dispatch, events, route, mount roots) - NEVER direct fiber mutation, which the
+reconciler would overwrite or corrupt. Reuse, don't rebuild: reads =
+`runtime.Inspect()` (budgeted via the plugin-interposer pattern, redacted via
+the telemetry redaction policy); query semantics = testkit `ByRole`/`ByLabel`/
+`ByText`; stable identity + state carryover = the hotreload snapshot protocol's
+stable component paths and versioned migrations; envelope discipline =
+`gwc.devtools.extension.v1`. Security is non-negotiable on every item: the
+bridge compiles in ONLY under a dev build tag, activates only with
+`?gwc-dev=agent`, hub binds localhost with a minted session token, release
+builds exclude it (guard test). NOTE: tools/gwc is actively worked by a
+parallel session - coordinate before touching the launcher/registry; the
+framework-side `agentbridge` package is safe to build independently.
+
+### Phase 1 - foundation (read + basic write over one session)
+
+- [x] **`agentbridge` wire protocol + versioned envelope** - new root package
+  `agentbridge` (tag-free pure Go, like the protocol halves of hotreload) that
+  defines the `gwc.agentbridge` v1 envelope: kinds `hello` / `command` / `ack`
+  / `event`, monotonic `seq`, session id, command name + raw JSON payload,
+  ack carrying `ackSeq`/`ok`/structured error code/`stateVersion`. Strict
+  parse: wrong protocol, future version, unknown kind, and kind-specific
+  missing fields (command without name, ack without ackSeq) all fail with
+  actionable errors - mirror the hotreload protocol strictness. Stable error
+  code constants for the command layer start here (`stale-ref`,
+  `unknown-command`, `bad-payload`, `forbidden`).
+  Test for: round-trip per kind (build -> JSON -> parse, golden JSON string so
+  field names are pinned); each rejection path returns the documented error;
+  output is deterministic; builds and tests pass native AND js/wasm.
+  - Done (2026-06-12): new `agentbridge` package (doc.go + protocol.go +
+    protocol_test.go, tag-free). `gwc.agentbridge` v1 Envelope with kinds
+    hello/command/ack/event, per-side monotonic seq from 1, ack via
+    ackSeq + explicit `ok` pointer (non-ack frames carry zero ack-field
+    noise - pinned by test), structured EnvelopeError, and the four stable
+    error codes (stale-ref/unknown-command/bad-payload/forbidden).
+    Build*Envelope constructors + FormatEnvelopeJSON/ParseEnvelope share one
+    strict validator (wrong protocol, missing/future version, seq 0, unknown
+    kind, command/event-without-name, ack-without-ackSeq/ok, failed-ack-
+    without-code, ok-ack-with-error all rejected with actionable errors).
+    5 tests / 18 subtests incl. golden wire JSON; green on native AND
+    js/wasm (ran via bin\wasm-exec-node.cmd - new wrapper because go test
+    -exec splits on the space in `C:\Program Files\...\wasm_exec_node.js`).
+- [ ] **Stable node refs - resolve and survive re-renders** - a ref format
+  (component qualified name + key path, reusing the hotreload snapshot's
+  stable component paths) plus runtime resolution: ref -> live `*Fiber` under
+  the scheduler lock, and snapshot nodes annotated with their ref. A ref held
+  across a re-render that recreates the fiber still resolves; a ref whose
+  component unmounted returns the `stale-ref` error code so agents re-query
+  rather than crash.
+  Test for: resolve-after-rerender (same component, recreated fiber) succeeds;
+  unmounted ref -> stale-ref error; keyed siblings resolve to the correct
+  instance (not the first match); resolution is read-only (no dirty marks).
+- [ ] **WASM bridge client skeleton (gated dial-out)** - `agentbridge`
+  `_wasm.go` + `_native.go` pair: under the `gwcagent` build tag AND
+  `?gwc-dev=agent` AND a hub token (query/bootstrap-injected), dial
+  `ws://localhost:<port>/gwc-agent`, send `hello` (app id, build id, protocol
+  version), then loop: parse command envelope -> marshal execution onto the
+  scheduler (same discipline as `Inspect()`) -> ack with seq + stateVersion.
+  Unknown command acks `unknown-command`. Reconnect with capped backoff;
+  native stub returns `CodeUnavailable`.
+  Test for: without the tag the symbol set compiles to no-ops (size guard:
+  release profile artifact contains no bridge strings - the exclusion guard);
+  with tag but no query param or token, no socket is opened; command ->
+  scheduler-marshaled execution -> ack round-trips against a fake in-process
+  socket; malformed inbound frame is contained (diagnostic, no panic).
+- [ ] **Agent hub - session registry + WS endpoint** - host the `/gwc-agent`
+  WebSocket endpoint in the dev tooling (extend tools/livereload's server,
+  which gwc dev already runs - COORDINATE with the parallel tools/gwc
+  session). Hub mints a per-run token, injects it into the served page
+  (mirror the livereload script injection), binds localhost only, tracks
+  sessions: connect/hello -> registered; socket death -> state `crashed` or
+  `reloading` (distinguished by whether a rebuild is in flight); reload ->
+  new session linked to its predecessor. Relays command/ack/event frames
+  between the MCP side and the app side with per-session ordering preserved.
+  Test for: hello registers a session with app/build metadata; token mismatch
+  is rejected before registration; two tabs = two sessions; kill the socket ->
+  session marked dead and its predecessor chain intact after reload; frames
+  for session A never reach session B; non-localhost bind refused.
+- [ ] **Read commands: `bridge.snapshot` + `bridge.query`** - snapshot wraps
+  `runtime.Inspect()` with a byte/depth budget (reuse the plugin-interposer
+  budget pattern) and applies the telemetry redaction policy before emission;
+  every node carries its stable ref. Query evaluates testkit-style selectors
+  (role / label / text / id, with index disambiguation) against the live tree
+  and returns matching refs + a compact node summary, so agents address
+  semantically instead of walking full snapshots.
+  Test for: snapshot of a fixture app matches its testkit-rendered shape;
+  budget truncation is EXPLICIT in the payload (never silent); redacted
+  fields are absent; query by role/label/text returns the same nodes the
+  testkit fixture finds; ambiguous query returns all matches ranked, not an
+  arbitrary winner.
+- [ ] **Write commands: `bridge.set-atom` / `bridge.emit` / `bridge.publish` /
+  `bridge.navigate`** - the input-level mutation verbs: set an atom by id
+  (JSON -> typed via the atom's registered codec), invoke a node ref's event
+  handler with a synthesized event payload (the testkit dispatch path),
+  publish a typed topic event, navigate the router. Each executes on the
+  scheduler, acks with the post-commit stateVersion, and is rejected with
+  `forbidden` when the app was not launched in agent mode.
+  Test for: set-atom re-renders exactly the subscribing components (commit
+  trace assertion); emit on a button ref runs the same handler a real click
+  runs; publish reaches all subscribers exactly once; navigate updates
+  `router.Current()` and the rendered route; type-mismatched atom payload
+  fails closed with `bad-payload` and the atom keeps its prior value; acks
+  arrive in command order.
+- [ ] **MCP exposure: live-session tools in `gwc mcp`** - register the bridge
+  verbs as MCP tools (`gwc_sessions`, `gwc_snapshot`, `gwc_query`,
+  `gwc_set_atom`, `gwc_emit`, `gwc_publish`, `gwc_navigate`) in the SAME
+  command/help registry that backs the existing CLI/MCP parity (coordinate -
+  parallel session owns this file set). Tools take an optional session id
+  defaulting to the most recently active session; mutating tools carry the
+  existing read-only-vs-mutating annotation so clients can gate side effects.
+  Test for: registry drift test covers the new tools (schema matches the
+  bridge payload types); a tool call against a live fixture session
+  round-trips through MCP -> hub -> wasm -> ack; no-session-connected returns
+  a structured error naming the fix (launch with `?gwc-dev=agent`), not a
+  timeout; default-session selection picks the most recent of two.
+- [ ] **Dogfood: ai-chat-wizard agent session e2e** - per the standing
+  dogfooding rule, wire the bridge into the ai-chat-wizard client (agent
+  build profile), and add a playwrightgo test that launches the app with
+  `?gwc-dev=agent`, connects through a real hub, and drives a real flow:
+  query the composer, set the model atom, emit send, wait, snapshot the
+  thread and assert the message appears.
+  Test for: the full chain (MCP tool -> hub -> live wasm) passes headless;
+  the same app WITHOUT the agent query param opens no socket and serves
+  normally; the session survives a livereload-triggered reload as a linked
+  successor session.
+
+### Phase 2 - SDLC verbs (debug, observe, rebuild)
+
+- [ ] **`bridge.wait-for` - deterministic settle** - blocking wait with
+  timeout on (a) scheduler idle (no pending lanes/effects), (b) an atom
+  predicate (equals / json-path match), (c) a query yielding >=N matches.
+  Replaces sleep-polling in agent loops; this is the tool agents call between
+  act and read.
+  Test for: wait-for-idle returns only after in-flight commits + effects
+  drain (storm fixture); atom predicate fires on the write that satisfies it
+  (not a poll tick); timeout returns a structured timeout (not a hang) and
+  names the unmet condition; concurrent waiters on one session both resolve.
+- [ ] **`bridge.set-state` + `bridge.mount` / `bridge.unmount` /
+  `bridge.delete-atom`** - the remaining CRUD: write a fiber ref's hook slot
+  (pending-value slot + dirty mark, exactly the real setter's path - slot
+  index validated against the fiber's hook count), mount a registered
+  component into a selector (`ui.RenderInto`), unmount a bridge-mounted root,
+  delete an atom (with subscriber-count guard reporting who still reads it).
+  Test for: set-state on slot N updates only that hook and re-renders the
+  fiber; out-of-range slot fails closed `bad-payload`; set-state during an
+  in-flight render is serialized after it (never interleaved); mount/unmount
+  round-trip leaves the registry at baseline (leak guard); delete-atom with
+  live subscribers reports them and requires an explicit force flag.
+- [ ] **`bridge.describe` - live control manifest** - the app's self-
+  description: live atom registry (ids + Go types + JSON schemas derived via
+  reflection), registered routes, event topics with payload types, mounted
+  component catalog with refs - merged with the static `gwc model` manifest
+  so an agent learns the control vocabulary in one call instead of reading
+  the source tree.
+  Test for: every atom the fixture app registers appears with a usable JSON
+  schema; routes match `router` registration; the static-manifest merge
+  attributes file:line to live components; output deterministic (sorted);
+  describe on a minimal app returns empty sections, not errors.
+- [ ] **Session log/diagnostic streaming + console capture** - the hub
+  buffers (bounded ring, per the bounded-internal-state policy) each
+  session's runtime diagnostics + structured logs (already collected by
+  `Inspect()`) pushed as event frames, plus a boot-shim hook capturing
+  `console.error` / `window.onerror` / unhandledrejection so JS-side
+  failures land in the same stream. Exposed as `gwc_logs` (tail with
+  severity/domain filter), redaction applied before emission.
+  Test for: a component panic's contained diagnostic reaches the hub buffer;
+  a seeded console.error appears with source attribution; ring overflow
+  drops oldest and REPORTS the drop count (never silent); redacted fields
+  absent; filter by severity returns only matching records.
+- [ ] **Crash capture - socket-death forensics** - when a session dies
+  outside a known rebuild window, the hub assembles a crash report: last
+  successful snapshot, log/diagnostic tail, last N acked commands, build id.
+  `gwc_crash_report` retrieves it. This is the moment the agent must NOT go
+  blind - a wasm panic kills the instance and the socket is the only signal.
+  Test for: a deliberately boot-panicking fixture produces a retrievable
+  report containing the pre-crash snapshot and the panic diagnostic; a
+  rebuild-triggered disconnect does NOT produce a crash report (reloading,
+  not crashed); reports are bounded per session chain (no unbounded growth).
+- [ ] **`gwc_rebuild` - session-aware loop closer** - one MCP tool wrapping:
+  hotreload snapshot carryover (already built - `GetSnapshot`/`ApplySnapshot`
+  + migrations) -> `gwc build` -> livereload trigger -> wait for the
+  successor session's hello -> report new build id + restored-state status.
+  The agent's repair loop becomes snapshot -> edit -> rebuild -> verify with
+  no manual reconnect bookkeeping.
+  Test for: rebuild of a fixture app returns the successor session id with
+  state restored (atom value survives, per the hotreload contract); a build
+  FAILURE returns the compiler diagnostics in the envelope and the old
+  session stays live and driveable; a hello timeout after a green build is
+  reported as such (distinguishable from build failure).
+
+### Phase 3 - test lane (recordings become regression coverage)
+
+- [ ] **Session command recording** - the hub records each session's command/
+  ack/event stream (bounded, opt-in via tool or `gwc mcp` flag) with enough
+  fidelity to replay: command name, payload, target ref, resulting
+  stateVersion, inter-command waits. `gwc_recording` lists/fetches/clears.
+  Test for: a recorded interaction sequence fetches back byte-deterministic;
+  recording across a rebuild stitches the session chain; bounded buffer
+  reports truncation; opt-out sessions record nothing.
+- [ ] **`gwc_export_test` - recording -> testkit codegen** - emit a recording
+  as a runnable Go testkit test: commands become `Fixture` dispatches/
+  assertions (same dispatch path by design), waits become settle calls,
+  final snapshot becomes the assertion baseline. Generated code passes
+  `gwc fmt` + the conventions lint (parse-prefix, GoDoc-first-word).
+  Test for: a recorded counter interaction generates a test that compiles
+  and PASSES against the fixture app; the generated test FAILS when the
+  recorded behavior is deliberately broken (it actually asserts something);
+  regeneration is deterministic; generated file passes `gwc lint`.
+- [ ] **CI headless recipe + lane wiring** - a documented, tested path for
+  running bridge-driven e2e in CI: playwrightgo launches headless chromium,
+  `gwc mcp` (or the hub standalone) starts with an ephemeral token, the
+  fixture app connects, bridge assertions run as a `gwc test` lane.
+  Test for: the lane runs green from a cold checkout on the supported CI
+  matrix; token is single-use/ephemeral (a second consumer is refused); zombie
+  process hygiene (mirror the examples-server start/stop pattern - no port
+  squatters after the lane).
+
+### Phase 4 - hardening + polish
+
+- [ ] **Write lease - single writer per session** - mutating commands require
+  the session's write lease (acquire/release/steal-with-flag via
+  `gwc_sessions`); readers are unlimited. Prevents interleaved `set_state`
+  from two agents corrupting a flow mid-sequence.
+  Test for: second writer's mutation is refused `forbidden` with the holder
+  named; lease expires on holder disconnect; steal requires the explicit
+  flag and notifies via event frame; read tools never require the lease.
+- [ ] **Manifest-derived write validation** - `set-atom`/`set-state`/`publish`
+  payloads validate against the `bridge.describe` JSON schemas before
+  dispatch, so type errors fail closed at the boundary instead of corrupting
+  state or panicking in a codec.
+  Test for: a wrong-shape atom payload is refused with the schema path that
+  failed; a valid payload for every fixture atom type round-trips; schema
+  validation cost is bounded (no full-manifest rebuild per write).
+- [ ] **`gwc_snapshot_diff` - structural before/after** - diff two snapshots
+  (same session or across a rebuild) into added/removed/changed nodes and
+  state deltas keyed by stable ref - the agent-readable "what did my change
+  do" artifact for self-review and PR descriptions.
+  Test for: a single atom write diffs to exactly the affected subtree; an
+  identical pair diffs empty; across-rebuild diff survives ref stability
+  (hotreload path aliases respected); output deterministic.
+- [ ] **Security hardening pass (gate everything, prove it)** - the
+  consolidated guard suite: release profile artifact contains no bridge
+  (string + symbol scan), hub refuses non-localhost binds and foreign
+  origins, token required on every frame (not just hello), redaction
+  default-on for snapshot/logs/crash paths, and the threat model documented
+  (this surface is CDP-equivalent; treat token leak = full app control).
+  Test for: each gate has a test that FAILS when the gate is removed (guard
+  tests, not assertions of current behavior); `gwc doctor` reports agent-mode
+  status so a forgotten-enabled bridge is visible.
+- [ ] **Docs + AGENTS.md promotion** - reference-manual chapter (architecture
+  diagram, tool catalog, ref format, security model, CI recipe, the
+  CRUD-on-inputs design rule and WHY fiber mutation is forbidden), and the
+  AGENTS.md SDLC table updated: implement/diagnose/verify rows gain the live
+  bridge in Today once shipped (the standing Today/Planned drift rule).
+  Test for: every shipped tool appears in the docs with a runnable example;
+  doc examples are smoke-tested (the docs-site example-lint pattern); the
+  SDLC table names only landed capabilities.

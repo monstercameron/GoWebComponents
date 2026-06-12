@@ -4,6 +4,35 @@
 
 ### Added
 
+- **Selective / progressive hydration (islands)** — `ui.HydrationIsland` marks
+  independently resumable SSR islands; `ui.HydrateIsland` schedules per-island
+  browser hydration on visible / interaction / idle / immediate triggers (with
+  optional timeout); `ui.ConfigureHydrationIslandBudget` caps concurrent island
+  hydration and `ui.InspectHydrationIslandBudget` validates startup/deferred
+  island plans. Attacks the wasm-startup gap directly.
+- **Route-level code splitting** — router routes declare a `RouteChunk` via
+  `RegisterLazy` / `RegisterLazyRoute` or `Options.Chunk`; the router gates
+  rendering on the chunk, runs it before the route factory/loader, cancels stale
+  chunk loads on navigation, supports a custom `Loader` or script URLs, and
+  routes pending/error states through chunk- or route-local fallbacks.
+- **`a11y` package** — headless menu, combobox, listbox, datepicker-grid, and
+  table builders over the overlay/focus/composite primitives, with semantic
+  HTML/ARIA contracts.
+- **`servercomponents` package** — server-rendered component boundaries
+  (native + wasm split) for server-driven UI.
+- **`telemetry` package** + `internal/telemetryredaction` — opt-in telemetry
+  with structured redaction of sensitive fields.
+- **`scheduler` package** — a standalone cooperative task scheduler.
+- **`agentbridge` package** — an agent-facing bridge surface over the framework.
+- **Browser devtools extension** — `devtools` now generates a Chrome/Firefox
+  Manifest V3 and emits the stable `gwc.devtools.extension.v1` panel payload
+  (component tree, props/state inspection, extension sections / atom-graph
+  contributions, diagnostics, logs, commit profiling).
+- **Agentic toolchain (`tools/gwc`)** — `agentic_toolchain` consolidates the
+  agent-facing tool surface.
+- **Runtime controls & memory hygiene** (`internal/runtime`) — first-class
+  runtime controls, passive-event support, and memory-hygiene passes.
+
 - **`sanitize` package** — a DOMPurify-equivalent HTML sanitizer built on
   `golang.org/x/net/html`: allowlisted tags/attributes/URL-schemes, drops
   script/style/iframe/svg and `on*`/`style` attributes, unwraps unknown tags.

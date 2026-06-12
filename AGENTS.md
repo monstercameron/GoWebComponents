@@ -353,40 +353,54 @@ in todos.md (Agentic gwc section), NOT yet built - do not assume it exists; use
 the Today column until it lands.
 
 Phase        Today (use now)                          Planned (roadmap)
-orient       inspect (routes/deps/ownership),         model (--json manifest),
-             doctor, README + docs/                    search (semantic API find),
-                                                        explain (errorcode/capability)
-plan         inspect (dependency report)              inspect --impact (blast radius)
-scaffold     start (TUI), init, import                scaffold --no-input --json
-implement    edit files directly (Go)                 mutate (AST codemod)
+orient       inspect (routes/deps/ownership),         richer semantic ranking
+             doctor, model, search, explain,
+             README + docs/
+plan         inspect (dependency report),             richer multi-symbol impact
+             inspect --impact
+scaffold     start (TUI), init, import,               starter expansion coverage
+             scaffold --no-input --json
+implement    edit files directly (Go), mutate         broader codemod recipes
 build        build, wasm, release                     (build --json envelope)
-verify       test (-lane unit/wasm/hydration/         render (SSR oracle), probe
-             browser/release), verify, bench,          (browser oracle), verify --agent
-             lint                                       (single acceptance gate)
-review       lint / review, doctor -audit             check --json (fixes-as-data)
-diagnose     doctor, dev (livereload + doctor-        dev --agent (NDJSON event
-             on-failure), test output                  stream), hydration-diff,
-                                                        commit-trace
-migrate      migrate (-apply safe rewrites)           (mutate for arbitrary ops)
+verify       test (-lane unit/race/wasm/              single acceptance gate
+             hydration/browser/release), verify,
+             verify --agent, render, probe, bench,
+             lint
+review       lint / review, doctor -audit,            richer fixes-as-data
+             check --json
+diagnose     doctor, dev (livereload + doctor-        deeper hydration/commit
+             on-failure), dev --agent, observe        trace coverage
+             --agent, test output
+migrate      migrate (-apply safe rewrites), mutate   arbitrary-safe ops
 release      release, deploy, prerender/export        (canary rollout)
-observe      logging/diagnostics packages,            observe --agent (queryable
-             devtools panels                            RUM/crash/replay)
+observe      observe, observe --agent,                queryable RUM/crash/replay
+             logging/diagnostics packages,
+             devtools panels
 
 Today's commands (one line each)
   doctor    check toolchains, runtime assets, project signals, optional audit
   inspect   route / dependency / ownership / file-type reports
+  model     emit a static component manifest for agent planning
+  search    search exported APIs by intent using the static manifest
+  explain   resolve diagnostic error codes and framework capabilities
   start     scaffold TUI (presets); init = non-interactive project init
   import    convert a static HTML/JSX file into an inspectable GWC project
+  scaffold  generate components, hooks, examples, or starter apps without prompts
+  mutate    apply safe AST-backed source mutations with dry-run and JSON diff output
   dev       build app -> serve -> livereload (auto-runs doctor on failure)
   build     build a js/wasm app with an explicit profile
   wasm      wasm build experiments: measure / compare / compare-compression / ...
-  test      run lanes: unit, wasm, hydration, browser, release
-  verify    app-local Go tests + a CI-profile wasm build
+  test      run lanes: unit, race, wasm, hydration, browser, release
+  verify    app-local Go tests + a CI-profile wasm build; --agent emits NDJSON
+  render    render a component through the headless SSR oracle
+  probe     run a browser-oracle probe for a URL or example target
+  check     run agent-shaped diagnostics across tests and source conventions
   bench     discover + run native/wasm benchmarks, compare with benchstat
   lint      golangci-lint + built-in gwc-hooks rules (review is an alias)
   migrate   compatibility findings + safe parser-backed rewrites (-apply)
   prerender static export (route HTML + wasm + manifest); export is an alias
   release   package a js/wasm release with manifest + compressed sidecars
+  mcp       serve JSON-capable gwc commands as local stdio MCP tools
   deploy    package validated release artifacts through deploy adapters
   tailwind  build shared Tailwind CSS + class manifest
   seed      provision local dev identities + fixture data
@@ -414,10 +428,10 @@ Recommended loop for building an app (with today's tools)
               residual risk, next todo. Then continue.
 Claim done only with evidence (a passing lane / clean lint / a rendered
 oracle), never on assumption. A green `verify` + clean `lint` is the current
-definition-of-done; the planned `verify --agent` will fold render/probe/a11y/
-perf/hydration into one gate.
+definition-of-done; use `verify --agent` when the loop needs NDJSON events and
+trace summaries.
 
-MCP (planned)
-A `gwc mcp` server (todos.md) will expose the same commands as MCP tools so an
-agent calls them natively instead of shelling out. Until it ships, drive gwc
-through the CLI with `-json` where supported and parse stdout.
+MCP
+`gwc mcp` exposes JSON-capable commands as local stdio MCP tools so an agent can
+call them natively instead of shelling out. It is a local developer surface; a
+shipped HTTP+auth MCP service remains future productization work.
