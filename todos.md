@@ -840,7 +840,7 @@ impact; exactly three active items carry the next-work marker.
   personal files stay ignored (verified tracked via git check-ignore).
   JetBrains GOOS/GOARCH note added to CONTRIBUTING.md. Remaining: the
   optional gwc-start.json JSON schema for autocomplete.
-- [ ] **Wire devtools.ErrorOverlay into `gwc dev` by default** - runtime
+- [x] **Wire devtools.ErrorOverlay into `gwc dev` by default** - runtime
   panics produce excellent structured console reports, but the page just
   shows a dead tree / boot spinner; React/Vite developers expect a
   full-screen overlay. The overlay component and the structured report
@@ -852,6 +852,16 @@ impact; exactly three active items carry the next-work marker.
   report fields in a browser e2e; the overlay is absent in production
   builds; recovering the panic (next clean render) dismisses it; the
   overlay itself cannot crash the page (contained).
+  Done (2026-06-12): wasm panic reports now also dispatch a contained
+  `gwc:runtime-panic` CustomEvent; `gwc dev` injects a dev-only runtime
+  overlay that renders the existing structured fields, copy-report, and
+  `vscode://file/...:line` editor links when source locations resolve.
+  The overlay listens to both the event and structured console reports,
+  hides after build success or a clean app-root render, and is isolated
+  from its own append/listener failures. Tests cover the wasm event
+  payload, livereload injection, production build profiles excluding the
+  overlay, and a Playwright browser loop for panic, copy, recovery,
+  containment, and editor-link behavior.
 - [x] **Write CONTRIBUTING.md for framework contributors** - AGENTS.md and
   the getting-started chapter target users; nothing captures how to work
   ON the framework: the `GOOS=js GOARCH=wasm go test -c -o x.wasm` + node
@@ -1413,3 +1423,297 @@ fixed tree passed build, vet, and js/wasm example builds.
   `third_party/GoGRPCBridge` keeps its own `go.mod`, `toolchain` directive,
   runner, and CI, and any future toolchain bump should happen inside that
   submodule lifecycle before updating the root pin.
+
+## Agentic gwc - CLI + MCP for AI-assisted build/dev (2026-06-12)
+
+Make `gwc` a first-class substrate for AI agents (and humans) to build and
+debug GoWebComponents apps. The framework already has the raw material most
+agent loops lack - SSR `ui.RenderToString`, the fiber reconciler, the
+playwright harness, `docs/capabilities` + `docs/errorcodes`, lint-zero, perf
+budgets, reproducible-build SHAs - but none of it is shaped for a non-human
+consumer. The north star: give the agent a closed feedback loop so it can
+self-verify (renders / hydrates / passes a11y) instead of guessing, and let
+the dev choose CLI, MCP, or both. NOTE: `tools/gwc` is actively worked by a
+parallel session - coordinate before implementing; these are scoped specs,
+not a license to clobber in-flight work.
+
+### Foundation (do first - everything below depends on these)
+
+- [ ] **`--json` on every endpoint + a stable result envelope** - `--json` is
+  parsed but gated to an allowlist (`launcherCommandSupportsJSON` in
+  tools/gwc/main.go: bench/build/deploy/dev/doctor/env/examples/export/files/
+  init/inspect/lint/migrate/prerender/release/review/seed/tailwind/test/
+  upgrade/verify/wasm). Close the gap: every command supports `--json`, and
+  all of them emit ONE versioned envelope `{schemaVersion, command, ok, data,
+  diagnostics[], error}` so an agent parses results uniformly instead of
+  scraping human text. Diagnostics carry stable error codes (reuse
+  `docs/errorcodes`), file:line, and machine-applicable fix hints where known.
+  Test for: every registered command accepts `--json` (table test over the
+  command registry, no command silently human-only); the envelope validates
+  against a checked-in JSON Schema; `ok=false` paths still emit valid JSON to
+  stdout with a non-zero exit (never a bare stack trace); human and JSON modes
+  agree on success/failure; schemaVersion bumps are caught by a golden test.
+- [ ] **`gwc mcp` - serve the same surface over MCP (CLI and/or MCP, dev
+  decides)** - one binary, two front-ends: the existing CLI and an MCP server
+  exposing each `--json` command as an MCP tool with a typed input schema and
+  the same envelope as output. The command registry is the single source of
+  truth so CLI and MCP never drift. Ship a `gwc mcp` stdio server (and a
+  documented opt-in for HTTP) plus a registration snippet for Claude Code /
+  other MCP clients.
+  Test for: every JSON-capable command is exposed as exactly one MCP tool with
+  a generated input schema that matches the CLI flags (drift test); a tool
+  call round-trips through the MCP transport and returns the same envelope the
+  CLI produces for equivalent args (parity test); unknown tool / bad args fail
+  with a structured MCP error, not a panic; read-only vs mutating tools are
+  annotated so a client can gate side effects; the server shuts down cleanly
+  on stdin close.
+
+### Representations (read surfaces - the agent's world-model)
+
+- [ ] **`gwc model --json` - component manifest** - go/packages static
+  analysis emitting every component, its props struct, hooks used, atoms
+  read/written, events emitted, and file:line, with stable IDs and
+  deterministic ordering. The map an agent navigates instead of grepping. Pure
+  static; complements the existing `gwc inspect`.
+  Test for: a fixture app's manifest lists every component and its hook/atom
+  usage with no false negatives; output is byte-stable across runs (sorted,
+  no map nondeterminism); scans both `_wasm.go` and `_native.go` build tags
+  (mirror i18n/extract); a renamed prop changes the manifest deterministically.
+- [ ] **`gwc render <component> --props=<json> --json` - headless SSR oracle**
+  - render a component to its DOM tree via `ui.RenderToString`, returning the
+  serialized tree plus any render diagnostics, no browser. The millisecond
+  inner loop: edit -> render -> assert. Highest-leverage single tool.
+  Test for: a known component renders to the expected tree shape; a panicking
+  component returns a contained structured error (crash containment), not a
+  process crash; invalid props JSON fails with an actionable message; output
+  is deterministic for deterministic components.
+- [ ] **`gwc probe <example> --json` - browser oracle** - drive the existing
+  playwright harness for one example and return DOM + console + axe a11y +
+  perf-budget status as one blob. The "did my change actually work in a
+  browser" check, reusing the test/playwrightgo harness helpers.
+  Test for: a clean example reports ok with zero serious/critical a11y and
+  within-budget perf; an example with a seeded console error / a11y violation
+  is reported, not swallowed; webkit flakiness degrades to a documented skip
+  (mirror the cross-browser conformance policy), never a false pass.
+- [ ] **Hydration-diff + commit-trace representations** - structured SSR-vs-
+  client-first-render delta (the framework's classic silent bug) and an NDJSON
+  commit log (which atom/state changed -> which components committed, with
+  counts) exposed via `--json`. Detects hydration mismatches and needless
+  re-renders an agent otherwise can't see.
+  Test for: an intentional hydration mismatch fixture is reported with the
+  offending node path; a clean app reports zero mismatches; the commit trace
+  attributes a re-render to the state/atom write that caused it; a render
+  storm (N writes -> N commits) is visible as such.
+- [ ] **`gwc inspect --impact <symbol> --json` - blast-radius query (Plan
+  phase)** - `gwc inspect` already builds route/dependency/ownership reports;
+  sharpen it into an agent-facing "what breaks if I change X" query that
+  traverses the `gwc model` graph: given a component / atom / exported symbol,
+  return its direct and transitive dependents (components, routes, tests, docs)
+  so an agent can scope a change before making it. Closes the Plan-phase gap
+  that the dependency report only ~70% covers today.
+  Test for: changing a leaf component reports a small, correct dependent set;
+  changing a widely-used atom reports its full transitive fan-out; the result
+  distinguishes direct vs transitive and names the test/doc surfaces that
+  would need updating; a symbol with no dependents reports empty (not an
+  error); output is deterministic and matches the manifest graph.
+
+### Tools (act surfaces - verbs designed for agents)
+- [ ] **`gwc mutate <op> --json` - structured edit / codemod (Implement
+  phase)** - the missing verb in the one phase where the agent changes the
+  app. Today agents edit GoWebComponents source as raw text, which is fragile
+  for rename-prop, add/remove-hook, extract-component, wrap-in-`AsyncBoundary`,
+  and rename-component-across-callers. Provide AST-level operations (go/ast +
+  go/format, the same engine behind `gwc migrate -apply`) that preserve the
+  repo conventions - `parse`-prefixed locals, GoDoc-first-word-is-symbol-name,
+  CRLF/gofmt cleanliness - and leave comments and string literals untouched.
+  Emits the JSON envelope (files changed + a unified diff) and supports
+  `--dry-run`.
+  Test for: each op produces a tree that still builds native+wasm and passes
+  the conventions lint; a rename updates every caller across build tags
+  (`_wasm.go` AND `_native.go`) with no stragglers and no false hits inside
+  strings/comments; `--dry-run` reports the same diff it would apply without
+  writing; an op that cannot be applied safely (ambiguous target, would break
+  the build) fails closed with an actionable error rather than a partial edit;
+  applied output is gofmt-stable (idempotent re-run is a no-op).
+
+- [ ] **`gwc scaffold <kind> --json --no-input` - non-interactive generation**
+  - component/hook/example scaffolding with no TTY prompts, emitting the JSON
+  envelope (files written + next steps). Closes the long-standing
+  no-non-interactive-scaffold-path gap so an agent can create surfaces.
+  Test for: each kind generates files that build native+wasm and pass the
+  conventions lint (parse-prefix, godoc-first-word) with zero prompts; an
+  existing-file collision fails safely (no clobber) with a structured error;
+  `--dry-run` lists planned files without writing.
+- [ ] **`gwc check --json` - agent-shaped diagnostics** - typecheck +
+  lint-zero + conventions as structured diagnostics with machine-applicable
+  fix suggestions (not human prose), so an agent can apply fixes and re-check.
+  Aggregates existing `gwc lint`/vet/build into one agent-consumable result.
+  Test for: a file with a known convention violation yields a diagnostic with
+  code + file:line + suggested edit; a clean tree yields an empty diagnostic
+  set with ok=true; suggested edits, when applied, make the diagnostic
+  disappear (round-trip).
+- [ ] **`gwc explain <errorcode|capability> --json`** - surface
+  `docs/errorcodes` and `docs/capabilities` as a queryable endpoint so an
+  agent resolves a code to cause/fix and checks capability availability
+  without reading docs prose.
+  Test for: every code in docs/errorcodes resolves; an unknown code returns a
+  structured not-found (not empty success); capability queries report the
+  native/wasm availability matrix.
+
+- [ ] **`--help` everywhere - self-documenting CLI for humans AND agents** -
+  every command and the root accept `--help` and print how to use it: synopsis,
+  every flag with type/default, `--json` envelope note, and a runnable example.
+  The same help is available structured via `gwc help --json` / per-command
+  `--help --json` so an agent discovers the surface without scraping prose, and
+  it is generated from the command registry so help can never drift from the
+  real flags (the same registry that backs `--json` and `gwc mcp`).
+  Test for: every registered command prints non-empty help with at least one
+  example and documents every flag it actually parses (drift test: flags in
+  help == flags in code, both directions); `--help` exits 0 and never executes
+  the command's side effects; `gwc help --json` validates against the help
+  schema; an unknown command suggests the nearest match instead of a bare
+  error.
+- [ ] **`gwc search <query> --json` - semantic API search** - an agent (or
+  human) finds APIs by intent ("persist state across reload", "trap focus in a
+  modal", "retry a flaky fetch") instead of guessing symbol names. Index the
+  public API surface - exported symbols + godoc first-sentence + package +
+  capability tags, sourced from the `gwc model` manifest and `docs/capabilities`
+  - and rank results by semantic relevance, returning symbol, signature,
+  package, file:line, a one-line summary, and a usage pointer. Ships as a CLI
+  flag and an MCP tool; pairs with `gwc explain` (intent -> API -> details).
+  Decide the embedding strategy explicitly: a vendored local model keeps it
+  offline/deterministic, an optional pluggable embedder allows higher quality -
+  whichever is chosen, results must be reproducible for a fixed index + query.
+  Test for: intent queries return the right API in the top results (a checked-in
+  query->expected-symbol fixture set, e.g. "persist across reload" ->
+  `UsePersistedState`, "trap focus" -> `UseFocusTrap`, "retry fetch" ->
+  `RetryPolicy`); the same index + query is deterministic across runs; a
+  nonsense query returns low-confidence/empty rather than a confident wrong
+  answer; the index covers every exported symbol the manifest knows (no
+  silent gaps); native+wasm symbols both indexed.
+
+### Agent-native dev loop
+
+- [ ] **`gwc dev --agent` - structured event stream** - emit dev-loop events
+  (`recompiled`, `hydrate-mismatch`, `console-error`, `test-failed`,
+  `perf-regressed`) as NDJSON an agent tails, instead of human terminal spew.
+  Subsumes the open auto-doctor / build-status-badge / perf-budget-gate items
+  as "emit an event the agent reacts to," and pairs with the existing
+  `gwc dev` doctor-on-failure work.
+  Test for: a forced recompile error emits exactly one structured `error`
+  event with file:line then a `recovered` event on fix; events are valid
+  NDJSON (one JSON object per line, flushed live); the stream is consumable
+  concurrently with the human TUI; no event is dropped under rapid edits
+  (bounded buffer, documented if it ever truncates - never silent).
+
+### Closing the loop (acceptance + observe)
+
+- [ ] **`gwc verify --agent` - single acceptance gate / definition-of-done
+  (Verify capstone)** - today `gwc verify` only runs app-local Go tests + a
+  CI-profile wasm build, and the rest of the verification surface (render,
+  probe, a11y audit, perf budget, hydration-clean, visual regression, repro
+  build) is scattered across separate commands and lanes. Aggregate them into
+  ONE command that runs the full gate and returns a single pass/fail with
+  structured per-check evidence in the JSON envelope. This is the highest-
+  leverage item for the "claim done only with proof" discipline: the one
+  oracle an agent runs before declaring a change finished. Checks are
+  selectable/skippable (with the skip recorded in the result, never silent)
+  so the gate scales from a quick check to a full release gate.
+  Test for: a known-good change passes every selected check with evidence
+  (artifact SHAs, a11y counts, perf deltas, hydration-clean) attached; a
+  change that breaks ANY single check fails the whole gate and names the
+  failing check + why; skipped checks appear in the result as explicitly
+  skipped (no silent omission); the gate is deterministic for a deterministic
+  input; exit code and the `ok` field agree; the same gate is callable as one
+  MCP tool.
+- [ ] **`gwc observe --agent` - close the loop from runtime back to Plan
+  (Observe phase)** - the SDLC is a line, not a loop, until production signal
+  flows back as agent-consumable data. Provide a queryable surface over the
+  runtime telemetry the framework already records (profiling events, crash
+  reports, structured logs with trace/span IDs) plus the open RUM/OTLP-export,
+  deterministic-replay, and PII-redaction items - so an agent can ask "what is
+  failing in the field, on which route, since which build" and feed that back
+  into Plan. Promotes and ties together the open telemetry todos under one
+  agent-facing endpoint; redaction is applied before anything leaves the
+  process (fail-closed).
+  Test for: a captured crash/error stream is queryable by route/build/severity
+  and returns structured records (not raw text); a deterministic-replay capture
+  round-trips - replaying a recorded update stream reproduces the same failure;
+  configured PII fields are redacted before emission and a redaction failure
+  drops the field rather than leaking it; an empty/healthy window returns an
+  empty result, not an error; the endpoint is exposed via `--json` and MCP.
+
+### Toolchain hygiene & analysis (untracked gaps - 2026-06-12)
+
+Commands the toolchain lacks today (verified absent from the `gwc` dispatch);
+distinct from the agent-surface items above. Note: coverage already exists as a
+test lane (`gwc test -lane coverage`), so it is NOT listed here.
+
+- [ ] **`gwc fmt` - convention-aware formatter (the missing half of `gwc
+  lint`)** - `gwc lint` DETECTS convention violations but nothing FIXES them.
+  Provide a formatter that runs gofmt, normalizes CRLF->LF (plain `gofmt -l`
+  misreports on CRLF checkouts - a known repo gotcha), and applies the
+  mechanical house rules where they are safe to automate (GoDoc-first-word
+  presence, obvious `parse`-prefix on new locals). The natural partner to
+  `gwc mutate`: codemod output must be re-normalized deterministically.
+  Test for: a deliberately mis-gofmt'd + CRLF file is fixed and reported; a
+  function missing its GoDoc-first-word is flagged (and fixed where
+  unambiguous); a `-check` mode exits non-zero without writing (CI/agent gate)
+  and agrees with the write mode; running fmt twice is a no-op (idempotent);
+  string/comment contents are never rewritten.
+- [ ] **`gwc clean` - remove build artifacts and caches** - no command wipes
+  `bin/`, generated wasm/`wasm_exec.js` outputs, tailwind build output, release
+  packages, and tool caches. Agents accumulate `./bin/*.test`/`*.exe` (the
+  workflow rules route ad-hoc binaries there) with no sweep.
+  Test for: clean removes the known artifact set and leaves source/tracked
+  files untouched; `--dry-run` lists what would be removed without deleting;
+  selective targets (`-artifacts`, `-cache`, `-bin`) work; cleaning an
+  already-clean tree is a no-op success; never deletes outside the repo root.
+- [ ] **`gwc test --watch` / `gwc watch` - re-run a lane on change (TDD inner
+  loop)** - `gwc dev` livereloads the APP but nothing re-runs the relevant
+  TEST lane on save. Provide a watch that re-runs the selected lane(s) on file
+  change with debounced rebuilds, surfacing pass/fail. Pairs with the planned
+  `gwc dev --agent` NDJSON stream (emit `test-passed`/`test-failed` events).
+  Test for: editing a source file triggers exactly one debounced re-run (rapid
+  saves coalesce, not N runs); a failing test is reported and a subsequent fix
+  flips it green without restart; the watched lane set is configurable; the
+  watcher exits cleanly on signal and leaks no processes (mirror the
+  zombie-server hygiene the http tests needed).
+- [ ] **`gwc size` - wasm bundle size attribution** - `gwc wasm measure` gives
+  the size NUMBER but not the BREAKDOWN. Attribute wasm bytes to packages /
+  symbols (parse the Go wasm section / `go tool nm` size data) so "why is the
+  binary 6MB" is answerable. Directly unblocks the open binary-size /
+  route-splitting / server-component items, which currently fly blind.
+  Test for: the report attributes bytes to packages and sums to ~the artifact
+  size (within section overhead); the largest contributors are ranked; a JSON
+  mode feeds a budget/ratchet; building the same commit twice yields the same
+  attribution (deterministic); a TinyGo-profile artifact is handled or clearly
+  reported as unsupported, not silently wrong.
+- [ ] **`gwc docs` - generate / serve project API docs** - no godoc-style
+  surface for the project's own packages; the planned `gwc explain` covers
+  errorcodes/capabilities only, not the API. Generate a browsable/JSON API
+  index (exported symbols + GoDoc, per package) and optionally serve it. Pairs
+  with the planned `gwc model` + `gwc search` (shared symbol index).
+  Test for: every exported symbol in a fixture package appears with its GoDoc
+  first sentence; the index covers `_wasm.go` AND `_native.go` symbols; JSON
+  output validates against a schema and is deterministic; an undocumented
+  exported symbol is reported (doc-coverage gate), not silently omitted.
+- [ ] **`gwc deadcode` - unused component / export detection** - nothing finds
+  exported symbols or components that nothing references, so refactors guess at
+  what is safe to delete. Falls out of the `gwc model` graph + `inspect
+  --impact` work (a symbol with zero dependents across app + tests + docs).
+  Test for: a deliberately unreferenced component/export is reported; a symbol
+  referenced only from a test is NOT flagged as dead (or is flagged distinctly
+  as test-only); reflection/registry-based references (router registration,
+  plugin capability tables) are accounted for or reported as unverifiable
+  rather than falsely dead; output is deterministic.
+- [ ] **`gwc deps` / `gwc update` - dependency + framework version report and
+  bump** - `gwc upgrade` only migrates the `gwc-start.json` schema; nothing
+  reports or bumps `go.mod` dependencies or the framework version. Provide a
+  report (current vs latest, with the known-vuln overlay from govulncheck) and
+  a guarded bump that re-runs build+verify before keeping the change. Pairs
+  with the SBOM / root-security items.
+  Test for: the report lists outdated modules and flags any with govulncheck
+  advisories; a bump that breaks the build is rolled back (the tree is left
+  building); `--dry-run` reports the planned bumps without writing go.mod;
+  the framework's own version is distinguished from third-party deps.
