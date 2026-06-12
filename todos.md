@@ -395,6 +395,49 @@ impact; exactly three active items carry the next-work marker.
   teardown); the built-in kernel plugin passes it; a deliberately
   non-conforming fixture plugin fails with actionable messages.
 
+## Security findings (2026-06-11 code review) - fix
+
+- [ ] **Markdown URL-scheme allowlist (latent stored-XSS in a public API)** -
+  `html.RenderMarkdown` / `ResolveMarkdownHref` (html/markdown.go) pass any
+  absolute URL straight to `Href`, so `[x](javascript:...)` and
+  `![x](data:text/html,...)` in links, images, and autolinks render an
+  executable sink. Repo-controlled docs content is not exploitable today,
+  but any app rendering user-supplied markdown inherits the hole, and the
+  signature gives no warning. Fix: allowlist http/https/mailto/relative/#
+  in the link, image, and autolink paths; drop or neutralize the rest;
+  make the policy configurable via MarkdownRenderOptions.
+  Test for: javascript:, data:, vbscript:, and mixed-case/whitespace-
+  obfuscated variants are dropped in links AND images AND autolinks;
+  http/https/mailto/relative/# survive unchanged; a configurable
+  allowlist round-trips; native and wasm parity; the docs-site chapters
+  still render every legitimate cross-link.
+- [ ] **Livereload WebSocket origin validation (dev-server CSWSH)** -
+  `tools/livereload/livereload.go` sets `CheckOrigin` to always return
+  true, so while the dev server runs any visited website can open
+  ws://127.0.0.1:<port> and receive the reload stream / trigger reloads.
+  Fix: validate the request Origin against the configured dev host:port
+  (and localhost variants), reject mismatches.
+  Test for: same-origin upgrade succeeds; a foreign Origin is rejected
+  with 403; missing Origin handled per policy; an explicit opt-out flag
+  exists for tunnel/LAN dev with a logged warning.
+- [ ] **Remove or fence the unused SetInnerHTML adapter sink** -
+  `internal/runtime/interfaces.go` exposes `SetInnerHTML` on the DOM
+  adapter; it is implemented (jsdom/mockdom) but never called from the
+  render/commit path - an unprotected raw-HTML sink on the public
+  interface. Fix: remove it, or if retained, document it as
+  trusted-input-only and add a render-path assertion that it stays
+  unreachable.
+  Test for: a grep/analyzer guard fails if SetInnerHTML gains a
+  render-path caller; if kept, a doc note plus an example of safe use.
+- [ ] **Document the global cache-key namespace sharp edge** -
+  `fetch.UseCachedResource` keys live in one app-global `sync.Map`
+  (fetch/cache.go), so unrelated components choosing the same key string
+  share state (type conflicts warn, so this is by-design, not a crash).
+  Fix: document the global-namespace contract and recommend a
+  module-prefix convention; consider an optional scoping helper.
+  Test for: doc example of the collision and the prefix convention; the
+  existing conflicting-type warning remains covered.
+
 ## Maintenance backlog (carried from the test/perf campaign)
 
 - [ ] Lazy DOM binding - the remaining named lever for the React DOM-ready
