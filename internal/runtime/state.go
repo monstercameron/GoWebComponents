@@ -435,6 +435,20 @@ func (parseAr *AtomRegistry) GetAtomCount() int {
 	return parseCount
 }
 
+// GetSubscriberTotal returns the total number of atom subscriptions across all atoms.
+func (parseAr *AtomRegistry) GetSubscriberTotal() int {
+	if parseAr == nil {
+		return 0
+	}
+	parseAr.mu.RLock()
+	defer parseAr.mu.RUnlock()
+	parseTotal := 0
+	for _, parseSubs := range parseAr.subscriptions {
+		parseTotal += len(parseSubs)
+	}
+	return parseTotal
+}
+
 // Snapshot returns a shallow copy of all atom values currently stored.
 func (parseAr *AtomRegistry) Snapshot() map[string]any {
 	if parseAr == nil {

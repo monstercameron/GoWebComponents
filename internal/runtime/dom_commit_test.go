@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -127,6 +128,53 @@ func TestUpdateDomProperties_EventHandlers(parseT *testing.T) {
 	parseNode := parseDom.(*testDOMNode)
 	if len(parseNode.properties) < 3 {
 		parseT.Errorf("Expected event handlers to be set as properties, got %d properties", len(parseNode.properties))
+	}
+}
+
+type passiveEventTestAdapter struct {
+	*testDOMAdapter
+	added   []string
+	removed []string
+}
+
+func (parseA *passiveEventTestAdapter) AddPassiveEventListener(parseNode DOMNode, parseEventType string, parseHandler any) {
+	parseA.added = append(parseA.added, parseEventType)
+}
+
+func (parseA *passiveEventTestAdapter) RemovePassiveEventListener(parseNode DOMNode, parseEventType string, parseHandler any) {
+	parseA.removed = append(parseA.removed, parseEventType)
+}
+
+func TestUpdateDomProperties_PassiveEventHandlers(parseT *testing.T) {
+	parseAdapter := &passiveEventTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	parseDom := parseAdapter.CreateElement("div")
+	parsePassiveHandler := func() {}
+	parseNormalHandler := func() {}
+
+	parseRt.updateDomProperties(parseDom, nil, map[string]any{
+		"ontouchmove": PassiveEventHandler{Handler: parsePassiveHandler},
+	})
+	if len(parseAdapter.added) != 1 || parseAdapter.added[0] != "touchmove" {
+		parseT.Fatalf("expected passive touchmove listener to be added, got %v", parseAdapter.added)
+	}
+	if parseNode := parseDom.(*testDOMNode); parseNode.properties["ontouchmove"] != nil {
+		parseT.Fatalf("passive listener should not set normal event property, got %#v", parseNode.properties["ontouchmove"])
+	}
+
+	parseRt.updateDomProperties(parseDom, map[string]any{
+		"ontouchmove": PassiveEventHandler{Handler: parsePassiveHandler},
+	}, map[string]any{
+		"ontouchmove": parseNormalHandler,
+	})
+	if len(parseAdapter.removed) != 1 || parseAdapter.removed[0] != "touchmove" {
+		parseT.Fatalf("expected passive touchmove listener to be removed, got %v", parseAdapter.removed)
+	}
+	parseRestored := parseDom.(*testDOMNode).properties["ontouchmove"]
+	if parseRestored == nil || reflect.ValueOf(parseRestored).Pointer() != reflect.ValueOf(parseNormalHandler).Pointer() {
+		parseT.Fatalf("expected normal handler property to be restored")
 	}
 }
 

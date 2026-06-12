@@ -93,6 +93,44 @@ func TestRenderToStreamWritesShellBeforeSuspensionResolves(parseT *testing.T) {
 	}
 }
 
+func TestRenderToStreamBoundaryScriptThreadsNonce(parseT *testing.T) {
+	parseDone := make(chan struct{})
+	parseRoot := CreateElement(AsyncBoundaryNodeType, map[string]any{
+		"fallback": CreateElement("em", nil, "loading"),
+		"content": CreateElement(func() *Element {
+			SuspendUntil(parseDone, "nonce boundary")
+			return CreateElement("strong", nil, "loaded")
+		}, nil),
+	})
+
+	var parseBuffer bytes.Buffer
+	parseErrs := make(chan error, 1)
+	go func() {
+		parseErrs <- RenderToStream(context.Background(), &parseBuffer, parseRoot, SSRStreamOptions{ScriptNonce: `nonce"42`})
+	}()
+	waitForStreamContains(parseT, &parseBuffer, "<em>loading</em>")
+	close(parseDone)
+	if parseErr := <-parseErrs; parseErr != nil {
+		parseT.Fatalf("RenderToStream returned error: %v", parseErr)
+	}
+	parseHTML := parseBuffer.String()
+	if !strings.Contains(parseHTML, `nonce="nonce&#34;42"`) {
+		parseT.Fatalf("expected nonce on streamed boundary script, got %q", parseHTML)
+	}
+}
+
+func waitForStreamContains(parseT *testing.T, parseBuffer *bytes.Buffer, parseNeedle string) {
+	parseT.Helper()
+	parseDeadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(parseDeadline) {
+		if strings.Contains(parseBuffer.String(), parseNeedle) {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	parseT.Fatalf("timed out waiting for stream to contain %q; got %q", parseNeedle, parseBuffer.String())
+}
+
 func TestRenderToStreamFlushesBoundariesOutOfOrder(parseT *testing.T) {
 	parseFirstDone := make(chan struct{})
 	parseSecondDone := make(chan struct{})

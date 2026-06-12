@@ -546,7 +546,7 @@ func hasSerializableDOMInteropName(parseNormalizedName string) bool {
 // hasSerializableEventClosureName reports whether one normalized field or key name maps to an event-style prop key.
 func hasSerializableEventClosureName(parseNormalizedName string) bool {
 	switch parseNormalizedName {
-	case "onclick", "onchange", "oninput", "onsubmit", "onfocus", "onblur", "onkeydown", "onkeyup", "onkeypress", "onmousedown", "onmouseup", "onmouseenter", "onmouseleave", "onmouseover", "onmouseout", "onpointerdown", "onpointerup", "onpointermove", "onpointerenter", "onpointerleave", "ontouchstart", "ontouchend", "onscroll", "onwheel", "onload", "onerror", "onselect", "ondblclick":
+	case "onclick", "onchange", "oninput", "onsubmit", "onfocus", "onblur", "onkeydown", "onkeyup", "onkeypress", "onmousedown", "onmouseup", "onmouseenter", "onmouseleave", "onmouseover", "onmouseout", "ondblclick", "oncontextmenu", "onwheel", "ontransitionend", "onanimationend", "onload", "onerror", "onselect", "onpointerdown", "onpointerup", "onpointermove", "onpointerenter", "onpointerleave", "ontouchstart", "ontouchmove", "ontouchend", "ondragstart", "ondragover", "ondrop", "ondragend", "onscroll":
 		return true
 	default:
 		return strings.HasPrefix(parseNormalizedName, "on_") || strings.HasPrefix(parseNormalizedName, "on-")

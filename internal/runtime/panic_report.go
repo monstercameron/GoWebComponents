@@ -82,12 +82,29 @@ type ActionablePanicOptions struct {
 	Consequence    string
 }
 
+type PanicReportRedactionContext struct {
+	Path  string
+	Field string
+	Value any
+}
+
+type PanicReportRedactionPolicy struct {
+	Fields []string
+	Redact func(PanicReportRedactionContext) (any, error)
+}
+
 var hideRawPanicOutput atomic.Bool
 
 var (
 	panicLoggingHookMu sync.RWMutex
 	panicLoggingHook   func(PanicReport)
 )
+
+var panicReportRedactionState struct {
+	mu     sync.RWMutex
+	policy PanicReportRedactionPolicy
+	fields map[string]struct{}
+}
 
 // init is a core package helper.
 func init() {
@@ -108,6 +125,36 @@ func CurrentUnhandledPanicLoggingOptions() PanicLoggingOptions {
 	parseHook := panicLoggingHook
 	panicLoggingHookMu.RUnlock()
 	return PanicLoggingOptions{HideRawPanicOutput: hideRawPanicOutput.Load(), OnReport: parseHook}
+}
+
+// ConfigurePanicReportRedaction installs runtime-local redaction for panic report fields.
+func ConfigurePanicReportRedaction(parsePolicy PanicReportRedactionPolicy) {
+	parseFields := map[string]struct{}{}
+	for _, parseField := range parsePolicy.Fields {
+		parseNormalized := normalizePanicRedactionField(parseField)
+		if parseNormalized != "" {
+			parseFields[parseNormalized] = struct{}{}
+		}
+	}
+	parsePolicy.Fields = append([]string(nil), parsePolicy.Fields...)
+	panicReportRedactionState.mu.Lock()
+	parsePolicyCopy := parsePolicy
+	panicReportRedactionState.policy = parsePolicyCopy
+	if len(parseFields) == 0 {
+		panicReportRedactionState.fields = nil
+	} else {
+		panicReportRedactionState.fields = parseFields
+	}
+	panicReportRedactionState.mu.Unlock()
+}
+
+// CurrentPanicReportRedaction returns the active runtime-local panic report redaction policy.
+func CurrentPanicReportRedaction() PanicReportRedactionPolicy {
+	panicReportRedactionState.mu.RLock()
+	defer panicReportRedactionState.mu.RUnlock()
+	parsePolicy := panicReportRedactionState.policy
+	parsePolicy.Fields = append([]string(nil), parsePolicy.Fields...)
+	return parsePolicy
 }
 
 // shouldHideRawPanicOutput is a core package helper.
@@ -183,12 +230,124 @@ func clonePanicReport(parseReport PanicReport) PanicReport {
 	return parseCloned
 }
 
+func redactPanicReport(parseReport PanicReport) PanicReport {
+	parseRedacted := clonePanicReport(parseReport)
+	parseOriginalSummary := parseRedacted.Summary
+	parseOriginalPath := parseRedacted.Path
+	parseOriginalWhere := parseRedacted.Where
+	parseOriginalTopFrame := parseRedacted.TopFrame
+	parseRedacted.Source = redactPanicStringField("panic.source", "source", parseRedacted.Source)
+	parseRedacted.Subject = redactPanicStringField("panic.subject", "subject", parseRedacted.Subject)
+	parseRedacted.Where = redactPanicStringField("panic.where", "where", parseRedacted.Where)
+	parseRedacted.Path = redactPanicStringField("panic.path", "path", parseRedacted.Path)
+	parseRedacted.Summary = redactPanicStringField("panic.summary", "summary", parseRedacted.Summary)
+	parseRedacted.TopFrame = redactPanicStringField("panic.top_frame", "top_frame", parseRedacted.TopFrame)
+	parseRedacted.Formatted = redactPanicStringField("panic.formatted", "formatted", parseRedacted.Formatted)
+	parseRedacted.ComponentStack = redactPanicStringSlice("panic.component_stack", "component_stack", parseRedacted.ComponentStack)
+	parseRedacted.AppFrames = redactPanicStringSlice("panic.app_frames", "app_frames", parseRedacted.AppFrames)
+	parseRedacted.Formatted = replaceNonEmptyPanicText(parseRedacted.Formatted, parseOriginalSummary, parseRedacted.Summary)
+	parseRedacted.Formatted = replaceNonEmptyPanicText(parseRedacted.Formatted, parseOriginalPath, parseRedacted.Path)
+	parseRedacted.Formatted = replaceNonEmptyPanicText(parseRedacted.Formatted, parseOriginalWhere, parseRedacted.Where)
+	parseRedacted.Formatted = replaceNonEmptyPanicText(parseRedacted.Formatted, parseOriginalTopFrame, parseRedacted.TopFrame)
+	return parseRedacted
+}
+
+func replaceNonEmptyPanicText(parseText string, parseOld string, parseNew string) string {
+	if strings.TrimSpace(parseOld) == "" || parseOld == parseNew {
+		return parseText
+	}
+	return strings.ReplaceAll(parseText, parseOld, parseNew)
+}
+
+func redactPanicStringField(parsePath string, parseField string, parseValue string) string {
+	parseRedacted, parseKeep := redactPanicField(parsePath, parseField, parseValue)
+	if !parseKeep {
+		return ""
+	}
+	return fmt.Sprint(parseRedacted)
+}
+
+func redactPanicStringSlice(parsePath string, parseField string, parseValues []string) []string {
+	parseRedacted, parseKeep := redactPanicField(parsePath, parseField, append([]string(nil), parseValues...))
+	if !parseKeep {
+		return nil
+	}
+	if parseStrings, parseOk := parseRedacted.([]string); parseOk {
+		return append([]string(nil), parseStrings...)
+	}
+	if parseAny, parseOk := parseRedacted.([]any); parseOk {
+		parseOut := make([]string, 0, len(parseAny))
+		for _, parseValue := range parseAny {
+			parseOut = append(parseOut, fmt.Sprint(parseValue))
+		}
+		return parseOut
+	}
+	return []string{fmt.Sprint(parseRedacted)}
+}
+
+func redactPanicField(parsePath string, parseField string, parseValue any) (any, bool) {
+	parsePolicy, parseMatched := currentPanicRedactionPolicy(parsePath, parseField)
+	if !parseMatched {
+		return parseValue, true
+	}
+	if parsePolicy.Redact == nil {
+		return "[redacted]", true
+	}
+	parseRedacted, parseErr := parsePolicy.Redact(PanicReportRedactionContext{
+		Path:  strings.TrimSpace(parsePath),
+		Field: strings.TrimSpace(parseField),
+		Value: parseValue,
+	})
+	if parseErr != nil {
+		return nil, false
+	}
+	return parseRedacted, true
+}
+
+func currentPanicRedactionPolicy(parsePath string, parseField string) (PanicReportRedactionPolicy, bool) {
+	panicReportRedactionState.mu.RLock()
+	defer panicReportRedactionState.mu.RUnlock()
+	if len(panicReportRedactionState.fields) == 0 {
+		return PanicReportRedactionPolicy{}, false
+	}
+	parseNormalizedField := normalizePanicRedactionField(parseField)
+	if parseNormalizedField == "" {
+		parseNormalizedField = normalizePanicRedactionField(lastPanicRedactionPathSegment(parsePath))
+	}
+	_, parseMatched := panicReportRedactionState.fields[parseNormalizedField]
+	if !parseMatched {
+		return PanicReportRedactionPolicy{}, false
+	}
+	parsePolicy := panicReportRedactionState.policy
+	parsePolicy.Fields = append([]string(nil), parsePolicy.Fields...)
+	return parsePolicy, true
+}
+
+func normalizePanicRedactionField(parseField string) string {
+	parseField = strings.TrimSpace(strings.ToLower(parseField))
+	parseField = strings.NewReplacer("-", "", "_", "", " ", "", ".", "").Replace(parseField)
+	return parseField
+}
+
+func lastPanicRedactionPathSegment(parsePath string) string {
+	parsePath = strings.TrimSpace(parsePath)
+	if parsePath == "" {
+		return ""
+	}
+	parsePath = strings.TrimRight(parsePath, ".")
+	if parseIndex := strings.LastIndex(parsePath, "."); parseIndex >= 0 {
+		return parsePath[parseIndex+1:]
+	}
+	return parsePath
+}
+
 // emitWrappedPanicReport is a core package helper.
 func emitWrappedPanicReport(parseReport PanicReport) {
 	parseReport.Formatted = strings.TrimSpace(parseReport.Formatted)
 	if parseReport.Formatted == "" {
 		return
 	}
+	parseReport = redactPanicReport(parseReport)
 	if parseHook := currentPanicReportHook(); parseHook != nil {
 		func() {
 			defer func() { _ = recover() }()

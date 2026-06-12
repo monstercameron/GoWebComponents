@@ -28,6 +28,7 @@ type SSRStreamChunk struct {
 type SSRStreamOptions struct {
 	BoundaryIDPrefix      string
 	DisableBoundaryScript bool
+	ScriptNonce           string
 	OnChunk               func(SSRStreamChunk)
 	Flush                 func()
 }
@@ -154,7 +155,7 @@ func renderSSRStreamBoundaryChunk(parseCtx context.Context, parseBoundary ssrStr
 		return SSRStreamChunk{Kind: SSRStreamChunkBoundary, BoundaryID: parseBoundary.id, Err: parseErr}
 	}
 
-	parseHTML := renderSSRStreamBoundaryPatch(parseBoundary.id, parseContent.String(), !parseOptions.DisableBoundaryScript)
+	parseHTML := renderSSRStreamBoundaryPatch(parseBoundary.id, parseContent.String(), !parseOptions.DisableBoundaryScript, parseOptions.ScriptNonce)
 	return SSRStreamChunk{Kind: SSRStreamChunkBoundary, BoundaryID: parseBoundary.id, HTML: parseHTML}
 }
 
@@ -395,7 +396,7 @@ func writeSSRStreamBoundaryEnd(parseBuilder *strings.Builder, parseBoundaryID st
 	parseBuilder.WriteString(":end-->")
 }
 
-func renderSSRStreamBoundaryPatch(parseBoundaryID string, parseHTML string, parseIncludeScript bool) string {
+func renderSSRStreamBoundaryPatch(parseBoundaryID string, parseHTML string, parseIncludeScript bool, parseScriptNonce string) string {
 	var parseBuilder strings.Builder
 	parseBuilder.WriteString(`<template data-gwc-stream-boundary="`)
 	parseBuilder.WriteString(html.EscapeString(parseBoundaryID))
@@ -403,16 +404,27 @@ func renderSSRStreamBoundaryPatch(parseBoundaryID string, parseHTML string, pars
 	parseBuilder.WriteString(parseHTML)
 	parseBuilder.WriteString(`</template>`)
 	if parseIncludeScript {
-		writeSSRStreamBoundaryPatchScript(&parseBuilder, parseBoundaryID)
+		writeSSRStreamBoundaryPatchScript(&parseBuilder, parseBoundaryID, parseScriptNonce)
 	}
 	return parseBuilder.String()
 }
 
-func writeSSRStreamBoundaryPatchScript(parseBuilder *strings.Builder, parseBoundaryID string) {
+func writeSSRStreamBoundaryPatchScript(parseBuilder *strings.Builder, parseBoundaryID string, parseScriptNonce string) {
 	parseEncodedID, _ := json.Marshal(parseBoundaryID)
 	parseBuilder.WriteString(`<script data-gwc-stream-boundary="`)
 	parseBuilder.WriteString(html.EscapeString(parseBoundaryID))
-	parseBuilder.WriteString(`">(function(){var id=`)
+	writeSSRScriptNonceAttr(parseBuilder, parseScriptNonce)
+	parseBuilder.WriteString(`>(function(){var id=`)
 	parseBuilder.Write(parseEncodedID)
 	parseBuilder.WriteString(`;var d=document;var s="gwc-stream-boundary:"+id+":start";var e="gwc-stream-boundary:"+id+":end";var t=d.currentScript&&d.currentScript.previousElementSibling;if(!t||t.tagName!=="TEMPLATE")return;var w=d.createTreeWalker(d,NodeFilter.SHOW_COMMENT);var a=null,b=null,n;while((n=w.nextNode())){if(n.nodeValue===s)a=n;if(a&&n.nodeValue===e){b=n;break}}if(!a||!b)return;var r=d.createRange();r.setStartAfter(a);r.setEndBefore(b);r.deleteContents();r.insertNode(t.content.cloneNode(true));})();</script>`)
+}
+
+func writeSSRScriptNonceAttr(parseBuilder *strings.Builder, parseScriptNonce string) {
+	parseScriptNonce = strings.TrimSpace(parseScriptNonce)
+	if parseScriptNonce == "" {
+		return
+	}
+	parseBuilder.WriteString(` nonce="`)
+	parseBuilder.WriteString(html.EscapeString(parseScriptNonce))
+	parseBuilder.WriteByte('"')
 }

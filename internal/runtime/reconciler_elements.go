@@ -20,6 +20,24 @@ func SetCurrentFiber(parseFiber *Fiber) {
 	currentFiberOwnerGoroutineID = currentHookGoroutineID()
 }
 
+// runtimeForFiber returns the owning runtime for a fiber subtree, falling back
+// to the global runtime for legacy tests that install a bare current fiber.
+func runtimeForFiber(parseFiber *Fiber) *Runtime {
+	for parseCursor := parseFiber; parseCursor != nil; parseCursor = parseCursor.parent {
+		if parseCursor.ownerRuntime != nil {
+			return parseCursor.ownerRuntime
+		}
+	}
+	if parseFiber != nil && parseFiber.alternate != nil {
+		for parseCursor := parseFiber.alternate; parseCursor != nil; parseCursor = parseCursor.parent {
+			if parseCursor.ownerRuntime != nil {
+				return parseCursor.ownerRuntime
+			}
+		}
+	}
+	return GetGlobalRuntime()
+}
+
 // requireCurrentHookFiber returns the current render fiber or panics with the
 // hook-specific development diagnostic.
 func requireCurrentHookFiber(parseName string) *Fiber {
@@ -400,6 +418,7 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 			hasDirectText:       parseOldFiber.hasDirectText,
 			isCompactHostProps:  parseOldFiber.isCompactHostProps,
 			updateOrigin:        parseOldFiber.updateOrigin,
+			ownerRuntime:        parseRt,
 		}
 		if parseNewFiber.hooks != nil {
 			parseNewFiber.hooks.owner = parseNewFiber

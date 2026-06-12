@@ -813,6 +813,9 @@ func (parseHooks *Hooks) restoreFetchValue(parseIndex int, parseUrl string) (Fet
 
 // renderFunctionComponent is an internal hot-reload helper.
 func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bool, *Fiber) {
+	if parseRt != nil && parseFiber != nil {
+		parseFiber.ownerRuntime = parseRt
+	}
 	var parseRestore *HotReloadComponentSnapshot
 	if parseSnapshot := parseRt.matchingHotReloadComponentSnapshot(parseFiber); parseSnapshot != nil {
 		if componentSnapshotCompatible(parseSnapshot, parseFiber) {
@@ -823,6 +826,9 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 	}
 
 	for parseAttempt := range 2 {
+		if parseAttempt == 0 && parseRestore == nil {
+			parseRt.strictPreviewRender(parseFiber)
+		}
 		SetCurrentFiber(parseFiber)
 		parseFiber.renderDurationNs = 0
 		if parseAttempt == 0 && parseRestore != nil {

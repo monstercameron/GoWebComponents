@@ -11,6 +11,11 @@ type preparedHostDOMAdapter interface {
 	CreatePreparedElement(tag string, attrs []HostAttr, text string) DOMNode
 }
 
+type passiveEventDOMAdapter interface {
+	AddPassiveEventListener(node DOMNode, eventType string, handler any)
+	RemovePassiveEventListener(node DOMNode, eventType string, handler any)
+}
+
 func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
 	var parseDom DOMNode
 
@@ -115,6 +120,10 @@ func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, par
 			parseTargetName = parseName
 		}
 		if _, parseExists := parseNewProps[parseName]; !parseExists {
+			if parseHandler, parseOk := passiveEventHandler(parseOldProps[parseName]); parseOk {
+				parseRt.removePassiveEventHandler(parseDom, parseTargetName, parseHandler)
+				continue
+			}
 			if parseMeta.shouldReset {
 				parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseMeta.resetValue)
 			} else {
@@ -136,6 +145,21 @@ func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, par
 
 		// Optimization: Skip if value hasn't changed
 		if parseOldValue, parseExists2 := parseOldProps[parseName2]; parseExists2 && fastEqual(parseOldValue, parseValue) {
+			continue
+		}
+		parseHadOldNonPassiveHandler := false
+		if parseOldValue, parseExists3 := parseOldProps[parseName2]; parseExists3 {
+			if parseOldHandler, parseOldPassive := passiveEventHandler(parseOldValue); parseOldPassive {
+				parseRt.removePassiveEventHandler(parseDom, parseTargetName2, parseOldHandler)
+			} else if _, parseEventOk := eventTypeFromProp(parseTargetName2); parseEventOk {
+				parseHadOldNonPassiveHandler = true
+			}
+		}
+		if parseHandler, parseOk := passiveEventHandler(parseValue); parseOk {
+			if parseHadOldNonPassiveHandler {
+				parseRt.domAdapter.SetProperty(parseDom, parseTargetName2, nil)
+			}
+			parseRt.addPassiveEventHandler(parseDom, parseTargetName2, parseHandler)
 			continue
 		}
 
@@ -232,6 +256,11 @@ func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map
 		if isPreserveHydrationState && shouldPreserveHydrationInitialProperty(parseTargetName) {
 			continue
 		}
+		if parseHandler, parseOk := passiveEventHandler(parseValue); parseOk {
+			parseFlushAttrBatch()
+			parseRt.addPassiveEventHandler(parseDom, parseTargetName, parseHandler)
+			continue
+		}
 
 		switch parseMeta.kind {
 		case propKindStyle:
@@ -259,6 +288,41 @@ func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map
 	}
 
 	parseFlushAttrBatch()
+}
+
+func passiveEventHandler(parseValue any) (any, bool) {
+	parsePassive, parseOk := parseValue.(PassiveEventHandler)
+	if !parseOk || parsePassive.Handler == nil {
+		return nil, false
+	}
+	return parsePassive.Handler, true
+}
+
+func eventTypeFromProp(parseName string) (string, bool) {
+	if len(parseName) <= 2 || !strings.HasPrefix(parseName, "on") {
+		return "", false
+	}
+	return parseName[2:], true
+}
+
+func (parseRt *Runtime) addPassiveEventHandler(parseDom DOMNode, parseName string, parseHandler any) {
+	parseAdapter, parseOk := parseRt.domAdapter.(passiveEventDOMAdapter)
+	parseEventType, parseEventOk := eventTypeFromProp(parseName)
+	if !parseOk || !parseEventOk {
+		parseRt.domAdapter.SetProperty(parseDom, parseName, parseHandler)
+		return
+	}
+	parseAdapter.AddPassiveEventListener(parseDom, parseEventType, parseHandler)
+}
+
+func (parseRt *Runtime) removePassiveEventHandler(parseDom DOMNode, parseName string, parseHandler any) {
+	parseAdapter, parseOk := parseRt.domAdapter.(passiveEventDOMAdapter)
+	parseEventType, parseEventOk := eventTypeFromProp(parseName)
+	if !parseOk || !parseEventOk {
+		parseRt.domAdapter.SetProperty(parseDom, parseName, nil)
+		return
+	}
+	parseAdapter.RemovePassiveEventListener(parseDom, parseEventType, parseHandler)
 }
 
 // shouldPreserveHydrationInitialProperty is an internal reconciler helper.
@@ -329,6 +393,7 @@ func (parseRt *Runtime) commitRoot() {
 	}
 
 	parseRt.currentRoot = parseCommittedRoot
+	parseRt.schedulerState.finishScheduledLocked()
 	parseRt.wipRoot = nil
 	parseWasHydrating := parseRt.hydrating
 	if parseWasHydrating {
@@ -339,12 +404,13 @@ func (parseRt *Runtime) commitRoot() {
 	parseRt.updateScheduled = false
 
 	// Run effects after the committed tree is current and hydration gates are lifted.
-	if parseRt.tracksPendingEffects {
+	if parseRt.tracksPendingEffects && !parseRt.pendingEffectOverflow {
 		parseRt.runPendingEffects()
 	} else {
 		parseRt.runEffects(parseCommittedRoot)
 	}
 	parseRt.tracksPendingEffects = false
+	parseRt.pendingEffectOverflow = false
 
 	if parseWasHydrating {
 		parseRt.finishHydrationMetrics(false, "")
@@ -1272,6 +1338,14 @@ func (parseRt *Runtime) queuePendingEffectFiber(parseFiber *Fiber) {
 	if parseRt == nil || parseFiber == nil || len(parseFiber.effects) == 0 {
 		return
 	}
+	parseLimit := parseRt.limits.withDefaults().MaxPendingEffectFibers
+	if parseLimit > 0 && len(parseRt.pendingEffectFibers) >= parseLimit {
+		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
+		parseRt.pendingEffectOverflow = true
+		parseRt.tracksPendingEffects = false
+		ReportDiagnosticWithContext("runtime", DiagnosticWarning, "pending effect queue exceeded its bounded capacity; falling back to full-tree effect scan", diagnosticPathForFiber(parseFiber), diagnosticComponentStack(parseFiber))
+		return
+	}
 	parseRt.tracksPendingEffects = true
 	parseRt.pendingEffectFibers = append(parseRt.pendingEffectFibers, parseFiber)
 }
@@ -1328,6 +1402,7 @@ func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
 		if parseCleanup != nil {
 			parseFiber.hooks.cleanups[parseEffects[0].CleanupIndex] = parseCleanup
 		}
+		parseRt.checkStrictEffectCleanupSymmetry(parseFiber, parseEffects[0].CleanupIndex, parseCleanup != nil)
 	} else {
 		for parseI := range parseEffectCount {
 			parseEffect := &parseEffects[parseI]
@@ -1359,6 +1434,7 @@ func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
 			if parseCleanup3 != nil {
 				parseFiber.hooks.cleanups[parseEffect.CleanupIndex] = parseCleanup3
 			}
+			parseRt.checkStrictEffectCleanupSymmetry(parseFiber, parseEffect.CleanupIndex, parseCleanup3 != nil)
 		}
 	}
 }

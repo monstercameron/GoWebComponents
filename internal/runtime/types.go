@@ -114,6 +114,7 @@ type Fiber struct {
 	reactiveSourceIDs []string
 	fineGrained       bool
 	updateOrigin      string
+	ownerRuntime      *Runtime
 }
 
 type hydrationBoundary struct {
@@ -215,6 +216,8 @@ type Hooks struct {
 	atomFuncs        []atomAccessorValue
 	signature        []string
 	hotReloadRestore *HotReloadComponentSnapshot
+	effectHadCleanup []bool
+	effectSeen       []bool
 }
 
 // Attrs is a convenience type for component props.

@@ -243,6 +243,36 @@ func TestUnhandledPanicReportIncludesArtifactMetadata(parseT *testing.T) {
 	}
 }
 
+func TestUnhandledPanicReportHookAppliesTelemetryRedaction(parseT *testing.T) {
+	parsePreviousRedaction := CurrentPanicReportRedaction()
+	ConfigurePanicReportRedaction(PanicReportRedactionPolicy{Fields: []string{"path", "summary"}})
+	parseT.Cleanup(func() { ConfigurePanicReportRedaction(parsePreviousRedaction) })
+
+	parseReports := make([]PanicReport, 0, 1)
+	withPanicLoggingOptions(parseT, PanicLoggingOptions{
+		HideRawPanicOutput: true,
+		OnReport: func(parseReport PanicReport) {
+			parseReports = append(parseReports, parseReport)
+		},
+	})
+
+	_ = captureStdout(parseT, func() {
+		_, _ = RenderToString(CreateElement(func() *Element {
+			panic("cam@example.com")
+		}, nil))
+	})
+	if len(parseReports) == 0 {
+		parseT.Fatal("expected redacted panic report hook")
+	}
+	parseReport := parseReports[len(parseReports)-1]
+	if strings.Contains(parseReport.Summary, "cam@example.com") || strings.Contains(parseReport.Path, "func") {
+		parseT.Fatalf("expected configured panic fields to be redacted, got %+v", parseReport)
+	}
+	if parseReport.Summary != "[redacted]" || parseReport.Path != "[redacted]" {
+		parseT.Fatalf("unexpected redacted panic fields: %+v", parseReport)
+	}
+}
+
 func TestUnhandledRenderPanicReportsActionableDiagnostic(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()

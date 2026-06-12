@@ -303,6 +303,20 @@ func (parseA *WASMDOMAdapter) SetProperty(parseNode runtime.DOMNode, parseName s
 	}
 }
 
+func (parseA *WASMDOMAdapter) AddPassiveEventListener(parseNode runtime.DOMNode, parseEventType string, parseHandler any) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseOptions := js.Global().Get("Object").New()
+		parseOptions.Set("passive", true)
+		parseWasmNode.value.Call("addEventListener", parseEventType, parseHandler, parseOptions)
+	}
+}
+
+func (parseA *WASMDOMAdapter) RemovePassiveEventListener(parseNode runtime.DOMNode, parseEventType string, parseHandler any) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseWasmNode.value.Call("removeEventListener", parseEventType, parseHandler)
+	}
+}
+
 func (parseA *WASMDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName string) interface{} {
 	if runtime.IsDOMNodeNull(parseNode) {
 		return nil

@@ -134,6 +134,7 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(an
 
 	parseSetter := func(parseNewValueOrUpdater any) {
 		apply := func(parseUpdateOrigin string) {
+			parseRt.reportStrictSetStateDuringRender(parseFiber, "GoUseState")
 			if parsePIdx >= len(parseHooks.states) {
 				parseNeeded := parsePIdx + 1
 				if parseNeeded > cap(parseHooks.states) {
@@ -454,7 +455,7 @@ func GoUseId() string {
 		} else {
 			// Generate a new unique ID
 			// On first render, create a new ID using fiber's component ID counter
-			parseRt := GetGlobalRuntime()
+			parseRt := runtimeForFiber(parseFiber)
 			parseRt.idCounterMu.Lock()
 			parseRt.idCounter++
 			parseId := parseRt.idCounter
@@ -504,7 +505,7 @@ func GoUseFunc(parseFn any) any {
 
 	// Always create new wrapper to ensure latest closure is captured
 	// The old optimization of reusing wrappers caused stale closure bugs
-	parseRt := GetGlobalRuntime()
+	parseRt := runtimeForFiber(parseFiber)
 	if parseRt.domAdapter == nil {
 		panic(actionableGoUseFuncDOMAdapterPanic())
 	}

@@ -32,6 +32,11 @@ func dispatchRuntimeWork(parseScheduler Scheduler, parseContinueWork func()) {
 	parseScheduler.SetTimeout(parseContinueWork, 0)
 }
 
+// ScheduleUpdateWithLane schedules a full root update on an explicit priority lane.
+func (parseRt *Runtime) ScheduleUpdateWithLane(parseLane UpdateLane) {
+	parseRt.scheduleUpdateWithLane(parseLane, true)
+}
+
 // getContinueWorkFn is a core package helper.
 func (parseRt *Runtime) getContinueWorkFn() func() {
 	if parseRt.continueWorkFn == nil {
@@ -42,15 +47,30 @@ func (parseRt *Runtime) getContinueWorkFn() func() {
 
 // ScheduleUpdate schedules a full tree update from the root
 func (parseRt *Runtime) ScheduleUpdate() {
+	parseRt.scheduleUpdateWithLane(UpdateLaneDefault, true)
+}
+
+// scheduleUpdateWithLane schedules a full tree update from the root.
+func (parseRt *Runtime) scheduleUpdateWithLane(parseLane UpdateLane, shouldRecordReplay bool) {
+	if parseRt == nil {
+		return
+	}
 	schedulerMu.Lock()
 	parseRt.profiling.scheduledRootUpdates++
 
 	if parseRt.currentRoot == nil || parseRt.updateScheduled {
+		if parseRt.updateScheduled {
+			parseRt.coalesceScheduledUpdateLocked(parseLane)
+		}
 		schedulerMu.Unlock()
 		return
 	}
 
 	parseRt.updateScheduled = true
+	parseRt.schedulerState.beginScheduledLocked(parseLane)
+	if shouldRecordReplay {
+		parseRt.recordReplayUpdateLocked(replayUpdateKindRoot, nil, "", parseLane)
+	}
 
 	// Reuse the previous alternate root when available to reduce per-update
 	// allocations.  The roots form a stable two-fiber cycle (current.alternate
@@ -58,12 +78,13 @@ func (parseRt *Runtime) ScheduleUpdate() {
 	// growing chain to leak and isFiberDirty only ever follows one hop.
 	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
 	*parseRt.wipRoot = Fiber{
-		typeOf:    parseRt.currentRoot.typeOf,
-		dom:       parseRt.currentRoot.dom,
-		props:     parseRt.currentRoot.props,
-		children:  parseRt.currentRoot.children,
-		alternate: parseRt.currentRoot,
-		dirty:     true,
+		typeOf:       parseRt.currentRoot.typeOf,
+		dom:          parseRt.currentRoot.dom,
+		props:        parseRt.currentRoot.props,
+		children:     parseRt.currentRoot.children,
+		alternate:    parseRt.currentRoot,
+		dirty:        true,
+		ownerRuntime: parseRt,
 	}
 
 	parseRt.nextUnitOfWork = parseRt.wipRoot
@@ -99,6 +120,9 @@ func (parseRt *Runtime) continueWorkLoop() {
 			return
 		}
 	}()
+	schedulerMu.Lock()
+	parseRt.schedulerState.currentLane = parseRt.schedulerState.pendingLane
+	schedulerMu.Unlock()
 	parseRt.workLoop(globalInfiniteDeadline)
 }
 
@@ -110,6 +134,9 @@ func (parseRt *Runtime) workLoop(parseDeadline Deadline) {
 	parseMaxUnitsPerSlice := 300
 	if parseDeadline == globalInfiniteDeadline {
 		parseMaxUnitsPerSlice = 1200
+	}
+	if parseRt.schedulerState.currentLane != 0 {
+		parseMaxUnitsPerSlice = parseRt.schedulerState.currentLane.maxUnitsPerSlice(parseMaxUnitsPerSlice)
 	}
 
 	// Inline check for common case
@@ -152,6 +179,7 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 
 	shouldSchedule = !parseRt.updateScheduled
 	parseRt.updateScheduled = true
+	parseRt.schedulerState.beginScheduledLocked(UpdateLaneSync)
 
 	// Optimization: Break the alternate chain on the current root
 	if parseRt.currentRoot != nil {
@@ -161,12 +189,13 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
 	parseChildren := []any{parseElement}
 	*parseRt.wipRoot = Fiber{
-		typeOf:    "ROOT",
-		dom:       parseContainer,
-		props:     map[string]any{"children": parseChildren},
-		children:  parseChildren,
-		alternate: parseRt.currentRoot,
-		dirty:     true,
+		typeOf:       "ROOT",
+		dom:          parseContainer,
+		props:        map[string]any{"children": parseChildren},
+		children:     parseChildren,
+		alternate:    parseRt.currentRoot,
+		dirty:        true,
+		ownerRuntime: parseRt,
 	}
 
 	parseRt.nextUnitOfWork = parseRt.wipRoot
@@ -237,6 +266,7 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 
 	shouldSchedule = !parseRt.updateScheduled
 	parseRt.updateScheduled = true
+	parseRt.schedulerState.beginScheduledLocked(UpdateLaneSync)
 	parseRt.hydrating = true
 	parseRt.strictHydration = parseRt.nextHydrationStrict
 	parseRt.beginHydrationMetrics(parseExistingChildren, parseRt.nextHydrationStrict)
@@ -255,13 +285,14 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
 	parseChildren := []any{parseElement}
 	*parseRt.wipRoot = Fiber{
-		typeOf:    "ROOT",
-		dom:       parseContainer,
-		props:     map[string]any{"children": parseChildren},
-		children:  parseChildren,
-		alternate: parseRt.currentRoot,
-		dirty:     true,
-		hydration: newHydrationBoundary(parseContainer, parseRt.domAdapter.GetFirstChild(parseContainer)),
+		typeOf:       "ROOT",
+		dom:          parseContainer,
+		props:        map[string]any{"children": parseChildren},
+		children:     parseChildren,
+		alternate:    parseRt.currentRoot,
+		dirty:        true,
+		hydration:    newHydrationBoundary(parseContainer, parseRt.domAdapter.GetFirstChild(parseContainer)),
+		ownerRuntime: parseRt,
 	}
 
 	parseRt.nextUnitOfWork = parseRt.wipRoot
@@ -319,6 +350,8 @@ func (parseRt *Runtime) ScheduleUpdateForFiberWithOrigin(parseFiber *Fiber, pars
 		return
 	}
 	parseRt.profiling.scheduledFiberMarks++
+	parseLane := laneForUpdateOrigin(parseOrigin)
+	parseRt.recordReplayUpdate(replayUpdateKindFiber, fiberPathIndexes(parseFiber), parseOrigin, parseLane)
 	parseCurrentOrigin := ""
 	if parseFiber.dirty || parseFiber.needsUpdate {
 		parseCurrentOrigin = parseFiber.updateOrigin
@@ -347,7 +380,11 @@ func (parseRt *Runtime) ScheduleUpdateForFiberWithOrigin(parseFiber *Fiber, pars
 
 	// Schedule update from root
 	if !parseRt.updateScheduled {
-		parseRt.ScheduleUpdate()
+		parseRt.scheduleUpdateWithLane(parseLane, false)
+	} else {
+		schedulerMu.Lock()
+		parseRt.coalesceScheduledUpdateLocked(parseLane)
+		schedulerMu.Unlock()
 	}
 }
 
@@ -372,6 +409,8 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	}
 	parseRt.profiling.scheduledFiberMarks++
 	parseRt.profiling.scheduledGranularMarks++
+	parseLane := laneForUpdateOrigin(parseOrigin)
+	parseRt.recordReplayUpdate(replayUpdateKindGranular, fiberPathIndexes(parseFiber), parseOrigin, parseLane)
 	parseCurrentOrigin := ""
 	if parseFiber.dirty || parseFiber.needsUpdate {
 		parseCurrentOrigin = parseFiber.updateOrigin
@@ -382,7 +421,11 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	parseRt.markFiberSubtreeDirty(parseFiber.parent)
 	parseFiber.updateOrigin = buildScheduledUpdateOrigin(parseCurrentOrigin, parseOrigin, "fine-grained")
 	if !parseRt.updateScheduled {
-		parseRt.ScheduleUpdate()
+		parseRt.scheduleUpdateWithLane(parseLane, false)
+	} else {
+		schedulerMu.Lock()
+		parseRt.coalesceScheduledUpdateLocked(parseLane)
+		schedulerMu.Unlock()
 	}
 }
 

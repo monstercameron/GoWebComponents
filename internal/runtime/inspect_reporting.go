@@ -17,6 +17,9 @@ var (
 )
 
 const maxLogEntries = 200
+const defaultMaxDiagnosticEntries = 500
+
+var maxDiagnosticEntries = defaultMaxDiagnosticEntries
 
 // ReportDiagnostic records or increments a runtime diagnostic entry.
 func ReportDiagnostic(parseSource string, parseSeverity DiagnosticSeverity, parseMessage string) {
@@ -79,8 +82,23 @@ func reportDiagnosticWithContextDetails(parseSource string, parseSeverity Diagno
 		ComponentStack: append([]string(nil), parseComponentStack...),
 		Fields:         cloneLogFields(parseFields),
 	})
+	trimDiagnosticsLocked(maxDiagnosticEntries)
 
 	reportDiagnosticLogDetails(parseTrimmedSource, parseSeverity, parseTrimmedMessage, parseTopFrame, parseConsequence, parseFields)
+}
+
+// trimDiagnosticsLocked bounds the process-wide diagnostic ring.
+func trimDiagnosticsLocked(parseLimit int) {
+	if parseLimit <= 0 || len(diagnostics) <= parseLimit {
+		return
+	}
+	diagnostics = append([]Diagnostic(nil), diagnostics[len(diagnostics)-parseLimit:]...)
+	diagnosticIndex = make(map[string]int, len(diagnostics))
+	for parseIndex, parseDiagnostic := range diagnostics {
+		parseKey := string(parseDiagnostic.Severity) + "|" + parseDiagnostic.Source + "|" + parseDiagnostic.Message + "|" + parseDiagnostic.Path + "|" +
+			strings.Join(parseDiagnostic.ComponentStack, " > ") + "|" + strings.TrimSpace(parseDiagnostic.TopFrame) + "|" + strings.TrimSpace(parseDiagnostic.Consequence) + "|" + diagnosticFieldsKey(parseDiagnostic.Fields)
+		diagnosticIndex[parseKey] = parseIndex
+	}
 }
 
 // GetDiagnostics returns a copy of the current diagnostic list.

@@ -60,9 +60,14 @@ type Runtime struct {
 	updateScheduled         bool
 	continueWorkFn          func()
 	pendingBoundaryRecovery bool
+	pendingEffectOverflow   bool
 	transitionDepth         int
 	pendingTransitions      int
 	transitionMu            sync.Mutex
+	strictMode              StrictModeOptions
+	limits                  RuntimeLimits
+	schedulerState          runtimeSchedulerState
+	replay                  runtimeReplayState
 
 	// Global state management
 	atomRegistry *AtomRegistry
@@ -200,6 +205,8 @@ type Config struct {
 	// it for debugging native test runs.
 	ShowRawPanicOutput     bool
 	OnUnhandledPanicReport func(PanicReport)
+	StrictMode             StrictModeOptions
+	Limits                 RuntimeLimits
 }
 
 // configHidesRawPanicOutput resolves the containment default: panics are
@@ -233,6 +240,14 @@ func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
 	if parseConfig.BrowserState != nil {
 		parseRuntime.browserState = parseConfig.BrowserState
 	}
+	if parseConfig.StrictMode.Enabled {
+		parseRuntime.strictMode = parseConfig.StrictMode.withDefaults()
+	} else if parseConfig.StrictMode != (StrictModeOptions{}) {
+		parseRuntime.strictMode = parseConfig.StrictMode.withDefaults()
+	}
+	parseRuntime.limits = parseConfig.Limits.withDefaults()
+	applyGlobalRuntimeLimits(parseRuntime.limits)
+	parseRuntime.schedulerState.ensureDefaults(parseRuntime.limits)
 	if parseRuntime.atomRegistry == nil {
 		parseRuntime.atomRegistry = NewAtomRegistry()
 	}

@@ -1,0 +1,544 @@
+package runtime
+
+import (
+	"fmt"
+	"strings"
+)
+
+// UpdateLane names one runtime scheduling priority. Lower values run with
+// larger work slices and win coalescing when multiple update causes arrive
+// before a pending render commits.
+type UpdateLane uint8
+
+const (
+	UpdateLaneSync UpdateLane = iota + 1
+	UpdateLaneInput
+	UpdateLaneDefault
+	UpdateLaneTransition
+	UpdateLaneBackground
+)
+
+// String returns the stable diagnostic label for one update lane.
+func (parseLane UpdateLane) String() string {
+	switch parseLane {
+	case UpdateLaneSync:
+		return "sync"
+	case UpdateLaneInput:
+		return "input"
+	case UpdateLaneDefault:
+		return "default"
+	case UpdateLaneTransition:
+		return "transition"
+	case UpdateLaneBackground:
+		return "background"
+	default:
+		return "default"
+	}
+}
+
+// maxUnitsPerSlice adjusts reconciliation chunk size by priority lane.
+func (parseLane UpdateLane) maxUnitsPerSlice(parseBase int) int {
+	if parseBase <= 0 {
+		parseBase = 1
+	}
+	switch parseLane {
+	case UpdateLaneSync:
+		return parseBase * 2
+	case UpdateLaneInput:
+		return parseBase
+	case UpdateLaneTransition:
+		if parseBase/2 < 1 {
+			return 1
+		}
+		return parseBase / 2
+	case UpdateLaneBackground:
+		if parseBase/4 < 1 {
+			return 1
+		}
+		return parseBase / 4
+	default:
+		return parseBase
+	}
+}
+
+// RuntimeLimits bounds internal queues so long-lived applications fail soft
+// instead of accumulating unbounded framework state.
+type RuntimeLimits struct {
+	MaxPendingEffectFibers int
+	MaxQueuedUpdates       int
+	MaxReplayEvents        int
+	MaxDiagnostics         int
+	MaxProfilingEvents     int
+	MaxLogEntries          int
+}
+
+const (
+	defaultMaxPendingEffectFibers = 1024
+	defaultMaxQueuedUpdates       = 4096
+	defaultMaxReplayEvents        = 2048
+)
+
+// withDefaults returns bounded defaults while preserving explicit positive overrides.
+func (parseLimits RuntimeLimits) withDefaults() RuntimeLimits {
+	if parseLimits.MaxPendingEffectFibers <= 0 {
+		parseLimits.MaxPendingEffectFibers = defaultMaxPendingEffectFibers
+	}
+	if parseLimits.MaxQueuedUpdates <= 0 {
+		parseLimits.MaxQueuedUpdates = defaultMaxQueuedUpdates
+	}
+	if parseLimits.MaxReplayEvents <= 0 {
+		parseLimits.MaxReplayEvents = defaultMaxReplayEvents
+	}
+	return parseLimits
+}
+
+// applyGlobalRuntimeLimits applies process-wide buffers that predate runtime instances.
+func applyGlobalRuntimeLimits(parseLimits RuntimeLimits) {
+	if parseLimits.MaxDiagnostics > 0 {
+		diagnosticsMu.Lock()
+		maxDiagnosticEntries = parseLimits.MaxDiagnostics
+		trimDiagnosticsLocked(maxDiagnosticEntries)
+		diagnosticsMu.Unlock()
+	}
+}
+
+type runtimeSchedulerState struct {
+	pendingLane          UpdateLane
+	currentLane          UpdateLane
+	maxQueuedUpdates     int
+	enqueuedUpdates      int
+	coalescedUpdates     int
+	droppedBackpressure  int
+	interruptedWork      int
+	lastBackpressureLane UpdateLane
+}
+
+func (parseState *runtimeSchedulerState) ensureDefaults(parseLimits RuntimeLimits) {
+	if parseState == nil {
+		return
+	}
+	parseLimits = parseLimits.withDefaults()
+	parseState.maxQueuedUpdates = parseLimits.MaxQueuedUpdates
+}
+
+func (parseState *runtimeSchedulerState) beginScheduledLocked(parseLane UpdateLane) {
+	if parseState == nil {
+		return
+	}
+	parseState.pendingLane = normalizeUpdateLane(parseLane)
+	parseState.currentLane = normalizeUpdateLane(parseLane)
+	parseState.enqueuedUpdates++
+	parseState.coalescedUpdates = 0
+}
+
+func (parseState *runtimeSchedulerState) finishScheduledLocked() {
+	if parseState == nil {
+		return
+	}
+	parseState.pendingLane = 0
+	parseState.currentLane = 0
+	parseState.coalescedUpdates = 0
+}
+
+func (parseRt *Runtime) coalesceScheduledUpdateLocked(parseLane UpdateLane) {
+	if parseRt == nil {
+		return
+	}
+	parseRt.schedulerState.ensureDefaults(parseRt.limits)
+	parseRt.schedulerState.coalescedUpdates++
+	if parseRt.schedulerState.pendingLane == 0 || normalizeUpdateLane(parseLane) < parseRt.schedulerState.pendingLane {
+		parseRt.schedulerState.pendingLane = normalizeUpdateLane(parseLane)
+	}
+	if parseRt.nextUnitOfWork != nil && parseRt.currentRoot != nil && parseRt.schedulerState.currentLane != 0 && normalizeUpdateLane(parseLane) < parseRt.schedulerState.currentLane {
+		parseRt.schedulerState.interruptedWork++
+		parseRt.schedulerState.currentLane = normalizeUpdateLane(parseLane)
+		parseRt.rebuildWIPRootForInterruptLocked()
+	}
+	if parseRt.schedulerState.maxQueuedUpdates > 0 && parseRt.schedulerState.coalescedUpdates > parseRt.schedulerState.maxQueuedUpdates {
+		parseRt.schedulerState.droppedBackpressure++
+		parseRt.schedulerState.lastBackpressureLane = normalizeUpdateLane(parseLane)
+		parseRt.schedulerState.coalescedUpdates = parseRt.schedulerState.maxQueuedUpdates
+		ReportDiagnostic("runtime", DiagnosticWarning, "scheduled update backpressure limit reached; coalescing extra updates into the pending render")
+	}
+}
+
+func normalizeUpdateLane(parseLane UpdateLane) UpdateLane {
+	switch parseLane {
+	case UpdateLaneSync, UpdateLaneInput, UpdateLaneDefault, UpdateLaneTransition, UpdateLaneBackground:
+		return parseLane
+	default:
+		return UpdateLaneDefault
+	}
+}
+
+func laneForUpdateOrigin(parseOrigin string) UpdateLane {
+	parseOrigin = strings.ToLower(strings.TrimSpace(parseOrigin))
+	switch {
+	case strings.Contains(parseOrigin, "sync"), strings.Contains(parseOrigin, "hydrate"), strings.Contains(parseOrigin, "render"):
+		return UpdateLaneSync
+	case strings.Contains(parseOrigin, "input"), strings.Contains(parseOrigin, "event"), strings.Contains(parseOrigin, "local-state"):
+		return UpdateLaneInput
+	case strings.Contains(parseOrigin, "transition"):
+		return UpdateLaneTransition
+	case strings.Contains(parseOrigin, "idle"), strings.Contains(parseOrigin, "background"):
+		return UpdateLaneBackground
+	default:
+		return UpdateLaneDefault
+	}
+}
+
+func (parseRt *Runtime) rebuildWIPRootForInterruptLocked() {
+	if parseRt == nil || parseRt.currentRoot == nil {
+		return
+	}
+	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
+	*parseRt.wipRoot = Fiber{
+		typeOf:       parseRt.currentRoot.typeOf,
+		dom:          parseRt.currentRoot.dom,
+		props:        parseRt.currentRoot.props,
+		children:     parseRt.currentRoot.children,
+		alternate:    parseRt.currentRoot,
+		dirty:        true,
+		ownerRuntime: parseRt,
+	}
+	parseRt.nextUnitOfWork = parseRt.wipRoot
+	if parseRt.deletions != nil {
+		parseRt.deletions = parseRt.deletions[:0]
+	}
+	if parseRt.pendingEffectFibers != nil {
+		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
+	}
+}
+
+type SchedulerSnapshot struct {
+	PendingLane      string
+	CurrentLane      string
+	EnqueuedUpdates  int
+	CoalescedUpdates int
+	DroppedUpdates   int
+	InterruptedWork  int
+	Backpressure     bool
+}
+
+// SchedulerSnapshot returns priority-lane and backpressure counters for diagnostics.
+func (parseRt *Runtime) SchedulerSnapshot() SchedulerSnapshot {
+	if parseRt == nil {
+		return SchedulerSnapshot{}
+	}
+	schedulerMu.Lock()
+	defer schedulerMu.Unlock()
+	return SchedulerSnapshot{
+		PendingLane:      parseRt.schedulerState.pendingLane.String(),
+		CurrentLane:      parseRt.schedulerState.currentLane.String(),
+		EnqueuedUpdates:  parseRt.schedulerState.enqueuedUpdates,
+		CoalescedUpdates: parseRt.schedulerState.coalescedUpdates,
+		DroppedUpdates:   parseRt.schedulerState.droppedBackpressure,
+		InterruptedWork:  parseRt.schedulerState.interruptedWork,
+		Backpressure:     parseRt.schedulerState.droppedBackpressure > 0,
+	}
+}
+
+// StrictModeOptions enables development-time runtime checks.
+type StrictModeOptions struct {
+	Enabled                   bool
+	DoubleRender              bool
+	WarnSetStateDuringRender  bool
+	RequireEffectCleanup      bool
+	PanicOnViolation          bool
+	ViolationDiagnosticSource string
+}
+
+func (parseOptions StrictModeOptions) withDefaults() StrictModeOptions {
+	if !parseOptions.Enabled {
+		return parseOptions
+	}
+	if parseOptions.ViolationDiagnosticSource == "" {
+		parseOptions.ViolationDiagnosticSource = "runtime"
+	}
+	if !parseOptions.DoubleRender && !parseOptions.WarnSetStateDuringRender && !parseOptions.RequireEffectCleanup {
+		parseOptions.DoubleRender = true
+		parseOptions.WarnSetStateDuringRender = true
+		parseOptions.RequireEffectCleanup = true
+	}
+	return parseOptions
+}
+
+func (parseRt *Runtime) reportStrictSetStateDuringRender(parseFiber *Fiber, parseHook string) {
+	if parseRt == nil || !parseRt.strictMode.Enabled || !parseRt.strictMode.WarnSetStateDuringRender || GetCurrentFiber() == nil {
+		return
+	}
+	parseMessage := fmt.Sprintf("strict mode detected %s state update during render", strings.TrimSpace(parseHook))
+	parseRt.reportStrictViolation(parseFiber, parseMessage)
+}
+
+func (parseRt *Runtime) checkStrictEffectCleanupSymmetry(parseFiber *Fiber, parseCleanupIndex int, hasCleanup bool) {
+	if parseRt == nil || !parseRt.strictMode.Enabled || !parseRt.strictMode.RequireEffectCleanup || parseFiber == nil || parseCleanupIndex < 0 {
+		return
+	}
+	if parseFiber.hooks == nil {
+		return
+	}
+	if parseCleanupIndex >= len(parseFiber.hooks.effectSeen) {
+		parseNext := make([]bool, parseCleanupIndex+1)
+		copy(parseNext, parseFiber.hooks.effectSeen)
+		parseFiber.hooks.effectSeen = parseNext
+	}
+	if parseCleanupIndex >= len(parseFiber.hooks.effectHadCleanup) {
+		parseNext := make([]bool, parseCleanupIndex+1)
+		copy(parseNext, parseFiber.hooks.effectHadCleanup)
+		parseFiber.hooks.effectHadCleanup = parseNext
+	}
+	if parseFiber.hooks.effectSeen[parseCleanupIndex] && parseFiber.hooks.effectHadCleanup[parseCleanupIndex] != hasCleanup {
+		parseRt.reportStrictViolation(parseFiber, "strict mode detected an effect cleanup contract changing between renders")
+	}
+	parseFiber.hooks.effectSeen[parseCleanupIndex] = true
+	parseFiber.hooks.effectHadCleanup[parseCleanupIndex] = hasCleanup
+}
+
+func (parseRt *Runtime) strictPreviewRender(parseFiber *Fiber) {
+	if parseRt == nil || !parseRt.strictMode.Enabled || !parseRt.strictMode.DoubleRender || parseFiber == nil {
+		return
+	}
+	parsePreviewHooks := &Hooks{owner: parseFiber}
+	parsePrevHooks := parseFiber.hooks
+	parseFiber.hooks = parsePreviewHooks
+	SetCurrentFiber(parseFiber)
+	defer SetCurrentFiber(nil)
+	defer func() {
+		parseFiber.hooks = parsePrevHooks
+		if parseRecovered := recover(); parseRecovered != nil {
+			parseRt.reportStrictViolation(parseFiber, fmt.Sprintf("strict mode preview render panicked: %v", parseRecovered))
+		}
+		releaseHookResources(parsePreviewHooks)
+	}()
+	_, _ = renderFunctionComponentElement(parseFiber)
+}
+
+func renderFunctionComponentElement(parseFiber *Fiber) (*Element, bool) {
+	if parseFiber == nil {
+		return nil, false
+	}
+	if parseFn, parseOk := parseFiber.typeOf.(func() *Element); parseOk {
+		return parseFn(), true
+	}
+	if parseFn, parseOk := parseFiber.typeOf.(func(map[string]any) *Element); parseOk {
+		return parseFn(parseFiber.props), true
+	}
+	if parseFn, parseOk := parseFiber.typeOf.(func(Attrs) *Element); parseOk {
+		return parseFn(Attrs(parseFiber.props)), true
+	}
+	if parseComponent, parseOk := parseFiber.typeOf.(*ComponentType); parseOk {
+		return parseComponent.Render(parseFiber.props), true
+	}
+	return nil, false
+}
+
+func (parseRt *Runtime) reportStrictViolation(parseFiber *Fiber, parseMessage string) {
+	parseSource := strings.TrimSpace(parseRt.strictMode.ViolationDiagnosticSource)
+	if parseSource == "" {
+		parseSource = "runtime"
+	}
+	ReportDiagnosticWithContext(parseSource, DiagnosticWarning, parseMessage, diagnosticPathForFiber(parseFiber), diagnosticComponentStack(parseFiber))
+	if parseRt.strictMode.PanicOnViolation {
+		panic(ActionableFrameworkPanic(ActionablePanicOptions{
+			Source:         parseSource,
+			Subject:        "strict mode",
+			Message:        parseMessage,
+			Path:           diagnosticPathForFiber(parseFiber),
+			ComponentStack: diagnosticComponentStack(parseFiber),
+			Consequence:    "strict mode turns this development-time runtime violation into a hard failure.",
+		}))
+	}
+}
+
+type replayUpdateKind string
+
+const (
+	replayUpdateKindRoot     replayUpdateKind = "root"
+	replayUpdateKindFiber    replayUpdateKind = "fiber"
+	replayUpdateKindGranular replayUpdateKind = "granular"
+)
+
+// ReplayEvent captures one deterministic scheduling event.
+type ReplayEvent struct {
+	Kind    string
+	Path    []int
+	Origin  string
+	Lane    string
+	Seq     int
+	Dropped bool
+}
+
+type runtimeReplayState struct {
+	recording bool
+	events    []ReplayEvent
+	nextSeq   int
+	limit     int
+	dropped   int
+}
+
+// StartReplayRecording clears and starts the runtime update replay buffer.
+func (parseRt *Runtime) StartReplayRecording() {
+	if parseRt == nil {
+		return
+	}
+	parseRt.replay.limit = parseRt.limits.withDefaults().MaxReplayEvents
+	parseRt.replay.events = parseRt.replay.events[:0]
+	parseRt.replay.nextSeq = 0
+	parseRt.replay.dropped = 0
+	parseRt.replay.recording = true
+}
+
+// StopReplayRecording stops recording and returns a stable copy of captured events.
+func (parseRt *Runtime) StopReplayRecording() []ReplayEvent {
+	if parseRt == nil {
+		return nil
+	}
+	parseRt.replay.recording = false
+	return parseRt.ReplayEvents()
+}
+
+// ReplayEvents returns a copy of captured deterministic scheduling events.
+func (parseRt *Runtime) ReplayEvents() []ReplayEvent {
+	if parseRt == nil || len(parseRt.replay.events) == 0 {
+		return nil
+	}
+	parseEvents := make([]ReplayEvent, len(parseRt.replay.events))
+	for parseIndex, parseEvent := range parseRt.replay.events {
+		parseEvents[parseIndex] = parseEvent
+		parseEvents[parseIndex].Path = append([]int(nil), parseEvent.Path...)
+	}
+	return parseEvents
+}
+
+func (parseRt *Runtime) recordReplayUpdate(parseKind replayUpdateKind, parsePath []int, parseOrigin string, parseLane UpdateLane) {
+	schedulerMu.Lock()
+	defer schedulerMu.Unlock()
+	parseRt.recordReplayUpdateLocked(parseKind, parsePath, parseOrigin, parseLane)
+}
+
+func (parseRt *Runtime) recordReplayUpdateLocked(parseKind replayUpdateKind, parsePath []int, parseOrigin string, parseLane UpdateLane) {
+	if parseRt == nil || !parseRt.replay.recording {
+		return
+	}
+	parseLimit := parseRt.replay.limit
+	if parseLimit <= 0 {
+		parseLimit = parseRt.limits.withDefaults().MaxReplayEvents
+	}
+	parseRt.replay.nextSeq++
+	parseEvent := ReplayEvent{
+		Kind:   string(parseKind),
+		Path:   append([]int(nil), parsePath...),
+		Origin: strings.TrimSpace(parseOrigin),
+		Lane:   normalizeUpdateLane(parseLane).String(),
+		Seq:    parseRt.replay.nextSeq,
+	}
+	if parseLimit > 0 && len(parseRt.replay.events) >= parseLimit {
+		parseRt.replay.dropped++
+		parseRt.replay.events = append(parseRt.replay.events[1:], parseEvent)
+		parseRt.replay.events[len(parseRt.replay.events)-1].Dropped = true
+		return
+	}
+	parseRt.replay.events = append(parseRt.replay.events, parseEvent)
+}
+
+func fiberPathIndexes(parseFiber *Fiber) []int {
+	if parseFiber == nil {
+		return nil
+	}
+	parseReversed := make([]int, 0, 8)
+	for parseCursor := parseFiber; parseCursor != nil; parseCursor = parseCursor.parent {
+		if parseCursor.parent == nil {
+			break
+		}
+		parseIndex := 0
+		for parseSibling := previousSibling(parseCursor); parseSibling != nil; parseSibling = previousSibling(parseSibling) {
+			parseIndex++
+		}
+		parseReversed = append(parseReversed, parseIndex)
+	}
+	for parseLeft, parseRight := 0, len(parseReversed)-1; parseLeft < parseRight; parseLeft, parseRight = parseLeft+1, parseRight-1 {
+		parseReversed[parseLeft], parseReversed[parseRight] = parseReversed[parseRight], parseReversed[parseLeft]
+	}
+	return parseReversed
+}
+
+func previousSibling(parseFiber *Fiber) *Fiber {
+	if parseFiber == nil || parseFiber.parent == nil {
+		return nil
+	}
+	for parseCursor := parseFiber.parent.child; parseCursor != nil; parseCursor = parseCursor.sibling {
+		if parseCursor.sibling == parseFiber {
+			return parseCursor
+		}
+	}
+	return nil
+}
+
+// BeginReplayCapture is a compatibility alias for StartReplayRecording.
+func (parseRt *Runtime) BeginReplayCapture() {
+	parseRt.StartReplayRecording()
+}
+
+// EndReplayCapture is a compatibility alias for StopReplayRecording.
+func (parseRt *Runtime) EndReplayCapture() []ReplayEvent {
+	return parseRt.StopReplayRecording()
+}
+
+// ReplayUpdates replays captured scheduling events against the current fiber tree.
+func (parseRt *Runtime) ReplayUpdates(parseEvents []ReplayEvent) {
+	if parseRt == nil {
+		return
+	}
+	wasRecording := parseRt.replay.recording
+	parseRt.replay.recording = false
+	defer func() {
+		parseRt.replay.recording = wasRecording
+	}()
+	for _, parseEvent := range parseEvents {
+		switch replayUpdateKind(parseEvent.Kind) {
+		case replayUpdateKindRoot:
+			parseRt.scheduleUpdateWithLane(parseReplayLane(parseEvent.Lane), false)
+		case replayUpdateKindFiber:
+			if parseFiber := parseRt.fiberAtPath(parseEvent.Path); parseFiber != nil {
+				parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber, parseEvent.Origin)
+			}
+		case replayUpdateKindGranular:
+			if parseFiber := parseRt.fiberAtPath(parseEvent.Path); parseFiber != nil {
+				parseRt.ScheduleGranularUpdateForFiberWithOrigin(parseFiber, parseEvent.Origin)
+			}
+		}
+	}
+}
+
+func parseReplayLane(parseLane string) UpdateLane {
+	switch parseLane {
+	case "sync":
+		return UpdateLaneSync
+	case "input":
+		return UpdateLaneInput
+	case "transition":
+		return UpdateLaneTransition
+	case "background":
+		return UpdateLaneBackground
+	default:
+		return UpdateLaneDefault
+	}
+}
+
+func (parseRt *Runtime) fiberAtPath(parsePath []int) *Fiber {
+	if parseRt == nil || parseRt.currentRoot == nil {
+		return nil
+	}
+	parseFiber := parseRt.currentRoot
+	for _, parseIndex := range parsePath {
+		parseFiber = parseFiber.child
+		for parseStep := 0; parseStep < parseIndex && parseFiber != nil; parseStep++ {
+			parseFiber = parseFiber.sibling
+		}
+		if parseFiber == nil {
+			return nil
+		}
+	}
+	return parseFiber
+}
