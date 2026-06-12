@@ -866,7 +866,7 @@ func releaseWriteSizeAttribution(parseMode string, parsePackageDir string, parse
 		return nil, fmt.Errorf("unsupported release size attribution mode %q", parseNormalizedMode)
 	}
 
-	parsePackages, parseErr := releaseCollectPackageSizeAttribution(parsePackageDir)
+	parsePackages, parseErr := releaseCollectPackageSizeAttributionForEntrypoints([]string{parsePackageDir})
 	if parseErr != nil {
 		return nil, parseErr
 	}
@@ -894,30 +894,47 @@ func releaseWriteSizeAttribution(parseMode string, parsePackageDir string, parse
 }
 
 func releaseCollectPackageSizeAttribution(parsePackageDir string) ([]releasePackageSizeRecord, error) {
-	parseOutput, parseErr := releaseRunCommand("go", []string{"list", "-deps", "-json", "-export", "."}, parsePackageDir, buildWasmGoEnv())
-	if parseErr != nil {
-		return nil, fmt.Errorf("collect release package attribution: %w", parseErr)
-	}
-	parseDecoder := json.NewDecoder(strings.NewReader(parseOutput))
-	parsePackages := make([]releasePackageSizeRecord, 0, 64)
-	for {
-		var parsePkg releaseGoListPackage
-		if parseErr2 := parseDecoder.Decode(&parsePkg); parseErr2 != nil {
-			if errors.Is(parseErr2, io.EOF) {
-				break
+	return releaseCollectPackageSizeAttributionForEntrypoints([]string{parsePackageDir})
+}
+
+func releaseCollectPackageSizeAttributionForEntrypoints(parsePackageDirs []string) ([]releasePackageSizeRecord, error) {
+	parseUniqueDirs := releaseUniqueAttributionPackageDirs(parsePackageDirs)
+	parseRecordsByImportPath := make(map[string]releasePackageSizeRecord)
+	for _, parsePackageDir := range parseUniqueDirs {
+		parseOutput, parseErr := releaseRunCommand("go", []string{"list", "-deps", "-json", "-export", "."}, parsePackageDir, buildWasmGoEnv())
+		if parseErr != nil {
+			return nil, fmt.Errorf("collect release package attribution: %w", parseErr)
+		}
+		parseDecoder := json.NewDecoder(strings.NewReader(parseOutput))
+		for {
+			var parsePkg releaseGoListPackage
+			if parseErr2 := parseDecoder.Decode(&parsePkg); parseErr2 != nil {
+				if errors.Is(parseErr2, io.EOF) {
+					break
+				}
+				return nil, fmt.Errorf("decode release package attribution: %w", parseErr2)
 			}
-			return nil, fmt.Errorf("decode release package attribution: %w", parseErr2)
+			if strings.TrimSpace(parsePkg.ImportPath) == "" {
+				continue
+			}
+			parseRecord, parseErr3 := releaseBuildPackageSizeRecord(parsePkg)
+			if parseErr3 != nil {
+				return nil, parseErr3
+			}
+			if parseRecord.ArchiveBytes == 0 && parseRecord.SourceBytes == 0 && parseRecord.FileCount == 0 {
+				continue
+			}
+			parseExisting, hasExisting := parseRecordsByImportPath[parseRecord.ImportPath]
+			if hasExisting {
+				parseRecordsByImportPath[parseRecord.ImportPath] = releaseMergePackageSizeRecord(parseExisting, parseRecord)
+				continue
+			}
+			parseRecordsByImportPath[parseRecord.ImportPath] = parseRecord
 		}
-		if strings.TrimSpace(parsePkg.ImportPath) == "" {
-			continue
-		}
-		parseRecord, parseErr3 := releaseBuildPackageSizeRecord(parsePkg)
-		if parseErr3 != nil {
-			return nil, parseErr3
-		}
-		if parseRecord.ArchiveBytes == 0 && parseRecord.SourceBytes == 0 && parseRecord.FileCount == 0 {
-			continue
-		}
+	}
+
+	parsePackages := make([]releasePackageSizeRecord, 0, len(parseRecordsByImportPath))
+	for _, parseRecord := range parseRecordsByImportPath {
 		parsePackages = append(parsePackages, parseRecord)
 	}
 	sort.Slice(parsePackages, func(parseI int, parseJ int) bool {
@@ -930,6 +947,39 @@ func releaseCollectPackageSizeAttribution(parsePackageDir string) ([]releasePack
 		return parsePackages[parseI].ImportPath < parsePackages[parseJ].ImportPath
 	})
 	return parsePackages, nil
+}
+
+func releaseUniqueAttributionPackageDirs(parsePackageDirs []string) []string {
+	parseSeen := make(map[string]struct{}, len(parsePackageDirs))
+	parseUnique := make([]string, 0, len(parsePackageDirs))
+	for _, parsePackageDir := range parsePackageDirs {
+		parseCleanDir := strings.TrimSpace(parsePackageDir)
+		if parseCleanDir != "" {
+			parseCleanDir = filepath.Clean(parseCleanDir)
+		}
+		if _, parseOk := parseSeen[parseCleanDir]; parseOk {
+			continue
+		}
+		parseSeen[parseCleanDir] = struct{}{}
+		parseUnique = append(parseUnique, parseCleanDir)
+	}
+	return parseUnique
+}
+
+func releaseMergePackageSizeRecord(parseExisting releasePackageSizeRecord, parseNext releasePackageSizeRecord) releasePackageSizeRecord {
+	if strings.TrimSpace(parseExisting.Dir) == "" && strings.TrimSpace(parseNext.Dir) != "" {
+		parseExisting.Dir = parseNext.Dir
+	}
+	if parseNext.ArchiveBytes > parseExisting.ArchiveBytes {
+		parseExisting.ArchiveBytes = parseNext.ArchiveBytes
+	}
+	if parseNext.SourceBytes > parseExisting.SourceBytes {
+		parseExisting.SourceBytes = parseNext.SourceBytes
+	}
+	if parseNext.FileCount > parseExisting.FileCount {
+		parseExisting.FileCount = parseNext.FileCount
+	}
+	return parseExisting
 }
 
 func releaseBuildPackageSizeRecord(parsePkg releaseGoListPackage) (releasePackageSizeRecord, error) {

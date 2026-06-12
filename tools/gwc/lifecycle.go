@@ -6,6 +6,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"sort"
@@ -47,6 +50,7 @@ type lifecycleUpgradeConfig struct {
 type lifecycleMigrateConfig struct {
 	rootPath          string
 	skipRuntimeAssets bool
+	apply             bool
 	json              bool
 }
 
@@ -79,6 +83,9 @@ type lifecycleMigrateSummary struct {
 	ReportPath        string                    `json:"reportPath"`
 	FindingCount      int                       `json:"findingCount"`
 	Findings          []lifecycleMigrateFinding `json:"findings,omitempty"`
+	Applied           bool                      `json:"applied"`
+	RewriteCount      int                       `json:"rewriteCount,omitempty"`
+	Rewrites          []lifecycleMigrateRewrite `json:"rewrites,omitempty"`
 }
 
 type lifecycleMigrateFinding struct {
@@ -87,6 +94,32 @@ type lifecycleMigrateFinding struct {
 	LegacyCall     string `json:"legacyCall"`
 	Replacement    string `json:"replacement"`
 	Recommendation string `json:"recommendation"`
+}
+
+type lifecycleMigrateRewrite struct {
+	Path        string `json:"path"`
+	LegacyCall  string `json:"legacyCall"`
+	Replacement string `json:"replacement"`
+	Count       int    `json:"count"`
+}
+
+type lifecycleMigrateRouteSignal struct {
+	legacySelector      string
+	replacementSelector string
+	recommendation      string
+}
+
+var lifecycleMigrateRouteSignals = []lifecycleMigrateRouteSignal{
+	{
+		legacySelector:      "GoRegisterRoute",
+		replacementSelector: "Register",
+		recommendation:      "Replace compatibility route registration with the primary router method.",
+	},
+	{
+		legacySelector:      "GoGetRoute",
+		replacementSelector: "Current",
+		recommendation:      "Replace compatibility route lookup with the primary router method.",
+	},
 }
 
 // runInit executes a non-interactive project initialization flow.
@@ -180,6 +213,7 @@ func (parseL launcher) runMigrate(parseArgs []string) error {
 	parseFlags.SetOutput(os.Stdout)
 	parseRoot := parseFlags.String("root", "", "Project root to migrate; defaults to the current working directory")
 	parseSkipRuntime := parseFlags.Bool("skip-runtime-assets", false, "Skip writing wasm_exec.js into the project root")
+	parseApply := parseFlags.Bool("apply", false, "Apply parser-backed safe rewrites for known deprecated router method calls")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON summary")
 	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
@@ -190,6 +224,7 @@ func (parseL launcher) runMigrate(parseArgs []string) error {
 	parseConfig, parseErr := parseLifecycleMigrateConfig(lifecycleMigrateConfig{
 		rootPath:          *parseRoot,
 		skipRuntimeAssets: *parseSkipRuntime,
+		apply:             *parseApply,
 		json:              *parseJSON,
 	})
 	if parseErr != nil {
@@ -300,6 +335,7 @@ func parseLifecycleMigrateConfig(parseConfig lifecycleMigrateConfig) (lifecycleM
 	return lifecycleMigrateConfig{
 		rootPath:          parseRootPath,
 		skipRuntimeAssets: parseConfig.skipRuntimeAssets,
+		apply:             parseConfig.apply,
 		json:              parseConfig.json,
 	}, nil
 }
@@ -510,14 +546,29 @@ func (parseL launcher) applyLifecycleMigrate(applyConfig lifecycleMigrateConfig)
 	if applyFindingsErr != nil {
 		return lifecycleMigrateSummary{}, applyFindingsErr
 	}
+	applyRewrites := []lifecycleMigrateRewrite{}
+	applyRewriteCount := 0
+	if applyConfig.apply {
+		var applyRewriteErr error
+		applyRewrites, applyRewriteErr = applyLifecycleMigrateRewrites(applyConfig.rootPath)
+		if applyRewriteErr != nil {
+			return lifecycleMigrateSummary{}, applyRewriteErr
+		}
+		for _, applyRewrite := range applyRewrites {
+			applyRewriteCount += applyRewrite.Count
+		}
+	}
 	applyReportPath := filepath.Join(applyConfig.rootPath, "bin", "gwc-migrate-report.json")
 	if applyErr := os.MkdirAll(filepath.Dir(applyReportPath), 0755); applyErr != nil {
 		return lifecycleMigrateSummary{}, fmt.Errorf("create migration report directory: %w", applyErr)
 	}
 	applyReportPayload := map[string]interface{}{
-		"ok":       true,
-		"root":     applyConfig.rootPath,
-		"findings": applyFindings,
+		"ok":           true,
+		"root":         applyConfig.rootPath,
+		"applied":      applyConfig.apply,
+		"rewriteCount": applyRewriteCount,
+		"findings":     applyFindings,
+		"rewrites":     applyRewrites,
 	}
 	applyReportBytes, applyErr := json.MarshalIndent(applyReportPayload, "", "  ")
 	if applyErr != nil {
@@ -536,6 +587,9 @@ func (parseL launcher) applyLifecycleMigrate(applyConfig lifecycleMigrateConfig)
 		ReportPath:        applyReportPath,
 		FindingCount:      len(applyFindings),
 		Findings:          applyFindings,
+		Applied:           applyConfig.apply,
+		RewriteCount:      applyRewriteCount,
+		Rewrites:          applyRewrites,
 	}, nil
 }
 
@@ -621,22 +675,6 @@ func buildLifecycleMigrateFindings(buildRootPath string) ([]lifecycleMigrateFind
 	if buildErr != nil {
 		return nil, buildErr
 	}
-	buildSignals := []struct {
-		legacyCall     string
-		replacement    string
-		recommendation string
-	}{
-		{
-			legacyCall:     "GoRegisterRoute(",
-			replacement:    "router.Register(",
-			recommendation: "Replace compatibility route registration with the primary router API.",
-		},
-		{
-			legacyCall:     "GoGetRoute(",
-			replacement:    "router.Current(",
-			recommendation: "Replace compatibility route lookup with the primary router API.",
-		},
-	}
 
 	for _, buildFile := range buildFiles {
 		buildScanner := bufio.NewScanner(strings.NewReader(buildFile.Content))
@@ -644,13 +682,14 @@ func buildLifecycleMigrateFindings(buildRootPath string) ([]lifecycleMigrateFind
 		for buildScanner.Scan() {
 			buildLineNumber++
 			buildLine := buildScanner.Text()
-			for _, buildSignal := range buildSignals {
-				if strings.Contains(buildLine, buildSignal.legacyCall) {
+			for _, buildSignal := range lifecycleMigrateRouteSignals {
+				buildLegacyCall := buildSignal.legacySelector + "("
+				if strings.Contains(buildLine, buildLegacyCall) {
 					buildFindings = append(buildFindings, lifecycleMigrateFinding{
 						Path:           buildFile.RelPath,
 						Line:           buildLineNumber,
-						LegacyCall:     buildSignal.legacyCall,
-						Replacement:    buildSignal.replacement,
+						LegacyCall:     buildLegacyCall,
+						Replacement:    buildSignal.replacementSelector + "(",
 						Recommendation: buildSignal.recommendation,
 					})
 				}
@@ -667,6 +706,108 @@ func buildLifecycleMigrateFindings(buildRootPath string) ([]lifecycleMigrateFind
 		return buildFindings[buildLeft].LegacyCall < buildFindings[buildRight].LegacyCall
 	})
 	return buildFindings, nil
+}
+
+func applyLifecycleMigrateRewrites(applyRootPath string) ([]lifecycleMigrateRewrite, error) {
+	applyFiles, applyErr := collectGoldenPathGoFiles(applyRootPath)
+	if applyErr != nil {
+		return nil, applyErr
+	}
+	applyRewrites := []lifecycleMigrateRewrite{}
+	for _, applyFile := range applyFiles {
+		applyPath := filepath.Join(applyRootPath, filepath.FromSlash(applyFile.RelPath))
+		applyUpdated, applyFileRewrites, applyRewriteErr := rewriteLifecycleMigrateContent(applyPath, applyFile.RelPath, applyFile.Content)
+		if applyRewriteErr != nil {
+			return nil, applyRewriteErr
+		}
+		if len(applyFileRewrites) == 0 {
+			continue
+		}
+		if applyWriteErr := os.WriteFile(applyPath, []byte(applyUpdated), 0644); applyWriteErr != nil {
+			return nil, fmt.Errorf("write migrated file %s: %w", applyFile.RelPath, applyWriteErr)
+		}
+		applyRewrites = append(applyRewrites, applyFileRewrites...)
+	}
+	sort.Slice(applyRewrites, func(applyLeft int, applyRight int) bool {
+		if applyRewrites[applyLeft].Path != applyRewrites[applyRight].Path {
+			return applyRewrites[applyLeft].Path < applyRewrites[applyRight].Path
+		}
+		return applyRewrites[applyLeft].LegacyCall < applyRewrites[applyRight].LegacyCall
+	})
+	return applyRewrites, nil
+}
+
+func rewriteLifecycleMigrateContent(rewritePath string, rewriteRelPath string, rewriteContent string) (string, []lifecycleMigrateRewrite, error) {
+	rewriteFileSet := token.NewFileSet()
+	rewriteFile, rewriteErr := parser.ParseFile(rewriteFileSet, rewritePath, rewriteContent, 0)
+	if rewriteErr != nil {
+		return "", nil, fmt.Errorf("parse migrated file %s: %w", rewriteRelPath, rewriteErr)
+	}
+	type rewriteSpan struct {
+		start       int
+		end         int
+		legacy      string
+		replacement string
+	}
+	rewriteSpans := []rewriteSpan{}
+	ast.Inspect(rewriteFile, func(rewriteNode ast.Node) bool {
+		rewriteCall, rewriteOK := rewriteNode.(*ast.CallExpr)
+		if !rewriteOK {
+			return true
+		}
+		rewriteSelector, rewriteOK := rewriteCall.Fun.(*ast.SelectorExpr)
+		if !rewriteOK {
+			return true
+		}
+		for _, rewriteSignal := range lifecycleMigrateRouteSignals {
+			if rewriteSelector.Sel.Name != rewriteSignal.legacySelector {
+				continue
+			}
+			rewriteStart := rewriteFileSet.Position(rewriteSelector.Sel.Pos()).Offset
+			rewriteEnd := rewriteFileSet.Position(rewriteSelector.Sel.End()).Offset
+			rewriteSpans = append(rewriteSpans, rewriteSpan{
+				start:       rewriteStart,
+				end:         rewriteEnd,
+				legacy:      rewriteSignal.legacySelector,
+				replacement: rewriteSignal.replacementSelector,
+			})
+			break
+		}
+		return true
+	})
+	if len(rewriteSpans) == 0 {
+		return rewriteContent, nil, nil
+	}
+	sort.Slice(rewriteSpans, func(rewriteLeft int, rewriteRight int) bool {
+		return rewriteSpans[rewriteLeft].start > rewriteSpans[rewriteRight].start
+	})
+	rewriteBytes := []byte(rewriteContent)
+	rewriteCounts := map[string]*lifecycleMigrateRewrite{}
+	for _, rewriteSpan := range rewriteSpans {
+		if rewriteSpan.start < 0 || rewriteSpan.end < rewriteSpan.start || rewriteSpan.end > len(rewriteBytes) {
+			return "", nil, fmt.Errorf("invalid rewrite span for %s", rewriteRelPath)
+		}
+		rewriteBytes = append(rewriteBytes[:rewriteSpan.start], append([]byte(rewriteSpan.replacement), rewriteBytes[rewriteSpan.end:]...)...)
+		rewriteKey := rewriteSpan.legacy + "->" + rewriteSpan.replacement
+		rewriteRecord := rewriteCounts[rewriteKey]
+		if rewriteRecord == nil {
+			rewriteRecord = &lifecycleMigrateRewrite{
+				Path:        rewriteRelPath,
+				LegacyCall:  rewriteSpan.legacy + "(",
+				Replacement: rewriteSpan.replacement + "(",
+			}
+			rewriteCounts[rewriteKey] = rewriteRecord
+		}
+		rewriteRecord.Count++
+	}
+	rewriteSummaries := make([]lifecycleMigrateRewrite, 0, len(rewriteCounts))
+	for _, rewriteRecord := range rewriteCounts {
+		rewriteSummaries = append(rewriteSummaries, *rewriteRecord)
+	}
+	sort.Slice(rewriteSummaries, func(rewriteLeft int, rewriteRight int) bool {
+		return rewriteSummaries[rewriteLeft].LegacyCall < rewriteSummaries[rewriteRight].LegacyCall
+	})
+	return string(rewriteBytes), rewriteSummaries, nil
 }
 
 // renderLifecycleInitSummary prints a human-readable init command summary.
@@ -706,6 +847,9 @@ func renderLifecycleMigrateSummary(renderSummary lifecycleMigrateSummary) {
 	fmt.Printf("  metadata:       %s\n", renderSummary.MetadataPath)
 	fmt.Printf("  report:         %s\n", renderSummary.ReportPath)
 	fmt.Printf("  findings:       %d\n", renderSummary.FindingCount)
+	if renderSummary.Applied {
+		fmt.Printf("  rewrites:       %d\n", renderSummary.RewriteCount)
+	}
 	if strings.TrimSpace(renderSummary.RuntimeAssetPath) != "" {
 		fmt.Printf("  wasm_exec.js:   %s\n", renderSummary.RuntimeAssetPath)
 	}

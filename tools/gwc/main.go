@@ -50,6 +50,7 @@ type buildProfile struct {
 	Target    string `json:"target,omitempty"`
 	Trimpath  bool   `json:"trimpath"`
 	Ldflags   string `json:"ldflags,omitempty"`
+	GCFlags   string `json:"gcflags,omitempty"`
 	BuildVCS  string `json:"buildvcs,omitempty"`
 	Opt       string `json:"opt,omitempty"`
 	// Tags carries build tags for the profile.  Release-shaped profiles set
@@ -732,6 +733,7 @@ func printBuildSummary(parseSummary buildSummary) {
 	fmt.Printf("  sha256:       %s\n", parseSummary.SHA256)
 	fmt.Printf("  trimpath:     %t\n", parseSummary.Profile.Trimpath)
 	fmt.Printf("  ldflags:      %s\n", firstNonEmpty(parseSummary.Profile.Ldflags, "<none>"))
+	fmt.Printf("  gcflags:      %s\n", firstNonEmpty(parseSummary.Profile.GCFlags, "<none>"))
 	fmt.Printf("  buildvcs:     %s\n", firstNonEmpty(parseSummary.Profile.BuildVCS, "default"))
 	fmt.Printf("  opt:          %s\n", firstNonEmpty(parseSummary.Profile.Opt, "<none>"))
 	fmt.Printf("  tags:         %s\n", firstNonEmpty(parseSummary.Profile.Tags, "<none>"))
@@ -823,7 +825,7 @@ func printUsage() {
 	fmt.Println("  init       Non-interactive project initialization that writes gwc-start.json and lifecycle defaults")
 	fmt.Println("  inspect    Build higher-level route, dependency, ownership, and file-type project reports")
 	fmt.Println("  upgrade    Non-interactive lifecycle upgrade for gwc-start.json schema and runtime assets")
-	fmt.Println("  migrate    Non-interactive migration helper with compatibility API findings and report export")
+	fmt.Println("  migrate    Non-interactive migration helper with compatibility API findings, safe rewrites, and report export")
 	fmt.Println("  prerender  Build one static export output with route HTML, wasm artifacts, and a manifest")
 	fmt.Println("  export     Alias for `prerender`")
 	fmt.Println("  tailwind   Build shared Tailwind CSS and generated class manifests through the launcher-owned Tailwind path")

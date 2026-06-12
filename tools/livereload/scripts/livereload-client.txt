@@ -6,6 +6,8 @@
     let reconnectTimer = null;
     const reconnectDelay = 5000; // 5 seconds
     const stateStorageKey = 'gwc:livereload:state';
+    const liveReloadProtocol = 'gwc.livereload.ws';
+    const liveReloadProtocolVersion = 1;
     
     // State storage in memory
     let storedState = null;
@@ -171,6 +173,44 @@
             console.warn('Failed to serialize hot reload state:', e);
             return null;
         }
+    }
+
+    function buildProtocolMessage(type, payload) {
+        return {
+            protocol: liveReloadProtocol,
+            version: liveReloadProtocolVersion,
+            type: type,
+            payload: payload
+        };
+    }
+
+    function validateProtocolMessage(message) {
+        if (!message || typeof message !== 'object' || Array.isArray(message)) {
+            console.warn('Live reload ignored malformed protocol message:', message);
+            return false;
+        }
+
+        const protocol = typeof message.protocol === 'string' ? message.protocol.trim() : '';
+        if (protocol && protocol !== liveReloadProtocol) {
+            const detail = 'expected ' + liveReloadProtocol + ', got ' + protocol;
+            console.warn('Live reload protocol mismatch:', detail);
+            if (typeof showBuildStatusPopup === 'function') {
+                showBuildStatusPopup('Live reload protocol mismatch: ' + detail, 'error');
+            }
+            return false;
+        }
+
+        const version = Number(message.version || liveReloadProtocolVersion);
+        if (!Number.isFinite(version) || version < 0 || version > liveReloadProtocolVersion) {
+            const detail = 'unsupported version ' + message.version;
+            console.warn('Live reload protocol mismatch:', detail);
+            if (typeof showBuildStatusPopup === 'function') {
+                showBuildStatusPopup('Live reload protocol mismatch: ' + detail, 'error');
+            }
+            return false;
+        }
+
+        return true;
     }
 
     function whenDocumentTargetReady(targetName, callback) {
@@ -701,7 +741,9 @@
         ws.onmessage = function(event) {
             try {
                 const message = JSON.parse(event.data);
-                handleMessage(message);
+                if (validateProtocolMessage(message)) {
+                    handleMessage(message);
+                }
             } catch (e) {
                 console.error('Failed to parse WebSocket message:', e);
             }
@@ -1020,10 +1062,7 @@
         }
 
         try {
-            ws.send(JSON.stringify({
-                type: 'state_snapshot',
-                payload: snapshot
-            }));
+            ws.send(JSON.stringify(buildProtocolMessage('state_snapshot', snapshot)));
         } catch (e) {
             console.warn('Failed to send hot reload state snapshot:', e);
         }

@@ -37,6 +37,9 @@ func Component() gwcui.Node {
 		_ = fetch.UseFetch("/api")
 	}
 	_ = parseLater
+	go func() {
+		_ = gwcui.UseRef(0)
+	}()
 	switch "new-nav" {
 	case "new-nav":
 		_ = flags.UseFlag("new-nav", false)
@@ -53,8 +56,8 @@ func Component() gwcui.Node {
 	if parseErr != nil {
 		parseT.Fatalf("collect hook rule issues: %v", parseErr)
 	}
-	if len(parseIssues) != 4 {
-		parseT.Fatalf("expected four hook rule issues, got %#v", parseIssues)
+	if len(parseIssues) != 5 {
+		parseT.Fatalf("expected five hook rule issues, got %#v", parseIssues)
 	}
 	parseMessages := make([]string, 0, len(parseIssues))
 	for _, parseIssue := range parseIssues {
@@ -68,6 +71,8 @@ func Component() gwcui.Node {
 		"a loop",
 		"fetch.UseFetch",
 		"a nested function",
+		"gwcui.UseRef",
+		"a goroutine launch",
 		"flags.UseFlag",
 	} {
 		if !strings.Contains(parseJoined, parseNeedle) {

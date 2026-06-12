@@ -19,6 +19,7 @@ type lintHookRuleContext struct {
 	conditional    bool
 	loop           bool
 	nestedFunction bool
+	goroutine      bool
 }
 
 // collectLintHookRuleIssues scans Go files for obvious GWC hook call-order violations.
@@ -236,6 +237,8 @@ func buildLintHookRuleContext(parseStack []ast.Node) lintHookRuleContext {
 			parseContext.conditional = true
 		case *ast.ForStmt, *ast.RangeStmt:
 			parseContext.loop = true
+		case *ast.GoStmt:
+			parseContext.goroutine = true
 		case *ast.FuncDecl:
 			parseFunctionDepth++
 		case *ast.FuncLit:
@@ -333,6 +336,9 @@ func formatLintHookRuleReason(parseContext lintHookRuleContext) string {
 	}
 	if parseContext.loop {
 		parseReasons = append(parseReasons, "a loop")
+	}
+	if parseContext.goroutine {
+		parseReasons = append(parseReasons, "a goroutine launch")
 	}
 	if parseContext.nestedFunction {
 		parseReasons = append(parseReasons, "a nested function")

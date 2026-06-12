@@ -271,6 +271,85 @@ func TestReleaseCollectPackageSizeAttributionCoversSortingAndRecordErrors(parseT
 		}
 	})
 
+	parseT.Run("unions multiple entrypoint reachability graphs", func(parseT2 *testing.T) {
+		parseRoot := parseT2.TempDir()
+		parseAppADir := filepath.Join(parseRoot, "cmd", "app-a")
+		parseAppBDir := filepath.Join(parseRoot, "cmd", "app-b")
+		parseSharedDir := filepath.Join(parseRoot, "shared")
+		parseAOnlyDir := filepath.Join(parseRoot, "aonly")
+		parseBOnlyDir := filepath.Join(parseRoot, "bonly")
+		for _, parseDir := range []string{parseAppADir, parseAppBDir, parseSharedDir, parseAOnlyDir, parseBOnlyDir} {
+			if parseErr := os.MkdirAll(parseDir, 0755); parseErr != nil {
+				parseT2.Fatalf("mkdir package dir: %v", parseErr)
+			}
+		}
+		parseSharedArchiveA := filepath.Join(parseRoot, "shared-a.a")
+		parseSharedArchiveB := filepath.Join(parseRoot, "shared-b.a")
+		if parseErr := os.WriteFile(parseSharedArchiveA, []byte("shared"), 0644); parseErr != nil {
+			parseT2.Fatalf("write shared archive a: %v", parseErr)
+		}
+		if parseErr := os.WriteFile(parseSharedArchiveB, []byte("shared-archive"), 0644); parseErr != nil {
+			parseT2.Fatalf("write shared archive b: %v", parseErr)
+		}
+		if parseErr := os.WriteFile(filepath.Join(parseSharedDir, "shared.go"), []byte("package shared\n"), 0644); parseErr != nil {
+			parseT2.Fatalf("write shared.go: %v", parseErr)
+		}
+		if parseErr := os.WriteFile(filepath.Join(parseAOnlyDir, "a.go"), []byte("package aonly\n"), 0644); parseErr != nil {
+			parseT2.Fatalf("write a.go: %v", parseErr)
+		}
+		if parseErr := os.WriteFile(filepath.Join(parseBOnlyDir, "b.go"), []byte("package bonly\n"), 0644); parseErr != nil {
+			parseT2.Fatalf("write b.go: %v", parseErr)
+		}
+
+		parseCalls := []string{}
+		releaseRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+			parseCalls = append(parseCalls, parseCwd)
+			if parseCommand != "go" || strings.Join(parseArgs, " ") != "list -deps -json -export ." {
+				parseT2.Fatalf("unexpected go list invocation: command=%q args=%v", parseCommand, parseArgs)
+			}
+			switch parseCwd {
+			case parseAppADir:
+				return buildReleasePackageJSONStream(parseT2, []releaseGoListPackage{
+					{ImportPath: "example.com/app/shared", Dir: parseSharedDir, Export: parseSharedArchiveA, GoFiles: []string{"shared.go"}},
+					{ImportPath: "example.com/app/aonly", Dir: parseAOnlyDir, GoFiles: []string{"a.go"}},
+				}), nil
+			case parseAppBDir:
+				return buildReleasePackageJSONStream(parseT2, []releaseGoListPackage{
+					{ImportPath: "example.com/app/shared", Dir: parseSharedDir, Export: parseSharedArchiveB, GoFiles: []string{"shared.go"}},
+					{ImportPath: "example.com/app/bonly", Dir: parseBOnlyDir, GoFiles: []string{"b.go"}},
+				}), nil
+			default:
+				parseT2.Fatalf("unexpected package dir %q", parseCwd)
+				return "", nil
+			}
+		}
+
+		parsePackages, parseErr := releaseCollectPackageSizeAttributionForEntrypoints([]string{parseAppADir, parseAppBDir, parseAppADir})
+		if parseErr != nil {
+			parseT2.Fatalf("releaseCollectPackageSizeAttributionForEntrypoints: %v", parseErr)
+		}
+		if strings.Join(parseCalls, "|") != strings.Join([]string{parseAppADir, parseAppBDir}, "|") {
+			parseT2.Fatalf("expected one go list per unique entrypoint, got %v", parseCalls)
+		}
+		if len(parsePackages) != 3 {
+			parseT2.Fatalf("expected union to contain three unique packages, got %#v", parsePackages)
+		}
+		parseByImportPath := map[string]releasePackageSizeRecord{}
+		for _, parsePackage := range parsePackages {
+			parseByImportPath[parsePackage.ImportPath] = parsePackage
+		}
+		if _, parseOk := parseByImportPath["example.com/app/aonly"]; !parseOk {
+			parseT2.Fatalf("expected a-only package in union, got %#v", parsePackages)
+		}
+		if _, parseOk := parseByImportPath["example.com/app/bonly"]; !parseOk {
+			parseT2.Fatalf("expected b-only package in union, got %#v", parsePackages)
+		}
+		parseShared := parseByImportPath["example.com/app/shared"]
+		if parseShared.ArchiveBytes != int64(len("shared-archive")) {
+			parseT2.Fatalf("expected duplicate shared package to keep richest archive size, got %#v", parseShared)
+		}
+	})
+
 	parseT.Run("reports export and source stat failures", func(parseT2 *testing.T) {
 		if _, parseErr := releaseBuildPackageSizeRecord(releaseGoListPackage{
 			ImportPath: "example.com/missing-export",

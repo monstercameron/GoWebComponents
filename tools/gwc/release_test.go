@@ -431,6 +431,55 @@ func TestRunReleaseJSONBuildsManifestAndCompressedSidecars(parseT *testing.T) {
 	}
 }
 
+func TestRunReleaseDebugProfileRecordsGCFlags(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseOutDir := filepath.Join(parseTempApp, "dist", "debug-release")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/gwcdebugrelease\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
+	}
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
+	}
+
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
+	}
+	defer parseRestoreStdout()
+
+	if parseErr4 := (launcher{}).run([]string{"release", "-app", parseMainPath, "-root", parseTempApp, "-out-dir", parseOutDir, "-binary-name", "app.wasm", "-profile", "debug", "-compression", "none", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run debug release: %v", parseErr4)
+	}
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
+	}
+	var parseSummary releaseSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("unmarshal release summary: %v\n%s", parseErr5, parseOutput)
+	}
+	if parseSummary.Profile.Name != "debug" || parseSummary.Profile.GCFlags != "all=-N -l" {
+		parseT.Fatalf("expected debug profile metadata, got %#v", parseSummary.Profile)
+	}
+	if parseSummary.Flags["gcflags"] != "all=-N -l" {
+		parseT.Fatalf("expected summary gcflags, got %#v", parseSummary.Flags)
+	}
+
+	parseManifestBytes, parseErr3 := os.ReadFile(filepath.Join(parseOutDir, "wasm-release-manifest.json"))
+	if parseErr3 != nil {
+		parseT.Fatalf("read debug release manifest: %v", parseErr3)
+	}
+	var parseManifest map[string]interface{}
+	if parseErr6 := json.Unmarshal(parseManifestBytes, &parseManifest); parseErr6 != nil {
+		parseT.Fatalf("unmarshal debug release manifest: %v\n%s", parseErr6, string(parseManifestBytes))
+	}
+	parseFlags, parseOk := parseManifest["flags"].(map[string]interface{})
+	if !parseOk || parseFlags["gcflags"] != "all=-N -l" || parseFlags["trimpath"] != false {
+		parseT.Fatalf("expected debug manifest flags, got %#v", parseManifest)
+	}
+}
+
 func TestRunReleaseCompressionBrotliOnly(parseT *testing.T) {
 	parseTempApp := parseT.TempDir()
 	parseGoModPath := filepath.Join(parseTempApp, "go.mod")

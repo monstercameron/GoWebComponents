@@ -14,7 +14,7 @@ import (
 func (parseL launcher) runExamplesBuildPublicSite(parseArgs []string) error {
 	buildFs := flag.NewFlagSet("examples build-public-site", flag.ContinueOnError)
 	buildFs.SetOutput(os.Stdout)
-	buildProfile := buildFs.String("profile", "release", "Build profile: development, ci, benchmark, or release")
+	buildProfile := buildFs.String("profile", "release", "Build profile: development, ci, benchmark, release, or tinygo")
 	if buildErr := buildFs.Parse(parseArgs); buildErr != nil {
 		if errors.Is(buildErr, flag.ErrHelp) {
 			return nil

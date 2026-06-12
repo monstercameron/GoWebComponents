@@ -159,3 +159,67 @@ func main() {
 		parseT.Fatalf("expected migrate report to exist: %s", parseSummary.ReportPath)
 	}
 }
+
+// TestRunMigrateApplyRewritesLegacyRouterCalls verifies parser-backed migration rewrites.
+func TestRunMigrateApplyRewritesLegacyRouterCalls(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseModule := "module example.com/migrateapplyfixture\n\ngo 1.25\n"
+	if parseWriteErr := os.WriteFile(filepath.Join(parseRoot, "go.mod"), []byte(parseModule), 0644); parseWriteErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseWriteErr)
+	}
+	parseMain := `package main
+
+func main() {
+	parseRouter.GoRegisterRoute("/home", nil)
+	_ = parseRouter.GoGetRoute()
+	_ = "parseRouter.GoRegisterRoute(\"/literal\", nil)"
+	// parseRouter.GoGetRoute()
+}
+`
+	parseMainPath := filepath.Join(parseRoot, "main.go")
+	if parseWriteErr2 := os.WriteFile(parseMainPath, []byte(parseMain), 0644); parseWriteErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseWriteErr2)
+	}
+	if parseWriteErr3 := os.WriteFile(filepath.Join(parseRoot, "index.html"), []byte("<!doctype html>"), 0644); parseWriteErr3 != nil {
+		parseT.Fatalf("write index.html: %v", parseWriteErr3)
+	}
+	if parseRunErr := (launcher{}).runInit([]string{"-root", parseRoot, "-skip-runtime-assets", "-force"}); parseRunErr != nil {
+		parseT.Fatalf("seed init for migrate apply: %v", parseRunErr)
+	}
+
+	parseStdout, parseRestoreStdout, parseCaptureErr := captureExamplesStdout()
+	if parseCaptureErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseCaptureErr)
+	}
+	defer parseRestoreStdout()
+
+	if parseRunErr2 := (launcher{}).runMigrate([]string{"-root", parseRoot, "-skip-runtime-assets", "-apply", "-json"}); parseRunErr2 != nil {
+		parseT.Fatalf("run migrate apply: %v", parseRunErr2)
+	}
+	parseOutput, parseOutputErr := parseStdout()
+	if parseOutputErr != nil {
+		parseT.Fatalf("read migrate output: %v", parseOutputErr)
+	}
+	var parseSummary lifecycleMigrateSummary
+	if parseDecodeErr := json.Unmarshal([]byte(parseOutput), &parseSummary); parseDecodeErr != nil {
+		parseT.Fatalf("decode migrate summary: %v\n%s", parseDecodeErr, parseOutput)
+	}
+	if !parseSummary.Applied || parseSummary.RewriteCount != 2 {
+		parseT.Fatalf("expected two applied rewrites, got %#v", parseSummary)
+	}
+	parseRewrittenBytes, parseReadErr := os.ReadFile(parseMainPath)
+	if parseReadErr != nil {
+		parseT.Fatalf("read rewritten main.go: %v", parseReadErr)
+	}
+	parseRewritten := string(parseRewrittenBytes)
+	for _, parseWant := range []string{
+		"parseRouter.Register(\"/home\", nil)",
+		"_ = parseRouter.Current()",
+		"\"parseRouter.GoRegisterRoute(\\\"/literal\\\", nil)\"",
+		"// parseRouter.GoGetRoute()",
+	} {
+		if !strings.Contains(parseRewritten, parseWant) {
+			parseT.Fatalf("expected rewritten file to contain %q, got %q", parseWant, parseRewritten)
+		}
+	}
+}

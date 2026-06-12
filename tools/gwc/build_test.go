@@ -36,20 +36,27 @@ func writeFakeGoBuildCommand(parseT *testing.T, parseBinDir string) {
 
 func TestResolveBuildProfileAliases(parseT *testing.T) {
 	parseTests := []struct {
-		input     string
-		wantName  string
-		trimpath  bool
-		wantFlags string
-		wantTags  string
+		input         string
+		wantName      string
+		wantToolchain string
+		wantTarget    string
+		trimpath      bool
+		wantFlags     string
+		wantGCFlags   string
+		wantOpt       string
+		wantTags      string
 	}{
-		// Development links fast (-w skips DWARF) and keeps dev-only framework
-		// surfaces; release-shaped profiles strip fully and exclude dev-only
-		// code via the production build tag.
-		{input: "development", wantName: "development", trimpath: false, wantFlags: "-w", wantTags: ""},
-		{input: "dev", wantName: "development", trimpath: false, wantFlags: "-w", wantTags: ""},
-		{input: "ci", wantName: "ci", trimpath: true, wantFlags: "-s -w", wantTags: "production"},
-		{input: "bench", wantName: "benchmark", trimpath: true, wantFlags: "-s -w", wantTags: "production"},
-		{input: "prod", wantName: "release", trimpath: true, wantFlags: "-s -w", wantTags: "production"},
+		// Development links fast and keeps dev-only framework surfaces. The
+		// debug profile keeps paths untrimmed and disables optimization for
+		// source-debugging sessions. Release-shaped profiles strip fully and
+		// exclude dev-only code via the production build tag.
+		{input: "development", wantName: "development", wantToolchain: "go", wantTarget: "js/wasm", trimpath: false, wantFlags: "-w", wantTags: ""},
+		{input: "dev", wantName: "development", wantToolchain: "go", wantTarget: "js/wasm", trimpath: false, wantFlags: "-w", wantTags: ""},
+		{input: "debug", wantName: "debug", wantToolchain: "go", wantTarget: "js/wasm", trimpath: false, wantGCFlags: "all=-N -l", wantTags: ""},
+		{input: "ci", wantName: "ci", wantToolchain: "go", wantTarget: "js/wasm", trimpath: true, wantFlags: "-s -w", wantTags: "production"},
+		{input: "bench", wantName: "benchmark", wantToolchain: "go", wantTarget: "js/wasm", trimpath: true, wantFlags: "-s -w", wantTags: "production"},
+		{input: "prod", wantName: "release", wantToolchain: "go", wantTarget: "js/wasm", trimpath: true, wantFlags: "-s -w", wantTags: "production"},
+		{input: "tiny", wantName: "tinygo", wantToolchain: "tinygo", wantTarget: "wasm", trimpath: false, wantFlags: "", wantOpt: "z", wantTags: "production"},
 	}
 	for _, parseTest := range parseTests {
 		parseT.Run(parseTest.input, func(parseT2 *testing.T) {
@@ -60,11 +67,23 @@ func TestResolveBuildProfileAliases(parseT *testing.T) {
 			if parseProfile.Name != parseTest.wantName {
 				parseT2.Fatalf("expected profile name %q, got %q", parseTest.wantName, parseProfile.Name)
 			}
+			if parseProfile.Toolchain != parseTest.wantToolchain {
+				parseT2.Fatalf("expected toolchain %q, got %#v", parseTest.wantToolchain, parseProfile)
+			}
+			if parseProfile.Target != parseTest.wantTarget {
+				parseT2.Fatalf("expected target %q, got %#v", parseTest.wantTarget, parseProfile)
+			}
 			if parseProfile.Trimpath != parseTest.trimpath {
 				parseT2.Fatalf("expected trimpath %t, got %#v", parseTest.trimpath, parseProfile)
 			}
 			if parseProfile.Ldflags != parseTest.wantFlags {
 				parseT2.Fatalf("expected ldflags %q, got %#v", parseTest.wantFlags, parseProfile)
+			}
+			if parseProfile.GCFlags != parseTest.wantGCFlags {
+				parseT2.Fatalf("expected gcflags %q, got %#v", parseTest.wantGCFlags, parseProfile)
+			}
+			if parseProfile.Opt != parseTest.wantOpt {
+				parseT2.Fatalf("expected opt %q, got %#v", parseTest.wantOpt, parseProfile)
 			}
 			if parseProfile.Tags != parseTest.wantTags {
 				parseT2.Fatalf("expected tags %q, got %#v", parseTest.wantTags, parseProfile)
@@ -73,6 +92,35 @@ func TestResolveBuildProfileAliases(parseT *testing.T) {
 	}
 	if _, parseErr2 := resolveBuildProfile("mystery"); parseErr2 == nil {
 		parseT.Fatal("expected unknown build profile to fail")
+	}
+}
+
+func TestBuildCommandForDebugProfilePreservesSourceDebugFlags(parseT *testing.T) {
+	parseProfile, parseErr := resolveBuildProfile("source-debug")
+	if parseErr != nil {
+		parseT.Fatalf("resolve debug profile: %v", parseErr)
+	}
+
+	parseCommand, parseArgs, parseEnv, parseErr := buildCommandForProfile(parseProfile, "out.wasm")
+	if parseErr != nil {
+		parseT.Fatalf("build command for debug profile: %v", parseErr)
+	}
+	if parseCommand != "go" {
+		parseT.Fatalf("expected go command, got %q", parseCommand)
+	}
+	parseJoined := strings.Join(parseArgs, "\x00")
+	for _, parseExpected := range []string{"build", "-o", "out.wasm", "-gcflags=all=-N -l", "."} {
+		if !strings.Contains(parseJoined, parseExpected) {
+			parseT.Fatalf("expected debug build args to contain %q, got %#v", parseExpected, parseArgs)
+		}
+	}
+	for _, parseForbidden := range []string{"-trimpath", "-ldflags"} {
+		if strings.Contains(parseJoined, parseForbidden) {
+			parseT.Fatalf("debug build args should not contain %q, got %#v", parseForbidden, parseArgs)
+		}
+	}
+	if !envContains(parseEnv, "GOOS=js") || !envContains(parseEnv, "GOARCH=wasm") {
+		parseT.Fatalf("expected js/wasm build env, got %#v", parseEnv)
 	}
 }
 
@@ -280,6 +328,110 @@ func TestRunBuildJSONBuildsWasmArtifact(parseT *testing.T) {
 	}
 	if parseInfo, parseErr6 := os.Stat(parseOutputPath); parseErr6 != nil || parseInfo.Size() <= 0 {
 		parseT.Fatalf("expected built artifact at %q, stat err=%v size=%v", parseOutputPath, parseErr6, parseInfo)
+	}
+}
+
+func TestRunBuildTinyGoProfileUsesTinyGoCommand(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseOutputPath := filepath.Join(parseTempApp, "dist", "app.wasm")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwctinygotest\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
+	}
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
+	}
+
+	parseOriginalLookPath := buildLookPath
+	parseOriginalRunCommand := buildRunCommand
+	parseT.Cleanup(func() {
+		buildLookPath = parseOriginalLookPath
+		buildRunCommand = parseOriginalRunCommand
+	})
+
+	buildLookPath = func(parseFile string) (string, error) {
+		if parseFile != "tinygo" {
+			return "", errors.New("unexpected tool lookup: " + parseFile)
+		}
+		return filepath.Join(parseT.TempDir(), "tinygo.exe"), nil
+	}
+	var parseGotCommand string
+	var parseGotArgs []string
+	var parseGotCwd string
+	buildRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		parseGotCommand = parseCommand
+		parseGotArgs = append([]string{}, parseArgs...)
+		parseGotCwd = parseCwd
+		if parseCommand != "tinygo" {
+			return "", errors.New("unexpected command: " + parseCommand)
+		}
+		if parseErr := os.MkdirAll(filepath.Dir(parseOutputPath), 0755); parseErr != nil {
+			return "", parseErr
+		}
+		if parseErr := os.WriteFile(parseOutputPath, []byte("tiny wasm"), 0644); parseErr != nil {
+			return "", parseErr
+		}
+		return "", nil
+	}
+
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
+	}
+	defer parseRestoreStdout()
+
+	parseLauncher := launcher{}
+	if parseErr4 := parseLauncher.run([]string{"build", "-app", parseMainPath, "-root", parseTempApp, "-out", parseOutputPath, "-profile", "tinygo", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run tinygo build: %v", parseErr4)
+	}
+	parseWantArgs := []string{"build", "-target=wasm", "-o", parseOutputPath, "-opt=z", "-tags", "production", "."}
+	if parseGotCommand != "tinygo" || strings.Join(parseGotArgs, "\x00") != strings.Join(parseWantArgs, "\x00") {
+		parseT.Fatalf("expected tinygo args %#v, got command=%q args=%#v", parseWantArgs, parseGotCommand, parseGotArgs)
+	}
+	if parseGotCwd != parseTempApp {
+		parseT.Fatalf("expected tinygo cwd %q, got %q", parseTempApp, parseGotCwd)
+	}
+
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
+	}
+	var parseSummary buildSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("unmarshal tinygo build summary: %v\n%s", parseErr5, parseOutput)
+	}
+	if parseSummary.Profile.Name != "tinygo" || parseSummary.Profile.Toolchain != "tinygo" || parseSummary.Profile.Target != "wasm" || parseSummary.Profile.Opt != "z" {
+		parseT.Fatalf("expected tinygo profile metadata, got %#v", parseSummary.Profile)
+	}
+	if parseSummary.OutputPath != parseOutputPath || parseSummary.Bytes <= 0 || len(parseSummary.SHA256) != 64 {
+		parseT.Fatalf("expected tinygo artifact metadata, got %#v", parseSummary)
+	}
+}
+
+func TestRunBuildTinyGoProfileRequiresTinyGoOnPath(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
+	}
+
+	parseOriginalLookPath := buildLookPath
+	parseT.Cleanup(func() { buildLookPath = parseOriginalLookPath })
+	buildLookPath = func(parseFile string) (string, error) {
+		if parseFile != "tinygo" {
+			return "", errors.New("unexpected tool lookup: " + parseFile)
+		}
+		return "", errors.New("not found")
+	}
+
+	parseLauncher := launcher{}
+	parseErr2 := parseLauncher.run([]string{"build", "-app", parseMainPath, "-root", parseTempApp, "-profile", "tinygo"})
+	if parseErr2 == nil {
+		parseT.Fatal("expected missing TinyGo to fail")
+	}
+	if !strings.Contains(parseErr2.Error(), "tinygo build profile requires TinyGo on PATH") {
+		parseT.Fatalf("expected actionable TinyGo error, got %v", parseErr2)
 	}
 }
 
