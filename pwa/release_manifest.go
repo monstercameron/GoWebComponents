@@ -12,6 +12,7 @@ import (
 type WasmReleaseFlags struct {
 	Trimpath    bool   `json:"trimpath,omitempty"`
 	LDFlags     string `json:"ldflags,omitempty"`
+	GCFlags     string `json:"gcflags,omitempty"`
 	BuildVCS    string `json:"buildvcs,omitempty"`
 	Compression bool   `json:"compression,omitempty"`
 }
@@ -67,6 +68,7 @@ func (parseM WasmReleaseManifest) Normalized() WasmReleaseManifest {
 	parseNormalized.GOOS = strings.TrimSpace(parseNormalized.GOOS)
 	parseNormalized.GOARCH = strings.TrimSpace(parseNormalized.GOARCH)
 	parseNormalized.Flags.LDFlags = strings.TrimSpace(parseNormalized.Flags.LDFlags)
+	parseNormalized.Flags.GCFlags = strings.TrimSpace(parseNormalized.Flags.GCFlags)
 	parseNormalized.Flags.BuildVCS = strings.TrimSpace(parseNormalized.Flags.BuildVCS)
 	if len(parseNormalized.Artifacts) == 0 {
 		parseNormalized.Artifacts = nil

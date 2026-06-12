@@ -9,7 +9,7 @@ func TestParseWasmReleaseManifestJSONValidatesAndNormalizes(parseT *testing.T) {
   "profile": " production ",
   "goos": " js ",
   "goarch": " wasm ",
-  "flags": {"trimpath": true, "ldflags": " -s -w ", "buildvcs": " false ", "compression": true},
+  "flags": {"trimpath": true, "ldflags": " -s -w ", "gcflags": " all=-N -l ", "buildvcs": " false ", "compression": true},
   "artifacts": {
     "wasm": {"path": " dist/app.1234.wasm ", "bytes": 42, "sha256": " ABCD "}
   }
@@ -22,6 +22,9 @@ func TestParseWasmReleaseManifestJSONValidatesAndNormalizes(parseT *testing.T) {
 	}
 	if parseManifest.Artifacts["wasm"].Path != "dist/app.1234.wasm" || parseManifest.Artifacts["wasm"].SHA256 != "abcd" {
 		parseT.Fatalf("unexpected normalized artifact: %#v", parseManifest.Artifacts["wasm"])
+	}
+	if !parseManifest.Flags.Trimpath || parseManifest.Flags.LDFlags != "-s -w" || parseManifest.Flags.GCFlags != "all=-N -l" || parseManifest.Flags.BuildVCS != "false" || !parseManifest.Flags.Compression {
+		parseT.Fatalf("unexpected normalized flags: %#v", parseManifest.Flags)
 	}
 }
 
