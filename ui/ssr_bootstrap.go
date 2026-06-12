@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"strings"
 
 	"github.com/fxamacker/cbor/v2"
 )
@@ -59,6 +60,10 @@ type SSRBootstrapReference struct {
 	Version int    `json:"version,omitempty"`
 	URL     string `json:"url,omitempty"`
 	Format  string `json:"format,omitempty"`
+}
+
+type SSRScriptOptions struct {
+	Nonce string
 }
 
 // marshalSSRBootstrapJSON is a core package helper.
@@ -160,11 +165,19 @@ func normalizeSSRBootstrap(parsePayload SSRBootstrap) (SSRBootstrap, error) {
 
 // RenderBootstrapScript renders an inline bootstrap script tag.
 func RenderBootstrapScript(parsePayload SSRBootstrap, parseScriptID string) (string, error) {
-	return RenderBootstrapScriptObserved(parsePayload, parseScriptID, SSRObservabilityOptions{})
+	return RenderBootstrapScriptWithOptions(parsePayload, parseScriptID, SSRScriptOptions{})
 }
 
 // RenderBootstrapScriptObserved renders an inline bootstrap script tag and emits size metrics.
 func RenderBootstrapScriptObserved(parsePayload SSRBootstrap, parseScriptID string, parseOptions SSRObservabilityOptions) (string, error) {
+	return renderBootstrapScript(parsePayload, parseScriptID, SSRScriptOptions{}, parseOptions)
+}
+
+func RenderBootstrapScriptWithOptions(parsePayload SSRBootstrap, parseScriptID string, parseScriptOptions SSRScriptOptions) (string, error) {
+	return renderBootstrapScript(parsePayload, parseScriptID, parseScriptOptions, SSRObservabilityOptions{})
+}
+
+func renderBootstrapScript(parsePayload SSRBootstrap, parseScriptID string, parseScriptOptions SSRScriptOptions, parseOptions SSRObservabilityOptions) (string, error) {
 	parseEncoded, parseErr := marshalSSRBootstrapJSON(parsePayload)
 	if parseErr != nil {
 		dispatchSSRObservation(parseOptions, newSSRBootstrapObservation(parseOptions, SSRBootstrapFormatJSON, 0, 0, parseErr))
@@ -176,13 +189,17 @@ func RenderBootstrapScriptObserved(parsePayload SSRBootstrap, parseScriptID stri
 		parseId = DefaultBootstrapScriptID
 	}
 
-	parseScript := `<script id="` + html.EscapeString(parseId) + `" type="application/json">` + string(parseEncoded) + `</script>`
+	parseScript := `<script id="` + html.EscapeString(parseId) + `" type="application/json"` + renderSSRScriptNonceAttr(parseScriptOptions.Nonce) + `>` + string(parseEncoded) + `</script>`
 	dispatchSSRObservation(parseOptions, newSSRBootstrapObservation(parseOptions, SSRBootstrapFormatJSON, len(parseEncoded), len(parseScript), nil))
 	return parseScript, nil
 }
 
 // RenderBootstrapReferenceScript renders an inline script tag that points at an external bootstrap payload.
 func RenderBootstrapReferenceScript(parseRef SSRBootstrapReference, parseScriptID string) (string, error) {
+	return RenderBootstrapReferenceScriptWithOptions(parseRef, parseScriptID, SSRScriptOptions{})
+}
+
+func RenderBootstrapReferenceScriptWithOptions(parseRef SSRBootstrapReference, parseScriptID string, parseScriptOptions SSRScriptOptions) (string, error) {
 	parseRef, parseErr := normalizeSSRBootstrapReference(parseRef)
 	if parseErr != nil {
 		return "", parseErr
@@ -198,7 +215,7 @@ func RenderBootstrapReferenceScript(parseRef SSRBootstrapReference, parseScriptI
 		parseId = DefaultBootstrapReferenceScriptID
 	}
 
-	return `<script id="` + html.EscapeString(parseId) + `" type="application/json" data-gwc-bootstrap-ref="true">` + parseSafeJSON + `</script>`, nil
+	return `<script id="` + html.EscapeString(parseId) + `" type="application/json" data-gwc-bootstrap-ref="true"` + renderSSRScriptNonceAttr(parseScriptOptions.Nonce) + `>` + parseSafeJSON + `</script>`, nil
 }
 
 // UnmarshalSSRBootstrapReference deserializes a bootstrap reference payload.
@@ -239,4 +256,12 @@ func normalizeSSRBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstra
 		parseRef.Format = SSRBootstrapFormatJSON
 	}
 	return parseRef, nil
+}
+
+func renderSSRScriptNonceAttr(parseNonce string) string {
+	parseNonce = strings.TrimSpace(parseNonce)
+	if parseNonce == "" {
+		return ""
+	}
+	return ` nonce="` + html.EscapeString(parseNonce) + `"`
 }

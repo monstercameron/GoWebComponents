@@ -74,7 +74,12 @@ func buildParallelRegionMergedEventSlotMetadata(
 // hasParallelRegionWorkerEventProp reports whether one public host prop should be stripped from display-only worker output.
 func hasParallelRegionWorkerEventProp(parsePropKey string) bool {
 	switch parsePropKey {
-	case "onclick", "oninput", "onchange", "onsubmit", "onkeydown", "onkeyup", "onmouseup", "onmousedown", "onfocus", "onblur", "onscroll":
+	case "onclick", "oninput", "onchange", "onsubmit", "onkeydown", "onkeyup",
+		"onmouseup", "onmousedown", "onmouseenter", "onmouseleave", "ondblclick",
+		"oncontextmenu", "onwheel", "ontransitionend", "onanimationend", "onload",
+		"onerror", "onpointerdown", "onpointermove", "onpointerup", "ontouchstart",
+		"ontouchmove", "ontouchend", "ondragstart", "ondragover", "ondrop",
+		"ondragend", "onfocus", "onblur", "onscroll":
 		return true
 	default:
 		return false

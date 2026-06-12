@@ -24,6 +24,10 @@ Recommended reading order:
 
 If you are debugging implementation internals rather than using the public surface, jump to [../internal/runtime/README.md](../internal/runtime/README.md) instead of reading the API list below as architecture documentation.
 
+## CSP Nonces
+
+Use `RenderBootstrapScriptWithOptions` or `RenderBootstrapReferenceScriptWithOptions` with `SSRScriptOptions.Nonce` when serving under strict CSP. The nonce is HTML-escaped and applied to generated bootstrap script tags; streamed SSR boundary scripts accept the matching nonce through `SSRStreamOptions.ScriptNonce`.
+
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/ui` (`package ui`)

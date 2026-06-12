@@ -6,6 +6,7 @@
 //   - If and Match for lazy conditional node rendering
 //   - Render for browser mounting
 //   - RenderToString and RenderToStream for request-time SSR output
+//   - HydrateIsland and HydrationIsland for progressive, independently resumed SSR islands
 //   - Portal for rendering a subtree into a selector or explicit host node outside the current DOM parent
 //   - CreateContext, UseContext, and Provider components for subtree-scoped values
 //   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDeferredValue, UseDebounced, UseThrottled, UseChannel, UseTask, UseWorkerTask, UseLazyNode, UseTransition, StartTransition, UseId, UseFocusManager, UseFocusTrap, UseCompositeNavigation, and UseAnnouncer for local stateful logic

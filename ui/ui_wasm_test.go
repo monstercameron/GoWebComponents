@@ -5,6 +5,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strconv"
 	"strings"
 	"syscall/js"
@@ -227,6 +228,85 @@ func installUIEventDocumentForTesting(parseT *testing.T) map[string]js.Value {
 		parseAddEventListener.Release()
 	})
 	return buildListeners
+}
+
+func setUIJSGlobalValue(parseName string, parseValue interface{}) func() {
+	parseGlobal := js.Global()
+	parsePrev := parseGlobal.Get(parseName)
+	parseGlobal.Set(parseName, parseValue)
+	return func() {
+		parseGlobal.Set(parseName, parsePrev)
+	}
+}
+
+type uiStorageHarness struct {
+	Values   map[string]string
+	SetCalls int
+}
+
+func installUIPersistedStateStorage(parseT *testing.T, parseName string, parseValues map[string]string, parseSetErr string) *uiStorageHarness {
+	parseT.Helper()
+
+	parseStorage := js.Global().Get("Object").New()
+	parseHarness := &uiStorageHarness{Values: map[string]string{}}
+	for parseKey, parseValue := range parseValues {
+		parseHarness.Values[parseKey] = parseValue
+	}
+
+	parseGetItemFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
+			return js.Null()
+		}
+		if parseValue, parseOk := parseHarness.Values[parseArgs[0].String()]; parseOk {
+			return parseValue
+		}
+		return js.Null()
+	})
+	parseStorage.Set("getItem", parseGetItemFn)
+
+	var parseSetItemFn js.Func
+	if parseSetErr == "" {
+		parseSetItemFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			if len(parseArgs) >= 2 {
+				parseHarness.Values[parseArgs[0].String()] = parseArgs[1].String()
+				parseHarness.SetCalls++
+			}
+			return nil
+		})
+		parseStorage.Set("setItem", parseSetItemFn)
+	} else {
+		parseStorage.Set("setItem", js.Global().Get("Function").New("key", "value", "throw new Error("+strconv.Quote(parseSetErr)+")"))
+	}
+
+	parseRemoveItemFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) > 0 {
+			delete(parseHarness.Values, parseArgs[0].String())
+		}
+		return nil
+	})
+	parseClearFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseHarness.Values = map[string]string{}
+		return nil
+	})
+	parseKeyFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} { return js.Null() })
+	parseStorage.Set("removeItem", parseRemoveItemFn)
+	parseStorage.Set("clear", parseClearFn)
+	parseStorage.Set("key", parseKeyFn)
+	parseStorage.Set("length", len(parseHarness.Values))
+
+	parseRestoreStorage := setUIJSGlobalValue(parseName, parseStorage)
+	parseT.Cleanup(func() {
+		parseRestoreStorage()
+		parseGetItemFn.Release()
+		if parseSetErr == "" {
+			parseSetItemFn.Release()
+		}
+		parseRemoveItemFn.Release()
+		parseClearFn.Release()
+		parseKeyFn.Release()
+	})
+
+	return parseHarness
 }
 
 func TestCreateElementReturnsExistingNode(parseT *testing.T) {
@@ -2062,6 +2142,204 @@ func TestPublicHooksWrappers(parseT *testing.T) {
 	if parseDeferred != "steady" {
 		parseT.Fatalf("expected deferred value to return initial value, got %q", parseDeferred)
 	}
+}
+
+func TestPublicUseEffectSkipsStableDepsAndCleansBeforeChangedEffect(parseT *testing.T) {
+	type effectProbeProps struct {
+		Dep    string
+		Tick   int
+		Events *[]string
+	}
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	parseEvents := []string{}
+	parseProbe := func(parseProps effectProbeProps) Node {
+		UseEffect(func() func() {
+			parseDep := parseProps.Dep
+			*parseProps.Events = append(*parseProps.Events, "effect:"+parseDep)
+			return func() {
+				*parseProps.Events = append(*parseProps.Events, "cleanup:"+parseDep)
+			}
+		}, parseProps.Dep)
+		return Text(parseProps.Dep + ":" + strconv.Itoa(parseProps.Tick))
+	}
+	parseRender := func(parseDep string, parseTick int) {
+		parseT.Helper()
+		if parseErr := RenderInto(CreateElement(parseProbe, effectProbeProps{Dep: parseDep, Tick: parseTick, Events: &parseEvents}), parseContainer); parseErr != nil {
+			parseT.Fatalf("RenderInto(%q) returned error: %v", parseDep, parseErr)
+		}
+		parseScheduler.Flush()
+	}
+
+	parseRender("stable", 1)
+	if parseWant := []string{"effect:stable"}; !reflect.DeepEqual(parseEvents, parseWant) {
+		parseT.Fatalf("expected first effect only, got %#v", parseEvents)
+	}
+
+	parseRender("stable", 2)
+	if parseWant := []string{"effect:stable"}; !reflect.DeepEqual(parseEvents, parseWant) {
+		parseT.Fatalf("expected stable deps to skip rerun, got %#v", parseEvents)
+	}
+
+	parseRender("changed", 3)
+	parseWant := []string{"effect:stable", "cleanup:stable", "effect:changed"}
+	if !reflect.DeepEqual(parseEvents, parseWant) {
+		parseT.Fatalf("expected cleanup before changed effect, got %#v", parseEvents)
+	}
+}
+
+func TestPublicUseReducerQueuedDispatchesApplyLatestStateInOrder(parseT *testing.T) {
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	var parseReducer Reducer[int, int]
+	parseProbe := func() Node {
+		parseReducer = UseReducer(func(parseState int, parseAction int) int {
+			return parseState*10 + parseAction
+		}, 0)
+		return Text(strconv.Itoa(parseReducer.Get()))
+	}
+
+	if parseErr := RenderInto(CreateElement(parseProbe), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	parseReducer.Dispatch(1)
+	parseReducer.Dispatch(2)
+	parseReducer.Dispatch(3)
+	parseScheduler.Flush()
+
+	if parseGot := parseReducer.Get(); parseGot != 123 {
+		parseT.Fatalf("expected queued reducer dispatches to apply in order, got %d", parseGot)
+	}
+}
+
+func TestPublicUseMemoAndCallbackRespectDepsAcrossRenders(parseT *testing.T) {
+	type memoProbeProps struct {
+		Dep  string
+		Tick int
+	}
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	resetUIRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	parseRenderID := 0
+	parseComputeCalls := 0
+	parseMemoValues := []int{}
+	parseCallbackValues := []int{}
+	parseProbe := func(parseProps memoProbeProps) Node {
+		parseRenderID++
+		parseCurrentRenderID := parseRenderID
+		parseMemo := UseMemo(func() int {
+			parseComputeCalls++
+			return parseComputeCalls
+		}, parseProps.Dep)
+		parseCallback := UseCallback(func() int {
+			return parseCurrentRenderID
+		}, parseProps.Dep)
+		parseMemoValues = append(parseMemoValues, parseMemo)
+		parseCallbackValues = append(parseCallbackValues, parseCallback())
+		return Text(parseProps.Dep + ":" + strconv.Itoa(parseProps.Tick))
+	}
+	parseRender := func(parseDep string, parseTick int) {
+		parseT.Helper()
+		if parseErr := RenderInto(CreateElement(parseProbe, memoProbeProps{Dep: parseDep, Tick: parseTick}), parseContainer); parseErr != nil {
+			parseT.Fatalf("RenderInto(%q) returned error: %v", parseDep, parseErr)
+		}
+		parseScheduler.Flush()
+	}
+
+	parseRender("same", 1)
+	parseRender("same", 2)
+	parseRender("next", 3)
+
+	if parseComputeCalls != 2 {
+		parseT.Fatalf("expected memo compute to run only for initial and changed deps, got %d", parseComputeCalls)
+	}
+	if parseWant := []int{1, 1, 2}; !reflect.DeepEqual(parseMemoValues, parseWant) {
+		parseT.Fatalf("expected memo values %v, got %v", parseWant, parseMemoValues)
+	}
+	if parseWant := []int{1, 1, 3}; !reflect.DeepEqual(parseCallbackValues, parseWant) {
+		parseT.Fatalf("expected callback to be reused for stable deps and replaced for changed deps, got %v", parseCallbackValues)
+	}
+}
+
+func TestUsePersistedStateFallsBackOnCorruptStoredJSON(parseT *testing.T) {
+	installUIHookContext(parseT)
+	installUIPersistedStateStorage(parseT, "localStorage", map[string]string{
+		"persisted-corrupt": "{not-json",
+	}, "")
+
+	parsePersisted := UsePersistedState[string]("persisted-corrupt", "fallback", PersistLocal)
+	if parseGot := parsePersisted.Get(); parseGot != "fallback" {
+		parseT.Fatalf("expected corrupt stored JSON to fall back to initial value, got %q", parseGot)
+	}
+}
+
+func TestUsePersistedStateSetWritesJSONAndRecordsStorageErrors(parseT *testing.T) {
+	parseT.Run("writes-json", func(parseT *testing.T) {
+		installUIHookContext(parseT)
+		parseStorage := installUIPersistedStateStorage(parseT, "localStorage", nil, "")
+
+		parsePersisted := UsePersistedState[string]("persisted-write", "initial", PersistLocal)
+		parsePersisted.Set("saved")
+
+		if parseGot := parsePersisted.Get(); parseGot != "saved" {
+			parseT.Fatalf("expected in-memory state to update, got %q", parseGot)
+		}
+		if parseStored := parseStorage.Values["persisted-write"]; parseStored != `"saved"` {
+			parseT.Fatalf("expected JSON value in storage, got %q", parseStored)
+		}
+		if parseStorage.SetCalls != 1 {
+			parseT.Fatalf("expected one storage write, got %d", parseStorage.SetCalls)
+		}
+		if parseErr := parsePersisted.Err(); parseErr != nil {
+			parseT.Fatalf("expected successful write to clear persisted-state error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("set-error", func(parseT *testing.T) {
+		installUIHookContext(parseT)
+		installUIPersistedStateStorage(parseT, "localStorage", nil, "quota exceeded")
+
+		parsePersisted := UsePersistedState[string]("persisted-quota", "initial", PersistLocal)
+		parsePersisted.Set("saved")
+
+		if parseGot := parsePersisted.Get(); parseGot != "saved" {
+			parseT.Fatalf("expected in-memory state to update despite storage error, got %q", parseGot)
+		}
+		parseErr := parsePersisted.Err()
+		if parseErr == nil || !strings.Contains(parseErr.Error(), "quota exceeded") {
+			parseT.Fatalf("expected quota error to be recorded, got %v", parseErr)
+		}
+	})
 }
 
 func TestUseIdProducesDistinctIDsWithinComponent(parseT *testing.T) {

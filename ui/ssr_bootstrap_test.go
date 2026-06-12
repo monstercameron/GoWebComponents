@@ -58,6 +58,24 @@ func TestRenderBootstrapScriptUsesDefaultID(parseT *testing.T) {
 	}
 }
 
+func TestRenderBootstrapScriptWithOptionsThreadsNonce(parseT *testing.T) {
+	parseScript, parseErr := RenderBootstrapScriptWithOptions(SSRBootstrap{Route: SSRRouteBootstrap{Path: "/home"}}, "", SSRScriptOptions{Nonce: `abc"123`})
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
+	}
+	if !strings.Contains(parseScript, `nonce="abc&#34;123"`) {
+		parseT.Fatalf("expected escaped nonce on bootstrap script, got %q", parseScript)
+	}
+
+	parseRef, parseErr := RenderBootstrapReferenceScriptWithOptions(SSRBootstrapReference{URL: "/bootstrap.json"}, "", SSRScriptOptions{Nonce: "req-42"})
+	if parseErr != nil {
+		parseT.Fatalf("unexpected reference render error: %v", parseErr)
+	}
+	if !strings.Contains(parseRef, `nonce="req-42"`) {
+		parseT.Fatalf("expected nonce on bootstrap reference script, got %q", parseRef)
+	}
+}
+
 func TestRenderBootstrapScriptEscapesCustomScriptID(parseT *testing.T) {
 	parseScriptID := `boot"><img src=x onerror=alert(1)>`
 	parseScript, parseErr := RenderBootstrapScript(SSRBootstrap{Route: SSRRouteBootstrap{Path: "/home"}}, parseScriptID)

@@ -44,6 +44,7 @@ The main SSR and hydration entrypoints are `Stable`:
 - `ui.RenderToStream(...)`
 - `ui.RenderToStreamObserved(...)`
 - `ui.Hydrate(...)`
+- `ui.HydrateIsland(...)`
 - `router.HydrateMount(...)`
 - `ui.RenderBootstrapScript(...)`
 - `ui.ReadBootstrapScript(...)`
@@ -59,6 +60,51 @@ Important advanced surfaces:
 - alternative bootstrap transports beyond the documented JSON inline path, including sidecar JSON and CBOR, remain part of the more advanced SSR transport boundary
 - hydration strictness, mismatch recovery, and route-loader reuse are shipped but still deserve extra care because they combine runtime, router, and bootstrap ownership rules
 - older docs may still mention `ObserveSSR` or `AnalyzeSSRBootstrapSize`; the current exported code surface uses `ui.RegisterSSRObserver(...)` and `ui.InspectSSRBootstrapSize(...)`
+
+## Progressive Hydration Islands
+
+Use hydration islands when a server-rendered page has interactive pockets that
+do not need to resume during the first wasm turn. Wrap the server markup with a
+stable marker, validate the island plan against a startup budget, then schedule
+each island independently in the browser.
+
+```go
+getIsland := ui.HydrationIsland(ui.HydrationIslandOptions{
+	ID:       "pricing-calculator",
+	Strategy: ui.HydrateOnInteraction,
+	Events:   []string{"pointerenter", "click"},
+}, renderPricingCalculator())
+
+getReport := ui.InspectHydrationIslandBudget(ui.HydrationIslandPlan{
+	Islands: []ui.HydrationIslandOptions{
+		{ID: "hero", Strategy: ui.HydrateImmediately},
+		{ID: "pricing-calculator", Strategy: ui.HydrateOnInteraction},
+		{ID: "chart", Strategy: ui.HydrateOnVisible, RootMargin: "240px"},
+	},
+	Budget: ui.HydrationIslandBudget{MaxInitial: 1, MaxConcurrent: 2},
+})
+if !getReport.OK() {
+	panic(getReport.Violations)
+}
+```
+
+```go
+ui.ConfigureHydrationIslandBudget(ui.HydrationIslandBudget{MaxConcurrent: 2})
+_, getErr := ui.HydrateIsland(renderPricingCalculator(), ui.HydrationIslandOptions{
+	ID:       "pricing-calculator",
+	Strategy: ui.HydrateOnInteraction,
+	Events:   []string{"pointerenter", "click"},
+})
+if getErr != nil {
+	panic(getErr)
+}
+```
+
+The island API is intentionally independent of the main `ui.Hydrate(...)` root:
+the server owns static first paint, and each island resumes only after its
+visibility, interaction, idle, immediate, or timeout trigger fires. Keep
+interactive island markup outside the root you hydrate eagerly, or it will be
+part of that eager root's normal hydration pass.
 
 ## Minimal Example
 
