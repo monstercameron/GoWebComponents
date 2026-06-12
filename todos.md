@@ -520,6 +520,75 @@ impact; exactly three active items carry the next-work marker.
   shared URL round-trips the snippet source; compile errors surface in the
   sandbox with the structured diagnostic, not a blank frame.
 
+## Product polish (2026-06-11) - feasible, additive, low-risk
+
+- [ ] **README golden-path + capability badges** - the README does not lead
+  with a 30-second `gwc init my-app && cd my-app && gwc dev` quickstart or
+  a visible capability summary, so an evaluator cannot judge fit in the
+  first scroll.
+  Test for: a copy-pasteable quickstart that a CI doc-lint actually runs
+  end to end on a clean checkout; a capability line (SSR, hydration,
+  router, forms, i18n, a11y, PWA, flags, realtime) with links; build /
+  version / license badges resolve.
+- [ ] **Generated error-code reference page** - every `GWC-RUNTIME-PANIC-*`
+  and `GWC-FRAMEWORK-*` code is emitted in reports but there is no index a
+  developer (or agent) can look the code up in.
+  Test for: a docs page generated from the code lists every diagnostic
+  code with cause, the `next:` remediation, and the docs anchor; a CI
+  check fails if a code emitted in the runtime is missing from the page
+  (no drift); the docs-site search indexes the codes.
+- [ ] **Runnable godoc Example functions for public packages** - pkg.go.dev
+  quality depends on `Example` test functions; coverage across ui, html,
+  router, fetch, state, i18n, pwa is uneven.
+  Test for: each public package has at least one `Example` that compiles
+  and passes `go test`; examples render on pkg.go.dev (no unexported
+  references); a lane runs `go test -run Example ./...`.
+- [ ] **Disciplined CHANGELOG + release notes** - CHANGELOG.md exists but is
+  not tied to the release flow; v-tags ship auto-generated notes only.
+  Test for: the release workflow fails if CHANGELOG has no entry for the
+  tag being cut; entries follow Keep-a-Changelog sections; the docs site
+  surfaces the latest release notes.
+- [ ] **Starter templates beyond init presets** - `gwc init` offers presets
+  but there is no gallery of opinionated starters (dashboard, marketing
+  site, blog, authed app shell) a team can clone as a real starting point.
+  Test for: each starter scaffolds, `go mod tidy` + `gwc build` clean, and
+  mounts a non-empty tree headless; a CI lane builds every starter; each
+  links from the docs site.
+- [ ] **Production-readiness checklist doc** - nothing collects the
+  go-live steps (release profile, compression, CSP, SRI, service worker,
+  perf budget, error transport, a11y audit) into one gated checklist.
+  Test for: a docs chapter enumerates each step with the gwc command or
+  API that satisfies it; each referenced command/flag exists (CI link +
+  flag-existence check).
+- [ ] **Consistent deprecation surfacing + naming-convention doc** - legacy
+  flag aliases and any deprecated APIs warn inconsistently, and the
+  pervasive `parse`-prefix local convention is undocumented for
+  contributors and readers.
+  Test for: deprecated public APIs emit a one-time structured deprecation
+  diagnostic with the replacement; a short conventions doc explains the
+  prefix; a lint check flags new deprecations missing the warning.
+- [ ] **Docs-site accessibility statement + dogfood pass** - the docs site
+  is now the flagship app but has no accessibility statement and (noted in
+  the a11y section) does not yet use its own focus-trap/announcer
+  primitives.
+  Test for: an accessibility statement page; the site passes the automated
+  a11y audit lane at serious/critical; keyboard-only navigation reaches
+  every route and the search modal.
+- [ ] **Public benchmark / performance page** - the React-comparison data
+  (6/6 paint wins, ~1.4MB, 304ms, 0-alloc reconcile) lives in commit
+  history and stat cards but has no methodology-backed page an evaluator
+  can scrutinize.
+  Test for: a docs page documents methodology, hardware, and reproduction
+  commands; numbers are generated from `gwc bench` output, not
+  hand-typed; a CI note flags when published numbers drift from a fresh
+  run beyond tolerance.
+- [ ] **Brand polish for the docs site** - favicon, social/OG preview image,
+  and a consistent logo lockup are missing or placeholder, which reads as
+  unfinished to first-time visitors.
+  Test for: every site page emits title, description, and og:image meta;
+  the favicon and OG image load (no 404); a link-preview render of the
+  landing page shows the intended card.
+
 ## Maintenance backlog (carried from the test/perf campaign)
 
 - [ ] Lazy DOM binding - the remaining named lever for the React DOM-ready
