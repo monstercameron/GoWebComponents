@@ -159,3 +159,265 @@ Final report
 - what changed
 - validation run
 - remaining risk or follow-up
+
+================================================================
+BUILDING APPS WITH GOWEBCOMPONENTS
+================================================================
+Everything below is what an agent needs to author working apps. It is the
+programming model; the sections above are the workflow and naming rules. Both
+apply at once.
+
+Module path
+github.com/monstercameron/GoWebComponents
+Import public packages by that path, e.g.
+  "github.com/monstercameron/GoWebComponents/ui"
+  "github.com/monstercameron/GoWebComponents/html"
+  . "github.com/monstercameron/GoWebComponents/html/shorthand"   // dot-import sugar
+
+Mental model
+React-style components + hooks on a fiber runtime, written in Go, compiled to
+js/wasm. A component is a Go function that returns a `ui.Node`. Hooks give it
+local state, effects, and async. You build the DOM with typed `html` builders
+(or the `html/shorthand` dot-import sugar) and mount with `ui.Render`. Crash
+containment is on by default - a panic in one component is isolated, not a
+white screen.
+
+A component
+- A component is `func(props P) ui.Node` (props may be omitted: `func() ui.Node`).
+- Call hooks ONLY at the top level of the component body - never in a
+  conditional, loop, goroutine, or nested closure. (`gwc lint` has a
+  `gwc-hooks` pass that enforces this; dev/test builds also panic on a
+  cross-goroutine hook call.)
+- Wrap it with `ui.CreateElement(Component)` or
+  `ui.CreateElement(Component, props)` to get a mountable node.
+- Return built nodes; do not touch the DOM directly.
+
+Minimal app (entry file MUST be js/wasm - see build constraint)
+
+  //go:build js && wasm
+
+  package main
+
+  import (
+    . "github.com/monstercameron/GoWebComponents/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/ui"
+  )
+
+  // App renders the root component.
+  func App() ui.Node {
+    parseCount := ui.UseState(0)
+    parseInc := ui.UseEvent(func() {
+      parseCount.Update(func(parsePrev int) int { return parsePrev + 1 })
+    })
+    return Div(Class("p-4"),
+      Div(Class("text-2xl"), Textf("count: %d", parseCount.Get())),
+      Button(OnClick(parseInc), Class("mt-2 rounded bg-cyan-500 px-3 py-1"), Text("+")),
+    )
+  }
+
+  func main() {
+    ui.Render(ui.CreateElement(App), "#app")
+    select {}   // keep the wasm runtime alive
+  }
+
+The canonical, fuller reference is examples/public/counter/main.go (it uses the
+example boot harness `exampleboot.RenderExampleRoot` instead of bare
+`ui.Render`; for a standalone app use `ui.Render(node, "#app")` plus `select {}`).
+
+Build constraint (non-negotiable)
+- The app entry (`package main` with `main()`) and any file using browser APIs
+  is `//go:build js && wasm`. Build with GOOS=js GOARCH=wasm (gwc does this).
+- gopls hides js/wasm files unless GOOS=js/GOARCH=wasm is set; the committed
+  `.vscode/settings.json` does this. Clear stale GOOS/GOARCH before native work.
+
+wasm / native split (how the framework stays buildable on both targets)
+- Browser-only code lives in `*_wasm.go` (`//go:build js && wasm`).
+- A matching `*_native.go` stub (`//go:build !js || !wasm`) provides the same
+  exported signatures and returns an "unavailable" result so the package still
+  compiles, vets, and unit-tests on the host. Native tests assert the
+  unavailability via `interop.IsCode(err, interop.CodeUnavailable)`.
+- When you add a browser capability, add BOTH files. Pure-Go logic (parsing,
+  serialization, formatting) goes in a tag-free file so it is unit-testable on
+  the host and identical on both targets.
+
+Building the DOM
+- Typed builders in `html`: `Div`, `Span`, `Button`, `H1..H6`, `P`, `Ul`, `Li`,
+  `Input`, `Form`, `Img`, ... plus `Text(s)`, `Textf(format, ...)`, `Fragment()`.
+- Sugar via `. "html/shorthand"` dot-import: `Class(...)`, `ClassNames(...)`
+  (compose Tailwind class strings), `When(cond, class)`, `IfElse(cond, a, b)`,
+  `OnClick(handler)`, `Props{...}`. The counter example shows the idiom.
+- Props are attributes/handlers; children are trailing varargs.
+- Styling is Tailwind; `gwc tailwind` builds the shared CSS + class manifest.
+
+Hooks (package ui) - the surface you will use most
+State / lifecycle:
+  UseState[T](initial) State[T]            // .Get() .Set(v) .Update(fn)
+  UseReducer[S,A](reducer, initial)        // Redux-style
+  UseRef[T](initial) Ref[T]                // mutable box, no re-render
+  UseEffect(func() func(), deps...)        // returns a cleanup func; deps gate it
+  UseMemo[T](compute, deps...) T
+  UseCallback[T](fn, deps...) T
+  UseEvent(fn) Handler                     // stable event handler (use for OnClick)
+  UseContext[T](*Context[T]) T
+  UseId() string                           // stable unique id (labels/aria)
+  UsePrevious[T](v) Previous[T]
+Async / data:
+  UseTask[T](run func(ctx) (T,error)) Task[T]
+  UseChannel[T](<-chan T) Channel[T]
+  UseLazyNode(loader, deps...)             // code-split / defer a subtree
+  UseWorkerTask[...]                       // offload to a web worker
+Perf / scheduling:
+  UseTransition(), UseDeferredValue[T], UseDebounced[T], UseThrottled[T]
+Accessibility:
+  UseAnnouncer(), UseFocusTrap(opts), UseFocusManager(),
+  UseCompositeNavigation(items, opts), UseOverlayStack(opts)
+Preferences / animation:
+  UsePrefersReducedMotion() bool, UsePrefersColorScheme() ColorScheme,
+  UseSpring(target, anim.SpringConfig) float64
+Persistence:
+  UsePersistedState[T](key, initial, area)  // localStorage/sessionStorage write-through + cross-tab
+
+Beyond local state (other packages)
+- state  : `UseAtom[T](id, initial) Atom[T]` - app-wide shared reactive state
+           (fan-out to every reader). Atoms are app-global by id.
+- events : typed in-app pub/sub. `events.UseTopic[T](topic, handler, opts...)`,
+           or non-hook `events.Subscribe[T]` / `events.Publish[T]`. Exactly-once
+           fan-out, lifecycle-tied unsubscribe.
+- router : `router.NewHashRouter()` / `NewHistoryRouter()`,
+           `router.RegisterRoute(path, component)`, `router.Navigate(path)`,
+           `router.Current()`.
+- fetch  : data hooks - `UseQuery`/`UseInfiniteQuery`/`LoadQuery`, cache with
+           tags (`InvalidateQueryTag`), `UseWebSocket`/`UseEventSource`,
+           `MutationQueue` (offline replay), and resilience (`RetryPolicy`,
+           `CircuitBreaker`, `ExecuteWithPolicy[T]`). Cache keys are app-global;
+           scope with `fetch.ScopeCacheKey(...)`.
+- flags  : feature flags + weighted experiments; `flags.RemoteProvider` for
+           remote config + kill switches.
+- i18n   : `FormatNumber`/`FormatDate`/`FormatRelativeTime`/`FormatList`, plural
+           rules, `T(namespace, key)` messages. Browser ICU bridge via interop.
+- interop: browser APIs from Go (cookies, crypto.subtle, Intl, media queries,
+           rAF, document events, workers) - always a `_wasm.go` + `_native.go`
+           pair returning `CodeUnavailable` on the host.
+- pwa    : service worker registration, install observation, offline diagnostics.
+- anim   : pure-Go `Spring` (presets GentleSpring/WobblySpring/StiffSpring),
+           easings, FLIP. Drive UI with `ui.UseSpring`.
+- sanitize: `Sanitize(html, ...Policy)` for untrusted HTML (there is no raw
+           innerHTML sink in the render path by design - never reintroduce one).
+
+SSR / hydration (server-side rendering)
+- `ui.RenderToString(node) (string, error)` - render a tree to HTML on the host
+  (no browser). This is also the headless oracle for tests.
+- `ui.RenderToStream` / `RenderToStreamObserved` - streaming SSR; emits a shell
+  before async `AsyncBoundary` content, flushes replacements as they resolve.
+- Hydration attaches the wasm runtime to server HTML; bootstrap sidecars carry
+  versioned payloads. Static islands hydrate selectively.
+- Async data: wrap suspending work in `AsyncBoundary` with `ui.SuspendUntil` /
+  `ui.Await`; SSR renders the fallback, the client retries on resolve.
+
+Run / build / verify an app (from repo root)
+  go run ./tools/gwc dev    -app .\path\to\main.go             # build+serve+livereload
+  go run ./tools/gwc build  -app .\path\to\main.go -root .\path
+  go run ./tools/gwc verify -app .\path\to\main.go -root .\path  # tests + CI wasm build
+  go run ./tools/gwc release -app .\path\to\main.go -root .\path
+  go run ./tools/gwc test -lane unit -lane wasm -lane hydration -lane browser
+  go run ./tools/gwc lint                                       # golangci-lint + gwc-hooks
+Browser tests live under test/playwrightgo/ (build tag `playwrightgo`); run with
+  go test -tags playwrightgo ./test/playwrightgo/...
+
+Hard rules (these cause real bugs if broken)
+- Hooks at the top level of the component only - never conditional/loop/goroutine/closure.
+- All local variables are `parse`-prefixed (see Conventions); exported names are
+  ordinary Go; functions are `verbSubject`; GoDoc first word = the symbol name.
+- Add the `_native.go` stub whenever you add a `_wasm.go` browser file.
+- Do not introduce a raw-HTML sink (innerHTML/outerHTML) on the render path;
+  use text/attribute APIs or the `sanitize` package. A guard test enforces this.
+- Do not hide panics to pass tests; crash containment surfaces them deliberately.
+- Keep handlers stable with `UseEvent`; do not allocate a new closure as a DOM
+  handler on every render where it matters.
+
+More docs
+- docs/REFERENCE_MANUAL/  (workflows, devtools/testing, assets/PWA, boundaries)
+- docs/CONVENTIONS.md     (the naming/`parse`-prefix contract in full)
+- docs/capabilities + docs/errorcodes (capability matrix + error codes)
+- README.md               (overview + quick start)
+- examples/public/        (runnable single-file apps; counter is the canonical one)
+
+================================================================
+THE AGENTIC SDLC WITH GWC
+================================================================
+`gwc` (go run ./tools/gwc <command>) is the toolchain. Treat building an app as
+a loop, not a line: orient -> plan -> scaffold -> implement -> build -> verify
+-> review -> diagnose -> release -> observe -> back to plan. Below, each phase
+maps to the command to reach for. "Today" = available now. "Planned" = speced
+in todos.md (Agentic gwc section), NOT yet built - do not assume it exists; use
+the Today column until it lands.
+
+Phase        Today (use now)                          Planned (roadmap)
+orient       inspect (routes/deps/ownership),         model (--json manifest),
+             doctor, README + docs/                    search (semantic API find),
+                                                        explain (errorcode/capability)
+plan         inspect (dependency report)              inspect --impact (blast radius)
+scaffold     start (TUI), init, import                scaffold --no-input --json
+implement    edit files directly (Go)                 mutate (AST codemod)
+build        build, wasm, release                     (build --json envelope)
+verify       test (-lane unit/wasm/hydration/         render (SSR oracle), probe
+             browser/release), verify, bench,          (browser oracle), verify --agent
+             lint                                       (single acceptance gate)
+review       lint / review, doctor -audit             check --json (fixes-as-data)
+diagnose     doctor, dev (livereload + doctor-        dev --agent (NDJSON event
+             on-failure), test output                  stream), hydration-diff,
+                                                        commit-trace
+migrate      migrate (-apply safe rewrites)           (mutate for arbitrary ops)
+release      release, deploy, prerender/export        (canary rollout)
+observe      logging/diagnostics packages,            observe --agent (queryable
+             devtools panels                            RUM/crash/replay)
+
+Today's commands (one line each)
+  doctor    check toolchains, runtime assets, project signals, optional audit
+  inspect   route / dependency / ownership / file-type reports
+  start     scaffold TUI (presets); init = non-interactive project init
+  import    convert a static HTML/JSX file into an inspectable GWC project
+  dev       build app -> serve -> livereload (auto-runs doctor on failure)
+  build     build a js/wasm app with an explicit profile
+  wasm      wasm build experiments: measure / compare / compare-compression / ...
+  test      run lanes: unit, wasm, hydration, browser, release
+  verify    app-local Go tests + a CI-profile wasm build
+  bench     discover + run native/wasm benchmarks, compare with benchstat
+  lint      golangci-lint + built-in gwc-hooks rules (review is an alias)
+  migrate   compatibility findings + safe parser-backed rewrites (-apply)
+  prerender static export (route HTML + wasm + manifest); export is an alias
+  release   package a js/wasm release with manifest + compressed sidecars
+  deploy    package validated release artifacts through deploy adapters
+  tailwind  build shared Tailwind CSS + class manifest
+  seed      provision local dev identities + fixture data
+  examples  serve the catalog or manage example servers (start/status/stop/restart)
+  dashboard monitor livereload clients + AI provider config
+  env       print launcher-relevant environment variables
+Every command supports `-h`; many support `-json` (see the Flags section above).
+Run from repo root: `go run ./tools/gwc <command> -h`.
+
+Recommended loop for building an app (with today's tools)
+1. orient   - `inspect` the target area; read the nearest example + docs. Do not
+              guess when the repo can be inspected.
+2. plan     - scope the change; check the dependency report for blast radius.
+3. change   - make the smallest correct edit (one todo at a time; see the
+              workflow rules above). Add the `_native.go` stub with any
+              `_wasm.go`.
+4. build    - `gwc build -app ... -root ...` (clear stale GOOS/GOARCH first).
+5. verify   - run the SMALLEST lane that proves it: `gwc verify` for tests+CI
+              build, or `gwc test -lane wasm`/`-lane browser` for the relevant
+              surface. For browser behavior, `go test -tags playwrightgo
+              ./test/playwrightgo/...`. Capture the real console/page error on
+              failure - never a paraphrase.
+6. review   - `gwc lint` (conventions + gwc-hooks). Fix, re-run.
+7. checkpoint - record completed todo, files changed, validation run, result,
+              residual risk, next todo. Then continue.
+Claim done only with evidence (a passing lane / clean lint / a rendered
+oracle), never on assumption. A green `verify` + clean `lint` is the current
+definition-of-done; the planned `verify --agent` will fold render/probe/a11y/
+perf/hydration into one gate.
+
+MCP (planned)
+A `gwc mcp` server (todos.md) will expose the same commands as MCP tools so an
+agent calls them natively instead of shelling out. Until it ships, drive gwc
+through the CLI with `-json` where supported and parse stdout.
