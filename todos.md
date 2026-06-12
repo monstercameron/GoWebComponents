@@ -589,6 +589,54 @@ impact; exactly three active items carry the next-work marker.
   the favicon and OG image load (no 404); a link-preview render of the
   landing page shows the intended card.
 
+## Stale docs (2026-06-11 audit) - fix
+
+- [ ] **README + getting-started use the removed `examples/01-counter`
+  path** - `examples/01-counter` was relocated to
+  `examples/public/counter` (the same move that broke the release verify
+  gate earlier today), but README references it ~10 times and
+  `docs/REFERENCE_MANUAL/01-getting-started.md` twice, so every
+  copy-paste quickstart/build/verify command in the front-door docs
+  fails on a clean checkout.
+  Fix: repoint all `examples\01-counter` / `examples/01-counter`
+  references to `examples/public/counter`.
+  Test for: a doc-command lint runs each fenced `gwc` command from README
+  and ch01 on a clean checkout and they all exit 0; no remaining match
+  for the old path in any tracked .md.
+- [ ] **examples/MANUAL_TESTING.md describes the deleted numbered layout** -
+  it calls the catalog the "numbered example catalog", was "Captured on
+  2026-03-25", and lists stale per-example assertions (`07-goroutines`,
+  `08-fetch`, `10-advanced-form`) against examples that are now
+  `public/<slug>`.
+  Fix: regenerate against the current `examples/public/<slug>` layout or
+  retire the file if the playwright suite supersedes it.
+  Test for: every example path named in the doc resolves under
+  examples/public; the capture date reflects the update; a CI check fails
+  on a referenced example path that no longer exists.
+- [ ] **examples/README.md lists `01-counter through 20-portals`** - the
+  numbered range no longer exists; examples are slug-named under public/.
+  Fix: replace the numbered range with the current slug catalog (or
+  generate the list from the catalog manifest).
+  Test for: listed example names match examples/public dir entries; a
+  generated-list option removes future drift.
+- [ ] **README does not reflect today's shipped capabilities** - README
+  mentions almost none of streaming SSR (RenderToStream), real
+  suspension, crash containment, feature flags, realtime hooks, the
+  TinyGo/source-debug profiles, or that the docs site is now a pure GWC
+  app - so the front door undersells what landed today.
+  Fix: refresh the capability summary and feature sections.
+  Test for: README capability list matches the public package set; links
+  to the relevant manual chapter for each; doc-lint passes.
+- [ ] **Doc-drift guard in CI (prevents recurrence)** - the staleness above
+  exists because nothing fails a build when docs reference paths,
+  examples, commands, or flags that no longer exist.
+  Fix: a `gwc` doc-lint lane that (a) runs fenced gwc commands from
+  README + manual chapters, (b) resolves every relative repo path
+  referenced in docs, and (c) checks flags named in docs still exist.
+  Test for: the lane fails on a planted broken path / removed flag /
+  failing command and passes on the corrected tree; runs in CI on docs
+  changes.
+
 ## Maintenance backlog (carried from the test/perf campaign)
 
 - [ ] Lazy DOM binding - the remaining named lever for the React DOM-ready
