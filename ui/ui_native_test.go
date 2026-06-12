@@ -4,9 +4,11 @@
 package ui_test
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -75,6 +77,116 @@ func TestRenderToStringObservedReportsMetrics(parseT *testing.T) {
 	}
 	if parseObserved.Bootstrap != nil || parseObserved.Hydration != nil {
 		parseT.Fatalf("expected render-only observation, got %+v", parseObserved)
+	}
+}
+
+func TestRenderToStreamPublicSSRSurface(parseT *testing.T) {
+	parseNode := ui.CreateElement(greeting, greetingProps{Name: "Server"})
+	var parseBuffer bytes.Buffer
+	var parseChunks []ui.SSRStreamChunk
+
+	parseErr := ui.RenderToStream(context.Background(), &parseBuffer, parseNode, ui.SSRStreamOptions{
+		OnChunk: func(parseChunk ui.SSRStreamChunk) {
+			parseChunks = append(parseChunks, parseChunk)
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("unexpected stream render error: %v", parseErr)
+	}
+
+	parseWant := `<section id="greeting"><h1>Hello Server</h1><input disabled id="email"></section>`
+	if parseBuffer.String() != parseWant {
+		parseT.Fatalf("unexpected stream markup\nwant: %s\ngot:  %s", parseWant, parseBuffer.String())
+	}
+	if len(parseChunks) != 1 || parseChunks[0].Kind != ui.SSRStreamChunkShell || parseChunks[0].HTML != parseWant {
+		parseT.Fatalf("expected one shell stream chunk, got %+v", parseChunks)
+	}
+}
+
+func TestRenderToStreamObservedReportsMetrics(parseT *testing.T) {
+	parseNode := ui.CreateElement(greeting, greetingProps{Name: "Server"})
+	var parseBuffer bytes.Buffer
+	var parseObserved ui.SSRObservation
+
+	parseErr := ui.RenderToStreamObserved(context.Background(), &parseBuffer, parseNode, ui.SSRObservabilityOptions{
+		CorrelationID: "req-stream",
+		OnEvent: func(parseEvent ui.SSRObservation) {
+			parseObserved = parseEvent
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("unexpected stream render error: %v", parseErr)
+	}
+	if parseBuffer.String() == "" {
+		parseT.Fatal("expected streamed markup")
+	}
+	if parseObserved.Name != "ssr.render" || parseObserved.Phase != "finish" {
+		parseT.Fatalf("expected ssr render observation, got %+v", parseObserved)
+	}
+	if parseObserved.CorrelationID != "req-stream" {
+		parseT.Fatalf("expected stream correlation id, got %+v", parseObserved)
+	}
+	if parseObserved.Render == nil || parseObserved.Render.DurationNs < 0 {
+		parseT.Fatalf("expected stream render metrics, got %+v", parseObserved)
+	}
+}
+
+func TestRenderToStreamAsyncBoundaryEmitsBoundaryChunk(parseT *testing.T) {
+	parseDone := make(chan struct{})
+	parseContent := ui.CreateElement(func() ui.Node {
+		ui.SuspendUntil(parseDone, "stream user")
+		return html.Strong(html.Props{}, html.Text("ready"))
+	})
+	parseRoot := ui.AsyncBoundary(ui.AsyncBoundaryProps{
+		Fallback: html.Span(html.Props{}, html.Text("loading")),
+		Content:  parseContent,
+	})
+
+	parseChunks := make(chan ui.SSRStreamChunk, 4)
+	parseErrs := make(chan error, 1)
+	go func() {
+		var parseBuffer bytes.Buffer
+		parseErrs <- ui.RenderToStream(context.Background(), &parseBuffer, parseRoot, ui.SSRStreamOptions{
+			OnChunk: func(parseChunk ui.SSRStreamChunk) {
+				parseChunks <- parseChunk
+			},
+		})
+	}()
+
+	parseShell := receiveUIStreamTestChunk(parseT, parseChunks)
+	if parseShell.Kind != ui.SSRStreamChunkShell || !strings.Contains(parseShell.HTML, "loading") || strings.Contains(parseShell.HTML, "ready") {
+		parseT.Fatalf("expected fallback shell, got %+v", parseShell)
+	}
+
+	close(parseDone)
+	parseBoundary := receiveUIStreamTestChunk(parseT, parseChunks)
+	if parseBoundary.Kind != ui.SSRStreamChunkBoundary || !strings.Contains(parseBoundary.HTML, "<strong>ready</strong>") {
+		parseT.Fatalf("expected ready boundary chunk, got %+v", parseBoundary)
+	}
+	if parseErr := receiveUIStreamTestError(parseT, parseErrs); parseErr != nil {
+		parseT.Fatalf("RenderToStream returned error: %v", parseErr)
+	}
+}
+
+func receiveUIStreamTestChunk(parseT *testing.T, parseChunks <-chan ui.SSRStreamChunk) ui.SSRStreamChunk {
+	parseT.Helper()
+	select {
+	case parseChunk := <-parseChunks:
+		return parseChunk
+	case <-time.After(2 * time.Second):
+		parseT.Fatal("timed out waiting for UI SSR stream chunk")
+		return ui.SSRStreamChunk{}
+	}
+}
+
+func receiveUIStreamTestError(parseT *testing.T, parseErrs <-chan error) error {
+	parseT.Helper()
+	select {
+	case parseErr := <-parseErrs:
+		return parseErr
+	case <-time.After(2 * time.Second):
+		parseT.Fatal("timed out waiting for UI SSR stream completion")
+		return nil
 	}
 }
 

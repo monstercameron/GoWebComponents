@@ -12,6 +12,74 @@ func TestNativeToRuntimePropsOmitsZeroValues(parseT *testing.T) {
 	}
 }
 
+func TestNativeToRuntimeCompactPropsEncodesStringAttrs(parseT *testing.T) {
+	parseValues, parseAttrs, isCompact := toRuntimeCompactProps(Props{
+		ID:    "field-id",
+		Class: "field shell",
+		Key:   "node-1",
+		For:   "target-id",
+		Data:  map[string]string{"mode": "demo"},
+		Aria:  map[string]string{"label": "Email"},
+	})
+	if !isCompact {
+		parseT.Fatal("expected string-only props to use compact attrs")
+	}
+
+	parseChecks := map[string]interface{}{
+		"id":         "field-id",
+		"class":      "field shell",
+		"key":        "node-1",
+		"htmlFor":    "target-id",
+		"data-mode":  "demo",
+		"aria-label": "Email",
+	}
+	for parseKey, parseWant := range parseChecks {
+		if parseGot := parseValues[parseKey]; parseGot != parseWant {
+			parseT.Fatalf("expected %s=%#v, got %#v", parseKey, parseWant, parseGot)
+		}
+	}
+
+	parseAttrValues := map[string]string{}
+	for _, parseAttr := range parseAttrs {
+		parseAttrValues[parseAttr.Name] = parseAttr.Value
+	}
+	if _, parseHasKeyAttr := parseAttrValues["key"]; parseHasKeyAttr {
+		parseT.Fatalf("expected key to stay out of compact attrs, got %#v", parseAttrs)
+	}
+	for parseName, parseWant := range map[string]string{
+		"id":         "field-id",
+		"class":      "field shell",
+		"for":        "target-id",
+		"data-mode":  "demo",
+		"aria-label": "Email",
+	} {
+		if parseGot := parseAttrValues[parseName]; parseGot != parseWant {
+			parseT.Fatalf("expected attr %s=%q, got %q from %#v", parseName, parseWant, parseGot, parseAttrs)
+		}
+	}
+}
+
+func TestNativeToRuntimeCompactPropsRejectsNoncompactProps(parseT *testing.T) {
+	parseTests := []struct {
+		name  string
+		props Props
+	}{
+		{name: "value property", props: Props{Value: "cam@example.test"}},
+		{name: "boolean property", props: Props{Disabled: true}},
+		{name: "style map", props: Props{Style: map[string]string{"display": "grid"}}},
+		{name: "raw override", props: Props{Raw: map[string]interface{}{"data-raw": "yes"}}},
+		{name: "event handler", props: Props{OnClick: ui.WrapHandler("click")}},
+	}
+
+	for _, parseTt := range parseTests {
+		parseT.Run(parseTt.name, func(parseT2 *testing.T) {
+			if _, _, isCompact := toRuntimeCompactProps(parseTt.props); isCompact {
+				parseT2.Fatal("expected noncompact props to use the generic element path")
+			}
+		})
+	}
+}
+
 func TestNativeToRuntimePropsIncludesFieldsAndRawOverrides(parseT *testing.T) {
 	parseEncoded := toRuntimeProps(Props{
 		ID:           "field-id",

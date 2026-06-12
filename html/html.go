@@ -7,13 +7,13 @@ import (
 
 // Props contains the common HTML attributes and event handlers supported by the typed builders.
 type Props struct {
-	ID           string
-	Class        string
-	Key          string
-	Slot         string
-	Title        string
-	Type         string
-	Name         string
+	ID    string
+	Class string
+	Key   string
+	Slot  string
+	Title string
+	Type  string
+	Name  string
 	// Value is the input/option value.  An empty string is silently omitted by
 	// toRuntimeProps; use html.Value("") (the PropOption) or Raw["value"]="" to
 	// explicitly emit an empty controlled-input value.
@@ -36,8 +36,8 @@ type Props struct {
 	Max          string
 	Step         string
 
-	Rows     int
-	Cols     int
+	Rows int
+	Cols int
 	// TabIndex of 0 is silently omitted by toRuntimeProps; use html.TabIndex(0)
 	// (the PropOption) or Raw["tabIndex"]=0 to make tabindex=0 explicit.
 	TabIndex int
@@ -83,7 +83,11 @@ const parallelRegionClickSlotDataKey = "gwc-parallel-click-slot"
 
 // Tag creates a node for an arbitrary HTML tag name.
 func Tag(parseName string, parseProps Props, parseChildren ...ui.Node) ui.Node {
-	return runtime.CreateElementOwned(parseName, toRuntimeProps(parseProps), toInterfaces(parseChildren)...)
+	parseChildValues := toInterfaces(parseChildren)
+	if parseValues, parseAttrs, isCompact := toRuntimeCompactProps(parseProps); isCompact {
+		return runtime.CreateElementCompactHostOwned(parseName, parseValues, parseAttrs, parseChildValues...)
+	}
+	return runtime.CreateElementOwned(parseName, toRuntimeProps(parseProps), parseChildValues...)
 }
 
 // Link creates a typed link element.
@@ -94,26 +98,42 @@ func Link(parseProps Props) ui.Node {
 // CustomElement creates a browser-defined custom element with explicit
 // attribute and property channels.
 func CustomElement(parseName string, parseProps CustomElementProps, parseChildren ...ui.Node) ui.Node {
-	parseValues := toRuntimeProps(parseProps.Props)
+	parseChildValues := toInterfaces(parseChildren)
+	parseValues, parseAttrs, isCompact := toRuntimeCompactProps(parseProps.Props)
 	parseCount := len(parseProps.Attributes) + len(parseProps.Presence) + len(parseProps.Properties)
 	if parseCount == 0 {
-		return runtime.CreateElementOwned(parseName, parseValues, toInterfaces(parseChildren)...)
+		if isCompact {
+			return runtime.CreateElementCompactHostOwned(parseName, parseValues, parseAttrs, parseChildValues...)
+		}
+		return runtime.CreateElementOwned(parseName, toRuntimeProps(parseProps.Props), parseChildValues...)
+	}
+	if !isCompact || len(parseProps.Properties) != 0 {
+		parseValues = toRuntimeProps(parseProps.Props)
 	}
 	if parseValues == nil {
 		parseValues = make(map[string]interface{}, parseCount)
 	}
 	for parseKey, parseValue := range parseProps.Attributes {
 		parseValues[parseKey] = parseValue
+		if isCompact && len(parseProps.Properties) == 0 {
+			parseAttrs = append(parseAttrs, runtime.HostAttr{Name: parseKey, Value: parseValue})
+		}
 	}
 	for parseKey2, parseEnabled := range parseProps.Presence {
 		if parseEnabled {
 			parseValues[parseKey2] = ""
+			if isCompact && len(parseProps.Properties) == 0 {
+				parseAttrs = append(parseAttrs, runtime.HostAttr{Name: parseKey2, Value: ""})
+			}
 		}
 	}
 	for parseKey3, parseValue2 := range parseProps.Properties {
 		parseValues[customElementPropertyPrefix+parseKey3] = parseValue2
 	}
-	return runtime.CreateElementOwned(parseName, parseValues, toInterfaces(parseChildren)...)
+	if isCompact && len(parseProps.Properties) == 0 {
+		return runtime.CreateElementCompactHostOwned(parseName, parseValues, parseAttrs, parseChildValues...)
+	}
+	return runtime.CreateElementOwned(parseName, parseValues, parseChildValues...)
 }
 
 // Fragment groups children without introducing an extra host element.
@@ -424,6 +444,139 @@ func Tr(parseProps Props, parseChildren ...ui.Node) ui.Node {
 // Ul creates a ul unordered-list element.
 func Ul(parseProps Props, parseChildren ...ui.Node) ui.Node {
 	return Tag("ul", parseProps, parseChildren...)
+}
+
+// toRuntimeCompactProps builds props and compact host attrs in one pass for
+// typed Props that contain only string attributes plus the skipped key prop.
+func toRuntimeCompactProps(parseProps Props) (map[string]interface{}, []runtime.HostAttr, bool) {
+	parseOnClick := parseProps.OnClick.Value()
+	parseOnInput := parseProps.OnInput.Value()
+	parseOnChange := parseProps.OnChange.Value()
+	parseOnSubmit := parseProps.OnSubmit.Value()
+	parseOnKeyDown := parseProps.OnKeyDown.Value()
+	parseOnKeyUp := parseProps.OnKeyUp.Value()
+	parseOnMouseUp := parseProps.OnMouseUp.Value()
+	parseOnMouseDown := parseProps.OnMouseDown.Value()
+	parseOnFocus := parseProps.OnFocus.Value()
+	parseOnBlur := parseProps.OnBlur.Value()
+	parseOnScroll := parseProps.OnScroll.Value()
+
+	if parseProps.Value != "" ||
+		parseProps.Rows != 0 ||
+		parseProps.Cols != 0 ||
+		parseProps.TabIndex != 0 ||
+		parseProps.Checked ||
+		parseProps.Disabled ||
+		parseProps.Selected ||
+		parseProps.Required ||
+		parseProps.ReadOnly ||
+		parseProps.Hidden ||
+		parseProps.Multiple ||
+		parseProps.AutoFocus ||
+		parseProps.Style != nil ||
+		len(parseProps.Raw) != 0 ||
+		parseOnClick != nil ||
+		parseOnInput != nil ||
+		parseOnChange != nil ||
+		parseOnSubmit != nil ||
+		parseOnKeyDown != nil ||
+		parseOnKeyUp != nil ||
+		parseOnMouseUp != nil ||
+		parseOnMouseDown != nil ||
+		parseOnFocus != nil ||
+		parseOnBlur != nil ||
+		parseOnScroll != nil {
+		return nil, nil, false
+	}
+
+	parseCount := len(parseProps.Data) + len(parseProps.Aria)
+	parseAttrCount := parseCount
+	parseCountStringAttr := func(parseValue string) {
+		if parseValue != "" {
+			parseCount++
+			parseAttrCount++
+		}
+	}
+	parseCountStringAttr(parseProps.ID)
+	parseCountStringAttr(parseProps.Class)
+	if parseProps.Key != "" {
+		parseCount++
+	}
+	parseCountStringAttr(parseProps.Slot)
+	parseCountStringAttr(parseProps.Title)
+	parseCountStringAttr(parseProps.Type)
+	parseCountStringAttr(parseProps.Name)
+	parseCountStringAttr(parseProps.Placeholder)
+	parseCountStringAttr(parseProps.Accept)
+	parseCountStringAttr(parseProps.Href)
+	parseCountStringAttr(parseProps.Src)
+	parseCountStringAttr(parseProps.Alt)
+	parseCountStringAttr(parseProps.For)
+	parseCountStringAttr(parseProps.Role)
+	parseCountStringAttr(parseProps.Target)
+	parseCountStringAttr(parseProps.Rel)
+	parseCountStringAttr(parseProps.As)
+	parseCountStringAttr(parseProps.Action)
+	parseCountStringAttr(parseProps.Method)
+	parseCountStringAttr(parseProps.EncType)
+	parseCountStringAttr(parseProps.AutoComplete)
+	parseCountStringAttr(parseProps.Min)
+	parseCountStringAttr(parseProps.Max)
+	parseCountStringAttr(parseProps.Step)
+
+	if parseCount == 0 {
+		return nil, nil, true
+	}
+
+	parseValues := make(map[string]interface{}, parseCount+1)
+	parseAttrs := make([]runtime.HostAttr, 0, parseAttrCount)
+	parseStoreAttr := func(parsePropName string, parseAttrName string, parseValue string) {
+		if parseValue == "" {
+			return
+		}
+		parseValues[parsePropName] = parseValue
+		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: parseAttrName, Value: parseValue})
+	}
+
+	parseStoreAttr("id", "id", parseProps.ID)
+	parseStoreAttr("class", "class", parseProps.Class)
+	if parseProps.Key != "" {
+		parseValues["key"] = parseProps.Key
+	}
+	parseStoreAttr("slot", "slot", parseProps.Slot)
+	parseStoreAttr("title", "title", parseProps.Title)
+	parseStoreAttr("type", "type", parseProps.Type)
+	parseStoreAttr("name", "name", parseProps.Name)
+	parseStoreAttr("placeholder", "placeholder", parseProps.Placeholder)
+	parseStoreAttr("accept", "accept", parseProps.Accept)
+	parseStoreAttr("href", "href", parseProps.Href)
+	parseStoreAttr("src", "src", parseProps.Src)
+	parseStoreAttr("alt", "alt", parseProps.Alt)
+	parseStoreAttr("htmlFor", "for", parseProps.For)
+	parseStoreAttr("role", "role", parseProps.Role)
+	parseStoreAttr("target", "target", parseProps.Target)
+	parseStoreAttr("rel", "rel", parseProps.Rel)
+	parseStoreAttr("as", "as", parseProps.As)
+	parseStoreAttr("action", "action", parseProps.Action)
+	parseStoreAttr("method", "method", parseProps.Method)
+	parseStoreAttr("enctype", "enctype", parseProps.EncType)
+	parseStoreAttr("autocomplete", "autocomplete", parseProps.AutoComplete)
+	parseStoreAttr("min", "min", parseProps.Min)
+	parseStoreAttr("max", "max", parseProps.Max)
+	parseStoreAttr("step", "step", parseProps.Step)
+
+	for parseKey, parseValue := range parseProps.Data {
+		parseName := "data-" + parseKey
+		parseValues[parseName] = parseValue
+		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: parseName, Value: parseValue})
+	}
+	for parseKey2, parseValue2 := range parseProps.Aria {
+		parseName2 := "aria-" + parseKey2
+		parseValues[parseName2] = parseValue2
+		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: parseName2, Value: parseValue2})
+	}
+
+	return parseValues, parseAttrs, true
 }
 
 // toRuntimeProps is a core package helper.

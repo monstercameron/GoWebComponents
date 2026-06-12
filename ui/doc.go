@@ -5,6 +5,7 @@
 //   - CreateElement for component composition
 //   - If and Match for lazy conditional node rendering
 //   - Render for browser mounting
+//   - RenderToString and RenderToStream for request-time SSR output
 //   - Portal for rendering a subtree into a selector or explicit host node outside the current DOM parent
 //   - CreateContext, UseContext, and Provider components for subtree-scoped values
 //   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDeferredValue, UseDebounced, UseThrottled, UseChannel, UseTask, UseWorkerTask, UseLazyNode, UseTransition, StartTransition, UseId, UseFocusManager, UseFocusTrap, UseCompositeNavigation, and UseAnnouncer for local stateful logic
@@ -85,6 +86,9 @@
 // asynchronously and routing the result through the same boundary semantics.
 // Components can also call SuspendUntil or Await during render to suspend the
 // subtree until a data dependency signals readiness.
+// RenderToStream turns those suspended async boundaries into fallback-first
+// shell markup and later boundary replacement chunks, while RenderToString keeps
+// the synchronous all-at-once HTML path.
 // ErrorBoundary is the sibling recovery primitive for unexpected panics during
 // render, effect, cleanup, and event-handler execution. It renders a fallback
 // subtree instead of letting a child failure tear down the entire app tree.
