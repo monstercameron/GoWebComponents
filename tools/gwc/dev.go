@@ -41,6 +41,7 @@ func (parseL launcher) runDev(parseArgs []string) error {
 	parseClientScript := parseFs.String("client-script", "", "Optional override path to a custom livereload client script")
 	parseDryRun := parseFs.Bool("dry-run", false, "Resolve the dev plan and exit without starting the server")
 	parseJsonOutput := parseFs.Bool("json", false, "Print the resolved dev plan as JSON")
+	parseNoDoctor := parseFs.Bool("no-doctor", false, "Do not auto-run gwc doctor diagnosis when the dev server fails to start")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
@@ -106,12 +107,64 @@ func (parseL launcher) runDev(parseArgs []string) error {
 		if parsePlan.ServerMode != "livereload-wasm" || strings.TrimSpace(parsePlan.StatusURL) == "" {
 			return errors.New("dev -tui is only supported for livereload-backed js/wasm app runs")
 		}
-		return runDevStatusTUI(parsePlan, parsePlan.StatusURL, parseCmd)
+		parseTuiErr := runDevStatusTUI(parsePlan, parsePlan.StatusURL, parseCmd)
+		if parseTuiErr != nil && !*parseNoDoctor {
+			parseL.diagnoseEnvironmentOnFailure()
+		}
+		return parseTuiErr
 	}
 	parseCmd.Stdin = os.Stdin
 	parseCmd.Stdout = os.Stdout
 	parseCmd.Stderr = os.Stderr
-	return parseCmd.Run()
+	parseRunErr := parseCmd.Run()
+	if parseRunErr != nil && !*parseNoDoctor {
+		// A failed dev server is most often an environment problem (wrong Go
+		// version, missing wasm_exec, busy port). Surface the doctor diagnosis
+		// up front instead of leaving the developer with a cryptic build error.
+		parseL.diagnoseEnvironmentOnFailure()
+	}
+	return parseRunErr
+}
+
+// diagnoseEnvironmentOnFailure runs the doctor prerequisite checks and prints
+// the diagnosis only when it finds blocking problems, so a healthy environment
+// never sees extra output after an unrelated failure.
+func (parseL launcher) diagnoseEnvironmentOnFailure() {
+	parseReport := parseL.buildDoctorReport(doctorConfig{host: defaultHost, port: "8080"})
+	parseSummary, parseShow := formatEnvironmentDiagnosis(parseReport)
+	if !parseShow {
+		return
+	}
+	fmt.Fprint(os.Stdout, "\n"+parseSummary)
+	fmt.Fprintln(os.Stdout, "(Re-run with -no-doctor to skip this automatic check.)")
+}
+
+// formatEnvironmentDiagnosis renders the failing doctor checks as an actionable
+// summary. It returns show=false when the report is healthy, so callers can stay
+// silent on success. Only blocking (fail) checks are listed.
+func formatEnvironmentDiagnosis(parseReport doctorReport) (parseSummary string, parseShow bool) {
+	if parseReport.OK {
+		return "", false
+	}
+	var parseBuilder strings.Builder
+	parseBuilder.WriteString("gwc doctor detected environment issues that may be the cause:\n")
+	parseCount := 0
+	for _, parseCheck := range parseReport.Checks {
+		if !strings.EqualFold(parseCheck.Status, "fail") {
+			continue
+		}
+		parseCount++
+		parseBuilder.WriteString("  - " + parseCheck.Name + ": " + parseCheck.Summary)
+		parseHint := strings.TrimSpace(firstNonEmpty(parseCheck.Hint, parseCheck.Remediation))
+		if parseHint != "" {
+			parseBuilder.WriteString("\n    fix: " + parseHint)
+		}
+		parseBuilder.WriteString("\n")
+	}
+	if parseCount == 0 {
+		return "", false
+	}
+	return parseBuilder.String(), true
 }
 
 // buildLivereloadRunArgs returns the repo-root go run argument list for the

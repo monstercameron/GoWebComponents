@@ -658,13 +658,22 @@ impact; exactly three active items carry the next-work marker.
 
 ### Onboarding & inner loop
 
-- [ ] **Auto-run doctor on first build/dev failure** - `gwc doctor` is
+- [~] **Auto-run doctor on first build/dev failure** - `gwc doctor` is
   opt-in, so a fresh machine with the wrong Go version or missing
   wasm_exec hits a cryptic deep build error instead of an upfront
   diagnosis.
   Test for: a simulated missing-prerequisite environment triggers the
   doctor summary automatically on `gwc dev`/`gwc build` failure with a
   fix hint; a healthy environment never shows it; opt-out flag respected.
+  Done (2026-06-12, dev path): `gwc dev` now auto-runs the doctor
+  prerequisite checks when the server fails to start and prints an
+  actionable diagnosis (failing checks + fix hints) only when blocking
+  issues exist; a healthy environment stays silent. Opt-out via
+  `gwc dev -no-doctor`. `formatEnvironmentDiagnosis` is the testable core
+  (3 tests: healthy=silent, fail-checks listed with hints + warn excluded,
+  warn-only=silent). Remaining: wire the same `diagnoseEnvironmentOnFailure`
+  helper into `gwc build` (runBuild lives in release_build.go, currently
+  edited by the concurrent session - deferred to avoid a collision).
 - [ ] **Browser build-status indicator in `gwc dev`** - the 304ms rebuild
   is only visible as terminal text; developers watching the browser get
   no signal. Add a small corner badge (building / ready / error) and an
@@ -958,8 +967,19 @@ impact; exactly three active items carry the next-work marker.
 
 ## Maintenance backlog (carried from the test/perf campaign)
 
-- [ ] Lazy DOM binding - the remaining named lever for the React DOM-ready
+- [x] Lazy DOM binding - the remaining named lever for the React DOM-ready
   startup gap (syscall/js bridge-bound).
+  Done (2026-06-12): pinned the already-lazy wasm DOM/event adapter startup
+  contract with browser-wasm regression coverage. `NewWASMDOMAdapter` and
+  `NewWASMEventAdapter` are asserted to leave document/prototype methods
+  unbound at construction; first use binds creation, template, selector,
+  id, class, tag, and event-listener methods lazily; repeated create/query
+  calls reuse the cached bound functions. Verified with `GOOS=js
+  GOARCH=wasm go test -exec tools/go_js_wasm_exec.bat
+  ./internal/platform/jsdom -count=1` and focused native runtime adapter
+  contract tests under `go test ./internal/runtime -run
+  'Test(InitGlobalRuntime_CanUpgradeLazyGlobalRuntime|InitGlobalRuntime_PreservesExistingAdaptersOnPartialConfig|Render_PanicsWithoutDOMAdapter|RenderTo_UsesQuerySelectorAndSchedulesRender|HydrateTo_UsesQuerySelectorAndSchedulesHydration|RenderInto_UsesResolvedNodeAndSchedulesRender|HydrateInto_UsesResolvedNodeAndSchedulesHydration|DOMAdapterHasNoRawHTMLSink|DOMAdapterSatisfiesCoreInterfaceContracts|DOMNodeNullHelpersTreatNilAndNullWrappersEquivalently|GoUseFunc_PanicsWithoutDOMAdapterAndCoversCapacityReuse|GoUseFunc_ReusesWrapperOnSameSignatureRerender|GoUseFunc_ReleasesWrapperWhenSignatureChanges)$'
+  -count=1`.
 - [x] Churn benchmark bistability - investigate the bimodal results in the
   render-benchmark churn scenario.
   Done (2026-06-11): tracked the active churn cases to Example 201's
