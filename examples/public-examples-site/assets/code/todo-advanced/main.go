@@ -140,6 +140,7 @@ func TodoItem(parseProps TodoItemProps) ui.Node {
 			html.Type("checkbox"),
 			html.Checked(parseProps.Todo.Completed),
 			html.OnChange(handleToggle),
+			html.Aria("label", "Mark \""+parseProps.Todo.Text+"\" as complete"),
 			html.Class("h-5 w-5 text-indigo-500 focus:ring-indigo-500 border-gray-600 rounded bg-black/20"),
 		)),
 		html.Div(html.PropsOf(html.Class(parseTextClass)),
@@ -191,8 +192,9 @@ func TodoInput(parseProps TodoInputProps) ui.Node {
 	),
 		html.H3(html.PropsOf(html.Class("text-lg font-bold mb-4 text-white")), html.Text("Add Todo")),
 		html.Div(html.PropsOf(html.Class("mb-4")),
-			html.Label(html.PropsOf(html.Class("block text-sm font-medium text-gray-400 mb-2")), html.Text("Text")),
+			html.Label(html.PropsOf(html.For("todo-text"), html.Class("block text-sm font-medium text-gray-400 mb-2")), html.Text("Text")),
 			html.Input(html.PropsOf(
+				html.ID("todo-text"),
 				html.Type("text"),
 				html.Value(parseText.Get()),
 				html.OnInput(ui.UseEvent(func(parseVal string) { parseText.Set(parseVal) })),
@@ -202,8 +204,9 @@ func TodoInput(parseProps TodoInputProps) ui.Node {
 		),
 		html.Div(html.PropsOf(html.Class("grid grid-cols-3 gap-4 mb-6")),
 			html.Div(html.Props{},
-				html.Label(html.PropsOf(html.Class("block text-sm font-medium text-gray-400 mb-2")), html.Text("Priority")),
+				html.Label(html.PropsOf(html.For("todo-priority"), html.Class("block text-sm font-medium text-gray-400 mb-2")), html.Text("Priority")),
 				html.Select(html.PropsOf(
+					html.ID("todo-priority"),
 					html.Value(parsePriority.Get()),
 					html.OnChange(ui.UseEvent(func(parseE ui.Event) { parsePriority.Set(parseE.GetValue()) })),
 					html.Class("w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-white"),
@@ -214,8 +217,9 @@ func TodoInput(parseProps TodoInputProps) ui.Node {
 				),
 			),
 			html.Div(html.Props{},
-				html.Label(html.PropsOf(html.Class("block text-sm font-medium text-gray-400 mb-2")), html.Text("Category")),
+				html.Label(html.PropsOf(html.For("todo-category"), html.Class("block text-sm font-medium text-gray-400 mb-2")), html.Text("Category")),
 				html.Input(html.PropsOf(
+					html.ID("todo-category"),
 					html.Type("text"),
 					html.Value(parseCategory.Get()),
 					html.OnInput(ui.UseEvent(func(parseE2 ui.Event) { parseCategory.Set(parseE2.GetValue()) })),
@@ -224,8 +228,9 @@ func TodoInput(parseProps TodoInputProps) ui.Node {
 				)),
 			),
 			html.Div(html.Props{},
-				html.Label(html.PropsOf(html.Class("block text-sm font-medium text-gray-400 mb-2")), html.Text("Due Date")),
+				html.Label(html.PropsOf(html.For("todo-due-date"), html.Class("block text-sm font-medium text-gray-400 mb-2")), html.Text("Due Date")),
 				html.Input(html.PropsOf(
+					html.ID("todo-due-date"),
 					html.Type("date"),
 					html.Value(parseDueDate.Get()),
 					html.OnInput(ui.UseEvent(func(parseE3 ui.Event) { parseDueDate.Set(parseE3.GetValue()) })),
@@ -243,9 +248,9 @@ func TodoInput(parseProps TodoInputProps) ui.Node {
 func TodoFilters(parseProps TodoFiltersProps) ui.Node {
 	parseButtonClass := func(isActive bool) string {
 		if isActive {
-			return "px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold text-sm"
+			return "px-4 py-2 bg-blue-700 text-white rounded-lg font-semibold text-sm"
 		}
-		return "px-4 py-2 bg-white/5 text-gray-400 rounded-lg hover:bg-white/10 text-sm"
+		return "px-4 py-2 bg-white/5 text-gray-200 rounded-lg hover:bg-white/10 text-sm"
 	}
 
 	return html.Div(html.PropsOf(html.Class("rounded-[22px] border border-white/10 bg-slate-950/60 p-6")),
@@ -272,8 +277,9 @@ func TodoFilters(parseProps TodoFiltersProps) ui.Node {
 				),
 			),
 			html.Div(html.Props{},
-				html.Label(html.PropsOf(html.Class("block text-sm font-medium text-gray-400 mb-2")), html.Text("Search")),
+				html.Label(html.PropsOf(html.For("todo-filter-search"), html.Class("block text-sm font-medium text-gray-400 mb-2")), html.Text("Search")),
 				html.Input(html.PropsOf(
+					html.ID("todo-filter-search"),
 					html.Type("text"),
 					html.Value(parseProps.Filter.Search),
 					html.OnInput(ui.UseEvent(func(parseE ui.Event) {

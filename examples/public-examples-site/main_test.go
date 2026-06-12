@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"strings"
 	"syscall/js"
 	"testing"
@@ -252,8 +253,13 @@ func installMockDocumentBaseURI(parseT *testing.T, parseHref string) {
 	parseDocument := parseObjectCtor.New()
 	parseDocument.Set("baseURI", parseHref)
 
+	parseSearch := ""
+	if parseURL, parseErr := url.Parse(parseHref); parseErr == nil && parseURL.RawQuery != "" {
+		parseSearch = "?" + parseURL.RawQuery
+	}
 	parseLocation := parseObjectCtor.New()
 	parseLocation.Set("href", parseHref)
+	parseLocation.Set("search", parseSearch)
 	parseWindow := parseObjectCtor.New()
 	parseWindow.Set("location", parseLocation)
 
@@ -786,6 +792,59 @@ func TestRenderDeferredExamplePanels(parseT *testing.T) {
 	parseLoadPreview.Click()
 	if parseFixture.ByRole("button", buttonLoadPreview) != nil {
 		parseT.Fatalf("expected start preview button to disappear after loading preview, got %q", parseFixture.Text())
+	}
+}
+
+func TestRenderPlaygroundPanelSurfacesDiagnosticsAndSandbox(parseT *testing.T) {
+	parseBrokenSource := `package main
+
+func App() ui.Node {
+	return Script("alert(1)")
+}
+`
+	installMockDocumentBaseURI(parseT, "https://example.test/examples?snippet="+encodePlaygroundSource(parseBrokenSource))
+	parseFixture := render.New(parseT)
+	parseFixture.Render(ui.CreateElement(renderPlaygroundPanel))
+
+	parseDiagnostic := parseFixture.ByID("playground-diagnostics")
+	if parseDiagnostic == nil {
+		parseT.Fatalf("expected structured playground diagnostic, got %q", parseFixture.Text())
+	}
+	if parseDiagnostic.Attr("data-diagnostic-code") != "GWC-PLAYGROUND-UNSUPPORTED" {
+		parseT.Fatalf("unexpected diagnostic code: %q", parseDiagnostic.Attr("data-diagnostic-code"))
+	}
+	if parseFixture.ByID("playground-sandbox") != nil {
+		parseT.Fatal("compile errors should render diagnostics instead of a blank sandbox iframe")
+	}
+	if parseStatus := parseFixture.ByID("playground-compile-status"); parseStatus == nil || parseStatus.Attr("data-playground-status") != "Compile error" {
+		parseT.Fatalf("expected compile error status, got %#v", parseStatus)
+	}
+
+	parseSharedSource := `package main
+
+func App() ui.Node {
+	return Div(H1("Shared snippet"), P("Rendered safely"))
+}
+`
+	parseFixture.InputByID("playground-source", parseSharedSource)
+	if parseStatus := parseFixture.ByID("playground-status"); parseStatus == nil || !strings.Contains(parseStatus.Text(), "run to refresh preview") {
+		parseT.Fatalf("expected share status to mention refresh, got %#v", parseStatus)
+	}
+	parseShare := parseFixture.ByID("playground-share")
+	if parseShare == nil || !strings.Contains(parseShare.Attr("href"), "snippet="+encodePlaygroundSource(parseSharedSource)) {
+		parseT.Fatalf("expected share link to round-trip edited source, got %#v", parseShare)
+	}
+
+	parseFixture.ClickByID("playground-run")
+	parseSandbox := parseFixture.ByID("playground-sandbox")
+	if parseSandbox == nil {
+		parseT.Fatalf("expected sandbox iframe after running valid snippet, got %q", parseFixture.Text())
+	}
+	if parseFixture.ByID("playground-diagnostics") != nil {
+		parseT.Fatal("valid snippet should clear structured diagnostics")
+	}
+	if !strings.Contains(parseSandbox.Attr("srcdoc"), "<h1>Shared snippet</h1>") || !strings.Contains(parseSandbox.Attr("srcdoc"), "<p>Rendered safely</p>") {
+		parseT.Fatalf("sandbox srcdoc missing rendered snippet: %s", parseSandbox.Attr("srcdoc"))
 	}
 }
 

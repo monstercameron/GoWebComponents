@@ -2227,7 +2227,46 @@
             }
         },
         {
-            "id": 73,
+            "id": 176,
+            "title": "Starter Templates",
+            "status": "stable",
+            "module": "core",
+            "type": "Concept",
+            "level": "Beginner",
+            "tags": [
+                "starter",
+                "templates",
+                "scaffold"
+            ],
+            "searchTags": [
+                "minimal-client",
+                "routed-spa",
+                "ssr-app",
+                "reference-app",
+                "dashboard-app",
+                "marketing-site",
+                "content-blog",
+                "authed-app-shell"
+            ],
+            "blurb": "A maintained gallery of copyable gwc start templates for common app shapes.",
+            "readTime": "4 min read",
+            "content": {
+                "kind": "article",
+                "sections": [
+                    {
+                        "heading": "Overview",
+                        "paragraphs": [
+                            "GoWebComponents ships starter templates through `gwc start`.",
+                            "The gallery covers minimal client apps, routed SPAs, SSR apps, dashboards, marketing sites, content blogs, authed app shells, and the broader reference app."
+                        ]
+                    }
+                ],
+                "callout": "A maintained gallery of copyable gwc start templates for common app shapes.",
+                "sourcePath": "assets/docs/starter-templates.md"
+            }
+        },
+        {
+            "id": 177,
             "title": "Accessible Overlay",
             "status": "stable",
             "module": "rendering",
@@ -2257,7 +2296,7 @@
             }
         },
         {
-            "id": 74,
+            "id": 178,
             "title": "Advanced Form",
             "status": "stable",
             "module": "forms",
@@ -2287,7 +2326,7 @@
             }
         },
         {
-            "id": 75,
+            "id": 179,
             "title": "Async Boundary",
             "status": "stable",
             "module": "core",
@@ -2317,7 +2356,7 @@
             }
         },
         {
-            "id": 76,
+            "id": 180,
             "title": "Blog",
             "status": "stable",
             "module": "ecosystem",
@@ -2344,7 +2383,7 @@
             }
         },
         {
-            "id": 77,
+            "id": 181,
             "title": "Browser Interop",
             "status": "stable",
             "module": "interop",
@@ -2374,7 +2413,7 @@
             }
         },
         {
-            "id": 78,
+            "id": 182,
             "title": "Browser Router",
             "status": "stable",
             "module": "router",
@@ -2404,7 +2443,7 @@
             }
         },
         {
-            "id": 79,
+            "id": 183,
             "title": "Calculator",
             "status": "stable",
             "module": "state",
@@ -2431,7 +2470,7 @@
             }
         },
         {
-            "id": 80,
+            "id": 184,
             "title": "Code Splitting",
             "status": "experimental",
             "module": "core",
@@ -2461,7 +2500,7 @@
             }
         },
         {
-            "id": 81,
+            "id": 185,
             "title": "Composite Navigation",
             "status": "stable",
             "module": "router",
@@ -2491,7 +2530,7 @@
             }
         },
         {
-            "id": 82,
+            "id": 186,
             "title": "Context API",
             "status": "stable",
             "module": "state",
@@ -2521,7 +2560,7 @@
             }
         },
         {
-            "id": 83,
+            "id": 187,
             "title": "Counter",
             "status": "stable",
             "module": "state",
@@ -2548,7 +2587,7 @@
             }
         },
         {
-            "id": 84,
+            "id": 188,
             "title": "Create Element",
             "status": "stable",
             "module": "core",
@@ -2578,7 +2617,7 @@
             }
         },
         {
-            "id": 85,
+            "id": 189,
             "title": "Cross Tab Sync",
             "status": "stable",
             "module": "interop",
@@ -2610,7 +2649,7 @@
             }
         },
         {
-            "id": 86,
+            "id": 190,
             "title": "Devtools",
             "status": "experimental",
             "module": "platform",
@@ -2637,7 +2676,7 @@
             }
         },
         {
-            "id": 87,
+            "id": 191,
             "title": "Devtools Diagnostics",
             "status": "experimental",
             "module": "platform",
@@ -2667,7 +2706,7 @@
             }
         },
         {
-            "id": 88,
+            "id": 192,
             "title": "Devtools Panel",
             "status": "experimental",
             "module": "platform",
@@ -2697,7 +2736,7 @@
             }
         },
         {
-            "id": 89,
+            "id": 193,
             "title": "Error Boundary",
             "status": "stable",
             "module": "core",
@@ -2727,7 +2766,7 @@
             }
         },
         {
-            "id": 90,
+            "id": 194,
             "title": "Exported Custom Element",
             "status": "stable",
             "module": "core",
@@ -2759,7 +2798,7 @@
             }
         },
         {
-            "id": 91,
+            "id": 195,
             "title": "Fetch",
             "status": "stable",
             "module": "data",
@@ -2786,7 +2825,7 @@
             }
         },
         {
-            "id": 92,
+            "id": 196,
             "title": "Fetch Imperative",
             "status": "stable",
             "module": "data",
@@ -2816,7 +2855,7 @@
             }
         },
         {
-            "id": 93,
+            "id": 197,
             "title": "Form",
             "status": "stable",
             "module": "forms",
@@ -2843,7 +2882,7 @@
             }
         },
         {
-            "id": 94,
+            "id": 198,
             "title": "Form Accessibility",
             "status": "stable",
             "module": "forms",
@@ -2873,7 +2912,7 @@
             }
         },
         {
-            "id": 95,
+            "id": 199,
             "title": "Fragment",
             "status": "stable",
             "module": "rendering",
@@ -2900,7 +2939,7 @@
             }
         },
         {
-            "id": 96,
+            "id": 200,
             "title": "Goroutines",
             "status": "stable",
             "module": "state",
@@ -2927,7 +2966,7 @@
             }
         },
         {
-            "id": 97,
+            "id": 201,
             "title": "Hash Router",
             "status": "stable",
             "module": "router",
@@ -2957,7 +2996,7 @@
             }
         },
         {
-            "id": 98,
+            "id": 202,
             "title": "Hot Reload",
             "status": "experimental",
             "module": "platform",
@@ -2987,7 +3026,7 @@
             }
         },
         {
-            "id": 99,
+            "id": 203,
             "title": "HTML Forms",
             "status": "stable",
             "module": "forms",
@@ -3017,7 +3056,7 @@
             }
         },
         {
-            "id": 100,
+            "id": 204,
             "title": "HTML Tag",
             "status": "stable",
             "module": "rendering",
@@ -3047,7 +3086,7 @@
             }
         },
         {
-            "id": 101,
+            "id": 205,
             "title": "Hydration",
             "status": "stable",
             "module": "rendering",
@@ -3074,7 +3113,7 @@
             }
         },
         {
-            "id": 102,
+            "id": 206,
             "title": "Lazy Loading",
             "status": "stable",
             "module": "core",
@@ -3104,7 +3143,7 @@
             }
         },
         {
-            "id": 103,
+            "id": 207,
             "title": "Locale Routing",
             "status": "stable",
             "module": "router",
@@ -3134,7 +3173,7 @@
             }
         },
         {
-            "id": 104,
+            "id": 208,
             "title": "Locale Switcher",
             "status": "stable",
             "module": "router",
@@ -3164,7 +3203,7 @@
             }
         },
         {
-            "id": 105,
+            "id": 209,
             "title": "Multi Client Binary",
             "status": "experimental",
             "module": "interop",
@@ -3196,7 +3235,7 @@
             }
         },
         {
-            "id": 106,
+            "id": 210,
             "title": "Multi Client Presence",
             "status": "experimental",
             "module": "interop",
@@ -3228,7 +3267,7 @@
             }
         },
         {
-            "id": 107,
+            "id": 211,
             "title": "Multi Window Console",
             "status": "experimental",
             "module": "interop",
@@ -3260,7 +3299,7 @@
             }
         },
         {
-            "id": 108,
+            "id": 212,
             "title": "Nested Layout Routes",
             "status": "stable",
             "module": "router",
@@ -3292,7 +3331,7 @@
             }
         },
         {
-            "id": 109,
+            "id": 213,
             "title": "Nested Routes",
             "status": "stable",
             "module": "router",
@@ -3322,7 +3361,7 @@
             }
         },
         {
-            "id": 110,
+            "id": 214,
             "title": "OMI",
             "status": "stable",
             "module": "ecosystem",
@@ -3349,7 +3388,7 @@
             }
         },
         {
-            "id": 111,
+            "id": 215,
             "title": "Overlay Anchor",
             "status": "stable",
             "module": "rendering",
@@ -3379,7 +3418,7 @@
             }
         },
         {
-            "id": 112,
+            "id": 216,
             "title": "Overlay Stack",
             "status": "stable",
             "module": "rendering",
@@ -3409,7 +3448,7 @@
             }
         },
         {
-            "id": 113,
+            "id": 217,
             "title": "Plugin Host",
             "status": "experimental",
             "module": "plugins",
@@ -3439,7 +3478,7 @@
             }
         },
         {
-            "id": 114,
+            "id": 218,
             "title": "Portal Selector",
             "status": "stable",
             "module": "rendering",
@@ -3469,7 +3508,7 @@
             }
         },
         {
-            "id": 115,
+            "id": 219,
             "title": "Portal Target",
             "status": "stable",
             "module": "rendering",
@@ -3499,7 +3538,7 @@
             }
         },
         {
-            "id": 116,
+            "id": 220,
             "title": "Portals",
             "status": "stable",
             "module": "rendering",
@@ -3526,7 +3565,7 @@
             }
         },
         {
-            "id": 117,
+            "id": 221,
             "title": "Portfolio Site",
             "status": "stable",
             "module": "ecosystem",
@@ -3556,7 +3595,7 @@
             }
         },
         {
-            "id": 118,
+            "id": 222,
             "title": "Progressive Web App Installability",
             "status": "stable",
             "module": "core",
@@ -3588,7 +3627,7 @@
             }
         },
         {
-            "id": 119,
+            "id": 223,
             "title": "Progressive Web App Multi Client",
             "status": "experimental",
             "module": "interop",
@@ -3622,7 +3661,7 @@
             }
         },
         {
-            "id": 120,
+            "id": 224,
             "title": "Progressive Web App Offline Cache",
             "status": "stable",
             "module": "data",
@@ -3656,7 +3695,7 @@
             }
         },
         {
-            "id": 121,
+            "id": 225,
             "title": "Protected Routes",
             "status": "stable",
             "module": "router",
@@ -3686,7 +3725,7 @@
             }
         },
         {
-            "id": 122,
+            "id": 226,
             "title": "Raw Handler",
             "status": "stable",
             "module": "core",
@@ -3716,7 +3755,7 @@
             }
         },
         {
-            "id": 123,
+            "id": 227,
             "title": "Route Loaders",
             "status": "stable",
             "module": "router",
@@ -3746,7 +3785,7 @@
             }
         },
         {
-            "id": 124,
+            "id": 228,
             "title": "Route Params",
             "status": "stable",
             "module": "router",
@@ -3776,7 +3815,7 @@
             }
         },
         {
-            "id": 125,
+            "id": 229,
             "title": "Route Query",
             "status": "stable",
             "module": "router",
@@ -3806,7 +3845,7 @@
             }
         },
         {
-            "id": 126,
+            "id": 230,
             "title": "Routed Accessibility",
             "status": "stable",
             "module": "router",
@@ -3836,7 +3875,7 @@
             }
         },
         {
-            "id": 127,
+            "id": 231,
             "title": "Router Guards",
             "status": "stable",
             "module": "router",
@@ -3866,7 +3905,7 @@
             }
         },
         {
-            "id": 128,
+            "id": 232,
             "title": "Router Hydrate Mount",
             "status": "stable",
             "module": "router",
@@ -3898,7 +3937,7 @@
             }
         },
         {
-            "id": 129,
+            "id": 233,
             "title": "Router Metadata",
             "status": "stable",
             "module": "router",
@@ -3928,7 +3967,7 @@
             }
         },
         {
-            "id": 130,
+            "id": 234,
             "title": "Router Redirects",
             "status": "stable",
             "module": "router",
@@ -3958,7 +3997,7 @@
             }
         },
         {
-            "id": 131,
+            "id": 235,
             "title": "Scaling Local State With Use Reducer",
             "status": "stable",
             "module": "state",
@@ -3996,7 +4035,7 @@
             }
         },
         {
-            "id": 132,
+            "id": 236,
             "title": "Semantic HTML",
             "status": "stable",
             "module": "rendering",
@@ -4026,7 +4065,7 @@
             }
         },
         {
-            "id": 133,
+            "id": 237,
             "title": "Server Side Rendering Cache Bootstrap",
             "status": "experimental",
             "module": "data",
@@ -4062,7 +4101,7 @@
             }
         },
         {
-            "id": 134,
+            "id": 238,
             "title": "Server Side Rendering Internationalization Bootstrap",
             "status": "experimental",
             "module": "rendering",
@@ -4098,7 +4137,7 @@
             }
         },
         {
-            "id": 135,
+            "id": 239,
             "title": "Server Side Rendering Route Data Reuse",
             "status": "experimental",
             "module": "router",
@@ -4136,7 +4175,7 @@
             }
         },
         {
-            "id": 136,
+            "id": 240,
             "title": "Single Shell Auth",
             "status": "stable",
             "module": "core",
@@ -4168,7 +4207,7 @@
             }
         },
         {
-            "id": 137,
+            "id": 241,
             "title": "Snapshot Export Import",
             "status": "experimental",
             "module": "data",
@@ -4200,7 +4239,7 @@
             }
         },
         {
-            "id": 138,
+            "id": 242,
             "title": "Snapshot Now",
             "status": "experimental",
             "module": "data",
@@ -4230,7 +4269,7 @@
             }
         },
         {
-            "id": 139,
+            "id": 243,
             "title": "Snapshot Storage",
             "status": "experimental",
             "module": "data",
@@ -4260,7 +4299,7 @@
             }
         },
         {
-            "id": 140,
+            "id": 244,
             "title": "State Atoms",
             "status": "stable",
             "module": "state",
@@ -4290,7 +4329,7 @@
             }
         },
         {
-            "id": 141,
+            "id": 245,
             "title": "Static Islands",
             "status": "experimental",
             "module": "core",
@@ -4320,7 +4359,7 @@
             }
         },
         {
-            "id": 142,
+            "id": 246,
             "title": "Static Server Side Rendering Routing",
             "status": "experimental",
             "module": "rendering",
@@ -4356,7 +4395,7 @@
             }
         },
         {
-            "id": 143,
+            "id": 247,
             "title": "Text Input",
             "status": "stable",
             "module": "forms",
@@ -4386,7 +4425,7 @@
             }
         },
         {
-            "id": 144,
+            "id": 248,
             "title": "Todo Advanced",
             "status": "stable",
             "module": "forms",
@@ -4416,7 +4455,7 @@
             }
         },
         {
-            "id": 145,
+            "id": 249,
             "title": "Todo Basic",
             "status": "stable",
             "module": "forms",
@@ -4446,7 +4485,7 @@
             }
         },
         {
-            "id": 146,
+            "id": 250,
             "title": "Toggle",
             "status": "stable",
             "module": "state",
@@ -4473,7 +4512,7 @@
             }
         },
         {
-            "id": 147,
+            "id": 251,
             "title": "Transition Hooks",
             "status": "stable",
             "module": "core",
@@ -4503,7 +4542,7 @@
             }
         },
         {
-            "id": 148,
+            "id": 252,
             "title": "Typed Events",
             "status": "stable",
             "module": "core",
@@ -4533,7 +4572,7 @@
             }
         },
         {
-            "id": 149,
+            "id": 253,
             "title": "UI Render",
             "status": "stable",
             "module": "rendering",
@@ -4563,7 +4602,7 @@
             }
         },
         {
-            "id": 150,
+            "id": 254,
             "title": "Use Atom",
             "status": "stable",
             "module": "state",
@@ -4593,7 +4632,7 @@
             }
         },
         {
-            "id": 151,
+            "id": 255,
             "title": "Use Cached Resource",
             "status": "stable",
             "module": "data",
@@ -4625,7 +4664,7 @@
             }
         },
         {
-            "id": 152,
+            "id": 256,
             "title": "Use Callback",
             "status": "stable",
             "module": "state",
@@ -4655,7 +4694,7 @@
             }
         },
         {
-            "id": 153,
+            "id": 257,
             "title": "Use Channel",
             "status": "stable",
             "module": "state",
@@ -4685,7 +4724,7 @@
             }
         },
         {
-            "id": 154,
+            "id": 258,
             "title": "Use Computed",
             "status": "stable",
             "module": "state",
@@ -4715,7 +4754,7 @@
             }
         },
         {
-            "id": 155,
+            "id": 259,
             "title": "Use Debounced",
             "status": "stable",
             "module": "state",
@@ -4745,7 +4784,7 @@
             }
         },
         {
-            "id": 156,
+            "id": 260,
             "title": "Use Deferred Value",
             "status": "stable",
             "module": "state",
@@ -4777,7 +4816,7 @@
             }
         },
         {
-            "id": 157,
+            "id": 261,
             "title": "Use Derived",
             "status": "stable",
             "module": "state",
@@ -4807,7 +4846,7 @@
             }
         },
         {
-            "id": 158,
+            "id": 262,
             "title": "Use Effect",
             "status": "stable",
             "module": "state",
@@ -4837,7 +4876,7 @@
             }
         },
         {
-            "id": 159,
+            "id": 263,
             "title": "Use Fetch",
             "status": "stable",
             "module": "data",
@@ -4867,7 +4906,7 @@
             }
         },
         {
-            "id": 160,
+            "id": 264,
             "title": "Use Form",
             "status": "stable",
             "module": "forms",
@@ -4897,7 +4936,7 @@
             }
         },
         {
-            "id": 161,
+            "id": 265,
             "title": "Use ID",
             "status": "stable",
             "module": "state",
@@ -4927,7 +4966,7 @@
             }
         },
         {
-            "id": 162,
+            "id": 266,
             "title": "Use Lazy Node",
             "status": "stable",
             "module": "state",
@@ -4959,7 +4998,7 @@
             }
         },
         {
-            "id": 163,
+            "id": 267,
             "title": "Use Navigate",
             "status": "stable",
             "module": "state",
@@ -4989,7 +5028,7 @@
             }
         },
         {
-            "id": 164,
+            "id": 268,
             "title": "Use Previous",
             "status": "stable",
             "module": "state",
@@ -5019,7 +5058,7 @@
             }
         },
         {
-            "id": 165,
+            "id": 269,
             "title": "Use Reducer",
             "status": "stable",
             "module": "state",
@@ -5049,7 +5088,7 @@
             }
         },
         {
-            "id": 166,
+            "id": 270,
             "title": "Use Ref",
             "status": "stable",
             "module": "state",
@@ -5079,7 +5118,7 @@
             }
         },
         {
-            "id": 167,
+            "id": 271,
             "title": "Use Resource",
             "status": "stable",
             "module": "data",
@@ -5109,7 +5148,7 @@
             }
         },
         {
-            "id": 168,
+            "id": 272,
             "title": "Use Revalidator",
             "status": "stable",
             "module": "state",
@@ -5139,7 +5178,7 @@
             }
         },
         {
-            "id": 169,
+            "id": 273,
             "title": "Use Snapshot",
             "status": "experimental",
             "module": "data",
@@ -5169,7 +5208,7 @@
             }
         },
         {
-            "id": 170,
+            "id": 274,
             "title": "Use State",
             "status": "stable",
             "module": "state",
@@ -5199,7 +5238,7 @@
             }
         },
         {
-            "id": 171,
+            "id": 275,
             "title": "Use Task",
             "status": "stable",
             "module": "state",
@@ -5229,7 +5268,7 @@
             }
         },
         {
-            "id": 172,
+            "id": 276,
             "title": "Use Throttled",
             "status": "stable",
             "module": "state",
@@ -5259,7 +5298,7 @@
             }
         },
         {
-            "id": 173,
+            "id": 277,
             "title": "Virtualized Feed",
             "status": "stable",
             "module": "rendering",
@@ -5289,7 +5328,7 @@
             }
         },
         {
-            "id": 174,
+            "id": 278,
             "title": "Web Components",
             "status": "stable",
             "module": "platform",
@@ -5319,7 +5358,7 @@
             }
         },
         {
-            "id": 175,
+            "id": 279,
             "title": "Worker Text Index",
             "status": "experimental",
             "module": "interop",
@@ -5346,45 +5385,6 @@
                     "This example is kept source-first because it relies on standalone document scaffolding or browser-global behavior.",
                     "Use the mirrored source here, then run the standalone example package when you need the full environment."
                 ]
-            }
-        },
-        {
-            "id": 176,
-            "title": "Starter Templates",
-            "status": "stable",
-            "module": "core",
-            "type": "Concept",
-            "level": "Beginner",
-            "tags": [
-                "starter",
-                "templates",
-                "scaffold"
-            ],
-            "searchTags": [
-                "minimal-client",
-                "routed-spa",
-                "ssr-app",
-                "reference-app",
-                "dashboard-app",
-                "marketing-site",
-                "content-blog",
-                "authed-app-shell"
-            ],
-            "blurb": "A maintained gallery of copyable gwc start templates for common app shapes.",
-            "readTime": "4 min read",
-            "content": {
-                "kind": "article",
-                "sections": [
-                    {
-                        "heading": "Overview",
-                        "paragraphs": [
-                            "GoWebComponents ships starter templates through `gwc start`.",
-                            "The gallery covers minimal client apps, routed SPAs, SSR apps, dashboards, marketing sites, content blogs, authed app shells, and the broader reference app."
-                        ]
-                    }
-                ],
-                "callout": "A maintained gallery of copyable gwc start templates for common app shapes.",
-                "sourcePath": "assets/docs/starter-templates.md"
             }
         }
     ]

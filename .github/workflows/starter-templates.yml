@@ -17,3 +17,5 @@ jobs:
           cache: true
       - name: Scaffold, test, and build every starter
         run: go test ./tools/gwc -run TestDefaultStarterTemplatesScaffoldTidyTestAndBuild -count=1
+      - name: Browser first-pixel smoke for every starter
+        run: go test -tags playwrightgo ./tools/gwc -run TestDefaultStarterTemplatesMountInHeadlessBrowser -count=1

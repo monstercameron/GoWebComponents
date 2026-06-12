@@ -117,6 +117,7 @@ func compositeNavigationExample() ui.Node {
 				Class:     "mt-6 grid gap-3 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-5",
 				OnKeyDown: parseListboxKeyDown,
 				Aria: map[string]string{
+					"label":            "Owner",
 					"activedescendant": parseListboxNav.ActiveDescendant(),
 				},
 				Raw: map[string]interface{}{"tabIndex": 0},
