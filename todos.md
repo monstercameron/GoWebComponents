@@ -10,10 +10,11 @@ impact; exactly three active items carry the next-work marker.
   hydrate-on-visible / hydrate-on-interaction islands, plus budget-driven
   validation around the static-islands example seed. Attacks the measured
   wasm-startup gap vs React directly.
-- [ ] [next] **Streaming SSR** - `RenderToString` is synchronous and
-  all-or-nothing. Add chunked HTML streaming with out-of-order boundary
-  flushing (React `renderToPipeableStream` equivalent) so a slow data
-  dependency streams a shell with placeholders instead of stalling TTFB.
+- [x] **Streaming SSR** - `ui.RenderToStream` / `RenderToStreamObserved` now
+  write a shell chunk before unresolved `AsyncBoundary` content, wrap fallback
+  placeholders in stable boundary comments, flush out-of-order replacement
+  chunks as suspensions resolve, respect cancellation, report SSR metrics, and
+  pin the public API surface with runtime/UI/API compatibility tests.
 - [x] **Real suspension for async data** - `AsyncBoundary` now supports
   render-time `ui.SuspendUntil` / `ui.Await` suspension, runtime fallback
   capture, retry when the async signal resolves, SSR fallback rendering, API
@@ -44,9 +45,12 @@ impact; exactly three active items carry the next-work marker.
 - [ ] **Browser devtools extension** - devtools exist as in-page panels only.
   Ship a Chrome/Firefox extension (component tree, props/state inspection,
   atom graph, commit profiling). The plugin kernel was shaped for this.
-- [ ] **Go-source debugging workflow** - crash reports translate wasm stacks,
-  but there is no documented DWARF/source-map workflow for stepping through
-  Go source in browser devtools.
+- [x] **Go-source debugging workflow** - `gwc build` / `gwc release` now accept
+  a first-class `debug` / `source-debug` profile that records `gcflags`,
+  builds Go `js/wasm` artifacts with untrimmed paths and `-gcflags=all=-N -l`,
+  exposes `gcflags` through `pwa.WasmReleaseFlags`, documents the browser
+  stack-correlation workflow, and clearly states the current Go-toolchain
+  boundary around source maps and DWARF sections.
 
 ## Lower impact / ecosystem
 
@@ -88,33 +92,39 @@ impact; exactly three active items carry the next-work marker.
   exported `fetch`/`flags`/`router`/`state`/`ui` symbols for native and wasm
   targets, allowing additive changes while failing removals unless the
   baseline is intentionally updated.
-- [ ] **Specified failure-mode matrix** - crash containment exists but its
-  guarantees are informal. Document per phase (render/effect/event/async)
-  what state is trustworthy after a contained panic, and pin each cell with
-  a test.
-- [ ] **Versioned wire protocols** - the hydration bootstrap sidecar,
-  hot-reload WebSocket messages, and state snapshots carry no version
-  fields or compat negotiation; mismatches fail undiagnosably instead of
-  cleanly.
-- [ ] **Versioned state-snapshot migration** - hot-reload snapshots restore
-  by component path and shape with no schema version or migration hook, so
-  snapshots silently drop on refactor.
+- [x] **Specified failure-mode matrix** - crash containment now documents the
+  render, event, effect, cleanup, async, and fatal-phase trust boundaries in
+  the observability manual, with runtime tests pinning boundary recovery,
+  async containment, and fatal-phase policy.
+- [x] **Versioned wire protocols** - hydration bootstrap sidecars already
+  carry schema versions; hot-reload WebSocket messages, app-bridge snapshots,
+  and persisted state snapshots now write v1 protocol metadata, accept legacy
+  missing-version payloads, and reject future mismatches with diagnostics.
+- [x] **Versioned state-snapshot migration** - hot-reload snapshots now carry
+  an app-owned `snapshotVersion`; `hotreload.Config` can register ordered
+  migrations for shared atom state plus component path and identity aliases,
+  and missing migrations fail with diagnostics instead of silently restoring
+  the wrong shape.
 
 ## Enterprise tier - enforcement & correctness
 
-- [ ] **Threading-model enforcement** - hooks are render-thread-only by
-  convention; calling one from a goroutine corrupts state. Detect and
-  report at runtime in dev, and enforce at build via a vet analyzer
-  (pairs with the hooks-rules analyzer above).
-- [ ] **Strict mode** - strict hydration exists, but no general dev-time
+- [x] **Threading-model enforcement** - hooks are render-thread-only by
+  convention; dev/test builds now track the goroutine that owns the active
+  render fiber, emit `GWC-RUNTIME-HOOK-THREADING`, and panic before a
+  cross-goroutine hook call can mutate hook state. The built-in
+  `gwc-hooks` lint pass now reports direct hook calls inside goroutine
+  launches in addition to conditionals, loops, and nested functions.
+- [ ] [next] **Strict mode** - strict hydration exists, but no general dev-time
   strict mode: double-invoke renders to flush impure components, warn on
   setState-during-render, detect asymmetric effect cleanups.
 - [ ] **Deterministic replay** - capture/replay of an update stream for
   reproducing production bugs; profiling already records events
   internally, but nothing exports or replays them.
-- [ ] **Migration tooling** - no codemods or upgrade assistant between
-  framework versions; the parse-prefix conventions and generated shells
-  make mechanical migrations very automatable.
+- [x] **Migration tooling** - `gwc migrate` now runs lifecycle upgrade, writes
+  `bin/gwc-migrate-report.json` with compatibility findings, and supports
+  `-apply` parser-backed rewrites from deprecated router selector calls
+  (`GoRegisterRoute` / `GoGetRoute`) to `Register` / `Current` while leaving
+  comments and string literals untouched.
 
 ## Enterprise tier - resilience
 
@@ -208,6 +218,56 @@ impact; exactly three active items carry the next-work marker.
   context; decode error of a malformed envelope surfaces via the error
   callback, not a contained panic; channel close mid-flight does not
   crash either tab.
+
+### Accessibility (visually impaired)
+
+- [ ] **Automated a11y audit in the browser suites** - the primitives
+  (UseAnnouncer, UseFocusTrap, UseCompositeNavigation, AccessibleOverlay)
+  exist but no axe-core-style audit runs in CI, so contrast/label/name
+  regressions ship silently.
+  Test for: every public example page passes an automated audit at the
+  serious/critical level; the audit runs inside the existing playwright
+  lanes; intentional violations in a fixture page are detected (the
+  audit itself is tested, not just wired); docs-site routes included.
+- [ ] **Docs-site dogfood: a11y primitives in the search modal** - the new
+  pure-GWC site's search modal lacks UseFocusTrap/UseAnnouncer and the
+  gallery filters lack composite keyboard navigation.
+  Test for: focus is trapped while the modal is open and restored to the
+  Search button on close (mirror TestAccessibleOverlayBrowserE2E);
+  result-count changes are announced politely; Escape closes from any
+  focused element inside the modal; filter chips are arrow-key navigable.
+- [ ] **Reduced-motion / contrast preference hooks** - interop exposes
+  GetMediaQuery but there is no UsePrefersReducedMotion /
+  UsePrefersColorScheme hook pair, so apps re-derive them.
+  Test for: hook reflects the media query at mount, updates live when the
+  emulated preference flips (playwright EmulateMedia), and unsubscribes
+  on unmount without leaking js.Func handles.
+
+### Internationalization
+
+- [ ] **Message extraction + locale completeness tooling** - nothing scans
+  code for T(namespace, key) usage to scaffold catalogs or diff locales;
+  incomplete translations ship silently (pairs with the enterprise
+  missing-translation enforcement item).
+  Test for: extraction finds every T() call across build tags (wasm and
+  native files); diff reports keys missing per locale and stale keys no
+  longer referenced; a gwc lane fails CI when a non-default locale is
+  incomplete; dynamic/computed keys are reported as unverifiable rather
+  than silently skipped.
+- [ ] **Relative-time and list formatting** - FormatNumber/FormatDate exist
+  but there is no FormatRelativeTime ("3 days ago") or FormatList
+  ("a, b, and c"), the two most-requested formatters after dates.
+  Test for: CLDR-correct output across at least en/fr/ar/ja including an
+  RTL locale; plural-category interaction (1 day vs 2 days vs 0 days);
+  boundary rounding (59s vs 1m, 23h vs 1d); native and wasm parity.
+- [ ] **Browser Intl bridge** - the i18n formatters are framework
+  implementations; expose an opt-in interop path to the browser's full
+  ICU (Intl.NumberFormat/DateTimeFormat) for locales/options the Go
+  implementation does not cover.
+  Test for: bridge output matches browser Intl for sampled locale/option
+  matrices; graceful fallback to the Go formatter when Intl or the
+  requested locale is unavailable; no js.Func leaks across repeated
+  formats (formatter instances cached and released).
 
 ## Maintenance backlog (carried from the test/perf campaign)
 
