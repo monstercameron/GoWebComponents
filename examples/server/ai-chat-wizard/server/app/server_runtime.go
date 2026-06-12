@@ -66,7 +66,7 @@ func parseReadServerRuntimeConfig(parseGetenv func(string) string) serverRuntime
 		openAIAPIKey:                    strings.TrimSpace(parseGetenv("OPENAI_API_KEY")),
 		anthropicAPIKey:                 strings.TrimSpace(parseGetenv("ANTHROPIC_API_KEY")),
 		cerebrasAPIKey:                  strings.TrimSpace(parseGetenv("CEREBRAS_API_KEY")),
-		stubProviders:                   parseSplitAndTrim(parseGetenv("CHAT_PROVIDER_STUBS")),
+		stubProviders:                   parseResolveStubProviders(parseGetenv),
 		defaultModel:                    parseDefaultModel,
 		addr:                            parseAddr,
 		dbPath:                          parseDbPath,
@@ -76,6 +76,16 @@ func parseReadServerRuntimeConfig(parseGetenv func(string) string) serverRuntime
 		usagePremiumPct:                 parseUsagePremiumPct,
 		platformFeeUSD:                  parsePlatformFeeValue,
 	}
+}
+
+// parseResolveStubProviders reads the documented CHAT_PROVIDER_STUBS variable
+// and falls back to the legacy CHAT_STUB_PROVIDERS spelling some callers use.
+func parseResolveStubProviders(parseGetenv func(string) string) []string {
+	parseRaw := parseGetenv("CHAT_PROVIDER_STUBS")
+	if strings.TrimSpace(parseRaw) == "" {
+		parseRaw = parseGetenv("CHAT_STUB_PROVIDERS")
+	}
+	return parseSplitAndTrim(parseRaw)
 }
 
 func parseSplitAndTrim(parseValue string) []string {

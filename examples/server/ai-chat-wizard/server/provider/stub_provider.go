@@ -3,13 +3,32 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type StubProvider struct {
 	id      string
 	label   string
 	catalog Catalog
+}
+
+// parseStubChunkDelay resolves the per-chunk pacing for stub streams.
+// Stubs emit word-by-word with a small delay so the client's streaming UI
+// (pending bubble, incremental render) is actually exercised locally;
+// CHAT_STUB_CHUNK_DELAY_MS overrides it, and 0 restores single-shot emission.
+func parseStubChunkDelay() time.Duration {
+	parseRaw := strings.TrimSpace(os.Getenv("CHAT_STUB_CHUNK_DELAY_MS"))
+	if parseRaw == "" {
+		return 24 * time.Millisecond
+	}
+	parseMillis, parseErr := strconv.Atoi(parseRaw)
+	if parseErr != nil || parseMillis < 0 {
+		return 24 * time.Millisecond
+	}
+	return time.Duration(parseMillis) * time.Millisecond
 }
 
 // ParseNewStubProvider creates one stub provider for local testing.
@@ -109,23 +128,50 @@ func (parseP *StubProvider) ParseExtractUserMemories(_ context.Context, _ Memory
 	return nil, nil
 }
 
-// ParseStreamChat streams one chat completion.
-func (parseP *StubProvider) ParseStreamChat(_ context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {
+// ParseStreamChat streams one chat completion. The reply is emitted
+// word-by-word with a small pacing delay (see parseStubChunkDelay) so local
+// development exercises the same incremental-render path as a real provider.
+func (parseP *StubProvider) ParseStreamChat(parseCtx context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {
 	parseModel := strings.TrimSpace(parseReq.Model)
 	if parseModel == "" {
 		parseModel = parseP.ParseDefaultModel()
 	}
+	parseDelay := parseStubChunkDelay()
 	if parseReq.ThinkingEnabled {
 		if parseErr := parseEmit(ChatEvent{ThoughtDelta: fmt.Sprintf("%s stub reasoning in %s mode.", parseP.label, parseNormalizeStubThinkingEffort(parseReq.ThinkingEffort))}); parseErr != nil {
 			return ChatResult{}, parseErr
+		}
+		if parseDelay > 0 {
+			select {
+			case <-parseCtx.Done():
+				return ChatResult{}, parseCtx.Err()
+			case <-time.After(parseDelay):
+			}
 		}
 		if parseErr2 := parseEmit(ChatEvent{ThoughtDone: true}); parseErr2 != nil {
 			return ChatResult{}, parseErr2
 		}
 	}
 	parseResponse := fmt.Sprintf("%s stub reply from %s to %q", parseP.label, parseModel, strings.TrimSpace(parseReq.UserMessage))
-	if parseErr3 := parseEmit(ChatEvent{TextDelta: parseResponse}); parseErr3 != nil {
-		return ChatResult{}, parseErr3
+	if parseDelay <= 0 {
+		if parseErr3 := parseEmit(ChatEvent{TextDelta: parseResponse}); parseErr3 != nil {
+			return ChatResult{}, parseErr3
+		}
+	} else {
+		parseWords := strings.SplitAfter(parseResponse, " ")
+		for _, parseWord := range parseWords {
+			if parseWord == "" {
+				continue
+			}
+			if parseErr3 := parseEmit(ChatEvent{TextDelta: parseWord}); parseErr3 != nil {
+				return ChatResult{}, parseErr3
+			}
+			select {
+			case <-parseCtx.Done():
+				return ChatResult{}, parseCtx.Err()
+			case <-time.After(parseDelay):
+			}
+		}
 	}
 	return ChatResult{
 		Model:            parseModel,
