@@ -3,8 +3,72 @@
 ## [Unreleased]
 
 ### Added
+
+- **`sanitize` package** — a DOMPurify-equivalent HTML sanitizer built on
+  `golang.org/x/net/html`: allowlisted tags/attributes/URL-schemes, drops
+  script/style/iframe/svg and `on*`/`style` attributes, unwraps unknown tags.
+- **`events` package** — `UseTopic` typed in-app pub/sub fan-out bus with
+  lifecycle-tied subscriptions, replay-last opt-in, and panic-contained delivery.
+- **`anim` package** — spring physics (semi-implicit Euler + presets), standard
+  easings with `Interpolate`, and `ComputeFLIP`.
+- **`deprecation` package** — `Warn(api, replacement)` emits a one-time
+  `GWC-DEPRECATION` structured diagnostic.
+- **`ui` hooks** — `UsePrefersReducedMotion`, `UsePrefersColorScheme`, and
+  `UsePersistedState[T]` (write-through + cross-tab sync + corrupt/quota-safe).
+- **`fetch`** — declarative resilience (`RetryPolicy`, `CircuitBreaker`,
+  `ExecuteWithPolicy`) and `ScopeCacheKey` for the global cache namespace.
+- **`flags`** — `RemoteProvider` for remote config (poll, fail-safe last-known-
+  good, staleness, kill-switch, contained payloads).
+- **`i18n`** — `FormatRelativeTime` and `FormatList` (en/fr/ja/ar); new
+  `i18n/extract` message-extraction + locale-completeness tooling.
+- **`interop`** — typed cookie helper (`GetCookie`/`SetCookie`/`ExpireCookie`),
+  `RequestPersistentStorage`/`IsStoragePersisted`, a WebCrypto bridge
+  (`GenerateAESKey`/`Encrypt`/`Decrypt` + `EncryptedStore`), and an opt-in
+  Browser Intl bridge (`IntlFormatNumber`/`IntlFormatDate`).
+- **Streaming SSR** (`ui.RenderToStream`/`RenderToStreamObserved`) and
+  render-thread hook-threading enforcement (`GWC-RUNTIME-HOOK-THREADING`).
+- **Versioned state-snapshot migration** in `hotreload` (app-owned
+  `snapshotVersion` + ordered migrations).
+- **Crash containment** as the runtime default: panics in render/event/effect/
+  cleanup/async are contained and reported as structured agent-readable
+  diagnostics instead of killing the page.
+- **`gwc dev` auto-doctor** — environment diagnosis on dev-server failure, with
+  a `-no-doctor` opt-out.
+- **Tooling & docs guards** — `docs/doclint` doc-drift guard (repo paths +
+  `gwc` flag existence), generated `docs/errorcodes` reference and
+  `docs/capabilities` matrix, and `tools/changelogcheck`.
+- **Docs** — CONTRIBUTING.md, CONVENTIONS.md, SECURITY.md,
+  PRODUCTION_READINESS.md, ACCESSIBILITY.md, BENCHMARKS.md, the generated
+  error-code and capability-matrix pages, and committed `.vscode/` editor config.
+- **Docs site** — generated favicon and OG/Twitter social-preview assets.
+
 ### Changed
+
+- README leads with a 30-second golden-path quickstart; capability summary and
+  Public Packages refreshed (i18n/interop/pwa/virtualization).
+- Legacy `gwc` flag aliases (`-main`/`-index`/`-output`) are labeled deprecated
+  in help.
+- Bumped `golang.org/x/net` to v0.55.0.
+
 ### Fixed
+
+- Repointed ~136 stale example paths across README, AGENTS.md, the reference
+  manual, and runbooks (the `examples/01-counter` → `examples/public/counter`
+  relocation and the renamed SSR/PWA examples), un-breaking the front-door
+  copy-paste quickstart commands.
+
+### Security
+
+- **Markdown URL-scheme XSS** — `html.RenderMarkdown` now allowlists
+  http/https/mailto/relative/# and drops `javascript:`/`data:`/`vbscript:`
+  (incl. obfuscated) in links, images, and autolinks.
+- **Live-reload CSWSH** — the dev-server WebSocket validates the request Origin
+  against the dev host:port (opt-out `-allow-any-origin`, with a warning).
+- **Raw-HTML sink removed** — `SetInnerHTML` is gone from the DOM adapter
+  interface and the wasm DOM, with a reflection guard preventing reintroduction.
+- **Dependency CVEs** — the `golang.org/x/net` v0.55.0 bump clears 5
+  govulncheck findings in the HTML parser; `govulncheck` now runs in CI
+  (informational) and SECURITY.md documents the disclosure policy.
 
 ## 2026-04-08
 
