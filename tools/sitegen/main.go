@@ -34,6 +34,27 @@ func main() {
 	}
 }
 
+// faviconSVG is the generated site favicon: a cyan reactive-ring mark on the
+// site's dark surface, matching the boot spinner.
+const faviconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<rect width="32" height="32" rx="7" fill="#0a0f1a"/>
+<circle cx="16" cy="16" r="8" fill="none" stroke="#22d3ee" stroke-width="3"/>
+<circle cx="16" cy="16" r="2.5" fill="#22d3ee"/>
+</svg>`
+
+// ogImageSVG is the generated 1200x630 social/link-preview card.
+const ogImageSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<rect width="1200" height="630" fill="#0a0f1a"/>
+<circle cx="150" cy="170" r="54" fill="none" stroke="#22d3ee" stroke-width="12"/>
+<circle cx="150" cy="170" r="16" fill="#22d3ee"/>
+<text x="240" y="190" font-family="ui-monospace,Consolas,monospace" font-size="76" font-weight="700" fill="#e2e8f0">GoWebComponents</text>
+<text x="80" y="360" font-family="ui-monospace,Consolas,monospace" font-size="42" fill="#94a3b8">Go-native UIs for the browser</text>
+<text x="80" y="440" font-family="ui-monospace,Consolas,monospace" font-size="30" fill="#64748b">Fine-grained reactivity · SSR + hydration · crash containment</text>
+<text x="80" y="495" font-family="ui-monospace,Consolas,monospace" font-size="30" fill="#64748b">Streaming SSR · realtime · i18n · a11y · PWA · feature flags</text>
+<rect x="80" y="556" width="1040" height="3" fill="#1e293b"/>
+<text x="80" y="600" font-family="ui-monospace,Consolas,monospace" font-size="26" fill="#22d3ee">pure Go, compiled to WebAssembly</text>
+</svg>`
+
 // generateSite compiles the docs site wasm app and writes the boot shell.
 func generateSite(parseRepoRoot string, parseOutDir string) error {
 	if parseErr := os.MkdirAll(parseOutDir, 0o755); parseErr != nil {
@@ -54,6 +75,15 @@ func generateSite(parseRepoRoot string, parseOutDir string) error {
 	}
 	if parseErr2 := os.WriteFile(filepath.Join(parseOutDir, "index.html"), []byte(parseShell), 0o644); parseErr2 != nil {
 		return fmt.Errorf("write boot shell: %w", parseErr2)
+	}
+
+	// Brand assets are generated alongside the shell so the deployed artifact is
+	// self-contained: the favicon and social/OG preview never 404.
+	if parseErr3 := os.WriteFile(filepath.Join(parseOutDir, "favicon.svg"), []byte(faviconSVG), 0o644); parseErr3 != nil {
+		return fmt.Errorf("write favicon: %w", parseErr3)
+	}
+	if parseErr4 := os.WriteFile(filepath.Join(parseOutDir, "og-image.svg"), []byte(ogImageSVG), 0o644); parseErr4 != nil {
+		return fmt.Errorf("write og image: %w", parseErr4)
 	}
 
 	parseInfo, _ := os.Stat(parseWasmPath)
@@ -83,6 +113,15 @@ func buildBootShell() (string, error) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Build React-class web UIs in pure Go: fine-grained reactivity, SSR with hydration, and crash containment built in.">
 <title>GoWebComponents — Go-native UIs for the browser</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:title" content="GoWebComponents — Go-native UIs for the browser">
+<meta property="og:description" content="Build React-class web UIs in pure Go: fine-grained reactivity, SSR with hydration, and crash containment built in.">
+<meta property="og:image" content="og-image.svg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="GoWebComponents — Go-native UIs for the browser">
+<meta name="twitter:description" content="Build React-class web UIs in pure Go: fine-grained reactivity, SSR with hydration, and crash containment built in.">
+<meta name="twitter:image" content="og-image.svg">
 <style>
 html,body{margin:0;background:#0a0f1a;color:#64748b;font:14px ui-monospace,Consolas,monospace}
 #boot{min-height:100vh;display:flex;align-items:center;justify-content:center;gap:10px}

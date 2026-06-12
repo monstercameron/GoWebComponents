@@ -671,13 +671,21 @@ impact; exactly three active items carry the next-work marker.
 
 ### Discoverability & polish
 
-- [ ] **Capability matrix ("what's in the box")** - storage, PWA, i18n,
+- [x] **Capability matrix ("what's in the box")** - storage, PWA, i18n,
   a11y, flags, realtime, and snapshots all exist but are hard to
   discover by reading; surface a single matrix on the docs site mapping
   capability -> package -> example -> manual chapter.
   Test for: the matrix is generated from the catalog (no hand-maintained
   drift); every row links to a real example and chapter; a CI check fails
   if a listed capability's example or chapter link 404s.
+  Done (2026-06-11): new docs/capabilities package (mirrors docs/errorcodes)
+  generates docs/REFERENCE_MANUAL/capability-matrix.md - 14 rows mapping
+  capability -> package(s) -> example -> chapter.
+  `TestCapabilityReferencesResolve` stat-checks every examples/public/<slug>
+  and chapter file (the 404 guard); `TestCapabilityMatrixIsGenerated` is
+  the drift guard (regenerate with CAPABILITIES_WRITE=1). All 14 rows
+  resolved; runs in CI via go test ./...; the page lives in REFERENCE_MANUAL
+  so the docs-site chapter embed indexes it.
 - [x] **Mark legacy dev flag aliases as deprecated in help** - `gwc dev`
   carries `-main`/`-index`/`-output` legacy aliases beside
   `-app`/`-html`/`-wasm`; help does not flag them, widening the surface a
@@ -794,12 +802,19 @@ impact; exactly three active items carry the next-work marker.
   commands; numbers are generated from `gwc bench` output, not
   hand-typed; a CI note flags when published numbers drift from a fresh
   run beyond tolerance.
-- [ ] **Brand polish for the docs site** - favicon, social/OG preview image,
+- [x] **Brand polish for the docs site** - favicon, social/OG preview image,
   and a consistent logo lockup are missing or placeholder, which reads as
   unfinished to first-time visitors.
   Test for: every site page emits title, description, and og:image meta;
   the favicon and OG image load (no 404); a link-preview render of the
   landing page shows the intended card.
+  Done (2026-06-11): tools/sitegen now emits favicon (svg type) + og:type/
+  og:title/og:description/og:image + twitter:card/title/description/image
+  in the boot shell (a SPA, so all routes share it), and generates
+  self-contained `favicon.svg` (cyan reactive-ring mark matching the boot
+  spinner) and a 1200x630 `og-image.svg` brand card into the dist - no
+  external files, no 404. Sitegen builds; both SVGs validated as
+  well-formed XML.
 
 ## Stale docs (2026-06-11 audit) - fix
 
@@ -928,8 +943,17 @@ impact; exactly three active items carry the next-work marker.
   startup gap (syscall/js bridge-bound).
 - [ ] Churn benchmark bistability - investigate the bimodal results in the
   render-benchmark churn scenario.
-- [ ] Multi-hot-reload state-survival e2e - cover state restoration across
+- [x] Multi-hot-reload state-survival e2e - cover state restoration across
   several consecutive hot reloads in a browser test.
+  Done (2026-06-11): added a Playwright-backed browser protocol test for the
+  real livereload client across three mocked hot-reload handoffs, plus a real
+  dev-loop browser e2e that starts the livereload server from a temp module,
+  builds a temp WASM app, edits only a hot-reloadable component file three
+  times, and asserts stable sibling state survives while the changed subtree
+  remounts after each reload. Verified with `go test -tags playwrightgo
+  ./tools/gwc -run
+  'Test(LiveReloadClientSurvivesSeveralHotReloads|DevLoopBrowserPreservesStateAcrossSeveralHotReloads)'
+  -count=1`.
 - [x] Multi-entrypoint deadcode union - `gwc` deadcode analysis should union
   reachability across all entrypoints instead of per-app.
   Done (2026-06-11): no standalone `gwc deadcode` command exists in the
