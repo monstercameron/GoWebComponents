@@ -877,6 +877,17 @@ func MapOr[T any](parseItems []T, render func(T) ui.Node, parseFallback ui.Node)
 	return Fragment(Map(parseItems, render)...)
 }
 
+// MapKeyedOr renders the keyed mapped slice as a fragment when items exist,
+// otherwise the fallback node. It is MapOr with per-item reconciliation keys,
+// for empty-state lists whose rows must keep identity across reorders and
+// removals.
+func MapKeyedOr[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Node, parseFallback ui.Node) ui.Node {
+	if len(parseItems) == 0 {
+		return parseFallback
+	}
+	return Fragment(MapKeyed(parseItems, parseKey, render)...)
+}
+
 // Range renders parseCount nodes, invoking render with each index from 0 to
 // parseCount-1. A non-positive count renders nothing.
 func Range(parseCount int, render func(parseIndex int) ui.Node) []ui.Node {

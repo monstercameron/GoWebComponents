@@ -316,6 +316,11 @@ func MapOr[T any](parseItems []T, render func(T) ui.Node, parseFallback ui.Node)
 	return html.MapOr(parseItems, render, parseFallback)
 }
 
+// MapKeyedOr delegates to [html.MapKeyedOr].
+func MapKeyedOr[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Node, parseFallback ui.Node) ui.Node {
+	return html.MapKeyedOr(parseItems, parseKey, render, parseFallback)
+}
+
 // Range delegates to [html.Range].
 func Range(parseCount int, render func(parseIndex int) ui.Node) []ui.Node {
 	return html.Range(parseCount, render)
@@ -347,7 +352,9 @@ func AttrIf(isCondition bool, parseKey string, parseValue any) PropOption {
 }
 
 // ClassIf delegates to [html.ClassIf].
-func ClassIf(isCondition bool, parseClass string) PropOption { return html.ClassIf(isCondition, parseClass) }
+func ClassIf(isCondition bool, parseClass string) PropOption {
+	return html.ClassIf(isCondition, parseClass)
+}
 
 // StyleIf delegates to [html.StyleIf].
 func StyleIf(isCondition bool, parseValues map[string]string) PropOption {
@@ -355,10 +362,14 @@ func StyleIf(isCondition bool, parseValues map[string]string) PropOption {
 }
 
 // StyleVar delegates to [html.StyleVar].
-func StyleVar(parseName string, parseValue string) PropOption { return html.StyleVar(parseName, parseValue) }
+func StyleVar(parseName string, parseValue string) PropOption {
+	return html.StyleVar(parseName, parseValue)
+}
 
 // MergeProps delegates to [html.MergeProps].
-func MergeProps(parseBase Props, parseOverride Props) Props { return html.MergeProps(parseBase, parseOverride) }
+func MergeProps(parseBase Props, parseOverride Props) Props {
+	return html.MergeProps(parseBase, parseOverride)
+}
 
 // DefaultProps delegates to [html.DefaultProps].
 func DefaultProps(parseProps Props, parseDefaults Props) Props {

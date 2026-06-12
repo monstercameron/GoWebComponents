@@ -33,7 +33,9 @@ func TestMapIndexedThreadsIndex(parseT *testing.T) {
 func TestMapKeyedIndexedThreadsIndexAndKey(parseT *testing.T) {
 	parseNodes := MapKeyedIndexed([]string{"alpha", "beta"},
 		func(parseIndex int, parseItem string) any { return fmt.Sprintf("k%d:%s", parseIndex, parseItem) },
-		func(parseIndex int, parseItem string) ui.Node { return Li(Props{}, Textf("%d-%s", parseIndex, parseItem)) },
+		func(parseIndex int, parseItem string) ui.Node {
+			return Li(Props{}, Textf("%d-%s", parseIndex, parseItem))
+		},
 	)
 	if len(parseNodes) != 2 {
 		parseT.Fatalf("expected 2 keyed nodes, got %d", len(parseNodes))
@@ -73,6 +75,42 @@ func TestMapOrRendersListOrFallback(parseT *testing.T) {
 		parseMarkup, parseErr2 := ui.RenderToString(Div(Props{}, parseFallback))
 		if parseErr2 != nil {
 			parseT.Fatalf("expected MapOr fallback render, got %v", parseErr2)
+		}
+		if parseMarkup != "<div><p>empty</p></div>" {
+			parseT.Fatalf("expected exactly the fallback for empty/nil, got %q", parseMarkup)
+		}
+	}
+}
+
+// TestMapKeyedOrRendersKeyedListOrFallback verifies MapKeyedOr renders keyed
+// rows when items exist and exactly the fallback when the slice is empty.
+func TestMapKeyedOrRendersKeyedListOrFallback(parseT *testing.T) {
+	parseFilled := MapKeyedOr([]int{1, 2},
+		func(parseValue int) any { return parseValue },
+		func(parseValue int) ui.Node { return Li(Props{}, Textf("n%d", parseValue)) },
+		P(Props{}, Text("empty")))
+	parseFilledMarkup, parseErr := ui.RenderToString(Ul(Props{}, parseFilled))
+	if parseErr != nil {
+		parseT.Fatalf("expected MapKeyedOr filled render, got %v", parseErr)
+	}
+	if !strings.Contains(parseFilledMarkup, "<li>n1</li><li>n2</li>") || strings.Contains(parseFilledMarkup, "empty") {
+		parseT.Fatalf("expected keyed mapped list and no fallback, got %q", parseFilledMarkup)
+	}
+	parseKeyedNodes := MapKeyed([]int{1, 2}, func(parseValue int) any { return parseValue }, func(parseValue int) ui.Node {
+		return Li(Props{}, Textf("n%d", parseValue))
+	})
+	if parseKeyedNodes[0].Props["key"] != 1 || parseKeyedNodes[1].Props["key"] != 2 {
+		parseT.Fatalf("expected reconciliation keys on mapped rows, got %+v", parseKeyedNodes)
+	}
+
+	for _, parseEmpty := range [][]int{{}, nil} {
+		parseFallback := MapKeyedOr(parseEmpty,
+			func(parseValue int) any { return parseValue },
+			func(parseValue int) ui.Node { return Textf("n%d", parseValue) },
+			P(Props{}, Text("empty")))
+		parseMarkup, parseErr2 := ui.RenderToString(Div(Props{}, parseFallback))
+		if parseErr2 != nil {
+			parseT.Fatalf("expected MapKeyedOr fallback render, got %v", parseErr2)
 		}
 		if parseMarkup != "<div><p>empty</p></div>" {
 			parseT.Fatalf("expected exactly the fallback for empty/nil, got %q", parseMarkup)
