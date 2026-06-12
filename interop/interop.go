@@ -869,6 +869,25 @@ type Document struct {
 	elementByID   func(string) (Element, bool, error)
 	elementsByID  func([]string) (map[string]Element, error)
 	querySelector func(string) (Element, bool, error)
+	title         func() (string, error)
+	setTitle      func(string) error
+}
+
+// Title returns document.title. Unavailable on native/SSR builds.
+func (parseD Document) Title() (string, error) {
+	if parseD.title == nil {
+		return "", unavailable("Document.Title", "document.title")
+	}
+	return parseD.title()
+}
+
+// SetTitle sets document.title (e.g. to reflect the active route or
+// conversation in the tab strip). Unavailable on native/SSR builds.
+func (parseD Document) SetTitle(parseTitle string) error {
+	if parseD.setTitle == nil {
+		return unavailable("Document.SetTitle", "document.title")
+	}
+	return parseD.setTitle(parseTitle)
 }
 
 func (parseD Document) ElementByID(parseId string) (Element, bool, error) {

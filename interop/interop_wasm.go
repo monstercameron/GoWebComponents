@@ -374,6 +374,15 @@ func GetDocument() (Document, error) {
 			}
 			return newElement("document.querySelector", parseValue3), true, nil
 		},
+		title: func() (parseTitle string, parseErr2 error) {
+			defer recoverInteropException("Document.Title", "document.title", &parseErr2)
+			return parseRaw.Get("title").String(), nil
+		},
+		setTitle: func(parseTitle string) (parseErr2 error) {
+			defer recoverInteropException("Document.SetTitle", "document.title", &parseErr2)
+			parseRaw.Set("title", parseTitle)
+			return nil
+		},
 	}, nil
 }
 
