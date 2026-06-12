@@ -1819,7 +1819,14 @@ pure-Go addition with exact-HTML-string render tests (mirror the existing
 TestShorthandHelpersRenderExactHTMLString style) and parity with the typed-html
 path where one exists.
 
-- [ ] **`MapIndexed[T]` (and `MapKeyedIndexed[T]`) - index-aware mapping** -
+DONE (2026-06-12): all five implemented in html/sugar.go (the real package) and
+re-exported from html/shorthand. Added `MapIndexed`/`MapKeyedIndexed`, `MapOr`,
+`Range`/`Repeat`, `MaybeOr`, and `Cond`/`Match`/`Otherwise` (+ `CondBranch`).
+Tests in html/sugar_controlflow_test.go (6 tests, exact-HTML-string assertions +
+index/key/empty/nil/non-positive/first-true-wins edge cases) pass; full html +
+html/shorthand suites green, wasm build clean, vet clean.
+
+- [x] **`MapIndexed[T]` (and `MapKeyedIndexed[T]`) - index-aware mapping** -
   `Map`/`MapKeyed`/`FlatMap`/`FilterMap` pass `render func(T)` with no index;
   callers need `i` for numbering, alternating rows, and derived keys.
   `MapIndexed[T any](parseItems []T, render func(parseIndex int, parseItem T)
@@ -1827,30 +1834,31 @@ path where one exists.
   Test for: a 3-item slice renders nodes whose content includes the correct 0/1/2
   index; empty slice -> zero nodes; the keyed variant emits the keyed wrapper per
   item; exact-HTML-string assertion (not just length).
-- [ ] **`MapOr[T]` - list with empty-state fallback** - an empty slice renders
+- [x] **`MapOr[T]` - list with empty-state fallback** - an empty slice renders
   nothing today; callers hand-write `IfElse(len==0, empty, Map(...))`. `MapOr[T
   any](parseItems []T, render func(T) ui.Node, parseFallback ui.Node) ui.Node`
   renders the mapped list when non-empty, else the fallback node.
   Test for: non-empty slice renders the mapped children and NOT the fallback;
   empty slice renders exactly the fallback node; nil slice == empty slice
   behavior; exact-HTML-string assertion for both branches.
-- [ ] **`Cond` / `Match` - boolean first-true-wins multi-branch** - fills the
+- [x] **`Cond` / `Match` - boolean first-true-wins multi-branch** - fills the
   gap between `IfElse` (2-way) and `Switch` (value-equality): for 3+ boolean
   conditions you currently nest `IfElse`. `Cond(parseBranches ...CondBranch)
   ui.Node` with `Match(isCondition bool, parseNode ui.Node) CondBranch` and a
   `Default(node)`-style else; the first branch whose condition is true wins; no
-  match + no default -> empty node.
+  match + no default -> empty node. (Done: the else is `Otherwise(node)`, not
+  `Default` - that name was already taken by Switch's value-branch builder.)
   Test for: the first true branch wins even when a later branch is also true;
   no-match-no-default yields an empty/Fragment node (renders ""); a default
   branch is taken only when no condition matched; order is respected.
-- [ ] **`Range` / `Repeat` - count-based rendering** - `Map` needs an existing
+- [x] **`Range` / `Repeat` - count-based rendering** - `Map` needs an existing
   slice; there is no "render N of these". `Range(parseCount int, render
   func(parseIndex int) ui.Node) []ui.Node` and `Repeat(parseCount int, parseNode
   ui.Node) []ui.Node`.
   Test for: `Range(3, ...)` calls render with 0,1,2 and emits 3 nodes; count 0
   and negative count emit zero nodes (no panic); `Repeat(2, node)` emits the node
   twice; exact-HTML-string assertion.
-- [ ] **`MaybeOr[T]` - pointer-render with fallback** - `Maybe(*T, render)` has
+- [x] **`MaybeOr[T]` - pointer-render with fallback** - `Maybe(*T, render)` has
   no else and `OrElse(*T, fallback)` returns a value not a node. `MaybeOr[T any]
   (parseValue *T, render func(T) ui.Node, parseFallback ui.Node) ui.Node` renders
   from the pointee when non-nil, else the fallback node.
