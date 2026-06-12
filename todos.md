@@ -806,14 +806,19 @@ impact; exactly three active items carry the next-work marker.
   referenced from CONTRIBUTING.md. Remaining: the runtime one-time
   deprecation diagnostic + the lint check for new deprecations missing
   the warning.
-- [ ] **Docs-site accessibility statement + dogfood pass** - the docs site
+- [~] **Docs-site accessibility statement + dogfood pass** - the docs site
   is now the flagship app but has no accessibility statement and (noted in
   the a11y section) does not yet use its own focus-trap/announcer
   primitives.
   Test for: an accessibility statement page; the site passes the automated
   a11y audit lane at serious/critical; keyboard-only navigation reaches
   every route and the search modal.
-- [ ] **Public benchmark / performance page** - the React-comparison data
+  Partial (2026-06-12): docs/ACCESSIBILITY.md added - WCAG 2.1 AA target,
+  the framework's a11y primitives, the tracked gaps (audit lane + search
+  modal dogfood), and a feedback channel. Remaining: the axe-core audit
+  lane and the actual search-modal focus-trap/announcer dogfood (browser-
+  bound).
+- [~] **Public benchmark / performance page** - the React-comparison data
   (6/6 paint wins, ~1.4MB, 304ms, 0-alloc reconcile) lives in commit
   history and stat cards but has no methodology-backed page an evaluator
   can scrutinize.
@@ -821,6 +826,12 @@ impact; exactly three active items carry the next-work marker.
   commands; numbers are generated from `gwc bench` output, not
   hand-typed; a CI note flags when published numbers drift from a fresh
   run beyond tolerance.
+  Done (2026-06-12): docs/BENCHMARKS.md documents the three measurement
+  surfaces (Go microbench, gwc wasm measure, the Playwright React
+  comparison), exact reproduction commands (doclint-verified paths+flags),
+  the docs/benchmarks/*.json sources of truth, and methodology/caveats.
+  Deliberately omits hand-typed figures so they can't rot - numbers come
+  from `gwc bench`. Remaining: the CI drift-tolerance note.
 - [x] **Brand polish for the docs site** - favicon, social/OG preview image,
   and a consistent logo lockup are missing or placeholder, which reads as
   unfinished to first-time visitors.
