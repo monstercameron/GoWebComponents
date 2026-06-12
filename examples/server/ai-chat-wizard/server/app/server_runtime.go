@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"agenthub"
 	"github.com/joho/godotenv"
 	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
 	"google.golang.org/grpc"
@@ -373,6 +374,35 @@ func parseCloneRequestWithPath(parseR *http.Request, parsePath string) *http.Req
 	return parseCloned
 }
 
+// parseInstallAgentHub mounts the opt-in dogfood agent hub and injects its
+// bootstrap token into the shell when GWC_AGENT_HUB is enabled.
+func parseInstallAgentHub(parseMux *http.ServeMux, parseLogger *slog.Logger, parseAddr string) {
+	parseSetAgentBridgeBootstrapScript("")
+	if !parseResolveBooleanEnv(os.Getenv("GWC_AGENT_HUB")) {
+		return
+	}
+	parseHub, parseErr := agenthub.NewAgentHub()
+	if parseErr != nil {
+		if parseLogger != nil {
+			parseLogger.Error("agent hub: failed to initialize", slog.String("error", parseErr.Error()))
+		}
+		return
+	}
+	agenthub.RouteAgentHub(parseMux, parseHub)
+	parseSetAgentBridgeBootstrapScript(fmt.Sprintf(
+		"<script>window.__GWC_AGENT_BRIDGE = Object.assign({}, window.__GWC_AGENT_BRIDGE || {}, { token: %q, appId: %q, buildId: %q });</script>",
+		parseHub.Token(),
+		"examples/server/ai-chat-wizard",
+		"ai-chat-wizard-dogfood",
+	))
+	if parseLogger != nil {
+		parseLogger.Info("agent hub: enabled",
+			slog.String("hub", "http://"+parseAddr),
+			slog.String("token", parseHub.Token()),
+		)
+	}
+}
+
 // ParseRun starts the chat wizard server entrypoint.
 func ParseRun() {
 	parseLoggers, parseLoggerErr := parseNewServerLoggers()
@@ -513,6 +543,7 @@ func ParseRun() {
 	parseMux.HandleFunc("/healthz", func(parseW3 http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintln(parseW3, "ok")
 	})
+	parseInstallAgentHub(parseMux, parseLogger, parseAddr)
 	// Marketing pages (public, no auth required).
 	// Catch-all: bare "/" serves the marketing home; all other paths use the chat shell.
 	parseMux.Handle("/", parseChatShellHandlerForServer(parseChatService, parseFileServer))

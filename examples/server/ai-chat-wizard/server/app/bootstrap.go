@@ -283,6 +283,7 @@ const chatShellHTML = `<!DOCTYPE html>
 
 var chatUsagePremiumPercent = 5.0
 var chatPlatformFeeUSD = 29.0
+var parseAgentBridgeBootstrapScript string
 
 func setChatUsagePremiumPercent(parsePercent float64) {
 	chatUsagePremiumPercent = parsePercent
@@ -298,6 +299,12 @@ func setChatPlatformFeeUSD(parseFee float64) {
 
 func parseCurrentChatPlatformFeeUSD() float64 {
 	return chatPlatformFeeUSD
+}
+
+// parseSetAgentBridgeBootstrapScript stores the optional inline script that
+// seeds the dogfood agent bridge before the client bootstrap runs.
+func parseSetAgentBridgeBootstrapScript(parseScript string) {
+	parseAgentBridgeBootstrapScript = strings.TrimSpace(parseScript)
 }
 
 const chatBootstrapJS = `window.__relaydesk_usage_premium_percent = {{USAGE_PREMIUM_PERCENT}};
@@ -967,6 +974,9 @@ func parseServeChatShell(parseW http.ResponseWriter, _ *http.Request) {
 	parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
 	parseShellHTML := strings.Replace(chatShellHTML, "{{BOOT_STYLE}}", chatBootShellStyles, 1)
 	parseShellHTML = strings.Replace(parseShellHTML, "{{APP_VERSION}}", buildinfo.GetBuildAppVersion(), 1)
+	if parseAgentBridgeBootstrapScript != "" {
+		parseShellHTML = strings.Replace(parseShellHTML, `  <script src="/chat-bootstrap.js"></script>`, "  "+parseAgentBridgeBootstrapScript+"\n  <script src=\"/chat-bootstrap.js\"></script>", 1)
+	}
 	_, _ = fmt.Fprint(parseW, parseShellHTML)
 }
 
