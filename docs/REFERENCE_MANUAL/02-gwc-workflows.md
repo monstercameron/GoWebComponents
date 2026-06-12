@@ -58,8 +58,8 @@ If you only need the shortest path from repo checkout to a running example, use 
 ```powershell
 go run ./tools/gwc doctor
 go run ./tools/gwc examples
-go run ./tools/gwc dev -app .\examples\01-counter\main.go
-go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc dev -app .\examples\public\counter\main.go
+go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
 ```
 
 What each command proves:
@@ -127,6 +127,7 @@ Why this is the normal production-shaped path:
 - the app stays on the documented launcher contract
 - the dev loop, validation, and release artifacts all resolve through one tool surface
 - runner config captures stable workspace rules while short-lived overrides remain on flags
+- hot-reload WebSocket messages use `gwc.livereload.ws` v1 and the app bridge uses `gwc.hotreload.snapshot` v1; older unversioned payloads are accepted, but future mismatches are diagnosed and ignored
 
 ## Scale-Up Workflow
 
@@ -156,7 +157,7 @@ go run ./tools/gwc test -lane unit -lane wasm -lane browser
 go run ./tools/gwc verify -app .\main.go -root . -audit
 go run ./tools/gwc release -app .\main.go -out-dir .\bin\release -compression gzip+brotli -validate-smoke
 go run ./tools/gwc bench -root .
-go run ./tools/gwc wasm measure -package .\examples\21-ui-render
+go run ./tools/gwc wasm measure -package .\examples\public\ui-render
 ```
 
 Why this scales:
@@ -205,21 +206,55 @@ Use `dev -dry-run` or `dev -json` when you want to inspect the resolved plan bef
 
 Use `release -validate-smoke` when you want the post-build release smoke check, not only the artifact packaging.
 
+Build profiles are intentionally distinct:
+
+| Profile | Toolchain | Main flags | Use it when |
+| --- | --- | --- | --- |
+| `development` / `dev` | Go `js/wasm` | `-ldflags=-w` | you want the normal fast inner-loop artifact |
+| `debug` / `source-debug` | Go `js/wasm` | `-gcflags=all=-N -l`, no `-trimpath`, no strip flags | you need symbol-stable browser debugging and readable local paths |
+| `ci` / `verify` | Go `js/wasm` | `-trimpath -ldflags=-s -w -buildvcs=false -tags production` | you want release-shaped compile validation |
+| `benchmark` / `bench` | Go `js/wasm` | same release-shaped flags as CI | you need repeatable measurement artifacts |
+| `release` / `prod` | Go `js/wasm` | same release-shaped flags as CI | you want a deployable production artifact |
+| `tinygo` | TinyGo `wasm` | `-target=wasm -opt=z -tags production` | you are proving a TinyGo-compatible leaf app |
+
+### Source-Debugging A Wasm App
+
+Use the debug profile when a browser issue needs source-oriented inspection instead of a normal fast dev-loop artifact:
+
+```powershell
+go run ./tools/gwc build -app .\main.go -root . -out .\bin\debug\app.wasm -profile debug -json
+go run ./tools/gwc serve -root .\static -wasm-file .\bin\debug\app.wasm
+```
+
+If the issue reproduces only in packaged output, keep the same profile visible in the release manifest:
+
+```powershell
+go run ./tools/gwc release -app .\main.go -root . -out-dir .\bin\debug-release -profile debug -compression none -json
+```
+
+The debug profile keeps local source paths untrimmed and disables compiler optimization and inlining with `-gcflags=all=-N -l`. That makes wasm stack frames and DevTools' generated wasm view less surprising when you correlate a browser pause, crash report, or console stack back to Go source.
+
+Current Go `js/wasm` artifacts do not emit browser source maps or `.debug_*` DWARF custom sections. Treat the Go-toolchain workflow as symbolized stack and generated-wasm debugging, not full Go-source stepping. When full DWARF-backed source stepping is required, validate a TinyGo-compatible app separately and keep that as an explicit toolchain experiment instead of changing the normal `development`, `ci`, or `release` profile.
+
 ### Inspection, Import, And Project Utilities
 
 | Command | Use it when | Representative call |
 | --- | --- | --- |
 | `files` | you need a repeatable file inventory | `go run ./tools/gwc files -root . -ext go -exclude-dir .git` |
 | `import` | you want to convert static HTML or JSX into an inspectable GWC `main.go` | `go run ./tools/gwc import -src .\design\landing.html -out .\bin\landing\main.go` |
+| `upgrade` | you need to backfill lifecycle metadata, feature matrix defaults, and runtime assets | `go run ./tools/gwc upgrade -root . -skip-runtime-assets` |
+| `migrate` | you need an upgrade report and safe compatibility API rewrites between framework versions | `go run ./tools/gwc migrate -root . -apply -json` |
 | `seed` | the project exposes a seed package for local identities or fixture data | `go run ./tools/gwc seed -root .` |
+
+`migrate` runs the same metadata/runtime upgrade path as `upgrade`, then writes `bin/gwc-migrate-report.json` with compatibility API findings. By default it is report-only. With `-apply`, it rewrites parsed router selector calls from `GoRegisterRoute` to `Register` and `GoGetRoute` to `Current`; quoted code and comments remain untouched and visible in the report so humans can decide what to do with them.
 
 ### Measurement
 
 | Command | Use it when | Representative call |
 | --- | --- | --- |
 | `bench` | you want repeatable benchmark discovery, JSON output, or normalized scoring against a saved reference report | `go run ./tools/gwc bench -root . -reference .\docs\benchmarks\reference.json` |
-| `wasm measure` | you want a wasm artifact measurement pass with manifest output | `go run ./tools/gwc wasm measure -package .\examples\21-ui-render` |
-| `wasm compare` and related subcommands | you want wasm-specific diffing, compression, cache, or toolchain comparisons | `go run ./tools/gwc wasm compare-toolchain -package .\examples\21-ui-render -baseline-go go1.25.4 -candidate-go go1.26.0` |
+| `wasm measure` | you want a wasm artifact measurement pass with manifest output | `go run ./tools/gwc wasm measure -package .\examples\public\ui-render` |
+| `wasm compare` and related subcommands | you want wasm-specific diffing, compression, cache, or toolchain comparisons | `go run ./tools/gwc wasm compare-toolchain -package .\examples\public\ui-render -baseline-go go1.25.4 -candidate-go go1.26.0` |
 
 Use the subcommand help directly for the wasm tools:
 

@@ -2,7 +2,7 @@
 
 Location: `examples/`
 
-This document is the developer-facing manual verification guide for the numbered example catalog.
+This document is the developer-facing manual verification guide for the example catalog.
 
 Use it when you are:
 
@@ -11,21 +11,17 @@ Use it when you are:
 - deciding whether a regression belongs in a dedicated Playwright spec or only in the broad smoke suite
 - doing release verification before demoing the examples catalog
 
-## Current Browser Baseline
+## Canonical Automated Baseline
 
-Captured on `2026-03-25`.
+The authoritative example coverage is the Playwright-Go browser suite, not a hand-kept list:
 
-- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExamplesAll -v` is the canonical example browser baseline command.
-- The focused suites are `TestCatalog`, `TestLinks`, `TestSSRServerRouting`, `TestAtlasSSR`, `TestStartup`, `TestVirtualization`, `TestAtlasStartup`, `TestBrowserCompat`, and `TestChatWizard`.
+```powershell
+go test -tags playwrightgo ./test/playwrightgo/examples -run TestExamplesAll -v
+```
 
-## Automation Delta Worth Knowing
+Focused suites: `TestCatalog`, `TestLinks`, `TestSSRServerRouting`, `TestAtlasSSR`, `TestStartup`, `TestVirtualization`, `TestAtlasStartup`, `TestBrowserCompat`, and `TestChatWizard`.
 
-- `07-goroutines` has stale dedicated assertions around intermediate status text and overly broad `.font-mono` selectors; the example page itself still loads and the smoke suite passes.
-- `08-fetch` has stale dedicated assertions that collide with duplicate visible text and a detail-error path that is no longer deterministic under the current UI.
-- `10-advanced-form` has a stale dedicated assertion expecting the exact text `Running async validation`.
-- `13-browser-compiler` passes its dedicated spec, but it may use the mock compiler fallback if the real compiler asset path is unavailable.
-
-Treat those four examples as manual-priority pages until their focused specs are refreshed.
+The example set itself is the generated catalog at `examples/public-examples-site/assets/data/catalog.json` (browse with `go run ./tools/gwc examples`). Feature-isolated examples live at `examples/public/<slug>/`; the larger SSR servers live under `examples/server/<slug>/`. There is intentionally no numbered (`NN-slug`) checklist here anymore: it drifted every time an example was renamed. Verify against the slugs the catalog reports.
 
 ## Environment
 
@@ -40,12 +36,9 @@ Main catalog URLs:
 - `http://127.0.0.1:8090/examples`
 - `http://127.0.0.1:8090/examples/public-examples-site/`
 
-Standalone SSR server for `18-ssr-server-routing`:
+Standalone SSR routing server (`examples/server/server-side-rendering-routing`):
 
 ```powershell
-Set-Location .\examples
-.\build.ps1 -Example "18-ssr-server-routing"
-Set-Location ..
 go run ./examples/server/server-side-rendering-routing
 ```
 
@@ -57,13 +50,9 @@ Standalone SSR server URLs:
 - `http://127.0.0.1:8079/secure`
 - `http://127.0.0.1:8079/secure?auth=true&role=maintainer`
 
-Standalone SSR server for `86-atlas-commerce-os`:
+Standalone Atlas commerce-OS SSR server (`examples/server/atlas-commerce-os`):
 
 ```powershell
-Set-Location .\examples
-New-Item -ItemType Directory -Path ..\bin\examples -Force | Out-Null
-go build -o ..\bin\examples\atlas-commerce-os.wasm .\86-atlas-commerce-os\client
-Set-Location ..
 go run ./examples/server/atlas-commerce-os/server
 ```
 
@@ -77,167 +66,33 @@ Standalone Atlas SSR URLs:
 
 ## Manual Verification Rules
 
+Apply these to whichever examples cover the surface you changed (find them in the catalog by API or tag):
+
 - Confirm the page shell is dark mode and the primary heading renders without console or page errors.
 - Exercise at least one state change, route change, async transition, or overlay action on every page.
 - Verify the visible output changes in a way that matches the example's teaching goal.
 - If the example demonstrates routing or hydration, also verify refresh and direct navigation behavior where applicable.
 - If an example exposes stats, badges, or status copy, verify those values change together with the primary interaction.
-
-## Manual Checklist
-
-### Integrated Apps
-
-- `public-examples-site`: Load the docs catalog, wait for the result count to appear, switch to the `Example` filter, open `Go Counter Demo`, then return to `All` and open `ui.UseState and Local State` plus `Start With GoWebComponents`. Expected: the catalog shell loads without page or console errors, the `#demo` container updates for example, API, and concept content, and the counter demo can increment, decrement, and reset while the detail panel stays synchronized.
-- `01-counter`: Click increment twice, decrement once, and reset. Expected: the count changes `0 -> 2 -> 1 -> 0` and the stat card stays in sync.
-- `02-text-input`: Type text, wait for the debounce window, then clear it. Expected: live preview updates immediately, debounced preview catches up, and both counts return to zero on clear.
-- `03-toggle`: Toggle on and off several times. Expected: the visual state and any boolean label remain synchronized with each click.
-- `04-form`: Fill the sample fields and submit. Expected: controlled inputs hold their values and the form output or summary reflects the submitted data.
-- `05-todo-basic`: Add several todos, remove one, then clear all. Expected: the list count, rendered items, and empty state remain consistent.
-- `06-todo-advanced`: Add a todo with priority and category, mark one completed, then switch between `All`, `Active`, and `Completed`. Expected: badges render correctly and filters show the right subset.
-- `07-goroutines`: Start the background task, cancel another run midway, then start and reset the timer. Expected: progress reaches completion, cancel stops progress, and timer controls update the clock display correctly.
-- `08-fetch`: Let the initial async directory load, switch detail views, use reload and cancel controls, and retry any surfaced error. Expected: list content, detail panel, and async status boundaries update cleanly without blank states.
-- `09-atoms`: Trigger shared state updates from more than one control. Expected: every bound view updates together and the page stays mounted after interaction.
-- `10-advanced-form`: Submit invalid data first, then fix it and submit valid data. Expected: validation feedback appears on the relevant fields and the success state only appears after valid submission.
-- `11-blog`: Navigate the blog landing experience and interact with any article or CTA affordances. Expected: the content layout remains readable and the route or selection state changes visibly.
-- `12-portfolio-site`: Verify hero navigation, docs navigation, and one interactive mini-app. Expected: section links, route transitions, and embedded interactions all stay responsive.
-- `12-portfolio-site` hot reload pass: Run `go run ./tools/gwc dev -app .\examples\12-portfolio-site\main.go`, switch between the home and docs routes, then save a safe UI-only edit. Expected: the routed shell stays mounted, compatible local state survives, and the live-reload panel reports the preserve or remount plan instead of a silent reload.
-- `13-browser-compiler`: Open the browser compiler UI, wait for the compilation pipeline to finish, and run the demo. Expected: the terminal output contains the browser-compiler success copy and the UI does not hang during compile or fallback.
-- `14-omi`: Load the OMI example and exercise its primary interaction path. Expected: the larger shell renders correctly in dark mode and the embedded UI updates without console errors.
-- `15-calculator`: Enter several expressions, switch between `Graphite` and `Midnight`, and verify the result and memory state update. Expected: evaluation output is correct and no light theme is available anymore.
-- `16-devtools`: Open the embedded devtools panel and inspect diagnostics or profiling output. Expected: tree, hook, or diagnostic surfaces render and update with the app state.
-- `17-ssr-routing`: Load the static SSR page, confirm prerendered docs content appears before interaction, then navigate through docs, search, secure, legacy redirect, and sign-in flows. Expected: hydration resumes the shell cleanly and route features continue working after startup.
-- `18-ssr-server-routing`: Run the standalone server and test direct navigation, refresh, search query rendering, secure redirect behavior, and authenticated secure access. Expected: each direct URL returns real HTML first and then hydrates without replacing the whole shell unnecessarily.
-- `86-atlas-commerce-os`: Run the standalone Atlas server, load `/shop/frame-desk` directly, submit a public comment form, then open `/app/dashboard` and save preferences. Expected: the first response contains the fully rendered Atlas shell, the bootstrap script hydrates without replacing the route content, and both public and internal forms round-trip through sqlite-backed server endpoints.
-- `19-nested-routes`: Jump directly into dashboard settings, switch between `Profile` and `Team`, then move into docs and report routes. Expected: parent layout shells stay mounted while only the outlet content changes.
-- `20-portals`: Open the modal, confirm it renders under `#portal-root`, then toggle tooltip and popover. Expected: overlays exist only in the portal container and clean up correctly on close or dismiss.
-
-### ui Package
-
-- `21-ui-render`: Load the page and use the primary controls. Expected: the rendered subtree mounts into `#app` and updates visibly after interaction.
-- `22-create-element`: Exercise the example's main control path. Expected: the page demonstrates `ui.CreateElement` composition and the rendered result changes without remount glitches.
-- `23-fragment`: Trigger the rendered fragment output. Expected: sibling content updates without an extra wrapper node affecting layout.
-- `24-use-ref`: Interact with the ref-driven control, usually a focus or imperative read. Expected: the DOM element responds through the ref-backed action.
-- `25-use-previous`: Change the tracked value more than once. Expected: the page shows both the current and previous value correctly.
-- `26-use-deferred-value`: Type or change input rapidly. Expected: the immediate value changes first and the deferred value lags behind before settling.
-- `27-transition-hooks`: Type into the search box, switch dashboard tabs, and swap sections. Expected: the query, requested tab, and requested path update immediately; the page reports a transition-pending state while the heavier result, dashboard, and section panes commit afterward.
-- `28-use-reducer`: Dispatch multiple actions. Expected: reducer-driven state changes are deterministic and all derived stats match the action history.
-- `28-scaling-local-state-with-use-reducer`: Switch between thread presets, route the reply into review, approve it, and queue it. Expected: one semantic action updates every related workflow field coherently, and queueing remains blocked until review is cleared.
-- `29-use-debounced`: Type quickly, then stop. Expected: debounced output changes only after the delay window elapses.
-- `30-use-throttled`: Trigger repeated updates rapidly. Expected: throttled output updates at the expected cadence rather than on every event.
-- `31-context-api`: Change provider state and verify consumers update. Expected: every consumer reflects the same contextual value.
-- `32-async-boundary`: Trigger the async boundary's loading and completion states. Expected: fallback content appears first and resolves into the final content without a full-page flash.
-- `33-lazy`: Activate the lazy-loaded content. Expected: the loading state is visible briefly and the lazy component mounts once resolved.
-- `34-error-boundary`: Trigger the deliberate error path and then recover if the example supports it. Expected: the fallback UI catches the error instead of breaking the full page.
-- `35-use-id`: Refresh and interact with the page. Expected: generated IDs remain stable within a render and wire labels or inputs correctly.
-- `36-typed-events`: Use the exposed controls that rely on typed events. Expected: event payload handling updates the page correctly without raw event casting errors.
-- `46-raw-handler`: Use the prebuilt raw handler interaction path. Expected: the raw event wiring works through the forwarded handler value and does not panic.
-- `47-portal-selector`: Open the selector-targeted portal content. Expected: overlay content appears in the selected DOM target and disappears cleanly.
-- `48-portal-target`: Trigger the explicit target-node portal flow. Expected: content renders into the provided node target rather than the normal component subtree.
-- `49-use-channel`: Start the channel-backed interaction. Expected: produced messages or values arrive in order and the UI stays responsive while receiving them.
-- `50-use-task`: Trigger the background task. Expected: task state moves through idle, running, and completion or cancellation states visibly.
-- `51-use-form`: Fill the form, submit, and reset if available. Expected: form state, validation, and submit result all stay synchronized.
-- `70-render-to-string`: Load the instruction page, then run the standalone server variant if you need the full request-time render flow. Expected: the instructional shell renders in dark mode and the server-backed version shows exact HTML string output beside the preview.
-- `71-hydrate`: Verify prerendered markup is visible immediately, then click the buttons after wasm starts. Expected: hydration resumes the existing DOM and later updates stay interactive.
-- `73-ssr-bootstrap`: Load the static bootstrap page and verify the inline bootstrap content resumes into the hydrated UI. Expected: inline JSON data is reused and the prerendered content survives startup.
-- `101-static-islands`: Load the prerendered marketing page and wait for wasm startup. Expected: the static hero and proof sections stay unchanged, only the pricing rail and quote card become interactive, and the in-page budget pills populate startup plus per-island hydration timings. Then click tier chips, `Book a walkthrough`, and `Next note`. Expected: only the island-local values update and the interaction budget pills report a fresh timing instead of forcing a whole-page takeover.
-- `102-static-export-site`: Run `go run ./examples/server/static-export-site`, then serve `examples/server/static-export-site/dist` from a plain static file server. Expected: `/`, `/pricing/`, and `/docs/getting-started/` all load as prerendered HTML files without a custom Go request handler in front of them.
-- `76-use-effect`: Trigger dependency changes and cleanup behavior. Expected: effect-run and cleanup counters move in the expected order and document-side effects stay in sync.
-- `77-accessible-overlay`: Open the modal, cycle focus with Tab and Shift+Tab, then close it with Escape. Expected: focus stays inside the dialog while open, the background shell is hidden from assistive technology, and focus returns to the trigger on close.
-- `78-composite-navigation`: Focus the tabs and listbox, then use arrow keys, Home or End, and first-letter typeahead. Expected: the active item updates without bespoke keyboard wiring in the page component.
-- `79-form-accessibility`: Submit the form empty, then complete it successfully. Expected: validation errors are announced, focus moves to the first invalid field, and the success path announces completion after submit.
-- `81-overlay-stack`: Open the parent dialog, then the popover and nested dialog. Expected: Escape closes the popover first, then the nested dialog, then the parent dialog; body scroll stays locked until the last modal layer closes; nested close returns focus to the parent trigger.
-- `82-overlay-anchor`: Open the menu, toggle the tooltip, then switch the tooltip target between selector and explicit-node roots. Expected: the tooltip stays above the menu in both targets and the menu still dismisses cleanly with Escape.
-
-### i18n Package
-
-- `83-locale-switcher`: Switch between English, French, and Arabic. Expected: copy, formatted values, and shell direction all update together; Arabic switches the shell to RTL.
-- `84-ssr-i18n-bootstrap`: Load the page and verify the initial French copy is already present before interaction, then switch to English. Expected: the bootstrap payload provides locale and messages for hydration, and the status line reports successful locale hydration.
-- `85-locale-routing`: Switch between locale-specific routes. Expected: the URL prefix, resolved locale, and loader-provided content all stay aligned; Arabic route selection flips the shell to RTL.
-
-### state Package
-
-- `75-use-state`: Click the controls that call `Set` and `Update`. Expected: counter and message state both change exactly as described by the stat cards.
-- `203-use-state-rerender-trace`: Trigger `Increment counter`, `Rotate headline`, and `Reload stored trace`. Expected: each action produces a readable call stack plus raw JSON document, `Copy JSON` exports the current artifact, and refresh or reload preserves the last stored trace through LocalStorage.
-- `37-use-atom`: Change atom state from the provided controls. Expected: all subscribers reflect the same shared value immediately.
-- `38-use-computed`: Change the source inputs. Expected: computed output recalculates from the atom inputs and never requires manual refresh.
-- `39-use-derived`: Update the parent value. Expected: derived state follows the source and the displayed dependency chain remains coherent.
-- `40-snapshot-export-import`: Export a snapshot, mutate state, then import or restore the snapshot. Expected: the state graph returns to the saved version accurately.
-- `41-snapshot-storage`: Save a snapshot to storage, change state, and reload or restore it. Expected: persisted state survives the reload and restores into the expected view.
-
-### fetch Package
-
-- `42-use-fetch`: Trigger the managed fetch flow. Expected: loading, success, and error states transition through the hook-managed UI correctly.
-- `43-use-resource`: Load resource-backed content and retry if needed. Expected: the resource cache and fallback behavior behave predictably across rerenders.
-- `44-use-cached-resource`: Revisit or retrigger the same fetch path. Expected: cached content is reused instead of showing the cold-loading path every time.
-- `45-fetch-imperative`: Invoke the imperative fetch action repeatedly. Expected: responses update the UI on demand and do not require hook remounting.
-- `93-ssr-cache-bootstrap`: Load the prerendered page and wait for wasm startup. Expected: the trust-once card stays on the server-seeded revision until manual reload, the stale-while-revalidate card upgrades from its seeded revision after the client pass, and the always-refetch card also upgrades immediately despite a fresh embedded timestamp.
-- `93-ssr-cache-bootstrap` hot reload pass: Run `go run ./tools/gwc dev -app .\examples\93-ssr-cache-bootstrap\main.go`, confirm the seeded cards render, trigger one client-side reload action, then save a safe UI-only edit. Expected: the page resumes through the hot-reload bridge without losing the visible seeded shell, and the live-reload panel explains whether cache-backed cards were preserved, remounted, or restarted.
-
-### html Package
-
-- `52-semantic-html`: Verify the semantic layout renders correct headings, landmarks, and content grouping. Expected: the DOM structure is semantically meaningful and visually intact.
-- `53-html-forms`: Use the typed form controls. Expected: inputs, selects, and labels stay wired correctly through `html.Props`.
-- `54-html-tag`: Inspect the dynamic tag output. Expected: the requested tag renders with the right children and attributes.
-- `88-web-components`: Advance the browser-defined widget and change palettes. Expected: reflected attributes update the widget theme, property-only state updates the score meter, slotted Go content renders inside the widget, and `rating-change` updates the Go-side status panel.
-- `89-exported-custom-element`: Change the raw HTML host attributes through the page buttons. Expected: the plain HTML custom-element hosts re-mount a Go-rendered shadow-root widget through the export bridge and clean up when removed.
-
-### interop Package
-
-- `90-browser-interop`: Save and reload the draft, resize the page, dispatch a pulse, and load the lazy module. Expected: storage round-trips through `interop.LocalStorage()` and `storage.GetMany(...)`, the panel measurement and color-scheme state update through interop observers, the typed custom event updates the status panel, clipboard actions either succeed or report a structured browser denial instead of failing silently, and the lazy module loader resolves the static helper bridge and renders its exported strings.
-- `91-worker-text-index`: Run the index build, then cancel and rerun it with a different query. Expected: the page stays responsive while the worker reports progress, top-term stats update from the worker result, and cancellation stops the in-flight job without freezing the UI.
-- `95-multi-window-console`: Open the popup, send the session and route actions, then close either surface unexpectedly. Expected: the popup receives typed session, route, selection, and intent updates from the opener; popup-originated signals update the opener when sent back; and if either side disappears the remaining surface reports an explicit orphaned or disconnected state instead of silently assuming the channel still exists.
-- `97-multi-client-presence`: Open the page in two tabs, then open the popup from either tab. Expected: each tab publishes `hello`, a late join publishes `query(topic="clients")`, peers answer with targeted `result` messages, disconnected tabs age into expired leases until they reconnect, and the popup exchanges targeted `hello`, `query`, `result`, and `goodbye` traffic with its opener without falling back to broadcast semantics.
-- `97-multi-client-binary`: Open the page in two tabs and press `Broadcast preview`. Expected: BroadcastChannel-capable browsers deliver a binary preview to the second tab, storage-event fallback browsers send JSON metadata instead, and opening the popup then sending a preview delivers binary bytes to the popup with a JSON acknowledgement returned to the opener.
-
-### pwa Package
-
-- `97-pwa-installability`: Load the example, refresh installability, and try `Prompt install`. Expected: manifest validity, prompt availability, install reasons, and service-worker lifecycle stay visible in-page; if the browser refuses the prompt, the page reports a structured unavailable message instead of a silent failure.
-- `97-pwa-offline-cache`: Warm the offline cache, queue an offline write, queue a conflicting write, replay with conflict policy, then schedule background replay and inspect diagnostics. Expected: the cache report names the warmed release namespace, the conflict path re-queues one rebased write instead of silently retrying forever, Background Sync either registers or reports a manual-replay fallback explicitly, and the diagnostics panel shows cache counts plus Background Sync capability instead of raw console-only state.
-- `97-pwa-multi-client`: Open the page in two tabs, click `Announce peer` in each, then broadcast a sync event and cache invalidation from one tab while warming the offline shell and inspecting diagnostics in the other. Expected: each tab sees typed peer traffic from the other wasm client, the cache warmup reports cached shell entries, and the diagnostics panel keeps manifest or service-worker state inspectable instead of hiding PWA coordination in console logs.
-
-### router Package
-
-- `55-hash-router`: Navigate through the hash-based routes using links and browser history. Expected: the hash changes and the rendered view follows the route.
-- `56-browser-router`: Navigate with the history router. Expected: path-based route changes update the UI without full page reloads.
-- `57-use-navigate`: Trigger programmatic navigation. Expected: the route changes through `router.UseNavigate` and the destination view renders immediately.
-- `58-route-params`: Navigate between parameterized routes. Expected: the page reads the current route params and displays the correct value.
-- `59-route-query`: Change query string inputs or route links. Expected: query-aware output updates when the search params change.
-- `60-route-loaders`: Visit routes with loader-backed content. Expected: loading, loaded, and error states reflect the route loader lifecycle.
-- `61-use-revalidator`: Trigger a revalidation after the initial route load. Expected: the route refreshes its data without losing surrounding route state.
-- `62-router-redirects`: Open redirecting routes directly. Expected: the app lands on the redirected destination and the visible content matches the final route.
-- `63-router-metadata`: Navigate across routes that set metadata. Expected: document title or related metadata changes with the current route.
-- `64-nested-layout-routes`: Switch between layout children. Expected: the parent layout remains mounted while only the outlet subtree changes.
-- `65-router-guards`: Attempt guarded navigation and leave flows. Expected: allowed routes proceed and guarded routes block or redirect according to the rule.
-- `92-protected-routes`: Enter the protected route signed out, while resolving, and signed in. Expected: signed-out access redirects through login with a safe `return_to`, unknown auth shows manual authorizing UI, the billing tab renders a manual unauthorized fallback until the claim is granted, and the shared cache widget stays aligned with the route loader revision.
-- `92-protected-routes` hot reload pass: Run `go run ./tools/gwc dev -app .\examples\92-protected-routes\main.go`, open `/workspace` signed in, then save a safe UI-only edit. Expected: the hash-router location stays on the protected route, route-loader and cache surfaces restart cleanly from the new bundle, and the live-reload panel reports preserve versus remount behavior explicitly.
-- `94-cross-tab-sync`: Open the page in two tabs. Expected: theme broadcasts update the second tab, logout broadcasts flip the second tab into signed-out state, cache invalidations update the revision and status text remotely, draft broadcasts replace the second tab's draft when the version is newer, and the diagnostics panel reports the resolved transport plus recent received messages.
-- `80-routed-accessibility`: Navigate between the shell routes. Expected: the live region announces the newly loaded page and focus moves to the route heading after each navigation.
-- `72-router-hydrate-mount`: Load the prerendered route first and then navigate after hydration. Expected: the initial route is preserved during attach and later route changes work normally.
-- `74-ssr-route-data-reuse`: Load the prerendered products route, then revalidate. Expected: the first render uses bootstrap data and later revalidation falls back to the live client loader path.
-
-### devtools Package
-
-- `66-devtools-panel`: Open the panel and inspect tree or hook state. Expected: the public panel surface mounts and tracks the example state.
-- `67-use-snapshot`: Trigger snapshot capture from the devtools hook. Expected: the current state snapshot becomes visible or exportable without interrupting the app.
-- `68-snapshot-now`: Capture an immediate snapshot. Expected: the snapshot reflects current state at the moment of capture rather than after a deferred tick.
-- `69-devtools-diagnostics`: Open the diagnostics view and trigger the example warnings or counters. Expected: the diagnostics payload surfaces the intended runtime information.
+- For overlay and accessibility examples, verify focus trap, Escape dismissal, focus restoration, and live-region announcements.
+- For SSR and hydration examples, verify the first response is real HTML and hydration resumes the existing DOM without a full-shell replacement.
+- For PWA and offline examples, verify cache warm-up, offline mutation queue and replay, and that capability gaps surface a structured message rather than a silent failure.
 
 ## Suggested Regression Workflow
 
 - Run the full smoke suite first to catch blank pages, panics, or failed asset loads.
 - Run the focused specs next for examples that already have deeper coverage.
-- Use the checklist above for examples in the area you changed, plus adjacent examples that share the same package surface.
+- Use the rules above for examples in the area you changed, plus adjacent examples that share the same package surface.
 - If a manual-only regression repeats twice, promote it into a dedicated example Playwright spec.
 
 ## Mobile Safari Coverage
 
-Use this smaller pass before calling a workflow broadly browser-compatible:
+Use this smaller pass before calling a workflow broadly browser-compatible (verify the current slug in the catalog):
 
-- `71-hydrate`: confirm prerendered markup is visible before wasm, hydration attaches, and the resumed buttons still work with touch input.
-- `73-ssr-bootstrap`: confirm inline bootstrap data restores correctly and the hydrated UI does not restart from empty client state.
-- `101-static-islands`: confirm the static shell remains readable before startup, only the island roots activate, and the budget pills populate on-device.
-- `87-ssr-secure-forms`: confirm keyboard, focus, validation, multipart upload, and redirect flows behave correctly under Mobile Safari input constraints.
-- `97-pwa-offline-cache` or `97-pwa-multi-client`: confirm storage, service-worker, cache, and reduced-capability fallback behavior when offline features matter to the release.
-- `100-ai-chat-wizard`: confirm wasm startup, long-lived input, reconnect behavior, and scrolling remain stable on a constrained device before describing the app shape as production-ready.
+- `hydration`: confirm prerendered markup is visible before wasm, hydration attaches, and the resumed buttons still work with touch input.
+- `server-side-rendering-cache-bootstrap`: confirm inline bootstrap data restores correctly and the hydrated UI does not restart from empty client state.
+- `static-islands`: confirm the static shell remains readable before startup, only the island roots activate, and the budget pills populate on-device.
+- `server-side-rendering-secure-forms` (server app): confirm keyboard, focus, validation, multipart upload, and redirect flows behave correctly under Mobile Safari input constraints.
+- `progressive-web-app-offline-cache` or `progressive-web-app-multi-client`: confirm storage, service-worker, cache, and reduced-capability fallback behavior when offline features matter to the release.
+- the AI chat wizard server app: confirm wasm startup, long-lived input, reconnect behavior, and scrolling remain stable on a constrained device before describing the app shape as production-ready.
 
 Treat this as the minimum device-family gate for wasm-heavy, hydration-heavy, storage-heavy, or form-heavy releases.

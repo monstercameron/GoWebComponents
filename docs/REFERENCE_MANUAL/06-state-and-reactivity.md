@@ -386,6 +386,7 @@ Keep these boundaries clear:
 
 - same-process snapshots preserve exact live Go values for restore
 - JSON persistence is only stable for JSON-compatible values unless the app owns a typed codec
+- JSON snapshots are written as `gwc.state.snapshot` v1 envelopes; legacy raw snapshot maps still load, while future snapshot versions are rejected
 - persisted snapshots should contain client-owned preferences, drafts, or resumable UI slices, not secrets or generic server data
 
 ## Workspace Persistence Rules
@@ -449,30 +450,30 @@ Use the smallest examples that prove the ownership layer you are adopting.
 Local state, reducers, and context:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\75-use-state\main.go
-go run ./tools/gwc dev -app .\examples\28-scaling-local-state-with-use-reducer\main.go
-go run ./tools/gwc dev -app .\examples\31-context-api\main.go
+go run ./tools/gwc dev -app .\examples\public\use-state\main.go
+go run ./tools/gwc dev -app .\examples\public\scaling-local-state-with-use-reducer\main.go
+go run ./tools/gwc dev -app .\examples\public\context-api\main.go
 ```
 
 Shared atoms and derived values:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\37-use-atom\main.go
-go run ./tools/gwc dev -app .\examples\38-use-computed\main.go
-go run ./tools/gwc dev -app .\examples\39-use-derived\main.go
+go run ./tools/gwc dev -app .\examples\public\use-atom\main.go
+go run ./tools/gwc dev -app .\examples\public\use-computed\main.go
+go run ./tools/gwc dev -app .\examples\public\use-derived\main.go
 ```
 
 Snapshot export and persistence:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\40-snapshot-export-import\main.go
-go run ./tools/gwc dev -app .\examples\41-snapshot-storage\main.go
+go run ./tools/gwc dev -app .\examples\public\snapshot-export-import\main.go
+go run ./tools/gwc dev -app .\examples\public\snapshot-storage\main.go
 ```
 
 Fine-grained reactivity design boundary:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\203-fine-grained-reactivity\main.go
+go run ./tools/gwc dev -app .\examples\public\state-atoms\main.go
 ```
 
 ## Topic Pagination

@@ -21,7 +21,7 @@ This example explores running a browser-hosted compilation workflow and associat
 Before serving the example, build the browser compiler assets once:
 
 ```powershell
-Set-Location .\examples\13-browser-compiler
+Set-Location .\examples\public\browser-compiler
 .\build-compiler.ps1
 ```
 

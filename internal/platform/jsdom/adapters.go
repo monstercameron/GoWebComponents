@@ -349,12 +349,6 @@ func (parseA *WASMDOMAdapter) GetElementsByTagName(parseTagName string) []runtim
 	return parseNodes
 }
 
-func (parseA *WASMDOMAdapter) SetInnerHTML(parseNode runtime.DOMNode, parseHtml string) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
-		parseWasmNode.value.Set("innerHTML", parseHtml)
-	}
-}
-
 func (parseA *WASMDOMAdapter) GetInnerHTML(parseNode runtime.DOMNode) string {
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
 		return parseWasmNode.value.Get("innerHTML").String()

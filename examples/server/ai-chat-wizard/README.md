@@ -114,8 +114,8 @@ $env:CHAT_DB_PATH = "examples/server/ai-chat-wizard/bin/runtime/chat_history.db"
 ### 3. Build both WASM artifacts
 
 ```powershell
-go run ./tools/gwc build -app .\examples\100-ai-chat-wizard\client\main.go -root .\examples\100-ai-chat-wizard\client -out .\examples\100-ai-chat-wizard\bin\client\app\chat.wasm -json
-go run ./tools/gwc build -app .\examples\100-ai-chat-wizard\client\backgroundworker\main.go -root .\examples\100-ai-chat-wizard\client\backgroundworker -out .\examples\100-ai-chat-wizard\bin\client\worker\background-worker.wasm -json
+go run ./tools/gwc build -app .\examples\server\ai-chat-wizard\client\main.go -root .\examples\server\ai-chat-wizard\client -out .\examples\server\ai-chat-wizard\bin\client\app\chat.wasm -json
+go run ./tools/gwc build -app .\examples\server\ai-chat-wizard\client\backgroundworker\main.go -root .\examples\server\ai-chat-wizard\client\backgroundworker -out .\examples\server\ai-chat-wizard\bin\client\worker\background-worker.wasm -json
 ```
 
 The server serves Brotli sidecars when present, but raw `.wasm` artifacts are enough for local development.
@@ -165,15 +165,15 @@ $env:CHAT_PROVIDER_STUBS = "all"
 ### 6. Start the managed example server
 
 ```powershell
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server start -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server start -json
 ```
 
 Useful lifecycle commands:
 
 ```powershell
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server restart -json
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server stop -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server restart -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server stop -json
 ```
 
 Open `http://127.0.0.1:8095/`.
@@ -589,15 +589,15 @@ RelayDesk treats that bootstrap payload, or the cached `chat-wizard:model-catalo
 Start the default managed profile directly:
 
 ```powershell
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server start -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server start -json
 ```
 
 Then inspect or restart as needed:
 
 ```powershell
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server restart -json
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server stop -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server restart -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server stop -json
 ```
 
 ---

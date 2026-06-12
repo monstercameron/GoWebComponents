@@ -9,6 +9,78 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
+func TestSanitizeMarkdownHrefDropsDangerousSchemes(parseT *testing.T) {
+	parseDropped := []string{
+		"javascript:alert(1)",
+		"JavaScript:alert(1)",
+		"  javascript:alert(1)",
+		"java\tscript:alert(1)",
+		"java\nscript:alert(1)",
+		"jAvAsCrIpT:alert(1)",
+		"vbscript:msgbox(1)",
+		"data:text/html,<script>alert(1)</script>",
+		"data:image/png;base64,AAAA",
+		"\x01javascript:alert(1)",
+	}
+	for _, parseCase := range parseDropped {
+		if parseGot := SanitizeMarkdownHref(parseCase, nil); parseGot != "" {
+			parseT.Fatalf("expected %q to be dropped, got %q", parseCase, parseGot)
+		}
+	}
+
+	parseKept := []string{
+		"https://example.test/docs",
+		"http://example.test",
+		"mailto:dev@example.test",
+		"guide.md#hydration",
+		"./relative/page",
+		"/absolute/path",
+		"#section",
+		"//cdn.example.test/asset.js",
+	}
+	for _, parseCase := range parseKept {
+		if parseGot := SanitizeMarkdownHref(parseCase, nil); parseGot != parseCase {
+			parseT.Fatalf("expected %q to survive unchanged, got %q", parseCase, parseGot)
+		}
+	}
+
+	// A configurable allowlist round-trips: opting data in keeps inline images.
+	if parseGot := SanitizeMarkdownHref("data:image/png;base64,AAAA", []string{"http", "https", "data"}); parseGot == "" {
+		parseT.Fatal("expected data: to survive when explicitly allowed")
+	}
+	// And a custom allowlist still drops what it does not list.
+	if parseGot := SanitizeMarkdownHref("https://example.test", []string{"mailto"}); parseGot != "" {
+		parseT.Fatal("expected https to be dropped when only mailto is allowed")
+	}
+}
+
+func TestRenderMarkdownNeutralizesXSSAcrossSinks(parseT *testing.T) {
+	parseMarkdown := strings.Join([]string{
+		"[click](javascript:alert(1))",
+		"",
+		"![logo](data:text/html,<script>alert(1)</script>)",
+		"",
+		"<https://example.test/safe>",
+		"",
+		"[doc](guide.md) and [home](#top)",
+	}, "\n")
+	parseNodes := RenderMarkdown(parseMarkdown, MarkdownRenderOptions{SourcePath: "docs/start.md"})
+	parseMarkup, parseErr := ui.RenderToString(Div(Props{}, parseNodes...))
+	if parseErr != nil {
+		parseT.Fatalf("expected markdown render to stringify, got %v", parseErr)
+	}
+	for _, parseForbidden := range []string{"javascript:", "data:text/html", "href=\"javascript", "src=\"data:"} {
+		if strings.Contains(parseMarkup, parseForbidden) {
+			parseT.Fatalf("rendered markup leaked dangerous content %q:\n%s", parseForbidden, parseMarkup)
+		}
+	}
+	for _, parseExpected := range []string{"https://example.test/safe", "href=\"docs/guide.md\"", "href=\"#top\""} {
+		if !strings.Contains(parseMarkup, parseExpected) {
+			parseT.Fatalf("expected legitimate link %q to survive:\n%s", parseExpected, parseMarkup)
+		}
+	}
+}
+
 func TestResolveMarkdownHrefResolvesRelativeDestinations(parseT *testing.T) {
 	parseResolved := ResolveMarkdownHref("assets/docs/start-here.md", "troubleshooting.md#hydration")
 	if parseResolved != "assets/docs/troubleshooting.md#hydration" {

@@ -14,7 +14,7 @@ func (parseL launcher) runVerify(parseArgs []string) error {
 	parseFs := flag.NewFlagSet("verify", flag.ContinueOnError)
 	parseFs.SetOutput(os.Stdout)
 	parseApp := parseFs.String("app", "", "Path to the app main.go file or app directory")
-	parseMainPath := parseFs.String("main", "", "Legacy alias for -app")
+	parseMainPath := parseFs.String("main", "", "(deprecated) alias for -app; use -app")
 	parseRoot := parseFs.String("root", "", "Project root used for test and build resolution")
 	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
 	parseSkipTests := parseFs.Bool("skip-tests", false, "Skip running go test even when *_test.go files are present")

@@ -9,7 +9,7 @@
 [![Release Version](https://img.shields.io/github/v/release/monstercameron/GoWebComponents)](https://github.com/monstercameron/GoWebComponents/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/monstercameron/GoWebComponents)](https://goreportcard.com/report/github.com/monstercameron/GoWebComponents)
 
-GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, typed HTML builders, shorthand authoring helpers, client-side routing, shared state, and SSR or hydration support.
+GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, typed HTML builders, shorthand authoring helpers, client-side routing, and shared state. It also ships streaming SSR with real async suspension, hydration and static islands, crash containment by default, realtime data hooks, feature flags, i18n, accessibility primitives, and PWA/offline support.
 
 It is aimed at teams that want to build browser UI in Go without dropping into a separate JavaScript application stack for rendering, state, routing, and browser lifecycle management.
 
@@ -58,10 +58,11 @@ Useful entrypoints:
 ```powershell
 go run ./tools/gwc doctor
 go run ./tools/gwc examples
-go run ./tools/gwc dev -app .\examples\01-counter\main.go
-go run ./tools/gwc build -app .\examples\01-counter\main.go -profile development
+go run ./tools/gwc dev -app .\examples\public\counter\main.go
+go run ./tools/gwc build -app .\examples\public\counter\main.go -profile development
+go run ./tools/gwc build -app .\examples\public\counter\main.go -profile debug -out .\bin\debug\counter.wasm
 go run ./tools/gwc test -lane unit -lane wasm
-go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
 ```
 
 For standalone wasm apps that want state-preserving reload, enable `hotreload.Enable()` in your app and use `gwc dev`.
@@ -236,9 +237,13 @@ The preferred public surface is:
 - `html`: stable typed HTML builders and DOM prop metadata
 - `html/shorthand`: mixed-argument authoring sugar, helper funcs, and dot-import-friendly host tags layered on `html`
 - `state`: atom-based shared state, derived state, computed values, and snapshot helpers
-- `fetch`: browser fetch helpers, typed resources, realtime hooks, and imperative fetch flows
+- `fetch`: browser fetch helpers, typed resources, tag-aware query cache, realtime `UseWebSocket` / `UseEventSource` hooks, and imperative fetch flows
 - `flags`: browser-visible feature flag and deterministic experiment helpers
 - `router`: hash routing, browser routing, params, query helpers, redirects, loaders, guards, metadata, nested layouts, and hydration-aware mount helpers
+- `i18n`: locale provider, pluralization, number/date formatting, and SSR-aligned locale bootstrap
+- `interop`: typed browser bridges for storage, clipboard, custom events, observers, cross-tab/multi-window channels, and lazy module loading
+- `pwa`: service-worker registration, cache-storage plans, installability observation, and offline mutation replay
+- `virtualization`: windowed list rendering with viewport diagnostics and scroll restoration for long feeds
 - `devtools`: embeddable inspection, diagnostics, profiling hints, and snapshots
 - `head`: optional companion SSR head composition helpers for router metadata, social tags, robots tags, JSON-LD, alternate locale links, and resource hints
 - `plugin`: supported companion host for explicit plugin manifests, capability-checked registration, and subsystem hook contributions layered on public APIs
@@ -251,6 +256,7 @@ The preferred public surface is:
 - React-style function components with a fiber-based runtime and browser-side rendering through `syscall/js`
 - Hooks including `UseState`, `UseReducer`, `UseEffect`, `UseRef`, `UsePrevious`, `UseId`, `UseDeferredValue`, `UseTransition`, and context support
 - Event and async helpers including `UseEvent`, `UseChannel`, `UseTask`, `UseDebounced`, `UseThrottled`, `UseLazyNode`, `AsyncBoundary`, and `UseForm`
+- Crash containment by default: panics in render, events, effects, cleanup, and async work (`ui.SafeGo(...)`) are caught at every boundary and reported as structured, agent-readable console diagnostics instead of killing the page (see [docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md](docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md))
 
 ### State and Data
 
@@ -265,7 +271,9 @@ The preferred public surface is:
 ### SSR and Hydration
 
 - Native server-side rendering through `ui.RenderToString(...)`
-- Browser hydration through `ui.Hydrate(...)`
+- Streaming SSR through `ui.RenderToStream(...)` / `ui.RenderToStreamObserved(...)`: a shell chunk flushes before unresolved `AsyncBoundary` content, then out-of-order replacement chunks flush as suspensions resolve
+- Real async suspension via render-time `ui.SuspendUntil(...)` / `ui.Await(...)` with fallback capture and retry on resolve
+- Browser hydration through `ui.Hydrate(...)`, plus multi-root selective activation (static islands) through `ui.HydrateInto(...)`
 - Bootstrap transport helpers for inline JSON, sidecar JSON, and optional CBOR payload encoding or decoding
 
 ### Tooling and Validation
@@ -274,7 +282,9 @@ The preferred public surface is:
 - `go run ./tools/gwc import -src .\path\to\layout.html -out .\bin\converter\layout\main.go` converts static `.html`, `.htm`, `.jsx`, or `.tsx` files into an inspectable GWC `main.go` built from current public `html` builders
 - `go run ./tools/gwc examples` serves the example catalog through the repo-standard Go runner
 - `go run ./tools/gwc dev -app .\path\to\main.go` starts the standalone wasm inner loop with rebuild-on-save and hotreload support
+- `gwc build` / `gwc release` support a guarded `tinygo` profile (`-target=wasm -opt=z`) for smaller leaf-app binaries and a `source-debug` profile (`-gcflags=all=-N -l`, untrimmed paths) for browser stack correlation
 - `go run ./tools/gwc test -lane unit -lane wasm -lane browser` runs the supported launcher-owned validation lanes
+- The documentation site under `examples/site` is itself a pure GoWebComponents application: every page, style, and behavior is Go compiled to wasm, with the single boot shell generated by `tools/sitegen` (no authored `.html`/`.js`/`.css`)
 - Launcher-owned temporary artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
 - Native Go tests, js/wasm tests, browser suites, and benchmark coverage
 - Large example suite spanning local state, forms, routing, async work, SSR, hydration, nested routes, and diagnostics
@@ -333,7 +343,7 @@ Runner-owned validation lanes:
 ```powershell
 go run ./tools/gwc test -lane unit -lane wasm
 go run ./tools/gwc test -lane browser
-go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
 ```
 
 Wasm-only runtime tests on Windows:
@@ -387,9 +397,10 @@ Use the `gwc` runner as the repo-standard entrypoint for local workflows.
 ```powershell
 go run ./tools/gwc doctor
 go run ./tools/gwc examples
-go run ./tools/gwc dev -app .\examples\01-counter\main.go
-go run ./tools/gwc build -app .\examples\01-counter\main.go -profile ci
-go run ./tools/gwc release -app .\examples\01-counter\main.go -out-dir .\bin\gwc-release
+go run ./tools/gwc dev -app .\examples\public\counter\main.go
+go run ./tools/gwc build -app .\examples\public\counter\main.go -profile ci
+go run ./tools/gwc build -app .\examples\public\counter\main.go -profile tinygo
+go run ./tools/gwc release -app .\examples\public\counter\main.go -out-dir .\bin\gwc-release
 ```
 
 Relevant directories:

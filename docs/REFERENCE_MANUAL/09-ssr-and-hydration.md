@@ -41,6 +41,8 @@ The main SSR and hydration entrypoints are `Stable`:
 
 - `ui.RenderToString(...)`
 - `ui.RenderToStringObserved(...)`
+- `ui.RenderToStream(...)`
+- `ui.RenderToStreamObserved(...)`
 - `ui.Hydrate(...)`
 - `router.HydrateMount(...)`
 - `ui.RenderBootstrapScript(...)`
@@ -52,6 +54,8 @@ The main SSR and hydration entrypoints are `Stable`:
 
 Important advanced surfaces:
 
+- streaming SSR is shipped as an advanced server-render entrypoint for async
+  boundary shells and out-of-order replacement chunks
 - alternative bootstrap transports beyond the documented JSON inline path, including sidecar JSON and CBOR, remain part of the more advanced SSR transport boundary
 - hydration strictness, mismatch recovery, and route-loader reuse are shipped but still deserve extra care because they combine runtime, router, and bootstrap ownership rules
 - older docs may still mention `ObserveSSR` or `AnalyzeSSRBootstrapSize`; the current exported code surface uses `ui.RegisterSSRObserver(...)` and `ui.InspectSSRBootstrapSize(...)`
@@ -322,6 +326,7 @@ Why this scales:
 
 Use `ui.SSRBootstrap` intentionally:
 
+- `Version`: bootstrap schema version used to reject unsupported future sidecars
 - `Route`: initial route path, query, and params
 - `Atoms`: runtime-owned atom snapshot restore
 - `Data`: app-owned or package-owned bootstrap payloads
@@ -343,6 +348,7 @@ Prefer the typed payload helpers over one generic `Data` blob:
 Practical rules:
 
 - transfer only public resume data
+- keep the SSR bootstrap, sidecar reference, and state-update payloads on supported schema versions; missing versions normalize to the current v1 contract and future versions are rejected
 - keep secrets and raw auth credentials out of bootstrap completely
 - filter payloads by owner and scope instead of flattening everything into one map
 - prefer JSON-shaped values unless both writer and reader deliberately own a stronger encoding contract
@@ -398,11 +404,14 @@ Practical rule:
 - if a browser does not need to read a value directly, do not bootstrap it
 - if a route decision depends on secret policy, keep the decision on the server and bootstrap only the result
 
-## Streaming Server Functions And Server-Interactive Direction
+## Streaming SSR And Server-Interactive Direction
 
-The manual treats these as bounded advanced directions rather than the default runtime shape:
+The manual treats these as bounded advanced surfaces rather than the default
+runtime shape:
 
-- streaming SSR is a targeted future-facing delivery mode for explicit loader and buffering contracts, not a replacement for the stable request-render-hydrate path
+- streaming SSR is available through `ui.RenderToStream(...)` and
+  `ui.RenderToStreamObserved(...)` for pages that need a fallback shell before
+  every async boundary has resolved
 - server functions should stay behind app-owned transport and auth boundaries when used
 - server-interactive or server-owned live UI remains a narrow experiment until latency, offline behavior, backpressure, and reconnection semantics are proven for real apps
 
@@ -412,12 +421,24 @@ For production defaults today:
 - use same-origin loaders, actions, forms, and fetch helpers for later reads and writes
 - add streaming or richer server-owned interaction only behind bounded app abstractions
 
+Streaming output intentionally differs from `RenderToString(...)` when an async
+boundary suspends:
+
+- the initial shell contains fallback markup between stable boundary comments
+- each resolved boundary arrives later as a `<template>` plus a replacement
+  script chunk
+- context cancellation stops pending boundary waits and returns the context
+  error after the shell has already been emitted
+- if an app has a strict CSP, it should use a nonce or app-owned transport
+  wrapper before exposing inline replacement scripts in production
+
 ## Observability And Size Budgets
 
 The current exported observability surface is:
 
 - `ui.RegisterSSRObserver(...)`
 - `ui.RenderToStringObserved(...)`
+- `ui.RenderToStreamObserved(...)`
 - `ui.RenderBootstrapScriptObserved(...)`
 - `ui.InspectSSRBootstrapSize(...)`
 - `ui.NewSSRBootstrapBudget()`
@@ -435,14 +456,14 @@ Use this table before you widen the SSR or hydration pipeline.
 
 | API family | Representative APIs | Stability | Use it when | Prefer something else when |
 | --- | --- | --- | --- | --- |
-| Server render entrypoints | `RenderToString`, `RenderToStringObserved` | `Stable` | the server should emit HTML before wasm starts | the page is fully client-only |
+| Server render entrypoints | `RenderToString`, `RenderToStringObserved`, `RenderToStream`, `RenderToStreamObserved` | `Stable` string render; advanced streaming render | the server should emit HTML before wasm starts, or stream an async-boundary shell before every boundary resolves | the page is fully client-only |
 | Browser resume entrypoints | `Hydrate`, `HydrateInto` | `Stable` | matching HTML already exists and the client should reuse it | the page should client-render from scratch |
 | Routed resume attach | `router.HydrateMount`, `router.HydrateMountElement` | `Stable` entrypoints with deeper lifecycle rules | a routed shell should attach after the initial hydrated route is already present | the app is not routed or can use plain `Mount` |
 | Inline bootstrap transport | `RenderBootstrapScript`, `ReadBootstrapScript`, `MarshalSSRBootstrap`, `UnmarshalSSRBootstrap` | `Stable` default | the payload is small enough to live inline | the bootstrap payload is large enough to bloat HTML |
 | Sidecar bootstrap transport | `RenderBootstrapReferenceScript`, `ReadBootstrapReferenceScript`, `ReadBootstrapReference`, `MarshalSSRBootstrapBinary`, `UnmarshalSSRBootstrapBinary` | advanced SSR transport surface | sidecar JSON or CBOR is better than inline HTML bloat | the inline JSON payload is still small and simple |
 | Typed bootstrap payloads | `RegisterRouteBootstrapData`, `RegisterFormBootstrapDefaults`, `RegisterCacheBootstrapSeed`, `RegisterSessionBootstrapHint`, matching `Read...` helpers | `Stable` public transfer helpers | the app wants explicit scope and reuse policy for resume data | the page does not need resume data for that slice |
 | Transfer inspection | `InspectBootstrapPayloads`, `InspectSSRBootstrapSize`, `NewSSRBootstrapBudget` | `Stable` helper surface | payload size or ownership needs review before release | the app has no bootstrap payload at all |
-| SSR observability | `RegisterSSRObserver`, `RenderToStringObserved`, `RenderBootstrapScriptObserved` | shipped public observability surface | request-level render or bootstrap events need metrics or logs | you only need plain render output |
+| SSR observability | `RegisterSSRObserver`, `RenderToStringObserved`, `RenderToStreamObserved`, `RenderBootstrapScriptObserved` | shipped public observability surface | request-level render or bootstrap events need metrics or logs | you only need plain render output |
 
 ## Design Notes And Boundaries
 
@@ -472,23 +493,23 @@ Use the smallest examples that prove the SSR or hydration slice you are adopting
 Server render and inline bootstrap:
 
 ```powershell
-go run .\examples\70-render-to-string
-go run .\examples\73-ssr-bootstrap
+go run .\examples\server\render-to-string
+go run .\examples\server\server-side-rendering-bootstrap
 ```
 
 Hydration and route-data reuse:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\71-hydrate\main.go
-go run ./tools/gwc dev -app .\examples\74-ssr-route-data-reuse\main.go
-go run ./tools/gwc dev -app .\examples\72-router-hydrate-mount\main.go
+go run ./tools/gwc dev -app .\examples\public\hydration\main.go
+go run ./tools/gwc dev -app .\examples\public\server-side-rendering-route-data-reuse\main.go
+go run ./tools/gwc dev -app .\examples\public\router-hydrate-mount\main.go
 ```
 
 Production-shaped server integration:
 
 ```powershell
-go run .\examples\18-ssr-server-routing
-go run .\examples\87-ssr-secure-forms
+go run .\examples\server\server-side-rendering-routing
+go run .\examples\server\server-side-rendering-secure-forms
 ```
 
 ## Topic Pagination

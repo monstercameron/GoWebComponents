@@ -128,7 +128,41 @@ func (parseW *cachedResourceWaiters) Close() {
 	})
 }
 
-// UseCachedResource is an internal cache helper.
+// ScopeCacheKey builds a cache key namespaced under a module or feature prefix,
+// the recommended convention for avoiding accidental cross-component sharing in
+// the app-global cache namespace (see UseCachedResource). Empty segments are
+// dropped, so ScopeCacheKey("billing", "invoices") returns "billing:invoices".
+//
+//	res := fetch.UseCachedResource(fetch.ScopeCacheKey("billing", "invoices"), loadInvoices)
+//
+// Two unrelated components that both pick the bare key "list" would share one
+// cache entry; scoping each under its own module prefix keeps them independent.
+func ScopeCacheKey(parseSegments ...string) string {
+	parseParts := make([]string, 0, len(parseSegments))
+	for _, parseSegment := range parseSegments {
+		parseSegment = strings.TrimSpace(parseSegment)
+		if parseSegment != "" {
+			parseParts = append(parseParts, parseSegment)
+		}
+	}
+	return strings.Join(parseParts, ":")
+}
+
+// UseCachedResource binds a component to an app-global cached resource keyed by
+// parseKey, loading it through parseLoader on first use and sharing the result
+// across every caller of the same key.
+//
+// Global-namespace contract: cache keys live in one process-wide registry, not a
+// per-component or per-module scope. Two unrelated components that choose the
+// same key string therefore share the same cache entry, loader lifecycle, and
+// value. This is intentional - it is how distant components share one fetch -
+// but it means key strings are effectively global identifiers. Requesting one
+// key with two different value types is reported as a diagnostic warning rather
+// than silently corrupting state, so a type mismatch is visible.
+//
+// Recommended convention: prefix keys with a stable module or feature name so
+// unrelated features cannot collide. Use ScopeCacheKey to build them, for
+// example ScopeCacheKey("billing", "invoices") instead of a bare "invoices".
 func UseCachedResource[T any](parseKey string, parseLoader func(context.Context) (T, error), parseOptions ...CacheOptions) CachedResource[T] {
 	parseResolved := resolveCacheOptions(parseOptions)
 	parseEntry := getCachedResourceEntry(parseKey)

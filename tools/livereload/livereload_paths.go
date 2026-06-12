@@ -140,6 +140,7 @@ func main() {
 	parsePort := flag.String("port", defaultPort, "Port to bind")
 	parseHot := flag.Bool("hot", true, "Always use hot reload on successful rebuilds")
 	parseClientScriptPath := flag.String("client-script", "", "Optional override path to a custom livereload client script")
+	parseAllowAnyOrigin := flag.Bool("allow-any-origin", false, "Disable WebSocket Origin validation (tunnel/LAN dev only; logs a warning)")
 	flag.Parse()
 
 	parseSelectedAppPath := strings.TrimSpace(*parseAppPath)
@@ -164,6 +165,7 @@ func main() {
 		Port:             *parsePort,
 		AlwaysHotReload:  *parseHot,
 		ClientScriptPath: *parseClientScriptPath,
+		AllowAnyOrigin:   *parseAllowAnyOrigin,
 	})
 	if parseErr != nil {
 		fatalLivereloadStartup("main.NewLiveReloadServerWithOptions", strings.TrimSpace(*parseRootPath), parseErr, "Inspect the selected app, project root, HTML path, and client-script arguments before starting livereload again.")

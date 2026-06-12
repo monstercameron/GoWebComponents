@@ -63,7 +63,7 @@ The report also separates the worker-relevant overall headline from the full-sur
 Build the shared wasm subject:
 
 ```powershell
-go run ./tools/gwc build -app .\examples\201-render-benchmark\main.go -root .\examples\201-render-benchmark -out .\bin\examples\render-benchmark.wasm
+go run ./tools/gwc build -app .\examples\testing\render-benchmark\main.go -root .\examples\testing\render-benchmark -out .\bin\examples\render-benchmark.wasm
 ```
 
 Build the worker wasm used by the runtime2 subjects:
@@ -71,7 +71,7 @@ Build the worker wasm used by the runtime2 subjects:
 ```powershell
 $env:GOOS='js'
 $env:GOARCH='wasm'
-go build -o .\bin\examples\render-benchmark-worker.wasm .\examples\201-render-benchmark\backgroundworker
+go build -o .\bin\examples\render-benchmark-worker.wasm .\examples\testing\render-benchmark\backgroundworker
 ```
 
 Serve the examples catalog:

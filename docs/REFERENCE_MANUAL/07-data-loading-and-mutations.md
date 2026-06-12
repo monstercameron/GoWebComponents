@@ -477,23 +477,23 @@ Use the smallest examples that prove the ownership layer you are adopting.
 Raw fetch and typed local resources:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\42-use-fetch\main.go
-go run ./tools/gwc dev -app .\examples\43-use-resource\main.go
-go run ./tools/gwc dev -app .\examples\45-fetch-imperative\main.go
+go run ./tools/gwc dev -app .\examples\public\use-fetch\main.go
+go run ./tools/gwc dev -app .\examples\public\use-resource\main.go
+go run ./tools/gwc dev -app .\examples\public\fetch-imperative\main.go
 ```
 
 Shared cache and route-loader reuse:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\44-use-cached-resource\main.go
-go run ./tools/gwc dev -app .\examples\92-protected-routes\main.go
-go run ./tools/gwc dev -app .\examples\93-ssr-cache-bootstrap\main.go
+go run ./tools/gwc dev -app .\examples\public\use-cached-resource\main.go
+go run ./tools/gwc dev -app .\examples\public\protected-routes\main.go
+go run ./tools/gwc dev -app .\examples\public\server-side-rendering-cache-bootstrap\main.go
 ```
 
 Offline replay boundary:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\97-pwa-offline-cache\main.go
+go run ./tools/gwc dev -app .\examples\public\progressive-web-app-offline-cache\main.go
 ```
 
 ## Topic Pagination

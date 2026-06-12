@@ -74,14 +74,14 @@ bench/wasm/dashboard/seed: bench(-root,-lane,-bench,-count,-parallel,-out,-refer
 Typical usage
 go run ./tools/gwc doctor
 go run ./tools/gwc test -lane unit -lane wasm -lane hydration -lane browser
-go run ./tools/gwc build -app .\examples\01-counter\main.go -root .\examples\01-counter
-go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc build -app .\examples\public\counter\main.go -root .\examples\public\counter
+go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
 go run ./tools/gwc examples
-go run ./tools/gwc .\examples\100-ai-chat-wizard\cmd\server start -json
-go run ./tools/gwc .\examples\100-ai-chat-wizard\cmd\server restart -json
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json
+go run ./tools/gwc .\examples\server\ai-chat-wizard\cmd\server start -json
+go run ./tools/gwc .\examples\server\ai-chat-wizard\cmd\server restart -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json
 go run ./tools/gwc serve -root .\examples -port 8090
-go run ./tools/gwc release -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc release -app .\examples\public\counter\main.go -root .\examples\public\counter
 
 Todo execution
 Do one todo at a time.

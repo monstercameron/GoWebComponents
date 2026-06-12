@@ -18,14 +18,14 @@ func (parseL launcher) runRelease(parseArgs []string) error {
 	parseFs := flag.NewFlagSet("release", flag.ContinueOnError)
 	parseFs.SetOutput(os.Stdout)
 	parseApp := parseFs.String("app", "", "Path to the app main.go file or app directory")
-	parseMainPath := parseFs.String("main", "", "Legacy alias for -app")
+	parseMainPath := parseFs.String("main", "", "(deprecated) alias for -app; use -app")
 	parseRoot := parseFs.String("root", "", "Project root used for output resolution")
 	parseOutDir := parseFs.String("out-dir", "", "Release output directory")
 	parseBinaryName := parseFs.String("binary-name", "", "Primary wasm artifact filename")
 	parseManifestName := parseFs.String("manifest-name", "wasm-release-manifest.json", "Release manifest filename")
 	parseBudgetsPath := parseFs.String("budgets", "", "Optional path to a JSON budgets file")
 	parseCompareManifest := parseFs.String("compare-manifest", "", "Optional baseline release manifest to diff against")
-	parseProfile := parseFs.String("profile", "release", "Release build profile")
+	parseProfile := parseFs.String("profile", "release", "Release build profile: development, debug, ci, benchmark, release, or tinygo")
 	parseCompression := parseFs.String("compression", "", "Compression sidecars: none, gzip, brotli, or gzip+brotli")
 	parsePostLinkOpt := parseFs.String("post-link-opt", "", "Optional post-link optimization: none or wasm-opt")
 	parseSizeAttribution := parseFs.String("size-attribution", "", "Optional size attribution: none or packages")
@@ -114,11 +114,11 @@ func (parseL launcher) runBuild(parseArgs []string) error {
 	parseFs := flag.NewFlagSet("build", flag.ContinueOnError)
 	parseFs.SetOutput(os.Stdout)
 	parseApp := parseFs.String("app", "", "Path to the app main.go file or app directory")
-	parseMainPath := parseFs.String("main", "", "Legacy alias for -app")
+	parseMainPath := parseFs.String("main", "", "(deprecated) alias for -app; use -app")
 	parseRoot := parseFs.String("root", "", "Project root used for output resolution")
 	parseOut := parseFs.String("out", "", "WASM output path")
-	parseOutput := parseFs.String("output", "", "Legacy alias for -out")
-	parseProfile := parseFs.String("profile", "", "Build profile: development, ci, benchmark, release, or tinygo")
+	parseOutput := parseFs.String("output", "", "(deprecated) alias for -out; use -out")
+	parseProfile := parseFs.String("profile", "", "Build profile: development, debug, ci, benchmark, release, or tinygo")
 	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
@@ -252,9 +252,11 @@ func resolveBuildConfig(parseConfig buildConfig) (buildConfig, error) {
 func resolveBuildProfile(parseProfile string) (buildProfile, error) {
 	switch strings.TrimSpace(strings.ToLower(parseProfile)) {
 	case "", "development", "dev":
-		// -w skips DWARF: meaningfully faster links for the dev loop and a
-		// smaller artifact, with no cost to browser debugging.
+		// -w keeps the inner loop smaller and faster. Use the debug profile
+		// when preserving untrimmed paths and disabling optimization matters.
 		return buildProfile{Name: "development", Toolchain: "go", Target: "js/wasm", Trimpath: false, Ldflags: "-w"}, nil
+	case "debug", "dbg", "source-debug", "sourcedebug":
+		return buildProfile{Name: "debug", Toolchain: "go", Target: "js/wasm", Trimpath: false, GCFlags: "all=-N -l"}, nil
 	case "ci", "verification", "verify":
 		return buildProfile{Name: "ci", Toolchain: "go", Target: "js/wasm", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false", Tags: "production"}, nil
 	case "benchmark", "bench":
@@ -522,19 +524,22 @@ func buildCommandForProfile(parseProfile buildProfile, parseOutputPath string) (
 	switch parseToolchain {
 	case "go":
 		buildArgs := []string{"build", "-o", parseOutputPath}
-	if parseProfile.Trimpath {
-		buildArgs = append(buildArgs, "-trimpath")
-	}
-	if strings.TrimSpace(parseProfile.Ldflags) != "" {
-		buildArgs = append(buildArgs, "-ldflags="+parseProfile.Ldflags)
-	}
-	if strings.TrimSpace(parseProfile.BuildVCS) != "" {
-		buildArgs = append(buildArgs, "-buildvcs="+parseProfile.BuildVCS)
-	}
-	if strings.TrimSpace(parseProfile.Tags) != "" {
-		buildArgs = append(buildArgs, "-tags", parseProfile.Tags)
-	}
-	buildArgs = append(buildArgs, ".")
+		if parseProfile.Trimpath {
+			buildArgs = append(buildArgs, "-trimpath")
+		}
+		if strings.TrimSpace(parseProfile.Ldflags) != "" {
+			buildArgs = append(buildArgs, "-ldflags="+parseProfile.Ldflags)
+		}
+		if strings.TrimSpace(parseProfile.GCFlags) != "" {
+			buildArgs = append(buildArgs, "-gcflags="+parseProfile.GCFlags)
+		}
+		if strings.TrimSpace(parseProfile.BuildVCS) != "" {
+			buildArgs = append(buildArgs, "-buildvcs="+parseProfile.BuildVCS)
+		}
+		if strings.TrimSpace(parseProfile.Tags) != "" {
+			buildArgs = append(buildArgs, "-tags", parseProfile.Tags)
+		}
+		buildArgs = append(buildArgs, ".")
 		return "go", buildArgs, buildWasmGoEnv(), nil
 	case "tinygo":
 		if _, parseErr := buildLookPath("tinygo"); parseErr != nil {
@@ -695,6 +700,7 @@ func executeRelease(parseConfig releaseConfig) (releaseSummary, error) {
 			"target":               firstNonEmpty(buildSummary.Profile.Target, "js/wasm"),
 			"trimpath":             buildSummary.Profile.Trimpath,
 			"ldflags":              buildSummary.Profile.Ldflags,
+			"gcflags":              buildSummary.Profile.GCFlags,
 			"buildvcs":             firstNonEmpty(buildSummary.Profile.BuildVCS, "default"),
 			"opt":                  buildSummary.Profile.Opt,
 			"compression":          !parseConfig.skipCompression,
@@ -763,6 +769,7 @@ func executeRelease(parseConfig releaseConfig) (releaseSummary, error) {
 			"target":               firstNonEmpty(buildSummary.Profile.Target, "js/wasm"),
 			"trimpath":             buildSummary.Profile.Trimpath,
 			"ldflags":              buildSummary.Profile.Ldflags,
+			"gcflags":              buildSummary.Profile.GCFlags,
 			"buildvcs":             firstNonEmpty(buildSummary.Profile.BuildVCS, "default"),
 			"opt":                  buildSummary.Profile.Opt,
 			"compression":          !parseConfig.skipCompression,

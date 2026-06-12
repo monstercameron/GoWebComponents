@@ -53,7 +53,12 @@ yarn-error.log*
 pnpm-debug.log*
 
 # IDE and editor files
-.vscode/
+# Track the shared team config (committed below) but ignore personal files.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
 .idea/
 *.iml
 *.sublime-*

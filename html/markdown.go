@@ -45,7 +45,21 @@ type MarkdownRenderOptions struct {
 	CodeBlockLabel string
 	LinkTarget     string
 	LinkRel        string
+	// AllowedURLSchemes overrides the scheme allowlist applied to link, image,
+	// and autolink destinations. When nil the default allowlist is used
+	// (http, https, mailto); relative paths, absolute paths, and fragments
+	// carry no scheme and are always allowed. Any other scheme - notably
+	// javascript:, data:, and vbscript: - is dropped so user-supplied markdown
+	// cannot smuggle an executable URL into an href or src sink. Supply schemes
+	// without the trailing colon (for example []string{"http", "https",
+	// "mailto", "data"} to additionally permit inline data: images).
+	AllowedURLSchemes []string
 }
+
+// defaultMarkdownSchemes is the scheme allowlist used when a caller does not
+// override it. It deliberately excludes javascript:, data:, vbscript:, and
+// every other active scheme.
+var defaultMarkdownSchemes = map[string]bool{"http": true, "https": true, "mailto": true}
 
 // RenderMarkdown parses markdown text and returns semantic ui.Node values.
 func RenderMarkdown(parseMarkdown string, parseOptions ...MarkdownRenderOptions) []ui.Node {
@@ -231,14 +245,19 @@ func renderMarkdownInline(parseNode ast.Node, parseSource []byte, parseConfig Ma
 	case *ast.Link:
 		parseChildren2 := renderMarkdownInlines(parseTyped, parseSource, parseConfig)
 		parseProps := propsWithClass(parseClasses.Link)
-		parseProps.Href = resolveMarkdownHref(parseConfig, string(parseTyped.Destination))
+		parseProps.Href = safeMarkdownHref(parseConfig, string(parseTyped.Destination))
 		parseProps.Target = parseConfig.LinkTarget
 		parseProps.Rel = parseConfig.LinkRel
 		return []ui.Node{A(parseProps, parseChildren2...)}
+	case *ast.Image:
+		parseProps3 := propsWithClass(parseClasses.Link)
+		parseProps3.Src = safeMarkdownHref(parseConfig, string(parseTyped.Destination))
+		parseProps3.Alt = markdownPlainText(parseTyped, parseSource)
+		return []ui.Node{Img(parseProps3)}
 	case *ast.AutoLink:
 		parseHref := string(parseTyped.URL(parseSource))
 		parseProps2 := propsWithClass(parseClasses.Link)
-		parseProps2.Href = parseHref
+		parseProps2.Href = SanitizeMarkdownHref(parseHref, parseConfig.AllowedURLSchemes)
 		parseProps2.Target = parseConfig.LinkTarget
 		parseProps2.Rel = parseConfig.LinkRel
 		return []ui.Node{A(parseProps2, Text(parseHref))}
@@ -298,6 +317,77 @@ func resolveMarkdownHref(parseConfig MarkdownRenderOptions, parseDestination str
 		return parseConfig.ResolveHref(parseConfig.SourcePath, parseDestination)
 	}
 	return ResolveMarkdownHref(parseConfig.SourcePath, parseDestination)
+}
+
+// safeMarkdownHref resolves a destination and then drops it if its URL scheme is
+// not allowed, so dangerous schemes never reach an href or src attribute.
+func safeMarkdownHref(parseConfig MarkdownRenderOptions, parseDestination string) string {
+	return SanitizeMarkdownHref(resolveMarkdownHref(parseConfig, parseDestination), parseConfig.AllowedURLSchemes)
+}
+
+// SanitizeMarkdownHref returns destination unchanged when it carries no scheme
+// (relative, absolute-path, or fragment) or an allowed scheme, and returns ""
+// otherwise. The allowed argument lists schemes without the trailing colon; a
+// nil or empty list uses the default allowlist (http, https, mailto). Scheme
+// detection tolerates the usual obfuscations - leading/embedded whitespace and
+// control characters (java\tscript:), mixed case (JavaScript:), and a leading
+// space ( javascript:) - by normalizing the scheme token before the check.
+func SanitizeMarkdownHref(parseDestination string, parseAllowed []string) string {
+	parseTrimmed := strings.TrimSpace(parseDestination)
+	if parseTrimmed == "" {
+		return ""
+	}
+	parseScheme, parseHasScheme := markdownURLScheme(parseTrimmed)
+	if !parseHasScheme {
+		return parseDestination
+	}
+	if markdownAllowedSchemes(parseAllowed)[normalizeMarkdownScheme(parseScheme)] {
+		return parseDestination
+	}
+	return ""
+}
+
+// markdownURLScheme returns the scheme token of a destination (the text before
+// the first ':' that precedes any '/', '?', '#', or '\\'). It reports
+// hasScheme=false for relative paths, absolute paths, and fragments, which have
+// no scheme separator.
+func markdownURLScheme(parseDestination string) (parseScheme string, parseHasScheme bool) {
+	for parseIndex := 0; parseIndex < len(parseDestination); parseIndex++ {
+		switch parseDestination[parseIndex] {
+		case ':':
+			return parseDestination[:parseIndex], true
+		case '/', '?', '#', '\\':
+			return "", false
+		}
+	}
+	return "", false
+}
+
+// normalizeMarkdownScheme lowercases a scheme token and strips whitespace and
+// control characters so obfuscated schemes collapse onto their real form.
+func normalizeMarkdownScheme(parseScheme string) string {
+	var parseBuilder strings.Builder
+	for parseIndex := 0; parseIndex < len(parseScheme); parseIndex++ {
+		parseByte := parseScheme[parseIndex]
+		if parseByte <= ' ' || parseByte == 0x7f {
+			continue
+		}
+		parseBuilder.WriteByte(parseByte)
+	}
+	return strings.ToLower(parseBuilder.String())
+}
+
+// markdownAllowedSchemes returns the effective scheme allowlist, defaulting to
+// http/https/mailto when no override is supplied.
+func markdownAllowedSchemes(parseAllowed []string) map[string]bool {
+	if len(parseAllowed) == 0 {
+		return defaultMarkdownSchemes
+	}
+	parseSet := make(map[string]bool, len(parseAllowed))
+	for _, parseScheme := range parseAllowed {
+		parseSet[normalizeMarkdownScheme(parseScheme)] = true
+	}
+	return parseSet
 }
 
 // propsWithClass is a core package helper.

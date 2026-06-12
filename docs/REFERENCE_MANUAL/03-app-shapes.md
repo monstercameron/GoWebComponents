@@ -47,7 +47,7 @@ Use this table first.
 
 | Shape | Best fit | Start with | Add next | First examples |
 | --- | --- | --- | --- | --- |
-| Client-only | one screen or a small browser-only workflow | `ui`, `html`, `gwc dev` | `router` only if the app grows past one screen | `01-counter`, `21-ui-render`, `75-use-state`, `76-use-effect` |
+| Client-only | one screen or a small browser-only workflow | `ui`, `html`, `gwc dev` | `router` only if the app grows past one screen | `counter`, `ui-render`, `use-state`, `use-effect` |
 | Routed SPA | multiple screens, params, loaders, guards, route metadata | `ui`, `html`, `router` | `state` and `fetch` when shared state or typed route data appear | `55-hash-router`, `56-browser-router`, `60-route-loaders`, `64-nested-layout-routes` |
 | SSR and hydration | request-time HTML, route-aware first paint, hydration reuse | `ui.RenderToString`, `ui.Hydrate`, `router.HydrateMount` | typed bootstrap ownership, same-origin APIs, observability | `70-render-to-string`, `71-hydrate`, `72-router-hydrate-mount`, `18-ssr-server-routing` |
 | Forms-heavy | authoritative mutations, validation round-trips, pending UX, redirects, uploads | `ui.UseForm` or server-owned HTML form flow | route revalidation, cache invalidation, auth/session rules | `51-use-form`, `79-form-accessibility`, `87-ssr-secure-forms` |
@@ -357,20 +357,20 @@ Use the smallest commands that prove the chosen shape.
 Client-only:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\01-counter\main.go
+go run ./tools/gwc dev -app .\examples\public\counter\main.go
 ```
 
 Routed SPA:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\56-browser-router\main.go
-go run ./tools/gwc verify -app .\examples\56-browser-router\main.go -root .\examples\56-browser-router
+go run ./tools/gwc dev -app .\examples\public\browser-router\main.go
+go run ./tools/gwc verify -app .\examples\public\browser-router\main.go -root .\examples\public\browser-router
 ```
 
 SSR and hydration:
 
 ```powershell
-go run ./tools/gwc verify -app .\examples\18-ssr-server-routing\main.go -root .\examples\18-ssr-server-routing
+go run ./tools/gwc verify -app .\examples\server\server-side-rendering-routing\main.go -root .\examples\server\server-side-rendering-routing
 ```
 
 Forms-heavy:
@@ -382,7 +382,7 @@ go run ./examples/server/server-side-rendering-secure-forms
 Static/PWA-oriented:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\97-pwa-installability\main.go
+go run ./tools/gwc dev -app .\examples\public\progressive-web-app-installability\main.go
 ```
 
 ## Topic Pagination

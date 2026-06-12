@@ -329,8 +329,8 @@ go run ./tools/gwc verify -app .\main.go -root .
 If you are validating from the repo examples first:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\01-counter\main.go
-go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc dev -app .\examples\public\counter\main.go
+go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter
 ```
 
 ## Topic Pagination

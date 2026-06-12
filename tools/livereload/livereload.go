@@ -10,6 +10,7 @@ import (
 	"go/token"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -99,6 +100,13 @@ type LiveReloadOptions struct {
 	Port             string
 	AlwaysHotReload  bool
 	ClientScriptPath string
+	// AllowAnyOrigin disables WebSocket Origin validation. The dev server
+	// otherwise rejects upgrade requests whose Origin is not the dev host:port
+	// (or a localhost variant), which stops any visited website from opening
+	// ws://127.0.0.1:<port> and driving the reload stream (cross-site WebSocket
+	// hijacking). Set this only for tunnel/LAN dev, where a logged warning is
+	// emitted at startup.
+	AllowAnyOrigin bool
 }
 
 // WebSocket message types
@@ -123,10 +131,47 @@ const (
 	MessageTypeWatcherDegraded MessageType = "watcher_degraded"
 )
 
+const (
+	liveReloadProtocol               = "gwc.livereload.ws"
+	currentLiveReloadProtocolVersion = 1
+)
+
 type WebSocketMessage struct {
+	Protocol  string      `json:"protocol,omitempty"`
+	Version   int         `json:"version,omitempty"`
 	Type      MessageType `json:"type"`
 	Payload   interface{} `json:"payload,omitempty"`
 	Timestamp time.Time   `json:"timestamp"`
+}
+
+func newWebSocketMessage(parseMsgType MessageType, parsePayload interface{}) WebSocketMessage {
+	return WebSocketMessage{
+		Protocol:  liveReloadProtocol,
+		Version:   currentLiveReloadProtocolVersion,
+		Type:      parseMsgType,
+		Payload:   parsePayload,
+		Timestamp: time.Now(),
+	}
+}
+
+func normalizeWebSocketMessage(parseMessage WebSocketMessage) (WebSocketMessage, error) {
+	parseProtocol := strings.TrimSpace(parseMessage.Protocol)
+	if parseProtocol != "" && parseProtocol != liveReloadProtocol {
+		return parseMessage, fmt.Errorf("livereload: unsupported websocket protocol %q", parseProtocol)
+	}
+	if parseMessage.Version < 0 {
+		return parseMessage, fmt.Errorf("livereload: unsupported websocket protocol version %d", parseMessage.Version)
+	}
+	if parseMessage.Version > currentLiveReloadProtocolVersion {
+		return parseMessage, fmt.Errorf("livereload: unsupported websocket protocol version %d", parseMessage.Version)
+	}
+	if parseProtocol == "" {
+		parseMessage.Protocol = liveReloadProtocol
+	}
+	if parseMessage.Version == 0 {
+		parseMessage.Version = currentLiveReloadProtocolVersion
+	}
+	return parseMessage, nil
 }
 
 type BuildStatus struct {
@@ -251,6 +296,8 @@ type LiveReloadServer struct {
 	wasmGzipMu           sync.Mutex // guards the gzip artifact cache below
 	wasmGzipCache        []byte     // gzip-compressed wasm artifact, keyed by mtime
 	wasmGzipModTime      time.Time
+	upgrader             websocket.Upgrader // per-server upgrader with Origin validation
+	allowAnyOrigin       bool               // opt-out of Origin validation (tunnel/LAN dev)
 }
 
 func livereloadReport(parseSubject string, parsePath string, parseSummary string, parseConsequence string, parseNext string) diagnostics.Report {
@@ -406,7 +453,7 @@ func NewLiveReloadServerWithOptions(parseOptions LiveReloadOptions) (*LiveReload
 
 	parseManifestPath := parseOutputPath + ".hotreload-manifest.json"
 
-	return &LiveReloadServer{
+	parseServer := &LiveReloadServer{
 		watcher:          parseWatcher,
 		projectRoot:      parseProjectRoot,
 		watchRoot:        parseWatchRoot,
@@ -418,11 +465,59 @@ func NewLiveReloadServerWithOptions(parseOptions LiveReloadOptions) (*LiveReload
 		host:             parseHost,
 		port:             parsePort,
 		alwaysHotReload:  parseOptions.AlwaysHotReload,
+		allowAnyOrigin:   parseOptions.AllowAnyOrigin,
 		clients:          make(map[*websocket.Conn]ClientSession),
 		changedFiles:     make(map[string]time.Time),
 		modulePath:       resolveModulePath(parseWatchRoot),
 		manifestPath:     parseManifestPath,
-	}, nil
+	}
+	// Validate the WebSocket Origin per server so a visited website cannot open
+	// the dev reload socket on localhost (cross-site WebSocket hijacking).
+	parseServer.upgrader = websocket.Upgrader{CheckOrigin: parseServer.originAllowed}
+	return parseServer, nil
+}
+
+// originAllowed reports whether a WebSocket upgrade request's Origin is trusted.
+// It accepts requests with no Origin header (non-browser clients such as curl or
+// tests; a cross-site browser context always sends one) and, unless Origin
+// validation is disabled, requires the Origin host:port to match the dev server
+// or a localhost variant.
+func (parseLrs *LiveReloadServer) originAllowed(parseR *http.Request) bool {
+	if parseLrs.allowAnyOrigin {
+		return true
+	}
+	parseOrigin := strings.TrimSpace(parseR.Header.Get("Origin"))
+	if parseOrigin == "" {
+		return true
+	}
+	parseURL, parseErr := url.Parse(parseOrigin)
+	if parseErr != nil || parseURL.Host == "" {
+		return false
+	}
+	return parseLrs.originHostAllowed(parseURL.Hostname(), parseURL.Port())
+}
+
+// originHostAllowed compares a request Origin's host and port against the dev
+// server's bind host:port plus the localhost aliases that resolve to it.
+func (parseLrs *LiveReloadServer) originHostAllowed(parseHost string, parsePort string) bool {
+	parseExpectedPort := strings.TrimSpace(parseLrs.port)
+	if parseExpectedPort != "" && parsePort != parseExpectedPort {
+		// A page on a different port is a different origin, even on localhost.
+		return false
+	}
+	parseConfiguredHost := strings.ToLower(strings.TrimSpace(parseLrs.host))
+	if parseConfiguredHost == "" || parseConfiguredHost == "0.0.0.0" || parseConfiguredHost == "::" {
+		// Bound to all interfaces: the dev intentionally exposed the server, so
+		// accept any host on the matching port.
+		return true
+	}
+	parseAllowedHosts := map[string]bool{
+		parseConfiguredHost: true,
+		"localhost":         true,
+		"127.0.0.1":         true,
+		"::1":               true,
+	}
+	return parseAllowedHosts[strings.ToLower(parseHost)]
 }
 
 func (parseLrs *LiveReloadServer) Start() error {
@@ -458,6 +553,10 @@ func (parseLrs *LiveReloadServer) Start() error {
 	fmt.Printf("Ã¢ÂÂ±Ã¯Â¸Â  Debounce time: %v\n", debounceTime)
 	fmt.Printf("Ã°Å¸Å’Â Server running on http://%s\n", netAddr(parseLrs.host, parseLrs.port))
 	fmt.Println("Ã°Å¸â€ºâ€˜ Press Ctrl+C to stop")
+
+	if parseLrs.allowAnyOrigin {
+		fmt.Println("WARNING: livereload WebSocket Origin validation is disabled (AllowAnyOrigin). Any visited website can drive this dev server's reload stream. Use only for trusted tunnel/LAN dev.")
+	}
 
 	// Trigger initial build
 	parseLrs.triggerBuild()
@@ -496,7 +595,7 @@ func (parseLrs *LiveReloadServer) Start() error {
 }
 
 func (parseLrs *LiveReloadServer) handleWebSocket(parseW http.ResponseWriter, parseR *http.Request) {
-	parseConn, parseErr := upgrader.Upgrade(parseW, parseR, nil)
+	parseConn, parseErr := parseLrs.upgrader.Upgrade(parseW, parseR, nil)
 	if parseErr != nil {
 		emitLivereloadError("LiveReloadServer.handleWebSocket.upgrade", parseR.URL.Path, parseErr, "the browser could not establish the livereload websocket, so it will miss build notifications.", "Inspect the websocket endpoint, browser connection state, and any local proxy interference.")
 		return
@@ -536,6 +635,12 @@ func (parseLrs *LiveReloadServer) handleWebSocket(parseW http.ResponseWriter, pa
 		if parseErr3 := json.Unmarshal(parseData, &parseMessage); parseErr3 != nil {
 			continue
 		}
+		parseNormalized, parseProtocolErr := normalizeWebSocketMessage(parseMessage)
+		if parseProtocolErr != nil {
+			emitLivereloadError("LiveReloadServer.handleWebSocket.protocol", string(parseMessage.Type), parseProtocolErr, "the websocket message was ignored because its protocol version is incompatible.", "Restart the dev server and browser tab so the livereload client and server use the same protocol version.")
+			continue
+		}
+		parseMessage = parseNormalized
 		if parseMessage.Type == MessageTypeStateSnapshot {
 			if parsePayload, parseOk := parseMessage.Payload.(string); parseOk && strings.TrimSpace(parsePayload) != "" {
 				parseLrs.storePendingStateSnapshot(parsePayload)
@@ -545,7 +650,7 @@ func (parseLrs *LiveReloadServer) handleWebSocket(parseW http.ResponseWriter, pa
 }
 
 func (parseLrs *LiveReloadServer) handleWebSocketManaged(parseW http.ResponseWriter, parseR *http.Request) {
-	parseConn, parseErr := upgrader.Upgrade(parseW, parseR, nil)
+	parseConn, parseErr := parseLrs.upgrader.Upgrade(parseW, parseR, nil)
 	if parseErr != nil {
 		emitLivereloadError("LiveReloadServer.handleWebSocketManaged.upgrade", parseR.URL.Path, parseErr, "the browser could not establish the livereload websocket, so it will miss build notifications.", "Inspect the websocket endpoint, browser connection state, and any local proxy interference.")
 		return
@@ -582,6 +687,12 @@ func (parseLrs *LiveReloadServer) handleWebSocketManaged(parseW http.ResponseWri
 		if parseErr3 := json.Unmarshal(parseData, &parseMessage); parseErr3 != nil {
 			continue
 		}
+		parseNormalized, parseProtocolErr := normalizeWebSocketMessage(parseMessage)
+		if parseProtocolErr != nil {
+			emitLivereloadError("LiveReloadServer.handleWebSocketManaged.protocol", string(parseMessage.Type), parseProtocolErr, "the websocket message was ignored because its protocol version is incompatible.", "Restart the dev server and browser tab so the livereload client and server use the same protocol version.")
+			continue
+		}
+		parseMessage = parseNormalized
 		if parseMessage.Type == MessageTypeStateSnapshot {
 			if parsePayload, parseOk := parseMessage.Payload.(string); parseOk && strings.TrimSpace(parsePayload) != "" {
 				parseLrs.storePendingStateSnapshot(parsePayload)
@@ -593,11 +704,7 @@ func (parseLrs *LiveReloadServer) handleWebSocketManaged(parseW http.ResponseWri
 func (parseLrs *LiveReloadServer) sendCurrentBuildStatus(parseConn *websocket.Conn) {
 	// Check if we have a previous build status to send
 	if parseLrs.lastBuildStatus != nil {
-		parseMessage := WebSocketMessage{
-			Type:      MessageTypeCurrentStatus,
-			Payload:   *parseLrs.lastBuildStatus,
-			Timestamp: time.Now(),
-		}
+		parseMessage := newWebSocketMessage(MessageTypeCurrentStatus, *parseLrs.lastBuildStatus)
 
 		parseData, parseErr := json.Marshal(parseMessage)
 		if parseErr != nil {
@@ -684,11 +791,7 @@ func (parseLrs *LiveReloadServer) checkCurrentBuildState(parseConn *websocket.Co
 	parseLrs.lastBuildStatus = &buildStatus
 
 	// Send to the specific client
-	parseMessage := WebSocketMessage{
-		Type:      MessageTypeCurrentStatus,
-		Payload:   buildStatus,
-		Timestamp: time.Now(),
-	}
+	parseMessage := newWebSocketMessage(MessageTypeCurrentStatus, buildStatus)
 
 	parseData, parseErr2 := json.Marshal(parseMessage)
 	if parseErr2 != nil {
@@ -702,11 +805,7 @@ func (parseLrs *LiveReloadServer) checkCurrentBuildState(parseConn *websocket.Co
 }
 
 func (parseLrs *LiveReloadServer) broadcastMessage(parseMsgType MessageType, parsePayload interface{}) {
-	parseMessage := WebSocketMessage{
-		Type:      parseMsgType,
-		Payload:   parsePayload,
-		Timestamp: time.Now(),
-	}
+	parseMessage := newWebSocketMessage(parseMsgType, parsePayload)
 
 	parseData, parseErr := json.Marshal(parseMessage)
 	if parseErr != nil {

@@ -55,10 +55,15 @@ type DOMAdapter interface {
 	// Styling
 	SetStyle(node DOMNode, property, value string)
 	SetStyles(node DOMNode, styles map[string]string)
-	SetInnerHTML(node DOMNode, html string)
 
 	// Function wrapping
 	WrapFunction(fn interface{}) interface{}
+
+	// NOTE: the DOM adapter intentionally exposes no raw-HTML sink
+	// (SetInnerHTML/innerHTML). The reconciler builds the tree exclusively
+	// through CreateElement/CreateTextNode/SetTextContent/SetAttribute, so
+	// untrusted content is always inserted as text or attributes, never parsed
+	// as markup. TestDOMAdapterHasNoRawHTMLSink enforces that this stays true.
 }
 
 // EventHandler is an opaque reference to a platform-specific event handler.

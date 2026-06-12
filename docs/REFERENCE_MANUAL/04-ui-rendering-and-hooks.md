@@ -260,7 +260,7 @@ Use this table to choose the right `ui` family before you add more machinery tha
 | Worker helpers | `UseWorkerTask`, `UseTask` | advanced public surface | the feature has CPU-heavy or backgroundable work | ordinary local state and render flow are enough |
 | Narrow-update path | `ReactiveRegion` | explicit optimization surface | one anchored hot region changes much more often than its owner | the component body still needs to rerun for correctness |
 | Worker-backed render shell | `RegisterParallelRegion`, `ParallelRegion`, `BuildParallelRegionSourceIDs` | advanced public shell | you are authoring a worker-safe display region intentionally | you only need narrow subscribed rerendering today |
-| SSR helpers | `RenderToString`, `Hydrate`, bootstrap helpers | `Stable` entrypoints with deeper operational rules | the app owns request-time HTML or hydration | the app is client-only |
+| SSR helpers | `RenderToString`, `RenderToStream`, `Hydrate`, bootstrap helpers | `Stable` entrypoints with deeper operational rules; streaming is advanced | the app owns request-time HTML, streaming async-boundary shells, or hydration | the app is client-only |
 
 ## Error Boundaries And Parallel-Region Recovery
 
@@ -285,6 +285,7 @@ Keep these rules in mind when working in `ui`:
 
 - ordinary component rerendering is still the default model
 - use local hooks first and widen ownership only when the app shape requires it
+- call hooks only while the component is rendering on the render goroutine; goroutines, async callbacks, and event handlers may update existing state but must not create new hook slots
 - transitions are a narrow, two-lane scheduling tool, not a general concurrent renderer
 - `AsyncBoundary` and `Lazy` are explicit async subtree tools, not permission to hide ownership boundaries
 - `ReactiveRegion` is an opt-in performance tool, not the default programming model
@@ -294,6 +295,7 @@ Keep these rules in mind when working in `ui`:
 ## Common Failure Modes
 
 - reaching for shared state before local hooks and reducers stop fitting
+- calling `UseState`, `UseEffect`, `UseAtom`, or another hook from a `go func`, timer callback, or helper invoked after render instead of from the component body
 - using transitions for timer-style delay problems that should instead use debounced or throttled helpers
 - treating `UseDeferredValue` as a data-fetching primitive instead of a lagging derived-value helper
 - adding `ReactiveRegion` before measuring whether the owner rerender is actually a problem
@@ -308,29 +310,30 @@ Use the smallest examples that prove the `ui` family you are adopting.
 Core render and local hooks:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\21-ui-render\main.go
-go run ./tools/gwc dev -app .\examples\28-use-reducer\main.go
+go run ./tools/gwc dev -app .\examples\public\ui-render\main.go
+go run ./tools/gwc dev -app .\examples\public\use-reducer\main.go
+go run ./tools/gwc lint -root . -path .\examples\public\use-state
 ```
 
 Transitions and deferred values:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\27-transition-hooks\main.go
-go run ./tools/gwc dev -app .\examples\26-use-deferred-value\main.go
+go run ./tools/gwc dev -app .\examples\public\transition-hooks\main.go
+go run ./tools/gwc dev -app .\examples\public\use-deferred-value\main.go
 ```
 
 Overlay and accessibility helpers:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\77-accessible-overlay\main.go
-go run ./tools/gwc dev -app .\examples\81-overlay-stack\main.go
+go run ./tools/gwc dev -app .\examples\public\accessible-overlay\main.go
+go run ./tools/gwc dev -app .\examples\public\overlay-stack\main.go
 ```
 
 Worker helpers and advanced region work:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\91-worker-text-index\main.go
-go run ./tools/gwc dev -app .\examples\108-parallel-region-basic\main.go
+go run ./tools/gwc dev -app .\examples\public\worker-text-index\main.go
+go run ./tools/gwc dev -app .\examples\testing\parallel-region-basic\main.go
 ```
 
 ## Topic Pagination

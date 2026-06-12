@@ -36,8 +36,8 @@ $env:CHAT_PROVIDER_STUBS = "all"
 ## 2) Build Client Artifacts
 
 ```powershell
-go run ./tools/gwc build -app .\examples\100-ai-chat-wizard\client\main.go -root .\examples\100-ai-chat-wizard\client -out .\examples\100-ai-chat-wizard\bin\client\app\chat.wasm -json
-go run ./tools/gwc build -app .\examples\100-ai-chat-wizard\client\backgroundworker\main.go -root .\examples\100-ai-chat-wizard\client\backgroundworker -out .\examples\100-ai-chat-wizard\bin\client\worker\background-worker.wasm -json
+go run ./tools/gwc build -app .\examples\server\ai-chat-wizard\client\main.go -root .\examples\server\ai-chat-wizard\client -out .\examples\server\ai-chat-wizard\bin\client\app\chat.wasm -json
+go run ./tools/gwc build -app .\examples\server\ai-chat-wizard\client\backgroundworker\main.go -root .\examples\server\ai-chat-wizard\client\backgroundworker -out .\examples\server\ai-chat-wizard\bin\client\worker\background-worker.wasm -json
 ```
 
 ## 3) Seed Accounts and Baseline Data
@@ -60,15 +60,15 @@ Seed scope:
 ## 4) Start Managed Server
 
 ```powershell
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server start -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server start -json
 ```
 
 Lifecycle:
 
 ```powershell
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server restart -json
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server stop -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server restart -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server stop -json
 ```
 
 Health check:
@@ -179,7 +179,7 @@ Use this focused checklist for the most common local startup/runtime failures.
 Quick probes:
 
 ```powershell
-go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8095/healthz
 ```
 
@@ -190,7 +190,7 @@ Use this evidence path during incidents before changing code.
 | Evidence source | Command or location | What to look for |
 |---|---|---|
 | Browser console | DevTools `Console` + `Network` on failing route | Route mismatch, hydration errors, gRPC tunnel failures, auth/session errors, and request status for `/socket` + RPC calls. |
-| Managed server status | `go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json` | Process state, expected port/listen status, and whether managed runtime reports healthy state. |
+| Managed server status | `go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json` | Process state, expected port/listen status, and whether managed runtime reports healthy state. |
 | Health endpoint | `Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8095/healthz` | Non-200 responses or timeouts indicating server/tunnel startup failure. |
 | Runtime logs | `examples/server/ai-chat-wizard/bin/runtime/logs/server.stdout.log` and `.../server.stderr.log` | Startup validation failures, provider/auth warnings, RPC error lines, and panic traces. |
 | Admin diagnostics lines | `auth`, `bootstrap`, `dashboard`, and mutation prefixes in server logs | `auth:` validation/session failures, `rpc.GetAdminDashboard: bootstrap` flow markers, `admin.dashboard.*` audit/event context, and `rpc.*: mutation failed` operator-action failures. |
@@ -198,9 +198,9 @@ Use this evidence path during incidents before changing code.
 Fast log triage:
 
 ```powershell
-Get-Content .\examples\100-ai-chat-wizard\bin\runtime\logs\server.stdout.log -Tail 200
-Get-Content .\examples\100-ai-chat-wizard\bin\runtime\logs\server.stderr.log -Tail 200
-Get-Content .\examples\100-ai-chat-wizard\bin\runtime\logs\server.stdout.log -Tail 400 | Select-String -Pattern "auth:|rpc.GetAdminDashboard|admin\\.dashboard|mutation failed|bootstrap|store unavailable"
+Get-Content .\examples\server\ai-chat-wizard\bin\runtime\logs\server.stdout.log -Tail 200
+Get-Content .\examples\server\ai-chat-wizard\bin\runtime\logs\server.stderr.log -Tail 200
+Get-Content .\examples\server\ai-chat-wizard\bin\runtime\logs\server.stdout.log -Tail 400 | Select-String -Pattern "auth:|rpc.GetAdminDashboard|admin\\.dashboard|mutation failed|bootstrap|store unavailable"
 ```
 
 ## 11) Role Model and Verification Matrix

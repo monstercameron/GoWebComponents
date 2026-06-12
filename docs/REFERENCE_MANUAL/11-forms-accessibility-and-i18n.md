@@ -483,14 +483,14 @@ For SSR:
 Use the smallest checks for the exact slice you changed:
 
 ```powershell
-go run ./tools/gwc build -app .\examples\51-use-form\main.go -root .\examples\51-use-form
-go run ./tools/gwc build -app .\examples\77-accessible-overlay\main.go -root .\examples\77-accessible-overlay
-go run ./tools/gwc build -app .\examples\79-form-accessibility\main.go -root .\examples\79-form-accessibility
-go run ./tools/gwc build -app .\examples\80-routed-accessibility\main.go -root .\examples\80-routed-accessibility
-go run ./tools/gwc build -app .\examples\83-locale-switcher\main.go -root .\examples\83-locale-switcher
-go run ./tools/gwc build -app .\examples\84-ssr-i18n-bootstrap\main.go -root .\examples\84-ssr-i18n-bootstrap
-go run ./tools/gwc build -app .\examples\85-locale-routing\main.go -root .\examples\85-locale-routing
-go run .\examples\87-ssr-secure-forms
+go run ./tools/gwc build -app .\examples\public\use-form\main.go -root .\examples\public\use-form
+go run ./tools/gwc build -app .\examples\public\accessible-overlay\main.go -root .\examples\public\accessible-overlay
+go run ./tools/gwc build -app .\examples\public\form-accessibility\main.go -root .\examples\public\form-accessibility
+go run ./tools/gwc build -app .\examples\public\routed-accessibility\main.go -root .\examples\public\routed-accessibility
+go run ./tools/gwc build -app .\examples\public\locale-switcher\main.go -root .\examples\public\locale-switcher
+go run ./tools/gwc build -app .\examples\public\server-side-rendering-internationalization-bootstrap\main.go -root .\examples\public\server-side-rendering-internationalization-bootstrap
+go run ./tools/gwc build -app .\examples\public\locale-routing\main.go -root .\examples\public\locale-routing
+go run .\examples\server\server-side-rendering-secure-forms
 go test ./ui ./i18n
 ```
 

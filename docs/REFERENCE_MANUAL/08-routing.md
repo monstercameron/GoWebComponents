@@ -442,28 +442,28 @@ Use the smallest examples that prove the routing family you are adopting.
 Core router setup, navigation, params, and query:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\56-browser-router\main.go
-go run ./tools/gwc dev -app .\examples\57-use-navigate\main.go
-go run ./tools/gwc dev -app .\examples\58-route-params\main.go
-go run ./tools/gwc dev -app .\examples\59-route-query\main.go
+go run ./tools/gwc dev -app .\examples\public\browser-router\main.go
+go run ./tools/gwc dev -app .\examples\public\use-navigate\main.go
+go run ./tools/gwc dev -app .\examples\public\route-params\main.go
+go run ./tools/gwc dev -app .\examples\public\route-query\main.go
 ```
 
 Loader-backed routes, revalidation, metadata, and redirects:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\60-route-loaders\main.go
-go run ./tools/gwc dev -app .\examples\61-use-revalidator\main.go
-go run ./tools/gwc dev -app .\examples\62-router-redirects\main.go
-go run ./tools/gwc dev -app .\examples\63-router-metadata\main.go
+go run ./tools/gwc dev -app .\examples\public\route-loaders\main.go
+go run ./tools/gwc dev -app .\examples\public\use-revalidator\main.go
+go run ./tools/gwc dev -app .\examples\public\router-redirects\main.go
+go run ./tools/gwc dev -app .\examples\public\router-metadata\main.go
 ```
 
 Nested shells, guards, and hydration-aware attach:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\64-nested-layout-routes\main.go
-go run ./tools/gwc dev -app .\examples\65-router-guards\main.go
-go run ./tools/gwc dev -app .\examples\72-router-hydrate-mount\main.go
-go run ./tools/gwc dev -app .\examples\106-single-shell-auth\main.go
+go run ./tools/gwc dev -app .\examples\public\nested-layout-routes\main.go
+go run ./tools/gwc dev -app .\examples\public\router-guards\main.go
+go run ./tools/gwc dev -app .\examples\public\router-hydrate-mount\main.go
+go run ./tools/gwc dev -app .\examples\public\single-shell-auth\main.go
 ```
 
 ## Topic Pagination

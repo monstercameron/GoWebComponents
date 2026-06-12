@@ -19,6 +19,73 @@ import (
 	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
 )
 
+func TestLiveReloadOriginValidation(parseT *testing.T) {
+	parseServer := &LiveReloadServer{host: "127.0.0.1", port: "8090"}
+
+	parseAllowed := []string{
+		"http://127.0.0.1:8090",
+		"http://localhost:8090",
+		"http://[::1]:8090",
+		"", // no Origin header (non-browser client)
+	}
+	for _, parseOrigin := range parseAllowed {
+		parseReq := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8090/ws", nil)
+		if parseOrigin != "" {
+			parseReq.Header.Set("Origin", parseOrigin)
+		}
+		if !parseServer.originAllowed(parseReq) {
+			parseT.Fatalf("expected Origin %q to be allowed", parseOrigin)
+		}
+	}
+
+	parseRejected := []string{
+		"https://evil.example.test",
+		"http://127.0.0.1:9999",  // wrong port
+		"http://localhost",        // default port, not the dev port
+		"http://attacker.localhost:8090",
+		"null",
+	}
+	for _, parseOrigin := range parseRejected {
+		parseReq := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8090/ws", nil)
+		parseReq.Header.Set("Origin", parseOrigin)
+		if parseServer.originAllowed(parseReq) {
+			parseT.Fatalf("expected Origin %q to be rejected", parseOrigin)
+		}
+	}
+
+	// The opt-out flag accepts any origin (tunnel/LAN dev).
+	parseOpenServer := &LiveReloadServer{host: "127.0.0.1", port: "8090", allowAnyOrigin: true}
+	parseReq := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8090/ws", nil)
+	parseReq.Header.Set("Origin", "https://evil.example.test")
+	if !parseOpenServer.originAllowed(parseReq) {
+		parseT.Fatal("expected allowAnyOrigin to accept a foreign Origin")
+	}
+}
+
+func TestLiveReloadForeignOriginUpgradeRejected(parseT *testing.T) {
+	parseServer := &LiveReloadServer{host: "127.0.0.1", port: "8090"}
+	parseServer.upgrader = websocket.Upgrader{CheckOrigin: parseServer.originAllowed}
+
+	parseHTTP := httptest.NewServer(http.HandlerFunc(parseServer.handleWebSocket))
+	defer parseHTTP.Close()
+
+	parseWSURL := "ws" + strings.TrimPrefix(parseHTTP.URL, "http")
+	parseHeader := http.Header{}
+	parseHeader.Set("Origin", "https://evil.example.test")
+	parseConn, parseResp, parseErr := websocket.DefaultDialer.Dial(parseWSURL, parseHeader)
+	if parseErr == nil {
+		parseConn.Close()
+		parseT.Fatal("expected foreign-origin websocket upgrade to be rejected")
+	}
+	if parseResp == nil || parseResp.StatusCode != http.StatusForbidden {
+		parseGotStatus := 0
+		if parseResp != nil {
+			parseGotStatus = parseResp.StatusCode
+		}
+		parseT.Fatalf("expected 403 for foreign origin, got status %d (err %v)", parseGotStatus, parseErr)
+	}
+}
+
 func dialWebsocketHarness(parseT *testing.T, parseHandler func(*websocket.Conn)) (*websocket.Conn, func()) {
 	parseT.Helper()
 	parseHttpServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
@@ -140,6 +207,31 @@ func TestBuildStatusMarshalsStateSnapshot(parseT *testing.T) {
 	}
 	if _, parseOk2 := parseDecoded["manifest"]; !parseOk2 {
 		parseT.Fatalf("expected marshaled build status to include manifest, got %s", parseData)
+	}
+}
+
+func TestWebSocketMessageProtocolDefaultsAndRejectsIncompatibleVersions(parseT *testing.T) {
+	parseLegacy, parseErr := normalizeWebSocketMessage(WebSocketMessage{Type: MessageTypeReload})
+	if parseErr != nil {
+		parseT.Fatalf("expected legacy websocket message to normalize, got %v", parseErr)
+	}
+	if parseLegacy.Protocol != liveReloadProtocol || parseLegacy.Version != currentLiveReloadProtocolVersion {
+		parseT.Fatalf("expected legacy websocket message to default protocol metadata, got %+v", parseLegacy)
+	}
+
+	parseCurrent, parseErr2 := normalizeWebSocketMessage(newWebSocketMessage(MessageTypeReload, nil))
+	if parseErr2 != nil {
+		parseT.Fatalf("expected current websocket message to normalize, got %v", parseErr2)
+	}
+	if parseCurrent.Protocol != liveReloadProtocol || parseCurrent.Version != currentLiveReloadProtocolVersion {
+		parseT.Fatalf("expected current websocket message to preserve protocol metadata, got %+v", parseCurrent)
+	}
+
+	if _, parseErr3 := normalizeWebSocketMessage(WebSocketMessage{Protocol: liveReloadProtocol, Version: currentLiveReloadProtocolVersion + 1, Type: MessageTypeReload}); parseErr3 == nil {
+		parseT.Fatal("expected future websocket protocol version to be rejected")
+	}
+	if _, parseErr4 := normalizeWebSocketMessage(WebSocketMessage{Protocol: "other.protocol", Version: 1, Type: MessageTypeReload}); parseErr4 == nil {
+		parseT.Fatal("expected unknown websocket protocol to be rejected")
 	}
 }
 
@@ -797,6 +889,9 @@ func TestHandleWebSocketManagedTracksSessionsAndSnapshots(parseT *testing.T) {
 	if parseCurrentStatus.Type != MessageTypeCurrentStatus {
 		parseT.Fatalf("expected current_status message, got %+v", parseCurrentStatus)
 	}
+	if parseCurrentStatus.Protocol != liveReloadProtocol || parseCurrentStatus.Version != currentLiveReloadProtocolVersion {
+		parseT.Fatalf("expected versioned current_status message, got %+v", parseCurrentStatus)
+	}
 	if len(parseServer.currentClientSessions()) != 1 {
 		parseT.Fatalf("expected one tracked websocket client, got %+v", parseServer.currentClientSessions())
 	}
@@ -833,6 +928,47 @@ func TestHandleWebSocketManagedTracksSessionsAndSnapshots(parseT *testing.T) {
 	parseT.Fatalf("expected websocket client cleanup after close, got %+v", parseServer.currentClientSessions())
 }
 
+func TestHandleWebSocketManagedRejectsFutureProtocolSnapshot(parseT *testing.T) {
+	parseProjectRoot := parseT.TempDir()
+	parseServer := &LiveReloadServer{
+		projectRoot:     parseProjectRoot,
+		watchRoot:       parseProjectRoot,
+		buildDir:        parseProjectRoot,
+		outputPath:      filepath.Join(parseProjectRoot, "main.wasm"),
+		clients:         map[*websocket.Conn]ClientSession{},
+		lastBuildStatus: &BuildStatus{Success: true, Phase: "serving_output"},
+	}
+	parseHttpServer := httptest.NewServer(parseServer.newHTTPHandler())
+	defer parseHttpServer.Close()
+
+	parseWsURL := "ws" + strings.TrimPrefix(parseHttpServer.URL, "http") + "/ws"
+	parseClientConn, _, parseErr := websocket.DefaultDialer.Dial(parseWsURL, nil)
+	if parseErr != nil {
+		parseT.Fatalf("dial managed websocket: %v", parseErr)
+	}
+	defer parseClientConn.Close()
+
+	var parseCurrentStatus WebSocketMessage
+	if parseErr2 := parseClientConn.ReadJSON(&parseCurrentStatus); parseErr2 != nil {
+		parseT.Fatalf("read initial current_status message: %v", parseErr2)
+	}
+
+	if parseErr3 := parseClientConn.WriteJSON(WebSocketMessage{
+		Protocol:  liveReloadProtocol,
+		Version:   currentLiveReloadProtocolVersion + 1,
+		Type:      MessageTypeStateSnapshot,
+		Payload:   "future-snapshot",
+		Timestamp: time.Now(),
+	}); parseErr3 != nil {
+		parseT.Fatalf("write future state snapshot message: %v", parseErr3)
+	}
+
+	time.Sleep(150 * time.Millisecond)
+	if parseGot := parseServer.takePendingStateSnapshot(); parseGot != "" {
+		parseT.Fatalf("expected future protocol snapshot to be ignored, got %q", parseGot)
+	}
+}
+
 func TestSendCurrentBuildStatusAndBroadcastMessageDeliverPayloads(parseT *testing.T) {
 	parseServer := &LiveReloadServer{
 		clients: map[*websocket.Conn]ClientSession{},
@@ -860,6 +996,9 @@ func TestSendCurrentBuildStatusAndBroadcastMessageDeliverPayloads(parseT *testin
 	if parseStatusMsg.Type != MessageTypeCurrentStatus {
 		parseT.Fatalf("expected current status message, got %+v", parseStatusMsg)
 	}
+	if parseStatusMsg.Protocol != liveReloadProtocol || parseStatusMsg.Version != currentLiveReloadProtocolVersion {
+		parseT.Fatalf("expected versioned current status message, got %+v", parseStatusMsg)
+	}
 
 	var parseReloadMsg WebSocketMessage
 	if parseErr2 := parseClientConn.ReadJSON(&parseReloadMsg); parseErr2 != nil {
@@ -867,6 +1006,9 @@ func TestSendCurrentBuildStatusAndBroadcastMessageDeliverPayloads(parseT *testin
 	}
 	if parseReloadMsg.Type != MessageTypeReload {
 		parseT.Fatalf("expected reload message, got %+v", parseReloadMsg)
+	}
+	if parseReloadMsg.Protocol != liveReloadProtocol || parseReloadMsg.Version != currentLiveReloadProtocolVersion {
+		parseT.Fatalf("expected versioned reload message, got %+v", parseReloadMsg)
 	}
 }
 
@@ -1012,6 +1154,9 @@ func TestHandleHTMLInjectsEmbeddedClientScriptByDefault(parseT *testing.T) {
 	if !strings.Contains(parseBody, "Live Reload Client Script") {
 		parseT.Fatalf("expected HTML injection to include embedded livereload client script, got %q", parseBody)
 	}
+	if !strings.Contains(parseBody, liveReloadProtocol) {
+		parseT.Fatalf("expected embedded livereload client script to include protocol metadata, got %q", parseBody)
+	}
 }
 
 func TestHandleHTMLMissingClientScriptReturnsServerError(parseT *testing.T) {
@@ -1057,6 +1202,9 @@ func TestRequestStateSnapshotBroadcastsStateExport(parseT *testing.T) {
 	if parseMsg.Type != MessageTypeStateExport {
 		parseT.Fatalf("expected state export message, got %+v", parseMsg)
 	}
+	if parseMsg.Protocol != liveReloadProtocol || parseMsg.Version != currentLiveReloadProtocolVersion {
+		parseT.Fatalf("expected versioned state export message, got %+v", parseMsg)
+	}
 }
 
 func TestHandleWebSocketTracksSessionsAndSnapshots(parseT *testing.T) {
@@ -1082,6 +1230,9 @@ func TestHandleWebSocketTracksSessionsAndSnapshots(parseT *testing.T) {
 	}
 	if parseCurrentStatus.Type != MessageTypeCurrentStatus {
 		parseT.Fatalf("expected current status message, got %+v", parseCurrentStatus)
+	}
+	if parseCurrentStatus.Protocol != liveReloadProtocol || parseCurrentStatus.Version != currentLiveReloadProtocolVersion {
+		parseT.Fatalf("expected versioned current status message, got %+v", parseCurrentStatus)
 	}
 	if len(parseServer.currentClientSessions()) != 1 {
 		parseT.Fatalf("expected one tracked legacy websocket client, got %+v", parseServer.currentClientSessions())

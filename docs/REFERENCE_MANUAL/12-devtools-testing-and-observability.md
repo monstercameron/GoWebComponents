@@ -300,6 +300,18 @@ A panic that escapes any goroutine or host callback in wasm exits the whole Go p
 - a render panic with no error boundary abandons the in-flight render and resets scheduling state; the last committed tree stays mounted and the next clean update renders normally (the page degrades partially instead of dying)
 - containment is the default for every runtime configuration; `runtime.Config.ShowRawPanicOutput` opts back into re-panicking with raw output for native debugging
 - application background work should use `ui.SafeGo(subject, fn)` instead of the bare `go` statement so app goroutine panics get the same report-and-survive treatment
+- hooks are render-goroutine-owned in development and test builds: if a hook is called from a goroutine while another component render fiber is current, the runtime emits `GWC-RUNTIME-HOOK-THREADING` and panics before corrupting hook state. Production-tagged builds compile this owner check out.
+
+The containment contract is phase-specific:
+
+| Phase | Recovery owner | Trustworthy after containment | Do not trust |
+| --- | --- | --- | --- |
+| Render | nearest `ErrorBoundary` renders fallback; without one, the failed render is abandoned | last committed tree, reset scheduler state, later clean updates | abandoned work-in-progress tree, pending deletions, or effects from the failed render |
+| Event | nearest `ErrorBoundary` schedules a fallback update | already committed tree until fallback commits, plus state writes completed before the panic | the remaining handler body or return-value assumptions from the panicking handler |
+| Effect | nearest `ErrorBoundary` schedules fallback after the commit that queued the effect | DOM from the completed commit and the scheduled fallback update | the panicking effect body after the panic or any cleanup it would have returned |
+| Cleanup | nearest `ErrorBoundary` schedules fallback while deletion and teardown continue | cleared cleanup slot and settled committed tree after fallback | remaining side effects from the panicking cleanup |
+| Async goroutine or guarded host callback | no `ErrorBoundary`; `SafeGo`, `GuardCallback`, or the interop guard reports and abandons the task | existing committed UI and runtime scheduling state | task-local state or partial external side effects from the abandoned task |
+| Loader, hydration, startup, deferred, or SSR | no `ErrorBoundary`; emit a structured fatal report or return the SSR error | explicitly completed previous commits or returned error payloads | in-flight route, hydration, startup, deferred, or server-render work |
 
 True runtime fatals (for example concurrent map writes or stack exhaustion) cannot be recovered by Go and still terminate the module; containment covers all `panic`-based failures.
 
@@ -328,6 +340,8 @@ Practical rules:
 - opt in from app code so the development behavior stays visible
 - treat preserved state as best-effort and scoped, not as a promise that every runtime resource survives code changes
 - restart the shell or remount when component identity, hook ordering, route registration, or browser-bridge contracts change incompatibly
+- when a refactor should preserve compatible hot-reload state, increment `hotreload.Config.SnapshotVersion` and provide `SnapshotMigrations` for atom state plus component path or identity aliases
+- missing `snapshotVersion` values default to v1; snapshots newer than the configured app schema, missing migrations, or failed migrations restore nothing and surface a diagnostic
 - keep the editor workflow thin: snippets, `gwc start`, and `gwc dev` should accelerate the documented flow, not replace it
 
 For teams, this means:
@@ -400,11 +414,11 @@ go run ./tools/gwc test -lane hydration
 go run ./tools/gwc test -lane browser
 go run ./tools/gwc lint -root .
 go test ./devtools ./logging ./test/render ./test/hooks ./test/router ./test/ssr ./test/browser
-go run ./tools/gwc build -app .\examples\66-devtools-panel\main.go -root .\examples\66-devtools-panel
-go run ./tools/gwc build -app .\examples\67-use-snapshot\main.go -root .\examples\67-use-snapshot
-go run ./tools/gwc build -app .\examples\68-snapshot-now\main.go -root .\examples\68-snapshot-now
-go run ./tools/gwc build -app .\examples\69-devtools-diagnostics\main.go -root .\examples\69-devtools-diagnostics
-go run ./tools/gwc build -app .\examples\111-kernel-plugin-devtools\main.go -root .\examples\111-kernel-plugin-devtools
+go run ./tools/gwc build -app .\examples\public\devtools-panel\main.go -root .\examples\public\devtools-panel
+go run ./tools/gwc build -app .\examples\public\use-snapshot\main.go -root .\examples\public\use-snapshot
+go run ./tools/gwc build -app .\examples\public\snapshot-now\main.go -root .\examples\public\snapshot-now
+go run ./tools/gwc build -app .\examples\public\devtools-diagnostics\main.go -root .\examples\public\devtools-diagnostics
+go run ./tools/gwc build -app .\examples\testing\kernel-plugin-devtools\main.go -root .\examples\testing\kernel-plugin-devtools
 go test -tags playwrightgo ./test/playwrightgo/kernelplugindevtools -timeout 5m -v
 ```
 

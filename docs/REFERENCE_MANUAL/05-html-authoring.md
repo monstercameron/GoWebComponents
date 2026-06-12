@@ -287,20 +287,20 @@ Use the smallest focused examples for the HTML authoring surface you are adoptin
 Semantic and typed host structure:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\52-semantic-html\main.go
-go run ./tools/gwc dev -app .\examples\53-html-forms\main.go
+go run ./tools/gwc dev -app .\examples\public\semantic-html\main.go
+go run ./tools/gwc dev -app .\examples\public\html-forms\main.go
 ```
 
 Generic tags and escape hatches:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\54-html-tag\main.go
+go run ./tools/gwc dev -app .\examples\public\html-tag\main.go
 ```
 
 Browser custom-element consumption:
 
 ```powershell
-go run ./tools/gwc dev -app .\examples\88-web-components\main.go
+go run ./tools/gwc dev -app .\examples\public\web-components\main.go
 ```
 
 ## Topic Pagination

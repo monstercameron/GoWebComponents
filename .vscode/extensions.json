@@ -1,0 +1,7 @@
+{
+  // Recommended extensions for working on GoWebComponents. VS Code surfaces
+  // these to contributors who open the repo without the Go toolchain wired up.
+  "recommendations": [
+    "golang.go"
+  ]
+}

@@ -189,7 +189,7 @@
 
 ### example app refactors and fixes
 
-- Split several oversized example files in `examples/00-example-0`, `examples/14-omi`, and `examples/100-ai-chat-wizard` into smaller focused files.
+- Split several oversized example files in `examples/00-example-0`, `examples/14-omi`, and `examples/server/ai-chat-wizard` into smaller focused files.
 - Refreshed example-backed docs and router snippets to match the shipped public router surface.
 - Landed focused example fixes around the portfolio contact form, seeded test expectations, readonly ops reporting, billing normalization, logging redaction, and SSO SQL paths.
 
@@ -224,12 +224,12 @@
 
 ### example 100: admin operator drilldowns, mutations, and rollups
 
-- Expanded `examples/100-ai-chat-wizard` admin/operator backend coverage:
+- Expanded `examples/server/ai-chat-wizard` admin/operator backend coverage:
   - added typed business queue/detail, customer timeline, chats anomalies, providers drilldown, provider mutation, ops drilldown, and ops mutation RPC contracts in `proto/chat.proto`
   - added matching server handlers and focused tests under `server/app/` for the new dashboard/admin surfaces
   - added typed query/store wiring for customer timeline, billing dunning, failed payments, chat anomalies, provider routing/guardrails, and provider usage rollups
 - Added supporting persistence and UI followups:
-  - introduced provider usage daily rollup schema/migration support plus admin SQL files under `examples/100-ai-chat-wizard/sql/store/`
+  - introduced provider usage daily rollup schema/migration support plus admin SQL files under `examples/server/ai-chat-wizard/sql/store/`
   - regenerated `proto/chat.pb.go` and `proto/chat_grpc.pb.go`
   - wired the business dashboard slice to reuse the workspace panel in `client/app/dashboard.go` and `client/app/dashboard_shell.go`
 
@@ -240,11 +240,11 @@
   - resolve Go-worker URLs without assuming `document` exists
   - report closed popup peers as disposed for `WindowChannel.Focus` and `WindowChannel.Close`
 - Fixed and expanded js/wasm validation in `interop/interop_wasm_test.go` for worker surfaces, cross-surface malformed-envelope handling, and structured-clone boundary failures
-- Updated backlog/changelog tracking in `docs/TODO.md`, `examples/100-ai-chat-wizard/TODO.md`, and `examples/100-ai-chat-wizard/CHANGELOG.md`
+- Updated backlog/changelog tracking in `docs/TODO.md`, `examples/server/ai-chat-wizard/TODO.md`, and `examples/server/ai-chat-wizard/CHANGELOG.md`
 
 ### example 100: provider drilldown contracts, workspace followups, and worker interop validation
 
-- Added follow-up provider drilldown scaffolding in `examples/100-ai-chat-wizard`:
+- Added follow-up provider drilldown scaffolding in `examples/server/ai-chat-wizard`:
   - introduced typed `GetAdminProvidersDrilldown` request/response contracts and `AdminProvidersDrilldownSummary` in `proto/chat.proto`
   - added `WorkspaceModelRoutingPolicyEntry` to the shared admin/control-plane proto surface
   - added store-side workspace model-routing policy row loading in `server/app/store_superuser.go`
@@ -257,7 +257,7 @@
 
 ### example 100: cache core, admin operations, billing surfaces, and interop regression coverage
 
-- Expanded `examples/100-ai-chat-wizard` with a reusable client cache subsystem and policy layer:
+- Expanded `examples/server/ai-chat-wizard` with a reusable client cache subsystem and policy layer:
   - added `client/cachecore/` with shared scoped-record, SWR, invalidation, retry, storage, snapshot, worker-contract, and reconciliation primitives
   - added `client/cachepolicy/` with example-owned policies for dashboard, billing, thread, locale, catalog, and outbox resources
   - extended the background worker with maintenance-plan support and runtime wiring in `client/backgroundworker/`
@@ -269,11 +269,11 @@
 - Expanded regression coverage:
   - deeper browser interop wasm coverage in `interop/interop_wasm_test.go`
   - broader Example 100 Playwright coverage for admin journeys, authenticated flows, customer-safe error surfaces, and the full-stack demo sweep
-- Updated backlog and project notes in `docs/TODO.md` and `examples/100-ai-chat-wizard/TODO.md`, and refreshed supporting example shell CSS in `examples/static/css/tailwind.css`
+- Updated backlog and project notes in `docs/TODO.md` and `examples/server/ai-chat-wizard/TODO.md`, and refreshed supporting example shell CSS in `examples/static/css/tailwind.css`
 
 ### example 100: admin dashboard data layer + five slice UIs
 
-- Added live admin data fetching and full slice-level UI across the admin dashboard in `examples/100-ai-chat-wizard`:
+- Added live admin data fetching and full slice-level UI across the admin dashboard in `examples/server/ai-chat-wizard`:
   - Created `client/app/admin_data.go` with:
     - `adminDashboardData` render-only snapshot type and flat row types (`adminSummarySnapshot`, `adminUserRow`, `adminConvRow`, `adminProviderRow`, `adminDailyRow`)
     - `parseUseAdminDashboard` hook — async gRPC call to `GetAdminDashboard` with 30-day window, sequence-tracked cancellation, and loading / denied / error state transitions
@@ -292,16 +292,16 @@
     - **Ops** slice: open-incidents, support-tickets, active-experiments, failed-events KPI grid + daily usage table
     - Shared primitives: `renderDashboardLoadingState`, `renderDashboardEmptyState`, `renderDashboardDeniedBanner`, `renderDashboardErrorBanner`, `renderDashboardTable`, `renderDashboardKPICard`, `renderDashboardSectionHeader`, `renderDashboardSliceHeader`
     - Formatting helpers: `formatDashboardInt64`, `parseDashboardUserLabel`, `parseDashboardShortAt`, `parseDashboardBool`
-- Marked eight TODO items as complete in `examples/100-ai-chat-wizard/TODO.md`
+- Marked eight TODO items as complete in `examples/server/ai-chat-wizard/TODO.md`
 - Validation:
-  - `$env:GOOS="js" ; $env:GOARCH="wasm" ; go build ./examples/100-ai-chat-wizard/client/app/...`
-  - `$env:GOOS="js" ; $env:GOARCH="wasm" ; go build ./examples/100-ai-chat-wizard/client/...`
+  - `$env:GOOS="js" ; $env:GOARCH="wasm" ; go build ./examples/server/ai-chat-wizard/client/app/...`
+  - `$env:GOOS="js" ; $env:GOARCH="wasm" ; go build ./examples/server/ai-chat-wizard/client/...`
 
 ## 2026-03-27 (continued)
 
 ### example 100 + router: history fragments, shell-route coverage, and landing boot cleanup
 
-- Fixed several route and first-paint regressions across `examples/100-ai-chat-wizard` and the shared router:
+- Fixed several route and first-paint regressions across `examples/server/ai-chat-wizard` and the shared router:
   - client-side landing/login navigation no longer treats `/home -> /` as a no-op
   - extensionless `/app/...` routes like `/app/settings?panel=settings-profile` now serve the client shell instead of 404ing
   - pricing-page fragment routes now work on initial load, click, and browser back/forward for `/pricing#plans` and `/pricing#faq`
@@ -312,54 +312,54 @@
   - the bootstrap overlay is removed from the DOM after mount so stale boot text cannot reflow after hydration
 - Added focused regression coverage in:
   - `router/browser_router_test.go`
-  - `examples/100-ai-chat-wizard/client/app/route_sync_test.go`
-  - `examples/100-ai-chat-wizard/client/app/marketing_fragment_test.go`
-  - `examples/100-ai-chat-wizard/client/app/app_shell_test.go`
-  - `examples/100-ai-chat-wizard/server/app/runtime_helpers_additional_test.go`
+  - `examples/server/ai-chat-wizard/client/app/route_sync_test.go`
+  - `examples/server/ai-chat-wizard/client/app/marketing_fragment_test.go`
+  - `examples/server/ai-chat-wizard/client/app/app_shell_test.go`
+  - `examples/server/ai-chat-wizard/server/app/runtime_helpers_additional_test.go`
 - Validation:
   - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./router -run TestBrowserRouterNavigateHistoryFragmentPreservesPath`
   - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./router -run TestBrowserRouterNavigateHistoryTargetPreservesFragment`
   - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./router -run TestBrowserRouterNavigateReplaceHistoryFragmentPreservesPath`
   - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./router -run TestBrowserRouterHistoryHashchangeRerendersCurrentRoute`
-  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./examples/100-ai-chat-wizard/client/app -run TestShouldNavigateLandingRoute`
-  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./examples/100-ai-chat-wizard/client/app -run TestParseResolvePricingFragmentScroll`
-  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./examples/100-ai-chat-wizard/client/app -run TestShouldRenderLandingShellEarly`
-  - `go test ./examples/100-ai-chat-wizard/server/app -run TestChatBootstrapLoaderTracksDownloadPhase`
-  - `go run ./examples/100-ai-chat-wizard/cmd/build-client`
-  - `go build ./examples/100-ai-chat-wizard/cmd/server`
+  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./examples/server/ai-chat-wizard/client/app -run TestShouldNavigateLandingRoute`
+  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./examples/server/ai-chat-wizard/client/app -run TestParseResolvePricingFragmentScroll`
+  - `go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./examples/server/ai-chat-wizard/client/app -run TestShouldRenderLandingShellEarly`
+  - `go test ./examples/server/ai-chat-wizard/server/app -run TestChatBootstrapLoaderTracksDownloadPhase`
+  - `go run ./examples/server/ai-chat-wizard/cmd/build-client`
+  - `go build ./examples/server/ai-chat-wizard/cmd/server`
   - live browser smoke against `http://127.0.0.1:8095/`, `/pricing#faq`, and `/app/settings?panel=settings-profile`
 
 ### example 100: operational schema coverage + table inventory
 
-- Expanded `examples/100-ai-chat-wizard` schema/migration coverage for operational SaaS workflows with new tables for:
+- Expanded `examples/server/ai-chat-wizard` schema/migration coverage for operational SaaS workflows with new tables for:
   - auth/session lifecycle: `auth_sessions`, `auth_token_versions`, `password_reset_tokens`, `email_verification_tokens`
   - workspace operations: `workspace_invitations`
   - webhook delivery history: `webhook_deliveries`
   - support threading: `support_ticket_messages`
   - incident timelines: `incident_updates`
   - async operations: `notification_outbox`, `background_jobs`
-- Added a schema reference document at `examples/100-ai-chat-wizard/SCHEMA_TABLES.md` that lists each table, its columns, and its purpose.
+- Added a schema reference document at `examples/server/ai-chat-wizard/SCHEMA_TABLES.md` that lists each table, its columns, and its purpose.
 - Validation:
-  - `sqlite3 :memory: ".read examples/100-ai-chat-wizard/sql/store/schema.sql"`
+  - `sqlite3 :memory: ".read examples/server/ai-chat-wizard/sql/store/schema.sql"`
   - replay-safe migration validation against a temp SQLite database
-  - `go test ./examples/100-ai-chat-wizard/proto`
+  - `go test ./examples/server/ai-chat-wizard/proto`
 
 ### example 100: authenticated token usage traceability for billing
 
-- Added immutable usage-event persistence for `examples/100-ai-chat-wizard` so each logged-in completion can be audited for billing:
+- Added immutable usage-event persistence for `examples/server/ai-chat-wizard` so each logged-in completion can be audited for billing:
   - schema/migration updates in:
-    - `examples/100-ai-chat-wizard/sql/store/schema.sql`
-    - `examples/100-ai-chat-wizard/sql/store/migrations.sql`
+    - `examples/server/ai-chat-wizard/sql/store/schema.sql`
+    - `examples/server/ai-chat-wizard/sql/store/migrations.sql`
   - new SQL queries:
-    - `examples/100-ai-chat-wizard/sql/store/save_usage_event.sql`
-    - `examples/100-ai-chat-wizard/sql/store/list_usage_events.sql`
-    - `examples/100-ai-chat-wizard/sql/store/get_model_pricing.sql`
+    - `examples/server/ai-chat-wizard/sql/store/save_usage_event.sql`
+    - `examples/server/ai-chat-wizard/sql/store/list_usage_events.sql`
+    - `examples/server/ai-chat-wizard/sql/store/get_model_pricing.sql`
 - Extended provider and transport usage metadata:
   - `provider.ChatResult` now carries `usage_source` and `provider_request_id` with provider implementations updated in:
-    - `examples/100-ai-chat-wizard/server/provider/openai_provider.go`
-    - `examples/100-ai-chat-wizard/server/provider/anthropic_provider.go`
-    - `examples/100-ai-chat-wizard/server/provider/cerebras_provider.go`
-    - `examples/100-ai-chat-wizard/server/provider/stub_provider.go`
+    - `examples/server/ai-chat-wizard/server/provider/openai_provider.go`
+    - `examples/server/ai-chat-wizard/server/provider/anthropic_provider.go`
+    - `examples/server/ai-chat-wizard/server/provider/cerebras_provider.go`
+    - `examples/server/ai-chat-wizard/server/provider/stub_provider.go`
   - final `ChatChunk` now includes:
     - `usage_event_id`
     - `provider_id`
@@ -367,31 +367,31 @@
     - `usage_source`
     - `usage_persisted`
   - proto changes in:
-    - `examples/100-ai-chat-wizard/proto/chat.proto`
+    - `examples/server/ai-chat-wizard/proto/chat.proto`
     - regenerated `chat.pb.go` and `chat_grpc.pb.go`
 - `Send` server flow now snapshots event-time pricing and persists both:
   - successful completion usage events (`status=completed`)
   - failed-stream usage events (`status=failed`) for reconciliation parity
-  - in `examples/100-ai-chat-wizard/server/app/server.go` and store plumbing in `store.go`/`queries.go`
+  - in `examples/server/ai-chat-wizard/server/app/server.go` and store plumbing in `store.go`/`queries.go`
 - Added plan-aware auto model routing for authenticated sends:
   - revised billing SQL/table definitions with `billing_plan_model_access`
   - new effective-plan model query `list_billing_effective_model_access_by_user.sql`
   - `Send` now auto-selects the plan default model when request model is blank
   - model preference RPCs now apply effective plan model policy and persistence repair
 - Added focused tests and micro-benches:
-  - store usage lifecycle/scoping/pricing tests in `examples/100-ai-chat-wizard/server/app/store_test.go`
+  - store usage lifecycle/scoping/pricing tests in `examples/server/ai-chat-wizard/server/app/store_test.go`
   - success + error stream usage assertions in:
-    - `examples/100-ai-chat-wizard/server/app/rpc_test.go`
-    - `examples/100-ai-chat-wizard/server/app/rpc_additional_test.go`
+    - `examples/server/ai-chat-wizard/server/app/rpc_test.go`
+    - `examples/server/ai-chat-wizard/server/app/rpc_additional_test.go`
   - provider usage metadata assertions in:
-    - `examples/100-ai-chat-wizard/server/provider/stub_provider_test.go`
-    - `examples/100-ai-chat-wizard/server/provider/provider_streaming_additional_test.go`
-  - usage micro-benches in `examples/100-ai-chat-wizard/server/app/benchmark_test.go`
+    - `examples/server/ai-chat-wizard/server/provider/stub_provider_test.go`
+    - `examples/server/ai-chat-wizard/server/provider/provider_streaming_additional_test.go`
+  - usage micro-benches in `examples/server/ai-chat-wizard/server/app/benchmark_test.go`
 - Validation:
-  - `go test ./examples/100-ai-chat-wizard/server/app`
-  - `go test ./examples/100-ai-chat-wizard/server/provider ./examples/100-ai-chat-wizard/proto`
-  - `go test ./examples/100-ai-chat-wizard/server/app -run ^$ -bench "BenchmarkStoreCorePaths/(save_usage_event|list_usage_events)$" -benchtime=1x`
-  - `go run ./tools/gwc test -lane unit -app .\examples\100-ai-chat-wizard\cmd\server\main.go -root .\examples\100-ai-chat-wizard`
+  - `go test ./examples/server/ai-chat-wizard/server/app`
+  - `go test ./examples/server/ai-chat-wizard/server/provider ./examples/server/ai-chat-wizard/proto`
+  - `go test ./examples/server/ai-chat-wizard/server/app -run ^$ -bench "BenchmarkStoreCorePaths/(save_usage_event|list_usage_events)$" -benchtime=1x`
+  - `go run ./tools/gwc test -lane unit -app .\examples\server\ai-chat-wizard\cmd\server\main.go -root .\examples\server\ai-chat-wizard`
 
 ### examples and tooling cleanup: example 203 + three-digit catalog support
 
@@ -502,7 +502,7 @@ Benchmark snapshot (Windows/amd64, i7-12700):
 
 ### render-benchmark example 201 MT worker latency improvements
 
-Five latency improvements implemented across `examples/201-render-benchmark/workers.go`, `examples/201-render-benchmark/backgroundworker/main.go`, and `examples/201-render-benchmark/shared/shared.go`.
+Five latency improvements implemented across `examples/testing/render-benchmark/workers.go`, `examples/testing/render-benchmark/backgroundworker/main.go`, and `examples/testing/render-benchmark/shared/shared.go`.
 
 - **Progressive per-lane chunk delivery** — replaced the all-or-nothing `WaitGroup` barrier with per-lane partial delivery. Added `onPartialChunks func([]ChunkResult)` callback parameter to all six fan-out functions (`requestBenchmarkWorkerCoreChunks`, `requestBenchmarkWorkerContentChunks`, and both `ByBatch`/`ByChunk` variants). Each lane goroutine emits a `make+copy` snapshot and calls the callback immediately on completion. `handleBenchmarkWorkerPrepareEffect` wires `onPartialCoreLaneDone` / `onPartialContentLaneDone` closures that call `parseCoreChunkState.Set(...)` / `parseContentChunkState.Set(...)` per-lane under a stale-generation guard.
 
@@ -514,7 +514,7 @@ Five latency improvements implemented across `examples/201-render-benchmark/work
 
 - **Dirty-set delta sends** — added `GetDirtyItemIndexes []int` field (omitempty) to `BenchmarkWorkerCoreBatchChunkRequest` and `BenchmarkWorkerContentBatchChunkRequest` in `shared/shared.go`. Three new helpers: `buildBenchmarkWorkerCoreItemDirtyIndexes`, `buildBenchmarkWorkerContentItemDirtyIndexes`, `buildBenchmarkWorkerChunkLocalDirtyIndexes`. Client computes dirty indexes by comparing previous/current equal-length item slices and passes chunk-local slices into batch requests. Worker adds per-chunk result caches (`getBenchmarkWorkerCoreChunkResultByIndex`, `getBenchmarkWorkerContentChunkResultByIndex`) and a dirty-set fast path: when a previous chunk result and dirty indexes are both available, only dirty items are recomputed and XOR-merged into the previous result; clean items are copied without any cache-key allocation.
 
-- Benchmarks (Windows/amd64, i7-12700, `examples/201-render-benchmark/shared`):
+- Benchmarks (Windows/amd64, i7-12700, `examples/testing/render-benchmark/shared`):
   - `SnapshotCopyNilCallback`: `0.12 ns/op, 0 allocs` — nil-guard is zero-cost
   - `SnapshotCopy4Chunks`: `~64 ns/op, 1 alloc (320 B)`
   - `SnapshotCopy8Chunks`: `~118–137 ns/op, 1 alloc (704 B)`
@@ -941,8 +941,8 @@ Pressure benchmark:
 ### Example 201 runtime2 hook-grid render investigation (hot-path diagnosis)
 
 - Reviewed the current Example 201 `hooks-render` path and confirmed runtime2 does not offload hook execution to workers for this scenario:
-  - `buildBenchmarkRuntime3Node(...)` routes `hooks` to `renderBenchmarkRuntime3HookCell(...)` (`examples/201-render-benchmark/main.go`), which still executes per-cell hook loops on the main thread and wraps cells with `ui.ParallelRegion(...)`.
-  - `handleBenchmarkWorkerPrepareEffect(...)` (`examples/201-render-benchmark/workers.go`) only prepares `core`/`content` payloads and exits early for `hooks`.
+  - `buildBenchmarkRuntime3Node(...)` routes `hooks` to `renderBenchmarkRuntime3HookCell(...)` (`examples/testing/render-benchmark/main.go`), which still executes per-cell hook loops on the main thread and wraps cells with `ui.ParallelRegion(...)`.
+  - `handleBenchmarkWorkerPrepareEffect(...)` (`examples/testing/render-benchmark/workers.go`) only prepares `core`/`content` payloads and exits early for `hooks`.
 - Re-checked latest benchmark artifact `bin/test-results/example-201-browser-benchmark/browser-benchmark-report-rt2-1-4.json`:
   - `hooks-render` DOM-ready mean: `runtime2-workers1=11.7 ms`, `runtime2-workers4=14.957 ms`, `runtime1=7.5 ms`, `react=1.186 ms`.
   - Mutation counts in the same run: `runtime2=120`, `runtime1=80`, `react=40`.
@@ -952,12 +952,12 @@ Pressure benchmark:
 ### Example 201 runtime2 core append: chunked core regions + html/shorthand core-row render path
 
 - Updated Example 201 runtime2 core rendering to preserve chunk boundaries instead of flattening worker-prepared core chunks into one primary region:
-  - `buildBenchmarkRuntime3Node(...)` now renders one `ui.ParallelRegion(...)` per prepared core chunk via `buildBenchmarkRuntime3CoreRegionNodes(...)` (`examples/201-render-benchmark/main.go`).
+  - `buildBenchmarkRuntime3Node(...)` now renders one `ui.ParallelRegion(...)` per prepared core chunk via `buildBenchmarkRuntime3CoreRegionNodes(...)` (`examples/testing/render-benchmark/main.go`).
   - This keeps unchanged chunk regions stable during append-heavy updates and reduces whole-list reconciliation pressure in the benchmark shell.
-- Adopted `html/shorthand` (dot-import) for the runtime2 core row renderer in `examples/201-render-benchmark/main.go`:
+- Adopted `html/shorthand` (dot-import) for the runtime2 core row renderer in `examples/testing/render-benchmark/main.go`:
   - `renderBenchmarkRuntime3CoreRegion(...)` now uses `Div(...)`, `Class(...)`, `Data(...)`, `Text(...)`, and `WithKey(...)` for core row node construction.
 - Validation commands:
-  - `$env:GOOS='js'; $env:GOARCH='wasm'; go build ./examples/201-render-benchmark`
+  - `$env:GOOS='js'; $env:GOARCH='wasm'; go build ./examples/testing/render-benchmark`
   - `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkReportRuntime2OneAndFourWorkers -count=1 -v`
 - Latest report artifact:
   - `bin/test-results/example-201-browser-benchmark/browser-benchmark-report-rt2-1-4.md`
@@ -965,7 +965,7 @@ Pressure benchmark:
 
 ### Example 201 runtime2 prepare-cache fast path for repeated benchmark payloads
 
-- Added dependency-keyed prepared-chunk memoization to the runtime2 benchmark prepare path in `examples/201-render-benchmark`:
+- Added dependency-keyed prepared-chunk memoization to the runtime2 benchmark prepare path in `examples/testing/render-benchmark`:
   - new per-app refs in `renderBenchmarkApp(...)` for cached core/content chunk batches (`main.go`),
   - cache-hit fast paths in `handleBenchmarkWorkerPrepareEffect(...)` that hydrate chunk state directly and skip worker request round-trips (`workers.go`),
   - cache store/read helpers with slice cloning to keep stable ownership when reusing cached chunk results (`workers.go`).
@@ -1372,7 +1372,7 @@ Pressure benchmark:
 
 ### Example 201 browser benchmark harness
 
-- Added `examples/201-render-benchmark`, including runtime1, runtime2 (single-worker), runtime2 (4-worker), and React 18 subjects with shared scenario contracts and local vendored browser assets.
+- Added `examples/testing/render-benchmark`, including runtime1, runtime2 (single-worker), runtime2 (4-worker), and React 18 subjects with shared scenario contracts and local vendored browser assets.
 - Added Playwright-Go benchmark automation (`TestExample201BrowserBenchmarkReport`) that builds wasm artifacts, executes seeded browser scenarios, and emits structured JSON + Markdown reports under `bin/test-results/example-201-browser-benchmark/`.
 - Added a `content-card refresh` scenario so the browser suite now measures refresh-only behavior for both core-list and content-card views.
 - Revised the browser harness to wait for DOM-settle frames after scenario preparation, reducing prepare-phase mutation spillover into the measured RT2 window and making mutation counts and timing comparisons fairer.
@@ -1381,7 +1381,7 @@ Pressure benchmark:
 - Optimized the single-worker runtime2 benchmark path by matching chunk fan-out to the configured worker count, so the one-worker mode no longer pays four-request and four-region overhead for one-worker preparation batches.
 - Added configurable `Runtime 2 (N Workers)` benchmark support through the Example 201 runner, subject route, and worker-count query parsing, with focused Playwright coverage for custom worker counts.
 - Documented the Example 201 benchmark workflow in `examples/README.md` and `docs/PERFORMANCE.md`.
-- Replaced runtime2 worker-preparation dispatch in `examples/201-render-benchmark/workers.go` from `interop.WorkerPool` arbitration to a dedicated worker-fleet lane model (`[]interop.Worker`) with direct chunk-to-worker requests, removing queue/admission overhead on each prep batch.
+- Replaced runtime2 worker-preparation dispatch in `examples/testing/render-benchmark/workers.go` from `interop.WorkerPool` arbitration to a dedicated worker-fleet lane model (`[]interop.Worker`) with direct chunk-to-worker requests, removing queue/admission overhead on each prep batch.
 - Optimized worker batch fanout by reusing one resolved `runtime2WorkScale` value per batch and passing chunk sub-slices directly (instead of per-chunk copy allocations) for core/content worker requests.
 - Kept worker-mode behavior and metrics contracts stable (`metric-worker-count`, `metric-worker-batch-count`, `metric-worker-items`, `metric-worker-batch-ms`) while adding empty-fleet guard errors for clearer failure diagnostics.
 - Added `docs/WORKER_POOLS_VS_LANES.md` and linked it from docs indexes so worker-heavy features have one explicit decision guide for `interop.OpenWorkerPool(...)` versus direct worker-lane fanout.
@@ -1394,25 +1394,25 @@ Pressure benchmark:
 - Added explicit worker-dispatch strategy support for Example 201 runtime2 subjects via `runtime2Dispatch`:
   - `runtime2Dispatch=batch` (default): one multi-chunk request per worker lane.
   - `runtime2Dispatch=chunk`: legacy one-request-per-chunk dispatch.
-- Updated `examples/201-render-benchmark/benchmark-runner.js` to forward `runtime2WorkScale` and `runtime2Dispatch` query params into each subject iframe route, so stress and dispatch A/B routes now propagate as documented.
-- Hardened Example 201 worker-prepare effect dependency tracking in `examples/201-render-benchmark/workers.go` with comparable content-hash dependency tokens for core/content payloads; this removed stale-payload scheduling races seen during structural-churn scenarios (`core-reverse` under multi-worker runs).
-- Added richer benchmark timeout diagnostics in `examples/201-render-benchmark/benchmark-subject.js` (framework, worker status, last action, and row-order break window) so flaky scenario failures surface actionable context in CI logs.
+- Updated `examples/testing/render-benchmark/benchmark-runner.js` to forward `runtime2WorkScale` and `runtime2Dispatch` query params into each subject iframe route, so stress and dispatch A/B routes now propagate as documented.
+- Hardened Example 201 worker-prepare effect dependency tracking in `examples/testing/render-benchmark/workers.go` with comparable content-hash dependency tokens for core/content payloads; this removed stale-payload scheduling races seen during structural-churn scenarios (`core-reverse` under multi-worker runs).
+- Added richer benchmark timeout diagnostics in `examples/testing/render-benchmark/benchmark-subject.js` (framework, worker status, last action, and row-order break window) so flaky scenario failures surface actionable context in CI logs.
 - Added focused dispatch A/B benchmark automation in `TestExample201BrowserBenchmarkDispatchCompare` and report outputs:
   - `bin/test-results/example-201-browser-benchmark/browser-benchmark-report-rt2-dispatch-chunk.{json,md}`
   - `bin/test-results/example-201-browser-benchmark/browser-benchmark-report-rt2-dispatch-batch.{json,md}`
 - Dispatch compare sample (`go test ./test/playwrightgo/examples -tags playwrightgo -run TestExample201BrowserBenchmarkDispatchCompare -count=1 -v`, Windows/amd64, i7-12700):
   - Worker-batch mean across worker-metric scenarios: `12.973 ms -> 10.277 ms` (`+20.78%` faster in `batch` mode).
   - DOM-ready mean across worker-metric scenarios: `27.828 ms -> 25.101 ms` (`+9.80%` faster in this sample).
-- Added a runtime2 local core fast path in `examples/201-render-benchmark/workers.go` for small core batches (`<= 64` items): when enabled, this path bypasses worker RPC and uses one local cache-backed prepared-item map to reduce request/listener/structured-clone overhead on update-heavy small-list scenarios.
-- Added a public query toggle `runtime2CoreFastPath` (`on` by default, `off` to force worker RPC) and forwarded it through `examples/201-render-benchmark/benchmark-runner.js` so route-level A/B checks stay reproducible.
-- Added an inline runtime2 core-update fast path in `examples/201-render-benchmark/main.go` so small core updates that qualify for `runtime2CoreFastPath` prepare and store core chunks in the click-event path (with cache + generation updates) before the effect fallback runs; this removes extra effect-cycle latency on `Core Update`.
-- Hardened `examples/201-render-benchmark/benchmark-runner.js` iframe subject loading/inspection paths with `SecurityError` guards around cross-window property reads, preventing benchmark aborts on transient cross-origin window access during Playwright runs.
+- Added a runtime2 local core fast path in `examples/testing/render-benchmark/workers.go` for small core batches (`<= 64` items): when enabled, this path bypasses worker RPC and uses one local cache-backed prepared-item map to reduce request/listener/structured-clone overhead on update-heavy small-list scenarios.
+- Added a public query toggle `runtime2CoreFastPath` (`on` by default, `off` to force worker RPC) and forwarded it through `examples/testing/render-benchmark/benchmark-runner.js` so route-level A/B checks stay reproducible.
+- Added an inline runtime2 core-update fast path in `examples/testing/render-benchmark/main.go` so small core updates that qualify for `runtime2CoreFastPath` prepare and store core chunks in the click-event path (with cache + generation updates) before the effect fallback runs; this removes extra effect-cycle latency on `Core Update`.
+- Hardened `examples/testing/render-benchmark/benchmark-runner.js` iframe subject loading/inspection paths with `SecurityError` guards around cross-window property reads, preventing benchmark aborts on transient cross-origin window access during Playwright runs.
 - Focused Core Update sample on the mixed-framework report route (`go test ./test/playwrightgo/examples -tags playwrightgo -run TestExample201BrowserBenchmarkReport -count=1`):
   - `RT2x1`: `8.500 ms -> 4.271 ms` (`-49.75%` DOM-ready).
   - `RT2x2`: `9.143 ms -> 3.714 ms` (`-59.38%` DOM-ready).
   - `RT2x4`: `10.429 ms -> 3.714 ms` (`-64.39%` DOM-ready).
   - `RT2x8`: `10.500 ms -> 3.500 ms` (`-66.67%` DOM-ready).
-- Repeated direct runner A/B sample (`/examples/201-render-benchmark/?iterations=11&warmups=2&seed=20101&runtime2WorkerCounts=1,2,4,8`, `runtime2CoreFastPath=on` vs `off`) confirms additional `Core Update` wins with the inline path:
+- Repeated direct runner A/B sample (`/examples/testing/render-benchmark/?iterations=11&warmups=2&seed=20101&runtime2WorkerCounts=1,2,4,8`, `runtime2CoreFastPath=on` vs `off`) confirms additional `Core Update` wins with the inline path:
   - `RT2x1`: `5.764 ms -> 4.173 ms` (`-27.60%` vs fast-path off).
   - `RT2x2`: `4.873 ms -> 3.945 ms` (`-19.04%` vs fast-path off).
   - `RT2x4`: `4.182 ms -> 2.809 ms` (`-32.83%` vs fast-path off).
@@ -1423,7 +1423,7 @@ Pressure benchmark:
 - Added a public read-only `ui.GetParallelRegionRuntimeStatus(...)` helper and `ui.ParallelRegionStatus` shape so apps and tooling can inspect one tracked region's ownership mode, shard assignment, epoch, hydration flags, snapshot and dispatch and commit versions, transport tier, stale counters, and fallback reason without touching mutable runtime2 internals.
 - Added focused regression coverage in `ui/parallel_region_test.go` and `ui/ui_wasm_test.go` for public status validation, missing-region behavior, dispatch-version reporting, and hydrated attach-state reporting.
 - Added `examples/200-runtime2-status` plus `examples/README.md` indexing so adopters can inspect the public runtime-status contract in a dedicated tooling-style panel.
-- Updated `examples/108-parallel-region-basic`, `examples/109-parallel-region-grid`, and `examples/110-parallel-region-diagnostics` copy and diagnostics surfacing to reflect current local-first shell ownership with active runtime2 dispatch and operator metrics.
+- Updated `examples/testing/parallel-region-basic`, `examples/109-parallel-region-grid`, and `examples/110-parallel-region-diagnostics` copy and diagnostics surfacing to reflect current local-first shell ownership with active runtime2 dispatch and operator metrics.
 - Updated parallel-region docs in `docs/PARALLEL_REGION_AUTHORING.md`, `docs/PARALLEL_REGION_TROUBLESHOOTING.md`, and `docs/REFERENCE_MAP.md` with transition semantics and operator-facing runtime-status field guidance, and marked completed multithreaded-runtime follow-ups in `docs/MULTITHREADED_RUNTIME_TODO.md`.
 
 ### GoGRPCBridge submodule hardening and release alignment
@@ -1434,7 +1434,7 @@ Pressure benchmark:
 
 ### Example 100 and coverage expansion
 
-- Expanded `examples/100-ai-chat-wizard` build, seed, server, and tunnel surfaces with follow-up fixes and targeted regression coverage.
+- Expanded `examples/server/ai-chat-wizard` build, seed, server, and tunnel surfaces with follow-up fixes and targeted regression coverage.
 - Added focused additional coverage suites across examples, runtime, UI, browser/render helpers, and `tools/gwc` command paths to close branch and helper gaps.
 - Added `.github/CODEOWNERS` plus shared bootstrap/test artifacts in `scripts/bootstrap-gogrpcbridge.ps1` and `third_party/_shared/data/todos.json`.
 
@@ -1464,7 +1464,7 @@ Pressure benchmark:
 
 ### Example 100 API migration and lint recovery
 
-- Migrated `examples/100-ai-chat-wizard` to the current launcher/runtime APIs, including updated client state and helper field names, background worker interop calls, gRPC client/test method names, and markdown/sql helper callsites.
+- Migrated `examples/server/ai-chat-wizard` to the current launcher/runtime APIs, including updated client state and helper field names, background worker interop calls, gRPC client/test method names, and markdown/sql helper callsites.
 - Restored Example 100 build and verification flow so both client wasm and server packages compile and `gwc verify` passes for the example root.
 - Cleared launcher lint findings for Example 100 by fixing unused-path drift, staticcheck callback assertions, errcheck cleanup in store/test helpers, and removing dead legacy helpers.
 
@@ -1502,7 +1502,7 @@ Pressure benchmark:
 - Aligned generated/imported wasm output paths to `bin/main.wasm` across scaffold templates, CI golden fixtures, and import-generated HTML startup scripts.
 - Expanded public test surfaces with richer `testkit/render`, `testkit/router`, and `testkit/ssr` helpers plus a new `test/browser` coordination harness, including render-count and warning assertion utilities for wasm fixtures.
 - Added runtime startup-cost attribution and route startup budget reporting (runtime + devtools), with new regression fixtures for small, routed mid-sized, and production-shaped profiling budgets.
-- Added `examples/107-server-interactive-poc`, refined `examples/100-ai-chat-wizard` shell and bootloader phase handling, and updated related regression tests.
+- Added `examples/107-server-interactive-poc`, refined `examples/server/ai-chat-wizard` shell and bootloader phase handling, and updated related regression tests.
 - Extended GoDoc/API-audit coverage across diagnostics, html/i18n/interop/pwa/state/ui helper surfaces, and checked in function inventory/audit reports used by the naming review workflow.
 
 ### Grouped cleanup of legacy scripts and fixtures
@@ -1520,7 +1520,7 @@ Pressure benchmark:
 - Added `gwc env` so operator-facing environment variables can be inspected in text or JSON output with secret-shaped values redacted by default.
 - Documented `gwc env` in both `docs/GWC.md` and `tools/README.md`, including JSON output and redaction behavior guidance.
 - Migrated remaining browser-suite and workspace wiring from npm/TypeScript Playwright configs to launcher-owned Playwright-Go flows, removed deprecated npm test workspaces and legacy spec/config files, and updated docs/workflow references to match.
-- Refreshed `examples/100-ai-chat-wizard` landing/auth/pricing surfaces, updated chat-shell bootstrap copy and related server tests, and rebuilt shared Tailwind output through the launcher-owned CSS pipeline.
+- Refreshed `examples/server/ai-chat-wizard` landing/auth/pricing surfaces, updated chat-shell bootstrap copy and related server tests, and rebuilt shared Tailwind output through the launcher-owned CSS pipeline.
 - Fixed Example 100 landing-header navigation actions to use app-route-aware links for home/pricing/login/chat entry behavior.
 - Removed deprecated `tools/*.ps1` and `tools/*.sh` wrapper scripts now superseded by the launcher-owned `gwc` command surface.
 - Removed legacy `test/browser/index.ts` and `test/browser/index.test.ts` bridge files that were tied to the older browser-harness path.
@@ -1530,7 +1530,7 @@ Pressure benchmark:
 
 - Added a first-class `gwc tailwind` command in `tools/gwc` that regenerates the shared Tailwind manifest and stylesheet without npm, with machine-readable `-json` output support.
 - Added standalone Tailwind CLI download and cache management under `third_party/tailwindcss/bin/<version>/`, including checksum verification against the upstream `sha256sums.txt` release artifact when available.
-- Updated `examples/100-ai-chat-wizard/cmd/build-client` to run `go run ./tools/gwc tailwind` before wasm compilation so Example 100 no longer depends on npm for CSS rebuilds.
+- Updated `examples/server/ai-chat-wizard/cmd/build-client` to run `go run ./tools/gwc tailwind` before wasm compilation so Example 100 no longer depends on npm for CSS rebuilds.
 
 ### GWC benchmark scoring and launcher decomposition follow-up
 
@@ -1540,21 +1540,21 @@ Pressure benchmark:
 
 ### Model picker persistence hardening in Example 100
 
-- Fixed `examples/100-ai-chat-wizard` model selection persistence so new chats no longer land in a blank provider/model state after reconnects or stale cached preferences.
+- Fixed `examples/server/ai-chat-wizard` model selection persistence so new chats no longer land in a blank provider/model state after reconnects or stale cached preferences.
 - Added client-side recovery for invalid or blank persisted model selections, with deterministic fallback to the first available catalog model and persisted repair back to the server.
 - Added server-side `GetSelectedModel` fallback repair and persistence so normalized model preferences stay stable across sessions.
 - Added focused regression coverage for selection-repair behavior in both client wasm tests and server RPC tests.
 
 ### Example 100 speech synthesis fallback and opt-in flow
 
-- Added an OpenAI TTS-only fallback path in `examples/100-ai-chat-wizard` so speech playback can be enabled without switching the active chat provider or selected model for normal text generation.
+- Added an OpenAI TTS-only fallback path in `examples/server/ai-chat-wizard` so speech playback can be enabled without switching the active chat provider or selected model for normal text generation.
 - Added client-side helper coverage for selecting a speech-capable OpenAI synthesis model, plus UI copy and modal-flow updates that describe the new opt-in behavior explicitly.
 - Removed the older model-preferences speech-provider switch path and centralized speech-model resolution inside the TTS controller instead of mutating the user's saved chat provider preference.
 
 ### Playwright-Go rollout and Example 100 runtime hardening
 
 - Replaced the repo and examples browser npm entrypoints, release smoke steps, and compatibility workflow with Go-based `playwrightgo` suites, and updated the browser-support and runner-config docs to match the new browser-workspace contract.
-- Hardened `examples/100-ai-chat-wizard` memory extraction by sending a strict OpenAI JSON-schema response request, adding lifecycle and save-failure logging around extraction, and tightening provider HTTP coverage for the structured payload.
+- Hardened `examples/server/ai-chat-wizard` memory extraction by sending a strict OpenAI JSON-schema response request, adding lifecycle and save-failure logging around extraction, and tightening provider HTTP coverage for the structured payload.
 - Exposed a configurable usage-premium percentage in the Example 100 chat bootstrap script so client-side surfaces can read the server-defined premium multiplier during startup.
 - Added account-level cost aggregation in the Example 100 client so the composer can show premium-adjusted account totals with coverage-gap handling on top of the existing per-thread cost summary.
 
@@ -1591,10 +1591,10 @@ Pressure benchmark:
 
 ### Example 100 AI chat wizard and supporting tooling
 
-- Added a new `examples/100-ai-chat-wizard` full-stack showcase with a Go `js/wasm` client, Go server, gRPC-over-WebSocket bridge, SQLite-backed auth and conversation persistence, per-user settings and memories, streamed assistant replies, worker-backed markdown rendering, and focused Playwright/manual test support.
+- Added a new `examples/server/ai-chat-wizard` full-stack showcase with a Go `js/wasm` client, Go server, gRPC-over-WebSocket bridge, SQLite-backed auth and conversation persistence, per-user settings and memories, streamed assistant replies, worker-backed markdown rendering, and focused Playwright/manual test support.
 - Added richer chat-product behavior across the example, including reconnect and idle-resume handling for the gRPC bridge, collapsible assistant thinking sections, per-message and per-thread token-cost display, Mermaid and KaTeX rendering in message bubbles, TTS playback wiring, smoother streaming scroll behavior, and a stronger wasm/bootstrap loading shell.
 - Added a canvas-style code workspace path for previewable assistant artifacts with split chat/canvas layout, canvas session state, focus-region editing, patch history, console capture, overlay mode, and a dedicated canvas-only route.
-- Moved the example build output and runtime data into `examples/100-ai-chat-wizard/bin/`, added dedicated build/run scripts, runtime SQL-file loading, local Tailwind build support for the example shell, and follow-up cleanup so legacy source-tree wasm outputs are removed instead of accumulating under `client/`.
+- Moved the example build output and runtime data into `examples/server/ai-chat-wizard/bin/`, added dedicated build/run scripts, runtime SQL-file loading, local Tailwind build support for the example shell, and follow-up cleanup so legacy source-tree wasm outputs are removed instead of accumulating under `client/`.
 
 ### Browser interop worker and scroll primitives
 
@@ -1738,7 +1738,7 @@ Pressure benchmark:
 - Expanded `interop` with first-class worker helpers, typed worker request/progress/result envelopes, cross-tab channels with `BroadcastChannel` and `storage` fallback, popup/opener window channels, multi-surface signals, and additional typed browser wrappers so common browser coordination flows no longer require ad hoc `syscall/js`.
 - Added `html.CustomElement(...)` and related custom-element guidance so browser-defined web components can be consumed with explicit attribute, presence-attribute, and property mapping instead of raw prop spreading.
 - Added explicit mount-target APIs through `ui.RenderInto(...)` and `ui.HydrateInto(...)`, plus the `ui.UseWorkerTask[...]` hook for binding worker-backed browser jobs into normal component state.
-- Added `examples/88-web-components`, `89-exported-custom-element`, `90-browser-interop`, `91-worker-text-index`, `94-cross-tab-sync`, and `95-multi-window-console` to demonstrate third-party custom elements, export-side web-component prototypes, typed browser interop, worker-backed CPU-heavy UI, cross-tab sync, and multi-window coordination.
+- Added `examples/public/web-components`, `89-exported-custom-element`, `90-browser-interop`, `91-worker-text-index`, `94-cross-tab-sync`, and `95-multi-window-console` to demonstrate third-party custom elements, export-side web-component prototypes, typed browser interop, worker-backed CPU-heavy UI, cross-tab sync, and multi-window coordination.
 
 ### Cache reuse, auth-routing, and offline workflows
 
@@ -1752,7 +1752,7 @@ Pressure benchmark:
 - Hardened hydration and recovery with component-stack-aware mismatch diagnostics, opt-in strict hydration mode, preserved browser-owned form control state during the initial reuse pass, and explicit docs for hydration behavior, state transfer, streaming SSR boundaries, and mismatch recovery.
 - Expanded runtime diagnostics to record structured classifications, buffered framework logs, and component path/stack context for recovered boundary errors, and surfaced those logs and diagnostics through the devtools snapshot and panel.
 - Added broader runtime correctness and benchmark coverage, including production-correctness scenarios, hydration reuse and fallback benchmarks, and transition scheduling benchmarks, while also keeping the `production` wasm utils surface aligned with development exports.
-- Refreshed `examples/27-transition-hooks` into a more realistic transition-style UX example and aligned the backlog/docs around the current runtime, scheduling, error-boundary, and hydration behavior.
+- Refreshed `examples/public/transition-hooks` into a more realistic transition-style UX example and aligned the backlog/docs around the current runtime, scheduling, error-boundary, and hydration behavior.
 
 ### Tooling, release engineering, and platform policy docs
 
@@ -1769,7 +1769,7 @@ Pressure benchmark:
 - Added route-oriented helpers `PrefixPath(...)` and `ResolvePath(...)` so locale prefixes can stay application-owned without pushing locale policy into `router` itself.
 - Extended `ui.SSRBootstrap` with typed `I18n` payload support and bundle conversion helpers so server-rendered pages can transfer active locale, fallback locale, direction, and the initial message subset used during hydration.
 - Added `docs/I18N.md` to define the current i18n scope, SSR transfer model, locale-aware routing guidance, and RTL or directionality expectations.
-- Added `examples/83-locale-switcher`, `examples/84-ssr-i18n-bootstrap`, and `examples/85-locale-routing` together with focused Playwright coverage for runtime locale switching, bootstrap-driven locale hydration, and locale-prefixed loader-driven routing.
+- Added `examples/public/locale-switcher`, `examples/public/server-side-rendering-internationalization-bootstrap`, and `examples/public/locale-routing` together with focused Playwright coverage for runtime locale switching, bootstrap-driven locale hydration, and locale-prefixed loader-driven routing.
 - Added native `i18n` tests and a translation microbenchmark covering fallback lookup, pluralization, formatting, SSR bootstrap round-tripping, and locale-aware path helpers, plus `ui` bootstrap tests that assert the new `I18n` payload is serialized and initialized correctly.
 
 ### Portal layering and overlay management
@@ -1778,7 +1778,7 @@ Pressure benchmark:
 - Updated `ui.AccessibleOverlay(...)` to compose on top of the shared overlay stack instead of wiring instance-local modal behavior independently.
 - Updated overlay side effects to support nested scroll-lock counting and nested background inert ownership by app-root selector.
 - Added `docs/OVERLAYS.md` to document the current overlay layering model, dismissal routing, and anchored-position guidance.
-- Added `examples/81-overlay-stack` and `examples/82-overlay-anchor` together with focused Playwright specs covering nested dialogs, dialog-plus-popover routing, tooltip-over-menu layering, and portal retargeting.
+- Added `examples/public/overlay-stack` and `examples/82-overlay-anchor` together with focused Playwright specs covering nested dialogs, dialog-plus-popover routing, tooltip-over-menu layering, and portal retargeting.
 - Added stack-manager coverage in `ui` tests so topmost escape handling, outside-dismiss routing, focus-trap ownership, and derived z-index behavior are validated directly.
 
 ### Accessibility guidance baseline
@@ -2033,7 +2033,7 @@ Pressure benchmark:
 
 ### Browser compiler experiment
 
-- Moved the in-browser compiler experiment into its own more self-contained example flow under `examples/13-browser-compiler`.
+- Moved the in-browser compiler experiment into its own more self-contained example flow under `examples/public/browser-compiler`.
 - Added the supporting browser-compiler scripts, package index generation flow, and bundled `js/wasm` standard-library assets needed to run that experiment from the repo.
 
 ## 2025-11-19

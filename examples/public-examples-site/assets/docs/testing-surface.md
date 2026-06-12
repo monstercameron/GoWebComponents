@@ -104,7 +104,7 @@ For this repository itself, the Go-native launcher now exposes explicit lane-ori
 ```powershell
 go run ./tools/gwc test -lane unit -lane wasm
 go run ./tools/gwc test -lane hydration -lane browser
-go run ./tools/gwc test -lane release -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc test -lane release -app .\examples\public\counter\main.go -root .\examples\public\counter
 ```
 
 Current repo lane meanings:

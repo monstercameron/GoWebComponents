@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "gwc dev (counter example)",
+      "type": "shell",
+      "command": "go run ./tools/gwc dev -app ./examples/public/counter/main.go",
+      "problemMatcher": ["$go"],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "detail": "Start the rebuild-on-save dev loop for the counter example."
+    },
+    {
+      "label": "gwc test (unit + wasm)",
+      "type": "shell",
+      "command": "go run ./tools/gwc test -lane unit -lane wasm",
+      "problemMatcher": ["$go"],
+      "group": "test",
+      "detail": "Run the launcher-owned native and wasm test lanes."
+    },
+    {
+      "label": "gwc doctor",
+      "type": "shell",
+      "command": "go run ./tools/gwc doctor",
+      "problemMatcher": [],
+      "detail": "Check toolchain and runtime-asset prerequisites."
+    }
+  ]
+}

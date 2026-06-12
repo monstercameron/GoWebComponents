@@ -1,0 +1,29 @@
+{
+  // The browser app is wasm and is driven by `gwc dev` (see tasks.json), not a
+  // dlv launch. These configs debug the NATIVE tooling and tests, which is
+  // where a debugger is actually useful in this repo.
+  //
+  // Note: these run native binaries, so set GOOS/GOARCH back to host values for
+  // the integrated terminal if you debug native packages while the workspace
+  // gopls env is pinned to js/wasm.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug gwc tool",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/tools/gwc",
+      "args": ["doctor"],
+      "env": { "GOOS": "", "GOARCH": "" }
+    },
+    {
+      "name": "Debug current native test",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${fileDirname}",
+      "env": { "GOOS": "", "GOARCH": "" }
+    }
+  ]
+}

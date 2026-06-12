@@ -38,6 +38,18 @@ jobs:
           go test -v -count=1 ./...
         shell: pwsh
 
+      - name: Vulnerability Scan (govulncheck, informational)
+        # Surfaces known vulnerabilities in the root module's call graph.
+        # Non-blocking for now: repo-controlled dependency findings should be
+        # fixed (e.g. bump the module), while Go-stdlib advisories are cleared
+        # by keeping the toolchain current. Promote to blocking with a
+        # documented suppression file once the toolchain pin is patched.
+        continue-on-error: true
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          & "$(go env GOPATH)\bin\govulncheck.exe" ./...
+        shell: pwsh
+
       - name: Run Golden-Path Verify Audit
         run: |
           go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter -skip-tests -audit -audit-min-severity error
