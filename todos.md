@@ -1807,3 +1807,53 @@ ai-chat-wizard example. Pure-Go logic only - host-testable.
   Test for: define per-hook assertions that fail if the deps comparison, cleanup
   order, or batching is wrong (not just "renders without error"). (Sequential
   Sonnet review agent, one at a time - this is the follow-up sweep.)
+
+## html/shorthand control-flow helpers (2026-06-12)
+
+Missing declarative control-flow sugar in `html/shorthand` (pure-Go; package is
+NOT in the parallel-active tools/gwc set - confirm html/shorthand is idle before
+editing). Today's coverage: If/Unless/IfElse/TextIf, Switch/Case/Default (value-
+equality), When (class), Map/MapKeyed/FlatMap/FilterMap, Maybe/OrElse/Coalesce.
+These five fill the remaining gaps Solid/Vue users expect. Each is a small
+pure-Go addition with exact-HTML-string render tests (mirror the existing
+TestShorthandHelpersRenderExactHTMLString style) and parity with the typed-html
+path where one exists.
+
+- [ ] **`MapIndexed[T]` (and `MapKeyedIndexed[T]`) - index-aware mapping** -
+  `Map`/`MapKeyed`/`FlatMap`/`FilterMap` pass `render func(T)` with no index;
+  callers need `i` for numbering, alternating rows, and derived keys.
+  `MapIndexed[T any](parseItems []T, render func(parseIndex int, parseItem T)
+  ui.Node) []ui.Node`; keyed variant threads the index into both key and render.
+  Test for: a 3-item slice renders nodes whose content includes the correct 0/1/2
+  index; empty slice -> zero nodes; the keyed variant emits the keyed wrapper per
+  item; exact-HTML-string assertion (not just length).
+- [ ] **`MapOr[T]` - list with empty-state fallback** - an empty slice renders
+  nothing today; callers hand-write `IfElse(len==0, empty, Map(...))`. `MapOr[T
+  any](parseItems []T, render func(T) ui.Node, parseFallback ui.Node) ui.Node`
+  renders the mapped list when non-empty, else the fallback node.
+  Test for: non-empty slice renders the mapped children and NOT the fallback;
+  empty slice renders exactly the fallback node; nil slice == empty slice
+  behavior; exact-HTML-string assertion for both branches.
+- [ ] **`Cond` / `Match` - boolean first-true-wins multi-branch** - fills the
+  gap between `IfElse` (2-way) and `Switch` (value-equality): for 3+ boolean
+  conditions you currently nest `IfElse`. `Cond(parseBranches ...CondBranch)
+  ui.Node` with `Match(isCondition bool, parseNode ui.Node) CondBranch` and a
+  `Default(node)`-style else; the first branch whose condition is true wins; no
+  match + no default -> empty node.
+  Test for: the first true branch wins even when a later branch is also true;
+  no-match-no-default yields an empty/Fragment node (renders ""); a default
+  branch is taken only when no condition matched; order is respected.
+- [ ] **`Range` / `Repeat` - count-based rendering** - `Map` needs an existing
+  slice; there is no "render N of these". `Range(parseCount int, render
+  func(parseIndex int) ui.Node) []ui.Node` and `Repeat(parseCount int, parseNode
+  ui.Node) []ui.Node`.
+  Test for: `Range(3, ...)` calls render with 0,1,2 and emits 3 nodes; count 0
+  and negative count emit zero nodes (no panic); `Repeat(2, node)` emits the node
+  twice; exact-HTML-string assertion.
+- [ ] **`MaybeOr[T]` - pointer-render with fallback** - `Maybe(*T, render)` has
+  no else and `OrElse(*T, fallback)` returns a value not a node. `MaybeOr[T any]
+  (parseValue *T, render func(T) ui.Node, parseFallback ui.Node) ui.Node` renders
+  from the pointee when non-nil, else the fallback node.
+  Test for: non-nil pointer renders from the dereferenced value (and NOT the
+  fallback); nil pointer renders exactly the fallback; no nil-deref panic;
+  exact-HTML-string assertion for both branches.
