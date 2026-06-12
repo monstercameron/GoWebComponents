@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/monstercameron/GoWebComponents/logging"
 )
 
 var traceReplayState struct {
@@ -24,7 +26,15 @@ func CaptureTrace(parseLabel string) TraceCapture {
 
 // ExportTraceCaptureJSON serializes one trace capture into stable JSON.
 func ExportTraceCaptureJSON(parseCapture TraceCapture) ([]byte, error) {
-	return json.Marshal(parseCapture)
+	parseEncoded, parseErr := json.Marshal(parseCapture)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	var parseGeneric any
+	if parseErr2 := json.Unmarshal(parseEncoded, &parseGeneric); parseErr2 != nil {
+		return nil, parseErr2
+	}
+	return json.Marshal(logging.RedactTelemetryValue("devtools.trace", parseGeneric))
 }
 
 // ImportTraceCaptureJSON deserializes one trace capture from JSON.

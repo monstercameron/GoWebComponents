@@ -3,6 +3,8 @@ package devtools
 import (
 	"encoding/json"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/logging"
 )
 
 const currentBugCaptureBundleVersion = 1
@@ -20,7 +22,15 @@ func CaptureBugBundle(parseLabel string) BugCaptureBundle {
 
 // ExportBugCaptureBundleJSON serializes one local debugging bundle into stable JSON.
 func ExportBugCaptureBundleJSON(parseBundle BugCaptureBundle) ([]byte, error) {
-	return json.Marshal(parseBundle)
+	parseEncoded, parseErr := json.Marshal(parseBundle)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	var parseGeneric any
+	if parseErr2 := json.Unmarshal(parseEncoded, &parseGeneric); parseErr2 != nil {
+		return nil, parseErr2
+	}
+	return json.Marshal(logging.RedactTelemetryValue("devtools.bug", parseGeneric))
 }
 
 // ImportBugCaptureBundleJSON deserializes one local debugging bundle from JSON.

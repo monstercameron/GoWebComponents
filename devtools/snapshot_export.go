@@ -6,11 +6,21 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+
+	"github.com/monstercameron/GoWebComponents/logging"
 )
 
 // ExportSnapshotJSON serializes a devtools snapshot into stable JSON.
 func ExportSnapshotJSON(parseSnapshot Snapshot) ([]byte, error) {
-	return json.Marshal(parseSnapshot)
+	parseEncoded, parseErr := json.Marshal(parseSnapshot)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	var parseGeneric any
+	if parseErr2 := json.Unmarshal(parseEncoded, &parseGeneric); parseErr2 != nil {
+		return nil, parseErr2
+	}
+	return json.Marshal(logging.RedactTelemetryValue("devtools.snapshot", parseGeneric))
 }
 
 // CompareSnapshots compares two snapshots and reports the top-level sections that changed.

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/logging"
 	"github.com/monstercameron/GoWebComponents/plugin"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -384,6 +385,34 @@ func TestTraceCaptureExportImportAndReplay(parseT *testing.T) {
 	ClearTraceReplay()
 	if _, parseOk2 := CurrentTraceReplay(); parseOk2 {
 		parseT.Fatal("expected replay to be cleared")
+	}
+}
+
+func TestTraceCaptureExportAppliesTelemetryRedaction(parseT *testing.T) {
+	parsePrevious := logging.CurrentTelemetryRedaction()
+	logging.ConfigureTelemetryRedaction(logging.RedactionPolicy{Fields: []string{"Value", "email"}})
+	parseT.Cleanup(func() { logging.ConfigureTelemetryRedaction(parsePrevious) })
+
+	parsePayload, parseErr := ExportTraceCaptureJSON(TraceCapture{
+		Label:      "pii",
+		CapturedAt: "2026-03-25T12:00:00Z",
+		Snapshot: Snapshot{
+			Tree: &Node{
+				Name:  "Profile",
+				Hooks: []Hook{{Kind: "state", Value: "cam@example.com"}},
+			},
+			Logs: []Log{{Fields: map[string]string{"email": "cam@example.com", "route": "/settings"}}},
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("ExportTraceCaptureJSON() error = %v", parseErr)
+	}
+	parseText := string(parsePayload)
+	if strings.Contains(parseText, "cam@example.com") {
+		parseT.Fatalf("expected configured fields to be redacted from devtools export, got %s", parseText)
+	}
+	if !strings.Contains(parseText, "[redacted]") || !strings.Contains(parseText, "/settings") {
+		parseT.Fatalf("expected redacted sensitive fields and retained safe fields, got %s", parseText)
 	}
 }
 

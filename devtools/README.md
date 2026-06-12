@@ -13,6 +13,10 @@ Devtools now resolves contributions from three layers:
 
 `ApplyHostExtensions` remains a compatibility seam for the public companion host. It no longer overwrites app-owned devtools state.
 
+## Telemetry Redaction
+
+Devtools JSON export helpers run through `logging.ConfigureTelemetryRedaction` before bytes are returned. The same policy covers snapshots, trace captures, and bug bundles so configured PII fields are scrubbed before they can leave the process.
+
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/devtools` (`package devtools`)
