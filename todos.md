@@ -336,7 +336,7 @@ impact; exactly three active items carry the next-work marker.
   build, vet, and full i18n suite green; tests in relative_format_test.go
   (34 subtests). Arabic is a curated approximation consistent with the
   existing FormatDate(ar).
-- [ ] **Browser Intl bridge** - the i18n formatters are framework
+- [~] **Browser Intl bridge** - the i18n formatters are framework
   implementations; expose an opt-in interop path to the browser's full
   ICU (Intl.NumberFormat/DateTimeFormat) for locales/options the Go
   implementation does not cover.
@@ -344,6 +344,16 @@ impact; exactly three active items carry the next-work marker.
   matrices; graceful fallback to the Go formatter when Intl or the
   requested locale is unavailable; no js.Func leaks across repeated
   formats (formatter instances cached and released).
+  Partial (2026-06-12): interop intl.go/intl_wasm.go/intl_native.go -
+  `IntlAvailable`, `IntlFormatNumber(locale,value,opts)`,
+  `IntlFormatDate(locale,unixMillis,opts)` (+ IntlNumberOptions/
+  IntlDateOptions). wasm constructs/caches Intl.NumberFormat/DateTimeFormat
+  per locale+options signature (mutex-guarded; no per-call reconstruction,
+  no js.Func leak - formatters are reused objects), JS exceptions recovered
+  into Go errors. Native returns unavailable so callers fall back to
+  i18n.FormatNumber/FormatDate. Pure-Go cache-key builders unit-tested (9
+  tests); native+wasm build clean. Remaining: the browser-lane test
+  sampling output against real Intl.
 
 ## Enterprise tier - security & supply chain
 
@@ -950,8 +960,29 @@ impact; exactly three active items carry the next-work marker.
 
 - [ ] Lazy DOM binding - the remaining named lever for the React DOM-ready
   startup gap (syscall/js bridge-bound).
-- [ ] Churn benchmark bistability - investigate the bimodal results in the
+- [x] Churn benchmark bistability - investigate the bimodal results in the
   render-benchmark churn scenario.
+  Done (2026-06-11): tracked the active churn cases to Example 201's
+  browser render benchmark (`core-append`, `core-filter`,
+  `primitive-append`, and `primitive-remove`). The benchmark was already
+  preserving sorted samples, but category/scenario ranking and the Markdown
+  report only surfaced arithmetic means, so bimodal runs could look like one
+  unstable number. Added DOM-ready standard deviation, coefficient of
+  variation, spread ratio, and a bimodality-aware `DOM Ready Rep.` summary to
+  the browser JSON; the report and UI now show representative timing, mean,
+  and a stability column. Scoring, ordering, and `DOM vs React` use the
+  representative value, while raw samples/mean/median remain visible for
+  audit. Also fixed the Playwright formatter to read the populated
+  `examples/testing/render-benchmark/score-reference.json` instead of the
+  empty `examples/201-render-benchmark` stub, and removed one runtime1
+  source of churn nondeterminism by appending remaining keyed deletions in old
+  sibling order instead of Go map iteration order. Verified with `node
+  --check examples/testing/render-benchmark/benchmark-subject.js`, `node
+  --check examples/testing/render-benchmark/benchmark-runner.js`, `go test
+  ./internal/runtime -count=1`, focused Example 201 report/statistics unit
+  tests under `go test -tags playwrightgo ./test/playwrightgo/examples`, and
+  the Playwright-backed `TestExample201BrowserBenchmarkHonorsConfiguredWorkerCounts`
+  smoke route.
 - [x] Multi-hot-reload state-survival e2e - cover state restoration across
   several consecutive hot reloads in a browser test.
   Done (2026-06-11): added a Playwright-backed browser protocol test for the
