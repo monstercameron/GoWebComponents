@@ -134,6 +134,34 @@ html,body{margin:0;background:#0a0f1a;color:#64748b;font:14px ui-monospace,Conso
 <script>
 ` + string(parseExecRaw) + `
 (function () {
+	var FAIL_KEY = "gwc.boot.fails";
+	var FAIL_LIMIT = 3;
+	function fails() { try { return parseInt(localStorage.getItem(FAIL_KEY) || "0", 10) || 0; } catch (e) { return 0; } }
+	function setFails(n) { try { localStorage.setItem(FAIL_KEY, String(n)); } catch (e) {} }
+	function purgeAndRetry() {
+		setFails(0);
+		if (window.caches && caches.keys) {
+			caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); })
+				.then(function () { location.reload(); }, function () { location.reload(); });
+		} else { location.reload(); }
+	}
+	// Crash-loop safe mode: after FAIL_LIMIT consecutive failed boots, show a
+	// minimal diagnostics view (no wasm) instead of re-running a build that just
+	// crashes again. The view needs no wasm so it always renders.
+	if (fails() >= FAIL_LIMIT) {
+		document.getElementById("app").innerHTML =
+			'<div style="max-width:640px;margin:12vh auto;padding:0 20px;line-height:1.6;color:#94a3b8">' +
+			'<h1 style="color:#e2e8f0">Safe mode</h1>' +
+			'<p>This app failed to start ' + fails() + ' times in a row, so it stopped auto-retrying to avoid a crash loop. ' +
+			'This is usually a stale cached build.</p>' +
+			'<button id="gwc-purge" style="background:#22d3ee;color:#0a0f1a;border:0;border-radius:6px;padding:10px 16px;font:inherit;cursor:pointer">Purge caches and retry</button>' +
+			'</div>';
+		document.getElementById("gwc-purge").addEventListener("click", purgeAndRetry);
+		return;
+	}
+	// Count this boot attempt up front; a healthy run clears it after a liveness
+	// window, so only repeated failures accumulate toward safe mode.
+	setFails(fails() + 1);
 	var go = new Go();
 	var load = ("instantiateStreaming" in WebAssembly)
 		? WebAssembly.instantiateStreaming(fetch("site.wasm"), go.importObject)
@@ -143,6 +171,8 @@ html,body{margin:0;background:#0a0f1a;color:#64748b;font:14px ui-monospace,Conso
 			var boot = document.getElementById("boot");
 			if (boot && boot.parentNode) boot.parentNode.removeChild(boot);
 			go.run(result.instance);
+			// Survived the liveness window => boot is healthy, reset the counter.
+			setTimeout(function () { setFails(0); }, 4000);
 		})
 		.catch(function (err) {
 			var boot = document.getElementById("boot");

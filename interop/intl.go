@@ -21,8 +21,11 @@ type IntlNumberOptions struct {
 	// value leaves the option unset (JS default applies).
 	MaximumFractionDigits int
 	// UseGrouping controls digit grouping separators (e.g. thousands commas).
-	// Matches the JS useGrouping option.
-	UseGrouping bool
+	// Matches the JS useGrouping option. nil leaves the option unset so the
+	// browser default applies (grouping on); a non-nil pointer forces the value.
+	// A plain bool could not distinguish "unset" from "explicitly false", which
+	// would wrongly suppress grouping on every call that did not set it.
+	UseGrouping *bool
 }
 
 // IntlDateOptions configures a browser Intl.DateTimeFormat instance. Fields map
@@ -51,8 +54,18 @@ func numberOptionsKey(parseLocale string, parseOpts IntlNumberOptions) string {
 		parseOpts.Currency,
 		strconv.Itoa(parseOpts.MinimumFractionDigits),
 		strconv.Itoa(parseOpts.MaximumFractionDigits),
-		strconv.FormatBool(parseOpts.UseGrouping),
+		groupingKeyPart(parseOpts.UseGrouping),
 	)
+}
+
+// groupingKeyPart renders the tri-state UseGrouping pointer for the cache key:
+// "unset", "true", or "false" - distinct so a nil and an explicit false do not
+// collide in the formatter cache.
+func groupingKeyPart(parseUseGrouping *bool) string {
+	if parseUseGrouping == nil {
+		return "unset"
+	}
+	return strconv.FormatBool(*parseUseGrouping)
 }
 
 // dateOptionsKey returns a stable string key for the given locale and options

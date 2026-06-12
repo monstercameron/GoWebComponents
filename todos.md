@@ -325,13 +325,20 @@ impact; exactly three active items carry the next-work marker.
   works (catches 5 violations on broken markup), so a green run means
   genuinely accessible, not broken-audit. Runs in the playwrightgo lane.
   Remaining: expand to all public examples + the docs-site routes.
-- [ ] **Docs-site dogfood: a11y primitives in the search modal** - the new
+- [x] **Docs-site dogfood: a11y primitives in the search modal** - the new
   pure-GWC site's search modal lacks UseFocusTrap/UseAnnouncer and the
   gallery filters lack composite keyboard navigation.
   Test for: focus is trapped while the modal is open and restored to the
   Search button on close (mirror TestAccessibleOverlayBrowserE2E);
   result-count changes are announced politely; Escape closes from any
   focused element inside the modal; filter chips are arrow-key navigable.
+  Done (2026-06-12): the site now uses `ui.AccessibleOverlay` for the
+  search dialog focus trap/restore/Escape/outside-dismiss contract and
+  `ui.UseAnnouncer` plus polite live regions for result-count changes.
+  The current filters are native selects rather than chips, so the
+  composite-navigation requirement is obsolete for this screen. Covered by
+  wasm markup/interaction tests in `examples/public-examples-site` and the
+  docs-site shell axe audit in the playwrightgo lane.
 - [x] **Reduced-motion / contrast preference hooks** - interop exposes
   GetMediaQuery but there is no UsePrefersReducedMotion /
   UsePrefersColorScheme hook pair, so apps re-derive them.
@@ -383,7 +390,7 @@ impact; exactly three active items carry the next-work marker.
   build, vet, and full i18n suite green; tests in relative_format_test.go
   (34 subtests). Arabic is a curated approximation consistent with the
   existing FormatDate(ar).
-- [~] **Browser Intl bridge** - the i18n formatters are framework
+- [x] **Browser Intl bridge** - the i18n formatters are framework
   implementations; expose an opt-in interop path to the browser's full
   ICU (Intl.NumberFormat/DateTimeFormat) for locales/options the Go
   implementation does not cover.
@@ -391,7 +398,19 @@ impact; exactly three active items carry the next-work marker.
   matrices; graceful fallback to the Go formatter when Intl or the
   requested locale is unavailable; no js.Func leaks across repeated
   formats (formatter instances cached and released).
-  Partial (2026-06-12): interop intl.go/intl_wasm.go/intl_native.go -
+  Done (2026-06-12, real browser): `TestIntlBridgeMatchesBrowserIntl`
+  builds a wasm fixture calling interop.IntlFormatNumber and compares
+  every result to `new Intl.NumberFormat(locale, opts).format(value)`
+  evaluated in the same headless-Chromium page - all 6 cases match
+  byte-for-byte (en-US 1,234,567.89 / de-DE 1.234.567,89 / ja-JP grouped /
+  fr-FR narrow-space / en-US explicit no-grouping). The cross-check also
+  SURFACED AND FIXED a real bridge bug: `IntlNumberOptions.UseGrouping` was
+  a plain bool always forwarded as false (zero value), suppressing
+  thousands separators on every call; changed it to `*bool` (nil = browser
+  default = grouping on; explicit value overrides) in intl.go/intl_wasm.go,
+  updated the cache key, and verified the override path. Native+wasm build,
+  interop tests green.
+  Earlier partial (2026-06-12): interop intl.go/intl_wasm.go/intl_native.go -
   `IntlAvailable`, `IntlFormatNumber(locale,value,opts)`,
   `IntlFormatDate(locale,unixMillis,opts)` (+ IntlNumberOptions/
   IntlDateOptions). wasm constructs/caches Intl.NumberFormat/DateTimeFormat
@@ -504,13 +523,22 @@ impact; exactly three active items carry the next-work marker.
 
 ## Enterprise tier - operational resilience
 
-- [ ] **Crash-loop safe mode** - containment keeps a running page alive,
+- [~] **Crash-loop safe mode** - containment keeps a running page alive,
   but a panic during boot reloads into the same crash forever.
   Test for: N consecutive failed boots (tracked in storage) switch the
   generated shell to a minimal diagnostics view with a cache-purge
   action instead of re-running the wasm; a successful boot resets the
   counter; the diagnostics view itself needs no wasm; e2e drives a
   deliberately boot-panicking module through the full loop.
+  Done (2026-06-12, implementation): the tools/sitegen boot shell now
+  tracks consecutive failed boots in localStorage (`gwc.boot.fails`):
+  after 3 it renders a no-wasm "Safe mode" diagnostics view with a "Purge
+  caches and retry" button (clears CacheStorage + resets counter +
+  reloads) INSTEAD of re-running the wasm; the counter increments before
+  each boot attempt and resets after a 4s liveness window once a boot is
+  healthy. Sitegen builds; logic is self-contained vanilla JS in the
+  generated shell. Remaining: the browser e2e driving a deliberately
+  boot-panicking module through the full loop (browser slice).
 - [ ] **Version-skew refresh flow** - wire formats are versioned now, but
   detection is not acted on: stale cached wasm against a redeployed
   server should trigger a controlled refresh, not an error.
@@ -924,7 +952,7 @@ impact; exactly three active items carry the next-work marker.
   `next:`, deduped per API by sync.Map; `WarnEmitted` test seam; 5 tests;
   native+wasm. Remaining: the lint check that flags new deprecations
   missing the warning.
-- [~] **Docs-site accessibility statement + dogfood pass** - the docs site
+- [x] **Docs-site accessibility statement + dogfood pass** - the docs site
   is now the flagship app but has no accessibility statement and (noted in
   the a11y section) does not yet use its own focus-trap/announcer
   primitives.
@@ -936,6 +964,12 @@ impact; exactly three active items carry the next-work marker.
   modal dogfood), and a feedback channel. Remaining: the axe-core audit
   lane and the actual search-modal focus-trap/announcer dogfood (browser-
   bound).
+  Done (2026-06-12): the docs site now dogfoods `ui.AccessibleOverlay` for
+  a trapped/restoring search dialog and `ui.UseAnnouncer`/polite live
+  regions for result-count updates; docs/ACCESSIBILITY.md now documents
+  current verification instead of known gaps. Added docs-site shell coverage
+  to the Playwright axe lane and wasm markup/interaction tests for the
+  search dialog contract.
 - [x] **Public benchmark / performance page** - the React-comparison data
   (6/6 paint wins, ~1.4MB, 304ms, 0-alloc reconcile) lives in commit
   history and stat cards but has no methodology-backed page an evaluator

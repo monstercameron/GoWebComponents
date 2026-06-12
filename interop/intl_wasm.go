@@ -125,7 +125,9 @@ func intlBuildNumberFormatter(parseLocale string, parseOpts IntlNumberOptions) (
 	if parseOpts.MaximumFractionDigits != 0 {
 		parseOptsObj.Set("maximumFractionDigits", parseOpts.MaximumFractionDigits)
 	}
-	parseOptsObj.Set("useGrouping", parseOpts.UseGrouping)
+	if parseOpts.UseGrouping != nil {
+		parseOptsObj.Set("useGrouping", *parseOpts.UseGrouping)
+	}
 
 	parseFmt = js.Global().Get("Intl").Get("NumberFormat").New(parseLocale, parseOptsObj)
 	return parseFmt, nil
