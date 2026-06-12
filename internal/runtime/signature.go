@@ -106,7 +106,7 @@ func buildComponentSignature(parseFiber *Fiber, parseHooks *Hooks) *ComponentSig
 }
 
 // describeCallableIdentity is a core package helper.
-func describeCallableIdentity(parseValue interface{}) (string, string) {
+func describeCallableIdentity(parseValue any) (string, string) {
 	if parseComponent, parseOk := parseValue.(*ComponentType); parseOk && parseComponent != nil {
 		parsePretty := strings.TrimSpace(parseComponent.Name)
 		parseQualified := strings.TrimSpace(parseComponent.IdentityKey())

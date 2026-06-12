@@ -41,7 +41,7 @@ func TestRecoveredRenderPanicDoesNotEmitFatalWrappedDiagnostics(parseT *testing.
 		panic("render boom")
 	}
 
-	parseRt.Render(CreateElement(parseBoundary, map[string]interface{}{
+	parseRt.Render(CreateElement(parseBoundary, map[string]any{
 		"errorFallback": func(parseErr error, reset func()) *Element {
 			return CreateElement("p", nil, "render fallback")
 		},
@@ -72,12 +72,12 @@ func TestRecoveredEventPanicDoesNotEmitFatalWrappedDiagnostics(parseT *testing.T
 				panic(errors.New("event boom"))
 			}
 		})
-		return CreateElement("button", map[string]interface{}{"onclick": parseHandler}, "click")
+		return CreateElement("button", map[string]any{"onclick": parseHandler}, "click")
 	}
 
-	parseRootElement := CreateElement(parseBoundary, map[string]interface{}{
+	parseRootElement := CreateElement(parseBoundary, map[string]any{
 		"errorFallback": func(parseErr error, reset func()) *Element {
-			return CreateElement("button", map[string]interface{}{
+			return CreateElement("button", map[string]any{
 				"onclick": func() {
 					shouldPanic = false
 					reset()
@@ -145,7 +145,7 @@ func TestEffectPanicMatrixCommitsThenBoundaryRecovers(parseT *testing.T) {
 		return CreateElement("span", nil, "effect ready")
 	}
 
-	parseRt.Render(CreateElement(parseBoundary, map[string]interface{}{
+	parseRt.Render(CreateElement(parseBoundary, map[string]any{
 		"errorFallback": func(parseErr error, reset func()) *Element {
 			return CreateElement("p", nil, "effect fallback")
 		},
@@ -192,7 +192,7 @@ func TestCleanupPanicMatrixRecoversAfterDeletion(parseT *testing.T) {
 		if shouldRenderChild {
 			parseContent = CreateElement(parseChild, nil)
 		}
-		return CreateElement(parseBoundary, map[string]interface{}{
+		return CreateElement(parseBoundary, map[string]any{
 			"errorFallback": func(parseErr error, reset func()) *Element {
 				return CreateElement("p", nil, "cleanup fallback")
 			},

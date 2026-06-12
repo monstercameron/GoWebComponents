@@ -10,12 +10,12 @@ type portalTestDOMAdapter struct {
 }
 
 // QuerySelector resolves a selector to a pre-registered DOM node for tests.
-func (parseA *portalTestDOMAdapter) QuerySelector(parseSelector string) interface{} {
+func (parseA *portalTestDOMAdapter) QuerySelector(parseSelector string) any {
 	return parseA.parseSelectors[parseSelector]
 }
 
 // ResolveNode resolves a raw token to a pre-registered DOM node for tests.
-func (parseA *portalTestDOMAdapter) ResolveNode(parseValue interface{}) DOMNode {
+func (parseA *portalTestDOMAdapter) ResolveNode(parseValue any) DOMNode {
 	parseToken, parseOk := parseValue.(string)
 	if !parseOk {
 		return nil
@@ -43,35 +43,35 @@ func TestReconcilerHelpersCoverHostAndReactiveValueBranches(parseT *testing.T) {
 	if parseGot := reactiveTextValue(nil); parseGot != "" {
 		parseT.Fatalf("reactiveTextValue(nil) = %q, want empty", parseGot)
 	}
-	if parseGot := reactiveTextValue(&Fiber{props: map[string]interface{}{}}); parseGot != "" {
+	if parseGot := reactiveTextValue(&Fiber{props: map[string]any{}}); parseGot != "" {
 		parseT.Fatalf("reactiveTextValue(missing getter) = %q, want empty", parseGot)
 	}
-	if parseGot := reactiveTextValue(&Fiber{props: map[string]interface{}{reactiveTextGetterProp: func() string { return "count:1" }}}); parseGot != "count:1" {
+	if parseGot := reactiveTextValue(&Fiber{props: map[string]any{reactiveTextGetterProp: func() string { return "count:1" }}}); parseGot != "count:1" {
 		parseT.Fatalf("reactiveTextValue(getter) = %q, want count:1", parseGot)
 	}
 
 	if parseGot := reactiveRegionValue(nil); parseGot != nil {
 		parseT.Fatalf("reactiveRegionValue(nil) = %#v, want nil", parseGot)
 	}
-	if parseGot := reactiveRegionValue(&Fiber{props: map[string]interface{}{}}); parseGot != nil {
+	if parseGot := reactiveRegionValue(&Fiber{props: map[string]any{}}); parseGot != nil {
 		parseT.Fatalf("reactiveRegionValue(missing render) = %#v, want nil", parseGot)
 	}
 	parseElement := CreateElement("section", nil, "portal")
-	if parseGot := reactiveRegionValue(&Fiber{props: map[string]interface{}{reactiveRegionRenderProp: func() *Element { return parseElement }}}); parseGot != parseElement {
+	if parseGot := reactiveRegionValue(&Fiber{props: map[string]any{reactiveRegionRenderProp: func() *Element { return parseElement }}}); parseGot != parseElement {
 		parseT.Fatalf("reactiveRegionValue(render) = %#v, want %#v", parseGot, parseElement)
 	}
 
 	if parseIDs := reactiveRegionSourceIDs(nil); parseIDs != nil {
 		parseT.Fatalf("reactiveRegionSourceIDs(nil) = %#v, want nil", parseIDs)
 	}
-	if parseIDs := reactiveRegionSourceIDs(&Fiber{props: map[string]interface{}{reactiveRegionSourceIDsProp: []string{""}}}); parseIDs != nil {
+	if parseIDs := reactiveRegionSourceIDs(&Fiber{props: map[string]any{reactiveRegionSourceIDsProp: []string{""}}}); parseIDs != nil {
 		parseT.Fatalf("reactiveRegionSourceIDs(blank single) = %#v, want nil", parseIDs)
 	}
-	parseSingleIDs := reactiveRegionSourceIDs(&Fiber{props: map[string]interface{}{reactiveRegionSourceIDsProp: []string{"count"}}})
+	parseSingleIDs := reactiveRegionSourceIDs(&Fiber{props: map[string]any{reactiveRegionSourceIDsProp: []string{"count"}}})
 	if len(parseSingleIDs) != 1 || parseSingleIDs[0] != "count" {
 		parseT.Fatalf("reactiveRegionSourceIDs(single) = %#v, want [count]", parseSingleIDs)
 	}
-	parseMultiIDs := reactiveRegionSourceIDs(&Fiber{props: map[string]interface{}{reactiveRegionSourceIDsProp: []string{"count", "", "count", "theme"}}})
+	parseMultiIDs := reactiveRegionSourceIDs(&Fiber{props: map[string]any{reactiveRegionSourceIDsProp: []string{"count", "", "count", "theme"}}})
 	if len(parseMultiIDs) != 2 || parseMultiIDs[0] != "count" || parseMultiIDs[1] != "theme" {
 		parseT.Fatalf("reactiveRegionSourceIDs(multi) = %#v, want [count theme]", parseMultiIDs)
 	}
@@ -79,9 +79,9 @@ func TestReconcilerHelpersCoverHostAndReactiveValueBranches(parseT *testing.T) {
 
 // TestResolvePortalParentCoversDirectResolvedAndSelectorTargets verifies direct DOM node, resolver, selector, and nil branches.
 func TestResolvePortalParentCoversDirectResolvedAndSelectorTargets(parseT *testing.T) {
-	parseSelectorNode := &testDOMNode{nodeType: "element", tag: "section", attributes: map[string]string{}, properties: map[string]interface{}{}, styles: map[string]string{}}
-	parseResolvedNode := &testDOMNode{nodeType: "element", tag: "aside", attributes: map[string]string{}, properties: map[string]interface{}{}, styles: map[string]string{}}
-	parseDirectNode := &testDOMNode{nodeType: "element", tag: "div", attributes: map[string]string{}, properties: map[string]interface{}{}, styles: map[string]string{}}
+	parseSelectorNode := &testDOMNode{nodeType: "element", tag: "section", attributes: map[string]string{}, properties: map[string]any{}, styles: map[string]string{}}
+	parseResolvedNode := &testDOMNode{nodeType: "element", tag: "aside", attributes: map[string]string{}, properties: map[string]any{}, styles: map[string]string{}}
+	parseDirectNode := &testDOMNode{nodeType: "element", tag: "div", attributes: map[string]string{}, properties: map[string]any{}, styles: map[string]string{}}
 	parseRt := &Runtime{
 		domAdapter: &portalTestDOMAdapter{
 			testDOMAdapter: newTestDOMAdapter(),
@@ -90,16 +90,16 @@ func TestResolvePortalParentCoversDirectResolvedAndSelectorTargets(parseT *testi
 		},
 	}
 
-	if parseGot := parseRt.resolvePortalParent(&Fiber{props: map[string]interface{}{"portalTargetNode": parseDirectNode}}); parseGot != parseDirectNode {
+	if parseGot := parseRt.resolvePortalParent(&Fiber{props: map[string]any{"portalTargetNode": parseDirectNode}}); parseGot != parseDirectNode {
 		parseT.Fatalf("resolvePortalParent(direct) = %#v, want %#v", parseGot, parseDirectNode)
 	}
-	if parseGot := parseRt.resolvePortalParent(&Fiber{props: map[string]interface{}{"portalTargetNode": "raw-portal"}}); parseGot != parseResolvedNode {
+	if parseGot := parseRt.resolvePortalParent(&Fiber{props: map[string]any{"portalTargetNode": "raw-portal"}}); parseGot != parseResolvedNode {
 		parseT.Fatalf("resolvePortalParent(resolved) = %#v, want %#v", parseGot, parseResolvedNode)
 	}
-	if parseGot := parseRt.resolvePortalParent(&Fiber{props: map[string]interface{}{"portalTargetSelector": "#portal"}}); parseGot != parseSelectorNode {
+	if parseGot := parseRt.resolvePortalParent(&Fiber{props: map[string]any{"portalTargetSelector": "#portal"}}); parseGot != parseSelectorNode {
 		parseT.Fatalf("resolvePortalParent(selector) = %#v, want %#v", parseGot, parseSelectorNode)
 	}
-	if parseGot := parseRt.resolvePortalParent(&Fiber{props: map[string]interface{}{}}); parseGot != nil {
+	if parseGot := parseRt.resolvePortalParent(&Fiber{props: map[string]any{}}); parseGot != nil {
 		parseT.Fatalf("resolvePortalParent(missing target) = %#v, want nil", parseGot)
 	}
 }

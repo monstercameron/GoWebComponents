@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sort"
+	"slices"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -476,9 +476,7 @@ func (parseS *chatServer) parseListWorkspaceActiveUserIDs(parseWorkspaceID int64
 	for parseUserID := range parseUserIDSet {
 		parseUserIDs = append(parseUserIDs, parseUserID)
 	}
-	sort.Slice(parseUserIDs, func(parseI int, parseJ int) bool {
-		return parseUserIDs[parseI] < parseUserIDs[parseJ]
-	})
+	slices.Sort(parseUserIDs)
 	return parseUserIDs, nil
 }
 

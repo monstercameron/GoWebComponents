@@ -22,13 +22,13 @@ const (
 
 // SSRBootstrap captures the server-provided state needed to resume a route on the client.
 type SSRBootstrap struct {
-	Version       int                    `json:"version,omitempty"`
-	CorrelationID string                 `json:"correlationId,omitempty"`
-	Route         SSRRouteBootstrap      `json:"route,omitempty"`
-	Atoms         map[string]interface{} `json:"atoms,omitempty"`
-	Data          map[string]interface{} `json:"data,omitempty"`
-	I18n          SSRI18nBootstrap       `json:"i18n,omitempty"`
-	IDSeed        int                    `json:"idSeed,omitempty"`
+	Version       int               `json:"version,omitempty"`
+	CorrelationID string            `json:"correlationId,omitempty"`
+	Route         SSRRouteBootstrap `json:"route"`
+	Atoms         map[string]any    `json:"atoms,omitempty"`
+	Data          map[string]any    `json:"data,omitempty"`
+	I18n          SSRI18nBootstrap  `json:"i18n"`
+	IDSeed        int               `json:"idSeed,omitempty"`
 }
 
 type SSRI18nBootstrap struct {
@@ -147,10 +147,10 @@ func normalizeSSRBootstrap(parsePayload SSRBootstrap) (SSRBootstrap, error) {
 		parsePayload.Route.Params = map[string]string{}
 	}
 	if parsePayload.Atoms == nil {
-		parsePayload.Atoms = map[string]interface{}{}
+		parsePayload.Atoms = map[string]any{}
 	}
 	if parsePayload.Data == nil {
-		parsePayload.Data = map[string]interface{}{}
+		parsePayload.Data = map[string]any{}
 	}
 	if parsePayload.I18n.Messages == nil {
 		parsePayload.I18n.Messages = map[string]map[string]SSRI18nMessage{}

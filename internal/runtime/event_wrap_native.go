@@ -1,10 +1,9 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package runtime
 
 // wrapEventHandler is a core package helper.
-func (parseRuntime *Runtime) wrapEventHandler(parseEventOwner *Fiber, parseEventFn interface{}) interface{} {
+func (parseRuntime *Runtime) wrapEventHandler(parseEventOwner *Fiber, parseEventFn any) any {
 	switch parseEventTyped := parseEventFn.(type) {
 	case func():
 		return func() {

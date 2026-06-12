@@ -164,7 +164,7 @@ func TestBuildParallelRegionWorkerRenderOutputWrapsShell(parseT *testing.T) {
 
 // TestBuildParallelRegionWorkerPropsOutputStripsInteractiveProps verifies display-only worker output drops local event handlers and bridge-only markers.
 func TestBuildParallelRegionWorkerPropsOutputStripsInteractiveProps(parseT *testing.T) {
-	getPropsOutput, getNodeKey, parsePropsErr := buildParallelRegionWorkerPropsOutput(map[string]interface{}{
+	getPropsOutput, getNodeKey, parsePropsErr := buildParallelRegionWorkerPropsOutput(map[string]any{
 		"key":                       "slot-1",
 		"onclick":                   func() {},
 		parallelRegionClickSlotProp: "primary.action",
@@ -194,7 +194,7 @@ func TestBuildParallelRegionBridgedNodeStripsInternalClickSlotMarker(parseT *tes
 		Reset:      true,
 	})
 
-	getNode := runtime.CreateElement("button", map[string]interface{}{
+	getNode := runtime.CreateElement("button", map[string]any{
 		parallelRegionClickSlotProp: "primary.action",
 		"onclick":                   func() {},
 	})
@@ -521,7 +521,7 @@ func TestParallelRegionNativeFallbackKeepsLocalOnlyRendering(parseT *testing.T) 
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
-		return runtime.CreateElement("button", map[string]interface{}{
+		return runtime.CreateElement("button", map[string]any{
 			parallelRegionClickSlotProp: "primary.action",
 			"onclick":                   func() {},
 		}, Text(parseProps.Label))
@@ -745,11 +745,11 @@ func TestReportParallelRegionDiagnosticErrorAndSharedRuntimeHelpers(parseT *test
 	if len(getDiagnostics) != 1 || getDiagnostics[0].Source != "ui" || getDiagnostics[0].Severity != runtime.DiagnosticError {
 		parseT.Fatalf("diagnostics = %+v, want one ui error diagnostic", getDiagnostics)
 	}
-	getEmptyShell := renderParallelRegionShellNode(map[string]interface{}{"id": "shell"}, nil)
+	getEmptyShell := renderParallelRegionShellNode(map[string]any{"id": "shell"}, nil)
 	if getEmptyShell.Type != "div" || len(getEmptyShell.Children) != 0 {
 		parseT.Fatalf("empty shell = %+v, want div without children", getEmptyShell)
 	}
-	getChildShell := renderParallelRegionShellNode(map[string]interface{}{"id": "shell"}, Text("hot"))
+	getChildShell := renderParallelRegionShellNode(map[string]any{"id": "shell"}, Text("hot"))
 	if len(getChildShell.Children) != 1 {
 		parseT.Fatalf("shell child count = %d, want 1", len(getChildShell.Children))
 	}
@@ -1021,7 +1021,7 @@ func TestBuildParallelRegionWorkerBridgeCoversConversionBranches(parseT *testing
 	if !hasShellMap || getShellMap["tag"] != "div" {
 		parseT.Fatalf("shell output = %#v, want div shell map", getShellOutput)
 	}
-	getButtonNode := runtime.CreateElement("button", map[string]interface{}{
+	getButtonNode := runtime.CreateElement("button", map[string]any{
 		"key":         "action-1",
 		"class":       "primary",
 		"children":    "ignored",
@@ -1055,17 +1055,17 @@ func TestBuildParallelRegionWorkerBridgeCoversConversionBranches(parseT *testing
 	if _, parseUnknownErr := buildParallelRegionWorkerNodeOutput(&runtime.Element{Type: 123}); parseUnknownErr == nil {
 		parseT.Fatal("expected unknown node conversion to fail")
 	}
-	getChildrenOutput, parseChildrenErr := buildParallelRegionWorkerChildrenOutput([]interface{}{nil, Text("One"), "Two"})
+	getChildrenOutput, parseChildrenErr := buildParallelRegionWorkerChildrenOutput([]any{nil, Text("One"), "Two"})
 	if parseChildrenErr != nil {
 		parseT.Fatalf("buildParallelRegionWorkerChildrenOutput(valid) returned error: %v", parseChildrenErr)
 	}
 	if len(getChildrenOutput) != 2 {
 		parseT.Fatalf("worker children output count = %d, want 2", len(getChildrenOutput))
 	}
-	if _, parseChildTypeErr := buildParallelRegionWorkerChildrenOutput([]interface{}{1}); parseChildTypeErr == nil {
+	if _, parseChildTypeErr := buildParallelRegionWorkerChildrenOutput([]any{1}); parseChildTypeErr == nil {
 		parseT.Fatal("expected unsupported child type to fail")
 	}
-	if _, _, parseKeyErr := buildParallelRegionWorkerPropsOutput(map[string]interface{}{"key": 7}); parseKeyErr == nil {
+	if _, _, parseKeyErr := buildParallelRegionWorkerPropsOutput(map[string]any{"key": 7}); parseKeyErr == nil {
 		parseT.Fatal("expected non-string worker key prop to fail")
 	}
 }
@@ -1079,7 +1079,7 @@ func TestBuildParallelRegionWorkerRenderOutputAndUpdateEdgeBranches(parseT *test
 		Reset:      true,
 	})
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
-		return runtime.CreateElement("button", map[string]interface{}{
+		return runtime.CreateElement("button", map[string]any{
 			parallelRegionClickSlotProp: "primary.action",
 			"onclick":                   func() {},
 		}, Text(parseProps.Label))

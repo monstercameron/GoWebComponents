@@ -14,13 +14,13 @@ func TestReconcileChildren_RerenderNoChanges(parseT *testing.T) {
 	parseParentFiber := &Fiber{
 		typeOf: "ROOT",
 		dom:    &testDOMNode{tag: "div", children: make([]DOMNode, 0)},
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
 	// First render
-	parseElements1 := []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"class": "first"}},
-		&Element{Type: "span", Props: map[string]interface{}{"class": "second"}},
+	parseElements1 := []any{
+		&Element{Type: "div", Props: map[string]any{"class": "first"}},
+		&Element{Type: "span", Props: map[string]any{"class": "second"}},
 	}
 
 	parseRt.reconcileChildren(parseParentFiber, parseElements1)
@@ -52,13 +52,13 @@ func TestReconcileChildren_RerenderNoChanges(parseT *testing.T) {
 	parseParentFiber2 := &Fiber{
 		typeOf:    "ROOT",
 		dom:       parseParentFiber.dom, // Same DOM node
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: parseParentFiber, // Link to previous fiber tree
 	}
 
-	parseElements2 := []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"class": "first"}},
-		&Element{Type: "span", Props: map[string]interface{}{"class": "second"}},
+	parseElements2 := []any{
+		&Element{Type: "div", Props: map[string]any{"class": "first"}},
+		&Element{Type: "span", Props: map[string]any{"class": "second"}},
 	}
 
 	parseRt.reconcileChildren(parseParentFiber2, parseElements2)
@@ -93,18 +93,18 @@ func TestReconcileChildren_RerenderSameComponentTwice(parseT *testing.T) {
 	parseRt := &Runtime{domAdapter: parseMockDOM, deletions: make([]*Fiber, 0)}
 
 	// Component that returns a div
-	parseComponent := func(_ map[string]interface{}) *Element {
-		return &Element{Type: "div", Props: map[string]interface{}{"class": "stats"}}
+	parseComponent := func(_ map[string]any) *Element {
+		return &Element{Type: "div", Props: map[string]any{"class": "stats"}}
 	}
 
 	parseParentFiber := &Fiber{
 		typeOf: "ROOT",
 		dom:    &testDOMNode{tag: "div", children: make([]DOMNode, 0)},
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
 	// First render - component called
-	parseElements1 := []interface{}{parseComponent(nil)}
+	parseElements1 := []any{parseComponent(nil)}
 	parseRt.reconcileChildren(parseParentFiber, parseElements1)
 
 	// Verify first child was created as PLACEMENT
@@ -121,11 +121,11 @@ func TestReconcileChildren_RerenderSameComponentTwice(parseT *testing.T) {
 	parseParentFiber2 := &Fiber{
 		typeOf:    "ROOT",
 		dom:       parseParentFiber.dom,
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: parseParentFiber,
 	}
 
-	parseElements2 := []interface{}{parseComponent(nil)}
+	parseElements2 := []any{parseComponent(nil)}
 	parseRt.reconcileChildren(parseParentFiber2, parseElements2)
 
 	// Should be UPDATE, not PLACEMENT

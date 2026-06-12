@@ -85,10 +85,7 @@ func parseBuildCustomerBillingPreview(parsePlan *parseBillingPlanRow, parseLates
 
 	if parsePlan != nil {
 		parsePreview.PlanCode = parsePlan.PlanCode
-		parsePreview.UsagePremiumBasisPoints = parsePlan.UsagePremiumBasisPoints
-		if parsePreview.UsagePremiumBasisPoints < 0 {
-			parsePreview.UsagePremiumBasisPoints = 0
-		}
+		parsePreview.UsagePremiumBasisPoints = max(parsePlan.UsagePremiumBasisPoints, 0)
 		if parsePreview.MonthlyPlatformFeeCents <= 0 {
 			parsePreview.MonthlyPlatformFeeCents = parsePlan.MonthlyPlatformFeeCents
 			if parsePreview.MonthlyPlatformFeeCents <= 0 {

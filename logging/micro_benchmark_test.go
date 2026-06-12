@@ -6,7 +6,7 @@ func BenchmarkCloneFieldsMicro(parseB *testing.B) {
 	parseFields := Fields{
 		"path":   "/orders/123",
 		"status": "ok",
-		"latency": map[string]interface{}{
+		"latency": map[string]any{
 			"ms": 12,
 		},
 	}

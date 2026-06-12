@@ -10,13 +10,13 @@ import (
 // TestAuthorizeWorkspaceProvisioningAssignment verifies invite/domain/JIT workspace assignment boundaries.
 func TestAuthorizeWorkspaceProvisioningAssignment(parseT *testing.T) {
 	parseDecision, parseErr := parseAuthorizeWorkspaceProvisioningAssignment(parseWorkspaceProvisioningAssignmentRequest{
-		ParseProviderKey:      "google_oidc",
-		ParseEmail:            "invitee@example.com",
-		IsParseEmailVerified:  true,
+		ParseProviderKey:       "google_oidc",
+		ParseEmail:             "invitee@example.com",
+		IsParseEmailVerified:   true,
 		ParseInviteWorkspaceID: 77,
-		ParseInviteRoleKey:    "admin",
-		ParseInviteEmail:      "invitee@example.com",
-		IsParseInvitePending:  true,
+		ParseInviteRoleKey:     "admin",
+		ParseInviteEmail:       "invitee@example.com",
+		IsParseInvitePending:   true,
 	})
 	if parseErr != nil {
 		parseT.Fatalf("invite assignment allow: %v", parseErr)
@@ -26,31 +26,31 @@ func TestAuthorizeWorkspaceProvisioningAssignment(parseT *testing.T) {
 	}
 
 	if _, parseErr = parseAuthorizeWorkspaceProvisioningAssignment(parseWorkspaceProvisioningAssignmentRequest{
-		ParseProviderKey:      "google_oidc",
-		ParseEmail:            "invitee@example.com",
-		IsParseEmailVerified:  true,
+		ParseProviderKey:       "google_oidc",
+		ParseEmail:             "invitee@example.com",
+		IsParseEmailVerified:   true,
 		ParseInviteWorkspaceID: 77,
-		ParseInviteEmail:      "other@example.com",
-		IsParseInvitePending:  true,
+		ParseInviteEmail:       "other@example.com",
+		IsParseInvitePending:   true,
 	}); status.Code(parseErr) != codes.PermissionDenied {
 		parseT.Fatalf("invite email mismatch status code=%v want=%v", status.Code(parseErr), codes.PermissionDenied)
 	}
 
 	if _, parseErr = parseAuthorizeWorkspaceProvisioningAssignment(parseWorkspaceProvisioningAssignmentRequest{
-		ParseProviderKey:      "oidc",
-		ParseEmail:            "member@company.com",
-		IsParseEmailVerified:  true,
-		IsParseJITProvisioningAllowed: true,
+		ParseProviderKey:               "oidc",
+		ParseEmail:                     "member@company.com",
+		IsParseEmailVerified:           true,
+		IsParseJITProvisioningAllowed:  true,
 		ParseDomainMatchedWorkspaceIDs: []int64{21, 22},
 	}); status.Code(parseErr) != codes.PermissionDenied {
 		parseT.Fatalf("domain ambiguous status code=%v want=%v", status.Code(parseErr), codes.PermissionDenied)
 	}
 
 	parseDecision, parseErr = parseAuthorizeWorkspaceProvisioningAssignment(parseWorkspaceProvisioningAssignmentRequest{
-		ParseProviderKey:      "oidc",
-		ParseEmail:            "member@company.com",
-		IsParseEmailVerified:  true,
-		IsParseJITProvisioningAllowed: true,
+		ParseProviderKey:               "oidc",
+		ParseEmail:                     "member@company.com",
+		IsParseEmailVerified:           true,
+		IsParseJITProvisioningAllowed:  true,
 		ParseDomainMatchedWorkspaceIDs: []int64{21},
 	})
 	if parseErr != nil {
@@ -61,10 +61,10 @@ func TestAuthorizeWorkspaceProvisioningAssignment(parseT *testing.T) {
 	}
 
 	if _, parseErr = parseAuthorizeWorkspaceProvisioningAssignment(parseWorkspaceProvisioningAssignmentRequest{
-		ParseProviderKey:      "oidc",
-		ParseEmail:            "member@company.com",
-		IsParseEmailVerified:  false,
-		IsParseJITProvisioningAllowed: true,
+		ParseProviderKey:               "oidc",
+		ParseEmail:                     "member@company.com",
+		IsParseEmailVerified:           false,
+		IsParseJITProvisioningAllowed:  true,
 		ParseDomainMatchedWorkspaceIDs: []int64{21},
 	}); status.Code(parseErr) != codes.PermissionDenied {
 		parseT.Fatalf("unverified email status code=%v want=%v", status.Code(parseErr), codes.PermissionDenied)

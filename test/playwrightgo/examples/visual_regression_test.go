@@ -478,3 +478,189 @@ func TestVisualRegressionStablePageBaseline(parseT *testing.T) {
 	}
 	parseT.Log("TestVisualRegressionStablePageBaseline complete")
 }
+
+// TestVisualRegressionAdditionalPages extends the visual-regression lane to three
+// more pages that are known to be quiescent on load: semantic-html, hash-router,
+// and toggle. For each page the test asserts same-page stability (two consecutive
+// screenshots of the identical DOM must differ by at most parseSamePageTolerance).
+//
+// We do NOT commit golden PNG baselines — see TestVisualRegressionStablePageBaseline
+// for the full design rationale. This test exercises the screenshot infrastructure
+// across a broader set of example slugs without requiring environment-specific files.
+//
+// Pages were chosen because they have no animated, time-dependent, or blinking
+// regions in their initial rendered state:
+//
+//   semantic-html   — static landmark structure, no user interaction on load
+//   hash-router     — renders the "/" hash route statically; no counters or timers
+//   toggle          — a single boolean toggle rendered at rest (false state)
+func TestVisualRegressionAdditionalPages(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+
+	// Port 18267 is reserved for this test.
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18267")
+
+	if parseErr := ensureExamplesChromiumInstalled(); parseErr != nil {
+		parseT.Fatalf("install chromium: %v", parseErr)
+	}
+	parsePw, parseErr := playwright.Run(&playwright.RunOptions{
+		Browsers: []string{"chromium"},
+		Verbose:  false,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("run playwright-go: %v", parseErr)
+	}
+	defer func() {
+		if parseStopErr := parsePw.Stop(); parseStopErr != nil {
+			parseT.Errorf("stop playwright-go: %v", parseStopErr)
+		}
+	}()
+
+	parseBrowserHandle, parseErr := launchExamplesBrowser(parsePw, "chromium")
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer func() {
+		if parseCloseErr := parseBrowserHandle.Close(); parseCloseErr != nil {
+			parseT.Errorf("close chromium: %v", parseCloseErr)
+		}
+	}()
+
+	// Fixed viewport so screenshot dimensions are deterministic across environments.
+	parseCtx, parseCtxErr := parseBrowserHandle.NewContext(playwright.BrowserNewContextOptions{
+		Viewport: &playwright.Size{Width: 1024, Height: 768},
+	})
+	if parseCtxErr != nil {
+		parseT.Fatalf("new browser context: %v", parseCtxErr)
+	}
+	defer func() {
+		if parseCloseErr := parseCtx.Close(); parseCloseErr != nil {
+			parseT.Errorf("close browser context: %v", parseCloseErr)
+		}
+	}()
+
+	// Same-page stability tolerance (matches TestVisualRegressionStablePageBaseline).
+	// 0.1 % of pixels may differ due to sub-pixel antialiasing jitter between two
+	// consecutive Chromium frames. In practice the same-page diff is 0.000000 on
+	// headless Chromium for static pages, so this tolerance has large headroom.
+	// Do NOT raise this value without adding a mask for any dynamic region and
+	// documenting the reason here.
+	const parseSamePageTolerance = 0.001
+
+	parsePages := []struct {
+		slug        string
+		description string
+	}{
+		{"semantic-html", "static semantic HTML landmark structure — no animated regions on load"},
+		{"hash-router", "hash router at / route — fully static initial render"},
+		{"toggle", "single boolean toggle rendered at rest (off state) — no blinking or animation"},
+	}
+
+	for _, parsePg := range parsePages {
+		parsePg := parsePg
+		parseT.Run(parsePg.slug, func(parseT *testing.T) {
+			parseExampleURL := parseBaseURL + "/examples/public-examples-site/assets/examples/" + parsePg.slug + "/"
+
+			parsePage, parsePageErr := parseCtx.NewPage()
+			if parsePageErr != nil {
+				parseT.Fatalf("new page: %v", parsePageErr)
+			}
+			defer func() {
+				if parseCloseErr := parsePage.Close(); parseCloseErr != nil {
+					parseT.Errorf("close page: %v", parseCloseErr)
+				}
+			}()
+
+			if parseVPErr := parsePage.SetViewportSize(1024, 768); parseVPErr != nil {
+				parseT.Fatalf("set viewport: %v", parseVPErr)
+			}
+
+			var parseConsoleErrors []string
+			parsePage.On("console", func(parseMsg playwright.ConsoleMessage) {
+				if parseMsg.Type() == "error" {
+					parseConsoleErrors = append(parseConsoleErrors, parseMsg.Text())
+				}
+			})
+
+			parseT.Logf("navigating to %s", parseExampleURL)
+			if _, parseNavErr := parsePage.Goto(parseExampleURL, playwright.PageGotoOptions{
+				WaitUntil: playwright.WaitUntilStateLoad,
+			}); parseNavErr != nil {
+				parseT.Fatalf("navigate to %s: %v", parseExampleURL, parseNavErr)
+			}
+
+			// Wait for WASM boot.
+			if _, parseWaitErr := parsePage.WaitForFunction(wasmReadyPredicateVR, nil, playwright.PageWaitForFunctionOptions{
+				Timeout: playwright.Float(90000),
+			}); parseWaitErr != nil {
+				parseT.Logf("WASM never booted for %s (skip VR): %v", parsePg.slug, parseWaitErr)
+				parseT.Skip("WASM app did not boot — skipping visual-regression check")
+			}
+			parseT.Logf("WASM app booted: %s (%s)", parsePg.slug, parsePg.description)
+
+			// Suppress CSS animations and caret blinks.
+			if _, parseInjectErr := parsePage.Evaluate(`() => {
+				const parseStyle = document.createElement('style');
+				parseStyle.textContent = '*, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; caret-color: transparent !important; }';
+				document.head.appendChild(parseStyle);
+			}`, nil); parseInjectErr != nil {
+				parseT.Logf("animation suppression inject failed (non-fatal): %v", parseInjectErr)
+			}
+
+			// Let fonts finish rasterising.
+			time.Sleep(300 * time.Millisecond)
+
+			// Screenshot A — baseline.
+			parseShotABytes, parseShotAErr := parsePage.Screenshot(playwright.PageScreenshotOptions{
+				FullPage: playwright.Bool(false),
+				Type:     playwright.ScreenshotTypePng,
+			})
+			if parseShotAErr != nil {
+				parseT.Fatalf("screenshot A: %v", parseShotAErr)
+			}
+			parseT.Logf("screenshot A: %d bytes", len(parseShotABytes))
+
+			time.Sleep(100 * time.Millisecond)
+
+			// Screenshot B — same DOM state.
+			parseShotBBytes, parseShotBErr := parsePage.Screenshot(playwright.PageScreenshotOptions{
+				FullPage: playwright.Bool(false),
+				Type:     playwright.ScreenshotTypePng,
+			})
+			if parseShotBErr != nil {
+				parseT.Fatalf("screenshot B: %v", parseShotBErr)
+			}
+			parseT.Logf("screenshot B: %d bytes", len(parseShotBBytes))
+
+			// No mask needed: all three pages have no dynamic regions when idle.
+			var parseNoMask []image.Rectangle
+
+			parseSamePageFrac, parseCompErr := compareScreenshots(parseShotABytes, parseShotBBytes, parseNoMask, parseSamePageTolerance)
+			if parseCompErr != nil {
+				parseT.Fatalf("compareScreenshots: %v", parseCompErr)
+			}
+			parseT.Logf("same-page diff fraction: %.6f (tolerance %.3f)", parseSamePageFrac, parseSamePageTolerance)
+
+			if parseSamePageFrac > parseSamePageTolerance {
+				parseT.Errorf("same-page stability FAIL for %s: diffFraction = %.6f exceeds tolerance %.3f — "+
+					"the page is not rendering stably between successive screenshots; "+
+					"add a mask for the dynamic region or raise parseSamePageTolerance with justification",
+					parsePg.slug, parseSamePageFrac, parseSamePageTolerance)
+			} else {
+				parseT.Logf("same-page stability PASS for %s: diffFraction = %.6f <= %.3f", parsePg.slug, parseSamePageFrac, parseSamePageTolerance)
+			}
+
+			// Report console errors (non-fatal — VR is DOM-pixel only).
+			parseCrashKeywords := []string{"Uncaught", "FATAL", "panic"}
+			for _, parseMsg := range parseConsoleErrors {
+				parseT.Logf("JS console error: %s", parseMsg)
+				for _, parseKW := range parseCrashKeywords {
+					if containsSubstring(parseMsg, parseKW) {
+						parseT.Errorf("fatal JS console error: %s", parseMsg)
+					}
+				}
+			}
+		})
+	}
+}

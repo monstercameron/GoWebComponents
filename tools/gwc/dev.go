@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -352,13 +353,7 @@ func resolveScaffoldMetadataForConfig(parseCwd string, parseConfiguredRoot strin
 		if parseInfo, parseErr2 := os.Stat(parseResolved); parseErr2 == nil && !parseInfo.IsDir() {
 			parseResolved = filepath.Dir(parseResolved)
 		}
-		isParseAlreadyIncluded := false
-		for _, parseExisting := range parseCandidates {
-			if parseExisting == parseResolved {
-				isParseAlreadyIncluded = true
-				break
-			}
-		}
+		isParseAlreadyIncluded := slices.Contains(parseCandidates, parseResolved)
 		if !isParseAlreadyIncluded {
 			parseCandidates = append(parseCandidates, parseResolved)
 		}
@@ -490,7 +485,7 @@ func printDevPlan(parseConfig devConfig) {
 
 func printDevPlanJSON(parseConfig devConfig) error {
 	parsePlan := describeDevPlan(parseConfig)
-	parsePayload := map[string]interface{}{
+	parsePayload := map[string]any{
 		"app":          parseConfig.appPath,
 		"root":         parseConfig.rootPath,
 		"projectRoot":  parsePlan.ProjectRoot,

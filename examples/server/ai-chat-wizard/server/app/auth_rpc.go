@@ -4,7 +4,7 @@ package app
 import (
 	"context"
 	"errors"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -167,9 +167,7 @@ func (parseS *chatServer) parseBuildAuthBootstrapRoleSummary(parseUserID int64) 
 	for parseWorkspaceID := range parseScope.workspaceIDs {
 		parseWorkspaceIDs = append(parseWorkspaceIDs, parseWorkspaceID)
 	}
-	sort.Slice(parseWorkspaceIDs, func(parseI, parseJ int) bool {
-		return parseWorkspaceIDs[parseI] < parseWorkspaceIDs[parseJ]
-	})
+	slices.Sort(parseWorkspaceIDs)
 	parseSummary.WorkspaceAdminWorkspaceIds = parseWorkspaceIDs
 	return parseSummary
 }

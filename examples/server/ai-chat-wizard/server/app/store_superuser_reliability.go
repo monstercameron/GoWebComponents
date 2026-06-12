@@ -339,10 +339,7 @@ func (parseS *Store) parseUpsertSuperuserDataRetentionPolicy(parseWrite parseSup
 	if parseWrite.WorkspaceID <= 0 || parseScopeKey == "" {
 		return parseDataRetentionPolicyRow{}, errors.New("upsert superuser data retention policy: workspace id and scope key are required")
 	}
-	parseRetentionDays := parseWrite.RetentionDays
-	if parseRetentionDays < 0 {
-		parseRetentionDays = 0
-	}
+	parseRetentionDays := max(parseWrite.RetentionDays, 0)
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseResult, parseErr := parseS.db.Exec(
 		parseS.queries.upsertDataRetentionPolicy,
@@ -568,10 +565,7 @@ func (parseS *Store) parseUpsertSuperuserServiceLevelObjective(parseWrite parseS
 	if parseWindowDays <= 0 {
 		parseWindowDays = 30
 	}
-	parseErrorBudgetMinutes := parseWrite.ErrorBudgetMinutes
-	if parseErrorBudgetMinutes < 0 {
-		parseErrorBudgetMinutes = 0
-	}
+	parseErrorBudgetMinutes := max(parseWrite.ErrorBudgetMinutes, 0)
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	if _, parseErr := parseS.db.Exec(
 		parseS.queries.upsertServiceLevelObjective,

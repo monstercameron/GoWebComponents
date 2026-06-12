@@ -37,8 +37,8 @@ var reservedRecordKeys = map[string]struct{}{
 }
 
 // buildLogFields normalizes logger arguments into one structured field map.
-func buildLogFields(parseLogArgs []any) map[string]interface{} {
-	var parseFields map[string]interface{}
+func buildLogFields(parseLogArgs []any) map[string]any {
+	var parseFields map[string]any
 	for parseIndex := 0; parseIndex < len(parseLogArgs); parseIndex++ {
 		parseArg := parseLogArgs[parseIndex]
 		if parseArg == nil {
@@ -46,7 +46,7 @@ func buildLogFields(parseLogArgs []any) map[string]interface{} {
 		}
 
 		switch parseTyped := parseArg.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			for parseFieldKey, parseFieldValue := range parseTyped {
 				parseFields = storeLogFieldValue(parseFields, parseFieldKey, parseFieldValue)
 			}
@@ -82,7 +82,7 @@ func buildLogFields(parseLogArgs []any) map[string]interface{} {
 }
 
 // buildLogAttrFields stores one slog attribute inside the structured field map.
-func buildLogAttrFields(parseFields map[string]interface{}, parseAttr slog.Attr) map[string]interface{} {
+func buildLogAttrFields(parseFields map[string]any, parseAttr slog.Attr) map[string]any {
 	parseFieldKey := strings.TrimSpace(parseAttr.Key)
 	if parseFieldKey == "" {
 		return parseFields
@@ -91,13 +91,13 @@ func buildLogAttrFields(parseFields map[string]interface{}, parseAttr slog.Attr)
 }
 
 // storeLogFieldValue writes one normalized field value into the structured field map.
-func storeLogFieldValue(parseFields map[string]interface{}, parseFieldKey string, parseFieldValue any) map[string]interface{} {
+func storeLogFieldValue(parseFields map[string]any, parseFieldKey string, parseFieldValue any) map[string]any {
 	parseStoredKey := strings.TrimSpace(parseFieldKey)
 	if parseStoredKey == "" {
 		return parseFields
 	}
 	if parseFields == nil {
-		parseFields = make(map[string]interface{})
+		parseFields = make(map[string]any)
 	}
 	parseFields[parseStoredKey] = normalizeLogValue(parseFieldValue)
 	return parseFields
@@ -121,12 +121,12 @@ func protectLogFieldKey(parseFieldKey string) string {
 }
 
 // buildLogRecord creates one structured log record enriched with context-backed metadata.
-func buildLogRecord(parseCtx context.Context, parseLogLevel, parseLogScope, parseLogMessage string, parseLogFields map[string]interface{}) map[string]interface{} {
+func buildLogRecord(parseCtx context.Context, parseLogLevel, parseLogScope, parseLogMessage string, parseLogFields map[string]any) map[string]any {
 	parseLevelDetails := buildLogLevelDetails(parseLogLevel)
 	parseContextDetails := resolveLogContextDetails(parseCtx)
 	parseAttributes := buildLogAttributes(parseLogFields)
 
-	parseRecord := map[string]interface{}{
+	parseRecord := map[string]any{
 		"attributes":      parseAttributes,
 		"level":           parseLevelDetails.canonicalLevel,
 		"message":         strings.TrimSpace(parseLogMessage),
@@ -229,8 +229,8 @@ func buildMergedTraceContext(parseTraceContext TraceContext, parseFallback Trace
 }
 
 // buildLogAttributes normalizes user-supplied logging fields into one JSON-safe attribute map.
-func buildLogAttributes(parseLogFields map[string]interface{}) map[string]interface{} {
-	parseAttributes := make(map[string]interface{}, len(parseLogFields))
+func buildLogAttributes(parseLogFields map[string]any) map[string]any {
+	parseAttributes := make(map[string]any, len(parseLogFields))
 	for parseFieldKey, parseFieldValue := range parseLogFields {
 		parseStoredKey := strings.TrimSpace(parseFieldKey)
 		if parseStoredKey == "" {
@@ -260,7 +260,7 @@ func buildSlogValue(parseValue slog.Value) any {
 	case slog.KindUint64:
 		return parseResolvedValue.Uint64()
 	case slog.KindGroup:
-		parseGroupFields := make(map[string]interface{}, len(parseResolvedValue.Group()))
+		parseGroupFields := make(map[string]any, len(parseResolvedValue.Group()))
 		for _, parseAttr := range parseResolvedValue.Group() {
 			parseFieldKey := strings.TrimSpace(parseAttr.Key)
 			if parseFieldKey == "" {
@@ -315,17 +315,19 @@ func normalizeLogValue(parseValue any) any {
 		return parseTyped.String()
 	case error:
 		return parseTyped.Error()
+	// slog.Attr implements fmt.Stringer, so it must be matched before the
+	// Stringer case or Attrs collapse to their string form.
+	case slog.Attr:
+		return map[string]any{strings.TrimSpace(parseTyped.Key): buildSlogValue(parseTyped.Value)}
 	case fmt.Stringer:
 		return parseTyped.String()
-	case slog.Attr:
-		return map[string]interface{}{strings.TrimSpace(parseTyped.Key): buildSlogValue(parseTyped.Value)}
 	case []any:
 		parseSlice := make([]any, 0, len(parseTyped))
 		for _, parseItem := range parseTyped {
 			parseSlice = append(parseSlice, normalizeLogValue(parseItem))
 		}
 		return parseSlice
-	case map[string]interface{}:
+	case map[string]any:
 		parseMap := make(map[string]any, len(parseTyped))
 		for parseFieldKey, parseFieldValue := range parseTyped {
 			parseMap[strings.TrimSpace(parseFieldKey)] = normalizeLogValue(parseFieldValue)

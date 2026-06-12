@@ -27,7 +27,7 @@ func TestTagAndSplitArgsSupportPropsSlicesAndChildren(parseT *testing.T) {
 		[]PropOption{Class("override"), Attr("data-extra", "yes")},
 		"alpha",
 		Span(Class("value"), "beta"),
-		[]interface{}{Text("gamma")},
+		[]any{Text("gamma")},
 	)
 
 	parseMarkup, parseErr := ui.RenderToString(parseNode)
@@ -135,7 +135,7 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(parseT *testing.T) {
 	if TextIf(false, "hidden") != nil {
 		parseT.Fatal("expected TextIf(false) to return nil")
 	}
-	if parseGot := Children("a", []interface{}{"b", Text("c")}); len(parseGot) != 3 {
+	if parseGot := Children("a", []any{"b", Text("c")}); len(parseGot) != 3 {
 		parseT.Fatalf("expected normalized children, got %#v", parseGot)
 	}
 	if When(false, "hidden") != "" {
@@ -183,7 +183,7 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(parseT *testing.T) {
 		Aria("label", "Field"),
 		AriaSet(map[string]string{"describedby": "copy"}),
 		Attr("data-extra", "yes"),
-		Attrs(map[string]interface{}{"data-raw": "ok"}),
+		Attrs(map[string]any{"data-raw": "ok"}),
 	)
 	parseProps = WithProps(parseProps, Class("override"))
 	parseElem := Button(FromProps(parseProps), "save")
@@ -201,7 +201,7 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(parseT *testing.T) {
 	if parseMapped := Map(parseItems, func(parseV int) ui.Node { return Textf("%d", parseV) }); len(parseMapped) != 3 {
 		parseT.Fatalf("expected Map delegation, got %#v", parseMapped)
 	}
-	if parseKeyed := MapKeyed(parseItems, func(parseV2 int) interface{} { return parseV2 }, func(parseV3 int) ui.Node { return Textf("%d", parseV3) }); len(parseKeyed) != 3 || parseKeyed[0].Props["key"] != 1 {
+	if parseKeyed := MapKeyed(parseItems, func(parseV2 int) any { return parseV2 }, func(parseV3 int) ui.Node { return Textf("%d", parseV3) }); len(parseKeyed) != 3 || parseKeyed[0].Props["key"] != 1 {
 		parseT.Fatalf("expected MapKeyed delegation, got %#v", parseKeyed)
 	}
 	if parseFlat := FlatMap(parseItems, func(parseV4 int) []ui.Node {
@@ -294,7 +294,7 @@ func TestShorthandCollectionHelpersRenderExactHTMLString(parseT *testing.T) {
 	parseItems := Map([]string{"alpha", "beta"}, func(parseValue string) ui.Node {
 		return Li(Class("item"), parseValue)
 	})
-	parseArgs := []interface{}{Class("items")}
+	parseArgs := []any{Class("items")}
 	for _, parseItem := range parseItems {
 		parseArgs = append(parseArgs, parseItem)
 	}

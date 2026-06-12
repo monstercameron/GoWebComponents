@@ -39,9 +39,6 @@ func parseErrorFetch(parseErr error) RemoteFetchFunc {
 	}
 }
 
-// parseNoSleep is a Poll sleep func that returns immediately.
-func parseNoSleep(_ context.Context, _ time.Duration) error { return nil }
-
 // TestRemoteRefreshUpdatesCurrentAndNotifiesSubscribers verifies that a
 // successful Refresh replaces Current and delivers the new Set to all
 // registered subscribers.

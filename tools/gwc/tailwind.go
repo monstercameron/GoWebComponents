@@ -404,7 +404,7 @@ func fetchTailwindURLBytes(parseDownloadURL string) ([]byte, error) {
 // parseTailwindChecksums parses sha256sums.txt into asset-name keyed hashes.
 func parseTailwindChecksums(parseChecksumText string) map[string]string {
 	parseChecksumByAsset := map[string]string{}
-	for _, parseLineText := range strings.Split(parseChecksumText, "\n") {
+	for parseLineText := range strings.SplitSeq(parseChecksumText, "\n") {
 		parseTrimmedLine := strings.TrimSpace(parseLineText)
 		if parseTrimmedLine == "" {
 			continue

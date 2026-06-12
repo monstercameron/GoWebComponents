@@ -164,7 +164,7 @@ func buildRenderWorkerResultRequestName(parseConfiguredRequestName string, parse
 }
 
 // formatRenderWorkerPanicText formats one panic payload into a stable error string for worker responses.
-func formatRenderWorkerPanicText(parseRecovered interface{}) string {
+func formatRenderWorkerPanicText(parseRecovered any) string {
 	parseRecoveredText := strings.TrimSpace(fmt.Sprint(parseRecovered))
 	if parseRecoveredText == "" {
 		parseRecoveredText = "unknown panic"

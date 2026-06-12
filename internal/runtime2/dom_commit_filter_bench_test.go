@@ -49,7 +49,6 @@ func buildBenchmarkDOMCommitFilterSetup(parseB *testing.B, parseSiblingCount int
 func BenchmarkCommitRegionRemoveNodeFilterHeavy(parseB *testing.B) {
 	parseSiblingCounts := []int{120, 240, 480}
 	for _, parseSiblingCount := range parseSiblingCounts {
-		parseSiblingCount := parseSiblingCount
 		parseB.Run("siblings-"+strconv.Itoa(parseSiblingCount), func(parseB *testing.B) {
 			parseB.ReportAllocs()
 			for parseIteration := 0; parseIteration < parseB.N; parseIteration++ {

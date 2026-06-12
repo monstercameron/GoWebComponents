@@ -584,7 +584,7 @@ func detectHeavyWASMImports(parsePackageDir string) []string {
 		return nil
 	}
 	parseDeps := make(map[string]bool)
-	for _, parseLine := range strings.Split(string(parseOutput), "\n") {
+	for parseLine := range strings.SplitSeq(string(parseOutput), "\n") {
 		parseDeps[strings.TrimSpace(parseLine)] = true
 	}
 	parseHeavy := make([]string, 0, len(heavyWASMImports))
@@ -690,12 +690,12 @@ func executeRelease(parseConfig releaseConfig) (releaseSummary, error) {
 			return releaseSummary{}, parseErr2
 		}
 	}
-	parseManifestPayload := map[string]interface{}{
+	parseManifestPayload := map[string]any{
 		"package": buildSummary.PackageDir,
 		"profile": buildSummary.Profile.Name,
 		"goos":    "js",
 		"goarch":  "wasm",
-		"flags": map[string]interface{}{
+		"flags": map[string]any{
 			"toolchain":            firstNonEmpty(buildSummary.Profile.Toolchain, "go"),
 			"target":               firstNonEmpty(buildSummary.Profile.Target, "js/wasm"),
 			"trimpath":             buildSummary.Profile.Trimpath,
@@ -764,7 +764,7 @@ func executeRelease(parseConfig releaseConfig) (releaseSummary, error) {
 		OutDir:       parseConfig.outDir,
 		ManifestPath: parseManifestPath,
 		Artifacts:    parseArtifacts,
-		Flags: map[string]interface{}{
+		Flags: map[string]any{
 			"toolchain":            firstNonEmpty(buildSummary.Profile.Toolchain, "go"),
 			"target":               firstNonEmpty(buildSummary.Profile.Target, "js/wasm"),
 			"trimpath":             buildSummary.Profile.Trimpath,
@@ -870,7 +870,7 @@ func releaseWriteSizeAttribution(parseMode string, parsePackageDir string, parse
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parsePayload := map[string]interface{}{
+	parsePayload := map[string]any{
 		"mode":     parseNormalizedMode,
 		"package":  parsePackageDir,
 		"goos":     "js",

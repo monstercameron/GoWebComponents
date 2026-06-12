@@ -6,7 +6,7 @@ import "testing"
 
 // TestParseRuntimeHasTrimmedNonWhitespaceText verifies runtime trim checks match strings.TrimSpace semantics for ASCII and representative Unicode text.
 func TestParseRuntimeHasTrimmedNonWhitespaceText(parseT *testing.T) {
-	for parseByte := byte(0); parseByte < 0x80; parseByte++ {
+	for parseByte := range byte(0x80) {
 		parseText := string([]byte{parseByte})
 		getExpected := strings.TrimSpace(parseText) != ""
 		getActual := parseRuntimeHasTrimmedNonWhitespaceText(parseText)

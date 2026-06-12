@@ -220,10 +220,7 @@ func BuildBenchmarkWorkerContentItemDigest(parseItem BenchmarkContentCardData, p
 func buildBenchmarkWorkerDigestSeed(parseDigestSeed int) int {
 	getSeed := parseDigestSeed
 	if getSeed < 0 {
-		getSeed = -getSeed
-		if getSeed < 0 {
-			getSeed = 0
-		}
+		getSeed = max(-getSeed, 0)
 	}
 	getSeed ^= getSeed >> 6
 	getSeed ^= getSeed >> 12
@@ -232,10 +229,7 @@ func buildBenchmarkWorkerDigestSeed(parseDigestSeed int) int {
 
 // BuildBenchmarkWorkerCoreItemDigest computes one deterministic digest for one core-list source item.
 func BuildBenchmarkWorkerCoreItemDigest(parseText string, parseDigestSeed int, parseWorkScale int) uint64 {
-	getScale := parseWorkScale
-	if getScale < 1 {
-		getScale = 1
-	}
+	getScale := max(parseWorkScale, 1)
 	getDigestSeed := buildBenchmarkWorkerDigestSeed(parseDigestSeed)
 	getDigest := uint64(1469598103934665603)
 	getTextBytes := []byte(parseText)
@@ -247,7 +241,7 @@ func BuildBenchmarkWorkerCoreItemDigest(parseText string, parseDigestSeed int, p
 		getDigest *= 1099511628211
 	}
 	getIterations := (2500 + (len(getTextBytes) * 450) + (getDigestSeed * 75)) * getScale
-	for parseStep := 0; parseStep < getIterations; parseStep++ {
+	for parseStep := range getIterations {
 		getDigest ^= getDigest << 13
 		getDigest ^= getDigest >> 7
 		getDigest ^= getDigest << 17

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -42,10 +43,7 @@ func (parseS *atlasServer) logServerRequestEvent(parseR *http.Request, parseStat
 	}
 	parsePath := strings.TrimSpace(parseR.URL.Path)
 	parseMethod := strings.ToUpper(strings.TrimSpace(parseR.Method))
-	parseDurationMS := parseDuration.Milliseconds()
-	if parseDurationMS < 0 {
-		parseDurationMS = 0
-	}
+	parseDurationMS := max(parseDuration.Milliseconds(), 0)
 	if parseMethod == http.MethodGet && !strings.HasPrefix(parsePath, "/api/") && !strings.HasPrefix(parsePath, "/assets/") {
 		parseSurface := "public"
 		if strings.HasPrefix(parsePath, "/app/") {
@@ -241,9 +239,7 @@ func (parseS *atlasServer) writeServerLogEvent(parseEvent string, parseFields ma
 		"service": "atlas-commerce-os",
 		"time":    time.Now().UTC().Format(time.RFC3339Nano),
 	}
-	for parseKey, parseValue := range parseFields {
-		parsePayload[parseKey] = parseValue
-	}
+	maps.Copy(parsePayload, parseFields)
 	parseEncoded, parseErr := json.Marshal(parsePayload)
 	if parseErr != nil {
 		log.Printf(`{"event":"server_log_encode_failed","service":"atlas-commerce-os","error":%q}`, parseErr.Error())

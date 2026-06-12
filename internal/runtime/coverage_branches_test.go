@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"maps"
 	"reflect"
 	"testing"
 )
@@ -12,9 +13,7 @@ type batchTestAdapter struct {
 
 func (parseA *batchTestAdapter) BatchSetAttributes(parseNode DOMNode, parseAttrs map[string]string) {
 	parseCopyAttrs := make(map[string]string, len(parseAttrs))
-	for parseK, parseV := range parseAttrs {
-		parseCopyAttrs[parseK] = parseV
-	}
+	maps.Copy(parseCopyAttrs, parseAttrs)
 	parseA.batches = append(parseA.batches, parseCopyAttrs)
 	for parseK2, parseV2 := range parseAttrs {
 		parseA.SetAttribute(parseNode, parseK2, parseV2)
@@ -37,7 +36,7 @@ func TestHooks_PanicCoverage(parseT *testing.T) {
 
 	expectPanic(parseT, func() { _, _ = GoUseState(nil, 1) })
 	expectPanic(parseT, func() { GoUseEffect(func() func() { return nil }) })
-	expectPanic(parseT, func() { _ = GoUseMemo(func() interface{} { return 1 }) })
+	expectPanic(parseT, func() { _ = GoUseMemo(func() any { return 1 }) })
 	expectPanic(parseT, func() { _ = GoUseCallback(func() {}, "x") })
 	expectPanic(parseT, func() { _ = GoUseRef("x") })
 }
@@ -45,7 +44,7 @@ func TestHooks_PanicCoverage(parseT *testing.T) {
 func TestGoUseState_CoversSetterGrowthAndInvalidTypes(parseT *testing.T) {
 	resetGlobalRuntimeForTest()
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	parseFiber := &Fiber{typeOf: "test", props: map[string]interface{}{}, hooks: &Hooks{}}
+	parseFiber := &Fiber{typeOf: "test", props: map[string]any{}, hooks: &Hooks{}}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -85,9 +84,9 @@ func TestGoUseState_CoversSetterGrowthAndInvalidTypes(parseT *testing.T) {
 func TestHooks_ExistingCapacityBranches(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  map[string]interface{}{},
+		props:  map[string]any{},
 		hooks: &Hooks{
-			deps:      make([][]interface{}, 0, 2),
+			deps:      make([][]any, 0, 2),
 			cleanups:  make([]func(), 0, 2),
 			memos:     make([]memoizedValue, 0, 2),
 			callbacks: make([]callbackValue, 0, 2),
@@ -103,7 +102,7 @@ func TestHooks_ExistingCapacityBranches(parseT *testing.T) {
 	InitGlobalRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 
 	GoUseEffect(func() func() { return nil }, "dep")
-	_ = GoUseMemo(func() interface{} { return 1 }, "memo")
+	_ = GoUseMemo(func() any { return 1 }, "memo")
 	parseTestFn := func() {}
 	if parseCb := GoUseCallback(parseTestFn, "cb"); reflect.ValueOf(parseCb).Pointer() != reflect.ValueOf(parseTestFn).Pointer() {
 		parseT.Fatalf("expected callback passthrough on first call")
@@ -123,7 +122,7 @@ func TestGoUseFunc_PanicsWithoutDOMAdapterAndCoversCapacityReuse(parseT *testing
 	globalRuntime = &Runtime{}
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  map[string]interface{}{},
+		props:  map[string]any{},
 		hooks:  &Hooks{funcs: make([]funcHandlerValue, 0, 2)},
 	}
 	SetCurrentFiber(parseFiber)
@@ -190,16 +189,16 @@ func TestFastEqual_AdditionalCoverage(parseT *testing.T) {
 }
 
 func TestAreDepsEqual_FourAndLonger(parseT *testing.T) {
-	if !areDepsEqual([]interface{}{1, 2, 3, 4}, []interface{}{1, 2, 3, 4}) {
+	if !areDepsEqual([]any{1, 2, 3, 4}, []any{1, 2, 3, 4}) {
 		parseT.Fatal("expected four-dep equality")
 	}
-	if areDepsEqual([]interface{}{1, 2, 3, 4}, []interface{}{1, 2, 3, 5}) {
+	if areDepsEqual([]any{1, 2, 3, 4}, []any{1, 2, 3, 5}) {
 		parseT.Fatal("expected four-dep inequality")
 	}
-	if !areDepsEqual([]interface{}{1, 2, 3, 4, 5}, []interface{}{1, 2, 3, 4, 5}) {
+	if !areDepsEqual([]any{1, 2, 3, 4, 5}, []any{1, 2, 3, 4, 5}) {
 		parseT.Fatal("expected longer dependency equality")
 	}
-	if areDepsEqual([]interface{}{1, 2, 3, 4, 5}, []interface{}{1, 2, 3, 4, 6}) {
+	if areDepsEqual([]any{1, 2, 3, 4, 5}, []any{1, 2, 3, 4, 6}) {
 		parseT.Fatal("expected longer dependency inequality")
 	}
 }
@@ -214,14 +213,14 @@ func TestReconciler_InternalCoverage(parseT *testing.T) {
 		alternate: &Fiber{
 			child: &Fiber{
 				typeOf:         "div",
-				props:          map[string]interface{}{"id": "a"},
+				props:          map[string]any{"id": "a"},
 				textContent:    "x",
 				dom:            &testDOMNode{tag: "div"},
 				hooks:          &Hooks{},
 				eventCallbacks: []EventHandler{nil},
 				sibling: &Fiber{
 					typeOf: "span",
-					props:  map[string]interface{}{"id": "b"},
+					props:  map[string]any{"id": "b"},
 				},
 			},
 		},
@@ -231,43 +230,43 @@ func TestReconciler_InternalCoverage(parseT *testing.T) {
 		parseT.Fatalf("expected sibling chain to be cloned")
 	}
 
-	parseChildren := []interface{}{"a", "b"}
-	if !propsEqual(map[string]interface{}{}, map[string]interface{}{}) {
+	parseChildren := []any{"a", "b"}
+	if !propsEqual(map[string]any{}, map[string]any{}) {
 		parseT.Fatal("expected empty props to be equal")
 	}
-	if propsEqual(map[string]interface{}{"a": 1}, map[string]interface{}{}) {
+	if propsEqual(map[string]any{"a": 1}, map[string]any{}) {
 		parseT.Fatal("expected len mismatch to be unequal")
 	}
-	if propsEqual(map[string]interface{}{"a": 1}, map[string]interface{}{"b": 1}) {
+	if propsEqual(map[string]any{"a": 1}, map[string]any{"b": 1}) {
 		parseT.Fatal("expected missing key to be unequal")
 	}
-	if !propsEqual(map[string]interface{}{"children": nil}, map[string]interface{}{"children": nil}) {
+	if !propsEqual(map[string]any{"children": nil}, map[string]any{"children": nil}) {
 		parseT.Fatal("expected nil children to be equal")
 	}
-	if propsEqual(map[string]interface{}{"children": nil}, map[string]interface{}{"children": parseChildren}) {
+	if propsEqual(map[string]any{"children": nil}, map[string]any{"children": parseChildren}) {
 		parseT.Fatal("expected nil vs non-nil children to differ")
 	}
-	if !propsEqual(map[string]interface{}{"children": parseChildren}, map[string]interface{}{"children": parseChildren}) {
+	if !propsEqual(map[string]any{"children": parseChildren}, map[string]any{"children": parseChildren}) {
 		parseT.Fatal("expected identical children slice to be equal")
 	}
 	parseNonstr1 := []string{"a"}
 	parseNonstr2 := parseNonstr1
-	if !propsEqual(map[string]interface{}{"children": parseNonstr1}, map[string]interface{}{"children": parseNonstr2}) {
+	if !propsEqual(map[string]any{"children": parseNonstr1}, map[string]any{"children": parseNonstr2}) {
 		parseT.Fatal("expected non-standard slice with same pointer to be equal")
 	}
-	if propsEqual(map[string]interface{}{"children": []interface{}{"a"}}, map[string]interface{}{"children": []interface{}{"a"}}) {
+	if propsEqual(map[string]any{"children": []any{"a"}}, map[string]any{"children": []any{"a"}}) {
 		parseT.Fatal("expected distinct children slices to be treated as different")
 	}
-	if !propsEqual(map[string]interface{}{"children": []interface{}{}}, map[string]interface{}{"children": []interface{}{}}) {
+	if !propsEqual(map[string]any{"children": []any{}}, map[string]any{"children": []any{}}) {
 		parseT.Fatal("expected empty children slices to be equal")
 	}
-	if propsEqual(map[string]interface{}{"children": 1}, map[string]interface{}{"children": 1}) {
+	if propsEqual(map[string]any{"children": 1}, map[string]any{"children": 1}) {
 		parseT.Fatal("expected non-slice children fallback to be false")
 	}
 
-	parseFragment := &Element{Type: "FRAGMENT", Props: map[string]interface{}{"children": "bad"}}
+	parseFragment := &Element{Type: "FRAGMENT", Props: map[string]any{"children": "bad"}}
 	var parseTypedNil *Element
-	parseOut, parseAllocated := flattenFragments([]interface{}{nil, parseTypedNil, parseFragment, "tail"})
+	parseOut, parseAllocated := flattenFragments([]any{nil, parseTypedNil, parseFragment, "tail"})
 	if !parseAllocated || len(parseOut) != 1 || parseOut[0] != "tail" {
 		parseT.Fatalf("expected flattenFragments to skip invalid fragment children, got %#v", parseOut)
 	}
@@ -283,33 +282,33 @@ func TestReconciler_BatchedDomAndEffectCoverage(parseT *testing.T) {
 	parseDom := parseAdapter.CreateElement("div")
 
 	for _, parseKey := range []string{"id", "class", "data-a", "title", "name", "role", "aria-label"} {
-		parseRt.updateDomProperties(parseDom, nil, map[string]interface{}{
+		parseRt.updateDomProperties(parseDom, nil, map[string]any{
 			parseKey:   "root",
 			"count":    3,
-			"children": []interface{}{},
+			"children": []any{},
 		})
 	}
 	for _, parseKey2 := range []string{"id", "class", "data-a", "title", "name", "role", "aria-label"} {
-		parseRt.updateDomProperties(parseDom, nil, map[string]interface{}{
+		parseRt.updateDomProperties(parseDom, nil, map[string]any{
 			parseKey2:  "root",
 			"value":    "x",
-			"children": []interface{}{},
+			"children": []any{},
 		})
 	}
-	parseRt.applyInitialDomProps(parseDom, map[string]interface{}{
+	parseRt.applyInitialDomProps(parseDom, map[string]any{
 		"id":       "root",
 		"class":    "panel",
 		"style":    "display:block",
-		"children": []interface{}{},
+		"children": []any{},
 	}, true, parseAdapter, false)
 	if len(parseAdapter.batches) == 0 {
 		parseT.Fatal("expected batched attribute adapter path to run")
 	}
 
-	parseComponent := func(parseProps map[string]interface{}) *Element { return Div(nil, "x") }
+	parseComponent := func(parseProps map[string]any) *Element { return Div(nil, "x") }
 	parseFiber := &Fiber{
 		typeOf:  parseComponent,
-		props:   map[string]interface{}{},
+		props:   map[string]any{},
 		hooks:   &Hooks{},
 		dirty:   true,
 		effects: []Effect{{Fn: func() func() { return nil }, CleanupIndex: 0}},
@@ -367,7 +366,7 @@ func TestRuntimeSchedulerState_ExtraCoverage(parseT *testing.T) {
 	parseRt.ScheduleUpdateForFiber(nil)
 	parseRoot := &Fiber{dirty: true, needsUpdate: true}
 	parseChild := &Fiber{parent: parseRoot}
-	parseRt.currentRoot = &Fiber{typeOf: "ROOT", props: map[string]interface{}{}, dom: newTestDOMAdapter().CreateElement("div")}
+	parseRt.currentRoot = &Fiber{typeOf: "ROOT", props: map[string]any{}, dom: newTestDOMAdapter().CreateElement("div")}
 	parseRt.updateScheduled = false
 	parseRt.ScheduleUpdateForFiber(parseChild)
 	if !parseChild.dirty || !parseChild.needsUpdate {
@@ -405,7 +404,7 @@ func TestRuntimeSchedulerState_ExtraCoverage(parseT *testing.T) {
 	expectPanic(parseT, func() { _, _ = GoUseAtom(parseRt, "id", 1) })
 	expectPanic(parseT, func() { _, _ = GoUseAtom(&Runtime{}, "id", 1) })
 
-	SetCurrentFiber(&Fiber{typeOf: "test", props: map[string]interface{}{}})
+	SetCurrentFiber(&Fiber{typeOf: "test", props: map[string]any{}})
 	defer SetCurrentFiber(nil)
 	get, set := GoUseAtom(parseRt, "value", 3)
 	parseRt.atomRegistry.SetAtom("value", "wrong")
@@ -424,7 +423,7 @@ func TestRuntimeSchedulerState_ExtraCoverage(parseT *testing.T) {
 	// Cover atom hook bookkeeping branches.
 	parseAtomFiber := &Fiber{
 		typeOf: "test",
-		props:  map[string]interface{}{},
+		props:  map[string]any{},
 		hooks:  &Hooks{atoms: make([]string, 0, 2)},
 	}
 	SetCurrentFiber(parseAtomFiber)

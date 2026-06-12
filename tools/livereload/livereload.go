@@ -140,11 +140,11 @@ type WebSocketMessage struct {
 	Protocol  string      `json:"protocol,omitempty"`
 	Version   int         `json:"version,omitempty"`
 	Type      MessageType `json:"type"`
-	Payload   interface{} `json:"payload,omitempty"`
+	Payload   any         `json:"payload,omitempty"`
 	Timestamp time.Time   `json:"timestamp"`
 }
 
-func newWebSocketMessage(parseMsgType MessageType, parsePayload interface{}) WebSocketMessage {
+func newWebSocketMessage(parseMsgType MessageType, parsePayload any) WebSocketMessage {
 	return WebSocketMessage{
 		Protocol:  liveReloadProtocol,
 		Version:   currentLiveReloadProtocolVersion,
@@ -218,7 +218,7 @@ type LiveReloadStatus struct {
 	ServedWASMPath     string               `json:"servedWasmPath"`
 	HotReloadEnabled   bool                 `json:"hotReloadEnabled"`
 	HotReloadEligible  bool                 `json:"hotReloadEligible"`
-	LastClassification UpdateClassification `json:"lastClassification,omitempty"`
+	LastClassification UpdateClassification `json:"lastClassification"`
 	LastBuild          *BuildStatus         `json:"lastBuild,omitempty"`
 	CurrentError       *BuildStatus         `json:"currentError,omitempty"`
 	ClientCount        int                  `json:"clientCount"`
@@ -258,7 +258,7 @@ type UpdateClassification struct {
 	ReloadType   string                  `json:"reloadType"` // "hot" or "full"
 	Reason       string                  `json:"reason"`     // explanation for the classification
 	ChangedFiles []string                `json:"changedFiles"`
-	Plan         UpdateCompatibilityPlan `json:"plan,omitempty"`
+	Plan         UpdateCompatibilityPlan `json:"plan"`
 }
 
 type LiveReloadServer struct {
@@ -804,7 +804,7 @@ func (parseLrs *LiveReloadServer) checkCurrentBuildState(parseConn *websocket.Co
 	}
 }
 
-func (parseLrs *LiveReloadServer) broadcastMessage(parseMsgType MessageType, parsePayload interface{}) {
+func (parseLrs *LiveReloadServer) broadcastMessage(parseMsgType MessageType, parsePayload any) {
 	parseMessage := newWebSocketMessage(parseMsgType, parsePayload)
 
 	parseData, parseErr := json.Marshal(parseMessage)
@@ -944,7 +944,7 @@ func (parseLrs *LiveReloadServer) queueAssetSwap(parsePath string) {
 		}
 		sort.Strings(parsePaths)
 		fmt.Printf("Ã°Å¸Å½Â¨ Hot-swapping %d stylesheet(s): %s\n", len(parsePaths), strings.Join(parsePaths, ", "))
-		parseLrs.broadcastMessage(MessageTypeAssetSwap, map[string]interface{}{
+		parseLrs.broadcastMessage(MessageTypeAssetSwap, map[string]any{
 			"assets": parsePaths,
 			"kind":   "css",
 		})
@@ -961,7 +961,7 @@ func (parseLrs *LiveReloadServer) debounceAndBuild() {
 			fmt.Printf("Ã¢ÂÂ­Ã¯Â¸Â  Build already running (PID: %d); queueing one follow-up rebuild\n", parseLrs.currentBuild.Process.Pid)
 		}
 		parseLrs.buildQueued = true
-		parseLrs.broadcastMessage(MessageTypeDebounceStatus, map[string]interface{}{
+		parseLrs.broadcastMessage(MessageTypeDebounceStatus, map[string]any{
 			"changeCount":          parseLrs.changeCount,
 			"timeSinceFirstChange": int64(0),
 			"waitTime":             int64(0),
@@ -1038,7 +1038,7 @@ func (parseLrs *LiveReloadServer) debounceAndBuild() {
 	})
 
 	// Notify clients about debouncing status
-	parseLrs.broadcastMessage(MessageTypeDebounceStatus, map[string]interface{}{
+	parseLrs.broadcastMessage(MessageTypeDebounceStatus, map[string]any{
 		"changeCount":          parseLrs.changeCount,
 		"timeSinceFirstChange": parseTimeSinceFirstChange.Milliseconds(),
 		"waitTime":             parseSmartDebounceTime.Milliseconds(),
@@ -1070,7 +1070,7 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 	parseLrs.mutex.Unlock()
 
 	// Notify clients that build started with classification info
-	parseLrs.broadcastMessage(MessageTypeBuildStart, map[string]interface{}{
+	parseLrs.broadcastMessage(MessageTypeBuildStart, map[string]any{
 		"classification": parseClassification,
 		"status":         buildStatus,
 	})

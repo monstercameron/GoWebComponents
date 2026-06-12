@@ -147,7 +147,7 @@ func RequestRenderWorkerChunkBatches[BatchReq any, BatchRes any, ChunkRes any](p
 	if getResultErr != nil {
 		return nil, getResultErr
 	}
-	for parseChunkIndex := 0; parseChunkIndex < len(hasResultByChunkIndex); parseChunkIndex++ {
+	for parseChunkIndex := range hasResultByChunkIndex {
 		if !hasResultByChunkIndex[parseChunkIndex] {
 			return nil, fmt.Errorf("renderworker: missing chunk index=%d", parseChunkIndex)
 		}

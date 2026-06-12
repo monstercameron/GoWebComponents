@@ -233,7 +233,7 @@ func validateSSRPayloadEnum(parseKind SSRPayloadKind, parseScope SSRPayloadScope
 }
 
 // detectSSRPayloadEncoding is a core package helper.
-func detectSSRPayloadEncoding(parseValue interface{}, parseOptions SSRPayloadOptions) SSRPayloadEncoding {
+func detectSSRPayloadEncoding(parseValue any, parseOptions SSRPayloadOptions) SSRPayloadEncoding {
 	if parseOptions.Encoding != "" {
 		return parseOptions.Encoding
 	}
@@ -253,7 +253,7 @@ func detectSSRPayloadEncoding(parseValue interface{}, parseOptions SSRPayloadOpt
 }
 
 // encodeSSRPayloadEnvelope is a core package helper.
-func encodeSSRPayloadEnvelope(parseValue interface{}, parseOptions SSRPayloadOptions) (SSRPayloadEnvelope, error) {
+func encodeSSRPayloadEnvelope(parseValue any, parseOptions SSRPayloadOptions) (SSRPayloadEnvelope, error) {
 	parseEnvelope := SSRPayloadEnvelope{
 		Version:     CurrentSSRBootstrapVersion,
 		Kind:        parseOptions.Kind,
@@ -315,7 +315,7 @@ func encodeSSRPayloadEnvelope(parseValue interface{}, parseOptions SSRPayloadOpt
 }
 
 // encodeSSRTextPayload is a core package helper.
-func encodeSSRTextPayload(parseValue interface{}) (string, error) {
+func encodeSSRTextPayload(parseValue any) (string, error) {
 	switch parseTyped := parseValue.(type) {
 	case string:
 		return parseTyped, nil
@@ -331,7 +331,7 @@ func encodeSSRTextPayload(parseValue interface{}) (string, error) {
 }
 
 // encodeSSRBinaryPayload is a core package helper.
-func encodeSSRBinaryPayload(parseValue interface{}) ([]byte, error) {
+func encodeSSRBinaryPayload(parseValue any) ([]byte, error) {
 	switch parseTyped := parseValue.(type) {
 	case []byte:
 		return append([]byte(nil), parseTyped...), nil
@@ -341,7 +341,7 @@ func encodeSSRBinaryPayload(parseValue interface{}) ([]byte, error) {
 }
 
 // encodeSSRTimePayload is a core package helper.
-func encodeSSRTimePayload(parseValue interface{}) (time.Time, error) {
+func encodeSSRTimePayload(parseValue any) (time.Time, error) {
 	switch parseTyped := parseValue.(type) {
 	case time.Time:
 		return parseTyped, nil
@@ -351,7 +351,7 @@ func encodeSSRTimePayload(parseValue interface{}) (time.Time, error) {
 }
 
 // legacySSRPayloadEnvelope is a core package helper.
-func legacySSRPayloadEnvelope(parseRaw interface{}) (SSRPayloadEnvelope, error) {
+func legacySSRPayloadEnvelope(parseRaw any) (SSRPayloadEnvelope, error) {
 	parseEncoded, parseErr := json.Marshal(parseRaw)
 	if parseErr != nil {
 		return SSRPayloadEnvelope{}, parseErr
@@ -367,7 +367,7 @@ func legacySSRPayloadEnvelope(parseRaw interface{}) (SSRPayloadEnvelope, error) 
 }
 
 // envelopeFromBootstrapData is a core package helper.
-func envelopeFromBootstrapData(parseRaw interface{}) (SSRPayloadEnvelope, bool, error) {
+func envelopeFromBootstrapData(parseRaw any) (SSRPayloadEnvelope, bool, error) {
 	parseEncoded, parseErr := json.Marshal(parseRaw)
 	if parseErr != nil {
 		return SSRPayloadEnvelope{}, false, parseErr
@@ -427,7 +427,7 @@ func decodeSSRPayloadEnvelope[T any](parseEnvelope SSRPayloadEnvelope) (T, error
 }
 
 // assignDecodedSSRValue is a core package helper.
-func assignDecodedSSRValue[T any](parseDecoded interface{}) (T, error) {
+func assignDecodedSSRValue[T any](parseDecoded any) (T, error) {
 	var parseValue T
 	if parseUnmarshaler, parseOk := any(&parseValue).(encoding.TextUnmarshaler); parseOk {
 		if parseText, parseOk2 := parseDecoded.(string); parseOk2 {
@@ -471,7 +471,7 @@ func RegisterBootstrapPayload[T any](parseBootstrap *SSRBootstrap, parseKey stri
 		return parseErr
 	}
 	if parseBootstrap.Data == nil {
-		parseBootstrap.Data = map[string]interface{}{}
+		parseBootstrap.Data = map[string]any{}
 	}
 	parseBootstrap.Data[parseTrimmedKey] = parseEnvelope
 	return nil
@@ -782,7 +782,7 @@ func ApplySSRStateUpdate(parseBootstrap *SSRBootstrap, parseUpdate SSRStateUpdat
 		return parseErr
 	}
 	if parseBootstrap.Data == nil {
-		parseBootstrap.Data = map[string]interface{}{}
+		parseBootstrap.Data = map[string]any{}
 	}
 	for _, parseKey := range parseUpdate.Deletes {
 		delete(parseBootstrap.Data, parseKey)

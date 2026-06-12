@@ -68,16 +68,16 @@ func TestAdminChatSettingsRPCs(parseT *testing.T) {
 	}
 
 	parseTemplateResp, parseErr := parseServer.SetAdminOnboardingTemplate(parseAliceCtx, &chatpb.SetAdminOnboardingTemplateRequest{
-		WorkspaceId:  parseBobWorkspaceID,
-		Confirm:      true,
-		Reason:       "chat onboarding copy refresh",
-		TemplateKey:  "chat-starter-settings",
-		Title:        "Chat Starter",
-		Category:     "onboarding",
-		PromptText:   "Draft my first project update.",
+		WorkspaceId:   parseBobWorkspaceID,
+		Confirm:       true,
+		Reason:        "chat onboarding copy refresh",
+		TemplateKey:   "chat-starter-settings",
+		Title:         "Chat Starter",
+		Category:      "onboarding",
+		PromptText:    "Draft my first project update.",
 		ChecklistJson: `["set goal","pick audience"]`,
-		IsDefault:    true,
-		SortOrder:    1,
+		IsDefault:     true,
+		SortOrder:     1,
 	})
 	if parseErr != nil {
 		parseT.Fatalf("SetAdminOnboardingTemplate: %v", parseErr)

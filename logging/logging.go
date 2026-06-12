@@ -2,11 +2,12 @@ package logging
 
 import (
 	"context"
+	"maps"
 	"strings"
 )
 
 // Fields is the structured payload attached to a log entry.
-type Fields = map[string]interface{}
+type Fields = map[string]any
 
 // Logger writes structured entries under a stable scope.
 type Logger struct {
@@ -67,7 +68,7 @@ func (parseScopedLogger Logger) Error(parseLogMessage string, parseLogArgs ...an
 
 // Log writes a structured entry to the configured browser console or fallback output.
 func Log(parseLogLevel, parseLogScope, parseLogMessage string, parseLogArgs ...any) {
-	LogContext(nil, parseLogLevel, parseLogScope, parseLogMessage, parseLogArgs...)
+	LogContext(context.Background(), parseLogLevel, parseLogScope, parseLogMessage, parseLogArgs...)
 }
 
 // LogContext writes a structured entry while resolving context-backed correlation and trace metadata.
@@ -77,17 +78,15 @@ func LogContext(parseLogContext context.Context, parseLogLevel, parseLogScope, p
 }
 
 // writeStructured writes one structured entry without context-backed metadata resolution.
-func writeStructured(parseLogLevel, parseLogScope, parseLogMessage string, parseLogFields map[string]interface{}) {
-	writeStructuredContext(nil, parseLogLevel, parseLogScope, parseLogMessage, parseLogFields)
+func writeStructured(parseLogLevel, parseLogScope, parseLogMessage string, parseLogFields map[string]any) {
+	writeStructuredContext(context.Background(), parseLogLevel, parseLogScope, parseLogMessage, parseLogFields)
 }
 
-func cloneFields(parseLogFields Fields) map[string]interface{} {
+func cloneFields(parseLogFields Fields) map[string]any {
 	if len(parseLogFields) == 0 {
 		return nil
 	}
-	parseLogFieldsCloned := make(map[string]interface{}, len(parseLogFields))
-	for parseFieldKey, parseFieldValue := range parseLogFields {
-		parseLogFieldsCloned[parseFieldKey] = parseFieldValue
-	}
+	parseLogFieldsCloned := make(map[string]any, len(parseLogFields))
+	maps.Copy(parseLogFieldsCloned, parseLogFields)
 	return parseLogFieldsCloned
 }

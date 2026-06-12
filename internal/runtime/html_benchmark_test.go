@@ -3,7 +3,7 @@ package runtime
 import "testing"
 
 func BenchmarkDivWithTextChildren(parseB *testing.B) {
-	parseProps := map[string]interface{}{"class": "card"}
+	parseProps := map[string]any{"class": "card"}
 
 	parseB.ReportAllocs()
 	for parseI := 0; parseI < parseB.N; parseI++ {
@@ -12,7 +12,7 @@ func BenchmarkDivWithTextChildren(parseB *testing.B) {
 }
 
 func BenchmarkDivWithComponents4(parseB *testing.B) {
-	parseProps := map[string]interface{}{"class": "card"}
+	parseProps := map[string]any{"class": "card"}
 
 	parseB.ReportAllocs()
 	for parseI := 0; parseI < parseB.N; parseI++ {
@@ -21,7 +21,7 @@ func BenchmarkDivWithComponents4(parseB *testing.B) {
 }
 
 func BenchmarkWithComponentsGeneric4(parseB *testing.B) {
-	parseProps := map[string]interface{}{"id": "host"}
+	parseProps := map[string]any{"id": "host"}
 
 	parseB.ReportAllocs()
 	for parseI := 0; parseI < parseB.N; parseI++ {

@@ -41,7 +41,7 @@ type ResourceHint struct {
 // JSONLDBlock describes one JSON-LD script block.
 type JSONLDBlock struct {
 	ID    string
-	Value interface{}
+	Value any
 }
 
 // Document describes a higher-level SSR head bundle layered on router metadata.
@@ -90,7 +90,7 @@ func MetaName(parseName, parseContent string) ui.Node {
 	if parseName == "" || parseContent == "" {
 		return nil
 	}
-	return html.Meta(html.Props{Raw: map[string]interface{}{
+	return html.Meta(html.Props{Raw: map[string]any{
 		"name":    parseName,
 		"content": parseContent,
 	}})
@@ -103,7 +103,7 @@ func MetaProperty(parseProperty, parseContent string) ui.Node {
 	if parseProperty == "" || parseContent == "" {
 		return nil
 	}
-	return html.Meta(html.Props{Raw: map[string]interface{}{
+	return html.Meta(html.Props{Raw: map[string]any{
 		"property": parseProperty,
 		"content":  parseContent,
 	}})
@@ -116,7 +116,7 @@ func LinkRel(parseRel, parseHref string) ui.Node {
 	if parseRel == "" || parseHref == "" {
 		return nil
 	}
-	return html.Link(html.Props{Raw: map[string]interface{}{
+	return html.Link(html.Props{Raw: map[string]any{
 		"rel":  parseRel,
 		"href": parseHref,
 	}})
@@ -129,7 +129,7 @@ func Hreflang(parseHrefLang, parseHref string) ui.Node {
 	if parseHrefLang == "" || parseHref == "" {
 		return nil
 	}
-	return html.Link(html.Props{Raw: map[string]interface{}{
+	return html.Link(html.Props{Raw: map[string]any{
 		"rel":      "alternate",
 		"hreflang": parseHrefLang,
 		"href":     parseHref,
@@ -201,7 +201,7 @@ func ResourceHints(parseHints ...ResourceHint) ui.Node {
 }
 
 // RenderJSONLD renders one JSON-LD script block for direct insertion into SSR head markup.
-func RenderJSONLD(parseValue interface{}, parseScriptID string) (string, error) {
+func RenderJSONLD(parseValue any, parseScriptID string) (string, error) {
 	if parseValue == nil {
 		return "", nil
 	}
@@ -285,7 +285,7 @@ func alternateLinkNode(parseLink AlternateLink) ui.Node {
 		return nil
 	}
 
-	parseRaw := map[string]interface{}{
+	parseRaw := map[string]any{
 		"rel":  "alternate",
 		"href": parseHref,
 	}
@@ -311,7 +311,7 @@ func resourceHintNode(parseHint ResourceHint) ui.Node {
 		return nil
 	}
 
-	parseRaw := map[string]interface{}{
+	parseRaw := map[string]any{
 		"rel":  parseRel,
 		"href": parseHref,
 	}

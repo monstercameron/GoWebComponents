@@ -3,16 +3,16 @@ package runtime
 import "testing"
 
 func TestFlattenFragments_NestedFragmentsWithRawChildren(parseT *testing.T) {
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{
 			Type: "FRAGMENT",
-			Props: map[string]interface{}{
-				"children": []interface{}{
+			Props: map[string]any{
+				"children": []any{
 					&Element{Type: "div"},
 					&Element{
 						Type: "FRAGMENT",
-						Props: map[string]interface{}{
-							"children": []interface{}{nil, &Element{Type: "span"}, "raw"},
+						Props: map[string]any{
+							"children": []any{nil, &Element{Type: "span"}, "raw"},
 						},
 					},
 				},
@@ -58,12 +58,12 @@ func TestFlattenFragments_NestedFragmentsWithRawChildren(parseT *testing.T) {
 
 func TestFlattenFragments_SkipsNilAndTypedNilElements(parseT *testing.T) {
 	var parseTypedNil *Element
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{
 			Type: "FRAGMENT",
 
-			Props: map[string]interface{}{
-				"children": []interface{}{nil, parseTypedNil, "raw"},
+			Props: map[string]any{
+				"children": []any{nil, parseTypedNil, "raw"},
 			},
 		},
 	}
@@ -91,7 +91,7 @@ func TestCreateDom_TextElementFromNodeValue(parseT *testing.T) {
 
 	parseDom := parseRt.createDom(&Fiber{
 		typeOf: "TEXT_ELEMENT",
-		props:  map[string]interface{}{"nodeValue": "fallback"},
+		props:  map[string]any{"nodeValue": "fallback"},
 	})
 
 	parseNode := parseDom.(*testDOMNode)
@@ -107,7 +107,7 @@ func TestCreateDom_TextElementFromTextContent(parseT *testing.T) {
 	parseDom := parseRt.createDom(&Fiber{
 		typeOf:      "TEXT_ELEMENT",
 		textContent: "from-text-content",
-		props:       map[string]interface{}{},
+		props:       map[string]any{},
 	})
 
 	parseNode := parseDom.(*testDOMNode)
@@ -123,7 +123,7 @@ func TestCreateDom_TextElementWithEmptyTextContentCreatesNode(parseT *testing.T)
 	parseDom := parseRt.createDom(&Fiber{
 		typeOf:      "TEXT_ELEMENT",
 		textContent: "",
-		props:       map[string]interface{}{},
+		props:       map[string]any{},
 	})
 
 	if parseDom == nil {
@@ -150,7 +150,7 @@ func TestCreateDom_ElementAppliesProps(parseT *testing.T) {
 
 	parseDom := parseRt.createDom(&Fiber{
 		typeOf: "button",
-		props:  map[string]interface{}{"id": "save", "className": "primary"},
+		props:  map[string]any{"id": "save", "className": "primary"},
 	})
 
 	parseNode := parseDom.(*testDOMNode)
@@ -172,14 +172,14 @@ func TestCreateDom_UnsupportedTypeReturnsNil(parseT *testing.T) {
 
 func TestUpdateDomProperties_NilDomIsIgnored(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	parseRt.updateDomProperties(nil, map[string]interface{}{"id": "old"}, map[string]interface{}{"id": "new"})
+	parseRt.updateDomProperties(nil, map[string]any{"id": "old"}, map[string]any{"id": "new"})
 }
 
 func TestUpdateDomProperties_InitialRenderAppliesMixedValues(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseDom := parseRt.domAdapter.CreateElement("input")
 
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"id":        "field",
 		"className": "large",
 		"value":     "abc",
@@ -199,7 +199,7 @@ func TestUpdateDomProperties_InitialRenderStringStyleWithoutBatching(parseT *tes
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseDom := parseRt.domAdapter.CreateElement("div")
 
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"style": "color:blue",
 	})
 
@@ -212,7 +212,7 @@ func TestUpdateDomProperties_InitialRenderWithPropertyFallback(parseT *testing.T
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseDom := parseRt.domAdapter.CreateElement("div")
 
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"tabIndex": 2,
 		"hidden":   true,
 	})
@@ -230,7 +230,7 @@ func TestUpdateDomProperties_RemoveOldProps(parseT *testing.T) {
 	parseNode.attributes["id"] = "old"
 	parseNode.attributes["class"] = "legacy"
 
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{"id": "old", "class": "legacy"}, map[string]interface{}{"class": "next"})
+	parseRt.updateDomProperties(parseDom, map[string]any{"id": "old", "class": "legacy"}, map[string]any{"class": "next"})
 
 	if _, parseOk := parseNode.attributes["id"]; parseOk {
 		parseT.Fatal("expected removed attribute to be deleted")
@@ -245,7 +245,7 @@ func TestUpdateDomProperties_SkipUnchangedValue(parseT *testing.T) {
 	parseDom := parseRt.domAdapter.CreateElement("div")
 
 	parseHandler := func() {}
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{"onclick": parseHandler}, map[string]interface{}{"onclick": parseHandler})
+	parseRt.updateDomProperties(parseDom, map[string]any{"onclick": parseHandler}, map[string]any{"onclick": parseHandler})
 
 	if len(parseDom.(*testDOMNode).properties) != 0 {
 		parseT.Fatal("expected unchanged properties to be skipped")
@@ -256,7 +256,7 @@ func TestUpdateDomProperties_StringStyleAndSelectedProperty(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseDom := parseRt.domAdapter.CreateElement("option")
 
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{"selected": false}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{"selected": false}, map[string]any{
 		"style":    "font-weight:bold",
 		"selected": true,
 	})
@@ -274,7 +274,7 @@ func TestUpdateDomProperties_UpdateStyleMap(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseDom := parseRt.domAdapter.CreateElement("div")
 
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{"id": "x"}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{"id": "x"}, map[string]any{
 		"id": "x",
 		"style": map[string]string{
 			"color": "green",
@@ -290,7 +290,7 @@ func TestUpdateDomProperties_UpdateNonStringProperty(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseDom := parseRt.domAdapter.CreateElement("input")
 
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{"tabIndex": 1}, map[string]interface{}{"tabIndex": 5})
+	parseRt.updateDomProperties(parseDom, map[string]any{"tabIndex": 1}, map[string]any{"tabIndex": 5})
 
 	if parseDom.(*testDOMNode).properties["tabIndex"] != 5 {
 		parseT.Fatal("expected changed non-string property to be updated")
@@ -302,7 +302,7 @@ func TestCommitWork_ResolvesParentFromAncestors(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 	parseParentDOM := parseAdapter.CreateElement("div")
 	parseRoot := &Fiber{typeOf: "ROOT", dom: parseParentDOM}
-	parseFunctionParent := &Fiber{typeOf: func(map[string]interface{}) *Element { return nil }, parent: parseRoot}
+	parseFunctionParent := &Fiber{typeOf: func(map[string]any) *Element { return nil }, parent: parseRoot}
 	parseChild := &Fiber{typeOf: "span", dom: parseAdapter.CreateElement("span"), parent: parseFunctionParent, effectTag: effectTagPlacement}
 
 	parseRt.commitWork(parseChild, nil)
@@ -319,11 +319,11 @@ func TestCommitWork_TextUpdateUsesFallbackProps(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "TEXT_ELEMENT",
 		dom:    parseTextDOM,
-		props:  map[string]interface{}{"nodeValue": "new"},
+		props:  map[string]any{"nodeValue": "new"},
 		alternate: &Fiber{
 			typeOf: "TEXT_ELEMENT",
 			dom:    parseTextDOM,
-			props:  map[string]interface{}{"nodeValue": "old"},
+			props:  map[string]any{"nodeValue": "old"},
 		},
 		effectTag: effectTagUpdate,
 	}
@@ -373,7 +373,7 @@ func TestCommitDeletion_FunctionComponentRemovesAllChildDOMSiblings(parseT *test
 	parseAdapter.AppendChild(parseParentDOM, parseFirstDOM)
 	parseAdapter.AppendChild(parseParentDOM, parseSecondDOM)
 
-	parseFuncFiber := &Fiber{typeOf: func(map[string]interface{}) *Element { return nil }}
+	parseFuncFiber := &Fiber{typeOf: func(map[string]any) *Element { return nil }}
 	parseFirstChild := &Fiber{typeOf: "span", dom: parseFirstDOM, parent: parseFuncFiber}
 	parseSecondChild := &Fiber{typeOf: "p", dom: parseSecondDOM, parent: parseFuncFiber}
 	parseFirstChild.sibling = parseSecondChild
@@ -416,7 +416,7 @@ func TestRunEffects_NoEffectsOnFiberStillTraversesChildren(parseT *testing.T) {
 
 func TestPerformUnitOfWork_HostFiberWithoutChildrenProp(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	parseFiber := &Fiber{typeOf: "div", props: map[string]interface{}{}, dirty: true}
+	parseFiber := &Fiber{typeOf: "div", props: map[string]any{}, dirty: true}
 
 	parseNext := parseRt.performUnitOfWork(parseFiber)
 
@@ -431,8 +431,8 @@ func TestPerformUnitOfWork_HostFiberWithoutChildrenProp(parseT *testing.T) {
 func TestPerformUnitOfWork_FunctionComponentReturningNil(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseFiber := &Fiber{
-		typeOf: func(map[string]interface{}) *Element { return nil },
-		props:  map[string]interface{}{},
+		typeOf: func(map[string]any) *Element { return nil },
+		props:  map[string]any{},
 		dirty:  true,
 	}
 
@@ -450,12 +450,12 @@ func TestPerformUnitOfWork_FunctionComponentReturningNilDeletesPreviousChild(par
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseOldChild := &Fiber{
 		typeOf: "div",
-		props:  map[string]interface{}{"id": "old"},
+		props:  map[string]any{"id": "old"},
 		dom:    parseRt.domAdapter.CreateElement("div"),
 	}
 	parseFiber := &Fiber{
-		typeOf: func(map[string]interface{}) *Element { return nil },
-		props:  map[string]interface{}{},
+		typeOf: func(map[string]any) *Element { return nil },
+		props:  map[string]any{},
 		dirty:  true,
 		alternate: &Fiber{
 			child: parseOldChild,
@@ -471,10 +471,10 @@ func TestPerformUnitOfWork_FunctionComponentReturningNilDeletesPreviousChild(par
 
 func TestReconcileChildren_NilElementDeletesOldFiber(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	parseOld := &Fiber{typeOf: "div", props: map[string]interface{}{}, dom: parseRt.domAdapter.CreateElement("div")}
+	parseOld := &Fiber{typeOf: "div", props: map[string]any{}, dom: parseRt.domAdapter.CreateElement("div")}
 	parseParent := &Fiber{alternate: &Fiber{child: parseOld}}
 
-	parseRt.reconcileChildren(parseParent, []interface{}{nil})
+	parseRt.reconcileChildren(parseParent, []any{nil})
 
 	if len(parseRt.deletions) != 1 || parseRt.deletions[0] != parseOld {
 		parseT.Fatal("expected nil element slot to mark old fiber for deletion")

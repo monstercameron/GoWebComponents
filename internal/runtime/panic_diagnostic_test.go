@@ -377,7 +377,7 @@ func TestUnhandledBoundaryFallbackPanicPreservesRenderDiagnostic(parseT *testing
 	}
 
 	parseOutput := captureStdout(parseT, func() {
-		parseRt.Render(CreateElement(parseBoundary, map[string]interface{}{
+		parseRt.Render(CreateElement(parseBoundary, map[string]any{
 			"errorFallback": func(parseErr error, reset func()) *Element {
 				panic("fallback boom")
 			},
@@ -444,7 +444,7 @@ func TestStartupPanicUsesWrappedMessage(parseT *testing.T) {
 	var parseRecovered string
 	parseOutput := captureStdout(parseT, func() {
 		parseRecovered = recoverPanicString(parseT, func() {
-			parseRt.RenderTo("#missing", &Element{Type: "div", Props: map[string]interface{}{}})
+			parseRt.RenderTo("#missing", &Element{Type: "div", Props: map[string]any{}})
 		})
 	})
 

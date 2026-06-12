@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/monstercameron/GoWebComponents/deprecation"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -15,8 +16,8 @@ import (
 // Options represents configuration for HTTP fetch operations.
 type Options struct {
 	Method  string
-	Headers map[string]interface{}
-	Body    interface{}
+	Headers map[string]any
+	Body    any
 }
 
 // MultipartFile describes one browser file to append to a multipart form-data body.
@@ -37,7 +38,7 @@ type State = runtime.FetchState
 
 // Result represents the result of a manual Fetch operation.
 type Result struct {
-	Data    interface{}
+	Data    any
 	Status  int
 	Headers map[string]string
 	Err     error
@@ -83,7 +84,7 @@ func (parseR Result) Text() string {
 }
 
 // DecodeJSON decodes a string-backed response body into target.
-func (parseR Result) DecodeJSON(parseTarget interface{}) error {
+func (parseR Result) DecodeJSON(parseTarget any) error {
 	if parseTarget == nil {
 		return errors.New("decode target is nil")
 	}
@@ -121,7 +122,7 @@ type AsyncResource[T any] struct {
 // UseFetch is a hook that simplifies data fetching within a component.
 // It uses the runtime fetch hook directly.
 func UseFetch(parseUrl string, parseOptions ...Options) Resource {
-	parseArgs := make([]interface{}, len(parseOptions))
+	parseArgs := make([]any, len(parseOptions))
 	for parseI, parseOpt := range parseOptions {
 		parseArgs[parseI] = parseOpt
 	}
@@ -144,7 +145,7 @@ func (parseR Resource) Refetch() {
 // The loader runs on mount and whenever deps or the reload token change. It
 // receives a context that is cancelled when the component unmounts, the
 // dependency list changes, or Cancel is called on the returned handle.
-func UseResource[T any](parseLoader func(context.Context) (T, error), parseDeps ...interface{}) AsyncResource[T] {
+func UseResource[T any](parseLoader func(context.Context) (T, error), parseDeps ...any) AsyncResource[T] {
 	parseState := ui.UseState(ResourceState[T]{})
 	parseReloadTick := ui.UseState(0)
 	parseCancelRef := ui.UseRef((context.CancelFunc)(nil))
@@ -187,7 +188,7 @@ func UseResource[T any](parseLoader func(context.Context) (T, error), parseDeps 
 		}()
 	}
 
-	parseEffectDeps := make([]interface{}, 0, len(parseDeps)+1)
+	parseEffectDeps := make([]any, 0, len(parseDeps)+1)
 	parseEffectDeps = append(parseEffectDeps, parseReloadTick.Get())
 	parseEffectDeps = append(parseEffectDeps, parseDeps...)
 
@@ -269,5 +270,6 @@ func parseRawHeaders(parseRaw string) map[string]string {
 //
 // Deprecated: channels are now one-shot and do not need to be returned. This function is a no-op and will be removed in a future release.
 func ReturnChannel(parseCh <-chan Result) {
+	deprecation.Warn("fetch.ReturnChannel", "")
 	_ = parseCh
 }

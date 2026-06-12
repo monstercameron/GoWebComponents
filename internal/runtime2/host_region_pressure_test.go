@@ -59,7 +59,7 @@ func TestHostRegionMultipleRegionsSharingOneRendererIDCoverage(parseT *testing.T
 func TestHostRegionOneWorkerManyRegionsPressureCoverage(parseT *testing.T) {
 	buildScheduler := runtime2.BuildScheduler([]runtime2.SchedulerShardID{"shard-a"})
 	getRegionCount := 64
-	for getRegionIndex := 0; getRegionIndex < getRegionCount; getRegionIndex++ {
+	for getRegionIndex := range getRegionCount {
 		getRegionID := fmt.Sprintf("region-%d", getRegionIndex)
 		getMountJob, parseMountErr := buildScheduler.HandleSchedulerMount(getRegionID)
 		if parseMountErr != nil {
@@ -69,7 +69,7 @@ func TestHostRegionOneWorkerManyRegionsPressureCoverage(parseT *testing.T) {
 			parseT.Fatalf("expected one-worker pressure mount shard-a, got %q", getMountJob.GetSchedulerShardID)
 		}
 	}
-	for getRegionIndex := 0; getRegionIndex < getRegionCount; getRegionIndex++ {
+	for getRegionIndex := range getRegionCount {
 		getRegionID := fmt.Sprintf("region-%d", getRegionIndex)
 		getUpdateJob, parseUpdateErr := buildScheduler.HandleSchedulerUpdate(getRegionID)
 		if parseUpdateErr != nil {

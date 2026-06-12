@@ -123,14 +123,14 @@ func TestRuntimeInspectCapturesTreeStatsAndHooks(parseT *testing.T) {
 		lastCommitDurationNs: 900_000,
 	}
 	parseChildHooks := &Hooks{
-		states:    []interface{}{42, 42},
+		states:    []any{42, 42},
 		memos:     []memoizedValue{{value: "memoized"}},
 		ids:       []string{"node-1"},
 		signature: []string{"state", "memo", "id"},
 	}
 	parseChild := &Fiber{
 		typeOf:  testSignatureComponent,
-		props:   map[string]interface{}{"key": "hero"},
+		props:   map[string]any{"key": "hero"},
 		dirty:   true,
 		hooks:   parseChildHooks,
 		effects: []Effect{{}},
@@ -301,10 +301,10 @@ func TestInspectIncludesHydrationDebugSnapshot(parseT *testing.T) {
 func TestInspectHooksIncludesSlotsDependenciesAndEffectStatus(parseT *testing.T) {
 	parseCallback := func() {}
 	parseHooks := &Hooks{
-		states:       []interface{}{"draft", "draft"},
-		memos:        []memoizedValue{{value: "memoized", deps: []interface{}{"team", 3}}},
-		callbacks:    []callbackValue{{fn: parseCallback, deps: []interface{}{"search"}}},
-		deps:         [][]interface{}{{"theme", true}},
+		states:       []any{"draft", "draft"},
+		memos:        []memoizedValue{{value: "memoized", deps: []any{"team", 3}}},
+		callbacks:    []callbackValue{{fn: parseCallback, deps: []any{"search"}}},
+		deps:         [][]any{{"theme", true}},
 		cleanups:     []func(){func() {}},
 		effectEpochs: []int{4},
 	}

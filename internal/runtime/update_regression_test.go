@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -51,11 +52,8 @@ func collectNodesByClass(parseNode DOMNode, parseClassName string, parseOut *[]*
 		return
 	}
 
-	for _, parseToken := range strings.Fields(parseTestNode.attributes["class"]) {
-		if parseToken == parseClassName {
-			*parseOut = append(*parseOut, parseTestNode)
-			break
-		}
+	if slices.Contains(strings.Fields(parseTestNode.attributes["class"]), parseClassName) {
+		*parseOut = append(*parseOut, parseTestNode)
 	}
 
 	for _, parseChild := range parseTestNode.children {
@@ -103,7 +101,7 @@ func TestBenchmarkStyleListUpdateSettlesAndUpdatesDOM(parseT *testing.T) {
 
 	const listSize = 10
 
-	parseBenchmarkComponent := func(parseProps map[string]interface{}) *Element {
+	parseBenchmarkComponent := func(parseProps map[string]any) *Element {
 		parseItems, setItems := GoUseState(parseRt, []string{})
 		parseView, setView := GoUseState(parseRt, "list")
 		renderTicks, setRenderTicks := GoUseState(parseRt, 0)
@@ -119,7 +117,7 @@ func TestBenchmarkStyleListUpdateSettlesAndUpdatesDOM(parseT *testing.T) {
 			setView("list")
 
 			parseNextItems := make([]string, listSize)
-			for parseI := 0; parseI < listSize; parseI++ {
+			for parseI := range listSize {
 				parseNextItems[parseI] = fmt.Sprintf("Item %d", parseI)
 			}
 			setItems(parseNextItems)
@@ -134,19 +132,19 @@ func TestBenchmarkStyleListUpdateSettlesAndUpdatesDOM(parseT *testing.T) {
 			setItems(parseNextItems2)
 		})
 
-		parseChildren := make([]interface{}, 0, len(parseItems()))
+		parseChildren := make([]any, 0, len(parseItems()))
 		for _, parseItem2 := range parseItems() {
-			parseChildren = append(parseChildren, Div(map[string]interface{}{"class": "list-item"}, parseItem2))
+			parseChildren = append(parseChildren, Div(map[string]any{"class": "list-item"}, parseItem2))
 		}
 
-		return Div(map[string]interface{}{"id": "app"},
-			Div(map[string]interface{}{"id": "controls"},
-				Button(map[string]interface{}{"id": "btn-render", "onclick": renderList}, "Render Items"),
-				Button(map[string]interface{}{"id": "btn-update", "onclick": parseUpdateList}, "Update Items"),
+		return Div(map[string]any{"id": "app"},
+			Div(map[string]any{"id": "controls"},
+				Button(map[string]any{"id": "btn-render", "onclick": renderList}, "Render Items"),
+				Button(map[string]any{"id": "btn-update", "onclick": parseUpdateList}, "Update Items"),
 			),
-			P(map[string]interface{}{"id": "item-count"}, fmt.Sprintf("Count: %d", len(parseItems()))),
-			P(map[string]interface{}{"id": "render-ticks"}, fmt.Sprintf("Ticks: %d", renderTicks())),
-			Div(map[string]interface{}{"id": "container"}, parseChildren...),
+			P(map[string]any{"id": "item-count"}, fmt.Sprintf("Count: %d", len(parseItems()))),
+			P(map[string]any{"id": "render-ticks"}, fmt.Sprintf("Ticks: %d", renderTicks())),
+			Div(map[string]any{"id": "container"}, parseChildren...),
 		)
 	}
 

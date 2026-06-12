@@ -14,7 +14,7 @@ func repoRootForTest(parseT *testing.T) string {
 	if parseErr != nil {
 		parseT.Fatalf("getwd: %v", parseErr)
 	}
-	for parseDepth := 0; parseDepth < 6; parseDepth++ {
+	for range 6 {
 		if _, parseStatErr := os.Stat(filepath.Join(parseDir, "go.mod")); parseStatErr == nil {
 			return parseDir
 		}
@@ -51,7 +51,7 @@ func TestGenerateSiteBuildsWasmAndShell(parseT *testing.T) {
 		parseT.Fatalf("boot shell missing: %v", parseErr2)
 	}
 	parseShell := string(parseShellRaw)
-	for _, parseNeedle := range []string{"site.wasm", "new Go()", "instantiateStreaming", `id="app"`} {
+	for _, parseNeedle := range []string{"site.wasm", "new Go()", "WebAssembly.instantiate", "crypto.subtle.digest", `id="app"`} {
 		if !strings.Contains(parseShell, parseNeedle) {
 			parseT.Fatalf("boot shell missing %q", parseNeedle)
 		}

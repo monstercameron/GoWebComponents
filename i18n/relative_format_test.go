@@ -20,7 +20,6 @@ func TestFormatRelativeTime_EnBoundaryRounding(t *testing.T) {
 		{"24h past", -24 * time.Hour, "1 day ago"},
 	}
 	for _, parseTT := range tests {
-		parseTT := parseTT
 		t.Run(parseTT.parseName, func(t *testing.T) {
 			parseGot := FormatRelativeTime("en", baseTime.Add(parseTT.parseOffset), baseTime)
 			if parseGot != parseTT.parseWant {
@@ -41,7 +40,6 @@ func TestFormatRelativeTime_EnPluralInteraction(t *testing.T) {
 		{"0 seconds (same time)", 0, "0 seconds ago"},
 	}
 	for _, parseTT := range tests {
-		parseTT := parseTT
 		t.Run(parseTT.parseName, func(t *testing.T) {
 			parseGot := FormatRelativeTime("en", baseTime.Add(parseTT.parseOffset), baseTime)
 			if parseGot != parseTT.parseWant {
@@ -61,7 +59,6 @@ func TestFormatRelativeTime_FrPlural(t *testing.T) {
 		{"2 jours past", -48 * time.Hour, "il y a 2 jours"},
 	}
 	for _, parseTT := range tests {
-		parseTT := parseTT
 		t.Run(parseTT.parseName, func(t *testing.T) {
 			parseGot := FormatRelativeTime("fr", baseTime.Add(parseTT.parseOffset), baseTime)
 			if parseGot != parseTT.parseWant {
@@ -107,7 +104,6 @@ func TestFormatRelativeTime_ArPluralUnit(t *testing.T) {
 		{"3 days (few)", 3, "أيام"},
 	}
 	for _, parseTT := range tests {
-		parseTT := parseTT
 		t.Run(parseTT.parseName, func(t *testing.T) {
 			parseOffset := time.Duration(-parseTT.parseDays) * 24 * time.Hour
 			parseGot := FormatRelativeTime("ar", baseTime.Add(parseOffset), baseTime)
@@ -131,7 +127,6 @@ func TestFormatRelativeTime_FutureVsPast(t *testing.T) {
 		{"ar", "منذ", "بعد", 2 * time.Hour},
 	}
 	for _, parseTT := range tests {
-		parseTT := parseTT
 		t.Run(parseTT.parseLocale+"_past", func(t *testing.T) {
 			parseGot := FormatRelativeTime(parseTT.parseLocale, baseTime.Add(-parseTT.parseOffset), baseTime)
 			if !containsString(parseGot, parseTT.parsePast) {
@@ -159,7 +154,6 @@ func TestFormatList_En(t *testing.T) {
 		{"3 items", []string{"alpha", "beta", "gamma"}, "alpha, beta, and gamma"},
 	}
 	for _, parseTT := range tests {
-		parseTT := parseTT
 		t.Run(parseTT.parseName, func(t *testing.T) {
 			parseGot := FormatList("en", parseTT.parseItems)
 			if parseGot != parseTT.parseWant {
@@ -181,7 +175,6 @@ func TestFormatList_Fr(t *testing.T) {
 		{"3 items", []string{"alpha", "beta", "gamma"}, "alpha, beta et gamma"},
 	}
 	for _, parseTT := range tests {
-		parseTT := parseTT
 		t.Run(parseTT.parseName, func(t *testing.T) {
 			parseGot := FormatList("fr", parseTT.parseItems)
 			if parseGot != parseTT.parseWant {
@@ -203,7 +196,6 @@ func TestFormatList_Ja(t *testing.T) {
 		{"3 items", []string{"alpha", "beta", "gamma"}, "alpha、beta、gamma"},
 	}
 	for _, parseTT := range tests {
-		parseTT := parseTT
 		t.Run(parseTT.parseName, func(t *testing.T) {
 			parseGot := FormatList("ja", parseTT.parseItems)
 			if parseGot != parseTT.parseWant {
@@ -225,7 +217,6 @@ func TestFormatList_Ar(t *testing.T) {
 		{"3 items", []string{"alpha", "beta", "gamma"}, "alpha، beta، و gamma"},
 	}
 	for _, parseTT := range tests {
-		parseTT := parseTT
 		t.Run(parseTT.parseName, func(t *testing.T) {
 			parseGot := FormatList("ar", parseTT.parseItems)
 			if parseGot != parseTT.parseWant {

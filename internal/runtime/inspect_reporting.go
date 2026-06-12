@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -354,8 +355,6 @@ func cloneLogFields(parseFields map[string]string) map[string]string {
 		return nil
 	}
 	parseClone := make(map[string]string, len(parseFields))
-	for parseKey, parseValue := range parseFields {
-		parseClone[parseKey] = parseValue
-	}
+	maps.Copy(parseClone, parseFields)
 	return parseClone
 }

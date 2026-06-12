@@ -244,7 +244,7 @@ func TestValidateReleaseSmokeExercisesValidationPaths(parseT *testing.T) {
 		parseArtifacts := buildReleaseArtifacts(parseT2, parseOutDir)
 		parseManifestPath := buildReleaseManifestPath(parseT2, parseOutDir, parseArtifacts)
 
-		releaseMarshalIndent = func(parseV interface{}, parsePrefix string, parseIndent string) ([]byte, error) {
+		releaseMarshalIndent = func(parseV any, parsePrefix string, parseIndent string) ([]byte, error) {
 			return nil, errors.New("marshal failed")
 		}
 		parseRecord, parseErr := validateReleaseSmoke(releaseConfig{

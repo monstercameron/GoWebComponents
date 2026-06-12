@@ -275,7 +275,7 @@ func (parseRt *Runtime) HydrateTo(parseSelector string, parseElement *Element) {
 func (parseRt *Runtime) queryContainer(parseSelector string) DOMNode {
 	var parseContainer DOMNode
 	if parseAdapter, parseOk := parseRt.domAdapter.(interface {
-		QuerySelector(string) interface{}
+		QuerySelector(string) any
 	}); parseOk {
 		if parseNode := parseAdapter.QuerySelector(parseSelector); parseNode != nil {
 			if parseDomNode, parseOk2 := parseNode.(DOMNode); parseOk2 {
@@ -329,7 +329,7 @@ func (parseRt *Runtime) FindNodesWithAttributeInSelector(parseSelector string, p
 }
 
 // FindNodesWithAttributeInTarget collects descendant DOM nodes under one resolved target that carry the requested attribute.
-func (parseRt *Runtime) FindNodesWithAttributeInTarget(parseTarget interface{}, parseName string) []DOMNode {
+func (parseRt *Runtime) FindNodesWithAttributeInTarget(parseTarget any, parseName string) []DOMNode {
 	if parseRt == nil {
 		return nil
 	}
@@ -359,21 +359,21 @@ func (parseRt *Runtime) findNodesWithAttribute(parseRoot DOMNode, parseName stri
 }
 
 // resolveContainer is a core package helper.
-func (parseRt *Runtime) resolveContainer(parseTarget interface{}) DOMNode {
+func (parseRt *Runtime) resolveContainer(parseTarget any) DOMNode {
 	if parseTarget == nil || parseRt == nil || parseRt.domAdapter == nil {
 		return nil
 	}
 	if parseNode, parseOk := parseTarget.(DOMNode); parseOk {
 		return parseNode
 	}
-	if parseResolver, parseOk2 := parseRt.domAdapter.(interface{ ResolveNode(interface{}) DOMNode }); parseOk2 {
+	if parseResolver, parseOk2 := parseRt.domAdapter.(interface{ ResolveNode(any) DOMNode }); parseOk2 {
 		return parseResolver.ResolveNode(parseTarget)
 	}
 	return nil
 }
 
 // RenderInto renders an element tree into an explicit DOM node.
-func (parseRt *Runtime) RenderInto(parseTarget interface{}, parseElement *Element) error {
+func (parseRt *Runtime) RenderInto(parseTarget any, parseElement *Element) error {
 	parseContainer := parseRt.resolveContainer(parseTarget)
 	if IsDOMNodeNull(parseContainer) {
 		ReportDiagnostic("runtime", DiagnosticError, "RenderInto failed because the target node could not be resolved")
@@ -384,7 +384,7 @@ func (parseRt *Runtime) RenderInto(parseTarget interface{}, parseElement *Elemen
 }
 
 // HydrateInto hydrates an element tree into an explicit DOM node.
-func (parseRt *Runtime) HydrateInto(parseTarget interface{}, parseElement *Element) error {
+func (parseRt *Runtime) HydrateInto(parseTarget any, parseElement *Element) error {
 	parseContainer := parseRt.resolveContainer(parseTarget)
 	if IsDOMNodeNull(parseContainer) {
 		ReportDiagnostic("runtime", DiagnosticError, "HydrateInto failed because the target node could not be resolved")

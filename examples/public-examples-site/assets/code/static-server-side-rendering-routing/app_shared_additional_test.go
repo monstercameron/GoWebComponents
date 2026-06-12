@@ -21,7 +21,7 @@ func TestSharedHelpersAndFallbacks(parseT *testing.T) {
 	if parseGot2 := bootstrapTransport(ui.SSRBootstrap{}); parseGot2 != transportJSONSidecar {
 		parseT.Fatalf("bootstrapTransport(empty) = %q, want default transport", parseGot2)
 	}
-	parseCustomPayload := ui.SSRBootstrap{Data: map[string]interface{}{"transport": "binary"}}
+	parseCustomPayload := ui.SSRBootstrap{Data: map[string]any{"transport": "binary"}}
 	if parseGot3 := bootstrapTransport(parseCustomPayload); parseGot3 != "binary" {
 		parseT.Fatalf("bootstrapTransport(custom) = %q, want binary", parseGot3)
 	}

@@ -109,13 +109,13 @@ type BreakerConfig struct {
 // failures and temporarily refusing calls once a failure threshold is crossed.
 // The zero value is not valid; use NewCircuitBreaker.
 type CircuitBreaker struct {
-	mu           sync.Mutex
-	state        BreakerState
-	failures     int
-	openedAt     time.Time
+	mu            sync.Mutex
+	state         BreakerState
+	failures      int
+	openedAt      time.Time
 	halfOpenCalls int
-	config       BreakerConfig
-	now          func() time.Time
+	config        BreakerConfig
+	now           func() time.Time
 }
 
 // NewCircuitBreaker constructs a CircuitBreaker with the supplied configuration

@@ -346,6 +346,11 @@ func buildLintSummary(parseConfig lintConfig) (lintSummary, bool, error) {
 			return lintSummary{}, false, parseErr2
 		}
 		parseIssues = append(parseIssues, parseHookIssues...)
+		parseDeprecationIssues, parseErr3 := collectLintDeprecationRuleIssues(parseConfig.rootPath, parseConfig.paths)
+		if parseErr3 != nil {
+			return lintSummary{}, false, parseErr3
+		}
+		parseIssues = append(parseIssues, parseDeprecationIssues...)
 		sortLintIssues(parseIssues)
 	}
 	parseConfigPath := parseLintActiveConfigPath(parseConfig, parseExecutablePath, parseMajorVersion)
@@ -599,7 +604,7 @@ func parseLintIssues(parseOutput string, parseRootPath string) ([]lintIssueRecor
 	if strings.TrimSpace(parseOutput) == "" {
 		return nil, nil
 	}
-	var parseEnvelope map[string]interface{}
+	var parseEnvelope map[string]any
 	if parseErr := json.Unmarshal([]byte(parseOutput), &parseEnvelope); parseErr != nil {
 		return nil, parseErr
 	}
@@ -610,13 +615,13 @@ func parseLintIssues(parseOutput string, parseRootPath string) ([]lintIssueRecor
 	if parseRawIssues == nil {
 		return nil, nil
 	}
-	parseIssueList, isParseList := parseRawIssues.([]interface{})
+	parseIssueList, isParseList := parseRawIssues.([]any)
 	if !isParseList {
 		return nil, errors.New("missing issues array")
 	}
 	parseIssues := make([]lintIssueRecord, 0, len(parseIssueList))
 	for _, parseRawIssue := range parseIssueList {
-		parseIssueMap, isParseMap := parseRawIssue.(map[string]interface{})
+		parseIssueMap, isParseMap := parseRawIssue.(map[string]any)
 		if !isParseMap {
 			continue
 		}
@@ -648,7 +653,7 @@ func sortLintIssues(parseIssues []lintIssueRecord) {
 }
 
 // parseLintIssueRecord translates one raw golangci-lint issue into launcher metadata.
-func parseLintIssueRecord(parseIssue map[string]interface{}, parseRootPath string) lintIssueRecord {
+func parseLintIssueRecord(parseIssue map[string]any, parseRootPath string) lintIssueRecord {
 	parsePosition := parseLintMap(parseIssue["Pos"])
 	parseFilename := parseLintIssuePath(parseRootPath, parseLintString(parsePosition["Filename"]))
 	parseSeverity := parseLintSeverity(parseLintString(parseIssue["Severity"]))
@@ -693,13 +698,13 @@ func parseLintSeverity(parseSeverity string) string {
 }
 
 // parseLintMap safely converts a JSON value into an object map.
-func parseLintMap(parseValue interface{}) map[string]interface{} {
-	parseMap, _ := parseValue.(map[string]interface{})
+func parseLintMap(parseValue any) map[string]any {
+	parseMap, _ := parseValue.(map[string]any)
 	return parseMap
 }
 
 // parseLintString safely converts a JSON scalar into a string.
-func parseLintString(parseValue interface{}) string {
+func parseLintString(parseValue any) string {
 	if parseValue == nil {
 		return ""
 	}
@@ -714,7 +719,7 @@ func parseLintString(parseValue interface{}) string {
 }
 
 // parseLintInt safely converts a JSON number into an integer.
-func parseLintInt(parseValue interface{}) int {
+func parseLintInt(parseValue any) int {
 	switch parseTyped := parseValue.(type) {
 	case float64:
 		return int(parseTyped)
@@ -738,8 +743,8 @@ func parseLintInt(parseValue interface{}) int {
 }
 
 // parseLintStrings safely converts a JSON array into a string slice.
-func parseLintStrings(parseValue interface{}) []string {
-	parseList, isParseList := parseValue.([]interface{})
+func parseLintStrings(parseValue any) []string {
+	parseList, isParseList := parseValue.([]any)
 	if !isParseList {
 		return nil
 	}

@@ -3,8 +3,8 @@ package runtime
 import "sync/atomic"
 
 type componentRenderState struct {
-	getImplementation interface{}
-	getRender         func(interface{}, map[string]interface{}) *Element
+	getImplementation any
+	getRender         func(any, map[string]any) *Element
 }
 
 // ComponentType provides a stable runtime-recognized component handle that can
@@ -18,7 +18,7 @@ type ComponentType struct {
 }
 
 // NewComponentType constructs a component handle recognized by the runtime.
-func NewComponentType(parseComponentID string, parseComponentName string, parseComponentQualifiedName string, parseComponentImplementation interface{}, render func(interface{}, map[string]interface{}) *Element) *ComponentType {
+func NewComponentType(parseComponentID string, parseComponentName string, parseComponentQualifiedName string, parseComponentImplementation any, render func(any, map[string]any) *Element) *ComponentType {
 	getComponentType := &ComponentType{
 		ID:            parseComponentID,
 		Name:          parseComponentName,
@@ -32,7 +32,7 @@ func NewComponentType(parseComponentID string, parseComponentName string, parseC
 }
 
 // Render invokes the current implementation attached to the component handle.
-func (parseComponentType *ComponentType) Render(parseComponentProps map[string]interface{}) *Element {
+func (parseComponentType *ComponentType) Render(parseComponentProps map[string]any) *Element {
 	if parseComponentType == nil {
 		return nil
 	}
@@ -50,12 +50,12 @@ func (parseComponentType *ComponentType) Render(parseComponentProps map[string]i
 }
 
 // SetImplementation updates the current implementation for a stable component handle.
-func (parseComponentType *ComponentType) SetImplementation(parseComponentImplementation interface{}) {
+func (parseComponentType *ComponentType) SetImplementation(parseComponentImplementation any) {
 	parseComponentType.SetImplementationRenderer(parseComponentImplementation, nil)
 }
 
 // SetImplementationRenderer updates the current implementation and, when provided, swaps in one matching renderer.
-func (parseComponentType *ComponentType) SetImplementationRenderer(parseComponentImplementation interface{}, parseRender func(interface{}, map[string]interface{}) *Element) {
+func (parseComponentType *ComponentType) SetImplementationRenderer(parseComponentImplementation any, parseRender func(any, map[string]any) *Element) {
 	if parseComponentType == nil {
 		return
 	}

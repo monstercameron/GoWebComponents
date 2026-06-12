@@ -12,24 +12,24 @@ func TestDeletionDoesNotCleanupSurvivingSibling(parseT *testing.T) {
 	parseBCleanupCount := 0
 	parseBEffectCount := 0
 
-	parseChildB := func(parseProps map[string]interface{}) *Element {
+	parseChildB := func(parseProps map[string]any) *Element {
 		GoUseEffect(func() func() {
 			parseBEffectCount++
 			return func() { parseBCleanupCount++ }
 		})
-		return CreateElement("div", map[string]interface{}{"id": "b"}, "b")
+		return CreateElement("div", map[string]any{"id": "b"}, "b")
 	}
 
 	parseHost := func(parseIncludeA bool) *Element {
-		parseChildren := []interface{}{}
+		parseChildren := []any{}
 		if parseIncludeA {
-			parseChildren = append(parseChildren, CreateElement("div", map[string]interface{}{"id": "a"}, "a"))
+			parseChildren = append(parseChildren, CreateElement("div", map[string]any{"id": "a"}, "a"))
 		} else {
 			// different type forces REPLACE: old div A tagged DELETION, new span placed
-			parseChildren = append(parseChildren, CreateElement("span", map[string]interface{}{"id": "a2"}, "a2"))
+			parseChildren = append(parseChildren, CreateElement("span", map[string]any{"id": "a2"}, "a2"))
 		}
 		parseChildren = append(parseChildren, CreateElement(parseChildB, nil))
-		return CreateElement("div", map[string]interface{}{"id": "host"}, parseChildren...)
+		return CreateElement("div", map[string]any{"id": "host"}, parseChildren...)
 	}
 
 	parseRt.Render(parseHost(true), parseContainer)

@@ -504,7 +504,7 @@ func parseBinarySourceListValue(parsePayload []byte) ([]any, error) {
 	parseCount := int(parsePayload[1])
 	parseList := make([]any, parseCount)
 	parseOffset := 2
-	for parseIndex := 0; parseIndex < parseCount; parseIndex++ {
+	for parseIndex := range parseCount {
 		parseRemaining := len(parsePayload) - parseOffset
 		if parseRemaining < 4 {
 			return nil, fmt.Errorf("runtime2: decode list item[%d] length: payload is truncated", parseIndex)
@@ -542,7 +542,7 @@ func parseBinarySourceMapValue(parsePayload []byte) (map[string]any, error) {
 	parseMap := make(map[string]any, parseCount)
 	parsePreviousKey := ""
 	parseOffset := 2
-	for parseIndex := 0; parseIndex < parseCount; parseIndex++ {
+	for parseIndex := range parseCount {
 		parseRemaining := len(parsePayload) - parseOffset
 		if parseRemaining < 2 {
 			return nil, fmt.Errorf("runtime2: decode map key[%d]: key length is truncated", parseIndex)

@@ -16,7 +16,7 @@ func repoRoot(parseT *testing.T) string {
 		parseT.Fatalf("getwd: %v", parseErr)
 	}
 	parseDir := parseWd
-	for parseI := 0; parseI < 12; parseI++ {
+	for range 12 {
 		if _, parseStatErr := os.Stat(filepath.Join(parseDir, "go.mod")); parseStatErr == nil {
 			return parseDir
 		}
@@ -42,7 +42,6 @@ func TestCapabilityReferencesResolve(parseT *testing.T) {
 		parseT.Fatal("Capabilities() returned an empty slice; the table is missing")
 	}
 	for _, parseCap := range parseCaps {
-		parseCap := parseCap // capture for clarity
 		parseT.Run(parseCap.Name, func(parseInner *testing.T) {
 			if parseCap.ExampleSlug != "" {
 				parseExampleDir := filepath.Join(parseRoot, "examples", "public", parseCap.ExampleSlug)

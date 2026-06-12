@@ -409,18 +409,18 @@ func publicProductFeedbackForm(parseProduct productCard, parsePayload Payload, p
 	parseChildren = append(parseChildren,
 		html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 			html.Span(html.Props{ID: parseAuthorInputID + "-label"}, html.Text("Name")),
-			html.Input(html.Props{ID: parseAuthorInputID, Name: "author_name", Value: parseValue.AuthorName, AutoComplete: "name", OnInput: setAuthorName, Class: publicCommentFieldClass(parseForm.Error("AuthorName") != ""), Raw: map[string]interface{}{"aria-labelledby": parseAuthorInputID + "-label", "aria-describedby": parseAuthorErrorID, "aria-invalid": parseForm.Error("AuthorName") != ""}}),
+			html.Input(html.Props{ID: parseAuthorInputID, Name: "author_name", Value: parseValue.AuthorName, AutoComplete: "name", OnInput: setAuthorName, Class: publicCommentFieldClass(parseForm.Error("AuthorName") != ""), Raw: map[string]any{"aria-labelledby": parseAuthorInputID + "-label", "aria-describedby": parseAuthorErrorID, "aria-invalid": parseForm.Error("AuthorName") != ""}}),
 			publicCommentFieldError(parseAuthorErrorID, parseForm.Error("AuthorName")),
 		),
 		publicCommentReactionInput(parseReactionFieldID, parseReactionErrorID, parseValue.Reaction, setReaction, parseForm.Error("Reaction")),
 		html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 			html.Span(html.Props{ID: parseSubjectInputID + "-label"}, html.Text("Headline")),
-			html.Input(html.Props{ID: parseSubjectInputID, Name: "subject", Value: parseValue.Subject, OnInput: setSubject, Class: publicCommentFieldClass(parseForm.Error("Subject") != ""), Raw: map[string]interface{}{"aria-labelledby": parseSubjectInputID + "-label", "aria-describedby": parseSubjectErrorID, "aria-invalid": parseForm.Error("Subject") != ""}}),
+			html.Input(html.Props{ID: parseSubjectInputID, Name: "subject", Value: parseValue.Subject, OnInput: setSubject, Class: publicCommentFieldClass(parseForm.Error("Subject") != ""), Raw: map[string]any{"aria-labelledby": parseSubjectInputID + "-label", "aria-describedby": parseSubjectErrorID, "aria-invalid": parseForm.Error("Subject") != ""}}),
 			publicCommentFieldError(parseSubjectErrorID, parseForm.Error("Subject")),
 		),
 		html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 			html.Span(html.Props{ID: parseBodyInputID + "-label"}, html.Text("Comment")),
-			html.Textarea(html.Props{ID: parseBodyInputID, Name: "body", OnInput: setBody, Class: publicCommentTextareaClass(parseForm.Error("Body") != ""), Raw: map[string]interface{}{"aria-labelledby": parseBodyInputID + "-label", "aria-describedby": parseBodyErrorID, "aria-invalid": parseForm.Error("Body") != ""}}, html.Text(parseValue.Body)),
+			html.Textarea(html.Props{ID: parseBodyInputID, Name: "body", OnInput: setBody, Class: publicCommentTextareaClass(parseForm.Error("Body") != ""), Raw: map[string]any{"aria-labelledby": parseBodyInputID + "-label", "aria-describedby": parseBodyErrorID, "aria-invalid": parseForm.Error("Body") != ""}}, html.Text(parseValue.Body)),
 			publicCommentFieldError(parseBodyErrorID, parseForm.Error("Body")),
 		),
 		html.Button(html.Props{Type: "submit", Disabled: isSubmitting, Class: publicCommentSubmitClass(isSubmitting)}, html.Text(publicCommentSubmitLabel(isSubmitting))),
@@ -458,7 +458,7 @@ func submitPublicComment(parseSlug string, parseInput publicCommentFormState, pa
 	parseHeaderName, parseHeaderValue := ui.NewCSRFToken(parseCsrfToken).Header()
 	parseResult := <-atlasFetch("/api/public/products/"+parseSlug+"/comments", atlasFetchOptions{
 		Method: http.MethodPost,
-		Headers: map[string]interface{}{
+		Headers: map[string]any{
 			"Content-Type":  "application/json",
 			"Accept":        "application/json",
 			parseHeaderName: parseHeaderValue,
@@ -579,18 +579,18 @@ func publicCommentReactionInput(parseFieldID string, parseErrorID string, parseS
 	if strings.TrimSpace(parseSelected) == "" {
 		parseSelected = "up"
 	}
-	return html.Fieldset(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-white/5 p-4", Raw: map[string]interface{}{"aria-describedby": parseErrorID, "aria-invalid": strings.TrimSpace(parseErrorText) != ""}},
+	return html.Fieldset(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-white/5 p-4", Raw: map[string]any{"aria-describedby": parseErrorID, "aria-invalid": strings.TrimSpace(parseErrorText) != ""}},
 		html.Legend(html.Props{ID: parseFieldID + "-legend", Class: "px-1 text-sm font-medium text-stone-300"}, html.Text("Your reaction")),
 		html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-2"},
 			html.Label(html.Props{Class: "flex cursor-pointer items-start gap-3 rounded-[1.1rem] border border-emerald-400/25 bg-white/6 px-4 py-3 text-sm text-stone-300"},
-				html.Input(html.Props{ID: parseFieldID + "-up", Type: "radio", Name: "reaction", Value: "up", Checked: strings.TrimSpace(parseSelected) == "up", OnChange: parseHandler, Class: "mt-1 h-4 w-4 border-stone-300 text-emerald-600", Raw: map[string]interface{}{"aria-labelledby": parseFieldID + "-legend", "aria-describedby": parseErrorID}}),
+				html.Input(html.Props{ID: parseFieldID + "-up", Type: "radio", Name: "reaction", Value: "up", Checked: strings.TrimSpace(parseSelected) == "up", OnChange: parseHandler, Class: "mt-1 h-4 w-4 border-stone-300 text-emerald-600", Raw: map[string]any{"aria-labelledby": parseFieldID + "-legend", "aria-describedby": parseErrorID}}),
 				html.Span(html.Props{Class: "grid gap-1"},
 					html.Span(html.Props{Class: "font-semibold text-white"}, html.Text("Thumbs up")),
 					html.Span(html.Props{Class: "text-xs leading-6 text-stone-400"}, html.Text("Recommend it or confirm the setup met expectations.")),
 				),
 			),
 			html.Label(html.Props{Class: "flex cursor-pointer items-start gap-3 rounded-[1.1rem] border border-rose-400/25 bg-white/6 px-4 py-3 text-sm text-stone-300"},
-				html.Input(html.Props{ID: parseFieldID + "-down", Type: "radio", Name: "reaction", Value: "down", Checked: strings.TrimSpace(parseSelected) == "down", OnChange: parseHandler, Class: "mt-1 h-4 w-4 border-stone-300 text-rose-600", Raw: map[string]interface{}{"aria-labelledby": parseFieldID + "-legend", "aria-describedby": parseErrorID}}),
+				html.Input(html.Props{ID: parseFieldID + "-down", Type: "radio", Name: "reaction", Value: "down", Checked: strings.TrimSpace(parseSelected) == "down", OnChange: parseHandler, Class: "mt-1 h-4 w-4 border-stone-300 text-rose-600", Raw: map[string]any{"aria-labelledby": parseFieldID + "-legend", "aria-describedby": parseErrorID}}),
 				html.Span(html.Props{Class: "grid gap-1"},
 					html.Span(html.Props{Class: "font-semibold text-white"}, html.Text("Thumbs down")),
 					html.Span(html.Props{Class: "text-xs leading-6 text-stone-400"}, html.Text("Call out delivery friction, finish issues, or fit concerns buyers should know.")),
@@ -705,7 +705,7 @@ func publicProductFeatureStrip() ui.Node {
 
 func publicProductPromiseLanesIsland(parseProduct productCard) ui.Node {
 	return ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
-		ResetKeys: []interface{}{parseProduct.Slug, parseProduct.Status},
+		ResetKeys: []any{parseProduct.Slug, parseProduct.Status},
 		ErrorFallback: func(parseErr error, reset func()) ui.Node {
 			return publicProductPromiseLanesError(parseProduct, parseErr, reset)
 		},

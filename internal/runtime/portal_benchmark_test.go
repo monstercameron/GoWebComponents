@@ -9,9 +9,9 @@ func BenchmarkRenderPortalToSelector(parseB *testing.B) {
 	parseOverlay := parseAdapter.CreateElement("div")
 	parseAdapter.selectorResults["#overlay-root"] = parseOverlay
 	parseElement := CreateElement("section", nil,
-		CreateElement("p", map[string]interface{}{"id": "inline"}, "inline"),
-		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#overlay-root"},
-			CreateElement("div", map[string]interface{}{"id": "portaled"}, "overlay"),
+		CreateElement("p", map[string]any{"id": "inline"}, "inline"),
+		CreateElement(PortalNodeType, map[string]any{"portalTargetSelector": "#overlay-root"},
+			CreateElement("div", map[string]any{"id": "portaled"}, "overlay"),
 		),
 	)
 

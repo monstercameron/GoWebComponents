@@ -15,7 +15,7 @@ func TestReconcileChildren_NilElements(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
 	parseRt.reconcileChildren(parseWipFiber, nil)
@@ -32,10 +32,10 @@ func TestReconcileChildren_EmptyElements(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{})
+	parseRt.reconcileChildren(parseWipFiber, []any{})
 
 	if parseWipFiber.child != nil {
 		parseT.Error("Expected child to be nil with empty elements")
@@ -49,10 +49,10 @@ func TestReconcileChildren_SingleElement(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "span"}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created")
@@ -69,10 +69,10 @@ func TestReconcileChildren_SingleNilElement(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{nil})
+	parseRt.reconcileChildren(parseWipFiber, []any{nil})
 
 	// Nil elements should be skipped
 	if parseWipFiber.child != nil {
@@ -87,10 +87,10 @@ func TestReconcileChildren_MixedNilAndValid(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseElements := []interface{}{
+	parseElements := []any{
 		nil,
 		&Element{Type: "span"},
 		nil,
@@ -120,17 +120,17 @@ func TestReconcileChildren_OldFiberWithoutSibling(parseT *testing.T) {
 
 	parseOldFiber := &Fiber{
 		typeOf: "span",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseAdapter.CreateElement("span"),
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span", Props: map[string]interface{}{"id": "new"}}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "span", Props: map[string]any{"id": "new"}}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created")
@@ -147,17 +147,17 @@ func TestReconcileChildren_OldFiberNilDOM(parseT *testing.T) {
 
 	parseOldFiber := &Fiber{
 		typeOf: "span",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    nil, // Nil DOM
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "span"}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created even with nil old DOM")
@@ -171,18 +171,18 @@ func TestReconcileChildren_TypeChange(parseT *testing.T) {
 
 	parseOldFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseAdapter.CreateElement("div"),
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
 	// Change from div to span
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "span"}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created")
@@ -202,17 +202,17 @@ func TestReconcileChildren_SameTypeUpdate(parseT *testing.T) {
 
 	parseOldFiber := &Fiber{
 		typeOf: "div",
-		props:  map[string]interface{}{"id": "old"},
+		props:  map[string]any{"id": "old"},
 		dom:    parseAdapter.CreateElement("div"),
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "div", Props: map[string]interface{}{"id": "new"}}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "div", Props: map[string]any{"id": "new"}}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created")
@@ -231,21 +231,21 @@ func TestReconcileChildren_KeyedElementsReorder(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old: [a, b, c]
-	parseOldC := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "c"}, dom: parseAdapter.CreateElement("div")}
-	parseOldB := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "b"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldC}
-	parseOldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
+	parseOldC := &Fiber{typeOf: "div", props: map[string]any{"key": "c"}, dom: parseAdapter.CreateElement("div")}
+	parseOldB := &Fiber{typeOf: "div", props: map[string]any{"key": "b"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldC}
+	parseOldA := &Fiber{typeOf: "div", props: map[string]any{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldA},
 	}
 
 	// New: [c, a, b]
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"key": "c"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "a"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "b"}},
+	parseElements := []any{
+		&Element{Type: "div", Props: map[string]any{"key": "c"}},
+		&Element{Type: "div", Props: map[string]any{"key": "a"}},
+		&Element{Type: "div", Props: map[string]any{"key": "b"}},
 	}
 
 	parseRt.reconcileChildren(parseWipFiber, parseElements)
@@ -260,18 +260,18 @@ func TestReconcileChildren_KeyedElementRemoval(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	parseOldB := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "b"}, dom: parseAdapter.CreateElement("div")}
-	parseOldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
+	parseOldB := &Fiber{typeOf: "div", props: map[string]any{"key": "b"}, dom: parseAdapter.CreateElement("div")}
+	parseOldA := &Fiber{typeOf: "div", props: map[string]any{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldA},
 	}
 
 	// Only keep 'a', remove 'b'
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"key": "a"}},
+	parseElements := []any{
+		&Element{Type: "div", Props: map[string]any{"key": "a"}},
 	}
 
 	parseRt.reconcileChildren(parseWipFiber, parseElements)
@@ -286,18 +286,18 @@ func TestReconcileChildren_KeyedElementAddition(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	parseOldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: parseAdapter.CreateElement("div")}
+	parseOldA := &Fiber{typeOf: "div", props: map[string]any{"key": "a"}, dom: parseAdapter.CreateElement("div")}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldA},
 	}
 
 	// Add 'b' after 'a'
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"key": "a"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "b"}},
+	parseElements := []any{
+		&Element{Type: "div", Props: map[string]any{"key": "a"}},
+		&Element{Type: "div", Props: map[string]any{"key": "b"}},
 	}
 
 	parseRt.reconcileChildren(parseWipFiber, parseElements)
@@ -321,16 +321,16 @@ func TestReconcileChildren_AllElementsRemoved(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	parseOldB := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div")}
-	parseOldA := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
+	parseOldB := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div")}
+	parseOldA := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldA},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{})
+	parseRt.reconcileChildren(parseWipFiber, []any{})
 
 	if parseWipFiber.child != nil {
 		parseT.Error("Expected no children")
@@ -347,11 +347,11 @@ func TestReconcileChildren_NoOldChildrenAddNew(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: nil}, // No old children
 	}
 
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{Type: "span"},
 		&Element{Type: "p"},
 	}
@@ -378,16 +378,16 @@ func TestReconcileChildren_FunctionComponent(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	parseComponent := func(parseProps map[string]interface{}) *Element {
+	parseComponent := func(parseProps map[string]any) *Element {
 		return &Element{Type: "div"}
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{Type: parseComponent},
 	}
 
@@ -410,15 +410,15 @@ func TestReconcileChildren_DeepNesting(parseT *testing.T) {
 			return &Element{Type: "span"}
 		}
 		parseChild := parseCreateElement(parseDepth2 - 1)
-		return &Element{Type: "div", Props: map[string]interface{}{"children": []interface{}{parseChild}}}
+		return &Element{Type: "div", Props: map[string]any{"children": []any{parseChild}}}
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseElements := []interface{}{parseCreateElement(10)}
+	parseElements := []any{parseCreateElement(10)}
 
 	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
@@ -434,11 +434,11 @@ func TestReconcileChildren_ManyChildren(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseElements := make([]interface{}, 100)
-	for parseI := 0; parseI < 100; parseI++ {
+	parseElements := make([]any, 100)
+	for parseI := range 100 {
 		parseElements[parseI] = &Element{Type: "span"}
 	}
 
@@ -463,20 +463,20 @@ func TestReconcileChildren_FragmentFlattening(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
 	parseFragment := &Element{
 		Type: "FRAGMENT",
-		Props: map[string]interface{}{
-			"children": []interface{}{
+		Props: map[string]any{
+			"children": []any{
 				&Element{Type: "span"},
 				&Element{Type: "p"},
 			},
 		},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{parseFragment})
+	parseRt.reconcileChildren(parseWipFiber, []any{parseFragment})
 
 	// Fragments should be flattened
 	parseCount := 0
@@ -497,20 +497,20 @@ func TestReconcileChildren_OldFiberChainLongerThanNew(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old has 5 children
-	parseOld5 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div")}
-	parseOld4 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld5}
-	parseOld3 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld4}
-	parseOld2 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld3}
-	parseOld1 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
+	parseOld5 := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div")}
+	parseOld4 := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div"), sibling: parseOld5}
+	parseOld3 := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div"), sibling: parseOld4}
+	parseOld2 := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div"), sibling: parseOld3}
+	parseOld1 := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOld1},
 	}
 
 	// New has only 2 children
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{Type: "div"},
 		&Element{Type: "div"},
 	}
@@ -540,17 +540,17 @@ func TestReconcileChildren_NewLongerThanOld(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old has 2 children
-	parseOld2 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div")}
-	parseOld1 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
+	parseOld2 := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div")}
+	parseOld1 := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOld1},
 	}
 
 	// New has 5 children
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{Type: "div"},
 		&Element{Type: "div"},
 		&Element{Type: "div"},
@@ -586,10 +586,10 @@ func TestReconcileChildren_ElementWithNilProps(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span", Props: nil}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "span", Props: nil}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created")
@@ -603,10 +603,10 @@ func TestReconcileChildren_ElementWithEmptyProps(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span", Props: map[string]interface{}{}}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "span", Props: map[string]any{}}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child to be created")
@@ -618,23 +618,23 @@ func TestReconcileChildren_SameFunctionComponent(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	parseComponent := func(parseProps map[string]interface{}) *Element {
+	parseComponent := func(parseProps map[string]any) *Element {
 		return &Element{Type: "div"}
 	}
 
 	parseOldFiber := &Fiber{
 		typeOf: parseComponent,
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    nil, // Function components don't have DOM
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: parseComponent, Props: map[string]interface{}{"id": "new"}}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: parseComponent, Props: map[string]any{"id": "new"}}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
@@ -649,25 +649,25 @@ func TestReconcileChildren_DifferentFunctionComponents(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	parseComponent1 := func(parseProps map[string]interface{}) *Element {
+	parseComponent1 := func(parseProps map[string]any) *Element {
 		return &Element{Type: "div"}
 	}
-	parseComponent2 := func(parseProps2 map[string]interface{}) *Element {
+	parseComponent2 := func(parseProps2 map[string]any) *Element {
 		return &Element{Type: "span"}
 	}
 
 	parseOldFiber := &Fiber{
 		typeOf: parseComponent1,
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: parseComponent2}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: parseComponent2}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
@@ -685,10 +685,10 @@ func TestReconcileChildren_ParentReference(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{
+	parseRt.reconcileChildren(parseWipFiber, []any{
 		&Element{Type: "span"},
 		&Element{Type: "p"},
 	})
@@ -710,17 +710,17 @@ func TestReconcileChildren_AlternateReference(parseT *testing.T) {
 
 	parseOldFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseAdapter.CreateElement("div"),
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "div"}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "div"}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
@@ -738,18 +738,18 @@ func TestReconcileChildren_DOMReuseOnUpdate(parseT *testing.T) {
 	parseOldDOM := parseAdapter.CreateElement("div")
 	parseOldFiber := &Fiber{
 		typeOf: "div",
-		props:  map[string]interface{}{"id": "old"},
+		props:  map[string]any{"id": "old"},
 		dom:    parseOldDOM,
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"id": "new"}},
+	parseRt.reconcileChildren(parseWipFiber, []any{
+		&Element{Type: "div", Props: map[string]any{"id": "new"}},
 	})
 
 	if parseWipFiber.child == nil {
@@ -767,11 +767,11 @@ func TestReconcileChildren_NoAlternateReference(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: nil, // No alternate
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "span"}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
@@ -788,11 +788,11 @@ func TestReconcileChildren_DirtyFlagOnNew(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dirty:  true,
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "span"}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
@@ -810,19 +810,19 @@ func TestReconcileChildren_PropsDifferTriggerUpdate(parseT *testing.T) {
 
 	parseOldFiber := &Fiber{
 		typeOf: "div",
-		props:  map[string]interface{}{"className": "old"},
+		props:  map[string]any{"className": "old"},
 		dom:    parseAdapter.CreateElement("div"),
 		dirty:  false,
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"className": "new"}},
+	parseRt.reconcileChildren(parseWipFiber, []any{
+		&Element{Type: "div", Props: map[string]any{"className": "new"}},
 	})
 
 	if parseWipFiber.child == nil {
@@ -841,19 +841,19 @@ func TestReconcileChildren_EventHandlerAlwaysDirty(parseT *testing.T) {
 	parseHandler := func() {}
 	parseOldFiber := &Fiber{
 		typeOf: "button",
-		props:  map[string]interface{}{"onclick": parseHandler},
+		props:  map[string]any{"onclick": parseHandler},
 		dom:    parseAdapter.CreateElement("button"),
 		dirty:  false,
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{
-		&Element{Type: "button", Props: map[string]interface{}{"onclick": parseHandler, "id": "new"}},
+	parseRt.reconcileChildren(parseWipFiber, []any{
+		&Element{Type: "button", Props: map[string]any{"onclick": parseHandler, "id": "new"}},
 	})
 
 	if parseWipFiber.child == nil {
@@ -872,14 +872,14 @@ func TestReconcileChildren_MultipleFragments(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{
 			Type: "FRAGMENT",
-			Props: map[string]interface{}{
-				"children": []interface{}{
+			Props: map[string]any{
+				"children": []any{
 					&Element{Type: "span"},
 					&Element{Type: "p"},
 				},
@@ -887,8 +887,8 @@ func TestReconcileChildren_MultipleFragments(parseT *testing.T) {
 		},
 		&Element{
 			Type: "FRAGMENT",
-			Props: map[string]interface{}{
-				"children": []interface{}{
+			Props: map[string]any{
+				"children": []any{
 					&Element{Type: "div"},
 				},
 			},
@@ -916,18 +916,18 @@ func TestReconcileChildren_NestedFragments(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{
 			Type: "FRAGMENT",
-			Props: map[string]interface{}{
-				"children": []interface{}{
+			Props: map[string]any{
+				"children": []any{
 					&Element{
 						Type: "FRAGMENT",
-						Props: map[string]interface{}{
-							"children": []interface{}{
+						Props: map[string]any{
+							"children": []any{
 								&Element{Type: "span"},
 							},
 						},
@@ -959,11 +959,11 @@ func TestReconcileChildren_EmptyFragment(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseElements := []interface{}{
-		&Element{Type: "FRAGMENT", Props: map[string]interface{}{}},
+	parseElements := []any{
+		&Element{Type: "FRAGMENT", Props: map[string]any{}},
 		&Element{Type: "span"},
 	}
 
@@ -988,11 +988,11 @@ func TestReconcileChildren_FragmentWithNilChildren(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseElements := []interface{}{
-		&Element{Type: "FRAGMENT", Props: map[string]interface{}{"children": nil}},
+	parseElements := []any{
+		&Element{Type: "FRAGMENT", Props: map[string]any{"children": nil}},
 		&Element{Type: "span"},
 	}
 
@@ -1017,18 +1017,18 @@ func TestReconcileChildren_AlternateWithDirtyFlag(parseT *testing.T) {
 
 	parseOldFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseAdapter.CreateElement("div"),
 		dirty:  true, // Already dirty
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "div"}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "div"}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
@@ -1046,10 +1046,10 @@ func TestReconcileChildren_SiblingChainIntegrity(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{Type: "span"},
 		&Element{Type: "p"},
 		&Element{Type: "div"},
@@ -1083,11 +1083,11 @@ func TestReconcileChildren_NoAlternateNoOldFiber(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: nil,
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []any{&Element{Type: "span"}})
 
 	if parseWipFiber.child == nil {
 		parseT.Fatal("Expected child")
@@ -1103,25 +1103,25 @@ func TestReconcileChildren_ComplexReordering(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old: [a, b, c, d, e]
-	parseOldE := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "e"}, dom: parseAdapter.CreateElement("div")}
-	parseOldD := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "d"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldE}
-	parseOldC := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "c"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldD}
-	parseOldB := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "b"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldC}
-	parseOldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
+	parseOldE := &Fiber{typeOf: "div", props: map[string]any{"key": "e"}, dom: parseAdapter.CreateElement("div")}
+	parseOldD := &Fiber{typeOf: "div", props: map[string]any{"key": "d"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldE}
+	parseOldC := &Fiber{typeOf: "div", props: map[string]any{"key": "c"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldD}
+	parseOldB := &Fiber{typeOf: "div", props: map[string]any{"key": "b"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldC}
+	parseOldA := &Fiber{typeOf: "div", props: map[string]any{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldA},
 	}
 
 	// New: [e, c, a, f, b] (removed d, added f, reordered)
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"key": "e"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "c"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "a"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "f"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "b"}},
+	parseElements := []any{
+		&Element{Type: "div", Props: map[string]any{"key": "e"}},
+		&Element{Type: "div", Props: map[string]any{"key": "c"}},
+		&Element{Type: "div", Props: map[string]any{"key": "a"}},
+		&Element{Type: "div", Props: map[string]any{"key": "f"}},
+		&Element{Type: "div", Props: map[string]any{"key": "b"}},
 	}
 
 	parseRt.reconcileChildren(parseWipFiber, parseElements)
@@ -1146,12 +1146,12 @@ func TestReconcileChildren_ZeroChildrenToMany(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: nil},
 	}
 
-	parseElements := make([]interface{}, 50)
-	for parseI := 0; parseI < 50; parseI++ {
+	parseElements := make([]any, 50)
+	for parseI := range 50 {
 		parseElements[parseI] = &Element{Type: "span"}
 	}
 
@@ -1177,8 +1177,8 @@ func TestReconcileChildren_ManyChildrenToZero(parseT *testing.T) {
 	// Create 50 old children
 	var parseFirstChild *Fiber
 	var parsePrevChild *Fiber
-	for parseI := 0; parseI < 50; parseI++ {
-		parseChild := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div")}
+	for parseI := range 50 {
+		parseChild := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div")}
 		if parseI == 0 {
 			parseFirstChild = parseChild
 		} else {
@@ -1189,11 +1189,11 @@ func TestReconcileChildren_ManyChildrenToZero(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseFirstChild},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{})
+	parseRt.reconcileChildren(parseWipFiber, []any{})
 
 	if parseWipFiber.child != nil {
 		parseT.Error("Expected no children")
@@ -1213,7 +1213,7 @@ func TestReconcileKeyedChildrenAppendsRemainingDeletionsInOldOrder(parseT *testi
 	for parseI := 1; parseI <= 6; parseI++ {
 		parseChild := &Fiber{
 			typeOf: "div",
-			props:  map[string]interface{}{"key": parseI},
+			props:  map[string]any{"key": parseI},
 			dom:    parseAdapter.CreateElement("div"),
 		}
 		if parseFirstChild == nil {
@@ -1226,25 +1226,25 @@ func TestReconcileKeyedChildrenAppendsRemainingDeletionsInOldOrder(parseT *testi
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseFirstChild},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"key": 1}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": 3}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": 6}},
+	parseRt.reconcileChildren(parseWipFiber, []any{
+		&Element{Type: "div", Props: map[string]any{"key": 1}},
+		&Element{Type: "div", Props: map[string]any{"key": 3}},
+		&Element{Type: "div", Props: map[string]any{"key": 6}},
 	})
 
 	if len(parseRt.deletions) != 3 {
 		parseT.Fatalf("expected 3 keyed deletions, got %d", len(parseRt.deletions))
 	}
-	getDeletedKeys := []interface{}{
+	getDeletedKeys := []any{
 		parseRt.deletions[0].props["key"],
 		parseRt.deletions[1].props["key"],
 		parseRt.deletions[2].props["key"],
 	}
-	getExpectedKeys := []interface{}{2, 4, 5}
+	getExpectedKeys := []any{2, 4, 5}
 	for parseIndex := range getExpectedKeys {
 		if getDeletedKeys[parseIndex] != getExpectedKeys[parseIndex] {
 			parseT.Fatalf("expected keyed deletions in old sibling order %v, got %v", getExpectedKeys, getDeletedKeys)
@@ -1260,19 +1260,19 @@ func TestReconcileChildren_AlternatingUpdatesAndPlacements(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	parseOld2 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div")}
-	parseOld1 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
+	parseOld2 := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div")}
+	parseOld1 := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOld1},
 	}
 
 	// Keep first two, add new ones
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"id": "new1"}},
-		&Element{Type: "div", Props: map[string]interface{}{"id": "new2"}},
+	parseElements := []any{
+		&Element{Type: "div", Props: map[string]any{"id": "new1"}},
+		&Element{Type: "div", Props: map[string]any{"id": "new2"}},
 		&Element{Type: "span"},
 		&Element{Type: "p"},
 	}

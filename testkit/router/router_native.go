@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package routertest
 
@@ -20,19 +19,19 @@ type Inspection struct {
 	Params map[string]string
 }
 
-func NewHash(parseTb testing.TB, parseOptions ...interface{}) *Fixture {
+func NewHash(parseTb testing.TB, parseOptions ...any) *Fixture {
 	parseTb.Helper()
 	parseTb.Fatalf("testkit/router requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
 	return nil
 }
 
-func NewHistory(parseTb testing.TB, parseOptions ...interface{}) *Fixture {
+func NewHistory(parseTb testing.TB, parseOptions ...any) *Fixture {
 	parseTb.Helper()
 	parseTb.Fatalf("testkit/router requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
 	return nil
 }
 
-func (parseF *Fixture) Register(parsePath string, parseComponent interface{}, parseOptions ...interface{}) {
+func (parseF *Fixture) Register(parsePath string, parseComponent any, parseOptions ...any) {
 }
 func (parseF *Fixture) SetPath(parsePath string)                                    {}
 func (parseF *Fixture) Render()                                                     {}

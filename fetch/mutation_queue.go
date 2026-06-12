@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -32,7 +33,7 @@ type MutationDraft struct {
 	Method   string            `json:"method,omitempty"`
 	URL      string            `json:"url,omitempty"`
 	Headers  map[string]string `json:"headers,omitempty"`
-	Body     interface{}       `json:"body,omitempty"`
+	Body     any               `json:"body,omitempty"`
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
@@ -44,14 +45,14 @@ type QueuedMutation struct {
 	Method        string            `json:"method,omitempty"`
 	URL           string            `json:"url,omitempty"`
 	Headers       map[string]string `json:"headers,omitempty"`
-	Body          interface{}       `json:"body,omitempty"`
+	Body          any               `json:"body,omitempty"`
 	Metadata      map[string]string `json:"metadata,omitempty"`
 	State         MutationState     `json:"state,omitempty"`
 	Attempts      int               `json:"attempts,omitempty"`
 	MaxAttempts   int               `json:"maxAttempts,omitempty"`
-	CreatedAt     time.Time         `json:"createdAt,omitempty"`
-	UpdatedAt     time.Time         `json:"updatedAt,omitempty"`
-	NextAttemptAt time.Time         `json:"nextAttemptAt,omitempty"`
+	CreatedAt     time.Time         `json:"createdAt"`
+	UpdatedAt     time.Time         `json:"updatedAt"`
+	NextAttemptAt time.Time         `json:"nextAttemptAt"`
 	LastError     string            `json:"lastError,omitempty"`
 }
 
@@ -613,9 +614,7 @@ func cloneStringMap(parseInput map[string]string) map[string]string {
 		return nil
 	}
 	parseClone := make(map[string]string, len(parseInput))
-	for parseKey, parseValue := range parseInput {
-		parseClone[parseKey] = parseValue
-	}
+	maps.Copy(parseClone, parseInput)
 	return parseClone
 }
 

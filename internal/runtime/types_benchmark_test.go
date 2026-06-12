@@ -7,7 +7,7 @@ func BenchmarkFiberAllocation(parseB *testing.B) {
 	for parseI := 0; parseI < parseB.N; parseI++ {
 		_ = &Fiber{
 			typeOf: "div",
-			props:  map[string]interface{}{"id": "node"},
+			props:  map[string]any{"id": "node"},
 			dirty:  true,
 		}
 	}
@@ -26,7 +26,7 @@ func BenchmarkElementLiteralCreation(parseB *testing.B) {
 
 func BenchmarkHooksPackedStateRead(parseB *testing.B) {
 	parseHooks := &Hooks{
-		states: []interface{}{1, 1, 2, 2, 3, 3, 4, 4},
+		states: []any{1, 1, 2, 2, 3, 3, 4, 4},
 	}
 
 	parseB.ReportAllocs()

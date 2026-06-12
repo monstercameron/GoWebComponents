@@ -58,12 +58,12 @@ type launcherExecutablePlugin struct {
 type launcherEnterpriseConfig struct {
 	Hooks    map[string][]launcherExecutableHook `json:"hooks,omitempty"`
 	Plugins  []launcherExecutablePlugin          `json:"plugins,omitempty"`
-	Policy   launcherEnterprisePolicy            `json:"policy,omitempty"`
-	Security launcherEnterpriseSecurityPolicy    `json:"security,omitempty"`
+	Policy   launcherEnterprisePolicy            `json:"policy"`
+	Security launcherEnterpriseSecurityPolicy    `json:"security"`
 }
 
 type launcherEnterpriseConfigFile struct {
-	Enterprise launcherEnterpriseConfig `json:"enterprise,omitempty"`
+	Enterprise launcherEnterpriseConfig `json:"enterprise"`
 }
 
 type launcherEnterpriseConfigSources struct {

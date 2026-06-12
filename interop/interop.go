@@ -80,7 +80,7 @@ func unavailable(parseOp, parseTarget string) error {
 }
 
 // Decode projects JSON-shaped interop payloads into a typed target.
-func Decode(parseValue any, parseTarget interface{}) error {
+func Decode(parseValue any, parseTarget any) error {
 	if parseTarget == nil {
 		return wrapError("Decode", "", CodeInvalid, errors.New("target is nil"))
 	}
@@ -188,7 +188,7 @@ func (parseE WindowEnv) String(parseName string, parseFallback string) string {
 // Value wraps a browser JavaScript value behind a typed interop surface.
 // Platform-specific methods are attached in build-tagged files.
 type Value struct {
-	raw interface{}
+	raw any
 }
 
 type Storage struct {

@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package routertest
 
@@ -15,12 +14,12 @@ import (
 
 // Fixture wraps one router plus a rendered route fixture.
 type Fixture struct {
-	tb      testing.TB
-	router  *appRouter.Router
-	render  *render.Fixture
-	env     *browser.Environment
-	isHash  bool
-	cleaned bool
+	tb                     testing.TB
+	router                 *appRouter.Router
+	render                 *render.Fixture
+	env                    *browser.Environment
+	isHash                 bool
+	cleaned                bool
 	renderCurrentComponent func() ui.Node
 	renderVersion          int
 }

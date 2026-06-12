@@ -7,7 +7,7 @@ import (
 )
 
 func TestGeneratedMessagesExposeNoArgMethodsAndNilSafeGetters(parseT *testing.T) {
-	parseMessages := []interface{}{
+	parseMessages := []any{
 		&ChatMessage{},
 		&SendRequest{},
 		&ChatChunk{},
@@ -68,7 +68,7 @@ func TestGeneratedMessagesExposeNoArgMethodsAndNilSafeGetters(parseT *testing.T)
 	}
 }
 
-func parseCallNoArgMethods(parseT *testing.T, parseMessage interface{}) {
+func parseCallNoArgMethods(parseT *testing.T, parseMessage any) {
 	parseT.Helper()
 	parseValue := reflect.ValueOf(parseMessage)
 	parseTyp := parseValue.Type()

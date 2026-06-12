@@ -5,7 +5,7 @@ import "fmt"
 // guardedResult stores the result of one guarded plugin operation.
 type guardedResult struct {
 	getErr       error
-	getRecovered interface{}
+	getRecovered any
 }
 
 // runGuardedCall executes one plugin-owned callback and converts panics into errors.

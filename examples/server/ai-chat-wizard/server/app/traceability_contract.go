@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"maps"
 	"strings"
 )
 
@@ -150,9 +151,7 @@ func parseMergeJSONObjectStrings(parseBaseJSON string, parseOverlayJSON string) 
 	if parseErr := json.Unmarshal([]byte(parseOverlayJSON), &parseOverlayMap); parseErr != nil {
 		return parseBaseJSON
 	}
-	for parseKey, parseValue := range parseOverlayMap {
-		parseBaseMap[parseKey] = parseValue
-	}
+	maps.Copy(parseBaseMap, parseOverlayMap)
 	parseMergedJSON, parseErr := json.Marshal(parseBaseMap)
 	if parseErr != nil {
 		return parseBaseJSON

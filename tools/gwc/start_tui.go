@@ -194,6 +194,34 @@ func defaultStartPresets() []startPreset {
 			Description: "Use this when you want a more complete app shell that still stays understandable and disposable.",
 			Features:    []string{"ui", "html", "router", "forms", "fetch", "state", "browser-tests", "release-profile"},
 		},
+		{
+			Key:         "dashboard-app",
+			Name:        "Operations Dashboard",
+			Summary:     "Routed dashboard shell with async data, shared state, forms, browser smoke tests, and release defaults.",
+			Description: "Use this for internal tools, admin consoles, or reporting surfaces that need repeatable data and action flows.",
+			Features:    []string{"ui", "html", "router", "fetch", "state", "forms", "browser-tests", "release-profile"},
+		},
+		{
+			Key:         "marketing-site",
+			Name:        "Marketing Site",
+			Summary:     "SSR and hydration starter for product, launch, or campaign pages that need fast first paint.",
+			Description: "Use this when public landing pages, SEO-sensitive content, or campaign surfaces need request-time HTML plus wasm interactivity.",
+			Features:    []string{"ui", "html", "router", "ssr", "hydration", "browser-tests", "release-profile"},
+		},
+		{
+			Key:         "content-blog",
+			Name:        "Content Blog",
+			Summary:     "Content-oriented SSR starter with routing, hydration, async data placeholders, and release defaults.",
+			Description: "Use this for docs, changelogs, editorial content, or blog-style sites that need static-friendly pages with room for dynamic widgets.",
+			Features:    []string{"ui", "html", "router", "ssr", "hydration", "fetch", "release-profile"},
+		},
+		{
+			Key:         "authed-app-shell",
+			Name:        "Authed App Shell",
+			Summary:     "Authenticated-product shell with routes, form flow, async data, shared state, browser tests, and release defaults.",
+			Description: "Use this for SaaS-style app shells where sign-in state, guarded screens, settings forms, and resource loading are part of day one.",
+			Features:    []string{"ui", "html", "router", "forms", "fetch", "state", "browser-tests", "release-profile"},
+		},
 	}
 }
 

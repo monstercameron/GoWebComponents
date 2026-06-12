@@ -25,8 +25,8 @@ type PersistentCacheOptions struct {
 
 type CacheBootstrapEntry struct {
 	Key          string            `json:"key,omitempty"`
-	Value        interface{}       `json:"value,omitempty"`
-	UpdatedAt    time.Time         `json:"updatedAt,omitempty"`
+	Value        any               `json:"value,omitempty"`
+	UpdatedAt    time.Time         `json:"updatedAt"`
 	ResumePolicy CacheResumePolicy `json:"resumePolicy,omitempty"`
 	StaleAfter   time.Duration     `json:"staleAfter,omitempty"`
 }
@@ -37,8 +37,8 @@ type CacheBootstrap struct {
 
 type persistedCachedResource struct {
 	Value      json.RawMessage `json:"value,omitempty"`
-	UpdatedAt  time.Time       `json:"updatedAt,omitempty"`
-	LastLoaded time.Time       `json:"lastLoaded,omitempty"`
+	UpdatedAt  time.Time       `json:"updatedAt"`
+	LastLoaded time.Time       `json:"lastLoaded"`
 }
 
 var persistentCacheState = struct {
@@ -79,7 +79,7 @@ func ConfigurePersistentCache(parseOptions PersistentCacheOptions) {
 }
 
 // readCacheBootstrap is an internal cache helper.
-func readCacheBootstrap(parseData map[string]interface{}) (CacheBootstrap, error) {
+func readCacheBootstrap(parseData map[string]any) (CacheBootstrap, error) {
 	if len(parseData) == 0 {
 		return CacheBootstrap{}, nil
 	}
@@ -373,9 +373,9 @@ func deletePersistentCachedSnapshot(parseKey string) {
 }
 
 // decodePersistedCachedValue is an internal cache helper.
-func decodePersistedCachedValue(parseRaw json.RawMessage, parseDesiredType reflect.Type) (interface{}, error) {
+func decodePersistedCachedValue(parseRaw json.RawMessage, parseDesiredType reflect.Type) (any, error) {
 	if parseDesiredType == nil {
-		var parseValue interface{}
+		var parseValue any
 		if parseErr := json.Unmarshal(parseRaw, &parseValue); parseErr != nil {
 			return nil, parseErr
 		}

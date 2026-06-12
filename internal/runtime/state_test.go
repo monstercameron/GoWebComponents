@@ -26,7 +26,7 @@ func TestGoUseAtomRegistryPanicUsesUnifiedContract(parseT *testing.T) {
 func newTestFiber(parseTypeOf string) *Fiber {
 	return &Fiber{
 		typeOf: parseTypeOf,
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		hooks:  &Hooks{},
 	}
 }
@@ -160,7 +160,7 @@ func TestAtomRegistry_ThreadSafety(parseT *testing.T) {
 	var parseWg sync.WaitGroup
 
 	// Spawn multiple goroutines reading/writing
-	for parseI := 0; parseI < 10; parseI++ {
+	for parseI := range 10 {
 		parseId := parseI
 		parseWg.Go(func() {
 			parseFiber := &Fiber{typeOf: "test"}
@@ -332,7 +332,7 @@ func TestRuntimeHelpers_SetAtomValue(parseT *testing.T) {
 	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
 	parseRt.currentRoot = &Fiber{}
 
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	parseRt.atomRegistry.Subscribe("test", parseFiber)
 
 	parseErr := parseRt.SetAtomValue("test", 123)
@@ -384,7 +384,7 @@ func TestRuntimeRestoreAtomSnapshotSchedulesSubscribers(parseT *testing.T) {
 	parseFiber := newTestFiber("subscriber")
 	parseRt.atomRegistry.Subscribe("theme", parseFiber)
 
-	if parseErr := parseRt.RestoreAtomSnapshot(map[string]interface{}{"theme": "dark"}); parseErr != nil {
+	if parseErr := parseRt.RestoreAtomSnapshot(map[string]any{"theme": "dark"}); parseErr != nil {
 		parseT.Fatalf("unexpected restore error: %v", parseErr)
 	}
 
@@ -402,7 +402,7 @@ func TestRuntimeHelpers_SetAtomValueTransitionDefersUntilTimeout(parseT *testing
 	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
 	parseRt.currentRoot = &Fiber{}
 
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	parseRt.atomRegistry.Subscribe("test", parseFiber)
 
 	parseRt.StartTransition(func() {
@@ -440,7 +440,7 @@ func TestRuntimeRestoreAtomSnapshotTransitionDefersUntilTimeout(parseT *testing.
 	parseRt.atomRegistry.Subscribe("theme", parseFiber)
 
 	parseRt.StartTransition(func() {
-		if parseErr := parseRt.RestoreAtomSnapshot(map[string]interface{}{"theme": "dark"}); parseErr != nil {
+		if parseErr := parseRt.RestoreAtomSnapshot(map[string]any{"theme": "dark"}); parseErr != nil {
 			parseT.Fatalf("unexpected transition restore error: %v", parseErr)
 		}
 	})
@@ -473,7 +473,7 @@ func TestRegisterDerivedAtomRecomputesWhenDependencyChanges(parseT *testing.T) {
 	if parseErr := parseRt.SetAtomValue("count", 2); parseErr != nil {
 		parseT.Fatalf("unexpected set atom error: %v", parseErr)
 	}
-	if parseErr2 := parseRt.RegisterDerivedAtom("double", []string{"count"}, func() interface{} {
+	if parseErr2 := parseRt.RegisterDerivedAtom("double", []string{"count"}, func() any {
 		parseValue, _ := parseRt.GetAtomValue("count")
 		return parseValue.(int) * 2
 	}); parseErr2 != nil {
@@ -505,13 +505,13 @@ func TestRegisterDerivedAtomSupportsChainedDependencies(parseT *testing.T) {
 	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
 
 	_ = parseRt.SetAtomValue("base", 3)
-	if parseErr := parseRt.RegisterDerivedAtom("double", []string{"base"}, func() interface{} {
+	if parseErr := parseRt.RegisterDerivedAtom("double", []string{"base"}, func() any {
 		parseValue, _ := parseRt.GetAtomValue("base")
 		return parseValue.(int) * 2
 	}); parseErr != nil {
 		parseT.Fatalf("unexpected register double error: %v", parseErr)
 	}
-	if parseErr2 := parseRt.RegisterDerivedAtom("label", []string{"double"}, func() interface{} {
+	if parseErr2 := parseRt.RegisterDerivedAtom("label", []string{"double"}, func() any {
 		parseValue2, _ := parseRt.GetAtomValue("double")
 		return fmt.Sprintf("value:%d", parseValue2.(int))
 	}); parseErr2 != nil {
@@ -531,7 +531,7 @@ func TestRegisterDerivedAtomSkipsSubscriberNotifyWhenValueUnchanged(parseT *test
 	parseRt.currentRoot = &Fiber{}
 
 	_ = parseRt.SetAtomValue("count", 1)
-	if parseErr := parseRt.RegisterDerivedAtom("parity", []string{"count"}, func() interface{} {
+	if parseErr := parseRt.RegisterDerivedAtom("parity", []string{"count"}, func() any {
 		parseValue, _ := parseRt.GetAtomValue("count")
 		return parseValue.(int) % 2
 	}); parseErr != nil {
@@ -560,7 +560,7 @@ func TestRegisterDerivedAtomRejectsSimpleCycles(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
 
-	parseErr := parseRt.RegisterDerivedAtom("loop", []string{"loop"}, func() interface{} { return 1 })
+	parseErr := parseRt.RegisterDerivedAtom("loop", []string{"loop"}, func() any { return 1 })
 	if parseErr == nil {
 		parseT.Fatal("expected self-referential derived atom registration to fail")
 	}
@@ -570,10 +570,10 @@ func TestRegisterDerivedAtomRejectsIndirectCycles(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
 
-	if parseErr := parseRt.RegisterDerivedAtom("derived-a", []string{"derived-b"}, func() interface{} { return 1 }); parseErr != nil {
+	if parseErr := parseRt.RegisterDerivedAtom("derived-a", []string{"derived-b"}, func() any { return 1 }); parseErr != nil {
 		parseT.Fatalf("unexpected register derived-a error: %v", parseErr)
 	}
-	parseErr2 := parseRt.RegisterDerivedAtom("derived-b", []string{"derived-a"}, func() interface{} { return 2 })
+	parseErr2 := parseRt.RegisterDerivedAtom("derived-b", []string{"derived-a"}, func() any { return 2 })
 	if parseErr2 == nil {
 		parseT.Fatal("expected indirect derived cycle registration to fail")
 	}

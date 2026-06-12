@@ -2,6 +2,7 @@ package runtime2
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 	"strings"
@@ -491,7 +492,7 @@ func parseBuildCanonicalRootNode(parseRenderOutput any) (*canonicalRenderNode, e
 			}, nil
 		}
 		buildChildren := make([]*canonicalRenderNode, 0, buildLength)
-		for parseIndex := 0; parseIndex < buildLength; parseIndex++ {
+		for parseIndex := range buildLength {
 			getChildNode, parseChildErr := parseBuildCanonicalRenderNode(parseValue.Index(parseIndex).Interface())
 			if parseChildErr != nil {
 				return nil, parseChildErr
@@ -677,7 +678,7 @@ func parseBuildCanonicalChildren(parseChildrenValue any) ([]*canonicalRenderNode
 	switch getChildrenValue := parseChildrenValue.(type) {
 	case []any:
 		buildChildren := make([]*canonicalRenderNode, 0, len(getChildrenValue))
-		for parseIndex := 0; parseIndex < len(getChildrenValue); parseIndex++ {
+		for parseIndex := range getChildrenValue {
 			getChildValue := getChildrenValue[parseIndex]
 			buildNode, parseNodeErr := parseBuildCanonicalRenderNode(getChildValue)
 			if parseNodeErr != nil {
@@ -706,7 +707,7 @@ func parseBuildCanonicalChildren(parseChildrenValue any) ([]*canonicalRenderNode
 	}
 	buildChildrenCount := parseReflectValue.Len()
 	buildChildren := make([]*canonicalRenderNode, 0, buildChildrenCount)
-	for parseIndex := 0; parseIndex < buildChildrenCount; parseIndex++ {
+	for parseIndex := range buildChildrenCount {
 		buildNode, parseNodeErr := parseBuildCanonicalRenderNode(parseReflectValue.Index(parseIndex).Interface())
 		if parseNodeErr != nil {
 			return nil, parseNodeErr
@@ -741,9 +742,7 @@ func parseBuildCanonicalProps(parseMapValue map[string]any) ([]RenderPropRecord,
 	if hasPropsValue {
 		switch getPropsValue := parsePropsValue.(type) {
 		case map[string]any:
-			for getPropKey, getPropValue := range getPropsValue {
-				buildRawValueByKey[getPropKey] = getPropValue
-			}
+			maps.Copy(buildRawValueByKey, getPropsValue)
 		case map[string]string:
 			for getPropKey, getPropValue := range getPropsValue {
 				buildRawValueByKey[getPropKey] = getPropValue
@@ -752,9 +751,7 @@ func parseBuildCanonicalProps(parseMapValue map[string]any) ([]RenderPropRecord,
 			parseReflectProps := reflect.ValueOf(parsePropsValue)
 			buildPropsValue, parsePropsErr := parseBuildCanonicalMapValue(parseReflectProps)
 			if parsePropsErr == nil {
-				for getPropKey, getPropValue := range buildPropsValue {
-					buildRawValueByKey[getPropKey] = getPropValue
-				}
+				maps.Copy(buildRawValueByKey, buildPropsValue)
 			}
 		}
 	}

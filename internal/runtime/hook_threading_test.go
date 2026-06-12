@@ -17,10 +17,10 @@ func TestHookThreadingGuardRejectsCrossGoroutineHookUse(parseT *testing.T) {
 		SetCurrentFiber(nil)
 	})
 
-	parseFiber := &Fiber{typeOf: "test", props: map[string]interface{}{}}
+	parseFiber := &Fiber{typeOf: "test", props: map[string]any{}}
 	SetCurrentFiber(parseFiber)
 
-	parseRecovered := make(chan interface{}, 1)
+	parseRecovered := make(chan any, 1)
 	go func() {
 		defer func() {
 			parseRecovered <- recover()
@@ -62,7 +62,7 @@ func TestRenderFunctionComponentClearsCurrentFiber(parseT *testing.T) {
 			_, _ = GoUseState[int](parseRuntime, 1)
 			return CreateElement("div", nil)
 		},
-		props: map[string]interface{}{},
+		props: map[string]any{},
 	}
 
 	parseElement, isHandled, parseNext := parseRuntime.renderFunctionComponent(parseFiber)

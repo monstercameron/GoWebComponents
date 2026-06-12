@@ -416,10 +416,7 @@ func (parseS *Store) UpdateInventoryLevel(parseCtx context.Context, parseSku str
 	if parsePrepared.SafetyStock < 0 {
 		parsePrepared.SafetyStock = 0
 	}
-	parseAvailable := parsePrepared.OnHand - parsePrepared.Reserved - parsePrepared.Damaged
-	if parseAvailable < 0 {
-		parseAvailable = 0
-	}
+	parseAvailable := max(parsePrepared.OnHand-parsePrepared.Reserved-parsePrepared.Damaged, 0)
 	if _, parseErr := parseS.db.ExecContext(parseCtx, `update inventory_levels set on_hand = ?, reserved = ?, available = ?, inbound = ?, damaged = ?, reorder_point = ?, safety_stock = ?, status = ?, updated_at = ? where product_sku = ? and warehouse_id = ?`, parsePrepared.OnHand, parsePrepared.Reserved, parseAvailable, parsePrepared.Inbound, parsePrepared.Damaged, parsePrepared.ReorderPoint, parsePrepared.SafetyStock, parsePrepared.Status, timestampNow(), strings.TrimSpace(parseSku), parsePrepared.WarehouseID); parseErr != nil {
 		return repository.InventoryRow{}, fmt.Errorf("update inventory level: %w", parseErr)
 	}

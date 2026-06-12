@@ -8,13 +8,13 @@ import (
 )
 
 // FormatRenderStyleValue normalizes a supported style payload into a canonical string.
-func FormatRenderStyleValue(parseRaw interface{}) (string, error) {
+func FormatRenderStyleValue(parseRaw any) (string, error) {
 	switch parseStyleValue := parseRaw.(type) {
 	case string:
 		return formatRenderStyleString(parseStyleValue)
 	case map[string]string:
 		return formatRenderStyleStringMap(parseStyleValue)
-	case map[string]interface{}:
+	case map[string]any:
 		return formatRenderStyleMap(parseStyleValue)
 	default:
 		return "", fmt.Errorf("runtime2: unsupported style payload type %T", parseRaw)
@@ -23,7 +23,7 @@ func FormatRenderStyleValue(parseRaw interface{}) (string, error) {
 
 // formatRenderStyleStringMap canonicalizes one string-valued style map into sorted key order.
 func formatRenderStyleStringMap(parseRaw map[string]string) (string, error) {
-	parseStyleMap := make(map[string]interface{}, len(parseRaw))
+	parseStyleMap := make(map[string]any, len(parseRaw))
 	for parseKey, parseValue := range parseRaw {
 		parseStyleMap[parseKey] = parseValue
 	}
@@ -32,9 +32,9 @@ func formatRenderStyleStringMap(parseRaw map[string]string) (string, error) {
 
 // formatRenderStyleString canonicalizes a style string into sorted key order.
 func formatRenderStyleString(parseRaw string) (string, error) {
-	parseStyleMap := make(map[string]interface{})
-	parseSegments := strings.Split(parseRaw, ";")
-	for _, parseSegment := range parseSegments {
+	parseStyleMap := make(map[string]any)
+	parseSegments := strings.SplitSeq(parseRaw, ";")
+	for parseSegment := range parseSegments {
 		parseSegment = strings.TrimSpace(parseSegment)
 		if parseSegment == "" {
 			continue
@@ -54,8 +54,8 @@ func formatRenderStyleString(parseRaw string) (string, error) {
 }
 
 // formatRenderStyleMap canonicalizes one style map into sorted key order.
-func formatRenderStyleMap(parseRaw map[string]interface{}) (string, error) {
-	parseNormalizedStyleMap := make(map[string]interface{}, len(parseRaw))
+func formatRenderStyleMap(parseRaw map[string]any) (string, error) {
+	parseNormalizedStyleMap := make(map[string]any, len(parseRaw))
 	parseKeys := make([]string, 0, len(parseRaw))
 	for parseKey, parseValue := range parseRaw {
 		parseNormalizedKey := strings.TrimSpace(parseKey)
@@ -84,7 +84,7 @@ func formatRenderStyleMap(parseRaw map[string]interface{}) (string, error) {
 }
 
 // formatRenderStyleScalar converts one supported style scalar value into a string.
-func formatRenderStyleScalar(parseRaw interface{}) (string, error) {
+func formatRenderStyleScalar(parseRaw any) (string, error) {
 	switch parseValue := parseRaw.(type) {
 	case string:
 		return parseValue, nil

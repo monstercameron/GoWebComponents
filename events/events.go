@@ -27,10 +27,10 @@ type entry struct {
 
 // topicState is the mutable state kept per topic string.
 type topicState struct {
-	mu         sync.Mutex
-	entries    []entry
-	hasLast    bool
-	lastValue  any
+	mu        sync.Mutex
+	entries   []entry
+	hasLast   bool
+	lastValue any
 }
 
 // globalRegistry is the process-wide topic registry. Keys are topic strings,

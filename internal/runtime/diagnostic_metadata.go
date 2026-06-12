@@ -350,7 +350,7 @@ func panicDiagnosticRemediation(parsePhase boundaryPhase) string {
 }
 
 // panicSummary is a core package helper.
-func panicSummary(parseRecovered interface{}) string {
+func panicSummary(parseRecovered any) string {
 	parseErr := normalizeBoundaryError(parseRecovered)
 	parseMessage := strings.TrimSpace(parseErr.Error())
 	if parseMessage == "" {
@@ -369,12 +369,12 @@ func panicSubject(parseFiber *Fiber) string {
 }
 
 // panicDiagnosticMessage is a core package helper.
-func panicDiagnosticMessage(parseFiber *Fiber, parsePhase boundaryPhase, parseRecovered interface{}) string {
+func panicDiagnosticMessage(parseFiber *Fiber, parsePhase boundaryPhase, parseRecovered any) string {
 	return fmt.Sprintf("uncaught %s panic in %s: %s", parsePhase, panicSubject(parseFiber), panicSummary(parseRecovered))
 }
 
 // reportUnhandledPanic is a core package helper.
-func reportUnhandledPanic(parseFiber *Fiber, parsePhase boundaryPhase, parseRecovered interface{}) string {
+func reportUnhandledPanic(parseFiber *Fiber, parsePhase boundaryPhase, parseRecovered any) string {
 	return ReportUnhandledPanicContext(
 		"runtime",
 		parsePhase,
@@ -386,7 +386,7 @@ func reportUnhandledPanic(parseFiber *Fiber, parsePhase boundaryPhase, parseReco
 }
 
 // markUnhandledPanic is a core package helper.
-func markUnhandledPanic(parseFiber *Fiber, parsePhase boundaryPhase, parseRecovered interface{}) interface{} {
+func markUnhandledPanic(parseFiber *Fiber, parsePhase boundaryPhase, parseRecovered any) any {
 	return markUnhandledPanicContext(
 		"runtime",
 		parsePhase,
@@ -398,7 +398,7 @@ func markUnhandledPanic(parseFiber *Fiber, parsePhase boundaryPhase, parseRecove
 }
 
 // panicFinalUnhandledPanic is a core package helper.
-func panicFinalUnhandledPanic(parseFiber *Fiber, parsePhase boundaryPhase, parseRecovered interface{}) {
+func panicFinalUnhandledPanic(parseFiber *Fiber, parsePhase boundaryPhase, parseRecovered any) {
 	panicFinalUnhandledPanicContext(
 		"runtime",
 		parsePhase,

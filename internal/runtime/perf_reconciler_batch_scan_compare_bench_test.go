@@ -8,7 +8,7 @@ func buildPlacementBatchBenchmarkTree(parseAdapter DOMAdapter, parseLeafCount in
 	parseWrapperB := &Fiber{typeOf: func() *Element { return nil }, parent: parseWrapperA}
 	parseWrapperA.child = parseWrapperB
 	var parsePrev *Fiber
-	for parseIndex := 0; parseIndex < parseLeafCount; parseIndex++ {
+	for range parseLeafCount {
 		parseLeaf := &Fiber{
 			typeOf:    "div",
 			dom:       parseAdapter.CreateElement("div"),

@@ -71,7 +71,7 @@ func parseExampleRoots() ([]string, error) {
 		}
 		if parseExecutablePath, parseErr2 := os.Executable(); parseErr2 == nil {
 			parseCurrentDir := filepath.Dir(parseExecutablePath)
-			for parseI := 0; parseI < 5; parseI++ {
+			for range 5 {
 				parseAddRoot(parseCurrentDir)
 				parseAddRoot(filepath.Join(parseCurrentDir, "examples", "100-ai-chat-wizard"))
 				parseParentDir := filepath.Dir(parseCurrentDir)

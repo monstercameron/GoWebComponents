@@ -415,14 +415,14 @@ func TestRunReleaseJSONBuildsManifestAndCompressedSidecars(parseT *testing.T) {
 	if parseErr3 != nil {
 		parseT.Fatalf("read release manifest: %v", parseErr3)
 	}
-	var parseManifest map[string]interface{}
+	var parseManifest map[string]any
 	if parseErr9 := json.Unmarshal(parseManifestBytes, &parseManifest); parseErr9 != nil {
 		parseT.Fatalf("unmarshal release manifest: %v\n%s", parseErr9, string(parseManifestBytes))
 	}
 	if parseManifest["profile"] != "release" {
 		parseT.Fatalf("expected release manifest profile, got %#v", parseManifest)
 	}
-	parseFlags, parseOk := parseManifest["flags"].(map[string]interface{})
+	parseFlags, parseOk := parseManifest["flags"].(map[string]any)
 	if !parseOk || parseFlags["brotli"] != true {
 		parseT.Fatalf("expected release manifest to report brotli packaging, got %#v", parseManifest)
 	}
@@ -470,11 +470,11 @@ func TestRunReleaseDebugProfileRecordsGCFlags(parseT *testing.T) {
 	if parseErr3 != nil {
 		parseT.Fatalf("read debug release manifest: %v", parseErr3)
 	}
-	var parseManifest map[string]interface{}
+	var parseManifest map[string]any
 	if parseErr6 := json.Unmarshal(parseManifestBytes, &parseManifest); parseErr6 != nil {
 		parseT.Fatalf("unmarshal debug release manifest: %v\n%s", parseErr6, string(parseManifestBytes))
 	}
-	parseFlags, parseOk := parseManifest["flags"].(map[string]interface{})
+	parseFlags, parseOk := parseManifest["flags"].(map[string]any)
 	if !parseOk || parseFlags["gcflags"] != "all=-N -l" || parseFlags["trimpath"] != false {
 		parseT.Fatalf("expected debug manifest flags, got %#v", parseManifest)
 	}
@@ -1634,7 +1634,7 @@ func TestExecuteReleaseErrorPaths(parseT *testing.T) {
 		releaseArtifactRecordForPathFunc = func(parseBaseDir3 string, parseArtifactPath5 string) (releaseArtifactRecord, error) {
 			return releaseArtifactRecord{Path: filepath.Base(parseArtifactPath5), Bytes: 4, SHA256: strings.Repeat("a", 64)}, nil
 		}
-		releaseMarshalIndent = func(parseV interface{}, parsePrefix string, parseIndent string) ([]byte, error) {
+		releaseMarshalIndent = func(parseV any, parsePrefix string, parseIndent string) ([]byte, error) {
 			return nil, errors.New("marshal failed")
 		}
 		_, parseErr26 = executeRelease(releaseConfig{appPath: filepath.Join(parseRoot9, "main.go"), rootPath: parseRoot9, outDir: filepath.Join(parseRoot9, "dist-2"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "none", skipCompression: true, profile: "release"})

@@ -301,10 +301,7 @@ func benchmarkTestFileKind(parseName string, parseContent string) (bool, bool) {
 
 func benchmarkFileHasWasmBuildTag(parseContent string) bool {
 	parseLines := strings.Split(parseContent, "\n")
-	parseLimit := len(parseLines)
-	if parseLimit > 8 {
-		parseLimit = 8
-	}
+	parseLimit := min(len(parseLines), 8)
 	for _, parseLine := range parseLines[:parseLimit] {
 		parseTrimmed := strings.TrimSpace(parseLine)
 		if strings.Contains(parseTrimmed, "go:build js && wasm") || strings.Contains(parseTrimmed, "+build js,wasm") {
@@ -317,7 +314,7 @@ func benchmarkFileHasWasmBuildTag(parseContent string) bool {
 func parseBenchmarkOutput(parseOutput string) []benchmarkResultReport {
 	parseOrdered := []string{}
 	parseResults := map[string]*benchmarkResultReport{}
-	for _, parseRawLine := range strings.Split(parseOutput, "\n") {
+	for parseRawLine := range strings.SplitSeq(parseOutput, "\n") {
 		parseLine := strings.TrimSpace(parseRawLine)
 		if !strings.HasPrefix(parseLine, "Benchmark") {
 			continue
@@ -570,12 +567,6 @@ func benchmarkScoreGraph(parseScore float64, parseWidth int) string {
 	if parseClamped > 200 {
 		parseClamped = 200
 	}
-	parseFilled := int(math.Round((parseClamped / 200) * float64(parseWidth)))
-	if parseFilled < 0 {
-		parseFilled = 0
-	}
-	if parseFilled > parseWidth {
-		parseFilled = parseWidth
-	}
+	parseFilled := min(max(int(math.Round((parseClamped/200)*float64(parseWidth))), 0), parseWidth)
 	return "[" + strings.Repeat("#", parseFilled) + strings.Repeat("-", parseWidth-parseFilled) + "]"
 }

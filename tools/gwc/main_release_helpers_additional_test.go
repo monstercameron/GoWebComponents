@@ -178,7 +178,7 @@ func TestReleaseWriteSizeAttributionCoversSuccessAndFailures(parseT *testing.T) 
 		releaseRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
 			return parseOutput, nil
 		}
-		releaseMarshalIndent = func(parseV interface{}, parsePrefix string, parseIndent string) ([]byte, error) {
+		releaseMarshalIndent = func(parseV any, parsePrefix string, parseIndent string) ([]byte, error) {
 			return nil, errors.New("marshal failed")
 		}
 

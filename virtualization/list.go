@@ -2,6 +2,7 @@ package virtualization
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"strings"
 	"sync"
@@ -62,8 +63,6 @@ type restorationStoreState struct {
 var restorationStore = restorationStoreState{
 	snapshots: map[string]restorationSnapshot{},
 }
-
-const restorationStoragePrefix = "gwc:virtualization:restore:"
 
 // List renders one fixed-height vertical virtualized list with an owned scroll
 // container.
@@ -216,11 +215,24 @@ func mergeClassNames(parseValues ...string) string {
 
 func clampRange(parseR Range, parseTotal int) Range {
 	parseStart := clampIndex(parseR.Start, parseTotal)
-	parseEnd := clampIndex(parseR.End, parseTotal)
-	if parseEnd < parseStart {
-		parseEnd = parseStart
-	}
+	parseEnd := max(clampIndex(parseR.End, parseTotal), parseStart)
 	return Range{Start: parseStart, End: parseEnd}
+}
+
+// rowBodyComponent renders one row body and ties its mount/unmount callbacks
+// to the row's effect lifecycle.
+func rowBodyComponent[T any](parseProps rowBodyProps[T]) ui.Node {
+	ui.UseEffect(func() func() {
+		if parseProps.OnMount != nil {
+			parseProps.OnMount()
+		}
+		return func() {
+			if parseProps.OnUnmount != nil {
+				parseProps.OnUnmount()
+			}
+		}
+	}, parseProps.Row.Key)
+	return parseProps.Render(parseProps.Row)
 }
 
 func renderRows[T any](parseRendered, parseVisible Range, parseItems []T, parseRowHeight float64, parseItemKey func(T) string, renderRow func(RowRenderProps[T]) ui.Node, parseOnMount func(), parseOnUnmount func()) []ui.Node {
@@ -242,19 +254,7 @@ func renderRows[T any](parseRendered, parseVisible Range, parseItems []T, parseR
 				"height":    px(parseRowHeight),
 				"boxSizing": "border-box",
 			},
-		}, ui.CreateElement(func(parseProps rowBodyProps[T]) ui.Node {
-			ui.UseEffect(func() func() {
-				if parseProps.OnMount != nil {
-					parseProps.OnMount()
-				}
-				return func() {
-					if parseProps.OnUnmount != nil {
-						parseProps.OnUnmount()
-					}
-				}
-			}, parseProps.Row.Key)
-			return parseProps.Render(parseProps.Row)
-		}, rowBodyProps[T]{
+		}, ui.CreateElement(rowBodyComponent[T], rowBodyProps[T]{
 			Row:       parseRowProps,
 			Render:    renderRow,
 			OnMount:   parseOnMount,
@@ -269,12 +269,8 @@ func mergeStyle(parseBase, parseExtra map[string]string) map[string]string {
 		return nil
 	}
 	parseMerged := make(map[string]string, len(parseBase)+len(parseExtra))
-	for parseKey, parseValue := range parseBase {
-		parseMerged[parseKey] = parseValue
-	}
-	for parseKey2, parseValue2 := range parseExtra {
-		parseMerged[parseKey2] = parseValue2
-	}
+	maps.Copy(parseMerged, parseBase)
+	maps.Copy(parseMerged, parseExtra)
 	return parseMerged
 }
 

@@ -20,7 +20,6 @@ func TestParsePatchOpCodeSupportedOpCodesDecode(parseTesting *testing.T) {
 		{parseName: "replace-subtree", parseRaw: 9, parseWant: PatchOpCodeReplaceSubtree},
 	}
 	for _, parseCase := range parseCases {
-		parseCase := parseCase
 		parseTesting.Run(parseCase.parseName, func(parseTesting *testing.T) {
 			parseCode, parseErr := ParsePatchOpCode(parseCase.parseRaw)
 			if parseErr != nil {

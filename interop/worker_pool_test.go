@@ -417,7 +417,7 @@ func TestWorkerPoolClosesWhenReplacementFails(parseT *testing.T) {
 	readWorkerPoolSignal(parseT, parseReplacementStarted, "pooled replacement attempt")
 
 	var parseRepairErr error
-	for parseAttempt := 0; parseAttempt < 20; parseAttempt++ {
+	for range 20 {
 		_, parseRepairErr = parsePool.Request(context.Background(), "task", nil, nil)
 		if IsCode(parseRepairErr, CodeRemote) {
 			break

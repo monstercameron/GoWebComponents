@@ -16,10 +16,10 @@ type StructuredClonePatchEnvelope struct {
 }
 
 const (
-	buildStructuredClonePatchEnvelopeTokenRegionID    = `{"region_instance_id":`
-	buildStructuredClonePatchEnvelopeTokenEpoch       = `,"epoch":`
+	buildStructuredClonePatchEnvelopeTokenRegionID     = `{"region_instance_id":`
+	buildStructuredClonePatchEnvelopeTokenEpoch        = `,"epoch":`
 	buildStructuredClonePatchEnvelopeTokenPatchVersion = `,"patch_version":`
-	buildStructuredClonePatchEnvelopeTokenPayload     = `,"patch_payload":"`
+	buildStructuredClonePatchEnvelopeTokenPayload      = `,"patch_payload":"`
 )
 
 // ValidateStructuredClonePatchEnvelope verifies one structured-clone patch envelope contract.

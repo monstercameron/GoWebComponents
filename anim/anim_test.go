@@ -18,7 +18,7 @@ func TestSpringConverges(t *testing.T) {
 	const parseDt = 0.016
 	const parseMaxSteps = 500
 
-	for parseI := 0; parseI < parseMaxSteps; parseI++ {
+	for range parseMaxSteps {
 		parseSpring.Step(parseDt)
 		if parseSpring.IsSettled(0.001) {
 			break
@@ -45,7 +45,7 @@ func TestSpringNoWildOvershoot(t *testing.T) {
 	const parseDt = 0.016
 	const parseMaxSteps = 500
 
-	for parseI := 0; parseI < parseMaxSteps; parseI++ {
+	for parseI := range parseMaxSteps {
 		parsePos := parseSpring.Step(parseDt)
 		if parsePos > 2.0 {
 			t.Errorf("position %.6f exceeded 2× target at step %d", parsePos, parseI)
@@ -93,7 +93,7 @@ func TestSpringDefaultConfig(t *testing.T) {
 	parseSpring := NewSpring(SpringConfig{}, 0)
 	parseSpring.SetTarget(1.0)
 
-	for parseI := 0; parseI < 500; parseI++ {
+	for range 500 {
 		parseSpring.Step(0.016)
 		if parseSpring.IsSettled(0.001) {
 			return

@@ -27,7 +27,7 @@ func buildDOMCommitInsertRollbackBenchmarkFixture(parseB *testing.B) buildDOMCom
 	}); parseSetNodeErr != nil {
 		parseB.Fatalf("SetRegionDOMNode(parent) returned error: %v", parseSetNodeErr)
 	}
-	for parseChildOffset := 0; parseChildOffset < getBenchChildCount; parseChildOffset++ {
+	for parseChildOffset := range getBenchChildCount {
 		getNodeID := uint64(parseChildOffset + 2)
 		buildChildNodeIDs = append(buildChildNodeIDs, getNodeID)
 		if parseSetNodeErr := buildRegionDOMIndex.SetRegionDOMNode("bench-region", getNodeID, &RegionDOMNode{
@@ -80,7 +80,7 @@ func buildDOMCommitMoveRollbackBenchmarkFixture(parseB *testing.B) buildDOMCommi
 	}); parseSetNodeErr != nil {
 		parseB.Fatalf("SetRegionDOMNode(parent) returned error: %v", parseSetNodeErr)
 	}
-	for parseChildOffset := 0; parseChildOffset < getBenchChildCount; parseChildOffset++ {
+	for parseChildOffset := range getBenchChildCount {
 		getNodeID := uint64(parseChildOffset + 2)
 		buildChildNodeIDs = append(buildChildNodeIDs, getNodeID)
 		if parseSetNodeErr := buildRegionDOMIndex.SetRegionDOMNode("bench-region", getNodeID, &RegionDOMNode{
@@ -149,7 +149,7 @@ func buildDOMCommitRemoveRollbackBenchmarkFixture(parseB *testing.B) buildDOMCom
 	}); parseSetNodeErr != nil {
 		parseB.Fatalf("SetRegionDOMNode(sibling) returned error: %v", parseSetNodeErr)
 	}
-	for parseChildOffset := 0; parseChildOffset < getBenchChildCount; parseChildOffset++ {
+	for parseChildOffset := range getBenchChildCount {
 		getNodeID := uint64(parseChildOffset + 4)
 		buildSubtreeChildNodeIDs = append(buildSubtreeChildNodeIDs, getNodeID)
 		if parseSetNodeErr := buildRegionDOMIndex.SetRegionDOMNode("bench-region", getNodeID, &RegionDOMNode{

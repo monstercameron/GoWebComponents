@@ -11,7 +11,7 @@ var storeCanonicalMapValueIRBenchmarkSink map[string]any
 // buildCanonicalChildrenBenchmarkPayload builds one representative mixed-children payload for normalization benchmarks.
 func buildCanonicalChildrenBenchmarkPayload() []any {
 	buildChildren := make([]any, 0, 48)
-	for parseIndex := 0; parseIndex < 48; parseIndex++ {
+	for parseIndex := range 48 {
 		buildChildren = append(buildChildren, map[string]any{
 			"kind": "host-element",
 			"tag":  "li",

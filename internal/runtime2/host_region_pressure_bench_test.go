@@ -3,7 +3,7 @@ package runtime2_test
 import (
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -34,10 +34,7 @@ func getHostRegionPressureLatencyPercentile(parseSortedSamples []int64, parsePer
 	if parsePercentile >= 1 {
 		return parseSortedSamples[len(parseSortedSamples)-1]
 	}
-	getIndex := int(math.Ceil(parsePercentile*float64(len(parseSortedSamples))) - 1)
-	if getIndex < 0 {
-		getIndex = 0
-	}
+	getIndex := max(int(math.Ceil(parsePercentile*float64(len(parseSortedSamples)))-1), 0)
 	if getIndex >= len(parseSortedSamples) {
 		getIndex = len(parseSortedSamples) - 1
 	}
@@ -49,9 +46,7 @@ func reportHostRegionPressureLatencyPercentiles(parseB *testing.B, parseSamples 
 	if len(parseSamples) == 0 {
 		return
 	}
-	sort.Slice(parseSamples, func(parseLeft int, parseRight int) bool {
-		return parseSamples[parseLeft] < parseSamples[parseRight]
-	})
+	slices.Sort(parseSamples)
 	parseB.ReportMetric(float64(getHostRegionPressureLatencyPercentile(parseSamples, 0.50)), "dispatch-batch-p50-ns")
 	parseB.ReportMetric(float64(getHostRegionPressureLatencyPercentile(parseSamples, 0.95)), "dispatch-batch-p95-ns")
 	parseB.ReportMetric(float64(getHostRegionPressureLatencyPercentile(parseSamples, 0.99)), "dispatch-batch-p99-ns")
@@ -67,7 +62,7 @@ func BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers(parseB *testing.B) {
 	getPropsValues := make([]map[string]any, 0, getRegionCount)
 	getSpecs := make([]runtime2.ParallelRegionSpec, 0, getRegionCount)
 	getVersions := make([]uint64, 0, getRegionCount)
-	for getRegionIndex := 0; getRegionIndex < getRegionCount; getRegionIndex++ {
+	for getRegionIndex := range getRegionCount {
 		getRegionID := runtime2.RegionInstanceID(fmt.Sprintf("region-%d", getRegionIndex))
 		buildHostRegionAdapter, parseBuildErr := runtime2.BuildHostRegionAdapter(getRegionID, getShardIDs)
 		if parseBuildErr != nil {

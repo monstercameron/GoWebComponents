@@ -38,13 +38,13 @@ func TestRunDeployFilesystemCopiesArtifacts(parseT *testing.T) {
 	if parseWriteErr2 := os.WriteFile(filepath.Join(parseArtifactDir, "app.wasm"), []byte("wasm"), 0644); parseWriteErr2 != nil {
 		parseT.Fatalf("write wasm artifact: %v", parseWriteErr2)
 	}
-	parseManifest := map[string]interface{}{
+	parseManifest := map[string]any{
 		"package": "example.com/app",
 		"profile": "release",
 		"goos":    "js",
 		"goarch":  "wasm",
-		"artifacts": map[string]interface{}{
-			"wasm": map[string]interface{}{
+		"artifacts": map[string]any{
+			"wasm": map[string]any{
 				"path":   "app.wasm",
 				"bytes":  4,
 				"sha256": "abc",

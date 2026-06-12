@@ -59,4 +59,3 @@ func TestAdminChatMutationScopeBoundaries(parseT *testing.T) {
 		parseT.Fatalf("unsupported chat mutation status code=%v want=%v", status.Code(parseErr), codes.InvalidArgument)
 	}
 }
-

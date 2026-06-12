@@ -25,12 +25,12 @@ func buildPatchMoveBenchmarkFixture() buildPatchMoveBenchFixture {
 	buildRootChildren := make([]uint64, 0, getParentCount)
 	buildRemovedNodeIDs := make(map[uint64]struct{}, 1)
 	buildInsertedNodeIDs := make(map[uint64]struct{}, 1)
-	for parseParentIndex := 0; parseParentIndex < getParentCount; parseParentIndex++ {
+	for parseParentIndex := range getParentCount {
 		getParentNodeID := uint64(1_000_000 + parseParentIndex)
 		buildRootChildren = append(buildRootChildren, getParentNodeID)
 		buildPreviousChildren := make([]uint64, 0, getChildCount)
 		buildNextChildren := make([]uint64, 0, getChildCount)
-		for parseChildIndex := 0; parseChildIndex < getChildCount; parseChildIndex++ {
+		for parseChildIndex := range getChildCount {
 			getChildNodeID := getParentNodeID*1_000 + uint64(parseChildIndex+1)
 			buildPreviousChildren = append(buildPreviousChildren, getChildNodeID)
 			buildNextChildren = append(buildNextChildren, getChildNodeID)

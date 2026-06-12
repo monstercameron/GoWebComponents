@@ -8,7 +8,7 @@ import (
 func TestMarshalSSRBootstrapEscapesScriptSensitiveCharacters(parseT *testing.T) {
 	parsePayload := SSRBootstrap{
 		Route: SSRRouteBootstrap{Path: "/docs"},
-		Data:  map[string]interface{}{"snippet": "</script><div>&"},
+		Data:  map[string]any{"snippet": "</script><div>&"},
 	}
 
 	parseEncoded, parseErr := MarshalSSRBootstrap(parsePayload)
@@ -22,6 +22,19 @@ func TestMarshalSSRBootstrapEscapesScriptSensitiveCharacters(parseT *testing.T) 
 	}
 	if !strings.Contains(parseText, `\u003c/script\u003e\u003cdiv\u003e\u0026`) {
 		parseT.Fatalf("expected script-sensitive characters to be escaped, got %q", parseText)
+	}
+}
+
+func TestMarshalSSRBootstrapPreservesEmptyNestedObjects(parseT *testing.T) {
+	parseEncoded, parseErr := MarshalSSRBootstrap(SSRBootstrap{})
+	if parseErr != nil {
+		parseT.Fatalf("unexpected marshal error: %v", parseErr)
+	}
+	parseText := string(parseEncoded)
+	for _, parseExpected := range []string{`"route":{}`, `"i18n":{}`} {
+		if !strings.Contains(parseText, parseExpected) {
+			parseT.Fatalf("expected bootstrap payload to preserve %s, got %q", parseExpected, parseText)
+		}
 	}
 }
 
@@ -104,8 +117,8 @@ func TestMarshalAndUnmarshalSSRBootstrapBinaryRoundTrip(parseT *testing.T) {
 			Query:  map[string][]string{"tab": {"specs"}},
 			Params: map[string]string{"id": "42"},
 		},
-		Atoms:  map[string]interface{}{"theme": "dark", "count": uint64(3)},
-		Data:   map[string]interface{}{"title": "Widget"},
+		Atoms:  map[string]any{"theme": "dark", "count": uint64(3)},
+		Data:   map[string]any{"title": "Widget"},
 		IDSeed: 7,
 	}
 

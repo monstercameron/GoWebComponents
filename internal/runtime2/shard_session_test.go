@@ -177,23 +177,21 @@ func TestBuildShardSessionConcurrentInboundAndReceiveStaysStable(parseT *testing
 		parseT.Fatal("expected shard session to bind one inbound handler")
 	}
 	var getWaitGroup sync.WaitGroup
-	for parseWorkerIndex := 0; parseWorkerIndex < 8; parseWorkerIndex++ {
+	for parseWorkerIndex := range 8 {
 		getWaitGroup.Add(1)
 		go func(parseWorkerIndex int) {
 			defer getWaitGroup.Done()
-			for parseLoopIndex := 0; parseLoopIndex < 2000; parseLoopIndex++ {
+			for parseLoopIndex := range 2000 {
 				parsePort.getOnMessage([]byte{byte(parseWorkerIndex), byte(parseLoopIndex % 255)})
 			}
 		}(parseWorkerIndex)
 	}
-	for parseWorkerIndex := 0; parseWorkerIndex < 8; parseWorkerIndex++ {
-		getWaitGroup.Add(1)
-		go func() {
-			defer getWaitGroup.Done()
-			for parseLoopIndex := 0; parseLoopIndex < 2000; parseLoopIndex++ {
+	for range 8 {
+		getWaitGroup.Go(func() {
+			for range 2000 {
 				parseSession.HandleShardSessionReceivePayload()
 			}
-		}()
+		})
 	}
 	getWaitGroup.Wait()
 }
@@ -718,7 +716,7 @@ func TestHandleShardSessionReceivePatchReadyWithPayloadWaitsForDelayedPayload(pa
 		parseT.Fatalf("BuildControlEnvelopeJSON returned error: %v", parsePatchReadyPayloadErr)
 	}
 	parsePort.getOnMessage(parsePatchReadyPayload)
-	for parsePollIndex := 0; parsePollIndex < 8; parsePollIndex++ {
+	for parsePollIndex := range 8 {
 		_, _, hasEnvelope, parseReceiveErr := parseSession.HandleShardSessionReceivePatchReadyWithPayload()
 		if parseReceiveErr != nil {
 			parseT.Fatalf("HandleShardSessionReceivePatchReadyWithPayload(wait poll %d) returned error: %v", parsePollIndex, parseReceiveErr)

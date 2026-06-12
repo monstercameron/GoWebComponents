@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package main
 
@@ -69,11 +68,11 @@ func TestBootstrapEndpointServesRouteSpecificPayload(parseT *testing.T) {
 	if parseRes.Code != http.StatusOK {
 		parseT.Fatalf("expected bootstrap endpoint OK, got %d", parseRes.Code)
 	}
-	var parsePayload map[string]interface{}
+	var parsePayload map[string]any
 	if parseErr := json.Unmarshal(parseRes.Body.Bytes(), &parsePayload); parseErr != nil {
 		parseT.Fatalf("unexpected bootstrap json error: %v", parseErr)
 	}
-	parseRoute := parsePayload["route"].(map[string]interface{})
+	parseRoute := parsePayload["route"].(map[string]any)
 	if parseRoute["path"] != "/search" {
 		parseT.Fatalf("expected bootstrap path /search, got %#v", parseRoute["path"])
 	}

@@ -1,5 +1,7 @@
 package runtime2
 
+import "maps"
+
 import "testing"
 
 var storePatchStreamParseResultSink PatchStreamParseResult
@@ -20,7 +22,7 @@ func buildPatchStreamParseKeyedMoveBenchmarkFixture() buildPatchStreamParseKeyed
 		getBenchParentNodeID     = getBenchParentBaseNodeID + 513
 	)
 	buildSiblingCountByParent := make(map[uint64]uint32, getBenchParentCount)
-	for parseParentOffset := 0; parseParentOffset < getBenchParentCount; parseParentOffset++ {
+	for parseParentOffset := range getBenchParentCount {
 		getParentNodeID := getBenchParentBaseNodeID + uint64(parseParentOffset)
 		buildSiblingCountByParent[getParentNodeID] = 32
 	}
@@ -64,9 +66,7 @@ func buildParsePatchStreamTransactionLegacySiblingCopy(
 	parseSiblingCountByParent map[uint64]uint32,
 ) (PatchStreamParseResult, bool, error) {
 	buildMutableSiblingCountByParent := buildPatchStreamSiblingCountScratchMap()
-	for getParentNodeID, getSiblingCount := range parseSiblingCountByParent {
-		buildMutableSiblingCountByParent[getParentNodeID] = getSiblingCount
-	}
+	maps.Copy(buildMutableSiblingCountByParent, parseSiblingCountByParent)
 	defer func() {
 		clearPatchStreamSiblingCountScratchMap(buildMutableSiblingCountByParent)
 		storePatchStreamSiblingCountScratchPool.Put(buildMutableSiblingCountByParent)

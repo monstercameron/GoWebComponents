@@ -120,7 +120,7 @@ func parseParseAuthSigningKeys(parseRawKeys string) map[string]string {
 		return map[string]string{}
 	}
 	parseResolved := map[string]string{}
-	for _, parseToken := range strings.Split(parseRawKeys, ",") {
+	for parseToken := range strings.SplitSeq(parseRawKeys, ",") {
 		parseToken = strings.TrimSpace(parseToken)
 		if parseToken == "" {
 			continue
@@ -283,7 +283,7 @@ func (parseA *authManager) parseValidateSignedTokenClaims(parseTokenString strin
 	}
 	var parseLastErr error
 	for _, parseVerificationKey := range parseVerificationKeys {
-		parseParsedToken, parseErr := jwt.ParseWithClaims(parseTokenString, &authClaims{}, func(parseToken *jwt.Token) (interface{}, error) {
+		parseParsedToken, parseErr := jwt.ParseWithClaims(parseTokenString, &authClaims{}, func(parseToken *jwt.Token) (any, error) {
 			if _, parseOk := parseToken.Method.(*jwt.SigningMethodHMAC); !parseOk {
 				return nil, errors.New("unexpected signing method")
 			}

@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package main
 
@@ -137,7 +136,7 @@ func renderStaticExportBody(parsePage exportedPage) ui.Node {
 					html.Img(html.Props{
 						Src: assetURL(parsePage.HeroAsset),
 						Alt: parsePage.Headline,
-						Raw: map[string]interface{}{
+						Raw: map[string]any{
 							"srcset":   responsiveSrcSet(parsePage.HeroAsset),
 							"sizes":    "(min-width: 1100px) 960px, 100vw",
 							"decoding": "async",
@@ -157,7 +156,7 @@ func renderStaticExportBody(parsePage exportedPage) ui.Node {
 						html.Img(html.Props{
 							Src: assetURL(parsePage.LazyAsset),
 							Alt: parsePage.Eyebrow + " secondary panel",
-							Raw: map[string]interface{}{
+							Raw: map[string]any{
 								"loading":  "lazy",
 								"decoding": "async",
 								"width":    "1280",

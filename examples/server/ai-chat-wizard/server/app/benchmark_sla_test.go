@@ -56,14 +56,8 @@ func TestSendSLASweep(parseT *testing.T) {
 	if parseMaxCores < 1 {
 		parseMaxCores = 1
 	}
-	parseMaxClients := parseSendSLAEnvInt("CHAT_WIZARD_BENCH_MAX_CLIENTS", defaultSendSLAMaxClients)
-	if parseMaxClients < 1 {
-		parseMaxClients = 1
-	}
-	parseBurstRuns := parseSendSLAEnvInt("CHAT_WIZARD_BENCH_BURST_RUNS", defaultSendSLABurstRuns)
-	if parseBurstRuns < 1 {
-		parseBurstRuns = 1
-	}
+	parseMaxClients := max(parseSendSLAEnvInt("CHAT_WIZARD_BENCH_MAX_CLIENTS", defaultSendSLAMaxClients), 1)
+	parseBurstRuns := max(parseSendSLAEnvInt("CHAT_WIZARD_BENCH_BURST_RUNS", defaultSendSLABurstRuns), 1)
 	parseSlaTarget := parseSendSLAEnvDuration("CHAT_WIZARD_BENCH_SLA_MS", defaultSendSLATargetLatency)
 	parsePredictionCores := parseSendSLAEnvInt("CHAT_WIZARD_BENCH_PREDICT_CORES", 32)
 	if parsePredictionCores < 1 {
@@ -270,13 +264,13 @@ func parseRunSendSweepBurst(parseT *testing.T, parseCoreCount, parseClientCount,
 	}
 
 	parseLatencies := make([]time.Duration, 0, parseClientCount*parseBurstRuns)
-	for parseRunIndex := 0; parseRunIndex < parseBurstRuns; parseRunIndex++ {
+	for parseRunIndex := range parseBurstRuns {
 		parseRunLatencies := make([]time.Duration, parseClientCount)
 		parseErrCh := make(chan error, parseClientCount)
 		var parseWaitGroup sync.WaitGroup
 		parseWaitGroup.Add(parseClientCount)
 
-		for parseClientIndex := 0; parseClientIndex < parseClientCount; parseClientIndex++ {
+		for parseClientIndex := range parseClientCount {
 			parseClientIndex2 := parseClientIndex
 			go func() {
 				defer parseWaitGroup.Done()
@@ -346,10 +340,7 @@ func parseRunSendSweepBurst(parseT *testing.T, parseCoreCount, parseClientCount,
 	}
 	parseP95Latency := time.Duration(0)
 	if len(parseLatencies) > 0 {
-		parseP95Index := int(math.Ceil(float64(len(parseLatencies))*0.95)) - 1
-		if parseP95Index < 0 {
-			parseP95Index = 0
-		}
+		parseP95Index := max(int(math.Ceil(float64(len(parseLatencies))*0.95))-1, 0)
 		if parseP95Index >= len(parseLatencies) {
 			parseP95Index = len(parseLatencies) - 1
 		}

@@ -24,7 +24,7 @@ func TestSelectSnapshotTransportTierPrefersBinary(parseT *testing.T) {
 // TestBuildSnapshotTransportPayloadWithFallbackDowngradesOnBinaryEncodeFailure verifies binary encode failures fall back to structured-clone.
 func TestBuildSnapshotTransportPayloadWithFallbackDowngradesOnBinaryEncodeFailure(parseT *testing.T) {
 	parseProps := make(map[string]any, 65)
-	for parseIndex := 0; parseIndex < 65; parseIndex++ {
+	for parseIndex := range 65 {
 		parseProps[string(rune('a'+(parseIndex%26)))+string(rune('A'+(parseIndex/26)))] = parseIndex
 	}
 	parseTier, parsePayload, parseErr := runtime2.BuildSnapshotTransportPayloadWithFallback(runtime2.SnapshotEnvelope{
@@ -108,7 +108,7 @@ func TestBuildSnapshotTransportPayloadWithFallbackSupportsStructuredOnlyAndRejec
 // TestBuildSnapshotTransportPayloadWithFallbackReturnsBinaryErrorWithoutStructuredFallback verifies binary snapshot build failures are returned directly when structured-clone fallback is unavailable.
 func TestBuildSnapshotTransportPayloadWithFallbackReturnsBinaryErrorWithoutStructuredFallback(parseT *testing.T) {
 	parseProps := make(map[string]any, 65)
-	for parseIndex := 0; parseIndex < 65; parseIndex++ {
+	for parseIndex := range 65 {
 		parseProps[string(rune('a'+(parseIndex%26)))+string(rune('A'+(parseIndex/26)))] = parseIndex
 	}
 	if _, _, parseErr := runtime2.BuildSnapshotTransportPayloadWithFallback(runtime2.SnapshotEnvelope{

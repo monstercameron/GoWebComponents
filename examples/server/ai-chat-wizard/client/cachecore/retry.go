@@ -71,13 +71,7 @@ func ResolveOutboxRetryDecision(parseRecord OutboxRecordEnvelope, parseNow time.
 	}
 	parseBackoffDelay := parseResolveExponentialBackoffDelay(parseRecord.AttemptCount, parsePolicy.InitialDelay, parsePolicy.MaxDelay)
 	parseJitterMultiplier := parseResolveJitterMultiplier(parseRandomFloat, parsePolicy.JitterRatio)
-	parseNextDelay := time.Duration(float64(parseBackoffDelay) * parseJitterMultiplier)
-	if parseNextDelay < parsePolicy.InitialDelay {
-		parseNextDelay = parsePolicy.InitialDelay
-	}
-	if parseNextDelay > parsePolicy.MaxDelay {
-		parseNextDelay = parsePolicy.MaxDelay
-	}
+	parseNextDelay := min(max(time.Duration(float64(parseBackoffDelay)*parseJitterMultiplier), parsePolicy.InitialDelay), parsePolicy.MaxDelay)
 	parseRecord.AttemptCount++
 	parseRecord.LastAttemptAt = parseNow.UTC().Format(time.RFC3339)
 	parseRecord.NextRetryAt = parseNow.UTC().Add(parseNextDelay).Format(time.RFC3339)

@@ -90,7 +90,7 @@ func runHydrationRoundTrip(parseT *testing.T, parseSeed int64) {
 
 	// (4) Post-hydration updatability: mutate and re-render on the client
 	// runtime; the DOM must converge to the new model.
-	for parseStep := 0; parseStep < 10; parseStep++ {
+	for parseStep := range 10 {
 		parseRows = fuzzMutate(parseRng, parseRows, &parseNextKey)
 		parseClientRt.Render(buildFuzzListElement(parseRows, true), parseContainer)
 		for len(parseScheduler.timeouts) > 0 {

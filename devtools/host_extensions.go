@@ -1,5 +1,7 @@
 package devtools
 
+import "maps"
+
 import "github.com/monstercameron/GoWebComponents/plugin"
 
 // ApplyHostExtensions registers one compatibility host source and returns a cleanup that removes it.
@@ -62,8 +64,6 @@ func cloneHostStringMap(parseInput map[string]string) map[string]string {
 		return nil
 	}
 	parseCloned := make(map[string]string, len(parseInput))
-	for parseKey, parseValue := range parseInput {
-		parseCloned[parseKey] = parseValue
-	}
+	maps.Copy(parseCloned, parseInput)
 	return parseCloned
 }

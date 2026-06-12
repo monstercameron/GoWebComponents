@@ -78,11 +78,11 @@ func TestWasmSummaryPrintersEmitReadableOutput(parseT *testing.T) {
 		OutDir:       "./out",
 		ManifestPath: "./out/manifest.json",
 		Manifest: wasmMeasureManifest{
-			Package:    "./ui",
-			Profile:    "release",
-			GoVersion:  "go1.26.0",
-			Phases:     map[string]int64{"go_build_ms": 123},
-			Artifacts:  map[string]releaseArtifactRecord{"wasm": {Path: "app.wasm", Bytes: 42}},
+			Package:      "./ui",
+			Profile:      "release",
+			GoVersion:    "go1.26.0",
+			Phases:       map[string]int64{"go_build_ms": 123},
+			Artifacts:    map[string]releaseArtifactRecord{"wasm": {Path: "app.wasm", Bytes: 42}},
 			GoExecutable: "go",
 		},
 	})
@@ -126,7 +126,7 @@ func TestWasmSummaryPrintersEmitReadableOutput(parseT *testing.T) {
 			WasmOptPath:      "wasm-opt@1.0",
 		},
 		SummaryPath: "./compression-summary.json",
-		Variants: map[string]interface{}{
+		Variants: map[string]any{
 			"plain_raw":            map[string]any{},
 			"optimized_compressed": map[string]any{},
 		},

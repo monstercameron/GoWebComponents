@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package main
 
@@ -90,7 +89,7 @@ func main() {
 	http.HandleFunc("/", func(parseW4 http.ResponseWriter, parseR4 *http.Request) {
 		parsePayload := ui.SSRBootstrap{
 			Route: ui.SSRRouteBootstrap{Path: "/bootstrap"},
-			Data:  map[string]interface{}{"message": "inline bootstrap payload"},
+			Data:  map[string]any{"message": "inline bootstrap payload"},
 		}
 		parseBody, parseErr2 := ui.RenderToString(renderBootstrapView(bootstrapViewFromPayload(parsePayload)))
 		if parseErr2 != nil {

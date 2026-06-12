@@ -94,7 +94,7 @@ func TestCustomPromptAndMemoryHelperFunctions(parseT *testing.T) {
 	}
 
 	parseLongMemories := make([]userMemoryRow, 0, maxInjectedUserMemoryCount+3)
-	for parseIndex2 := 0; parseIndex2 < maxInjectedUserMemoryCount+3; parseIndex2++ {
+	for range maxInjectedUserMemoryCount + 3 {
 		parseLongMemories = append(parseLongMemories, userMemoryRow{Summary: "Memory", Detail: "Detail"})
 	}
 	parseTrimmedBlock := buildUserMemoryPromptBlock(parseLongMemories)

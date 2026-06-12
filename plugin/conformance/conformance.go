@@ -21,7 +21,6 @@ package conformance
 import (
 	"fmt"
 	"strings"
-	"testing"
 
 	"github.com/monstercameron/GoWebComponents/plugin"
 )
@@ -337,7 +336,7 @@ func checkCapabilities(parseRequires []plugin.Capability) string {
 // non-test callers.
 type testingTB interface {
 	Helper()
-	Errorf(format string, args ...interface{})
+	Errorf(format string, args ...any)
 }
 
 // VerifyT is a testing helper that runs Verify(parsePlugin) and calls
@@ -347,7 +346,7 @@ type testingTB interface {
 //	func TestMyPlugin(t *testing.T) {
 //	    conformance.VerifyT(t, myPlugin)
 //	}
-func VerifyT(parseT *testing.T, parsePlugin plugin.Plugin) {
+func VerifyT(parseT testingTB, parsePlugin plugin.Plugin) {
 	parseT.Helper()
 	parseResult := Verify(parsePlugin)
 	for _, parseCheck := range parseResult.Checks {

@@ -161,7 +161,7 @@ func TestRequestRenderWorkerChunkBatchesAggregatesLaneBatches(parseT *testing.T)
 	if parseRequesterA.getBatchDispatchRequestHitCount()+parseRequesterB.getBatchDispatchRequestHitCount() != 2 {
 		parseT.Fatalf("expected one request per lane (2 total), got requester-a=%d requester-b=%d", parseRequesterA.getBatchDispatchRequestHitCount(), parseRequesterB.getBatchDispatchRequestHitCount())
 	}
-	for parseChunkIndex := 0; parseChunkIndex < len(parseResults); parseChunkIndex++ {
+	for parseChunkIndex := range parseResults {
 		if parseResults[parseChunkIndex].GetChunkIndex != parseChunkIndex {
 			parseT.Fatalf("expected chunk result index %d, got %d", parseChunkIndex, parseResults[parseChunkIndex].GetChunkIndex)
 		}

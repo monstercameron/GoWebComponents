@@ -119,7 +119,7 @@ func productCMSTableShell(parseItems []productAdminCard) ui.Node {
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tr(html.Props{},
-			html.Td(html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 8}}, html.Text("No products match the current filter set. Clear filters or create a new Atlas SKU from the route rail.")),
+			html.Td(html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 8}}, html.Text("No products match the current filter set. Clear filters or create a new Atlas SKU from the route rail.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -568,7 +568,7 @@ func cmsTextInput(parseName, parseLabel, parseValue string) ui.Node {
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -576,7 +576,7 @@ func cmsBoundTextInput[T any](parseName, parseLabel, parseValue, parseField stri
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -592,7 +592,7 @@ func cmsTransitionBoundTextInput[T any](parseName, parseLabel, parseValue, parse
 				atlasSetFormFieldInTransition(parseForm, parseField, parseEvent.GetValue())
 			}),
 			Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
-			Raw: map[string]interface{}{
+			Raw: map[string]any{
 				"aria-labelledby": parseId + "-label",
 				"data-transition": parseTransition.Pending(),
 			},
@@ -611,7 +611,7 @@ func cmsNumberInput(parseName, parseLabel, parseValue string) ui.Node {
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -619,7 +619,7 @@ func cmsBoundNumberInput[T any](parseName, parseLabel, parseValue, parseField st
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -627,7 +627,7 @@ func cmsTextarea(parseName, parseLabel, parseValue string) ui.Node {
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
 	)
 }
 
@@ -635,7 +635,7 @@ func cmsBoundTextarea[T any](parseName, parseLabel, parseValue, parseField strin
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
 	)
 }
 
@@ -648,7 +648,7 @@ func cmsSelectInput(parseName, parseLabel, parseValue string, parseOptions []opt
 	}
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Select(html.Props{ID: parseId, Name: parseName, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}, parseChildren...),
+		html.Select(html.Props{ID: parseId, Name: parseName, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, parseChildren...),
 	)
 }
 
@@ -661,7 +661,7 @@ func cmsBoundSelectInput[T any](parseName, parseLabel, parseValue, parseField st
 	}
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Select(html.Props{ID: parseId, Name: parseName, OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}, parseChildren...),
+		html.Select(html.Props{ID: parseId, Name: parseName, OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, parseChildren...),
 	)
 }
 
@@ -681,7 +681,7 @@ func cmsTransitionBoundSelectInput[T any](parseName, parseLabel, parseValue, par
 				atlasSetFormFieldInTransition(parseForm, parseField, parseEvent.GetValue())
 			}),
 			Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
-			Raw: map[string]interface{}{
+			Raw: map[string]any{
 				"aria-labelledby": parseId + "-label",
 				"data-transition": parseTransition.Pending(),
 			},

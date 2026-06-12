@@ -282,8 +282,8 @@ func TestAtlasResourceWrappersInvokeCallbacks(parseT *testing.T) {
 	}
 
 	parseChannel := atlasChannelValue[string]{
-		get: func() string { return "ready" },
-		ok: func() bool { return true },
+		get:    func() string { return "ready" },
+		ok:     func() bool { return true },
 		closed: func() bool { return true },
 	}
 	if parseChannel.Get() != "ready" || !parseChannel.Ok() || !parseChannel.Closed() {

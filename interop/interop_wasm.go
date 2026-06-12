@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package interop
 
@@ -379,8 +378,8 @@ func GetDocument() (Document, error) {
 }
 
 var (
-	documentByIDHelperOnce   sync.Once
-	documentByIDHelper       js.Value
+	documentByIDHelperOnce sync.Once
+	documentByIDHelper     js.Value
 )
 
 func documentElementsByID(parseRaw js.Value, parseIds []string) map[string]js.Value {

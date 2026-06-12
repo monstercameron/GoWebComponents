@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package main
 
@@ -160,7 +159,7 @@ func headDocumentForRoute(parseResolved resolvedRoute) head.Document {
 	case serverPageDocs:
 		parseDocument.Robots = "index,follow"
 		parseDocument.JSONLD = []head.JSONLDBlock{
-			{ID: "route-jsonld", Value: map[string]interface{}{
+			{ID: "route-jsonld", Value: map[string]any{
 				"@context":         "https://schema.org",
 				"@type":            "TechArticle",
 				"headline":         parseResolved.Title,
@@ -175,7 +174,7 @@ func headDocumentForRoute(parseResolved resolvedRoute) head.Document {
 	case serverPageSearch:
 		parseDocument.Robots = "noindex,follow"
 		parseDocument.JSONLD = []head.JSONLDBlock{
-			{ID: "route-jsonld", Value: map[string]interface{}{
+			{ID: "route-jsonld", Value: map[string]any{
 				"@context": "https://schema.org",
 				"@type":    "SearchResultsPage",
 				"name":     parseResolved.Title,
@@ -187,7 +186,7 @@ func headDocumentForRoute(parseResolved resolvedRoute) head.Document {
 	default:
 		parseDocument.Robots = "index,follow"
 		parseDocument.JSONLD = []head.JSONLDBlock{
-			{ID: "route-jsonld", Value: map[string]interface{}{
+			{ID: "route-jsonld", Value: map[string]any{
 				"@context": "https://schema.org",
 				"@type":    "WebPage",
 				"name":     parseResolved.Title,

@@ -1148,38 +1148,14 @@ func dashboardAnalyticsPanels(parsePage dashboardPage) ui.Node {
 	parseFlaggedComments := dashboardCommentStatusCount(parsePage.Comments, "flagged")
 	parseSubmittedOrders := dashboardPurchaseOrderStatusCount(parsePage.Orders, "submitted")
 	parseApprovedOrders := dashboardPurchaseOrderStatusCount(parsePage.Orders, "approved")
-	parseSellThrough := 62 + (len(parsePage.Orders) * 3) + (len(parsePage.Transfers) * 2) - (parseOpenReceiving * 2)
-	if parseSellThrough > 96 {
-		parseSellThrough = 96
-	}
-	if parseSellThrough < 35 {
-		parseSellThrough = 35
-	}
-	parseStockoutRisk := 18 + (parseOpenReceiving * 4) + (parseFlaggedComments * 3) + (parseSubmittedOrders * 2)
-	if parseStockoutRisk > 88 {
-		parseStockoutRisk = 88
-	}
-	if parseStockoutRisk < 8 {
-		parseStockoutRisk = 8
-	}
-	parseFulfillmentSpeed := 94 - (parseOpenReceiving * 3) - parseFlaggedComments + (parseApprovedOrders * 2)
-	if parseFulfillmentSpeed > 98 {
-		parseFulfillmentSpeed = 98
-	}
-	if parseFulfillmentSpeed < 62 {
-		parseFulfillmentSpeed = 62
-	}
+	parseSellThrough := max(min(62+(len(parsePage.Orders)*3)+(len(parsePage.Transfers)*2)-(parseOpenReceiving*2), 96), 35)
+	parseStockoutRisk := max(min(18+(parseOpenReceiving*4)+(parseFlaggedComments*3)+(parseSubmittedOrders*2), 88), 8)
+	parseFulfillmentSpeed := max(min(94-(parseOpenReceiving*3)-parseFlaggedComments+(parseApprovedOrders*2), 98), 62)
 	parseMetricCard := func(parseTitle, parseValue, parseDelta, parseCopy string, parseSeries []int) ui.Node {
 		parseBars := make([]ui.Node, 0, len(parseSeries))
 		for _, parsePoint := range parseSeries {
-			parseHeight := parsePoint
-			if parseHeight < 12 {
-				parseHeight = 12
-			}
-			if parseHeight > 96 {
-				parseHeight = 96
-			}
-			parseBars = append(parseBars, html.Div(html.Props{Class: "w-full rounded-full bg-cyan-300/35", Raw: map[string]interface{}{"style": fmt.Sprintf("height:%d%%", parseHeight)}}))
+			parseHeight := min(max(parsePoint, 12), 96)
+			parseBars = append(parseBars, html.Div(html.Props{Class: "w-full rounded-full bg-cyan-300/35", Raw: map[string]any{"style": fmt.Sprintf("height:%d%%", parseHeight)}}))
 		}
 		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.2rem] border border-white/10 bg-slate-950/55 p-4"},
 			html.Div(html.Props{Class: "flex items-center justify-between gap-3"},
@@ -1457,10 +1433,7 @@ func renderWarehouseMapCard(parseItems []warehouseOpsRecord) ui.Node {
 			html.P(html.Props{Class: "text-sm text-slate-400"}, html.Text("No warehouse geometry to render.")),
 		)
 	}
-	parseLimit := len(parseItems)
-	if parseLimit > 5 {
-		parseLimit = 5
-	}
+	parseLimit := min(len(parseItems), 5)
 	parseVisible := parseItems[:parseLimit]
 	parseX := []int{96, 256, 416, 576, 336}
 	parseY := []int{74, 188, 74, 188, 250}
@@ -1473,7 +1446,7 @@ func renderWarehouseMapCard(parseItems []warehouseOpsRecord) ui.Node {
 		parseNodeY := parseY[parseIndex]
 		parseFill, parseStroke := formatWarehouseMapNodeTone(parseItem)
 		if parseIndex > 0 {
-			parseLineNodes = append(parseLineNodes, html.Tag("line", html.Props{Raw: map[string]interface{}{
+			parseLineNodes = append(parseLineNodes, html.Tag("line", html.Props{Raw: map[string]any{
 				"x1": parseX[0],
 				"y1": parseY[0],
 				"x2": parseNodeX,
@@ -1481,25 +1454,25 @@ func renderWarehouseMapCard(parseItems []warehouseOpsRecord) ui.Node {
 			}, Class: "stroke-cyan-200/45 stroke-[2]"}))
 		}
 		parsePointNodes = append(parsePointNodes,
-			html.Tag("circle", html.Props{Raw: map[string]interface{}{
+			html.Tag("circle", html.Props{Raw: map[string]any{
 				"cx": parseNodeX,
 				"cy": parseNodeY,
 				"r":  24,
 			}, Class: parseFill + " " + parseStroke + " stroke-[2]"}),
-			html.Tag("text", html.Props{Raw: map[string]interface{}{
+			html.Tag("text", html.Props{Raw: map[string]any{
 				"x":              parseNodeX,
 				"y":              parseNodeY - 32,
 				"text-anchor":    "middle",
 				"font-size":      "11",
 				"letter-spacing": "0.04em",
 			}, Class: "fill-slate-200"}, html.Text(strings.ToUpper(fallback(parseItem.Region, parseItem.ID)))),
-			html.Tag("text", html.Props{Raw: map[string]interface{}{
+			html.Tag("text", html.Props{Raw: map[string]any{
 				"x":           parseNodeX,
 				"y":           parseNodeY + 5,
 				"text-anchor": "middle",
 				"font-size":   "11",
 			}, Class: "fill-white font-semibold"}, html.Text(fmt.Sprintf("%d", parseItem.Available))),
-			html.Tag("text", html.Props{Raw: map[string]interface{}{
+			html.Tag("text", html.Props{Raw: map[string]any{
 				"x":           parseNodeX,
 				"y":           parseNodeY + 21,
 				"text-anchor": "middle",
@@ -1512,7 +1485,7 @@ func renderWarehouseMapCard(parseItems []warehouseOpsRecord) ui.Node {
 	}
 	return inventoryRailCard("Warehouse transfer map", "Use this lightweight visual map to spot which facilities are carrying risk and where balancing lanes should start before opening transfer workflows.",
 		html.Div(html.Props{Class: "rounded-[1.2rem] border border-white/10 bg-slate-950/65 p-3"},
-			html.Tag("svg", html.Props{Raw: map[string]interface{}{
+			html.Tag("svg", html.Props{Raw: map[string]any{
 				"viewBox":    "0 0 672 296",
 				"role":       "img",
 				"aria-label": fmt.Sprintf("Atlas warehouse transfer map centered on %s", parseHubLabel),
@@ -1571,7 +1544,7 @@ func warehouseOpsTable(parseItems []warehouseOpsRecord) ui.Node {
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 6}}, html.Text("No warehouses are available in the current Atlas workspace.")),
+			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 6}}, html.Text("No warehouses are available in the current Atlas workspace.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -1700,7 +1673,7 @@ func transfersTable(parseItems []transferRecord) ui.Node {
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 6}}, html.Text("No transfer recommendations are available in the current Atlas workspace.")),
+			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 6}}, html.Text("No transfer recommendations are available in the current Atlas workspace.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -1802,7 +1775,7 @@ func transferLineTable(parseLines []transferLineRecord) ui.Node {
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 2}}, html.Text("No transfer lines are recorded for this movement yet.")),
+			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 2}}, html.Text("No transfer lines are recorded for this movement yet.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -1911,7 +1884,7 @@ func purchaseOrdersTable(parseItems []purchaseOrderRecord) ui.Node {
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 7}}, html.Text("No purchase orders are available in the current Atlas workspace.")),
+			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 7}}, html.Text("No purchase orders are available in the current Atlas workspace.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -2033,7 +2006,7 @@ func purchaseOrderLineTable(parseLines []purchaseOrderLineRecord) ui.Node {
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 4}}, html.Text("No inbound lines are recorded for this purchase order yet.")),
+			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 4}}, html.Text("No inbound lines are recorded for this purchase order yet.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -2115,7 +2088,7 @@ func receivingTable(parseItems []receivingRecord) ui.Node {
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 6}}, html.Text("No receiving sessions are available in the current Atlas workspace.")),
+			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 6}}, html.Text("No receiving sessions are available in the current Atlas workspace.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -2225,7 +2198,7 @@ func receivingLineTable(parseLines []receivingLineRecord) ui.Node {
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 4}}, html.Text("No receiving lines are recorded for this session yet.")),
+			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 4}}, html.Text("No receiving lines are recorded for this session yet.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -2247,7 +2220,7 @@ func receivingLineTable(parseLines []receivingLineRecord) ui.Node {
 	)
 }
 
-func atlasLazySection(parseLoader func() ui.Node, parseFallback ui.Node, parseDeps ...interface{}) ui.Node {
+func atlasLazySection(parseLoader func() ui.Node, parseFallback ui.Node, parseDeps ...any) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		handle := ui.UseLazyNode(func(context.Context) (ui.Node, error) {
 			return parseLoader(), nil
@@ -2408,7 +2381,7 @@ func atlasConfirmationDialog(isOpen bool, parseModalID, parseTitle, parseCopy, p
 	return atlasDialogOverlay(isOpen, parseModalID, parseTitleID, parseDescriptionID, "#"+parseModalID+"-confirm", parseOnDismiss, html.Div(html.Props{Class: "grid gap-4"}, parseChildren...))
 }
 
-func atlasSidePanelErrorBoundary(parseChild ui.Node, parseTitle string, parseFallback ui.Node, resetKeys ...interface{}) ui.Node {
+func atlasSidePanelErrorBoundary(parseChild ui.Node, parseTitle string, parseFallback ui.Node, resetKeys ...any) ui.Node {
 	return ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
 		Child:     parseChild,
 		ResetKeys: resetKeys,
@@ -2473,7 +2446,7 @@ func purchaseOrderDetailStatsIsland(parsePayload Payload, parsePage purchaseOrde
 			go func() {
 				parseResult := <-atlasFetch(parseRequestURL, atlasFetchOptions{
 					Method: "GET",
-					Headers: map[string]interface{}{
+					Headers: map[string]any{
 						"Accept": "application/json",
 					},
 				})
@@ -2568,7 +2541,7 @@ func receivingDetailStatsIsland(parsePayload Payload, parsePage receivingDetailP
 			go func() {
 				parseResult := <-atlasFetch(parseRequestURL, atlasFetchOptions{
 					Method: "GET",
-					Headers: map[string]interface{}{
+					Headers: map[string]any{
 						"Accept": "application/json",
 					},
 				})
@@ -3001,7 +2974,7 @@ func commentsTable(parsePayload Payload, parseItems []commentRecord) ui.Node {
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 5}}, html.Text("No buyer questions are waiting in the Atlas inbox.")),
+			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 5}}, html.Text("No buyer questions are waiting in the Atlas inbox.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -3190,7 +3163,7 @@ func savedViewBrowserCard(parsePayload Payload) ui.Node {
 				Aria: map[string]string{
 					"activedescendant": parseNav.ActiveDescendant(),
 				},
-				Raw: map[string]interface{}{
+				Raw: map[string]any{
 					"tabIndex": 0,
 				},
 			}, parseOptions...),
@@ -3877,12 +3850,12 @@ func renderReceivingAttachmentForm(parseSessionID string, parsePayload Payload) 
 		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Upload dock photos, carrier notes, or signed paperwork so discrepancy closeout has supporting context.")),
 		html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 			html.Span(html.Props{}, html.Text("Evidence files")),
-			html.Input(html.Props{Name: "attachment", Type: "file", Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-200", Raw: map[string]interface{}{"multiple": true, "accept": ".png,.jpg,.jpeg,.webp,.pdf,.txt,.csv"}}),
+			html.Input(html.Props{Name: "attachment", Type: "file", Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-200", Raw: map[string]any{"multiple": true, "accept": ".png,.jpg,.jpeg,.webp,.pdf,.txt,.csv"}}),
 		),
 		textareaWithValue("note", "Attachment note", "Shipment seal mismatch documented at dock door B."),
 		submitButton("Upload evidence"),
 	}
-	return html.Form(html.Props{Action: "/api/app/receiving/" + parseSessionID + "/attachments", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5", Raw: map[string]interface{}{"encType": "multipart/form-data"}}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
+	return html.Form(html.Props{Action: "/api/app/receiving/" + parseSessionID + "/attachments", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5", Raw: map[string]any{"encType": "multipart/form-data"}}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 }
 
 func receivingDraftChangeSummary(parseCurrent receivingFormState, parsePrevious ui.Previous[receivingFormState]) ui.Node {
@@ -3942,7 +3915,7 @@ func receivingWorkflowInputWithValue(parseName, parseLabel, parseValue, parseFie
 				parseForm.SetField(parseField, parseNext)
 				parseWorkflow.Dispatch(receivingResolutionWorkflowAction{Field: parseName, Value: parseNext})
 			}),
-			Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"},
+			Raw: map[string]any{"aria-labelledby": parseId + "-label"},
 		}),
 	)
 }
@@ -3958,7 +3931,7 @@ func receivingWorkflowTextareaWithValue(parseName, parseLabel, parseValue, parse
 				parseForm.SetField(parseField, parseNext)
 				parseWorkflow.Dispatch(receivingResolutionWorkflowAction{Field: parseName, Value: parseNext})
 			}),
-			Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"},
+			Raw: map[string]any{"aria-labelledby": parseId + "-label"},
 		}, html.Text(parseValue)),
 	)
 }
@@ -3996,7 +3969,7 @@ func publicInputWithValue(parseName, parseLabel, parseValue string) ui.Node {
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -4004,7 +3977,7 @@ func inputWithValue(parseName, parseLabel, parseValue string) ui.Node {
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -4012,7 +3985,7 @@ func boundInputWithValue[T any](parseName, parseLabel, parseValue, parseField st
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -4032,7 +4005,7 @@ func boundTransitionSelectWithValue[T any](parseName, parseLabel, parseValue, pa
 				atlasSetFormFieldInTransition(parseForm, parseField, parseEvent.GetValue())
 			}),
 			Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
-			Raw:   map[string]interface{}{"aria-labelledby": parseId + "-label", "data-transition": parseTransition.Pending()},
+			Raw:   map[string]any{"aria-labelledby": parseId + "-label", "data-transition": parseTransition.Pending()},
 		}, parseChildren...),
 	)
 }
@@ -4041,7 +4014,7 @@ func publicTextarea(parseName, parseLabel string) ui.Node {
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: "min-h-28 rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: "min-h-28 rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -4049,7 +4022,7 @@ func textareaWithValue(parseName, parseLabel, parseValue string) ui.Node {
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
 	)
 }
 
@@ -4057,7 +4030,7 @@ func boundTextareaWithValue[T any](parseName, parseLabel, parseValue, parseField
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
 	)
 }
 

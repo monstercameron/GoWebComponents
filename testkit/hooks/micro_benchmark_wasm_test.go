@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package hooks
 
@@ -22,11 +21,13 @@ func BenchmarkRenderHookCurrentMicroWasm(parseB *testing.B) {
 	}
 }
 
+func benchStateRerenderHook() int {
+	parseCounter := ui.UseState(0)
+	return parseCounter.Get()
+}
+
 func BenchmarkRenderHookStateRerenderMicroWasm(parseB *testing.B) {
-	parseHarness := RenderHook(parseB, func() int {
-		parseCounter := ui.UseState(0)
-		return parseCounter.Get()
-	})
+	parseHarness := RenderHook(parseB, benchStateRerenderHook)
 	defer parseHarness.Cleanup()
 
 	parseB.ReportAllocs()

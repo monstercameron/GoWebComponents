@@ -42,7 +42,6 @@ func BenchmarkProfilingRepresentativeScenarios(parseB *testing.B) {
 		"portal-overlays",
 	}
 	for _, parseScenario := range parseScenarios {
-		parseScenario := parseScenario
 		parseB.Run(parseScenario, func(parseB2 *testing.B) {
 			parseRuntime := buildProfilingScenarioRuntime(parseScenario)
 			parseB2.ReportAllocs()

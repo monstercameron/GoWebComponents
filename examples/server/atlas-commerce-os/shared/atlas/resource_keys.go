@@ -29,8 +29,8 @@ type atlasResource[T any] struct {
 
 type atlasFetchOptions struct {
 	Method  string
-	Headers map[string]interface{}
-	Body    interface{}
+	Headers map[string]any
+	Body    any
 }
 
 type atlasImperativeFetchResult struct {

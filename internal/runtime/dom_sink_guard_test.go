@@ -15,9 +15,9 @@ import (
 // interface, this test fails so the addition is reviewed deliberately instead of
 // silently reopening an XSS sink on the render path.
 func TestDOMAdapterHasNoRawHTMLSink(parseT *testing.T) {
-	parseType := reflect.TypeOf((*DOMAdapter)(nil)).Elem()
-	for parseIndex := 0; parseIndex < parseType.NumMethod(); parseIndex++ {
-		parseName := parseType.Method(parseIndex).Name
+	parseType := reflect.TypeFor[DOMAdapter]()
+	for method := range parseType.Methods() {
+		parseName := method.Name
 		parseLower := strings.ToLower(parseName)
 		if strings.Contains(parseLower, "innerhtml") || strings.Contains(parseLower, "outerhtml") ||
 			(strings.HasPrefix(parseLower, "set") && strings.Contains(parseLower, "html")) {

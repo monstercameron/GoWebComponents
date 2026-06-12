@@ -34,7 +34,6 @@ type profilingBudgetFixture struct {
 func TestProfilingBudgetFixturesForStartupHydrationAndRerender(parseT *testing.T) {
 	parseFixtures := buildProfilingBudgetFixtures()
 	for _, parseFixture := range parseFixtures {
-		parseFixture := parseFixture
 		parseT.Run(parseFixture.parseName, func(parseT2 *testing.T) {
 			parseRuntime := buildProfilingBudgetRuntime(parseFixture)
 			parseSnapshot := parseRuntime.Inspect()

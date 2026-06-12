@@ -159,11 +159,11 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 	}
 
 	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
-	parseChildren := []interface{}{parseElement}
+	parseChildren := []any{parseElement}
 	*parseRt.wipRoot = Fiber{
 		typeOf:    "ROOT",
 		dom:       parseContainer,
-		props:     map[string]interface{}{"children": parseChildren},
+		props:     map[string]any{"children": parseChildren},
 		children:  parseChildren,
 		alternate: parseRt.currentRoot,
 		dirty:     true,
@@ -253,11 +253,11 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 	}
 
 	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
-	parseChildren := []interface{}{parseElement}
+	parseChildren := []any{parseElement}
 	*parseRt.wipRoot = Fiber{
 		typeOf:    "ROOT",
 		dom:       parseContainer,
-		props:     map[string]interface{}{"children": parseChildren},
+		props:     map[string]any{"children": parseChildren},
 		children:  parseChildren,
 		alternate: parseRt.currentRoot,
 		dirty:     true,

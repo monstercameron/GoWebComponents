@@ -2,6 +2,7 @@ package mockdom
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -15,7 +16,7 @@ type MockDOMNode struct {
 	Tag         string
 	TextContent string
 	Attrs       map[string]string
-	Props       map[string]interface{}
+	Props       map[string]any
 	Styles      map[string]string
 	InnerHTML   string
 	Children    []*MockDOMNode
@@ -57,7 +58,7 @@ type DOMOperation struct {
 	Type      string
 	NodeID    int
 	ParentID  int
-	Data      interface{}
+	Data      any
 	Timestamp time.Time
 }
 
@@ -70,7 +71,7 @@ func NewMockDOMAdapter() *MockDOMAdapter {
 }
 
 // recordOpLocked appends one operation entry while the adapter mutex is already held so DOM state and operation-log mutations stay serialized.
-func (parseA *MockDOMAdapter) recordOpLocked(parseOpType string, parseNodeID int, parseData interface{}) {
+func (parseA *MockDOMAdapter) recordOpLocked(parseOpType string, parseNodeID int, parseData any) {
 	parseA.operations = append(parseA.operations, DOMOperation{
 		Type:      parseOpType,
 		NodeID:    parseNodeID,
@@ -88,7 +89,7 @@ func (parseA *MockDOMAdapter) CreateElement(parseTag string) runtime.DOMNode {
 		ID:       parseA.nodeCounter,
 		Tag:      parseTag,
 		Attrs:    make(map[string]string),
-		Props:    make(map[string]interface{}),
+		Props:    make(map[string]any),
 		Styles:   make(map[string]string),
 		Children: make([]*MockDOMNode, 0),
 	}
@@ -107,7 +108,7 @@ func (parseA *MockDOMAdapter) CreateTextNode(parseText string) runtime.DOMNode {
 		Tag:         "#text",
 		TextContent: parseText,
 		Attrs:       make(map[string]string),
-		Props:       make(map[string]interface{}),
+		Props:       make(map[string]any),
 	}
 	parseA.nodeMap[parseNode.ID] = parseNode
 	parseA.recordOpLocked("createTextNode", parseNode.ID, parseText)
@@ -142,16 +143,16 @@ func (parseA *MockDOMAdapter) RemoveAttribute(parseNode runtime.DOMNode, parseNa
 	}
 }
 
-func (parseA *MockDOMAdapter) SetProperty(parseNode runtime.DOMNode, parseName string, parseValue interface{}) {
+func (parseA *MockDOMAdapter) SetProperty(parseNode runtime.DOMNode, parseName string, parseValue any) {
 	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
 		parseN.Props[parseName] = parseValue
-		parseA.recordOpLocked("setProperty", parseN.ID, map[string]interface{}{parseName: parseValue})
+		parseA.recordOpLocked("setProperty", parseN.ID, map[string]any{parseName: parseValue})
 	}
 }
 
-func (parseA *MockDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName string) interface{} {
+func (parseA *MockDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName string) any {
 	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
@@ -184,7 +185,7 @@ func (parseA *MockDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName s
 //
 // The mock adapter only needs the subset used by framework tests: `#id` lookup
 // plus a basic tag-name fallback when no id selector is requested.
-func (parseA *MockDOMAdapter) QuerySelector(parseSelector string) interface{} {
+func (parseA *MockDOMAdapter) QuerySelector(parseSelector string) any {
 	parseTrimmedSelector := strings.TrimSpace(parseSelector)
 	if parseTrimmedSelector == "" {
 		return nil
@@ -193,8 +194,8 @@ func (parseA *MockDOMAdapter) QuerySelector(parseSelector string) interface{} {
 	parseA.mu.Lock()
 	defer parseA.mu.Unlock()
 
-	if strings.HasPrefix(parseTrimmedSelector, "#") {
-		parseWantedID := strings.TrimSpace(strings.TrimPrefix(parseTrimmedSelector, "#"))
+	if after, ok := strings.CutPrefix(parseTrimmedSelector, "#"); ok {
+		parseWantedID := strings.TrimSpace(after)
 		if parseWantedID == "" {
 			return nil
 		}
@@ -356,9 +357,7 @@ func (parseA *MockDOMAdapter) SetStyles(parseNode runtime.DOMNode, parseStyles m
 	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
-		for parseK, parseV := range parseStyles {
-			parseN.Styles[parseK] = parseV
-		}
+		maps.Copy(parseN.Styles, parseStyles)
 		parseA.recordOpLocked("setStyles", parseN.ID, parseStyles)
 	}
 }
@@ -388,7 +387,7 @@ func (parseA *MockDOMAdapter) SetTextContent(parseNode runtime.DOMNode, parseTex
 	}
 }
 
-func (parseA *MockDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
+func (parseA *MockDOMAdapter) WrapFunction(parseFn any) any {
 	// For mock DOM, we just return the function as is
 	return parseFn
 }

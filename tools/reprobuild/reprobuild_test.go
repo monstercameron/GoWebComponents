@@ -13,7 +13,7 @@ func repoRoot(parseT *testing.T) string {
 	if parseErr != nil {
 		parseT.Fatalf("getwd: %v", parseErr)
 	}
-	for parseI := 0; parseI < 8; parseI++ {
+	for range 8 {
 		if _, parseStatErr := os.Stat(filepath.Join(parseDir, "go.mod")); parseStatErr == nil {
 			return parseDir
 		}

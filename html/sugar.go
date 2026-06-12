@@ -2,6 +2,7 @@ package html
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"strings"
 	"sync"
@@ -14,7 +15,7 @@ import (
 const reactiveTextGetterProp = "__gwc_reactive_text_getter"
 
 // Text creates a text node from a string-like value.
-func Text(parseContent interface{}) ui.Node {
+func Text(parseContent any) ui.Node {
 	switch parseValue := parseContent.(type) {
 	case nil:
 		return nil
@@ -25,7 +26,7 @@ func Text(parseContent interface{}) ui.Node {
 	case fmt.Stringer:
 		return ui.Text(parseValue.String())
 	case func() string:
-		return runtime.CreateElement(runtime.ReactiveTextNodeType, map[string]interface{}{
+		return runtime.CreateElement(runtime.ReactiveTextNodeType, map[string]any{
 			reactiveTextGetterProp: parseValue,
 		})
 	case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, float32, float64:
@@ -36,12 +37,12 @@ func Text(parseContent interface{}) ui.Node {
 }
 
 // Textf formats a text node without requiring an explicit fmt.Sprintf call first.
-func Textf(format string, parseArgs ...interface{}) ui.Node {
+func Textf(format string, parseArgs ...any) ui.Node {
 	return Text(fmt.Sprintf(format, parseArgs...))
 }
 
 // TextIf emits a text node only when the condition is true.
-func TextIf(isCondition bool, parseContent interface{}) ui.Node {
+func TextIf(isCondition bool, parseContent any) ui.Node {
 	if !isCondition {
 		return nil
 	}
@@ -49,7 +50,7 @@ func TextIf(isCondition bool, parseContent interface{}) ui.Node {
 }
 
 // Children normalizes mixed shorthand child inputs into the existing []ui.Node builder contract.
-func Children(parseValues ...interface{}) []ui.Node {
+func Children(parseValues ...any) []ui.Node {
 	if len(parseValues) == 0 {
 		return nil
 	}
@@ -73,7 +74,7 @@ func When(isCondition bool, parseClassName string) string {
 }
 
 // ClassNames joins class fragments while dropping empty values and normalizing whitespace.
-func ClassNames(parseParts ...interface{}) string {
+func ClassNames(parseParts ...any) string {
 	if len(parseParts) == 0 {
 		return ""
 	}
@@ -121,19 +122,19 @@ func Map[T any](parseItems []T, render func(T) ui.Node) []ui.Node {
 }
 
 // WithKey applies a reconciliation key to an existing node explicitly.
-func WithKey(parseNode ui.Node, parseKey interface{}) ui.Node {
+func WithKey(parseNode ui.Node, parseKey any) ui.Node {
 	if parseNode == nil {
 		return nil
 	}
 	if parseNode.Props == nil {
-		parseNode.Props = make(map[string]interface{}, 1)
+		parseNode.Props = make(map[string]any, 1)
 	}
 	parseNode.Props["key"] = parseKey
 	return parseNode
 }
 
 // MapKeyed renders a typed slice into keyed ui.Node values while preserving order.
-func MapKeyed[T any](parseItems []T, parseKey func(T) interface{}, render func(T) ui.Node) []ui.Node {
+func MapKeyed[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Node) []ui.Node {
 	if len(parseItems) == 0 {
 		return nil
 	}
@@ -232,13 +233,13 @@ func Coalesce[T any](parseValues ...*T) *T {
 
 // SwitchBranch describes one branch in a Switch expression helper.
 type SwitchBranch struct {
-	value     interface{}
+	value     any
 	node      ui.Node
 	isDefault bool
 }
 
 // Case creates a value-matching branch for Switch.
-func Case(parseValue interface{}, parseNode ui.Node) SwitchBranch {
+func Case(parseValue any, parseNode ui.Node) SwitchBranch {
 	return SwitchBranch{value: parseValue, node: parseNode}
 }
 
@@ -248,7 +249,7 @@ func Default(parseNode ui.Node) SwitchBranch {
 }
 
 // Switch selects the first matching branch and otherwise falls back to Default.
-func Switch(parseValue interface{}, parseBranches ...SwitchBranch) ui.Node {
+func Switch(parseValue any, parseBranches ...SwitchBranch) ui.Node {
 	var parseFallback ui.Node
 	for _, parseBranch := range parseBranches {
 		if parseBranch.isDefault {
@@ -346,7 +347,7 @@ func Title(parseValue string) PropOption {
 func Value(parseValue string) PropOption {
 	if parseValue == "" {
 		return optionFunc(func(parseProps *Props) {
-			parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]interface{}{"value": ""})
+			parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]any{"value": ""})
 		})
 	}
 	return optionFunc(func(parseProps *Props) { parseProps.Value = parseValue })
@@ -390,7 +391,7 @@ func Rows(parseValue int) PropOption {
 func TabIndex(parseValue int) PropOption {
 	if parseValue == 0 {
 		return optionFunc(func(parseProps *Props) {
-			parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]interface{}{"tabIndex": 0})
+			parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]any{"tabIndex": 0})
 		})
 	}
 	return optionFunc(func(parseProps *Props) { parseProps.TabIndex = parseValue })
@@ -498,14 +499,14 @@ func AriaSet(parseValues map[string]string) PropOption {
 }
 
 // Attr sets a single raw HTML attribute on the Props.
-func Attr(parseKey string, parseValue interface{}) PropOption {
+func Attr(parseKey string, parseValue any) PropOption {
 	return optionFunc(func(parseProps *Props) {
-		parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]interface{}{parseKey: parseValue})
+		parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]any{parseKey: parseValue})
 	})
 }
 
 // Attrs merges multiple raw HTML attributes into the Props.
-func Attrs(parseValues map[string]interface{}) PropOption {
+func Attrs(parseValues map[string]any) PropOption {
 	parseClone := cloneAnyMap(parseValues)
 	return optionFunc(func(parseProps *Props) {
 		parseProps.Raw = mergeAnyMap(parseProps.Raw, parseClone)
@@ -513,12 +514,12 @@ func Attrs(parseValues map[string]interface{}) PropOption {
 }
 
 // OnClick registers an onclick event handler on the Props.
-func OnClick(parseCallback interface{}) PropOption {
+func OnClick(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnClick = toHandler(parseCallback) })
 }
 
 // OnClickParallel registers one local click handler and marks the node as a public parallel-region click slot.
-func OnClickParallel(parseSlotID string, parseCallback interface{}) PropOption {
+func OnClickParallel(parseSlotID string, parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) {
 		parseProps.OnClick = toHandler(parseCallback)
 		parseProps.Data = mergeStringMap(parseProps.Data, map[string]string{
@@ -528,57 +529,57 @@ func OnClickParallel(parseSlotID string, parseCallback interface{}) PropOption {
 }
 
 // OnInput registers an oninput event handler on the Props.
-func OnInput(parseCallback interface{}) PropOption {
+func OnInput(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnInput = toHandler(parseCallback) })
 }
 
 // OnChange registers an onchange event handler on the Props.
-func OnChange(parseCallback interface{}) PropOption {
+func OnChange(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnChange = toHandler(parseCallback) })
 }
 
 // OnSubmit registers an onsubmit event handler on the Props.
-func OnSubmit(parseCallback interface{}) PropOption {
+func OnSubmit(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnSubmit = toHandler(parseCallback) })
 }
 
 // OnKeyDown registers an onkeydown event handler on the Props.
-func OnKeyDown(parseCallback interface{}) PropOption {
+func OnKeyDown(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnKeyDown = toHandler(parseCallback) })
 }
 
 // OnKeyUp registers an onkeyup event handler on the Props.
-func OnKeyUp(parseCallback interface{}) PropOption {
+func OnKeyUp(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnKeyUp = toHandler(parseCallback) })
 }
 
 // OnMouseUp registers an onmouseup event handler on the Props.
-func OnMouseUp(parseCallback interface{}) PropOption {
+func OnMouseUp(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnMouseUp = toHandler(parseCallback) })
 }
 
 // OnMouseDown registers an onmousedown event handler on the Props.
-func OnMouseDown(parseCallback interface{}) PropOption {
+func OnMouseDown(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnMouseDown = toHandler(parseCallback) })
 }
 
 // OnFocus registers an onfocus event handler on the Props.
-func OnFocus(parseCallback interface{}) PropOption {
+func OnFocus(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnFocus = toHandler(parseCallback) })
 }
 
 // OnBlur registers an onblur event handler on the Props.
-func OnBlur(parseCallback interface{}) PropOption {
+func OnBlur(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnBlur = toHandler(parseCallback) })
 }
 
 // OnScroll registers an onscroll event handler on the Props.
-func OnScroll(parseCallback interface{}) PropOption {
+func OnScroll(parseCallback any) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnScroll = toHandler(parseCallback) })
 }
 
 // Prevent wraps a callback so the event default is prevented before callback execution.
-func Prevent(parseCallback interface{}) interface{} {
+func Prevent(parseCallback any) any {
 	return func(parseEvent ui.Event) {
 		parseEvent.PreventDefault()
 		invokeEventCallback(parseCallback, parseEvent)
@@ -586,7 +587,7 @@ func Prevent(parseCallback interface{}) interface{} {
 }
 
 // Stop wraps a callback so propagation is stopped before callback execution.
-func Stop(parseCallback interface{}) interface{} {
+func Stop(parseCallback any) any {
 	return func(parseEvent ui.Event) {
 		parseEvent.StopPropagation()
 		invokeEventCallback(parseCallback, parseEvent)
@@ -594,7 +595,7 @@ func Stop(parseCallback interface{}) interface{} {
 }
 
 // Debounce delays callback execution until no newer event has arrived for delay.
-func Debounce(parseDelay time.Duration, parseCallback interface{}) interface{} {
+func Debounce(parseDelay time.Duration, parseCallback any) any {
 	if parseDelay <= 0 {
 		return parseCallback
 	}
@@ -621,7 +622,7 @@ func Debounce(parseDelay time.Duration, parseCallback interface{}) interface{} {
 }
 
 // Throttle invokes immediately and then at most once per interval with the latest pending event.
-func Throttle(parseInterval time.Duration, parseCallback interface{}) interface{} {
+func Throttle(parseInterval time.Duration, parseCallback any) any {
 	if parseInterval <= 0 {
 		return parseCallback
 	}
@@ -672,7 +673,7 @@ func Throttle(parseInterval time.Duration, parseCallback interface{}) interface{
 }
 
 // appendNormalizedChild is a core package helper.
-func appendNormalizedChild(parseDst *[]ui.Node, parseValue interface{}) {
+func appendNormalizedChild(parseDst *[]ui.Node, parseValue any) {
 	switch parseTyped := parseValue.(type) {
 	case nil:
 		return
@@ -692,7 +693,7 @@ func appendNormalizedChild(parseDst *[]ui.Node, parseValue interface{}) {
 		for _, parseChild2 := range parseTyped {
 			appendNormalizedChild(parseDst, parseChild2)
 		}
-	case []interface{}:
+	case []any:
 		for _, parseChild3 := range parseTyped {
 			appendNormalizedChild(parseDst, parseChild3)
 		}
@@ -712,13 +713,13 @@ func appendNormalizedChild(parseDst *[]ui.Node, parseValue interface{}) {
 }
 
 // appendClassFragments is a core package helper.
-func appendClassFragments(parseDst *[]string, parseValues ...interface{}) {
+func appendClassFragments(parseDst *[]string, parseValues ...any) {
 	for _, parseValue := range parseValues {
 		switch parseTyped := parseValue.(type) {
 		case nil:
 			continue
 		case string:
-			for _, parseFragment := range strings.Fields(parseTyped) {
+			for parseFragment := range strings.FieldsSeq(parseTyped) {
 				if parseFragment != "" {
 					*parseDst = append(*parseDst, parseFragment)
 				}
@@ -729,7 +730,7 @@ func appendClassFragments(parseDst *[]string, parseValues ...interface{}) {
 			for _, parseEntry := range parseTyped {
 				appendClassFragments(parseDst, parseEntry)
 			}
-		case []interface{}:
+		case []any:
 			appendClassFragments(parseDst, parseTyped...)
 		default:
 			parseValueOf := reflect.ValueOf(parseValue)
@@ -748,19 +749,18 @@ func appendClassFragments(parseDst *[]string, parseValues ...interface{}) {
 }
 
 // toHandler is a core package helper.
-func toHandler(parseCallback interface{}) ui.Handler {
+func toHandler(parseCallback any) ui.Handler {
 	switch parseTyped := parseCallback.(type) {
 	case nil:
 		return ui.Handler{}
 	case ui.Handler:
 		return parseTyped
-	default:
-		return ui.UseEvent(parseTyped)
 	}
+	return ui.UseEvent(parseCallback)
 }
 
 // invokeEventCallback is a core package helper.
-func invokeEventCallback(parseCallback interface{}, parseEvent ui.Event) {
+func invokeEventCallback(parseCallback any, parseEvent ui.Event) {
 	if parseCallback == nil {
 		return
 	}
@@ -791,9 +791,7 @@ func cloneStringMap(parseInput map[string]string) map[string]string {
 		return nil
 	}
 	parseClone := make(map[string]string, len(parseInput))
-	for parseKey, parseValue := range parseInput {
-		parseClone[parseKey] = parseValue
-	}
+	maps.Copy(parseClone, parseInput)
 	return parseClone
 }
 
@@ -815,34 +813,28 @@ func mergeStringMap(parseDst map[string]string, parseValues map[string]string) m
 	if parseDst == nil {
 		parseDst = make(map[string]string, len(parseValues))
 	}
-	for parseKey, parseValue := range parseValues {
-		parseDst[parseKey] = parseValue
-	}
+	maps.Copy(parseDst, parseValues)
 	return parseDst
 }
 
 // cloneAnyMap is a core package helper.
-func cloneAnyMap(parseInput map[string]interface{}) map[string]interface{} {
+func cloneAnyMap(parseInput map[string]any) map[string]any {
 	if len(parseInput) == 0 {
 		return nil
 	}
-	parseClone := make(map[string]interface{}, len(parseInput))
-	for parseKey, parseValue := range parseInput {
-		parseClone[parseKey] = parseValue
-	}
+	parseClone := make(map[string]any, len(parseInput))
+	maps.Copy(parseClone, parseInput)
 	return parseClone
 }
 
 // mergeAnyMap is a core package helper.
-func mergeAnyMap(parseDst map[string]interface{}, parseValues map[string]interface{}) map[string]interface{} {
+func mergeAnyMap(parseDst map[string]any, parseValues map[string]any) map[string]any {
 	if len(parseValues) == 0 {
 		return parseDst
 	}
 	if parseDst == nil {
-		parseDst = make(map[string]interface{}, len(parseValues))
+		parseDst = make(map[string]any, len(parseValues))
 	}
-	for parseKey, parseValue := range parseValues {
-		parseDst[parseKey] = parseValue
-	}
+	maps.Copy(parseDst, parseValues)
 	return parseDst
 }

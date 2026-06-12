@@ -77,7 +77,7 @@ func buildHostRegionDispatchHashBenchSourceIDs() []string {
 // buildHostRegionDispatchHashBenchChangedEnvelopeList builds one deterministic changed-envelope sequence.
 func buildHostRegionDispatchHashBenchChangedEnvelopeList() []SnapshotEnvelope {
 	buildEnvelopeList := make([]SnapshotEnvelope, 0, 32)
-	for parseTick := 0; parseTick < 32; parseTick++ {
+	for parseTick := range 32 {
 		buildEnvelopeList = append(buildEnvelopeList, buildHostRegionDispatchHashBenchEnvelope(parseTick))
 	}
 	return buildEnvelopeList

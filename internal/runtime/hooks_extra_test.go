@@ -7,7 +7,7 @@ import (
 
 type releasableWrapper struct {
 	released *int
-	fn       interface{}
+	fn       any
 }
 
 func (parseW *releasableWrapper) Release() {
@@ -19,7 +19,7 @@ type funcWrapTestAdapter struct {
 	releasedCount *int
 }
 
-func (parseA *funcWrapTestAdapter) WrapFunction(parseFn interface{}) interface{} {
+func (parseA *funcWrapTestAdapter) WrapFunction(parseFn any) any {
 	return &releasableWrapper{released: parseA.releasedCount, fn: parseFn}
 }
 
@@ -46,7 +46,7 @@ func TestGoUseFunc_ReusesWrapperOnSameSignatureRerender(parseT *testing.T) {
 	}
 	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -100,7 +100,7 @@ func TestGoUseFunc_ReleasesWrapperWhenSignatureChanges(parseT *testing.T) {
 	}
 	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -140,7 +140,7 @@ func TestGoUseFunc_PanicsWithoutComponentContext(parseT *testing.T) {
 }
 
 func TestGoUseFunc_PanicsForNonFunction(parseT *testing.T) {
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -163,21 +163,21 @@ func TestGoUseState_SchedulesUpdateForLatestHookOwner(parseT *testing.T) {
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  map[string]interface{}{},
+			props:  map[string]any{},
 		},
 	}
 
-	parseOldRoot := &Fiber{typeOf: "ROOT", props: map[string]interface{}{}}
-	parseOldFiber := &Fiber{typeOf: "counter", parent: parseOldRoot, props: map[string]interface{}{}}
+	parseOldRoot := &Fiber{typeOf: "ROOT", props: map[string]any{}}
+	parseOldFiber := &Fiber{typeOf: "counter", parent: parseOldRoot, props: map[string]any{}}
 	SetCurrentFiber(parseOldFiber)
 	_, setValue := GoUseState(parseRt, 0)
 	SetCurrentFiber(nil)
 
-	parseCurrentRoot := &Fiber{typeOf: "ROOT", props: map[string]interface{}{}}
+	parseCurrentRoot := &Fiber{typeOf: "ROOT", props: map[string]any{}}
 	parseCurrentFiber := &Fiber{
 		typeOf:    "counter",
 		parent:    parseCurrentRoot,
-		props:     map[string]interface{}{},
+		props:     map[string]any{},
 		hooks:     parseOldFiber.hooks,
 		alternate: parseOldFiber,
 	}
@@ -218,9 +218,9 @@ func TestGoUseId_PanicsWithoutComponentContext(parseT *testing.T) {
 }
 
 func TestAreDepsEqual_LongSlicesAndMismatch(parseT *testing.T) {
-	parsePrev := []interface{}{1, 2, 3, 4, 5}
-	parseNext := []interface{}{1, 2, 3, 4, 5}
-	parseDiff := []interface{}{1, 2, 3, 4, 6}
+	parsePrev := []any{1, 2, 3, 4, 5}
+	parseNext := []any{1, 2, 3, 4, 5}
+	parseDiff := []any{1, 2, 3, 4, 6}
 
 	if !areDepsEqual(parsePrev, parseNext) {
 		parseT.Fatal("expected long equal deps to compare true")
@@ -267,7 +267,7 @@ func TestFastEqual_FunctionsSlicesMapsAndStructs(parseT *testing.T) {
 	}
 
 	type interfaceWrapper struct {
-		Value interface{}
+		Value any
 	}
 	parseSharedSlice := []int{1, 2, 3}
 	if !fastEqual(interfaceWrapper{Value: parseSharedSlice}, interfaceWrapper{Value: parseSharedSlice}) {

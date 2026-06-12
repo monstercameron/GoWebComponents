@@ -85,6 +85,7 @@ type catalogHeroProps struct {
 type catalogSidebarProps struct {
 	SearchQuery          string
 	ResultCount          int
+	ResultSummaryID      string
 	HasActiveFilters     bool
 	Statuses             []string
 	Levels               []string
@@ -102,6 +103,20 @@ type catalogSidebarProps struct {
 	OnModuleChange       ui.Handler
 	OnSortChange         ui.Handler
 	OnResetFilters       ui.Handler
+	OnOpenSearchDialog   ui.Handler
+}
+
+type catalogSearchDialogProps struct {
+	Open             bool
+	SearchQuery      string
+	ResultCount      int
+	ResultSummaryID  string
+	HasActiveFilters bool
+	ItemNodes        []ui.Node
+	OnSearchInput    ui.Handler
+	OnResetFilters   ui.Handler
+	OnClose          ui.Handler
+	OnDismiss        func()
 }
 
 type detailPanelProps struct {

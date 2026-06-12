@@ -356,7 +356,7 @@ func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag stri
 	return nil
 }
 
-func renderChildrenToStreamShell(parseBuilder *strings.Builder, parseChildren []interface{}, parseState *ssrStreamState) error {
+func renderChildrenToStreamShell(parseBuilder *strings.Builder, parseChildren []any, parseState *ssrStreamState) error {
 	for _, parseChild := range parseChildren {
 		switch parseValue := parseChild.(type) {
 		case nil:

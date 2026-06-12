@@ -20,9 +20,9 @@ func TestCustomElementSeparatesAttributesFromProperties(parseT *testing.T) {
 			"interactive": true,
 			"disabled":    false,
 		},
-		Properties: map[string]interface{}{
+		Properties: map[string]any{
 			"score":  4,
-			"config": map[string]interface{}{"accent": "cyan"},
+			"config": map[string]any{"accent": "cyan"},
 		},
 	}, Span(Props{Slot: "actions"}, Text("Refresh")))
 	if parseNode == nil {
@@ -46,7 +46,7 @@ func TestCustomElementSeparatesAttributesFromProperties(parseT *testing.T) {
 	if parseNode.Props[customElementPropertyPrefix+"score"] != 4 {
 		parseT.Fatalf("expected score property, got %#v", parseNode.Props[customElementPropertyPrefix+"score"])
 	}
-	if parseConfig, parseOk2 := parseNode.Props[customElementPropertyPrefix+"config"].(map[string]interface{}); !parseOk2 || parseConfig["accent"] != "cyan" {
+	if parseConfig, parseOk2 := parseNode.Props[customElementPropertyPrefix+"config"].(map[string]any); !parseOk2 || parseConfig["accent"] != "cyan" {
 		parseT.Fatalf("expected config property, got %#v", parseNode.Props[customElementPropertyPrefix+"config"])
 	}
 	if len(parseNode.Children) != 1 {
@@ -66,9 +66,9 @@ func TestCustomElementSkipsPropertyOnlyValuesDuringSSR(parseT *testing.T) {
 		Attributes: map[string]string{
 			"palette": "sunset",
 		},
-		Properties: map[string]interface{}{
+		Properties: map[string]any{
 			"score":  7,
-			"config": map[string]interface{}{"series": []int{2, 4, 7}},
+			"config": map[string]any{"series": []int{2, 4, 7}},
 		},
 	}, Span(Props{Slot: "summary"}, Text("Healthy demand")))
 

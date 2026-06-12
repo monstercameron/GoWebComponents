@@ -85,7 +85,7 @@ func TestRegisterAndReadBootstrapPayloadSupportsJSONTextBinaryAndTime(parseT *te
 }
 
 func TestTypedBootstrapHelpersInspectAndLegacyFallback(parseT *testing.T) {
-	parseBootstrap := SSRBootstrap{Data: map[string]interface{}{"legacy-message": "hello"}}
+	parseBootstrap := SSRBootstrap{Data: map[string]any{"legacy-message": "hello"}}
 	if parseErr := RegisterRouteBootstrapData(&parseBootstrap, "catalog", "/products", stateTransferProfile{Name: "SSR", Count: 2}); parseErr != nil {
 		parseT.Fatalf("unexpected route payload registration error: %v", parseErr)
 	}

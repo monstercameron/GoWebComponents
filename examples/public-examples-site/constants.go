@@ -74,6 +74,7 @@ const (
 	labelLiveExamples        = "Stable builds"
 	labelAPIPanes            = "Advanced patterns"
 	labelSingleStackUI       = "Preview mode"
+	labelSearchDialog        = "Search examples"
 
 	messageNothingSelected = "Choose an example from the gallery."
 	messageAdjustFilters   = "Adjust the search or filters to bring another example into view."
@@ -84,6 +85,7 @@ const (
 	messagePreviewDeferred = "Preview startup is deferred until you ask for it so the gallery stays responsive while you browse."
 	messageReferenceSearch = "Search functions in this reference..."
 	messageSourceDeferred  = "Source rendering is deferred until you open it so large mirrored files stay out of the hot render path."
+	messageSearchDialog    = "Search the runnable example catalog without leaving the current detail view."
 	messageSourceFirstDemo = "This example builds to wasm, but the gallery keeps it source-first because it depends on standalone document scaffolding or browser-global behavior."
 
 	contentKindLabelArticle = "Markdown article"
@@ -105,9 +107,12 @@ const (
 	buttonIncrement          = "Increment"
 	buttonReset              = "Reset"
 	buttonShowSource         = "Show source"
+	buttonOpenSearchDialog   = "Open search"
+	buttonCloseSearchDialog  = "Close search"
 
-	labelStateTonePrefix   = "State tone: "
-	catalogDataRelativeURL = "assets/data/catalog.json"
-	catalogCacheKeyPrefix  = "public-examples-site:catalog:"
-	markdownCacheKeyPrefix = "public-examples-site:markdown:"
+	labelStateTonePrefix         = "State tone: "
+	catalogDataRelativeURL       = "assets/data/catalog.json"
+	catalogCacheKeyPrefix        = "public-examples-site:catalog:"
+	markdownCacheKeyPrefix       = "public-examples-site:markdown:"
+	catalogSearchResultSummaryID = "catalog-search-result-count"
 )

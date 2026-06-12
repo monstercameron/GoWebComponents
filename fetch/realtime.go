@@ -744,8 +744,8 @@ func resolveEventSourceOptions(parseOptions []EventSourceOptions) realtimeResolv
 }
 
 // buildRealtimeDeps returns stable effect dependencies for realtime hooks.
-func buildRealtimeDeps(parseURL string, parseOpenTick int, parseOptions realtimeResolvedOptions) []interface{} {
-	return []interface{}{
+func buildRealtimeDeps(parseURL string, parseOpenTick int, parseOptions realtimeResolvedOptions) []any {
+	return []any{
 		parseURL,
 		parseOpenTick,
 		strings.Join(parseOptions.protocols, "\x00"),

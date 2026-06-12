@@ -237,22 +237,14 @@ func ParseRemoteSet(parseRaw []byte) (Set, error) {
 
 	parseFlags := make(map[string]Flag, len(parsePayload.Flags))
 	for parseName, parseF := range parsePayload.Flags {
-		parseFlags[parseName] = Flag{
-			Enabled: parseF.Enabled,
-			Value:   parseF.Value,
-			Reason:  parseF.Reason,
-		}
+		parseFlags[parseName] = Flag(parseF)
 	}
 
 	parseExperiments := make(map[string]Experiment, len(parsePayload.Experiments))
 	for parseName, parseE := range parsePayload.Experiments {
 		parseVariants := make([]Variant, len(parseE.Variants))
 		for parseI, parseV := range parseE.Variants {
-			parseVariants[parseI] = Variant{
-				Name:   parseV.Name,
-				Value:  parseV.Value,
-				Weight: parseV.Weight,
-			}
+			parseVariants[parseI] = Variant(parseV)
 		}
 		parseExperiments[parseName] = Experiment{
 			Enabled:  parseE.Enabled,

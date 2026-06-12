@@ -93,10 +93,7 @@ func (parseS *Store) parseUpsertSuperuserBillingPlan(parseWrite parseSuperuserBi
 	if parsePlanName == "" {
 		parsePlanName = parsePlanCode
 	}
-	parsePlanRank := parseWrite.PlanRank
-	if parsePlanRank < 0 {
-		parsePlanRank = 0
-	}
+	parsePlanRank := max(parseWrite.PlanRank, 0)
 	parseMonthlyPlatformFeeCents := parseWrite.MonthlyPlatformFeeCents
 	if parseMonthlyPlatformFeeCents <= 0 {
 		parseMonthlyPlatformFeeCents = parseWrite.MonthlyBaseCents
@@ -417,10 +414,7 @@ func (parseS *Store) parseUpsertSuperuserBillingDunningEvent(parseWrite parseSup
 	if parseWrite.CustomerID <= 0 || parseWrite.SubscriptionID <= 0 || parseWrite.InvoiceID <= 0 {
 		return parseBillingDunningEventRow{}, errors.New("upsert superuser billing dunning event: customer id, subscription id, and invoice id are required")
 	}
-	parseAttemptCount := parseWrite.AttemptCount
-	if parseAttemptCount < 0 {
-		parseAttemptCount = 0
-	}
+	parseAttemptCount := max(parseWrite.AttemptCount, 0)
 	parseStatus := parseNormalizeSuperuserDunningStatus(parseWrite.Status)
 	parseResolvedAt := strings.TrimSpace(parseWrite.ResolvedAt)
 	if parseResolvedAt == "" && parseStatus == "resolved" {

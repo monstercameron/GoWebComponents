@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	stdhtml "html"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -348,9 +349,7 @@ func renderImportedPropsLiteral(parseAttrs []importedAttr, parseIndent string) (
 			parseProps.bools["AutoFocus"] = importedValueAsBool(parseAttr.Value)
 		case "style":
 			parseStyle := importedValueAsStyleMap(parseAttr.Value)
-			for parseKey, parseValue := range parseStyle {
-				parseProps.style[parseKey] = parseValue
-			}
+			maps.Copy(parseProps.style, parseStyle)
 		default:
 			if strings.HasPrefix(parseLower, "data-") {
 				parseProps.data[strings.TrimPrefix(parseName, "data-")] = importedValueAsString(parseAttr.Value)
@@ -489,15 +488,13 @@ func importedValueAsStyleMap(parseValue importedValue) map[string]string {
 		return parseValue.Style
 	}
 	parseStyle := map[string]string{}
-	for parseKey, parseVal := range parseImportedStyleString(importedValueAsString(parseValue)) {
-		parseStyle[parseKey] = parseVal
-	}
+	maps.Copy(parseStyle, parseImportedStyleString(importedValueAsString(parseValue)))
 	return parseStyle
 }
 
 func parseImportedStyleString(parseRaw string) map[string]string {
 	parseStyle := map[string]string{}
-	for _, parsePart := range strings.Split(parseRaw, ";") {
+	for parsePart := range strings.SplitSeq(parseRaw, ";") {
 		parsePart = strings.TrimSpace(parsePart)
 		if parsePart == "" {
 			continue
@@ -552,7 +549,7 @@ func renderImportedIndexHTML(parseSelection startSelection, parseDocument import
 		if strings.TrimSpace(parseRendered) == "" {
 			continue
 		}
-		for _, parseLine := range strings.Split(strings.TrimSuffix(parseRendered, "\n"), "\n") {
+		for parseLine := range strings.SplitSeq(strings.TrimSuffix(parseRendered, "\n"), "\n") {
 			parseHeadLines = append(parseHeadLines, "\t"+parseLine)
 		}
 	}

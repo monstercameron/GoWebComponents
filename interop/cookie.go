@@ -101,17 +101,17 @@ func buildCookieString(parseName string, parseValue string, parseOpts CookieOpti
 // parseCookieHeader parses a raw "a=1; b=2" cookie string and returns the
 // URL-decoded value of the named cookie and whether it was found.
 func parseCookieHeader(parseRaw string, parseName string) (string, bool) {
-	for _, parsePair := range strings.Split(parseRaw, ";") {
+	for parsePair := range strings.SplitSeq(parseRaw, ";") {
 		parsePair = strings.TrimSpace(parsePair)
 		if parsePair == "" {
 			continue
 		}
-		parseEq := strings.IndexByte(parsePair, '=')
-		if parseEq < 0 {
+		before, after, ok := strings.Cut(parsePair, "=")
+		if !ok {
 			continue
 		}
-		parsePairName := strings.TrimSpace(parsePair[:parseEq])
-		parsePairValue := strings.TrimSpace(parsePair[parseEq+1:])
+		parsePairName := strings.TrimSpace(before)
+		parsePairValue := strings.TrimSpace(after)
 		if parsePairName != parseName {
 			continue
 		}

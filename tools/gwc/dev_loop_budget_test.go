@@ -36,11 +36,7 @@ func TestDevLoopLargeAppRebuildBudget(parseT *testing.T) {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
 	parseLauncher := launcher{repoRoot: parseRepoRoot}
-	parseTargetDir := filepath.Join(defaultGeneratedScaffoldRoot(), "test-dev-loop-budget")
-	_ = os.RemoveAll(parseTargetDir)
-	parseT.Cleanup(func() {
-		_ = os.RemoveAll(parseTargetDir)
-	})
+	parseTargetDir := filepath.Join(parseT.TempDir(), "test-dev-loop-budget")
 
 	parseSelection := startSelection{
 		Preset: startPreset{
@@ -69,7 +65,7 @@ func TestDevLoopLargeAppRebuildBudget(parseT *testing.T) {
 	// from a registry slice so the linker cannot discard them.
 	parseAppDir := filepath.Dir(parseResult.AppPath)
 	parseRegistryNames := make([]string, 0, devLoopBudgetComponentCount)
-	for parseIdx := 0; parseIdx < devLoopBudgetComponentCount; parseIdx++ {
+	for parseIdx := range devLoopBudgetComponentCount {
 		parseName := fmt.Sprintf("GenComponent%04d", parseIdx)
 		parseRegistryNames = append(parseRegistryNames, parseName)
 		parseSource := fmt.Sprintf(`package main
@@ -88,12 +84,13 @@ func %s() ui.Node {
 			parseT.Fatalf("write generated component %d: %v", parseIdx, parseWriteErr)
 		}
 	}
-	parseRegistry := "package main\n\nimport ui \"github.com/monstercameron/GoWebComponents/ui\"\n\n// genRegistry keeps every generated component reachable for the linker.\nvar genRegistry = []func() ui.Node{\n"
+	var parseRegistry strings.Builder
+	parseRegistry.WriteString("package main\n\nimport ui \"github.com/monstercameron/GoWebComponents/ui\"\n\n// genRegistry keeps every generated component reachable for the linker.\nvar genRegistry = []func() ui.Node{\n")
 	for _, parseName := range parseRegistryNames {
-		parseRegistry += "\t" + parseName + ",\n"
+		parseRegistry.WriteString("\t" + parseName + ",\n")
 	}
-	parseRegistry += "}\n\nvar _ = genRegistry\n"
-	if parseWriteErr := os.WriteFile(filepath.Join(parseAppDir, "gen_registry.go"), []byte(parseRegistry), 0o644); parseWriteErr != nil {
+	parseRegistry.WriteString("}\n\nvar _ = genRegistry\n")
+	if parseWriteErr := os.WriteFile(filepath.Join(parseAppDir, "gen_registry.go"), []byte(parseRegistry.String()), 0o644); parseWriteErr != nil {
 		parseT.Fatalf("write component registry: %v", parseWriteErr)
 	}
 

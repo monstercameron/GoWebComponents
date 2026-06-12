@@ -33,7 +33,6 @@ func TestXSSCorpus(t *testing.T) {
 	}
 
 	for _, parseCase := range parseInputs {
-		parseCase := parseCase
 		t.Run(parseCase.parseName, func(t *testing.T) {
 			parseOutput := sanitize.Sanitize(parseCase.parseInput)
 			parseLower := strings.ToLower(parseOutput)
@@ -145,7 +144,7 @@ func TestStability(t *testing.T) {
 func BenchmarkSanitizeLargeDocument(b *testing.B) {
 	parseSnippet := `<div><p>Hello <strong>world</strong></p><a href="https://example.test">link</a></div>`
 	var parseBuf strings.Builder
-	for i := 0; i < 500; i++ {
+	for range 500 {
 		parseBuf.WriteString(parseSnippet)
 	}
 	parseDoc := parseBuf.String()

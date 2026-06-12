@@ -8,7 +8,7 @@ func reportParallelRegionDiagnosticError(parseMessage string) {
 }
 
 // renderParallelRegionShellNode builds one parallel-region shell host node with the provided marker props.
-func renderParallelRegionShellNode(parseShellProps map[string]interface{}, parseChild Node) Node {
+func renderParallelRegionShellNode(parseShellProps map[string]any, parseChild Node) Node {
 	if parseChild == nil {
 		return runtime.CreateElement("div", parseShellProps)
 	}

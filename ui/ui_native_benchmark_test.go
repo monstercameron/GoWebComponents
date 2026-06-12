@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package ui_test
 
@@ -17,12 +16,12 @@ func benchmarkBootstrapPayload() ui.SSRBootstrap {
 			Query:  map[string][]string{"tab": {"specs"}, "filter": {"active"}},
 			Params: map[string]string{"id": "42"},
 		},
-		Atoms: map[string]interface{}{
+		Atoms: map[string]any{
 			"theme":    "dark",
 			"locale":   "en-US",
 			"cartSize": 3,
 		},
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"title":   "Widget",
 			"price":   19.95,
 			"inStock": true,

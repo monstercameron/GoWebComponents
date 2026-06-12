@@ -20,7 +20,7 @@ func resetHookRenderState(parseFiber *Fiber) {
 func TestGoUseState_FunctionalUpdatesCompose(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := &Runtime{scheduler: parseScheduler, currentRoot: &Fiber{}}
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -40,7 +40,7 @@ func TestGoUseState_NilableStateCanResetToNil(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := &Runtime{scheduler: parseScheduler, currentRoot: &Fiber{}}
 	parseInitial := 42
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -56,7 +56,7 @@ func TestGoUseState_NilableStateCanResetToNil(parseT *testing.T) {
 }
 
 func TestGoUseEffect_RunsPreviousCleanupOnDependencyChange(parseT *testing.T) {
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 

@@ -38,7 +38,7 @@ func buildPatchStreamIdentityBenchmarkLegacyStreaming(parseRaw PatchStreamRaw) (
 func buildPatchStreamIdentitySmallBenchmarkList(parseB *testing.B) []PatchStreamRaw {
 	parseB.Helper()
 	buildPatchStreams := make([]PatchStreamRaw, 0, 8)
-	for parseIndex := 0; parseIndex < 8; parseIndex++ {
+	for parseIndex := range 8 {
 		buildPatchStreams = append(buildPatchStreams, buildPerfHotspotPatchStream(
 			parseB,
 			parseBuildAgent3BenchRenderOutput("before-"+strconv.Itoa(parseIndex), "active-"+strconv.Itoa(parseIndex)),
@@ -52,7 +52,7 @@ func buildPatchStreamIdentitySmallBenchmarkList(parseB *testing.B) []PatchStream
 func buildPatchStreamIdentityLargeBenchmarkList(parseB *testing.B) []PatchStreamRaw {
 	parseB.Helper()
 	buildPatchStreams := make([]PatchStreamRaw, 0, 8)
-	for parseIndex := 0; parseIndex < 8; parseIndex++ {
+	for parseIndex := range 8 {
 		buildPatchStreams = append(buildPatchStreams, buildPerfHotspotPatchStream(
 			parseB,
 			buildPerfHotspotKeyedListRenderOutput(64, parseIndex, "active"),

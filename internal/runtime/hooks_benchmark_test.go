@@ -30,8 +30,8 @@ func BenchmarkFastEqualString(parseB *testing.B) {
 }
 
 func BenchmarkAreDepsEqual3Primitives(parseB *testing.B) {
-	parsePrev := []interface{}{1, "two", true}
-	parseNext := []interface{}{1, "two", true}
+	parsePrev := []any{1, "two", true}
+	parseNext := []any{1, "two", true}
 
 	parseB.ReportAllocs()
 	for parseI := 0; parseI < parseB.N; parseI++ {
@@ -44,7 +44,7 @@ func BenchmarkAreDepsEqual3Primitives(parseB *testing.B) {
 func BenchmarkGoUseStateIntDirectUpdate(parseB *testing.B) {
 	parseScheduler := newTestScheduler()
 	parseRt := &Runtime{scheduler: parseScheduler, currentRoot: &Fiber{typeOf: "ROOT"}}
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -63,7 +63,7 @@ func BenchmarkGoUseStatePointerNilReset(parseB *testing.B) {
 	parseScheduler := newTestScheduler()
 	parseRt := &Runtime{scheduler: parseScheduler, currentRoot: &Fiber{typeOf: "ROOT"}}
 	parseInitial := 1
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -84,25 +84,25 @@ func BenchmarkGoUseStatePointerNilReset(parseB *testing.B) {
 }
 
 func BenchmarkGoUseMemoSameDeps(parseB *testing.B) {
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	_ = GoUseMemo(func() interface{} { return 42 }, "dep")
+	_ = GoUseMemo(func() any { return 42 }, "dep")
 	resetHookRenderState(parseFiber)
 
 	parseB.ReportAllocs()
 	parseB.ResetTimer()
 	for parseI := 0; parseI < parseB.N; parseI++ {
 		resetHookRenderState(parseFiber)
-		if parseValue := GoUseMemo(func() interface{} { return 42 }, "dep"); parseValue != 42 {
+		if parseValue := GoUseMemo(func() any { return 42 }, "dep"); parseValue != 42 {
 			parseB.Fatal("expected memoized value")
 		}
 	}
 }
 
 func BenchmarkGoUseCallbackSameDeps(parseB *testing.B) {
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -121,7 +121,7 @@ func BenchmarkGoUseCallbackSameDeps(parseB *testing.B) {
 }
 
 func BenchmarkGoUseRefStable(parseB *testing.B) {
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -142,7 +142,7 @@ func BenchmarkGoUseIdStable(parseB *testing.B) {
 	resetGlobalRuntimeForTest()
 	defer resetGlobalRuntimeForTest()
 
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -170,7 +170,7 @@ func BenchmarkGoUseFuncWrap(parseB *testing.B) {
 	}
 	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -189,7 +189,7 @@ func BenchmarkGoUseFuncWrap(parseB *testing.B) {
 }
 
 func BenchmarkGoUseEffectSameDeps(parseB *testing.B) {
-	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 

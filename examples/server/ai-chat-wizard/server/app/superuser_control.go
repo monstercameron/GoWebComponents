@@ -87,10 +87,7 @@ func (parseS *chatServer) parseRequireSuperuserMutationUserID(parseCtx context.C
 	if !isParseSessionAuthenticated || parseSessionUser.ID <= 0 || parseSessionUser.ID != parseUserID || parseClaims.IssuedAt == nil || parseClaims.IssuedAt.Time.IsZero() {
 		return 0, status.Error(codes.Unauthenticated, "superuser re-authentication required")
 	}
-	parseSessionAge := time.Since(parseClaims.IssuedAt.Time.UTC())
-	if parseSessionAge < 0 {
-		parseSessionAge = 0
-	}
+	parseSessionAge := max(time.Since(parseClaims.IssuedAt.Time.UTC()), 0)
 	isParseFreshSession := parseSessionAge <= superuserMutationSessionMaxAge
 	parsePolicyDecision, parseErr := parseAuthorizePrivilegedMutationSession(
 		parseBuildDefaultPrivilegedAuthPolicy(),

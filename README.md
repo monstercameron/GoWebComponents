@@ -33,8 +33,9 @@ go run ./tools/gwc dev -app .\examples\public\counter\main.go
 ```
 
 `gwc dev` builds the app to wasm, serves it, and live-reloads on every save.
-To scaffold your own app, use `go run ./tools/gwc start` (interactive) or browse
-the catalog with `go run ./tools/gwc examples`.
+To scaffold your own app, use `go run ./tools/gwc start` (interactive); the
+starter gallery is documented in [docs/STARTERS.md](docs/STARTERS.md). Browse
+the example catalog with `go run ./tools/gwc examples`.
 
 ### Add to an existing module
 
@@ -455,6 +456,7 @@ The implementation center of gravity is `internal/runtime/`:
 ## Documentation
 
 - [CHANGELOG.md](CHANGELOG.md)
+- [docs/STARTERS.md](docs/STARTERS.md)
 - [docs/REFERENCE_MANUAL/README.md](docs/REFERENCE_MANUAL/README.md)
 - [docs/REFERENCE_MANUAL/01-getting-started.md](docs/REFERENCE_MANUAL/01-getting-started.md)
 - [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md)

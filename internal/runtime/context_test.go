@@ -6,7 +6,7 @@ func contextText(parseValue string) *Element {
 	return &Element{
 		Type:        "TEXT_ELEMENT",
 		TextContent: parseValue,
-		Props:       map[string]interface{}{"nodeValue": parseValue},
+		Props:       map[string]any{"nodeValue": parseValue},
 		Children:    emptyChildren,
 	}
 }
@@ -24,7 +24,7 @@ func TestDeriveContextValuesCopiesAndOverrides(parseT *testing.T) {
 	parseFirst := NewContextDescriptor("a")
 	parseSecond := NewContextDescriptor("b")
 
-	parseParent := map[int64]interface{}{
+	parseParent := map[int64]any{
 		parseFirst.ID: "outer",
 	}
 
@@ -49,16 +49,16 @@ func TestContextProviderMakesValueAvailableToFunctionChild(parseT *testing.T) {
 
 	parseDescriptor := NewContextDescriptor("fallback")
 	parseProvider := NewContextProviderType(parseDescriptor)
-	parseReader := func(parseProps map[string]interface{}) *Element {
+	parseReader := func(parseProps map[string]any) *Element {
 		parseValue, _ := GoUseContextValue(parseDescriptor).(string)
 		return contextText(parseValue)
 	}
 
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props: map[string]interface{}{
-			"children": []interface{}{
-				CreateElement(parseProvider, map[string]interface{}{"value": "provided"}, CreateElement(parseReader, nil)),
+		props: map[string]any{
+			"children": []any{
+				CreateElement(parseProvider, map[string]any{"value": "provided"}, CreateElement(parseReader, nil)),
 			},
 		},
 		dirty: true,
@@ -97,17 +97,17 @@ func TestNestedContextProvidersOverrideParentValue(parseT *testing.T) {
 
 	parseDescriptor := NewContextDescriptor("fallback")
 	parseProvider := NewContextProviderType(parseDescriptor)
-	parseReader := func(parseProps map[string]interface{}) *Element {
+	parseReader := func(parseProps map[string]any) *Element {
 		parseValue, _ := GoUseContextValue(parseDescriptor).(string)
 		return contextText(parseValue)
 	}
 
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props: map[string]interface{}{
-			"children": []interface{}{
-				CreateElement(parseProvider, map[string]interface{}{"value": "outer"},
-					CreateElement(parseProvider, map[string]interface{}{"value": "inner"},
+		props: map[string]any{
+			"children": []any{
+				CreateElement(parseProvider, map[string]any{"value": "outer"},
+					CreateElement(parseProvider, map[string]any{"value": "inner"},
 						CreateElement(parseReader, nil),
 					),
 				),
@@ -140,16 +140,16 @@ func TestContextProviderValueChangeForcesConsumerRerender(parseT *testing.T) {
 
 	parseDescriptor := NewContextDescriptor("fallback")
 	parseProvider := NewContextProviderType(parseDescriptor)
-	parseReader := func(parseProps map[string]interface{}) *Element {
+	parseReader := func(parseProps map[string]any) *Element {
 		parseValue, _ := GoUseContextValue(parseDescriptor).(string)
 		return contextText(parseValue)
 	}
 
 	parseFirstRoot := &Fiber{
 		typeOf: "ROOT",
-		props: map[string]interface{}{
-			"children": []interface{}{
-				CreateElement(parseProvider, map[string]interface{}{"value": "first"}, CreateElement(parseReader, nil)),
+		props: map[string]any{
+			"children": []any{
+				CreateElement(parseProvider, map[string]any{"value": "first"}, CreateElement(parseReader, nil)),
 			},
 		},
 		dirty: true,
@@ -166,7 +166,7 @@ func TestContextProviderValueChangeForcesConsumerRerender(parseT *testing.T) {
 
 	parseSecondRoot := &Fiber{
 		typeOf:    "ROOT",
-		props:     map[string]interface{}{"children": []interface{}{CreateElement(parseProvider, map[string]interface{}{"value": "second"}, CreateElement(parseReader, nil))}},
+		props:     map[string]any{"children": []any{CreateElement(parseProvider, map[string]any{"value": "second"}, CreateElement(parseReader, nil))}},
 		alternate: parseFirstRoot,
 		dirty:     true,
 	}

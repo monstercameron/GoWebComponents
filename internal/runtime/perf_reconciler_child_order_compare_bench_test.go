@@ -10,7 +10,7 @@ func buildChildOrderBenchmarkFixture(getCount int) (*Runtime, DOMNode, []DOMNode
 	getExpected := make([]DOMNode, 0, getCount)
 	getObserved := make([]DOMNode, 0, getCount)
 
-	for getIndex := 0; getIndex < getCount; getIndex++ {
+	for range getCount {
 		getNode := getAdapter.CreateElement("div")
 		getExpected = append(getExpected, getNode)
 		getObserved = append(getObserved, getNode)

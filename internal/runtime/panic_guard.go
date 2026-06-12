@@ -10,7 +10,7 @@ import "github.com/monstercameron/GoWebComponents/interop"
 // init wires interop host callbacks into the structured crash reporting; the
 // interop package cannot import this package directly (import cycle).
 func init() {
-	interop.SetContainedPanicHandler(func(parseSubject string, parseRecovered interface{}) {
+	interop.SetContainedPanicHandler(func(parseSubject string, parseRecovered any) {
 		ContainPanic("interop", PanicPhaseAsync, parseSubject, parseRecovered)
 	})
 }
@@ -18,7 +18,7 @@ func init() {
 // ContainPanic reports a recovered panic through the structured panic-report
 // pipeline and never re-panics. Call it from a deferred recover at a
 // containment boundary (goroutine top, host callback, work loop).
-func ContainPanic(parseSource string, parsePhase PanicPhase, parseSubject string, parseRecovered interface{}) {
+func ContainPanic(parseSource string, parsePhase PanicPhase, parseSubject string, parseRecovered any) {
 	if parseRecovered == nil {
 		return
 	}

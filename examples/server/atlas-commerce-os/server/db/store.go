@@ -241,10 +241,7 @@ func enrichInventoryRow(parseItem *repository.InventoryRow) {
 		return
 	}
 	parseVelocityBase := inventoryWeeklyUnits(parseItem.SKU, parseItem.WarehouseID)
-	parsePriceCents := parseItem.PriceCents
-	if parsePriceCents < 0 {
-		parsePriceCents = 0
-	}
+	parsePriceCents := max(parseItem.PriceCents, 0)
 	parseItem.WeeklyUnits = parseVelocityBase
 	parseItem.WeeklyRevenue = parseVelocityBase * parsePriceCents
 	parseItem.SellThrough = clampInt(28+parseVelocityBase*4+parseItem.Reserved*2-parseItem.Available, 12, 96)

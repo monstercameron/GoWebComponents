@@ -60,6 +60,12 @@ From the repo root, the shortest practical path is:
 
 If you are evaluating from the examples catalog instead of building a new app immediately, start with [examples/public/counter](../../examples/public/counter), [examples/public/ui-render](../../examples/public/ui-render), [examples/public/use-state](../../examples/public/use-state), and [examples/public/use-effect](../../examples/public/use-effect).
 
+For a generated app, run `go run ./tools/gwc start` and choose the smallest
+starter that matches the product shape. The maintained starter gallery is
+[docs/STARTERS.md](../STARTERS.md); it covers minimal client apps, routed SPAs,
+SSR apps, dashboards, marketing sites, content blogs, authed app shells, and the
+broader reference app.
+
 ## Minimal Example
 
 The smallest useful GWC app is one browser-mounted component plus one stateful event path.
@@ -287,6 +293,12 @@ Use this table as the default starter map.
 | `state` | `Stable` | multiple unrelated consumers need shared state | local hooks and reducers still fit |
 | `fetch.UseResource[T]` | `Stable` | typed async data belongs to one panel or feature | the app has no real async read ownership yet |
 | SSR and hydration | `Stable` core entrypoints with deeper operational rules | request-time HTML and resume behavior matter | the app can stay client-rendered |
+
+The generated starter presets map these surfaces into copyable app shapes. Use
+`minimal-client` first for evaluation, `routed-spa` when navigation is already
+real, `dashboard-app` for internal tools, `marketing-site` or `content-blog` for
+content-first SSR surfaces, `authed-app-shell` for SaaS-style app shells, and
+`reference-app` when you want the broadest scaffolded example.
 
 ## Design Notes And Boundaries
 

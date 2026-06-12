@@ -8,20 +8,20 @@ import (
 // buildSSRBenchmarkTree builds a representative page: a component-wrapped
 // list of rows with attributes, nested hosts, and text children.
 func buildSSRBenchmarkTree(parseRows int) *Element {
-	parseRowComponent := func(parseProps map[string]interface{}) *Element {
+	parseRowComponent := func(parseProps map[string]any) *Element {
 		parseIdx, _ := parseProps["idx"].(int)
-		return CreateElement("li", map[string]interface{}{"class": "row", "data-idx": fmt.Sprintf("%d", parseIdx)},
-			CreateElement("span", map[string]interface{}{"class": "label"}, "Row label"),
-			CreateElement("span", map[string]interface{}{"class": "value"}, fmt.Sprintf("value-%d", parseIdx)),
+		return CreateElement("li", map[string]any{"class": "row", "data-idx": fmt.Sprintf("%d", parseIdx)},
+			CreateElement("span", map[string]any{"class": "label"}, "Row label"),
+			CreateElement("span", map[string]any{"class": "value"}, fmt.Sprintf("value-%d", parseIdx)),
 		)
 	}
-	parseChildren := make([]interface{}, 0, parseRows)
-	for parseIdx := 0; parseIdx < parseRows; parseIdx++ {
-		parseChildren = append(parseChildren, CreateElement(parseRowComponent, map[string]interface{}{"idx": parseIdx}))
+	parseChildren := make([]any, 0, parseRows)
+	for parseIdx := range parseRows {
+		parseChildren = append(parseChildren, CreateElement(parseRowComponent, map[string]any{"idx": parseIdx}))
 	}
-	return CreateElement("div", map[string]interface{}{"class": "page"},
-		CreateElement("header", map[string]interface{}{"class": "head"}, "SSR Benchmark"),
-		CreateElement("ul", map[string]interface{}{"class": "list"}, parseChildren...),
+	return CreateElement("div", map[string]any{"class": "page"},
+		CreateElement("header", map[string]any{"class": "head"}, "SSR Benchmark"),
+		CreateElement("ul", map[string]any{"class": "list"}, parseChildren...),
 	)
 }
 

@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package render
 
@@ -102,8 +101,8 @@ func New(parseTb testing.TB, parseOptions ...Option) *Fixture {
 	return nil
 }
 
-func (parseF *Fixture) Render(parseRoot interface{})                         {}
-func (parseF *Fixture) Rerender(parseRoot interface{})                       {}
+func (parseF *Fixture) Render(parseRoot any)                                 {}
+func (parseF *Fixture) Rerender(parseRoot any)                               {}
 func (parseF *Fixture) Flush()                                               {}
 func (parseF *Fixture) FlushTimers()                                         {}
 func (parseF *Fixture) Stabilize()                                           {}

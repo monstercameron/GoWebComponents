@@ -20,7 +20,7 @@ func TestScheduleGranularUpdateForFiber_DoesNotDirtyAncestors(parseT *testing.T)
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  make(map[string]interface{}),
+			props:  make(map[string]any),
 		},
 	}
 
@@ -52,7 +52,7 @@ func TestReactiveTextAtomUpdate_DoesNotRerenderOwnerComponent(parseT *testing.T)
 	parseApp := func() *Element {
 		renderCount++
 		return CreateElement("div", nil,
-			CreateElement(ReactiveTextNodeType, map[string]interface{}{
+			CreateElement(ReactiveTextNodeType, map[string]any{
 				reactiveTextAtomIDProp: "count",
 				reactiveTextGetterProp: func() string {
 					parseValue, _ := parseRt.atomRegistry.GetAtom("count")
@@ -129,12 +129,12 @@ func TestReactiveTextAtomUpdate_PreservesSiblingDomSubtrees(parseT *testing.T) {
 	parseApp := func() *Element {
 		parseAppRenderCount++
 		return CreateElement("main", nil,
-			CreateElement("div", map[string]interface{}{"id": "static"},
+			CreateElement("div", map[string]any{"id": "static"},
 				CreateElement(parseStaticPanel, nil),
 			),
-			CreateElement("div", map[string]interface{}{"id": "hot"},
+			CreateElement("div", map[string]any{"id": "hot"},
 				CreateElement("span", nil,
-					CreateElement(ReactiveTextNodeType, map[string]interface{}{
+					CreateElement(ReactiveTextNodeType, map[string]any{
 						reactiveTextAtomIDProp: "count",
 						reactiveTextGetterProp: func() string {
 							parseValue, _ := parseRt.atomRegistry.GetAtom("count")
@@ -213,8 +213,8 @@ func TestReactiveTextMultipleRegions_UpdateOnlyTargetDomTree(parseT *testing.T) 
 	parseApp := func() *Element {
 		renderCount++
 		return CreateElement("section", nil,
-			CreateElement("div", map[string]interface{}{"id": "left"},
-				CreateElement(ReactiveTextNodeType, map[string]interface{}{
+			CreateElement("div", map[string]any{"id": "left"},
+				CreateElement(ReactiveTextNodeType, map[string]any{
 					reactiveTextAtomIDProp: "left",
 					reactiveTextGetterProp: func() string {
 						parseValue, _ := parseRt.atomRegistry.GetAtom("left")
@@ -225,8 +225,8 @@ func TestReactiveTextMultipleRegions_UpdateOnlyTargetDomTree(parseT *testing.T) 
 					},
 				}),
 			),
-			CreateElement("div", map[string]interface{}{"id": "right"},
-				CreateElement(ReactiveTextNodeType, map[string]interface{}{
+			CreateElement("div", map[string]any{"id": "right"},
+				CreateElement(ReactiveTextNodeType, map[string]any{
 					reactiveTextAtomIDProp: "right",
 					reactiveTextGetterProp: func() string {
 						parseValue2, _ := parseRt.atomRegistry.GetAtom("right")
@@ -299,19 +299,19 @@ func TestReactiveRegionSubscriptionsRedirectFromStaleTwinAfterAncestorRerender(p
 	parseContainer := parseAdapter.CreateElement("div")
 	parseRt.atomRegistry.InitAtom("count", 1)
 
-	var setTick func(interface{})
+	var setTick func(any)
 	parseApp := func() *Element {
 		parseTick, set := GoUseState(parseRt, 0)
 		setTick = set
 		return CreateElement("section", nil,
 			CreateElement("h1", nil, textFromInt(parseTick())),
-			CreateElement("div", map[string]interface{}{"id": "region"},
-				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+			CreateElement("div", map[string]any{"id": "region"},
+				CreateElement(ReactiveRegionNodeType, map[string]any{
 					reactiveRegionSourceIDsProp: []string{"count"},
 					reactiveRegionRenderProp: func() *Element {
 						parseValue, _ := parseRt.GetAtomValue("count")
 						parseCurrent, _ := parseValue.(int)
-						return CreateElement("span", map[string]interface{}{"id": "count-value"}, textFromInt(parseCurrent))
+						return CreateElement("span", map[string]any{"id": "count-value"}, textFromInt(parseCurrent))
 					},
 				}),
 			),
@@ -376,7 +376,7 @@ func TestReactiveTextCollision_HookRerenderWinsAndKeepsTreeCoherent(parseT *test
 	parseRt.atomRegistry.InitAtom("count", 0)
 
 	renderCount := 0
-	var setLabel func(interface{})
+	var setLabel func(any)
 	parseApp := func() *Element {
 		renderCount++
 		parseLabel, set := GoUseState(parseRt, "ready")
@@ -384,7 +384,7 @@ func TestReactiveTextCollision_HookRerenderWinsAndKeepsTreeCoherent(parseT *test
 		return CreateElement("section", nil,
 			CreateElement("h1", nil, parseLabel()),
 			CreateElement("span", nil,
-				CreateElement(ReactiveTextNodeType, map[string]interface{}{
+				CreateElement(ReactiveTextNodeType, map[string]any{
 					reactiveTextAtomIDProp: "count",
 					reactiveTextGetterProp: func() string {
 						parseValue, _ := parseRt.atomRegistry.GetAtom("count")
@@ -443,7 +443,7 @@ func TestReactiveTextTransitionUpdate_DefersUntilTimeout(parseT *testing.T) {
 	parseApp := func() *Element {
 		renderCount++
 		return CreateElement("div", nil,
-			CreateElement(ReactiveTextNodeType, map[string]interface{}{
+			CreateElement(ReactiveTextNodeType, map[string]any{
 				reactiveTextAtomIDProp: "count",
 				reactiveTextGetterProp: func() string {
 					parseValue, _ := parseRt.atomRegistry.GetAtom("count")
@@ -518,7 +518,7 @@ func TestHydratedReactiveText_UpdateAfterResumeStaysNarrow(parseT *testing.T) {
 	parseApp := func() *Element {
 		renderCount++
 		return CreateElement("p", nil,
-			CreateElement(ReactiveTextNodeType, map[string]interface{}{
+			CreateElement(ReactiveTextNodeType, map[string]any{
 				reactiveTextAtomIDProp: "count",
 				reactiveTextGetterProp: func() string {
 					parseValue, _ := parseRt.atomRegistry.GetAtom("count")
@@ -568,10 +568,10 @@ func TestReactiveTextSourceSwap_AvoidsStaleReadsAndOldSourceUpdates(parseT *test
 	parseRt.atomRegistry.InitAtom("primary", 0)
 	parseRt.atomRegistry.InitAtom("secondary", 9)
 
-	parseApp := func(parseProps map[string]interface{}) *Element {
+	parseApp := func(parseProps map[string]any) *Element {
 		parseAtomID, _ := parseProps["source"].(string)
 		return CreateElement("div", nil,
-			CreateElement(ReactiveTextNodeType, map[string]interface{}{
+			CreateElement(ReactiveTextNodeType, map[string]any{
 				reactiveTextAtomIDProp: parseAtomID,
 				reactiveTextGetterProp: func() string {
 					parseValue, _ := parseRt.atomRegistry.GetAtom(parseAtomID)
@@ -584,7 +584,7 @@ func TestReactiveTextSourceSwap_AvoidsStaleReadsAndOldSourceUpdates(parseT *test
 		)
 	}
 
-	parseRt.Render(CreateElement(parseApp, map[string]interface{}{"source": "primary"}), parseContainer)
+	parseRt.Render(CreateElement(parseApp, map[string]any{"source": "primary"}), parseContainer)
 	runScheduledTimeouts(parseScheduler)
 
 	if parseRt.atomRegistry.GetSubscriberCount("primary") != 1 {
@@ -594,7 +594,7 @@ func TestReactiveTextSourceSwap_AvoidsStaleReadsAndOldSourceUpdates(parseT *test
 		parseT.Fatalf("expected secondary atom to have 0 subscribers before source swap, got %d", parseRt.atomRegistry.GetSubscriberCount("secondary"))
 	}
 
-	parseRt.Render(CreateElement(parseApp, map[string]interface{}{"source": "secondary"}), parseContainer)
+	parseRt.Render(CreateElement(parseApp, map[string]any{"source": "secondary"}), parseContainer)
 	runScheduledTimeouts(parseScheduler)
 
 	if parseRt.atomRegistry.GetSubscriberCount("primary") != 0 {
@@ -638,13 +638,13 @@ func TestReactiveTextDerivedCycleFailsSafely(parseT *testing.T) {
 	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
 	parseRt.currentRoot = &Fiber{typeOf: "ROOT"}
 
-	if parseErr := parseRt.RegisterDerivedAtom("derived-a", []string{"derived-b"}, func() interface{} {
+	if parseErr := parseRt.RegisterDerivedAtom("derived-a", []string{"derived-b"}, func() any {
 		parseValue, _ := parseRt.GetAtomValue("derived-b")
 		return parseValue
 	}); parseErr != nil {
 		parseT.Fatalf("unexpected error registering first derived atom: %v", parseErr)
 	}
-	if parseErr2 := parseRt.RegisterDerivedAtom("derived-b", []string{"derived-a"}, func() interface{} {
+	if parseErr2 := parseRt.RegisterDerivedAtom("derived-b", []string{"derived-a"}, func() any {
 		parseValue2, _ := parseRt.GetAtomValue("derived-a")
 		return parseValue2
 	}); parseErr2 == nil {
@@ -681,12 +681,12 @@ func TestReactiveTextUnmount_CleansUpDeletedSubtreeSubscriptions(parseT *testing
 	parseContainer := parseAdapter.CreateElement("div")
 	parseRt.atomRegistry.InitAtom("count", 0)
 
-	parseApp := func(parseProps map[string]interface{}) *Element {
-		parseChildren := []interface{}{}
+	parseApp := func(parseProps map[string]any) *Element {
+		parseChildren := []any{}
 		parseShowReactive, _ := parseProps["showReactive"].(bool)
 		if parseShowReactive {
 			parseChildren = append(parseChildren, CreateElement("span", nil,
-				CreateElement(ReactiveTextNodeType, map[string]interface{}{
+				CreateElement(ReactiveTextNodeType, map[string]any{
 					reactiveTextAtomIDProp: "count",
 					reactiveTextGetterProp: func() string {
 						parseValue, _ := parseRt.atomRegistry.GetAtom("count")
@@ -703,14 +703,14 @@ func TestReactiveTextUnmount_CleansUpDeletedSubtreeSubscriptions(parseT *testing
 		return CreateElement("div", nil, parseChildren...)
 	}
 
-	parseRt.Render(CreateElement(parseApp, map[string]interface{}{"showReactive": true}), parseContainer)
+	parseRt.Render(CreateElement(parseApp, map[string]any{"showReactive": true}), parseContainer)
 	runScheduledTimeouts(parseScheduler)
 
 	if parseRt.atomRegistry.GetSubscriberCount("count") != 1 {
 		parseT.Fatalf("expected count atom to have 1 fine-grained subscriber before unmount, got %d", parseRt.atomRegistry.GetSubscriberCount("count"))
 	}
 
-	parseRt.Render(CreateElement(parseApp, map[string]interface{}{"showReactive": false}), parseContainer)
+	parseRt.Render(CreateElement(parseApp, map[string]any{"showReactive": false}), parseContainer)
 	runScheduledTimeouts(parseScheduler)
 
 	if parseRt.atomRegistry.GetSubscriberCount("count") != 0 {
@@ -738,7 +738,7 @@ func TestReactiveTextDerivedProjection_UnchangedValueSkipsFineGrainedCommit(pars
 	parseContainer := parseAdapter.CreateElement("div")
 	parseRt.atomRegistry.InitAtom("count", 1)
 
-	if parseErr := parseRt.RegisterDerivedAtom("parity", []string{"count"}, func() interface{} {
+	if parseErr := parseRt.RegisterDerivedAtom("parity", []string{"count"}, func() any {
 		parseValue, _ := parseRt.GetAtomValue("count")
 		if parseValue.(int)%2 == 0 {
 			return "even"
@@ -752,7 +752,7 @@ func TestReactiveTextDerivedProjection_UnchangedValueSkipsFineGrainedCommit(pars
 	parseApp := func() *Element {
 		parseAppRenderCount++
 		return CreateElement("div", nil,
-			CreateElement(ReactiveTextNodeType, map[string]interface{}{
+			CreateElement(ReactiveTextNodeType, map[string]any{
 				reactiveTextAtomIDProp: "parity",
 				reactiveTextGetterProp: func() string {
 					parseValue2, _ := parseRt.GetAtomValue("parity")
@@ -834,13 +834,13 @@ func TestReactiveRegionHostPropertyUpdate_DoesNotRerenderOwnerComponent(parseT *
 	parseApp := func() *Element {
 		parseOwnerRenderCount++
 		return CreateElement("section", nil,
-			CreateElement("div", map[string]interface{}{"id": "reactive-shell"},
-				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+			CreateElement("div", map[string]any{"id": "reactive-shell"},
+				CreateElement(ReactiveRegionNodeType, map[string]any{
 					reactiveRegionSourceIDsProp: []string{"input-value"},
 					reactiveRegionRenderProp: func() *Element {
 						parseValue, _ := parseRt.GetAtomValue("input-value")
 						parseCurrent, _ := parseValue.(string)
-						return CreateElement("input", map[string]interface{}{"id": "live-input", "value": parseCurrent})
+						return CreateElement("input", map[string]any{"id": "live-input", "value": parseCurrent})
 					},
 				}),
 			),
@@ -905,19 +905,19 @@ func TestReactiveRegionAnchoredHostSubtreeUpdate_DoesNotRerenderOwnerComponent(p
 	parseApp := func() *Element {
 		parseOwnerRenderCount++
 		return CreateElement("section", nil,
-			CreateElement("div", map[string]interface{}{"id": "region-anchor"},
-				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+			CreateElement("div", map[string]any{"id": "region-anchor"},
+				CreateElement(ReactiveRegionNodeType, map[string]any{
 					reactiveRegionSourceIDsProp: []string{"expanded"},
 					reactiveRegionRenderProp: func() *Element {
 						parseValue, _ := parseRt.GetAtomValue("expanded")
 						parseExpanded, _ := parseValue.(bool)
-						parseChildren := []interface{}{
-							CreateElement("span", map[string]interface{}{"id": "status"}, "closed"),
+						parseChildren := []any{
+							CreateElement("span", map[string]any{"id": "status"}, "closed"),
 						}
 						if parseExpanded {
-							parseChildren = []interface{}{
-								CreateElement("span", map[string]interface{}{"id": "status"}, "open"),
-								CreateElement("button", map[string]interface{}{"id": "action", "disabled": true}, "archive"),
+							parseChildren = []any{
+								CreateElement("span", map[string]any{"id": "status"}, "open"),
+								CreateElement("button", map[string]any{"id": "action", "disabled": true}, "archive"),
 							}
 						}
 						return CreateElement("FRAGMENT", nil, parseChildren...)
@@ -991,13 +991,13 @@ func TestReactiveRegionFunctionAtomSubscriber_UpdateDoesNotRerenderOwner(parseT 
 	parseRegionChild := func() *Element {
 		parseRegionChildRenderCount++
 		parseCount, _ := GoUseAtom(parseRt, "count", 0)
-		return CreateElement("span", map[string]interface{}{"id": "count-value"}, textFromInt(parseCount()))
+		return CreateElement("span", map[string]any{"id": "count-value"}, textFromInt(parseCount()))
 	}
 	parseApp := func() *Element {
 		parseOwnerRenderCount++
 		return CreateElement("section", nil,
-			CreateElement("div", map[string]interface{}{"id": "region-anchor"},
-				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+			CreateElement("div", map[string]any{"id": "region-anchor"},
+				CreateElement(ReactiveRegionNodeType, map[string]any{
 					reactiveRegionSourceIDsProp: []string{"count"},
 					reactiveRegionRenderProp: func() *Element {
 						return CreateElement(parseRegionChild, nil)
@@ -1054,13 +1054,13 @@ func TestReactiveRegionFunctionAtomSubscriber_MultipleUpdatesDoNotRerenderOwner(
 	parseRegionChild := func() *Element {
 		parseRegionChildRenderCount++
 		parseCount, _ := GoUseAtom(parseRt, "count", 0)
-		return CreateElement("span", map[string]interface{}{"id": "count-value"}, textFromInt(parseCount()))
+		return CreateElement("span", map[string]any{"id": "count-value"}, textFromInt(parseCount()))
 	}
 	parseApp := func() *Element {
 		parseOwnerRenderCount++
 		return CreateElement("section", nil,
-			CreateElement("div", map[string]interface{}{"id": "region-anchor"},
-				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+			CreateElement("div", map[string]any{"id": "region-anchor"},
+				CreateElement(ReactiveRegionNodeType, map[string]any{
 					reactiveRegionSourceIDsProp: []string{"count"},
 					reactiveRegionRenderProp: func() *Element {
 						return CreateElement(parseRegionChild, nil)
@@ -1113,11 +1113,11 @@ func TestReactiveRegionFunctionAtomSubscriber_RepeatedOwnerRerendersKeepSingleSu
 
 	parseOwnerRenderCount := 0
 	parseRegionChildRenderCount := 0
-	var parseSetTick func(interface{})
+	var parseSetTick func(any)
 	parseRegionChild := func() *Element {
 		parseRegionChildRenderCount++
 		parseCount, _ := GoUseAtom(parseRt, "count", 0)
-		return CreateElement("span", map[string]interface{}{"id": "count-value"}, textFromInt(parseCount()))
+		return CreateElement("span", map[string]any{"id": "count-value"}, textFromInt(parseCount()))
 	}
 	parseApp := func() *Element {
 		parseOwnerRenderCount++
@@ -1125,8 +1125,8 @@ func TestReactiveRegionFunctionAtomSubscriber_RepeatedOwnerRerendersKeepSingleSu
 		parseSetTick = parseSet
 		_ = parseTick()
 		return CreateElement("section", nil,
-			CreateElement("div", map[string]interface{}{"id": "region-anchor"},
-				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+			CreateElement("div", map[string]any{"id": "region-anchor"},
+				CreateElement(ReactiveRegionNodeType, map[string]any{
 					reactiveRegionSourceIDsProp: []string{"count"},
 					reactiveRegionRenderProp: func() *Element {
 						return CreateElement(parseRegionChild, nil)
@@ -1146,7 +1146,7 @@ func TestReactiveRegionFunctionAtomSubscriber_RepeatedOwnerRerendersKeepSingleSu
 		parseT.Fatalf("expected at least one count subscriber after initial render, got %d", parseInitialSubscriberCount)
 	}
 
-	for parseIteration := 0; parseIteration < 20; parseIteration++ {
+	for parseIteration := range 20 {
 		parseSetTick(func(parsePrevious int) int {
 			return parsePrevious + 1
 		})
@@ -1196,10 +1196,10 @@ func TestReactiveRegionFunctionAtomSubscriber_RepeatedKeyedOwnerRerendersKeepSin
 	parseRt.atomRegistry.InitAtom("count", 0)
 
 	parseOwnerRenderCount := 0
-	var parseSetTick func(interface{})
+	var parseSetTick func(any)
 	parseRegionChild := func() *Element {
 		parseCount, _ := GoUseAtom(parseRt, "count", 0)
-		return CreateElement("span", map[string]interface{}{"id": "count-value"}, textFromInt(parseCount()))
+		return CreateElement("span", map[string]any{"id": "count-value"}, textFromInt(parseCount()))
 	}
 	parseApp := func() *Element {
 		parseOwnerRenderCount++
@@ -1207,11 +1207,11 @@ func TestReactiveRegionFunctionAtomSubscriber_RepeatedKeyedOwnerRerendersKeepSin
 		parseSetTick = parseSet
 		parseOffset := parseTick() % 2
 		return CreateElement("section", nil,
-			CreateElement("div", map[string]interface{}{"id": "lane-wrap"},
-				CreateElement("div", map[string]interface{}{"key": "lane-a"},
+			CreateElement("div", map[string]any{"id": "lane-wrap"},
+				CreateElement("div", map[string]any{"key": "lane-a"},
 					textFromInt(parseOffset),
 				),
-				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+				CreateElement(ReactiveRegionNodeType, map[string]any{
 					"key":                       "lane-region",
 					reactiveRegionSourceIDsProp: []string{"count"},
 					reactiveRegionRenderProp: func() *Element {
@@ -1232,7 +1232,7 @@ func TestReactiveRegionFunctionAtomSubscriber_RepeatedKeyedOwnerRerendersKeepSin
 		parseT.Fatalf("expected at least one count subscriber after initial keyed render, got %d", parseInitialSubscriberCount)
 	}
 
-	for parseIteration := 0; parseIteration < 20; parseIteration++ {
+	for parseIteration := range 20 {
 		parseSetTick(func(parsePrevious int) int {
 			return parsePrevious + 1
 		})

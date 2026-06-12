@@ -21,7 +21,7 @@ func TestContextProviderHelperExtraction(parseT *testing.T) {
 	if parseValue2, parseOk2 := extractContextProviderValue(&parseProps); !parseOk2 || parseValue2.(string) != "dark" {
 		parseT.Fatalf("extractContextProviderValue(pointer) = %#v, %t; want dark,true", parseValue2, parseOk2)
 	}
-	if parseValue3, parseOk3 := extractContextProviderValue(map[string]interface{}{"value": "map-dark"}); !parseOk3 || parseValue3.(string) != "map-dark" {
+	if parseValue3, parseOk3 := extractContextProviderValue(map[string]any{"value": "map-dark"}); !parseOk3 || parseValue3.(string) != "map-dark" {
 		parseT.Fatalf("extractContextProviderValue(map) = %#v, %t; want map-dark,true", parseValue3, parseOk3)
 	}
 	if parseValue4, parseOk4 := extractContextProviderValue(42); !parseOk4 || parseValue4.(int) != 42 {
@@ -32,7 +32,7 @@ func TestContextProviderHelperExtraction(parseT *testing.T) {
 	if len(parseChildren) != 2 {
 		parseT.Fatalf("extractContextProviderChildren(struct) len = %d, want 2", len(parseChildren))
 	}
-	parseMapChildren := extractContextProviderChildren(map[string]interface{}{"child": parseChild, "children": []interface{}{Text("map")}})
+	parseMapChildren := extractContextProviderChildren(map[string]any{"child": parseChild, "children": []any{Text("map")}})
 	if len(parseMapChildren) != 2 {
 		parseT.Fatalf("extractContextProviderChildren(map) len = %d, want 2", len(parseMapChildren))
 	}
@@ -60,17 +60,17 @@ func TestErrorBoundaryHelperExtraction(parseT *testing.T) {
 		Fallback:      parseFallback,
 		ErrorFallback: parseErrorFallback,
 		OnError:       parseOnError,
-		ResetKeys:     []interface{}{"v1"},
+		ResetKeys:     []any{"v1"},
 		Child:         Text("child"),
 		Children:      []Node{Text("child-2")},
 	}
-	parseMapProps := map[string]interface{}{
+	parseMapProps := map[string]any{
 		"fallback":      parseFallback,
 		"errorFallback": parseErrorFallback,
 		"onError":       parseOnError,
-		"resetKeys":     []interface{}{"v2"},
+		"resetKeys":     []any{"v2"},
 		"child":         Text("child"),
-		"children":      []interface{}{Text("child-2")},
+		"children":      []any{Text("child-2")},
 	}
 
 	if parseGot, parseOk := extractErrorBoundaryFallback(parseStructProps); !parseOk || parseGot != parseFallback {
@@ -100,13 +100,13 @@ func TestErrorBoundaryHelperExtraction(parseT *testing.T) {
 	if !dereferenceStructValue(&parseStructProps).IsValid() || dereferenceStructValue((*ErrorBoundaryProps)(nil)).IsValid() {
 		parseT.Fatal("dereferenceStructValue() returned unexpected validity state")
 	}
-	if _, parseOk5 := mapBoundaryNode(map[string]interface{}{}, "Fallback"); parseOk5 {
+	if _, parseOk5 := mapBoundaryNode(map[string]any{}, "Fallback"); parseOk5 {
 		parseT.Fatal("mapBoundaryNode() should not find missing nodes")
 	}
-	if _, parseOk6 := mapBoundaryFallback(map[string]interface{}{}, "ErrorFallback"); parseOk6 {
+	if _, parseOk6 := mapBoundaryFallback(map[string]any{}, "ErrorFallback"); parseOk6 {
 		parseT.Fatal("mapBoundaryFallback() should not find missing functions")
 	}
-	if _, parseOk7 := mapBoundaryOnError(map[string]interface{}{}, "OnError"); parseOk7 {
+	if _, parseOk7 := mapBoundaryOnError(map[string]any{}, "OnError"); parseOk7 {
 		parseT.Fatal("mapBoundaryOnError() should not find missing functions")
 	}
 }
@@ -121,7 +121,7 @@ func TestBranchingAndHotReloadFallbackHelpers(parseT *testing.T) {
 	if parseGot2 := Match().Default(nil); parseGot2 != nil {
 		parseT.Fatalf("Match().Default(nil) = %#v, want nil", parseGot2)
 	}
-	parseKey := hotReloadBoundaryKey([]interface{}{func() {}})
+	parseKey := hotReloadBoundaryKey([]any{func() {}})
 	if !strings.HasPrefix(parseKey, "__gwc_hotreload_boundary__:") || !strings.Contains(parseKey, "func(") {
 		parseT.Fatalf("hotReloadBoundaryKey(fallback) = %q, want stringified fallback key", parseKey)
 	}

@@ -253,10 +253,10 @@ func resolveModulePath(parseRoot string) string {
 	if parseErr != nil {
 		return ""
 	}
-	for _, parseLine := range strings.Split(string(parseContent), "\n") {
+	for parseLine := range strings.SplitSeq(string(parseContent), "\n") {
 		parseTrimmed := strings.TrimSpace(parseLine)
-		if strings.HasPrefix(parseTrimmed, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(parseTrimmed, "module "))
+		if after, ok := strings.CutPrefix(parseTrimmed, "module "); ok {
+			return strings.TrimSpace(after)
 		}
 	}
 	return ""

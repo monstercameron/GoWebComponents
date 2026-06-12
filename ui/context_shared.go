@@ -45,13 +45,13 @@ func CreateContext[T any](parseDefaultValue T) *Context[T] {
 }
 
 // createContextProviderElement is a core package helper.
-func createContextProviderElement(parseProvider contextProviderComponent, parseRawProps interface{}) Node {
+func createContextProviderElement(parseProvider contextProviderComponent, parseRawProps any) Node {
 	parseRuntimeProvider := parseProvider.runtimeContextProvider()
 	if parseRuntimeProvider == nil {
 		return nil
 	}
 
-	parseProps := map[string]interface{}{}
+	parseProps := map[string]any{}
 	parseChildren := extractContextProviderChildren(parseRawProps)
 	if parseContextValue, parseOk := extractContextProviderValue(parseRawProps); parseOk {
 		parseProps["value"] = parseContextValue
@@ -61,12 +61,12 @@ func createContextProviderElement(parseProvider contextProviderComponent, parseR
 }
 
 // extractContextProviderValue is a core package helper.
-func extractContextProviderValue(parseRawProps interface{}) (interface{}, bool) {
+func extractContextProviderValue(parseRawProps any) (any, bool) {
 	if parseRawProps == nil {
 		return nil, false
 	}
 
-	if parsePropsMap, parseOk := parseRawProps.(map[string]interface{}); parseOk {
+	if parsePropsMap, parseOk := parseRawProps.(map[string]any); parseOk {
 		parseContextValue, hasValue := parsePropsMap["value"]
 		return parseContextValue, hasValue
 	}
@@ -96,17 +96,17 @@ func extractContextProviderValue(parseRawProps interface{}) (interface{}, bool) 
 }
 
 // extractContextProviderChildren is a core package helper.
-func extractContextProviderChildren(parseRawProps interface{}) []interface{} {
+func extractContextProviderChildren(parseRawProps any) []any {
 	if parseRawProps == nil {
 		return nil
 	}
 
-	if parsePropsMap, parseOk := parseRawProps.(map[string]interface{}); parseOk {
-		parseChildren := make([]interface{}, 0, 2)
+	if parsePropsMap, parseOk := parseRawProps.(map[string]any); parseOk {
+		parseChildren := make([]any, 0, 2)
 		if parseChild, parseOk2 := parsePropsMap["child"].(*runtime.Element); parseOk2 && parseChild != nil {
 			parseChildren = append(parseChildren, parseChild)
 		}
-		if parseChildNodes, parseOk3 := parsePropsMap["children"].([]interface{}); parseOk3 && len(parseChildNodes) > 0 {
+		if parseChildNodes, parseOk3 := parsePropsMap["children"].([]any); parseOk3 && len(parseChildNodes) > 0 {
 			parseChildren = append(parseChildren, parseChildNodes...)
 		}
 		return parseChildren
@@ -124,7 +124,7 @@ func extractContextProviderChildren(parseRawProps interface{}) []interface{} {
 		return nil
 	}
 
-	parseChildren2 := make([]interface{}, 0, 2)
+	parseChildren2 := make([]any, 0, 2)
 	if parseChildField := parseReflectedValue.FieldByName("Child"); parseChildField.IsValid() && parseChildField.CanInterface() {
 		if parseChild2, parseOk4 := parseChildField.Interface().(*runtime.Element); parseOk4 && parseChild2 != nil {
 			parseChildren2 = append(parseChildren2, parseChild2)
@@ -144,7 +144,7 @@ func extractContextProviderChildren(parseRawProps interface{}) []interface{} {
 }
 
 // castContextValue is a core package helper.
-func castContextValue[T any](parseValue interface{}) T {
+func castContextValue[T any](parseValue any) T {
 	if parseTypedValue, parseOk := parseValue.(T); parseOk {
 		return parseTypedValue
 	}

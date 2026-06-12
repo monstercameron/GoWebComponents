@@ -280,7 +280,7 @@ func TestWriteStaticExamplesCatalogFileRelativeAndFailurePaths(parseT *testing.T
 
 	parseOriginalMarshal := examplesCatalogMarshalIndent
 	parseT.Cleanup(func() { examplesCatalogMarshalIndent = parseOriginalMarshal })
-	examplesCatalogMarshalIndent = func(parseV interface{}, parsePrefix string, parseIndent string) ([]byte, error) {
+	examplesCatalogMarshalIndent = func(parseV any, parsePrefix string, parseIndent string) ([]byte, error) {
 		return nil, errors.New("encode failed")
 	}
 	if parseErr11 := parseExamplesLauncher.writeStaticExamplesCatalogFile(filepath.Join(parseRoot, "encode", "catalog.json")); parseErr11 == nil || !strings.Contains(parseErr11.Error(), "encode static catalog") {
@@ -724,7 +724,7 @@ func TestPrintDevPlanJSONIncludesResolvedSummaryFields(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("read captured stdout: %v", parseErr)
 	}
-	var parsePayload map[string]interface{}
+	var parsePayload map[string]any
 	if parseErr2 := json.Unmarshal([]byte(parseOutput), &parsePayload); parseErr2 != nil {
 		parseT.Fatalf("unmarshal payload: %v\n%s", parseErr2, parseOutput)
 	}
@@ -2826,7 +2826,7 @@ func TestExamplesHealthzRouteIncludesLauncherMetadata(parseT *testing.T) {
 	if parseRecorder.Code != http.StatusOK {
 		parseT.Fatalf("expected healthz to succeed, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	var parsePayload map[string]interface{}
+	var parsePayload map[string]any
 	if parseErr := json.Unmarshal(parseRecorder.Body.Bytes(), &parsePayload); parseErr != nil {
 		parseT.Fatalf("decode healthz payload: %v", parseErr)
 	}

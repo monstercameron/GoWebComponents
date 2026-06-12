@@ -1,0 +1,27 @@
+name: Doclint Command Execution
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  doclint-commands:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.4"
+
+      - name: Execute Documented GWC Commands
+        run: |
+          go test -tags doclintcmd ./docs/doclint -run TestDocsGwcCommandsExecute -count=1 -v -timeout 10m
+        shell: pwsh

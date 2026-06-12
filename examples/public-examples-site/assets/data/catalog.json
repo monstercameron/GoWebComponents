@@ -1048,7 +1048,7 @@
                 "onboarding",
                 "bootstrap"
             ],
-            "blurb": "This page defines the intended onboarding path for new GoWebComponents adopters.",
+            "blurb": "This page defines the starter-backed onboarding path for new GoWebComponents adopters.",
             "readTime": "4 min read",
             "content": {
                 "kind": "article",
@@ -1057,11 +1057,11 @@
                         "heading": "Overview",
                         "paragraphs": [
                             "Use it when deciding how a team should start a new app, what prerequisites are required, how starter-based apps should evolve, and what the recommended local edit-build-refresh loop looks like.",
-                            "The current official way to start is a documented manual flow, not a hidden bootstrap CLI."
+                            "The current official way to start is `go run ./tools/gwc start`, backed by maintained starter templates and explicit runner workflows."
                         ]
                     }
                 ],
-                "callout": "This page defines the intended onboarding path for new GoWebComponents adopters.",
+                "callout": "This page defines the starter-backed onboarding path for new GoWebComponents adopters.",
                 "sourcePath": "assets/docs/onboarding-and-bootstrap.md"
             }
         },
@@ -5346,6 +5346,45 @@
                     "This example is kept source-first because it relies on standalone document scaffolding or browser-global behavior.",
                     "Use the mirrored source here, then run the standalone example package when you need the full environment."
                 ]
+            }
+        },
+        {
+            "id": 176,
+            "title": "Starter Templates",
+            "status": "stable",
+            "module": "core",
+            "type": "Concept",
+            "level": "Beginner",
+            "tags": [
+                "starter",
+                "templates",
+                "scaffold"
+            ],
+            "searchTags": [
+                "minimal-client",
+                "routed-spa",
+                "ssr-app",
+                "reference-app",
+                "dashboard-app",
+                "marketing-site",
+                "content-blog",
+                "authed-app-shell"
+            ],
+            "blurb": "A maintained gallery of copyable gwc start templates for common app shapes.",
+            "readTime": "4 min read",
+            "content": {
+                "kind": "article",
+                "sections": [
+                    {
+                        "heading": "Overview",
+                        "paragraphs": [
+                            "GoWebComponents ships starter templates through `gwc start`.",
+                            "The gallery covers minimal client apps, routed SPAs, SSR apps, dashboards, marketing sites, content blogs, authed app shells, and the broader reference app."
+                        ]
+                    }
+                ],
+                "callout": "A maintained gallery of copyable gwc start templates for common app shapes.",
+                "sourcePath": "assets/docs/starter-templates.md"
             }
         }
     ]

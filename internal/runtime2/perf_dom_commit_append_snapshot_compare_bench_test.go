@@ -55,8 +55,8 @@ func buildDOMCommitAppendSnapshotBenchmarkFixture(parseB *testing.B, parseExisti
 			GetKind:         RegionPatchOpKindInsertNode,
 			GetParentNodeID: 1,
 			GetInsertNode: &RegionDOMNode{
-				GetNodeID: getNodeID,
-				GetTag:    "li",
+				GetNodeID:  getNodeID,
+				GetTag:     "li",
 				GetNodeKey: "row-" + strconv.Itoa(parseExistingChildCount+parseAppendOffset),
 			},
 		})
@@ -97,7 +97,7 @@ func buildCommitRegionPatchTransactionLegacyAppendSnapshotClone(
 		}
 		if parseApplyErr := parseDOMCommitter.parseCommitPatchOp(parseTransaction.GetRegionID, parseOp); parseApplyErr != nil {
 			parseRestoreCommitNodeSnapshot(parseRegionNodeMap, parseNodeSnapshotByID)
-			if parseRegionNodeMap != nil && len(parseRegionNodeMap) > 0 {
+			if len(parseRegionNodeMap) > 0 {
 				parseDOMCommitter.getRegionDOMIndex.storeRegionDOMNodeByRegionID[parseTransaction.GetRegionID] = parseRegionNodeMap
 			}
 			return RegionPatchTransactionResult{
@@ -143,7 +143,6 @@ func buildCommitLegacyStructuralNodeSnapshot(
 func BenchmarkCommitRegionPatchTransactionAppendSnapshotCurrentVsLegacy(parseB *testing.B) {
 	parseAppendCounts := []int{32, 128, 256}
 	for _, parseAppendCount := range parseAppendCounts {
-		parseAppendCount := parseAppendCount
 		parseB.Run("append-"+strconv.Itoa(parseAppendCount)+"/legacy_reclone", func(parseB *testing.B) {
 			parseB.ReportAllocs()
 			for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {

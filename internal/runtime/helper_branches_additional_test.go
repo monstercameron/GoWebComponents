@@ -23,7 +23,7 @@ func buildResolveContainerTestDOMAdapter() *resolveContainerTestDOMAdapter {
 }
 
 // ResolveNode resolves string keys to DOM nodes before falling back to the base adapter behavior.
-func (parseA *resolveContainerTestDOMAdapter) ResolveNode(parseValue interface{}) DOMNode {
+func (parseA *resolveContainerTestDOMAdapter) ResolveNode(parseValue any) DOMNode {
 	if parseKey, parseOk := parseValue.(string); parseOk {
 		return parseA.resolveByKey[parseKey]
 	}
@@ -156,7 +156,7 @@ func TestRuntimeHotReloadHelperBranches(parseT *testing.T) {
 
 	parseCurrentFiber := &Fiber{
 		typeOf: NewComponentType("stable-id", "CurrentWidget", "stable-id", nil, nil),
-		props:  map[string]interface{}{"key": "stable-key"},
+		props:  map[string]any{"key": "stable-key"},
 		hooks:  &Hooks{signature: []string{"state"}},
 	}
 	parseSnapshot := &HotReloadComponentSnapshot{
@@ -236,7 +236,7 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 	parseBoundaryError := ""
 	parseBoundaryElement := &Element{
 		Type: NewErrorBoundaryType(),
-		Props: map[string]interface{}{
+		Props: map[string]any{
 			"onError": func(parseErr error) {
 				parseBoundaryError = parseErr.Error()
 			},
@@ -244,7 +244,7 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 				return CreateElement("span", nil, "handled:"+parseErr.Error())
 			},
 		},
-		Children: []interface{}{
+		Children: []any{
 			CreateElement(func() *Element {
 				panic("boom")
 			}, nil),
@@ -264,14 +264,14 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 	parseElementFallbackCalled := false
 	parseElementFallbackBoundary := &Element{
 		Type: NewErrorBoundaryType(),
-		Props: map[string]interface{}{
+		Props: map[string]any{
 			"onError": func(parseErr error) {
 				parseElementFallbackCalled = true
 				panic("ignore onError panic")
 			},
 			"fallback": CreateElement("strong", nil, "static fallback"),
 		},
-		Children: []interface{}{
+		Children: []any{
 			CreateElement(func() *Element {
 				panic("fallback boom")
 			}, nil),
@@ -291,12 +291,12 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 	isParseOnErrorCalled := false
 	parseNoFallbackBoundary := &Element{
 		Type: NewErrorBoundaryType(),
-		Props: map[string]interface{}{
+		Props: map[string]any{
 			"onError": func(parseErr error) {
 				isParseOnErrorCalled = true
 			},
 		},
-		Children: []interface{}{
+		Children: []any{
 			CreateElement(func() *Element {
 				panic("plain boom")
 			}, nil),
@@ -312,9 +312,9 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 		parseT.Fatalf("expected missing-fallback boundary to render nothing, got %q", parseNoFallbackBuilder.String())
 	}
 
-	type parseNamedProps map[string]interface{}
+	type parseNamedProps map[string]any
 
-	parseZeroArg, parseErr := buildComponentArg(reflect.TypeOf(struct{ ID string }{}), nil)
+	parseZeroArg, parseErr := buildComponentArg(reflect.TypeFor[struct{ ID string }](), nil)
 	if parseErr != nil {
 		parseT.Fatalf("expected nil props to produce zero value, got %v", parseErr)
 	}
@@ -322,7 +322,7 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 		parseT.Fatalf("expected nil props zero value, got %#v", parseZeroArg.Interface())
 	}
 
-	parseAttrsArg, parseErr := buildComponentArg(reflect.TypeOf(Attrs{}), map[string]interface{}{"id": "hero"})
+	parseAttrsArg, parseErr := buildComponentArg(reflect.TypeFor[Attrs](), map[string]any{"id": "hero"})
 	if parseErr != nil {
 		parseT.Fatalf("expected Attrs prop conversion to succeed, got %v", parseErr)
 	}
@@ -330,7 +330,7 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 		parseT.Fatalf("expected Attrs prop passthrough, got %#v", parseAttrsArg.Interface())
 	}
 
-	parseAssignableArg, parseErr := buildComponentArg(reflect.TypeOf(map[string]interface{}{}), map[string]interface{}{"id": "hero"})
+	parseAssignableArg, parseErr := buildComponentArg(reflect.TypeFor[map[string]any](), map[string]any{"id": "hero"})
 	if parseErr != nil {
 		parseT.Fatalf("expected assignable map conversion to succeed, got %v", parseErr)
 	}
@@ -338,7 +338,7 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 		parseT.Fatalf("expected assignable prop value to preserve map contents, got %#v", parseAssignableArg.Interface())
 	}
 
-	parseConvertibleArg, parseErr := buildComponentArg(reflect.TypeOf(parseNamedProps{}), map[string]interface{}{"id": "hero"})
+	parseConvertibleArg, parseErr := buildComponentArg(reflect.TypeFor[parseNamedProps](), map[string]any{"id": "hero"})
 	if parseErr != nil {
 		parseT.Fatalf("expected convertible map conversion to succeed, got %v", parseErr)
 	}
@@ -346,7 +346,7 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 		parseT.Fatalf("expected convertible prop value to preserve map contents, got %#v", parseConvertibleArg.Interface())
 	}
 
-	if _, parseErr := buildComponentArg(reflect.TypeOf(struct{ ID string }{}), map[string]interface{}{"id": "hero"}); parseErr == nil || !strings.Contains(parseErr.Error(), "unsupported component prop type") {
+	if _, parseErr := buildComponentArg(reflect.TypeFor[struct{ ID string }](), map[string]any{"id": "hero"}); parseErr == nil || !strings.Contains(parseErr.Error(), "unsupported component prop type") {
 		parseT.Fatalf("expected unsupported prop type error, got %v", parseErr)
 	}
 
@@ -356,7 +356,7 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 		hotReloadRestore: &HotReloadComponentSnapshot{
 			Memos: []HotReloadMemoSnapshot{{
 				Value: float64(9),
-				Deps:  []interface{}{"same"},
+				Deps:  []any{"same"},
 			}},
 		},
 	}
@@ -364,10 +364,10 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 	defer SetCurrentFiber(nil)
 
 	parseMemoComputeCount := 0
-	parseMemoValue := GoUseMemoTyped(func() interface{} {
+	parseMemoValue := GoUseMemoTyped(func() any {
 		parseMemoComputeCount++
 		return 12
-	}, reflect.TypeOf(int(0)), "same")
+	}, reflect.TypeFor[int](), "same")
 	if parseMemoComputeCount != 0 {
 		parseT.Fatalf("expected restored typed memo to skip recompute, got %d calls", parseMemoComputeCount)
 	}
@@ -431,7 +431,7 @@ func TestRuntimeResolveContainerTransitionAndAtomBranches(parseT *testing.T) {
 	parseSharedFiber := &Fiber{typeOf: "shared"}
 	parseRegistry.Subscribe("count", parseSharedFiber)
 	parseRegistry.Subscribe("derived", parseSharedFiber)
-	if parseErr := parseRegistry.RegisterDerivedAtom("derived", []string{"count"}, func() interface{} {
+	if parseErr := parseRegistry.RegisterDerivedAtom("derived", []string{"count"}, func() any {
 		parseValue3, _ := parseRegistry.GetAtom("count")
 		return parseValue3.(int) + 1
 	}); parseErr != nil {
@@ -455,7 +455,7 @@ func TestRuntimeResolveContainerTransitionAndAtomBranches(parseT *testing.T) {
 	parseCycleRegistry.InitAtom("count", 1)
 	parseCycleRegistry.derived["loop"] = derivedAtom{
 		deps:    []string{"count"},
-		compute: func() interface{} { return 2 },
+		compute: func() any { return 2 },
 		active:  true,
 	}
 	parseCycleRegistry.dependents["count"] = map[string]bool{"loop": true}

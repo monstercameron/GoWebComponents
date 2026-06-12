@@ -92,7 +92,7 @@ func TestRenderBundlesNonRouterHeadMetadata(parseT *testing.T) {
 			{Rel: "preload", Href: "https://cdn.example.com/app.js", As: "script"},
 		},
 		JSONLD: []JSONLDBlock{
-			{ID: "article-jsonld", Value: map[string]interface{}{
+			{ID: "article-jsonld", Value: map[string]any{
 				"@context": "https://schema.org",
 				"@type":    "Article",
 				"headline": "Docs <Guide>",
@@ -122,7 +122,7 @@ func TestRenderBundlesNonRouterHeadMetadata(parseT *testing.T) {
 }
 
 func TestRenderJSONLDEscapesScriptTermination(parseT *testing.T) {
-	parseMarkup, parseErr := RenderJSONLD(map[string]interface{}{
+	parseMarkup, parseErr := RenderJSONLD(map[string]any{
 		"text": `</script><script>alert("x")</script>`,
 	}, "dangerous")
 	if parseErr != nil {
@@ -160,7 +160,7 @@ func TestMergeAppliesRouteDefaultsOverridesAndReplacementRules(parseT *testing.T
 			{Rel: "preconnect", Href: "https://cdn.example.com"},
 		},
 		JSONLD: []JSONLDBlock{
-			{ID: "docs-jsonld", Value: map[string]interface{}{"@type": "WebPage"}},
+			{ID: "docs-jsonld", Value: map[string]any{"@type": "WebPage"}},
 		},
 		Extras: []ui.Node{
 			MetaName("theme-color", "#08111d"),
@@ -183,7 +183,7 @@ func TestMergeAppliesRouteDefaultsOverridesAndReplacementRules(parseT *testing.T
 			{Rel: "preload", Href: "https://cdn.example.com/guide.js", As: "script"},
 		},
 		JSONLD: []JSONLDBlock{
-			{ID: "guide-jsonld", Value: map[string]interface{}{"@type": "Article"}},
+			{ID: "guide-jsonld", Value: map[string]any{"@type": "Article"}},
 		},
 		Extras: []ui.Node{
 			MetaName("color-scheme", "dark"),
@@ -246,7 +246,7 @@ func TestResolveSupportsClearAndReplaceRulesAcrossRouteLayers(parseT *testing.T)
 					{Rel: "preconnect", Href: "https://cdn.example.com"},
 				},
 				JSONLD: []JSONLDBlock{
-					{ID: "base-jsonld", Value: map[string]interface{}{"@type": "WebPage"}},
+					{ID: "base-jsonld", Value: map[string]any{"@type": "WebPage"}},
 				},
 			},
 		},

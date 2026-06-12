@@ -1,5 +1,7 @@
 package devtools
 
+import "maps"
+
 import "sync"
 
 var multiClientInspection struct {
@@ -65,8 +67,6 @@ func cloneMultiClientStringMap(parseInput map[string]string) map[string]string {
 		return nil
 	}
 	parseOut := make(map[string]string, len(parseInput))
-	for parseKey, parseValue := range parseInput {
-		parseOut[parseKey] = parseValue
-	}
+	maps.Copy(parseOut, parseInput)
 	return parseOut
 }

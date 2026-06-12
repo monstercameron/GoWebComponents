@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package runtime
 
@@ -16,7 +15,7 @@ var unsupportedFetchGetter = func() FetchState {
 var unsupportedFetchRefetch = func() {}
 
 // GoUseFetch is a stub for non-WASM environments
-func GoUseFetch(parseFetchURL string, parseFetchOptions ...interface{}) (func() FetchState, func()) {
+func GoUseFetch(parseFetchURL string, parseFetchOptions ...any) (func() FetchState, func()) {
 	_ = parseFetchURL
 	_ = parseFetchOptions
 	parseFetch := fetchValue{}

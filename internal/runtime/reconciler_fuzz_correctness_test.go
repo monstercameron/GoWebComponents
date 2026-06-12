@@ -16,15 +16,15 @@ type fuzzRowModel struct {
 
 // buildFuzzListElement renders the model through the public element API.
 func buildFuzzListElement(parseRows []fuzzRowModel, isKeyed bool) *Element {
-	parseChildren := make([]interface{}, 0, len(parseRows))
+	parseChildren := make([]any, 0, len(parseRows))
 	for _, parseRow := range parseRows {
-		parseProps := map[string]interface{}{"class": parseRow.Class, "data-k": fmt.Sprintf("%d", parseRow.Key)}
+		parseProps := map[string]any{"class": parseRow.Class, "data-k": fmt.Sprintf("%d", parseRow.Key)}
 		if isKeyed {
 			parseProps["key"] = parseRow.Key
 		}
 		parseChildren = append(parseChildren, CreateElement("li", parseProps, parseRow.Text))
 	}
-	return CreateElement("ul", map[string]interface{}{"id": "fuzz-list"}, parseChildren...)
+	return CreateElement("ul", map[string]any{"id": "fuzz-list"}, parseChildren...)
 }
 
 // describeFuzzDOM walks the committed test DOM and flattens it for comparison.
@@ -122,11 +122,11 @@ func runReconcilerFuzz(parseT *testing.T, parseSeed int64, parseSteps int, isKey
 
 	parseRows := []fuzzRowModel{}
 	parseNextKey := 0
-	for parseIdx := 0; parseIdx < 4; parseIdx++ {
+	for range 4 {
 		parseRows = fuzzMutate(parseRng, parseRows, &parseNextKey)
 	}
 
-	for parseStep := 0; parseStep < parseSteps; parseStep++ {
+	for parseStep := range parseSteps {
 		parseRows = fuzzMutate(parseRng, parseRows, &parseNextKey)
 		parseRt.Render(buildFuzzListElement(parseRows, isKeyed), parseContainer)
 

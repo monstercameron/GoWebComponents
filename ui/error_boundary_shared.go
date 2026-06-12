@@ -7,13 +7,13 @@ import (
 )
 
 // createErrorBoundaryElement is a core package helper.
-func createErrorBoundaryElement(parseBoundary runtimeErrorBoundaryComponent, parseRawProps interface{}) Node {
+func createErrorBoundaryElement(parseBoundary runtimeErrorBoundaryComponent, parseRawProps any) Node {
 	parseRuntimeBoundary := parseBoundary.runtimeErrorBoundary()
 	if parseRuntimeBoundary == nil {
 		return nil
 	}
 
-	parsePropsMap := map[string]interface{}{}
+	parsePropsMap := map[string]any{}
 	if parseFallback, parseOk := extractErrorBoundaryFallback(parseRawProps); parseOk {
 		parsePropsMap["fallback"] = parseFallback
 	}
@@ -32,11 +32,11 @@ func createErrorBoundaryElement(parseBoundary runtimeErrorBoundaryComponent, par
 }
 
 // extractErrorBoundaryFallback is a core package helper.
-func extractErrorBoundaryFallback(parseRawProps interface{}) (Node, bool) {
+func extractErrorBoundaryFallback(parseRawProps any) (Node, bool) {
 	if parseRawProps == nil {
 		return nil, false
 	}
-	if parseProps, parseOk := parseRawProps.(map[string]interface{}); parseOk {
+	if parseProps, parseOk := parseRawProps.(map[string]any); parseOk {
 		return mapBoundaryNode(parseProps, "fallback", "Fallback")
 	}
 	parseValue := dereferenceStructValue(parseRawProps)
@@ -52,11 +52,11 @@ func extractErrorBoundaryFallback(parseRawProps interface{}) (Node, bool) {
 }
 
 // extractErrorBoundaryErrorFallback is a core package helper.
-func extractErrorBoundaryErrorFallback(parseRawProps interface{}) (func(error, func()) Node, bool) {
+func extractErrorBoundaryErrorFallback(parseRawProps any) (func(error, func()) Node, bool) {
 	if parseRawProps == nil {
 		return nil, false
 	}
-	if parseProps, parseOk := parseRawProps.(map[string]interface{}); parseOk {
+	if parseProps, parseOk := parseRawProps.(map[string]any); parseOk {
 		return mapBoundaryFallback(parseProps, "errorFallback", "ErrorFallback")
 	}
 	parseValue := dereferenceStructValue(parseRawProps)
@@ -72,11 +72,11 @@ func extractErrorBoundaryErrorFallback(parseRawProps interface{}) (func(error, f
 }
 
 // extractErrorBoundaryOnError is a core package helper.
-func extractErrorBoundaryOnError(parseRawProps interface{}) (func(error), bool) {
+func extractErrorBoundaryOnError(parseRawProps any) (func(error), bool) {
 	if parseRawProps == nil {
 		return nil, false
 	}
-	if parseProps, parseOk := parseRawProps.(map[string]interface{}); parseOk {
+	if parseProps, parseOk := parseRawProps.(map[string]any); parseOk {
 		return mapBoundaryOnError(parseProps, "onError", "OnError")
 	}
 	parseValue := dereferenceStructValue(parseRawProps)
@@ -92,13 +92,13 @@ func extractErrorBoundaryOnError(parseRawProps interface{}) (func(error), bool) 
 }
 
 // extractErrorBoundaryResetKeys is a core package helper.
-func extractErrorBoundaryResetKeys(parseRawProps interface{}) []interface{} {
+func extractErrorBoundaryResetKeys(parseRawProps any) []any {
 	if parseRawProps == nil {
 		return nil
 	}
-	if parseProps, parseOk := parseRawProps.(map[string]interface{}); parseOk {
+	if parseProps, parseOk := parseRawProps.(map[string]any); parseOk {
 		for _, parseKey := range []string{"resetKeys", "ResetKeys"} {
-			if parseKeys, parseOk2 := parseProps[parseKey].([]interface{}); parseOk2 {
+			if parseKeys, parseOk2 := parseProps[parseKey].([]any); parseOk2 {
 				return parseKeys
 			}
 		}
@@ -112,17 +112,17 @@ func extractErrorBoundaryResetKeys(parseRawProps interface{}) []interface{} {
 	if !parseField.IsValid() || !parseField.CanInterface() {
 		return nil
 	}
-	parseKeys2, _ := parseField.Interface().([]interface{})
+	parseKeys2, _ := parseField.Interface().([]any)
 	return parseKeys2
 }
 
 // extractErrorBoundaryChildren is a core package helper.
-func extractErrorBoundaryChildren(parseRawProps interface{}) []interface{} {
+func extractErrorBoundaryChildren(parseRawProps any) []any {
 	if parseRawProps == nil {
 		return nil
 	}
-	if parseProps, parseOk := parseRawProps.(map[string]interface{}); parseOk {
-		parseChildren := make([]interface{}, 0, 2)
+	if parseProps, parseOk := parseRawProps.(map[string]any); parseOk {
+		parseChildren := make([]any, 0, 2)
 		for _, parseKey := range []string{"child", "Child"} {
 			if parseChild, parseOk2 := parseProps[parseKey].(*runtime.Element); parseOk2 && parseChild != nil {
 				parseChildren = append(parseChildren, parseChild)
@@ -130,7 +130,7 @@ func extractErrorBoundaryChildren(parseRawProps interface{}) []interface{} {
 			}
 		}
 		for _, parseKey2 := range []string{"children", "Children"} {
-			if parseChild2, parseOk3 := parseProps[parseKey2].([]interface{}); parseOk3 && len(parseChild2) > 0 {
+			if parseChild2, parseOk3 := parseProps[parseKey2].([]any); parseOk3 && len(parseChild2) > 0 {
 				parseChildren = append(parseChildren, parseChild2...)
 				break
 			}
@@ -151,7 +151,7 @@ func extractErrorBoundaryChildren(parseRawProps interface{}) []interface{} {
 		return nil
 	}
 
-	parseChildren2 := make([]interface{}, 0, 2)
+	parseChildren2 := make([]any, 0, 2)
 	if parseChildField := parseValue.FieldByName("Child"); parseChildField.IsValid() && parseChildField.CanInterface() {
 		if parseChild4, parseOk5 := parseChildField.Interface().(*runtime.Element); parseOk5 && parseChild4 != nil {
 			parseChildren2 = append(parseChildren2, parseChild4)
@@ -171,7 +171,7 @@ func extractErrorBoundaryChildren(parseRawProps interface{}) []interface{} {
 }
 
 // dereferenceStructValue is a core package helper.
-func dereferenceStructValue(parseRawProps interface{}) reflect.Value {
+func dereferenceStructValue(parseRawProps any) reflect.Value {
 	parseValue := reflect.ValueOf(parseRawProps)
 	for parseValue.IsValid() && parseValue.Kind() == reflect.Pointer {
 		if parseValue.IsNil() {
@@ -186,7 +186,7 @@ func dereferenceStructValue(parseRawProps interface{}) reflect.Value {
 }
 
 // mapBoundaryNode is a core package helper.
-func mapBoundaryNode(parseProps map[string]interface{}, parseKeys ...string) (Node, bool) {
+func mapBoundaryNode(parseProps map[string]any, parseKeys ...string) (Node, bool) {
 	for _, parseKey := range parseKeys {
 		parseFallback, parseOk := parseProps[parseKey].(*runtime.Element)
 		if parseOk && parseFallback != nil {
@@ -197,7 +197,7 @@ func mapBoundaryNode(parseProps map[string]interface{}, parseKeys ...string) (No
 }
 
 // mapBoundaryFallback is a core package helper.
-func mapBoundaryFallback(parseProps map[string]interface{}, parseKeys ...string) (func(error, func()) Node, bool) {
+func mapBoundaryFallback(parseProps map[string]any, parseKeys ...string) (func(error, func()) Node, bool) {
 	for _, parseKey := range parseKeys {
 		parseFallback, parseOk := parseProps[parseKey].(func(error, func()) *runtime.Element)
 		if parseOk && parseFallback != nil {
@@ -208,7 +208,7 @@ func mapBoundaryFallback(parseProps map[string]interface{}, parseKeys ...string)
 }
 
 // mapBoundaryOnError is a core package helper.
-func mapBoundaryOnError(parseProps map[string]interface{}, parseKeys ...string) (func(error), bool) {
+func mapBoundaryOnError(parseProps map[string]any, parseKeys ...string) (func(error), bool) {
 	for _, parseKey := range parseKeys {
 		parseOnError, parseOk := parseProps[parseKey].(func(error))
 		if parseOk && parseOnError != nil {

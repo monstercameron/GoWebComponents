@@ -37,12 +37,12 @@ func BenchmarkMarshalUnmarshalSSRBootstrapMicro(parseB *testing.B) {
 				"id": "42",
 			},
 		},
-		Atoms: map[string]interface{}{
+		Atoms: map[string]any{
 			"counter": 42,
 			"theme":   "dark",
 		},
-		Data: map[string]interface{}{
-			"featureFlags": map[string]interface{}{
+		Data: map[string]any{
+			"featureFlags": map[string]any{
 				"beta": true,
 			},
 		},

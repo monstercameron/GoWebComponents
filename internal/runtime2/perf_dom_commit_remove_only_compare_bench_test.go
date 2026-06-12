@@ -83,7 +83,6 @@ func buildCommitRegionPatchTransactionLegacyRemoveOnlySequential(
 func BenchmarkCommitRegionPatchTransactionRemoveOnlyCurrentVsLegacy(parseB *testing.B) {
 	parseSiblingCounts := []int{120, 240, 480}
 	for _, parseSiblingCount := range parseSiblingCounts {
-		parseSiblingCount := parseSiblingCount
 		parseB.Run("siblings-"+strconv.Itoa(parseSiblingCount)+"/legacy_sequential", func(parseB *testing.B) {
 			parseB.ReportAllocs()
 			for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {

@@ -9,7 +9,7 @@ import (
 )
 
 func TestRenderToStreamMatchesRenderToStringWithoutSuspense(parseT *testing.T) {
-	parseRoot := CreateElement("main", map[string]interface{}{"id": "root"},
+	parseRoot := CreateElement("main", map[string]any{"id": "root"},
 		CreateElement("h1", nil, "Hello"),
 		CreateElement("p", nil, "stream"),
 	)
@@ -167,7 +167,7 @@ func TestRenderToStreamDoesNotLeakPartialBoundaryMarkupOnSuspension(parseT *test
 		return CreateElement("em", nil, "late")
 	}, nil)
 	parseContent := CreateElement("div", nil, "before", parseSuspendingChild, "after")
-	parseRoot := CreateElement(AsyncBoundaryNodeType, map[string]interface{}{
+	parseRoot := CreateElement(AsyncBoundaryNodeType, map[string]any{
 		"content":  parseContent,
 		"fallback": CreateElement("span", nil, "loading"),
 	})
@@ -215,7 +215,7 @@ func TestRenderToStreamDiscardsNestedPendingBoundaryWhenOuterSuspends(parseT *te
 		ssrStreamTestBoundary(parseInnerDone, "inner ready", "inner loading"),
 		parseOuterSuspendingChild,
 	)
-	parseRoot := CreateElement(AsyncBoundaryNodeType, map[string]interface{}{
+	parseRoot := CreateElement(AsyncBoundaryNodeType, map[string]any{
 		"content":  parseOuterContent,
 		"fallback": CreateElement("span", nil, "outer loading"),
 	})
@@ -264,7 +264,7 @@ func ssrStreamTestBoundary(parseDone <-chan struct{}, parseReady string, parseFa
 		SuspendUntil(parseDone, parseReady)
 		return CreateElement("strong", nil, parseReady)
 	}, nil)
-	return CreateElement(AsyncBoundaryNodeType, map[string]interface{}{
+	return CreateElement(AsyncBoundaryNodeType, map[string]any{
 		"content":  parseContent,
 		"fallback": CreateElement("span", nil, parseFallback),
 	})

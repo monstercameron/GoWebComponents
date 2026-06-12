@@ -24,7 +24,7 @@ func TestFiber_NilAlternate(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: nil,
 		dirty:     true,
 	}
@@ -46,11 +46,11 @@ func TestReconcileChildren_EmptyChildren(parseT *testing.T) {
 
 	parseParent := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
 	// Empty children array
-	parseRt.reconcileChildren(parseParent, []interface{}{})
+	parseRt.reconcileChildren(parseParent, []any{})
 
 	if parseParent.child != nil {
 		parseT.Error("Expected no children when reconciling empty array")
@@ -67,19 +67,19 @@ func TestReconcileChildren_OnlyDeletions(parseT *testing.T) {
 
 	parseOldChild := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
 	parseParent := &Fiber{
 		typeOf: "root",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		alternate: &Fiber{
 			child: parseOldChild,
 		},
 	}
 
 	// No new children - all old should be deleted
-	parseRt.reconcileChildren(parseParent, []interface{}{})
+	parseRt.reconcileChildren(parseParent, []any{})
 
 	if len(parseRt.deletions) != 1 {
 		parseT.Errorf("Expected 1 deletion, got %d", len(parseRt.deletions))
@@ -96,7 +96,7 @@ func TestPerformUnitOfWork_RootWithoutChildren(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}), // No children property
+		props:  make(map[string]any), // No children property
 		dirty:  true,
 	}
 
@@ -122,7 +122,7 @@ func TestPerformUnitOfWork_HostComponentNoChildren(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf: "input",
-		props:  map[string]interface{}{"type": "text"}, // No children
+		props:  map[string]any{"type": "text"}, // No children
 		dirty:  true,
 	}
 
@@ -145,13 +145,13 @@ func TestPerformUnitOfWork_FunctionComponentReturnsNil(parseT *testing.T) {
 		Scheduler:  parseScheduler,
 	})
 
-	parseComponentFn := func(parseProps map[string]interface{}) *Element {
+	parseComponentFn := func(parseProps map[string]any) *Element {
 		return nil // Component returns nothing
 	}
 
 	parseFiber := &Fiber{
 		typeOf: parseComponentFn,
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dirty:  true,
 	}
 
@@ -173,13 +173,13 @@ func TestCommitWork_NilParentDOM(parseT *testing.T) {
 
 	// Function component (no DOM)
 	parseParent := &Fiber{
-		typeOf: func(parseP map[string]interface{}) *Element { return nil },
-		props:  make(map[string]interface{}),
+		typeOf: func(parseP map[string]any) *Element { return nil },
+		props:  make(map[string]any),
 	}
 
 	parseChild := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		dom:       parseAdapter.CreateElement("div"),
 		parent:    parseParent,
 		effectTag: effectTagPlacement,
@@ -212,8 +212,8 @@ func TestCommitDeletion_NilChild(parseT *testing.T) {
 	parseParentDOM := parseAdapter.CreateElement("div")
 
 	parseFiber := &Fiber{
-		typeOf: func(parseP map[string]interface{}) *Element { return nil },
-		props:  make(map[string]interface{}),
+		typeOf: func(parseP map[string]any) *Element { return nil },
+		props:  make(map[string]any),
 		// No dom, no child
 	}
 
@@ -231,11 +231,11 @@ func TestUpdateDomProperties_ChildrenProperty(parseT *testing.T) {
 
 	parseDom := parseAdapter.CreateElement("div")
 
-	parseOldProps := map[string]interface{}{
-		"children": []interface{}{"old"},
+	parseOldProps := map[string]any{
+		"children": []any{"old"},
 	}
-	parseNewProps := map[string]interface{}{
-		"children": []interface{}{"new"},
+	parseNewProps := map[string]any{
+		"children": []any{"new"},
 		"id":       "test",
 	}
 
@@ -263,7 +263,7 @@ func TestUpdateDomProperties_ClassVsClassName(parseT *testing.T) {
 	parseDom := parseAdapter.CreateElement("div")
 
 	// Test className
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"className": "test-class",
 	})
 
@@ -274,7 +274,7 @@ func TestUpdateDomProperties_ClassVsClassName(parseT *testing.T) {
 
 	// Test class
 	parseDom2 := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom2, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom2, map[string]any{}, map[string]any{
 		"class": "test-class-2",
 	})
 
@@ -294,7 +294,7 @@ func TestUpdateDomProperties_NonStringValue(parseT *testing.T) {
 
 	parseDom := parseAdapter.CreateElement("div")
 
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"tabIndex": 5,
 		"disabled": true,
 	})
@@ -321,7 +321,7 @@ func TestCommitRoot_WithEffects_EdgeCase(parseT *testing.T) {
 
 	parseChild := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		dom:       parseAdapter.CreateElement("div"),
 		effects:   []Effect{{Fn: func() func() { isParseEffectRan = true; return nil }}},
 		effectTag: effectTagPlacement,
@@ -329,7 +329,7 @@ func TestCommitRoot_WithEffects_EdgeCase(parseT *testing.T) {
 
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseAdapter.CreateElement("root"),
 		child:  parseChild,
 	}
@@ -362,14 +362,14 @@ func TestPerformUnitOfWork_FunctionComponentAttrsType(parseT *testing.T) {
 
 	parseComponentFn := func(parseAttrs Attrs) *Element {
 		if parseAttrs["testProp"] != "testValue" {
-			return CreateElement("div", map[string]interface{}{"id": "error"})
+			return CreateElement("div", map[string]any{"id": "error"})
 		}
-		return CreateElement("div", map[string]interface{}{"id": "success"})
+		return CreateElement("div", map[string]any{"id": "success"})
 	}
 
 	parseFiber := &Fiber{
 		typeOf: parseComponentFn,
-		props:  map[string]interface{}{"testProp": "testValue"},
+		props:  map[string]any{"testProp": "testValue"},
 		dirty:  true,
 	}
 
@@ -404,11 +404,11 @@ func TestReconcileChildren_NonElementInArray(parseT *testing.T) {
 
 	parseParent := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
 	// Mix of valid elements and non-elements
-	parseRt.reconcileChildren(parseParent, []interface{}{
+	parseRt.reconcileChildren(parseParent, []any{
 		CreateElement("span", nil),
 		"not an element", // Should be skipped
 		123,              // Should be skipped

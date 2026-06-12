@@ -7,21 +7,21 @@ import (
 
 type queryTestDOMAdapter struct {
 	*testDOMAdapter
-	selectorResults map[string]interface{}
+	selectorResults map[string]any
 }
 
 func newQueryTestDOMAdapter() *queryTestDOMAdapter {
 	return &queryTestDOMAdapter{
 		testDOMAdapter:  newTestDOMAdapter(),
-		selectorResults: make(map[string]interface{}),
+		selectorResults: make(map[string]any),
 	}
 }
 
-func (parseA *queryTestDOMAdapter) QuerySelector(parseSelector string) interface{} {
+func (parseA *queryTestDOMAdapter) QuerySelector(parseSelector string) any {
 	return parseA.selectorResults[parseSelector]
 }
 
-func (parseA *queryTestDOMAdapter) ResolveNode(parseValue interface{}) DOMNode {
+func (parseA *queryTestDOMAdapter) ResolveNode(parseValue any) DOMNode {
 	if parseNode, parseOk := parseValue.(DOMNode); parseOk {
 		return parseNode
 	}
@@ -90,7 +90,7 @@ func TestRender_PanicsWithoutDOMAdapter(parseT *testing.T) {
 		}
 	}()
 
-	parseRt.Render(&Element{Type: "div", Props: map[string]interface{}{}}, nil)
+	parseRt.Render(&Element{Type: "div", Props: map[string]any{}}, nil)
 }
 
 func TestRender_WithoutSchedulerRunsImmediately(parseT *testing.T) {
@@ -98,7 +98,7 @@ func TestRender_WithoutSchedulerRunsImmediately(parseT *testing.T) {
 	parseContainer := parseAdapter.CreateElement("div")
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 
-	parseRt.Render(&Element{Type: "div", Props: map[string]interface{}{"id": "app"}}, parseContainer)
+	parseRt.Render(&Element{Type: "div", Props: map[string]any{"id": "app"}}, parseContainer)
 
 	if parseRt.currentRoot == nil {
 		parseT.Fatal("expected render without scheduler to commit immediately")
@@ -117,7 +117,7 @@ func TestRenderTo_UsesQuerySelectorAndSchedulesRender(parseT *testing.T) {
 	parseContainer := parseAdapter.CreateElement("div")
 	parseAdapter.selectorResults["#app"] = parseContainer
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
-	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
+	parseElement := &Element{Type: "div", Props: map[string]any{"id": "app"}}
 
 	parseRt.RenderTo("#app", parseElement)
 
@@ -141,7 +141,7 @@ func TestRenderTo_PanicsWhenSelectorMissing(parseT *testing.T) {
 		}
 	}()
 
-	parseRt.RenderTo("#missing", &Element{Type: "div", Props: map[string]interface{}{}})
+	parseRt.RenderTo("#missing", &Element{Type: "div", Props: map[string]any{}})
 }
 
 func TestHydrateTo_UsesQuerySelectorAndSchedulesHydration(parseT *testing.T) {
@@ -150,7 +150,7 @@ func TestHydrateTo_UsesQuerySelectorAndSchedulesHydration(parseT *testing.T) {
 	parseContainer := parseAdapter.CreateElement("div")
 	parseAdapter.selectorResults["#app"] = parseContainer
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
-	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
+	parseElement := &Element{Type: "div", Props: map[string]any{"id": "app"}}
 
 	parseRt.HydrateTo("#app", parseElement)
 
@@ -174,7 +174,7 @@ func TestHydrateTo_PanicsWhenSelectorMissing(parseT *testing.T) {
 		}
 	}()
 
-	parseRt.HydrateTo("#missing", &Element{Type: "div", Props: map[string]interface{}{}})
+	parseRt.HydrateTo("#missing", &Element{Type: "div", Props: map[string]any{}})
 }
 
 func TestRenderInto_UsesResolvedNodeAndSchedulesRender(parseT *testing.T) {
@@ -182,7 +182,7 @@ func TestRenderInto_UsesResolvedNodeAndSchedulesRender(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseContainer := parseAdapter.CreateElement("section")
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
-	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "widget"}}
+	parseElement := &Element{Type: "div", Props: map[string]any{"id": "widget"}}
 
 	if parseErr := parseRt.RenderInto(parseContainer, parseElement); parseErr != nil {
 		parseT.Fatalf("expected RenderInto to succeed, got %v", parseErr)
@@ -203,7 +203,7 @@ func TestHydrateInto_UsesResolvedNodeAndSchedulesHydration(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseContainer := parseAdapter.CreateElement("section")
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
-	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "widget"}}
+	parseElement := &Element{Type: "div", Props: map[string]any{"id": "widget"}}
 
 	if parseErr := parseRt.HydrateInto(parseContainer, parseElement); parseErr != nil {
 		parseT.Fatalf("expected HydrateInto to succeed, got %v", parseErr)

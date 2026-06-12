@@ -173,7 +173,6 @@ func TestAuthorizeWorkspaceSSORegressionMatrix(parseT *testing.T) {
 	}
 
 	for _, parseCase := range parseCases {
-		parseCase := parseCase
 		parseT.Run(parseCase.parseLabel, func(parseT *testing.T) {
 			parseDecision, parseErr := parseAuthorizeWorkspaceLoginMethod(parseCase.parsePolicy, parseCase.parseAttempt)
 			if parseDecision.IsParseAllowed != parseCase.isParseAllowed {

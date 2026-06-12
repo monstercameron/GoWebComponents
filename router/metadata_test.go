@@ -47,15 +47,15 @@ func TestMetadataNodeComposesWithExplicitSSRHeadTags(parseT *testing.T) {
 			Description:  "Searchable docs",
 			CanonicalURL: "https://example.com/docs",
 		}),
-		html.Meta(html.Props{Raw: map[string]interface{}{
+		html.Meta(html.Props{Raw: map[string]any{
 			"name":    "robots",
 			"content": "index,follow",
 		}}),
-		html.Meta(html.Props{Raw: map[string]interface{}{
+		html.Meta(html.Props{Raw: map[string]any{
 			"property": "og:title",
 			"content":  "Docs",
 		}}),
-		html.Link(html.Props{Raw: map[string]interface{}{
+		html.Link(html.Props{Raw: map[string]any{
 			"rel":  "preconnect",
 			"href": "https://cdn.example.com",
 		}}),

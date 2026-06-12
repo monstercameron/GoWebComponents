@@ -66,7 +66,7 @@ func TestHandleHostRegionDisposeClearsHostDiagnosticRing(parseT *testing.T) {
 func TestHandleHostControlEnvelopeDiagnosticRingTrimKeepsNewestDeterministicOrder(parseT *testing.T) {
 	buildHostRegionAdapter := buildMountedHostRegionAdapterForRecoveryTests(parseT)
 	const parseTotalDiagnostics = 100
-	for parseDiagnosticIndex := 0; parseDiagnosticIndex < parseTotalDiagnostics; parseDiagnosticIndex++ {
+	for parseDiagnosticIndex := range parseTotalDiagnostics {
 		parseDiagnosticSpec := runtime2.ControlDiagnosticEnvelopeSpec{
 			DiagnosticText: fmt.Sprintf("event-seq=%d", parseDiagnosticIndex),
 		}

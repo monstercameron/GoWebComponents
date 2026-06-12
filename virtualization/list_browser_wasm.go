@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package virtualization
 
@@ -9,6 +8,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
+
+const restorationStoragePrefix = "gwc:virtualization:restore:"
 
 // buildListViewportEffect wires the browser-owned viewport subscription and restoration lifecycle for one list instance.
 func buildListViewportEffect(parseListID string, parseItemCount int, parseHeight float64, parseRowHeight float64, parseConfig ViewportConfig, parseKeysRef ui.Ref[[]string], parseKeyIndexRef ui.Ref[map[string]int], parseRestoreRef ui.Ref[restorationSnapshot], parseViewport ui.State[ViewportState], parsePublishDiagnostics func(ViewportState)) func() func() {

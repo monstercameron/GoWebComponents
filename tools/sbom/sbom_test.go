@@ -10,7 +10,7 @@ import (
 func repoRoot(parseT *testing.T) string {
 	parseT.Helper()
 	parseDir, _ := os.Getwd()
-	for parseI := 0; parseI < 8; parseI++ {
+	for range 8 {
 		if _, parseErr := os.Stat(filepath.Join(parseDir, "go.mod")); parseErr == nil {
 			return parseDir
 		}

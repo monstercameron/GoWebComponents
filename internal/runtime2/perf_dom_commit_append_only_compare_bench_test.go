@@ -26,7 +26,7 @@ func buildCommitRegionPatchTransactionLegacyAppendOnlyGeneric(
 		parseNodeSnapshotByID = parseCaptureCommitNodeSnapshot(parseNodeSnapshotByID, parseRegionNodeMap, parseOp)
 		if parseApplyErr := parseDOMCommitter.parseCommitPatchOp(parseTransaction.GetRegionID, parseOp); parseApplyErr != nil {
 			parseRestoreCommitNodeSnapshot(parseRegionNodeMap, parseNodeSnapshotByID)
-			if parseRegionNodeMap != nil && len(parseRegionNodeMap) > 0 {
+			if len(parseRegionNodeMap) > 0 {
 				parseDOMCommitter.getRegionDOMIndex.storeRegionDOMNodeByRegionID[parseTransaction.GetRegionID] = parseRegionNodeMap
 			}
 			return RegionPatchTransactionResult{
@@ -44,7 +44,6 @@ func buildCommitRegionPatchTransactionLegacyAppendOnlyGeneric(
 func BenchmarkCommitRegionPatchTransactionAppendOnlyCurrentVsLegacy(parseB *testing.B) {
 	parseAppendCounts := []int{32, 128, 256}
 	for _, parseAppendCount := range parseAppendCounts {
-		parseAppendCount := parseAppendCount
 		parseB.Run("append-"+strconv.Itoa(parseAppendCount)+"/legacy_generic", func(parseB *testing.B) {
 			parseB.ReportAllocs()
 			for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {

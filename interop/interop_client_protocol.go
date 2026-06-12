@@ -525,8 +525,8 @@ func protocolMajor(parseValue string) string {
 	if parseTrimmed == "" {
 		return ""
 	}
-	if parseDot := strings.Index(parseTrimmed, "."); parseDot >= 0 {
-		return parseTrimmed[:parseDot]
+	if before, _, ok := strings.Cut(parseTrimmed, "."); ok {
+		return before
 	}
 	return parseTrimmed
 }

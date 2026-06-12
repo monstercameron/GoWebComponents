@@ -152,7 +152,7 @@ func hasParseStructuredClonePatchEnvelopePrefix(parsePayload []byte) bool {
 	if len(parsePayload)-parseStart < len(buildStructuredClonePatchEnvelopeTokenRegionID) {
 		return false
 	}
-	for parseIndex := 0; parseIndex < len(buildStructuredClonePatchEnvelopeTokenRegionID); parseIndex++ {
+	for parseIndex := range len(buildStructuredClonePatchEnvelopeTokenRegionID) {
 		if parsePayload[parseStart+parseIndex] != buildStructuredClonePatchEnvelopeTokenRegionID[parseIndex] {
 			return false
 		}

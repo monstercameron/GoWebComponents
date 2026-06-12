@@ -52,12 +52,3 @@ func hasEventSlotMetadataDispatch(parseMetadata EventSlotMetadata, parseDispatch
 	}
 	return false
 }
-
-// buildEventSlotDispatchCopy clones one semantic event dispatch payload for worker render input transport.
-func buildEventSlotDispatchCopy(parseDispatch EventSlotDispatch) EventSlotDispatch {
-	return EventSlotDispatch{
-		SlotID:    parseDispatch.SlotID,
-		EventType: parseDispatch.EventType,
-		Payload:   parseDispatch.Payload,
-	}
-}

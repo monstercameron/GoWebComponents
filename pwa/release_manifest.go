@@ -28,7 +28,7 @@ type WasmReleaseManifest struct {
 	Profile   string                         `json:"profile,omitempty"`
 	GOOS      string                         `json:"goos,omitempty"`
 	GOARCH    string                         `json:"goarch,omitempty"`
-	Flags     WasmReleaseFlags               `json:"flags,omitempty"`
+	Flags     WasmReleaseFlags               `json:"flags"`
 	Artifacts map[string]WasmReleaseArtifact `json:"artifacts,omitempty"`
 }
 

@@ -22,7 +22,7 @@ type fakeClientConn struct {
 	streamed     []string
 }
 
-func (parseF *fakeClientConn) Invoke(parseCtx context.Context, parseMethod string, parseArgs interface{}, parseReply interface{}, parseOpts ...grpc.CallOption) error {
+func (parseF *fakeClientConn) Invoke(parseCtx context.Context, parseMethod string, parseArgs any, parseReply any, parseOpts ...grpc.CallOption) error {
 	parseF.invoked = append(parseF.invoked, parseMethod)
 	return parseF.invokeErr
 }
@@ -41,7 +41,7 @@ type fakeClientStream struct {
 	recvErr    error
 	sendCount  int
 	recvCount  int
-	lastSend   interface{}
+	lastSend   any
 	trailerMD  metadata.MD
 	contextRef context.Context
 }
@@ -55,12 +55,12 @@ func (parseF *fakeClientStream) Context() context.Context {
 	return parseF.contextRef
 }
 func (parseF *fakeClientStream) CloseSend() error { return parseF.closeErr }
-func (parseF *fakeClientStream) SendMsg(parseM interface{}) error {
+func (parseF *fakeClientStream) SendMsg(parseM any) error {
 	parseF.sendCount++
 	parseF.lastSend = parseM
 	return parseF.sendErr
 }
-func (parseF *fakeClientStream) RecvMsg(parseM interface{}) error {
+func (parseF *fakeClientStream) RecvMsg(parseM any) error {
 	parseF.recvCount++
 	if parseF.recvErr != nil {
 		return parseF.recvErr
@@ -80,10 +80,10 @@ func (parseF *fakeClientStream) RecvMsg(parseM interface{}) error {
 
 type fakeRegistrar struct {
 	desc grpc.ServiceDesc
-	srv  interface{}
+	srv  any
 }
 
-func (parseF *fakeRegistrar) RegisterService(parseDesc *grpc.ServiceDesc, parseSrv interface{}) {
+func (parseF *fakeRegistrar) RegisterService(parseDesc *grpc.ServiceDesc, parseSrv any) {
 	parseF.desc = *parseDesc
 	parseF.srv = parseSrv
 }
@@ -103,8 +103,8 @@ func (parseF *fakeServerStream) Context() context.Context {
 	}
 	return parseF.ctx
 }
-func (parseF *fakeServerStream) SendMsg(parseM interface{}) error { return nil }
-func (parseF *fakeServerStream) RecvMsg(parseM interface{}) error {
+func (parseF *fakeServerStream) SendMsg(parseM any) error { return nil }
+func (parseF *fakeServerStream) RecvMsg(parseM any) error {
 	if parseF.recvErr != nil {
 		return parseF.recvErr
 	}
@@ -307,14 +307,14 @@ func TestGeneratedUnaryHandlersDecodeInterceptorAndServerPaths(parseT *testing.T
 
 	for _, parseMethod := range ChatService_ServiceDesc.Methods {
 		parseT.Run(parseMethod.MethodName+"_decode_error", func(parseT2 *testing.T) {
-			_, parseErr := parseMethod.Handler(parseSrv, context.Background(), func(parseV interface{}) error { return parseDecodeErr }, nil)
+			_, parseErr := parseMethod.Handler(parseSrv, context.Background(), func(parseV any) error { return parseDecodeErr }, nil)
 			if !errors.Is(parseErr, parseDecodeErr) {
 				parseT2.Fatalf("expected decode error, got %v", parseErr)
 			}
 		})
 
 		parseT.Run(parseMethod.MethodName+"_no_interceptor", func(parseT3 *testing.T) {
-			_, parseErr2 := parseMethod.Handler(parseSrv, context.Background(), func(parseV2 interface{}) error { return nil }, nil)
+			_, parseErr2 := parseMethod.Handler(parseSrv, context.Background(), func(parseV2 any) error { return nil }, nil)
 			if status.Code(parseErr2) != codes.Unimplemented {
 				parseT3.Fatalf("expected unimplemented status, got %v", parseErr2)
 			}
@@ -325,8 +325,8 @@ func TestGeneratedUnaryHandlersDecodeInterceptorAndServerPaths(parseT *testing.T
 			_, parseErr3 := parseMethod.Handler(
 				parseSrv,
 				context.Background(),
-				func(parseV3 interface{}) error { return nil },
-				func(parseCtx context.Context, parseReq interface{}, parseInfo *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+				func(parseV3 any) error { return nil },
+				func(parseCtx context.Context, parseReq any, parseInfo *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 					isSeenInfo = true
 					if parseInfo == nil || parseInfo.FullMethod == "" {
 						parseT4.Fatalf("expected unary info with full method for %s", parseMethod.MethodName)

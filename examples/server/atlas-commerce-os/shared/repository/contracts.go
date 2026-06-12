@@ -14,33 +14,33 @@ type Product struct {
 }
 
 type InventoryRow struct {
-	ID            string
-	SKU           string
-	Slug          string
-	Title         string
-	Category      string
-	PriceCents    int
-	ProductStatus string
-	WarehouseID   string
-	WarehouseName string
-	OnHand        int
-	Reserved      int
-	Available     int
-	CoverDays     int
-	Inbound       int
-	Damaged       int
-	ReorderPoint  int
-	SafetyStock   int
-	Status        string
-	WeeklyUnits   int
-	WeeklyRevenue int
-	SellThrough   int
-	DemandScore   int
-	RegionalShare int
-	ReorderUnits  int
+	ID             string
+	SKU            string
+	Slug           string
+	Title          string
+	Category       string
+	PriceCents     int
+	ProductStatus  string
+	WarehouseID    string
+	WarehouseName  string
+	OnHand         int
+	Reserved       int
+	Available      int
+	CoverDays      int
+	Inbound        int
+	Damaged        int
+	ReorderPoint   int
+	SafetyStock    int
+	Status         string
+	WeeklyUnits    int
+	WeeklyRevenue  int
+	SellThrough    int
+	DemandScore    int
+	RegionalShare  int
+	ReorderUnits   int
 	MarketPressure string
-	MarketSignal  string
-	UpdatedAt     string
+	MarketSignal   string
+	UpdatedAt      string
 }
 
 type InventoryQuery struct {

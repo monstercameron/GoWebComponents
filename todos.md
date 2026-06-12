@@ -1307,10 +1307,11 @@ Survey: `go fix ./...` under Go 1.26 (go1.26.3 installed) against a temp
 clone found ~540 files / +1,122 -1,713 lines of applicable modernizations;
 fixed tree passed build, vet, and js/wasm example builds.
 
-- [ ] **Bump go.mod to go 1.26** - unlocks `new(expr)` and self-referential
+- [x] **Bump go.mod to go 1.26** - unlocks `new(expr)` and self-referential
   generic type params; Green Tea GC becomes default, ~30% lower cgo
   overhead, better slice stack-allocation for free.
-- [ ] **Apply `go fix ./...` modernizers (root module)** - the measured
+  Done (2026-06-12): root go.mod now `go 1.26.0`.
+- [x] **Apply `go fix ./...` modernizers (root module)** - the measured
   inventory: `interface{}` -> `any` (~657 lines, heaviest in
   html/shorthand/shorthand.go, html/sugar.go, ui/ui_native.go,
   plugin/plugin.go), `for i := range n` (94 sites), built-in `min`/`max`
@@ -1322,6 +1323,26 @@ fixed tree passed build, vet, and js/wasm example builds.
   Test for: native + js/wasm builds green; vet green; the example wasm
   mains still compile under GOOS=js GOARCH=wasm; no behavior change
   (mechanical rewrites only).
+  Done (2026-06-12): applied module-wide (~550 files). GOTCHA: the
+  whole-suite `go fix ./...` silently discards ALL writes for a package
+  when any fixes conflict (internal/runtime reported "applied 1798 of
+  1801; 119 files updated" on every rerun with zero file changes) - work
+  around by running fixers individually (`go fix -any -rangeint ...
+  ./pkg`). Verified: native + wasm builds, `go vet ./...` clean (also
+  fixed a real vet finding: ai-chat-wizard admin_redaction.go shallow-
+  copied protobuf messages including their mutex -> proto.Clone),
+  touched-package tests green (tools/gwc must run solo - known port
+  contention in the parallel multi-package run).
+  Companion lint sweep (2026-06-12): `gwc lint` (golangci-lint 1.64.8 +
+  gwc-hooks) over the 47 non-example packages went 41 issues -> 0
+  (errcheck/gosimple/ineffassign/staticcheck/unused/gwc-hooks). Real bug
+  found: logging normalizeLogValue matched fmt.Stringer before slog.Attr,
+  so Attrs collapsed to strings instead of key/value maps. Hook-rule
+  errors fixed by hoisting closure components to named top-level
+  functions (virtualization rowBodyComponent, example tests, html
+  toHandler). gofmt: 28 genuinely unformatted files formatted
+  (tools/gwc/testdata/start_golden intentionally untouched; the other
+  ~1270 "dirty" files were CRLF-vs-LF noise, not real formatting).
 - [x] **Review the skipped `omitempty` -> `omitzero` candidates** - go fix
   flagged ~25 JSON-tag conversions across fetch, interop, pwa, ui,
   runnerconfig, tools/gwc but skipped them as behavior changes; each needs

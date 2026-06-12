@@ -36,11 +36,5 @@ func ParsePatchStreamHeader(parseRaw PatchStreamHeaderRaw, parseExpectedRegionID
 	if parseExpectedRegionID != "" && parseRaw.RegionID != parseExpectedRegionID {
 		return PatchStreamHeader{}, fmt.Errorf("runtime2: patch stream region id %q does not match expected %q", parseRaw.RegionID, parseExpectedRegionID)
 	}
-	return PatchStreamHeader{
-		ProtocolVersion: parseRaw.ProtocolVersion,
-		RegionID:        parseRaw.RegionID,
-		Epoch:           parseRaw.Epoch,
-		InputVersion:    parseRaw.InputVersion,
-		PatchVersion:    parseRaw.PatchVersion,
-	}, nil
+	return PatchStreamHeader(parseRaw), nil
 }

@@ -15,7 +15,7 @@ type emptyInterfaceHeader struct {
 }
 
 // sameFunctionIdentity is a core package helper.
-func sameFunctionIdentity(parseA, parseB interface{}) bool {
+func sameFunctionIdentity(parseA, parseB any) bool {
 	if parseA == nil || parseB == nil {
 		return parseA == parseB
 	}
@@ -33,7 +33,7 @@ func sameFunctionIdentity(parseA, parseB interface{}) bool {
 }
 
 // safeComparableEqual is a core package helper.
-func safeComparableEqual(parseA, parseB interface{}) (isEqual bool, isOk bool) {
+func safeComparableEqual(parseA, parseB any) (isEqual bool, isOk bool) {
 	defer func() {
 		if recover() != nil {
 			isOk = false
@@ -46,7 +46,7 @@ var nilableTypeCache sync.Map
 
 // isNilableType is a core package helper.
 func isNilableType[T any]() bool {
-	parseT := reflect.TypeOf((*T)(nil)).Elem()
+	parseT := reflect.TypeFor[T]()
 	if parseCached, parseOk := nilableTypeCache.Load(parseT); parseOk {
 		return parseCached.(bool)
 	}
@@ -64,7 +64,7 @@ func isNilableType[T any]() bool {
 }
 
 // GoUseState provides state management for components
-func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(interface{})) {
+func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(any)) {
 	parseFiber := requireCurrentHookFiber("GoUseState")
 
 	if parseFiber.hooks == nil {
@@ -88,7 +88,7 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(in
 			parseFiber.hooks.states = parseFiber.hooks.states[:parseNeededLen]
 		} else {
 			// Grow slice
-			parseNewStates := make([]interface{}, parseNeededLen, parseNeededLen*2)
+			parseNewStates := make([]any, parseNeededLen, parseNeededLen*2)
 			copy(parseNewStates, parseFiber.hooks.states)
 			parseFiber.hooks.states = parseNewStates
 		}
@@ -132,12 +132,12 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(in
 		return parseValue
 	}
 
-	parseSetter := func(parseNewValueOrUpdater interface{}) {
+	parseSetter := func(parseNewValueOrUpdater any) {
 		apply := func(parseUpdateOrigin string) {
 			if parsePIdx >= len(parseHooks.states) {
 				parseNeeded := parsePIdx + 1
 				if parseNeeded > cap(parseHooks.states) {
-					parseNewStates2 := make([]interface{}, parseNeeded, parseNeeded*2)
+					parseNewStates2 := make([]any, parseNeeded, parseNeeded*2)
 					copy(parseNewStates2, parseHooks.states)
 					parseHooks.states = parseNewStates2
 				} else if parseNeeded > len(parseHooks.states) {
@@ -183,7 +183,7 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(in
 
 // GoUseEffect runs side effects and supports cleanup
 // The effect function can return a cleanup function that will be called before the next effect runs or on unmount
-func GoUseEffect(parseEffect func() func(), parseDeps ...interface{}) {
+func GoUseEffect(parseEffect func() func(), parseDeps ...any) {
 	parseFiber := requireCurrentHookFiber("GoUseEffect")
 
 	if parseFiber.hooks == nil {
@@ -208,7 +208,7 @@ func GoUseEffect(parseEffect func() func(), parseDeps ...interface{}) {
 		if parseNeeded <= cap(parseHooks.deps) {
 			parseHooks.deps = parseHooks.deps[:parseNeeded]
 		} else {
-			parseNewDeps := make([][]interface{}, parseNeeded, parseNeeded*2)
+			parseNewDeps := make([][]any, parseNeeded, parseNeeded*2)
 			copy(parseNewDeps, parseHooks.deps)
 			parseHooks.deps = parseNewDeps
 		}
@@ -274,12 +274,12 @@ func GoUseEffect(parseEffect func() func(), parseDeps ...interface{}) {
 }
 
 // GoUseMemo memoizes expensive computations
-func GoUseMemo(parseCompute func() interface{}, parseDeps ...interface{}) interface{} {
+func GoUseMemo(parseCompute func() any, parseDeps ...any) any {
 	return goUseMemo(parseCompute, nil, parseDeps...)
 }
 
 // goUseMemo is a core package helper.
-func goUseMemo(parseCompute func() interface{}, parseTargetType reflect.Type, parseDeps ...interface{}) interface{} {
+func goUseMemo(parseCompute func() any, parseTargetType reflect.Type, parseDeps ...any) any {
 	parseFiber := requireCurrentHookFiber("GoUseMemo")
 
 	if parseFiber.hooks == nil {
@@ -331,12 +331,12 @@ func goUseMemo(parseCompute func() interface{}, parseTargetType reflect.Type, pa
 
 // GoUseMemoTyped memoizes expensive computations and coerces restored hot reload
 // values to the caller's expected type when possible.
-func GoUseMemoTyped(parseCompute func() interface{}, parseTargetType reflect.Type, parseDeps ...interface{}) interface{} {
+func GoUseMemoTyped(parseCompute func() any, parseTargetType reflect.Type, parseDeps ...any) any {
 	return goUseMemo(parseCompute, parseTargetType, parseDeps...)
 }
 
 // GoUseCallback memoizes a callback function with dependency tracking
-func GoUseCallback(parseFn interface{}, parseDeps ...interface{}) interface{} {
+func GoUseCallback(parseFn any, parseDeps ...any) any {
 	parseFiber := requireCurrentHookFiber("GoUseCallback")
 
 	if parseFiber.hooks == nil {
@@ -378,7 +378,7 @@ func GoUseCallback(parseFn interface{}, parseDeps ...interface{}) interface{} {
 // GoUseRef creates a mutable reference that persists across renders
 // It returns a RefValue object with a .Current field that can hold any value
 // Unlike state, updating a ref does NOT trigger a re-render
-func GoUseRef(parseInitialValue interface{}) *RefValue {
+func GoUseRef(parseInitialValue any) *RefValue {
 	parseFiber := requireCurrentHookFiber("GoUseRef")
 
 	if parseFiber.hooks == nil {
@@ -481,7 +481,7 @@ func formatHookID(parseID int, parsePosition int) string {
 
 // GoUseFunc validates and stores a function for event handling
 // The actual wrapping to js.Value happens in the WASM shim layer
-func GoUseFunc(parseFn interface{}) interface{} {
+func GoUseFunc(parseFn any) any {
 	parseFiber := requireCurrentHookFiber("GoUseFunc")
 
 	if parseFiber.hooks == nil {
@@ -549,7 +549,7 @@ func GoUseFunc(parseFn interface{}) interface{} {
 }
 
 // releaseFuncHandlerWrapper releases one wrapped event handler when the adapter exposes cleanup.
-func releaseFuncHandlerWrapper(parseWrapper interface{}) {
+func releaseFuncHandlerWrapper(parseWrapper any) {
 	if parseWrapper == nil {
 		return
 	}
@@ -559,7 +559,7 @@ func releaseFuncHandlerWrapper(parseWrapper interface{}) {
 }
 
 // areDepsEqual compares dependency arrays
-func areDepsEqual(parsePrevDeps, parseNewDeps []interface{}) bool {
+func areDepsEqual(parsePrevDeps, parseNewDeps []any) bool {
 	parsePLen := len(parsePrevDeps)
 	parseNLen := len(parseNewDeps)
 
@@ -594,7 +594,7 @@ func areDepsEqual(parsePrevDeps, parseNewDeps []interface{}) bool {
 }
 
 // fastEqual performs optimized equality checking
-func fastEqual(parseA, parseB interface{}) bool {
+func fastEqual(parseA, parseB any) bool {
 	// Fast path: nil checks
 	if parseA == nil && parseB == nil {
 		return true
@@ -685,8 +685,8 @@ func fastEqual(parseA, parseB interface{}) bool {
 				&parseVa[0] == &parseVb17[0] && len(parseVa) == len(parseVb17)
 		}
 		return false
-	case []interface{}:
-		if parseVb18, parseOk18 := parseB.([]interface{}); parseOk18 {
+	case []any:
+		if parseVb18, parseOk18 := parseB.([]any); parseOk18 {
 			if len(parseVa) == 0 && len(parseVb18) == 0 {
 				return true
 			}
@@ -694,11 +694,11 @@ func fastEqual(parseA, parseB interface{}) bool {
 				&parseVa[0] == &parseVb18[0] && len(parseVa) == len(parseVb18)
 		}
 		return false
-	case map[string]interface{}:
+	case map[string]any:
 		// Map identity semantics: equal only when both are nil or both are the
 		// same map object (one reflect pointer compare; the type switch already
 		// avoided the more expensive TypeOf calls on both sides).
-		if parseVb19, parseOk19 := parseB.(map[string]interface{}); parseOk19 {
+		if parseVb19, parseOk19 := parseB.(map[string]any); parseOk19 {
 			if parseVa == nil || parseVb19 == nil {
 				return parseVa == nil && parseVb19 == nil
 			}

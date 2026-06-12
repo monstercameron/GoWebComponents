@@ -145,9 +145,9 @@ func TestResolveWasmConfigHelpers(parseT *testing.T) {
 	}
 
 	parseCompareConfig, parseErr := resolveWasmCompareConfig(wasmCompareConfig{
-		baselinePath: "baseline.json",
+		baselinePath:  "baseline.json",
 		candidatePath: "candidate.json",
-		outFile: "reports/compare.json",
+		outFile:       "reports/compare.json",
 	})
 	if parseErr != nil {
 		parseT.Fatalf("resolveWasmCompareConfig: %v", parseErr)

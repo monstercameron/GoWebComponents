@@ -22,7 +22,7 @@ type Paths struct {
 }
 
 type Overrides struct {
-	Paths Paths `json:"paths,omitempty"`
+	Paths Paths `json:"paths"`
 }
 
 type FS struct {

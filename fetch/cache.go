@@ -54,7 +54,7 @@ type CachedResource[T any] struct {
 }
 
 type cachedResourceSnapshot struct {
-	Value     interface{}
+	Value     any
 	Loading   bool
 	Error     error
 	Ready     bool
@@ -177,7 +177,7 @@ func UseCachedResource[T any](parseKey string, parseLoader func(context.Context)
 			return nil
 		}
 
-		startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (interface{}, error) {
+		startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (any, error) {
 			return parseLoader(parseCtx)
 		}, false, nil)
 		return nil
@@ -208,7 +208,7 @@ func UseCachedResource[T any](parseKey string, parseLoader func(context.Context)
 			if parseKey == "" || parseLoader == nil || !shouldUseCachedHandle(parseKey, parseEntry) {
 				return
 			}
-			startCachedLoad(parseKey, parseEntry, func(parseCtx2 context.Context) (interface{}, error) {
+			startCachedLoad(parseKey, parseEntry, func(parseCtx2 context.Context) (any, error) {
 				return parseLoader(parseCtx2)
 			}, true, nil)
 		},
@@ -372,7 +372,7 @@ func DisposeResource(parseKey string) {
 // InspectCachedResources returns a stable snapshot of shared cache state for diagnostics and devtools.
 func InspectCachedResources() []CachedResourceInspection {
 	parseInspections := make([]CachedResourceInspection, 0)
-	cachedResourceRegistry.Range(func(parseKey, parseValue interface{}) bool {
+	cachedResourceRegistry.Range(func(parseKey, parseValue any) bool {
 		cacheKey, _ := parseKey.(string)
 		parseEntry, _ := parseValue.(*cachedResourceEntry)
 		if cacheKey == "" || parseEntry == nil {
@@ -418,7 +418,7 @@ func InspectCachedResources() []CachedResourceInspection {
 func SweepCachedResources() int {
 	parseNow := time.Now()
 	var parseDisposed int
-	cachedResourceRegistry.Range(func(parseKey, parseValue interface{}) bool {
+	cachedResourceRegistry.Range(func(parseKey, parseValue any) bool {
 		cacheKey, _ := parseKey.(string)
 		parseEntry, _ := parseValue.(*cachedResourceEntry)
 		if cacheKey == "" || parseEntry == nil {
@@ -447,7 +447,7 @@ func LoadCached[T any](parseCtx context.Context, parseKey string, parseLoader fu
 	parseEntry := getCachedResourceEntry(parseKey)
 	configureCachedResourceEntry[T](parseKey, parseEntry, parseResolved)
 
-	parseAdapter := func(parseLoadCtx context.Context) (interface{}, error) {
+	parseAdapter := func(parseLoadCtx context.Context) (any, error) {
 		return parseLoader(parseLoadCtx)
 	}
 
@@ -591,7 +591,7 @@ func configureCachedResourceEntry[T any](parseKey string, parseEntry *cachedReso
 		return
 	}
 
-	parseDesiredType := reflect.TypeOf((*T)(nil)).Elem()
+	parseDesiredType := reflect.TypeFor[T]()
 	parseEntry.mu.Lock()
 	defer parseEntry.mu.Unlock()
 
@@ -663,7 +663,7 @@ func updateCachedSnapshot(parseKey string, parseUpdate func(cachedResourceSnapsh
 	if parseRt == nil {
 		return
 	}
-	if parseRestoreErr := parseRt.RestoreAtomSnapshot(map[string]interface{}{cachedResourceAtomID(parseKey): parseSnapshot}); parseRestoreErr != nil {
+	if parseRestoreErr := parseRt.RestoreAtomSnapshot(map[string]any{cachedResourceAtomID(parseKey): parseSnapshot}); parseRestoreErr != nil {
 		runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "cached resource snapshot restore failed", "", map[string]string{
 			"key":     parseKey,
 			"message": parseRestoreErr.Error(),
@@ -707,7 +707,7 @@ func markCachedEntryFresh(parseKey string) {
 }
 
 // startCachedLoad is an internal cache helper.
-func startCachedLoad(parseKey string, parseEntry *cachedResourceEntry, parseLoader func(context.Context) (interface{}, error), isForce bool, parseParent context.Context) (*cachedResourceWaiters, bool) {
+func startCachedLoad(parseKey string, parseEntry *cachedResourceEntry, parseLoader func(context.Context) (any, error), isForce bool, parseParent context.Context) (*cachedResourceWaiters, bool) {
 	if parseKey == "" || parseEntry == nil || parseLoader == nil {
 		return nil, false
 	}
@@ -1015,7 +1015,7 @@ func toPublicCachedState[T any](parseSnapshot cachedResourceSnapshot) CachedReso
 }
 
 // castCachedValue is an internal cache helper.
-func castCachedValue[T any](parseValue interface{}) (T, bool) {
+func castCachedValue[T any](parseValue any) (T, bool) {
 	parseCast, parseOk := parseValue.(T)
 	if parseOk {
 		return parseCast, true

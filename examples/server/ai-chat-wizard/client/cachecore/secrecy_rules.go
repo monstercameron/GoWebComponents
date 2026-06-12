@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -45,7 +46,7 @@ func enforceLocalSecrecyForPayload(parsePayload []byte) error {
 	if len(parsePayload) == 0 {
 		return nil
 	}
-	var parseDecoded interface{}
+	var parseDecoded any
 	if parseErr := json.Unmarshal(parsePayload, &parseDecoded); parseErr != nil {
 		parseText := strings.ToLower(strings.TrimSpace(string(parsePayload)))
 		if parseForbiddenSecrecyValuePattern.MatchString(parseText) {
@@ -60,9 +61,9 @@ func enforceLocalSecrecyForPayload(parsePayload []byte) error {
 }
 
 // hasForbiddenSecrecy recursively checks one decoded payload node for forbidden secrecy keys and values.
-func hasForbiddenSecrecy(parseNode interface{}) bool {
+func hasForbiddenSecrecy(parseNode any) bool {
 	switch parseValue := parseNode.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for parseKey, parseChild := range parseValue {
 			if isForbiddenSecrecyKey(parseKey) {
 				return true
@@ -72,13 +73,8 @@ func hasForbiddenSecrecy(parseNode interface{}) bool {
 			}
 		}
 		return false
-	case []interface{}:
-		for _, parseChild := range parseValue {
-			if hasForbiddenSecrecy(parseChild) {
-				return true
-			}
-		}
-		return false
+	case []any:
+		return slices.ContainsFunc(parseValue, hasForbiddenSecrecy)
 	case string:
 		return parseForbiddenSecrecyValuePattern.MatchString(parseValue)
 	default:

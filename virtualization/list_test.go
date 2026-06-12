@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package virtualization
 
@@ -22,7 +21,7 @@ func buildListTestNode[T any](parseProps ListProps[T]) ui.Node {
 	})
 }
 
-func setInteropElementField(parseT *testing.T, parseElement *interop.Element, parseField string, parseValue interface{}) {
+func setInteropElementField(parseT *testing.T, parseElement *interop.Element, parseField string, parseValue any) {
 	parseT.Helper()
 	parseStructValue := reflect.ValueOf(parseElement).Elem()
 	parseTarget := parseStructValue.FieldByName(parseField)
@@ -76,7 +75,7 @@ func TestListRendersRowsAndEmptyState(parseT *testing.T) {
 				"activedescendant": "queue-row-b",
 			},
 			Data: map[string]string{"lane": "keyboard"},
-			Raw:  map[string]interface{}{"tabindex": 0},
+			Raw:  map[string]any{"tabindex": 0},
 		},
 		Items:     parseRows,
 		Height:    120,
@@ -236,7 +235,7 @@ func TestListHelpersAndRestorationSnapshot(parseT *testing.T) {
 			Class: "keyboard",
 			Style: map[string]string{"outline": "none"},
 			Role:  "listbox",
-			Raw:   map[string]interface{}{"tabindex": 0},
+			Raw:   map[string]any{"tabindex": 0},
 		},
 		Class:  "viewport",
 		Height: 140,

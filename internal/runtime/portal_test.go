@@ -17,10 +17,10 @@ func TestPortalCommitsChildrenToSelectorTarget(parseT *testing.T) {
 	parseOverlay := parseAdapter.CreateElement("div")
 	parseAdapter.selectorResults["#overlay-root"] = parseOverlay
 
-	parseElement := CreateElement("section", map[string]interface{}{"id": "shell"},
-		CreateElement("p", map[string]interface{}{"id": "inline"}, "inline"),
-		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#overlay-root"},
-			CreateElement("div", map[string]interface{}{"id": "portaled"}, "overlay"),
+	parseElement := CreateElement("section", map[string]any{"id": "shell"},
+		CreateElement("p", map[string]any{"id": "inline"}, "inline"),
+		CreateElement(PortalNodeType, map[string]any{"portalTargetSelector": "#overlay-root"},
+			CreateElement("div", map[string]any{"id": "portaled"}, "overlay"),
 		),
 	)
 
@@ -46,8 +46,8 @@ func TestPortalCommitsChildrenToExplicitNodeTarget(parseT *testing.T) {
 	parseOverlay := parseAdapter.CreateElement("div")
 
 	parseElement := CreateElement("section", nil,
-		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetNode": parseOverlay},
-			CreateElement("button", map[string]interface{}{"id": "portaled-button"}, "click"),
+		CreateElement(PortalNodeType, map[string]any{"portalTargetNode": parseOverlay},
+			CreateElement("button", map[string]any{"id": "portaled-button"}, "click"),
 		),
 	)
 
@@ -73,13 +73,13 @@ func TestPortalRetargetMovesExistingSubtree(parseT *testing.T) {
 	parseAdapter.selectorResults["#right"] = parseRight
 
 	parseFirst := CreateElement("section", nil,
-		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#left"},
-			CreateElement("div", map[string]interface{}{"id": "moving"}, "one"),
+		CreateElement(PortalNodeType, map[string]any{"portalTargetSelector": "#left"},
+			CreateElement("div", map[string]any{"id": "moving"}, "one"),
 		),
 	)
 	parseSecond := CreateElement("section", nil,
-		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#right"},
-			CreateElement("div", map[string]interface{}{"id": "moving"}, "one"),
+		CreateElement(PortalNodeType, map[string]any{"portalTargetSelector": "#right"},
+			CreateElement("div", map[string]any{"id": "moving"}, "one"),
 		),
 	)
 
@@ -107,12 +107,12 @@ func TestPortalDeletionCleansTargetSubtree(parseT *testing.T) {
 	parseAdapter.selectorResults["#overlay-root"] = parseOverlay
 
 	parseWithPortal := CreateElement("section", nil,
-		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#overlay-root"},
-			CreateElement("div", map[string]interface{}{"id": "portaled"}, "overlay"),
+		CreateElement(PortalNodeType, map[string]any{"portalTargetSelector": "#overlay-root"},
+			CreateElement("div", map[string]any{"id": "portaled"}, "overlay"),
 		),
 	)
 	parseWithoutPortal := CreateElement("section", nil,
-		CreateElement("p", map[string]interface{}{"id": "inline"}, "plain"),
+		CreateElement("p", map[string]any{"id": "inline"}, "plain"),
 	)
 
 	renderAndDrain(parseT, parseRt, parseScheduler, parseApp, parseWithPortal)

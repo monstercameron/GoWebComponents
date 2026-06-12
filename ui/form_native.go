@@ -1,9 +1,9 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package ui
 
 import (
+	"maps"
 	"reflect"
 	"strings"
 	"sync"
@@ -224,7 +224,7 @@ func (parseF Form[T]) Update(parseFn func(T) T) {
 }
 
 // SetField updates one named struct field and marks it touched.
-func (parseF Form[T]) SetField(parseName string, parseValue interface{}) bool {
+func (parseF Form[T]) SetField(parseName string, parseValue any) bool {
 	if parseF.state == nil || parseF.mu == nil {
 		return false
 	}
@@ -659,9 +659,7 @@ func cloneFieldErrors(parseErrors FieldErrors) FieldErrors {
 		return FieldErrors{}
 	}
 	parseClone := make(FieldErrors, len(parseErrors))
-	for parseKey, parseValue := range parseErrors {
-		parseClone[parseKey] = parseValue
-	}
+	maps.Copy(parseClone, parseErrors)
 	return parseClone
 }
 
@@ -687,7 +685,7 @@ func computeDirtyFields[T any](parseInitial T, parseCurrent T) map[string]bool {
 }
 
 // assignNamedField is a core package helper.
-func assignNamedField[T any](parseTarget T, parseName string, parseValue interface{}) (T, bool) {
+func assignNamedField[T any](parseTarget T, parseName string, parseValue any) (T, bool) {
 	parsePtr := reflect.New(reflect.TypeOf(parseTarget))
 	parsePtr.Elem().Set(reflect.ValueOf(parseTarget))
 	parseField := parsePtr.Elem().FieldByName(parseName)
@@ -713,7 +711,7 @@ func assignNamedField[T any](parseTarget T, parseName string, parseValue interfa
 }
 
 // readNamedField is a core package helper.
-func readNamedField[T any](parseValue T, parseName string) (interface{}, bool) {
+func readNamedField[T any](parseValue T, parseName string) (any, bool) {
 	parseRv := reflect.ValueOf(parseValue)
 	if parseRv.Kind() != reflect.Struct {
 		return nil, false
@@ -726,7 +724,7 @@ func readNamedField[T any](parseValue T, parseName string) (interface{}, bool) {
 }
 
 // valueOfNamedField is a core package helper.
-func valueOfNamedField[T any](parseValue T, parseName string) interface{} {
+func valueOfNamedField[T any](parseValue T, parseName string) any {
 	parseField, parseOk := readNamedField(parseValue, parseName)
 	if !parseOk {
 		return nil

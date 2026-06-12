@@ -388,7 +388,7 @@ func inventoryQueueTable(parseItems []inventorySummaryCard) ui.Node {
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tr(html.Props{},
-			html.Td(html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 8}}, html.Text("No inventory rows match the current filter set. Clear filters or pivot into a saved view with live lane pressure.")),
+			html.Td(html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 8}}, html.Text("No inventory rows match the current filter set. Clear filters or pivot into a saved view with live lane pressure.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -661,7 +661,7 @@ func inventoryThresholdHistoryPanel(parsePanel inventoryThresholdHistoryPanelPag
 	)
 	return atlasRouteSheetOverlay(parsePanelID, parseTitleID, parseDescriptionID, "#"+parseCloseID, html.Div(html.Props{
 		Class: "grid gap-4",
-		Raw: map[string]interface{}{
+		Raw: map[string]any{
 			"data-atlas-route-overlay": "threshold-history",
 		},
 	}, parseChildren...))
@@ -900,7 +900,7 @@ func warehouseDetailInventoryTable(parseWarehouseID string, parseItems []invento
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 7}}, html.Text("No warehouse items match the current view. Adjust filters or create a new managed item from the route rail.")),
+			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]any{"colSpan": 7}}, html.Text("No warehouse items match the current view. Adjust filters or create a new managed item from the route rail.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
@@ -1183,7 +1183,7 @@ func warehouseItemNetworkTable(parseCurrentPath string, parseFilters map[string]
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
-			html.Tag("td", html.Props{Class: "px-3 py-4 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 7}}, html.Text("No warehouse lanes are available for this item.")),
+			html.Tag("td", html.Props{Class: "px-3 py-4 text-sm text-slate-400", Raw: map[string]any{"colSpan": 7}}, html.Text("No warehouse lanes are available for this item.")),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-3 rounded-sm border border-slate-700 bg-[linear-gradient(180deg,rgba(31,41,55,0.92),rgba(15,23,42,0.98))] p-4 shadow-[inset_0_1px_0_rgba(148,163,184,0.08)]"},
@@ -1514,11 +1514,11 @@ func orderInventoryModalCard(parseRows []inventoryRow, parseDefaultWarehouse str
 		}
 		if parseOpen.Get() {
 			parseChildren = append(parseChildren, html.Div(html.Props{Class: "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4"},
-				html.Button(html.Props{Type: "button", Class: "absolute inset-0", OnClick: parseCloseModal, Raw: map[string]interface{}{"aria-label": "Close replenishment dialog"}}),
+				html.Button(html.Props{Type: "button", Class: "absolute inset-0", OnClick: parseCloseModal, Raw: map[string]any{"aria-label": "Close replenishment dialog"}}),
 				html.Div(html.Props{
 					ID:    parseModalSurfaceID,
 					Class: "relative z-10 grid w-[min(92vw,40rem)] gap-4 border border-slate-700 bg-[linear-gradient(180deg,rgba(17,24,39,0.99),rgba(2,6,23,1))] p-5 shadow-[0_24px_72px_rgba(0,0,0,0.55)]",
-					Raw: map[string]interface{}{
+					Raw: map[string]any{
 						"role":       "dialog",
 						"aria-modal": "true",
 						"tabindex":   "-1",
@@ -1631,7 +1631,7 @@ func inventoryReducerTextField(parseName, parseLabel, parseValue string, parseWo
 			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
 				parseWorkflow.Dispatch(purchaseOrderWorkflowAction{Field: parseName, Value: parseEvent.GetValue()})
 			}),
-			Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"},
+			Raw: map[string]any{"aria-labelledby": parseId + "-label"},
 		}),
 	)
 }
@@ -1645,7 +1645,7 @@ func inventoryReducerNumberField(parseName, parseLabel, parseValue string, parse
 			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
 				parseWorkflow.Dispatch(purchaseOrderWorkflowAction{Field: parseName, Value: parseEvent.GetValue()})
 			}),
-			Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"},
+			Raw: map[string]any{"aria-labelledby": parseId + "-label"},
 		}),
 	)
 }
@@ -1663,7 +1663,7 @@ func inventoryReducerSelectField(parseName, parseLabel, parseValue string, parse
 			OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) {
 				parseWorkflow.Dispatch(purchaseOrderWorkflowAction{Field: parseName, Value: parseEvent.GetValue()})
 			}),
-			Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"},
+			Raw: map[string]any{"aria-labelledby": parseId + "-label"},
 		}, parseChildren...),
 	)
 }
@@ -1754,7 +1754,7 @@ func inventoryBoundNumberField[T any](parseName, parseLabel, parseValue, parseFi
 	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseInputClass(), Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
+		html.Input(html.Props{ID: parseId, Type: "number", Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
@@ -1777,7 +1777,7 @@ func inventoryBoundSelectField[T any](parseName, parseLabel, parseValue, parseFi
 	}
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
 		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
-		html.Select(html.Props{ID: parseId, Name: parseName, OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseInputClass(), Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}, parseChildren...),
+		html.Select(html.Props{ID: parseId, Name: parseName, OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: warehouseInputClass(), Raw: map[string]any{"aria-labelledby": parseId + "-label"}}, parseChildren...),
 	)
 }
 

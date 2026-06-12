@@ -36,7 +36,7 @@ func TestChildrenNormalizesMixedInputs(parseT *testing.T) {
 		"alpha",
 		[]string{"beta", "gamma"},
 		Span(Props{}, Text("delta")),
-		[]interface{}{nil, sugarStringer("epsilon"), 42, func() string { return "zeta" }},
+		[]any{nil, sugarStringer("epsilon"), 42, func() string { return "zeta" }},
 	)
 
 	if len(parseChildren) != 7 {
@@ -67,7 +67,7 @@ func TestChildrenNormalizesMixedInputs(parseT *testing.T) {
 }
 
 func TestChildrenWorksWithExistingBuilderExpansion(parseT *testing.T) {
-	parseNode := Div(Props{}, Children("hello", []interface{}{" ", Textf("%s", "world")})...)
+	parseNode := Div(Props{}, Children("hello", []any{" ", Textf("%s", "world")})...)
 	parseMarkup, parseErr := ui.RenderToString(parseNode)
 	if parseErr != nil {
 		parseT.Fatalf("expected SSR render to succeed, got %v", parseErr)
@@ -122,7 +122,7 @@ func TestChildrenAndClassHelpersHandleEmptyAndArrayInputs(parseT *testing.T) {
 	if Children() != nil {
 		parseT.Fatal("expected Children() to return nil")
 	}
-	if Children(nil, []interface{}{nil}) != nil {
+	if Children(nil, []any{nil}) != nil {
 		parseT.Fatal("expected Children with only nil values to return nil")
 	}
 
@@ -192,7 +192,7 @@ func TestSecondPassCollectionHelpers(parseT *testing.T) {
 	if Map([]int{}, func(parseValue int) ui.Node { return Textf("%d", parseValue) }) != nil {
 		parseT.Fatal("expected empty Map result to be nil")
 	}
-	if MapKeyed([]int{}, func(parseValue2 int) interface{} { return parseValue2 }, func(parseValue3 int) ui.Node { return Textf("%d", parseValue3) }) != nil {
+	if MapKeyed([]int{}, func(parseValue2 int) any { return parseValue2 }, func(parseValue3 int) ui.Node { return Textf("%d", parseValue3) }) != nil {
 		parseT.Fatal("expected empty MapKeyed result to be nil")
 	}
 	if FlatMap([]int{}, func(parseValue4 int) []ui.Node { return []ui.Node{Textf("%d", parseValue4)} }) != nil {
@@ -211,7 +211,7 @@ func TestSecondPassCollectionHelpers(parseT *testing.T) {
 		parseT.Fatal("expected WithKey(nil, ...) to return nil")
 	}
 
-	parseKeyed := MapKeyed([]string{"alpha", "beta"}, func(parseValue6 string) interface{} { return "k:" + parseValue6 }, func(parseValue7 string) ui.Node {
+	parseKeyed := MapKeyed([]string{"alpha", "beta"}, func(parseValue6 string) any { return "k:" + parseValue6 }, func(parseValue7 string) ui.Node {
 		return Li(Props{}, Text(parseValue7))
 	})
 	if len(parseKeyed) != 2 || parseKeyed[0].Props["key"] != "k:alpha" || parseKeyed[1].Props["key"] != "k:beta" {
@@ -320,7 +320,7 @@ func TestPropsOfAndOptionHelpers(parseT *testing.T) {
 		Aria("label", "Demo"),
 		AriaSet(map[string]string{"describedby": "copy"}),
 		Attr("tabIndex", 9),
-		Attrs(map[string]interface{}{"data-extra": "yes"}),
+		Attrs(map[string]any{"data-extra": "yes"}),
 	)
 
 	parseElem := Button(parseProps, Text("Save"))
@@ -381,7 +381,7 @@ func TestPropsOfAndOptionHelpers(parseT *testing.T) {
 		Style: map[string]string{"display": "grid"},
 		Data:  map[string]string{"base": "yes"},
 		Aria:  map[string]string{"live": "polite"},
-		Raw:   map[string]interface{}{"data-base": "ok"},
+		Raw:   map[string]any{"data-base": "ok"},
 	}
 	parseMerged := WithProps(parseBase, Checked(false), AutoFocus(false), Class("override"), Attr("data-extra", "value"))
 	if parseMerged.Class != "override" || parseMerged.Checked || parseMerged.AutoFocus {
@@ -548,7 +548,7 @@ func TestInternalHandlerAndMapHelpersEdgeCases(parseT *testing.T) {
 	if cloneAnyMap(nil) != nil {
 		parseT.Fatal("expected nil any map clone for nil input")
 	}
-	if mergeAnyMap(map[string]interface{}{"a": 1}, nil)["a"] != 1 {
+	if mergeAnyMap(map[string]any{"a": 1}, nil)["a"] != 1 {
 		parseT.Fatal("expected mergeAnyMap with nil values to preserve destination")
 	}
 
@@ -556,7 +556,7 @@ func TestInternalHandlerAndMapHelpersEdgeCases(parseT *testing.T) {
 		Style: map[string]string{"display": "grid"},
 		Data:  map[string]string{"mode": "demo"},
 		Aria:  map[string]string{"label": "demo"},
-		Raw:   map[string]interface{}{"data-extra": "ok"},
+		Raw:   map[string]any{"data-extra": "ok"},
 	}
 	parseCloned := cloneProps(parseOriginal)
 	parseCloned.Style["display"] = "flex"

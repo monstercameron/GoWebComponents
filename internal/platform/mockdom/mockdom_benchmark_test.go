@@ -20,7 +20,7 @@ func BenchmarkMockSchedulerFlushAll(parseB *testing.B) {
 	parseB.ReportAllocs()
 	for parseB.Loop() {
 		parseScheduler := NewMockScheduler(false)
-		for parseI := 0; parseI < 16; parseI++ {
+		for range 16 {
 			parseScheduler.RequestIdleCallback(func(parseDeadline runtime.Deadline) {
 				_ = parseDeadline.TimeRemaining()
 			})

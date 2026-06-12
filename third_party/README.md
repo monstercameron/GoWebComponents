@@ -31,3 +31,12 @@ Anything added under `third_party/` should have one clear reason:
 - shared external dataset used by tooling
 
 If it does not fit one of those, it probably belongs somewhere else.
+
+## Toolchain Modernization Boundary
+
+Root-module toolchain sweeps, including `go fix ./...` modernizer passes and
+root `go.mod` directive bumps, do not apply to nested third-party modules.
+
+`GoGRPCBridge/` keeps its own `go.mod`, `toolchain` directive, runner, and CI.
+Modernize that module only through its submodule lifecycle, then update the
+root pin after the bridge runner checks pass.

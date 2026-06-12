@@ -11,7 +11,7 @@ func TestGoUseState_InitialValue(parseT *testing.T) {
 	// Create a fiber context
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -29,7 +29,7 @@ func TestGoUseState_UpdateValue(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -49,7 +49,7 @@ func TestGoUseState_NoUpdateOnSameValue(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -73,7 +73,7 @@ func TestGoUseState_MultipleStates(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -104,7 +104,7 @@ func TestGoUseState_MultipleStates(parseT *testing.T) {
 func TestGoUseEffect_RunsOnMount(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -130,7 +130,7 @@ func TestGoUseEffect_RunsOnMount(parseT *testing.T) {
 func TestGoUseEffect_RunsOnDepsChange(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -167,7 +167,7 @@ func TestGoUseEffect_RunsOnDepsChange(parseT *testing.T) {
 func TestGoUseEffect_SkipsOnSameDeps(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -193,7 +193,7 @@ func TestGoUseEffect_RerunsAfterHotRefresh(parseT *testing.T) {
 	parseRt := &Runtime{}
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -256,13 +256,13 @@ func TestGoUseEffect_RerunsAfterHotRefresh(parseT *testing.T) {
 func TestGoUseMemo_ComputesOnce(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	parseComputeCount := 0
-	parseResult := GoUseMemo(func() interface{} {
+	parseResult := GoUseMemo(func() any {
 		parseComputeCount++
 		return 42
 	}, "dep1")
@@ -279,13 +279,13 @@ func TestGoUseMemo_ComputesOnce(parseT *testing.T) {
 func TestGoUseMemo_RecomputesOnDepsChange(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	parseValue := 10
-	parseResult1 := GoUseMemo(func() interface{} {
+	parseResult1 := GoUseMemo(func() any {
 		return parseValue * 2
 	}, parseValue)
 
@@ -294,7 +294,7 @@ func TestGoUseMemo_RecomputesOnDepsChange(parseT *testing.T) {
 	parseFiber.hooks.memoIndex = 0
 	parseValue = 20
 
-	parseResult2 := GoUseMemo(func() interface{} {
+	parseResult2 := GoUseMemo(func() any {
 		return parseValue * 2
 	}, parseValue)
 
@@ -310,7 +310,7 @@ func TestGoUseMemo_RecomputesOnDepsChange(parseT *testing.T) {
 func TestGoUseMemo_SkipRecomputeOnSameDeps(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -318,7 +318,7 @@ func TestGoUseMemo_SkipRecomputeOnSameDeps(parseT *testing.T) {
 	parseComputeCount := 0
 
 	// First render
-	parseResult1 := GoUseMemo(func() interface{} {
+	parseResult1 := GoUseMemo(func() any {
 		parseComputeCount++
 		return 42
 	}, "dep")
@@ -327,7 +327,7 @@ func TestGoUseMemo_SkipRecomputeOnSameDeps(parseT *testing.T) {
 	parseFiber.hooks.index = 0
 	parseFiber.hooks.memoIndex = 0
 
-	parseResult2 := GoUseMemo(func() interface{} {
+	parseResult2 := GoUseMemo(func() any {
 		parseComputeCount++
 		return 42
 	}, "dep")
@@ -348,7 +348,7 @@ func TestGoUseMemo_SkipRecomputeOnSameDeps(parseT *testing.T) {
 func TestGoUseMemo_NilDepsInitialization(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -356,7 +356,7 @@ func TestGoUseMemo_NilDepsInitialization(parseT *testing.T) {
 	parseComputeCount := 0
 
 	// First render - memo.deps starts as nil
-	parseResult := GoUseMemo(func() interface{} {
+	parseResult := GoUseMemo(func() any {
 		parseComputeCount++
 		return "computed"
 	}, "dep1")
@@ -382,7 +382,7 @@ func TestGoUseMemo_NilDepsInitialization(parseT *testing.T) {
 func TestGoUseMemo_MultipleMemosIndependent(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -391,12 +391,12 @@ func TestGoUseMemo_MultipleMemosIndependent(parseT *testing.T) {
 	parseCount2 := 0
 
 	// First render - create two memos
-	GoUseMemo(func() interface{} {
+	GoUseMemo(func() any {
 		parseCount1++
 		return "memo1"
 	}, "dep1")
 
-	GoUseMemo(func() interface{} {
+	GoUseMemo(func() any {
 		parseCount2++
 		return "memo2"
 	}, "dep2")
@@ -409,12 +409,12 @@ func TestGoUseMemo_MultipleMemosIndependent(parseT *testing.T) {
 	parseFiber.hooks.index = 0
 	parseFiber.hooks.memoIndex = 0
 
-	GoUseMemo(func() interface{} {
+	GoUseMemo(func() any {
 		parseCount1++
 		return "memo1"
 	}, "dep1") // Same dep
 
-	GoUseMemo(func() interface{} {
+	GoUseMemo(func() any {
 		parseCount2++
 		return "memo2"
 	}, "dep2_changed") // Different dep
@@ -431,7 +431,7 @@ func TestGoUseMemo_MultipleMemosIndependent(parseT *testing.T) {
 func TestGoUseCallback_StableReference(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -472,7 +472,7 @@ func TestGoUseCallback_StableReference(parseT *testing.T) {
 func TestGoUseCallback_UpdatesOnDepsChange(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -500,7 +500,7 @@ func TestGoUseCallback_UpdatesOnDepsChange(parseT *testing.T) {
 func TestGoUseCallback_MultipleCallbacksIndependent(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -540,16 +540,16 @@ func TestGoUseCallback_MultipleCallbacksIndependent(parseT *testing.T) {
 func TestAreDepsEqual_Primitives(parseT *testing.T) {
 	parseTests := []struct {
 		name     string
-		prev     []interface{}
-		new      []interface{}
+		prev     []any
+		new      []any
 		expected bool
 	}{
-		{"Same primitives", []interface{}{1, 2, 3}, []interface{}{1, 2, 3}, true},
-		{"Different primitives", []interface{}{1, 2}, []interface{}{1, 3}, false},
-		{"Different lengths", []interface{}{1, 2}, []interface{}{1}, false},
-		{"Empty arrays", []interface{}{}, []interface{}{}, true},
-		{"Strings equal", []interface{}{"a", "b"}, []interface{}{"a", "b"}, true},
-		{"Strings different", []interface{}{"a"}, []interface{}{"b"}, false},
+		{"Same primitives", []any{1, 2, 3}, []any{1, 2, 3}, true},
+		{"Different primitives", []any{1, 2}, []any{1, 3}, false},
+		{"Different lengths", []any{1, 2}, []any{1}, false},
+		{"Empty arrays", []any{}, []any{}, true},
+		{"Strings equal", []any{"a", "b"}, []any{"a", "b"}, true},
+		{"Strings different", []any{"a"}, []any{"b"}, false},
 	}
 
 	for _, parseTt := range parseTests {
@@ -565,8 +565,8 @@ func TestAreDepsEqual_Primitives(parseT *testing.T) {
 func TestFastEqual(parseT *testing.T) {
 	parseTests := []struct {
 		name     string
-		a        interface{}
-		b        interface{}
+		a        any
+		b        any
 		expected bool
 	}{
 		{"Both nil", nil, nil, true},
@@ -609,7 +609,7 @@ func TestFastEqual_FunctionClosuresUseInstanceIdentity(parseT *testing.T) {
 func TestGoUseRef_InitialValue(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -629,7 +629,7 @@ func TestGoUseRef_InitialValue(parseT *testing.T) {
 func TestGoUseRef_PersistsAcrossRenders(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -664,7 +664,7 @@ func TestGoUseRef_PersistsAcrossRenders(parseT *testing.T) {
 func TestGoUseRef_MultipleRefsIndependent(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -713,7 +713,7 @@ func TestGoUseRef_MultipleRefsIndependent(parseT *testing.T) {
 func TestGoUseRef_WithNilInitialValue(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -740,7 +740,7 @@ func TestGoUseRef_WithNilInitialValue(parseT *testing.T) {
 func TestGoUseId_GeneratesUniqueId(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -767,7 +767,7 @@ func TestGoUseId_GeneratesUniqueId(parseT *testing.T) {
 func TestGoUseId_PersistsAcrossRenders(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -794,7 +794,7 @@ func TestGoUseId_PersistsAcrossRenders(parseT *testing.T) {
 func TestGoUseId_MultipleIdsIndependent(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
@@ -838,7 +838,7 @@ func TestGoUseId_MultipleIdsIndependent(parseT *testing.T) {
 func TestGoUseId_ContainsHookPosition(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "test",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)

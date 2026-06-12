@@ -244,14 +244,8 @@ func (parseS *Store) parseCreateAuthOIDCState(parseWrite parseAuthOIDCStateWrite
 	if parseProviderKey == "" || parseSessionKey == "" || parseStateTokenHash == "" || parseNonceTokenHash == "" || parseExpiresAt == "" {
 		return parseAuthOIDCStateRow{}, errors.New("create auth oidc state: provider key, session key, state hash, nonce hash, and expires at are required")
 	}
-	parseWorkspaceID := parseWrite.WorkspaceID
-	if parseWorkspaceID < 0 {
-		parseWorkspaceID = 0
-	}
-	parseCreatedByUserID := parseWrite.CreatedByUserID
-	if parseCreatedByUserID < 0 {
-		parseCreatedByUserID = 0
-	}
+	parseWorkspaceID := max(parseWrite.WorkspaceID, 0)
+	parseCreatedByUserID := max(parseWrite.CreatedByUserID, 0)
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	parseReturnToURL := strings.TrimSpace(parseWrite.ReturnToURL)
 	if parseReturnToURL == "" {

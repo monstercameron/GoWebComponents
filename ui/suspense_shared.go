@@ -34,7 +34,7 @@ func createAsyncBoundaryElement(parseProps AsyncBoundaryProps, parsePending bool
 		parseFallback = parseFallbackOverride
 	}
 
-	parseRawProps := map[string]interface{}{}
+	parseRawProps := map[string]any{}
 	if parsePending {
 		parseRawProps["pending"] = true
 	}

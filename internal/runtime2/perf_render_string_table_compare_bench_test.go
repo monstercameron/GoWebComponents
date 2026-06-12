@@ -13,7 +13,7 @@ var hasRenderStringRefBenchmarkSink bool
 // buildRenderStringTableBenchmarkValues builds one duplicate-heavy string slice used by string-table build benchmarks.
 func buildRenderStringTableBenchmarkValues() []string {
 	buildValues := make([]string, 0, 4096)
-	for parseIndex := 0; parseIndex < 2048; parseIndex++ {
+	for parseIndex := range 2048 {
 		getValue := "v-" + strconv.Itoa(parseIndex%512)
 		buildValues = append(buildValues, getValue)
 	}
@@ -105,7 +105,7 @@ func BenchmarkBuildRenderStringTableCurrentVsLegacy(parseB *testing.B) {
 // BenchmarkGetRenderStringRefCurrentVsLegacy compares current tiny-table linear fallback against the previous binary-search-only fallback.
 func BenchmarkGetRenderStringRefCurrentVsLegacy(parseB *testing.B) {
 	getSmallEntries := make([]string, 0, 4)
-	for parseIndex := 0; parseIndex < 4; parseIndex++ {
+	for parseIndex := range 4 {
 		getSmallEntries = append(getSmallEntries, "s-"+strconv.Itoa(parseIndex))
 	}
 	sort.Strings(getSmallEntries)
@@ -114,7 +114,7 @@ func BenchmarkGetRenderStringRefCurrentVsLegacy(parseB *testing.B) {
 		parseB.Fatalf("ParseRenderStringTable(small) returned error: %v", parseSmallErr)
 	}
 	getLargeEntries := make([]string, 0, 512)
-	for parseIndex := 0; parseIndex < 512; parseIndex++ {
+	for parseIndex := range 512 {
 		getLargeEntries = append(getLargeEntries, "l-"+strconv.Itoa(parseIndex))
 	}
 	sort.Strings(getLargeEntries)

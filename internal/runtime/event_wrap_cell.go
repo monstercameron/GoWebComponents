@@ -3,7 +3,7 @@ package runtime
 import "reflect"
 
 // wrapEventHandlerCell builds one stable wrapper that dispatches to the cell's latest handler and owner.
-func (parseRuntime *Runtime) wrapEventHandlerCell(parseCell *funcHandlerCell) interface{} {
+func (parseRuntime *Runtime) wrapEventHandlerCell(parseCell *funcHandlerCell) any {
 	if parseCell == nil || parseCell.fn == nil {
 		return nil
 	}
@@ -48,7 +48,7 @@ func buildEventResultValues(parseFnType reflect.Type) []reflect.Value {
 	}
 
 	parseResults := make([]reflect.Value, parseResultCount)
-	for parseIndex := 0; parseIndex < parseResultCount; parseIndex++ {
+	for parseIndex := range parseResultCount {
 		parseResults[parseIndex] = reflect.Zero(parseFnType.Out(parseIndex))
 	}
 	return parseResults

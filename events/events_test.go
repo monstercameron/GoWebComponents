@@ -28,7 +28,7 @@ func TestFanOutAllSubscribersReceiveAllValues(t *testing.T) {
 	parseReceived := make([][]int, parseN)
 	parseUnsubs := make([]func(), parseN)
 
-	for parseI := 0; parseI < parseN; parseI++ {
+	for parseI := range parseN {
 		parseIdx := parseI
 		parseReceived[parseIdx] = []int{}
 		parseUnsubs[parseIdx] = Subscribe(parseTopic, func(parseV int) {
@@ -36,11 +36,11 @@ func TestFanOutAllSubscribersReceiveAllValues(t *testing.T) {
 		})
 	}
 
-	for parseV := 0; parseV < parseCount; parseV++ {
+	for parseV := range parseCount {
 		Publish(parseTopic, parseV)
 	}
 
-	for parseIdx := 0; parseIdx < parseN; parseIdx++ {
+	for parseIdx := range parseN {
 		parseUnsubs[parseIdx]()
 		if len(parseReceived[parseIdx]) != parseCount {
 			t.Errorf("subscriber %d: got %d values, want %d", parseIdx, len(parseReceived[parseIdx]), parseCount)
@@ -62,7 +62,7 @@ func TestPublishOrderPreserved(t *testing.T) {
 	})
 	defer parseUnsub()
 
-	for parseV := 0; parseV < 50; parseV++ {
+	for parseV := range 50 {
 		Publish(parseTopic, parseV)
 	}
 
@@ -158,14 +158,12 @@ func TestConcurrentPublishNoRaceAndAllDelivered(t *testing.T) {
 	defer parseUnsub()
 
 	var parseWG sync.WaitGroup
-	for parseG := 0; parseG < parseGoroutines; parseG++ {
-		parseWG.Add(1)
-		go func() {
-			defer parseWG.Done()
-			for parseI := 0; parseI < parsePerGoroutine; parseI++ {
+	for range parseGoroutines {
+		parseWG.Go(func() {
+			for parseI := range parsePerGoroutine {
 				Publish(parseTopic, parseI)
 			}
-		}()
+		})
 	}
 	parseWG.Wait()
 
@@ -231,9 +229,9 @@ func TestTypeIsolationSameTopicDifferentTypes(t *testing.T) {
 	})
 	defer parseStringUnsub()
 
-	Publish(parseTopic, 1)         // int publication
-	Publish(parseTopic, "hello")   // string publication
-	Publish(parseTopic, 2)         // int publication
+	Publish(parseTopic, 1)       // int publication
+	Publish(parseTopic, "hello") // string publication
+	Publish(parseTopic, 2)       // int publication
 
 	if parseIntCount != 2 {
 		t.Fatalf("int subscriber got %d, want 2", parseIntCount)

@@ -50,4 +50,3 @@ func TestAdminChatDrilldownScopeRules(parseT *testing.T) {
 		parseT.Fatalf("missing chat drill-down target user status code=%v want=%v", status.Code(parseErr), codes.InvalidArgument)
 	}
 }
-

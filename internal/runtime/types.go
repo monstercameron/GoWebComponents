@@ -4,11 +4,11 @@ import "reflect"
 
 // Element represents a virtual DOM node.
 type Element struct {
-	Type               interface{}
-	Props              map[string]interface{}
-	Children           []interface{}
+	Type               any
+	Props              map[string]any
+	Children           []any
 	TextContent        string // Optimization for TEXT_ELEMENT to avoid map allocation
-	getHostProps       map[string]interface{}
+	getHostProps       map[string]any
 	getHostAttrs       []HostAttr
 	isCompactHostProps bool
 	hasDirectText      bool
@@ -80,10 +80,10 @@ type Fiber struct {
 
 	// Component info
 	hooks              *Hooks
-	props              map[string]interface{}
-	children           []interface{}
+	props              map[string]any
+	children           []any
 	getHostAttrs       []HostAttr
-	contextValues      map[int64]interface{}
+	contextValues      map[int64]any
 	hydration          *hydrationBoundary
 	childHydration     *hydrationBoundary
 	hydrated           bool
@@ -91,7 +91,7 @@ type Fiber struct {
 	isCompactHostProps bool
 
 	// Interfaces and Strings (16 bytes each)
-	typeOf      interface{}
+	typeOf      any
 	dom         DOMNode
 	textContent string
 	effectTag   effectTagKind
@@ -125,25 +125,25 @@ type hydrationBoundary struct {
 
 // memoizedValue stores a memoized computation result with its dependencies
 type memoizedValue struct {
-	value interface{}
-	deps  []interface{}
+	value any
+	deps  []any
 }
 
 // HotReloadMemoSnapshot stores a memoized computation and its dependencies.
 type HotReloadMemoSnapshot struct {
-	Value interface{}   `json:"value"`
-	Deps  []interface{} `json:"deps,omitempty"`
+	Value any   `json:"value"`
+	Deps  []any `json:"deps,omitempty"`
 }
 
 // callbackValue stores a memoized callback function with its dependencies
 type callbackValue struct {
-	fn   interface{}
-	deps []interface{}
+	fn   any
+	deps []any
 }
 
 type atomAccessorValue struct {
-	getter interface{}
-	setter interface{}
+	getter any
+	setter any
 }
 
 // fetchValue stores fetch state and URL for a UseFetch hook call
@@ -156,28 +156,28 @@ type fetchValue struct {
 
 // funcHandlerValue stores a wrapped event handler function
 type funcHandlerValue struct {
-	fn      interface{} // The user's function (func(), func(string), func(js.Value), etc.)
-	wrapper interface{} // The wrapped js.Func (or equivalent)
+	fn      any // The user's function (func(), func(string), func(js.Value), etc.)
+	wrapper any // The wrapped js.Func (or equivalent)
 	cell    *funcHandlerCell
 }
 
 type funcHandlerCell struct {
 	owner  *Fiber
-	fn     interface{}
+	fn     any
 	fnVal  reflect.Value // cached reflect.Value of fn; updated whenever fn changes
 	fnType reflect.Type  // cached reflect.Type of fn; updated whenever fn changes
 }
 
 // RefValue represents a reference object that persists across renders.
 type RefValue struct {
-	Current interface{}
+	Current any
 }
 
 // FetchState represents the state of a fetch operation.
 type FetchState struct {
-	Data    interface{} // The fetched data
-	Error   string      // Error message if fetch failed
-	Loading bool        // Whether currently fetching
+	Data    any    // The fetched data
+	Error   string // Error message if fetch failed
+	Loading bool   // Whether currently fetching
 }
 
 // Hooks manages component hook state for a fiber.
@@ -201,8 +201,8 @@ type Hooks struct {
 	cleanupIndex  int
 	effectEpoch   int
 
-	states           []interface{} // Interleaved: state, pending, state, pending...
-	deps             [][]interface{}
+	states           []any // Interleaved: state, pending, state, pending...
+	deps             [][]any
 	memos            []memoizedValue
 	callbacks        []callbackValue
 	refs             []*RefValue        // Store refs separately to persist across renders
@@ -218,7 +218,7 @@ type Hooks struct {
 }
 
 // Attrs is a convenience type for component props.
-type Attrs map[string]interface{}
+type Attrs map[string]any
 
 // effectTagKind classifies the commit-phase work a fiber needs.  A one-byte
 // enum instead of a string: the tag is compared in the hottest commit branches

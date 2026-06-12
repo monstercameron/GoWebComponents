@@ -13,7 +13,7 @@ func TestMixedArgumentTagsNormalizeOptionsAndChildren(parseT *testing.T) {
 		Class("panel"),
 		"hello ",
 		Span(Class("value"), "world"),
-		[]interface{}{" ", Textf("%d", 2)},
+		[]any{" ", Textf("%d", 2)},
 	)
 
 	parseMarkup, parseErr := ui.RenderToString(parseNode)

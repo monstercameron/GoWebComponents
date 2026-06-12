@@ -36,7 +36,7 @@ func TestPatchStreamIdentityHelpersAndRawBuilders(parseTesting *testing.T) {
 	if _, parseErr := formatPatchStreamIdentityState(nil); parseErr == nil {
 		parseTesting.Fatal("expected nil patch identity state finalization to fail")
 	}
-	startPatchStreamIdentityOpArray(nil)
+	_ = startPatchStreamIdentityOpArray(nil)
 	clearPatchStreamIdentityState(nil)
 
 	parseState, parseStateErr := buildPatchStreamIdentityState(parseHeader, []string{"a"})

@@ -61,7 +61,7 @@ func TestResolveAdminOpsActionAuditEventType(parseT *testing.T) {
 		parseAdminOpsActionBackgroundJobRetry: "admin.ops.background_job.retry",
 		parseAdminOpsActionNotificationRetry:  "admin.ops.notification.retry",
 		parseAdminOpsActionWebhookReplay:      "admin.ops.webhook.replay",
-		parseAdminOpsAction("ops.unknown"):   "admin.ops.unknown",
+		parseAdminOpsAction("ops.unknown"):    "admin.ops.unknown",
 	}
 	for parseAction, parseExpectedEventKey := range parseExpectations {
 		if parseEventKey := parseResolveAdminOpsActionAuditEventType(parseAction); parseEventKey != parseExpectedEventKey {
@@ -69,4 +69,3 @@ func TestResolveAdminOpsActionAuditEventType(parseT *testing.T) {
 		}
 	}
 }
-

@@ -29,7 +29,6 @@ func TestBuildCanonicalRenderIRRootConventions(parseTesting *testing.T) {
 		},
 	}
 	for _, parseCase := range parseCases {
-		parseCase := parseCase
 		parseTesting.Run(parseCase.parseName, func(parseTesting *testing.T) {
 			parseCanonicalIR, parseCanonicalErr := BuildCanonicalRenderIR(parseCase.parseRenderOutput)
 			if parseCanonicalErr != nil {

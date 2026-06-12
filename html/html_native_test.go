@@ -25,7 +25,7 @@ func TestNativeToRuntimeCompactPropsEncodesStringAttrs(parseT *testing.T) {
 		parseT.Fatal("expected string-only props to use compact attrs")
 	}
 
-	parseChecks := map[string]interface{}{
+	parseChecks := map[string]any{
 		"id":         "field-id",
 		"class":      "field shell",
 		"key":        "node-1",
@@ -67,7 +67,7 @@ func TestNativeToRuntimeCompactPropsRejectsNoncompactProps(parseT *testing.T) {
 		{name: "value property", props: Props{Value: "cam@example.test"}},
 		{name: "boolean property", props: Props{Disabled: true}},
 		{name: "style map", props: Props{Style: map[string]string{"display": "grid"}}},
-		{name: "raw override", props: Props{Raw: map[string]interface{}{"data-raw": "yes"}}},
+		{name: "raw override", props: Props{Raw: map[string]any{"data-raw": "yes"}}},
 		{name: "event handler", props: Props{OnClick: ui.WrapHandler("click")}},
 	}
 
@@ -121,7 +121,7 @@ func TestNativeToRuntimePropsIncludesFieldsAndRawOverrides(parseT *testing.T) {
 		Style:        map[string]string{"display": "grid"},
 		Data:         map[string]string{"mode": "demo"},
 		Aria:         map[string]string{"label": "Email"},
-		Raw: map[string]interface{}{
+		Raw: map[string]any{
 			"class":    "raw-class",
 			"tabIndex": 9,
 			"data-raw": "yes",
@@ -137,7 +137,7 @@ func TestNativeToRuntimePropsIncludesFieldsAndRawOverrides(parseT *testing.T) {
 		OnBlur:    ui.WrapHandler("blur"),
 	})
 
-	parseChecks := map[string]interface{}{
+	parseChecks := map[string]any{
 		"id":           "field-id",
 		"class":        "raw-class",
 		"key":          "node-1",
@@ -375,7 +375,7 @@ func TestNativeConvenienceHelpers(parseT *testing.T) {
 	parseResourceHints := []struct {
 		node ui.Node
 		rel  string
-		as   interface{}
+		as   any
 	}{
 		{node: Preload("/bundle.wasm", "fetch"), rel: "preload", as: "fetch"},
 		{node: ModulePreload("/chunk.js"), rel: "modulepreload", as: "script"},

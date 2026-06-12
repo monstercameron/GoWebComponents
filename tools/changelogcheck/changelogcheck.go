@@ -26,7 +26,7 @@ func HasEntry(parseChangelog string, parseVersion string) bool {
 		return false
 	}
 
-	for _, parseLine := range strings.Split(parseChangelog, "\n") {
+	for parseLine := range strings.SplitSeq(parseChangelog, "\n") {
 		parseTrimmed := strings.TrimRight(parseLine, "\r")
 		if !strings.HasPrefix(parseTrimmed, "## ") {
 			continue
@@ -93,8 +93,8 @@ func LatestEntry(parseChangelog string) (parseHeader string, parseBody string, p
 			if strings.HasPrefix(parseTrimmed, "# ") && !strings.HasPrefix(parseTrimmed, "## ") {
 				continue
 			}
-			if strings.HasPrefix(parseTrimmed, "## ") {
-				parseHeader = strings.TrimPrefix(parseTrimmed, "## ")
+			if after, ok := strings.CutPrefix(parseTrimmed, "## "); ok {
+				parseHeader = after
 				parseFoundSection = true
 			}
 			continue

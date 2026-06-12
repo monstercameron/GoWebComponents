@@ -30,12 +30,12 @@ func TestLintHelperParsingAndFormatting(parseT *testing.T) {
 		parseT.Fatalf("expected issues array error, got %v", parseErr3)
 	}
 
-	parseIssue := parseLintIssueRecord(map[string]interface{}{
+	parseIssue := parseLintIssueRecord(map[string]any{
 		"FromLinter": json.Number("0"),
 		"Text":       "",
 		"Message":    "fallback message",
 		"Severity":   "",
-		"Pos": map[string]interface{}{
+		"Pos": map[string]any{
 			"Filename": filepath.ToSlash(filepath.Join(parseRoot, "pkg", "branch.go")),
 			"Line":     json.Number("8"),
 			"Column":   float64(4),
@@ -51,7 +51,7 @@ func TestLintHelperParsingAndFormatting(parseT *testing.T) {
 	if parseLintInt(json.Number("19")) != 19 || parseLintInt("bad") != 0 {
 		parseT.Fatalf("unexpected parseLintInt branches")
 	}
-	if parseStrings := parseLintStrings([]interface{}{" a ", "", 42}); len(parseStrings) != 2 || parseStrings[0] != "a" || parseStrings[1] != "42" {
+	if parseStrings := parseLintStrings([]any{" a ", "", 42}); len(parseStrings) != 2 || parseStrings[0] != "a" || parseStrings[1] != "42" {
 		parseT.Fatalf("unexpected parseLintStrings %#v", parseStrings)
 	}
 

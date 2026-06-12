@@ -85,8 +85,17 @@ it is unit-testable natively.
   diagnostic (crash containment) rather than killing the page.
 - Prefer the smallest root-cause fix; preserve useful diagnostics.
 
+## JSON wire compatibility
+
+Treat JSON tags on exported payloads, persisted records, generated metadata,
+and launcher config as wire contracts. Do not convert `omitempty` to `omitzero`
+or omit previously emitted zero-valued struct/time fields unless the payload
+contract explicitly changes and has a regression test for the new shape.
+
 ## Deprecations
 
 When deprecating a public API, keep it working and emit a one-time structured
 deprecation diagnostic that names the replacement, rather than removing or
-silently aliasing it. Legacy `gwc` flag aliases follow this pattern.
+silently aliasing it. `gwc lint` flags exported deprecated functions and
+methods that do not call `deprecation.Warn(...)`. Legacy `gwc` flag aliases
+follow this pattern.

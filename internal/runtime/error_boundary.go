@@ -47,7 +47,7 @@ func boundaryCapturedError(parseFiber *Fiber) error {
 }
 
 // recoverBoundaryError is a core package helper.
-func (parseRt *Runtime) recoverBoundaryError(parseSource *Fiber, parseRecovered interface{}, parsePhase boundaryPhase) (*Fiber, bool) {
+func (parseRt *Runtime) recoverBoundaryError(parseSource *Fiber, parseRecovered any, parsePhase boundaryPhase) (*Fiber, bool) {
 	parseBoundary := findNearestErrorBoundary(parseSource)
 	if parseBoundary == nil {
 		return nil, false
@@ -77,7 +77,7 @@ func (parseRt *Runtime) recoverBoundaryError(parseSource *Fiber, parseRecovered 
 }
 
 // normalizeBoundaryError is a core package helper.
-func normalizeBoundaryError(parseRecovered interface{}) error {
+func normalizeBoundaryError(parseRecovered any) error {
 	if parseErr, parseOk := parseRecovered.(error); parseOk {
 		return parseErr
 	}
@@ -148,11 +148,11 @@ func (parseRt *Runtime) invokeBoundaryOnError(parseBoundary *Fiber, parseErr err
 }
 
 // boundaryResetKeys is a core package helper.
-func boundaryResetKeys(parseProps map[string]interface{}) []interface{} {
+func boundaryResetKeys(parseProps map[string]any) []any {
 	if parseProps == nil {
 		return nil
 	}
-	parseKeys, _ := parseProps["resetKeys"].([]interface{})
+	parseKeys, _ := parseProps["resetKeys"].([]any)
 	return parseKeys
 }
 
@@ -202,7 +202,7 @@ func (parseRt *Runtime) renderBoundaryChildren(parseBoundary *Fiber) {
 		}
 		parseFallback := parseRt.renderBoundaryFallback(parseBoundary, parseErr)
 		if parseFallback != nil {
-			parseRt.reconcileChildren(parseBoundary, []interface{}{parseFallback})
+			parseRt.reconcileChildren(parseBoundary, []any{parseFallback})
 			return
 		}
 		parseRt.reconcileChildren(parseBoundary, emptyChildren)

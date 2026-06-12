@@ -167,7 +167,7 @@ func parseEnsureConversationPublicIDs(parseDb *sql.DB) error {
 }
 
 func parseAssignConversationPublicID(parseDb *sql.DB, parseConversationID int64) error {
-	for parseAttempts := 0; parseAttempts < 8; parseAttempts++ {
+	for range 8 {
 		parsePublicID := strings.TrimSpace(newConversationPublicID())
 		if parsePublicID == "" {
 			continue
@@ -224,7 +224,7 @@ func parseBackupIncompatibleStoreFiles(parsePath string) (string, error) {
 }
 
 func parseRunBestEffortStatements(parseDb *sql.DB, parseStatements string) {
-	for _, parseRawStatement := range strings.Split(parseStatements, ";") {
+	for parseRawStatement := range strings.SplitSeq(parseStatements, ";") {
 		parseStatement := strings.TrimSpace(parseRawStatement)
 		if parseStatement == "" {
 			continue
@@ -324,7 +324,7 @@ func (parseS *Store) parseResolveConversationRoute(parseUserID int64, parsePubli
 
 // createConversation inserts a new conversation row and returns its id.
 func (parseS *Store) parseCreateConversation(parseUserID int64) (int64, error) {
-	for parseAttempts := 0; parseAttempts < 8; parseAttempts++ {
+	for range 8 {
 		parsePublicID := strings.TrimSpace(newConversationPublicID())
 		if parsePublicID == "" {
 			continue

@@ -46,25 +46,25 @@ func (parseN *WASMDOMNode) Value() js.Value {
 
 // WASMDOMAdapter implements runtime.DOMAdapter for browser/WASM.
 type WASMDOMAdapter struct {
-	document                  js.Value
-	isDocumentBound           bool
-	createElement             js.Value
-	isCreateElementBound      bool
-	createTextNode            js.Value
-	isCreateTextNodeBound     bool
-	querySelector             js.Value
-	isQuerySelectorBound      bool
-	querySelectorAll          js.Value
-	isQuerySelectorAllBound   bool
-	getElementByID            js.Value
-	isGetElementByIDBound     bool
-	getByClassName            js.Value
-	isGetByClassNameBound     bool
-	getByTagName              js.Value
-	isGetByTagNameBound       bool
-	storeTemplate             js.Value
-	storeTemplateContent      js.Value
-	isStoreTemplateBound      bool
+	document                js.Value
+	isDocumentBound         bool
+	createElement           js.Value
+	isCreateElementBound    bool
+	createTextNode          js.Value
+	isCreateTextNodeBound   bool
+	querySelector           js.Value
+	isQuerySelectorBound    bool
+	querySelectorAll        js.Value
+	isQuerySelectorAllBound bool
+	getElementByID          js.Value
+	isGetElementByIDBound   bool
+	getByClassName          js.Value
+	isGetByClassNameBound   bool
+	getByTagName            js.Value
+	isGetByTagNameBound     bool
+	storeTemplate           js.Value
+	storeTemplateContent    js.Value
+	isStoreTemplateBound    bool
 	// Batch operation support
 	batchStack             []wasmBatchState
 	storeBatchChildrenPool [][]interface{}
@@ -1091,9 +1091,9 @@ func (parseD *wasmDeadline) DidTimeout() bool {
 
 // WASMBrowserState implements runtime.BrowserState for browser/WASM.
 type WASMBrowserState struct {
-	window              js.Value
-	popStateHandle      js.Func // retained so it can be released and is not GC'd
-	popStateRegistered  bool    // true once a popstate listener has been set
+	window             js.Value
+	popStateHandle     js.Func // retained so it can be released and is not GC'd
+	popStateRegistered bool    // true once a popstate listener has been set
 }
 
 var _ runtime.BrowserState = (*WASMBrowserState)(nil)

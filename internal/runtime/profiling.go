@@ -325,10 +325,7 @@ func (parseRt *Runtime) recordFirstInteraction(parseEventKind string) {
 	if parseRt.profiling.startupStartedAt.IsZero() || parseRt.profiling.firstInteractionCaptured {
 		return
 	}
-	parseDurationNs := time.Since(parseRt.profiling.startupStartedAt).Nanoseconds()
-	if parseDurationNs < 0 {
-		parseDurationNs = 0
-	}
+	parseDurationNs := max(time.Since(parseRt.profiling.startupStartedAt).Nanoseconds(), 0)
 	parseRt.profiling.firstInteractionCaptured = true
 	parseRt.profiling.firstInteractionDurationNs = parseDurationNs
 	parseRt.profiling.firstInteractionEvent = strings.TrimSpace(parseEventKind)

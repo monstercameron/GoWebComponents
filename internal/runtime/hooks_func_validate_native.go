@@ -1,12 +1,11 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package runtime
 
 import "reflect"
 
 // isValidHookFunction is a core package helper.
-func isValidHookFunction(parseHookFn interface{}) bool {
+func isValidHookFunction(parseHookFn any) bool {
 	switch parseHookFn.(type) {
 	case func(), func(string), func() error:
 		return true

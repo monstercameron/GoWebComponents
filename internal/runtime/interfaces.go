@@ -34,8 +34,8 @@ type DOMAdapter interface {
 	CreateTextNode(text string) DOMNode
 	SetAttribute(node DOMNode, name, value string)
 	RemoveAttribute(node DOMNode, name string)
-	SetProperty(node DOMNode, name string, value interface{})
-	GetProperty(node DOMNode, name string) interface{}
+	SetProperty(node DOMNode, name string, value any)
+	GetProperty(node DOMNode, name string) any
 
 	// Tree manipulation
 	AppendChild(parent, child DOMNode)
@@ -57,7 +57,7 @@ type DOMAdapter interface {
 	SetStyles(node DOMNode, styles map[string]string)
 
 	// Function wrapping
-	WrapFunction(fn interface{}) interface{}
+	WrapFunction(fn any) any
 
 	// NOTE: the DOM adapter intentionally exposes no raw-HTML sink
 	// (SetInnerHTML/innerHTML). The reconciler builds the tree exclusively
@@ -105,8 +105,8 @@ type Scheduler interface {
 // BrowserState abstracts browser state APIs.
 type BrowserState interface {
 	// History
-	PushState(state interface{}, title, url string)
-	ReplaceState(state interface{}, title, url string)
+	PushState(state any, title, url string)
+	ReplaceState(state any, title, url string)
 	GetCurrentPath() string
 	OnPopState(callback func(path string))
 

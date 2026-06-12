@@ -1,5 +1,7 @@
 package runtime
 
+import "maps"
+
 import "sync/atomic"
 
 var nextContextID int64
@@ -7,7 +9,7 @@ var nextContextID int64
 // ContextDescriptor identifies a context value stream within a component tree.
 type ContextDescriptor struct {
 	ID           int64
-	DefaultValue interface{}
+	DefaultValue any
 }
 
 // ContextProviderType marks provider elements in the runtime tree.
@@ -16,7 +18,7 @@ type ContextProviderType struct {
 }
 
 // NewContextDescriptor creates a new context descriptor with a unique runtime ID.
-func NewContextDescriptor(parseDefaultValue interface{}) *ContextDescriptor {
+func NewContextDescriptor(parseDefaultValue any) *ContextDescriptor {
 	return &ContextDescriptor{
 		ID:           atomic.AddInt64(&nextContextID, 1),
 		DefaultValue: parseDefaultValue,
@@ -29,7 +31,7 @@ func NewContextProviderType(parseDescriptor *ContextDescriptor) *ContextProvider
 }
 
 // GoUseContextValue reads the nearest provider value for a context descriptor.
-func GoUseContextValue(parseDescriptor *ContextDescriptor) interface{} {
+func GoUseContextValue(parseDescriptor *ContextDescriptor) any {
 	if parseDescriptor == nil {
 		panic(actionableContextDescriptorNilPanic("GoUseContextValue"))
 	}
@@ -48,7 +50,7 @@ func GoUseContextValue(parseDescriptor *ContextDescriptor) interface{} {
 }
 
 // resolveContextValue is a core package helper.
-func resolveContextValue(parseFiber *Fiber, parseDescriptor *ContextDescriptor) interface{} {
+func resolveContextValue(parseFiber *Fiber, parseDescriptor *ContextDescriptor) any {
 	if parseDescriptor == nil {
 		return nil
 	}
@@ -63,11 +65,9 @@ func resolveContextValue(parseFiber *Fiber, parseDescriptor *ContextDescriptor) 
 }
 
 // deriveContextValues is a core package helper.
-func deriveContextValues(parseParentValues map[int64]interface{}, parseContextID int64, parseValue interface{}) map[int64]interface{} {
-	parseDerived := make(map[int64]interface{}, len(parseParentValues)+1)
-	for parseKey, parseExistingValue := range parseParentValues {
-		parseDerived[parseKey] = parseExistingValue
-	}
+func deriveContextValues(parseParentValues map[int64]any, parseContextID int64, parseValue any) map[int64]any {
+	parseDerived := make(map[int64]any, len(parseParentValues)+1)
+	maps.Copy(parseDerived, parseParentValues)
 	parseDerived[parseContextID] = parseValue
 	return parseDerived
 }

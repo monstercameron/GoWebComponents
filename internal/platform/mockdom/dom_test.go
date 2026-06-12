@@ -231,7 +231,7 @@ func TestMockDOMAdapterConcurrentOperationCapture(parseT *testing.T) {
 	}()
 
 	parseWaitGroup.Add(getWorkerCount)
-	for parseIndex := 0; parseIndex < getWorkerCount; parseIndex++ {
+	for parseIndex := range getWorkerCount {
 		go func(parseWorkerIndex int) {
 			defer parseWaitGroup.Done()
 			parseChild := parseAdapter.CreateElement("span")

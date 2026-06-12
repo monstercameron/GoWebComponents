@@ -25,7 +25,7 @@ type componentIdentityCacheValue struct {
 }
 
 // getComponentHandle is a core package helper.
-func getComponentHandle(parseComponent interface{}) *runtime.ComponentType {
+func getComponentHandle(parseComponent any) *runtime.ComponentType {
 	parsePrettyName, parseQualifiedName := describeComponentIdentity(parseComponent)
 	parseIdentity := parseQualifiedName
 	if strings.TrimSpace(parseIdentity) == "" {
@@ -49,30 +49,30 @@ func getComponentHandle(parseComponent interface{}) *runtime.ComponentType {
 }
 
 // buildComponentRenderer prepares one reusable renderer closure for a component implementation signature.
-func buildComponentRenderer(parseComponent interface{}) func(interface{}, map[string]interface{}) *runtime.Element {
+func buildComponentRenderer(parseComponent any) func(any, map[string]any) *runtime.Element {
 	if parseComponent == nil {
 		return nil
 	}
 
 	switch parseComponent.(type) {
 	case func() Node:
-		return func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+		return func(parseImplementation any, parseRawProps map[string]any) *runtime.Element {
 			parseTypedImplementation, parseOk := parseImplementation.(func() Node)
 			if !parseOk {
 				return renderComponent(parseImplementation, parseRawProps)
 			}
 			return parseTypedImplementation()
 		}
-	case func(map[string]interface{}) Node:
-		return func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
-			parseTypedImplementation, parseOk := parseImplementation.(func(map[string]interface{}) Node)
+	case func(map[string]any) Node:
+		return func(parseImplementation any, parseRawProps map[string]any) *runtime.Element {
+			parseTypedImplementation, parseOk := parseImplementation.(func(map[string]any) Node)
 			if !parseOk {
 				return renderComponent(parseImplementation, parseRawProps)
 			}
 			return parseTypedImplementation(getComponentMapProps(parseRawProps))
 		}
 	case func(runtime.Attrs) Node:
-		return func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+		return func(parseImplementation any, parseRawProps map[string]any) *runtime.Element {
 			parseTypedImplementation, parseOk := parseImplementation.(func(runtime.Attrs) Node)
 			if !parseOk {
 				return renderComponent(parseImplementation, parseRawProps)
@@ -83,16 +83,16 @@ func buildComponentRenderer(parseComponent interface{}) func(interface{}, map[st
 
 	parseComponentType := reflect.TypeOf(parseComponent)
 	if parseComponentType == nil || parseComponentType.Kind() != reflect.Func {
-		return func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+		return func(parseImplementation any, parseRawProps map[string]any) *runtime.Element {
 			return renderComponent(parseImplementation, parseRawProps)
 		}
 	}
 	if parseCached, parseOk := getComponentRenderCache.Load(parseComponentType); parseOk {
-		return parseCached.(func(interface{}, map[string]interface{}) *runtime.Element)
+		return parseCached.(func(any, map[string]any) *runtime.Element)
 	}
 
 	parseMeta := getComponentMeta(parseComponentType)
-	parseRenderer := func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+	parseRenderer := func(parseImplementation any, parseRawProps map[string]any) *runtime.Element {
 		parseImplementationValue := reflect.ValueOf(parseImplementation)
 		if !parseImplementationValue.IsValid() || parseImplementationValue.Kind() != reflect.Func {
 			panic(actionableCreateElementPanic("ui.CreateElement requires a component function or ui.Node"))
@@ -116,11 +116,11 @@ func buildComponentRenderer(parseComponent interface{}) func(interface{}, map[st
 	}
 
 	parseStored, _ := getComponentRenderCache.LoadOrStore(parseComponentType, parseRenderer)
-	return parseStored.(func(interface{}, map[string]interface{}) *runtime.Element)
+	return parseStored.(func(any, map[string]any) *runtime.Element)
 }
 
 // describeComponentIdentity is a core package helper.
-func describeComponentIdentity(parseComponent interface{}) (string, string) {
+func describeComponentIdentity(parseComponent any) (string, string) {
 	if parseComponent == nil {
 		return "", ""
 	}

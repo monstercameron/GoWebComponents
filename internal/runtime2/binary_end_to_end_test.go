@@ -167,4 +167,3 @@ func TestBinaryTransportEndToEndHostSnapshotToWorkerUpdate(parseT *testing.T) {
 		parseT.Fatalf("expected binary end-to-end worker update to produce patch-ready, got %+v", getUpdateResult)
 	}
 }
-

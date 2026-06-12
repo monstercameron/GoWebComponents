@@ -195,7 +195,7 @@ func seedProductComments() []seedCommentRecord {
 	parseResult := make([]seedCommentRecord, 0, 12)
 	for _, parseProduct := range parseProducts {
 		parseCount := 1 + parseRng.Intn(4)
-		for parseIndex := 0; parseIndex < parseCount; parseIndex++ {
+		for parseIndex := range parseCount {
 			parseTemplate := parseTemplates[(parseIndex+parseRng.Intn(len(parseTemplates)))%len(parseTemplates)]
 			parseAuthor := parseAuthors[(parseIndex+parseRng.Intn(len(parseAuthors)))%len(parseAuthors)]
 			parseResult = append(parseResult, seedCommentRecord{

@@ -144,7 +144,7 @@ func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig Mar
 			parseClassName = joinMarkdownClasses(parseClassName, parseClasses.OrderedList)
 			parseProps := propsWithClass(parseClassName)
 			if parseTyped.Start != 1 {
-				parseProps.Raw = map[string]interface{}{"start": parseTyped.Start}
+				parseProps.Raw = map[string]any{"start": parseTyped.Start}
 			}
 			return Tag("ol", parseProps, parseItems...), true
 		}

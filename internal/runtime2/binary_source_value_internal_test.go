@@ -10,9 +10,9 @@ import (
 // TestBuildBinarySourceValueCapacityHints verifies the coarse size hints hit every branch and stay non-zero for supported shapes.
 func TestBuildBinarySourceValueCapacityHints(parseT *testing.T) {
 	type parseExample struct {
-		Name  string
-		Count int
-		hidden bool
+		Name   string
+		Count  int
+		hidden bool //nolint:unused // exercises unexported-field handling in the reflect capacity-hint walk
 	}
 
 	parseCases := []struct {
@@ -379,7 +379,7 @@ func TestBuildBinarySourceValueReflectInto(parseT *testing.T) {
 		parseT.Fatalf("expected exported fields only, got %#v", parseStructDecoded)
 	}
 
-	parseType := reflect.TypeOf(parseExample{})
+	parseType := reflect.TypeFor[parseExample]()
 	if parseType.NumField() != 3 {
 		parseT.Fatal("unexpected test type shape")
 	}

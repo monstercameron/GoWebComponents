@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package router_test
 
@@ -36,28 +35,29 @@ func ExampleNavigate() {
 	router.Navigate("/about")
 }
 
+// exampleLinkComponent is a component whose onclick handler navigates without
+// a full page reload. Hooks like ui.UseEvent belong at the top level of a
+// component function.
+func exampleLinkComponent(parseProps router.Attrs) *router.Element {
+	handleClick := ui.UseEvent(func(parseEvent ui.Event) {
+		parseEvent.PreventDefault()
+		router.Navigate("/about")
+	})
+
+	return html.A(
+		html.Props{
+			Href:    "#",
+			OnClick: handleClick,
+		},
+		html.Text("Go to About"),
+	)
+}
+
 func Example_navigationLink() {
 	// To create a link that navigates without full page reload,
-	// use a component with an onclick handler and ui.UseEvent.
-
-	// Define a component
-	parseLinkComponent := func(parseProps router.Attrs) *router.Element {
-		handleClick := ui.UseEvent(func(parseEvent ui.Event) {
-			parseEvent.PreventDefault()
-			router.Navigate("/about")
-		})
-
-		return html.A(
-			html.Props{
-				Href:    "#",
-				OnClick: handleClick,
-			},
-			html.Text("Go to About"),
-		)
-	}
+	// use a component with an onclick handler and ui.UseEvent
+	// (see exampleLinkComponent above).
 
 	// In a real app, you would render this component with ui.Render.
-
-	// For this example, we just suppress the unused variable warning
-	_ = parseLinkComponent
+	_ = exampleLinkComponent
 }

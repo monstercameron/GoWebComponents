@@ -1,11 +1,10 @@
 //go:build js && wasm
-// +build js,wasm
 
 package ui
 
 import (
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"fmt"
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"syscall/js"
 )
 

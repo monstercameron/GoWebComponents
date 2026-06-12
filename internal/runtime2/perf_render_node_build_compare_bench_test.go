@@ -13,13 +13,13 @@ var storeCanonicalRenderNodeBenchmarkSink *canonicalRenderNode
 // buildRenderNodeMapBenchmarkPayload builds one host-element-heavy map payload used by render-node parse compare benchmarks.
 func buildRenderNodeMapBenchmarkPayload() map[string]any {
 	buildItems := make([]any, 0, 48)
-	for parseIndex := 0; parseIndex < 48; parseIndex++ {
+	for parseIndex := range 48 {
 		buildItems = append(buildItems, map[string]any{
 			"kind": "host-element",
 			"tag":  "li",
 			"key":  "row-" + strconv.Itoa(parseIndex),
 			"props": map[string]any{
-				"class": "row",
+				"class":  "row",
 				"data-i": strconv.Itoa(parseIndex),
 			},
 			"children": []any{
@@ -34,13 +34,13 @@ func buildRenderNodeMapBenchmarkPayload() map[string]any {
 		"kind": "host-element",
 		"tag":  "section",
 		"props": map[string]any{
-			"class": "panel",
+			"class":      "panel",
 			"aria-label": "benchmark",
 		},
 		"children": []any{
 			map[string]any{
-				"kind": "host-element",
-				"tag":  "ul",
+				"kind":     "host-element",
+				"tag":      "ul",
 				"children": buildItems,
 			},
 		},

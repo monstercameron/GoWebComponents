@@ -171,12 +171,12 @@ func readDoctorStartupEvidence(parsePath string, parseRelPath string) (doctorSta
 	if parseErr != nil {
 		return doctorStartupEvidence{}, parseErr
 	}
-	var parsePayload map[string]interface{}
+	var parsePayload map[string]any
 	if parseErr2 := json.Unmarshal(parseContent, &parsePayload); parseErr2 != nil {
 		return doctorStartupEvidence{}, parseErr2
 	}
 	parseEvidence := doctorStartupEvidence{RelPath: parseRelPath}
-	if parseStartup, parseOk := parsePayload["startup"].(map[string]interface{}); parseOk {
+	if parseStartup, parseOk := parsePayload["startup"].(map[string]any); parseOk {
 		if parseReadyMs, parseOk2 := parseStartup["readyMs"].(float64); parseOk2 {
 			parseEvidence.ReadyMs = &parseReadyMs
 		}

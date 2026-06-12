@@ -228,7 +228,7 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 }
 
 // renderChildrenToString is a core package helper.
-func renderChildrenToString(parseBuilder *strings.Builder, parseChildren []interface{}) error {
+func renderChildrenToString(parseBuilder *strings.Builder, parseChildren []any) error {
 	for _, parseChild := range parseChildren {
 		switch parseValue := parseChild.(type) {
 		case nil:
@@ -261,7 +261,7 @@ func resolveComponentElement(parseElement *Element) (*Element, error) {
 	if parseTyp.NumOut() != 1 {
 		return nil, fmt.Errorf("ssr: component %T must return exactly one value", parseElement.Type)
 	}
-	if parseTyp.Out(0) != reflect.TypeOf((*Element)(nil)) {
+	if parseTyp.Out(0) != reflect.TypeFor[*Element]() {
 		return nil, fmt.Errorf("ssr: component %T must return *runtime.Element", parseElement.Type)
 	}
 
@@ -288,7 +288,7 @@ func resolveComponentElement(parseElement *Element) (*Element, error) {
 }
 
 // buildComponentArg is a core package helper.
-func buildComponentArg(parseTarget reflect.Type, parseProps map[string]interface{}) (reflect.Value, error) {
+func buildComponentArg(parseTarget reflect.Type, parseProps map[string]any) (reflect.Value, error) {
 	if parseProps == nil {
 		return reflect.Zero(parseTarget), nil
 	}
@@ -307,7 +307,7 @@ func buildComponentArg(parseTarget reflect.Type, parseProps map[string]interface
 }
 
 // serializeProps is a core package helper.
-func serializeProps(parseProps map[string]interface{}) []string {
+func serializeProps(parseProps map[string]any) []string {
 	if len(parseProps) == 0 {
 		return nil
 	}
@@ -337,7 +337,7 @@ func serializeProps(parseProps map[string]interface{}) []string {
 // It is the streaming twin of serializeProps: per-attribute it avoids the
 // intermediate `name="value"` string (and the slice holding them) that the
 // builder would immediately copy — the serializer's largest allocation source.
-func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]interface{}) {
+func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]any) {
 	if len(parseProps) == 0 {
 		return
 	}
@@ -383,7 +383,7 @@ func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]interfac
 }
 
 // shouldSkipSSRProp is a core package helper.
-func shouldSkipSSRProp(parseKey string, parseValue interface{}) bool {
+func shouldSkipSSRProp(parseKey string, parseValue any) bool {
 	if parseKey == "children" || parseKey == "key" || parseValue == nil {
 		return true
 	}
@@ -411,7 +411,7 @@ func normalizeSSRAttrName(parseKey string) string {
 }
 
 // serializeSSRAttr is a core package helper.
-func serializeSSRAttr(parseName string, parseValue interface{}) (string, bool) {
+func serializeSSRAttr(parseName string, parseValue any) (string, bool) {
 	// Finding #57: reject attribute names that do not conform to the HTML/XML
 	// attribute name production to prevent injection via a crafted name.
 	if !isValidSSRAttrName(parseName) {

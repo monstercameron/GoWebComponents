@@ -35,11 +35,7 @@ func TestDevLoopHotReloadAndAssetSwapE2E(parseT *testing.T) {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
 	parseLauncher := launcher{repoRoot: parseRepoRoot}
-	parseTargetDir := filepath.Join(defaultGeneratedScaffoldRoot(), "test-dev-loop-e2e")
-	_ = os.RemoveAll(parseTargetDir)
-	parseT.Cleanup(func() {
-		_ = os.RemoveAll(parseTargetDir)
-	})
+	parseTargetDir := filepath.Join(parseT.TempDir(), "test-dev-loop-e2e")
 
 	parseSelection := startSelection{
 		Preset: startPreset{

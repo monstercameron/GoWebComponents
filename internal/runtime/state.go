@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 )
 
@@ -9,7 +11,7 @@ import (
 // Each atom has a unique ID and tracks which fibers are subscribed to it.
 type AtomRegistry struct {
 	mu            sync.RWMutex
-	atoms         map[string]interface{}
+	atoms         map[string]any
 	subscriptions map[string]map[*Fiber]bool // atomID -> set of subscribed fibers
 	derived       map[string]derivedAtom
 	dependents    map[string]map[string]bool // source atom id -> derived ids
@@ -17,7 +19,7 @@ type AtomRegistry struct {
 
 type derivedAtom struct {
 	deps       []string
-	compute    func() interface{}
+	compute    func() any
 	active     bool
 	generation uint64 // incremented each time the entry is replaced by RegisterDerivedAtom
 }
@@ -25,7 +27,7 @@ type derivedAtom struct {
 // NewAtomRegistry creates a new atom registry.
 func NewAtomRegistry() *AtomRegistry {
 	return &AtomRegistry{
-		atoms:         make(map[string]interface{}),
+		atoms:         make(map[string]any),
 		subscriptions: make(map[string]map[*Fiber]bool),
 		derived:       make(map[string]derivedAtom),
 		dependents:    make(map[string]map[string]bool),
@@ -33,17 +35,15 @@ func NewAtomRegistry() *AtomRegistry {
 }
 
 // RegisterDerivedAtom registers or replaces a derived atom and computes its current value.
-func (parseAr *AtomRegistry) RegisterDerivedAtom(parseId string, parseDeps []string, parseCompute func() interface{}) error {
+func (parseAr *AtomRegistry) RegisterDerivedAtom(parseId string, parseDeps []string, parseCompute func() any) error {
 	if parseAr == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
 	if parseCompute == nil {
 		return fmt.Errorf("derived atom %s compute function cannot be nil", parseId)
 	}
-	for _, parseDep := range parseDeps {
-		if parseDep == parseId {
-			return fmt.Errorf("derived atom %s cannot depend on itself", parseId)
-		}
+	if slices.Contains(parseDeps, parseId) {
+		return fmt.Errorf("derived atom %s cannot depend on itself", parseId)
 	}
 
 	parseAr.mu.Lock()
@@ -106,7 +106,7 @@ func (parseAr *AtomRegistry) hasDerivedDependencyPathLocked(parseStart string, p
 }
 
 // GetAtom retrieves an atom's current value.
-func (parseAr *AtomRegistry) GetAtom(parseId string) (interface{}, bool) {
+func (parseAr *AtomRegistry) GetAtom(parseId string) (any, bool) {
 	parseAr.mu.RLock()
 	parseAtom, parseOk := parseAr.atoms[parseId]
 	parseAr.mu.RUnlock()
@@ -117,7 +117,7 @@ func (parseAr *AtomRegistry) GetAtom(parseId string) (interface{}, bool) {
 }
 
 // SetAtom updates an atom's value and returns subscribed fibers.
-func (parseAr *AtomRegistry) SetAtom(parseId string, parseValue interface{}) []*Fiber {
+func (parseAr *AtomRegistry) SetAtom(parseId string, parseValue any) []*Fiber {
 	parseAr.mu.Lock()
 
 	// Update or create atom
@@ -138,7 +138,7 @@ func (parseAr *AtomRegistry) SetAtom(parseId string, parseValue interface{}) []*
 }
 
 // setAtomAndNotify is a core package helper.
-func (parseAr *AtomRegistry) setAtomAndNotify(parseId string, parseValue interface{}, parseNotify func(*Fiber)) {
+func (parseAr *AtomRegistry) setAtomAndNotify(parseId string, parseValue any, parseNotify func(*Fiber)) {
 	if parseNotify == nil {
 		_ = parseAr.SetAtom(parseId, parseValue)
 		return
@@ -157,25 +157,12 @@ func (parseAr *AtomRegistry) setAtomAndNotify(parseId string, parseValue interfa
 }
 
 // setValueAndCollectSubscribers is a core package helper.
-func (parseAr *AtomRegistry) setValueAndCollectSubscribers(parseId string, parseValue interface{}) []*Fiber {
+func (parseAr *AtomRegistry) setValueAndCollectSubscribers(parseId string, parseValue any) []*Fiber {
 	parseAr.mu.Lock()
 	parseAr.atoms[parseId] = parseValue
 	parseFibers := parseAr.collectSubscribersLocked(parseId)
 	parseAr.mu.Unlock()
 	return parseFibers
-}
-
-// setValueAndCollectSubscribersIfChanged is a core package helper.
-func (parseAr *AtomRegistry) setValueAndCollectSubscribersIfChanged(parseId string, parseValue interface{}) ([]*Fiber, bool) {
-	parseAr.mu.Lock()
-	if parsePrevious, parseOk := parseAr.atoms[parseId]; parseOk && fastEqual(parsePrevious, parseValue) {
-		parseAr.mu.Unlock()
-		return nil, false
-	}
-	parseAr.atoms[parseId] = parseValue
-	parseFibers := parseAr.collectSubscribersLocked(parseId)
-	parseAr.mu.Unlock()
-	return parseFibers, true
 }
 
 // collectSubscribersLocked is a core package helper.
@@ -251,7 +238,7 @@ func (parseAr *AtomRegistry) recomputeDerived(parseId string, parseTrail map[str
 func (parseAr *AtomRegistry) setDerivedValueIfGenerationMatches(
 	parseId string,
 	parseExpectedGen uint64,
-	parseValue interface{},
+	parseValue any,
 ) ([]*Fiber, bool) {
 	parseAr.mu.Lock()
 	parseCurrent, parseOk := parseAr.derived[parseId]
@@ -309,7 +296,7 @@ func notifyFibersUnique(parseFibers []*Fiber, parseNotify func(*Fiber)) {
 }
 
 // InitAtom initializes an atom if it doesn't exist.
-func (parseAr *AtomRegistry) InitAtom(parseId string, parseInitialValue interface{}) {
+func (parseAr *AtomRegistry) InitAtom(parseId string, parseInitialValue any) {
 	parseAr.mu.Lock()
 	if _, parseExists := parseAr.atoms[parseId]; !parseExists {
 		parseAr.atoms[parseId] = parseInitialValue
@@ -449,7 +436,7 @@ func (parseAr *AtomRegistry) GetAtomCount() int {
 }
 
 // Snapshot returns a shallow copy of all atom values currently stored.
-func (parseAr *AtomRegistry) Snapshot() map[string]interface{} {
+func (parseAr *AtomRegistry) Snapshot() map[string]any {
 	if parseAr == nil {
 		return nil
 	}
@@ -457,19 +444,17 @@ func (parseAr *AtomRegistry) Snapshot() map[string]interface{} {
 	parseAr.mu.RLock()
 	defer parseAr.mu.RUnlock()
 	if len(parseAr.atoms) == 0 {
-		return map[string]interface{}{}
+		return map[string]any{}
 	}
 
-	parseSnapshot := make(map[string]interface{}, len(parseAr.atoms))
-	for parseId, parseValue := range parseAr.atoms {
-		parseSnapshot[parseId] = parseValue
-	}
+	parseSnapshot := make(map[string]any, len(parseAr.atoms))
+	maps.Copy(parseSnapshot, parseAr.atoms)
 	return parseSnapshot
 }
 
 // RestoreSnapshot merges atom values from snapshot and returns subscribed fibers
 // that should be notified about the updates.
-func (parseAr *AtomRegistry) RestoreSnapshot(parseSnapshot map[string]interface{}) []*Fiber {
+func (parseAr *AtomRegistry) RestoreSnapshot(parseSnapshot map[string]any) []*Fiber {
 	if parseAr == nil || len(parseSnapshot) == 0 {
 		return nil
 	}
@@ -500,7 +485,7 @@ func (parseAr *AtomRegistry) RestoreSnapshot(parseSnapshot map[string]interface{
 // GoUseAtom provides access to global state with fine-grained reactivity.
 // Unlike useState which is local to a component, atoms are shared across components.
 // When an atom updates, only components that use that specific atom re-render.
-func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (func() T, func(interface{})) {
+func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (func() T, func(any)) {
 	if parseRt.atomRegistry == nil {
 		panic(actionableGoUseAtomRegistryPanic())
 	}
@@ -588,7 +573,7 @@ func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (fu
 			return parseInitialValue
 		}
 
-		set := func(parseNewValueOrUpdater interface{}) {
+		set := func(parseNewValueOrUpdater any) {
 			apply := func(parseUpdateOrigin string) {
 				parseCurrentValue := get()
 				parseNewValue, parseOk3 := resolveStateUpdateValue(parseCurrentValue, parseNewValueOrUpdater, parseNilableState)
@@ -619,7 +604,7 @@ func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (fu
 	}
 
 	get, _ := parseHooks.atomFuncs[parseAtomIdx].getter.(func() T)
-	set, _ := parseHooks.atomFuncs[parseAtomIdx].setter.(func(interface{}))
+	set, _ := parseHooks.atomFuncs[parseAtomIdx].setter.(func(any))
 	if get == nil || set == nil {
 		panic(actionableGoUseAtomAccessorPanic())
 	}
@@ -656,7 +641,7 @@ func (parseRt *Runtime) CleanupAtomSubscriptions(parseFiber *Fiber) {
 }
 
 // GetAtomValue is a helper to get an atom value directly (for debugging/testing)
-func (parseRt *Runtime) GetAtomValue(parseId string) (interface{}, bool) {
+func (parseRt *Runtime) GetAtomValue(parseId string) (any, bool) {
 	if parseRt.atomRegistry == nil {
 		return nil, false
 	}
@@ -664,7 +649,7 @@ func (parseRt *Runtime) GetAtomValue(parseId string) (interface{}, bool) {
 }
 
 // SetAtomValue is a helper to set an atom value directly (for debugging/testing)
-func (parseRt *Runtime) SetAtomValue(parseId string, parseValue interface{}) error {
+func (parseRt *Runtime) SetAtomValue(parseId string, parseValue any) error {
 	if parseRt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
@@ -686,7 +671,7 @@ func (parseRt *Runtime) SetAtomValue(parseId string, parseValue interface{}) err
 }
 
 // RegisterDerivedAtom is a core package helper.
-func (parseRt *Runtime) RegisterDerivedAtom(parseId string, parseDeps []string, parseCompute func() interface{}) error {
+func (parseRt *Runtime) RegisterDerivedAtom(parseId string, parseDeps []string, parseCompute func() any) error {
 	if parseRt == nil || parseRt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
@@ -694,16 +679,16 @@ func (parseRt *Runtime) RegisterDerivedAtom(parseId string, parseDeps []string, 
 }
 
 // SnapshotAtoms returns a copy of all currently registered atoms.
-func (parseRt *Runtime) SnapshotAtoms() map[string]interface{} {
+func (parseRt *Runtime) SnapshotAtoms() map[string]any {
 	if parseRt == nil || parseRt.atomRegistry == nil {
-		return map[string]interface{}{}
+		return map[string]any{}
 	}
 	return parseRt.atomRegistry.Snapshot()
 }
 
 // RestoreAtomSnapshot merges atom values from snapshot and schedules updates for
 // any subscribed fibers.
-func (parseRt *Runtime) RestoreAtomSnapshot(parseSnapshot map[string]interface{}) error {
+func (parseRt *Runtime) RestoreAtomSnapshot(parseSnapshot map[string]any) error {
 	if parseRt == nil || parseRt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}

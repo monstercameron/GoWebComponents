@@ -5,7 +5,7 @@ import "testing"
 func TestFiberCreation(parseT *testing.T) {
 	parseFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dirty:  true,
 	}
 
@@ -49,8 +49,8 @@ func TestFiberTreeStructure(parseT *testing.T) {
 
 func TestHooksInitialization(parseT *testing.T) {
 	parseHooks := &Hooks{
-		states: make([]interface{}, 0),
-		deps:   make([][]interface{}, 0),
+		states: make([]any, 0),
+		deps:   make([][]any, 0),
 		index:  0,
 	}
 
@@ -68,12 +68,12 @@ func TestHooksInitialization(parseT *testing.T) {
 }
 
 func TestElementCreation(parseT *testing.T) {
-	parseProps := map[string]interface{}{
+	parseProps := map[string]any{
 		"id":    "test-element",
 		"class": "container",
 	}
 
-	parseChildren := []interface{}{
+	parseChildren := []any{
 		"Hello World",
 	}
 

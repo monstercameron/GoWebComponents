@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package routertest
 
@@ -12,10 +11,10 @@ import (
 type Fixture = base.Fixture
 type Inspection = base.Inspection
 
-func NewHash(parseTb stdtesting.TB, parseOptions ...interface{}) *Fixture {
+func NewHash(parseTb stdtesting.TB, parseOptions ...any) *Fixture {
 	return base.NewHash(parseTb, parseOptions...)
 }
 
-func NewHistory(parseTb stdtesting.TB, parseOptions ...interface{}) *Fixture {
+func NewHistory(parseTb stdtesting.TB, parseOptions ...any) *Fixture {
 	return base.NewHistory(parseTb, parseOptions...)
 }

@@ -1,11 +1,25 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestLauncherEnterpriseConfigJSONWireShapePreservesNestedPolicyObjects(parseT *testing.T) {
+	parseEncoded, parseErr := json.Marshal(launcherEnterpriseConfigFile{})
+	if parseErr != nil {
+		parseT.Fatalf("marshal enterprise config: %v", parseErr)
+	}
+	parseText := string(parseEncoded)
+	for _, parseExpected := range []string{`"enterprise":{`, `"policy":{}`, `"security":{}`} {
+		if !strings.Contains(parseText, parseExpected) {
+			parseT.Fatalf("expected enterprise config to preserve %s, got %s", parseExpected, parseText)
+		}
+	}
+}
 
 func TestResolveLauncherEnterpriseConfigAppliesLayeringOrder(parseT *testing.T) {
 	parseRoot := parseT.TempDir()

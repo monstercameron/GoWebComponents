@@ -12,7 +12,7 @@ func BenchmarkParseReadTailLines(parseB *testing.B) {
 	parseTempDir := parseB.TempDir()
 	parseLogPath := filepath.Join(parseTempDir, "chat-wizard-server.log")
 	parseLogBuilder := strings.Builder{}
-	for parseI := 0; parseI < 3000; parseI++ {
+	for range 3000 {
 		parseLogBuilder.WriteString(`{"timestamp":"2026-03-27T14:10:00Z","message":"line `)
 		parseLogBuilder.WriteString(strings.Repeat("x", 12))
 		parseLogBuilder.WriteString(`"}` + "\n")
@@ -37,7 +37,7 @@ func BenchmarkParseReadTailLines(parseB *testing.B) {
 // BenchmarkParseFilterLogTailLines measures case-insensitive substring filtering cost.
 func BenchmarkParseFilterLogTailLines(parseB *testing.B) {
 	parseLines := make([]parseLogTailLine, 0, 1500)
-	for parseI := 0; parseI < 1500; parseI++ {
+	for parseI := range 1500 {
 		parseValue := "info request completed"
 		if parseI%4 == 0 {
 			parseValue = "error request failed"

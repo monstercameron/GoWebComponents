@@ -194,10 +194,7 @@ func (parseS *chatServer) parseResolveBillingFailedPaymentByAdmin(parseCtx conte
 		return status.Error(codes.NotFound, "billing invoice not found")
 	}
 	parsePaidAt := time.Now().UTC().Format(time.RFC3339)
-	parseAmountPaidCents := parseInvoiceRow.AmountPaidCents
-	if parseAmountPaidCents < parseInvoiceRow.TotalCents {
-		parseAmountPaidCents = parseInvoiceRow.TotalCents
-	}
+	parseAmountPaidCents := max(parseInvoiceRow.AmountPaidCents, parseInvoiceRow.TotalCents)
 	_, parseErr = parseS.store.parseUpsertBillingInvoice(parseBillingInvoiceWrite{
 		CustomerID:           parseInvoiceRow.CustomerID,
 		SubscriptionID:       parseInvoiceRow.SubscriptionID,

@@ -474,8 +474,8 @@ func parseDashboardEnvFile(parsePath string) (map[string]string, error) {
 		return nil, parseErr
 	}
 	parseValues := map[string]string{}
-	parseLines := strings.Split(string(parseContent), "\n")
-	for _, parseRawLine := range parseLines {
+	parseLines := strings.SplitSeq(string(parseContent), "\n")
+	for parseRawLine := range parseLines {
 		parseLine := strings.TrimSpace(strings.TrimPrefix(parseRawLine, "\ufeff"))
 		if parseLine == "" || strings.HasPrefix(parseLine, "#") {
 			continue

@@ -19,6 +19,11 @@ const a11yWasmReadyPredicate = `() => {
 	return !!(parseApp && parseApp.children.length > 0);
 }`
 
+const a11yDocsSiteReadyPredicate = `() => {
+	const parseApp = document.getElementById('app');
+	return !!(parseApp && parseApp.children.length > 0);
+}`
+
 // parseAxeViolation holds the fields we care about for reporting.
 type parseAxeViolation struct {
 	ID      string
@@ -100,6 +105,97 @@ func injectAndRunAxe(parseT *testing.T, parsePage playwright.Page, parseAxeSourc
 	return parseViolations
 }
 
+func failOnAxeViolations(parseT *testing.T, parseLabel string, parseViolations []parseAxeViolation) {
+	parseT.Helper()
+	if len(parseViolations) == 0 {
+		parseT.Logf("CLEAN: no serious/critical violations in %s", parseLabel)
+		return
+	}
+	var parseSummaryLines []string
+	parseSummaryLines = append(parseSummaryLines, fmt.Sprintf(
+		"axe WCAG2A/2AA audit found %d serious/critical violation(s) in %s:", len(parseViolations), parseLabel,
+	))
+	for _, parseV := range parseViolations {
+		parseSummaryLines = append(parseSummaryLines, fmt.Sprintf(
+			"  [%s] rule=%s  help=%q  url=%s",
+			parseV.Impact, parseV.ID, parseV.Help, parseV.HelpURL,
+		))
+		for _, parseTgt := range parseV.Targets {
+			parseSummaryLines = append(parseSummaryLines, fmt.Sprintf("    node: %s", parseTgt))
+		}
+	}
+	parseT.Fatalf("%s", strings.Join(parseSummaryLines, "\n"))
+}
+
+func readVendoredAxeSource(parseT *testing.T) []byte {
+	parseT.Helper()
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseAxeSource, parseAxeReadErr := os.ReadFile(filepath.Join(filepath.Dir(parseFile), "testdata", "axe.min.js"))
+	if parseAxeReadErr != nil {
+		parseT.Fatalf("read testdata/axe.min.js: %v", parseAxeReadErr)
+	}
+	return parseAxeSource
+}
+
+// TestAccessibilityAuditDocsSiteShell loads the documentation/examples catalog
+// shell itself, injects vendored axe-core, and fails on serious or critical
+// WCAG 2A/2AA violations.
+func TestAccessibilityAuditDocsSiteShell(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	parseAxeSource := readVendoredAxeSource(parseT)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18256")
+
+	if parseErr := ensureExamplesChromiumInstalled(); parseErr != nil {
+		parseT.Fatalf("install chromium: %v", parseErr)
+	}
+	parsePw, parseErr := playwright.Run(&playwright.RunOptions{
+		Browsers: []string{"chromium"},
+		Verbose:  false,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("run playwright-go: %v", parseErr)
+	}
+	defer func() {
+		if parseStopErr := parsePw.Stop(); parseStopErr != nil {
+			parseT.Errorf("stop playwright-go: %v", parseStopErr)
+		}
+	}()
+
+	parseBrowserHandle, parseLaunchErr := launchExamplesBrowser(parsePw, "chromium")
+	if parseLaunchErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseLaunchErr)
+	}
+	defer func() {
+		if parseCloseErr := parseBrowserHandle.Close(); parseCloseErr != nil {
+			parseT.Errorf("close chromium: %v", parseCloseErr)
+		}
+	}()
+
+	parsePage, parsePageErr := parseBrowserHandle.NewPage()
+	if parsePageErr != nil {
+		parseT.Fatalf("new page: %v", parsePageErr)
+	}
+	defer func() {
+		if parseCloseErr := parsePage.Close(); parseCloseErr != nil {
+			parseT.Errorf("close page: %v", parseCloseErr)
+		}
+	}()
+
+	parseDocsURL := parseBaseURL + "/examples/public-examples-site/"
+	if _, parseNavErr := parsePage.Goto(parseDocsURL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad,
+	}); parseNavErr != nil {
+		parseT.Fatalf("navigate to docs site shell %s: %v", parseDocsURL, parseNavErr)
+	}
+	if _, parseWaitErr := parsePage.WaitForFunction(a11yDocsSiteReadyPredicate, nil, playwright.PageWaitForFunctionOptions{
+		Timeout: playwright.Float(90000),
+	}); parseWaitErr != nil {
+		parseT.Fatalf("docs site shell never booted: %v", parseWaitErr)
+	}
+	failOnAxeViolations(parseT, "docs-site shell", injectAndRunAxe(parseT, parsePage, parseAxeSource))
+}
+
 // TestAccessibilityAuditPublicExamples loads a representative subset of public
 // examples that render interactive WASM UIs, injects vendored axe-core, and
 // runs a WCAG 2A/2AA audit. Only serious or critical violations cause a failure.
@@ -120,16 +216,69 @@ func TestAccessibilityAuditPublicExamples(parseT *testing.T) {
 	// These slugs are source-only in the catalog; their compiled WASM apps are
 	// served under the public-examples-site asset tree — same pattern as pwa_offline_test.go.
 	// Each has an app.wasm + index.html in examples/public-examples-site/assets/examples/<slug>/.
+	//
+	// Expanded from 6 to 19 examples covering:
+	//   - Interactive primitives: counter, toggle, text-input
+	//   - State management:       use-state, use-reducer, use-effect, use-callback, context-api, state-atoms
+	//   - Forms & inputs:         html-forms, form-accessibility
+	//   - Overlay / focus:        accessible-overlay, overlay-stack
+	//   - Routing:                hash-router, browser-router, route-params, routed-accessibility
+	//   - Semantic markup:        semantic-html, todo-basic
+	//
+	// EXCLUDED examples (confirmed violations; listed here so they are not silently dropped):
+	//
+	//   "form" — EXCLUDED:
+	//     [critical] label — input[type="number"] has no associated <label>
+	//     rule: https://dequeuniversity.com/rules/axe/4.12/label?application=axeAPI
+	//
+	//   "composite-navigation" — EXCLUDED:
+	//     [serious] aria-input-field-name — #owner-listbox (role=listbox) has no accessible name
+	//     rule: https://dequeuniversity.com/rules/axe/4.12/aria-input-field-name?application=axeAPI
+	//
+	//   "calculator" — EXCLUDED:
+	//     [critical] select-name — select:nth-child(1) and select:nth-child(2) have no accessible name
+	//     rule: https://dequeuniversity.com/rules/axe/4.12/select-name?application=axeAPI
+	//
+	//   "todo-advanced" — EXCLUDED:
+	//     [serious]  color-contrast — .bg-blue-500 button text fails WCAG AA contrast ratio
+	//     [critical] label         — input[type="date"] has no associated <label>
+	//     [critical] select-name   — <select> for priority has no accessible name
+	//     rules: color-contrast, label, select-name (axe WCAG2A/2AA)
+	//
+	// If any of the above violations are fixed upstream, re-add the slug to the list below
+	// and remove it from this exclusion comment.
 	parseExamples := []struct {
 		slug        string
 		description string
 	}{
+		// --- originally in the 6-example set ---
 		{"counter", "basic counter with increment/decrement"},
 		{"todo-basic", "simple todo list with add/remove"},
 		{"form-accessibility", "form with labelled inputs"},
 		{"accessible-overlay", "modal overlay with focus trap"},
 		{"semantic-html", "semantic HTML landmark elements"},
 		{"routed-accessibility", "routed app with accessibility hooks"},
+
+		// --- routing ---
+		{"hash-router", "hash-based SPA router"},
+		{"browser-router", "history-API-based SPA router"},
+		{"route-params", "route parameters via URL segments"},
+
+		// --- state management ---
+		{"use-state", "UseState hook demo with counter and message state"},
+		{"use-reducer", "UseReducer hook demo"},
+		{"use-effect", "UseEffect hook demo"},
+		{"use-callback", "UseCallback hook demo"},
+		{"context-api", "context API for component-tree state sharing"},
+		{"state-atoms", "atom-based global reactive state"},
+
+		// --- forms & inputs ---
+		{"html-forms", "native HTML form elements"},
+		{"toggle", "boolean toggle switch"},
+		{"text-input", "text input with live binding"},
+
+		// --- overlay ---
+		{"overlay-stack", "stacked overlay panels"},
 	}
 
 	if parseErr := ensureExamplesChromiumInstalled(); parseErr != nil {

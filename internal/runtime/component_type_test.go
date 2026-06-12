@@ -27,7 +27,7 @@ func TestComponentTypeRenderUsesUpdatedImplementation(parseT *testing.T) {
 		"Example",
 		"component:Example",
 		func() *Element { return &Element{Type: "TEXT_ELEMENT", TextContent: "first"} },
-		func(parseImplementation interface{}, parseProps map[string]interface{}) *Element {
+		func(parseImplementation any, parseProps map[string]any) *Element {
 			return parseImplementation.(func() *Element)()
 		},
 	)
@@ -50,22 +50,22 @@ func TestComponentTypeRenderUsesUpdatedRendererWhenSignatureChanges(parseT *test
 		"Example",
 		"component:Example",
 		func() *Element { return &Element{Type: "TEXT_ELEMENT", TextContent: "first"} },
-		func(parseImplementation interface{}, parseProps map[string]interface{}) *Element {
+		func(parseImplementation any, parseProps map[string]any) *Element {
 			return parseImplementation.(func() *Element)()
 		},
 	)
 
 	handle.SetImplementationRenderer(
-		func(parseProps map[string]interface{}) *Element {
+		func(parseProps map[string]any) *Element {
 			parseText, _ := parseProps["label"].(string)
 			return &Element{Type: "TEXT_ELEMENT", TextContent: parseText}
 		},
-		func(parseImplementation interface{}, parseProps map[string]interface{}) *Element {
-			return parseImplementation.(func(map[string]interface{}) *Element)(parseProps)
+		func(parseImplementation any, parseProps map[string]any) *Element {
+			return parseImplementation.(func(map[string]any) *Element)(parseProps)
 		},
 	)
 
-	parseRendered := handle.Render(map[string]interface{}{"label": "second"})
+	parseRendered := handle.Render(map[string]any{"label": "second"})
 	if parseRendered == nil || parseRendered.TextContent != "second" {
 		parseT.Fatalf("expected updated renderer result, got %#v", parseRendered)
 	}

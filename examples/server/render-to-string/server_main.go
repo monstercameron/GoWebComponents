@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package main
 
@@ -70,7 +69,7 @@ func renderHeadMarkup() (string, error) {
 			URL:         "http://127.0.0.1:8084/",
 		},
 		JSONLD: []head.JSONLDBlock{
-			{ID: "render-to-string-jsonld", Value: map[string]interface{}{
+			{ID: "render-to-string-jsonld", Value: map[string]any{
 				"@context": "https://schema.org",
 				"@type":    "WebPage",
 				"name":     "ui.RenderToString",

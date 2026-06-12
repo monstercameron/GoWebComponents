@@ -97,10 +97,7 @@ func (parseBatcher *WorkerBatcher) GetBatches() []WorkerMessageBatch {
 		parseScopeKey := parseGroupDeltas[0].ScopeKey
 		parseQueueKey := parseGroupDeltas[0].QueueKey
 		for parseStart := 0; parseStart < len(parseGroupDeltas); parseStart += parseRule.MaxDeltasPerBatch {
-			parseEnd := parseStart + parseRule.MaxDeltasPerBatch
-			if parseEnd > len(parseGroupDeltas) {
-				parseEnd = len(parseGroupDeltas)
-			}
+			parseEnd := min(parseStart+parseRule.MaxDeltasPerBatch, len(parseGroupDeltas))
 			parseChunk := append([]WorkerDelta(nil), parseGroupDeltas[parseStart:parseEnd]...)
 			parseBatches = append(parseBatches, WorkerMessageBatch{
 				BatchType: parseBatchType,

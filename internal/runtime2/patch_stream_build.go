@@ -189,12 +189,16 @@ func buildCanonicalReplaceSubtreePatchStream(
 		return PatchStreamRaw{}, parseIdentityStateErr
 	}
 	defer clearPatchStreamIdentityState(&buildIdentityState)
-	startPatchStreamIdentityOpArray(&buildIdentityState)
+	if parseStartErr := startPatchStreamIdentityOpArray(&buildIdentityState); parseStartErr != nil {
+		return PatchStreamRaw{}, parseStartErr
+	}
 	buildOps := make([]PatchStreamOpRaw, 0, 1)
-	appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
+	if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 		GetOpCode:           uint8(PatchOpCodeReplaceSubtree),
 		GetReplaceSubtreeOp: &buildReplaceSubtreeOp,
-	})
+	}); parseAppendErr != nil {
+		return PatchStreamRaw{}, parseAppendErr
+	}
 	buildPatchIdentity, _ := formatPatchStreamIdentityState(&buildIdentityState)
 	return buildPatchStreamRawWithIdentity(buildHeader, nil, buildOps, buildPatchIdentity)
 }

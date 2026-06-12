@@ -6,7 +6,7 @@ import (
 )
 
 func TestRenderToStringHostTree(parseT *testing.T) {
-	parseElement := CreateElement("div", map[string]interface{}{
+	parseElement := CreateElement("div", map[string]any{
 		"id":        "root",
 		"className": "panel",
 		"style": map[string]string{
@@ -14,8 +14,8 @@ func TestRenderToStringHostTree(parseT *testing.T) {
 			"color":      "white",
 		},
 	},
-		CreateElement("label", map[string]interface{}{"htmlFor": "email"}, "Email"),
-		CreateElement("input", map[string]interface{}{"id": "email", "disabled": true, "checked": false}),
+		CreateElement("label", map[string]any{"htmlFor": "email"}, "Email"),
+		CreateElement("input", map[string]any{"id": "email", "disabled": true, "checked": false}),
 	)
 
 	parseHtml, parseErr := RenderToString(parseElement)
@@ -30,7 +30,7 @@ func TestRenderToStringHostTree(parseT *testing.T) {
 }
 
 func TestRenderToStringEscapesTextAndAttributes(parseT *testing.T) {
-	parseElement := CreateElement("div", map[string]interface{}{
+	parseElement := CreateElement("div", map[string]any{
 		"title": `<unsafe "quote">`,
 	}, `hello <world> & friends`)
 
@@ -64,13 +64,13 @@ func TestRenderToStringFragment(parseT *testing.T) {
 func TestRenderToStringSkipsChildrenKeyAndHandlers(parseT *testing.T) {
 	parseElement := &Element{
 		Type: "button",
-		Props: map[string]interface{}{
+		Props: map[string]any{
 			"id":       "save",
 			"key":      "button-1",
-			"children": []interface{}{"bad"},
+			"children": []any{"bad"},
 			"onclick":  func() {},
 		},
-		Children: []interface{}{"Save"},
+		Children: []any{"Save"},
 	}
 
 	parseHtml, parseErr := RenderToString(parseElement)
@@ -97,7 +97,7 @@ func TestSerializeSSRAttrRejectsMaliciousName(parseT *testing.T) {
 	}
 
 	// Ensure the attr is also absent from rendered HTML.
-	parseElement := CreateElement("div", map[string]interface{}{
+	parseElement := CreateElement("div", map[string]any{
 		parseMalicious: "injected",
 		"id":           "safe",
 	})
@@ -129,9 +129,9 @@ func TestSerializeSSRAttrMapDeterministicOrder(parseT *testing.T) {
 
 func TestRenderToStringFunctionComponent(parseT *testing.T) {
 	parseComponent := func(parseProps Attrs) *Element {
-		return CreateElement("section", map[string]interface{}{"id": parseProps["id"]}, parseProps["label"])
+		return CreateElement("section", map[string]any{"id": parseProps["id"]}, parseProps["label"])
 	}
-	parseElement := CreateElement(parseComponent, map[string]interface{}{"id": "hero", "label": "Welcome"})
+	parseElement := CreateElement(parseComponent, map[string]any{"id": "hero", "label": "Welcome"})
 
 	parseHtml, parseErr := RenderToString(parseElement)
 	if parseErr != nil {
@@ -151,7 +151,7 @@ func TestRenderToStringAsyncBoundaryDoesNotLeakPartialMarkupOnSuspension(parseT 
 	}, nil)
 	parseContent := CreateElement("div", nil, "before", parseSuspendingChild, "after")
 	parseFallback := CreateElement("span", nil, "loading")
-	parseRoot := CreateElement(AsyncBoundaryNodeType, map[string]interface{}{
+	parseRoot := CreateElement(AsyncBoundaryNodeType, map[string]any{
 		"content":  parseContent,
 		"fallback": parseFallback,
 	})

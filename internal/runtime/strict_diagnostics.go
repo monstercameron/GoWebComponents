@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -61,13 +62,7 @@ func shouldEscalateDiagnosticStrictly(parseSource string, parseSeverity Diagnost
 		return false
 	}
 	if len(parseOptions.Classifications) > 0 {
-		isParseMatched := false
-		for _, parseItem := range parseOptions.Classifications {
-			if parseItem == parseClassification {
-				isParseMatched = true
-				break
-			}
-		}
+		isParseMatched := slices.Contains(parseOptions.Classifications, parseClassification)
 		if !isParseMatched {
 			return false
 		}

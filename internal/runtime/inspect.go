@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 	"strings"
@@ -391,9 +392,7 @@ func collectComponentRenderTraces(parseEntries map[string]*componentRenderTrace,
 			continue
 		}
 		parseTriggerCounts := make(map[string]int, len(parseEntry.TriggerCounts))
-		for parseTrigger, parseCount := range parseEntry.TriggerCounts {
-			parseTriggerCounts[parseTrigger] = parseCount
-		}
+		maps.Copy(parseTriggerCounts, parseEntry.TriggerCounts)
 		parseAverage := int64(0)
 		if parseEntry.RenderCount > 0 {
 			parseAverage = parseEntry.TotalRenderDurationNs / int64(parseEntry.RenderCount)
@@ -632,7 +631,7 @@ func CurrentFiberPath() string {
 }
 
 // describeCallable is a core package helper.
-func describeCallable(parseValue interface{}) string {
+func describeCallable(parseValue any) string {
 	parsePrettyName, _ := describeCallableIdentity(parseValue)
 	return parsePrettyName
 }
@@ -721,7 +720,7 @@ func inspectHooks(parseHooks *Hooks) []HookSnapshot {
 }
 
 // previewDeps is a core package helper.
-func previewDeps(parseValues []interface{}) string {
+func previewDeps(parseValues []any) string {
 	if len(parseValues) == 0 {
 		return ""
 	}
@@ -733,7 +732,7 @@ func previewDeps(parseValues []interface{}) string {
 }
 
 // previewValue is a core package helper.
-func previewValue(parseValue interface{}) string {
+func previewValue(parseValue any) string {
 	if parseValue == nil {
 		return "<nil>"
 	}

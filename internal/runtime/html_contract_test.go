@@ -2,12 +2,12 @@ package runtime
 
 import "testing"
 
-func testComponentRef(parseProps map[string]interface{}) *Element {
+func testComponentRef(parseProps map[string]any) *Element {
 	return Div(parseProps, "child")
 }
 
 func TestWithComponents_WrapsComponentRefsAsElements(parseT *testing.T) {
-	parseElem := WithComponents("div", map[string]interface{}{"id": "host"}, testComponentRef)
+	parseElem := WithComponents("div", map[string]any{"id": "host"}, testComponentRef)
 
 	if parseElem.Type != "div" {
 		parseT.Fatalf("expected host type div, got %v", parseElem.Type)
@@ -26,10 +26,10 @@ func TestWithComponents_WrapsComponentRefsAsElements(parseT *testing.T) {
 	if parseChild.Type == nil {
 		parseT.Fatal("expected wrapped component child to retain its component type")
 	}
-	if _, parseOk2 := parseChild.Type.(func(map[string]interface{}) *Element); !parseOk2 {
+	if _, parseOk2 := parseChild.Type.(func(map[string]any) *Element); !parseOk2 {
 		parseT.Fatalf("expected wrapped child type to be component function, got %T", parseChild.Type)
 	}
-	if parseChildrenProp, parseOk3 := parseElem.Props["children"].([]interface{}); !parseOk3 || len(parseChildrenProp) != 1 {
+	if parseChildrenProp, parseOk3 := parseElem.Props["children"].([]any); !parseOk3 || len(parseChildrenProp) != 1 {
 		parseT.Fatal("expected wrapped children to be reflected in props")
 	}
 }
@@ -49,7 +49,7 @@ func TestDivWithComponents_WrapsAllComponentRefs(parseT *testing.T) {
 		if !parseOk || parseWrapped == nil {
 			parseT.Fatalf("expected child %d to be wrapped as element, got %T", parseI, parseChild)
 		}
-		if _, parseOk2 := parseWrapped.Type.(func(map[string]interface{}) *Element); !parseOk2 {
+		if _, parseOk2 := parseWrapped.Type.(func(map[string]any) *Element); !parseOk2 {
 			parseT.Fatalf("expected child %d type to be a component function, got %T", parseI, parseWrapped.Type)
 		}
 	}

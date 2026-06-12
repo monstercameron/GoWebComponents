@@ -40,8 +40,8 @@ func TestLiveReloadOriginValidation(parseT *testing.T) {
 
 	parseRejected := []string{
 		"https://evil.example.test",
-		"http://127.0.0.1:9999",  // wrong port
-		"http://localhost",        // default port, not the dev port
+		"http://127.0.0.1:9999", // wrong port
+		"http://localhost",      // default port, not the dev port
 		"http://attacker.localhost:8090",
 		"null",
 	}
@@ -198,7 +198,7 @@ func TestBuildStatusMarshalsStateSnapshot(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("expected build status to marshal: %v", parseErr)
 	}
-	var parseDecoded map[string]interface{}
+	var parseDecoded map[string]any
 	if parseErr2 := json.Unmarshal(parseData, &parseDecoded); parseErr2 != nil {
 		parseT.Fatalf("expected marshaled build status to decode: %v", parseErr2)
 	}
@@ -1835,7 +1835,7 @@ func TestResolveClientScriptPathAndRunnerConfigPathHandleGetwdFailure(parseT *te
 func TestBroadcastMessageHandlesMarshalAndWriteErrors(parseT *testing.T) {
 	parseT.Run("marshal error", func(parseT2 *testing.T) {
 		parseServer := &LiveReloadServer{clients: map[*websocket.Conn]ClientSession{}}
-		parseServer.broadcastMessage(MessageTypeReload, map[string]interface{}{"bad": make(chan int)})
+		parseServer.broadcastMessage(MessageTypeReload, map[string]any{"bad": make(chan int)})
 	})
 
 	parseT.Run("write error", func(parseT3 *testing.T) {
@@ -1925,7 +1925,7 @@ func TestDebounceAndBuildUsesQuickDebounceForLaterChanges(parseT *testing.T) {
 	if parseMsg.Type != MessageTypeDebounceStatus {
 		parseT.Fatalf("expected debounce status message, got %+v", parseMsg)
 	}
-	parsePayload, parseOk := parseMsg.Payload.(map[string]interface{})
+	parsePayload, parseOk := parseMsg.Payload.(map[string]any)
 	if !parseOk {
 		parseT.Fatalf("expected debounce payload map, got %#v", parseMsg.Payload)
 	}
@@ -1961,7 +1961,7 @@ func TestDebounceAndBuildTruncatesWaitNearMaxWindow(parseT *testing.T) {
 	if parseErr := parseClientConn.ReadJSON(&parseMsg); parseErr != nil {
 		parseT.Fatalf("read debounce status message: %v", parseErr)
 	}
-	parsePayload, parseOk := parseMsg.Payload.(map[string]interface{})
+	parsePayload, parseOk := parseMsg.Payload.(map[string]any)
 	if !parseOk {
 		parseT.Fatalf("expected debounce payload map, got %#v", parseMsg.Payload)
 	}

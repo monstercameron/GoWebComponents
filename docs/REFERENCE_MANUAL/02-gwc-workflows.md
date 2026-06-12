@@ -290,6 +290,8 @@ Practical rule:
 ## Starter Generator Contract
 
 Use `gwc start` as a constrained scaffold, not as a second framework layer.
+The maintained gallery in [docs/STARTERS.md](../STARTERS.md) lists the
+supported presets and their intended app shapes.
 
 The generated starter should stay:
 
@@ -297,6 +299,9 @@ The generated starter should stay:
 - aligned with `gwc dev`, `gwc test`, `gwc verify`, and `gwc release`
 - explicit about browser mount, styles, and example validation commands
 - ready to grow into route families, shared state, SSR, or PWA layers without hiding those decisions inside generation magic
+- covered by generated `starter_test.go`, generated `.github/workflows/ci.yml`,
+  and the repo starter-templates CI lane that scaffolds, tests, and builds every
+  default preset
 
 Practical rule:
 

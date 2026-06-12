@@ -1,6 +1,8 @@
 package html
 
 import (
+	"maps"
+
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -54,7 +56,7 @@ type Props struct {
 	Style map[string]string
 	Data  map[string]string
 	Aria  map[string]string
-	Raw   map[string]interface{}
+	Raw   map[string]any
 
 	OnClick     ui.Handler
 	OnInput     ui.Handler
@@ -75,7 +77,7 @@ type CustomElementProps struct {
 	Props      Props
 	Attributes map[string]string
 	Presence   map[string]bool
-	Properties map[string]interface{}
+	Properties map[string]any
 }
 
 const customElementPropertyPrefix = "__gwc_prop__:"
@@ -111,7 +113,7 @@ func CustomElement(parseName string, parseProps CustomElementProps, parseChildre
 		parseValues = toRuntimeProps(parseProps.Props)
 	}
 	if parseValues == nil {
-		parseValues = make(map[string]interface{}, parseCount)
+		parseValues = make(map[string]any, parseCount)
 	}
 	for parseKey, parseValue := range parseProps.Attributes {
 		parseValues[parseKey] = parseValue
@@ -448,7 +450,7 @@ func Ul(parseProps Props, parseChildren ...ui.Node) ui.Node {
 
 // toRuntimeCompactProps builds props and compact host attrs in one pass for
 // typed Props that contain only string attributes plus the skipped key prop.
-func toRuntimeCompactProps(parseProps Props) (map[string]interface{}, []runtime.HostAttr, bool) {
+func toRuntimeCompactProps(parseProps Props) (map[string]any, []runtime.HostAttr, bool) {
 	parseOnClick := parseProps.OnClick.Value()
 	parseOnInput := parseProps.OnInput.Value()
 	parseOnChange := parseProps.OnChange.Value()
@@ -528,7 +530,7 @@ func toRuntimeCompactProps(parseProps Props) (map[string]interface{}, []runtime.
 		return nil, nil, true
 	}
 
-	parseValues := make(map[string]interface{}, parseCount+1)
+	parseValues := make(map[string]any, parseCount+1)
 	parseAttrs := make([]runtime.HostAttr, 0, parseAttrCount)
 	parseStoreAttr := func(parsePropName string, parseAttrName string, parseValue string) {
 		if parseValue == "" {
@@ -580,7 +582,7 @@ func toRuntimeCompactProps(parseProps Props) (map[string]interface{}, []runtime.
 }
 
 // toRuntimeProps is a core package helper.
-func toRuntimeProps(parseProps Props) map[string]interface{} {
+func toRuntimeProps(parseProps Props) map[string]any {
 	parseOnClick := parseProps.OnClick.Value()
 	parseOnInput := parseProps.OnInput.Value()
 	parseOnChange := parseProps.OnChange.Value()
@@ -743,7 +745,7 @@ func toRuntimeProps(parseProps Props) map[string]interface{} {
 		return nil
 	}
 
-	parseValues := make(map[string]interface{}, parseCount)
+	parseValues := make(map[string]any, parseCount)
 	if parseProps.ID != "" {
 		parseValues["id"] = parseProps.ID
 	}
@@ -900,21 +902,19 @@ func toRuntimeProps(parseProps Props) map[string]interface{} {
 		parseValues["onscroll"] = parseOnScroll
 	}
 	if len(parseProps.Raw) != 0 {
-		for parseKey3, parseValue3 := range parseProps.Raw {
-			parseValues[parseKey3] = parseValue3
-		}
+		maps.Copy(parseValues, parseProps.Raw)
 	}
 
 	return parseValues
 }
 
 // toInterfaces is a core package helper.
-func toInterfaces(parseChildren []ui.Node) []interface{} {
+func toInterfaces(parseChildren []ui.Node) []any {
 	if len(parseChildren) == 0 {
 		return nil
 	}
 
-	parseValues := make([]interface{}, 0, len(parseChildren))
+	parseValues := make([]any, 0, len(parseChildren))
 	for _, parseChild := range parseChildren {
 		parseValues = append(parseValues, parseChild)
 	}

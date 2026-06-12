@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package ui
 
@@ -34,9 +33,9 @@ type buildUIDOMService struct{}
 type buildUIStyleService struct{}
 
 type buildUIStylePatchHandle struct {
-	getRoot      js.Value
-	getPrevious  map[string]string
-	getDidExist  map[string]bool
+	getRoot     js.Value
+	getPrevious map[string]string
+	getDidExist map[string]bool
 }
 
 type buildUIEventService struct{}

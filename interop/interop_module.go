@@ -82,14 +82,14 @@ type CrossTabEnvelope struct {
 	Payload  any       `json:"payload"`
 	Source   string    `json:"source,omitempty"`
 	Sequence int64     `json:"sequence,omitempty"`
-	SentAt   time.Time `json:"sentAt,omitempty"`
+	SentAt   time.Time `json:"sentAt"`
 }
 
 type WindowEnvelope struct {
 	Name    string    `json:"name"`
 	Payload any       `json:"payload"`
 	Source  string    `json:"source,omitempty"`
-	SentAt  time.Time `json:"sentAt,omitempty"`
+	SentAt  time.Time `json:"sentAt"`
 }
 
 type ClientIdentity struct {
@@ -143,7 +143,7 @@ type ClientMessage struct {
 	Payload      any                   `json:"payload,omitempty"`
 	Revision     string                `json:"revision,omitempty"`
 	Error        string                `json:"error,omitempty"`
-	SentAt       time.Time             `json:"sentAt,omitempty"`
+	SentAt       time.Time             `json:"sentAt"`
 }
 
 type ClientBinaryPayload struct {
@@ -181,7 +181,7 @@ type SurfaceSessionSignal struct {
 	Status    string    `json:"status"`
 	Reason    string    `json:"reason,omitempty"`
 	ReturnTo  string    `json:"returnTo,omitempty"`
-	ExpiresAt time.Time `json:"expiresAt,omitempty"`
+	ExpiresAt time.Time `json:"expiresAt"`
 }
 
 type SurfaceRouteSignal struct {
@@ -230,7 +230,7 @@ type SharedMemorySupport struct {
 // SharedBuffer wraps a browser SharedArrayBuffer with byte access and int32
 // atomic helpers for worker coordination.
 type SharedBuffer struct {
-	raw                  interface{}
+	raw                  any
 	getByteLength        func() int
 	readBytes            func(int, []byte) (int, error)
 	writeBytes           func(int, []byte) (int, error)
@@ -298,7 +298,7 @@ type WorkerScope struct {
 // MessagePort wraps a browser MessagePort with post, subscribe, and close
 // helpers suitable for worker-owned subchannels.
 type MessagePort struct {
-	raw       interface{}
+	raw       any
 	post      func(any) error
 	postPorts func(any, ...MessagePort) error
 	subscribe func(func(MessagePortMessage, error)) (Subscription, error)

@@ -137,7 +137,6 @@ func TestResolveClientLogLevelMapping(parseT *testing.T) {
 		{parseName: "trimmed", parseInput: "  ERROR ", parseWant: slog.LevelError},
 	}
 	for _, parseCase := range parseCases {
-		parseCase := parseCase
 		parseT.Run(parseCase.parseName, func(parseT2 *testing.T) {
 			if parseGot := parseResolveClientLogLevel(parseCase.parseInput); parseGot != parseCase.parseWant {
 				parseT2.Fatalf("parseResolveClientLogLevel(%q) = %v, want %v", parseCase.parseInput, parseGot, parseCase.parseWant)

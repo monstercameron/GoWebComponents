@@ -224,8 +224,8 @@ func shortenFilePath(parsePath string) string {
 		return ""
 	}
 	parseMarker := "/" + frameworkWorkspaceName + "/"
-	if parseIndex := strings.Index(parseNormalized, parseMarker); parseIndex >= 0 {
-		return parseNormalized[parseIndex+len(parseMarker):]
+	if _, after, ok := strings.Cut(parseNormalized, parseMarker); ok {
+		return after
 	}
 	parseParts := strings.Split(parseNormalized, "/")
 	if len(parseParts) <= 3 {

@@ -17,7 +17,7 @@ func (parseS runtimeTagStringer) String() string {
 type runtimeHelperTestDOMAdapter struct {
 	*resolveContainerTestDOMAdapter
 	attributeValues map[DOMNode]map[string]string
-	tagValues       map[DOMNode]interface{}
+	tagValues       map[DOMNode]any
 }
 
 // buildRuntimeHelperTestDOMAdapter constructs one DOM adapter that exposes selector, target-resolution, attribute, and tag-name helper branches.
@@ -25,7 +25,7 @@ func buildRuntimeHelperTestDOMAdapter() *runtimeHelperTestDOMAdapter {
 	return &runtimeHelperTestDOMAdapter{
 		resolveContainerTestDOMAdapter: buildResolveContainerTestDOMAdapter(),
 		attributeValues:                make(map[DOMNode]map[string]string),
-		tagValues:                      make(map[DOMNode]interface{}),
+		tagValues:                      make(map[DOMNode]any),
 	}
 }
 
@@ -46,7 +46,7 @@ func (parseA *runtimeHelperTestDOMAdapter) GetAttribute(parseNode DOMNode, parse
 }
 
 // GetProperty returns one configured tag-name override before falling back to the base test DOM adapter.
-func (parseA *runtimeHelperTestDOMAdapter) GetProperty(parseNode DOMNode, parseName string) interface{} {
+func (parseA *runtimeHelperTestDOMAdapter) GetProperty(parseNode DOMNode, parseName string) any {
 	if parseName == "tagName" {
 		if parseValue, parseOk := parseA.tagValues[parseNode]; parseOk {
 			return parseValue
@@ -190,7 +190,7 @@ func TestRuntimeHelperDurationHydrationAndErrorBranches(parseT *testing.T) {
 
 	parseAdapter := buildRuntimeHelperTestDOMAdapter()
 	parseRuntime := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
-	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "widget"}}
+	parseElement := &Element{Type: "div", Props: map[string]any{"id": "widget"}}
 
 	if parseErr := parseRuntime.RenderInto("missing", parseElement); parseErr == nil || !strings.Contains(parseErr.Error(), "target node could not be resolved") {
 		parseT.Fatalf("expected RenderInto unresolved-target error, got %v", parseErr)

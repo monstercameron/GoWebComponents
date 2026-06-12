@@ -253,6 +253,10 @@ func filterAPIReferenceSections(parseQuery string, isReady bool, parseBody strin
 }
 
 func renderGroupedAPIReference(parsePanelProps contentPanelProps) ui.Node {
+	return ui.Component(renderGroupedAPIReferenceComponent, parsePanelProps)
+}
+
+func renderGroupedAPIReferenceComponent(parsePanelProps contentPanelProps) ui.Node {
 	parseApiSearchQuery := ui.UseState("")
 	parseUpdateAPISearchQuery := ui.UseEvent(func(parseEvent ui.InputEvent) {
 		parseApiSearchQuery.Set(parseEvent.GetValue())

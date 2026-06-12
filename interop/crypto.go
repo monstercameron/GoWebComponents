@@ -12,15 +12,15 @@ import (
 type CryptoKey struct {
 	// raw holds the underlying js.Value on WASM; nil elsewhere. The type is
 	// `any` so this file compiles without a build tag.
-	raw any
+	raw any //nolint:unused // read by crypto_wasm.go; native lint cannot see it
 }
 
 // EncryptedStore combines a CryptoKey with a Storage backend to provide
 // transparent JSON-marshal-then-encrypt persistence. Values are stored as a
 // base64-encoded envelope: "<base64(iv)>:<base64(ciphertext)>".
 type EncryptedStore struct {
-	key     CryptoKey
-	storage Storage
+	key     CryptoKey //nolint:unused // read by crypto_wasm.go; native lint cannot see it
+	storage Storage   //nolint:unused // read by crypto_wasm.go; native lint cannot see it
 }
 
 // encodeEnvelope encodes an IV and ciphertext into the "<b64iv>:<b64ct>"
@@ -35,15 +35,15 @@ func encodeEnvelope(parseIV []byte, parseCiphertext []byte) string {
 // the envelope is malformed or either segment is not valid base64 — a tampered
 // or garbage stored value will never silently decode.
 func decodeEnvelope(parseEnvelope string) (parseIV []byte, parseCiphertext []byte, parseErr error) {
-	parseIdx := strings.IndexByte(parseEnvelope, ':')
-	if parseIdx < 0 {
+	before, after, ok := strings.Cut(parseEnvelope, ":")
+	if !ok {
 		return nil, nil, wrapError("decodeEnvelope", "", CodeDecode, errors.New("missing iv:ciphertext separator"))
 	}
-	parseIV, parseErr = base64.StdEncoding.DecodeString(parseEnvelope[:parseIdx])
+	parseIV, parseErr = base64.StdEncoding.DecodeString(before)
 	if parseErr != nil {
 		return nil, nil, wrapError("decodeEnvelope", "", CodeDecode, parseErr)
 	}
-	parseCiphertext, parseErr = base64.StdEncoding.DecodeString(parseEnvelope[parseIdx+1:])
+	parseCiphertext, parseErr = base64.StdEncoding.DecodeString(after)
 	if parseErr != nil {
 		return nil, nil, wrapError("decodeEnvelope", "", CodeDecode, parseErr)
 	}

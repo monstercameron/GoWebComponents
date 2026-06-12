@@ -2,6 +2,7 @@ package pluginruntime
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 )
@@ -168,8 +169,6 @@ func cloneStringMap(parseValues map[string]string) map[string]string {
 		return nil
 	}
 	buildCloned := make(map[string]string, len(parseValues))
-	for parseKey, parseValue := range parseValues {
-		buildCloned[parseKey] = parseValue
-	}
+	maps.Copy(buildCloned, parseValues)
 	return buildCloned
 }

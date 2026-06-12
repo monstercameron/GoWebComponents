@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package state
 
@@ -28,7 +27,7 @@ func (stateNativeNoOpScheduler) RequestIdleCallback(parseCallback func(runtime.D
 func (stateNativeNoOpScheduler) SetTimeout(parseCallback func(), parseDelay int) {}
 
 // setStateTestStructField writes one unexported interop field so state tests can build lightweight native doubles.
-func setStateTestStructField(parseT *testing.T, parseTarget interface{}, parseField string, parseValue interface{}) {
+func setStateTestStructField(parseT *testing.T, parseTarget any, parseField string, parseValue any) {
 	parseT.Helper()
 	parseStructValue := reflect.ValueOf(parseTarget).Elem()
 	parseFieldValue := parseStructValue.FieldByName(parseField)
@@ -228,8 +227,8 @@ func TestStateNativeSnapshotHelpers(parseT *testing.T) {
 	if parseDecoded["count"] != 1 || parseDecoded["ratio"] != 1.5 {
 		parseT.Fatalf("expected snapshot normalization to preserve whole and fractional numbers, got %#v", parseDecoded)
 	}
-	parseNested, _ := parseDecoded["nested"].(map[string]interface{})
-	parseItems, _ := parseNested["items"].([]interface{})
+	parseNested, _ := parseDecoded["nested"].(map[string]any)
+	parseItems, _ := parseNested["items"].([]any)
 	if len(parseItems) != 2 || parseItems[0] != 2 || parseItems[1] != 2.5 {
 		parseT.Fatalf("expected nested snapshot normalization to preserve slice values, got %#v", parseItems)
 	}
@@ -311,21 +310,21 @@ func TestStateNativePersistentSnapshotHelpers(parseT *testing.T) {
 	runtime.InitGlobalRuntime(runtime.Config{Scheduler: stateNativeNoOpScheduler{}, Reset: true})
 
 	parseSnapshot := Snapshot{"state-native-project": "atlas", "state-native-ready": true}
-	if parseErr := SavePersistentSnapshot(nil, "state-native-persistent", parseSnapshot, parseOptions); parseErr != nil {
+	if parseErr := SavePersistentSnapshot(nil, "state-native-persistent", parseSnapshot, parseOptions); parseErr != nil { //nolint:staticcheck // nil-context normalization is the case under test
 		parseT.Fatalf("expected SavePersistentSnapshot to succeed, got %v", parseErr)
 	}
 	if _, parseOk := parseData["state-native-persistent"]; !parseOk {
 		parseT.Fatalf("expected persistent save to write into the injected store, data=%#v", parseData)
 	}
 
-	parseLoaded, parseOk, parseErr2 := LoadPersistentSnapshot(nil, "state-native-persistent", parseOptions)
+	parseLoaded, parseOk, parseErr2 := LoadPersistentSnapshot(nil, "state-native-persistent", parseOptions) //nolint:staticcheck // nil-context normalization is the case under test
 	if parseErr2 != nil || !parseOk {
 		parseT.Fatalf("expected LoadPersistentSnapshot to succeed, snapshot=%#v ok=%t err=%v", parseLoaded, parseOk, parseErr2)
 	}
 	if parseLoaded["state-native-project"] != "atlas" || parseLoaded["state-native-ready"] != true {
 		parseT.Fatalf("unexpected persistent snapshot contents: %#v", parseLoaded)
 	}
-	if parseRestored, parseErr3 := RestorePersistentSnapshot(nil, "state-native-persistent", parseOptions); parseErr3 != nil || !parseRestored {
+	if parseRestored, parseErr3 := RestorePersistentSnapshot(nil, "state-native-persistent", parseOptions); parseErr3 != nil || !parseRestored { //nolint:staticcheck // nil-context normalization is the case under test
 		parseT.Fatalf("expected RestorePersistentSnapshot to succeed, restored=%t err=%v", parseRestored, parseErr3)
 	}
 	if parseValue, parseOk2 := runtime.GetGlobalRuntime().GetAtomValue("state-native-project"); !parseOk2 || parseValue != "atlas" {
@@ -335,12 +334,12 @@ func TestStateNativePersistentSnapshotHelpers(parseT *testing.T) {
 	if parseResolved := resolvePersistentSnapshotOptions(nil); parseResolved.DatabaseName != "" || parseResolved.StoreName != "" || parseResolved.DeleteOnCorruption || parseResolved.FallbackResolver != nil || parseResolved.FallbackBackend != "" || parseResolved.StoreResolver != nil {
 		parseT.Fatalf("expected zero options to resolve to the zero value, got %#v", parseResolved)
 	}
-	if parseResolved2 := resolvePersistentSnapshotContext(nil); parseResolved2 == nil {
+	if parseResolved2 := resolvePersistentSnapshotContext(nil); parseResolved2 == nil { //nolint:staticcheck // nil-context normalization is the case under test
 		parseT.Fatal("expected resolvePersistentSnapshotContext to replace nil with context.Background")
 	}
 
 	parseFallbackStorage, _ := buildStateTestStorage(parseT)
-	parseStore2, parseErr4 := openPersistentSnapshotStore(nil, []PersistentSnapshotOptions{{
+	parseStore2, parseErr4 := openPersistentSnapshotStore(nil, []PersistentSnapshotOptions{{ //nolint:staticcheck // nil-context normalization is the case under test
 		StoreResolver: nil,
 		FallbackResolver: func() (interop.Storage, error) {
 			return parseFallbackStorage, nil
@@ -353,7 +352,7 @@ func TestStateNativePersistentSnapshotHelpers(parseT *testing.T) {
 		parseT.Fatalf("expected native openPersistentSnapshotStore fallback path to surface unavailability, store=%#v err=%v", parseStore2, parseErr4)
 	}
 
-	_, parseErr5 := openPersistentSnapshotStore(nil, []PersistentSnapshotOptions{{
+	_, parseErr5 := openPersistentSnapshotStore(nil, []PersistentSnapshotOptions{{ //nolint:staticcheck // nil-context normalization is the case under test
 		StoreResolver: func(context.Context) (interop.PersistentStore, error) {
 			return interop.PersistentStore{}, errors.New("open failed")
 		},
@@ -392,11 +391,11 @@ func TestStateNativeUnmarshalSnapshotJSONTypeAssertion(parseT *testing.T) {
 	if parseErr3 != nil {
 		parseT.Fatalf("expected nested UnmarshalSnapshotJSON to succeed, got %v", parseErr3)
 	}
-	parseOuter, parseOk := parseNested["outer"].(map[string]interface{})
+	parseOuter, parseOk := parseNested["outer"].(map[string]any)
 	if !parseOk {
 		parseT.Fatalf("expected outer to be map[string]interface{}, got %T", parseNested["outer"])
 	}
-	parseInner, parseOk2 := parseOuter["inner"].(map[string]interface{})
+	parseInner, parseOk2 := parseOuter["inner"].(map[string]any)
 	if !parseOk2 || parseInner["deep"] != 99 {
 		parseT.Fatalf("expected deep nested value to be 99, got %#v", parseOuter)
 	}
@@ -438,7 +437,7 @@ func TestStateNativeNormalizeSnapshotFloatRangeGuard(parseT *testing.T) {
 
 	// JSON round-trip: a large integer-valued float must survive without truncation.
 	parseLarge := float64(1<<53) + 2 // 9007199254740994 — above safe range
-	parseJSON := []byte(fmt.Sprintf(`{"big":%v}`, parseLarge))
+	parseJSON := fmt.Appendf(nil, `{"big":%v}`, parseLarge)
 	parseSnap, parseErr := UnmarshalSnapshotJSON(parseJSON)
 	if parseErr != nil {
 		parseT.Fatalf("expected large-float unmarshal to succeed, got %v", parseErr)

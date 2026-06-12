@@ -16,12 +16,12 @@ type fiberScratchPool struct {
 }
 
 // get is an internal reconciler helper.
-func (parseP *elementScratchPool) get() []interface{} {
-	return (*parseP.pool.Get().(*[]interface{}))[:0]
+func (parseP *elementScratchPool) get() []any {
+	return (*parseP.pool.Get().(*[]any))[:0]
 }
 
 // clear is an internal reconciler helper.
-func (parseP *elementScratchPool) clear(parseElements []interface{}) {
+func (parseP *elementScratchPool) clear(parseElements []any) {
 	clear(parseElements)
 	parseP.pool.Put(&parseElements)
 }
@@ -41,7 +41,7 @@ func (parseP *fiberScratchPool) clear(parseFibers []*Fiber) {
 var (
 	currentFiber                 *Fiber
 	currentFiberOwnerGoroutineID uint64
-	emptyChildren                = []interface{}{}
+	emptyChildren                = []any{}
 	propMetaCache                = map[string]domPropMeta{
 		"children":  {kind: propKindSkip},
 		"style":     {kind: propKindStyle, attrName: "style"},
@@ -68,26 +68,26 @@ var (
 	}
 	slicePool = elementScratchPool{
 		pool: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				// Initial capacity 16 seems reasonable for children
-				parseSlice := make([]interface{}, 0, 16)
+				parseSlice := make([]any, 0, 16)
 				return &parseSlice
 			},
 		},
 	}
 	keyedFiberMapPool = sync.Pool{
-		New: func() interface{} {
-			return make(map[interface{}]*Fiber, 16)
+		New: func() any {
+			return make(map[any]*Fiber, 16)
 		},
 	}
 	getFiberIndexMapPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return make(map[*Fiber]int, 16)
 		},
 	}
 	fiberScratchSlicePool = fiberScratchPool{
 		pool: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				parseSlice := make([]*Fiber, 0, 16)
 				return &parseSlice
 			},
@@ -108,16 +108,16 @@ const (
 type domPropMeta struct {
 	kind        domPropKind
 	attrName    string
-	resetValue  interface{}
+	resetValue  any
 	shouldReset bool
 }
 
 // getPropMeta is an internal reconciler helper.
 func getPropMeta(parseName string) domPropMeta {
-	if strings.HasPrefix(parseName, "__gwc_prop__:") {
+	if after, ok := strings.CutPrefix(parseName, "__gwc_prop__:"); ok {
 		return domPropMeta{
 			kind:        propKindSpecialProperty,
-			attrName:    strings.TrimPrefix(parseName, "__gwc_prop__:"),
+			attrName:    after,
 			resetValue:  nil,
 			shouldReset: true,
 		}
@@ -150,18 +150,6 @@ func ensureFineGrainedTwinLink(parseOldFiber *Fiber, parseNewFiber *Fiber) {
 		return
 	}
 	parseOldFiber.alternate = parseNewFiber
-}
-
-// buildFiberNeedsUpdate reports whether one reused fiber should keep its own render/update path active.
-func (parseRt *Runtime) buildFiberNeedsUpdate(parseOldFiber *Fiber, parseElem *Element) bool {
-	isParseNeedsUpdate, _ := parseRt.buildFiberNeedsWork(parseOldFiber, parseElem)
-	return isParseNeedsUpdate
-}
-
-// buildFiberNeedsChildReconcile reports whether one reused fiber only needs child reconciliation work.
-func (parseRt *Runtime) buildFiberNeedsChildReconcile(parseOldFiber *Fiber, parseElem *Element) bool {
-	_, isParseNeedsChildReconcile := parseRt.buildFiberNeedsWork(parseOldFiber, parseElem)
-	return isParseNeedsChildReconcile
 }
 
 // buildFiberNeedsWork separates self updates from child-only reconciliation work on one reused fiber.
@@ -219,7 +207,7 @@ func (parseRt *Runtime) buildFiberNeedsWork(parseOldFiber *Fiber, parseElem *Ele
 }
 
 // childrenEqual compares one structural children slice using the same pointer-oriented semantics as propsEqual.
-func childrenEqual(parseA []interface{}, parseB []interface{}) bool {
+func childrenEqual(parseA []any, parseB []any) bool {
 	if len(parseA) == 0 && len(parseB) == 0 {
 		return true
 	}
@@ -298,7 +286,7 @@ func buildPlacementFiber(parseWipFiber *Fiber, parseElem *Element, parseOldFiber
 }
 
 // buildUpdateEffectTag returns the effect tag used when one reused fiber keeps its existing DOM node.
-func buildUpdateEffectTag(parseTypeOf interface{}, isParseNeedsUpdate bool) effectTagKind {
+func buildUpdateEffectTag(parseTypeOf any, isParseNeedsUpdate bool) effectTagKind {
 	if !isParseNeedsUpdate {
 		return effectTagNone
 	}
@@ -325,7 +313,7 @@ func hasElementFiberKeyMatch(parseElem *Element, parseFiber *Fiber) bool {
 }
 
 // tryReconcileKeyedChildrenInOrder fast-paths keyed lists that kept the same sibling order.
-func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, parseElements []interface{}, parseOldFirst *Fiber) bool {
+func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, parseElements []any, parseOldFirst *Fiber) bool {
 	if parseWipFiber == nil {
 		return false
 	}
@@ -364,7 +352,7 @@ func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, p
 }
 
 // GetCurrentFiber returns the fiber currently being processed
-func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []interface{}) {
+func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []any) {
 	parseWipFiber.needsChildOrder = false
 	// Fast path: empty elements
 	if len(parseElements) == 0 {
@@ -492,7 +480,7 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 }
 
 // shouldUseKeyedReconciliation is an internal reconciler helper.
-func shouldUseKeyedReconciliation(parseElements []interface{}, parseWipFiber *Fiber) bool {
+func shouldUseKeyedReconciliation(parseElements []any, parseWipFiber *Fiber) bool {
 	for _, parseElement := range parseElements {
 		parseElem, parseOk := parseElement.(*Element)
 		if !parseOk || parseElem == nil {
@@ -516,9 +504,9 @@ func shouldUseKeyedReconciliation(parseElements []interface{}, parseWipFiber *Fi
 }
 
 // reconcileKeyedChildren is an internal reconciler helper.
-func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElements []interface{}) {
+func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElements []any) {
 	parseWipFiber.needsChildOrder = false
-	parseOldByKey := keyedFiberMapPool.Get().(map[interface{}]*Fiber)
+	parseOldByKey := keyedFiberMapPool.Get().(map[any]*Fiber)
 	parseOldFallbackKeyed := fiberScratchSlicePool.get()
 	parseOldUnkeyed := fiberScratchSlicePool.get()
 	parseOldIndexByFiber := getFiberIndexMapPool.Get().(map[*Fiber]int)
@@ -679,7 +667,7 @@ func hasFiberKey(parseFiber *Fiber) bool {
 }
 
 // elementComparableKey is an internal reconciler helper.
-func elementComparableKey(parseElem *Element) (interface{}, bool) {
+func elementComparableKey(parseElem *Element) (any, bool) {
 	if parseElem == nil || parseElem.Props == nil {
 		return nil, false
 	}
@@ -687,7 +675,7 @@ func elementComparableKey(parseElem *Element) (interface{}, bool) {
 }
 
 // fiberComparableKey is an internal reconciler helper.
-func fiberComparableKey(parseFiber *Fiber) (interface{}, bool) {
+func fiberComparableKey(parseFiber *Fiber) (any, bool) {
 	if parseFiber == nil || parseFiber.props == nil {
 		return nil, false
 	}
@@ -695,7 +683,7 @@ func fiberComparableKey(parseFiber *Fiber) (interface{}, bool) {
 }
 
 // propsComparableKey is an internal reconciler helper.
-func propsComparableKey(parseProps map[string]interface{}) (interface{}, bool) {
+func propsComparableKey(parseProps map[string]any) (any, bool) {
 	parseKey, parseOk := parseProps["key"]
 	if !parseOk || parseKey == nil {
 		return nil, false
@@ -732,7 +720,7 @@ func takeMatchingFallbackKeyed(parseOldFibers []*Fiber, parseElem *Element) *Fib
 }
 
 // propsEqual compares two property maps for equality
-func propsEqual(parseA, parseB map[string]interface{}) bool {
+func propsEqual(parseA, parseB map[string]any) bool {
 	if len(parseA) == 0 && len(parseB) == 0 {
 		return true
 	}
@@ -761,8 +749,8 @@ func propsEqual(parseA, parseB map[string]interface{}) bool {
 			}
 
 			// Fast path for the common children representation.
-			if parseC1, parseOk1 := parseV1.([]interface{}); parseOk1 {
-				if parseC2, parseOk2 := parseV2.([]interface{}); parseOk2 {
+			if parseC1, parseOk1 := parseV1.([]any); parseOk1 {
+				if parseC2, parseOk2 := parseV2.([]any); parseOk2 {
 					if len(parseC1) == len(parseC2) {
 						if len(parseC1) == 0 {
 							continue
@@ -800,7 +788,7 @@ func propsEqual(parseA, parseB map[string]interface{}) bool {
 }
 
 // propsEqualIgnoringChildren compares two property maps while ignoring child slices.
-func propsEqualIgnoringChildren(parseA, parseB map[string]interface{}) bool {
+func propsEqualIgnoringChildren(parseA, parseB map[string]any) bool {
 	if len(parseA) == 0 && len(parseB) == 0 {
 		return true
 	}
@@ -843,7 +831,7 @@ func propsEqualIgnoringChildren(parseA, parseB map[string]interface{}) bool {
 }
 
 // isSameType checks if two component types are the same
-func isSameType(parseType1, parseType2 interface{}) bool {
+func isSameType(parseType1, parseType2 any) bool {
 	// String types (HTML tags)
 	if parseS1, parseOk1 := parseType1.(string); parseOk1 {
 		if parseS2, parseOk2 := parseType2.(string); parseOk2 {
@@ -923,10 +911,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 	parseFiber.renderDurationNs = 0
 	parseFiber.diffDurationNs = 0
 	parseFinalize := func(parseNext *Fiber) *Fiber {
-		parseDiffDurationNs := time.Since(parseStart).Nanoseconds() - parseFiber.renderDurationNs
-		if parseDiffDurationNs < 0 {
-			parseDiffDurationNs = 0
-		}
+		parseDiffDurationNs := max(time.Since(parseStart).Nanoseconds()-parseFiber.renderDurationNs, 0)
 		parseFiber.diffDurationNs = parseDiffDurationNs
 		parseRt.profiling.totalDiffDurationNs += parseDiffDurationNs
 		return parseNext
@@ -1014,7 +999,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 				}
 			}
 
-			var parseParentContextValues map[int64]interface{}
+			var parseParentContextValues map[int64]any
 			if parseFiber.parent != nil {
 				parseParentContextValues = parseFiber.parent.contextValues
 			}
@@ -1058,7 +1043,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 			parseFiber.childHydration = parseFiber.hydration
 			parseRendered := reactiveRegionValue(parseFiber)
 			if parseRendered != nil {
-				parseChildren2 := [1]interface{}{parseRendered}
+				parseChildren2 := [1]any{parseRendered}
 				parseRt.reconcileChildren(parseFiber, parseChildren2[:])
 			} else {
 				parseRt.reconcileChildren(parseFiber, emptyChildren)
@@ -1077,7 +1062,7 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 				return parseFinalize(parseNextFromBoundary)
 			}
 			if parseElement != nil {
-				parseChildren3 := [1]interface{}{parseElement}
+				parseChildren3 := [1]any{parseElement}
 				parseRt.reconcileChildren(parseFiber, parseChildren3[:])
 			} else {
 				// A component that now renders nothing must delete any previous subtree.

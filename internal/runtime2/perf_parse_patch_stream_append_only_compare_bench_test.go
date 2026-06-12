@@ -20,7 +20,7 @@ func buildPatchStreamParseAppendOnlyBenchmarkFixture(parseAppendCount int) build
 	}
 	const getKnownNodeCount = 4096
 	buildKnownNodeIDs := make(map[uint64]struct{}, getKnownNodeCount)
-	for parseNodeOffset := 0; parseNodeOffset < getKnownNodeCount; parseNodeOffset++ {
+	for parseNodeOffset := range getKnownNodeCount {
 		buildKnownNodeIDs[uint64(parseNodeOffset+1)] = struct{}{}
 	}
 	buildStringTable := BuildRenderStringTable([]string{"li"})
@@ -69,7 +69,7 @@ func buildParsePatchStreamTransactionLegacyAppendOnlyKnownNodeCopy(
 	if parseExpectedEpoch > 0 && parseHeader.Epoch != parseExpectedEpoch {
 		return PatchStreamParseResult{}, false, nil
 	}
-	parseStringTable := RenderStringTable{}
+	var parseStringTable RenderStringTable
 	if parseHasCanonicalStringTableSortedUnique(parseRaw.GetStringTable) {
 		parseStringTable = RenderStringTable{
 			Entries: parseRaw.GetStringTable,
@@ -135,7 +135,6 @@ func buildParsePatchStreamTransactionLegacyAppendOnlyKnownNodeCopy(
 func BenchmarkParsePatchStreamTransactionAppendOnlyCurrentVsLegacy(parseB *testing.B) {
 	parseAppendCounts := []int{32, 128, 256}
 	for _, parseAppendCount := range parseAppendCounts {
-		parseAppendCount := parseAppendCount
 		parseBenchName := "append-" + strconv.Itoa(parseAppendCount)
 		parseB.Run(parseBenchName+"/legacy_copy_known_nodes", func(parseB *testing.B) {
 			getFixture := buildPatchStreamParseAppendOnlyBenchmarkFixture(parseAppendCount)

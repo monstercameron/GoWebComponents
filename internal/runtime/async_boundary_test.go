@@ -12,7 +12,7 @@ func TestRenderToStringAsyncBoundarySuspensionFallback(parseT *testing.T) {
 		return CreateElement("span", nil, "ready")
 	}
 
-	parseMarkup, parseErr := RenderToString(CreateElement(AsyncBoundaryNodeType, map[string]interface{}{
+	parseMarkup, parseErr := RenderToString(CreateElement(AsyncBoundaryNodeType, map[string]any{
 		"fallback": CreateElement("p", nil, "loading"),
 	}, CreateElement(parseChild, nil)))
 	if parseErr != nil {
@@ -35,11 +35,11 @@ func TestAsyncBoundaryRetriesAfterSuspensionResolves(parseT *testing.T) {
 		if !isReady {
 			SuspendUntil(parseDone, "load profile")
 		}
-		return CreateElement("span", map[string]interface{}{"id": "ready"}, "ready")
+		return CreateElement("span", map[string]any{"id": "ready"}, "ready")
 	}
 
-	parseRt.Render(CreateElement(AsyncBoundaryNodeType, map[string]interface{}{
-		"fallback": CreateElement("p", map[string]interface{}{"id": "fallback"}, "loading"),
+	parseRt.Render(CreateElement(AsyncBoundaryNodeType, map[string]any{
+		"fallback": CreateElement("p", map[string]any{"id": "fallback"}, "loading"),
 	}, CreateElement(parseChild, nil)), parseContainer)
 	flushScheduledWork(parseScheduler)
 

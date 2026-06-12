@@ -2,6 +2,7 @@ package flags
 
 import (
 	"hash/fnv"
+	"maps"
 
 	"github.com/monstercameron/GoWebComponents/state"
 )
@@ -67,9 +68,7 @@ func BuildSet(parseFlags map[string]Flag, parseExperiments map[string]Experiment
 		Flags:       make(map[string]Flag, len(parseFlags)),
 		Experiments: make(map[string]Experiment, len(parseExperiments)),
 	}
-	for parseName, parseFlag := range parseFlags {
-		parseResult.Flags[parseName] = parseFlag
-	}
+	maps.Copy(parseResult.Flags, parseFlags)
 	for parseName, parseExperiment := range parseExperiments {
 		parseCopiedExperiment := parseExperiment
 		if len(parseExperiment.Variants) > 0 {

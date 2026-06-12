@@ -29,14 +29,14 @@ func TestProductionCorrectness_ComposedAppFlowWithBoundaryPortalAndHydration(par
 
 	parseBoundary := NewErrorBoundaryType()
 	var (
-		setOpen  func(interface{})
-		setDraft func(interface{})
-		setCrash func(interface{})
+		setOpen  func(any)
+		setDraft func(any)
+		setCrash func(any)
 	)
 
 	parseOverlayView := func() *Element {
 		parseDraft, _ := GoUseAtom(parseRt, "draft", "draft-0")
-		return CreateElement("aside", map[string]interface{}{"id": "overlay-draft"}, "overlay:"+parseDraft())
+		return CreateElement("aside", map[string]any{"id": "overlay-draft"}, "overlay:"+parseDraft())
 	}
 	parseRiskyPanel := func() *Element {
 		parseCrash, setCrashState := GoUseState(parseRt, false)
@@ -44,7 +44,7 @@ func TestProductionCorrectness_ComposedAppFlowWithBoundaryPortalAndHydration(par
 		if parseCrash() {
 			panic("panel boom")
 		}
-		return CreateElement("button", map[string]interface{}{"id": "crash-button"}, "stable panel")
+		return CreateElement("button", map[string]any{"id": "crash-button"}, "stable panel")
 	}
 	parseApp := func() *Element {
 		parseOpen, setOpenState := GoUseState(parseRt, false)
@@ -52,12 +52,12 @@ func TestProductionCorrectness_ComposedAppFlowWithBoundaryPortalAndHydration(par
 		setOpen = setOpenState
 		setDraft = setDraftState
 
-		parseChildren := []interface{}{
-			CreateElement("section", map[string]interface{}{"id": "shell"},
-				CreateElement("p", map[string]interface{}{"id": "draft-status"}, parseDraft2()),
-				CreateElement(parseBoundary, map[string]interface{}{
+		parseChildren := []any{
+			CreateElement("section", map[string]any{"id": "shell"},
+				CreateElement("p", map[string]any{"id": "draft-status"}, parseDraft2()),
+				CreateElement(parseBoundary, map[string]any{
 					"errorFallback": func(parseErr error, reset func()) *Element {
-						return CreateElement("button", map[string]interface{}{
+						return CreateElement("button", map[string]any{
 							"id": "boundary-reset",
 							"onclick": func() {
 								if setCrash != nil {
@@ -71,7 +71,7 @@ func TestProductionCorrectness_ComposedAppFlowWithBoundaryPortalAndHydration(par
 			),
 		}
 		if parseOpen() {
-			parseChildren = append(parseChildren, CreateElement(PortalNodeType, map[string]interface{}{
+			parseChildren = append(parseChildren, CreateElement(PortalNodeType, map[string]any{
 				"portalTargetSelector": "#overlay-root",
 			}, CreateElement(parseOverlayView, nil)))
 		}
@@ -131,7 +131,7 @@ func TestProductionCorrectness_MountUnmountChurnReleasesSubscribersAndRunsCleanu
 	parseContainer := parseAdapter.CreateElement("div")
 
 	var (
-		setVisible         func(interface{})
+		setVisible         func(any)
 		parseCleanupCount  int
 		parseExpectedClean int
 	)
@@ -143,7 +143,7 @@ func TestProductionCorrectness_MountUnmountChurnReleasesSubscribersAndRunsCleanu
 				parseCleanupCount++
 			}
 		}, parseValue())
-		return CreateElement("p", map[string]interface{}{"id": "child"}, parseValue())
+		return CreateElement("p", map[string]any{"id": "child"}, parseValue())
 	}
 	parseApp := func() *Element {
 		parseVisible, setVisibleState := GoUseState(parseRt, true)
@@ -151,13 +151,13 @@ func TestProductionCorrectness_MountUnmountChurnReleasesSubscribersAndRunsCleanu
 		if parseVisible() {
 			return CreateElement("section", nil, CreateElement(parseChild, nil))
 		}
-		return CreateElement("section", nil, CreateElement("p", map[string]interface{}{"id": "empty"}, "hidden"))
+		return CreateElement("section", nil, CreateElement("p", map[string]any{"id": "empty"}, "hidden"))
 	}
 
 	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
 	drainScheduledTimeouts(parseT, parseScheduler, 64)
 
-	for parseIteration := 0; parseIteration < 40; parseIteration++ {
+	for parseIteration := range 40 {
 		setVisible(false)
 		drainScheduledTimeouts(parseT, parseScheduler, 64)
 		parseExpectedClean++
@@ -209,7 +209,7 @@ func TestProductionCorrectness_OverlappingUrgentAndTransitionUpdatesSettleConsis
 			})
 		}
 
-		return CreateElement("p", map[string]interface{}{"id": "status"}, fmt.Sprintf("%d/%d", parseCount(), parseShared()))
+		return CreateElement("p", map[string]any{"id": "status"}, fmt.Sprintf("%d/%d", parseCount(), parseShared()))
 	}
 
 	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
@@ -218,7 +218,7 @@ func TestProductionCorrectness_OverlappingUrgentAndTransitionUpdatesSettleConsis
 	if parseBurst == nil {
 		parseT.Fatal("expected burst handler to be installed")
 	}
-	for parseI := 0; parseI < 20; parseI++ {
+	for range 20 {
 		parseBurst()
 	}
 	drainScheduledTimeouts(parseT, parseScheduler, 512)

@@ -8,7 +8,7 @@ func BenchmarkScheduleUpdate(parseB *testing.B) {
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  map[string]interface{}{"children": []interface{}{}},
+			props:  map[string]any{"children": []any{}},
 			dom:    newTestDOMAdapter().CreateElement("div"),
 		},
 	}
@@ -28,7 +28,7 @@ func BenchmarkScheduleUpdateSteadyState(parseB *testing.B) {
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  map[string]interface{}{"children": []interface{}{}},
+			props:  map[string]any{"children": []any{}},
 			dom:    newTestDOMAdapter().CreateElement("div"),
 			alternate: &Fiber{
 				typeOf: "ROOT",
@@ -51,13 +51,13 @@ func BenchmarkScheduleUpdateForFiberDepth32(parseB *testing.B) {
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  map[string]interface{}{"children": []interface{}{}},
+			props:  map[string]any{"children": []any{}},
 		},
 	}
 
 	parseRoot := &Fiber{typeOf: "root"}
 	parseCurrent := parseRoot
-	for parseI := 0; parseI < 31; parseI++ {
+	for range 31 {
 		parseNext := &Fiber{typeOf: "node", parent: parseCurrent}
 		parseCurrent = parseNext
 	}
@@ -83,7 +83,7 @@ func BenchmarkRender(parseB *testing.B) {
 	parseCurrentRoot := &Fiber{
 		typeOf: "ROOT",
 		dom:    parseContainer,
-		props:  map[string]interface{}{"children": []interface{}{}},
+		props:  map[string]any{"children": []any{}},
 	}
 	parseRt := &Runtime{
 		scheduler:   parseScheduler,
@@ -91,7 +91,7 @@ func BenchmarkRender(parseB *testing.B) {
 		currentRoot: parseCurrentRoot,
 		deletions:   make([]*Fiber, 0, 8),
 	}
-	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
+	parseElement := &Element{Type: "div", Props: map[string]any{"id": "app"}}
 
 	parseB.ReportAllocs()
 	for parseI := 0; parseI < parseB.N; parseI++ {
@@ -109,7 +109,7 @@ func BenchmarkRenderSteadyState(parseB *testing.B) {
 	parseCurrentRoot := &Fiber{
 		typeOf: "ROOT",
 		dom:    parseContainer,
-		props:  map[string]interface{}{"children": []interface{}{}},
+		props:  map[string]any{"children": []any{}},
 		alternate: &Fiber{
 			typeOf: "ROOT",
 		},
@@ -120,7 +120,7 @@ func BenchmarkRenderSteadyState(parseB *testing.B) {
 		currentRoot: parseCurrentRoot,
 		deletions:   make([]*Fiber, 0, 8),
 	}
-	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
+	parseElement := &Element{Type: "div", Props: map[string]any{"id": "app"}}
 
 	parseB.ReportAllocs()
 	for parseI := 0; parseI < parseB.N; parseI++ {
@@ -144,7 +144,7 @@ func BenchmarkProcessUIQueueBatch64(parseB *testing.B) {
 	parseB.ReportAllocs()
 	for parseI := 0; parseI < parseB.N; parseI++ {
 		ProcessUIQueue()
-		for parseJ := 0; parseJ < 64; parseJ++ {
+		for range 64 {
 			EnqueueUI(func() {})
 		}
 		ProcessUIQueue()
@@ -163,16 +163,16 @@ func BenchmarkTransitionListRefresh250(parseB *testing.B) {
 		parseRefresh = func() {
 			parseRt.StartTransition(func() {
 				parseNext := make([]string, 0, 250)
-				for parseI := 0; parseI < 250; parseI++ {
+				for range 250 {
 					parseNext = append(parseNext, "item")
 				}
 				setItems(parseNext)
 			})
 		}
 
-		parseChildren := make([]interface{}, 0, len(parseItems()))
+		parseChildren := make([]any, 0, len(parseItems()))
 		for parseIndex, parseItem := range parseItems() {
-			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseIndex}, parseItem))
+			parseChildren = append(parseChildren, CreateElement("li", map[string]any{"key": parseIndex}, parseItem))
 		}
 		return CreateElement("ul", nil, parseChildren...)
 	}

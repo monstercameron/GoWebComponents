@@ -75,7 +75,7 @@ func defaultBootstrapPayload() ui.SSRBootstrap {
 			Path:   "/docs/" + guideSectionSSR,
 			Params: map[string]string{"section": guideSectionSSR},
 		},
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"transport": transportJSONSidecar,
 			"demo":      ssrRoutingDemoName,
 		},
@@ -313,7 +313,7 @@ func deferredRouteInsights(parseView demoShellView) ui.Node {
 				html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.28em] text-slate-400"}, html.Text("Loader key: "+parseLoaderKey)),
 			), nil
 		},
-		Dependencies: []interface{}{parseLoaderKey},
+		Dependencies: []any{parseLoaderKey},
 		Delay:        50 * time.Millisecond,
 		Timeout:      500 * time.Millisecond,
 		Fallback: html.Section(html.Props{Class: "rounded-[1.75rem] border border-white/10 bg-white/5 p-6"},

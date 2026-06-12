@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-func benchmarkBuildHostChain(parseAdapter DOMAdapter, parseCount int) (*Fiber, []interface{}) {
+func benchmarkBuildHostChain(parseAdapter DOMAdapter, parseCount int) (*Fiber, []any) {
 	var parseFirst *Fiber
 	var parsePrev *Fiber
-	parseElements := make([]interface{}, parseCount)
+	parseElements := make([]any, parseCount)
 
-	for parseI := 0; parseI < parseCount; parseI++ {
-		parseProps := map[string]interface{}{"id": strconv.Itoa(parseI)}
+	for parseI := range parseCount {
+		parseProps := map[string]any{"id": strconv.Itoa(parseI)}
 		parseElem := &Element{Type: "div", Props: parseProps}
 		parseElements[parseI] = parseElem
 
@@ -31,13 +31,13 @@ func benchmarkBuildHostChain(parseAdapter DOMAdapter, parseCount int) (*Fiber, [
 	return parseFirst, parseElements
 }
 
-func benchmarkBuildKeyedHostChain(parseAdapter DOMAdapter, parseCount int) (*Fiber, []interface{}) {
+func benchmarkBuildKeyedHostChain(parseAdapter DOMAdapter, parseCount int) (*Fiber, []any) {
 	var parseFirst *Fiber
 	var parsePrev *Fiber
-	parseElements := make([]interface{}, parseCount)
+	parseElements := make([]any, parseCount)
 
-	for parseI := 0; parseI < parseCount; parseI++ {
-		parseProps := map[string]interface{}{"id": strconv.Itoa(parseI), "key": strconv.Itoa(parseI)}
+	for parseI := range parseCount {
+		parseProps := map[string]any{"id": strconv.Itoa(parseI), "key": strconv.Itoa(parseI)}
 		parseElem := &Element{Type: "div", Props: parseProps}
 		parseElements[parseI] = parseElem
 
@@ -58,7 +58,7 @@ func benchmarkBuildKeyedHostChain(parseAdapter DOMAdapter, parseCount int) (*Fib
 }
 
 func BenchmarkCreateElementHostWithTextChildren(parseB *testing.B) {
-	parseProps := map[string]interface{}{"id": "root", "className": "card", "role": "button"}
+	parseProps := map[string]any{"id": "root", "className": "card", "role": "button"}
 
 	parseB.ReportAllocs()
 	for parseI := 0; parseI < parseB.N; parseI++ {
@@ -67,7 +67,7 @@ func BenchmarkCreateElementHostWithTextChildren(parseB *testing.B) {
 }
 
 func BenchmarkCreateElementHostWithDirectTextChild(parseB *testing.B) {
-	parseProps := map[string]interface{}{"id": "root", "className": "card", "role": "button"}
+	parseProps := map[string]any{"id": "root", "className": "card", "role": "button"}
 
 	parseB.ReportAllocs()
 	for parseI := 0; parseI < parseB.N; parseI++ {
@@ -76,8 +76,8 @@ func BenchmarkCreateElementHostWithDirectTextChild(parseB *testing.B) {
 }
 
 func BenchmarkPropsEqualChildrenSamePointer(parseB *testing.B) {
-	parseChildren := []interface{}{&Element{Type: "span"}}
-	parseProps := map[string]interface{}{
+	parseChildren := []any{&Element{Type: "span"}}
+	parseProps := map[string]any{
 		"id":       "same",
 		"children": parseChildren,
 	}
@@ -91,13 +91,13 @@ func BenchmarkPropsEqualChildrenSamePointer(parseB *testing.B) {
 }
 
 func BenchmarkPropsEqualChildrenDifferentPointer(parseB *testing.B) {
-	parsePropsA := map[string]interface{}{
+	parsePropsA := map[string]any{
 		"id":       "same",
-		"children": []interface{}{&Element{Type: "span"}},
+		"children": []any{&Element{Type: "span"}},
 	}
-	parsePropsB := map[string]interface{}{
+	parsePropsB := map[string]any{
 		"id":       "same",
-		"children": []interface{}{&Element{Type: "span"}},
+		"children": []any{&Element{Type: "span"}},
 	}
 
 	parseB.ReportAllocs()
@@ -128,16 +128,16 @@ func BenchmarkReconcileChildrenWithFragments16(parseB *testing.B) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 	parseOldFirst, parseFlat := benchmarkBuildHostChain(parseAdapter, 16)
 	parseParent := &Fiber{alternate: &Fiber{child: parseOldFirst}}
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{
 			Type: "FRAGMENT",
-			Props: map[string]interface{}{
+			Props: map[string]any{
 				"children": parseFlat[:8],
 			},
 		},
 		&Element{
 			Type: "FRAGMENT",
-			Props: map[string]interface{}{
+			Props: map[string]any{
 				"children": parseFlat[8:],
 			},
 		},
@@ -170,13 +170,13 @@ func BenchmarkReconcileChildrenKeyedStableList16(parseB *testing.B) {
 func BenchmarkPerformUnitOfWorkFunctionComponentLeaf(parseB *testing.B) {
 	parseAdapter := newTestDOMAdapter()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
-	parseProps := map[string]interface{}{"id": "leaf"}
+	parseProps := map[string]any{"id": "leaf"}
 	parseRendered := &Element{Type: "div", Props: parseProps}
-	parseComponent := func(map[string]interface{}) *Element { return parseRendered }
+	parseComponent := func(map[string]any) *Element { return parseRendered }
 	parseOldChild := &Fiber{typeOf: "div", props: parseProps, dom: parseAdapter.CreateElement("div")}
 	parseFiber := &Fiber{
 		typeOf:    parseComponent,
-		props:     map[string]interface{}{},
+		props:     map[string]any{},
 		dirty:     true,
 		alternate: &Fiber{child: parseOldChild},
 	}
@@ -194,13 +194,13 @@ func BenchmarkPerformUnitOfWorkFunctionComponentLeaf(parseB *testing.B) {
 func BenchmarkPerformUnitOfWorkFunctionComponentNoPropsLeaf(parseB *testing.B) {
 	parseAdapter := newTestDOMAdapter()
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
-	parseProps := map[string]interface{}{"id": "leaf"}
+	parseProps := map[string]any{"id": "leaf"}
 	parseRendered := &Element{Type: "div", Props: parseProps}
 	parseComponent := func() *Element { return parseRendered }
 	parseOldChild := &Fiber{typeOf: "div", props: parseProps, dom: parseAdapter.CreateElement("div")}
 	parseFiber := &Fiber{
 		typeOf:    parseComponent,
-		props:     map[string]interface{}{},
+		props:     map[string]any{},
 		dirty:     true,
 		alternate: &Fiber{child: parseOldChild},
 	}
@@ -217,7 +217,7 @@ func BenchmarkPerformUnitOfWorkFunctionComponentNoPropsLeaf(parseB *testing.B) {
 
 func BenchmarkUpdateDomPropertiesInitialRender(parseB *testing.B) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	parseNewProps := map[string]interface{}{
+	parseNewProps := map[string]any{
 		"id":        "field",
 		"className": "large",
 		"value":     "abc",
@@ -239,7 +239,7 @@ func BenchmarkUpdateDomPropertiesInitialRender(parseB *testing.B) {
 func BenchmarkUpdateDomPropertiesSteadyState(parseB *testing.B) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseDom := parseRt.domAdapter.CreateElement("input")
-	parseOldProps := map[string]interface{}{
+	parseOldProps := map[string]any{
 		"id":        "field",
 		"className": "large",
 		"value":     "abc",
@@ -249,7 +249,7 @@ func BenchmarkUpdateDomPropertiesSteadyState(parseB *testing.B) {
 			"background": "white",
 		},
 	}
-	parseNewProps := map[string]interface{}{
+	parseNewProps := map[string]any{
 		"id":        "field-next",
 		"className": "large active",
 		"value":     "abcd",
@@ -275,9 +275,9 @@ func BenchmarkCommitDeletionDomlessSubtree32(parseB *testing.B) {
 	parseB.ResetTimer()
 	for parseI := 0; parseI < parseB.N; parseI++ {
 		parseParentDOM := parseAdapter.CreateElement("div")
-		parseRoot := &Fiber{typeOf: func(map[string]interface{}) *Element { return nil }}
+		parseRoot := &Fiber{typeOf: func(map[string]any) *Element { return nil }}
 		var parsePrev *Fiber
-		for parseJ := 0; parseJ < 32; parseJ++ {
+		for range 32 {
 			parseChild := &Fiber{
 				typeOf: "div",
 				dom:    parseAdapter.CreateElement("div"),
@@ -303,7 +303,7 @@ func BenchmarkCommitWorkPlacementChain16(parseB *testing.B) {
 
 	var parseFirst *Fiber
 	var parsePrev *Fiber
-	for parseI := 0; parseI < 16; parseI++ {
+	for range 16 {
 		parseFiber := &Fiber{
 			typeOf:    "div",
 			dom:       parseAdapter.CreateElement("div"),
@@ -330,7 +330,7 @@ func BenchmarkRunEffectsChain16(parseB *testing.B) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	parseRoot := &Fiber{}
 	parseCurrent := parseRoot
-	for parseI := 0; parseI < 16; parseI++ {
+	for range 16 {
 		parseChild := &Fiber{
 			hooks: &Hooks{cleanups: make([]func(), 1)},
 			effects: []Effect{{

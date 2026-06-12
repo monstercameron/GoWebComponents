@@ -342,7 +342,7 @@ func TestReleaseSnapshotHelpersCoverReadAndDiffBranches(parseT *testing.T) {
 
 	parseLargeBaseline := make([]releasePackageSizeRecord, 0, 12)
 	parseLargeCurrent := make([]releasePackageSizeRecord, 0, 12)
-	for parseIndex := 0; parseIndex < 12; parseIndex++ {
+	for parseIndex := range 12 {
 		parseImportPath := "example.com/pkg" + string(rune('a'+parseIndex))
 		parseLargeBaseline = append(parseLargeBaseline, releasePackageSizeRecord{ImportPath: parseImportPath, ArchiveBytes: 10, SourceBytes: 1})
 		parseLargeCurrent = append(parseLargeCurrent, releasePackageSizeRecord{ImportPath: parseImportPath, ArchiveBytes: int64(20 + parseIndex), SourceBytes: 2})

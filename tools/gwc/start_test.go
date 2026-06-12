@@ -34,6 +34,19 @@ func TestDefaultTargetDirUsesGeneratedRoot(parseT *testing.T) {
 	}
 }
 
+func TestScaffoldMetadataJSONWireShapePreservesNestedObjects(parseT *testing.T) {
+	parseEncoded, parseErr := json.Marshal(scaffoldMetadata{})
+	if parseErr != nil {
+		parseT.Fatalf("marshal scaffold metadata: %v", parseErr)
+	}
+	parseText := string(parseEncoded)
+	for _, parseExpected := range []string{`"preset":{}`, `"enterprise":{}`, `"ownership":{}`, `"tooling":{}`} {
+		if !strings.Contains(parseText, parseExpected) {
+			parseT.Fatalf("expected scaffold metadata to preserve %s, got %s", parseExpected, parseText)
+		}
+	}
+}
+
 func TestDefaultGeneratedScaffoldRootForWindowsUsesDocuments(parseT *testing.T) {
 	parseHomeDir := filepath.Join("C:\\Users", "Cam")
 	parseGot := defaultGeneratedScaffoldRootForOS("windows", parseHomeDir, nil)
@@ -106,10 +119,14 @@ func TestDefaultStartPresetsCoverMajorAdoptionModes(parseT *testing.T) {
 	}
 
 	parseRequired := map[string][]string{
-		"minimal-client": {"ui", "html"},
-		"routed-spa":     {"router", "browser-tests"},
-		"ssr-app":        {"ssr", "hydration"},
-		"reference-app":  {"router", "forms", "fetch", "state", "browser-tests"},
+		"minimal-client":   {"ui", "html"},
+		"routed-spa":       {"router", "browser-tests"},
+		"ssr-app":          {"ssr", "hydration"},
+		"reference-app":    {"router", "forms", "fetch", "state", "browser-tests"},
+		"dashboard-app":    {"router", "fetch", "state", "forms", "browser-tests"},
+		"marketing-site":   {"ssr", "hydration", "release-profile"},
+		"content-blog":     {"router", "ssr", "hydration", "fetch"},
+		"authed-app-shell": {"router", "forms", "fetch", "state", "browser-tests"},
 	}
 	for parseKey, parseExpectedFeatures := range parseRequired {
 		parsePreset2, parseOk := parseByKey[parseKey]
@@ -1588,7 +1605,7 @@ func TestRenderScaffoldMetadataRecordsContributorLinkedOwnership(parseT *testing
 func TestRenderScaffoldMetadataFallsBackWhenMarshalFails(parseT *testing.T) {
 	parseOriginalMarshal := scaffoldMarshalIndent
 	parseT.Cleanup(func() { scaffoldMarshalIndent = parseOriginalMarshal })
-	scaffoldMarshalIndent = func(parseV interface{}, parsePrefix string, parseIndent string) ([]byte, error) {
+	scaffoldMarshalIndent = func(parseV any, parsePrefix string, parseIndent string) ([]byte, error) {
 		return nil, errors.New("marshal failed")
 	}
 
@@ -2234,6 +2251,60 @@ func TestGenerateStartScaffoldCIWorkflowMatchesStarterOutputs(parseT *testing.T)
 			}
 			if !parseTest.expectBrowserTest && !os.IsNotExist(parseBrowserErr) {
 				parseT2.Fatalf("expected no browser smoke test scaffold, got err=%v", parseBrowserErr)
+			}
+		})
+	}
+}
+
+func TestDefaultStarterTemplatesScaffoldTidyTestAndBuild(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseLauncher := launcher{repoRoot: parseRepoRoot}
+	parsePresets := defaultStartPresets()
+	if len(parsePresets) == 0 {
+		parseT.Fatal("expected at least one starter preset")
+	}
+
+	for _, parsePreset := range parsePresets {
+		parseT.Run(parsePreset.Key, func(parseT2 *testing.T) {
+			parseProjectName := "test-starter-" + parsePreset.Key
+			parseTargetDir := filepath.Join(parseT2.TempDir(), parseProjectName)
+			parseResult, parseErr2 := parseLauncher.generateStartScaffold(startSelection{
+				Preset:        parsePreset,
+				ProjectMode:   scaffoldProjectModeContributorLinked,
+				ProjectName:   parseProjectName,
+				ModulePath:    "github.com/example/" + parseProjectName,
+				Author:        "Test Author",
+				Version:       "1.2.3",
+				Description:   parsePreset.Summary,
+				TargetDir:     parseTargetDir,
+				SkipGoModTidy: false,
+			})
+			if parseErr2 != nil {
+				parseT2.Fatalf("generate starter scaffold: %v", parseErr2)
+			}
+
+			parseTestCmd := exec.Command("go", "test", "./...")
+			parseTestCmd.Dir = parseTargetDir
+			parseTestCmd.Env = os.Environ()
+			parseTestOutput, parseErr2 := parseTestCmd.CombinedOutput()
+			if parseErr2 != nil {
+				parseT2.Fatalf("generated starter tests failed: %v\n%s", parseErr2, string(parseTestOutput))
+			}
+
+			parseBuildErr := parseLauncher.runBuild([]string{
+				"-app", parseResult.AppPath,
+				"-root", parseResult.TargetDir,
+				"-out", filepath.Join(parseResult.TargetDir, filepath.FromSlash(scaffoldWASMOutputPath())),
+				"-profile", "development",
+			})
+			if parseBuildErr != nil {
+				parseT2.Fatalf("gwc build failed for starter %q: %v", parsePreset.Key, parseBuildErr)
+			}
+			if parseInfo, parseErr3 := os.Stat(filepath.Join(parseTargetDir, filepath.FromSlash(scaffoldWASMOutputPath()))); parseErr3 != nil || parseInfo.Size() == 0 {
+				parseT2.Fatalf("expected non-empty wasm output for starter %q, info=%v err=%v", parsePreset.Key, parseInfo, parseErr3)
 			}
 		})
 	}
@@ -3246,7 +3317,7 @@ func ensureScaffoldUsesLocalRepoModule(parseT *testing.T, parseRepoRoot string, 
 	}
 }
 
-func runLauncherJSONCommand(parseT *testing.T, parseRepoRoot string, parseTarget interface{}, parseArgs ...string) {
+func runLauncherJSONCommand(parseT *testing.T, parseRepoRoot string, parseTarget any, parseArgs ...string) {
 	parseT.Helper()
 
 	parseCmd := exec.Command("go", append([]string{"run", "./tools/gwc"}, parseArgs...)...)

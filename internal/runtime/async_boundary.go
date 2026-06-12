@@ -33,7 +33,7 @@ func SuspendUntil(parseDone <-chan struct{}, parseReason string) {
 }
 
 // AsSuspension returns a suspension payload when recovered carries one.
-func AsSuspension(parseRecovered interface{}) (*Suspension, bool) {
+func AsSuspension(parseRecovered any) (*Suspension, bool) {
 	switch parseTyped := parseRecovered.(type) {
 	case *Suspension:
 		return parseTyped, parseTyped != nil
@@ -177,7 +177,7 @@ func (parseRt *Runtime) renderAsyncBoundaryChildren(parseBoundary *Fiber) {
 	}
 
 	if parseContent := asyncBoundaryContent(parseBoundary); parseContent != nil {
-		parseChildren := [1]interface{}{parseContent}
+		parseChildren := [1]any{parseContent}
 		parseRt.reconcileChildren(parseBoundary, parseChildren[:])
 		return
 	}
@@ -187,7 +187,7 @@ func (parseRt *Runtime) renderAsyncBoundaryChildren(parseBoundary *Fiber) {
 }
 
 // asyncBoundaryFallbackChildren returns the fallback node list for a boundary.
-func asyncBoundaryFallbackChildren(parseBoundary *Fiber, parseErr error) []interface{} {
+func asyncBoundaryFallbackChildren(parseBoundary *Fiber, parseErr error) []any {
 	if parseBoundary == nil || parseBoundary.props == nil {
 		return emptyChildren
 	}
@@ -213,11 +213,11 @@ func safeAsyncBoundaryFallback(parseFallback func(error) *Element, parseErr erro
 }
 
 // singleElementChild wraps one element for reconciliation.
-func singleElementChild(parseElement *Element) []interface{} {
+func singleElementChild(parseElement *Element) []any {
 	if parseElement == nil {
 		return emptyChildren
 	}
-	parseChildren := [1]interface{}{parseElement}
+	parseChildren := [1]any{parseElement}
 	return parseChildren[:]
 }
 

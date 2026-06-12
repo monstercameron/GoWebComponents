@@ -1,11 +1,22 @@
 package runnerconfig
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestOverridesJSONWireShapePreservesPathsObject(parseT *testing.T) {
+	parseEncoded, parseErr := json.Marshal(Overrides{})
+	if parseErr != nil {
+		parseT.Fatalf("marshal runner overrides: %v", parseErr)
+	}
+	if parseText := string(parseEncoded); !strings.Contains(parseText, `"paths":{}`) {
+		parseT.Fatalf("expected zero-value overrides to preserve paths object, got %s", parseText)
+	}
+}
 
 func TestResolveConfigPathFindsParentConfig(parseT *testing.T) {
 	parseRoot := parseT.TempDir()

@@ -3,6 +3,8 @@ package plugin
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -74,7 +76,7 @@ type Host struct {
 	capabilities map[Capability]struct{}
 	plugins      []Manifest
 	cleanups     []CleanupFunc
-	values       map[string]interface{}
+	values       map[string]any
 
 	routeGuards              []RouteGuard
 	navigationObservers      []NavigationObserver
@@ -166,7 +168,7 @@ type HeadProvider func() ui.Node
 
 type BootstrapPayload struct {
 	Namespace string
-	Data      map[string]interface{}
+	Data      map[string]any
 }
 
 type BootstrapProvider func() BootstrapPayload
@@ -198,7 +200,7 @@ func NewHost(parseOptions HostOptions) *Host {
 	}
 	return &Host{
 		capabilities: parseCapabilities,
-		values:       map[string]interface{}{},
+		values:       map[string]any{},
 	}
 }
 
@@ -263,7 +265,7 @@ func (parseHost *Host) Close() error {
 	parseHost.formValidators = nil
 	parseHost.submitObservers = nil
 	parseHost.plugins = nil
-	parseHost.values = map[string]interface{}{}
+	parseHost.values = map[string]any{}
 	parseHost.cleanups = nil
 	return parseJoined
 }
@@ -277,9 +279,7 @@ func (parseHost *Host) Capabilities() []Capability {
 	for parseCapability := range parseHost.capabilities {
 		parseCapabilities = append(parseCapabilities, parseCapability)
 	}
-	sort.Slice(parseCapabilities, func(parseI, parseJ int) bool {
-		return parseCapabilities[parseI] < parseCapabilities[parseJ]
-	})
+	slices.Sort(parseCapabilities)
 	return parseCapabilities
 }
 
@@ -296,7 +296,7 @@ func (parseHost *Host) Plugins() []Manifest {
 }
 
 // SetValue stores a named value on the host for inter-plugin communication.
-func (parseHost *Host) SetValue(parseKey string, parseValue interface{}) {
+func (parseHost *Host) SetValue(parseKey string, parseValue any) {
 	if parseHost == nil {
 		return
 	}
@@ -308,7 +308,7 @@ func (parseHost *Host) SetValue(parseKey string, parseValue interface{}) {
 }
 
 // Value retrieves a named value stored on the host.
-func (parseHost *Host) Value(parseKey string) (interface{}, bool) {
+func (parseHost *Host) Value(parseKey string) (any, bool) {
 	if parseHost == nil {
 		return nil, false
 	}
@@ -556,11 +556,11 @@ func (parseHost *Host) AddBootstrapProvider(parseProvider BootstrapProvider) err
 }
 
 // BootstrapData collects and merges bootstrap payloads from all registered providers.
-func (parseHost *Host) BootstrapData() map[string]map[string]interface{} {
+func (parseHost *Host) BootstrapData() map[string]map[string]any {
 	if parseHost == nil {
 		return nil
 	}
-	parsePayloads := map[string]map[string]interface{}{}
+	parsePayloads := map[string]map[string]any{}
 	for _, parseProvider := range parseHost.bootstrapProviders {
 		if parseProvider == nil {
 			continue
@@ -570,10 +570,8 @@ func (parseHost *Host) BootstrapData() map[string]map[string]interface{} {
 		if parseNamespace == "" || len(parsePayload.Data) == 0 {
 			continue
 		}
-		parseCopyData := make(map[string]interface{}, len(parsePayload.Data))
-		for parseKey, parseValue := range parsePayload.Data {
-			parseCopyData[parseKey] = parseValue
-		}
+		parseCopyData := make(map[string]any, len(parsePayload.Data))
+		maps.Copy(parseCopyData, parsePayload.Data)
 		parsePayloads[parseNamespace] = parseCopyData
 	}
 	return parsePayloads
@@ -659,14 +657,12 @@ type registrySnapshot struct {
 	submitObservers          int
 	cleanups                 int
 	plugins                  int
-	values                   map[string]interface{}
+	values                   map[string]any
 }
 
 func (parseHost *Host) snapshot() registrySnapshot {
-	parseValues := make(map[string]interface{}, len(parseHost.values))
-	for parseKey, parseValue := range parseHost.values {
-		parseValues[parseKey] = parseValue
-	}
+	parseValues := make(map[string]any, len(parseHost.values))
+	maps.Copy(parseValues, parseHost.values)
 	return registrySnapshot{
 		routeGuards:              len(parseHost.routeGuards),
 		navigationObservers:      len(parseHost.navigationObservers),
@@ -699,10 +695,8 @@ func (parseHost *Host) rollback(parseSnapshot registrySnapshot) {
 	parseHost.submitObservers = parseHost.submitObservers[:parseSnapshot.submitObservers]
 	parseHost.cleanups = parseHost.cleanups[:parseSnapshot.cleanups]
 	parseHost.plugins = parseHost.plugins[:parseSnapshot.plugins]
-	parseHost.values = make(map[string]interface{}, len(parseSnapshot.values))
-	for parseKey, parseValue := range parseSnapshot.values {
-		parseHost.values[parseKey] = parseValue
-	}
+	parseHost.values = make(map[string]any, len(parseSnapshot.values))
+	maps.Copy(parseHost.values, parseSnapshot.values)
 }
 
 func (parseHost *Host) requireCapability(parseCapability Capability) error {
@@ -771,9 +765,7 @@ func cloneDevtoolsSection(parseSection DevtoolsSection) DevtoolsSection {
 	parseClone := parseSection
 	if parseSection.Summary != nil {
 		parseClone.Summary = make(map[string]string, len(parseSection.Summary))
-		for parseKey, parseValue := range parseSection.Summary {
-			parseClone.Summary[parseKey] = parseValue
-		}
+		maps.Copy(parseClone.Summary, parseSection.Summary)
 	}
 	if parseSection.Lines != nil {
 		parseClone.Lines = append([]string(nil), parseSection.Lines...)

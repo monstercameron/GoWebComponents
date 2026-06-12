@@ -685,24 +685,19 @@ func (parseL launcher) runBenchmarkJobs(parseConfig benchmarkConfig, parseJobs [
 		}
 		return parseReports
 	}
-	parseWorkerCount := parseConfig.parallel
-	if parseWorkerCount > len(parseJobs) {
-		parseWorkerCount = len(parseJobs)
-	}
+	parseWorkerCount := min(parseConfig.parallel, len(parseJobs))
 	parseJobCh := make(chan benchmarkPackageJob)
 	parseResultCh := make(chan benchmarkPackageResult, len(parseJobs))
 	var parseWg sync.WaitGroup
-	for parseI := 0; parseI < parseWorkerCount; parseI++ {
-		parseWg.Add(1)
-		go func() {
-			defer parseWg.Done()
+	for range parseWorkerCount {
+		parseWg.Go(func() {
 			for parseJob2 := range parseJobCh {
 				parseResultCh <- benchmarkPackageResult{
 					index:  parseJob2.index,
 					report: parseL.runBenchmarkPackage(parseConfig, parseJob2.lane, parseJob2.packagePath),
 				}
 			}
-		}()
+		})
 	}
 	for _, parseJob3 := range parseJobs {
 		parseJobCh <- parseJob3

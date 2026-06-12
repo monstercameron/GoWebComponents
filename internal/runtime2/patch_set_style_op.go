@@ -31,4 +31,3 @@ func ParsePatchSetStyleOp(parseRaw PatchSetStyleOpRaw, parseKnownNodeIDs map[uin
 		StyleValue:   getStyleValue,
 	}, nil
 }
-

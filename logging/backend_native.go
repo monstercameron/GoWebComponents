@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package logging
 
@@ -10,7 +9,7 @@ import (
 )
 
 // writeStructuredContext writes one JSON-encoded structured log record to stdout.
-func writeStructuredContext(parseLogContext context.Context, parseLogLevel, parseLogScope, parseLogMessage string, parseLogFields map[string]interface{}) {
+func writeStructuredContext(parseLogContext context.Context, parseLogLevel, parseLogScope, parseLogMessage string, parseLogFields map[string]any) {
 	parseRecord := buildLogRecord(parseLogContext, parseLogLevel, parseLogScope, parseLogMessage, parseLogFields)
 	parseEncodedRecord, parseErr := json.Marshal(parseRecord)
 	if parseErr != nil {

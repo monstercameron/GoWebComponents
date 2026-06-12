@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package devtools
 
@@ -96,11 +95,11 @@ func buildDevtoolsTestReplaySnapshot() Snapshot {
 				"report:7": "ops-1",
 			},
 			Peers: []MultiClientPeer{{
-				ID:         "ops-1",
-				Surface:    "tab",
-				Role:       "operator",
-				State:      "ready",
-				Compatible: true,
+				ID:            "ops-1",
+				Surface:       "tab",
+				Role:          "operator",
+				State:         "ready",
+				Compatible:    true,
 				LeaseDeadline: time.Date(2026, 4, 6, 15, 1, 0, 0, time.UTC),
 			}},
 			RecentTraffic: []MultiClientTraffic{{

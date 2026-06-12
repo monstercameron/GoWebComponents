@@ -75,7 +75,7 @@ func TestParseRenderNodeTableDuplicateKeysBeyondPairwiseLimitFail(parseTesting *
 		ChildStart: 1,
 		ChildCount: uint32(parseChildCount),
 	})
-	for parseIndex := 0; parseIndex < parseChildCount; parseIndex++ {
+	for parseIndex := range parseChildCount {
 		parseRawRecords = append(parseRawRecords, RenderNodeRecordRaw{
 			NodeID:  uint64(parseIndex + 2),
 			Kind:    uint8(RenderNodeKindHostElement),
@@ -100,7 +100,7 @@ func TestParseRenderNodeTableHashCollisionDifferentKeyTextPass(parseTesting *tes
 		ChildStart: 1,
 		ChildCount: uint32(parseChildCount),
 	})
-	for parseIndex := 0; parseIndex < parseChildCount; parseIndex++ {
+	for parseIndex := range parseChildCount {
 		parseRawRecords = append(parseRawRecords, RenderNodeRecordRaw{
 			NodeID:  uint64(parseIndex + 2),
 			Kind:    uint8(RenderNodeKindHostElement),

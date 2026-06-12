@@ -3,11 +3,11 @@ package runtime
 import "testing"
 
 func TestHTMLWrappers_ExhaustiveCoverage(parseT *testing.T) {
-	parseProps := map[string]interface{}{"id": "node"}
+	parseProps := map[string]any{"id": "node"}
 	parseWithChildren := []struct {
 		name string
 		tag  string
-		fn   func(map[string]interface{}, ...interface{}) *Element
+		fn   func(map[string]any, ...any) *Element
 	}{
 		{"Html", "html", Html},
 		{"Head", "head", Head},
@@ -118,7 +118,7 @@ func TestHTMLWrappers_ExhaustiveCoverage(parseT *testing.T) {
 		if parseElem.Props["id"] != "node" {
 			parseT.Fatalf("%s: expected props to be copied", parseTc.name)
 		}
-		parseChildren, parseOk := parseElem.Props["children"].([]interface{})
+		parseChildren, parseOk := parseElem.Props["children"].([]any)
 		if !parseOk || len(parseChildren) != 1 {
 			parseT.Fatalf("%s: expected one child in props, got %#v", parseTc.name, parseElem.Props["children"])
 		}
@@ -127,7 +127,7 @@ func TestHTMLWrappers_ExhaustiveCoverage(parseT *testing.T) {
 	parseWithoutChildren := []struct {
 		name string
 		tag  string
-		fn   func(map[string]interface{}) *Element
+		fn   func(map[string]any) *Element
 	}{
 		{"Meta", "meta", Meta},
 		{"Link", "link", Link},
@@ -153,7 +153,7 @@ func TestHTMLWrappers_ExhaustiveCoverage(parseT *testing.T) {
 		if parseElem2.Type != parseTc2.tag {
 			parseT.Fatalf("%s: expected tag %q, got %#v", parseTc2.name, parseTc2.tag, parseElem2.Type)
 		}
-		parseChildren2, parseOk2 := parseElem2.Props["children"].([]interface{})
+		parseChildren2, parseOk2 := parseElem2.Props["children"].([]any)
 		if !parseOk2 || len(parseChildren2) != 0 {
 			parseT.Fatalf("%s: expected empty children, got %#v", parseTc2.name, parseElem2.Props["children"])
 		}
@@ -198,14 +198,14 @@ func TestHTMLHelpers_ExhaustiveCoverage(parseT *testing.T) {
 }
 
 func TestHTMLComponentHelpers_ExhaustiveCoverage(parseT *testing.T) {
-	parseComponentA := func(parseProps map[string]interface{}) *Element {
+	parseComponentA := func(parseProps map[string]any) *Element {
 		return Div(parseProps, "A")
 	}
-	parseComponentB := func(parseProps2 map[string]interface{}) *Element {
+	parseComponentB := func(parseProps2 map[string]any) *Element {
 		return Span(parseProps2, "B")
 	}
 
-	parseWith := WithComponents("article", map[string]interface{}{"class": "x"}, parseComponentA, parseComponentB)
+	parseWith := WithComponents("article", map[string]any{"class": "x"}, parseComponentA, parseComponentB)
 	if parseWith.Type != "article" || len(parseWith.Children) != 2 {
 		parseT.Fatalf("WithComponents: got %#v", parseWith)
 	}

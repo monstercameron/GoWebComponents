@@ -98,7 +98,7 @@ func TestBuiltinKernelPluginConforms(t *testing.T) {
 		if parseErr := parseHost.AddBootstrapProvider(func() plugin.BootstrapPayload {
 			return plugin.BootstrapPayload{
 				Namespace: "kernel-style",
-				Data:      map[string]interface{}{"ready": true},
+				Data:      map[string]any{"ready": true},
 			}
 		}); parseErr != nil {
 			return nil, parseErr

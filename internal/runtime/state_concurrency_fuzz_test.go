@@ -18,7 +18,7 @@ func TestAtomRegistryConcurrentInvariants(parseT *testing.T) {
 	const parseWritesPerWriter = 500
 
 	parseReg.InitAtom("src", 0)
-	if parseErr := parseReg.RegisterDerivedAtom("doubled", []string{"src"}, func() interface{} {
+	if parseErr := parseReg.RegisterDerivedAtom("doubled", []string{"src"}, func() any {
 		parseVal, _ := parseReg.GetAtom("src")
 		parseInt, _ := parseVal.(int)
 		return parseInt * 2
@@ -28,13 +28,11 @@ func TestAtomRegistryConcurrentInvariants(parseT *testing.T) {
 
 	var parseWg sync.WaitGroup
 	parseSeen := make([]map[int]bool, parseWriters)
-	for parseW := 0; parseW < parseWriters; parseW++ {
+	for parseW := range parseWriters {
 		parseW2 := parseW
 		parseSeen[parseW2] = map[int]bool{}
-		parseWg.Add(1)
-		go func() {
-			defer parseWg.Done()
-			for parseI := 0; parseI < parseWritesPerWriter; parseI++ {
+		parseWg.Go(func() {
+			for parseI := range parseWritesPerWriter {
 				parseVal := parseW2*parseWritesPerWriter + parseI + 1
 				parseReg.setAtomAndNotify("src", parseVal, func(*Fiber) {})
 				parseGot, parseOk := parseReg.GetAtom("src")
@@ -49,7 +47,7 @@ func TestAtomRegistryConcurrentInvariants(parseT *testing.T) {
 				}
 				parseSeen[parseW2][parseInt] = true
 			}
-		}()
+		})
 	}
 	parseWg.Wait()
 

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/deprecation"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/interop"
 )
@@ -38,7 +40,7 @@ type selectorSource[T any] interface {
 }
 
 // Snapshot stores exported atom values by atom ID.
-type Snapshot map[string]interface{}
+type Snapshot map[string]any
 
 // StorageArea names a browser storage backend.
 type StorageArea string
@@ -172,8 +174,8 @@ func (parseA Atom[T]) Update(parseFn func(T) T) {
 //
 // The computed value is memoized according to the provided dependency list.
 // Callers should pass the values that should trigger recomputation.
-func UseComputed[T any](parseCompute func() T, parseDeps ...interface{}) Computed[T] {
-	parseValue := runtime.GoUseMemoGlobal(func() interface{} {
+func UseComputed[T any](parseCompute func() T, parseDeps ...any) Computed[T] {
+	parseValue := runtime.GoUseMemoGlobal(func() any {
 		return parseCompute()
 	}, parseDeps...)
 
@@ -204,7 +206,7 @@ func (parseC Computed[T]) Get() T {
 // recomputation remains predictable and avoids hidden runtime graph discovery.
 func UseDerived[T any](parseId string, parseCompute func() T, parseDeps ...string) Derived[T] {
 	var parseZero T
-	if parseErr := runtime.GetGlobalRuntime().RegisterDerivedAtom(parseId, parseDeps, func() interface{} {
+	if parseErr := runtime.GetGlobalRuntime().RegisterDerivedAtom(parseId, parseDeps, func() any {
 		return parseCompute()
 	}); parseErr != nil {
 		return Derived[T]{id: parseId, get: func() T { return parseZero }}
@@ -270,6 +272,7 @@ func UseSelector[T any, U any](parseId string, parseSource selectorSource[T], pa
 //
 // Deprecated: Use UseSelector.
 func Select[T any, U any](parseId string, parseSource selectorSource[T], parseProject func(T) U) Derived[U] {
+	deprecation.Warn("state.Select", "state.UseSelector")
 	return UseSelector(parseId, parseSource, parseProject)
 }
 
@@ -308,7 +311,7 @@ func createReactiveTextNode[T any](parseId string, parseGetter func() T, render 
 		}
 		return fmt.Sprint(parseValue)
 	}
-	return runtime.CreateElement(runtime.ReactiveTextNodeType, map[string]interface{}{
+	return runtime.CreateElement(runtime.ReactiveTextNodeType, map[string]any{
 		runtimeReactiveTextAtomIDProp(): parseId,
 		runtimeReactiveTextGetterProp(): parseTextGetter,
 	})
@@ -332,9 +335,7 @@ func runtimeReactiveTextGetterProp() string {
 func GetSnapshot() (Snapshot, error) {
 	parseRaw := runtime.GetGlobalRuntime().SnapshotAtoms()
 	parseSnapshot := make(Snapshot, len(parseRaw))
-	for parseKey, parseValue := range parseRaw {
-		parseSnapshot[parseKey] = parseValue
-	}
+	maps.Copy(parseSnapshot, parseRaw)
 	return parseSnapshot, nil
 }
 
@@ -350,9 +351,7 @@ func ExportSnapshot() (Snapshot, error) {
 func (parseS Snapshot) Select(parseKeys ...string) Snapshot {
 	if len(parseKeys) == 0 {
 		parseClone := make(Snapshot, len(parseS))
-		for parseKey, parseValue := range parseS {
-			parseClone[parseKey] = parseValue
-		}
+		maps.Copy(parseClone, parseS)
 		return parseClone
 	}
 
@@ -617,7 +616,7 @@ func openSnapshotStorage(parseArea StorageArea) (interop.Storage, error) {
 }
 
 // normalizeSnapshot is a core package helper.
-func normalizeSnapshot(parseValue interface{}) interface{} {
+func normalizeSnapshot(parseValue any) any {
 	switch parseTyped := parseValue.(type) {
 	case Snapshot:
 		parseNormalized := make(Snapshot, len(parseTyped))
@@ -625,14 +624,14 @@ func normalizeSnapshot(parseValue interface{}) interface{} {
 			parseNormalized[parseKey] = normalizeSnapshot(parseNested)
 		}
 		return parseNormalized
-	case map[string]interface{}:
-		parseNormalized2 := make(map[string]interface{}, len(parseTyped))
+	case map[string]any:
+		parseNormalized2 := make(map[string]any, len(parseTyped))
 		for parseKey2, parseNested2 := range parseTyped {
 			parseNormalized2[parseKey2] = normalizeSnapshot(parseNested2)
 		}
 		return parseNormalized2
-	case []interface{}:
-		parseNormalized3 := make([]interface{}, len(parseTyped))
+	case []any:
+		parseNormalized3 := make([]any, len(parseTyped))
 		for parseIndex, parseNested3 := range parseTyped {
 			parseNormalized3[parseIndex] = normalizeSnapshot(parseNested3)
 		}

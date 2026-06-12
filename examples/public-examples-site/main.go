@@ -116,6 +116,28 @@ func renderSortOptionNodes(parseValues []sortOption) []ui.Node {
 	})
 }
 
+func catalogResultAnnouncement(parseResultCount int, parseQuery string) string {
+	parseNoun := "examples"
+	if parseResultCount == 1 {
+		parseNoun = "example"
+	}
+	parseTrimmed := strings.TrimSpace(parseQuery)
+	if parseTrimmed == "" {
+		return fmt.Sprintf("%d %s available.", parseResultCount, parseNoun)
+	}
+	return fmt.Sprintf("%d %s match %q.", parseResultCount, parseNoun, parseTrimmed)
+}
+
+func firstCatalogItems(parseItems []docsItem, parseLimit int) []docsItem {
+	if parseLimit <= 0 || len(parseItems) == 0 {
+		return nil
+	}
+	if len(parseItems) <= parseLimit {
+		return parseItems
+	}
+	return parseItems[:parseLimit]
+}
+
 // renderItemCard renders a single searchable catalog item in the sidebar list.
 func renderItemCard(parseItem docsItem, isActive bool, parseOnSelect ui.Handler) ui.Node {
 	parseConceptLabels := buildExampleConceptLabels(parseItem)
@@ -624,10 +646,16 @@ func renderCatalogSidebar(parseProps catalogSidebarProps) ui.Node {
 				),
 				Div(Class("flex flex-col gap-2 sm:flex-row sm:items-center"),
 					Div(Class("relative flex-1"),
-						Input(Value(parseProps.SearchQuery), OnInput(parseProps.OnSearchInput), Placeholder("Search examples, concepts, modules..."), Class("w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40 focus:bg-slate-950/60")),
+						Input(ID("catalog-search-input"), Value(parseProps.SearchQuery), OnInput(parseProps.OnSearchInput), Placeholder("Search examples, concepts, modules..."), Aria("label", labelSearchDialog), Aria("describedby", parseProps.ResultSummaryID), Class("w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40 focus:bg-slate-950/60")),
 					),
 					Div(Class("flex items-center gap-2 self-start sm:self-auto"),
-						Div(Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Textf("%d results", parseProps.ResultCount)),
+						Div(ID(parseProps.ResultSummaryID), Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Aria("live", "polite"), Aria("atomic", "true"), Textf("%d results", parseProps.ResultCount)),
+						Button(
+							Type("button"),
+							OnClick(parseProps.OnOpenSearchDialog),
+							Class("cursor-pointer rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100 transition hover:bg-cyan-400/15 hover:text-white"),
+							Text(buttonOpenSearchDialog),
+						),
 						Button(
 							Type("button"),
 							OnClick(parseProps.OnResetFilters),
@@ -665,6 +693,68 @@ func renderCatalogSidebar(parseProps catalogSidebarProps) ui.Node {
 			Div(Class("space-y-2"), parseProps.ItemNodes),
 		),
 	)
+}
+
+func renderCatalogSearchDialogContent(parseProps catalogSearchDialogProps) ui.Node {
+	return Div(Class("flex max-h-[min(84vh,42rem)] flex-col gap-4"),
+		Div(Class("flex items-start justify-between gap-4"),
+			Div(Class("min-w-0"),
+				H2(ID("catalog-search-dialog-title"), Class("text-2xl font-semibold tracking-tight text-white"), Text(labelSearchDialog)),
+				P(ID("catalog-search-dialog-description"), Class("mt-2 text-sm leading-6 text-slate-300"), Text(messageSearchDialog)),
+			),
+			Button(Type("button"), ID("catalog-search-dialog-close"), OnClick(parseProps.OnClose), Aria("label", buttonCloseSearchDialog), Class("shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10 hover:text-white"), Text("Close")),
+		),
+		Input(ID("catalog-search-dialog-input"), Value(parseProps.SearchQuery), OnInput(parseProps.OnSearchInput), Placeholder("Search examples, concepts, modules..."), Aria("label", labelSearchDialog), Aria("describedby", parseProps.ResultSummaryID+" catalog-search-dialog-description"), Class("w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/50 focus:bg-slate-950")),
+		Div(Class("flex flex-wrap items-center justify-between gap-3"),
+			Div(ID("catalog-search-dialog-summary"), Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Aria("live", "polite"), Aria("atomic", "true"), Text(catalogResultAnnouncement(parseProps.ResultCount, parseProps.SearchQuery))),
+			Button(
+				Type("button"),
+				OnClick(parseProps.OnResetFilters),
+				Disabled(!parseProps.HasActiveFilters),
+				Class(ClassNames(
+					"rounded-xl border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.16em] transition",
+					When(parseProps.HasActiveFilters, "cursor-pointer border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white"),
+					When(!parseProps.HasActiveFilters, "cursor-not-allowed border-white/5 bg-white/[0.03] text-slate-500"),
+				)),
+				Text(buttonResetFilters),
+			),
+		),
+		Div(Class("min-h-0 overflow-y-auto rounded-[22px] border border-white/10 bg-black/10 p-2"),
+			IfElse(len(parseProps.ItemNodes) > 0,
+				Div(Class("space-y-2"), parseProps.ItemNodes),
+				Div(Class("p-6 text-center text-sm text-slate-400"), Text(messageNoMatches)),
+			),
+		),
+	)
+}
+
+func catalogSearchOverlayProps(parseProps catalogSearchDialogProps, parseContent ui.Node) ui.AccessibleOverlayProps {
+	return ui.AccessibleOverlayProps{
+		Open:                  parseProps.Open,
+		SurfaceID:             "catalog-search-dialog",
+		Role:                  "dialog",
+		Modal:                 true,
+		LabelledBy:            "catalog-search-dialog-title",
+		DescribedBy:           "catalog-search-dialog-description",
+		InitialFocusSelector:  "#catalog-search-dialog-input",
+		FallbackFocusSelector: "#catalog-search-dialog-close",
+		RestoreFocus:          true,
+		TrapFocus:             true,
+		CloseOnEscape:         true,
+		CloseOnOutsideClick:   true,
+		LockScroll:            true,
+		BackgroundInert:       true,
+		Backdrop:              true,
+		BaseZIndex:            80,
+		BackdropClass:         "fixed inset-0 bg-slate-950/75 backdrop-blur-sm",
+		SurfaceClass:          "fixed left-1/2 top-1/2 w-[min(44rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-[28px] border border-white/10 bg-slate-950 p-4 shadow-2xl shadow-black/50 sm:p-5",
+		Child:                 parseContent,
+		OnDismiss:             parseProps.OnDismiss,
+	}
+}
+
+func renderCatalogSearchDialog(parseProps catalogSearchDialogProps) ui.Node {
+	return ui.Component(ui.AccessibleOverlay, catalogSearchOverlayProps(parseProps, renderCatalogSearchDialogContent(parseProps)))
 }
 
 // renderDetailPanel renders the selected item header and its detail surface.
@@ -708,6 +798,8 @@ func renderDocsDemosSite() ui.Node {
 	}, fetch.CacheOptions{StaleAfter: 45 * time.Second})
 	parseCatalogRequest := parseCatalogResource.Get()
 	isDebugLoggingEnabled := isPageDebugLoggingEnabled()
+	parseAnnouncer := ui.UseAnnouncer()
+	parseSearchDialogOpen := ui.UseState(false)
 	parseRetryCatalogLoad := ui.UseEvent(func() {
 		if isDebugLoggingEnabled {
 			log.Info("catalog refetch requested", map[string]interface{}{"url": parseCatalogURL})
@@ -818,6 +910,12 @@ func renderDocsDemosSite() ui.Node {
 	parseFilteredItems := ui.UseMemo(func() []docsItem {
 		return sortItems(filterItems(parseExampleItems, parseDeferredSearchQuery, parseActiveTypeFilter.Get(), parseSelectedStatusFilter.Get(), parseSelectedLevelFilter.Get(), parseSelectedModuleFilter.Get()), parseSelectedSortOrder.Get())
 	}, len(parseExampleItems), parseDeferredSearchQuery, parseActiveTypeFilter.Get(), parseSelectedStatusFilter.Get(), parseSelectedLevelFilter.Get(), parseSelectedModuleFilter.Get(), parseSelectedSortOrder.Get())
+	ui.UseEffect(func() func() {
+		if parseCatalogRequest.Ready {
+			parseAnnouncer.Polite(catalogResultAnnouncement(len(parseFilteredItems), parseDeferredSearchQuery))
+		}
+		return nil
+	}, parseCatalogRequest.Ready, len(parseFilteredItems), parseDeferredSearchQuery, parseSelectedStatusFilter.Get(), parseSelectedLevelFilter.Get(), parseSelectedModuleFilter.Get(), parseSelectedSortOrder.Get())
 	ui.UseEffect(func() func() {
 		if isDebugLoggingEnabled {
 			log.Info("filters applied", map[string]interface{}{
@@ -956,6 +1054,17 @@ func renderDocsDemosSite() ui.Node {
 			log.Info("source hidden", map[string]interface{}{"itemID": parseSelectedCatalogItem.ID, "title": parseSelectedCatalogItem.Title})
 		}
 	})
+	parseDismissSearchDialog := func() {
+		parseSearchDialogOpen.Set(false)
+		parseAnnouncer.Polite("Search dialog closed.")
+	}
+	parseOpenSearchDialog := ui.UseEvent(func() {
+		parseSearchDialogOpen.Set(true)
+		parseAnnouncer.Polite("Search dialog opened. " + catalogResultAnnouncement(len(parseFilteredItems), parseDeferredSearchQuery))
+	})
+	parseCloseSearchDialog := ui.UseEvent(func() {
+		parseDismissSearchDialog()
+	})
 	ui.UseEffect(func() func() {
 		if !hasSelectedItem {
 			return nil
@@ -970,25 +1079,34 @@ func renderDocsDemosSite() ui.Node {
 		return nil
 	}, parseSelectedItemID.Get(), filteredItemsSignature(parseFilteredItems))
 
+	parseSelectCatalogItem := func(parseItem docsItem) {
+		parseSelectedItemID.Set(parseItem.ID)
+		parseAnchorScrollItemID.Set(parseItem.ID)
+		parseAnchorScrollRequestID.Set(parseAnchorScrollRequestID.Get() + 1)
+		if parseItem.Content.AnchorID != "" {
+			setRequestedDemoAnchor(parseItem.Content.AnchorID)
+		} else {
+			clearRequestedDemoAnchor()
+		}
+		if isDebugLoggingEnabled {
+			log.Info("catalog card clicked", map[string]interface{}{"itemID": parseItem.ID, "title": parseItem.Title})
+		}
+	}
 	parseItemNodes := Map(parseFilteredItems, func(parseItem2 docsItem) ui.Node {
-		parseSelectedCardID := parseItem2.ID
 		return renderItemCard(parseItem2, hasSelectedItem && parseSelectedCatalogItem.ID == parseItem2.ID, ui.UseEvent(func() {
-			parseSelectedItemID.Set(parseSelectedCardID)
-			parseAnchorScrollItemID.Set(parseSelectedCardID)
-			parseAnchorScrollRequestID.Set(parseAnchorScrollRequestID.Get() + 1)
-			if parseItem2.Content.AnchorID != "" {
-				setRequestedDemoAnchor(parseItem2.Content.AnchorID)
-			} else {
-				clearRequestedDemoAnchor()
-			}
-			if isDebugLoggingEnabled {
-				log.Info("catalog card clicked", map[string]interface{}{"itemID": parseSelectedCardID, "title": parseItem2.Title})
-			}
+			parseSelectCatalogItem(parseItem2)
 		}))
 	})
 	parseItemNodes = append(parseItemNodes, If(len(parseFilteredItems) == 0,
 		Div(Class("rounded-[22px] border border-dashed border-white/10 bg-black/10 p-6 text-center text-sm text-slate-400"), Text(messageNoMatches)),
 	))
+	parseDialogItemNodes := Map(firstCatalogItems(parseFilteredItems, 6), func(parseItem3 docsItem) ui.Node {
+		return renderItemCard(parseItem3, hasSelectedItem && parseSelectedCatalogItem.ID == parseItem3.ID, ui.UseEvent(func() {
+			parseSelectCatalogItem(parseItem3)
+			parseSearchDialogOpen.Set(false)
+			parseAnnouncer.Polite(parseItem3.Title + " selected. " + catalogResultAnnouncement(len(parseFilteredItems), parseDeferredSearchQuery))
+		}))
+	})
 
 	parseCatalogErrorMessage := ""
 	if parseCatalogRequest.Error != nil {
@@ -1008,6 +1126,7 @@ func renderDocsDemosSite() ui.Node {
 				parseAnchorScrollID = parseAnchorScrollRequestID.Get()
 			}
 			return Div(Class("min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_24%),radial-gradient(circle_at_top_right,rgba(251,191,36,0.10),transparent_22%),linear-gradient(180deg,#08111d_0%,#0d1726_44%,#0c1320_100%)] text-slate-100"),
+				parseAnnouncer.Region(),
 				Div(Class("mx-auto flex min-h-screen w-full max-w-[96rem] flex-col px-2 py-2 sm:px-3 sm:py-3 lg:px-4"),
 					ui.Component(renderCatalogHero, catalogHeroProps{
 						OnBrowseExamples:  parseBrowseExamples,
@@ -1020,10 +1139,11 @@ func renderDocsDemosSite() ui.Node {
 						ModuleCount:       getDistinctModuleCount(parseExampleItems),
 					}),
 					Main(Class("mt-2 flex w-full flex-1 flex-col gap-2 lg:min-h-0 lg:flex-row"),
-						ui.Component(renderCatalogSidebar, catalogSidebarProps{SearchQuery: parseSearchQuery.Get(), ResultCount: len(parseFilteredItems), HasActiveFilters: hasActiveFilters, Statuses: parseVisibleStatuses, Levels: parseVisibleLevels, Modules: parseVisibleModules, SortOptions: parseCatalogRequest.Value.SortOptions, SelectedStatusFilter: parseSelectedStatusFilter.Get(), SelectedLevelFilter: parseSelectedLevelFilter.Get(), SelectedModuleFilter: parseSelectedModuleFilter.Get(), SelectedSortOrder: parseSelectedSortOrder.Get(), ItemNodes: parseItemNodes, OnSearchInput: parseUpdateSearchQuery, OnStatusChange: parseUpdateStatusFilter, OnLevelChange: parseUpdateLevelFilter, OnModuleChange: parseUpdateModuleFilter, OnSortChange: parseUpdateSortOrder, OnResetFilters: resetFilters}),
+						ui.Component(renderCatalogSidebar, catalogSidebarProps{SearchQuery: parseSearchQuery.Get(), ResultCount: len(parseFilteredItems), ResultSummaryID: catalogSearchResultSummaryID, HasActiveFilters: hasActiveFilters, Statuses: parseVisibleStatuses, Levels: parseVisibleLevels, Modules: parseVisibleModules, SortOptions: parseCatalogRequest.Value.SortOptions, SelectedStatusFilter: parseSelectedStatusFilter.Get(), SelectedLevelFilter: parseSelectedLevelFilter.Get(), SelectedModuleFilter: parseSelectedModuleFilter.Get(), SelectedSortOrder: parseSelectedSortOrder.Get(), ItemNodes: parseItemNodes, OnSearchInput: parseUpdateSearchQuery, OnStatusChange: parseUpdateStatusFilter, OnLevelChange: parseUpdateLevelFilter, OnModuleChange: parseUpdateModuleFilter, OnSortChange: parseUpdateSortOrder, OnResetFilters: resetFilters, OnOpenSearchDialog: parseOpenSearchDialog}),
 						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: parseSelectedCatalogItem, HasSelectedItem: hasSelectedItem, IsPreviewLoaded: hasSelectedItem && parseLoadedPreviewItemID.Get() == parseSelectedCatalogItem.ID, IsSourceVisible: hasSelectedItem && parseVisibleSourceItemID.Get() == parseSelectedCatalogItem.ID, MarkdownBody: parseMarkdownRequest.Value, MarkdownLoading: parseMarkdownRequest.Loading, MarkdownReady: parseMarkdownRequest.Ready, MarkdownError: errorString(parseMarkdownRequest.Error), AnchorScrollID: parseAnchorScrollID, OnLoadPreview: parseLoadSelectedPreview, OnHideSource: parseHideSelectedSource, OnRetryMarkdown: parseRetryMarkdownLoad, OnShowSource: parseShowSelectedSource}),
 					),
 				),
+				ui.Component(renderCatalogSearchDialog, catalogSearchDialogProps{Open: parseSearchDialogOpen.Get(), SearchQuery: parseSearchQuery.Get(), ResultCount: len(parseFilteredItems), ResultSummaryID: catalogSearchResultSummaryID, HasActiveFilters: hasActiveFilters, ItemNodes: parseDialogItemNodes, OnSearchInput: parseUpdateSearchQuery, OnResetFilters: resetFilters, OnClose: parseCloseSearchDialog, OnDismiss: parseDismissSearchDialog}),
 			)
 		})
 }

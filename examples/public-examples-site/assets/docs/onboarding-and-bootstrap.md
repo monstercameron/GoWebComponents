@@ -8,7 +8,7 @@ Use it when deciding how a team should start a new app, what prerequisites are r
 
 - the repo-standard entrypoint is now `go run ./tools/gwc ...`
 - the root README contains the smallest current starter-shaped app example
-- examples remain the official bootstrap references until first-party starter variants are shipped
+- `go run ./tools/gwc start` ships maintained starter variants for minimal client, routed SPA, SSR, dashboard, marketing, blog, authed shell, and reference-app shapes
 - larger adoption paths should choose client-rendered, routed, SSR, forms-heavy, or prerender-first architecture intentionally instead of cloning random examples
 
 ## Quick Start Path
@@ -16,7 +16,7 @@ Use it when deciding how a team should start a new app, what prerequisites are r
 For a new evaluation or greenfield app, the current path is:
 
 1. confirm prerequisites with `go run ./tools/gwc doctor`
-2. inspect the current starter-shaped example in the root README and the closest numbered example for the target app shape
+2. choose the smallest matching starter from the `gwc start` gallery
 3. run `go run ./tools/gwc examples` when browsing the example catalog is the fastest way to compare patterns
 4. run `go run ./tools/gwc dev -app .\path\to\main.go` for the standalone wasm inner loop
 5. move onto `gwc build`, `gwc test`, and `gwc verify` once the app shape stabilizes
@@ -25,24 +25,34 @@ For a new evaluation or greenfield app, the current path is:
 
 The practical bootstrap references today are:
 
+- `go run ./tools/gwc start` for generated starter apps with `gwc-start.json`, `FEATURE_MATRIX.md`, generated CI, and baseline tests
 - the root `README.md` starter example for the smallest current public-package shape
-- numbered examples for focused feature adoption
+- slug-named examples for focused feature adoption
 - `examples/server/atlas-commerce-os` for a larger integrated reference app
 - `docs/START_HERE.md` when a team wants the broader documentation entrypoint before choosing an architecture path
 
 ## Official Starting Path
 
-The current official way to start is a documented, explicit flow backed by the public runner surface rather than a hidden scaffold generator.
+The current official way to start is a documented, explicit flow backed by the public runner surface and maintained starter templates.
 
 The recommended starting path is:
 
 1. confirm the local prerequisites for Go, Node, and browser support
 2. choose the adoption mode that matches the app shape
-3. start from the closest maintained example or future starter, not from unrelated repo internals
+3. start from the closest maintained starter or example, not from unrelated repo internals
 4. keep the app on the documented public package surface: `ui`, `html`, `state`, `fetch`, `router`, `interop`, and `devtools`
 5. adopt the documented `gwc` build, dev, and validation workflow instead of assembling commands from commit history
 
-Until first-party starter apps exist, the repo examples are the official bootstrap reference points rather than disposable toys.
+The starter gallery is:
+
+- `minimal-client`: smallest browser-mounted wasm app
+- `routed-spa`: client-rendered routes and browser smoke tests
+- `ssr-app`: request-time HTML plus hydration
+- `dashboard-app`: internal tools and reporting surfaces
+- `marketing-site`: launch pages and SEO-sensitive public surfaces
+- `content-blog`: docs, changelogs, and editorial content
+- `authed-app-shell`: SaaS-style app shell with forms, async data, and shared state
+- `reference-app`: broad baseline across the main public packages
 
 The current production-shaped reference app is `examples/server/atlas-commerce-os`, which demonstrates the integrated SSR, hydration, routing, forms, state, devtools, and deployment shape for a larger app.
 
@@ -80,7 +90,7 @@ The recommended path chooser is:
 - static or prerender-oriented app:
   use the prerender, assets, and wasm release docs as early constraints instead of retrofitting them later
 
-This "choose your path" model should remain the official onboarding answer until maintained starter variants exist.
+This "choose your path" model remains the official onboarding answer even with maintained starter variants: choose the closest app shape first, then add capabilities deliberately.
 
 ## Smallest Starter Shape Today
 
@@ -99,16 +109,12 @@ Starter-based apps should not be expected to stay in lockstep with the repo fore
 
 The current guidance is:
 
-- official starters should version their own conventions instead of pretending every repo change must be copied verbatim
+- official starters publish their intended shape through `gwc-start.json`, `FEATURE_MATRIX.md`, generated CI, and generated starter tests
 - framework upgrades should follow `CHANGELOG.md`, `docs/MIGRATIONS.md`, and package-level API changes first
 - starter-specific build or tooling improvements should be documented as starter release notes, not discovered by diffing the monorepo blindly
 - applications should treat starters as an initial scaffold plus documented upgrade path, not as a permanent mirror target
 
-When first-party starters arrive, they should publish:
-
-- their target adoption mode
-- supported upgrade window
-- any starter-specific breaking changes separate from core framework releases
+The repo starter-templates CI lane scaffolds, tests, and builds every default preset so the gallery stays copyable.
 
 ## Recommended Inner-Loop Workflow
 

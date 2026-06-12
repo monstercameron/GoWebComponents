@@ -1,13 +1,57 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package interop
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestNativeInteropJSONWireShapePreservesZeroTimeFields(parseT *testing.T) {
+	parseCases := []struct {
+		name     string
+		value    any
+		expected []string
+	}{
+		{
+			name:     "cross tab envelope",
+			value:    CrossTabEnvelope{},
+			expected: []string{`"sentAt":"0001-01-01T00:00:00Z"`},
+		},
+		{
+			name:     "window envelope",
+			value:    WindowEnvelope{},
+			expected: []string{`"sentAt":"0001-01-01T00:00:00Z"`},
+		},
+		{
+			name:     "client message",
+			value:    ClientMessage{},
+			expected: []string{`"sentAt":"0001-01-01T00:00:00Z"`},
+		},
+		{
+			name:     "surface session",
+			value:    SurfaceSessionSignal{},
+			expected: []string{`"expiresAt":"0001-01-01T00:00:00Z"`},
+		},
+	}
+	for _, parseCase := range parseCases {
+		parseT.Run(parseCase.name, func(parseT2 *testing.T) {
+			parseEncoded, parseErr := json.Marshal(parseCase.value)
+			if parseErr != nil {
+				parseT2.Fatalf("marshal %s: %v", parseCase.name, parseErr)
+			}
+			parseText := string(parseEncoded)
+			for _, parseExpected := range parseCase.expected {
+				if !strings.Contains(parseText, parseExpected) {
+					parseT2.Fatalf("expected %s to preserve %s, got %s", parseCase.name, parseExpected, parseText)
+				}
+			}
+		})
+	}
+}
 
 func TestNativeInteropConstructorsReportUnavailable(parseT *testing.T) {
 	parseChecks := []struct {

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -214,10 +215,8 @@ func writeFixture(t *testing.T, root string, relativePath string, content string
 
 func assertContains(t *testing.T, symbols []string, want string) {
 	t.Helper()
-	for _, symbol := range symbols {
-		if symbol == want {
-			return
-		}
+	if slices.Contains(symbols, want) {
+		return
 	}
 	t.Fatalf("expected symbols to contain %q; got %v", want, symbols)
 }

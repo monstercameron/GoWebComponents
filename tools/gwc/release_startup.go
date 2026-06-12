@@ -66,7 +66,7 @@ func runReleaseStartupProbeWithPlaywright(parseProbeURL string, parseReportPath 
 		_ = parsePw.Stop()
 	}()
 	parseBrowser, parseErr2 := parsePw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
+		Headless: new(true),
 	})
 	if parseErr2 != nil {
 		return fmt.Errorf("launch chromium: %w", parseErr2)

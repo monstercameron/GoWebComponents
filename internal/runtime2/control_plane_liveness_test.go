@@ -38,11 +38,11 @@ func TestHandleShardSessionReceiveControlEnvelopeDrainsQueueWithoutBlockingWait(
 		parseT.Fatalf("BuildControlEnvelopeJSON returned error: %v", parsePayloadErr)
 	}
 	const getQueuedEnvelopeCount = 128
-	for parseIndex := 0; parseIndex < getQueuedEnvelopeCount; parseIndex++ {
+	for range getQueuedEnvelopeCount {
 		parsePort.getOnMessage(parsePayload)
 	}
 	parseStartedAt := time.Now()
-	for parseIndex := 0; parseIndex < getQueuedEnvelopeCount; parseIndex++ {
+	for parseIndex := range getQueuedEnvelopeCount {
 		parseEnvelope, hasEnvelope, parseEnvelopeErr := parseSession.HandleShardSessionReceiveControlEnvelope()
 		if parseEnvelopeErr != nil {
 			parseT.Fatalf("HandleShardSessionReceiveControlEnvelope(queue index %d) returned error: %v", parseIndex, parseEnvelopeErr)

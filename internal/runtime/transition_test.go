@@ -5,7 +5,7 @@ import "testing"
 func TestGoUseStateTransitionDefersUpdateUntilTimeout(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
-	parseFiber := &Fiber{typeOf: "test", props: map[string]interface{}{}}
+	parseFiber := &Fiber{typeOf: "test", props: map[string]any{}}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
@@ -37,7 +37,7 @@ func TestGoUseStateTransitionDefersUpdateUntilTimeout(parseT *testing.T) {
 func TestGoUseAtomTransitionDefersSharedUpdateUntilTimeout(parseT *testing.T) {
 	parseScheduler := newTestScheduler()
 	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
-	parseFiber := &Fiber{typeOf: "test", props: map[string]interface{}{}}
+	parseFiber := &Fiber{typeOf: "test", props: map[string]any{}}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 

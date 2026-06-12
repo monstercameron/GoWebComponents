@@ -81,17 +81,11 @@ func parsePaginateConversationSummaries(parseSummaries []conversationSummaryRow,
 	if parsePageSizeRaw > parseMaxConversationPageSize {
 		parsePageSizeRaw = parseMaxConversationPageSize
 	}
-	parsePageOffset := int(parsePageOffsetRaw)
-	if parsePageOffset < 0 {
-		parsePageOffset = 0
-	}
+	parsePageOffset := max(int(parsePageOffsetRaw), 0)
 	if parsePageOffset >= parseSummaryCount {
 		return []conversationSummaryRow{}, int32(parseSummaryCount), false
 	}
-	parsePageEnd := parsePageOffset + int(parsePageSizeRaw)
-	if parsePageEnd > parseSummaryCount {
-		parsePageEnd = parseSummaryCount
-	}
+	parsePageEnd := min(parsePageOffset+int(parsePageSizeRaw), parseSummaryCount)
 	isHasMore := parsePageEnd < parseSummaryCount
 	return parseSummaries[parsePageOffset:parsePageEnd], int32(parsePageEnd), isHasMore
 }

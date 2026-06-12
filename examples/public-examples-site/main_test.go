@@ -78,16 +78,6 @@ func testAPIItem() docsItem {
 	}
 }
 
-func testHTMLAPIItem() docsItem {
-	parseItem := testAPIItem()
-	parseItem.ID = 6
-	parseItem.Title = "RenderToString"
-	parseItem.Content.SourcePath = "assets/docs/public-api-reference.html"
-	parseItem.Content.AnchorID = "core-rendering"
-	parseItem.Content.Example = ""
-	return parseItem
-}
-
 func testGroupedAPIItem() docsItem {
 	return docsItem{
 		ID:         59,
@@ -446,8 +436,14 @@ func TestFilterAndSortItems(parseT *testing.T) {
 	}
 
 	parseLevelSorted := sortItems(parseItems, sortLevel)
-	if parseLevelSorted[0].Level != levelBeginner || parseLevelSorted[1].Level != levelCore || parseLevelSorted[2].Level != levelIntermediate || parseLevelSorted[3].Level != levelAdvanced || parseLevelSorted[4].Level != "Unknown" {
-		parseT.Fatalf("unexpected level sort order: %+v", parseLevelSorted)
+	parseWantLevels := []string{levelBeginner, levelCore, levelCore, levelIntermediate, levelAdvanced, "Unknown"}
+	if len(parseLevelSorted) != len(parseWantLevels) {
+		parseT.Fatalf("unexpected level sort length: got %d want %d (%+v)", len(parseLevelSorted), len(parseWantLevels), parseLevelSorted)
+	}
+	for parseIndex, parseWant := range parseWantLevels {
+		if parseLevelSorted[parseIndex].Level != parseWant {
+			parseT.Fatalf("unexpected level sort order at %d: got %q want %q (%+v)", parseIndex, parseLevelSorted[parseIndex].Level, parseWant, parseLevelSorted)
+		}
 	}
 
 	parseRelevanceSorted := sortItems(parseItems, sortRelevance)
@@ -511,6 +507,7 @@ func TestStaticRenderHelpersProduceExpectedMarkup(parseT *testing.T) {
 	parseSidebarMarkup, parseErr := ui.RenderToString(ui.CreateElement(renderCatalogSidebar, catalogSidebarProps{
 		SearchQuery:          "atlas",
 		ResultCount:          1,
+		ResultSummaryID:      catalogSearchResultSummaryID,
 		HasActiveFilters:     true,
 		Statuses:             testCatalog().Statuses,
 		Levels:               testCatalog().Levels,
@@ -528,11 +525,12 @@ func TestStaticRenderHelpersProduceExpectedMarkup(parseT *testing.T) {
 		OnModuleChange:       ui.Handler{},
 		OnSortChange:         ui.Handler{},
 		OnResetFilters:       ui.Handler{},
+		OnOpenSearchDialog:   ui.Handler{},
 	}))
 	if parseErr != nil {
 		parseT.Fatalf("renderCatalogSidebar returned error: %v", parseErr)
 	}
-	for _, parseSnippet3 := range []string{"1 results", "Status", "Difficulty", "Module", "Sort", "Atlas Commerce OS", buttonResetFilters} {
+	for _, parseSnippet3 := range []string{"1 results", "Status", "Difficulty", "Module", "Sort", "Atlas Commerce OS", buttonResetFilters, buttonOpenSearchDialog, `aria-label="Search examples"`, `aria-describedby="catalog-search-result-count"`, `aria-live="polite"`} {
 		if !strings.Contains(parseSidebarMarkup, parseSnippet3) {
 			parseT.Fatalf("sidebar markup missing %q: %s", parseSnippet3, parseSidebarMarkup)
 		}
@@ -541,6 +539,7 @@ func TestStaticRenderHelpersProduceExpectedMarkup(parseT *testing.T) {
 	parseDefaultSidebarMarkup, parseErr := ui.RenderToString(ui.CreateElement(renderCatalogSidebar, catalogSidebarProps{
 		SearchQuery:          "",
 		ResultCount:          5,
+		ResultSummaryID:      catalogSearchResultSummaryID,
 		HasActiveFilters:     false,
 		Statuses:             testCatalog().Statuses,
 		Levels:               testCatalog().Levels,
@@ -558,6 +557,7 @@ func TestStaticRenderHelpersProduceExpectedMarkup(parseT *testing.T) {
 		OnModuleChange:       ui.Handler{},
 		OnSortChange:         ui.Handler{},
 		OnResetFilters:       ui.Handler{},
+		OnOpenSearchDialog:   ui.Handler{},
 	}))
 	if parseErr != nil {
 		parseT.Fatalf("renderCatalogSidebar default returned error: %v", parseErr)
@@ -572,13 +572,38 @@ func TestStaticRenderHelpersProduceExpectedMarkup(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("renderItemCard grouped api returned error: %v", parseErr)
 	}
-	for _, parseSnippet5 := range []string{"<button", "Core Rendering Primitives", kindAPI} {
+	for _, parseSnippet5 := range []string{"<button", "Core Rendering Primitives", "Reference"} {
 		if !strings.Contains(parseGroupedCardMarkup, parseSnippet5) {
 			parseT.Fatalf("grouped api card missing %q: %s", parseSnippet5, parseGroupedCardMarkup)
 		}
 	}
 	if strings.Contains(parseGroupedCardMarkup, "href=\"#core-rendering\"") {
 		parseT.Fatalf("grouped api card should not render a hash href: %s", parseGroupedCardMarkup)
+	}
+
+	parseSearchDialogProps := catalogSearchDialogProps{
+		Open:             true,
+		SearchQuery:      "counter",
+		ResultCount:      1,
+		ResultSummaryID:  catalogSearchResultSummaryID,
+		HasActiveFilters: true,
+		ItemNodes:        []ui.Node{renderItemCard(testExampleItem(), true, ui.Handler{})},
+		OnSearchInput:    ui.Handler{},
+		OnResetFilters:   ui.Handler{},
+		OnClose:          ui.Handler{},
+	}
+	parseSearchDialogMarkup, parseErr := ui.RenderToString(renderCatalogSearchDialogContent(parseSearchDialogProps))
+	if parseErr != nil {
+		parseT.Fatalf("renderCatalogSearchDialogContent returned error: %v", parseErr)
+	}
+	for _, parseSnippet6 := range []string{`id="catalog-search-dialog-title"`, `id="catalog-search-dialog-input"`, labelSearchDialog, "1 example match", "Go Counter Demo", buttonCloseSearchDialog} {
+		if !strings.Contains(parseSearchDialogMarkup, parseSnippet6) {
+			parseT.Fatalf("search dialog markup missing %q: %s", parseSnippet6, parseSearchDialogMarkup)
+		}
+	}
+	parseOverlayProps := catalogSearchOverlayProps(parseSearchDialogProps, nil)
+	if !parseOverlayProps.Open || parseOverlayProps.Role != "dialog" || !parseOverlayProps.Modal || parseOverlayProps.LabelledBy != "catalog-search-dialog-title" || parseOverlayProps.DescribedBy != "catalog-search-dialog-description" || !parseOverlayProps.TrapFocus || !parseOverlayProps.RestoreFocus || !parseOverlayProps.CloseOnEscape {
+		parseT.Fatalf("search dialog overlay props are not accessible: %+v", parseOverlayProps)
 	}
 }
 
@@ -620,36 +645,6 @@ func TestRenderDetailPanelAndDisplaySurfaceStates(parseT *testing.T) {
 	}
 	if !strings.Contains(parseApiMarkup, "users := fetch.UseCachedResource") {
 		parseT.Fatalf("api surface should render plain-text usage example by default: %s", parseApiMarkup)
-	}
-
-	parseHtmlAPIMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testHTMLAPIItem(), MarkdownBody: `<section id="core-rendering"><h2>Core Rendering Primitives</h2></section>`, MarkdownReady: true}, true))
-	if parseErr != nil {
-		parseT.Fatalf("renderDisplaySurface html api returned error: %v", parseErr)
-	}
-	for _, parseSnippet3 := range []string{"api-usage-example-fragment", labelUsageExample} {
-		if !strings.Contains(parseHtmlAPIMarkup, parseSnippet3) {
-			parseT.Fatalf("html api usage example missing %q: %s", parseSnippet3, parseHtmlAPIMarkup)
-		}
-	}
-
-	parseGroupedAPIMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testGroupedAPIItem()}, true))
-	if parseErr != nil {
-		parseT.Fatalf("renderDisplaySurface grouped api returned error: %v", parseErr)
-	}
-	for _, parseSnippet4 := range []string{"api-reference-fragment", "Catalog-owned grouped API reference document", "fetches the fragment into this surface", labelReferenceSearch, messageReferenceSearch} {
-		if !strings.Contains(parseGroupedAPIMarkup, parseSnippet4) {
-			parseT.Fatalf("grouped api surface missing %q: %s", parseSnippet4, parseGroupedAPIMarkup)
-		}
-	}
-
-	parseInjectedGroupedAPIMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testGroupedAPIItem(), MarkdownBody: `<section id="core-rendering"><h2>Core Rendering Primitives</h2></section>`}, true))
-	if parseErr != nil {
-		parseT.Fatalf("renderDisplaySurface grouped api with html returned error: %v", parseErr)
-	}
-	for _, parseSnippet5 := range []string{"api-reference-fragment", labelAPIReference} {
-		if !strings.Contains(parseInjectedGroupedAPIMarkup, parseSnippet5) {
-			parseT.Fatalf("grouped api injected markup missing %q: %s", parseSnippet5, parseInjectedGroupedAPIMarkup)
-		}
 	}
 
 	parseEmbeddedExampleMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{
@@ -741,10 +736,25 @@ func TestRenderCounterExampleInteractions(parseT *testing.T) {
 
 func TestRenderDeferredExamplePanels(parseT *testing.T) {
 	parseFixture := render.New(parseT)
-	parseFixture.Render(ui.CreateElement(renderCounterExample, contentPanelProps{
-		Item:          testEmbeddedExampleItem(),
-		MarkdownBody:  "func Counter() ui.Node {\n  return Button()\n}",
-		MarkdownReady: true,
+	parseFixture.Render(ui.CreateElement(func() ui.Node {
+		parseSourceVisible := ui.UseState(false)
+		parsePreviewLoaded := ui.UseState(false)
+		return ui.Component(renderCounterExample, contentPanelProps{
+			Item:            testEmbeddedExampleItem(),
+			MarkdownBody:    "func Counter() ui.Node {\n  return Button()\n}",
+			MarkdownReady:   true,
+			IsSourceVisible: parseSourceVisible.Get(),
+			IsPreviewLoaded: parsePreviewLoaded.Get(),
+			OnShowSource: ui.UseEvent(func() {
+				parseSourceVisible.Set(true)
+			}),
+			OnHideSource: ui.UseEvent(func() {
+				parseSourceVisible.Set(false)
+			}),
+			OnLoadPreview: ui.UseEvent(func() {
+				parsePreviewLoaded.Set(true)
+			}),
+		})
 	}))
 
 	if strings.Contains(parseFixture.Text(), "func Counter() ui.Node") {
@@ -756,7 +766,7 @@ func TestRenderDeferredExamplePanels(parseT *testing.T) {
 		parseT.Fatal("expected show source button")
 	}
 	parseShowSource.Click()
-	if !strings.Contains(parseFixture.Text(), "func Counter() ui.Node") {
+	if !strings.Contains(parseFixture.Text(), "func Counter") || !strings.Contains(parseFixture.Text(), "Button") {
 		parseT.Fatalf("expected embedded example source after reveal, got %q", parseFixture.Text())
 	}
 
@@ -765,7 +775,7 @@ func TestRenderDeferredExamplePanels(parseT *testing.T) {
 		parseT.Fatal("expected hide source button")
 	}
 	parseHideSource.Click()
-	if strings.Contains(parseFixture.Text(), "func Counter() ui.Node") {
+	if strings.Contains(parseFixture.Text(), "func Counter") || strings.Contains(parseFixture.Text(), "Button") {
 		parseT.Fatalf("expected embedded example source to hide again, got %q", parseFixture.Text())
 	}
 

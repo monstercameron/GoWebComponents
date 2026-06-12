@@ -67,9 +67,6 @@ func parseApplyAdminSliceWindow[parseT any](parseRows []parseT, parseOffset int3
 	if parseOffset >= int32(len(parseRows)) {
 		return []parseT{}
 	}
-	parseEnd := int(parseOffset + parseLimit)
-	if parseEnd > len(parseRows) {
-		parseEnd = len(parseRows)
-	}
+	parseEnd := min(int(parseOffset+parseLimit), len(parseRows))
 	return parseRows[parseOffset:parseEnd]
 }

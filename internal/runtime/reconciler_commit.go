@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"slices"
 	"strings"
 )
 
@@ -84,7 +85,7 @@ func (parseRt *Runtime) applyCompactHostAttrs(parseDom DOMNode, parseAttrs []Hos
 }
 
 // updateDomProperties updates DOM properties with optimized batching when available
-func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, parseNewProps map[string]interface{}) {
+func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, parseNewProps map[string]any) {
 	// Check if dom is nil (interface is nil) or if the concrete value is null
 	if IsDOMNodeNull(parseDom) {
 		return
@@ -165,7 +166,7 @@ func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, par
 }
 
 // applyInitialDomProps is an internal reconciler helper.
-func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map[string]interface{}, isSupportsBatching bool, parseBatchAdapter interface {
+func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map[string]any, isSupportsBatching bool, parseBatchAdapter interface {
 	BatchSetAttributes(DOMNode, map[string]string)
 }, isPreserveHydrationState bool) {
 	var (
@@ -356,7 +357,7 @@ func (parseRt *Runtime) commitRoot() {
 }
 
 // reportMissingKeys is an internal reconciler helper.
-func reportMissingKeys(parseParent *Fiber, parseElements []interface{}) {
+func reportMissingKeys(parseParent *Fiber, parseElements []any) {
 	parseRenderableCount := 0
 	parseMissingKeyCount := 0
 	hasKeyedSibling := false
@@ -772,7 +773,7 @@ func parseInsertObservedChildNode(parseObserved []DOMNode, parseIndex int, parse
 }
 
 // oldFiberUpdateOrigin is an internal reconciler helper.
-func oldFiberUpdateOrigin(parseOldFiber *Fiber, parseTypeOf interface{}) string {
+func oldFiberUpdateOrigin(parseOldFiber *Fiber, parseTypeOf any) string {
 	if parseOldFiber != nil && parseOldFiber.updateOrigin != "" {
 		return parseOldFiber.updateOrigin
 	}
@@ -783,19 +784,19 @@ func oldFiberUpdateOrigin(parseOldFiber *Fiber, parseTypeOf interface{}) string 
 }
 
 // isReactiveTextType is an internal reconciler helper.
-func isReactiveTextType(parseTypeOf interface{}) bool {
+func isReactiveTextType(parseTypeOf any) bool {
 	_, parseOk := parseTypeOf.(*ReactiveTextElementType)
 	return parseOk
 }
 
 // isReactiveRegionType is an internal reconciler helper.
-func isReactiveRegionType(parseTypeOf interface{}) bool {
+func isReactiveRegionType(parseTypeOf any) bool {
 	_, parseOk := parseTypeOf.(*ReactiveRegionElementType)
 	return parseOk
 }
 
 // isFineGrainedType is an internal reconciler helper.
-func isFineGrainedType(parseTypeOf interface{}) bool {
+func isFineGrainedType(parseTypeOf any) bool {
 	return isReactiveTextType(parseTypeOf) || isReactiveRegionType(parseTypeOf)
 }
 
@@ -968,13 +969,7 @@ func (parseRt *Runtime) syncFineGrainedSubscriptions(parseFiber *Fiber, parseSou
 	// For small subscription sets use inline linear search to avoid map allocation.
 	if len(parsePrevious) <= 4 && len(parseSourceIDs) <= 4 {
 		for _, parseOldID := range parsePrevious {
-			parseKeep := false
-			for _, parseCheckID := range parseSourceIDs {
-				if parseCheckID == parseOldID {
-					parseKeep = true
-					break
-				}
-			}
+			parseKeep := slices.Contains(parseSourceIDs, parseOldID)
 			if parseKeep {
 				continue
 			}
@@ -991,13 +986,7 @@ func (parseRt *Runtime) syncFineGrainedSubscriptions(parseFiber *Fiber, parseSou
 			}
 		}
 		for _, parseNewID := range parseSourceIDs {
-			parseAlready := false
-			for _, parseCheckID2 := range parsePrevious {
-				if parseCheckID2 == parseNewID {
-					parseAlready = true
-					break
-				}
-			}
+			parseAlready := slices.Contains(parsePrevious, parseNewID)
 			if parseAlready {
 				continue
 			}
@@ -1153,7 +1142,7 @@ func (parseRt *Runtime) resolvePortalParent(parseFiber *Fiber) DOMNode {
 		if parseNode, parseOk2 := parseRawNode.(DOMNode); parseOk2 {
 			return parseNode
 		}
-		if parseResolver, parseOk3 := parseRt.domAdapter.(interface{ ResolveNode(interface{}) DOMNode }); parseOk3 {
+		if parseResolver, parseOk3 := parseRt.domAdapter.(interface{ ResolveNode(any) DOMNode }); parseOk3 {
 			return parseResolver.ResolveNode(parseRawNode)
 		}
 	}
@@ -1340,7 +1329,7 @@ func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
 			parseFiber.hooks.cleanups[parseEffects[0].CleanupIndex] = parseCleanup
 		}
 	} else {
-		for parseI := 0; parseI < parseEffectCount; parseI++ {
+		for parseI := range parseEffectCount {
 			parseEffect := &parseEffects[parseI]
 			parseStart2 := commitTimingStart()
 			parseCleanup3 := func() func() {

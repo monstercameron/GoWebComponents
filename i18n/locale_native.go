@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package i18n
 
@@ -12,8 +11,10 @@ func UseLocale(parseLocaleOptions LocaleOptions) LocaleState {
 		parseLocaleCurrent = parseLocaleFallback
 	}
 	return LocaleState{
-		get:       func() string { return parseLocaleCurrent },
-		set:       func(parseLocaleNext string) { parseLocaleCurrent = chooseSupportedLocale(parseLocaleNext, parseLocaleSupported, parseLocaleFallback) },
+		get: func() string { return parseLocaleCurrent },
+		set: func(parseLocaleNext string) {
+			parseLocaleCurrent = chooseSupportedLocale(parseLocaleNext, parseLocaleSupported, parseLocaleFallback)
+		},
 		direction: func() Direction { return DirectionForLocale(parseLocaleCurrent) },
 		supported: func() []string { return append([]string(nil), parseLocaleSupported...) },
 		fallback:  func() string { return parseLocaleFallback },

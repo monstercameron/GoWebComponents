@@ -440,7 +440,7 @@ func TestSnapshotDispatchHashReflectAndOrderedKeyHelpers(parseT *testing.T) {
 		parseT.Fatalf("expected pair reflect-map payload, got payload=%v err=%v", parseReflectScalarMapPair, parseErr)
 	}
 
-	for parseIndex := 0; parseIndex < 64; parseIndex++ {
+	for parseIndex := range 64 {
 		if _, parseErr := appendSnapshotDispatchAnyMapPair(nil, map[string]any{"b": 2, "a": 1}); parseErr != nil {
 			parseT.Fatalf("appendSnapshotDispatchAnyMapPair iteration %d returned error: %v", parseIndex, parseErr)
 		}

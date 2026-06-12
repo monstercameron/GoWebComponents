@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package fetch
 
@@ -25,7 +24,7 @@ func (fetchTestNoOpScheduler) RequestIdleCallback(parseCallback func(runtime.Dea
 func (fetchTestNoOpScheduler) SetTimeout(parseCallback func(), parseDelay int) {}
 
 // setFetchTestStructField writes one unexported interop field so native fetch tests can build lightweight doubles.
-func setFetchTestStructField(parseT *testing.T, parseTarget interface{}, parseField string, parseValue interface{}) {
+func setFetchTestStructField(parseT *testing.T, parseTarget any, parseField string, parseValue any) {
 	parseT.Helper()
 	parseStructValue := reflect.ValueOf(parseTarget).Elem()
 	parseFieldValue := parseStructValue.FieldByName(parseField)

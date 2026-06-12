@@ -3,9 +3,9 @@ package runtime
 import "testing"
 
 func TestReconcileChildren_PreservesHooksForUnchangedFunctionComponent(parseT *testing.T) {
-	parseFn := func(parseProps map[string]interface{}) *Element { return nil }
+	parseFn := func(parseProps map[string]any) *Element { return nil }
 	parseSharedChildren := emptyChildren
-	parseSharedProps := map[string]interface{}{"children": parseSharedChildren}
+	parseSharedProps := map[string]any{"children": parseSharedChildren}
 	parseOldHooks := &Hooks{}
 
 	parseOldFiber := &Fiber{
@@ -18,7 +18,7 @@ func TestReconcileChildren_PreservesHooksForUnchangedFunctionComponent(parseT *t
 	}
 	parseRt := &Runtime{}
 
-	parseRt.reconcileChildren(parseParent, []interface{}{
+	parseRt.reconcileChildren(parseParent, []any{
 		&Element{
 			Type:  parseFn,
 			Props: parseSharedProps,

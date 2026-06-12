@@ -38,7 +38,7 @@ func BenchmarkAtomRegistrySubscribeUnsubscribe(parseB *testing.B) {
 
 func BenchmarkAtomRegistrySetAtom32Subscribers(parseB *testing.B) {
 	parseRegistry := NewAtomRegistry()
-	for parseI := 0; parseI < 32; parseI++ {
+	for range 32 {
 		parseRegistry.Subscribe("counter", &Fiber{typeOf: "sub"})
 	}
 

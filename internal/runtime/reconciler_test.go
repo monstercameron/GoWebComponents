@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"maps"
 	"strings"
 	"testing"
 	"time"
@@ -12,8 +13,8 @@ func TestReconcileChildrenReportsMissingKeyWhenMixedWithKeyedSiblings(parseT *te
 
 	parseRt := &Runtime{}
 	parseParent := &Fiber{typeOf: "div"}
-	parseElements := []interface{}{
-		CreateElement("li", map[string]interface{}{"key": "a"}),
+	parseElements := []any{
+		CreateElement("li", map[string]any{"key": "a"}),
 		CreateElement("li", nil),
 	}
 
@@ -31,7 +32,7 @@ func TestReconcileChildrenSkipsMissingKeyDiagnosticForFullyUnkeyedList(parseT *t
 
 	parseRt := &Runtime{}
 	parseParent := &Fiber{typeOf: "div"}
-	parseElements := []interface{}{
+	parseElements := []any{
 		CreateElement("li", nil),
 		CreateElement("li", nil),
 	}
@@ -49,7 +50,7 @@ type testDOMNode struct {
 	tag        string
 	text       string
 	attributes map[string]string
-	properties map[string]interface{}
+	properties map[string]any
 	styles     map[string]string
 	children   []DOMNode
 	parent     *testDOMNode
@@ -85,7 +86,7 @@ func (parseA *testDOMAdapter) CreateElement(parseTag string) DOMNode {
 		nodeType:   "element",
 		tag:        parseTag,
 		attributes: make(map[string]string),
-		properties: make(map[string]interface{}),
+		properties: make(map[string]any),
 		styles:     make(map[string]string),
 		children:   make([]DOMNode, 0),
 	}
@@ -97,7 +98,7 @@ func (parseA *testDOMAdapter) CreateTextNode(parseText string) DOMNode {
 		nodeType:   "text",
 		text:       parseText,
 		attributes: make(map[string]string),
-		properties: make(map[string]interface{}),
+		properties: make(map[string]any),
 		styles:     make(map[string]string),
 		children:   make([]DOMNode, 0),
 	}
@@ -262,13 +263,13 @@ func (parseA *testDOMAdapter) RemoveAttribute(parseNode DOMNode, parseName strin
 	}
 }
 
-func (parseA *testDOMAdapter) SetProperty(parseNode DOMNode, parseName string, parseValue interface{}) {
+func (parseA *testDOMAdapter) SetProperty(parseNode DOMNode, parseName string, parseValue any) {
 	if parseN, parseOk := parseNode.(*testDOMNode); parseOk {
 		parseN.properties[parseName] = parseValue
 	}
 }
 
-func (parseA *testDOMAdapter) GetProperty(parseNode DOMNode, parseName string) interface{} {
+func (parseA *testDOMAdapter) GetProperty(parseNode DOMNode, parseName string) any {
 	if parseN, parseOk := parseNode.(*testDOMNode); parseOk {
 		switch parseName {
 		case "nodeType":
@@ -309,9 +310,7 @@ func (parseA *testDOMAdapter) SetStyle(parseNode DOMNode, parseProperty, parseVa
 
 func (parseA *testDOMAdapter) SetStyles(parseNode DOMNode, parseStyles map[string]string) {
 	if parseN, parseOk := parseNode.(*testDOMNode); parseOk {
-		for parseK, parseV := range parseStyles {
-			parseN.styles[parseK] = parseV
-		}
+		maps.Copy(parseN.styles, parseStyles)
 	}
 }
 
@@ -356,7 +355,7 @@ func (parseA *testDOMAdapter) SetTextContent(parseNode DOMNode, parseText string
 			nodeType:   "text",
 			text:       parseText,
 			attributes: make(map[string]string),
-			properties: make(map[string]interface{}),
+			properties: make(map[string]any),
 			styles:     make(map[string]string),
 			children:   make([]DOMNode, 0),
 			parent:     parseN,
@@ -365,12 +364,12 @@ func (parseA *testDOMAdapter) SetTextContent(parseNode DOMNode, parseText string
 	}
 }
 
-func (parseA *testDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
+func (parseA *testDOMAdapter) WrapFunction(parseFn any) any {
 	return parseFn
 }
 
 func TestCreateElement(parseT *testing.T) {
-	parseElem := CreateElement("div", map[string]interface{}{"id": "test"}, "child1", "child2")
+	parseElem := CreateElement("div", map[string]any{"id": "test"}, "child1", "child2")
 
 	if parseElem.Type != "div" {
 		parseT.Errorf("Expected type 'div', got %v", parseElem.Type)
@@ -398,7 +397,7 @@ func TestCreateElement_NilProps(parseT *testing.T) {
 }
 
 func TestCreateElement_NoChildren(parseT *testing.T) {
-	parseElem := CreateElement("input", map[string]interface{}{"type": "text"})
+	parseElem := CreateElement("input", map[string]any{"type": "text"})
 
 	if len(parseElem.Children) != 0 {
 		parseT.Errorf("Expected 0 children, got %d", len(parseElem.Children))
@@ -420,10 +419,10 @@ func TestIsSameType_StringTypes(parseT *testing.T) {
 }
 
 func TestIsSameType_FunctionTypes(parseT *testing.T) {
-	parseFn1 := func(parseP map[string]interface{}) *Element { return nil }
-	parseFn2 := func(parseP2 map[string]interface{}) *Element { return nil }
-	parseClosureFactory := func(parseLabel string) func(map[string]interface{}) *Element {
-		return func(parseProps map[string]interface{}) *Element {
+	parseFn1 := func(parseP map[string]any) *Element { return nil }
+	parseFn2 := func(parseP2 map[string]any) *Element { return nil }
+	parseClosureFactory := func(parseLabel string) func(map[string]any) *Element {
+		return func(parseProps map[string]any) *Element {
 			return CreateElement("div", nil, parseLabel)
 		}
 	}
@@ -464,13 +463,13 @@ func TestReconcileChildren_NewChildren(parseT *testing.T) {
 
 	parseParent := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
-	parseChild1 := CreateElement("span", map[string]interface{}{"id": "1"})
-	parseChild2 := CreateElement("p", map[string]interface{}{"id": "2"})
+	parseChild1 := CreateElement("span", map[string]any{"id": "1"})
+	parseChild2 := CreateElement("p", map[string]any{"id": "2"})
 
-	parseRt.reconcileChildren(parseParent, []interface{}{parseChild1, parseChild2})
+	parseRt.reconcileChildren(parseParent, []any{parseChild1, parseChild2})
 
 	if parseParent.child == nil {
 		parseT.Fatal("Expected parent to have a child")
@@ -503,21 +502,21 @@ func TestReconcileChildren_UpdateExisting(parseT *testing.T) {
 
 	parseOldChild := &Fiber{
 		typeOf: "div",
-		props:  map[string]interface{}{"className": "old"},
+		props:  map[string]any{"className": "old"},
 		dom:    parseMockDOM.CreateElement("div"),
 	}
 
 	parseParent := &Fiber{
 		typeOf: "root",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		alternate: &Fiber{
 			child: parseOldChild,
 		},
 	}
 
-	parseNewChild := CreateElement("div", map[string]interface{}{"className": "new"})
+	parseNewChild := CreateElement("div", map[string]any{"className": "new"})
 
-	parseRt.reconcileChildren(parseParent, []interface{}{parseNewChild})
+	parseRt.reconcileChildren(parseParent, []any{parseNewChild})
 
 	if parseParent.child == nil {
 		parseT.Fatal("Expected parent to have a child")
@@ -544,22 +543,22 @@ func TestReconcileChildren_DeleteOldChildren(parseT *testing.T) {
 		Scheduler:  parseScheduler,
 	})
 
-	parseOldChild1 := &Fiber{typeOf: "div", props: make(map[string]interface{})}
-	parseOldChild2 := &Fiber{typeOf: "span", props: make(map[string]interface{})}
+	parseOldChild1 := &Fiber{typeOf: "div", props: make(map[string]any)}
+	parseOldChild2 := &Fiber{typeOf: "span", props: make(map[string]any)}
 	parseOldChild1.sibling = parseOldChild2
 
 	parseParent := &Fiber{
 		typeOf: "root",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		alternate: &Fiber{
 			child: parseOldChild1,
 		},
 	}
 
 	// Only one new child - second should be deleted
-	parseNewChild := CreateElement("div", map[string]interface{}{})
+	parseNewChild := CreateElement("div", map[string]any{})
 
-	parseRt.reconcileChildren(parseParent, []interface{}{parseNewChild})
+	parseRt.reconcileChildren(parseParent, []any{parseNewChild})
 
 	if len(parseRt.deletions) != 1 {
 		parseT.Errorf("Expected 1 deletion, got %d", len(parseRt.deletions))
@@ -584,21 +583,21 @@ func TestReconcileChildren_ReplaceWithDifferentType(parseT *testing.T) {
 
 	parseOldChild := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseMockDOM.CreateElement("div"),
 	}
 
 	parseParent := &Fiber{
 		typeOf: "root",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		alternate: &Fiber{
 			child: parseOldChild,
 		},
 	}
 
-	parseNewChild := CreateElement("span", map[string]interface{}{})
+	parseNewChild := CreateElement("span", map[string]any{})
 
-	parseRt.reconcileChildren(parseParent, []interface{}{parseNewChild})
+	parseRt.reconcileChildren(parseParent, []any{parseNewChild})
 
 	// Old child should be marked for deletion
 	if len(parseRt.deletions) != 1 {
@@ -629,7 +628,7 @@ func TestCreateDom_Element(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf: "div",
-		props:  map[string]interface{}{"id": "test", "className": "myclass"},
+		props:  map[string]any{"id": "test", "className": "myclass"},
 	}
 
 	parseDom := parseRt.createDom(parseFiber)
@@ -655,7 +654,7 @@ func TestCreateDom_TextElement(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf: "TEXT_ELEMENT",
-		props:  map[string]interface{}{"nodeValue": "Hello World"},
+		props:  map[string]any{"nodeValue": "Hello World"},
 	}
 
 	parseDom := parseRt.createDom(parseFiber)
@@ -680,8 +679,8 @@ func TestUpdateDomProperties_SetProperties(parseT *testing.T) {
 
 	parseDom := parseMockDOM.CreateElement("div")
 
-	parseOldProps := map[string]interface{}{}
-	parseNewProps := map[string]interface{}{
+	parseOldProps := map[string]any{}
+	parseNewProps := map[string]any{
 		"id":        "test",
 		"className": "myclass",
 		"disabled":  true,
@@ -709,11 +708,11 @@ func TestUpdateDomProperties_RemoveOldProperties(parseT *testing.T) {
 
 	parseDom := parseMockDOM.CreateElement("div")
 
-	parseOldProps := map[string]interface{}{
+	parseOldProps := map[string]any{
 		"id":      "old",
 		"oldProp": "value",
 	}
-	parseNewProps := map[string]interface{}{
+	parseNewProps := map[string]any{
 		"id": "new",
 	}
 
@@ -739,8 +738,8 @@ func TestUpdateDomProperties_Styles(parseT *testing.T) {
 
 	parseDom := parseMockDOM.CreateElement("div")
 
-	parseOldProps := map[string]interface{}{}
-	parseNewProps := map[string]interface{}{
+	parseOldProps := map[string]any{}
+	parseNewProps := map[string]any{
 		"style": map[string]string{
 			"color":      "red",
 			"background": "blue",
@@ -764,7 +763,7 @@ func TestUpdateDomProperties_NilDom(parseT *testing.T) {
 	})
 
 	// Should not panic with nil DOM
-	parseRt.updateDomProperties(nil, map[string]interface{}{}, map[string]interface{}{"id": "test"})
+	parseRt.updateDomProperties(nil, map[string]any{}, map[string]any{"id": "test"})
 }
 
 func TestCommitRoot_ProcessesDeletions(parseT *testing.T) {
@@ -781,13 +780,13 @@ func TestCommitRoot_ProcessesDeletions(parseT *testing.T) {
 
 	parseParent := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseParentDOM,
 	}
 
 	parseChild := &Fiber{
 		typeOf:    "span",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		dom:       parseChildDOM,
 		parent:    parseParent,
 		effectTag: effectTagDeletion,
@@ -822,13 +821,13 @@ func TestCommitWork_Placement(parseT *testing.T) {
 
 	parseParent := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseParentDOM,
 	}
 
 	parseChild := &Fiber{
 		typeOf:    "span",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		dom:       parseChildDOM,
 		parent:    parseParent,
 		effectTag: effectTagPlacement,
@@ -858,17 +857,17 @@ func TestCommitWork_Update(parseT *testing.T) {
 
 	parseParent := &Fiber{
 		typeOf: "root",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseMockDOM.CreateElement("root"),
 	}
 
 	parseAlternate := &Fiber{
-		props: map[string]interface{}{"id": "old"},
+		props: map[string]any{"id": "old"},
 	}
 
 	parseFiber := &Fiber{
 		typeOf:    "div",
-		props:     map[string]interface{}{"id": "new"},
+		props:     map[string]any{"id": "new"},
 		dom:       parseDom,
 		parent:    parseParent,
 		alternate: parseAlternate,
@@ -897,13 +896,13 @@ func TestCommitWork_RecursiveCommit(parseT *testing.T) {
 
 	parseParent := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseParentDOM,
 	}
 
 	parseChild1 := &Fiber{
 		typeOf:    "span",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		dom:       parseChild1DOM,
 		parent:    parseParent,
 		effectTag: effectTagPlacement,
@@ -911,7 +910,7 @@ func TestCommitWork_RecursiveCommit(parseT *testing.T) {
 
 	parseChild2 := &Fiber{
 		typeOf:    "p",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		dom:       parseChild2DOM,
 		parent:    parseParent,
 		effectTag: effectTagPlacement,
@@ -941,7 +940,7 @@ func TestCommitDeletion_WithDOM(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf: "span",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseChildDOM,
 	}
 
@@ -967,13 +966,13 @@ func TestCommitDeletion_FunctionComponent(parseT *testing.T) {
 
 	// Function component with host component child
 	parseFuncFiber := &Fiber{
-		typeOf: func(parseP map[string]interface{}) *Element { return nil },
-		props:  make(map[string]interface{}),
+		typeOf: func(parseP map[string]any) *Element { return nil },
+		props:  make(map[string]any),
 	}
 
 	parseHostFiber := &Fiber{
 		typeOf: "span",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseChildDOM,
 		parent: parseFuncFiber,
 	}
@@ -1002,12 +1001,12 @@ func TestCommitDeletion_FunctionComponentPreservesSiblingComponentDOM(parseT *te
 	parseMockDOM.AppendChild(parseParentDOM, parseDeletedDOM)
 	parseMockDOM.AppendChild(parseParentDOM, parseKeptDOM)
 
-	parseDeletedFiber := &Fiber{typeOf: func(parseP map[string]interface{}) *Element { return nil }, props: make(map[string]interface{})}
-	parseDeletedChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: parseDeletedDOM, parent: parseDeletedFiber}
+	parseDeletedFiber := &Fiber{typeOf: func(parseP map[string]any) *Element { return nil }, props: make(map[string]any)}
+	parseDeletedChild := &Fiber{typeOf: "span", props: make(map[string]any), dom: parseDeletedDOM, parent: parseDeletedFiber}
 	parseDeletedFiber.child = parseDeletedChild
 
-	parseKeptFiber := &Fiber{typeOf: func(parseP2 map[string]interface{}) *Element { return nil }, props: make(map[string]interface{})}
-	parseKeptChild := &Fiber{typeOf: "p", props: make(map[string]interface{}), dom: parseKeptDOM, parent: parseKeptFiber}
+	parseKeptFiber := &Fiber{typeOf: func(parseP2 map[string]any) *Element { return nil }, props: make(map[string]any)}
+	parseKeptChild := &Fiber{typeOf: "p", props: make(map[string]any), dom: parseKeptDOM, parent: parseKeptFiber}
 	parseKeptFiber.child = parseKeptChild
 	parseDeletedFiber.sibling = parseKeptFiber
 
@@ -1035,7 +1034,7 @@ func TestRunEffects(parseT *testing.T) {
 
 	parseFiber1 := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		effects: []Effect{
 			{Fn: func() func() { isParseExecuted1 = true; return nil }, CleanupIndex: 0},
 		},
@@ -1044,7 +1043,7 @@ func TestRunEffects(parseT *testing.T) {
 
 	parseFiber2 := &Fiber{
 		typeOf: "span",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		effects: []Effect{
 			{Fn: func() func() { isParseExecuted2 = true; return nil }, CleanupIndex: 0},
 		},
@@ -1086,7 +1085,7 @@ func TestRunEffects_ReportsSlowEffectDiagnostic(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		effects: []Effect{{
 			Fn: func() func() {
 				time.Sleep(5 * time.Millisecond)
@@ -1126,7 +1125,7 @@ func TestRunCleanups_ReportsSlowCleanupDiagnostic(parseT *testing.T) {
 
 	parseFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		hooks: &Hooks{cleanups: []func(){func() {
 			time.Sleep(5 * time.Millisecond)
 		}}},
@@ -1161,7 +1160,7 @@ func TestRunCleanups_ExecutesAllCleanups(parseT *testing.T) {
 
 	parseChild := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		hooks: &Hooks{cleanups: []func(){
 			func() { isParseExecuted1 = true },
 		}},
@@ -1169,7 +1168,7 @@ func TestRunCleanups_ExecutesAllCleanups(parseT *testing.T) {
 
 	parseParent := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		hooks: &Hooks{cleanups: []func(){
 			func() { isParseExecuted2 = true },
 		}},
@@ -1197,8 +1196,8 @@ func TestCommitDeletion_RunsCleanupsAndCleansAtomSubs(parseT *testing.T) {
 	parseMockDOM.AppendChild(parseParentDOM, parseChildDOM)
 
 	// Create a function fiber that subscribes to an atom
-	parseFuncFiber := &Fiber{typeOf: func(parseP map[string]interface{}) *Element { return nil }, props: make(map[string]interface{})}
-	parseHostFiber := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: parseChildDOM, parent: parseFuncFiber}
+	parseFuncFiber := &Fiber{typeOf: func(parseP map[string]any) *Element { return nil }, props: make(map[string]any)}
+	parseHostFiber := &Fiber{typeOf: "span", props: make(map[string]any), dom: parseChildDOM, parent: parseFuncFiber}
 	parseFuncFiber.child = parseHostFiber
 
 	// Simulate using atom in child fiber via the runtime's registry
@@ -1326,12 +1325,12 @@ func TestPerformUnitOfWork_RootFiber(parseT *testing.T) {
 		Scheduler:  parseScheduler,
 	})
 
-	parseChild1 := CreateElement("div", map[string]interface{}{})
-	parseChild2 := CreateElement("span", map[string]interface{}{})
+	parseChild1 := CreateElement("div", map[string]any{})
+	parseChild2 := CreateElement("span", map[string]any{})
 
 	parseFiber := &Fiber{
 		typeOf: "ROOT",
-		props:  map[string]interface{}{"children": []interface{}{parseChild1, parseChild2}},
+		props:  map[string]any{"children": []any{parseChild1, parseChild2}},
 		dirty:  true,
 	}
 
@@ -1354,11 +1353,11 @@ func TestPerformUnitOfWork_HostComponent(parseT *testing.T) {
 		Scheduler:  parseScheduler,
 	})
 
-	parseChildElem := CreateElement("span", map[string]interface{}{})
+	parseChildElem := CreateElement("span", map[string]any{})
 
 	parseFiber := &Fiber{
 		typeOf: "div",
-		props:  map[string]interface{}{"children": []interface{}{parseChildElem}},
+		props:  map[string]any{"children": []any{parseChildElem}},
 		dirty:  true,
 	}
 
@@ -1385,13 +1384,13 @@ func TestPerformUnitOfWork_FunctionComponent(parseT *testing.T) {
 		Scheduler:  parseScheduler,
 	})
 
-	parseComponentFn := func(parseProps map[string]interface{}) *Element {
-		return CreateElement("div", map[string]interface{}{"id": "from-component"})
+	parseComponentFn := func(parseProps map[string]any) *Element {
+		return CreateElement("div", map[string]any{"id": "from-component"})
 	}
 
 	parseFiber := &Fiber{
 		typeOf: parseComponentFn,
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dirty:  true,
 	}
 
@@ -1418,12 +1417,12 @@ func TestPerformUnitOfWork_FunctionComponentNoProps(parseT *testing.T) {
 	})
 
 	parseComponentFn := func() *Element {
-		return CreateElement("div", map[string]interface{}{"id": "from-component"})
+		return CreateElement("div", map[string]any{"id": "from-component"})
 	}
 
 	parseFiber := &Fiber{
 		typeOf: parseComponentFn,
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dirty:  true,
 	}
 
@@ -1448,8 +1447,8 @@ func TestPerformUnitOfWork_FunctionComponentWithHooks(parseT *testing.T) {
 
 	// Component with previous render (has hooks state)
 	parseOldHooks := &Hooks{
-		states: []interface{}{42, 42, "test", "test"},
-		deps:   make([][]interface{}, 0),
+		states: []any{42, 42, "test", "test"},
+		deps:   make([][]any, 0),
 		memos:  make([]memoizedValue, 0),
 		index:  0,
 	}
@@ -1458,13 +1457,13 @@ func TestPerformUnitOfWork_FunctionComponentWithHooks(parseT *testing.T) {
 		hooks: parseOldHooks,
 	}
 
-	parseComponentFn := func(parseProps map[string]interface{}) *Element {
+	parseComponentFn := func(parseProps map[string]any) *Element {
 		return CreateElement("div", nil)
 	}
 
 	parseFiber := &Fiber{
 		typeOf:    parseComponentFn,
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		dirty:     true,
 		alternate: parseAlternate,
 	}
@@ -1516,9 +1515,9 @@ func TestGetSetCurrentFiber(parseT *testing.T) {
 }
 
 func TestFlattenFragments_NoFragments(parseT *testing.T) {
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: make(map[string]interface{}), Children: []interface{}{}},
-		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
+	parseElements := []any{
+		&Element{Type: "div", Props: make(map[string]any), Children: []any{}},
+		&Element{Type: "span", Props: make(map[string]any), Children: []any{}},
 	}
 
 	parseResult, _ := flattenFragments(parseElements)
@@ -1538,19 +1537,19 @@ func TestFlattenFragments_NoFragments(parseT *testing.T) {
 
 func TestFlattenFragments_WithFragment(parseT *testing.T) {
 	// Create elements: div, Fragment(span, p), h1
-	parseFragmentChildren := []interface{}{
-		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
-		&Element{Type: "p", Props: make(map[string]interface{}), Children: []interface{}{}},
+	parseFragmentChildren := []any{
+		&Element{Type: "span", Props: make(map[string]any), Children: []any{}},
+		&Element{Type: "p", Props: make(map[string]any), Children: []any{}},
 	}
 
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: make(map[string]interface{}), Children: []interface{}{}},
+	parseElements := []any{
+		&Element{Type: "div", Props: make(map[string]any), Children: []any{}},
 		&Element{
 			Type:     "FRAGMENT",
-			Props:    map[string]interface{}{"children": parseFragmentChildren},
-			Children: []interface{}{},
+			Props:    map[string]any{"children": parseFragmentChildren},
+			Children: []any{},
 		},
-		&Element{Type: "h1", Props: make(map[string]interface{}), Children: []interface{}{}},
+		&Element{Type: "h1", Props: make(map[string]any), Children: []any{}},
 	}
 
 	parseResult, _ := flattenFragments(parseElements)
@@ -1570,26 +1569,26 @@ func TestFlattenFragments_WithFragment(parseT *testing.T) {
 
 func TestFlattenFragments_NestedFragments(parseT *testing.T) {
 	// Create nested: Fragment(div, Fragment(span, p), h1)
-	parseInnerFragmentChildren := []interface{}{
-		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
-		&Element{Type: "p", Props: make(map[string]interface{}), Children: []interface{}{}},
+	parseInnerFragmentChildren := []any{
+		&Element{Type: "span", Props: make(map[string]any), Children: []any{}},
+		&Element{Type: "p", Props: make(map[string]any), Children: []any{}},
 	}
 
-	parseOuterFragmentChildren := []interface{}{
-		&Element{Type: "div", Props: make(map[string]interface{}), Children: []interface{}{}},
+	parseOuterFragmentChildren := []any{
+		&Element{Type: "div", Props: make(map[string]any), Children: []any{}},
 		&Element{
 			Type:     "FRAGMENT",
-			Props:    map[string]interface{}{"children": parseInnerFragmentChildren},
-			Children: []interface{}{},
+			Props:    map[string]any{"children": parseInnerFragmentChildren},
+			Children: []any{},
 		},
-		&Element{Type: "h1", Props: make(map[string]interface{}), Children: []interface{}{}},
+		&Element{Type: "h1", Props: make(map[string]any), Children: []any{}},
 	}
 
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{
 			Type:     "FRAGMENT",
-			Props:    map[string]interface{}{"children": parseOuterFragmentChildren},
-			Children: []interface{}{},
+			Props:    map[string]any{"children": parseOuterFragmentChildren},
+			Children: []any{},
 		},
 	}
 
@@ -1609,14 +1608,14 @@ func TestFlattenFragments_NestedFragments(parseT *testing.T) {
 }
 
 func TestFlattenFragments_EmptyFragment(parseT *testing.T) {
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: make(map[string]interface{}), Children: []interface{}{}},
+	parseElements := []any{
+		&Element{Type: "div", Props: make(map[string]any), Children: []any{}},
 		&Element{
 			Type:     "FRAGMENT",
-			Props:    make(map[string]interface{}),
-			Children: []interface{}{},
+			Props:    make(map[string]any),
+			Children: []any{},
 		},
-		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
+		&Element{Type: "span", Props: make(map[string]any), Children: []any{}},
 	}
 
 	parseResult, _ := flattenFragments(parseElements)
@@ -1636,24 +1635,24 @@ func TestFlattenFragments_EmptyFragment(parseT *testing.T) {
 
 func TestFlattenFragments_OnlyFragments(parseT *testing.T) {
 	// Only fragments containing elements
-	parseFragment1Children := []interface{}{
-		&Element{Type: "div", Props: make(map[string]interface{}), Children: []interface{}{}},
+	parseFragment1Children := []any{
+		&Element{Type: "div", Props: make(map[string]any), Children: []any{}},
 	}
 
-	parseFragment2Children := []interface{}{
-		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
+	parseFragment2Children := []any{
+		&Element{Type: "span", Props: make(map[string]any), Children: []any{}},
 	}
 
-	parseElements := []interface{}{
+	parseElements := []any{
 		&Element{
 			Type:     "FRAGMENT",
-			Props:    map[string]interface{}{"children": parseFragment1Children},
-			Children: []interface{}{},
+			Props:    map[string]any{"children": parseFragment1Children},
+			Children: []any{},
 		},
 		&Element{
 			Type:     "FRAGMENT",
-			Props:    map[string]interface{}{"children": parseFragment2Children},
-			Children: []interface{}{},
+			Props:    map[string]any{"children": parseFragment2Children},
+			Children: []any{},
 		},
 	}
 

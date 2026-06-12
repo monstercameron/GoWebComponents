@@ -97,11 +97,11 @@ func TestSharedPatchPayloadEndToEndCommit(parseT *testing.T) {
 	parseSharedTransportResult, parseSharedTransportErr := BuildSharedPatchTransportResult(
 		parsePatchEnvelope,
 		CapabilityReport{
-			HasWorkerSupport:               true,
-			HasStructuredCloneSupport:      true,
-			HasSharedBufferSupport:         true,
+			HasWorkerSupport:                true,
+			HasStructuredCloneSupport:       true,
+			HasSharedBufferSupport:          true,
 			HasSharedMemoryTransportSupport: true,
-			HasMessagePortSupport:          true,
+			HasMessagePortSupport:           true,
 		},
 		parseSharedPatchPage,
 	)

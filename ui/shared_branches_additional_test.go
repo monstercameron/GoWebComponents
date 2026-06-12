@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package ui
 
@@ -41,11 +40,11 @@ func TestSharedContextAndBoundaryAdditionalBranches(parseT *testing.T) {
 	parseFallback := Text("fallback")
 	parseErrorFallback := func(parseErr error, parseReset func()) Node { return Text(parseErr.Error()) }
 	parseOnError := func(error) {}
-	parseMapProps := map[string]interface{}{
+	parseMapProps := map[string]any{
 		"Fallback":      parseFallback,
 		"ErrorFallback": parseErrorFallback,
 		"OnError":       parseOnError,
-		"ResetKeys":     []interface{}{"v3"},
+		"ResetKeys":     []any{"v3"},
 		"Child":         Text("child"),
 		"Children":      []Node{Text("child-2"), nil, Text("child-3")},
 	}
@@ -110,7 +109,7 @@ func TestSharedBootstrapOverlayAndComponentAdditionalBranches(parseT *testing.T)
 	if parsePretty, parseQualified := describeComponentIdentity(nil); parsePretty != "" || parseQualified != "" {
 		parseT.Fatalf("describeComponentIdentity(nil) = (%q,%q), want empty strings", parsePretty, parseQualified)
 	}
-	parseExpectedType := reflect.TypeOf(parseComponentValue{}).String()
+	parseExpectedType := reflect.TypeFor[parseComponentValue]().String()
 	if parsePretty2, parseQualified2 := describeComponentIdentity(parseComponentValue{}); parsePretty2 != parseExpectedType || parseQualified2 != parseExpectedType {
 		parseT.Fatalf("describeComponentIdentity(non-func) = (%q,%q), want (%q,%q)", parsePretty2, parseQualified2, parseExpectedType, parseExpectedType)
 	}

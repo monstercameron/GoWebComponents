@@ -108,7 +108,7 @@ func TestAuthManagerPersistsSessionAndRevocation(parseT *testing.T) {
 		parseT.Fatalf("issueTokenForContext: %v", parseErr)
 	}
 
-	parseParsedToken, parseErr := jwt.ParseWithClaims(parseToken, &authClaims{}, func(parseToken *jwt.Token) (interface{}, error) {
+	parseParsedToken, parseErr := jwt.ParseWithClaims(parseToken, &authClaims{}, func(parseToken *jwt.Token) (any, error) {
 		return parseAuth.secret, nil
 	})
 	if parseErr != nil {
@@ -177,7 +177,7 @@ func TestAuthManagerTokenKidRotationPolicy(parseT *testing.T) {
 		parseT.Fatalf("expected issued token kid=rotated, got %#v", parseUnverifiedToken.Header["kid"])
 	}
 
-	parseParsedToken, parseErr := jwt.ParseWithClaims(parseIssuedToken, &authClaims{}, func(parseToken *jwt.Token) (interface{}, error) {
+	parseParsedToken, parseErr := jwt.ParseWithClaims(parseIssuedToken, &authClaims{}, func(parseToken *jwt.Token) (any, error) {
 		return parseAuth.secret, nil
 	})
 	if parseErr != nil {
@@ -293,7 +293,7 @@ func TestAuthManagerPersistedTokenLifecycles(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("issueToken: %v", parseErr)
 	}
-	parseParsedToken, parseErr := jwt.ParseWithClaims(parseInitialToken, &authClaims{}, func(parseToken *jwt.Token) (interface{}, error) {
+	parseParsedToken, parseErr := jwt.ParseWithClaims(parseInitialToken, &authClaims{}, func(parseToken *jwt.Token) (any, error) {
 		return parseAuth.secret, nil
 	})
 	if parseErr != nil {
@@ -384,7 +384,7 @@ func TestAuthManagerPasswordRecoveryRequestThrottleAndAudit(parseT *testing.T) {
 		parseT.Fatalf("parseSignup: %v", parseErr)
 	}
 
-	for parseRequestIndex := int64(0); parseRequestIndex < passwordResetRequestThrottleMaxPerEmail; parseRequestIndex++ {
+	for parseRequestIndex := range passwordResetRequestThrottleMaxPerEmail {
 		parseResetToken, parseErr := parseAuth.parseBeginPasswordResetToken(parseUser.Email, "198.51.100.33")
 		if parseErr != nil {
 			parseT.Fatalf("parseBeginPasswordResetToken(request=%d): %v", parseRequestIndex, parseErr)
@@ -544,7 +544,7 @@ func TestAuthManagerSignupVerificationThrottleAndExpiry(parseT *testing.T) {
 		parseT.Fatalf("parseSignup: %v", parseErr)
 	}
 
-	for parseRequestIndex := int64(0); parseRequestIndex < emailVerificationResendThrottleMaxPerEmail-1; parseRequestIndex++ {
+	for parseRequestIndex := range emailVerificationResendThrottleMaxPerEmail - 1 {
 		parseResendToken, parseErr := parseAuth.parseResendSignupVerificationToken(parseUser.Email)
 		if parseErr != nil {
 			parseT.Fatalf("parseResendSignupVerificationToken(request=%d): %v", parseRequestIndex, parseErr)

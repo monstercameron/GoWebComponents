@@ -249,7 +249,7 @@ func TestSuperuserSlicesListQuery(parseT *testing.T) {
 // BenchmarkParseFilterAdminUserRowsBySearch reports micro-benchmark throughput for admin user list search filtering.
 func BenchmarkParseFilterAdminUserRowsBySearch(parseB *testing.B) {
 	parseRows := make([]parseAdminUserRow, 0, 200)
-	for parseIndex := int64(0); parseIndex < 200; parseIndex++ {
+	for parseIndex := range int64(200) {
 		parseRows = append(parseRows, parseAdminUserRow{
 			UserID:       parseIndex + 1,
 			Email:        "user" + strconv.FormatInt(parseIndex, 10) + "@example.com",

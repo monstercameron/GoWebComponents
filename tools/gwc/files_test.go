@@ -78,13 +78,13 @@ func TestResolveFilesConfigRejectsInvalidInputs(parseT *testing.T) {
 func TestCollectFilesReportFiltersByExtensionAndExcludedDirs(parseT *testing.T) {
 	parseRoot := parseT.TempDir()
 	for parsePath, parseContent := range map[string]string{
-		"app.js":                     "root js",
-		"README.md":                  "docs",
-		"nested/keep.JS":             "nested js",
-		"nested/keep.txt":            "nested text",
+		"app.js":                         "root js",
+		"README.md":                      "docs",
+		"nested/keep.JS":                 "nested js",
+		"nested/keep.txt":                "nested text",
 		"examples/public/counter/app.js": "excluded example",
-		"node_modules/pkg/index.js":  "excluded dependency",
-		".git/hooks/post-checkout":   "excluded git",
+		"node_modules/pkg/index.js":      "excluded dependency",
+		".git/hooks/post-checkout":       "excluded git",
 	} {
 		parseFullPath := filepath.Join(parseRoot, filepath.FromSlash(parsePath))
 		if parseErr := os.MkdirAll(filepath.Dir(parseFullPath), 0755); parseErr != nil {

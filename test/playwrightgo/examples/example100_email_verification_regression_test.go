@@ -18,18 +18,18 @@ import (
 )
 
 type example100EmailVerificationRegressionArtifact struct {
-	HasSignupUnverifiedEntry       bool
-	GetQAVerificationTokenLength   int
-	HasVerifiedOutcome             bool
-	HasVerificationRedirectTarget  bool
-	HasReplayDeniedOutcome         bool
-	HasInvalidTokenError           bool
-	HasNeutralUnknownResend        bool
-	HasVerifiedAppEntry            bool
-	GetConsoleErrorCount           int
-	GetPageErrorCount              int
-	GetConsoleSampleText           string
-	GetPageErrorSampleText         string
+	HasSignupUnverifiedEntry      bool
+	GetQAVerificationTokenLength  int
+	HasVerifiedOutcome            bool
+	HasVerificationRedirectTarget bool
+	HasReplayDeniedOutcome        bool
+	HasInvalidTokenError          bool
+	HasNeutralUnknownResend       bool
+	HasVerifiedAppEntry           bool
+	GetConsoleErrorCount          int
+	GetPageErrorCount             int
+	GetConsoleSampleText          string
+	GetPageErrorSampleText        string
 }
 
 // formatExample100EmailVerificationRegressionSummary formats one email-verification regression artifact for concise logs.

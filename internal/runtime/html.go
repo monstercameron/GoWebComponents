@@ -6,699 +6,699 @@ package runtime
 // Document Structure Elements
 
 // Html creates an html element.
-func Html(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Html(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("html", parseProps, parseChildren...)
 }
 
 // Head creates a head element.
-func Head(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Head(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("head", parseProps, parseChildren...)
 }
 
 // Body creates a body element.
-func Body(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Body(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("body", parseProps, parseChildren...)
 }
 
 // Title creates a title element.
-func Title(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Title(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("title", parseProps, parseChildren...)
 }
 
 // Meta creates a meta element.
-func Meta(parseProps map[string]interface{}) *Element {
+func Meta(parseProps map[string]any) *Element {
 	return CreateElement("meta", parseProps)
 }
 
 // Link creates a link element.
-func Link(parseProps map[string]interface{}) *Element {
+func Link(parseProps map[string]any) *Element {
 	return CreateElement("link", parseProps)
 }
 
 // Style creates a style element.
-func Style(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Style(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("style", parseProps, parseChildren...)
 }
 
 // Script creates a script element.
-func Script(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Script(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("script", parseProps, parseChildren...)
 }
 
 // Semantic Structure Elements
 
 // Header creates a header element.
-func Header(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Header(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("header", parseProps, parseChildren...)
 }
 
 // Nav creates a nav element.
-func Nav(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Nav(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("nav", parseProps, parseChildren...)
 }
 
 // Main creates a main element.
-func Main(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Main(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("main", parseProps, parseChildren...)
 }
 
 // Footer creates a footer element.
-func Footer(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Footer(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("footer", parseProps, parseChildren...)
 }
 
 // Section creates a section element.
-func Section(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Section(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("section", parseProps, parseChildren...)
 }
 
 // Article creates an article element.
-func Article(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Article(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("article", parseProps, parseChildren...)
 }
 
 // Aside creates an aside element.
-func Aside(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Aside(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("aside", parseProps, parseChildren...)
 }
 
 // Content Grouping
 
 // Div creates a div element.
-func Div(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Div(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("div", parseProps, parseChildren...)
 }
 
 // P creates a p element.
-func P(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func P(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("p", parseProps, parseChildren...)
 }
 
 // Span creates a span element.
-func Span(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Span(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("span", parseProps, parseChildren...)
 }
 
 // Pre creates a pre element.
-func Pre(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Pre(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("pre", parseProps, parseChildren...)
 }
 
 // Blockquote creates a blockquote element.
-func Blockquote(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Blockquote(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("blockquote", parseProps, parseChildren...)
 }
 
 // Hr creates an hr element.
-func Hr(parseProps map[string]interface{}) *Element {
+func Hr(parseProps map[string]any) *Element {
 	return CreateElement("hr", parseProps)
 }
 
 // Text Content
 
 // H1 creates an h1 element.
-func H1(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func H1(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("h1", parseProps, parseChildren...)
 }
 
 // H2 creates an h2 element.
-func H2(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func H2(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("h2", parseProps, parseChildren...)
 }
 
 // H3 creates an h3 element.
-func H3(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func H3(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("h3", parseProps, parseChildren...)
 }
 
 // H4 creates an h4 element.
-func H4(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func H4(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("h4", parseProps, parseChildren...)
 }
 
 // H5 creates an h5 element.
-func H5(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func H5(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("h5", parseProps, parseChildren...)
 }
 
 // H6 creates an h6 element.
-func H6(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func H6(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("h6", parseProps, parseChildren...)
 }
 
 // Lists
 
 // Ul creates a ul element.
-func Ul(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Ul(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("ul", parseProps, parseChildren...)
 }
 
 // Ol creates an ol element.
-func Ol(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Ol(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("ol", parseProps, parseChildren...)
 }
 
 // Li creates a li element.
-func Li(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Li(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("li", parseProps, parseChildren...)
 }
 
 // Dl creates a dl element.
-func Dl(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Dl(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("dl", parseProps, parseChildren...)
 }
 
 // Dt creates a dt element.
-func Dt(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Dt(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("dt", parseProps, parseChildren...)
 }
 
 // Dd creates a dd element.
-func Dd(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Dd(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("dd", parseProps, parseChildren...)
 }
 
 // Inline Text
 
 // A creates an a element.
-func A(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func A(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("a", parseProps, parseChildren...)
 }
 
 // Strong creates a strong element.
-func Strong(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Strong(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("strong", parseProps, parseChildren...)
 }
 
 // Em creates an em element.
-func Em(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Em(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("em", parseProps, parseChildren...)
 }
 
 // Code creates a code element.
-func Code(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Code(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("code", parseProps, parseChildren...)
 }
 
 // Small creates a small element.
-func Small(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Small(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("small", parseProps, parseChildren...)
 }
 
 // Mark creates a mark element.
-func Mark(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Mark(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("mark", parseProps, parseChildren...)
 }
 
 // Del creates a del element.
-func Del(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Del(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("del", parseProps, parseChildren...)
 }
 
 // Ins creates an ins element.
-func Ins(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Ins(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("ins", parseProps, parseChildren...)
 }
 
 // Sub creates a sub element.
-func Sub(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Sub(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("sub", parseProps, parseChildren...)
 }
 
 // Sup creates a sup element.
-func Sup(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Sup(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("sup", parseProps, parseChildren...)
 }
 
 // Br creates a br element.
-func Br(parseProps map[string]interface{}) *Element {
+func Br(parseProps map[string]any) *Element {
 	return CreateElement("br", parseProps)
 }
 
 // Forms
 
 // Form creates a form element.
-func Form(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Form(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("form", parseProps, parseChildren...)
 }
 
 // Label creates a label element.
-func Label(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Label(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("label", parseProps, parseChildren...)
 }
 
 // Input creates an input element.
-func Input(parseProps map[string]interface{}) *Element {
+func Input(parseProps map[string]any) *Element {
 	return CreateElement("input", parseProps)
 }
 
 // Button creates a button element.
-func Button(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Button(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("button", parseProps, parseChildren...)
 }
 
 // Select creates a select element.
-func Select(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Select(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("select", parseProps, parseChildren...)
 }
 
 // Option creates an option element.
-func Option(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Option(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("option", parseProps, parseChildren...)
 }
 
 // Textarea creates a textarea element.
-func Textarea(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Textarea(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("textarea", parseProps, parseChildren...)
 }
 
 // Fieldset creates a fieldset element.
-func Fieldset(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Fieldset(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("fieldset", parseProps, parseChildren...)
 }
 
 // Legend creates a legend element.
-func Legend(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Legend(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("legend", parseProps, parseChildren...)
 }
 
 // Tables
 
 // Table creates a table element.
-func Table(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Table(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("table", parseProps, parseChildren...)
 }
 
 // Thead creates a thead element.
-func Thead(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Thead(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("thead", parseProps, parseChildren...)
 }
 
 // Tbody creates a tbody element.
-func Tbody(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Tbody(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("tbody", parseProps, parseChildren...)
 }
 
 // Tfoot creates a tfoot element.
-func Tfoot(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Tfoot(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("tfoot", parseProps, parseChildren...)
 }
 
 // Tr creates a tr element.
-func Tr(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Tr(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("tr", parseProps, parseChildren...)
 }
 
 // Th creates a th element.
-func Th(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Th(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("th", parseProps, parseChildren...)
 }
 
 // Td creates a td element.
-func Td(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Td(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("td", parseProps, parseChildren...)
 }
 
 // Caption creates a caption element.
-func Caption(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Caption(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("caption", parseProps, parseChildren...)
 }
 
 // Colgroup creates a colgroup element.
-func Colgroup(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Colgroup(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("colgroup", parseProps, parseChildren...)
 }
 
 // Col creates a col element.
-func Col(parseProps map[string]interface{}) *Element {
+func Col(parseProps map[string]any) *Element {
 	return CreateElement("col", parseProps)
 }
 
 // Media
 
 // Img creates an img element.
-func Img(parseProps map[string]interface{}) *Element {
+func Img(parseProps map[string]any) *Element {
 	return CreateElement("img", parseProps)
 }
 
 // Video creates a video element.
-func Video(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Video(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("video", parseProps, parseChildren...)
 }
 
 // Audio creates an audio element.
-func Audio(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Audio(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("audio", parseProps, parseChildren...)
 }
 
 // Source creates a source element.
-func Source(parseProps map[string]interface{}) *Element {
+func Source(parseProps map[string]any) *Element {
 	return CreateElement("source", parseProps)
 }
 
 // Picture creates a picture element.
-func Picture(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Picture(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("picture", parseProps, parseChildren...)
 }
 
 // Canvas creates a canvas element.
-func Canvas(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Canvas(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("canvas", parseProps, parseChildren...)
 }
 
 // Svg creates an svg element.
-func Svg(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Svg(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("svg", parseProps, parseChildren...)
 }
 
 // Path creates a path element.
-func Path(parseProps map[string]interface{}) *Element {
+func Path(parseProps map[string]any) *Element {
 	return CreateElement("path", parseProps)
 }
 
 // Circle creates a circle element.
-func Circle(parseProps map[string]interface{}) *Element {
+func Circle(parseProps map[string]any) *Element {
 	return CreateElement("circle", parseProps)
 }
 
 // Rect creates a rect element.
-func Rect(parseProps map[string]interface{}) *Element {
+func Rect(parseProps map[string]any) *Element {
 	return CreateElement("rect", parseProps)
 }
 
 // Line creates a line element.
-func Line(parseProps map[string]interface{}) *Element {
+func Line(parseProps map[string]any) *Element {
 	return CreateElement("line", parseProps)
 }
 
 // Polygon creates a polygon element.
-func Polygon(parseProps map[string]interface{}) *Element {
+func Polygon(parseProps map[string]any) *Element {
 	return CreateElement("polygon", parseProps)
 }
 
 // G creates a g (SVG group) element.
-func G(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func G(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("g", parseProps, parseChildren...)
 }
 
 // Interactive
 
 // Details creates a details element.
-func Details(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Details(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("details", parseProps, parseChildren...)
 }
 
 // Summary creates a summary element.
-func Summary(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Summary(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("summary", parseProps, parseChildren...)
 }
 
 // Dialog creates a dialog element.
-func Dialog(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Dialog(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("dialog", parseProps, parseChildren...)
 }
 
 // Menu creates a menu element.
-func Menu(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Menu(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("menu", parseProps, parseChildren...)
 }
 
 // Embedded Content
 
 // Iframe creates an iframe element.
-func Iframe(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Iframe(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("iframe", parseProps, parseChildren...)
 }
 
 // Embed creates an embed element.
-func Embed(parseProps map[string]interface{}) *Element {
+func Embed(parseProps map[string]any) *Element {
 	return CreateElement("embed", parseProps)
 }
 
 // Object creates an object element.
-func Object(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Object(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("object", parseProps, parseChildren...)
 }
 
 // Param creates a param element.
-func Param(parseProps map[string]interface{}) *Element {
+func Param(parseProps map[string]any) *Element {
 	return CreateElement("param", parseProps)
 }
 
 // Additional Elements
 
 // Time creates a time element.
-func Time(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Time(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("time", parseProps, parseChildren...)
 }
 
 // Progress creates a progress element.
-func Progress(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Progress(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("progress", parseProps, parseChildren...)
 }
 
 // Meter creates a meter element.
-func Meter(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Meter(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("meter", parseProps, parseChildren...)
 }
 
 // Output creates an output element.
-func Output(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Output(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("output", parseProps, parseChildren...)
 }
 
 // Data creates a data element.
-func Data(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Data(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("data", parseProps, parseChildren...)
 }
 
 // Wbr creates a wbr element.
-func Wbr(parseProps map[string]interface{}) *Element {
+func Wbr(parseProps map[string]any) *Element {
 	return CreateElement("wbr", parseProps)
 }
 
 // Abbr creates an abbr element.
-func Abbr(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Abbr(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("abbr", parseProps, parseChildren...)
 }
 
 // Address creates an address element.
-func Address(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Address(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("address", parseProps, parseChildren...)
 }
 
 // Cite creates a cite element.
-func Cite(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Cite(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("cite", parseProps, parseChildren...)
 }
 
 // Kbd creates a kbd element.
-func Kbd(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Kbd(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("kbd", parseProps, parseChildren...)
 }
 
 // Samp creates a samp element.
-func Samp(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Samp(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("samp", parseProps, parseChildren...)
 }
 
 // Var creates a var element.
-func Var(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Var(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("var", parseProps, parseChildren...)
 }
 
 // Q creates a q element.
-func Q(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Q(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("q", parseProps, parseChildren...)
 }
 
 // Dfn creates a dfn element.
-func Dfn(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Dfn(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("dfn", parseProps, parseChildren...)
 }
 
 // B creates a b element.
-func B(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func B(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("b", parseProps, parseChildren...)
 }
 
 // I creates an i element.
-func I(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func I(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("i", parseProps, parseChildren...)
 }
 
 // U creates a u element.
-func U(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func U(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("u", parseProps, parseChildren...)
 }
 
 // S creates an s element.
-func S(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func S(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("s", parseProps, parseChildren...)
 }
 
 // Bdi creates a bdi element.
-func Bdi(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Bdi(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("bdi", parseProps, parseChildren...)
 }
 
 // Bdo creates a bdo element.
-func Bdo(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Bdo(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("bdo", parseProps, parseChildren...)
 }
 
 // Ruby creates a ruby element.
-func Ruby(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Ruby(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("ruby", parseProps, parseChildren...)
 }
 
 // Rt creates an rt element.
-func Rt(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Rt(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("rt", parseProps, parseChildren...)
 }
 
 // Rp creates an rp element.
-func Rp(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Rp(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("rp", parseProps, parseChildren...)
 }
 
 // Figure creates a figure element.
-func Figure(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Figure(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("figure", parseProps, parseChildren...)
 }
 
 // Figcaption creates a figcaption element.
-func Figcaption(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Figcaption(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("figcaption", parseProps, parseChildren...)
 }
 
 // Additional missing elements
 
 // Track creates a track element.
-func Track(parseProps map[string]interface{}) *Element {
+func Track(parseProps map[string]any) *Element {
 	return CreateElement("track", parseProps)
 }
 
 // Optgroup creates an optgroup element.
-func Optgroup(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Optgroup(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("optgroup", parseProps, parseChildren...)
 }
 
 // Datalist creates a datalist element.
-func Datalist(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Datalist(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("datalist", parseProps, parseChildren...)
 }
 
 // Hgroup creates an hgroup element.
-func Hgroup(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Hgroup(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("hgroup", parseProps, parseChildren...)
 }
 
 // Portal creates a portal element.
-func Portal(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Portal(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("portal", parseProps, parseChildren...)
 }
 
 // Template creates a template element.
-func Template(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Template(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("template", parseProps, parseChildren...)
 }
 
 // Slot creates a slot element.
-func Slot(parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func Slot(parseProps map[string]any, parseChildren ...any) *Element {
 	return CreateElement("slot", parseProps, parseChildren...)
 }
 
 // Helper functions for common patterns
 
 // ClassProps returns a props map with the given CSS class.
-func ClassProps(parseClass string) map[string]interface{} {
-	return map[string]interface{}{"class": parseClass}
+func ClassProps(parseClass string) map[string]any {
+	return map[string]any{"class": parseClass}
 }
 
 // IdProps returns a props map with the given element ID.
-func IdProps(parseId string) map[string]interface{} {
-	return map[string]interface{}{"id": parseId}
+func IdProps(parseId string) map[string]any {
+	return map[string]any{"id": parseId}
 }
 
 // HrefProps returns a props map with the given href attribute.
-func HrefProps(parseHref string) map[string]interface{} {
-	return map[string]interface{}{"href": parseHref}
+func HrefProps(parseHref string) map[string]any {
+	return map[string]any{"href": parseHref}
 }
 
 // SrcProps returns a props map with the given src attribute.
-func SrcProps(parseSrc string) map[string]interface{} {
-	return map[string]interface{}{"src": parseSrc}
+func SrcProps(parseSrc string) map[string]any {
+	return map[string]any{"src": parseSrc}
 }
 
 // StyleProps returns a props map with the given inline style string.
-func StyleProps(parseStyle string) map[string]interface{} {
-	return map[string]interface{}{"style": parseStyle}
+func StyleProps(parseStyle string) map[string]any {
+	return map[string]any{"style": parseStyle}
 }
 
 // TypeProps returns a props map with the given type attribute.
-func TypeProps(parseTyp string) map[string]interface{} {
-	return map[string]interface{}{"type": parseTyp}
+func TypeProps(parseTyp string) map[string]any {
+	return map[string]any{"type": parseTyp}
 }
 
 // ValueProps returns a props map with the given value.
-func ValueProps(parseValue interface{}) map[string]interface{} {
-	return map[string]interface{}{"value": parseValue}
+func ValueProps(parseValue any) map[string]any {
+	return map[string]any{"value": parseValue}
 }
 
 // PlaceholderProps returns a props map with the given placeholder text.
-func PlaceholderProps(parsePlaceholder string) map[string]interface{} {
-	return map[string]interface{}{"placeholder": parsePlaceholder}
+func PlaceholderProps(parsePlaceholder string) map[string]any {
+	return map[string]any{"placeholder": parsePlaceholder}
 }
 
 // InputTypeProps returns a props map with the given input type.
-func InputTypeProps(parseTyp string) map[string]interface{} {
-	return map[string]interface{}{"type": parseTyp}
+func InputTypeProps(parseTyp string) map[string]any {
+	return map[string]any{"type": parseTyp}
 }
 
 // ClassIdProps returns a props map with the given class and id.
-func ClassIdProps(parseClass, parseId string) map[string]interface{} {
-	return map[string]interface{}{"class": parseClass, "id": parseId}
+func ClassIdProps(parseClass, parseId string) map[string]any {
+	return map[string]any{"class": parseClass, "id": parseId}
 }
 
 // EmptyProps returns an empty props map.
-func EmptyProps() map[string]interface{} {
-	return map[string]interface{}{}
+func EmptyProps() map[string]any {
+	return map[string]any{}
 }
 
 // Component helpers
 
 // WithComponents creates an element with the given tag and renders component refs as children.
-func WithComponents(parseTagName string, parseProps map[string]interface{}, parseComponentRefs ...func(map[string]interface{}) *Element) *Element {
+func WithComponents(parseTagName string, parseProps map[string]any, parseComponentRefs ...func(map[string]any) *Element) *Element {
 	parseChildren := componentRefsToChildren(parseComponentRefs)
 	return CreateElement(parseTagName, parseProps, parseChildren...)
 }
 
 // DivWithComponents creates a div element and renders component refs as children.
-func DivWithComponents(parseProps map[string]interface{}, parseComponentRefs ...func(map[string]interface{}) *Element) *Element {
+func DivWithComponents(parseProps map[string]any, parseComponentRefs ...func(map[string]any) *Element) *Element {
 	parseChildren := componentRefsToChildren(parseComponentRefs)
 	return Div(parseProps, parseChildren...)
 }
 
 // SectionWithComponents creates a section element and renders component refs as children.
-func SectionWithComponents(parseProps map[string]interface{}, parseComponentRefs ...func(map[string]interface{}) *Element) *Element {
+func SectionWithComponents(parseProps map[string]any, parseComponentRefs ...func(map[string]any) *Element) *Element {
 	parseChildren := componentRefsToChildren(parseComponentRefs)
 	return Section(parseProps, parseChildren...)
 }
 
 // MainWithComponents creates a main element and renders component refs as children.
-func MainWithComponents(parseProps map[string]interface{}, parseComponentRefs ...func(map[string]interface{}) *Element) *Element {
+func MainWithComponents(parseProps map[string]any, parseComponentRefs ...func(map[string]any) *Element) *Element {
 	parseChildren := componentRefsToChildren(parseComponentRefs)
 	return Main(parseProps, parseChildren...)
 }
 
 // componentRefsToChildren is a core package helper.
-func componentRefsToChildren(parseComponentRefs []func(map[string]interface{}) *Element) []interface{} {
+func componentRefsToChildren(parseComponentRefs []func(map[string]any) *Element) []any {
 	if len(parseComponentRefs) == 0 {
 		return emptyChildren
 	}
 
-	parseChildren := make([]interface{}, len(parseComponentRefs))
+	parseChildren := make([]any, len(parseComponentRefs))
 	for parseI, parseRef := range parseComponentRefs {
 		parseChildren[parseI] = &Element{
 			Type:     parseRef,

@@ -29,13 +29,13 @@ func benchmarkKeyedDashboardComponentUpdate(parsePanelCount int) (*Runtime, *tes
 
 	parseApp := func() *Element {
 		parseCount, _ := GoUseAtom(parseRt, parseHotAtomID, -1)
-		parseChildren := make([]interface{}, 0, parsePanelCount)
-		for parseI := 0; parseI < parsePanelCount; parseI++ {
+		parseChildren := make([]any, 0, parsePanelCount)
+		for parseI := range parsePanelCount {
 			parseLabel := "panel-" + strconv.Itoa(parseI)
 			if parseI == parseHotIndex {
 				parseLabel = strconv.Itoa(parseCount())
 			}
-			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI}, parseLabel))
+			parseChildren = append(parseChildren, CreateElement("li", map[string]any{"key": parseI}, parseLabel))
 		}
 		return CreateElement("ul", nil, parseChildren...)
 	}
@@ -55,11 +55,11 @@ func benchmarkKeyedDashboardReactiveTextUpdate(parsePanelCount int) (*Runtime, *
 	parseRt.atomRegistry.InitAtom(parseHotAtomID, -1)
 
 	parseApp := func() *Element {
-		parseChildren := make([]interface{}, 0, parsePanelCount)
-		for parseI := 0; parseI < parsePanelCount; parseI++ {
+		parseChildren := make([]any, 0, parsePanelCount)
+		for parseI := range parsePanelCount {
 			if parseI == parseHotIndex {
-				parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI},
-					CreateElement(ReactiveTextNodeType, map[string]interface{}{
+				parseChildren = append(parseChildren, CreateElement("li", map[string]any{"key": parseI},
+					CreateElement(ReactiveTextNodeType, map[string]any{
 						reactiveTextAtomIDProp: parseHotAtomID,
 						reactiveTextGetterProp: func() string {
 							parseValue, _ := parseRt.atomRegistry.GetAtom(parseHotAtomID)
@@ -72,7 +72,7 @@ func benchmarkKeyedDashboardReactiveTextUpdate(parsePanelCount int) (*Runtime, *
 				))
 				continue
 			}
-			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI}, "panel-"+strconv.Itoa(parseI)))
+			parseChildren = append(parseChildren, CreateElement("li", map[string]any{"key": parseI}, "panel-"+strconv.Itoa(parseI)))
 		}
 		return CreateElement("ul", nil, parseChildren...)
 	}
@@ -114,7 +114,7 @@ func benchmarkSelectorDashboardComponentUpdate(parsePanelCount int) (*Runtime, *
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 	parseContainer := parseAdapter.CreateElement("div")
 	parsePanels := make([]string, parsePanelCount)
-	for parseI := 0; parseI < parsePanelCount; parseI++ {
+	for parseI := range parsePanelCount {
 		parsePanels[parseI] = "panel-" + strconv.Itoa(parseI)
 	}
 	parseModel := benchmarkDashboardModel{Hot: -1, Panels: parsePanels}
@@ -123,13 +123,13 @@ func benchmarkSelectorDashboardComponentUpdate(parsePanelCount int) (*Runtime, *
 	parseApp := func() *Element {
 		parseCurrentModel, _ := GoUseAtom(parseRt, "dashboard-model", parseModel)
 		parseValue := parseCurrentModel()
-		parseChildren := make([]interface{}, 0, len(parseValue.Panels))
+		parseChildren := make([]any, 0, len(parseValue.Panels))
 		for parseI2, parsePanel := range parseValue.Panels {
 			parseLabel := parsePanel
 			if parseI2 == len(parseValue.Panels)/2 {
 				parseLabel = strconv.Itoa(parseValue.Hot)
 			}
-			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI2}, parseLabel))
+			parseChildren = append(parseChildren, CreateElement("li", map[string]any{"key": parseI2}, parseLabel))
 		}
 		return CreateElement("ul", nil, parseChildren...)
 	}
@@ -145,12 +145,12 @@ func benchmarkSelectorDashboardReactiveTextUpdate(parsePanelCount int) (*Runtime
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 	parseContainer := parseAdapter.CreateElement("div")
 	parsePanels := make([]string, parsePanelCount)
-	for parseI := 0; parseI < parsePanelCount; parseI++ {
+	for parseI := range parsePanelCount {
 		parsePanels[parseI] = "panel-" + strconv.Itoa(parseI)
 	}
 	parseModel := benchmarkDashboardModel{Hot: -1, Panels: parsePanels}
 	parseRt.atomRegistry.InitAtom("dashboard-model", parseModel)
-	if parseErr := parseRt.RegisterDerivedAtom("dashboard-model-hot", []string{"dashboard-model"}, func() interface{} {
+	if parseErr := parseRt.RegisterDerivedAtom("dashboard-model-hot", []string{"dashboard-model"}, func() any {
 		parseValue, _ := parseRt.GetAtomValue("dashboard-model")
 		return parseValue.(benchmarkDashboardModel).Hot
 	}); parseErr != nil {
@@ -158,11 +158,11 @@ func benchmarkSelectorDashboardReactiveTextUpdate(parsePanelCount int) (*Runtime
 	}
 
 	parseApp := func() *Element {
-		parseChildren := make([]interface{}, 0, len(parseModel.Panels))
+		parseChildren := make([]any, 0, len(parseModel.Panels))
 		for parseI2, parsePanel := range parseModel.Panels {
 			if parseI2 == len(parseModel.Panels)/2 {
-				parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI2},
-					CreateElement(ReactiveTextNodeType, map[string]interface{}{
+				parseChildren = append(parseChildren, CreateElement("li", map[string]any{"key": parseI2},
+					CreateElement(ReactiveTextNodeType, map[string]any{
 						reactiveTextAtomIDProp: "dashboard-model-hot",
 						reactiveTextGetterProp: func() string {
 							parseValue2, _ := parseRt.GetAtomValue("dashboard-model-hot")
@@ -175,7 +175,7 @@ func benchmarkSelectorDashboardReactiveTextUpdate(parsePanelCount int) (*Runtime
 				))
 				continue
 			}
-			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI2}, parsePanel))
+			parseChildren = append(parseChildren, CreateElement("li", map[string]any{"key": parseI2}, parsePanel))
 		}
 		return CreateElement("ul", nil, parseChildren...)
 	}
@@ -193,7 +193,7 @@ func benchmarkSignalStyleDashboardReactiveRegions(parsePanelCount int) (*Runtime
 	parseHotIndex := parsePanelCount / 2
 
 	parsePanelAtomIDs := make([]string, parsePanelCount)
-	for parseI := 0; parseI < parsePanelCount; parseI++ {
+	for parseI := range parsePanelCount {
 		parseAtomID := "signal-style-panel-" + strconv.Itoa(parseI)
 		parsePanelAtomIDs[parseI] = parseAtomID
 		parseInitial := "panel-" + strconv.Itoa(parseI)
@@ -204,17 +204,17 @@ func benchmarkSignalStyleDashboardReactiveRegions(parsePanelCount int) (*Runtime
 	}
 
 	parseApp := func() *Element {
-		parseChildren := make([]interface{}, 0, parsePanelCount)
+		parseChildren := make([]any, 0, parsePanelCount)
 		for parseI2, parseAtomID2 := range parsePanelAtomIDs {
 			parsePanelIndex := parseI2
 			parsePanelAtomID := parseAtomID2
-			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI2},
-				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+			parseChildren = append(parseChildren, CreateElement("li", map[string]any{"key": parseI2},
+				CreateElement(ReactiveRegionNodeType, map[string]any{
 					reactiveRegionSourceIDsProp: []string{parsePanelAtomID},
 					reactiveRegionRenderProp: func() *Element {
 						parseValue, _ := parseRt.GetAtomValue(parsePanelAtomID)
 						parseLabel, _ := parseValue.(string)
-						return CreateElement("span", map[string]interface{}{"data-panel": strconv.Itoa(parsePanelIndex)}, parseLabel)
+						return CreateElement("span", map[string]any{"data-panel": strconv.Itoa(parsePanelIndex)}, parseLabel)
 					},
 				}),
 			))
@@ -281,18 +281,18 @@ func benchmarkAncestorRerenderStaticLeaves(parseRegionCount int) (func(int), *te
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 	parseContainer := parseAdapter.CreateElement("div")
 
-	parseLeaves := make([]interface{}, 0, parseRegionCount)
-	for parseI := 0; parseI < parseRegionCount; parseI++ {
-		parseLeaves = append(parseLeaves, CreateElement("div", map[string]interface{}{"key": parseI},
-			CreateElement("span", map[string]interface{}{"data-panel": strconv.Itoa(parseI)}, "stable"),
+	parseLeaves := make([]any, 0, parseRegionCount)
+	for parseI := range parseRegionCount {
+		parseLeaves = append(parseLeaves, CreateElement("div", map[string]any{"key": parseI},
+			CreateElement("span", map[string]any{"data-panel": strconv.Itoa(parseI)}, "stable"),
 		))
 	}
 
-	var setTick func(interface{})
+	var setTick func(any)
 	parseApp := func() *Element {
 		parseTick, set := GoUseState(parseRt, 0)
 		setTick = set
-		parseChildren := make([]interface{}, 0, parseRegionCount+1)
+		parseChildren := make([]any, 0, parseRegionCount+1)
 		parseChildren = append(parseChildren, CreateElement("h1", nil, strconv.Itoa(parseTick())))
 		parseChildren = append(parseChildren, parseLeaves...)
 		return CreateElement("section", nil, parseChildren...)
@@ -312,18 +312,18 @@ func benchmarkAncestorRerenderReactiveRegions(parseRegionCount int) (func(int), 
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 	parseContainer := parseAdapter.CreateElement("div")
 
-	parseRegions := make([]interface{}, 0, parseRegionCount)
-	for parseI := 0; parseI < parseRegionCount; parseI++ {
+	parseRegions := make([]any, 0, parseRegionCount)
+	for parseI := range parseRegionCount {
 		parseAtomID := "ancestor-region-" + strconv.Itoa(parseI)
 		parseRegionIndex := parseI
 		parseRt.atomRegistry.InitAtom(parseAtomID, parseRegionIndex)
-		parseRegions = append(parseRegions, CreateElement("div", map[string]interface{}{"key": parseI},
-			CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+		parseRegions = append(parseRegions, CreateElement("div", map[string]any{"key": parseI},
+			CreateElement(ReactiveRegionNodeType, map[string]any{
 				reactiveRegionSourceIDsProp: []string{parseAtomID},
 				reactiveRegionRenderProp: func() *Element {
 					parseValue, _ := parseRt.GetAtomValue(parseAtomID)
 					parseCurrent, _ := parseValue.(int)
-					return CreateElement("input", map[string]interface{}{
+					return CreateElement("input", map[string]any{
 						"data-panel": strconv.Itoa(parseRegionIndex),
 						"value":      strconv.Itoa(parseCurrent),
 					})
@@ -332,11 +332,11 @@ func benchmarkAncestorRerenderReactiveRegions(parseRegionCount int) (func(int), 
 		))
 	}
 
-	var setTick func(interface{})
+	var setTick func(any)
 	parseApp := func() *Element {
 		parseTick, set := GoUseState(parseRt, 0)
 		setTick = set
-		parseChildren := make([]interface{}, 0, parseRegionCount+1)
+		parseChildren := make([]any, 0, parseRegionCount+1)
 		parseChildren = append(parseChildren, CreateElement("h1", nil, strconv.Itoa(parseTick())))
 		parseChildren = append(parseChildren, parseRegions...)
 		return CreateElement("section", nil, parseChildren...)

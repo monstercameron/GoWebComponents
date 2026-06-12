@@ -105,7 +105,7 @@ func TestApplyServerInteractiveActionMutatesState(parseT *testing.T) {
 		parseT.Fatalf("expected version to reflect actions, got %d", parseHub.storeState.Version)
 	}
 
-	for parseIndex := 0; parseIndex < 10; parseIndex++ {
+	for range 10 {
 		parseHub.applyServerInteractiveAction(serverInteractiveAction{Action: "add-user"})
 	}
 	if len(parseHub.storeState.RecentEvents) != 6 {

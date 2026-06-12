@@ -289,7 +289,7 @@ func (parseF *stringListFlag) String() string {
 }
 
 func (parseF *stringListFlag) Set(parseValue string) error {
-	for _, parsePart := range strings.Split(parseValue, ",") {
+	for parsePart := range strings.SplitSeq(parseValue, ",") {
 		parseTrimmed := strings.TrimSpace(parsePart)
 		if parseTrimmed != "" {
 			parseF.values = append(parseF.values, parseTrimmed)
@@ -412,8 +412,8 @@ func goToolchainApprovedByPolicy(parseActiveToolchain string, parseApprovedValue
 	if parseActive == parseApproved {
 		return true
 	}
-	if strings.HasSuffix(parseApproved, ".x") {
-		parsePrefix := strings.TrimSuffix(parseApproved, ".x")
+	if before, ok := strings.CutSuffix(parseApproved, ".x"); ok {
+		parsePrefix := before
 		if parsePrefix == "" {
 			return false
 		}

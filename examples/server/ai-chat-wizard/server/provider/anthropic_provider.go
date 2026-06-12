@@ -634,13 +634,7 @@ func parseNormalizeMemoryCandidates(parseCandidates []UserMemoryCandidate) []Use
 		} else {
 			parseSeenKeys[parseKey] = 1
 		}
-		parseUsefulness := parseCandidate.UsefulnessScore
-		if parseUsefulness < 0 {
-			parseUsefulness = 0
-		}
-		if parseUsefulness > 100 {
-			parseUsefulness = 100
-		}
+		parseUsefulness := min(max(parseCandidate.UsefulnessScore, 0), 100)
 		parseConfidence := parseCandidate.ConfidenceScore
 		if parseConfidence < 0 {
 			parseConfidence = 0

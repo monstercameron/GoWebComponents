@@ -385,8 +385,8 @@ func parseLifecycleModulePath(parseRootPath string) string {
 	parseScanner := bufio.NewScanner(strings.NewReader(string(parseContent)))
 	for parseScanner.Scan() {
 		parseLine := strings.TrimSpace(parseScanner.Text())
-		if strings.HasPrefix(parseLine, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(parseLine, "module "))
+		if after, ok := strings.CutPrefix(parseLine, "module "); ok {
+			return strings.TrimSpace(after)
 		}
 	}
 	return ""
@@ -562,7 +562,7 @@ func (parseL launcher) applyLifecycleMigrate(applyConfig lifecycleMigrateConfig)
 	if applyErr := os.MkdirAll(filepath.Dir(applyReportPath), 0755); applyErr != nil {
 		return lifecycleMigrateSummary{}, fmt.Errorf("create migration report directory: %w", applyErr)
 	}
-	applyReportPayload := map[string]interface{}{
+	applyReportPayload := map[string]any{
 		"ok":           true,
 		"root":         applyConfig.rootPath,
 		"applied":      applyConfig.apply,

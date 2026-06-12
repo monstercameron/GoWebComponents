@@ -111,7 +111,7 @@ func boundaryStatus(parseReport ui.SSRBootstrapSizeReport) string {
 	return "observed"
 }
 
-func approximateBoundarySize(parseRaw interface{}) int {
+func approximateBoundarySize(parseRaw any) int {
 	if parseRaw == nil {
 		return 0
 	}

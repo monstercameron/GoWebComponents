@@ -8,7 +8,7 @@ import (
 var (
 	benchFiberBoolSink  bool
 	benchFiberIntSink   int
-	benchFiberIfaceSink interface{}
+	benchFiberIfaceSink any
 )
 
 func BenchmarkRuntimeLayoutBaselines(parseB *testing.B) {
@@ -41,7 +41,7 @@ func BenchmarkFiberHotFieldScan256(parseB *testing.B) {
 	parseB.ResetTimer()
 	for parseI := 0; parseI < parseB.N; parseI++ {
 		parseDirtyCount := 0
-		var parseLastType interface{}
+		var parseLastType any
 		var isAnyNeedsUpdate bool
 		for parseIndex2 := range parseFibers {
 			parseFiber := &parseFibers[parseIndex2]
@@ -74,7 +74,7 @@ func BenchmarkFiberSiblingWalk256(parseB *testing.B) {
 	parseB.ResetTimer()
 	for parseI := 0; parseI < parseB.N; parseI++ {
 		parseCount := 0
-		var parseLastType interface{}
+		var parseLastType any
 		for parseFiber := parseHead; parseFiber != nil; parseFiber = parseFiber.sibling {
 			if parseFiber.dirty {
 				parseCount++
@@ -88,8 +88,8 @@ func BenchmarkFiberSiblingWalk256(parseB *testing.B) {
 
 func BenchmarkHooksIndexResetHotPath(parseB *testing.B) {
 	parseHooks := &Hooks{
-		states:    make([]interface{}, 16),
-		deps:      make([][]interface{}, 8),
+		states:    make([]any, 16),
+		deps:      make([][]any, 8),
 		memos:     make([]memoizedValue, 4),
 		callbacks: make([]callbackValue, 4),
 		refs:      make([]*RefValue, 2),

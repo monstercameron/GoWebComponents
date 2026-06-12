@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"maps"
 	"strconv"
 	"strings"
 )
@@ -74,18 +75,18 @@ func IsCurrentFiberTransitionUpdate() bool {
 }
 
 // CreateElement creates a new virtual DOM element.
-func CreateElement(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func CreateElement(parseTyp any, parseProps map[string]any, parseChildren ...any) *Element {
 	return buildElement(parseTyp, cloneElementProps(parseProps), parseChildren...)
 }
 
 // CreateElementOwned creates a new virtual DOM element and takes ownership of the provided props map.
-func CreateElementOwned(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func CreateElementOwned(parseTyp any, parseProps map[string]any, parseChildren ...any) *Element {
 	return buildElement(parseTyp, parseProps, parseChildren...)
 }
 
 // CreateElementCompactHostOwned creates one host element from an owned props map
 // and a caller-normalized compact string-attribute view.
-func CreateElementCompactHostOwned(parseTag string, parseProps map[string]interface{}, parseAttrs []HostAttr, parseChildren ...interface{}) *Element {
+func CreateElementCompactHostOwned(parseTag string, parseProps map[string]any, parseAttrs []HostAttr, parseChildren ...any) *Element {
 	if parseTag == "TEXT_ELEMENT" || parseTag == "FRAGMENT" {
 		return buildElement(parseTag, parseProps, parseChildren...)
 	}
@@ -93,7 +94,7 @@ func CreateElementCompactHostOwned(parseTag string, parseProps map[string]interf
 }
 
 // buildElementHostProps creates one host-only props map and optional compact string attrs for one public element payload.
-func buildElementHostProps(parseTyp interface{}, parseProps map[string]interface{}) (map[string]interface{}, []HostAttr, bool) {
+func buildElementHostProps(parseTyp any, parseProps map[string]any) (map[string]any, []HostAttr, bool) {
 	parseTag, parseOk := parseTyp.(string)
 	if !parseOk || parseTag == "TEXT_ELEMENT" || parseTag == "FRAGMENT" {
 		return nil, nil, false
@@ -150,20 +151,18 @@ func buildElementHostProps(parseTyp interface{}, parseProps map[string]interface
 }
 
 // cloneElementProps clones one props map so callers can safely retain and reuse their original input.
-func cloneElementProps(parseProps map[string]interface{}) map[string]interface{} {
+func cloneElementProps(parseProps map[string]any) map[string]any {
 	if len(parseProps) == 0 {
 		return nil
 	}
 
-	getProps := make(map[string]interface{}, len(parseProps)+1)
-	for parseKey, parseValue := range parseProps {
-		getProps[parseKey] = parseValue
-	}
+	getProps := make(map[string]any, len(parseProps)+1)
+	maps.Copy(getProps, parseProps)
 	return getProps
 }
 
 // canStoreElementDirectText reports whether one host element can carry its only string child directly on the host fiber.
-func canStoreElementDirectText(parseTyp interface{}, parseChildren []interface{}) (bool, string) {
+func canStoreElementDirectText(parseTyp any, parseChildren []any) (bool, string) {
 	if len(parseChildren) != 1 {
 		return false, ""
 	}
@@ -179,7 +178,7 @@ func canStoreElementDirectText(parseTyp interface{}, parseChildren []interface{}
 }
 
 // getElementChildren returns one element's structural children while tolerating legacy props-backed child storage.
-func getElementChildren(parseElem *Element) []interface{} {
+func getElementChildren(parseElem *Element) []any {
 	if parseElem == nil {
 		return nil
 	}
@@ -191,20 +190,20 @@ func getElementChildren(parseElem *Element) []interface{} {
 	}
 	if parseElem.Children != nil {
 		if len(parseElem.Children) == 0 {
-			if parseChildren, parseOk := parseElem.Props["children"].([]interface{}); parseOk && len(parseChildren) > 0 {
+			if parseChildren, parseOk := parseElem.Props["children"].([]any); parseOk && len(parseChildren) > 0 {
 				return parseChildren
 			}
 		}
 		return parseElem.Children
 	}
-	if parseChildren, parseOk := parseElem.Props["children"].([]interface{}); parseOk {
+	if parseChildren, parseOk := parseElem.Props["children"].([]any); parseOk {
 		return parseChildren
 	}
 	return nil
 }
 
 // getFiberChildren returns one fiber's structural child slice while tolerating legacy props-backed child storage.
-func getFiberChildren(parseFiber *Fiber) []interface{} {
+func getFiberChildren(parseFiber *Fiber) []any {
 	if parseFiber == nil {
 		return nil
 	}
@@ -216,20 +215,20 @@ func getFiberChildren(parseFiber *Fiber) []interface{} {
 	}
 	if parseFiber.children != nil {
 		if len(parseFiber.children) == 0 {
-			if parseChildren, parseOk := parseFiber.props["children"].([]interface{}); parseOk && len(parseChildren) > 0 {
+			if parseChildren, parseOk := parseFiber.props["children"].([]any); parseOk && len(parseChildren) > 0 {
 				return parseChildren
 			}
 		}
 		return parseFiber.children
 	}
-	if parseChildren, parseOk := parseFiber.props["children"].([]interface{}); parseOk {
+	if parseChildren, parseOk := parseFiber.props["children"].([]any); parseOk {
 		return parseChildren
 	}
 	return nil
 }
 
 // getElementFiberProps resolves one element's internal working props bag.
-func getElementFiberProps(parseElem *Element) map[string]interface{} {
+func getElementFiberProps(parseElem *Element) map[string]any {
 	if parseElem == nil {
 		return nil
 	}
@@ -248,20 +247,20 @@ func RefreshElementHostProps(parseElem *Element) {
 }
 
 // buildElement builds one virtual DOM element and stores the normalized children slice on the props map.
-func buildElement(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+func buildElement(parseTyp any, parseProps map[string]any, parseChildren ...any) *Element {
 	getHostProps, getHostAttrs, isCompactHostProps := buildElementHostProps(parseTyp, parseProps)
 	return buildElementWithHostProps(parseTyp, parseProps, getHostProps, getHostAttrs, isCompactHostProps, parseChildren...)
 }
 
 // buildElementWithHostProps builds one virtual DOM element from an already-normalized host-prop view.
-func buildElementWithHostProps(parseTyp interface{}, parseProps map[string]interface{}, getHostProps map[string]interface{}, getHostAttrs []HostAttr, isCompactHostProps bool, parseChildren ...interface{}) *Element {
+func buildElementWithHostProps(parseTyp any, parseProps map[string]any, getHostProps map[string]any, getHostAttrs []HostAttr, isCompactHostProps bool, parseChildren ...any) *Element {
 	if len(parseChildren) == 0 {
 		parseChildren = emptyChildren
 	}
 
 	if isParseDirectText, parseDirectText := canStoreElementDirectText(parseTyp, parseChildren); isParseDirectText {
 		if parseProps == nil {
-			parseProps = make(map[string]interface{}, 1)
+			parseProps = make(map[string]any, 1)
 		}
 		parseProps["children"] = parseChildren
 		return &Element{
@@ -302,7 +301,7 @@ func buildElementWithHostProps(parseTyp interface{}, parseProps map[string]inter
 	}
 
 	if parseProps == nil {
-		parseProps = make(map[string]interface{}, 1)
+		parseProps = make(map[string]any, 1)
 	}
 	parseProps["children"] = parseChildren
 
@@ -317,7 +316,7 @@ func buildElementWithHostProps(parseTyp interface{}, parseProps map[string]inter
 }
 
 // flattenFragments is an internal reconciler helper.
-func flattenFragments(parseElements []interface{}) ([]interface{}, bool) {
+func flattenFragments(parseElements []any) ([]any, bool) {
 	isParseNeedsFlatten := false
 	for _, parseElement := range parseElements {
 		parseElem, parseOk := parseElement.(*Element)

@@ -1,6 +1,10 @@
 package pwa
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
 
 func TestParseWasmReleaseManifestJSONValidatesAndNormalizes(parseT *testing.T) {
 	parseManifest, parseErr := ParseWasmReleaseManifestJSON([]byte(`
@@ -25,6 +29,16 @@ func TestParseWasmReleaseManifestJSONValidatesAndNormalizes(parseT *testing.T) {
 	}
 	if !parseManifest.Flags.Trimpath || parseManifest.Flags.LDFlags != "-s -w" || parseManifest.Flags.GCFlags != "all=-N -l" || parseManifest.Flags.BuildVCS != "false" || !parseManifest.Flags.Compression {
 		parseT.Fatalf("unexpected normalized flags: %#v", parseManifest.Flags)
+	}
+}
+
+func TestWasmReleaseManifestJSONWireShapePreservesFlagsObject(parseT *testing.T) {
+	parseEncoded, parseErr := json.Marshal(WasmReleaseManifest{})
+	if parseErr != nil {
+		parseT.Fatalf("marshal release manifest: %v", parseErr)
+	}
+	if parseText := string(parseEncoded); !strings.Contains(parseText, `"flags":{}`) {
+		parseT.Fatalf("expected zero-value release manifest to preserve flags object, got %s", parseText)
 	}
 }
 

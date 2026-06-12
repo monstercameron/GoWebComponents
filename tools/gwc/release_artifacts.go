@@ -42,7 +42,7 @@ func releaseWriteDiffReport(parseCompareManifest string, parseManifestPath strin
 		return nil, parseErr
 	}
 	parseFileName := "wasm-release-size-diff.json"
-	parsePayload := map[string]interface{}{
+	parsePayload := map[string]any{
 		"baselineManifestPath": baselinePathForJSON(parseCompareManifest),
 		"currentManifestPath":  parseManifestPath,
 		"artifactChanges":      parseArtifactChanges,
@@ -109,16 +109,16 @@ func releaseCompareArtifactRecords(parseBaseline map[string]releaseArtifactRecor
 		parseRecord := releaseArtifactDiffRecord{Name: parseName}
 		if hasBaseline {
 			parseRecord.BaselinePath = parseBaselineArtifact.Path
-			parseRecord.BaselineBytes = int64ptr(parseBaselineArtifact.Bytes)
+			parseRecord.BaselineBytes = new(parseBaselineArtifact.Bytes)
 		}
 		if hasCurrent {
 			parseRecord.CurrentPath = parseCurrentArtifact.Path
-			parseRecord.CurrentBytes = int64ptr(parseCurrentArtifact.Bytes)
+			parseRecord.CurrentBytes = new(parseCurrentArtifact.Bytes)
 		}
 		switch {
 		case hasBaseline && hasCurrent:
 			parseDelta := parseCurrentArtifact.Bytes - parseBaselineArtifact.Bytes
-			parseRecord.DeltaBytes = int64ptr(parseDelta)
+			parseRecord.DeltaBytes = new(parseDelta)
 			parseRecord.DeltaPercent = releasePercentDeltaPointer(parseBaselineArtifact.Bytes, parseCurrentArtifact.Bytes)
 			if parseDelta > 0 {
 				parseRecord.Status = "grew"
@@ -170,20 +170,20 @@ func releaseComparePackageAttributionRecords(parseBaselineManifestPath string, p
 		parseCurrentRecord, hasCurrent := parseCurrentMap[parseImportPath]
 		parseRecord3 := releasePackageDiffRecord{ImportPath: parseImportPath}
 		if hasBaseline {
-			parseRecord3.BaselineArchiveBytes = int64ptr(parseBaselineRecord.ArchiveBytes)
-			parseRecord3.BaselineSourceBytes = int64ptr(parseBaselineRecord.SourceBytes)
+			parseRecord3.BaselineArchiveBytes = new(parseBaselineRecord.ArchiveBytes)
+			parseRecord3.BaselineSourceBytes = new(parseBaselineRecord.SourceBytes)
 		}
 		if hasCurrent {
-			parseRecord3.CurrentArchiveBytes = int64ptr(parseCurrentRecord.ArchiveBytes)
-			parseRecord3.CurrentSourceBytes = int64ptr(parseCurrentRecord.SourceBytes)
+			parseRecord3.CurrentArchiveBytes = new(parseCurrentRecord.ArchiveBytes)
+			parseRecord3.CurrentSourceBytes = new(parseCurrentRecord.SourceBytes)
 		}
 		switch {
 		case hasBaseline && hasCurrent:
 			parseArchiveDelta := parseCurrentRecord.ArchiveBytes - parseBaselineRecord.ArchiveBytes
 			parseSourceDelta := parseCurrentRecord.SourceBytes - parseBaselineRecord.SourceBytes
-			parseRecord3.ArchiveDeltaBytes = int64ptr(parseArchiveDelta)
+			parseRecord3.ArchiveDeltaBytes = new(parseArchiveDelta)
 			parseRecord3.ArchiveDeltaPercent = releasePercentDeltaPointer(parseBaselineRecord.ArchiveBytes, parseCurrentRecord.ArchiveBytes)
-			parseRecord3.SourceDeltaBytes = int64ptr(parseSourceDelta)
+			parseRecord3.SourceDeltaBytes = new(parseSourceDelta)
 			if parseArchiveDelta > 0 {
 				parseRecord3.Status = "grew"
 			} else if parseArchiveDelta < 0 {
@@ -194,14 +194,12 @@ func releaseComparePackageAttributionRecords(parseBaselineManifestPath string, p
 				parseRecord3.Status = "unchanged"
 			}
 		case hasCurrent:
-			parseRecord3.ArchiveDeltaBytes = int64ptr(parseCurrentRecord.ArchiveBytes)
-			parseRecord3.SourceDeltaBytes = int64ptr(parseCurrentRecord.SourceBytes)
+			parseRecord3.ArchiveDeltaBytes = new(parseCurrentRecord.ArchiveBytes)
+			parseRecord3.SourceDeltaBytes = new(parseCurrentRecord.SourceBytes)
 			parseRecord3.Status = "added"
 		default:
-			parseArchiveDelta2 := -parseBaselineRecord.ArchiveBytes
-			parseSourceDelta2 := -parseBaselineRecord.SourceBytes
-			parseRecord3.ArchiveDeltaBytes = int64ptr(parseArchiveDelta2)
-			parseRecord3.SourceDeltaBytes = int64ptr(parseSourceDelta2)
+			parseRecord3.ArchiveDeltaBytes = new(-parseBaselineRecord.ArchiveBytes)
+			parseRecord3.SourceDeltaBytes = new(-parseBaselineRecord.SourceBytes)
 			parseRecord3.Status = "removed"
 		}
 		if parseRecord3.ArchiveDeltaBytes != nil && *parseRecord3.ArchiveDeltaBytes > 0 {
@@ -248,10 +246,6 @@ func releasePercentDeltaPointer(parseBaseline int64, parseCurrent int64) *float6
 	}
 	parseDelta := float64(parseCurrent-parseBaseline) / float64(parseBaseline) * 100
 	return &parseDelta
-}
-
-func int64ptr(parseValue int64) *int64 {
-	return &parseValue
 }
 
 func derefInt64(parseValue *int64) int64 {
@@ -332,7 +326,7 @@ func loadReleaseBudgets(parsePath string) (map[string]int64, error) {
 	if parseErr != nil {
 		return nil, fmt.Errorf("read budgets file: %w", parseErr)
 	}
-	parseRaw := map[string]interface{}{}
+	parseRaw := map[string]any{}
 	if parseErr2 := json.Unmarshal(parseContent, &parseRaw); parseErr2 != nil {
 		return nil, fmt.Errorf("parse budgets file: %w", parseErr2)
 	}

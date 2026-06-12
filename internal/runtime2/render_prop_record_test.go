@@ -21,7 +21,6 @@ func TestParseRenderPropRecordSupportedPropKindsRoundTrip(parseTesting *testing.
 		{parseName: "text", parseKind: RenderPropKindTextAdjacent, parseKey: "text"},
 	}
 	for _, parseCase := range parseCases {
-		parseCase := parseCase
 		parseTesting.Run(parseCase.parseName, func(parseTesting *testing.T) {
 			getKeyRef, hasKeyRef := buildStringTable.GetRenderStringRef(parseCase.parseKey)
 			if !hasKeyRef {

@@ -2,6 +2,7 @@ package atlas
 
 import (
 	"encoding/json"
+	"maps"
 	"strings"
 
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -213,9 +214,7 @@ func cloneParams(parseInput map[string]string) map[string]string {
 		return map[string]string{}
 	}
 	parseClone := make(map[string]string, len(parseInput))
-	for parseKey, parseValue := range parseInput {
-		parseClone[parseKey] = parseValue
-	}
+	maps.Copy(parseClone, parseInput)
 	return parseClone
 }
 
@@ -224,9 +223,7 @@ func cloneData(parseInput map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	parseClone := make(map[string]any, len(parseInput))
-	for parseKey, parseValue := range parseInput {
-		parseClone[parseKey] = parseValue
-	}
+	maps.Copy(parseClone, parseInput)
 	return parseClone
 }
 

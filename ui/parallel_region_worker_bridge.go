@@ -278,7 +278,7 @@ func buildParallelRegionWorkerNodeOutput(parseNode Node) (any, error) {
 }
 
 // buildParallelRegionWorkerChildrenOutput converts one rendered public child list into runtime2 render-output children.
-func buildParallelRegionWorkerChildrenOutput(parseChildren []interface{}) ([]any, error) {
+func buildParallelRegionWorkerChildrenOutput(parseChildren []any) ([]any, error) {
 	if len(parseChildren) == 0 {
 		return nil, nil
 	}
@@ -308,7 +308,7 @@ func buildParallelRegionWorkerChildrenOutput(parseChildren []interface{}) ([]any
 }
 
 // buildParallelRegionWorkerPropsOutput converts one rendered public host props map into runtime2 display-only props and an optional keyed identity.
-func buildParallelRegionWorkerPropsOutput(parseProps map[string]interface{}) (map[string]any, string, error) {
+func buildParallelRegionWorkerPropsOutput(parseProps map[string]any) (map[string]any, string, error) {
 	if len(parseProps) == 0 {
 		return nil, "", nil
 	}

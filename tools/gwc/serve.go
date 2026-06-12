@@ -326,7 +326,7 @@ func serveStaticFile(parseW http.ResponseWriter, parseR *http.Request, parsePath
 	http.ServeFile(parseW, parseR, parsePath)
 }
 
-func writeServeJSON(parseW http.ResponseWriter, parseStatus int, parsePayload interface{}) {
+func writeServeJSON(parseW http.ResponseWriter, parseStatus int, parsePayload any) {
 	parseW.Header().Set("Content-Type", "application/json")
 	parseW.Header().Set("Cache-Control", "no-store")
 	parseW.WriteHeader(parseStatus)

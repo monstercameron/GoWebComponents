@@ -15,12 +15,12 @@ func TestReconcileChildren_TextNodeCreation(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 
 	// TEXT_ELEMENT type for text nodes
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{
-		&Element{Type: "TEXT_ELEMENT", Props: map[string]interface{}{"nodeValue": "Hello"}},
+	parseRt.reconcileChildren(parseWipFiber, []any{
+		&Element{Type: "TEXT_ELEMENT", Props: map[string]any{"nodeValue": "Hello"}},
 	})
 
 	if parseWipFiber.child == nil {
@@ -41,18 +41,18 @@ func TestReconcileChildren_TextNodeUpdate(parseT *testing.T) {
 
 	parseOldText := &Fiber{
 		typeOf: "TEXT_ELEMENT",
-		props:  map[string]interface{}{"nodeValue": "Old"},
+		props:  map[string]any{"nodeValue": "Old"},
 		dom:    parseAdapter.CreateTextNode("Old"),
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldText},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{
-		&Element{Type: "TEXT_ELEMENT", Props: map[string]interface{}{"nodeValue": "New"}},
+	parseRt.reconcileChildren(parseWipFiber, []any{
+		&Element{Type: "TEXT_ELEMENT", Props: map[string]any{"nodeValue": "New"}},
 	})
 
 	if parseWipFiber.child == nil {
@@ -73,18 +73,18 @@ func TestReconcileChildren_ElementToTextNodeChange(parseT *testing.T) {
 
 	parseOldElement := &Fiber{
 		typeOf: "span",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseAdapter.CreateElement("span"),
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldElement},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{
-		&Element{Type: "TEXT_ELEMENT", Props: map[string]interface{}{"nodeValue": "Text"}},
+	parseRt.reconcileChildren(parseWipFiber, []any{
+		&Element{Type: "TEXT_ELEMENT", Props: map[string]any{"nodeValue": "Text"}},
 	})
 
 	if parseWipFiber.child == nil {
@@ -105,17 +105,17 @@ func TestReconcileChildren_TextNodeToElementChange(parseT *testing.T) {
 
 	parseOldText := &Fiber{
 		typeOf: "TEXT_ELEMENT",
-		props:  map[string]interface{}{"nodeValue": "Text"},
+		props:  map[string]any{"nodeValue": "Text"},
 		dom:    parseAdapter.CreateTextNode("Text"),
 	}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldText},
 	}
 
-	parseRt.reconcileChildren(parseWipFiber, []interface{}{
+	parseRt.reconcileChildren(parseWipFiber, []any{
 		&Element{Type: "span"},
 	})
 
@@ -136,25 +136,25 @@ func TestReconcileChildren_KeyedReorderBackward(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old: [1, 2, 3, 4, 5]
-	parseOld5 := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "5"}, dom: parseAdapter.CreateElement("div")}
-	parseOld4 := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "4"}, dom: parseAdapter.CreateElement("div"), sibling: parseOld5}
-	parseOld3 := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "3"}, dom: parseAdapter.CreateElement("div"), sibling: parseOld4}
-	parseOld2 := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "2"}, dom: parseAdapter.CreateElement("div"), sibling: parseOld3}
-	parseOld1 := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "1"}, dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
+	parseOld5 := &Fiber{typeOf: "div", props: map[string]any{"key": "5"}, dom: parseAdapter.CreateElement("div")}
+	parseOld4 := &Fiber{typeOf: "div", props: map[string]any{"key": "4"}, dom: parseAdapter.CreateElement("div"), sibling: parseOld5}
+	parseOld3 := &Fiber{typeOf: "div", props: map[string]any{"key": "3"}, dom: parseAdapter.CreateElement("div"), sibling: parseOld4}
+	parseOld2 := &Fiber{typeOf: "div", props: map[string]any{"key": "2"}, dom: parseAdapter.CreateElement("div"), sibling: parseOld3}
+	parseOld1 := &Fiber{typeOf: "div", props: map[string]any{"key": "1"}, dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOld1},
 	}
 
 	// New: [5, 4, 3, 2, 1] (reverse order)
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"key": "5"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "4"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "3"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "2"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "1"}},
+	parseElements := []any{
+		&Element{Type: "div", Props: map[string]any{"key": "5"}},
+		&Element{Type: "div", Props: map[string]any{"key": "4"}},
+		&Element{Type: "div", Props: map[string]any{"key": "3"}},
+		&Element{Type: "div", Props: map[string]any{"key": "2"}},
+		&Element{Type: "div", Props: map[string]any{"key": "1"}},
 	}
 
 	parseRt.reconcileChildren(parseWipFiber, parseElements)
@@ -178,20 +178,20 @@ func TestReconcileChildren_KeyedInsertMiddle(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old: [a, c]
-	parseOldC := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "c"}, dom: parseAdapter.CreateElement("div")}
-	parseOldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldC}
+	parseOldC := &Fiber{typeOf: "div", props: map[string]any{"key": "c"}, dom: parseAdapter.CreateElement("div")}
+	parseOldA := &Fiber{typeOf: "div", props: map[string]any{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldC}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldA},
 	}
 
 	// New: [a, b, c] (insert b in middle)
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"key": "a"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "b"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "c"}},
+	parseElements := []any{
+		&Element{Type: "div", Props: map[string]any{"key": "a"}},
+		&Element{Type: "div", Props: map[string]any{"key": "b"}},
+		&Element{Type: "div", Props: map[string]any{"key": "c"}},
 	}
 
 	parseRt.reconcileChildren(parseWipFiber, parseElements)
@@ -217,20 +217,20 @@ func TestReconcileChildren_KeyedRemoveMiddle(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old: [a, b, c]
-	parseOldC := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "c"}, dom: parseAdapter.CreateElement("div")}
-	parseOldB := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "b"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldC}
-	parseOldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
+	parseOldC := &Fiber{typeOf: "div", props: map[string]any{"key": "c"}, dom: parseAdapter.CreateElement("div")}
+	parseOldB := &Fiber{typeOf: "div", props: map[string]any{"key": "b"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldC}
+	parseOldA := &Fiber{typeOf: "div", props: map[string]any{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseOldA},
 	}
 
 	// New: [a, c] (remove b from middle)
-	parseElements := []interface{}{
-		&Element{Type: "div", Props: map[string]interface{}{"key": "a"}},
-		&Element{Type: "div", Props: map[string]interface{}{"key": "c"}},
+	parseElements := []any{
+		&Element{Type: "div", Props: map[string]any{"key": "a"}},
+		&Element{Type: "div", Props: map[string]any{"key": "c"}},
 	}
 
 	parseRt.reconcileChildren(parseWipFiber, parseElements)
@@ -267,10 +267,10 @@ func TestReconcileChildren_LongChainNoKeys(parseT *testing.T) {
 	// Create old chain of 20 elements
 	var parseFirstOld *Fiber
 	var parsePrevOld *Fiber
-	for parseI := 0; parseI < 20; parseI++ {
+	for parseI := range 20 {
 		parseOld := &Fiber{
 			typeOf: "div",
-			props:  make(map[string]interface{}),
+			props:  make(map[string]any),
 			dom:    parseAdapter.CreateElement("div"),
 		}
 		if parseI == 0 {
@@ -283,15 +283,15 @@ func TestReconcileChildren_LongChainNoKeys(parseT *testing.T) {
 
 	parseWipFiber := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		alternate: &Fiber{child: parseFirstOld},
 	}
 
 	// Create new elements (same count, no keys)
-	parseElements := make([]interface{}, 20)
-	for parseI2 := 0; parseI2 < 20; parseI2++ {
+	parseElements := make([]any, 20)
+	for parseI2 := range 20 {
 		// Add a prop to force update
-		parseElements[parseI2] = &Element{Type: "div", Props: map[string]interface{}{"id": "new"}}
+		parseElements[parseI2] = &Element{Type: "div", Props: map[string]any{"id": "new"}}
 	}
 
 	parseRt.reconcileChildren(parseWipFiber, parseElements)

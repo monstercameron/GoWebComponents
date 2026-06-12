@@ -64,7 +64,7 @@ func runWorkerFanoutBenchmarkBatch(parseB *testing.B, parseCtx context.Context, 
 	parseErrorValues := make([]error, getWorkerFanoutBenchmarkWorkerCount)
 	var parseWait sync.WaitGroup
 	parseWait.Add(getWorkerFanoutBenchmarkWorkerCount)
-	for parseProbeIndex := 0; parseProbeIndex < getWorkerFanoutBenchmarkWorkerCount; parseProbeIndex++ {
+	for parseProbeIndex := range getWorkerFanoutBenchmarkWorkerCount {
 		go func(parseProbeOffset int) {
 			defer parseWait.Done()
 			parseErrorValues[parseProbeOffset] = parseRequest(parseCtx, parseProbeOffset+1)
@@ -85,7 +85,7 @@ func BenchmarkRequestWorkerDecodedFanoutDispatch(parseB *testing.B) {
 
 	parseB.Run("direct-lanes", func(parseB *testing.B) {
 		parseWorkers := make([]Worker, getWorkerFanoutBenchmarkWorkerCount)
-		for parseWorkerIndex := 0; parseWorkerIndex < getWorkerFanoutBenchmarkWorkerCount; parseWorkerIndex++ {
+		for parseWorkerIndex := range getWorkerFanoutBenchmarkWorkerCount {
 			parseWorkers[parseWorkerIndex] = buildWorkerFanoutBenchmarkWorker(parseWorkerIndex)
 		}
 		parseB.ResetTimer()

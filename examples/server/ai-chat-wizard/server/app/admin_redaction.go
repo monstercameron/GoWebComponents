@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 const parseWorkspaceScopeRedactionText = "redacted for workspace scope"
@@ -18,7 +19,7 @@ func parseRedactAdminUsageEventByScope(parseScope parseAdminAccessScope, parseEn
 	if parseEntry == nil || !parseShouldRedactAdminDetailForScope(parseScope) {
 		return parseEntry
 	}
-	parseRedactedEntry := *parseEntry
+	parseRedactedEntry := proto.Clone(parseEntry).(*chatpb.AdminUsageEvent)
 	parseRedactedEntry.ProviderRequestId = ""
 	parseRedactedEntry.ClientId = ""
 	parseRedactedEntry.TraceId = ""
@@ -27,7 +28,7 @@ func parseRedactAdminUsageEventByScope(parseScope parseAdminAccessScope, parseEn
 	if strings.TrimSpace(parseRedactedEntry.ErrorMessage) != "" {
 		parseRedactedEntry.ErrorMessage = parseWorkspaceScopeRedactionText
 	}
-	return &parseRedactedEntry
+	return parseRedactedEntry
 }
 
 // parseRedactAdminConversationSummaryByScope applies workspace-scope redaction for transcript preview content on one conversation summary.
@@ -35,11 +36,11 @@ func parseRedactAdminConversationSummaryByScope(parseScope parseAdminAccessScope
 	if parseEntry == nil || !parseShouldRedactAdminDetailForScope(parseScope) {
 		return parseEntry
 	}
-	parseRedactedEntry := *parseEntry
+	parseRedactedEntry := proto.Clone(parseEntry).(*chatpb.AdminConversationSummary)
 	if strings.TrimSpace(parseRedactedEntry.Preview) != "" {
 		parseRedactedEntry.Preview = parseWorkspaceScopeRedactionText
 	}
-	return &parseRedactedEntry
+	return parseRedactedEntry
 }
 
 // parseRedactAdminAuthSessionEntryByScope applies workspace-scope redaction for session identifiers and network attributes.
@@ -47,10 +48,10 @@ func parseRedactAdminAuthSessionEntryByScope(parseScope parseAdminAccessScope, p
 	if parseEntry == nil || !parseShouldRedactAdminDetailForScope(parseScope) {
 		return parseEntry
 	}
-	parseRedactedEntry := *parseEntry
+	parseRedactedEntry := proto.Clone(parseEntry).(*chatpb.AuthSessionEntry)
 	parseRedactedEntry.SessionId = ""
 	parseRedactedEntry.IpAddress = ""
-	return &parseRedactedEntry
+	return parseRedactedEntry
 }
 
 // parseRedactAdminAuditLogEntryByScope applies workspace-scope redaction for raw audit payload JSON.
@@ -58,9 +59,9 @@ func parseRedactAdminAuditLogEntryByScope(parseScope parseAdminAccessScope, pars
 	if parseEntry == nil || !parseShouldRedactAdminDetailForScope(parseScope) {
 		return parseEntry
 	}
-	parseRedactedEntry := *parseEntry
+	parseRedactedEntry := proto.Clone(parseEntry).(*chatpb.AuditLogEntry)
 	parseRedactedEntry.PayloadJson = "{}"
-	return &parseRedactedEntry
+	return parseRedactedEntry
 }
 
 // parseRedactAdminSupportTicketEntryByScope applies workspace-scope redaction for full support-ticket bodies.
@@ -68,11 +69,11 @@ func parseRedactAdminSupportTicketEntryByScope(parseScope parseAdminAccessScope,
 	if parseEntry == nil || !parseShouldRedactAdminDetailForScope(parseScope) {
 		return parseEntry
 	}
-	parseRedactedEntry := *parseEntry
+	parseRedactedEntry := proto.Clone(parseEntry).(*chatpb.SupportTicketEntry)
 	if strings.TrimSpace(parseRedactedEntry.Body) != "" {
 		parseRedactedEntry.Body = parseWorkspaceScopeRedactionText
 	}
-	return &parseRedactedEntry
+	return parseRedactedEntry
 }
 
 // parseRedactAdminSupportTicketMessageEntryByScope applies workspace-scope redaction for internal support message content.
@@ -80,11 +81,11 @@ func parseRedactAdminSupportTicketMessageEntryByScope(parseScope parseAdminAcces
 	if parseEntry == nil || !parseShouldRedactAdminDetailForScope(parseScope) {
 		return parseEntry
 	}
-	parseRedactedEntry := *parseEntry
+	parseRedactedEntry := proto.Clone(parseEntry).(*chatpb.SupportTicketMessageEntry)
 	if parseRedactedEntry.IsInternal && strings.TrimSpace(parseRedactedEntry.Body) != "" {
 		parseRedactedEntry.Body = parseWorkspaceScopeRedactionText
 	}
-	return &parseRedactedEntry
+	return parseRedactedEntry
 }
 
 // parseRedactAdminBillingEventEntryByScope applies workspace-scope redaction for raw billing-event provider payloads.
@@ -92,7 +93,7 @@ func parseRedactAdminBillingEventEntryByScope(parseScope parseAdminAccessScope, 
 	if parseEntry == nil || !parseShouldRedactAdminDetailForScope(parseScope) {
 		return parseEntry
 	}
-	parseRedactedEntry := *parseEntry
+	parseRedactedEntry := proto.Clone(parseEntry).(*chatpb.AdminBillingEventEntry)
 	parseRedactedEntry.EventPayloadJson = "{}"
-	return &parseRedactedEntry
+	return parseRedactedEntry
 }

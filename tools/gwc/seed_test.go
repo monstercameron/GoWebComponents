@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -219,10 +220,5 @@ func TestPrintSeedSummary(parseT *testing.T) {
 }
 
 func envContains(parseEnv []string, parseWant string) bool {
-	for _, parseEntry := range parseEnv {
-		if parseEntry == parseWant {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(parseEnv, parseWant)
 }

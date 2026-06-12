@@ -1,10 +1,10 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package main
 
 import (
 	"fmt"
+	"maps"
 	"net/url"
 	"strings"
 
@@ -39,7 +39,7 @@ func buildBootstrap(parsePath string, parseQuery url.Values, parseParams map[str
 			Query:  parseQueryMap,
 			Params: cloneParams(parseParams),
 		},
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"transport": serverBootstrapTransport,
 			"routeData": parseRouteData,
 		},
@@ -52,9 +52,7 @@ func cloneParams(parseParams map[string]string) map[string]string {
 		return map[string]string{}
 	}
 	parseClone := make(map[string]string, len(parseParams))
-	for parseKey, parseValue := range parseParams {
-		parseClone[parseKey] = parseValue
-	}
+	maps.Copy(parseClone, parseParams)
 	return parseClone
 }
 

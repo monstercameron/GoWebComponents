@@ -19,7 +19,7 @@ func TestRegisterRejectsMissingCapability(parseT *testing.T) {
 		Requires:    []Capability{CapabilitySSR},
 	}, func(parseHost2 *Host) (CleanupFunc, error) {
 		return nil, parseHost2.AddHeadProvider(func() ui.Node {
-			return html.Meta(html.Props{Raw: map[string]interface{}{
+			return html.Meta(html.Props{Raw: map[string]any{
 				"name":    "robots",
 				"content": "index,follow",
 			}})
@@ -78,10 +78,10 @@ func TestHostAggregatesContributionsAndCleanup(parseT *testing.T) {
 		})
 		_ = parseHost2.AddCacheKeyDecorator(func(parseKey string) string { return "gwc:" + parseKey })
 		_ = parseHost2.AddHeadProvider(func() ui.Node {
-			return html.Meta(html.Props{Raw: map[string]interface{}{"name": "robots", "content": "index,follow"}})
+			return html.Meta(html.Props{Raw: map[string]any{"name": "robots", "content": "index,follow"}})
 		})
 		_ = parseHost2.AddBootstrapProvider(func() BootstrapPayload {
-			return BootstrapPayload{Namespace: "first", Data: map[string]interface{}{"owner": "plugins"}}
+			return BootstrapPayload{Namespace: "first", Data: map[string]any{"owner": "plugins"}}
 		})
 		_ = parseHost2.AddFormValidator(func(parseSubmission FormSubmission) []ValidationIssue {
 			if parseSubmission.Values["quantity"] == "0" {

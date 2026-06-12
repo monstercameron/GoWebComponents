@@ -1,0 +1,19 @@
+name: Starter Templates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  starter-templates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Scaffold, test, and build every starter
+        run: go test ./tools/gwc -run TestDefaultStarterTemplatesScaffoldTidyTestAndBuild -count=1

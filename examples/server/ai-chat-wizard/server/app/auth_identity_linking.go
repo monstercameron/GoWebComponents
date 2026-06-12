@@ -165,10 +165,8 @@ func parseHasExternalIdentityProviderSubjectConflict(parseProviderSubject string
 	if parseProviderSubject == "" {
 		return true
 	}
-	for _, parseLinkedProviderSubject := range parseBuildExternalIdentityUniqueSubjects(parseLinkedProviderSubjects) {
-		if parseLinkedProviderSubject == parseProviderSubject {
-			return false
-		}
+	if slices.Contains(parseBuildExternalIdentityUniqueSubjects(parseLinkedProviderSubjects), parseProviderSubject) {
+		return false
 	}
 	return len(parseLinkedProviderSubjects) > 0
 }

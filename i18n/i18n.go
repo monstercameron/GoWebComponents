@@ -2,6 +2,8 @@ package i18n
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -43,7 +45,7 @@ type Message struct {
 
 type NamespaceCatalog map[string]Message
 type Catalog map[string]NamespaceCatalog
-type Arguments map[string]interface{}
+type Arguments map[string]any
 type MissingHandler func(locale string, namespace string, key string) string
 
 type BundleOptions struct {
@@ -647,7 +649,7 @@ func interpolateTemplate(parseTemplate string, parseArgs Arguments) string {
 	return parseResolved
 }
 
-func stringifyArgument(parseValue interface{}) string {
+func stringifyArgument(parseValue any) string {
 	switch parseTyped := parseValue.(type) {
 	case string:
 		return parseTyped
@@ -658,7 +660,7 @@ func stringifyArgument(parseValue interface{}) string {
 	}
 }
 
-func numericArgument(parseValue interface{}) float64 {
+func numericArgument(parseValue any) float64 {
 	switch parseTyped := parseValue.(type) {
 	case int:
 		return float64(parseTyped)
@@ -786,13 +788,7 @@ func buildLocaleCandidates(parseLocale string, parseFallbackLocale string, parse
 		if parseNormalized == "" {
 			continue
 		}
-		isParseAlready := false
-		for _, parseExisting := range parseCandidates {
-			if parseExisting == parseNormalized {
-				isParseAlready = true
-				break
-			}
-		}
+		isParseAlready := slices.Contains(parseCandidates, parseNormalized)
 		if !isParseAlready {
 			parseCandidates = append(parseCandidates, parseNormalized)
 		}
@@ -929,9 +925,7 @@ func clonePlural(parseSource map[PluralCategory]string) map[PluralCategory]strin
 		return nil
 	}
 	parseClone := make(map[PluralCategory]string, len(parseSource))
-	for parseKey, parseValue := range parseSource {
-		parseClone[parseKey] = parseValue
-	}
+	maps.Copy(parseClone, parseSource)
 	return parseClone
 }
 
@@ -962,9 +956,7 @@ func cloneSelect(parseSource map[string]string) map[string]string {
 		return nil
 	}
 	parseClone := make(map[string]string, len(parseSource))
-	for parseKey, parseValue := range parseSource {
-		parseClone[parseKey] = parseValue
-	}
+	maps.Copy(parseClone, parseSource)
 	return parseClone
 }
 

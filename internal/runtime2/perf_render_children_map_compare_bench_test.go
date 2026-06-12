@@ -68,7 +68,7 @@ func parseBuildCanonicalMapValueLegacyBenchmark(parseMapValue reflect.Value) (ma
 // buildRenderChildrenBenchmarkPayload builds one mixed children payload used by compare benchmarks.
 func buildRenderChildrenBenchmarkPayload() []any {
 	buildChildren := make([]any, 0, 128)
-	for parseIndex := 0; parseIndex < 128; parseIndex++ {
+	for parseIndex := range 128 {
 		buildChildren = append(buildChildren, map[string]any{
 			"kind": "host-element",
 			"tag":  "span",
@@ -87,7 +87,7 @@ func buildRenderChildrenBenchmarkPayload() []any {
 // buildRenderMapNormalizationBenchmarkPayload builds one map payload used by map normalization compare benchmarks.
 func buildRenderMapNormalizationBenchmarkPayload() map[string]any {
 	buildMapValue := make(map[string]any, 256)
-	for parseIndex := 0; parseIndex < 256; parseIndex++ {
+	for parseIndex := range 256 {
 		buildMapValue["k-"+strconv.Itoa(parseIndex)] = "v-" + strconv.Itoa(parseIndex)
 	}
 	return buildMapValue

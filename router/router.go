@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package router
 
@@ -13,6 +12,7 @@ import (
 	"syscall/js"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/deprecation"
 	"github.com/monstercameron/GoWebComponents/internal/platform/jsdom"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
@@ -64,21 +64,21 @@ type RouterOptions struct {
 
 // Router manages routes and navigation for single-page applications.
 type Router struct {
-	routes         map[string]routeFactory
-	routeOptions   map[string]Options
-	patterns       []routePattern
-	defaultRoute   string
-	notFound       routeFactory
-	notFoundOption Options
-	targetSelector string
-	targetElement  js.Value
-	listening      bool
-	disposed       bool   // set when the router is unmounted; stale loader goroutines check this flag
-	routerType     string // "hash" or "history"
-	loaderState    loaderState
-	metadataState  routeMetadataState
-	guardState     navigationGuardState
-	debugState     routeDebugState
+	routes                 map[string]routeFactory
+	routeOptions           map[string]Options
+	patterns               []routePattern
+	defaultRoute           string
+	notFound               routeFactory
+	notFoundOption         Options
+	targetSelector         string
+	targetElement          js.Value
+	listening              bool
+	disposed               bool   // set when the router is unmounted; stale loader goroutines check this flag
+	routerType             string // "hash" or "history"
+	loaderState            loaderState
+	metadataState          routeMetadataState
+	guardState             navigationGuardState
+	debugState             routeDebugState
 	renderCurrentComponent func() *Element
 	isRenderApplyGuards    bool
 	renderVersion          int
@@ -420,6 +420,7 @@ func (parseR *Router) setupHistoryListener() {
 // Deprecated: Use Register instead. GoRegisterRoute exists for compatibility with
 // earlier API consumers and delegates directly to Register.
 func (parseR *Router) GoRegisterRoute(parsePath string, parseComponent interface{}, parseOptions ...Options) {
+	deprecation.Warn("router.Router.GoRegisterRoute", "router.Router.Register")
 	parseR.Register(parsePath, parseComponent, parseOptions...)
 }
 
@@ -475,6 +476,7 @@ func (parseR *Router) Register(parsePath string, parseComponent interface{}, par
 // Deprecated: Use Current instead. GoGetRoute exists for compatibility with
 // earlier API consumers and delegates directly to Current.
 func (parseR *Router) GoGetRoute() *Element {
+	deprecation.Warn("router.Router.GoGetRoute", "router.Router.Current")
 	return parseR.Current()
 }
 

@@ -73,7 +73,7 @@ func TestReleaseWriteDiffReportCoversSuccessAndFailures(parseT *testing.T) {
 			"wasm": {Path: "app.wasm", Bytes: 100},
 		}, &releaseAttributionRecord{Path: "packages.json", Mode: "all"})
 
-		releaseMarshalIndent = func(parseValue interface{}, parsePrefix string, parseIndent string) ([]byte, error) {
+		releaseMarshalIndent = func(parseValue any, parsePrefix string, parseIndent string) ([]byte, error) {
 			return nil, errors.New("marshal failed")
 		}
 		parseDiff, parseErr := releaseWriteDiffReport(

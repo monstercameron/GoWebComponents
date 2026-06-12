@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package devtools
 
@@ -26,11 +25,11 @@ func UseSnapshot(parseRefreshInterval time.Duration) Snapshot {
 }
 
 // Panel is unavailable on non-browser targets and returns nil.
-func Panel(parseProps PanelProps) interface{} {
+func Panel(parseProps PanelProps) any {
 	return nil
 }
 
 // ErrorOverlay is unavailable on non-browser targets and returns nil.
-func ErrorOverlay(parseProps ErrorOverlayProps) interface{} {
+func ErrorOverlay(parseProps ErrorOverlayProps) any {
 	return nil
 }

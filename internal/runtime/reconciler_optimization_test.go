@@ -48,7 +48,7 @@ func (parseA *optimizationTestAdapter) RemoveAttribute(parseNode DOMNode, parseN
 	parseA.testDOMAdapter.RemoveAttribute(parseNode, parseName)
 }
 
-func (parseA *optimizationTestAdapter) SetProperty(parseNode DOMNode, parseName string, parseValue interface{}) {
+func (parseA *optimizationTestAdapter) SetProperty(parseNode DOMNode, parseName string, parseValue any) {
 	parseA.setPropertyCount++
 	parseA.testDOMAdapter.SetProperty(parseNode, parseName, parseValue)
 }
@@ -108,7 +108,7 @@ func TestCreateDomUsesPreparedCompactHostMount(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseContainer := parseAdapter.CreateElement("root")
 
-	parseRt.Render(CreateElement("div", map[string]interface{}{
+	parseRt.Render(CreateElement("div", map[string]any{
 		"id":         "row-1",
 		"className":  "card",
 		"data-state": "live",
@@ -126,7 +126,7 @@ func TestCreateDomUsesPreparedCompactHostMount(parseT *testing.T) {
 }
 
 func TestCreateElementCompactHostOwnedUsesProvidedAttrs(parseT *testing.T) {
-	parseProps := map[string]interface{}{
+	parseProps := map[string]any{
 		"id":    "row-1",
 		"class": "card",
 	}
@@ -158,7 +158,7 @@ func TestCreateElementCompactHostOwnedRendersPreparedMount(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseContainer := parseAdapter.CreateElement("root")
 
-	parseRt.Render(CreateElementCompactHostOwned("div", map[string]interface{}{
+	parseRt.Render(CreateElementCompactHostOwned("div", map[string]any{
 		"id":    "row-1",
 		"class": "card",
 	}, []HostAttr{
@@ -175,7 +175,7 @@ func TestCreateElementCompactHostOwnedRendersPreparedMount(parseT *testing.T) {
 }
 
 func TestRefreshElementHostPropsAfterCompactConstructorMutation(parseT *testing.T) {
-	parseElem := CreateElementCompactHostOwned("input", map[string]interface{}{
+	parseElem := CreateElementCompactHostOwned("input", map[string]any{
 		"id": "email",
 	}, []HostAttr{{Name: "id", Value: "email"}})
 
@@ -191,22 +191,22 @@ func TestRefreshElementHostPropsAfterCompactConstructorMutation(parseT *testing.
 }
 
 func TestPropsEqualIgnoringChildrenTreatsChildSliceChangesAsStable(parseT *testing.T) {
-	parsePrev := map[string]interface{}{
+	parsePrev := map[string]any{
 		"id":       "host",
-		"children": []interface{}{"before"},
+		"children": []any{"before"},
 	}
-	parseNext := map[string]interface{}{
+	parseNext := map[string]any{
 		"id":       "host",
-		"children": []interface{}{"after"},
+		"children": []any{"after"},
 	}
 
 	if !propsEqualIgnoringChildren(parsePrev, parseNext) {
 		parseT.Fatal("expected child-only prop changes to compare equal")
 	}
 
-	parseChanged := map[string]interface{}{
+	parseChanged := map[string]any{
 		"id":       "host-2",
-		"children": []interface{}{"after"},
+		"children": []any{"after"},
 	}
 	if propsEqualIgnoringChildren(parsePrev, parseChanged) {
 		parseT.Fatal("expected non-child prop change to compare different")
@@ -215,10 +215,10 @@ func TestPropsEqualIgnoringChildrenTreatsChildSliceChangesAsStable(parseT *testi
 
 func TestReconcileChildrenSeparatesHostChildReconcileWhenOnlyChildrenChange(parseT *testing.T) {
 	parseRt := &Runtime{}
-	parseOldHost := CreateElement("div", map[string]interface{}{"id": "host"}, CreateElement("span", nil, "before"))
+	parseOldHost := CreateElement("div", map[string]any{"id": "host"}, CreateElement("span", nil, "before"))
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  map[string]interface{}{},
+		props:  map[string]any{},
 		alternate: &Fiber{
 			child: &Fiber{
 				typeOf:   parseOldHost.Type,
@@ -229,8 +229,8 @@ func TestReconcileChildrenSeparatesHostChildReconcileWhenOnlyChildrenChange(pars
 		},
 	}
 
-	parseRt.reconcileChildren(parseRoot, []interface{}{
-		CreateElement("div", map[string]interface{}{"id": "host"}, CreateElement("span", nil, "after")),
+	parseRt.reconcileChildren(parseRoot, []any{
+		CreateElement("div", map[string]any{"id": "host"}, CreateElement("span", nil, "after")),
 	})
 
 	parseChild := parseRoot.child
@@ -253,10 +253,10 @@ func TestRenderSkipsCommittedHostPropWritesWhenOnlyChildrenChange(parseT *testin
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseContainer := parseAdapter.CreateElement("root")
 
-	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, CreateElement("span", nil, "before")), parseContainer)
+	parseRt.Render(CreateElement("div", map[string]any{"id": "host"}, CreateElement("span", nil, "before")), parseContainer)
 	parseAdapter.resetCounts()
 
-	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, CreateElement("span", nil, "after")), parseContainer)
+	parseRt.Render(CreateElement("div", map[string]any{"id": "host"}, CreateElement("span", nil, "after")), parseContainer)
 
 	if parseAdapter.setAttributeCount != 0 {
 		parseT.Fatalf("expected no attribute writes on stable host props, got %d", parseAdapter.setAttributeCount)
@@ -295,7 +295,7 @@ func TestRenderSkipsCommittedHostPropWritesWhenOnlyChildrenChange(parseT *testin
 }
 
 func TestCreateElementStoresDirectHostTextChild(parseT *testing.T) {
-	parseElem := CreateElement("span", map[string]interface{}{"id": "label"}, "hello")
+	parseElem := CreateElement("span", map[string]any{"id": "label"}, "hello")
 
 	if !parseElem.hasDirectText {
 		parseT.Fatal("expected single host string child to use direct text storage")
@@ -306,7 +306,7 @@ func TestCreateElementStoresDirectHostTextChild(parseT *testing.T) {
 	if len(getElementChildren(parseElem)) != 0 {
 		parseT.Fatalf("expected no structural children, got %d", len(getElementChildren(parseElem)))
 	}
-	parseChildren, parseOk := parseElem.Props["children"].([]interface{})
+	parseChildren, parseOk := parseElem.Props["children"].([]any)
 	if !parseOk || len(parseChildren) != 1 {
 		parseT.Fatalf("expected legacy props children to remain visible, got %#v", parseElem.Props["children"])
 	}
@@ -317,7 +317,7 @@ func TestRenderUsesDirectHostTextWithoutTextFiber(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseContainer := parseAdapter.CreateElement("root")
 
-	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, "hello"), parseContainer)
+	parseRt.Render(CreateElement("div", map[string]any{"id": "host"}, "hello"), parseContainer)
 
 	if parseRt.currentRoot == nil || parseRt.currentRoot.child == nil {
 		parseT.Fatal("expected committed host fiber")
@@ -351,9 +351,9 @@ func TestRenderTransitionsDirectHostTextToElementChildren(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseContainer := parseAdapter.CreateElement("root")
 
-	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, "before"), parseContainer)
+	parseRt.Render(CreateElement("div", map[string]any{"id": "host"}, "before"), parseContainer)
 	parseAdapter.resetCounts()
-	parseRt.Render(CreateElement("div", map[string]interface{}{"id": "host"}, CreateElement("span", map[string]interface{}{"id": "next"}, "after")), parseContainer)
+	parseRt.Render(CreateElement("div", map[string]any{"id": "host"}, CreateElement("span", map[string]any{"id": "next"}, "after")), parseContainer)
 
 	parseRootChildren := parseAdapter.GetChildren(parseContainer)
 	parseHostNode, parseOk := parseRootChildren[0].(*testDOMNode)
@@ -380,7 +380,7 @@ func TestHydrateUsesDirectHostTextWithoutTextFiber(parseT *testing.T) {
 	parseAdapter.SetTextContent(parseServerNode, "server")
 	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	parseRt.Hydrate(CreateElement("p", map[string]interface{}{"id": "greeting"}, "client"), parseContainer)
+	parseRt.Hydrate(CreateElement("p", map[string]any{"id": "greeting"}, "client"), parseContainer)
 
 	if parseRt.currentRoot == nil || parseRt.currentRoot.child == nil {
 		parseT.Fatal("expected hydrated host fiber")
@@ -411,7 +411,7 @@ func TestApplyInitialDomPropsSkipsBatchMapForTwoStringAttrs(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseDom := parseAdapter.CreateElement("div")
 
-	parseRt.updateDomProperties(parseDom, nil, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, nil, map[string]any{
 		"id":        "row-1",
 		"className": "card",
 	})
@@ -429,7 +429,7 @@ func TestApplyInitialDomPropsBatchesThreeStringAttrs(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseDom := parseAdapter.CreateElement("div")
 
-	parseRt.updateDomProperties(parseDom, nil, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, nil, map[string]any{
 		"id":         "row-1",
 		"className":  "card",
 		"data-state": "live",
@@ -446,10 +446,10 @@ func TestCommitRootSkipsChildOrderRepairWhenOrderIsStable(parseT *testing.T) {
 	parseContainer := parseAdapter.CreateElement("root")
 
 	parseRenderList := func(parseAlpha string, parseBeta string, parseGamma string) *Element {
-		return CreateElement("section", map[string]interface{}{"id": "host"},
-			CreateElement("div", map[string]interface{}{"id": "a", "key": "a"}, parseAlpha),
-			CreateElement("div", map[string]interface{}{"id": "b", "key": "b"}, parseBeta),
-			CreateElement("div", map[string]interface{}{"id": "c", "key": "c"}, parseGamma),
+		return CreateElement("section", map[string]any{"id": "host"},
+			CreateElement("div", map[string]any{"id": "a", "key": "a"}, parseAlpha),
+			CreateElement("div", map[string]any{"id": "b", "key": "b"}, parseBeta),
+			CreateElement("div", map[string]any{"id": "c", "key": "c"}, parseGamma),
 		)
 	}
 
@@ -469,11 +469,11 @@ func TestCommitRootRepairsChildOrderWhenKeyedChildrenMove(parseT *testing.T) {
 	parseContainer := parseAdapter.CreateElement("root")
 
 	parseRenderList := func(parseIDs ...string) *Element {
-		parseChildren := make([]interface{}, 0, len(parseIDs))
+		parseChildren := make([]any, 0, len(parseIDs))
 		for _, parseID := range parseIDs {
-			parseChildren = append(parseChildren, CreateElement("div", map[string]interface{}{"id": parseID, "key": parseID}, parseID))
+			parseChildren = append(parseChildren, CreateElement("div", map[string]any{"id": parseID, "key": parseID}, parseID))
 		}
-		return CreateElement("section", map[string]interface{}{"id": "host"}, parseChildren...)
+		return CreateElement("section", map[string]any{"id": "host"}, parseChildren...)
 	}
 
 	parseRt.Render(parseRenderList("a", "b", "c"), parseContainer)
@@ -549,7 +549,7 @@ func TestApplyCommittedChildOrderUsesReplaceChildrenFastPath(parseT *testing.T) 
 	parseParent := parseAdapter.CreateElement("section")
 	getExpected := make([]DOMNode, 0, getCommittedChildReplaceThreshold)
 
-	for getIndex := 0; getIndex < getCommittedChildReplaceThreshold; getIndex++ {
+	for range getCommittedChildReplaceThreshold {
 		getNode := parseAdapter.CreateElement("div")
 		getExpected = append(getExpected, getNode)
 	}
@@ -584,7 +584,7 @@ func TestApplyCommittedChildOrderSkipsReplaceChildrenWithUnexpectedObservedNode(
 	parseParent := parseAdapter.CreateElement("section")
 	getExpected := make([]DOMNode, 0, getCommittedChildReplaceThreshold)
 
-	for getIndex := 0; getIndex < getCommittedChildReplaceThreshold; getIndex++ {
+	for range getCommittedChildReplaceThreshold {
 		getNode := parseAdapter.CreateElement("div")
 		getExpected = append(getExpected, getNode)
 	}
@@ -636,10 +636,10 @@ func TestCommitRootBatchesStablePlacementChildren(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseContainer := parseAdapter.CreateElement("root")
 
-	parseRt.Render(CreateElement("section", map[string]interface{}{"id": "host"},
-		CreateElement("div", map[string]interface{}{"id": "a"}, "a"),
-		CreateElement("div", map[string]interface{}{"id": "b"}, "b"),
-		CreateElement("div", map[string]interface{}{"id": "c"}, "c"),
+	parseRt.Render(CreateElement("section", map[string]any{"id": "host"},
+		CreateElement("div", map[string]any{"id": "a"}, "a"),
+		CreateElement("div", map[string]any{"id": "b"}, "b"),
+		CreateElement("div", map[string]any{"id": "c"}, "c"),
 	), parseContainer)
 
 	if parseAdapter.beginBatchCount == 0 || parseAdapter.endBatchCount == 0 {
@@ -656,9 +656,9 @@ func TestCommitRootBatchesRootLevelPlacements(parseT *testing.T) {
 	parseContainer := parseAdapter.CreateElement("root")
 
 	parseRt.Render(CreateElement("FRAGMENT", nil,
-		CreateElement("div", map[string]interface{}{"id": "a"}, "a"),
-		CreateElement("div", map[string]interface{}{"id": "b"}, "b"),
-		CreateElement("div", map[string]interface{}{"id": "c"}, "c"),
+		CreateElement("div", map[string]any{"id": "a"}, "a"),
+		CreateElement("div", map[string]any{"id": "b"}, "b"),
+		CreateElement("div", map[string]any{"id": "c"}, "c"),
 	), parseContainer)
 
 	if parseAdapter.beginBatchCount == 0 || parseAdapter.endBatchCount == 0 {

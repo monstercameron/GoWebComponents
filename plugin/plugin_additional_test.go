@@ -144,14 +144,14 @@ func TestHostValidationPanelsBootstrapAndCleanup(parseT *testing.T) {
 	}
 
 	_ = parseHost.AddHeadProvider(func() ui.Node {
-		return html.Meta(html.Props{Raw: map[string]interface{}{"name": "robots", "content": "index,follow"}})
+		return html.Meta(html.Props{Raw: map[string]any{"name": "robots", "content": "index,follow"}})
 	})
 	if parseNodes := parseHost.HeadNodes(); len(parseNodes) != 1 {
 		parseT.Fatalf("HeadNodes() len = %d, want 1", len(parseNodes))
 	}
 
 	_ = parseHost.AddBootstrapProvider(func() BootstrapPayload {
-		return BootstrapPayload{Namespace: "shell", Data: map[string]interface{}{"theme": "dark"}}
+		return BootstrapPayload{Namespace: "shell", Data: map[string]any{"theme": "dark"}}
 	})
 	parseData := parseHost.BootstrapData()
 	parseData["shell"]["theme"] = "mutated"
@@ -308,7 +308,7 @@ func TestHostSkipBranchesForNilProvidersAndEmptyOutputs(parseT *testing.T) {
 		nil,
 		func() ui.Node { return nil },
 		func() ui.Node {
-			return html.Meta(html.Props{Raw: map[string]interface{}{"name": "robots", "content": "index,follow"}})
+			return html.Meta(html.Props{Raw: map[string]any{"name": "robots", "content": "index,follow"}})
 		},
 	}
 	if parseNodes := parseHost.HeadNodes(); len(parseNodes) != 1 {
@@ -318,11 +318,11 @@ func TestHostSkipBranchesForNilProvidersAndEmptyOutputs(parseT *testing.T) {
 	parseHost.bootstrapProviders = []BootstrapProvider{
 		nil,
 		func() BootstrapPayload {
-			return BootstrapPayload{Namespace: " ", Data: map[string]interface{}{"ignored": true}}
+			return BootstrapPayload{Namespace: " ", Data: map[string]any{"ignored": true}}
 		},
 		func() BootstrapPayload { return BootstrapPayload{Namespace: "empty", Data: nil} },
 		func() BootstrapPayload {
-			return BootstrapPayload{Namespace: "ok", Data: map[string]interface{}{"theme": "dark"}}
+			return BootstrapPayload{Namespace: "ok", Data: map[string]any{"theme": "dark"}}
 		},
 	}
 	parseData := parseHost.BootstrapData()
@@ -398,7 +398,7 @@ func TestCapabilityGatedAddersReturnMissingCapabilityErrors(parseT *testing.T) {
 			name: "bootstrap provider",
 			call: func() error {
 				return parseHost.AddBootstrapProvider(func() BootstrapPayload {
-					return BootstrapPayload{Namespace: "ns", Data: map[string]interface{}{"ok": true}}
+					return BootstrapPayload{Namespace: "ns", Data: map[string]any{"ok": true}}
 				})
 			},
 			want: `capability "ssr" is not enabled`,

@@ -13,10 +13,10 @@ type benchmarkDecodePayload struct {
 
 func BenchmarkDecodeMapToStruct(parseB *testing.B) {
 	parseB.ReportAllocs()
-	parseValue := map[string]interface{}{
+	parseValue := map[string]any{
 		"id":      "bench",
 		"enabled": true,
-		"meta": map[string]interface{}{
+		"meta": map[string]any{
 			"lane":  "interop",
 			"stage": "decode",
 		},

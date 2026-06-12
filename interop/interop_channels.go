@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (parseB SharedBuffer) GetSharedBufferRaw() interface{} {
+func (parseB SharedBuffer) GetSharedBufferRaw() any {
 	return parseB.raw
 }
 
@@ -308,7 +308,7 @@ func (parseC MessageChannel) Port2() MessagePort {
 }
 
 // GetMessagePortRaw returns the platform-specific message-port handle.
-func (parseP MessagePort) GetMessagePortRaw() interface{} {
+func (parseP MessagePort) GetMessagePortRaw() any {
 	return parseP.raw
 }
 

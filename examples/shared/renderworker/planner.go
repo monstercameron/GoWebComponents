@@ -23,19 +23,10 @@ func BuildRenderWorkerAdaptiveChunkBounds(parseWeights []int, parseChunkCount in
 	if getItemCount < 1 {
 		return nil
 	}
-	getChunkCount := parseChunkCount
-	if getChunkCount < 1 {
-		getChunkCount = 1
-	}
-	if getChunkCount > getItemCount {
-		getChunkCount = getItemCount
-	}
+	getChunkCount := min(max(parseChunkCount, 1), getItemCount)
 	getTotalWeight := 0
 	for _, parseWeight := range parseWeights {
-		getItemWeight := parseWeight
-		if getItemWeight < 1 {
-			getItemWeight = 1
-		}
+		getItemWeight := max(parseWeight, 1)
 		getTotalWeight += getItemWeight
 	}
 	if getTotalWeight < 1 {
@@ -44,24 +35,18 @@ func BuildRenderWorkerAdaptiveChunkBounds(parseWeights []int, parseChunkCount in
 	getBounds := make([][2]int, 0, getChunkCount)
 	getCurrentStart := 0
 	getRemainingWeight := getTotalWeight
-	for parseChunkIndex := 0; parseChunkIndex < getChunkCount; parseChunkIndex++ {
+	for parseChunkIndex := range getChunkCount {
 		getRemainingChunkCount := getChunkCount - parseChunkIndex
 		if getRemainingChunkCount == 1 {
 			getBounds = append(getBounds, [2]int{getCurrentStart, getItemCount})
 			break
 		}
 		getMaximumEnd := getItemCount - (getRemainingChunkCount - 1)
-		getTargetWeight := getRemainingWeight / getRemainingChunkCount
-		if getTargetWeight < 1 {
-			getTargetWeight = 1
-		}
+		getTargetWeight := max(getRemainingWeight/getRemainingChunkCount, 1)
 		getCurrentWeight := 0
 		getCurrentEnd := getCurrentStart
 		for getCurrentEnd < getMaximumEnd {
-			getItemWeight := parseWeights[getCurrentEnd]
-			if getItemWeight < 1 {
-				getItemWeight = 1
-			}
+			getItemWeight := max(parseWeights[getCurrentEnd], 1)
 			if getCurrentEnd > getCurrentStart && getCurrentWeight >= getTargetWeight {
 				break
 			}
@@ -70,10 +55,7 @@ func BuildRenderWorkerAdaptiveChunkBounds(parseWeights []int, parseChunkCount in
 		}
 		if getCurrentEnd <= getCurrentStart {
 			getCurrentEnd = getCurrentStart + 1
-			getCurrentWeight = parseWeights[getCurrentStart]
-			if getCurrentWeight < 1 {
-				getCurrentWeight = 1
-			}
+			getCurrentWeight = max(parseWeights[getCurrentStart], 1)
 		}
 		getBounds = append(getBounds, [2]int{getCurrentStart, getCurrentEnd})
 		getCurrentStart = getCurrentEnd
@@ -102,10 +84,7 @@ func BuildRenderWorkerChunkPlans(parseChunkBounds [][2]int, parseWeights []int) 
 		}
 		getChunkWeight := 0
 		for parseWeightIndex := getStart; parseWeightIndex < getEnd; parseWeightIndex++ {
-			getItemWeight := parseWeights[parseWeightIndex]
-			if getItemWeight < 1 {
-				getItemWeight = 1
-			}
+			getItemWeight := max(parseWeights[parseWeightIndex], 1)
 			getChunkWeight += getItemWeight
 		}
 		if getChunkWeight < 1 {
@@ -123,12 +102,9 @@ func BuildRenderWorkerChunkPlans(parseChunkBounds [][2]int, parseWeights []int) 
 
 // BuildRenderWorkerLanePlans assigns chunk plans to worker lanes using weighted greedy balancing.
 func BuildRenderWorkerLanePlans(parseWorkerCount int, parseChunkPlans []RenderWorkerChunkPlan) []RenderWorkerLanePlan {
-	getWorkerCount := parseWorkerCount
-	if getWorkerCount < 1 {
-		getWorkerCount = 1
-	}
+	getWorkerCount := max(parseWorkerCount, 1)
 	getLanePlans := make([]RenderWorkerLanePlan, getWorkerCount)
-	for parseWorkerIndex := 0; parseWorkerIndex < getWorkerCount; parseWorkerIndex++ {
+	for parseWorkerIndex := range getWorkerCount {
 		getLanePlans[parseWorkerIndex].GetWorkerIndex = parseWorkerIndex
 	}
 	getSortedChunkPlans := append([]RenderWorkerChunkPlan(nil), parseChunkPlans...)
@@ -148,7 +124,7 @@ func BuildRenderWorkerLanePlans(parseWorkerCount int, parseChunkPlans []RenderWo
 		getLanePlans[getTargetLaneIndex].GetChunkPlans = append(getLanePlans[getTargetLaneIndex].GetChunkPlans, parseChunkPlan)
 		getLanePlans[getTargetLaneIndex].GetTotalWeight += parseChunkPlan.GetWeight
 	}
-	for parseLaneIndex := 0; parseLaneIndex < len(getLanePlans); parseLaneIndex++ {
+	for parseLaneIndex := range getLanePlans {
 		sort.Slice(getLanePlans[parseLaneIndex].GetChunkPlans, func(parseLeft int, parseRight int) bool {
 			return getLanePlans[parseLaneIndex].GetChunkPlans[parseLeft].GetChunkIndex < getLanePlans[parseLaneIndex].GetChunkPlans[parseRight].GetChunkIndex
 		})

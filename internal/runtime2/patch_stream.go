@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash"
 	"hash/fnv"
+	"maps"
 	"strconv"
 	"strings"
 	"sync"
@@ -375,9 +376,7 @@ func getPatchMutableSiblingCountByParent(
 		return *parseBuildSiblingCountByParent
 	}
 	buildSiblingCountByParent := buildPatchStreamSiblingCountScratchMap()
-	for getParentNodeID, getSiblingCount := range parseSiblingCountByParent {
-		buildSiblingCountByParent[getParentNodeID] = getSiblingCount
-	}
+	maps.Copy(buildSiblingCountByParent, parseSiblingCountByParent)
 	if parseBuildSiblingCountByParent != nil {
 		*parseBuildSiblingCountByParent = buildSiblingCountByParent
 	}
@@ -529,7 +528,7 @@ func parseParsePatchStreamTransaction(
 			return PatchStreamParseResult{}, false, nil
 		}
 	}
-	parseStringTable := RenderStringTable{}
+	var parseStringTable RenderStringTable
 	if parseHasCanonicalStringTableSortedUnique(parseRaw.GetStringTable) {
 		parseStringTable = RenderStringTable{
 			Entries: parseRaw.GetStringTable,
@@ -647,7 +646,7 @@ func parseParsePatchStreamTransaction(
 			if buildRemovedNodeIDs == nil {
 				buildRemovedNodeIDs = buildPatchStreamRemovedNodeIDScratchMap()
 			}
-			parseKnownNodeIDsForMutation := buildKnownNodeIDs
+			var parseKnownNodeIDsForMutation map[uint64]struct{}
 			if !hasCopiedKnownNodeIDs && parseOpIndex >= getRemoveOnlyStartIndex {
 				parseKnownNodeIDsForMutation = parseKnownNodeIDs
 			} else {

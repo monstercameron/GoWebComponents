@@ -399,7 +399,7 @@ func QueryTagsForKey(parseKey string) []string {
 		return nil
 	}
 	parseTags := make([]string, 0)
-	queryTagIndex.Range(func(parseTag, parseValue interface{}) bool {
+	queryTagIndex.Range(func(parseTag, parseValue any) bool {
 		parseTagString, _ := parseTag.(string)
 		parseEntry, _ := parseValue.(*queryTagEntry)
 		if parseTagString == "" || parseEntry == nil {
@@ -453,7 +453,7 @@ func unregisterQueryKey(parseKey string) {
 	if parseKey == "" {
 		return
 	}
-	queryTagIndex.Range(func(parseTag, parseValue interface{}) bool {
+	queryTagIndex.Range(func(parseTag, parseValue any) bool {
 		parseEntry, _ := parseValue.(*queryTagEntry)
 		if parseEntry == nil {
 			return true

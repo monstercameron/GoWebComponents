@@ -1,5 +1,4 @@
 //go:build js && wasm
-// +build js,wasm
 
 package ui
 
@@ -7,8 +6,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/interop"
 )
 
 // WorkerTaskState describes the lifecycle of a worker-backed task together with

@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package fetch
 
@@ -136,7 +135,7 @@ func TestFetchNativeCacheHelperBranches(parseT *testing.T) {
 		parseT.Fatalf("expected castCachedValue success, got value=%q ok=%t", parseValue, parseOk)
 	}
 
-	if parseErr := waitForCachedResource(nil, nil); parseErr != nil {
+	if parseErr := waitForCachedResource(nil, nil); parseErr != nil { //nolint:staticcheck // nil context is the case under test
 		parseT.Fatalf("expected nil waiters to succeed, got %v", parseErr)
 	}
 	if parseSnapshot := currentCachedSnapshot("missing"); parseSnapshot != (cachedResourceSnapshot{}) {
@@ -153,7 +152,7 @@ func TestFetchNativeCacheHelperBranches(parseT *testing.T) {
 	if parseErr := waitForCachedResource(parseCtx, parseWaiting); !errors.Is(parseErr, context.Canceled) {
 		parseT.Fatalf("expected context cancellation while waiting, got %v", parseErr)
 	}
-	if resolveCachedContext(nil) == nil {
+	if resolveCachedContext(nil) == nil { //nolint:staticcheck // nil context fallback is the case under test
 		parseT.Fatal("expected resolveCachedContext to fall back to context.Background")
 	}
 	if parseValue, parseErr := LoadCached(context.Background(), "", func(parseCtx2 context.Context) (string, error) {
@@ -240,7 +239,7 @@ func TestFetchNativeLoadCachedBranches(parseT *testing.T) {
 	parseSlowEntry := getCachedResourceEntry("slow")
 	configureCachedResourceEntry[string]("slow", parseSlowEntry, CacheOptions{})
 	parseRelease := make(chan struct{})
-	if _, parseStarted := startCachedLoad("slow", parseSlowEntry, func(parseCtx context.Context) (interface{}, error) {
+	if _, parseStarted := startCachedLoad("slow", parseSlowEntry, func(parseCtx context.Context) (any, error) {
 		select {
 		case <-parseCtx.Done():
 			return nil, parseCtx.Err()
@@ -278,7 +277,7 @@ func TestFetchNativeCachedResourceFailingLoaderNoRetryStorm(parseT *testing.T) {
 
 	// Run the loader directly (simulating what UseCachedResource would trigger) and
 	// let it complete with an error.
-	parseWaiters, parseStarted := startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (interface{}, error) {
+	parseWaiters, parseStarted := startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (any, error) {
 		_ = parseCtx
 		atomic.AddInt32(&parseLoads, 1)
 		return nil, fmt.Errorf("load error")
@@ -313,7 +312,7 @@ func TestFetchNativeCachedResourceFailingLoaderNoRetryStorm(parseT *testing.T) {
 	}
 
 	// A second startCachedLoad call (not forced) must be a no-op.
-	_, parseStarted2 := startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (interface{}, error) {
+	_, parseStarted2 := startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (any, error) {
 		_ = parseCtx
 		atomic.AddInt32(&parseLoads, 1)
 		return nil, fmt.Errorf("should not run")

@@ -61,7 +61,7 @@ func TestTailwindDownloadAndChecksumHelpers(parseT *testing.T) {
 		parseFetchCount++
 		switch {
 		case strings.HasSuffix(parseDownloadURL, "/sha256sums.txt"):
-			return []byte(fmt.Sprintf("%s *%s\n", parseChecksumText, parseAssetName)), nil
+			return fmt.Appendf(nil, "%s *%s\n", parseChecksumText, parseAssetName), nil
 		case strings.HasSuffix(parseDownloadURL, "/"+parseAssetName):
 			return parseAssetBytes, nil
 		default:

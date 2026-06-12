@@ -60,7 +60,7 @@ func parseBinarySourceIDTableIntoLegacyBenchmark(parseDst []string, parsePayload
 	parseOffset := 2
 	parsePreviousSourceID := ""
 	parseCount := int(binary.LittleEndian.Uint16(parsePayload[0:2]))
-	for parseIndex := 0; parseIndex < parseCount; parseIndex++ {
+	for parseIndex := range parseCount {
 		if parseOffset+2 > len(parsePayload) {
 			return parseDst, fmt.Errorf("runtime2: decode source_id[%d]: length is truncated", parseIndex)
 		}

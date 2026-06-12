@@ -87,7 +87,7 @@ func TestFiber_EffectTag_Deletion(parseT *testing.T) {
 }
 
 func TestFiber_PropsInitialization(parseT *testing.T) {
-	parseProps := map[string]interface{}{
+	parseProps := map[string]any{
 		"id":        "test",
 		"className": "container",
 	}
@@ -102,7 +102,7 @@ func TestFiber_PropsInitialization(parseT *testing.T) {
 }
 
 func TestFiber_EmptyProps(parseT *testing.T) {
-	parseFiber := &Fiber{props: make(map[string]interface{})}
+	parseFiber := &Fiber{props: make(map[string]any)}
 
 	if parseFiber.props == nil {
 		parseT.Error("Expected props to be initialized")
@@ -151,7 +151,7 @@ func TestFiber_EmptyEffects(parseT *testing.T) {
 
 func TestFiber_HooksAttachment(parseT *testing.T) {
 	parseHooks := &Hooks{
-		states: make([]interface{}, 0),
+		states: make([]any, 0),
 		index:  0,
 	}
 	parseFiber := &Fiber{hooks: parseHooks}
@@ -173,7 +173,7 @@ func TestFiber_TypeOfString(parseT *testing.T) {
 }
 
 func TestFiber_TypeOfFunction(parseT *testing.T) {
-	parseComponent := func(parseProps map[string]interface{}) *Element {
+	parseComponent := func(parseProps map[string]any) *Element {
 		return &Element{Type: "div"}
 	}
 	parseFiber := &Fiber{typeOf: parseComponent}
@@ -255,7 +255,7 @@ func TestFiber_CircularAlternate(parseT *testing.T) {
 
 func TestFiber_LinearSiblingChain(parseT *testing.T) {
 	parseSiblings := make([]*Fiber, 10)
-	for parseI := 0; parseI < 10; parseI++ {
+	for parseI := range 10 {
 		parseSiblings[parseI] = &Fiber{typeOf: "sibling"}
 		if parseI > 0 {
 			parseSiblings[parseI-1].sibling = parseSiblings[parseI]
@@ -263,7 +263,7 @@ func TestFiber_LinearSiblingChain(parseT *testing.T) {
 	}
 
 	// Verify chain
-	for parseI2 := 0; parseI2 < 9; parseI2++ {
+	for parseI2 := range 9 {
 		if parseSiblings[parseI2].sibling != parseSiblings[parseI2+1] {
 			parseT.Errorf("Sibling %d should link to sibling %d", parseI2, parseI2+1)
 		}
@@ -278,7 +278,7 @@ func TestFiber_DeepNesting(parseT *testing.T) {
 	var parseRoot *Fiber
 	var parseCurrent *Fiber
 
-	for parseI := 0; parseI < parseDepth; parseI++ {
+	for parseI := range parseDepth {
 		parseFiber := &Fiber{typeOf: "div"}
 		if parseI == 0 {
 			parseRoot = parseFiber
@@ -309,7 +309,7 @@ func TestFiber_ManyChildren(parseT *testing.T) {
 	var parseFirstChild *Fiber
 	var parsePrevSibling *Fiber
 
-	for parseI := 0; parseI < 100; parseI++ {
+	for parseI := range 100 {
 		parseChild := &Fiber{typeOf: "child", parent: parseParent}
 		if parseI == 0 {
 			parseFirstChild = parseChild

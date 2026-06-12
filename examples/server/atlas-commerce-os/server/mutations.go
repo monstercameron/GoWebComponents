@@ -879,7 +879,7 @@ func validateSavedViewImportRequest(parseInput savedViewImportRequest) map[strin
 func collectListField(parseValues url.Values, parseKey string) []string {
 	parseResult := []string{}
 	for _, parseRaw := range parseValues[parseKey] {
-		for _, parsePart := range strings.Split(parseRaw, ",") {
+		for parsePart := range strings.SplitSeq(parseRaw, ",") {
 			parseTrimmed := strings.TrimSpace(parsePart)
 			if parseTrimmed != "" {
 				parseResult = append(parseResult, parseTrimmed)

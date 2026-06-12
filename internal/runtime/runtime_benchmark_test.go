@@ -29,7 +29,7 @@ func BenchmarkRenderTo(parseB *testing.B) {
 	parseScheduler := newTestScheduler()
 	parseContainer := parseAdapter.CreateElement("div")
 	parseAdapter.selectorResults["#app"] = parseContainer
-	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
+	parseElement := &Element{Type: "div", Props: map[string]any{"id": "app"}}
 
 	parseB.ReportAllocs()
 	for parseI := 0; parseI < parseB.N; parseI++ {

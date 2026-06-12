@@ -1,5 +1,4 @@
 //go:build playwrightgo
-// +build playwrightgo
 
 package main
 

@@ -31,7 +31,7 @@ func TestHydrateReusesExistingDOMForSimpleTree(parseT *testing.T) {
 	parseAdapter.AppendChild(parseServerNode, parseServerText)
 	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	parseRt.Hydrate(CreateElement("section", map[string]interface{}{"id": "hero"}, "Hello"), parseContainer)
+	parseRt.Hydrate(CreateElement("section", map[string]any{"id": "hero"}, "Hello"), parseContainer)
 	runHydrationWork(parseT, parseScheduler)
 
 	parseChildren := parseAdapter.GetChildren(parseContainer)
@@ -59,7 +59,7 @@ func TestHydrateFallsBackForTagMismatch(parseT *testing.T) {
 	parseServerNode := parseAdapter.CreateElement("span")
 	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	parseRt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), parseContainer)
+	parseRt.Hydrate(CreateElement("div", map[string]any{"id": "client"}), parseContainer)
 	runHydrationWork(parseT, parseScheduler)
 
 	parseChildren := parseAdapter.GetChildren(parseContainer)
@@ -168,7 +168,7 @@ func TestHydrateDiscardsTrailingUnexpectedNodes(parseT *testing.T) {
 	parseAdapter.AppendChild(parseContainer, parseFirst)
 	parseAdapter.AppendChild(parseContainer, parseSecond)
 
-	parseRt.Hydrate(CreateElement("li", map[string]interface{}{"id": "only"}), parseContainer)
+	parseRt.Hydrate(CreateElement("li", map[string]any{"id": "only"}), parseContainer)
 	runHydrationWork(parseT, parseScheduler)
 
 	parseChildren := parseAdapter.GetChildren(parseContainer)
@@ -193,7 +193,7 @@ func TestHydrateStrictModePanicsOnTagMismatch(parseT *testing.T) {
 	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
 	parseRt.SetNextHydrationStrict(true)
-	parseRt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), parseContainer)
+	parseRt.Hydrate(CreateElement("div", map[string]any{"id": "client"}), parseContainer)
 	expectPanic(parseT, func() {
 		runHydrationWork(parseT, parseScheduler)
 	})
@@ -266,11 +266,11 @@ func TestHydrateSupportsComponentUpdatesAfterResume(parseT *testing.T) {
 	parseAdapter.AppendChild(parseServerButton, parseServerText)
 	parseAdapter.AppendChild(parseContainer, parseServerButton)
 
-	var setCount func(interface{})
+	var setCount func(any)
 	parseCounter := func() *Element {
 		parseCount, set := GoUseState(parseRt, 0)
 		setCount = set
-		return CreateElement("button", map[string]interface{}{"id": "counter"}, fmt.Sprintf("count:%d", parseCount()))
+		return CreateElement("button", map[string]any{"id": "counter"}, fmt.Sprintf("count:%d", parseCount()))
 	}
 
 	parseRt.Hydrate(CreateElement(parseCounter, nil), parseContainer)
@@ -314,7 +314,7 @@ func TestHydrateReportsObservabilityMetrics(parseT *testing.T) {
 		parseObserved = parseMetrics
 	})
 
-	parseRt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), parseContainer)
+	parseRt.Hydrate(CreateElement("div", map[string]any{"id": "client"}), parseContainer)
 	runHydrationWork(parseT, parseScheduler)
 
 	if parseObserved.CorrelationID != "req-42" {
@@ -349,13 +349,13 @@ func TestHydrateUpdatesClosureComponentChildrenAfterResume(parseT *testing.T) {
 	parseAdapter.AppendChild(parseServerNode, parseServerText)
 	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	var setCount func(interface{})
+	var setCount func(any)
 	parseComponent := func() *Element {
 		parseCount, set := GoUseState(parseRt, 0)
 		setCount = set
 		parseCurrent := parseCount()
 		return CreateElement(func() *Element {
-			return CreateElement("p", map[string]interface{}{"id": "value"}, fmt.Sprintf("value:%d", parseCurrent))
+			return CreateElement("p", map[string]any{"id": "value"}, fmt.Sprintf("value:%d", parseCurrent))
 		}, nil)
 	}
 
@@ -477,7 +477,7 @@ func TestHydrateAttachesEventHandlersBeforeEffectsRun(parseT *testing.T) {
 			isParseHandlerVisibleDuringEffect = parseServerButton.(*testDOMNode).properties["onclick"] != nil
 			return nil
 		})
-		return CreateElement("button", map[string]interface{}{
+		return CreateElement("button", map[string]any{
 			"id":      "action",
 			"onclick": func() {},
 		}, "Run")
@@ -503,11 +503,11 @@ func TestHydratePreservesLiveInputValueUntilPostHydrationUpdate(parseT *testing.
 	parseAdapter.SetProperty(parseServerInput, "value", "draft")
 	parseAdapter.AppendChild(parseContainer, parseServerInput)
 
-	var setValue func(interface{})
+	var setValue func(any)
 	parseComponent := func() *Element {
 		parseValue, set := GoUseState(parseRt, "server")
 		setValue = set
-		return CreateElement("input", map[string]interface{}{
+		return CreateElement("input", map[string]any{
 			"id":    "name",
 			"value": parseValue(),
 		})

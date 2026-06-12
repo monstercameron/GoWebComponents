@@ -44,6 +44,19 @@
 
 ### Changed
 
+- **Go 1.26 toolchain** — root and `tools/livereload` go.mod bumped to
+  `go 1.26.0` (Green Tea GC by default, lower cgo overhead, better slice
+  stack-allocation), and the `go fix` modernizer suite applied module-wide
+  (~550 files): `interface{}` → `any`, `for i := range n`, built-in
+  `min`/`max`, `maps.`/`slices.` helpers, `strings.CutPrefix`/`SplitSeq`,
+  Go 1.26 `new(expr)`, and `wg.Go()`. Mechanical rewrites only; native and
+  js/wasm builds, vet, and package tests verified.
+- **Lint-clean framework** — `gwc lint` (golangci-lint + gwc-hooks) now
+  reports zero issues across all 47 non-example packages (was 41:
+  errcheck/gosimple/ineffassign/staticcheck/unused/gwc-hooks). Dead helpers
+  removed, hook calls hoisted to named top-level component functions
+  (`virtualization` row body, `html.toHandler`, example tests), wasm-only
+  false positives annotated with reasons.
 - README leads with a 30-second golden-path quickstart; capability summary and
   Public Packages refreshed (i18n/interop/pwa/virtualization).
 - Legacy `gwc` flag aliases (`-main`/`-index`/`-output`) are labeled deprecated
@@ -52,6 +65,12 @@
 
 ### Fixed
 
+- `logging` — `slog.Attr` values passed as log args were collapsed to their
+  string form because the `fmt.Stringer` case matched first; Attrs now
+  normalize to key/value maps as intended.
+- ai-chat-wizard example — admin redaction helpers shallow-copied generated
+  protobuf messages (copying their internal mutex, a `go vet` copylocks
+  violation); they now use `proto.Clone`.
 - Repointed ~136 stale example paths across README, AGENTS.md, the reference
   manual, and runbooks (the `examples/01-counter` → `examples/public/counter`
   relocation and the renamed SSR/PWA examples), un-breaking the front-door

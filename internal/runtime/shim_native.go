@@ -1,28 +1,27 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package runtime
 
 import "reflect"
 
 // GoUseStateGlobal wraps GoUseState with the global runtime on non-browser targets.
-func GoUseStateGlobal[T any](parseStateInitialValue T) (func() T, func(interface{})) {
+func GoUseStateGlobal[T any](parseStateInitialValue T) (func() T, func(any)) {
 	parseRuntime := GetGlobalRuntime()
 	return GoUseState(parseRuntime, parseStateInitialValue)
 }
 
 // GoUseEffectGlobal wraps GoUseEffect on non-browser targets.
-func GoUseEffectGlobal(parseEffectFn func() func(), parseEffectDeps ...interface{}) {
+func GoUseEffectGlobal(parseEffectFn func() func(), parseEffectDeps ...any) {
 	GoUseEffect(parseEffectFn, parseEffectDeps...)
 }
 
 // GoUseMemoGlobal wraps GoUseMemo on non-browser targets.
-func GoUseMemoGlobal(parseMemoCompute func() interface{}, parseMemoDeps ...interface{}) interface{} {
+func GoUseMemoGlobal(parseMemoCompute func() any, parseMemoDeps ...any) any {
 	return GoUseMemo(parseMemoCompute, parseMemoDeps...)
 }
 
 // GoUseMemoGlobalTyped wraps GoUseMemoTyped on non-browser targets.
-func GoUseMemoGlobalTyped(parseMemoCompute func() interface{}, parseMemoTargetType reflect.Type, parseMemoDeps ...interface{}) interface{} {
+func GoUseMemoGlobalTyped(parseMemoCompute func() any, parseMemoTargetType reflect.Type, parseMemoDeps ...any) any {
 	return GoUseMemoTyped(parseMemoCompute, parseMemoTargetType, parseMemoDeps...)
 }
 
@@ -32,7 +31,7 @@ func GoUseIdGlobal() string {
 }
 
 // BuildDOMWrappedFunctionIfReadyGlobal reports that DOM callback wrapping is unavailable on non-browser targets.
-func BuildDOMWrappedFunctionIfReadyGlobal(parseHandlerFn interface{}) (interface{}, bool) {
+func BuildDOMWrappedFunctionIfReadyGlobal(parseHandlerFn any) (any, bool) {
 	return nil, false
 }
 

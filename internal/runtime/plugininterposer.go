@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"maps"
+
 	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
 )
 
@@ -313,9 +315,7 @@ func cloneRuntimeIntMap(parseValues map[string]int) map[string]int {
 		return nil
 	}
 	buildClone := make(map[string]int, len(parseValues))
-	for parseKey, parseValue := range parseValues {
-		buildClone[parseKey] = parseValue
-	}
+	maps.Copy(buildClone, parseValues)
 	return buildClone
 }
 
@@ -325,9 +325,7 @@ func cloneRuntimeStringMap(parseValues map[string]string) map[string]string {
 		return nil
 	}
 	buildClone := make(map[string]string, len(parseValues))
-	for parseKey, parseValue := range parseValues {
-		buildClone[parseKey] = parseValue
-	}
+	maps.Copy(buildClone, parseValues)
 	return buildClone
 }
 

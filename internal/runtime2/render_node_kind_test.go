@@ -26,7 +26,6 @@ func TestParseRenderNodeKindSupportedKindsDecode(t *testing.T) {
 	}
 
 	for _, parseCase := range parseCases {
-		parseCase := parseCase
 		t.Run(parseCase.parseName, func(t *testing.T) {
 			parseGot, parseErr := ParseRenderNodeKind(parseCase.parseRaw)
 			if parseErr != nil {

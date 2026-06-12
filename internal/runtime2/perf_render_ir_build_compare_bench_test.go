@@ -11,9 +11,9 @@ var storeBuildCanonicalRenderIRSink CanonicalRenderIR
 // buildRenderIRLargeHostTreeBenchOutput builds one large host-element-heavy render payload used by canonical IR compare benchmarks.
 func buildRenderIRLargeHostTreeBenchOutput() map[string]any {
 	buildSectionChildren := make([]any, 0, 96)
-	for parseSectionIndex := 0; parseSectionIndex < 96; parseSectionIndex++ {
+	for parseSectionIndex := range 96 {
 		buildListChildren := make([]any, 0, 6)
-		for parseItemIndex := 0; parseItemIndex < 6; parseItemIndex++ {
+		for parseItemIndex := range 6 {
 			buildListChildren = append(buildListChildren, map[string]any{
 				"kind": "host-element",
 				"tag":  "li",
@@ -31,7 +31,7 @@ func buildRenderIRLargeHostTreeBenchOutput() map[string]any {
 			"tag":  "section",
 			"key":  "section-" + strconv.Itoa(parseSectionIndex),
 			"props": map[string]any{
-				"class": "pane",
+				"class":   "pane",
 				"data-id": strconv.Itoa(parseSectionIndex),
 			},
 			"children": []any{

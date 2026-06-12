@@ -36,8 +36,8 @@ func captureServerLogBuffer(parseT *testing.T) *bytes.Buffer {
 func decodeServerLogEntry(parseT *testing.T, parseBuffer *bytes.Buffer) map[string]any {
 	parseT.Helper()
 
-	parseLines := strings.Split(strings.TrimSpace(parseBuffer.String()), "\n")
-	for _, parseLine := range parseLines {
+	parseLines := strings.SplitSeq(strings.TrimSpace(parseBuffer.String()), "\n")
+	for parseLine := range parseLines {
 		parseTrimmed := strings.TrimSpace(parseLine)
 		if parseTrimmed == "" {
 			continue
@@ -56,8 +56,8 @@ func decodeServerLogEntry(parseT *testing.T, parseBuffer *bytes.Buffer) map[stri
 func decodeServerLogEntryByEvent(parseT *testing.T, parseBuffer *bytes.Buffer, parseEvent string) map[string]any {
 	parseT.Helper()
 
-	parseLines := strings.Split(strings.TrimSpace(parseBuffer.String()), "\n")
-	for _, parseLine := range parseLines {
+	parseLines := strings.SplitSeq(strings.TrimSpace(parseBuffer.String()), "\n")
+	for parseLine := range parseLines {
 		parseTrimmed := strings.TrimSpace(parseLine)
 		if parseTrimmed == "" {
 			continue

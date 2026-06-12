@@ -14,7 +14,7 @@ import (
 )
 
 func executeWasmCompareCompression(parseConfig wasmCompressionConfig) (wasmCompressionSummary, error) {
-	parseVariants := map[string]interface{}{}
+	parseVariants := map[string]any{}
 
 	parsePlainRaw, parseErr := executeWasmMeasure(wasmMeasureConfig{
 		packagePath:     parseConfig.packagePath,
@@ -498,7 +498,7 @@ func resolveWasmCacheEditableFile(parsePackagePath string) (string, error) {
 }
 
 // executeWasmOptimizedVariants creates optimized wasm variants from a stripped baseline.
-func executeWasmOptimizedVariants(parseConfig wasmCompressionConfig, parseStrippedRaw wasmMeasureSummary, parseCommand wasmOptimizerCommand, isIncludeBrotli bool) (map[string]interface{}, map[string]interface{}, error) {
+func executeWasmOptimizedVariants(parseConfig wasmCompressionConfig, parseStrippedRaw wasmMeasureSummary, parseCommand wasmOptimizerCommand, isIncludeBrotli bool) (map[string]any, map[string]any, error) {
 	parseStrippedRawPath := filepath.Join(filepath.FromSlash(parseStrippedRaw.OutDir), parseConfig.binaryName)
 	parseOptimizedRawDir := filepath.Join(parseConfig.outDir, "optimized-raw")
 	parseOptimizedCompressedDir := filepath.Join(parseConfig.outDir, "optimized-compressed")
@@ -522,14 +522,14 @@ func executeWasmOptimizedVariants(parseConfig wasmCompressionConfig, parseStripp
 	if parseErr4 != nil {
 		return nil, nil, parseErr4
 	}
-	parseOptimizedRaw := map[string]interface{}{
+	parseOptimizedRaw := map[string]any{
 		"package":    parseConfig.packagePath,
 		"profile":    "release-optimized",
 		"go_version": parseStrippedRaw.Manifest.GoVersion,
 		"goos":       "js",
 		"goarch":     "wasm",
 		"build_args": parseStrippedRaw.Manifest.BuildArgs,
-		"optimizer":  map[string]interface{}{"tool": parseCommand.Label, "args": append(append([]string{}, parseCommand.PrefixArgs...), parseStrippedRawPath, "-Oz", "-o", parseOptimizedRawPath)},
+		"optimizer":  map[string]any{"tool": parseCommand.Label, "args": append(append([]string{}, parseCommand.PrefixArgs...), parseStrippedRawPath, "-Oz", "-o", parseOptimizedRawPath)},
 		"phases":     map[string]int64{"go_build_ms": parseGoBuildMs, "wasm_opt_ms": parseWasmOptMs, "compression_total_ms": 0, "total_wall_ms": parseGoBuildMs + parseWasmOptMs},
 		"artifacts":  map[string]releaseArtifactRecord{"wasm": parseOptimizedRawArtifact},
 	}
@@ -591,17 +591,17 @@ func executeWasmOptimizedVariants(parseConfig wasmCompressionConfig, parseStripp
 	}
 	parsePhases["total_wall_ms"] = parseGoBuildMs + parseWasmOptMs + parseCompressionTotalMs
 
-	parseOptimizedCompressed := map[string]interface{}{
+	parseOptimizedCompressed := map[string]any{
 		"package":       parseConfig.packagePath,
 		"profile":       "release-optimized",
 		"go_version":    parseStrippedRaw.Manifest.GoVersion,
 		"goos":          "js",
 		"goarch":        "wasm",
 		"build_args":    parseStrippedRaw.Manifest.BuildArgs,
-		"optimizer":     map[string]interface{}{"tool": parseCommand.Label, "args": append(append([]string{}, parseCommand.PrefixArgs...), parseStrippedRawPath, "-Oz", "-o", parseOptimizedCompressedPath)},
+		"optimizer":     map[string]any{"tool": parseCommand.Label, "args": append(append([]string{}, parseCommand.PrefixArgs...), parseStrippedRawPath, "-Oz", "-o", parseOptimizedCompressedPath)},
 		"phases":        parsePhases,
 		"artifacts":     parseArtifacts,
-		"parity_checks": map[string]interface{}{"raw_to_delivery_copy": map[string]interface{}{"ok": true, "source_bytes": parseOptimizedRawArtifact.Bytes, "target_bytes": parseOptimizedCompressedArtifact.Bytes, "source_sha256": parseOptimizedRawArtifact.SHA256, "target_sha256": parseOptimizedCompressedArtifact.SHA256}},
+		"parity_checks": map[string]any{"raw_to_delivery_copy": map[string]any{"ok": true, "source_bytes": parseOptimizedRawArtifact.Bytes, "target_bytes": parseOptimizedCompressedArtifact.Bytes, "source_sha256": parseOptimizedRawArtifact.SHA256, "target_sha256": parseOptimizedCompressedArtifact.SHA256}},
 	}
 	return parseOptimizedRaw, parseOptimizedCompressed, nil
 }
@@ -660,9 +660,9 @@ func runWasmOptimizer(parseCommand wasmOptimizerCommand, parseSourcePath string,
 }
 
 // collectWasmNumericMetrics flattens numeric JSON values into a path-to-value map.
-func collectWasmNumericMetrics(parseValue interface{}, parsePath string, parseMetrics map[string]float64) {
+func collectWasmNumericMetrics(parseValue any, parsePath string, parseMetrics map[string]float64) {
 	switch parseTyped := parseValue.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for parseKey, parseChild := range parseTyped {
 			parseChildPath := parseKey
 			if strings.TrimSpace(parsePath) != "" {
@@ -670,7 +670,7 @@ func collectWasmNumericMetrics(parseValue interface{}, parsePath string, parseMe
 			}
 			collectWasmNumericMetrics(parseChild, parseChildPath, parseMetrics)
 		}
-	case []interface{}:
+	case []any:
 		for parseIndex, parseChild2 := range parseTyped {
 			parseChildPath2 := fmt.Sprintf("[%d]", parseIndex)
 			if strings.TrimSpace(parsePath) != "" {

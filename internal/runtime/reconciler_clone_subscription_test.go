@@ -106,7 +106,7 @@ func TestReconcileChildrenMovesReactiveSourceSubscriptions(parseT *testing.T) {
 	}
 	parseRt.atomRegistry.Subscribe("count", parseOldFiber)
 
-	parseRt.reconcileChildren(parseWipParent, []interface{}{CreateElement("div", nil)})
+	parseRt.reconcileChildren(parseWipParent, []any{CreateElement("div", nil)})
 
 	parseNewFiber := parseWipParent.child
 	if parseNewFiber == nil {
@@ -124,7 +124,7 @@ func TestReconcileKeyedChildrenMovesReactiveSourceSubscriptions(parseT *testing.
 	parseOldParent := &Fiber{typeOf: "section"}
 	parseOldFiber := &Fiber{
 		typeOf:            "div",
-		props:             map[string]interface{}{"key": "slot-1"},
+		props:             map[string]any{"key": "slot-1"},
 		parent:            parseOldParent,
 		fineGrained:       true,
 		reactiveSourceIDs: []string{"count"},
@@ -136,7 +136,7 @@ func TestReconcileKeyedChildrenMovesReactiveSourceSubscriptions(parseT *testing.
 	}
 	parseRt.atomRegistry.Subscribe("count", parseOldFiber)
 
-	parseRt.reconcileChildren(parseWipParent, []interface{}{CreateElement("div", map[string]interface{}{"key": "slot-1"})})
+	parseRt.reconcileChildren(parseWipParent, []any{CreateElement("div", map[string]any{"key": "slot-1"})})
 
 	parseNewFiber := parseWipParent.child
 	if parseNewFiber == nil {

@@ -37,9 +37,5 @@ func ParsePatchKeyedMoveOp(parseRaw PatchKeyedMoveOpRaw, parseKnownNodeIDs map[u
 	if parseRaw.DestinationIndex > getSiblingCount {
 		return PatchKeyedMoveOp{}, fmt.Errorf("runtime2: keyed-move op destination index %d is out of range for sibling count %d", parseRaw.DestinationIndex, getSiblingCount)
 	}
-	return PatchKeyedMoveOp{
-		ParentNodeID:     parseRaw.ParentNodeID,
-		SourceNodeID:     parseRaw.SourceNodeID,
-		DestinationIndex: parseRaw.DestinationIndex,
-	}, nil
+	return PatchKeyedMoveOp(parseRaw), nil
 }

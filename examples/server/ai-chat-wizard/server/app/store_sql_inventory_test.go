@@ -89,7 +89,7 @@ func TestSQLInventoryDiskFilesRegistered(t *testing.T) {
 
 	// Guard against new .sql files that land on disk without a storeQueries
 	// field (and therefore no registration in parseLoadStoreQueries).
-	parseStructFieldCount := reflect.TypeOf(storeQueries{}).NumField()
+	parseStructFieldCount := reflect.TypeFor[storeQueries]().NumField()
 	if len(parseDiskPaths) != parseStructFieldCount {
 		t.Errorf(
 			"disk SQL file count (%d) != storeQueries field count (%d): "+

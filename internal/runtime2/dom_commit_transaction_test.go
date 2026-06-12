@@ -549,8 +549,8 @@ func TestCommitRegionPatchTransactionAppendOnlyCommitsWithoutFallback(parseTesti
 				GetKind:         RegionPatchOpKindInsertNode,
 				GetParentNodeID: 1,
 				GetInsertNode: &RegionDOMNode{
-					GetNodeID: 3,
-					GetTag:    "li",
+					GetNodeID:  3,
+					GetTag:     "li",
 					GetNodeKey: "row-b",
 				},
 			},
@@ -558,8 +558,8 @@ func TestCommitRegionPatchTransactionAppendOnlyCommitsWithoutFallback(parseTesti
 				GetKind:         RegionPatchOpKindInsertNode,
 				GetParentNodeID: 1,
 				GetInsertNode: &RegionDOMNode{
-					GetNodeID: 4,
-					GetTag:    "li",
+					GetNodeID:  4,
+					GetTag:     "li",
 					GetNodeKey: "row-c",
 				},
 			},

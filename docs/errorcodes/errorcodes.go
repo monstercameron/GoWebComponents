@@ -22,12 +22,12 @@ type ErrorCode struct {
 const actionableErrorsDoc = "ACTIONABLE_ERRORS.md"
 
 var (
-	codeAssignPattern = regexp.MustCompile(`\.Code\s*=\s*"([A-Z0-9-]+)"`)
-	docsAssignPattern = regexp.MustCompile(`\.Docs\s*=\s*(.+)$`)
+	codeAssignPattern  = regexp.MustCompile(`\.Code\s*=\s*"([A-Z0-9-]+)"`)
+	docsAssignPattern  = regexp.MustCompile(`\.Docs\s*=\s*(.+)$`)
 	remedAssignPattern = regexp.MustCompile(`\.Remediation\s*=\s*"(.*)"\s*$`)
-	caseCodePattern   = regexp.MustCompile(`return\s+"([A-Z0-9-]+)"`)
-	caseDocsPattern   = regexp.MustCompile(`return\s+(.+)$`)
-	quotedPattern     = regexp.MustCompile(`"([^"]*)"`)
+	caseCodePattern    = regexp.MustCompile(`return\s+"([A-Z0-9-]+)"`)
+	caseDocsPattern    = regexp.MustCompile(`return\s+(.+)$`)
+	quotedPattern      = regexp.MustCompile(`"([^"]*)"`)
 )
 
 // ExtractCodes parses the diagnostic-metadata source and returns every code,
@@ -39,7 +39,7 @@ func ExtractCodes(parseSource string) []ErrorCode {
 	// Primary source: the diagnosticMetadata switch, which sets .Code, .Docs,
 	// and .Remediation in that order per case.
 	var parsePending ErrorCode
-	for _, parseLine := range strings.Split(parseSource, "\n") {
+	for parseLine := range strings.SplitSeq(parseSource, "\n") {
 		if parseMatch := codeAssignPattern.FindStringSubmatch(parseLine); parseMatch != nil {
 			parsePending = ErrorCode{Code: parseMatch[1]}
 			continue
@@ -104,7 +104,7 @@ func extractFunctionReturns(parseSource string, parseFuncSignature string, parse
 		parseBody = parseBody[:parseEnd]
 	}
 	var parseLabel string
-	for _, parseLine := range strings.Split(parseBody, "\n") {
+	for parseLine := range strings.SplitSeq(parseBody, "\n") {
 		parseTrimmed := strings.TrimSpace(parseLine)
 		if strings.HasPrefix(parseTrimmed, "case ") && strings.HasSuffix(parseTrimmed, ":") {
 			parseLabel = strings.TrimSuffix(strings.TrimPrefix(parseTrimmed, "case "), ":")

@@ -1,6 +1,7 @@
 package shorthand
 
 import (
+	"maps"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/html"
@@ -16,95 +17,95 @@ type propsInput struct {
 }
 
 // FromProps injects a full Props value into a mixed-argument shorthand call.
-func FromProps(parseProps Props) interface{} {
+func FromProps(parseProps Props) any {
 	return propsInput{value: parseProps}
 }
 
 // Tag builds an arbitrary host element from mixed prop options and children.
-func Tag(parseName string, parseArgs ...interface{}) ui.Node {
+func Tag(parseName string, parseArgs ...any) ui.Node {
 	parseProps, parseChildren := splitArgs(parseArgs...)
 	return html.Tag(parseName, parseProps, parseChildren...)
 }
 
 // Fragment groups mixed children without introducing a host element.
-func Fragment(parseArgs ...interface{}) ui.Node {
+func Fragment(parseArgs ...any) ui.Node {
 	return html.Fragment(html.Children(parseArgs...)...)
 }
 
 // A delegates to [html.A].
-func A(parseArgs ...interface{}) ui.Node { return Tag("a", parseArgs...) }
+func A(parseArgs ...any) ui.Node { return Tag("a", parseArgs...) }
 
 // Article delegates to [html.Article].
-func Article(parseArgs ...interface{}) ui.Node { return Tag("article", parseArgs...) }
+func Article(parseArgs ...any) ui.Node { return Tag("article", parseArgs...) }
 
 // Aside delegates to [html.Aside].
-func Aside(parseArgs ...interface{}) ui.Node { return Tag("aside", parseArgs...) }
+func Aside(parseArgs ...any) ui.Node { return Tag("aside", parseArgs...) }
 
 // Blockquote delegates to [html.Blockquote].
-func Blockquote(parseArgs ...interface{}) ui.Node { return Tag("blockquote", parseArgs...) }
+func Blockquote(parseArgs ...any) ui.Node { return Tag("blockquote", parseArgs...) }
 
 // Body delegates to [html.Body].
-func Body(parseArgs ...interface{}) ui.Node { return Tag("body", parseArgs...) }
+func Body(parseArgs ...any) ui.Node { return Tag("body", parseArgs...) }
 
 // Button delegates to [html.Button].
-func Button(parseArgs ...interface{}) ui.Node { return Tag("button", parseArgs...) }
+func Button(parseArgs ...any) ui.Node { return Tag("button", parseArgs...) }
 
 // Br delegates to [html.Br].
-func Br(parseArgs ...interface{}) ui.Node { return Tag("br", parseArgs...) }
+func Br(parseArgs ...any) ui.Node { return Tag("br", parseArgs...) }
 
 // Code delegates to [html.Code].
-func Code(parseArgs ...interface{}) ui.Node { return Tag("code", parseArgs...) }
+func Code(parseArgs ...any) ui.Node { return Tag("code", parseArgs...) }
 
 // Details delegates to [html.Details].
-func Details(parseArgs ...interface{}) ui.Node { return Tag("details", parseArgs...) }
+func Details(parseArgs ...any) ui.Node { return Tag("details", parseArgs...) }
 
 // Dialog delegates to [html.Dialog].
-func Dialog(parseArgs ...interface{}) ui.Node { return Tag("dialog", parseArgs...) }
+func Dialog(parseArgs ...any) ui.Node { return Tag("dialog", parseArgs...) }
 
 // Div delegates to [html.Div].
-func Div(parseArgs ...interface{}) ui.Node { return Tag("div", parseArgs...) }
+func Div(parseArgs ...any) ui.Node { return Tag("div", parseArgs...) }
 
 // Em delegates to [html.Em].
-func Em(parseArgs ...interface{}) ui.Node { return Tag("em", parseArgs...) }
+func Em(parseArgs ...any) ui.Node { return Tag("em", parseArgs...) }
 
 // Fieldset delegates to [html.Fieldset].
-func Fieldset(parseArgs ...interface{}) ui.Node { return Tag("fieldset", parseArgs...) }
+func Fieldset(parseArgs ...any) ui.Node { return Tag("fieldset", parseArgs...) }
 
 // Footer delegates to [html.Footer].
-func Footer(parseArgs ...interface{}) ui.Node { return Tag("footer", parseArgs...) }
+func Footer(parseArgs ...any) ui.Node { return Tag("footer", parseArgs...) }
 
 // Form delegates to [html.Form].
-func Form(parseArgs ...interface{}) ui.Node { return Tag("form", parseArgs...) }
+func Form(parseArgs ...any) ui.Node { return Tag("form", parseArgs...) }
 
 // H1 delegates to [html.H1].
-func H1(parseArgs ...interface{}) ui.Node { return Tag("h1", parseArgs...) }
+func H1(parseArgs ...any) ui.Node { return Tag("h1", parseArgs...) }
 
 // H2 delegates to [html.H2].
-func H2(parseArgs ...interface{}) ui.Node { return Tag("h2", parseArgs...) }
+func H2(parseArgs ...any) ui.Node { return Tag("h2", parseArgs...) }
 
 // H3 delegates to [html.H3].
-func H3(parseArgs ...interface{}) ui.Node { return Tag("h3", parseArgs...) }
+func H3(parseArgs ...any) ui.Node { return Tag("h3", parseArgs...) }
 
 // H4 delegates to [html.H4].
-func H4(parseArgs ...interface{}) ui.Node { return Tag("h4", parseArgs...) }
+func H4(parseArgs ...any) ui.Node { return Tag("h4", parseArgs...) }
 
 // H5 delegates to [html.H5].
-func H5(parseArgs ...interface{}) ui.Node { return Tag("h5", parseArgs...) }
+func H5(parseArgs ...any) ui.Node { return Tag("h5", parseArgs...) }
 
 // H6 delegates to [html.H6].
-func H6(parseArgs ...interface{}) ui.Node { return Tag("h6", parseArgs...) }
+func H6(parseArgs ...any) ui.Node { return Tag("h6", parseArgs...) }
 
 // Head delegates to [html.Head].
-func Head(parseArgs ...interface{}) ui.Node { return Tag("head", parseArgs...) }
+func Head(parseArgs ...any) ui.Node { return Tag("head", parseArgs...) }
 
 // Header delegates to [html.Header].
-func Header(parseArgs ...interface{}) ui.Node { return Tag("header", parseArgs...) }
+func Header(parseArgs ...any) ui.Node { return Tag("header", parseArgs...) }
 
 // Hr delegates to [html.Hr].
-func Hr(parseArgs ...interface{}) ui.Node { return Tag("hr", parseArgs...) }
+func Hr(parseArgs ...any) ui.Node { return Tag("hr", parseArgs...) }
 
 // Html delegates to [html.Html].
-func Html(parseArgs ...interface{}) ui.Node { return Tag("html", parseArgs...) }
+func Html(parseArgs ...any) ui.Node { return Tag("html", parseArgs...) }
 
 // HiddenInput creates a hidden input element with the given name and value,
 // delegating to [html.HiddenInput].
@@ -113,108 +114,108 @@ func HiddenInput(parseName string, parseValue string) ui.Node {
 }
 
 // Img delegates to [html.Img].
-func Img(parseArgs ...interface{}) ui.Node { return Tag("img", parseArgs...) }
+func Img(parseArgs ...any) ui.Node { return Tag("img", parseArgs...) }
 
 // Iframe delegates to [html.Iframe].
-func Iframe(parseArgs ...interface{}) ui.Node { return Tag("iframe", parseArgs...) }
+func Iframe(parseArgs ...any) ui.Node { return Tag("iframe", parseArgs...) }
 
 // Input delegates to [html.Input].
-func Input(parseArgs ...interface{}) ui.Node { return Tag("input", parseArgs...) }
+func Input(parseArgs ...any) ui.Node { return Tag("input", parseArgs...) }
 
 // Label delegates to [html.Label].
-func Label(parseArgs ...interface{}) ui.Node { return Tag("label", parseArgs...) }
+func Label(parseArgs ...any) ui.Node { return Tag("label", parseArgs...) }
 
 // Legend delegates to [html.Legend].
-func Legend(parseArgs ...interface{}) ui.Node { return Tag("legend", parseArgs...) }
+func Legend(parseArgs ...any) ui.Node { return Tag("legend", parseArgs...) }
 
 // Li delegates to [html.Li].
-func Li(parseArgs ...interface{}) ui.Node { return Tag("li", parseArgs...) }
+func Li(parseArgs ...any) ui.Node { return Tag("li", parseArgs...) }
 
 // Main delegates to [html.Main].
-func Main(parseArgs ...interface{}) ui.Node { return Tag("main", parseArgs...) }
+func Main(parseArgs ...any) ui.Node { return Tag("main", parseArgs...) }
 
 // Mark delegates to [html.Mark].
-func Mark(parseArgs ...interface{}) ui.Node { return Tag("mark", parseArgs...) }
+func Mark(parseArgs ...any) ui.Node { return Tag("mark", parseArgs...) }
 
 // Meta delegates to [html.Meta].
-func Meta(parseArgs ...interface{}) ui.Node { return Tag("meta", parseArgs...) }
+func Meta(parseArgs ...any) ui.Node { return Tag("meta", parseArgs...) }
 
 // Nav delegates to [html.Nav].
-func Nav(parseArgs ...interface{}) ui.Node { return Tag("nav", parseArgs...) }
+func Nav(parseArgs ...any) ui.Node { return Tag("nav", parseArgs...) }
 
 // NoScript delegates to [html.NoScript].
-func NoScript(parseArgs ...interface{}) ui.Node { return Tag("noscript", parseArgs...) }
+func NoScript(parseArgs ...any) ui.Node { return Tag("noscript", parseArgs...) }
 
 // Option delegates to [html.Option].
-func Option(parseArgs ...interface{}) ui.Node { return Tag("option", parseArgs...) }
+func Option(parseArgs ...any) ui.Node { return Tag("option", parseArgs...) }
 
 // P delegates to [html.P].
-func P(parseArgs ...interface{}) ui.Node { return Tag("p", parseArgs...) }
+func P(parseArgs ...any) ui.Node { return Tag("p", parseArgs...) }
 
 // Pre delegates to [html.Pre].
-func Pre(parseArgs ...interface{}) ui.Node { return Tag("pre", parseArgs...) }
+func Pre(parseArgs ...any) ui.Node { return Tag("pre", parseArgs...) }
 
 // Script delegates to [html.Script].
-func Script(parseArgs ...interface{}) ui.Node { return Tag("script", parseArgs...) }
+func Script(parseArgs ...any) ui.Node { return Tag("script", parseArgs...) }
 
 // Section delegates to [html.Section].
-func Section(parseArgs ...interface{}) ui.Node { return Tag("section", parseArgs...) }
+func Section(parseArgs ...any) ui.Node { return Tag("section", parseArgs...) }
 
 // Select delegates to [html.Select].
-func Select(parseArgs ...interface{}) ui.Node { return Tag("select", parseArgs...) }
+func Select(parseArgs ...any) ui.Node { return Tag("select", parseArgs...) }
 
 // Small delegates to [html.Small].
-func Small(parseArgs ...interface{}) ui.Node { return Tag("small", parseArgs...) }
+func Small(parseArgs ...any) ui.Node { return Tag("small", parseArgs...) }
 
 // Span delegates to [html.Span].
-func Span(parseArgs ...interface{}) ui.Node { return Tag("span", parseArgs...) }
+func Span(parseArgs ...any) ui.Node { return Tag("span", parseArgs...) }
 
 // Strong delegates to [html.Strong].
-func Strong(parseArgs ...interface{}) ui.Node { return Tag("strong", parseArgs...) }
+func Strong(parseArgs ...any) ui.Node { return Tag("strong", parseArgs...) }
 
 // Summary delegates to [html.Summary].
-func Summary(parseArgs ...interface{}) ui.Node { return Tag("summary", parseArgs...) }
+func Summary(parseArgs ...any) ui.Node { return Tag("summary", parseArgs...) }
 
 // Table delegates to [html.Table].
-func Table(parseArgs ...interface{}) ui.Node { return Tag("table", parseArgs...) }
+func Table(parseArgs ...any) ui.Node { return Tag("table", parseArgs...) }
 
 // Tbody delegates to [html.Tbody].
-func Tbody(parseArgs ...interface{}) ui.Node { return Tag("tbody", parseArgs...) }
+func Tbody(parseArgs ...any) ui.Node { return Tag("tbody", parseArgs...) }
 
 // Td delegates to [html.Td].
-func Td(parseArgs ...interface{}) ui.Node { return Tag("td", parseArgs...) }
+func Td(parseArgs ...any) ui.Node { return Tag("td", parseArgs...) }
 
 // Th delegates to [html.Th].
-func Th(parseArgs ...interface{}) ui.Node { return Tag("th", parseArgs...) }
+func Th(parseArgs ...any) ui.Node { return Tag("th", parseArgs...) }
 
 // Thead delegates to [html.Thead].
-func Thead(parseArgs ...interface{}) ui.Node { return Tag("thead", parseArgs...) }
+func Thead(parseArgs ...any) ui.Node { return Tag("thead", parseArgs...) }
 
 // Textarea delegates to [html.Textarea].
-func Textarea(parseArgs ...interface{}) ui.Node { return Tag("textarea", parseArgs...) }
+func Textarea(parseArgs ...any) ui.Node { return Tag("textarea", parseArgs...) }
 
 // Time delegates to [html.Time].
-func Time(parseArgs ...interface{}) ui.Node { return Tag("time", parseArgs...) }
+func Time(parseArgs ...any) ui.Node { return Tag("time", parseArgs...) }
 
 // Tr delegates to [html.Tr].
-func Tr(parseArgs ...interface{}) ui.Node { return Tag("tr", parseArgs...) }
+func Tr(parseArgs ...any) ui.Node { return Tag("tr", parseArgs...) }
 
 // Ul delegates to [html.Ul].
-func Ul(parseArgs ...interface{}) ui.Node { return Tag("ul", parseArgs...) }
+func Ul(parseArgs ...any) ui.Node { return Tag("ul", parseArgs...) }
 
 // Text delegates to [html.Text].
-func Text(parseContent interface{}) ui.Node { return html.Text(parseContent) }
+func Text(parseContent any) ui.Node { return html.Text(parseContent) }
 
 // Textf delegates to [html.Textf].
-func Textf(format string, parseArgs ...interface{}) ui.Node { return html.Textf(format, parseArgs...) }
+func Textf(format string, parseArgs ...any) ui.Node { return html.Textf(format, parseArgs...) }
 
 // TextIf delegates to [html.TextIf].
-func TextIf(isCondition bool, parseContent interface{}) ui.Node {
+func TextIf(isCondition bool, parseContent any) ui.Node {
 	return html.TextIf(isCondition, parseContent)
 }
 
 // Children delegates to [html.Children].
-func Children(parseValues ...interface{}) []ui.Node { return html.Children(parseValues...) }
+func Children(parseValues ...any) []ui.Node { return html.Children(parseValues...) }
 
 // When delegates to [html.When].
 func When(isCondition bool, parseClassName string) string {
@@ -222,7 +223,7 @@ func When(isCondition bool, parseClassName string) string {
 }
 
 // ClassNames delegates to [html.ClassNames].
-func ClassNames(parseParts ...interface{}) string { return html.ClassNames(parseParts...) }
+func ClassNames(parseParts ...any) string { return html.ClassNames(parseParts...) }
 
 // If delegates to [html.If].
 func If(isCondition bool, parseNode ui.Node) ui.Node { return html.If(isCondition, parseNode) }
@@ -236,12 +237,12 @@ func IfElse(isCondition bool, parseWhenTrue ui.Node, parseWhenFalse ui.Node) ui.
 func Unless(isCondition bool, parseNode ui.Node) ui.Node { return html.Unless(isCondition, parseNode) }
 
 // WithKey delegates to [html.WithKey].
-func WithKey(parseNode ui.Node, parseKey interface{}) ui.Node {
+func WithKey(parseNode ui.Node, parseKey any) ui.Node {
 	return html.WithKey(parseNode, parseKey)
 }
 
 // Case delegates to [html.Case].
-func Case(parseValue interface{}, parseNode ui.Node) SwitchBranch {
+func Case(parseValue any, parseNode ui.Node) SwitchBranch {
 	return html.Case(parseValue, parseNode)
 }
 
@@ -249,7 +250,7 @@ func Case(parseValue interface{}, parseNode ui.Node) SwitchBranch {
 func Default(parseNode ui.Node) SwitchBranch { return html.Default(parseNode) }
 
 // Switch delegates to [html.Switch].
-func Switch(parseValue interface{}, parseBranches ...SwitchBranch) ui.Node {
+func Switch(parseValue any, parseBranches ...SwitchBranch) ui.Node {
 	return html.Switch(parseValue, parseBranches...)
 }
 
@@ -267,7 +268,7 @@ func Map[T any](parseItems []T, render func(T) ui.Node) []ui.Node {
 }
 
 // MapKeyed delegates to [html.MapKeyed].
-func MapKeyed[T any](parseItems []T, parseKey func(T) interface{}, render func(T) ui.Node) []ui.Node {
+func MapKeyed[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Node) []ui.Node {
 	return html.MapKeyed(parseItems, parseKey, render)
 }
 
@@ -379,60 +380,60 @@ func Aria(parseName string, parseValue string) PropOption { return html.Aria(par
 func AriaSet(parseValues map[string]string) PropOption { return html.AriaSet(parseValues) }
 
 // Attr delegates to [html.Attr].
-func Attr(parseKey string, parseValue interface{}) PropOption { return html.Attr(parseKey, parseValue) }
+func Attr(parseKey string, parseValue any) PropOption { return html.Attr(parseKey, parseValue) }
 
 // Attrs delegates to [html.Attrs].
-func Attrs(parseValues map[string]interface{}) PropOption { return html.Attrs(parseValues) }
+func Attrs(parseValues map[string]any) PropOption { return html.Attrs(parseValues) }
 
 // OnClick delegates to [html.OnClick].
-func OnClick(parseCallback interface{}) PropOption { return html.OnClick(parseCallback) }
+func OnClick(parseCallback any) PropOption { return html.OnClick(parseCallback) }
 
 // OnClickParallel delegates to [html.OnClickParallel].
-func OnClickParallel(parseSlotID string, parseCallback interface{}) PropOption {
+func OnClickParallel(parseSlotID string, parseCallback any) PropOption {
 	return html.OnClickParallel(parseSlotID, parseCallback)
 }
 
 // OnInput delegates to [html.OnInput].
-func OnInput(parseCallback interface{}) PropOption { return html.OnInput(parseCallback) }
+func OnInput(parseCallback any) PropOption { return html.OnInput(parseCallback) }
 
 // OnChange delegates to [html.OnChange].
-func OnChange(parseCallback interface{}) PropOption { return html.OnChange(parseCallback) }
+func OnChange(parseCallback any) PropOption { return html.OnChange(parseCallback) }
 
 // OnSubmit delegates to [html.OnSubmit].
-func OnSubmit(parseCallback interface{}) PropOption { return html.OnSubmit(parseCallback) }
+func OnSubmit(parseCallback any) PropOption { return html.OnSubmit(parseCallback) }
 
 // OnKeyDown delegates to [html.OnKeyDown].
-func OnKeyDown(parseCallback interface{}) PropOption { return html.OnKeyDown(parseCallback) }
+func OnKeyDown(parseCallback any) PropOption { return html.OnKeyDown(parseCallback) }
 
 // OnKeyUp delegates to [html.OnKeyUp].
-func OnKeyUp(parseCallback interface{}) PropOption { return html.OnKeyUp(parseCallback) }
+func OnKeyUp(parseCallback any) PropOption { return html.OnKeyUp(parseCallback) }
 
 // OnMouseUp delegates to [html.OnMouseUp].
-func OnMouseUp(parseCallback interface{}) PropOption   { return html.OnMouseUp(parseCallback) }
-func OnMouseDown(parseCallback interface{}) PropOption { return html.OnMouseDown(parseCallback) }
+func OnMouseUp(parseCallback any) PropOption   { return html.OnMouseUp(parseCallback) }
+func OnMouseDown(parseCallback any) PropOption { return html.OnMouseDown(parseCallback) }
 
 // OnFocus delegates to [html.OnFocus].
-func OnFocus(parseCallback interface{}) PropOption { return html.OnFocus(parseCallback) }
+func OnFocus(parseCallback any) PropOption { return html.OnFocus(parseCallback) }
 
 // OnBlur delegates to [html.OnBlur].
-func OnBlur(parseCallback interface{}) PropOption { return html.OnBlur(parseCallback) }
+func OnBlur(parseCallback any) PropOption { return html.OnBlur(parseCallback) }
 
 // OnScroll delegates to [html.OnScroll].
-func OnScroll(parseCallback interface{}) PropOption { return html.OnScroll(parseCallback) }
+func OnScroll(parseCallback any) PropOption { return html.OnScroll(parseCallback) }
 
 // Prevent delegates to [html.Prevent].
-func Prevent(parseCallback interface{}) interface{} { return html.Prevent(parseCallback) }
+func Prevent(parseCallback any) any { return html.Prevent(parseCallback) }
 
 // Stop delegates to [html.Stop].
-func Stop(parseCallback interface{}) interface{} { return html.Stop(parseCallback) }
+func Stop(parseCallback any) any { return html.Stop(parseCallback) }
 
 // Debounce delegates to [html.Debounce].
-func Debounce(parseDelay time.Duration, parseCallback interface{}) interface{} {
+func Debounce(parseDelay time.Duration, parseCallback any) any {
 	return html.Debounce(parseDelay, parseCallback)
 }
 
 // Throttle delegates to [html.Throttle].
-func Throttle(parseInterval time.Duration, parseCallback interface{}) interface{} {
+func Throttle(parseInterval time.Duration, parseCallback any) any {
 	return html.Throttle(parseInterval, parseCallback)
 }
 
@@ -442,9 +443,9 @@ func Throttle(parseInterval time.Duration, parseCallback interface{}) interface{
 // it, so that earlier PropOption values (e.g. OnClick handlers) are not dropped
 // when a later Props{} argument sets only a subset of fields.  Later values win
 // on conflict, matching last-write-wins semantics across the whole argument list.
-func splitArgs(parseArgs ...interface{}) (Props, []ui.Node) {
+func splitArgs(parseArgs ...any) (Props, []ui.Node) {
 	var parseProps Props
-	parseChildInputs := make([]interface{}, 0, len(parseArgs))
+	parseChildInputs := make([]any, 0, len(parseArgs))
 	for _, parseArg := range parseArgs {
 		switch parseTyped := parseArg.(type) {
 		case nil:
@@ -595,13 +596,9 @@ func mergeProps(parseBase Props, parseIncoming Props) Props {
 	parseOut.Data = mergeStringMap(parseOut.Data, parseIncoming.Data)
 	parseOut.Aria = mergeStringMap(parseOut.Aria, parseIncoming.Aria)
 	if len(parseIncoming.Raw) != 0 {
-		parseMergedRaw := make(map[string]interface{}, len(parseOut.Raw)+len(parseIncoming.Raw))
-		for parseK, parseV := range parseOut.Raw {
-			parseMergedRaw[parseK] = parseV
-		}
-		for parseK, parseV := range parseIncoming.Raw {
-			parseMergedRaw[parseK] = parseV
-		}
+		parseMergedRaw := make(map[string]any, len(parseOut.Raw)+len(parseIncoming.Raw))
+		maps.Copy(parseMergedRaw, parseOut.Raw)
+		maps.Copy(parseMergedRaw, parseIncoming.Raw)
 		parseOut.Raw = parseMergedRaw
 	}
 
@@ -648,11 +645,7 @@ func mergeStringMap(parseBase map[string]string, parseIncoming map[string]string
 		return parseBase
 	}
 	parseMerged := make(map[string]string, len(parseBase)+len(parseIncoming))
-	for parseK, parseV := range parseBase {
-		parseMerged[parseK] = parseV
-	}
-	for parseK, parseV := range parseIncoming {
-		parseMerged[parseK] = parseV
-	}
+	maps.Copy(parseMerged, parseBase)
+	maps.Copy(parseMerged, parseIncoming)
 	return parseMerged
 }

@@ -45,7 +45,7 @@ func TestScheduleUpdate_CreatesWipRoot(parseT *testing.T) {
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  make(map[string]interface{}),
+			props:  make(map[string]any),
 		},
 	}
 
@@ -74,7 +74,7 @@ func TestScheduleUpdate_PreventsDuplicates(parseT *testing.T) {
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  make(map[string]interface{}),
+			props:  make(map[string]any),
 		},
 	}
 
@@ -96,7 +96,7 @@ func TestWorkLoop_ProcessesWork(parseT *testing.T) {
 	// Create a simple fiber tree
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  map[string]interface{}{"children": []interface{}{}},
+		props:  map[string]any{"children": []any{}},
 		dirty:  true,
 	}
 
@@ -129,16 +129,16 @@ func TestWorkLoop_RespectsDeadline(parseT *testing.T) {
 	// Create a fiber with many children
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  map[string]interface{}{"children": []interface{}{}},
+		props:  map[string]any{"children": []any{}},
 		dirty:  true,
 	}
 
 	// Add many children to simulate heavy work
 	parseChild := parseRoot
-	for parseI := 0; parseI < 400; parseI++ {
+	for range 400 {
 		parseNextChild := &Fiber{
 			typeOf: "div",
-			props:  make(map[string]interface{}),
+			props:  make(map[string]any),
 			parent: parseRoot,
 			dirty:  true,
 		}
@@ -165,7 +165,7 @@ func TestScheduleUpdateForFiber_MarksParentsDirty(parseT *testing.T) {
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  make(map[string]interface{}),
+			props:  make(map[string]any),
 		},
 	}
 
@@ -200,7 +200,7 @@ func TestScheduleUpdateForFiberWithOrigin_UsesSpecificTrigger(parseT *testing.T)
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  make(map[string]interface{}),
+			props:  make(map[string]any),
 		},
 	}
 
@@ -221,7 +221,7 @@ func TestScheduleOwnedFiberUpdateWithOrigin_UsesLiveAlternateGranularPath(parseT
 	parseScheduler := newTestScheduler()
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	parseLiveOwner := &Fiber{typeOf: "owner", parent: parseRoot}
 	parseRoot.child = parseLiveOwner
@@ -257,7 +257,7 @@ func TestScheduleOwnedFiberUpdateWithOrigin_UsesDetachedOwnerFallbackBeforeMount
 	parseScheduler := newTestScheduler()
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	parseOwner := &Fiber{typeOf: "owner"}
 	parseRt := &Runtime{
@@ -282,7 +282,7 @@ func TestScheduleOwnedFiberUpdateWithOrigin_IgnoresDetachedOwnerWhenTreeIsMounte
 	parseScheduler := newTestScheduler()
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	parseRoot.child = &Fiber{typeOf: "app", parent: parseRoot}
 	parseOwner := &Fiber{typeOf: "owner"}
@@ -307,7 +307,7 @@ func TestScheduleSubscribedFiberUpdateWithOrigin_UsesGranularOrigin(parseT *test
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  make(map[string]interface{}),
+			props:  make(map[string]any),
 		},
 	}
 
@@ -331,7 +331,7 @@ func TestScheduleSubscribedFiberUpdateWithOrigin_UsesFineGrainedAncestor(parseT 
 	parseScheduler := newTestScheduler()
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	parseApp := &Fiber{typeOf: "app", parent: parseRoot}
 	parseRegion := &Fiber{typeOf: ReactiveRegionNodeType, parent: parseApp, fineGrained: true}
@@ -367,7 +367,7 @@ func TestScheduleSubscribedFiberUpdateWithOrigin_UsesLiveFineGrainedAlternate(pa
 	parseScheduler := newTestScheduler()
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	parseApp := &Fiber{typeOf: "app", parent: parseRoot}
 	parseLiveRegion := &Fiber{typeOf: ReactiveRegionNodeType, parent: parseApp, fineGrained: true}
@@ -411,7 +411,7 @@ func TestScheduleSubscribedFiberUpdateWithOrigin_UsesDetachedSubscriberFallback(
 		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
-			props:  make(map[string]interface{}),
+			props:  make(map[string]any),
 		},
 	}
 
@@ -433,7 +433,7 @@ func TestScheduleSubscribedFiberUpdateWithOrigin_IgnoresDetachedSubscriberWhenTr
 	parseScheduler := newTestScheduler()
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	parseRoot.child = &Fiber{typeOf: "app", parent: parseRoot}
 	parseRt := &Runtime{
@@ -457,7 +457,7 @@ func TestScheduleUpdateForFiberWithOrigin_PreservesTransitionOriginAcrossMixedMa
 	parseScheduler := newTestScheduler()
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 	}
 	parseOwner := &Fiber{typeOf: "owner", parent: parseRoot}
 	parseRoot.child = parseOwner
@@ -506,7 +506,7 @@ func TestEnqueueUI(parseT *testing.T) {
 func TestUIQueue_MultipleItems(parseT *testing.T) {
 	parseCount := 0
 
-	for parseI := 0; parseI < 10; parseI++ {
+	for range 10 {
 		EnqueueUI(func() {
 			parseCount++
 		})

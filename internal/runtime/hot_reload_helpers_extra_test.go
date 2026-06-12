@@ -12,16 +12,16 @@ func newHotReloadTestComponent(parseName string) *ComponentType {
 
 func TestHotReloadNormalizeHelpers(parseT *testing.T) {
 	parseNormalized := normalizeHotReloadFetchState(FetchState{
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"count": float64(3),
-			"items": []interface{}{float64(1), float64(2.5)},
+			"items": []any{float64(1), float64(2.5)},
 		},
 		Error: "   ",
 	})
 	if parseNormalized.Error != "" {
 		parseT.Fatalf("expected normalized empty error, got %q", parseNormalized.Error)
 	}
-	parseData, parseOk := parseNormalized.Data.(map[string]interface{})
+	parseData, parseOk := parseNormalized.Data.(map[string]any)
 	if !parseOk {
 		parseT.Fatalf("expected normalized map data, got %T", parseNormalized.Data)
 	}
@@ -32,7 +32,7 @@ func TestHotReloadNormalizeHelpers(parseT *testing.T) {
 	if normalizeHotReloadDeps(nil) != nil {
 		parseT.Fatalf("expected nil deps normalization for empty input")
 	}
-	parseDeps := normalizeHotReloadDeps([]interface{}{float64(4), map[string]interface{}{"n": float64(5)}})
+	parseDeps := normalizeHotReloadDeps([]any{float64(4), map[string]any{"n": float64(5)}})
 	if len(parseDeps) != 2 {
 		parseT.Fatalf("expected deps normalization output")
 	}
@@ -46,27 +46,27 @@ func TestHotReloadNormalizeHelpers(parseT *testing.T) {
 }
 
 func TestCoerceHotReloadValue(parseT *testing.T) {
-	if parseValue, parseOk := coerceHotReloadValue("hello", reflect.TypeOf("")); !parseOk || parseValue.(string) != "hello" {
+	if parseValue, parseOk := coerceHotReloadValue("hello", reflect.TypeFor[string]()); !parseOk || parseValue.(string) != "hello" {
 		parseT.Fatalf("expected assignable coercion, got %#v ok=%t", parseValue, parseOk)
 	}
-	if parseValue2, parseOk2 := coerceHotReloadValue(float64(9), reflect.TypeOf(int(0))); !parseOk2 || parseValue2.(int) != 9 {
+	if parseValue2, parseOk2 := coerceHotReloadValue(float64(9), reflect.TypeFor[int]()); !parseOk2 || parseValue2.(int) != 9 {
 		parseT.Fatalf("expected convertible coercion, got %#v ok=%t", parseValue2, parseOk2)
 	}
-	if parseValue3, parseOk3 := coerceHotReloadValue(123, reflect.TypeOf((*interface{})(nil)).Elem()); !parseOk3 || parseValue3.(int) != 123 {
+	if parseValue3, parseOk3 := coerceHotReloadValue(123, reflect.TypeFor[any]()); !parseOk3 || parseValue3.(int) != 123 {
 		parseT.Fatalf("expected empty interface coercion, got %#v ok=%t", parseValue3, parseOk3)
 	}
 
 	type payload struct {
 		Name string `json:"name"`
 	}
-	if parseValue4, parseOk4 := coerceHotReloadValue(map[string]interface{}{"name": "cam"}, reflect.TypeOf(payload{})); !parseOk4 || parseValue4.(payload).Name != "cam" {
+	if parseValue4, parseOk4 := coerceHotReloadValue(map[string]any{"name": "cam"}, reflect.TypeFor[payload]()); !parseOk4 || parseValue4.(payload).Name != "cam" {
 		parseT.Fatalf("expected JSON struct coercion, got %#v ok=%t", parseValue4, parseOk4)
 	}
-	if parseValue5, parseOk5 := coerceHotReloadValue(map[string]interface{}{"name": "cam"}, reflect.TypeOf(&payload{})); !parseOk5 || parseValue5.(*payload).Name != "cam" {
+	if parseValue5, parseOk5 := coerceHotReloadValue(map[string]any{"name": "cam"}, reflect.TypeFor[*payload]()); !parseOk5 || parseValue5.(*payload).Name != "cam" {
 		parseT.Fatalf("expected JSON pointer coercion, got %#v ok=%t", parseValue5, parseOk5)
 	}
 
-	if _, parseOk6 := coerceHotReloadValue(func() {}, reflect.TypeOf(payload{})); parseOk6 {
+	if _, parseOk6 := coerceHotReloadValue(func() {}, reflect.TypeFor[payload]()); parseOk6 {
 		parseT.Fatalf("expected non-serializable value coercion to fail")
 	}
 }
@@ -82,14 +82,14 @@ func TestHotReloadSnapshotCaptureAndRestoreHelpers(parseT *testing.T) {
 
 	parseComponentFiber := &Fiber{
 		typeOf: newHotReloadTestComponent("Counter"),
-		props:  map[string]interface{}{"key": "counter-key"},
+		props:  map[string]any{"key": "counter-key"},
 		hooks: &Hooks{
 			signature: []string{"state", "memo", "ref", "id", "fetch"},
-			states:    []interface{}{float64(11), nil},
-			memos:     []memoizedValue{{value: map[string]interface{}{"n": float64(3)}, deps: []interface{}{float64(5)}}},
+			states:    []any{float64(11), nil},
+			memos:     []memoizedValue{{value: map[string]any{"n": float64(3)}, deps: []any{float64(5)}}},
 			refs:      []*RefValue{{Current: float64(4)}},
 			ids:       []string{"id-1"},
-			fetches:   []fetchValue{{url: "/api/items", state: FetchState{Loading: true, Data: map[string]interface{}{"total": float64(6)}}}},
+			fetches:   []fetchValue{{url: "/api/items", state: FetchState{Loading: true, Data: map[string]any{"total": float64(6)}}}},
 		},
 	}
 	parseRoot := &Fiber{typeOf: "ROOT", child: parseComponentFiber}
@@ -129,15 +129,15 @@ func TestHotReloadHooksRestoreAndCompatibilityHelpers(parseT *testing.T) {
 			Key:           "counter-key",
 			HookKinds:     []string{"state", "memo", "ref", "id", "fetch"},
 		},
-		States: []interface{}{float64(2)},
-		Memos:  []HotReloadMemoSnapshot{{Value: map[string]interface{}{"n": float64(7)}, Deps: []interface{}{float64(9)}}},
-		Refs:   []interface{}{float64(10)},
+		States: []any{float64(2)},
+		Memos:  []HotReloadMemoSnapshot{{Value: map[string]any{"n": float64(7)}, Deps: []any{float64(9)}}},
+		Refs:   []any{float64(10)},
 		IDs:    []string{"", "id-restored"},
 		Fetches: []HotReloadFetchSnapshot{{
 			URL: "/api/items",
 			State: FetchState{
 				Loading: true,
-				Data:    map[string]interface{}{"count": float64(3)},
+				Data:    map[string]any{"count": float64(3)},
 			},
 		}},
 	}
@@ -145,7 +145,7 @@ func TestHotReloadHooksRestoreAndCompatibilityHelpers(parseT *testing.T) {
 	if parseState, parseOk := parseHooks.restoreStateValue(0); !parseOk || parseState.(int) != 2 {
 		parseT.Fatalf("restore state value failed: %#v ok=%t", parseState, parseOk)
 	}
-	if parseMemoValue, parseDeps, parseOk2 := parseHooks.restoreMemoValue(0); !parseOk2 || parseMemoValue.(map[string]interface{})["n"].(int) != 7 || parseDeps[0].(int) != 9 {
+	if parseMemoValue, parseDeps, parseOk2 := parseHooks.restoreMemoValue(0); !parseOk2 || parseMemoValue.(map[string]any)["n"].(int) != 7 || parseDeps[0].(int) != 9 {
 		parseT.Fatalf("restore memo value failed: value=%#v deps=%#v ok=%t", parseMemoValue, parseDeps, parseOk2)
 	}
 	if parseRefValue, parseOk3 := parseHooks.restoreRefValue(0); !parseOk3 || parseRefValue.(int) != 10 {
@@ -157,7 +157,7 @@ func TestHotReloadHooksRestoreAndCompatibilityHelpers(parseT *testing.T) {
 	if parseId, parseOk5 := parseHooks.restoreIDValue(1); !parseOk5 || parseId != "id-restored" {
 		parseT.Fatalf("restore id value failed: %q ok=%t", parseId, parseOk5)
 	}
-	if parseFetchState, parseOk6 := parseHooks.restoreFetchValue(0, "/api/items"); !parseOk6 || parseFetchState.Data.(map[string]interface{})["count"].(int) != 3 {
+	if parseFetchState, parseOk6 := parseHooks.restoreFetchValue(0, "/api/items"); !parseOk6 || parseFetchState.Data.(map[string]any)["count"].(int) != 3 {
 		parseT.Fatalf("restore fetch value failed: %#v ok=%t", parseFetchState, parseOk6)
 	}
 	if _, parseOk7 := parseHooks.restoreFetchValue(0, "/api/other"); parseOk7 {
@@ -166,7 +166,7 @@ func TestHotReloadHooksRestoreAndCompatibilityHelpers(parseT *testing.T) {
 
 	parseComponentFiber := &Fiber{
 		typeOf: newHotReloadTestComponent("Counter"),
-		props:  map[string]interface{}{"key": "counter-key"},
+		props:  map[string]any{"key": "counter-key"},
 		hooks:  &Hooks{signature: []string{"state", "memo", "ref", "id", "fetch"}},
 	}
 	if !componentSnapshotCompatible(parseRestore, parseComponentFiber) {
@@ -265,7 +265,7 @@ func TestCoercionFailureEmitsDiagnostic(parseT *testing.T) {
 			QualifiedName: "example/CoerceTest",
 			HookKinds:     []string{"state"},
 		},
-		States: []interface{}{parseIncompatible},
+		States: []any{parseIncompatible},
 	}
 
 	parseRoot := &Fiber{typeOf: "ROOT"}

@@ -15,11 +15,11 @@ func TestPortalRetriesUnresolvedTargetOnNextCommit(parseT *testing.T) {
 	parseApp := parseAdapter.CreateElement("div")
 
 	buildTree := func(parseLabel string) *Element {
-		return CreateElement("section", map[string]interface{}{"id": "shell"},
-			CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#late-root"},
-				CreateElement("div", map[string]interface{}{"id": "portaled"}, parseLabel),
+		return CreateElement("section", map[string]any{"id": "shell"},
+			CreateElement(PortalNodeType, map[string]any{"portalTargetSelector": "#late-root"},
+				CreateElement("div", map[string]any{"id": "portaled"}, parseLabel),
 			),
-			CreateElement("p", map[string]interface{}{"id": "inline"}, "inline"),
+			CreateElement("p", map[string]any{"id": "inline"}, "inline"),
 		)
 	}
 

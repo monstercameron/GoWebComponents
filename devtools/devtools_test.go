@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package devtools
 
@@ -183,7 +182,7 @@ func TestSerializationBoundaryInspectionRoundTripsClonedState(parseT *testing.T)
 }
 
 func TestInspectBootstrapBoundariesSummarizesPayloads(parseT *testing.T) {
-	parseBootstrap := ui.SSRBootstrap{Data: map[string]interface{}{
+	parseBootstrap := ui.SSRBootstrap{Data: map[string]any{
 		"legacy-message": "hello",
 	}}
 	if parseErr := ui.RegisterRouteBootstrapData(&parseBootstrap, "catalog", "/products", map[string]string{"sku": "atlas-1"}); parseErr != nil {

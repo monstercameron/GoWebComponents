@@ -40,7 +40,7 @@ type PathRef struct {
 // or generated trees, and the historical example-site snapshot docs that
 // intentionally preserve the old numbered catalog for the record.
 var dirsSkipped = map[string]bool{
-	".git":        true,
+	".git":         true,
 	"node_modules": true,
 	"third_party":  true,
 	"bin":          true,
@@ -55,11 +55,11 @@ const snapshotDocDir = "examples/public-examples-site/assets/docs"
 // outputFlags precede command arguments that name where output is written, so
 // the referenced path is not expected to exist before the command runs.
 var outputFlags = map[string]bool{
-	"-o":         true,
-	"-out":       true,
-	"-output":    true,
-	"-out-dir":   true,
-	"-outdir":    true,
+	"-o":                     true,
+	"-out":                   true,
+	"-output":                true,
+	"-out-dir":               true,
+	"-outdir":                true,
 	"-export-static-catalog": true,
 }
 
@@ -98,7 +98,7 @@ var placeholderHints = []string{
 // go.mod, returning the module root. It returns ok=false if none is found.
 func FindRepoRoot(start string) (root string, ok bool) {
 	dir := start
-	for i := 0; i < 12; i++ {
+	for range 12 {
 		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return dir, true
 		}
@@ -242,8 +242,8 @@ func candidatesInLine(line string, topLevel map[string]bool) []PathRef {
 			continue
 		}
 		first := rel
-		if idx := strings.IndexByte(rel, '/'); idx >= 0 {
-			first = rel[:idx]
+		if before, _, ok := strings.Cut(rel, "/"); ok {
+			first = before
 		}
 		if !topLevel[first] {
 			continue

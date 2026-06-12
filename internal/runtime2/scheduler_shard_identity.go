@@ -2,6 +2,8 @@ package runtime2
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 )
@@ -125,9 +127,7 @@ func (parseSchedulerShardModel *SchedulerShardModel) GetSchedulerRegionAssignmen
 		return map[string]SchedulerShardID{}
 	}
 	getSchedulerRegionAssignments := make(map[string]SchedulerShardID, len(parseSchedulerShardModel.storeSchedulerShardByRegionID))
-	for getRegionID, getSchedulerShardID := range parseSchedulerShardModel.storeSchedulerShardByRegionID {
-		getSchedulerRegionAssignments[getRegionID] = getSchedulerShardID
-	}
+	maps.Copy(getSchedulerRegionAssignments, parseSchedulerShardModel.storeSchedulerShardByRegionID)
 	return getSchedulerRegionAssignments
 }
 
@@ -164,9 +164,7 @@ func parseSchedulerShardList(parseSchedulerShardIDs []SchedulerShardID) ([]Sched
 		getSchedulerShardUnique[getSchedulerShardID] = struct{}{}
 		getSchedulerShardList = append(getSchedulerShardList, getSchedulerShardID)
 	}
-	sort.Slice(getSchedulerShardList, func(getLeftIndex, getRightIndex int) bool {
-		return getSchedulerShardList[getLeftIndex] < getSchedulerShardList[getRightIndex]
-	})
+	slices.Sort(getSchedulerShardList)
 	return getSchedulerShardList, nil
 }
 

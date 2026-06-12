@@ -368,15 +368,15 @@ func TestRunWasmCompareCompressionIncludesOptimizedVariants(parseT *testing.T) {
 			parseT.Fatalf("expected optimized variant %q in summary", parseKey)
 		}
 	}
-	parseOptimizedCompressed, parseOk2 := parseSummary.Variants["optimized_compressed"].(map[string]interface{})
+	parseOptimizedCompressed, parseOk2 := parseSummary.Variants["optimized_compressed"].(map[string]any)
 	if !parseOk2 {
 		parseT.Fatalf("expected optimized compressed variant payload, got %#v", parseSummary.Variants["optimized_compressed"])
 	}
-	parseParityChecks, parseOk2 := parseOptimizedCompressed["parity_checks"].(map[string]interface{})
+	parseParityChecks, parseOk2 := parseOptimizedCompressed["parity_checks"].(map[string]any)
 	if !parseOk2 {
 		parseT.Fatalf("expected parity checks in optimized compressed payload, got %#v", parseOptimizedCompressed)
 	}
-	parseRawToDelivery, parseOk2 := parseParityChecks["raw_to_delivery_copy"].(map[string]interface{})
+	parseRawToDelivery, parseOk2 := parseParityChecks["raw_to_delivery_copy"].(map[string]any)
 	if !parseOk2 {
 		parseT.Fatalf("expected raw_to_delivery_copy parity entry, got %#v", parseParityChecks)
 	}

@@ -91,16 +91,10 @@ func ComputeViewportState(parseConfig ViewportConfig, parseScrollTop, parseViewp
 	}
 
 	parseVisibleStart := clampIndex(int(math.Floor(parseScrollTop/parseNormalized.RowHeight)), parseNormalized.TotalItems)
-	parseVisibleEnd := clampIndex(int(math.Ceil((parseScrollTop+parseViewportHeight)/parseNormalized.RowHeight)), parseNormalized.TotalItems)
-	if parseVisibleEnd < parseVisibleStart {
-		parseVisibleEnd = parseVisibleStart
-	}
+	parseVisibleEnd := max(clampIndex(int(math.Ceil((parseScrollTop+parseViewportHeight)/parseNormalized.RowHeight)), parseNormalized.TotalItems), parseVisibleStart)
 
 	parseRenderedStart := clampIndex(parseVisibleStart-parseNormalized.Overscan, parseNormalized.TotalItems)
-	parseRenderedEnd := clampIndex(parseVisibleEnd+parseNormalized.Overscan, parseNormalized.TotalItems)
-	if parseRenderedEnd < parseRenderedStart {
-		parseRenderedEnd = parseRenderedStart
-	}
+	parseRenderedEnd := max(clampIndex(parseVisibleEnd+parseNormalized.Overscan, parseNormalized.TotalItems), parseRenderedStart)
 
 	parseState.Visible = Range{Start: parseVisibleStart, End: parseVisibleEnd}
 	parseState.Rendered = Range{Start: parseRenderedStart, End: parseRenderedEnd}
@@ -109,14 +103,8 @@ func ComputeViewportState(parseConfig ViewportConfig, parseScrollTop, parseViewp
 
 // Diagnostics converts a viewport state into an inspection-friendly summary.
 func (parseS ViewportState) Diagnostics() ViewportDiagnostics {
-	parseBefore := parseS.Visible.Start - parseS.Rendered.Start
-	if parseBefore < 0 {
-		parseBefore = 0
-	}
-	parseAfter := parseS.Rendered.End - parseS.Visible.End
-	if parseAfter < 0 {
-		parseAfter = 0
-	}
+	parseBefore := max(parseS.Visible.Start-parseS.Rendered.Start, 0)
+	parseAfter := max(parseS.Rendered.End-parseS.Visible.End, 0)
 	return ViewportDiagnostics{
 		ScrollTop:             parseS.ScrollTop,
 		ViewportHeight:        parseS.ViewportHeight,

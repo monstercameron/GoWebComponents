@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -64,7 +65,7 @@ type PanicReport struct {
 }
 
 type reportedPanic struct {
-	Original interface{}
+	Original any
 }
 
 type PanicLoggingOptions struct {
@@ -115,7 +116,7 @@ func shouldHideRawPanicOutput() bool {
 }
 
 // wrappedPanicString is a core package helper.
-func wrappedPanicString(parseRecovered interface{}) (string, bool) {
+func wrappedPanicString(parseRecovered any) (string, bool) {
 	parseMessage, parseOk := parseRecovered.(string)
 	if !parseOk {
 		return "", false
@@ -136,17 +137,13 @@ func mergePanicReportFields(parsePrimary map[string]string, parseExtra map[strin
 		return nil
 	}
 	parseMerged := map[string]string{}
-	for parseKey, parseValue := range parsePrimary {
-		parseMerged[parseKey] = parseValue
-	}
-	for parseKey2, parseValue2 := range parseExtra {
-		parseMerged[parseKey2] = parseValue2
-	}
+	maps.Copy(parseMerged, parsePrimary)
+	maps.Copy(parseMerged, parseExtra)
 	return parseMerged
 }
 
 // unwrapReportedPanic is a core package helper.
-func unwrapReportedPanic(parseRecovered interface{}) (interface{}, bool) {
+func unwrapReportedPanic(parseRecovered any) (any, bool) {
 	parseCurrent := parseRecovered
 	isParseUnwrapped := false
 	for {
@@ -323,8 +320,8 @@ func shortenPanicFilePath(parsePath string) string {
 		return ""
 	}
 	parseMarker := "/" + frameworkWorkspaceName + "/"
-	if parseIndex := strings.Index(parseNormalized, parseMarker); parseIndex >= 0 {
-		return parseNormalized[parseIndex+len(parseMarker):]
+	if _, after, ok := strings.Cut(parseNormalized, parseMarker); ok {
+		return after
 	}
 	parseParts := strings.Split(parseNormalized, "/")
 	if len(parseParts) <= 3 {
@@ -404,7 +401,7 @@ func panicPhaseMayRecoverWithBoundary(parsePhase PanicPhase) bool {
 }
 
 // buildPanicReportContext is a core package helper.
-func buildPanicReportContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) panicReportContext {
+func buildPanicReportContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered any) panicReportContext {
 	parseFrames := parsePanicFrames(debug.Stack())
 	parseContext := panicReportContext{
 		Source:         strings.TrimSpace(parseSource),
@@ -654,7 +651,7 @@ func ActionableFrameworkPanic(parseOptions ActionablePanicOptions) string {
 }
 
 // buildUnhandledPanicReport is a core package helper.
-func buildUnhandledPanicReport(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) PanicReport {
+func buildUnhandledPanicReport(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered any) PanicReport {
 	parseContext := buildPanicReportContext(parseSource, parsePhase, parseSubject, parsePath, parseComponentStack, parseRecovered)
 	reportDiagnosticWithContextDetails(
 		parseContext.Source,
@@ -674,7 +671,7 @@ func buildUnhandledPanicReport(parseSource string, parsePhase PanicPhase, parseS
 }
 
 // ReportUnhandledPanicContext is a core package helper.
-func ReportUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) string {
+func ReportUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered any) string {
 	if parseMessage, parseOk := wrappedPanicString(parseRecovered); parseOk {
 		return parseMessage
 	}
@@ -682,7 +679,7 @@ func ReportUnhandledPanicContext(parseSource string, parsePhase PanicPhase, pars
 }
 
 // recoveredAsError is a core package helper.
-func recoveredAsError(parseRecovered interface{}) error {
+func recoveredAsError(parseRecovered any) error {
 	switch parseTyped := parseRecovered.(type) {
 	case nil:
 		return nil
@@ -696,7 +693,7 @@ func recoveredAsError(parseRecovered interface{}) error {
 }
 
 // finalizeUnhandledPanicContext is a core package helper.
-func finalizeUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) (interface{}, bool) {
+func finalizeUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered any) (any, bool) {
 	if parseOriginal, parseOk := unwrapReportedPanic(parseRecovered); parseOk {
 		if shouldHideRawPanicOutput() {
 			return parseOriginal, true
@@ -712,7 +709,7 @@ func finalizeUnhandledPanicContext(parseSource string, parsePhase PanicPhase, pa
 }
 
 // markUnhandledPanicContext is a core package helper.
-func markUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) interface{} {
+func markUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered any) any {
 	if parseOriginal, parseOk := unwrapReportedPanic(parseRecovered); parseOk {
 		return reportedPanic{Original: parseOriginal}
 	}
@@ -722,11 +719,11 @@ func markUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseS
 }
 
 // panicFinalUnhandledPanicContext is a core package helper.
-func panicFinalUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) {
+func panicFinalUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered any) {
 	_, _ = finalizeUnhandledPanicContext(parseSource, parsePhase, parseSubject, parsePath, parseComponentStack, parseRecovered)
 }
 
 // FinalizeUnhandledPanicContext is a core package helper.
-func FinalizeUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) (interface{}, bool) {
+func FinalizeUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered any) (any, bool) {
 	return finalizeUnhandledPanicContext(parseSource, parsePhase, parseSubject, parsePath, parseComponentStack, parseRecovered)
 }

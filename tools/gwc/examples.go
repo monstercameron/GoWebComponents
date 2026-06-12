@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -155,7 +156,7 @@ func (parseL launcher) newExamplesHandler(parseHost string, parsePort string) ht
 
 	parseMux := http.NewServeMux()
 	parseMux.HandleFunc("/healthz", func(parseW http.ResponseWriter, parseR *http.Request) {
-		writeJSON(parseW, http.StatusOK, map[string]interface{}{
+		writeJSON(parseW, http.StatusOK, map[string]any{
 			"ok":      true,
 			"service": "gowebcomponents-gwc-examples",
 			"time":    time.Now().UTC().Format(time.RFC3339),
@@ -1046,10 +1047,8 @@ func exampleCatalogTags(parseDirName string, parseWasmBinary string, isUsesWasm 
 
 func hasAnyTag(parseTags []string, parseExpected ...string) bool {
 	for _, parseTag := range parseTags {
-		for _, parseCandidate := range parseExpected {
-			if parseTag == parseCandidate {
-				return true
-			}
+		if slices.Contains(parseExpected, parseTag) {
+			return true
 		}
 	}
 	return false
@@ -1121,9 +1120,9 @@ func renderExamplesShellHTML(parseDocument examplesShellDocument) string {
 	parseBootstrapScript := renderExamplesBootstrapDataScript(parseDocument)
 	parseLoaderScript := renderExamplesLoaderScriptTag(parseDocument.WasmURL, parseDocument.FailureTitle, parseDocument.FailureMessage, parseDocument.FailureHref, parseDocument.FailureLinkLabel)
 	parseHeadChildren := []ui.Node{
-		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"charset": "utf-8"}}),
-		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"name": "viewport", "content": "width=device-width, initial-scale=1"}}),
-		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"name": "description", "content": parseDocument.Description}}),
+		gwchtml.Meta(gwchtml.Props{Raw: map[string]any{"charset": "utf-8"}}),
+		gwchtml.Meta(gwchtml.Props{Raw: map[string]any{"name": "viewport", "content": "width=device-width, initial-scale=1"}}),
+		gwchtml.Meta(gwchtml.Props{Raw: map[string]any{"name": "description", "content": parseDocument.Description}}),
 		gwchtml.Tag("title", gwchtml.Props{}, gwchtml.Text(parseDocument.Title)),
 		gwchtml.Link(gwchtml.Props{Rel: "stylesheet", Href: "/static/css/tailwind.css"}),
 		gwchtml.Link(gwchtml.Props{Rel: "stylesheet", Href: "/static/css/example-shell.css"}),
@@ -1148,7 +1147,7 @@ func renderExamplesShellHTML(parseDocument examplesShellDocument) string {
 	}
 
 	parseBodyProps := gwchtml.Props{Class: parseDocument.BodyClass, Data: parseDocument.BodyData}
-	parseMarkup, parseErr := renderExamplesToString(gwchtml.Html(gwchtml.Props{Raw: map[string]interface{}{"lang": "en"}},
+	parseMarkup, parseErr := renderExamplesToString(gwchtml.Html(gwchtml.Props{Raw: map[string]any{"lang": "en"}},
 		gwchtml.Head(gwchtml.Props{}, parseHeadChildren...),
 		gwchtml.Body(parseBodyProps, parseBodyChildren...),
 	))
@@ -1167,8 +1166,8 @@ func renderExamplesShellHTML(parseDocument examplesShellDocument) string {
 func renderExamplesBootstrapDataScript(parseDocument examplesShellDocument) string {
 	parseBootstrap := ui.SSRBootstrap{
 		Route: ui.SSRRouteBootstrap{Path: parseDocument.RoutePath},
-		Data: map[string]interface{}{
-			"examples": map[string]interface{}{
+		Data: map[string]any{
+			"examples": map[string]any{
 				"mode":        "server",
 				"catalogURL":  "/examples/catalog.json",
 				"assetBase":   "/static/",
@@ -1247,11 +1246,12 @@ func renderExamplesShellHTMLFallback(parseDocument examplesShellDocument, parseB
 	if strings.TrimSpace(parseDocument.NoScriptMessage) != "" {
 		parseNoscript = "\n  <noscript><main style=\"max-width:72rem;margin:0 auto;padding:2rem;font-family:'Segoe UI Variable','Segoe UI',sans-serif;\"><h1>" + escapeHTML(parseDocument.FailureTitle) + "</h1><p>" + escapeHTML(parseDocument.NoScriptMessage) + "</p><p><a href=\"" + escapeHTML(parseDocument.NoScriptHref) + "\">" + escapeHTML(parseDocument.NoScriptLinkLabel) + "</a></p></main></noscript>"
 	}
-	parseBodyAttrs := " class=\"" + escapeHTML(parseDocument.BodyClass) + "\""
+	var parseBodyAttrs strings.Builder
+	parseBodyAttrs.WriteString(" class=\"" + escapeHTML(parseDocument.BodyClass) + "\"")
 	for parseKey, parseValue := range parseDocument.BodyData {
-		parseBodyAttrs += " data-" + escapeHTML(parseKey) + "=\"" + escapeHTML(parseValue) + "\""
+		parseBodyAttrs.WriteString(" data-" + escapeHTML(parseKey) + "=\"" + escapeHTML(parseValue) + "\"")
 	}
-	return "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <meta name=\"description\" content=\"" + escapeHTML(parseDocument.Description) + "\">" + parseManifestLink + "\n  <title>" + escapeHTML(parseDocument.Title) + "</title>\n  <link rel=\"stylesheet\" href=\"/static/css/tailwind.css\">\n  <link rel=\"stylesheet\" href=\"/static/css/example-shell.css\">\n  <script src=\"/static/script/wasm_exec.js\"></script>\n  <script src=\"/static/script/example-logger.js\"></script>\n</head>\n<body" + parseBodyAttrs + ">\n  <div id=\"app\"></div>" + parseNoscript + parseBootstrapScript + "\n  <script>\n" + renderExamplesBootstrapScript(parseDocument.WasmURL, parseDocument.FailureTitle, parseDocument.FailureMessage, parseDocument.FailureHref, parseDocument.FailureLinkLabel) + "\n  </script>\n</body>\n</html>"
+	return "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <meta name=\"description\" content=\"" + escapeHTML(parseDocument.Description) + "\">" + parseManifestLink + "\n  <title>" + escapeHTML(parseDocument.Title) + "</title>\n  <link rel=\"stylesheet\" href=\"/static/css/tailwind.css\">\n  <link rel=\"stylesheet\" href=\"/static/css/example-shell.css\">\n  <script src=\"/static/script/wasm_exec.js\"></script>\n  <script src=\"/static/script/example-logger.js\"></script>\n</head>\n<body" + parseBodyAttrs.String() + ">\n  <div id=\"app\"></div>" + parseNoscript + parseBootstrapScript + "\n  <script>\n" + renderExamplesBootstrapScript(parseDocument.WasmURL, parseDocument.FailureTitle, parseDocument.FailureMessage, parseDocument.FailureHref, parseDocument.FailureLinkLabel) + "\n  </script>\n</body>\n</html>"
 }
 
 func jsStringLiteral(parseValue string) string {

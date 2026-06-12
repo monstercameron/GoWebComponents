@@ -4,15 +4,15 @@ import "fmt"
 
 // PatchReplaceSubtreePayloadRaw stores one replacement-subtree payload in wire format.
 type PatchReplaceSubtreePayloadRaw struct {
-	RootNodeID  uint64              `json:"root_node_id"`
-	StringTable []string            `json:"string_table,omitempty"`
+	RootNodeID  uint64                `json:"root_node_id"`
+	StringTable []string              `json:"string_table,omitempty"`
 	NodeRecords []RenderNodeRecordRaw `json:"node_records"`
 	PropRecords []RenderPropRecordRaw `json:"prop_records,omitempty"`
 }
 
 // PatchReplaceSubtreeOpRaw stores the wire-format payload for one replace-subtree patch op.
 type PatchReplaceSubtreeOpRaw struct {
-	TargetNodeID uint64                       `json:"target_node_id"`
+	TargetNodeID uint64                        `json:"target_node_id"`
 	Subtree      PatchReplaceSubtreePayloadRaw `json:"subtree"`
 }
 

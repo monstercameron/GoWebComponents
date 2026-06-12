@@ -2,6 +2,7 @@ package runtime2
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 )
 
@@ -432,9 +433,7 @@ func (parseDOMCommitter *DOMCommitter) CommitRegionReplaceSubtree(parseRegionID 
 		parseReplacementRootNode.GetParentNodeID = 0
 	}
 	parseDeleteNodeIDs(parseRegionNodeByNodeID, parseTargetNodeID)
-	for getNodeID, getNode := range parseReplacementNodeByNodeID {
-		parseRegionNodeByNodeID[getNodeID] = getNode
-	}
+	maps.Copy(parseRegionNodeByNodeID, parseReplacementNodeByNodeID)
 	parseDOMCommitter.storeCommitMutationVersion(parseRegionID)
 	return DOMCommitResult{}, nil
 }
@@ -623,7 +622,7 @@ func (parseDOMCommitter *DOMCommitter) CommitRegionPatchTransaction(parseTransac
 				parseDOMCommitter.parseRestoreRegionSnapshot(parseTransaction.GetRegionID, parseRegionSnapshot)
 			} else {
 				parseRestoreCommitNodeSnapshot(parseRegionNodeMap, parseNodeSnapshotByID)
-				if parseRegionNodeMap != nil && len(parseRegionNodeMap) > 0 {
+				if len(parseRegionNodeMap) > 0 {
 					parseDOMCommitter.getRegionDOMIndex.storeRegionDOMNodeByRegionID[parseTransaction.GetRegionID] = parseRegionNodeMap
 				}
 			}
@@ -1056,9 +1055,7 @@ func parseCloneRegionDOMNode(parseRegionDOMNode *RegionDOMNode) *RegionDOMNode {
 	var parseCloneAttrByKey map[string]string
 	if len(parseRegionDOMNode.GetAttrByKey) > 0 {
 		parseCloneAttrByKey = make(map[string]string, len(parseRegionDOMNode.GetAttrByKey))
-		for getAttrKey, getAttrValue := range parseRegionDOMNode.GetAttrByKey {
-			parseCloneAttrByKey[getAttrKey] = getAttrValue
-		}
+		maps.Copy(parseCloneAttrByKey, parseRegionDOMNode.GetAttrByKey)
 	}
 	return &RegionDOMNode{
 		GetNodeID:       parseRegionDOMNode.GetNodeID,
@@ -1079,9 +1076,7 @@ func parseCloneRegionDOMNodeForNonStructuralRollback(parseRegionDOMNode *RegionD
 	var parseCloneAttrByKey map[string]string
 	if len(parseRegionDOMNode.GetAttrByKey) > 0 {
 		parseCloneAttrByKey = make(map[string]string, len(parseRegionDOMNode.GetAttrByKey))
-		for getAttrKey, getAttrValue := range parseRegionDOMNode.GetAttrByKey {
-			parseCloneAttrByKey[getAttrKey] = getAttrValue
-		}
+		maps.Copy(parseCloneAttrByKey, parseRegionDOMNode.GetAttrByKey)
 	}
 	return &RegionDOMNode{
 		GetNodeID:       parseRegionDOMNode.GetNodeID,

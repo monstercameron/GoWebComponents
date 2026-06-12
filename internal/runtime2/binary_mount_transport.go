@@ -246,7 +246,7 @@ func hasBinarySpanMatchingText(parseSpan []byte, parseText string) bool {
 	if len(parseSpan) != len(parseText) {
 		return false
 	}
-	for parseIndex := 0; parseIndex < len(parseSpan); parseIndex++ {
+	for parseIndex := range parseSpan {
 		if parseSpan[parseIndex] != parseText[parseIndex] {
 			return false
 		}

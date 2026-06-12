@@ -2,6 +2,7 @@ package runtime2
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 	"strings"
@@ -67,9 +68,7 @@ func parseBuildCanonicalPropsLegacyBenchmark(parseMapValue map[string]any) ([]Re
 	if parsePropsValue, hasPropsValue := parseMapValue["props"]; hasPropsValue {
 		switch getPropsValue := parsePropsValue.(type) {
 		case map[string]any:
-			for getPropKey, getPropValue := range getPropsValue {
-				buildRawValueByKey[getPropKey] = getPropValue
-			}
+			maps.Copy(buildRawValueByKey, getPropsValue)
 		case map[string]string:
 			for getPropKey, getPropValue := range getPropsValue {
 				buildRawValueByKey[getPropKey] = getPropValue
@@ -78,9 +77,7 @@ func parseBuildCanonicalPropsLegacyBenchmark(parseMapValue map[string]any) ([]Re
 			parseReflectProps := reflect.ValueOf(parsePropsValue)
 			buildPropsValue, parsePropsErr := parseBuildCanonicalMapValue(parseReflectProps)
 			if parsePropsErr == nil {
-				for getPropKey, getPropValue := range buildPropsValue {
-					buildRawValueByKey[getPropKey] = getPropValue
-				}
+				maps.Copy(buildRawValueByKey, buildPropsValue)
 			}
 		}
 	}
@@ -153,7 +150,6 @@ func BenchmarkParseBuildCanonicalPropsCurrentVsLegacy(parseB *testing.B) {
 		{getName: "many_props", getPayload: buildRenderPropsBenchmarkPayloadMany()},
 	}
 	for _, getPayload := range buildPayloads {
-		getPayload := getPayload
 		parseB.Run(getPayload.getName+"/legacy", func(parseB *testing.B) {
 			parseB.ReportAllocs()
 			parseB.ResetTimer()

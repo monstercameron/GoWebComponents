@@ -9,11 +9,11 @@ var parseFormatRenderStyleScalarBenchmarkSink string
 
 // TestFormatRenderStyleValueEquivalentStylesNormalizeConsistently verifies logically equivalent styles normalize identically.
 func TestFormatRenderStyleValueEquivalentStylesNormalizeConsistently(parseTesting *testing.T) {
-	parseStyleA := map[string]interface{}{
+	parseStyleA := map[string]any{
 		"color":  "red",
 		"margin": 0,
 	}
-	parseStyleB := map[string]interface{}{
+	parseStyleB := map[string]any{
 		"margin": 0,
 		"color":  "red",
 	}
@@ -40,7 +40,7 @@ func TestFormatRenderStyleValueInvalidPayloadFails(parseTesting *testing.T) {
 
 // TestFormatRenderStyleValueUnsupportedNestedShapeFails verifies nested style structures are rejected.
 func TestFormatRenderStyleValueUnsupportedNestedShapeFails(parseTesting *testing.T) {
-	parseNestedStyle := map[string]interface{}{
+	parseNestedStyle := map[string]any{
 		"color": map[string]string{
 			"base": "red",
 		},
@@ -72,7 +72,7 @@ func TestFormatRenderStyleValueWhitespaceNormalizedAcrossInputs(parseTesting *te
 		parseTesting.Fatalf("FormatRenderStyleValue(string map style) = %q, want %q", parseStringMapStyle, parseStringStyle)
 	}
 
-	parseAnyMapStyle, parseAnyMapStyleErr := FormatRenderStyleValue(map[string]interface{}{
+	parseAnyMapStyle, parseAnyMapStyleErr := FormatRenderStyleValue(map[string]any{
 		" margin ": " 0 ",
 		" color ":  " red ",
 	})
@@ -92,7 +92,7 @@ func TestFormatRenderStyleValueRejectsInvalidStringAndCollisionShapes(parseTesti
 	if _, parseErr := FormatRenderStyleValue(":red"); parseErr == nil {
 		parseTesting.Fatal("expected empty style key to fail")
 	}
-	if _, parseErr := FormatRenderStyleValue(map[string]interface{}{
+	if _, parseErr := FormatRenderStyleValue(map[string]any{
 		"color":   "red",
 		" color ": "blue",
 	}); parseErr == nil {
@@ -104,7 +104,7 @@ func TestFormatRenderStyleValueRejectsInvalidStringAndCollisionShapes(parseTesti
 func TestFormatRenderStyleScalarCoversSupportedPrimitiveBranches(parseTesting *testing.T) {
 	parseCases := []struct {
 		parseName  string
-		parseValue interface{}
+		parseValue any
 		parseWant  string
 	}{
 		{parseName: "string", parseValue: "red", parseWant: "red"},
@@ -141,7 +141,7 @@ func TestFormatRenderStyleScalarCoversSupportedPrimitiveBranches(parseTesting *t
 
 // BenchmarkFormatRenderStyleScalarCurrentVsLegacy compares the current scalar formatter against the previous fmt-based numeric normalization path.
 func BenchmarkFormatRenderStyleScalarCurrentVsLegacy(parseBenchmark *testing.B) {
-	parseValues := []interface{}{
+	parseValues := []any{
 		"red",
 		true,
 		int(-42),
@@ -171,7 +171,7 @@ func BenchmarkFormatRenderStyleScalarCurrentVsLegacy(parseBenchmark *testing.B) 
 }
 
 // parseFormatRenderStyleScalarLegacy preserves the previous fmt-based numeric formatting for benchmark comparison.
-func parseFormatRenderStyleScalarLegacy(parseRaw interface{}) (string, error) {
+func parseFormatRenderStyleScalarLegacy(parseRaw any) (string, error) {
 	switch parseValue := parseRaw.(type) {
 	case string:
 		return parseValue, nil

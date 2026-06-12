@@ -74,14 +74,15 @@ func parseBuildCatalogMessagePayloads(parseMessages map[string]string) []*chatpb
 
 // parseBuildCatalogContentHash builds one deterministic content hash for one catalog namespace payload.
 func parseBuildCatalogContentHash(parseNamespace string, parseLocale string, parseFallbackLocale string, parseVersion string, parseMessages []*chatpb.CatalogMessagePayload) string {
-	parseHashInput := parseNamespace + "|" + parseLocale + "|" + parseFallbackLocale + "|" + parseVersion
+	var parseHashInput strings.Builder
+	parseHashInput.WriteString(parseNamespace + "|" + parseLocale + "|" + parseFallbackLocale + "|" + parseVersion)
 	for _, parseMessage := range parseMessages {
 		if parseMessage == nil {
 			continue
 		}
-		parseHashInput += "|" + parseMessage.GetMessageKey() + "=" + parseMessage.GetMessageValue()
+		parseHashInput.WriteString("|" + parseMessage.GetMessageKey() + "=" + parseMessage.GetMessageValue())
 	}
-	parseDigest := sha256.Sum256([]byte(parseHashInput))
+	parseDigest := sha256.Sum256([]byte(parseHashInput.String()))
 	return hex.EncodeToString(parseDigest[:])
 }
 

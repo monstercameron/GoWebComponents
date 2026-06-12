@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package atlas
 
@@ -28,7 +27,7 @@ func (parseS *atlasLocalState[T]) Set(parseValue T) {
 	parseS.value = parseValue
 }
 
-func useAtlasEffect(parseEffect func() func(), parseDeps ...interface{}) {
+func useAtlasEffect(parseEffect func() func(), parseDeps ...any) {
 	_ = parseEffect
 	_ = parseDeps
 }
@@ -76,7 +75,7 @@ func (parseA atlasAtom[T]) Set(parseValue T) {
 	_ = parseValue
 }
 
-func useAtlasComputed[T any](parseCompute func() T, parseDeps ...interface{}) atlasComputed[T] {
+func useAtlasComputed[T any](parseCompute func() T, parseDeps ...any) atlasComputed[T] {
 	_ = parseDeps
 	return atlasComputed[T]{value: parseCompute()}
 }
@@ -168,7 +167,7 @@ func useAtlasCachedResource[T any](parseKey string, parseLoader func(context.Con
 	return atlasCachedResource[T]{}
 }
 
-func useAtlasResource[T any](parseLoader func(context.Context) (T, error), parseDeps ...interface{}) atlasResource[T] {
+func useAtlasResource[T any](parseLoader func(context.Context) (T, error), parseDeps ...any) atlasResource[T] {
 	_ = parseLoader
 	_ = parseDeps
 	return atlasResource[T]{}

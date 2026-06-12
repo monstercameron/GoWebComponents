@@ -60,7 +60,7 @@ func TestBuildComponentSignatureAndHookSignature(parseT *testing.T) {
 	parseComponent := NewComponentType("component-id", "Widget", "example.com/widget.Widget", nil, nil)
 	parseFiber := &Fiber{
 		typeOf: parseComponent,
-		props:  map[string]interface{}{"key": "stable-key"},
+		props:  map[string]any{"key": "stable-key"},
 	}
 	parseSignature := buildComponentSignature(parseFiber, &Hooks{signature: []string{"state", "memo"}})
 	if parseSignature == nil {

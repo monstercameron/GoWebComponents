@@ -263,7 +263,7 @@ func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 		RegionInstanceID: parseRuntimeSpec.RegionInstanceID,
 		RendererID:       parseRuntimeSpec.RendererID,
 	})
-	getShellProps := map[string]interface{}{
+	getShellProps := map[string]any{
 		runtime2.SSRShellMarkerAttribute: getShellMarker,
 	}
 	return renderParallelRegionShellNode(getShellProps, getChild)

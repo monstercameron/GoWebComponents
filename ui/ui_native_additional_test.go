@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package ui
 
@@ -25,7 +24,7 @@ func nativeZeroArgComponent() Node {
 	return Text("zero")
 }
 
-func nativeMapPropsComponent(parseProps map[string]interface{}) Node {
+func nativeMapPropsComponent(parseProps map[string]any) Node {
 	parseLabel, _ := parseProps["label"].(string)
 	return Text("map " + parseLabel)
 }
@@ -133,7 +132,7 @@ func TestNativeStateAndHookHelpers(parseT *testing.T) {
 }
 
 func TestNativeServerOnlyHelpersAndRenderComponent(parseT *testing.T) {
-	parseRendered := renderComponent(nativeComponent, map[string]interface{}{propsKey: nativeProps{Label: "gwc"}})
+	parseRendered := renderComponent(nativeComponent, map[string]any{propsKey: nativeProps{Label: "gwc"}})
 	parseMarkup, parseErr := RenderToString(parseRendered)
 	if parseErr != nil {
 		parseT.Fatalf("RenderToString(renderComponent) error = %v", parseErr)
@@ -150,7 +149,7 @@ func TestNativeServerOnlyHelpersAndRenderComponent(parseT *testing.T) {
 		parseT.Fatalf("CreateElement zero-arg markup = %q, want zero", parseMarkup)
 	}
 
-	parseMarkup, parseErr = RenderToString(renderComponent(nativeMapPropsComponent, map[string]interface{}{propsKey: runtime.Attrs{"label": "fast"}}))
+	parseMarkup, parseErr = RenderToString(renderComponent(nativeMapPropsComponent, map[string]any{propsKey: runtime.Attrs{"label": "fast"}}))
 	if parseErr != nil {
 		parseT.Fatalf("RenderToString(renderComponent map props) error = %v", parseErr)
 	}
@@ -158,7 +157,7 @@ func TestNativeServerOnlyHelpersAndRenderComponent(parseT *testing.T) {
 		parseT.Fatalf("map props markup = %q, want map fast", parseMarkup)
 	}
 
-	parseMarkup, parseErr = RenderToString(renderComponent(nativeAttrsPropsComponent, map[string]interface{}{propsKey: map[string]interface{}{"label": "path"}}))
+	parseMarkup, parseErr = RenderToString(renderComponent(nativeAttrsPropsComponent, map[string]any{propsKey: map[string]any{"label": "path"}}))
 	if parseErr != nil {
 		parseT.Fatalf("RenderToString(renderComponent attrs props) error = %v", parseErr)
 	}
@@ -192,10 +191,10 @@ func TestNativeServerOnlyHelpersAndRenderComponent(parseT *testing.T) {
 		renderComponent(123, nil)
 	}, "GWC-UI-CREATE-ELEMENT-TYPE")
 	parseAssertPanics("too many args", func() {
-		getComponentMeta(reflect.TypeOf(func(string, string) Node { return nil }))
+		getComponentMeta(reflect.TypeFor[func(string, string) Node]())
 	}, "components may accept at most one props argument")
 	parseAssertPanics("missing return", func() {
-		getComponentMeta(reflect.TypeOf(func() {}))
+		getComponentMeta(reflect.TypeFor[func()]())
 	}, "components must return ui.Node")
 
 	if len(toInterfaces(nil)) != 0 {

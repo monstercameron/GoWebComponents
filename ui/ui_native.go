@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package ui
 
@@ -19,7 +18,7 @@ type componentMeta struct {
 	hasArg      bool
 	argType     reflect.Type
 	zeroArg     reflect.Value
-	getArgValue func(map[string]interface{}) reflect.Value
+	getArgValue func(map[string]any) reflect.Value
 }
 
 var componentMetaCache sync.Map
@@ -73,7 +72,7 @@ type Transition struct {
 // State provides access to hook-managed local state.
 type State[T any] struct {
 	get func() T
-	set func(interface{})
+	set func(any)
 }
 
 // Ref stores a stable mutable reference across renders.
@@ -107,7 +106,7 @@ type Throttled[T any] struct {
 
 // Handler stores an event handler value in a form the runtime can consume.
 type Handler struct {
-	value interface{}
+	value any
 }
 
 // ReactiveSource identifies shared values that a ReactiveRegion can subscribe to explicitly.
@@ -118,7 +117,7 @@ type ReactiveSource interface {
 // PortalTarget describes where a portal subtree should render.
 type PortalTarget struct {
 	Selector string
-	Node     interface{}
+	Node     any
 }
 
 // PortalProps configures a portal target and its children.
@@ -145,7 +144,7 @@ type ErrorBoundaryProps struct {
 	OnError       func(error)
 	Child         Node
 	Children      []Node
-	ResetKeys     []interface{}
+	ResetKeys     []any
 }
 
 type errorBoundaryComponent struct {
@@ -174,7 +173,7 @@ type LazyNode struct {
 
 type LazyProps struct {
 	Loader          func(context.Context) (Node, error)
-	Dependencies    []interface{}
+	Dependencies    []any
 	Fallback        Node
 	TimeoutFallback Node
 	ErrorFallback   func(error) Node
@@ -183,27 +182,27 @@ type LazyProps struct {
 }
 
 // CreateElement creates a UI node from a component function, provider, boundary, or existing node.
-func CreateElement(parseComponent interface{}, parseProps ...interface{}) Node {
+func CreateElement(parseComponent any, parseProps ...any) Node {
 	if parseNode, parseOk := parseComponent.(*runtime.Element); parseOk && len(parseProps) == 0 {
 		return parseNode
 	}
 	if parseBoundary, parseOk2 := parseComponent.(runtimeErrorBoundaryComponent); parseOk2 {
-		var parseRawProps interface{}
+		var parseRawProps any
 		if len(parseProps) > 0 {
 			parseRawProps = parseProps[0]
 		}
 		return createErrorBoundaryElement(parseBoundary, parseRawProps)
 	}
 	if parseProvider, parseOk3 := parseComponent.(contextProviderComponent); parseOk3 {
-		var parseRawProps2 interface{}
+		var parseRawProps2 any
 		if len(parseProps) > 0 {
 			parseRawProps2 = parseProps[0]
 		}
 		return createContextProviderElement(parseProvider, parseRawProps2)
 	}
-	var parseRawProps3 map[string]interface{}
+	var parseRawProps3 map[string]any
 	if len(parseProps) > 0 {
-		parseRawProps3 = map[string]interface{}{}
+		parseRawProps3 = map[string]any{}
 		parseRawProps3[propsKey] = parseProps[0]
 	}
 
@@ -242,7 +241,7 @@ func ReactiveRegion(render func() Node, parseSources ...ReactiveSource) Node {
 			parseIds = append(parseIds, parseId)
 		}
 	}
-	return runtime.CreateElement(runtime.ReactiveRegionNodeType, map[string]interface{}{
+	return runtime.CreateElement(runtime.ReactiveRegionNodeType, map[string]any{
 		"__gwc_reactive_region_source_ids": parseIds,
 		"__gwc_reactive_region_render": func() *runtime.Element {
 			if render == nil {
@@ -268,7 +267,7 @@ func Text(parseContent string) Node {
 	return &runtime.Element{
 		Type:        "TEXT_ELEMENT",
 		TextContent: parseContent,
-		Children:    []interface{}{},
+		Children:    []any{},
 	}
 }
 
@@ -288,7 +287,7 @@ func Render(parseRoot Node, parseSelector string) {
 }
 
 // RenderInto is a non-browser stub that returns an UnsupportedOnServer error.
-func RenderInto(parseRoot Node, parseTarget interface{}) error {
+func RenderInto(parseRoot Node, parseTarget any) error {
 	_ = parseRoot
 	_ = parseTarget
 	return UnsupportedOnServer("RenderInto")
@@ -300,7 +299,7 @@ func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOpti
 }
 
 // HydrateInto is a non-browser stub that returns an UnsupportedOnServer error.
-func HydrateInto(parseRoot Node, parseTarget interface{}, parseOptions ...HydrationOptions) (SSRBootstrap, error) {
+func HydrateInto(parseRoot Node, parseTarget any, parseOptions ...HydrationOptions) (SSRBootstrap, error) {
 	_ = parseRoot
 	_ = parseTarget
 	_ = parseOptions
@@ -342,7 +341,7 @@ func UseState[T any](parseInitialValue T) State[T] {
 	parseCurrent := parseInitialValue
 	return State[T]{
 		get: func() T { return parseCurrent },
-		set: func(parseNext interface{}) {
+		set: func(parseNext any) {
 			if parseValue, parseOk := parseNext.(T); parseOk {
 				parseCurrent = parseValue
 				return
@@ -399,7 +398,7 @@ func (parseR Ref[T]) Set(parseValue T) {
 }
 
 // UseEffect is a no-op on non-browser targets.
-func UseEffect(parseEffect func() func(), parseDeps ...interface{}) {}
+func UseEffect(parseEffect func() func(), parseDeps ...any) {}
 
 // UseId returns a stable generated identifier for the current component instance.
 func UseId() string {
@@ -410,7 +409,7 @@ func UseId() string {
 }
 
 // UseMemo computes value immediately on non-browser targets.
-func UseMemo[T any](parseCompute func() T, parseDeps ...interface{}) T {
+func UseMemo[T any](parseCompute func() T, parseDeps ...any) T {
 	if parseCompute == nil {
 		var parseZero T
 		return parseZero
@@ -419,7 +418,7 @@ func UseMemo[T any](parseCompute func() T, parseDeps ...interface{}) T {
 }
 
 // UseCallback returns fn unchanged on non-browser targets.
-func UseCallback[T any](parseFn T, parseDeps ...interface{}) T {
+func UseCallback[T any](parseFn T, parseDeps ...any) T {
 	return parseFn
 }
 
@@ -550,7 +549,7 @@ func AsyncBoundary(parseProps AsyncBoundaryProps) Node {
 }
 
 // UseLazyNode executes the loader synchronously on the server and returns the result as a LazyNode.
-func UseLazyNode(parseLoader func(context.Context) (Node, error), parseDeps ...interface{}) LazyNode {
+func UseLazyNode(parseLoader func(context.Context) (Node, error), parseDeps ...any) LazyNode {
 	parseState := LazyNodeState{}
 	if parseLoader == nil {
 		parseState.Error = UnsupportedOnServer("UseLazyNode")
@@ -603,22 +602,22 @@ func Lazy(parseProps LazyProps) Node {
 }
 
 // UseEvent wraps a Go function so it can be used as a stable event handler.
-func UseEvent(parseFn interface{}) Handler {
+func UseEvent(parseFn any) Handler {
 	return Handler{value: parseFn}
 }
 
 // WrapHandler wraps an already-prepared handler value.
-func WrapHandler(parseValue interface{}) Handler {
+func WrapHandler(parseValue any) Handler {
 	return Handler{value: parseValue}
 }
 
 // Value returns the wrapped handler payload.
-func (parseH Handler) Value() interface{} {
+func (parseH Handler) Value() any {
 	return parseH.value
 }
 
 // renderComponent is a core package helper.
-func renderComponent(parseComponent interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+func renderComponent(parseComponent any, parseRawProps map[string]any) *runtime.Element {
 	if parseComponent == nil {
 		return nil
 	}
@@ -626,7 +625,7 @@ func renderComponent(parseComponent interface{}, parseRawProps map[string]interf
 	switch parseTypedComponent := parseComponent.(type) {
 	case func() Node:
 		return parseTypedComponent()
-	case func(map[string]interface{}) Node:
+	case func(map[string]any) Node:
 		return parseTypedComponent(getComponentMapProps(parseRawProps))
 	case func(runtime.Attrs) Node:
 		return parseTypedComponent(getComponentAttrsProps(parseRawProps))
@@ -682,8 +681,8 @@ func getComponentMeta(parseComponentType reflect.Type) componentMeta {
 }
 
 // buildComponentArgValueLoader builds one cached props-to-argument resolver for one typed component signature.
-func buildComponentArgValueLoader(parseArgType reflect.Type, parseZeroArg reflect.Value) func(map[string]interface{}) reflect.Value {
-	return func(parseRawProps map[string]interface{}) reflect.Value {
+func buildComponentArgValueLoader(parseArgType reflect.Type, parseZeroArg reflect.Value) func(map[string]any) reflect.Value {
+	return func(parseRawProps map[string]any) reflect.Value {
 		if parseRawProps == nil {
 			return parseZeroArg
 		}
@@ -709,7 +708,7 @@ func buildComponentArgValueLoader(parseArgType reflect.Type, parseZeroArg reflec
 }
 
 // getComponentMapProps resolves one component props payload as a plain map for direct-call fast paths.
-func getComponentMapProps(parseRawProps map[string]interface{}) map[string]interface{} {
+func getComponentMapProps(parseRawProps map[string]any) map[string]any {
 	if parseRawProps == nil {
 		return nil
 	}
@@ -718,17 +717,17 @@ func getComponentMapProps(parseRawProps map[string]interface{}) map[string]inter
 		return nil
 	}
 	switch parseTypedProps := parseProvidedProps.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return parseTypedProps
 	case runtime.Attrs:
-		return map[string]interface{}(parseTypedProps)
+		return map[string]any(parseTypedProps)
 	default:
 		return nil
 	}
 }
 
 // getComponentAttrsProps resolves one component props payload as runtime.Attrs for direct-call fast paths.
-func getComponentAttrsProps(parseRawProps map[string]interface{}) runtime.Attrs {
+func getComponentAttrsProps(parseRawProps map[string]any) runtime.Attrs {
 	if parseRawProps == nil {
 		return nil
 	}
@@ -739,7 +738,7 @@ func getComponentAttrsProps(parseRawProps map[string]interface{}) runtime.Attrs 
 	switch parseTypedProps := parseProvidedProps.(type) {
 	case runtime.Attrs:
 		return parseTypedProps
-	case map[string]interface{}:
+	case map[string]any:
 		return runtime.Attrs(parseTypedProps)
 	default:
 		return nil
@@ -747,12 +746,12 @@ func getComponentAttrsProps(parseRawProps map[string]interface{}) runtime.Attrs 
 }
 
 // toInterfaces is a core package helper.
-func toInterfaces(parseChildren []Node) []interface{} {
+func toInterfaces(parseChildren []Node) []any {
 	if len(parseChildren) == 0 {
 		return nil
 	}
 
-	parseValues := make([]interface{}, 0, len(parseChildren))
+	parseValues := make([]any, 0, len(parseChildren))
 	for _, parseChild := range parseChildren {
 		parseValues = append(parseValues, parseChild)
 	}

@@ -254,40 +254,40 @@ func TestReconcilerKeyHelperBranches(parseT *testing.T) {
 		parseT.Fatal("expected matching function component identities to compare equal")
 	}
 
-	if parseKey, parseOk := propsComparableKey(map[string]interface{}{"key": "hero"}); !parseOk || parseKey != "hero" {
+	if parseKey, parseOk := propsComparableKey(map[string]any{"key": "hero"}); !parseOk || parseKey != "hero" {
 		parseT.Fatalf("propsComparableKey(string) = %#v, %t", parseKey, parseOk)
 	}
-	if parseKey, parseOk := propsComparableKey(map[string]interface{}{"key": true}); !parseOk || parseKey != true {
+	if parseKey, parseOk := propsComparableKey(map[string]any{"key": true}); !parseOk || parseKey != true {
 		parseT.Fatalf("propsComparableKey(bool) = %#v, %t", parseKey, parseOk)
 	}
 	parseElementKey := &Element{Type: "div"}
-	if parseKey, parseOk := propsComparableKey(map[string]interface{}{"key": parseElementKey}); !parseOk || parseKey != parseElementKey {
+	if parseKey, parseOk := propsComparableKey(map[string]any{"key": parseElementKey}); !parseOk || parseKey != parseElementKey {
 		parseT.Fatalf("propsComparableKey(*Element) = %#v, %t", parseKey, parseOk)
 	}
-	if parseKey, parseOk := propsComparableKey(map[string]interface{}{"key": []int{1, 2}}); parseOk || parseKey != nil {
+	if parseKey, parseOk := propsComparableKey(map[string]any{"key": []int{1, 2}}); parseOk || parseKey != nil {
 		parseT.Fatalf("propsComparableKey([]int) = %#v, %t", parseKey, parseOk)
 	}
-	if parseKey, parseOk := elementComparableKey(&Element{Props: map[string]interface{}{"key": "card"}}); !parseOk || parseKey != "card" {
+	if parseKey, parseOk := elementComparableKey(&Element{Props: map[string]any{"key": "card"}}); !parseOk || parseKey != "card" {
 		parseT.Fatalf("elementComparableKey() = %#v, %t", parseKey, parseOk)
 	}
-	if parseKey, parseOk := fiberComparableKey(&Fiber{props: map[string]interface{}{"key": "card"}}); !parseOk || parseKey != "card" {
+	if parseKey, parseOk := fiberComparableKey(&Fiber{props: map[string]any{"key": "card"}}); !parseOk || parseKey != "card" {
 		parseT.Fatalf("fiberComparableKey() = %#v, %t", parseKey, parseOk)
 	}
 
-	parseOldA := &Fiber{props: map[string]interface{}{"key": "a"}}
-	parseOldB := &Fiber{props: map[string]interface{}{"key": "b"}}
+	parseOldA := &Fiber{props: map[string]any{"key": "a"}}
+	parseOldB := &Fiber{props: map[string]any{"key": "b"}}
 	parseOldFibers := []*Fiber{parseOldA, parseOldB}
-	parseMatched := takeMatchingFallbackKeyed(parseOldFibers, &Element{Props: map[string]interface{}{"key": "b"}})
+	parseMatched := takeMatchingFallbackKeyed(parseOldFibers, &Element{Props: map[string]any{"key": "b"}})
 	if parseMatched != parseOldB {
 		parseT.Fatalf("takeMatchingFallbackKeyed() = %#v, want %#v", parseMatched, parseOldB)
 	}
 	if parseOldFibers[1] != nil {
 		parseT.Fatalf("expected matched fallback slot to be cleared, got %#v", parseOldFibers[1])
 	}
-	if parseMatched2 := takeMatchingFallbackKeyed(parseOldFibers, &Element{Props: map[string]interface{}{"key": "missing"}}); parseMatched2 != nil {
+	if parseMatched2 := takeMatchingFallbackKeyed(parseOldFibers, &Element{Props: map[string]any{"key": "missing"}}); parseMatched2 != nil {
 		parseT.Fatalf("expected missing fallback key to return nil, got %#v", parseMatched2)
 	}
-	if parseMatched3 := takeMatchingFallbackKeyed(nil, &Element{Props: map[string]interface{}{"key": "a"}}); parseMatched3 != nil {
+	if parseMatched3 := takeMatchingFallbackKeyed(nil, &Element{Props: map[string]any{"key": "a"}}); parseMatched3 != nil {
 		parseT.Fatalf("expected nil fallback list to return nil, got %#v", parseMatched3)
 	}
 }
@@ -297,7 +297,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 	parseBuilder := &strings.Builder{}
 	parseProviderElement := &Element{
 		Type:     NewContextProviderType(NewContextDescriptor("default")),
-		Children: []interface{}{CreateElement("span", nil, "provider")},
+		Children: []any{CreateElement("span", nil, "provider")},
 	}
 	if parseErr := renderElementToString(parseBuilder, parseProviderElement); parseErr != nil {
 		parseT.Fatalf("renderElementToString(context provider): %v", parseErr)
@@ -309,7 +309,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 	parseBuilder.Reset()
 	parsePortalElement := &Element{
 		Type:     PortalNodeType,
-		Children: []interface{}{CreateElement("span", nil, "portal")},
+		Children: []any{CreateElement("span", nil, "portal")},
 	}
 	if parseErr := renderElementToString(parseBuilder, parsePortalElement); parseErr != nil {
 		parseT.Fatalf("renderElementToString(portal): %v", parseErr)
@@ -330,7 +330,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 	parseBuilder.Reset()
 	parseReactiveRegionElement := &Element{
 		Type:  ReactiveRegionNodeType,
-		Props: map[string]interface{}{reactiveRegionRenderProp: func() *Element { return CreateElement("em", nil, "region") }},
+		Props: map[string]any{reactiveRegionRenderProp: func() *Element { return CreateElement("em", nil, "region") }},
 	}
 	if parseErr := renderElementToString(parseBuilder, parseReactiveRegionElement); parseErr != nil {
 		parseT.Fatalf("renderElementToString(reactive region): %v", parseErr)
@@ -340,7 +340,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 	}
 
 	parseBuilder.Reset()
-	if parseErr := renderChildrenToString(parseBuilder, []interface{}{nil, "text", 7}); parseErr != nil {
+	if parseErr := renderChildrenToString(parseBuilder, []any{nil, "text", 7}); parseErr != nil {
 		parseT.Fatalf("renderChildrenToString(): %v", parseErr)
 	}
 	if parseBuilder.String() != "text7" {
@@ -382,7 +382,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 	}
 	parseFiber := &Fiber{
 		typeOf: NewComponentType("example/Widget", "Widget", "example/Widget", nil, nil),
-		props:  map[string]interface{}{"key": "hero"},
+		props:  map[string]any{"key": "hero"},
 		hooks:  &Hooks{signature: []string{"state"}},
 	}
 	if !componentSnapshotCompatible(parseSnapshot, parseFiber) {
@@ -404,7 +404,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 	}
 	parseMismatchedFiber := &Fiber{
 		typeOf: NewComponentType("example/Widget", "Widget", "example/Widget", nil, nil),
-		props:  map[string]interface{}{"key": "hero"},
+		props:  map[string]any{"key": "hero"},
 		hooks:  &Hooks{signature: []string{"state", "memo"}},
 	}
 	if componentSnapshotFullyCompatible(parseSnapshot, parseMismatchedFiber) {

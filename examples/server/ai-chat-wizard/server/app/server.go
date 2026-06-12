@@ -124,7 +124,7 @@ func parseNewChatServiceServer(parseOpenAIAPIKey, parseAnthropicAPIKey, parseCer
 func parseNormalizeStubProviders(parseValues []string) map[string]struct{} {
 	parseNormalized := map[string]struct{}{}
 	for _, parseValue := range parseValues {
-		for _, parseToken := range strings.Split(parseValue, ",") {
+		for parseToken := range strings.SplitSeq(parseValue, ",") {
 			parseResolved := strings.TrimSpace(strings.ToLower(parseToken))
 			if parseResolved == "" {
 				continue

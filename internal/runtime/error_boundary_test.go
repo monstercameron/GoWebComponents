@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -39,7 +40,7 @@ func TestRenderToStringErrorBoundaryFallback(parseT *testing.T) {
 	parseBoom := func() *Element {
 		panic("server boom")
 	}
-	parseElement := CreateElement(parseBoundary, map[string]interface{}{
+	parseElement := CreateElement(parseBoundary, map[string]any{
 		"errorFallback": func(parseErr2 error, reset func()) *Element {
 			if parseErr2 == nil || parseErr2.Error() != "server boom" {
 				parseT.Fatalf("unexpected boundary error: %v", parseErr2)
@@ -70,7 +71,7 @@ func TestErrorBoundaryRecoversRenderPanic(parseT *testing.T) {
 		panic("render boom")
 	}
 
-	parseRt.Render(CreateElement(parseBoundary, map[string]interface{}{
+	parseRt.Render(CreateElement(parseBoundary, map[string]any{
 		"errorFallback": func(parseErr error, reset func()) *Element {
 			return CreateElement("p", nil, "render fallback: "+parseErr.Error())
 		},
@@ -96,13 +97,7 @@ func TestErrorBoundaryRecoversRenderPanic(parseT *testing.T) {
 	if parseLast.Path == "" || len(parseLast.ComponentStack) == 0 {
 		parseT.Fatalf("expected boundary recovery diagnostic to include path and stack context, got %+v", parseLast)
 	}
-	isParseFoundBoundary := false
-	for _, parseEntry := range parseLast.ComponentStack {
-		if parseEntry == "ErrorBoundary" {
-			isParseFoundBoundary = true
-			break
-		}
-	}
+	isParseFoundBoundary := slices.Contains(parseLast.ComponentStack, "ErrorBoundary")
 	if !isParseFoundBoundary {
 		parseT.Fatalf("expected component stack to include ErrorBoundary, got %+v", parseLast.ComponentStack)
 	}
@@ -121,7 +116,7 @@ func TestErrorBoundaryRecoversEffectPanic(parseT *testing.T) {
 		return CreateElement("span", nil, "content")
 	}
 
-	parseRt.Render(CreateElement(parseBoundary, map[string]interface{}{
+	parseRt.Render(CreateElement(parseBoundary, map[string]any{
 		"errorFallback": func(parseErr error, reset func()) *Element {
 			return CreateElement("p", nil, "effect fallback: "+parseErr.Error())
 		},
@@ -151,12 +146,12 @@ func TestErrorBoundaryRecoversEventPanicAndResets(parseT *testing.T) {
 				panic(errors.New("event boom"))
 			}
 		})
-		return CreateElement("button", map[string]interface{}{"onclick": parseHandler}, "click")
+		return CreateElement("button", map[string]any{"onclick": parseHandler}, "click")
 	}
 
-	parseRootElement := CreateElement(parseBoundary, map[string]interface{}{
+	parseRootElement := CreateElement(parseBoundary, map[string]any{
 		"errorFallback": func(parseErr error, reset func()) *Element {
-			return CreateElement("button", map[string]interface{}{
+			return CreateElement("button", map[string]any{
 				"onclick": func() {
 					shouldPanic = false
 					reset()

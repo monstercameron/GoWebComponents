@@ -17,7 +17,7 @@ func buildSchedulerUpdateBench(parseB *testing.B, parseRegionCount int) (*Schedu
 	parseB.Helper()
 	getScheduler := BuildScheduler([]SchedulerShardID{"shard-1", "shard-2", "shard-3", "shard-4"})
 	getRegionIDs := make([]string, 0, parseRegionCount)
-	for parseIndex := 0; parseIndex < parseRegionCount; parseIndex++ {
+	for parseIndex := range parseRegionCount {
 		getRegionID := buildSchedulerUpdateBenchRegionID(parseIndex)
 		if _, parseMountErr := getScheduler.HandleSchedulerMount(getRegionID); parseMountErr != nil {
 			parseB.Fatalf("HandleSchedulerMount(%s) returned error: %v", getRegionID, parseMountErr)

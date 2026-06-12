@@ -209,7 +209,7 @@ type wasmCompressionSummary struct {
 	Package     string                     `json:"package"`
 	GeneratedAt string                     `json:"generated_at"`
 	Environment wasmCompressionEnvironment `json:"environment"`
-	Variants    map[string]interface{}     `json:"variants"`
+	Variants    map[string]any             `json:"variants"`
 	Unsupported map[string]string          `json:"unsupported,omitempty"`
 	SummaryPath string                     `json:"summaryPath,omitempty"`
 }
@@ -788,8 +788,8 @@ func executeWasmCompare(parseConfig wasmCompareConfig) (wasmCompareSummary, int,
 	if parseErr != nil {
 		return wasmCompareSummary{}, 0, fmt.Errorf("read candidate manifest: %w", parseErr)
 	}
-	var parseBaselineData interface{}
-	var parseCandidateData interface{}
+	var parseBaselineData any
+	var parseCandidateData any
 	if parseErr2 := json.Unmarshal(parseBaselinePayload, &parseBaselineData); parseErr2 != nil {
 		return wasmCompareSummary{}, 0, fmt.Errorf("parse baseline manifest: %w", parseErr2)
 	}

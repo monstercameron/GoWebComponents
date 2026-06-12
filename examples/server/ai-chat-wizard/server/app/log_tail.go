@@ -232,13 +232,7 @@ func parseReadTailLines(parsePath string, parseMaxLines int, parseMaxBytes int64
 	parseRemaining := parseMaxBytes
 	parseBuffer := make([]byte, 0, parseMinInt64(parseFileSize, parseMaxBytes))
 	for parseOffset > 0 && parseRemaining > 0 {
-		parseChunkSize := int64(logTailReadChunkBytes)
-		if parseChunkSize > parseOffset {
-			parseChunkSize = parseOffset
-		}
-		if parseChunkSize > parseRemaining {
-			parseChunkSize = parseRemaining
-		}
+		parseChunkSize := min(min(int64(logTailReadChunkBytes), parseOffset), parseRemaining)
 		parseOffset -= parseChunkSize
 		parseChunk := make([]byte, parseChunkSize)
 		if _, parseErr3 := parseFile.ReadAt(parseChunk, parseOffset); parseErr3 != nil && !errors.Is(parseErr3, io.EOF) {

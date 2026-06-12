@@ -7,7 +7,7 @@ import (
 )
 
 // hotReloadBoundaryKey is a core package helper.
-func hotReloadBoundaryKey(resetKeys []interface{}) string {
+func hotReloadBoundaryKey(resetKeys []any) string {
 	if len(resetKeys) == 0 {
 		return "__gwc_hotreload_boundary__"
 	}

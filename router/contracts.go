@@ -61,8 +61,8 @@ func DefineRoute(parsePattern string) (RouteContract, error) {
 		if parseSegment == routeContractCatchAll {
 			return RouteContract{}, fmt.Errorf("router: route contracts do not support catch-all segment in %q", parseNormalized)
 		}
-		if strings.HasPrefix(parseSegment, ":") {
-			parseName := strings.TrimSpace(strings.TrimPrefix(parseSegment, ":"))
+		if after, ok := strings.CutPrefix(parseSegment, ":"); ok {
+			parseName := strings.TrimSpace(after)
 			if parseName == "" {
 				return RouteContract{}, fmt.Errorf("router: route pattern %q contains an unnamed param segment", parseNormalized)
 			}

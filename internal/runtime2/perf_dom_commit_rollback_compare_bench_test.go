@@ -19,7 +19,7 @@ func buildDOMCommitRollbackBenchmarkFixture(parseB *testing.B) buildDOMCommitRol
 	parseB.Helper()
 	const getBenchNodeCount = 1024
 	buildRegionDOMIndex := BuildRegionDOMIndex()
-	for parseNodeOffset := 0; parseNodeOffset < getBenchNodeCount; parseNodeOffset++ {
+	for parseNodeOffset := range getBenchNodeCount {
 		getNodeID := uint64(parseNodeOffset + 1)
 		if parseSetNodeErr := buildRegionDOMIndex.SetRegionDOMNode("bench-region", getNodeID, &RegionDOMNode{
 			GetNodeID:    getNodeID,

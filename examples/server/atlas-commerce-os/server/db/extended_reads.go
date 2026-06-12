@@ -278,10 +278,7 @@ func (parseS *Store) TransferRecommendations(parseCtx context.Context, parseSku 
 	if parseSource.available <= parseDestination.available {
 		return []TransferRecommendationRecord{}, nil
 	}
-	parseQuantity := (parseSource.available - parseDestination.available) / 2
-	if parseQuantity < 1 {
-		parseQuantity = 1
-	}
+	parseQuantity := max((parseSource.available-parseDestination.available)/2, 1)
 	parseSourceWarehouse, parseErr := parseS.warehouseByID(parseCtx, parseSource.warehouseID)
 	if parseErr != nil {
 		return nil, parseErr

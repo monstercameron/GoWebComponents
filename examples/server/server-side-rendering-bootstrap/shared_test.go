@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package main
 
@@ -16,7 +15,7 @@ import (
 func TestBootstrapHelpersAndRenderedView(parseT *testing.T) {
 	parsePayload := ui.SSRBootstrap{
 		Route: ui.SSRRouteBootstrap{Path: ""},
-		Data:  map[string]interface{}{"message": "hydrated"},
+		Data:  map[string]any{"message": "hydrated"},
 	}
 	parseView := bootstrapViewFromPayload(parsePayload)
 	if parseView.Path != "/bootstrap" || parseView.Message != "hydrated" {

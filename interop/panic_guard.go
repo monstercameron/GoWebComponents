@@ -12,7 +12,7 @@ var containedPanicHandler atomic.Value // of func(string, interface{})
 
 // SetContainedPanicHandler installs the crash-report sink used by
 // RecoverContainedPanic. Passing nil restores the plain-print fallback.
-func SetContainedPanicHandler(parseHandler func(parseSubject string, parseRecovered interface{})) {
+func SetContainedPanicHandler(parseHandler func(parseSubject string, parseRecovered any)) {
 	if parseHandler == nil {
 		containedPanicHandler = atomic.Value{}
 		return
@@ -30,7 +30,7 @@ func RecoverContainedPanic(parseSubject string) {
 		return
 	}
 	defer func() { _ = recover() }()
-	if parseHandler, isParseSet := containedPanicHandler.Load().(func(string, interface{})); isParseSet && parseHandler != nil {
+	if parseHandler, isParseSet := containedPanicHandler.Load().(func(string, any)); isParseSet && parseHandler != nil {
 		parseHandler(parseSubject, parseRecovered)
 		return
 	}

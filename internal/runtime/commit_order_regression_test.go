@@ -9,24 +9,24 @@ func TestCommitRootReordersMixedKeyedAndUnkeyedChildren(parseT *testing.T) {
 	parseContainer := parseAdapter.CreateElement("section")
 
 	parseRenderHost := func(parseSpacerHeight string, parseIncludeRowB bool) *Element {
-		parseChildren := []interface{}{
-			CreateElement("div", map[string]interface{}{"id": "row-a", "key": "a"}, "a"),
-			CreateElement("div", map[string]interface{}{
+		parseChildren := []any{
+			CreateElement("div", map[string]any{"id": "row-a", "key": "a"}, "a"),
+			CreateElement("div", map[string]any{
 				"id":    "pad",
 				"style": map[string]string{"height": parseSpacerHeight},
 			}),
 		}
 		if parseIncludeRowB {
-			parseChildren = []interface{}{
-				CreateElement("div", map[string]interface{}{
+			parseChildren = []any{
+				CreateElement("div", map[string]any{
 					"id":    "pad",
 					"style": map[string]string{"height": parseSpacerHeight},
 				}),
-				CreateElement("div", map[string]interface{}{"id": "row-a", "key": "a"}, "a"),
-				CreateElement("div", map[string]interface{}{"id": "row-b", "key": "b"}, "b"),
+				CreateElement("div", map[string]any{"id": "row-a", "key": "a"}, "a"),
+				CreateElement("div", map[string]any{"id": "row-b", "key": "b"}, "b"),
 			}
 		}
-		return CreateElement("div", map[string]interface{}{"id": "host"}, parseChildren...)
+		return CreateElement("div", map[string]any{"id": "host"}, parseChildren...)
 	}
 
 	parseAssertChildOrder := func(parseExpectedIDs []string, parseExpectedSpacerHeight string) {

@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package ui
 
@@ -119,7 +118,7 @@ func (parseN CompositeNavigation) MoveHome() {}
 func (parseN CompositeNavigation) MoveEnd() {}
 
 // OnKeyDown is a core package helper.
-func (parseN CompositeNavigation) OnKeyDown(parseEvent interface{}) {}
+func (parseN CompositeNavigation) OnKeyDown(parseEvent any) {}
 
 // UseAnnouncer returns a no-op Announcer for non-browser targets.
 func UseAnnouncer() Announcer {

@@ -111,16 +111,16 @@ func parseExtractCatalogMessageTemplateSet(parseMessageValue string) (map[string
 			return parseTemplateSet, nil
 		}
 		parseTokenSearch := parseMessageValue[parseTemplateOpenIndex+2:]
-		parseTokenEndIndex := strings.Index(parseTokenSearch, "}}")
-		if parseTokenEndIndex < 0 {
+		before, after, ok := strings.Cut(parseTokenSearch, "}}")
+		if !ok {
 			return nil, status.Error(codes.InvalidArgument, "template token is missing close token")
 		}
-		parseTemplateToken := strings.TrimSpace(parseTokenSearch[:parseTokenEndIndex])
+		parseTemplateToken := strings.TrimSpace(before)
 		if !parseIsCatalogTemplateTokenValid(parseTemplateToken) {
 			return nil, status.Errorf(codes.InvalidArgument, "template token %q is malformed", parseTemplateToken)
 		}
 		parseTemplateSet[parseTemplateToken] = struct{}{}
-		parseMessageValue = parseTokenSearch[parseTokenEndIndex+2:]
+		parseMessageValue = after
 	}
 }
 

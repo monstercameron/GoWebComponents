@@ -2,7 +2,7 @@ package runtime2
 
 import (
 	"math"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 )
@@ -31,10 +31,7 @@ func getAgent3UpdateDispatchLatencyPercentile(parseSortedSamples []int64, parseP
 	if parsePercentile >= 1 {
 		return parseSortedSamples[len(parseSortedSamples)-1]
 	}
-	getIndex := int(math.Ceil(parsePercentile*float64(len(parseSortedSamples))) - 1)
-	if getIndex < 0 {
-		getIndex = 0
-	}
+	getIndex := max(int(math.Ceil(parsePercentile*float64(len(parseSortedSamples)))-1), 0)
 	if getIndex >= len(parseSortedSamples) {
 		getIndex = len(parseSortedSamples) - 1
 	}
@@ -46,9 +43,7 @@ func reportAgent3UpdateDispatchLatencyPercentiles(parseB *testing.B, parseSample
 	if len(parseSamples) == 0 {
 		return
 	}
-	sort.Slice(parseSamples, func(parseLeft int, parseRight int) bool {
-		return parseSamples[parseLeft] < parseSamples[parseRight]
-	})
+	slices.Sort(parseSamples)
 	parseB.ReportMetric(float64(getAgent3UpdateDispatchLatencyPercentile(parseSamples, 0.50)), "dispatch-loop-p50-ns")
 	parseB.ReportMetric(float64(getAgent3UpdateDispatchLatencyPercentile(parseSamples, 0.95)), "dispatch-loop-p95-ns")
 	parseB.ReportMetric(float64(getAgent3UpdateDispatchLatencyPercentile(parseSamples, 0.99)), "dispatch-loop-p99-ns")

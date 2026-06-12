@@ -20,17 +20,17 @@ func TestWriteSSRPropsMatchesLegacySerializer(parseT *testing.T) {
 		"children", "key", "onClick", "onchange", "__gwc_prop__:value",
 		"x onmouseover=alert(1)", "<bad>", "ok-name", "className", "htmlFor",
 	}
-	parseValues := []interface{}{
+	parseValues := []any{
 		"plain", `quote " and <angle> & amp`, "", true, false, 42, 3.14,
 		map[string]string{"color": "red", "width": "10px"},
 		nil,
 		" line sep",
 	}
 
-	for parseTrial := 0; parseTrial < 500; parseTrial++ {
-		parseProps := map[string]interface{}{}
+	for parseTrial := range 500 {
+		parseProps := map[string]any{}
 		parseCount := parseRng.Intn(8)
-		for parseIdx := 0; parseIdx < parseCount; parseIdx++ {
+		for range parseCount {
 			parseName := parseNames[parseRng.Intn(len(parseNames))]
 			parseProps[parseName] = parseValues[parseRng.Intn(len(parseValues))]
 		}
@@ -61,7 +61,7 @@ func TestRenderToStringDeterministic(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("render: %v", parseErr)
 	}
-	for parseIdx := 0; parseIdx < 20; parseIdx++ {
+	for parseIdx := range 20 {
 		parseAgain, parseErr := RenderToString(parseTree)
 		if parseErr != nil {
 			parseT.Fatalf("render %d: %v", parseIdx, parseErr)

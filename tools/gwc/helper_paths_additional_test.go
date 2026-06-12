@@ -11,19 +11,19 @@ import (
 // TestDoctorAuditHelpersCoverMappings verifies doctor audit rule and location helper branches.
 func TestDoctorAuditHelpersCoverMappings(parseT *testing.T) {
 	parseCases := map[string]string{
-		"Audit policy":                      "audit.policy",
-		"Audit baseline":                    "audit.baseline",
-		"Audit target":                      "audit.target",
-		"App entrypoint":                    "audit.app_entrypoint",
-		"HTML shell":                        "audit.html_shell",
-		"Starter metadata anchor":           "audit.metadata_anchor",
-		"State and ownership boundaries":    "audit.state_boundaries",
+		"Audit policy":                        "audit.policy",
+		"Audit baseline":                      "audit.baseline",
+		"Audit target":                        "audit.target",
+		"App entrypoint":                      "audit.app_entrypoint",
+		"HTML shell":                          "audit.html_shell",
+		"Starter metadata anchor":             "audit.metadata_anchor",
+		"State and ownership boundaries":      "audit.state_boundaries",
 		"Local versus shared state ownership": "audit.state_ownership",
-		"Route shape and delivery":          "audit.route_delivery",
-		"Mutation and resilience":           "audit.mutation_resilience",
+		"Route shape and delivery":            "audit.route_delivery",
+		"Mutation and resilience":             "audit.mutation_resilience",
 		"Startup cost and ownership evidence": "audit.startup_evidence",
-		"Runtime evidence":                  "audit.runtime_evidence",
-		"Unknown":                           "",
+		"Runtime evidence":                    "audit.runtime_evidence",
+		"Unknown":                             "",
 	}
 	for parseName, parseWant := range parseCases {
 		if parseGot := doctorAuditRuleIDForName(parseName); parseGot != parseWant {
@@ -117,7 +117,7 @@ func TestProcessControlHelpersManageDisposableProcess(parseT *testing.T) {
 	}
 
 	_, _ = parseCmd.Process.Wait()
-	for parseAttempt := 0; parseAttempt < 20; parseAttempt++ {
+	for range 20 {
 		if !checkLauncherPIDRunning(parsePID) {
 			break
 		}

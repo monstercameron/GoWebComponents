@@ -45,12 +45,10 @@ func TestCachedResourceConcurrentInvariants(parseT *testing.T) {
 	var parseWg sync.WaitGroup
 	const parseWorkers = 8
 	const parseOpsPerWorker = 200
-	for parseW := 0; parseW < parseWorkers; parseW++ {
+	for parseW := range parseWorkers {
 		parseW2 := parseW
-		parseWg.Add(1)
-		go func() {
-			defer parseWg.Done()
-			for parseI := 0; parseI < parseOpsPerWorker; parseI++ {
+		parseWg.Go(func() {
+			for parseI := range parseOpsPerWorker {
 				switch parseI % 5 {
 				case 0:
 					parseVal, parseErr := LoadCached(context.Background(), parseKey, parseLoader)
@@ -82,7 +80,7 @@ func TestCachedResourceConcurrentInvariants(parseT *testing.T) {
 					}
 				}
 			}
-		}()
+		})
 	}
 	parseWg.Wait()
 

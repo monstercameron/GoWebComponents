@@ -15,7 +15,7 @@ func TestUpdateDomProperties_AddSingleProp(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{"id": "test"})
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{"id": "test"})
 
 	parseNode := parseDom.(*testDOMNode)
 	if parseNode.attributes["id"] != "test" {
@@ -29,7 +29,7 @@ func TestUpdateDomProperties_RemoveSingleProp(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{"id": "old"}, map[string]interface{}{})
+	parseRt.updateDomProperties(parseDom, map[string]any{"id": "old"}, map[string]any{})
 
 	parseNode := parseDom.(*testDOMNode)
 	if _, parseExists := parseNode.attributes["id"]; parseExists {
@@ -43,7 +43,7 @@ func TestUpdateDomProperties_ChangeProp(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{"id": "old"}, map[string]interface{}{"id": "new"})
+	parseRt.updateDomProperties(parseDom, map[string]any{"id": "old"}, map[string]any{"id": "new"})
 
 	parseNode := parseDom.(*testDOMNode)
 	if parseNode.attributes["id"] != "new" {
@@ -58,12 +58,12 @@ func TestUpdateDomProperties_ManyProps(parseT *testing.T) {
 
 	parseDom := parseAdapter.CreateElement("div")
 
-	parseProps := make(map[string]interface{})
-	for parseI := 0; parseI < 50; parseI++ {
+	parseProps := make(map[string]any)
+	for parseI := range 50 {
 		parseProps[fmt.Sprintf("prop%d", parseI)] = fmt.Sprintf("value%d", parseI)
 	}
 
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, parseProps)
+	parseRt.updateDomProperties(parseDom, map[string]any{}, parseProps)
 
 	parseNode := parseDom.(*testDOMNode)
 	if len(parseNode.attributes) < 50 {
@@ -77,8 +77,8 @@ func TestUpdateDomProperties_SkipChildren(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
-		"children": []interface{}{"should", "be", "skipped"},
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
+		"children": []any{"should", "be", "skipped"},
 		"id":       "test",
 	})
 
@@ -97,7 +97,7 @@ func TestUpdateDomProperties_SkipKey(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"key": "should-be-skipped",
 		"id":  "test",
 	})
@@ -117,7 +117,7 @@ func TestUpdateDomProperties_EventHandlers(parseT *testing.T) {
 	parseDom := parseAdapter.CreateElement("button")
 
 	parseHandler := func() {}
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"onclick":      parseHandler,
 		"onmouseenter": parseHandler,
 		"onkeydown":    parseHandler,
@@ -136,7 +136,7 @@ func TestUpdateDomProperties_StyleObject(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"style": map[string]string{
 			"color":           "red",
 			"fontSize":        "16px",
@@ -162,7 +162,7 @@ func TestUpdateDomProperties_EmptyStyle(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"style": map[string]string{},
 	})
 
@@ -175,7 +175,7 @@ func TestUpdateDomProperties_ClassNameToClass(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"className": "my-class another-class",
 	})
 
@@ -191,7 +191,7 @@ func TestUpdateDomProperties_BothClassAndClassName(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"class":     "from-class",
 		"className": "from-className",
 	})
@@ -209,7 +209,7 @@ func TestUpdateDomProperties_MapsHTMLForToForAttribute(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("label")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"htmlFor": "reviewer-name",
 	})
 
@@ -228,7 +228,7 @@ func TestUpdateDomProperties_IntegerProperty(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("input")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"maxLength": 100,
 		"tabIndex":  5,
 	})
@@ -248,7 +248,7 @@ func TestUpdateDomProperties_BooleanProperty(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("input")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"disabled": true,
 		"checked":  false,
 		"required": true,
@@ -270,12 +270,12 @@ func TestUpdateDomProperties_RemovedPropertyResetsValue(parseT *testing.T) {
 
 	parseDom := parseAdapter.CreateElement("input")
 	parseHandler := func() {}
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{
 		"value":    "abc",
 		"checked":  true,
 		"onclick":  parseHandler,
 		"required": true,
-	}, map[string]interface{}{})
+	}, map[string]any{})
 
 	parseNode := parseDom.(*testDOMNode)
 	if parseNode.properties["value"] != "" {
@@ -301,7 +301,7 @@ func TestUpdateDomProperties_DataAttributes(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"data-id":     "123",
 		"data-test":   "value",
 		"data-active": "true",
@@ -322,7 +322,7 @@ func TestUpdateDomProperties_AriaAttributes(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("button")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"aria-label":    "Close",
 		"aria-expanded": "true",
 		"aria-hidden":   "false",
@@ -345,13 +345,13 @@ func TestUpdateDomProperties_ReplaceAllProps(parseT *testing.T) {
 
 	parseDom := parseAdapter.CreateElement("div")
 
-	parseOldProps := map[string]interface{}{
+	parseOldProps := map[string]any{
 		"id":        "old",
 		"className": "old-class",
 		"data-old":  "value",
 	}
 
-	parseNewProps := map[string]interface{}{
+	parseNewProps := map[string]any{
 		"id":        "new",
 		"className": "new-class",
 		"data-new":  "value",
@@ -375,13 +375,13 @@ func TestUpdateDomProperties_ClearAllProps(parseT *testing.T) {
 
 	parseDom := parseAdapter.CreateElement("div")
 
-	parseOldProps := map[string]interface{}{
+	parseOldProps := map[string]any{
 		"id":         "test",
 		"className":  "class",
 		"data-value": "123",
 	}
 
-	parseRt.updateDomProperties(parseDom, parseOldProps, map[string]interface{}{})
+	parseRt.updateDomProperties(parseDom, parseOldProps, map[string]any{})
 
 	parseNode := parseDom.(*testDOMNode)
 	if len(parseNode.attributes) > 0 {
@@ -396,7 +396,7 @@ func TestUpdateDomProperties_NoChanges(parseT *testing.T) {
 
 	parseDom := parseAdapter.CreateElement("div")
 
-	parseProps := map[string]interface{}{
+	parseProps := map[string]any{
 		"id":        "test",
 		"className": "class",
 	}
@@ -419,7 +419,7 @@ func TestUpdateDomProperties_NilOldProps(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, nil, map[string]interface{}{"id": "test"})
+	parseRt.updateDomProperties(parseDom, nil, map[string]any{"id": "test"})
 
 	parseNode := parseDom.(*testDOMNode)
 	if parseNode.attributes["id"] != "test" {
@@ -433,7 +433,7 @@ func TestUpdateDomProperties_NilNewProps(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{"id": "old"}, nil)
+	parseRt.updateDomProperties(parseDom, map[string]any{"id": "old"}, nil)
 
 	// Should not crash
 }
@@ -450,7 +450,7 @@ func TestUpdateDomProperties_ComplexNested(parseT *testing.T) {
 		"padding": "20px",
 	}
 
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"id":          "container",
 		"style":       parseStyle,
 		"data-nested": "value",
@@ -471,7 +471,7 @@ func TestUpdateDomProperties_EmptyStrings(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"id":        "",
 		"className": "",
 		"title":     "",
@@ -490,7 +490,7 @@ func TestUpdateDomProperties_SpecialChars(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]any{}, map[string]any{
 		"id":         "test-id_123",
 		"data-value": "hello@world!",
 		"title":      "Test <>&\"",
@@ -514,8 +514,8 @@ func TestCommitWork_PlacementSingleElement(parseT *testing.T) {
 	parseParentDOM := parseAdapter.CreateElement("div")
 	parseChildDOM := parseAdapter.CreateElement("span")
 
-	parseParent := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseParentDOM}
-	parseChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: parseChildDOM, parent: parseParent, effectTag: effectTagPlacement}
+	parseParent := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseParentDOM}
+	parseChild := &Fiber{typeOf: "span", props: make(map[string]any), dom: parseChildDOM, parent: parseParent, effectTag: effectTagPlacement}
 
 	parseRt.commitWork(parseChild, parseParentDOM)
 
@@ -531,14 +531,14 @@ func TestCommitWork_PlacementMultipleElements(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseParentDOM := parseAdapter.CreateElement("div")
-	parseParent := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseParentDOM}
+	parseParent := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseParentDOM}
 
 	parseChildren := make([]*Fiber, 10)
-	for parseI := 0; parseI < 10; parseI++ {
+	for parseI := range 10 {
 		parseChildDOM := parseAdapter.CreateElement("span")
 		parseChildren[parseI] = &Fiber{
 			typeOf:    "span",
-			props:     make(map[string]interface{}),
+			props:     make(map[string]any),
 			dom:       parseChildDOM,
 			parent:    parseParent,
 			effectTag: effectTagPlacement,
@@ -563,13 +563,13 @@ func TestCommitWork_UpdateElement(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseParent := &Fiber{typeOf: "root", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("root")}
+	parseParent := &Fiber{typeOf: "root", props: make(map[string]any), dom: parseAdapter.CreateElement("root")}
 
-	parseAlternate := &Fiber{props: map[string]interface{}{"id": "old", "className": "old-class"}}
+	parseAlternate := &Fiber{props: map[string]any{"id": "old", "className": "old-class"}}
 
 	parseFiber := &Fiber{
 		typeOf:    "div",
-		props:     map[string]interface{}{"id": "new", "className": "new-class"},
+		props:     map[string]any{"id": "new", "className": "new-class"},
 		dom:       parseDom,
 		parent:    parseParent,
 		alternate: parseAlternate,
@@ -593,11 +593,11 @@ func TestCommitWork_UpdateNoAlternate(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseDom := parseAdapter.CreateElement("div")
-	parseParent := &Fiber{typeOf: "root", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("root")}
+	parseParent := &Fiber{typeOf: "root", props: make(map[string]any), dom: parseAdapter.CreateElement("root")}
 
 	parseFiber := &Fiber{
 		typeOf:    "div",
-		props:     map[string]interface{}{"id": "test"},
+		props:     map[string]any{"id": "test"},
 		dom:       parseDom,
 		parent:    parseParent,
 		effectTag: effectTagUpdate,
@@ -619,7 +619,7 @@ func TestCommitDeletion_SingleElement(parseT *testing.T) {
 	parseChildDOM := parseAdapter.CreateElement("span")
 	parseAdapter.AppendChild(parseParentDOM, parseChildDOM)
 
-	parseFiber := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: parseChildDOM}
+	parseFiber := &Fiber{typeOf: "span", props: make(map[string]any), dom: parseChildDOM}
 
 	parseRt.commitDeletion(parseFiber, parseParentDOM)
 
@@ -641,8 +641,8 @@ func TestCommitDeletion_NestedElements(parseT *testing.T) {
 	parseAdapter.AppendChild(parseParentDOM, parseChildDOM)
 	parseAdapter.AppendChild(parseChildDOM, parseGrandchildDOM)
 
-	parseGrandchild := &Fiber{typeOf: "p", props: make(map[string]interface{}), dom: parseGrandchildDOM}
-	parseChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: parseChildDOM, child: parseGrandchild}
+	parseGrandchild := &Fiber{typeOf: "p", props: make(map[string]any), dom: parseGrandchildDOM}
+	parseChild := &Fiber{typeOf: "span", props: make(map[string]any), dom: parseChildDOM, child: parseGrandchild}
 
 	parseRt.commitDeletion(parseChild, parseParentDOM)
 
@@ -659,7 +659,7 @@ func TestCommitRoot_EmptyTree(parseT *testing.T) {
 
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseAdapter.CreateElement("root"),
 	}
 
@@ -683,8 +683,8 @@ func TestCommitRoot_WithDeletions(parseT *testing.T) {
 	parseChildDOM := parseAdapter.CreateElement("span")
 	parseAdapter.AppendChild(parseParentDOM, parseChildDOM)
 
-	parseParent := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseParentDOM}
-	parseChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: parseChildDOM, parent: parseParent, effectTag: effectTagDeletion}
+	parseParent := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseParentDOM}
+	parseChild := &Fiber{typeOf: "span", props: make(map[string]any), dom: parseChildDOM, parent: parseParent, effectTag: effectTagDeletion}
 
 	parseRt.deletions = []*Fiber{parseChild}
 	parseRt.wipRoot = parseParent
@@ -709,7 +709,7 @@ func TestCommitRoot_WithEffects(parseT *testing.T) {
 	isParseEffectRan := false
 	parseChild := &Fiber{
 		typeOf:    "div",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		dom:       parseAdapter.CreateElement("div"),
 		effects:   []Effect{{Fn: func() func() { isParseEffectRan = true; return nil }}},
 		effectTag: effectTagPlacement,
@@ -717,7 +717,7 @@ func TestCommitRoot_WithEffects(parseT *testing.T) {
 
 	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseAdapter.CreateElement("root"),
 		child:  parseChild,
 	}
@@ -737,15 +737,15 @@ func TestCommitRoot_MultipleDeletions(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	parseParentDOM := parseAdapter.CreateElement("div")
-	parseParent := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseParentDOM}
+	parseParent := &Fiber{typeOf: "div", props: make(map[string]any), dom: parseParentDOM}
 
 	parseDeletions := make([]*Fiber, 10)
-	for parseI := 0; parseI < 10; parseI++ {
+	for parseI := range 10 {
 		parseChildDOM := parseAdapter.CreateElement("span")
 		parseAdapter.AppendChild(parseParentDOM, parseChildDOM)
 		parseDeletions[parseI] = &Fiber{
 			typeOf:    "span",
-			props:     make(map[string]interface{}),
+			props:     make(map[string]any),
 			dom:       parseChildDOM,
 			parent:    parseParent,
 			effectTag: effectTagDeletion,
@@ -771,7 +771,7 @@ func TestRunEffects_SingleEffect(parseT *testing.T) {
 	isParseExecuted := false
 	parseFiber := &Fiber{
 		typeOf:  "div",
-		props:   make(map[string]interface{}),
+		props:   make(map[string]any),
 		effects: []Effect{{Fn: func() func() { isParseExecuted = true; return nil }}},
 	}
 
@@ -790,7 +790,7 @@ func TestRunEffects_MultipleEffects(parseT *testing.T) {
 	parseCount := 0
 	parseFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		effects: []Effect{
 			{Fn: func() func() { parseCount++; return nil }},
 			{Fn: func() func() { parseCount++; return nil }},
@@ -812,9 +812,9 @@ func TestRunEffects_NestedFibers(parseT *testing.T) {
 
 	parseCount := 0
 
-	parseGrandchild := &Fiber{typeOf: "p", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}}
-	parseChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}, child: parseGrandchild}
-	parseParent := &Fiber{typeOf: "div", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}, child: parseChild}
+	parseGrandchild := &Fiber{typeOf: "p", props: make(map[string]any), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}}
+	parseChild := &Fiber{typeOf: "span", props: make(map[string]any), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}, child: parseGrandchild}
+	parseParent := &Fiber{typeOf: "div", props: make(map[string]any), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}, child: parseChild}
 
 	parseRt.runEffects(parseParent)
 
@@ -830,9 +830,9 @@ func TestRunEffects_WithSiblings(parseT *testing.T) {
 
 	parseCount := 0
 
-	parseSibling2 := &Fiber{typeOf: "span", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}}
-	parseSibling1 := &Fiber{typeOf: "span", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}, sibling: parseSibling2}
-	parseParent := &Fiber{typeOf: "div", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}, child: parseSibling1}
+	parseSibling2 := &Fiber{typeOf: "span", props: make(map[string]any), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}}
+	parseSibling1 := &Fiber{typeOf: "span", props: make(map[string]any), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}, sibling: parseSibling2}
+	parseParent := &Fiber{typeOf: "div", props: make(map[string]any), effects: []Effect{{Fn: func() func() { parseCount++; return nil }}}, child: parseSibling1}
 
 	parseRt.runEffects(parseParent)
 
@@ -849,7 +849,7 @@ func TestRunCleanups_SingleCleanup(parseT *testing.T) {
 	isParseExecuted := false
 	parseFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		hooks:  &Hooks{cleanups: []func(){func() { isParseExecuted = true }}},
 	}
 
@@ -868,7 +868,7 @@ func TestRunCleanups_MultipleCleanups(parseT *testing.T) {
 	parseCount := 0
 	parseFiber := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		hooks: &Hooks{cleanups: []func(){
 			func() { parseCount++ },
 			func() { parseCount++ },
@@ -890,9 +890,9 @@ func TestRunCleanups_Nested(parseT *testing.T) {
 
 	parseCount := 0
 
-	parseGrandchild := &Fiber{typeOf: "p", props: make(map[string]interface{}), hooks: &Hooks{cleanups: []func(){func() { parseCount++ }}}}
-	parseChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), hooks: &Hooks{cleanups: []func(){func() { parseCount++ }}}, child: parseGrandchild}
-	parseParent := &Fiber{typeOf: "div", props: make(map[string]interface{}), hooks: &Hooks{cleanups: []func(){func() { parseCount++ }}}, child: parseChild}
+	parseGrandchild := &Fiber{typeOf: "p", props: make(map[string]any), hooks: &Hooks{cleanups: []func(){func() { parseCount++ }}}}
+	parseChild := &Fiber{typeOf: "span", props: make(map[string]any), hooks: &Hooks{cleanups: []func(){func() { parseCount++ }}}, child: parseGrandchild}
+	parseParent := &Fiber{typeOf: "div", props: make(map[string]any), hooks: &Hooks{cleanups: []func(){func() { parseCount++ }}}, child: parseChild}
 
 	parseRt.runCleanups(parseParent)
 
@@ -995,13 +995,13 @@ func TestCommitWork_FunctionComponentWithHostChild(parseT *testing.T) {
 	parseChildDOM := parseAdapter.CreateElement("span")
 
 	parseFuncFiber := &Fiber{
-		typeOf: func(parseP map[string]interface{}) *Element { return nil },
-		props:  make(map[string]interface{}),
+		typeOf: func(parseP map[string]any) *Element { return nil },
+		props:  make(map[string]any),
 	}
 
 	parseHostFiber := &Fiber{
 		typeOf:    "span",
-		props:     make(map[string]interface{}),
+		props:     make(map[string]any),
 		dom:       parseChildDOM,
 		parent:    parseFuncFiber,
 		effectTag: effectTagPlacement,
@@ -1011,7 +1011,7 @@ func TestCommitWork_FunctionComponentWithHostChild(parseT *testing.T) {
 
 	parseParent := &Fiber{
 		typeOf: "div",
-		props:  make(map[string]interface{}),
+		props:  make(map[string]any),
 		dom:    parseParentDOM,
 	}
 

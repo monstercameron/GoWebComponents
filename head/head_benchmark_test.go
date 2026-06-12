@@ -34,7 +34,7 @@ func BenchmarkRenderToString(parseB *testing.B) {
 		JSONLD: []JSONLDBlock{
 			{
 				ID: "bench-jsonld",
-				Value: map[string]interface{}{
+				Value: map[string]any{
 					"@context": "https://schema.org",
 					"@type":    "WebPage",
 					"name":     "Benchmark",
@@ -55,14 +55,14 @@ func BenchmarkRenderToString(parseB *testing.B) {
 
 func BenchmarkRenderJSONLD(parseB *testing.B) {
 	parseB.ReportAllocs()
-	parseValue := map[string]interface{}{
+	parseValue := map[string]any{
 		"@context": "https://schema.org",
 		"@type":    "FAQPage",
-		"mainEntity": []map[string]interface{}{
+		"mainEntity": []map[string]any{
 			{
 				"@type": "Question",
 				"name":  "What is this?",
-				"acceptedAnswer": map[string]interface{}{
+				"acceptedAnswer": map[string]any{
 					"@type": "Answer",
 					"text":  "A benchmark payload",
 				},

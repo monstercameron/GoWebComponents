@@ -886,7 +886,7 @@ func (parseP *jsxParser) skipWhitespace() {
 	}
 }
 
-func (parseP *jsxParser) errorf(format string, parseArgs ...interface{}) error {
+func (parseP *jsxParser) errorf(format string, parseArgs ...any) error {
 	parseLine := 1
 	parseColumn := 1
 	for _, parseChar := range parseP.source[:parseP.index] {

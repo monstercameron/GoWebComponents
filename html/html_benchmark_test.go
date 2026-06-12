@@ -35,7 +35,7 @@ func BenchmarkCustomElementWithAttributesAndProperties(parseB *testing.B) {
 		Presence: map[string]bool{
 			"hydrated": true,
 		},
-		Properties: map[string]interface{}{
+		Properties: map[string]any{
 			"value": 42,
 		},
 	}

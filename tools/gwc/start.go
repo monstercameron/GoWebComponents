@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -58,10 +59,10 @@ type scaffoldMetadata struct {
 	Version       string                     `json:"version,omitempty"`
 	Description   string                     `json:"description,omitempty"`
 	TargetDir     string                     `json:"targetDir,omitempty"`
-	Preset        scaffoldPresetMetadata     `json:"preset,omitempty"`
-	Enterprise    scaffoldEnterpriseMetadata `json:"enterprise,omitempty"`
-	Ownership     scaffoldOwnershipMetadata  `json:"ownership,omitempty"`
-	Tooling       scaffoldToolingMetadata    `json:"tooling,omitempty"`
+	Preset        scaffoldPresetMetadata     `json:"preset"`
+	Enterprise    scaffoldEnterpriseMetadata `json:"enterprise"`
+	Ownership     scaffoldOwnershipMetadata  `json:"ownership"`
+	Tooling       scaffoldToolingMetadata    `json:"tooling"`
 }
 
 const currentScaffoldMetadataSchemaVersion = 1
@@ -336,9 +337,7 @@ func cloneResolutionTrace(parseValues map[string]string) map[string]string {
 		return map[string]string{}
 	}
 	parseCloned := make(map[string]string, len(parseValues))
-	for parseKey, parseValue := range parseValues {
-		parseCloned[parseKey] = parseValue
-	}
+	maps.Copy(parseCloned, parseValues)
 	return parseCloned
 }
 
@@ -446,10 +445,10 @@ func (parseL launcher) readRepoModulePath() (string, error) {
 	if parseErr != nil {
 		return "", fmt.Errorf("read repo go.mod: %w", parseErr)
 	}
-	for _, parseLine := range strings.Split(string(parseContent), "\n") {
+	for parseLine := range strings.SplitSeq(string(parseContent), "\n") {
 		parseTrimmed := strings.TrimSpace(parseLine)
-		if strings.HasPrefix(parseTrimmed, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(parseTrimmed, "module ")), nil
+		if after, ok := strings.CutPrefix(parseTrimmed, "module "); ok {
+			return strings.TrimSpace(after), nil
 		}
 	}
 	return "", fmt.Errorf("repo module path not found in %s", parseGoModPath)
@@ -833,7 +832,7 @@ func TestMainSuite(t *testing.T) {
 
 func renderScaffoldGoStringList(parseValues []string) string {
 	if len(parseValues) == 0 {
-		return "nil"
+		return "[]string{}"
 	}
 	parseLines := make([]string, 0, len(parseValues))
 	for _, parseValue := range parseValues {

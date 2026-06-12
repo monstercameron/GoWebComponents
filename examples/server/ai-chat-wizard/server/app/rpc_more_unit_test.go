@@ -176,7 +176,7 @@ func TestListConversationsPagination(parseT *testing.T) {
 	}
 	parseCtx := parseBindAuthUser(parseServer, "peer-list-pagination", parseUser.ID, parseUser.Email)
 
-	for parseIndex := 0; parseIndex < 5; parseIndex++ {
+	for parseIndex := range 5 {
 		if _, parseErr := parseStore.parseCreateConversation(parseUser.ID); parseErr != nil {
 			parseT.Fatalf("parseCreateConversation(%d): %v", parseIndex, parseErr)
 		}

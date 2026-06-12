@@ -24,5 +24,5 @@ func ParsePatchRemoveOp(parseRaw PatchRemoveOpRaw, parseKnownNodeIDs map[uint64]
 		return PatchRemoveOp{}, fmt.Errorf("runtime2: remove op target node id %d was already removed", parseRaw.TargetNodeID)
 	}
 	parseRemovedNodeIDs[parseRaw.TargetNodeID] = struct{}{}
-	return PatchRemoveOp{TargetNodeID: parseRaw.TargetNodeID}, nil
+	return PatchRemoveOp(parseRaw), nil
 }

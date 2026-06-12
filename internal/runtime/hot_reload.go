@@ -35,9 +35,9 @@ type HotReloadComponentSnapshot struct {
 	Signature     ComponentSignature       `json:"signature"`
 	Path          string                   `json:"path,omitempty"`
 	IdentityTrail []string                 `json:"identityTrail,omitempty"`
-	States        []interface{}            `json:"states,omitempty"`
+	States        []any                    `json:"states,omitempty"`
 	Memos         []HotReloadMemoSnapshot  `json:"memos,omitempty"`
-	Refs          []interface{}            `json:"refs,omitempty"`
+	Refs          []any                    `json:"refs,omitempty"`
 	IDs           []string                 `json:"ids,omitempty"`
 	Fetches       []HotReloadFetchSnapshot `json:"fetches,omitempty"`
 }
@@ -255,7 +255,7 @@ func captureHotReloadComponentSnapshot(parseFiber *Fiber) *HotReloadComponentSna
 	}
 	if parseFiber.hooks != nil {
 		if len(parseFiber.hooks.states) > 0 {
-			parseSnapshot.States = make([]interface{}, 0, len(parseFiber.hooks.states)/2)
+			parseSnapshot.States = make([]any, 0, len(parseFiber.hooks.states)/2)
 			for parseIndex := 0; parseIndex+1 < len(parseFiber.hooks.states); parseIndex += 2 {
 				parseSnapshot.States = append(parseSnapshot.States, normalizeHotReloadValue(parseFiber.hooks.states[parseIndex]))
 			}
@@ -270,7 +270,7 @@ func captureHotReloadComponentSnapshot(parseFiber *Fiber) *HotReloadComponentSna
 			}
 		}
 		if len(parseFiber.hooks.refs) > 0 {
-			parseSnapshot.Refs = make([]interface{}, 0, len(parseFiber.hooks.refs))
+			parseSnapshot.Refs = make([]any, 0, len(parseFiber.hooks.refs))
 			for _, parseRef := range parseFiber.hooks.refs {
 				if parseRef == nil {
 					parseSnapshot.Refs = append(parseSnapshot.Refs, nil)
@@ -399,16 +399,16 @@ func normalizeHotReloadFetchState(parseState FetchState) FetchState {
 }
 
 // normalizeHotReloadValue is an internal hot-reload helper.
-func normalizeHotReloadValue(parseValue interface{}) interface{} {
+func normalizeHotReloadValue(parseValue any) any {
 	switch parseTyped := parseValue.(type) {
-	case map[string]interface{}:
-		parseNormalized := make(map[string]interface{}, len(parseTyped))
+	case map[string]any:
+		parseNormalized := make(map[string]any, len(parseTyped))
 		for parseKey, parseNested := range parseTyped {
 			parseNormalized[parseKey] = normalizeHotReloadValue(parseNested)
 		}
 		return parseNormalized
-	case []interface{}:
-		parseNormalized2 := make([]interface{}, len(parseTyped))
+	case []any:
+		parseNormalized2 := make([]any, len(parseTyped))
 		for parseIndex, parseNested2 := range parseTyped {
 			parseNormalized2[parseIndex] = normalizeHotReloadValue(parseNested2)
 		}
@@ -424,12 +424,12 @@ func normalizeHotReloadValue(parseValue interface{}) interface{} {
 }
 
 // normalizeHotReloadDeps is an internal hot-reload helper.
-func normalizeHotReloadDeps(parseDeps []interface{}) []interface{} {
+func normalizeHotReloadDeps(parseDeps []any) []any {
 	if len(parseDeps) == 0 {
 		return nil
 	}
 
-	parseNormalized := make([]interface{}, len(parseDeps))
+	parseNormalized := make([]any, len(parseDeps))
 	for parseIndex, parseDep := range parseDeps {
 		parseNormalized[parseIndex] = normalizeHotReloadValue(parseDep)
 	}
@@ -437,7 +437,7 @@ func normalizeHotReloadDeps(parseDeps []interface{}) []interface{} {
 }
 
 // coerceHotReloadValue is an internal hot-reload helper.
-func coerceHotReloadValue(parseValue interface{}, parseTargetType reflect.Type) (interface{}, bool) {
+func coerceHotReloadValue(parseValue any, parseTargetType reflect.Type) (any, bool) {
 	if parseTargetType == nil {
 		return parseValue, true
 	}
@@ -482,7 +482,7 @@ func coerceHotReloadValue(parseValue interface{}, parseTargetType reflect.Type) 
 
 // NormalizeHotReloadValue exposes the hot-reload value normalizer for bridge
 // code that receives JSON-decoded snapshots.
-func NormalizeHotReloadValue(parseValue interface{}) interface{} {
+func NormalizeHotReloadValue(parseValue any) any {
 	return normalizeHotReloadValue(parseValue)
 }
 
@@ -747,7 +747,7 @@ func reportHotReloadRestartActivity(parseFiber *Fiber) {
 }
 
 // restoreStateValue is an internal hot-reload helper.
-func (parseHooks *Hooks) restoreStateValue(parseIndex int) (interface{}, bool) {
+func (parseHooks *Hooks) restoreStateValue(parseIndex int) (any, bool) {
 	if parseHooks == nil || parseHooks.hotReloadRestore == nil {
 		return nil, false
 	}
@@ -758,7 +758,7 @@ func (parseHooks *Hooks) restoreStateValue(parseIndex int) (interface{}, bool) {
 }
 
 // restoreMemoValue is an internal hot-reload helper.
-func (parseHooks *Hooks) restoreMemoValue(parseIndex int) (interface{}, []interface{}, bool) {
+func (parseHooks *Hooks) restoreMemoValue(parseIndex int) (any, []any, bool) {
 	if parseHooks == nil || parseHooks.hotReloadRestore == nil {
 		return nil, nil, false
 	}
@@ -771,7 +771,7 @@ func (parseHooks *Hooks) restoreMemoValue(parseIndex int) (interface{}, []interf
 }
 
 // restoreRefValue is an internal hot-reload helper.
-func (parseHooks *Hooks) restoreRefValue(parseIndex int) (interface{}, bool) {
+func (parseHooks *Hooks) restoreRefValue(parseIndex int) (any, bool) {
 	if parseHooks == nil || parseHooks.hotReloadRestore == nil {
 		return nil, false
 	}
@@ -822,7 +822,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 		}
 	}
 
-	for parseAttempt := 0; parseAttempt < 2; parseAttempt++ {
+	for parseAttempt := range 2 {
 		SetCurrentFiber(parseFiber)
 		parseFiber.renderDurationNs = 0
 		if parseAttempt == 0 && parseRestore != nil {
@@ -884,7 +884,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 
 			if parseFn, parseOk := parseFiber.typeOf.(func() *Element); parseOk {
 				parseElement = parseFn()
-			} else if parseFn2, parseOk2 := parseFiber.typeOf.(func(map[string]interface{}) *Element); parseOk2 {
+			} else if parseFn2, parseOk2 := parseFiber.typeOf.(func(map[string]any) *Element); parseOk2 {
 				parseElement = parseFn2(parseFiber.props)
 			} else if parseFn3, parseOk3 := parseFiber.typeOf.(func(Attrs) *Element); parseOk3 {
 				parseElement = parseFn3(Attrs(parseFiber.props))

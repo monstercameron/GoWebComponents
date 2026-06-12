@@ -143,13 +143,14 @@ func parseSortCatalogNamespacePayloads(parseRows []*chatpb.CatalogNamespacePaylo
 
 // parseBuildCatalogBootstrapHash builds one deterministic hash from namespace payload hash rows.
 func parseBuildCatalogBootstrapHash(parseRows []*chatpb.CatalogNamespacePayload) string {
-	parseHashInput := parseCatalogBundleVersion
+	var parseHashInput strings.Builder
+	parseHashInput.WriteString(parseCatalogBundleVersion)
 	for _, parseRow := range parseRows {
 		if parseRow == nil {
 			continue
 		}
-		parseHashInput += "|" + parseRow.GetNamespace() + ":" + parseRow.GetLocale() + ":" + parseRow.GetContentHash()
+		parseHashInput.WriteString("|" + parseRow.GetNamespace() + ":" + parseRow.GetLocale() + ":" + parseRow.GetContentHash())
 	}
-	parseDigest := sha256.Sum256([]byte(parseHashInput))
+	parseDigest := sha256.Sum256([]byte(parseHashInput.String()))
 	return hex.EncodeToString(parseDigest[:])
 }

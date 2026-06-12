@@ -267,17 +267,17 @@ type ReplayEntry struct {
 }
 
 type SyncQueueEntry struct {
-	ID            string
-	Entity        string
-	Operation     string
-	Owner         string
-	State         string
-	URL           string
-	Attempts      int
-	MaxAttempts   int
-	LastError     string
-	QueuedAt      time.Time
-	UpdatedAt     time.Time
+	ID          string
+	Entity      string
+	Operation   string
+	Owner       string
+	State       string
+	URL         string
+	Attempts    int
+	MaxAttempts int
+	LastError   string
+	QueuedAt    time.Time
+	UpdatedAt   time.Time
 }
 
 type SyncHealthEntry struct {

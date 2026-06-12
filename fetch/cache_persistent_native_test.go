@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package fetch
 
@@ -22,13 +21,13 @@ func TestFetchNativePersistentCachePoliciesAndRetry(parseT *testing.T) {
 	if parseBootstrap, parseErr := readCacheBootstrap(nil); parseErr != nil || len(parseBootstrap.Entries) != 0 {
 		parseT.Fatalf("expected empty bootstrap decode, bootstrap=%+v err=%v", parseBootstrap, parseErr)
 	}
-	if _, parseErr := readCacheBootstrap(map[string]interface{}{CacheBootstrapDataKey: func() {}}); parseErr == nil {
+	if _, parseErr := readCacheBootstrap(map[string]any{CacheBootstrapDataKey: func() {}}); parseErr == nil {
 		parseT.Fatal("expected invalid bootstrap payload to fail JSON encoding")
 	}
 
 	parseNow := time.Date(2026, time.April, 6, 12, 0, 0, 0, time.UTC)
 	parsePayload := ui.SSRBootstrap{
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			CacheBootstrapDataKey: CacheBootstrap{
 				Entries: []CacheBootstrapEntry{
 					{Key: "profile", Value: "Ada", UpdatedAt: parseNow, ResumePolicy: CacheResumeAlwaysRefetch},
@@ -59,18 +58,18 @@ func TestFetchNativePersistentCachePoliciesAndRetry(parseT *testing.T) {
 
 	if parseValue, parseErr := decodePersistedCachedValue(json.RawMessage(`{"count":3}`), nil); parseErr != nil {
 		parseT.Fatalf("expected untyped persisted decode success, got %v", parseErr)
-	} else if parseMap, parseOk := parseValue.(map[string]interface{}); !parseOk || parseMap["count"] != float64(3) {
+	} else if parseMap, parseOk := parseValue.(map[string]any); !parseOk || parseMap["count"] != float64(3) {
 		parseT.Fatalf("unexpected untyped persisted decode value: %#v", parseValue)
 	}
 	type parseProfile struct {
 		Name string `json:"name"`
 	}
-	if parseValue, parseErr := decodePersistedCachedValue(json.RawMessage(`{"name":"Ada"}`), reflect.TypeOf(parseProfile{})); parseErr != nil {
+	if parseValue, parseErr := decodePersistedCachedValue(json.RawMessage(`{"name":"Ada"}`), reflect.TypeFor[parseProfile]()); parseErr != nil {
 		parseT.Fatalf("expected typed persisted decode success, got %v", parseErr)
 	} else if parseTyped, parseOk := parseValue.(parseProfile); !parseOk || parseTyped.Name != "Ada" {
 		parseT.Fatalf("unexpected typed persisted decode value: %#v", parseValue)
 	}
-	if _, parseErr := decodePersistedCachedValue(json.RawMessage(`{`), reflect.TypeOf(parseProfile{})); parseErr == nil {
+	if _, parseErr := decodePersistedCachedValue(json.RawMessage(`{`), reflect.TypeFor[parseProfile]()); parseErr == nil {
 		parseT.Fatal("expected invalid persisted JSON to fail typed decode")
 	}
 

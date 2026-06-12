@@ -1,5 +1,4 @@
 //go:build !js || !wasm
-// +build !js !wasm
 
 package ssr
 
@@ -12,14 +11,14 @@ import (
 type HydrationOptions = base.HydrationOptions
 type HydrationHarness = base.HydrationHarness
 
-func SmokeHydrate(parseTb stdtesting.TB, parseRoot interface{}, parseOptions ...HydrationOptions) *HydrationHarness {
+func SmokeHydrate(parseTb stdtesting.TB, parseRoot any, parseOptions ...HydrationOptions) *HydrationHarness {
 	return base.SmokeHydrate(parseTb, parseRoot, parseOptions...)
 }
 
-func RoundTripHydrate(parseTb stdtesting.TB, parseRoot interface{}, parseOptions ...HydrationOptions) *HydrationHarness {
+func RoundTripHydrate(parseTb stdtesting.TB, parseRoot any, parseOptions ...HydrationOptions) *HydrationHarness {
 	return base.RoundTripHydrate(parseTb, parseRoot, parseOptions...)
 }
 
-func RoundTripHydrateMismatch(parseTb stdtesting.TB, parseRoot interface{}, buildMutate func(string) string, parseOptions ...HydrationOptions) *HydrationHarness {
+func RoundTripHydrateMismatch(parseTb stdtesting.TB, parseRoot any, buildMutate func(string) string, parseOptions ...HydrationOptions) *HydrationHarness {
 	return base.RoundTripHydrateMismatch(parseTb, parseRoot, buildMutate, parseOptions...)
 }

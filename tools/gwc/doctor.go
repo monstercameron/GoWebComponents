@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -339,10 +340,8 @@ func appendDoctorLocation(parseLocations []string, parseValue string) []string {
 	if parseTrimmed == "" {
 		return parseLocations
 	}
-	for _, parseExisting := range parseLocations {
-		if parseExisting == parseTrimmed {
-			return parseLocations
-		}
+	if slices.Contains(parseLocations, parseTrimmed) {
+		return parseLocations
 	}
 	return append(parseLocations, parseTrimmed)
 }

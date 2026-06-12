@@ -209,8 +209,8 @@ func TestDiffLocale_StaleKey(t *testing.T) {
 	}
 	parseCatalog := map[string]map[string]string{
 		"home": {
-			"title":   "Home",
-			"orphan":  "Unused translation",
+			"title":  "Home",
+			"orphan": "Unused translation",
 		},
 	}
 	parseReport := DiffLocale(parseExtracted, "en", parseCatalog)

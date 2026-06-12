@@ -326,7 +326,7 @@ func (parseRt *Runtime) readHydrationComparableValue(parseNode DOMNode, parseNam
 }
 
 // hydrationValuesEqual is a core package helper.
-func hydrationValuesEqual(parseName string, parseExpected interface{}, parseActual string) bool {
+func hydrationValuesEqual(parseName string, parseExpected any, parseActual string) bool {
 	switch parseTyped := parseExpected.(type) {
 	case bool:
 		if parseTyped {
@@ -339,7 +339,7 @@ func hydrationValuesEqual(parseName string, parseExpected interface{}, parseActu
 }
 
 // stringifyHydrationValue is a core package helper.
-func stringifyHydrationValue(parseValue interface{}) string {
+func stringifyHydrationValue(parseValue any) string {
 	switch parseTyped := parseValue.(type) {
 	case nil:
 		return "<nil>"
@@ -434,7 +434,7 @@ func (parseRt *Runtime) domNodeText(parseNode DOMNode) string {
 }
 
 // normalizeHydrationInt is a core package helper.
-func normalizeHydrationInt(parseValue interface{}) (int, bool) {
+func normalizeHydrationInt(parseValue any) (int, bool) {
 	switch parseTyped := parseValue.(type) {
 	case int:
 		return parseTyped, true
@@ -458,7 +458,7 @@ func normalizeHydrationInt(parseValue interface{}) (int, bool) {
 }
 
 // normalizeHydrationString is a core package helper.
-func normalizeHydrationString(parseValue interface{}) (string, bool) {
+func normalizeHydrationString(parseValue any) (string, bool) {
 	switch parseTyped := parseValue.(type) {
 	case string:
 		return parseTyped, true

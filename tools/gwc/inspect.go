@@ -218,7 +218,7 @@ func buildInspectDependencies(buildRootPath string) (inspectDependencyView, erro
 	}
 
 	buildDependencySet := map[string]struct{}{}
-	for _, buildLine := range strings.Split(string(buildDependencyOutput), "\n") {
+	for buildLine := range strings.SplitSeq(string(buildDependencyOutput), "\n") {
 		buildImportPath := strings.TrimSpace(buildLine)
 		if buildImportPath == "" {
 			continue

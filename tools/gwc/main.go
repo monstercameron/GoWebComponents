@@ -111,7 +111,7 @@ type releaseSummary struct {
 	OutDir       string                           `json:"outDir"`
 	ManifestPath string                           `json:"manifestPath"`
 	Artifacts    map[string]releaseArtifactRecord `json:"artifacts"`
-	Flags        map[string]interface{}           `json:"flags"`
+	Flags        map[string]any                   `json:"flags"`
 	Optimizer    *releaseOptimizerRecord          `json:"optimizer,omitempty"`
 	Attribution  *releaseAttributionRecord        `json:"attribution,omitempty"`
 	Diff         *releaseDiffArtifactRecord       `json:"diff,omitempty"`
@@ -937,7 +937,7 @@ func applyDevHeaders(parseW http.ResponseWriter, parseR *http.Request) {
 	parseW.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 }
 
-func writeJSON(parseW http.ResponseWriter, parseStatus int, parsePayload interface{}) {
+func writeJSON(parseW http.ResponseWriter, parseStatus int, parsePayload any) {
 	parseW.Header().Set("Content-Type", "application/json")
 	parseW.WriteHeader(parseStatus)
 	_ = json.NewEncoder(parseW).Encode(parsePayload)

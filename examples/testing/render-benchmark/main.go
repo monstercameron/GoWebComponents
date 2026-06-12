@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	benchmarkshared "github.com/monstercameron/GoWebComponents/examples/testing/render-benchmark/shared"
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	benchmarkshared "github.com/monstercameron/GoWebComponents/examples/testing/render-benchmark/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/internal/runtime2"

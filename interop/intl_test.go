@@ -4,9 +4,6 @@ import (
 	"testing"
 )
 
-// groupingPtr returns a *bool for the UseGrouping option in tests.
-func groupingPtr(parseValue bool) *bool { return &parseValue }
-
 // TestIntlNumberOptionsKeyDistinct asserts that distinct IntlNumberOptions
 // configurations produce distinct cache keys. This is the core cache-correctness
 // invariant: formatters with different options must never share a cache entry.
@@ -17,10 +14,10 @@ func TestIntlNumberOptionsKeyDistinct(parseT *testing.T) {
 		opts IntlNumberOptions
 	}{
 		{name: "zero", opts: IntlNumberOptions{}},
-		{name: "decimal-no-group", opts: IntlNumberOptions{Style: "decimal", UseGrouping: groupingPtr(false)}},
-		{name: "decimal-group", opts: IntlNumberOptions{Style: "decimal", UseGrouping: groupingPtr(true)}},
-		{name: "currency-USD", opts: IntlNumberOptions{Style: "currency", Currency: "USD", UseGrouping: groupingPtr(true)}},
-		{name: "currency-EUR", opts: IntlNumberOptions{Style: "currency", Currency: "EUR", UseGrouping: groupingPtr(true)}},
+		{name: "decimal-no-group", opts: IntlNumberOptions{Style: "decimal", UseGrouping: new(false)}},
+		{name: "decimal-group", opts: IntlNumberOptions{Style: "decimal", UseGrouping: new(true)}},
+		{name: "currency-USD", opts: IntlNumberOptions{Style: "currency", Currency: "USD", UseGrouping: new(true)}},
+		{name: "currency-EUR", opts: IntlNumberOptions{Style: "currency", Currency: "EUR", UseGrouping: new(true)}},
 		{name: "percent", opts: IntlNumberOptions{Style: "percent"}},
 		{name: "minFD-2", opts: IntlNumberOptions{MinimumFractionDigits: 2}},
 		{name: "maxFD-4", opts: IntlNumberOptions{MaximumFractionDigits: 4}},
@@ -46,8 +43,8 @@ func TestIntlNumberOptionsKeyDistinct(parseT *testing.T) {
 // repeated calls with the same parameters.
 func TestIntlNumberOptionsKeyIdentical(parseT *testing.T) {
 	parseLocale := "de-DE"
-	parseOptsA := IntlNumberOptions{Style: "currency", Currency: "EUR", MinimumFractionDigits: 2, MaximumFractionDigits: 2, UseGrouping: groupingPtr(true)}
-	parseOptsB := IntlNumberOptions{Style: "currency", Currency: "EUR", MinimumFractionDigits: 2, MaximumFractionDigits: 2, UseGrouping: groupingPtr(true)}
+	parseOptsA := IntlNumberOptions{Style: "currency", Currency: "EUR", MinimumFractionDigits: 2, MaximumFractionDigits: 2, UseGrouping: new(true)}
+	parseOptsB := IntlNumberOptions{Style: "currency", Currency: "EUR", MinimumFractionDigits: 2, MaximumFractionDigits: 2, UseGrouping: new(true)}
 	parseKeyA := numberOptionsKey(parseLocale, parseOptsA)
 	parseKeyB := numberOptionsKey(parseLocale, parseOptsB)
 	if parseKeyA != parseKeyB {
@@ -58,7 +55,7 @@ func TestIntlNumberOptionsKeyIdentical(parseT *testing.T) {
 // TestIntlNumberOptionsKeyLocaleDistinct asserts that the same options under
 // different locales produce distinct keys.
 func TestIntlNumberOptionsKeyLocaleDistinct(parseT *testing.T) {
-	parseOpts := IntlNumberOptions{Style: "decimal", UseGrouping: groupingPtr(true)}
+	parseOpts := IntlNumberOptions{Style: "decimal", UseGrouping: new(true)}
 	parseKeyEN := numberOptionsKey("en-US", parseOpts)
 	parseKeyDE := numberOptionsKey("de-DE", parseOpts)
 	if parseKeyEN == parseKeyDE {

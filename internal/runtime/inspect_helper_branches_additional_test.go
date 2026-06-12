@@ -14,7 +14,7 @@ func TestContextHelperBranchesCoverPanicsAndRepair(parseT *testing.T) {
 
 	parseDescriptor := NewContextDescriptor("fallback")
 	parseFiber := &Fiber{
-		contextValues: map[int64]interface{}{parseDescriptor.ID: "provided"},
+		contextValues: map[int64]any{parseDescriptor.ID: "provided"},
 		hooks:         &Hooks{},
 	}
 
@@ -244,14 +244,14 @@ func TestInspectHelperBranchesCoverHookSnapshots(parseT *testing.T) {
 		ids:   []string{"id-1"},
 		atoms: []string{"atom-1"},
 		callbacks: []callbackValue{
-			{fn: func() {}, deps: []interface{}{"query"}},
+			{fn: func() {}, deps: []any{"query"}},
 		},
 		fetches: []fetchValue{
 			{url: "/loading", state: FetchState{Loading: true}},
 			{url: "/error", state: FetchState{Error: "boom"}},
 			{url: "/ready", state: FetchState{Data: map[string]bool{"ok": true}}},
 		},
-		deps: [][]interface{}{
+		deps: [][]any{
 			{true},
 		},
 	}
@@ -294,15 +294,15 @@ func TestBoundaryHelperBranchesCoverFallbacksAndReset(parseT *testing.T) {
 	defer ClearDiagnostics()
 
 	parseRt := &Runtime{}
-	parseStaticFallback := &Element{Type: "span", Props: map[string]interface{}{"children": emptyChildren}, Children: emptyChildren}
-	parseStaticBoundary := &Fiber{props: map[string]interface{}{"fallback": parseStaticFallback}}
+	parseStaticFallback := &Element{Type: "span", Props: map[string]any{"children": emptyChildren}, Children: emptyChildren}
+	parseStaticBoundary := &Fiber{props: map[string]any{"fallback": parseStaticFallback}}
 	if parseFallback := parseRt.renderBoundaryFallback(parseStaticBoundary, errors.New("boom")); parseFallback != parseStaticFallback {
 		parseT.Fatalf("expected static fallback to be returned, got %#v", parseFallback)
 	}
 
 	parseBoundary := &Fiber{
 		typeOf: NewErrorBoundaryType(),
-		props: map[string]interface{}{
+		props: map[string]any{
 			"onError": func(error) { panic("callback boom") },
 		},
 		parent: &Fiber{typeOf: "ROOT"},

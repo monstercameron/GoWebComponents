@@ -266,7 +266,7 @@ func TestSnapshotDispatchFastHashEnvelopeAndPropsHelpers(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("writeSnapshotDispatchFastHashEnvelopeWithSourceAndPropsKeys(entries) returned error: %v", parseErr)
 	}
-	parseScratch, parseErr = writeSnapshotDispatchFastHashEnvelopeWithSourceAndPropsKeys(
+	_, parseErr = writeSnapshotDispatchFastHashEnvelopeWithSourceAndPropsKeys(
 		parseHasher,
 		SnapshotEnvelope{
 			RegionInstanceID: RegionInstanceID("region-2"),

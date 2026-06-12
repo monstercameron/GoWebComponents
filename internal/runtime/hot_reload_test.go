@@ -217,9 +217,9 @@ func TestPrepareForHotReloadReportsPendingFetchRestartActivity(parseT *testing.T
 func TestSelectiveHotReloadRestoreRemountsChangedSubtreeOnly(parseT *testing.T) {
 	parseRt := &Runtime{}
 	parseRoot := &Fiber{typeOf: "ROOT"}
-	parseApp := &Fiber{typeOf: NewComponentType("example/App", "App", "example/App", nil, nil), parent: parseRoot, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{1, nil}}}
-	parseChanged := &Fiber{typeOf: NewComponentType("example/Changed", "Changed", "example/Changed", nil, nil), parent: parseApp, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{2, nil}}}
-	parseStable := &Fiber{typeOf: NewComponentType("example/Stable", "Stable", "example/Stable", nil, nil), parent: parseApp, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{3, nil}}}
+	parseApp := &Fiber{typeOf: NewComponentType("example/App", "App", "example/App", nil, nil), parent: parseRoot, hooks: &Hooks{signature: []string{"state"}, states: []any{1, nil}}}
+	parseChanged := &Fiber{typeOf: NewComponentType("example/Changed", "Changed", "example/Changed", nil, nil), parent: parseApp, hooks: &Hooks{signature: []string{"state"}, states: []any{2, nil}}}
+	parseStable := &Fiber{typeOf: NewComponentType("example/Stable", "Stable", "example/Stable", nil, nil), parent: parseApp, hooks: &Hooks{signature: []string{"state"}, states: []any{3, nil}}}
 	parseRoot.child = parseApp
 	parseApp.child = parseChanged
 	parseChanged.sibling = parseStable

@@ -62,4 +62,3 @@ func TestAdminCustomerTimelineScopeRules(parseT *testing.T) {
 		parseT.Fatalf("unsupported timeline source status code=%v want=%v", status.Code(parseErr), codes.InvalidArgument)
 	}
 }
-

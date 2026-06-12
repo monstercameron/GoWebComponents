@@ -4,7 +4,7 @@ package ui
 type NodeFactory func() Node
 
 // Component is a concise alias for CreateElement when rendering components.
-func Component(parseComponentType interface{}, parseComponentProps ...interface{}) Node {
+func Component(parseComponentType any, parseComponentProps ...any) Node {
 	return CreateElement(parseComponentType, parseComponentProps...)
 }
 
