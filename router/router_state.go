@@ -397,6 +397,7 @@ func (parseR *Router) cancelLoaderIfActive() {
 		delete(parseR.loaderState.entries, parseKey)
 	}
 	parseR.loaderState.active = make(map[string]struct{})
+	parseR.cancelRouteChunksIfActive()
 }
 
 // buildLoaderKey is an internal router helper.

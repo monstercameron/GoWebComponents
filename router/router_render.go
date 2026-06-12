@@ -18,12 +18,17 @@ func (parseR *Router) renderResolvedRouteStack(parseRoutes []resolvedRoute, pars
 // depth to prevent infinite redirect loops (#44/#45).
 func (parseR *Router) renderResolvedRouteStackWithDepth(parseRoutes []resolvedRoute, parseQuery url.Values, parseQueryKey string, isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64, parseRedirectDepth int) *Element {
 	parseLoaderKeys := make([]string, 0, len(parseRoutes))
+	parseChunkKeys := make([]string, 0, len(parseRoutes))
 	for _, parseRoute := range parseRoutes {
 		if parseRoute.option.Loader != nil {
 			parseLoaderKeys = append(parseLoaderKeys, buildLoaderKey(parseRoute.id, parseRoute.path, parseQueryKey))
 		}
+		if !parseRoute.option.Chunk.empty() {
+			parseChunkKeys = append(parseChunkKeys, parseRoute.option.Chunk.key(parseRoute.id))
+		}
 	}
 	parseR.prepareLoaderState(parseLoaderKeys)
+	parseR.prepareChunkState(parseChunkKeys)
 	return parseR.renderRouteLevel(parseRoutes, 0, parseQuery, parseQueryKey, isApplyGuards, parseGuardCtx, parseAttemptID, parseRedirectDepth)
 }
 
@@ -45,6 +50,24 @@ func (parseR *Router) renderRouteLevel(parseRoutes []resolvedRoute, parseIndex i
 	}
 
 	parseBaseProps := copyParamsToAttrs(parseMatch.params)
+	if !parseMatch.option.Chunk.empty() {
+		parseChunkKey := parseMatch.option.Chunk.key(parseMatch.id)
+		parseState := parseR.ensureRouteChunkResult(parseChunkKey, parseMatch.option.Chunk, RouteContext{
+			Path:   parseMatch.path,
+			Params: Params{values: copyParams(parseMatch.params)},
+			Query:  Query{values: copyQueryValues(parseQuery)},
+		})
+		if parseState.pending {
+			currentRouteData = nil
+			currentRouteOutlet = nil
+			return renderRouteFallback(parseMatch.option.Chunk.loadingComponent(parseMatch.option), mergeAttrs(parseBaseProps, Attrs{"path": parseMatch.path, "loading": true, "chunk": true}))
+		}
+		if parseState.err != nil {
+			currentRouteData = nil
+			currentRouteOutlet = nil
+			return renderRouteError(parseMatch.option.Chunk.errorComponent(parseMatch.option), parseState.err, mergeAttrs(parseBaseProps, Attrs{"path": parseMatch.path, "error": parseState.err.Error(), "chunk": true}))
+		}
+	}
 	parseData := Attrs(nil)
 	if parseMatch.option.Loader != nil {
 		parseLoaderKey := buildLoaderKey(parseMatch.id, parseMatch.path, parseQueryKey)

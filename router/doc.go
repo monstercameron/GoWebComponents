@@ -7,6 +7,7 @@
 //   - Programmatic navigation
 //   - Nested layout routes with explicit outlets
 //   - Static node and component route registration
+//   - Route-level chunk gates for lazy route artifacts
 //
 // Basic usage with hash routing:
 //
@@ -71,4 +72,7 @@
 //	        return router.Attrs{"userID": routeCtx.Params.Get("id")}, nil
 //	    },
 //	})
+//
+// Use RegisterLazy with RouteChunk when route code or a route-owned script must
+// load before the route component and loader run.
 package router

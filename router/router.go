@@ -45,6 +45,7 @@ type Options struct {
 	Description      string
 	CanonicalURL     string
 	Layout           bool
+	Chunk            RouteChunk
 	BeforeEnter      GuardFunc
 	BeforeLeave      LeaveGuardFunc
 	BeforeEnterAsync AsyncGuardFunc
@@ -76,6 +77,7 @@ type Router struct {
 	disposed               bool   // set when the router is unmounted; stale loader goroutines check this flag
 	routerType             string // "hash" or "history"
 	loaderState            loaderState
+	chunkState             routeChunkState
 	metadataState          routeMetadataState
 	guardState             navigationGuardState
 	debugState             routeDebugState
@@ -231,9 +233,22 @@ type loaderState struct {
 	active  map[string]struct{}
 }
 
+type routeChunkState struct {
+	mu      sync.Mutex
+	entries map[string]*routeChunkEntry
+	active  map[string]struct{}
+}
+
 type loaderEntry struct {
 	pending bool
 	data    Attrs
+	err     error
+	cancel  context.CancelFunc
+	version int
+}
+
+type routeChunkEntry struct {
+	pending bool
 	err     error
 	cancel  context.CancelFunc
 	version int
@@ -350,6 +365,10 @@ func NewHashRouter(parseOptions ...RouterOptions) *Router {
 			entries: make(map[string]*loaderEntry),
 			active:  make(map[string]struct{}),
 		},
+		chunkState: routeChunkState{
+			entries: make(map[string]*routeChunkEntry),
+			active:  make(map[string]struct{}),
+		},
 	}
 	return parseRouter
 }
@@ -376,6 +395,10 @@ func NewHistoryRouter(parseOptions ...RouterOptions) *Router {
 		routerType:   routerTypeHistory,
 		loaderState: loaderState{
 			entries: make(map[string]*loaderEntry),
+			active:  make(map[string]struct{}),
+		},
+		chunkState: routeChunkState{
+			entries: make(map[string]*routeChunkEntry),
 			active:  make(map[string]struct{}),
 		},
 	}

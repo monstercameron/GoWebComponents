@@ -55,6 +55,7 @@ Core routing is `Stable`:
 - `UseSearchParams`
 - redirects through `router.Options{Redirect: ...}`
 - nested layouts through `Layout: true` and `router.GetOutlet()`
+- route-level chunks through `RegisterLazy(...)` and `router.RouteChunk`
 - route contracts through `DefineRoute`, `MustDefineRoute`, `Path`, and `Href`
 
 Important advanced routing lifecycle:
@@ -62,6 +63,34 @@ Important advanced routing lifecycle:
 - route loaders, `UseRouteData`, and `UseRevalidator()` are part of the advanced router data surface and should be treated carefully
 - guards, return-to helpers, route-managed metadata, and hydration-heavy router attach flows are also part of that advanced lifecycle boundary
 - these surfaces are shipped and documented, but the repo policy still treats this slice as more changeable than the core route registration and navigation surface
+
+## Route-Level Code Splitting
+
+Use `RegisterLazy(...)` when a route family should keep the shell responsive
+while a route-owned artifact loads. The router starts the chunk before the route
+component and before the route loader, renders the route loading fallback while
+it is pending, and uses route error UI if the chunk fails.
+
+```go
+getRouter.RegisterLazy("/reports/:id", renderReportsPage, router.RouteChunk{
+	ID: "reports",
+	Scripts: []string{"/chunks/reports.js"},
+	Loading: func(router.Attrs) *router.Element {
+		return h.P("Loading report route...")
+	},
+	Error: func(getProps router.Attrs) *router.Element {
+		return h.P(h.Textf("Report route failed: %s", getProps["error"]))
+	},
+}, router.Options{
+	Loader: reports.BuildReportsLoader,
+	Title:  "Reports",
+})
+```
+
+For custom artifact orchestration, provide `RouteChunk.Loader` instead of
+`Scripts`. That loader can fetch a manifest, initialize a companion wasm binary,
+or call a project-owned module loader. It receives the same `RouteContext` as a
+route loader and is cancelled when navigation moves away before it resolves.
 
 ## Minimal Example
 
