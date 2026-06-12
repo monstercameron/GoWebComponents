@@ -9,8 +9,8 @@ The `hotreload` library provides development-time hot reload plumbing and produc
 ## Public APIs
 
 ### `github.com/monstercameron/GoWebComponents/hotreload` (`package hotreload`)
-- Functions: `ApplySnapshot`, `Configure`, `Disable`, `Enable`, `Enabled`, `GetSnapshot`, `Prepare`
-- Types: `Config`
+- Functions: `ApplySnapshot`, `Configure`, `Disable`, `Enable`, `Enabled`, `GetSnapshot`, `IsEnabled`, `Prepare`
+- Types: `Config`, `SnapshotMigration`, `SnapshotMigrationContext`
 - Variables: _none_
 - Constants: _none_
 

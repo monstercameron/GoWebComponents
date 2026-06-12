@@ -59,7 +59,17 @@ const (
 	SessionStorage StorageArea = "sessionStorage"
 )
 
-const defaultPersistentSnapshotStoreName = "state-snapshots"
+const (
+	defaultPersistentSnapshotStoreName = "state-snapshots"
+	snapshotWireProtocol               = "gwc.state.snapshot"
+	currentSnapshotVersion             = 1
+)
+
+type snapshotWireEnvelope struct {
+	Protocol string   `json:"protocol,omitempty"`
+	Version  int      `json:"version,omitempty"`
+	State    Snapshot `json:"state,omitempty"`
+}
 
 var (
 	loadStateLocalStorage   = interop.GetLocalStorage
@@ -379,13 +389,53 @@ func MarshalSnapshotJSON(parseSnapshot Snapshot) ([]byte, error) {
 	if parseSnapshot == nil {
 		parseSnapshot = Snapshot{}
 	}
-	return json.Marshal(parseSnapshot)
+	return json.Marshal(snapshotWireEnvelope{
+		Protocol: snapshotWireProtocol,
+		Version:  currentSnapshotVersion,
+		State:    parseSnapshot,
+	})
 }
 
 // UnmarshalSnapshotJSON decodes a JSON snapshot produced by MarshalSnapshotJSON.
 func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
 	if len(parseData) == 0 {
 		return Snapshot{}, nil
+	}
+
+	var parseRaw map[string]json.RawMessage
+	if parseErr := json.Unmarshal(parseData, &parseRaw); parseErr != nil {
+		return nil, parseErr
+	}
+	if parseRaw == nil {
+		return Snapshot{}, nil
+	}
+
+	if parseProtocolData, parseFound := parseRaw["protocol"]; parseFound {
+		var parseProtocol string
+		if parseErr := json.Unmarshal(parseProtocolData, &parseProtocol); parseErr != nil {
+			return nil, fmt.Errorf("state: invalid snapshot protocol: %w", parseErr)
+		}
+		parseProtocol = strings.TrimSpace(parseProtocol)
+		if parseProtocol != "" {
+			var parseEnvelope snapshotWireEnvelope
+			if parseErr2 := json.Unmarshal(parseData, &parseEnvelope); parseErr2 != nil {
+				return nil, parseErr2
+			}
+			if parseProtocol != snapshotWireProtocol {
+				return nil, fmt.Errorf("state: unsupported snapshot protocol %q", parseProtocol)
+			}
+			if _, parseErr3 := normalizeSnapshotVersion(parseEnvelope.Version); parseErr3 != nil {
+				return nil, parseErr3
+			}
+			if parseEnvelope.State == nil {
+				return Snapshot{}, nil
+			}
+			parseNormalized, parseOk := normalizeSnapshot(parseEnvelope.State).(Snapshot)
+			if !parseOk {
+				return nil, fmt.Errorf("state: snapshot normalization returned unexpected type")
+			}
+			return parseNormalized, nil
+		}
 	}
 
 	var parseSnapshot Snapshot
@@ -400,6 +450,19 @@ func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
 		return nil, fmt.Errorf("state: snapshot normalization returned unexpected type")
 	}
 	return parseNormalized, nil
+}
+
+func normalizeSnapshotVersion(parseVersion int) (int, error) {
+	if parseVersion < 0 {
+		return 0, fmt.Errorf("state: unsupported snapshot version %d", parseVersion)
+	}
+	if parseVersion == 0 {
+		return currentSnapshotVersion, nil
+	}
+	if parseVersion > currentSnapshotVersion {
+		return 0, fmt.Errorf("state: unsupported snapshot version %d", parseVersion)
+	}
+	return parseVersion, nil
 }
 
 // SaveSnapshot stores a JSON-encoded snapshot in browser storage.

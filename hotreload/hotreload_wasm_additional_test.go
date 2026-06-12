@@ -5,11 +5,13 @@ package hotreload
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"syscall/js"
 	"testing"
 
 	runtimepkg "github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/state"
 )
 
 // storeHotReloadTestGlobal replaces a global value for the duration of a wasm hotreload test.
@@ -50,7 +52,7 @@ func buildHotReloadTestLiveReload(parsePayload string, parseClearCount *int) (js
 // TestGetSnapshotWasmHonorsAtomFilterAndResetKey verifies filtered snapshot export and bridge metadata wiring.
 func TestGetSnapshotWasmHonorsAtomFilterAndResetKey(parseT *testing.T) {
 	Disable()
-	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}})
+	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}, Reset: true})
 	runtimepkg.ClearDiagnostics()
 	runtimepkg.ClearLogs()
 	parseT.Cleanup(func() {
@@ -82,6 +84,12 @@ func TestGetSnapshotWasmHonorsAtomFilterAndResetKey(parseT *testing.T) {
 	if parseErr2 := json.Unmarshal([]byte(parsePayload), &parseSnapshot); parseErr2 != nil {
 		parseT.Fatalf("expected structured snapshot payload, got %v", parseErr2)
 	}
+	if parseSnapshot.Protocol != hotReloadSnapshotProtocol || parseSnapshot.Version != currentHotReloadSnapshotVersion {
+		parseT.Fatalf("expected versioned snapshot payload, got protocol=%q version=%d", parseSnapshot.Protocol, parseSnapshot.Version)
+	}
+	if parseSnapshot.SnapshotVersion != defaultHotReloadSchemaVersion {
+		parseT.Fatalf("expected default snapshot schema version, got %d", parseSnapshot.SnapshotVersion)
+	}
 	if parseSnapshot.ResetKey != "build-v1" {
 		parseT.Fatalf("expected trimmed reset key, got %q", parseSnapshot.ResetKey)
 	}
@@ -99,6 +107,15 @@ func TestGetSnapshotWasmHonorsAtomFilterAndResetKey(parseT *testing.T) {
 	if parseResetKey := parseBridge.Get("resetKey"); !parseResetKey.Present() || parseResetKey.String() != "build-v1" {
 		parseT.Fatalf("expected bridge reset key metadata, got %#v", parseResetKey)
 	}
+	if parseProtocol := parseBridge.Get("protocol"); !parseProtocol.Present() || parseProtocol.String() != hotReloadSnapshotProtocol {
+		parseT.Fatalf("expected bridge protocol metadata, got %#v", parseProtocol)
+	}
+	if parseVersion := parseBridge.Get("version"); !parseVersion.Present() || parseVersion.Int() != currentHotReloadSnapshotVersion {
+		parseT.Fatalf("expected bridge version metadata, got %#v", parseVersion)
+	}
+	if parseSnapshotVersion := parseBridge.Get("snapshotVersion"); !parseSnapshotVersion.Present() || parseSnapshotVersion.Int() != defaultHotReloadSchemaVersion {
+		parseT.Fatalf("expected bridge snapshot version metadata, got %#v", parseSnapshotVersion)
+	}
 	parseAtomIDs, parseErr := parseBridge.Get("atomIDs").ToGo()
 	if parseErr != nil {
 		parseT.Fatalf("expected bridge atom filter metadata to decode, got %v", parseErr)
@@ -112,7 +129,7 @@ func TestGetSnapshotWasmHonorsAtomFilterAndResetKey(parseT *testing.T) {
 // TestConfigureWasmReusesInstalledBridgeWhenConfigMatches verifies same-config configure calls restore pending state without reinstalling the bridge.
 func TestConfigureWasmReusesInstalledBridgeWhenConfigMatches(parseT *testing.T) {
 	Disable()
-	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}})
+	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}, Reset: true})
 	runtimepkg.ClearDiagnostics()
 	runtimepkg.ClearLogs()
 	parseT.Cleanup(func() {
@@ -163,7 +180,7 @@ func TestConfigureWasmReusesInstalledBridgeWhenConfigMatches(parseT *testing.T) 
 // TestImportSnapshotWasmHandlesEmptyLegacyAndInvalidPayloads verifies the skipped, legacy, and malformed snapshot branches.
 func TestImportSnapshotWasmHandlesEmptyLegacyAndInvalidPayloads(parseT *testing.T) {
 	Disable()
-	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}})
+	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}, Reset: true})
 	runtimepkg.ClearDiagnostics()
 	runtimepkg.ClearLogs()
 	parseT.Cleanup(func() {
@@ -194,6 +211,361 @@ func TestImportSnapshotWasmHandlesEmptyLegacyAndInvalidPayloads(parseT *testing.
 	}
 	if !strings.Contains(parseInvalidResult.Message, "unexpected end of JSON input") {
 		parseT.Fatalf("expected malformed payload error detail, got %q", parseInvalidResult.Message)
+	}
+}
+
+func TestImportSnapshotWasmRejectsFutureBridgeSnapshotVersion(parseT *testing.T) {
+	Disable()
+	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}, Reset: true})
+	runtimepkg.ClearDiagnostics()
+	runtimepkg.ClearLogs()
+	parseT.Cleanup(func() {
+		Disable()
+		runtimepkg.ClearDiagnostics()
+		runtimepkg.ClearLogs()
+	})
+
+	if parseErr := runtimepkg.GetGlobalRuntime().SetAtomValue("future-theme", "light"); parseErr != nil {
+		parseT.Fatalf("unexpected setup error: %v", parseErr)
+	}
+	parsePayload, parseErr := json.Marshal(bridgeSnapshot{
+		Protocol: hotReloadSnapshotProtocol,
+		Version:  currentHotReloadSnapshotVersion + 1,
+		State:    state.Snapshot{"future-theme": "dark"},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected future payload marshal to succeed, got %v", parseErr)
+	}
+	parseResult, parseErr2 := importSnapshot(string(parsePayload))
+	if parseErr2 == nil || parseResult.Outcome != "error" {
+		parseT.Fatalf("expected future snapshot version to fail, got result=%+v err=%v", parseResult, parseErr2)
+	}
+	parseValue, parseOk := runtimepkg.GetGlobalRuntime().GetAtomValue("future-theme")
+	if !parseOk || parseValue != "light" {
+		parseT.Fatalf("expected rejected future snapshot not to mutate atom, got %#v ok=%t", parseValue, parseOk)
+	}
+	parseDiagnostics := runtimepkg.GetDiagnostics()
+	if len(parseDiagnostics) == 0 || !strings.Contains(parseDiagnostics[0].Message, "hot reload snapshot protocol mismatch") {
+		parseT.Fatalf("expected protocol mismatch diagnostic, got %+v", parseDiagnostics)
+	}
+}
+
+func TestImportSnapshotWasmAppliesConfiguredSnapshotMigration(parseT *testing.T) {
+	Disable()
+	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}, Reset: true})
+	runtimepkg.ClearDiagnostics()
+	runtimepkg.ClearLogs()
+	parseT.Cleanup(func() {
+		Disable()
+		runtimepkg.ClearDiagnostics()
+		runtimepkg.ClearLogs()
+	})
+
+	if parseErr := runtimepkg.GetGlobalRuntime().SetAtomValue("new-theme", "light"); parseErr != nil {
+		parseT.Fatalf("unexpected setup error: %v", parseErr)
+	}
+	Configure(Config{
+		SnapshotVersion: 2,
+		SnapshotMigrations: []SnapshotMigration{{
+			FromVersion: 1,
+			ToVersion:   2,
+			MigrateState: func(parseCtx SnapshotMigrationContext) (state.Snapshot, error) {
+				if parseCtx.FromVersion != 1 || parseCtx.ToVersion != 2 {
+					parseT.Fatalf("unexpected migration context versions: %+v", parseCtx)
+				}
+				parseCtx.State["new-theme"] = parseCtx.State["old-theme"]
+				delete(parseCtx.State, "old-theme")
+				return parseCtx.State, nil
+			},
+			ComponentPathAliases: map[string]string{
+				"old/path": "new/path",
+			},
+			ComponentIdentityAliases: map[string]string{
+				"example.Old": "example.New",
+			},
+		}},
+	})
+
+	parseSnapshot := bridgeSnapshot{
+		Protocol:        hotReloadSnapshotProtocol,
+		Version:         currentHotReloadSnapshotVersion,
+		SnapshotVersion: 1,
+		State:           state.Snapshot{"old-theme": "dark"},
+		Components: []runtimepkg.HotReloadComponentSnapshot{{
+			Path:          "old/path",
+			IdentityTrail: []string{"example.Old"},
+			Signature: runtimepkg.ComponentSignature{
+				Kind:          "component",
+				Name:          "Old",
+				QualifiedName: "example.Old",
+				HookKinds:     []string{"state"},
+			},
+			States: []interface{}{"preserved"},
+		}},
+	}
+	parseMigrated, parseErr := migrateBridgeSnapshot(parseSnapshot)
+	if parseErr != nil {
+		parseT.Fatalf("expected direct snapshot migration to succeed, got %v", parseErr)
+	}
+	if parseMigrated.SnapshotVersion != 2 || parseMigrated.State["new-theme"] != "dark" {
+		parseT.Fatalf("expected migrated snapshot state and version, got %+v", parseMigrated)
+	}
+	if parseMigrated.Components[0].Path != "new/path" ||
+		parseMigrated.Components[0].IdentityTrail[0] != "example.New" ||
+		parseMigrated.Components[0].Signature.QualifiedName != "example.New" {
+		parseT.Fatalf("expected migrated component aliases, got %+v", parseMigrated.Components[0])
+	}
+
+	parsePayload, parseErr2 := json.Marshal(parseSnapshot)
+	if parseErr2 != nil {
+		parseT.Fatalf("expected migration payload marshal to succeed, got %v", parseErr2)
+	}
+	parseResult, parseErr3 := importSnapshot(string(parsePayload))
+	if parseErr3 != nil || parseResult.Outcome != "restored" {
+		parseT.Fatalf("expected migrated snapshot import to restore, got result=%+v err=%v", parseResult, parseErr3)
+	}
+	parseValue, parseOk := runtimepkg.GetGlobalRuntime().GetAtomValue("new-theme")
+	if !parseOk || parseValue != "dark" {
+		parseT.Fatalf("expected migrated atom to restore under new key, got %#v ok=%t", parseValue, parseOk)
+	}
+}
+
+func TestImportSnapshotWasmRejectsMissingSnapshotMigration(parseT *testing.T) {
+	Disable()
+	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}})
+	runtimepkg.ClearDiagnostics()
+	runtimepkg.ClearLogs()
+	parseT.Cleanup(func() {
+		Disable()
+		runtimepkg.ClearDiagnostics()
+		runtimepkg.ClearLogs()
+	})
+
+	if parseErr := runtimepkg.GetGlobalRuntime().SetAtomValue("migration-theme", "light"); parseErr != nil {
+		parseT.Fatalf("unexpected setup error: %v", parseErr)
+	}
+	Configure(Config{SnapshotVersion: 2})
+	parsePayload, parseErr := json.Marshal(bridgeSnapshot{
+		Protocol:        hotReloadSnapshotProtocol,
+		Version:         currentHotReloadSnapshotVersion,
+		SnapshotVersion: 1,
+		State:           state.Snapshot{"migration-theme": "dark"},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected missing migration payload marshal to succeed, got %v", parseErr)
+	}
+	parseResult, parseErr2 := importSnapshot(string(parsePayload))
+	if parseErr2 == nil || parseResult.Outcome != "error" {
+		parseT.Fatalf("expected missing migration to fail, got result=%+v err=%v", parseResult, parseErr2)
+	}
+	if !strings.Contains(parseResult.Message, "no snapshot migration") {
+		parseT.Fatalf("expected missing migration detail, got %q", parseResult.Message)
+	}
+	parseValue, parseOk := runtimepkg.GetGlobalRuntime().GetAtomValue("migration-theme")
+	if !parseOk || parseValue != "light" {
+		parseT.Fatalf("expected rejected migration not to mutate atom, got %#v ok=%t", parseValue, parseOk)
+	}
+}
+
+func TestImportSnapshotWasmRejectsNewerConfiguredSnapshotSchema(parseT *testing.T) {
+	Disable()
+	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}})
+	runtimepkg.ClearDiagnostics()
+	runtimepkg.ClearLogs()
+	parseT.Cleanup(func() {
+		Disable()
+		runtimepkg.ClearDiagnostics()
+		runtimepkg.ClearLogs()
+	})
+
+	Configure(Config{SnapshotVersion: 2})
+	parsePayload, parseErr := json.Marshal(bridgeSnapshot{
+		Protocol:        hotReloadSnapshotProtocol,
+		Version:         currentHotReloadSnapshotVersion,
+		SnapshotVersion: 3,
+		State:           state.Snapshot{"theme": "dark"},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected newer schema payload marshal to succeed, got %v", parseErr)
+	}
+	parseResult, parseErr2 := importSnapshot(string(parsePayload))
+	if parseErr2 == nil || parseResult.Outcome != "error" {
+		parseT.Fatalf("expected newer schema snapshot to fail, got result=%+v err=%v", parseResult, parseErr2)
+	}
+	if !strings.Contains(parseResult.Message, "newer than configured") {
+		parseT.Fatalf("expected newer schema detail, got %q", parseResult.Message)
+	}
+}
+
+func TestImportSnapshotWasmStateMigrationFailureIsAtomic(parseT *testing.T) {
+	Disable()
+	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}, Reset: true})
+	runtimepkg.ClearDiagnostics()
+	runtimepkg.ClearLogs()
+	parseT.Cleanup(func() {
+		Disable()
+		runtimepkg.ClearDiagnostics()
+		runtimepkg.ClearLogs()
+	})
+
+	if parseErr := runtimepkg.GetGlobalRuntime().SetAtomValue("atomic-theme", "light"); parseErr != nil {
+		parseT.Fatalf("unexpected setup error: %v", parseErr)
+	}
+	Configure(Config{
+		SnapshotVersion: 2,
+		SnapshotMigrations: []SnapshotMigration{{
+			FromVersion: 1,
+			ToVersion:   2,
+			MigrateState: func(SnapshotMigrationContext) (state.Snapshot, error) {
+				return nil, errors.New("migration failed")
+			},
+		}},
+	})
+	parsePayload, parseErr := json.Marshal(bridgeSnapshot{
+		Protocol:        hotReloadSnapshotProtocol,
+		Version:         currentHotReloadSnapshotVersion,
+		SnapshotVersion: 1,
+		State:           state.Snapshot{"atomic-theme": "dark"},
+		Components: []runtimepkg.HotReloadComponentSnapshot{{
+			Path: "example/App@0",
+		}},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected atomic payload marshal to succeed, got %v", parseErr)
+	}
+	parseResult, parseErr2 := importSnapshot(string(parsePayload))
+	if parseErr2 == nil || parseResult.Outcome != "error" {
+		parseT.Fatalf("expected migration failure to return an error, got result=%+v err=%v", parseResult, parseErr2)
+	}
+	parseValue, parseOk := runtimepkg.GetGlobalRuntime().GetAtomValue("atomic-theme")
+	if !parseOk || parseValue != "light" {
+		parseT.Fatalf("expected failed migration not to mutate atom, got %#v ok=%t", parseValue, parseOk)
+	}
+	if runtimepkg.GetGlobalRuntime().HasPendingHotReloadSnapshot() {
+		parseT.Fatal("expected failed migration not to queue component snapshots")
+	}
+}
+
+func TestImportSnapshotWasmAppliesMultiStepSnapshotMigrationsInOrder(parseT *testing.T) {
+	Disable()
+	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}})
+	runtimepkg.ClearDiagnostics()
+	runtimepkg.ClearLogs()
+	parseT.Cleanup(func() {
+		Disable()
+		runtimepkg.ClearDiagnostics()
+		runtimepkg.ClearLogs()
+	})
+
+	parseSteps := []int{}
+	Configure(Config{
+		SnapshotVersion: 3,
+		SnapshotMigrations: []SnapshotMigration{
+			{
+				FromVersion: 1,
+				ToVersion:   2,
+				MigrateState: func(parseCtx SnapshotMigrationContext) (state.Snapshot, error) {
+					parseSteps = append(parseSteps, parseCtx.ToVersion)
+					parseCtx.State["theme-v2"] = parseCtx.State["theme"]
+					delete(parseCtx.State, "theme")
+					return parseCtx.State, nil
+				},
+			},
+			{
+				FromVersion: 2,
+				ToVersion:   3,
+				MigrateState: func(parseCtx SnapshotMigrationContext) (state.Snapshot, error) {
+					parseSteps = append(parseSteps, parseCtx.ToVersion)
+					parseCtx.State["theme-v3"] = parseCtx.State["theme-v2"]
+					delete(parseCtx.State, "theme-v2")
+					return parseCtx.State, nil
+				},
+			},
+		},
+	})
+	parsePayload, parseErr := json.Marshal(bridgeSnapshot{
+		Protocol:        hotReloadSnapshotProtocol,
+		Version:         currentHotReloadSnapshotVersion,
+		SnapshotVersion: 1,
+		State:           state.Snapshot{"theme": "dark"},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected multistep payload marshal to succeed, got %v", parseErr)
+	}
+	parseResult, parseErr2 := importSnapshot(string(parsePayload))
+	if parseErr2 != nil || parseResult.Outcome != "restored" {
+		parseT.Fatalf("expected multistep migration to restore, got result=%+v err=%v", parseResult, parseErr2)
+	}
+	if len(parseSteps) != 2 || parseSteps[0] != 2 || parseSteps[1] != 3 {
+		parseT.Fatalf("expected migrations to run in order, got %v", parseSteps)
+	}
+	parseValue, parseOk := runtimepkg.GetGlobalRuntime().GetAtomValue("theme-v3")
+	if !parseOk || parseValue != "dark" {
+		parseT.Fatalf("expected final migrated atom, got %#v ok=%t", parseValue, parseOk)
+	}
+}
+
+func TestConfigureWasmUpdatesSnapshotMigrationsWithoutBridgeReinstall(parseT *testing.T) {
+	Disable()
+	runtimepkg.InitGlobalRuntime(runtimepkg.Config{Scheduler: noOpScheduler{}})
+	runtimepkg.ClearDiagnostics()
+	runtimepkg.ClearLogs()
+	parseT.Cleanup(func() {
+		Disable()
+		runtimepkg.ClearDiagnostics()
+		runtimepkg.ClearLogs()
+	})
+
+	Configure(Config{
+		SnapshotVersion: 2,
+		SnapshotMigrations: []SnapshotMigration{{
+			FromVersion: 1,
+			ToVersion:   2,
+			MigrateState: func(parseCtx SnapshotMigrationContext) (state.Snapshot, error) {
+				parseCtx.State["first-theme"] = parseCtx.State["old-theme"]
+				return parseCtx.State, nil
+			},
+		}},
+	})
+	parseBridgeBefore := js.Global().Get(appBridgeGlobal)
+	if !parseBridgeBefore.Truthy() {
+		parseT.Fatal("expected configured bridge object")
+	}
+
+	Configure(Config{
+		SnapshotVersion: 2,
+		SnapshotMigrations: []SnapshotMigration{{
+			FromVersion: 1,
+			ToVersion:   2,
+			MigrateState: func(parseCtx SnapshotMigrationContext) (state.Snapshot, error) {
+				parseCtx.State["second-theme"] = parseCtx.State["old-theme"]
+				return parseCtx.State, nil
+			},
+		}},
+	})
+	parseBridgeAfter := js.Global().Get(appBridgeGlobal)
+	if !parseBridgeAfter.Equal(parseBridgeBefore) {
+		parseT.Fatal("expected same bridge object when only migration callbacks changed")
+	}
+
+	parsePayload, parseErr := json.Marshal(bridgeSnapshot{
+		Protocol:        hotReloadSnapshotProtocol,
+		Version:         currentHotReloadSnapshotVersion,
+		SnapshotVersion: 1,
+		State:           state.Snapshot{"old-theme": "dark"},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected bridge-refresh payload marshal to succeed, got %v", parseErr)
+	}
+	parseResult, parseErr2 := importSnapshot(string(parsePayload))
+	if parseErr2 != nil || parseResult.Outcome != "restored" {
+		parseT.Fatalf("expected refreshed migration callback to restore, got result=%+v err=%v", parseResult, parseErr2)
+	}
+	if parseValue, parseOk := runtimepkg.GetGlobalRuntime().GetAtomValue("second-theme"); !parseOk || parseValue != "dark" {
+		parseT.Fatalf("expected refreshed migration callback to run, got %#v ok=%t", parseValue, parseOk)
+	}
+	if _, parseFound := runtimepkg.GetGlobalRuntime().GetAtomValue("first-theme"); parseFound {
+		parseT.Fatal("expected stale migration callback not to run")
 	}
 }
 
@@ -371,6 +743,9 @@ func TestConfigEqualWasmComparesResetKeysAndAtomIDs(parseT *testing.T) {
 	}
 	if configEqual(Config{ResetKey: "build-v1"}, Config{ResetKey: "build-v2"}) {
 		parseT.Fatal("expected differing reset keys to compare unequal")
+	}
+	if configEqual(Config{SnapshotVersion: 1}, Config{SnapshotVersion: 2}) {
+		parseT.Fatal("expected differing snapshot versions to compare unequal")
 	}
 	if configEqual(Config{AtomIDs: []string{"theme"}}, Config{AtomIDs: []string{"theme", "sidebar"}}) {
 		parseT.Fatal("expected differing atom-id lengths to compare unequal")

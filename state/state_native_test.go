@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -207,8 +208,15 @@ func TestStateNativeSnapshotHelpers(parseT *testing.T) {
 	}
 
 	parseData, parseErr5 := MarshalSnapshotJSON(nil)
-	if parseErr5 != nil || string(parseData) != "{}" {
-		parseT.Fatalf("expected nil snapshot JSON to encode as {}, got %q err=%v", string(parseData), parseErr5)
+	if parseErr5 != nil {
+		parseT.Fatalf("expected nil snapshot JSON to encode, got %v", parseErr5)
+	}
+	var parseEnvelope snapshotWireEnvelope
+	if parseErrEnvelope := json.Unmarshal(parseData, &parseEnvelope); parseErrEnvelope != nil {
+		parseT.Fatalf("expected nil snapshot JSON to decode as versioned envelope, got %v", parseErrEnvelope)
+	}
+	if parseEnvelope.Protocol != snapshotWireProtocol || parseEnvelope.Version != currentSnapshotVersion || len(parseEnvelope.State) != 0 {
+		parseT.Fatalf("expected nil snapshot JSON to encode as empty versioned envelope, got %q", string(parseData))
 	}
 	if parseEmpty, parseErr6 := UnmarshalSnapshotJSON(nil); parseErr6 != nil || len(parseEmpty) != 0 {
 		parseT.Fatalf("expected empty snapshot JSON to decode to an empty snapshot, snapshot=%#v err=%v", parseEmpty, parseErr6)
@@ -227,6 +235,16 @@ func TestStateNativeSnapshotHelpers(parseT *testing.T) {
 	}
 	if _, parseErr8 := UnmarshalSnapshotJSON([]byte(`{`)); parseErr8 == nil {
 		parseT.Fatal("expected invalid JSON to return an error")
+	}
+	parseVersioned, parseErr9 := UnmarshalSnapshotJSON([]byte(`{"protocol":"gwc.state.snapshot","version":1,"state":{"theme":"dark"}}`))
+	if parseErr9 != nil || parseVersioned["theme"] != "dark" {
+		parseT.Fatalf("expected versioned snapshot envelope to decode, snapshot=%#v err=%v", parseVersioned, parseErr9)
+	}
+	if _, parseErr10 := UnmarshalSnapshotJSON([]byte(`{"protocol":"gwc.state.snapshot","version":99,"state":{"theme":"dark"}}`)); parseErr10 == nil {
+		parseT.Fatal("expected future snapshot version to be rejected")
+	}
+	if _, parseErr11 := UnmarshalSnapshotJSON([]byte(`{"protocol":"other.snapshot","version":1,"state":{"theme":"dark"}}`)); parseErr11 == nil {
+		parseT.Fatal("expected unknown snapshot protocol to be rejected")
 	}
 }
 

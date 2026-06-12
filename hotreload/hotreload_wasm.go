@@ -17,6 +17,12 @@ import (
 const appBridgeGlobal = "GoWebComponentsHotReloadApp"
 const liveReloadGlobal = "GoLiveReload"
 
+const (
+	hotReloadSnapshotProtocol       = "gwc.hotreload.snapshot"
+	currentHotReloadSnapshotVersion = 1
+	defaultHotReloadSchemaVersion   = 1
+)
+
 var enabled bool
 var bridgeInstalled bool
 var currentConfig Config
@@ -29,6 +35,9 @@ var getDiagnosticsSub interop.Subscription
 var getActivitySub interop.Subscription
 
 type bridgeSnapshot struct {
+	Protocol          string                                  `json:"protocol,omitempty"`
+	Version           int                                     `json:"version,omitempty"`
+	SnapshotVersion   int                                     `json:"snapshotVersion,omitempty"`
 	ResetKey          string                                  `json:"resetKey,omitempty"`
 	RestoreMode       string                                  `json:"restoreMode,omitempty"`
 	ChangedComponents []string                                `json:"changedComponents,omitempty"`
@@ -63,6 +72,7 @@ type hotReloadActivityEntry struct {
 func Configure(parseConfig Config) {
 	parseNormalized := normalizeConfig(parseConfig)
 	if enabled && bridgeInstalled && configEqual(currentConfig, parseNormalized) {
+		currentConfig = parseNormalized
 		restorePendingSnapshot()
 		return
 	}
@@ -99,9 +109,12 @@ func GetSnapshot() (string, error) {
 		return "", parseErr
 	}
 	parseSnapshot := bridgeSnapshot{
-		ResetKey:   currentConfig.ResetKey,
-		State:      parseStateSnapshot.Select(currentConfig.AtomIDs...),
-		Components: runtimepkg.GetGlobalRuntime().CaptureHotReloadSnapshot().Components,
+		Protocol:        hotReloadSnapshotProtocol,
+		Version:         currentHotReloadSnapshotVersion,
+		SnapshotVersion: currentConfig.SnapshotVersion,
+		ResetKey:        currentConfig.ResetKey,
+		State:           parseStateSnapshot.Select(currentConfig.AtomIDs...),
+		Components:      runtimepkg.GetGlobalRuntime().CaptureHotReloadSnapshot().Components,
 	}
 	parseData, parseErr := json.Marshal(parseSnapshot)
 	if parseErr != nil {
@@ -124,12 +137,31 @@ func importSnapshot(parsePayload string) (hotReloadRestoreResult, error) {
 	}
 
 	var parseSnapshot bridgeSnapshot
-	if parseErr := json.Unmarshal([]byte(parsePayload), &parseSnapshot); parseErr == nil && (len(parseSnapshot.State) > 0 || len(parseSnapshot.Components) > 0) {
+	if parseErr := json.Unmarshal([]byte(parsePayload), &parseSnapshot); parseErr == nil {
+		parseNormalized, parseStructured, parseVersionErr := normalizeBridgeSnapshot(parseSnapshot)
+		if parseVersionErr != nil {
+			parseResult2 := hotReloadRestoreResult{Outcome: "error", Message: parseVersionErr.Error()}
+			lastRestoreResult = parseResult2
+			runtimepkg.ReportDiagnostic("hotreload", runtimepkg.DiagnosticError, "hot reload snapshot protocol mismatch: "+parseVersionErr.Error())
+			return parseResult2, parseVersionErr
+		}
+		if !parseStructured {
+			goto legacySnapshot
+		}
+		parseSnapshot = parseNormalized
 		if !snapshotResetKeyMatches(parseSnapshot.ResetKey) {
 			parseResult2 := hotReloadRestoreResult{Outcome: "skipped-reset-key", Message: "Hot reload snapshot was discarded because ResetKey changed."}
 			lastRestoreResult = parseResult2
 			return parseResult2, nil
 		}
+		parseMigrated, parseMigrationErr := migrateBridgeSnapshot(parseSnapshot)
+		if parseMigrationErr != nil {
+			parseResultMigration := hotReloadRestoreResult{Outcome: "error", Message: parseMigrationErr.Error()}
+			lastRestoreResult = parseResultMigration
+			runtimepkg.ReportDiagnostic("hotreload", runtimepkg.DiagnosticError, "hot reload snapshot migration failed: "+parseMigrationErr.Error())
+			return parseResultMigration, parseMigrationErr
+		}
+		parseSnapshot = parseMigrated
 		if parseSnapshot.State != nil {
 			parseNormalized := make(state.Snapshot, len(parseSnapshot.State))
 			for parseKey, parseValue := range parseSnapshot.State {
@@ -160,6 +192,7 @@ func importSnapshot(parsePayload string) (hotReloadRestoreResult, error) {
 		return parseResult4, nil
 	}
 
+legacySnapshot:
 	parseLegacyState, parseErr3 := state.UnmarshalSnapshotJSON([]byte(parsePayload))
 	if parseErr3 != nil {
 		parseResult5 := hotReloadRestoreResult{Outcome: "error", Message: parseErr3.Error()}
@@ -176,21 +209,86 @@ func importSnapshot(parsePayload string) (hotReloadRestoreResult, error) {
 	return parseResult7, nil
 }
 
+func normalizeBridgeSnapshot(parseSnapshot bridgeSnapshot) (bridgeSnapshot, bool, error) {
+	parseProtocol := strings.TrimSpace(parseSnapshot.Protocol)
+	parseStructured := parseProtocol != "" ||
+		parseSnapshot.Version != 0 ||
+		parseSnapshot.SnapshotVersion != 0 ||
+		strings.TrimSpace(parseSnapshot.ResetKey) != "" ||
+		strings.TrimSpace(parseSnapshot.RestoreMode) != "" ||
+		len(parseSnapshot.ChangedComponents) > 0 ||
+		parseSnapshot.State != nil ||
+		len(parseSnapshot.Components) > 0
+	if !parseStructured {
+		return parseSnapshot, false, nil
+	}
+	if parseProtocol != "" && parseProtocol != hotReloadSnapshotProtocol {
+		return parseSnapshot, true, fmt.Errorf("hotreload: unsupported snapshot protocol %q", parseProtocol)
+	}
+	parseVersion, parseErr := normalizeBridgeSnapshotVersion(parseSnapshot.Version)
+	if parseErr != nil {
+		return parseSnapshot, true, parseErr
+	}
+	parseSnapshot.Protocol = hotReloadSnapshotProtocol
+	parseSnapshot.Version = parseVersion
+	parseSchemaVersion, parseSchemaErr := normalizeBridgeSchemaVersion(parseSnapshot.SnapshotVersion)
+	if parseSchemaErr != nil {
+		return parseSnapshot, true, parseSchemaErr
+	}
+	parseSnapshot.SnapshotVersion = parseSchemaVersion
+	return parseSnapshot, true, nil
+}
+
+func normalizeBridgeSnapshotVersion(parseVersion int) (int, error) {
+	if parseVersion < 0 {
+		return 0, fmt.Errorf("hotreload: unsupported snapshot version %d", parseVersion)
+	}
+	if parseVersion == 0 {
+		return currentHotReloadSnapshotVersion, nil
+	}
+	if parseVersion > currentHotReloadSnapshotVersion {
+		return 0, fmt.Errorf("hotreload: unsupported snapshot version %d", parseVersion)
+	}
+	return parseVersion, nil
+}
+
+func normalizeBridgeSchemaVersion(parseVersion int) (int, error) {
+	if parseVersion < 0 {
+		return 0, fmt.Errorf("hotreload: unsupported snapshot schema version %d", parseVersion)
+	}
+	if parseVersion == 0 {
+		return defaultHotReloadSchemaVersion, nil
+	}
+	return parseVersion, nil
+}
+
 // Prepare runs cleanup needed before the current runtime instance is replaced.
 func Prepare() {
 	runtimepkg.GetGlobalRuntime().PrepareForHotReload()
 }
 
 func normalizeConfig(parseConfig Config) Config {
-	parseNormalized := Config{ResetKey: strings.TrimSpace(parseConfig.ResetKey)}
+	parseNormalized := Config{
+		ResetKey:        strings.TrimSpace(parseConfig.ResetKey),
+		SnapshotVersion: normalizeConfigSchemaVersion(parseConfig.SnapshotVersion),
+	}
 	if len(parseConfig.AtomIDs) > 0 {
 		parseNormalized.AtomIDs = append([]string(nil), parseConfig.AtomIDs...)
+	}
+	if len(parseConfig.SnapshotMigrations) > 0 {
+		parseNormalized.SnapshotMigrations = make([]SnapshotMigration, 0, len(parseConfig.SnapshotMigrations))
+		for _, parseMigration := range parseConfig.SnapshotMigrations {
+			parseNormalized.SnapshotMigrations = append(parseNormalized.SnapshotMigrations, cloneSnapshotMigration(parseMigration))
+		}
 	}
 	return parseNormalized
 }
 
 func configEqual(parseLeft, parseRight Config) bool {
 	if parseLeft.ResetKey != parseRight.ResetKey {
+		return false
+	}
+	if parseLeft.SnapshotVersion != parseRight.SnapshotVersion {
 		return false
 	}
 	if len(parseLeft.AtomIDs) != len(parseRight.AtomIDs) {
@@ -202,6 +300,150 @@ func configEqual(parseLeft, parseRight Config) bool {
 		}
 	}
 	return true
+}
+
+func normalizeConfigSchemaVersion(parseVersion int) int {
+	if parseVersion <= 0 {
+		return defaultHotReloadSchemaVersion
+	}
+	return parseVersion
+}
+
+func cloneSnapshotMigration(parseMigration SnapshotMigration) SnapshotMigration {
+	parseClone := parseMigration
+	parseClone.FromVersion = normalizeConfigSchemaVersion(parseMigration.FromVersion)
+	if len(parseMigration.ComponentPathAliases) > 0 {
+		parseClone.ComponentPathAliases = make(map[string]string, len(parseMigration.ComponentPathAliases))
+		for parseFrom, parseTo := range parseMigration.ComponentPathAliases {
+			parseClone.ComponentPathAliases[strings.TrimSpace(parseFrom)] = strings.TrimSpace(parseTo)
+		}
+	}
+	if len(parseMigration.ComponentIdentityAliases) > 0 {
+		parseClone.ComponentIdentityAliases = make(map[string]string, len(parseMigration.ComponentIdentityAliases))
+		for parseFrom, parseTo := range parseMigration.ComponentIdentityAliases {
+			parseClone.ComponentIdentityAliases[strings.TrimSpace(parseFrom)] = strings.TrimSpace(parseTo)
+		}
+	}
+	return parseClone
+}
+
+func migrateBridgeSnapshot(parseSnapshot bridgeSnapshot) (bridgeSnapshot, error) {
+	parseFromVersion := parseSnapshot.SnapshotVersion
+	if parseFromVersion <= 0 {
+		parseFromVersion = defaultHotReloadSchemaVersion
+	}
+	parseTargetVersion := normalizeConfigSchemaVersion(currentConfig.SnapshotVersion)
+	if parseFromVersion == parseTargetVersion {
+		parseSnapshot.SnapshotVersion = parseTargetVersion
+		return parseSnapshot, nil
+	}
+	if parseFromVersion > parseTargetVersion {
+		return parseSnapshot, fmt.Errorf("hotreload: snapshot schema version %d is newer than configured version %d", parseFromVersion, parseTargetVersion)
+	}
+
+	parseCurrent := parseSnapshot
+	for parseCurrent.SnapshotVersion < parseTargetVersion {
+		parseMigration, parseFound := nextSnapshotMigration(parseCurrent.SnapshotVersion, parseTargetVersion, currentConfig.SnapshotMigrations)
+		if !parseFound {
+			return parseSnapshot, fmt.Errorf("hotreload: no snapshot migration from version %d to %d", parseCurrent.SnapshotVersion, parseTargetVersion)
+		}
+		parseMigrated, parseErr := applySnapshotMigration(parseCurrent, parseMigration)
+		if parseErr != nil {
+			return parseSnapshot, parseErr
+		}
+		parseCurrent = parseMigrated
+	}
+	return parseCurrent, nil
+}
+
+func nextSnapshotMigration(parseFromVersion int, parseTargetVersion int, parseMigrations []SnapshotMigration) (SnapshotMigration, bool) {
+	var parseBest SnapshotMigration
+	parseBestVersion := 0
+	for _, parseMigration := range parseMigrations {
+		parseMigrationFrom := normalizeConfigSchemaVersion(parseMigration.FromVersion)
+		parseMigrationTo := parseMigration.ToVersion
+		if parseMigrationFrom != parseFromVersion || parseMigrationTo <= parseMigrationFrom || parseMigrationTo > parseTargetVersion {
+			continue
+		}
+		if parseMigrationTo == parseTargetVersion {
+			return parseMigration, true
+		}
+		if parseBestVersion == 0 || parseMigrationTo < parseBestVersion {
+			parseBest = parseMigration
+			parseBestVersion = parseMigrationTo
+		}
+	}
+	return parseBest, parseBestVersion != 0
+}
+
+func applySnapshotMigration(parseSnapshot bridgeSnapshot, parseMigration SnapshotMigration) (bridgeSnapshot, error) {
+	parseFromVersion := normalizeConfigSchemaVersion(parseMigration.FromVersion)
+	parseToVersion := parseMigration.ToVersion
+	if parseToVersion <= parseFromVersion {
+		return parseSnapshot, fmt.Errorf("hotreload: invalid snapshot migration from version %d to %d", parseFromVersion, parseToVersion)
+	}
+
+	if parseMigration.MigrateState != nil {
+		parseState, parseErr := parseMigration.MigrateState(SnapshotMigrationContext{
+			FromVersion: parseFromVersion,
+			ToVersion:   parseToVersion,
+			State:       cloneStateSnapshot(parseSnapshot.State),
+		})
+		if parseErr != nil {
+			return parseSnapshot, fmt.Errorf("hotreload: snapshot state migration from version %d to %d failed: %w", parseFromVersion, parseToVersion, parseErr)
+		}
+		if parseState == nil {
+			parseState = state.Snapshot{}
+		}
+		parseSnapshot.State = parseState
+	}
+
+	applyComponentPathAliases(parseSnapshot.Components, parseMigration.ComponentPathAliases)
+	applyComponentIdentityAliases(parseSnapshot.Components, parseMigration.ComponentIdentityAliases)
+	parseSnapshot.SnapshotVersion = parseToVersion
+	return parseSnapshot, nil
+}
+
+func cloneStateSnapshot(parseSnapshot state.Snapshot) state.Snapshot {
+	if parseSnapshot == nil {
+		return state.Snapshot{}
+	}
+	parseClone := make(state.Snapshot, len(parseSnapshot))
+	for parseKey, parseValue := range parseSnapshot {
+		parseClone[parseKey] = parseValue
+	}
+	return parseClone
+}
+
+func applyComponentPathAliases(parseComponents []runtimepkg.HotReloadComponentSnapshot, parseAliases map[string]string) {
+	if len(parseAliases) == 0 {
+		return
+	}
+	for parseIndex := range parseComponents {
+		parsePath := strings.TrimSpace(parseComponents[parseIndex].Path)
+		if parseReplacement := strings.TrimSpace(parseAliases[parsePath]); parseReplacement != "" {
+			parseComponents[parseIndex].Path = parseReplacement
+		}
+	}
+}
+
+func applyComponentIdentityAliases(parseComponents []runtimepkg.HotReloadComponentSnapshot, parseAliases map[string]string) {
+	if len(parseAliases) == 0 {
+		return
+	}
+	for parseIndex := range parseComponents {
+		for parseTrailIndex, parseIdentity := range parseComponents[parseIndex].IdentityTrail {
+			if parseReplacement := strings.TrimSpace(parseAliases[strings.TrimSpace(parseIdentity)]); parseReplacement != "" {
+				parseComponents[parseIndex].IdentityTrail[parseTrailIndex] = parseReplacement
+			}
+		}
+		if parseReplacement := strings.TrimSpace(parseAliases[strings.TrimSpace(parseComponents[parseIndex].Signature.QualifiedName)]); parseReplacement != "" {
+			parseComponents[parseIndex].Signature.QualifiedName = parseReplacement
+		}
+		if parseReplacement := strings.TrimSpace(parseAliases[strings.TrimSpace(parseComponents[parseIndex].Signature.Name)]); parseReplacement != "" {
+			parseComponents[parseIndex].Signature.Name = parseReplacement
+		}
+	}
 }
 
 func installBridge(parseConfig Config) {
@@ -295,6 +537,9 @@ func installBridge(parseConfig Config) {
 	}
 
 	_ = parseBridge.Set("enabled", true)
+	_ = parseBridge.Set("protocol", hotReloadSnapshotProtocol)
+	_ = parseBridge.Set("version", currentHotReloadSnapshotVersion)
+	_ = parseBridge.Set("snapshotVersion", parseConfig.SnapshotVersion)
 	if parseConfig.ResetKey != "" {
 		_ = parseBridge.Set("resetKey", parseConfig.ResetKey)
 	}
