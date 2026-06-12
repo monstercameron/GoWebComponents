@@ -92,7 +92,10 @@ func parseMessageList(parseProps messageListProps) ui.Node {
 			OnMouseUp(parseProps.HandleSelectionMouse),
 			Div(ID(idThreadScreen), Class("thread-screen mx-auto w-full max-w-[46rem] px-4 pt-8 pb-6 flex flex-col gap-8"), parseRows),
 		),
-		If(parseProps.ShowScrollToBottom,
+		// Show (not If) keeps the button mounted and toggles the hidden
+		// attribute: visibility flips constantly while scrolling, and staying
+		// mounted avoids re-creating the node (and its listener) every flip.
+		Show(parseProps.ShowScrollToBottom,
 			Button(
 				ID(idScrollToBottomBtn),
 				Class("absolute bottom-6 left-1/2 z-30 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-white/[0.12] bg-[#16151f]/95 text-sm text-white/70 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-md transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-0.5 hover:border-[#8e7bff]/45 hover:text-white active:-translate-x-1/2 active:translate-y-0 active:scale-95"),
