@@ -1927,3 +1927,46 @@ real work, not a batch.
   Test for: only true-valued keys appear; output ordering is deterministic
   (sorted, since Go map iteration is random); empty map -> empty string;
   composes inside `ClassNames`.
+
+## html/shorthand rendering & composition helpers (2026-06-12)
+
+Non-event, non-control-flow rendering/composition sugar. Implemented in
+html/sugar.go and re-exported from html/shorthand. NON-GOAL (documented, not a
+gap): `RawHTML`/`DangerouslySetInnerHTML` - the DOM adapter has no raw-HTML sink
+by design (enforced by `TestDOMAdapterHasNoRawHTMLSink`); untrusted HTML goes
+through the `sanitize` package, trusted markup through `Markdown`.
+
+- [x] **`AttrIf` / `ClassIf` / `StyleIf` - generic conditional application** -
+  generalize the hard-coded `DisabledIf`/`ReadOnlyIf`/`SelectedIf` (and class-only
+  `When`) to any attribute/class/style. Each returns the real option when true and
+  a no-op (nil PropOption, which PropsOf/WithProps skip) when false.
+  Done (2026-06-12): in html/sugar.go + shorthand re-export.
+  `TestConditionalPropOptions` asserts all three apply when true and produce
+  `<div>x</div>` (no attrs) when false.
+- [x] **`MergeProps` / `DefaultProps` - props composition for forwarding** -
+  `MergeProps(base, override)` overlays non-zero scalar fields (override wins) and
+  unions the Style/Data/Aria/Raw maps (override per key); neither input is mutated
+  (reflection over the Props struct + the existing deep-clone/map-merge helpers).
+  `DefaultProps(props, defaults)` fills only the fields props leaves zero.
+  Done (2026-06-12): `TestMergePropsOverlaysAndUnionsWithoutMutating` (override
+  wins, base zero-fields retained, Raw unioned with override winning, inputs
+  unmutated) and `TestDefaultPropsFillsOnlyMissing`.
+- [x] **`Markdown` re-export + `TextLines` + `StyleVar`** - surface the existing
+  `html.RenderMarkdown` on the shorthand sugar (`Markdown(src, ...opts)`);
+  `TextLines(s)` splits on newlines into `<br>`-separated text nodes; `StyleVar
+  (name, value)` sets a single (CSS custom) property.
+  Done (2026-06-12): `TestMarkdownRendersThroughShorthand` (<h1> + body),
+  `TestTextLinesSplitsOnNewlines` (`<p>alpha<br>beta</p>`, single line -> one
+  node), `TestStyleVarSetsCustomProperty` (`--accent:blue`).
+- [x] **`Show` (visibility toggle) + `WithChildren`** - `Show(cond, node)` keeps
+  the node mounted but sets the `hidden` attribute when false (vs If/Unless which
+  remove it); `WithChildren(node, ...children)` appends children to a built node,
+  skipping nil.
+  Done (2026-06-12): `TestShowTogglesHiddenWithoutRemoving` (hidden+content when
+  false, no hidden when true, nil-safe) and `TestWithChildrenAppends`
+  (`<div>abc</div>`, skips nil, nil-safe). Verified `hidden` actually renders.
+- [ ] **`ClassMap(map[string]bool)` - conditional class-map sugar** - (carried
+  from the surface-completeness section) the one remaining rendering helper not
+  yet built; deterministic sorted output from the true-valued keys.
+  Test for: only true-valued keys appear; sorted/deterministic; empty -> "";
+  composes inside `ClassNames`.
