@@ -768,11 +768,20 @@ impact; exactly three active items carry the next-work marker.
   router, state, pwa - these are hook/runtime-context APIs where a
   deterministic `// Output:` example needs a render harness, so they need
   compile-only examples or a small example fixture (follow-up).
-- [ ] **Disciplined CHANGELOG + release notes** - CHANGELOG.md exists but is
+- [~] **Disciplined CHANGELOG + release notes** - CHANGELOG.md exists but is
   not tied to the release flow; v-tags ship auto-generated notes only.
   Test for: the release workflow fails if CHANGELOG has no entry for the
   tag being cut; entries follow Keep-a-Changelog sections; the docs site
   surfaces the latest release notes.
+  Partial (2026-06-12): new tools/changelogcheck package - `HasEntry`
+  (whole-token version match, v-normalized, bracket/date tolerant),
+  `LatestEntry` (first section for docs-site surfacing), `CheckFile`, +
+  a CLI (cmd/changelogcheck) that exits non-zero on a missing entry (7
+  tests). Added the Keep-a-Changelog `## [Unreleased]` block to the top of
+  CHANGELOG.md. Wired an informational (continue-on-error) CHANGELOG-entry
+  step into release.yml. Remaining: flip the gate to blocking once
+  releases adopt version headers (the historical log is date-based), and
+  surface LatestEntry on the docs site.
 - [ ] **Starter templates beyond init presets** - `gwc init` offers presets
   but there is no gallery of opinionated starters (dashboard, marketing
   site, blog, authed app shell) a team can clone as a real starting point.
@@ -793,19 +802,22 @@ impact; exactly three active items carry the next-work marker.
   RenderMarkdown, sanitize), and honestly marks the not-yet-automated
   items (CSP/SRI/SBOM/perf-gate/visual-regression/canary) as backlog
   rather than referencing flags that do not exist.
-- [ ] **Consistent deprecation surfacing + naming-convention doc** - legacy
+- [~] **Consistent deprecation surfacing + naming-convention doc** - legacy
   flag aliases and any deprecated APIs warn inconsistently, and the
   pervasive `parse`-prefix local convention is undocumented for
   contributors and readers.
   Test for: deprecated public APIs emit a one-time structured deprecation
   diagnostic with the replacement; a short conventions doc explains the
   prefix; a lint check flags new deprecations missing the warning.
-  Partial (2026-06-11): the conventions doc half is done -
-  docs/CONVENTIONS.md explains the parse-prefix and verbSubject naming,
-  platform-split files, GoDoc rules, and the deprecation pattern;
-  referenced from CONTRIBUTING.md. Remaining: the runtime one-time
-  deprecation diagnostic + the lint check for new deprecations missing
-  the warning.
+  Partial (2026-06-11/12): conventions doc done - docs/CONVENTIONS.md
+  explains parse-prefix/verbSubject naming, platform-split files, GoDoc
+  rules, and the deprecation pattern (referenced from CONTRIBUTING.md).
+  Runtime warning done (2026-06-12): new `deprecation` package -
+  `Warn(api, replacement)` emits a one-time GWC-DEPRECATION structured
+  diagnostic (via the public diagnostics sink) with the replacement in
+  `next:`, deduped per API by sync.Map; `WarnEmitted` test seam; 5 tests;
+  native+wasm. Remaining: the lint check that flags new deprecations
+  missing the warning.
 - [~] **Docs-site accessibility statement + dogfood pass** - the docs site
   is now the flagship app but has no accessibility statement and (noted in
   the a11y section) does not yet use its own focus-trap/announcer
@@ -955,7 +967,7 @@ impact; exactly three active items carry the next-work marker.
   `public/state-atoms`). The guard is green at zero, so no debt baseline
   was needed.
 
-- [~] **Doc-drift guard - extend to commands (a) and flags (c)** - the
+- [x] **Doc-drift guard - extend to commands (a) and flags (c)** - the
   shipped `docs/doclint` guard resolves repo paths but does not yet
   execute the fenced `gwc` commands or verify that flags named in docs
   (`-profile tinygo`, `-compression gzip+brotli`, etc.) still exist on
@@ -975,6 +987,21 @@ impact; exactly three active items carry the next-work marker.
   Test for: a planted removed flag and a planted failing command both
   fail the lane; legitimate commands pass; the lane is opt-in/slow-tagged
   so it does not bloat the default unit run.
+  Done (2026-06-12): part (a) now ships as `docs/doclint/commands.go` plus
+  a `doclintcmd`-tagged real execution lane. The scanner extracts fenced
+  `go run ./tools/gwc ...` and direct `gwc ...` command lines from shell
+  blocks, preserves quoted Windows paths, normalizes arguments for
+  cross-platform subprocess execution, classifies unsafe commands with
+  explicit skip reasons, rewrites generated outputs (`-out` and
+  `-export-static-catalog`) into a temp sandbox, and executes the finite
+  allowlist with `GOPROXY=off` / `GOSUMDB=off` and per-command timeouts.
+  Default tests cover planted command parsing, sandbox-output rewriting,
+  skip classification, and a fake-runner planted failure. The opt-in lane
+  runs via `go test -tags doclintcmd ./docs/doclint -run
+  TestDocsGwcCommandsExecute -count=1 -v -timeout 10m`, and is exposed as a
+  manual `Doclint Command Execution` workflow. Verified locally with
+  `go test ./docs/doclint -count=1` and the tagged command lane, which
+  executed 37 documented commands and skipped 195 with explicit reasons.
 
 ## Maintenance backlog (carried from the test/perf campaign)
 

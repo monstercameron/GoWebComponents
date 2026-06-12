@@ -50,6 +50,17 @@ jobs:
           & "$(go env GOPATH)\bin\govulncheck.exe" ./...
         shell: pwsh
 
+      - name: CHANGELOG Entry Check (informational)
+        # Verifies the tag being released has a CHANGELOG.md section. Non-blocking
+        # for now because the historical CHANGELOG uses date headers; promote to
+        # blocking (drop continue-on-error) once releases adopt version headers
+        # (e.g. "## v3.0.46") under the Keep-a-Changelog [Unreleased] convention.
+        continue-on-error: true
+        run: |
+          $tag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "${{ github.event.inputs.release_tag }}" }
+          go run ./tools/changelogcheck/cmd/changelogcheck CHANGELOG.md $tag
+        shell: pwsh
+
       - name: Run Golden-Path Verify Audit
         run: |
           go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter -skip-tests -audit -audit-min-severity error
