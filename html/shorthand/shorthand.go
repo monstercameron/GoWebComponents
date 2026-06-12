@@ -298,6 +298,46 @@ func OrElse[T any](parseValue *T, parseFallback T) T { return html.OrElse(parseV
 // Coalesce delegates to [html.Coalesce].
 func Coalesce[T any](parseValues ...*T) *T { return html.Coalesce(parseValues...) }
 
+// CondBranch aliases [html.CondBranch].
+type CondBranch = html.CondBranch
+
+// MapIndexed delegates to [html.MapIndexed].
+func MapIndexed[T any](parseItems []T, render func(parseIndex int, parseItem T) ui.Node) []ui.Node {
+	return html.MapIndexed(parseItems, render)
+}
+
+// MapKeyedIndexed delegates to [html.MapKeyedIndexed].
+func MapKeyedIndexed[T any](parseItems []T, parseKey func(parseIndex int, parseItem T) any, render func(parseIndex int, parseItem T) ui.Node) []ui.Node {
+	return html.MapKeyedIndexed(parseItems, parseKey, render)
+}
+
+// MapOr delegates to [html.MapOr].
+func MapOr[T any](parseItems []T, render func(T) ui.Node, parseFallback ui.Node) ui.Node {
+	return html.MapOr(parseItems, render, parseFallback)
+}
+
+// Range delegates to [html.Range].
+func Range(parseCount int, render func(parseIndex int) ui.Node) []ui.Node {
+	return html.Range(parseCount, render)
+}
+
+// Repeat delegates to [html.Repeat].
+func Repeat(parseCount int, parseNode ui.Node) []ui.Node { return html.Repeat(parseCount, parseNode) }
+
+// MaybeOr delegates to [html.MaybeOr].
+func MaybeOr[T any](parseValue *T, render func(T) ui.Node, parseFallback ui.Node) ui.Node {
+	return html.MaybeOr(parseValue, render, parseFallback)
+}
+
+// Match delegates to [html.Match].
+func Match(isCondition bool, parseNode ui.Node) CondBranch { return html.Match(isCondition, parseNode) }
+
+// Otherwise delegates to [html.Otherwise].
+func Otherwise(parseNode ui.Node) CondBranch { return html.Otherwise(parseNode) }
+
+// Cond delegates to [html.Cond].
+func Cond(parseBranches ...CondBranch) ui.Node { return html.Cond(parseBranches...) }
+
 // ID delegates to [html.ID].
 func ID(parseValue string) PropOption { return html.ID(parseValue) }
 

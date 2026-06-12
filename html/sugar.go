@@ -838,3 +838,116 @@ func mergeAnyMap(parseDst map[string]any, parseValues map[string]any) map[string
 	maps.Copy(parseDst, parseValues)
 	return parseDst
 }
+
+// MapIndexed renders a typed slice into ui.Node values with the element index,
+// preserving order. It is Map with the index threaded into the render callback.
+func MapIndexed[T any](parseItems []T, render func(parseIndex int, parseItem T) ui.Node) []ui.Node {
+	if len(parseItems) == 0 {
+		return nil
+	}
+
+	parseNodes := make([]ui.Node, 0, len(parseItems))
+	for parseIndex, parseItem := range parseItems {
+		parseNodes = append(parseNodes, render(parseIndex, parseItem))
+	}
+	return parseNodes
+}
+
+// MapKeyedIndexed renders a typed slice into keyed ui.Node values with the
+// element index threaded into both the key and the render callback.
+func MapKeyedIndexed[T any](parseItems []T, parseKey func(parseIndex int, parseItem T) any, render func(parseIndex int, parseItem T) ui.Node) []ui.Node {
+	if len(parseItems) == 0 {
+		return nil
+	}
+
+	parseNodes := make([]ui.Node, 0, len(parseItems))
+	for parseIndex, parseItem := range parseItems {
+		parseNodes = append(parseNodes, WithKey(render(parseIndex, parseItem), parseKey(parseIndex, parseItem)))
+	}
+	return parseNodes
+}
+
+// MapOr renders the mapped slice as a fragment when items exist, otherwise the
+// fallback node. It removes the hand-written IfElse(len==0, empty, Map(...))
+// empty-state idiom.
+func MapOr[T any](parseItems []T, render func(T) ui.Node, parseFallback ui.Node) ui.Node {
+	if len(parseItems) == 0 {
+		return parseFallback
+	}
+	return Fragment(Map(parseItems, render)...)
+}
+
+// Range renders parseCount nodes, invoking render with each index from 0 to
+// parseCount-1. A non-positive count renders nothing.
+func Range(parseCount int, render func(parseIndex int) ui.Node) []ui.Node {
+	if parseCount <= 0 {
+		return nil
+	}
+
+	parseNodes := make([]ui.Node, 0, parseCount)
+	for parseIndex := 0; parseIndex < parseCount; parseIndex++ {
+		parseNodes = append(parseNodes, render(parseIndex))
+	}
+	return parseNodes
+}
+
+// Repeat renders the same node parseCount times. A non-positive count renders
+// nothing. Use Range when each instance must differ or carry a distinct key.
+func Repeat(parseCount int, parseNode ui.Node) []ui.Node {
+	if parseCount <= 0 {
+		return nil
+	}
+
+	parseNodes := make([]ui.Node, 0, parseCount)
+	for parseIndex := 0; parseIndex < parseCount; parseIndex++ {
+		parseNodes = append(parseNodes, parseNode)
+	}
+	return parseNodes
+}
+
+// MaybeOr renders from the pointed value when present, otherwise the fallback
+// node. It is Maybe with an else branch.
+func MaybeOr[T any](parseValue *T, render func(T) ui.Node, parseFallback ui.Node) ui.Node {
+	if parseValue == nil {
+		return parseFallback
+	}
+	return render(*parseValue)
+}
+
+// CondBranch describes one boolean branch in a Cond expression helper.
+type CondBranch struct {
+	isCondition bool
+	node        ui.Node
+	isDefault   bool
+}
+
+// Match creates a boolean branch for Cond. The first branch whose condition is
+// true wins.
+func Match(isCondition bool, parseNode ui.Node) CondBranch {
+	return CondBranch{isCondition: isCondition, node: parseNode}
+}
+
+// Otherwise creates the fallback branch for Cond, taken only when no Match
+// condition is true. It is the boolean-chain analogue of Switch's Default.
+func Otherwise(parseNode ui.Node) CondBranch {
+	return CondBranch{node: parseNode, isDefault: true}
+}
+
+// Cond returns the node of the first branch whose condition is true, otherwise
+// the Otherwise branch, otherwise nil. It fills the gap between IfElse (two-way)
+// and Switch (value-equality) for three-or-more boolean conditions.
+func Cond(parseBranches ...CondBranch) ui.Node {
+	var parseFallback ui.Node
+	for _, parseBranch := range parseBranches {
+		if parseBranch.isDefault {
+			if parseFallback == nil {
+				parseFallback = parseBranch.node
+			}
+			continue
+		}
+		if parseBranch.isCondition {
+			return parseBranch.node
+		}
+	}
+	return parseFallback
+}
