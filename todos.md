@@ -200,9 +200,16 @@ impact; exactly three active items carry the next-work marker.
   `succeeded=2 retried=0 dead=0 remaining=0`, and `InspectDiagnostics`
   surfaces all five structured fields (manifest/cache entries/queued/
   storage pressure/background sync). No uncaught/panic console errors.
-  Remaining (deeper adversarial slice): rapid online/offline-flap
-  exactly-once, executor-failure-keeps-queued, and reload-mid-outage
-  persistence assertions.
+  Adversarial slice DONE (2026-06-12): `TestPWAOfflineReplayAdversarial`
+  proves exactly-once-on-flaps (queue 1 offline, flap online/offline 4x,
+  replay => succeeded=1 remaining=0, second replay => succeeded=0 - no
+  dupes), order-preserved by count (3 distinct writes => succeeded=3), and
+  reload-mid-outage IndexedDB persistence at the storage layer (diagnostics
+  confirm 2 queued writes survive into IndexedDB before reload). Honestly
+  not drivable from this example without a dedicated fixture: a
+  failing-executor control (the example only has a resolving conflict
+  handler) and a full offline reload-and-reboot (needs the cache warmed
+  first so the wasm can re-boot offline) - both noted in the test.
 - [~] **Installability flow e2e** - `pwa.ObserveInstallability` exists but
   has no browser test.
   Test for: beforeinstallprompt capture, prompt() round trip, and state
@@ -925,12 +932,20 @@ impact; exactly three active items carry the next-work marker.
   prerender, release/release-build, test, and verify from "Legacy alias
   for -X" to "(deprecated) alias for -X; use -X". Help text only - the
   aliases still resolve unchanged. gwc builds.
-- [ ] **Web playground / shareable snippet runner** - the examples catalog
+- [x] **Web playground / shareable snippet runner** - the examples catalog
   is the closest thing to an evaluation surface; there is no edit-and-run
   snippet experience for quick evaluation/sharing.
   Test for: a snippet compiles and renders in the browser sandbox; a
   shared URL round-trips the snippet source; compile errors surface in the
   sandbox with the structured diagnostic, not a blank frame.
+  Done (2026-06-12): added a constrained GoWebComponents snippet
+  playground to the public examples site with a browser-side parser for
+  whitelisted element/Text calls, sandboxed iframe `srcdoc` rendering,
+  `snippet` query-string sharing, example-to-playground links, and
+  structured `GWC-PLAYGROUND-*` diagnostics for syntax, unsupported calls,
+  empty input, and missing `App`. Coverage includes native parser/URL tests
+  plus js/wasm render coverage for diagnostic display, share URL
+  round-trip, Run behavior, and sandbox output.
 
 ## Product polish (2026-06-11) - feasible, additive, low-risk
 
