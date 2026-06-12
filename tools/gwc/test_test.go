@@ -27,15 +27,37 @@ func TestNormalizeTestLanesDefaultsAndAliases(parseT *testing.T) {
 		if parseErr2 != nil {
 			parseT3.Fatalf("normalize test lanes: %v", parseErr2)
 		}
-		parseWant2 := []string{"unit", "hydration", "wasm", "browser", "release"}
+		parseWant2 := []string{"unit", "hydration", "race", "wasm", "browser", "perf", "release"}
 		if !reflect.DeepEqual(parseGot2, parseWant2) {
 			parseT3.Fatalf("expected normalized lanes %#v, got %#v", parseWant2, parseGot2)
 		}
 	})
 
-	parseT.Run("unknown", func(parseT4 *testing.T) {
+	parseT.Run("race aliases", func(parseT4 *testing.T) {
+		parseGot3, parseErr3 := normalizeTestLanes([]string{"race-detector", "go-race", "race"})
+		if parseErr3 != nil {
+			parseT4.Fatalf("normalize test lanes: %v", parseErr3)
+		}
+		parseWant3 := []string{"race"}
+		if !reflect.DeepEqual(parseGot3, parseWant3) {
+			parseT4.Fatalf("expected normalized lanes %#v, got %#v", parseWant3, parseGot3)
+		}
+	})
+
+	parseT.Run("perf aliases", func(parseT4 *testing.T) {
+		parseGot3, parseErr3 := normalizeTestLanes([]string{"performance", "perf-budget", "budget", "perf"})
+		if parseErr3 != nil {
+			parseT4.Fatalf("normalize test lanes: %v", parseErr3)
+		}
+		parseWant3 := []string{"perf"}
+		if !reflect.DeepEqual(parseGot3, parseWant3) {
+			parseT4.Fatalf("expected normalized lanes %#v, got %#v", parseWant3, parseGot3)
+		}
+	})
+
+	parseT.Run("unknown", func(parseT5 *testing.T) {
 		if _, parseErr3 := normalizeTestLanes([]string{"mystery"}); parseErr3 == nil {
-			parseT4.Fatal("expected unknown lane to fail")
+			parseT5.Fatal("expected unknown lane to fail")
 		}
 	})
 }
@@ -428,6 +450,90 @@ func TestRunUnitTestLanePropagatesNestedFailure(parseT *testing.T) {
 	_, parseErr3 := parseLauncher.runUnitTestLane(parseRepoRoot)
 	if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "nested failed") {
 		parseT.Fatalf("expected nested unit lane failure, got %v", parseErr3)
+	}
+}
+
+func TestGoRaceDetectorSupportMatrix(parseT *testing.T) {
+	parseCases := []struct {
+		goos      string
+		goarch    string
+		supported bool
+	}{
+		{goos: "linux", goarch: "amd64", supported: true},
+		{goos: "linux", goarch: "arm64", supported: true},
+		{goos: "darwin", goarch: "arm64", supported: true},
+		{goos: "windows", goarch: "amd64", supported: true},
+		{goos: "windows", goarch: "arm64", supported: false},
+		{goos: "js", goarch: "wasm", supported: false},
+	}
+	for _, parseCase := range parseCases {
+		parseGot := isGoRaceDetectorSupported(parseCase.goos, parseCase.goarch)
+		if parseGot != parseCase.supported {
+			parseT.Fatalf("isGoRaceDetectorSupported(%q, %q) = %v, want %v", parseCase.goos, parseCase.goarch, parseGot, parseCase.supported)
+		}
+	}
+}
+
+func TestRunRaceTestLaneSkipsWhenUnsupported(parseT *testing.T) {
+	parseOriginalSupported := testRaceDetectorSupported
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() {
+		testRaceDetectorSupported = parseOriginalSupported
+		launcherRunCommand = parseOriginalRunCommand
+	})
+	testRaceDetectorSupported = func() bool { return false }
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		parseT.Fatalf("race lane should skip before invoking %s %#v", parseCommand, parseArgs)
+		return "", nil
+	}
+
+	parseRoot := parseT.TempDir()
+	parseSummary, parseErr := (launcher{}).runRaceTestLane(parseRoot)
+	if parseErr != nil {
+		parseT.Fatalf("run race lane: %v", parseErr)
+	}
+	if !parseSummary.OK || !parseSummary.Skipped || parseSummary.Name != "race" {
+		parseT.Fatalf("expected skipped successful race summary, got %#v", parseSummary)
+	}
+	if !strings.Contains(parseSummary.Summary, "Go race detector is not supported") {
+		parseT.Fatalf("expected unsupported summary, got %#v", parseSummary)
+	}
+}
+
+func TestRunRaceTestLaneInvokesRaceDetector(parseT *testing.T) {
+	parseOriginalSupported := testRaceDetectorSupported
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() {
+		testRaceDetectorSupported = parseOriginalSupported
+		launcherRunCommand = parseOriginalRunCommand
+	})
+	testRaceDetectorSupported = func() bool { return true }
+
+	parseRoot := parseT.TempDir()
+	var parseGotCommand string
+	var parseGotArgs []string
+	var parseGotCwd string
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		parseGotCommand = parseCommand
+		parseGotArgs = append([]string(nil), parseArgs...)
+		parseGotCwd = parseCwd
+		for _, parseEntry := range parseEnv {
+			if strings.HasPrefix(parseEntry, "GOOS=") || strings.HasPrefix(parseEntry, "GOARCH=") {
+				parseT.Fatalf("expected native env to clear GOOS/GOARCH, got %q", parseEntry)
+			}
+		}
+		return "race ok", nil
+	}
+
+	parseSummary, parseErr := (launcher{}).runRaceTestLane(parseRoot)
+	if parseErr != nil {
+		parseT.Fatalf("run race lane: %v", parseErr)
+	}
+	if parseGotCommand != "go" || !reflect.DeepEqual(parseGotArgs, []string{"test", "-race", "./..."}) || parseGotCwd != parseRoot {
+		parseT.Fatalf("expected go test -race invocation, got command=%q args=%#v cwd=%q", parseGotCommand, parseGotArgs, parseGotCwd)
+	}
+	if parseSummary.Name != "race" || !parseSummary.OK || parseSummary.Command != "go test -race ./..." || parseSummary.Output != "race ok" {
+		parseT.Fatalf("expected successful race summary, got %#v", parseSummary)
 	}
 }
 

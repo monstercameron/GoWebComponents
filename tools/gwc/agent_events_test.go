@@ -95,8 +95,43 @@ func TestRunVerifyAgentEmitsChecksAndTraceRepresentations(parseT *testing.T) {
 	if !parseChecks["go-test"].Skipped || parseChecks["wasm-build"].Status != "passed" {
 		parseT.Fatalf("unexpected verify checks: %#v", parseChecks)
 	}
-	if !parseChecks["hydration-diff"].Skipped || !parseChecks["commit-trace"].Skipped {
-		parseT.Fatalf("expected trace representations to be explicit skipped checks: %#v", parseChecks)
+	if parseChecks["hydration-diff"].Skipped || parseChecks["commit-trace"].Skipped {
+		parseT.Fatalf("trace representations should be emitted as structured statuses, not skipped checks: %#v", parseChecks)
+	}
+	if parseChecks["hydration-diff"].Status != "unavailable" || parseChecks["commit-trace"].Status != "unavailable" {
+		parseT.Fatalf("expected no-source trace statuses to be unavailable, got %#v", parseChecks)
+	}
+}
+
+func TestBuildAgentTraceRepresentationsFromTelemetry(parseT *testing.T) {
+	parseHydration, parseCommit := buildAgentTraceRepresentations(
+		map[string]any{
+			"event":         "hydrate-mismatch",
+			"path":          "ROOT > App > p",
+			"ssr":           "Server",
+			"client":        "Client",
+			"mismatchCount": float64(1),
+			"severity":      "error",
+		},
+		map[string]any{
+			"event":      "commit",
+			"source":     "state:count",
+			"write":      "Set(1)",
+			"components": []any{"Counter", "Summary"},
+			"commits":    float64(2),
+		},
+	)
+	if parseHydration.Status != "failed" || parseHydration.MismatchCount != 1 || len(parseHydration.Mismatches) != 1 {
+		parseT.Fatalf("unexpected hydration trace: %#v", parseHydration)
+	}
+	if parseHydration.Mismatches[0].Path != "ROOT > App > p" || parseHydration.Mismatches[0].SSR != "Server" || parseHydration.Mismatches[0].Client != "Client" {
+		parseT.Fatalf("unexpected hydration mismatch: %#v", parseHydration.Mismatches[0])
+	}
+	if parseCommit.Status != "captured" || len(parseCommit.Events) != 1 {
+		parseT.Fatalf("unexpected commit trace: %#v", parseCommit)
+	}
+	if parseCommit.Events[0].Source != "state:count" || parseCommit.Events[0].Commits != 2 || !strings.Contains(strings.Join(parseCommit.Events[0].Components, ","), "Counter") {
+		parseT.Fatalf("unexpected commit event: %#v", parseCommit.Events[0])
 	}
 }
 
@@ -105,7 +140,7 @@ func TestRunObserveAgentFiltersAndRedacts(parseT *testing.T) {
 	parseLogPath := filepath.Join(parseT.TempDir(), "telemetry.ndjson")
 	parsePayload := strings.Join([]string{
 		`{"timestamp":"2026-06-12T12:00:00Z","level":"info","attributes":{"route":"/home","build":"abc"}}`,
-		`{"timestamp":"2026-06-12T12:01:00Z","level":"error","attributes":{"route":"/checkout","build":"abc","email":"user@example.com","password":"secret"},"message":"checkout failed"}`,
+		`{"timestamp":"2026-06-12T12:01:00Z","level":"error","event":"hydrate-mismatch","path":"ROOT > Checkout","ssr":"Cart total","client":"Checkout failed","source":"state:cart","components":["Checkout"],"commits":1,"attributes":{"route":"/checkout","build":"abc","email":"user@example.com","password":"secret"},"message":"checkout failed"}`,
 		`{"timestamp":"2026-06-12T12:02:00Z","level":"warn","attributes":{"route":"/checkout","build":"def"}}`,
 	}, "\n") + "\n"
 	if parseErr := os.WriteFile(parseLogPath, []byte(parsePayload), 0o644); parseErr != nil {
@@ -139,6 +174,12 @@ func TestRunObserveAgentFiltersAndRedacts(parseT *testing.T) {
 	}
 	if len(parseSummary.Records) != 1 {
 		parseT.Fatalf("expected one matching record, got %#v", parseSummary.Records)
+	}
+	if parseSummary.HydrationDiff.Status != "failed" || parseSummary.HydrationDiff.MismatchCount != 1 {
+		parseT.Fatalf("expected hydration mismatch summary, got %#v", parseSummary.HydrationDiff)
+	}
+	if parseSummary.CommitTrace.Status != "captured" || len(parseSummary.CommitTrace.Events) != 1 {
+		parseT.Fatalf("expected commit trace summary, got %#v", parseSummary.CommitTrace)
 	}
 	parseRecordJSON, parseErr := json.Marshal(parseSummary.Records[0])
 	if parseErr != nil {

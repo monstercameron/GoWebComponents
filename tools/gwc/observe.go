@@ -28,12 +28,14 @@ type observeConfig struct {
 }
 
 type observeSummary struct {
-	OK          bool                   `json:"ok"`
-	SourceCount int                    `json:"sourceCount"`
-	Records     []map[string]any       `json:"records"`
-	Filters     map[string]string      `json:"filters,omitempty"`
-	Diagnostics []agentDiagnostic      `json:"diagnostics,omitempty"`
-	Redaction   observeRedactionReport `json:"redaction"`
+	OK            bool                      `json:"ok"`
+	SourceCount   int                       `json:"sourceCount"`
+	Records       []map[string]any          `json:"records"`
+	Filters       map[string]string         `json:"filters,omitempty"`
+	Diagnostics   []agentDiagnostic         `json:"diagnostics,omitempty"`
+	Redaction     observeRedactionReport    `json:"redaction"`
+	HydrationDiff agentHydrationTraceRecord `json:"hydrationDiff"`
+	CommitTrace   agentCommitTraceRecord    `json:"commitTrace"`
 }
 
 type observeRedactionReport struct {
@@ -150,6 +152,7 @@ func buildObserveSummary(parseConfig observeConfig) (observeSummary, error) {
 	if len(parseSummary.Records) == 0 {
 		parseSummary.Records = []map[string]any{}
 	}
+	parseSummary.HydrationDiff, parseSummary.CommitTrace = buildAgentTraceRepresentations(parseSummary.Records...)
 	return parseSummary, nil
 }
 
@@ -249,17 +252,16 @@ func matchesObserveBuild(parseRecord map[string]any, parseBuild string) bool {
 
 // extractObserveField returns a top-level or attributes nested field as a string.
 func extractObserveField(parseRecord map[string]any, parseKeys ...string) string {
+	parseAttributes, _ := parseRecord["attributes"].(map[string]any)
 	for _, parseKey := range parseKeys {
 		if parseValue, parseOk := parseRecord[parseKey]; parseOk {
 			return strings.TrimSpace(fmt.Sprint(parseValue))
 		}
-	}
-	parseAttributes, parseOk := parseRecord["attributes"].(map[string]any)
-	if !parseOk {
-		return ""
-	}
-	for _, parseKey := range parseKeys {
-		if parseValue, parseOk := parseAttributes[parseKey]; parseOk {
+		if parseAttributes != nil {
+			parseValue, parseOk := parseAttributes[parseKey]
+			if !parseOk {
+				continue
+			}
 			return strings.TrimSpace(fmt.Sprint(parseValue))
 		}
 	}
@@ -367,4 +369,6 @@ func printObserveSummary(parseSummary observeSummary) {
 			fmt.Printf("  diagnostic[%s]: %s\n", parseDiagnostic.Code, parseDiagnostic.Message)
 		}
 	}
+	fmt.Printf("  hydration:   %s (%d mismatches)\n", parseSummary.HydrationDiff.Status, parseSummary.HydrationDiff.MismatchCount)
+	fmt.Printf("  commit trace:%s (%d events)\n", parseSummary.CommitTrace.Status, len(parseSummary.CommitTrace.Events))
 }

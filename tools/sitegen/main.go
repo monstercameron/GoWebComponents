@@ -13,6 +13,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	htmlpkg "html"
 	"net/http"
 	"os"
 	"os/exec"
@@ -92,6 +93,10 @@ func generateSite(parseRepoRoot string, parseOutDir string) error {
 	if parseErr2 := os.WriteFile(filepath.Join(parseOutDir, "index.html"), []byte(parseShell), 0o644); parseErr2 != nil {
 		return fmt.Errorf("write boot shell: %w", parseErr2)
 	}
+	parseVersionJSON := buildVersionJSON(parseWasmSHA)
+	if parseErrVersion := os.WriteFile(filepath.Join(parseOutDir, "version.json"), []byte(parseVersionJSON), 0o644); parseErrVersion != nil {
+		return fmt.Errorf("write version.json: %w", parseErrVersion)
+	}
 
 	// Brand assets are generated alongside the shell so the deployed artifact is
 	// self-contained: the favicon and social/OG preview never 404.
@@ -116,7 +121,7 @@ func generateSite(parseRepoRoot string, parseOutDir string) error {
 	}
 
 	// Service worker — offline-capable cache-first shell with versioned eviction.
-	parseSWAssets := []string{"index.html", "site.wasm", "favicon.svg", "og-image.svg", "manifest.json"}
+	parseSWAssets := []string{"index.html", "site.wasm", "favicon.svg", "og-image.svg", "manifest.json", "version.json"}
 	parseSWJS := buildServiceWorkerJS(parseCacheVersion, parseSWAssets)
 	if parseErr8 := os.WriteFile(filepath.Join(parseOutDir, "sw.js"), []byte(parseSWJS), 0o644); parseErr8 != nil {
 		return fmt.Errorf("write sw.js: %w", parseErr8)
@@ -140,6 +145,14 @@ func wasmCacheVersion(parseWasmBytes []byte) string {
 func fullSHA256Hex(parseBytes []byte) string {
 	parseSum := sha256.Sum256(parseBytes)
 	return hex.EncodeToString(parseSum[:])
+}
+
+func buildVersionJSON(parseWasmSHA string) string {
+	parseBuildID := strings.TrimSpace(parseWasmSHA)
+	if len(parseBuildID) > 12 {
+		parseBuildID = parseBuildID[:12]
+	}
+	return fmt.Sprintf("{\"buildId\":\"%s\",\"sha256\":\"%s\"}\n", parseBuildID, strings.TrimSpace(parseWasmSHA))
 }
 
 // buildManifestJSON returns indented JSON for the site's Web App Manifest
@@ -253,6 +266,10 @@ func buildServiceWorkerJS(parseCacheVersion string, parseAssets []string) string
 // and verifies the integrity of site.wasm (its embedded SHA-256) before
 // executing it, so a tampered or truncated artifact is refused rather than run.
 func buildBootShell(parseWasmSHA string) (string, error) {
+	return buildBootShellWithNonce(parseWasmSHA, "")
+}
+
+func buildBootShellWithNonce(parseWasmSHA string, parseNonce string) (string, error) {
 	parseGoroot, parseErr := exec.Command("go", "env", "GOROOT").Output()
 	if parseErr != nil {
 		return "", fmt.Errorf("resolve GOROOT: %w", parseErr)
@@ -262,6 +279,7 @@ func buildBootShell(parseWasmSHA string) (string, error) {
 	if parseErr2 != nil {
 		return "", fmt.Errorf("read wasm_exec.js: %w", parseErr2)
 	}
+	parseNonceAttr := buildCSPNonceAttr(parseNonce)
 
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -281,7 +299,7 @@ func buildBootShell(parseWasmSHA string) (string, error) {
 <meta name="twitter:title" content="GoWebComponents — Go-native UIs for the browser">
 <meta name="twitter:description" content="Build React-class web UIs in pure Go: fine-grained reactivity, SSR with hydration, and crash containment built in.">
 <meta name="twitter:image" content="og-image.svg">
-<style>
+<style` + parseNonceAttr + `>
 html,body{margin:0;background:#0a0f1a;color:#64748b;font:14px ui-monospace,Consolas,monospace}
 #boot{min-height:100vh;display:flex;align-items:center;justify-content:center;gap:10px}
 #boot .dot{width:14px;height:14px;border:2px solid rgba(148,163,184,.3);border-top-color:#22d3ee;border-radius:999px;animation:r .7s linear infinite}
@@ -290,7 +308,7 @@ html,body{margin:0;background:#0a0f1a;color:#64748b;font:14px ui-monospace,Conso
 </head>
 <body>
 <div id="app"><div id="boot"><span class="dot"></span>booting Go…</div></div>
-<script>
+<script` + parseNonceAttr + `>
 ` + string(parseExecRaw) + `
 (function () {
 	var FAIL_KEY = "gwc.boot.fails";
@@ -323,12 +341,48 @@ html,body{margin:0;background:#0a0f1a;color:#64748b;font:14px ui-monospace,Conso
 	setFails(fails() + 1);
 	var go = new Go();
 	var EXPECTED_WASM_SHA = "` + parseWasmSHA + `";
+	var BUILD_ID = EXPECTED_WASM_SHA.slice(0, 12);
+	var VERSION_RELOAD_KEY = "gwc.version.reload." + BUILD_ID;
+	var VERSION_SNAPSHOT_KEY = "gwc.version.snapshot." + BUILD_ID;
 	function toHex(buf) { var b = new Uint8Array(buf), s = ""; for (var i = 0; i < b.length; i++) { s += b[i].toString(16).padStart(2, "0"); } return s; }
+	function storageGet(store, key) { try { return store.getItem(key); } catch (e) { return ""; } }
+	function storageSet(store, key, value) { try { store.setItem(key, value); } catch (e) {} }
+	function captureRefreshSnapshot() {
+		var keys = ["gwc.state.snapshot", "gwc:ssr:state", "__GWC_BOOTSTRAP__"];
+		for (var i = 0; i < keys.length; i++) {
+			var value = storageGet(localStorage, keys[i]) || storageGet(sessionStorage, keys[i]);
+			if (value) { storageSet(sessionStorage, VERSION_SNAPSHOT_KEY, value); return; }
+		}
+	}
+	function checkVersionSkew() {
+		return fetch("version.json", { cache: "reload" })
+			.then(function (resp) { return resp && resp.ok ? resp.json() : null; })
+			.then(function (meta) {
+				var serverBuild = meta && (meta.buildId || (meta.sha256 || "").slice(0, 12));
+				if (!serverBuild || serverBuild === BUILD_ID) return false;
+				if (storageGet(sessionStorage, VERSION_RELOAD_KEY)) return false;
+				storageSet(sessionStorage, VERSION_RELOAD_KEY, "1");
+				captureRefreshSnapshot();
+				return true;
+			}, function () { return false; });
+	}
 	// Subresource-integrity for the wasm: fetch the bytes, verify their SHA-256
 	// against the digest embedded at build time, and only instantiate on a match.
 	// Falls back to instantiating without the check only when crypto.subtle is
 	// unavailable (insecure context), so the app still boots in dev over plain http.
-	var load = fetch("site.wasm").then(function (resp) { return resp.arrayBuffer(); })
+	var load = checkVersionSkew().then(function (shouldRefresh) {
+			if (shouldRefresh) {
+				return fetch("index.html", { cache: "reload" }).then(function () {
+					location.reload();
+					return new Promise(function () {});
+				}, function () {
+					location.reload();
+					return new Promise(function () {});
+				});
+			}
+			return fetch("site.wasm");
+		})
+		.then(function (resp) { return resp.arrayBuffer(); })
 		.then(function (bytes) {
 			if (!self.crypto || !crypto.subtle) {
 				return WebAssembly.instantiate(bytes, go.importObject);
@@ -361,6 +415,14 @@ html,body{margin:0;background:#0a0f1a;color:#64748b;font:14px ui-monospace,Conso
 </body>
 </html>
 `, nil
+}
+
+func buildCSPNonceAttr(parseNonce string) string {
+	parseNonce = strings.TrimSpace(parseNonce)
+	if parseNonce == "" {
+		return ""
+	}
+	return ` nonce="` + htmlpkg.EscapeString(parseNonce) + `"`
 }
 
 // servePreview hosts the built site with the same path layout as the GitHub

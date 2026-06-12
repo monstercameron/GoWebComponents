@@ -280,6 +280,8 @@ var verifyExecuteBuild = executeBuild
 
 var releaseExecuteBuild = executeBuild
 
+var buildExecuteBuild = executeBuild
+
 var releaseArtifactRecordForPathFunc = releaseArtifactRecordForPath
 
 var releaseWriteGzipSidecar = writeGzipSidecar
@@ -409,7 +411,7 @@ var testGetwd = os.Getwd
 
 var seedGetwd = os.Getwd
 
-var testAllLanes = []string{"unit", "wasm", "hydration", "browser", "release"}
+var testAllLanes = []string{"unit", "race", "wasm", "hydration", "browser", "perf", "release"}
 
 var errStopWalk = errors.New("gwc-stop-walk")
 
@@ -494,14 +496,19 @@ func listLauncherCommandRegistry() []launcherCommandMetadata {
 		{Name: "bootstrap", Summary: "Run prerequisite checks, then start a scaffold or examples bootstrap flow.", JSON: true, Mutating: true, LongRunning: true},
 		{Name: "build", Summary: "Build a js/wasm app with an explicit launcher profile.", JSON: true, Mutating: true},
 		{Name: "check", Summary: "Run agent-shaped diagnostics across tests and source conventions.", JSON: true},
+		{Name: "clean", Summary: "Remove launcher-owned build artifacts, caches, and generated outputs with dry-run support.", JSON: true, Mutating: true},
 		{Name: "dashboard", Summary: "Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard.", JSON: true},
+		{Name: "deadcode", Summary: "Report exported symbols with no static in-repo dependents.", JSON: true},
 		{Name: "deploy", Summary: "Package validated release artifacts through explicit deployment adapters.", JSON: true, Mutating: true},
 		{Name: "dev", Summary: "Run the native gwc dev orchestration path with integrated livereload runtime.", JSON: true, Mutating: true, LongRunning: true},
+		{Name: "deps", Aliases: []string{"update"}, Summary: "Inspect Go module dependencies and apply guarded dependency updates.", JSON: true, Mutating: true},
 		{Name: "doctor", Summary: "Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors.", JSON: true},
+		{Name: "docs", Summary: "Generate exported API documentation from the static GWC model.", JSON: true, Mutating: true},
 		{Name: "env", Summary: "Print launcher-relevant environment variables and current values.", JSON: true},
 		{Name: "examples", Summary: "Serve the examples catalog or run managed example-server lifecycle actions.", JSON: true, Mutating: true, LongRunning: true},
 		{Name: "export", Summary: "Alias for prerender.", JSON: true, Mutating: true},
 		{Name: "files", Summary: "List project files with repeatable extension and directory filters.", JSON: true},
+		{Name: "fmt", Summary: "Format Go source, normalize line endings, and report/fix GWC doc-comment conventions.", JSON: true, Mutating: true},
 		{Name: "help", Aliases: []string{"-h", "--help"}, Summary: "Print human help or structured command metadata.", JSON: true},
 		{Name: "import", Summary: "Convert a static HTML or JSX file into an inspectable GWC project.", JSON: true, Mutating: true},
 		{Name: "init", Summary: "Non-interactive project initialization that writes gwc-start.json and lifecycle defaults.", JSON: true, Mutating: true},
@@ -521,11 +528,13 @@ func listLauncherCommandRegistry() []launcherCommandMetadata {
 		{Name: "search", Summary: "Search exported APIs by intent.", JSON: true},
 		{Name: "seed", Summary: "Provision local dev identities and fixture data through a seed package.", JSON: true, Mutating: true},
 		{Name: "serve", Summary: "Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures.", JSON: true, LongRunning: true},
+		{Name: "size", Summary: "Attribute wasm/native artifact size by package and symbol using go tool nm.", JSON: true},
 		{Name: "start", Summary: "Run the scaffold TUI for preset and project setup.", JSON: true, Mutating: true},
 		{Name: "tailwind", Summary: "Build shared Tailwind CSS and generated class manifests through the launcher-owned Tailwind path.", JSON: true, Mutating: true},
-		{Name: "test", Summary: "Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release.", JSON: true},
+		{Name: "test", Summary: "Run explicit launcher-owned test lanes such as unit, race, wasm, hydration, browser, and release.", JSON: true},
 		{Name: "upgrade", Summary: "Non-interactive lifecycle upgrade for gwc-start.json schema and runtime assets.", JSON: true, Mutating: true},
 		{Name: "verify", Summary: "Run app-local Go tests when present and perform a CI-profile wasm build.", JSON: true, Mutating: true},
+		{Name: "watch", Summary: "Watch Go files and rerun selected launcher-owned test lanes.", JSON: true, LongRunning: true},
 		{Name: "wasm", Summary: "Run wasm-focused build experiment helpers such as wasm measure.", JSON: true, Mutating: true},
 	}
 }
@@ -998,16 +1007,26 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runBuildCommand(parseL, parseArgs)
 	case "check":
 		return runCheckCommand(parseL, parseArgs)
+	case "clean":
+		return runCleanCommand(parseL, parseArgs)
 	case "bench", "benchmark":
 		return runBenchmarkCommand(parseL, parseArgs)
+	case "deadcode":
+		return runDeadcodeCommand(parseL, parseArgs)
 	case "release":
 		return runReleaseCommand(parseL, parseArgs)
+	case "deps", "update":
+		return runDepsCommand(parseL, parseArgs)
 	case "dev":
 		return runDevCommand(parseL, parseArgs)
+	case "docs":
+		return runDocsCommand(parseL, parseArgs)
 	case "serve":
 		return runServeCommand(parseL, parseArgs)
 	case "files":
 		return runFilesCommand(parseL, parseArgs)
+	case "fmt":
+		return runFmtCommand(parseL, parseArgs)
 	case "lint", "review":
 		return runLintCommand(parseL, parseArgs)
 	case "help":
@@ -1057,6 +1076,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runVerifyCommand(parseL, parseArgs)
 	case "seed":
 		return runSeedCommand(parseL, parseArgs)
+	case "size":
+		return runSizeCommand(parseL, parseArgs)
 	case "import":
 		return runImportCommand(parseL, parseArgs)
 	case "scaffold":
@@ -1067,6 +1088,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runBootstrapCommand(parseL, parseArgs)
 	case "wasm":
 		return runWasmCommand(parseL, parseArgs)
+	case "watch":
+		return runWatchCommand(parseL, parseArgs)
 	default:
 		if isExamplesManagedPathCommand(parseCommand, parseArgs) {
 			return parseL.runExamplesManaged(buildExamplesManagedPathCommandArgs(parseCommand, parseArgs))
@@ -1183,17 +1206,24 @@ func printUsage() {
 	fmt.Println("  bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output")
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
 	fmt.Println("  check      Run agent-shaped diagnostics across tests and source conventions")
-	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release")
+	fmt.Println("  clean      Remove launcher-owned build artifacts, caches, and generated outputs")
+	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, race, wasm, hydration, browser, and release")
+	fmt.Println("  watch      Watch Go files and rerun selected launcher-owned test lanes")
 	fmt.Println("  examples   Serve the examples catalog or run managed example-server lifecycle actions (start|status|stop|restart)")
 	fmt.Println("  dev        Run the native gwc dev orchestration path with integrated livereload runtime")
 	fmt.Println("  serve      Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures")
 	fmt.Println("  files      List project files with repeatable extension and directory filters")
+	fmt.Println("  fmt        Format Go source, normalize line endings, and report/fix GWC doc-comment conventions")
 	fmt.Println("  lint       Run golangci-lint plus built-in GWC hook rules, then render a text or JSON review report (review alias supported)")
 	fmt.Println("  init       Non-interactive project initialization that writes gwc-start.json and lifecycle defaults")
 	fmt.Println("  inspect    Build higher-level route, dependency, ownership, and file-type project reports")
 	fmt.Println("  model      Emit a static component manifest for agent planning")
 	fmt.Println("  mcp        Serve JSON-capable gwc commands as MCP tools over stdio, or print the tool manifest as JSON")
 	fmt.Println("  mutate     Apply safe AST-backed source mutations with dry-run and JSON diff output")
+	fmt.Println("  docs       Generate exported API documentation from the static GWC model")
+	fmt.Println("  deadcode   Report exported symbols with no static in-repo dependents")
+	fmt.Println("  deps       Inspect Go module dependencies and apply guarded dependency updates (update alias supported)")
+	fmt.Println("  size       Attribute wasm/native artifact size by package and symbol using go tool nm")
 	fmt.Println("  render     Render a component through the headless SSR oracle")
 	fmt.Println("  probe      Run a browser-oracle probe for a URL or example target")
 	fmt.Println("  explain    Resolve diagnostic error codes and framework capabilities")

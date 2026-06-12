@@ -121,6 +121,28 @@ func TestSWManifestBuildBootShellPWAWiring(t *testing.T) {
 	if !strings.Contains(parseShell, `sw.js`) {
 		t.Error("boot shell does not reference sw.js")
 	}
+	if !strings.Contains(parseShell, `VERSION_RELOAD_KEY = "gwc.version.reload." + BUILD_ID`) {
+		t.Error("boot shell missing version-skew reload guard")
+	}
+	if !strings.Contains(parseShell, `fetch("version.json", { cache: "reload" })`) {
+		t.Error("boot shell missing cache-bypassing version sidecar fetch")
+	}
+	if !strings.Contains(parseShell, `VERSION_SNAPSHOT_KEY`) || !strings.Contains(parseShell, `location.reload()`) {
+		t.Error("boot shell missing snapshot carryover or forced reload path")
+	}
+}
+
+func TestBuildBootShellWithNonceThreadsCSPNonce(t *testing.T) {
+	parseShell, parseErr := buildBootShellWithNonce("abc123def456abc123def456abc123def456abc123def456abc123def4567890", `req"42`)
+	if parseErr != nil {
+		t.Skipf("buildBootShellWithNonce: %v (toolchain not available?)", parseErr)
+	}
+	if !strings.Contains(parseShell, `<script nonce="req&#34;42">`) {
+		t.Fatalf("boot shell missing nonce on script tag")
+	}
+	if !strings.Contains(parseShell, `<style nonce="req&#34;42">`) {
+		t.Fatalf("boot shell missing nonce on style tag")
+	}
 }
 
 // TestWasmCacheVersion verifies that wasmCacheVersion returns a 12-character
@@ -138,5 +160,12 @@ func TestWasmCacheVersion(t *testing.T) {
 	// Same input must be stable.
 	if wasmCacheVersion([]byte("content-a")) != parseVersionA {
 		t.Error("wasmCacheVersion is not deterministic")
+	}
+}
+
+func TestBuildVersionJSONIncludesBuildIDAndDigest(t *testing.T) {
+	parseJSON := buildVersionJSON("abc123def456abc123")
+	if !strings.Contains(parseJSON, `"buildId":"abc123def456"`) || !strings.Contains(parseJSON, `"sha256":"abc123def456abc123"`) {
+		t.Fatalf("unexpected version json: %s", parseJSON)
 	}
 }

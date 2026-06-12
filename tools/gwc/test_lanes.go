@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 )
 
 func (parseL launcher) runTest(parseArgs []string) error {
@@ -21,8 +22,11 @@ func (parseL launcher) runTest(parseArgs []string) error {
 	parseMainPath := parseFs.String("main", "", "(deprecated) alias for -app; use -app")
 	parseRoot := parseFs.String("root", "", "Project root used for test lane resolution")
 	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	parseWatch := parseFs.Bool("watch", false, "Re-run selected test lanes when Go files change")
+	parseWatchOnce := parseFs.Bool("once", false, "With -watch, run one watched test pass and exit")
+	parseWatchDebounce := parseFs.Duration("debounce", 500*time.Millisecond, "With -watch, polling debounce interval")
 	var parseLaneFlags stringListFlag
-	parseFs.Var(&parseLaneFlags, "lane", "Test lane to run; repeat or comma-separate: unit, wasm, hydration, browser, release, all")
+	parseFs.Var(&parseLaneFlags, "lane", "Test lane to run; repeat or comma-separate: unit, race, wasm, hydration, browser, perf, release, all")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
@@ -44,6 +48,22 @@ func (parseL launcher) runTest(parseArgs []string) error {
 	}
 	if parseErr4 := enforceEnterpriseRequiredTestLanes(parseConfig.lanes, launcherActiveEnterpriseConfig.Policy); parseErr4 != nil {
 		return parseErr4
+	}
+	if *parseWatch {
+		parseWatchArgs := []string{"-root", parseConfig.rootPath, "-debounce", parseWatchDebounce.String()}
+		if parseConfig.appPath != "" {
+			parseWatchArgs = append(parseWatchArgs, "-app", parseConfig.appPath)
+		}
+		for _, parseLane := range parseConfig.lanes {
+			parseWatchArgs = append(parseWatchArgs, "-lane", parseLane)
+		}
+		if parseConfig.json {
+			parseWatchArgs = append(parseWatchArgs, "-json")
+		}
+		if *parseWatchOnce {
+			parseWatchArgs = append(parseWatchArgs, "-once")
+		}
+		return runWatchCommand(parseL, parseWatchArgs)
 	}
 
 	parseSummary, parseErr2 := parseL.executeTest(parseConfig)
@@ -116,17 +136,25 @@ func (parseL launcher) executeTestLane(parseConfig testConfig, parseLane string)
 	switch parseLane {
 	case "unit":
 		return parseL.runUnitTestLane(parseConfig.rootPath)
+	case "race":
+		return parseL.runRaceTestLane(parseConfig.rootPath)
 	case "wasm":
 		return parseL.runWasmTestLane(parseConfig.rootPath, false)
 	case "hydration":
 		return parseL.runWasmTestLane(parseConfig.rootPath, true)
 	case "browser":
 		return parseL.runBrowserTestLane(parseConfig.rootPath)
+	case "perf":
+		return parseL.runPerfBudgetTestLane(parseConfig.rootPath)
 	case "release":
 		return parseL.runReleaseTestLane(parseConfig)
 	default:
 		return testLaneSummary{}, fmt.Errorf("unknown test lane %q", parseLane)
 	}
+}
+
+var testRaceDetectorSupported = func() bool {
+	return isGoRaceDetectorSupported(runtime.GOOS, runtime.GOARCH)
 }
 
 func (parseL launcher) runUnitTestLane(parseRootPath string) (testLaneSummary, error) {
@@ -166,6 +194,32 @@ func (parseL launcher) runUnitTestLane(parseRootPath string) (testLaneSummary, e
 		parseSummary.Output = strings.Join(parseOutputs, "\n")
 	}
 	return parseSummary, nil
+}
+
+func (parseL launcher) runRaceTestLane(parseRootPath string) (testLaneSummary, error) {
+	if !testRaceDetectorSupported() {
+		return testLaneSummary{
+			Name:      "race",
+			OK:        true,
+			Skipped:   true,
+			Workspace: parseRootPath,
+			Summary:   fmt.Sprintf("Go race detector is not supported on %s/%s; run this lane on linux/amd64 or another supported host.", runtime.GOOS, runtime.GOARCH),
+		}, nil
+	}
+	parseArgs := []string{"test", "-race", "./..."}
+	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseRootPath, buildNativeGoEnv())
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	return testLaneSummary{
+		Name:           "race",
+		OK:             true,
+		Command:        "go " + strings.Join(parseArgs, " "),
+		PackagePattern: "./...",
+		Workspace:      parseRootPath,
+		Output:         parseOutput,
+		Summary:        "Native Go race detector tests passed.",
+	}, nil
 }
 
 func (parseL launcher) runWasmTestLane(parseRootPath string, isHydrationOnly bool) (testLaneSummary, error) {
@@ -249,6 +303,46 @@ func (parseL launcher) runBrowserTestLane(parseRootPath string) (testLaneSummary
 	}, nil
 }
 
+func (parseL launcher) runPerfBudgetTestLane(parseRootPath string) (testLaneSummary, error) {
+	parseWorkspace, parseErr := resolveBrowserWorkspace(parseL.repoRoot, parseRootPath)
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	if parseWorkspace == "" {
+		return testLaneSummary{
+			Name:      "perf",
+			OK:        true,
+			Skipped:   true,
+			Workspace: parseRootPath,
+			Summary:   "No browser test workspace was found for the requested root.",
+		}, nil
+	}
+	parsePackagePattern, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(parseWorkspace)
+	if !hasPlaywrightGoSuite {
+		return testLaneSummary{
+			Name:      "perf",
+			OK:        true,
+			Skipped:   true,
+			Workspace: parseWorkspace,
+			Summary:   "No Playwright-Go test package was found in the browser workspace.",
+		}, nil
+	}
+	parseArgs := []string{"test", "-tags", "playwrightgo", parsePackagePattern, "-run", "TestPerfBudget", "-v"}
+	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
+	}
+	return testLaneSummary{
+		Name:           "perf",
+		OK:             true,
+		Command:        "go " + strings.Join(parseArgs, " "),
+		PackagePattern: parsePackagePattern,
+		Workspace:      parseWorkspace,
+		Output:         parseOutput,
+		Summary:        "Performance budget tests passed; budget changes require explicit testdata review.",
+	}, nil
+}
+
 func (parseL launcher) runReleaseTestLane(parseConfig testConfig) (testLaneSummary, error) {
 	parseReleaseOutDir, parseErr := createLauncherTempDir(parseConfig.rootPath, "gwc-test-release-")
 	if parseErr != nil {
@@ -323,12 +417,16 @@ func normalizeTestLanes(parseRequested []string) ([]string, error) {
 			}
 		case "unit", "native", "go-native":
 			parseAppendLane("unit")
+		case "race", "race-detector", "go-race":
+			parseAppendLane("race")
 		case "wasm", "go-wasm":
 			parseAppendLane("wasm")
 		case "hydration", "hydrate":
 			parseAppendLane("hydration")
 		case "browser", "playwright":
 			parseAppendLane("browser")
+		case "perf", "performance", "perf-budget", "budget":
+			parseAppendLane("perf")
 		case "release":
 			parseAppendLane("release")
 		default:
@@ -384,6 +482,24 @@ func enforceEnterpriseGoToolchainPolicy(parseRootPath string, parsePolicy launch
 		parseActiveToolchain,
 		strings.Join(parsePolicy.ApprovedGoToolchains, ", "),
 	)
+}
+
+func isGoRaceDetectorSupported(parseGOOS string, parseGOARCH string) bool {
+	switch parseGOOS {
+	case "darwin":
+		return parseGOARCH == "amd64" || parseGOARCH == "arm64"
+	case "linux":
+		switch parseGOARCH {
+		case "amd64", "arm64", "ppc64le", "s390x", "loong64":
+			return true
+		default:
+			return false
+		}
+	case "freebsd", "netbsd", "windows":
+		return parseGOARCH == "amd64"
+	default:
+		return false
+	}
 }
 
 func resolveActiveGoToolchain(parseRootPath string) (string, error) {

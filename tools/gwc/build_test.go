@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -685,3 +686,106 @@ func TestDetectHeavyWASMImports(parseT *testing.T) {
 		parseT.Fatalf("expected regexp size warning for test app, got %v", parseWarnings)
 	}
 }
+
+func TestRunBuildAutoRunsDoctorOnBuildFailureAndHonorsOptOut(parseT *testing.T) {
+	parseTemp := parseT.TempDir()
+	parseMain := filepath.Join(parseTemp, "main.go")
+	if parseErr := os.WriteFile(parseMain, []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
+	}
+
+	parseOriginalBuildExecuteBuild := buildExecuteBuild
+	parseOriginalDoctorGetwd := doctorGetwd
+	parseOriginalDoctorLookPath := doctorLookPath
+	parseOriginalDoctorCommandOutput := doctorCommandOutput
+	parseOriginalDoctorResolveWasmExec := doctorResolveWasmExec
+	parseOriginalDoctorListen := doctorListen
+	parseOriginalBuildGetwd := buildGetwd
+	parseT.Cleanup(func() {
+		buildExecuteBuild = parseOriginalBuildExecuteBuild
+		doctorGetwd = parseOriginalDoctorGetwd
+		doctorLookPath = parseOriginalDoctorLookPath
+		doctorCommandOutput = parseOriginalDoctorCommandOutput
+		doctorResolveWasmExec = parseOriginalDoctorResolveWasmExec
+		doctorListen = parseOriginalDoctorListen
+		buildGetwd = parseOriginalBuildGetwd
+	})
+
+	buildGetwd = func() (string, error) { return parseTemp, nil }
+	buildExecuteBuild = func(parseConfig buildConfig) (buildSummary, error) {
+		_ = parseConfig
+		return buildSummary{}, errors.New("simulated build failure")
+	}
+	doctorGetwd = func() (string, error) { return parseTemp, nil }
+	doctorLookPath = func(parseName string) (string, error) {
+		if parseName == "go" {
+			return "", errors.New("missing go")
+		}
+		return parseName, nil
+	}
+	doctorCommandOutput = func(parseName string, parseArgs ...string) (string, error) {
+		_ = parseName
+		_ = parseArgs
+		return "ok", nil
+	}
+	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
+		_ = parseNetwork
+		_ = parseAddress
+		return &buildTestNoopListener{}, nil
+	}
+
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
+	}
+	parseErr = (launcher{repoRoot: parseTemp}).runBuild([]string{"-app", parseMain, "-out", filepath.Join(parseTemp, "app.wasm")})
+	parseOutput, parseReadErr := parseStdout()
+	parseRestoreStdout()
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "simulated build failure") {
+		parseT.Fatalf("expected simulated build failure, got %v", parseErr)
+	}
+	if parseReadErr != nil {
+		parseT.Fatalf("read stdout: %v", parseReadErr)
+	}
+	if !strings.Contains(parseOutput, "gwc doctor detected environment issues") || !strings.Contains(parseOutput, "missing go") {
+		parseT.Fatalf("expected automatic doctor diagnosis, got:\n%s", parseOutput)
+	}
+
+	parseStdout, parseRestoreStdout, parseErr = captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout opt-out: %v", parseErr)
+	}
+	parseErr = (launcher{repoRoot: parseTemp}).runBuild([]string{"-app", parseMain, "-out", filepath.Join(parseTemp, "app.wasm"), "-no-doctor"})
+	parseOutput, parseReadErr = parseStdout()
+	parseRestoreStdout()
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "simulated build failure") {
+		parseT.Fatalf("expected simulated build failure with opt-out, got %v", parseErr)
+	}
+	if parseReadErr != nil {
+		parseT.Fatalf("read stdout opt-out: %v", parseReadErr)
+	}
+	if strings.Contains(parseOutput, "gwc doctor detected environment issues") {
+		parseT.Fatalf("expected -no-doctor to suppress automatic diagnosis, got:\n%s", parseOutput)
+	}
+}
+
+type buildTestNoopListener struct{}
+
+func (*buildTestNoopListener) Accept() (net.Conn, error) {
+	return nil, errors.New("closed")
+}
+
+func (*buildTestNoopListener) Close() error {
+	return nil
+}
+
+func (*buildTestNoopListener) Addr() net.Addr {
+	return buildTestAddr("127.0.0.1:8090")
+}
+
+type buildTestAddr string
+
+func (parseA buildTestAddr) Network() string { return "tcp" }
+
+func (parseA buildTestAddr) String() string { return string(parseA) }

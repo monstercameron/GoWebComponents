@@ -197,16 +197,207 @@ func buildAgentDevWebSocketURL(parseListeningURL string) string {
 	return parseScheme + "://" + parseParsed.Host + "/ws"
 }
 
-// buildAgentTraceRepresentations returns currently available hydration and commit trace records.
-func buildAgentTraceRepresentations() (agentHydrationTraceRecord, agentCommitTraceRecord) {
-	return agentHydrationTraceRecord{
-			Status:        "skipped",
-			MismatchCount: 0,
-			Evidence:      "hydration browser diff collection is represented but not yet wired into this command",
-		}, agentCommitTraceRecord{
-			Status:   "skipped",
-			Evidence: "runtime commit trace collection is represented but not yet wired into this command",
+// buildAgentTraceRepresentations summarizes hydration and commit evidence from
+// structured runtime/devtools records. With no records it still returns a
+// machine-readable unavailable state, so callers never need a prose sentinel.
+func buildAgentTraceRepresentations(parseRecords ...map[string]any) (agentHydrationTraceRecord, agentCommitTraceRecord) {
+	parseHydration := agentHydrationTraceRecord{
+		Status:   "unavailable",
+		Evidence: "no runtime hydration trace records were provided",
+	}
+	parseCommit := agentCommitTraceRecord{
+		Status:   "unavailable",
+		Evidence: "no runtime commit trace records were provided",
+	}
+	hasHydrationRecord := false
+	for _, parseRecord := range parseRecords {
+		if len(parseRecord) == 0 {
+			continue
 		}
+		if isAgentHydrationTraceRecord(parseRecord) {
+			hasHydrationRecord = true
+			parseMismatchCount := agentTraceIntField(parseRecord, "mismatchCount", "hydration.mismatchCount")
+			if parseMismatchCount > parseHydration.MismatchCount {
+				parseHydration.MismatchCount = parseMismatchCount
+			}
+			parseMismatch := agentHydrationMismatch{
+				Path:     firstNonEmpty(agentTraceStringField(parseRecord, "path", "hydration.path", "nodePath"), "/"),
+				SSR:      agentTraceStringField(parseRecord, "ssr", "server", "hydration.ssr"),
+				Client:   agentTraceStringField(parseRecord, "client", "browser", "hydration.client"),
+				Severity: firstNonEmpty(agentTraceStringField(parseRecord, "severity", "level"), "error"),
+			}
+			if parseMismatch.SSR != "" || parseMismatch.Client != "" || agentTraceContainsAny(parseRecord, "mismatch", "GWC-HYDRATION") {
+				parseHydration.Mismatches = append(parseHydration.Mismatches, parseMismatch)
+			}
+			if agentTraceBoolField(parseRecord, "failed", "hydration.failed") {
+				parseHydration.Status = "failed"
+			}
+		}
+		if parseEvent, parseOK := buildAgentCommitTraceEvent(parseRecord); parseOK {
+			parseCommit.Events = append(parseCommit.Events, parseEvent)
+		}
+	}
+	if hasHydrationRecord {
+		if parseHydration.MismatchCount < len(parseHydration.Mismatches) {
+			parseHydration.MismatchCount = len(parseHydration.Mismatches)
+		}
+		if parseHydration.MismatchCount > 0 || parseHydration.Status == "failed" {
+			parseHydration.Status = "failed"
+			parseHydration.Evidence = "hydration mismatch evidence captured from runtime records"
+		} else {
+			parseHydration.Status = "passed"
+			parseHydration.Evidence = "hydration records were captured without mismatches"
+		}
+	}
+	if len(parseCommit.Events) > 0 {
+		parseCommit.Status = "captured"
+		parseCommit.Evidence = "commit trace events captured from runtime records"
+	}
+	return parseHydration, parseCommit
+}
+
+func isAgentHydrationTraceRecord(parseRecord map[string]any) bool {
+	return agentTraceContainsAny(parseRecord, "hydration", "hydrate", "GWC-HYDRATION") ||
+		agentTraceStringField(parseRecord, "hydration.path", "hydration.ssr", "hydration.client") != "" ||
+		agentTraceIntField(parseRecord, "mismatchCount", "hydration.mismatchCount") > 0
+}
+
+func buildAgentCommitTraceEvent(parseRecord map[string]any) (agentCommitEvent, bool) {
+	isCommit := agentTraceContainsAny(parseRecord, "commit", "committed") ||
+		agentTraceIntField(parseRecord, "commitCount", "commits") > 0 ||
+		agentTraceStringField(parseRecord, "write", "stateWrite", "atomWrite", "component") != ""
+	if !isCommit {
+		return agentCommitEvent{}, false
+	}
+	parseEvent := agentCommitEvent{
+		Source:     firstNonEmpty(agentTraceStringField(parseRecord, "source", "trigger", "atom", "state"), "runtime"),
+		Write:      agentTraceStringField(parseRecord, "write", "stateWrite", "atomWrite", "operation"),
+		Components: agentTraceStringSliceField(parseRecord, "components", "component"),
+		Commits:    firstPositiveInt(agentTraceIntField(parseRecord, "commits", "commitCount", "count"), 1),
+	}
+	return parseEvent, true
+}
+
+func agentTraceContainsAny(parseRecord map[string]any, parseNeedles ...string) bool {
+	parseHaystack := strings.ToLower(fmt.Sprint(parseRecord))
+	for _, parseNeedle := range parseNeedles {
+		if strings.Contains(parseHaystack, strings.ToLower(strings.TrimSpace(parseNeedle))) {
+			return true
+		}
+	}
+	return false
+}
+
+func agentTraceStringField(parseRecord map[string]any, parseKeys ...string) string {
+	for _, parseKey := range parseKeys {
+		if parseValue, parseOK := agentTraceLookup(parseRecord, parseKey); parseOK && parseValue != nil {
+			return strings.TrimSpace(fmt.Sprint(parseValue))
+		}
+	}
+	return ""
+}
+
+func agentTraceStringSliceField(parseRecord map[string]any, parseKeys ...string) []string {
+	parseValues := []string{}
+	for _, parseKey := range parseKeys {
+		parseValue, parseOK := agentTraceLookup(parseRecord, parseKey)
+		if !parseOK || parseValue == nil {
+			continue
+		}
+		switch parseTyped := parseValue.(type) {
+		case []string:
+			parseValues = append(parseValues, parseTyped...)
+		case []any:
+			for _, parseItem := range parseTyped {
+				parseText := strings.TrimSpace(fmt.Sprint(parseItem))
+				if parseText != "" {
+					parseValues = append(parseValues, parseText)
+				}
+			}
+		default:
+			parseText := strings.TrimSpace(fmt.Sprint(parseTyped))
+			if parseText != "" {
+				parseValues = append(parseValues, parseText)
+			}
+		}
+	}
+	return dedupeObserveStrings(parseValues)
+}
+
+func agentTraceIntField(parseRecord map[string]any, parseKeys ...string) int {
+	for _, parseKey := range parseKeys {
+		parseValue, parseOK := agentTraceLookup(parseRecord, parseKey)
+		if !parseOK || parseValue == nil {
+			continue
+		}
+		switch parseTyped := parseValue.(type) {
+		case int:
+			return parseTyped
+		case int64:
+			return int(parseTyped)
+		case float64:
+			return int(parseTyped)
+		case json.Number:
+			parseInt, _ := parseTyped.Int64()
+			return int(parseInt)
+		default:
+			parseInt, parseErr := strconv.Atoi(strings.TrimSpace(fmt.Sprint(parseTyped)))
+			if parseErr == nil {
+				return parseInt
+			}
+		}
+	}
+	return 0
+}
+
+func agentTraceBoolField(parseRecord map[string]any, parseKeys ...string) bool {
+	for _, parseKey := range parseKeys {
+		parseValue, parseOK := agentTraceLookup(parseRecord, parseKey)
+		if !parseOK || parseValue == nil {
+			continue
+		}
+		switch parseTyped := parseValue.(type) {
+		case bool:
+			return parseTyped
+		case string:
+			return strings.EqualFold(strings.TrimSpace(parseTyped), "true")
+		default:
+			return strings.EqualFold(strings.TrimSpace(fmt.Sprint(parseTyped)), "true")
+		}
+	}
+	return false
+}
+
+func agentTraceLookup(parseRecord map[string]any, parseKey string) (any, bool) {
+	parseKey = strings.TrimSpace(parseKey)
+	if parseKey == "" {
+		return nil, false
+	}
+	if parseValue, parseOK := parseRecord[parseKey]; parseOK {
+		return parseValue, true
+	}
+	parseParts := strings.Split(parseKey, ".")
+	var parseCurrent any = parseRecord
+	for _, parsePart := range parseParts {
+		parseMap, parseOK := parseCurrent.(map[string]any)
+		if !parseOK {
+			return nil, false
+		}
+		parseCurrent, parseOK = parseMap[parsePart]
+		if !parseOK {
+			return nil, false
+		}
+	}
+	return parseCurrent, true
+}
+
+func firstPositiveInt(parseValues ...int) int {
+	for _, parseValue := range parseValues {
+		if parseValue > 0 {
+			return parseValue
+		}
+	}
+	return 0
 }
 
 // buildAgentDiagnosticFromError creates one stable diagnostic from an error message.

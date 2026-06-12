@@ -120,6 +120,7 @@ func (parseL launcher) runBuild(parseArgs []string) error {
 	parseOutput := parseFs.String("output", "", "(deprecated) alias for -out; use -out")
 	parseProfile := parseFs.String("profile", "", "Build profile: development, debug, ci, benchmark, release, or tinygo")
 	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	parseNoDoctor := parseFs.Bool("no-doctor", false, "Do not auto-run gwc doctor diagnosis when the build fails")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
@@ -135,11 +136,17 @@ func (parseL launcher) runBuild(parseArgs []string) error {
 		json:       *parseJsonOutput,
 	})
 	if parseErr2 != nil {
+		if !*parseNoDoctor && !*parseJsonOutput {
+			parseL.diagnoseEnvironmentOnFailure()
+		}
 		return parseErr2
 	}
 
-	parseSummary, parseErr2 := executeBuild(parseConfig)
+	parseSummary, parseErr2 := buildExecuteBuild(parseConfig)
 	if parseErr2 != nil {
+		if !*parseNoDoctor && !parseConfig.json {
+			parseL.diagnoseEnvironmentOnFailure()
+		}
 		return parseErr2
 	}
 	if parseConfig.json {

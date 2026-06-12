@@ -13,7 +13,7 @@ type agenticEnvelope struct {
 	SchemaVersion string              `json:"schemaVersion"`
 	Command       string              `json:"command"`
 	OK            bool                `json:"ok"`
-	Data          any                 `json:"data,omitempty"`
+	Data          any                 `json:"data"`
 	Diagnostics   []agenticDiagnostic `json:"diagnostics"`
 	Error         *agenticError       `json:"error"`
 }
@@ -57,6 +57,9 @@ func writeAgenticEnvelope(parseCommand string, isParseOK bool, parseData any, pa
 			Code:    "GWC-AGENTIC-COMMAND-FAILED",
 			Message: parseErr.Error(),
 		}
+	}
+	if parseEnvelope.Data == nil {
+		parseEnvelope.Data = map[string]any{}
 	}
 	if parseEnvelope.Diagnostics == nil {
 		parseEnvelope.Diagnostics = []agenticDiagnostic{}
