@@ -56,8 +56,16 @@ impact; exactly three active items carry the next-work marker.
 
 - [ ] **Headless a11y component kit** - package the overlay/focus primitives
   into a menu/combobox/listbox/datepicker/table set instead of examples.
-- [ ] **Animation primitives** - transition hooks exist; add spring physics,
+- [~] **Animation primitives** - transition hooks exist; add spring physics,
   FLIP, and a gesture layer.
+  Partial (2026-06-11): new pure-Go `anim` package - semi-implicit-Euler
+  `Spring` (GentleSpring/WobblySpring/StiffSpring presets, SetTarget/Step/
+  IsSettled, dt-clamped/NaN-safe), standard easings (Linear, quad/cubic
+  in/out/in-out, input-clamped) + `Interpolate`, and `ComputeFLIP`
+  (translate+scale delta, divide-by-zero guarded). 16 tests green;
+  native+wasm. Remaining: the RAF-driven UseSpring hook and the gesture
+  layer (browser-bound follow-up; no requestAnimationFrame helper exists
+  yet).
 - [ ] **Scheduler ergonomics and instrumentation** - keep this as the
   documentation/devtools follow-up for the enterprise priority-lane and
   backpressure work below, rather than tracking a second scheduler
@@ -297,7 +305,7 @@ impact; exactly three active items carry the next-work marker.
 
 ### Internationalization
 
-- [ ] **Message extraction + locale completeness tooling** - nothing scans
+- [~] **Message extraction + locale completeness tooling** - nothing scans
   code for T(namespace, key) usage to scaffold catalogs or diff locales;
   incomplete translations ship silently (pairs with the enterprise
   missing-translation enforcement item).
@@ -306,6 +314,13 @@ impact; exactly three active items carry the next-work marker.
   longer referenced; a gwc lane fails CI when a non-default locale is
   incomplete; dynamic/computed keys are reported as unverifiable rather
   than silently skipped.
+  Partial (2026-06-11): new i18n/extract package - `ExtractFromSource`/
+  `ExtractFromDir` (go/ast; scans build-tagged _wasm.go AND _native.go,
+  dedups), records non-literal ns/key as `DynamicUsage` (unverifiable,
+  not skipped), `DiffLocale` (Missing incl. empty-string + Stale),
+  `IsComplete`, `CheckLocales` (all-locale gate, sorted, false if any
+  incomplete). 17 tests green. Remaining: wire `CheckLocales` into a
+  `gwc` lane that fails CI on an incomplete non-default locale.
 - [x] **Relative-time and list formatting** - FormatNumber/FormatDate exist
   but there is no FormatRelativeTime ("3 days ago") or FormatList
   ("a, b, and c"), the two most-requested formatters after dates.
