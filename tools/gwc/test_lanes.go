@@ -317,14 +317,14 @@ func (parseL launcher) runPerfBudgetTestLane(parseRootPath string) (testLaneSumm
 			Summary:   "No browser test workspace was found for the requested root.",
 		}, nil
 	}
-	parsePackagePattern, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(parseWorkspace)
-	if !hasPlaywrightGoSuite {
+	parsePackagePattern, hasPerfSuite := resolvePerfBudgetTestPackagePattern(parseWorkspace)
+	if !hasPerfSuite {
 		return testLaneSummary{
 			Name:      "perf",
 			OK:        true,
 			Skipped:   true,
 			Workspace: parseWorkspace,
-			Summary:   "No Playwright-Go test package was found in the browser workspace.",
+			Summary:   "No Playwright-Go perf budget package was found in the browser workspace.",
 		}, nil
 	}
 	parseArgs := []string{"test", "-tags", "playwrightgo", parsePackagePattern, "-run", "TestPerfBudget", "-v"}
@@ -694,6 +694,27 @@ func resolveBrowserTestPackagePattern(parseWorkspace string) (string, bool) {
 	}{
 		{path: filepath.Join(parseWorkspace, "playwrightgo"), pattern: "./playwrightgo"},
 		{path: filepath.Join(parseWorkspace, "test", "playwrightgo"), pattern: "./test/playwrightgo"},
+	}
+	for _, parseCandidate := range parseCandidates {
+		parseInfo, parseErr := os.Stat(parseCandidate.path)
+		if parseErr != nil || !parseInfo.IsDir() {
+			continue
+		}
+		return parseCandidate.pattern, true
+	}
+	return "", false
+}
+
+func resolvePerfBudgetTestPackagePattern(parseWorkspace string) (string, bool) {
+	if strings.TrimSpace(parseWorkspace) == "" {
+		return "", false
+	}
+	parseCandidates := []struct {
+		path    string
+		pattern string
+	}{
+		{path: filepath.Join(parseWorkspace, "playwrightgo", "examples"), pattern: "./playwrightgo/examples"},
+		{path: filepath.Join(parseWorkspace, "test", "playwrightgo", "examples"), pattern: "./test/playwrightgo/examples"},
 	}
 	for _, parseCandidate := range parseCandidates {
 		parseInfo, parseErr := os.Stat(parseCandidate.path)
