@@ -166,17 +166,36 @@ impact; exactly three active items carry the next-work marker.
   CacheStorage (playwright `context.SetOffline(true)`); deploying a new
   build hash evicts stale caches and serves the new wasm (no
   half-old/half-new mix); SW update flow does not strand an open tab.
-- [ ] **Offline mutation replay hardening** - `fetch.MutationQueue` exists;
+- [~] **Offline mutation replay hardening** - `fetch.MutationQueue` exists;
   prove it under adversarial conditions.
   Test for: mutations enqueued offline replay exactly once after
   reconnect (no dupes on rapid online/offline flaps); replay order
   preserved; executor failure leaves the entry queued, not dropped;
   queue survives a page reload mid-outage (IndexedDB persistence);
   `pwa.InspectDiagnostics` queue counts match reality.
-- [ ] **Installability flow e2e** - `pwa.ObserveInstallability` exists but
+  Done (2026-06-12, real browser): `TestPWAOfflineMutationReplay`
+  (test/playwrightgo/examples) drives the offline-cache example in headless
+  Chromium - `SetOffline(true)` -> queue an offline write + a conflicting
+  write (IndexedDB-backed) -> `SetOffline(false)` -> replay reports
+  `succeeded=2 retried=0 dead=0 remaining=0`, and `InspectDiagnostics`
+  surfaces all five structured fields (manifest/cache entries/queued/
+  storage pressure/background sync). No uncaught/panic console errors.
+  Remaining (deeper adversarial slice): rapid online/offline-flap
+  exactly-once, executor-failure-keeps-queued, and reload-mid-outage
+  persistence assertions.
+- [~] **Installability flow e2e** - `pwa.ObserveInstallability` exists but
   has no browser test.
   Test for: beforeinstallprompt capture, prompt() round trip, and state
   cleanup on dismissal (chromium supports faking the event).
+  Done (2026-06-12, real browser): `TestPWAInstallabilityFlow` boots the
+  installability example, asserts the manifest-validity / install-reasons
+  / service-worker-lifecycle diagnostics render (not blank), that "Refresh
+  installability" reflects `ObserveInstallability()`, and that "Prompt
+  install" follows the documented GRACEFUL-REFUSAL path with a structured
+  "install prompt is not currently available" message (headless Chromium
+  does not fire a real beforeinstallprompt). Remaining: faking a real
+  beforeinstallprompt + prompt() round-trip needs CDP event injection
+  beyond standard Playwright.
 
 ### Session / long-term web storage
 
