@@ -520,12 +520,23 @@ impact; exactly three active items carry the next-work marker.
   version across reloads); rollback flips 100% within one cache TTL;
   both versions report their build id through artifact metadata so
   crash reports distinguish cohorts.
-- [ ] **Perf-budget CI gate** - route startup budgets exist in profiling
+- [~] **Perf-budget CI gate** - route startup budgets exist in profiling
   and gwc bench measures, but nothing fails a build on regression.
   Test for: a gwc lane fails when wasm size or measured route-startup
   exceeds the checked-in budget by the configured tolerance; budgets
   update through an explicit ratchet command, not silently; the gate
   output names the offending route and delta.
+  Done (2026-06-12): perf_budget_test.go + checked-in
+  testdata/perf_budgets.json (single source of truth). `TestPerfBudgetWasmSize`
+  is the deterministic gate - stats the artifact and fails over budget
+  (counter: 6.07MB actual vs 7.63MB budget, ~26% headroom).
+  `TestPerfBudgetStartup` measures route startup (min of 3 warm runs =
+  498ms vs an 8000ms ceiling, generous for machine variance).
+  `TestPerfBudgetGateCatchesRegression` self-tests the pure
+  `exceedsWasmBudget` boundary + over/under artifact scenarios (no
+  browser), so a green size gate means within-budget not gate-broken.
+  Remaining: a `gwc` lane wrapper + an explicit `-update-budgets` ratchet
+  command (the JSON is hand-maintained for now).
 - [~] **Visual regression lane** - playwright is wired everywhere but no
   screenshot-diff lane protects the examples or docs site.
   Test for: baseline capture + pixel-diff with anti-flake masking

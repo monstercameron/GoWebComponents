@@ -1,0 +1,6 @@
+{
+  "counter": {
+    "maxWasmBytes": 8000000,
+    "maxStartupMs": 8000
+  }
+}
