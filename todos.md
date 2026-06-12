@@ -755,19 +755,20 @@ impact; exactly three active items carry the next-work marker.
   guard (byte-match or fail; regenerate with ERRORCODES_WRITE=1), runs in
   CI via `go test ./...`. Page lives in REFERENCE_MANUAL so the docs-site
   chapter embed indexes it for search automatically.
-- [~] **Runnable godoc Example functions for public packages** - pkg.go.dev
+- [x] **Runnable godoc Example functions for public packages** - pkg.go.dev
   quality depends on `Example` test functions; coverage across ui, html,
   router, fetch, state, i18n, pwa is uneven.
   Test for: each public package has at least one `Example` that compiles
   and passes `go test`; examples render on pkg.go.dev (no unexported
   references); a lane runs `go test -run Example ./...`.
-  Partial (2026-06-11): added runnable `Example` funcs with `// Output:`
-  blocks for events (Publish), sanitize (Sanitize), i18n
-  (FormatRelativeTime + FormatList), and html (SanitizeMarkdownHref);
-  fetch already had one. All pass `go test -run Example`. Remaining: ui,
-  router, state, pwa - these are hook/runtime-context APIs where a
-  deterministic `// Output:` example needs a render harness, so they need
-  compile-only examples or a small example fixture (follow-up).
+  Done (2026-06-11/12): runnable `// Output:` examples for events
+  (Publish), sanitize (Sanitize), i18n (FormatRelativeTime + FormatList),
+  html (SanitizeMarkdownHref); fetch already had one. Added
+  compile-checked examples for the hook/runtime-context packages -
+  ui.UseState (counter component), state.UseAtom + UseComputed,
+  router.DefineRoute (native-safe contract), pwa.BuildCacheStoragePlan.
+  Every public package now has at least one Example; all compile and pass
+  `go test -run Example ./...`.
 - [~] **Disciplined CHANGELOG + release notes** - CHANGELOG.md exists but is
   not tied to the release flow; v-tags ship auto-generated notes only.
   Test for: the release workflow fails if CHANGELOG has no entry for the
