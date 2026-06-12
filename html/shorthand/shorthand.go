@@ -338,6 +338,49 @@ func Otherwise(parseNode ui.Node) CondBranch { return html.Otherwise(parseNode) 
 // Cond delegates to [html.Cond].
 func Cond(parseBranches ...CondBranch) ui.Node { return html.Cond(parseBranches...) }
 
+// MarkdownRenderOptions aliases [html.MarkdownRenderOptions].
+type MarkdownRenderOptions = html.MarkdownRenderOptions
+
+// AttrIf delegates to [html.AttrIf].
+func AttrIf(isCondition bool, parseKey string, parseValue any) PropOption {
+	return html.AttrIf(isCondition, parseKey, parseValue)
+}
+
+// ClassIf delegates to [html.ClassIf].
+func ClassIf(isCondition bool, parseClass string) PropOption { return html.ClassIf(isCondition, parseClass) }
+
+// StyleIf delegates to [html.StyleIf].
+func StyleIf(isCondition bool, parseValues map[string]string) PropOption {
+	return html.StyleIf(isCondition, parseValues)
+}
+
+// StyleVar delegates to [html.StyleVar].
+func StyleVar(parseName string, parseValue string) PropOption { return html.StyleVar(parseName, parseValue) }
+
+// MergeProps delegates to [html.MergeProps].
+func MergeProps(parseBase Props, parseOverride Props) Props { return html.MergeProps(parseBase, parseOverride) }
+
+// DefaultProps delegates to [html.DefaultProps].
+func DefaultProps(parseProps Props, parseDefaults Props) Props {
+	return html.DefaultProps(parseProps, parseDefaults)
+}
+
+// Markdown delegates to [html.Markdown].
+func Markdown(parseSource string, parseOptions ...MarkdownRenderOptions) []ui.Node {
+	return html.Markdown(parseSource, parseOptions...)
+}
+
+// TextLines delegates to [html.TextLines].
+func TextLines(parseText string) []ui.Node { return html.TextLines(parseText) }
+
+// Show delegates to [html.Show].
+func Show(isCondition bool, parseNode ui.Node) ui.Node { return html.Show(isCondition, parseNode) }
+
+// WithChildren delegates to [html.WithChildren].
+func WithChildren(parseNode ui.Node, parseChildren ...ui.Node) ui.Node {
+	return html.WithChildren(parseNode, parseChildren...)
+}
+
 // ID delegates to [html.ID].
 func ID(parseValue string) PropOption { return html.ID(parseValue) }
 

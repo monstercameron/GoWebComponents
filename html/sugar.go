@@ -951,3 +951,116 @@ func Cond(parseBranches ...CondBranch) ui.Node {
 	}
 	return parseFallback
 }
+
+// AttrIf applies a raw attribute only when the condition is true, otherwise it
+// is a no-op option (nil, which PropsOf/WithProps skip).
+func AttrIf(isCondition bool, parseKey string, parseValue any) PropOption {
+	if !isCondition {
+		return nil
+	}
+	return Attr(parseKey, parseValue)
+}
+
+// ClassIf sets the class attribute only when the condition is true, otherwise it
+// is a no-op option. For composing one class string from many conditions use
+// ClassNames with When instead.
+func ClassIf(isCondition bool, parseClass string) PropOption {
+	if !isCondition {
+		return nil
+	}
+	return Class(parseClass)
+}
+
+// StyleIf applies inline styles only when the condition is true, otherwise it is
+// a no-op option.
+func StyleIf(isCondition bool, parseValues map[string]string) PropOption {
+	if !isCondition {
+		return nil
+	}
+	return Style(parseValues)
+}
+
+// StyleVar sets a single inline style property, typically a CSS custom property
+// such as "--accent". It is Style with one entry.
+func StyleVar(parseName string, parseValue string) PropOption {
+	return Style(map[string]string{parseName: parseValue})
+}
+
+// MergeProps overlays parseOverride onto parseBase: each non-zero scalar field of
+// parseOverride wins, and the Style/Data/Aria/Raw maps are unioned with
+// parseOverride taking precedence per key. Neither input is mutated. Use it to
+// forward and override props through a wrapper component.
+func MergeProps(parseBase Props, parseOverride Props) Props {
+	parseResult := cloneProps(parseBase)
+	parseResultValue := reflect.ValueOf(&parseResult).Elem()
+	parseOverrideValue := reflect.ValueOf(parseOverride)
+	for parseIndex := 0; parseIndex < parseOverrideValue.NumField(); parseIndex++ {
+		parseField := parseOverrideValue.Field(parseIndex)
+		if parseField.Kind() == reflect.Map {
+			continue // the four maps are unioned explicitly below
+		}
+		if !parseField.IsZero() && parseResultValue.Field(parseIndex).CanSet() {
+			parseResultValue.Field(parseIndex).Set(parseField)
+		}
+	}
+	parseResult.Style = mergeStringMap(parseResult.Style, parseOverride.Style)
+	parseResult.Data = mergeStringMap(parseResult.Data, parseOverride.Data)
+	parseResult.Aria = mergeStringMap(parseResult.Aria, parseOverride.Aria)
+	parseResult.Raw = mergeAnyMap(parseResult.Raw, parseOverride.Raw)
+	return parseResult
+}
+
+// DefaultProps returns parseProps with parseDefaults filling only the fields
+// parseProps leaves zero. Explicit values in parseProps always win.
+func DefaultProps(parseProps Props, parseDefaults Props) Props {
+	return MergeProps(parseDefaults, parseProps)
+}
+
+// Markdown renders Markdown source into nodes via RenderMarkdown, exposing it on
+// the shorthand surface. Untrusted source is still scheme-sanitized; raw HTML is
+// never emitted (route untrusted HTML through the sanitize package instead).
+func Markdown(parseSource string, parseOptions ...MarkdownRenderOptions) []ui.Node {
+	return RenderMarkdown(parseSource, parseOptions...)
+}
+
+// TextLines splits text on newlines into text nodes separated by <br> elements,
+// preserving blank lines. A string with no newline yields a single text node.
+func TextLines(parseText string) []ui.Node {
+	parseSplit := strings.Split(parseText, "\n")
+	parseNodes := make([]ui.Node, 0, len(parseSplit)*2)
+	for parseIndex, parseLine := range parseSplit {
+		if parseIndex > 0 {
+			parseNodes = append(parseNodes, Br(Props{}))
+		}
+		parseNodes = append(parseNodes, Text(parseLine))
+	}
+	return parseNodes
+}
+
+// Show returns the node when the condition is true; otherwise it returns the
+// same node with the hidden attribute set so it stays mounted but is not
+// displayed. Use If/Unless instead when the node should be removed from the tree.
+func Show(isCondition bool, parseNode ui.Node) ui.Node {
+	if parseNode == nil || isCondition {
+		return parseNode
+	}
+	if parseNode.Props == nil {
+		parseNode.Props = make(map[string]any, 1)
+	}
+	parseNode.Props["hidden"] = true
+	return parseNode
+}
+
+// WithChildren appends children to an already-built node and returns it. Nil
+// children are skipped.
+func WithChildren(parseNode ui.Node, parseChildren ...ui.Node) ui.Node {
+	if parseNode == nil {
+		return nil
+	}
+	for _, parseChild := range parseChildren {
+		if parseChild != nil {
+			parseNode.Children = append(parseNode.Children, parseChild)
+		}
+	}
+	return parseNode
+}
