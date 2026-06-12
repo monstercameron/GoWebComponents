@@ -178,6 +178,15 @@ Why this is the right first interop step:
 - cleanup stays explicit through the returned subscription cancel function
 - the payload that crosses the boundary is small and typed
 
+For cross-root or plugin-host communication, use document-level custom events
+as the narrow bridge between otherwise independent trees. A plugin host panel,
+an exported custom element, and a normal GoWebComponents root should agree on a
+small JSON-shaped payload, dispatch it through `GetDocumentEvents().Dispatch`,
+and subscribe with `SubscribeDecoded[T]` inside an effect or equivalent owner.
+The cleanup function returned by `SubscribeDecoded[T]` must run when that root
+or panel unmounts so the browser listener and its underlying `js.Func` are
+released before another host instance mounts.
+
 ## Production-Shaped Example
 
 When a feature needs measurement, observation, and lazy JavaScript interop, keep those concerns behind one feature-level component instead of scattering browser calls through many handlers.

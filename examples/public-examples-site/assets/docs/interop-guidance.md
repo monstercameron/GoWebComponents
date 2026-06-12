@@ -20,6 +20,16 @@ Use this rule of thumb:
 - choose `ImportModule(...)` when a feature needs dynamic module loading and explicit disposal
 - choose `OpenCrossTabChannel(...)`, `OpenSecondaryWindowChannel(...)`, `WindowOpenerChannel(...)`, `OpenWorker(...)`, or `OpenMessageChannel(...)` when coordination crosses tabs, windows, or workers instead of only one DOM tree
 
+## Cross-Root And Plugin-Host Events
+
+When two independent GoWebComponents roots, a plugin host panel, or an exported
+custom element need to exchange a small browser-local signal, prefer
+`GetDocumentEvents().Dispatch(...)` plus `SubscribeDecoded[T](...)`. Keep the
+payload JSON-shaped, version it if more than one host may be deployed at once,
+and unsubscribe during teardown. The unsubscribe path removes the browser
+listener and releases the underlying `js.Func`, so repeated panel mounts do not
+double-deliver events or retain stale handlers.
+
 ## Scope
 
 The public `interop` package is the supported bridge for:

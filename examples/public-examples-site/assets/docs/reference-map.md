@@ -19,6 +19,7 @@ If you are trying to:
 - add routes, loaders, or guards: start with Routing
 - server-render and resume in the browser: start with SSR And Hydration
 - inspect runtime behavior or structured diagnostics: start with Diagnostics And Debugging
+- drive a live wasm app from an MCP client in CI: start with Diagnostics And Debugging and the agentic live bridge guide
 - add installability, service workers, or offline helpers: start with PWA And Offline Support
 
 ## HTML Authoring
@@ -170,6 +171,7 @@ Public API:
 
 - `devtools.Panel`, `devtools.UseSnapshot`, `devtools.SnapshotNow`
 - diagnostics surfaced through the devtools package and example catalog
+- local `gwc` live bridge commands such as `sessions`, `snapshot`, `query`, `set-atom`, `emit`, `publish`, `navigate`, and `snapshot-diff`
 
 Runnable examples:
 
@@ -183,11 +185,13 @@ Production caveats:
 
 - Keep diagnostics payloads free of secrets.
 - Validate behavior under both dev-server and production-like serving conditions.
+- Treat the live agent bridge as a development-only, CDP-equivalent control plane; release builds must not include it.
 
 Related docs:
 
 - [ACTIONABLE_ERRORS.md](actionable-errors-and-diagnostics.md)
 - [OBSERVABILITY.md](observability.md)
+- [AGENTIC_LIVE_BRIDGE.md](agentic-live-bridge.md)
 - [LOGGING.md](logging.md)
 - [PRERENDER.md](prerender.md)
 - [ASSETS.md](assets.md)

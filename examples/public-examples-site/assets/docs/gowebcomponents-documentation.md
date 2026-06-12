@@ -45,6 +45,7 @@ Jump directly to these when you already know the question category:
 - `adoption-baseline.md`: minimum ecosystem readiness bar for starter path, testing, SSR, state, routing, and deployment guidance.
 - `framework-comparisons.md`: where GoWebComponents is intentionally different from React, Vue, Svelte, Solid, Blazor, and Qwik.
 - `api-stability-and-support-policy.md`: stability tiers, semver rules, deprecation lifecycle, and support expectations.
+- `latest-release-notes.md`: docs-site surface for the latest `CHANGELOG.md` section, backed by `tools/changelogcheck.LatestEntry`.
 - `ecosystem-and-extension-model.md`: current stance on plugins, directives, companion packages, and extension lifecycle boundaries.
 - `migration-guide.md`: release-to-release upgrade guidance for the current package layout.
 - `gowebcomponents-todo.md`: public backlog mirror; the repo-root `todos.md` is canonical for current priorities and near-term work.
@@ -90,6 +91,7 @@ Jump directly to these when you already know the question category:
 - `troubleshooting.md`: setup and runtime failure guidance for wasm builds, hydration, routing, and browser interop.
 - `actionable-errors-and-diagnostics.md`: high-friction failure audit and the diagnostic anchors runtime errors should expose.
 - `observability.md`: current observability contract for SSR requests, hydration, navigation, correlation ids, and runtime event naming.
+- `agentic-live-bridge.md`: local and CI dogfood recipe for MCP/CLI-driven live wasm sessions, including the bridge tool catalog and security boundary.
 - `logging.md`: current structured logging contract, log domains, and development-versus-production expectations.
 - `performance-notes.md`: current performance notes, benchmark entrypoints, and measured results.
 - `security-compliance-and-governance.md`: security, data-boundary, redaction, and supply-chain review guidance.
@@ -175,6 +177,7 @@ As of 2026-03-14:
 - [SERVER_INTEGRATION.md](server-integration.md)
 - [DEPLOYMENT_TARGETS.md](deployment-targets-and-adapter-expectations.md)
 - [OBSERVABILITY.md](observability.md)
+- [AGENTIC_LIVE_BRIDGE.md](agentic-live-bridge.md)
 - [LOGGING.md](logging.md)
 - [PRERENDER.md](prerender.md)
 - [ASSETS.md](assets.md)

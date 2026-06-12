@@ -292,6 +292,64 @@ The current record shape is intentionally stable across native and `js/wasm` tar
 - call sites can stay low ceremony by passing key/value pairs, `logging.Fields`, or `slog.Attr`
 - framework-owned unhandled panics on `js/wasm` are also emitted as structured `console.error` records with the same slog-like level metadata, and `ui` initializes the runtime with raw panic rethrow hidden by default so wrapped runtime panics can be reported without tearing down the module
 
+## Live Agent Bridge
+
+The live agent bridge is a local development and CI dogfood surface for driving a real wasm app through `gwc mcp` or the matching CLI commands. It is not a production runtime API. Treat it as CDP-equivalent: a leaked token means full control of that dev app session.
+
+Architecture:
+
+```text
+MCP client or gwc CLI
+        |
+        | gwc_sessions / gwc_snapshot / gwc_query / mutating tools
+        v
+gwc mcp or gwc live command
+        |
+        | loopback HTTP with ephemeral token
+        v
+agent hub in the livereload server
+        |
+        | localhost-only WebSocket, per-session ordering
+        v
+wasm app opened with ?gwc-dev=agent and built with the gwcagent tag
+```
+
+Current tool catalog:
+
+| Tool or command | Mutates app state | Purpose |
+| --- | --- | --- |
+| `gwc_sessions` / `gwc sessions` | no | list live sessions and choose the newest active session by default |
+| `gwc_snapshot` / `gwc snapshot` | no | read a redacted runtime tree snapshot with budget metadata |
+| `gwc_query` / `gwc query` | no | resolve semantic selectors to stable refs |
+| `gwc_set_atom` / `gwc set-atom` | yes | write an atom value through the bridge payload codec |
+| `gwc_emit` / `gwc emit` | yes | dispatch a node event handler by stable ref |
+| `gwc_publish` / `gwc publish` | yes | publish a topic event |
+| `gwc_navigate` / `gwc navigate` | yes | drive router navigation |
+| `gwc_snapshot_diff` / `gwc snapshot-diff` | no | compare two bridge snapshots by stable ref |
+
+Stable refs are opaque addresses returned by `bridge.snapshot` and `bridge.query`. Use them as tokens, not as selectors to parse. A ref is valid only for the session and tree version that produced it; stale refs must fail closed instead of finding a nearby node.
+
+The bridge follows a CRUD-on-inputs rule: agents should drive user-observable inputs, route changes, atoms, and event topics. Direct fiber mutation is intentionally not part of the shipped bridge because it bypasses hooks, scheduler ordering, effect cleanup, and the same invariants real users exercise.
+
+Headless dogfood recipe:
+
+```powershell
+go run ./tools/gwc test -lane agent -json
+go run ./tools/gwc test -lane agent-browser -json
+```
+
+The `agent` lane covers native bridge, runtime, hub, and livereload integration. The `agent-browser` lane runs the ai-chat-wizard Playwright-Go dogfood test when present. The dogfood flow should launch the app through `gwc dev`, open it with `?gwc-dev=agent`, connect through a real hub token, query the composer, set the model atom, emit send, wait, snapshot the thread, and assert the message appears. It must also prove that the same app without the query parameter opens no socket and that reload links a successor session.
+
+Security checklist:
+
+- bind the hub to loopback only
+- use one ephemeral token per run and require it on every hub route
+- build the wasm app with `gwcagent` only for development or the headless dogfood lane
+- keep release-profile artifacts free of bridge strings, symbols, bootstrap token injection, and command registration
+- redact snapshots, logs, diagnostics, and crash reports before they leave the page or hub
+- bound command history, logs, diagnostics, and crash reports, and report dropped entries
+- review [security/agent-bridge-threat-model.md](../../security/agent-bridge-threat-model.md) before adding new bridge verbs
+
 ### Crash Containment
 
 A panic that escapes any goroutine or host callback in wasm exits the whole Go program and leaves the page dead. The runtime contains crashes at every boundary it owns instead:

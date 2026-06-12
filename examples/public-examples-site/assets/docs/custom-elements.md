@@ -116,6 +116,7 @@ Current expectation:
 - exported GoWebComponents prototypes should default to shadow DOM when style isolation is required
 - light-DOM export is still possible, but then external CSS ownership and selector collisions become the caller's responsibility
 - wrapper-owned shadow roots should carry the component-local `<style>` subtree or another explicit style injection path instead of assuming global stylesheet inheritance
+- portal targets for widget-owned overlays should live inside the same shadow root; focus-managed dialogs and live-region announcers should be mounted there too, so the widget does not depend on or leak into the host document's global overlay layer
 
 Practical guidance:
 

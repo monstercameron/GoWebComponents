@@ -10,7 +10,7 @@ Shipped today:
 - compatibility aliases under `testkit/...` for existing consumers
 - browser-oriented public helpers for render, hooks, router, and hydration smoke coverage
 - repo-level validation through native Go tests, js/wasm tests, the `test/` Playwright workspace, and the aggregated example suites
-- launcher lanes through `go run ./tools/gwc test -lane ...` for unit, wasm, hydration, browser, and release checks
+- launcher lanes through `go run ./tools/gwc test -lane ...` for unit, wasm, hydration, browser, agent, agent-browser, and release checks
 
 Not shipped today:
 
@@ -104,6 +104,7 @@ For this repository itself, the Go-native launcher now exposes explicit lane-ori
 ```powershell
 go run ./tools/gwc test -lane unit -lane wasm
 go run ./tools/gwc test -lane hydration -lane browser
+go run ./tools/gwc test -lane agent -lane agent-browser
 go run ./tools/gwc test -lane release -app .\examples\public\counter\main.go -root .\examples\public\counter
 ```
 
@@ -113,6 +114,8 @@ Current repo lane meanings:
 - `wasm`: discovered `*_wasm_test.go` packages under the selected root using the repo js/wasm executor helper
 - `hydration`: focused js/wasm packages whose tests exercise hydration helpers or `Hydrate*` behavior
 - `browser`: the Playwright workspace under `test/` when available
+- `agent`: native live-bridge, runtime, hub, and livereload integration checks
+- `agent-browser`: the headless ai-chat-wizard live bridge dogfood Playwright-Go test when present
 - `release`: a launcher-owned release smoke build into a temporary output directory
 
 ## Non-Goals
@@ -166,5 +169,6 @@ The remaining backlog should build this surface in this order; use the repo-root
 - [WORKFLOWS.md](common-workflows.md#test-a-component-or-app-flow)
 - [ADOPTION.md](adoption-baseline.md#2-testing-recipe)
 - [ECOSYSTEM.md](ecosystem-and-extension-model.md)
+- [AGENTIC_LIVE_BRIDGE.md](agentic-live-bridge.md)
 - [TODO.md](gowebcomponents-todo.md) public mirror; repo-root `todos.md` is canonical
 - [../test/README.md](../test/README.md)

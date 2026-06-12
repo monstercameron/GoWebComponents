@@ -2,7 +2,7 @@
 
 This page defines the current security boundary for GoWebComponents applications.
 
-Use it when evaluating SSR bootstrap safety, hydration trust boundaries, CSRF-aware form handling, browser storage risk, logging redaction, devtools exposure, and supply-chain review expectations.
+Use it when evaluating SSR bootstrap safety, hydration trust boundaries, CSRF-aware form handling, browser storage risk, logging redaction, devtools and live-bridge exposure, and supply-chain review expectations.
 
 ## Current Status
 
@@ -119,6 +119,7 @@ Current rules:
 - keep correlation ids opaque and non-user-identifying
 - treat diagnostics metadata and devtools snapshots under the same redaction boundary as logs
 - do not assume snapshot export is safe for production support bundles unless the application has already reviewed what the runtime can observe
+- treat the agentic live bridge as CDP-equivalent development control; use [AGENTIC_LIVE_BRIDGE.md](agentic-live-bridge.md) and the repository threat model before adding bridge verbs
 
 Current shipped surfaces to treat as browser-visible or exportable:
 

@@ -363,14 +363,16 @@ scaffold     start (TUI), init, import,               starter expansion coverage
 implement    edit files directly (Go), mutate         broader codemod recipes
 build        build, wasm, release                     (build --json envelope)
 verify       test (-lane unit/race/wasm/              single acceptance gate
-             hydration/browser/release), verify,
+             hydration/browser/agent/
+             agent-browser/release), verify,
              verify --agent, render, probe, bench,
              lint
 review       lint / review, doctor -audit,            richer fixes-as-data
              check --json
 diagnose     doctor, dev (livereload + doctor-        deeper hydration/commit
              on-failure), dev --agent, observe        trace coverage
-             --agent, test output
+             --agent, sessions/snapshot/query,
+             snapshot-diff, test output
 migrate      migrate (-apply safe rewrites), mutate   arbitrary-safe ops
 release      release, deploy, prerender/export        (canary rollout)
 observe      observe, observe --agent,                queryable RUM/crash/replay
@@ -390,7 +392,7 @@ Today's commands (one line each)
   dev       build app -> serve -> livereload (auto-runs doctor on failure)
   build     build a js/wasm app with an explicit profile
   wasm      wasm build experiments: measure / compare / compare-compression / ...
-  test      run lanes: unit, race, wasm, hydration, browser, release
+  test      run lanes: unit, race, wasm, hydration, browser, agent, agent-browser, release
   verify    app-local Go tests + a CI-profile wasm build; --agent emits NDJSON
   render    render a component through the headless SSR oracle
   probe     run a browser-oracle probe for a URL or example target
@@ -401,6 +403,14 @@ Today's commands (one line each)
   prerender static export (route HTML + wasm + manifest); export is an alias
   release   package a js/wasm release with manifest + compressed sidecars
   mcp       serve JSON-capable gwc commands as local stdio MCP tools
+  sessions  list live local agent-bridge sessions
+  snapshot  read a redacted live agent-bridge runtime snapshot
+  query     find live agent-bridge nodes by semantic selector
+  set-atom  set a live agent-bridge atom value
+  emit      invoke a live agent-bridge node event handler by ref
+  publish   publish a live agent-bridge topic event
+  navigate  drive live agent-bridge router navigation
+  snapshot-diff compare two agent-bridge snapshots by stable ref
   deploy    package validated release artifacts through deploy adapters
   tailwind  build shared Tailwind CSS + class manifest
   seed      provision local dev identities + fixture data

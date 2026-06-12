@@ -4,6 +4,22 @@
 
 ### Added
 
+- **Agent bridge** — a first-class surface for agents to inspect and drive a
+  live app. Runtime `agent_read`/`agent_write` primitives resolve stable node
+  refs and apply state writes (with `agent_state_version` guarding stale
+  writes); the `agentbridge` package wraps them in a versioned read/write/control
+  command protocol (native + wasm clients); the standalone `tools/agenthub`
+  module hosts an out-of-process session hub; and `gwc` gains `agentic` live-
+  bridge, rebuild, snapshot-diff, and export-test commands. Dogfooded in the
+  `ai-chat-wizard` showcase, covered by an `example100` Playwright-Go dogfood
+  e2e and a headless CI workflow, with a threat model under `security/`.
+- **`events` introspection** — `events/introspect` exposes the live topic/
+  subscriber graph for tooling and the agent bridge.
+- **Gesture primitives** (`anim`) — pure pan/drag and pinch primitives tracking
+  delta, velocity, center, scale, end-state, and zero-distance guards.
+- **`gwc test -lane i18n`** — runs the message-extraction / locale-completeness
+  checks as a CI-addressable lane (included in `all`).
+
 - **Selective / progressive hydration (islands)** — `ui.HydrationIsland` marks
   independently resumable SSR islands; `ui.HydrateIsland` schedules per-island
   browser hydration on visible / interaction / idle / immediate triggers (with

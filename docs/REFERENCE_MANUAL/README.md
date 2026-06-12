@@ -105,6 +105,7 @@ Use this map when a small app grows and you need the next chapter instead of mor
 - once URLs, redirects, or layout shells become part of the product contract, move to [08 Routing](08-routing.md)
 - once the server must own first paint or bootstrap payloads, move to [09 SSR And Hydration](09-ssr-and-hydration.md)
 - once browser capabilities such as workers, multi-tab state, or installability matter, move to [10 Browser Interop And Workers](10-browser-interop-and-workers.md) and [13 Assets Deployment And PWA](13-assets-deployment-and-pwa.md)
+- once a local agent or CI lane needs to drive a real wasm app through a live session, move to [12 Devtools Testing And Observability](12-devtools-testing-and-observability.md) and follow the live agent bridge recipe
 - once several route families, teams, or release lanes appear, move to [14 Scaling Large Codebases](14-scaling-large-codebases.md)
 - once a design decision depends on stability tiers, non-goals, or ownership boundaries, confirm it in [15 Design Notes And Boundaries](15-design-notes-and-boundaries.md)
 

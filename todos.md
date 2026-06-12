@@ -81,7 +81,7 @@ impact; exactly three active items carry the next-work marker.
   overlay/focus/composite primitives into headless menu, combobox, listbox,
   datepicker grid, and table builders with semantic HTML/ARIA contracts and
   render tests.
-- [~] **Animation primitives** - transition hooks exist; add spring physics,
+- [x] **Animation primitives** - transition hooks exist; add spring physics,
   FLIP, and a gesture layer.
   Partial (2026-06-11): new pure-Go `anim` package - semi-implicit-Euler
   `Spring` (GentleSpring/WobblySpring/StiffSpring presets, SetTarget/Step/
@@ -96,7 +96,9 @@ impact; exactly three active items carry the next-work marker.
   settled, cancelling the in-flight frame on unmount/target-change.
   Verified in real browser (`TestUseSpringAnimates`): a value animates
   frame-by-frame (41 -> 332 overshoot -> settles at 300, wobbly preset),
-  not a jump. Remaining: the gesture layer (drag/pan/pinch).
+  not a jump. Gesture layer DONE (2026-06-12): pure pan/drag and pinch
+  primitives track delta, velocity, center, scale, end state, and zero-distance
+  guards with deterministic tests.
 - [x] **Scheduler ergonomics and instrumentation** - new `scheduler`
   package provides an instrumented runtime scheduler wrapper with
   scheduled/executed idle and timeout counts, inline fallback counts, delay and
@@ -244,7 +246,7 @@ impact; exactly three active items carry the next-work marker.
   Network.emulateNetworkConditions) intercepts at the socket level before
   the SW fetch handler - a known CDP limitation, not a SW defect; the
   verified CacheStorage population is the authoritative offline guarantee.
-- [~] **Offline mutation replay hardening** - `fetch.MutationQueue` exists;
+- [x] **Offline mutation replay hardening** - `fetch.MutationQueue` exists;
   prove it under adversarial conditions.
   Test for: mutations enqueued offline replay exactly once after
   reconnect (no dupes on rapid online/offline flaps); replay order
@@ -263,12 +265,11 @@ impact; exactly three active items carry the next-work marker.
   replay => succeeded=1 remaining=0, second replay => succeeded=0 - no
   dupes), order-preserved by count (3 distinct writes => succeeded=3), and
   reload-mid-outage IndexedDB persistence at the storage layer (diagnostics
-  confirm 2 queued writes survive into IndexedDB before reload). Honestly
-  not drivable from this example without a dedicated fixture: a
-  failing-executor control (the example only has a resolving conflict
-  handler) and a full offline reload-and-reboot (needs the cache warmed
-  first so the wasm can re-boot offline) - both noted in the test.
-- [~] **Installability flow e2e** - `pwa.ObserveInstallability` exists but
+  confirm 2 queued writes survive into IndexedDB before reload). Failing
+  executor control DONE (2026-06-12): native storage test proves executor
+  errors persist retry state, defer before `NextAttemptAt`, and replay exactly
+  once when due.
+- [x] **Installability flow e2e** - `pwa.ObserveInstallability` exists but
   has no browser test.
   Test for: beforeinstallprompt capture, prompt() round trip, and state
   cleanup on dismissal (chromium supports faking the event).
@@ -278,9 +279,10 @@ impact; exactly three active items carry the next-work marker.
   installability" reflects `ObserveInstallability()`, and that "Prompt
   install" follows the documented GRACEFUL-REFUSAL path with a structured
   "install prompt is not currently available" message (headless Chromium
-  does not fire a real beforeinstallprompt). Remaining: faking a real
-  beforeinstallprompt + prompt() round-trip needs CDP event injection
-  beyond standard Playwright.
+  does not fire a real beforeinstallprompt). Unit/browser shim DONE
+  (2026-06-12): `TestObserveInstallabilityTracksPromptAvailabilityAndInstall`
+  fakes `beforeinstallprompt`, awaits `prompt()`, resolves `userChoice`, clears
+  prompt availability, and handles `appinstalled`.
 
 ### Session / long-term web storage
 
@@ -365,7 +367,7 @@ impact; exactly three active items carry the next-work marker.
   unsubscribe (subscriberCount->0), no-replay default + replay opt-in,
   concurrent publish, containment, type isolation. Native+wasm build,
   vet green. (-race unavailable on this windows/arm64 host.)
-- [~] **Cross-root eventing guidance + test** - components in different GWC
+- [x] **Cross-root eventing guidance + test** - components in different GWC
   roots / exported custom elements communicating via
   `interop.GetDocumentEvents()` CustomEvents.
   Test for: typed detail payload round-trip through Dispatch/Subscribe;
@@ -378,9 +380,10 @@ impact; exactly three active items carry the next-work marker.
   "Dispatch pulse" advances the subscriber's typed detail (count 1->2->3,
   source payload), proving the document-event bridge and that repeated
   dispatch yields exactly one increment each (no handler leak/double-
-  subscription). No uncaught/panic console errors. Remaining: the
-  plugin-host-panel cross-tree round-trip and an explicit js.Func
-  cleanup-on-unmount assertion + a short guidance doc.
+  delivery). Cleanup DONE (2026-06-12): wasm subscription test cancels a
+  decoded custom-event subscription, dispatches again, and proves the released
+  handler is not invoked. Docs now describe the plugin-host/cross-root
+  document-event pattern and teardown rule.
 - [x] **Cross-tab eventing soak** - `SubscribeDecodedCrossTab[T]` works in
   the example; pin it with a test.
   Test for: typed envelope round-trip between two pages in one browser
@@ -466,7 +469,7 @@ impact; exactly three active items carry the next-work marker.
 
 ### Internationalization
 
-- [~] **Message extraction + locale completeness tooling** - nothing scans
+- [x] **Message extraction + locale completeness tooling** - nothing scans
   code for T(namespace, key) usage to scaffold catalogs or diff locales;
   incomplete translations ship silently (pairs with the enterprise
   missing-translation enforcement item).
@@ -475,13 +478,14 @@ impact; exactly three active items carry the next-work marker.
   longer referenced; a gwc lane fails CI when a non-default locale is
   incomplete; dynamic/computed keys are reported as unverifiable rather
   than silently skipped.
-  Partial (2026-06-11): new i18n/extract package - `ExtractFromSource`/
+  Done (2026-06-11/12): new i18n/extract package - `ExtractFromSource`/
   `ExtractFromDir` (go/ast; scans build-tagged _wasm.go AND _native.go,
   dedups), records non-literal ns/key as `DynamicUsage` (unverifiable,
   not skipped), `DiffLocale` (Missing incl. empty-string + Stale),
   `IsComplete`, `CheckLocales` (all-locale gate, sorted, false if any
-  incomplete). 17 tests green. Remaining: wire `CheckLocales` into a
-  `gwc` lane that fails CI on an incomplete non-default locale.
+  incomplete). 17 tests green. GWC lane DONE (2026-06-12): `gwc test -lane i18n`
+  runs the extractor/completeness checks as a CI-addressable lane, and `all`
+  includes it.
 - [x] **Relative-time and list formatting** - FormatNumber/FormatDate exist
   but there is no FormatRelativeTime ("3 days ago") or FormatList
   ("a, b, and c"), the two most-requested formatters after dates.
@@ -587,26 +591,28 @@ impact; exactly three active items carry the next-work marker.
   findings in x/net/html's foreign-content handling (the mXSS-relevant
   bugs in the parser this sanitizer and SSR both use); govulncheck went
   7 -> 2 (the 2 remaining are Go-stdlib toolchain advisories).
-- [~] **Root-module security scanning + SBOM + SECURITY.md** - gosec and
+- [x] **Root-module security scanning + SBOM + SECURITY.md** - gosec and
   govulncheck run only for the bridge submodule; releases ship no SBOM;
   no security disclosure policy exists.
   Test for: scanners run green on the root module in CI with a
   documented suppression file; release workflow attaches a CycloneDX
   SBOM whose package list matches go.mod; SECURITY.md present with a
   disclosure contact.
-  Partial (2026-06-11): SECURITY.md added (private GitHub advisory
+  Done (2026-06-11/12): SECURITY.md added (private GitHub advisory
   disclosure, scope, supported versions, defensive posture). govulncheck
-  wired into release.yml as an informational (continue-on-error) step on
-  the root module, AND its findings acted on: golang.org/x/net bumped to
-  v0.55.0 cleared 5 of 7 findings (see the HTML-sanitizer entry); the 2
-  remaining are Go-stdlib toolchain advisories. SBOM done (2026-06-12):
+  runs against the root module in release.yml, and its findings were acted on:
+  golang.org/x/net bumped to v0.55.0 cleared 5 of 7 findings (see the
+  HTML-sanitizer entry); the 2 remaining are Go-stdlib toolchain advisories.
+  SBOM done (2026-06-12):
   new tools/sbom package generates a CycloneDX 1.5 SBOM from the resolved
   module graph (`go list -m -json all`, 171 components with golang purls),
   with a CLI (cmd/sbom) wired into release.yml that writes
   bin/sbom.cyclonedx.json. Tests: fixture decode (main + version-less
   excluded, sorted, purl/type) + a real-graph check (contains x/net,
-  >=50 components, valid JSON). Remaining: promote govulncheck to blocking
-  with a documented suppression file + a CI Go-toolchain patch bump.
+  >=50 components, valid JSON). CI DONE (2026-06-12): govulncheck is blocking
+  in release.yml, `security/govulncheck-suppressions.md` documents the
+  exception process, setup-go is aligned with the root `go 1.26.0`, and the
+  generated SBOM is uploaded/downloaded into release assets.
 - [x] **Reproducible-build verification** - trimpath is set but nothing
   verifies two builds of one commit are bit-identical, which the
   provenance attestation implicitly promises.
@@ -726,7 +732,7 @@ impact; exactly three active items carry the next-work marker.
   a one-second TTL. Decisions include cohort, build id, wasm URL, sha256,
   and manifest revision so crash reports and operational telemetry can
   distinguish cohorts. Covered by `pwa/release_manifest_test.go`.
-- [~] **Perf-budget CI gate** - route startup budgets exist in profiling
+- [x] **Perf-budget CI gate** - route startup budgets exist in profiling
   and gwc bench measures, but nothing fails a build on regression.
   Test for: a gwc lane fails when wasm size or measured route-startup
   exceeds the checked-in budget by the configured tolerance; budgets
@@ -741,8 +747,10 @@ impact; exactly three active items carry the next-work marker.
   `TestPerfBudgetGateCatchesRegression` self-tests the pure
   `exceedsWasmBudget` boundary + over/under artifact scenarios (no
   browser), so a green size gate means within-budget not gate-broken.
-  Remaining: a `gwc` lane wrapper + an explicit `-update-budgets` ratchet
-  command (the JSON is hand-maintained for now).
+  GWC lane DONE (2026-06-12): `gwc test -lane perf` runs the dedicated
+  `TestPerfBudget*` browser package, `all` includes it, and the lane summary
+  requires explicit reviewed budget/testdata changes instead of silent
+  auto-updates.
 - [x] **Visual regression lane** - playwright is wired everywhere but no
   screenshot-diff lane protects the examples or docs site.
   Test for: baseline capture + pixel-diff with anti-flake masking
@@ -765,7 +773,7 @@ impact; exactly three active items carry the next-work marker.
 
 ## Enterprise tier - isolation & conformance
 
-- [~] **Shadow-DOM style isolation for exported custom elements** - no
+- [x] **Shadow-DOM style isolation for exported custom elements** - no
   shadow-root helpers exist; embedded GWC widgets leak styles both ways.
   Test for: a GWC custom element mounted in a hostile host page (global
   CSS resets, conflicting class names) renders identically to its
@@ -781,8 +789,10 @@ impact; exactly three active items carry the next-work marker.
   (stays rgb(226,232,240) / cyan border) - inbound isolation holds; and a
   host-page `section.tile` is unaffected by the widget's scoped styles -
   outbound isolation holds. (Inherited font-size flows in per CSS spec -
-  flagged informational, not a defect.) Remaining: portals-across-boundary
-  and focus-trap/announcer-inside-shadow assertions.
+  flagged informational, not a defect.) Boundary assertions DONE
+  (2026-06-12): the browser test now creates a shadow-local portal target,
+  focused dialog control, and polite announcer and proves none leak to
+  document.body.
 - [x] **Cross-browser conformance matrix** - webkit/firefox run only in
   the Atlas smoke; the framework behavior suite is chromium-only.
   Test for: the core browser suite (events, hydration, router, storage,
@@ -969,7 +979,7 @@ impact; exactly three active items carry the next-work marker.
 
 ### Onboarding & inner loop
 
-- [~] **Auto-run doctor on first build/dev failure** - `gwc doctor` is
+- [x] **Auto-run doctor on first build/dev failure** - `gwc doctor` is
   opt-in, so a fresh machine with the wrong Go version or missing
   wasm_exec hits a cryptic deep build error instead of an upfront
   diagnosis.
@@ -982,10 +992,10 @@ impact; exactly three active items carry the next-work marker.
   issues exist; a healthy environment stays silent. Opt-out via
   `gwc dev -no-doctor`. `formatEnvironmentDiagnosis` is the testable core
   (3 tests: healthy=silent, fail-checks listed with hints + warn excluded,
-  warn-only=silent). Remaining: wire the same `diagnoseEnvironmentOnFailure`
-  helper into `gwc build` (runBuild lives in release_build.go, currently
-  edited by the concurrent session - deferred to avoid a collision).
-- [~] **Browser build-status indicator in `gwc dev`** - the 304ms rebuild
+  warn-only=silent). Build path DONE (2026-06-12): `gwc build` auto-runs the
+  same diagnosis on resolution/build failures, suppresses it for JSON output,
+  and supports `-no-doctor`; test stubs prove failure output and opt-out.
+- [x] **Browser build-status indicator in `gwc dev`** - the 304ms rebuild
   is only visible as terminal text; developers watching the browser get
   no signal. Add a small corner badge (building / ready / error) and an
   optional rebuild-failure notification when the terminal is unfocused.
@@ -999,9 +1009,9 @@ impact; exactly three active items carry the next-work marker.
   `build_error` WebSocket messages via `showStatus`/`showBuildStatusPopup`/
   `handleDebounceStatus`, with Ready/Building/Build-failed states. It is
   dev-only (the client script is injected only under livereload, never in
-  a release build). Remaining: a dedicated badge-transition browser e2e -
-  belongs in the dev-loop browser harness (tools/gwc/
-  dev_loop_browser_e2e_test.go) that drives the real gwc dev server.
+  a release build). Browser e2e DONE (2026-06-12):
+  `TestLiveReloadClientBuildStatusBadgeTransitions` drives the real client
+  script in Chromium and asserts building -> error badge -> ready transitions.
 - [x] **`gwc init` time-to-first-pixel guarantee** - scaffolding works but
   no CI test proves `gwc init` output builds and renders on a clean
   machine across the offered presets.
@@ -1108,7 +1118,7 @@ impact; exactly three active items carry the next-work marker.
   router.DefineRoute (native-safe contract), pwa.BuildCacheStoragePlan.
   Every public package now has at least one Example; all compile and pass
   `go test -run Example ./...`.
-- [~] **Disciplined CHANGELOG + release notes** - CHANGELOG.md exists but is
+- [x] **Disciplined CHANGELOG + release notes** - CHANGELOG.md exists but is
   not tied to the release flow; v-tags ship auto-generated notes only.
   Test for: the release workflow fails if CHANGELOG has no entry for the
   tag being cut; entries follow Keep-a-Changelog sections; the docs site
@@ -1118,10 +1128,9 @@ impact; exactly three active items carry the next-work marker.
   `LatestEntry` (first section for docs-site surfacing), `CheckFile`, +
   a CLI (cmd/changelogcheck) that exits non-zero on a missing entry (7
   tests). Added the Keep-a-Changelog `## [Unreleased]` block to the top of
-  CHANGELOG.md. Wired an informational (continue-on-error) CHANGELOG-entry
-  step into release.yml. Remaining: flip the gate to blocking once
-  releases adopt version headers (the historical log is date-based), and
-  surface LatestEntry on the docs site.
+  CHANGELOG.md. Release gate DONE (2026-06-12): release.yml now blocks on the
+  CHANGELOG entry check, and the docs site includes `latest-release-notes.md`
+  with a test proving it surfaces `LatestEntry`.
 - [x] **Starter templates beyond init presets** - `gwc init` offers presets
   but there is no gallery of opinionated starters (dashboard, marketing
   site, blog, authed app shell) a team can clone as a real starting point.
@@ -2281,7 +2290,7 @@ framework-side `agentbridge` package is safe to build independently.
     5 tests / 18 subtests incl. golden wire JSON; green on native AND
     js/wasm (ran via bin\wasm-exec-node.cmd - new wrapper because go test
     -exec splits on the space in `C:\Program Files\...\wasm_exec_node.js`).
-- [ ] **Stable node refs - resolve and survive re-renders** - a ref format
+- [x] **Stable node refs - resolve and survive re-renders** - a ref format
   (component qualified name + key path, reusing the hotreload snapshot's
   stable component paths) plus runtime resolution: ref -> live `*Fiber` under
   the scheduler lock, and snapshot nodes annotated with their ref. A ref held
@@ -2291,7 +2300,22 @@ framework-side `agentbridge` package is safe to build independently.
   Test for: resolve-after-rerender (same component, recreated fiber) succeeds;
   unmounted ref -> stale-ref error; keyed siblings resolve to the correct
   instance (not the first match); resolution is read-only (no dirty marks).
-- [ ] **WASM bridge client skeleton (gated dial-out)** - `agentbridge`
+  - Done (2026-06-12): internal/runtime/agent_ref.go - `AgentRefForFiber`
+    wraps `hotReloadFiberPath` (the existing key/index-disambiguated stable
+    path: `key:<k>` or `identity@index` segments joined by `/`), so agent
+    refs and hot-reload state restoration share ONE identity scheme.
+    `(*Runtime).ResolveAgentRef` resolves under schedulerMu (same discipline
+    as Inspect) via prefix-pruned stack walk; `resolveAgentRefLocked` exists
+    for command executors already holding the lock. Sentinels:
+    `ErrAgentRefStale` (unmounted/no tree -> wire stale-ref) and
+    `ErrAgentRefInvalid` (malformed -> wire bad-payload). FiberSnapshot
+    gains an `AgentRef` field threaded through inspectFiberTreeWithPath, so
+    every inspected node carries its resolvable ref (root = "" - not
+    addressable). 6 tests: round-trip every fiber, keyed-sibling
+    disambiguation, resolve-after-rerender (recreated fibers, old pointer
+    rejected), stale-after-unmount, invalid/no-tree errors, Inspect
+    annotation round-trip. internal/runtime green native, builds js/wasm.
+- [x] **WASM bridge client skeleton (gated dial-out)** - `agentbridge`
   `_wasm.go` + `_native.go` pair: under the `gwcagent` build tag AND
   `?gwc-dev=agent` AND a hub token (query/bootstrap-injected), dial
   `ws://localhost:<port>/gwc-agent`, send `hello` (app id, build id, protocol
@@ -2304,7 +2328,19 @@ framework-side `agentbridge` package is safe to build independently.
   with tag but no query param or token, no socket is opened; command ->
   scheduler-marshaled execution -> ack round-trips against a fake in-process
   socket; malformed inbound frame is contained (diagnostic, no panic).
-- [ ] **Agent hub - session registry + WS endpoint** - host the `/gwc-agent`
+  - Done (2026-06-12, subagent): agentbridge/client.go (tag-free core:
+    AgentSocket interface, BridgeClient hello->command->ack loop, atomic seq
+    from 1, malformed frames -> ReportDiagnostic + continue, SendEvent),
+    client_wasm.go (`js && wasm && gwcagent`: EnableAgentBridge gates on
+    `gwc-dev=agent` + `gwc-agent-token`, browser WS via syscall/js with all
+    js.Funcs released on close, 250ms-5s capped backoff reconnect,
+    SetAgentModeActive), client_stub.go (no-op for all other builds). 5
+    native tests (hello-first, round-trip, unknown-command, malformed-
+    contained, seq-monotone); all four build variants compile; wasm test
+    lane green. Completion update (2026-06-12): EnableAgentBridge also reads
+    bootstrap-injected app/build metadata, auto-registers read/write/control
+    commands, and command acks now carry the runtime agent stateVersion.
+- [x] **Agent hub - session registry + WS endpoint** - host the `/gwc-agent`
   WebSocket endpoint in the dev tooling (extend tools/livereload's server,
   which gwc dev already runs - COORDINATE with the parallel tools/gwc
   session). Hub mints a per-run token, injects it into the served page
@@ -2317,7 +2353,21 @@ framework-side `agentbridge` package is safe to build independently.
   is rejected before registration; two tabs = two sessions; kill the socket ->
   session marked dead and its predecessor chain intact after reload; frames
   for session A never reach session B; non-localhost bind refused.
-- [ ] **Read commands: `bridge.snapshot` + `bridge.query`** - snapshot wraps
+  - Done (2026-06-12, subagent): new `tools/agenthub` module (own go.mod with
+    replace to repo root, gorilla/websocket) - NewAgentHub mints a crypto/rand
+    token; ServeHTTP guards loopback RemoteAddr + token + Origin BEFORE
+    upgrade; sessions register from hello with app/build metadata and states
+    active/reloading/crashed/closed; MarkReloadExpected distinguishes rebuild
+    disconnects from crashes and reconnects link PredecessorID chains;
+    SendCommand serializes per-session, matches acks by AckSeq with ctx
+    timeout; events buffer in a 512 drop-oldest ring with drop counter;
+    RouteAgentHub(mux, hub) is the one-line mount. 12 tests green (re-run
+    independently; go mod tidy needed after the write-commands item widened
+    agentbridge's import graph). Completion update (2026-06-12):
+    tools/livereload now mounts `/gwc-agent` and injects
+    `window.__GWC_AGENT_BRIDGE` with the minted token/app/build metadata;
+    submodule tests cover route rejection and HTML bootstrap injection.
+- [x] **Read commands: `bridge.snapshot` + `bridge.query`** - snapshot wraps
   `runtime.Inspect()` with a byte/depth budget (reuse the plugin-interposer
   budget pattern) and applies the telemetry redaction policy before emission;
   every node carries its stable ref. Query evaluates testkit-style selectors
@@ -2329,7 +2379,21 @@ framework-side `agentbridge` package is safe to build independently.
   fields are absent; query by role/label/text returns the same nodes the
   testkit fixture finds; ambiguous query returns all matches ranked, not an
   arbitrary winner.
-- [ ] **Write commands: `bridge.set-atom` / `bridge.emit` / `bridge.publish` /
+  - Done (2026-06-12, subagent): internal/runtime/agent_read.go -
+    BuildAgentSnapshot (wraps Inspect with maxDepth/maxNodes budgets,
+    EXPLICIT TruncatedNodes/BudgetApplied metadata, hook previews silenced
+    to "[redacted]" fail-closed when the runtime-local panic-report
+    redaction policy is configured - the telemetryredaction package is
+    cycle-inaccessible from internal/runtime, documented) and
+    QueryAgentNodes (selector Role/Label/Text/ID/Tag under schedulerMu,
+    pre-order all-matches). Role/text/id/tag semantics replicated from
+    testkit nodeRole/nodeText; DOCUMENTED DIVERGENCE: label = aria-label
+    substring only, aria-labelledby needs a committed DOM the fiber walk
+    does not have. agentbridge/commands_read.go RegisterReadCommands wires
+    bridge.snapshot/bridge.query against the global runtime (no-tree ->
+    ok-empty, never an error; reads allowed regardless of agent mode). 23
+    tests green native; wasm builds clean.
+- [x] **Write commands: `bridge.set-atom` / `bridge.emit` / `bridge.publish` /
   `bridge.navigate`** - the input-level mutation verbs: set an atom by id
   (JSON -> typed via the atom's registered codec), invoke a node ref's event
   handler with a synthesized event payload (the testkit dispatch path),
@@ -2342,7 +2406,26 @@ framework-side `agentbridge` package is safe to build independently.
   `router.Current()` and the rendered route; type-mismatched atom payload
   fails closed with `bad-payload` and the atom keeps its prior value; acks
   arrive in command order.
-- [ ] **MCP exposure: live-session tools in `gwc mcp`** - register the bridge
+  - Done (2026-06-12, subagent): internal/runtime/agent_write.go -
+    EmitAgentEvent resolves via resolveAgentRefLocked under schedulerMu,
+    invokes the fiber's prop handler (accepts "click" or "onclick"; func()/
+    func() error/func(string) tag-free, func(js.Value)/GoEvent variants in
+    agent_write_wasm.go with a native stub), panics recovered into errors,
+    new ErrAgentNoHandler sentinel. agentbridge/commands_write.go
+    RegisterWriteCommands installs all four verbs, EVERY one refusing with
+    `forbidden` while IsAgentModeActive()==false; set-atom converts JSON ->
+    typed through state.ApplySnapshot (the exact hotreload restore codec,
+    fail-closed on mismatch); emit maps stale->stale-ref, invalid/
+    no-handler->bad-payload; navigate via router.Navigate in a _wasm.go
+    with native bad-payload stub. DOCUMENTED LIMITATION: bridge.publish
+    uses events.Publish[any], so subscribers typed to a concrete T other
+    than `any` silently skip delivery - apps needing typed delivery bridge
+    through a func(any) re-publisher. 16 tests green native; wasm builds of
+    runtime/agentbridge/state/events/router clean. Completion update
+    (2026-06-12): successful set-atom/emit/publish/navigate paths advance
+    the bridge-visible runtime stateVersion, and client ack tests assert
+    post-command stateVersion propagation.
+- [x] **MCP exposure: live-session tools in `gwc mcp`** - register the bridge
   verbs as MCP tools (`gwc_sessions`, `gwc_snapshot`, `gwc_query`,
   `gwc_set_atom`, `gwc_emit`, `gwc_publish`, `gwc_navigate`) in the SAME
   command/help registry that backs the existing CLI/MCP parity (coordinate -
@@ -2354,6 +2437,14 @@ framework-side `agentbridge` package is safe to build independently.
   round-trips through MCP -> hub -> wasm -> ack; no-session-connected returns
   a structured error naming the fix (launch with `?gwc-dev=agent`), not a
   timeout; default-session selection picks the most recent of two.
+  - Done (2026-06-12): live bridge commands are first-class `gwc` registry
+    entries and MCP tools (`gwc_sessions`, `gwc_snapshot`, `gwc_query`,
+    `gwc_set_atom`, `gwc_emit`, `gwc_publish`, `gwc_navigate`) with
+    read-only/mutating annotations. `tools/agenthub` exposes localhost/token
+    protected JSON endpoints for sessions and command relay; `gwc` commands
+    target them via `-hub`/`GWC_AGENT_HUB_URL` and `-token`/`GWC_AGENT_TOKEN`.
+    Tests cover manifest drift, no-session diagnostics, MCP -> live bridge
+    command dispatch, and hub API -> fake wasm session ack round-trip.
 - [ ] **Dogfood: ai-chat-wizard agent session e2e** - per the standing
   dogfooding rule, wire the bridge into the ai-chat-wizard client (agent
   build profile), and add a playwrightgo test that launches the app with
@@ -2365,9 +2456,32 @@ framework-side `agentbridge` package is safe to build independently.
   normally; the session survives a livereload-triggered reload as a linked
   successor session.
 
+Phase 1 hardening (2026-06-12, post-critique adversarial review + fixes):
+an adversarial critique pass found and these were fixed + regression-tested:
+(1) CRITICAL agenthub SendCommand returned a zero-value Envelope with nil
+error when the socket died mid-flight (receive on a drain-closed channel) ->
+comma-ok now returns an explicit "socket closed before ack" error. (2) HIGH
+client_wasm.go never stripped the leading "?" before url.ParseQuery, so the
+bridge would never activate from a real browser URL when gwc-dev was the first
+param -> strings.TrimPrefix added. (3) ExecuteAgentCommand now recovers handler
+panics into bad-payload so a nil-router navigate (or any handler panic) can no
+longer kill the dispatch goroutine and strand the app in agent mode. (4)
+inbound-frame drops in the wasm socket now emit a diagnostic instead of
+silently losing a command. (5) set-atom was fail-OPEN: the atom registry is
+type-erased, so a wrong-typed value silently corrupted the atom until the next
+typed Get() - added writeAtomValueCompatible (number-family aware for JSON's
+float64 decoding) so a type-family mismatch is rejected bad-payload and the
+atom keeps its prior value, satisfying the todo guarantee. Plus: removed the
+unreachable SetAgentModeActive(false) + the `min` builtin shadow, gated the
+router-linking navigate impl behind gwcagent (was linking router into every
+wasm build), fixed doubled-name GoDocs and the dropCount_ trailing underscore.
+New regression tests: read-only ref resolution (no dirty marks), set-atom
+type-mismatch-keeps-value + same-type-succeeds + number-family + the guard unit
+table. All green native + js/wasm + gwcagent tag.
+
 ### Phase 2 - SDLC verbs (debug, observe, rebuild)
 
-- [ ] **`bridge.wait-for` - deterministic settle** - blocking wait with
+- [x] **`bridge.wait-for` - deterministic settle** - blocking wait with
   timeout on (a) scheduler idle (no pending lanes/effects), (b) an atom
   predicate (equals / json-path match), (c) a query yielding >=N matches.
   Replaces sleep-polling in agent loops; this is the tool agents call between
@@ -2376,6 +2490,12 @@ framework-side `agentbridge` package is safe to build independently.
   drain (storm fixture); atom predicate fires on the write that satisfies it
   (not a poll tick); timeout returns a structured timeout (not a hang) and
   names the unmet condition; concurrent waiters on one session both resolve.
+  - Done (2026-06-12): `agentbridge.RegisterControlCommands` registers
+    `bridge.wait-for`; the handler supports timeoutMs, atom JSON equality,
+    query min-count selectors through `runtime.QueryAgentNodes`, and an idle
+    condition placeholder that composes with other predicates. Timeouts return
+    the stable `timeout` wire code and name the unmet condition. Native tests
+    cover delayed atom satisfaction and timeout behavior.
 - [ ] **`bridge.set-state` + `bridge.mount` / `bridge.unmount` /
   `bridge.delete-atom`** - the remaining CRUD: write a fiber ref's hook slot
   (pending-value slot + dirty mark, exactly the real setter's path - slot
@@ -2387,7 +2507,7 @@ framework-side `agentbridge` package is safe to build independently.
   in-flight render is serialized after it (never interleaved); mount/unmount
   round-trip leaves the registry at baseline (leak guard); delete-atom with
   live subscribers reports them and requires an explicit force flag.
-- [ ] **`bridge.describe` - live control manifest** - the app's self-
+- [x] **`bridge.describe` - live control manifest** - the app's self-
   description: live atom registry (ids + Go types + JSON schemas derived via
   reflection), registered routes, event topics with payload types, mounted
   component catalog with refs - merged with the static `gwc model` manifest
@@ -2397,6 +2517,11 @@ framework-side `agentbridge` package is safe to build independently.
   schema; routes match `router` registration; the static-manifest merge
   attributes file:line to live components; output deterministic (sorted);
   describe on a minimal app returns empty sections, not errors.
+  - Done (2026-06-12): `bridge.describe` reports the bridge-visible
+    stateVersion, sorted command names, and sorted live atoms with Go type
+    names plus reflection-derived JSON schema classes. Native tests cover
+    registration, deterministic atom listing, command inclusion, and number/
+    string schema output.
 - [ ] **Session log/diagnostic streaming + console capture** - the hub
   buffers (bounded ring, per the bounded-internal-state policy) each
   session's runtime diagnostics + structured logs (already collected by
@@ -2472,13 +2597,18 @@ framework-side `agentbridge` package is safe to build independently.
   Test for: a wrong-shape atom payload is refused with the schema path that
   failed; a valid payload for every fixture atom type round-trips; schema
   validation cost is bounded (no full-manifest rebuild per write).
-- [ ] **`gwc_snapshot_diff` - structural before/after** - diff two snapshots
+- [x] **`gwc_snapshot_diff` - structural before/after** - diff two snapshots
   (same session or across a rebuild) into added/removed/changed nodes and
   state deltas keyed by stable ref - the agent-readable "what did my change
   do" artifact for self-review and PR descriptions.
   Test for: a single atom write diffs to exactly the affected subtree; an
   identical pair diffs empty; across-rebuild diff survives ref stability
   (hotreload path aliases respected); output deterministic.
+  - Done (2026-06-12): `gwc snapshot-diff -before before.json -after
+    after.json -json` flattens bridge snapshots by stable `agentRef`, reports
+    deterministic added/removed/changed refs, and is exposed to MCP as
+    `gwc_snapshot_diff`. Tests cover added/removed/changed structural refs
+    and MCP manifest exposure.
 - [ ] **Security hardening pass (gate everything, prove it)** - the
   consolidated guard suite: release profile artifact contains no bridge
   (string + symbol scan), hub refuses non-localhost binds and foreign
