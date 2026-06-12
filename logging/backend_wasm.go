@@ -20,7 +20,16 @@ func writeStructuredContext(parseLogContext context.Context, parseLogLevel, pars
 			parseMethod = parseConsole.Get("log")
 		}
 		if parseMethod.Type() == js.TypeFunction {
-			parseMethod.Invoke(js.ValueOf(parseRecord))
+			// Lead with the message string: the structured record is a JS
+			// object whose console preview shows only a few properties in
+			// nondeterministic (Go map iteration) order, so without this the
+			// message may be invisible in console text — unreadable in
+			// devtools and unmatchable by browser-test log assertions.
+			if parseLogMessage != "" {
+				parseMethod.Invoke(js.ValueOf(parseLogMessage), js.ValueOf(parseRecord))
+			} else {
+				parseMethod.Invoke(js.ValueOf(parseRecord))
+			}
 			return
 		}
 	}

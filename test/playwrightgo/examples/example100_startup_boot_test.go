@@ -84,7 +84,7 @@ func captureExample100StartupBootArtifact(parseT *testing.T, parsePage playwrigh
 		if strings.Contains(parseLowerText, "grpc ready") {
 			parseArtifact.HasGRPCReadyLog = true
 		}
-		if strings.Contains(parseLowerText, "message: worker ready") {
+		if strings.Contains(parseLowerText, "worker ready") && !strings.Contains(parseLowerText, "pool ready") {
 			parseArtifact.HasWorkerReadyLog = true
 		}
 		if strings.Contains(parseLowerText, "background render worker pool ready") {
