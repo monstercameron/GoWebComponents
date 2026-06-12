@@ -116,6 +116,46 @@ func (parseAr *AtomRegistry) GetAtom(parseId string) (any, bool) {
 	return parseAtom, true
 }
 
+// agentAtomSubscribers returns the current subscriber fibers for one atom and
+// whether the atom value exists. It is used by the agent bridge delete guard.
+func (parseAr *AtomRegistry) agentAtomSubscribers(parseId string) ([]*Fiber, bool) {
+	if parseAr == nil {
+		return nil, false
+	}
+	parseAr.mu.RLock()
+	_, parseExists := parseAr.atoms[parseId]
+	parseSubs := parseAr.subscriptions[parseId]
+	parseSubscribers := make([]*Fiber, 0, len(parseSubs))
+	for parseFiber := range parseSubs {
+		parseSubscribers = append(parseSubscribers, parseFiber)
+	}
+	parseAr.mu.RUnlock()
+	return parseSubscribers, parseExists
+}
+
+// deleteAtom removes one atom value and its registry bookkeeping.
+func (parseAr *AtomRegistry) deleteAtom(parseId string) {
+	if parseAr == nil {
+		return
+	}
+	parseAr.mu.Lock()
+	delete(parseAr.atoms, parseId)
+	delete(parseAr.subscriptions, parseId)
+	if parseDerived, parseOk := parseAr.derived[parseId]; parseOk {
+		for _, parseDep := range parseDerived.deps {
+			if parseDependents := parseAr.dependents[parseDep]; parseDependents != nil {
+				delete(parseDependents, parseId)
+				if len(parseDependents) == 0 {
+					delete(parseAr.dependents, parseDep)
+				}
+			}
+		}
+		delete(parseAr.derived, parseId)
+	}
+	delete(parseAr.dependents, parseId)
+	parseAr.mu.Unlock()
+}
+
 // SetAtom updates an atom's value and returns subscribed fibers.
 func (parseAr *AtomRegistry) SetAtom(parseId string, parseValue any) []*Fiber {
 	parseAr.mu.Lock()

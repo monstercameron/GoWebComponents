@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -68,6 +69,7 @@ type Runtime struct {
 	limits                  RuntimeLimits
 	schedulerState          runtimeSchedulerState
 	replay                  runtimeReplayState
+	agentStateVersion       atomic.Uint64
 
 	// Global state management
 	atomRegistry *AtomRegistry

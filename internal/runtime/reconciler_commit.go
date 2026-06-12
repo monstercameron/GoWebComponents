@@ -341,6 +341,7 @@ func (parseRt *Runtime) commitRoot() {
 	defer func() {
 		parseDurationNs := commitTimingSinceNs(parseStart)
 		parseRt.profiling.commitCount++
+		parseRt.AdvanceAgentStateVersion()
 		parseRt.profiling.lastCommitDurationNs = parseDurationNs
 		parseRt.profiling.totalCommitDurationNs += parseDurationNs
 		parseRt.recordProfilingEventLocked(ProfilingEvent{
