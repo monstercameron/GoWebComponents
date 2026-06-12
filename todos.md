@@ -526,12 +526,23 @@ impact; exactly three active items carry the next-work marker.
   exceeds the checked-in budget by the configured tolerance; budgets
   update through an explicit ratchet command, not silently; the gate
   output names the offending route and delta.
-- [ ] **Visual regression lane** - playwright is wired everywhere but no
+- [~] **Visual regression lane** - playwright is wired everywhere but no
   screenshot-diff lane protects the examples or docs site.
   Test for: baseline capture + pixel-diff with anti-flake masking
   (timestamps, spinners); an intentional 1px style change in a fixture
   is caught; per-page thresholds configurable; lane runs on the docs
   site routes and a representative example subset.
+  Done (2026-06-12, real browser): visual_regression_test.go - a pure-Go
+  pixel-diff engine (per-channel 4% AA-tolerant threshold + mask-rectangle
+  skipping + bounds check). `TestVisualRegressionMechanism` self-tests all
+  four properties (identical=0, 1px change caught, masked-pixel ignored,
+  bounds-mismatch errors). `TestVisualRegressionStablePageBaseline` proves
+  it end-to-end on the counter example at a fixed 1024x768 viewport:
+  consecutive same-state screenshots diff 0.000000 (stable, no false
+  positives), a click changes ~0.35% (detected). Golden PNGs intentionally
+  omitted (environment-specific); stability+change-detection is the
+  portable guarantee. Remaining: extend across docs-site routes + a wider
+  example subset with per-page thresholds.
 
 ## Enterprise tier - isolation & conformance
 
