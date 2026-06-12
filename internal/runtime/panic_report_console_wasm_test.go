@@ -10,6 +10,7 @@ import (
 // panicConsoleTestHarness keeps the fake browser console reachable across wasm panic assertions.
 type panicConsoleTestHarness struct {
 	entriesValue js.Value
+	eventsValue  js.Value
 	cleanupFunc  func()
 }
 
@@ -62,6 +63,16 @@ func TestEmitBrowserPanicReportWasmWritesStructuredErrorObject(parseT *testing.T
 	if !containsPanicConsoleTestMethod(parseHarness.entriesValue, "groupCollapsed") || !containsPanicConsoleTestMethod(parseHarness.entriesValue, "groupEnd") {
 		parseT.Fatalf("expected grouped console panic output, got %v", collectPanicConsoleTestMethods(parseHarness.entriesValue))
 	}
+	if parseHarness.eventsValue.Length() != 1 {
+		parseT.Fatalf("expected one gwc:runtime-panic event, got %d", parseHarness.eventsValue.Length())
+	}
+	parseEventPayload := parseHarness.eventsValue.Index(0)
+	if parseEventPayload.Get("code").String() != parseReport.Code || parseEventPayload.Get("scope").String() != "runtime.panic" {
+		parseT.Fatalf("expected structured runtime panic event payload, got %#v", parseEventPayload)
+	}
+	if parseEventPayload.Get("attributes").Get("appFrames").Length() != 1 {
+		parseT.Fatalf("expected event payload to include app stack bucket, got %#v", parseEventPayload.Get("attributes"))
+	}
 }
 
 // TestPanicFinalUnhandledPanicContextWasmSuppressesRethrow verifies wrapped runtime panics log to console without rethrowing when raw panic output is hidden.
@@ -104,7 +115,8 @@ func buildPanicConsoleTestHarness(parseT *testing.T) *panicConsoleTestHarness {
 	parseObjectCtor := js.Global().Get("Object")
 	parseArrayCtor := js.Global().Get("Array")
 	parseEntries := parseArrayCtor.New()
-	parseReleases := make([]js.Func, 0, 6)
+	parseEvents := parseArrayCtor.New()
+	parseReleases := make([]js.Func, 0, 10)
 
 	parseConsole := parseObjectCtor.New()
 	for _, parseMethodName := range []string{"groupCollapsed", "error", "log", "groupEnd"} {
@@ -126,9 +138,68 @@ func buildPanicConsoleTestHarness(parseT *testing.T) *panicConsoleTestHarness {
 	parseOriginalConsole := js.Global().Get("console")
 	js.Global().Set("console", parseConsole)
 
+	parseOriginalCustomEvent := js.Global().Get("CustomEvent")
+	parseOriginalAddEventListener := js.Global().Get("addEventListener")
+	parseOriginalRemoveEventListener := js.Global().Get("removeEventListener")
+	parseOriginalDispatchEvent := js.Global().Get("dispatchEvent")
+	parseEventListeners := make([]js.Value, 0, 2)
+	parseCustomEvent := js.Global().Get("Function").New("type", "init", "this.type = type; this.detail = init && init.detail;")
+	parseAddEventListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		_ = parseThis
+		if len(parseArgs) >= 2 && parseArgs[0].String() == "gwc:runtime-panic" {
+			parseEventListeners = append(parseEventListeners, parseArgs[1])
+		}
+		return nil
+	})
+	parseRemoveEventListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		_ = parseThis
+		if len(parseArgs) < 2 || parseArgs[0].String() != "gwc:runtime-panic" {
+			return nil
+		}
+		parseListener := parseArgs[1]
+		for parseIndex, parseCurrent := range parseEventListeners {
+			if parseCurrent.Equal(parseListener) {
+				parseEventListeners = append(parseEventListeners[:parseIndex], parseEventListeners[parseIndex+1:]...)
+				break
+			}
+		}
+		return nil
+	})
+	parseDispatchEvent := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		_ = parseThis
+		if len(parseArgs) == 0 || parseArgs[0].Get("type").String() != "gwc:runtime-panic" {
+			return true
+		}
+		for _, parseListener := range append([]js.Value(nil), parseEventListeners...) {
+			parseListener.Invoke(parseArgs[0])
+		}
+		return true
+	})
+	js.Global().Set("CustomEvent", parseCustomEvent)
+	js.Global().Set("addEventListener", parseAddEventListener)
+	js.Global().Set("removeEventListener", parseRemoveEventListener)
+	js.Global().Set("dispatchEvent", parseDispatchEvent)
+	parseReleases = append(parseReleases, parseAddEventListener, parseRemoveEventListener, parseDispatchEvent)
+
+	parseEventListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		_ = parseThis
+		if len(parseArgs) > 0 {
+			parseEvents.Call("push", parseArgs[0].Get("detail"))
+		}
+		return nil
+	})
+	js.Global().Call("addEventListener", "gwc:runtime-panic", parseEventListener)
+	parseReleases = append(parseReleases, parseEventListener)
+
 	parseHarness.entriesValue = parseEntries
+	parseHarness.eventsValue = parseEvents
 	parseHarness.cleanupFunc = func() {
+		js.Global().Call("removeEventListener", "gwc:runtime-panic", parseEventListener)
 		js.Global().Set("console", parseOriginalConsole)
+		js.Global().Set("CustomEvent", parseOriginalCustomEvent)
+		js.Global().Set("addEventListener", parseOriginalAddEventListener)
+		js.Global().Set("removeEventListener", parseOriginalRemoveEventListener)
+		js.Global().Set("dispatchEvent", parseOriginalDispatchEvent)
 		for parseIndex := len(parseReleases) - 1; parseIndex >= 0; parseIndex-- {
 			parseReleases[parseIndex].Release()
 		}

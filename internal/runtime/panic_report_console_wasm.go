@@ -5,6 +5,7 @@ package runtime
 import (
 	"fmt"
 	"strings"
+	"syscall/js"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/interop"
@@ -23,6 +24,7 @@ func emitBrowserPanicReport(parsePanicReport PanicReport) bool {
 
 	parsePanicMessage := buildPanicConsoleMessage(parsePanicReport)
 	parsePanicRecord := buildPanicConsoleRecord(parsePanicReport, parsePanicMessage)
+	emitBrowserPanicEvent(parsePanicReport, parsePanicMessage)
 
 	isPanicEmitted := false
 	isPanicGrouped := false
@@ -62,6 +64,62 @@ func emitBrowserPanicReport(parsePanicReport PanicReport) bool {
 		_, _ = parseBrowserConsole.Call("groupEnd")
 	}
 	return isPanicEmitted
+}
+
+// emitBrowserPanicEvent publishes the same structured panic record for dev-only
+// tooling that wants to avoid scraping console output.
+func emitBrowserPanicEvent(parsePanicReport PanicReport, parsePanicMessage string) {
+	defer func() { _ = recover() }()
+	parseCustomEvent := js.Global().Get("CustomEvent")
+	if parseCustomEvent.IsUndefined() || parseCustomEvent.IsNull() {
+		return
+	}
+	parsePanicAttributes := js.Global().Get("Object").New()
+	parsePanicAttributes.Set("code", parsePanicReport.Code)
+	parsePanicAttributes.Set("docs", parsePanicReport.Docs)
+	parsePanicAttributes.Set("error", parsePanicReport.Summary)
+	parsePanicAttributes.Set("next", parsePanicReport.Remediation)
+	parsePanicAttributes.Set("path", parsePanicReport.Path)
+	parsePanicAttributes.Set("phase", string(parsePanicReport.Phase))
+	parsePanicAttributes.Set("runtime", parsePanicReport.Consequence)
+	parsePanicAttributes.Set("source", parsePanicReport.Source)
+	parsePanicAttributes.Set("subject", parsePanicReport.Subject)
+	parsePanicAttributes.Set("where", parsePanicReport.Where)
+	parsePanicAttributes.Set("appFrames", panicStringArrayJSValue(parsePanicReport.AppFrames))
+	parsePanicAttributes.Set("componentStack", panicStringArrayJSValue(parsePanicReport.ComponentStack))
+	parsePanicAttributes.Set("frameworkFrames", panicStringArrayJSValue(parsePanicReport.FrameworkFrames))
+	parsePanicAttributes.Set("platformFrames", panicStringArrayJSValue(parsePanicReport.PlatformFrames))
+
+	parsePanicRecord := js.Global().Get("Object").New()
+	parsePanicRecord.Set("attributes", parsePanicAttributes)
+	parsePanicRecord.Set("code", parsePanicReport.Code)
+	parsePanicRecord.Set("docs", parsePanicReport.Docs)
+	parsePanicRecord.Set("error", parsePanicReport.Summary)
+	parsePanicRecord.Set("formatted", strings.TrimSpace(parsePanicReport.Formatted))
+	parsePanicRecord.Set("level", "error")
+	parsePanicRecord.Set("message", strings.TrimSpace(parsePanicMessage))
+	parsePanicRecord.Set("next", parsePanicReport.Remediation)
+	parsePanicRecord.Set("path", parsePanicReport.Path)
+	parsePanicRecord.Set("phase", string(parsePanicReport.Phase))
+	parsePanicRecord.Set("runtime", parsePanicReport.Consequence)
+	parsePanicRecord.Set("scope", "runtime.panic")
+	parsePanicRecord.Set("severity_number", 17)
+	parsePanicRecord.Set("severity_text", "ERROR")
+	parsePanicRecord.Set("source", parsePanicReport.Source)
+	parsePanicRecord.Set("subject", parsePanicReport.Subject)
+	parsePanicRecord.Set("where", parsePanicReport.Where)
+
+	parseInit := js.Global().Get("Object").New()
+	parseInit.Set("detail", parsePanicRecord)
+	js.Global().Call("dispatchEvent", parseCustomEvent.New("gwc:runtime-panic", parseInit))
+}
+
+func panicStringArrayJSValue(parseValues []string) js.Value {
+	parseArray := js.Global().Get("Array").New()
+	for _, parseValue := range parseValues {
+		parseArray.Call("push", parseValue)
+	}
+	return parseArray
 }
 
 // buildPanicConsoleMessage returns the browser-console headline for one wrapped panic report.

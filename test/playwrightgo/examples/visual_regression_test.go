@@ -491,9 +491,9 @@ func TestVisualRegressionStablePageBaseline(parseT *testing.T) {
 // Pages were chosen because they have no animated, time-dependent, or blinking
 // regions in their initial rendered state:
 //
-//   semantic-html   — static landmark structure, no user interaction on load
-//   hash-router     — renders the "/" hash route statically; no counters or timers
-//   toggle          — a single boolean toggle rendered at rest (false state)
+//	semantic-html   — static landmark structure, no user interaction on load
+//	hash-router     — renders the "/" hash route statically; no counters or timers
+//	toggle          — a single boolean toggle rendered at rest (false state)
 func TestVisualRegressionAdditionalPages(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)

@@ -499,8 +499,8 @@ func TestPWAOfflineReplayAdversarial(parseT *testing.T) {
 			parseT.Logf("ReloadMidOutagePersistence: WASM app did not re-boot after offline reload "+
 				"(likely because the WASM binary was not in Cache Storage — offline reload requires a pre-warmed cache). "+
 				"Cannot assert post-reload queue persistence without app re-boot. Error: %v", parseBootErr)
-			parseT.Logf("NOTE: IndexedDB persistence would be verified here if the app re-booted. "+
-				"The guarantee holds at the storage layer; this example requires the cache to be warmed "+
+			parseT.Logf("NOTE: IndexedDB persistence would be verified here if the app re-booted. " +
+				"The guarantee holds at the storage layer; this example requires the cache to be warmed " +
 				"before a reload-mid-outage can be fully exercised in an automated test.")
 			// Not a fatal failure of the persistence guarantee; log and skip remaining steps.
 			return
