@@ -606,13 +606,22 @@ impact; exactly three active items carry the next-work marker.
   timeout (never hangs/fails), and the accessible-overlay programmatic-
   focus assertions are webkit-skipped with a reason. Verified green across
   3 fresh runs.
-- [ ] **Plugin API conformance suite** - kernel-backed plugins feed
+- [x] **Plugin API conformance suite** - kernel-backed plugins feed
   devtools but third parties have no test kit proving they meet the
   contract.
   Test for: a published conformance package a plugin author can run
   against their plugin (lifecycle, section contribution, diagnostics,
   teardown); the built-in kernel plugin passes it; a deliberately
   non-conforming fixture plugin fails with actionable messages.
+  Done (2026-06-12): new `plugin/conformance` package - `Verify(plugin)
+  Result` runs the plugin through a real plugin.Host and reports 10 named
+  checks (manifest id/version/tier/capabilities, registration, host-
+  observable contributions, teardown nil-error + contributions-removed +
+  idempotent, lifecycle no-panic); `Result.OK()`/`Failures()` + a
+  `VerifyT(*testing.T, plugin)` helper. A kernel-style built-in plugin
+  passes all 10; five deliberately broken fixtures (empty id, setup error,
+  setup panic, invalid tier, duplicate capability) each fail with the
+  correct actionable check name. Builds native+wasm; tests green.
 
 ## Security findings (2026-06-11 code review) - fix
 
