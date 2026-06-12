@@ -21,10 +21,7 @@ import (
 //   - Error: error message if fetch failed (empty string if successful)
 //   - Loading: whether currently fetching
 func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState, func()) {
-	parseFiber := GetCurrentFiber()
-	if parseFiber == nil {
-		panic(actionableHookUsagePanic("GoUseFetch"))
-	}
+	parseFiber := requireCurrentHookFiber("GoUseFetch")
 
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{

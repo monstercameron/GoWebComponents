@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"strconv"
 	"strings"
 )
 
@@ -11,6 +12,55 @@ func GetCurrentFiber() *Fiber {
 // SetCurrentFiber sets the current fiber (used during component rendering)
 func SetCurrentFiber(parseFiber *Fiber) {
 	currentFiber = parseFiber
+	if parseFiber == nil || !hookThreadingGuardEnabled {
+		currentFiberOwnerGoroutineID = 0
+		return
+	}
+	currentFiberOwnerGoroutineID = currentHookGoroutineID()
+}
+
+// requireCurrentHookFiber returns the current render fiber or panics with the
+// hook-specific development diagnostic.
+func requireCurrentHookFiber(parseName string) *Fiber {
+	parseFiber := GetCurrentFiber()
+	if parseFiber == nil {
+		panic(actionableHookUsagePanic(parseName))
+	}
+	if !isCurrentHookGoroutineOwner() {
+		reportHookThreadingViolation(parseName, parseFiber)
+		panic(actionableHookThreadingPanic(parseName, parseFiber))
+	}
+	return parseFiber
+}
+
+// isCurrentHookGoroutineOwner reports whether a hook call is running on the
+// goroutine that claimed the current render fiber.
+func isCurrentHookGoroutineOwner() bool {
+	if !hookThreadingGuardEnabled || currentFiberOwnerGoroutineID == 0 {
+		return true
+	}
+	parseCurrentID := currentHookGoroutineID()
+	return parseCurrentID == 0 || parseCurrentID == currentFiberOwnerGoroutineID
+}
+
+// reportHookThreadingViolation records a structured diagnostic before the hook
+// panic is raised. The panic report includes its own stack detail.
+func reportHookThreadingViolation(parseName string, parseFiber *Fiber) {
+	parseFields := map[string]string{
+		"hook":            strings.TrimSpace(parseName),
+		"renderGoroutine": strconv.FormatUint(currentFiberOwnerGoroutineID, 10),
+		"callGoroutine":   strconv.FormatUint(currentHookGoroutineID(), 10),
+	}
+	reportDiagnosticWithContextDetails(
+		"runtime",
+		DiagnosticError,
+		hookThreadingViolationMessage(parseName),
+		diagnosticPathForFiber(parseFiber),
+		diagnosticComponentStack(parseFiber),
+		"",
+		"hook state is render-goroutine-owned; continuing would corrupt component state",
+		parseFields,
+	)
 }
 
 // IsCurrentFiberTransitionUpdate reports whether the current fiber render originated from deferred transition work.
@@ -31,6 +81,15 @@ func CreateElement(parseTyp interface{}, parseProps map[string]interface{}, pars
 // CreateElementOwned creates a new virtual DOM element and takes ownership of the provided props map.
 func CreateElementOwned(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
 	return buildElement(parseTyp, parseProps, parseChildren...)
+}
+
+// CreateElementCompactHostOwned creates one host element from an owned props map
+// and a caller-normalized compact string-attribute view.
+func CreateElementCompactHostOwned(parseTag string, parseProps map[string]interface{}, parseAttrs []HostAttr, parseChildren ...interface{}) *Element {
+	if parseTag == "TEXT_ELEMENT" || parseTag == "FRAGMENT" {
+		return buildElement(parseTag, parseProps, parseChildren...)
+	}
+	return buildElementWithHostProps(parseTag, parseProps, parseProps, parseAttrs, true, parseChildren...)
 }
 
 // buildElementHostProps creates one host-only props map and optional compact string attrs for one public element payload.
@@ -190,11 +249,15 @@ func RefreshElementHostProps(parseElem *Element) {
 
 // buildElement builds one virtual DOM element and stores the normalized children slice on the props map.
 func buildElement(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+	getHostProps, getHostAttrs, isCompactHostProps := buildElementHostProps(parseTyp, parseProps)
+	return buildElementWithHostProps(parseTyp, parseProps, getHostProps, getHostAttrs, isCompactHostProps, parseChildren...)
+}
+
+// buildElementWithHostProps builds one virtual DOM element from an already-normalized host-prop view.
+func buildElementWithHostProps(parseTyp interface{}, parseProps map[string]interface{}, getHostProps map[string]interface{}, getHostAttrs []HostAttr, isCompactHostProps bool, parseChildren ...interface{}) *Element {
 	if len(parseChildren) == 0 {
 		parseChildren = emptyChildren
 	}
-
-	getHostProps, getHostAttrs, isCompactHostProps := buildElementHostProps(parseTyp, parseProps)
 
 	if isParseDirectText, parseDirectText := canStoreElementDirectText(parseTyp, parseChildren); isParseDirectText {
 		if parseProps == nil {

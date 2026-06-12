@@ -65,10 +65,7 @@ func isNilableType[T any]() bool {
 
 // GoUseState provides state management for components
 func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(interface{})) {
-	parseFiber := GetCurrentFiber()
-	if parseFiber == nil {
-		panic(actionableHookUsagePanic("GoUseState"))
-	}
+	parseFiber := requireCurrentHookFiber("GoUseState")
 
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{owner: parseFiber}
@@ -187,10 +184,7 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(in
 // GoUseEffect runs side effects and supports cleanup
 // The effect function can return a cleanup function that will be called before the next effect runs or on unmount
 func GoUseEffect(parseEffect func() func(), parseDeps ...interface{}) {
-	parseFiber := GetCurrentFiber()
-	if parseFiber == nil {
-		panic(actionableHookUsagePanic("GoUseEffect"))
-	}
+	parseFiber := requireCurrentHookFiber("GoUseEffect")
 
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{owner: parseFiber}
@@ -286,10 +280,7 @@ func GoUseMemo(parseCompute func() interface{}, parseDeps ...interface{}) interf
 
 // goUseMemo is a core package helper.
 func goUseMemo(parseCompute func() interface{}, parseTargetType reflect.Type, parseDeps ...interface{}) interface{} {
-	parseFiber := GetCurrentFiber()
-	if parseFiber == nil {
-		panic(actionableHookUsagePanic("GoUseMemo"))
-	}
+	parseFiber := requireCurrentHookFiber("GoUseMemo")
 
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{owner: parseFiber}
@@ -346,10 +337,7 @@ func GoUseMemoTyped(parseCompute func() interface{}, parseTargetType reflect.Typ
 
 // GoUseCallback memoizes a callback function with dependency tracking
 func GoUseCallback(parseFn interface{}, parseDeps ...interface{}) interface{} {
-	parseFiber := GetCurrentFiber()
-	if parseFiber == nil {
-		panic(actionableHookUsagePanic("GoUseCallback"))
-	}
+	parseFiber := requireCurrentHookFiber("GoUseCallback")
 
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{owner: parseFiber}
@@ -391,10 +379,7 @@ func GoUseCallback(parseFn interface{}, parseDeps ...interface{}) interface{} {
 // It returns a RefValue object with a .Current field that can hold any value
 // Unlike state, updating a ref does NOT trigger a re-render
 func GoUseRef(parseInitialValue interface{}) *RefValue {
-	parseFiber := GetCurrentFiber()
-	if parseFiber == nil {
-		panic(actionableHookUsagePanic("GoUseRef"))
-	}
+	parseFiber := requireCurrentHookFiber("GoUseRef")
 
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{owner: parseFiber}
@@ -437,10 +422,7 @@ func GoUseRef(parseInitialValue interface{}) *RefValue {
 // The ID is generated once and persists across renders without changing
 // This is useful for associating labels with form inputs and other accessibility needs
 func GoUseId() string {
-	parseFiber := GetCurrentFiber()
-	if parseFiber == nil {
-		panic(actionableHookUsagePanic("GoUseId"))
-	}
+	parseFiber := requireCurrentHookFiber("GoUseId")
 
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{owner: parseFiber}
@@ -500,10 +482,7 @@ func formatHookID(parseID int, parsePosition int) string {
 // GoUseFunc validates and stores a function for event handling
 // The actual wrapping to js.Value happens in the WASM shim layer
 func GoUseFunc(parseFn interface{}) interface{} {
-	parseFiber := GetCurrentFiber()
-	if parseFiber == nil {
-		panic(actionableHookUsagePanic("GoUseFunc"))
-	}
+	parseFiber := requireCurrentHookFiber("GoUseFunc")
 
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{owner: parseFiber}

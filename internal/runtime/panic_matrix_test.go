@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 type panicPayload struct {
@@ -60,7 +61,7 @@ func TestRecoveredEventPanicDoesNotEmitFatalWrappedDiagnostics(parseT *testing.T
 
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()
-	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, Reset: true})
 	parseRt := GetGlobalRuntime()
 	parseContainer := parseAdapter.CreateElement("div")
 	parseBoundary := NewErrorBoundaryType()
@@ -112,6 +113,156 @@ func TestSuccessfulRenderDoesNotEmitFatalWrappedDiagnostics(parseT *testing.T) {
 
 	if hasFatalPanicCode(GetDiagnostics(), GetLogs()) {
 		parseT.Fatalf("expected successful render not to emit fatal panic metadata, diagnostics=%+v logs=%+v", GetDiagnostics(), GetLogs())
+	}
+}
+
+func TestEffectPanicMatrixCommitsThenBoundaryRecovers(parseT *testing.T) {
+	resetGlobalRuntimeForTest()
+	SetCurrentFiber(nil)
+	parseT.Cleanup(func() {
+		SetCurrentFiber(nil)
+		resetGlobalRuntimeForTest()
+	})
+	ClearDiagnostics()
+	ClearLogs()
+	defer ClearDiagnostics()
+	defer ClearLogs()
+
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseBoundary := NewErrorBoundaryType()
+	hasPanicked := false
+	parseEffectComp := func() *Element {
+		GoUseEffect(func() func() {
+			if !hasPanicked {
+				hasPanicked = true
+				panic("effect boom")
+			}
+			return nil
+		})
+		return CreateElement("span", nil, "effect ready")
+	}
+
+	parseRt.Render(CreateElement(parseBoundary, map[string]interface{}{
+		"errorFallback": func(parseErr error, reset func()) *Element {
+			return CreateElement("p", nil, "effect fallback")
+		},
+	}, CreateElement(parseEffectComp, nil)), parseContainer)
+	drainScheduledTimeouts(parseT, parseScheduler, 10)
+
+	if parseGot := nodeTextContent(parseContainer); parseGot != "effect fallback" {
+		parseT.Fatalf("expected effect boundary fallback after recovery update, got %q", parseGot)
+	}
+	if parseRt.currentRoot == nil || parseRt.wipRoot != nil || parseRt.updateScheduled {
+		parseT.Fatalf("expected settled committed tree after effect recovery, current=%p wip=%p scheduled=%t", parseRt.currentRoot, parseRt.wipRoot, parseRt.updateScheduled)
+	}
+	if hasFatalPanicCode(GetDiagnostics(), GetLogs()) {
+		parseT.Fatalf("expected boundary-recovered effect panic not to emit fatal panic metadata, diagnostics=%+v logs=%+v", GetDiagnostics(), GetLogs())
+	}
+}
+
+func TestCleanupPanicMatrixRecoversAfterDeletion(parseT *testing.T) {
+	resetGlobalRuntimeForTest()
+	SetCurrentFiber(nil)
+	parseT.Cleanup(func() {
+		SetCurrentFiber(nil)
+		resetGlobalRuntimeForTest()
+	})
+	ClearDiagnostics()
+	ClearLogs()
+	defer ClearDiagnostics()
+	defer ClearLogs()
+
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseBoundary := NewErrorBoundaryType()
+	shouldRenderChild := true
+	parseChild := func() *Element {
+		GoUseEffect(func() func() {
+			return func() { panic("cleanup boom") }
+		})
+		return CreateElement("span", nil, "cleanup child")
+	}
+	parseRoot := func() *Element {
+		parseContent := CreateElement("span", nil, "after cleanup")
+		if shouldRenderChild {
+			parseContent = CreateElement(parseChild, nil)
+		}
+		return CreateElement(parseBoundary, map[string]interface{}{
+			"errorFallback": func(parseErr error, reset func()) *Element {
+				return CreateElement("p", nil, "cleanup fallback")
+			},
+		}, parseContent)
+	}
+
+	parseRt.Render(parseRoot(), parseContainer)
+	drainScheduledTimeouts(parseT, parseScheduler, 10)
+	if parseGot := nodeTextContent(parseContainer); parseGot != "cleanup child" {
+		parseT.Fatalf("expected initial child text, got %q", parseGot)
+	}
+
+	shouldRenderChild = false
+	parseRt.Render(parseRoot(), parseContainer)
+	drainScheduledTimeouts(parseT, parseScheduler, 10)
+
+	if parseGot := nodeTextContent(parseContainer); parseGot != "cleanup fallback" {
+		parseT.Fatalf("expected cleanup boundary fallback after recovery update, got %q", parseGot)
+	}
+	if parseRt.currentRoot == nil || parseRt.wipRoot != nil || parseRt.updateScheduled {
+		parseT.Fatalf("expected settled committed tree after cleanup recovery, current=%p wip=%p scheduled=%t", parseRt.currentRoot, parseRt.wipRoot, parseRt.updateScheduled)
+	}
+	if hasFatalPanicCode(GetDiagnostics(), GetLogs()) {
+		parseT.Fatalf("expected boundary-recovered cleanup panic not to emit fatal panic metadata, diagnostics=%+v logs=%+v", GetDiagnostics(), GetLogs())
+	}
+}
+
+func TestAsyncPanicMatrixReportsAndPreservesCommittedUI(parseT *testing.T) {
+	SetCurrentFiber(nil)
+	parseT.Cleanup(func() {
+		SetCurrentFiber(nil)
+	})
+	ClearDiagnostics()
+	ClearLogs()
+	defer ClearDiagnostics()
+	defer ClearLogs()
+
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseGetReports := capturePanicReports(parseT)
+	parseContainer := parseAdapter.CreateElement("div")
+
+	parseRt.Render(CreateElement("div", nil, "async alive"), parseContainer)
+	drainScheduledTimeouts(parseT, parseScheduler, 10)
+
+	parseDone := make(chan struct{})
+	SafeGo("test", "async matrix task", func() {
+		defer close(parseDone)
+		panic("async boom")
+	})
+	select {
+	case <-parseDone:
+	case <-time.After(5 * time.Second):
+		parseT.Fatal("async matrix task did not finish")
+	}
+
+	parseDeadline := time.Now().Add(5 * time.Second)
+	for len(parseGetReports()) == 0 && time.Now().Before(parseDeadline) {
+		time.Sleep(time.Millisecond)
+	}
+	parseReports := parseGetReports()
+	if len(parseReports) != 1 || parseReports[0].Phase != PanicPhaseAsync {
+		parseT.Fatalf("expected one async panic report, got %+v", parseReports)
+	}
+	if parseGot := nodeTextContent(parseContainer); parseGot != "async alive" {
+		parseT.Fatalf("expected async containment to preserve committed UI, got %q", parseGot)
+	}
+	if parseRt.currentRoot == nil || parseRt.wipRoot != nil || parseRt.updateScheduled {
+		parseT.Fatalf("expected async containment not to leave render work pending, current=%p wip=%p scheduled=%t", parseRt.currentRoot, parseRt.wipRoot, parseRt.updateScheduled)
 	}
 }
 

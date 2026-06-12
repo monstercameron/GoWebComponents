@@ -46,16 +46,25 @@ func (parseN *WASMDOMNode) Value() js.Value {
 
 // WASMDOMAdapter implements runtime.DOMAdapter for browser/WASM.
 type WASMDOMAdapter struct {
-	document             js.Value
-	createElement        js.Value
-	createTextNode       js.Value
-	querySelector        js.Value
-	querySelectorAll     js.Value
-	getElementByID       js.Value
-	getByClassName       js.Value
-	getByTagName         js.Value
-	storeTemplate        js.Value
-	storeTemplateContent js.Value
+	document                  js.Value
+	isDocumentBound           bool
+	createElement             js.Value
+	isCreateElementBound      bool
+	createTextNode            js.Value
+	isCreateTextNodeBound     bool
+	querySelector             js.Value
+	isQuerySelectorBound      bool
+	querySelectorAll          js.Value
+	isQuerySelectorAllBound   bool
+	getElementByID            js.Value
+	isGetElementByIDBound     bool
+	getByClassName            js.Value
+	isGetByClassNameBound     bool
+	getByTagName              js.Value
+	isGetByTagNameBound       bool
+	storeTemplate             js.Value
+	storeTemplateContent      js.Value
+	isStoreTemplateBound      bool
 	// Batch operation support
 	batchStack             []wasmBatchState
 	storeBatchChildrenPool [][]interface{}
@@ -75,33 +84,122 @@ var _ runtime.DOMAdapter = (*WASMDOMAdapter)(nil)
 
 // NewWASMDOMAdapter creates a DOM adapter backed by the browser document.
 func NewWASMDOMAdapter() *WASMDOMAdapter {
-	parseDoc := js.Global().Get("document")
-	getTemplate := parseDoc.Call("createElement", "template")
-	return &WASMDOMAdapter{
-		document: parseDoc,
-		// Bind methods to document to ensure correct 'this' context when Invoked
-		createElement:        parseDoc.Get("createElement").Call("bind", parseDoc),
-		createTextNode:       parseDoc.Get("createTextNode").Call("bind", parseDoc),
-		querySelector:        parseDoc.Get("querySelector").Call("bind", parseDoc),
-		querySelectorAll:     parseDoc.Get("querySelectorAll").Call("bind", parseDoc),
-		getElementByID:       parseDoc.Get("getElementById").Call("bind", parseDoc),
-		getByClassName:       parseDoc.Get("getElementsByClassName").Call("bind", parseDoc),
-		getByTagName:         parseDoc.Get("getElementsByTagName").Call("bind", parseDoc),
-		storeTemplate:        getTemplate,
-		storeTemplateContent: getTemplate.Get("content"),
+	return &WASMDOMAdapter{}
+}
+
+func (parseA *WASMDOMAdapter) getDocument() js.Value {
+	if parseA == nil {
+		return js.Undefined()
 	}
+	if parseA.isDocumentBound && !parseA.document.IsNull() && !parseA.document.IsUndefined() {
+		return parseA.document
+	}
+	parseA.document = js.Global().Get("document")
+	parseA.isDocumentBound = true
+	return parseA.document
+}
+
+func bindWASMDocumentMethod(parseDoc js.Value, parseName string) js.Value {
+	if parseDoc.IsNull() || parseDoc.IsUndefined() {
+		return js.Undefined()
+	}
+	parseMethod := parseDoc.Get(parseName)
+	if parseMethod.IsNull() || parseMethod.IsUndefined() || parseMethod.Type() != js.TypeFunction {
+		return js.Undefined()
+	}
+	return parseMethod.Call("bind", parseDoc)
+}
+
+func (parseA *WASMDOMAdapter) getCreateElement() js.Value {
+	if parseA.isCreateElementBound && !parseA.createElement.IsNull() && !parseA.createElement.IsUndefined() {
+		return parseA.createElement
+	}
+	parseA.createElement = bindWASMDocumentMethod(parseA.getDocument(), "createElement")
+	parseA.isCreateElementBound = true
+	return parseA.createElement
+}
+
+func (parseA *WASMDOMAdapter) getCreateTextNode() js.Value {
+	if parseA.isCreateTextNodeBound && !parseA.createTextNode.IsNull() && !parseA.createTextNode.IsUndefined() {
+		return parseA.createTextNode
+	}
+	parseA.createTextNode = bindWASMDocumentMethod(parseA.getDocument(), "createTextNode")
+	parseA.isCreateTextNodeBound = true
+	return parseA.createTextNode
+}
+
+func (parseA *WASMDOMAdapter) getQuerySelector() js.Value {
+	if parseA.isQuerySelectorBound && !parseA.querySelector.IsNull() && !parseA.querySelector.IsUndefined() {
+		return parseA.querySelector
+	}
+	parseA.querySelector = bindWASMDocumentMethod(parseA.getDocument(), "querySelector")
+	parseA.isQuerySelectorBound = true
+	return parseA.querySelector
+}
+
+func (parseA *WASMDOMAdapter) getQuerySelectorAll() js.Value {
+	if parseA.isQuerySelectorAllBound && !parseA.querySelectorAll.IsNull() && !parseA.querySelectorAll.IsUndefined() {
+		return parseA.querySelectorAll
+	}
+	parseA.querySelectorAll = bindWASMDocumentMethod(parseA.getDocument(), "querySelectorAll")
+	parseA.isQuerySelectorAllBound = true
+	return parseA.querySelectorAll
+}
+
+func (parseA *WASMDOMAdapter) getElementByIdMethod() js.Value {
+	if parseA.isGetElementByIDBound && !parseA.getElementByID.IsNull() && !parseA.getElementByID.IsUndefined() {
+		return parseA.getElementByID
+	}
+	parseA.getElementByID = bindWASMDocumentMethod(parseA.getDocument(), "getElementById")
+	parseA.isGetElementByIDBound = true
+	return parseA.getElementByID
+}
+
+func (parseA *WASMDOMAdapter) getElementsByClassNameMethod() js.Value {
+	if parseA.isGetByClassNameBound && !parseA.getByClassName.IsNull() && !parseA.getByClassName.IsUndefined() {
+		return parseA.getByClassName
+	}
+	parseA.getByClassName = bindWASMDocumentMethod(parseA.getDocument(), "getElementsByClassName")
+	parseA.isGetByClassNameBound = true
+	return parseA.getByClassName
+}
+
+func (parseA *WASMDOMAdapter) getElementsByTagNameMethod() js.Value {
+	if parseA.isGetByTagNameBound && !parseA.getByTagName.IsNull() && !parseA.getByTagName.IsUndefined() {
+		return parseA.getByTagName
+	}
+	parseA.getByTagName = bindWASMDocumentMethod(parseA.getDocument(), "getElementsByTagName")
+	parseA.isGetByTagNameBound = true
+	return parseA.getByTagName
+}
+
+func (parseA *WASMDOMAdapter) ensureStoreTemplate() bool {
+	if parseA.isStoreTemplateBound && !parseA.storeTemplate.IsNull() && !parseA.storeTemplate.IsUndefined() {
+		return true
+	}
+	parseCreateElement := parseA.getCreateElement()
+	if parseCreateElement.IsNull() || parseCreateElement.IsUndefined() {
+		return false
+	}
+	parseA.storeTemplate = parseCreateElement.Invoke("template")
+	if parseA.storeTemplate.IsNull() || parseA.storeTemplate.IsUndefined() {
+		return false
+	}
+	parseA.storeTemplateContent = parseA.storeTemplate.Get("content")
+	parseA.isStoreTemplateBound = true
+	return !parseA.storeTemplateContent.IsNull() && !parseA.storeTemplateContent.IsUndefined()
 }
 
 func (parseA *WASMDOMAdapter) CreateElement(parseTag string) runtime.DOMNode {
-	// Check if document is available
-	if parseA.document.IsNull() || parseA.document.IsUndefined() {
+	parseCreateElement := parseA.getCreateElement()
+	if parseCreateElement.IsNull() || parseCreateElement.IsUndefined() {
 		// Document not available - return null node
 		return &WASMDOMNode{value: js.Null()}
 	}
 
 	// Use Invoke on the cached function instead of Call on the document
 	// This saves a property lookup on every call
-	parseElem := parseA.createElement.Invoke(parseTag)
+	parseElem := parseCreateElement.Invoke(parseTag)
 	if parseElem.IsNull() || parseElem.IsUndefined() {
 		// This shouldn't happen, but handle it gracefully
 		return &WASMDOMNode{value: js.Null()}
@@ -110,13 +208,13 @@ func (parseA *WASMDOMAdapter) CreateElement(parseTag string) runtime.DOMNode {
 }
 
 func (parseA *WASMDOMAdapter) CreateTextNode(parseText string) runtime.DOMNode {
-	// Check if document is available
-	if parseA.document.IsNull() || parseA.document.IsUndefined() {
+	parseCreateTextNode := parseA.getCreateTextNode()
+	if parseCreateTextNode.IsNull() || parseCreateTextNode.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
 	}
 
 	// Use Invoke on the cached function
-	parseTextNode := parseA.createTextNode.Invoke(parseText)
+	parseTextNode := parseCreateTextNode.Invoke(parseText)
 	if parseTextNode.IsNull() || parseTextNode.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
 	}
@@ -125,11 +223,12 @@ func (parseA *WASMDOMAdapter) CreateTextNode(parseText string) runtime.DOMNode {
 
 // CreatePreparedElement creates one compact host element using one conservative template fast path when it is safe to do so.
 func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs []runtime.HostAttr, parseText string) runtime.DOMNode {
-	if parseA.document.IsNull() || parseA.document.IsUndefined() {
+	parseCreateElement := parseA.getCreateElement()
+	if parseCreateElement.IsNull() || parseCreateElement.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
 	}
 	if len(parseAttrs) == 0 {
-		parseNode := parseA.createElement.Invoke(parseTag)
+		parseNode := parseCreateElement.Invoke(parseTag)
 		if parseNode.IsNull() || parseNode.IsUndefined() {
 			return &WASMDOMNode{value: js.Null()}
 		}
@@ -139,6 +238,18 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 		return &WASMDOMNode{value: parseNode}
 	}
 	if getHTML, hasHTML := buildHostElementHTML(parseTag, parseAttrs, parseText); hasHTML {
+		if !parseA.ensureStoreTemplate() {
+			parseNode := parseCreateElement.Invoke(parseTag)
+			if parseNode.IsNull() || parseNode.IsUndefined() {
+				return &WASMDOMNode{value: js.Null()}
+			}
+			getNode := &WASMDOMNode{value: parseNode}
+			parseA.BatchSetAttributes(getNode, buildHostAttrMap(parseAttrs))
+			if parseText != "" {
+				parseNode.Set("textContent", parseText)
+			}
+			return getNode
+		}
 		parseA.storeTemplate.Set("innerHTML", getHTML)
 		parseNode := parseA.storeTemplateContent.Get("firstChild")
 		if parseNode.IsNull() || parseNode.IsUndefined() {
@@ -146,7 +257,7 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 		}
 		return &WASMDOMNode{value: parseNode}
 	}
-	parseNode := parseA.createElement.Invoke(parseTag)
+	parseNode := parseCreateElement.Invoke(parseTag)
 	if parseNode.IsNull() || parseNode.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
 	}
@@ -285,7 +396,11 @@ func (parseA *WASMDOMAdapter) ReplaceChildren(parseParent runtime.DOMNode, parse
 }
 
 func (parseA *WASMDOMAdapter) QuerySelector(parseSelector string) interface{} {
-	parseResult := parseA.querySelector.Invoke(parseSelector)
+	parseQuerySelector := parseA.getQuerySelector()
+	if parseQuerySelector.IsNull() || parseQuerySelector.IsUndefined() {
+		return nil
+	}
+	parseResult := parseQuerySelector.Invoke(parseSelector)
 	if parseResult.IsNull() || parseResult.IsUndefined() {
 		return nil
 	}
@@ -309,7 +424,11 @@ func (parseA *WASMDOMAdapter) ResolveNode(parseValue interface{}) runtime.DOMNod
 }
 
 func (parseA *WASMDOMAdapter) QuerySelectorAll(parseSelector string) []runtime.DOMNode {
-	parseNodeList := parseA.querySelectorAll.Invoke(parseSelector)
+	parseQuerySelectorAll := parseA.getQuerySelectorAll()
+	if parseQuerySelectorAll.IsNull() || parseQuerySelectorAll.IsUndefined() {
+		return nil
+	}
+	parseNodeList := parseQuerySelectorAll.Invoke(parseSelector)
 	parseLength := parseNodeList.Get("length").Int()
 
 	parseNodes := make([]runtime.DOMNode, parseLength)
@@ -320,7 +439,11 @@ func (parseA *WASMDOMAdapter) QuerySelectorAll(parseSelector string) []runtime.D
 }
 
 func (parseA *WASMDOMAdapter) GetElementById(parseId string) runtime.DOMNode {
-	parseResult := parseA.getElementByID.Invoke(parseId)
+	parseGetElementByID := parseA.getElementByIdMethod()
+	if parseGetElementByID.IsNull() || parseGetElementByID.IsUndefined() {
+		return nil
+	}
+	parseResult := parseGetElementByID.Invoke(parseId)
 	if parseResult.IsNull() || parseResult.IsUndefined() {
 		return nil
 	}
@@ -328,7 +451,11 @@ func (parseA *WASMDOMAdapter) GetElementById(parseId string) runtime.DOMNode {
 }
 
 func (parseA *WASMDOMAdapter) GetElementsByClassName(parseClassName string) []runtime.DOMNode {
-	parseHtmlCollection := parseA.getByClassName.Invoke(parseClassName)
+	parseGetByClassName := parseA.getElementsByClassNameMethod()
+	if parseGetByClassName.IsNull() || parseGetByClassName.IsUndefined() {
+		return nil
+	}
+	parseHtmlCollection := parseGetByClassName.Invoke(parseClassName)
 	parseLength := parseHtmlCollection.Get("length").Int()
 
 	parseNodes := make([]runtime.DOMNode, parseLength)
@@ -339,7 +466,11 @@ func (parseA *WASMDOMAdapter) GetElementsByClassName(parseClassName string) []ru
 }
 
 func (parseA *WASMDOMAdapter) GetElementsByTagName(parseTagName string) []runtime.DOMNode {
-	parseHtmlCollection := parseA.getByTagName.Invoke(parseTagName)
+	parseGetByTagName := parseA.getElementsByTagNameMethod()
+	if parseGetByTagName.IsNull() || parseGetByTagName.IsUndefined() {
+		return nil
+	}
+	parseHtmlCollection := parseGetByTagName.Invoke(parseTagName)
 	parseLength := parseHtmlCollection.Get("length").Int()
 
 	parseNodes := make([]runtime.DOMNode, parseLength)

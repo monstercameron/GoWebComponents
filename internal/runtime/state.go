@@ -505,10 +505,7 @@ func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (fu
 		panic(actionableGoUseAtomRegistryPanic())
 	}
 
-	parseFiber := GetCurrentFiber()
-	if parseFiber == nil {
-		panic(actionableHookUsagePanic("GoUseAtom"))
-	}
+	parseFiber := requireCurrentHookFiber("GoUseAtom")
 
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{owner: parseFiber}

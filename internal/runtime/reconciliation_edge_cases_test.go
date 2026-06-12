@@ -1203,6 +1203,58 @@ func TestReconcileChildren_ManyChildrenToZero(parseT *testing.T) {
 	}
 }
 
+func TestReconcileKeyedChildrenAppendsRemainingDeletionsInOldOrder(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	var parseFirstChild *Fiber
+	var parsePrevChild *Fiber
+	for parseI := 1; parseI <= 6; parseI++ {
+		parseChild := &Fiber{
+			typeOf: "div",
+			props:  map[string]interface{}{"key": parseI},
+			dom:    parseAdapter.CreateElement("div"),
+		}
+		if parseFirstChild == nil {
+			parseFirstChild = parseChild
+		} else {
+			parsePrevChild.sibling = parseChild
+		}
+		parsePrevChild = parseChild
+	}
+
+	parseWipFiber := &Fiber{
+		typeOf:    "div",
+		props:     make(map[string]interface{}),
+		alternate: &Fiber{child: parseFirstChild},
+	}
+
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{
+		&Element{Type: "div", Props: map[string]interface{}{"key": 1}},
+		&Element{Type: "div", Props: map[string]interface{}{"key": 3}},
+		&Element{Type: "div", Props: map[string]interface{}{"key": 6}},
+	})
+
+	if len(parseRt.deletions) != 3 {
+		parseT.Fatalf("expected 3 keyed deletions, got %d", len(parseRt.deletions))
+	}
+	getDeletedKeys := []interface{}{
+		parseRt.deletions[0].props["key"],
+		parseRt.deletions[1].props["key"],
+		parseRt.deletions[2].props["key"],
+	}
+	getExpectedKeys := []interface{}{2, 4, 5}
+	for parseIndex := range getExpectedKeys {
+		if getDeletedKeys[parseIndex] != getExpectedKeys[parseIndex] {
+			parseT.Fatalf("expected keyed deletions in old sibling order %v, got %v", getExpectedKeys, getDeletedKeys)
+		}
+		if parseRt.deletions[parseIndex].effectTag != effectTagDeletion {
+			parseT.Fatalf("expected deletion effect tag for key %v", getDeletedKeys[parseIndex])
+		}
+	}
+}
+
 func TestReconcileChildren_AlternatingUpdatesAndPlacements(parseT *testing.T) {
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()

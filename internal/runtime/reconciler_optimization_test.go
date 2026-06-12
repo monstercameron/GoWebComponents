@@ -125,6 +125,71 @@ func TestCreateDomUsesPreparedCompactHostMount(parseT *testing.T) {
 	}
 }
 
+func TestCreateElementCompactHostOwnedUsesProvidedAttrs(parseT *testing.T) {
+	parseProps := map[string]interface{}{
+		"id":    "row-1",
+		"class": "card",
+	}
+	parseElem := CreateElementCompactHostOwned("div", parseProps, []HostAttr{
+		{Name: "id", Value: "row-1"},
+		{Name: "class", Value: "card"},
+	}, "hello")
+
+	if !parseElem.isCompactHostProps {
+		parseT.Fatal("expected compact host props")
+	}
+	if len(parseElem.getHostAttrs) != 2 {
+		parseT.Fatalf("expected two provided compact attrs, got %#v", parseElem.getHostAttrs)
+	}
+	if parseElem.getHostAttrs[0].Name != "id" || parseElem.getHostAttrs[1].Name != "class" {
+		parseT.Fatalf("expected provided attrs to be preserved, got %#v", parseElem.getHostAttrs)
+	}
+	if !parseElem.hasDirectText || parseElem.TextContent != "hello" {
+		parseT.Fatalf("expected direct text child, got direct=%v text=%q", parseElem.hasDirectText, parseElem.TextContent)
+	}
+	parseProps["id"] = "row-2"
+	if parseElem.Props["id"] != "row-2" {
+		parseT.Fatal("expected owned props map to be retained")
+	}
+}
+
+func TestCreateElementCompactHostOwnedRendersPreparedMount(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseContainer := parseAdapter.CreateElement("root")
+
+	parseRt.Render(CreateElementCompactHostOwned("div", map[string]interface{}{
+		"id":    "row-1",
+		"class": "card",
+	}, []HostAttr{
+		{Name: "id", Value: "row-1"},
+		{Name: "class", Value: "card"},
+	}, "hello"), parseContainer)
+
+	if parseAdapter.createPreparedCount != 1 {
+		parseT.Fatalf("expected compact constructor to use prepared mount, got %d", parseAdapter.createPreparedCount)
+	}
+	if parseAdapter.setAttributeCount != 0 {
+		parseT.Fatalf("expected prepared compact constructor mount to skip generic attrs, got %d", parseAdapter.setAttributeCount)
+	}
+}
+
+func TestRefreshElementHostPropsAfterCompactConstructorMutation(parseT *testing.T) {
+	parseElem := CreateElementCompactHostOwned("input", map[string]interface{}{
+		"id": "email",
+	}, []HostAttr{{Name: "id", Value: "email"}})
+
+	parseElem.Props["value"] = "cam@example.test"
+	RefreshElementHostProps(parseElem)
+
+	if parseElem.isCompactHostProps {
+		parseT.Fatal("expected special property mutation to disable compact host props")
+	}
+	if len(parseElem.getHostAttrs) != 0 {
+		parseT.Fatalf("expected compact attrs to be cleared after noncompact mutation, got %#v", parseElem.getHostAttrs)
+	}
+}
+
 func TestPropsEqualIgnoringChildrenTreatsChildSliceChangesAsStable(parseT *testing.T) {
 	parsePrev := map[string]interface{}{
 		"id":       "host",

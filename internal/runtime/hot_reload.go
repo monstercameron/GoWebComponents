@@ -823,7 +823,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 	}
 
 	for parseAttempt := 0; parseAttempt < 2; parseAttempt++ {
-		currentFiber = parseFiber
+		SetCurrentFiber(parseFiber)
 		parseFiber.renderDurationNs = 0
 		if parseAttempt == 0 && parseRestore != nil {
 			parseFiber.hooks = &Hooks{owner: parseFiber, hotReloadRestore: parseRestore}
@@ -860,6 +860,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 		var parseNextFromBoundary *Fiber
 		renderStart := time.Now()
 		func() {
+			defer SetCurrentFiber(nil)
 			defer func() {
 				if parseRecovered := recover(); parseRecovered != nil {
 					var isHandled bool

@@ -173,10 +173,19 @@ func renderAsyncBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 		panic(parseRecovered)
 	}()
 
+	var parseContentBuilder strings.Builder
 	if parseContent, _ := parseElement.Props["content"].(*Element); parseContent != nil {
-		return renderElementToString(parseBuilder, parseContent)
+		if parseErr2 := renderElementToString(&parseContentBuilder, parseContent); parseErr2 != nil {
+			return parseErr2
+		}
+		parseBuilder.WriteString(parseContentBuilder.String())
+		return nil
 	}
-	return renderChildrenToString(parseBuilder, parseElement.Children)
+	if parseErr2 := renderChildrenToString(&parseContentBuilder, parseElement.Children); parseErr2 != nil {
+		return parseErr2
+	}
+	parseBuilder.WriteString(parseContentBuilder.String())
+	return nil
 }
 
 // renderAsyncBoundaryFallbackToString renders the best available async fallback.

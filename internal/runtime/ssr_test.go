@@ -142,3 +142,28 @@ func TestRenderToStringFunctionComponent(parseT *testing.T) {
 		parseT.Fatalf("unexpected component html: %s", parseHtml)
 	}
 }
+
+func TestRenderToStringAsyncBoundaryDoesNotLeakPartialMarkupOnSuspension(parseT *testing.T) {
+	parseDone := make(chan struct{})
+	parseSuspendingChild := CreateElement(func() *Element {
+		SuspendUntil(parseDone, "late child")
+		return CreateElement("em", nil, "late")
+	}, nil)
+	parseContent := CreateElement("div", nil, "before", parseSuspendingChild, "after")
+	parseFallback := CreateElement("span", nil, "loading")
+	parseRoot := CreateElement(AsyncBoundaryNodeType, map[string]interface{}{
+		"content":  parseContent,
+		"fallback": parseFallback,
+	})
+
+	parseHTML, parseErr := RenderToString(parseRoot)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString: %v", parseErr)
+	}
+	if parseHTML != `<span>loading</span>` {
+		parseT.Fatalf("expected only fallback markup after suspension, got %q", parseHTML)
+	}
+	if strings.Contains(parseHTML, "before") || strings.Contains(parseHTML, "after") {
+		parseT.Fatalf("suspended boundary leaked partial content: %s", parseHTML)
+	}
+}

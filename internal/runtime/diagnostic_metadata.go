@@ -62,6 +62,10 @@ func diagnosticMetadata(parseSource string, parseSeverity DiagnosticSeverity, pa
 		parseDetails.Code = "GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT"
 		parseDetails.Docs = actionableErrorsDoc + "#gwc-runtime-hook-outside-component"
 		parseDetails.Remediation = "Call framework hooks only while rendering a component through ui.CreateElement(...). Move the hook call out of package init code, route factories, and ordinary helpers that are not rendering components."
+	case strings.Contains(parseLower, "called from a goroutine outside the render goroutine"):
+		parseDetails.Code = "GWC-RUNTIME-HOOK-THREADING"
+		parseDetails.Docs = actionableErrorsDoc + "#gwc-runtime-hook-threading"
+		parseDetails.Remediation = "Call hooks only on the component render goroutine. Move hook calls back into render, and move background work into UseEffect, UseTask, UseChannel, or event handlers that update existing state instead of creating hooks."
 	case strings.Contains(parseLower, "gousefunc requires a function"):
 		parseDetails.Code = "GWC-RUNTIME-HOOK-FUNC-TYPE"
 		parseDetails.Docs = actionableErrorsDoc + "#gwc-runtime-hook-func-type"
@@ -171,6 +175,28 @@ func actionableHookUsagePanic(parseName string) string {
 		Message: fmt.Sprintf("%s called outside component context", parseTrimmed),
 		Path:    parseTrimmed,
 	})
+}
+
+// actionableHookThreadingPanic is a core package helper.
+func actionableHookThreadingPanic(parseName string, parseFiber *Fiber) string {
+	parseTrimmed := strings.TrimSpace(parseName)
+	return ActionableFrameworkPanic(ActionablePanicOptions{
+		Source:         "runtime",
+		Subject:        parseTrimmed,
+		Message:        hookThreadingViolationMessage(parseTrimmed),
+		Path:           diagnosticPathForFiber(parseFiber),
+		ComponentStack: diagnosticComponentStack(parseFiber),
+		Consequence:    "hook state is owned by the active render goroutine; continuing from another goroutine would corrupt component state",
+	})
+}
+
+// hookThreadingViolationMessage is a core package helper.
+func hookThreadingViolationMessage(parseName string) string {
+	parseTrimmed := strings.TrimSpace(parseName)
+	if parseTrimmed == "" {
+		parseTrimmed = "hook"
+	}
+	return fmt.Sprintf("%s called from a goroutine outside the render goroutine", parseTrimmed)
 }
 
 // actionableContextDescriptorNilPanic is a core package helper.

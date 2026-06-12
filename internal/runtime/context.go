@@ -34,10 +34,7 @@ func GoUseContextValue(parseDescriptor *ContextDescriptor) interface{} {
 		panic(actionableContextDescriptorNilPanic("GoUseContextValue"))
 	}
 
-	parseFiber := GetCurrentFiber()
-	if parseFiber == nil {
-		panic(actionableHookUsagePanic("GoUseContextValue"))
-	}
+	parseFiber := requireCurrentHookFiber("GoUseContextValue")
 
 	if parseFiber.hooks == nil {
 		parseFiber.hooks = &Hooks{owner: parseFiber}

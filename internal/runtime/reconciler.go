@@ -39,9 +39,10 @@ func (parseP *fiberScratchPool) clear(parseFibers []*Fiber) {
 
 // currentFiber tracks the fiber being processed (for hooks)
 var (
-	currentFiber  *Fiber
-	emptyChildren = []interface{}{}
-	propMetaCache = map[string]domPropMeta{
+	currentFiber                 *Fiber
+	currentFiberOwnerGoroutineID uint64
+	emptyChildren                = []interface{}{}
+	propMetaCache                = map[string]domPropMeta{
 		"children":  {kind: propKindSkip},
 		"style":     {kind: propKindStyle, attrName: "style"},
 		"className": {kind: propKindClass, attrName: "class"},
@@ -608,7 +609,15 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 		parsePrevSibling = parseNewFiber
 	}
 
-	for _, parseOldFiber2 := range parseOldByKey {
+	for parseOldFiber2 := parseOldFirst; parseOldFiber2 != nil; parseOldFiber2 = parseOldFiber2.sibling {
+		parseKey, parseOk := fiberComparableKey(parseOldFiber2)
+		if !parseOk {
+			continue
+		}
+		if parseOldByKey[parseKey] != parseOldFiber2 {
+			continue
+		}
+		delete(parseOldByKey, parseKey)
 		parseOldFiber2.effectTag = effectTagDeletion
 		parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
 	}
