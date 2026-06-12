@@ -689,6 +689,46 @@ func TestRunBrowserTestLaneSuccessAndSkipPaths(parseT *testing.T) {
 	}
 }
 
+func TestRunPerfBudgetTestLaneSuccessAndSkipPaths(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseWorkspace := filepath.Join(parseRoot, "test")
+	if parseErr := os.MkdirAll(filepath.Join(parseWorkspace, "playwrightgo", "examples"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir perf workspace: %v", parseErr)
+	}
+
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() { launcherRunCommand = parseOriginalRunCommand })
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("expected go command, got %q", parseCommand)
+		}
+		parseExpectedArgs := []string{"test", "-tags", "playwrightgo", "./test/playwrightgo/examples", "-run", "TestPerfBudget", "-v"}
+		if !reflect.DeepEqual(parseArgs, parseExpectedArgs) {
+			parseT.Fatalf("expected args %#v, got %#v", parseExpectedArgs, parseArgs)
+		}
+		if parseCwd != parseRoot {
+			parseT.Fatalf("expected workspace cwd %q, got %q", parseRoot, parseCwd)
+		}
+		return "perf ok", nil
+	}
+
+	parseSummary, parseErr := (launcher{repoRoot: parseRoot}).runPerfBudgetTestLane(parseRoot)
+	if parseErr != nil {
+		parseT.Fatalf("run perf test lane: %v", parseErr)
+	}
+	if parseSummary.Skipped || !parseSummary.OK || parseSummary.Command == "" || !strings.Contains(parseSummary.Output, "perf ok") {
+		parseT.Fatalf("expected successful perf summary, got %#v", parseSummary)
+	}
+
+	parseSummary, parseErr = (launcher{repoRoot: parseT.TempDir()}).runPerfBudgetTestLane(parseT.TempDir())
+	if parseErr != nil {
+		parseT.Fatalf("run perf skipped lane: %v", parseErr)
+	}
+	if !parseSummary.Skipped || parseSummary.Workspace == "" {
+		parseT.Fatalf("expected skipped perf lane summary, got %#v", parseSummary)
+	}
+}
+
 func TestRunBrowserTestLaneFailsForInvalidOverride(parseT *testing.T) {
 	parseRepoRoot := parseT.TempDir()
 	parseRoot := parseT.TempDir()

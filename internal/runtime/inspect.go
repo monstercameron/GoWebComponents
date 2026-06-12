@@ -260,11 +260,11 @@ type InspectionSnapshot struct {
 
 // inspectFiberTree is a core package helper.
 func inspectFiberTree(parseFiber *Fiber) (*FiberSnapshot, InspectionStats) {
-	return inspectFiberTreeWithPath(parseFiber, nil)
+	return inspectFiberTreeWithPath(parseFiber, nil, "")
 }
 
 // inspectFiberTreeWithPath is a core package helper.
-func inspectFiberTreeWithPath(parseFiber *Fiber, parsePath []string) (*FiberSnapshot, InspectionStats) {
+func inspectFiberTreeWithPath(parseFiber *Fiber, parsePath []string, parseAgentRef string) (*FiberSnapshot, InspectionStats) {
 	if parseFiber == nil {
 		return nil, InspectionStats{}
 	}
@@ -275,6 +275,7 @@ func inspectFiberTreeWithPath(parseFiber *Fiber, parsePath []string) (*FiberSnap
 	parseNode := &FiberSnapshot{
 		Name:              parseName,
 		Path:              strings.Join(parseCurrentPath, " > "),
+		AgentRef:          parseAgentRef,
 		Kind:              parseKind,
 		Dirty:             parseFiber.dirty,
 		NeedsUpdate:       parseFiber.needsUpdate,
@@ -317,7 +318,7 @@ func inspectFiberTreeWithPath(parseFiber *Fiber, parsePath []string) (*FiberSnap
 	}
 
 	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
-		parseChildSnapshot, parseChildStats := inspectFiberTreeWithPath(parseChild, parseCurrentPath)
+		parseChildSnapshot, parseChildStats := inspectFiberTreeWithPath(parseChild, parseCurrentPath, joinAgentRefPath(parseAgentRef, hotReloadFiberPathSegment(parseChild)))
 		if parseChildSnapshot != nil {
 			parseNode.Children = append(parseNode.Children, *parseChildSnapshot)
 			parseChildSubtreeDurationNs += parseChildSnapshot.SubtreeDurationNs
