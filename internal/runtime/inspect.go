@@ -81,8 +81,11 @@ type HookSnapshot struct {
 
 // FiberSnapshot captures one inspected fiber subtree.
 type FiberSnapshot struct {
-	Name              string
-	Path              string
+	Name string
+	Path string
+	// AgentRef is the stable key/index-disambiguated ref the agent bridge
+	// resolves back to this node (empty on the root, which is not addressable).
+	AgentRef          string
 	Kind              string
 	Dirty             bool
 	NeedsUpdate       bool
