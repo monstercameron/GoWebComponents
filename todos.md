@@ -269,6 +269,132 @@ impact; exactly three active items carry the next-work marker.
   requested locale is unavailable; no js.Func leaks across repeated
   formats (formatter instances cached and released).
 
+## Enterprise tier - security & supply chain
+
+- [ ] **CSP nonce threading** - neither RenderToString nor the new
+  RenderToStream emits or threads script nonces, and there is no
+  documented wasm-unsafe-eval guidance; strict CSPs block deployment.
+  Test for: a nonce supplied per request appears on every emitted
+  script tag across both SSR paths including out-of-order streamed
+  chunks; hydration succeeds under a strict CSP (no inline-eval
+  violations in the browser console); generated boot shells accept an
+  injected nonce; a CSP-violation fixture page proves the test setup
+  actually enforces the policy.
+- [ ] **SRI emission** - gwc release manifests already carry SHA-256 per
+  asset but generated shells do not emit integrity attributes.
+  Test for: integrity hash on wasm/script/style references matches the
+  release manifest; a tampered asset is refused by the browser (fixture
+  flips one byte); dev-server mode omits SRI so hot reload still works.
+- [ ] **HTML sanitizer for untrusted content** - no DOMPurify-equivalent
+  exists for rendering user-supplied HTML.
+  Test for: an XSS corpus (script tags, event handlers, javascript:
+  URLs, SVG payloads, mXSS nesting cases) is neutralized; allowlist
+  configuration round-trips; sanitized output is stable across native
+  and wasm builds; benchmark guard so sanitizing large documents stays
+  off the render hot path.
+- [ ] **Root-module security scanning + SBOM + SECURITY.md** - gosec and
+  govulncheck run only for the bridge submodule; releases ship no SBOM;
+  no security disclosure policy exists.
+  Test for: scanners run green on the root module in CI with a
+  documented suppression file; release workflow attaches a CycloneDX
+  SBOM whose package list matches go.mod; SECURITY.md present with a
+  disclosure contact.
+- [ ] **Reproducible-build verification** - trimpath is set but nothing
+  verifies two builds of one commit are bit-identical, which the
+  provenance attestation implicitly promises.
+  Test for: a CI job builds the release wasm twice in clean dirs and
+  compares SHA-256; intentional nondeterminism (embedded timestamp
+  fixture) is caught by the check.
+
+## Enterprise tier - data governance
+
+- [ ] **PII redaction hooks for telemetry** - crash reports, structured
+  logs, and devtools snapshots carry paths, props, and state values
+  with no redaction policy (support bundles have a sanitize step;
+  console crash reports and future transports do not).
+  Test for: a registered redaction policy scrubs configured fields from
+  crash-report payloads, log attributes, and devtools snapshots before
+  emission; redaction failures fail closed (drop the field, keep the
+  event); policy application is covered for both the console path and
+  the OnReport hook path.
+- [ ] **WebCrypto bridge + encrypted persistent storage** - no
+  crypto.subtle interop exists; persisted snapshots and IndexedDB
+  caches store plaintext.
+  Test for: encrypt/decrypt round-trip via WebCrypto from Go (AES-GCM
+  with a non-extractable key); an EncryptedPersistentStore wrapper
+  round-trips JSON and rejects tampered ciphertext; key unavailability
+  degrades to an explicit error, never silent plaintext; native builds
+  return the unavailable stub.
+
+## Enterprise tier - operational resilience
+
+- [ ] **Crash-loop safe mode** - containment keeps a running page alive,
+  but a panic during boot reloads into the same crash forever.
+  Test for: N consecutive failed boots (tracked in storage) switch the
+  generated shell to a minimal diagnostics view with a cache-purge
+  action instead of re-running the wasm; a successful boot resets the
+  counter; the diagnostics view itself needs no wasm; e2e drives a
+  deliberately boot-panicking module through the full loop.
+- [ ] **Version-skew refresh flow** - wire formats are versioned now, but
+  detection is not acted on: stale cached wasm against a redeployed
+  server should trigger a controlled refresh, not an error.
+  Test for: a sidecar/wasm version mismatch triggers exactly one forced
+  reload with cache bypass (no reload loop on persistent mismatch -
+  loop guard verified); user state is snapshotted before the reload and
+  restored after when versions allow migration.
+- [ ] **Remote flag provider + kill switch** - the new flags package is
+  build/boot-time; no remote-config provider (poll/SSE) or kill-switch
+  semantics exist.
+  Test for: a flag flip on a mock remote provider reaches subscribed
+  components within the polling interval; provider outage retains last
+  known values with staleness surfaced; kill-switch flag disables a
+  feature subtree without reload; misbehaving provider payloads are
+  contained, never crash the app.
+
+## Enterprise tier - release engineering
+
+- [ ] **Canary / gradual wasm rollout** - no mechanism serves two wasm
+  versions side-by-side with percentage routing and instant rollback.
+  Test for: deterministic cohort assignment (same client stays on its
+  version across reloads); rollback flips 100% within one cache TTL;
+  both versions report their build id through artifact metadata so
+  crash reports distinguish cohorts.
+- [ ] **Perf-budget CI gate** - route startup budgets exist in profiling
+  and gwc bench measures, but nothing fails a build on regression.
+  Test for: a gwc lane fails when wasm size or measured route-startup
+  exceeds the checked-in budget by the configured tolerance; budgets
+  update through an explicit ratchet command, not silently; the gate
+  output names the offending route and delta.
+- [ ] **Visual regression lane** - playwright is wired everywhere but no
+  screenshot-diff lane protects the examples or docs site.
+  Test for: baseline capture + pixel-diff with anti-flake masking
+  (timestamps, spinners); an intentional 1px style change in a fixture
+  is caught; per-page thresholds configurable; lane runs on the docs
+  site routes and a representative example subset.
+
+## Enterprise tier - isolation & conformance
+
+- [ ] **Shadow-DOM style isolation for exported custom elements** - no
+  shadow-root helpers exist; embedded GWC widgets leak styles both ways.
+  Test for: a GWC custom element mounted in a hostile host page (global
+  CSS resets, conflicting class names) renders identically to its
+  isolated baseline; host styles do not bleed in and widget styles do
+  not bleed out; events and portals still work across the shadow
+  boundary; focus trap and announcer behave inside shadow roots.
+- [ ] **Cross-browser conformance matrix** - webkit/firefox run only in
+  the Atlas smoke; the framework behavior suite is chromium-only.
+  Test for: the core browser suite (events, hydration, router, storage,
+  overlay focus) passes on chromium, firefox, and webkit in CI; known
+  per-engine differences are encoded as explicit skips with linked
+  issues, not silent passes.
+- [ ] **Plugin API conformance suite** - kernel-backed plugins feed
+  devtools but third parties have no test kit proving they meet the
+  contract.
+  Test for: a published conformance package a plugin author can run
+  against their plugin (lifecycle, section contribution, diagnostics,
+  teardown); the built-in kernel plugin passes it; a deliberately
+  non-conforming fixture plugin fails with actionable messages.
+
 ## Maintenance backlog (carried from the test/perf campaign)
 
 - [ ] Lazy DOM binding - the remaining named lever for the React DOM-ready
