@@ -923,7 +923,7 @@ func TestBuildDoctorReportPassesWithHealthyTooling(parseT *testing.T) {
 	for _, parseCheck := range parseReport.Checks {
 		parseStatuses[parseCheck.Name] = parseCheck.Status
 	}
-	for _, parseName := range []string{"Go toolchain", "wasm_exec.js", "Browser tests", "Scaffold metadata", "Project detection", "Port availability"} {
+	for _, parseName := range []string{"Go toolchain", "wasm_exec.js", "Browser tests", "Scaffold metadata", "Project detection", "Agent bridge mode", "Port availability"} {
 		if parseStatuses[parseName] != "pass" {
 			parseT.Fatalf("expected %s to pass, got %#v", parseName, parseStatuses[parseName])
 		}
@@ -941,6 +941,19 @@ func TestBuildDoctorReportPassesWithHealthyTooling(parseT *testing.T) {
 		if parseReport.Resolution[parseKey] != parseExpected {
 			parseT.Fatalf("expected doctor resolution %q to be %q, got %#v", parseKey, parseExpected, parseReport.Resolution)
 		}
+	}
+}
+
+func TestBuildDoctorAgentBridgeModeCheckReportsEnabledEnv(parseT *testing.T) {
+	parseT.Setenv("GWC_AGENT_HUB", "1")
+	parseT.Setenv("GWC_AGENT_TOKEN", "secret")
+
+	parseCheck := buildDoctorAgentBridgeModeCheck()
+	if parseCheck.Status != "warn" {
+		parseT.Fatalf("expected enabled agent bridge env to warn, got %#v", parseCheck)
+	}
+	if !strings.Contains(parseCheck.Summary, "GWC_AGENT_HUB") || !strings.Contains(parseCheck.Summary, "GWC_AGENT_TOKEN") {
+		parseT.Fatalf("expected agent bridge env names in summary, got %#v", parseCheck)
 	}
 }
 

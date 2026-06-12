@@ -153,6 +153,7 @@ func (parseL launcher) buildDoctorReport(parseConfig doctorConfig) doctorReport 
 	parseAppendCheck(buildDoctorPlaywrightCheck(parseL.repoRoot))
 	parseAppendCheck(buildDoctorMetadataCheck(parseCwd))
 	parseAppendCheck(buildDoctorProjectDetectionCheck(parseCwd))
+	parseAppendCheck(buildDoctorAgentBridgeModeCheck())
 	parseAppendCheck(buildDoctorPortCheck(parseConfig.host, parseConfig.port))
 	if parseConfig.audit {
 		parseReport.Audit = buildDoctorAuditReport(parseCwd, parseConfig)

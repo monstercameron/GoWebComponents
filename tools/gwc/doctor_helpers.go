@@ -368,6 +368,25 @@ func buildDoctorPortCheck(parseHost string, parsePort string) doctorCheck {
 	return doctorCheck{Name: "Port availability", Status: "pass", Summary: fmt.Sprintf("Port %s is available for local launcher commands.", parseAddress)}
 }
 
+func buildDoctorAgentBridgeModeCheck() doctorCheck {
+	parseSignals := []string{}
+	for _, parseName := range []string{"GWC_AGENT_HUB", "GWC_AGENT_TOKEN", "GWC_AGENT_HUB_URL", "GWC_AGENT_LEASE_HOLDER"} {
+		if strings.TrimSpace(os.Getenv(parseName)) != "" {
+			parseSignals = append(parseSignals, parseName)
+		}
+	}
+	if len(parseSignals) == 0 {
+		return doctorCheck{Name: "Agent bridge mode", Status: "pass", Summary: "Agent bridge environment is disabled for this shell."}
+	}
+	sort.Strings(parseSignals)
+	return doctorCheck{
+		Name:    "Agent bridge mode",
+		Status:  "warn",
+		Summary: fmt.Sprintf("Agent bridge environment variables are set: %s.", strings.Join(parseSignals, ", ")),
+		Hint:    "Unset agent bridge variables before release builds or non-agent local runs.",
+	}
+}
+
 func printDoctorReport(parseReport doctorReport) {
 	parseStatus := "PASS"
 	if !parseReport.OK {
