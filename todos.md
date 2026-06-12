@@ -438,6 +438,88 @@ impact; exactly three active items carry the next-work marker.
   Test for: doc example of the collision and the prefix convention; the
   existing conflicting-type warning remains covered.
 
+## Developer experience (2026-06-11 review) - build items + what to test
+
+### Sharpest three (do first)
+
+- [ ] **Commit editor support + document the gopls wasm-tag setting** -
+  there is no .vscode/ and nothing tells new users that gopls hides every
+  `//go:build js && wasm` file unless GOOS=js/GOARCH=wasm is set, so the
+  whole wasm half of the codebase shows phantom errors on minute one.
+  Fix: commit `.vscode/settings.json` (gopls.env GOOS=js GOARCH=wasm),
+  `.vscode/extensions.json` (Go extension recommendation), `.vscode/
+  launch.json` and `tasks.json` for `gwc dev`; add a JetBrains-equivalent
+  note; ship a `gwc-start.json` JSON schema for editor autocomplete.
+  Test for: opening a wasm file shows no excluded-file diagnostics with
+  the committed settings; the schema validates a sample gwc-start.json
+  and rejects an unknown key; a docs section covers the JetBrains path.
+- [ ] **Wire devtools.ErrorOverlay into `gwc dev` by default** - runtime
+  panics produce excellent structured console reports, but the page just
+  shows a dead tree / boot spinner; React/Vite developers expect a
+  full-screen overlay. The overlay component and the structured report
+  already exist; they are not connected to the dev server.
+  Fix: inject the error overlay in dev builds, fed by the existing panic
+  report (where/path/error/next + stack buckets), with a click-to-copy
+  and, where resolvable, click-to-open-in-editor link.
+  Test for: a deliberate render panic surfaces the overlay with the
+  report fields in a browser e2e; the overlay is absent in production
+  builds; recovering the panic (next clean render) dismisses it; the
+  overlay itself cannot crash the page (contained).
+- [ ] **Write CONTRIBUTING.md for framework contributors** - AGENTS.md and
+  the getting-started chapter target users; nothing captures how to work
+  ON the framework: the `GOOS=js GOARCH=wasm go test -c -o x.wasm` + node
+  runner dance, wasm coverage flags, playwright build-tag/package
+  conventions, the Windows BOM/CRLF hazards, and the run-tests-sequentially
+  gotchas.
+  Test for: a fresh contributor can run the wasm unit suite, a playwright
+  lane, and the coverage report by following the doc only; commands in
+  the doc are copy-pasteable and verified in CI (doc-command lint).
+
+### Onboarding & inner loop
+
+- [ ] **Auto-run doctor on first build/dev failure** - `gwc doctor` is
+  opt-in, so a fresh machine with the wrong Go version or missing
+  wasm_exec hits a cryptic deep build error instead of an upfront
+  diagnosis.
+  Test for: a simulated missing-prerequisite environment triggers the
+  doctor summary automatically on `gwc dev`/`gwc build` failure with a
+  fix hint; a healthy environment never shows it; opt-out flag respected.
+- [ ] **Browser build-status indicator in `gwc dev`** - the 304ms rebuild
+  is only visible as terminal text; developers watching the browser get
+  no signal. Add a small corner badge (building / ready / error) and an
+  optional rebuild-failure notification when the terminal is unfocused.
+  Test for: badge reflects building->ready transitions over the livereload
+  channel in an e2e; error state shows on a failed rebuild and clears on
+  the next success; badge is dev-only and never ships to production.
+- [ ] **`gwc init` time-to-first-pixel guarantee** - scaffolding works but
+  no CI test proves `gwc init` output builds and renders on a clean
+  machine across the offered presets.
+  Test for: each preset scaffold runs `go mod tidy` + `gwc build` clean
+  and mounts a non-empty tree in a headless browser; a broken preset
+  fails the lane with the offending preset named.
+
+### Discoverability & polish
+
+- [ ] **Capability matrix ("what's in the box")** - storage, PWA, i18n,
+  a11y, flags, realtime, and snapshots all exist but are hard to
+  discover by reading; surface a single matrix on the docs site mapping
+  capability -> package -> example -> manual chapter.
+  Test for: the matrix is generated from the catalog (no hand-maintained
+  drift); every row links to a real example and chapter; a CI check fails
+  if a listed capability's example or chapter link 404s.
+- [ ] **Mark legacy dev flag aliases as deprecated in help** - `gwc dev`
+  carries `-main`/`-index`/`-output` legacy aliases beside
+  `-app`/`-html`/`-wasm`; help does not flag them, widening the surface a
+  new user must navigate.
+  Test for: help output labels each legacy alias as deprecated and points
+  to the canonical flag; the aliases still function (no behavior change).
+- [ ] **Web playground / shareable snippet runner** - the examples catalog
+  is the closest thing to an evaluation surface; there is no edit-and-run
+  snippet experience for quick evaluation/sharing.
+  Test for: a snippet compiles and renders in the browser sandbox; a
+  shared URL round-trips the snippet source; compile errors surface in the
+  sandbox with the structured diagnostic, not a blank frame.
+
 ## Maintenance backlog (carried from the test/perf campaign)
 
 - [ ] Lazy DOM binding - the remaining named lever for the React DOM-ready
