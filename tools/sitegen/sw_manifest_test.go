@@ -98,11 +98,17 @@ func TestServiceWorkerJS(t *testing.T) {
 // HTML containing the manifest link, theme-color meta, and SW registration.
 // This test invokes go env GOROOT so it requires the Go toolchain on PATH.
 func TestSWManifestBuildBootShellPWAWiring(t *testing.T) {
-	parseShell, parseErr := buildBootShell()
+	parseShell, parseErr := buildBootShell("abc123def456abc123def456abc123def456abc123def456abc123def4567890")
 	if parseErr != nil {
 		t.Skipf("buildBootShell: %v (toolchain not available?)", parseErr)
 	}
 
+	if !strings.Contains(parseShell, `EXPECTED_WASM_SHA = "abc123def456abc123def456abc123def456abc123def456abc123def4567890"`) {
+		t.Error("boot shell missing embedded wasm integrity digest")
+	}
+	if !strings.Contains(parseShell, `crypto.subtle.digest("SHA-256"`) {
+		t.Error("boot shell missing the wasm integrity (SRI) check")
+	}
 	if !strings.Contains(parseShell, `<link rel="manifest" href="manifest.json">`) {
 		t.Error("boot shell missing <link rel=\"manifest\" href=\"manifest.json\">")
 	}

@@ -76,7 +76,16 @@ func generateSite(parseRepoRoot string, parseOutDir string) error {
 		return fmt.Errorf("build site wasm: %w\n%s", parseErr, parseOutput)
 	}
 
-	parseShell, parseErr := buildBootShell()
+	// Read the wasm once: its full SHA-256 is embedded in the shell for an
+	// integrity (SRI-style) check before execution, and its 12-hex prefix names
+	// the service-worker cache below.
+	parseWasmBytes, parseErr0 := os.ReadFile(parseWasmPath)
+	if parseErr0 != nil {
+		return fmt.Errorf("read site.wasm: %w", parseErr0)
+	}
+	parseWasmSHA := fullSHA256Hex(parseWasmBytes)
+
+	parseShell, parseErr := buildBootShell(parseWasmSHA)
 	if parseErr != nil {
 		return parseErr
 	}
@@ -93,13 +102,9 @@ func generateSite(parseRepoRoot string, parseOutDir string) error {
 		return fmt.Errorf("write og image: %w", parseErr4)
 	}
 
-	// Derive a short cache-busting version from the wasm binary so a new build
-	// automatically evicts the browser's stale service-worker cache.
-	parseWasmBytes, parseErr5 := os.ReadFile(parseWasmPath)
-	if parseErr5 != nil {
-		return fmt.Errorf("read site.wasm for cache version: %w", parseErr5)
-	}
-	parseCacheVersion := wasmCacheVersion(parseWasmBytes)
+	// The cache-busting version is the 12-hex prefix of the wasm SHA already
+	// computed above, so a new build automatically evicts stale SW caches.
+	parseCacheVersion := parseWasmSHA[:12]
 
 	// Web App Manifest — makes the site installable.
 	parseManifestJSON, parseErr6 := buildManifestJSON()
@@ -127,8 +132,14 @@ func generateSite(parseRepoRoot string, parseOutDir string) error {
 // wasm binary. A new build always yields a new cache name, which triggers the
 // service worker's activate handler to delete all previous caches.
 func wasmCacheVersion(parseWasmBytes []byte) string {
-	parseSum := sha256.Sum256(parseWasmBytes)
-	return hex.EncodeToString(parseSum[:])[:12]
+	return fullSHA256Hex(parseWasmBytes)[:12]
+}
+
+// fullSHA256Hex returns the full lowercase hex SHA-256 of the bytes, used as the
+// integrity digest embedded in the boot shell.
+func fullSHA256Hex(parseBytes []byte) string {
+	parseSum := sha256.Sum256(parseBytes)
+	return hex.EncodeToString(parseSum[:])
 }
 
 // buildManifestJSON returns indented JSON for the site's Web App Manifest
@@ -238,8 +249,10 @@ func buildServiceWorkerJS(parseCacheVersion string, parseAssets []string) string
 // buildBootShell generates the single HTML document that boots the wasm app.
 // The Go runtime loader (wasm_exec.js) is inlined from the local toolchain so
 // the deployed artifact is exactly one shell plus one wasm binary.
-// The shell also links the Web App Manifest and registers the service worker.
-func buildBootShell() (string, error) {
+// The shell also links the Web App Manifest and registers the service worker,
+// and verifies the integrity of site.wasm (its embedded SHA-256) before
+// executing it, so a tampered or truncated artifact is refused rather than run.
+func buildBootShell(parseWasmSHA string) (string, error) {
 	parseGoroot, parseErr := exec.Command("go", "env", "GOROOT").Output()
 	if parseErr != nil {
 		return "", fmt.Errorf("resolve GOROOT: %w", parseErr)
@@ -309,10 +322,24 @@ html,body{margin:0;background:#0a0f1a;color:#64748b;font:14px ui-monospace,Conso
 	// window, so only repeated failures accumulate toward safe mode.
 	setFails(fails() + 1);
 	var go = new Go();
-	var load = ("instantiateStreaming" in WebAssembly)
-		? WebAssembly.instantiateStreaming(fetch("site.wasm"), go.importObject)
-		: fetch("site.wasm").then(function (resp) { return resp.arrayBuffer(); })
-			.then(function (bytes) { return WebAssembly.instantiate(bytes, go.importObject); });
+	var EXPECTED_WASM_SHA = "` + parseWasmSHA + `";
+	function toHex(buf) { var b = new Uint8Array(buf), s = ""; for (var i = 0; i < b.length; i++) { s += b[i].toString(16).padStart(2, "0"); } return s; }
+	// Subresource-integrity for the wasm: fetch the bytes, verify their SHA-256
+	// against the digest embedded at build time, and only instantiate on a match.
+	// Falls back to instantiating without the check only when crypto.subtle is
+	// unavailable (insecure context), so the app still boots in dev over plain http.
+	var load = fetch("site.wasm").then(function (resp) { return resp.arrayBuffer(); })
+		.then(function (bytes) {
+			if (!self.crypto || !crypto.subtle) {
+				return WebAssembly.instantiate(bytes, go.importObject);
+			}
+			return crypto.subtle.digest("SHA-256", bytes).then(function (digest) {
+				if (toHex(digest) !== EXPECTED_WASM_SHA) {
+					throw new Error("integrity check failed: site.wasm digest mismatch");
+				}
+				return WebAssembly.instantiate(bytes, go.importObject);
+			});
+		});
 	load.then(function (result) {
 			var boot = document.getElementById("boot");
 			if (boot && boot.parentNode) boot.parentNode.removeChild(boot);

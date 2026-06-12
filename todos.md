@@ -449,11 +449,22 @@ impact; exactly three active items carry the next-work marker.
   violations in the browser console); generated boot shells accept an
   injected nonce; a CSP-violation fixture page proves the test setup
   actually enforces the policy.
-- [ ] **SRI emission** - gwc release manifests already carry SHA-256 per
+- [~] **SRI emission** - gwc release manifests already carry SHA-256 per
   asset but generated shells do not emit integrity attributes.
   Test for: integrity hash on wasm/script/style references matches the
   release manifest; a tampered asset is refused by the browser (fixture
   flips one byte); dev-server mode omits SRI so hot reload still works.
+  Done (2026-06-12, generation): the sitegen boot shell now embeds the
+  full SHA-256 of site.wasm and verifies it before execution - the boot
+  script fetches the wasm bytes, computes SHA-256 via crypto.subtle, and
+  refuses to instantiate on a digest mismatch ("integrity check failed"),
+  so a tampered/truncated artifact is rejected rather than run. (wasm is
+  fetched via JS, not a <script>, so a JS digest check is the correct SRI
+  analogue.) Degrades gracefully (instantiates without the check) only
+  when crypto.subtle is unavailable in an insecure context, so plain-http
+  dev still boots. sw_manifest test asserts the embedded digest + the
+  crypto.subtle.digest check are present; sitegen builds+tests green.
+  Remaining: the browser e2e flipping one byte to confirm refusal.
 - [x] **HTML sanitizer for untrusted content** - no DOMPurify-equivalent
   exists for rendering user-supplied HTML.
   Test for: an XSS corpus (script tags, event handlers, javascript:
