@@ -13,6 +13,18 @@
   bridge, rebuild, snapshot-diff, and export-test commands. Dogfooded in the
   `ai-chat-wizard` showcase, covered by an `example100` Playwright-Go dogfood
   e2e and a headless CI workflow, with a threat model under `security/`.
+- **Agent bridge — self-description, safety, and replay** — `bridge.describe`
+  now returns a complete control manifest (atoms with JSON schemas, event
+  topics with subscriber counts, navigable routes, mountable components, and
+  typed-publishable topics) with a stable shape. Added an audit trail
+  (`bridge.audit`) covering every mutating command, reversible mutations with
+  `bridge.undo`, a `dryRun` preview for `set-atom`, deterministic capture/replay
+  (`bridge.replay`), and a single-writer lease. `events.RegisterTopic[T]` +
+  `events.PublishJSON` let a JSON publish reach concretely-typed subscribers;
+  `events.Topics`/`SubscriberCount` and `router.RegisteredRoutes` expose the
+  live vocabulary. All bridge verbs are exposed as `gwc` CLI subcommands and
+  MCP tools. Compiled in only under the `gwcagent` build tag + `?gwc-dev=agent`
+  and excluded from release builds; see `docs/PRODUCTION_READINESS.md`.
 - **`events` introspection** — `events/introspect` exposes the live topic/
   subscriber graph for tooling and the agent bridge.
 - **Gesture primitives** (`anim`) — pure pan/drag and pinch primitives tracking
@@ -118,6 +130,17 @@
 
 ### Fixed
 
+- **Agent bridge hardening** — 18 defects found and fixed across six adversarial
+  review rounds, each regression-tested: a `SendCommand` socket-death bug
+  returning a zero-value ack with no error; the wasm client never stripping the
+  leading `?` so the bridge never activated from a real URL; mount/unmount
+  check-then-render TOCTOU races and a stuck-reservation leak; `bridge.undo`/
+  `bridge.replay` bypassing the hub write lease; a data race on the runtime
+  replay buffer; `set-atom` silently accepting a wrong-typed value for a
+  concrete slice/map atom; a non-constant-time token compare; an unbounded undo
+  stack; `replay` silently resetting on double-start; an unbounded
+  predecessor-chain recursion; and missing audit-trail coverage on several
+  mutating commands. Real-browser dogfood verified after the fixes.
 - `logging` (wasm) — console output now leads with the message string before
   the structured record: the record object's console preview shows only a few
   properties in nondeterministic Go-map order, which made messages unreadable

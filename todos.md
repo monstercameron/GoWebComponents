@@ -2445,7 +2445,7 @@ framework-side `agentbridge` package is safe to build independently.
     target them via `-hub`/`GWC_AGENT_HUB_URL` and `-token`/`GWC_AGENT_TOKEN`.
     Tests cover manifest drift, no-session diagnostics, MCP -> live bridge
     command dispatch, and hub API -> fake wasm session ack round-trip.
-- [ ] **Dogfood: ai-chat-wizard agent session e2e** - per the standing
+- [x] **Dogfood: ai-chat-wizard agent session e2e** - per the standing
   dogfooding rule, wire the bridge into the ai-chat-wizard client (agent
   build profile), and add a playwrightgo test that launches the app with
   `?gwc-dev=agent`, connects through a real hub, and drives a real flow:
@@ -2455,6 +2455,12 @@ framework-side `agentbridge` package is safe to build independently.
   the same app WITHOUT the agent query param opens no socket and serves
   normally; the session survives a livereload-triggered reload as a linked
   successor session.
+  - Done (2026-06-12): ai-chat-wizard now has opt-in agent bootstrap for
+    hub/token injection plus a `gwcagent` wasm bridge shim. The Playwright-Go
+    dogfood test drives a real hub session, acquires a lease, queries refs,
+    writes the model atom, emits send, snapshots the thread, verifies the
+    no-query-param path opens no session, and checks successor linkage after
+    reload. Verification: `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100AgentBridgeDogfood -count=1 -v`.
 
 Phase 1 hardening (2026-06-12, post-critique adversarial review + fixes):
 an adversarial critique pass found and these were fixed + regression-tested:
@@ -2496,7 +2502,7 @@ table. All green native + js/wasm + gwcagent tag.
     condition placeholder that composes with other predicates. Timeouts return
     the stable `timeout` wire code and name the unmet condition. Native tests
     cover delayed atom satisfaction and timeout behavior.
-- [ ] **`bridge.set-state` + `bridge.mount` / `bridge.unmount` /
+- [x] **`bridge.set-state` + `bridge.mount` / `bridge.unmount` /
   `bridge.delete-atom`** - the remaining CRUD: write a fiber ref's hook slot
   (pending-value slot + dirty mark, exactly the real setter's path - slot
   index validated against the fiber's hook count), mount a registered
@@ -2507,6 +2513,11 @@ table. All green native + js/wasm + gwcagent tag.
   in-flight render is serialized after it (never interleaved); mount/unmount
   round-trip leaves the registry at baseline (leak guard); delete-atom with
   live subscribers reports them and requires an explicit force flag.
+  - Done (2026-06-12): `agentbridge.RegisterControlCommands` now registers
+    `bridge.set-state`, `bridge.mount`, `bridge.unmount`, and
+    `bridge.delete-atom`; runtime write helpers serialize state writes,
+    support component mounting, and guard atom deletion unless forced.
+    Verification: `go test -count=1 ./agentbridge ./internal/runtime`.
 - [x] **`bridge.describe` - live control manifest** - the app's self-
   description: live atom registry (ids + Go types + JSON schemas derived via
   reflection), registered routes, event topics with payload types, mounted
@@ -2522,7 +2533,7 @@ table. All green native + js/wasm + gwcagent tag.
     names plus reflection-derived JSON schema classes. Native tests cover
     registration, deterministic atom listing, command inclusion, and number/
     string schema output.
-- [ ] **Session log/diagnostic streaming + console capture** - the hub
+- [x] **Session log/diagnostic streaming + console capture** - the hub
   buffers (bounded ring, per the bounded-internal-state policy) each
   session's runtime diagnostics + structured logs (already collected by
   `Inspect()`) pushed as event frames, plus a boot-shim hook capturing
@@ -2533,7 +2544,13 @@ table. All green native + js/wasm + gwcagent tag.
   a seeded console.error appears with source attribution; ring overflow
   drops oldest and REPORTS the drop count (never silent); redacted fields
   absent; filter by severity returns only matching records.
-- [ ] **Crash capture - socket-death forensics** - when a session dies
+  - Done (2026-06-12): the hub exposes bounded log tails through
+    `/__gwc-agent/logs` and `gwc logs`, captures diagnostics/log events, and
+    the wasm agent shim forwards `console.error`, `window.onerror`, and
+    unhandled rejections. Retained payloads are redacted before storage and
+    include drop counts. Verification: `go test -run TestLogsRecordingAndCrashReportAPI -count=1`
+    in `tools/agenthub`, plus `go test -count=1 ./agentbridge`.
+- [x] **Crash capture - socket-death forensics** - when a session dies
   outside a known rebuild window, the hub assembles a crash report: last
   successful snapshot, log/diagnostic tail, last N acked commands, build id.
   `gwc_crash_report` retrieves it. This is the moment the agent must NOT go
@@ -2542,7 +2559,11 @@ table. All green native + js/wasm + gwcagent tag.
   report containing the pre-crash snapshot and the panic diagnostic; a
   rebuild-triggered disconnect does NOT produce a crash report (reloading,
   not crashed); reports are bounded per session chain (no unbounded growth).
-- [ ] **`gwc_rebuild` - session-aware loop closer** - one MCP tool wrapping:
+  - Done (2026-06-12): socket death outside a marked reload now stores a
+    bounded crash report with build id, redacted last snapshot, log tail, and
+    recent commands; marked rebuild disconnects remain `reloading` instead of
+    crash reports. Verification: `go test ./... -count=1` in `tools/agenthub`.
+- [x] **`gwc_rebuild` - session-aware loop closer** - one MCP tool wrapping:
   hotreload snapshot carryover (already built - `GetSnapshot`/`ApplySnapshot`
   + migrations) -> `gwc build` -> livereload trigger -> wait for the
   successor session's hello -> report new build id + restored-state status.
@@ -2553,17 +2574,26 @@ table. All green native + js/wasm + gwcagent tag.
   FAILURE returns the compiler diagnostics in the envelope and the old
   session stays live and driveable; a hello timeout after a green build is
   reported as such (distinguishable from build failure).
+  - Done (2026-06-12): `gwc rebuild` / `gwc_rebuild` wraps session reload
+    marking, build execution, livereload trigger, successor polling, and
+    structured build/timeout diagnostics. Verification:
+    `go test ./tools/gwc -run TestExecuteRebuild -count=1`.
 
 ### Phase 3 - test lane (recordings become regression coverage)
 
-- [ ] **Session command recording** - the hub records each session's command/
+- [x] **Session command recording** - the hub records each session's command/
   ack/event stream (bounded, opt-in via tool or `gwc mcp` flag) with enough
   fidelity to replay: command name, payload, target ref, resulting
   stateVersion, inter-command waits. `gwc_recording` lists/fetches/clears.
   Test for: a recorded interaction sequence fetches back byte-deterministic;
   recording across a rebuild stitches the session chain; bounded buffer
   reports truncation; opt-out sessions record nothing.
-- [ ] **`gwc_export_test` - recording -> testkit codegen** - emit a recording
+  - Done (2026-06-12): the hub keeps a bounded command journal with payload,
+    ack, stateVersion, timing, errors, chain stitching across predecessors,
+    clear support, and `gwc recording` / `gwc_recording` access. Verification:
+    `go test -run TestLogsRecordingAndCrashReportAPI -count=1` in
+    `tools/agenthub`.
+- [x] **`gwc_export_test` - recording -> testkit codegen** - emit a recording
   as a runnable Go testkit test: commands become `Fixture` dispatches/
   assertions (same dispatch path by design), waits become settle calls,
   final snapshot becomes the assertion baseline. Generated code passes
@@ -2572,7 +2602,11 @@ table. All green native + js/wasm + gwcagent tag.
   and PASSES against the fixture app; the generated test FAILS when the
   recorded behavior is deliberately broken (it actually asserts something);
   regeneration is deterministic; generated file passes `gwc lint`.
-- [ ] **CI headless recipe + lane wiring** - a documented, tested path for
+  - Done (2026-06-12): `gwc export-test` / `gwc_export_test` generate
+    deterministic testkit-style Go source from recordings and are listed in
+    help/MCP metadata. Verification:
+    `go test ./tools/gwc -run TestBuildExportTest -count=1`.
+- [x] **CI headless recipe + lane wiring** - a documented, tested path for
   running bridge-driven e2e in CI: playwrightgo launches headless chromium,
   `gwc mcp` (or the hub standalone) starts with an ephemeral token, the
   fixture app connects, bridge assertions run as a `gwc test` lane.
@@ -2580,23 +2614,36 @@ table. All green native + js/wasm + gwcagent tag.
   matrix; token is single-use/ephemeral (a second consumer is refused); zombie
   process hygiene (mirror the examples-server start/stop pattern - no port
   squatters after the lane).
+  - Done (2026-06-12): added the `agent`/`agent-browser` test lanes, the
+    headless agent bridge workflow, and docs for the CI recipe. Verification:
+    `go test ./tools/gwc -run TestRunAgentBridgeHeadlessTestLaneSuccessAndSkipPaths -count=1`
+    and `go run ./tools/gwc test -lane agent-browser -json`.
 
 ### Phase 4 - hardening + polish
 
-- [ ] **Write lease - single writer per session** - mutating commands require
+- [x] **Write lease - single writer per session** - mutating commands require
   the session's write lease (acquire/release/steal-with-flag via
   `gwc_sessions`); readers are unlimited. Prevents interleaved `set_state`
   from two agents corrupting a flow mid-sequence.
   Test for: second writer's mutation is refused `forbidden` with the holder
   named; lease expires on holder disconnect; steal requires the explicit
   flag and notifies via event frame; read tools never require the lease.
-- [ ] **Manifest-derived write validation** - `set-atom`/`set-state`/`publish`
+  - Done (2026-06-12): `/__gwc-agent/lease` and `gwc lease` support
+    acquire/release/steal; mutating command relay requires `leaseHolder`,
+    mismatched holders fail, and steal emits `lease.stolen`. Verification:
+    `go test -run TestWriteLeaseRequiredForMutatingAPICommands -count=1` in
+    `tools/agenthub`.
+- [x] **Manifest-derived write validation** - `set-atom`/`set-state`/`publish`
   payloads validate against the `bridge.describe` JSON schemas before
   dispatch, so type errors fail closed at the boundary instead of corrupting
   state or panicking in a codec.
   Test for: a wrong-shape atom payload is refused with the schema path that
   failed; a valid payload for every fixture atom type round-trips; schema
   validation cost is bounded (no full-manifest rebuild per write).
+  - Done (2026-06-12): bridge write commands validate payload shape/type at
+    the boundary, including schema-type checks for atom writes and closed
+    failure on invalid state/mount/delete payloads. Verification:
+    `go test -count=1 ./agentbridge ./internal/runtime`.
 - [x] **`gwc_snapshot_diff` - structural before/after** - diff two snapshots
   (same session or across a rebuild) into added/removed/changed nodes and
   state deltas keyed by stable ref - the agent-readable "what did my change
@@ -2609,7 +2656,7 @@ table. All green native + js/wasm + gwcagent tag.
     deterministic added/removed/changed refs, and is exposed to MCP as
     `gwc_snapshot_diff`. Tests cover added/removed/changed structural refs
     and MCP manifest exposure.
-- [ ] **Security hardening pass (gate everything, prove it)** - the
+- [x] **Security hardening pass (gate everything, prove it)** - the
   consolidated guard suite: release profile artifact contains no bridge
   (string + symbol scan), hub refuses non-localhost binds and foreign
   origins, token required on every frame (not just hello), redaction
@@ -2618,7 +2665,15 @@ table. All green native + js/wasm + gwcagent tag.
   Test for: each gate has a test that FAILS when the gate is removed (guard
   tests, not assertions of current behavior); `gwc doctor` reports agent-mode
   status so a forgotten-enabled bridge is visible.
-- [ ] **Docs + AGENTS.md promotion** - reference-manual chapter (architecture
+  - Done (2026-06-12): the hub gates JSON and WebSocket routes with the
+    per-run token, rejects non-loopback and foreign-origin sockets, enforces
+    write leases, redacts retained snapshot/log/recording/crash payloads, and
+    documents the CDP-equivalent threat model. `gwc doctor` now reports
+    agent bridge environment status, and a release wasm guard scans for
+    bridge markers. Verification: `go test ./tools/gwc -run TestAgentBridgeReleaseArtifactHasNoAgentStrings -count=1`
+    plus `go test -run TestLogsRecordingAndCrashReportAPI -count=1` in
+    `tools/agenthub`.
+- [x] **Docs + AGENTS.md promotion** - reference-manual chapter (architecture
   diagram, tool catalog, ref format, security model, CI recipe, the
   CRUD-on-inputs design rule and WHY fiber mutation is forbidden), and the
   AGENTS.md SDLC table updated: implement/diagnose/verify rows gain the live
@@ -2626,3 +2681,7 @@ table. All green native + js/wasm + gwcagent tag.
   Test for: every shipped tool appears in the docs with a runnable example;
   doc examples are smoke-tested (the docs-site example-lint pattern); the
   SDLC table names only landed capabilities.
+  - Done (2026-06-12): AGENTS.md, the reference manual, public examples docs,
+    live bridge docs, testing surface docs, and the security/governance page
+    now describe the shipped agentic bridge surface and CI lane. Verification:
+    `go test ./docs/doclint ./docs/capabilities ./docs/errorcodes -count=1`.

@@ -1,84 +1,91 @@
 # Production Readiness Checklist
 
 A gated list of steps to take a GoWebComponents app from "works on my machine"
-to "ready to deploy." Each step names the `gwc` command or framework API that
-satisfies it, or marks it as a tracked backlog item where automation does not
-yet exist.
+to "ready to deploy." This document is guidance for application teams, not the
+repository backlog.
 
-## Build & artifacts
+## Build & Artifacts
 
-- [ ] **Release build.** Produce an optimized artifact with the release
-  profile: `go run ./tools/gwc release -app ./app/main.go -out-dir ./bin/release`.
-  For the smallest leaf-app binaries, the `tinygo` profile is available:
+- **Release build.** Produce an optimized artifact with the release profile:
+  `go run ./tools/gwc release -app ./app/main.go -out-dir ./bin/release`. For
+  the smallest leaf-app binaries, the `tinygo` profile is available:
   `gwc build -app ./app/main.go -profile tinygo`.
-- [ ] **Compression sidecars.** Emit precompressed assets for your CDN/origin:
+- **Compression sidecars.** Emit precompressed assets for your CDN/origin:
   `gwc release ... -compression gzip+brotli`. Confirm the server serves the
-  `.gz` / `.br` sidecars with correct `Content-Encoding`.
-- [ ] **Release manifest.** The release manifest records per-asset SHA-256.
-  Keep it with the deploy so you can verify what shipped.
+  `.gz` and `.br` sidecars with correct `Content-Encoding`.
+- **Release manifest.** Keep the release manifest with the deploy so you can
+  verify the per-asset SHA-256 records for what shipped.
 
-## Correctness gates
+## Correctness Gates
 
-- [ ] **Verify audit.** Run the CI-style gate locally before shipping:
+- **Verify audit.** Run the CI-style gate locally before shipping:
   `gwc verify -app ./app/main.go -root ./app -audit -audit-min-severity error`.
-- [ ] **Test lanes.** Run `gwc test -lane unit -lane wasm -lane hydration -lane browser`.
-- [ ] **Hydration parity.** If the app uses SSR, confirm the first client
-  render matches server markup (no `GWC-HYDRATION-*` diagnostics — see the
-  [error-code reference](REFERENCE_MANUAL/error-codes.md)).
+- **Test lanes.** Run
+  `gwc test -lane unit -lane wasm -lane hydration -lane browser`.
+- **Hydration parity.** If the app uses SSR, confirm the first client render
+  matches server markup without `GWC-HYDRATION-*` diagnostics. See
+  [the error-code reference](REFERENCE_MANUAL/error-codes.md).
 
-## Runtime resilience
+## Runtime Resilience
 
-- [ ] **Crash containment is on by default.** Verify panics surface as
-  structured console diagnostics (not a dead page) in a staging build. Use
+- **Crash containment is on by default.** Verify panics surface as structured
+  console diagnostics in a staging build instead of leaving a dead page. Use
   `ui.SafeGo(...)` for app goroutines.
-- [ ] **Error transport.** Decide where crash reports go in production. The
-  console report is always emitted; wiring an `OnReport` transport to your
-  telemetry is app-owned.
+- **Error transport.** Decide where crash reports go in production. The console
+  report is always emitted; wiring an `OnReport` transport to your telemetry is
+  app-owned.
 
-## Offline / PWA (if applicable)
+## Offline / PWA
 
-- [ ] **Service worker + manifest.** Register via
+Use this section only when the app ships offline or installability features.
+
+- **Service worker and manifest.** Register via
   `pwa.RegisterServiceWorker(...)` and build a cache plan with
-  `pwa.BuildCacheStoragePlan(...)`. Validate the manifest with the `pwa`
+  `pwa.BuildCacheStoragePlan(...)`. Validate the manifest with the PWA
   installability helpers.
-- [ ] **Offline mutation replay.** If you use `fetch.MutationQueue`, exercise
-  the offline→reconnect replay path before relying on it.
+- **Offline mutation replay.** If you use `fetch.MutationQueue`, exercise the
+  offline-to-reconnect replay path before relying on it.
 
-## Accessibility & i18n
+## Accessibility & I18n
 
-- [ ] **Reduced-motion / color-scheme.** Respect user preferences via
-  `ui.UsePrefersReducedMotion()` / `ui.UsePrefersColorScheme()`.
-- [ ] **Focus & announcements.** For overlays and route changes, use the
-  `ui` focus-trap, announcer, and composite-navigation primitives.
-- [ ] **Locale completeness.** If localized, confirm every `T(...)` key has a
+- **Reduced-motion and color-scheme.** Respect user preferences via
+  `ui.UsePrefersReducedMotion()` and `ui.UsePrefersColorScheme()`.
+- **Focus and announcements.** For overlays and route changes, use the `ui`
+  focus-trap, announcer, and composite-navigation primitives.
+- **Locale completeness.** If localized, confirm every `T(...)` key has a
   translation in each shipped locale.
 
 ## Security
 
-- [ ] **Untrusted HTML.** Never insert untrusted HTML as markup. Render
-  user-supplied markdown through `html.RenderMarkdown` (URL-scheme allowlisted)
-  and untrusted HTML through the `sanitize` package.
-- [ ] **Dependency scan.** Run `govulncheck ./...` and address findings. See
+- **Untrusted HTML.** Never insert untrusted HTML as markup. Render
+  user-supplied markdown through `html.RenderMarkdown` and untrusted HTML
+  through the `sanitize` package.
+- **Dependency scan.** Run `govulncheck ./...` and address findings. See
   [SECURITY.md](../SECURITY.md).
-- [ ] **Dev-only surfaces off.** Ensure live-reload and devtools panels are not
-  shipped in the production build.
+- **Dev-only surfaces off.** Ensure live reload, the agent bridge, and devtools
+  panels are not shipped in the production build.
+- **Release security artifacts.** The repository backlog has completed CSP
+  nonce threading, SRI emission, SBOM generation, and root-module security scan
+  work; verify your deployment path preserves those generated artifacts.
 
-## Performance (partly manual today)
+## Performance
 
-- [ ] **Measure startup & size.** Use `gwc bench` and
+- **Measure startup and size.** Use `gwc bench` and
   `gwc wasm measure -package ./app` to record wasm size and route-startup
-  numbers. Compare against your budget.
-- [ ] **Budget gate.** Backlog: an automated perf-budget CI gate that fails on
-  regression is not yet wired — track route-startup/size manually for now.
+  numbers. Compare them against your budget.
+- **Budget gate.** The repository backlog has completed the perf-budget gate
+  work. Make sure your app or CI adopts the generated budget policy instead of
+  treating the numbers as advisory only.
+- **Visual regression.** The repository backlog has completed the visual
+  regression lane. Add app-specific route screenshots or assertions before
+  relying on it for release signoff.
 
-## Backlog (not yet automated — track manually)
+## Rollout
 
-These go-live concerns are in the project backlog and do not yet have a `gwc`
-command behind them:
-
-- CSP nonce threading and SRI emission on generated shells.
-- SBOM emission and root-module gosec/govulncheck in CI.
-- Visual-regression and perf-budget CI gates.
-- Canary / gradual wasm rollout with instant rollback.
-
-Until these land, satisfy them with your own deployment tooling and CI.
+- **Canary and rollback.** The repository backlog has completed the canary /
+  gradual wasm rollout work. Confirm your deployment adapter can serve the
+  selected release and roll back quickly if startup, hydration, or runtime
+  diagnostics regress.
+- **Operational record.** Preserve the release manifest, SBOM, benchmark output,
+  audit output, and any screenshot or browser-lane artifacts with the release
+  candidate so production findings can be traced back to the shipped build.
