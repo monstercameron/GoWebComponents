@@ -11,6 +11,8 @@
 
 GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, typed HTML builders, shorthand authoring helpers, client-side routing, and shared state. It also ships streaming SSR with real async suspension, hydration and static islands, crash containment by default, realtime data hooks, feature flags, i18n, accessibility primitives, and PWA/offline support.
 
+It is **batteries-included**: rendering, hooks, routing, shared state, data fetching, SSR/hydration, i18n, accessibility, PWA/offline, feature flags, and devtools all ship in the same Go module, so there is no separate JavaScript build, bundler config, or npm dependency tree to assemble. The trade-offs that come with that — wasm runtime cost and bundle size — are described under [Performance and Trade-offs](#performance-and-trade-offs); read that section before adopting so expectations are set honestly.
+
 It is aimed at teams that want to build browser UI in Go without dropping into a separate JavaScript application stack for rendering, state, routing, and browser lifecycle management.
 
 ## Why GoWebComponents
@@ -371,6 +373,33 @@ go test -exec .\tools\go_js_wasm_exec.bat ./internal/runtime
 ```
 
 For the broader browser harness and focused browser flows, use [test/README.md](test/README.md) as the authoritative reference.
+
+## Performance and Trade-offs
+
+Set expectations honestly before adopting:
+
+- **Not native speed, and not faster than React.** GoWebComponents renders in
+  WebAssembly through `syscall/js`, so it is not a native-JavaScript framework and
+  makes no "native" or "near-native" DOM-speed claim. In the local
+  render-benchmark, a native-JS React 19.2.4 baseline typically leads on raw
+  DOM-ready latency; GoWebComponents' runtime-1 path is competitive mainly at the
+  paint-proxy (one-frame) boundary. wasm DOM calls cross the `syscall/js` bridge,
+  which is inherently slower than JavaScript touching the DOM directly. The value
+  is writing the whole UI in Go, not out-rendering hand-tuned JavaScript. See
+  [Benchmarks](#benchmarks) to reproduce both sides.
+- **Bundle size is larger than JS.** Standard Go→wasm binaries embed the Go
+  runtime, so they are big: a minimal `counter` app compiles to roughly **6 MB
+  raw (~1.7 MB gzipped on the wire)**, and real apps grow from there. Mitigate by
+  serving compressed (`gzip`/`brotli`), using the guarded `tinygo` build profile
+  (`gwc build -profile tinygo`, `-target=wasm -opt=z`) for smaller leaf-app
+  binaries where TinyGo compatibility allows, and measuring any package with
+  `go run ./tools/gwc wasm measure -package .\path\to\app`. If the hard
+  requirement is the smallest possible payload to anonymous first-time visitors, a
+  native-JS framework will still ship smaller initial bundles — GoWebComponents
+  trades that for a single Go codebase and toolchain.
+- **Where it fits well.** Go-centric teams, internal tools and dashboards, apps
+  that already share Go types/logic between server and client, and SSR-first apps
+  where the wasm payload hydrates already-rendered HTML.
 
 ## Benchmarks
 
