@@ -31,7 +31,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.0"
+          go-version: "1.26.x"
 
       - name: Run Go Unit Tests
         run: |
@@ -93,7 +93,7 @@ jobs:
             Push-Location $workDir
             go mod init example.com/gogrpcbridge-release-smoke
             if ($LASTEXITCODE -ne 0) { throw "go mod init failed" }
-            go get github.com/monstercameron/grpc-tunnel@latest
+            go get github.com/monstercameron/GoGRPCBridge@latest
             if ($LASTEXITCODE -ne 0) { throw "canonical go-get smoke failed" }
           } finally {
             Pop-Location

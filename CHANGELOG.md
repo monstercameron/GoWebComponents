@@ -37,18 +37,21 @@
   live vocabulary. All bridge verbs are exposed as `gwc` CLI subcommands and
   MCP tools. Compiled in only under the `gwcagent` build tag + `?gwc-dev=agent`
   and excluded from release builds; see `docs/PRODUCTION_READINESS.md`.
-- **`gwc screenshot` — DevTools/CDP browser-proxy backend** — `gwc mcp` now has
-  a second backend alongside the in-wasm semantic bridge: a Playwright-driven
-  headless Chromium (launched with `--no-sandbox`, CDP-backed) that captures
-  pixel-perfect PNGs of a running app — full page or a single CSS selector — for
-  the visual interactions the structural bridge can't see. Exposed as both a
-  `gwc screenshot` CLI subcommand and the auto-generated `gwc_screenshot` MCP
-  tool, emitting the standard agentic envelope (path/url/dimensions/bytes).
-  `gwc browser` opens a headed Chromium session with a CDP endpoint, and
-  `gwc screenshot -cdp` can attach to that exact live window.
-  Compiled only under the `playwrightgo` build tag to keep the browser
-  toolchain out of the lean default binary; covered by a `playwrightgo` test
-  that launches real Chromium and asserts valid, non-trivial PNG output.
+- **`gwc browser` + `gwc screenshot` — DevTools/CDP browser-proxy backend** —
+  `gwc mcp` now has a second backend alongside the in-wasm semantic bridge: a
+  Playwright/CDP browser proxy for the pixels and real windows the structural
+  bridge can't reach. `gwc browser` opens a **headed (visible) Chromium** window
+  (`--no-sandbox`) on a dev URL and keeps it open with a CDP debugging port, so
+  the engineer watches the app live during copilot dev while the agent drives
+  it. `gwc screenshot` captures a pixel-perfect PNG — full page or a single CSS
+  selector — either by launching its own headless Chromium, or with `-cdp` by
+  **attaching over CDP to the engineer's open `gwc browser` window** to capture
+  exactly what is on screen. Both are exposed as CLI subcommands and
+  auto-generated MCP tools (`gwc_browser`, `gwc_screenshot`), emitting the
+  standard agentic envelope. Compiled only under the `playwrightgo` build tag to
+  keep the browser toolchain out of the lean default binary; covered by
+  `playwrightgo` tests that open a real headed window and assert valid,
+  non-trivial PNG output (the cross-process attach flow is verified end-to-end).
 - **`events` introspection** — `events/introspect` exposes the live topic/
   subscriber graph for tooling and the agent bridge.
 - **Gesture primitives** (`anim`) — pure pan/drag and pinch primitives tracking
@@ -165,6 +168,11 @@
 - Bumped `golang.org/x/net` to v0.55.0.
 
 ### Fixed
+
+- **GitHub Actions GoGRPCBridge gates** -- workflows now use the latest Go
+  `1.26.x` patch toolchain, check the canonical `GoGRPCBridge` module/path,
+  delegate bridge WASM example builds to the bridge runner, and install the
+  Playwright version used by the root module.
 
 - **Agent bridge hardening** — 18 defects found and fixed across six adversarial
   review rounds, each regression-tested: a `SendCommand` socket-death bug

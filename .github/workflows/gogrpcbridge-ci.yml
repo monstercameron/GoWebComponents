@@ -9,7 +9,7 @@ on:
       - "go.sum"
       - "scripts/bootstrap-gogrpcbridge.ps1"
       - "third_party/GoGRPCBridge/**"
-      - "examples/100-ai-chat-wizard/**"
+      - "examples/server/ai-chat-wizard/**"
   push:
     branches:
       - main
@@ -21,7 +21,7 @@ on:
       - "go.sum"
       - "scripts/bootstrap-gogrpcbridge.ps1"
       - "third_party/GoGRPCBridge/**"
-      - "examples/100-ai-chat-wizard/**"
+      - "examples/server/ai-chat-wizard/**"
   workflow_dispatch:
 
 permissions:
@@ -47,7 +47,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.26.x"
 
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}
@@ -68,7 +68,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.26.x"
 
       - name: Install security scanners
         run: |
@@ -101,7 +101,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.26.x"
 
       - name: Run API compatibility and migration-policy guard
         run: |
@@ -121,7 +121,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.26.x"
 
       - name: Run bridge unit lane
         run: go run ./third_party/GoGRPCBridge/tools/runner.go test-short
@@ -139,13 +139,10 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.26.x"
 
       - name: Run bridge wasm compile lane
-        run: |
-          GOOS=js GOARCH=wasm go test ./third_party/GoGRPCBridge/pkg/grpctunnel -run '^$' -c -o ./third_party/GoGRPCBridge/bin/grpctunnel_wasm.test.wasm
-          GOOS=js GOARCH=wasm go test ./third_party/GoGRPCBridge/pkg/wasm/dialer -run '^$' -c -o ./third_party/GoGRPCBridge/bin/dialer_wasm.test.wasm
-          GOOS=js GOARCH=wasm go build -o ./third_party/GoGRPCBridge/bin/wasm-client.wasm ./third_party/GoGRPCBridge/examples/wasm-client
+        run: go run ./third_party/GoGRPCBridge/tools/runner.go build
 
   gogrpcbridge-browser:
     name: Browser Lane
@@ -161,7 +158,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.26.x"
 
       - name: Install Playwright browsers
         run: go run github.com/playwright-community/playwright-go/cmd/playwright@${{ env.PLAYWRIGHT_GO_VERSION }} install --with-deps chromium
@@ -188,15 +185,15 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.26.x"
 
       - name: Verify module replacement wiring
-        run: go list -m github.com/monstercameron/grpc-tunnel
+        run: go list -m github.com/monstercameron/GoGRPCBridge
 
       - name: Run root consumer smoke tests
         run: |
-          go test ./examples/100-ai-chat-wizard/client/app -run TestDoesNotExist -count=1
-          go test ./examples/100-ai-chat-wizard/server/app -run TestTransportHelpersCoverTunnelAndWasmResolution -count=1
+          go test ./examples/server/ai-chat-wizard/client/app -run TestDoesNotExist -count=1
+          go test ./examples/server/ai-chat-wizard/server/app -run TestTransportHelpersCoverTunnelAndWasmResolution -count=1
 
   gogrpcbridge-go-get-smoke:
     name: Go Get Smoke
@@ -206,7 +203,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.26.x"
 
       - name: Run clean-consumer go-get smoke test
         run: |
@@ -215,7 +212,7 @@ jobs:
           trap 'rm -rf "$WORK_DIR"' EXIT
           cd "$WORK_DIR"
           go mod init example.com/gogrpcbridge-get-smoke
-          go get github.com/monstercameron/grpc-tunnel@latest
+          go get github.com/monstercameron/GoGRPCBridge@latest
 
   gogrpcbridge-fast-pr-gate:
     name: Fast PR Gate
@@ -258,7 +255,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.26.x"
 
       - name: Run benchmark trend comparison
         run: go run ./third_party/GoGRPCBridge/tools/runner.go quality-trend
