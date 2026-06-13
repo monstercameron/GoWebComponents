@@ -49,6 +49,19 @@ func TestExtractCodesFindsKnownCodes(parseT *testing.T) {
 	}
 }
 
+func TestExtractCodesHandlesCRLFSource(parseT *testing.T) {
+	parseSource := strings.ReplaceAll(readMetadataSource(parseT), "\n", "\r\n")
+	parseCodes := ExtractCodes(parseSource)
+	parseSeen := map[string]ErrorCode{}
+	for _, parseCode := range parseCodes {
+		parseSeen[parseCode.Code] = parseCode
+	}
+	parseAsync := parseSeen["GWC-RUNTIME-PANIC-ASYNC"]
+	if parseAsync.Docs != "ACTIONABLE_ERRORS.md#gwc-runtime-panic-async" {
+		parseT.Fatalf("async panic docs = %q, want ACTIONABLE_ERRORS.md#gwc-runtime-panic-async", parseAsync.Docs)
+	}
+}
+
 // TestErrorCodeReferenceIsGenerated is the drift guard: the committed page must
 // byte-match the output generated from the runtime source. Run with
 // ERRORCODES_WRITE=1 to regenerate after adding or changing a code.

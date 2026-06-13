@@ -34,6 +34,8 @@ var (
 // sorted by code, deduplicated (the descriptive switch wins over the
 // phase-keyed panic helpers, which only add codes the switch omits).
 func ExtractCodes(parseSource string) []ErrorCode {
+	parseSource = strings.ReplaceAll(parseSource, "\r\n", "\n")
+
 	parseByCode := map[string]ErrorCode{}
 
 	// Primary source: the diagnosticMetadata switch, which sets .Code, .Docs,
