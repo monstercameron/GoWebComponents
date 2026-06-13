@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"html"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -312,14 +312,17 @@ func serializeProps(parseProps map[string]any) []string {
 		return nil
 	}
 
-	parseKeys := make([]string, 0, len(parseProps))
+	// Stack-allocated scratch for the common case (≤16 attributes): avoids a
+	// per-element heap slice when collecting and sorting attribute keys.
+	var parseKeyStorage [16]string
+	parseKeys := parseKeyStorage[:0]
 	for parseKey, parseValue := range parseProps {
 		if shouldSkipSSRProp(parseKey, parseValue) {
 			continue
 		}
 		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(parseKeys)
+	slices.Sort(parseKeys)
 
 	parseAttrs := make([]string, 0, len(parseKeys))
 	for _, parseKey2 := range parseKeys {
@@ -341,14 +344,17 @@ func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]any) {
 	if len(parseProps) == 0 {
 		return
 	}
-	parseKeys := make([]string, 0, len(parseProps))
+	// Stack-allocated scratch for the common case (≤16 attributes): avoids a
+	// per-element heap slice when collecting and sorting attribute keys.
+	var parseKeyStorage [16]string
+	parseKeys := parseKeyStorage[:0]
 	for parseKey, parseValue := range parseProps {
 		if shouldSkipSSRProp(parseKey, parseValue) {
 			continue
 		}
 		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(parseKeys)
+	slices.Sort(parseKeys)
 	for _, parseKey := range parseKeys {
 		parseName := normalizeSSRAttrName(parseKey)
 		if !isValidSSRAttrName(parseName) {
@@ -438,11 +444,12 @@ func serializeStyleMap(parseStyles map[string]string) string {
 	if len(parseStyles) == 0 {
 		return ""
 	}
-	parseKeys := make([]string, 0, len(parseStyles))
+	var parseKeyStorage [16]string
+	parseKeys := parseKeyStorage[:0]
 	for parseKey := range parseStyles {
 		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(parseKeys)
+	slices.Sort(parseKeys)
 
 	parseParts := make([]string, 0, len(parseKeys))
 	for _, parseKey2 := range parseKeys {

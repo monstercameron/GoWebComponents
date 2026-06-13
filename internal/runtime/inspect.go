@@ -514,21 +514,33 @@ func collectFlamegraphFrames(parseRoot *FiberSnapshot, parseLimit int) []Flamegr
 		return nil
 	}
 
-	parseFrames := make([]FlamegraphFrameSnapshot, 0, parseLimit)
-	var parseWalk func(parseNode *FiberSnapshot, parsePath []string, parseDepth int, parseStartNs int64) int64
-	parseWalk = func(parseNode2 *FiberSnapshot, parsePath2 []string, parseDepth2 int, parseStartNs2 int64) int64 {
-		if parseNode2 == nil {
+	// Grow the result lazily instead of preallocating parseLimit (256) frames:
+	// real snapshots emit only a handful, so a fixed 256-cap backing array was
+	// ~30KB of waste on every call. A single reused path stack (push before
+	// recursing, pop after) replaces the per-node ancestor-path slice copy that
+	// previously dominated allocation, and the walk short-circuits once the
+	// frame limit is reached rather than building the whole tree then truncating.
+	const flamegraphInitialFrameCap = 16
+	parseInitialCap := flamegraphInitialFrameCap
+	if parseLimit < parseInitialCap {
+		parseInitialCap = parseLimit
+	}
+	parseFrames := make([]FlamegraphFrameSnapshot, 0, parseInitialCap)
+	parsePath := make([]string, 0, 32)
+	var parseWalk func(parseNode *FiberSnapshot, parseDepth int, parseStartNs int64) int64
+	parseWalk = func(parseNode2 *FiberSnapshot, parseDepth2 int, parseStartNs2 int64) int64 {
+		if parseNode2 == nil || len(parseFrames) >= parseLimit {
 			return parseStartNs2
 		}
 
-		parseNextPath := append(append([]string(nil), parsePath2...), parseNode2.Name)
+		parsePath = append(parsePath, parseNode2.Name)
 		parseDurationNs := parseNode2.SubtreeDurationNs
 
 		if parseNode2.Kind != "root" && parseDurationNs > 0 {
 			parseFrames = append(parseFrames, FlamegraphFrameSnapshot{
 				Name:              parseNode2.Name,
 				Kind:              parseNode2.Kind,
-				Path:              strings.Join(parseNextPath, " > "),
+				Path:              strings.Join(parsePath, " > "),
 				Depth:             parseDepth2,
 				StartNs:           parseStartNs2,
 				DurationNs:        parseDurationNs,
@@ -547,8 +559,13 @@ func collectFlamegraphFrames(parseRoot *FiberSnapshot, parseLimit int) []Flamegr
 			parseNextDepth++
 		}
 		for parseIndex := range parseNode2.Children {
-			parseChildStart = parseWalk(&parseNode2.Children[parseIndex], parseNextPath, parseNextDepth, parseChildStart)
+			if len(parseFrames) >= parseLimit {
+				break
+			}
+			parseChildStart = parseWalk(&parseNode2.Children[parseIndex], parseNextDepth, parseChildStart)
 		}
+
+		parsePath = parsePath[:len(parsePath)-1]
 
 		parseEndNs := parseStartNs2 + parseDurationNs
 		if parseChildStart < parseEndNs {
@@ -557,10 +574,7 @@ func collectFlamegraphFrames(parseRoot *FiberSnapshot, parseLimit int) []Flamegr
 		return parseChildStart
 	}
 
-	parseWalk(parseRoot, nil, 0, 0)
-	if len(parseFrames) > parseLimit {
-		parseFrames = parseFrames[:parseLimit]
-	}
+	parseWalk(parseRoot, 0, 0)
 	return parseFrames
 }
 
