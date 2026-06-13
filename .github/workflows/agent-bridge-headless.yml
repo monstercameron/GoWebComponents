@@ -63,7 +63,20 @@ jobs:
       - name: Run native agent bridge lane
         run: go run ./tools/gwc test -lane agent -json
 
+      - name: Prebuild agent dogfood client
+        run: |
+          mkdir -p examples/server/ai-chat-wizard/bin/client/app
+          GOOS=js GOARCH=wasm go build -tags gwcagent -o examples/server/ai-chat-wizard/bin/client/app/chat.wasm ./examples/server/ai-chat-wizard/client
+
+      - name: Prebuild agent dogfood server
+        run: |
+          mkdir -p bin/ci
+          go build -o bin/ci/example100-agent-dogfood-server ./examples/server/ai-chat-wizard/cmd/server
+
       - name: Run headless agent bridge dogfood lane
+        env:
+          GWC_AGENT_DOGFOOD_REUSE_CLIENT_WASM: "1"
+          GWC_AGENT_DOGFOOD_SERVER_BINARY: bin/ci/example100-agent-dogfood-server
         run: |
           while sleep 20; do
             echo "agent-browser dogfood still running..."

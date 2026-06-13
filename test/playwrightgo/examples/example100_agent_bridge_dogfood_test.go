@@ -171,6 +171,11 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 func buildExample100AgentDogfoodClient(parseT *testing.T, parseRepoRoot string) {
 	parseT.Helper()
 	parseWASMPath := filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "bin", "client", "app", "chat.wasm")
+	if os.Getenv("GWC_AGENT_DOGFOOD_REUSE_CLIENT_WASM") == "1" {
+		if parseInfo, parseErr := os.Stat(parseWASMPath); parseErr == nil && parseInfo.Size() > 0 {
+			return
+		}
+	}
 	if parseErr := os.MkdirAll(filepath.Dir(parseWASMPath), 0o755); parseErr != nil {
 		parseT.Fatalf("create client wasm output dir: %v", parseErr)
 	}
@@ -193,10 +198,21 @@ func startExample100AgentDogfoodServer(parseT *testing.T, parseRepoRoot string, 
 	if runtime.GOOS == "windows" {
 		parseBinaryPath += ".exe"
 	}
+	if parsePrebuiltBinary := strings.TrimSpace(os.Getenv("GWC_AGENT_DOGFOOD_SERVER_BINARY")); parsePrebuiltBinary != "" {
+		if filepath.IsAbs(parsePrebuiltBinary) {
+			parseBinaryPath = parsePrebuiltBinary
+		} else {
+			parseBinaryPath = filepath.Join(parseRepoRoot, parsePrebuiltBinary)
+		}
+	}
 	parseAddress := "127.0.0.1:" + strings.TrimSpace(parsePort)
 	buildExample100AgentDogfoodClient(parseT, parseRepoRoot)
 	seedExample100HappyPathDatabase(parseT, parseRepoRoot, parseDBPath)
-	buildExample100HappyPathServerBinary(parseT, parseRepoRoot, parseBinaryPath)
+	if strings.TrimSpace(os.Getenv("GWC_AGENT_DOGFOOD_SERVER_BINARY")) == "" {
+		buildExample100HappyPathServerBinary(parseT, parseRepoRoot, parseBinaryPath)
+	} else if parseInfo, parseErr := os.Stat(parseBinaryPath); parseErr != nil || parseInfo.IsDir() {
+		parseT.Fatalf("prebuilt agent dogfood server binary is not usable: %s", parseBinaryPath)
+	}
 
 	parseStop := startExamplesCommandWithEnv(
 		parseT,
