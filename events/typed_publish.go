@@ -1,13 +1,16 @@
 // Package events — typed_publish.go adds a topic-type codec registry that lets
 // an AI agent bridge (or any JSON source) publish events that reach typed
-// subscribers registered with Subscribe[T].
+// subscribers registered with Subscribe[T], INCLUDING composite types.
 //
-// Background: Publish[any](topic, v) does NOT reach a Subscribe[string]
-// handler because the deliver wrapper performs parseValue.(T) — when T is
-// string but parseValue carries the dynamic type any (double-boxed), the
-// assertion fails and the handler is skipped silently.  The codec registry
-// fixes this by decoding JSON into the concrete Go type T and then calling
-// Publish[T], so the assertion always succeeds.
+// Background: a plain json.Unmarshal into `any` yields Go primitives for JSON
+// primitives (string, float64, bool, nil) but a map[string]any for JSON
+// objects. So an untyped Publish[any] DOES reach a Subscribe[T] handler when T
+// is the matching primitive — the value's dynamic type satisfies the
+// parseValue.(T) assertion in the deliver wrapper — but it NEVER reaches a
+// Subscribe[SomeStruct] handler, because the value is a map[string]any, not the
+// struct. The codec registry closes that gap: RegisterTopic[T] decodes the JSON
+// into the concrete T and calls Publish[T], so subscribers of ANY type T —
+// composite types included — receive the value.
 package events
 
 import (
@@ -71,8 +74,11 @@ func RegisterTopic[T any](parseTopic string) {
 //
 // If NO codec is registered, the JSON is decoded into a generic any value
 // (numbers become float64, objects become map[string]any, etc.) and
-// Publish[any] is called.  This preserves the existing behaviour for
-// untyped subscribers but will NOT reach typed Subscribe[T] handlers.
+// Publish[any] is called. This reaches any-typed subscribers AND
+// concretely-typed subscribers whose T matches the decoded primitive
+// (Subscribe[string]/[float64]/[bool] receive a JSON string/number/bool), but
+// does NOT reach composite-typed subscribers — a Subscribe[SomeStruct] sees a
+// map[string]any, not its struct, so register a codec for those topics.
 //
 // An error is returned when the registered codec's json.Unmarshal step fails
 // (wrong JSON shape for T).  JSON decode failures in the untyped fallback

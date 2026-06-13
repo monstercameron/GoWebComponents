@@ -27,55 +27,94 @@ func resetCodecAndTopic(parseTopic string) {
 
 // TestPublishJSONReachesTypedSubscriber is the primary regression test for the
 // "any-publish skips typed subscribers" gap.
+//
+// The gap is clearest for struct types: without RegisterTopic, a JSON object
+// decodes to map[string]any and fails the type assertion inside
+// Subscribe[testEvent].  With RegisterTopic[testEvent], the JSON is unmarshalled
+// directly into testEvent before Publish[testEvent] is called, so the assertion
+// always succeeds.
 func TestPublishJSONReachesTypedSubscriber(t *testing.T) {
-	parseTopic := "typed.greeting"
-	resetCodecAndTopic(parseTopic)
+	// Struct sub-test: demonstrates the core fix (map[string]any → testEvent gap).
+	t.Run("struct", func(t *testing.T) {
+		parseTopic := "typed.greeting.struct"
+		resetCodecAndTopic(parseTopic)
 
-	RegisterTopic[string](parseTopic)
-	defer codecRegistry.Delete(parseTopic)
+		RegisterTopic[testEvent](parseTopic)
+		defer codecRegistry.Delete(parseTopic)
 
-	parseReceived := []string{}
-	parseUnsub := Subscribe(parseTopic, func(parseV string) {
-		parseReceived = append(parseReceived, parseV)
+		parseReceived := []testEvent{}
+		parseUnsub := Subscribe(parseTopic, func(parseV testEvent) {
+			parseReceived = append(parseReceived, parseV)
+		})
+		defer parseUnsub()
+
+		parseErr := PublishJSON(parseTopic, json.RawMessage(`{"name":"hello","score":1}`))
+		if parseErr != nil {
+			t.Fatalf("PublishJSON returned unexpected error: %v", parseErr)
+		}
+		if len(parseReceived) != 1 {
+			t.Fatalf("typed subscriber received %d values, want 1", len(parseReceived))
+		}
+		if parseReceived[0].Name != "hello" {
+			t.Fatalf("typed subscriber got %+v, want name=hello", parseReceived[0])
+		}
 	})
-	defer parseUnsub()
 
-	parseErr := PublishJSON(parseTopic, json.RawMessage(`"hello"`))
-	if parseErr != nil {
-		t.Fatalf("PublishJSON returned unexpected error: %v", parseErr)
-	}
+	// String sub-test: RegisterTopic[string] also routes correctly.
+	t.Run("string", func(t *testing.T) {
+		parseTopic := "typed.greeting.string"
+		resetCodecAndTopic(parseTopic)
 
-	if len(parseReceived) != 1 {
-		t.Fatalf("typed subscriber received %d values, want 1", len(parseReceived))
-	}
-	if parseReceived[0] != "hello" {
-		t.Fatalf("typed subscriber got %q, want %q", parseReceived[0], "hello")
-	}
+		RegisterTopic[string](parseTopic)
+		defer codecRegistry.Delete(parseTopic)
+
+		parseReceived := []string{}
+		parseUnsub := Subscribe(parseTopic, func(parseV string) {
+			parseReceived = append(parseReceived, parseV)
+		})
+		defer parseUnsub()
+
+		parseErr := PublishJSON(parseTopic, json.RawMessage(`"hello"`))
+		if parseErr != nil {
+			t.Fatalf("PublishJSON returned unexpected error: %v", parseErr)
+		}
+		if len(parseReceived) != 1 || parseReceived[0] != "hello" {
+			t.Fatalf("typed subscriber got %v, want [hello]", parseReceived)
+		}
+	})
 }
 
 // TestPublishJSONWithoutCodecDoesNotReachTypedSubscriber documents the
 // boundary: when no RegisterTopic is called, PublishJSON falls back to
-// Publish[any] and a typed Subscribe[string] handler is NOT reached.
+// Publish[any].  For struct types, json.Unmarshal decodes a JSON object into
+// map[string]any, which does NOT satisfy a Subscribe[testEvent] type
+// assertion.  The typed subscriber is therefore silently skipped.
+//
+// Note: for JSON primitives (strings, numbers, booleans) the fallback DOES
+// reach typed subscribers because json decodes them into the matching Go
+// primitive types.  The gap only manifests for composite types (structs,
+// custom types).
 func TestPublishJSONWithoutCodecDoesNotReachTypedSubscriber(t *testing.T) {
-	parseTopicNoCodec := "typed.greeting.nocodec"
+	parseTopicNoCodec := "typed.struct.nocodec"
 	resetCodecAndTopic(parseTopicNoCodec)
-	// Intentionally do NOT call RegisterTopic for this topic.
+	// Intentionally do NOT call RegisterTopic[testEvent] for this topic.
 
-	parseReceived := []string{}
-	parseUnsub := Subscribe(parseTopicNoCodec, func(parseV string) {
+	parseReceived := []testEvent{}
+	parseUnsub := Subscribe(parseTopicNoCodec, func(parseV testEvent) {
 		parseReceived = append(parseReceived, parseV)
 	})
 	defer parseUnsub()
 
-	parseErr := PublishJSON(parseTopicNoCodec, json.RawMessage(`"hello"`))
+	// JSON object -> json.Unmarshal into any -> map[string]any, not testEvent.
+	parseErr := PublishJSON(parseTopicNoCodec, json.RawMessage(`{"name":"alice","score":42}`))
 	if parseErr != nil {
 		t.Fatalf("PublishJSON fallback returned unexpected error: %v", parseErr)
 	}
 
-	// The typed subscriber must NOT receive the value because Publish[any]
-	// double-boxes the string and the type assertion inside the wrapper fails.
+	// The typed subscriber must NOT receive the value: Publish[any] delivers
+	// map[string]any and the type assertion to testEvent fails.
 	if len(parseReceived) != 0 {
-		t.Fatalf("typed subscriber should NOT receive value without codec, got %d deliveries", len(parseReceived))
+		t.Fatalf("typed struct subscriber should NOT receive value without codec (got map[string]any), got %d deliveries", len(parseReceived))
 	}
 }
 
