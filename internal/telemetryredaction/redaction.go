@@ -3,6 +3,7 @@ package telemetryredaction
 import (
 	"fmt"
 	"maps"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -139,7 +140,9 @@ func redactValue(parsePath string, parseValue any) any {
 	case []any:
 		parseOut := make([]any, 0, len(parseTyped))
 		for parseIndex, parseNested := range parseTyped {
-			parseOut = append(parseOut, redactValue(fmt.Sprintf("%s[%d]", parsePath, parseIndex), parseNested))
+			// Manual concat instead of fmt.Sprintf: avoids per-element interface
+			// boxing and format parsing on this telemetry-wide path.
+			parseOut = append(parseOut, redactValue(parsePath+"["+strconv.Itoa(parseIndex)+"]", parseNested))
 		}
 		return parseOut
 	case []string:
