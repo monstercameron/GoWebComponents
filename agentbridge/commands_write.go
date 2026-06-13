@@ -35,6 +35,8 @@ func RegisterWriteCommands() {
 	RegisterAgentCommand("bridge.mount", writeHandleMount)
 	RegisterAgentCommand("bridge.unmount", writeHandleUnmount)
 	RegisterAgentCommand("bridge.delete-atom", writeHandleDeleteAtom)
+	// Audit trail + undo for the mutations registered above.
+	RegisterSafetyCommands()
 }
 
 // MountComponentFactory renders a bridge-mountable component from JSON-decoded
@@ -44,6 +46,9 @@ type MountComponentFactory func(map[string]any) *runtime.Element
 type writeMountedRoot struct {
 	Component string
 	Selector  string
+	// Props are the decoded mount props, retained so a bridge.unmount can be
+	// reversed by remounting the same component with the same props.
+	Props map[string]any
 }
 
 var (
@@ -67,10 +72,22 @@ func RegisterMountComponent(parseName string, parseFactory MountComponentFactory
 // bridge.set-atom
 // ---------------------------------------------------------------------------
 
-// writeSetAtomPayload is the decoded shape of a bridge.set-atom command.
+// writeSetAtomPayload is the decoded shape of a bridge.set-atom command. When
+// DryRun is set the command validates and returns the would-be change without
+// applying it, so an agent can preview the effect (and confirm the atom exists
+// and the type matches) before committing.
 type writeSetAtomPayload struct {
-	ID    string          `json:"id"`
-	Value json.RawMessage `json:"value"`
+	ID     string          `json:"id"`
+	Value  json.RawMessage `json:"value"`
+	DryRun bool            `json:"dryRun,omitempty"`
+}
+
+// writeSetAtomDryRunResult previews a set-atom that was not applied.
+type writeSetAtomDryRunResult struct {
+	DryRun bool   `json:"dryRun"`
+	ID     string `json:"id"`
+	From   any    `json:"from"`
+	To     any    `json:"to"`
 }
 
 // writeHandleSetAtom handles the bridge.set-atom command. It decodes {"id":
@@ -131,6 +148,18 @@ func writeHandleSetAtom(parsePayload json.RawMessage) (json.RawMessage, *Envelop
 		}
 	}
 
+	// Dry run: validation passed, so report the would-be change without
+	// applying it or recording a mutation.
+	if parseDec.DryRun {
+		parsePreview, parseMarshalErr := json.Marshal(writeSetAtomDryRunResult{
+			DryRun: true, ID: parseDec.ID, From: parseCurrent, To: parseRawValue,
+		})
+		if parseMarshalErr != nil {
+			return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: parseMarshalErr.Error()}
+		}
+		return parsePreview, nil
+	}
+
 	// Apply as a single-entry snapshot through state.ApplySnapshot so that
 	// subscribed fibers are scheduled for update exactly as they would be after
 	// a hotreload restore.
@@ -141,6 +170,17 @@ func writeHandleSetAtom(parsePayload json.RawMessage) (json.RawMessage, *Envelop
 			Message: fmt.Sprintf("set-atom: apply snapshot for atom %q failed: %v", parseDec.ID, parseErr),
 		}
 	}
+
+	// Record the mutation with an undo that restores the captured prior value.
+	parsePrior := parseCurrent
+	parseAtomID := parseDec.ID
+	RecordAgentMutation("bridge.set-atom", "set atom "+parseAtomID, func() *EnvelopeError {
+		if parseRestoreErr := state.ApplySnapshot(state.Snapshot{parseAtomID: parsePrior}); parseRestoreErr != nil {
+			return &EnvelopeError{Code: ErrorCodeBadPayload, Message: "undo set-atom " + parseAtomID + ": " + parseRestoreErr.Error()}
+		}
+		runtime.GetGlobalRuntime().AdvanceAgentStateVersion()
+		return nil
+	})
 
 	parseRt.AdvanceAgentStateVersion()
 	return writeEncodeOK()
@@ -157,7 +197,25 @@ func writeAtomValueCompatible(parseCurrent any, parseNew any) bool {
 		// (JSON null) is a legal reset for any atom.
 		return true
 	}
-	return writeValueFamily(parseCurrent) == writeValueFamily(parseNew)
+	if writeValueFamily(parseCurrent) != writeValueFamily(parseNew) {
+		return false
+	}
+	// The incoming value is always JSON-decoded, so a composite is a generic
+	// []any / map[string]any. If the current atom holds a CONCRETE typed
+	// composite (e.g. []models.Todo, map[string]int), that generic value would
+	// fail the typed UseAtom[T]().Get() assertion and silently revert — so
+	// reject it rather than report a false success.
+	switch reflect.ValueOf(parseCurrent).Kind() {
+	case reflect.Slice, reflect.Array:
+		if _, parseOk := parseCurrent.([]any); !parseOk {
+			return false
+		}
+	case reflect.Map:
+		if _, parseOk := parseCurrent.(map[string]any); !parseOk {
+			return false
+		}
+	}
+	return true
 }
 
 // writeValueFamily maps a value to a coarse type family for compatibility
@@ -224,9 +282,28 @@ func writeHandleSetState(parsePayload json.RawMessage) (json.RawMessage, *Envelo
 		}
 	}
 	parseRt := runtime.GetGlobalRuntime()
+	// Capture the prior slot value before writing so the set-state can be
+	// recorded as a reversible mutation.
+	parsePrior, parsePriorErr := runtime.GetAgentState(parseRt, parseDec.Ref, parseDec.Slot)
 	parseErr := runtime.SetAgentState(parseRt, parseDec.Ref, parseDec.Slot, parseValue)
 	if parseErr == nil {
 		parseRt.AdvanceAgentStateVersion()
+		parseLabel := fmt.Sprintf("set-state %s[%d]", parseDec.Ref, parseDec.Slot)
+		if parsePriorErr == nil {
+			parseRef := parseDec.Ref
+			parseSlot := parseDec.Slot
+			parsePriorVal := parsePrior
+			RecordAgentMutation("bridge.set-state", parseLabel, func() *EnvelopeError {
+				if parseUndoErr := runtime.SetAgentState(runtime.GetGlobalRuntime(), parseRef, parseSlot, parsePriorVal); parseUndoErr != nil {
+					return &EnvelopeError{Code: ErrorCodeBadPayload, Message: "undo set-state: " + parseUndoErr.Error()}
+				}
+				runtime.GetGlobalRuntime().AdvanceAgentStateVersion()
+				return nil
+			})
+		} else {
+			// Could not read the prior value; record without an undo.
+			RecordAgentMutation("bridge.set-state", parseLabel+" (prior value unavailable; not reversible)", nil)
+		}
 		return writeEncodeOK()
 	}
 	if errors.Is(parseErr, runtime.ErrAgentRefStale) {
@@ -281,6 +358,9 @@ func writeHandleEmit(parsePayload json.RawMessage) (json.RawMessage, *EnvelopeEr
 	parseEmitErr := runtime.EmitAgentEvent(parseRt, parseDec.Ref, parseDec.Event, parseDec.Payload)
 	if parseEmitErr == nil {
 		parseRt.AdvanceAgentStateVersion()
+		// Emitting an event fires arbitrary handler side effects; it cannot be
+		// reversed, but it must still appear in the audit trail.
+		RecordAgentMutation("bridge.emit", fmt.Sprintf("emit %s on %s", parseDec.Event, parseDec.Ref), nil)
 		return writeEncodeOK()
 	}
 
@@ -331,19 +411,12 @@ type writePublishPayload struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
-// writeHandlePublish handles the bridge.publish command. It decodes the payload
-// and calls events.Publish[any](topic, value).
-//
-// NOTE: because the agent bridge is untyped (the payload arrives as raw JSON
-// decoded to a plain Go any), events.Publish[any] is used. The events package
-// delivers each message to subscribers by calling their internal deliver func,
-// which performs a runtime type assertion to the subscriber's type parameter T.
-// Subscribers registered with a concrete T other than any will NOT receive
-// these publications — their type assertion will fail and the delivery will be
-// silently skipped. This is a known limitation of the untyped bridge → typed
-// subscriber boundary. Applications that need the bridge to reach typed
-// subscribers should define a dedicated subscription handler func(any) that
-// re-publishes with the correct concrete type.
+// writeHandlePublish handles the bridge.publish command. It routes the raw JSON
+// payload through events.PublishJSON, which delivers to the app's TYPED
+// subscribers when the topic has a registered type codec (events.RegisterTopic
+// [T]) and otherwise falls back to an any-typed publish. describe's
+// publishableTopics lists which topics have a codec, so an agent knows whether
+// a publish will reach typed subscribers before sending it.
 func writeHandlePublish(parsePayload json.RawMessage) (json.RawMessage, *EnvelopeError) {
 	if !IsAgentModeActive() {
 		return nil, &EnvelopeError{Code: ErrorCodeForbidden, Message: "agent mode is not active"}
@@ -354,17 +427,14 @@ func writeHandlePublish(parsePayload json.RawMessage) (json.RawMessage, *Envelop
 		return nil, parseDecErr
 	}
 
-	// Decode the value from JSON into a plain Go type.
-	var parseValue any
-	if parseUnmarshalErr := json.Unmarshal(parseDec.Payload, &parseValue); parseUnmarshalErr != nil {
+	if parsePublishErr := events.PublishJSON(parseDec.Topic, parseDec.Payload); parsePublishErr != nil {
 		return nil, &EnvelopeError{
 			Code:    ErrorCodeBadPayload,
-			Message: fmt.Sprintf("publish: cannot decode payload JSON for topic %q: %v", parseDec.Topic, parseUnmarshalErr),
+			Message: fmt.Sprintf("publish: topic %q: %v", parseDec.Topic, parsePublishErr),
 		}
 	}
-
-	events.Publish[any](parseDec.Topic, parseValue)
 	runtime.GetGlobalRuntime().AdvanceAgentStateVersion()
+	RecordAgentMutation("bridge.publish", "publish to "+parseDec.Topic, nil)
 	return writeEncodeOK()
 }
 
@@ -419,6 +489,10 @@ func writeHandleNavigate(parsePayload json.RawMessage) (json.RawMessage, *Envelo
 	parseResult, parseNavErr := writeNavigatePlatform(parseDec.Path)
 	if parseNavErr == nil {
 		runtime.GetGlobalRuntime().AdvanceAgentStateVersion()
+		// Navigation changes the active route; record it so the audit trail is
+		// complete. It is not auto-reversible (the prior route is not captured
+		// across the platform boundary), so an agent navigates back explicitly.
+		RecordAgentMutation("bridge.navigate", "navigate to "+parseDec.Path, nil)
 	}
 	return parseResult, parseNavErr
 }
@@ -471,6 +545,17 @@ func writeHandleMount(parsePayload json.RawMessage) (json.RawMessage, *EnvelopeE
 		}
 	}
 
+	// Reject a non-existent selector up front. RenderTo's not-found signal is a
+	// panic that the production policy suppresses, so without this a mount onto
+	// a bad selector would silently "succeed" and render nowhere.
+	if !runtime.GetGlobalRuntime().SelectorResolves(parseDec.Selector) {
+		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: fmt.Sprintf("mount: selector %q did not resolve to a container", parseDec.Selector)}
+	}
+
+	// Reserve the id atomically with the existence check so two concurrent
+	// mounts of the same id cannot both pass the check and both call the
+	// factory (double-render, orphaned first mount). The reservation is rolled
+	// back below if rendering fails.
 	writeMountMu.Lock()
 	parseFactory := writeMountComponents[parseDec.Component]
 	if parseFactory == nil {
@@ -481,19 +566,28 @@ func writeHandleMount(parsePayload json.RawMessage) (json.RawMessage, *EnvelopeE
 		writeMountMu.Unlock()
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: fmt.Sprintf("mount: id %q is already mounted", parseDec.ID)}
 	}
+	writeMountedRoots[parseDec.ID] = writeMountedRoot{Component: parseDec.Component, Selector: parseDec.Selector, Props: parseProps}
 	writeMountMu.Unlock()
 
 	parseElement := parseFactory(parseProps)
 	if parseElement == nil {
+		writeMountReleaseReservation(parseDec.ID)
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: fmt.Sprintf("mount: component %q rendered nil", parseDec.Component)}
 	}
 	if parseErr := writeRenderToSelector(parseDec.Selector, parseElement); parseErr != nil {
+		writeMountReleaseReservation(parseDec.ID)
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: "mount: " + parseErr.Error()}
 	}
 
-	writeMountMu.Lock()
-	writeMountedRoots[parseDec.ID] = writeMountedRoot{Component: parseDec.Component, Selector: parseDec.Selector}
-	writeMountMu.Unlock()
+	// Record a reversible mutation whose undo unmounts the component.
+	parseMountID := parseDec.ID
+	parseMountSelector := parseDec.Selector
+	RecordAgentMutation("bridge.mount", "mount "+parseDec.Component+" as "+parseMountID, func() *EnvelopeError {
+		_ = writeRenderToSelector(parseMountSelector, nil)
+		writeMountReleaseReservation(parseMountID)
+		runtime.GetGlobalRuntime().AdvanceAgentStateVersion()
+		return nil
+	})
 	runtime.GetGlobalRuntime().AdvanceAgentStateVersion()
 	return writeEncodeOK()
 }
@@ -507,21 +601,29 @@ func writeHandleUnmount(parsePayload json.RawMessage) (json.RawMessage, *Envelop
 		return nil, parseDecErr
 	}
 
+	// Claim the id by deleting it under the lock BEFORE rendering. This makes
+	// check-and-claim atomic (a concurrent unmount of the same id sees it gone
+	// and returns "not mounted" — no double nil-render) and guarantees a render
+	// error cannot leave the id stuck as "mounted" forever.
 	writeMountMu.Lock()
 	parseMounted, parseExists := writeMountedRoots[parseDec.ID]
 	if !parseExists {
 		writeMountMu.Unlock()
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: fmt.Sprintf("unmount: id %q is not mounted", parseDec.ID)}
 	}
+	delete(writeMountedRoots, parseDec.ID)
 	writeMountMu.Unlock()
 
 	if parseErr := writeRenderToSelector(parseMounted.Selector, nil); parseErr != nil {
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: "unmount: " + parseErr.Error()}
 	}
 
-	writeMountMu.Lock()
-	delete(writeMountedRoots, parseDec.ID)
-	writeMountMu.Unlock()
+	// Record the unmount with an undo that remounts the same component+props.
+	parseUnmountID := parseDec.ID
+	parseRemount := parseMounted
+	RecordAgentMutation("bridge.unmount", "unmount "+parseUnmountID, func() *EnvelopeError {
+		return writeRemount(parseUnmountID, parseRemount.Component, parseRemount.Selector, parseRemount.Props)
+	})
 	runtime.GetGlobalRuntime().AdvanceAgentStateVersion()
 	return writeEncodeOK()
 }
@@ -591,6 +693,8 @@ func writeHandleDeleteAtom(parsePayload json.RawMessage) (json.RawMessage, *Enve
 	if parseDecErr != nil {
 		return nil, parseDecErr
 	}
+	// Capture the prior value before deleting so the delete is reversible.
+	parsePriorVal, parseHadPrior := runtime.GetGlobalRuntime().SnapshotAtoms()[parseDec.ID]
 	parseResult, parseErr := runtime.DeleteAgentAtom(runtime.GetGlobalRuntime(), parseDec.ID, parseDec.Force)
 	if parseErr != nil {
 		parseMessage := parseErr.Error()
@@ -598,6 +702,17 @@ func writeHandleDeleteAtom(parsePayload json.RawMessage) (json.RawMessage, *Enve
 			parseMessage = fmt.Sprintf("%s; subscribers=%s", parseMessage, strings.Join(parseResult.Subscribers, ","))
 		}
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: parseMessage}
+	}
+	if parseResult.Deleted && parseHadPrior {
+		parseDeletedID := parseDec.ID
+		parseRestoreVal := parsePriorVal
+		RecordAgentMutation("bridge.delete-atom", "delete atom "+parseDeletedID, func() *EnvelopeError {
+			if parseRestoreErr := state.ApplySnapshot(state.Snapshot{parseDeletedID: parseRestoreVal}); parseRestoreErr != nil {
+				return &EnvelopeError{Code: ErrorCodeBadPayload, Message: "undo delete-atom " + parseDeletedID + ": " + parseRestoreErr.Error()}
+			}
+			runtime.GetGlobalRuntime().AdvanceAgentStateVersion()
+			return nil
+		})
 	}
 	parseBytes, parseMarshalErr := json.Marshal(writeDeleteAtomResult{OK: true, Deleted: parseResult.Deleted, Subscribers: parseResult.Subscribers})
 	if parseMarshalErr != nil {

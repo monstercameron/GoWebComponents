@@ -53,10 +53,39 @@ func RecordAgentMutation(parseCommand string, parseSummary string, parseUndo fun
 	}
 	auditEntries = append(auditEntries, parseEntry)
 	if len(auditEntries) > auditCap {
-		auditEntries = auditEntries[len(auditEntries)-auditCap:]
+		// Copy into a fresh slice so the dropped prefix is released for GC
+		// instead of being retained by the backing array.
+		parseTrimmed := make([]AgentAuditEntry, auditCap)
+		copy(parseTrimmed, auditEntries[len(auditEntries)-auditCap:])
+		auditEntries = parseTrimmed
 	}
 	if parseUndo != nil {
 		undoStack = append(undoStack, agentUndoOp{seq: auditSeq, label: parseSummary, undo: parseUndo})
+		// Bound the undo stack to the same cap. Without this it grows without
+		// limit (each op retains a closure capturing a prior value), leaking
+		// memory and letting the undo stack outlive the audit trail it mirrors.
+		if len(undoStack) > auditCap {
+			parseTrimmedUndo := make([]agentUndoOp, auditCap)
+			copy(parseTrimmedUndo, undoStack[len(undoStack)-auditCap:])
+			undoStack = parseTrimmedUndo
+		}
+	}
+	// Keep the undo stack consistent with the audit ring: a flood of
+	// non-reversible mutations can roll an old reversible op's audit entry out
+	// of the ring while its undo op survives. Drop any undo op whose seq is
+	// older than the oldest surviving audit entry so every undoable op always
+	// has a matching audit record.
+	if len(auditEntries) > 0 && len(undoStack) > 0 {
+		parseOldestSeq := auditEntries[0].Seq
+		parseCut := 0
+		for parseCut < len(undoStack) && undoStack[parseCut].seq < parseOldestSeq {
+			parseCut++
+		}
+		if parseCut > 0 {
+			parseKept := make([]agentUndoOp, len(undoStack)-parseCut)
+			copy(parseKept, undoStack[parseCut:])
+			undoStack = parseKept
+		}
 	}
 	return auditSeq
 }

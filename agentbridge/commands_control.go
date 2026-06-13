@@ -10,12 +10,14 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/events"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/router"
 )
 
 // RegisterControlCommands installs bridge.wait-for and bridge.describe.
 func RegisterControlCommands() {
 	RegisterAgentCommand("bridge.wait-for", controlHandleWaitFor)
 	RegisterAgentCommand("bridge.describe", controlHandleDescribe)
+	RegisterReplayCommands()
 }
 
 type controlWaitPayload struct {
@@ -45,11 +47,27 @@ type controlWaitResult struct {
 	Reason       string `json:"reason,omitempty"`
 }
 
+// controlDescribeResult is the describe manifest. Every collection field is
+// emitted even when empty (no omitempty) so the manifest shape is stable: an
+// agent can always read routes/atoms/events/mountable/publishableTopics rather
+// than having to distinguish "absent" from "none".
 type controlDescribeResult struct {
 	StateVersion uint64                 `json:"stateVersion"`
 	Commands     []string               `json:"commands"`
-	Atoms        []controlDescribeAtom  `json:"atoms,omitempty"`
-	Events       []controlDescribeEvent `json:"events,omitempty"`
+	Atoms        []controlDescribeAtom  `json:"atoms"`
+	Events       []controlDescribeEvent `json:"events"`
+	// Routes are the navigable router paths bridge.navigate accepts (empty on
+	// non-wasm builds, where the router is unavailable).
+	Routes []string `json:"routes"`
+	// Mountable lists the component names bridge.mount accepts.
+	Mountable []string `json:"mountable"`
+	// PublishableTopics lists topics with a registered type codec, so a
+	// bridge.publish to them reaches the app's typed subscribers regardless of
+	// the subscriber's Go type. Topics NOT listed here still reach any-typed
+	// subscribers and concretely-typed subscribers whose type matches the
+	// JSON-decoded value (string/number/bool) — only composite (struct/slice/
+	// map) typed subscribers require a codec. See events.Topics.
+	PublishableTopics []string `json:"publishableTopics"`
 }
 
 type controlDescribeAtom struct {
@@ -163,6 +181,9 @@ func controlHandleDescribe(parsePayload json.RawMessage) (json.RawMessage, *Enve
 		Commands:     ListAgentCommands(),
 		Atoms:        parseAtoms,
 		Events:       parseEvents,
+		Routes:            router.RegisteredRoutes(),
+		Mountable:         ListMountComponents(),
+		PublishableTopics: events.RegisteredTopicCodecs(),
 	})
 }
 

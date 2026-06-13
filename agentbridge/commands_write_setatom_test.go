@@ -82,6 +82,34 @@ func TestWriteSetAtomNumberFamilyAccepted(t *testing.T) {
 	}
 }
 
+// TestSetAtomRejectsConcreteTypedComposite pins the fix for the silent
+// wrong-type write: a concrete-typed slice/map atom (e.g. UseAtom[[]string])
+// cannot be set from a JSON array/object (which decodes to []any/map[string]any
+// and would fail the typed Get() assertion). It must fail closed, not report a
+// false success — while a generic []any atom remains settable.
+func TestSetAtomRejectsConcreteTypedComposite(t *testing.T) {
+	writeActivateAgentMode(t)
+	seedAtom(t, "agenttest.typedlist", []string{"a", "b"})
+
+	_, parseErr := writeCallHandler(writeHandleSetAtom, map[string]any{
+		"id": "agenttest.typedlist", "value": []any{"c"},
+	})
+	if parseErr == nil || parseErr.Code != ErrorCodeBadPayload {
+		t.Fatalf("expected bad-payload for a concrete-typed slice atom, got %+v", parseErr)
+	}
+	if parseGot, _ := currentAtom(t, "agenttest.typedlist").([]string); len(parseGot) != 2 {
+		t.Fatalf("rejected write still mutated the atom: %#v", currentAtom(t, "agenttest.typedlist"))
+	}
+
+	// A generic []any atom is still settable.
+	seedAtom(t, "agenttest.genlist", []any{"x"})
+	if _, parseErr := writeCallHandler(writeHandleSetAtom, map[string]any{
+		"id": "agenttest.genlist", "value": []any{"y", "z"},
+	}); parseErr != nil {
+		t.Fatalf("generic []any atom should be settable: %s", parseErr.Message)
+	}
+}
+
 // TestWriteAtomValueCompatible unit-tests the type-family guard directly.
 func TestWriteAtomValueCompatible(t *testing.T) {
 	parseCases := []struct {

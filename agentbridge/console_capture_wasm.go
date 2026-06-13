@@ -23,7 +23,7 @@ func installConsoleCapture(parseClient *BridgeClient) consoleCaptureRelease {
 			parseFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 				parsePayload := consoleCapturePayload("console.error", "", parseArgs)
 				_ = parseClient.SendEvent("", "console.error", parsePayload)
-				return parseOriginalError.Invoke(parseArgs...)
+				return parseOriginalError.Invoke(jsValuesToAny(parseArgs)...)
 			})
 			parseConsole.Set("error", parseFn)
 			parseReleaseFns = append(parseReleaseFns, func() {
@@ -74,6 +74,14 @@ func installConsoleCapture(parseClient *BridgeClient) consoleCaptureRelease {
 			}()
 		}
 	}
+}
+
+func jsValuesToAny(parseValues []js.Value) []any {
+	parseArgs := make([]any, len(parseValues))
+	for parseIdx, parseValue := range parseValues {
+		parseArgs[parseIdx] = parseValue
+	}
+	return parseArgs
 }
 
 func consoleCapturePayload(parseSource string, parseMessage string, parseArgs []js.Value) json.RawMessage {
