@@ -134,6 +134,7 @@ func renderDashboardBusinessInterventions(parseAdminOperations adminOperationsCo
 		renderDashboardSectionHeader("Dunning queue"),
 		renderAdminDunningTable(parseOps.DunningEvents),
 		renderAdminBillingTables(parseAdminOperations),
+		renderAdminBillingOverrideTargets(parseAdminOperations),
 	)
 }
 
@@ -188,14 +189,96 @@ func renderAdminBillingTables(parseAdminOperations adminOperationsController) ui
 			parseDashboardShortAt(parseRow.UpdatedAt),
 		})
 	}
+	parseQuotaRows := make([][]string, 0, len(parseOps.BillingQuotas))
+	for _, parseRow := range parseOps.BillingQuotas {
+		if !parseAdminMatchesQuery(parseOps.BillingQuery, parseRow.PlanCode+" "+parseRow.QuotaKey+" "+parseRow.EnforcementMode) {
+			continue
+		}
+		parseQuotaRows = append(parseQuotaRows, []string{
+			parseRow.PlanCode,
+			parseRow.QuotaKey,
+			formatDashboardInt64(parseRow.SoftLimitValue),
+			formatDashboardInt64(parseRow.HardLimitValue),
+			parseFallbackText(parseRow.EnforcementMode, "-"),
+			parseDashboardShortAt(parseRow.UpdatedAt),
+		})
+	}
+	parseTriggerRows := make([][]string, 0, len(parseOps.BillingTriggers))
+	for _, parseRow := range parseOps.BillingTriggers {
+		if !parseAdminMatchesQuery(parseOps.BillingQuery, parseRow.PlanCode+" "+parseRow.TriggerKey+" "+parseRow.UpgradePlanCode) {
+			continue
+		}
+		parseTriggerRows = append(parseTriggerRows, []string{
+			parseRow.PlanCode,
+			parseRow.TriggerKey,
+			formatDashboardInt64(parseRow.ThresholdPct) + "%",
+			parseFallbackText(parseRow.UpgradePlanCode, "-"),
+			parseBoolLabel(parseRow.IsEnabled),
+			parseDashboardShortAt(parseRow.UpdatedAt),
+		})
+	}
 	return Fragment(
 		renderDashboardSharedRail(adminScopeBilling, parseOps.BillingQuery, parseAdminOperations),
-		If(len(parseOverageRows) == 0,
+		If(len(parseOverageRows)+len(parseQuotaRows)+len(parseTriggerRows) == 0,
 			renderDashboardEmptyState("$", "No billing controls match", "Adjust the billing search or filter to review overages, quotas, and upgrade triggers."),
 		),
 		If(len(parseOverageRows) > 0,
-			renderDashboardTable([]string{"Plan", "Meter", "Included", "Hard limit", "Overage", "Updated"}, parseOverageRows),
+			Fragment(renderDashboardSectionHeader("Overage policies"), renderDashboardTable([]string{"Plan", "Meter", "Included", "Hard limit", "Overage", "Updated"}, parseOverageRows)),
 		),
+		If(len(parseQuotaRows) > 0,
+			Fragment(renderDashboardSectionHeader("Quota policies"), renderDashboardTable([]string{"Plan", "Quota", "Soft", "Hard", "Mode", "Updated"}, parseQuotaRows)),
+		),
+		If(len(parseTriggerRows) > 0,
+			Fragment(renderDashboardSectionHeader("Upgrade triggers"), renderDashboardTable([]string{"Plan", "Trigger", "Threshold", "Upgrade", "Enabled", "Updated"}, parseTriggerRows)),
+		),
+	)
+}
+
+func renderAdminBillingOverrideTargets(parseAdminOperations adminOperationsController) ui.Node {
+	parseOps := parseAdminOperations.Data
+	parseTargets := parseOps.BusinessTopAccounts
+	if len(parseTargets) == 0 {
+		return renderDashboardEmptyState("O", "No override targets", "Top account rows from the business queue will appear here before billing overrides can be applied.")
+	}
+	parseNodes := make([]ui.Node, 0, len(parseTargets))
+	for _, parseUser := range parseTargets {
+		if !parseAdminMatchesQuery(parseOps.BillingQuery, parseUser.Email+" "+parseUser.DisplayName) {
+			continue
+		}
+		parseUserID := strconv.FormatInt(parseUser.UserID, 10)
+		parseNodes = append(parseNodes, Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4"),
+			Div(Class("flex items-start justify-between gap-3"),
+				Div(Class("min-w-0"),
+					P(Class("text-sm font-semibold text-white"), Text(parseDashboardUserLabel(parseUser.DisplayName, parseUser.Email))),
+					P(Class("mt-1 text-xs text-white/40"), Text(formatCostUSD(parseUser.TotalCostUSD)+" spend · "+formatDashboardInt64(parseUser.ConversationCount)+" conversations")),
+				),
+				Span(Class("rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-white/50"), Text("user "+parseUserID)),
+			),
+			Div(Class("mt-4 flex flex-wrap gap-2"),
+				Button(Class("rounded-xl border border-yellow-400/25 bg-yellow-400/8 px-3 py-1.5 text-xs text-yellow-100/80 hover:bg-yellow-400/12"),
+					Data(dataAdminAction, "billing-access-override"),
+					Data(dataAdminTargetID, parseUserID),
+					Data(dataAdminTargetKey, "access.priority_support"),
+					Data(dataAdminScope, adminScopeBilling),
+					OnClick(parseAdminOperations.HandleConfirmStart),
+					Text("Grant support override"),
+				),
+				Button(Class("rounded-xl border border-blue-400/25 bg-blue-400/8 px-3 py-1.5 text-xs text-blue-100/80 hover:bg-blue-400/12"),
+					Data(dataAdminAction, "billing-quota-override"),
+					Data(dataAdminTargetID, parseUserID),
+					Data(dataAdminTargetKey, "requests.daily"),
+					Data(dataAdminScope, adminScopeBilling),
+					OnClick(parseAdminOperations.HandleConfirmStart),
+					Text("Raise daily quota"),
+				),
+			),
+		))
+	}
+	parseNodes, parsePage, parseTotalPages := parsePaginateAdminNodes(parseNodes, parseOps.BillingQuery.Page)
+	return Fragment(
+		renderDashboardSectionHeader("Billing override targets"),
+		Div(Class("grid gap-3 lg:grid-cols-2"), Fragment(parseNodes)),
+		renderAdminPagination(adminScopeBilling, parsePage, parseTotalPages, parseAdminOperations),
 	)
 }
 
@@ -209,7 +292,7 @@ func renderDashboardWorkspacesList(parseAdminOperations adminOperationsControlle
 		parseRows = append(parseRows, []string{
 			formatDashboardInt64(parseWorkspace.WorkspaceID),
 			parseWorkspace.Name,
-			parseWorkspace.Status,
+			parseWorkspaceOperationalStateLabel(parseWorkspace.Status),
 			parseWorkspace.PlanCode,
 			formatDashboardInt64(parseWorkspace.OwnerUserID),
 			parseDashboardShortAt(parseWorkspace.UpdatedAt),
@@ -607,6 +690,10 @@ func parseAdminOperationConfirmCopy(parseOps adminOperationsData) (string, strin
 		return "Rollback experiment", "This asks the server to rollback the selected experiment and preserve an auditable reason.", "Rollback"
 	case "incident-update":
 		return "Update incident", "This publishes a monitoring update for the incident. Confirm user impact and recovery state before applying.", "Update incident"
+	case "billing-access-override":
+		return "Enable billing access override", "This grants an account-level billing access exception for the selected user. Confirm the customer impact, entitlement scope, and rollback path.", "Enable override"
+	case "billing-quota-override":
+		return "Enable billing quota override", "This raises the selected user's daily quota override. Confirm usage history, expected duration, and support context before applying.", "Enable quota"
 	default:
 		return "Confirm admin action", "This admin action records an audit event and may affect user or workspace access.", "Confirm"
 	}
@@ -696,6 +783,25 @@ func parseFallbackText(parseValue, parseFallback string) string {
 		return parseFallback
 	}
 	return parseValue
+}
+
+func parseBoolLabel(parseValue bool) string {
+	if parseValue {
+		return "enabled"
+	}
+	return "disabled"
+}
+
+func parseWorkspaceOperationalStateLabel(parseStatus string) string {
+	parseStatus = strings.TrimSpace(strings.ToLower(parseStatus))
+	switch parseStatus {
+	case "suspended":
+		return "Blocked: suspended"
+	case "", "active":
+		return "Active"
+	default:
+		return strings.Title(parseStatus)
+	}
 }
 
 func parseTruncateAdminText(parseValue string, parseLimit int) string {

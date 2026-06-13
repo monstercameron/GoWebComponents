@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	adminScopeUsers      = "users"
 	adminScopeBilling    = "billing"
 	adminScopeWorkspaces = "workspaces"
 	adminScopeSupport    = "support"
@@ -571,6 +572,26 @@ func parseUseAdminOperations(
 					Reason:     parseReason,
 				})
 				parseSuccess = "Incident moved to monitoring."
+			case "billing-access-override":
+				_, parseErr = parseClient.SetAdminBillingAccessOverride(context.Background(), &chatpb.AdminBillingAccessOverrideMutationRequest{
+					UserId:        parseTargetID,
+					OverrideKey:   parseFallbackText(parseTargetKey, "access.priority_support"),
+					OverrideValue: "enabled",
+					IsEnabled:     true,
+					Confirm:       true,
+					Reason:        parseReason,
+				})
+				parseSuccess = "Billing access override enabled."
+			case "billing-quota-override":
+				_, parseErr = parseClient.SetAdminBillingQuotaOverride(context.Background(), &chatpb.AdminBillingQuotaOverrideMutationRequest{
+					UserId:     parseTargetID,
+					QuotaKey:   parseFallbackText(parseTargetKey, "requests.daily"),
+					QuotaValue: "100000",
+					IsEnabled:  true,
+					Confirm:    true,
+					Reason:     parseReason,
+				})
+				parseSuccess = "Billing quota override enabled."
 			}
 			if parseErr != nil {
 				if handleAuthFailure != nil && handleAuthFailure(parseErr) {

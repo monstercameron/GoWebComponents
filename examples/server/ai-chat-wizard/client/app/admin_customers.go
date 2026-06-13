@@ -3,7 +3,9 @@
 package app
 
 import (
+	"sort"
 	"strconv"
+	"strings"
 
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/i18n"
@@ -38,6 +40,7 @@ func renderDashboardCustomersEnhanced(parseIntl i18n.Runtime, parseView appViewS
 	if parseDisplayUsers == nil {
 		parseDisplayUsers = parseData.RecentUsers
 	}
+	parseDisplayUsers = parseFilterAndSortAdminUsers(parseDisplayUsers, parseCustomers.Data.Query, parseCustomers.Data.UserAccessStates)
 
 	// Paginate.
 	parseTotalUsers := len(parseDisplayUsers)
@@ -95,24 +98,43 @@ func renderDashboardCustomersEnhanced(parseIntl i18n.Runtime, parseView appViewS
 // renderAdminCustomersSearchBar renders the search input and result count header.
 func renderAdminCustomersSearchBar(parseCustomers adminCustomersController, parseTotalGlobal int64, parseFilteredCount int) ui.Node {
 	parseCountLabel := formatDashboardInt(parseFilteredCount) + " shown"
-	if parseCustomers.Data.SearchQuery == "" {
+	if parseCustomers.Data.Query.Search == "" && parseCustomers.Data.Query.Filter == "all" {
 		parseCountLabel = formatDashboardInt64(parseTotalGlobal) + " total"
 	}
 	return Div(
-		Class("mb-4 flex items-center gap-3"),
+		Class("mb-4 grid gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 md:grid-cols-[1fr_auto_auto_auto]"),
 		Div(
-			Class("relative flex-1 max-w-xs"),
+			Class("min-w-0"),
+			P(Class("mb-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white/35"), Text("Search")),
 			Input(
 				Type("text"),
 				Placeholder("Search users\u2026"),
-				Value(parseCustomers.Data.SearchQuery),
+				Value(parseCustomers.Data.Query.Search),
 				OnInput(parseCustomers.HandleSearch),
 				Class("w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/20 focus:bg-white/[0.06]"),
 			),
 		),
-		P(Class("text-xs text-white/35"), Text(parseCountLabel)),
+		renderDashboardRailSelect("Filter", adminScopeUsers, dataAdminFilter, parseCustomers.Data.Query.Filter, []adminSelectOption{
+			{ID: "all", Label: "All"},
+			{ID: "active", Label: "Active"},
+			{ID: "disabled", Label: "Disabled"},
+			{ID: "high_spend", Label: "High spend"},
+			{ID: "stale", Label: "Stale"},
+		}, parseCustomers.HandleFilter),
+		renderDashboardRailSelect("Sort", adminScopeUsers, dataAdminSort, parseCustomers.Data.Query.Sort, []adminSelectOption{
+			{ID: "last_seen", Label: "Last seen"},
+			{ID: "spend", Label: "Spend"},
+			{ID: "conversations", Label: "Convs"},
+			{ID: "state", Label: "State"},
+			{ID: "email", Label: "Email"},
+		}, parseCustomers.HandleSort),
+		Div(
+			Class("min-w-[9rem]"),
+			P(Class("mb-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white/35"), Text("Result")),
+			Div(Class("rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/70"), Text(parseCountLabel)),
+		),
 		If(parseCustomers.Data.IsSearching,
-			Div(Class("h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white/60")),
+			Div(Class("h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white/60 md:col-span-4")),
 		),
 	)
 }
@@ -124,6 +146,7 @@ func renderAdminUserListTable(parseUsers []adminUserRow, parseCustomers adminCus
 	}
 	parseHeaderCells := []ui.Node{
 		Th(Class("px-4 py-2 text-left text-[10px] font-medium uppercase tracking-wide text-white/40"), Text("User")),
+		Th(Class("px-4 py-2 text-left text-[10px] font-medium uppercase tracking-wide text-white/40"), Text("State")),
 		Th(Class("px-4 py-2 text-left text-[10px] font-medium uppercase tracking-wide text-white/40"), Text("Convs")),
 		Th(Class("px-4 py-2 text-left text-[10px] font-medium uppercase tracking-wide text-white/40"), Text("Spend")),
 		Th(Class("px-4 py-2 text-left text-[10px] font-medium uppercase tracking-wide text-white/40"), Text("Last seen")),
@@ -143,6 +166,9 @@ func renderAdminUserListTable(parseUsers []adminUserRow, parseCustomers adminCus
 			OnClick(parseCustomers.HandleSelectUser),
 			Td(Class("px-4 py-2.5 text-xs text-white/80 align-top font-medium"),
 				Text(parseDashboardUserLabel(parseUser.DisplayName, parseUser.Email)),
+			),
+			Td(Class("px-4 py-2.5 text-xs text-white/60 align-top"),
+				renderAdminUserAccessBadge(parseUserAccessStateForRow(parseUser.UserID, parseCustomers.Data.UserAccessStates)),
 			),
 			Td(Class("px-4 py-2.5 text-xs text-white/60 align-top"),
 				Text(formatDashboardInt64(parseUser.ConversationCount)),
@@ -215,6 +241,7 @@ func renderAdminUserDetailPanel(parseCustomers adminCustomersController) ui.Node
 	if parseDisplayName == "" {
 		parseDisplayName = parseDetail.Email
 	}
+	parseAccessState := parseAdminUserAccessStateForDetail(parseDetail, parseData.UserAccessStates)
 
 	return Div(
 		Class("flex-1 min-w-0 rounded-[1.4rem] border border-white/10 bg-white/[0.02] p-5"),
@@ -223,6 +250,7 @@ func renderAdminUserDetailPanel(parseCustomers adminCustomersController) ui.Node
 			Div(
 				P(Class("text-sm font-semibold text-white"), Text(parseDisplayName)),
 				P(Class("mt-0.5 text-xs text-white/40"), Text(parseDetail.Email)),
+				Div(Class("mt-2"), renderAdminUserAccessBadge(parseAccessState)),
 			),
 			// Close button.
 			Button(
@@ -275,8 +303,18 @@ func renderAdminUserActionBand(parseCustomers adminCustomersController) ui.Node 
 	parseData := parseCustomers.Data
 	parseUserIDStr := strconv.FormatInt(parseData.SelectedUserID, 10)
 	_ = parseUserIDStr
+	parseAccessState := parseAdminUserAccessStateForDetail(parseData.UserDetail, parseData.UserAccessStates)
+	isDisabled := parseAccessState == "disabled"
 	return Div(
 		Class("mb-4 flex items-center gap-2 flex-wrap"),
+		Div(
+			Class(ClassNames(
+				"w-full rounded-xl border px-4 py-3 text-xs leading-5",
+				When(isDisabled, "border-red-500/25 bg-red-500/5 text-red-200/75"),
+				When(!isDisabled, "border-green-500/20 bg-green-500/5 text-green-200/70"),
+			)),
+			Text(parseAdminUserAccessImpactText(parseAccessState)),
+		),
 		If(parseData.MutationSuccess != "",
 			Div(
 				Class("w-full rounded-xl border border-green-500/20 bg-green-500/5 px-4 py-3"),
@@ -297,19 +335,21 @@ func renderAdminUserActionBand(parseCustomers adminCustomersController) ui.Node 
 				renderSupportIDChip(parseUserErrorRequestID(parseData.MutationError)),
 			),
 		),
-		// Disable button.
-		Button(
-			Class("rounded-xl border border-red-500/25 bg-red-500/5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"),
-			Data(dataAdminAction, "disable"),
-			OnClick(parseCustomers.HandleConfirmStart),
-			Text("Disable account"),
+		If(!isDisabled,
+			Button(
+				Class("rounded-xl border border-red-500/25 bg-red-500/5 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"),
+				Data(dataAdminAction, "disable"),
+				OnClick(parseCustomers.HandleConfirmStart),
+				Text("Disable account"),
+			),
 		),
-		// Restore button.
-		Button(
-			Class("rounded-xl border border-green-500/20 bg-green-500/5 px-3 py-1.5 text-xs text-green-400 hover:bg-green-500/10 transition-colors cursor-pointer"),
-			Data(dataAdminAction, "restore"),
-			OnClick(parseCustomers.HandleConfirmStart),
-			Text("Restore account"),
+		If(isDisabled,
+			Button(
+				Class("rounded-xl border border-green-500/20 bg-green-500/5 px-3 py-1.5 text-xs text-green-400 hover:bg-green-500/10 transition-colors cursor-pointer"),
+				Data(dataAdminAction, "restore"),
+				OnClick(parseCustomers.HandleConfirmStart),
+				Text("Restore account"),
+			),
 		),
 	)
 }
@@ -434,12 +474,17 @@ func renderAdminConfirmModal(parseCustomers adminCustomersController) ui.Node {
 			// Impact copy.
 			Div(
 				Class("mb-5 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/60"),
-				Text(parseBody),
+				P(Text(parseBody)),
+				Ul(Class("mt-2 list-disc space-y-1 pl-4"),
+					Li(Text("Authentication and active-session impact is audited.")),
+					Li(Text("Related support and billing review surfaces keep the action receipt visible.")),
+					Li(Text("The operator reason is required before the action can be submitted.")),
+				),
 			),
 
 			// Reason input.
 			Div(Class("mb-5"),
-				P(Class("mb-1.5 text-xs font-medium text-white/50"), Text("Reason (optional)")),
+				P(Class("mb-1.5 text-xs font-medium text-white/50"), Text("Reason")),
 				Tag("textarea",
 					Placeholder("Why are you taking this action?"),
 					Value(parseData.ConfirmReason),
@@ -467,11 +512,99 @@ func renderAdminConfirmModal(parseCustomers adminCustomersController) ui.Node {
 				),
 				Button(
 					Class(parseButtonClass),
-					Disabled(parseData.IsMutationPending),
+					Disabled(parseData.IsMutationPending || strings.TrimSpace(parseData.ConfirmReason) == ""),
 					OnClick(parseCustomers.HandleConfirmSubmit),
 					Text(parseButtonLabel),
 				),
 			),
 		),
 	)
+}
+
+func parseFilterAndSortAdminUsers(parseUsers []adminUserRow, parseQuery adminListQueryState, parseAccessStates map[int64]string) []adminUserRow {
+	parseQuery = parseNormalizeAdminListQuery(parseQuery)
+	parseFiltered := make([]adminUserRow, 0, len(parseUsers))
+	for _, parseUser := range parseUsers {
+		parseState := parseUserAccessStateForRow(parseUser.UserID, parseAccessStates)
+		if !parseAdminUserMatchesFilter(parseUser, parseState, parseQuery.Filter) {
+			continue
+		}
+		parseHaystack := parseUser.Email + " " + parseUser.DisplayName + " " + parseState
+		if !parseAdminMatchesQuery(parseQuery, parseHaystack) {
+			continue
+		}
+		parseFiltered = append(parseFiltered, parseUser)
+	}
+	sort.SliceStable(parseFiltered, func(parseI, parseJ int) bool {
+		parseLeft := parseFiltered[parseI]
+		parseRight := parseFiltered[parseJ]
+		switch parseQuery.Sort {
+		case "email":
+			return strings.ToLower(parseDashboardUserLabel(parseLeft.DisplayName, parseLeft.Email)) < strings.ToLower(parseDashboardUserLabel(parseRight.DisplayName, parseRight.Email))
+		case "state":
+			return parseUserAccessStateForRow(parseLeft.UserID, parseAccessStates) < parseUserAccessStateForRow(parseRight.UserID, parseAccessStates)
+		case "conversations":
+			return parseLeft.ConversationCount > parseRight.ConversationCount
+		case "spend":
+			return parseLeft.TotalCostUSD > parseRight.TotalCostUSD
+		default:
+			return parseLeft.LastSeenAt > parseRight.LastSeenAt
+		}
+	})
+	return parseFiltered
+}
+
+func parseAdminUserMatchesFilter(parseUser adminUserRow, parseState, parseFilter string) bool {
+	parseFilter = strings.TrimSpace(strings.ToLower(parseFilter))
+	switch parseFilter {
+	case "", "all":
+		return true
+	case "active":
+		return parseState != "disabled"
+	case "disabled", "blocked":
+		return parseState == "disabled"
+	case "high_spend":
+		return parseUser.TotalCostUSD >= 50
+	case "stale":
+		return strings.TrimSpace(parseUser.LastSeenAt) == ""
+	default:
+		return strings.Contains(parseState, parseFilter)
+	}
+}
+
+func parseUserAccessStateForRow(parseUserID int64, parseAccessStates map[int64]string) string {
+	if parseAccessStates != nil {
+		if parseState := strings.TrimSpace(strings.ToLower(parseAccessStates[parseUserID])); parseState != "" {
+			return parseState
+		}
+	}
+	return "active"
+}
+
+func parseAdminUserAccessStateForDetail(parseDetail adminUserDetailSnapshot, parseAccessStates map[int64]string) string {
+	for _, parseAudit := range parseDetail.AuditLogs {
+		parseEvent := strings.TrimSpace(strings.ToLower(parseAudit.EventType))
+		if strings.Contains(parseEvent, "admin.user.restore") || strings.Contains(parseEvent, "user.restore") {
+			return "active"
+		}
+		if strings.Contains(parseEvent, "admin.user.disable") || strings.Contains(parseEvent, "user.disable") {
+			return "disabled"
+		}
+	}
+	return parseUserAccessStateForRow(parseDetail.UserID, parseAccessStates)
+}
+
+func renderAdminUserAccessBadge(parseState string) ui.Node {
+	parseState = strings.TrimSpace(strings.ToLower(parseState))
+	if parseState == "disabled" {
+		return Span(Class("inline-flex rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-200"), Text("Blocked"))
+	}
+	return Span(Class("inline-flex rounded-full border border-green-500/25 bg-green-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-green-200"), Text("Active"))
+}
+
+func parseAdminUserAccessImpactText(parseState string) string {
+	if strings.TrimSpace(strings.ToLower(parseState)) == "disabled" {
+		return "Blocked account: sign-in and active access are disabled until an operator restores the user."
+	}
+	return "Active account: the user can sign in and use available workspace, billing, and support surfaces."
 }

@@ -102,3 +102,31 @@ func TestParseMarshalAdminSupportDetailMapsMessagesAndActions(parseT *testing.T)
 		parseT.Fatalf("AccountActions = %+v, want admin.user.disable", parseSnap.AccountActions)
 	}
 }
+
+func TestParseAdminOperationConfirmCopyCoversBillingOverrides(parseT *testing.T) {
+	parseT.Parallel()
+	parseTitle, parseBody, parseButton := parseAdminOperationConfirmCopy(adminOperationsData{ConfirmAction: "billing-access-override"})
+	if parseTitle != "Enable billing access override" || parseButton != "Enable override" {
+		parseT.Fatalf("access override copy = %q/%q", parseTitle, parseButton)
+	}
+	if parseBody == "" {
+		parseT.Fatal("access override body is empty")
+	}
+	parseTitle, parseBody, parseButton = parseAdminOperationConfirmCopy(adminOperationsData{ConfirmAction: "billing-quota-override"})
+	if parseTitle != "Enable billing quota override" || parseButton != "Enable quota" {
+		parseT.Fatalf("quota override copy = %q/%q", parseTitle, parseButton)
+	}
+	if parseBody == "" {
+		parseT.Fatal("quota override body is empty")
+	}
+}
+
+func TestParseWorkspaceOperationalStateLabelNamesBlockedSuspension(parseT *testing.T) {
+	parseT.Parallel()
+	if parseLabel := parseWorkspaceOperationalStateLabel("suspended"); parseLabel != "Blocked: suspended" {
+		parseT.Fatalf("suspended label = %q, want blocked label", parseLabel)
+	}
+	if parseLabel := parseWorkspaceOperationalStateLabel(""); parseLabel != "Active" {
+		parseT.Fatalf("empty label = %q, want Active", parseLabel)
+	}
+}

@@ -276,11 +276,12 @@ type adminUserDetailSnapshot struct {
 
 // adminCustomersData is the render-only snapshot of Customers slice UI state.
 type adminCustomersData struct {
-	SearchQuery       string
+	Query             adminListQueryState
 	SearchResults     []adminUserRow
 	IsSearching       bool
 	CurrentPage       int
 	SelectedUserID    int64
+	UserAccessStates  map[int64]string
 	UserDetail        adminUserDetailSnapshot
 	IsLoadingDetail   bool
 	ConfirmAction     string
@@ -294,6 +295,8 @@ type adminCustomersData struct {
 type adminCustomersController struct {
 	Data                adminCustomersData
 	HandleSearch        ui.Handler
+	HandleFilter        ui.Handler
+	HandleSort          ui.Handler
 	HandleSelectUser    ui.Handler
 	HandleNextPage      ui.Handler
 	HandlePrevPage      ui.Handler
@@ -310,11 +313,12 @@ func parseUseAdminCustomers(
 	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
 	handleAuthFailure func(error) bool,
 ) adminCustomersController {
-	parseSearchQuery := ui.UseState("")
+	parseUserQueryState := ui.UsePersistedState[adminListQueryState]("chatwizard.admin.query.users", adminListQueryState{Filter: "all", Sort: "last_seen"}, ui.PersistLocal)
 	parseSearchResults := ui.UseState([]adminUserRow(nil))
 	parseIsSearching := ui.UseState(false)
 	parseCurrentPage := ui.UseState(0)
 	parseSelectedUserID := ui.UseState(int64(0))
+	parseUserAccessStates := ui.UsePersistedState[map[int64]string]("chatwizard.admin.user.access_state", map[int64]string{}, ui.PersistLocal)
 	parseUserDetail := ui.UseState(adminUserDetailSnapshot{})
 	parseIsLoadingDetail := ui.UseState(false)
 	parseConfirmAction := ui.UseState("")
@@ -325,18 +329,19 @@ func parseUseAdminCustomers(
 
 	parseSearchSeq := ui.UseRef(uint64(0))
 	parseDetailSeq := ui.UseRef(uint64(0))
+	parseUserQuery := parseNormalizeAdminListQuery(parseUserQueryState.Get())
 
 	// Keep SearchResults in sync with the dashboard's RecentUsers when search is empty.
 	ui.UseEffect(func() func() {
-		if parseSearchQuery.Get() == "" {
+		if parseUserQuery.Search == "" {
 			parseSearchResults.Set(parseAdminDashboard.RecentUsers)
 		}
 		return nil
-	}, parseSearchQuery.Get(), parseAdminDashboard.HasData, len(parseAdminDashboard.RecentUsers))
+	}, parseUserQuery.Search, parseAdminDashboard.HasData, len(parseAdminDashboard.RecentUsers))
 
 	// Trigger server-side search when query is non-empty.
 	ui.UseEffect(func() func() {
-		parseQuery := parseSearchQuery.Get()
+		parseQuery := parseUserQuery.Search
 		if parseQuery == "" {
 			parseIsSearching.Set(false)
 			return nil
@@ -389,7 +394,7 @@ func parseUseAdminCustomers(
 			parseIsSearching.Set(false)
 		}(parseNextSeq, parseQuery)
 		return nil
-	}, parseSearchQuery.Get(), parseCurrentState.Authenticated, parseCurrentState.GRPCReady)
+	}, parseUserQuery.Search, parseCurrentState.Authenticated, parseCurrentState.GRPCReady)
 
 	// Fetch user detail when selection changes.
 	ui.UseEffect(func() func() {
@@ -437,7 +442,26 @@ func parseUseAdminCustomers(
 	}, parseSelectedUserID.Get(), parseCurrentState.Authenticated, parseCurrentState.GRPCReady)
 
 	handleSearch := ui.UseEvent(func(parseE ui.Event) {
-		parseSearchQuery.Set(parseE.GetValue())
+		parseNext := parseUserQueryState.Get()
+		parseNext.Search = parseE.GetValue()
+		parseNext.Page = 0
+		parseUserQueryState.Set(parseNormalizeAdminListQuery(parseNext))
+		parseCurrentPage.Set(0)
+	})
+
+	handleFilter := ui.UseEvent(func(parseE ui.Event) {
+		parseNext := parseUserQueryState.Get()
+		parseNext.Filter = parseEventValueOrDataset(parseE, dataAdminFilter)
+		parseNext.Page = 0
+		parseUserQueryState.Set(parseNormalizeAdminListQuery(parseNext))
+		parseCurrentPage.Set(0)
+	})
+
+	handleSort := ui.UseEvent(func(parseE ui.Event) {
+		parseNext := parseUserQueryState.Get()
+		parseNext.Sort = parseEventValueOrDataset(parseE, dataAdminSort)
+		parseNext.Page = 0
+		parseUserQueryState.Set(parseNormalizeAdminListQuery(parseNext))
 		parseCurrentPage.Set(0)
 	})
 
@@ -535,6 +559,13 @@ func parseUseAdminCustomers(
 				parseStatus = parseMutationResp.GetStatus()
 			}
 			parseMutationSuccess.Set("User " + parseStatus + ".")
+			parseNextAccessStates := cloneAdminUserAccessStates(parseUserAccessStates.Get())
+			if parseAct == "disable" {
+				parseNextAccessStates[parseID] = "disabled"
+			} else {
+				parseNextAccessStates[parseID] = "active"
+			}
+			parseUserAccessStates.Set(parseNextAccessStates)
 			parseConfirmAction.Set("")
 			parseConfirmReason.Set("")
 			parseIsMutationPending.Set(false)
@@ -564,11 +595,12 @@ func parseUseAdminCustomers(
 
 	return adminCustomersController{
 		Data: adminCustomersData{
-			SearchQuery:       parseSearchQuery.Get(),
+			Query:             parseUserQuery,
 			SearchResults:     parseSearchResults.Get(),
 			IsSearching:       parseIsSearching.Get(),
 			CurrentPage:       parseCurrentPage.Get(),
 			SelectedUserID:    parseSelectedUserID.Get(),
+			UserAccessStates:  parseUserAccessStates.Get(),
 			UserDetail:        parseUserDetail.Get(),
 			IsLoadingDetail:   parseIsLoadingDetail.Get(),
 			ConfirmAction:     parseConfirmAction.Get(),
@@ -578,6 +610,8 @@ func parseUseAdminCustomers(
 			MutationSuccess:   parseMutationSuccess.Get(),
 		},
 		HandleSearch:        handleSearch,
+		HandleFilter:        handleFilter,
+		HandleSort:          handleSort,
 		HandleSelectUser:    handleSelectUser,
 		HandleNextPage:      handleNextPage,
 		HandlePrevPage:      handlePrevPage,
@@ -635,6 +669,14 @@ func parseMarshalAdminUserDetail(parseDetailResp *chatpb.GetAdminUserDetailRespo
 		})
 	}
 	return parseUserDetail
+}
+
+func cloneAdminUserAccessStates(parseStates map[int64]string) map[int64]string {
+	parseNext := make(map[int64]string, len(parseStates)+1)
+	for parseID, parseState := range parseStates {
+		parseNext[parseID] = parseState
+	}
+	return parseNext
 }
 
 // ─── Workspace admin types ────────────────────────────────────────────────────

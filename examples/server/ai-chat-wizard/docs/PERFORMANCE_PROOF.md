@@ -22,7 +22,7 @@ From the repo root:
 ```powershell
 go run ./tools/gwc build -app .\examples\server\ai-chat-wizard\client\main.go -root .\examples\server\ai-chat-wizard\client -out .\examples\server\ai-chat-wizard\bin\client\chat.wasm -json
 go run ./tools/gwc build -app .\examples\server\ai-chat-wizard\client\backgroundworker\main.go -root .\examples\server\ai-chat-wizard\client\backgroundworker -out .\examples\server\ai-chat-wizard\bin\client\worker\background-worker.wasm -json
-$env:CHAT_DB_PATH = ".\examples\server\ai-chat-wizard\testdata\perf-proof.db"
+$env:CHAT_DB_PATH = Join-Path $env:TEMP "gwc-chatwizard-perf-proof.db"
 go run ./examples/server/ai-chat-wizard/cmd/seed-test-db
 go run ./examples/server/ai-chat-wizard/cmd/server
 ```

@@ -1299,9 +1299,12 @@
 	Done: added support queue review, selected ticket detail fetch via `GetAdminSupportTicketDetail`, message and linked account-action panels, plus internal-note and escalation confirmation flows using `AddAdminSupportInternalNote` and `EscalateAdminSupportTicket`.
 - [x] Build incident, feature-flag, and experiment control UIs with explicit state-change affordances and clear blast-radius feedback.
 	Done: added incident rows with monitoring update controls, feature-flag state cards with rollout copy, experiment rollback controls, and shared reason-capture confirmation copy in `client/app/admin_operations_render.go`.
-- [ ] Build admin list views with search, filters, sort controls, pagination, and persistent query state for users, workspaces, support queues, billing views, and incidents.
-- [ ] Build confirmation modals for disable, restore, suspend, override, and rollback actions with reason capture, scope-of-impact copy, and clear success or failure feedback.
-- [ ] Show the operational state of disabled users and suspended workspaces clearly across detail views, lists, and related action surfaces so operators can see what is active vs blocked at a glance.
+- [x] Build admin list views with search, filters, sort controls, pagination, and persistent query state for users, workspaces, support queues, billing views, and incidents.
+	Done: added persisted user-list query state with search, active/disabled/high-spend/stale filters, sort controls, pagination, and focused helper coverage; existing workspaces, support, billing, and incidents continue to use persisted `adminListQueryState` rails.
+- [x] Build confirmation modals for disable, restore, suspend, override, and rollback actions with reason capture, scope-of-impact copy, and clear success or failure feedback.
+	Done: made disable/restore confirmation reasons required with scope-of-impact copy, kept suspend/rollback reason-gated flows, and added concrete billing access/quota override confirmation actions backed by `SetAdminBillingAccessOverride` and `SetAdminBillingQuotaOverride`.
+- [x] Show the operational state of disabled users and suspended workspaces clearly across detail views, lists, and related action surfaces so operators can see what is active vs blocked at a glance.
+	Done: added active/blocked user state badges across list and detail/action surfaces with audit/local optimistic state derivation, plus explicit `Blocked: suspended` workspace list labeling beside the existing workspace detail badge/action state.
 - [x] Add real Business-slice drill-down entry points so KPI cards and top-account rows can open failed-payment queues, subscription detail, and corrective billing actions instead of stopping at summary-only analytics.
 	Done: Business now renders typed failed-payment, dunning, billing control, and quota/overage rows from admin RPCs alongside the existing KPI, top-account, and daily-usage tables.
 - [x] Add real Chats-slice drill-down entry points so anomaly or failure rows can open a thread inspector and message or run detail instead of leaving reply-quality issues at aggregate-only charts.
