@@ -2,6 +2,8 @@ package atlascommerceostests
 
 import (
 	"encoding/json"
+	"image"
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +20,7 @@ type parseManifest struct {
 	E2ETracks              []parseE2ETrack             `json:"e2e_tracks"`
 	FailureRecoveryStories []parseFailureRecoveryStory `json:"failure_recovery_stories"`
 	ScreenshotConventions  parseScreenshotConventions  `json:"screenshot_conventions"`
+	ScreenshotBaselines    []parseScreenshotBaseline   `json:"screenshot_baselines"`
 	ScreenshotCheckpoints  []string                    `json:"screenshot_checkpoints"`
 }
 
@@ -63,6 +66,17 @@ type parseScreenshotConventions struct {
 	Viewports    []string `json:"viewports"`
 	Locales      []string `json:"locales"`
 	RefreshOrder []string `json:"refresh_order"`
+}
+
+type parseScreenshotBaseline struct {
+	ID           string   `json:"id"`
+	Surface      string   `json:"surface"`
+	Route        string   `json:"route"`
+	RouteSlug    string   `json:"route_slug"`
+	State        string   `json:"state"`
+	Themes       []string `json:"themes"`
+	Viewports    []string `json:"viewports"`
+	ReferenceKey string   `json:"reference_key,omitempty"`
 }
 
 // TestAtlasCommerceOSManifest validates the planning skeleton used by future Atlas Playwright suites.
@@ -134,6 +148,7 @@ func TestAtlasCommerceOSManifest(parseT *testing.T) {
 		}
 	}
 	assertScreenshotConventionsValid(parseT, parseManifest)
+	assertScreenshotBaselinesValid(parseT, parseManifest)
 }
 
 // loadManifest reads the Atlas test manifest from the current package directory.
@@ -227,6 +242,97 @@ func assertScreenshotConventionsValid(parseT *testing.T, parseManifest parseMani
 		"parity-operator-midpoint",
 		"parity-operator-end",
 	})
+}
+
+func assertScreenshotBaselinesValid(parseT *testing.T, parseManifest parseManifest) {
+	parseT.Helper()
+	if len(parseManifest.ScreenshotBaselines) == 0 {
+		parseT.Fatal("screenshot baselines must not be empty")
+	}
+	parseSawPublic := false
+	parseSawInternal := false
+	parseSawStoreReference := false
+	parseSawWarehouseReference := false
+	for _, parseBaseline := range parseManifest.ScreenshotBaselines {
+		if parseBaseline.ID == "" || parseBaseline.Route == "" || parseBaseline.RouteSlug == "" || parseBaseline.State == "" {
+			parseT.Fatalf("screenshot baseline has empty required fields: %+v", parseBaseline)
+		}
+		if parseBaseline.Surface == "public" {
+			parseSawPublic = true
+		}
+		if parseBaseline.Surface == "internal" {
+			parseSawInternal = true
+		}
+		if parseBaseline.ReferenceKey == "homepage_store" {
+			parseSawStoreReference = true
+		}
+		if parseBaseline.ReferenceKey == "homepage_warehouse" {
+			parseSawWarehouseReference = true
+		}
+		assertRequiredIDs(parseT, "baseline theme "+parseBaseline.ID, mapFromSlice(parseBaseline.Themes), []string{"light", "dark"})
+		assertRequiredIDs(parseT, "baseline viewport "+parseBaseline.ID, mapFromSlice(parseBaseline.Viewports), []string{"desktop", "mobile"})
+		for _, parseTheme := range parseBaseline.Themes {
+			for _, parseViewport := range parseBaseline.Viewports {
+				parsePath := screenshotBaselinePath(parseManifest.ScreenshotConventions.Directory, parseBaseline, parseTheme, parseViewport)
+				assertPNGNonBlank(parseT, parsePath)
+			}
+		}
+	}
+	if !parseSawPublic || !parseSawInternal {
+		parseT.Fatalf("screenshot baselines must include public and internal targets; public=%v internal=%v", parseSawPublic, parseSawInternal)
+	}
+	if !parseSawStoreReference || !parseSawWarehouseReference {
+		parseT.Fatalf("screenshot baselines must include storefront and warehouse design reference keys")
+	}
+}
+
+func screenshotBaselinePath(parseDirectory string, parseBaseline parseScreenshotBaseline, parseTheme string, parseViewport string) string {
+	return filepath.Clean(filepath.Join("..", "..", "..", parseDirectory, "atlas-"+parseBaseline.Surface+"-"+parseBaseline.RouteSlug+"-"+parseBaseline.State+"-"+parseTheme+"-"+parseViewport+".png"))
+}
+
+func assertPNGNonBlank(parseT *testing.T, parsePath string) {
+	parseT.Helper()
+	parseFile, parseErr := os.Open(parsePath)
+	if parseErr != nil {
+		parseT.Fatalf("open screenshot baseline %s: %v", parsePath, parseErr)
+	}
+	defer parseFile.Close()
+	parseImg, parseErr := png.Decode(parseFile)
+	if parseErr != nil {
+		parseT.Fatalf("decode screenshot baseline %s: %v", parsePath, parseErr)
+	}
+	parseBounds := parseImg.Bounds()
+	if parseBounds.Dx() < 320 || parseBounds.Dy() < 480 {
+		parseT.Fatalf("screenshot baseline %s dimensions = %s, want at least 320x480", parsePath, parseBounds.String())
+	}
+	if imageIsBlank(parseImg) {
+		parseT.Fatalf("screenshot baseline %s appears blank", parsePath)
+	}
+}
+
+func imageIsBlank(parseImg image.Image) bool {
+	parseBounds := parseImg.Bounds()
+	if parseBounds.Empty() {
+		return true
+	}
+	parseFirst := parseImg.At(parseBounds.Min.X, parseBounds.Min.Y)
+	parseStepX := maxInt(1, parseBounds.Dx()/24)
+	parseStepY := maxInt(1, parseBounds.Dy()/24)
+	for parseY := parseBounds.Min.Y; parseY < parseBounds.Max.Y; parseY += parseStepY {
+		for parseX := parseBounds.Min.X; parseX < parseBounds.Max.X; parseX += parseStepX {
+			if parseImg.At(parseX, parseY) != parseFirst {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func maxInt(parseA, parseB int) int {
+	if parseA > parseB {
+		return parseA
+	}
+	return parseB
 }
 
 // assertRequiredIDs fails when a required id is absent.

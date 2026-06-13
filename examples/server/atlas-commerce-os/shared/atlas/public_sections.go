@@ -23,7 +23,7 @@ func renderLandingContent() ui.Node {
 }
 
 func publicLandingIntroCard() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.9rem] border border-white/10 bg-[linear-gradient(145deg,rgba(13,18,30,0.96),rgba(18,25,40,0.9))] p-6 shadow-[0_22px_50px_rgba(0,0,0,0.22)] sm:p-7"},
+	return html.Div(html.Props{Class: "grid gap-4 " + publicHeroSurfaceClass() + " shadow-[0_22px_50px_rgba(0,0,0,0.22)] sm:p-7"},
 		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text(publicWhyAtlasFeelsReady)),
 		html.H2(html.Props{Class: "text-3xl font-black tracking-[-0.03em] text-white"}, html.Text("A darker, cleaner storefront for complex workspace buying.")),
 		html.P(html.Props{Class: "text-base leading-8 text-stone-300"}, html.Text("Atlas keeps pricing, delivery timing, and next-step actions visible in a standard commerce layout so buyers can compare products without translating warehouse language.")),
@@ -91,7 +91,7 @@ func renderCatalogContent(parsePage catalogPage) ui.Node {
 }
 
 func publicCatalogOverview(parsePage catalogPage) ui.Node {
-	return html.Div(html.Props{Class: "flex flex-col gap-4 rounded-[1.9rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_40px_rgba(0,0,0,0.18)] backdrop-blur-sm lg:flex-row lg:items-end lg:justify-between"},
+	return html.Div(html.Props{Class: "flex flex-col gap-4 " + publicGlassCardClass() + " lg:flex-row lg:items-end lg:justify-between"},
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text(publicCatalogOverviewLabel)),
 			html.H2(html.Props{Class: "text-3xl font-black tracking-[-0.03em] text-white"}, html.Text("Modern workspace systems, organized for quick decisions.")),
@@ -106,7 +106,7 @@ func publicCatalogOverview(parsePage catalogPage) ui.Node {
 
 func publicCatalogCard(parseItem productCard) ui.Node {
 	parseActionLabel, parseActionCopy := catalogActionPlan(parseItem.Status)
-	return html.A(html.Props{Href: RouteCatalog + "/" + parseItem.Slug, Class: "group grid gap-5 rounded-[1.9rem] border border-white/10 bg-[linear-gradient(180deg,rgba(15,20,33,0.98),rgba(10,15,24,0.95))] p-5 shadow-[0_20px_48px_rgba(0,0,0,0.22)] transition duration-200 hover:-translate-y-1 hover:border-amber-300/35 hover:bg-[linear-gradient(180deg,rgba(18,24,38,1),rgba(12,17,28,0.98))] hover:shadow-[0_28px_65px_rgba(0,0,0,0.28)]"},
+	return html.A(html.Props{Href: RouteCatalog + "/" + parseItem.Slug, Class: publicCatalogCardClass()},
 		html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
 			html.Div(html.Props{Class: "grid gap-2"},
 				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(parseItem.Category)),
@@ -154,7 +154,7 @@ func publicCatalogPriceRail(parseItem productCard, parseActionLabel string, pars
 }
 
 func publicLazySectionFallback(parseEyebrow, parseTitle, parseCopy string) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
+	return html.Div(html.Props{Class: "grid gap-5 " + publicGlassCardClass()},
 		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(parseEyebrow)),
 		html.H3(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(parseTitle)),
 		html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(parseCopy)),
@@ -636,7 +636,7 @@ func formatPublicCommentDate(parseValue string) string {
 }
 
 func publicProductHeroCard(parseProduct productCard) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-5 rounded-[1.9rem] border border-white/10 bg-[linear-gradient(145deg,rgba(13,18,30,0.96),rgba(18,25,40,0.9))] p-6 shadow-[0_28px_65px_rgba(0,0,0,0.22)] lg:p-7"},
+	return html.Div(html.Props{Class: "grid gap-5 " + publicHeroSurfaceClass() + " lg:p-7"},
 		html.Div(html.Props{Class: "grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.8fr)] lg:items-start"},
 			html.Div(html.Props{Class: "grid gap-5"},
 				publicProductIdentity(parseProduct),

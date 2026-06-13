@@ -396,6 +396,42 @@ func TestPublicSSRRoutes(parseT *testing.T) {
 	}
 }
 
+func TestPublicSSRLocaleQueryControlsDocumentAndBootstrap(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
+
+	parseReq := httptest.NewRequest(http.MethodGet, "/shop?locale=ar&q=desk", nil)
+	parseRes := httptest.NewRecorder()
+
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
+
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
+	}
+	parseBody := parseRes.Body.String()
+	for _, parseExpected := range []string{
+		`<html lang="ar"`,
+		`"locale":"ar"`,
+		`"direction":"rtl"`,
+		`"locale":["ar"]`,
+		`"q":["desk"]`,
+	} {
+		if !strings.Contains(parseBody, parseExpected) {
+			parseT.Fatalf("expected public locale SSR body to contain %q, got %q", parseExpected, parseBody)
+		}
+	}
+
+	parseFallbackReq := httptest.NewRequest(http.MethodGet, "/shop?locale=zz", nil)
+	parseFallbackRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseFallbackRes, parseFallbackReq)
+	if parseFallbackRes.Code != http.StatusOK {
+		parseT.Fatalf("expected fallback locale route status %d, got %d", http.StatusOK, parseFallbackRes.Code)
+	}
+	if !strings.Contains(parseFallbackRes.Body.String(), `<html lang="en"`) {
+		parseT.Fatalf("expected unsupported public locale to fall back to en, got %q", parseFallbackRes.Body.String())
+	}
+}
+
 func TestInternalMutationRejectsMissingCSRFTokens(parseT *testing.T) {
 	parseServer, parseCleanup := newTestAtlasServer(parseT)
 	defer parseCleanup()

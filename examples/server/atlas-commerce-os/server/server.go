@@ -1241,6 +1241,9 @@ func (parseS *atlasServer) bootstrapForPath(parseR *http.Request, parsePath stri
 func (parseS *atlasServer) bootstrapForRouteQuery(parseR *http.Request, parsePath string, parseRouteQuery url.Values, parseSession *serverauth.Session) (atlas.Payload, routeMeta, error) {
 	parseMeta := routeMetaForPath(parsePath)
 	parsePreferences, _ := parseS.store.PreferencesByOwner(parseR.Context(), sessionOwnerID(parseSession))
+	if parseSession == nil && parseMeta.Surface == "public" {
+		parsePreferences.Locale = publicLocaleFromQuery(parseRouteQuery.Get("locale"), parsePreferences.Locale)
+	}
 	parseSavedViews, _ := parseS.store.SavedViewsByOwner(parseR.Context(), sessionOwnerID(parseSession))
 	parseQuery := cloneQuery(parseRouteQuery)
 	parsePayload := atlas.Payload{
@@ -1356,6 +1359,16 @@ func sessionOwnerID(parseSession *serverauth.Session) string {
 		return "public"
 	}
 	return parseSession.UserID
+}
+
+func publicLocaleFromQuery(parseLocale string, parseFallback string) string {
+	parseLocale = strings.ToLower(strings.TrimSpace(parseLocale))
+	for _, parseSupported := range atlas.SupportedLocales() {
+		if strings.EqualFold(parseLocale, parseSupported) {
+			return parseSupported
+		}
+	}
+	return nonEmpty(parseFallback, "en")
 }
 
 func cloneQuery(parseValues url.Values) map[string][]string {

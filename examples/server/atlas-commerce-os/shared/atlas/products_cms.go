@@ -713,7 +713,7 @@ func countLowStockProducts(parseItems []productAdminCard) int {
 
 func storeCatalogControls(parseForm ui.Form[atlasListFilterState], isSyncing bool, parseSubmit ui.Handler) ui.Node {
 	parseValue := parseForm.Get()
-	return html.Form(html.Props{Action: "/shop", Method: "get", OnSubmit: parseSubmit, Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-5 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm lg:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,0.75fr))_auto] lg:items-end"},
+	return html.Form(html.Props{Action: "/shop", Method: "get", OnSubmit: parseSubmit, Class: publicCatalogControlShellClass()},
 		publicCatalogBoundInput("q", "Search", parseValue.Query, "Query", parseForm),
 		publicCatalogBoundSelect("category", "Category", parseValue.Category, "Category", []optionItem{{"all", "All categories"}, {"desks", "Desks"}, {"storage", "Storage"}, {"seating", "Seating"}, {"accessories", "Accessories"}, {"lighting", "Lighting"}, {"bundles", "Bundles"}}, parseForm),
 		publicCatalogBoundSelect("warehouse", "Warehouse", parseValue.Warehouse, "Warehouse", []optionItem{{"all", "All warehouses"}, {"new-jersey-hub", "New Jersey Hub"}, {"illinois-hub", "Illinois Hub"}, {"nevada-hub", "Nevada Hub"}}, parseForm),
@@ -725,14 +725,14 @@ func storeCatalogControls(parseForm ui.Form[atlasListFilterState], isSyncing boo
 func publicCatalogInput(parseName, parseLabel, parseValue string) ui.Node {
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{}, html.Text(parseLabel)),
-		html.Input(html.Props{Name: parseName, Value: parseValue, Class: "rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]"}),
+		html.Input(html.Props{Name: parseName, Value: parseValue, Class: publicFormControlClass()}),
 	)
 }
 
 func publicCatalogBoundInput[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{}, html.Text(parseLabel)),
-		html.Input(html.Props{Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]"}),
+		html.Input(html.Props{Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: publicFormControlClass()}),
 	)
 }
 
@@ -744,7 +744,7 @@ func publicCatalogSelect(parseName, parseLabel, parseValue string, parseOptions 
 	}
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{}, html.Text(parseLabel)),
-		html.Select(html.Props{Name: parseName, Class: "rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]"}, parseChildren...),
+		html.Select(html.Props{Name: parseName, Class: publicFormControlClass()}, parseChildren...),
 	)
 }
 
@@ -756,7 +756,7 @@ func publicCatalogBoundSelect[T any](parseName, parseLabel, parseValue, parseFie
 	}
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{}, html.Text(parseLabel)),
-		html.Select(html.Props{Name: parseName, OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]"}, parseChildren...),
+		html.Select(html.Props{Name: parseName, OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: publicFormControlClass()}, parseChildren...),
 	)
 }
 

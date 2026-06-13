@@ -197,6 +197,148 @@
     "locales": ["en", "fr", "ar"],
     "refresh_order": ["buyer-flow", "operator-flow", "design-parity"]
   },
+  "screenshot_baselines": [
+    {
+      "id": "public-landing-baseline",
+      "surface": "public",
+      "route": "/",
+      "route_slug": "landing",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "public-catalog-baseline",
+      "surface": "public",
+      "route": "/shop",
+      "route_slug": "catalog",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "public-product-baseline",
+      "surface": "public",
+      "route": "/shop/frame-desk",
+      "route_slug": "product-frame-desk",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "public-warehouses-baseline",
+      "surface": "public",
+      "route": "/warehouses",
+      "route_slug": "warehouses",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "public-warehouse-detail-baseline",
+      "surface": "public",
+      "route": "/warehouses/new-jersey-hub",
+      "route_slug": "warehouse-new-jersey-hub",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "public-warehouse-availability-baseline",
+      "surface": "public",
+      "route": "/warehouses/new-jersey-hub/availability/frame-desk",
+      "route_slug": "availability-new-jersey-hub-frame-desk",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "internal-dashboard-baseline",
+      "surface": "internal",
+      "route": "/app/dashboard",
+      "route_slug": "dashboard",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-products-baseline",
+      "surface": "internal",
+      "route": "/app/products",
+      "route_slug": "products",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-inventory-baseline",
+      "surface": "internal",
+      "route": "/app/inventory",
+      "route_slug": "inventory",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-warehouse-baseline",
+      "surface": "internal",
+      "route": "/app/warehouses/new-jersey-hub",
+      "route_slug": "warehouse-new-jersey-hub",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-purchase-order-baseline",
+      "surface": "internal",
+      "route": "/app/purchase-orders/po-1042",
+      "route_slug": "purchase-order-po-1042",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-receiving-baseline",
+      "surface": "internal",
+      "route": "/app/receiving/rcv-illinois-001",
+      "route_slug": "receiving-rcv-illinois-001",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-comments-baseline",
+      "surface": "internal",
+      "route": "/app/comments",
+      "route_slug": "comments",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-settings-baseline",
+      "surface": "internal",
+      "route": "/app/settings",
+      "route_slug": "settings",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    }
+  ],
   "screenshot_checkpoints": [
     "public-landing-start",
     "public-catalog-browsing",

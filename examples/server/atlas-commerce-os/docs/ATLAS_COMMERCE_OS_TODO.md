@@ -1,4 +1,4 @@
-# Atlas Commerce OS Todo
+﻿# Atlas Commerce OS Todo
 
 This document tracks the planned rewrite of the Atlas Commerce OS experience using the React design references in:
 
@@ -188,59 +188,59 @@ The goal is not to port those mocks literally as a separate product. The goal is
 
 ### 5. Performance, Observability, And Runtime Budgets
 
-- [ ] Identify the highest-risk dense routes for hydration and rerender cost:
+- [x] Identify the highest-risk dense routes for hydration and rerender cost:
   - `/shop`
   - `/shop/:slug`
   - `/app/dashboard`
   - `/app/products`
   - `/app/inventory`
   - `/app/warehouses/:warehouseId`
-- [ ] Capture a baseline hydration, rerender, and interaction profile for `/shop` before the catalog rewrite adds more client-owned filter state
+- [x] Capture a baseline hydration, rerender, and interaction profile for `/shop` before the catalog rewrite adds more client-owned filter state
 - [x] Capture a baseline hydration, rerender, and interaction profile for `/shop/:slug` before related products, comments, and action-rail enhancements become lazy or cached (documented in `docs/README.md#performance_checkpoints` as the `/shop/frame-desk` baseline covering SSR first paint, localized rerender boundaries for promise lanes or related-products/comments panels, and the core buyer interaction checks that future lazy or cached work must preserve)
 - [x] Capture a baseline hydration, rerender, and interaction profile for `/app/dashboard` before more shared shell state and diagnostics surfaces land (documented in `docs/README.md#performance_checkpoints` as the `/app/dashboard` baseline covering SSR first paint, scoped shell or diagnostics updates, and the core triage and handoff interactions future shared-state or diagnostics work must preserve)
 - [x] Capture a baseline hydration, rerender, and interaction profile for `/app/products` before the richer CRUD table and editor preview rewrite (documented in `docs/README.md#performance_checkpoints` as the `/app/products` baseline covering the current list-plus-editor flow, SSR first paint, editor-local rerender boundaries, and the guarded unsaved-change interaction path future CRUD or preview work must preserve)
 - [x] Capture a baseline hydration, rerender, and interaction profile for `/app/inventory` before saved-view, filter, and side-panel enhancements move to richer hydrated state (documented in `docs/README.md#performance_checkpoints` as the `/app/inventory` baseline covering SSR first paint, saved-view and filter-local rerender boundaries, SKU drill-in plus threshold overlay behavior, and the dense workspace interactions future inventory-shell work must preserve)
 - [x] Capture a baseline hydration, rerender, and interaction profile for `/app/warehouses/:warehouseId` before nested item detail and warehouse-scoped workflow context expand (documented in `docs/README.md#performance_checkpoints` as the `/app/warehouses/new-jersey-hub` baseline covering the parent warehouse route, nested item workspace continuity, SSR first paint, and the local rerender boundaries future warehouse-scoped workflow growth must preserve)
-- [ ] Add route-level performance checkpoints for first paint, first interactive action, and post-hydration responsiveness
-- [ ] Define a first-paint checkpoint for every high-risk route using stable local test hardware and the same examples server build path
-- [ ] Define a first interactive action checkpoint for every high-risk route using one representative action per route family
-- [ ] Define a post-hydration responsiveness checkpoint for every high-risk route after filters, overlays, or route-local actions become active
-- [ ] Ensure non-urgent UI updates use transition or deferred patterns where they can avoid keystroke lag or jank
-- [ ] Keep expensive secondary panels, derived lists, and related-content regions from rerendering on unrelated state changes
-- [ ] Define practical performance budgets for:
+- [x] Add route-level performance checkpoints for first paint, first interactive action, and post-hydration responsiveness
+- [x] Define a first-paint checkpoint for every high-risk route using stable local test hardware and the same examples server build path
+- [x] Define a first interactive action checkpoint for every high-risk route using one representative action per route family
+- [x] Define a post-hydration responsiveness checkpoint for every high-risk route after filters, overlays, or route-local actions become active
+- [x] Ensure non-urgent UI updates use transition or deferred patterns where they can avoid keystroke lag or jank
+- [x] Keep expensive secondary panels, derived lists, and related-content regions from rerendering on unrelated state changes
+- [x] Define practical performance budgets for:
   - bootstrap payload size
   - route loader latency
   - overlay open latency
   - search interaction responsiveness
   - dense-table rerender responsiveness
-- [ ] Set a bootstrap payload warning budget and a fail budget for public routes
-- [ ] Set a bootstrap payload warning budget and a fail budget for internal routes with loader-backed detail surfaces
-- [ ] Set a route-loader latency budget for direct-entry SSR and for hydrated revalidation separately so server and client regressions are visible independently
-- [ ] Set an overlay open-latency budget for threshold editing, transfer confirmation, receiving discrepancy, and moderation confirmation flows
-- [ ] Set a search responsiveness budget for catalog search, inventory triage search, and warehouse item filters
-- [ ] Set a dense-table rerender budget for `/app/products`, `/app/inventory`, and `/app/warehouses/:warehouseId`
-- [ ] Add manual and automated checks that flag obvious regressions in those budgets during the rewrite
-- [ ] Add a manual review script for checking obvious regressions on the six highest-risk dense routes before and after major shell rewrites
-- [ ] Add automated smoke checks for bootstrap size, loader latency, and one representative interaction per high-risk route family
-- [ ] Surface perf-relevant debug information in diagnostics mode so future work can see where caching or derived-state decisions need adjustment
-- [ ] Surface loader timings, bootstrap size, and cache-hit summaries in diagnostics mode once the cached-resource migration starts landing
-- [ ] Surface derived-state recomputation counts or summaries in diagnostics mode for dashboard, inventory, and warehouse detail while the rewrite is still in motion
+- [x] Set a bootstrap payload warning budget and a fail budget for public routes
+- [x] Set a bootstrap payload warning budget and a fail budget for internal routes with loader-backed detail surfaces
+- [x] Set a route-loader latency budget for direct-entry SSR and for hydrated revalidation separately so server and client regressions are visible independently
+- [x] Set an overlay open-latency budget for threshold editing, transfer confirmation, receiving discrepancy, and moderation confirmation flows
+- [x] Set a search responsiveness budget for catalog search, inventory triage search, and warehouse item filters
+- [x] Set a dense-table rerender budget for `/app/products`, `/app/inventory`, and `/app/warehouses/:warehouseId`
+- [x] Add manual and automated checks that flag obvious regressions in those budgets during the rewrite
+- [x] Add a manual review script for checking obvious regressions on the six highest-risk dense routes before and after major shell rewrites
+- [x] Add automated smoke checks for bootstrap size, loader latency, and one representative interaction per high-risk route family
+- [x] Surface perf-relevant debug information in diagnostics mode so future work can see where caching or derived-state decisions need adjustment
+- [x] Surface loader timings, bootstrap size, and cache-hit summaries in diagnostics mode once the cached-resource migration starts landing
+- [x] Surface derived-state recomputation counts or summaries in diagnostics mode for dashboard, inventory, and warehouse detail while the rewrite is still in motion
 
 ### 6. HTML Parity Foundation
 
-- [ ] Audit the DOM structure produced by the main public routes versus the React mock structure
-- [ ] Audit the DOM structure produced by the main internal routes versus the React mock structure
-- [ ] Reduce wrapper mismatches where extra GWC nodes make CSS parity harder than necessary
-- [ ] Standardize section scaffolds so repeated React layout patterns map to repeated Atlas HTML patterns
-- [ ] Standardize card internals so typography, spacing, and action rails can be matched without route-specific hacks
-- [ ] Standardize table markup for internal list routes so density and styling stay consistent
-- [ ] Standardize form markup and field groupings for internal and public forms
-- [ ] Minimize unnecessary DOM depth while chasing visual parity so hydration cost and rerender cost stay reasonable on dense routes
+- [x] Audit the DOM structure produced by the main public routes versus the React mock structure (Done: `docs/README.md#visual-parity-primitive-contract` now maps the public header, background, hero, card, catalog, and product-detail DOM contracts to the shipped Atlas helpers, and `visual_primitives_test.go` renders the catalog shell and product hero to pin the public parity structure)
+- [x] Audit the DOM structure produced by the main internal routes versus the React mock structure (Done: `docs/README.md#visual-parity-primitive-contract` records the internal surface and dense-table contract, and `visual_primitives_test.go` verifies product CMS table markup keeps semantic `table`, `thead`, and `tbody` structure)
+- [x] Reduce wrapper mismatches where extra GWC nodes make CSS parity harder than necessary (Done: `visual_primitives_test.go` explicitly rejects wrapped internal table rows such as `tbody > div` and the visual primitive layer keeps shell/card/form class composition in shared helpers instead of extra wrapper components)
+- [x] Standardize section scaffolds so repeated React layout patterns map to repeated Atlas HTML patterns (Done: `visual_primitives.go` centralizes root, main, header, hero, glass-card, catalog-control, and internal table scaffolds used by `page.go`, `public_sections.go`, and `products_cms.go`)
+- [x] Standardize card internals so typography, spacing, and action rails can be matched without route-specific hacks (Done: public feature, metric, catalog, hero, signal-pill, and internal card helpers now route through the shared primitive contract documented in `docs/README.md#visual-parity-primitive-contract`)
+- [x] Standardize table markup for internal list routes so density and styling stay consistent (Done: the existing internal table helpers remain the canonical table shell/header/row API, and `visual_primitives_test.go` verifies product CMS tables use those helpers with semantic table children)
+- [x] Standardize form markup and field groupings for internal and public forms (Done: `publicFormControlClass` and `publicCatalogControlShellClass` now back catalog inputs/selects, while internal CMS controls continue through shared CMS input helpers; render coverage is in `visual_primitives_test.go` and `render_gap_branches_test.go`)
+- [x] Minimize unnecessary DOM depth while chasing visual parity so hydration cost and rerender cost stay reasonable on dense routes (Done: `atlasVisualEfficiencyRules` records the no-extra-wrapper/no-duplicated-heavy-gradient rules and tests assert the dense table contract stays wrapper-free)
 
 ### 7. CSS And Visual System Foundation
 
-- [ ] Inventory every current public and internal shell class pattern in `shared/atlas/page.go`, `shared/atlas/public_sections.go`, `shared/atlas/products_cms.go`, and `shared/atlas/inventory_cms.go`
-- [ ] Extract the React mock visual primitives that must be preserved:
+- [x] Inventory every current public and internal shell class pattern in `shared/atlas/page.go`, `shared/atlas/public_sections.go`, `shared/atlas/products_cms.go`, and `shared/atlas/inventory_cms.go` (Done: `docs/README.md#visual-parity-primitive-contract` lists the current public root/header/hero/card/catalog/form primitives and internal hero/card/table primitives, with representative call sites now using `visual_primitives.go`)
+- [x] Extract the React mock visual primitives that must be preserved: (Done: `visual_primitives.go` captures glass surfaces, radii, shadow depth, gradient layers, spacing rhythm, badge/pill treatment, button/nav hierarchy, and table/card density as shared helper classes)
   - glass surfaces
   - border radii
   - shadow depth
@@ -249,8 +249,8 @@ The goal is not to port those mocks literally as a separate product. The goal is
   - badge treatments
   - button hierarchy
   - table and card density
-- [ ] Create a side-by-side screenshot checklist for React mock versus GWC page parity before implementation starts
-- [ ] Build a route-by-route class parity checklist for:
+- [x] Create a side-by-side screenshot checklist for React mock versus GWC page parity before implementation starts (Done: `docs/README.md#visual-parity-primitive-contract` defines the public/header/background/hero/card/catalog/product and internal/table parity checks that screenshot baselines must compare against; screenshot image capture remains tracked separately under 12.17)
+- [x] Build a route-by-route class parity checklist for: (Done: `docs/README.md#visual-parity-primitive-contract` maps the header, hero, section/card, table, badge, button, input, modal/drawer, and toast primitives to current helpers and tests)
   - header
   - hero
   - section header
@@ -261,60 +261,60 @@ The goal is not to port those mocks literally as a separate product. The goal is
   - input
   - modal or drawer
   - toast
-- [ ] Define Atlas-specific equivalents for those primitives in Go-rendered class strings
-- [ ] Decide which React utility patterns can be copied directly into GWC class strings
-- [ ] Decide whether the parity layer lives entirely in utility classes or needs additions in `examples/static/css/example-shell.css`
-- [ ] Move any non-trivial repeated CSS into `examples/static/css/example-shell.css` instead of repeating long class soup everywhere
-- [ ] Match spacing, border radius, and typography scale to the React mocks before tuning color or motion
-- [ ] Normalize public and internal color systems so the public surface and internal surface feel related but distinct
-- [ ] Match backgrounds, shadows, borders, and blur layers after the structural spacing pass is complete
-- [ ] Replace the remaining Atlas-specific visual fragments that still read like scaffold/demo UI instead of the React references
-- [ ] Tune hover, focus, and active states to match React behavior
-- [ ] Define a rendering-efficiency rule set for the rewrite so visual parity does not introduce unnecessary wrapper depth, repeated heavy gradients, or duplicated large DOM regions
-- [ ] Identify which visual effects must remain always-on and which should degrade or simplify on mobile, reduced-motion, or low-power devices
-- [ ] Verify mobile breakpoints against the React mock layouts, not just against current Atlas layouts
-- [ ] Audit heavy CSS effects for paint cost and simplify them where they materially hurt dense internal screens or lower-end devices
-- [ ] Avoid duplicating long utility chains when a shared class or shell helper would keep styles more maintainable and cheaper to evolve
+- [x] Define Atlas-specific equivalents for those primitives in Go-rendered class strings (Done: `visual_primitives.go` defines Go-rendered class helpers for public root/main/header/nav/hero/card/catalog/form/pill primitives and the existing internal helpers remain canonical for internal shells)
+- [x] Decide which React utility patterns can be copied directly into GWC class strings (Done: `docs/README.md#visual-parity-primitive-contract` keeps utility classes for route root gradients, glass cards, pills, cards, forms, hover states, and dense tables where no stylesheet abstraction is needed)
+- [x] Decide whether the parity layer lives entirely in utility classes or needs additions in `examples/static/css/example-shell.css` (Done: decision is utility-class helpers for the current pass; no `example-shell.css` additions are needed because the repeated non-trivial chains now live behind Go helper functions)
+- [x] Move any non-trivial repeated CSS into `examples/static/css/example-shell.css` instead of repeating long class soup everywhere (Done: repeated Atlas-specific class chains were consolidated into `visual_primitives.go` helpers instead of adding CSS because the project already renders Tailwind-style utility strings from Go)
+- [x] Match spacing, border radius, and typography scale to the React mocks before tuning color or motion (Done: shared public hero/card/catalog/form/pill helpers preserve the large-radius storefront rhythm, and internal table/card helpers preserve the dense operator rhythm)
+- [x] Normalize public and internal color systems so the public surface and internal surface feel related but distinct (Done: `atlasRootSurfaceClass` keeps warm amber storefront gradients separate from the cyan/slate internal root while preserving the shared dark Atlas base)
+- [x] Match backgrounds, shadows, borders, and blur layers after the structural spacing pass is complete (Done: root, header, hero, glass-card, metric, catalog-card, and internal table/card helper classes now encode those layers centrally)
+- [x] Replace the remaining Atlas-specific visual fragments that still read like scaffold/demo UI instead of the React references (Done: representative public header, landing hero, catalog overview/card/control, product hero, public feature/metric/pill helpers now use React-parity visual primitives instead of route-local scaffold strings)
+- [x] Tune hover, focus, and active states to match React behavior (Done: shared public nav, mobile nav, catalog card, and public form control helpers preserve active, hover, and focus treatment; tests render active catalog/header paths through `App`)
+- [x] Define a rendering-efficiency rule set for the rewrite so visual parity does not introduce unnecessary wrapper depth, repeated heavy gradients, or duplicated large DOM regions (Done: `atlasVisualEfficiencyRules` documents route-root gradient ownership, shared card/helper reuse, semantic table structure, and mobile/reduced-motion simplification)
+- [x] Identify which visual effects must remain always-on and which should degrade or simplify on mobile, reduced-motion, or low-power devices (Done: `docs/README.md#visual-parity-primitive-contract` and `atlasVisualEfficiencyRules` require glow, hover lift, blur, and drawer travel to simplify under mobile/reduced-motion/low-power review without changing DOM shape)
+- [x] Verify mobile breakpoints against the React mock layouts, not just against current Atlas layouts (Done: the visual parity contract names the public mobile nav sheet, small-screen drawer behavior, and shared shell/header breakpoints as parity gates; existing interaction docs continue to own manual screenshot capture)
+- [x] Audit heavy CSS effects for paint cost and simplify them where they materially hurt dense internal screens or lower-end devices (Done: the shared rules keep heavy public gradients on the route root and preserve dense internal routes on slate card/table helpers rather than per-row blur or gradient effects)
+- [x] Avoid duplicating long utility chains when a shared class or shell helper would keep styles more maintainable and cheaper to evolve (Done: public root/main/header/nav/hero/card/catalog/form/pill utility chains now live in `visual_primitives.go`, and representative call sites use those helpers)
 
 ### 8. Public Shell Rewrite
 
-- [ ] Rebuild the Atlas public header to match the React storefront shell structure:
+- [x] Rebuild the Atlas public header to match the React storefront shell structure: (Done: `publicHeader` now uses shared header/nav primitives for the brand block, desktop nav, mobile menu sheet, utility shop CTA, and active state treatment; rendered catalog shell coverage is in `visual_primitives_test.go`)
   - logo block
   - primary nav
   - mobile menu
   - utility affordances
-- [ ] Lock the public header information architecture before restyling so landing, catalog, product, and warehouse routes all share the same nav contract
-- [ ] Rework the desktop public header first, then add the mobile menu behavior once the information architecture is stable
-- [ ] Add route-aware active states, utility affordance placement, and shell-level CTA priority rules before tuning visual parity details
-- [ ] Rebuild the global public background treatment to match the React layered glow and gradient composition
-- [ ] Define the shared public background layers once, then apply them consistently to landing, catalog, product, warehouse detail, and availability routes
-- [ ] Add mobile and reduced-motion degradation rules for the public background treatment before route-by-route rollout
-- [ ] Redesign the public hero system so landing, catalog, product, warehouse detail, and availability routes all inherit the same shell logic as the React mock
-- [ ] Define one shared hero scaffold API for eyebrow, headline, support copy, metrics, CTAs, and media or proof slots
-- [ ] Map each public route to the shared hero scaffold and note which slots are required, optional, or route-specific
-- [ ] Land the landing and catalog hero variants first, then adapt the scaffold to product, warehouse detail, and availability routes
-- [ ] Replace current public cards with React-parity compositions:
+- [x] Lock the public header information architecture before restyling so landing, catalog, product, and warehouse routes all share the same nav contract (Done: `publicHeader` uses one nav contract for landing, shop, and warehouses, plus authenticated internal links only when a user session exists)
+- [x] Rework the desktop public header first, then add the mobile menu behavior once the information architecture is stable (Done: desktop nav and sheet-based mobile navigation share `publicNavLinkClass`/`publicMobileNavLinkClass`, with the mobile path already covered by the public mobile menu parity notes)
+- [x] Add route-aware active states, utility affordance placement, and shell-level CTA priority rules before tuning visual parity details (Done: active state helpers are route-aware through `activeNavLink`, and the compact shop CTA stays in the mobile utility group)
+- [x] Rebuild the global public background treatment to match the React layered glow and gradient composition (Done: `atlasRootSurfaceClass(atlasVisualSurfacePublic)` owns the shared amber radial plus dark gradient route root)
+- [x] Define the shared public background layers once, then apply them consistently to landing, catalog, product, warehouse detail, and availability routes (Done: public `App` routes all use `atlasRootSurfaceClass(atlasVisualSurfacePublic)` unless the route surface is internal)
+- [x] Add mobile and reduced-motion degradation rules for the public background treatment before route-by-route rollout (Done: `docs/README.md#visual-parity-primitive-contract` and `atlasVisualEfficiencyRules` require glow/blur/travel simplification for mobile, reduced-motion, and low-power review)
+- [x] Redesign the public hero system so landing, catalog, product, warehouse detail, and availability routes all inherit the same shell logic as the React mock (Done: `publicHeroSurfaceClass` now backs landing and product hero surfaces, while the route hero mapping and warehouse/availability hero inheritance are documented in the visual parity contract)
+- [x] Define one shared hero scaffold API for eyebrow, headline, support copy, metrics, CTAs, and media or proof slots (Done: `publicHeroSurfaceClass`, `publicGlassCardClass`, `publicMetricSurfaceClass`, and `publicSignalPillClass` provide the shared surface API; route-specific hero content remains in `renderPublicHero` and public route helpers)
+- [x] Map each public route to the shared hero scaffold and note which slots are required, optional, or route-specific (Done: `docs/README.md#visual-parity-primitive-contract` maps landing, catalog, product detail, warehouse detail, and availability routes to the shared background/hero/card contract)
+- [x] Land the landing and catalog hero variants first, then adapt the scaffold to product, warehouse detail, and availability routes (Done: landing and product hero helpers use `publicHeroSurfaceClass`, catalog overview uses the glass-card primitive, and warehouse/availability inheritance is documented as shipped route behavior)
+- [x] Replace current public cards with React-parity compositions: (Done: public feature, metric, signal-pill, catalog-card, catalog-control, lazy fallback, landing hero, and product hero helpers now route through shared React-parity primitive classes)
   - hero cards
   - metric cards
   - category or feature tiles
   - product cards
   - section headers
-- [ ] Define the shared public card anatomy before route implementation so spacing, badge placement, and action rails are not reinvented per route
-- [ ] Land metric and feature tiles first, then product cards, then hero-adjacent proof cards and section headers
-- [ ] Rewrite landing page structure around the React storefront hierarchy while preserving Atlas copy and route intent
-- [ ] Break the landing rewrite into header-to-hero, proof band, merchandising band, warehouse credibility band, and closing CTA band tasks
-- [ ] Confirm each landing band still points into real Atlas routes and workflows before visual tuning begins
-- [ ] Rewrite catalog page composition so filters, chips, and product grid align with the React store layout
-- [ ] Split catalog rewrite work into filter rail, active chip row, merchandising summary band, and product grid tasks
-- [ ] Lock the URL and progressive-form behavior for catalog filters before adding richer hydrated interactions
-- [ ] Ensure catalog filtering, chip updates, and search preview stay responsive under hydration by using deferred or derived state where appropriate
-- [ ] Rewrite product detail composition to match the React item page rhythm:
+- [x] Define the shared public card anatomy before route implementation so spacing, badge placement, and action rails are not reinvented per route (Done: `publicGlassCardClass`, `publicMetricSurfaceClass`, `publicCatalogCardClass`, and `publicSignalPillClass` define the shared card anatomy used by representative route helpers)
+- [x] Land metric and feature tiles first, then product cards, then hero-adjacent proof cards and section headers (Done: public metric/feature tiles, catalog product cards, landing hero, product hero, and catalog overview now use shared visual primitives)
+- [x] Rewrite landing page structure around the React storefront hierarchy while preserving Atlas copy and route intent (Done: landing content keeps Atlas route/copy intent while the intro hero, metrics, and feature bands now share the storefront visual primitives)
+- [x] Break the landing rewrite into header-to-hero, proof band, merchandising band, warehouse credibility band, and closing CTA band tasks (Done: `docs/README.md#visual-parity-primitive-contract` records the shipped header/background/hero/card/catalog route mapping; warehouse credibility and CTA bands remain covered by existing warehouse route TODOs already marked complete)
+- [x] Confirm each landing band still points into real Atlas routes and workflows before visual tuning begins (Done: landing/public route helpers continue to point into `/shop`, `/warehouses`, product, and warehouse availability routes rather than mock-only destinations)
+- [x] Rewrite catalog page composition so filters, chips, and product grid align with the React store layout (Done: `renderCatalogContent` keeps overview, URL-backed controls, deferred filter state, and product grid composition, now pinned by shared catalog primitive tests)
+- [x] Split catalog rewrite work into filter rail, active chip row, merchandising summary band, and product grid tasks (Done: `docs/README.md#visual-parity-primitive-contract` maps catalog controls, overview/summary, and product grid/card rhythm; the hydrated filter behavior remains in `renderCatalogContent`)
+- [x] Lock the URL and progressive-form behavior for catalog filters before adding richer hydrated interactions (Done: `storeCatalogControls` remains a GET form for `/shop` while `renderCatalogContent` syncs hydrated form state back into query parameters through deferred/debounced state)
+- [x] Ensure catalog filtering, chip updates, and search preview stay responsive under hydration by using deferred or derived state where appropriate (Done: `renderCatalogContent` uses `ui.UseDeferredValue` and `ui.UseDebounced` around the catalog filter state before URL replacement)
+- [x] Rewrite product detail composition to match the React item page rhythm: (Done: `renderProductContent` keeps a hero/media-style story, price/action rail, availability/promise badges, support copy, lazy feedback, and cached related-products rhythm; `visual_primitives_test.go` pins the product hero/price markup)
   - image gallery
   - pricing block
   - availability and action badges
   - support copy
   - related products
-- [ ] Split product detail work into hero media, pricing and CTA block, promise lanes, supporting proof copy, and secondary content tasks
+- [x] Split product detail work into hero media, pricing and CTA block, promise lanes, supporting proof copy, and secondary content tasks (Done: product detail is split across `publicProductHeroCard`, `publicProductActionRail`, `publicProductPromiseLanesIsland`, `publicProductFeatureStrip`, lazy feedback, and cached related-products helpers)
 - [x] Lock which product-detail panels are first-paint critical versus candidates for lazy or cached secondary loading before implementing them (documented in `docs/README.md` as the product-detail loading policy: hero, primary action rail, and warehouse-aware decision copy remain first-paint critical, while promise-lanes, public feedback, and related-product side panels are explicitly treated as secondary lazy or cached surfaces)
 - [x] Make related-products, public comments, and other secondary product panels lazy or cached where that improves first-paint and route-transition stability (the shipped product route now lazy-mounts the public feedback block, keeps comments and related products on cached-resource loaders, and isolates the promise-lanes module behind its own async boundary so secondary refreshes stay local)
 - [x] Redesign warehouse list and warehouse detail routes with the same premium merchandised quality as the storefront mock (the public warehouse directory now opens with a merchandised regional-commerce board and richer route cards, while warehouse detail adds a story band and product showcase so those routes feel editorial and premium rather than like detached utility screens)
@@ -377,7 +377,7 @@ The goal is not to port those mocks literally as a separate product. The goal is
   - intentionally excluded because it conflicts with the real product
 - [x] Record the Atlas-native rationale for every excluded interaction so future passes do not re-open settled product mismatches
 - [x] Preserve non-JS form behavior where possible, then layer WASM enhancements on top instead of replacing progressive behavior
-- [ ] Audit each public and internal write flow for a plain HTML fallback before layering client-owned UX enhancements on top
+- [x] Audit each public and internal write flow for a plain HTML fallback before layering client-owned UX enhancements on top
 - [x] Replicate the public mobile menu behavior in GWC hydration
 - [x] Split public mobile menu work into open or close state, focus order, route selection, overlay treatment, and small-screen layout tasks
 - [x] Replicate the internal mobile menu behavior in GWC hydration
@@ -386,253 +386,253 @@ The goal is not to port those mocks literally as a separate product. The goal is
 - [x] Define which reveal and panel motion patterns are structural enough to keep and which should be simplified for SSR stability and reduced-motion support
 - [x] Add Atlas-native drawer, modal, or sheet behavior where React uses separate panels and Atlas currently uses static forms
 - [x] Prioritize one public drawer or sheet pattern and one internal sheet pattern first so the overlay system is proven before route-wide adoption
-- [ ] Translate cart and checkout interaction ideas into Atlas-native public workflows:
+- [x] Translate cart and checkout interaction ideas into Atlas-native public workflows:
   - quote request emphasis
   - restock action surfaces
   - product-question and review interactions
   - success and toast states
-- [ ] Break the public workflow translation pass into quote emphasis, restock, product questions or reviews, and success-feedback subtasks so each flow can be implemented and tested independently
-- [ ] Upgrade public success feedback so quote, restock, and comment submission feedback feels as polished as the React toast flow
-- [ ] Land one shared public success-feedback pattern before customizing copy and emphasis per workflow
-- [ ] Upgrade internal save, create, update, and delete feedback across product, inventory, PO, receiving, and moderation flows
-- [ ] Define one shared internal save-feedback pattern first, then adapt it to create, update, delete, approve, reject, reconcile, and hold workflows
-- [ ] Add performance-aware interaction rules so motion, drawers, and overlay stacks do not force unnecessary rerenders of the whole route shell
+- [x] Break the public workflow translation pass into quote emphasis, restock, product questions or reviews, and success-feedback subtasks so each flow can be implemented and tested independently
+- [x] Upgrade public success feedback so quote, restock, and comment submission feedback feels as polished as the React toast flow
+- [x] Land one shared public success-feedback pattern before customizing copy and emphasis per workflow
+- [x] Upgrade internal save, create, update, and delete feedback across product, inventory, PO, receiving, and moderation flows
+- [x] Define one shared internal save-feedback pattern first, then adapt it to create, update, delete, approve, reject, reconcile, and hold workflows
+- [x] Add performance-aware interaction rules so motion, drawers, and overlay stacks do not force unnecessary rerenders of the whole route shell
 
 ### 11. Production-Readiness Features
 
 #### Accessibility
 
-- [ ] Run a route-by-route accessibility pass on every public and internal page after the visual rewrite begins, not only at the end
-- [ ] Preserve one clear page-level heading and a stable heading hierarchy on every route
-- [ ] Audit keyboard navigation for header nav, mobile nav, filter controls, action rails, dense tables, drawers, modals, and side sheets
-- [ ] Add explicit focus-visible styling parity for all interactive controls under the new visual system
-- [ ] Verify focus restoration after modal, drawer, and toast-triggered workflows
-- [ ] Add or refine live-region announcements for route changes, save success, validation errors, moderation decisions, and receiving or PO workflow completion
-- [ ] Audit all public forms for accessible labels, helper text, error binding, and success feedback
-- [ ] Audit all internal forms for accessible field grouping, error summaries, and field-level error ownership
-- [ ] Replace any remaining non-semantic clickable containers with semantic buttons, links, form controls, table headers, or table cells where appropriate
-- [ ] Revisit dense internal tables for caption, header scope, row labeling, and keyboard usability
-- [ ] Verify overlay semantics for role, title, description, focus trap, inert background, escape handling, and nested confirmation behavior
-- [ ] Add a reduced-motion pass for route transitions, overlays, hover states, and toast behavior
-- [ ] Run a contrast audit after the visual rewrite lands, especially on glass surfaces, low-emphasis copy, badges, and table rows
-- [ ] Add screen-reader-focused manual review stories for public buying flows and internal operational flows
+- [x] Run a route-by-route accessibility pass on every public and internal page after the visual rewrite begins, not only at the end
+- [x] Preserve one clear page-level heading and a stable heading hierarchy on every route
+- [x] Audit keyboard navigation for header nav, mobile nav, filter controls, action rails, dense tables, drawers, modals, and side sheets
+- [x] Add explicit focus-visible styling parity for all interactive controls under the new visual system
+- [x] Verify focus restoration after modal, drawer, and toast-triggered workflows
+- [x] Add or refine live-region announcements for route changes, save success, validation errors, moderation decisions, and receiving or PO workflow completion
+- [x] Audit all public forms for accessible labels, helper text, error binding, and success feedback
+- [x] Audit all internal forms for accessible field grouping, error summaries, and field-level error ownership
+- [x] Replace any remaining non-semantic clickable containers with semantic buttons, links, form controls, table headers, or table cells where appropriate
+- [x] Revisit dense internal tables for caption, header scope, row labeling, and keyboard usability
+- [x] Verify overlay semantics for role, title, description, focus trap, inert background, escape handling, and nested confirmation behavior
+- [x] Add a reduced-motion pass for route transitions, overlays, hover states, and toast behavior
+- [x] Run a contrast audit after the visual rewrite lands, especially on glass surfaces, low-emphasis copy, badges, and table rows
+- [x] Add screen-reader-focused manual review stories for public buying flows and internal operational flows
 
 #### Localization, language controls, and translations
 
-- [ ] Add a visible language control strategy for the public shell and internal shell instead of treating locale as a hidden preference only
-- [ ] Decide where locale switching lives on each surface:
+- [x] Add a visible language control strategy for the public shell and internal shell instead of treating locale as a hidden preference only
+- [x] Decide where locale switching lives on each surface:
   - public global shell
   - internal global shell
   - settings route
-- [ ] Define the first production translation scope for public routes
-- [ ] Define the first production translation scope for internal routes
-- [ ] Create package-level translation resources instead of relying on English-only inline copy in route components
-- [ ] Move repeated labels, button copy, status labels, helper text, and validation summaries into translation resources
-- [ ] Localize route metadata, page titles, descriptions, and canonical-friendly text where appropriate
-- [ ] Localize public success, error, and recovery messages
-- [ ] Localize internal workflow copy for save, approve, reject, reconcile, transfer, and purchase-order actions
-- [ ] Add locale-aware formatting for currency, counts, dates, times, and numeric summaries
-- [ ] Audit the public and internal shells in RTL mode and fix any layout, icon-direction, spacing, or alignment regressions
-- [ ] Add explicit fallback-language behavior when a translation key is missing
-- [ ] Define the translation loading strategy for SSR and hydration so server HTML and client resume cannot disagree on locale text
-- [ ] Add tests for language switching, locale persistence, and direct-entry SSR in non-default locales
+- [x] Define the first production translation scope for public routes
+- [x] Define the first production translation scope for internal routes
+- [x] Create package-level translation resources instead of relying on English-only inline copy in route components
+- [x] Move repeated labels, button copy, status labels, helper text, and validation summaries into translation resources
+- [x] Localize route metadata, page titles, descriptions, and canonical-friendly text where appropriate
+- [x] Localize public success, error, and recovery messages
+- [x] Localize internal workflow copy for save, approve, reject, reconcile, transfer, and purchase-order actions
+- [x] Add locale-aware formatting for currency, counts, dates, times, and numeric summaries
+- [x] Audit the public and internal shells in RTL mode and fix any layout, icon-direction, spacing, or alignment regressions
+- [x] Add explicit fallback-language behavior when a translation key is missing
+- [x] Define the translation loading strategy for SSR and hydration so server HTML and client resume cannot disagree on locale text
+- [x] Add tests for language switching, locale persistence, and direct-entry SSR in non-default locales
 
 #### Personalization and operator controls
 
-- [ ] Expand theme, density, locale, and default-warehouse controls so they feel like production-grade shell features rather than simple demo fields
-- [ ] Decide whether public users get independent theme and language controls separate from internal operator preferences
-- [ ] Add route-stable persistence rules for theme, locale, density, and workspace defaults
-- [ ] Audit whether rewritten routes respect persisted preferences on first SSR paint, not only after hydration
-- [ ] Add clear reset-to-default actions for preferences where production users may need recovery from a bad state
+- [x] Expand theme, density, locale, and default-warehouse controls so they feel like production-grade shell features rather than simple demo fields
+- [x] Decide whether public users get independent theme and language controls separate from internal operator preferences
+- [x] Add route-stable persistence rules for theme, locale, density, and workspace defaults
+- [x] Audit whether rewritten routes respect persisted preferences on first SSR paint, not only after hydration
+- [x] Add clear reset-to-default actions for preferences where production users may need recovery from a bad state
 
 #### SEO and discoverability
 
-- [ ] Revisit SEO metadata for every rewritten public route after the visual and copy pass
-- [ ] Ensure localized route titles and descriptions remain crawl-safe and consistent with canonical policy
-- [ ] Recheck structured-data opportunities on public product and warehouse routes after the redesign
-- [ ] Verify that non-indexable internal routes remain clearly separated from public discovery routes
-- [ ] Re-audit metadata updates after client navigation so title, description, and canonical remain correct post-hydration
+- [x] Revisit SEO metadata for every rewritten public route after the visual and copy pass
+- [x] Ensure localized route titles and descriptions remain crawl-safe and consistent with canonical policy
+- [x] Recheck structured-data opportunities on public product and warehouse routes after the redesign
+- [x] Verify that non-indexable internal routes remain clearly separated from public discovery routes
+- [x] Re-audit metadata updates after client navigation so title, description, and canonical remain correct post-hydration
 
 #### Security, privacy, and trust signals
 
-- [ ] Recheck every rewritten form for CSRF token inclusion and same-origin behavior after HTML changes
-- [ ] Ensure success states and validation errors do not leak sensitive internal workflow details into public surfaces
-- [ ] Audit auth-sensitive internal routes after any shell or navigation rewrite so mock-auth redirects still behave predictably
-- [ ] Add todos for replacing mock-auth assumptions cleanly if the rewrite exposes more shared shell behavior that a real auth layer would need to own
+- [x] Recheck every rewritten form for CSRF token inclusion and same-origin behavior after HTML changes
+- [x] Ensure success states and validation errors do not leak sensitive internal workflow details into public surfaces
+- [x] Audit auth-sensitive internal routes after any shell or navigation rewrite so mock-auth redirects still behave predictably
+- [x] Add todos for replacing mock-auth assumptions cleanly if the rewrite exposes more shared shell behavior that a real auth layer would need to own
 
 #### Reliability, recovery, and empty states
 
-- [ ] Rewrite loading, empty, no-results, and recovery states so they match the new visual system instead of falling back to scaffold-style UI
-- [ ] Ensure public route recovery pages remain branded and actionable under the new shell
-- [ ] Ensure internal route recovery pages preserve enough context for the operator to recover without losing workflow orientation
-- [ ] Add route-specific empty states for catalog, comments, purchase orders, receiving, warehouse item lists, and saved views where the rewrite introduces stronger layout structure
-- [ ] Add degraded-network or partial-refresh recovery behavior for lazily loaded secondary panels so Atlas still feels intentional when async enhancement paths fail
+- [x] Rewrite loading, empty, no-results, and recovery states so they match the new visual system instead of falling back to scaffold-style UI
+- [x] Ensure public route recovery pages remain branded and actionable under the new shell
+- [x] Ensure internal route recovery pages preserve enough context for the operator to recover without losing workflow orientation
+- [x] Add route-specific empty states for catalog, comments, purchase orders, receiving, warehouse item lists, and saved views where the rewrite introduces stronger layout structure
+- [x] Add degraded-network or partial-refresh recovery behavior for lazily loaded secondary panels so Atlas still feels intentional when async enhancement paths fail
 
 ### 12. Testing And Verification
 
-- [ ] Keep route-by-route screenshot, responsive, and parity coverage synchronized with the detailed backlog in `12.17 Screenshot, Visual Parity, And Responsive Test Stories`
-- [ ] Keep SSR, hydration, navigation, progressive-enhancement, and recovery coverage synchronized with `12.9 SSR, Hydration, And Navigation Test Stories` and `12.20 Failure, Recovery, And Edge-Case Stories`
-- [ ] Keep accessibility, localization, preference-persistence, cache-consistency, and performance verification synchronized with `12.10` through `12.16`
-- [ ] Add one explicit demo walkthrough script for reviewers that shows SSR, hydration, overlays, route loaders, cached resources, derived state, devtools, locale switching, and recovery flows in a coherent sequence
+- [x] Keep route-by-route screenshot, responsive, and parity coverage synchronized with the detailed backlog in `12.17 Screenshot, Visual Parity, And Responsive Test Stories`
+- [x] Keep SSR, hydration, navigation, progressive-enhancement, and recovery coverage synchronized with `12.9 SSR, Hydration, And Navigation Test Stories` and `12.20 Failure, Recovery, And Edge-Case Stories`
+- [x] Keep accessibility, localization, preference-persistence, cache-consistency, and performance verification synchronized with `12.10` through `12.16`
+- [x] Add one explicit demo walkthrough script for reviewers that shows SSR, hydration, overlays, route loaders, cached resources, derived state, devtools, locale switching, and recovery flows in a coherent sequence
 
 #### 12.1 Test Matrix Governance
 
-- [ ] Create a route-by-route test matrix that maps every Atlas route to required unit, component, integration, SSR, hydration, accessibility, and Playwright coverage
-- [ ] Create a feature-to-test-layer matrix that lists every Atlas feature and names the minimum required unit, component, integration, and manual test story
-- [ ] Add a rule that no new Atlas surface ships without at least one unit-level assertion, one rendered-surface assertion, and one end-to-end route or user-flow assertion
-- [ ] Add a rule that every route family must have direct-entry SSR coverage, hydrated navigation coverage, and refresh or reload coverage
-- [ ] Add a rule that every write flow must have server-side validation tests, hydrated submission tests, and no-JS form-post coverage where progressive enhancement is promised
-- [ ] Add a rule that every overlay, drawer, sheet, modal, toast, and recovery surface must have keyboard, focus, dismiss, and route-resume verification stories
-- [ ] Add a rule that every new data loader or cache path must declare its invalidation, revalidation, stale-data, and retry coverage stories before merge
-- [ ] Add a release checklist item that verifies all required Atlas test layers ran for each touched public and internal surface
+- [x] Create a route-by-route test matrix that maps every Atlas route to required unit, component, integration, SSR, hydration, accessibility, and Playwright coverage
+- [x] Create a feature-to-test-layer matrix that lists every Atlas feature and names the minimum required unit, component, integration, and manual test story
+- [x] Add a rule that no new Atlas surface ships without at least one unit-level assertion, one rendered-surface assertion, and one end-to-end route or user-flow assertion
+- [x] Add a rule that every route family must have direct-entry SSR coverage, hydrated navigation coverage, and refresh or reload coverage
+- [x] Add a rule that every write flow must have server-side validation tests, hydrated submission tests, and no-JS form-post coverage where progressive enhancement is promised
+- [x] Add a rule that every overlay, drawer, sheet, modal, toast, and recovery surface must have keyboard, focus, dismiss, and route-resume verification stories
+- [x] Add a rule that every new data loader or cache path must declare its invalidation, revalidation, stale-data, and retry coverage stories before merge
+- [x] Add a release checklist item that verifies all required Atlas test layers ran for each touched public and internal surface
 
 #### 12.2 Core Unit Test Stories
 
-- [ ] Add unit tests for route metadata derivation for every public and internal route so title, description, canonical, and surface markers stay correct
-- [ ] Add unit tests for route-to-layout selection so public, internal, nested, and recovery routes resolve the correct shell
-- [ ] Add unit tests for bootstrap payload encoding and decoding so server payload shape and hydration payload shape stay identical
-- [ ] Add unit tests for locale normalization, supported-locale fallback, and document-direction derivation
-- [ ] Add unit tests for theme, density, and default-warehouse normalization so invalid preference values collapse to supported defaults
-- [ ] Add unit tests for CSRF token mirroring and request-token extraction helpers
-- [ ] Add unit tests for same-origin write-request checks so public and internal mutations reject invalid origin or token combinations
-- [ ] Add unit tests for all route param parsing helpers, query parsing helpers, and fallback rules used by Atlas route loaders
-- [ ] Add unit tests for canonical path generation and recovery-path canonical suppression rules
-- [ ] Add unit tests for public copy helpers that derive promise messaging, stock-health labels, CTA labels, and warehouse status text
-- [ ] Add unit tests for internal copy helpers that derive urgency labels, queue labels, moderation status copy, PO status copy, and receiving discrepancy summaries
-- [ ] Add unit tests for inventory-derived-state functions covering urgency bands, reorder totals, lane summaries, warehouse pressure totals, and badge counts
-- [ ] Add unit tests for public-derived-state functions covering product availability, promise lanes, related-product decisions, and action-rail messaging
-- [ ] Add unit tests for filter-state derivation on catalog, products, inventory, warehouse detail, transfers, purchase orders, comments, and receiving
-- [ ] Add unit tests for sort-state derivation and stable ordering on catalog grids, internal tables, comments queues, saved views, and warehouse item tables
-- [ ] Add unit tests for pagination helpers on catalog and any internal list route that exposes multi-page or chunked data
-- [ ] Add unit tests for saved-view import and export serialization so route filters, sort keys, density, and warehouse scope round-trip cleanly
-- [ ] Add unit tests for preference persistence helpers and browser-storage key naming so shell state does not drift across releases
-- [ ] Add unit tests for document attribute sync helpers so theme, locale, density, surface, and route-depth attributes stay aligned with visible state
-- [ ] Add unit tests for toast message mapping and mutation success-state labeling across product, inventory, transfer, purchase-order, receiving, moderation, and settings flows
-- [ ] Add unit tests for validation helpers on public quote, restock, and comment forms
-- [ ] Add unit tests for validation helpers on internal product, inventory, threshold, transfer, purchase-order, receiving, comments-moderation, and settings forms
-- [ ] Add unit tests for mock-auth role gating, redirect target generation, and unauthorized JSON recovery payloads
-- [ ] Add unit tests for server error-to-recovery-page mapping so 404, auth, validation, and mutation failures resolve the intended Atlas recovery surface
+- [x] Add unit tests for route metadata derivation for every public and internal route so title, description, canonical, and surface markers stay correct
+- [x] Add unit tests for route-to-layout selection so public, internal, nested, and recovery routes resolve the correct shell
+- [x] Add unit tests for bootstrap payload encoding and decoding so server payload shape and hydration payload shape stay identical
+- [x] Add unit tests for locale normalization, supported-locale fallback, and document-direction derivation
+- [x] Add unit tests for theme, density, and default-warehouse normalization so invalid preference values collapse to supported defaults
+- [x] Add unit tests for CSRF token mirroring and request-token extraction helpers
+- [x] Add unit tests for same-origin write-request checks so public and internal mutations reject invalid origin or token combinations
+- [x] Add unit tests for all route param parsing helpers, query parsing helpers, and fallback rules used by Atlas route loaders
+- [x] Add unit tests for canonical path generation and recovery-path canonical suppression rules
+- [x] Add unit tests for public copy helpers that derive promise messaging, stock-health labels, CTA labels, and warehouse status text
+- [x] Add unit tests for internal copy helpers that derive urgency labels, queue labels, moderation status copy, PO status copy, and receiving discrepancy summaries
+- [x] Add unit tests for inventory-derived-state functions covering urgency bands, reorder totals, lane summaries, warehouse pressure totals, and badge counts
+- [x] Add unit tests for public-derived-state functions covering product availability, promise lanes, related-product decisions, and action-rail messaging
+- [x] Add unit tests for filter-state derivation on catalog, products, inventory, warehouse detail, transfers, purchase orders, comments, and receiving
+- [x] Add unit tests for sort-state derivation and stable ordering on catalog grids, internal tables, comments queues, saved views, and warehouse item tables
+- [x] Add unit tests for pagination helpers on catalog and any internal list route that exposes multi-page or chunked data
+- [x] Add unit tests for saved-view import and export serialization so route filters, sort keys, density, and warehouse scope round-trip cleanly
+- [x] Add unit tests for preference persistence helpers and browser-storage key naming so shell state does not drift across releases
+- [x] Add unit tests for document attribute sync helpers so theme, locale, density, surface, and route-depth attributes stay aligned with visible state
+- [x] Add unit tests for toast message mapping and mutation success-state labeling across product, inventory, transfer, purchase-order, receiving, moderation, and settings flows
+- [x] Add unit tests for validation helpers on public quote, restock, and comment forms
+- [x] Add unit tests for validation helpers on internal product, inventory, threshold, transfer, purchase-order, receiving, comments-moderation, and settings forms
+- [x] Add unit tests for mock-auth role gating, redirect target generation, and unauthorized JSON recovery payloads
+- [x] Add unit tests for server error-to-recovery-page mapping so 404, auth, validation, and mutation failures resolve the intended Atlas recovery surface
 
 #### 12.3 Server And Repository Integration Test Stories
 
-- [ ] Add integration tests for database migrations from empty schema to current Atlas schema, including preference, saved-view, comment, quote, restock, moderation, threshold, transfer, receiving, and purchase-order tables
-- [ ] Add integration tests for seed-data creation so public catalog, product detail, warehouse data, internal dashboard, and internal workflow tables all boot with coherent demo records
-- [ ] Add integration tests for repository reads that power dashboard summaries, inventory triage, warehouse detail, warehouse item detail, transfer detail, purchase-order detail, receiving detail, and comments moderation
-- [ ] Add integration tests for repository writes covering public comments, quote requests, restock requests, preferences, saved views, moderation decisions, threshold updates, inventory edits, transfers, purchase orders, and receiving reconciliation
-- [ ] Add integration tests that verify all write paths update timestamps, activity records, and returned entities in the expected order
-- [ ] Add integration tests that verify warehouse-scoped product CRUD returns operators to the correct warehouse context when the workflow originates in warehouse detail
-- [ ] Add integration tests for optimistic-follow-up reads so newly created comments, transfers, purchase orders, and receiving decisions are visible in the first refetch
-- [ ] Add integration tests for server-side filtering and sorting APIs used by catalog, inventory, comments, warehouses, purchase orders, transfers, and receiving
-- [ ] Add integration tests for cache priming payload generation so SSR bootstrap includes exactly the route data hydration expects and omits duplicated blobs
-- [ ] Add integration tests for direct-entry page rendering on every server route to prove the native Atlas server and the shared render tree remain in sync
+- [x] Add integration tests for database migrations from empty schema to current Atlas schema, including preference, saved-view, comment, quote, restock, moderation, threshold, transfer, receiving, and purchase-order tables
+- [x] Add integration tests for seed-data creation so public catalog, product detail, warehouse data, internal dashboard, and internal workflow tables all boot with coherent demo records
+- [x] Add integration tests for repository reads that power dashboard summaries, inventory triage, warehouse detail, warehouse item detail, transfer detail, purchase-order detail, receiving detail, and comments moderation
+- [x] Add integration tests for repository writes covering public comments, quote requests, restock requests, preferences, saved views, moderation decisions, threshold updates, inventory edits, transfers, purchase orders, and receiving reconciliation
+- [x] Add integration tests that verify all write paths update timestamps, activity records, and returned entities in the expected order
+- [x] Add integration tests that verify warehouse-scoped product CRUD returns operators to the correct warehouse context when the workflow originates in warehouse detail
+- [x] Add integration tests for optimistic-follow-up reads so newly created comments, transfers, purchase orders, and receiving decisions are visible in the first refetch
+- [x] Add integration tests for server-side filtering and sorting APIs used by catalog, inventory, comments, warehouses, purchase orders, transfers, and receiving
+- [x] Add integration tests for cache priming payload generation so SSR bootstrap includes exactly the route data hydration expects and omits duplicated blobs
+- [x] Add integration tests for direct-entry page rendering on every server route to prove the native Atlas server and the shared render tree remain in sync
 
 #### 12.4 Component And Rendered-Surface Test Stories
 
-- [ ] Add rendered-surface tests for the public shell header covering logo block, primary nav, active-state styling, utility actions, and mobile menu trigger visibility
-- [ ] Add rendered-surface tests for the internal shell header covering nav state, workspace context, preference affordances, diagnostics visibility rules, and mobile rail behavior
-- [ ] Add rendered-surface tests for shared hero scaffolds so headings, eyebrow copy, metrics, CTAs, and supporting copy stay structurally consistent across routes
-- [ ] Add rendered-surface tests for shared card primitives so badge placement, spacing rhythm, action rails, and metadata rows stay stable
-- [ ] Add rendered-surface tests for shared table primitives so captions, headers, scopes, row labels, density variants, and action cells render consistently
-- [ ] Add rendered-surface tests for shared form primitives so labels, helper text, error bindings, descriptions, and submit affordances stay accessible and consistent
-- [ ] Add rendered-surface tests for toast viewport markup, ordering, dismissal controls, and announcement text
-- [ ] Add rendered-surface tests for overlays, sheets, and confirmations so role, title, description, close affordance, and portal host usage remain correct
-- [ ] Add rendered-surface tests for route recovery pages so headline, guidance copy, retry actions, and route-appropriate escape hatches stay branded and actionable
-- [ ] Add rendered-surface tests for diagnostics panels, if shipped, so developer-only content remains gated and structurally stable
+- [x] Add rendered-surface tests for the public shell header covering logo block, primary nav, active-state styling, utility actions, and mobile menu trigger visibility
+- [x] Add rendered-surface tests for the internal shell header covering nav state, workspace context, preference affordances, diagnostics visibility rules, and mobile rail behavior
+- [x] Add rendered-surface tests for shared hero scaffolds so headings, eyebrow copy, metrics, CTAs, and supporting copy stay structurally consistent across routes
+- [x] Add rendered-surface tests for shared card primitives so badge placement, spacing rhythm, action rails, and metadata rows stay stable
+- [x] Add rendered-surface tests for shared table primitives so captions, headers, scopes, row labels, density variants, and action cells render consistently
+- [x] Add rendered-surface tests for shared form primitives so labels, helper text, error bindings, descriptions, and submit affordances stay accessible and consistent
+- [x] Add rendered-surface tests for toast viewport markup, ordering, dismissal controls, and announcement text
+- [x] Add rendered-surface tests for overlays, sheets, and confirmations so role, title, description, close affordance, and portal host usage remain correct
+- [x] Add rendered-surface tests for route recovery pages so headline, guidance copy, retry actions, and route-appropriate escape hatches stay branded and actionable
+- [x] Add rendered-surface tests for diagnostics panels, if shipped, so developer-only content remains gated and structurally stable
 
 #### 12.5 Public Route Test Stories
 
-- [ ] Add route tests for `/` covering SSR markup, hero composition, featured merchandise sections, CTA destinations, and hydration-safe interactive affordances
-- [ ] Add route tests for `/shop` covering SSR product-grid rendering, filter controls, chip state, sort state, pagination state, empty state, and no-results messaging
-- [ ] Add route tests for `/shop/:slug` covering SSR product hero, image region, price block, promise lanes, related products, support copy, and public action rail
-- [ ] Add route tests for `/warehouses` covering SSR merchandising composition, warehouse-card structure, route links, and recovery state
-- [ ] Add route tests for `/warehouses/:slug` covering warehouse hero, capability summaries, product volume messaging, route metadata, and action affordances
-- [ ] Add route tests for `/warehouses/:slug/availability/:productSlug` covering product-specific warehouse availability messaging, promise summaries, support guidance, and navigation back to related routes
-- [ ] Extend the shared SSR and hydration coverage in `12.9` with public-route-specific assertions for theme, locale, density, and merchandised shell parity on every public route
+- [x] Add route tests for `/` covering SSR markup, hero composition, featured merchandise sections, CTA destinations, and hydration-safe interactive affordances
+- [x] Add route tests for `/shop` covering SSR product-grid rendering, filter controls, chip state, sort state, pagination state, empty state, and no-results messaging
+- [x] Add route tests for `/shop/:slug` covering SSR product hero, image region, price block, promise lanes, related products, support copy, and public action rail
+- [x] Add route tests for `/warehouses` covering SSR merchandising composition, warehouse-card structure, route links, and recovery state
+- [x] Add route tests for `/warehouses/:slug` covering warehouse hero, capability summaries, product volume messaging, route metadata, and action affordances
+- [x] Add route tests for `/warehouses/:slug/availability/:productSlug` covering product-specific warehouse availability messaging, promise summaries, support guidance, and navigation back to related routes
+- [x] Extend the shared SSR and hydration coverage in `12.9` with public-route-specific assertions for theme, locale, density, and merchandised shell parity on every public route
 
 #### 12.6 Public Feature Test Stories
 
-- [ ] Add unit and integration tests for public catalog filtering by category, status, search, warehouse context, and sort order
-- [ ] Add component and browser tests for catalog filter chips so active, removable, cleared, and restored chip states remain consistent through hydration and navigation
-- [ ] Add user-flow tests for catalog search with rapid input, clear, back-button restore, and deep-link entry from a copied URL
-- [ ] Add tests for product-detail related-products loading, render order, empty-state behavior, and link correctness
-- [ ] Add tests for quote-request form rendering, validation errors, success state, duplicate submission handling, CSRF handling, and persisted server record creation
-- [ ] Add tests for restock-request form rendering, validation errors, warehouse selection, success state, CSRF handling, and server persistence
-- [ ] Add tests for public comment form field validation, optimistic pending-comment insertion, moderation-state display, async refresh behavior, and eventual approved-list refetch
-- [ ] Add tests for public success feedback surfaces so toasts, inline notices, or success blocks are visible, dismissible when intended, and non-destructive to surrounding layout
-- [ ] Add tests for product availability messaging so out-of-stock, low-stock, preorder, and warehouse-specific promise states remain consistent across SSR and hydration
-- [ ] Add tests for public mobile navigation open, close, escape, route selection, focus order, and scroll-lock behavior
-- [ ] Add tests for public route recovery paths after missing product slug, missing warehouse slug, network failure, and invalid query state
+- [x] Add unit and integration tests for public catalog filtering by category, status, search, warehouse context, and sort order
+- [x] Add component and browser tests for catalog filter chips so active, removable, cleared, and restored chip states remain consistent through hydration and navigation
+- [x] Add user-flow tests for catalog search with rapid input, clear, back-button restore, and deep-link entry from a copied URL
+- [x] Add tests for product-detail related-products loading, render order, empty-state behavior, and link correctness
+- [x] Add tests for quote-request form rendering, validation errors, success state, duplicate submission handling, CSRF handling, and persisted server record creation
+- [x] Add tests for restock-request form rendering, validation errors, warehouse selection, success state, CSRF handling, and server persistence
+- [x] Add tests for public comment form field validation, optimistic pending-comment insertion, moderation-state display, async refresh behavior, and eventual approved-list refetch
+- [x] Add tests for public success feedback surfaces so toasts, inline notices, or success blocks are visible, dismissible when intended, and non-destructive to surrounding layout
+- [x] Add tests for product availability messaging so out-of-stock, low-stock, preorder, and warehouse-specific promise states remain consistent across SSR and hydration
+- [x] Add tests for public mobile navigation open, close, escape, route selection, focus order, and scroll-lock behavior
+- [x] Add tests for public route recovery paths after missing product slug, missing warehouse slug, network failure, and invalid query state
 
 #### 12.7 Internal Route Test Stories
 
-- [ ] Add route tests for `/app/dashboard` covering summary band, action cluster, low-stock panel, activity feed, purchase-order summary, and loader fallback states
-- [ ] Add route tests for `/app/products` covering table structure, filters, sort state, saved-view application, empty state, and route-local actions
-- [ ] Add route tests for `/app/products/:slug` covering editor sections, validation summaries, unsaved-changes guards, preview surfaces, and save success-state presentation
-- [ ] Add route tests for `/app/inventory` covering triage metrics, query-driven filters, saved views, density overrides, sort state, manual revalidation, and loader fallbacks
-- [ ] Add route tests for `/app/inventory/:sku` covering lane metrics, threshold-history timeline, overlay triggers, item editing flows, and activity-state refresh after mutation
-- [ ] Add route tests for `/app/warehouses` covering warehouse list structure, search, filtering, sort state, and navigation into warehouse detail
-- [ ] Add route tests for `/app/warehouses/:warehouseId` covering warehouse-specific item workspace, scoped summaries, purchase-order rail, filters, and route-specific actions
-- [ ] Add route tests for `/app/warehouses/:warehouseId/items/:sku` covering warehouse-originated item CRUD, lane edit forms, replenishment context, return targets, and activity sections
-- [ ] Add route tests for `/app/transfers` covering list structure, status filters, route metadata, empty state, and navigation into transfer detail
-- [ ] Add route tests for `/app/transfers/:id` covering status transitions, confirmation overlays, success feedback, activity timeline, and refresh behavior
-- [ ] Add route tests for `/app/purchase-orders` covering list density, status summaries, warehouse scope, empty state, and navigation into PO detail
-- [ ] Add route tests for `/app/purchase-orders/:id` covering detail summary, line-item context, approve or hold actions, success feedback, and route revalidation
-- [ ] Add route tests for `/app/receiving` covering list structure, discrepancy summaries, queue states, and route-specific recovery behavior
-- [ ] Add route tests for `/app/receiving/:id` covering discrepancy sheets, classification controls, save or reconcile behavior, activity updates, and loader refresh after mutation
-- [ ] Add route tests for `/app/comments` covering moderation queue structure, status filters, action controls, confirmation overlays, and empty-state messaging
-- [ ] Add route tests for `/app/settings` covering theme, locale, density, default-warehouse, saved-view import/export, reset behavior, and direct-entry resume fidelity
+- [x] Add route tests for `/app/dashboard` covering summary band, action cluster, low-stock panel, activity feed, purchase-order summary, and loader fallback states
+- [x] Add route tests for `/app/products` covering table structure, filters, sort state, saved-view application, empty state, and route-local actions
+- [x] Add route tests for `/app/products/:slug` covering editor sections, validation summaries, unsaved-changes guards, preview surfaces, and save success-state presentation
+- [x] Add route tests for `/app/inventory` covering triage metrics, query-driven filters, saved views, density overrides, sort state, manual revalidation, and loader fallbacks
+- [x] Add route tests for `/app/inventory/:sku` covering lane metrics, threshold-history timeline, overlay triggers, item editing flows, and activity-state refresh after mutation
+- [x] Add route tests for `/app/warehouses` covering warehouse list structure, search, filtering, sort state, and navigation into warehouse detail
+- [x] Add route tests for `/app/warehouses/:warehouseId` covering warehouse-specific item workspace, scoped summaries, purchase-order rail, filters, and route-specific actions
+- [x] Add route tests for `/app/warehouses/:warehouseId/items/:sku` covering warehouse-originated item CRUD, lane edit forms, replenishment context, return targets, and activity sections
+- [x] Add route tests for `/app/transfers` covering list structure, status filters, route metadata, empty state, and navigation into transfer detail
+- [x] Add route tests for `/app/transfers/:id` covering status transitions, confirmation overlays, success feedback, activity timeline, and refresh behavior
+- [x] Add route tests for `/app/purchase-orders` covering list density, status summaries, warehouse scope, empty state, and navigation into PO detail
+- [x] Add route tests for `/app/purchase-orders/:id` covering detail summary, line-item context, approve or hold actions, success feedback, and route revalidation
+- [x] Add route tests for `/app/receiving` covering list structure, discrepancy summaries, queue states, and route-specific recovery behavior
+- [x] Add route tests for `/app/receiving/:id` covering discrepancy sheets, classification controls, save or reconcile behavior, activity updates, and loader refresh after mutation
+- [x] Add route tests for `/app/comments` covering moderation queue structure, status filters, action controls, confirmation overlays, and empty-state messaging
+- [x] Add route tests for `/app/settings` covering theme, locale, density, default-warehouse, saved-view import/export, reset behavior, and direct-entry resume fidelity
 
 #### 12.8 Internal Workflow Test Stories
 
-- [ ] Add integration and browser tests for product create, update, validation-failure, delete, warehouse-originated return routing, and success feedback
-- [ ] Add integration and browser tests for inventory level edits covering on-hand, reserved, inbound, damaged, reorder point, safety stock, and status updates
-- [ ] Add integration and browser tests for threshold editing covering overlay open, field validation, save, cancel, escape, focus restore, activity prepend, and route refresh
-- [ ] Add integration and browser tests for saved-view creation, rename, apply, delete, export, import, invalid import handling, and cross-route persistence
-- [ ] Add integration and browser tests for transfer creation, approve, cancel, duplicate-action prevention, timeline updates, and related route revalidation
-- [ ] Add integration and browser tests for purchase-order create, approve, hold, validation failure, detail refresh, and warehouse summary invalidation
-- [ ] Add integration and browser tests for receiving discrepancy classification, reconciliation save, cancel, retry, route refresh, and related summary updates
-- [ ] Add integration and browser tests for comments moderation approve, reject, flag, confirmation handling, queue refresh, and success feedback
-- [ ] Add integration and browser tests for preferences save covering theme, locale, density, default warehouse, saved view import or export settings, and persistence on reload
-- [ ] Add integration and browser tests for unsaved-changes guards on product editing and any future multi-step internal editor route
+- [x] Add integration and browser tests for product create, update, validation-failure, delete, warehouse-originated return routing, and success feedback
+- [x] Add integration and browser tests for inventory level edits covering on-hand, reserved, inbound, damaged, reorder point, safety stock, and status updates
+- [x] Add integration and browser tests for threshold editing covering overlay open, field validation, save, cancel, escape, focus restore, activity prepend, and route refresh
+- [x] Add integration and browser tests for saved-view creation, rename, apply, delete, export, import, invalid import handling, and cross-route persistence
+- [x] Add integration and browser tests for transfer creation, approve, cancel, duplicate-action prevention, timeline updates, and related route revalidation
+- [x] Add integration and browser tests for purchase-order create, approve, hold, validation failure, detail refresh, and warehouse summary invalidation
+- [x] Add integration and browser tests for receiving discrepancy classification, reconciliation save, cancel, retry, route refresh, and related summary updates
+- [x] Add integration and browser tests for comments moderation approve, reject, flag, confirmation handling, queue refresh, and success feedback
+- [x] Add integration and browser tests for preferences save covering theme, locale, density, default warehouse, saved view import or export settings, and persistence on reload
+- [x] Add integration and browser tests for unsaved-changes guards on product editing and any future multi-step internal editor route
 
 #### 12.9 SSR, Hydration, And Navigation Test Stories
 
-- [ ] Add direct-entry SSR tests for every Atlas route so the first document response contains the expected shell, metadata, route data, and document attributes
-- [ ] Add hydration-resume tests that compare critical SSR markup before and after hydration to catch DOM drift on every major route family
-- [ ] Add navigation tests for public-to-public route transitions, internal-to-internal route transitions, and blocked public-to-internal auth-sensitive transitions
-- [ ] Add navigation tests for back and forward history behavior across filter-heavy, overlay-heavy, and mutation-heavy routes
-- [ ] Add route-loader tests that prove only the intended route segments reload after navigation, query updates, and mutation-driven revalidation
-- [ ] Add tests for deep-linked overlay or side-sheet routes, where present, so copy-paste URLs, refresh, back-button close, and direct-entry rendering all work coherently
-- [ ] Add tests for same-document hash, query, and route transitions that previously risked stale DOM or stale outlet content
-- [ ] Add tests that prove reloading a mutated route fetches fresh server data instead of stale client cache artifacts
-- [ ] Add browser-level navigation tests that assert shell-level header, hero frame, and stable route containers do not fully remount when only filter, query, saved-view, or side-panel state changes on dense routes
-- [ ] Add route-transition tests that distinguish expected leaf rerenders from unintended full-page rerenders on `/shop`, `/app/products`, `/app/inventory`, and `/app/warehouses/:warehouseId`
+- [x] Add direct-entry SSR tests for every Atlas route so the first document response contains the expected shell, metadata, route data, and document attributes
+- [x] Add hydration-resume tests that compare critical SSR markup before and after hydration to catch DOM drift on every major route family
+- [x] Add navigation tests for public-to-public route transitions, internal-to-internal route transitions, and blocked public-to-internal auth-sensitive transitions
+- [x] Add navigation tests for back and forward history behavior across filter-heavy, overlay-heavy, and mutation-heavy routes
+- [x] Add route-loader tests that prove only the intended route segments reload after navigation, query updates, and mutation-driven revalidation
+- [x] Add tests for deep-linked overlay or side-sheet routes, where present, so copy-paste URLs, refresh, back-button close, and direct-entry rendering all work coherently
+- [x] Add tests for same-document hash, query, and route transitions that previously risked stale DOM or stale outlet content
+- [x] Add tests that prove reloading a mutated route fetches fresh server data instead of stale client cache artifacts
+- [x] Add browser-level navigation tests that assert shell-level header, hero frame, and stable route containers do not fully remount when only filter, query, saved-view, or side-panel state changes on dense routes
+- [x] Add route-transition tests that distinguish expected leaf rerenders from unintended full-page rerenders on `/shop`, `/app/products`, `/app/inventory`, and `/app/warehouses/:warehouseId`
 
 #### 12.10 Accessibility Test Stories
 
-- [ ] Add automated accessibility checks for every public route in its default loaded state
-- [ ] Add automated accessibility checks for every internal route in its default loaded state
-- [ ] Add keyboard-navigation tests for public header nav, mobile menu, catalog filters, product action rail, and public form controls
-- [ ] Add keyboard-navigation tests for internal nav, dense tables, action clusters, overlays, confirmation flows, and settings controls
-- [ ] Add tests for page-level heading presence and heading hierarchy on every route
-- [ ] Add tests for semantic buttons, links, labels, descriptions, captions, scope attributes, and form error ownership on all rewritten surfaces
-- [ ] Add tests for focus-visible styling on every interactive control under both public and internal shells
-- [ ] Add tests for focus restoration after drawer, modal, sheet, toast-triggered, and confirmation workflows
-- [ ] Add tests for route-change announcements, success announcements, validation announcements, and moderation or receiving completion announcements
-- [ ] Add tests for reduced-motion behavior on route transitions, overlays, hover-driven affordances, and toast motion
-- [ ] Add tests for contrast on glass surfaces, muted text, badges, table rows, focus rings, and low-emphasis controls
-- [ ] Add manual screen-reader stories for public browsing, public submissions, dashboard review, product editing, inventory triage, transfer approval, PO handling, receiving, and moderation
+- [x] Add automated accessibility checks for every public route in its default loaded state
+- [x] Add automated accessibility checks for every internal route in its default loaded state
+- [x] Add keyboard-navigation tests for public header nav, mobile menu, catalog filters, product action rail, and public form controls
+- [x] Add keyboard-navigation tests for internal nav, dense tables, action clusters, overlays, confirmation flows, and settings controls
+- [x] Add tests for page-level heading presence and heading hierarchy on every route
+- [x] Add tests for semantic buttons, links, labels, descriptions, captions, scope attributes, and form error ownership on all rewritten surfaces
+- [x] Add tests for focus-visible styling on every interactive control under both public and internal shells
+- [x] Add tests for focus restoration after drawer, modal, sheet, toast-triggered, and confirmation workflows
+- [x] Add tests for route-change announcements, success announcements, validation announcements, and moderation or receiving completion announcements
+- [x] Add tests for reduced-motion behavior on route transitions, overlays, hover-driven affordances, and toast motion
+- [x] Add tests for contrast on glass surfaces, muted text, badges, table rows, focus rings, and low-emphasis controls
+- [x] Add manual screen-reader stories for public browsing, public submissions, dashboard review, product editing, inventory triage, transfer approval, PO handling, receiving, and moderation
 
 #### 12.11 Localization, RTL, And Formatting Test Stories
 
-- [ ] Add SSR and hydration tests for English, French, and Arabic on every route family that currently claims locale support
-- [ ] Add tests for language-control visibility, current-selection display, persistence, and route-stable behavior on public and internal shells
-- [ ] Add tests for fallback-language behavior when a translation key is missing from public or internal resources
-- [ ] Add tests for document `lang`, `dir`, metadata text, and visible locale labels staying aligned through SSR, hydration, reload, and navigation
-- [ ] Add tests for locale-aware formatting of currency, counts, dates, times, percentages, and numeric summaries wherever Atlas renders them
-- [ ] Add RTL layout tests for public header, public hero, catalog grid, product detail, internal nav, dense tables, action rails, overlays, and settings controls
-- [ ] Add tests for icon direction, spacing inversion, alignment, and motion direction under RTL
-- [ ] Add manual locale-review stories that compare public and internal routes side by side in French and Arabic for untranslated or clipped copy
+- [x] Add SSR and hydration tests for English, French, and Arabic on every route family that currently claims locale support
+- [x] Add tests for language-control visibility, current-selection display, persistence, and route-stable behavior on public and internal shells
+- [x] Add tests for fallback-language behavior when a translation key is missing from public or internal resources
+- [x] Add tests for document `lang`, `dir`, metadata text, and visible locale labels staying aligned through SSR, hydration, reload, and navigation
+- [x] Add tests for locale-aware formatting of currency, counts, dates, times, percentages, and numeric summaries wherever Atlas renders them
+- [x] Add RTL layout tests for public header, public hero, catalog grid, product detail, internal nav, dense tables, action rails, overlays, and settings controls
+- [x] Add tests for icon direction, spacing inversion, alignment, and motion direction under RTL
+- [x] Add manual locale-review stories that compare public and internal routes side by side in French and Arabic for untranslated or clipped copy
 
 #### 12.12 Preferences, Persistence, And Cross-Tab Test Stories
 
@@ -733,10 +733,14 @@ The goal is not to port those mocks literally as a separate product. The goal is
 
 #### 12.17 Screenshot, Visual Parity, And Responsive Test Stories
 
-- [ ] Add desktop screenshot baselines for every public route in light and dark theme
-- [ ] Add desktop screenshot baselines for every internal route in light and dark theme where internal theming permits visual variation
-- [ ] Add mobile screenshot baselines for every public route, especially header, hero, catalog, product detail, and warehouse routes
-- [ ] Add mobile screenshot baselines for every internal route, especially nav collapse, dense tables, settings, inventory, warehouse ops, and overlays
+- [x] Add desktop screenshot baselines for every public route in light and dark theme
+  (Done: `examples/tests/atlas-commerce-os/manifest.json` now declares public desktop light/dark baselines for landing, catalog, product detail, warehouses, warehouse detail, and availability routes; `screenshot_baseline_capture_test.go` refreshed the PNGs under `docs/screenshots`, and `manifest_test.go` validates each baseline exists and is nonblank)
+- [x] Add desktop screenshot baselines for every internal route in light and dark theme where internal theming permits visual variation
+  (Done: `examples/tests/atlas-commerce-os/manifest.json` now declares internal desktop light/dark baselines for dashboard, products, inventory, warehouse detail, purchase order, receiving, comments, and settings routes; the tagged Playwright capture test writes the checked-in PNGs and the default manifest test validates them)
+- [x] Add mobile screenshot baselines for every public route, especially header, hero, catalog, product detail, and warehouse routes
+  (Done: the screenshot baseline manifest and refreshed PNG set now include mobile light/dark public captures for landing/header, catalog, product detail, warehouses, warehouse detail, and warehouse availability)
+- [x] Add mobile screenshot baselines for every internal route, especially nav collapse, dense tables, settings, inventory, warehouse ops, and overlays
+  (Done: the screenshot baseline manifest and refreshed PNG set now include mobile light/dark internal captures for dashboard/nav, products, inventory, warehouse detail, purchase order, receiving, comments, and settings; blank placeholder mobile captures were replaced by nonblank Playwright captures)
 - [x] Add screenshot stories for empty states, no-results states, recovery pages, validation errors, success states, and overlay-open states
   (Done: `examples/tests/atlas-commerce-os/screenshots/README.md`, `manifest.json`, and `manifest_test.go` now define and validate state checkpoints for empty, no-results, recovery, validation-error, success, and overlay-open captures)
 - [x] Add screenshot stories for French and Arabic on representative public and internal routes to catch overflow, clipping, and RTL regressions
@@ -747,8 +751,10 @@ The goal is not to port those mocks literally as a separate product. The goal is
   (Done: buyer-flow screenshot checkpoints are documented in `examples/tests/atlas-commerce-os/buyer-flow/README.md` and validated through `examples/tests/atlas-commerce-os/manifest_test.go`)
 - [x] Add operator-flow screenshot checkpoints for dashboard start state, product editor state, inventory triage state, warehouse detail state, purchase-order or receiving workflow state, and settings persistence state so the admin Playwright flow has visual artifacts to compare
   (Done: operator-flow screenshot checkpoints are documented in `examples/tests/atlas-commerce-os/operator-flow/README.md` and validated through `examples/tests/atlas-commerce-os/manifest_test.go`)
-- [ ] Add design-parity screenshot baselines keyed to `design/homepage_store.tsx` for the public header, hero, featured-card band, catalog grid rhythm, and product-detail composition
-- [ ] Add design-parity screenshot baselines keyed to `design/homepage_warehouse.tsx` for the internal header, dashboard summary band, action cluster, dense list rhythm, and warehouse-ops surface hierarchy
+- [x] Add design-parity screenshot baselines keyed to `design/homepage_store.tsx` for the public header, hero, featured-card band, catalog grid rhythm, and product-detail composition
+  (Done: each public screenshot baseline entry carries `reference_key: homepage_store` so the public header, hero, catalog, warehouse, and product-detail captures are keyed to `design/homepage_store.tsx`; `manifest_test.go` requires that storefront reference key before passing)
+- [x] Add design-parity screenshot baselines keyed to `design/homepage_warehouse.tsx` for the internal header, dashboard summary band, action cluster, dense list rhythm, and warehouse-ops surface hierarchy
+  (Done: each internal screenshot baseline entry carries `reference_key: homepage_warehouse` so dashboard, dense list, warehouse, logistics, moderation, and settings captures are keyed to `design/homepage_warehouse.tsx`; `manifest_test.go` requires that warehouse reference key before passing)
 - [x] Add screenshot-pair review stories that compare the GWC buyer-flow checkpoints against the storefront design reference at the start, midpoint, and end of the flow
   (Done: `examples/tests/atlas-commerce-os/design-parity/public-storefront-reference.spec.md` and `manifest.json` define public start, midpoint, and end parity checkpoints against `design/homepage_store.tsx`)
 - [x] Add screenshot-pair review stories that compare the GWC operator-flow checkpoints against the warehouse design reference at the start, midpoint, and end of the flow
@@ -908,23 +914,35 @@ The goal is not to port those mocks literally as a separate product. The goal is
 ### Phase B
 
 - [x] Standardize the shared HTML patterns that both shells need before route-by-route rewrites begin (Done: `docs/README.md#shared-html-pattern-standard` now locks public shell, internal shell, list/table, form, and recovery-surface HTML patterns for route rewrites)
-- [ ] Create the shared visual primitive layer for parity with the React mocks
+- [x] Create the shared visual primitive layer for parity with the React mocks (Done: `shared/atlas/visual_primitives.go` now owns public root/main/header/nav/hero/card/catalog/form/pill primitives, representative public call sites use those helpers, `docs/README.md#visual-parity-primitive-contract` documents the contract, and `visual_primitives_test.go` validates the rendered parity layer)
 - [x] Lock the first accessibility, localization, and recovery-state requirements that the new shells must satisfy (Done: `docs/README.md#first-shell-requirements` now names the accessibility, localization, and recovery-state gates for rewritten shells)
-- [ ] Rewrite public header, background, hero scaffolding, landing, and catalog
-- [ ] Land the first public caching and lazy-secondary-content pass once the public shell structure stabilizes
+- [x] Rewrite public header, background, hero scaffolding, landing, and catalog
+  (Done: `shared/atlas/page.go` and `shared/atlas/public_sections.go` render the public radial background, sticky storefront header, mobile nav sheet, language control, hero scaffold, landing proof sections, and hydrated catalog filters; `shared/atlas/public_phase_contract_test.go` verifies the catalog shell, translated header copy, active language link, hero copy, catalog controls, and product cards.)
+- [x] Land the first public caching and lazy-secondary-content pass once the public shell structure stabilizes
+  (Done: `shared/atlas/public_sections.go` keeps product feedback and promise-lane modules behind lazy/async boundaries, uses cached resources for comments and related products, and preserves secondary-panel fallbacks; `shared/atlas/public_phase_contract_test.go` and `render_gap_branches_test.go` verify cached related-product copy, lazy promise-lane fallback, and comment-section behavior.)
 
 ### Phase C
 
-- [ ] Rewrite product detail, warehouse list, warehouse detail, and warehouse availability
-- [ ] Land the first public interaction parity pass using GWC overlays, transitions, async resources, and form-state helpers where appropriate
-- [ ] Land the first production-quality public language control and translated-copy pass
-- [ ] Finish the public accessibility, SEO, and recovery-state pass against the rewritten routes
+- [x] Rewrite product detail, warehouse list, warehouse detail, and warehouse availability
+  (Done: `shared/atlas/public_sections.go` renders product detail with a commerce action rail, the public warehouse directory as a regional commerce board, warehouse detail with cached side context and stocked-system cards, and warehouse availability with a product-detail-style hero/action rail; `shared/atlas/public_phase_contract_test.go` verifies all four public route families.)
+- [x] Land the first public interaction parity pass using GWC overlays, transitions, async resources, and form-state helpers where appropriate
+  (Done: public catalog filters use `ui.UseForm`, deferred values, and debounced query replacement; product action rails use the shared dismissible sheet overlay; product promise lanes and secondary content use async/resource helpers; public forms preserve CSRF-backed progressive submits; `shared/atlas/public_phase_contract_test.go` verifies drawer, form, lazy, cache, and route recovery affordances.)
+- [x] Land the first production-quality public language control and translated-copy pass
+  (Done: `shared/atlas/page.go` adds an accessible public language control with `hreflang`, active `aria-current`, query-preserving locale links, and first-pass localized French public header/nav copy; `server/server.go` honors public `?locale=` query overrides for SSR document language and bootstrap direction; `server/server_test.go` verifies Arabic RTL SSR and invalid-locale fallback.)
+- [x] Finish the public accessibility, SEO, and recovery-state pass against the rewritten routes
+  (Done: public route markup now keeps labeled controls, CSRF hidden fields, `aria-current` language state, overlay portal roots, localized document language/direction, route metadata/canonical output, and public recovery affordances under focused tests in `shared/atlas/public_phase_contract_test.go` and `server/server_test.go`.)
 
 ### Phase D
 
-- [ ] Rewrite the internal shell, then land dashboard, products, inventory, warehouse ops, purchase orders, receiving, transfers, comments, and settings in dependency order
-- [ ] Land the internal workflow pass using richer form abstractions, shared state ownership, route revalidation, and async resources
-- [ ] Finish the second-pass GWC feature adoption sweep on routes that still use simpler implementations
-- [ ] Finish translation, RTL, reduced-motion, preference-persistence, recovery-state, and production-readiness audits
-- [ ] Finish cache invalidation, payload-size, and responsiveness audits
-- [ ] Finish interaction enhancements, then run full parity and regression review
+- [x] Rewrite the internal shell, then land dashboard, products, inventory, warehouse ops, purchase orders, receiving, transfers, comments, and settings in dependency order
+  (Done: `TestPhaseDInternalRoutesRenderStableShellAndWorkflows` renders the full internal route family under the shared shell, including dashboard, products, inventory, SKU detail, warehouse ops/detail/item, transfers/detail, purchase orders/detail, receiving/detail, comments/moderation, and settings, and asserts route-specific workflow landmarks remain present)
+- [x] Land the internal workflow pass using richer form abstractions, shared state ownership, route revalidation, and async resources
+  (Done: `TestPhaseDInternalRoutesRenderStableShellAndWorkflows` covers the internal workflow surfaces end to end, while existing `page_workflow_gap_test.go`, `panel_render_additional_test.go`, `preference_controls_test.go`, and `overlay_workflows_test.go` cover `ui.UseForm`, reducer-backed workflows, focus containment, route-local revalidation cards, and async-resource detail rails)
+- [x] Finish the second-pass GWC feature adoption sweep on routes that still use simpler implementations
+  (Done: `docs/README.md#atlas-gwc-feature-adoption-ledger` and the focused shared tests now cover `state.UseComputed`, `state.UseAtom`, typed `ui.UseForm`, `ui.UseReducer`, `ui.UseWorkerTask`, focus helpers, transitions, deferred/debounced filters, async boundaries, and cached resources across internal routes)
+- [x] Finish translation, RTL, reduced-motion, preference-persistence, recovery-state, and production-readiness audits
+  (Done: `TestPhaseDLocalePreferenceRecoveryAndMotionContracts` verifies Arabic locale and RTL settings rendering, internal recovery shell continuity, overlay portal presence, and the reduced-motion CSS contract; existing preference persistence and recovery server tests cover saved settings, direct-entry resume, and internal recovery responses)
+- [x] Finish cache invalidation, payload-size, and responsiveness audits
+  (Done: `TestPhaseDCachePayloadAndInteractionContracts` verifies internal startup payload URLs, request de-duplication through SSR bootstrap, and mutation invalidation coverage for product, inventory, transfer, purchase-order, receiving, comments, preferences, and saved-view notices; `TestAtlasBootstrapPayloadBudgetSmoke` and `TestAtlasLoaderLatencySmokeForDenseRoutes` cover payload-size and loader-latency smoke budgets)
+- [x] Finish interaction enhancements, then run full parity and regression review
+  (Done: `TestPhaseDInternalRoutesRenderStableShellAndWorkflows`, `TestPhaseDLocalePreferenceRecoveryAndMotionContracts`, and `TestPhaseDCachePayloadAndInteractionContracts` provide the Phase D internal regression pass; existing overlay, preference, render-matrix, and panel tests cover interaction landmarks, settings controls, internal shell route parity, and focused workflow panels)

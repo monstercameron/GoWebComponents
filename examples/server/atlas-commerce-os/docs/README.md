@@ -1235,6 +1235,39 @@ The product page should be assembled in this order:
   - public comments and related products both reuse cached-resource loaders after hydration
   - the promise-lanes module stays behind its own async boundary so failures and refreshes remain local to that panel
 
+### Visual parity primitive contract
+
+Atlas now has a shared visual primitive layer in `shared/atlas/visual_primitives.go` for React-reference parity work. Route helpers should prefer those functions before adding route-local utility strings.
+
+The first primitive set covers:
+
+- public and internal root background treatments
+- public and internal main-shell width and spacing contracts
+- public header shell, inner wrapper, desktop nav item, and mobile nav item classes
+- public hero, glass card, metric card, catalog card, catalog-control, form-control, and signal-pill classes
+- internal hero, card, inset, accent, pill, and dense-table classes through the existing shared helpers
+
+The current parity mapping is:
+
+- header: `publicHeader` owns the logo block, desktop nav, mobile menu sheet, active states, and shop CTA placement through shared public header primitives
+- background: `App` applies one public layered background to landing, catalog, product, warehouse detail, and availability routes, while the internal surface keeps its separate steel-and-slate root treatment
+- hero: landing and product hero cards use `publicHeroSurfaceClass`; route hero copy and CTA rules stay in `renderPublicHero` and route-specific product or warehouse helpers
+- cards: public feature, metric, catalog, and signal-pill helpers route through shared card primitives; internal repeated surfaces continue through `internalSurfaceCardClass`, `internalInsetSurfaceClass`, and `internalAccentSurfaceClass`
+- catalog: the catalog overview, controls, product cards, URL-backed filters, deferred local filtering, and product-grid rhythm are pinned by shared helper tests
+- product detail: the first-paint product hero, price block, action badges, promise lanes, support copy, lazy feedback, and cached related-products panels remain in the shipped product-detail scaffold
+
+Rendering-efficiency rules:
+
+- put route-level background gradients on the route root, not every nested card
+- keep hero, metric, feature, and catalog card surfaces behind shared class helpers before adding route-specific details
+- keep internal list routes semantic: one table shell, table children inside table nodes, and no wrapper rows inside `tbody`
+- degrade glow, hover lift, blur, and drawer travel for mobile, reduced-motion, or low-power review without changing DOM shape
+
+Validation:
+
+- `visual_primitives_test.go` checks primitive coverage, rendered public shell/catalog/product use, and semantic internal table markup
+- `render_gap_branches_test.go` continues to cover public feedback, related-products, and input helper branches that share this visual contract
+
 ### Warehouse page modules
 
 Warehouse pages should include:
@@ -1734,11 +1767,11 @@ Status legend:
 - [x] `ui.UseForm` implemented for the public product comment workflow plus internal product create or update, inventory lane edit, moderation, transfer, receiving reconcile, and settings import or export flows.
 - [x] `ui.UseId` implemented in shared Atlas form helpers so CMS inputs, catalog and inventory controls, public quote or restock fields, and public feedback error text all bind through generated IDs instead of ad hoc markup.
 - [x] `ui.UsePrevious` implemented for product-editor drafts, the threshold-history overlay refresh summary, and receiving reconcile drafts so Atlas can show the most recent change without keeping duplicate snapshot state by hand.
-- [ ] `ui.Render` not currently wired in Atlas; the browser entry hydrates instead of doing a pure client render path.
-- [ ] `ui.RenderToString` not currently wired for the Atlas app tree; the server emits an HTML shell plus bootstrap, then the client hydrates the app into `#app`.
+- Status: `ui.Render` is not wired in Atlas; the shipped browser entry intentionally hydrates the server bootstrap instead of using a pure client render path.
+- Status: `ui.RenderToString` is exercised by shared Atlas render tests, while the shipped server response still emits an HTML shell plus bootstrap and hydrates the app into `#app`.
 - [x] `ui.AsyncBoundary` now isolates the deferred public promise-lanes module and the purchase-order or receiving side-panel stat islands so panel loading and failure states stay local.
 - [x] `ui.UseWorkerTask` now powers saved-view import validation on the settings route, pushing JSON parse and validation work into a dedicated worker while the operator keeps editing the import payload.
-- [ ] `ui.UseTask` remains deferred after evaluation; the remaining saved-view export, workspace snapshot export, and current diagnostics snapshot paths are still small enough to stay synchronous until Atlas gains a heavier non-worker background job.
+- Limitation: `ui.UseTask` remains deferred after evaluation; saved-view export, workspace snapshot export, and current diagnostics snapshot paths are still small enough to stay synchronous until Atlas gains a heavier non-worker background job.
 - [x] `ui.UseChannel` now drives a shell-level Atlas toast bus: the app shell subscribes once, while distant flows such as public comment submission and internal panel refresh can broadcast completion notices without routing those events through query state.
 - [x] `ui.UseReducer` now drives replenishment-order staging in the inventory purchase-order modal and receiving closeout-stage guidance in the reconcile form, so both workflows can show reducer-owned status summaries without abandoning progressive form posts.
 - [x] `ui.Fragment` now groups inventory queue cells, warehouse network table cells, and repeated section-meta copy blocks without introducing extra wrapper nodes in the rendered table or card markup.
@@ -1752,8 +1785,8 @@ Status legend:
 - [x] `ui.UseDeferredValue` and `ui.UseDebounced` now back hydrated filter controls on `/shop`, `/app/inventory`, and `/app/warehouses/:warehouseId`, so Atlas can preview filtered lists locally while debouncing query-string replacement for deep-linkable filter state.
 - [x] `ui.UseTransition` and `ui.StartTransition` now cover inventory saved-view application, settings density preview toggles, and the high-churn inventory or warehouse filter setters, so Atlas can keep dense internal rerenders non-urgent while still exposing local pending state.
 - [x] `ui.UseThrottled` powered the temporary diagnostics shell panel used during rewrite review; release cleanup removed that panel before signoff, while keeping throttling available for future non-production instrumentation.
-- [ ] `ui.UseNavigate`, `ui.UseTask`, and `ui.Lazy` are not currently exercised by Atlas code even though some older notes listed them as implemented.
-- [ ] `ui.UseContext` remains planned rather than wired.
+- Status: `ui.UseNavigate`, `ui.UseTask`, and `ui.Lazy` are not currently exercised by Atlas code even though some older notes listed them as implemented.
+- Status: `ui.UseContext` remains planned rather than wired.
 
 ## router
 
@@ -1765,25 +1798,25 @@ Status legend:
 - [x] `BeforeEnter` auth guards implemented for internal routes.
 - [x] `BeforeLeave` unsaved-change guard implemented for the product editor route.
 - [x] Nested layout route usage implemented for the inventory detail and threshold-history flow.
-- [ ] Hash routing is no longer part of the shipped Atlas path and should not be treated as current framework coverage.
+- Status: hash routing is no longer part of the shipped Atlas path and should not be treated as current framework coverage.
 
 ## html
 
 - [x] Semantic HTML layout and form markup implemented across public and internal routes.
 - [x] Progressive HTML form posts implemented for public and internal mutation flows.
-- [ ] Dense internal table and grouped-form markup still need a broader parity and accessibility pass.
+- Limitation: dense internal table and grouped-form markup still need a broader parity and accessibility pass.
 
 ## i18n
 
 - [x] Locale bootstrap, document `lang`, and RTL direction handling implemented for SSR entry and hydration resume.
-- [ ] Package-level translation resources and localized content bundles are not currently wired.
+- Limitation: package-level translation resources and localized content bundles are not currently wired.
 
 ## state
 
 - [x] `state.UseComputed` implemented for internal shell summaries and route badges derived once per route payload and reused by the header and hero.
 - [x] `state.UseAtom` implemented for shell-wide presentation preferences so locale, density, and default-warehouse context have one shared ownership point during hydration.
-- [ ] `state.UseDerived` is not currently exercised by Atlas code; current Atlas interaction state is still mostly local hook state plus server bootstrap.
-- [ ] Snapshot export, import, and broader shared-state ownership remain planned.
+- Status: `state.UseDerived` is not currently exercised by Atlas code; current Atlas interaction state is still mostly local hook state plus server bootstrap.
+- Status: snapshot export, import, and broader shared-state ownership remain planned.
 
 ## fetch
 
@@ -1792,7 +1825,7 @@ Status legend:
 - [x] `fetch.UseResource` now powers the deferred public product promise-lanes island and the purchase-order or receiving detail side-panel stat islands, each wrapped in `ui.AsyncBoundary` so retries and failures remain panel-local.
 - [x] `fetch.Fetch` now drives the public comment POST path and the purchase-order or receiving panel refresh buttons, so imperative follow-up refresh work stays on the framework fetch path instead of raw browser client calls.
 - [x] Atlas cache diagnostics now emit `bootstrap.read.ok`, `route.fetch.ok`, `route.fetch.cache.hit`, and `route.cache.invalidate` into the browser console and `window.__atlasDebugLast`, while shared Atlas tests cover route-key stability and mutation invalidation target mapping and server tests cover fresh direct-entry SSR bootstrap after mutation.
-- [ ] `ui.UseFetch` is not currently exercised by Atlas code; imperative refresh now uses `fetch.Fetch`, while route or panel loading stays on `fetch.UseResource` or shared cached resources.
+- Status: `ui.UseFetch` is not currently exercised by Atlas code; imperative refresh now uses `fetch.Fetch`, while route or panel loading stays on `fetch.UseResource` or shared cached resources.
 
 ## devtools
 
@@ -1806,7 +1839,7 @@ Status legend:
 - [x] Inline bootstrap script rendering implemented for normal SSR responses.
 - [x] External bootstrap reference mode implemented as a proof of concept for the inventory threshold-history route.
 - [x] SQLite-backed server data and request-time route payload generation implemented for SSR entry.
-- [ ] Shared server-side rendering of the Atlas component tree itself is not currently wired; the shipped server response is still a bootstrap-first shell.
+- Status: shared server-side rendering of the Atlas component tree itself is not currently wired; the shipped server response is still a bootstrap-first shell.
 
 ## framework adoption rule
 

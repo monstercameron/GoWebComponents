@@ -326,11 +326,11 @@ const (
 
 func App(parsePayload Payload) ui.Node {
 	parseSurface := strings.TrimSpace(parsePayload.Route.Surface)
-	parseRootClass := "min-h-screen bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.16),transparent_22%),linear-gradient(180deg,rgba(7,10,18,1),rgba(13,18,30,1)_42%,rgba(7,10,18,1))] text-stone-100"
-	parseMainClass := "mx-auto grid w-full max-w-7xl gap-8 px-5 pb-12 pt-6 sm:px-6 lg:px-10"
+	parseRootClass := atlasRootSurfaceClass(atlasVisualSurfacePublic)
+	parseMainClass := atlasMainShellClass(atlasVisualSurfacePublic)
 	if parseSurface != "" && parseSurface != "public" {
-		parseRootClass = "min-h-screen bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.12),transparent_28%),linear-gradient(180deg,rgba(2,6,23,1),rgba(15,23,42,1))] text-white"
-		parseMainClass = "mx-auto grid w-full max-w-6xl gap-8 px-6 pb-12 pt-6 lg:px-10"
+		parseRootClass = atlasRootSurfaceClass(atlasVisualSurfaceInternal)
+		parseMainClass = atlasMainShellClass(atlasVisualSurfaceInternal)
 	}
 	parseDesiredPresentation := shellPresentationStateFromPayload(parsePayload)
 	parsePresentationAtom := useAtlasAtom(atlasShellPresentationAtomID, parseDesiredPresentation)
@@ -441,9 +441,9 @@ func App(parsePayload Payload) ui.Node {
 
 func header(parsePayload Payload, parseShellState internalShellState) ui.Node {
 	parseLinks := []atlasPublicNavLink{
-		{Label: publicNavStorefrontLabel, Href: RouteLanding},
-		{Label: publicNavShopLabel, Href: RouteCatalog},
-		{Label: publicNavWarehousesLabel, Href: RouteWarehouses},
+		{Label: publicLocalizedCopy(parsePayload.I18n.Locale, "nav.storefront", publicNavStorefrontLabel), Href: RouteLanding},
+		{Label: publicLocalizedCopy(parsePayload.I18n.Locale, "nav.shop", publicNavShopLabel), Href: RouteCatalog},
+		{Label: publicLocalizedCopy(parsePayload.I18n.Locale, "nav.warehouses", publicNavWarehousesLabel), Href: RouteWarehouses},
 	}
 	if parsePayload.User != nil {
 		parseLinks = append(parseLinks,
@@ -485,28 +485,28 @@ func publicHeader(parsePayload Payload, parseLinks []atlasPublicNavLink) ui.Node
 		parseDesktopNodes := make([]ui.Node, 0, len(parseLinks))
 		parseMobileNodes := make([]ui.Node, 0, len(parseLinks))
 		for _, parseLink := range parseLinks {
-			parseClassName := "rounded-full border border-white/12 bg-white/6 px-4 py-2.5 text-sm font-medium text-stone-300 shadow-[0_10px_25px_rgba(0,0,0,0.16)] transition hover:border-amber-300/60 hover:bg-white/10 hover:text-white"
-			parseMobileClassName := "flex items-center justify-between rounded-[1.35rem] border border-white/10 bg-white/5 px-4 py-4 text-left text-sm font-medium text-stone-200 transition hover:border-amber-300/45 hover:bg-white/10 hover:text-white"
-			if activeNavLink(parsePayload.Route.Path, parseLink.Href) {
-				parseClassName = "rounded-full border border-amber-300/70 bg-amber-300/12 px-4 py-2.5 text-sm font-semibold text-amber-100 shadow-[0_12px_28px_rgba(245,158,11,0.14)]"
-				parseMobileClassName = "flex items-center justify-between rounded-[1.35rem] border border-amber-300/60 bg-amber-300/12 px-4 py-4 text-left text-sm font-semibold text-amber-100 shadow-[0_12px_28px_rgba(245,158,11,0.14)]"
-			}
+			isParseActive := activeNavLink(parsePayload.Route.Path, parseLink.Href)
+			parseClassName := publicNavLinkClass(isParseActive)
+			parseMobileClassName := publicMobileNavLinkClass(isParseActive)
 			parseDesktopNodes = append(parseDesktopNodes, html.A(html.Props{Href: parseLink.Href, Class: parseClassName}, html.Text(parseLink.Label)))
 			parseMobileNodes = append(parseMobileNodes, html.A(html.Props{Href: parseLink.Href, Class: parseMobileClassName}, html.Text(parseLink.Label)))
 		}
-		return html.Header(html.Props{Class: "sticky top-0 z-20 border-b border-white/10 bg-[rgba(7,10,18,0.86)] backdrop-blur-xl"},
-			html.Div(html.Props{Class: "mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-10"},
+		return html.Header(html.Props{Class: publicHeaderShellClass()},
+			html.Div(html.Props{Class: publicHeaderInnerClass()},
 				html.Div(html.Props{Class: "flex items-center justify-between gap-4"},
 					html.Div(html.Props{Class: "flex flex-col"},
 						html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.42em] text-amber-700"}, html.Text(publicBrandLabel)),
 						html.P(html.Props{Class: "mt-2 text-sm text-stone-400"}, html.Text(parseIdentity)),
 					),
 					html.Div(html.Props{Class: "flex items-center gap-3 lg:hidden"},
-						html.A(html.Props{Href: RouteCatalog, Class: "inline-flex rounded-full border border-amber-300/60 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-300/12"}, html.Text(publicBrowseShopLabel)),
-						html.Button(html.Props{Type: "button", Class: "inline-flex rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-stone-100 transition hover:border-amber-300/45 hover:bg-white/12", OnClick: parseOpenDrawer}, html.Text("Menu")),
+						html.A(html.Props{Href: RouteCatalog, Class: "inline-flex rounded-full border border-amber-300/60 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-300/12"}, html.Text(publicLocalizedCopy(parsePayload.I18n.Locale, "browse.shop", publicBrowseShopLabel))),
+						html.Button(html.Props{Type: "button", Class: "inline-flex rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-stone-100 transition hover:border-amber-300/45 hover:bg-white/12", OnClick: parseOpenDrawer}, html.Text(publicLocalizedCopy(parsePayload.I18n.Locale, "menu", "Menu"))),
 					),
 				),
-				html.Nav(html.Props{Class: "hidden flex-wrap items-center gap-2 lg:flex lg:justify-end"}, parseDesktopNodes...),
+				html.Div(html.Props{Class: "hidden flex-wrap items-center gap-3 lg:flex lg:justify-end"},
+					html.Nav(html.Props{Class: "flex flex-wrap items-center gap-2"}, parseDesktopNodes...),
+					publicLanguageControl(parsePayload),
+				),
 			),
 			atlasDismissibleSheet(parseOpen.Get(), parseSheetID, parseTitleID, parseDescriptionID, "#"+parseCloseID, parseCloseDrawer, html.Div(html.Props{Class: "grid gap-5"},
 				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
@@ -518,9 +518,101 @@ func publicHeader(parsePayload Payload, parseLinks []atlasPublicNavLink) ui.Node
 					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-stone-200", OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
 				),
 				html.Div(html.Props{Class: "grid gap-3"}, parseMobileNodes...),
+				html.Div(html.Props{Class: "lg:hidden"}, publicLanguageControl(parsePayload)),
 			)),
 		)
 	})
+}
+
+func publicLanguageControl(parsePayload Payload) ui.Node {
+	parseCurrentLocale := fallback(parsePayload.I18n.Locale, "en")
+	parseLocales := parsePayload.I18n.SupportedLocales
+	if len(parseLocales) == 0 {
+		parseLocales = SupportedLocales()
+	}
+	parseNodes := make([]ui.Node, 0, len(parseLocales))
+	for _, parseLocale := range parseLocales {
+		parseClassName := "rounded-full border border-white/10 bg-white/6 px-3 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-stone-300 transition hover:border-amber-300/45 hover:bg-white/10 hover:text-white"
+		if strings.EqualFold(parseCurrentLocale, parseLocale) {
+			parseClassName = "rounded-full border border-amber-300/70 bg-amber-300/12 px-3 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-amber-100"
+		}
+		parseNodes = append(parseNodes, html.A(html.Props{
+			Href:  publicLocaleHref(parsePayload.Route.Path, parsePayload.Route.Query, parseLocale),
+			Class: parseClassName,
+			Raw: map[string]any{
+				"aria-current": boolToAriaCurrent(strings.EqualFold(parseCurrentLocale, parseLocale)),
+				"hreflang":     parseLocale,
+			},
+		}, html.Text(publicLocaleShortLabel(parseLocale))))
+	}
+	return html.Div(html.Props{Class: "grid gap-2 rounded-[1.2rem] border border-white/10 bg-white/6 p-2", Raw: map[string]any{"aria-label": publicLocalizedCopy(parseCurrentLocale, "language", "Language")}},
+		html.P(html.Props{Class: "px-2 text-[0.62rem] font-semibold uppercase tracking-[0.24em] text-stone-500"}, html.Text(publicLocalizedCopy(parseCurrentLocale, "language", "Language"))),
+		html.Div(html.Props{Class: "flex flex-wrap gap-2"}, parseNodes...),
+	)
+}
+
+func publicLocaleHref(parsePath string, parseQuery map[string][]string, parseLocale string) string {
+	parseValues := url.Values{}
+	for parseKey, parseItems := range parseQuery {
+		if strings.EqualFold(strings.TrimSpace(parseKey), "locale") {
+			continue
+		}
+		for _, parseItem := range parseItems {
+			parseValues.Add(parseKey, parseItem)
+		}
+	}
+	parseValues.Set("locale", strings.TrimSpace(parseLocale))
+	parseEncoded := parseValues.Encode()
+	if parseEncoded == "" {
+		return fallback(parsePath, RouteLanding)
+	}
+	return fallback(parsePath, RouteLanding) + "?" + parseEncoded
+}
+
+func publicLocaleShortLabel(parseLocale string) string {
+	switch strings.ToLower(strings.TrimSpace(parseLocale)) {
+	case "fr":
+		return "FR"
+	case "ar":
+		return "AR"
+	default:
+		return "EN"
+	}
+}
+
+func boolToAriaCurrent(parseActive bool) string {
+	if parseActive {
+		return "true"
+	}
+	return "false"
+}
+
+func publicLocalizedCopy(parseLocale string, parseKey string, parseFallback string) string {
+	parseLocale = strings.ToLower(strings.TrimSpace(parseLocale))
+	parseTable := map[string]map[string]string{
+		"fr": {
+			"browse.shop":    "Explorer la boutique",
+			"language":       "Langue",
+			"menu":           "Menu",
+			"nav.shop":       "Boutique",
+			"nav.storefront": "Accueil",
+			"nav.warehouses": "Entrepots",
+		},
+		"ar": {
+			"browse.shop":    "تصفح المتجر",
+			"language":       "اللغة",
+			"menu":           "القائمة",
+			"nav.shop":       "المتجر",
+			"nav.storefront": "الواجهة",
+			"nav.warehouses": "المستودعات",
+		},
+	}
+	if parseLocaleMap, parseOK := parseTable[parseLocale]; parseOK {
+		if parseValue := strings.TrimSpace(parseLocaleMap[parseKey]); parseValue != "" {
+			return parseValue
+		}
+	}
+	return parseFallback
 }
 
 type atlasInternalNavLink struct {
@@ -3258,21 +3350,21 @@ func featureCard(parseTitle, parseCopy string) ui.Node {
 }
 
 func publicFeatureCard(parseTitle, parseCopy string) ui.Node {
-	return html.Div(html.Props{Class: "rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
+	return html.Div(html.Props{Class: publicGlassCardClass()},
 		html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text(parseTitle)),
 		html.P(html.Props{Class: "mt-3 text-sm leading-7 text-stone-300"}, html.Text(parseCopy)),
 	)
 }
 
 func publicMetricCard(parseTitle, parseCopy string) ui.Node {
-	return html.Div(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-5 shadow-[0_14px_32px_rgba(0,0,0,0.18)]"},
+	return html.Div(html.Props{Class: publicMetricSurfaceClass()},
 		html.P(html.Props{Class: "text-xl font-bold tracking-[-0.03em] text-white"}, html.Text(parseTitle)),
 		html.P(html.Props{Class: "mt-2 text-sm leading-6 text-stone-300"}, html.Text(parseCopy)),
 	)
 }
 
 func publicSignalPill(parseLabel string) ui.Node {
-	return html.Div(html.Props{Class: "rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-stone-200"}, html.Text(parseLabel))
+	return html.Div(html.Props{Class: publicSignalPillClass()}, html.Text(parseLabel))
 }
 
 func publicStatusClass(parseStatus string) string {
