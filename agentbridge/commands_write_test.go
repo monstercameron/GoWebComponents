@@ -276,6 +276,70 @@ func TestWriteNavigateNativePlatformUnavailable(t *testing.T) {
 	}
 }
 
+func TestWriteDecodeMountUnmountAndDeletePathContracts(t *testing.T) {
+	parseMount, parseErr := writeDecodeMount(json.RawMessage(`{"id":"  panel-1  ","component":"  agent.Panel  ","selector":"  #agent-root  "}`))
+	if parseErr != nil {
+		t.Fatalf("decode trimmed mount returned error: %v", parseErr)
+	}
+	if parseMount.ID != "panel-1" || parseMount.Component != "agent.Panel" || parseMount.Selector != "#agent-root" {
+		t.Fatalf("trimmed mount payload = %+v", parseMount)
+	}
+
+	parseUnmount, parseErr := writeDecodeUnmount(json.RawMessage(`{"id":"  panel-1  "}`))
+	if parseErr != nil {
+		t.Fatalf("decode trimmed unmount returned error: %v", parseErr)
+	}
+	if parseUnmount.ID != "panel-1" {
+		t.Fatalf("trimmed unmount id = %q, want panel-1", parseUnmount.ID)
+	}
+
+	parseDelete, parseErr := writeDecodeDeleteAtom(json.RawMessage(`{"id":"  atom-1  ","force":true}`))
+	if parseErr != nil {
+		t.Fatalf("decode trimmed delete-atom returned error: %v", parseErr)
+	}
+	if parseDelete.ID != "atom-1" || !parseDelete.Force {
+		t.Fatalf("trimmed delete payload = %+v", parseDelete)
+	}
+
+	parseNavigate, parseErr := writeDecodeNavigate(json.RawMessage(`{"path":"/team/settings?tab=members#invites"}`))
+	if parseErr != nil {
+		t.Fatalf("decode navigate path returned error: %v", parseErr)
+	}
+	if parseNavigate.Path != "/team/settings?tab=members#invites" {
+		t.Fatalf("navigate path = %q", parseNavigate.Path)
+	}
+}
+
+func TestWriteDecodeMountUnmountAndDeleteValidationContracts(t *testing.T) {
+	parseCases := []struct {
+		name    string
+		call    func(json.RawMessage) (any, *EnvelopeError)
+		payload string
+		wantSub string
+	}{
+		{"mount malformed", func(parseRaw json.RawMessage) (any, *EnvelopeError) { return writeDecodeMount(parseRaw) }, `not json`, "malformed payload"},
+		{"mount missing id", func(parseRaw json.RawMessage) (any, *EnvelopeError) { return writeDecodeMount(parseRaw) }, `{"component":"x","selector":"#root"}`, "missing required field \"id\""},
+		{"mount missing component", func(parseRaw json.RawMessage) (any, *EnvelopeError) { return writeDecodeMount(parseRaw) }, `{"id":"x","selector":"#root"}`, "missing required field \"component\""},
+		{"mount missing selector", func(parseRaw json.RawMessage) (any, *EnvelopeError) { return writeDecodeMount(parseRaw) }, `{"id":"x","component":"x"}`, "missing required field \"selector\""},
+		{"unmount malformed", func(parseRaw json.RawMessage) (any, *EnvelopeError) { return writeDecodeUnmount(parseRaw) }, `not json`, "malformed payload"},
+		{"unmount missing id", func(parseRaw json.RawMessage) (any, *EnvelopeError) { return writeDecodeUnmount(parseRaw) }, `{}`, "missing required field \"id\""},
+		{"delete malformed", func(parseRaw json.RawMessage) (any, *EnvelopeError) { return writeDecodeDeleteAtom(parseRaw) }, `not json`, "malformed payload"},
+		{"delete missing id", func(parseRaw json.RawMessage) (any, *EnvelopeError) { return writeDecodeDeleteAtom(parseRaw) }, `{}`, "missing required field \"id\""},
+	}
+	for _, parseCase := range parseCases {
+		parseCase := parseCase
+		t.Run(parseCase.name, func(t *testing.T) {
+			_, parseErr := parseCase.call(json.RawMessage(parseCase.payload))
+			if parseErr == nil {
+				t.Fatal("expected validation error")
+			}
+			if parseErr.Code != ErrorCodeBadPayload || !strings.Contains(parseErr.Message, parseCase.wantSub) {
+				t.Fatalf("error = %#v, want bad-payload containing %q", parseErr, parseCase.wantSub)
+			}
+		})
+	}
+}
+
 func TestWriteSetStateDecodeAndStaleRef(t *testing.T) {
 	writeActivateAgentMode(t)
 
@@ -301,6 +365,57 @@ func TestWriteSetStateDecodeAndStaleRef(t *testing.T) {
 	_, parseErr := writeHandleSetState(json.RawMessage(`{"ref":"missing/ref","slot":0,"value":1}`))
 	if parseErr == nil || parseErr.Code != ErrorCodeStaleRef {
 		t.Fatalf("set-state stale error = %#v, want stale-ref", parseErr)
+	}
+}
+
+func TestWriteMountRejectsNonObjectPropsAndNilFactoryRollsBack(t *testing.T) {
+	writeActivateAgentMode(t)
+	parseAdapter := mockdom.NewMockDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("div")
+	parseAdapter.SetAttribute(parseContainer, "id", "agent-mount-contracts")
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Reset: true})
+
+	RegisterMountComponent("agentbridge.test.NilPanel", func(map[string]any) *runtime.Element { return nil })
+
+	_, parsePropsErr := writeHandleMount(json.RawMessage(`{"id":"bad-props","component":"agentbridge.test.NilPanel","selector":"#agent-mount-contracts","props":["not-object"]}`))
+	if parsePropsErr == nil || parsePropsErr.Code != ErrorCodeBadPayload || !strings.Contains(parsePropsErr.Message, "props must be a JSON object") {
+		t.Fatalf("mount non-object props error = %#v, want bad-payload props object", parsePropsErr)
+	}
+
+	_, parseNilErr := writeHandleMount(json.RawMessage(`{"id":"nil-panel","component":"agentbridge.test.NilPanel","selector":"#agent-mount-contracts"}`))
+	if parseNilErr == nil || parseNilErr.Code != ErrorCodeBadPayload || !strings.Contains(parseNilErr.Message, "rendered nil") {
+		t.Fatalf("mount nil factory error = %#v, want rendered nil", parseNilErr)
+	}
+	writeMountMu.Lock()
+	_, parseLeaked := writeMountedRoots["nil-panel"]
+	writeMountMu.Unlock()
+	if parseLeaked {
+		t.Fatal("mount id reservation leaked after nil factory")
+	}
+}
+
+func TestWriteUnmountRejectsMalformedAndUnknownID(t *testing.T) {
+	writeActivateAgentMode(t)
+	parseCases := []struct {
+		name    string
+		payload string
+		wantSub string
+	}{
+		{"malformed", `not json`, "malformed payload"},
+		{"missing id", `{}`, "missing required field \"id\""},
+		{"unknown id", `{"id":"not-mounted"}`, "is not mounted"},
+	}
+	for _, parseCase := range parseCases {
+		parseCase := parseCase
+		t.Run(parseCase.name, func(t *testing.T) {
+			_, parseErr := writeHandleUnmount(json.RawMessage(parseCase.payload))
+			if parseErr == nil {
+				t.Fatal("expected unmount error")
+			}
+			if parseErr.Code != ErrorCodeBadPayload || !strings.Contains(parseErr.Message, parseCase.wantSub) {
+				t.Fatalf("unmount error = %#v, want bad-payload containing %q", parseErr, parseCase.wantSub)
+			}
+		})
 	}
 }
 
@@ -368,6 +483,54 @@ func TestWriteDeleteAtomRequiresForceWithSubscriberRefs(t *testing.T) {
 	}
 	if _, parseExists := parseRt.GetAtomValue("agentbridge.delete.free"); parseExists {
 		t.Fatal("atom still exists after delete")
+	}
+}
+
+func TestWriteValidateRawValueAgainstSchemaContracts(t *testing.T) {
+	if parseErr := writeValidateRawValueAgainstSchema("set-atom", "value", json.RawMessage(`{`), map[string]any{"type": "object"}); parseErr == nil {
+		t.Fatal("expected malformed JSON schema validation error")
+	} else if parseErr.Code != ErrorCodeBadPayload || !strings.Contains(parseErr.Message, "malformed JSON") {
+		t.Fatalf("schema malformed error = %#v, want bad-payload malformed JSON", parseErr)
+	}
+
+	parseMatches := []struct {
+		raw    string
+		schema map[string]any
+	}{
+		{`null`, map[string]any{"type": "null"}},
+		{`true`, map[string]any{"type": "boolean"}},
+		{`"x"`, map[string]any{"type": "string"}},
+		{`3`, map[string]any{"type": "number"}},
+		{`[]`, map[string]any{"type": "array"}},
+		{`{}`, map[string]any{"type": "object"}},
+		{`"anything"`, map[string]any{"type": "custom"}},
+		{`"anything"`, map[string]any{}},
+	}
+	for _, parseCase := range parseMatches {
+		if parseErr := writeValidateRawValueAgainstSchema("set-atom", "value", json.RawMessage(parseCase.raw), parseCase.schema); parseErr != nil {
+			t.Fatalf("schema %v rejected raw %s: %v", parseCase.schema, parseCase.raw, parseErr)
+		}
+	}
+
+	parseMismatches := []struct {
+		raw      string
+		typeName string
+	}{
+		{`"x"`, "null"},
+		{`1`, "boolean"},
+		{`false`, "string"},
+		{`"3"`, "number"},
+		{`{}`, "array"},
+		{`[]`, "object"},
+	}
+	for _, parseCase := range parseMismatches {
+		parseErr := writeValidateRawValueAgainstSchema("set-atom", "value", json.RawMessage(parseCase.raw), map[string]any{"type": parseCase.typeName})
+		if parseErr == nil {
+			t.Fatalf("expected schema mismatch for raw %s against %s", parseCase.raw, parseCase.typeName)
+		}
+		if parseErr.Code != ErrorCodeBadPayload || !strings.Contains(parseErr.Message, "expected "+parseCase.typeName) {
+			t.Fatalf("schema mismatch error = %#v, want expected %s", parseErr, parseCase.typeName)
+		}
 	}
 }
 

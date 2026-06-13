@@ -3,6 +3,8 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -296,6 +298,143 @@ func TestRenderToStreamDiscardsNestedPendingBoundaryWhenOuterSuspends(parseT *te
 		parseT.Fatalf("RenderToStream returned error before unresolved inner boundary resolved: %v", parseErr)
 	}
 }
+
+func TestRenderToStreamEdgeErrorsAndFlushFallbacks(parseT *testing.T) {
+	if parseErr := RenderToStream(context.Background(), nil, CreateElement("div", nil), SSRStreamOptions{}); parseErr == nil {
+		parseT.Fatal("RenderToStream should reject nil writer")
+	}
+
+	parseWriter := &ssrStreamFailingWriter{}
+	parseErr := RenderToStream(nil, parseWriter, CreateElement("div", nil, "x"), SSRStreamOptions{})
+	if !errors.Is(parseErr, errSSRStreamWrite) {
+		parseT.Fatalf("RenderToStream writer error = %v", parseErr)
+	}
+
+	parseFlusher := &ssrStreamFlushWriter{}
+	flushSSRStream(parseFlusher, SSRStreamOptions{})
+	if parseFlusher.flushes != 1 {
+		parseT.Fatalf("writer Flush() count = %d, want 1", parseFlusher.flushes)
+	}
+	parseOptionFlushes := 0
+	flushSSRStream(parseFlusher, SSRStreamOptions{Flush: func() { parseOptionFlushes++ }})
+	if parseOptionFlushes != 1 || parseFlusher.flushes != 1 {
+		parseT.Fatalf("option Flush should take precedence, option=%d writer=%d", parseOptionFlushes, parseFlusher.flushes)
+	}
+}
+
+func TestRenderToStreamShellCoversBoundaryAndElementBranches(parseT *testing.T) {
+	parsePanicChild := CreateElement(func() *Element {
+		panic("render failed")
+	}, nil)
+	parseOnErrorCalled := false
+	parseRoot := CreateElement("main", nil,
+		CreateElement(NewErrorBoundaryType(), map[string]any{
+			"onError": func(error) { parseOnErrorCalled = true },
+			"errorFallback": func(parseErr error, parseReset func()) *Element {
+				return CreateElement("strong", nil, "caught:"+parseErr.Error())
+			},
+		}, parsePanicChild),
+		CreateElement(AsyncBoundaryNodeType, map[string]any{
+			"pending":  true,
+			"fallback": CreateElement("em", nil, "pending"),
+		}),
+		CreateElement(AsyncBoundaryNodeType, map[string]any{
+			"error": errors.New("async failed"),
+			"errorFallback": func(parseErr error) *Element {
+				return CreateElement("b", nil, "async:"+parseErr.Error())
+			},
+		}),
+		CreateElement("br", nil, "ignored"),
+		CreateElement("FRAGMENT", nil, "frag"),
+		CreateElement(NewContextProviderType(NewContextDescriptor("ssr-stream-test")), nil, "ctx"),
+		CreateElement(PortalNodeType, nil, "portal"),
+		CreateElement(ReactiveTextNodeType, map[string]any{reactiveTextGetterProp: func() string { return "<live>" }}),
+		CreateElement(ReactiveRegionNodeType, map[string]any{reactiveRegionRenderProp: func() *Element {
+			return CreateElement("i", nil, "region")
+		}}),
+		nil,
+		7,
+	)
+
+	var parseBuffer bytes.Buffer
+	if parseErr := RenderToStream(context.Background(), &parseBuffer, parseRoot, SSRStreamOptions{}); parseErr != nil {
+		parseT.Fatalf("RenderToStream edge shell error = %v", parseErr)
+	}
+	if !parseOnErrorCalled {
+		parseT.Fatal("error boundary onError should run")
+	}
+	parseHTML := parseBuffer.String()
+	for _, parseWant := range []string{
+		"<strong>caught:render failed</strong>",
+		"<em>pending</em>",
+		"<b>async:async failed</b>",
+		"<br>",
+		"frag",
+		"ctx",
+		"portal",
+		"&lt;live&gt;",
+		"<i>region</i>",
+		"7",
+	} {
+		if !strings.Contains(parseHTML, parseWant) {
+			parseT.Fatalf("stream shell missing %q: %s", parseWant, parseHTML)
+		}
+	}
+}
+
+func TestRenderSSRStreamBoundaryChunkErrorsAndScriptOptions(parseT *testing.T) {
+	parseMissingDone := renderSSRStreamBoundaryChunk(context.Background(), ssrStreamPendingBoundary{
+		id:         "b1",
+		content:    CreateElement("span", nil, "ready"),
+		suspension: &Suspension{Reason: "missing done"},
+	}, SSRStreamOptions{})
+	if parseMissingDone.Err == nil || !strings.Contains(parseMissingDone.Err.Error(), "suspended without a completion channel") {
+		parseT.Fatalf("missing done chunk = %+v", parseMissingDone)
+	}
+
+	parseDone := make(chan struct{})
+	close(parseDone)
+	parseResuspending := renderSSRStreamBoundaryChunk(context.Background(), ssrStreamPendingBoundary{
+		id: "b2",
+		content: CreateElement(func() *Element {
+			SuspendUntil(make(chan struct{}), "again")
+			return nil
+		}, nil),
+		suspension: &Suspension{Done: parseDone},
+	}, SSRStreamOptions{})
+	if parseResuspending.Err == nil || !strings.Contains(parseResuspending.Err.Error(), "suspended again after completion") {
+		parseT.Fatalf("resuspending chunk = %+v", parseResuspending)
+	}
+
+	parsePatch := renderSSRStreamBoundaryPatch(`b"3`, "<span>ready</span>", false, "nonce")
+	if strings.Contains(parsePatch, "<script") || !strings.Contains(parsePatch, `data-gwc-stream-boundary="b&#34;3"`) {
+		parseT.Fatalf("disabled-script patch = %s", parsePatch)
+	}
+
+	parseState := &ssrStreamState{options: SSRStreamOptions{BoundaryIDPrefix: " custom- "}}
+	if parseID := parseState.nextSSRStreamBoundaryID(); parseID != "custom-1" {
+		parseT.Fatalf("custom boundary ID = %q", parseID)
+	}
+}
+
+type ssrStreamFailingWriter struct{}
+
+var errSSRStreamWrite = errors.New("write failed")
+
+func (*ssrStreamFailingWriter) Write([]byte) (int, error) {
+	return 0, errSSRStreamWrite
+}
+
+type ssrStreamFlushWriter struct {
+	bytes.Buffer
+	flushes int
+}
+
+func (parseWriter *ssrStreamFlushWriter) Flush() {
+	parseWriter.flushes++
+}
+
+var _ io.Writer = (*ssrStreamFailingWriter)(nil)
 
 func ssrStreamTestBoundary(parseDone <-chan struct{}, parseReady string, parseFallback string) *Element {
 	parseContent := CreateElement(func() *Element {

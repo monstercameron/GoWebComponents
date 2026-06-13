@@ -3,6 +3,8 @@ package agentbridge
 import (
 	"encoding/json"
 	"io"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -168,6 +170,64 @@ func TestEventQueuedBeforeHello(t *testing.T) {
 	}
 	parseSock.Close()
 	<-parseDone
+}
+
+func TestSendEventConnectedWritesImmediatelyAndReportsFormatErrors(t *testing.T) {
+	parseSock := newFakeSocket(1, 4)
+	parseClient := NewBridgeClient("app-test", "build-live")
+	parseClient.eventMu.Lock()
+	parseClient.eventSock = parseSock
+	parseClient.eventMu.Unlock()
+
+	if parseErr := parseClient.SendEvent("session-1", "console.info", json.RawMessage(`{"message":"ready"}`)); parseErr != nil {
+		t.Fatalf("SendEvent connected returned error: %v", parseErr)
+	}
+	parseEventFrame := parseSock.readWritten()
+	parseEvent, parseErr := ParseEnvelope(parseEventFrame)
+	if parseErr != nil {
+		t.Fatalf("parse connected event: %v", parseErr)
+	}
+	if parseEvent.Kind != KindEvent || parseEvent.Session != "session-1" || parseEvent.Name != "console.info" {
+		t.Fatalf("connected event = %#v", parseEvent)
+	}
+
+	parseErr = parseClient.SendEvent("", "", json.RawMessage(`{}`))
+	if parseErr == nil {
+		t.Fatal("expected SendEvent format error for empty event name")
+	}
+	if !strings.Contains(parseErr.Error(), "agentbridge: SendEvent") {
+		t.Fatalf("SendEvent format error = %q, want wrapped SendEvent error", parseErr.Error())
+	}
+}
+
+func TestSendEventBacklogDropsOldestAtCapacity(t *testing.T) {
+	parseClient := NewBridgeClient("app-test", "build-backlog")
+	for parseIndex := 0; parseIndex < 65; parseIndex++ {
+		parsePayload := json.RawMessage(`{"index":` + strconv.Itoa(parseIndex) + `}`)
+		if parseErr := parseClient.SendEvent("", "console.log", parsePayload); parseErr != nil {
+			t.Fatalf("SendEvent queued index %d returned error: %v", parseIndex, parseErr)
+		}
+	}
+
+	parseClient.eventMu.Lock()
+	parseBacklog := append([]Envelope(nil), parseClient.eventBacklog...)
+	parseClient.eventMu.Unlock()
+
+	if len(parseBacklog) != 64 {
+		t.Fatalf("backlog len = %d, want 64", len(parseBacklog))
+	}
+	if parseBacklog[0].Seq != 2 {
+		t.Fatalf("oldest retained seq = %d, want 2 after dropping seq 1", parseBacklog[0].Seq)
+	}
+	if string(parseBacklog[0].Payload) != `{"index":1}` {
+		t.Fatalf("oldest retained payload = %s, want index 1", string(parseBacklog[0].Payload))
+	}
+	if parseBacklog[len(parseBacklog)-1].Seq != 65 {
+		t.Fatalf("newest retained seq = %d, want 65", parseBacklog[len(parseBacklog)-1].Seq)
+	}
+	if string(parseBacklog[len(parseBacklog)-1].Payload) != `{"index":64}` {
+		t.Fatalf("newest retained payload = %s, want index 64", string(parseBacklog[len(parseBacklog)-1].Payload))
+	}
 }
 
 // TestCommandRoundTrip verifies that a registered command produces a KindAck
