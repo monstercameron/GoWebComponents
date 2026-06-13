@@ -76,8 +76,13 @@ func startExamplesCommandWithEnv(parseT *testing.T, parseDir string, parseEnv []
 	if len(parseEnv) > 0 {
 		parseCmd.Env = append(os.Environ(), parseEnv...)
 	}
-	parseCmd.Stdout = io.Discard
-	parseCmd.Stderr = io.Discard
+	if os.Getenv("GWC_EXAMPLES_COMMAND_TRACE") == "1" {
+		parseCmd.Stdout = os.Stdout
+		parseCmd.Stderr = os.Stderr
+	} else {
+		parseCmd.Stdout = io.Discard
+		parseCmd.Stderr = io.Discard
+	}
 	if parseErr := parseCmd.Start(); parseErr != nil {
 		parseT.Fatalf("start %s %v: %v", parseName, parseArgs, parseErr)
 	}

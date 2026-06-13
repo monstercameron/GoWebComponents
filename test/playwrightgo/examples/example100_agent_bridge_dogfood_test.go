@@ -123,19 +123,23 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 		parseRequireExample100AgentAckOK(parseT, "set sidebar atom", parseSetAtomAck)
 		traceExample100AgentDogfood("sidebar atom set")
 
+		traceExample100AgentDogfood("query chat input")
 		parseComposerMatches := parseQueryExample100Agent(parseT, parseBaseURL, parseToken, parseSession.ID, map[string]any{"id": "chat-input"})
 		if len(parseComposerMatches) == 0 {
 			parseT.Fatal("agent query for chat-input returned no matches")
 		}
+		traceExample100AgentDogfood("chat input query returned")
 
 		parsePrompt := fmt.Sprintf("agent-dogfood-%d", time.Now().UnixNano()%1_000_000)
 		if parseErr := parsePage.Fill("#chat-input", parsePrompt); parseErr != nil {
 			parseT.Fatalf("fill chat input before bridge emit: %v", parseErr)
 		}
+		traceExample100AgentDogfood("query send button")
 		parseSendMatches := parseQueryExample100Agent(parseT, parseBaseURL, parseToken, parseSession.ID, map[string]any{"id": "send-btn"})
 		if len(parseSendMatches) == 0 || strings.TrimSpace(parseSendMatches[0].AgentRef) == "" {
 			parseT.Fatalf("agent query for send-btn returned unusable matches: %+v", parseSendMatches)
 		}
+		traceExample100AgentDogfood("send button query returned")
 		parseEmitAck := parsePostExample100AgentCommand(parseT, parseBaseURL, parseToken, example100AgentCommandRequest{
 			Session:     parseSession.ID,
 			Name:        "bridge.emit",
@@ -417,6 +421,7 @@ func parseAcquireExample100AgentLease(parseT *testing.T, parseBaseURL string, pa
 // localhost hub and returns the app ack.
 func parsePostExample100AgentCommand(parseT *testing.T, parseBaseURL string, parseToken string, parseReq example100AgentCommandRequest) example100AgentEnvelope {
 	parseT.Helper()
+	traceExample100AgentDogfood("post command " + parseReq.Name)
 	parseBody := parseRawExample100AgentJSON(parseT, parseReq)
 	parseHTTPReq, parseErr := http.NewRequest(http.MethodPost, parseBaseURL+"/__gwc-agent/command?token="+parseToken, bytes.NewReader(parseBody))
 	if parseErr != nil {
@@ -435,6 +440,7 @@ func parsePostExample100AgentCommand(parseT *testing.T, parseBaseURL string, par
 	if parseErr := json.NewDecoder(parseResp.Body).Decode(&parseDecoded); parseErr != nil {
 		parseT.Fatalf("decode agent command %s response: %v", parseReq.Name, parseErr)
 	}
+	traceExample100AgentDogfood("command returned " + parseReq.Name)
 	return parseDecoded.Ack
 }
 
