@@ -50,7 +50,8 @@ func TestExtractCodesFindsKnownCodes(parseT *testing.T) {
 }
 
 func TestExtractCodesHandlesCRLFSource(parseT *testing.T) {
-	parseSource := strings.ReplaceAll(readMetadataSource(parseT), "\n", "\r\n")
+	parseSource := strings.ReplaceAll(readMetadataSource(parseT), "\r\n", "\n")
+	parseSource = strings.ReplaceAll(parseSource, "\n", "\r\n")
 	parseCodes := ExtractCodes(parseSource)
 	parseSeen := map[string]ErrorCode{}
 	for _, parseCode := range parseCodes {

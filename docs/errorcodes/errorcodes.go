@@ -35,6 +35,7 @@ var (
 // phase-keyed panic helpers, which only add codes the switch omits).
 func ExtractCodes(parseSource string) []ErrorCode {
 	parseSource = strings.ReplaceAll(parseSource, "\r\n", "\n")
+	parseSource = strings.ReplaceAll(parseSource, "\r", "")
 
 	parseByCode := map[string]ErrorCode{}
 
