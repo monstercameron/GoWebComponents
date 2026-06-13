@@ -78,7 +78,6 @@ jobs:
           GWC_AGENT_DOGFOOD_REUSE_CLIENT_WASM: "1"
           GWC_AGENT_DOGFOOD_SERVER_BINARY: bin/ci/example100-agent-dogfood-server
           GWC_AGENT_DOGFOOD_TRACE: "1"
-          GWC_EXAMPLES_COMMAND_TRACE: "1"
         run: |
           while sleep 20; do
             echo "agent-browser dogfood still running..."
