@@ -439,7 +439,11 @@ func (parseL launcher) runAgentBridgeHeadlessTestLane(parseRootPath string) (tes
 	parseArgs := []string{"test", "-tags", "playwrightgo", parsePackagePattern, "-run", parseRunPattern, "-v"}
 	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
 	if parseErr != nil {
-		return testLaneSummary{}, parseErr
+		parseCommandText := "go " + strings.Join(parseArgs, " ")
+		if strings.TrimSpace(parseOutput) == "" {
+			return testLaneSummary{}, fmt.Errorf("go test failed for agent-browser lane (%s): %w", parseCommandText, parseErr)
+		}
+		return testLaneSummary{}, fmt.Errorf("go test failed for agent-browser lane (%s): %w\n%s", parseCommandText, parseErr, strings.TrimRight(parseOutput, "\r\n"))
 	}
 	return testLaneSummary{
 		Name:           "agent-browser",

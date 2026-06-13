@@ -898,6 +898,44 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {}
 	}
 }
 
+func TestRunAgentBridgeHeadlessTestLaneFailureIncludesCommandOutput(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parsePackageDir := filepath.Join(parseRoot, "test", "playwrightgo", "examples")
+	if parseErr := os.MkdirAll(parsePackageDir, 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir agent browser package: %v", parseErr)
+	}
+	parseTestSource := `package examples
+
+import "testing"
+
+func TestExample100AgentBridgeDogfood(parseT *testing.T) {}
+`
+	if parseErr := os.WriteFile(filepath.Join(parsePackageDir, "agent_bridge_dogfood_test.go"), []byte(parseTestSource), 0o644); parseErr != nil {
+		parseT.Fatalf("write dogfood test: %v", parseErr)
+	}
+
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() { launcherRunCommand = parseOriginalRunCommand })
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		return "=== RUN   TestExample100AgentBridgeDogfood\nagent bridge assertion failed", errors.New("exit status 1")
+	}
+
+	_, parseErr := (launcher{repoRoot: parseRoot}).runAgentBridgeHeadlessTestLane(parseRoot)
+	if parseErr == nil {
+		parseT.Fatal("expected agent browser lane failure")
+	}
+	parseMessage := parseErr.Error()
+	for _, parseExpected := range []string{
+		"go test failed for agent-browser lane",
+		"exit status 1",
+		"agent bridge assertion failed",
+	} {
+		if !strings.Contains(parseMessage, parseExpected) {
+			parseT.Fatalf("expected error to contain %q, got:\n%s", parseExpected, parseMessage)
+		}
+	}
+}
+
 func TestRunBrowserTestLaneFailsForInvalidOverride(parseT *testing.T) {
 	parseRepoRoot := parseT.TempDir()
 	parseRoot := parseT.TempDir()
