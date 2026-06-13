@@ -73,3 +73,14 @@ func TestHydrationIslandRendersStableSSRMarker(parseT *testing.T) {
 		parseT.Fatalf("unexpected island markup: %s", parseMarkup)
 	}
 }
+
+func TestNativeHydrateIslandUnsupportedAndBudgetNoop(parseT *testing.T) {
+	ConfigureHydrationIslandBudget(HydrationIslandBudget{MaxInitial: 1, MaxConcurrent: 1})
+	parseCleanup, parseErr := HydrateIsland(Text("island"), HydrationIslandOptions{Selector: "#island"})
+	if parseCleanup != nil {
+		parseT.Fatal("native HydrateIsland cleanup was non-nil, want nil")
+	}
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "HydrateIsland") {
+		parseT.Fatalf("native HydrateIsland error = %v, want unsupported HydrateIsland error", parseErr)
+	}
+}

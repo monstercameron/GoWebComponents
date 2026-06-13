@@ -23,6 +23,35 @@ type PersistedState[T any] struct {
 	parseErr   State[error]
 }
 
+type persistedStorage interface {
+	GetItem(string) (string, bool, error)
+	SetItem(string, string) error
+}
+
+type persistedStateHandle[T any] interface {
+	Get() T
+	Set(T)
+}
+
+type persistedErrorHandle interface {
+	Set(error)
+}
+
+type persistedEventTarget interface {
+	Listen(string, func(interop.BrowserEvent)) (interop.Subscription, error)
+}
+
+var getPersistStorage = func(parseArea PersistStorageArea) (persistedStorage, error) {
+	if parseArea == PersistSession {
+		return interop.SessionStorage()
+	}
+	return interop.LocalStorage()
+}
+
+var getPersistWindowEvents = func() (persistedEventTarget, error) {
+	return interop.GetWindowEvents()
+}
+
 // Get returns the current value.
 func (parsePs PersistedState[T]) Get() T {
 	return parsePs.parseState.Get()
@@ -41,11 +70,8 @@ func (parsePs PersistedState[T]) Err() error {
 }
 
 // resolveStorage returns the interop.Storage for the given PersistStorageArea.
-func resolveStorage(parseArea PersistStorageArea) (interop.Storage, error) {
-	if parseArea == PersistSession {
-		return interop.SessionStorage()
-	}
-	return interop.LocalStorage()
+func resolveStorage(parseArea PersistStorageArea) (persistedStorage, error) {
+	return getPersistStorage(parseArea)
 }
 
 // UsePersistedState returns a PersistedState backed by the chosen storage area.
@@ -63,35 +89,7 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseArea Persist
 	// UseEffect registers the storage write-through and cross-tab sync listener.
 	// On native builds UseEffect is a no-op, so the closure never runs.
 	UseEffect(func() func() {
-		parseStore, parseStoreErr := resolveStorage(parseArea)
-		if parseStoreErr != nil {
-			// Storage unavailable (native/SSR); nothing to set up.
-			return func() {}
-		}
-
-		// Subscribe to window "storage" events for cross-tab synchronisation.
-		parseWin, parseWinErr := interop.GetWindowEvents()
-		if parseWinErr != nil {
-			return func() {}
-		}
-
-		parseSub, parseSubErr := parseWin.Listen("storage", func(parseEvent interop.BrowserEvent) {
-			// Re-read from storage when another tab writes the same key.
-			parseStored, parseFound, parseReadErr := parseStore.GetItem(parseKey)
-			if parseReadErr != nil || !parseFound {
-				return
-			}
-			var parseDecoded T
-			if parseUnmarshalErr := json.Unmarshal([]byte(parseStored), &parseDecoded); parseUnmarshalErr != nil {
-				return
-			}
-			parseValState.Set(parseDecoded)
-		})
-		if parseSubErr != nil {
-			return func() {}
-		}
-
-		return func() { parseSub.Cancel() }
+		return subscribePersistedStorageSync(parseKey, parseArea, parseValState)
 	}, parseKey, string(parseArea))
 
 	// Wrap the state so that Set also writes through to storage.
@@ -100,23 +98,7 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseArea Persist
 	}
 
 	parseWriteThrough := func(parseVal T) {
-		parseValState.Set(parseVal)
-		parseStore, parseStoreErr := resolveStorage(parseArea)
-		if parseStoreErr != nil {
-			// Unavailable on native; swallow silently.
-			return
-		}
-		parseData, parseMarshalErr := json.Marshal(parseVal)
-		if parseMarshalErr != nil {
-			parseErrState.Set(parseMarshalErr)
-			return
-		}
-		if parseSetErr := parseStore.SetItem(parseKey, string(parseData)); parseSetErr != nil {
-			parseErrState.Set(parseSetErr)
-			// In-memory state is already updated; keep going.
-		} else {
-			parseErrState.Set(nil)
-		}
+		writePersistedStateValue(parseKey, parseVal, parseArea, parseValState, parseErrState)
 	}
 
 	parseResult.parseState = State[T]{
@@ -133,6 +115,58 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseArea Persist
 	}
 
 	return parseResult
+}
+
+func subscribePersistedStorageSync[T any](parseKey string, parseArea PersistStorageArea, parseValState persistedStateHandle[T]) func() {
+	parseStore, parseStoreErr := resolveStorage(parseArea)
+	if parseStoreErr != nil {
+		// Storage unavailable (native/SSR); nothing to set up.
+		return func() {}
+	}
+
+	// Subscribe to window "storage" events for cross-tab synchronisation.
+	parseWin, parseWinErr := getPersistWindowEvents()
+	if parseWinErr != nil {
+		return func() {}
+	}
+
+	parseSub, parseSubErr := parseWin.Listen("storage", func(parseEvent interop.BrowserEvent) {
+		// Re-read from storage when another tab writes the same key.
+		parseStored, parseFound, parseReadErr := parseStore.GetItem(parseKey)
+		if parseReadErr != nil || !parseFound {
+			return
+		}
+		var parseDecoded T
+		if parseUnmarshalErr := json.Unmarshal([]byte(parseStored), &parseDecoded); parseUnmarshalErr != nil {
+			return
+		}
+		parseValState.Set(parseDecoded)
+	})
+	if parseSubErr != nil {
+		return func() {}
+	}
+
+	return func() { parseSub.Cancel() }
+}
+
+func writePersistedStateValue[T any](parseKey string, parseVal T, parseArea PersistStorageArea, parseValState persistedStateHandle[T], parseErrState persistedErrorHandle) {
+	parseValState.Set(parseVal)
+	parseStore, parseStoreErr := resolveStorage(parseArea)
+	if parseStoreErr != nil {
+		// Unavailable on native; swallow silently.
+		return
+	}
+	parseData, parseMarshalErr := json.Marshal(parseVal)
+	if parseMarshalErr != nil {
+		parseErrState.Set(parseMarshalErr)
+		return
+	}
+	if parseSetErr := parseStore.SetItem(parseKey, string(parseData)); parseSetErr != nil {
+		parseErrState.Set(parseSetErr)
+		// In-memory state is already updated; keep going.
+	} else {
+		parseErrState.Set(nil)
+	}
 }
 
 // loadStoredInitial reads the stored JSON for parseKey from the chosen storage

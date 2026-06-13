@@ -3,10 +3,13 @@
 package ui
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 // TestSharedContextAndBoundaryAdditionalBranches covers remaining shared extraction branches for context and error boundaries.
@@ -168,4 +171,71 @@ func TestSharedBootstrapOverlayAndComponentAdditionalBranches(parseT *testing.T)
 		parseT.Fatal("unchanged overlay upsert should not notify subscribers")
 	case <-time.After(150 * time.Millisecond):
 	}
+}
+
+func TestBuildComponentRendererSpecializationsAndFallbacks(parseT *testing.T) {
+	parseFunc := func() Node { return Text("identity") }
+	parsePretty, parseQualified := describeComponentIdentity(parseFunc)
+	parsePrettyAgain, parseQualifiedAgain := describeComponentIdentity(parseFunc)
+	if parsePretty == "" || parseQualified == "" || parsePretty != parsePrettyAgain || parseQualified != parseQualifiedAgain {
+		parseT.Fatalf("describeComponentIdentity(func) unstable: (%q,%q) then (%q,%q)", parsePretty, parseQualified, parsePrettyAgain, parseQualifiedAgain)
+	}
+
+	parseNoArg := buildComponentRenderer(func() Node { return Text("no-arg") })
+	if parseGot := parseNoArg(func() Node { return Text("fresh") }, nil); parseGot.TextContent != "fresh" {
+		parseT.Fatalf("no-arg renderer = %#v", parseGot)
+	}
+	assertCreateElementPanic(parseT, func() { _ = parseNoArg("wrong", nil) })
+
+	parseMapRenderer := buildComponentRenderer(func(map[string]any) Node { return Text("unused") })
+	parseMapGot := parseMapRenderer(func(parseProps map[string]any) Node {
+		return Text(fmt.Sprint(parseProps["label"]))
+	}, map[string]any{propsKey: map[string]any{"label": "map"}})
+	if parseMapGot.TextContent != "map" {
+		parseT.Fatalf("map renderer = %#v", parseMapGot)
+	}
+
+	parseAttrsRenderer := buildComponentRenderer(func(runtime.Attrs) Node { return Text("unused") })
+	parseAttrsGot := parseAttrsRenderer(func(parseProps runtime.Attrs) Node {
+		return Text(fmt.Sprint(parseProps["label"]))
+	}, map[string]any{propsKey: runtime.Attrs{"label": "attrs"}})
+	if parseAttrsGot.TextContent != "attrs" {
+		parseT.Fatalf("attrs renderer = %#v", parseAttrsGot)
+	}
+
+	type typedProps struct {
+		Label string
+	}
+	parseTypedComponent := func(parseProps typedProps) Node { return Text(parseProps.Label) }
+	parseTypedRenderer := buildComponentRenderer(parseTypedComponent)
+	parseTypedGot := parseTypedRenderer(parseTypedComponent, map[string]any{propsKey: typedProps{Label: "typed"}})
+	if parseTypedGot == nil || parseTypedGot.TextContent != "typed" {
+		parseT.Fatalf("typed renderer = %#v", parseTypedGot)
+	}
+	parseTypedRendererCached := buildComponentRenderer(func(typedProps) Node { return Text("cached") })
+	if reflect.ValueOf(parseTypedRenderer).Pointer() != reflect.ValueOf(parseTypedRendererCached).Pointer() {
+		parseT.Fatal("component renderer should be cached by component function type")
+	}
+
+	parseNilComponent := func() Node { return nil }
+	if parseGot := buildComponentRenderer(parseNilComponent)(parseNilComponent, nil); parseGot != nil {
+		parseT.Fatalf("nil component result = %#v", parseGot)
+	}
+	if parseRenderer := buildComponentRenderer(nil); parseRenderer != nil {
+		parseT.Fatalf("nil component renderer type = %T", parseRenderer)
+	}
+
+	parseFallbackRenderer := buildComponentRenderer("not-a-function")
+	assertCreateElementPanic(parseT, func() { _ = parseFallbackRenderer("not-a-function", nil) })
+}
+
+func assertCreateElementPanic(parseT *testing.T, parseFn func()) {
+	parseT.Helper()
+	defer func() {
+		parseRecovered := recover()
+		if parseRecovered == nil || !strings.Contains(fmt.Sprint(parseRecovered), "ui.CreateElement requires a component function") {
+			parseT.Fatalf("expected actionable create element panic, got %#v", parseRecovered)
+		}
+	}()
+	parseFn()
 }
