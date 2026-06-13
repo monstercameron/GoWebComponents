@@ -239,7 +239,105 @@ Minimum pre-ready pass:
 3. Capture runtime log snippets and audit rows for all six checks above.
 4. Record unresolved gaps as release caveats if any check is `FAIL` or `N/A`.
 
-## 13) Local External-Auth Testing (Planned Rollout)
+## 13) Customer-Billing Truth Map
+
+Use this map when editing billing UI copy, settings panels, admin billing
+surfaces, or pricing catalog data. The goal is to keep customer-visible totals
+anchored to canonical server facts instead of re-deriving totals in the client.
+
+### Vocabulary Contract
+
+| Customer label | Canonical meaning | Do not replace with |
+|---|---|---|
+| `platform fee` | Fixed recurring subscription charge for the selected plan or workspace tier. | base fee, license fee, seat tax |
+| `usage` | Raw provider/model metered consumption from token/tool use. | compute fee, AI fee, variable fee |
+| `service premium` | Platform markup/premium applied to raw usage. | surcharge, hidden fee, margin |
+| `total` | `platform fee + usage + service premium`, in that order. | estimate, blended cost, all-in rate |
+
+### Settings Billing Surface
+
+| UI surface | Canonical source | Backend path | Notes |
+|---|---|---|---|
+| Settings billing menu | `settingsSectionBilling` | `client/app/settings_route.go` | Route and panel identity only; it must not derive pricing logic. |
+| Account total card | `accountCostSummary` | `client/app/account_costs.go`, `server/app/billing_formula_guard.go` | Display-only total assembled from server-provided cents/dollar fields. |
+| Plan label and coverage | Billing plan/subscription rows | `server/app/store_billing.go`, `sql/store/*billing*.sql` | Treat missing billing state as unavailable or explicitly empty, not as free/unlimited. |
+| Composer cost summary | Stream usage fields | `client/app/composer.go`, `client/app/composer_runtime2.go` | Shows the current thread/request cost signal; it is not the source of monthly billing truth. |
+
+### Billing And Invoice Classes
+
+| Class | Owns | Read path | Operator write path |
+|---|---|---|---|
+| `billing_plan` | Plan name, platform fee, entitlement defaults. | `server/app/store_billing.go`, `server/app/admin_business_ops.go` | `server/app/superuser_pricing_ops.go` |
+| `billing_plan_entitlement` | Feature/usage entitlement attached to a plan. | `server/app/store_billing.go` | `server/app/superuser_pricing_ops.go` |
+| `billing_quota_policy` | Usage/overage limits and thresholds. | `server/app/admin_business_ops.go` | `server/app/superuser_pricing_ops.go` |
+| `billing_subscription` | Customer's active plan relationship. | `server/app/admin_business_ops.go`, `server/app/admin_business_queue_ops.go` | Billing intervention flows; do not fake from UI state. |
+| `billing_invoice` | Invoice lifecycle and amount due. | `server/app/admin_business_ops.go` | Billing queue/drilldown intervention only. |
+| `billing_invoice_line_item` | Per-invoice breakdown rows. | `server/app/admin_business_ops.go` | Derived from invoice/source data; do not let settings copy invent new line classes. |
+| `billing_access_override` | Temporary or manual entitlement override. | `server/app/admin_business_ops.go` | Superuser pricing/control RPCs, with audit reason. |
+| `billing_dunning_event` | Failed payment and retry state. | `server/app/admin_business_ops.go` | Superuser dunning controls, with customer-impact review. |
+
+### Change Rule
+
+Any change to billing labels, totals, pricing copy, or invoice rows must cite
+one source row above in the review note. If a new billing concept does not fit
+the map, add it here first, then update UI copy and tests. Customer copy should
+continue to avoid `free`, `unlimited`, `all models included`, and
+`no token caps` unless the runtime and catalog enforce that exact promise.
+
+## 14) Admin Diagnostics Playbook
+
+Use this loop when reviewing log tail, server-tool policy, or server-tool
+execution outcomes from superuser/operator surfaces.
+
+### Starting Point
+
+1. Confirm the actor is a superuser. Normal users and workspace admins should
+   not receive log-tail or server-tool policy payloads.
+2. Open the Ops/dashboard diagnostics surface or call the same backend path:
+   `GetSuperuserOpsDiagnostics`.
+3. Capture the server process health before reading row-level evidence:
+
+```powershell
+go run ./tools/gwc examples .\examples\server\ai-chat-wizard\cmd\server status -json
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8095/healthz
+```
+
+### Evidence To Inspect
+
+| Evidence | Backend owner | What it proves | Correlate with |
+|---|---|---|---|
+| Log tail rows | `GetLogTail`, `server/app/log_tail.go` | Recent runtime diagnostics, startup failures, RPC warnings, and panic/error lines. | Managed runtime logs under `bin/runtime/logs/`. |
+| Server-tool policy | `store_server_tool_policy.go` | Whether server tools are enabled, which commands are allowed, timeout/output caps, and who last changed policy. | Policy history rows and audit log actor. |
+| Server-tool execution rows | `superuser_ops_diagnostics.go` filters audit rows for server-tool events. | Recent server-tool runs, blocked attempts, exits, and operator action context. | `audit_logs` event type, target id, actor id, and runtime stdout/stderr snippets. |
+| Audit log | Admin/superuser mutation helpers | Actor, target, event type, and reason for policy/tool changes. | UI row timestamp, request/session id, and log-tail timestamp. |
+
+### Correlation Loop
+
+1. Start with the UI row or RPC payload timestamp.
+2. Match the row to `audit_logs.event_type`:
+   - `admin.superuser.server_tool_policy.*`
+   - `admin.superuser.server_tool.*`
+   - related `admin.superuser.billing_*` events when the diagnostics review was triggered by billing controls.
+3. Match the audit actor to the authenticated user and fresh-session check.
+4. Read the adjacent log-tail window for the same request/session id or target
+   id. If no request id exists, correlate by timestamp and event type.
+5. For server-tool execution, capture stdout/stderr/exit metadata and policy
+   snapshot together. A tool result without the policy snapshot is incomplete
+   evidence.
+6. Record the outcome as one of: expected deny, expected success, policy
+   mismatch, stale-session rejection, runtime failure, or missing evidence.
+
+### Escalation Rules
+
+- Treat a missing audit row for a successful server-tool policy or execution
+  change as a release blocker.
+- Treat log-tail access by a non-superuser as a security regression.
+- Treat a server-tool execution row without policy context as incomplete
+  diagnostics, even if the tool succeeded.
+- Prefer disabling server tools over widening command policy during incident
+  response; widening policy needs a separate reason and rollback note.
+
+## 15) Local External-Auth Testing (Planned Rollout)
 
 Use this split path to avoid losing the fastest local verification loop while external auth is landing.
 
@@ -291,7 +389,7 @@ Policy split to enforce in testing:
 - Keep quick QA password path operational in local/dev.
 - Validate provider path separately with explicit provider-enabled config.
 
-## 14) Operator Exit Checklist
+## 16) Operator Exit Checklist
 
 - Server status is healthy or intentionally stopped.
 - `CHAT_DB_PATH` value used for both seed and server was consistent.

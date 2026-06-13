@@ -119,7 +119,7 @@ func renderDashboardSliceHeader(parseIcon, parseTitle, parseSubtitle string) ui.
 // Business slice.
 
 // renderDashboardBusiness renders the Business analytics slice.
-func renderDashboardBusiness(parseIntl i18n.Runtime, parseView appViewState, parseAdminWorkspaces adminWorkspacesController) ui.Node {
+func renderDashboardBusiness(parseIntl i18n.Runtime, parseView appViewState, parseAdminWorkspaces adminWorkspacesController, parseAdminOperations adminOperationsController) ui.Node {
 	_ = parseIntl
 	parseData := parseView.AdminDashboardData
 	if parseData.IsDenied {
@@ -137,6 +137,8 @@ func renderDashboardBusiness(parseIntl i18n.Runtime, parseView appViewState, par
 	parseSummary := parseData.Summary
 	return Fragment(
 		renderDashboardSliceHeader("\U0001f4ca", "Business", "Platform KPIs and top accounts"),
+		renderDashboardAlertState(parseView, parseAdminOperations),
+		renderDashboardSharedRail(adminScopeBilling, parseAdminOperations.Data.BillingQuery, parseAdminOperations),
 		renderDashboardSectionHeader("Platform totals"),
 		Div(Class("grid grid-cols-2 gap-3 sm:grid-cols-3"),
 			renderDashboardKPICard("Total users", formatDashboardInt64(parseSummary.TotalUsers), ""),
@@ -154,7 +156,9 @@ func renderDashboardBusiness(parseIntl i18n.Runtime, parseView appViewState, par
 		renderDashboardTopUsersTable(parseData.TopUsers),
 		renderDashboardSectionHeader("Daily usage (30 days)"),
 		renderDashboardDailyTable(parseData.DailyUsage),
+		renderDashboardBusinessInterventions(parseAdminOperations),
 		renderDashboardWorkspacesPanel(parseIntl, parseView, parseAdminWorkspaces),
+		renderAdminOperationsConfirmModal(parseAdminOperations),
 	)
 }
 
@@ -259,7 +263,7 @@ func renderDashboardRecentUsersTable(parseUsers []adminUserRow) ui.Node {
 // Chats slice.
 
 // renderDashboardChats renders the Chats analytics slice.
-func renderDashboardChats(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
+func renderDashboardChats(parseIntl i18n.Runtime, parseView appViewState, parseAdminOperations adminOperationsController) ui.Node {
 	_ = parseIntl
 	parseData := parseView.AdminDashboardData
 	if parseData.IsDenied {
@@ -276,6 +280,7 @@ func renderDashboardChats(parseIntl i18n.Runtime, parseView appViewState) ui.Nod
 	}
 	return Fragment(
 		renderDashboardSliceHeader("\U0001f4ac", "Chats", "Conversation health and recent threads"),
+		renderDashboardAlertState(parseView, parseAdminOperations),
 		Div(Class("mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3"),
 			renderDashboardKPICard("Total convs", formatDashboardInt64(parseData.Summary.TotalConversations), "platform-wide"),
 			renderDashboardKPICard("New this period", formatDashboardInt64(parseData.Summary.WindowNewConvs), "30-day window"),
@@ -283,6 +288,8 @@ func renderDashboardChats(parseIntl i18n.Runtime, parseView appViewState) ui.Nod
 		),
 		renderDashboardSectionHeader("Recent conversations"),
 		renderDashboardRecentConvsTable(parseData.RecentConvs),
+		renderDashboardChatsDrilldowns(parseData, parseAdminOperations),
+		renderAdminOperationsConfirmModal(parseAdminOperations),
 	)
 }
 
@@ -314,7 +321,7 @@ func renderDashboardRecentConvsTable(parseConvs []adminConvRow) ui.Node {
 // Providers slice.
 
 // renderDashboardProviders renders the Providers health slice.
-func renderDashboardProviders(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
+func renderDashboardProviders(parseIntl i18n.Runtime, parseView appViewState, parseAdminOperations adminOperationsController) ui.Node {
 	_ = parseIntl
 	parseData := parseView.AdminDashboardData
 	if parseData.IsDenied {
@@ -331,8 +338,11 @@ func renderDashboardProviders(parseIntl i18n.Runtime, parseView appViewState) ui
 	}
 	return Fragment(
 		renderDashboardSliceHeader("\u26a1", "Providers", "Model routing, health, and cost"),
+		renderDashboardAlertState(parseView, parseAdminOperations),
 		renderDashboardSectionHeader("Provider status"),
 		renderDashboardProvidersTable(parseData.ProviderSnaps),
+		renderDashboardProviderControls(parseData, parseAdminOperations),
+		renderAdminOperationsConfirmModal(parseAdminOperations),
 	)
 }
 
@@ -378,7 +388,7 @@ func renderDashboardProvidersTable(parseSnaps []adminProviderRow) ui.Node {
 // Ops slice.
 
 // renderDashboardOps renders the Ops / platform health slice plus the superuser server-tools surface.
-func renderDashboardOps(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
+func renderDashboardOps(parseIntl i18n.Runtime, parseView appViewState, parseAdminOperations adminOperationsController) ui.Node {
 	_ = parseIntl
 	parseData := parseView.AdminDashboardData
 	if parseData.IsDenied {
@@ -396,6 +406,7 @@ func renderDashboardOps(parseIntl i18n.Runtime, parseView appViewState) ui.Node 
 	parseSummary := parseData.Summary
 	return Fragment(
 		renderDashboardSliceHeader("\U0001f6e0\ufe0f", "Ops", "Platform health, incidents, and experiments"),
+		renderDashboardAlertState(parseView, parseAdminOperations),
 		renderDashboardSectionHeader("Platform health"),
 		Div(Class("grid grid-cols-2 gap-3 sm:grid-cols-4"),
 			renderDashboardKPICard("Open incidents", formatDashboardInt64(parseSummary.OpenIncidents), ""),
@@ -405,7 +416,12 @@ func renderDashboardOps(parseIntl i18n.Runtime, parseView appViewState) ui.Node 
 		),
 		renderDashboardSectionHeader("Daily usage (30 days)"),
 		renderDashboardDailyTable(parseData.DailyUsage),
+		renderDashboardSupportTriage(parseAdminOperations),
+		renderDashboardIncidentExperimentControls(parseAdminOperations),
+		renderDashboardSuperuserSurface(parseView, parseAdminOperations),
+		renderDashboardWorkspaceAdminSurface(parseAdminOperations),
 		renderDashboardServerToolsPanel(parseView),
+		renderAdminOperationsConfirmModal(parseAdminOperations),
 	)
 }
 

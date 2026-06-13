@@ -14,7 +14,7 @@ const adminCustomersPageSize = 10
 
 // renderDashboardCustomersEnhanced renders the Customers admin slice with search,
 // sort, pagination, a user detail panel, and disable/restore confirmation modal.
-func renderDashboardCustomersEnhanced(parseIntl i18n.Runtime, parseView appViewState, parseCustomers adminCustomersController) ui.Node {
+func renderDashboardCustomersEnhanced(parseIntl i18n.Runtime, parseView appViewState, parseCustomers adminCustomersController, parseAdminOperations adminOperationsController) ui.Node {
 	_ = parseIntl
 	parseData := parseView.AdminDashboardData
 	if parseData.IsDenied {
@@ -62,6 +62,7 @@ func renderDashboardCustomersEnhanced(parseIntl i18n.Runtime, parseView appViewS
 
 	return Fragment(
 		renderDashboardSliceHeader("\U0001f465", "Customers", "User search, billing state, and account controls"),
+		renderDashboardAlertState(parseView, parseAdminOperations),
 		renderAdminCustomersSearchBar(parseCustomers, parseData.Summary.TotalUsers, parseTotalUsers),
 		Div(
 			ClassNames(
@@ -83,6 +84,7 @@ func renderDashboardCustomersEnhanced(parseIntl i18n.Runtime, parseView appViewS
 				renderAdminUserDetailPanel(parseCustomers),
 			),
 		),
+		renderDashboardWorkspacesList(parseAdminOperations),
 		// Confirmation modal.
 		If(parseCustomers.Data.ConfirmAction != "",
 			renderAdminConfirmModal(parseCustomers),

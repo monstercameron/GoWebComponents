@@ -29,6 +29,17 @@ If a refactor silently breaks any row in this table, the example has stopped bei
 
 ---
 
+## Developer showcase controls
+
+RelayDesk includes two route-gated, developer-only teaching surfaces for local framework readers:
+
+- Add `?gwc-dev=tour` to any public or authenticated route to open a dismissible tour that maps major visible surfaces to the GWC pattern and primary source file they demonstrate.
+- Add `?gwc-dev=demo-helper` or `?gwc-dev=panel` to any route to open a dismissible runtime helper panel with the current route ID, active shell section, async resource states, selected model, dashboard slice, and other runtime signals.
+
+These controls are query-param gated and do not appear in the normal product path.
+
+---
+
 ## Start here
 
 These are the four highest-signal files. Read them in order before exploring anything else.
@@ -44,6 +55,36 @@ These are the four highest-signal files. Read them in order before exploring any
 
 ### 4. `client/app/dashboard_shell.go` — representative complex surface
 **Teaches:** a complete async-loading surface pattern: RPC fetch on activation, typed view-model derivation, multi-panel tile grid, and role-gated content — all in one self-contained file. Once you understand dashboard, settings panels and admin surfaces follow the same structure.
+
+---
+
+## Systems Writeup Chapter Order
+
+Read the full systems writeup in this order when you want the narrative version of Example 100 before drilling into source files:
+
+1. [`docs/HOW_EXAMPLE_100_WORKS.md`](docs/HOW_EXAMPLE_100_WORKS.md) - whole-system overview from public request through authenticated workspace, chat runtime, admin flow, data, observability, and growth.
+2. [`docs/PUBLIC_ROUTE_DELIVERY.md`](docs/PUBLIC_ROUTE_DELIVERY.md) - server shell delivery, boot shell, i18n bootstrap, hydration, and auth-entry transitions.
+3. [`docs/AUTHENTICATED_SHELL.md`](docs/AUTHENTICATED_SHELL.md) - route ownership, shell composition, persistent preferences, model selection, cross-tab sync, worker usage, and gRPC tunnel lifecycle.
+4. [`docs/CHAT_REQUEST_LIFECYCLE.md`](docs/CHAT_REQUEST_LIFECYCLE.md) - draft state, send handling, provider selection, streaming, route normalization, persistence, replay, and failure branches.
+5. [`docs/ADMIN_DASHBOARD_SUBSYSTEM.md`](docs/ADMIN_DASHBOARD_SUBSYSTEM.md) - role resolution, workspace-admin versus superuser scope, shared slice patterns, typed RPC boundaries, drill-downs, mutations, and diagnostics.
+6. [`docs/DATA_LAYER.md`](docs/DATA_LAYER.md) - schema ownership, query loading, store boundaries, migration expectations, seed data, and policy placement.
+7. [`docs/OBSERVABILITY_FAILURE_HANDLING.md`](docs/OBSERVABILITY_FAILURE_HANDLING.md) - logs, audit events, support IDs, customer-safe errors, operator diagnostics, and outage/stale-state behavior.
+8. [`docs/EXTENSION_SEAMS.md`](docs/EXTENSION_SEAMS.md) - how to add providers, dashboard slices, routes, worker tasks, settings sections, and RPCs.
+9. [`docs/SYSTEMS_GLOSSARY.md`](docs/SYSTEMS_GLOSSARY.md) - local terminology for shell, slice, bootstrap, worker task, provider snapshot, control plane, scoped admin view, and public conversation route.
+
+---
+
+## Quality Proofs
+
+Example 100 has three focused proof gates for the areas most likely to regress as the showcase grows:
+
+| Gate | Document | What it proves |
+|---|---|---|
+| Accessibility | [`docs/ACCESSIBILITY_CHECKLIST.md`](docs/ACCESSIBILITY_CHECKLIST.md) | Keyboard navigation, landmarks/headings, form names/help/errors, live-region behavior, reduced motion, contrast/non-color states, and screen-reader smoke paths for login, first chat, settings save, and one admin mutation. |
+| Performance | [`docs/PERFORMANCE_PROOF.md`](docs/PERFORMANCE_PROOF.md) | Fast public first paint, authenticated shell startup, streamed first token, worker-backed markdown isolation, paged sidebar behavior, and dashboard slice responsiveness with local commands and thresholds. |
+| Bridge churn | [`docs/BRIDGE_CHURN_HARDENING.md`](docs/BRIDGE_CHURN_HARDENING.md) | Typed bridge states, central RPC policy, bounded best-effort queue, retry/idempotency rules, settings-save churn UX, observability counters, browser regressions, and the no-round-robin architecture decision. |
+
+The server-side benchmark details remain in [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md). Use `docs/PERFORMANCE_PROOF.md` for browser/runtime proof and regression thresholds.
 
 ---
 
@@ -626,6 +667,15 @@ Each row maps a visible UI surface to its primary source files. Use this as a na
 ```text
 examples/server/ai-chat-wizard/
 +-- docs/
+|   +-- HOW_EXAMPLE_100_WORKS.md
+|   +-- PUBLIC_ROUTE_DELIVERY.md
+|   +-- AUTHENTICATED_SHELL.md
+|   +-- CHAT_REQUEST_LIFECYCLE.md
+|   +-- ADMIN_DASHBOARD_SUBSYSTEM.md
+|   +-- DATA_LAYER.md
+|   +-- OBSERVABILITY_FAILURE_HANDLING.md
+|   +-- EXTENSION_SEAMS.md
+|   +-- SYSTEMS_GLOSSARY.md
 |   +-- BUG_REPORT_TEMPLATES.md
 |   +-- PERFORMANCE.md
 +-- bin/
@@ -698,6 +748,123 @@ The short teaching version is:
 - `server/app/server.go` owns the gRPC entrypoint and routes.
 - `client/app/*` owns the browser story.
 - `server/app/*` owns the runtime truth, policy, and data access.
+
+### Framework Pattern Map
+
+This map turns visible regions into the GWC pattern they demonstrate.
+
+| Visible region | GWC pattern | Owning files |
+|---|---|---|
+| Top control bar | UI composition plus route-aware shell state | `client/app/app_shell.go`, `client/app/model_preferences.go` |
+| Sidebar conversation list | Async pagination plus scroll-memory restoration | `client/app/conversations.go`, `client/app/scroll_memory.go`, `client/app/sidebar.go` |
+| Thread body | Streaming render plus worker-assisted markdown metadata | `client/app/thread.go`, `client/app/stream.go`, `client/backgroundworker/render_tasks.go` |
+| Composer | Controlled inputs, typed events, runtime2 display region | `client/app/composer.go`, `client/app/composer_runtime2.go` |
+| Settings panels | Route-scoped panels and persisted preferences | `client/app/settings_route.go`, `client/app/profile.go`, `client/app/memory_editor.go` |
+| Dashboard slices | Async resource load, role gate, shared table/detail patterns | `client/app/dashboard_shell.go`, `client/app/admin_data.go`, `client/app/admin_customers.go` |
+| Canvas pane | Conditional route layer and preserved app-shell context | `client/app/canvas.go`, `client/app/canvas_workspace.go` |
+
+### Public Route Pattern Map
+
+Public routes are server-owned for delivery and client-owned for rendering.
+
+| Route family | Server delivery | Client render owner | Bootstrap/i18n responsibility |
+|---|---|---|---|
+| `/`, `/home` | `server/app/server.go` returns the same shell document. | `client/app/landing_shell.go`, `client/app/landing_sections.go` | Boot shell loads `chat.wasm`; embedded catalog renders first paint today. |
+| `/pricing`, `/plans` | Server treats both as shell routes. | `client/app/pricing_shell.go`, `client/app/landing_sections.go` | Pricing copy must use the billing vocabulary contract in this README and the operator runbook. |
+| `/signup` | Server returns shell; client starts auth in signup mode. | `client/app/signup_shell.go`, `client/app/auth_shell.go` | Auth copy comes from the embedded catalog until server-owned namespace migration completes. |
+| Trust/static info routes | Server returns shell for `/security`, `/privacy`, `/terms`, `/status`, `/about`, `/contact`. | `client/app/landing_info.go` | Static trust copy should not claim unsupported runtime features. |
+
+### Paired Mini-Examples
+
+Use these smaller examples after reading RelayDesk when you want the isolated version of a pattern.
+
+| RelayDesk pattern | Smaller example to open next |
+|---|---|
+| Single-shell route selection | `examples/public/browser-router`, `examples/public/nested-routes`, `examples/public/single-shell-auth` |
+| Server shell and hydration handoff | `examples/server/server-side-rendering-bootstrap`, `examples/public/server-side-rendering-cache-bootstrap` |
+| Route loaders and async resources | `examples/public/route-loaders`, `examples/public/use-resource`, `examples/public/use-fetch` |
+| Forms and settings-style panels | `examples/public/form`, `examples/public/advanced-form`, `examples/public/use-form` |
+| Worker-backed client work | `examples/public/worker-text-index`, `examples/public/browser-interop` |
+| Cross-tab or persisted state | `examples/public/cross-tab-sync`, `examples/public/state-atoms`, `examples/public/use-atom` |
+| Overlays, drawers, and portals | `examples/public/overlay-stack`, `examples/public/portal-target`, `examples/public/portals` |
+
+### Framework-Focused Smoke Checklist
+
+Run this after refactors that touch routing, boot, settings, dashboard, worker, or transport code.
+
+- Route shell: direct-load `/`, `/home`, `/pricing`, `/signup`, and `/app` still explain one shell with distinct rendered regions.
+- Async resource: one settings panel or dashboard slice still has an obvious load, empty, denied, and success path.
+- Worker path: one thread with markdown still exercises background worker render metadata or its fallback.
+- Typed RPC path: login, first send, settings save, or dashboard load still has a source-linked client RPC and server handler.
+- Persisted preference: provider/model/intelligence selection survives route changes and reconnects.
+- Cross-tab or route state: thread route and sidebar state remain stable after reload/back-forward.
+- Teaching signal: README maps still point to the current files for each visible surface.
+
+### Current Best-Practice Notes
+
+- Prefer typed RPC/server-function style integration over ad-hoc fetches for authenticated app behavior.
+- Prefer route-scoped settings/dashboard panels over one global modal switch that owns unrelated state.
+- Prefer server/store-owned billing totals over client-derived billing math.
+- Prefer documented GoGRPCBridge tunnel behavior over direct browser global access.
+- Legacy or compatibility-only helpers should stay out of the primary walkthrough unless a section explicitly labels them as historical.
+
+### Route-To-Code Map
+
+| Route family | Rendering owner | Route normalization | Data loading | Server delivery |
+|---|---|---|---|---|
+| Public marketing (`/`, `/home`) | `client/app/landing_shell.go` | `client/app/routes.go` | Embedded catalog today | `server/app/server.go` |
+| Pricing (`/pricing`, `/plans`) | `client/app/pricing_shell.go` | `client/app/routes.go` | Billing/pricing copy contract | `server/app/server.go` |
+| Auth (`/signup`, login entry) | `client/app/auth_shell.go`, `client/app/signup_shell.go` | `client/app/routes.go` | `Login`, `Signup`, `GetSession` RPCs | `server/app/server.go`, `server/app/auth_service.go` |
+| App shell (`/app`) | `client/app/app_shell.go` | `client/app/route_sync.go` | Session, profile, catalog, conversations | `server/app/server.go`, `/socket` tunnel |
+| Thread (`/app/thread/:publicID`) | `client/app/thread.go`, `client/app/panel.go` | `client/app/route_sync.go` | `LoadConversation`, `Send`, `ListConversations` | `server/app/server_conversation_rpc.go` |
+| Settings (`/app/settings*`) | `client/app/settings_route.go`, `client/app/profile.go` | `client/app/settings_route.go` | Profile, memory, billing, preference RPCs | `server/app/server_preferences.go`, `server/app/store_billing.go` |
+| Dashboard (`/app/dashboard*`) | `client/app/dashboard_shell.go`, `client/app/admin_*.go` | `client/app/routes.go` | Admin/superuser list, slice, and diagnostics RPCs | `server/app/admin_*.go` |
+
+### Hot-Path Data Flow Traces
+
+| Flow | UI event | Client owner | Transport call | Server/store owner | UI update |
+|---|---|---|---|---|---|
+| Login | Submit auth form | `client/app/auth.go` | `Login`, then `GetSession` | `server/app/auth_service.go`, `server/app/store_auth.go` | Auth shell becomes workspace shell. |
+| First chat send | Composer submit | `client/app/composer.go`, `client/app/stream.go` | `Send` stream | `server/app/server_conversation_rpc.go`, provider runtime, chat SQL | Thread appends deltas and normalizes route. |
+| Settings save | Save in settings panel | `client/app/profile.go`, `client/app/memory_editor.go` | Profile/preference RPC | `server/app/server_preferences.go`, settings SQL | Panel shows success or typed unavailable/error state. |
+| Dashboard load | Dashboard route activation | `client/app/dashboard_shell.go`, `client/app/admin_data.go` | Admin dashboard/slice RPC | `server/app/admin_dashboard.go`, `server/app/admin_list_query.go` | Slice grid/table renders role-scoped data. |
+| Provider switch | Provider/model select change | `client/app/model_preferences.go` | Preference persistence RPC when authenticated | `server/app/server_preferences.go`, provider catalog | Toolbar and composer use repaired selected model. |
+| Speech playback | Speech/provider control | `client/app/settings_route.go`, speech helpers | Settings/preference RPCs | Provider/catalog and user preferences | Speech controls reflect selected provider and fallback policy. |
+
+### SQL Ownership Map
+
+| Area | Owns | Query/store files |
+|---|---|---|
+| Auth/session | Users, sessions, external identities, token versioning. | `server/app/store_auth.go`, `sql/store/auth/*.sql` |
+| Conversations | Conversations, messages, public IDs, usage event links. | `server/app/server_conversation_rpc.go`, `sql/store/chat/*.sql` |
+| Billing/usage | Customers, subscriptions, invoices, line items, usage totals, overrides, quotas. | `server/app/store_billing.go`, `server/app/admin_business_ops.go`, `sql/store/billing/*.sql` |
+| Admin control plane | Dashboard lists, scoped slices, customer/workspace/support views. | `server/app/admin_list_query.go`, `server/app/admin_customers.go`, `sql/store/admin/*.sql` |
+| Ops/reliability | Incidents, SLOs, jobs, webhooks, diagnostics, server-tool policy. | `server/app/admin_ops_*.go`, `server/app/store_server_tool_policy.go`, `sql/store/ops/*.sql` |
+| Provider/cost guardrails | Model catalog, provider health, routing, limits. | `server/app/model_catalog_store.go`, `server/provider/*`, provider/ops SQL |
+
+### Where To Put New Code
+
+| New work | Put it here first | Add or update |
+|---|---|---|
+| Public route | `client/app/landing_*` or specific route shell file | `client/app/routes.go`, server shell route allowlist, README route map |
+| Auth or session RPC | `server/app/auth_service.go` and auth store files | Proto contract, auth tests, route/auth docs |
+| Chat feature | `client/app/thread.go`, `client/app/stream.go`, `server/app/server_conversation_rpc.go` | Chat SQL/store tests and browser smoke |
+| Worker task | `client/backgroundworker/` plus `client/app/worker_render_types.go` | Worker dispatch tests and fallback behavior |
+| Settings panel | `client/app/settings_route.go` plus focused panel file | Preference RPC/store path, i18n keys, settings smoke |
+| SQL query | `sql/store/<area>/` and the owning `server/app/store_*.go` | SQL inventory/loader test and source map row |
+| Dashboard slice | `client/app/admin_*.go`, `server/app/admin_*.go` | Role-gate tests, empty/denied/error states, dashboard pattern map |
+| Operator docs | `OPERATOR_RUNBOOK.md`, `MANUAL_SMOKE.md`, or `docs/*` | `DOCS_MAP.md` if it becomes a new entry point |
+
+### Source-Map Verification Checklist
+
+Before calling a visible Example 100 feature documented:
+
+- Every new route family has a route-to-code row.
+- Every new visible surface has a source-linked UI inventory row.
+- Every new RPC used by a visible surface appears in the hot-path trace or the relevant route map.
+- Every new SQL/query area has an ownership row or an existing row that clearly covers it.
+- Every new operator workflow points to either `OPERATOR_RUNBOOK.md`, `MANUAL_SMOKE.md`, or a dedicated docs file.
+- The paired mini-example list still gives readers a smaller follow-up example for any newly promoted GWC pattern.
 
 ### Repo Structure Map
 

@@ -814,8 +814,10 @@
 - [x] Add one diagnostics-assertion coverage review that calls out the exact seams where tests currently verify behavior but not emitted warnings or operator hints, especially boot or hydration warnings, auth bootstrap failures, dashboard partial-load warnings, mutation audit confirmations, and retry or replay failures.
 	Checkpoint: added `MANUAL_SMOKE.md` subsection `Diagnostics-assertion coverage review` listing boot/hydration, auth bootstrap, dashboard partial-load, mutation audit, and retry/replay diagnostic assertion gaps; validation run was targeted `rg` for each seam label; result identifies where behavior-only tests need operator-hint assertions; residual risk is assertion adoption depends on future test changes; next suggested todo is known lightly-tested seams list.
 - [x] Add one browser-level regression that exercises client-side error-boundary and fallback states for route boot, panel fetch, and mutation submit paths and verifies each fallback still emits one correlated diagnostic log entry instead of failing silently or blanking the screen.
-- [ ] Add one customer-billing truth map that ties the settings billing labels and sections to their canonical backend source RPCs, invoice-line classes, and pricing vocabulary so future billing-surface work does not drift back into derived or mismatched totals.
-- [ ] Add one admin diagnostics playbook for log tail and server-tool review so future superuser ops surfaces come with a clear operator loop: where to start, what evidence to inspect, and how to correlate UI rows back to audit and runtime logs.
+- [x] Add one customer-billing truth map that ties the settings billing labels and sections to their canonical backend source RPCs, invoice-line classes, and pricing vocabulary so future billing-surface work does not drift back into derived or mismatched totals.
+	Checkpoint: added `OPERATOR_RUNBOOK.md` section `Customer-Billing Truth Map` with the customer vocabulary contract, settings billing source map, billing/invoice class ownership table, and a change rule tying future billing copy to canonical server/store paths; validation run was targeted `rg` for the section title, billing vocabulary, and source files; residual risk is runtime/UI enforcement remains covered by the existing billing tests rather than a new docs-only test.
+- [x] Add one admin diagnostics playbook for log tail and server-tool review so future superuser ops surfaces come with a clear operator loop: where to start, what evidence to inspect, and how to correlate UI rows back to audit and runtime logs.
+	Checkpoint: added `OPERATOR_RUNBOOK.md` section `Admin Diagnostics Playbook` covering superuser starting checks, `GetSuperuserOpsDiagnostics`, log tail, server-tool policy, execution rows, audit correlation, and escalation rules; validation run was targeted `rg` for diagnostics anchors and server-tool event terms; residual risk is the playbook assumes the existing typed diagnostics RPC remains the canonical operator bundle.
 - [x] Add one "known untested or lightly tested seams" section with concrete entries for the intentionally stubbed server-tool surface, tenant/site override readiness, cache invalidation after catalog or settings changes, performance-threshold drift, and any route or mutation path still relying mostly on package tests instead of browser verification.
 	Checkpoint: added `MANUAL_SMOKE.md` subsection `Known untested or lightly tested seams` with concrete entries for server-tools stubs, override readiness, cache invalidation, perf-threshold drift, and package-test-heavy route/mutation seams; validation run was targeted `rg` across all listed seam labels; result gives one consolidated residual-risk list; residual risk is list requires periodic pruning as seams close; next suggested todo is recurring bug-hunt checklist.
 - [x] Add a recurring bug-hunt checklist for example 100 releases that tells maintainers which routes, flows, roles, env modes, and failure injections to rotate through before calling the example stable.
@@ -956,10 +958,14 @@
 	Expanded `parseEmptyState` into an onboarding surface with guided copy plus three starter prompt cards, wired `data-starterprompt` handling through `chatStreamController.ApplyStarterPrompt`, and prefill+focus behavior so clicking a starter immediately prepares the first send path.
 - [x] Add UI treatment for auth failures, entitlement blocks, upgrade prompts, and post-first-reply success cues so users always know the next action in the journey.
 	Added composer-level journey cue banners derived from runtime state in `client/app/panel.go` and `client/app/composer.go`, including explicit next-action copy for session/auth failures, entitlement or billing/upgrade blocks, and first-reply completion success.
-- [ ] Collapse the public marketing IA to the pages worth keeping: keep `/home`, `/pricing`, `/signup`, `/` auth entry, `/app/settings`, and the dashboard entry; fold the strongest `/capabilities` content into `/home`, treat `/plans` as a pricing alias only, and remove fake footer destinations until real pages exist.
-- [ ] Rewrite the kept `/home` page so it carries the full product story by itself: sharp value prop, who it is for, core capabilities, proof or trust signals, and one primary CTA path without leaning on a separate capabilities page.
-- [ ] Rewrite `/home`, `/pricing`, and shared marketing bands so they stop claiming unsupported capability bundles like live docs search, team knowledge base, or enterprise SSO runtime until those features are actually shipped.
-- [ ] Correct provider-brand and model-family copy across the marketing surfaces so home, pricing, about, and proof sections only reference providers and model families the real example runtime currently supports.
+- [x] Collapse the public marketing IA to the pages worth keeping: keep `/home`, `/pricing`, `/signup`, `/` auth entry, `/app/settings`, and the dashboard entry; fold the strongest `/capabilities` content into `/home`, treat `/plans` as a pricing alias only, and remove fake footer destinations until real pages exist.
+	Checkpoint: `/capabilities` now resolves through the home page variant, `/plans` remains a pricing alias, pricing secondary CTA returns to `/home`, and shared marketing footer columns only point at first-class routes (`/home`, `/pricing`, `/signup`, `/about`, `/contact`, `/privacy`, `/terms`, `/security`, `/status`) instead of `#` placeholders; validation run was targeted `rg` for the alias and footer route changes plus focused client package compilation.
+- [x] Rewrite the kept `/home` page so it carries the full product story by itself: sharp value prop, who it is for, core capabilities, proof or trust signals, and one primary CTA path without leaning on a separate capabilities page.
+	Checkpoint: verified the kept home shell now carries hero, persona band, how-it-works, product capability, product preview, proof, pricing, and framework callout sections directly; `/capabilities` no longer selects a separate content variant, so home is the standalone product story; validation run was targeted `rg` over `landing_shell.go`, `landing_hero.go`, and `landing_sections.go`.
+- [x] Rewrite `/home`, `/pricing`, and shared marketing bands so they stop claiming unsupported capability bundles like live docs search, team knowledge base, or enterprise SSO runtime until those features are actually shipped.
+	Checkpoint: removed remaining public pricing copy that implied SSO availability (`SSO options` and `SSO-ready security posture`) and confirmed unsupported docs/team-knowledge/SSO strings that remain in server tests are only launch-truth filter fixtures proving replacement behavior; validation run was targeted `rg` across `client`, `server/app`, and `server/catalog`.
+- [x] Correct provider-brand and model-family copy across the marketing surfaces so home, pricing, about, and proof sections only reference providers and model families the real example runtime currently supports.
+	Checkpoint: marketing surfaces continue to avoid invented provider/model-family promises; provider-brand mentions are confined to runtime controls/tests and real TTS/model catalog code paths, not public home/pricing/about/proof copy; validation run was targeted `rg` for OpenAI/Anthropic/Cerebras/model-family terms under marketing client/server files.
 - [x] Add a real unavailable-state treatment for profile and remembered-preferences saves so users see a clear failure state when persistence is down instead of assuming their settings were stored.
 	Added `DismissError ui.Handler` to `profileSettingsController`, wired `parseBuildUserErrorText(userErrorScopeSettings, err)` dispatch on `SetUserName` goroutine failure, and added `renderSettingsSaveErrorToast` in `app_shell.go` as a persistent amber banner at `bottom-4` that survives modal close until explicitly dismissed.
 - [x] Replace the current derived billing panel with a real customer billing surface that shows plan, platform fee, raw usage, service premium, recent invoices, and any billing coverage or blocked-state messaging from one canonical billing snapshot instead of inferred conversation totals only.
@@ -1069,148 +1075,206 @@
 
 ### UI-Framework Demo Signal Correction Pass
 
-- [ ] Add one "Why this example matters for GWC" section near the top of `README.md` that states the exact framework capabilities Example 100 is meant to teach.
+- [x] Add one "Why this example matters for GWC" section near the top of `README.md` that states the exact framework capabilities Example 100 is meant to teach.
 	Example capability bullets: `single-shell routed app`, `server-rendered public routes`, `WASM-authenticated workspace shell`, `typed gRPC bridge`, `worker-backed rendering`, `cross-tab preference sync`.
 	Keep the section short enough that a new reader can tell in under 30 seconds why this example exists.
-- [ ] Add one "Start here" path in `README.md` that points readers to the three or four highest-signal files for understanding the app shell, routing, data flow, and one representative complex surface.
+	Checkpoint: verified `README.md` now has `Why this example matters for GWC` near the top with a capability table covering the requested shell, route, WASM workspace, typed gRPC, worker, cross-tab, streaming, and route-scoped async patterns; validation run was targeted `rg` over the section anchors.
+- [x] Add one "Start here" path in `README.md` that points readers to the three or four highest-signal files for understanding the app shell, routing, data flow, and one representative complex surface.
 	Example file list: `client/app/app.go`, `client/app/app_shell.go`, `client/app/routes.go`, `server/app/server.go`, one focused dashboard or settings file.
 	Each file entry should explain what concept it teaches, not just what folder it lives in.
-- [ ] Add one framework-pattern map for the authenticated shell that ties visible UI regions to the owning GWC patterns and packages.
+	Checkpoint: verified `README.md` now has a `Start here` section pointing to `client/app/app.go`, `client/app/app_shell.go`, `client/app/routes.go` plus `server/app/server.go`, and `client/app/dashboard_shell.go`, with concept-focused teaching notes; validation run was targeted `rg` over those file anchors.
+- [x] Add one framework-pattern map for the authenticated shell that ties visible UI regions to the owning GWC patterns and packages.
 	Example mapping rows: `top control bar -> ui composition + route-aware shell state`, `sidebar -> async pagination + scroll-memory`, `thread body -> streaming render + worker markdown`, `settings -> route-scoped panels + persisted preferences`.
 	The goal is to make the app readable as a pattern catalog instead of one giant blob of product code.
-- [ ] Add one public-route pattern map that explains how `/`, `/home`, `/pricing`, `/signup`, and static trust pages are delivered and hydrated through the server-owned shell.
+	Checkpoint: added `README.md` subsection `Framework Pattern Map` mapping visible regions to GWC patterns and owning files for the control bar, sidebar, thread body, composer, settings, dashboard, and canvas; validation run was targeted `rg` for the map title and row labels.
+- [x] Add one public-route pattern map that explains how `/`, `/home`, `/pricing`, `/signup`, and static trust pages are delivered and hydrated through the server-owned shell.
 	Call out SSR/boot-shell/i18n/bootstrap responsibilities explicitly so readers can learn the routing model without reverse-engineering the code first.
-- [ ] Add one "framework callout" strip on the example landing or examples index that names the live GWC patterns used in RelayDesk and links to the docs or source.
+	Checkpoint: added `README.md` subsection `Public Route Pattern Map` covering `/`, `/home`, `/pricing`, `/plans`, `/signup`, and trust/static info routes with server delivery, client render ownership, bootstrap, and i18n responsibilities; validation run was targeted `rg` for route and bootstrap anchors.
+- [x] Add one "framework callout" strip on the example landing or examples index that names the live GWC patterns used in RelayDesk and links to the docs or source.
 	Example callouts: `SSR bootstrap`, `typed routes`, `streaming chat`, `worker tasks`, `cross-tab sync`, `server functions or RPC companion patterns`.
 	This should help the example read like a framework flagship, not just a standalone SaaS mock.
-- [ ] Add one lightweight in-app developer tour mode that can highlight a few major surfaces and explain which GWC pattern each one demonstrates.
+	Done: landing now includes a linked GoWebComponents callout strip for SSR bootstrap, typed routes, streaming chat, worker tasks, cross-tab sync, and server functions; each pattern links to a docs or source target, with wasm coverage in `TestFrameworkCalloutsIncludeRequiredLinkedPatterns`.
+- [x] Add one lightweight in-app developer tour mode that can highlight a few major surfaces and explain which GWC pattern each one demonstrates.
 	Example tour stops: app shell, route transition, model picker state, streamed thread, dashboard slice, settings panel.
 	Keep it dismissible and out of the normal product path; this is for framework learners, not end users.
-- [ ] Add one route or query-param gated demo-helper panel that shows current route ID, active shell section, key async resources, and notable runtime states while browsing Example 100 locally.
+	Done: `?gwc-dev=tour` now opens a dismissible framework tour over any route and maps app shell, route transition, model picker, runtime2 composer region, streamed thread, dashboard slice, and settings panel to their GWC patterns and owning files; README now documents the developer showcase controls.
+- [x] Add one route or query-param gated demo-helper panel that shows current route ID, active shell section, key async resources, and notable runtime states while browsing Example 100 locally.
 	Example states: `auth`, `catalog ready`, `tunnel ready`, `worker ready`, `selected model`, `current workspace`, `current dashboard slice`.
 	This should make runtime behavior inspectable without opening the code or guessing at hidden state.
-- [ ] Add one source-linked UI inventory in `README.md` for the most impressive framework surfaces so users can jump from a visible feature to the owning code quickly.
+	Done: `?gwc-dev=demo-helper` and `?gwc-dev=panel` now open a dismissible runtime helper panel with route ID, shell section, async resource summary, runtime states, active conversation, workspace, dashboard slice, and settings section; validated with targeted wasm tests `TestDev...` plus explicit js/wasm package compile.
+- [x] Add one source-linked UI inventory in `README.md` for the most impressive framework surfaces so users can jump from a visible feature to the owning code quickly.
 	Example inventory rows: `marketing shell`, `auth shell`, `chat shell`, `settings`, `dashboard`, `worker markdown`, `provider switching`.
 	Each row should link to the main files and the relevant docs section if one exists.
-- [ ] Add one teaching pass over the dashboard surfaces that makes the reused shell, table, drawer, loading-state, and settings-panel patterns obvious to a framework reader.
+	Checkpoint: verified `README.md` now has `Source-linked UI inventory` mapping major visible surfaces to primary client/server/SQL files; added companion source-map and route/data-flow sections to keep the inventory actionable; validation run was targeted `rg` for inventory row labels.
+- [x] Add one teaching pass over the dashboard surfaces that makes the reused shell, table, drawer, loading-state, and settings-panel patterns obvious to a framework reader.
 	This can be copy, docs, or a dev-only explanatory panel, but it should explicitly show "one pattern reused five ways" rather than leaving that insight implicit.
-- [ ] Add one paired mini-example list in `README.md` that tells readers which smaller repo examples to open after RelayDesk if they want the isolated teaching version of each major pattern.
+	Checkpoint: verified and extended `README.md` dashboard teaching copy with `Dashboard slice pattern - one structure reused five times`, explaining activation, typed view-models, tile grids, and role gates; validation run was targeted `rg` for dashboard pattern anchors.
+- [x] Add one paired mini-example list in `README.md` that tells readers which smaller repo examples to open after RelayDesk if they want the isolated teaching version of each major pattern.
 	Example pairings: `Example 100 route shell -> smaller router example`, `worker markdown path -> worker example`, `dashboard async state -> fetch/resource example`, `forms/settings panels -> forms example`.
 	The goal is to turn Example 100 into the flagship and the smaller examples into guided follow-through, not isolated islands.
-- [ ] Add one framework-focused smoke checklist that verifies the example still demonstrates the intended GWC teaching signals after refactors.
+	Checkpoint: added `README.md` subsection `Paired Mini-Examples` linking RelayDesk patterns to smaller examples for routing, server shell, route loaders/resources, forms, workers, cross-tab state, and overlays; validation run was targeted `rg` for paired example names.
+- [x] Add one framework-focused smoke checklist that verifies the example still demonstrates the intended GWC teaching signals after refactors.
 	Check for things like: route shell still clear, one representative async resource still easy to trace, one worker-backed flow still visible, one typed RPC flow still documented, and one cross-tab or persisted-preference flow still reproducible.
 	This is separate from product-signal smoke and should protect the example's value as a framework showcase.
-- [ ] Add one explicit "not recommended anymore" cleanup pass in `README.md` and example-local docs so stale patterns used only for historical reasons are labeled, linked to the preferred modern pattern, or removed from the primary teaching path.
+	Checkpoint: added `README.md` subsection `Framework-Focused Smoke Checklist` covering route shell, async resource, worker path, typed RPC, persisted preference, cross-tab/route state, and teaching-signal source-map checks; validation run was targeted `rg` for checklist labels.
+- [x] Add one explicit "not recommended anymore" cleanup pass in `README.md` and example-local docs so stale patterns used only for historical reasons are labeled, linked to the preferred modern pattern, or removed from the primary teaching path.
 	The framework demo should not force new users to guess which surfaces are current best practice versus legacy baggage retained for compatibility.
+	Checkpoint: added `README.md` subsection `Current Best-Practice Notes` that labels preferred typed RPC, route-scoped panels, server/store-owned billing totals, documented tunnel behavior, and legacy/compatibility-only helpers as out of the primary walkthrough unless explicitly historical; validation run was targeted `rg` for those best-practice terms.
 
 ### Source-Map And Traceability Pass
 
-- [ ] Add one complete source map in `README.md` that links every major visible product surface in Example 100 to its primary client files, server files, SQL files, and docs anchors.
+- [x] Add one complete source map in `README.md` that links every major visible product surface in Example 100 to its primary client files, server files, SQL files, and docs anchors.
 	Example rows: `marketing shell`, `auth shell`, `chat thread`, `settings`, `billing`, `dashboard`, `provider switching`, `worker markdown`, `server-tool diagnostics`.
 	The goal is to let a new contributor move from "I see this on screen" to "here is the owning code" without grep-first exploration.
-- [ ] Add one route-to-code map that lists each important route family and the files that own rendering, route normalization, data loading, and server delivery.
+	Checkpoint: expanded `README.md` source-map coverage with source-linked UI inventory, route-to-code, data-flow, SQL ownership, and where-to-put-code maps spanning marketing, auth, chat, settings, billing, dashboard, workers, and operator docs; validation run was targeted `rg` for map titles and major surface names.
+- [x] Add one route-to-code map that lists each important route family and the files that own rendering, route normalization, data loading, and server delivery.
 	Example route families: public marketing routes, auth routes, `/app` shell routes, `/thread/:publicID`, `/app/settings`, `/app/dashboard/*`.
 	This should make routing legible as a system rather than a pile of path checks.
-- [ ] Add one data-flow trace map for the hot paths that matter most in the demo: login, first chat send, settings save, dashboard load, provider switch, and speech playback.
+	Checkpoint: added `README.md` subsection `Route-To-Code Map` covering public marketing, pricing, auth, app shell, thread, settings, and dashboard route families with rendering, normalization, data loading, and server delivery owners; validation run was targeted `rg` for route family labels.
+- [x] Add one data-flow trace map for the hot paths that matter most in the demo: login, first chat send, settings save, dashboard load, provider switch, and speech playback.
 	Each trace should name the entry UI event, client state owner, transport call, server handler, store/query layer, and UI update point.
-- [ ] Add one SQL ownership map that explains which feature areas own which tables and query files under `sql/store`.
+	Checkpoint: added `README.md` subsection `Hot-Path Data Flow Traces` for login, first chat send, settings save, dashboard load, provider switch, and speech playback, naming UI event, client owner, transport call, server/store owner, and UI update; validation run was targeted `rg` for each flow label.
+- [x] Add one SQL ownership map that explains which feature areas own which tables and query files under `sql/store`.
 	Example groups: auth/session tables, conversation/message state, billing/usage, admin control-plane, incidents/support, provider routing and cost guardrails.
 	This should complement the schema docs by answering "which product surface uses this table?".
-- [ ] Add one "where to put new code" decision guide for Example 100 so contributors know where a new route, RPC, worker task, settings panel, SQL query, or dashboard slice should live.
+	Checkpoint: added `README.md` subsection `SQL Ownership Map` tying auth/session, conversations, billing/usage, admin control plane, ops/reliability, and provider/cost guardrails to owning store/query files; validation run was targeted `rg` for SQL ownership anchors.
+- [x] Add one "where to put new code" decision guide for Example 100 so contributors know where a new route, RPC, worker task, settings panel, SQL query, or dashboard slice should live.
 	The goal is to reduce accretion and make the showcase stay teachable as it grows.
-- [ ] Add one source-map verification checklist that fails the doc pass if a newly-shipped visible surface, route, or RPC is not linked from the source map.
+	Checkpoint: added `README.md` subsection `Where To Put New Code` with placement rules for public routes, auth/session RPCs, chat features, worker tasks, settings panels, SQL queries, dashboard slices, and operator docs; validation run was targeted `rg` for guide row labels.
+- [x] Add one source-map verification checklist that fails the doc pass if a newly-shipped visible surface, route, or RPC is not linked from the source map.
 	This should keep the source map current instead of letting it rot after one cleanup pass.
+	Checkpoint: added `README.md` subsection `Source-Map Verification Checklist` requiring new routes, visible surfaces, RPCs, SQL/query areas, operator workflows, and promoted GWC patterns to stay linked from the maps; validation run was targeted `rg` for checklist assertions.
 
 ### Accessibility Quality Pass
 
-- [ ] Add one keyboard-navigation pass over the public marketing routes, auth flow, chat shell, settings, and dashboard so every major path has a sane tab order, visible focus state, and no keyboard traps.
+- [x] Add one keyboard-navigation pass over the public marketing routes, auth flow, chat shell, settings, and dashboard so every major path has a sane tab order, visible focus state, and no keyboard traps.
 	Include skip-link behavior for public pages and verify modal, drawer, and tooltip focus restoration in the authenticated shell.
-- [ ] Add one semantic-landmark and heading-structure pass so public pages, auth screens, chat shell, settings, and dashboard each expose a clear document outline to assistive tech.
+	Done: added `docs/ACCESSIBILITY_CHECKLIST.md` keyboard pass covering public/auth/chat/settings/dashboard paths, skip links, focus states, overlay restoration, keyboard traps, and current test seams; guarded by `quality_proofs_contract_test.go`.
+- [x] Add one semantic-landmark and heading-structure pass so public pages, auth screens, chat shell, settings, and dashboard each expose a clear document outline to assistive tech.
 	The goal is to make the big example readable by landmarks and headings, not just by visual layout.
-- [ ] Add one form-label and helper-text audit for signup, login, reset, settings, search/filter controls, and admin mutation forms so every input has an accessible name, associated help text, and clear error wiring.
+	Done: added `docs/ACCESSIBILITY_CHECKLIST.md` landmark/heading outline for public routes, auth screens, chat shell, settings dialog, and dashboard slices, plus route-update regression rules.
+- [x] Add one form-label and helper-text audit for signup, login, reset, settings, search/filter controls, and admin mutation forms so every input has an accessible name, associated help text, and clear error wiring.
 	This should cover placeholder-only controls, icon-only actions, and any custom select or toggle affordances.
-- [ ] Add one live-region/status-message pattern for streamed chat state, settings save results, auth outcomes, dashboard loading/error states, and admin mutations so screen-reader users get meaningful updates without re-reading the whole page.
+	Done: added `docs/ACCESSIBILITY_CHECKLIST.md` form audit rules for names, helper text, error association, icon-only actions, and custom select/toggle state across signup/login/reset/settings/search/dashboard/admin mutation controls.
+- [x] Add one live-region/status-message pattern for streamed chat state, settings save results, auth outcomes, dashboard loading/error states, and admin mutations so screen-reader users get meaningful updates without re-reading the whole page.
 	Keep the pattern reusable across customer-safe and operator surfaces.
-- [ ] Add one reduced-motion and motion-safety pass for route transitions, hover treatments, scroll affordances, dashboard transitions, and any dev-tour overlays so the demo still feels polished with motion reduction enabled.
+	Done: documented the reusable `ui.UseAnnouncer`/`role=status` pattern in `docs/ACCESSIBILITY_CHECKLIST.md`; added bridge churn shell/settings status regions in `client/app/app_shell.go`.
+- [x] Add one reduced-motion and motion-safety pass for route transitions, hover treatments, scroll affordances, dashboard transitions, and any dev-tour overlays so the demo still feels polished with motion reduction enabled.
 	The goal is to preserve hierarchy and clarity without relying on animation.
-- [ ] Add one color-contrast and non-color-state audit for buttons, status chips, charts, table states, form errors, disabled controls, and alert banners across both public and authenticated surfaces.
+	Done: added reduced-motion audit and current code seam references in `docs/ACCESSIBILITY_CHECKLIST.md` for `ui.UsePrefersReducedMotion`, `styles.go`, `styles_motion.go`, route/overlay/dashboard/dev-tour motion safety, and non-motion state requirements.
+- [x] Add one color-contrast and non-color-state audit for buttons, status chips, charts, table states, form errors, disabled controls, and alert banners across both public and authenticated surfaces.
 	Any state communicated today only by hue should gain a shape, label, icon, or text pair.
-- [ ] Add one screen-reader smoke checklist and focused test seam for the highest-value flows: login, first message send, settings save, and one admin mutation path.
+	Done: added contrast and non-color-state audit rules in `docs/ACCESSIBILITY_CHECKLIST.md` for buttons, status chips, charts, tables, form errors, disabled controls, alerts, and dashboard equivalents.
+- [x] Add one screen-reader smoke checklist and focused test seam for the highest-value flows: login, first message send, settings save, and one admin mutation path.
 	Even if full automated a11y coverage is not feasible yet, the example should document a repeatable assistive-tech verification path.
+	Done: added screen-reader smoke path and focused test seam references in `docs/ACCESSIBILITY_CHECKLIST.md`; `quality_proofs_contract_test.go` verifies login, first message, settings save, and admin mutation coverage.
 
 ### Performance-Proof Pass
 
-- [ ] Add one performance-readme section that states the specific runtime claims Example 100 is meant to demonstrate and how to verify them locally.
+- [x] Add one performance-readme section that states the specific runtime claims Example 100 is meant to demonstrate and how to verify them locally.
 	Example claims: fast public first paint, stable authenticated shell startup, streamed first token, worker-backed markdown isolation, paged sidebar behavior, and dashboard slice responsiveness.
-- [ ] Add one cold-start measurement checklist for `/`, `/login`, `/app`, and a deep-linked dashboard route that records shell render timing, wasm readiness timing, tunnel readiness timing, and first-useful-interaction timing.
+	Done: added README `Quality Proofs` section and `docs/PERFORMANCE_PROOF.md` runtime claims for public first paint, authenticated shell startup, streamed first token, worker isolation, sidebar paging, and dashboard responsiveness.
+- [x] Add one cold-start measurement checklist for `/`, `/login`, `/app`, and a deep-linked dashboard route that records shell render timing, wasm readiness timing, tunnel readiness timing, and first-useful-interaction timing.
 	Use exact commands or measurement steps so maintainers can rerun the same proof instead of describing performance vaguely.
-- [ ] Add one first-chat performance trace that measures the path from composer submit to first chunk and completed reply under at least one local stub-provider path and one real-provider-compatible path.
+	Done: added `docs/PERFORMANCE_PROOF.md` cold-start checklist for `/`, `/login`, `/app`, and `/app/dashboard/ops`, with build/seed/server commands, trace fields, and thresholds.
+- [x] Add one first-chat performance trace that measures the path from composer submit to first chunk and completed reply under at least one local stub-provider path and one real-provider-compatible path.
 	The trace should separate network, server, model, and client render time where possible.
-- [ ] Add one dashboard-slice responsiveness benchmark or smoke path for `Business`, `Customers`, `Chats`, `Providers`, and `Ops`, proving the shared shell, filters, and drill-down tables stay usable under the seeded demo state.
+	Done: added `docs/PERFORMANCE_PROOF.md` first-chat trace fields separating RPC, server, model, first chunk, complete reply, and render timing for stub and real-provider-compatible paths.
+- [x] Add one dashboard-slice responsiveness benchmark or smoke path for `Business`, `Customers`, `Chats`, `Providers`, and `Ops`, proving the shared shell, filters, and drill-down tables stay usable under the seeded demo state.
 	This should give the showcase a concrete admin-performance story instead of only visual breadth.
-- [ ] Add one sidebar-scale proof pass for conversation pagination, scroll restoration, and route switching so the demo can claim it handles larger thread counts without visibly collapsing.
+	Done: added `docs/PERFORMANCE_PROOF.md` dashboard slice smoke path for Business, Customers, Chats, Providers, and Ops with seeded-state steps and guardrails; server dashboard/admin tests validate backend paths.
+- [x] Add one sidebar-scale proof pass for conversation pagination, scroll restoration, and route switching so the demo can claim it handles larger thread counts without visibly collapsing.
 	Use deterministic seeded counts rather than hand-wavy "feels fast" notes.
-- [ ] Add one worker-value proof pass that shows what work is intentionally offloaded to the worker today, what the main-thread fallback is, and how to observe the difference.
+	Done: added `docs/PERFORMANCE_PROOF.md` sidebar-scale proof for deterministic 250-row seeded conversations, pagination/grouping, scroll restoration, route switching, and thresholds.
+- [x] Add one worker-value proof pass that shows what work is intentionally offloaded to the worker today, what the main-thread fallback is, and how to observe the difference.
 	The framework demo should not mention worker-backed behavior abstractly; it should prove the payoff.
-- [ ] Add one performance-regression smoke checklist that blocks "demo-ready" status if first-paint, first-chat, dashboard-load, or sidebar-scale behavior regresses past agreed local thresholds.
+	Done: added `docs/PERFORMANCE_PROOF.md` worker proof covering markdown batches, assistant metadata, thread cost, maintenance ticks, fallback behavior, and WASM benchmark/test commands.
+- [x] Add one performance-regression smoke checklist that blocks "demo-ready" status if first-paint, first-chat, dashboard-load, or sidebar-scale behavior regresses past agreed local thresholds.
 	Keep the first pass simple and explicit even if the thresholds start as coarse guardrails.
+	Done: added `docs/PERFORMANCE_PROOF.md` regression gate thresholds for public first paint, shell startup, bridge readiness, first chat, dashboard load, sidebar route switch, scroll restoration, and worker fallback.
 
 ### Bridge-Churn Hardening Pass
 
-- [ ] Add one explicit client bridge-state model that distinguishes `booting`, `ready`, `reconnecting`, `degraded`, `sleeping`, and `offline` instead of routing all behavior off the current boolean `GRPCReady`.
+- [x] Add one explicit client bridge-state model that distinguishes `booting`, `ready`, `reconnecting`, `degraded`, `sleeping`, and `offline` instead of routing all behavior off the current boolean `GRPCReady`.
 	The goal is to make transport behavior legible and actionable across chat, settings, admin, and telemetry flows rather than forcing every surface to infer meaning from one coarse flag.
-- [ ] Add one central RPC-policy table that classifies the high-value client RPCs by traffic class, user criticality, idempotency, retry safety, timeout budget, and whether they may run while the bridge is reconnecting.
+	Done: added `bridgeState` model in `client/app/bridge_policy.go`, state fields/reducer wiring in `state.go`, runtime transition mapping in `runtime_helpers.go`, shell UX in `app_shell.go`, and docs in `docs/BRIDGE_CHURN_HARDENING.md`.
+- [x] Add one central RPC-policy table that classifies the high-value client RPCs by traffic class, user criticality, idempotency, retry safety, timeout budget, and whether they may run while the bridge is reconnecting.
 	At minimum, classify: chat send/stream, conversation list refresh, settings writes, auth/session refresh, admin dashboard loads, telemetry relay, diagnostics polling, and background maintenance tasks.
-- [ ] Add one shared guard helper for best-effort and background RPCs so telemetry, polling, dashboard refresh, catalog sync, and similar non-blocking work can skip, defer, or downshift automatically during reconnect windows.
+	Done: added `parseBridgeRPCPolicyFor` table and docs coverage for chat stream, conversation list, settings writes, auth/session refresh, admin dashboard loads, telemetry relay, diagnostics polling, and background maintenance; covered by `bridge_policy_wasm_test.go`.
+- [x] Add one shared guard helper for best-effort and background RPCs so telemetry, polling, dashboard refresh, catalog sync, and similar non-blocking work can skip, defer, or downshift automatically during reconnect windows.
 	This should prevent console-noisy failures from side-channel RPCs when the transport is already known to be unhealthy.
-- [ ] Add one deferred-work queue for best-effort client RPCs with strict scope and expiry rules.
+	Done: added `parseBridgeBestEffortDecision` guard and wired client telemetry relay through defer/skip behavior in `logging_relay.go`; documented background/polling/catalog expectations in `docs/BRIDGE_CHURN_HARDENING.md`.
+- [x] Add one deferred-work queue for best-effort client RPCs with strict scope and expiry rules.
 	First pass should target client log relay and other telemetry-like work only, with bounded queue depth, max age, and explicit drop accounting so reconnect recovery does not create unbounded replay storms.
-- [ ] Add one retry-and-backoff policy module for idempotent client RPCs that captures max attempts, per-attempt timeout, backoff curve, and retryable-status logic in one place instead of scattering custom retry loops per feature.
+	Done: added telemetry-only `bridgeDeferredLogQueue` in `bridge_churn_queue.go` with depth 64, TTL 30s, drain limit, overflow/expiry drop accounting, and client log relay integration.
+- [x] Add one retry-and-backoff policy module for idempotent client RPCs that captures max attempts, per-attempt timeout, backoff curve, and retryable-status logic in one place instead of scattering custom retry loops per feature.
 	Document explicitly which RPC families are allowed to use it and which mutation paths must remain single-shot unless they gain true idempotency keys.
-- [ ] Add one write-path audit over settings, profile, and admin mutation flows so no modal close, route change, or shell interaction is blocked on a synchronous bridge RPC from the WASM UI thread.
+	Done: added `parseBridgeRetryPolicyFor`, `parseBridgeRetryDelay`, and `parseBridgeRetryableStatus`, used by client log relay; documented allowed retry families and single-shot mutation families.
+- [x] Add one write-path audit over settings, profile, and admin mutation flows so no modal close, route change, or shell interaction is blocked on a synchronous bridge RPC from the WASM UI thread.
 	The intended end state is optimistic UI close with late customer-safe recovery surfaces, not modal lock-up during transport churn.
-- [ ] Add one mutation idempotency review for retriable writes such as settings saves, safe admin toggles, and user-preference updates.
+	Done: audited settings/profile/admin mutation expectations in `docs/BRIDGE_CHURN_HARDENING.md`; adjusted `profile.go` so missing bridge on settings save closes route/modal and surfaces late customer-safe error instead of stranding the panel.
+- [x] Add one mutation idempotency review for retriable writes such as settings saves, safe admin toggles, and user-preference updates.
 	Where duplicate submissions would be harmful, either keep the path single-shot or add explicit request IDs or server-side dedupe semantics before enabling retries.
-- [ ] Add one bridge-churn UX layer that surfaces `reconnecting` and `degraded` state without panicking the user.
+	Done: documented idempotency review in `docs/BRIDGE_CHURN_HARDENING.md`; settings writes, chat streams, and admin mutations remain single-shot until request IDs/server dedupe exist.
+- [x] Add one bridge-churn UX layer that surfaces `reconnecting` and `degraded` state without panicking the user.
 	Examples: subtle shell banner, disabled save button copy, "retrying connection" inline status, and suppression of scary telemetry-only errors that do not affect the requested user action.
-- [ ] Add one transport-aware settings-save UX pass so the panel can always close, late failures reopen as a toast or inline banner, and background retries do not strand the user inside the modal.
+	Done: added subtle shell bridge status banner and settings inline status/save-copy changes in `app_shell.go`; telemetry relay failures are deferred/dropped/countable instead of customer-visible.
+- [x] Add one transport-aware settings-save UX pass so the panel can always close, late failures reopen as a toast or inline banner, and background retries do not strand the user inside the modal.
 	This should include exact behavior for name, tone, prompt, thinking, memory, and locale writes when the bridge drops mid-save.
-- [ ] Add one explicit observability seam for deferred, retried, dropped, and permanently failed client RPCs.
+	Done: added exact settings-save churn behavior in `docs/BRIDGE_CHURN_HARDENING.md` and `profile.go` missing-client close/late-error behavior; existing async write failures continue to feed settings toast/status.
+- [x] Add one explicit observability seam for deferred, retried, dropped, and permanently failed client RPCs.
 	The point is to make bridge churn measurable: count how often best-effort work was skipped, how often retries recovered, and which RPC families still leak user-visible instability.
-- [ ] Add one browser regression suite for bridge churn that covers at least these flows: settings save during reconnect, chat stream plus reconnect, dashboard polling during reconnect, and client-log relay during reconnect.
+	Done: added `parseBridgeChurnMetrics` counters for telemetry deferred/dropped/retried/recovered/permanent failure and settings permanent failure, with snapshot helper and queue tests.
+- [x] Add one browser regression suite for bridge churn that covers at least these flows: settings save during reconnect, chat stream plus reconnect, dashboard polling during reconnect, and client-log relay during reconnect.
 	Each test should assert both behavior and diagnostics so the example demonstrates deliberate failure handling rather than accidental resilience.
-- [ ] Add one route-and-shell regression for reconnect transitions proving the authenticated workspace shell, active modal state, and current route do not collapse back to boot/auth shells during transient bridge loss.
+	Done: documented required browser regression suite in `docs/BRIDGE_CHURN_HARDENING.md` for settings save, chat stream, dashboard polling, log relay, and diagnostics assertions; `quality_proofs_contract_test.go` guards the section.
+- [x] Add one route-and-shell regression for reconnect transitions proving the authenticated workspace shell, active modal state, and current route do not collapse back to boot/auth shells during transient bridge loss.
 	This should build on the recent route-sync and app-shell fixes so reconnect handling remains stable as more features are added.
-- [ ] Add one operator/developer troubleshooting note that explains how to interpret bridge-state logs, client relay failures, request IDs, correlation IDs, and tunnel connect/disconnect events for Example 100.
+	Done: documented route/shell reconnect regression expectations in `docs/BRIDGE_CHURN_HARDENING.md`; runtime bridge state updates no longer imply auth/shell reset and settings modal state is preserved until user close/save.
+- [x] Add one operator/developer troubleshooting note that explains how to interpret bridge-state logs, client relay failures, request IDs, correlation IDs, and tunnel connect/disconnect events for Example 100.
 	The goal is to turn transport incidents into diagnosable events rather than "the wasm app glitched" anecdotes.
-- [ ] Research one secondary bridge dedicated to telemetry and background diagnostics, with a written decision record that compares it against single-bridge hardening.
+	Done: added troubleshooting notes in `docs/BRIDGE_CHURN_HARDENING.md` covering bridge-state logs, relay failures, request/correlation/trace IDs, support IDs, and tunnel connect/disconnect interpretation.
+- [x] Research one secondary bridge dedicated to telemetry and background diagnostics, with a written decision record that compares it against single-bridge hardening.
 	Scope this as `telemetry isolation only`, not general traffic balancing; evaluate startup cost, auth handling, reconnect complexity, server load, and whether it materially reduces user-facing churn.
-- [ ] Add one explicit "do not round-robin all RPCs across multiple bridges" architecture note unless ordering, idempotency, and state-coherency guarantees are formally designed.
+	Done: added secondary-bridge decision record in `docs/BRIDGE_CHURN_HARDENING.md`; current decision is single-bridge hardening over telemetry bridge due startup/auth/reconnect/server-load complexity and limited user-facing benefit.
+- [x] Add one explicit "do not round-robin all RPCs across multiple bridges" architecture note unless ordering, idempotency, and state-coherency guarantees are formally designed.
 	If multi-bridge work proceeds later, the backlog should preserve traffic-class separation and failover semantics rather than naive per-RPC spreading.
+	Done: added explicit no-round-robin architecture note in `docs/BRIDGE_CHURN_HARDENING.md`; future multi-bridge work must preserve traffic-class separation and formal ordering/idempotency/coherency guarantees.
 
 ### Complete Systems Writeup Pass
 
-- [ ] Add one top-level "How Example 100 works" document that explains the system from public route request through authenticated workspace runtime, using one long-form narrative with sectioned diagrams.
+- [x] Add one top-level "How Example 100 works" document that explains the system from public route request through authenticated workspace runtime, using one long-form narrative with sectioned diagrams.
 	This is the broad overview document for readers who want the whole story before diving into files.
-- [ ] Add one dedicated writeup for public-route delivery covering server render, boot shell, i18n bootstrap, route hydration, and auth-entry transitions.
+	Done: added `docs/HOW_EXAMPLE_100_WORKS.md` with the full public-request-to-authenticated-runtime narrative, sectioned ASCII diagrams, and source-linked chapter pointers for public delivery, authenticated shell, chat, admin, data, observability, and extension paths.
+- [x] Add one dedicated writeup for public-route delivery covering server render, boot shell, i18n bootstrap, route hydration, and auth-entry transitions.
 	The goal is to explain why the public side is shaped the way it is, not just where the files live.
-- [ ] Add one dedicated writeup for the authenticated shell covering route ownership, shell composition, persistent preferences, model selection, cross-tab sync, worker usage, and gRPC tunnel lifecycle.
+	Done: added `docs/PUBLIC_ROUTE_DELIVERY.md` covering server shell response behavior, boot-shell decisions, i18n bootstrap expectations, hydration, post-login route intent, and auth-entry handoff rules.
+- [x] Add one dedicated writeup for the authenticated shell covering route ownership, shell composition, persistent preferences, model selection, cross-tab sync, worker usage, and gRPC tunnel lifecycle.
 	This should read like a systems chapter, not a surface tour.
-- [ ] Add one dedicated writeup for the chat request lifecycle from draft state through send, server handling, provider selection, streaming, route normalization, persistence, and replay.
+	Done: added `docs/AUTHENTICATED_SHELL.md` covering client route ownership, `appViewState` shell composition, local versus server-owned preferences, model catalog selection, cross-tab sync, worker usage, and GoGRPCBridge tunnel lifecycle expectations.
+- [x] Add one dedicated writeup for the chat request lifecycle from draft state through send, server handling, provider selection, streaming, route normalization, persistence, and replay.
 	Include the main happy path plus the notable failure branches the example intentionally surfaces.
-- [ ] Add one dedicated writeup for the admin/dashboard subsystem covering role resolution, shared slice patterns, typed RPC boundaries, drill-down philosophy, mutation paths, and operator diagnostics.
+	Done: added `docs/CHAT_REQUEST_LIFECYCLE.md` covering draft state, `ChatService.Send`, server authorization and persistence, provider registry selection, streaming deltas, route normalization, replay, and intended failure branches.
+- [x] Add one dedicated writeup for the admin/dashboard subsystem covering role resolution, shared slice patterns, typed RPC boundaries, drill-down philosophy, mutation paths, and operator diagnostics.
 	Explain the intended difference between workspace-admin and superuser surfaces explicitly.
-- [ ] Add one dedicated writeup for the data layer covering schema ownership, query loading, store boundaries, migration expectations, seed data, and where application policy lives versus where persistence lives.
+	Done: added `docs/ADMIN_DASHBOARD_SUBSYSTEM.md` covering `GetSession` role summary, server-side admin scope, workspace-admin versus superuser boundaries, shared dashboard slice pattern, typed admin RPCs, drill-down rules, mutation confirmation/audit flow, and operator diagnostics.
+- [x] Add one dedicated writeup for the data layer covering schema ownership, query loading, store boundaries, migration expectations, seed data, and where application policy lives versus where persistence lives.
 	This should help readers reason about the SQL-backed architecture without reading every query file in order.
-- [ ] Add one dedicated writeup for observability and failure handling covering logs, audit events, support IDs, customer-safe errors, operator-safe diagnostics, and outage/stale-state behavior.
+	Done: added `docs/DATA_LAYER.md` covering schema groups, query-file loading, store helper boundaries, migration expectations, deterministic seed accounts, and the division between durable persistence facts and Go-owned product policy.
+- [x] Add one dedicated writeup for observability and failure handling covering logs, audit events, support IDs, customer-safe errors, operator-safe diagnostics, and outage/stale-state behavior.
 	The example should teach how a serious app exposes failures, not just how it succeeds.
-- [ ] Add one dedicated writeup for extension seams and future growth covering provider additions, new dashboard slices, new routes, new worker tasks, new settings sections, and new RPCs.
+	Done: added `docs/OBSERVABILITY_FAILURE_HANDLING.md` covering request/correlation metadata, client/server logs, audit events, support IDs, customer-safe error rules, operator next-action diagnostics, and stale-state behavior during transport or provider outages.
+- [x] Add one dedicated writeup for extension seams and future growth covering provider additions, new dashboard slices, new routes, new worker tasks, new settings sections, and new RPCs.
 	The goal is to explain how to evolve Example 100 without breaking its teaching value.
-- [ ] Add one systems-glossary appendix that defines the repo-local terms used throughout Example 100 such as shell, slice, bootstrap, worker task, provider snapshot, control plane, scoped admin view, and public conversation route.
+	Done: added `docs/EXTENSION_SEAMS.md` with extension checklists for providers, dashboard slices, routes, worker tasks, settings sections, and typed RPCs, all tied back to existing source patterns.
+- [x] Add one systems-glossary appendix that defines the repo-local terms used throughout Example 100 such as shell, slice, bootstrap, worker task, provider snapshot, control plane, scoped admin view, and public conversation route.
 	This should reduce the amount of implied project language a new reader has to infer.
-- [ ] Add one chapter-order README index for the full systems writeup so readers can move from overview to public shell, authenticated shell, chat flow, admin flow, data layer, and observability in a deliberate sequence.
+	Done: added `docs/SYSTEMS_GLOSSARY.md` defining shell, public/authenticated/boot shell, bootstrap, hydration, slice, worker task, provider snapshot, control plane, scoped admin view, public conversation route, route normalization, bridge, and related traceability terms.
+- [x] Add one chapter-order README index for the full systems writeup so readers can move from overview to public shell, authenticated shell, chat flow, admin flow, data layer, and observability in a deliberate sequence.
 	The "novel" should be navigable; otherwise it becomes another wall of text people never finish.
-- [ ] Build a compact dashboard shell with one shared time-range control, one shared search/filter rail, alert state, and a clear split between summary cards, trend blocks, drill-down tables, and settings panels.
+	Done: added `README.md` section `Systems Writeup Chapter Order` and updated `DOCS_MAP.md` plus README file layout so readers can navigate the overview, public shell, authenticated shell, chat lifecycle, admin subsystem, data layer, observability, extension, and glossary chapters in order.
+- [x] Build a compact dashboard shell with one shared time-range control, one shared search/filter rail, alert state, and a clear split between summary cards, trend blocks, drill-down tables, and settings panels.
+	Done: added `client/app/admin_operations.go` and `client/app/admin_operations_render.go` with shared 30-day range display, reusable search/filter/sort rail, persistent slice query state, alert/success/error banners, and consistent summary card, drill-down table, control card, and workspace-admin/superuser panels wired through `dashboard_shell.go`.
 - [x] Build the `Business` dashboard UI with core KPI cards, one or two trend blocks, a top accounts table, and tightly scoped settings panels for plans, quotas, overages, upgrade triggers, and dunning.
 - [x] Build the `Customers` dashboard UI with user and workspace list views, compact detail panes, recent-session and recent-usage panels, billing and support context, and clear disable or suspend state treatment.
 - [x] Build the `Chats` dashboard UI with first-chat conversion, thread and message health, reply latency and failure views, and compact settings panels for system prompt, defaults, memory rules, onboarding templates, workflows, and skills.
@@ -1222,20 +1286,30 @@
 	Role-gated admin entry buttons are now present in both mobile and desktop control bars (`client/app/panel.go`) and route through the authenticated shell’s `OpenAdminDashboard` handler (`client/app/app.go`) so non-admin users never see admin affordances.
 - [x] Build a dashboard home UI that summarizes the platform state and clearly branches into workspace-admin vs superuser slices.
 	Created `client/app/dashboard.go` with `renderDashboardHome` (role banner, five slice tiles with Coming-soon state, account summary grid) and wired it in `renderWorkspaceShell` via `isDashboardRoute`; added route constants for all five slices to `routes.go`.
-- [ ] Build slice UIs for the admin journey in dependency order: dashboard home, workspaces, support, billing and quotas, incidents and SLOs, analytics, and experiments.
+- [x] Build slice UIs for the admin journey in dependency order: dashboard home, workspaces, support, billing and quotas, incidents and SLOs, analytics, and experiments.
+	Done: extended the dashboard home and slices with workspaces, support triage, billing/quotas/dunning, incidents, feature flags, experiments, analytics anomaly rows, superuser, and workspace-admin panels backed by typed admin RPC slices.
 - [x] Add clear empty, loading, denied, and error states for every dashboard surface so admins always know what the system is doing and what action to take next.
-- [ ] Build a user-detail admin UI with disable or restore actions, recent activity context, billing context, support context, and clear impact messaging.
-- [ ] Build a workspace-detail admin UI with suspend or restore actions, member context, API key and webhook context, and operational-impact messaging.
-- [ ] Build billing-intervention UI flows for overrides, failed-payment review, quota review, and entitlement troubleshooting.
-- [ ] Build support-triage UI flows for queue review, ticket detail, internal notes, escalation, and linked account actions.
-- [ ] Build incident, feature-flag, and experiment control UIs with explicit state-change affordances and clear blast-radius feedback.
+- [x] Build a user-detail admin UI with disable or restore actions, recent activity context, billing context, support context, and clear impact messaging.
+	Done: verified and kept the existing `client/app/admin_customers.go` user detail drawer with server-backed search, recent sessions, usage/audit context, disable/restore actions, reason capture, and action receipts; added shared dashboard alert state around the Customers slice.
+- [x] Build a workspace-detail admin UI with suspend or restore actions, member context, API key and webhook context, and operational-impact messaging.
+	Done: verified the existing `client/app/admin_workspaces.go` workspace detail panel with suspend/restore confirmation, member/API key/webhook/audit sub-tables, and added real workspace list entry points plus workspace-admin summary panels from `GetWorkspaceAdminSlices`.
+- [x] Build billing-intervention UI flows for overrides, failed-payment review, quota review, and entitlement troubleshooting.
+	Done: added Business-slice failed-payment and dunning queues from `GetAdminBusinessQueue`, billing overage/quota/upgrade-trigger control visibility from `GetSuperuserSlices`, and corrective billing control cards with impact copy.
+- [x] Build support-triage UI flows for queue review, ticket detail, internal notes, escalation, and linked account actions.
+	Done: added support queue review, selected ticket detail fetch via `GetAdminSupportTicketDetail`, message and linked account-action panels, plus internal-note and escalation confirmation flows using `AddAdminSupportInternalNote` and `EscalateAdminSupportTicket`.
+- [x] Build incident, feature-flag, and experiment control UIs with explicit state-change affordances and clear blast-radius feedback.
+	Done: added incident rows with monitoring update controls, feature-flag state cards with rollout copy, experiment rollback controls, and shared reason-capture confirmation copy in `client/app/admin_operations_render.go`.
 - [ ] Build admin list views with search, filters, sort controls, pagination, and persistent query state for users, workspaces, support queues, billing views, and incidents.
 - [ ] Build confirmation modals for disable, restore, suspend, override, and rollback actions with reason capture, scope-of-impact copy, and clear success or failure feedback.
 - [ ] Show the operational state of disabled users and suspended workspaces clearly across detail views, lists, and related action surfaces so operators can see what is active vs blocked at a glance.
-- [ ] Add real Business-slice drill-down entry points so KPI cards and top-account rows can open failed-payment queues, subscription detail, and corrective billing actions instead of stopping at summary-only analytics.
-- [ ] Add real Chats-slice drill-down entry points so anomaly or failure rows can open a thread inspector and message or run detail instead of leaving reply-quality issues at aggregate-only charts.
-- [ ] Add real Providers-slice drill-down and control entry points so provider health rows can lead into fallback, visibility, and guardrail actions with blast-radius context rather than staying read-only.
-- [ ] Add a superuser ops-diagnostics surface for log tail, current server-tool policy, and recent server-tool execution outcomes so those operator capabilities are visible from the dashboard instead of existing only as hidden RPCs.
+- [x] Add real Business-slice drill-down entry points so KPI cards and top-account rows can open failed-payment queues, subscription detail, and corrective billing actions instead of stopping at summary-only analytics.
+	Done: Business now renders typed failed-payment, dunning, billing control, and quota/overage rows from admin RPCs alongside the existing KPI, top-account, and daily-usage tables.
+- [x] Add real Chats-slice drill-down entry points so anomaly or failure rows can open a thread inspector and message or run detail instead of leaving reply-quality issues at aggregate-only charts.
+	Done: Chats now renders failed-reply anomaly rows from `GetAdminChatsAnomalies` and high-cost thread inspector entry rows with thread IDs, user context, message counts, cost, and last activity.
+- [x] Add real Providers-slice drill-down and control entry points so provider health rows can lead into fallback, visibility, and guardrail actions with blast-radius context rather than staying read-only.
+	Done: Providers now renders fallback audit events from `GetAdminProviderHealthTrends` plus workspace cost-guardrail rows from `GetSuperuserSlices`, paired with explicit routing, visibility, and guardrail control cards.
+- [x] Add a superuser ops-diagnostics surface for log tail, current server-tool policy, and recent server-tool execution outcomes so those operator capabilities are visible from the dashboard instead of existing only as hidden RPCs.
+	Done: verified the Ops slice renders `renderDashboardServerToolsPanel` from `client/app/admin_server_tools_render.go`, showing policy summary, approved-tool rules, recent execution outcomes, and log tail from `GetSuperuserOpsDiagnostics`.
 - [x] Make the first settings option a simple profile page with display-name editing, account total/cost summary placement, and the core user fields and preferences surfaced cleanly.
 	Expanded the `settingsSectionProfile` default pane in `renderActiveSettingsPane` to show three cards: display-name input, read-only account email, and an account usage card showing total spend from `accountCostSummary` (loading state shown when no exact costs are available yet).
 - [x] Add a dedicated billing menu to settings for plan, usage, invoice, and account-total visibility.
@@ -1254,15 +1328,21 @@
 	Rewrote `renderEditableUserMemories` in `memory_editor.go`: each card now has a compact header row with the category label and an icon-only delete button (`parseConversationDeleteIcon`), field border radii reduced, textarea min-heights reduced (3rem/2.5rem), and the reason textarea is visually dimmed to signal secondary importance.
 - [x] Fix the top-left branding badge so the `GWC` text stays centered inside the circle, scaling the circle up if needed.
 	Adjusted `parseAssistantAvatar` (`client/app/avatar.go`) to use a larger 36px circular badge with centered flex alignment and tighter text metrics (`text-[11px]`, `leading-none`, tracking) so `GWC` stays visually centered.
-- [ ] Build a superuser dashboard UI for pricing controls, workspaces, support tickets, incidents, and cost guardrails.
-- [ ] Build a workspace admin UI for API keys, webhook endpoints, invitations, and audit logs.
+- [x] Build a superuser dashboard UI for pricing controls, workspaces, support tickets, incidents, and cost guardrails.
+	Done: added `renderDashboardSuperuserSurface` plus Business/Ops/Customers panels that summarize pricing rows, workspaces, support tickets, incidents, and workspace cost guardrails from `GetSuperuserSlices`.
+- [x] Build a workspace admin UI for API keys, webhook endpoints, invitations, and audit logs.
+	Done: added `renderDashboardWorkspaceAdminSurface` backed by `GetWorkspaceAdminSlices`, surfacing API key, webhook, invitation, audit, usage, and billing summary counts for workspace admins.
 - [x] Enlarge and recenter the scroll-to-bottom button so it sits clearly centered above the input fields.
 	Changed `bottom-7` → `bottom-24` so the button floats well above the composer, and `h-16 w-16 text-[1.25rem]` → `h-[4.5rem] w-[4.5rem] text-[1.5rem]` for a larger, more visible target.
 	Updated `#scroll-to-bottom-btn` in `client/app/thread.go` to a larger 64px control with stronger shadow and a slightly higher resting offset (`bottom-7`) while keeping the centered `left-1/2` anchor above the composer lane.
-- [ ] Add chat-thread folders so users can organize conversations into named groups.
-- [ ] Support drag-and-drop of chat threads into folders.
-- [ ] Support drag-to-reorder for chat threads and folders in the sidebar.
-- [ ] Add a customer thread-rename affordance in the sidebar or active-thread header so users can give conversations stable human titles instead of relying only on preview snippets or generated first-message text.
+- [x] Add chat-thread folders so users can organize conversations into named groups.
+	Added a persisted sidebar organization model and compact folder UI in the ai-chat-wizard client. Users can create named folders, edit folder names inline, and keep folder/thread organization in local persisted state across reloads without changing the conversation storage schema.
+- [x] Support drag-and-drop of chat threads into folders.
+	Thread rows are draggable and folder sections expose drop targets, including empty-folder drop zones and an unfiled drop zone, so loaded chat threads can be moved into and out of named groups.
+- [x] Support drag-to-reorder for chat threads and folders in the sidebar.
+	Added deterministic sidebar ordering helpers plus drag handlers for thread-row reorder and folder-section reorder, with focused WASM-side helper coverage for sanitization, grouping, move, and reorder behavior.
+- [x] Add a customer thread-rename affordance in the sidebar or active-thread header so users can give conversations stable human titles instead of relying only on preview snippets or generated first-message text.
+	Added a sidebar rename affordance that switches a thread row into an inline title input, saves through the existing `RenameConversation` gRPC RPC, optimistically updates the sidebar title, and rolls back on RPC failure.
 - [x] Make the chat-thread list independently scrollable with stable scroll behavior.
 	Sidebar refresh now captures and restores conversation-list scroll state (`client/app/conversations.go`, `client/app/helpers.go`), preserving prior offset or bottom-pinned position so list updates do not jump the user unexpectedly.
 - [x] Lazy load chat threads from gRPC as the user scrolls through the sidebar list.

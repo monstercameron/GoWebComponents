@@ -33,8 +33,6 @@ func setLandingDocumentTitle(parseIntl i18n.Runtime, parsePage string) {
 	switch parsePage {
 	case landingPagePricing:
 		parseTitle = parseIntl.T(n, "page.title.pricing")
-	case landingPageCapabilities:
-		parseTitle = parseIntl.T(n, "page.title.capabilities")
 	case landingPageAbout:
 		parseTitle = parseIntl.T(n, "page.title.about")
 	case landingPageContact:
@@ -132,7 +130,7 @@ func renderLandingShell(parseIntl i18n.Runtime, parseView appViewState, parseAut
 func parseLandingPageForPath(parsePath string) string {
 	switch strings.TrimSpace(parsePath) {
 	case marketingCapabilitiesRoute:
-		return landingPageCapabilities
+		return landingPageHome
 	case marketingPricingRoute, marketingPlansRoute:
 		return landingPagePricing
 	case marketingSignupRoute:

@@ -47,7 +47,7 @@ func parseResolvePricingPagePlanDescription(parsePlanCode string) string {
 	case "team":
 		return "Shared workspace with collaboration and workspace-admin controls for growing teams."
 	case "enterprise":
-		return "Contract-gated workspace with enterprise controls and SSO-ready security posture."
+		return "Contract-gated workspace with security review, procurement support, and governed admin controls."
 	default:
 		return "Usage-based workspace plan."
 	}

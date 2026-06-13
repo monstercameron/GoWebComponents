@@ -593,14 +593,23 @@ func parseSyncGRPCReadyState(
 	parseOnConversationRefresh func(bool),
 	parseOnProfileRefresh func(bool),
 ) {
-	if isReady && parseConn != nil {
-		if parseApp.Get().GRPCReady && parseChatClientRef.Get() != nil {
+	parseNextBridgeState := parseBridgeStateFromTransition(isReady, parseReason)
+	parseCurrentState := parseApp.Get()
+	parseDispatchBridgeState := func() {
+		if parseCurrentState.BridgeState == parseNextBridgeState && parseCurrentState.BridgeReason == parseReason && parseCurrentState.GRPCReady == parseBridgeReadyFromState(parseNextBridgeState) {
+			return
+		}
+		parseApp.Dispatch(appAction{Type: appActionSetBridgeState, BridgeState: parseNextBridgeState, BridgeReason: parseReason, GRPCReady: parseBridgeReadyFromState(parseNextBridgeState)})
+	}
+	if parseNextBridgeState == bridgeStateReady && parseConn != nil {
+		if parseCurrentState.GRPCReady && parseChatClientRef.Get() != nil {
+			parseDispatchBridgeState()
 			return
 		}
 		parseChatClientRef.Set(chatpb.NewChatServiceClient(parseConn))
 		parseSetClientLogRelay(parseChatClientRef.Get(), parseLoadPersistedClientIdentity(), true)
 		parseEnsureClientIdentity(parseChatClientRef.Get())
-		parseApp.Dispatch(appAction{Type: appActionSetGRPCReady, GRPCReady: true})
+		parseApp.Dispatch(appAction{Type: appActionSetBridgeState, BridgeState: bridgeStateReady, BridgeReason: parseReason, GRPCReady: true})
 		parsePostBackgroundWorkerTicker(parseMarkdownWorkerRef, backgroundWorkerCommandStartTicker)
 		parsePostBackgroundWorkerMaintenanceLoop(parseMarkdownWorkerRef, backgroundWorkerCommandStartMaintenanceLoop, parseApp.Get().LocaleInput)
 		if parseOnConversationRefresh != nil {
@@ -615,12 +624,13 @@ func parseSyncGRPCReadyState(
 		chatLog.Info("grpc ready", logging.Fields{"endpoint": grpcEndpoint, "reason": parseReason})
 		return
 	}
-	if !parseApp.Get().GRPCReady && parseChatClientRef.Get() == nil {
+	if !parseCurrentState.GRPCReady && parseChatClientRef.Get() == nil {
+		parseDispatchBridgeState()
 		return
 	}
 	parseChatClientRef.Set(nil)
 	parseSetClientLogRelay(nil, "", false)
-	parseApp.Dispatch(appAction{Type: appActionSetGRPCReady, GRPCReady: false})
+	parseApp.Dispatch(appAction{Type: appActionSetBridgeState, BridgeState: parseNextBridgeState, BridgeReason: parseReason, GRPCReady: false})
 	parsePostBackgroundWorkerTicker(parseMarkdownWorkerRef, backgroundWorkerCommandStopTicker)
 	parsePostBackgroundWorkerMaintenanceLoop(parseMarkdownWorkerRef, backgroundWorkerCommandStopMaintenanceLoop, parseApp.Get().LocaleInput)
 	chatLog.Warn("grpc unavailable", logging.Fields{"reason": parseReason})

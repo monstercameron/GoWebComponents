@@ -3,6 +3,7 @@
 package app
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 	"syscall/js"
@@ -20,6 +21,7 @@ import (
 const devToolQueryKey = "gwc-dev"
 const devToolTourMode = "tour"
 const devToolPanelMode = "panel"
+const devToolDemoHelperMode = "demo-helper"
 
 // parseGetDevToolMode reads the ?gwc-dev= query param from window.location.search.
 // Returns empty string when not present or when running outside a browser context.
@@ -28,14 +30,52 @@ func parseGetDevToolMode() string {
 	if !parseWindow.Truthy() {
 		return ""
 	}
-	parseSearch := parseWindow.Get("location").Get("search").String()
-	for _, parsePart := range strings.Split(strings.TrimPrefix(parseSearch, "?"), "&") {
-		parseKV := strings.SplitN(parsePart, "=", 2)
-		if len(parseKV) == 2 && parseKV[0] == devToolQueryKey {
-			return parseKV[1]
-		}
+	return parseDevToolModeFromSearch(parseWindow.Get("location").Get("search").String())
+}
+
+func parseNormalizeDevToolMode(parseRaw string) string {
+	switch strings.ToLower(strings.TrimSpace(parseRaw)) {
+	case devToolTourMode, "framework-tour":
+		return devToolTourMode
+	case devToolPanelMode, devToolDemoHelperMode, "helper", "demo", "runtime":
+		return devToolPanelMode
+	default:
+		return ""
 	}
-	return ""
+}
+
+func parseDevToolModeFromSearch(parseSearch string) string {
+	parseValues, parseErr := url.ParseQuery(strings.TrimPrefix(strings.TrimSpace(parseSearch), "?"))
+	if parseErr != nil {
+		return ""
+	}
+	return parseNormalizeDevToolMode(parseValues.Get(devToolQueryKey))
+}
+
+func parseBuildURLWithoutDevTool(parsePathname, parseSearch, parseHash string) string {
+	parseValues, parseErr := url.ParseQuery(strings.TrimPrefix(strings.TrimSpace(parseSearch), "?"))
+	if parseErr != nil {
+		return parsePathname + parseHash
+	}
+	parseValues.Del(devToolQueryKey)
+	parseEncoded := parseValues.Encode()
+	if parseEncoded != "" {
+		return parsePathname + "?" + parseEncoded + parseHash
+	}
+	return parsePathname + parseHash
+}
+
+func parseDismissDevToolURL() string {
+	parseWindow := js.Global()
+	if !parseWindow.Truthy() {
+		return ""
+	}
+	parseLoc := parseWindow.Get("location")
+	return parseBuildURLWithoutDevTool(
+		parseLoc.Get("pathname").String(),
+		parseLoc.Get("search").String(),
+		parseLoc.Get("hash").String(),
+	)
 }
 
 // ─── Dev tools overlay ───────────────────────────────────────────────────────
@@ -109,28 +149,199 @@ func parseBuildTourStops() []parseTourStop {
 	}
 }
 
+func parsePathOnly(parsePath string) string {
+	parsePath = strings.TrimSpace(parsePath)
+	if parseIdx := strings.Index(parsePath, "#"); parseIdx >= 0 {
+		parsePath = parsePath[:parseIdx]
+	}
+	if parseIdx := strings.Index(parsePath, "?"); parseIdx >= 0 {
+		parsePath = parsePath[:parseIdx]
+	}
+	if parsePath == "" {
+		return authLandingRoute
+	}
+	return parsePath
+}
+
+func parseResolveDashboardSliceID(parsePath string) string {
+	switch parsePathOnly(parsePath) {
+	case chatRouteDashboardBusiness:
+		return "business"
+	case chatRouteDashboardCustomers:
+		return "customers"
+	case chatRouteDashboardChats:
+		return "chats"
+	case chatRouteDashboardProviders:
+		return "providers"
+	case chatRouteDashboardOps:
+		return "ops"
+	case chatRouteDashboardHome:
+		return "home"
+	default:
+		return ""
+	}
+}
+
+func parseResolveDevRouteID(parsePath string) string {
+	parseCleanPath := parsePathOnly(parsePath)
+	if isLandingRoute(parseCleanPath) {
+		return "public." + parseLandingPageForPath(parseCleanPath)
+	}
+	switch {
+	case parseCleanPath == authLoginRoute:
+		return "auth.login"
+	case parseCleanPath == settingsRoutePath:
+		return "workspace.settings"
+	case parseResolveDashboardSliceID(parseCleanPath) != "":
+		return "workspace.dashboard." + parseResolveDashboardSliceID(parseCleanPath)
+	case strings.Contains(parseCleanPath, "/canvas/"):
+		return "workspace.thread.canvas"
+	case parseThreadRoutePublicIDFromPath(parseCleanPath) != "":
+		return "workspace.thread"
+	case parseCleanPath == chatRouteRoot:
+		return "workspace.root"
+	case strings.HasPrefix(parseCleanPath, chatRouteRoot+"/"):
+		return "workspace.route"
+	default:
+		return "unknown"
+	}
+}
+
+func parseResolveDevShellSection(parseView appViewState) string {
+	parseCleanPath := parsePathOnly(parseView.CurrentPath)
+	if isLandingRoute(parseCleanPath) {
+		return "public landing: " + parseLandingPageForPath(parseCleanPath)
+	}
+	if !parseView.AuthResolved {
+		return "auth bootstrap"
+	}
+	if !parseView.Authenticated {
+		return "auth shell"
+	}
+	if parseView.CanvasOnlyRoute {
+		return "canvas workspace"
+	}
+	if parseCleanPath == settingsRoutePath {
+		parseSection := parseNormalizeSettingsSectionID(parseView.ActiveSettingsSection)
+		if parseSection == "" {
+			parseSection = defaultSettingsSectionID
+		}
+		return "settings: " + parseSection
+	}
+	if parseSlice := parseResolveDashboardSliceID(parseCleanPath); parseSlice != "" {
+		return "dashboard: " + parseSlice
+	}
+	if parseThreadRoutePublicIDFromPath(parseCleanPath) != "" {
+		return "thread workspace"
+	}
+	if parseCleanPath == chatRouteRoot {
+		return "workspace home"
+	}
+	return "workspace"
+}
+
+func parseBoolReady(parseReady bool, parseReadyLabel, parseWaitingLabel string) string {
+	if parseReady {
+		return parseReadyLabel
+	}
+	return parseWaitingLabel
+}
+
+func parseResolveDashboardAsyncState(parseView appViewState) string {
+	if !strings.HasPrefix(parsePathOnly(parseView.CurrentPath), chatRouteDashboardHome) {
+		return "dashboard: idle"
+	}
+	if parseView.AdminDashboardData.IsLoading {
+		return "dashboard: loading"
+	}
+	if strings.TrimSpace(parseView.AdminDashboardData.Error) != "" {
+		return "dashboard: error"
+	}
+	if parseView.AdminDashboardData.HasData {
+		return "dashboard: ready"
+	}
+	if parseView.AdminDashboardData.IsDenied {
+		return "dashboard: denied"
+	}
+	return "dashboard: waiting"
+}
+
+func parseResolveDevAsyncResources(parseView appViewState) []string {
+	parseAuthState := "auth: pending"
+	if parseView.AuthResolved && parseView.Authenticated {
+		parseAuthState = "auth: session"
+	} else if parseView.AuthResolved {
+		parseAuthState = "auth: guest"
+	}
+	parseWorkerState := "worker: wasm"
+	if parseView.MarkdownWorkerFallback {
+		parseWorkerState = "worker: fallback"
+	}
+	return []string{
+		parseAuthState,
+		parseBoolReady(parseView.GRPCReady, "tunnel: ready", "tunnel: waiting"),
+		parseBoolReady(parseView.CatalogServerSynced, "catalog: synced", "catalog: local"),
+		parseWorkerState,
+		parseResolveDashboardAsyncState(parseView),
+	}
+}
+
+func parseResolveDevRuntimeStates(parseView appViewState) []string {
+	parseCanvasState := "canvas: off"
+	if parseView.CanvasSession.Active {
+		parseCanvasState = "canvas: " + parseView.CanvasSession.LayoutMode
+	}
+	parseAdminState := "role: user"
+	if parseView.IsSuperuser {
+		parseAdminState = "role: superuser"
+	} else if parseView.CanAccessAdmin {
+		parseAdminState = "role: admin"
+	}
+	parseModel := strings.TrimSpace(parseView.SelectedModel)
+	if parseModel == "" {
+		parseModel = "(default)"
+	}
+	return []string{
+		parseBoolReady(parseView.IsStreaming, "streaming: active", "streaming: idle"),
+		"model: " + parseModel,
+		parseAdminState,
+		parseCanvasState,
+		"messages: " + strconv.Itoa(len(parseView.Messages)),
+	}
+}
+
+func parseBuildDevPanelRows(parseView appViewState) [][2]string {
+	parseUserName := strings.TrimSpace(parseView.UserName)
+	if parseUserName == "" {
+		parseUserName = "guest"
+	}
+	parseRows := [][2]string{
+		{"Route ID", parseResolveDevRouteID(parseView.CurrentPath)},
+		{"Shell section", parseResolveDevShellSection(parseView)},
+		{"Async resources", strings.Join(parseResolveDevAsyncResources(parseView), " | ")},
+		{"Runtime states", strings.Join(parseResolveDevRuntimeStates(parseView), " | ")},
+		{"Route", parseView.CurrentPath},
+		{"Active conv ID", strconv.FormatInt(parseView.ActiveConversationID, 10)},
+		{"Workspace", parseUserName},
+	}
+	if parseDashboardSlice := parseResolveDashboardSliceID(parseView.CurrentPath); parseDashboardSlice != "" {
+		parseRows = append(parseRows, [2]string{"Dashboard slice", parseDashboardSlice})
+	}
+	if parseView.ActiveSettingsSection != "" {
+		parseRows = append(parseRows, [2]string{"Settings section", parseView.ActiveSettingsSection})
+	}
+	return parseRows
+}
+
 // renderDevTourOverlay renders a dismissible framework-tour modal listing the major GWC pattern stops.
 func renderDevTourOverlay(parseView appViewState) ui.Node {
 	parseDismiss := ui.UseEvent(func(parseE ui.Event) {
+		_ = parseE
 		parseWindow := js.Global()
 		if !parseWindow.Truthy() {
 			return
 		}
-		// Remove the gwc-dev param from the URL without triggering a navigation.
-		parseLoc := parseWindow.Get("location")
-		parseSearch := parseLoc.Get("search").String()
-		parseNewSearch := ""
-		parseParts := strings.Split(strings.TrimPrefix(parseSearch, "?"), "&")
-		parseKept := []string{}
-		for _, parsePart := range parseParts {
-			if !strings.HasPrefix(parsePart, devToolQueryKey+"=") && parsePart != "" {
-				parseKept = append(parseKept, parsePart)
-			}
-		}
-		if len(parseKept) > 0 {
-			parseNewSearch = "?" + strings.Join(parseKept, "&")
-		}
-		parseWindow.Get("history").Call("replaceState", js.Null(), "", parseLoc.Get("pathname").String()+parseNewSearch)
+		parseWindow.Get("history").Call("replaceState", js.Null(), "", parseDismissDevToolURL())
 	})
 	parseStops := parseBuildTourStops()
 	return Div(
@@ -178,49 +389,18 @@ func renderDevTourOverlay(parseView appViewState) ui.Node {
 func renderDevPanelOverlay(parseView appViewState) ui.Node {
 	// panel dismisses the same way as tour
 	parseDismiss := ui.UseEvent(func(parseE ui.Event) {
+		_ = parseE
 		parseWindow := js.Global()
 		if !parseWindow.Truthy() {
 			return
 		}
-		parseLoc := parseWindow.Get("location")
-		parseSearch := parseLoc.Get("search").String()
-		parseKept := []string{}
-		for _, parsePart := range strings.Split(strings.TrimPrefix(parseSearch, "?"), "&") {
-			if !strings.HasPrefix(parsePart, devToolQueryKey+"=") && parsePart != "" {
-				parseKept = append(parseKept, parsePart)
-			}
-		}
-		parseNewSearch := ""
-		if len(parseKept) > 0 {
-			parseNewSearch = "?" + strings.Join(parseKept, "&")
-		}
-		parseWindow.Get("history").Call("replaceState", js.Null(), "", parseLoc.Get("pathname").String()+parseNewSearch)
+		parseWindow.Get("history").Call("replaceState", js.Null(), "", parseDismissDevToolURL())
 	})
 
-	parseBool := func(parseB bool) string {
-		if parseB {
-			return "yes"
-		}
-		return "no"
-	}
-	parseRows := [][2]string{
-		{"Route", parseView.CurrentPath},
-		{"Auth resolved", parseBool(parseView.AuthResolved)},
-		{"Authenticated", parseBool(parseView.Authenticated)},
-		{"GRPC ready", parseBool(parseView.GRPCReady)},
-		{"Catalog synced", parseBool(parseView.CatalogServerSynced)},
-		{"Worker fallback", parseBool(parseView.MarkdownWorkerFallback)},
-		{"Streaming", parseBool(parseView.IsStreaming)},
-		{"Selected model", parseView.SelectedModel},
-		{"Workspace", parseView.UserName + "'s workspace"},
-		{"Can access admin", parseBool(parseView.CanAccessAdmin)},
-		{"Is superuser", parseBool(parseView.IsSuperuser)},
-		{"Canvas active", parseBool(parseView.CanvasSession.Active)},
-		{"Active conv ID", strconv.FormatInt(parseView.ActiveConversationID, 10)},
-	}
+	parseRows := parseBuildDevPanelRows(parseView)
 
 	return Div(
-		Class("fixed bottom-4 right-4 z-[100] w-72"),
+		Class("fixed bottom-4 right-4 z-[100] w-[min(28rem,calc(100vw-2rem))]"),
 		Div(
 			Class("rounded-2xl border border-white/[0.10] bg-[#0e0e16] shadow-2xl"),
 			// Panel header
@@ -228,7 +408,7 @@ func renderDevPanelOverlay(parseView appViewState) ui.Node {
 				Class("flex items-center justify-between border-b border-white/[0.07] px-4 py-2.5"),
 				Div(
 					Class("text-[10px] uppercase tracking-[0.18em] text-[#8e7bff]/60"),
-					Text("GWC dev panel"),
+					Text("GWC demo helper"),
 				),
 				Button(
 					Class("rounded-lg border border-white/10 bg-white/5 p-1 text-white/30 hover:text-white transition-colors"),
@@ -241,14 +421,14 @@ func renderDevPanelOverlay(parseView appViewState) ui.Node {
 				Class("px-4 py-3 space-y-1.5"),
 				Map(parseRows, func(parseRow [2]string) ui.Node {
 					return Div(
-						Class("flex items-baseline justify-between gap-2"),
-						Span(Class("text-[10px] text-white/30"), Text(parseRow[0])),
-						Span(Class("max-w-[55%] truncate text-right font-mono text-[10px] text-white/60"), Text(parseRow[1])),
+						Class("rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2"),
+						Span(Class("block text-[10px] text-white/30"), Text(parseRow[0])),
+						Span(Class("mt-1 block break-words font-mono text-[10px] leading-4 text-white/60"), Text(parseRow[1])),
 					)
 				}),
 			),
 			// Footer hint
-			P(Class("border-t border-white/[0.06] px-4 py-2 text-[10px] text-white/20"), Text("?gwc-dev=tour for pattern tour")),
+			P(Class("border-t border-white/[0.06] px-4 py-2 text-[10px] text-white/20"), Text("?gwc-dev=tour for pattern tour, ?gwc-dev=demo-helper for this panel")),
 		),
 	)
 }

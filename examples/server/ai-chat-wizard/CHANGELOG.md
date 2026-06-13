@@ -14,6 +14,27 @@
 
 ## Checkpoints
 
+### 2026-06-12 19:35 America/New_York
+
+- completed todo: Complete the systems writeup pass for Example 100 and add a chapter-order README index.
+- files changed: `examples/server/ai-chat-wizard/docs/HOW_EXAMPLE_100_WORKS.md`, `examples/server/ai-chat-wizard/docs/PUBLIC_ROUTE_DELIVERY.md`, `examples/server/ai-chat-wizard/docs/AUTHENTICATED_SHELL.md`, `examples/server/ai-chat-wizard/docs/CHAT_REQUEST_LIFECYCLE.md`, `examples/server/ai-chat-wizard/docs/ADMIN_DASHBOARD_SUBSYSTEM.md`, `examples/server/ai-chat-wizard/docs/DATA_LAYER.md`, `examples/server/ai-chat-wizard/docs/OBSERVABILITY_FAILURE_HANDLING.md`, `examples/server/ai-chat-wizard/docs/EXTENSION_SEAMS.md`, `examples/server/ai-chat-wizard/docs/SYSTEMS_GLOSSARY.md`, `examples/server/ai-chat-wizard/README.md`, `examples/server/ai-chat-wizard/DOCS_MAP.md`, `examples/server/ai-chat-wizard/TODO.md`, `examples/server/ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/server/ai-chat-wizard -count=1 -run "^(TestValidateAgent4DocSectionCoverage|TestValidateAgent4DocPathLayout|TestValidateAgent4PricingVocabularyContract)$"`; systems-doc path check for all nine new `docs/*.md` chapters; `rg -n "Systems Writeup Chapter Order|HOW_EXAMPLE_100_WORKS|PUBLIC_ROUTE_DELIVERY|AUTHENTICATED_SHELL|CHAT_REQUEST_LIFECYCLE|ADMIN_DASHBOARD_SUBSYSTEM|DATA_LAYER|OBSERVABILITY_FAILURE_HANDLING|EXTENSION_SEAMS|SYSTEMS_GLOSSARY" examples/server/ai-chat-wizard/README.md examples/server/ai-chat-wizard/DOCS_MAP.md examples/server/ai-chat-wizard/TODO.md examples/server/ai-chat-wizard/CHANGELOG.md`
+- result: Passed. The docs contract tests stayed green, every new systems chapter file exists, and README/docs-map/TODO/changelog references point at the new chapter set.
+- residual risk: The writeups are source-linked documentation and do not change runtime behavior.
+- next suggested todo: Continue with the remaining reconnect/bridge regression and telemetry-isolation documentation items above the systems writeup slice.
+
+### 2026-06-12 America/New_York
+
+- completed todo: Add one customer-billing truth map that ties the settings billing labels and sections to their canonical backend source RPCs, invoice-line classes, and pricing vocabulary so future billing-surface work does not drift back into derived or mismatched totals.
+- completed todo: Add one admin diagnostics playbook for log tail and server-tool review so future superuser ops surfaces come with a clear operator loop.
+- completed todo: Close the README framework-demo and source-map documentation TODO slice covering why/start-here, framework/public-route pattern maps, source-linked UI inventory, dashboard teaching pass, paired mini-examples, framework smoke checklist, current-practice notes, route/data/SQL maps, placement guide, and source-map verification checklist.
+- completed todo: Collapse the public marketing IA and remove unsupported public capability claims from kept marketing/pricing routes.
+- files changed: `examples/server/ai-chat-wizard/OPERATOR_RUNBOOK.md`, `examples/server/ai-chat-wizard/README.md`, `examples/server/ai-chat-wizard/TODO.md`, `examples/server/ai-chat-wizard/CHANGELOG.md`, `examples/server/ai-chat-wizard/client/app/landing_shell.go`, `examples/server/ai-chat-wizard/client/app/landing_hero.go`, `examples/server/ai-chat-wizard/client/app/marketing_shared.go`, `examples/server/ai-chat-wizard/client/app/pricing_shell.go`, `examples/server/ai-chat-wizard/server/app/pricing_page_content_ops.go`
+- validation run: `rg -n "Customer-Billing Truth Map|Admin Diagnostics Playbook|platform fee|service premium|GetSuperuserOpsDiagnostics|server-tool policy|audit_logs" examples/server/ai-chat-wizard/OPERATOR_RUNBOOK.md`; `rg -n "Framework Pattern Map|Public Route Pattern Map|Paired Mini-Examples|Framework-Focused Smoke Checklist|Current Best-Practice Notes|Route-To-Code Map|Hot-Path Data Flow Traces|SQL Ownership Map|Where To Put New Code|Source-Map Verification Checklist" examples/server/ai-chat-wizard/README.md`; focused marketing `rg` checks for `/capabilities` aliasing, footer destinations, and unsupported SSO/doc-claim copy
+- result: Passed. The operator runbook now anchors billing labels and invoice classes to canonical backend/store ownership and gives superuser diagnostics a repeatable log-tail, server-tool, audit, and runtime-log correlation loop. The README now makes Example 100 readable as a framework pattern catalog and source map. The marketing route cleanup keeps `/home`, `/pricing`, `/signup`, auth entry, settings, and dashboard as first-class paths, treats `/plans` as pricing, and removes dead footer destinations plus unsupported SSO-ready copy.
+- residual risk: These were docs/runbook TODOs; existing runtime tests continue to own billing math and superuser diagnostics behavior.
+- next suggested todo: Continue bottom-up through the remaining thread-management and admin-dashboard TODO clusters.
+
 ### 2026-03-28 14:26 America/New_York
 
 - completed todo: Group the current Example 100 admin/operator backend slice plus the related interop/docs follow-up work into commit-ready chunks and revalidate them.

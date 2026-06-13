@@ -268,7 +268,7 @@ func renderPricingTrustBand(parseIntl i18n.Runtime) ui.Node {
 	}
 	parseGroups := []parseCTAGroup{
 		{"Talk to sales", "We can walk through workspace setup, billing fit, and admin requirements before rollout.", "mailto:sales@relaydesk.com", "Email sales →"},
-		{"Ask about onboarding", "Our team covers seat provisioning, SSO options, and first-run guidance for every plan tier.", "mailto:hello@relaydesk.com", "Email team →"},
+		{"Ask about onboarding", "Our team covers seat provisioning, workspace setup, and first-run guidance for every plan tier.", "mailto:hello@relaydesk.com", "Email team →"},
 		{"Review security", "Read our data handling policy, encryption posture, and audit controls before you commit.", marketingSecurityRoute, "Security docs →"},
 		{"Check status", "See current uptime, recent incidents, and scheduled maintenance across all services.", marketingStatusRoute, "Status page →"},
 	}

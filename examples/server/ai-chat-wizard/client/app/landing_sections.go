@@ -430,21 +430,59 @@ func renderDashboardPreviewMockup() ui.Node {
 	)
 }
 
+type frameworkCallout struct {
+	Label     string
+	Desc      string
+	Href      string
+	LinkLabel string
+}
+
+func parseBuildFrameworkCallouts() []frameworkCallout {
+	const parseRepo = "https://github.com/monstercameron/GoWebComponents/blob/main/"
+	return []frameworkCallout{
+		{
+			Label:     "SSR bootstrap",
+			Desc:      "Server-owned shell HTML plus JS loader. WASM mounts on top.",
+			Href:      parseRepo + "examples/server/ai-chat-wizard/docs/PUBLIC_ROUTE_DELIVERY.md",
+			LinkLabel: "Docs",
+		},
+		{
+			Label:     "Typed routes",
+			Desc:      "One Go WASM binary owns every public, auth, and workspace route.",
+			Href:      parseRepo + "examples/server/ai-chat-wizard/client/app/routes.go",
+			LinkLabel: "Source",
+		},
+		{
+			Label:     "Streaming chat",
+			Desc:      "gRPC ChatChunk deltas apply incrementally through GoGRPCBridge.",
+			Href:      parseRepo + "examples/server/ai-chat-wizard/docs/CHAT_REQUEST_LIFECYCLE.md",
+			LinkLabel: "Docs",
+		},
+		{
+			Label:     "Worker tasks",
+			Desc:      "Background WASM worker offloads markdown and render metadata.",
+			Href:      parseRepo + "examples/server/ai-chat-wizard/client/backgroundworker",
+			LinkLabel: "Source",
+		},
+		{
+			Label:     "Cross-tab sync",
+			Desc:      "Persisted preferences and state atoms sync across browser tabs.",
+			Href:      parseRepo + "examples/server/ai-chat-wizard/docs/AUTHENTICATED_SHELL.md",
+			LinkLabel: "Docs",
+		},
+		{
+			Label:     "Server functions",
+			Desc:      "Typed RPCs cover auth, chat, settings, admin, and superuser flows.",
+			Href:      parseRepo + "examples/server/ai-chat-wizard/server/app/server.go",
+			LinkLabel: "Source",
+		},
+	}
+}
+
 // renderLandingFrameworkCalloutStrip renders a compact GWC framework signal strip for framework-learner audiences.
 // It names the live GWC patterns used in RelayDesk and links each one to the README anchor or source.
 func renderLandingFrameworkCalloutStrip() ui.Node {
-	type parseCallout struct {
-		parseLabel string
-		parseDesc  string
-	}
-	parseCallouts := []parseCallout{
-		{"SSR bootstrap", "Server-owned shell HTML + JS loader. WASM mounts on top."},
-		{"Typed routes", "One Go WASM binary owns every public, auth, and workspace route."},
-		{"Streaming chat", "gRPC ChatChunk deltas applied incrementally via GoGRPCBridge."},
-		{"Worker tasks", "Background WASM worker offloads markdown and render metadata."},
-		{"Cross-tab sync", "state.Atom syncs sidebar, theme, and model selection across tabs."},
-		{"Server functions", "Typed gRPC RPCs — auth, chat, settings, admin, superuser."},
-	}
+	parseCallouts := parseBuildFrameworkCallouts()
 	return Section(
 		Class("pb-12 sm:pb-14"),
 		Div(
@@ -459,17 +497,23 @@ func renderLandingFrameworkCalloutStrip() ui.Node {
 					),
 					A(
 						Href("https://github.com/monstercameron/GoWebComponents"),
+						Target("_blank"),
+						Rel("noreferrer"),
 						Class("mt-3 inline-flex items-center text-xs font-medium text-[#8e7bff] hover:text-white transition-colors sm:mt-0"),
 						Text("GWC source →"),
 					),
 				),
 				Div(
 					Class("grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"),
-					Map(parseCallouts, func(parseC parseCallout) ui.Node {
-						return Div(
-							Class("rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-3"),
-							Div(Class("mb-1 text-[11px] font-semibold text-[#8e7bff]/80"), Text(parseC.parseLabel)),
-							P(Class("text-[10px] leading-4 text-white/35"), Text(parseC.parseDesc)),
+					Map(parseCallouts, func(parseC frameworkCallout) ui.Node {
+						return A(
+							Href(parseC.Href),
+							Target("_blank"),
+							Rel("noreferrer"),
+							Class("block rounded-xl border border-white/[0.06] bg-white/[0.025] px-3 py-3 no-underline transition-colors hover:border-[#8e7bff]/35 hover:bg-[#8e7bff]/[0.05]"),
+							Div(Class("mb-1 text-[11px] font-semibold text-[#8e7bff]/80"), Text(parseC.Label)),
+							P(Class("text-[10px] leading-4 text-white/35"), Text(parseC.Desc)),
+							Span(Class("mt-2 inline-flex text-[10px] font-medium text-white/30"), Text(parseC.LinkLabel+" ->")),
 						)
 					}),
 				),

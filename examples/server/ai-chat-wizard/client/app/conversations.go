@@ -19,14 +19,30 @@ import (
 // The app shell only needs the resulting handlers and the explicit refresh
 // entrypoint; the gRPC list/load/delete details stay local to this hook.
 type conversationListController struct {
-	Refresh       func(bool)
-	LoadByID      func(int64)
-	ResolveRoute  func(string)
-	Load          ui.Handler
-	LoadMore      ui.Handler
-	RequestDelete ui.Handler
-	CancelDelete  ui.Handler
-	ConfirmDelete ui.Handler
+	Refresh           func(bool)
+	LoadByID          func(int64)
+	ResolveRoute      func(string)
+	Load              ui.Handler
+	LoadMore          ui.Handler
+	RequestDelete     ui.Handler
+	CancelDelete      ui.Handler
+	ConfirmDelete     ui.Handler
+	Organization      sidebarOrganizationState
+	RenameTargetID    int64
+	RenameDraft       string
+	CreateFolder      ui.Handler
+	ChangeFolderName  ui.Handler
+	StartRename       ui.Handler
+	ChangeRenameDraft ui.Handler
+	SaveRename        ui.Handler
+	HandleRenameKey   ui.Handler
+	CancelRename      ui.Handler
+	DragStart         ui.Handler
+	DragOver          ui.Handler
+	DropThread        ui.Handler
+	DropFolder        ui.Handler
+	DropUnfiled       ui.Handler
+	DragEnd           ui.Handler
 }
 
 const parseSidebarConversationPageSize int32 = 40
@@ -72,6 +88,12 @@ func parseUseConversationList(
 	hasConversationPageMore := ui.UseRef(false)
 	isConversationPageLoading := ui.UseRef(false)
 	parseConversationBootstrapLogged := ui.UseRef(false)
+	parseSidebarOrganization := ui.UsePersistedState[sidebarOrganizationState](storageKeySidebarOrganization, sidebarOrganizationState{ThreadFolders: map[int64]string{}}, ui.PersistLocal)
+	parseRenameTargetID := ui.UseState(int64(0))
+	parseRenameDraft := ui.UseState("")
+	parseSidebarDragKind := ui.UseRef("")
+	parseSidebarDragConvID := ui.UseRef(int64(0))
+	parseSidebarDragFolderID := ui.UseRef("")
 
 	parseFetchConversationPage := func(parseOffset int32, isAppend bool) {
 		if !parseApp.Get().Authenticated {
@@ -126,6 +148,7 @@ func parseUseConversationList(
 				parseExistingSummaries = parseApp.Get().ConversationList
 			}
 			parseMergedSummaries := parseMergeConversationPage(parseExistingSummaries, parseSummaries, isAppendPage)
+			parseSidebarOrganization.Set(parseSanitizeSidebarOrganization(parseSidebarOrganization.Get(), parseMergedSummaries))
 			parseApp.Dispatch(appAction{Type: appActionSetConversationList, ConversationList: parseMergedSummaries})
 			parseNextConversationOffset.Set(parseResp.GetNextOffset())
 			hasConversationPageMore.Set(parseResp.GetHasMore())
@@ -390,14 +413,184 @@ func parseUseConversationList(
 		}()
 	})
 
+	parseCreateFolder := ui.UseEvent(func() {
+		parseCurrentOrg := parseSidebarOrganization.Get()
+		parseSidebarOrganization.Set(parseSidebarCreateFolder(parseCurrentOrg, ""))
+	})
+
+	parseChangeFolderName := ui.UseEvent(func(parseE ui.Event) {
+		parseFolderID := parseEventDatasetValue(parseE, dataSidebarFolderID)
+		if parseFolderID == "" {
+			return
+		}
+		parseSidebarOrganization.Set(parseSidebarRenameFolder(parseSidebarOrganization.Get(), parseFolderID, parseE.GetValue()))
+	})
+
+	parseStartRename := ui.UseEvent(func(parseE ui.Event) {
+		parseE.StopPropagation()
+		parseID, parseOk := parseEventDatasetInt64(parseE, dataConvID)
+		if !parseOk || parseID <= 0 {
+			return
+		}
+		parsePreview := ""
+		if parseSummary, parseFound := parseFindConversationSummaryByID(parseApp.Get().ConversationList, parseID); parseFound {
+			parsePreview = parseSummary.Preview
+		}
+		parseRenameTargetID.Set(parseID)
+		parseRenameDraft.Set(strings.TrimSpace(parsePreview))
+	})
+
+	parseChangeRenameDraft := ui.UseEvent(func(parseE ui.Event) {
+		parseRenameDraft.Set(parseE.GetValue())
+	})
+
+	parseCancelRenameNow := func() {
+		parseRenameTargetID.Set(0)
+		parseRenameDraft.Set("")
+	}
+
+	parseCancelRename := ui.UseEvent(func(parseE ui.Event) {
+		parseE.StopPropagation()
+		parseCancelRenameNow()
+	})
+
+	parseSaveRenameNow := func() {
+		parseID := parseRenameTargetID.Get()
+		parseTitle := strings.TrimSpace(parseRenameDraft.Get())
+		if parseID <= 0 {
+			return
+		}
+		if parseTitle == "" {
+			parseCancelRenameNow()
+			return
+		}
+		parseClient := parseChatClientRef.Get()
+		if parseClient == nil {
+			return
+		}
+		parsePreviousList := append([]convSummary(nil), parseApp.Get().ConversationList...)
+		parseOptimisticList := parseReplaceConversationPreview(parsePreviousList, parseID, parseTitle)
+		parseApp.Dispatch(appAction{Type: appActionSetConversationList, ConversationList: parseOptimisticList})
+		parseRenameTargetID.Set(0)
+		parseRenameDraft.Set("")
+		go func(parseConversationID int64, parseConversationTitle string, parseRollback []convSummary) {
+			parseResp, parseErr := parseClient.RenameConversation(context.Background(), &chatpb.RenameConversationRequest{
+				Id:    parseConversationID,
+				Title: parseConversationTitle,
+			})
+			if parseErr != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseErr) {
+					return
+				}
+				chatLog.Error("rename conversation failed", logging.Fields{"error": parseErr, "conv_id": parseConversationID})
+				parseApp.Dispatch(appAction{Type: appActionSetConversationList, ConversationList: parseRollback})
+				return
+			}
+			if parseResp.GetConversation() == nil {
+				return
+			}
+			parseApp.Dispatch(appAction{Type: appActionSetConversationList, ConversationList: parseReplaceConversationPreview(parseApp.Get().ConversationList, parseConversationID, parseResp.GetConversation().GetPreview())})
+		}(parseID, parseTitle, parsePreviousList)
+	}
+
+	parseSaveRename := ui.UseEvent(func(parseE ui.Event) {
+		parseE.StopPropagation()
+		parseSaveRenameNow()
+	})
+
+	parseHandleRenameKey := ui.UseEvent(func(parseE ui.Event) {
+		switch parseE.GetKey() {
+		case "Enter":
+			parseE.PreventDefault()
+			parseSaveRenameNow()
+		case "Escape":
+			parseE.PreventDefault()
+			parseCancelRenameNow()
+		}
+	})
+
+	parseDragStart := ui.UseEvent(func(parseE ui.Event) {
+		parseSidebarDragKind.Set(parseEventDatasetValue(parseE, dataSidebarDragKind))
+		if parseID, parseOk := parseEventDatasetInt64(parseE, dataConvID); parseOk {
+			parseSidebarDragConvID.Set(parseID)
+		} else {
+			parseSidebarDragConvID.Set(0)
+		}
+		parseSidebarDragFolderID.Set(parseEventDatasetValue(parseE, dataSidebarFolderID))
+	})
+
+	parseDragOver := ui.UseEvent(func(parseE ui.Event) {
+		parseE.PreventDefault()
+	})
+
+	parseDropThread := ui.UseEvent(func(parseE ui.Event) {
+		parseE.PreventDefault()
+		parseKind := parseSidebarDragKind.Get()
+		parseTargetThreadID, parseOk := parseEventDatasetInt64(parseE, dataConvID)
+		if !parseOk || parseTargetThreadID <= 0 {
+			return
+		}
+		parseTargetFolderID := parseEventDatasetValue(parseE, dataSidebarFolderID)
+		if parseKind == sidebarDragKindThread {
+			parseThreadID := parseSidebarDragConvID.Get()
+			parseSidebarOrganization.Set(parseSidebarReorderThread(parseSidebarOrganization.Get(), parseApp.Get().ConversationList, parseThreadID, parseTargetThreadID, parseTargetFolderID))
+		}
+	})
+
+	parseDropFolder := ui.UseEvent(func(parseE ui.Event) {
+		parseE.PreventDefault()
+		parseTargetFolderID := parseEventDatasetValue(parseE, dataSidebarFolderID)
+		if parseTargetFolderID == "" {
+			return
+		}
+		switch parseSidebarDragKind.Get() {
+		case sidebarDragKindThread:
+			parseThreadID := parseSidebarDragConvID.Get()
+			parseSidebarOrganization.Set(parseSidebarMoveThreadToFolder(parseSidebarOrganization.Get(), parseApp.Get().ConversationList, parseThreadID, parseTargetFolderID))
+		case sidebarDragKindFolder:
+			parseSidebarOrganization.Set(parseSidebarReorderFolder(parseSidebarOrganization.Get(), parseSidebarDragFolderID.Get(), parseTargetFolderID))
+		}
+	})
+
+	parseDropUnfiled := ui.UseEvent(func(parseE ui.Event) {
+		parseE.PreventDefault()
+		if parseSidebarDragKind.Get() != sidebarDragKindThread {
+			return
+		}
+		parseThreadID := parseSidebarDragConvID.Get()
+		parseSidebarOrganization.Set(parseSidebarMoveThreadToFolder(parseSidebarOrganization.Get(), parseApp.Get().ConversationList, parseThreadID, ""))
+	})
+
+	parseDragEnd := ui.UseEvent(func() {
+		parseSidebarDragKind.Set("")
+		parseSidebarDragConvID.Set(0)
+		parseSidebarDragFolderID.Set("")
+	})
+
 	return conversationListController{
-		Refresh:       parseRefresh,
-		LoadByID:      parseLoadByID,
-		ResolveRoute:  parseResolveRoute,
-		Load:          parseLoad,
-		LoadMore:      parseLoadMore,
-		RequestDelete: parseRequestDelete,
-		CancelDelete:  parseCancelDelete,
-		ConfirmDelete: parseConfirmDelete,
+		Refresh:           parseRefresh,
+		LoadByID:          parseLoadByID,
+		ResolveRoute:      parseResolveRoute,
+		Load:              parseLoad,
+		LoadMore:          parseLoadMore,
+		RequestDelete:     parseRequestDelete,
+		CancelDelete:      parseCancelDelete,
+		ConfirmDelete:     parseConfirmDelete,
+		Organization:      parseSanitizeSidebarOrganization(parseSidebarOrganization.Get(), parseApp.Get().ConversationList),
+		RenameTargetID:    parseRenameTargetID.Get(),
+		RenameDraft:       parseRenameDraft.Get(),
+		CreateFolder:      parseCreateFolder,
+		ChangeFolderName:  parseChangeFolderName,
+		StartRename:       parseStartRename,
+		ChangeRenameDraft: parseChangeRenameDraft,
+		SaveRename:        parseSaveRename,
+		HandleRenameKey:   parseHandleRenameKey,
+		CancelRename:      parseCancelRename,
+		DragStart:         parseDragStart,
+		DragOver:          parseDragOver,
+		DropThread:        parseDropThread,
+		DropFolder:        parseDropFolder,
+		DropUnfiled:       parseDropUnfiled,
+		DragEnd:           parseDragEnd,
 	}
 }

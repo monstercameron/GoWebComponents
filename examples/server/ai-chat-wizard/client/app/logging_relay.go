@@ -13,8 +13,6 @@ import (
 	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/logging"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -77,10 +75,14 @@ func (parseRelay chatRelayLogger) Error(parseMessage string, parseFields logging
 // parseSetClientLogRelay updates the active relay target for client log forwarding.
 func parseSetClientLogRelay(parseClient chatpb.ChatServiceClient, parseClientID string, isParseReady bool) {
 	parseClientLogRelay.parseMutex.Lock()
-	defer parseClientLogRelay.parseMutex.Unlock()
 	parseClientLogRelay.parseClient = parseClient
 	parseClientLogRelay.parseClientID = parseNormalizeClientIdentity(parseClientID)
 	parseClientLogRelay.isParseReady = isParseReady && parseClient != nil
+	isFlushReady := parseClientLogRelay.isParseReady
+	parseClientLogRelay.parseMutex.Unlock()
+	if isFlushReady {
+		go parseFlushClientLogRelayQueue()
+	}
 }
 
 // parseForwardClientLogAsync dispatches one non-blocking client log forward attempt.
@@ -89,11 +91,11 @@ func parseForwardClientLogAsync(parseLevel string, parseScope string, parseMessa
 	if parseMessage == "" {
 		return
 	}
-	go parseSendClientLog(parseLevel, parseScope, parseMessage, parseFields)
+	go parseSendClientLog(parseLevel, parseScope, parseMessage, parseFields, true)
 }
 
 // parseSendClientLog sends one structured client log record to the server over gRPC.
-func parseSendClientLog(parseLevel string, parseScope string, parseMessage string, parseFields logging.Fields) {
+func parseSendClientLog(parseLevel string, parseScope string, parseMessage string, parseFields logging.Fields, isDeferAllowed bool) {
 	parseStructuredFields, parseErr := structpb.NewStruct(parseBuildClientLogFields(parseFields))
 	if parseErr != nil {
 		parseStructuredFields = nil
@@ -107,45 +109,67 @@ func parseSendClientLog(parseLevel string, parseScope string, parseMessage strin
 	}
 	var parseLastErr error
 	var parseClientID string
-	for parseAttempt := 1; parseAttempt <= parseClientLogRelayMaxAttempts; parseAttempt++ {
+	parseRetryPolicy := parseBridgeRetryPolicyFor(bridgeRPCTelemetryRelay)
+	for parseAttempt := 1; parseAttempt <= parseRetryPolicy.MaxAttempts; parseAttempt++ {
 		parseClient, parseAttemptClientID, isParseReady := parseSnapshotClientLogRelay()
 		if !isParseReady || parseClient == nil || parseAttemptClientID == "" {
+			if isDeferAllowed {
+				parseDeferClientLogRelay(parseLevel, parseScope, parseMessage, parseFields)
+			}
 			return
 		}
 		parseClientID = parseAttemptClientID
 		parseReq.ClientId = parseClientID
-		parseCtx, parseCancel := context.WithTimeout(context.Background(), parseClientLogRelayAttemptTimeout)
+		parseAttemptTimeout := parseRetryPolicy.PerAttemptTimeout
+		if parseAttemptTimeout <= 0 {
+			parseAttemptTimeout = parseClientLogRelayAttemptTimeout
+		}
+		parseCtx, parseCancel := context.WithTimeout(context.Background(), parseAttemptTimeout)
 		_, parseErr2 := parseClient.ReportClientLog(parseAuthContextWithMetadata(parseCtx), parseReq)
 		parseCancel()
 		if parseErr2 == nil {
+			if parseAttempt > 1 {
+				parseBridgeChurnMetrics.record(bridgeRPCTelemetryRelay, "retry_recovered")
+			}
 			return
 		}
 		parseLastErr = parseErr2
-		if !parseShouldRetryClientLogRelay(parseErr2) || parseAttempt == parseClientLogRelayMaxAttempts {
+		if !parseShouldRetryClientLogRelay(parseErr2) || parseAttempt == parseRetryPolicy.MaxAttempts {
 			break
 		}
-		time.Sleep(parseClientLogRelayBackoff(parseAttempt))
+		parseBridgeChurnMetrics.record(bridgeRPCTelemetryRelay, "retried")
+		time.Sleep(parseBridgeRetryDelay(parseRetryPolicy, parseAttempt))
 	}
 	if parseLastErr != nil {
+		parseBridgeChurnMetrics.record(bridgeRPCTelemetryRelay, "failed_permanent")
 		parseRelayLogger.Warn(parseFormatClientLogRelayFailureMessage(parseLevel, parseScope, parseClientID), logging.Fields{"error": parseLastErr})
+	}
+}
+
+func parseDeferClientLogRelay(parseLevel string, parseScope string, parseMessage string, parseFields logging.Fields) {
+	parsePolicy := parseBridgeRPCPolicyFor(bridgeRPCTelemetryRelay)
+	if parseBridgeBestEffortDecision(bridgeStateReconnecting, parsePolicy) != bridgeBestEffortDefer {
+		parseBridgeChurnMetrics.record(bridgeRPCTelemetryRelay, "skipped")
+		return
+	}
+	parseClientLogDeferredQueue.enqueue(bridgeDeferredLogWork{
+		Level:   parseLevel,
+		Scope:   parseScope,
+		Message: parseMessage,
+		Fields:  parseBuildClientLogFields(parseFields),
+	}, time.Now())
+}
+
+func parseFlushClientLogRelayQueue() {
+	parseItems := parseClientLogDeferredQueue.drain(time.Now(), 16)
+	for _, parseItem := range parseItems {
+		parseSendClientLog(parseItem.Level, parseItem.Scope, parseItem.Message, logging.Fields(parseItem.Fields), false)
 	}
 }
 
 // parseShouldRetryClientLogRelay reports whether one client-log relay failure is transient enough for another attempt.
 func parseShouldRetryClientLogRelay(parseErr error) bool {
-	if parseErr == nil {
-		return false
-	}
-	parseStatusErr, parseOk := status.FromError(parseErr)
-	if !parseOk {
-		return true
-	}
-	switch parseStatusErr.Code() {
-	case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled, codes.Unknown, codes.ResourceExhausted:
-		return true
-	default:
-		return false
-	}
+	return parseBridgeRetryableStatus(parseErr)
 }
 
 // parseClientLogRelayBackoff returns the delay before the next client-log relay retry attempt.

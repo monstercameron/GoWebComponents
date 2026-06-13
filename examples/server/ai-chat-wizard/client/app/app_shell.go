@@ -59,6 +59,8 @@ type appViewState struct {
 	ThinkingEnabled        bool
 	ThinkingEffort         string
 	SelectedTTSProvider    string
+	BridgeState            bridgeState
+	BridgeReason           string
 	SidebarOpen            bool
 	ExpandedThoughts       map[string]bool
 	ThoughtCacheByMessage  map[int]renderWorkerThoughtCacheEntry
@@ -72,9 +74,10 @@ type appViewState struct {
 	CanvasOnlyRoute        bool
 	AdminDashboardData     adminDashboardData
 	AdminServerTools       adminServerToolsData
+	AdminOperations        adminOperationsData
 }
 
-func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string, parseUserName string, isSidebarOpen bool, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseThreadSummary threadCostSummary, parseAccountSummary accountCostSummary, isCanvasOnlyRoute bool, parseAdminDashboard adminDashboardData, isCatalogServerSynced bool, parseAdminServerTools adminServerToolsData) appViewState {
+func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string, parseUserName string, isSidebarOpen bool, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseThreadSummary threadCostSummary, parseAccountSummary accountCostSummary, isCanvasOnlyRoute bool, parseAdminDashboard adminDashboardData, isCatalogServerSynced bool, parseAdminServerTools adminServerToolsData, parseAdminOperations adminOperationsData) appViewState {
 	return appViewState{
 		CurrentPath:            parseCurrentPath,
 		GRPCReady:              parseCurrentState.GRPCReady,
@@ -116,6 +119,8 @@ func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string
 		ThinkingEnabled:        parseCurrentState.SelectedThinkingEnabled,
 		ThinkingEffort:         parseCurrentState.SelectedThinkingEffort,
 		SelectedTTSProvider:    parseResolveTTSProviderID(parseCurrentState.SelectedTTSProvider),
+		BridgeState:            parseCurrentState.BridgeState,
+		BridgeReason:           parseCurrentState.BridgeReason,
 		SidebarOpen:            isSidebarOpen,
 		ExpandedThoughts:       parseCurrentState.ExpandedThoughtSections,
 		ThoughtCacheByMessage:  parseThoughtCacheByMessage,
@@ -129,6 +134,7 @@ func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string
 		CanvasOnlyRoute:        isCanvasOnlyRoute,
 		AdminDashboardData:     parseAdminDashboard,
 		AdminServerTools:       parseAdminServerTools,
+		AdminOperations:        parseAdminOperations,
 	}
 }
 
@@ -156,6 +162,7 @@ type appShellProps struct {
 	CanvasWorkspace      canvasWorkspaceController
 	AdminCustomers       adminCustomersController
 	AdminWorkspaces      adminWorkspacesController
+	AdminOperations      adminOperationsController
 }
 
 // shouldRenderLandingShellEarly returns whether a public landing route should bypass the auth loading shell.
@@ -291,8 +298,7 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 		parseProps.View.UserInitials,
 		parseProps.View.SidebarOpen,
 		parseProps.ResetChat,
-		parseProps.ConversationList.Load,
-		parseProps.ConversationList.RequestDelete,
+		parseProps.ConversationList,
 		parseProps.ProfileSettings.Open,
 		parseProps.ToggleSidebar,
 		parseProps.View.CanAccessAdmin,
@@ -301,11 +307,13 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 	if isDashboardRoute(parseProps.View.CurrentPath) {
 		return Fragment(
 			parseSidebarNode,
-			renderDashboardHome(parseProps.Intl, parseProps.View, parseProps.OpenAdminDashboard, parseProps.AdminCustomers, parseProps.AdminWorkspaces),
+			renderBridgeChurnBanner(parseProps.View),
+			renderDashboardHome(parseProps.Intl, parseProps.View, parseProps.OpenAdminDashboard, parseProps.AdminCustomers, parseProps.AdminWorkspaces, parseProps.AdminOperations),
 		)
 	}
 	return Fragment(
 		parseSidebarNode,
+		renderBridgeChurnBanner(parseProps.View),
 		parseMainPanel(
 			parseProps.View.Messages,
 			parseProps.View.IsStreaming,
@@ -361,6 +369,19 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 		renderSpeechUpgradeModal(parseProps.Intl, parseProps.ShowSpeechModal, parseProps.SpeechModalError, parseProps.StopBubble, parseProps.CancelSpeechModal, parseProps.ConfirmSpeechModal),
 		renderSettingsModal(parseProps.Intl, parseProps.View, parseProps.StopBubble, parseProps.ProfileSettings, parseProps.AuthSession),
 		renderSettingsSaveErrorToast(parseProps.View, parseProps.ProfileSettings.DismissError),
+	)
+}
+
+func renderBridgeChurnBanner(parseView appViewState) ui.Node {
+	parseLabel := parseBridgeStatusLabel(parseView.BridgeState)
+	if parseLabel == "" || !parseView.Authenticated {
+		return nil
+	}
+	return Div(
+		Class("fixed left-1/2 top-3 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#f6b84b]/25 bg-[#171100]/90 px-3 py-1.5 text-xs text-[#ffd7a3] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md"),
+		FromProps(Props{Raw: map[string]interface{}{"role": "status"}}),
+		Span(Class("h-1.5 w-1.5 rounded-full bg-[#f6b84b]"), FromProps(Props{Aria: map[string]string{"hidden": "true"}})),
+		Span(Text(parseLabel)),
 	)
 }
 
@@ -485,6 +506,13 @@ func renderSettingsModal(parseIntl i18n.Runtime, parseView appViewState, parseSt
 								Text(parseView.SettingsError),
 							),
 						),
+						If(parseBridgeStatusLabel(parseView.BridgeState) != "",
+							Div(
+								Class("rounded-xl border border-[#f6b84b]/20 bg-[#f6b84b]/10 px-3 py-2 text-xs text-[#ffd7a3] sm:mr-auto"),
+								FromProps(Props{Raw: map[string]interface{}{"role": "status"}}),
+								Text(parseBridgeStatusLabel(parseView.BridgeState)+". Settings will close and sync in the background when possible."),
+							),
+						),
 						If(parseView.Authenticated,
 							Button(
 								Class("rounded-lg bg-red-500/15 px-4 py-2 text-sm text-red-200 transition-colors hover:bg-red-500/25 sm:mr-auto"),
@@ -500,7 +528,12 @@ func renderSettingsModal(parseIntl i18n.Runtime, parseView appViewState, parseSt
 						Button(
 							Class("rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-white/90"),
 							OnClick(parseProfileSettings.Save),
-							Text(parseIntl.T(chatI18nNamespace, "modal.save")),
+							If(parseBridgeStatusLabel(parseView.BridgeState) == "",
+								Text(parseIntl.T(chatI18nNamespace, "modal.save")),
+							),
+							If(parseBridgeStatusLabel(parseView.BridgeState) != "",
+								Text("Save locally"),
+							),
 						),
 					),
 				),

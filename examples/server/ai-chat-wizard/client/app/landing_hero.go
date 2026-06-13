@@ -21,7 +21,7 @@ func renderLandingHeroSection(parseIntl i18n.Runtime, parsePage string) ui.Node 
 	case landingPagePricing:
 		parseHeroKey = "hero.pricing."
 		parsePrimaryRoute = chatRouteRoot
-		parseSecondaryRoute = marketingCapabilitiesRoute
+		parseSecondaryRoute = marketingHomeRoute
 	default:
 		parseHeroKey = "hero.home."
 		parsePrimaryRoute = chatRouteRoot

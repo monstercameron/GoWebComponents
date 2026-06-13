@@ -9,31 +9,31 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func renderDashboardHome(parseIntl i18n.Runtime, parseView appViewState, parseOpenAdminDashboard ui.Handler, parseAdminCustomers adminCustomersController, parseAdminWorkspaces adminWorkspacesController) ui.Node {
+func renderDashboardHome(parseIntl i18n.Runtime, parseView appViewState, parseOpenAdminDashboard ui.Handler, parseAdminCustomers adminCustomersController, parseAdminWorkspaces adminWorkspacesController, parseAdminOperations adminOperationsController) ui.Node {
 	_ = parseOpenAdminDashboard
 	return Div(
 		Class("flex h-full min-h-0 flex-1 flex-col overflow-hidden"),
 		renderDashboardTopBar(parseIntl, parseView),
-		renderDashboardBody(parseIntl, parseView, parseAdminCustomers, parseAdminWorkspaces),
+		renderDashboardBody(parseIntl, parseView, parseAdminCustomers, parseAdminWorkspaces, parseAdminOperations),
 	)
 }
 
 // renderDashboardBody dispatches to the correct slice renderer.
-func renderDashboardBody(parseIntl i18n.Runtime, parseView appViewState, parseAdminCustomers adminCustomersController, parseAdminWorkspaces adminWorkspacesController) ui.Node {
+func renderDashboardBody(parseIntl i18n.Runtime, parseView appViewState, parseAdminCustomers adminCustomersController, parseAdminWorkspaces adminWorkspacesController, parseAdminOperations adminOperationsController) ui.Node {
 	// Pick the slice that matches the current route so each dashboard page can stay focused on one job.
 	switch parseView.CurrentPath {
 	case chatRouteDashboardBusiness:
-		return renderDashboardSliceWrap(renderDashboardBusiness(parseIntl, parseView, parseAdminWorkspaces))
+		return renderDashboardSliceWrap(renderDashboardBusiness(parseIntl, parseView, parseAdminWorkspaces, parseAdminOperations))
 	case chatRouteDashboardCustomers:
-		return renderDashboardSliceWrap(renderDashboardCustomersEnhanced(parseIntl, parseView, parseAdminCustomers))
+		return renderDashboardSliceWrap(renderDashboardCustomersEnhanced(parseIntl, parseView, parseAdminCustomers, parseAdminOperations))
 	case chatRouteDashboardChats:
-		return renderDashboardSliceWrap(renderDashboardChats(parseIntl, parseView))
+		return renderDashboardSliceWrap(renderDashboardChats(parseIntl, parseView, parseAdminOperations))
 	case chatRouteDashboardProviders:
-		return renderDashboardSliceWrap(renderDashboardProviders(parseIntl, parseView))
+		return renderDashboardSliceWrap(renderDashboardProviders(parseIntl, parseView, parseAdminOperations))
 	case chatRouteDashboardOps:
-		return renderDashboardSliceWrap(renderDashboardOps(parseIntl, parseView))
+		return renderDashboardSliceWrap(renderDashboardOps(parseIntl, parseView, parseAdminOperations))
 	default:
-		return renderDashboardSliceWrap(renderDashboardHomeBody(parseIntl, parseView))
+		return renderDashboardSliceWrap(renderDashboardHomeBody(parseIntl, parseView, parseAdminOperations))
 	}
 }
 
@@ -85,10 +85,11 @@ func renderDashboardTopBar(parseIntl i18n.Runtime, parseView appViewState) ui.No
 // â”€â”€â”€ Home body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // renderDashboardHomeBody keeps the home tiles, role banner, and account summary together so the landing view reads as one overview surface.
-func renderDashboardHomeBody(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
+func renderDashboardHomeBody(parseIntl i18n.Runtime, parseView appViewState, parseAdminOperations adminOperationsController) ui.Node {
 	return Fragment(
 		renderDashboardRoleBanner(parseIntl, parseView),
 		renderDashboardSliceTiles(parseIntl, parseView),
+		renderDashboardJourneyOverview(parseView, parseAdminOperations),
 		renderDashboardAccountSummary(parseIntl, parseView),
 	)
 }

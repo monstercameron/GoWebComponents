@@ -142,6 +142,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 	parseAdminDashboard := parseUseAdminDashboard(parseCurrentState, parseChatClientRef, handleAuthFailure)
 	parseAdminCustomers := parseUseAdminCustomers(parseCurrentState, parseAdminDashboard, parseChatClientRef, handleAuthFailure)
 	parseAdminWorkspaces := parseUseAdminWorkspaces(parseCurrentState, parseAdminDashboard, parseChatClientRef, handleAuthFailure)
+	parseAdminOperations := parseUseAdminOperations(parseCurrentState, parseChatClientRef, handleAuthFailure)
 
 	parseAuthSession := parseUseAuthSession(parseApp, parseUserNameState, parseChatClientRef, func(parseSession *chatpb.GetSessionResponse) {
 		var parseRoleSummary *chatpb.AuthRoleSummary
@@ -374,7 +375,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 	}, parseCurrentState.Authenticated, parseCurrentState.ActiveConvPublicID, parseCurrentState.CanvasSession.Active, parseCurrentState.CanvasSession.ArtifactID, parseCanvasRouteID, parseThreadRoutePublicID, parseCurrentPath)
 
 	parseAdminServerTools := parseUseAdminServerTools(parseCurrentState, parseChatClientRef, handleAuthFailure)
-	parseView := parseDeriveAppViewState(parseCurrentState, parseCurrentPath, parseUserName, parseSidebarOpen, parseThoughtCacheByMessageState.Get(), parseCanvasCacheByMessageState.Get(), parseThreadCostSummary, parseAccountCostSummary, strings.TrimSpace(parseCanvasRouteID) != "", parseAdminDashboard, parseUseCatalogServerSynced(), parseAdminServerTools)
+	parseView := parseDeriveAppViewState(parseCurrentState, parseCurrentPath, parseUserName, parseSidebarOpen, parseThoughtCacheByMessageState.Get(), parseCanvasCacheByMessageState.Get(), parseThreadCostSummary, parseAccountCostSummary, strings.TrimSpace(parseCanvasRouteID) != "", parseAdminDashboard, parseUseCatalogServerSynced(), parseAdminServerTools, parseAdminOperations.Data)
 	parseOpenAdminDashboard := ui.UseEvent(func() {
 		if !parseApp.Get().CanAccessAdmin {
 			return
@@ -406,6 +407,7 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 		CanvasWorkspace:      parseCanvasWorkspace,
 		AdminCustomers:       parseAdminCustomers,
 		AdminWorkspaces:      parseAdminWorkspaces,
+		AdminOperations:      parseAdminOperations,
 	})
 }
 

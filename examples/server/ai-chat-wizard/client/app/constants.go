@@ -81,6 +81,9 @@ const (
 	dataTone             = "tone"
 	dataLocale           = "locale"
 	dataConvRow          = "convrow"
+	dataConvFolder       = "convfolder"
+	dataSidebarDragKind  = "sidebardragkind"
+	dataSidebarFolderID  = "sidebarfolderid"
 	dataThoughtSection   = "thoughtsection"
 	dataThinkingEffort   = "thinkingeffort"
 	dataMemoryIndex      = "memoryindex"
@@ -92,6 +95,12 @@ const (
 	dataAdminUserID      = "adminuserid"
 	dataAdminAction      = "adminaction"
 	dataAdminWorkspaceID = "adminwsid"
+	dataAdminScope       = "adminscope"
+	dataAdminFilter      = "adminfilter"
+	dataAdminSort        = "adminsort"
+	dataAdminTicketID    = "adminticketid"
+	dataAdminTargetID    = "admintargetid"
+	dataAdminTargetKey   = "admintargetkey"
 )
 
 // ─── gRPC ────────────────────────────────────────────────────────────────────
@@ -118,6 +127,7 @@ const storageKeyPostLoginRoute = "chat-wizard:post-login-route"
 const storageKeyClientIdentity = "chat-wizard:client-id"
 const storageKeyCorrelationIdentity = "chat-wizard:correlation-id"
 const storageKeyCanvasSplit = "chat-wizard:canvas-split"
+const storageKeySidebarOrganization = "chat-wizard:sidebar-organization"
 
 const brandLogoURL = "/static/images/relaydesk-logo.png"
 const brandChatIconURL = "/static/images/relaydesk-chat-icon.png"

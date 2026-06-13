@@ -283,7 +283,10 @@ func parseUseProfileSettings(
 		parseCustomSystemPromptCache.Set(parseSystemPromptValue)
 		parseClient4 := parseChatClientRef.Get()
 		if parseClient4 == nil {
-			parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, nil)})
+			parseLateError := parseBuildUserErrorText(userErrorScopeSettings, nil)
+			parseBridgeChurnMetrics.record(bridgeRPCSettingsWrite, "failed_permanent")
+			parseCloseSettingsRoute()
+			parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseLateError})
 			return
 		}
 		go func() {

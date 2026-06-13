@@ -60,6 +60,8 @@ type appState struct {
 	DeletedUserMemoryKeys   []string
 	LocaleInput             string
 	GRPCReady               bool
+	BridgeState             bridgeState
+	BridgeReason            string
 	MarkdownWorkerFallback  bool
 	EditIdx                 int
 	EditText                string
@@ -125,6 +127,7 @@ const (
 	appActionDeleteUserMemory           appActionType = "delete_user_memory"
 	appActionSetLocaleInput             appActionType = "set_locale_input"
 	appActionSetGRPCReady               appActionType = "set_grpc_ready"
+	appActionSetBridgeState             appActionType = "set_bridge_state"
 	appActionSetMarkdownWorkerFallback  appActionType = "set_markdown_worker_fallback"
 	appActionSetEditIdx                 appActionType = "set_edit_idx"
 	appActionSetEditText                appActionType = "set_edit_text"
@@ -185,6 +188,8 @@ type appAction struct {
 	DeletedUserMemoryKeys   []string
 	LocaleInput             string
 	GRPCReady               bool
+	BridgeState             bridgeState
+	BridgeReason            string
 	MarkdownWorkerFallback  bool
 	EditIdx                 int
 	EditText                string
@@ -238,6 +243,8 @@ func parseInitialAppState() appState {
 		DeletedUserMemoryKeys:   []string{},
 		LocaleInput:             parseNormalizeChatLocaleID("en"),
 		GRPCReady:               false,
+		BridgeState:             bridgeStateBooting,
+		BridgeReason:            "runtime booting",
 		MarkdownWorkerFallback:  false,
 		EditIdx:                 -1,
 		EditText:                "",
@@ -525,6 +532,20 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 		parseNext.LocaleInput = parseAction.LocaleInput
 	case appActionSetGRPCReady:
 		parseNext.GRPCReady = parseAction.GRPCReady
+		if parseAction.GRPCReady {
+			parseNext.BridgeState = bridgeStateReady
+			parseNext.BridgeReason = "bridge ready"
+		} else {
+			parseNext.BridgeState = bridgeStateReconnecting
+			parseNext.BridgeReason = "bridge unavailable"
+		}
+	case appActionSetBridgeState:
+		parseNext.BridgeState = parseAction.BridgeState
+		if parseNext.BridgeState == "" {
+			parseNext.BridgeState = parseBridgeStateFromTransition(parseAction.GRPCReady, parseAction.BridgeReason)
+		}
+		parseNext.GRPCReady = parseBridgeReadyFromState(parseNext.BridgeState)
+		parseNext.BridgeReason = parseAction.BridgeReason
 	case appActionSetMarkdownWorkerFallback:
 		parseNext.MarkdownWorkerFallback = parseAction.MarkdownWorkerFallback
 	case appActionSetEditIdx:
