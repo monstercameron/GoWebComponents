@@ -376,7 +376,31 @@ For the broader browser harness and focused browser flows, use [test/README.md](
 
 ## Performance and Trade-offs
 
-Set expectations honestly before adopting:
+A frank scorecard — the good and the bad — so you can decide with eyes open.
+
+**What it's genuinely strong at:**
+
+- **One language, one toolchain.** The entire UI — rendering, state, routing,
+  fetch, SSR, hydration — is Go compiled to wasm. No JavaScript build, bundler
+  config, or npm dependency tree, and no context-switching between a Go backend
+  and a separate JS frontend.
+- **Shared types end-to-end.** The same Go structs and validation logic drive the
+  server and the browser, so route data, request/response shapes, and form models
+  can't silently drift across a language boundary.
+- **Batteries included.** Routing, shared state, data fetching, SSR with real
+  async suspension, hydration/static islands, i18n, accessibility primitives,
+  PWA/offline, feature flags, and devtools all ship in one module — you assemble
+  far less to reach a complete app.
+- **Crash containment by default.** Panics in render, events, effects, cleanup,
+  and async work are caught at every boundary and surfaced as structured,
+  agent-readable diagnostics instead of killing the page.
+- **SSR-first friendly.** Server-render real HTML, stream a shell before async
+  content resolves, then hydrate — the wasm payload resumes already-painted markup
+  rather than blocking first paint on download.
+- **Ships compressed automatically.** Release tooling precompresses and serves
+  brotli/gzip, so users download ~20% of the raw artifact (details below).
+
+**What it costs (be honest about these):**
 
 - **Not native speed, and not faster than React.** GoWebComponents renders in
   WebAssembly through `syscall/js`, so it is not a native-JavaScript framework and
@@ -400,9 +424,34 @@ Set expectations honestly before adopting:
   `go run ./tools/gwc wasm measure -package .\path\to\app`. Even compressed, the
   first-load payload is still larger than a comparable native-JS bundle —
   GoWebComponents trades that for a single Go codebase and toolchain.
-- **Where it fits well.** Go-centric teams, internal tools and dashboards, apps
-  that already share Go types/logic between server and client, and SSR-first apps
-  where the wasm payload hydrates already-rendered HTML.
+- **Maturing in places.** The framework is broad and the core runtime is well
+  tested, but some newer surfaces (parts of SSR router-data, certain companion
+  packages) are still settling. Pin versions and read the
+  [API stability policy](docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md)
+  before depending on the experimental edge.
+- **Smaller community than React/Vue.** Fewer third-party components, examples,
+  and StackOverflow answers, and a smaller hiring pool — you trade ecosystem mass
+  for a single-language stack.
+
+**Best fit — reach for GoWebComponents when:**
+
+- You are a Go-centric team that wants to stop building and maintaining a parallel
+  JavaScript frontend stack.
+- You are building internal tools, dashboards, admin panels, or line-of-business
+  apps where Go-end-to-end and type safety matter more than shaving the last
+  milliseconds of render latency.
+- You already share substantial Go types and logic between server and client and
+  want them to stay in sync by construction.
+- You want SSR-first delivery where wasm hydrates already-rendered HTML, so first
+  paint does not wait on the bundle.
+
+**Reach for something else when:**
+
+- The hard requirement is the smallest possible payload to anonymous, first-time,
+  mobile visitors — a native-JS framework still ships smaller initial bundles.
+- You need to beat hand-tuned React/Svelte on raw client-side render latency.
+- You depend on the breadth of the npm/React ecosystem, its component libraries,
+  or a large established hiring pool today.
 
 ## Benchmarks
 
