@@ -1625,10 +1625,10 @@ func TestRenderScaffoldFeatureMatrixTracksSelectedCapabilities(parseT *testing.T
 
 	parseContent := renderScaffoldFeatureMatrix(parseSelection)
 	for _, parseExpected := range []string{
-		"- [x] `router`",
-		"- [x] `fetch`",
-		"- [x] `browser-tests`",
-		"- [ ] `ssr`",
+		"- selected `router`",
+		"- selected `fetch`",
+		"- selected `browser-tests`",
+		"- available `ssr`",
 		"- `browser-tests`: Browser Tests",
 	} {
 		if !strings.Contains(parseContent, parseExpected) {
@@ -2117,7 +2117,7 @@ func TestGenerateStartScaffoldWritesStarterFiles(parseT *testing.T) {
 		parseT.Fatalf("read generated feature matrix file: %v", parseErr)
 	}
 	parseFeatureMatrixText := string(parseFeatureMatrixBytes)
-	for _, parseExpected4 := range []string{"- [x] `ui`", "- [x] `html`", "- [ ] `router`"} {
+	for _, parseExpected4 := range []string{"- selected `ui`", "- selected `html`", "- available `router`"} {
 		if !strings.Contains(parseFeatureMatrixText, parseExpected4) {
 			parseT.Fatalf("expected generated feature matrix to contain %q", parseExpected4)
 		}

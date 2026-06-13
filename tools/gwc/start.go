@@ -741,9 +741,9 @@ func renderScaffoldFeatureMatrix(parseSelection startSelection) string {
 	}
 	parseBuilder.WriteString("This file is generated from the selected scaffold capabilities.\n\n")
 	for _, parseDescriptor := range scaffoldFeatureCatalog {
-		parseMarker := "[ ]"
+		parseMarker := "available"
 		if _, parseOk := parseSelected[parseDescriptor.Key]; parseOk {
-			parseMarker = "[x]"
+			parseMarker = "selected"
 		}
 		parseBuilder.WriteString(fmt.Sprintf("- %s `%s`: %s\n", parseMarker, parseDescriptor.Key, parseDescriptor.Description))
 	}
@@ -943,7 +943,7 @@ func TestStarterMetadataIncludesSelectedFeatures(t *testing.T) {
 func TestStarterFeatureMatrixMarksSelectedFeatures(t *testing.T) {
 	matrix := readStarterFile(t, "FEATURE_MATRIX.md")
 	for _, feature := range %s {
-		if !strings.Contains(matrix, "- [x] "+string(rune(96))+feature+string(rune(96))) {
+		if !strings.Contains(matrix, "- selected "+string(rune(96))+feature+string(rune(96))) {
 			t.Fatalf("expected feature matrix to mark %%q as selected", feature)
 		}
 	}

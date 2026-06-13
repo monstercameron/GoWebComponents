@@ -58,7 +58,7 @@ func TestStarterFeatureMatrixMarksSelectedFeatures(t *testing.T) {
 		"ssr",
 		"hydration",
 	} {
-		if !strings.Contains(matrix, "- [x] "+string(rune(96))+feature+string(rune(96))) {
+		if !strings.Contains(matrix, "- selected "+string(rune(96))+feature+string(rune(96))) {
 			t.Fatalf("expected feature matrix to mark %q as selected", feature)
 		}
 	}
