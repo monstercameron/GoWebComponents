@@ -156,10 +156,7 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 			}
 		}
 		parseWaitForExample100PromptInThread(parseT, parsePage, parsePrompt)
-		parseSnapshot := parseSnapshotExample100Agent(parseT, parseBaseURL, parseToken, parseSession.ID)
-		if !strings.Contains(parseSnapshot, parsePrompt) {
-			parseT.Fatalf("agent snapshot did not contain sent prompt %q: %s", parsePrompt, parseSnapshot)
-		}
+		parseWaitForExample100SnapshotContaining(parseT, parseBaseURL, parseToken, parseSession.ID, parsePrompt, "after send")
 		traceExample100AgentDogfood("prompt sent and snapshotted")
 
 		parseThreadPath := parseReadExample100Pathname(parseT, parsePage)
@@ -173,10 +170,7 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 			parseT.Fatalf("wait for chat input after agent reload: %v", parseErr)
 		}
 		parseReloadedSession := parseWaitForExample100NewActiveAgentSession(parseT, parseBaseURL, parseToken, parseSession.ID)
-		parseReloadedSnapshot := parseSnapshotExample100Agent(parseT, parseBaseURL, parseToken, parseReloadedSession.ID)
-		if !strings.Contains(parseReloadedSnapshot, parsePrompt) {
-			parseT.Fatalf("agent snapshot after reload did not contain sent prompt %q: %s", parsePrompt, parseReloadedSnapshot)
-		}
+		parseWaitForExample100SnapshotContaining(parseT, parseBaseURL, parseToken, parseReloadedSession.ID, parsePrompt, "after reload")
 		traceExample100AgentDogfood("reload snapshot verified")
 	})
 }
@@ -487,6 +481,28 @@ func parseSnapshotExample100Agent(parseT *testing.T, parseBaseURL string, parseT
 	})
 	parseRequireExample100AgentAckOK(parseT, "snapshot", parseAck)
 	return string(parseAck.Payload)
+}
+
+func parseWaitForExample100SnapshotContaining(parseT *testing.T, parseBaseURL string, parseToken string, parseSession string, parseNeedle string, parseLabel string) string {
+	parseT.Helper()
+	parseDeadline := time.Now().Add(5 * time.Second)
+	var parseLastSnapshot string
+	for time.Now().Before(parseDeadline) {
+		parseLastSnapshot = parseSnapshotExample100Agent(parseT, parseBaseURL, parseToken, parseSession)
+		if strings.Contains(parseLastSnapshot, parseNeedle) {
+			return parseLastSnapshot
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	parseT.Fatalf("agent snapshot %s did not contain %q: %s", parseLabel, parseNeedle, truncateExample100AgentSnapshot(parseLastSnapshot, 2000))
+	return ""
+}
+
+func truncateExample100AgentSnapshot(parseSnapshot string, parseLimit int) string {
+	if parseLimit <= 0 || len(parseSnapshot) <= parseLimit {
+		return parseSnapshot
+	}
+	return parseSnapshot[:parseLimit] + "...(truncated)"
 }
 
 // parseRawExample100AgentJSON marshals one value into a raw JSON payload.
