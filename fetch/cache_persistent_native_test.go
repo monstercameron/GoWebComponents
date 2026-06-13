@@ -142,12 +142,16 @@ func TestFetchNativePersistentCacheRestorePersistAndDelete(parseT *testing.T) {
 
 	setCachedValue(parseKey, "updated")
 	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
-		return parseData[parseKey] != "" && strings.Contains(parseData[parseKey], `"updated"`)
+		parseStored, _, parseStoreErr := parseStore.GetItem(context.Background(), parseKey)
+		return parseStoreErr == nil && strings.Contains(parseStored, `"updated"`)
 	})
 
 	deletePersistentCachedSnapshot(parseKey)
 	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
-		_, parseOk := parseData[parseKey]
+		_, parseOk, parseStoreErr := parseStore.GetItem(context.Background(), parseKey)
+		if parseStoreErr != nil {
+			return false
+		}
 		return !parseOk
 	})
 

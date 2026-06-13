@@ -119,6 +119,16 @@ type AsyncResource[T any] struct {
 	cancel func()
 }
 
+type resourceStateSink[T any] interface {
+	Set(ResourceState[T])
+	Update(func(ResourceState[T]) ResourceState[T])
+}
+
+type resourceCancelRef interface {
+	Get() context.CancelFunc
+	Set(context.CancelFunc)
+}
+
 // UseFetch is a hook that simplifies data fetching within a component.
 // It uses the runtime fetch hook directly.
 func UseFetch(parseUrl string, parseOptions ...Options) Resource {
@@ -158,34 +168,7 @@ func UseResource[T any](parseLoader func(context.Context) (T, error), parseDeps 
 	parseRequestSeq := parseRequestSeqRef.Get()
 
 	parseStartLoad := func() {
-		if parseCancel := parseCancelRef.Get(); parseCancel != nil {
-			parseCancel()
-		}
-
-		parseSeq := parseRequestSeq.Add(1)
-		parseCtx, parseCancel2 := context.WithCancel(context.Background())
-		parseCancelRef.Set(parseCancel2)
-
-		parseState.Update(func(parsePrev ResourceState[T]) ResourceState[T] {
-			parsePrev.Loading = true
-			parsePrev.Error = nil
-			return parsePrev
-		})
-
-		go func() {
-			defer runtime.RecoverContainedPanic("fetch", "UseResource loader")
-			parseValue, parseErr := parseLoader(parseCtx)
-			if parseCtx.Err() != nil || parseRequestSeq.Load() != parseSeq {
-				return
-			}
-
-			parseState.Set(ResourceState[T]{
-				Value:   parseValue,
-				Loading: false,
-				Error:   parseErr,
-				Ready:   parseErr == nil,
-			})
-		}()
+		startResourceLoad(parseLoader, parseState, parseCancelRef, parseRequestSeq)
 	}
 
 	parseEffectDeps := make([]any, 0, len(parseDeps)+1)
@@ -218,6 +201,37 @@ func UseResource[T any](parseLoader func(context.Context) (T, error), parseDeps 
 			})
 		},
 	}
+}
+
+func startResourceLoad[T any](parseLoader func(context.Context) (T, error), parseState resourceStateSink[T], parseCancelRef resourceCancelRef, parseRequestSeq *atomic.Int32) {
+	if parseCancel := parseCancelRef.Get(); parseCancel != nil {
+		parseCancel()
+	}
+
+	parseSeq := parseRequestSeq.Add(1)
+	parseCtx, parseCancel2 := context.WithCancel(context.Background())
+	parseCancelRef.Set(parseCancel2)
+
+	parseState.Update(func(parsePrev ResourceState[T]) ResourceState[T] {
+		parsePrev.Loading = true
+		parsePrev.Error = nil
+		return parsePrev
+	})
+
+	go func() {
+		defer runtime.RecoverContainedPanic("fetch", "UseResource loader")
+		parseValue, parseErr := parseLoader(parseCtx)
+		if parseCtx.Err() != nil || parseRequestSeq.Load() != parseSeq {
+			return
+		}
+
+		parseState.Set(ResourceState[T]{
+			Value:   parseValue,
+			Loading: false,
+			Error:   parseErr,
+			Ready:   parseErr == nil,
+		})
+	}()
 }
 
 // Get returns the current typed resource state.

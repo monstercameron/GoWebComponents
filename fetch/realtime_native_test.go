@@ -37,6 +37,23 @@ func TestRealtimeNativeHooksReturnUnsupportedState(parseT *testing.T) {
 	parseEvents.Close()
 }
 
+func TestRealtimeNativeTransportsReportUnsupported(parseT *testing.T) {
+	parseWSState := buildWebSocketInitialState()
+	if parseWSState.Status != RealtimeUnsupported || parseWSState.Supported || !parseWSState.Closed || !isRealtimeUnsupportedError(parseWSState.Error) {
+		parseT.Fatalf("unexpected websocket initial state: %+v", parseWSState)
+	}
+	parseESState := buildEventSourceInitialState()
+	if parseESState.Status != RealtimeUnsupported || parseESState.Supported || !parseESState.Closed || !isRealtimeUnsupportedError(parseESState.Error) {
+		parseT.Fatalf("unexpected eventsource initial state: %+v", parseESState)
+	}
+	if parseTransport, parseErr := openWebSocketTransport("wss://example.test", realtimeResolvedOptions{}, realtimeTransportCallbacks{}); parseTransport != nil || !isRealtimeUnsupportedError(parseErr) {
+		parseT.Fatalf("openWebSocketTransport = (%#v, %v), want nil unsupported", parseTransport, parseErr)
+	}
+	if parseTransport, parseErr := openEventSourceTransport("/events", realtimeResolvedOptions{}, realtimeTransportCallbacks{}); parseTransport != nil || !isRealtimeUnsupportedError(parseErr) {
+		parseT.Fatalf("openEventSourceTransport = (%#v, %v), want nil unsupported", parseTransport, parseErr)
+	}
+}
+
 func TestRealtimeOptionNormalizationAndBounds(parseT *testing.T) {
 	parseNow := time.Date(2026, time.June, 11, 12, 0, 0, 0, time.UTC)
 	parseOptions := resolveWebSocketOptions([]WebSocketOptions{{

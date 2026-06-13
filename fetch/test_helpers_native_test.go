@@ -58,19 +58,26 @@ func buildFetchTestPersistentStore(parseT *testing.T) (interop.PersistentStore, 
 	parseT.Helper()
 	parseStore := interop.PersistentStore{}
 	parseData := map[string]string{}
+	var parseMu sync.Mutex
 	setFetchTestStructField(parseT, &parseStore, "backend", func() string { return "memory" })
 	setFetchTestStructField(parseT, &parseStore, "getItem", func(parseCtx context.Context, parseKey string) (string, bool, error) {
 		_ = parseCtx
+		parseMu.Lock()
+		defer parseMu.Unlock()
 		parseValue, parseOk := parseData[parseKey]
 		return parseValue, parseOk, nil
 	})
 	setFetchTestStructField(parseT, &parseStore, "setItem", func(parseCtx context.Context, parseKey string, parseValue string) error {
 		_ = parseCtx
+		parseMu.Lock()
+		defer parseMu.Unlock()
 		parseData[parseKey] = parseValue
 		return nil
 	})
 	setFetchTestStructField(parseT, &parseStore, "removeItem", func(parseCtx context.Context, parseKey string) error {
 		_ = parseCtx
+		parseMu.Lock()
+		defer parseMu.Unlock()
 		delete(parseData, parseKey)
 		return nil
 	})

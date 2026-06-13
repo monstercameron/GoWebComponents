@@ -22,12 +22,28 @@ func TestFetchNativeQueryTagsAndOptimisticRollback(parseT *testing.T) {
 	if parseTags := parseQuery.Tags(); !reflect.DeepEqual(parseTags, []string{"team", "users"}) {
 		parseT.Fatalf("expected normalized tags, got %v", parseTags)
 	}
+	parseTagsCopy := parseQuery.Tags()
+	parseTagsCopy[0] = "mutated"
+	if parseTags := parseQuery.Tags(); !reflect.DeepEqual(parseTags, []string{"team", "users"}) {
+		parseT.Fatalf("Tags returned mutable backing slice, got %v", parseTags)
+	}
+	if parseQuery.CacheKey() != "users" {
+		parseT.Fatalf("expected query cache key, got %q", parseQuery.CacheKey())
+	}
 	if parseKeys := QueryKeysForTag("users"); !reflect.DeepEqual(parseKeys, []string{"users"}) {
 		parseT.Fatalf("expected users tag to include users query, got %v", parseKeys)
 	}
 	if parseTagsForKey := QueryTagsForKey("users"); !reflect.DeepEqual(parseTagsForKey, []string{"team", "users"}) {
 		parseT.Fatalf("expected tags for key, got %v", parseTagsForKey)
 	}
+
+	parseQuery.Update(func(parsePrev []string) []string {
+		return append(append([]string{}, parsePrev...), "Katherine")
+	})
+	if parseState := parseQuery.Get(); !reflect.DeepEqual(parseState.Value, []string{"Ada", "Katherine"}) {
+		parseT.Fatalf("expected Update to derive from previous value, got %+v", parseState)
+	}
+	parseQuery.Set([]string{"Ada"})
 
 	parseRollback := parseQuery.OptimisticUpdate(func(parsePrev []string) []string {
 		parseNext := append([]string{}, parsePrev...)
@@ -62,6 +78,16 @@ func TestFetchNativeQueryTagsAndOptimisticRollback(parseT *testing.T) {
 	if parseState4 := parseQuery.Get(); !parseState4.Stale {
 		parseT.Fatalf("expected tag invalidation to mark query stale, got %+v", parseState4)
 	}
+	parseQuery.Cancel()
+	parseQuery.Reload()
+	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+		parseState := parseQuery.Get()
+		return parseState.Ready && !parseState.Loading && !parseState.Stale && reflect.DeepEqual(parseState.Value, []string{"server"})
+	})
+	parseQuery.Invalidate()
+	if parseState := parseQuery.Get(); !parseState.Stale {
+		parseT.Fatalf("expected direct query invalidation to mark stale, got %+v", parseState)
+	}
 
 	parseInspections := InspectCachedResources()
 	if len(parseInspections) != 1 || !reflect.DeepEqual(parseInspections[0].Tags, []string{"team", "users"}) {
@@ -80,6 +106,9 @@ func TestApplyOptimisticUpdateNilFnReturnsInactiveHandle(parseT *testing.T) {
 	parseUpdate := ApplyOptimisticUpdate[string]("nil-optimistic", nil)
 	if parseUpdate.Active() {
 		parseT.Fatal("expected nil optimistic update function to return inactive handle")
+	}
+	if parseUpdateEmptyKey := ApplyOptimisticUpdate[string]("", func(parsePrev string) string { return "next" }); parseUpdateEmptyKey.Active() {
+		parseT.Fatal("expected empty optimistic update key to return inactive handle")
 	}
 
 	parseUpdate.Commit()
@@ -108,6 +137,12 @@ func TestFetchNativeLoadQueryRegistersTagsAndInvalidatesOnce(parseT *testing.T) 
 	}
 	if parseSnapshot := currentCachedSnapshot("profile"); !parseSnapshot.Stale {
 		parseT.Fatalf("expected LoadQuery cache entry to be stale after tag invalidation, got %+v", parseSnapshot)
+	}
+	if parseDisposed := DisposeQueryTag("user"); parseDisposed != 1 {
+		parseT.Fatalf("expected one disposed query, got %d", parseDisposed)
+	}
+	if parseDisposedAgain := DisposeQueryTag("user"); parseDisposedAgain != 0 {
+		parseT.Fatalf("expected disposed tag to be idempotent, got %d", parseDisposedAgain)
 	}
 }
 
@@ -148,5 +183,36 @@ func TestFetchNativeInfiniteQueryLoadsNextPage(parseT *testing.T) {
 	parseWantItems := []string{"page:0 cursor:10", "page:1 cursor:11"}
 	if !reflect.DeepEqual(parseState2.Items, parseWantItems) || parseState2.HasNext || parseState2.NextCursor != 12 || len(parseState2.Pages) != 2 {
 		parseT.Fatalf("unexpected appended page state: %+v", parseState2)
+	}
+
+	parseQuery.Invalidate()
+	if parseState3 := parseQuery.Get(); !parseState3.Stale {
+		parseT.Fatalf("expected infinite query invalidation to mark stale, got %+v", parseState3)
+	}
+	parseQuery.Set(InfiniteQueryData[string, int]{Items: []string{"manual"}, HasNext: true, NextCursor: 42})
+	parseQuery.Update(func(parsePrev InfiniteQueryData[string, int]) InfiniteQueryData[string, int] {
+		parsePrev.Items = append(parsePrev.Items, "updated")
+		parsePrev.HasNext = false
+		return parsePrev
+	})
+	parseState4 := parseQuery.Get()
+	if !reflect.DeepEqual(parseState4.Items, []string{"manual", "updated"}) || parseState4.HasNext {
+		parseT.Fatalf("Set/Update did not update infinite query data: %+v", parseState4)
+	}
+	parseRollback := parseQuery.OptimisticUpdate(func(parsePrev InfiniteQueryData[string, int]) InfiniteQueryData[string, int] {
+		parsePrev.Items = append(parsePrev.Items, "optimistic")
+		return parsePrev
+	})
+	if !parseRollback.Active() {
+		parseT.Fatal("expected infinite optimistic update to be active")
+	}
+	parseRollback.Rollback()
+	if parseState5 := parseQuery.Get(); !reflect.DeepEqual(parseState5.Items, []string{"manual", "updated"}) {
+		parseT.Fatalf("rollback did not restore infinite query data: %+v", parseState5)
+	}
+	parseQuery.Cancel()
+	parseQuery.Dispose()
+	if parseKeys := QueryKeysForTag("feed"); len(parseKeys) != 0 {
+		parseT.Fatalf("expected disposed infinite query to unregister tags, got %v", parseKeys)
 	}
 }
