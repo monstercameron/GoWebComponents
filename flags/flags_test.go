@@ -127,3 +127,70 @@ func TestZeroHandlesAreSafe(parseT *testing.T) {
 		parseT.Fatal("zero registry should return zero set")
 	}
 }
+
+func TestRegistrySetUpdateAndHandlesUseImmutableSnapshots(parseT *testing.T) {
+	parseCurrent := BuildSet(map[string]Flag{
+		"theme": {Enabled: true, Value: "dark", Reason: "initial"},
+	}, map[string]Experiment{
+		"checkout": {
+			Enabled:  true,
+			Salt:     "v1",
+			Variants: []Variant{{Name: "control", Value: "A", Weight: 1}},
+		},
+	})
+	parseRegistry := Registry{
+		get: func() Set { return parseCurrent },
+		set: func(parseNext Set) { parseCurrent = parseNext },
+	}
+
+	parseNext := BuildSet(map[string]Flag{
+		"theme": {Enabled: false, Value: "light", Reason: "remote"},
+	}, map[string]Experiment{
+		"checkout": {
+			Enabled:  true,
+			Salt:     "v2",
+			Variants: []Variant{{Name: "variant", Value: "B", Weight: 1}},
+		},
+	})
+	parseRegistry.Set(parseNext)
+	parseNext.Flags["theme"] = Flag{}
+	parseNext.Experiments["checkout"] = Experiment{}
+	if parseGot := parseRegistry.Get().GetValue("theme", "fallback"); parseGot != "light" {
+		parseT.Fatalf("Registry.Set should copy input set, got value %q", parseGot)
+	}
+	if parseAssignment := parseRegistry.Get().GetAssignment("checkout", "subject"); parseAssignment.Variant != "variant" {
+		parseT.Fatalf("Registry.Set should copy experiment variants, got %+v", parseAssignment)
+	}
+
+	parseRegistry.Update(func(parsePrevious Set) Set {
+		if parsePrevious.GetValue("theme", "") != "light" {
+			parseT.Fatalf("Registry.Update received wrong previous set: %+v", parsePrevious)
+		}
+		return BuildSet(map[string]Flag{"theme": {Enabled: true, Value: "system", Reason: "updated"}}, nil)
+	})
+	if parseGot := parseRegistry.Get().GetValue("theme", "fallback"); parseGot != "system" {
+		parseT.Fatalf("Registry.Update value = %q", parseGot)
+	}
+
+	parseNilUpdateRegistry := Registry{set: parseRegistry.set}
+	parseNilUpdateRegistry.Update(nil)
+	if parseGot := parseRegistry.Get().GetValue("theme", "fallback"); parseGot != "system" {
+		parseT.Fatalf("nil update should be a no-op, got %q", parseGot)
+	}
+
+	parseFlagHandle := FlagHandle{get: func() Flag { return parseRegistry.Get().GetFlag("theme", Flag{}) }}
+	if !parseFlagHandle.Enabled() || parseFlagHandle.Value("fallback") != "system" {
+		parseT.Fatalf("FlagHandle read wrong value: %+v", parseFlagHandle.Get())
+	}
+	parseBlankValueHandle := FlagHandle{get: func() Flag { return Flag{Enabled: true} }}
+	if parseGot := parseBlankValueHandle.Value("fallback"); parseGot != "fallback" {
+		parseT.Fatalf("FlagHandle.Value blank fallback = %q", parseGot)
+	}
+
+	parseExperimentHandle := ExperimentHandle{get: func() Assignment {
+		return Assignment{Experiment: "checkout", Variant: "variant", Enabled: true, Reason: "assigned"}
+	}}
+	if parseGot := parseExperimentHandle.Get(); parseGot.Variant != "variant" || !parseGot.Enabled {
+		parseT.Fatalf("ExperimentHandle.Get() = %+v", parseGot)
+	}
+}

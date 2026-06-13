@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -131,6 +132,20 @@ func TestWriteStructuredWithoutScope(parseT *testing.T) {
 	}
 	if parseRecords[0]["scope"] != "" || parseRecords[0]["severity_text"] != "WARN" || parseRecords[0]["message"] != "plain warning" {
 		parseT.Fatalf("unexpected record without scope: %#v", parseRecords[0])
+	}
+}
+
+func TestNativeWriteStructuredContextReportsMarshalFailure(parseT *testing.T) {
+	parseOutput := captureStdout(parseT, func() {
+		writeStructuredContext(context.Background(), "info", "test", "bad field", map[string]any{
+			"bad": math.Inf(1),
+		})
+	})
+	if !strings.Contains(parseOutput, `"logging marshal failed"`) {
+		parseT.Fatalf("expected marshal failure fallback, got %q", parseOutput)
+	}
+	if !strings.Contains(parseOutput, `"level":"error"`) {
+		parseT.Fatalf("expected fallback to be an error record, got %q", parseOutput)
 	}
 }
 

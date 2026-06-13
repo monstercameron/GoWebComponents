@@ -142,6 +142,74 @@ func TestFormatRelativeTime_FutureVsPast(t *testing.T) {
 	}
 }
 
+func TestRelativeTimeUnitHelpersCoverKnownAndUnknownUnits(t *testing.T) {
+	parseEnglish := map[string][2]string{
+		"second": {"second", "seconds"},
+		"minute": {"minute", "minutes"},
+		"hour":   {"hour", "hours"},
+		"day":    {"day", "days"},
+		"week":   {"week", "weeks"},
+		"month":  {"month", "months"},
+		"year":   {"year", "years"},
+	}
+	for parseKey, parseWant := range parseEnglish {
+		if parseGot := parseEnUnit(parseKey, PluralOne); parseGot != parseWant[0] {
+			t.Fatalf("parseEnUnit(%q, one) = %q, want %q", parseKey, parseGot, parseWant[0])
+		}
+		if parseGot := parseEnUnit(parseKey, PluralOther); parseGot != parseWant[1] {
+			t.Fatalf("parseEnUnit(%q, other) = %q, want %q", parseKey, parseGot, parseWant[1])
+		}
+	}
+	if parseGot := parseEnUnit("fortnight", PluralOther); parseGot != "fortnight" {
+		t.Fatalf("parseEnUnit unknown = %q", parseGot)
+	}
+
+	parseFrench := map[string][2]string{
+		"second": {"seconde", "secondes"},
+		"minute": {"minute", "minutes"},
+		"hour":   {"heure", "heures"},
+		"day":    {"jour", "jours"},
+		"week":   {"semaine", "semaines"},
+		"year":   {"an", "ans"},
+	}
+	for parseKey, parseWant := range parseFrench {
+		if parseGot := parseFrUnit(parseKey, 1); parseGot != parseWant[0] {
+			t.Fatalf("parseFrUnit(%q, 1) = %q, want %q", parseKey, parseGot, parseWant[0])
+		}
+		if parseGot := parseFrUnit(parseKey, 2); parseGot != parseWant[1] {
+			t.Fatalf("parseFrUnit(%q, 2) = %q, want %q", parseKey, parseGot, parseWant[1])
+		}
+	}
+	if parseGot := parseFrUnit("month", 2); parseGot != "mois" {
+		t.Fatalf("parseFrUnit month = %q", parseGot)
+	}
+	if parseGot := parseFrUnit("fortnight", 2); parseGot != "fortnight" {
+		t.Fatalf("parseFrUnit unknown = %q", parseGot)
+	}
+
+	for _, parseKey := range []string{"second", "minute", "hour", "day", "week", "month", "year"} {
+		if parseGot := parseJaUnit(parseKey); parseGot == "" || parseGot == parseKey {
+			t.Fatalf("parseJaUnit(%q) = %q, want localized unit", parseKey, parseGot)
+		}
+	}
+	if parseGot := parseJaUnit("fortnight"); parseGot != "fortnight" {
+		t.Fatalf("parseJaUnit unknown = %q", parseGot)
+	}
+}
+
+func TestArabicRelativeTimeUnitFormsCoverCategories(t *testing.T) {
+	for _, parseKey := range []string{"second", "minute", "hour", "day", "week", "month", "year"} {
+		for _, parseCategory := range []PluralCategory{PluralOne, PluralTwo, PluralFew, PluralMany, PluralOther} {
+			if parseGot := parseArUnit(parseKey, parseCategory); parseGot == "" || parseGot == parseKey {
+				t.Fatalf("parseArUnit(%q, %q) = %q, want localized unit", parseKey, parseCategory, parseGot)
+			}
+		}
+	}
+	if parseGot := parseArUnit("fortnight", PluralOther); parseGot != "fortnight" {
+		t.Fatalf("parseArUnit unknown = %q", parseGot)
+	}
+}
+
 func TestFormatList_En(t *testing.T) {
 	tests := []struct {
 		parseName  string

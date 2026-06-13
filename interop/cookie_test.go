@@ -165,6 +165,17 @@ func TestExpireCookieSerializesNegativeMaxAge(parseT *testing.T) {
 	}
 }
 
+func TestExpireCookieNativeReturnsUnavailableAndPreservesInvalidName(parseT *testing.T) {
+	parseErr := ExpireCookie("sid", CookieOptions{Path: "/", Domain: "example.com", MaxAge: 3600})
+	if parseErr == nil || !IsCode(parseErr, CodeUnavailable) {
+		parseT.Fatalf("expected native unavailable error from ExpireCookie, got %v", parseErr)
+	}
+	parseErr = ExpireCookie(" ")
+	if parseErr == nil || !IsCode(parseErr, CodeInvalid) {
+		parseT.Fatalf("expected invalid empty-name error from ExpireCookie, got %v", parseErr)
+	}
+}
+
 // TestCookieValueURLEncoding verifies that values with special characters are
 // URL-encoded in the cookie string and decoded on read.
 func TestCookieValueURLEncoding(parseT *testing.T) {
@@ -177,5 +188,12 @@ func TestCookieValueURLEncoding(parseT *testing.T) {
 	parseVal, parseFound := parseCookieHeader("q=hello+world", "q")
 	if !parseFound || parseVal != "hello world" {
 		parseT.Fatalf("expected decoded value 'hello world', got %q found=%v", parseVal, parseFound)
+	}
+}
+
+func TestCookieHeaderMalformedEncodingReturnsRawValue(parseT *testing.T) {
+	parseVal, parseFound := parseCookieHeader("bad=%zz; ok=yes", "bad")
+	if !parseFound || parseVal != "%zz" {
+		parseT.Fatalf("expected malformed encoded cookie to return raw value, got %q found=%v", parseVal, parseFound)
 	}
 }
