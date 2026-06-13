@@ -377,11 +377,15 @@ type runtimeReplayState struct {
 	dropped   int
 }
 
-// StartReplayRecording clears and starts the runtime update replay buffer.
+// StartReplayRecording clears and starts the runtime update replay buffer. It
+// takes schedulerMu because the replay buffer is also written by
+// recordReplayUpdate under that lock — accessing it unlocked is a data race.
 func (parseRt *Runtime) StartReplayRecording() {
 	if parseRt == nil {
 		return
 	}
+	schedulerMu.Lock()
+	defer schedulerMu.Unlock()
 	parseRt.replay.limit = parseRt.limits.withDefaults().MaxReplayEvents
 	parseRt.replay.events = parseRt.replay.events[:0]
 	parseRt.replay.nextSeq = 0
@@ -394,13 +398,25 @@ func (parseRt *Runtime) StopReplayRecording() []ReplayEvent {
 	if parseRt == nil {
 		return nil
 	}
+	schedulerMu.Lock()
+	defer schedulerMu.Unlock()
 	parseRt.replay.recording = false
-	return parseRt.ReplayEvents()
+	return parseRt.replayEventsLocked()
 }
 
 // ReplayEvents returns a copy of captured deterministic scheduling events.
 func (parseRt *Runtime) ReplayEvents() []ReplayEvent {
-	if parseRt == nil || len(parseRt.replay.events) == 0 {
+	if parseRt == nil {
+		return nil
+	}
+	schedulerMu.Lock()
+	defer schedulerMu.Unlock()
+	return parseRt.replayEventsLocked()
+}
+
+// replayEventsLocked copies the captured events; callers must hold schedulerMu.
+func (parseRt *Runtime) replayEventsLocked() []ReplayEvent {
+	if len(parseRt.replay.events) == 0 {
 		return nil
 	}
 	parseEvents := make([]ReplayEvent, len(parseRt.replay.events))
@@ -490,10 +506,18 @@ func (parseRt *Runtime) ReplayUpdates(parseEvents []ReplayEvent) {
 	if parseRt == nil {
 		return
 	}
+	// Pause recording around the replay so re-applied updates are not
+	// re-captured. The flag is shared with recordReplayUpdate under
+	// schedulerMu, so guard each access with it — but do NOT hold the lock
+	// across the schedule* calls below, which acquire schedulerMu themselves.
+	schedulerMu.Lock()
 	wasRecording := parseRt.replay.recording
 	parseRt.replay.recording = false
+	schedulerMu.Unlock()
 	defer func() {
+		schedulerMu.Lock()
 		parseRt.replay.recording = wasRecording
+		schedulerMu.Unlock()
 	}()
 	for _, parseEvent := range parseEvents {
 		switch replayUpdateKind(parseEvent.Kind) {
