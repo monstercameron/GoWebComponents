@@ -70,4 +70,4 @@ jobs:
           done &
           keepalive_pid="$!"
           trap 'kill "$keepalive_pid" 2>/dev/null || true' EXIT
-          go test -tags playwrightgo ./test/playwrightgo/examples -run 'TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless' -count=1 -timeout 5m -v
+          go test -tags playwrightgo -run 'TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless' -count=1 -timeout=5m -v ./test/playwrightgo/examples

@@ -436,7 +436,7 @@ func (parseL launcher) runAgentBridgeHeadlessTestLane(parseRootPath string) (tes
 		}, nil
 	}
 	parseRunPattern := "TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless"
-	parseArgs := []string{"test", "-tags", "playwrightgo", parsePackagePattern, "-run", parseRunPattern, "-count=1", "-timeout", "5m", "-v"}
+	parseArgs := []string{"test", "-tags", "playwrightgo", "-run", parseRunPattern, "-count=1", "-timeout=5m", "-v", parsePackagePattern}
 	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
 	if parseErr != nil {
 		parseCommandText := "go " + strings.Join(parseArgs, " ")
