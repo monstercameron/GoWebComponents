@@ -319,7 +319,6 @@ func handleUserReplayMutations(getCtx context.Context, getQueue fetch.MutationQu
 			Body:   getMutation.Body,
 		})
 		getResult := <-getResultChan
-		fetch.ReturnChannel(getResultChan)
 		return getResult.Err
 	})
 	return getErr
@@ -366,7 +365,6 @@ Use `fetch.Fetch(...)` when the request belongs in an event handler, helper, or 
 getResultChan := fetch.Fetch("/api/reindex", fetch.Options{Method: "POST"})
 go func() {
 	getResult := <-getResultChan
-	fetch.ReturnChannel(getResultChan)
 	_ = getResult
 }()
 ```

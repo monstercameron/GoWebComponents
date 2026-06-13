@@ -174,7 +174,7 @@ Source anchors:
 | --- | --- | --- | --- |
 | `UseAtom` | shared read/write state keyed by ID | [`Atom[T]`](../../state/state.go) | `sessionAtom := state.UseAtom("session", sessionState{})` |
 | `UseComputed` | render-local computed value based on hooks, atoms, or props | [`Computed[T]`](../../state/state.go) | `fullName := state.UseComputed(func() string { return first + " " + last })` |
-| `UseDerived`, `UseSelector`, `Select` | shared read-only derived atoms and projected selectors | [`Derived[T]`](../../state/state.go) | `selectedUser := state.Select("selected-user", usersAtom, projectUser)` |
+| `UseDerived`, `UseSelector`, `Select` | shared read-only derived atoms and projected selectors | [`Derived[T]`](../../state/state.go) | `selectedUser := state.UseSelector("selected-user", usersAtom, projectUser)` |
 | `ExportSnapshot`, `GetSnapshot`, `ApplySnapshot`, `ImportSnapshot`, `MarshalSnapshotJSON`, `UnmarshalSnapshotJSON` | in-memory snapshot export/import and JSON serialization | [`Snapshot`](../../state/state.go) | `snapshotJSON, err := state.MarshalSnapshotJSON(snapshot)` |
 | `SaveSnapshot`, `LoadSnapshot`, `RestoreSnapshot`, `SavePersistentSnapshot`, `LoadPersistentSnapshot`, `RestorePersistentSnapshot` | browser storage restore flows for atom snapshots | [`StorageArea`](../../state/state.go), [`PersistentSnapshotOptions`](../../state/state.go), [`Snapshot`](../../state/state.go) | `_, err := state.RestorePersistentSnapshot(ctx, "drafts")` |
 

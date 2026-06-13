@@ -28,7 +28,7 @@ Start with the smallest owner that matches the real problem:
 - `state.UseAtom`: unrelated components need the same shared source of truth
 - `state.UseComputed`: the current component wants a typed render-time derived value
 - `state.UseDerived`: several components need the same read-only derived shared value
-- `state.Select`: one consumer needs a narrower shared projection from a larger atom or derived source
+- `state.UseSelector`: one consumer needs a narrower shared projection from a larger atom or derived source
 - snapshot helpers: the app intentionally exports, restores, or persists selected client-owned atoms
 
 Keep one ownership rule in mind for the rest of the manual:
@@ -53,7 +53,7 @@ Core ownership tools are `Stable`:
 
 Important advanced surfaces:
 
-- `state.Select(...)` is a public shared-projection helper and should be treated as an explicit optimization-oriented tool, not the first state primitive you reach for
+- `state.UseSelector(...)` is a public shared-projection helper and should be treated as an explicit optimization-oriented tool, not the first state primitive you reach for
 - `ui.ReactiveRegion(...)` stays an opt-in hot-path optimization layered on top of shared state, not the default reactivity model
 
 ## Minimal Example
@@ -274,7 +274,7 @@ func getWorkspacePrefsAtom() state.Atom[workspacePrefs] {
 // getWorkspaceDensitySource projects one narrow shared value from the wider preference atom.
 func getWorkspaceDensitySource() state.Derived[string] {
 	getPrefs := getWorkspacePrefsAtom()
-	return state.Select("workspace-density", getPrefs, func(getValue workspacePrefs) string {
+	return state.UseSelector("workspace-density", getPrefs, func(getValue workspacePrefs) string {
 		return getValue.Density
 	})
 }
@@ -315,7 +315,7 @@ func getQueueModelAtom() state.Atom[queueModel] {
 
 // renderHotQueueBadge narrows one hot shared value before isolating the subscribed display region.
 func renderHotQueueBadge() ui.Node {
-	getHotCount := state.Select("dashboard-queue-hot-count", getQueueModelAtom(), func(getModel queueModel) int {
+	getHotCount := state.UseSelector("dashboard-queue-hot-count", getQueueModelAtom(), func(getModel queueModel) int {
 		return getModel.HotCount
 	})
 
@@ -360,7 +360,7 @@ Use `state.UseDerived(...)` when:
 - recomputation should follow explicit source atom IDs
 - the derived value deserves its own stable shared identity
 
-Use `state.Select(...)` when:
+Use `state.UseSelector(...)` when:
 
 - the real problem is that a shared source is too broad
 - one consumer only needs a smaller projected shared value
@@ -370,7 +370,7 @@ Practical rule:
 
 - `UseComputed` is local
 - `UseDerived` is shared and read-only
-- `Select` is a narrower shared projection layered on top of an existing shared source
+- `UseSelector` is a narrower shared projection layered on top of an existing shared source
 
 ## Snapshot And Persistence Rules
 
@@ -416,10 +416,10 @@ Use this table before widening ownership.
 | Shared writable state | `state.UseAtom` | `Stable` | multiple unrelated consumers need one shared source | the value is local, route-owned, or really async server data |
 | Local derived state | `state.UseComputed` | `Stable` | the current component wants a typed memoized derived value | several components need to share the derived result |
 | Shared derived state | `state.UseDerived` | `Stable` | a shared read-only value should recompute from explicit source atom IDs | the derivation is only local to one component |
-| Shared projected state | `state.Select` | advanced public projection helper | one consumer needs a narrower projection from a wider shared source | the shared source is already small enough or the owner still needs full rerender |
+| Shared projected state | `state.UseSelector` | advanced public projection helper | one consumer needs a narrower projection from a wider shared source | the shared source is already small enough or the owner still needs full rerender |
 | Snapshot export and restore | `GetSnapshot`, `ApplySnapshot`, `ExportSnapshot`, `ImportSnapshot`, `Snapshot.Select` | `Stable` | you need exact same-process export, restore, or filtered snapshot transfer | the value should stay route-owned or server-owned |
 | Browser snapshot persistence | `SaveSnapshot`, `LoadSnapshot`, `RestoreSnapshot`, `SavePersistentSnapshot`, `LoadPersistentSnapshot`, `RestorePersistentSnapshot` | `Stable` | the app intentionally persists resumable client-owned state | the state is unsafe, too large, or not serialization-safe |
-| Fine-grained hot path | `ui.ReactiveRegion` with `state.Select`, atoms, or derived sources | explicit optimization surface | one anchored hot leaf should update without rerunning its owner | the normal component rerender is still correct and cheap enough |
+| Fine-grained hot path | `ui.ReactiveRegion` with `state.UseSelector`, atoms, or derived sources | explicit optimization surface | one anchored hot leaf should update without rerunning its owner | the normal component rerender is still correct and cheap enough |
 
 ## Design Notes And Boundaries
 

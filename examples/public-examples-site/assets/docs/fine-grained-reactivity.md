@@ -10,7 +10,7 @@ The goal is narrower updates for high-frequency UI paths so atom or signal-style
 
 - Fine-grained reactivity is an explicit performance tool, not a replacement for the normal component model.
 - The default remains hook-driven component rerender and normal reconciliation.
-- The current shipped narrow path is `ui.ReactiveRegion(...)` backed by explicit `state.Atom[...]`, `state.Derived[...]`, or `state.Select(...)` sources.
+- The current shipped narrow path is `ui.ReactiveRegion(...)` backed by explicit `state.Atom[...]`, `state.Derived[...]`, or `state.UseSelector(...)` sources.
 - The narrow path is for hot display regions where structure is stable and the owning component does not need to rerun.
 - If props, context, hook dependencies, routing state, hydration recovery, or boundary state are involved, the runtime should fall back to normal reconciliation.
 
@@ -54,7 +54,7 @@ type dashboardModel struct {
 
 func HotPanel() ui.Node {
 	model := state.UseAtom("dashboard-model", dashboardModel{Hot: 0, Title: "Orders"})
-	hot := state.Select("dashboard-model-hot", model, func(value dashboardModel) int {
+	hot := state.UseSelector("dashboard-model-hot", model, func(value dashboardModel) int {
 		return value.Hot
 	})
 
@@ -417,7 +417,7 @@ The first runtime prototype now exists as an explicit subscribed-region narrow-u
 Current prototype behavior:
 
 - `state.Atom[T]` and `state.Derived[T]` can render an explicit reactive text node through `Text(...)`
-- `state.Select(...)` can project a stable shared value from an atom or derived source for the same narrow text path
+- `state.UseSelector(...)` can project a stable shared value from an atom or derived source for the same narrow text path
 - `ui.ReactiveRegion(...)` can rerender an explicit subscribed child subtree from one or more explicit shared-state sources
 - the runtime subscribes the reactive text fiber or region fiber directly to explicit source IDs
 - atom updates can mark only that fine-grained fiber dirty instead of forcing the owning component fiber dirty

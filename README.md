@@ -139,7 +139,7 @@ type CounterPanelProps struct {
     Name          string
     Count         int
     PreviousCount string
-    OnIncrement   func()
+    OnIncrement   ui.Handler
 }
 
 func CounterPanel(props CounterPanelProps) ui.Node {
