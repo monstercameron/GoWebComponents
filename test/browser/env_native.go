@@ -27,8 +27,13 @@ type BroadcastMessage struct {
 type MockWorker struct{}
 type MockWindow struct{}
 
-func Install(parseTb testing.TB, parseOptions ...Options) *Environment {
+var nativeBrowserInstallFatal = func(parseTb testing.TB) {
 	parseTb.Helper()
 	parseTb.Fatal("test/browser Install requires js/wasm tests")
+}
+
+func Install(parseTb testing.TB, parseOptions ...Options) *Environment {
+	parseTb.Helper()
+	nativeBrowserInstallFatal(parseTb)
 	return nil
 }

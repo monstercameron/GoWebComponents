@@ -19,15 +19,20 @@ type Inspection struct {
 	Params map[string]string
 }
 
+var nativeRouterFatal = func(parseTb testing.TB) {
+	parseTb.Helper()
+	parseTb.Fatal("testkit/router requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+}
+
 func NewHash(parseTb testing.TB, parseOptions ...any) *Fixture {
 	parseTb.Helper()
-	parseTb.Fatalf("testkit/router requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+	nativeRouterFatal(parseTb)
 	return nil
 }
 
 func NewHistory(parseTb testing.TB, parseOptions ...any) *Fixture {
 	parseTb.Helper()
-	parseTb.Fatalf("testkit/router requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+	nativeRouterFatal(parseTb)
 	return nil
 }
 

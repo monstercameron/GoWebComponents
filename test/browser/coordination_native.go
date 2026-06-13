@@ -23,10 +23,15 @@ type ReconnectSnapshot struct {
 // CoordinationHarness provides deterministic cross-tab, worker, and offline controls.
 type CoordinationHarness struct{}
 
+var nativeCoordinationHarnessFatal = func(parseTb testing.TB) {
+	parseTb.Helper()
+	parseTb.Fatal("test/browser NewCoordinationHarness requires js/wasm tests")
+}
+
 // NewCoordinationHarness requires a js/wasm test environment.
 func NewCoordinationHarness(parseTb testing.TB, parseOptions ...Options) *CoordinationHarness {
 	parseTb.Helper()
-	parseTb.Fatal("test/browser NewCoordinationHarness requires js/wasm tests")
+	nativeCoordinationHarnessFatal(parseTb)
 	return nil
 }
 

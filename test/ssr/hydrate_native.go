@@ -11,14 +11,20 @@ import (
 type HydrationOptions = base.HydrationOptions
 type HydrationHarness = base.HydrationHarness
 
+var (
+	smokeHydrateBase             = base.SmokeHydrate
+	roundTripHydrateBase         = base.RoundTripHydrate
+	roundTripHydrateMismatchBase = base.RoundTripHydrateMismatch
+)
+
 func SmokeHydrate(parseTb stdtesting.TB, parseRoot any, parseOptions ...HydrationOptions) *HydrationHarness {
-	return base.SmokeHydrate(parseTb, parseRoot, parseOptions...)
+	return smokeHydrateBase(parseTb, parseRoot, parseOptions...)
 }
 
 func RoundTripHydrate(parseTb stdtesting.TB, parseRoot any, parseOptions ...HydrationOptions) *HydrationHarness {
-	return base.RoundTripHydrate(parseTb, parseRoot, parseOptions...)
+	return roundTripHydrateBase(parseTb, parseRoot, parseOptions...)
 }
 
 func RoundTripHydrateMismatch(parseTb stdtesting.TB, parseRoot any, buildMutate func(string) string, parseOptions ...HydrationOptions) *HydrationHarness {
-	return base.RoundTripHydrateMismatch(parseTb, parseRoot, buildMutate, parseOptions...)
+	return roundTripHydrateMismatchBase(parseTb, parseRoot, buildMutate, parseOptions...)
 }
