@@ -5,26 +5,32 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/monstercameron/GoWebComponents/tools/changelogcheck"
 )
 
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Fprintln(os.Stderr, "usage: changelogcheck <changelog-path> <version>")
-		os.Exit(2)
+	os.Exit(run(os.Args, os.Stdout, os.Stderr))
+}
+
+func run(parseArgs []string, parseStdout io.Writer, parseStderr io.Writer) int {
+	if len(parseArgs) != 3 {
+		fmt.Fprintln(parseStderr, "usage: changelogcheck <changelog-path> <version>")
+		return 2
 	}
-	parsePath := os.Args[1]
-	parseVersion := os.Args[2]
+	parsePath := parseArgs[1]
+	parseVersion := parseArgs[2]
 	parseFound, parseErr := changelogcheck.CheckFile(parsePath, parseVersion)
 	if parseErr != nil {
-		fmt.Fprintln(os.Stderr, "changelogcheck:", parseErr)
-		os.Exit(2)
+		fmt.Fprintln(parseStderr, "changelogcheck:", parseErr)
+		return 2
 	}
 	if !parseFound {
-		fmt.Fprintf(os.Stderr, "changelogcheck: no CHANGELOG entry found for version %q in %s\n", parseVersion, parsePath)
-		os.Exit(1)
+		fmt.Fprintf(parseStderr, "changelogcheck: no CHANGELOG entry found for version %q in %s\n", parseVersion, parsePath)
+		return 1
 	}
-	fmt.Printf("changelogcheck: found CHANGELOG entry for %q\n", parseVersion)
+	fmt.Fprintf(parseStdout, "changelogcheck: found CHANGELOG entry for %q\n", parseVersion)
+	return 0
 }

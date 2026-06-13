@@ -4,24 +4,30 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/monstercameron/GoWebComponents/tools/sbom"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: sbom <output-path> [repo-root]")
-		os.Exit(2)
+	os.Exit(run(os.Args, os.Stdout, os.Stderr))
+}
+
+func run(parseArgs []string, parseStdout io.Writer, parseStderr io.Writer) int {
+	if len(parseArgs) < 2 {
+		fmt.Fprintln(parseStderr, "usage: sbom <output-path> [repo-root]")
+		return 2
 	}
-	parseOut := os.Args[1]
+	parseOut := parseArgs[1]
 	parseRoot := "."
-	if len(os.Args) >= 3 {
-		parseRoot = os.Args[2]
+	if len(parseArgs) >= 3 {
+		parseRoot = parseArgs[2]
 	}
 	if parseErr := sbom.WriteFile(parseRoot, parseOut); parseErr != nil {
-		fmt.Fprintln(os.Stderr, "sbom:", parseErr)
-		os.Exit(1)
+		fmt.Fprintln(parseStderr, "sbom:", parseErr)
+		return 1
 	}
-	fmt.Printf("sbom: wrote CycloneDX SBOM to %s\n", parseOut)
+	fmt.Fprintf(parseStdout, "sbom: wrote CycloneDX SBOM to %s\n", parseOut)
+	return 0
 }

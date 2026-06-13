@@ -1,8 +1,11 @@
 package reprobuild
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -62,5 +65,89 @@ func TestSHAMatchesCatchesDifference(parseT *testing.T) {
 	}
 	if SHAMatches("", "") {
 		parseT.Fatal("empty digests must not count as a match")
+	}
+	if SHAMatches("abc123", "") || SHAMatches("", "abc123") {
+		parseT.Fatal("one empty digest must not count as a match")
+	}
+	if SHAMatches("ABC123", "abc123") {
+		parseT.Fatal("digest comparison must be exact and case-sensitive")
+	}
+}
+
+func TestBuildWasmSHAIsDeterministicForTinyModule(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseT.Setenv("GOWORK", "off")
+
+	writeReproFixture(parseT, parseRoot, "go.mod", `module example.com/reprofixture
+
+go 1.21
+`)
+	writeReproFixture(parseT, parseRoot, "tiny/tiny.go", `package tiny
+
+func Answer() int { return 42 }
+`)
+
+	parseDir1 := parseT.TempDir()
+	parseSHA1, parseErr1 := BuildWasmSHA(parseRoot, "./tiny", parseDir1)
+	if parseErr1 != nil {
+		parseT.Fatalf("first tiny build: %v", parseErr1)
+	}
+	parseDir2 := parseT.TempDir()
+	parseSHA2, parseErr2 := BuildWasmSHA(parseRoot, "./tiny", parseDir2)
+	if parseErr2 != nil {
+		parseT.Fatalf("second tiny build: %v", parseErr2)
+	}
+
+	if !SHAMatches(parseSHA1, parseSHA2) {
+		parseT.Fatalf("tiny wasm build is not deterministic:\n  build 1: %s\n  build 2: %s", parseSHA1, parseSHA2)
+	}
+	if len(parseSHA1) != sha256.Size*2 {
+		parseT.Fatalf("digest length = %d, want %d: %q", len(parseSHA1), sha256.Size*2, parseSHA1)
+	}
+	if parseSHA1 != strings.ToLower(parseSHA1) {
+		parseT.Fatalf("digest must be lowercase hex: %q", parseSHA1)
+	}
+
+	parseArtifact, parseErr := os.ReadFile(filepath.Join(parseDir1, "repro.wasm"))
+	if parseErr != nil {
+		parseT.Fatalf("read built artifact: %v", parseErr)
+	}
+	parseManualSum := sha256.Sum256(parseArtifact)
+	parseManualSHA := hex.EncodeToString(parseManualSum[:])
+	if parseSHA1 != parseManualSHA {
+		parseT.Fatalf("BuildWasmSHA returned %s, manual digest is %s", parseSHA1, parseManualSHA)
+	}
+}
+
+func TestBuildWasmSHAReportsBuildFailure(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseT.Setenv("GOWORK", "off")
+
+	writeReproFixture(parseT, parseRoot, "go.mod", `module example.com/reprofixture
+
+go 1.21
+`)
+
+	_, parseErr := BuildWasmSHA(parseRoot, "./missing", parseT.TempDir())
+	if parseErr == nil {
+		parseT.Fatal("expected missing package build to fail")
+	}
+	parseMessage := parseErr.Error()
+	if !strings.Contains(parseMessage, "build ./missing:") {
+		parseT.Fatalf("error should include package context, got: %v", parseErr)
+	}
+	if !strings.Contains(parseMessage, "stat") && !strings.Contains(parseMessage, "cannot find") {
+		parseT.Fatalf("error should include go build output, got: %v", parseErr)
+	}
+}
+
+func writeReproFixture(parseT *testing.T, parseRoot string, parseRelativePath string, parseContent string) {
+	parseT.Helper()
+	parsePath := filepath.Join(parseRoot, filepath.FromSlash(parseRelativePath))
+	if parseErr := os.MkdirAll(filepath.Dir(parsePath), 0755); parseErr != nil {
+		parseT.Fatalf("create fixture directory: %v", parseErr)
+	}
+	if parseErr := os.WriteFile(parsePath, []byte(parseContent), 0644); parseErr != nil {
+		parseT.Fatalf("write fixture: %v", parseErr)
 	}
 }

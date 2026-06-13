@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -80,5 +81,37 @@ func TestGenerateMatchesModuleGraph(parseT *testing.T) {
 	// The document must round-trip as valid JSON.
 	if _, parseErr := json.Marshal(parseDoc); parseErr != nil {
 		parseT.Fatalf("marshal: %v", parseErr)
+	}
+}
+
+func TestBuildDocumentRejectsMalformedModuleStream(parseT *testing.T) {
+	_, parseErr := BuildDocument([]byte(`{"Path":"ok","Version":"v1.0.0"}` + "\n" + `{bad json}`))
+	if parseErr == nil {
+		parseT.Fatal("expected malformed module stream to fail")
+	}
+	if !strings.Contains(parseErr.Error(), "decode module list") {
+		parseT.Fatalf("error should identify decode failure, got %v", parseErr)
+	}
+}
+
+func TestWriteFileWritesIndentedCycloneDXJSON(parseT *testing.T) {
+	parseRoot := repoRoot(parseT)
+	parsePath := filepath.Join(parseT.TempDir(), "bom.json")
+	if parseErr := WriteFile(parseRoot, parsePath); parseErr != nil {
+		parseT.Fatalf("WriteFile: %v", parseErr)
+	}
+	parseData, parseErr := os.ReadFile(parsePath)
+	if parseErr != nil {
+		parseT.Fatalf("ReadFile: %v", parseErr)
+	}
+	if !strings.HasSuffix(string(parseData), "\n") || !strings.Contains(string(parseData), "\n  \"components\": [") {
+		parseT.Fatalf("expected indented JSON with trailing newline, got prefix: %.80q", string(parseData))
+	}
+	var parseDoc Document
+	if parseErr := json.Unmarshal(parseData, &parseDoc); parseErr != nil {
+		parseT.Fatalf("written SBOM is not valid JSON: %v", parseErr)
+	}
+	if parseDoc.BOMFormat != "CycloneDX" || len(parseDoc.Components) == 0 {
+		parseT.Fatalf("unexpected written SBOM: %+v", parseDoc)
 	}
 }
