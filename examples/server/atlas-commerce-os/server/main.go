@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,23 +17,51 @@ import (
 )
 
 func main() {
-	parseCfg, parseErr := loadConfig()
-	if parseErr != nil {
+	if parseErr := runAtlasServer(defaultAtlasMainDeps()); parseErr != nil {
 		log.Fatal(parseErr)
+	}
+}
+
+type atlasMainDeps struct {
+	loadConfig     func() (config, error)
+	openDB         func(context.Context, string) (*sql.DB, error)
+	migrate        func(context.Context, *sql.DB, string, string) error
+	seed           func(context.Context, *sql.DB) error
+	signalNotify   func(chan<- os.Signal, ...os.Signal)
+	listenAndServe func(*http.Server) error
+	output         io.Writer
+}
+
+func defaultAtlasMainDeps() atlasMainDeps {
+	return atlasMainDeps{
+		loadConfig:     loadConfig,
+		openDB:         serverdb.Open,
+		migrate:        serverdb.Migrate,
+		seed:           serverdb.Seed,
+		signalNotify:   signal.Notify,
+		listenAndServe: func(parseServer *http.Server) error { return parseServer.ListenAndServe() },
+		output:         os.Stdout,
+	}
+}
+
+func runAtlasServer(parseDeps atlasMainDeps) error {
+	parseCfg, parseErr := parseDeps.loadConfig()
+	if parseErr != nil {
+		return parseErr
 	}
 
 	parseCtx := context.Background()
-	parseDatabase, parseErr := serverdb.Open(parseCtx, parseCfg.SQLitePath)
+	parseDatabase, parseErr := parseDeps.openDB(parseCtx, parseCfg.SQLitePath)
 	if parseErr != nil {
-		log.Fatal(parseErr)
+		return parseErr
 	}
 	defer parseDatabase.Close()
 
-	if parseErr2 := serverdb.Migrate(parseCtx, parseDatabase, parseCfg.MigrationsDir, parseCfg.FallbackSchema); parseErr2 != nil {
-		log.Fatal(parseErr2)
+	if parseErr2 := parseDeps.migrate(parseCtx, parseDatabase, parseCfg.MigrationsDir, parseCfg.FallbackSchema); parseErr2 != nil {
+		return parseErr2
 	}
-	if parseErr3 := serverdb.Seed(parseCtx, parseDatabase); parseErr3 != nil {
-		log.Fatal(parseErr3)
+	if parseErr3 := parseDeps.seed(parseCtx, parseDatabase); parseErr3 != nil {
+		return parseErr3
 	}
 
 	parseApp := newAtlasServer(parseCfg, serverdb.NewStore(parseDatabase), serverauth.NewMockSessionManager())
@@ -42,7 +72,7 @@ func main() {
 	}
 
 	parseShutdown := make(chan os.Signal, 1)
-	signal.Notify(parseShutdown, syscall.SIGINT, syscall.SIGTERM)
+	parseDeps.signalNotify(parseShutdown, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-parseShutdown
 		parseCtx2, parseCancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -50,8 +80,9 @@ func main() {
 		_ = parseHttpServer.Shutdown(parseCtx2)
 	}()
 
-	fmt.Printf("Atlas server listening on http://%s\n", parseCfg.Addr)
-	if parseErr4 := parseHttpServer.ListenAndServe(); parseErr4 != nil && parseErr4 != http.ErrServerClosed {
-		log.Fatal(parseErr4)
+	_, _ = fmt.Fprintf(parseDeps.output, "Atlas server listening on http://%s\n", parseCfg.Addr)
+	if parseErr4 := parseDeps.listenAndServe(parseHttpServer); parseErr4 != nil && parseErr4 != http.ErrServerClosed {
+		return parseErr4
 	}
+	return nil
 }
