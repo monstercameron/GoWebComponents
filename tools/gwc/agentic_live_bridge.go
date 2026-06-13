@@ -258,6 +258,12 @@ func liveBridgeCommandName(parseCommand string) (string, bool) {
 		return "bridge.describe", true
 	case "wait-for":
 		return "bridge.wait-for", true
+	case "audit":
+		return "bridge.audit", true
+	case "undo":
+		return "bridge.undo", true
+	case "replay":
+		return "bridge.replay", true
 	default:
 		return "", false
 	}
