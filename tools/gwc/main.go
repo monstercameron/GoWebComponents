@@ -1102,6 +1102,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runSizeCommand(parseL, parseArgs)
 	case "screenshot":
 		return runScreenshotCommand(parseL, parseArgs)
+	case "browser":
+		return runBrowserCommand(parseL, parseArgs)
 	case "import":
 		return runImportCommand(parseL, parseArgs)
 	case "scaffold":

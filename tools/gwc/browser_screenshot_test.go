@@ -4,11 +4,14 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	playwright "github.com/playwright-community/playwright-go"
 )
 
 // pngMagic is the 8-byte PNG signature every valid PNG starts with.
@@ -19,19 +22,40 @@ const screenshotTestPage = `<!doctype html><html><head><meta charset="utf-8">
 h1{margin:0;padding:40px;color:#34d399;font:48px sans-serif}</style></head>
 <body><div id="app"><h1 id="headline">gwc screenshot works</h1></div></body></html>`
 
+func newScreenshotTestServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = parseW.Write([]byte(screenshotTestPage))
+	}))
+}
+
+func assertValidPNG(t *testing.T, parsePath string, parseMin int) {
+	t.Helper()
+	parseBytes, parseErr := os.ReadFile(parsePath)
+	if parseErr != nil {
+		t.Fatalf("read %s: %v", parsePath, parseErr)
+	}
+	if !bytes.HasPrefix(parseBytes, pngMagic) {
+		parseN := min(8, len(parseBytes))
+		t.Fatalf("%s is not a PNG (first bytes %x)", parsePath, parseBytes[:parseN])
+	}
+	if len(parseBytes) < parseMin {
+		t.Fatalf("%s suspiciously small: %d bytes", parsePath, len(parseBytes))
+	}
+}
+
 // TestCaptureScreenshotProducesPNG pins the DevTools/CDP browser-proxy feature:
 // captureScreenshot must launch a sandbox-disabled headless Chromium, load a
 // real page, and write a valid, non-trivial PNG to disk — both for the full
 // page and for a single selector.
 func TestCaptureScreenshotProducesPNG(t *testing.T) {
-	parseSrv := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
-		parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = parseW.Write([]byte(screenshotTestPage))
-	}))
+	parseSrv := newScreenshotTestServer()
 	defer parseSrv.Close()
 
 	parseOut := filepath.Join(t.TempDir(), "full.png")
-	parseRes, parseErr := captureScreenshot(parseSrv.URL, "", parseOut, 800, 600, true)
+	parseRes, parseErr := captureScreenshot(screenshotOptions{
+		URL: parseSrv.URL, Out: parseOut, Width: 800, Height: 600, Headless: true,
+	})
 	if parseErr != nil {
 		t.Fatalf("captureScreenshot (full page): %v", parseErr)
 	}
@@ -41,45 +65,85 @@ func TestCaptureScreenshotProducesPNG(t *testing.T) {
 	if !parseRes.NoSandbox {
 		t.Fatal("result.NoSandbox = false, want true (must launch with --no-sandbox)")
 	}
-
-	parseBytes, parseErr := os.ReadFile(parseOut)
-	if parseErr != nil {
-		t.Fatalf("read screenshot: %v", parseErr)
+	if parseRes.Attached {
+		t.Fatal("result.Attached = true for a self-launched capture")
 	}
-	if !bytes.HasPrefix(parseBytes, pngMagic) {
-		t.Fatalf("output is not a PNG (first bytes %x)", parseBytes[:min(8, len(parseBytes))])
-	}
-	if len(parseBytes) < 1000 {
-		t.Fatalf("PNG suspiciously small: %d bytes", len(parseBytes))
-	}
+	assertValidPNG(t, parseOut, 1000)
+	parseBytes, _ := os.ReadFile(parseOut)
 	if parseRes.Bytes != len(parseBytes) {
 		t.Fatalf("result.Bytes = %d, want %d", parseRes.Bytes, len(parseBytes))
 	}
 
-	// Selector capture: a single element must also yield a valid, smaller PNG.
+	// Selector capture: a single element must also yield a valid PNG.
 	parseElOut := filepath.Join(t.TempDir(), "headline.png")
-	parseElRes, parseErr := captureScreenshot(parseSrv.URL, "#headline", parseElOut, 800, 600, true)
+	parseElRes, parseErr := captureScreenshot(screenshotOptions{
+		URL: parseSrv.URL, Selector: "#headline", Out: parseElOut, Width: 800, Height: 600, Headless: true,
+	})
 	if parseErr != nil {
 		t.Fatalf("captureScreenshot (selector): %v", parseErr)
 	}
 	if parseElRes.Selector != "#headline" {
 		t.Fatalf("result.Selector = %q, want #headline", parseElRes.Selector)
 	}
-	parseElBytes, parseErr := os.ReadFile(parseElOut)
-	if parseErr != nil {
-		t.Fatalf("read selector screenshot: %v", parseErr)
-	}
-	if !bytes.HasPrefix(parseElBytes, pngMagic) {
-		t.Fatalf("selector output is not a PNG (first bytes %x)", parseElBytes[:min(8, len(parseElBytes))])
-	}
-	if len(parseElBytes) < 100 {
-		t.Fatalf("selector PNG suspiciously small: %d bytes", len(parseElBytes))
-	}
+	assertValidPNG(t, parseElOut, 100)
 }
 
-// TestCaptureScreenshotRequiresURL pins the precondition: an empty url returns
-// an error rather than launching a browser.
-func TestCaptureScreenshotRequiresURL(t *testing.T) {
+// TestCaptureScreenshotAttachesOverCDP pins the copilot-dev path: a separately
+// launched browser (standing in for the engineer's `gwc browser` window) is
+// captured by attaching over its CDP endpoint — NOT by launching a new browser —
+// so the screenshot is exactly what is on screen. This runs the headed window's
+// chromium headless with a debug port so it works on a display-less CI box.
+func TestCaptureScreenshotAttachesOverCDP(t *testing.T) {
+	parseSrv := newScreenshotTestServer()
+	defer parseSrv.Close()
+
+	_ = playwright.Install(&playwright.RunOptions{Browsers: []string{"chromium"}})
+	parsePw, parseErr := playwright.Run(&playwright.RunOptions{Browsers: []string{"chromium"}})
+	if parseErr != nil {
+		t.Fatalf("run playwright: %v", parseErr)
+	}
+	defer func() { _ = parsePw.Stop() }()
+
+	parsePort := 9333
+	parseBrowser, parseErr := parsePw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+		Headless: playwright.Bool(true),
+		Args: []string{
+			"--no-sandbox",
+			"--disable-dev-shm-usage",
+			fmt.Sprintf("--remote-debugging-port=%d", parsePort),
+		},
+	})
+	if parseErr != nil {
+		t.Fatalf("launch debuggable browser: %v", parseErr)
+	}
+	defer func() { _ = parseBrowser.Close() }()
+
+	parsePage, parseErr := parseBrowser.NewPage()
+	if parseErr != nil {
+		t.Fatalf("new page: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseSrv.URL); parseErr != nil {
+		t.Fatalf("goto: %v", parseErr)
+	}
+
+	// Attach over CDP and capture what that browser is already showing.
+	parseOut := filepath.Join(t.TempDir(), "attached.png")
+	parseRes, parseErr := captureScreenshot(screenshotOptions{
+		CDPEndpoint: fmt.Sprintf("http://127.0.0.1:%d", parsePort),
+		Out:         parseOut,
+	})
+	if parseErr != nil {
+		t.Fatalf("captureScreenshot (CDP attach): %v", parseErr)
+	}
+	if !parseRes.Attached {
+		t.Fatal("result.Attached = false, want true for a CDP capture")
+	}
+	assertValidPNG(t, parseOut, 1000)
+}
+
+// TestCaptureScreenshotRequiresURLOrCDP pins the precondition: with neither a
+// url nor a cdp endpoint the command errors instead of launching a browser.
+func TestCaptureScreenshotRequiresURLOrCDP(t *testing.T) {
 	if parseErr := runScreenshotCommand(launcher{}, []string{"-out", filepath.Join(t.TempDir(), "x.png")}); parseErr != nil {
 		// runScreenshotCommand writes a failure envelope and returns nil; a
 		// non-nil error would be a flag-parse failure, which is also acceptable.
