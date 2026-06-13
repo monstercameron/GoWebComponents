@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## v3.1.0 - 2026-06-13
 
 ### Added
 
@@ -52,6 +52,27 @@
   keep the browser toolchain out of the lean default binary; covered by
   `playwrightgo` tests that open a real headed window and assert valid,
   non-trivial PNG output (the cross-process attach flow is verified end-to-end).
+- **Browser-proxy verbs — input, capture, read, visual diff** — the CDP proxy
+  now gives an agent hands, ears, and sight beyond the GWC fiber tree, not just
+  eyes. **Input:** `gwc click` (selector or x/y), `type` (Fill or `-append`
+  keystrokes), `press` (keys/chords), `hover`, `scroll` — real DOM input over
+  CDP, reaching detached/third-party/raw-selector elements that the in-wasm
+  `emit` (which only calls registered fiber handlers) cannot. **Capture:**
+  `gwc console` (console messages + uncaught JS errors, with `-reload` for
+  boot-time output) and `gwc network` (requests/responses/failures, non-2xx
+  flagged) read the browser's CDP event stream that the wasm `logs` command
+  can't see. **Read:** `gwc dom` (real rendered text/HTML/attributes for a
+  selector) and `gwc eval` (read-oriented JS evaluation; dual-use, gated like
+  the rest of the proxy). **Visual diff:** `gwc screenshot-diff` compares two
+  PNGs (changed-pixel count/%, per-channel `-threshold`, highlighted diff
+  image, `ok=false` over `-fail-over`) — the pixel counterpart to
+  `snapshot-diff`, and the only proxy verb that ships in the **default** build
+  (pure `image/png`, no browser). Every verb supports `-cdp` (attach to the
+  engineer's window) or `-url` (launch its own headless Chromium), emits the
+  standard envelope, and is an auto-generated MCP tool. Covered by unit tests
+  (diff math) and `playwrightgo` tests that drive real Chromium (input mutates
+  the DOM; console/network/dom/eval assert exact captured values); demonstrated
+  live end-to-end (click→eval→screenshot-diff on a running window).
 - **`events` introspection** — `events/introspect` exposes the live topic/
   subscriber graph for tooling and the agent bridge.
 - **Gesture primitives** (`anim`) — pure pan/drag and pinch primitives tracking
