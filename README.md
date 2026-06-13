@@ -387,16 +387,19 @@ Set expectations honestly before adopting:
   which is inherently slower than JavaScript touching the DOM directly. The value
   is writing the whole UI in Go, not out-rendering hand-tuned JavaScript. See
   [Benchmarks](#benchmarks) to reproduce both sides.
-- **Bundle size is larger than JS.** Standard Go→wasm binaries embed the Go
-  runtime, so they are big: a minimal `counter` app compiles to roughly **6 MB
-  raw (~1.7 MB gzipped on the wire)**, and real apps grow from there. Mitigate by
-  serving compressed (`gzip`/`brotli`), using the guarded `tinygo` build profile
-  (`gwc build -profile tinygo`, `-target=wasm -opt=z`) for smaller leaf-app
-  binaries where TinyGo compatibility allows, and measuring any package with
-  `go run ./tools/gwc wasm measure -package .\path\to\app`. If the hard
-  requirement is the smallest possible payload to anonymous first-time visitors, a
-  native-JS framework will still ship smaller initial bundles — GoWebComponents
-  trades that for a single Go codebase and toolchain.
+- **Bundle size is larger than JS, but compresses dramatically.** Standard
+  Go→wasm binaries embed the Go runtime, so the raw artifact is big — a minimal
+  `counter` app is ~6.3 MB raw. But wasm is highly compressible, and the raw size
+  is *not* what ships: the same app is **1.70 MB gzipped (3.7x) and 1.24 MB under
+  brotli (5.1x — only ~20% of raw)**. GoWebComponents' `gwc release` tooling
+  precompresses artifacts and serves `Content-Encoding: br`/`gzip` automatically,
+  so users download the compressed payload, not the raw `.wasm`. Shrink further
+  with the guarded `tinygo` build profile (`gwc build -profile tinygo`,
+  `-target=wasm -opt=z`) for TinyGo-compatible leaf apps, and measure raw plus
+  compressed sizes for any package with
+  `go run ./tools/gwc wasm measure -package .\path\to\app`. Even compressed, the
+  first-load payload is still larger than a comparable native-JS bundle —
+  GoWebComponents trades that for a single Go codebase and toolchain.
 - **Where it fits well.** Go-centric teams, internal tools and dashboards, apps
   that already share Go types/logic between server and client, and SSR-first apps
   where the wasm payload hydrates already-rendered HTML.
