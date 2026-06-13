@@ -42,7 +42,7 @@ func Collect(parseManifest *Manifest, parseProps Props) {
 		ID:          parseProps.ID,
 		Name:        parseProps.Name,
 		Props:       cloneStringMap(parseProps.Props),
-		ClientSlots: append([]ClientReference(nil), parseProps.ClientSlots...),
+		ClientSlots: cloneClientReferences(parseProps.ClientSlots),
 	})
 }
 
@@ -53,6 +53,18 @@ func cloneStringMap(parseValues map[string]string) map[string]string {
 	parseCloned := make(map[string]string, len(parseValues))
 	for parseKey, parseValue := range parseValues {
 		parseCloned[parseKey] = parseValue
+	}
+	return parseCloned
+}
+
+func cloneClientReferences(parseValues []ClientReference) []ClientReference {
+	if len(parseValues) == 0 {
+		return nil
+	}
+	parseCloned := make([]ClientReference, len(parseValues))
+	for parseIndex, parseValue := range parseValues {
+		parseCloned[parseIndex] = parseValue
+		parseCloned[parseIndex].Props = cloneStringMap(parseValue.Props)
 	}
 	return parseCloned
 }
