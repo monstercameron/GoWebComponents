@@ -75,17 +75,22 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 	if runtime.GOOS == "js" {
 		parseT.Skip("playwright dogfood e2e requires a host Go toolchain")
 	}
+	traceExample100AgentDogfood("start")
 	_, parseFile, _, parseOK := runtime.Caller(0)
 	if !parseOK {
 		parseT.Fatal("resolve test file path")
 	}
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	traceExample100AgentDogfood("start server")
 	parseBaseURL := startExample100AgentDogfoodServer(parseT, parseRepoRoot, "18301")
+	traceExample100AgentDogfood("server ready")
 
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
+		traceExample100AgentDogfood("browser page ready")
 		if _, parseErr := parsePage.Goto(parseBaseURL+"/login?br=false", playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
 			parseT.Fatalf("goto non-agent login: %v", parseErr)
 		}
+		traceExample100AgentDogfood("non-agent login loaded")
 		if _, parseErr := parsePage.WaitForSelector("#auth-email-input"); parseErr != nil {
 			parseT.Fatalf("wait for non-agent login shell: %v", parseErr)
 		}
@@ -98,8 +103,11 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 		if _, parseErr := parsePage.Goto(parseBaseURL+"/login?gwc-dev=agent&br=false", playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
 			parseT.Fatalf("goto agent login: %v", parseErr)
 		}
+		traceExample100AgentDogfood("agent login loaded")
 		parseLoginExample100AgentUser(parseT, parsePage)
+		traceExample100AgentDogfood("agent user logged in")
 		parseSession := parseWaitForExample100ActiveAgentSession(parseT, parseBaseURL, parseToken)
+		traceExample100AgentDogfood("active session found")
 		parseRequireExample100AgentCommand(parseT, parseSession, "bridge.query")
 		parseRequireExample100AgentCommand(parseT, parseSession, "bridge.emit")
 
@@ -113,6 +121,7 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 			LeaseHolder: parseHolder,
 		})
 		parseRequireExample100AgentAckOK(parseT, "set sidebar atom", parseSetAtomAck)
+		traceExample100AgentDogfood("sidebar atom set")
 
 		parseComposerMatches := parseQueryExample100Agent(parseT, parseBaseURL, parseToken, parseSession.ID, map[string]any{"id": "chat-input"})
 		if len(parseComposerMatches) == 0 {
@@ -147,6 +156,7 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 		if !strings.Contains(parseSnapshot, parsePrompt) {
 			parseT.Fatalf("agent snapshot did not contain sent prompt %q: %s", parsePrompt, parseSnapshot)
 		}
+		traceExample100AgentDogfood("prompt sent and snapshotted")
 
 		parseThreadPath := parseReadExample100Pathname(parseT, parsePage)
 		if _, parseErr := parsePage.Evaluate(fmt.Sprintf(`() => history.replaceState(null, "", %q)`, parseThreadPath+"?gwc-dev=agent&br=false")); parseErr != nil {
@@ -163,7 +173,14 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {
 		if !strings.Contains(parseReloadedSnapshot, parsePrompt) {
 			parseT.Fatalf("agent snapshot after reload did not contain sent prompt %q: %s", parsePrompt, parseReloadedSnapshot)
 		}
+		traceExample100AgentDogfood("reload snapshot verified")
 	})
+}
+
+func traceExample100AgentDogfood(parseMessage string) {
+	if os.Getenv("GWC_AGENT_DOGFOOD_TRACE") == "1" {
+		fmt.Printf("agent dogfood trace: %s\n", parseMessage)
+	}
 }
 
 // buildExample100AgentDogfoodClient builds the ai-chat-wizard client with the
@@ -173,6 +190,7 @@ func buildExample100AgentDogfoodClient(parseT *testing.T, parseRepoRoot string) 
 	parseWASMPath := filepath.Join(parseRepoRoot, "examples", "server", "ai-chat-wizard", "bin", "client", "app", "chat.wasm")
 	if os.Getenv("GWC_AGENT_DOGFOOD_REUSE_CLIENT_WASM") == "1" {
 		if parseInfo, parseErr := os.Stat(parseWASMPath); parseErr == nil && parseInfo.Size() > 0 {
+			traceExample100AgentDogfood("reuse client wasm")
 			return
 		}
 	}
@@ -185,6 +203,7 @@ func buildExample100AgentDogfoodClient(parseT *testing.T, parseRepoRoot string) 
 	if parseOutput, parseErr := parseBuildCommand.CombinedOutput(); parseErr != nil {
 		parseT.Fatalf("build agent-tagged ai-chat-wizard client: %v\n%s", parseErr, strings.TrimSpace(string(parseOutput)))
 	}
+	traceExample100AgentDogfood("built client wasm")
 }
 
 // startExample100AgentDogfoodServer starts a seeded ai-chat-wizard server with
@@ -208,10 +227,14 @@ func startExample100AgentDogfoodServer(parseT *testing.T, parseRepoRoot string, 
 	parseAddress := "127.0.0.1:" + strings.TrimSpace(parsePort)
 	buildExample100AgentDogfoodClient(parseT, parseRepoRoot)
 	seedExample100HappyPathDatabase(parseT, parseRepoRoot, parseDBPath)
+	traceExample100AgentDogfood("database seeded")
 	if strings.TrimSpace(os.Getenv("GWC_AGENT_DOGFOOD_SERVER_BINARY")) == "" {
 		buildExample100HappyPathServerBinary(parseT, parseRepoRoot, parseBinaryPath)
+		traceExample100AgentDogfood("built server binary")
 	} else if parseInfo, parseErr := os.Stat(parseBinaryPath); parseErr != nil || parseInfo.IsDir() {
 		parseT.Fatalf("prebuilt agent dogfood server binary is not usable: %s", parseBinaryPath)
+	} else {
+		traceExample100AgentDogfood("reuse server binary")
 	}
 
 	parseStop := startExamplesCommandWithEnv(
@@ -229,6 +252,7 @@ func startExample100AgentDogfoodServer(parseT *testing.T, parseRepoRoot string, 
 	parseT.Cleanup(parseStop)
 
 	parseBaseURL := "http://" + parseAddress
+	traceExample100AgentDogfood("wait healthz")
 	waitForHealthyExamplesURL(parseT, parseBaseURL+"/healthz", 120*time.Second)
 	return parseBaseURL
 }
