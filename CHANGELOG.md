@@ -4,6 +4,18 @@
 
 ### Added
 
+- **Agentic detached rendering** â€” `bridge.render-tree` can inject allowlisted
+  structured element trees into live selectors through an isolated detached
+  runtime; snapshots now include detached roots and full text content, and
+  `agenthub` falls forward from stale sessions to the latest active session.
+- **Atlas Commerce OS coverage matrix and screenshot baselines** â€” the Atlas
+  browser-flow manifest now includes public/internal screenshot baseline
+  targets, PNG validation, a Playwright capture harness, and a route/feature
+  coverage matrix that verifies test/story references stay real.
+- **Agent bridge demo app** â€” added a small public wasm demo whose visible
+  state is atom-owned so the live agent bridge can change copy, count, colors,
+  and shape state in the browser.
+
 - **Agent bridge** — a first-class surface for agents to inspect and drive a
   live app. Runtime `agent_read`/`agent_write` primitives resolve stable node
   refs and apply state writes (with `agent_state_version` guarding stale
@@ -25,6 +37,18 @@
   live vocabulary. All bridge verbs are exposed as `gwc` CLI subcommands and
   MCP tools. Compiled in only under the `gwcagent` build tag + `?gwc-dev=agent`
   and excluded from release builds; see `docs/PRODUCTION_READINESS.md`.
+- **`gwc screenshot` — DevTools/CDP browser-proxy backend** — `gwc mcp` now has
+  a second backend alongside the in-wasm semantic bridge: a Playwright-driven
+  headless Chromium (launched with `--no-sandbox`, CDP-backed) that captures
+  pixel-perfect PNGs of a running app — full page or a single CSS selector — for
+  the visual interactions the structural bridge can't see. Exposed as both a
+  `gwc screenshot` CLI subcommand and the auto-generated `gwc_screenshot` MCP
+  tool, emitting the standard agentic envelope (path/url/dimensions/bytes).
+  `gwc browser` opens a headed Chromium session with a CDP endpoint, and
+  `gwc screenshot -cdp` can attach to that exact live window.
+  Compiled only under the `playwrightgo` build tag to keep the browser
+  toolchain out of the lean default binary; covered by a `playwrightgo` test
+  that launches real Chromium and asserts valid, non-trivial PNG output.
 - **`events` introspection** — `events/introspect` exposes the live topic/
   subscriber graph for tooling and the agent bridge.
 - **Gesture primitives** (`anim`) — pure pan/drag and pinch primitives tracking
@@ -100,6 +124,18 @@
 - **Docs site** — generated favicon and OG/Twitter social-preview assets.
 
 ### Changed
+
+- **Example 100 admin operations** â€” persisted user-list query state, surfaced
+  active/blocked status badges, added reasoned disable/restore confirmation,
+  wired billing access and quota override actions, and pinned admin wasm parser
+  coverage.
+- **Atlas Commerce OS TODO closeout** â€” completed the remaining Atlas public,
+  internal, performance, accessibility, localization, preference, SEO,
+  recovery, and testing backlog markers with shipped code, docs, tests, and
+  screenshot evidence.
+- **Starter feature matrices** â€” generated starter `FEATURE_MATRIX.md` files
+  now use explicit `selected` / `available` labels instead of unchecked
+  checklist boxes, keeping TODO scans focused on real backlog.
 
 - **ai-chat-wizard "Aurora" redesign** — ground-up design-token CSS system
   (violet accent, Geist/Space Grotesk/Geist Mono type), open-canvas assistant
