@@ -313,25 +313,28 @@ func prepareHotReloadBrowserLivereloadModule(parseT *testing.T, parseRepoRoot st
 		parseT.Fatalf("copy livereload module: %v", parseErr)
 	}
 
-	parseModulePath, parseErr := (launcher{repoRoot: parseRepoRoot}).readRepoModulePath()
-	if parseErr != nil {
-		parseT.Fatalf("read repo module path: %v", parseErr)
-	}
+	// Rewrite every relative `replace ... => <rel>` directive to an absolute
+	// path resolved against the ORIGINAL module dir, so they still resolve from
+	// the temp copy. livereload's go.mod replaces both the repo module (../..)
+	// and agenthub (../agenthub); a relative target is broken once copied.
 	parseGoModPath := filepath.Join(parseTargetRoot, "go.mod")
 	parseGoModBytes, parseErr := os.ReadFile(parseGoModPath)
 	if parseErr != nil {
 		parseT.Fatalf("read copied livereload go.mod: %v", parseErr)
 	}
 	parseGoModLines := strings.Split(string(parseGoModBytes), "\n")
-	parseSawReplace := false
 	for parseIndex, parseLine := range parseGoModLines {
-		if strings.HasPrefix(strings.TrimSpace(parseLine), "replace "+parseModulePath+" =>") {
-			parseGoModLines[parseIndex] = "replace " + parseModulePath + " => " + filepath.ToSlash(parseRepoRoot)
-			parseSawReplace = true
+		parseTrim := strings.TrimSpace(parseLine)
+		if !strings.HasPrefix(parseTrim, "replace ") || !strings.Contains(parseTrim, "=>") {
+			continue
 		}
-	}
-	if !parseSawReplace {
-		parseGoModLines = append(parseGoModLines, "replace "+parseModulePath+" => "+filepath.ToSlash(parseRepoRoot))
+		parseHalves := strings.SplitN(parseTrim, "=>", 2)
+		parseLeft := strings.TrimSpace(parseHalves[0])
+		parseRight := strings.TrimSpace(parseHalves[1])
+		if strings.HasPrefix(parseRight, ".") {
+			parseAbs := filepath.Join(parseSourceRoot, parseRight)
+			parseGoModLines[parseIndex] = parseLeft + " => " + filepath.ToSlash(parseAbs)
+		}
 	}
 	if parseErr2 := os.WriteFile(parseGoModPath, []byte(strings.Join(parseGoModLines, "\n")), 0o644); parseErr2 != nil {
 		parseT.Fatalf("write copied livereload go.mod: %v", parseErr2)

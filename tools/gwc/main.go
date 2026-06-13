@@ -1104,6 +1104,42 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runScreenshotCommand(parseL, parseArgs)
 	case "browser":
 		return runBrowserCommand(parseL, parseArgs)
+	case "screenshot-diff":
+		return runScreenshotDiffCommand(parseL, parseArgs)
+	case "click":
+		return runClickCommand(parseL, parseArgs)
+	case "type":
+		return runTypeCommand(parseL, parseArgs)
+	case "press":
+		return runPressCommand(parseL, parseArgs)
+	case "hover":
+		return runHoverCommand(parseL, parseArgs)
+	case "scroll":
+		return runScrollCommand(parseL, parseArgs)
+	case "console":
+		return runConsoleCommand(parseL, parseArgs)
+	case "network":
+		return runNetworkCommand(parseL, parseArgs)
+	case "dom":
+		return runDomCommand(parseL, parseArgs)
+	case "eval":
+		return runEvalCommand(parseL, parseArgs)
+	case "expect":
+		return runExpectCommand(parseL, parseArgs)
+	case "wait":
+		return runWaitCommand(parseL, parseArgs)
+	case "trace":
+		return runTraceCommand(parseL, parseArgs)
+	case "a11y":
+		return runA11yCommand(parseL, parseArgs)
+	case "select":
+		return runSelectCommand(parseL, parseArgs)
+	case "upload":
+		return runUploadCommand(parseL, parseArgs)
+	case "drag":
+		return runDragCommand(parseL, parseArgs)
+	case "mock":
+		return runMockCommand(parseL, parseArgs)
 	case "import":
 		return runImportCommand(parseL, parseArgs)
 	case "scaffold":
