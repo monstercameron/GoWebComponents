@@ -12,6 +12,7 @@ package agenthub
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -109,7 +110,7 @@ func (parseHub *AgentHub) serveWebSocket(parseW http.ResponseWriter, parseR *htt
 
 	// Guard: token must match before any upgrade attempt.
 	parseQueryToken := strings.TrimSpace(parseR.URL.Query().Get("token"))
-	if parseQueryToken == "" || parseQueryToken != parseHub.token {
+	if !parseHub.tokenMatches(parseQueryToken) {
 		http.Error(parseW, "missing or invalid agent token", http.StatusForbidden)
 		return
 	}
@@ -227,7 +228,7 @@ func (parseHub *AgentHub) handleAPICommand(parseW http.ResponseWriter, parseR *h
 		http.Error(parseW, "no active agent session connected", http.StatusConflict)
 		return
 	}
-	if isMutatingBridgeCommand(parseReq.Name) {
+	if commandRequiresLease(parseReq.Name, parseReq.Payload) {
 		if parseErr := parseHub.requireWriteLease(parseSessionID, parseReq.LeaseHolder); parseErr != nil {
 			http.Error(parseW, parseErr.Error(), http.StatusForbidden)
 			return
@@ -428,7 +429,7 @@ func (parseHub *AgentHub) authorizeAPI(parseW http.ResponseWriter, parseR *http.
 	if parseToken == "" {
 		parseToken = strings.TrimSpace(parseR.Header.Get("X-GWC-Agent-Token"))
 	}
-	if parseToken == "" || parseToken != parseHub.token {
+	if !parseHub.tokenMatches(parseToken) {
 		http.Error(parseW, "missing or invalid agent token", http.StatusForbidden)
 		return false
 	}
@@ -738,15 +739,27 @@ func (parseHub *AgentHub) buildCrashReport(parseSess *Session) *CrashReport {
 }
 
 func (parseHub *AgentHub) recordingChain(parseSess *Session, parseMax int) []CommandRecord {
+	return parseHub.recordingChainGuarded(parseSess, parseMax, map[string]bool{}, 0)
+}
+
+// maxRecordingChainDepth caps how far back a reload/crash predecessor chain is
+// walked, bounding work even before the visited-set catches a cycle.
+const maxRecordingChainDepth = 128
+
+// recordingChainGuarded walks the predecessor chain with a visited-set and a
+// depth cap so a self-referential or cyclic PredecessorID cannot infinite-loop
+// and a pathologically long chain cannot blow up allocation.
+func (parseHub *AgentHub) recordingChainGuarded(parseSess *Session, parseMax int, parseVisited map[string]bool, parseDepth int) []CommandRecord {
 	parseRecords := parseSess.recording.snapshot(parseMax)
-	if parseSess.PredecessorID == "" {
+	parseVisited[parseSess.ID] = true
+	if parseSess.PredecessorID == "" || parseVisited[parseSess.PredecessorID] || parseDepth >= maxRecordingChainDepth {
 		return parseRecords
 	}
 	parsePrev := parseHub.findSession(parseSess.PredecessorID)
 	if parsePrev == nil {
 		return parseRecords
 	}
-	parsePrevRecords := parseHub.recordingChain(parsePrev, 0)
+	parsePrevRecords := parseHub.recordingChainGuarded(parsePrev, 0, parseVisited, parseDepth+1)
 	parseJoined := append(parsePrevRecords, parseRecords...)
 	if parseMax > 0 && len(parseJoined) > parseMax {
 		parseJoined = parseJoined[len(parseJoined)-parseMax:]
@@ -804,9 +817,38 @@ func (parseHub *AgentHub) updateWriteLease(parseSess *Session, parseAction strin
 	return parseSess.lease, nil
 }
 
+// tokenMatches reports whether parseToken equals the hub token using a
+// constant-time comparison so a timing oracle cannot recover the token byte by
+// byte. An empty token never matches.
+func (parseHub *AgentHub) tokenMatches(parseToken string) bool {
+	if parseToken == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(parseToken), []byte(parseHub.token)) == 1
+}
+
+// commandRequiresLease reports whether a command needs the session write lease.
+// It is payload-aware for bridge.replay: only the "replay" action mutates live
+// app state and needs the lease; start/stop/status are recorder control and do
+// not, so a reader can poll replay status without holding the lease.
+func commandRequiresLease(parseName string, parsePayload json.RawMessage) bool {
+	if strings.TrimSpace(parseName) == "bridge.replay" {
+		var parseBody struct {
+			Action string `json:"action"`
+		}
+		_ = json.Unmarshal(parsePayload, &parseBody)
+		return strings.TrimSpace(parseBody.Action) == "replay"
+	}
+	return isMutatingBridgeCommand(parseName)
+}
+
 func isMutatingBridgeCommand(parseName string) bool {
 	switch strings.TrimSpace(parseName) {
-	case "bridge.set-atom", "bridge.set-state", "bridge.mount", "bridge.unmount", "bridge.delete-atom", "bridge.emit", "bridge.publish", "bridge.navigate":
+	case "bridge.set-atom", "bridge.set-state", "bridge.mount", "bridge.unmount", "bridge.delete-atom", "bridge.emit", "bridge.publish", "bridge.navigate",
+		// bridge.undo reverses live atom state and bridge.replay's "replay"
+		// action re-applies recorded updates — both must hold the write lease
+		// so one agent cannot mutate around another's lease.
+		"bridge.undo", "bridge.replay":
 		return true
 	default:
 		return false

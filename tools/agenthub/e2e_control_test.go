@@ -110,6 +110,85 @@ func TestEndToEndDescribeAndWaitForOverWebSocket(t *testing.T) {
 	}
 }
 
+// TestEndToEndUndoAndDescribeFieldsOverWebSocket proves the trustworthy-autonomy
+// additions over a real socket: describe surfaces mountable components and
+// publishable (typed-codec) topics, and a set-atom is fully reversible via
+// bridge.undo — the agent can change live state and cleanly roll it back.
+func TestEndToEndUndoAndDescribeFieldsOverWebSocket(t *testing.T) {
+	parseHub, parseErr := NewAgentHub()
+	if parseErr != nil {
+		t.Fatalf("new hub: %v", parseErr)
+	}
+	parseServer := httptest.NewServer(parseHub)
+	defer parseServer.Close()
+
+	agentbridge.RegisterReadCommands()
+	agentbridge.RegisterWriteCommands()
+	agentbridge.RegisterControlCommands()
+	agentbridge.SetAgentModeActive(true)
+	defer agentbridge.SetAgentModeActive(false)
+
+	// Vocabulary describe should surface: a typed-publishable topic.
+	events.RegisterTopic[string]("undo.saved")
+	if parseSeedErr := state.ApplySnapshot(state.Snapshot{"undo.mode": "view"}); parseSeedErr != nil {
+		t.Fatalf("seed atom: %v", parseSeedErr)
+	}
+
+	parseWSURL := "ws" + strings.TrimPrefix(parseServer.URL, "http") + "/gwc-agent?token=" + parseHub.Token()
+	parseConn, _, parseDialErr := websocket.DefaultDialer.Dial(parseWSURL, nil)
+	if parseDialErr != nil {
+		t.Fatalf("dial hub: %v", parseDialErr)
+	}
+	parseClient := agentbridge.NewBridgeClient("undo-app", "build-1")
+	go parseClient.RunLoop(&gorillaSocket{conn: parseConn})
+	parseSessionID := waitForActiveSession(t, parseHub)
+	postLease(t, parseServer.URL, parseHub.Token(), apiLeaseRequest{Session: parseSessionID, Action: "acquire", Holder: "undo-agent"})
+
+	// describe surfaces the new fields.
+	parseAck := postCommand(t, parseServer.URL, parseHub.Token(), apiCommandRequest{Session: parseSessionID, Name: "bridge.describe"})
+	if parseAck.OK == nil || !*parseAck.OK {
+		t.Fatalf("describe ack not ok: %+v", parseAck.Error)
+	}
+	var parseDesc struct {
+		PublishableTopics []string `json:"publishableTopics"`
+	}
+	if parseDecErr := json.Unmarshal(parseAck.Payload, &parseDesc); parseDecErr != nil {
+		t.Fatalf("decode describe: %v", parseDecErr)
+	}
+	if !contains(parseDesc.PublishableTopics, "undo.saved") {
+		t.Fatalf("describe omitted publishable topic; got %v", parseDesc.PublishableTopics)
+	}
+
+	// set-atom then undo round-trips the value.
+	parseSet := postCommand(t, parseServer.URL, parseHub.Token(), apiCommandRequest{
+		Session: parseSessionID, Name: "bridge.set-atom", LeaseHolder: "undo-agent",
+		Payload: json.RawMessage(`{"id":"undo.mode","value":"edit"}`),
+	})
+	if parseSet.OK == nil || !*parseSet.OK {
+		t.Fatalf("set-atom ack not ok: %+v", parseSet.Error)
+	}
+	parseUndo := postCommand(t, parseServer.URL, parseHub.Token(), apiCommandRequest{Session: parseSessionID, Name: "bridge.undo", LeaseHolder: "undo-agent"})
+	if parseUndo.OK == nil || !*parseUndo.OK {
+		t.Fatalf("undo ack not ok: %+v", parseUndo.Error)
+	}
+	parseSnap, parseSnapErr := state.GetSnapshot()
+	if parseSnapErr != nil {
+		t.Fatalf("read state: %v", parseSnapErr)
+	}
+	if parseGot := parseSnap["undo.mode"]; parseGot != "view" {
+		t.Fatalf("undo did not restore prior value over the wire: got %#v want \"view\"", parseGot)
+	}
+}
+
+func contains(parseList []string, parseWant string) bool {
+	for _, parseItem := range parseList {
+		if parseItem == parseWant {
+			return true
+		}
+	}
+	return false
+}
+
 func describeHasAtom(parseDesc describeResult, parseID string) bool {
 	for _, parseAtom := range parseDesc.Atoms {
 		if parseAtom.ID == parseID {
