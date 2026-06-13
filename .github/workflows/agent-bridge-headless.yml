@@ -64,4 +64,10 @@ jobs:
         run: go run ./tools/gwc test -lane agent -json
 
       - name: Run headless agent bridge dogfood lane
-        run: go test -tags playwrightgo ./test/playwrightgo/examples -run 'TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless' -count=1 -timeout 5m -v
+        run: |
+          while sleep 20; do
+            echo "agent-browser dogfood still running..."
+          done &
+          keepalive_pid="$!"
+          trap 'kill "$keepalive_pid" 2>/dev/null || true' EXIT
+          go test -tags playwrightgo ./test/playwrightgo/examples -run 'TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless' -count=1 -timeout 5m -v
