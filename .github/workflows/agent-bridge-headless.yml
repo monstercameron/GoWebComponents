@@ -64,4 +64,4 @@ jobs:
         run: go run ./tools/gwc test -lane agent -json
 
       - name: Run headless agent bridge dogfood lane
-        run: go run ./tools/gwc test -lane agent-browser -json
+        run: go test -tags playwrightgo ./test/playwrightgo/examples -run 'TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless' -v
