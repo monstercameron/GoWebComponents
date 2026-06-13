@@ -73,6 +73,23 @@
   (diff math) and `playwrightgo` tests that drive real Chromium (input mutates
   the DOM; console/network/dom/eval assert exact captured values); demonstrated
   live end-to-end (click→eval→screenshot-diff on a running window).
+- **Browser-proxy verbs — verify, diagnose, input completeness** — second round
+  of CDP-proxy verbs closing the verify and diagnose loops. **Verify:**
+  `gwc expect` (assert a DOM/page condition — selector/visible/text/count/eval —
+  and return `ok` = whether it holds, so an agent can gate a step) and `gwc wait`
+  (block until a DOM condition holds; the browser counterpart to bridge
+  `wait-for`). **Diagnose:** `gwc trace` (record a replayable Playwright
+  `trace.zip` — DOM snapshots + screenshots + network) and `gwc a11y` (dump the
+  accessibility tree's roles + accessible names via a raw CDP
+  `Accessibility.getFullAXTree` session). **Input completeness:** `gwc select`
+  (`<select>` by value/label), `gwc upload` (file inputs), `gwc drag` (drag one
+  selector onto another) — finishing the set begun with click/type/press/hover/
+  scroll. **Network write side:** `gwc mock` intercepts a `-route` glob and
+  stubs (`-status`/`-body`) or `-abort`s it to exercise error paths. All `-cdp`/
+  `-url`, auto-generated MCP tools, covered by `playwrightgo` tests against real
+  Chromium. Also fixed the `dev_loop_browser_e2e` harness (it now rewrites every
+  relative `replace` directive — including `agenthub` — to an absolute path when
+  copying the livereload module, so that lane passes again).
 - **`events` introspection** — `events/introspect` exposes the live topic/
   subscriber graph for tooling and the agent bridge.
 - **Gesture primitives** (`anim`) — pure pan/drag and pinch primitives tracking
@@ -187,6 +204,23 @@
 - Legacy `gwc` flag aliases (`-main`/`-index`/`-output`) are labeled deprecated
   in help.
 - Bumped `golang.org/x/net` to v0.55.0.
+
+### Performance
+
+- **Runtime inspector flamegraph collection** — `collectFlamegraphFrames` no
+  longer preallocates a fixed 256-frame backing array per call or copies the
+  full ancestor path at every node; it grows the result lazily, reuses one
+  push/pop path stack, and short-circuits at the frame limit. Cuts the
+  representative-scenarios inspector snapshot from ~36 KB to ~5.3 KB per op
+  (−85%) and ~1.9× faster, speeding up every devtools/agent snapshot query.
+- **SSR attribute serialization** — `writeSSRProps`/`serializeProps`/
+  `serializeStyleMap` collect attribute keys in a stack-allocated buffer and
+  sort with `slices.Sort` (no `sort.Interface` boxing), removing one heap slice
+  per host element during server-side rendering.
+- **Telemetry redaction** — `redactValue` builds array element paths by string
+  concatenation instead of `fmt.Sprintf`, cutting ~26% of allocations and ~29%
+  of time on the redaction path that runs for every redacted telemetry record;
+  added the package's first benchmark (`BenchmarkRedactValueNestedArrays`).
 
 ### Fixed
 

@@ -360,19 +360,24 @@ plan         inspect (dependency report),             richer multi-symbol impact
              inspect --impact
 scaffold     start (TUI), init, import,               starter expansion coverage
              scaffold --no-input --json
-implement    edit files directly (Go), mutate         broader codemod recipes
+implement    edit files directly (Go), mutate,        broader codemod recipes
+             click/type/press/hover/scroll (drive
+             the running app over CDP)
 build        build, wasm, release                     (build --json envelope)
 verify       test (-lane unit/race/wasm/              single acceptance gate
              hydration/browser/agent/
              agent-browser/release), verify,
              verify --agent, render, probe, bench,
-             lint
+             lint, screenshot + screenshot-diff
+             (visual regression)
 review       lint / review, doctor -audit,            richer fixes-as-data
              check --json
 diagnose     doctor, dev (livereload + doctor-        deeper hydration/commit
              on-failure), dev --agent, observe        trace coverage
              --agent, sessions/snapshot/query,
-             snapshot-diff, test output
+             snapshot-diff, test output, browser
+             (headed window), screenshot, console,
+             network, dom, eval (live CDP proxy)
 migrate      migrate (-apply safe rewrites), mutate   arbitrary-safe ops
 release      release, deploy, prerender/export        (canary rollout)
 observe      observe, observe --agent,                queryable RUM/crash/replay
@@ -411,6 +416,14 @@ Today's commands (one line each)
   publish   publish a live agent-bridge topic event
   navigate  drive live agent-bridge router navigation
   snapshot-diff compare two agent-bridge snapshots by stable ref
+  browser   open a headed (visible) Chromium window on a dev URL (-tags playwrightgo)
+  screenshot capture a PNG of a running app (full page / selector / -cdp attach)
+  screenshot-diff diff two PNGs for visual regression (default build, no browser)
+  click/type/press/hover/scroll  real DOM input over CDP (-tags playwrightgo)
+  console   capture browser console messages + uncaught JS errors over CDP
+  network   capture browser requests/responses/failures over CDP
+  dom       read the real rendered DOM (text/HTML/attrs) for a selector over CDP
+  eval      evaluate read-oriented JS in the live page over CDP (dual-use)
   deploy    package validated release artifacts through deploy adapters
   tailwind  build shared Tailwind CSS + class manifest
   seed      provision local dev identities + fixture data

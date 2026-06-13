@@ -2685,3 +2685,199 @@ table. All green native + js/wasm + gwcagent tag.
     live bridge docs, testing surface docs, and the security/governance page
     now describe the shipped agentic bridge surface and CI lane. Verification:
     `go test ./docs/doclint ./docs/capabilities ./docs/errorcodes -count=1`.
+
+## Agentic browser proxy — completing the DevTools bridge (2026-06-13)
+
+`gwc mcp` has two backends: the in-wasm semantic bridge (state/structure) and a
+Playwright/CDP browser proxy. The proxy shipped `gwc browser` (headed window)
+and `gwc screenshot` (pixels, full-page/selector, `-cdp` attach). It gave the
+agent EYES and a WINDOW but no HANDS, no EARS, and no read beyond the GWC fiber
+tree. These items finish the proxy so an agent can operate AND debug a running
+app, not just describe it. All proxy verbs follow the established pattern:
+`//go:build playwrightgo` real impl + `!playwrightgo` stub envelope, a help
+registry entry (auto-becomes a `gwc_<name>` MCP tool), a `main.go` dispatch
+case, and a `playwrightgo` test that drives real Chromium. `-cdp <endpoint>`
+attaches to the engineer's open `gwc browser` window; otherwise the verb
+launches its own headless Chromium against `-url`.
+
+- [x] **Real browser input (hands): `gwc click` / `gwc type` / `gwc press` /
+  `gwc hover` / `gwc scroll`** - send real input to the live DOM over CDP.
+  `emit` is NOT a substitute: it synthesizes a GWC fiber handler call and only
+  reaches runtime-registered event sources, never the detached render-tree
+  content, third-party widgets, or anything addressed by raw selector/coords.
+  `click -selector <css>` (or `-x/-y` coordinates), `type -selector -text`
+  (Locator.Fill, with `-append` using Type for keystroke fidelity), `press
+  -key <key>` (Keyboard.Press, e.g. `Enter`, `Control+A`), `hover -selector`,
+  `scroll -selector | -x -y` (ScrollIntoViewIfNeeded or mouse wheel). Each
+  emits the standard envelope with the resolved selector + action. Default
+  target is `-cdp` (live window); `-url` launches a throwaway browser.
+  Test for: a playwrightgo test serves a page with a button that mutates the
+  DOM on click and an input that echoes typed text; the test attaches over a
+  debug port, runs click/type/press, and asserts the DOM changed (via the same
+  page's evaluate) — proving real input, not a synthesized handler call.
+
+- [x] **Console + network capture (ears): `gwc console` / `gwc network`** -
+  read the BROWSER's CDP event stream, which `logs` (wasm runtime logs) cannot
+  see. `console` collects `console.*` messages + uncaught JS errors via
+  Page.OnConsole / OnPageError for a `-duration` (default 3s), with optional
+  `-reload` to capture wasm-boot output from a clean load. `network` collects
+  requests/responses/failures via OnRequest/OnResponse/OnRequestFailed for a
+  `-duration`, reporting method/url/status/timing and flagging failures + non-
+  2xx. Both support `-cdp` attach or `-url` launch, emit a JSON array in the
+  envelope, and cap retained entries (log dropped count, never silently
+  truncate). This is what would have NAMED the earlier 404 instantly instead of
+  hand-curling paths.
+  Test for: a playwrightgo test serves a page that logs to console, throws a
+  caught+uncaught error, and fetches one 200 and one 404 URL; `console` returns
+  the messages+error and `network` returns both requests with correct statuses
+  and the 404 flagged as a failure.
+
+- [x] **Visual regression (close the pixel verify-loop): `gwc screenshot-diff`**
+  - diff two PNGs (baseline vs current) since `snapshot-diff` only diffs
+  structure. Pure `image/png` stdlib math, NO browser — ship in the DEFAULT
+  build (not playwrightgo-tagged) so it runs everywhere. Reports dimension
+  mismatch, changed-pixel count + percentage, a configurable per-channel
+  tolerance (`-threshold`), and writes an optional highlighted diff image
+  (`-out`) marking changed pixels. Exit/`ok` reflects whether the diff exceeds
+  `-fail-over` so an agent can gate on it. Pairs with `gwc screenshot` to give
+  capture→baseline→assert.
+  Test for: a unit test synthesizes two in-memory images (identical → 0%
+  changed/ok; one pixel flipped → nonzero count; different dimensions → clean
+  error), asserting the diff image marks exactly the changed region. Runs in
+  the default `go test ./tools/gwc` lane (no chromium).
+
+- [x] **Read beyond the fiber tree: `gwc dom` / `gwc eval`** - `snapshot`/
+  `query` only see the GWC runtime tree. `dom -selector <css>` returns the real
+  rendered element's outerHTML/innerText/attributes via Locator (read-only,
+  safe, the recommended verb). `eval -expr "<js>"` runs read-oriented
+  JavaScript via Page.Evaluate for the cases `dom` can't express (computed
+  style, document state, third-party globals) — clearly labelled dual-use
+  (JS can mutate; it is gated by the same loopback+token surface as the rest of
+  the proxy and excluded from release builds). Both support `-cdp`/`-url` and
+  emit the result (JSON-serialized) in the envelope.
+  Test for: a playwrightgo test serves a page with a known element + a global;
+  `dom -selector` returns its text/attributes and `eval -expr` returns the
+  global's value and a computed style, asserting exact values.
+
+- [x] **Wire all four into the MCP manifest + docs** - confirm each new verb
+  auto-generates its `gwc_<name>` MCP tool (help-registry driven), update the
+  CHANGELOG under the browser-proxy entry, the reference-manual tool catalog,
+  and the AGENTS.md SDLC table (operate/diagnose/verify rows gain input,
+  console/network, screenshot-diff, dom/eval in Today). Add a memory note.
+  Test for: a test asserts the new commands appear in the help/tool registry
+  with non-empty summaries and runnable usage examples (extend whatever test
+  already guards the registry); doc examples smoke-compile.
+
+  - Done (2026-06-13): shipped `gwc click/type/press/hover/scroll` (real CDP
+    input), `gwc console`/`gwc network` (browser console+errors / requests with
+    non-2xx+failure flagging), `gwc dom`/`gwc eval` (real rendered DOM read /
+    read-oriented JS), and `gwc screenshot-diff` (pixel diff, default build).
+    All `-cdp`-attach-or-`-url`-launch, all auto-registered as `gwc_<name>` MCP
+    tools (registry-verified). Shared `openProxyPage` helper. Verification:
+    `go test ./tools/gwc -run TestDiffScreenshots` (diff math, default build)
+    and `go test -tags playwrightgo ./tools/gwc -run 'TestInputMechanics|TestConsoleCapture|TestNetworkCapture|TestDomRead|TestEvalLaunch|TestProxyVerbsRequireTarget'`
+    (real Chromium). Demonstrated live: dom→click x3→eval(=3)→screenshot-diff.
+    CHANGELOG updated under the browser-proxy entry.
+
+## Agentic browser proxy — verify, diagnose, input completeness (2026-06-13)
+
+Round 2 of the CDP proxy. Round 1 gave eyes/hands/ears/read/diff. These close
+the verify and diagnose loops and finish the input set. Same pattern as the rest
+of the proxy: `//go:build playwrightgo` real impl + `!playwrightgo` stub, help
+registry entry (auto `gwc_<name>` MCP tool), `main.go` dispatch, a test, and
+`-cdp`(attach)/`-url`(launch) targeting via the shared `openProxyPage` helper.
+
+- [x] **`gwc expect` — first-class assertion/gate** - one verb returning clean
+  `ok:true/false` for a condition so an agent can gate a step instead of hand-
+  composing snapshot+wait-for+diff. Conditions over CDP: `-selector` exists,
+  `-visible`, `-text` (page or selector contains), `-count N` (selector match
+  count), `-eval` (JS expression truthy), with `-timeout` to allow the condition
+  to become true. Pairs with screenshot-diff for visual gating.
+  Test for: a playwrightgo test asserts pass for a present/visible element and a
+  truthy eval, and fail (ok:false, not an error) for a missing selector / false
+  eval / absent text.
+
+- [x] **`gwc wait` — browser-side wait** - block until a DOM condition holds
+  over CDP (the browser counterpart to bridge `wait-for`): `-selector` with
+  `-state visible|attached|hidden|detached`, or `-text`, with `-timeout`. Shares
+  the condition evaluator with `expect` (expect = assert-now-with-timeout, wait =
+  block-until). Returns ok + how long it waited.
+  Test for: a playwrightgo test waits for an element a script reveals after a
+  delay and succeeds; waiting for a never-appearing selector times out as
+  ok:false.
+
+- [x] **`gwc trace` — replayable Playwright trace** - record a `trace.zip`
+  (per-action DOM snapshots + screenshots + console/network) over a window for
+  reproducing failures — far better than one-shot console/network. `-out`,
+  `-duration`, `-reload` to capture from a clean load; attach or launch.
+  Test for: a playwrightgo test records a trace of a served page and asserts a
+  non-trivial trace.zip is written (valid zip, non-zero entries).
+
+- [x] **`gwc a11y` — accessibility tree snapshot** - dump the page (or a
+  `-selector` subtree) accessibility tree (roles + names) over CDP, which `dom`
+  (one element's HTML) cannot express — how an agent reasons about UI semantics
+  and how screen-reader correctness is checked.
+  Test for: a playwrightgo test serves a page with a labelled button + heading
+  and asserts the snapshot contains their roles and accessible names.
+
+- [x] **Input completeness: `gwc select` / `gwc upload` / `gwc drag`** - finish
+  the input set `click/type/press/hover/scroll` started in round 1. `select`
+  picks `<select>` option(s) by `-value` or `-label` (Locator.SelectOption);
+  `upload` sets file input paths (`-file`, repeatable; Locator.SetInputFiles);
+  `drag` drags `-from` selector onto `-to` selector (Page.DragAndDrop). All over
+  CDP/url.
+  Test for: a playwrightgo test selects an option and asserts the select value
+  changed; uploads a temp file and asserts the input's files length; drags one
+  element onto a dropzone and asserts the drop handler fired (via evaluate).
+
+- [x] **`gwc mock` — network interception** - inject failures/responses so an
+  agent can verify error handling: `-route <glob>` plus `-status`/`-body` (stub
+  a response) or `-abort` (force a network failure), then `-reload` to exercise
+  it; reports which requests were intercepted. Uses Page.Route. Read-side is
+  `gwc network`; this is the write side.
+  Test for: a playwrightgo test routes the page's data fetch to a 500 (or abort)
+  and asserts the page's error path is taken (observable via evaluate/dom).
+
+- [x] **Exercise `gwc rebuild` end-to-end** - confidence gap, not a new tool:
+  actually drive the recompile -> reload -> successor -> state-restore round-trip
+  against a live session at least once, so "compiled hot-swap with state
+  preserved" is verified by running, not by reading. Capture the result.
+  Test for: a scripted run (or a test) that changes a source value, calls
+  rebuild, and confirms the successor session renders the new compiled output
+  with prior agent-set state restored.
+
+- [x] **Fix the dev-loop e2e harness** - the two `TestDevLoopBrowser*` tests
+  fail at `go mod tidy` on the COPIED livereload module because its
+  `replace agenthub => ../agenthub` cannot resolve from the temp dir. Make the
+  harness copy `../agenthub` alongside (and fix the replace path), or vendor the
+  dep for the copy, so the lane actually guards the dev loop again.
+  Test for: `go test -tags playwrightgo ./tools/gwc -run TestDevLoopBrowser`
+  passes (or skips cleanly with a stated reason when chromium is unavailable),
+  no tidy failure.
+
+  - Done (2026-06-13): built+tested `expect`, `wait`, `trace`, `a11y`, `select`,
+    `upload`, `drag`, `mock` (all `-cdp`/`-url`, auto-registered MCP tools, shared
+    openProxyPage). Verification: `go test ./tools/gwc -run TestDiffScreenshots`
+    (default) and `go test -tags playwrightgo ./tools/gwc -run 'TestSelectUploadDrag|TestExpectAndWait|TestA11yTree|TestTraceProducesZip|TestMockIntercepts'`
+    (real Chromium). Dev-loop harness fixed (generic relative-`replace` resolver):
+    `go test -tags playwrightgo ./tools/gwc -run TestDevLoopBrowser` now PASSES
+    (both, exercising hot-reload state preservation).
+  - rebuild FINDING (2026-06-13): drove it against a live session. Phases
+    verified live: snapshot capture (snapshotCaptured=true) and the /__gwc-agent/
+    reload request both work. The round-trip does NOT complete: after the reload
+    request no successor session registers, so wait-for-successor times out and
+    stateRestored=false. Root cause: the agent-bridge wasm client
+    (agentbridge/client_wasm.go) has NO reload-signal handler — it only
+    reconnects on socket drop — so the page never reloads-and-reconnects on a
+    bridge reload. Same in the chat-wizard dogfood client. So "compiled hot-swap
+    with state preserved" is NOT yet verified end-to-end; see new item below.
+
+- [ ] **Wire reload-signal handling into the agent-bridge wasm client** -
+  discovered while exercising `gwc rebuild`. The client must act on the hub's
+  /__gwc-agent/reload signal by reloading the page (location.reload) so a
+  successor session registers and rebuild's snapshot->reload->successor->restore
+  round-trip can complete. Today no client handles it, so rebuild stalls at the
+  successor phase. Add a reload handler in agentbridge/client_wasm.go (and have
+  the demo + dogfood opt in), then re-run the rebuild end-to-end exercise.
+  Test for: a scripted rebuild run where, after the reload, a successor session
+  appears with PredecessorID set and the prior agent-set atom is restored.
