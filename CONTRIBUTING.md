@@ -7,7 +7,7 @@ and tooling). If you are building an app *with* GoWebComponents, start with the
 
 ## Prerequisites
 
-- **Go 1.25+** (`go version`).
+- **Go 1.26+** (`go version`; matches the `go` directive in `go.mod`).
 - A browser with WebAssembly support for the browser test lanes.
 - The `gwc` launcher is run straight from source: `go run ./tools/gwc <cmd>`.
 

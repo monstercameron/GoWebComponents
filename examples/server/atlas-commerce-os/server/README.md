@@ -1,6 +1,6 @@
 # Atlas Server
 
-Go 1.25+ Atlas native server with SSR rendering, hydration bootstrap, and sqlite-backed mutation endpoints.
+Go 1.26+ Atlas native server with SSR rendering, hydration bootstrap, and sqlite-backed mutation endpoints.
 
 What it does now:
 

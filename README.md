@@ -62,7 +62,7 @@ import (
 
 Requirements:
 
-- Go 1.25+
+- Go 1.26+ (matches the `go` directive in `go.mod`)
 - A browser with WebAssembly support
 
 The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `state`, `fetch`, `flags`, `router`, `devtools`, and `hotreload`.
@@ -390,17 +390,42 @@ go test -exec .\tools\go_js_wasm_exec.bat ./internal/platform/jsdom -run ^$ -ben
 
 Release-style wasm comparisons and benchmark reporting are driven through [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md), [docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md](docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md), [docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md](docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md), and [tools/README.md](tools/README.md), especially `gwc build`, `gwc release`, and `gwc bench`.
 
-Latest browser comparison run on 2026-03-16:
+Following the no-drift policy in [docs/BENCHMARKS.md](docs/BENCHMARKS.md), this
+README does not hard-code result figures: the canonical numbers live in the
+checked-in JSON reports and the generated browser report, which cannot silently
+drift from prose. Reproduce the whole-program native + wasm sweep with:
 
-- Core render: `GoWebComponents 59 ms`, `React 42 ms`
-- Core update: `GoWebComponents 67 ms`, `React 33 ms`
-- Content render: `GoWebComponents 65 ms`, `React 35 ms`
-- Content update: `GoWebComponents 67 ms`, `React 32 ms`
-- Clear: `GoWebComponents 66 ms`, `React 33 ms`
-- Deep tree: `GoWebComponents 69 ms`, `React 34 ms`
-- Hooks: `GoWebComponents 62 ms`, `React 33 ms`
+```bash
+go run ./tools/gwc bench            # -> docs/benchmarks/latest.json
+```
 
-Recent measured native runtime improvements include:
+Browser render comparison (Playwright vs a vendored React 19.2.4 baseline):
+
+```bash
+go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkReport -v
+```
+
+That test measures per-scenario DOM-ready and paint-proxy latency and writes a
+full report to `bin/test-results/example-201-browser-benchmark/` (a local
+artifact); the checked-in scoring reference is
+`examples/testing/render-benchmark/score-reference.json`. In the latest local run
+(`2026-06-11`, chromium, React 19.2.4), and as expected for Go/wasm versus
+native-JS React, React leads on raw DOM-ready logic time while the runtime-1 path
+is frequently ahead at the paint-proxy (one-frame) boundary.
+
+Recent verified native-runtime improvements (same-machine before/after on
+`go1.26.3`, `windows/arm64`; see
+[docs/benchmarks/MICROBENCH_REPORT_arm64.md](docs/benchmarks/MICROBENCH_REPORT_arm64.md)
+for the full sweep of 500 benchmarks):
+
+- Inspector snapshot (`collectFlamegraphFrames`): `36,150 B/op` -> `5,348 B/op`
+  (-85%), `~6,900 ns/op` -> `~3,600 ns/op` (~1.9x faster)
+- Telemetry redaction array path (`redactValue`): `4,175 ns/op` -> `2,945 ns/op`
+  (-29%), `65` -> `48 allocs/op`
+- SSR attribute serialization (`writeSSRProps`): `-100 allocs/op` per 100-row
+  server render
+
+Earlier element-construction and subscription passes (historical, prior machine):
 
 - `DivWithComponents4`: `1654 ns/op` -> `736.9 ns/op`
 - `WithComponentsGeneric4`: `1820 ns/op` -> `829.0 ns/op`
@@ -437,7 +462,7 @@ Current repo state as reflected in the codebase:
 - Core runtime lives in `internal/runtime/`
 - Preferred public packages are `ui`, `html`, `html/shorthand`, `state`, `fetch`, `flags`, `router`, `devtools`, and `hotreload`
 - Example and test fixture code now builds through current `ui`/`html` bridge helpers and shorthand sugar instead of older compatibility layers
-- Native `internal/runtime` statement coverage is `100%`
+- Native `internal/runtime` tests pass and report ≈88% statement coverage (reproduce with `go test ./internal/runtime -cover`)
 - Native runtime tests pass with `go test ./internal/runtime`
 - Browser component, integration, and deep-state suites exist under the launcher-owned browser harness
 - Separate js/wasm tests and benchmarks exist for wasm-only runtime and adapter behavior

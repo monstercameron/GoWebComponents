@@ -141,10 +141,10 @@ If you are debugging the framework itself, start here:
 
 ## Current Validation Status
 
-As of 2026-03-14:
+As of 2026-06-13:
 
 - `go test ./internal/runtime` passes
-- Native `internal/runtime` statement coverage is `100%`
+- Native `internal/runtime` statement coverage is ≈88% (`go test ./internal/runtime -cover`)
 - Playwright component, integration, and deep state stress suites pass
 - Separate `js/wasm` tests and benchmarks exist for wasm-only runtime and adapter code
 

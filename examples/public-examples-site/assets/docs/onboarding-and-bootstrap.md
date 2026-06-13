@@ -60,7 +60,7 @@ The current production-shaped reference app is `examples/server/atlas-commerce-o
 
 The current prerequisite baseline is:
 
-- Go 1.25 or newer
+- Go 1.26 or newer
 - Node.js and npm for the example dev server, browser suites, and any repo-local frontend tooling
 - a browser with WebAssembly support that matches the documented support matrix in [BROWSER_SUPPORT.md](browser-support.md)
 
