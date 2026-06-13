@@ -1100,6 +1100,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runSeedCommand(parseL, parseArgs)
 	case "size":
 		return runSizeCommand(parseL, parseArgs)
+	case "screenshot":
+		return runScreenshotCommand(parseL, parseArgs)
 	case "import":
 		return runImportCommand(parseL, parseArgs)
 	case "scaffold":
@@ -1112,7 +1114,7 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runWasmCommand(parseL, parseArgs)
 	case "watch":
 		return runWatchCommand(parseL, parseArgs)
-	case "sessions", "snapshot", "query", "describe", "wait-for", "audit", "undo", "replay", "set-atom", "set-state", "mount", "unmount", "delete-atom", "emit", "publish", "navigate", "logs", "crash-report", "recording", "lease":
+	case "sessions", "snapshot", "query", "describe", "wait-for", "audit", "undo", "replay", "render-tree", "set-atom", "set-state", "mount", "unmount", "delete-atom", "emit", "publish", "navigate", "logs", "crash-report", "recording", "lease":
 		return runLiveBridgeCommand(parseL, parseCommand, parseArgs)
 	case "snapshot-diff":
 		return runSnapshotDiffCommand(parseL, parseArgs)

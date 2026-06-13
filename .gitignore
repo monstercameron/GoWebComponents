@@ -32,6 +32,7 @@ go-compiler-wasm
 go-source
 /public-examples-site
 /static-islands
+/agent-demo
 examples/13-browser-compiler/static/pkg/
 test/benchmark/bin/
 

@@ -18,6 +18,7 @@ func RegisterControlCommands() {
 	RegisterAgentCommand("bridge.wait-for", controlHandleWaitFor)
 	RegisterAgentCommand("bridge.describe", controlHandleDescribe)
 	RegisterReplayCommands()
+	RegisterRenderCommands()
 }
 
 type controlWaitPayload struct {
@@ -177,10 +178,10 @@ func controlHandleDescribe(parsePayload json.RawMessage) (json.RawMessage, *Enve
 	}
 
 	return controlMarshal(controlDescribeResult{
-		StateVersion: parseRt.AgentStateVersion(),
-		Commands:     ListAgentCommands(),
-		Atoms:        parseAtoms,
-		Events:       parseEvents,
+		StateVersion:      parseRt.AgentStateVersion(),
+		Commands:          ListAgentCommands(),
+		Atoms:             parseAtoms,
+		Events:            parseEvents,
 		Routes:            router.RegisteredRoutes(),
 		Mountable:         ListMountComponents(),
 		PublishableTopics: events.RegisteredTopicCodecs(),

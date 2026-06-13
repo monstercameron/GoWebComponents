@@ -264,6 +264,8 @@ func liveBridgeCommandName(parseCommand string) (string, bool) {
 		return "bridge.undo", true
 	case "replay":
 		return "bridge.replay", true
+	case "render-tree":
+		return "bridge.render-tree", true
 	default:
 		return "", false
 	}

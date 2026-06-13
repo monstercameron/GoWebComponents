@@ -221,8 +221,14 @@ func (parseHub *AgentHub) handleAPICommand(parseW http.ResponseWriter, parseR *h
 		return
 	}
 	parseSessionID := strings.TrimSpace(parseReq.Session)
-	if parseSessionID == "" {
-		parseSessionID = parseHub.latestActiveSessionID()
+	// Fall forward to the latest active session when none was given OR the
+	// requested one is no longer active (e.g. the page reloaded into a new
+	// session). This keeps agent commands working across normal reloads instead
+	// of failing against a stale/crashed session id.
+	if parseSessionID == "" || !parseHub.isSessionActive(parseSessionID) {
+		if parseLatest := parseHub.latestActiveSessionID(); parseLatest != "" {
+			parseSessionID = parseLatest
+		}
 	}
 	if parseSessionID == "" {
 		http.Error(parseW, "no active agent session connected", http.StatusConflict)
@@ -450,6 +456,26 @@ func (parseHub *AgentHub) latestActiveSessionID() string {
 		}
 	}
 	return ""
+}
+
+// isSessionActive reports whether the named session is currently connected and
+// active (not crashed/reloading/closed).
+func (parseHub *AgentHub) isSessionActive(parseID string) bool {
+	parseID = strings.TrimSpace(parseID)
+	if parseID == "" {
+		return false
+	}
+	parseHub.mu.Lock()
+	defer parseHub.mu.Unlock()
+	for _, parseSess := range parseHub.sessions {
+		parseSess.mu.Lock()
+		parseMatch := parseSess.ID == parseID && parseSess.State == StateActive
+		parseSess.mu.Unlock()
+		if parseMatch {
+			return true
+		}
+	}
+	return false
 }
 
 func (parseHub *AgentHub) sessionFromRequest(parseR *http.Request) *Session {

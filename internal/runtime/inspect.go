@@ -85,7 +85,10 @@ type FiberSnapshot struct {
 	Path string
 	// AgentRef is the stable key/index-disambiguated ref the agent bridge
 	// resolves back to this node (empty on the root, which is not addressable).
-	AgentRef          string
+	AgentRef string
+	// Text is the full text content for text fibers (empty otherwise). Name
+	// only carries a short preview; Text lets a reader recover the rendered copy.
+	Text              string
 	Kind              string
 	Dirty             bool
 	NeedsUpdate       bool
@@ -272,10 +275,19 @@ func inspectFiberTreeWithPath(parseFiber *Fiber, parsePath []string, parseAgentR
 	parseKind, parseName := describeFiber(parseFiber)
 	parseHooks := inspectHooks(parseFiber.hooks)
 	parseCurrentPath := append(append([]string(nil), parsePath...), parseName)
+	// Text can live in textContent or, before commit, in the nodeValue prop —
+	// read both the way the reconciler does so the rendered copy is recoverable.
+	parseTextContent := parseFiber.textContent
+	if parseTextContent == "" {
+		if parseNodeValue, parseOK := parseFiber.props["nodeValue"].(string); parseOK {
+			parseTextContent = parseNodeValue
+		}
+	}
 	parseNode := &FiberSnapshot{
 		Name:              parseName,
 		Path:              strings.Join(parseCurrentPath, " > "),
 		AgentRef:          parseAgentRef,
+		Text:              parseTextContent,
 		Kind:              parseKind,
 		Dirty:             parseFiber.dirty,
 		NeedsUpdate:       parseFiber.needsUpdate,

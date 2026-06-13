@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"sort"
 	"strings"
 )
 
@@ -14,6 +15,10 @@ type AgentNodeSnapshot struct {
 	Name string `json:"name"`
 	// Kind is "component", "host", "text", "root", etc. from describeFiber.
 	Kind string `json:"kind"`
+	// Text is the full rendered text content for text nodes (empty otherwise),
+	// redacted to "[redacted]" when a redaction policy is active. This lets a
+	// reader recover the actual rendered copy, not just the node structure.
+	Text string `json:"text,omitempty"`
 	// AgentRef is the stable agent ref for this node; empty on the root fiber.
 	AgentRef string `json:"agentRef,omitempty"`
 	// HookCount is the number of hook slots on this fiber.
@@ -52,6 +57,22 @@ type AgentSnapshot struct {
 	// reached and at least one node was omitted. Callers must check this field
 	// rather than inferring truncation from the shape of Root.
 	BudgetApplied bool `json:"budgetApplied,omitempty"`
+	// Detached carries the trees rendered into separate containers via
+	// RenderDetached (agent-injected/mounted content), keyed by their selector.
+	// These live in their own isolated runtimes, so they are NOT part of Root;
+	// including them here lets an agent read injected content it cannot
+	// otherwise see in the global tree.
+	Detached []AgentDetachedRoot `json:"detached,omitempty"`
+}
+
+// AgentDetachedRoot is one isolated, agent-injected tree (e.g. from
+// bridge.render-tree / bridge.mount) and the selector it was rendered into.
+type AgentDetachedRoot struct {
+	// Selector is the container the tree was rendered into.
+	Selector string `json:"selector"`
+	// Root is the budgeted, redacted fiber tree for the detached runtime. Refs
+	// within it are relative to this detached root, scoped to Selector.
+	Root *AgentNodeSnapshot `json:"root,omitempty"`
 }
 
 // AgentQuerySelector carries the optional selector fields recognised by
@@ -119,7 +140,42 @@ func BuildAgentSnapshot(parseRt *Runtime, parseMaxDepth int, parseMaxNodes int) 
 		Root:           parseRoot,
 		TruncatedNodes: parseTotalTruncated,
 		BudgetApplied:  parseTotalTruncated > 0,
+		Detached:       readDetachedRoots(parseMaxDepth, parseMaxNodes, parseRedact),
 	}
+}
+
+// readDetachedRoots snapshots every detached (agent-injected) runtime so its
+// content is readable through the agent bridge. It copies the registry under
+// its mutex, then inspects each runtime separately (each Inspect takes
+// schedulerMu) so the two locks are never held at once.
+func readDetachedRoots(parseMaxDepth int, parseMaxNodes int, parseRedact bool) []AgentDetachedRoot {
+	detachedRuntimeMu.Lock()
+	parseEntries := make([]AgentDetachedRoot, 0, len(detachedRuntimes))
+	parseRuntimes := make(map[string]*Runtime, len(detachedRuntimes))
+	for parseSelector, parseRt := range detachedRuntimes {
+		parseRuntimes[parseSelector] = parseRt
+	}
+	detachedRuntimeMu.Unlock()
+
+	for parseSelector, parseRt := range parseRuntimes {
+		if parseRt == nil {
+			continue
+		}
+		parseInsp := parseRt.Inspect()
+		if parseInsp.Root == nil {
+			continue
+		}
+		parseCounter := &readNodeCounter{limit: parseMaxNodes}
+		parseRoot, _ := readBuildNode(parseInsp.Root, 0, parseMaxDepth, parseCounter, parseRedact)
+		if parseRoot == nil {
+			continue
+		}
+		parseEntries = append(parseEntries, AgentDetachedRoot{Selector: parseSelector, Root: parseRoot})
+	}
+	sort.Slice(parseEntries, func(parseA, parseB int) bool {
+		return parseEntries[parseA].Selector < parseEntries[parseB].Selector
+	})
+	return parseEntries
 }
 
 // readNodeCounter tracks how many nodes have been emitted against an optional
@@ -161,9 +217,14 @@ func readBuildNode(parseFib *FiberSnapshot, parseDepth int, parseMaxDepth int, p
 	}
 
 	parseHooks := readBuildHookPreviews(parseFib.Hooks, parseRedact)
+	parseText := parseFib.Text
+	if parseRedact && parseText != "" {
+		parseText = "[redacted]"
+	}
 	parseNode := &AgentNodeSnapshot{
 		Name:        parseFib.Name,
 		Kind:        parseFib.Kind,
+		Text:        parseText,
 		AgentRef:    parseFib.AgentRef,
 		HookCount:   parseFib.HookCount,
 		Dirty:       parseFib.Dirty,
