@@ -867,7 +867,7 @@ func TestExample100AgentBridgeDogfood(parseT *testing.T) {}
 		if parseCommand != "go" {
 			parseT.Fatalf("expected go command, got %q", parseCommand)
 		}
-		parseExpectedArgs := []string{"test", "-tags", "playwrightgo", "./test/playwrightgo/examples", "-run", "TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless", "-v"}
+		parseExpectedArgs := []string{"test", "-tags", "playwrightgo", "./test/playwrightgo/examples", "-run", "TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless", "-count=1", "-timeout", "5m", "-v"}
 		if !reflect.DeepEqual(parseArgs, parseExpectedArgs) {
 			parseT.Fatalf("expected args %#v, got %#v", parseExpectedArgs, parseArgs)
 		}
