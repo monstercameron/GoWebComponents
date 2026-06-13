@@ -107,6 +107,7 @@ Default server URL:
 - [PUBLIC_NOTES](#public-notes)
 - [RELEASE_READINESS](#release-readiness)
 - [REVIEW_DECISIONS](#review-decisions)
+- [REWRITE_INVARIANTS](#rewrite-invariants)
 - [ROUTE_ARCHITECTURE](#route-architecture)
 - [ROUTE_DATA_NOTES](#route-data-notes)
 - [SCREENSHOT_CHECKLIST](#screenshot-checklist)
@@ -115,6 +116,7 @@ Default server URL:
 - [SEO_NOTES](#seo-notes)
 - [SERVER_ENDPOINT_INTEGRATION_PLAN](#server-endpoint-integration-plan)
 - [SSR_BOOTSTRAP_NOTES](#ssr-bootstrap-notes)
+- [TESTING_OPERATIONS](#testing-operations)
 - [TESTING_STORIES](#testing-stories)
 - [USER_FLOW_RETHINK](#user_flow_rethink)
 - [WAREHOUSE_NOTES](#warehouse-notes)
@@ -2122,6 +2124,7 @@ Until a request-time server exists, migration work can remain documented and man
 - Product hero, dashboard, comment thread, and recovery surfaces now read like product UI rather than framework scaffolding.
 - Reviewer docs now cover persisted settings, direct entry, RTL review, inventory resume, screenshot naming, and release-readiness checks.
 - Milestone-five cleanup now includes explicit review decisions, performance checkpoints, screenshot-backed visual artifacts, and a reviewer-facing demo checklist so the remaining backlog reflects truly unfinished work rather than closed planning questions.
+- Testing operations now include a Windows command matrix, stale-wasm guard, local task grouping, and change-triggered review checklist; rewrite planning now locks route, SSR, bootstrap, cache, derived-state, framework-coverage, performance, shared HTML, accessibility, localization, and recovery invariants before the next route-family pass.
 
 ## Still open
 
@@ -2507,6 +2510,79 @@ Use this file as the release-prep and regression baseline for the current Atlas 
 
 ---
 
+### TESTING_OPERATIONS
+
+# Testing Operations
+
+Use this section as the Windows command matrix and local task grouping for Atlas review. Commands assume PowerShell and the repo root unless a row says otherwise.
+
+## Command Matrix
+
+| Layer | Command | When to run |
+| --- | --- | --- |
+| Shared unit and render helpers | `go test ./examples/server/atlas-commerce-os/shared/...` | Route copy, shell markup helpers, derived state, cache helpers, tokens, seed data, and render primitives. |
+| Server unit and integration | `go test ./examples/server/atlas-commerce-os/server/...` | Route handlers, API handlers, bootstrap payloads, CSRF, auth redirects, persistence rules, and integration flows. |
+| Full Atlas Go package sweep | `go test ./examples/server/atlas-commerce-os/...` | Before handing off any Atlas server, shared, seed, token, or docs-linked behavior change. |
+| Wasm build | `Push-Location .\examples; .\build.ps1 -Example 86-atlas-commerce-os; Pop-Location` | Before any browser assertion, screenshot capture, or manual review after changing client, shared, token, route, or shell code. |
+| Direct wasm build fallback | `(New-Item -ItemType Directory -Path .\bin\examples -Force) > $null; go build -o .\bin\examples\atlas-commerce-os.wasm ./examples/server/atlas-commerce-os/client` | When the example build wrapper is being debugged and the browser bundle still needs to be refreshed. |
+| Atlas browser-flow manifest guard | `go test ./examples/tests/atlas-commerce-os` | Validates the buyer-flow, operator-flow, design-parity, recovery, E2E, helper, and screenshot planning skeletons before executable Playwright specs are promoted. |
+| SSR Playwright suite | `Push-Location .\examples; go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasSSR -v; Pop-Location` | Direct-entry public and internal route coverage on the server-rendered Atlas example. |
+| Cross-browser smoke | `Push-Location .\examples; go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasCrossBrowserSmoke -v; Pop-Location` | Browser-matrix release checks after shell, route, preference, or bootstrap changes. |
+| Atlas startup smoke | `Push-Location .\examples; go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasStartup -v; Pop-Location` | Fast browser startup confirmation when touching server boot or asset loading. |
+| Screenshot refresh review | `go run ./examples/server/atlas-commerce-os/server` plus manual Chromium captures into `examples/server/atlas-commerce-os/docs/screenshots/` | Visual baseline updates for public desktop, internal mobile density, light and dark theme changes. |
+| Manual review run | `go run ./examples/server/atlas-commerce-os/server` then start at `http://127.0.0.1:8096/shop` | Human review of route hierarchy, interaction feel, preference persistence, reduced motion, density, and localized surfaces. |
+
+## Stale Wasm Guard
+
+Browser runs must follow this order whenever client, shared Atlas, token, route rendering, or shell code has changed:
+
+1. Stop any long-running Atlas server that may be serving an older binary.
+2. Rebuild the example wasm with `Push-Location .\examples; .\build.ps1 -Example 86-atlas-commerce-os; Pop-Location`.
+3. Confirm `bin\examples\atlas-commerce-os.wasm` has a fresh modified time after the source edit.
+4. Start the server with `go run ./examples/server/atlas-commerce-os/server`.
+5. Run the targeted Playwright command or manual browser review.
+6. If browser behavior contradicts a recent source change, repeat the rebuild and restart before debugging route logic.
+
+Do not capture screenshots, approve parity, or mark Playwright results as authoritative when the wasm timestamp predates the relevant source edit.
+
+## Local Task Groups
+
+- unit: `go test ./examples/server/atlas-commerce-os/shared/...`
+- component or render: `go test ./examples/server/atlas-commerce-os/shared/atlas -run "Render|Panel|Page|Overlay|Table|Comment|Availability"`
+- integration: `go test ./examples/server/atlas-commerce-os/server -run "Integration|Flow|Store|Mutation|Preference|Moderation|Receiving|Transfer"`
+- browser-flow planning: `go test ./examples/tests/atlas-commerce-os`
+- SSR: `Push-Location .\examples; go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasSSR -v; Pop-Location`
+- Playwright browser matrix: `Push-Location .\examples; go test -tags playwrightgo ../test/playwrightgo/examples -run "TestAtlasSSR|TestAtlasCrossBrowserSmoke|TestAtlasStartup" -v; Pop-Location`
+- screenshots: rebuild wasm, restart the server, capture the named routes in `SCREENSHOT_NOTES`, and replace only intentional baseline images
+- manual review prep: reset or reseed local state if needed, rebuild wasm, start the server, disable debug logging unless the review explicitly covers diagnostics, and keep `RELEASE_READINESS` open beside the browser
+
+## Browser Flow Bucket Structure
+
+Atlas browser-flow planning lives in `examples/tests/atlas-commerce-os/` so the future executable suites have one stable map before code lands in the Playwright runner.
+
+| Bucket | Role | Current skeleton |
+| --- | --- | --- |
+| buyer-flow | Public browsing, quote, restock, comment, mobile-nav, recovery, and progressive-enhancement journeys. | `buyer-flow/*.spec.md` plus manifest stories for public navigation, mobile navigation, progressive enhancement, and public design parity. |
+| operator-flow | Internal sign-in, dashboard, products, inventory, warehouses, logistics, moderation, comments, and settings journeys. | `operator-flow/*.spec.md` plus manifest stories for full internal navigation, alert-driven work, full admin session, and internal design parity. |
+| design-parity | Reference checks separated from pure functionality so React-to-GWC drift is reviewed after flows work. | `design-parity/*.spec.md` keyed to `design/homepage_store.tsx` and `design/homepage_warehouse.tsx`. |
+| recovery-edge-cases | Failure and async edge cases shared by public and internal flows. | `recovery-edge-cases/README.md` plus manifest entries for 404, server error, failed write, network interruption, duplicate submit, invalid input state, and async navigation races. |
+| e2e | Acceptance-level tracks mirroring the buyer and operator Playwright buckets. | `e2e/README.md` plus manifest tracks for buyer-flow and operator-flow E2E stories. |
+| screenshots | Capture conventions and named checkpoints used by all browser buckets. | `screenshots/README.md` plus manifest-validated surface, theme, viewport, locale, and checkpoint sets. |
+| helpers | Shared helper contracts for future executable specs. | `helpers/README.md` plus manifest entries for buyer navigation, operator navigation, parity landmarks, screenshot capture, and route-shell stability. |
+
+The manifest guard checks that required buckets, helper contracts, reference design files, screenshot dimensions, run order, failure stories, manual stories, E2E tracks, and per-bucket spec skeletons remain present. It intentionally does not claim executable browser coverage; Playwright implementation work should promote these skeletons without renaming the buckets.
+
+## Change-Triggered Review Checklist
+
+- shared shell primitives: rerun `/shop`, `/shop/frame-desk`, `/warehouses`, `/warehouses/new-jersey-hub`, `/app/dashboard`, `/app/inventory`, `/app/warehouses/new-jersey-hub`, `/app/products`, `/app/receiving`, and `/app/settings`; verify header hierarchy, route summaries, nested outlets, overlays, density, and mobile rail behavior.
+- route loaders: rerun direct entry plus in-app navigation for every changed route family; verify loading, error, retry, revalidation, mutation invalidation, and back or forward navigation.
+- bootstrap payloads: rerun direct entry for `/shop`, `/shop/frame-desk`, `/app/dashboard`, `/app/inventory?warehouse=new-jersey-hub`, `/app/products/frame-desk`, `/app/warehouses/new-jersey-hub/items/frame-desk`, and `/app/settings`; verify metadata, preferences, saved views, route data, CSRF state, and hydration resume.
+- preference logic: rerun settings save, direct entry into inventory and SKU detail, light and dark modes, compact and comfortable density, default warehouse, RTL locale, and cross-tab preference sync.
+- public buyer flows: rerun catalog filter or sort, product quote validation, restock capture, public question submission, warehouse detail, and warehouse-specific availability.
+- internal operator flows: rerun dashboard triage, inventory threshold edit, product edit with unsaved guard, transfer approval or cancelation, receiving discrepancy classification, comment moderation, and settings import or export.
+
+---
+
 ### REVIEW_DECISIONS
 
 # Atlas Commerce OS Review Decisions
@@ -2530,6 +2606,156 @@ This file records the high-level product answers that were originally left as op
 
 - The current visual ambition is high enough for a flagship example as long as reviewer screenshots, motion checks, and responsive polish stay aligned with the public or internal split.
 - Atlas should optimize for flagship-demo quality over maximum feature breadth.
+
+---
+
+### REWRITE_INVARIANTS
+
+# Rewrite Invariants
+
+This section locks the planning rules for the next rewrite pass. A rewritten route may change markup shape and visual polish, but it must preserve these contracts unless the TODO and this section are updated in the same change.
+
+## Route, Copy, Metadata, And Response Invariants
+
+- Public route shapes stay stable: `/`, `/shop`, `/shop/:slug`, `/warehouses`, `/warehouses/:warehouseId`, and `/warehouses/:warehouseId/items/:sku` continue to support direct entry, canonical metadata, recovery states, and route-appropriate buyer copy.
+- Internal route shapes stay stable: `/app`, `/app/dashboard`, `/app/products`, `/app/products/:slug`, `/app/inventory`, `/app/inventory/:sku`, `/app/warehouses`, `/app/warehouses/:warehouseId`, `/app/warehouses/:warehouseId/items/:sku`, `/app/transfers`, `/app/transfers/:id`, `/app/purchase-orders`, `/app/purchase-orders/:id`, `/app/receiving`, `/app/receiving/:id`, `/app/comments`, and `/app/settings`.
+- Public copy must keep the storefront voice focused on warehouse-aware confidence, product fit, promise language, quote or restock follow-up, and moderated buyer questions.
+- Internal copy must keep the operator voice focused on triage, exception handling, inventory posture, replenishment, receiving, transfer balancing, moderation, and settings continuity.
+- Metadata must remain route specific: title, description, canonical path, locale, surface type, recovery intent, and direct-entry route identity must not collapse into generic shell defaults.
+- Server responses must preserve explicit status codes, structured field errors, workflow summaries, CSRF handling for writes, mock-auth redirects for internal HTML entry, and JSON recovery payloads for API callers.
+
+## SSR, Router, Bootstrap, Cache, And Derived-State Rules
+
+- SSR is the first authoritative render for direct entry; hydration resumes that route instead of replacing it with a blank pending shell.
+- Router state owns route identity, params, query strings, nested outlets, direct-entry recovery, and back or forward navigation. UI state must not shadow route state in a way that breaks reload or sharing.
+- Bootstrap payloads carry only the data needed to hydrate the current route, preference snapshot, i18n snapshot, saved views, mock session, CSRF state, and diagnostics metadata.
+- Bootstrap size remains a review gate. Duplicated request payload blobs, large repeated collections, or route data that can be fetched after first paint should be split before release.
+- Cache defaults remain fresh-first for SSR entry and internal operator workflows. Stale-while-revalidate remains limited to secondary, read-mostly public or diagnostic surfaces named in `REVIEW_DECISIONS`.
+- Mutations must declare invalidation targets before merge and must reconcile the visible route through fresh loader or server state after optimistic confirmation.
+- Derived state must stay centralized in shared helpers or atoms for inventory summaries, warehouse pressure, dashboard posture, saved-view context, promise copy, and route badges.
+- Browser storage may assist preference and saved-view resume, but the next SSR bootstrap response remains the source of truth.
+
+## Framework-Coverage Sync Rule
+
+- `FRAMEWORK_COVERAGE` must be reviewed whenever a GoWebComponents primitive lands or changes behavior in a way Atlas could use.
+- A rewrite task that needs state ownership, route loading, form lifecycle, overlays, scheduling, async resources, cache reuse, focus handling, or hydration should evaluate the matching shipped GWC primitive before adding local machinery.
+- If Atlas intentionally defers a relevant primitive, the route task should name the reason and the follow-up condition in the TODO.
+- Before each phase starts, refresh the coverage inventory against actual imports and runtime usage so planning does not rely on aspirational framework surfaces.
+
+## Mandatory First-Pass GWC Primitives
+
+The first rewrite pass should treat these as required evaluation points:
+
+- router history, route loaders, nested layouts, revalidation, and route recovery for any route-family rewrite
+- SSR bootstrap and hydration resume for every public SEO route and every internal direct-entry route
+- shared atoms and derived helpers for shell badges, preference state, inventory posture, warehouse pressure, and route-local workspace summaries
+- form state, validation projection, and workflow result helpers for quote, restock, product edit, threshold, receiving, transfer, moderation, preferences, and saved-view flows
+- overlays, portals, focus trap, focus restore, and toasts for route-preserving confirmations and side sheets
+- async resource and cached resource helpers only where the stale-data policy says the surface is safe to refresh after first paint
+- scheduler or transition helpers for expensive client-only filtering, deferred secondary panels, and non-blocking preference updates
+
+## Performance Budgets And Diagnostics Checkpoints
+
+Each rewritten route family must record these checks in the PR or handoff notes:
+
+| Budget area | First-pass threshold |
+| --- | --- |
+| Direct-entry SSR | meaningful route body, primary heading, shell navigation, and recovery affordance are present in HTML before hydration |
+| Hydration resume | no visible full-route blanking, duplicate shell rendering, or route metadata flicker during resume |
+| Route rerender scope | local form, overlay, preference, or filter interactions do not rebuild unrelated route bands or mounted parent layouts |
+| Bootstrap payload | payload growth is explained when a route adds large collections, repeated objects, or per-item diagnostics |
+| Interaction latency | dense internal filters, saved-view application, overlay open or close, and route revalidation remain responsive enough for repeated operator use |
+| Diagnostics | debug logging stays opt-in, removable, and separated from user-visible state |
+
+## Performance Budget Test Stories
+
+`server/performance_budget_test.go` is the first automated budget gate for Atlas route performance. It keeps the thresholds intentionally coarse so the test catches obvious regressions without pretending to be a lab benchmark.
+
+### Automated bootstrap-size gate
+
+The bootstrap budget smoke covers the highest-risk first-paint routes:
+
+| Surface | Routes |
+| --- | --- |
+| Public | `/`, `/shop`, `/shop/frame-desk`, `/warehouses/new-jersey-hub`, `/warehouses/new-jersey-hub/availability/frame-desk` |
+| Internal | `/app/dashboard`, `/app/inventory`, `/app/products/frame-desk`, `/app/warehouses/new-jersey-hub`, `/app/purchase-orders/po-1042`, `/app/receiving/rcv-illinois-001` |
+
+The warning threshold is `140 KiB` for inline bootstrap payloads. The failing threshold is `220 KiB`. A route that exceeds the warning threshold may still be acceptable, but the handoff must explain why the payload grew and which panel or secondary collection owns the growth.
+
+### Automated loader-latency smoke
+
+The loader-latency smoke exercises the heaviest internal JSON loaders directly through the server test harness:
+
+| Loader family | Endpoint |
+| --- | --- |
+| Dashboard | `/api/app/dashboard` |
+| Inventory | `/api/app/inventory` |
+| Product detail | `/api/app/products/frame-desk` |
+| Warehouse detail | `/api/app/warehouses/new-jersey-hub` |
+| Purchase order detail | `/api/app/purchase-orders/po-1042` |
+| Receiving detail | `/api/app/receiving/rcv-illinois-001` |
+
+The first-pass fail budget is `2s` per local in-memory request. This is deliberately generous; it is meant to catch accidental blocking work, unbounded query expansion, or empty payload regressions before browser checks begin.
+
+### Browser responsiveness checks
+
+Browser review owns the interaction checks that cannot be proven from the server harness alone:
+
+| Story | Route | Interaction | Pass condition |
+| --- | --- | --- | --- |
+| Catalog search | `/shop` | Type three characters, clear, then apply one category or warehouse filter | The catalog shell stays mounted, the input remains editable, and no full-page blank state appears |
+| Internal filtering | `/app/inventory` | Apply a saved view, type in the search field, then change density or sort | The table region updates locally while the shell, nav, and action rail remain stable |
+| Saved-view application | `/app/products` and `/app/inventory` | Apply, rename, export, import, then reset a saved view | The route context survives each operation and validation failures preserve user-entered data |
+| Dense-route sort | `/app/warehouses/new-jersey-hub` | Change item status filters and sort order, then open a SKU detail route | Only the list/detail region changes; the warehouse header and summary band remain readable |
+
+Record these checks beside screenshot or Playwright review notes whenever shared route state, cached resources, filters, saved views, or dense table helpers change.
+
+### Overlay and first-action latency checks
+
+The heaviest internal routes need one representative first-action check before a release signoff:
+
+| Route | First action | Overlay action |
+| --- | --- | --- |
+| `/app/inventory/frame-desk` | Open threshold history | Open and cancel replenishment or threshold editing |
+| `/app/warehouses/new-jersey-hub/items/frame-desk` | Edit a lane field | Open the warehouse-scoped item action panel |
+| `/app/purchase-orders/po-1042` | Approve or hold preview | Open confirmation and cancel |
+| `/app/receiving/rcv-illinois-001` | Classify a discrepancy | Open reconcile confirmation and cancel |
+
+The first visible response should be immediate enough for repeated operator use. If a reviewer can perceive delayed feedback, the route needs a local pending state, transition boundary, or smaller route-local update before the work is marked demo-ready.
+
+### Rerender and diagnostics checks
+
+Atlas review mode should make rerender scope visible without shipping a permanent diagnostics overlay:
+
+- debug logs should distinguish route-shell, header, hero, table, overlay, cached-resource, and mutation-invalidation events when the opt-in debug toggle is enabled
+- filter, sort, mutation, toast, and overlay-only changes should not remount the whole route shell
+- catalog filters, saved views, dense table sorts, and overlay-only actions should update localized panels rather than the public or internal page root
+- cache hits, invalidations, loader timings, and expensive derived-state recomputation should either appear in opt-in logs or be captured in reviewer notes for the changed route family
+- before-and-after review notes for `/shop`, `/app/products`, `/app/inventory`, and `/app/warehouses/:warehouseId` should state whether the route shell, header, hero, and dense table rerendered separately or together
+
+### Low-power review story
+
+Run this story manually when blur layers, gradients, dense tables, mobile spacing, or motion changes:
+
+1. Enable reduced motion in the browser or OS.
+2. Use a narrow viewport and the densest available internal table.
+3. Visit `/shop`, `/app/inventory`, `/app/warehouses/new-jersey-hub`, and `/app/receiving/rcv-illinois-001`.
+4. Confirm hover effects have keyboard equivalents, blur or gradient layers do not obscure text, overlays remain readable, and table rows can still be scanned without relying on motion.
+5. Capture a note if any visual effect should simplify on low-power hardware or reduced-motion devices.
+
+## Shared HTML Pattern Standard
+
+- Public shell: page-level main landmark, route-specific hero, warehouse-aware proof or promise band, merchandising or availability body, route-local action surface, and recovery copy that returns the buyer to a useful public route.
+- Internal shell: persistent workspace header, route summary strip, dense content region, route-local action rail or side panel, mounted nested outlet where applicable, toast viewport, and keyboard-reachable controls.
+- Lists and tables: visible filter or scope summary, sort controls, stable empty state, pagination or route drill-in affordance, and row actions that do not rely on non-semantic wrappers.
+- Forms: visible labels, helper text, field-level errors, summary-level errors, preserved user input on failed writes, explicit success state, and route revalidation or invalidation after successful writes.
+- Recovery surfaces: status-appropriate heading, route-specific explanation, retry or return action, and preserved shell context for internal routes.
+
+## First Shell Requirements
+
+- Accessibility: each rewritten shell needs one clear page heading, landmark structure, keyboardable primary actions, focus-visible controls, focus restore after overlays, readable table or list semantics, and status messages that do not rely on color alone.
+- Localization: route copy must remain keyed by surface and intent, RTL must keep heading rhythm and control order legible, and locale or direction changes must not invalidate unsaved route-local work.
+- Recovery state: missing records, invalid query params, failed loaders, failed writes, and auth-sensitive internal entry must produce route-appropriate recovery UI instead of blank panels.
 
 ---
 
@@ -2883,6 +3109,17 @@ Capture these reference views once the next visual polish pass lands.
 - keep theme values to `light` or `dark`
 - keep viewport values to `desktop` or `mobile`
 - examples: `atlas-public-product-dark-desktop.png`, `atlas-internal-settings-light-mobile.png`
+
+## Browser-Flow Screenshot Story Map
+
+The browser-flow skeleton in `examples/tests/atlas-commerce-os/screenshots/` expands screenshot review from route-only captures to named flow checkpoints. Future automated captures should use the manifest convention `atlas-<surface>-<route>-<state>-<theme>-<viewport>.png`; existing route-only baseline names remain valid until they are refreshed.
+
+- buyer-flow checkpoints: landing start, catalog browsing, product-detail decision, warehouse availability, and post-submit success.
+- operator-flow checkpoints: dashboard start, product editor, inventory triage, warehouse detail, purchase-order or receiving workflow, and settings persistence.
+- recovery and state checkpoints: empty state, no-results state, recovery page, validation error, success state, and overlay-open state.
+- locale checkpoints: representative French public flow and Arabic internal flow captures for overflow, clipping, and RTL review.
+- design-parity checkpoints: public start, midpoint, and end against `design/homepage_store.tsx`; operator start, midpoint, and end against `design/homepage_warehouse.tsx`.
+- screenshot refresh order: run buyer-flow and operator-flow functionality first, then capture design-parity pairs after core behavior passes.
 
 ---
 

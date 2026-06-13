@@ -76,6 +76,11 @@ func TestAtlasConfirmationDialogRendersWorkflowVariants(parseT *testing.T) {
 	if !strings.Contains(parseTransferMarkup, "Confirm transfer plan") || !strings.Contains(parseTransferMarkup, "Create transfer") {
 		parseT.Fatalf("expected transfer confirmation copy, got %q", parseTransferMarkup)
 	}
+	for _, parseNeedle := range []string{`id="atlas-transfer-confirm-title"`, `id="atlas-transfer-confirm-description"`, `id="atlas-transfer-confirm-confirm"`, "Cancel"} {
+		if !strings.Contains(parseTransferMarkup, parseNeedle) {
+			parseT.Fatalf("expected transfer confirmation markup to contain %q, got %q", parseNeedle, parseTransferMarkup)
+		}
+	}
 
 	parseReceivingMarkup, parseErr := ui.RenderToString(atlasConfirmationDialog(
 		true,
@@ -132,5 +137,19 @@ func TestAtlasDismissibleSheetRendersSideSheet(parseT *testing.T) {
 	}
 	if !strings.Contains(parseMarkup, "Sheet title") || !strings.Contains(parseMarkup, "Sheet description") {
 		parseT.Fatalf("expected side-sheet content in markup, got %q", parseMarkup)
+	}
+	for _, parseNeedle := range []string{`id="atlas-sheet-title"`, `id="atlas-sheet-description"`, `id="atlas-sheet-close"`} {
+		if !strings.Contains(parseMarkup, parseNeedle) {
+			parseT.Fatalf("expected side-sheet markup to contain %q, got %q", parseNeedle, parseMarkup)
+		}
+	}
+}
+
+func TestAtlasOverlayTargetUsesSharedPortalRoot(parseT *testing.T) {
+	parseT.Parallel()
+
+	parseTarget := atlasOverlayTarget()
+	if parseTarget.Selector != "#"+atlasOverlayRootID {
+		parseT.Fatalf("expected shared overlay portal target %q, got %q", "#"+atlasOverlayRootID, parseTarget.Selector)
 	}
 }

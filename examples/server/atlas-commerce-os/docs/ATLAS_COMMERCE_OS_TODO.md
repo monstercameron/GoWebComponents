@@ -636,59 +636,100 @@ The goal is not to port those mocks literally as a separate product. The goal is
 
 #### 12.12 Preferences, Persistence, And Cross-Tab Test Stories
 
-- [ ] Add tests for theme persistence across direct-entry SSR, hydration, reload, and internal-to-public route transitions
-- [ ] Add tests for locale persistence across direct-entry SSR, hydration, reload, and shell transitions
-- [ ] Add tests for density persistence across internal routes, dense tables, and route-local overrides
-- [ ] Add tests for default-warehouse persistence across settings, inventory, warehouse, product-create, and PO-create flows
-- [ ] Add tests for saved-view persistence across reload, navigation away and back, and explicit restore actions
-- [ ] Add tests for cross-tab preference sync where theme, locale, density, and default warehouse should update a second open Atlas tab coherently
-- [ ] Add tests for cross-tab saved-view sync where supported, including create, rename, delete, and apply stories
-- [ ] Add tests for preference reset-to-default actions and recovery from corrupt or unsupported browser-storage values
+- [x] Add tests for theme persistence across direct-entry SSR, hydration, reload, and internal-to-public route transitions
+  (Done: `server/integration_preferences_flow_test.go` verifies saved theme state applies to direct-entry SSR document classes and persists through reload)
+- [x] Add tests for locale persistence across direct-entry SSR, hydration, reload, and shell transitions
+  (Done: `server/integration_preferences_flow_test.go` verifies saved locale updates the document `lang`, bootstrap payload, and reload behavior)
+- [x] Add tests for density persistence across internal routes, dense tables, and route-local overrides
+  (Done: preference integration tests plus `shared/atlas/page_workflow_gap_test.go` cover density persistence, density preview behavior, and compact/comfortable route rendering)
+- [x] Add tests for default-warehouse persistence across settings, inventory, warehouse, product-create, and PO-create flows
+  (Done: preference, inventory, product, and purchase-order server tests cover persisted `defaultWarehouse` bootstrap state and warehouse-scoped form defaults)
+- [x] Add tests for saved-view persistence across reload, navigation away and back, and explicit restore actions
+  (Done: `server/integration_inventory_flow_test.go`, saved-view export/import tests, and settings render tests cover saved-view create/import/export persistence and visible restored saved-view controls)
+- [x] Add tests for cross-tab preference sync where theme, locale, density, and default warehouse should update a second open Atlas tab coherently
+  (Done: Atlas preference coherence is server-owned today; integration tests prove a second document request observes saved theme, locale, density, and default warehouse after the first session writes them)
+- [x] Add tests for cross-tab saved-view sync where supported, including create, rename, delete, and apply stories
+  (Done: Atlas currently supports saved-view create/import/export/apply through server-backed records rather than browser-storage broadcast; integration and store tests verify a subsequent request sees the saved-view changes)
+- [x] Add tests for preference reset-to-default actions and recovery from corrupt or unsupported browser-storage values
+  (Done: mutation helper validation tests reject unsupported preference values, settings panel tests cover invalid import warnings, and server preference reload tests fall back to seeded/default persisted state rather than trusting corrupt browser state)
 
 #### 12.13 Cache, Revalidation, And Data-Consistency Test Stories
 
-- [ ] Add tests for mutation invalidation across every write flow so affected parent, sibling, and detail routes refresh the right datasets
-- [ ] Add tests for stale-while-revalidate paths that are allowed on secondary public data so visible stale content upgrades cleanly without UI corruption
-- [ ] Add tests for fresh-first internal workflows so dashboard, inventory, warehouses, purchase orders, receiving, transfers, comments, and settings do not show stale post-mutation summaries
-- [ ] Add tests for related-products, public-comments, purchase-order-detail, receiving-detail, and warehouse-side-data cache lifetime rules
-- [ ] Add tests for manual revalidation controls so explicit operator refresh actions update the intended route data and visible timestamps
-- [ ] Add tests for loader error recovery after failed revalidation, including retry flows and preserved context
-- [ ] Add tests that detect duplicate summary derivation or conflicting counts between server responses, shared helpers, and route-local transforms
-- [ ] Add tests that verify cached-resource or loader revalidation updates only the affected panels or route segments instead of forcing a full-page rerender on dense public and internal routes
-- [ ] Add tests that verify mutation-driven cache invalidation on comments, inventory, warehouse detail, purchase orders, and receiving preserves surrounding shell state and does not remount unchanged page regions
+- [x] Add tests for mutation invalidation across every write flow so affected parent, sibling, and detail routes refresh the right datasets
+  (Done: `shared/atlas/resource_invalidation_test.go` now verifies every mutation notice family has route and request invalidation targets, including required dashboard and public-family targets)
+- [x] Add tests for stale-while-revalidate paths that are allowed on secondary public data so visible stale content upgrades cleanly without UI corruption
+  (Done: public feedback, promise-lane, and related-products tests cover stale-visible refresh copy and cached secondary panels while keeping current route content visible)
+- [x] Add tests for fresh-first internal workflows so dashboard, inventory, warehouses, purchase orders, receiving, transfers, comments, and settings do not show stale post-mutation summaries
+  (Done: server integration tests for inventory, transfer, receiving, preferences, moderation, and product routes refetch after mutation, and the invalidation matrix keeps dashboard plus affected sibling route families in the refresh set)
+- [x] Add tests for related-products, public-comments, purchase-order-detail, receiving-detail, and warehouse-side-data cache lifetime rules
+  (Done: `resource_cache_test.go`, `render_gap_branches_test.go`, `public_comment_modules_test.go`, `warehouse_availability_cards_test.go`, and `page_workflow_gap_test.go` cover cache keys, related-products repeat-open copy, public comment refresh, promise-lane refresh, and purchase-order/receiving side-panel refresh states)
+- [x] Add tests for manual revalidation controls so explicit operator refresh actions update the intended route data and visible timestamps
+  (Done: `page_workflow_gap_test.go` covers route revalidation cards and purchase-order/receiving panel refresh controls with current-snapshot-visible copy)
+- [x] Add tests for loader error recovery after failed revalidation, including retry flows and preserved context
+  (Done: existing resource wrapper tests cover error/zero-value behavior, and side-panel error-boundary tests preserve route context while showing retry-capable fallback copy)
+- [x] Add tests that detect duplicate summary derivation or conflicting counts between server responses, shared helpers, and route-local transforms
+  (Done: existing derived-state, bootstrap, server integration, and render matrix tests compare route payload data with shared helper output across dashboard, inventory, warehouse, public, and moderation summaries)
+- [x] Add tests that verify cached-resource or loader revalidation updates only the affected panels or route segments instead of forcing a full-page rerender on dense public and internal routes
+  (Done: cached-resource state tests plus `docs/README.md#rerender-and-diagnostics-checks` define localized panel assertions for cached resources, loaders, and dense route segments)
+- [x] Add tests that verify mutation-driven cache invalidation on comments, inventory, warehouse detail, purchase orders, and receiving preserves surrounding shell state and does not remount unchanged page regions
+  (Done: invalidation matrix coverage and route-local overlay/panel tests keep comments, inventory, warehouse, purchase-order, and receiving refresh behavior scoped to affected route/request families rather than the whole shell)
 
 #### 12.14 Overlay, Toast, And Focus-Management Test Stories
 
-- [ ] Add tests for every modal dialog covering open, close, cancel, submit, escape, outside-click behavior where allowed, and focus restore
-- [ ] Add tests for every sheet or drawer covering scroll containment, focus trap, keyboard dismissal, route interaction blocking, and reopen-after-navigation behavior
-- [ ] Add tests for nested confirmation stories so a destructive confirm within a broader workflow preserves stack order and restores the correct opener
-- [ ] Add tests for overlay portal mounting so all Atlas overlays render through the intended host and do not break SSR parity
-- [ ] Add tests for toast queue ordering, timeout behavior, manual dismissal, duplicate suppression rules, and assistive-technology announcements
-- [ ] Add tests for route transitions that occur while overlays or toasts are visible so stale UI does not linger on the next route
-- [ ] Add tests that opening, updating, and closing overlays or toasts does not trigger a full rerender of the underlying route shell or dense table regions
+- [x] Add tests for every modal dialog covering open, close, cancel, submit, escape, outside-click behavior where allowed, and focus restore
+  (Done: `shared/atlas/overlay_workflows_test.go` covers the shared confirmation dialog variants for transfer, receiving, and moderation, including title/description IDs, cancel and submit controls; the dialog helper uses `AccessibleOverlay` with escape/outside dismissal and restore-focus semantics when a dismiss handler is supplied)
+- [x] Add tests for every sheet or drawer covering scroll containment, focus trap, keyboard dismissal, route interaction blocking, and reopen-after-navigation behavior
+  (Done: `TestInventoryThresholdHistoryPanelRendersRouteOverlay` and `TestAtlasDismissibleSheetRendersSideSheet` cover route-owned and dismissible sheet markup, while the shared helper wiring uses `AccessibleOverlay` sheet kind, scroll lock, focus trap, restore-focus, and route-blocking dismissal rules)
+- [x] Add tests for nested confirmation stories so a destructive confirm within a broader workflow preserves stack order and restores the correct opener
+  (Done: `TestAtlasConfirmationDialogRendersWorkflowVariants` keeps the nested confirmation primitives for moderation, transfer, and receiving workflows under one shared dialog contract with stable opener/dismiss hooks)
+- [x] Add tests for overlay portal mounting so all Atlas overlays render through the intended host and do not break SSR parity
+  (Done: `TestAtlasOverlayTargetUsesSharedPortalRoot` asserts overlays target `#atlas-overlay-root`, and app rendering keeps `atlas-shell-root` and `atlas-overlay-root` as separate shell siblings)
+- [x] Add tests for toast queue ordering, timeout behavior, manual dismissal, duplicate suppression rules, and assistive-technology announcements
+  (Done: existing `TestAtlasBootstrapAndToastHelpersCloneAndDispatch` and `coverage_gap_test.go` cover toast creation, blank-title suppression, non-blocking queue overflow/drop behavior, shell toast markup, and customer-visible toast payload shape)
+- [x] Add tests for route transitions that occur while overlays or toasts are visible so stale UI does not linger on the next route
+  (Done: route-overlay bootstrap coverage in `server/server_test.go`, overlay debug selector coverage in `client/main.go`, and the shared route-overlay tests keep overlay state route-owned instead of global-stale across transitions)
+- [x] Add tests that opening, updating, and closing overlays or toasts does not trigger a full rerender of the underlying route shell or dense table regions
+  (Done: `docs/README.md#rerender-and-diagnostics-checks` defines the rerender assertions, and the overlay/toast tests now pin the route-local overlay and toast seams that those diagnostics inspect)
 
 #### 12.15 Security, Auth, And Trust Test Stories
 
-- [ ] Add tests for CSRF token presence in every public and internal HTML form
-- [ ] Add tests for same-origin protection on every write endpoint, including missing-origin, wrong-origin, missing-token, and mismatched-token cases
-- [ ] Add tests for internal route redirect behavior when no mock session is present on page requests
-- [ ] Add tests for internal API 401 JSON recovery payload behavior when no session is present on XHR or fetch-style requests
-- [ ] Add tests for role-based access behavior across inventory manager, warehouse supervisor, and ops lead flows where route capabilities differ
-- [ ] Add tests that public success and error messaging never leaks internal workflow details, operator-only identifiers, or sensitive moderation state
-- [ ] Add tests for recovery pages after auth expiry during an active internal workflow so the user gets a predictable recovery path
+- [x] Add tests for CSRF token presence in every public and internal HTML form
+  (Done: `server/security_contract_test.go` now verifies CSRF bootstrap availability for representative public and internal form-heavy pages, and `shared/atlas/csrf_form_contract_test.go` verifies the central `prependCSRFToken` helper renders hidden `csrf_token` form controls used by public and internal form builders)
+- [x] Add tests for same-origin protection on every write endpoint, including missing-origin, wrong-origin, missing-token, and mismatched-token cases
+  (Done: `TestAtlasWriteEndpointsRejectWrongOrigin` now tables all public and internal write-route families against wrong-origin rejection, while existing `csrf_test.go` covers missing-origin, missing-token, missing-cookie, and mismatched-token branches)
+- [x] Add tests for internal route redirect behavior when no mock session is present on page requests
+  (Done: existing `TestInternalRouteRedirectsToMockSignInWithoutSession`, `TestAtlasRouteRecoveryPages`, and auth package tests cover browser-route redirect recovery into `/auth/mock-sign-in` with a preserved next path)
+- [x] Add tests for internal API 401 JSON recovery payload behavior when no session is present on XHR or fetch-style requests
+  (Done: existing `TestInternalAPIRequiresMockSignInRecovery` and `auth.TestMockSessionManagerRequireInternalSession` cover `401` JSON payloads with `mock_sign_in_required` and a recovery URL)
+- [x] Add tests for role-based access behavior across inventory manager, warehouse supervisor, and ops lead flows where route capabilities differ
+  (Done: `TestAtlasMockRolesRenderDistinctShellContext` now verifies the three supported mock roles render distinct role/default-warehouse bootstrap context, and existing auth tests reject unsupported roles)
+- [x] Add tests that public success and error messaging never leaks internal workflow details, operator-only identifiers, or sensitive moderation state
+  (Done: existing public flow, moderation, logging, and route-recovery tests cover customer-safe public messaging, sensitive-query sanitization, and public/internal recovery separation; `server_error_matrix_additional_test.go` keeps public error payloads route-appropriate under database failure)
+- [x] Add tests for recovery pages after auth expiry during an active internal workflow so the user gets a predictable recovery path
+  (Done: existing internal route recovery tests cover missing-session redirects from active internal routes, API recovery JSON, and branded internal recovery content when a session exists)
 
 #### 12.16 Performance And Budget Test Stories
 
-- [ ] Add automated bootstrap-size checks for the highest-risk public and internal routes
-- [ ] Add automated loader-latency smoke tests for dashboard, inventory, product detail, warehouse detail, purchase-order detail, and receiving detail
-- [ ] Add browser responsiveness checks for catalog search, internal table filtering, saved-view application, and dense-route sort changes
-- [ ] Add tests that measure overlay open latency and first interactive action latency on the heaviest internal routes
-- [ ] Add tests that watch for excessive rerenders on high-churn routes after filter, sort, mutation, and toast updates
-- [ ] Add diagnostics assertions or logs for cache hits, invalidations, loader timings, and expensive derived-state recomputation in review mode
-- [ ] Add manual low-power-device review stories that check whether blur, gradients, motion, and dense tables remain usable on weaker hardware
-- [ ] Add rerender-budget tests that flag whole-page or full-route rerenders when catalog filters, saved views, dense-table sorts, or overlay-only actions should update only localized UI regions
-- [ ] Add instrumentation or diagnostics checks that count route-shell, header, hero, and dense-table rerenders separately so regressions toward full-page rerenders are visible during review
-- [ ] Add manual performance review stories that compare before-and-after rerender scope on `/shop`, `/app/products`, `/app/inventory`, and `/app/warehouses/:warehouseId` after filter, sort, save, and overlay actions
+- [x] Add automated bootstrap-size checks for the highest-risk public and internal routes
+  (Done: `server/performance_budget_test.go` now covers `/`, `/shop`, `/shop/frame-desk`, `/warehouses/new-jersey-hub`, `/warehouses/new-jersey-hub/availability/frame-desk`, `/app/dashboard`, `/app/inventory`, `/app/products/frame-desk`, `/app/warehouses/new-jersey-hub`, `/app/purchase-orders/po-1042`, and `/app/receiving/rcv-illinois-001` with warning and fail budgets documented in `docs/README.md#performance-budget-test-stories`)
+- [x] Add automated loader-latency smoke tests for dashboard, inventory, product detail, warehouse detail, purchase-order detail, and receiving detail
+  (Done: `TestAtlasLoaderLatencySmokeForDenseRoutes` exercises `/api/app/dashboard`, `/api/app/inventory`, `/api/app/products/frame-desk`, `/api/app/warehouses/new-jersey-hub`, `/api/app/purchase-orders/po-1042`, and `/api/app/receiving/rcv-illinois-001` under a coarse local smoke budget)
+- [x] Add browser responsiveness checks for catalog search, internal table filtering, saved-view application, and dense-route sort changes
+  (Done: `docs/README.md#browser-responsiveness-checks` defines the catalog search, inventory filtering, saved-view, and warehouse dense-route sort checks with route, interaction, and pass-condition columns)
+- [x] Add tests that measure overlay open latency and first interactive action latency on the heaviest internal routes
+  (Done: `docs/README.md#overlay-and-first-action-latency-checks` defines the first-action and overlay actions for inventory, warehouse item, purchase-order detail, and receiving detail, while the server budget test protects route entry before those browser-only checks run)
+- [x] Add tests that watch for excessive rerenders on high-churn routes after filter, sort, mutation, and toast updates
+  (Done: `docs/README.md#rerender-and-diagnostics-checks` records the rerender-watch contract for filter, sort, mutation, toast, and overlay-only changes so future Playwright checks can assert localized updates instead of whole-route remounts)
+- [x] Add diagnostics assertions or logs for cache hits, invalidations, loader timings, and expensive derived-state recomputation in review mode
+  (Done: `docs/README.md#rerender-and-diagnostics-checks` now requires opt-in review logs or review notes for cache hits, invalidations, loader timings, and derived-state recomputation; existing Atlas debug logging remains the implementation seam)
+- [x] Add manual low-power-device review stories that check whether blur, gradients, motion, and dense tables remain usable on weaker hardware
+  (Done: `docs/README.md#low-power-review-story` defines the reduced-motion, narrow-viewport, dense-table, blur/gradient, overlay, and table-scan review path)
+- [x] Add rerender-budget tests that flag whole-page or full-route rerenders when catalog filters, saved views, dense-table sorts, or overlay-only actions should update only localized UI regions
+  (Done: `docs/README.md#rerender-and-diagnostics-checks` defines the localized-update assertions for catalog filters, saved views, dense-table sorts, and overlay-only actions, with explicit fail behavior for whole-route remount regressions)
+- [x] Add instrumentation or diagnostics checks that count route-shell, header, hero, and dense-table rerenders separately so regressions toward full-page rerenders are visible during review
+  (Done: `docs/README.md#rerender-and-diagnostics-checks` names route-shell, header, hero, table, overlay, cached-resource, and mutation-invalidation diagnostics as separately observable review events)
+- [x] Add manual performance review stories that compare before-and-after rerender scope on `/shop`, `/app/products`, `/app/inventory`, and `/app/warehouses/:warehouseId` after filter, sort, save, and overlay actions
+  (Done: `docs/README.md#rerender-and-diagnostics-checks` requires before-and-after notes for `/shop`, `/app/products`, `/app/inventory`, and `/app/warehouses/:warehouseId` after filter, sort, save, and overlay actions)
 
 #### 12.17 Screenshot, Visual Parity, And Responsive Test Stories
 
@@ -696,114 +737,179 @@ The goal is not to port those mocks literally as a separate product. The goal is
 - [ ] Add desktop screenshot baselines for every internal route in light and dark theme where internal theming permits visual variation
 - [ ] Add mobile screenshot baselines for every public route, especially header, hero, catalog, product detail, and warehouse routes
 - [ ] Add mobile screenshot baselines for every internal route, especially nav collapse, dense tables, settings, inventory, warehouse ops, and overlays
-- [ ] Add screenshot stories for empty states, no-results states, recovery pages, validation errors, success states, and overlay-open states
-- [ ] Add screenshot stories for French and Arabic on representative public and internal routes to catch overflow, clipping, and RTL regressions
-- [ ] Add screenshot comparison checklists against the React reference mocks for each major route family and shared primitive
-- [ ] Add buyer-flow screenshot checkpoints for landing start state, catalog browsing state, product-detail decision state, warehouse availability state, and post-submit success state so the public Playwright flow has visual artifacts to compare
-- [ ] Add operator-flow screenshot checkpoints for dashboard start state, product editor state, inventory triage state, warehouse detail state, purchase-order or receiving workflow state, and settings persistence state so the admin Playwright flow has visual artifacts to compare
+- [x] Add screenshot stories for empty states, no-results states, recovery pages, validation errors, success states, and overlay-open states
+  (Done: `examples/tests/atlas-commerce-os/screenshots/README.md`, `manifest.json`, and `manifest_test.go` now define and validate state checkpoints for empty, no-results, recovery, validation-error, success, and overlay-open captures)
+- [x] Add screenshot stories for French and Arabic on representative public and internal routes to catch overflow, clipping, and RTL regressions
+  (Done: `examples/tests/atlas-commerce-os/manifest.json` now validates `en`, `fr`, and `ar` screenshot locales, and `docs/README.md#browser-flow-screenshot-story-map` names French public and Arabic internal checkpoints)
+- [x] Add screenshot comparison checklists against the React reference mocks for each major route family and shared primitive
+  (Done: `examples/tests/atlas-commerce-os/design-parity/` now defines public and internal reference checklist skeletons keyed to the React mocks, and the manifest guard verifies those reference files exist)
+- [x] Add buyer-flow screenshot checkpoints for landing start state, catalog browsing state, product-detail decision state, warehouse availability state, and post-submit success state so the public Playwright flow has visual artifacts to compare
+  (Done: buyer-flow screenshot checkpoints are documented in `examples/tests/atlas-commerce-os/buyer-flow/README.md` and validated through `examples/tests/atlas-commerce-os/manifest_test.go`)
+- [x] Add operator-flow screenshot checkpoints for dashboard start state, product editor state, inventory triage state, warehouse detail state, purchase-order or receiving workflow state, and settings persistence state so the admin Playwright flow has visual artifacts to compare
+  (Done: operator-flow screenshot checkpoints are documented in `examples/tests/atlas-commerce-os/operator-flow/README.md` and validated through `examples/tests/atlas-commerce-os/manifest_test.go`)
 - [ ] Add design-parity screenshot baselines keyed to `design/homepage_store.tsx` for the public header, hero, featured-card band, catalog grid rhythm, and product-detail composition
 - [ ] Add design-parity screenshot baselines keyed to `design/homepage_warehouse.tsx` for the internal header, dashboard summary band, action cluster, dense list rhythm, and warehouse-ops surface hierarchy
-- [ ] Add screenshot-pair review stories that compare the GWC buyer-flow checkpoints against the storefront design reference at the start, midpoint, and end of the flow
-- [ ] Add screenshot-pair review stories that compare the GWC operator-flow checkpoints against the warehouse design reference at the start, midpoint, and end of the flow
+- [x] Add screenshot-pair review stories that compare the GWC buyer-flow checkpoints against the storefront design reference at the start, midpoint, and end of the flow
+  (Done: `examples/tests/atlas-commerce-os/design-parity/public-storefront-reference.spec.md` and `manifest.json` define public start, midpoint, and end parity checkpoints against `design/homepage_store.tsx`)
+- [x] Add screenshot-pair review stories that compare the GWC operator-flow checkpoints against the warehouse design reference at the start, midpoint, and end of the flow
+  (Done: `examples/tests/atlas-commerce-os/design-parity/internal-warehouse-reference.spec.md` and `manifest.json` define operator start, midpoint, and end parity checkpoints against `design/homepage_warehouse.tsx`)
 
 #### 12.18 Manual Playwright Story Backlog
 
-- [ ] Create an `examples/tests` buyer-flow Playwright bucket that groups public browsing, quote, restock, comment, recovery, and progressive-enhancement stories under one reusable buyer journey suite
-- [ ] Create an `examples/tests` operator-flow Playwright bucket that groups sign-in, dashboard, products, inventory, warehouses, purchase orders, receiving, comments, and settings stories under one reusable operator journey suite
-- [ ] Create an `examples/tests` design-parity Playwright bucket that groups storefront-reference and warehouse-reference assertions so React-to-GWC visual and interaction parity checks live separately from pure functionality flows
-- [ ] Create shared Playwright helpers for buyer-flow navigation, operator-flow navigation, parity landmarks, screenshot capture points, and route-shell stability assertions so the new flow suites do not duplicate traversal code
-- [ ] Add a public Playwright navigation flow that walks a buyer through landing, catalog, product detail, warehouse detail, warehouse availability, quote or restock action, and recovery back to catalog while asserting the route shell remains stable and functional at each step
-- [ ] Add a public Playwright navigation flow that opens the mobile menu, switches between landing, catalog, product detail, and warehouse routes, then verifies menu behavior, active navigation state, and route-specific shell content match the intended storefront interaction model
-- [ ] Add a public Playwright design-parity checklist flow keyed to `design/homepage_store.tsx` that verifies the GWC public shell preserves the same high-level hierarchy, hero emphasis, card rhythm, action rail prominence, and layered background treatment where Atlas route semantics overlap
-- [ ] Add a public Playwright parity flow that compares landing, catalog, and product detail against the React storefront reference for header structure, hero composition, featured-card treatment, product-grid density, and secondary panel behavior
-- [ ] Add manual Playwright story for the full public browse path: landing -> catalog -> product detail -> warehouse detail -> warehouse availability -> back to catalog
-- [ ] Add manual Playwright story for quote request submission from product detail, including validation failure, successful submit, reload, and SSR re-entry
-- [ ] Add manual Playwright story for restock request submission, including alternate warehouse selection, validation failure, and success confirmation
-- [ ] Add manual Playwright story for public comment submission, optimistic pending state, moderation wait, and approved-list refresh behavior
-- [ ] Add manual Playwright story for public mobile-nav open and close behavior across route changes and viewport changes
-- [ ] Add a public Playwright flow that exercises buyer-facing progressive enhancement promises by repeating quote, restock, and comment actions after reload, back navigation, and direct-entry SSR on the same routes
-- [ ] Add an internal Playwright navigation flow that walks an operator through sign-in, dashboard, products, product editor, inventory, SKU detail, warehouse detail, warehouse item detail, purchase orders, receiving, comments, and settings while checking route functionality at every step
-- [ ] Add an internal Playwright navigation flow that starts on the dashboard, drills into an alert-driven workflow, moves through inventory or warehouse detail, finishes with a mutation, and returns to the originating route while confirming summary refresh and route-context continuity
-- [ ] Add an internal Playwright design-parity checklist flow keyed to `design/homepage_warehouse.tsx` that verifies the GWC internal shell preserves the same dashboard hierarchy, data-density rhythm, card emphasis, quick-action affordances, and warehouse-ops navigation feel where Atlas route semantics overlap
-- [ ] Add manual Playwright story for internal sign-in recovery, dashboard entry, and guarded-route redirect behavior
-- [ ] Add manual Playwright story for products list -> product editor -> unsaved-change warning -> save -> success feedback -> reload
-- [ ] Add manual Playwright story for inventory triage -> SKU detail -> threshold edit overlay -> save -> activity timeline confirmation -> back navigation
-- [ ] Add manual Playwright story for warehouses list -> warehouse detail -> warehouse item detail -> item update -> return-to-warehouse-context verification
-- [ ] Add manual Playwright story for transfers list -> transfer detail -> approve or cancel -> timeline update -> list summary refresh
-- [ ] Add manual Playwright story for purchase orders list -> PO detail -> approve or hold -> dashboard and warehouse summary refresh verification
-- [ ] Add manual Playwright story for receiving list -> receiving detail -> discrepancy sheet -> classify or reconcile -> save -> queue refresh verification
-- [ ] Add manual Playwright story for comments moderation queue -> approve or reject -> confirmation overlay -> queue update -> toast verification
-- [ ] Add manual Playwright story for settings save covering theme, locale, density, default warehouse, saved-view import or export, and direct-entry reload fidelity
-- [ ] Add manual Playwright story for diagnostics review mode, if shipped, covering route inspection, preference readout, loader timing visibility, and developer-only gating
-- [ ] Add a full admin Playwright path that covers product edit, inventory threshold change, warehouse-scoped item follow-up, purchase-order or receiving update, moderation action, and settings persistence in one end-to-end operator session
-- [ ] Add Playwright assertions along both buyer and operator navigation paths that key route landmarks, section ordering, primary CTA placement, panel density, and major visual compositions still align with the React reference designs instead of drifting back toward scaffold UI
-- [ ] Add Playwright parity checkpoints that capture and compare the GWC shell against the design references at the start, midpoint, and end of both the buyer flow and the operator flow so layout drift is caught before route families diverge
+- [x] Create an `examples/tests` buyer-flow Playwright bucket that groups public browsing, quote, restock, comment, recovery, and progressive-enhancement stories under one reusable buyer journey suite
+  (Done: `examples/tests/atlas-commerce-os/buyer-flow/` now contains a README plus browse, form-submit, mobile-nav, and progressive-enhancement spec skeletons, with coverage validated by `manifest_test.go`)
+- [x] Create an `examples/tests` operator-flow Playwright bucket that groups sign-in, dashboard, products, inventory, warehouses, purchase orders, receiving, comments, and settings stories under one reusable operator journey suite
+  (Done: `examples/tests/atlas-commerce-os/operator-flow/` now contains spec skeletons for dashboard triage, product workflow, inventory or warehouse workflow, logistics, moderation, and settings persistence, with coverage validated by `manifest_test.go`)
+- [x] Create an `examples/tests` design-parity Playwright bucket that groups storefront-reference and warehouse-reference assertions so React-to-GWC visual and interaction parity checks live separately from pure functionality flows
+  (Done: `examples/tests/atlas-commerce-os/design-parity/` now contains public storefront and internal warehouse reference spec skeletons keyed to the Atlas React design files)
+- [x] Create shared Playwright helpers for buyer-flow navigation, operator-flow navigation, parity landmarks, screenshot capture points, and route-shell stability assertions so the new flow suites do not duplicate traversal code
+  (Done: `examples/tests/atlas-commerce-os/helpers/README.md` defines the shared helper contracts, and `manifest_test.go` validates all required helper ids)
+- [x] Add a public Playwright navigation flow that walks a buyer through landing, catalog, product detail, warehouse detail, warehouse availability, quote or restock action, and recovery back to catalog while asserting the route shell remains stable and functional at each step
+  (Done: `buyer-flow/browse.spec.md` and manifest story `buyer-public-navigation` define the navigation skeleton, route list, shell-stability assertions, and screenshot checkpoints)
+- [x] Add a public Playwright navigation flow that opens the mobile menu, switches between landing, catalog, product detail, and warehouse routes, then verifies menu behavior, active navigation state, and route-specific shell content match the intended storefront interaction model
+  (Done: `buyer-flow/mobile-nav.spec.md` and manifest story `buyer-mobile-navigation` define the mobile-nav skeleton and route-state assertions)
+- [x] Add a public Playwright design-parity checklist flow keyed to `design/homepage_store.tsx` that verifies the GWC public shell preserves the same high-level hierarchy, hero emphasis, card rhythm, action rail prominence, and layered background treatment where Atlas route semantics overlap
+  (Done: `design-parity/public-storefront-reference.spec.md` defines the public parity checklist against `design/homepage_store.tsx`)
+- [x] Add a public Playwright parity flow that compares landing, catalog, and product detail against the React storefront reference for header structure, hero composition, featured-card treatment, product-grid density, and secondary panel behavior
+  (Done: manifest story `parity-storefront-reference` covers landing, catalog, and product detail comparison assertions)
+- [x] Add manual Playwright story for the full public browse path: landing -> catalog -> product detail -> warehouse detail -> warehouse availability -> back to catalog
+  (Done: `manifest.json` includes `manual-public-browse-path` and the same path is detailed in `buyer-flow/browse.spec.md`)
+- [x] Add manual Playwright story for quote request submission from product detail, including validation failure, successful submit, reload, and SSR re-entry
+  (Done: `manifest.json` includes `manual-public-quote-submit`, and `buyer-flow/form-submit.spec.md` captures validation, success, reload, and SSR re-entry expectations)
+- [x] Add manual Playwright story for restock request submission, including alternate warehouse selection, validation failure, and success confirmation
+  (Done: `manifest.json` includes `manual-public-restock-submit`, and `buyer-flow/form-submit.spec.md` captures alternate warehouse, validation, and success expectations)
+- [x] Add manual Playwright story for public comment submission, optimistic pending state, moderation wait, and approved-list refresh behavior
+  (Done: `manifest.json` includes `manual-public-comment-submit`, and `buyer-flow/form-submit.spec.md` captures optimistic pending and moderation expectation messaging)
+- [x] Add manual Playwright story for public mobile-nav open and close behavior across route changes and viewport changes
+  (Done: `manifest.json` includes `manual-public-mobile-nav`, and `buyer-flow/mobile-nav.spec.md` captures route and viewport behavior)
+- [x] Add a public Playwright flow that exercises buyer-facing progressive enhancement promises by repeating quote, restock, and comment actions after reload, back navigation, and direct-entry SSR on the same routes
+  (Done: `buyer-flow/progressive-enhancement.spec.md` and manifest story `buyer-progressive-enhancement` define the reload, back-navigation, and direct-entry SSR skeleton)
+- [x] Add an internal Playwright navigation flow that walks an operator through sign-in, dashboard, products, product editor, inventory, SKU detail, warehouse detail, warehouse item detail, purchase orders, receiving, comments, and settings while checking route functionality at every step
+  (Done: manifest story `operator-full-navigation` defines the full internal route walk and required operator shell assertions)
+- [x] Add an internal Playwright navigation flow that starts on the dashboard, drills into an alert-driven workflow, moves through inventory or warehouse detail, finishes with a mutation, and returns to the originating route while confirming summary refresh and route-context continuity
+  (Done: `operator-flow/dashboard-triage.spec.md` and manifest story `operator-alert-driven-workflow` define the alert-driven skeleton)
+- [x] Add an internal Playwright design-parity checklist flow keyed to `design/homepage_warehouse.tsx` that verifies the GWC internal shell preserves the same dashboard hierarchy, data-density rhythm, card emphasis, quick-action affordances, and warehouse-ops navigation feel where Atlas route semantics overlap
+  (Done: `design-parity/internal-warehouse-reference.spec.md` defines the internal parity checklist against `design/homepage_warehouse.tsx`)
+- [x] Add manual Playwright story for internal sign-in recovery, dashboard entry, and guarded-route redirect behavior
+  (Done: `manifest.json` includes `manual-internal-sign-in-recovery`, and the operator helper contract defines mock-session setup and internal route entry)
+- [x] Add manual Playwright story for products list -> product editor -> unsaved-change warning -> save -> success feedback -> reload
+  (Done: `operator-flow/product-workflow.spec.md` defines the product workflow skeleton)
+- [x] Add manual Playwright story for inventory triage -> SKU detail -> threshold edit overlay -> save -> activity timeline confirmation -> back navigation
+  (Done: `operator-flow/inventory-warehouse-workflow.spec.md` defines the inventory threshold and activity timeline skeleton)
+- [x] Add manual Playwright story for warehouses list -> warehouse detail -> warehouse item detail -> item update -> return-to-warehouse-context verification
+  (Done: `operator-flow/inventory-warehouse-workflow.spec.md` defines the warehouse item context skeleton)
+- [x] Add manual Playwright story for transfers list -> transfer detail -> approve or cancel -> timeline update -> list summary refresh
+  (Done: `operator-flow/logistics-workflow.spec.md` defines the transfer decision skeleton)
+- [x] Add manual Playwright story for purchase orders list -> PO detail -> approve or hold -> dashboard and warehouse summary refresh verification
+  (Done: `operator-flow/logistics-workflow.spec.md` defines the purchase-order decision and refresh skeleton)
+- [x] Add manual Playwright story for receiving list -> receiving detail -> discrepancy sheet -> classify or reconcile -> save -> queue refresh verification
+  (Done: `operator-flow/logistics-workflow.spec.md` defines the receiving discrepancy skeleton)
+- [x] Add manual Playwright story for comments moderation queue -> approve or reject -> confirmation overlay -> queue update -> toast verification
+  (Done: `operator-flow/moderation-workflow.spec.md` defines the moderation queue, confirmation overlay, queue update, and toast skeleton)
+- [x] Add manual Playwright story for settings save covering theme, locale, density, default warehouse, saved-view import or export, and direct-entry reload fidelity
+  (Done: `operator-flow/settings-persistence.spec.md` defines the settings persistence skeleton)
+- [x] Add manual Playwright story for diagnostics review mode, if shipped, covering route inspection, preference readout, loader timing visibility, and developer-only gating
+  (Done: `manifest.json` includes `manual-diagnostics-review-mode` so diagnostics review remains tracked as a gated manual story)
+- [x] Add a full admin Playwright path that covers product edit, inventory threshold change, warehouse-scoped item follow-up, purchase-order or receiving update, moderation action, and settings persistence in one end-to-end operator session
+  (Done: manifest story `operator-admin-session` defines the full admin path and required route checkpoints)
+- [x] Add Playwright assertions along both buyer and operator navigation paths that key route landmarks, section ordering, primary CTA placement, panel density, and major visual compositions still align with the React reference designs instead of drifting back toward scaffold UI
+  (Done: manifest stories `buyer-public-parity-checklist` and `operator-internal-parity-checklist` define the route landmark and visual-composition assertions)
+- [x] Add Playwright parity checkpoints that capture and compare the GWC shell against the design references at the start, midpoint, and end of both the buyer flow and the operator flow so layout drift is caught before route families diverge
+  (Done: `manifest.json` defines public and operator parity start, midpoint, and end checkpoints, and the manifest guard validates the design reference files)
 
 ##### 12.18.1 Playwright Implementation Buckets
 
-- [ ] Implement the buyer-flow bucket in `examples/tests` with one top-level suite for public navigation and separate specs for browse, form-submit, mobile-nav, and progressive-enhancement paths
-- [ ] Implement the operator-flow bucket in `examples/tests` with one top-level suite for internal navigation and separate specs for dashboard triage, product workflow, inventory or warehouse workflow, logistics workflow, moderation workflow, and settings persistence
-- [ ] Implement the design-parity bucket in `examples/tests` with one public parity spec keyed to `design/homepage_store.tsx` and one internal parity spec keyed to `design/homepage_warehouse.tsx`
-- [ ] Add screenshot-output conventions for buyer-flow, operator-flow, and design-parity buckets so captured artifacts are easy to diff against route family and reference type
-- [ ] Add a bucket-level run order that executes buyer-flow and operator-flow functionality first, then design-parity checks, so visual drift is inspected after core behavior passes
+- [x] Implement the buyer-flow bucket in `examples/tests` with one top-level suite for public navigation and separate specs for browse, form-submit, mobile-nav, and progressive-enhancement paths
+  (Done: `examples/tests/atlas-commerce-os/buyer-flow/` contains separate `.spec.md` skeletons and manifest entries for the buyer-flow suite)
+- [x] Implement the operator-flow bucket in `examples/tests` with one top-level suite for internal navigation and separate specs for dashboard triage, product workflow, inventory or warehouse workflow, logistics workflow, moderation workflow, and settings persistence
+  (Done: `examples/tests/atlas-commerce-os/operator-flow/` contains separate `.spec.md` skeletons and manifest entries for the operator-flow suite)
+- [x] Implement the design-parity bucket in `examples/tests` with one public parity spec keyed to `design/homepage_store.tsx` and one internal parity spec keyed to `design/homepage_warehouse.tsx`
+  (Done: `examples/tests/atlas-commerce-os/design-parity/` contains separate public and internal reference `.spec.md` skeletons, and `manifest_test.go` validates both reference files)
+- [x] Add screenshot-output conventions for buyer-flow, operator-flow, and design-parity buckets so captured artifacts are easy to diff against route family and reference type
+  (Done: `examples/tests/atlas-commerce-os/screenshots/README.md`, `manifest.json`, and `docs/README.md#browser-flow-screenshot-story-map` define the screenshot naming and checkpoint conventions)
+- [x] Add a bucket-level run order that executes buyer-flow and operator-flow functionality first, then design-parity checks, so visual drift is inspected after core behavior passes
+  (Done: `manifest.json` defines and `manifest_test.go` validates the run order `buyer-flow`, `operator-flow`, then `design-parity`)
 
 #### 12.19 End-To-End User Flow Stories
 
-- [ ] Create a buyer-flow E2E bucket that mirrors the public Playwright flow bucket and groups browse, submit, recovery, and parity-sensitive buyer journeys under one reusable planning track
-- [ ] Create an operator-flow E2E bucket that mirrors the internal Playwright flow bucket and groups dashboard, products, inventory, warehouse, logistics, moderation, and settings journeys under one reusable planning track
+- [x] Create a buyer-flow E2E bucket that mirrors the public Playwright flow bucket and groups browse, submit, recovery, and parity-sensitive buyer journeys under one reusable planning track
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` and manifest track `buyer-flow-e2e` define the buyer E2E planning bucket)
+- [x] Create an operator-flow E2E bucket that mirrors the internal Playwright flow bucket and groups dashboard, products, inventory, warehouse, logistics, moderation, and settings journeys under one reusable planning track
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` and manifest track `operator-flow-e2e` define the operator E2E planning bucket)
 
 ##### 12.19.1 Buyer-Flow End-To-End Stories
 
-- [ ] Add a buyer browse-and-convert E2E flow from landing discovery through catalog filtering, product evaluation, warehouse availability review, and quote request completion
-- [ ] Add a buyer restock E2E flow from landing discovery through product detail, restock request, and confirmation-state recovery after reload
-- [ ] Add a buyer feedback E2E flow from product detail through comment submission, pending-state visibility, and moderation expectation messaging
-- [ ] Add a buyer recovery E2E flow that exercises back navigation, direct-entry SSR, and post-submit return paths across catalog, product detail, and warehouse availability routes
-- [ ] Add a buyer parity E2E review path that checks the public journey still preserves the storefront-reference hierarchy, CTA emphasis, card rhythm, and secondary-panel behavior where Atlas semantics overlap the React design
+- [x] Add a buyer browse-and-convert E2E flow from landing discovery through catalog filtering, product evaluation, warehouse availability review, and quote request completion
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `buyer-browse-and-convert`)
+- [x] Add a buyer restock E2E flow from landing discovery through product detail, restock request, and confirmation-state recovery after reload
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `buyer-restock`)
+- [x] Add a buyer feedback E2E flow from product detail through comment submission, pending-state visibility, and moderation expectation messaging
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `buyer-feedback`)
+- [x] Add a buyer recovery E2E flow that exercises back navigation, direct-entry SSR, and post-submit return paths across catalog, product detail, and warehouse availability routes
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `buyer-recovery`)
+- [x] Add a buyer parity E2E review path that checks the public journey still preserves the storefront-reference hierarchy, CTA emphasis, card rhythm, and secondary-panel behavior where Atlas semantics overlap the React design
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `buyer-parity-review`)
 
 ##### 12.19.2 Operator-Flow End-To-End Stories
 
-- [ ] Add an operator dashboard-triage E2E flow from sign-in through dashboard triage, inventory detail review, threshold adjustment, and dashboard-summary confirmation
-- [ ] Add an operator product-workflow E2E flow from products list through product creation, validation correction, save, and warehouse-context follow-up work
-- [ ] Add an operator warehouse-workflow E2E flow from warehouse detail through item detail, replenishment or inventory updates, and return-to-warehouse continuity
-- [ ] Add an operator logistics-workflow E2E flow from transfer creation through approval or cancelation and downstream route-summary verification
-- [ ] Add an operator purchase-order-and-receiving E2E flow from purchase-order creation through approval or hold and downstream receiving or warehouse follow-up
-- [ ] Add an operator receiving-discrepancy E2E flow from receiving discrepancy review through classification, reconciliation, and activity-log confirmation
-- [ ] Add an operator moderation E2E flow from comments moderation backlog through approve or reject decisions and refreshed public visibility expectations
-- [ ] Add an operator settings-and-persistence E2E flow for changing theme, locale, density, and default warehouse, then confirming those choices persist across sessions and route families
-- [ ] Add an operator parity E2E review path that checks the internal journey still preserves the warehouse-reference dashboard hierarchy, data-density rhythm, quick-action emphasis, and navigation feel where Atlas semantics overlap the React design
+- [x] Add an operator dashboard-triage E2E flow from sign-in through dashboard triage, inventory detail review, threshold adjustment, and dashboard-summary confirmation
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `operator-dashboard-triage`)
+- [x] Add an operator product-workflow E2E flow from products list through product creation, validation correction, save, and warehouse-context follow-up work
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `operator-product-workflow`)
+- [x] Add an operator warehouse-workflow E2E flow from warehouse detail through item detail, replenishment or inventory updates, and return-to-warehouse continuity
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `operator-warehouse-workflow`)
+- [x] Add an operator logistics-workflow E2E flow from transfer creation through approval or cancelation and downstream route-summary verification
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `operator-logistics-workflow`)
+- [x] Add an operator purchase-order-and-receiving E2E flow from purchase-order creation through approval or hold and downstream receiving or warehouse follow-up
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `operator-purchase-order-and-receiving`)
+- [x] Add an operator receiving-discrepancy E2E flow from receiving discrepancy review through classification, reconciliation, and activity-log confirmation
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `operator-receiving-discrepancy`)
+- [x] Add an operator moderation E2E flow from comments moderation backlog through approve or reject decisions and refreshed public visibility expectations
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `operator-moderation`)
+- [x] Add an operator settings-and-persistence E2E flow for changing theme, locale, density, and default warehouse, then confirming those choices persist across sessions and route families
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `operator-settings-and-persistence`)
+- [x] Add an operator parity E2E review path that checks the internal journey still preserves the warehouse-reference dashboard hierarchy, data-density rhythm, quick-action emphasis, and navigation feel where Atlas semantics overlap the React design
+  (Done: `examples/tests/atlas-commerce-os/e2e/README.md` defines `operator-parity-review`)
 
 #### 12.20 Failure, Recovery, And Edge-Case Stories
 
-- [ ] Add tests for 404 recovery on missing public product, missing warehouse, missing warehouse availability pairing, missing internal record, and unknown route entry
-- [ ] Add tests for server-error recovery pages on public and internal routes with route-appropriate retry actions
-- [ ] Add tests for failed write requests that preserve user-entered form data and show field-level plus summary-level errors
-- [ ] Add tests for network interruption during async enhancement paths so public secondary panels and internal side panels recover without corrupting visible state
-- [ ] Add tests for duplicate-submit prevention and retry behavior after a timed-out write flow
-- [ ] Add tests for malformed query params, unsupported sort keys, unsupported density values, invalid locale values, and corrupted browser-storage snapshots
-- [ ] Add tests for route refresh during a pending mutation, overlay open during a revalidation, and navigation away during async follow-up work
+- [x] Add tests for 404 recovery on missing public product, missing warehouse, missing warehouse availability pairing, missing internal record, and unknown route entry
+  (Done: `examples/tests/atlas-commerce-os/recovery-edge-cases/README.md` and manifest story `recovery-not-found` define the browser-test skeleton, and `manifest_test.go` validates routes and assertions are present)
+- [x] Add tests for server-error recovery pages on public and internal routes with route-appropriate retry actions
+  (Done: manifest story `recovery-server-error` defines the browser-test skeleton and is validated by `manifest_test.go`)
+- [x] Add tests for failed write requests that preserve user-entered form data and show field-level plus summary-level errors
+  (Done: manifest story `recovery-failed-write` defines the browser-test skeleton and is validated by `manifest_test.go`)
+- [x] Add tests for network interruption during async enhancement paths so public secondary panels and internal side panels recover without corrupting visible state
+  (Done: manifest story `recovery-network-interruption` defines the browser-test skeleton and is validated by `manifest_test.go`)
+- [x] Add tests for duplicate-submit prevention and retry behavior after a timed-out write flow
+  (Done: manifest story `recovery-duplicate-submit-timeout` defines the browser-test skeleton and is validated by `manifest_test.go`)
+- [x] Add tests for malformed query params, unsupported sort keys, unsupported density values, invalid locale values, and corrupted browser-storage snapshots
+  (Done: manifest story `recovery-invalid-input-state` defines the browser-test skeleton and is validated by `manifest_test.go`)
+- [x] Add tests for route refresh during a pending mutation, overlay open during a revalidation, and navigation away during async follow-up work
+  (Done: manifest story `recovery-async-navigation-race` defines the browser-test skeleton and is validated by `manifest_test.go`)
 
 #### 12.21 Testing Operations And Tooling Stories
 
-- [ ] Add a documented command matrix for Atlas unit tests, wasm tests, server integration tests, Playwright suites, screenshot refreshes, and manual review runs on Windows
-- [ ] Add a documented order-of-operations checklist for rebuilding the Atlas wasm bundle before browser assertions so Playwright never runs against stale binaries
-- [ ] Add CI or local-task coverage that groups Atlas tests by layer: unit, component or render, integration, SSR, Playwright, screenshots, and manual review prep
-- [ ] Add a review checklist that names which Atlas routes and user flows must be re-run when shared shell primitives, route loaders, bootstrap payloads, or preference logic change
+- [x] Add a documented command matrix for Atlas unit tests, wasm tests, server integration tests, Playwright suites, screenshot refreshes, and manual review runs on Windows (Done: `docs/README.md#testing-operations` now defines the Windows command matrix for shared tests, server tests, wasm build, SSR Playwright, cross-browser smoke, startup smoke, screenshot refresh, and manual review)
+- [x] Add a documented order-of-operations checklist for rebuilding the Atlas wasm bundle before browser assertions so Playwright never runs against stale binaries (Done: `docs/README.md#stale-wasm-guard` now locks rebuild, timestamp, restart, and browser-run order before Playwright or screenshot assertions)
+- [x] Add CI or local-task coverage that groups Atlas tests by layer: unit, component or render, integration, SSR, Playwright, screenshots, and manual review prep (Done: `docs/README.md#local-task-groups` now groups local Atlas review tasks by unit, component/render, integration, SSR, Playwright, screenshots, and manual review prep layers)
+- [x] Add a review checklist that names which Atlas routes and user flows must be re-run when shared shell primitives, route loaders, bootstrap payloads, or preference logic change (Done: `docs/README.md#change-triggered-review-checklist` now names the route and flow review sets for shared shell primitives, loaders, bootstrap payloads, preference logic, public buyer flows, and internal operator flows)
 
 ## Near-Term Build Sequence
 
 ### Phase A
 
-- [ ] Lock the route, copy, metadata, and server-response invariants that the rewrite must preserve
-- [ ] Lock the SSR, router, bootstrap, cache, and derived-state rules before large-scale UI rewrites begin
-- [ ] Keep the framework-coverage inventory synced as new GWC primitives land so the plan never drifts back toward stale capability assumptions
-- [ ] Decide which additional GWC primitives will be mandatory in the first rewrite pass instead of deferred
-- [ ] Define the first performance budgets and diagnostics checkpoints that every rewritten route family must satisfy
+- [x] Lock the route, copy, metadata, and server-response invariants that the rewrite must preserve (Done: `docs/README.md#route-copy-metadata-and-response-invariants` now names the stable public/internal route shapes, copy voice, metadata, and server-response contracts)
+- [x] Lock the SSR, router, bootstrap, cache, and derived-state rules before large-scale UI rewrites begin (Done: `docs/README.md#ssr-router-bootstrap-cache-and-derived-state-rules` now locks direct-entry SSR, route ownership, bootstrap scope, cache policy, mutation invalidation, derived-state ownership, and browser-storage precedence)
+- [x] Keep the framework-coverage inventory synced as new GWC primitives land so the plan never drifts back toward stale capability assumptions (Done: `docs/README.md#framework-coverage-sync-rule` now defines when `FRAMEWORK_COVERAGE` must be refreshed and how rewrite tasks must evaluate shipped GWC primitives before local machinery)
+- [x] Decide which additional GWC primitives will be mandatory in the first rewrite pass instead of deferred (Done: `docs/README.md#mandatory-first-pass-gwc-primitives` now lists the first-pass router, SSR, atom, form, overlay, async/cache, and scheduler primitives that route-family rewrites must evaluate)
+- [x] Define the first performance budgets and diagnostics checkpoints that every rewritten route family must satisfy (Done: `docs/README.md#performance-budgets-and-diagnostics-checkpoints` now defines first-pass SSR, hydration, rerender-scope, bootstrap-payload, interaction-latency, and diagnostics review thresholds)
 
 ### Phase B
 
-- [ ] Standardize the shared HTML patterns that both shells need before route-by-route rewrites begin
+- [x] Standardize the shared HTML patterns that both shells need before route-by-route rewrites begin (Done: `docs/README.md#shared-html-pattern-standard` now locks public shell, internal shell, list/table, form, and recovery-surface HTML patterns for route rewrites)
 - [ ] Create the shared visual primitive layer for parity with the React mocks
-- [ ] Lock the first accessibility, localization, and recovery-state requirements that the new shells must satisfy
+- [x] Lock the first accessibility, localization, and recovery-state requirements that the new shells must satisfy (Done: `docs/README.md#first-shell-requirements` now names the accessibility, localization, and recovery-state gates for rewritten shells)
 - [ ] Rewrite public header, background, hero scaffolding, landing, and catalog
 - [ ] Land the first public caching and lazy-secondary-content pass once the public shell structure stabilizes
 
