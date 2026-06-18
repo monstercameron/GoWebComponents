@@ -50,6 +50,8 @@ type WASMDOMAdapter struct {
 	isDocumentBound         bool
 	createElement           js.Value
 	isCreateElementBound    bool
+	createElementNS         js.Value
+	isCreateElementNSBound  bool
 	createTextNode          js.Value
 	isCreateTextNodeBound   bool
 	querySelector           js.Value
@@ -117,6 +119,63 @@ func (parseA *WASMDOMAdapter) getCreateElement() js.Value {
 	parseA.createElement = bindWASMDocumentMethod(parseA.getDocument(), "createElement")
 	parseA.isCreateElementBound = true
 	return parseA.createElement
+}
+
+// svgNamespace is the namespace URI every SVG element must be created under;
+// elements created with document.createElement (the HTML namespace) never paint
+// as SVG, so the reconciler routes SVG tags through createElementNS instead.
+const svgNamespace = "http://www.w3.org/2000/svg"
+
+// svgTagSet lists the SVG-only element names the reconciler may encounter. These
+// names don't collide with HTML elements, so a tag-name lookup unambiguously
+// identifies an SVG node without tracking the parent namespace. (Names also
+// shared with HTML — a, title, script, style, text — are intentionally omitted so
+// HTML usage is never misrouted; inline icon sets don't rely on them.)
+var svgTagSet = map[string]struct{}{
+	"svg": {}, "g": {}, "defs": {}, "use": {}, "symbol": {}, "marker": {},
+	"path": {}, "rect": {}, "circle": {}, "ellipse": {}, "line": {},
+	"polyline": {}, "polygon": {}, "tspan": {}, "clippath": {}, "mask": {},
+	"pattern": {}, "image": {}, "foreignobject": {},
+	"lineargradient": {}, "radialgradient": {}, "stop": {},
+}
+
+// isSVGTag reports whether a tag must be created in the SVG namespace.
+func isSVGTag(parseTag string) bool {
+	_, parseOK := svgTagSet[strings.ToLower(strings.TrimSpace(parseTag))]
+	return parseOK
+}
+
+func (parseA *WASMDOMAdapter) getCreateElementNS() js.Value {
+	if parseA.isCreateElementNSBound && !parseA.createElementNS.IsNull() && !parseA.createElementNS.IsUndefined() {
+		return parseA.createElementNS
+	}
+	parseA.createElementNS = bindWASMDocumentMethod(parseA.getDocument(), "createElementNS")
+	parseA.isCreateElementNSBound = true
+	return parseA.createElementNS
+}
+
+// createHostElement builds one raw DOM element, choosing createElementNS for SVG
+// tags and createElement for everything else. Returns js.Null on failure.
+func (parseA *WASMDOMAdapter) createHostElement(parseTag string) js.Value {
+	if isSVGTag(parseTag) {
+		parseCreateNS := parseA.getCreateElementNS()
+		if !parseCreateNS.IsNull() && !parseCreateNS.IsUndefined() {
+			parseElem := parseCreateNS.Invoke(svgNamespace, parseTag)
+			if !parseElem.IsNull() && !parseElem.IsUndefined() {
+				return parseElem
+			}
+		}
+		// Fall through to createElement if createElementNS is unavailable.
+	}
+	parseCreate := parseA.getCreateElement()
+	if parseCreate.IsNull() || parseCreate.IsUndefined() {
+		return js.Null()
+	}
+	parseElem := parseCreate.Invoke(parseTag)
+	if parseElem.IsNull() || parseElem.IsUndefined() {
+		return js.Null()
+	}
+	return parseElem
 }
 
 func (parseA *WASMDOMAdapter) getCreateTextNode() js.Value {
@@ -193,17 +252,11 @@ func (parseA *WASMDOMAdapter) ensureStoreTemplate() bool {
 }
 
 func (parseA *WASMDOMAdapter) CreateElement(parseTag string) runtime.DOMNode {
-	parseCreateElement := parseA.getCreateElement()
-	if parseCreateElement.IsNull() || parseCreateElement.IsUndefined() {
-		// Document not available - return null node
-		return &WASMDOMNode{value: js.Null()}
-	}
-
-	// Use Invoke on the cached function instead of Call on the document
-	// This saves a property lookup on every call
-	parseElem := parseCreateElement.Invoke(parseTag)
+	// createHostElement picks createElementNS for SVG tags (which never paint when
+	// built in the HTML namespace) and createElement otherwise.
+	parseElem := parseA.createHostElement(parseTag)
 	if parseElem.IsNull() || parseElem.IsUndefined() {
-		// This shouldn't happen, but handle it gracefully
+		// Document not available, or creation failed - return null node
 		return &WASMDOMNode{value: js.Null()}
 	}
 	return &WASMDOMNode{value: parseElem}
@@ -228,6 +281,22 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 	parseCreateElement := parseA.getCreateElement()
 	if parseCreateElement.IsNull() || parseCreateElement.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
+	}
+	// SVG elements must be created in the SVG namespace, and the HTML-string
+	// template fast path below can't produce SVG nodes — build them directly.
+	if isSVGTag(parseTag) {
+		parseElem := parseA.createHostElement(parseTag)
+		if parseElem.IsNull() || parseElem.IsUndefined() {
+			return &WASMDOMNode{value: js.Null()}
+		}
+		getNode := &WASMDOMNode{value: parseElem}
+		if len(parseAttrs) > 0 {
+			parseA.BatchSetAttributes(getNode, buildHostAttrMap(parseAttrs))
+		}
+		if parseText != "" {
+			parseElem.Set("textContent", parseText)
+		}
+		return getNode
 	}
 	if len(parseAttrs) == 0 {
 		parseNode := parseCreateElement.Invoke(parseTag)
