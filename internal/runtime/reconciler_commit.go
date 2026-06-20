@@ -421,6 +421,10 @@ func (parseRt *Runtime) commitRoot() {
 		parseRt.pendingBoundaryRecovery = false
 		parseRt.ScheduleUpdate()
 	}
+
+	// G16: signal "app ready" once the first commit (initial paint + effects) is
+	// done. No-op on every later commit.
+	fireFirstCommitHooks()
 }
 
 // reportMissingKeys is an internal reconciler helper.

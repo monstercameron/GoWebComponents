@@ -3404,6 +3404,30 @@ Verified by symbol against the live tree before any implementation (do NOT re-im
 ALL FIVE CONFIRMED-REAL GAPS NOW DONE (G2, G22, G3, G9, U5). Remaining: re-verify tail items
 (G1 dev-diagnostic, G15 native harness, G16 mount-ready, generic timer/media hooks) — several may
 already be covered (catalog has been ~70% stale), so each needs a verification pass before any work.
-- Re-verify before starting each: G1 (hooks-in-loops — likely still real; consider dev diagnostic),
-  G15 (native test harness), G16 (mount-ready signal), and whether generic `UseTimeout`/`UseInterval`
-  / `UseMediaQuery` are wanted on top of the existing debounce/throttle/preference hooks.
+### TAIL RE-TRIAGE (2026-06-20, iteration 7)
+- **G16 mount-ready signal — DONE (iteration 7).** Was genuinely absent. Added `runtime.OnFirstCommit`
+  (`internal/runtime/ready.go`, fired once at the end of `commitRoot` after the initial paint+effects)
+  + `ui.OnReady(fn)` and, on wasm, an auto-dispatched `gwc:ready` DOM event so a plain host page can
+  drop its splash with no Go glue. Tests: unit `internal/runtime/ready_test.go` (fires once after first
+  commit, no re-fire on later commits, late-register runs immediately, all hooks in order + nil-safe,
+  reset clears state); e2e `test/playwrightgo/ready_signal_e2e_test.go` (real Chromium: `ui.OnReady`
+  Go callback runs AND the host `gwc:ready` listener fires after first commit). Fixture
+  `examples/public/ready-signal/`. Full runtime suite + vet + gofmt + wasm green.
+- **G15 native component test harness — ALREADY COVERED.** `testkit/render` is exactly this: `Render`,
+  a Fixture with `RenderAndQuery`, accessibility queries, input dispatch, rerender, render-count/
+  warning assertions, snapshot HTML, hydration round-trip (the `TestFixture*` tests confirm it).
+  No work needed.
+- **G1 hooks-in-loops diagnostic — DEFERRED (real, but needs a deliberate effort, not a 15-min loop
+  slot).** The detection LOGIC exists (`hot_reload.go` compares per-fiber hook-kind signatures from
+  `recordHookSignature`/`buildComponentSignature` — length + per-index kind mismatch). A dev diagnostic
+  would compare the previous render's signature (alternate fiber) to the current at normal render time
+  and report via the existing diagnostics system. NOT done here because it's a hot-render-path change
+  with real false-positive/perf risk that needs careful design + broad validation to stay "strongly
+  defensible." The structural G1 fix (stable hook identity for keyed lists so MapKeyed children may own
+  hooks) is a larger architectural change, explicitly out of scope. Pick this up as a focused task.
+- **Generic `UseTimeout`/`UseInterval`/`UseMediaQuery` — OPTIONAL, low value.** The existing
+  `UseDebounced`/`UseThrottled` + `UsePrefersReducedMotion`/`UsePrefersColorScheme` cover the common
+  cases; add the generics only on demand.
+
+LOOP STATUS: the CashFlux catalog's genuinely-missing items are now exhausted — 5 confirmed-real gaps
+(G2, G22, G3, G9, U5) + G16 shipped to main; G15 already covered; G1 deferred as a deliberate effort.
