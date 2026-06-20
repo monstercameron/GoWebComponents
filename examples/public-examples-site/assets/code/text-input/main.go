@@ -36,24 +36,24 @@ func TextInputExample() ui.Node {
 		"Compare immediate, debounced, and throttled values from one text field.",
 		shared.ExamplePanel("Input",
 			h.Div(
-				h.Class("space-y-3"),
-				h.Label(h.Class("block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"), "Type something"),
+				h.ClassStr("space-y-3"),
+				h.Label(h.ClassStr("block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400"), "Type something"),
 				h.Input(
 					h.Type("text"),
 					h.Value(parseCurrentText),
 					h.OnInput(handleInput),
-					h.Class("w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none"),
+					h.ClassStr("w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none"),
 					h.Placeholder("Enter text here..."),
 				),
 				h.Div(
-					h.Class("flex flex-wrap gap-2"),
+					h.ClassStr("flex flex-wrap gap-2"),
 					shared.ExampleButton("Clear", clear),
 				),
 			),
 		),
 		shared.ExamplePanel("Output",
 			h.Div(
-				h.Class("grid gap-3 lg:grid-cols-2"),
+				h.ClassStr("grid gap-3 lg:grid-cols-2"),
 				shared.ExampleStat("Immediate", func() string {
 					if parseCurrentText == "" {
 						return "..."
@@ -68,7 +68,7 @@ func TextInputExample() ui.Node {
 				}()),
 			),
 			h.Div(
-				h.Class("grid gap-3 lg:grid-cols-3"),
+				h.ClassStr("grid gap-3 lg:grid-cols-3"),
 				shared.ExampleStat("Chars", fmt.Sprintf("%d", len(parseCurrentText))),
 				shared.ExampleStat("Throttled", fmt.Sprintf("%d", parseThrottledCount.Get())),
 				shared.ExampleStat("Debounce", func() string {

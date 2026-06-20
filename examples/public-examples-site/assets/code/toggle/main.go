@@ -28,9 +28,9 @@ func ToggleExample() ui.Node {
 		"Flip one local boolean and watch the rendered state respond immediately.",
 		shared.ExamplePanel("State",
 			h.Div(
-				h.Class("flex flex-col items-center justify-center gap-4"),
+				h.ClassStr("flex flex-col items-center justify-center gap-4"),
 				h.Div(
-					h.Class(func() string {
+					h.ClassStr(func() string {
 						parseBase := "flex h-24 w-24 items-center justify-center rounded-full border text-3xl font-semibold tracking-[0.18em] transition-all duration-300 "
 						if parseCurrentState {
 							return parseBase + "border-emerald-400/30 bg-emerald-400/10 text-emerald-100"
@@ -45,7 +45,7 @@ func ToggleExample() ui.Node {
 					}),
 				),
 				h.Div(
-					h.Class("grid w-full gap-3 sm:grid-cols-2"),
+					h.ClassStr("grid w-full gap-3 sm:grid-cols-2"),
 					shared.ExampleStat("Signal", func() string {
 						if parseCurrentState {
 							return "Active"
@@ -58,7 +58,7 @@ func ToggleExample() ui.Node {
 		),
 		shared.ExamplePanel("Controls",
 			h.Div(
-				h.Class("flex flex-wrap gap-2"),
+				h.ClassStr("flex flex-wrap gap-2"),
 				shared.ExampleButton(func() string {
 					if parseCurrentState {
 						return "Turn Off"
