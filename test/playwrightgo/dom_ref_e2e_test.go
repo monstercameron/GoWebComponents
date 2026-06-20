@@ -86,26 +86,37 @@ func TestDOMRefE2E(parseT *testing.T) {
 		parseT.Fatalf("wait for #target: %v", parseErr)
 	}
 
-	// The ref resolved to the live input AND Focus() worked → activeElement is it.
+	// UseAutoFocus focused the input on mount → it is document.activeElement.
 	if _, parseErr := parsePage.WaitForFunction(
 		`() => document.activeElement && document.activeElement.id === 'target'`, nil,
 		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(10000)},
 	); parseErr != nil {
-		parseT.Fatalf("ref did not resolve / focus the input: %v", parseErr)
-	}
-	if parseStatus := evalString(parseT, parsePage, `document.getElementById('status').textContent`); parseStatus != "focused" {
-		parseT.Fatalf("expected status 'focused' (ref.Mounted() true on mount), got %q", parseStatus)
+		parseT.Fatalf("UseAutoFocus did not focus the input on mount: %v", parseErr)
 	}
 
-	// Unmount the input — the ref detaches and nothing throws; the field is gone.
+	// Hide it — the ref detaches and the field is gone (no error).
 	if parseErr := parsePage.Click("#toggle"); parseErr != nil {
-		parseT.Fatalf("click toggle: %v", parseErr)
+		parseT.Fatalf("click toggle (hide): %v", parseErr)
 	}
 	if _, parseErr := parsePage.WaitForFunction(
 		`() => document.getElementById('target') === null`, nil,
 		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(10000)},
 	); parseErr != nil {
 		parseT.Fatalf("input not unmounted after toggle: %v", parseErr)
+	}
+
+	// Move focus off, then reveal again — UseAutoFocus re-focuses on reveal.
+	if _, parseErr := parsePage.Evaluate(`() => document.getElementById('toggle').focus()`); parseErr != nil {
+		parseT.Fatalf("focus toggle: %v", parseErr)
+	}
+	if parseErr := parsePage.Click("#toggle"); parseErr != nil {
+		parseT.Fatalf("click toggle (show): %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForFunction(
+		`() => document.activeElement && document.activeElement.id === 'target'`, nil,
+		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(10000)},
+	); parseErr != nil {
+		parseT.Fatalf("UseAutoFocus did not re-focus the input on reveal: %v", parseErr)
 	}
 }
 

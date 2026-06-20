@@ -3345,9 +3345,17 @@ Verified by symbol against the live tree before any implementation (do NOT re-im
    (`ui/preference_hooks_internal_test.go:52`) panics under the **wasm** lane ("GoUseState called
    outside component context") — pre-existing, unrelated to G2 (file untouched). Triage under the
    G20 area: the test calls `UsePrefersReducedMotion` without a component/render context.
-2. [ ] **G22 programmatic focus-on-mount — depends on G2.** `AutoFocus()` should also focus the
-   element on mount (not just emit the attribute), OR provide `UseAutoFocus(ref)`. Replaces the
-   app's focusByID across ~13 screens. Tests incl. e2e activeElement assertion.
+2. [x] **G22 programmatic focus-on-mount — DONE (2026-06-20, iteration 3).** Added
+   `ui.UseAutoFocus(ref, deps...)` (`ui/autofocus.go`): focuses the element once on mount (stable
+   sentinel dep — UseEffect with no deps means *every render*, which would steal focus), or when
+   the supplied deps change (focus-follows-reveal). Replaces the focusByID/getElementById
+   workaround. Focus is cross-build: new `runtime.Focuser` capability, `jsdom.WASMDOMNode.Focus()`
+   (element.focus()), and `ui.DOMRef.Focus()` routes through it (real on wasm, safe no-op on
+   native/SSR/unmounted) — no build tags needed in callers. The HTML `AutoFocus()` attribute stays
+   for initial-page-load; UseAutoFocus is the SPA-mount path. Tests: unit white-box
+   `ui/dom_ref_internal_test.go` (Focus routes to Focuser; nil/zero/unmounted/non-focuser safety;
+   once-sentinel non-empty+stable); e2e `test/playwrightgo/dom_ref_e2e_test.go` (real Chromium:
+   focuses on mount AND re-focuses on reveal after hide/show). Native + vet + gofmt + wasm green.
 3. [ ] **G3 RawHTML / Markup node — ABSENT.** A `RawHTML(s)` node (clearly unsafe; wasm sets
    innerHTML, native SSR emits raw) and/or sanitized `Markup`. New runtime NodeType + domAdapter
    support + SSR serialization. Edge: empty/script payloads, hydration, re-render diffing. Pairs

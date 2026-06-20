@@ -64,3 +64,13 @@ func (parseR DOMRef) Sink() runtime.DOMRefSink {
 	}
 	return parseR.box
 }
+
+// Focus moves keyboard focus to the referenced element if it is mounted and
+// focusable. Cross-build: it routes through the node's optional Focuser
+// capability (real focus on wasm, no-op on native/SSR), so callers need no build
+// tags. Safe to call before mount / after unmount (no-op).
+func (parseR DOMRef) Focus() {
+	if parseFocuser, parseOk := parseR.Node().(runtime.Focuser); parseOk && parseFocuser != nil {
+		parseFocuser.Focus()
+	}
+}

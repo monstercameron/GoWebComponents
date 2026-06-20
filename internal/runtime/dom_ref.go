@@ -21,6 +21,14 @@ type DOMRefSink interface {
 	SetDOMNode(node DOMNode)
 }
 
+// Focuser is the optional capability a DOMNode may implement to move keyboard
+// focus to itself. The wasm node implements it (element.focus()); ui.DOMRef.Focus
+// and ui.UseAutoFocus route through it so they work cross-build (no-op when the
+// node — or the build — does not support focusing).
+type Focuser interface {
+	Focus()
+}
+
 // init registers the ref key so the DOM property differ skips it entirely — the
 // sink is plumbing, never markup. (Mutating propMetaCache here is safe: it runs
 // during package init, before any render goroutine exists.)

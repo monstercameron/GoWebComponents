@@ -13,17 +13,10 @@ import (
 func App() ui.Node {
 	parseShown := ui.UseState(true)
 	parseField := ui.UseDOMRef()
-	parseStatus := ui.UseState("init")
 
-	// On mount, focus the referenced input via the ref's live node, then report
-	// whether the ref resolved — proving placement published the node.
-	ui.UseEffect(func() func() {
-		if parseShown.Get() && parseField.Mounted() {
-			parseField.Focus()
-			parseStatus.Set("focused")
-		}
-		return nil
-	}, parseShown.Get())
+	// G22: focus the referenced input whenever it is (re)shown — on initial mount
+	// and each time it is revealed. No UseId()/getElementById, no autofocus attr.
+	ui.UseAutoFocus(parseField, parseShown.Get())
 
 	parseArgs := []any{
 		FromProps(Props{ID: "app-root"}),
@@ -31,7 +24,6 @@ func App() ui.Node {
 			FromProps(Props{ID: "toggle", Type: "button", OnClick: ui.UseEvent(func() { parseShown.Set(!parseShown.Get()) })}),
 			"toggle",
 		),
-		Span(FromProps(Props{ID: "status"}), parseStatus.Get()),
 	}
 	if parseShown.Get() {
 		parseArgs = append(parseArgs,

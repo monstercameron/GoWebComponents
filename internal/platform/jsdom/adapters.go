@@ -44,6 +44,17 @@ func (parseN *WASMDOMNode) Value() js.Value {
 	return parseN.value
 }
 
+// Focus implements runtime.Focuser by calling the element's focus() method. It is
+// a no-op when the underlying value is absent or not focusable.
+func (parseN *WASMDOMNode) Focus() {
+	if parseN == nil || !parseN.value.Truthy() {
+		return
+	}
+	if parseFn := parseN.value.Get("focus"); parseFn.Type() == js.TypeFunction {
+		parseN.value.Call("focus")
+	}
+}
+
 // WASMDOMAdapter implements runtime.DOMAdapter for browser/WASM.
 type WASMDOMAdapter struct {
 	document                js.Value
