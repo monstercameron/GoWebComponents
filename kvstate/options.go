@@ -1,0 +1,103 @@
+package kvstate
+
+import (
+	"time"
+
+	"github.com/monstercameron/GoWebComponents/db/sqlite"
+)
+
+// Durability selects the db/sqlite persistence backend. Its zero value
+// (DurableDefault) means IndexedDB, so callers who want in-memory state must ask
+// for it explicitly.
+type Durability int
+
+const (
+	// DurableDefault maps to IndexedDB.
+	DurableDefault Durability = iota
+	// DurableMemory keeps state in wasm memory only (lost on reload).
+	DurableMemory
+	// DurableIndexedDB snapshots to IndexedDB (the v1 durable backend).
+	DurableIndexedDB
+	// DurableOPFS is reserved; falls back to IndexedDB in v1.
+	DurableOPFS
+)
+
+func (parseD Durability) toSQLite() sqlite.Persistence {
+	switch parseD {
+	case DurableMemory:
+		return sqlite.Memory
+	case DurableOPFS:
+		return sqlite.OPFS
+	default:
+		return sqlite.IndexedDB
+	}
+}
+
+// HydrateMode controls when a value is loaded from the backend.
+type HydrateMode int
+
+const (
+	// HydrateEager loads the stored value when the binding mounts.
+	HydrateEager HydrateMode = iota
+	// HydrateLazy defers loading until the first read.
+	HydrateLazy
+)
+
+// Options configure a persisted binding. Any zero field takes its default, so
+// the common case needs no Options at all.
+type Options struct {
+	// Name is the logical database name (db/sqlite Options.Name). Default "gwc".
+	Name string
+	// Table is the KV table name. Default "gwc_state".
+	Table string
+	// Codec encodes/decodes values. Default JSONCodec.
+	Codec Codec
+	// Strategy decides when writes become durable. Default Debounced(150ms).
+	Strategy WriteStrategy
+	// Conflict reconciles concurrent/cross-tab writes. Default LastWriteWins.
+	Conflict ConflictResolver
+	// Hydrate controls load timing. Default HydrateEager.
+	Hydrate HydrateMode
+	// Durability selects the SQLite backend. Default DurableDefault (IndexedDB).
+	Durability Durability
+	// Backend overrides the persistence layer entirely. When nil, the shared
+	// SQLite engine is used.
+	Backend PersistenceBackend
+}
+
+func (parseO Options) withDefaults() Options {
+	if parseO.Name == "" {
+		parseO.Name = "gwc"
+	}
+	if parseO.Table == "" {
+		parseO.Table = "gwc_state"
+	}
+	parseO.Table = sanitizeIdent(parseO.Table)
+	if parseO.Codec == nil {
+		parseO.Codec = JSONCodec{}
+	}
+	if parseO.Strategy == nil {
+		parseO.Strategy = Debounced(150 * time.Millisecond)
+	}
+	if parseO.Conflict == nil {
+		parseO.Conflict = LastWriteWins{}
+	}
+	return parseO
+}
+
+// sanitizeIdent keeps a SQL identifier (table name) safe for interpolation.
+func sanitizeIdent(parseName string) string {
+	parseOut := make([]rune, 0, len(parseName))
+	for _, parseR := range parseName {
+		switch {
+		case parseR >= 'a' && parseR <= 'z', parseR >= 'A' && parseR <= 'Z', parseR >= '0' && parseR <= '9', parseR == '_':
+			parseOut = append(parseOut, parseR)
+		default:
+			parseOut = append(parseOut, '_')
+		}
+	}
+	if len(parseOut) == 0 {
+		return "gwc_state"
+	}
+	return string(parseOut)
+}

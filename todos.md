@@ -2927,7 +2927,7 @@ strategy interfaces.
   (LastWriteWins/Versioned) + a named registry. Cross-tab via BroadcastChannel
   (`interop.OpenCrossTabChannel`), NOT storage events. See
   `docs/plans/f2-kvstate-design.md`.
-- [ ] **F2.2 Implement state<->SQLite KV binding + config + tests + example** -
+- [x] **F2.2 Implement state<->SQLite KV binding + config + tests + example** -
   IN PROGRESS (2026-06-16, paused). Implemented and building BOTH lanes:
   `engine.go` (shared SQLite engine + `sqliteBackend`), `options.go` (defaults +
   `Durability`), `codec.go` (JSON/CBOR), `strategy.go` (Immediate/Debounced/
@@ -3484,3 +3484,13 @@ Partials left as-is (low value / escape exists): G8 typed-SVG breadth (RawHTMLUn
 G11 SVG var() docs, G24 (portal+rawhtml building blocks present). G7 hash-router already exists
 (router.NewHashRouter); G10 focus-trap already exists (ui.AccessibleOverlay/UseFocusTrap); G17 OnInput
 already takes a plain func; U4 form helpers already in ui/form.go.
+
+### F1/F2 STATE WORK FINISHED + TESTED (2026-06-20)
+Committed the client-side SQLite (db/sqlite) + durable-state KV binding (kvstate) work and tested it.
+- kvstate native tests (kvstate/kvstate_test.go): JSON/CBOR codec round-trips, LastWriteWins +
+  Versioned conflict resolvers, Immediate/Debounced(coalesce+Close-flush)/OnUnload write strategies,
+  the named registry round-trips, and a custom in-memory PersistenceBackend CRUD (proving the
+  extension interface). db/sqlite already carries native + wasm tests.
+- examples/public/sqlite-persistence converted to the typed-CSS standard (dot-imported css/u +
+  shorthand, bare; hoisted button base; Hex/RGBA/Raw for the arbitrary tints/cyan).
+- All green: native tests (kvstate + db/sqlite), vet, gofmt, native + js/wasm builds.
