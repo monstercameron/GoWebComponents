@@ -3356,10 +3356,21 @@ Verified by symbol against the live tree before any implementation (do NOT re-im
    `ui/dom_ref_internal_test.go` (Focus routes to Focuser; nil/zero/unmounted/non-focuser safety;
    once-sentinel non-empty+stable); e2e `test/playwrightgo/dom_ref_e2e_test.go` (real Chromium:
    focuses on mount AND re-focuses on reveal after hide/show). Native + vet + gofmt + wasm green.
-3. [ ] **G3 RawHTML / Markup node — ABSENT.** A `RawHTML(s)` node (clearly unsafe; wasm sets
-   innerHTML, native SSR emits raw) and/or sanitized `Markup`. New runtime NodeType + domAdapter
-   support + SSR serialization. Edge: empty/script payloads, hydration, re-render diffing. Pairs
-   with the F3 `hardenCSS`-style boundary thinking for the sanitized variant.
+3. [x] **G3 RawHTML / Markup node — DONE (2026-06-20, iteration 4).** Implemented WITHOUT an
+   innerHTML sink, respecting the deliberate `TestDOMAdapterHasNoRawHTMLSink` invariant: `html.RawHTML`
+   /`RawHTMLWith`/`RawHTMLUnsafe` (`html/raw_html.go`, re-exported in shorthand) parse a markup string
+   with `golang.org/x/net/html` into the framework's real node tree via the safe Tag/Text
+   constructors — the browser never parses untrusted content as markup. `RawHTML` sanitizes via the
+   existing `sanitize` package (default allowlist: strips script/on*-handlers/javascript:/svg/etc.);
+   `RawHTMLUnsafe` is the clearly-named trusted path that keeps authored SVG (the icon/chart use
+   case), still tree-built. Attribute mapping: class/id to typed fields, style parsed into the Style
+   map (never a bare string into the style differ), the rest through Raw. Markdown previously rendered
+   raw HTML as escaped Text — RawHTML is the primitive that fills it. Tests: unit/integration/edge
+   `html/raw_html_test.go` via SSR render (real nodes, script/handler/js-url stripped, empty/whitespace
+   nil, malformed recovers w/o panic, style→Style map, SVG kept only on the trusted path, nested+attrs);
+   e2e `test/playwrightgo/raw_html_e2e_test.go` (real Chromium: real `<b>`, SVG circle in the SVG
+   namespace, `window.__pwned` undefined = script never executed, no `<script` leak). Fixture
+   `examples/public/raw-html/`. Invariant guard + native + vet + gofmt + wasm all green.
 4. [ ] **G9 global document/window event hook — ABSENT.** `UseDocumentEvent`/`UseWindowEvent`/
    `UseGlobalKey` with effect-scoped `js.Func` lifetime (subsumes G25 idle-activity, helps G13).
    Edge: multiple subscribers, unmount cleanup, capture/passive, typing-suppression helper.
