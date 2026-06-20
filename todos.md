@@ -3417,14 +3417,24 @@ already be covered (catalog has been ~70% stale), so each needs a verification p
   a Fixture with `RenderAndQuery`, accessibility queries, input dispatch, rerender, render-count/
   warning assertions, snapshot HTML, hydration round-trip (the `TestFixture*` tests confirm it).
   No work needed.
-- **G1 hooks-in-loops diagnostic — DEFERRED (real, but needs a deliberate effort, not a 15-min loop
-  slot).** The detection LOGIC exists (`hot_reload.go` compares per-fiber hook-kind signatures from
-  `recordHookSignature`/`buildComponentSignature` — length + per-index kind mismatch). A dev diagnostic
-  would compare the previous render's signature (alternate fiber) to the current at normal render time
-  and report via the existing diagnostics system. NOT done here because it's a hot-render-path change
-  with real false-positive/perf risk that needs careful design + broad validation to stay "strongly
-  defensible." The structural G1 fix (stable hook identity for keyed lists so MapKeyed children may own
-  hooks) is a larger architectural change, explicitly out of scope. Pick this up as a focused task.
+- **G1 hooks-in-loops diagnostic — DONE (2026-06-20, static analyzer).** Chose the zero-runtime-risk
+  form over a hot-render-path change: `tools/hookcheck` is a compile-time `go/ast` analyzer (no
+  x/tools dep, matching the repo's api_compat_guard/changelogcheck convention) that flags any `Use*`
+  hook — including `ui.UseEvent` behind an On* handler — called inside a for/range loop. FuncLit-
+  boundary aware (handler closures don't false-positive), `^Use\p{Lu}` naming so `User`/`Used` aren't
+  flagged, and a `//hookcheck:ignore` suppression directive (trailing same-line vs standalone
+  line-above, distinguished correctly — caught + fixed a bug where a trailing ignore leaked onto the
+  next line). Library `CheckSource`/`CheckDir` + a `cmd/hookcheck` CLI (exit 0 clean / 1 violations /
+  2 error). Tests: unit (hook-in-loop, qualified, UseEvent, clean top-level, extracted-row pattern,
+  funclit reset, hook-in-loop-in-effect, non-hook Use-prefix, nested loops), integration (CheckDir
+  skips testdata + aggregates), edge (3 suppression modes), e2e (builds + runs the binary over a
+  fixture, asserts exit codes + report + ignore). REAL-WORLD: clean on the framework core (ui/html/
+  css/a11y — zero false positives) and found 28 GENUINE violations in example/benchmark code (e.g.
+  calculator/composite-navigation render `OnClick: ui.UseEvent(...)` inside range loops). NB: those 28
+  are pre-existing example-app bugs the analyzer now surfaces; fixing them (extract row components) is
+  separate from shipping the analyzer. FOLLOW-UP: wire `hookcheck` into CI / the gwc verify lane so it
+  gates regressions. The larger structural G1 fix (stable hook identity so MapKeyed children may own
+  hooks) remains a separate architectural item.
 - **Generic `UseTimeout`/`UseInterval`/`UseMediaQuery` — OPTIONAL, low value.** The existing
   `UseDebounced`/`UseThrottled` + `UsePrefersReducedMotion`/`UsePrefersColorScheme` cover the common
   cases; add the generics only on demand.
