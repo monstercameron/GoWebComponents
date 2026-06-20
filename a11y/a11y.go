@@ -185,6 +185,75 @@ func Table(parseProps TableProps) ui.Node {
 	)
 }
 
+// RadioGroupProps configures a headless WAI-ARIA radio group. Mark the chosen
+// option with Item.Selected; Item.Disabled removes it from the tab order.
+type RadioGroupProps struct {
+	ID          string
+	Label       string
+	Orientation string // "horizontal" (default) or "vertical"
+	Items       []Item
+}
+
+// RadioGroup renders a headless radio group following the WAI-ARIA radiogroup
+// pattern: role="radiogroup" wrapping role="radio" options with aria-checked /
+// aria-disabled, and a single roving tab stop (tabindex 0 on the checked radio,
+// or the first enabled one when none is selected; all others tabindex -1). Wire
+// arrow-key navigation with ui.UseCompositeNavigation and reflect the active
+// index back through Item.Selected — so Segmented/Swatch/Toggle controls get
+// correct radiogroup semantics without each reimplementing them.
+func RadioGroup(parseProps RadioGroupProps) ui.Node {
+	parseTabStop := radioGroupTabStop(parseProps.Items)
+	parseRadios := make([]ui.Node, 0, len(parseProps.Items))
+	for parseIndex, parseItem := range parseProps.Items {
+		parseTabIndex := "-1"
+		if parseIndex == parseTabStop {
+			parseTabIndex = "0"
+		}
+		parseRadios = append(parseRadios, html.Tag("div", html.Props{
+			ID:   parseItem.ID,
+			Role: "radio",
+			// tabindex is emitted through Raw because Props.TabIndex==0 is
+			// intentionally omitted by the serializer — which would erase the
+			// roving tab stop. As a string it is always rendered (0 and -1).
+			Raw: map[string]any{"tabindex": parseTabIndex},
+			Aria: map[string]string{
+				"checked":  boolString(parseItem.Selected),
+				"disabled": boolString(parseItem.Disabled),
+			},
+		}, html.Text(parseItem.Label)))
+	}
+	parseOrientation := strings.ToLower(strings.TrimSpace(parseProps.Orientation))
+	if parseOrientation != "vertical" {
+		parseOrientation = "horizontal"
+	}
+	return html.Tag("div", html.Props{
+		ID:   parseProps.ID,
+		Role: "radiogroup",
+		Aria: map[string]string{
+			"label":       parseProps.Label,
+			"orientation": parseOrientation,
+		},
+	}, parseRadios...)
+}
+
+// radioGroupTabStop returns the index of the single tabbable radio: the selected
+// enabled option, else the first enabled option, else -1.
+func radioGroupTabStop(parseItems []Item) int {
+	parseFirstEnabled := -1
+	for parseIndex, parseItem := range parseItems {
+		if parseItem.Disabled {
+			continue
+		}
+		if parseFirstEnabled < 0 {
+			parseFirstEnabled = parseIndex
+		}
+		if parseItem.Selected {
+			return parseIndex
+		}
+	}
+	return parseFirstEnabled
+}
+
 func boolString(parseValue bool) string {
 	if parseValue {
 		return "true"

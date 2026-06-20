@@ -3385,9 +3385,25 @@ Verified by symbol against the live tree before any implementation (do NOT re-im
    increments while mounted, and after unmount+remount a single keypress increments by exactly 1
    (count==2, not 3) PROVING the listener was cleaned up, not leaked. Fixture
    `examples/public/global-events/`. Native + vet + gofmt + wasm green.
-5. [ ] **U5 roving-tabindex / RadioGroup — ABSENT.** `RadioGroup`/`useRovingTabIndex` + `Switch`
-   so segmented/swatch/toggle get correct keyboard a11y once. Edge: wrap-around, disabled items,
-   RTL arrows, selection-follows-focus. e2e keyboard-nav assertions.
+5. [x] **U5 roving-tabindex / RadioGroup — DONE (2026-06-20, iteration 6).** RE-TRIAGE: the
+   roving-tabindex ENGINE already exists as `ui.UseCompositeNavigation` (orientation, Loop wrap,
+   Home/End, disabled-skip, typeahead, one tab stop via `TabIndex(i)`, `ActiveDescendant`) — tested,
+   with an example; the catalog (older GWC) missed it. The genuine gap was a headless RadioGroup
+   contract (a11y had Listbox/Menu/Combobox/Table, no RadioGroup). Added `a11y.RadioGroup`
+   (`a11y/a11y.go`): role=radiogroup wrapping role=radio with aria-checked/aria-disabled and a single
+   roving tab stop (tabindex 0 on the selected radio, else first enabled; disabled skipped). EDGE
+   FOUND+FIXED: `Props.TabIndex==0` is silently omitted by the serializer (would erase the roving tab
+   stop — a real a11y bug), so tabindex is emitted via `Raw` as a string. Tests: unit/integration/edge
+   `a11y/radiogroup_test.go` via SSR (roles/aria, exactly-one tab stop, no-selection→first-enabled,
+   disabled-skip, selected-but-disabled fallback, vertical orientation, empty group); e2e
+   `test/playwrightgo/radiogroup_e2e_test.go` — interactive group composing `UseCompositeNavigation`
+   + G2 ref focus: real Chromium shows single roving tab stop, ArrowRight moves selection+focus+tab
+   stop (selection-follows-focus), exactly one tab stop at all times, loop wrap opt-2→opt-0. Fixture
+   `examples/public/radiogroup/`. Native + vet + gofmt + wasm green.
+
+ALL FIVE CONFIRMED-REAL GAPS NOW DONE (G2, G22, G3, G9, U5). Remaining: re-verify tail items
+(G1 dev-diagnostic, G15 native harness, G16 mount-ready, generic timer/media hooks) — several may
+already be covered (catalog has been ~70% stale), so each needs a verification pass before any work.
 - Re-verify before starting each: G1 (hooks-in-loops — likely still real; consider dev diagnostic),
   G15 (native test harness), G16 (mount-ready signal), and whether generic `UseTimeout`/`UseInterval`
   / `UseMediaQuery` are wanted on top of the existing debounce/throttle/preference hooks.
