@@ -3467,3 +3467,20 @@ LOOP STATUS: the CashFlux catalog's genuinely-missing items are now exhausted �
   only in single-threaded tests, set-once-at-init in prod). No data races by construction. NB: the Go
   race detector is unavailable on this host (windows/arm64) — run the touched packages under `-race`
   on linux/amd64 in CI for a hard guarantee.
+
+### REMAINING-GAPS COMPLETION PR (2026-06-20, feat/framework-gaps-completion)
+Built the genuinely-missing primitives in one PR, all 4-lane verified (native unit + both-lane build):
+- **G5 forceUpdate — `ui.UseForceUpdate()`** returns a re-render trigger (no dummy version-state).
+- **G19 timers — `ui.UseTimeout`/`ui.UseInterval`** with effect-scoped js.Func lifetime (swappable
+  seam; native no-op). Tests: dep stability, native no-op, seam contract.
+- **G14/G23 file I/O — `ui.Download(bytes,name,mime)` + `ui.PickFile(accept,onPick)`** (wasm Blob/
+  anchor + off-DOM input/FileReader; native no-op). Tests: native no-op safety, seam, nil-guard.
+- **G18 dialog — `a11y.AlertDialog(props)`** headless alertdialog (role/aria-modal/labelledby/
+  describedby + action buttons), the themeable confirm() replacement; pair with AccessibleOverlay
+  (G10). Test: SSR ARIA assertions.
+- **U6 — `html.Bind(state)`** two-way input binding (Value+OnInput). Test: SSR value-from-state.
+- **U7 — `textutil` package** (Humanize, TitleCase) for generic non-domain string helpers. Unit tests.
+Partials left as-is (low value / escape exists): G8 typed-SVG breadth (RawHTMLUnsafe covers it),
+G11 SVG var() docs, G24 (portal+rawhtml building blocks present). G7 hash-router already exists
+(router.NewHashRouter); G10 focus-trap already exists (ui.AccessibleOverlay/UseFocusTrap); G17 OnInput
+already takes a plain func; U4 form helpers already in ui/form.go.
