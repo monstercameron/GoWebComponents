@@ -61,33 +61,33 @@ func typeBadgeClass(parseKind string) string {
 
 // renderLoadingSpinner renders a lightweight shell spinner for async catalog loading states.
 func renderLoadingSpinner() ui.Node {
-	return Div(Class("inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/10"),
-		Span(Class("h-6 w-6 animate-spin rounded-full border-2 border-cyan-200/30 border-t-cyan-200")),
+	return Div(ClassStr("inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/10"),
+		Span(ClassStr("h-6 w-6 animate-spin rounded-full border-2 border-cyan-200/30 border-t-cyan-200")),
 	)
 }
 
 // renderStatCard renders a fixed-value metric card in the hero header.
 func renderStatCard(parseValue, parseLabel string) ui.Node {
-	return Div(Class("rounded-3xl border border-white/10 bg-white/5 p-3 shadow-lg shadow-black/10"),
-		Div(Class("text-xl font-semibold text-white"), Text(parseValue)),
-		Div(Class("mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400"), Text(parseLabel)),
+	return Div(ClassStr("rounded-3xl border border-white/10 bg-white/5 p-3 shadow-lg shadow-black/10"),
+		Div(ClassStr("text-xl font-semibold text-white"), Text(parseValue)),
+		Div(ClassStr("mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400"), Text(parseLabel)),
 	)
 }
 
 // renderCatalogFetchState renders the catalog loading and error shell while the JSON request settles.
 func renderCatalogFetchState(parseTitle, parseMessage, parseButtonLabel string, parseOnRetry ui.Handler) ui.Node {
-	return Div(Class("min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_24%),radial-gradient(circle_at_top_right,rgba(251,191,36,0.10),transparent_22%),linear-gradient(180deg,#08111d_0%,#0d1726_44%,#0c1320_100%)] text-slate-100"),
-		Div(Class("mx-auto flex min-h-screen max-w-3xl items-center justify-center px-4 py-6"),
-			Div(Class("w-full rounded-[28px] border border-white/10 bg-slate-950/55 p-6 shadow-2xl shadow-black/35 backdrop-blur-xl"),
-				Div(Class("flex items-center justify-between gap-4"),
+	return Div(ClassStr("min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_24%),radial-gradient(circle_at_top_right,rgba(251,191,36,0.10),transparent_22%),linear-gradient(180deg,#08111d_0%,#0d1726_44%,#0c1320_100%)] text-slate-100"),
+		Div(ClassStr("mx-auto flex min-h-screen max-w-3xl items-center justify-center px-4 py-6"),
+			Div(ClassStr("w-full rounded-[28px] border border-white/10 bg-slate-950/55 p-6 shadow-2xl shadow-black/35 backdrop-blur-xl"),
+				Div(ClassStr("flex items-center justify-between gap-4"),
 					renderLoadingSpinner(),
-					Div(Class("rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100"), Text("Fetching examples")),
+					Div(ClassStr("rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100"), Text("Fetching examples")),
 				),
-				Div(Class("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text("GoWebComponents example gallery")),
-				H1(Class("mt-3 text-3xl font-semibold tracking-tight text-white"), Text(parseTitle)),
-				P(Class("mt-3 text-sm leading-7 text-slate-300"), Text(parseMessage)),
-				Div(Class("mt-5 flex flex-wrap gap-3"),
-					Button(Type("button"), OnClick(parseOnRetry), Class("cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"), Text(parseButtonLabel)),
+				Div(ClassStr("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text("GoWebComponents example gallery")),
+				H1(ClassStr("mt-3 text-3xl font-semibold tracking-tight text-white"), Text(parseTitle)),
+				P(ClassStr("mt-3 text-sm leading-7 text-slate-300"), Text(parseMessage)),
+				Div(ClassStr("mt-5 flex flex-wrap gap-3"),
+					Button(Type("button"), OnClick(parseOnRetry), ClassStr("cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"), Text(parseButtonLabel)),
 				),
 			),
 		),
@@ -96,9 +96,9 @@ func renderCatalogFetchState(parseTitle, parseMessage, parseButtonLabel string, 
 
 // renderCountStatCard renders an integer metric card in the hero header.
 func renderCountStatCard(parseValue int, parseLabel string) ui.Node {
-	return Div(Class("rounded-3xl border border-white/10 bg-white/5 p-3 shadow-lg shadow-black/10"),
-		Div(Class("text-xl font-semibold text-white"), Textf("%d", parseValue)),
-		Div(Class("mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400"), Text(parseLabel)),
+	return Div(ClassStr("rounded-3xl border border-white/10 bg-white/5 p-3 shadow-lg shadow-black/10"),
+		Div(ClassStr("text-xl font-semibold text-white"), Textf("%d", parseValue)),
+		Div(ClassStr("mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400"), Text(parseLabel)),
 	)
 }
 
@@ -150,27 +150,27 @@ func renderItemCard(parseItem docsItem, isActive bool, parseOnSelect ui.Handler)
 		When(!isActive, "border-white/10 bg-slate-950/35 hover:-translate-y-0.5 hover:border-cyan-300/20 hover:bg-slate-900/60"),
 	)
 	parseTagNodes := []ui.Node{
-		Span(Class(ClassNames("rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em]", statusBadgeClass(parseItem.Status))), Text(parseItem.Status)),
-		Span(Class("rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400"), Text(parseItem.Level)),
-		Span(Class("rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-300"), Text(formatExampleConceptLabel(parseItem.Module))),
+		Span(ClassStr(ClassNames("rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em]", statusBadgeClass(parseItem.Status))), Text(parseItem.Status)),
+		Span(ClassStr("rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400"), Text(parseItem.Level)),
+		Span(ClassStr("rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-300"), Text(formatExampleConceptLabel(parseItem.Module))),
 	}
 	parseCardBody := Fragment(
-		Div(Class("flex items-start justify-between gap-3"),
-			Div(Class("min-w-0 flex-1"),
-				Div(Class("text-sm font-semibold tracking-tight text-white"), Text(parseItem.Title)),
-				Div(Class("mt-2 line-clamp-3 text-sm leading-6 text-slate-300"), Text(getExampleFocusSummary(parseItem))),
+		Div(ClassStr("flex items-start justify-between gap-3"),
+			Div(ClassStr("min-w-0 flex-1"),
+				Div(ClassStr("text-sm font-semibold tracking-tight text-white"), Text(parseItem.Title)),
+				Div(ClassStr("mt-2 line-clamp-3 text-sm leading-6 text-slate-300"), Text(getExampleFocusSummary(parseItem))),
 			),
-			Span(Class("shrink-0 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-cyan-100"), Text(parseItem.ReadTime)),
+			Span(ClassStr("shrink-0 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-cyan-100"), Text(parseItem.ReadTime)),
 		),
-		Div(Class("mt-3 flex flex-wrap items-center gap-1.5"), parseTagNodes),
+		Div(ClassStr("mt-3 flex flex-wrap items-center gap-1.5"), parseTagNodes),
 		If(len(parseConceptLabels) > 0,
-			Div(Class("mt-3 flex flex-wrap gap-1.5"), renderExampleConceptChipNodes(parseConceptLabels)),
+			Div(ClassStr("mt-3 flex flex-wrap gap-1.5"), renderExampleConceptChipNodes(parseConceptLabels)),
 		),
 	)
 	if isGroupedAPIItem(parseItem) {
-		return Button(Type("button"), OnClick(parseOnSelect), Class(parseCardClass), parseCardBody)
+		return Button(Type("button"), OnClick(parseOnSelect), ClassStr(parseCardClass), parseCardBody)
 	}
-	return Button(Type("button"), OnClick(parseOnSelect), Class(parseCardClass), parseCardBody)
+	return Button(Type("button"), OnClick(parseOnSelect), ClassStr(parseCardClass), parseCardBody)
 }
 
 // renderConceptArticle renders long-form concept content for article-style entries.
@@ -178,66 +178,66 @@ func renderConceptArticle(parsePanelProps contentPanelProps) ui.Node {
 	parseSectionNodes := make([]ui.Node, 0, len(parsePanelProps.Item.Content.Sections)+3)
 	if parsePanelProps.Item.Content.Callout != "" {
 		parseSectionNodes = append(parseSectionNodes,
-			Div(Class("rounded-[22px] border border-cyan-400/20 bg-cyan-400/10 p-4 text-sm leading-7 text-cyan-50"), Text(parsePanelProps.Item.Content.Callout)),
+			Div(ClassStr("rounded-[22px] border border-cyan-400/20 bg-cyan-400/10 p-4 text-sm leading-7 text-cyan-50"), Text(parsePanelProps.Item.Content.Callout)),
 		)
 	}
 	parseSectionNodes = append(parseSectionNodes, Map(parsePanelProps.Item.Content.Sections, func(parseSection docsSection) ui.Node {
 		parseParagraphs := Map(parseSection.Paragraphs, func(parseParagraph string) ui.Node {
 			return P(Text(parseParagraph))
 		})
-		return Article(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
-			H3(Class("text-lg font-semibold text-white"), Text(parseSection.Heading)),
-			Div(Class("mt-3 space-y-3 text-sm leading-7 text-slate-300"), parseParagraphs),
+		return Article(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
+			H3(ClassStr("text-lg font-semibold text-white"), Text(parseSection.Heading)),
+			Div(ClassStr("mt-3 space-y-3 text-sm leading-7 text-slate-300"), parseParagraphs),
 		)
 	})...)
 	if parsePanelProps.Item.Content.SourcePath != "" {
 		parseSectionNodes = append(parseSectionNodes,
-			Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
-				Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelSourceDocument)),
-				Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-cyan-100"), Text(parsePanelProps.Item.Content.SourcePath)),
+			Div(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
+				Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelSourceDocument)),
+				Div(ClassStr("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-cyan-100"), Text(parsePanelProps.Item.Content.SourcePath)),
 			),
 		)
 	}
 	parseSectionNodes = append(parseSectionNodes, renderMarkdownState(parsePanelProps))
 	if parsePanelProps.Item.Content.Code != "" && !parsePanelProps.MarkdownReady {
 		parseSectionNodes = append(parseSectionNodes,
-			Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
-				Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleMarkdown)),
-				Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(parsePanelProps.Item.Content.Code))),
+			Div(ClassStr("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
+				Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleMarkdown)),
+				Pre(ClassStr("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(parsePanelProps.Item.Content.Code))),
 			),
 		)
 	}
 	if len(parseSectionNodes) == 0 {
 		parseSectionNodes = append(parseSectionNodes,
-			Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(parsePanelProps.Item.Blurb)),
+			Div(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(parsePanelProps.Item.Blurb)),
 		)
 	}
-	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
-		Div(Class("border-b border-white/10 pb-3"),
-			Div(Class("text-sm font-medium text-white"), Text(labelConceptArticle)),
-			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelMarkdownWriteup)),
+	return Div(ClassStr("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
+		Div(ClassStr("border-b border-white/10 pb-3"),
+			Div(ClassStr("text-sm font-medium text-white"), Text(labelConceptArticle)),
+			Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelMarkdownWriteup)),
 		),
-		Div(Class("mt-4 flex flex-1 flex-col gap-4"), parseSectionNodes),
+		Div(ClassStr("mt-4 flex flex-1 flex-col gap-4"), parseSectionNodes),
 	)
 }
 
 // renderParameterTable renders the API parameter reference grid.
 func renderParameterTable(parseParams []docsParam) ui.Node {
 	parseRows := Map(parseParams, func(parseParam docsParam) ui.Node {
-		return Tr(Class("border-b border-white/5 align-top text-slate-300 last:border-b-0"),
-			Td(Class("py-3 pr-4 font-medium text-white"), Text(parseParam.Name)),
-			Td(Class("py-3 pr-4 text-cyan-200"), Text(parseParam.Type)),
-			Td(Class("py-3 pr-4 uppercase"), Text(parseParam.Required)),
-			Td(Class("py-3"), Text(parseParam.Description)),
+		return Tr(ClassStr("border-b border-white/5 align-top text-slate-300 last:border-b-0"),
+			Td(ClassStr("py-3 pr-4 font-medium text-white"), Text(parseParam.Name)),
+			Td(ClassStr("py-3 pr-4 text-cyan-200"), Text(parseParam.Type)),
+			Td(ClassStr("py-3 pr-4 uppercase"), Text(parseParam.Required)),
+			Td(ClassStr("py-3"), Text(parseParam.Description)),
 		)
 	})
-	return Table(Class("min-w-full text-left text-sm"),
+	return Table(ClassStr("min-w-full text-left text-sm"),
 		Thead(
-			Tr(Class("border-b border-white/10 text-slate-400"),
-				Th(Class("pb-2 pr-4 font-medium"), Text("Name")),
-				Th(Class("pb-2 pr-4 font-medium"), Text("Type")),
-				Th(Class("pb-2 pr-4 font-medium"), Text("Required")),
-				Th(Class("pb-2 font-medium"), Text("Description")),
+			Tr(ClassStr("border-b border-white/10 text-slate-400"),
+				Th(ClassStr("pb-2 pr-4 font-medium"), Text("Name")),
+				Th(ClassStr("pb-2 pr-4 font-medium"), Text("Type")),
+				Th(ClassStr("pb-2 pr-4 font-medium"), Text("Required")),
+				Th(ClassStr("pb-2 font-medium"), Text("Description")),
 			),
 		),
 		Tbody(parseRows),
@@ -256,50 +256,50 @@ func renderAPIReference(parsePanelProps contentPanelProps) ui.Node {
 	parseNoteNodes := Map(parsePanelProps.Item.Content.Notes, func(parseNote string) ui.Node {
 		return Li(Text(parseNote))
 	})
-	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
-		Div(Class("border-b border-white/10 pb-3"),
-			Div(Class("text-sm font-medium text-white"), Text(labelAPIReference)),
-			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelStructuredDocs)),
+	return Div(ClassStr("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
+		Div(ClassStr("border-b border-white/10 pb-3"),
+			Div(ClassStr("text-sm font-medium text-white"), Text(labelAPIReference)),
+			Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelStructuredDocs)),
 		),
-		Div(Class("mt-4 flex flex-1 flex-col gap-4"),
-			Div(Class("rounded-[22px] border border-violet-400/20 bg-violet-400/10 p-4"),
-				Div(Class("text-xs uppercase tracking-[0.18em] text-violet-200"), Text(labelSignature)),
-				Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-violet-50"), Code(Text(parsePanelProps.Item.Content.Signature))),
-				P(Class("mt-3 text-sm leading-7 text-slate-200"), Text(parsePanelProps.Item.Content.Summary)),
+		Div(ClassStr("mt-4 flex flex-1 flex-col gap-4"),
+			Div(ClassStr("rounded-[22px] border border-violet-400/20 bg-violet-400/10 p-4"),
+				Div(ClassStr("text-xs uppercase tracking-[0.18em] text-violet-200"), Text(labelSignature)),
+				Pre(ClassStr("mt-3 overflow-x-auto text-sm leading-6 text-violet-50"), Code(Text(parsePanelProps.Item.Content.Signature))),
+				P(ClassStr("mt-3 text-sm leading-7 text-slate-200"), Text(parsePanelProps.Item.Content.Summary)),
 			),
-			Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
-				Div(Class("text-sm font-medium text-white"), Text(labelParameters)),
-				Div(Class("mt-4 overflow-x-auto"), renderParameterTable(parsePanelProps.Item.Content.Params)),
+			Div(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
+				Div(ClassStr("text-sm font-medium text-white"), Text(labelParameters)),
+				Div(ClassStr("mt-4 overflow-x-auto"), renderParameterTable(parsePanelProps.Item.Content.Params)),
 			),
-			Div(Class("grid gap-3 md:grid-cols-2"),
-				Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
-					Div(Class("text-sm font-medium text-white"), Text(labelReturns)),
-					Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-emerald-200"), Text(parsePanelProps.Item.Content.Returns)),
+			Div(ClassStr("grid gap-3 md:grid-cols-2"),
+				Div(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
+					Div(ClassStr("text-sm font-medium text-white"), Text(labelReturns)),
+					Div(ClassStr("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-emerald-200"), Text(parsePanelProps.Item.Content.Returns)),
 				),
-				Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
-					Div(Class("text-sm font-medium text-white"), Text(labelNotes)),
-					Ul(Class("mt-3 space-y-2 text-sm leading-6 text-slate-300"), parseNoteNodes),
+				Div(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
+					Div(ClassStr("text-sm font-medium text-white"), Text(labelNotes)),
+					Ul(ClassStr("mt-3 space-y-2 text-sm leading-6 text-slate-300"), parseNoteNodes),
 				),
 			),
-			Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
-				Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelUsageExample)),
+			Div(ClassStr("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
+				Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelUsageExample)),
 				ui.If(hasHTMLUsageExample,
 					func() ui.Node {
 						return ui.Match().
 							When(parsePanelProps.MarkdownLoading && !parsePanelProps.MarkdownReady, func() ui.Node {
-								return Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-4 text-sm text-slate-300"), Text(messageDocLoading))
+								return Div(ClassStr("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-4 text-sm text-slate-300"), Text(messageDocLoading))
 							}).
 							When(parsePanelProps.MarkdownError != "", func() ui.Node {
-								return Div(Class("mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-4 text-sm text-rose-100"), Text(parsePanelProps.MarkdownError))
+								return Div(ClassStr("mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-4 text-sm text-rose-100"), Text(parsePanelProps.MarkdownError))
 							}).
 							Default(func() ui.Node {
-								return Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 p-3"),
+								return Div(ClassStr("mt-3 rounded-xl border border-white/10 bg-black/15 p-3"),
 									renderInjectedHTMLFragment("api-usage-example-fragment", parsePanelProps.MarkdownBody),
 								)
 							})
 					},
 					func() ui.Node {
-						return Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(parsePanelProps.Item.Content.Example)))
+						return Pre(ClassStr("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(parsePanelProps.Item.Content.Example)))
 					},
 				),
 			),
@@ -354,31 +354,31 @@ func renderCounterExample(parsePanelProps contentPanelProps) ui.Node {
 		return Li(Text(parseTip))
 	})
 	parseControlButtonClass := "rounded-2xl border border-white/15 bg-black/20 px-4 py-2 text-sm font-medium text-white transition hover:bg-black/30"
-	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
-		Div(Class("border-b border-white/10 pb-3"),
-			Div(Class("text-sm font-medium text-white"), Text(labelInteractiveExample)),
-			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelReactiveDemoSurface)),
+	return Div(ClassStr("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
+		Div(ClassStr("border-b border-white/10 pb-3"),
+			Div(ClassStr("text-sm font-medium text-white"), Text(labelInteractiveExample)),
+			Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelReactiveDemoSurface)),
 		),
-		Div(Class("mt-4 grid flex-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_280px]"),
-			Div(Class("rounded-[22px] border border-emerald-400/20 bg-emerald-400/10 p-5"),
-				Div(Class("text-xs uppercase tracking-[0.18em] text-emerald-200"), Text(labelLiveWidget)),
-				Div(Class("mt-4 text-5xl font-semibold tracking-tight text-white"), Textf("%d", parseCounterValue.Get())),
-				Div(Class("mt-2 text-sm text-emerald-50/90"), Text(labelStateTonePrefix+parseStateToneLabel)),
-				Div(Class("mt-5 flex flex-wrap gap-2"),
-					Button(Type("button"), OnClick(parseDecrementCount), Class(parseControlButtonClass), Text(buttonDecrement)),
-					Button(Type("button"), OnClick(parseIncrementCount), Class(parseControlButtonClass), Text(buttonIncrement)),
-					Button(Type("button"), OnClick(resetCount), Class(parseControlButtonClass), Text(buttonReset)),
+		Div(ClassStr("mt-4 grid flex-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_280px]"),
+			Div(ClassStr("rounded-[22px] border border-emerald-400/20 bg-emerald-400/10 p-5"),
+				Div(ClassStr("text-xs uppercase tracking-[0.18em] text-emerald-200"), Text(labelLiveWidget)),
+				Div(ClassStr("mt-4 text-5xl font-semibold tracking-tight text-white"), Textf("%d", parseCounterValue.Get())),
+				Div(ClassStr("mt-2 text-sm text-emerald-50/90"), Text(labelStateTonePrefix+parseStateToneLabel)),
+				Div(ClassStr("mt-5 flex flex-wrap gap-2"),
+					Button(Type("button"), OnClick(parseDecrementCount), ClassStr(parseControlButtonClass), Text(buttonDecrement)),
+					Button(Type("button"), OnClick(parseIncrementCount), ClassStr(parseControlButtonClass), Text(buttonIncrement)),
+					Button(Type("button"), OnClick(resetCount), ClassStr(parseControlButtonClass), Text(buttonReset)),
 				),
-				P(Class("mt-5 text-sm leading-7 text-emerald-50/90"), Text(parsePanelProps.Item.Content.Description)),
+				P(ClassStr("mt-5 text-sm leading-7 text-emerald-50/90"), Text(parsePanelProps.Item.Content.Description)),
 			),
-			Div(Class("space-y-3"),
-				Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
-					Div(Class("text-sm font-medium text-white"), Text(labelWhyThisMatters)),
-					Ul(Class("mt-3 space-y-2 text-sm leading-6 text-slate-300"), parseTipNodes),
+			Div(ClassStr("space-y-3"),
+				Div(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
+					Div(ClassStr("text-sm font-medium text-white"), Text(labelWhyThisMatters)),
+					Ul(ClassStr("mt-3 space-y-2 text-sm leading-6 text-slate-300"), parseTipNodes),
 				),
-				Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
-					Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleSource)),
-					Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text("const [count, setCount] = useState(0);\n\n<button onClick={() => setCount((prev) => prev + 1)}>\n  Increment\n</button>"))),
+				Div(ClassStr("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
+					Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleSource)),
+					Pre(ClassStr("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text("const [count, setCount] = useState(0);\n\n<button onClick={() => setCount((prev) => prev + 1)}>\n  Increment\n</button>"))),
 				),
 			),
 		),
@@ -395,44 +395,44 @@ func renderSourceOnlyExample(parsePanelProps contentPanelProps) ui.Node {
 	if parseDescription == "" {
 		parseDescription = messageSourceFirstDemo
 	}
-	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[26px] border border-white/10 bg-slate-950/45 p-4 shadow-inner shadow-black/25"),
-		Div(Class("border-b border-white/10 pb-3"),
-			Div(Class("text-sm font-medium text-white"), Text(labelSourceFirstExample)),
-			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text("Concept and source")),
+	return Div(ClassStr("min-w-0 flex min-h-full flex-col rounded-[26px] border border-white/10 bg-slate-950/45 p-4 shadow-inner shadow-black/25"),
+		Div(ClassStr("border-b border-white/10 pb-3"),
+			Div(ClassStr("text-sm font-medium text-white"), Text(labelSourceFirstExample)),
+			Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text("Concept and source")),
 		),
-		Div(Class("mt-4 grid flex-1 gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]"),
-			Div(Class("space-y-3"),
-				Div(Class("rounded-[22px] border border-amber-400/20 bg-amber-400/10 p-5"),
-					Div(Class("text-xs uppercase tracking-[0.18em] text-amber-200"), Text(labelConceptFocus)),
-					H3(Class("mt-3 text-2xl font-semibold tracking-tight text-white"), Text(parsePanelProps.Item.Title)),
-					P(Class("mt-4 text-sm leading-7 text-slate-100"), Text(parseDescription)),
-					P(Class("mt-4 text-sm leading-7 text-slate-300"), Text(getExampleFocusSummary(parsePanelProps.Item))),
+		Div(ClassStr("mt-4 grid flex-1 gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(320px,1.1fr)]"),
+			Div(ClassStr("space-y-3"),
+				Div(ClassStr("rounded-[22px] border border-amber-400/20 bg-amber-400/10 p-5"),
+					Div(ClassStr("text-xs uppercase tracking-[0.18em] text-amber-200"), Text(labelConceptFocus)),
+					H3(ClassStr("mt-3 text-2xl font-semibold tracking-tight text-white"), Text(parsePanelProps.Item.Title)),
+					P(ClassStr("mt-4 text-sm leading-7 text-slate-100"), Text(parseDescription)),
+					P(ClassStr("mt-4 text-sm leading-7 text-slate-300"), Text(getExampleFocusSummary(parsePanelProps.Item))),
 					If(len(parseConceptNodes) > 0,
-						Div(Class("mt-5 flex flex-wrap gap-2"), parseConceptNodes),
+						Div(ClassStr("mt-5 flex flex-wrap gap-2"), parseConceptNodes),
 					),
 				),
-				Div(Class("rounded-[22px] border border-white/10 bg-slate-900/55 p-5"),
-					Div(Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Text(labelStudyPrompts)),
-					Ul(Class("mt-4 space-y-3 text-sm leading-6 text-slate-200"), parseLearningPoints),
+				Div(ClassStr("rounded-[22px] border border-white/10 bg-slate-900/55 p-5"),
+					Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-400"), Text(labelStudyPrompts)),
+					Ul(ClassStr("mt-4 space-y-3 text-sm leading-6 text-slate-200"), parseLearningPoints),
 				),
 			),
-			Div(Class("min-w-0 space-y-2"),
+			Div(ClassStr("min-w-0 space-y-2"),
 				IfElse(parsePanelProps.IsSourceVisible,
-					Div(Class("space-y-2"),
-						Div(Class("flex justify-end"),
-							Button(Type("button"), OnClick(parsePanelProps.OnHideSource), Class("cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"), Text(buttonHideSource)),
+					Div(ClassStr("space-y-2"),
+						Div(ClassStr("flex justify-end"),
+							Button(Type("button"), OnClick(parsePanelProps.OnHideSource), ClassStr("cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"), Text(buttonHideSource)),
 						),
 						renderExampleSourceNode(parsePanelProps),
 					),
-					Div(Class("rounded-[24px] border border-white/10 bg-slate-950/50 p-5"),
-						Div(Class("flex flex-wrap items-center justify-between gap-3"),
-							Div(Class("min-w-0"),
-								Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleSource)),
-								P(Class("mt-3 text-sm leading-7 text-slate-300"), Text(messageSourceDeferred)),
+					Div(ClassStr("rounded-[24px] border border-white/10 bg-slate-950/50 p-5"),
+						Div(ClassStr("flex flex-wrap items-center justify-between gap-3"),
+							Div(ClassStr("min-w-0"),
+								Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleSource)),
+								P(ClassStr("mt-3 text-sm leading-7 text-slate-300"), Text(messageSourceDeferred)),
 							),
-							Div(Class("flex flex-wrap gap-2"),
-								A(Href(playgroundURLForSource(parsePanelProps.Item.Content.Code)), Class("rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"), Text("Try in playground")),
-								Button(Type("button"), OnClick(parsePanelProps.OnShowSource), Class("cursor-pointer rounded-2xl border border-cyan-300/25 bg-cyan-400/12 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/18"), Text(buttonShowSource)),
+							Div(ClassStr("flex flex-wrap gap-2"),
+								A(Href(playgroundURLForSource(parsePanelProps.Item.Content.Code)), ClassStr("rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"), Text("Try in playground")),
+								Button(Type("button"), OnClick(parsePanelProps.OnShowSource), ClassStr("cursor-pointer rounded-2xl border border-cyan-300/25 bg-cyan-400/12 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/18"), Text(buttonShowSource)),
 							),
 						),
 					),
@@ -461,10 +461,10 @@ func renderExampleSourceNode(parsePanelProps contentPanelProps) ui.Node {
 	}
 	return ui.Match().
 		When(parseSourceLoading && !parseSourceReady, func() ui.Node {
-			return Div(Class("rounded-[24px] border border-white/10 bg-slate-950/50 px-4 py-5 text-sm text-slate-300"), Text(messageDocLoading))
+			return Div(ClassStr("rounded-[24px] border border-white/10 bg-slate-950/50 px-4 py-5 text-sm text-slate-300"), Text(messageDocLoading))
 		}).
 		When(parseSourceError != "", func() ui.Node {
-			return Div(Class("rounded-[24px] border border-rose-400/20 bg-rose-400/10 px-4 py-5 text-sm text-rose-100"), Text(parseSourceError))
+			return Div(ClassStr("rounded-[24px] border border-rose-400/20 bg-rose-400/10 px-4 py-5 text-sm text-rose-100"), Text(parseSourceError))
 		}).
 		When(parseSourceReady && parseSourceBody != "", func() ui.Node {
 			return renderSourceSnippetCard(labelExampleSource, "Go + hooks + typed HTML", parseSourceBody)
@@ -480,14 +480,14 @@ func renderEmbeddedExample(parsePanelProps contentPanelProps) ui.Node {
 	parseLearningPoints := Map(buildExampleLearningPoints(parsePanelProps.Item), func(parsePoint string) ui.Node {
 		return Li(Text(parsePoint))
 	})
-	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[26px] border border-white/10 bg-slate-950/45 p-3 shadow-inner shadow-black/25"),
-		Div(Class("flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2"),
-			Div(Class("text-sm font-medium text-white"), Text(labelLivePreview)),
-			Div(Class("flex flex-wrap items-center gap-2"),
-				Div(Class("text-[11px] uppercase tracking-[0.18em] text-slate-500"), Text(labelPreviewMode)),
+	return Div(ClassStr("min-w-0 flex min-h-full flex-col rounded-[26px] border border-white/10 bg-slate-950/45 p-3 shadow-inner shadow-black/25"),
+		Div(ClassStr("flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2"),
+			Div(ClassStr("text-sm font-medium text-white"), Text(labelLivePreview)),
+			Div(ClassStr("flex flex-wrap items-center gap-2"),
+				Div(ClassStr("text-[11px] uppercase tracking-[0.18em] text-slate-500"), Text(labelPreviewMode)),
 				A(
 					Href(playgroundURLForSource(parsePanelProps.Item.Content.Code)),
-					Class("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-slate-300 transition hover:border-cyan-300/30 hover:text-cyan-100"),
+					ClassStr("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-slate-300 transition hover:border-cyan-300/30 hover:text-cyan-100"),
 					Text("Playground"),
 				),
 				If(parsePreviewURL != "",
@@ -495,72 +495,72 @@ func renderEmbeddedExample(parsePanelProps contentPanelProps) ui.Node {
 						Href(parsePreviewURL),
 						Attr("target", "_blank"),
 						Attr("rel", "noreferrer noopener"),
-						Class("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-slate-300 transition hover:border-cyan-300/30 hover:text-cyan-100"),
+						ClassStr("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-slate-300 transition hover:border-cyan-300/30 hover:text-cyan-100"),
 						Text(labelStandalonePreview),
 					),
 				),
 			),
 		),
-		Div(Class("mt-3 min-w-0 grid flex-1 gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]"),
-			Div(Class("min-w-0 space-y-2"),
-				Div(Class("overflow-hidden rounded-[20px] border border-white/10 bg-[#081420] shadow-inner shadow-black/20"),
+		Div(ClassStr("mt-3 min-w-0 grid flex-1 gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]"),
+			Div(ClassStr("min-w-0 space-y-2"),
+				Div(ClassStr("overflow-hidden rounded-[20px] border border-white/10 bg-[#081420] shadow-inner shadow-black/20"),
 					IfElse(parsePanelProps.IsPreviewLoaded && parsePreviewURL != "",
 						Iframe(
 							Src(parsePreviewURL),
 							Title(parsePanelProps.Item.Title+" example preview"),
-							Class("min-h-[420px] w-full border-0 bg-transparent"),
+							ClassStr("min-h-[420px] w-full border-0 bg-transparent"),
 							Attr("loading", "lazy"),
 							Attr("allow", "clipboard-read; clipboard-write"),
 						),
-						Div(Class("flex min-h-[420px] items-center justify-center px-4 py-6 text-sm text-slate-400"),
-							Div(Class("max-w-md rounded-[22px] border border-white/10 bg-white/[0.04] p-5 text-left"),
-								Div(Class("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text(labelPreviewPaused)),
-								P(Class("mt-3 leading-7 text-slate-300"), Text(messagePreviewDeferred)),
+						Div(ClassStr("flex min-h-[420px] items-center justify-center px-4 py-6 text-sm text-slate-400"),
+							Div(ClassStr("max-w-md rounded-[22px] border border-white/10 bg-white/[0.04] p-5 text-left"),
+								Div(ClassStr("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text(labelPreviewPaused)),
+								P(ClassStr("mt-3 leading-7 text-slate-300"), Text(messagePreviewDeferred)),
 								IfElse(parsePreviewURL != "",
-									Div(Class("mt-5 flex flex-wrap gap-2"),
-										Button(Type("button"), OnClick(parsePanelProps.OnLoadPreview), Class("cursor-pointer rounded-2xl border border-cyan-300/25 bg-cyan-400/12 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/18"), Text(buttonLoadPreview)),
+									Div(ClassStr("mt-5 flex flex-wrap gap-2"),
+										Button(Type("button"), OnClick(parsePanelProps.OnLoadPreview), ClassStr("cursor-pointer rounded-2xl border border-cyan-300/25 bg-cyan-400/12 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/18"), Text(buttonLoadPreview)),
 										A(
 											Href(parsePreviewURL),
 											Attr("target", "_blank"),
 											Attr("rel", "noreferrer noopener"),
-											Class("rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"),
+											ClassStr("rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"),
 											Text(labelStandalonePreview),
 										),
 									),
-									P(Class("mt-5 leading-7 text-slate-400"), Text("Preview host is unavailable for this example.")),
+									P(ClassStr("mt-5 leading-7 text-slate-400"), Text("Preview host is unavailable for this example.")),
 								),
 							),
 						),
 					),
 				),
 			),
-			Div(Class("min-w-0 space-y-2"),
-				Div(Class("rounded-[22px] border border-cyan-300/15 bg-slate-900/55 p-5"),
-					Div(Class("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text(labelConceptFocus)),
-					H3(Class("mt-3 text-2xl font-semibold tracking-tight text-white"), Text(parsePanelProps.Item.Title)),
-					P(Class("mt-4 text-sm leading-7 text-slate-200"), Text(getExampleFocusSummary(parsePanelProps.Item))),
+			Div(ClassStr("min-w-0 space-y-2"),
+				Div(ClassStr("rounded-[22px] border border-cyan-300/15 bg-slate-900/55 p-5"),
+					Div(ClassStr("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text(labelConceptFocus)),
+					H3(ClassStr("mt-3 text-2xl font-semibold tracking-tight text-white"), Text(parsePanelProps.Item.Title)),
+					P(ClassStr("mt-4 text-sm leading-7 text-slate-200"), Text(getExampleFocusSummary(parsePanelProps.Item))),
 					If(len(parseConceptNodes) > 0,
-						Div(Class("mt-4 flex flex-wrap gap-2"), parseConceptNodes),
+						Div(ClassStr("mt-4 flex flex-wrap gap-2"), parseConceptNodes),
 					),
 				),
-				Div(Class("rounded-[22px] border border-white/10 bg-slate-900/55 p-5"),
-					Div(Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Text(labelStudyPrompts)),
-					Ul(Class("mt-4 space-y-3 text-sm leading-6 text-slate-200"), parseLearningPoints),
+				Div(ClassStr("rounded-[22px] border border-white/10 bg-slate-900/55 p-5"),
+					Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-400"), Text(labelStudyPrompts)),
+					Ul(ClassStr("mt-4 space-y-3 text-sm leading-6 text-slate-200"), parseLearningPoints),
 				),
 				IfElse(parsePanelProps.IsSourceVisible,
-					Div(Class("space-y-2"),
-						Div(Class("flex justify-end"),
-							Button(Type("button"), OnClick(parsePanelProps.OnHideSource), Class("cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"), Text(buttonHideSource)),
+					Div(ClassStr("space-y-2"),
+						Div(ClassStr("flex justify-end"),
+							Button(Type("button"), OnClick(parsePanelProps.OnHideSource), ClassStr("cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium uppercase tracking-[0.16em] text-slate-200 transition hover:border-cyan-300/30 hover:text-cyan-100"), Text(buttonHideSource)),
 						),
 						renderExampleSourceNode(parsePanelProps),
 					),
-					Div(Class("rounded-[24px] border border-white/10 bg-slate-950/50 p-5"),
-						Div(Class("flex flex-wrap items-center justify-between gap-3"),
-							Div(Class("min-w-0"),
-								Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleSource)),
-								P(Class("mt-3 text-sm leading-7 text-slate-300"), Text(messageSourceDeferred)),
+					Div(ClassStr("rounded-[24px] border border-white/10 bg-slate-950/50 p-5"),
+						Div(ClassStr("flex flex-wrap items-center justify-between gap-3"),
+							Div(ClassStr("min-w-0"),
+								Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleSource)),
+								P(ClassStr("mt-3 text-sm leading-7 text-slate-300"), Text(messageSourceDeferred)),
 							),
-							Button(Type("button"), OnClick(parsePanelProps.OnShowSource), Class("cursor-pointer rounded-2xl border border-cyan-300/25 bg-cyan-400/12 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/18"), Text(buttonShowSource)),
+							Button(Type("button"), OnClick(parsePanelProps.OnShowSource), ClassStr("cursor-pointer rounded-2xl border border-cyan-300/25 bg-cyan-400/12 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/18"), Text(buttonShowSource)),
 						),
 					),
 				),
@@ -573,7 +573,7 @@ func renderEmbeddedExample(parsePanelProps contentPanelProps) ui.Node {
 func renderDisplaySurface(parsePanelProps contentPanelProps, hasSelectedItem bool) ui.Node {
 	return ui.If(!hasSelectedItem,
 		func() ui.Node {
-			return Div(Class("flex min-h-full items-center justify-center rounded-[22px] border border-dashed border-white/10 bg-black/10 p-8 text-sm text-slate-400"), Text(messageNothingSelected))
+			return Div(ClassStr("flex min-h-full items-center justify-center rounded-[22px] border border-dashed border-white/10 bg-black/10 p-8 text-sm text-slate-400"), Text(messageNothingSelected))
 		},
 		func() ui.Node {
 			return ui.Match().
@@ -594,15 +594,15 @@ func renderDisplaySurface(parsePanelProps contentPanelProps, hasSelectedItem boo
 func renderCatalogHero(parseProps catalogHeroProps) ui.Node {
 	parseRepoURL := "https://github.com/monstercameron/GoWebComponents"
 
-	return Header(Class("relative overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/55 p-4 shadow-2xl shadow-black/35 backdrop-blur-xl sm:p-5"),
-		Div(Class("absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.05),transparent_38%,rgba(34,211,238,0.06))]")),
-		Div(Class("pointer-events-none absolute -left-10 top-0 h-40 w-40 rounded-full bg-cyan-400/12 blur-3xl")),
-		Div(Class("pointer-events-none absolute right-0 top-8 h-40 w-40 rounded-full bg-amber-300/10 blur-3xl")),
-		Div(Class("relative"),
-			Div(Class("min-w-0"),
-				Div(Class("flex flex-wrap items-center gap-2"),
-					Div(Class("inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-cyan-200"),
-						Span(Class("h-2 w-2 rounded-full bg-cyan-300")),
+	return Header(ClassStr("relative overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/55 p-4 shadow-2xl shadow-black/35 backdrop-blur-xl sm:p-5"),
+		Div(ClassStr("absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.05),transparent_38%,rgba(34,211,238,0.06))]")),
+		Div(ClassStr("pointer-events-none absolute -left-10 top-0 h-40 w-40 rounded-full bg-cyan-400/12 blur-3xl")),
+		Div(ClassStr("pointer-events-none absolute right-0 top-8 h-40 w-40 rounded-full bg-amber-300/10 blur-3xl")),
+		Div(ClassStr("relative"),
+			Div(ClassStr("min-w-0"),
+				Div(ClassStr("flex flex-wrap items-center gap-2"),
+					Div(ClassStr("inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-cyan-200"),
+						Span(ClassStr("h-2 w-2 rounded-full bg-cyan-300")),
 						Text("GoWebComponents Example Lab"),
 					),
 					A(
@@ -610,27 +610,27 @@ func renderCatalogHero(parseProps catalogHeroProps) ui.Node {
 						Text("github.com/monstercameron/GoWebComponents"),
 					),
 				),
-				Div(Class("mt-4 grid gap-4 lg:grid-cols-2 lg:gap-5 lg:items-stretch"),
-					Div(Class("space-y-4 lg:min-w-0"),
-						Div(Class("space-y-3"),
-							H1(Class("max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl"), Text("Runnable Go + WASM examples with the concepts up front.")),
-							P(Class("max-w-3xl text-sm leading-6 text-slate-300 sm:text-base sm:leading-7"), Text("This gallery is example-first. Each item pairs a live runtime surface with the exact Go source that produced it, so the page elements, state flow, and browser behavior stay easier to study.")),
-							P(Class("max-w-2xl text-xs uppercase tracking-[0.22em] text-slate-400 sm:text-[13px]"), Text("Live preview, concept framing, and mirrored source in one place.")),
+				Div(ClassStr("mt-4 grid gap-4 lg:grid-cols-2 lg:gap-5 lg:items-stretch"),
+					Div(ClassStr("space-y-4 lg:min-w-0"),
+						Div(ClassStr("space-y-3"),
+							H1(ClassStr("max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl"), Text("Runnable Go + WASM examples with the concepts up front.")),
+							P(ClassStr("max-w-3xl text-sm leading-6 text-slate-300 sm:text-base sm:leading-7"), Text("This gallery is example-first. Each item pairs a live runtime surface with the exact Go source that produced it, so the page elements, state flow, and browser behavior stay easier to study.")),
+							P(ClassStr("max-w-2xl text-xs uppercase tracking-[0.22em] text-slate-400 sm:text-[13px]"), Text("Live preview, concept framing, and mirrored source in one place.")),
 						),
-						Div(Class("flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-300 sm:text-xs"),
-							Span(Class("rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-cyan-100"), Text("Typed HTML builders")),
-							Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1.5"), Text("Hooks + state")),
-							Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1.5"), Text("Router + data")),
-							Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1.5"), Text("SSR + hydration")),
+						Div(ClassStr("flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-300 sm:text-xs"),
+							Span(ClassStr("rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-cyan-100"), Text("Typed HTML builders")),
+							Span(ClassStr("rounded-full border border-white/10 bg-white/5 px-3 py-1.5"), Text("Hooks + state")),
+							Span(ClassStr("rounded-full border border-white/10 bg-white/5 px-3 py-1.5"), Text("Router + data")),
+							Span(ClassStr("rounded-full border border-white/10 bg-white/5 px-3 py-1.5"), Text("SSR + hydration")),
 						),
-						Div(Class("flex flex-wrap gap-2"),
-							Button(Type("button"), OnClick(parseProps.OnBrowseExamples), Class("cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"), Text(buttonBrowseExamples)),
-							Button(Type("button"), OnClick(parseProps.OnInspectAPIs), Class("cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 transition hover:-translate-y-0.5 hover:bg-white/10 active:translate-y-0"), Text(buttonInspectPackageAPIs)),
+						Div(ClassStr("flex flex-wrap gap-2"),
+							Button(Type("button"), OnClick(parseProps.OnBrowseExamples), ClassStr("cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"), Text(buttonBrowseExamples)),
+							Button(Type("button"), OnClick(parseProps.OnInspectAPIs), ClassStr("cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 transition hover:-translate-y-0.5 hover:bg-white/10 active:translate-y-0"), Text(buttonInspectPackageAPIs)),
 						),
 					),
-					Div(Class("space-y-4 lg:min-w-0"),
+					Div(ClassStr("space-y-4 lg:min-w-0"),
 						renderHeroCodeSnippet(),
-						Div(Class("grid grid-cols-2 gap-2 sm:gap-3"),
+						Div(ClassStr("grid grid-cols-2 gap-2 sm:gap-3"),
 							renderCountStatCard(parseProps.TotalItems, labelCatalogEntries),
 							renderCountStatCard(parseProps.StableCount, labelLiveExamples),
 							renderCountStatCard(parseProps.ExperimentalCount, "Experimental builds"),
@@ -645,30 +645,30 @@ func renderCatalogHero(parseProps catalogHeroProps) ui.Node {
 
 // renderCatalogSidebar renders the search, filters, and result list.
 func renderCatalogSidebar(parseProps catalogSidebarProps) ui.Node {
-	return Section(Class("min-w-0 flex min-h-[420px] flex-col rounded-[24px] border border-white/10 bg-slate-950/45 backdrop-blur-xl lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)] lg:w-[34%] lg:flex-none xl:w-[31%]"),
-		Div(Class("sticky top-0 z-10 border-b border-white/10 bg-slate-950/75 p-2.5 backdrop-blur-xl sm:p-3"),
-			Div(Class("flex flex-col gap-2"),
-				Div(Class("space-y-1"),
-					Div(Class("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text("Examples index")),
-					P(Class("text-sm leading-6 text-slate-400"), Text("Search runnable examples by concept, module, or difficulty.")),
+	return Section(ClassStr("min-w-0 flex min-h-[420px] flex-col rounded-[24px] border border-white/10 bg-slate-950/45 backdrop-blur-xl lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)] lg:w-[34%] lg:flex-none xl:w-[31%]"),
+		Div(ClassStr("sticky top-0 z-10 border-b border-white/10 bg-slate-950/75 p-2.5 backdrop-blur-xl sm:p-3"),
+			Div(ClassStr("flex flex-col gap-2"),
+				Div(ClassStr("space-y-1"),
+					Div(ClassStr("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text("Examples index")),
+					P(ClassStr("text-sm leading-6 text-slate-400"), Text("Search runnable examples by concept, module, or difficulty.")),
 				),
-				Div(Class("flex flex-col gap-2 sm:flex-row sm:items-center"),
-					Div(Class("relative flex-1"),
-						Input(ID("catalog-search-input"), Value(parseProps.SearchQuery), OnInput(parseProps.OnSearchInput), Placeholder("Search examples, concepts, modules..."), Aria("label", labelSearchDialog), Aria("describedby", parseProps.ResultSummaryID), Class("w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40 focus:bg-slate-950/60")),
+				Div(ClassStr("flex flex-col gap-2 sm:flex-row sm:items-center"),
+					Div(ClassStr("relative flex-1"),
+						Input(ID("catalog-search-input"), Value(parseProps.SearchQuery), OnInput(parseProps.OnSearchInput), Placeholder("Search examples, concepts, modules..."), Aria("label", labelSearchDialog), Aria("describedby", parseProps.ResultSummaryID), ClassStr("w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40 focus:bg-slate-950/60")),
 					),
-					Div(Class("flex items-center gap-2 self-start sm:self-auto"),
-						Div(ID(parseProps.ResultSummaryID), Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Aria("live", "polite"), Aria("atomic", "true"), Textf("%d results", parseProps.ResultCount)),
+					Div(ClassStr("flex items-center gap-2 self-start sm:self-auto"),
+						Div(ID(parseProps.ResultSummaryID), ClassStr("text-xs uppercase tracking-[0.18em] text-slate-400"), Aria("live", "polite"), Aria("atomic", "true"), Textf("%d results", parseProps.ResultCount)),
 						Button(
 							Type("button"),
 							OnClick(parseProps.OnOpenSearchDialog),
-							Class("cursor-pointer rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100 transition hover:bg-cyan-400/15 hover:text-white"),
+							ClassStr("cursor-pointer rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100 transition hover:bg-cyan-400/15 hover:text-white"),
 							Text(buttonOpenSearchDialog),
 						),
 						Button(
 							Type("button"),
 							OnClick(parseProps.OnResetFilters),
 							Disabled(!parseProps.HasActiveFilters),
-							Class(ClassNames(
+							ClassStr(ClassNames(
 								"rounded-xl border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.16em] transition",
 								When(parseProps.HasActiveFilters, "cursor-pointer border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white"),
 								When(!parseProps.HasActiveFilters, "cursor-not-allowed border-white/5 bg-white/[0.03] text-slate-500"),
@@ -677,49 +677,49 @@ func renderCatalogSidebar(parseProps catalogSidebarProps) ui.Node {
 						),
 					),
 				),
-				Div(Class("grid grid-cols-2 gap-2 xl:grid-cols-4"),
-					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
+				Div(ClassStr("grid grid-cols-2 gap-2 xl:grid-cols-4"),
+					Label(ClassStr("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Status")),
-						Select(Value(parseProps.SelectedStatusFilter), OnChange(parseProps.OnStatusChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(parseProps.Statuses)),
+						Select(Value(parseProps.SelectedStatusFilter), OnChange(parseProps.OnStatusChange), ClassStr("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(parseProps.Statuses)),
 					),
-					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
+					Label(ClassStr("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Difficulty")),
-						Select(Value(parseProps.SelectedLevelFilter), OnChange(parseProps.OnLevelChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(parseProps.Levels)),
+						Select(Value(parseProps.SelectedLevelFilter), OnChange(parseProps.OnLevelChange), ClassStr("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(parseProps.Levels)),
 					),
-					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
+					Label(ClassStr("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Module")),
-						Select(Value(parseProps.SelectedModuleFilter), OnChange(parseProps.OnModuleChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(parseProps.Modules)),
+						Select(Value(parseProps.SelectedModuleFilter), OnChange(parseProps.OnModuleChange), ClassStr("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(parseProps.Modules)),
 					),
-					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
+					Label(ClassStr("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Sort")),
-						Select(Value(parseProps.SelectedSortOrder), OnChange(parseProps.OnSortChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderSortOptionNodes(parseProps.SortOptions)),
+						Select(Value(parseProps.SelectedSortOrder), OnChange(parseProps.OnSortChange), ClassStr("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderSortOptionNodes(parseProps.SortOptions)),
 					),
 				),
 			),
 		),
-		Div(Class("scrollbar-stable min-h-0 flex-1 overflow-y-auto p-1.5 sm:p-2"),
-			Div(Class("space-y-2"), parseProps.ItemNodes),
+		Div(ClassStr("scrollbar-stable min-h-0 flex-1 overflow-y-auto p-1.5 sm:p-2"),
+			Div(ClassStr("space-y-2"), parseProps.ItemNodes),
 		),
 	)
 }
 
 func renderCatalogSearchDialogContent(parseProps catalogSearchDialogProps) ui.Node {
-	return Div(Class("flex max-h-[min(84vh,42rem)] flex-col gap-4"),
-		Div(Class("flex items-start justify-between gap-4"),
-			Div(Class("min-w-0"),
-				H2(ID("catalog-search-dialog-title"), Class("text-2xl font-semibold tracking-tight text-white"), Text(labelSearchDialog)),
-				P(ID("catalog-search-dialog-description"), Class("mt-2 text-sm leading-6 text-slate-300"), Text(messageSearchDialog)),
+	return Div(ClassStr("flex max-h-[min(84vh,42rem)] flex-col gap-4"),
+		Div(ClassStr("flex items-start justify-between gap-4"),
+			Div(ClassStr("min-w-0"),
+				H2(ID("catalog-search-dialog-title"), ClassStr("text-2xl font-semibold tracking-tight text-white"), Text(labelSearchDialog)),
+				P(ID("catalog-search-dialog-description"), ClassStr("mt-2 text-sm leading-6 text-slate-300"), Text(messageSearchDialog)),
 			),
-			Button(Type("button"), ID("catalog-search-dialog-close"), OnClick(parseProps.OnClose), Aria("label", buttonCloseSearchDialog), Class("shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10 hover:text-white"), Text("Close")),
+			Button(Type("button"), ID("catalog-search-dialog-close"), OnClick(parseProps.OnClose), Aria("label", buttonCloseSearchDialog), ClassStr("shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10 hover:text-white"), Text("Close")),
 		),
-		Input(ID("catalog-search-dialog-input"), Value(parseProps.SearchQuery), OnInput(parseProps.OnSearchInput), Placeholder("Search examples, concepts, modules..."), Aria("label", labelSearchDialog), Aria("describedby", parseProps.ResultSummaryID+" catalog-search-dialog-description"), Class("w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/50 focus:bg-slate-950")),
-		Div(Class("flex flex-wrap items-center justify-between gap-3"),
-			Div(ID("catalog-search-dialog-summary"), Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Aria("live", "polite"), Aria("atomic", "true"), Text(catalogResultAnnouncement(parseProps.ResultCount, parseProps.SearchQuery))),
+		Input(ID("catalog-search-dialog-input"), Value(parseProps.SearchQuery), OnInput(parseProps.OnSearchInput), Placeholder("Search examples, concepts, modules..."), Aria("label", labelSearchDialog), Aria("describedby", parseProps.ResultSummaryID+" catalog-search-dialog-description"), ClassStr("w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/50 focus:bg-slate-950")),
+		Div(ClassStr("flex flex-wrap items-center justify-between gap-3"),
+			Div(ID("catalog-search-dialog-summary"), ClassStr("text-xs uppercase tracking-[0.18em] text-slate-400"), Aria("live", "polite"), Aria("atomic", "true"), Text(catalogResultAnnouncement(parseProps.ResultCount, parseProps.SearchQuery))),
 			Button(
 				Type("button"),
 				OnClick(parseProps.OnResetFilters),
 				Disabled(!parseProps.HasActiveFilters),
-				Class(ClassNames(
+				ClassStr(ClassNames(
 					"rounded-xl border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.16em] transition",
 					When(parseProps.HasActiveFilters, "cursor-pointer border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white"),
 					When(!parseProps.HasActiveFilters, "cursor-not-allowed border-white/5 bg-white/[0.03] text-slate-500"),
@@ -727,10 +727,10 @@ func renderCatalogSearchDialogContent(parseProps catalogSearchDialogProps) ui.No
 				Text(buttonResetFilters),
 			),
 		),
-		Div(Class("min-h-0 overflow-y-auto rounded-[22px] border border-white/10 bg-black/10 p-2"),
+		Div(ClassStr("min-h-0 overflow-y-auto rounded-[22px] border border-white/10 bg-black/10 p-2"),
 			IfElse(len(parseProps.ItemNodes) > 0,
-				Div(Class("space-y-2"), parseProps.ItemNodes),
-				Div(Class("p-6 text-center text-sm text-slate-400"), Text(messageNoMatches)),
+				Div(ClassStr("space-y-2"), parseProps.ItemNodes),
+				Div(ClassStr("p-6 text-center text-sm text-slate-400"), Text(messageNoMatches)),
 			),
 		),
 	)
@@ -772,29 +772,29 @@ func renderDetailPanel(parseProps detailPanelProps) ui.Node {
 	if parseProps.SelectedItem.Type != kindExample && parseProps.SelectedItem.Content.Kind != contentKindExample && parseProps.SelectedItem.Content.Kind != contentKindCounter {
 		parsePrimaryBadge = getContentKindLabel(parseProps.SelectedItem)
 	}
-	return Section(Class("min-w-0 flex min-h-[420px] flex-1 flex-col rounded-[24px] border border-white/10 bg-slate-950/45 backdrop-blur-xl lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)]"),
-		Div(Class("sticky top-0 z-10 border-b border-white/10 bg-slate-950/75 p-3 backdrop-blur-xl sm:p-4"),
+	return Section(ClassStr("min-w-0 flex min-h-[420px] flex-1 flex-col rounded-[24px] border border-white/10 bg-slate-950/45 backdrop-blur-xl lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)]"),
+		Div(ClassStr("sticky top-0 z-10 border-b border-white/10 bg-slate-950/75 p-3 backdrop-blur-xl sm:p-4"),
 			IfElse(parseProps.HasSelectedItem,
 				Fragment(
-					Div(Class("flex flex-wrap items-center gap-3"),
-						Span(Class(ClassNames("rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.2em]", typeBadgeClass(parseProps.SelectedItem.Type))), Text(parsePrimaryBadge)),
-						Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400"), Text(parseProps.SelectedItem.Level)),
-						Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400"), Text(formatExampleConceptLabel(parseProps.SelectedItem.Module))),
-						Span(Class(ClassNames("rounded-full border px-3 py-1 text-xs uppercase tracking-[0.2em]", statusBadgeClass(parseProps.SelectedItem.Status))), Text(parseProps.SelectedItem.Status)),
+					Div(ClassStr("flex flex-wrap items-center gap-3"),
+						Span(ClassStr(ClassNames("rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.2em]", typeBadgeClass(parseProps.SelectedItem.Type))), Text(parsePrimaryBadge)),
+						Span(ClassStr("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400"), Text(parseProps.SelectedItem.Level)),
+						Span(ClassStr("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400"), Text(formatExampleConceptLabel(parseProps.SelectedItem.Module))),
+						Span(ClassStr(ClassNames("rounded-full border px-3 py-1 text-xs uppercase tracking-[0.2em]", statusBadgeClass(parseProps.SelectedItem.Status))), Text(parseProps.SelectedItem.Status)),
 					),
-					H2(Class("mt-4 text-2xl font-semibold tracking-tight text-white sm:text-3xl"), Text(parseProps.SelectedItem.Title)),
-					P(Class("mt-3 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base"), Text(getExampleFocusSummary(parseProps.SelectedItem))),
+					H2(ClassStr("mt-4 text-2xl font-semibold tracking-tight text-white sm:text-3xl"), Text(parseProps.SelectedItem.Title)),
+					P(ClassStr("mt-3 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base"), Text(getExampleFocusSummary(parseProps.SelectedItem))),
 					If(len(parseConceptNodes) > 0,
-						Div(Class("mt-4 flex flex-wrap gap-2"), parseConceptNodes),
+						Div(ClassStr("mt-4 flex flex-wrap gap-2"), parseConceptNodes),
 					),
 				),
 				Fragment(
-					H2(Class("text-2xl font-semibold tracking-tight text-white sm:text-3xl"), Text(labelNothingSelected)),
-					P(Class("mt-3 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base"), Text(messageAdjustFilters)),
+					H2(ClassStr("text-2xl font-semibold tracking-tight text-white sm:text-3xl"), Text(labelNothingSelected)),
+					P(ClassStr("mt-3 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base"), Text(messageAdjustFilters)),
 				),
 			),
 		),
-		Div(ID("demo"), Class("scrollbar-stable min-w-0 min-h-0 flex-1 overflow-y-auto p-2 sm:p-3"), renderDisplaySurface(contentPanelProps{Item: parseProps.SelectedItem, IsPreviewLoaded: parseProps.IsPreviewLoaded, IsSourceVisible: parseProps.IsSourceVisible, MarkdownBody: parseProps.MarkdownBody, MarkdownLoading: parseProps.MarkdownLoading, MarkdownReady: parseProps.MarkdownReady, MarkdownError: parseProps.MarkdownError, OnLoadPreview: parseProps.OnLoadPreview, OnHideSource: parseProps.OnHideSource, OnRetryMarkdown: parseProps.OnRetryMarkdown, OnShowSource: parseProps.OnShowSource}, parseProps.HasSelectedItem)),
+		Div(ID("demo"), ClassStr("scrollbar-stable min-w-0 min-h-0 flex-1 overflow-y-auto p-2 sm:p-3"), renderDisplaySurface(contentPanelProps{Item: parseProps.SelectedItem, IsPreviewLoaded: parseProps.IsPreviewLoaded, IsSourceVisible: parseProps.IsSourceVisible, MarkdownBody: parseProps.MarkdownBody, MarkdownLoading: parseProps.MarkdownLoading, MarkdownReady: parseProps.MarkdownReady, MarkdownError: parseProps.MarkdownError, OnLoadPreview: parseProps.OnLoadPreview, OnHideSource: parseProps.OnHideSource, OnRetryMarkdown: parseProps.OnRetryMarkdown, OnShowSource: parseProps.OnShowSource}, parseProps.HasSelectedItem)),
 	)
 }
 
@@ -1106,7 +1106,7 @@ func renderDocsDemosSite() ui.Node {
 		}))
 	})
 	parseItemNodes = append(parseItemNodes, If(len(parseFilteredItems) == 0,
-		Div(Class("rounded-[22px] border border-dashed border-white/10 bg-black/10 p-6 text-center text-sm text-slate-400"), Text(messageNoMatches)),
+		Div(ClassStr("rounded-[22px] border border-dashed border-white/10 bg-black/10 p-6 text-center text-sm text-slate-400"), Text(messageNoMatches)),
 	))
 	parseDialogItemNodes := Map(firstCatalogItems(parseFilteredItems, 6), func(parseItem3 docsItem) ui.Node {
 		return renderItemCard(parseItem3, hasSelectedItem && parseSelectedCatalogItem.ID == parseItem3.ID, ui.UseEvent(func() {
@@ -1133,9 +1133,9 @@ func renderDocsDemosSite() ui.Node {
 			if hasSelectedItem && parseAnchorScrollItemID.Get() == parseSelectedCatalogItem.ID {
 				parseAnchorScrollID = parseAnchorScrollRequestID.Get()
 			}
-			return Div(Class("min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_24%),radial-gradient(circle_at_top_right,rgba(251,191,36,0.10),transparent_22%),linear-gradient(180deg,#08111d_0%,#0d1726_44%,#0c1320_100%)] text-slate-100"),
+			return Div(ClassStr("min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_24%),radial-gradient(circle_at_top_right,rgba(251,191,36,0.10),transparent_22%),linear-gradient(180deg,#08111d_0%,#0d1726_44%,#0c1320_100%)] text-slate-100"),
 				parseAnnouncer.Region(),
-				Div(Class("mx-auto flex min-h-screen w-full max-w-[96rem] flex-col px-2 py-2 sm:px-3 sm:py-3 lg:px-4"),
+				Div(ClassStr("mx-auto flex min-h-screen w-full max-w-[96rem] flex-col px-2 py-2 sm:px-3 sm:py-3 lg:px-4"),
 					ui.Component(renderCatalogHero, catalogHeroProps{
 						OnBrowseExamples:  parseBrowseExamples,
 						OnInspectAPIs:     parseInspectPackageAPIs,
@@ -1147,7 +1147,7 @@ func renderDocsDemosSite() ui.Node {
 						ModuleCount:       getDistinctModuleCount(parseExampleItems),
 					}),
 					ui.Component(renderPlaygroundPanel),
-					Main(Class("mt-2 flex w-full flex-1 flex-col gap-2 lg:min-h-0 lg:flex-row"),
+					Main(ClassStr("mt-2 flex w-full flex-1 flex-col gap-2 lg:min-h-0 lg:flex-row"),
 						ui.Component(renderCatalogSidebar, catalogSidebarProps{SearchQuery: parseSearchQuery.Get(), ResultCount: len(parseFilteredItems), ResultSummaryID: catalogSearchResultSummaryID, HasActiveFilters: hasActiveFilters, Statuses: parseVisibleStatuses, Levels: parseVisibleLevels, Modules: parseVisibleModules, SortOptions: parseCatalogRequest.Value.SortOptions, SelectedStatusFilter: parseSelectedStatusFilter.Get(), SelectedLevelFilter: parseSelectedLevelFilter.Get(), SelectedModuleFilter: parseSelectedModuleFilter.Get(), SelectedSortOrder: parseSelectedSortOrder.Get(), ItemNodes: parseItemNodes, OnSearchInput: parseUpdateSearchQuery, OnStatusChange: parseUpdateStatusFilter, OnLevelChange: parseUpdateLevelFilter, OnModuleChange: parseUpdateModuleFilter, OnSortChange: parseUpdateSortOrder, OnResetFilters: resetFilters, OnOpenSearchDialog: parseOpenSearchDialog}),
 						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: parseSelectedCatalogItem, HasSelectedItem: hasSelectedItem, IsPreviewLoaded: hasSelectedItem && parseLoadedPreviewItemID.Get() == parseSelectedCatalogItem.ID, IsSourceVisible: hasSelectedItem && parseVisibleSourceItemID.Get() == parseSelectedCatalogItem.ID, MarkdownBody: parseMarkdownRequest.Value, MarkdownLoading: parseMarkdownRequest.Loading, MarkdownReady: parseMarkdownRequest.Ready, MarkdownError: errorString(parseMarkdownRequest.Error), AnchorScrollID: parseAnchorScrollID, OnLoadPreview: parseLoadSelectedPreview, OnHideSource: parseHideSelectedSource, OnRetryMarkdown: parseRetryMarkdownLoad, OnShowSource: parseShowSelectedSource}),
 					),

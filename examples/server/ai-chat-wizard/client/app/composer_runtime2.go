@@ -96,10 +96,10 @@ func parseBuildComposerAccountCostText(parseIntl i18n.Runtime, parseCost string,
 func renderComposerCostRegion(parseRegionProps renderComposerCostRegionProps) ui.Node {
 	return Fragment(
 		If(parseRegionProps.HasThreadCost,
-			P(Class("text-right text-base text-white/20 mt-1 pr-1"), Text(parseRegionProps.RenderThread)),
+			P(ClassStr("text-right text-base text-white/20 mt-1 pr-1"), Text(parseRegionProps.RenderThread)),
 		),
 		If(parseRegionProps.HasAccountCost,
-			P(Class("text-right text-sm text-white/35 mt-0.5 pr-1"), Text(parseRegionProps.RenderAccount)),
+			P(ClassStr("text-right text-sm text-white/35 mt-0.5 pr-1"), Text(parseRegionProps.RenderAccount)),
 		),
 	)
 }

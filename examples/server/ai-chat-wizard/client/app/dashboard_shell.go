@@ -12,7 +12,7 @@ import (
 func renderDashboardHome(parseIntl i18n.Runtime, parseView appViewState, parseOpenAdminDashboard ui.Handler, parseAdminCustomers adminCustomersController, parseAdminWorkspaces adminWorkspacesController, parseAdminOperations adminOperationsController) ui.Node {
 	_ = parseOpenAdminDashboard
 	return Div(
-		Class("flex h-full min-h-0 flex-1 flex-col overflow-hidden"),
+		ClassStr("flex h-full min-h-0 flex-1 flex-col overflow-hidden"),
 		renderDashboardTopBar(parseIntl, parseView),
 		renderDashboardBody(parseIntl, parseView, parseAdminCustomers, parseAdminWorkspaces, parseAdminOperations),
 	)
@@ -40,9 +40,9 @@ func renderDashboardBody(parseIntl i18n.Runtime, parseView appViewState, parseAd
 // renderDashboardSliceWrap is a shared scroll container for all slice views.
 func renderDashboardSliceWrap(parseContent ui.Node) ui.Node {
 	return Div(
-		Class("chat-scrollbar flex-1 overflow-y-auto"),
+		ClassStr("chat-scrollbar flex-1 overflow-y-auto"),
 		Div(
-			Class("mx-auto w-full max-w-5xl px-5 py-6"),
+			ClassStr("mx-auto w-full max-w-5xl px-5 py-6"),
 			parseContent,
 		),
 	)
@@ -53,12 +53,12 @@ func renderDashboardTopBar(parseIntl i18n.Runtime, parseView appViewState) ui.No
 	_ = parseIntl
 	parseIsSlice := parseView.CurrentPath != chatRouteDashboardHome
 	return Div(
-		Class("flex items-center gap-3 border-b border-white/10 bg-[#13131e] px-5 py-3"),
+		ClassStr("flex items-center gap-3 border-b border-white/10 bg-[#13131e] px-5 py-3"),
 		If(parseIsSlice,
 			A(
 				Href(chatRouteDashboardHome),
 				OnClick(parseLandingNavigateHandler(chatRouteDashboardHome)),
-				Class("flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/60 no-underline transition-colors hover:bg-white/8 hover:text-white/90"),
+				ClassStr("flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/60 no-underline transition-colors hover:bg-white/8 hover:text-white/90"),
 				Span(Text("\u2190")),
 				Span(Text("Dashboard")),
 			),
@@ -67,15 +67,15 @@ func renderDashboardTopBar(parseIntl i18n.Runtime, parseView appViewState) ui.No
 			A(
 				Href(chatRouteRoot),
 				OnClick(parseLandingNavigateHandler(chatRouteRoot)),
-				Class("flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/60 no-underline transition-colors hover:bg-white/8 hover:text-white/90"),
+				ClassStr("flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/60 no-underline transition-colors hover:bg-white/8 hover:text-white/90"),
 				Span(Text("\u2190")),
 				Span(Text("Back to workspace")),
 			),
 		),
-		Div(Class("mx-2 h-4 w-px bg-white/10")),
-		P(Class("text-sm font-semibold text-white"), Text("Admin Dashboard")),
-		Div(Class("ml-auto flex items-center gap-2"),
-			Div(Class("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-white/40"),
+		Div(ClassStr("mx-2 h-4 w-px bg-white/10")),
+		P(ClassStr("text-sm font-semibold text-white"), Text("Admin Dashboard")),
+		Div(ClassStr("ml-auto flex items-center gap-2"),
+			Div(ClassStr("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-white/40"),
 				Text("RelayDesk"),
 			),
 		),
@@ -98,16 +98,16 @@ func renderDashboardHomeBody(parseIntl i18n.Runtime, parseView appViewState, par
 func renderDashboardRoleBanner(parseIntl i18n.Runtime, parseView appViewState) ui.Node {
 	_ = parseIntl
 	return Div(
-		Class("mb-6 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-		Div(Class("flex items-center gap-3"),
-			Div(Class("flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/6 text-base"),
+		ClassStr("mb-6 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+		Div(ClassStr("flex items-center gap-3"),
+			Div(ClassStr("flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/6 text-base"),
 				Text("\U0001f6e1\ufe0f"),
 			),
-			Div(Class("min-w-0"),
-				P(Class("text-sm font-semibold text-white"),
+			Div(ClassStr("min-w-0"),
+				P(ClassStr("text-sm font-semibold text-white"),
 					Text(parseDashboardRoleLabel(parseView)),
 				),
-				P(Class("mt-0.5 text-xs text-white/45"),
+				P(ClassStr("mt-0.5 text-xs text-white/45"),
 					Text(parseDashboardRoleDescription(parseView)),
 				),
 			),
@@ -187,10 +187,10 @@ func renderDashboardSliceTiles(parseIntl i18n.Runtime, parseView appViewState) u
 	_ = parseIntl
 	parseSlices := parseDashboardSlices()
 	return Div(
-		Class("mb-6"),
-		P(Class("mb-3 text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Admin surfaces")),
+		ClassStr("mb-6"),
+		P(ClassStr("mb-3 text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Admin surfaces")),
 		Div(
-			Class("grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"),
+			ClassStr("grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"),
 			Fragment(Map(parseSlices, func(parseSlice dashboardSlice) ui.Node {
 				return renderDashboardSliceTile(parseSlice, parseView)
 			})),
@@ -207,9 +207,9 @@ func renderDashboardSliceTile(parseSlice dashboardSlice, parseView appViewState)
 		When(!parseSlice.IsReady, "border-white/[0.06] bg-white/[0.02] opacity-60 pointer-events-none"),
 	)
 	parseInner := Fragment(
-		Div(Class("mb-3 text-2xl"), Text(parseSlice.Icon)),
-		P(Class("text-sm font-semibold text-white"), Text(parseSlice.Label)),
-		P(Class("mt-1 text-xs leading-5 text-white/45"), Text(parseSlice.Subtitle)),
+		Div(ClassStr("mb-3 text-2xl"), Text(parseSlice.Icon)),
+		P(ClassStr("text-sm font-semibold text-white"), Text(parseSlice.Label)),
+		P(ClassStr("mt-1 text-xs leading-5 text-white/45"), Text(parseSlice.Subtitle)),
 		If(!parseSlice.IsReady,
 			renderDashboardAvailabilityBadge(parseSlice.Availability),
 		),
@@ -218,11 +218,11 @@ func renderDashboardSliceTile(parseSlice dashboardSlice, parseView appViewState)
 		return A(
 			Href(parseSlice.Route),
 			OnClick(parseLandingNavigateHandler(parseSlice.Route)),
-			Class(ClassNames(parseTileClass, "block no-underline")),
+			ClassStr(ClassNames(parseTileClass, "block no-underline")),
 			parseInner,
 		)
 	}
-	return Div(Class(parseTileClass), parseInner)
+	return Div(ClassStr(parseTileClass), parseInner)
 }
 
 // renderDashboardAvailabilityBadge renders a small availability-state label for dashboard slice tiles that are not yet ready.
@@ -232,7 +232,7 @@ func renderDashboardAvailabilityBadge(parseAvailability string) ui.Node {
 		parseLabel = "Not enabled"
 	}
 	return Div(
-		Class("mt-2 inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/30"),
+		ClassStr("mt-2 inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/30"),
 		Text(parseLabel),
 	)
 }
@@ -246,13 +246,13 @@ func renderDashboardAccountSummary(parseIntl i18n.Runtime, parseView appViewStat
 		parseFreshnessLabel = "Live provider snapshot"
 	}
 	return Div(
-		Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+		ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
 		Div(
-			Class("mb-3 flex items-baseline justify-between gap-2"),
-			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Your account this period")),
-			Span(Class("text-[10px] text-white/25"), Text(parseFreshnessLabel)),
+			ClassStr("mb-3 flex items-baseline justify-between gap-2"),
+			P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Your account this period")),
+			Span(ClassStr("text-[10px] text-white/25"), Text(parseFreshnessLabel)),
 		),
-		Div(Class("grid grid-cols-2 gap-3 sm:grid-cols-4"),
+		Div(ClassStr("grid grid-cols-2 gap-3 sm:grid-cols-4"),
 			renderDashboardSummaryCard("Chats", formatDashboardInt(parseView.AccountCostSummary.ThreadCount)),
 			renderDashboardSummaryCard("Total spend", parseDashboardCostLabel(parseHasCost, parseView.AccountCostSummary.TotalCost)),
 			renderDashboardSummaryCard("Model cost", parseDashboardCostLabel(parseHasCost, parseView.AccountCostSummary.UsageCost)),
@@ -264,8 +264,8 @@ func renderDashboardAccountSummary(parseIntl i18n.Runtime, parseView appViewStat
 // renderDashboardSummaryCard renders a single labeled metric card for the account summary grid.
 func renderDashboardSummaryCard(parseLabel, parseValue string) ui.Node {
 	return Div(
-		Class("rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3"),
-		P(Class("text-[10px] font-medium uppercase tracking-wide text-white/35"), Text(parseLabel)),
-		P(Class("mt-1.5 text-base font-semibold text-white"), Text(parseValue)),
+		ClassStr("rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3"),
+		P(ClassStr("text-[10px] font-medium uppercase tracking-wide text-white/35"), Text(parseLabel)),
+		P(ClassStr("mt-1.5 text-base font-semibold text-white"), Text(parseValue)),
 	)
 }

@@ -32,16 +32,16 @@ func parseQuoteSelectionPrompt(parseState quoteSelectionState, parseOnQuote, par
 	if parseState.Pending {
 		return Div(
 			ID(idQuoteSpinner),
-			Class("quote-selection-ui quote-selection-spinner-card"),
+			ClassStr("quote-selection-ui quote-selection-spinner-card"),
 			Style(parseStyle),
 			OnMouseUp(parseStopMouseUp),
-			Span(Class("quote-selection-spinner-dot")),
+			Span(ClassStr("quote-selection-spinner-dot")),
 		)
 	}
 
 	return Button(
 		ID(idQuotePrompt),
-		Class("quote-selection-ui quote-selection-chip"),
+		ClassStr("quote-selection-ui quote-selection-chip"),
 		Style(parseStyle),
 		OnMouseUp(parseStopMouseUp),
 		OnClick(parseOnQuote),

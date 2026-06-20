@@ -58,7 +58,7 @@ func highlightSource(parseSource string, parseLanguage string) []ui.Node {
 			parseNodes = append(parseNodes, Text(parseValue))
 			continue
 		}
-		parseNodes = append(parseNodes, Span(Class(parseClass), Text(parseValue)))
+		parseNodes = append(parseNodes, Span(ClassStr(parseClass), Text(parseValue)))
 	}
 	return parseNodes
 }

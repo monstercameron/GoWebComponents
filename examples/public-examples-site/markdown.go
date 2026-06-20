@@ -57,25 +57,25 @@ func markdownDocumentHref(parseSourcePath string) (parseHref string) {
 func renderMarkdownState(parsePanelProps contentPanelProps) ui.Node {
 	switch {
 	case parsePanelProps.MarkdownLoading && !parsePanelProps.MarkdownReady:
-		return Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocLoading))
+		return Div(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocLoading))
 	case parsePanelProps.MarkdownError != "" && !parsePanelProps.MarkdownReady:
-		return Div(Class("rounded-[20px] border border-rose-400/20 bg-rose-400/10 p-4"),
-			Div(Class("text-sm font-medium text-rose-100"), Text("Document request failed")),
-			P(Class("mt-2 text-sm leading-7 text-rose-50/90"), Text(parsePanelProps.MarkdownError)),
-			Button(Type("button"), OnClick(parsePanelProps.OnRetryMarkdown), Class("mt-4 cursor-pointer rounded-2xl border border-rose-300/30 bg-rose-400/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"), Text(buttonRetryDocument)),
+		return Div(ClassStr("rounded-[20px] border border-rose-400/20 bg-rose-400/10 p-4"),
+			Div(ClassStr("text-sm font-medium text-rose-100"), Text("Document request failed")),
+			P(ClassStr("mt-2 text-sm leading-7 text-rose-50/90"), Text(parsePanelProps.MarkdownError)),
+			Button(Type("button"), OnClick(parsePanelProps.OnRetryMarkdown), ClassStr("mt-4 cursor-pointer rounded-2xl border border-rose-300/30 bg-rose-400/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"), Text(buttonRetryDocument)),
 		)
 	case parsePanelProps.Item.Content.SourcePath == "":
-		return Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocUnavailable))
+		return Div(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocUnavailable))
 	case parsePanelProps.MarkdownReady:
 		parseMarkdownNodes := gwchtml.RenderMarkdown(parsePanelProps.MarkdownBody, markdownRenderOptions(parsePanelProps.Item.Content.SourcePath))
 		if len(parseMarkdownNodes) == 0 {
-			return Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocEmpty))
+			return Div(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocEmpty))
 		}
-		return Div(Class("space-y-4"),
-			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelRenderedMarkdown)),
-			Div(Class("space-y-4"), parseMarkdownNodes),
+		return Div(ClassStr("space-y-4"),
+			Div(ClassStr("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelRenderedMarkdown)),
+			Div(ClassStr("space-y-4"), parseMarkdownNodes),
 		)
 	default:
-		return Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocLoading))
+		return Div(ClassStr("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocLoading))
 	}
 }

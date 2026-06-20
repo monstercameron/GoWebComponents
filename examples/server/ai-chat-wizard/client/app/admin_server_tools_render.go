@@ -61,19 +61,19 @@ func renderDashboardServerToolsPolicyCard(parsePolicy adminServerToolsPolicy) ui
 	}
 	parseToolCount := len(parsePolicy.ApprovedTools)
 	return Div(
-		Class("mb-4 rounded-[1.2rem] border border-white/10 bg-white/[0.03] p-4"),
-		Div(Class("mb-3 flex items-center gap-2"),
-			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Tool policy")),
-			Span(Class(fmt.Sprintf("text-xs font-semibold %s", parseEnabledColor)), Text(parseEnabledLabel)),
+		ClassStr("mb-4 rounded-[1.2rem] border border-white/10 bg-white/[0.03] p-4"),
+		Div(ClassStr("mb-3 flex items-center gap-2"),
+			P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Tool policy")),
+			Span(ClassStr(fmt.Sprintf("text-xs font-semibold %s", parseEnabledColor)), Text(parseEnabledLabel)),
 		),
-		Div(Class("grid grid-cols-2 gap-3 sm:grid-cols-4 mb-3"),
+		Div(ClassStr("grid grid-cols-2 gap-3 sm:grid-cols-4 mb-3"),
 			renderDashboardKPICard("Approved tools", fmt.Sprintf("%d", parseToolCount), ""),
 			renderDashboardKPICard("Max session", fmt.Sprintf("%ds", parsePolicy.MaxSessionSeconds), ""),
 			renderDashboardKPICard("Max output", parseFormatBytes(int64(parsePolicy.MaxOutputBytes)), ""),
 			renderDashboardKPICard("Source", parseSource, ""),
 		),
 		If(parseUpdatedAt != "\u2014",
-			P(Class("text-[11px] text-white/30"), Text("Updated "+parseUpdatedAt)),
+			P(ClassStr("text-[11px] text-white/30"), Text("Updated "+parseUpdatedAt)),
 		),
 		If(parseToolCount > 0,
 			renderDashboardServerToolsRulesTable(parsePolicy.ApprovedTools),
@@ -101,14 +101,14 @@ func renderDashboardServerToolsRulesTable(parseRules []adminServerToolsPolicyRul
 // renderDashboardServerToolsExecutionsTable renders recent server-tool audit executions.
 func renderDashboardServerToolsExecutionsTable(parseExecs []adminServerToolsExecutionRow) ui.Node {
 	if len(parseExecs) == 0 {
-		return P(Class("mt-2 text-xs text-white/30"), Text("No recent executions recorded."))
+		return P(ClassStr("mt-2 text-xs text-white/30"), Text("No recent executions recorded."))
 	}
 	parseRows := make([][]string, len(parseExecs))
 	for parseI, parseExec := range parseExecs {
 		parseRows[parseI] = []string{parseExec.EventType, parseExec.Summary, parseDashboardShortAt(parseExec.CreatedAt)}
 	}
 	return Fragment(
-		P(Class("mb-2 text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Recent executions")),
+		P(ClassStr("mb-2 text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Recent executions")),
 		renderDashboardTable([]string{"Event", "Summary", "When"}, parseRows),
 	)
 }
@@ -120,11 +120,11 @@ func renderDashboardServerToolsLogTail(parseLines []string) ui.Node {
 	}
 	parseLogText := strings.Join(parseLines, "\n")
 	return Fragment(
-		P(Class("mt-4 mb-2 text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Log tail")),
+		P(ClassStr("mt-4 mb-2 text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Log tail")),
 		Div(
-			Class("rounded-xl border border-white/10 bg-black/30 p-3 overflow-x-auto"),
+			ClassStr("rounded-xl border border-white/10 bg-black/30 p-3 overflow-x-auto"),
 			Pre(
-				Class("text-[11px] leading-5 text-white/55 font-mono whitespace-pre-wrap break-all"),
+				ClassStr("text-[11px] leading-5 text-white/55 font-mono whitespace-pre-wrap break-all"),
 				Text(parseLogText),
 			),
 		),

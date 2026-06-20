@@ -6,7 +6,7 @@ func BenchmarkTagWithMixedArgs(parseB *testing.B) {
 	parseB.ReportAllocs()
 	for parseB.Loop() {
 		parseNode := Tag("section",
-			Class("rounded-xl border border-slate-300 p-4"),
+			ClassStr("rounded-xl border border-slate-300 p-4"),
 			Data("bench", "true"),
 			Aria("label", "benchmark section"),
 			Text("alpha"),

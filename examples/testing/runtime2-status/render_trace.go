@@ -307,36 +307,36 @@ func renderRuntime2StatusRenderTrace(parseProps runtime2StatusRenderTraceProps) 
 	parseTracePanelRenderPass := trackRuntime2StatusRenderCount(getRuntime2StatusRenderLabelTracePanel)
 	parseReport := storeRuntime2StatusRenderTraceSample(parseProps.GetOwnerCount, parseProps.GetAppShellPass, parseProps.GetOwnerPanelPass, parseTracePanelRenderPass)
 	return Div(
-		Class("rounded-[28px] border border-violet-300/20 bg-violet-400/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
+		ClassStr("rounded-[28px] border border-violet-300/20 bg-violet-400/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
 		P(
-			Class("text-xs font-semibold uppercase tracking-[0.24em] text-violet-100"),
+			ClassStr("text-xs font-semibold uppercase tracking-[0.24em] text-violet-100"),
 			Text("Render Trace"),
 		),
 		H2(
-			Class("mt-4 text-3xl font-black tracking-tight text-white"),
+			ClassStr("mt-4 text-3xl font-black tracking-tight text-white"),
 			Text("Rerender health"),
 		),
 		Div(
-			Class("mt-4 rounded-2xl border border-white/10 bg-slate-950/55 p-4"),
+			ClassStr("mt-4 rounded-2xl border border-white/10 bg-slate-950/55 p-4"),
 			P(
-				Class(ClassNames("text-sm font-semibold uppercase tracking-[0.2em]", buildRuntime2StatusRenderTraceVerdictClass(parseReport.GetVerdictLabel))),
+				ClassStr(ClassNames("text-sm font-semibold uppercase tracking-[0.2em]", buildRuntime2StatusRenderTraceVerdictClass(parseReport.GetVerdictLabel))),
 				Textf("Verdict: %s", parseReport.GetVerdictLabel),
 			),
 			P(
-				Class("mt-3 text-sm leading-7 text-slate-300"),
+				ClassStr("mt-3 text-sm leading-7 text-slate-300"),
 				Text(parseReport.GetVerdictReason),
 			),
 			P(
-				Class("mt-3 text-xs leading-6 text-slate-400"),
+				ClassStr("mt-3 text-xs leading-6 text-slate-400"),
 				Text(parseReport.GetSummaryText),
 			),
 		),
 		Pre(
-			Class("mt-5 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-6 text-slate-200"),
+			ClassStr("mt-5 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-6 text-slate-200"),
 			Text(parseReport.GetGraphText),
 		),
 		Pre(
-			Class("mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-6 text-slate-200"),
+			ClassStr("mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-6 text-slate-200"),
 			Text(parseReport.GetRowsText),
 		),
 	)

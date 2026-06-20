@@ -23,13 +23,13 @@ func isInfoLandingPage(parsePage string) bool {
 func renderInfoShell(parseIntl i18n.Runtime, parsePage string) ui.Node {
 	n := marketingI18nNamespace
 	return Div(
-		Class("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
+		ClassStr("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
 		renderPageBackground(),
 		renderMarketingHeader(
 			parseIntl,
 			"",
 			Tag("nav",
-				Class("hidden items-center gap-6 lg:flex"),
+				ClassStr("hidden items-center gap-6 lg:flex"),
 				renderNavLink("", marketingHomeRoute, parseIntl.T(n, "nav.product")),
 				renderNavLink("", marketingPricingRoute, parseIntl.T(n, "nav.pricing")),
 			),
@@ -39,7 +39,7 @@ func renderInfoShell(parseIntl i18n.Runtime, parsePage string) ui.Node {
 			renderMarketingHeaderAction(parseIntl.T(n, "header.openApp"), chatRouteRoot, true, false),
 		),
 		Main(
-			Class("relative z-10"),
+			ClassStr("relative z-10"),
 			renderInfoBody(parseIntl, parsePage),
 		),
 		renderMarketingFooter(
@@ -86,18 +86,18 @@ func renderInfoBody(parseIntl i18n.Runtime, parsePage string) ui.Node {
 func renderInfoAbout(parseIntl i18n.Runtime) ui.Node {
 	n := marketingI18nNamespace
 	return Div(
-		Class("mx-auto w-[min(760px,calc(100%-24px))] py-20 sm:py-28"),
+		ClassStr("mx-auto w-[min(760px,calc(100%-24px))] py-20 sm:py-28"),
 		renderSectionEyebrow(parseIntl.T(n, "about.eyebrow")),
 		H1(
-			Class("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
+			ClassStr("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
 			Text(parseIntl.T(n, "about.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
+			ClassStr("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "about.body")),
 		),
 		Div(
-			Class("mt-10 flex flex-col gap-3 sm:flex-row"),
+			ClassStr("mt-10 flex flex-col gap-3 sm:flex-row"),
 			renderCtaPrimary(parseIntl.T(n, "about.cta.pricing"), marketingPricingRoute),
 			renderCtaSecondary(parseIntl.T(n, "about.cta.start"), marketingSignupRoute),
 		),
@@ -108,18 +108,18 @@ func renderInfoAbout(parseIntl i18n.Runtime) ui.Node {
 func renderInfoContact(parseIntl i18n.Runtime) ui.Node {
 	n := marketingI18nNamespace
 	return Div(
-		Class("mx-auto w-[min(900px,calc(100%-24px))] py-20 sm:py-28"),
+		ClassStr("mx-auto w-[min(900px,calc(100%-24px))] py-20 sm:py-28"),
 		renderSectionEyebrow(parseIntl.T(n, "info.contact.eyebrow")),
 		H1(
-			Class("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
+			ClassStr("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
 			Text(parseIntl.T(n, "info.contact.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
+			ClassStr("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "info.contact.body")),
 		),
 		Div(
-			Class("mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2"),
+			ClassStr("mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2"),
 			renderInfoContactCard(
 				parseIntl.T(n, "info.contact.sales.title"),
 				parseIntl.T(n, "info.contact.sales.body"),
@@ -149,18 +149,18 @@ func renderInfoContactCard(renderTitle, renderBody, renderEmail string) ui.Node 
 	emailNode := ui.Node(nil)
 	if renderEmail != "" {
 		emailNode = P(
-			Class("mt-3 text-sm font-medium text-[#7c6fcd]"),
+			ClassStr("mt-3 text-sm font-medium text-[#7c6fcd]"),
 			Text(renderEmail),
 		)
 	}
 	return Div(
-		Class("rounded-2xl border border-[#2a2a3d] bg-[#13131f] p-6"),
+		ClassStr("rounded-2xl border border-[#2a2a3d] bg-[#13131f] p-6"),
 		H3(
-			Class("text-base font-semibold text-[#f0f0f8]"),
+			ClassStr("text-base font-semibold text-[#f0f0f8]"),
 			Text(renderTitle),
 		),
 		P(
-			Class("mt-2 text-sm leading-6 text-[#9b9bb1]"),
+			ClassStr("mt-2 text-sm leading-6 text-[#9b9bb1]"),
 			Text(renderBody),
 		),
 		emailNode,
@@ -171,18 +171,18 @@ func renderInfoContactCard(renderTitle, renderBody, renderEmail string) ui.Node 
 func renderInfoPrivacy(parseIntl i18n.Runtime) ui.Node {
 	n := marketingI18nNamespace
 	return Div(
-		Class("mx-auto w-[min(760px,calc(100%-24px))] py-20 sm:py-28"),
+		ClassStr("mx-auto w-[min(760px,calc(100%-24px))] py-20 sm:py-28"),
 		renderSectionEyebrow(parseIntl.T(n, "info.privacy.eyebrow")),
 		H1(
-			Class("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
+			ClassStr("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
 			Text(parseIntl.T(n, "info.privacy.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
+			ClassStr("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "info.privacy.body")),
 		),
 		Div(
-			Class("mt-12 space-y-8"),
+			ClassStr("mt-12 space-y-8"),
 			renderInfoSection(parseIntl.T(n, "info.privacy.collect.title"), parseIntl.T(n, "info.privacy.collect.body")),
 			renderInfoSection(parseIntl.T(n, "info.privacy.use.title"), parseIntl.T(n, "info.privacy.use.body")),
 			renderInfoSection(parseIntl.T(n, "info.privacy.retention.title"), parseIntl.T(n, "info.privacy.retention.body")),
@@ -195,18 +195,18 @@ func renderInfoPrivacy(parseIntl i18n.Runtime) ui.Node {
 func renderInfoTerms(parseIntl i18n.Runtime) ui.Node {
 	n := marketingI18nNamespace
 	return Div(
-		Class("mx-auto w-[min(760px,calc(100%-24px))] py-20 sm:py-28"),
+		ClassStr("mx-auto w-[min(760px,calc(100%-24px))] py-20 sm:py-28"),
 		renderSectionEyebrow(parseIntl.T(n, "info.terms.eyebrow")),
 		H1(
-			Class("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
+			ClassStr("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
 			Text(parseIntl.T(n, "info.terms.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
+			ClassStr("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "info.terms.body")),
 		),
 		Div(
-			Class("mt-12 space-y-8"),
+			ClassStr("mt-12 space-y-8"),
 			renderInfoSection(parseIntl.T(n, "info.terms.account.title"), parseIntl.T(n, "info.terms.account.body")),
 			renderInfoSection(parseIntl.T(n, "info.terms.use.title"), parseIntl.T(n, "info.terms.use.body")),
 			renderInfoSection(parseIntl.T(n, "info.terms.billing.title"), parseIntl.T(n, "info.terms.billing.body")),
@@ -220,18 +220,18 @@ func renderInfoTerms(parseIntl i18n.Runtime) ui.Node {
 func renderInfoSecurity(parseIntl i18n.Runtime) ui.Node {
 	n := marketingI18nNamespace
 	return Div(
-		Class("mx-auto w-[min(760px,calc(100%-24px))] py-20 sm:py-28"),
+		ClassStr("mx-auto w-[min(760px,calc(100%-24px))] py-20 sm:py-28"),
 		renderSectionEyebrow(parseIntl.T(n, "info.security.eyebrow")),
 		H1(
-			Class("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
+			ClassStr("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
 			Text(parseIntl.T(n, "info.security.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
+			ClassStr("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "info.security.body")),
 		),
 		Div(
-			Class("mt-12 space-y-8"),
+			ClassStr("mt-12 space-y-8"),
 			renderInfoSection(parseIntl.T(n, "info.security.access.title"), parseIntl.T(n, "info.security.access.body")),
 			renderInfoSection(parseIntl.T(n, "info.security.data.title"), parseIntl.T(n, "info.security.data.body")),
 			renderInfoSection(parseIntl.T(n, "info.security.retention.title"), parseIntl.T(n, "info.security.retention.body")),
@@ -245,18 +245,18 @@ func renderInfoSecurity(parseIntl i18n.Runtime) ui.Node {
 func renderInfoStatus(parseIntl i18n.Runtime) ui.Node {
 	n := marketingI18nNamespace
 	return Div(
-		Class("mx-auto w-[min(760px,calc(100%-24px))] py-20 sm:py-28"),
+		ClassStr("mx-auto w-[min(760px,calc(100%-24px))] py-20 sm:py-28"),
 		renderSectionEyebrow(parseIntl.T(n, "info.status.eyebrow")),
 		H1(
-			Class("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
+			ClassStr("mt-6 font-display text-4xl font-bold leading-tight tracking-tight text-[#f0f0f8] sm:text-5xl"),
 			Text(parseIntl.T(n, "info.status.headline")),
 		),
 		P(
-			Class("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
+			ClassStr("mt-6 text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"),
 			Text(parseIntl.T(n, "info.status.body")),
 		),
 		Div(
-			Class("mt-12 space-y-8"),
+			ClassStr("mt-12 space-y-8"),
 			renderInfoStatusSection(
 				parseIntl.T(n, "info.status.current.title"),
 				parseIntl.T(n, "info.status.current.value"),
@@ -284,13 +284,13 @@ func renderInfoStatus(parseIntl i18n.Runtime) ui.Node {
 // renderInfoSection renders a titled text block used by privacy, terms, and security pages.
 func renderInfoSection(renderTitle, renderBody string) ui.Node {
 	return Div(
-		Class("border-l-2 border-[#2a2a3d] pl-5"),
+		ClassStr("border-l-2 border-[#2a2a3d] pl-5"),
 		H3(
-			Class("text-base font-semibold text-[#f0f0f8]"),
+			ClassStr("text-base font-semibold text-[#f0f0f8]"),
 			Text(renderTitle),
 		),
 		P(
-			Class("mt-2 text-sm leading-6 text-[#9b9bb1]"),
+			ClassStr("mt-2 text-sm leading-6 text-[#9b9bb1]"),
 			Text(renderBody),
 		),
 	)
@@ -305,15 +305,15 @@ func renderInfoStatusSection(renderTitle, renderValue string, isOperational bool
 		valueClass = "text-sm font-medium leading-6 text-emerald-400"
 	}
 	return Div(
-		Class("flex items-start justify-between gap-4 rounded-xl border border-[#2a2a3d] bg-[#13131f] px-5 py-4"),
+		ClassStr("flex items-start justify-between gap-4 rounded-xl border border-[#2a2a3d] bg-[#13131f] px-5 py-4"),
 		H3(
-			Class("text-sm font-semibold text-[#f0f0f8]"),
+			ClassStr("text-sm font-semibold text-[#f0f0f8]"),
 			Text(renderTitle),
 		),
 		Div(
-			Class("flex items-center gap-2"),
-			Span(Class(indicatorClass)),
-			Span(Class(valueClass), Text(renderValue)),
+			ClassStr("flex items-center gap-2"),
+			Span(ClassStr(indicatorClass)),
+			Span(ClassStr(valueClass), Text(renderValue)),
 		),
 	)
 }

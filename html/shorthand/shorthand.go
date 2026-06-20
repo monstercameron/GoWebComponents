@@ -513,7 +513,7 @@ func WithChildren(parseNode ui.Node, parseChildren ...ui.Node) ui.Node {
 func ID(parseValue string) PropOption { return html.ID(parseValue) }
 
 // Class delegates to [html.Class].
-func Class(parseValue string) PropOption { return html.Class(parseValue) }
+func ClassStr(parseValue string) PropOption { return html.Class(parseValue) }
 
 // For delegates to [html.For].
 func For(parseValue string) PropOption { return html.For(parseValue) }

@@ -210,17 +210,17 @@ func buildRuntime2StatusWorkerBatchStats(parseResults []runtime2StatusWorkerResu
 // renderRuntime2StatusWorkerMetrics renders the runtime2 worker telemetry card.
 func renderRuntime2StatusWorkerMetrics(parseMetrics runtime2StatusWorkerMetricsState) ui.Node {
 	return Div(
-		Class("rounded-[28px] border border-sky-300/20 bg-sky-400/10 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl"),
+		ClassStr("rounded-[28px] border border-sky-300/20 bg-sky-400/10 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl"),
 		P(
-			Class("text-xs font-semibold uppercase tracking-[0.24em] text-sky-100"),
+			ClassStr("text-xs font-semibold uppercase tracking-[0.24em] text-sky-100"),
 			Text("Runtime2 Worker Metrics"),
 		),
 		H3(
-			Class("mt-4 text-2xl font-black tracking-tight text-white"),
+			ClassStr("mt-4 text-2xl font-black tracking-tight text-white"),
 			Text("Worker telemetry"),
 		),
 		Pre(
-			Class("mt-5 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-6 text-slate-200"),
+			ClassStr("mt-5 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-6 text-slate-200"),
 			Text(buildRuntime2StatusWorkerMetricsText(parseMetrics)),
 		),
 	)
@@ -569,26 +569,26 @@ func renderRuntime2StatusWorkerFleet(parseProps runtime2StatusWorkerFleetProps) 
 		parseFleetAtom.Set(parseSnapshot)
 	})
 	parseFleetNodes := []interface{}{
-		Class("rounded-[28px] border border-emerald-300/20 bg-emerald-400/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
+		ClassStr("rounded-[28px] border border-emerald-300/20 bg-emerald-400/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
 		P(
-			Class("text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100"),
+			ClassStr("text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100"),
 			Text("Runtime2 Worker Fleet"),
 		),
 		H2(
-			Class("mt-4 text-3xl font-black tracking-tight text-white"),
+			ClassStr("mt-4 text-3xl font-black tracking-tight text-white"),
 			Text("8 runtime2 Go WASM workers"),
 		),
 		P(
-			Class("mt-4 text-sm leading-7 text-slate-300"),
+			ClassStr("mt-4 text-sm leading-7 text-slate-300"),
 			Text("The main runtime2 WASM opens eight dedicated Go WASM workers, then fans out one CPU-bound probe per lane whenever the counter changes. The fleet stays in standby at count 0 to avoid cold-load churn, and telemetry view updates are manual to avoid app-shell rerender spam."),
 		),
 		P(
-			Class("mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"),
+			ClassStr("mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"),
 			Textf("Render pass #%d", parseRenderCount),
 		),
 		Button(
 			OnClick(parseRefreshTelemetryView),
-			Class("mt-4 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200 transition-colors hover:bg-white/[0.08]"),
+			ClassStr("mt-4 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200 transition-colors hover:bg-white/[0.08]"),
 			Text("Refresh telemetry view"),
 		),
 		renderRuntime2StatusWorkerMetrics(parseMetrics),
@@ -596,7 +596,7 @@ func renderRuntime2StatusWorkerFleet(parseProps runtime2StatusWorkerFleetProps) 
 	if parseFleet.IsLoading {
 		parseFleetNodes = append(parseFleetNodes,
 			P(
-				Class("mt-4 text-sm leading-7 text-emerald-50/90"),
+				ClassStr("mt-4 text-sm leading-7 text-emerald-50/90"),
 				Text("Booting the worker fleet and waiting for the first probe results."),
 			),
 		)
@@ -604,7 +604,7 @@ func renderRuntime2StatusWorkerFleet(parseProps runtime2StatusWorkerFleetProps) 
 	if !parseShouldBoot && len(parseFleet.Results) == 0 && parseFleet.ErrorText == "" {
 		parseFleetNodes = append(parseFleetNodes,
 			P(
-				Class("mt-4 text-sm leading-7 text-slate-300"),
+				ClassStr("mt-4 text-sm leading-7 text-slate-300"),
 				Text("Standby: increment or decrement Owner State to activate the worker fleet."),
 			),
 		)
@@ -612,13 +612,13 @@ func renderRuntime2StatusWorkerFleet(parseProps runtime2StatusWorkerFleetProps) 
 	if parseFleet.ErrorText != "" {
 		parseFleetNodes = append(parseFleetNodes,
 			Div(
-				Class("mt-5 rounded-2xl border border-rose-300/20 bg-rose-400/10 p-4"),
+				ClassStr("mt-5 rounded-2xl border border-rose-300/20 bg-rose-400/10 p-4"),
 				P(
-					Class("text-xs font-semibold uppercase tracking-[0.22em] text-rose-100"),
+					ClassStr("text-xs font-semibold uppercase tracking-[0.22em] text-rose-100"),
 					Text("Worker error"),
 				),
 				P(
-					Class("mt-3 text-sm leading-7 text-rose-50/90"),
+					ClassStr("mt-3 text-sm leading-7 text-rose-50/90"),
 					Text(parseFleet.ErrorText),
 				),
 			),
@@ -627,7 +627,7 @@ func renderRuntime2StatusWorkerFleet(parseProps runtime2StatusWorkerFleetProps) 
 	if len(parseFleet.Results) == 0 && parseFleet.ErrorText == "" && !parseFleet.IsLoading {
 		parseFleetNodes = append(parseFleetNodes,
 			P(
-				Class("mt-4 text-sm leading-7 text-slate-300"),
+				ClassStr("mt-4 text-sm leading-7 text-slate-300"),
 				Text("No worker probe results are available yet."),
 			),
 		)
@@ -637,32 +637,32 @@ func renderRuntime2StatusWorkerFleet(parseProps runtime2StatusWorkerFleetProps) 
 		for _, parseResult := range parseFleet.Results {
 			parseWorkerCards = append(parseWorkerCards,
 				Div(
-					Class("rounded-2xl border border-white/10 bg-slate-950/55 p-4"),
+					ClassStr("rounded-2xl border border-white/10 bg-slate-950/55 p-4"),
 					P(
-						Class("text-xs font-semibold uppercase tracking-[0.22em] text-emerald-100"),
+						ClassStr("text-xs font-semibold uppercase tracking-[0.22em] text-emerald-100"),
 						Textf("Probe %d", parseResult.Probe),
 					),
 					P(
-						Class("mt-2 text-sm font-semibold text-white"),
+						ClassStr("mt-2 text-sm font-semibold text-white"),
 						Text(parseResult.Worker),
 					),
 					P(
-						Class("mt-2 text-sm leading-7 text-slate-300"),
+						ClassStr("mt-2 text-sm leading-7 text-slate-300"),
 						Text(parseResult.Summary),
 					),
 					P(
-						Class("mt-2 text-xs leading-6 text-slate-400"),
+						ClassStr("mt-2 text-xs leading-6 text-slate-400"),
 						Textf("trace %s | iterations %d | worker CPU %dms | digest %d", parseResult.GetTraceID, parseResult.GetWorkIterations, parseResult.GetWorkDurationMS, parseResult.GetWorkDigest),
 					),
 					P(
-						Class("mt-3 text-xs leading-6 text-slate-400"),
+						ClassStr("mt-3 text-xs leading-6 text-slate-400"),
 						Textf("Region %s | count %d | tone %s", parseResult.RegionID, parseResult.Count, parseResult.Tone),
 					),
 				),
 			)
 		}
 		parseFleetNodes = append(parseFleetNodes, append([]interface{}{
-			Class("mt-5 grid gap-3"),
+			ClassStr("mt-5 grid gap-3"),
 		}, parseWorkerCards...)...)
 	}
 	return Div(parseFleetNodes...)

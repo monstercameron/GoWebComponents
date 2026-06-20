@@ -69,13 +69,13 @@ func renderLandingShell(parseIntl i18n.Runtime, parseView appViewState, parseAut
 		return renderInfoShell(parseIntl, parsePage)
 	}
 	return Div(
-		Class("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
+		ClassStr("relative min-h-screen text-[#f0f0f8] antialiased page-bg"),
 		renderPageBackground(),
 		renderMarketingHeader(
 			parseIntl,
 			parseView.CurrentPath,
 			Tag("nav",
-				Class("hidden items-center gap-6 lg:flex"),
+				ClassStr("hidden items-center gap-6 lg:flex"),
 				renderNavLink(parseView.CurrentPath, marketingHomeRoute, parseIntl.T(n, "nav.product")),
 				renderNavLink(parseView.CurrentPath, marketingPricingRoute, parseIntl.T(n, "nav.pricing")),
 			),
@@ -85,9 +85,9 @@ func renderLandingShell(parseIntl i18n.Runtime, parseView appViewState, parseAut
 			renderMarketingHeaderAction(parseIntl.T(n, "header.openApp"), chatRouteRoot, true, false),
 		),
 		Main(
-			Class("relative z-10"),
+			ClassStr("relative z-10"),
 			Div(
-				Class("mx-auto w-[min(1200px,calc(100%-24px))] pt-4 sm:w-[min(1200px,calc(100%-32px))] sm:pt-5 lg:w-[min(1200px,calc(100%-40px))]"),
+				ClassStr("mx-auto w-[min(1200px,calc(100%-24px))] pt-4 sm:w-[min(1200px,calc(100%-32px))] sm:pt-5 lg:w-[min(1200px,calc(100%-40px))]"),
 				renderJourneyProgressBand(parseBuildMarketingJourneyStage(parseView.CurrentPath)),
 			),
 			renderLandingHeroSection(parseIntl, parsePage),

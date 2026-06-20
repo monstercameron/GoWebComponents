@@ -13,12 +13,12 @@ import (
 
 // renderHeroCodeSnippet renders a compact, syntax-colored Go counter example for the landing hero.
 func renderHeroCodeSnippet() ui.Node {
-	return Div(Class("rounded-[24px] border border-cyan-300/15 bg-[#050d18]/85 p-4 shadow-xl shadow-black/20"),
-		Div(Class("flex items-center justify-between gap-3"),
-			Div(Class("text-[11px] uppercase tracking-[0.18em] text-cyan-200"), Text("Quick Counter Example")),
-			Div(Class("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400"), Text("Go + hooks + typed HTML")),
+	return Div(ClassStr("rounded-[24px] border border-cyan-300/15 bg-[#050d18]/85 p-4 shadow-xl shadow-black/20"),
+		Div(ClassStr("flex items-center justify-between gap-3"),
+			Div(ClassStr("text-[11px] uppercase tracking-[0.18em] text-cyan-200"), Text("Quick Counter Example")),
+			Div(ClassStr("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400"), Text("Go + hooks + typed HTML")),
 		),
-		Pre(Class("mt-3 overflow-x-auto rounded-[18px] border border-white/10 bg-black/20 p-4 text-[13px] leading-6 text-slate-200"),
+		Pre(ClassStr("mt-3 overflow-x-auto rounded-[18px] border border-white/10 bg-black/20 p-4 text-[13px] leading-6 text-slate-200"),
 			renderQuickCounterSnippetCode(),
 		),
 	)
@@ -26,57 +26,57 @@ func renderHeroCodeSnippet() ui.Node {
 
 func renderQuickCounterSnippetCode() ui.Node {
 	return Code(
-		Span(Class("text-violet-300"), Text("func")),
+		Span(ClassStr("text-violet-300"), Text("func")),
 		Text(" "),
-		Span(Class("text-cyan-200"), Text("Counter")),
+		Span(ClassStr("text-cyan-200"), Text("Counter")),
 		Text("() "),
-		Span(Class("text-violet-300"), Text("ui.Node")),
+		Span(ClassStr("text-violet-300"), Text("ui.Node")),
 		Text(" {\n  "),
-		Span(Class("text-amber-200"), Text("count")),
+		Span(ClassStr("text-amber-200"), Text("count")),
 		Text(" := "),
-		Span(Class("text-cyan-300"), Text("ui.UseState")),
+		Span(ClassStr("text-cyan-300"), Text("ui.UseState")),
 		Text("("),
-		Span(Class("text-emerald-300"), Text("0")),
+		Span(ClassStr("text-emerald-300"), Text("0")),
 		Text(")\n  "),
-		Span(Class("text-amber-200"), Text("currentCount")),
+		Span(ClassStr("text-amber-200"), Text("currentCount")),
 		Text(" := "),
-		Span(Class("text-amber-200"), Text("count")),
+		Span(ClassStr("text-amber-200"), Text("count")),
 		Text("."),
-		Span(Class("text-cyan-200"), Text("Get")),
+		Span(ClassStr("text-cyan-200"), Text("Get")),
 		Text("()\n  "),
-		Span(Class("text-amber-200"), Text("increment")),
+		Span(ClassStr("text-amber-200"), Text("increment")),
 		Text(" := "),
-		Span(Class("text-cyan-300"), Text("ui.UseEvent")),
+		Span(ClassStr("text-cyan-300"), Text("ui.UseEvent")),
 		Text("("),
-		Span(Class("text-violet-300"), Text("func")),
+		Span(ClassStr("text-violet-300"), Text("func")),
 		Text("() {\n    "),
-		Span(Class("text-amber-200"), Text("count")),
+		Span(ClassStr("text-amber-200"), Text("count")),
 		Text("."),
-		Span(Class("text-cyan-200"), Text("Set")),
+		Span(ClassStr("text-cyan-200"), Text("Set")),
 		Text("("),
-		Span(Class("text-amber-200"), Text("count")),
+		Span(ClassStr("text-amber-200"), Text("count")),
 		Text("."),
-		Span(Class("text-cyan-200"), Text("Get")),
+		Span(ClassStr("text-cyan-200"), Text("Get")),
 		Text("() + "),
-		Span(Class("text-emerald-300"), Text("1")),
+		Span(ClassStr("text-emerald-300"), Text("1")),
 		Text(")\n  })\n\n  "),
-		Span(Class("text-cyan-300"), Text("return")),
+		Span(ClassStr("text-cyan-300"), Text("return")),
 		Text(" "),
-		Span(Class("text-cyan-200"), Text("Button")),
+		Span(ClassStr("text-cyan-200"), Text("Button")),
 		Text("(\n    "),
-		Span(Class("text-cyan-200"), Text("OnClick")),
+		Span(ClassStr("text-cyan-200"), Text("OnClick")),
 		Text("("),
-		Span(Class("text-amber-200"), Text("increment")),
+		Span(ClassStr("text-amber-200"), Text("increment")),
 		Text("),\n    "),
-		Span(Class("text-cyan-200"), Text("Class")),
+		Span(ClassStr("text-cyan-200"), Text("Class")),
 		Text("("),
-		Span(Class("text-emerald-300"), Text("\"rounded-xl px-4 py-2\"")),
+		Span(ClassStr("text-emerald-300"), Text("\"rounded-xl px-4 py-2\"")),
 		Text("),\n    "),
-		Span(Class("text-cyan-200"), Text("Textf")),
+		Span(ClassStr("text-cyan-200"), Text("Textf")),
 		Text("("),
-		Span(Class("text-emerald-300"), Text("\"Clicked %d times\"")),
+		Span(ClassStr("text-emerald-300"), Text("\"Clicked %d times\"")),
 		Text(", "),
-		Span(Class("text-amber-200"), Text("currentCount")),
+		Span(ClassStr("text-amber-200"), Text("currentCount")),
 		Text("),\n  )\n}"),
 	)
 }
@@ -170,7 +170,7 @@ func renderHighlightedGoSource(parseSource string) ui.Node {
 		if parseText2 == "" {
 			return
 		}
-		parseNodes = append(parseNodes, Span(Class(parseClassName), Text(parseText2)))
+		parseNodes = append(parseNodes, Span(ClassStr(parseClassName), Text(parseText2)))
 	}
 
 	for parseIndex := 0; parseIndex < len(parseNormalized); {
@@ -261,12 +261,12 @@ func renderSourceSnippetCard(parseTitle, parseBadge, parseSource string) ui.Node
 	case isSourceHighlightEnabled(parseSource):
 		parseSourceNode = renderHighlightedGoSource(parseSource)
 	}
-	return Div(Class("min-w-0 rounded-[24px] border border-cyan-300/15 bg-[#050d18]/85 p-4 shadow-xl shadow-black/20"),
-		Div(Class("flex items-center justify-between gap-3"),
-			Div(Class("text-[11px] uppercase tracking-[0.18em] text-cyan-200"), Text(parseTitle)),
-			Div(Class("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400"), Text(parseBadge)),
+	return Div(ClassStr("min-w-0 rounded-[24px] border border-cyan-300/15 bg-[#050d18]/85 p-4 shadow-xl shadow-black/20"),
+		Div(ClassStr("flex items-center justify-between gap-3"),
+			Div(ClassStr("text-[11px] uppercase tracking-[0.18em] text-cyan-200"), Text(parseTitle)),
+			Div(ClassStr("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400"), Text(parseBadge)),
 		),
-		Pre(Class("mt-3 overflow-x-auto rounded-[18px] border border-white/10 bg-black/20 p-4 text-[13px] leading-6 text-slate-200"),
+		Pre(ClassStr("mt-3 overflow-x-auto rounded-[18px] border border-white/10 bg-black/20 p-4 text-[13px] leading-6 text-slate-200"),
 			parseSourceNode,
 		),
 	)

@@ -25,9 +25,9 @@ func parseWaitForCondition(parseT *testing.T, parseTimeout time.Duration, parseC
 func TestTagAndSplitArgsSupportPropsSlicesAndChildren(parseT *testing.T) {
 	parseNode := Tag("section",
 		FromProps(Props{Class: "base", Data: map[string]string{"kind": "panel"}}),
-		[]PropOption{Class("override"), Attr("data-extra", "yes")},
+		[]PropOption{ClassStr("override"), Attr("data-extra", "yes")},
 		"alpha",
-		Span(Class("value"), "beta"),
+		Span(ClassStr("value"), "beta"),
 		[]any{Text("gamma")},
 	)
 
@@ -169,32 +169,32 @@ func TestExpandedElementBuildersRenderExactHTML(parseT *testing.T) {
 		node ui.Node
 		want string
 	}{
-		{name: "Ol", node: Ol(Class("x"), Li("item")), want: `<ol class="x"><li>item</li></ol>`},
-		{name: "Tfoot", node: Tfoot(Class("x"), Tr(Td("total"))), want: `<tfoot class="x"><tr><td>total</td></tr></tfoot>`},
-		{name: "Caption", node: Caption(Class("x"), "caption"), want: `<caption class="x">caption</caption>`},
-		{name: "Colgroup", node: Colgroup(Class("x"), Col(Attr("span", "2"))), want: `<colgroup class="x"><col span="2"></colgroup>`},
-		{name: "Col", node: Col(Class("x")), want: `<col class="x">`},
-		{name: "Video", node: Video(Class("x"), Source(Src("/movie.webm"), Type("video/webm"))), want: `<video class="x"><source src="/movie.webm" type="video/webm"></video>`},
-		{name: "Audio", node: Audio(Class("x"), Source(Src("/audio.ogg"))), want: `<audio class="x"><source src="/audio.ogg"></audio>`},
-		{name: "Source", node: Source(Class("x"), Src("/clip.mp4")), want: `<source class="x" src="/clip.mp4">`},
-		{name: "Track", node: Track(Class("x"), Attr("kind", "captions"), Src("/captions.vtt")), want: `<track class="x" kind="captions" src="/captions.vtt">`},
-		{name: "Canvas", node: Canvas(Class("x"), Width("300"), Height("150"), "fallback"), want: `<canvas class="x" height="150" width="300">fallback</canvas>`},
-		{name: "Optgroup", node: Optgroup(Class("x"), Attr("label", "Group"), Option(Value("one"), "One")), want: `<optgroup class="x" label="Group"><option value="one">One</option></optgroup>`},
-		{name: "Datalist", node: Datalist(Class("x"), Option(Value("one"), "One")), want: `<datalist class="x"><option value="one">One</option></datalist>`},
-		{name: "Output", node: Output(Class("x"), For("field"), "10"), want: `<output class="x" for="field">10</output>`},
-		{name: "Progress", node: Progress(Class("x"), Max("10"), Attr("value", 3), "3"), want: `<progress class="x" max="10" value="3">3</progress>`},
-		{name: "Meter", node: Meter(Class("x"), Min("0"), Max("10"), Attr("value", 5), "5"), want: `<meter class="x" max="10" min="0" value="5">5</meter>`},
-		{name: "Figure", node: Figure(Class("x"), Figcaption("Caption")), want: `<figure class="x"><figcaption>Caption</figcaption></figure>`},
-		{name: "Picture", node: Picture(Class("x"), Source(Src("/hero.webp")), Img(Src("/hero.png"), Alt("Hero"))), want: `<picture class="x"><source src="/hero.webp"><img alt="Hero" src="/hero.png"></picture>`},
-		{name: "Abbr", node: Abbr(Class("x"), "abbr"), want: `<abbr class="x">abbr</abbr>`},
-		{name: "Kbd", node: Kbd(Class("x"), "ctrl"), want: `<kbd class="x">ctrl</kbd>`},
-		{name: "Sub", node: Sub(Class("x"), "2"), want: `<sub class="x">2</sub>`},
-		{name: "Sup", node: Sup(Class("x"), "2"), want: `<sup class="x">2</sup>`},
-		{name: "Del", node: Del(Class("x"), "old"), want: `<del class="x">old</del>`},
-		{name: "Ins", node: Ins(Class("x"), "new"), want: `<ins class="x">new</ins>`},
-		{name: "B", node: B(Class("x"), "bold"), want: `<b class="x">bold</b>`},
-		{name: "I", node: I(Class("x"), "italic"), want: `<i class="x">italic</i>`},
-		{name: "U", node: U(Class("x"), "under"), want: `<u class="x">under</u>`},
+		{name: "Ol", node: Ol(ClassStr("x"), Li("item")), want: `<ol class="x"><li>item</li></ol>`},
+		{name: "Tfoot", node: Tfoot(ClassStr("x"), Tr(Td("total"))), want: `<tfoot class="x"><tr><td>total</td></tr></tfoot>`},
+		{name: "Caption", node: Caption(ClassStr("x"), "caption"), want: `<caption class="x">caption</caption>`},
+		{name: "Colgroup", node: Colgroup(ClassStr("x"), Col(Attr("span", "2"))), want: `<colgroup class="x"><col span="2"></colgroup>`},
+		{name: "Col", node: Col(ClassStr("x")), want: `<col class="x">`},
+		{name: "Video", node: Video(ClassStr("x"), Source(Src("/movie.webm"), Type("video/webm"))), want: `<video class="x"><source src="/movie.webm" type="video/webm"></video>`},
+		{name: "Audio", node: Audio(ClassStr("x"), Source(Src("/audio.ogg"))), want: `<audio class="x"><source src="/audio.ogg"></audio>`},
+		{name: "Source", node: Source(ClassStr("x"), Src("/clip.mp4")), want: `<source class="x" src="/clip.mp4">`},
+		{name: "Track", node: Track(ClassStr("x"), Attr("kind", "captions"), Src("/captions.vtt")), want: `<track class="x" kind="captions" src="/captions.vtt">`},
+		{name: "Canvas", node: Canvas(ClassStr("x"), Width("300"), Height("150"), "fallback"), want: `<canvas class="x" height="150" width="300">fallback</canvas>`},
+		{name: "Optgroup", node: Optgroup(ClassStr("x"), Attr("label", "Group"), Option(Value("one"), "One")), want: `<optgroup class="x" label="Group"><option value="one">One</option></optgroup>`},
+		{name: "Datalist", node: Datalist(ClassStr("x"), Option(Value("one"), "One")), want: `<datalist class="x"><option value="one">One</option></datalist>`},
+		{name: "Output", node: Output(ClassStr("x"), For("field"), "10"), want: `<output class="x" for="field">10</output>`},
+		{name: "Progress", node: Progress(ClassStr("x"), Max("10"), Attr("value", 3), "3"), want: `<progress class="x" max="10" value="3">3</progress>`},
+		{name: "Meter", node: Meter(ClassStr("x"), Min("0"), Max("10"), Attr("value", 5), "5"), want: `<meter class="x" max="10" min="0" value="5">5</meter>`},
+		{name: "Figure", node: Figure(ClassStr("x"), Figcaption("Caption")), want: `<figure class="x"><figcaption>Caption</figcaption></figure>`},
+		{name: "Picture", node: Picture(ClassStr("x"), Source(Src("/hero.webp")), Img(Src("/hero.png"), Alt("Hero"))), want: `<picture class="x"><source src="/hero.webp"><img alt="Hero" src="/hero.png"></picture>`},
+		{name: "Abbr", node: Abbr(ClassStr("x"), "abbr"), want: `<abbr class="x">abbr</abbr>`},
+		{name: "Kbd", node: Kbd(ClassStr("x"), "ctrl"), want: `<kbd class="x">ctrl</kbd>`},
+		{name: "Sub", node: Sub(ClassStr("x"), "2"), want: `<sub class="x">2</sub>`},
+		{name: "Sup", node: Sup(ClassStr("x"), "2"), want: `<sup class="x">2</sup>`},
+		{name: "Del", node: Del(ClassStr("x"), "old"), want: `<del class="x">old</del>`},
+		{name: "Ins", node: Ins(ClassStr("x"), "new"), want: `<ins class="x">new</ins>`},
+		{name: "B", node: B(ClassStr("x"), "bold"), want: `<b class="x">bold</b>`},
+		{name: "I", node: I(ClassStr("x"), "italic"), want: `<i class="x">italic</i>`},
+		{name: "U", node: U(ClassStr("x"), "under"), want: `<u class="x">under</u>`},
 	}
 
 	for _, parseTt := range parseTests {
@@ -257,7 +257,7 @@ func TestClassMapReexportIsSortedAndComposes(parseT *testing.T) {
 		parseT.Fatalf("expected empty ClassMap, got %q", parseEmpty)
 	}
 
-	parseMarkup, parseErr := ui.RenderToString(Div(Class(ClassNames("base", parseClasses)), "x"))
+	parseMarkup, parseErr := ui.RenderToString(Div(ClassStr(ClassNames("base", parseClasses)), "x"))
 	if parseErr != nil {
 		parseT.Fatalf("RenderToString returned error: %v", parseErr)
 	}
@@ -383,7 +383,7 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(parseT *testing.T) {
 
 	parseProps := PropsOf(
 		ID("demo"),
-		Class("panel"),
+		ClassStr("panel"),
 		For("field"),
 		Name("field"),
 		Title("Title"),
@@ -412,7 +412,7 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(parseT *testing.T) {
 		Attr("data-extra", "yes"),
 		Attrs(map[string]any{"data-raw": "ok"}),
 	)
-	parseProps = WithProps(parseProps, Class("override"))
+	parseProps = WithProps(parseProps, ClassStr("override"))
 	parseElem := Button(FromProps(parseProps), "save")
 	if parseElem.Props["class"] != "override" || parseElem.Props["id"] != "demo" || parseElem.Props["htmlFor"] != "field" || parseElem.Props["rows"] != 4 {
 		parseT.Fatalf("expected prop options to delegate, got %#v", parseElem.Props)
@@ -499,10 +499,10 @@ func TestTemporalWrappersExecuteThroughDelegation(parseT *testing.T) {
 
 func TestShorthandHelpersRenderExactHTMLString(parseT *testing.T) {
 	parseNode := Div(
-		Class("panel"),
+		ClassStr("panel"),
 		Attr("data-mode", "demo"),
 		"hello",
-		Span(Class("accent"), "world"),
+		Span(ClassStr("accent"), "world"),
 		Text("!"),
 	)
 
@@ -519,9 +519,9 @@ func TestShorthandHelpersRenderExactHTMLString(parseT *testing.T) {
 
 func TestShorthandCollectionHelpersRenderExactHTMLString(parseT *testing.T) {
 	parseItems := Map([]string{"alpha", "beta"}, func(parseValue string) ui.Node {
-		return Li(Class("item"), parseValue)
+		return Li(ClassStr("item"), parseValue)
 	})
-	parseArgs := []any{Class("items")}
+	parseArgs := []any{ClassStr("items")}
 	for _, parseItem := range parseItems {
 		parseArgs = append(parseArgs, parseItem)
 	}

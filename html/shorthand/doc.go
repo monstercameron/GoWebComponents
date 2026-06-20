@@ -6,7 +6,7 @@
 // argument list of prop options and children:
 //
 //	return shorthand.Div(
-//		shorthand.Class("panel"),
+//		shorthand.ClassStr("panel"),
 //		shorthand.H2("Counter"),
 //		shorthand.Button(shorthand.OnClick(increment), "Increment"),
 //	)

@@ -2881,3 +2881,170 @@ registry entry (auto `gwc_<name>` MCP tool), `main.go` dispatch, a test, and
   the demo + dogfood opt in), then re-run the rebuild end-to-end exercise.
   Test for: a scripted rebuild run where, after the reload, a successor session
   appears with PredecessorID set and the prior agent-set atom is restored.
+
+## Batteries: client-side SQLite, durable state, typed CSS (2026-06-16)
+
+Three new "batteries", planned one-at-a-time as Claude Code todos. Design detail
+in `docs/plans/sqlite-state-typedcss.md`, `docs/plans/f1-db-sqlite-design.md`,
+`docs/plans/f2-kvstate-design.md`. Decisions locked with the user: client-side
+SQLite (no cgo), `database/sql`-flavored API, transparent-KV state persistence,
+typed CSS replacing Tailwind as primary, every system pluggable via public
+strategy interfaces.
+
+- [x] **F1.1 Spike: ncruces/go-sqlite3 in browser wasm + OPFS** - prove the
+  engine before building. Done (2026-06-16): `github.com/ncruces/go-sqlite3`
+  (already a dep) COMPILES and RUNS under `GOOS=js GOARCH=wasm`, no cgo - probe
+  ran CREATE/INSERT/SELECT under Node via `wasm_exec_node.js` (`ok: hello`).
+  Size 8.9MB uncompressed -> 2.5MB gzip (SQLite+wazero over Go's ~2MB baseline).
+  Public `vfs.Register(name, vfs.VFS)` extension seam confirmed (`memdb` is a
+  ~300-line template). Key constraint found: `vfs.File` is synchronous, browser
+  OPFS sync access handles are worker-only -> v1 = in-wasm VFS + IndexedDB image
+  snapshot (main-thread); v2 = OPFS-in-worker. The one real risk in the track,
+  now green. Throwaway probe removed; findings in the design doc.
+- [x] **F1.2 Design the db/sqlite package API + persistence/VFS layer** - Done
+  (2026-06-16): `database/sql`-flavored, ctx-first API; a `persistBackend` seam
+  so v1 IndexedDB ships now and v2 OPFS-in-worker slots in non-breaking; native
+  `modernc` adapter keeps the unit-test lane honest. Both builds go through
+  `database/sql`, so the package exposes stdlib `*sql.Rows`/`Result`/`Row`/`Tx`
+  directly. See `docs/plans/f1-db-sqlite-design.md`.
+- [x] **F1.3 Implement db/sqlite driver + tests + example** - Done (2026-06-16):
+  new `db/sqlite` package - `Open/Exec/Query/QueryRow/Tx/Flush/Close`, `Options`,
+  `Persistence` (Memory|IndexedDB|OPFS). `gwcmem_wasm.go` is a snapshot-able
+  in-memory VFS (adapted from `memdb`, since `memdb` has no public export and
+  there's no `sqlite3_serialize`); `persist_wasm.go` wires it to IndexedDB via
+  `interop.PersistentStore` (base64 image). Native: modernc + temp file. Tests
+  green BOTH lanes - native (CRUD, Tx rollback, durable reopen) + wasm/Node
+  (CRUD, Tx rollback, `gwcmem` snapshot/restore = the durability primitive).
+  Example `examples/public/sqlite-persistence` (counter survives reload). gofmt
+  clean. Note: the IndexedDB browser round-trip needs a real browser (no
+  IndexedDB in Node) - covered by the snapshot/restore unit test + the example.
+- [x] **F2.1 Design state<->SQLite KV binding (transparent KV, configurable)** -
+  Done (2026-06-16): new `kvstate` package design - shared engine (one `*sqlite.DB`
+  + `gwc_state(k,v,version,updated_at)` table), `UsePersistedState[T]` hook +
+  `BindAtom[T]` adapter, async hydrate (start at initial, hydrate-then-Set).
+  Every axis a public interface: `PersistenceBackend`, `WriteStrategy`
+  (Immediate/Debounced/OnUnload), `Codec` (JSON/CBOR), `ConflictResolver`
+  (LastWriteWins/Versioned) + a named registry. Cross-tab via BroadcastChannel
+  (`interop.OpenCrossTabChannel`), NOT storage events. See
+  `docs/plans/f2-kvstate-design.md`.
+- [ ] **F2.2 Implement state<->SQLite KV binding + config + tests + example** -
+  IN PROGRESS (2026-06-16, paused). Implemented and building BOTH lanes:
+  `engine.go` (shared SQLite engine + `sqliteBackend`), `options.go` (defaults +
+  `Durability`), `codec.go` (JSON/CBOR), `strategy.go` (Immediate/Debounced/
+  OnUnload), `conflict.go` (LastWriteWins/Versioned), `backend.go`
+  (`PersistenceBackend` + `Record`), `registry.go`, `watch.go` (BroadcastChannel
+  cross-tab, build-tag-free), `unload.go` (pagehide flush), `hook.go`
+  (`UsePersistedState[T]`), `atom.go` (`BindAtom[T]`, mutex-guarded for -race).
+  REMAINING: native tests (engine/backend/codec/strategy/conflict round-trips +
+  a durable-reopen using the `engine.close` hook), wasm test (Memory round-trip
+  via ncruces), a custom-strategy/custom-backend test proving the extension
+  interfaces plug in, an example under `examples/public/` (persisted form draft),
+  package README, and a final gofmt/vet pass.
+- [ ] **F3.1 Study authoring surface + design typed CSS (primary; utilities on
+  top)** - NOT STARTED. Independent of F1/F2. First job: deep-read
+  `html/sugar.go` (`Class`, `ClassNames`, `When`, `ClassMap`),
+  `html/shorthand/shorthand.go` (mixed-arg ordering), `html/html.go` (`Props`)
+  so the typed CSS API drops into `Class(...)`/shorthand as naturally as a class
+  string today (the user's hard requirement). Design: Layer 1 typed raw-CSS
+  (scoped real CSS, `:hover`/media/keyframes, SSR-injected, no FOUC); Layer 2
+  typed utility vocabulary on top (no Tailwind toolchain). Open items decided by
+  ergonomics: interop shape (string-yielding vs typed value) then emission
+  (runtime injection first vs build-time extraction). Plus extension APIs:
+  `DefineUtility`/`Theme`, `DefineVariant`, a pluggable emission `Sink`, public
+  `css.New(...)` return type. See `docs/plans/sqlite-state-typedcss.md` (Feature 3).
+- [ ] **F3.2 Implement typed CSS layers + emission + tests + example** - NOT
+  STARTED. Blocked by F3.1. Build both layers + chosen emission behind the `Sink`
+  interface + the extension APIs (with built-ins as defaults). Tests both lanes,
+  an example rebuilding a Tailwind-styled view with the typed API, and a test
+  proving a user-defined utility/theme + variant + alternate Sink work via the
+  public API.
+- [x] **F3.3 Type-safe + composable typed CSS (safety/selectors hardening)** -
+  DONE (2026-06-20). Shipped items 1-8: value-type set (`Duration`/`Angle`/
+  `Number` added to `value.go`), typed property/scale constructors (`prop_typed.go`:
+  Cursor/Select/TextTransform/Tracking/LineHeight/FontVariantNumeric/Transition/
+  Transform/Shadow/Outline + `Raw` as the single named escape hatch; `Property`
+  deprecated), typed `u` scale constants (`u/scale.go`: Radius/TextScale/Spacing —
+  `u.Rounded`/`u.TextSize`/`u.P` now take typed keys not strings), the
+  substitution-direction fix in `applyVariant` (nesting order = selector order),
+  typed combinator/selector + functional-pseudo builders (`selector.go`: Child/
+  Descendant/Adjacent/Sibling over El/Ref/ClassSel/Attr/AttrEq targets; Not/Has/
+  Is/NthChild with Odd/Even/AnB), the `New` identity cache (`css.go`, cleared by
+  Reset), and the counter rewritten to zero `Raw`/`Sel`. Tests all green: unit
+  (`css_safety_test.go`, `css_selector_test.go`), edge (`css_edge_test.go`),
+  integration (selector composition + `Ref` cross-class through html/shorthand +
+  SSR `StyleBlock` in `css_integration_test.go`), wasm lane (`css_wasm_test.go`),
+  e2e (`test/playwrightgo/css_typed_e2e_test.go` — real Chromium computes the
+  Child `> span` descendant rule + display/bg + live click). gofmt/vet clean both
+  lanes. SECURITY HARDENING (after an adversarial Sonnet subagent torture-tested
+  the package, `css_adversarial_test.go`): found + fixed an XSS `</style>` breakout
+  in emitted CSS. `hardenCSS` (css.go) now neutralizes `</style`/`<script`/`<!--`/
+  comment-close `*/`/NUL in ALL emitted CSS (applied in New before any sink), so
+  both the SSR `StyleBlock` and the wasm DOM sink are breakout-safe; escape hatches
+  (Raw/Sel/DefineVariant/RawMedia) stay author-trusted for CSS-level content but
+  can never terminate the <style> element. Typed constructors made safe-by-
+  construction: `Hex` filters to hex digits, `Var` filters to ident chars,
+  `trimFloat` collapses NaN/±Inf to 0. Survivors confirmed clean: determinism
+  (120 permutations), 200-goroutine concurrency, 5000-rule sets, 50-deep nesting,
+  unicode/emoji, degenerate/empty inputs. Regression guard: `TestStyleBreakout
+  IsNeutralized` in css_edge_test.go. FOLLOW-UP (separate item): `cssgen` generator
+  + spec table -> full-parity typed surface; this hand-wrote the core.
+
+  ---
+  **F3.3 original spec (reference):** Refines F3.2 (`css/` ships Layer 1 + curated
+  `u/` Layer 2 + native/wasm sinks + tests). Goal: make the surface genuinely
+  compile-checked and selector-composable while staying fast and JSX-intuitive —
+  no string parser. Principles: (1) the value carries the type, no authoring fn
+  takes a bare string except one named escape hatch; (2) typed path is the easy
+  path so `Raw`/`Sel` stay rare and CI-greppable; (3) codegen scales the surface
+  (the JSX-transform analog); (4) composition = nesting (the `&`-template engine
+  models classic SCSS selectors; nesting order = selector order). Scope:
+  1. **Value-type set** — distinct types per CSS domain so a property only
+     accepts its domain: `Length` (Px/Rem/Percent/Vh), `Color` (tokens/Hex/RGB/
+     Var), `Duration` (Ms/S), `Angle` (Deg/Turn), `Number` (Num). `css.Gap(css.
+     Px(8))` ✓; `css.Gap(8)`/`css.Gap("8px")` ✗.
+  2. **Typed property + scale constructors** (kill the `Property(...)` spam):
+     `css.Cursor.Pointer`, `css.Select.None`, `css.Transition(css.PropAll, css.
+     Ms(120), css.Ease)`, `css.Transform(css.Scale(0.94))`, `css.Shadow(...)`,
+     `css.Tracking(...)`, `css.LineHeight(css.Num(1))`, `css.Outline(...)`. Theme
+     scales become **typed constants** not string keys: `u.Rounded(u.RadiusLg)`,
+     `u.TextSize(u.TextSm)`, `u.P(u.Spacing5)`, `u.Bg(u.Sky500)` — typo = compile
+     error + autocomplete (replaces today's runtime string-key fallback).
+  3. **Arbitrary values stay typed** (Tailwind `[7px]` power, still checked):
+     `u.Gap(3)` (scale index) alongside `u.GapV(css.Px(7))` (typed Length). The
+     only strings: `css.Raw("prop","val")` (arbitrary declaration) and
+     `css.Sel(".group:hover &")` (arbitrary selector template) — narrow,
+     greppable, CI-gateable.
+  4. **Substitution-direction fix** in `applyVariant`: substitute inner's `&` <-
+     outer (was reversed) so nesting order = selector order. `css.Hover(css.
+     Descendant(h3,...)...)` -> `.c:hover h3`; `css.Descendant(h3, css.Hover(...)
+     ...)` -> `.c h3:hover`. Verify existing pseudo-stacking tests still pass.
+  5. **Typed combinator + selector builders** (fold into one hashed class, no
+     extra registry entries): `css.Child/Descendant/Adjacent/Sibling(target,
+     rules...)` over typed `Selector` targets — `css.El("h3")`, `css.Ref(sheet)`
+     (one generated class vs another, fully checked), `css.ClassSel("title")`,
+     `css.Attr("data-open")`, `css.AttrEq("type","submit")`.
+  6. **Functional / embedded pseudo-classes** as typed wrappers: `css.Not(sel,
+     ...)`, `css.Has(sel,...)`, `css.Is(sels,...)`, `css.NthChild(css.Odd|css.
+     Even|css.AnB(3,1),...)`. State pseudos + `Before/After` already exist.
+  7. **Performance**: hoist static styles to package vars (`var btn = css.New(
+     ...)` folds/hashes once; render references the class); `New` identity-cache
+     so repeat `New([]Rule)` is a map lookup; keep `Rule` tiny (inline single-decl
+     case, no per-decl alloc on hot path); emission already deduped.
+  8. Rewrite the typed-css counter demo to **zero `Raw`/`Sel`**.
+  Tests: unit (value types, typed scale consts, selector/combinator emission,
+  functional pseudos, substitution direction, important/negative), integration
+  (selector composition through html/shorthand + SSR `StyleBlock`, `css.Ref`
+  cross-class), edge (unknown/empty inputs, deep variant nesting, `Has`/`Not`
+  arg escaping, hot-path dedup/identity-cache, hoisted-var single-emit), e2e
+  (real Chromium computes a composed descendant + `:hover` + `@media` rule).
+  Caveats logged: it's function calls not JSX syntax (no template-literal types);
+  descendant styling reintroduces cascade/specificity, so combinators are the
+  component-internal escape valve, not the default. FOLLOW-UP: `cssgen` generator
+  + spec table -> full-parity typed surface (separate item).
+- [ ] **F1.4 (v2) True OPFS VFS with Web-Worker SQLite** - NOT STARTED, lower
+  priority (v1 IndexedDB already gives durable client-side state). Implement a
+  real `vfs.VFS`/`vfs.File` over OPFS sync access handles, running the DB in a
+  Web Worker (`interop.OpenGoWASMWorker`), behind the existing
+  `sqlite.Options{Persistence: OPFS}` (currently falls back to IndexedDB).
+  Feature-detect OPFS + secure context; incremental writes, large DBs. See
+  `docs/plans/f1-db-sqlite-design.md` (v2 section).

@@ -248,7 +248,7 @@ func renderAppShell(parseProps appShellProps) ui.Node {
 				"lang":                parseProps.Intl.Locale(),
 				"data-current-locale": parseProps.Intl.Locale(),
 			}}),
-			Class(ClassNames(
+			ClassStr(ClassNames(
 				parseOuterClass,
 				When(isReduceMotion, "reduce-motion"),
 				When(isCompactDensity, "density-compact"),
@@ -276,7 +276,7 @@ func renderDensityToggle(parseIntl i18n.Runtime, isCompact bool, parseOnToggle f
 	}
 	return Button(
 		ID("density-toggle"),
-		Class("fixed bottom-3 right-3 z-40 rounded-full border border-white/[0.08] bg-[#13122080] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-white/35 backdrop-blur-md transition-colors hover:border-[#8e7bff]/40 hover:text-white/70"),
+		ClassStr("fixed bottom-3 right-3 z-40 rounded-full border border-white/[0.08] bg-[#13122080] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-white/35 backdrop-blur-md transition-colors hover:border-[#8e7bff]/40 hover:text-white/70"),
 		FromProps(Props{Aria: map[string]string{"label": parseLabel}}),
 		OnClick(parseOnToggle),
 		Text(parseLabel),
@@ -286,7 +286,7 @@ func renderDensityToggle(parseIntl i18n.Runtime, isCompact bool, parseOnToggle f
 func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 	if parseProps.View.CanvasOnlyRoute {
 		return Div(
-			Class("flex h-full w-full min-w-0 min-h-0"),
+			ClassStr("flex h-full w-full min-w-0 min-h-0"),
 			canvasWorkspacePane(parseProps.Intl, parseProps.View.CanvasSession, parseProps.CanvasWorkspace, true),
 		)
 	}
@@ -360,7 +360,7 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 			parseProps.QuoteSelection.HandleSelectionMouse,
 		),
 		If(parseProps.View.CanvasSession.Active && parseProps.View.CanvasSession.LayoutMode == canvasLayoutOverlay,
-			Div(Class("fixed inset-0 z-40 flex min-h-0 min-w-0 bg-black/72 backdrop-blur-md overlay-in"),
+			Div(ClassStr("fixed inset-0 z-40 flex min-h-0 min-w-0 bg-black/72 backdrop-blur-md overlay-in"),
 				canvasWorkspacePane(parseProps.Intl, parseProps.View.CanvasSession, parseProps.CanvasWorkspace, false),
 			),
 		),
@@ -378,9 +378,9 @@ func renderBridgeChurnBanner(parseView appViewState) ui.Node {
 		return nil
 	}
 	return Div(
-		Class("fixed left-1/2 top-3 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#f6b84b]/25 bg-[#171100]/90 px-3 py-1.5 text-xs text-[#ffd7a3] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md"),
+		ClassStr("fixed left-1/2 top-3 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[#f6b84b]/25 bg-[#171100]/90 px-3 py-1.5 text-xs text-[#ffd7a3] shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md"),
 		FromProps(Props{Raw: map[string]interface{}{"role": "status"}}),
-		Span(Class("h-1.5 w-1.5 rounded-full bg-[#f6b84b]"), FromProps(Props{Aria: map[string]string{"hidden": "true"}})),
+		Span(ClassStr("h-1.5 w-1.5 rounded-full bg-[#f6b84b]"), FromProps(Props{Aria: map[string]string{"hidden": "true"}})),
 		Span(Text(parseLabel)),
 	)
 }
@@ -390,21 +390,21 @@ func renderDeleteConversationModal(parseIntl i18n.Runtime, parseView appViewStat
 		return nil
 	}
 	return Div(
-		Class("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
+		ClassStr("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
 		OnClick(parseConversationList.CancelDelete),
 		Div(
-			Class("bg-[#13131e] border border-white/[0.08] rounded-[1.35rem] p-6 max-w-sm w-full mx-4 flex flex-col gap-4 modal-in"),
+			ClassStr("bg-[#13131e] border border-white/[0.08] rounded-[1.35rem] p-6 max-w-sm w-full mx-4 flex flex-col gap-4 modal-in"),
 			OnClick(parseStopBubble),
-			P(Class("text-white font-semibold text-base"), Text(parseIntl.T(chatI18nNamespace, "modal.deleteTitle"))),
-			P(Class("text-white/60 text-sm"), Text(parseIntl.T(chatI18nNamespace, "modal.deleteBody"))),
-			Div(Class("flex gap-3 justify-end"),
+			P(ClassStr("text-white font-semibold text-base"), Text(parseIntl.T(chatI18nNamespace, "modal.deleteTitle"))),
+			P(ClassStr("text-white/60 text-sm"), Text(parseIntl.T(chatI18nNamespace, "modal.deleteBody"))),
+			Div(ClassStr("flex gap-3 justify-end"),
 				Button(
-					Class("px-4 py-2 text-sm rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
+					ClassStr("px-4 py-2 text-sm rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
 					OnClick(parseConversationList.CancelDelete),
 					Text(parseIntl.T(chatI18nNamespace, "message.cancel")),
 				),
 				Button(
-					Class("px-4 py-2 text-sm rounded-xl bg-red-600 text-white hover:bg-red-500 transition-colors font-medium"),
+					ClassStr("px-4 py-2 text-sm rounded-xl bg-red-600 text-white hover:bg-red-500 transition-colors font-medium"),
 					OnClick(parseConversationList.ConfirmDelete),
 					Text(parseIntl.T(chatI18nNamespace, "sidebar.deleteConversation")),
 				),
@@ -420,13 +420,13 @@ func renderSettingsSaveErrorToast(parseView appViewState, parseDismiss ui.Handle
 		return nil
 	}
 	return Div(
-		Class("fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-start gap-3 rounded-2xl border border-[#f59e0b]/24 bg-[#1a1200] px-4 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.4)] backdrop-blur-md modal-in max-w-sm w-[calc(100%-2rem)]"),
-		Span(Class("flex flex-col flex-1 text-sm text-[#ffd7a3] leading-5"),
+		ClassStr("fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-start gap-3 rounded-2xl border border-[#f59e0b]/24 bg-[#1a1200] px-4 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.4)] backdrop-blur-md modal-in max-w-sm w-[calc(100%-2rem)]"),
+		Span(ClassStr("flex flex-col flex-1 text-sm text-[#ffd7a3] leading-5"),
 			Text(parseUserErrorMessage(parseView.SettingsError)),
 			renderSupportIDChip(parseUserErrorRequestID(parseView.SettingsError)),
 		),
 		Button(
-			Class("ml-1 flex-none text-[#ffd7a3]/60 hover:text-[#ffd7a3] transition-colors text-base leading-none"),
+			ClassStr("ml-1 flex-none text-[#ffd7a3]/60 hover:text-[#ffd7a3] transition-colors text-base leading-none"),
 			OnClick(parseDismiss),
 			Text("\u00d7"),
 		),
@@ -446,35 +446,35 @@ func renderSettingsModal(parseIntl i18n.Runtime, parseView appViewState, parseSt
 		parseCurrentThinkingMode = parseNormalizeSelectedThinkingEffort(parseView.ThinkingEffortInput)
 	}
 	return Div(
-		Class("fixed inset-0 z-50 flex items-stretch justify-center bg-black/60 p-3 backdrop-blur-sm overlay-in sm:p-6"),
+		ClassStr("fixed inset-0 z-50 flex items-stretch justify-center bg-black/60 p-3 backdrop-blur-sm overlay-in sm:p-6"),
 		OnClick(parseProfileSettings.Close),
 		Div(
-			Class("modal-in flex h-full max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#2f2f2f] shadow-[0_28px_90px_rgba(0,0,0,0.45)]"),
+			ClassStr("modal-in flex h-full max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#2f2f2f] shadow-[0_28px_90px_rgba(0,0,0,0.45)]"),
 			OnClick(parseStopBubble),
-			Div(Class("flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6"),
-				Div(Class("flex min-w-0 items-center gap-3"),
-					Div(Class("flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/6 text-lg"), Text("\u2699\ufe0f")),
-					Div(Class("min-w-0"),
-						P(Class("text-base font-semibold text-white sm:text-lg"), Text(parseIntl.T(chatI18nNamespace, "modal.settingsTitle"))),
-						P(Class("text-sm text-white/45"), Text(parseView.SessionEmail)),
+			Div(ClassStr("flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6"),
+				Div(ClassStr("flex min-w-0 items-center gap-3"),
+					Div(ClassStr("flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/6 text-lg"), Text("\u2699\ufe0f")),
+					Div(ClassStr("min-w-0"),
+						P(ClassStr("text-base font-semibold text-white sm:text-lg"), Text(parseIntl.T(chatI18nNamespace, "modal.settingsTitle"))),
+						P(ClassStr("text-sm text-white/45"), Text(parseView.SessionEmail)),
 					),
 				),
 				Button(
-					Class("flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"),
+					ClassStr("flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"),
 					FromProps(Props{Aria: map[string]string{"label": parseIntl.T(chatI18nNamespace, "message.cancel")}}),
 					OnClick(parseProfileSettings.Close),
-					Span(Class("text-lg leading-none"), Text("\u00d7")),
+					Span(ClassStr("text-lg leading-none"), Text("\u00d7")),
 				),
 			),
-			Div(Class("flex min-h-0 flex-1 flex-col gap-4 p-4 lg:flex-row lg:gap-5 lg:p-5"),
-				Div(Class("min-h-0 overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/18 lg:basis-[20%] lg:max-w-[20%]"),
-					Div(Class("chat-scrollbar flex h-full min-h-0 flex-col overflow-y-auto p-3"),
-						Div(Class("rounded-[1.2rem] border border-white/8 bg-white/[0.03] px-4 py-3"),
-							P(Class("text-[11px] font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.settingsTitle"))),
-							P(Class("mt-2 text-sm font-medium text-white"), Text(parseView.SessionEmail)),
-							P(Class("mt-1 text-xs leading-6 text-white/42"), Text("Navigation")),
+			Div(ClassStr("flex min-h-0 flex-1 flex-col gap-4 p-4 lg:flex-row lg:gap-5 lg:p-5"),
+				Div(ClassStr("min-h-0 overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/18 lg:basis-[20%] lg:max-w-[20%]"),
+					Div(ClassStr("chat-scrollbar flex h-full min-h-0 flex-col overflow-y-auto p-3"),
+						Div(ClassStr("rounded-[1.2rem] border border-white/8 bg-white/[0.03] px-4 py-3"),
+							P(ClassStr("text-[11px] font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.settingsTitle"))),
+							P(ClassStr("mt-2 text-sm font-medium text-white"), Text(parseView.SessionEmail)),
+							P(ClassStr("mt-1 text-xs leading-6 text-white/42"), Text("Navigation")),
 						),
-						Div(Class("mt-3 flex flex-col gap-2"),
+						Div(ClassStr("mt-3 flex flex-col gap-2"),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionProfile, parseIntl.T(chatI18nNamespace, "modal.displayName"), parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder"), parseProfileSettings.NavigateSection),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionTone, parseIntl.T(chatI18nNamespace, "modal.aiTone"), parseToneLabel(parseIntl, parseView.ToneInput), parseProfileSettings.NavigateSection),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionPrompt, parseIntl.T(chatI18nNamespace, "modal.systemPrompt"), parseSystemPromptNavSummary(parseIntl, parseView.SystemPromptInput), parseProfileSettings.NavigateSection),
@@ -487,46 +487,46 @@ func renderSettingsModal(parseIntl i18n.Runtime, parseView appViewState, parseSt
 						),
 					),
 				),
-				Div(Class("flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/12 lg:basis-[80%] lg:max-w-[80%]"),
-					Div(Class("border-b border-white/10 bg-black/10 px-5 py-4"),
-						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(settingsSectionEyebrow(parseActiveSection))),
-						P(Class("mt-2 text-xl font-semibold tracking-tight text-white"), Text(settingsSectionTitle(parseIntl, parseActiveSection))),
-						P(Class("mt-2 max-w-2xl text-sm leading-7 text-white/55"), Text(settingsSectionDescription(parseIntl, parseView, parseActiveSection, parseCurrentThinkingMode))),
+				Div(ClassStr("flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/12 lg:basis-[80%] lg:max-w-[80%]"),
+					Div(ClassStr("border-b border-white/10 bg-black/10 px-5 py-4"),
+						P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(settingsSectionEyebrow(parseActiveSection))),
+						P(ClassStr("mt-2 text-xl font-semibold tracking-tight text-white"), Text(settingsSectionTitle(parseIntl, parseActiveSection))),
+						P(ClassStr("mt-2 max-w-2xl text-sm leading-7 text-white/55"), Text(settingsSectionDescription(parseIntl, parseView, parseActiveSection, parseCurrentThinkingMode))),
 					),
-					Div(Class("chat-scrollbar flex min-h-0 flex-1 overflow-y-auto"),
-						Div(Class("flex w-full flex-col gap-4 p-4 sm:p-5"),
+					Div(ClassStr("chat-scrollbar flex min-h-0 flex-1 overflow-y-auto"),
+						Div(ClassStr("flex w-full flex-col gap-4 p-4 sm:p-5"),
 							renderActiveSettingsPane(parseIntl, parseView, parseActiveSection, parseCurrentThinkingMode, parseProfileSettings),
 						),
 					),
-					Div(Class("flex flex-col gap-3 border-t border-white/10 bg-black/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-5"),
+					Div(ClassStr("flex flex-col gap-3 border-t border-white/10 bg-black/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-5"),
 						If(strings.TrimSpace(parseView.SettingsError) != "",
 							Div(
 								ID("settings-save-error"),
-								Class("rounded-xl border border-[#f59e0b]/24 bg-[#f59e0b]/10 px-3 py-2 text-xs text-[#ffd7a3] sm:mr-auto"),
+								ClassStr("rounded-xl border border-[#f59e0b]/24 bg-[#f59e0b]/10 px-3 py-2 text-xs text-[#ffd7a3] sm:mr-auto"),
 								Text(parseView.SettingsError),
 							),
 						),
 						If(parseBridgeStatusLabel(parseView.BridgeState) != "",
 							Div(
-								Class("rounded-xl border border-[#f6b84b]/20 bg-[#f6b84b]/10 px-3 py-2 text-xs text-[#ffd7a3] sm:mr-auto"),
+								ClassStr("rounded-xl border border-[#f6b84b]/20 bg-[#f6b84b]/10 px-3 py-2 text-xs text-[#ffd7a3] sm:mr-auto"),
 								FromProps(Props{Raw: map[string]interface{}{"role": "status"}}),
 								Text(parseBridgeStatusLabel(parseView.BridgeState)+". Settings will close and sync in the background when possible."),
 							),
 						),
 						If(parseView.Authenticated,
 							Button(
-								Class("rounded-lg bg-red-500/15 px-4 py-2 text-sm text-red-200 transition-colors hover:bg-red-500/25 sm:mr-auto"),
+								ClassStr("rounded-lg bg-red-500/15 px-4 py-2 text-sm text-red-200 transition-colors hover:bg-red-500/25 sm:mr-auto"),
 								OnClick(parseAuth.Logout),
 								Text(parseIntl.T(chatI18nNamespace, "auth.logout")),
 							),
 						),
 						Button(
-							Class("rounded-lg bg-white/10 px-4 py-2 text-sm text-white/70 transition-colors hover:bg-white/20"),
+							ClassStr("rounded-lg bg-white/10 px-4 py-2 text-sm text-white/70 transition-colors hover:bg-white/20"),
 							OnClick(parseProfileSettings.Close),
 							Text(parseIntl.T(chatI18nNamespace, "message.cancel")),
 						),
 						Button(
-							Class("rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-white/90"),
+							ClassStr("rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-white/90"),
 							OnClick(parseProfileSettings.Save),
 							If(parseBridgeStatusLabel(parseView.BridgeState) == "",
 								Text(parseIntl.T(chatI18nNamespace, "modal.save")),
@@ -547,24 +547,24 @@ func renderSpeechUpgradeModal(parseIntl i18n.Runtime, isShow bool, parseErrorTex
 		return nil
 	}
 	return Div(
-		Class("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
+		ClassStr("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
 		OnClick(parseCancel),
 		Div(
-			Class("bg-[#13131e] border border-white/[0.08] rounded-[1.35rem] p-6 max-w-md w-full mx-4 flex flex-col gap-4 modal-in"),
+			ClassStr("bg-[#13131e] border border-white/[0.08] rounded-[1.35rem] p-6 max-w-md w-full mx-4 flex flex-col gap-4 modal-in"),
 			OnClick(parseStopBubble),
-			P(Class("text-white font-semibold text-base"), Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderTitle"))),
-			P(Class("text-white/60 text-sm leading-6"), Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderBody"))),
+			P(ClassStr("text-white font-semibold text-base"), Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderTitle"))),
+			P(ClassStr("text-white/60 text-sm leading-6"), Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderBody"))),
 			If(strings.TrimSpace(parseErrorText) != "",
-				Div(Class("rounded-xl border border-[#f59e0b]/24 bg-[#f59e0b]/10 px-3 py-2 text-xs text-[#ffd7a3]"), Text(parseErrorText)),
+				Div(ClassStr("rounded-xl border border-[#f59e0b]/24 bg-[#f59e0b]/10 px-3 py-2 text-xs text-[#ffd7a3]"), Text(parseErrorText)),
 			),
-			Div(Class("flex gap-3 justify-end"),
+			Div(ClassStr("flex gap-3 justify-end"),
 				Button(
-					Class("px-4 py-2 text-sm rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
+					ClassStr("px-4 py-2 text-sm rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
 					OnClick(parseCancel),
 					Text(parseIntl.T(chatI18nNamespace, "message.cancel")),
 				),
 				Button(
-					Class("px-4 py-2 text-sm rounded-xl bg-[#8e7bff] text-[#0a0a14] hover:bg-[#a99bff] transition-colors font-medium"),
+					ClassStr("px-4 py-2 text-sm rounded-xl bg-[#8e7bff] text-[#0a0a14] hover:bg-[#a99bff] transition-colors font-medium"),
 					OnClick(parseConfirm),
 					Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderConfirm")),
 				),
@@ -579,13 +579,13 @@ func renderSettingsNavItem(parseIntl i18n.Runtime, parseActiveSection, parseSect
 		Href(buildSettingsRoute(parseSectionID)),
 		Data(dataSettingsSection, parseSectionID),
 		OnClick(parseOnNavigate),
-		Class(ClassNames(
+		ClassStr(ClassNames(
 			"rounded-[1.2rem] border px-4 py-3 text-left transition-colors",
 			When(parseActiveSection == parseSectionID, "border-[#8df5cf]/40 bg-[#8df5cf]/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"),
 			When(parseActiveSection != parseSectionID, "border-white/10 bg-white/[0.03] hover:bg-white/8"),
 		)),
-		P(Class("text-[11px] font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseTitle)),
-		P(Class(ClassNames(
+		P(ClassStr("text-[11px] font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseTitle)),
+		P(ClassStr(ClassNames(
 			"mt-1 text-sm leading-6",
 			When(parseActiveSection == parseSectionID, "text-white"),
 			When(parseActiveSection != parseSectionID, "text-white/74"),
@@ -598,22 +598,22 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 	case settingsSectionTone:
 		return Div(
 			ID(settingsSectionTone),
-			Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.aiTone"))),
-			P(Class("mt-1 text-sm text-white/55"), Text(parseToneDescription(parseIntl, parseView.ToneInput))),
-			Div(Class("mt-4 flex flex-col gap-2"),
+			ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.aiTone"))),
+			P(ClassStr("mt-1 text-sm text-white/55"), Text(parseToneDescription(parseIntl, parseView.ToneInput))),
+			Div(ClassStr("mt-4 flex flex-col gap-2"),
 				Map(availableTones, func(parseOption toneOption) ui.Node {
 					isActive := parseView.ToneInput == parseOption.ID
 					return Button(
-						Class(ClassNames(
+						ClassStr(ClassNames(
 							"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 							When(isActive, "border-white/30 bg-white/15 text-white"),
 							When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
 						)),
 						Data(dataTone, parseOption.ID),
 						OnClick(parseProfileSettings.HandleToneChange),
-						Span(Class("font-medium"), Text(parseToneLabel(parseIntl, parseOption.ID))),
-						Span(Class(ClassNames(
+						Span(ClassStr("font-medium"), Text(parseToneLabel(parseIntl, parseOption.ID))),
+						Span(ClassStr(ClassNames(
 							"text-xs",
 							When(isActive, "text-white/60"),
 							When(!isActive, "text-white/30"),
@@ -625,29 +625,29 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 	case settingsSectionPrompt:
 		return Div(
 			ID(settingsSectionPrompt),
-			Class("flex flex-col gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			ClassStr("flex flex-col gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
 			Tag("textarea",
-				Class("min-h-[10rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
+				ClassStr("min-h-[10rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
 				Placeholder(parseIntl.T(chatI18nNamespace, "modal.systemPromptPlaceholder")),
 				Value(parseView.SystemPromptInput),
 				OnInput(parseProfileSettings.HandleSystemPrompt),
 			),
 			P(
-				Class("whitespace-pre-wrap rounded-xl border border-white/10 bg-[#2d2d2d] px-3 py-2 font-mono text-[11px] leading-relaxed text-white/60"),
+				ClassStr("whitespace-pre-wrap rounded-xl border border-white/10 bg-[#2d2d2d] px-3 py-2 font-mono text-[11px] leading-relaxed text-white/60"),
 				Text(parseIntl.T(chatI18nNamespace, "modal.systemPromptTemplate")),
 			),
 		)
 	case settingsSectionIntelligence:
 		return Div(
 			ID(settingsSectionIntelligence),
-			Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligence"))),
-			P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceHelp"))),
-			Div(Class("mt-4 flex flex-col gap-2"),
+			ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligence"))),
+			P(ClassStr("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceHelp"))),
+			Div(ClassStr("mt-4 flex flex-col gap-2"),
 				Map(availableThinkingEfforts, func(parseOption2 thinkingEffortOption) ui.Node {
 					isActive := parseCurrentThinkingMode == parseOption2.ID
 					return Button(
-						Class(ClassNames(
+						ClassStr(ClassNames(
 							"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 							When(isActive, "border-white/30 bg-white/15 text-white"),
 							When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
@@ -656,12 +656,12 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 						DisabledIf(!parseView.ThinkingSupported),
 						Data(dataThinkingEffort, parseOption2.ID),
 						OnClick(parseProfileSettings.HandleThinkingMode),
-						Span(Class("font-medium"), Text(parseThinkingEffortLabel(parseIntl, parseOption2.ID))),
+						Span(ClassStr("font-medium"), Text(parseThinkingEffortLabel(parseIntl, parseOption2.ID))),
 					)
 				}),
 			),
 			If(!parseView.ThinkingSupported,
-				P(Class("mt-3 text-xs leading-relaxed text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
+				P(ClassStr("mt-3 text-xs leading-relaxed text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
 			),
 		)
 	case settingsSectionSpeech:
@@ -669,10 +669,10 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 		parseActiveProvider := parseResolveTTSProviderID(parseView.TTSProviderInput)
 		return Div(
 			ID(settingsSectionSpeech),
-			Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProviders"))),
-			P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProvidersHelp"))),
-			Div(Class("mt-4 flex flex-col gap-2"),
+			ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProviders"))),
+			P(ClassStr("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProvidersHelp"))),
+			Div(ClassStr("mt-4 flex flex-col gap-2"),
 				Map(parseProviderOptions, func(parseOption3 ttsProviderOption) ui.Node {
 					isActive := parseActiveProvider == parseOption3.ID
 					parseAvailabilityText := parseModelLabelForID(parseOption3.ResolvedModel, parseView.ModelOptions)
@@ -680,7 +680,7 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 						parseAvailabilityText = parseIntl.T(chatI18nNamespace, "modal.ttsProviderUnavailable")
 					}
 					return Button(
-						Class(ClassNames(
+						ClassStr(ClassNames(
 							"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 							When(isActive, "border-white/30 bg-white/15 text-white"),
 							When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
@@ -689,8 +689,8 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 						DisabledIf(!parseOption3.Available),
 						Data(dataTTSProvider, parseOption3.ID),
 						OnClick(parseProfileSettings.HandleTTSProvider),
-						Span(Class("font-medium"), Text(parseOption3.Label)),
-						Span(Class(ClassNames(
+						Span(ClassStr("font-medium"), Text(parseOption3.Label)),
+						Span(ClassStr(ClassNames(
 							"text-xs",
 							When(isActive, "text-white/60"),
 							When(!isActive, "text-white/35"),
@@ -710,60 +710,60 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 		isParseExtractionActive := parseSessionMemCount > 0
 		return Div(
 			ID(settingsSectionMemories),
-			Class("flex flex-col gap-4"),
-			Div(Class("flex items-center justify-between gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				Div(Class("min-w-0"),
-					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.memories"))),
-					P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.memoriesHelp"))),
+			ClassStr("flex flex-col gap-4"),
+			Div(ClassStr("flex items-center justify-between gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				Div(ClassStr("min-w-0"),
+					P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.memories"))),
+					P(ClassStr("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.memoriesHelp"))),
 				),
 				Button(
-					Class("rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20"),
+					ClassStr("rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20"),
 					OnClick(parseProfileSettings.AddMemory),
 					Text(parseIntl.T(chatI18nNamespace, "modal.memoryAdd")),
 				),
 			),
 			// Extraction status row — visible parity signal showing whether the AI is producing memories.
-			Div(Class("flex items-start justify-between gap-3 rounded-[1.4rem] border border-white/8 bg-white/[0.02] px-4 py-3"),
-				Div(Class("min-w-0 flex-1"),
+			Div(ClassStr("flex items-start justify-between gap-3 rounded-[1.4rem] border border-white/8 bg-white/[0.02] px-4 py-3"),
+				Div(ClassStr("min-w-0 flex-1"),
 					If(isParseExtractionActive,
-						P(Class("text-sm text-white/65"), Text("Session memories are being extracted from your chats.")),
+						P(ClassStr("text-sm text-white/65"), Text("Session memories are being extracted from your chats.")),
 					),
 					If(!isParseExtractionActive,
-						P(Class("text-sm text-white/45"), Text("No session memories yet — the AI will build these automatically after your chats.")),
+						P(ClassStr("text-sm text-white/45"), Text("No session memories yet — the AI will build these automatically after your chats.")),
 					),
-					P(Class("mt-1 text-xs text-white/30"), Text("Memory extraction depends on your current AI model. Some models may not yet support automatic extraction.")),
+					P(ClassStr("mt-1 text-xs text-white/30"), Text("Memory extraction depends on your current AI model. Some models may not yet support automatic extraction.")),
 				),
 				If(isParseExtractionActive,
-					Span(Class("shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-emerald-400/80"), Text("Active")),
+					Span(ClassStr("shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-emerald-400/80"), Text("Active")),
 				),
 				If(!isParseExtractionActive,
-					Span(Class("shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-amber-400/60"), Text("Pending")),
+					Span(ClassStr("shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-amber-400/60"), Text("Pending")),
 				),
 			),
 			If(len(parseView.UserMemories) == 0,
-				Div(Class("rounded-[1.4rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.memoriesEmpty"))),
+				Div(ClassStr("rounded-[1.4rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.memoriesEmpty"))),
 			),
 			Fragment(renderEditableUserMemories(parseIntl, parseView.UserMemories, parseProfileSettings)),
 		)
 	case settingsSectionLanguage:
 		return Div(
 			ID(settingsSectionLanguage),
-			Class("flex flex-col gap-4"),
-			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.language"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(parseLocaleLabel(parseView.LocaleInput))),
-				Div(Class("mt-4 flex flex-col gap-2"),
+			ClassStr("flex flex-col gap-4"),
+			Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.language"))),
+				P(ClassStr("mt-1 text-sm text-white/55"), Text(parseLocaleLabel(parseView.LocaleInput))),
+				Div(ClassStr("mt-4 flex flex-col gap-2"),
 					Map(availableLocales, func(parseOption4 localeOption) ui.Node {
 						isActive := parseView.LocaleInput == parseOption4.ID
 						return Button(
-							Class(ClassNames(
+							ClassStr(ClassNames(
 								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 								When(isActive, "border-white/30 bg-white/15 text-white"),
 								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
 							)),
 							Data(dataLocale, parseOption4.ID),
 							OnClick(parseProfileSettings.HandleLocaleChange),
-							Span(Class("font-medium"), Text(parseLocaleLabel(parseOption4.ID))),
+							Span(ClassStr("font-medium"), Text(parseLocaleLabel(parseOption4.ID))),
 						)
 					}),
 				),
@@ -779,42 +779,42 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 		}
 		return Div(
 			ID(settingsSectionBilling),
-			Class("flex flex-col gap-4"),
-			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPlanLabel"))),
-				P(Class("mt-3 text-lg font-semibold text-white"), Text(parsePlanName)),
-				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.billingHelp"))),
+			ClassStr("flex flex-col gap-4"),
+			Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPlanLabel"))),
+				P(ClassStr("mt-3 text-lg font-semibold text-white"), Text(parsePlanName)),
+				P(ClassStr("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.billingHelp"))),
 			),
-			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Usage breakdown")),
+			Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Usage breakdown")),
 				If(!parseHasUsage,
-					P(Class("mt-3 text-sm text-white/45"), Text(parseIntl.T(chatI18nNamespace, "modal.billingNoUsage"))),
+					P(ClassStr("mt-3 text-sm text-white/45"), Text(parseIntl.T(chatI18nNamespace, "modal.billingNoUsage"))),
 				),
 				If(parseHasBreakdown,
-					Div(Class("mt-3 flex flex-col gap-2"),
-						Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
-							P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPlatformFee"))),
-							P(ID(idBillingPlatformFeeValue), Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.PlatformFee))),
+					Div(ClassStr("mt-3 flex flex-col gap-2"),
+						Div(ClassStr("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+							P(ClassStr("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPlatformFee"))),
+							P(ID(idBillingPlatformFeeValue), ClassStr("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.PlatformFee))),
 						),
-						Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
-							P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingUsageCost"))),
-							P(ID(idBillingUsageValue), Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.UsageCost))),
+						Div(ClassStr("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+							P(ClassStr("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingUsageCost"))),
+							P(ID(idBillingUsageValue), ClassStr("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.UsageCost))),
 						),
-						Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
-							P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPremiumCost"))),
-							P(ID(idBillingPremiumValue), Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.PremiumCost))),
+						Div(ClassStr("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+							P(ClassStr("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPremiumCost"))),
+							P(ID(idBillingPremiumValue), ClassStr("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.PremiumCost))),
 						),
-						Div(Class("flex items-center justify-between rounded-xl border border-[#8df5cf]/20 bg-[#8df5cf]/[0.04] px-4 py-2.5"),
-							P(Class("text-sm font-medium text-white/80"), Text(parseIntl.T(chatI18nNamespace, "modal.billingTotalCost"))),
-							P(ID(idBillingTotalValue), Class("text-sm font-semibold text-[#8df5cf]"), Text(formatCostUSD(parseView.AccountCostSummary.TotalCost))),
+						Div(ClassStr("flex items-center justify-between rounded-xl border border-[#8df5cf]/20 bg-[#8df5cf]/[0.04] px-4 py-2.5"),
+							P(ClassStr("text-sm font-medium text-white/80"), Text(parseIntl.T(chatI18nNamespace, "modal.billingTotalCost"))),
+							P(ID(idBillingTotalValue), ClassStr("text-sm font-semibold text-[#8df5cf]"), Text(formatCostUSD(parseView.AccountCostSummary.TotalCost))),
 						),
 					),
 				),
 			),
 			If(len(parseView.AccountCostSummary.Invoices) > 0,
-				Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Recent invoices")),
-					Div(Class("mt-3 flex flex-col gap-2"),
+				Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+					P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Recent invoices")),
+					Div(ClassStr("mt-3 flex flex-col gap-2"),
 						Map(parseView.AccountCostSummary.Invoices, func(parseInv billingInvoiceRow) ui.Node {
 							parsePeriodLabel := parseInv.PeriodStart
 							if len(parsePeriodLabel) > 10 {
@@ -825,13 +825,13 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 							}
 							isParseUnpaid := parseInv.Status == "open" || parseInv.Status == "past_due"
 							return Div(
-								Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
-								P(Class("text-sm text-white/70"), Text(parsePeriodLabel)),
-								Div(Class("flex items-center gap-2"),
+								ClassStr("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+								P(ClassStr("text-sm text-white/70"), Text(parsePeriodLabel)),
+								Div(ClassStr("flex items-center gap-2"),
 									If(isParseUnpaid,
-										Span(Class("text-xs text-amber-400 px-1.5 py-0.5 rounded bg-amber-900/30"), Text(parseInv.Status)),
+										Span(ClassStr("text-xs text-amber-400 px-1.5 py-0.5 rounded bg-amber-900/30"), Text(parseInv.Status)),
 									),
-									P(Class("text-sm font-medium text-white"), Text(formatCostUSD(float64(parseInv.TotalCents)/100.0))),
+									P(ClassStr("text-sm font-medium text-white"), Text(formatCostUSD(float64(parseInv.TotalCents)/100.0))),
 								),
 							)
 						}),
@@ -839,11 +839,11 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 				),
 			),
 			If(parseCoverage != "",
-				Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.billingCoverageLabel"))),
-					P(Class("mt-2 text-sm text-white/70"), Text(parseCoverage)),
+				Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+					P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.billingCoverageLabel"))),
+					P(ClassStr("mt-2 text-sm text-white/70"), Text(parseCoverage)),
 					If(!parseView.AccountCostSummary.AllThreadCostsExact,
-						P(Class("mt-1 text-xs text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsagePartial"))),
+						P(ClassStr("mt-1 text-xs text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsagePartial"))),
 					),
 				),
 			),
@@ -853,14 +853,14 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 	default:
 		return Div(
 			ID(settingsSectionProfile),
-			Class("flex flex-col gap-4"),
-			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.displayName"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder"))),
+			ClassStr("flex flex-col gap-4"),
+			Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.displayName"))),
+				P(ClassStr("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder"))),
 				Input(
 					ID(idNameInput),
 					Type("text"),
-					Class("mt-4 w-full rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
+					ClassStr("mt-4 w-full rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
 					Placeholder(parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder")),
 					Value(parseView.NameInput),
 					OnInput(parseProfileSettings.HandleNameInput),
@@ -868,21 +868,21 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 				),
 			),
 			If(strings.TrimSpace(parseView.SessionEmail) != "",
-				Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.profileEmailLabel"))),
-					P(Class("mt-2 text-sm text-white/70"), Text(parseView.SessionEmail)),
+				Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+					P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.profileEmailLabel"))),
+					P(ClassStr("mt-2 text-sm text-white/70"), Text(parseView.SessionEmail)),
 				),
 			),
-			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsageTitle"))),
+			Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsageTitle"))),
 				If(!parseView.AccountCostSummary.HasAnyExactCosts,
-					P(Class("mt-2 text-sm text-white/45"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsageLoading"))),
+					P(ClassStr("mt-2 text-sm text-white/45"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsageLoading"))),
 				),
 				If(parseView.AccountCostSummary.HasAnyExactCosts,
-					Div(Class("mt-3 flex flex-col gap-2"),
-						Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
-							P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsageTotalSpend"))),
-							Span(Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.TotalCost))),
+					Div(ClassStr("mt-3 flex flex-col gap-2"),
+						Div(ClassStr("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+							P(ClassStr("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsageTotalSpend"))),
+							Span(ClassStr("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.TotalCost))),
 						),
 					),
 				),
@@ -1010,51 +1010,51 @@ func renderSecuritySettingsPane(parseIntl i18n.Runtime, parseView appViewState) 
 
 	return Div(
 		ID(settingsSectionSecurity),
-		Class("flex flex-col gap-4"),
+		ClassStr("flex flex-col gap-4"),
 		// linked methods header card
-		Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(c, "modal.securityLinkedMethodsLabel"))),
-			P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(c, "modal.securityLinkedMethodsHelp"))),
+		Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(c, "modal.securityLinkedMethodsLabel"))),
+			P(ClassStr("mt-1 text-sm text-white/55"), Text(parseIntl.T(c, "modal.securityLinkedMethodsHelp"))),
 		),
 		// password row
-		Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-			Div(Class("flex items-center justify-between gap-3"),
+		Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			Div(ClassStr("flex items-center justify-between gap-3"),
 				Div(
-					P(Class("text-sm font-medium text-white"), Text(parseIntl.T(c, "modal.securityPasswordMethod"))),
-					P(Class("mt-1 text-xs text-white/45"), Text(parseView.SessionEmail)),
+					P(ClassStr("text-sm font-medium text-white"), Text(parseIntl.T(c, "modal.securityPasswordMethod"))),
+					P(ClassStr("mt-1 text-xs text-white/45"), Text(parseView.SessionEmail)),
 				),
 				If(isParsePasswordLinked,
-					Span(Class("shrink-0 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300"), Text(parseIntl.T(c, "modal.securityLinked"))),
+					Span(ClassStr("shrink-0 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300"), Text(parseIntl.T(c, "modal.securityLinked"))),
 				),
 				If(!isParsePasswordLinked,
-					Span(Class("shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/40"), Text(parseIntl.T(c, "modal.securityNotLinked"))),
+					Span(ClassStr("shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/40"), Text(parseIntl.T(c, "modal.securityNotLinked"))),
 				),
 			),
 		),
 		// Google row (always shown — not yet linked, no RPC to link/unlink)
-		Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-			Div(Class("flex items-center justify-between gap-3"),
+		Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			Div(ClassStr("flex items-center justify-between gap-3"),
 				Div(
-					P(Class("text-sm font-medium text-white"), Text(parseIntl.T(c, "modal.securityGoogleMethod"))),
-					P(Class("mt-1 text-xs text-white/45"), Text(parseIntl.T(c, "modal.securityGoogleHelp"))),
+					P(ClassStr("text-sm font-medium text-white"), Text(parseIntl.T(c, "modal.securityGoogleMethod"))),
+					P(ClassStr("mt-1 text-xs text-white/45"), Text(parseIntl.T(c, "modal.securityGoogleHelp"))),
 				),
-				Span(Class("shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/40"), Text(parseIntl.T(c, "modal.securityNotLinked"))),
+				Span(ClassStr("shrink-0 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/40"), Text(parseIntl.T(c, "modal.securityNotLinked"))),
 			),
 		),
 		// Enterprise SSO row (always shown — availability depends on workspace plan)
-		Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-			Div(Class("flex items-center justify-between gap-3"),
+		Div(ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			Div(ClassStr("flex items-center justify-between gap-3"),
 				Div(
-					P(Class("text-sm font-medium text-white"), Text(parseIntl.T(c, "modal.securitySSOMethod"))),
-					P(Class("mt-1 text-xs text-white/45"), Text(parseIntl.T(c, "modal.securitySSOHelp"))),
+					P(ClassStr("text-sm font-medium text-white"), Text(parseIntl.T(c, "modal.securitySSOMethod"))),
+					P(ClassStr("mt-1 text-xs text-white/45"), Text(parseIntl.T(c, "modal.securitySSOHelp"))),
 				),
-				Span(Class("shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-xs font-medium text-white/30"), Text(parseIntl.T(c, "modal.securityUnavailable"))),
+				Span(ClassStr("shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-xs font-medium text-white/30"), Text(parseIntl.T(c, "modal.securityUnavailable"))),
 			),
 		),
 		// informational note about local password always being available for testing
-		Div(Class("rounded-[1.4rem] border border-amber-400/15 bg-amber-500/[0.05] p-4 sm:p-5"),
-			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-amber-300/60"), Text(parseIntl.T(c, "modal.securityNoteLabel"))),
-			P(Class("mt-2 text-sm leading-6 text-white/45"), Text(parseIntl.T(c, "modal.securityNoteBody"))),
+		Div(ClassStr("rounded-[1.4rem] border border-amber-400/15 bg-amber-500/[0.05] p-4 sm:p-5"),
+			P(ClassStr("text-xs font-medium uppercase tracking-[0.22em] text-amber-300/60"), Text(parseIntl.T(c, "modal.securityNoteLabel"))),
+			P(ClassStr("mt-2 text-sm leading-6 text-white/45"), Text(parseIntl.T(c, "modal.securityNoteBody"))),
 		),
 	)
 }

@@ -345,40 +345,40 @@ func renderDevTourOverlay(parseView appViewState) ui.Node {
 	})
 	parseStops := parseBuildTourStops()
 	return Div(
-		Class("fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md"),
+		ClassStr("fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md"),
 		OnClick(parseDismiss),
 		Div(
-			Class("relative mx-4 w-full max-w-2xl rounded-2xl border border-white/[0.10] bg-[#0e0e16] p-6 shadow-2xl"),
+			ClassStr("relative mx-4 w-full max-w-2xl rounded-2xl border border-white/[0.10] bg-[#0e0e16] p-6 shadow-2xl"),
 			OnClick(ui.UseEvent(func(parseE ui.Event) { parseE.StopPropagation() })),
 			// Header
 			Div(
-				Class("mb-5 flex items-start justify-between gap-4"),
+				ClassStr("mb-5 flex items-start justify-between gap-4"),
 				Div(
-					Div(Class("text-[10px] uppercase tracking-[0.18em] text-[#8e7bff]/60"), Text("GoWebComponents framework tour")),
-					H2(Class("mt-1 text-lg font-semibold text-white"), Text("Example 100 — Pattern tour")),
-					P(Class("mt-1 text-xs text-white/40"), Text("Each stop maps a visible UI surface to the GWC pattern it demonstrates. Append ?gwc-dev=panel to inspect live runtime state.")),
+					Div(ClassStr("text-[10px] uppercase tracking-[0.18em] text-[#8e7bff]/60"), Text("GoWebComponents framework tour")),
+					H2(ClassStr("mt-1 text-lg font-semibold text-white"), Text("Example 100 — Pattern tour")),
+					P(ClassStr("mt-1 text-xs text-white/40"), Text("Each stop maps a visible UI surface to the GWC pattern it demonstrates. Append ?gwc-dev=panel to inspect live runtime state.")),
 				),
 				Button(
-					Class("shrink-0 rounded-xl border border-white/10 bg-white/5 p-1.5 text-white/40 hover:text-white transition-colors"),
+					ClassStr("shrink-0 rounded-xl border border-white/10 bg-white/5 p-1.5 text-white/40 hover:text-white transition-colors"),
 					OnClick(parseDismiss),
 					Text("✕"),
 				),
 			),
 			// Tour stops grid
 			Div(
-				Class("grid grid-cols-1 gap-3 sm:grid-cols-2"),
+				ClassStr("grid grid-cols-1 gap-3 sm:grid-cols-2"),
 				Map(parseStops, func(parseStop parseTourStop) ui.Node {
 					return Div(
-						Class("rounded-xl border border-white/[0.07] bg-white/[0.03] p-4"),
-						Div(Class("mb-0.5 text-[10px] uppercase tracking-[0.14em] text-[#8e7bff]/60"), Text(parseStop.parsePattern)),
-						Div(Class("text-sm font-semibold text-white"), Text(parseStop.parseTitle)),
-						P(Class("mt-1 text-[11px] leading-4 text-white/40"), Text(parseStop.parseDesc)),
-						Div(Class("mt-2 font-mono text-[10px] text-white/20"), Text(parseStop.parseFile)),
+						ClassStr("rounded-xl border border-white/[0.07] bg-white/[0.03] p-4"),
+						Div(ClassStr("mb-0.5 text-[10px] uppercase tracking-[0.14em] text-[#8e7bff]/60"), Text(parseStop.parsePattern)),
+						Div(ClassStr("text-sm font-semibold text-white"), Text(parseStop.parseTitle)),
+						P(ClassStr("mt-1 text-[11px] leading-4 text-white/40"), Text(parseStop.parseDesc)),
+						Div(ClassStr("mt-2 font-mono text-[10px] text-white/20"), Text(parseStop.parseFile)),
 					)
 				}),
 			),
 			// Footer
-			P(Class("mt-4 text-[10px] text-white/20"), Text("Route: "+parseView.CurrentPath+" · Click outside or ✕ to dismiss")),
+			P(ClassStr("mt-4 text-[10px] text-white/20"), Text("Route: "+parseView.CurrentPath+" · Click outside or ✕ to dismiss")),
 		),
 	)
 }
@@ -400,35 +400,35 @@ func renderDevPanelOverlay(parseView appViewState) ui.Node {
 	parseRows := parseBuildDevPanelRows(parseView)
 
 	return Div(
-		Class("fixed bottom-4 right-4 z-[100] w-[min(28rem,calc(100vw-2rem))]"),
+		ClassStr("fixed bottom-4 right-4 z-[100] w-[min(28rem,calc(100vw-2rem))]"),
 		Div(
-			Class("rounded-2xl border border-white/[0.10] bg-[#0e0e16] shadow-2xl"),
+			ClassStr("rounded-2xl border border-white/[0.10] bg-[#0e0e16] shadow-2xl"),
 			// Panel header
 			Div(
-				Class("flex items-center justify-between border-b border-white/[0.07] px-4 py-2.5"),
+				ClassStr("flex items-center justify-between border-b border-white/[0.07] px-4 py-2.5"),
 				Div(
-					Class("text-[10px] uppercase tracking-[0.18em] text-[#8e7bff]/60"),
+					ClassStr("text-[10px] uppercase tracking-[0.18em] text-[#8e7bff]/60"),
 					Text("GWC demo helper"),
 				),
 				Button(
-					Class("rounded-lg border border-white/10 bg-white/5 p-1 text-white/30 hover:text-white transition-colors"),
+					ClassStr("rounded-lg border border-white/10 bg-white/5 p-1 text-white/30 hover:text-white transition-colors"),
 					OnClick(parseDismiss),
 					Text("✕"),
 				),
 			),
 			// State rows
 			Div(
-				Class("px-4 py-3 space-y-1.5"),
+				ClassStr("px-4 py-3 space-y-1.5"),
 				Map(parseRows, func(parseRow [2]string) ui.Node {
 					return Div(
-						Class("rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2"),
-						Span(Class("block text-[10px] text-white/30"), Text(parseRow[0])),
-						Span(Class("mt-1 block break-words font-mono text-[10px] leading-4 text-white/60"), Text(parseRow[1])),
+						ClassStr("rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2"),
+						Span(ClassStr("block text-[10px] text-white/30"), Text(parseRow[0])),
+						Span(ClassStr("mt-1 block break-words font-mono text-[10px] leading-4 text-white/60"), Text(parseRow[1])),
 					)
 				}),
 			),
 			// Footer hint
-			P(Class("border-t border-white/[0.06] px-4 py-2 text-[10px] text-white/20"), Text("?gwc-dev=tour for pattern tour, ?gwc-dev=demo-helper for this panel")),
+			P(ClassStr("border-t border-white/[0.06] px-4 py-2 text-[10px] text-white/20"), Text("?gwc-dev=tour for pattern tour, ?gwc-dev=demo-helper for this panel")),
 		),
 	)
 }

@@ -406,7 +406,7 @@ func TestLoadMarkdownResourceAndRenderDocument(parseT *testing.T) {
 		parseT.Fatalf("unexpected markdown payload: %q", parseLoaded)
 	}
 
-	parseMarkup, renderErr := ui.RenderToString(Div(Class("space-y-4"), gwchtml.RenderMarkdown(testArticleMarkdown(), markdownRenderOptions("assets/docs/start-here.md"))))
+	parseMarkup, renderErr := ui.RenderToString(Div(ClassStr("space-y-4"), gwchtml.RenderMarkdown(testArticleMarkdown(), markdownRenderOptions("assets/docs/start-here.md"))))
 	if renderErr != nil {
 		parseT.Fatalf("RenderMarkdown returned error: %v", renderErr)
 	}
@@ -461,7 +461,7 @@ func TestFilterAndSortItems(parseT *testing.T) {
 func TestOptionRenderingAndDirectSliceExpansion(parseT *testing.T) {
 	parseOptions := renderOptionNodes([]string{"one", "two"})
 	parseSortOptions := renderSortOptionNodes([]sortOption{{Value: sortAlpha, Label: labelAlpha}})
-	parseMarkup, parseErr := ui.RenderToString(Div(Class("stack"), append(parseOptions, parseSortOptions...)))
+	parseMarkup, parseErr := ui.RenderToString(Div(ClassStr("stack"), append(parseOptions, parseSortOptions...)))
 	if parseErr != nil {
 		parseT.Fatalf("direct slice expansion render failed: %v", parseErr)
 	}

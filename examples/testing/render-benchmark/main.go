@@ -921,7 +921,7 @@ func renderBenchmarkRuntime3CoreRegion(parseProps renderBenchmarkRuntime3CorePro
 	getItems := make([]ui.Node, 0, len(parseProps.GetItems))
 	for _, getItem := range parseProps.GetItems {
 		getItemNode := Div(
-			Class("benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100"),
+			ClassStr("benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100"),
 			Data("row-id", strconv.Itoa(getItem.GetID)),
 			Text(getItem.GetText),
 		)

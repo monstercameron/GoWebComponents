@@ -29,39 +29,39 @@ func renderLandingHeroSection(parseIntl i18n.Runtime, parsePage string) ui.Node 
 	}
 
 	return Section(
-		Class("pb-16 pt-4 sm:pb-20 sm:pt-6 md:pb-24 md:pt-8 lg:pb-28 lg:pt-12"),
+		ClassStr("pb-16 pt-4 sm:pb-20 sm:pt-6 md:pb-24 md:pt-8 lg:pb-28 lg:pt-12"),
 		Div(
-			Class("mx-auto grid w-[min(1200px,calc(100%-24px))] items-center gap-10 sm:w-[min(1200px,calc(100%-32px))] sm:gap-12 lg:w-[min(1200px,calc(100%-40px))] lg:grid-cols-[1.05fr_.95fr] lg:gap-16 xl:gap-20"),
+			ClassStr("mx-auto grid w-[min(1200px,calc(100%-24px))] items-center gap-10 sm:w-[min(1200px,calc(100%-32px))] sm:gap-12 lg:w-[min(1200px,calc(100%-40px))] lg:grid-cols-[1.05fr_.95fr] lg:gap-16 xl:gap-20"),
 			// left: headline, body, CTAs, metric strip
 			Div(
-				Class("max-w-[640px] pt-2 sm:pt-4 fade-up"),
+				ClassStr("max-w-[640px] pt-2 sm:pt-4 fade-up"),
 				Img(
 					Src(brandLogoURL),
 					Attr("alt", "RelayDesk"),
-					Class("mb-6 h-14 w-auto sm:h-16"),
+					ClassStr("mb-6 h-14 w-auto sm:h-16"),
 				),
 				renderSectionEyebrow(parseIntl.T(n, parseHeroKey+"eyebrow")),
 				H1(
-					Class("hero-gradient-text font-display mt-4 text-5xl font-bold leading-[1.08] tracking-[-0.03em] sm:text-6xl md:text-7xl lg:text-[5rem]"),
+					ClassStr("hero-gradient-text font-display mt-4 text-5xl font-bold leading-[1.08] tracking-[-0.03em] sm:text-6xl md:text-7xl lg:text-[5rem]"),
 					Text(parseIntl.T(n, parseHeroKey+"headline")),
 				),
-				P(Class("mt-6 max-w-[52ch] text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"), Text(parseIntl.T(n, parseHeroKey+"body"))),
+				P(ClassStr("mt-6 max-w-[52ch] text-base leading-7 text-[#9b9bb1] sm:text-lg sm:leading-8"), Text(parseIntl.T(n, parseHeroKey+"body"))),
 				Div(
-					Class("mt-8 flex flex-wrap items-center gap-3 sm:mt-10 sm:gap-4"),
+					ClassStr("mt-8 flex flex-wrap items-center gap-3 sm:mt-10 sm:gap-4"),
 					renderCtaPrimary(parseIntl.T(n, parseHeroKey+"primaryCta"), parsePrimaryRoute),
 					renderCtaSecondary(parseIntl.T(n, parseHeroKey+"secondaryCta"), parseSecondaryRoute),
 				),
 				// metric strip
 				Div(
-					Class("mt-10 flex flex-wrap items-center gap-6 border-t border-white/[0.06] pt-8 sm:mt-12 sm:gap-8 sm:pt-10"),
+					ClassStr("mt-10 flex flex-wrap items-center gap-6 border-t border-white/[0.06] pt-8 sm:mt-12 sm:gap-8 sm:pt-10"),
 					renderLandingHeroMetric(parseIntl.T(n, "metric.responseTime.value"), parseIntl.T(n, "metric.responseTime.label")),
 					renderLandingHeroMetric(parseIntl.T(n, "metric.models.value"), parseIntl.T(n, "metric.models.label")),
 					Div(
-						Class("flex items-center gap-2"),
+						ClassStr("flex items-center gap-2"),
 						renderStatusDot(),
 						Div(
-							Class("font-mono-tech text-xs text-[#9b9bb1]"),
-							Span(Class("font-semibold text-[#4ade80]"), Text(parseIntl.T(n, "metric.uptime.value"))),
+							ClassStr("font-mono-tech text-xs text-[#9b9bb1]"),
+							Span(ClassStr("font-semibold text-[#4ade80]"), Text(parseIntl.T(n, "metric.uptime.value"))),
 							Text(" "+parseIntl.T(n, "metric.uptime.label")),
 						),
 					),
@@ -76,9 +76,9 @@ func renderLandingHeroSection(parseIntl i18n.Runtime, parsePage string) ui.Node 
 // renderLandingHeroMetric renders a single metric cell in the hero stat strip.
 func renderLandingHeroMetric(parseValue, parseLabel string) ui.Node {
 	return Div(
-		Class("font-mono-tech"),
-		Div(Class("text-sm font-semibold text-[#f0f0f8]"), Text(parseValue)),
-		Div(Class("mt-0.5 text-[11px] uppercase tracking-[0.12em] text-[#9b9bb1]"), Text(parseLabel)),
+		ClassStr("font-mono-tech"),
+		Div(ClassStr("text-sm font-semibold text-[#f0f0f8]"), Text(parseValue)),
+		Div(ClassStr("mt-0.5 text-[11px] uppercase tracking-[0.12em] text-[#9b9bb1]"), Text(parseLabel)),
 	)
 }
 
@@ -87,66 +87,66 @@ func renderLandingDemoCard(parseIntl i18n.Runtime) ui.Node {
 	n := marketingI18nNamespace
 	return Div(
 		ID("demo"),
-		Class("relative order-first lg:order-none fade-up fade-up-d1"),
+		ClassStr("relative order-first lg:order-none fade-up fade-up-d1"),
 		// subtle cyan glow behind card
-		Div(Class("absolute -inset-4 rounded-[48px] bg-[#8e7bff]/[0.04] blur-2xl"), nil),
+		Div(ClassStr("absolute -inset-4 rounded-[48px] bg-[#8e7bff]/[0.04] blur-2xl"), nil),
 		// card shell
 		Div(
-			Class("relative overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#13131e] p-4 shadow-[0_32px_80px_rgba(0,0,0,.48)] sm:rounded-[28px] sm:p-5"),
+			ClassStr("relative overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#13131e] p-4 shadow-[0_32px_80px_rgba(0,0,0,.48)] sm:rounded-[28px] sm:p-5"),
 			// card header: brand + model badge
 			Div(
-				Class("flex flex-wrap items-center justify-between gap-3"),
+				ClassStr("flex flex-wrap items-center justify-between gap-3"),
 				Div(
-					Class("flex items-center gap-3"),
+					ClassStr("flex items-center gap-3"),
 					renderBrandMark(),
 					Div(
-						Div(Class("text-sm font-semibold text-[#f0f0f8]"), Text(parseIntl.T(n, "demo.brandLabel"))),
-						Div(Class("font-mono-tech text-[10px] text-[#4ade80]"), Text(parseIntl.T(n, "demo.model"))),
+						Div(ClassStr("text-sm font-semibold text-[#f0f0f8]"), Text(parseIntl.T(n, "demo.brandLabel"))),
+						Div(ClassStr("font-mono-tech text-[10px] text-[#4ade80]"), Text(parseIntl.T(n, "demo.model"))),
 					),
 				),
 				Div(
-					Class("hidden items-center gap-1.5 md:flex"),
+					ClassStr("hidden items-center gap-1.5 md:flex"),
 					renderStatusDot(),
-					Span(Class("font-mono-tech text-[11px] text-[#9b9bb1]"), Text(parseIntl.T(n, "demo.live"))),
+					Span(ClassStr("font-mono-tech text-[11px] text-[#9b9bb1]"), Text(parseIntl.T(n, "demo.live"))),
 				),
 			),
 			// messages thread
 			Div(
-				Class("mt-5 space-y-3 sm:mt-6"),
+				ClassStr("mt-5 space-y-3 sm:mt-6"),
 				// AI response bubble
 				Div(
-					Class("max-w-[90%] rounded-2xl bg-[#0e0e17] px-4 py-4 sm:px-5"),
+					ClassStr("max-w-[90%] rounded-2xl bg-[#0e0e17] px-4 py-4 sm:px-5"),
 					Div(
-						Class("flex items-start gap-3"),
-						Div(Class("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#8e7bff] text-[10px] font-black text-[#070710] sm:h-8 sm:w-8"), Text("RD")),
+						ClassStr("flex items-start gap-3"),
+						Div(ClassStr("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#8e7bff] text-[10px] font-black text-[#070710] sm:h-8 sm:w-8"), Text("RD")),
 						Div(
-							P(Class("text-sm font-medium leading-6 text-[#f0f0f8] sm:text-base sm:leading-7"), Text(parseIntl.T(n, "demo.question"))),
-							P(Class("mt-2 text-sm leading-6 text-[#9b9bb1]"), Text(parseIntl.T(n, "demo.answer"))),
+							P(ClassStr("text-sm font-medium leading-6 text-[#f0f0f8] sm:text-base sm:leading-7"), Text(parseIntl.T(n, "demo.question"))),
+							P(ClassStr("mt-2 text-sm leading-6 text-[#9b9bb1]"), Text(parseIntl.T(n, "demo.answer"))),
 						),
 					),
 				),
 				// user reply
 				Div(
-					Class("flex justify-end"),
-					Div(Class("max-w-[70%] rounded-2xl bg-[#8e7bff]/[0.08] px-4 py-3 text-sm text-[#f0f0f8]"), Text(parseIntl.T(n, "demo.reply"))),
+					ClassStr("flex justify-end"),
+					Div(ClassStr("max-w-[70%] rounded-2xl bg-[#8e7bff]/[0.08] px-4 py-3 text-sm text-[#f0f0f8]"), Text(parseIntl.T(n, "demo.reply"))),
 				),
 				// metric chips
 				Div(
-					Class("grid gap-2 sm:grid-cols-3"),
+					ClassStr("grid gap-2 sm:grid-cols-3"),
 					renderLandingDemoChip(parseIntl.T(n, "demo.chip.setup.label"), parseIntl.T(n, "demo.chip.setup.value")),
 					renderLandingDemoChip(parseIntl.T(n, "demo.chip.output.label"), parseIntl.T(n, "demo.chip.output.value")),
 					renderLandingDemoChip(parseIntl.T(n, "demo.chip.value.label"), parseIntl.T(n, "demo.chip.value.value")),
 				),
 				// composer row
 				Div(
-					Class("rounded-2xl border border-white/[0.06] bg-[#0e0e17] px-4 py-3"),
+					ClassStr("rounded-2xl border border-white/[0.06] bg-[#0e0e17] px-4 py-3"),
 					Div(
-						Class("flex items-center gap-3 text-sm text-[#9b9bb1]"),
-						Span(Class("min-w-0 flex-1 text-[#9b9bb1]"),
+						ClassStr("flex items-center gap-3 text-sm text-[#9b9bb1]"),
+						Span(ClassStr("min-w-0 flex-1 text-[#9b9bb1]"),
 							Text(parseIntl.T(n, "demo.composer.prompt")),
-							Span(Class("inline-block h-4 w-px animate-pulse bg-[#8e7bff] align-middle"), nil),
+							Span(ClassStr("inline-block h-4 w-px animate-pulse bg-[#8e7bff] align-middle"), nil),
 						),
-						Span(Class("grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#8e7bff] text-[#070710] sm:h-9 sm:w-9"), Text("\u2191")),
+						Span(ClassStr("grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#8e7bff] text-[#070710] sm:h-9 sm:w-9"), Text("\u2191")),
 					),
 				),
 			),
@@ -157,8 +157,8 @@ func renderLandingDemoCard(parseIntl i18n.Runtime) ui.Node {
 // renderLandingDemoChip renders a small label/value chip inside the demo card.
 func renderLandingDemoChip(parseLabel, parseValue string) ui.Node {
 	return Div(
-		Class("rounded-xl bg-[#0e0e17] px-3 py-3"),
-		Div(Class("font-mono-tech text-[10px] uppercase tracking-[0.14em] text-[#9b9bb1]"), Text(parseLabel)),
-		Div(Class("mt-1.5 text-sm font-medium text-[#f0f0f8]"), Text(parseValue)),
+		ClassStr("rounded-xl bg-[#0e0e17] px-3 py-3"),
+		Div(ClassStr("font-mono-tech text-[10px] uppercase tracking-[0.14em] text-[#9b9bb1]"), Text(parseLabel)),
+		Div(ClassStr("mt-1.5 text-sm font-medium text-[#f0f0f8]"), Text(parseValue)),
 	)
 }

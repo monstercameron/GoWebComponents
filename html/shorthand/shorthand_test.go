@@ -10,9 +10,9 @@ import (
 
 func TestMixedArgumentTagsNormalizeOptionsAndChildren(parseT *testing.T) {
 	parseNode := Div(
-		Class("panel"),
+		ClassStr("panel"),
 		"hello ",
-		Span(Class("value"), "world"),
+		Span(ClassStr("value"), "world"),
 		[]any{" ", Textf("%d", 2)},
 	)
 
@@ -31,7 +31,7 @@ func TestFromPropsPreservesExplicitZeroOverrides(parseT *testing.T) {
 	parseNode := Button(
 		FromProps(Props{Class: "base", Disabled: true}),
 		Disabled(false),
-		Class("override"),
+		ClassStr("override"),
 		"Save",
 	)
 
@@ -52,7 +52,7 @@ func TestShorthandParityWithTypedHTML(parseT *testing.T) {
 		html.Button(html.Props{Type: "button"}, html.Text("Save")),
 	)
 	parseShorthand := Div(
-		Class("panel"),
+		ClassStr("panel"),
 		H2("Title"),
 		Button(Type("button"), "Save"),
 	)

@@ -77,13 +77,13 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 		parseCueBody = "Review plan or quota settings before retrying this request."
 	}
 	return Div(
-		Class("flex flex-col flex-1 min-w-0 h-full"),
+		ClassStr("flex flex-col flex-1 min-w-0 h-full"),
 		renderMobileControlBar(parseIntl, parseProviderOptions, parseActiveProvider, parseVisibleModelOptions, parseDisplayModel, parseCurrentThinkingMode, parseRequiredCapability, isStreaming, isThinkingSupported, isParseCanAccessAdmin, parseOpenAdminEntry, setProvider, setModel, setThinkingMode),
 		renderDesktopControlBar(parseIntl, parseProviderOptions, parseActiveProvider, parseVisibleModelOptions, parseDisplayModel, parseCurrentThinkingMode, parseRequiredCapability, isStreaming, isThinkingSupported, isSidebarOpen, isParseCanAccessAdmin, parseOnToggleSidebar, parseOpenAdminEntry, setProvider, setModel, setThinkingMode),
-		Div(Class("flex flex-1 min-h-0 min-w-0"),
+		Div(ClassStr("flex flex-1 min-h-0 min-w-0"),
 			Div(
 				FromProps(Props{Style: parseLeftStyle}),
-				Class("flex min-h-0 min-w-0 flex-1 flex-col"),
+				ClassStr("flex min-h-0 min-w-0 flex-1 flex-col"),
 				parseMessageList(messageListProps{
 					Intl:                    parseIntl,
 					Messages:                parseMsgs,
@@ -132,7 +132,7 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 			If(isParseSplitActive,
 				Div(
 					ID(idCanvasSplitHandle),
-					Class("hidden xl:flex w-3 shrink-0 cursor-col-resize items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] hover:bg-white/8 transition-colors"),
+					ClassStr("hidden xl:flex w-3 shrink-0 cursor-col-resize items-center justify-center bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] hover:bg-white/8 transition-colors"),
 					TabIndex(0),
 					Role("separator"),
 					FromProps(Props{Aria: map[string]string{
@@ -141,12 +141,12 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 					}}),
 					OnMouseDown(parseCanvas.StartSplitDrag),
 					OnKeyDown(parseCanvas.HandleSplitKey),
-					Div(Class("h-16 w-1 rounded-full bg-white/10")),
+					Div(ClassStr("h-16 w-1 rounded-full bg-white/10")),
 				),
 			),
 			If(isParseSplitActive,
 				Div(
-					Class("min-h-0 min-w-0 flex-1"),
+					ClassStr("min-h-0 min-w-0 flex-1"),
 					FromProps(Props{Style: map[string]string{
 						"flex":     fmt.Sprintf("0 0 %.2f%%", (1-parseCanvasSession.SplitRatio)*100),
 						"minWidth": "20%",
@@ -160,22 +160,22 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 }
 
 func renderMobileControlBar(parseIntl i18n.Runtime, parseProviderOptions []providerOption, parseActiveProvider providerOption, parseVisibleModelOptions []modelOption, parseCurModel, parseCurrentThinkingMode, parseRequiredCapability string, isStreaming, isThinkingSupported, isParseCanAccessAdmin bool, parseOpenAdminEntry, setProvider, setModel, setThinkingMode ui.Handler) ui.Node {
-	return Div(Class("chat-toolbar-shell md:hidden sticky top-0 z-10 flex flex-col border-b backdrop-blur-sm"),
-		Div(Class("flex items-center gap-3 px-4 py-3"),
+	return Div(ClassStr("chat-toolbar-shell md:hidden sticky top-0 z-10 flex flex-col border-b backdrop-blur-sm"),
+		Div(ClassStr("flex items-center gap-3 px-4 py-3"),
 			Img(
 				Src(brandLogoURL),
 				Attr("alt", appBrandName),
-				Class("h-12 w-auto shrink-0 object-contain"),
+				ClassStr("h-12 w-auto shrink-0 object-contain"),
 			),
 			If(isParseCanAccessAdmin,
 				Button(
-					Class("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50 transition-colors hover:bg-white/8 hover:text-white/70"),
+					ClassStr("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50 transition-colors hover:bg-white/8 hover:text-white/70"),
 					OnClick(parseOpenAdminEntry),
 					Text("Admin"),
 				),
 			),
 		),
-		Div(Class("grid grid-cols-2 gap-2 px-3 pb-3"),
+		Div(ClassStr("grid grid-cols-2 gap-2 px-3 pb-3"),
 			renderToolbarSelect(
 				"col-span-1",
 				parseIntl.T(chatI18nNamespace, "controls.provider"),
@@ -196,7 +196,7 @@ func renderMobileControlBar(parseIntl i18n.Runtime, parseProviderOptions []provi
 					return renderToolbarOption(parseOption2.ID, parseToolbarModelLabel(parseOption2))
 				}),
 			),
-			Div(Class("group relative col-span-1"),
+			Div(ClassStr("group relative col-span-1"),
 				renderToolbarSelect(
 					"col-span-1 w-full",
 					parseIntl.T(chatI18nNamespace, "controls.intelligence"),
@@ -208,22 +208,22 @@ func renderMobileControlBar(parseIntl i18n.Runtime, parseProviderOptions []provi
 					}),
 				),
 				If(parseRequiredCapability == "thinking",
-					Span(Class("pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#8df5cf]/20 bg-[#0a1f0f]/95 px-2.5 py-1 text-[11px] text-[#8df5cf] opacity-0 shadow-sm transition-opacity group-hover:opacity-100"),
+					Span(ClassStr("pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#8df5cf]/20 bg-[#0a1f0f]/95 px-2.5 py-1 text-[11px] text-[#8df5cf] opacity-0 shadow-sm transition-opacity group-hover:opacity-100"),
 						Text(parseIntl.T(chatI18nNamespace, "controls.capabilityThinkingFilter")),
 					),
 				),
 			),
 			If(!isThinkingSupported,
-				P(Class("col-span-2 px-1 text-[11px] leading-relaxed text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
+				P(ClassStr("col-span-2 px-1 text-[11px] leading-relaxed text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
 			),
 		),
 	)
 }
 
 func renderDesktopControlBar(parseIntl i18n.Runtime, parseProviderOptions []providerOption, parseActiveProvider providerOption, parseVisibleModelOptions []modelOption, parseCurModel, parseCurrentThinkingMode, parseRequiredCapability string, isStreaming, isThinkingSupported, isSidebarOpen, isParseCanAccessAdmin bool, parseOnToggleSidebar, parseOpenAdminEntry, setProvider, setModel, setThinkingMode ui.Handler) ui.Node {
-	return Div(Class("chat-toolbar-shell hidden md:flex sticky top-0 z-10 items-center gap-3 border-b px-3 py-2 backdrop-blur-sm"),
+	return Div(ClassStr("chat-toolbar-shell hidden md:flex sticky top-0 z-10 items-center gap-3 border-b px-3 py-2 backdrop-blur-sm"),
 		Button(
-			Class(ClassNames(
+			ClassStr(ClassNames(
 				"shrink-0 p-1.5 rounded-xl text-white/40 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out",
 				When(isSidebarOpen, "pointer-events-none opacity-0 -translate-x-1 scale-95"),
 				When(!isSidebarOpen, "opacity-100 translate-x-0 scale-100"),
@@ -231,17 +231,17 @@ func renderDesktopControlBar(parseIntl i18n.Runtime, parseProviderOptions []prov
 			OnClick(parseOnToggleSidebar),
 			parseSidebarToggleIcon(!isSidebarOpen),
 		),
-		Div(Class("flex shrink-0 items-center gap-3"),
+		Div(ClassStr("flex shrink-0 items-center gap-3"),
 			Img(
 				Src(brandLogoURL),
 				Attr("alt", appBrandName),
-				Class("h-12 w-auto shrink-0 object-contain"),
+				ClassStr("h-12 w-auto shrink-0 object-contain"),
 			),
 		),
-		Div(Class("flex min-w-0 flex-1 items-center justify-end gap-2"),
+		Div(ClassStr("flex min-w-0 flex-1 items-center justify-end gap-2"),
 			If(isParseCanAccessAdmin,
 				Button(
-					Class("h-8 shrink-0 rounded-full border border-white/10 bg-white/5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50 transition-colors hover:bg-white/8 hover:text-white/70"),
+					ClassStr("h-8 shrink-0 rounded-full border border-white/10 bg-white/5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50 transition-colors hover:bg-white/8 hover:text-white/70"),
 					OnClick(parseOpenAdminEntry),
 					Text("Admin dashboard"),
 				),
@@ -266,7 +266,7 @@ func renderDesktopControlBar(parseIntl i18n.Runtime, parseProviderOptions []prov
 					return renderToolbarOption(parseOption2.ID, parseToolbarModelLabel(parseOption2))
 				}),
 			),
-			Div(Class("group relative flex-[0_0_12rem]"),
+			Div(ClassStr("group relative flex-[0_0_12rem]"),
 				renderToolbarSelect(
 					"w-full",
 					parseIntl.T(chatI18nNamespace, "controls.intelligence"),
@@ -278,29 +278,29 @@ func renderDesktopControlBar(parseIntl i18n.Runtime, parseProviderOptions []prov
 					}),
 				),
 				If(parseRequiredCapability == "thinking",
-					Span(Class("pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#8df5cf]/20 bg-[#0a1f0f]/95 px-2.5 py-1 text-[11px] text-[#8df5cf] opacity-0 shadow-sm transition-opacity group-hover:opacity-100"),
+					Span(ClassStr("pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[#8df5cf]/20 bg-[#0a1f0f]/95 px-2.5 py-1 text-[11px] text-[#8df5cf] opacity-0 shadow-sm transition-opacity group-hover:opacity-100"),
 						Text(parseIntl.T(chatI18nNamespace, "controls.capabilityThinkingFilter")),
 					),
 				),
 			),
 			If(!isThinkingSupported,
-				Span(Class("shrink-0 text-[11px] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
+				Span(ClassStr("shrink-0 text-[11px] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
 			),
 		),
 	)
 }
 
 func renderToolbarSelect(parseContainerClass, parseLabel, parseValue string, isDisabled bool, parseOnChange ui.Handler, parseOptions []ui.Node) ui.Node {
-	return Label(Class(ClassNames(
+	return Label(ClassStr(ClassNames(
 		"flex min-w-0 items-center gap-2 rounded-2xl border border-[#88ffd8]/20 bg-[#10101c]/70 px-2.5 py-1.5",
 		parseContainerClass,
 	)),
-		Span(Class("control-group-label shrink-0 min-w-[5.4rem]"), Text(parseLabel)),
+		Span(ClassStr("control-group-label shrink-0 min-w-[5.4rem]"), Text(parseLabel)),
 		Select(
 			Value(parseValue),
 			DisabledIf(isDisabled),
 			OnChange(parseOnChange),
-			Class(ClassNames(
+			ClassStr(ClassNames(
 				"toolbar-select h-8 min-w-0 flex-1 rounded-[0.95rem] border border-[#8fffd8]/22 bg-[#13141f]/84 px-2.5 text-sm text-[#e6f8ff] outline-none",
 				When(isDisabled, "cursor-not-allowed opacity-60"),
 			)),
@@ -311,7 +311,7 @@ func renderToolbarSelect(parseContainerClass, parseLabel, parseValue string, isD
 
 func renderToolbarOption(parseValue, parseLabel string) ui.Node {
 	return Option(
-		Class("toolbar-select-option"),
+		ClassStr("toolbar-select-option"),
 		Value(parseValue),
 		Text(parseLabel),
 	)

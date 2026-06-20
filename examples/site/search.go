@@ -113,28 +113,28 @@ func renderSearchModal(parseOpen ui.State[bool]) ui.Node {
 		}
 	}
 
-	parseResultNodes := []interface{}{ID("search-results"), Class("search-results")}
+	parseResultNodes := []interface{}{ID("search-results"), ClassStr("search-results")}
 	if len(parseResults) == 0 {
 		parseEmptyText := "Type to search docs, examples, and APIs."
 		if parseQuery.Get() != "" {
 			parseEmptyText = "No matches."
 		}
-		parseResultNodes = append(parseResultNodes, Div(Class("search-empty"), Text(parseEmptyText)))
+		parseResultNodes = append(parseResultNodes, Div(ClassStr("search-empty"), Text(parseEmptyText)))
 	}
 	for _, parseResult := range parseResults {
 		parseHref := parseResult.Href
-		parseResultNodes = append(parseResultNodes, A(Class("search-result"), Href(parseHref),
+		parseResultNodes = append(parseResultNodes, A(ClassStr("search-result"), Href(parseHref),
 			OnClick(func() { parseOpen.Set(false) }),
-			Span(Class("result-kind"), Text(parseResult.Kind)),
+			Span(ClassStr("result-kind"), Text(parseResult.Kind)),
 			Text(parseResult.Title),
-			Span(Class("result-snippet"), Text(parseResult.Snippet)),
+			Span(ClassStr("result-snippet"), Text(parseResult.Snippet)),
 		))
 	}
 
-	return Div(ID("search-overlay"), Class("search-overlay"), Attr("data-open", "true"),
+	return Div(ID("search-overlay"), ClassStr("search-overlay"), Attr("data-open", "true"),
 		OnClick(func() { parseOpen.Set(false) }),
-		Div(Class("search-panel"), OnClick(Stop(func() {})),
-			Input(ID("search-input"), Class("search-input"),
+		Div(ClassStr("search-panel"), OnClick(Stop(func() {})),
+			Input(ID("search-input"), ClassStr("search-input"),
 				Attr("type", "search"), Placeholder("Search docs, examples, APIs..."),
 				Attr("autocomplete", "off"), Attr("spellcheck", "false"), AutoFocus(),
 				Value(parseQuery.Get()),
@@ -153,7 +153,7 @@ func renderSearchModal(parseOpen ui.State[bool]) ui.Node {
 // renderCopyButton copies text to the clipboard through the Go interop layer.
 func renderCopyButton(parseText string) ui.Node {
 	parseLabel := ui.UseState("Copy")
-	return Button(Class("button-secondary"), Attr("type", "button"), Text(parseLabel.Get()),
+	return Button(ClassStr("button-secondary"), Attr("type", "button"), Text(parseLabel.Get()),
 		OnClick(func() {
 			ui.SafeGo("copy source to clipboard", func() {
 				parseClipboard, parseErr := interop.GetClipboard()

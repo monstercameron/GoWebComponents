@@ -203,7 +203,7 @@ func renderExampleConceptChipNodes(parseLabels []string) []ui.Node {
 	parseNodes := make([]ui.Node, 0, len(parseLabels))
 	for _, parseLabel := range parseLabels {
 		parseNodes = append(parseNodes,
-			Span(Class("rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-cyan-100"), Text(parseLabel)),
+			Span(ClassStr("rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-cyan-100"), Text(parseLabel)),
 		)
 	}
 	return parseNodes

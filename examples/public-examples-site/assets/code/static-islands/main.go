@@ -64,7 +64,7 @@ func renderStaticIslandsPreviewRoot() ui.Node {
 		"ui.Hydrate",
 		"Hydrate two narrow interactive islands inside a larger prerendered page instead of waking the whole document.",
 		shared.ExamplePanel("Islands",
-			Div(Class("grid gap-6 lg:grid-cols-2"),
+			Div(ClassStr("grid gap-6 lg:grid-cols-2"),
 				ui.CreateElement(newsletterIsland),
 				ui.CreateElement(quoteIsland),
 			),

@@ -18,28 +18,28 @@ import (
 // renderDashboardLoadingState renders a centered loading indicator for slice surfaces.
 func renderDashboardLoadingState(parseLabel string) ui.Node {
 	return Div(
-		Class("flex flex-col items-center justify-center py-20 gap-3 text-white/40"),
-		Div(Class("h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/60")),
-		P(Class("text-sm"), Text(parseLabel)),
+		ClassStr("flex flex-col items-center justify-center py-20 gap-3 text-white/40"),
+		Div(ClassStr("h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/60")),
+		P(ClassStr("text-sm"), Text(parseLabel)),
 	)
 }
 
 // renderDashboardEmptyState renders a centered empty-state placeholder.
 func renderDashboardEmptyState(parseIcon, parseTitle, parseSubtitle string) ui.Node {
 	return Div(
-		Class("flex flex-col items-center justify-center py-20 gap-2 text-center"),
-		Div(Class("text-3xl mb-2"), Text(parseIcon)),
-		P(Class("text-sm font-medium text-white/60"), Text(parseTitle)),
-		P(Class("text-xs text-white/35 max-w-xs leading-5"), Text(parseSubtitle)),
+		ClassStr("flex flex-col items-center justify-center py-20 gap-2 text-center"),
+		Div(ClassStr("text-3xl mb-2"), Text(parseIcon)),
+		P(ClassStr("text-sm font-medium text-white/60"), Text(parseTitle)),
+		P(ClassStr("text-xs text-white/35 max-w-xs leading-5"), Text(parseSubtitle)),
 	)
 }
 
 // renderDashboardDeniedBanner renders an access-denied message for gated admin surfaces.
 func renderDashboardDeniedBanner() ui.Node {
 	return Div(
-		Class("rounded-[1.4rem] border border-red-500/20 bg-red-500/5 px-5 py-4 text-sm text-red-400"),
-		P(Class("font-medium"), Text("Access denied")),
-		P(Class("mt-1 text-xs text-red-400/70"), Text("You do not have permission to view this section.")),
+		ClassStr("rounded-[1.4rem] border border-red-500/20 bg-red-500/5 px-5 py-4 text-sm text-red-400"),
+		P(ClassStr("font-medium"), Text("Access denied")),
+		P(ClassStr("mt-1 text-xs text-red-400/70"), Text("You do not have permission to view this section.")),
 	)
 }
 
@@ -51,9 +51,9 @@ func renderDashboardErrorBanner(parseErr string) ui.Node {
 	}
 	return Div(
 		ID("dashboard-error-banner"),
-		Class("rounded-[1.4rem] border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 text-sm text-yellow-400"),
-		P(Class("font-medium"), Text("Data unavailable")),
-		P(Class("mt-1 text-xs text-yellow-400/70"), Text(parseMessage)),
+		ClassStr("rounded-[1.4rem] border border-yellow-500/20 bg-yellow-500/5 px-5 py-4 text-sm text-yellow-400"),
+		P(ClassStr("font-medium"), Text("Data unavailable")),
+		P(ClassStr("mt-1 text-xs text-yellow-400/70"), Text(parseMessage)),
 		renderSupportIDChip(parseUserErrorRequestID(parseErr)),
 	)
 }
@@ -61,18 +61,18 @@ func renderDashboardErrorBanner(parseErr string) ui.Node {
 // renderDashboardKPICard renders a single KPI metric card with optional trend indicator.
 func renderDashboardKPICard(parseLabel, parseValue, parseSub string) ui.Node {
 	return Div(
-		Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] px-5 py-4"),
-		P(Class("text-[10px] font-medium uppercase tracking-[0.18em] text-white/35"), Text(parseLabel)),
-		P(Class("mt-2 text-2xl font-bold text-white"), Text(parseValue)),
+		ClassStr("rounded-[1.4rem] border border-white/10 bg-white/[0.03] px-5 py-4"),
+		P(ClassStr("text-[10px] font-medium uppercase tracking-[0.18em] text-white/35"), Text(parseLabel)),
+		P(ClassStr("mt-2 text-2xl font-bold text-white"), Text(parseValue)),
 		If(parseSub != "",
-			P(Class("mt-1 text-xs text-white/40"), Text(parseSub)),
+			P(ClassStr("mt-1 text-xs text-white/40"), Text(parseSub)),
 		),
 	)
 }
 
 // renderDashboardSectionHeader renders a section heading within a slice view.
 func renderDashboardSectionHeader(parseTitle string) ui.Node {
-	return P(Class("mb-3 mt-6 text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseTitle))
+	return P(ClassStr("mb-3 mt-6 text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseTitle))
 }
 
 // renderDashboardTable renders a simple table with a header row + data rows.
@@ -80,21 +80,21 @@ func renderDashboardSectionHeader(parseTitle string) ui.Node {
 func renderDashboardTable(parseHeaders []string, parseRows [][]string) ui.Node {
 	parseHeaderCells := make([]ui.Node, len(parseHeaders))
 	for parseI, parseH := range parseHeaders {
-		parseHeaderCells[parseI] = Th(Class("px-4 py-2 text-left text-[10px] font-medium uppercase tracking-wide text-white/40"), Text(parseH))
+		parseHeaderCells[parseI] = Th(ClassStr("px-4 py-2 text-left text-[10px] font-medium uppercase tracking-wide text-white/40"), Text(parseH))
 	}
 	parseDataRowNodes := make([]ui.Node, len(parseRows))
 	for parseI, parseCells := range parseRows {
 		parseTDs := make([]ui.Node, len(parseCells))
 		for parseJ, parseCell := range parseCells {
-			parseTDs[parseJ] = Td(Class("px-4 py-2.5 text-xs text-white/70 align-top"), Text(parseCell))
+			parseTDs[parseJ] = Td(ClassStr("px-4 py-2.5 text-xs text-white/70 align-top"), Text(parseCell))
 		}
-		parseDataRowNodes[parseI] = Tr(Class("border-t border-white/[0.06] hover:bg-white/[0.02]"), Fragment(parseTDs))
+		parseDataRowNodes[parseI] = Tr(ClassStr("border-t border-white/[0.06] hover:bg-white/[0.02]"), Fragment(parseTDs))
 	}
 	return Div(
-		Class("overflow-x-auto rounded-[1.4rem] border border-white/10"),
+		ClassStr("overflow-x-auto rounded-[1.4rem] border border-white/10"),
 		Table(
-			Class("w-full min-w-[560px] border-collapse"),
-			Thead(Tr(Class("bg-white/[0.03]"), Fragment(parseHeaderCells))),
+			ClassStr("w-full min-w-[560px] border-collapse"),
+			Thead(Tr(ClassStr("bg-white/[0.03]"), Fragment(parseHeaderCells))),
 			Tbody(Fragment(parseDataRowNodes)),
 		),
 	)
@@ -105,13 +105,13 @@ func renderDashboardTable(parseHeaders []string, parseRows [][]string) ui.Node {
 // renderDashboardSliceHeader renders the breadcrumb-style heading for a slice view.
 func renderDashboardSliceHeader(parseIcon, parseTitle, parseSubtitle string) ui.Node {
 	return Div(
-		Class("mb-6 flex items-center gap-4"),
-		Div(Class("flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl"),
+		ClassStr("mb-6 flex items-center gap-4"),
+		Div(ClassStr("flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-xl"),
 			Text(parseIcon),
 		),
 		Div(
-			P(Class("text-base font-semibold text-white"), Text(parseTitle)),
-			P(Class("text-xs text-white/40"), Text(parseSubtitle)),
+			P(ClassStr("text-base font-semibold text-white"), Text(parseTitle)),
+			P(ClassStr("text-xs text-white/40"), Text(parseSubtitle)),
 		),
 	)
 }
@@ -140,13 +140,13 @@ func renderDashboardBusiness(parseIntl i18n.Runtime, parseView appViewState, par
 		renderDashboardAlertState(parseView, parseAdminOperations),
 		renderDashboardSharedRail(adminScopeBilling, parseAdminOperations.Data.BillingQuery, parseAdminOperations),
 		renderDashboardSectionHeader("Platform totals"),
-		Div(Class("grid grid-cols-2 gap-3 sm:grid-cols-3"),
+		Div(ClassStr("grid grid-cols-2 gap-3 sm:grid-cols-3"),
 			renderDashboardKPICard("Total users", formatDashboardInt64(parseSummary.TotalUsers), ""),
 			renderDashboardKPICard("Conversations", formatDashboardInt64(parseSummary.TotalConversations), ""),
 			renderDashboardKPICard("Messages", formatDashboardInt64(parseSummary.TotalMessages), ""),
 		),
 		renderDashboardSectionHeader("30-day window"),
-		Div(Class("grid grid-cols-2 gap-3 sm:grid-cols-4"),
+		Div(ClassStr("grid grid-cols-2 gap-3 sm:grid-cols-4"),
 			renderDashboardKPICard("New users", formatDashboardInt64(parseSummary.WindowNewUsers), ""),
 			renderDashboardKPICard("Active users", formatDashboardInt64(parseSummary.WindowActiveUsers), ""),
 			renderDashboardKPICard("New chats", formatDashboardInt64(parseSummary.WindowNewConvs), ""),
@@ -232,9 +232,9 @@ func renderDashboardCustomers(parseIntl i18n.Runtime, parseView appViewState) ui
 // renderDashboardSummaryCard2 renders an inline metric pill for slice headers.
 func renderDashboardSummaryCard2(parseLabel, parseValue string) ui.Node {
 	return Div(
-		Class("mb-5 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2"),
-		P(Class("text-[10px] font-medium uppercase tracking-wide text-white/35"), Text(parseLabel)),
-		P(Class("text-sm font-bold text-white"), Text(parseValue)),
+		ClassStr("mb-5 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2"),
+		P(ClassStr("text-[10px] font-medium uppercase tracking-wide text-white/35"), Text(parseLabel)),
+		P(ClassStr("text-sm font-bold text-white"), Text(parseValue)),
 	)
 }
 
@@ -281,7 +281,7 @@ func renderDashboardChats(parseIntl i18n.Runtime, parseView appViewState, parseA
 	return Fragment(
 		renderDashboardSliceHeader("\U0001f4ac", "Chats", "Conversation health and recent threads"),
 		renderDashboardAlertState(parseView, parseAdminOperations),
-		Div(Class("mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3"),
+		Div(ClassStr("mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3"),
 			renderDashboardKPICard("Total convs", formatDashboardInt64(parseData.Summary.TotalConversations), "platform-wide"),
 			renderDashboardKPICard("New this period", formatDashboardInt64(parseData.Summary.WindowNewConvs), "30-day window"),
 			renderDashboardKPICard("New messages", formatDashboardInt64(parseData.Summary.WindowNewMessages), "30-day window"),
@@ -408,7 +408,7 @@ func renderDashboardOps(parseIntl i18n.Runtime, parseView appViewState, parseAdm
 		renderDashboardSliceHeader("\U0001f6e0\ufe0f", "Ops", "Platform health, incidents, and experiments"),
 		renderDashboardAlertState(parseView, parseAdminOperations),
 		renderDashboardSectionHeader("Platform health"),
-		Div(Class("grid grid-cols-2 gap-3 sm:grid-cols-4"),
+		Div(ClassStr("grid grid-cols-2 gap-3 sm:grid-cols-4"),
 			renderDashboardKPICard("Open incidents", formatDashboardInt64(parseSummary.OpenIncidents), ""),
 			renderDashboardKPICard("Support tickets", formatDashboardInt64(parseSummary.OpenSupportTickets), ""),
 			renderDashboardKPICard("Active experiments", formatDashboardInt64(parseSummary.ActiveExperiments), ""),
