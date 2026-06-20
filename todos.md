@@ -3371,9 +3371,20 @@ Verified by symbol against the live tree before any implementation (do NOT re-im
    e2e `test/playwrightgo/raw_html_e2e_test.go` (real Chromium: real `<b>`, SVG circle in the SVG
    namespace, `window.__pwned` undefined = script never executed, no `<script` leak). Fixture
    `examples/public/raw-html/`. Invariant guard + native + vet + gofmt + wasm all green.
-4. [ ] **G9 global document/window event hook — ABSENT.** `UseDocumentEvent`/`UseWindowEvent`/
-   `UseGlobalKey` with effect-scoped `js.Func` lifetime (subsumes G25 idle-activity, helps G13).
-   Edge: multiple subscribers, unmount cleanup, capture/passive, typing-suppression helper.
+4. [x] **G9 global document/window event hook — DONE (2026-06-20, iteration 5; closes G13 + G25).**
+   Added `ui.UseDocumentEvent`/`ui.UseWindowEvent`/`ui.UseGlobalKey` (`ui/global_events.go`): a
+   document/window listener attached on mount and removed — with its `js.Func` released — on unmount
+   or dep change, via the effect cleanup (mirrors the overlay/focus-trap pattern; managed lifetime =
+   no leaked js.Func, the G13 answer; covers G25 idle-activity listeners). Cross-build via a swappable
+   `bindGlobalEvent` seam: wasm (`global_events_wasm.go`) does real addEventListener + `runtime.
+   NewGoEvent` + Release; native (`global_events_native.go`) is a safe no-op; tests can substitute a
+   recorder. Stable sentinel deps when none given so it binds once on mount (empty deps => every
+   render => a leaked listener per render). Tests: unit white-box `ui/global_events_internal_test.go`
+   (dep stability + distinct scope/event, explicit-dep passthrough, native no-op, swappable-seam
+   bind/unbind contract); e2e `test/playwrightgo/global_events_e2e_test.go` — real Chromium: keydown
+   increments while mounted, and after unmount+remount a single keypress increments by exactly 1
+   (count==2, not 3) PROVING the listener was cleaned up, not leaked. Fixture
+   `examples/public/global-events/`. Native + vet + gofmt + wasm green.
 5. [ ] **U5 roving-tabindex / RadioGroup — ABSENT.** `RadioGroup`/`useRovingTabIndex` + `Switch`
    so segmented/swatch/toggle get correct keyboard a11y once. Edge: wrap-around, disabled items,
    RTL arrows, selection-follows-focus. e2e keyboard-nav assertions.
