@@ -3431,3 +3431,29 @@ already be covered (catalog has been ~70% stale), so each needs a verification p
 
 LOOP STATUS: the CashFlux catalog's genuinely-missing items are now exhausted — 5 confirmed-real gaps
 (G2, G22, G3, G9, U5) + G16 shipped to main; G15 already covered; G1 deferred as a deliberate effort.
+
+### ENTERPRISE-GRADE STABILITY SWEEP (2026-06-20)
+- **Full NATIVE `go test ./...`: GREEN** — zero real failures across the whole module (only the
+  pre-existing `bin/tmp/readme-starter` scratch dir fails [setup failed]: it imports `utils`, whose
+  files are all build-constraint-excluded; generated, untracked, not a real package).
+- **Full native build `go build ./...`: clean.** Full wasm build: only pre-existing 3rd-party/CLI
+  breakage unrelated to this work (`atotto/clipboard`, `charmbracelet/bubbletea`, `telemetry.go` —
+  CLI/TUI deps wrongly swept into a `GOOS=js ./...` build; none in this changeset).
+- **REGRESSION FOUND + FIXED (`7c825ea3`):** the F3 `shorthand.Class→ClassStr` rename missed example
+  files importing shorthand under an ALIAS (`h "…/shorthand"` → `h.Class(...)`); the migration only
+  covered dot-imports and the qualified form. 4 wasm-only example apps failed `GOOS=js` build. Fixed
+  + pushed. (Caught by the full-module wasm build — exactly why the sweep mattered.)
+- **All 6 e2e fixtures pass TOGETHER** (typed-css, dom-ref, raw-html, global-events, radiogroup,
+  ready-signal — 21.5s) — no cross-test interference.
+- **wasm unit lanes GREEN** for every touched package (internal/runtime, css, html, a11y). `ui` wasm
+  has ONE pre-existing failure unrelated to this work: `TestPreferenceHooksUnavailableDefaults`
+  (`preference_hooks_internal_test.go:52`) calls `UsePrefersReducedMotion()` OUTSIDE a component, so
+  `UseState` panics on the strict wasm build (native tolerates it). It's a test-design issue (hook
+  called without a render context), in a file untouched by this work — left as a separate task, not
+  fixed speculatively under a stability mandate.
+- **Thread-safety of new global state reviewed:** `runtime.firstCommitHooks` (mutex-guarded, leaf
+  lock, hooks run outside the lock, once-flag prevents re-entrancy); `css` registry/newCache (mutex /
+  sync.Map); `runtime` DOMRefKey registration (init-only); `ui.bindGlobalEvent` (a package var written
+  only in single-threaded tests, set-once-at-init in prod). No data races by construction. NB: the Go
+  race detector is unavailable on this host (windows/arm64) — run the touched packages under `-race`
+  on linux/amd64 in CI for a hard guarantee.
