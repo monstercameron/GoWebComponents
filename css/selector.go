@@ -15,9 +15,9 @@ func (s Selector) String() string { return string(s) }
 // El targets an HTML element by tag name: css.El("h3") -> "h3".
 func El(parseTag string) Selector { return Selector(parseTag) }
 
-// Ref targets another generated class, composing one Sheet against another with
-// full type-safety: css.Ref(titleSheet) -> ".c-abc".
-func Ref(parseSheet Sheet) Selector { return Selector("." + string(parseSheet)) }
+// SheetRef targets another generated class, composing one Sheet against another with
+// full type-safety: css.SheetRef(titleSheet) -> ".c-abc".
+func SheetRef(parseSheet Sheet) Selector { return Selector("." + string(parseSheet)) }
 
 // ClassSel targets a literal class name (interop with existing string classes):
 // css.ClassSel("title") -> ".title".

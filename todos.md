@@ -3048,3 +3048,316 @@ strategy interfaces.
   `sqlite.Options{Persistence: OPFS}` (currently falls back to IndexedDB).
   Feature-detect OPFS + secure context; incremental writes, large DBs. See
   `docs/plans/f1-db-sqlite-design.md` (v2 section).
+
+## CashFlux-driven framework gaps (catalogued 2026-06-20)
+
+Source: a structured gap catalog from real CashFlux app usage — every place the UI
+had to escape into raw `syscall/js`, hand-roll a workaround, or reinvent a helper.
+Severity legend: **high** = forces a raw-DOM escape hatch or per-feature boilerplate
+across many files; **med** = a repeated workaround confined to a wrapper; **low** =
+one-off quirk. Evidence `path:line` is into the CashFlux tree (external app), kept
+verbatim for triage. Most high/med items reduce to a few missing primitives.
+
+### THE THREE PRIMITIVES (highest leverage — most items cascade from these)
+- [ ] **P-A DOM ref + autofocus** (unblocks G2, G22, and the chart/focus/file workarounds)
+- [ ] **P-B Portal + raw-HTML node + dialog** (unblocks G3, G4, G18, G24 + Markdown/Mermaid backlog)
+- [ ] **P-C Effect-scoped lifecycle for global events/timers/media** (unblocks G9, G13, G19, G20, G25)
+- [ ] **P-D Persisted atom** (standalone; alone removes ~68 raw localStorage calls — easiest high-value win, see G21)
+
+### Tier 1 — structural / high severity
+
+- [ ] **G1 `On*` handlers can't be used inside a variable-length loop** (hooks/lists,
+  high). Symptom: any list whose rows carry a button/input/handler must be extracted
+  into its own `ui.CreateElement(Row, props)` with plain `func` callbacks passed down,
+  because `On*` prop options register hooks and hooks must sit at stable render
+  positions. Evidence: project's #1 gotcha (`docs/GOWEBCOMPONENTS.md:82-88`); forced row
+  splits in `internal/ui/filtertoolbar.go:100-121` (`filterChip` exists only for hook
+  stability), `controls.go:102-104,228-235`, `datatable.go:75-102`, `app/shell.go:289-291`,
+  `settings.go:109,179-180,235`, `wsswitcher.go:141`, `custompagesnav.go:201`, `addmenu.go:19`;
+  DEVLOG confirmations `:475-476,490-492,376,569-572,791`. Impact: biggest single shaper
+  of component count; silent/odd wasm breakage when violated; contributor barrier.
+  Direction: give hooks stable identity tied to the keyed-list key (so `MapKeyed` children
+  may own hooks) OR a sanctioned "row needs a handler" helper; **at minimum a dev-mode/
+  build-time diagnostic when an `On*` registers inside a loop**.
+- [ ] **G2 No DOM ref; reaching a rendered element needs `UseId()`+`getElementById`**
+  (refs/interop, high). Symptom: `UseRef` holds a Go value only, not a handle to the
+  rendered node; to let an external lib draw into an element you assign a stable id,
+  render an empty container, and resolve by id in a `UseEffect`. Evidence: value-only ref
+  `app/shell.go:50`; id-then-lookup `ui/chartd3.go:31,45-66` ("the ref/portal pattern"
+  comment `:22-27`). Impact: every imperative/3rd-party DOM integration needs a brittle id
+  round-trip + `syscall/js`; ids must be globally unique and survive re-render. Direction:
+  real element ref — `r := ui.UseDOMRef(); Div(Ref(r))` whose `.Value()` is the live
+  `js.Value` after mount, documented null-before-mount.
+- [ ] **G3 No raw/unsafe-HTML node; cannot inject markup** (raw HTML, high). Symptom: no
+  `RawHTML(string)` / `dangerouslySetInnerHTML` equivalent; pre-rendered markup must be
+  parsed into shorthand nodes or written via `innerHTML`. Evidence: `ui/icon.go:46-79`
+  regex-parses SVG inner markup into `Path/Circle/Rect` nodes; help overlay/command palette
+  use `innerHTML` (`app/shortcuts.go:171,461`) with a hand-rolled `htmlEscaper` (`:215`).
+  Impact: blocks "render this HTML" features (Markdown, Mermaid, sanitized rich text — on
+  CashFlux backlog, gated on this); pushes XSS-escaping into app code. Direction: a
+  `RawHTML(s)` node (clearly unsafe) and/or a sanitized `Markup` node; pairs with G2.
+- [ ] **G4 No portal; top-level overlays from outside the tree are hand-built in raw DOM**
+  (portals/overlays, high). Symptom: overlays that must render at `<body>` level AND open
+  from a non-component context (global key handler) are built entirely in `syscall/js`
+  (createElement/appendChild/manual show-hide). Evidence: `app/shortcuts.go:138-193` (help),
+  `:347-426` (command palette) — appendChild to `document.body`, manual `style.display`, own
+  `addEventListener`s, selection state in package globals (`:209-213`). Contrast: in-tree
+  overlays use host-component + global-atom (`SettingsHost`/`QuickAddHost`/`Toast` at
+  `shell.go:73-75`) — the only available pattern. Impact: two parallel inconsistent overlay
+  strategies; raw-DOM one duplicates focus/escape/click-outside and can't use the design
+  system. Direction: a `Portal`/`Overlay` primitive rendering to a target node + a
+  first-class way to drive component visibility from outside a render (global signal/atom).
+- [ ] **G6 `router.InspectCurrentRoute()` is not reactive; memoized chrome freezes** (router,
+  high). Symptom: reading the route at render time doesn't re-render on navigation; memoized
+  components keep a stale route (active-nav highlight/breadcrumb freeze). Fix today: thread
+  logical path as an explicit prop from the route factory. Evidence: `app/shell.go:24-33`
+  (`ActivePath` prop + comment `:27-31`); plumbed through Sidebar/TopBar/navItem
+  `shell.go:68-71,156,235,384`; e2e regression `e2e/navigation.test.mjs`. Impact: every
+  route-dependent chrome must accept+forward a path prop; easy to get wrong. Direction: a
+  reactive `useRoute()`/`useLocation()` hook that subscribes the caller to navigation.
+
+### Tier 2 — medium severity
+
+- [ ] **G5 No imperative re-render; refresh after external mutation needs a manual "version"
+  counter** (re-render, med). Symptom: after a mutation that doesn't change a subscribed
+  value (in-place edit, store/localStorage write) there's no way to ask for a re-render; the
+  idiom bumps a dummy state/atom. Evidence: `app/custompagesnav.go:34-38` ("version counter
+  forces a re-render"); documented convention `docs/GETTING_STARTED.md:138-146` ("bump a
+  revision atom"), `uistate.UseDataRevision()`; DEVLOG `:791`. Impact: boilerplate on nearly
+  every mutating screen; the `_ =` read-to-subscribe is non-obvious ("why didn't it update").
+  Direction: explicit `forceUpdate`/`invalidate` from a hook; and/or store/atom integration so
+  a persisted write notifies subscribers without a manual revision atom. (Relates to F2/G21.)
+- [ ] **G7 Deep-link refresh 404s and `<base href>` breaks in-page anchors** (routing/hosting,
+  med). Symptom: refresh on a deep link 404s on static hosts (only root boots); the `<base
+  href>` needed for asset resolution makes a bare `#main` anchor resolve against the base.
+  Evidence: `app/app.go:55`, `shell.go:62-67` (skip link must embed `RoutePath(ActivePath)+
+  "#main"`); app backlog bug B1. Direction: first-class static-host support (SPA fallback or
+  hash-router option) + base-href-aware anchor/asset helpers.
+- [ ] **G8 SVG renderer only draws `path`/`circle`/`rect`; richer SVG goes through a JS shim**
+  (SVG, med). Symptom: no `g`/`line`/`polyline`/`polygon`/`text`/gradients → data-viz delegated
+  to external D3 drawing into a container. Evidence: icon parser emits only 3 kinds
+  (`ui/icon.go:69-77`), test enforces it (`internal/icon/icon_test.go:60,73`); charts bypass the
+  renderer (`ui/chartd3.go:22-27,54-56`). Impact: all charting lives in JS (undercuts pure-Go
+  frontend), needs G2's id round-trip. Direction: broaden `html/shorthand` SVG element/attr
+  coverage (common chart primitives + `<g>`/`<text>`).
+- [ ] **G9 No document/window-level event hook; global shortcuts use raw `addEventListener`**
+  (global events, med). Symptom: no hook to subscribe to document/window events; global
+  keyboard shortcuts installed once at boot via `syscall/js`. Evidence: `app/shortcuts.go:23-90`
+  (`wireKeyboardShortcuts`), `js.Func` "intentionally never released" `:17-18`; element-level
+  `OnKeyDown` works (`controls.go:64,206,276`) — gap is global/document scope. Direction:
+  `UseDocumentEvent`/`UseWindowEvent`/`UseGlobalKey` with managed listener lifetime (ties G13).
+- [ ] **G10 No focus-trap/focus-restore primitive; every modal reimplements it** (a11y, med).
+  Symptom: move-focus-in / trap Tab+Shift-Tab / restore-on-close / Esc has no framework support;
+  hand-written in `syscall/js` per modal. Evidence: `ui/flippanel.go:48-147` (~100 lines: query
+  `.flip-wrap`, enumerate focusables, manage `prevFocus`, trap Tab, restore on cleanup);
+  `app/applockgate.go:236` mirrors it independently; DEVLOG `:585,453`. Direction:
+  `UseFocusTrap(ref)` / `<Dialog>` providing trap+restore+initial-focus+Esc (builds on G2, G4).
+- [ ] **G13 No managed `js.Func` lifetime; long-lived listeners are intentionally leaked**
+  (lifecycle, med). Symptom: `js.FuncOf` callbacks must be `Release()`d by hand; app-lifetime
+  listeners knowingly never released; only modal-scoped ones cleaned up. Evidence: leaks
+  `app/shortcuts.go:17-18,89,163`; correct-but-manual cleanup `ui/flippanel.go:140-146`
+  (`removeEventListener`+`Release` in teardown). Impact: easy to leak `js.Func`s or release too
+  early. Direction: effect-scoped event-subscription helpers (G9) that own the `js.Func` lifetime.
+- [ ] **G14 Native input/file pickers must be created off-DOM in raw `syscall/js`** (interop,
+  med). Symptom: `<input type=file>` (incl. camera `capture`) can't be a framework node for a
+  programmatic pick flow; created off-DOM and clicked via raw JS. Evidence: DEVLOG `:779`;
+  `app/shortcuts.go:259-265` (`pickFile`). Direction: a file-input/`usePicker` helper, or general
+  ref (G2) so an app can hold and `.click()` a rendered input. (See also G23.)
+- [ ] **G15 UI-layer logic is `js && wasm` only, so it can't be unit-tested natively**
+  (testability, med). Symptom: logic in the wasm UI layer can't run under native `go test`,
+  forcing extraction into separate pure packages just to test. Evidence: DEVLOG `:261`
+  (`internal/cmdmatch` extracted because live `shortcuts.go` match is js/wasm), `:601`. Direction:
+  a headless/native render+assert harness for components (render to string/virtual tree under
+  native Go) so view logic is unit-testable without a browser.
+- [ ] **G16 Boot/first-render timing requires an app-managed splash workaround** (mount
+  lifecycle, low). Symptom: visible gap between page load and first wasm render; app hand-manages
+  a splash and special-cases "`#app` already has children" to avoid a missed first render.
+  Evidence: DEVLOG `:621-625,541,576`. Direction: a mount/ready callback or event the host page
+  can hook to drop a splash deterministically ("first render committed" signal).
+- [ ] **G18 No dialog primitive; destructive guards & text input use native
+  `alert`/`confirm`/`prompt`** (dialogs, high). Symptom: confirmations and one-off text input
+  fall back to blocking native dialogs — unthemeable, not e2e-drivable, block the main thread.
+  Evidence: `confirm` `app/download.go:33-34`, `custompagesnav.go:270`; `alert`
+  `shortcuts.go:266,282`, `wsswitcher.go:249`; `prompt` `wsswitcher.go:293`. Direction: framework
+  `Dialog`/`Confirm`/`Prompt` (promise-returning) overlay built on the portal (G4).
+- [ ] **G19 No timer/interval hook; raw `setTimeout`/`setInterval` with manual cleanup** (timers,
+  med). Symptom: auto-dismiss/debounce/polling use raw timers + hand-managed `js.Func`
+  release/clear. Evidence: toast `app/toast.go:48-62`, AI debounce `internal/ai/transport.go:116`,
+  idle poll `app/applockgate.go:463`, gate delay `:55`. Direction: `UseTimeout`/`UseInterval`/
+  `UseDebounce` with effect-scoped lifetime (ties G13).
+- [ ] **G20 No media-query hook; `matchMedia` read imperatively and non-reactively** (media, med).
+  Symptom: color-scheme & reduced-motion read at call time, no reactive subscription; reduced-
+  motion re-checked before each animation. Evidence: `uistate/theme.go:82`, `uistate/prefs.go:60`;
+  `app/applockgate.go:34,72,167`. Direction: `UseMediaQuery(query)` → reactive bool (+
+  `UsePrefersReducedMotion` convenience).
+- [ ] **G23 File download AND upload are entirely raw DOM (expands G14)** (file I/O, med).
+  Symptom: export builds Blob+transient `<a>` and clicks it; import creates off-DOM
+  `<input type=file>`+`FileReader`+copies bytes — all `syscall/js`. Evidence: `app/download.go:
+  11-29` (`downloadBytes`), `:40-82` (`pickFile`/`pickFileNamed`, manual `js.Func` release).
+  Direction: `useDownload(bytes,name,mime)` and `usePicker(accept) → bytes`.
+- [ ] **G25 Global activity listeners attached by hand (expands G9)** (global events, med).
+  Symptom: idle auto-lock listens `mousemove/keydown/click/touchstart/scroll` on `document` via
+  raw `addEventListener` to reset an activity timer. Evidence: `app/applockgate.go:441-443` +
+  `setInterval` `:463`. Direction: covered by the managed global-event hook (G9).
+
+### Tier 3 — high-severity but reducible to a primitive
+
+- [ ] **G21 Atoms have no persistence layer; every preference hand-rolls localStorage** (state
+  persistence, high — **easiest high-value win**). Symptom: `state.UseAtom` is in-memory only; to
+  persist you write a matching `loadX()` (read+unmarshal as atom seed) + `PersistX()`
+  (marshal+write) pair and must remember to Persist on every mutation. Evidence: the triad repeats
+  across **14** `uistate` files / **68** localStorage calls — canonical `uistate/navorder.go:34-54`,
+  plus `layout/widgetcfg/i18n/txfilter/modules/fonts/freshness/rail/theme/banner/prefs/period/aikey`;
+  Persist sprinkled through UI (`shell.go:396`). Impact: largest single boilerplate category;
+  "forgot to Persist after Set" is a whole bug class. Direction: `state.UsePersistentAtom(key,
+  default)` that reads its seed and writes through on `Set` (pluggable storage). **Overlaps F2
+  kvstate** — reconcile: this is the lightweight localStorage-backed variant of F2's SQLite KV.
+- [ ] **G22 No autofocus/element-focus; inline-edit focus uses `focusByID` across ~13 screens**
+  (focus/forms, high). Symptom: no `autoFocus` prop and no element ref → opening an inline editor
+  runs a `UseEffect` that builds the field id and calls `getElementById(id).focus()`. Evidence:
+  helper `internal/screens/focus.go:12-25`; called in `transactions.go:717`, `todo.go:236`,
+  `budgets.go:503`, `goals.go:385-387`, `accounts.go:615-617`, `categories.go:270`, `members.go:296`,
+  `rules.go:287`, `documents.go:495`, `custompage.go:317`, `emptystate.go:34`. Impact: the most
+  common concrete symptom of the missing ref (G2); fragile on id collision / unmounted element.
+  Direction: an `AutoFocus()` prop option and/or the DOM ref (G2).
+- [ ] **G24 An entire screen (passcode gate) is built in `innerHTML`+`cssText` (expands G4)**
+  (raw-DOM screens, high). Symptom: the app-lock gate (full-screen modal: inputs, buttons, hint,
+  animation) is built entirely with createElement/`innerHTML`/inline `style.cssText` + own i18n
+  escaper, because it must live above the component tree and toggle from outside a render.
+  Evidence: `app/applockgate.go` cssText `:136,142,217,375-376`, innerHTML `~:370-380`, activity
+  listeners `:442-443` — ~460 lines. Impact: a core security surface can't use design system/themes
+  (hand-inlines `var(--accent)` fallbacks), duplicates focus/animation/escape. Direction: G4 portal
+  + outside-render visibility makes it a normal component; G3 (raw-HTML) + G18 (dialog) reduce the rest.
+
+### Missing convenience APIs / utilities (don't force syscall/js, but high-volume papercuts)
+
+- [ ] **U1 Sparse typed attribute helpers; ~200 attrs fall back to `Attr(k,v)`** (DSL, med). DSL has
+  typed options for `Class/Value/Placeholder/Type/Title/SelectedIf` but NOT `id/disabled/checked/
+  required/readonly/role/tabindex/aria-*/scope/for/min/max/step/draggable/target/rel` or SVG attrs
+  (`viewBox/stroke/fill`) → stringly-typed `Attr("name","value")`. Evidence: **200** such calls across
+  35 files; `ui/icon.go:27-36`, `controls.go:64-73,118-122`, `datatable.go:77,99`. Impact: attribute-
+  name typos are silent (defeats typed-Go-on-frontend value); no IDE discoverability. Direction: typed
+  option helpers for the standard HTML/SVG/ARIA set (`Id/Disabled/Checked/Required/Role/TabIndex/
+  AriaLabel/Scope/For/…`), keep `Attr` only for genuinely custom attributes.
+- [ ] **U2 Only `SelectedIf` exists; no `DisabledIf`/`CheckedIf`/`AttrIf`** (conditional attrs, med).
+  Conditional `disabled`/`checked` done by building `[]any` and conditionally appending
+  `Attr("disabled",…)`; `errAttrs` returns nil `[]any` to spread-or-no-op. Evidence:
+  `datatable.go:130-139`, `screens/aria.go:19-24`. Direction: `DisabledIf(bool)`, `CheckedIf(bool)`,
+  general `AttrIf(cond,name,value)` / `When(cond, ...PropOption)`.
+- [ ] **U3 No class-name builder (clsx/classnames)** (class building, med). `Class` takes one string →
+  conditional/variant classes assembled via manual string concat. Evidence: **26** `cls :=`/`cls +=`
+  sites across 10 files (`controls.go:105-116,185-191,249-255`, `shell.go:293-299`, `datatable.go:54-57`,
+  `chartd3.go:68-71`). Direction: variadic `Classes(parts ...any)` accepting strings + `cond && "cls"` /
+  `map[string]bool`, plus `ClassIf(cond,cls)`. **NOTE: the new `css.Class(...any)` / `css.ClassIf`
+  already deliver this for the typed-CSS path — close U3 by documenting/porting it to the shorthand DSL.**
+- [ ] **U4 No form-field / a11y wiring helper** (forms/a11y, med). Associating input↔label↔error
+  (`aria-invalid`/`aria-describedby`/error `role=alert`+matching id) has no helper; app built
+  `errAttrs`/`errText`. Evidence: `screens/aria.go:10-32`. Direction: `Field`/`Label`/`ErrorText` set
+  or a `useField` hook that generates+wires ids and ARIA relationships.
+- [ ] **U5 No roving-tabindex / radiogroup primitive** (a11y components, med). ARIA radiogroup
+  semantics (one Tab stop, arrow nav, `role=radio`+`aria-checked`, selection-follows-focus)
+  reimplemented per control. Evidence: `controls.go:37-92` (Segmented), `:298-355` (SwatchPicker,
+  same again), `:184-217` (Toggle as `role=switch`). Direction: `RadioGroup`/`useRovingTabIndex`
+  primitive + a `Switch` component.
+- [ ] **U6 No two-way input binding helper** (forms, low). Every controlled input manually pairs
+  `Value(get)`+`OnInput(set)`. Evidence: `filtertoolbar.go:54,75-77`, inline editors everywhere.
+  Direction: `Bind(state.Atom[string])` expanding to value+handler (+ numeric/`Parse` variant).
+- [ ] **U7 Generic text/format utilities reinvented per app** (utils, low). e.g. snake_case→Title
+  humanization. Evidence: `screens/format.go:52-59` (`humanizeType`). Direction: optional tiny
+  `strutil`/`textutil` subpackage, or document that these stay app-side.
+- [ ] **G11 Styling API quirks** (styling, low). `Style` accepts only `map[string]string`; themed SVG
+  line weight must use inline `style` not the `stroke-width` attribute because SVG *attributes* don't
+  accept `var()` while the CSS property does. Evidence: `ui/icon.go:31-34`; `Style(map…)` throughout.
+  Direction: document the SVG/`var()` interaction; consider typed style helpers. **NOTE: the new `css`
+  package's typed `Style`/`Var`/property constructors largely address the typed-style half.**
+- [ ] **G12 `UseEffect` takes a single dependency value, not a list** (effects, low). To depend on
+  multiple inputs, code serializes them to one string (JSON) and keys on that. Evidence:
+  `chartd3.go:37-40,45,66` (re-marshals spec every render to compare); `shell.go:52-60`. Impact:
+  serialization overhead + awkward idiom + allocation churn. Direction: accept variadic/slice dep list
+  with value equality (matches the React mental model).
+- [ ] **G17 `OnInput` requires a framework `Handler`, not a plain `func`** (event API, low).
+  Inconsistent with the plain-`func` callbacks used elsewhere. Evidence: DEVLOG `:475`. Direction:
+  accept plain `func(string)`/`func(Event)` uniformly across all `On*`, or document which props need
+  the `Handler` wrapper and why.
+
+### Keep / don't regress (validated as ergonomic; protect in any refactor)
+- `MapKeyed(items, keyFn, render)` with auto-flattening children (`shell.go:227-265`,
+  `controls.go:338-354`).
+- Drag-and-drop `OnDragStart`/`OnDragOver`/`OnDrop` (`shell.go:314-330`).
+- Element-level `OnKeyDown` with typed `KeyboardEvent` (`controls.go:64-73`).
+- Form input ergonomics: `OnInput(func(string))`, `OnChange`+`e.GetValue()`, `SelectedIf`, `Value()`.
+- `If`/`IfElse`/`Fragment` control-flow nodes; props-driven composition.
+- DSL already provides (don't duplicate): `Class/Value/Placeholder/Type/Title/SelectedIf`, the `On*`
+  set + `Prevent(fn)`, `Text`/`Textf`, `If/IfElse/Map/MapKeyed/Fragment`, SVG nodes `Svg/Path/Circle/Rect`.
+
+### Triage note (relationship to current work)
+- **G21 ↔ F2 (kvstate):** both are "persisted reactive state." Decide whether `UsePersistentAtom`
+  (localStorage, lightweight) is a separate tier above F2's SQLite-backed binding, or the same API
+  with a storage backend flag. Reconcile before building either.
+- **U3 / G11 partially DONE by F3:** the new `css` package already gives `Class(...any)` (clsx-style)
+  and typed style/`Var()` constructors — port/expose to the shorthand DSL and close those.
+- **G2/G3/G4 are the keystone:** ref + raw-HTML + portal unblock the most items (charts, focus, file
+  I/O, overlays, the passcode gate, and the Markdown/Mermaid backlog). Sequence these first.
+
+### VERIFICATION PASS (2026-06-20) — catalog re-triaged against CURRENT GWC code
+The CashFlux catalog reflects an older/incompletely-explored GWC; many items are ALREADY SHIPPED.
+Verified by symbol against the live tree before any implementation (do NOT re-implement these):
+- **G4 Portal — DONE.** `ui.Portal(PortalProps)` (`ui/ui.go:279`, native `ui/ui_native.go:256`),
+  `runtime.PortalNodeType` (`internal/runtime/types.go:35`), commit support
+  (`reconciler_commit.go:1203,1233`).
+- **G6 reactive route — DONE.** `router.UseRouteData()` (`router/router_api.go:98`).
+- **G13/G19 timers — MOSTLY DONE.** `UseDebounced`/`UseThrottled` (`ui/ui_async.go:427,498`).
+  (Generic `UseTimeout`/`UseInterval` may still be absent — verify before any add.)
+- **G20 media queries — DONE.** `UsePrefersReducedMotion()`, `UsePrefersColorScheme()`
+  (`ui/preference_hooks.go:39,46`). (Generic `UseMediaQuery(q)` optional, low value.)
+- **G21 persisted state — DONE.** `UsePersistedState[T](key, initial, area PersistStorageArea)`
+  (`ui/persisted_state.go:83`). Closes the persisted-atom ask; reconcile naming with F2 kvstate.
+- **G3 markdown half — DONE.** `html.RenderMarkdown` (`html/markdown.go`). Raw-HTML node still absent.
+- **U1 typed attrs — DONE.** `sugar.go` exposes Id/Class/For/Name/Title/Value/Type/Role/TabIndex/
+  Disabled/Checked/Selected/Required/ReadOnly/AutoFocus/Multiple/Open/Hidden/Min/Max/Step/Pattern/
+  Width/Height/Loading/Rows/Cols/Target/Rel/Accept/AutoComplete/Lang/Dir/Aria/AriaSet/Data/Dataset.
+- **U2 conditional attrs — DONE.** `DisabledIf`/`ReadOnlyIf`/`SelectedIf`/`AttrIf`/`When`/`Unless`/`Show`.
+- **U3 class builder — DONE.** `ClassNames(...any)`, `ClassMap(map)`, `ClassIf` — plus the new
+  `css.Class(...any)`/`css.ClassIf` from F3.
+- **G22 (attr half) — PARTIAL.** `AutoFocus(...)` PropOption exists but only sets the HTML `autofocus`
+  attribute, which does NOT fire on SPA re-mount; programmatic focus-on-mount is still a real gap
+  (depends on G2 DOM ref).
+
+### CONFIRMED-REAL GAPS — the actual loop work queue (in fix order)
+1. [x] **G2 DOM element ref — DONE (2026-06-20, iteration 2).** Shipped `ui.UseDOMRef()` returning
+   a `ui.DOMRef` (`.Node()`/`.Mounted()` cross-build; `.Value() js.Value`/`.Focus()` wasm-only),
+   `html.Ref(r)` + `shorthand.Ref(r)` PropOptions, and commit-phase capture in `internal/runtime`:
+   reserved props key `runtime.DOMRefKey` registered `propKindSkip` (never hits the DOM), a
+   `runtime.DOMRefSink` published on placement (`reconciler_commit.go` after AppendChild) and cleared
+   across the deleted subtree on unmount (`releaseDOMRefsSubtree`). commitRoot processes deletions
+   before placements, so key-change remount detaches→reattaches correctly. Files:
+   `internal/runtime/dom_ref.go`, `ui/dom_ref.go`+`ui/dom_ref_wasm.go`, `html/dom_ref.go`,
+   `html/shorthand/dom_ref.go`. EDGE FOUND+FIXED: `ssr.go shouldSkipSSRProp` now skips `DOMRefKey`
+   (it was leaking as a bogus `__gwc_dom_ref__="&{…}"` attribute through SSR). EDGE: name clash —
+   the new `Ref` collided with F3's css selector `Ref`; renamed the niche css one to `css.SheetRef`
+   /`u.SheetRef` (DOM ref owns the universal name). Tests: unit `internal/runtime/dom_ref_test.go`
+   (publish-on-mount, clear-on-unmount, remount reassign, skip-from-DOM, nil-safety; native+wasm),
+   integration+edge `html/dom_ref_test.go` (SSR no-leak + null-on-native + zero-ref no-op), e2e
+   `test/playwrightgo/dom_ref_e2e_test.go` (real Chromium: ref resolves, Focus lands activeElement,
+   clean detach on unmount). Fixture `examples/public/dom-ref/`. Native runtime/ui/html/css/shorthand
+   suites + vet + gofmt + wasm builds all green.
+   FOLLOW-UP NOTE (found this iteration, NOT G2): `TestPreferenceHooksUnavailableDefaults`
+   (`ui/preference_hooks_internal_test.go:52`) panics under the **wasm** lane ("GoUseState called
+   outside component context") — pre-existing, unrelated to G2 (file untouched). Triage under the
+   G20 area: the test calls `UsePrefersReducedMotion` without a component/render context.
+2. [ ] **G22 programmatic focus-on-mount — depends on G2.** `AutoFocus()` should also focus the
+   element on mount (not just emit the attribute), OR provide `UseAutoFocus(ref)`. Replaces the
+   app's focusByID across ~13 screens. Tests incl. e2e activeElement assertion.
+3. [ ] **G3 RawHTML / Markup node — ABSENT.** A `RawHTML(s)` node (clearly unsafe; wasm sets
+   innerHTML, native SSR emits raw) and/or sanitized `Markup`. New runtime NodeType + domAdapter
+   support + SSR serialization. Edge: empty/script payloads, hydration, re-render diffing. Pairs
+   with the F3 `hardenCSS`-style boundary thinking for the sanitized variant.
+4. [ ] **G9 global document/window event hook — ABSENT.** `UseDocumentEvent`/`UseWindowEvent`/
+   `UseGlobalKey` with effect-scoped `js.Func` lifetime (subsumes G25 idle-activity, helps G13).
+   Edge: multiple subscribers, unmount cleanup, capture/passive, typing-suppression helper.
+5. [ ] **U5 roving-tabindex / RadioGroup — ABSENT.** `RadioGroup`/`useRovingTabIndex` + `Switch`
+   so segmented/swatch/toggle get correct keyboard a11y once. Edge: wrap-around, disabled items,
+   RTL arrows, selection-follows-focus. e2e keyboard-nav assertions.
+- Re-verify before starting each: G1 (hooks-in-loops — likely still real; consider dev diagnostic),
+  G15 (native test harness), G16 (mount-ready signal), and whether generic `UseTimeout`/`UseInterval`
+  / `UseMediaQuery` are wanted on top of the existing debounce/throttle/preference hooks.

@@ -393,6 +393,11 @@ func shouldSkipSSRProp(parseKey string, parseValue any) bool {
 	if parseKey == "children" || parseKey == "key" || parseValue == nil {
 		return true
 	}
+	if parseKey == DOMRefKey {
+		// A DOM ref sink is runtime plumbing, never an attribute — and on the SSR
+		// path it never resolves to a node anyway.
+		return true
+	}
 	if strings.HasPrefix(parseKey, "__gwc_prop__:") {
 		return true
 	}

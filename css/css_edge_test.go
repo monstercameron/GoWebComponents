@@ -90,7 +90,7 @@ func TestHasNotAcceptRefTargets(t *testing.T) {
 	css.Reset()
 	badge := css.New(css.Display.Inline)
 	// :has(.badge) targeting another generated class — fully typed.
-	class := css.New(css.Has(css.Ref(badge), css.Padding(css.Px(4)))...)
+	class := css.New(css.Has(css.SheetRef(badge), css.Padding(css.Px(4)))...)
 	want := "." + string(class) + ":has(." + string(badge) + "){padding:4px;}"
 	if !strings.Contains(css.Harvest(), want) {
 		t.Fatalf("Has(Ref) missing %q in:\n%s", want, css.Harvest())

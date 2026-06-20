@@ -125,7 +125,7 @@ const (
 
 var (
 	El       = css.El
-	Ref      = css.Ref
+	SheetRef = css.SheetRef
 	ClassSel = css.ClassSel
 	AttrSel  = css.AttrSel
 	AttrEq   = css.AttrEq

@@ -504,6 +504,8 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 			if !IsDOMNodeNull(parseFiber.dom) {
 				parseRt.domAdapter.AppendChild(parseDomParent, parseFiber.dom)
 			}
+			// G2: publish the freshly-mounted node into any DOM ref carried in props.
+			parseRt.publishDOMRef(parseFiber, parseFiber.dom)
 			parseFiber.commitDurationNs += commitTimingSinceNs(parseStart)
 			if parseFiber.fineGrained {
 				parseRt.profiling.fineGrainedCommits++
@@ -1142,6 +1144,9 @@ func (parseRt *Runtime) commitDeletion(parseFiber *Fiber, parseDomParent DOMNode
 
 	// Cleanup atom subscriptions for this fiber and subtree
 	parseRt.cleanupAtomSubscriptionsSubtree(parseFiber)
+
+	// G2: detach any DOM refs in the deleted subtree so holders observe nil.
+	parseRt.releaseDOMRefsSubtree(parseFiber)
 
 	if parseRt.isPortalFiber(parseFiber) {
 		parseRt.deleteFiberSubtree(parseFiber.child, parseRt.resolvePortalParent(parseFiber))

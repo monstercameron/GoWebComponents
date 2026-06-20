@@ -39,7 +39,7 @@ func TestRefComposesGeneratedClasses(t *testing.T) {
 	css.Reset()
 	title := css.New(css.FontWeight.Bold)
 	// Parent styles its descendant .title (another generated class), type-safe.
-	parent := css.New(css.Descendant(css.Ref(title), css.TextColor(css.Sky500))...)
+	parent := css.New(css.Descendant(css.SheetRef(title), css.TextColor(css.Sky500))...)
 	got := css.Harvest()
 	want := "." + string(parent) + " ." + string(title) + "{color:#0ea5e9;}"
 	if !strings.Contains(got, want) {

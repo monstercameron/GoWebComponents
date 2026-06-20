@@ -150,7 +150,7 @@ func TestSelectorCompositionThroughRender(t *testing.T) {
 func TestRefCrossClassThroughStyleBlock(t *testing.T) {
 	css.Reset()
 	title := css.New(css.FontWeight.Bold)
-	css.New(css.Descendant(css.Ref(title), css.TextColor(css.Sky500))...)
+	css.New(css.Descendant(css.SheetRef(title), css.TextColor(css.Sky500))...)
 	block := css.StyleBlock()
 	if !strings.Contains(block, " ."+string(title)+"{color:#0ea5e9;}") {
 		t.Fatalf("Ref cross-class rule missing from SSR style block:\n%s", block)

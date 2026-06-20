@@ -728,7 +728,7 @@ func TestAdversarial_RefToSelfBuiltSheet(t *testing.T) {
 	// Build a sheet and use Ref to target itself in a descendant rule
 	sheet1 := css.New(css.Display.Flex)
 	// Now use that sheet's class in another sheet's selector
-	sheet2 := css.New(css.Descendant(css.Ref(sheet1), css.Bg(css.Slate900))...)
+	sheet2 := css.New(css.Descendant(css.SheetRef(sheet1), css.Bg(css.Slate900))...)
 	_ = sheet2
 	noStyleBreakout(t, css.Harvest(), "Ref-self")
 }
