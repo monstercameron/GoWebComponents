@@ -404,6 +404,49 @@ Keep workspace persistence bounded:
 - keep retention and expiry rules app-owned instead of assuming browser storage is a durable source of truth
 - persist reconstructible UI state, not secrets or authoritative server records
 
+## Client-Side SQLite And Durable State
+
+For state that must outlive a reload — drafts, caches, offline records — the framework ships a
+**client-side SQLite** database and a **durable reactive-state** layer on top of it.
+
+### `db/sqlite` — SQLite in the browser
+
+`db/sqlite` runs a pure-Go SQLite engine compiled to wasm (no cgo, no server). A database is opened with
+`Open` and exposes `Exec`/`Query`/`QueryRow`/`Tx`/`Flush`/`Close`.
+
+```go
+db, err := sqlite.Open(ctx, sqlite.Options{
+    Name:        "workspace",
+    Persistence: sqlite.IndexedDB, // snapshot the image to IndexedDB on Flush, rehydrate on Open
+})
+```
+
+- **Persistence backends.** `Memory` (lost on reload), `IndexedDB` (the durable v1 backend — the image is
+  snapshotted on `Flush`/`Close` and rehydrated on `Open`), and `OPFS` (reserved; falls back to the
+  IndexedDB path in v1).
+- **Encryption at rest.** Set `Options.Encryptor` to seal the database image before it touches the store.
+  `NewPassphraseEncryptor(passphrase, iterations)` derives an AES-256-GCM key with PBKDF2-HMAC-SHA256;
+  the key is never stored, a wrong passphrase or tampered image is surfaced (not silently discarded), and
+  the salt is minted once per database. nil stores the image unencrypted. See the package threat model in
+  `db/sqlite/encryption.go`.
+
+See [sqlite-persistence](../../examples/public/sqlite-persistence/) for a counter that survives reloads.
+
+### `kvstate` — durable reactive state
+
+`kvstate` binds reactive state to a pluggable `PersistenceBackend` (SQLite by default), so atoms persist
+and rehydrate without bespoke wiring:
+
+- **Codecs.** JSON or CBOR encoding of stored values.
+- **Write strategies.** `Immediate`, `Debounced`, or `OnUnload` — trade write frequency against latency.
+- **Conflict resolution.** `LastWriteWins` or `Versioned`, applied on import and cross-tab merge.
+- **Cross-tab sync.** A `BroadcastChannel` watch keeps every open tab consistent (see
+  [cross-tab-sync](../../examples/public/cross-tab-sync/)).
+- **Ingress / egress.** `Export` reads all records out and `Import` writes them back through the conflict
+  resolver — the surface for backing up, restoring, or syncing state across apps, domains, and devices
+  over any transport you choose. There is nothing domain-specific here: a sync is just an egress on one
+  side and an ingress on the other.
+
 ## API Family Reference
 
 Use this table before widening ownership.

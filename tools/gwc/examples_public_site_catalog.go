@@ -415,13 +415,13 @@ func getExamplesPublicSiteModule(parseSlug string) string {
 		return "forms"
 	case hasExamplesPublicSiteKeyword(parseSlug, "route", "router", "navigation", "locale"):
 		return "router"
-	case hasExamplesPublicSiteKeyword(parseSlug, "fetch", "resource", "cache", "snapshot"):
+	case hasExamplesPublicSiteKeyword(parseSlug, "fetch", "resource", "cache", "snapshot", "sqlite", "persist", "kvstate"):
 		return "data"
 	case hasExamplesPublicSiteKeyword(parseSlug, "plugin"):
 		return "plugins"
 	case hasExamplesPublicSiteKeyword(parseSlug, "multi", "browser", "worker", "interop", "window", "tab"):
 		return "interop"
-	case hasExamplesPublicSiteKeyword(parseSlug, "render", "portal", "overlay", "html", "fragment", "hydration", "virtualized"):
+	case hasExamplesPublicSiteKeyword(parseSlug, "render", "portal", "overlay", "html", "fragment", "hydration", "virtualized", "css"):
 		return "rendering"
 	case strings.HasPrefix(parseSlug, "use-") || hasExamplesPublicSiteKeyword(parseSlug, "counter", "toggle", "calculator", "state", "atom", "reducer", "context", "goroutines"):
 		return "state"
@@ -441,7 +441,7 @@ func getExamplesPublicSiteLevel(parseSlug string) string {
 		return "Beginner"
 	case hasExamplesPublicSiteKeyword(parseSlug, "server", "static", "multi", "pwa", "worker", "plugin", "compiler", "auth", "virtualized", "portfolio"):
 		return "Advanced"
-	case hasExamplesPublicSiteKeyword(parseSlug, "overlay", "portal", "form", "fetch", "snapshot", "devtools", "browser", "error", "async", "hot", "locale", "route", "router"):
+	case hasExamplesPublicSiteKeyword(parseSlug, "overlay", "portal", "form", "fetch", "snapshot", "devtools", "browser", "error", "async", "hot", "locale", "route", "router", "css", "sqlite", "persist", "kvstate", "raw-html", "global-events"):
 		return "Intermediate"
 	default:
 		return "Core"

@@ -41,15 +41,39 @@ func Capabilities() []Capability {
 			Chapter:     "04-ui-rendering-and-hooks.md",
 		},
 		{
+			Name:        "DOM refs & lifecycle",
+			Packages:    []string{"ui", "html"},
+			ExampleSlug: "dom-ref",
+			Chapter:     "04-ui-rendering-and-hooks.md",
+		},
+		{
 			Name:        "HTML authoring",
 			Packages:    []string{"html", "html/shorthand"},
 			ExampleSlug: "semantic-html",
 			Chapter:     "05-html-authoring.md",
 		},
 		{
+			Name:        "Typed CSS",
+			Packages:    []string{"css", "css/u"},
+			ExampleSlug: "typed-css",
+			Chapter:     "05-html-authoring.md",
+		},
+		{
+			Name:        "Markup nodes (raw HTML & SVG)",
+			Packages:    []string{"html"},
+			ExampleSlug: "raw-html",
+			Chapter:     "05-html-authoring.md",
+		},
+		{
 			Name:        "Shared state & reactivity",
 			Packages:    []string{"state"},
 			ExampleSlug: "state-atoms",
+			Chapter:     "06-state-and-reactivity.md",
+		},
+		{
+			Name:        "Client-side SQLite & durable state",
+			Packages:    []string{"db/sqlite", "kvstate"},
+			ExampleSlug: "sqlite-persistence",
 			Chapter:     "06-state-and-reactivity.md",
 		},
 		{

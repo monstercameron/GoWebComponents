@@ -279,6 +279,32 @@ For `ParallelRegion(...)` and other narrow worker-backed surfaces:
 - keep input source IDs stable and app-owned
 - fall back to the main-thread render path when capability checks, worker startup, or troubleshooting signals say the worker path is unhealthy
 
+## DOM Refs And Lifecycle Hooks
+
+Most components never need a handle to a real DOM element, but interactive UI sometimes does — to move
+focus, measure, or attach a managed global listener. These hooks provide that without escaping the
+reconciler.
+
+- **`ui.UseDOMRef()` + `html.Ref(ref)` / `shorthand.Ref(ref)`** — capture the live element during the
+  commit phase. The ref exposes `.Focus()` and releases its element automatically on unmount, so you
+  never hold a stale node. No `getElementById`. See [dom-ref](../../examples/public/dom-ref/).
+- **`ui.UseAutoFocus(ref, when)`** — focus a referenced element whenever `when` is true: on first mount
+  and each time it is revealed. The declarative replacement for the `autofocus` attribute.
+- **`ui.OnReady(fn)`** — run a callback exactly once, right after the first commit to the DOM. The
+  framework also dispatches a `gwc:ready` DOM event at the same moment, so host-page scripts and test
+  harnesses can wait for a real first frame. See [ready-signal](../../examples/public/ready-signal/).
+- **`ui.UseGlobalKey(fn)` / `ui.UseDocumentEvent` / `ui.UseWindowEvent`** — managed document/window
+  listeners whose underlying `js.Func` lifetime is scoped to the effect (registered on mount, released
+  on unmount), so they cannot leak. See [global-events](../../examples/public/global-events/).
+- **`ui.UseTimeout` / `ui.UseInterval`** — timers that are cleared automatically when the component
+  unmounts.
+- **`ui.Download(...)` / `ui.PickFile(...)`** — browser file egress/ingress for save and open flows.
+- **`ui.UseForceUpdate()`** — an escape hatch to schedule a rerender when state lives outside the hook
+  system.
+
+All of these obey the rules of hooks: call them while the component is rendering, never inside a loop or
+conditional. The `tools/hookcheck` analyzer flags violations statically.
+
 ## Design Notes And Boundaries
 
 Keep these rules in mind when working in `ui`:

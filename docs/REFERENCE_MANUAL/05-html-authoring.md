@@ -260,6 +260,70 @@ Do not use it as a default content strategy when:
 - the page is mostly application UI, not authored content
 - structured Go markup is already clearer than markdown transformation
 
+## Typed CSS
+
+Styling is authored with the **typed CSS** layer instead of free-form class strings. The `css` package
+is the raw layer (typed values, properties, variants, and SCSS-style selector composition); `css/u` is
+a Tailwind-shaped utility layer built on top of it. Both are designed to be dot-imported so styles read
+like bare utilities next to `html/shorthand` elements.
+
+```go
+import (
+    "github.com/monstercameron/GoWebComponents/css"
+    . "github.com/monstercameron/GoWebComponents/css/u"
+    . "github.com/monstercameron/GoWebComponents/html/shorthand"
+)
+
+func Badge() ui.Node {
+    return Span(
+        css.Class(Flex, ItemsCenter, Pad(Spacing2), Rounded(RadiusXl), Bg(Hex("#0ea5e9")), Fg(White),
+            Hover(Bg(Hex("#0284c7"))),
+        ),
+        Text("live"),
+    )
+}
+```
+
+Key properties:
+
+- **Type-checked values.** `Hex`, `RGBA`, `Spacing`, `Rem`, and friends are constructors, so a typo is a
+  compile error rather than a silently-dead rule. Values like `Hex` are validated by construction.
+- **Content-hashed, deduped classes.** Each folded rule becomes a deterministic class keyed by its
+  content; identical rules collapse to one class, and the stylesheet is injected once. The same source
+  always produces the same class names, which keeps builds reproducible.
+- **`css.Class(...)` is the clsx-style entry point.** It accepts a mix of literal strings, typed rules,
+  variant slices, and pre-folded sheets in a single call.
+- **Variants and selectors.** Pseudo-classes and composed selectors (`Hover(...)`, `Active(...)`,
+  `Focus(...)`, and `&`-template selectors in the raw layer) are first-class, so you rarely need a hand-
+  written stylesheet.
+- **SSR + hydration.** Server-rendered rules are emitted into the SSR buffer; on boot the client calls
+  `css.SeedFromDocument()` so those rules are adopted rather than re-injected.
+- **Safe output.** Emitted CSS is hardened against `</style>`/`<script>` breakout, so interpolated
+  values cannot escape the stylesheet.
+
+See the [typed-css](../../examples/public/typed-css/) example for a fully bare-authored view.
+
+## Markup Nodes (Raw HTML & SVG)
+
+When you need to render a fragment of existing markup — sanitized rich text from a CMS, or a trusted
+inline SVG — use the markup-node helpers in `html`. They **parse markup into real DOM nodes** and commit
+them through the normal reconciler; the framework never assigns `innerHTML`.
+
+```go
+// Sanitized: the <b> survives, an embedded <script> is stripped.
+nodes := html.RawHTML(`<p>hello <b>world</b><script>steal()</script></p>`)
+
+// Trusted: inline SVG kept as real, correctly-namespaced nodes.
+svg := html.RawHTMLUnsafe(`<svg width="20" height="20"><circle cx="10" cy="10" r="5"/></svg>`)
+```
+
+- `RawHTML` runs the fragment through the `sanitize` allowlist before producing nodes — use it for any
+  untrusted or semi-trusted content.
+- `RawHTMLUnsafe` skips sanitization for content you fully control; it still parses to real nodes (no
+  `innerHTML`), and SVG is committed in the SVG namespace.
+
+See the [raw-html](../../examples/public/raw-html/) example.
+
 ## Design Notes And Boundaries
 
 Keep these rules in mind when authoring with `html`:
