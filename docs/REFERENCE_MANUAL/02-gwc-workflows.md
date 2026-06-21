@@ -194,6 +194,68 @@ Practical distinction:
 
 Use `dev -dry-run` or `dev -json` when you want to inspect the resolved plan before you start the server.
 
+#### Live Dev Server (`gwc dev`)
+
+`gwc dev` is the live-reload server for the inner loop: it builds your app to `js/wasm`, serves it,
+watches the source tree, and pushes rebuilds and reloads to the browser over a WebSocket. It runs until
+you stop it (Ctrl-C).
+
+```powershell
+go run ./tools/gwc dev                                   # run from a directory with main.go
+go run ./tools/gwc dev -app .\examples\public\counter    # or point at an app explicitly
+go run ./tools/gwc dev -port 9000 -host 0.0.0.0          # bind elsewhere
+```
+
+**Flags.** Run `go run ./tools/gwc dev -h` for the always-current list. The ones you reach for most:
+
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| `-app` | auto-detect | App `main.go` file or its directory |
+| `-root` | app directory | Project root to watch and serve |
+| `-html` | `index.html` if present | HTML file to serve, relative to the root |
+| `-host` / `-port` | `127.0.0.1` / `8080` | Bind address |
+| `-hot` | `true` | Hot-reload the browser after each successful rebuild |
+| `-tui` | `false` | Interactive terminal status view |
+| `-agent` | `false` | Emit agent-native NDJSON dev-loop events |
+| `-dry-run` / `-json` | `false` | Resolve and print the dev plan without starting the server |
+| `-no-doctor` | `false` | Skip the automatic `gwc doctor` diagnosis on a failed start |
+
+**How settings are resolved.** Each of host, port, app, root, and html is resolved in precedence order,
+so you only set what you need:
+
+1. an explicit flag (`-port 9000`)
+2. `gwc-start.json` (`Tooling.DevHost` / `Tooling.DevPort`, plus scaffold metadata for app/root/html)
+3. auto-detection — app entrypoint `./main.go` then `./cmd/web/main.go`; html `./index.html` if it exists
+4. convention fallback — host `127.0.0.1`, port `8080`
+
+`dev -dry-run -json` prints the resolved plan (and where each value came from) without binding a port.
+
+**How live reload works.** A file watcher debounces changes (it waits ~0.5s after a single edit, longer
+while you keep typing, and forces a build after at most 5s), then:
+
+- a `.go` change triggers a wasm rebuild and a full browser reload;
+- a `.css` change is **hot-swapped in place** — the stylesheet is replaced with no rebuild and no
+  reload, so the app keeps its state;
+- the browser is kept in sync over a WebSocket; if it drops, the client reconnects automatically.
+
+If the app panics or the build fails, a full-screen **runtime error overlay** appears in the page (with
+a copyable stack trace) instead of failing silently in the console.
+
+**Endpoints** (host:port from above):
+
+| Path | Purpose |
+| --- | --- |
+| `/` | Your HTML, with the livereload client script injected |
+| `/ws` | WebSocket carrying `build_start` / `build_complete` / `build_error` / `reload` / `asset_swap` events |
+| `/__gwc/status` | JSON build and server status (what `-tui` and `gwc dashboard` read) |
+
+If the server fails to start, `gwc dev` automatically runs `gwc doctor` and prints the likely cause
+(wrong Go version, missing `wasm_exec.js`, busy port). Suppress it with `-no-doctor`.
+
+**Related servers.** Use `gwc serve` when you already have built assets and only need a narrow static
+server (no watching). Use `gwc dashboard` to monitor a running dev server's `/__gwc/status` and provider
+config from the terminal.
+
 ### Build, Release, And Validation
 
 | Command | Use it when | Representative call |
