@@ -1,5 +1,53 @@
 # Changelog
 
+## v3.2.0 - 2026-06-20
+
+### Added
+
+- **Typed, type-safe CSS (`css` + `css/u`)** — a raw-CSS layer (typed values,
+  properties, variants, SCSS-style selector composition, a hashed/deduped
+  registry behind a `Sink`, runtime `<style>` injection + SSR buffer) with a
+  Tailwind-shaped utility layer on top. `css.Class(...any)` mixes literal strings,
+  typed rules, variant slices, and pre-folded sheets (clsx-style). Emitted CSS is
+  hardened against `</style>` breakout; `Hex`/`Var` validate by construction.
+- **DOM & lifecycle primitives** — `ui.UseDOMRef` (real element ref via
+  commit-phase capture) + `html.Ref`/`shorthand.Ref`; `ui.UseAutoFocus`
+  (focus-on-mount); `html.RawHTML`/`RawHTMLUnsafe` (markup parsed to real nodes —
+  no innerHTML sink — via `x/net/html` + the `sanitize` allowlist);
+  `ui.UseDocumentEvent`/`UseWindowEvent`/`UseGlobalKey` (managed global listeners
+  with effect-scoped `js.Func` lifetime); `ui.OnReady` + a `gwc:ready` DOM event
+  (deterministic first-render signal); `ui.UseForceUpdate`;
+  `ui.UseTimeout`/`UseInterval`; `ui.Download`/`ui.PickFile`; `html.Bind`
+  (two-way input binding); `a11y.RadioGroup` and `a11y.AlertDialog` (headless
+  WAI-ARIA); the `textutil` package (`Humanize`/`TitleCase`).
+- **`tools/hookcheck`** — a static `go/ast` "rules of hooks" analyzer (library +
+  CLI) that flags `Use*`/`On*`-handler hooks called inside loops, with FuncLit
+  awareness and a `//hookcheck:ignore` directive. No `x/tools` dependency.
+- **Client-side SQLite (`db/sqlite`)** — pure-Go SQLite in the browser
+  (in-memory / IndexedDB-snapshot, no cgo) with `Exec`/`Query`/`Tx`/`Flush`, plus
+  **encryption at rest**: `Options.Encryptor` + `NewPassphraseEncryptor`
+  (PBKDF2-HMAC-SHA256 → AES-256-GCM, key never stored, tamper-evident). See
+  `encryption.go` for the threat model.
+- **Durable reactive state (`kvstate`)** — `UsePersistedState`/`BindAtom` over a
+  pluggable `PersistenceBackend` (default SQLite), with JSON/CBOR codecs,
+  Immediate/Debounced/OnUnload write strategies, LastWriteWins/Versioned conflict
+  resolvers, BroadcastChannel cross-tab sync, a named registry, and
+  `Export`/`Import` — the ingress/egress surface for cross-app/domain/device sync
+  over any backend.
+
+### Changed
+
+- `css` selector helper `Ref` renamed to `SheetRef` (`u.SheetRef`) so the
+  universal DOM-ref `Ref` is unambiguous when dot-importing.
+- `shorthand.Class` (the string class setter) renamed to `shorthand.ClassStr`;
+  call sites migrated. The typed `css.Class(...any)` subsumes the string form.
+
+### Fixed
+
+- SSR no longer leaks the internal DOM-ref key as a bogus attribute.
+- `a11y.RadioGroup` emits the roving `tabindex="0"` via `Raw` (the `TabIndex==0`
+  serializer omission would otherwise erase the single tab stop).
+
 ## v3.1.0 - 2026-06-13
 
 ### Added
