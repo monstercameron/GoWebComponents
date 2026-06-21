@@ -50,6 +50,12 @@ type Options struct {
 	// FlushDebounce is advisory metadata for consumers (e.g. the state binding)
 	// that drive their own debounced Flush; the driver itself does not debounce.
 	FlushDebounce time.Duration
+	// Encryptor, when non-nil, seals the database image before it is written to
+	// the persistent store and opens it on restore — encryption at rest. Use
+	// NewPassphraseEncryptor for the passphrase-derived AES-256-GCM scheme. nil
+	// stores the image unencrypted (base64 only). See encryption.go for the
+	// threat model. Ignored for Persistence == Memory (nothing is persisted).
+	Encryptor Encryptor
 }
 
 // DB is a single client-side SQLite database. It is safe for sequential use;

@@ -36,6 +36,17 @@ func openPersistent(parseCtx context.Context, parseOptions Options) (*DB, error)
 	// Rehydrate the image before the connection opens.
 	if parseEncoded, parseOK, parseGetErr := parseStore.GetItem(parseCtx, parseName); parseGetErr == nil && parseOK && parseEncoded != "" {
 		if parseImage, parseDecErr := base64.StdEncoding.DecodeString(parseEncoded); parseDecErr == nil && len(parseImage) > 0 {
+			if parseOptions.Encryptor != nil {
+				// Decrypt at rest. A failure means a wrong passphrase or tampered
+				// data — surface it rather than silently starting fresh (which
+				// would discard the user's persisted state).
+				parsePlain, parseOpenErr := parseOptions.Encryptor.Open(parseImage)
+				if parseOpenErr != nil {
+					_ = parseStore.Close()
+					return nil, parseOpenErr
+				}
+				parseImage = parsePlain
+			}
 			gwcmemRestore(parseName, parseImage)
 		}
 	}
@@ -52,6 +63,14 @@ func openPersistent(parseCtx context.Context, parseOptions Options) (*DB, error)
 		parseImage, parseHas := gwcmemSnapshot(parseName)
 		if !parseHas {
 			return nil
+		}
+		if parseOptions.Encryptor != nil {
+			// Seal the image (encrypt at rest) before it touches the store.
+			parseSealed, parseSealErr := parseOptions.Encryptor.Seal(parseImage)
+			if parseSealErr != nil {
+				return fmt.Errorf("encrypt sqlite image: %w", parseSealErr)
+			}
+			parseImage = parseSealed
 		}
 		parseEncoded := base64.StdEncoding.EncodeToString(parseImage)
 		if parseSetErr := parseStore.SetItem(parseFlushCtx, parseName, parseEncoded); parseSetErr != nil {
