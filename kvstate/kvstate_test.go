@@ -191,3 +191,61 @@ func TestCustomBackendCRUD(t *testing.T) {
 		t.Fatal("record should be gone after delete")
 	}
 }
+
+func TestExportImportRoundTripAcrossBackends(t *testing.T) {
+	parseCtx := context.Background()
+	parseSource := newMemBackend()
+	parseSource.Save(parseCtx, Record{Key: "a", Value: []byte("1"), Version: 1, UpdatedAt: 10})
+	parseSource.Save(parseCtx, Record{Key: "b", Value: []byte("2"), Version: 1, UpdatedAt: 20})
+
+	// Egress: read every record out (the bytes you'd POST to another origin).
+	parseSnapshot, parseErr := Export(parseCtx, parseSource)
+	if parseErr != nil || len(parseSnapshot) != 2 {
+		t.Fatalf("export: got %d records, err=%v", len(parseSnapshot), parseErr)
+	}
+
+	// Ingress: write them into a fresh backend (simulating the other app/domain).
+	parseDest := newMemBackend()
+	if parseErr := Import(parseCtx, parseDest, parseSnapshot, nil); parseErr != nil {
+		t.Fatalf("import: %v", parseErr)
+	}
+	parseRec, parseFound, _ := parseDest.Load(parseCtx, "a")
+	if !parseFound || string(parseRec.Value) != "1" {
+		t.Fatalf("round-trip lost record a: %+v found=%v", parseRec, parseFound)
+	}
+	parseKeys, _ := parseDest.Keys(parseCtx)
+	if len(parseKeys) != 2 {
+		t.Fatalf("expected 2 imported keys, got %v", parseKeys)
+	}
+}
+
+func TestImportRejectsStaleWithVersionedResolver(t *testing.T) {
+	parseCtx := context.Background()
+	parseDest := newMemBackend()
+	parseDest.Save(parseCtx, Record{Key: "k", Value: []byte("local-v5"), Version: 5})
+
+	// Incoming stale (v3) must be rejected; newer (v7) must win.
+	if parseErr := Import(parseCtx, parseDest, []Record{
+		{Key: "k", Value: []byte("stale-v3"), Version: 3},
+	}, Versioned{}); parseErr != nil {
+		t.Fatal(parseErr)
+	}
+	if parseRec, _, _ := parseDest.Load(parseCtx, "k"); string(parseRec.Value) != "local-v5" {
+		t.Fatalf("stale import should be rejected, got %q", parseRec.Value)
+	}
+	if parseErr := Import(parseCtx, parseDest, []Record{
+		{Key: "k", Value: []byte("new-v7"), Version: 7},
+	}, Versioned{}); parseErr != nil {
+		t.Fatal(parseErr)
+	}
+	if parseRec, _, _ := parseDest.Load(parseCtx, "k"); string(parseRec.Value) != "new-v7" {
+		t.Fatalf("newer import should win, got %q", parseRec.Value)
+	}
+}
+
+func TestExportEmptyBackend(t *testing.T) {
+	parseSnapshot, parseErr := Export(context.Background(), newMemBackend())
+	if parseErr != nil || len(parseSnapshot) != 0 {
+		t.Fatalf("empty export should be empty: %d err=%v", len(parseSnapshot), parseErr)
+	}
+}
