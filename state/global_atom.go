@@ -56,10 +56,31 @@ func (parseAtom GlobalAtom[T]) Get() T {
 // Set writes a new value and schedules a re-render of every component subscribed
 // to this id via UseAtom. Safe to call from any goroutine or callback. A no-op
 // when the runtime is unavailable (e.g. native SSR with no global runtime).
+//
+// Writing a value equal to the current one is a no-op (no re-render), matching
+// UseState's behavior. Equality is a recover-guarded ==, so non-comparable types
+// (slice/map/func) always write.
 func (parseAtom GlobalAtom[T]) Set(parseValue T) {
-	if parseRt := runtime.GetGlobalRuntime(); parseRt != nil {
-		_ = parseRt.SetAtomValue(parseAtom.id, parseValue)
+	parseRt := runtime.GetGlobalRuntime()
+	if parseRt == nil {
+		return
 	}
+	if parseCurrent, parseOk := parseRt.GetAtomValue(parseAtom.id); parseOk && atomValuesEqual(parseCurrent, parseValue) {
+		return
+	}
+	_ = parseRt.SetAtomValue(parseAtom.id, parseValue)
+}
+
+// atomValuesEqual reports whether two atom values are equal, guarding the ==
+// against non-comparable types (slice/map/func) where it returns false so the
+// write always proceeds.
+func atomValuesEqual(parseA any, parseB any) (parseEqual bool) {
+	defer func() {
+		if recover() != nil {
+			parseEqual = false
+		}
+	}()
+	return parseA == parseB
 }
 
 // Update applies fn to the current value and stores the result.

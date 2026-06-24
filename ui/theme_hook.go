@@ -39,7 +39,18 @@ func UseTheme(parseDefault string) (string, func(string)) {
 // Passing "" clears the attribute (revert to default/unthemed).
 func SetTheme(parseName string) {
 	if parseRt := runtime.GetGlobalRuntime(); parseRt != nil {
-		_ = parseRt.SetAtomValue(themeAtomID, parseName)
+		// Skip the atom write (and the re-render of all subscribers) when the
+		// theme is unchanged; still ensure the DOM attribute reflects it.
+		parseCurrent, parseOk := parseRt.GetAtomValue(themeAtomID)
+		parseSame := false
+		if parseOk {
+			if parseStr, parseStrOk := parseCurrent.(string); parseStrOk && parseStr == parseName {
+				parseSame = true
+			}
+		}
+		if !parseSame {
+			_ = parseRt.SetAtomValue(themeAtomID, parseName)
+		}
 	}
 	applyThemeAttribute(parseName)
 }
