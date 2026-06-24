@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `router.FragmentHref` no longer emits a malformed double-hash
+  (`#/path#fragment`) under a hash router; it returns `<path>#<fragment>` and is
+  documented as a history-router helper (hash routers keep the route in the URL
+  fragment, so in-page fragment anchors there need programmatic scrolling).
+
+### Tests
+
+- Hardened the G1 `MapKeyedComponent` coverage with a reorder +
+  variable-length-removal case proving per-row hook state follows the key when
+  the list is reordered and shrinks.
+- Added authoritative `CSS.escape` cross-checks for `ui.CSSEscape`.
+
 ## v3.3.0 - 2026-06-24
 
 ### Added

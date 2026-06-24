@@ -3,6 +3,7 @@
 package router
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -204,6 +205,23 @@ func TestFragmentHrefEmbedsCurrentPath(parseT *testing.T) {
 	// A leading '#' on the fragment is tolerated (not doubled).
 	if parseGot2 := FragmentHref("#main"); parseGot2 != "/beta#main" {
 		parseT.Fatalf("FragmentHref('#main') = %q, want /beta#main", parseGot2)
+	}
+}
+
+// TestFragmentHrefHashRouterNoDoubleHash proves FragmentHref does not emit a
+// malformed "#path#fragment" under a hash router (regression).
+func TestFragmentHrefHashRouterNoDoubleHash(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	globalRouter = NewHashRouter()
+	registerLocationProbeRoutes(globalRouter)
+	Navigate("/beta")
+
+	parseGot := FragmentHref("main")
+	if strings.Count(parseGot, "#") != 1 {
+		parseT.Fatalf("FragmentHref under hash router has %d '#' (want 1): %q", strings.Count(parseGot, "#"), parseGot)
+	}
+	if parseGot != "/beta#main" {
+		parseT.Fatalf("FragmentHref = %q, want /beta#main", parseGot)
 	}
 }
 
