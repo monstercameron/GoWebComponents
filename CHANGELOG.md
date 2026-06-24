@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.4.3 - 2026-06-24
+
+### Fixed
+
+- `ui.UseDocumentEvent`/`UseWindowEvent`/`UseGlobalKey` (and `UseNetworkStatus`)
+  now degrade to a no-op when the global target lacks `addEventListener` instead
+  of throwing, matching the no-DOM guards used elsewhere. No change in real
+  browsers/Web Workers (which always have it); defense-in-depth for exotic hosts.
+
+### Tests
+
+- `css.Inject` `<style>`/comment breakout hardening; multi-hook composition
+  (UseMount + UseMediaQuery + UseTheme + UseLayoutEffect) coexistence.
+
 ## v3.4.2 - 2026-06-24
 
 ### Fixed
