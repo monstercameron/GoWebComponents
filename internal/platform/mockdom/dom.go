@@ -117,6 +117,9 @@ func (parseA *MockDOMAdapter) CreateTextNode(parseText string) runtime.DOMNode {
 
 func (parseA *MockDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName, parseValue string) {
 	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		// Mirror the browser adapter: block javascript:/vbscript: URLs so the
+		// client render path is testable for the same XSS guard natively.
+		parseValue = runtime.SanitizeURLAttributeValue(parseName, parseValue)
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
 		parseN.Attrs[parseName] = parseValue

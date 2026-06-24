@@ -353,6 +353,10 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 
 func (parseA *WASMDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName, parseValue string) {
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		// Block javascript:/vbscript: URLs in href/src/action so a user-controlled
+		// URL rendered through the normal element API cannot execute on click —
+		// parity with the SSR serializer's sanitizer.
+		parseValue = runtime.SanitizeURLAttributeValue(parseName, parseValue)
 		parseWasmNode.value.Call("setAttribute", parseName, parseValue)
 	}
 }
@@ -759,6 +763,7 @@ func (parseA *WASMDOMAdapter) BatchSetAttributes(parseNode runtime.DOMNode, pars
 			return
 		}
 		for parseName, parseValue := range parseAttrs {
+			parseValue = runtime.SanitizeURLAttributeValue(parseName, parseValue)
 			parseWasmNode.value.Call("setAttribute", parseName, parseValue)
 		}
 	}
