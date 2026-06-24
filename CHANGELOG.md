@@ -1,5 +1,20 @@
 # Changelog
 
+## v3.4.4 - 2026-06-24
+
+### Fixed
+
+- The `state` package test binary failed to compile under `GOOS=js GOARCH=wasm`
+  because `ExampleUseAtom` was declared in both a wasm-only and a build-neutral
+  example file ("redeclared"). Removed the redundant wasm-only duplicate; the
+  documented build-neutral example remains.
+
+### Tests
+
+- `MapKeyedComponent` renders through SSR (`RenderToString`, hydration-ready);
+  `css.Global`/`Root` rules participate in SSR seed-suppression (not re-injected
+  on hydration).
+
 ## v3.4.3 - 2026-06-24
 
 ### Fixed
