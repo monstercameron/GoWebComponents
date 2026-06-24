@@ -1,9 +1,6 @@
 package diagnostics
 
-import (
-	"net/http/httptest"
-	"testing"
-)
+import "testing"
 
 func BenchmarkNewReport(parseB *testing.B) {
 	parseB.ReportAllocs()
@@ -18,19 +15,5 @@ func BenchmarkNewReport(parseB *testing.B) {
 	}
 	for parseB.Loop() {
 		_ = NewReport(parseOptions)
-	}
-}
-
-func BenchmarkWriteHTTPError(parseB *testing.B) {
-	parseB.ReportAllocs()
-	parseReport := NewReport(Options{
-		Summary:  "router rejected navigation",
-		Code:     "route_blocked",
-		Headline: "Navigation blocked",
-		Next:     "inspect route guards",
-	})
-	for parseB.Loop() {
-		parseRecorder := httptest.NewRecorder()
-		WriteHTTPError(parseRecorder, 422, parseReport)
 	}
 }
