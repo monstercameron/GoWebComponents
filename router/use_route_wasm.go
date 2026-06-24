@@ -74,7 +74,13 @@ var (
 
 // OnNavigate registers fn to run after each navigation with the new Location —
 // the seam for SPA scroll-reset, analytics page views, and title side effects
-// (G28). It returns an unsubscribe func. Fires only on an actual location change.
+// (G28). It returns an unsubscribe func.
+//
+// Firing semantics: fn runs once on the initial render (the first location is a
+// change from "none", so analytics see the landing page view), then once per
+// subsequent navigation. It does NOT fire when the location is unchanged (a
+// re-render at the same path+query is deduped). Register before mounting if you
+// need the initial fire.
 //
 //	stop := router.OnNavigate(func(loc router.Location) { scrollTop() })
 //	defer stop()
