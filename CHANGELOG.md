@@ -4,6 +4,13 @@
 
 ### Added
 
+- **Reactive theming — `ui.UseTheme` / `ui.SetTheme` / `ui.CurrentTheme`** — a
+  hook that subscribes a component to the active theme name and a setter that
+  switches it everywhere (re-rendering all subscribers and applying
+  `<html data-theme="…">` so `[data-theme]` rules and `:root` token overrides
+  take effect). `SetTheme`/`CurrentTheme` switch/read from outside a render
+  (global hotkeys, OS theme listeners). The reactive capstone over the typed-CSS
+  token system — style with tokens (below), switch with UseTheme.
 - **`css.Theme.RootRules` / `css.EmitThemeTokens`** — emit a typed `Theme`'s
   scales as a `:root` custom-property palette (`--color-*`, `--space-*`,
   `--text-*`, `--radius-*`), bridging the typed theme to a live CSS-variable
