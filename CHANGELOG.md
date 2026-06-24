@@ -1,5 +1,20 @@
 # Changelog
 
+## v3.4.1 - 2026-06-24
+
+### Fixed
+
+- `router.FragmentHref` dropped the current query string — an in-page anchor on a
+  URL like `/list?page=2` produced `/list#main`, so clicking it navigated away
+  from the query state. It now preserves the query (`/list?page=2#main`).
+
+### Tests
+
+- Edge coverage for `css.Global`/`Layer` + variant compositions (`@layer`+`Hover`,
+  `Global`+`@media`, `LayerGlobal`+`DataTheme`), partial/empty `Theme.RootRules`,
+  `interop.Await` rejection with non-Error payloads, and the FragmentHref query
+  regression.
+
 ## v3.4.0 - 2026-06-24
 
 ### Added
