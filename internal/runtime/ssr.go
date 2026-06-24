@@ -367,6 +367,9 @@ func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]any) {
 				parseBuilder.WriteString(parseName)
 			}
 		case string:
+			if urlBearingSSRAttr(parseName) {
+				parseTyped = sanitizeSSRURLValue(parseTyped)
+			}
 			parseBuilder.WriteByte(' ')
 			parseBuilder.WriteString(parseName)
 			parseBuilder.WriteString(`="`)
@@ -421,6 +424,77 @@ func normalizeSSRAttrName(parseKey string) string {
 	}
 }
 
+// urlBearingSSRAttr reports whether the browser interprets an attribute's value
+// as a URL, so a javascript:/vbscript: scheme in it would execute on navigation.
+func urlBearingSSRAttr(parseName string) bool {
+	switch strings.ToLower(parseName) {
+	case "href", "src", "action", "formaction", "poster", "data",
+		"xlink:href", "ping", "background", "cite", "longdesc":
+		return true
+	}
+	return false
+}
+
+// ssrURLScheme returns the scheme token of a URL value (the text before the first
+// ':' that precedes any '/', '?', '#', or '\\'). Relative paths, absolute paths,
+// and fragments have no scheme separator and report hasScheme=false.
+func ssrURLScheme(parseValue string) (parseScheme string, parseHasScheme bool) {
+	for parseIndex := 0; parseIndex < len(parseValue); parseIndex++ {
+		switch parseValue[parseIndex] {
+		case ':':
+			return parseValue[:parseIndex], true
+		case '/', '?', '#', '\\':
+			return "", false
+		}
+	}
+	return "", false
+}
+
+// normalizeSSRScheme lowercases a scheme token and strips whitespace and control
+// characters so obfuscated schemes (java\tscript:, " javascript:", JavaScript:)
+// collapse onto their real form before the denylist check.
+func normalizeSSRScheme(parseScheme string) string {
+	var parseBuilder strings.Builder
+	for parseIndex := 0; parseIndex < len(parseScheme); parseIndex++ {
+		parseByte := parseScheme[parseIndex]
+		if parseByte <= ' ' || parseByte == 0x7f {
+			continue
+		}
+		parseBuilder.WriteByte(parseByte)
+	}
+	return strings.ToLower(parseBuilder.String())
+}
+
+// sanitizeSSRURLValue neutralizes a script-executing scheme (javascript: or
+// vbscript:) in a URL-bearing attribute value, tolerating the usual obfuscations.
+// data:, http(s):, mailto:, relative, and fragment values pass through unchanged
+// (data:image/... on <img src> is legitimate, so the denylist is narrow). A
+// blocked value is replaced with the inert about:blank sentinel.
+func sanitizeSSRURLValue(parseValue string) string {
+	parseScheme, parseHasScheme := ssrURLScheme(strings.TrimSpace(parseValue))
+	if !parseHasScheme {
+		return parseValue
+	}
+	switch normalizeSSRScheme(parseScheme) {
+	case "javascript", "vbscript":
+		return "about:blank"
+	}
+	return parseValue
+}
+
+// SanitizeURLAttributeValue neutralizes a script-executing scheme
+// (javascript: or vbscript:) in the value of a URL-bearing attribute such as
+// href/src/action. Non-URL attributes and safe schemes (http(s), data, mailto,
+// relative, fragment) are returned unchanged. It is shared by the SSR serializer
+// and the browser DOM adapter so both render paths block the identical XSS
+// vector at the point a value reaches the document.
+func SanitizeURLAttributeValue(parseName, parseValue string) string {
+	if !urlBearingSSRAttr(parseName) {
+		return parseValue
+	}
+	return sanitizeSSRURLValue(parseValue)
+}
+
 // serializeSSRAttr is a core package helper.
 func serializeSSRAttr(parseName string, parseValue any) (string, bool) {
 	// Finding #57: reject attribute names that do not conform to the HTML/XML
@@ -435,6 +509,9 @@ func serializeSSRAttr(parseName string, parseValue any) (string, bool) {
 		}
 		return parseName, true
 	case string:
+		if urlBearingSSRAttr(parseName) {
+			parseTyped = sanitizeSSRURLValue(parseTyped)
+		}
 		return parseName + `="` + html.EscapeString(parseTyped) + `"`, true
 	case map[string]string:
 		// Serialized with sorted keys so SSR output is deterministic (#58).

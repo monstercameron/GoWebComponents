@@ -1,5 +1,26 @@
 # Changelog
 
+## v3.4.7 - 2026-06-24
+
+### Security
+
+- **`javascript:` URL injection through the normal element API.** The render
+  path emitted URL-bearing attributes (`href`, `src`, `action`, `formaction`,
+  `poster`, object `data`, `xlink:href`, …) verbatim, so a user-controlled URL
+  passed through the ordinary `html.A`/`html.Img`/`html.Tag` API — e.g.
+  `html.A(html.Props{Href: userURL})` — could ship a clickable
+  `<a href="javascript:alert(1)">`, an XSS vector. Only markdown and `RawHTML`
+  sanitized URLs before; the element API did not. Script-executing schemes
+  (`javascript:`, `vbscript:`) are now neutralized to the inert `about:blank`
+  sentinel at both the SSR serializer and the browser DOM adapter, tolerating
+  the usual obfuscations (leading/embedded whitespace and control characters,
+  intermediate CR/LF, mixed casing). Safe schemes (`http(s)`, `data:`, `mailto`,
+  `tel`), relative paths, and fragments are untouched, and a URL-looking value in
+  a non-URL attribute is left alone. Vectors ported from React's
+  `ReactDOMServerIntegrationUntrustedURL` suite; covered by
+  `TestURLSanitization*` and the `FuzzSanitizeURLAttributeValue` property fuzz
+  (7M+ executions clean).
+
 ## v3.4.6 - 2026-06-24
 
 ### Security
