@@ -1,5 +1,21 @@
 # Changelog
 
+## v3.4.2 - 2026-06-24
+
+### Fixed
+
+- `state.GlobalAtom.Set` and `ui.SetTheme` no longer re-render subscribers on a
+  no-op write — setting a value equal to the current one is now skipped (matching
+  `UseState`'s dedup). Equality is a recover-guarded `==`, so non-comparable
+  slice/map values still always write. `SetTheme` still applies the
+  `data-theme` attribute either way.
+
+### Tests
+
+- Dedup render-count test (no-op `Set` does not re-render, changed `Set` does);
+  `GlobalAtom` composite value types (slice/struct/map); `MapKeyedComponent`
+  nil-rendering rows; `OnNavigate` initial-mount contract.
+
 ## v3.4.1 - 2026-06-24
 
 ### Fixed
