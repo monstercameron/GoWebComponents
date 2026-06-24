@@ -457,6 +457,7 @@ Use this table before widening ownership.
 | Local workflow | `ui.UseReducer` | `Stable` | one feature subtree owns named transitions | the value is simple enough for one or two independent `UseState` calls |
 | Subtree sharing | `ui.CreateContext`, `ui.UseContext` | `Stable` | one subtree needs shared access without prop threading | unrelated branches need the same source of truth |
 | Shared writable state | `state.UseAtom` | `Stable` | multiple unrelated consumers need one shared source | the value is local, route-owned, or really async server data |
+| Non-hook shared state | `state.GlobalAtom` (`NewGlobalAtom`, `Get`/`Set`/`Update`) | `Stable` | shared state must be read/written from **outside** a render — global key handlers, undo/redo, background goroutines, OS-event callbacks — and still re-render `UseAtom` subscribers of the same id | a component can own the value with `UseAtom`/`UseState` |
 | Local derived state | `state.UseComputed` | `Stable` | the current component wants a typed memoized derived value | several components need to share the derived result |
 | Shared derived state | `state.UseDerived` | `Stable` | a shared read-only value should recompute from explicit source atom IDs | the derivation is only local to one component |
 | Shared projected state | `state.UseSelector` | advanced public projection helper | one consumer needs a narrower projection from a wider shared source | the shared source is already small enough or the owner still needs full rerender |

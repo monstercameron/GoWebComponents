@@ -186,6 +186,22 @@ Teams can adopt the sugar incrementally:
 
 The current sugar layer is designed to coexist with the explicit builder model rather than replace it.
 
+## Recent additions (v3.3–v3.4)
+
+- **`MapKeyedComponent(items, key, render)`** renders each list item as its own keyed component, so the
+  `render` func may call hooks and `On*` handlers directly — no hand-extracted row component, no
+  "hooks in a variable-length loop" gotcha. Per-row state is isolated and follows the key across
+  reorders and removals.
+- **SVG chart primitives** join `Svg`/`Path`/`Circle`/`Rect`: `G`, `Line`, `Polyline`, `Polygon`,
+  `Ellipse`, `TSpan`, `Defs`, `Use`, `LinearGradient`, `RadialGradient`, `GradientStop`, `ClipPath`,
+  `Mask`, `SvgPattern`, `SvgImage`, `ForeignObject`, `Symbol`, `Marker` — charts as real Go nodes (no
+  JS shim). Use `RawHTMLUnsafe` for the SVG `<text>` element.
+- **Typed CSS tokens, layers, and reactive theming.** Author a `:root` palette with `css.Root` /
+  `css.Theme.RootRules` (`--color-*`/`--space-*`/`--text-*`/`--radius-*`), reference tokens with
+  `css.Var`, scope overrides with `css.DataTheme` / `css.Layer`, and switch live with the reactive
+  `ui.UseTheme` / `ui.SetTheme` hooks. See reference-manual chapters 04 (hooks) and 05 (HTML/CSS
+  authoring) for the full surface.
+
 ## Review Checklist
 
 - does the example or doc keep the boundary clear between typed `html` builders and the mixed-argument `html/shorthand` companion surface

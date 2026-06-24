@@ -303,6 +303,31 @@ Key properties:
 
 See the [typed-css](../../examples/public/typed-css/) example for a fully bare-authored view.
 
+### Global rules, design tokens, and cascade layers (v3.3+)
+
+The hashed-class model above scopes every rule under a generated class. For the *global* stylesheet
+layer — element selectors, a `:root` token palette, semantic classes, and cascade ordering — use:
+
+- **`css.Global(selector, rules...)`** — emit an un-prefixed top-level rule (`body`, `*`, `.nav-link`,
+  `:root`). **`css.Root(rules...)`** is shorthand for `Global(":root", ...)`.
+- **Design tokens.** Author a `:root` custom-property palette and reference it with `css.Var`:
+  ```go
+  css.Root(css.Raw("--accent", "#4f46e5"), css.Raw("--radius", "12px"))
+  css.New(css.Bg(css.Var("accent")), css.Raw("border-radius", string(css.Var("radius"))))
+  ```
+  A runtime `element.style.setProperty("--accent", …)` then reskins every reference without
+  regenerating classes. **`css.Theme.RootRules()` / `css.EmitThemeTokens(theme)`** emit a typed
+  `Theme`'s scales (`--color-*`, `--space-*`, `--text-*`, `--radius-*`) as that palette automatically.
+- **Ancestor-attribute variants.** `css.Within(selector, rules...)` → `<selector> &`; `css.DataTheme("light", rules...)`
+  → `[data-theme="light"] &` (pairs with `ui.UseTheme`, see [04 UI Rendering And Hooks](04-ui-rendering-and-hooks.md)).
+- **Cascade layers.** `css.Layer(name, rules...)`, `css.LayerGlobal(name, selector, rules...)`, and
+  `css.DeclareLayers("base","components","overrides")` give declared override precedence via `@layer`
+  instead of order/`!important` accidents.
+- **Base + extraction.** `css.Preflight()` / `css.PreflightInLayer(name)` emit an opt-in modern reset;
+  `css.CriticalCSS()` returns the `<style>` block to inline for SSR (paired with `SeedFromDocument`).
+
+All global/token/layer output is hardened against `</style>` breakout like the rest of `css`.
+
 ## Markup Nodes (Raw HTML & SVG)
 
 When you need to render a fragment of existing markup — sanitized rich text from a CMS, or a trusted
@@ -323,6 +348,29 @@ svg := html.RawHTMLUnsafe(`<svg width="20" height="20"><circle cx="10" cy="10" r
   `innerHTML`), and SVG is committed in the SVG namespace.
 
 See the [raw-html](../../examples/public/raw-html/) example.
+
+### Typed SVG elements (v3.3+)
+
+Beyond `Svg`/`Path`/`Circle`/`Rect`, `html/shorthand` provides the SVG chart primitives so charts can
+be authored as real Go nodes (no JS shim): `G`, `Line`, `Polyline`, `Polygon`, `Ellipse`, `TSpan`,
+`Defs`, `Use`, `LinearGradient`, `RadialGradient`, `GradientStop`, `ClipPath`, `Mask`, `SvgPattern`,
+`SvgImage`, `ForeignObject`, `Symbol`, `Marker`. All commit in the SVG namespace. (The SVG `<text>`
+element is intentionally not a helper — use `RawHTMLUnsafe` for it to avoid HTML/SVG name collisions.)
+
+### Interactive lists: `MapKeyedComponent` (v3.3+)
+
+`On*` handlers and hooks must sit at stable hook positions, so they cannot be called directly inside a
+variable-length `Map`/`MapKeyed` loop. **`shorthand.MapKeyedComponent(items, key, render)`** renders
+each item as its own keyed component (its own fiber), so the `render` func may legally use `UseState`,
+`UseEvent`, and `On*` handlers per row. Per-row state is isolated and follows the key across reorders
+and removals.
+
+```go
+MapKeyedComponent(rows, func(r Row) any { return r.ID }, func(r Row) ui.Node {
+    open := ui.UseState(false)                       // legal: each row is its own component
+    return Button(OnClick(func() { open.Set(!open.Get()) }), r.Name)
+})
+```
 
 ## Design Notes And Boundaries
 

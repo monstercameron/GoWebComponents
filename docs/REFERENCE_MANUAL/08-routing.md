@@ -435,6 +435,9 @@ Use this table before you add more route machinery.
 | Router creation and mount | `NewHashRouter`, `NewHistoryRouter`, `Register`, `Mount`, `Current` | `Stable` | you need the base route tree and mount lifecycle | never; these are the entrypoints |
 | Imperative navigation | `UseNavigate`, `Navigator.Navigate`, `Navigator.Replace`, top-level `Navigate`, `NavigateReplace` | `Stable` | event handlers should push or replace routes programmatically | a normal link is enough |
 | Params and query reads | `UseParams`, `UseQuery`, `UseSearchParams` | `Stable` | the route component should read or write URL-derived state | the value is purely local UI state |
+| Reactive location | `UseRoute`, `UseLocation` | `Stable` | a memoized component (active-nav highlight, breadcrumb) must re-render on navigation without threading the path as a prop | the route component already re-renders and can read `UseParams` |
+| Navigation lifecycle | `OnNavigate(fn)` | `Stable` | run a side effect after each navigation (scroll-reset, analytics page view) | the effect belongs to one route component |
+| Mode-safe links | `Href(path)`, `FragmentHref(fragment)` | `Stable` | build an href that is correct for the active router mode / safe under `<base href>` (in-page anchors) | a static literal href is unambiguous |
 | Route contracts | `DefineRoute`, `MustDefineRoute`, `Path`, `Href`, `PathFor`, `HrefFor` | `Stable` | larger apps need validated reverse routing | the app is still small and string literals remain obvious |
 | Redirects | `router.Options{Redirect: ...}`, `RedirectNavigation` | core redirects are `Stable` | a matched route should hand off to another route cleanly | the page should stay mounted and render a manual fallback |
 | Nested layouts | `router.Options{Layout: true}`, `GetOutlet` | `Stable` | one shell should stay mounted while child routes swap | there is no shared shell between the routes |

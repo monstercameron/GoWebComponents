@@ -140,6 +140,23 @@ Interop overhead is usually dominated by repeated boundary crossings, not single
 - reuse one imported `Module` handle while a feature is active instead of repeatedly importing the same module
 - batch application logic on the Go side after the browser callback fires; keep the callback itself narrow
 
+## Promise Bridge And Web-API Wrappers (v3.3–v3.4)
+
+Async browser APIs no longer need hand-rolled `js.FuncOf` `then`/`catch`/`Release` chains:
+
+- **`Value.Await(ctx)` / `Value.AwaitCall(ctx, method, …)`** resolve a JS Promise into Go with context
+  cancellation and managed `js.Func` lifetime. Call them from a goroutine (e.g. `ui.SafeGo`), never
+  directly inside a render or event callback, since they block until the promise settles.
+- **Crypto:** `GenerateAESKey`, `Encrypt`, `Decrypt`, `NewEncryptedStore` (AES-GCM at rest) instead of
+  raw `crypto.subtle` promise chains.
+- **Notifications:** `RequestNotificationPermission(ctx)`, `PostNotification(title, body)`,
+  `NotificationPermissionState()`.
+- **`WrapElement(jsValue)`** bridges a DOM node (e.g. from a `ui.UseDOMRef`) into the `Element` surface
+  for `BoundingClientRect`/`ObserveResize`/`ObserveIntersection`.
+
+All return a structured `CodeUnavailable` error off-browser (and in no-DOM wasm hosts such as Web
+Workers) rather than panicking, so SSR and worker paths degrade cleanly.
+
 ## Preferred Examples
 
 The clearest current interop examples are:
