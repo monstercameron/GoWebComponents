@@ -16,6 +16,12 @@ func defaultBindGlobalEvent(parseScope globalScope, parseEventType string, parse
 	if !parseTarget.Truthy() {
 		return nil
 	}
+	// Guard against a global without addEventListener (no-DOM-event hosts) so we
+	// degrade to a no-op instead of throwing — and never create a js.Func we
+	// couldn't bind. Real browsers and Web Workers always have it.
+	if parseTarget.Get("addEventListener").Type() != js.TypeFunction {
+		return nil
+	}
 	parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) any {
 		defer runtime.RecoverContainedPanic("ui", "UseGlobalEvent callback")
 		var parseEvent js.Value
