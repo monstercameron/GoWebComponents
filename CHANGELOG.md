@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.4.6 - 2026-06-24
+
+### Security
+
+- **`hardenCSS` NUL-byte breakout bypass.** The CSS `<style>`/comment-close
+  hardening skipped NUL bytes inline, *after* its lookahead guards, so an input
+  like `*\x00/` or `<\x00/style>` slipped past the guards and then had the NUL
+  removed — silently reconstituting `*/` or `</style>` in the emitted CSS (a
+  style-element / CSS-comment breakout reachable via `css.Inject`, `css.Global`,
+  `css.Raw` values, etc.). NULs are now stripped in a separate first pass so the
+  guards run on the final byte stream. Found by fuzzing; regression seed +
+  `FuzzInjectHardening`/`FuzzCSSEscape` fuzz tests added.
+
 ## v3.4.5 - 2026-06-24
 
 ### Fixed
