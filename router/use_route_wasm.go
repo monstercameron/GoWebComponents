@@ -112,13 +112,17 @@ func Href(parsePath string) string {
 }
 
 // FragmentHref returns an in-page anchor href (e.g. a "skip to content" link)
-// that is safe under a <base href> (G7). A bare "#main" resolves against the base
-// (navigating to root); embedding the live path keeps the anchor in-page. For a
-// hash router it returns "#<path>#<fragment>"; for a history router it returns
-// "<path>#<fragment>".
+// that is safe under a <base href> (G7). With a <base href> a bare "#main"
+// resolves against the base (navigating to root); embedding the live path keeps
+// the anchor in-page. It returns "<current-path>#<fragment>".
 //
-//	A(FragmentHref("main"), "Skip to content")
+// This targets history routers, where the <base href> footgun exists. Hash
+// routers keep the whole route in the URL fragment, so a second in-page fragment
+// cannot be expressed as an href (use programmatic scrolling instead); to avoid a
+// malformed "#path#fragment", FragmentHref does NOT add the hash-router prefix.
+//
+//	A(html.Href(router.FragmentHref("main")), "Skip to content")
 func FragmentHref(parseFragment string) string {
 	parseFragment = strings.TrimPrefix(parseFragment, "#")
-	return Href(GetCurrentPath()) + "#" + parseFragment
+	return normalizePath(GetCurrentPath()) + "#" + parseFragment
 }

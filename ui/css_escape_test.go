@@ -24,6 +24,13 @@ func TestCSSEscapeCorrectness(parseT *testing.T) {
 		{"null-becomes-replacement", "a\x00b", "a�b"},
 		{"control-char", "a\x01b", "a\\1 b"},
 		{"unicode-passthrough", "café", "café"},
+		// Authoritative cross-checks against the browser CSS.escape() spec.
+		{"single-digit", "9", `\39 `},
+		{"tab-control", "\t", `\9 `},
+		{"double-leading-hyphen", "--custom-prop", "--custom-prop"},
+		{"hyphen-then-letter", "-a", "-a"},
+		{"trailing-and-mid-special", "a#b.c d", `a\#b\.c\ d`},
+		{"percent-and-paren-leading-digit", "50%(x)", `\35 0\%\(x\)`},
 	}
 
 	for _, parseCase := range parseCases {
