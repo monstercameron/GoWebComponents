@@ -400,6 +400,9 @@ func (parseR Ref[T]) Set(parseValue T) {
 // UseEffect is a no-op on non-browser targets.
 func UseEffect(parseEffect func() func(), parseDeps ...any) {}
 
+// UseLayoutEffect is a no-op on non-browser targets (G36).
+func UseLayoutEffect(parseEffect func() func(), parseDeps ...any) {}
+
 // UseId returns a stable generated identifier for the current component instance.
 func UseId() string {
 	nativeIDMu.Lock()

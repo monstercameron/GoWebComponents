@@ -677,6 +677,10 @@ func (parseR *Router) renderCurrentRoute(isApplyGuards bool) {
 	if parseRouteElement == nil {
 		return
 	}
+	// Publish the active location so UseRoute/UseLocation subscribers (e.g.
+	// memoized chrome) re-render on navigation (G6). Done before the render so a
+	// subscribed fiber marked dirty here is re-rendered in this same pass.
+	publishLocation()
 	switch {
 	case parseR.targetSelector != "":
 		parseRt.RenderTo(parseR.targetSelector, parseRouteElement)

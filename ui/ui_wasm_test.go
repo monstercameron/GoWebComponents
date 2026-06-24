@@ -530,7 +530,7 @@ func TestHydrateRestoresBootstrapAtomsAndIDSeed(parseT *testing.T) {
 
 	runtime.SetCurrentFiber(&runtime.Fiber{})
 	defer runtime.SetCurrentFiber(nil)
-	if parseGot := UseId(); parseGot != "gwc:8:0" {
+	if parseGot := UseId(); parseGot != "gwc-8-0" {
 		parseT.Fatalf("expected hydration id seed to advance next UseId generation, got %q", parseGot)
 	}
 }

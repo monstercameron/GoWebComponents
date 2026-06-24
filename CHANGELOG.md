@@ -1,5 +1,76 @@
 # Changelog
 
+## v3.3.0 - 2026-06-24
+
+### Added
+
+- **Hooks/handlers in loops — `MapKeyedComponent`** (G1): renders each item as its
+  own keyed component (own fiber), so the render func may use `UseState`/`UseEvent`
+  and `On*` handlers directly inside the loop — no hand-extracted row component,
+  no "hooks in a variable-length loop" footgun. Per-row state is isolated and
+  persists across renders by key.
+- **SVG chart primitives** (G8) — `shorthand.Ellipse`, `TSpan`, `LinearGradient`,
+  `RadialGradient`, `GradientStop`, `ClipPath`, `Mask`, `SvgPattern`, `SvgImage`,
+  `ForeignObject`, `Symbol`, `Marker` (the runtime already namespaced these;
+  helpers were missing), enabling native-Go charting.
+- **CSS base layer & extraction** — `css.Preflight` / `css.PreflightInLayer` (an
+  opt-in modern reset, CSS5) and `css.CriticalCSS` (the extract half of the
+  author-in-Go / ship-inline SSR pipeline, paired with `SeedFromDocument`, CSS6).
+- **Base-href-safe links** (G7) — `router.Href` (mode-aware href: `#path` for hash
+  routers, bare path for history) and `router.FragmentHref` (in-page anchors that
+  embed the live path so they survive `<base href>`).
+- **Lifecycle & environment hooks** — `ui.UseMount` (run-once-on-mount with
+  cleanup, G38); `ui.UseMediaQuery` (reactive `matchMedia`, G20);
+  `ui.UseNetworkStatus` (reactive `navigator.onLine`, G32); `ui.ViewTransition`
+  (View Transitions API with graceful fallback, G27).
+- **Element-ref hooks** — `ui.UseElementGeometry` (measured box, ResizeObserver,
+  G26); `ui.UseIntersection` (IntersectionObserver visibility, G27);
+  `ui.UseAnimationRestart` (double-rAF keyframe replay, G27);
+  `ui.UsePointerEvents` / `ui.UseWheel` (managed element pointer/wheel listeners,
+  G35). Plus `interop.WrapElement` to bridge a DOM node to the interop Element
+  surface. All have native no-op stubs.
+- **Router navigation lifecycle** — `router.OnNavigate(fn)` fires on each real
+  navigation with the new Location (scroll-reset / analytics / title seam, G28).
+- **CSS cascade layers** — `css.Layer`, `css.LayerGlobal`, `css.DeclareLayers`
+  for `@layer`-based override precedence instead of order/`!important` accidents
+  (CSS4).
+
+- **Reactive routing — `router.UseRoute` / `router.UseLocation`** (G6): a hook
+  that subscribes the calling component to navigation and returns the active
+  `router.Location` (path, query, params). Memoized chrome (active-nav highlight,
+  breadcrumb) now stays in sync on navigation without threading the path down as
+  a prop. The router publishes the live location into a well-known atom on every
+  render (deduped on path+query).
+- **Layout effects — `ui.UseLayoutEffect`** (G36): runs synchronously after the
+  commit mutates the DOM, before paint, and before the same component's passive
+  `UseEffect` callbacks. Removes the `setTimeout`/`rAF` guesswork for post-render
+  focus/scroll/measure work. Backed by an `Effect.Layout` lane in the reconciler.
+- **Global / token CSS — `css.Global`, `css.Root`, `css.Inject`, `css.Within`,
+  `css.DataTheme`** (CSS1/CSS2/CSS3/G30): author un-prefixed top-level rules
+  (element/`:root`/semantic-class selectors), a `:root` custom-property palette,
+  ancestor-attribute (`[data-theme="…"] &`) variants, and runtime `<style>`
+  injection keyed by id — all hardened against `<style>` breakout and flowing
+  through the same SSR/Harvest sink as `New`.
+- **Non-hook shared state — `state.GlobalAtom[T]`** (G39): read/write a shared
+  atom from ANY context, including outside render (global key handlers, undo/redo,
+  background goroutines). Targets the same registry as `UseAtom`, so writes
+  re-render subscribers; pre-render writes persist instead of silently dropping.
+  Backed by a no-notify `runtime.InitAtomValue` seeding primitive.
+- **Promise→Go bridge — `interop.Value.Await` / `AwaitCall`** (G27/G31/G33/G34):
+  resolve a JS Promise into Go with context cancellation and managed `js.Func`
+  lifetime, collapsing the manual `then`/`catch`/`Release` chain. Plus a
+  **Notifications wrapper** (`interop.RequestNotificationPermission`,
+  `PostNotification`, `NotificationPermissionState`).
+- **CSS-safe ids — `ui.CSSEscape` / `ui.SelectorID`**: WHATWG-compliant identifier
+  escaping for building selectors from arbitrary ids.
+
+### Fixed
+
+- **CSS-unsafe generated ids** (G29): `UseId` now emits `gwc-N-N` (hyphen
+  separator) instead of `gwc:N:N`. The old colon form threw a `SyntaxError` in
+  `querySelector("#"+id)` and could panic a wasm callback; generated ids are now
+  valid CSS identifiers needing no escaping.
+
 ## v3.2.0 - 2026-06-20
 
 ### Added

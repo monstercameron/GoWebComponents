@@ -1372,81 +1372,84 @@ func (parseRt *Runtime) runPendingEffects() {
 }
 
 // runFiberEffects runs one fiber's queued effects without traversing descendants.
+//
+// Layout effects (UseLayoutEffect, G36) run before passive effects (UseEffect)
+// within the fiber, so measure/focus/scroll work observes the committed DOM
+// before any passive effect mutates further. When the fiber has no layout
+// effects (the common case) the effects run in their queued order in a single
+// pass.
 func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
 	if parseFiber == nil {
 		return
 	}
 
-	// Run this fiber's effects in batch
 	parseEffects := parseFiber.effects
 	parseEffectCount := len(parseEffects)
 	parseFiber.effectDurationNs = 0
+	if parseEffectCount == 0 {
+		return
+	}
 
-	// Unroll for common small effect counts
-	if parseEffectCount == 1 {
-		parseStart := commitTimingStart()
-		parseCleanup := func() func() {
-			var parseCleanup2 func()
-			var isHandled bool
-			func() {
-				defer func() {
-					if parseRecovered := recover(); parseRecovered != nil {
-						if panicPhaseMayRecoverWithBoundary(PanicPhaseEffect) {
-							_, isHandled = parseRt.recoverBoundaryError(parseFiber, parseRecovered, boundaryPhaseEffect)
-						}
-						if !isHandled {
-							panic(markUnhandledPanic(parseFiber, boundaryPhaseEffect, parseRecovered))
-						}
-					}
-				}()
-				parseCleanup2 = parseEffects[0].Fn()
-			}()
-			return parseCleanup2
-		}()
-		parseDurationNs := commitTimingSinceNs(parseStart)
-		parseFiber.effectDurationNs += parseDurationNs
-		parseRt.profiling.effectExecutions++
-		parseRt.profiling.lastEffectDurationNs = parseDurationNs
-		parseRt.profiling.totalEffectDurationNs += parseDurationNs
-		recordSlowOperationDiagnostic("effect", parseFiber, parseDurationNs)
-		if parseCleanup != nil {
-			parseFiber.hooks.cleanups[parseEffects[0].CleanupIndex] = parseCleanup
-		}
-		parseRt.checkStrictEffectCleanupSymmetry(parseFiber, parseEffects[0].CleanupIndex, parseCleanup != nil)
-	} else {
-		for parseI := range parseEffectCount {
-			parseEffect := &parseEffects[parseI]
-			parseStart2 := commitTimingStart()
-			parseCleanup3 := func() func() {
-				var parseCleanup4 func()
-				var isHandled2 bool
-				func() {
-					defer func() {
-						if parseRecovered2 := recover(); parseRecovered2 != nil {
-							if panicPhaseMayRecoverWithBoundary(PanicPhaseEffect) {
-								_, isHandled2 = parseRt.recoverBoundaryError(parseFiber, parseRecovered2, boundaryPhaseEffect)
-							}
-							if !isHandled2 {
-								panic(markUnhandledPanic(parseFiber, boundaryPhaseEffect, parseRecovered2))
-							}
-						}
-					}()
-					parseCleanup4 = parseEffect.Fn()
-				}()
-				return parseCleanup4
-			}()
-			parseDurationNs2 := commitTimingSinceNs(parseStart2)
-			parseFiber.effectDurationNs += parseDurationNs2
-			parseRt.profiling.effectExecutions++
-			parseRt.profiling.lastEffectDurationNs = parseDurationNs2
-			parseRt.profiling.totalEffectDurationNs += parseDurationNs2
-			recordSlowOperationDiagnostic("effect", parseFiber, parseDurationNs2)
-			if parseCleanup3 != nil {
-				parseFiber.hooks.cleanups[parseEffect.CleanupIndex] = parseCleanup3
-			}
-			parseRt.checkStrictEffectCleanupSymmetry(parseFiber, parseEffect.CleanupIndex, parseCleanup3 != nil)
+	parseHasLayout := false
+	for parseI := range parseEffects {
+		if parseEffects[parseI].Layout {
+			parseHasLayout = true
+			break
 		}
 	}
+
+	if !parseHasLayout {
+		for parseI := range parseEffects {
+			parseRt.runOneEffect(parseFiber, &parseEffects[parseI])
+		}
+		return
+	}
+
+	// Two passes: layout effects first, then passive effects.
+	for parseI := range parseEffects {
+		if parseEffects[parseI].Layout {
+			parseRt.runOneEffect(parseFiber, &parseEffects[parseI])
+		}
+	}
+	for parseI := range parseEffects {
+		if !parseEffects[parseI].Layout {
+			parseRt.runOneEffect(parseFiber, &parseEffects[parseI])
+		}
+	}
+}
+
+// runOneEffect runs a single effect with effect-boundary panic containment and
+// profiling, storing any returned cleanup at the effect's cleanup index.
+func (parseRt *Runtime) runOneEffect(parseFiber *Fiber, parseEffect *Effect) {
+	parseStart := commitTimingStart()
+	parseCleanup := func() func() {
+		var parseCleanupFn func()
+		var isHandled bool
+		func() {
+			defer func() {
+				if parseRecovered := recover(); parseRecovered != nil {
+					if panicPhaseMayRecoverWithBoundary(PanicPhaseEffect) {
+						_, isHandled = parseRt.recoverBoundaryError(parseFiber, parseRecovered, boundaryPhaseEffect)
+					}
+					if !isHandled {
+						panic(markUnhandledPanic(parseFiber, boundaryPhaseEffect, parseRecovered))
+					}
+				}
+			}()
+			parseCleanupFn = parseEffect.Fn()
+		}()
+		return parseCleanupFn
+	}()
+	parseDurationNs := commitTimingSinceNs(parseStart)
+	parseFiber.effectDurationNs += parseDurationNs
+	parseRt.profiling.effectExecutions++
+	parseRt.profiling.lastEffectDurationNs = parseDurationNs
+	parseRt.profiling.totalEffectDurationNs += parseDurationNs
+	recordSlowOperationDiagnostic("effect", parseFiber, parseDurationNs)
+	if parseCleanup != nil {
+		parseFiber.hooks.cleanups[parseEffect.CleanupIndex] = parseCleanup
+	}
+	parseRt.checkStrictEffectCleanupSymmetry(parseFiber, parseEffect.CleanupIndex, parseCleanup != nil)
 }
 
 // runEffects runs all effects for a fiber tree

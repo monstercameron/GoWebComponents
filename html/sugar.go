@@ -165,6 +165,43 @@ func MapKeyed[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Nod
 	return parseNodes
 }
 
+// mapItemProps carries one item and its render func into the stable per-row
+// component used by MapKeyedComponent.
+type mapItemProps[T any] struct {
+	item   T
+	render func(T) ui.Node
+}
+
+// mapItemComponent is a single, stable component identity (per type T) that
+// renders one row. Because every row shares this identity and differs only by
+// props + key, the reconciler gives each row its OWN fiber with isolated,
+// position-stable hook storage.
+func mapItemComponent[T any](parseProps mapItemProps[T]) ui.Node {
+	return parseProps.render(parseProps.item)
+}
+
+// MapKeyedComponent renders each item as its own keyed component (its own fiber),
+// so the render func may legally use hooks and On* event handlers directly —
+// including UseState/UseEvent — without the "no hooks in a variable-length loop"
+// gotcha (G1). It is the sanctioned alternative to hand-extracting a row
+// component: per-row hook state is isolated and persists across renders by key.
+//
+//	MapKeyedComponent(rows, func(r Row) any { return r.ID }, func(r Row) ui.Node {
+//	    open := ui.UseState(false)                       // legal: own fiber
+//	    return Button(OnClick(func() { open.Set(!open.Get()) }), r.Name)
+//	})
+func MapKeyedComponent[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Node) []ui.Node {
+	if len(parseItems) == 0 {
+		return nil
+	}
+	parseNodes := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseElement := ui.CreateElement(mapItemComponent[T], mapItemProps[T]{item: parseItem, render: render})
+		parseNodes = append(parseNodes, WithKey(parseElement, parseKey(parseItem)))
+	}
+	return parseNodes
+}
+
 // FlatMap renders each item into zero or more nodes and flattens the results.
 func FlatMap[T any](parseItems []T, render func(T) []ui.Node) []ui.Node {
 	if len(parseItems) == 0 {

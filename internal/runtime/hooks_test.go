@@ -752,15 +752,33 @@ func TestGoUseId_GeneratesUniqueId(parseT *testing.T) {
 		parseT.Error("Expected non-empty ID")
 	}
 
-	// Check format: "gwc:<number>:<position>"
-	// Should start with "gwc:"
-	if len(parseId) < 4 || parseId[:4] != "gwc:" {
-		parseT.Errorf("Expected ID to start with 'gwc:', got %s", parseId)
+	// Check format: "gwc-<number>-<position>" (CSS-safe; see G29).
+	// Should start with "gwc-".
+	if len(parseId) < 4 || parseId[:4] != "gwc-" {
+		parseT.Errorf("Expected ID to start with 'gwc-', got %s", parseId)
 	}
 
-	// Should contain at least one colon after "gwc:"
-	if !contains(parseId, ":") || len(parseId) <= 4 {
-		parseT.Errorf("Expected ID to have format 'gwc:<number>:<position>', got %s", parseId)
+	// G29 correctness invariant: the generated id MUST be a CSS-safe identifier so
+	// it can be fed straight into querySelector("#"+id). A colon would make
+	// `#gwc:1:0` parse as a pseudo-class and throw a SyntaxError, panicking the
+	// wasm callback. Guard against any regression that reintroduces a colon (or any
+	// other character that needs escaping in a CSS id selector).
+	if contains(parseId, ":") {
+		parseT.Errorf("UseId returned a CSS-unsafe id containing a colon: %q", parseId)
+	}
+	for parseIdx := 0; parseIdx < len(parseId); parseIdx++ {
+		parseCh := parseId[parseIdx]
+		parseSafe := parseCh == '-' || parseCh == '_' ||
+			(parseCh >= '0' && parseCh <= '9') ||
+			(parseCh >= 'a' && parseCh <= 'z') ||
+			(parseCh >= 'A' && parseCh <= 'Z')
+		if !parseSafe {
+			parseT.Errorf("UseId returned a CSS-unsafe character %q in id %q", string(parseCh), parseId)
+		}
+	}
+	// Should carry the "<number>-<position>" suffix after the prefix.
+	if len(parseId) <= 4 {
+		parseT.Errorf("Expected ID to have format 'gwc-<number>-<position>', got %s", parseId)
 	}
 }
 
@@ -847,17 +865,17 @@ func TestGoUseId_ContainsHookPosition(parseT *testing.T) {
 	parseId2 := GoUseId() // Position 1
 	parseId3 := GoUseId() // Position 2
 
-	// IDs should contain their positions in the format
-	if !contains(parseId1, ":0") {
-		parseT.Errorf("Expected first ID to contain ':0', got %s", parseId1)
+	// IDs should contain their positions in the CSS-safe "-<position>" suffix (G29).
+	if !contains(parseId1, "-0") {
+		parseT.Errorf("Expected first ID to contain '-0', got %s", parseId1)
 	}
 
-	if !contains(parseId2, ":1") {
-		parseT.Errorf("Expected second ID to contain ':1', got %s", parseId2)
+	if !contains(parseId2, "-1") {
+		parseT.Errorf("Expected second ID to contain '-1', got %s", parseId2)
 	}
 
-	if !contains(parseId3, ":2") {
-		parseT.Errorf("Expected third ID to contain ':2', got %s", parseId3)
+	if !contains(parseId3, "-2") {
+		parseT.Errorf("Expected third ID to contain '-2', got %s", parseId3)
 	}
 }
 
