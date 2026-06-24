@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.4.5 - 2026-06-24
+
+### Fixed
+
+- The `diagnostics` and `internal/diagnostics` test binaries failed to compile
+  under `GOOS=js GOARCH=wasm` because build-neutral test files referenced the
+  native-only (`//go:build !js`) `WriteHTTPError`. The HTTP-dependent test files
+  are now tagged `//go:build !js` to match (and the HTTP benchmark split into a
+  native-only file). Same class as the v3.4.4 `state` fix.
+
 ## v3.4.4 - 2026-06-24
 
 ### Fixed
