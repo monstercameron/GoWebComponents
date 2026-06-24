@@ -87,14 +87,20 @@ func hardenCSS(parseCSS string) string {
 		!strings.Contains(parseCSS, "*/") {
 		return parseCSS
 	}
+	// Drop NUL FIRST, in a separate pass. A NUL is never valid and is a classic
+	// filter-bypass byte: if it were merely skipped inline, an input like
+	// "*\x00/" or "<\x00/style>" would slip past the lookahead guards below (which
+	// see the NUL, not the dangerous next byte) and then be removed — silently
+	// reconstituting "*/" or "</style>" in the output. Removing NULs up front means
+	// the guards run on the final byte stream.
+	if strings.ContainsRune(parseCSS, 0) {
+		parseCSS = strings.ReplaceAll(parseCSS, "\x00", "")
+	}
 	var b strings.Builder
 	b.Grow(len(parseCSS) + 8)
 	for i := 0; i < len(parseCSS); i++ {
 		c := parseCSS[i]
 		switch {
-		case c == 0x00:
-			// Drop NUL — never valid, and a classic filter-bypass byte.
-			continue
 		case c == '<' && i+1 < len(parseCSS) && isTagStart(parseCSS[i+1]):
 			// "</style", "<script", "<!--" … — break the HTML token.
 			b.WriteString("<\\")
