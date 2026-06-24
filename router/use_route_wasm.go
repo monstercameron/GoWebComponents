@@ -121,8 +121,15 @@ func Href(parsePath string) string {
 // cannot be expressed as an href (use programmatic scrolling instead); to avoid a
 // malformed "#path#fragment", FragmentHref does NOT add the hash-router prefix.
 //
+// The current query string is preserved (e.g. "/list?page=2#main"), so clicking
+// the anchor stays on the exact current location rather than dropping query state.
+//
 //	A(html.Href(router.FragmentHref("main")), "Skip to content")
 func FragmentHref(parseFragment string) string {
 	parseFragment = strings.TrimPrefix(parseFragment, "#")
-	return normalizePath(GetCurrentPath()) + "#" + parseFragment
+	parsePath := normalizePath(GetCurrentPath())
+	if parseQuery := getCurrentQueryValues().Encode(); parseQuery != "" {
+		return parsePath + "?" + parseQuery + "#" + parseFragment
+	}
+	return parsePath + "#" + parseFragment
 }

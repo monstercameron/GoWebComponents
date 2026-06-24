@@ -99,3 +99,18 @@ func TestVarSanitizesAndPrefixes(parseT *testing.T) {
 		parseT.Fatalf("Var must sanitize, got %q", parseGot)
 	}
 }
+
+// TestThemeRootRulesHandlesPartialAndEmptyThemes proves a custom Theme with only
+// some scales set (nil maps elsewhere) emits just those tokens without panicking,
+// and a fully-empty Theme emits nothing — the common "define only my colors"
+// usage.
+func TestThemeRootRulesHandlesPartialAndEmptyThemes(parseT *testing.T) {
+	parsePartial := css.Theme{Colors: map[string]css.Color{"brand": css.Color("#abc")}}
+	parseRules := parsePartial.RootRules()
+	if len(parseRules) != 1 {
+		parseT.Fatalf("partial theme RootRules = %d rules, want 1", len(parseRules))
+	}
+	if len((css.Theme{}).RootRules()) != 0 {
+		parseT.Fatal("empty theme must emit no token rules")
+	}
+}
