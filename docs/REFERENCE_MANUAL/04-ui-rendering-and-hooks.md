@@ -302,8 +302,50 @@ reconciler.
 - **`ui.UseForceUpdate()`** — an escape hatch to schedule a rerender when state lives outside the hook
   system.
 
+### Effect timing, lifecycle, and environment (v3.3+)
+
+- **`ui.UseLayoutEffect(fn, deps...)`** — like `UseEffect`, but runs synchronously after the commit
+  mutates the DOM, before paint, and before the same component's passive `UseEffect` callbacks. Use it
+  for post-render DOM reads/writes that must complete before paint — focusing a just-mounted input,
+  measuring layout, scrolling — instead of guessing a `setTimeout`/`rAF` delay.
+- **`ui.UseMount(fn)`** — run `fn` once after the first mount and its returned cleanup on unmount. The
+  self-documenting form of the "run once" effect (clearer than the `UseEffect(fn, true)` constant-dep
+  idiom).
+- **`ui.UseMediaQuery(query)`** — reactive `matchMedia`: returns the current match and re-renders when
+  it changes. (`ui.UsePrefersColorScheme` / `UsePrefersReducedMotion` are the curated convenience
+  forms.)
+- **`ui.UseNetworkStatus()`** — reactive `navigator.onLine`, updated by the window online/offline
+  events.
+- **`ui.ViewTransition(apply)`** — run a DOM-changing callback inside the View Transitions API when
+  available, animating between states; degrades gracefully to calling `apply` directly.
+
+### Element-ref hooks (v3.3+)
+
+Hold an element with `ui.UseDOMRef()` and pass it to these:
+
+- **`ui.UseElementGeometry(ref)`** — the element's measured bounding box, kept current with a
+  `ResizeObserver`.
+- **`ui.UseIntersection(ref, opts...)`** — reactive `IntersectionObserver` visibility (lazy-load /
+  reveal-on-scroll).
+- **`ui.UseAnimationRestart(ref, class, deps...)`** — replay a CSS keyframe animation whenever `deps`
+  change (the double-`rAF` idiom, in Go).
+- **`ui.UsePointerEvents(ref, handlers)` / `ui.UseWheel(ref, fn)`** — managed element pointer/wheel
+  listeners (drag/pan/zoom canvases, in Go rather than an eval'd JS blob).
+
+### Reactive theming (v3.4+)
+
+- **`ui.UseTheme(default)`** — subscribe to the active theme name and get a setter; switching
+  re-renders all subscribers and applies `<html data-theme="…">` so `[data-theme]` rules and `:root`
+  token overrides take effect. **`ui.SetTheme(name)` / `ui.CurrentTheme()`** switch/read from outside a
+  render (global hotkeys, OS theme listeners). Pairs with the typed-CSS token system
+  (`css.Theme.RootRules` + `css.Var`, see [05 HTML Authoring](05-html-authoring.md)). Seed from the OS
+  with `ui.UseTheme(string(ui.UsePrefersColorScheme()))`.
+
 All of these obey the rules of hooks: call them while the component is rendering, never inside a loop or
-conditional. The `tools/hookcheck` analyzer flags violations statically.
+conditional. The `tools/hookcheck` analyzer flags violations statically. For interactive lists whose
+rows need their own hooks/handlers, use `shorthand.MapKeyedComponent` (see
+[05 HTML Authoring](05-html-authoring.md)) — it renders each row as its own keyed component so per-row
+hooks are legal.
 
 ## Design Notes And Boundaries
 
