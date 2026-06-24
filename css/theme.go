@@ -1,6 +1,10 @@
 package css
 
-import "sync"
+import (
+	"sort"
+	"strconv"
+	"sync"
+)
 
 // Theme is the typed analog of tailwind.config.js: the named scales the Layer-2
 // utility engine resolves against. Swap or extend it with UseTheme; utilities and
@@ -87,6 +91,69 @@ var (
 	themeMu     sync.RWMutex
 	activeTheme = DefaultTheme()
 )
+
+// RootRules returns the theme's scales as typed custom-property declarations
+// (CSS2): --color-<name>, --space-<index>, --text-<name>, --radius-<name>. It is
+// the bridge between the typed Theme (which the utility engine resolves at
+// class-generation time) and a live CSS-variable palette: emit these into :root
+// and reference them with Var, then a runtime element.style.setProperty reskins
+// every reference without regenerating classes.
+//
+//	css.Root(css.DefaultTheme().RootRules()...)               // :root palette
+//	css.New(css.DataTheme("light", lightTheme.RootRules()...)) // a scoped theme
+//
+// Breakpoints are intentionally omitted — they drive @media queries, where
+// var() is not reliably supported.
+func (parseTheme Theme) RootRules() []Rule {
+	parseRules := make([]Rule, 0,
+		len(parseTheme.Colors)+len(parseTheme.Spacing)+len(parseTheme.FontSizes)+len(parseTheme.Radii))
+
+	parseColorNames := make([]string, 0, len(parseTheme.Colors))
+	for parseName := range parseTheme.Colors {
+		parseColorNames = append(parseColorNames, parseName)
+	}
+	sort.Strings(parseColorNames)
+	for _, parseName := range parseColorNames {
+		parseRules = append(parseRules, Raw("--color-"+parseName, string(parseTheme.Colors[parseName])))
+	}
+
+	parseSpacingKeys := make([]int, 0, len(parseTheme.Spacing))
+	for parseIndex := range parseTheme.Spacing {
+		parseSpacingKeys = append(parseSpacingKeys, parseIndex)
+	}
+	sort.Ints(parseSpacingKeys)
+	for _, parseIndex := range parseSpacingKeys {
+		parseRules = append(parseRules, Raw("--space-"+strconv.Itoa(parseIndex), string(parseTheme.Spacing[parseIndex])))
+	}
+
+	parseFontNames := make([]string, 0, len(parseTheme.FontSizes))
+	for parseName := range parseTheme.FontSizes {
+		parseFontNames = append(parseFontNames, parseName)
+	}
+	sort.Strings(parseFontNames)
+	for _, parseName := range parseFontNames {
+		parseRules = append(parseRules, Raw("--text-"+parseName, string(parseTheme.FontSizes[parseName])))
+	}
+
+	parseRadiusNames := make([]string, 0, len(parseTheme.Radii))
+	for parseName := range parseTheme.Radii {
+		parseRadiusNames = append(parseRadiusNames, parseName)
+	}
+	sort.Strings(parseRadiusNames)
+	for _, parseName := range parseRadiusNames {
+		parseRules = append(parseRules, Raw("--radius-"+parseName, string(parseTheme.Radii[parseName])))
+	}
+
+	return parseRules
+}
+
+// EmitThemeTokens emits the theme's RootRules into :root in one call — the
+// convenience form of css.Root(theme.RootRules()...).
+func EmitThemeTokens(parseTheme Theme) {
+	if parseRules := parseTheme.RootRules(); len(parseRules) > 0 {
+		Root(parseRules...)
+	}
+}
 
 // UseTheme swaps the active theme that the utility engine resolves against.
 func UseTheme(parseTheme Theme) {

@@ -43,6 +43,48 @@ func TestDesignTokenAndVariableRoundTrip(parseT *testing.T) {
 	}
 }
 
+// TestThemeRootRulesEmitsCustomProperties proves the typed Theme drives a :root
+// custom-property palette (CSS2 Theme->:root bridge).
+func TestThemeRootRulesEmitsCustomProperties(parseT *testing.T) {
+	css.Reset()
+	css.EmitThemeTokens(css.DefaultTheme())
+	parseOut := css.Harvest()
+
+	for _, parseFragment := range []string{
+		":root{",
+		"--color-slate-900:",
+		"--color-white:",
+		"--space-4:",
+		"--text-lg:",
+		"--radius-md:",
+	} {
+		if !strings.Contains(parseOut, parseFragment) {
+			parseT.Fatalf("expected %q in theme tokens, got %q", parseFragment, parseOut)
+		}
+	}
+	// Breakpoints are intentionally NOT emitted as custom properties.
+	if strings.Contains(parseOut, "--bp-") || strings.Contains(parseOut, "--breakpoint") {
+		parseT.Fatalf("breakpoints should not be emitted as :root vars, got %q", parseOut)
+	}
+}
+
+// TestThemeRootRulesComposeWithVarAndDataTheme proves a theme's tokens can be
+// referenced via Var and scoped under a data-theme ancestor (a light override).
+func TestThemeRootRulesComposeWithVarAndDataTheme(parseT *testing.T) {
+	css.Reset()
+	parseLight := css.DefaultTheme()
+	parseLight.Colors = map[string]css.Color{"bg": css.White}
+	parseLight.Spacing = nil
+	parseLight.FontSizes = nil
+	parseLight.Radii = nil
+
+	css.New(css.DataTheme("light", parseLight.RootRules()...)...)
+	parseOut := css.Harvest()
+	if !strings.Contains(parseOut, `[data-theme="light"] .`) || !strings.Contains(parseOut, "--color-bg:") {
+		parseT.Fatalf("expected data-theme-scoped token, got %q", parseOut)
+	}
+}
+
 // TestVarSanitizesAndPrefixes proves Var normalizes a token name to a safe
 // custom-property reference.
 func TestVarSanitizesAndPrefixes(parseT *testing.T) {
