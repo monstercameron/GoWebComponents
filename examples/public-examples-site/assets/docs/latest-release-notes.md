@@ -3,11 +3,12 @@
 This docs-site page mirrors the first section returned by
 `tools/changelogcheck.LatestEntry(CHANGELOG.md)`.
 
-## Unreleased
+## v3.4.0 - 2026-06-24
 
-The current latest changelog section is `Unreleased` — the in-progress
-release-note draft accumulating changes for the next versioned tag. It is checked
-by the blocking `tools/changelogcheck` release gate, which promotes the draft to
-a versioned section before a release can ship.
+The current latest changelog section is `v3.4.0 - 2026-06-24`. It adds the typed
+`Theme`→`:root` custom-property bridge (`css.Theme.RootRules` /
+`css.EmitThemeTokens`), fixes a no-DOM cookie panic and the `router.FragmentHref`
+hash-router double-hash, and is checked by the blocking `tools/changelogcheck`
+release gate before a versioned release can ship.
 
 See the repository root `CHANGELOG.md` for the full entry body.

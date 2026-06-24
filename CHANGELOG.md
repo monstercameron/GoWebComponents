@@ -1,9 +1,29 @@
 # Changelog
 
-## Unreleased
+## v3.4.0 - 2026-06-24
+
+### Added
+
+- **Reactive theming — `ui.UseTheme` / `ui.SetTheme` / `ui.CurrentTheme`** — a
+  hook that subscribes a component to the active theme name and a setter that
+  switches it everywhere (re-rendering all subscribers and applying
+  `<html data-theme="…">` so `[data-theme]` rules and `:root` token overrides
+  take effect). `SetTheme`/`CurrentTheme` switch/read from outside a render
+  (global hotkeys, OS theme listeners). The reactive capstone over the typed-CSS
+  token system — style with tokens (below), switch with UseTheme.
+- **`css.Theme.RootRules` / `css.EmitThemeTokens`** — emit a typed `Theme`'s
+  scales as a `:root` custom-property palette (`--color-*`, `--space-*`,
+  `--text-*`, `--radius-*`), bridging the typed theme to a live CSS-variable
+  palette. Compose with `Root`, `LayerGlobal`, or `DataTheme` and reference via
+  `Var`; a runtime `setProperty` then reskins without regenerating classes
+  (closes the CSS2 token story end-to-end).
 
 ### Fixed
 
+- `interop` cookie read/write (`readRawCookies`/`writeRawCookie`) panicked
+  (`Value.Get on undefined`) in no-DOM wasm contexts (Web Worker, no-DOM SSR
+  side, the node test runner); they now return a structured `CodeUnavailable`
+  error, matching the native stubs.
 - `router.FragmentHref` no longer emits a malformed double-hash
   (`#/path#fragment`) under a hash router; it returns `<path>#<fragment>` and is
   documented as a history-router helper (hash routers keep the route in the URL
@@ -11,10 +31,11 @@
 
 ### Tests
 
+- CSS design-token + `var()` round-trip and `Theme.RootRules` coverage (CSS2).
 - Hardened the G1 `MapKeyedComponent` coverage with a reorder +
   variable-length-removal case proving per-row hook state follows the key when
   the list is reordered and shrinks.
-- Added authoritative `CSS.escape` cross-checks for `ui.CSSEscape`.
+- Authoritative `CSS.escape` cross-checks for `ui.CSSEscape`.
 
 ## v3.3.0 - 2026-06-24
 
