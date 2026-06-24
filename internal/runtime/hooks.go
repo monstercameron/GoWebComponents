@@ -184,7 +184,23 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(an
 
 // GoUseEffect runs side effects and supports cleanup
 // The effect function can return a cleanup function that will be called before the next effect runs or on unmount
+// GoUseEffect registers a passive effect that runs after the commit's DOM
+// mutation. See goUseEffectImpl.
 func GoUseEffect(parseEffect func() func(), parseDeps ...any) {
+	goUseEffectImpl(parseEffect, false, parseDeps...)
+}
+
+// GoUseLayoutEffect registers a layout effect (G36): it runs synchronously after
+// DOM mutation, before the browser paints, and before this fiber's passive
+// effects. Use it for post-render DOM reads/writes that must be observed before
+// paint — focusing a freshly mounted element, measuring layout, scrolling — so
+// they need no setTimeout/rAF guess. Same (effect, deps...) contract as
+// GoUseEffect.
+func GoUseLayoutEffect(parseEffect func() func(), parseDeps ...any) {
+	goUseEffectImpl(parseEffect, true, parseDeps...)
+}
+
+func goUseEffectImpl(parseEffect func() func(), parseLayout bool, parseDeps ...any) {
 	parseFiber := requireCurrentHookFiber("GoUseEffect")
 
 	if parseFiber.hooks == nil {
@@ -269,6 +285,7 @@ func GoUseEffect(parseEffect func() func(), parseDeps ...any) {
 		parseFiber.effects = append(parseFiber.effects, Effect{
 			Fn:           parseEffect,
 			CleanupIndex: parseCleanupIdx,
+			Layout:       parseLayout,
 		})
 		parseHooks.effectEpochs[parseCleanupIdx] = parseHooks.effectEpoch
 	}
@@ -471,11 +488,19 @@ func GoUseId() string {
 }
 
 // formatHookID builds one stable hook ID using the runtime hook-global counter and hook position.
+//
+// The ID is a CSS-safe identifier of the form "gwc-<global-id>-<hook-position>".
+// It deliberately uses a hyphen separator (NOT a colon): an element id is most
+// commonly fed straight into a CSS selector (`querySelector("#"+id)`), and a
+// colon is a pseudo-class separator there — `#gwc:3:1` throws a SyntaxError and,
+// in a wasm callback, panics the page. A hyphen is a valid CSS identifier
+// character, so the generated id needs no escaping. (Historical note: this used
+// to emit "gwc:N:N"; see G29.)
 func formatHookID(parseID int, parsePosition int) string {
 	parseBuffer := make([]byte, 0, 8+20+1+20)
-	parseBuffer = append(parseBuffer, "gwc:"...)
+	parseBuffer = append(parseBuffer, "gwc-"...)
 	parseBuffer = strconv.AppendInt(parseBuffer, int64(parseID), 10)
-	parseBuffer = append(parseBuffer, ':')
+	parseBuffer = append(parseBuffer, '-')
 	parseBuffer = strconv.AppendInt(parseBuffer, int64(parsePosition), 10)
 	return string(parseBuffer)
 }

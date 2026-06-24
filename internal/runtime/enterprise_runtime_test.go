@@ -26,7 +26,7 @@ func TestEnterpriseMultiInstanceRuntimeIsolation(parseT *testing.T) {
 	SetCurrentFiber(parseFiber)
 	parseID := GoUseId()
 	SetCurrentFiber(nil)
-	if !strings.HasPrefix(parseID, "gwc:") || parseFirst.idCounter != 1 || parseSecond.idCounter != 0 {
+	if !strings.HasPrefix(parseID, "gwc-") || parseFirst.idCounter != 1 || parseSecond.idCounter != 0 {
 		parseT.Fatalf("expected GoUseId to use the owning runtime, id=%q first=%d second=%d", parseID, parseFirst.idCounter, parseSecond.idCounter)
 	}
 }

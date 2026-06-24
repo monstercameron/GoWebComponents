@@ -317,6 +317,45 @@ func Defs(parseArgs ...any) ui.Node { return Tag("defs", parseArgs...) }
 // Use delegates to [html.Use].
 func Use(parseArgs ...any) ui.Node { return Tag("use", parseArgs...) }
 
+// Ellipse is the SVG <ellipse> element (G8).
+func Ellipse(parseArgs ...any) ui.Node { return Tag("ellipse", parseArgs...) }
+
+// TSpan is the SVG <tspan> element for positioned text runs (G8).
+func TSpan(parseArgs ...any) ui.Node { return Tag("tspan", parseArgs...) }
+
+// LinearGradient is the SVG <linearGradient> element (G8).
+func LinearGradient(parseArgs ...any) ui.Node { return Tag("linearGradient", parseArgs...) }
+
+// RadialGradient is the SVG <radialGradient> element (G8).
+func RadialGradient(parseArgs ...any) ui.Node { return Tag("radialGradient", parseArgs...) }
+
+// GradientStop is the SVG <stop> gradient color stop. Named GradientStop to
+// avoid colliding with the Stop event-propagation helper (G8).
+func GradientStop(parseArgs ...any) ui.Node { return Tag("stop", parseArgs...) }
+
+// ClipPath is the SVG <clipPath> element (G8).
+func ClipPath(parseArgs ...any) ui.Node { return Tag("clipPath", parseArgs...) }
+
+// Mask is the SVG <mask> element (G8).
+func Mask(parseArgs ...any) ui.Node { return Tag("mask", parseArgs...) }
+
+// SvgPattern is the SVG <pattern> element (named SvgPattern to avoid colliding
+// with the Pattern helper) (G8).
+func SvgPattern(parseArgs ...any) ui.Node { return Tag("pattern", parseArgs...) }
+
+// SvgImage is the SVG <image> element (named SvgImage to avoid colliding with a
+// potential HTML image helper) (G8).
+func SvgImage(parseArgs ...any) ui.Node { return Tag("image", parseArgs...) }
+
+// ForeignObject is the SVG <foreignObject> element (G8).
+func ForeignObject(parseArgs ...any) ui.Node { return Tag("foreignObject", parseArgs...) }
+
+// Symbol is the SVG <symbol> element (G8).
+func Symbol(parseArgs ...any) ui.Node { return Tag("symbol", parseArgs...) }
+
+// Marker is the SVG <marker> element (G8).
+func Marker(parseArgs ...any) ui.Node { return Tag("marker", parseArgs...) }
+
 // Text delegates to [html.Text].
 func Text(parseContent any) ui.Node { return html.Text(parseContent) }
 
@@ -387,6 +426,13 @@ func Map[T any](parseItems []T, render func(T) ui.Node) []ui.Node {
 // MapKeyed delegates to [html.MapKeyed].
 func MapKeyed[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Node) []ui.Node {
 	return html.MapKeyed(parseItems, parseKey, render)
+}
+
+// MapKeyedComponent delegates to [html.MapKeyedComponent]: renders each item as
+// its own keyed component so the render func may use hooks and On* handlers
+// directly (G1).
+func MapKeyedComponent[T any](parseItems []T, parseKey func(T) any, render func(T) ui.Node) []ui.Node {
+	return html.MapKeyedComponent(parseItems, parseKey, render)
 }
 
 // FlatMap delegates to [html.FlatMap].

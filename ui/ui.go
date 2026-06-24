@@ -517,6 +517,17 @@ func UseEffect(parseEffect func() func(), parseDeps ...interface{}) {
 	runtime.GoUseEffectGlobal(parseEffect, parseDeps...)
 }
 
+// UseLayoutEffect registers a layout effect (G36): it runs synchronously after
+// the commit mutates the DOM, before the browser paints, and before this
+// component's passive UseEffect callbacks. Use it for post-render DOM work that
+// must complete before paint — focusing a just-mounted input, measuring an
+// element (offsetWidth/getBoundingClientRect), or scrolling — instead of guessing
+// a setTimeout/requestAnimationFrame delay. Same (effect, deps...) contract as
+// UseEffect; return a cleanup func or nil.
+func UseLayoutEffect(parseEffect func() func(), parseDeps ...interface{}) {
+	runtime.GoUseLayoutEffectGlobal(parseEffect, parseDeps...)
+}
+
 // UseMemo memoizes a computed value until dependencies change.
 func UseMemo[T any](parseCompute func() T, parseDeps ...interface{}) T {
 	parseValue := runtime.GoUseMemoGlobalTyped(func() interface{} {

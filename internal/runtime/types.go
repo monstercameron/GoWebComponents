@@ -59,6 +59,10 @@ var AsyncBoundaryNodeType = &AsyncBoundaryElementType{}
 type Effect struct {
 	Fn           func() func()
 	CleanupIndex int
+	// Layout marks an effect that must run synchronously after DOM mutation but
+	// before the browser paints, and before this fiber's passive effects (G36 /
+	// UseLayoutEffect). Passive effects (UseEffect) leave it false.
+	Layout bool
 }
 
 // Fiber represents a unit of work in the virtual DOM tree.

@@ -73,6 +73,15 @@ func Harvest() string { return bufferSinkInstance.harvest() }
 // emission order. Used to seed the client registry for hydration.
 func HarvestedClasses() []string { return bufferSinkInstance.classes() }
 
+// CriticalCSS returns the critical-CSS <style> block to inline into an SSR
+// document head (CSS6). It is the extraction half of the author-in-Go / ship-
+// inline pipeline: render the app under the native sink (which collects every
+// emitted rule), call CriticalCSS to serialize it into the page, and on the
+// client call SeedFromDocument so the same rules are recognized as already
+// present and never re-injected. CriticalCSS is an alias of StyleBlock with the
+// pipeline-oriented name; both return "" when nothing has been emitted.
+func CriticalCSS() string { return StyleBlock() }
+
 // StyleBlock returns the harvested CSS wrapped in a <style data-gwc-css> element
 // carrying the emitted class names in a data attribute. The SSR head includes
 // this so styles are present on first paint and the client can pre-seed its

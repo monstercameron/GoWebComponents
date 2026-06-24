@@ -724,6 +724,22 @@ func (parseRt *Runtime) SetAtomValue(parseId string, parseValue any) error {
 	return nil
 }
 
+// InitAtomValue seeds an atom with value only if it has no value yet, without
+// notifying any subscribers. It is the no-side-effect seeding primitive used by
+// non-hook global-atom handles (state.GlobalAtom) so constructing a handle never
+// clobbers a value written earlier (the G39 pre-render-write-survives guarantee)
+// and never schedules a spurious render. Returns true if it seeded.
+func (parseRt *Runtime) InitAtomValue(parseId string, parseValue any) bool {
+	if parseRt == nil || parseRt.atomRegistry == nil {
+		return false
+	}
+	if _, parseExists := parseRt.atomRegistry.GetAtom(parseId); parseExists {
+		return false
+	}
+	parseRt.atomRegistry.InitAtom(parseId, parseValue)
+	return true
+}
+
 // RegisterDerivedAtom is a core package helper.
 func (parseRt *Runtime) RegisterDerivedAtom(parseId string, parseDeps []string, parseCompute func() any) error {
 	if parseRt == nil || parseRt.atomRegistry == nil {

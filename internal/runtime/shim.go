@@ -19,6 +19,11 @@ func GoUseEffectGlobal(parseEffectFn func() func(), parseEffectDeps ...interface
 	GoUseEffect(parseEffectFn, parseEffectDeps...)
 }
 
+// GoUseLayoutEffectGlobal wraps GoUseLayoutEffect (G36).
+func GoUseLayoutEffectGlobal(parseEffectFn func() func(), parseEffectDeps ...interface{}) {
+	GoUseLayoutEffect(parseEffectFn, parseEffectDeps...)
+}
+
 // GoUseMemoGlobal wraps GoUseMemo
 func GoUseMemoGlobal(parseMemoCompute func() interface{}, parseMemoDeps ...interface{}) interface{} {
 	// GoUseMemo doesn't need Runtime, it works with current fiber

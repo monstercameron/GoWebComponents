@@ -71,6 +71,17 @@ func Harvest() string {
 	return style.Get("textContent").String()
 }
 
+// CriticalCSS returns the managed <style> element's text wrapped in a
+// <style data-gwc-css> block on wasm, mirroring the native extraction name
+// (CSS6). Returns "" when no DOM/style element exists.
+func CriticalCSS() string {
+	parseCSS := Harvest()
+	if parseCSS == "" {
+		return ""
+	}
+	return `<style data-gwc-css="">` + parseCSS + `</style>`
+}
+
 // SeedFromDocument pre-seeds the registry from a server-rendered
 // <style data-gwc-css="..."> block's class list so already-present rules are
 // recognized as hits and not re-injected during hydration. Safe to call when no

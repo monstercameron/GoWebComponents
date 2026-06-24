@@ -15,6 +15,11 @@ func GoUseEffectGlobal(parseEffectFn func() func(), parseEffectDeps ...any) {
 	GoUseEffect(parseEffectFn, parseEffectDeps...)
 }
 
+// GoUseLayoutEffectGlobal wraps GoUseLayoutEffect on non-browser targets (G36).
+func GoUseLayoutEffectGlobal(parseEffectFn func() func(), parseEffectDeps ...any) {
+	GoUseLayoutEffect(parseEffectFn, parseEffectDeps...)
+}
+
 // GoUseMemoGlobal wraps GoUseMemo on non-browser targets.
 func GoUseMemoGlobal(parseMemoCompute func() any, parseMemoDeps ...any) any {
 	return GoUseMemo(parseMemoCompute, parseMemoDeps...)
