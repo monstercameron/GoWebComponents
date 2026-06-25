@@ -40,6 +40,7 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactDOMServerIntegrationUntrustedURL | javascript: URL sanitization | ✅ | ui/url_sanitization_test.go (+ found v3.4.7) |
 | ReactDOMServerIntegrationAttributes | attr boolean/nil/numeric/escaping | ✅ | ui/attribute_serialization_test.go |
 | ReactDOMServerIntegrationElements | void elements, text escaping | ✅ | ui/void_element_test.go, ui/text_escaping_test.go |
+| ReactDOMServerIntegrationElements (dangerouslySetInnerHTML) | raw HTML in SSR | ✅ | ui/raw_html_ssr_test.go — html.RawHTML renders raw but sanitizes (script/js-url/on*= stripped); RawHTMLUnsafe verbatim |
 | ReactDOMServerIntegrationBasic | basic SSR render, nested components, nil | ✅ | ui/ssr_components_test.go |
 | ReactDOMServerIntegrationFragment | fragment SSR | ✅ | ui/ssr_components_test.go (component->fragment hoist) |
 | ReactDOMServerIntegrationSpecialTypes | numbers/bools/null children | 🚫 | Go static typing (ui.Node children) |
