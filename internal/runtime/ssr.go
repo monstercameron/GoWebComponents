@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"html"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -220,6 +221,103 @@ func textareaControlledValue(parseTag string, parseProps map[string]any) (string
 	return "", false
 }
 
+// selectControlledValue reports the controlled value of a <select> and whether
+// the element is a select carrying a string value.
+func selectControlledValue(parseTag string, parseProps map[string]any) (string, bool) {
+	if !strings.EqualFold(parseTag, "select") || parseProps == nil {
+		return "", false
+	}
+	if parseVal, parseOk := parseProps["value"].(string); parseOk {
+		return parseVal, true
+	}
+	return "", false
+}
+
+// optionMatchValue returns the value an <option> is matched against by a
+// controlled <select>: its value prop if present, else its text content (React's
+// fallback when an option has no value attribute).
+func optionMatchValue(parseOption *Element) string {
+	if parseOption.Props != nil {
+		if parseVal, parseOk := parseOption.Props["value"].(string); parseOk {
+			return parseVal
+		}
+	}
+	if parseOption.hasDirectText {
+		return parseOption.TextContent
+	}
+	var parseText strings.Builder
+	for _, parseChild := range getElementChildren(parseOption) {
+		switch parseTyped := parseChild.(type) {
+		case string:
+			parseText.WriteString(parseTyped)
+		case *Element:
+			// A ui.Text(...) child is a TEXT_ELEMENT carrying its content.
+			if parseTag, parseOk := parseTyped.Type.(string); parseOk && parseTag == "TEXT_ELEMENT" {
+				parseText.WriteString(parseTyped.TextContent)
+			}
+		}
+	}
+	return parseText.String()
+}
+
+// elementWithSelected returns a shallow copy of an <option> element with
+// selected=true added to its props, without mutating the source element.
+func elementWithSelected(parseOption *Element) *Element {
+	parseProps := make(map[string]any, len(parseOption.Props)+1)
+	maps.Copy(parseProps, parseOption.Props)
+	parseProps["selected"] = true
+	return &Element{
+		Type:          parseOption.Type,
+		Props:         parseProps,
+		Children:      parseOption.Children,
+		TextContent:   parseOption.TextContent,
+		hasDirectText: parseOption.hasDirectText,
+	}
+}
+
+// renderSelectChildrenToString renders a <select>'s children, marking each
+// <option> whose value matches the select's controlled value as selected (unless
+// it already declares selected). It recurses into <optgroup> so nested options
+// are matched too.
+func renderSelectChildrenToString(parseBuilder *strings.Builder, parseChildren []any, parseSelectValue string) error {
+	for _, parseChild := range parseChildren {
+		parseEl, parseOk := parseChild.(*Element)
+		if !parseOk || parseEl == nil {
+			if parseErr := renderChildrenToString(parseBuilder, []any{parseChild}); parseErr != nil {
+				return parseErr
+			}
+			continue
+		}
+		parseType, _ := parseEl.Type.(string)
+		switch {
+		case strings.EqualFold(parseType, "option"):
+			parseRender := parseEl
+			if _, parseAlready := parseEl.Props["selected"]; !parseAlready && optionMatchValue(parseEl) == parseSelectValue {
+				parseRender = elementWithSelected(parseEl)
+			}
+			if parseErr := renderElementToString(parseBuilder, parseRender); parseErr != nil {
+				return parseErr
+			}
+		case strings.EqualFold(parseType, "optgroup"):
+			parseBuilder.WriteByte('<')
+			parseBuilder.WriteString(parseType)
+			writeSSRProps(parseBuilder, parseEl.Props)
+			parseBuilder.WriteByte('>')
+			if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseEl), parseSelectValue); parseErr != nil {
+				return parseErr
+			}
+			parseBuilder.WriteString("</")
+			parseBuilder.WriteString(parseType)
+			parseBuilder.WriteByte('>')
+		default:
+			if parseErr := renderElementToString(parseBuilder, parseEl); parseErr != nil {
+				return parseErr
+			}
+		}
+	}
+	return nil
+}
+
 func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, parseElement *Element) error {
 	// A controlled <textarea value="x"> renders its value as text content, not as
 	// a (browser-ignored) value attribute.
@@ -229,6 +327,22 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 		writeSSRProps(parseBuilder, parseElement.Props, "value")
 		parseBuilder.WriteByte('>')
 		parseBuilder.WriteString(html.EscapeString(parseTextareaValue))
+		parseBuilder.WriteString("</")
+		parseBuilder.WriteString(parseTag)
+		parseBuilder.WriteByte('>')
+		return nil
+	}
+
+	// A controlled <select value="x"> marks the matching <option> as selected and
+	// drops the (browser-ignored) value attribute from the <select> itself.
+	if parseSelectValue, parseIsSelect := selectControlledValue(parseTag, parseElement.Props); parseIsSelect {
+		parseBuilder.WriteByte('<')
+		parseBuilder.WriteString(parseTag)
+		writeSSRProps(parseBuilder, parseElement.Props, "value")
+		parseBuilder.WriteByte('>')
+		if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseElement), parseSelectValue); parseErr != nil {
+			return parseErr
+		}
 		parseBuilder.WriteString("</")
 		parseBuilder.WriteString(parseTag)
 		parseBuilder.WriteByte('>')

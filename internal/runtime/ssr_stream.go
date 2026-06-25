@@ -350,6 +350,23 @@ func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag stri
 		return nil
 	}
 
+	// A controlled <select value="x"> marks the matching <option> selected and
+	// drops the value attribute from the select (options/optgroups don't suspend,
+	// so the buffered select-children renderer is reused here).
+	if parseSelectValue, parseIsSelect := selectControlledValue(parseTag, parseElement.Props); parseIsSelect {
+		parseBuilder.WriteByte('<')
+		parseBuilder.WriteString(parseTag)
+		writeSSRProps(parseBuilder, parseElement.Props, "value")
+		parseBuilder.WriteByte('>')
+		if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseElement), parseSelectValue); parseErr != nil {
+			return parseErr
+		}
+		parseBuilder.WriteString("</")
+		parseBuilder.WriteString(parseTag)
+		parseBuilder.WriteByte('>')
+		return nil
+	}
+
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
 	writeSSRProps(parseBuilder, parseElement.Props)

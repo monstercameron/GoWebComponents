@@ -1,5 +1,21 @@
 # Changelog
 
+## v3.4.10 - 2026-06-24
+
+### Fixed
+
+- **Controlled `<select value="…">` did not mark the selected option in SSR.**
+  The serializer put a (browser-ignored) `value` attribute on the `<select>`, so
+  a server-rendered controlled select showed no initial selection and mismatched
+  on hydration. The SSR serializer now drops the `value` attribute from the
+  `<select>` and renders the matching `<option>` with `selected` — matching by the
+  option's `value`, or by its text content when it has no value (React's
+  fallback), and recursing into `<optgroup>`. An option that already declares
+  `selected` is left unchanged. Fixed in both the buffered and streaming SSR
+  renderers. Completes the controlled-input SSR work begun in v3.4.9 (textarea);
+  found while porting React's `ReactDOMServerIntegrationSelect`. Covered by
+  `TestSSRSelect*`.
+
 ## v3.4.9 - 2026-06-24
 
 ### Fixed
