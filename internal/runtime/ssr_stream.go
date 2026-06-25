@@ -350,12 +350,14 @@ func renderAsyncBoundaryFallbackToStreamShell(parseBuilder *strings.Builder, par
 }
 
 func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag string, parseElement *Element, parseState *ssrStreamState) error {
+	parseProps := normalizeFormValueProps(parseElement.Props)
+
 	// Mirror the buffered serializer: a controlled <textarea value="x"> renders
 	// its value as text content, not as a browser-ignored value attribute.
-	if parseTextareaValue, parseIsTextarea := textareaControlledValue(parseTag, parseElement.Props); parseIsTextarea {
+	if parseTextareaValue, parseIsTextarea := textareaControlledValue(parseTag, parseProps); parseIsTextarea {
 		parseBuilder.WriteByte('<')
 		parseBuilder.WriteString(parseTag)
-		writeSSRProps(parseBuilder, parseElement.Props, "value")
+		writeSSRProps(parseBuilder, parseProps, "value")
 		parseBuilder.WriteByte('>')
 		parseBuilder.WriteString(html.EscapeString(parseTextareaValue))
 		parseBuilder.WriteString("</")
@@ -367,10 +369,10 @@ func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag stri
 	// A controlled <select value="x"> marks the matching <option> selected and
 	// drops the value attribute from the select (options/optgroups don't suspend,
 	// so the buffered select-children renderer is reused here).
-	if parseSelectValue, parseIsSelect := selectControlledValue(parseTag, parseElement.Props); parseIsSelect {
+	if parseSelectValue, parseIsSelect := selectControlledValue(parseTag, parseProps); parseIsSelect {
 		parseBuilder.WriteByte('<')
 		parseBuilder.WriteString(parseTag)
-		writeSSRProps(parseBuilder, parseElement.Props, "value")
+		writeSSRProps(parseBuilder, parseProps, "value")
 		parseBuilder.WriteByte('>')
 		if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseElement), parseSelectValue, parseState.contextValues); parseErr != nil {
 			return parseErr
@@ -383,7 +385,7 @@ func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag stri
 
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
-	writeSSRProps(parseBuilder, parseElement.Props)
+	writeSSRProps(parseBuilder, parseProps)
 	parseBuilder.WriteByte('>')
 
 	if isVoidElement(parseTag) {

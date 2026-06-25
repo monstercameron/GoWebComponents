@@ -1,5 +1,23 @@
 # Changelog
 
+## v3.5.2 - 2026-06-25
+
+### Fixed
+
+- **`defaultValue` / `defaultChecked` rendered as inert attributes in SSR.** An
+  uncontrolled form field set via `defaultValue` (or `defaultChecked`) serialized
+  the prop literally — `<input defaultValue="x">` — which the browser ignores, so
+  the field rendered empty/unchecked server-side. The SSR serializer now maps
+  `defaultValue` → the element's controlled value and `defaultChecked` → `checked`
+  (only when the controlled prop is not already set, so an explicit `value` wins),
+  in both the buffered and streaming renderers. Because the mapping happens before
+  the controlled-value logic, it flows through every form element: `<input>` gets
+  a `value` attribute, `<textarea>` gets text content, and `<select>` marks the
+  matching `<option selected>`. Matches React's
+  `ReactDOMServerIntegrationInput`/`Textarea`/`Select` defaultValue behavior and
+  completes the controlled-input SSR work (v3.4.9 textarea, v3.4.10 select).
+  Covered by `TestSSRDefaultValueMapsToControlledValue`.
+
 ## v3.5.1 - 2026-06-24
 
 ### Added
