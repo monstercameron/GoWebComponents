@@ -50,7 +50,7 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | SSR primitive children (number/bool/null) | render primitives as children | 🚫 | Go static typing: html.* children are ui.Node; primitives go via ui.Text |
 | onlyChild-test | Children.only | ⬜ | |
 | ReactContextValidator / NewContext | context | ✅ | ui/context_native_test.go |
-| ReactStartTransition | transitions | ⬜ | (GWC has StartTransition) |
+| ReactStartTransition | transitions | ✅ | ui/transition_native_test.go (transition-wrapped updates commit; multi-update; same-value dedup) |
 | ReactJSX* / ES6Class / PureComponent / Version / Profiler-devtools | — | 🚫 | no Go analog |
 
 ## react-reconciler (spirit-applicable)
