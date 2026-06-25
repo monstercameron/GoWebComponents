@@ -65,8 +65,8 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactFragment / ReactTopLevelFragment | fragments hoist; keyed state preserved | ✅ | ui/fragment_native_test.go |
 | ReactIncrementalSideEffects | mount/unmount side effects | 🔶 | ui/effects_native_test.go (partial) |
 | ReactNewContext / ReactContextPropagation | context propagation | ✅ | ui/context_native_test.go |
-| ReactMemo | memoization / bailout | ⬜ | |
-| ReactIncrementalUpdates | batched/sequenced updates | ⬜ | |
+| ReactMemo | memoization / bailout | 🔶 | ui/state_isolation_native_test.go — GWC auto-bails a child whose props are unchanged (no React.memo wrapper needed); explicit memo wrapper N/A |
+| ReactIncrementalUpdates | batched/sequenced updates, state isolation | ✅ | ui/state_isolation_native_test.go (child state preserved across parent re-render), ui/transition_native_test.go (multi-update) |
 | ErrorBoundaryReconciliation | error boundary recovery | ✅ | internal/runtime/error_boundary_test.go |
 | keyed reconciliation (various) | keyed move/insert/remove/duplicate | ✅ | ui/reconciler_native_test.go, reconciler_duplicate_key_test.go (found v3.4.8) |
 | ReactClass* / ReactAct* / ReactExpiration / ReactLazy / Scheduler | — | 🚫 | concurrent/class/act — no analog |
