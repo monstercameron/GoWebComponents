@@ -34,15 +34,21 @@ type SSRStreamOptions struct {
 }
 
 type ssrStreamPendingBoundary struct {
-	id         string
-	content    *Element
-	suspension *Suspension
+	id            string
+	content       *Element
+	suspension    *Suspension
+	contextValues map[int64]any
 }
 
 type ssrStreamState struct {
 	nextBoundaryID int
 	pending        []ssrStreamPendingBoundary
 	options        SSRStreamOptions
+	// contextValues carries the inherited context (descriptor ID -> value) for the
+	// subtree currently being rendered, so a streamed component's GoUseContextValue
+	// resolves to the nearest provider. It is derived at each ContextProvider
+	// boundary and restored when that boundary's children finish.
+	contextValues map[int64]any
 }
 
 // RenderToStream writes an SSR shell immediately and then flushes async
@@ -149,7 +155,7 @@ func renderSSRStreamBoundaryChunk(parseCtx context.Context, parseBoundary ssrStr
 				panic(parseRecovered)
 			}
 		}()
-		return renderElementToString(&parseContent, parseBoundary.content, nil)
+		return renderElementToString(&parseContent, parseBoundary.content, parseBoundary.contextValues)
 	}()
 	if parseErr != nil {
 		return SSRStreamChunk{Kind: SSRStreamChunkBoundary, BoundaryID: parseBoundary.id, Err: parseErr}
@@ -176,7 +182,14 @@ func renderElementToStreamShell(parseBuilder *strings.Builder, parseElement *Ele
 		}
 	}
 
-	if _, parseOk2 := parseElement.Type.(*ContextProviderType); parseOk2 {
+	if parseProvider, parseOk2 := parseElement.Type.(*ContextProviderType); parseOk2 {
+		if parseProvider.Descriptor != nil {
+			parsePrevCtx := parseState.contextValues
+			parseState.contextValues = deriveContextValues(parsePrevCtx, parseProvider.Descriptor.ID, parseElement.Props["value"])
+			parseErr := renderChildrenToStreamShell(parseBuilder, parseElement.Children, parseState)
+			parseState.contextValues = parsePrevCtx
+			return parseErr
+		}
 		return renderChildrenToStreamShell(parseBuilder, parseElement.Children, parseState)
 	}
 	if _, parseOk3 := parseElement.Type.(*PortalElementType); parseOk3 {
@@ -205,7 +218,7 @@ func renderElementToStreamShell(parseBuilder *strings.Builder, parseElement *Ele
 		return renderAsyncBoundaryToStreamShell(parseBuilder, parseElement, parseState)
 	}
 
-	parseResolved, parseErr := resolveComponentElement(parseElement, nil)
+	parseResolved, parseErr := resolveComponentElement(parseElement, parseState.contextValues)
 	if parseErr != nil {
 		return parseErr
 	}
@@ -299,9 +312,10 @@ func renderAsyncBoundaryToStreamShell(parseBuilder *strings.Builder, parseElemen
 	parseRollbackPending()
 	parseBoundaryID := parseState.nextSSRStreamBoundaryID()
 	parseState.pending = append(parseState.pending, ssrStreamPendingBoundary{
-		id:         parseBoundaryID,
-		content:    parseContent,
-		suspension: parseSuspension,
+		id:            parseBoundaryID,
+		content:       parseContent,
+		suspension:    parseSuspension,
+		contextValues: parseState.contextValues,
 	})
 	return renderAsyncBoundaryFallbackToStreamShell(parseBuilder, parseElement, parseState, nil, parseBoundaryID)
 }
@@ -358,7 +372,7 @@ func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag stri
 		parseBuilder.WriteString(parseTag)
 		writeSSRProps(parseBuilder, parseElement.Props, "value")
 		parseBuilder.WriteByte('>')
-		if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseElement), parseSelectValue, nil); parseErr != nil {
+		if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseElement), parseSelectValue, parseState.contextValues); parseErr != nil {
 			return parseErr
 		}
 		parseBuilder.WriteString("</")

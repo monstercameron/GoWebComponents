@@ -36,7 +36,7 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactDOMServerIntegrationSelect | select value -> selected option | ✅ | ui/ssr_select_test.go (found+fixed v3.4.10; match by value/text, optgroup) |
 | ReactDOMServerIntegrationRefs | refs under SSR | ⬜ | |
 | ReactDOMServerIntegrationNewContext | context under SSR | ⬜ | |
-| ReactDOMFizzServer* | streaming SSR | 🔶 | partial (internal/runtime/ssr_stream) |
+| ReactDOMFizzServer* | streaming SSR + hooks/context | 🔶 | internal/runtime/ssr_stream_hooks_test.go — streaming runs hooks + threads context (v3.5.1); async-boundary/Suspense streaming itself still partial |
 | ReactDOMServer*Hydration / SelectiveHydration | hydration | 🔶 | partial (existing hydration tests) |
 
 ## react (core)
