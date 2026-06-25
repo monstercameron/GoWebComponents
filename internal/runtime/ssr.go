@@ -52,14 +52,16 @@ func RenderToString(parseElement *Element) (parseMarkup string, parseErr error) 
 	}()
 
 	var parseBuilder strings.Builder
-	if parseErr2 := renderElementToString(&parseBuilder, parseElement); parseErr2 != nil {
+	if parseErr2 := renderElementToString(&parseBuilder, parseElement, nil); parseErr2 != nil {
 		return "", parseErr2
 	}
 	return parseBuilder.String(), nil
 }
 
-// renderElementToString is a core package helper.
-func renderElementToString(parseBuilder *strings.Builder, parseElement *Element) error {
+// renderElementToString is a core package helper. parseCtx carries the inherited
+// context values (descriptor ID -> value) down the tree so a server-rendered
+// component's GoUseContextValue resolves to the nearest provider's value.
+func renderElementToString(parseBuilder *strings.Builder, parseElement *Element, parseCtx map[int64]any) error {
 	if parseElement == nil {
 		return nil
 	}
@@ -70,17 +72,21 @@ func renderElementToString(parseBuilder *strings.Builder, parseElement *Element)
 			parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
 			return nil
 		case "FRAGMENT":
-			return renderChildrenToString(parseBuilder, parseElement.Children)
+			return renderChildrenToString(parseBuilder, parseElement.Children, parseCtx)
 		default:
-			return renderHostElementToString(parseBuilder, parseTyp, parseElement)
+			return renderHostElementToString(parseBuilder, parseTyp, parseElement, parseCtx)
 		}
 	}
 
-	if _, parseOk2 := parseElement.Type.(*ContextProviderType); parseOk2 {
-		return renderChildrenToString(parseBuilder, parseElement.Children)
+	if parseProvider, parseOk2 := parseElement.Type.(*ContextProviderType); parseOk2 {
+		parseChildCtx := parseCtx
+		if parseProvider.Descriptor != nil {
+			parseChildCtx = deriveContextValues(parseCtx, parseProvider.Descriptor.ID, parseElement.Props["value"])
+		}
+		return renderChildrenToString(parseBuilder, parseElement.Children, parseChildCtx)
 	}
 	if _, parseOk3 := parseElement.Type.(*PortalElementType); parseOk3 {
-		return renderChildrenToString(parseBuilder, parseElement.Children)
+		return renderChildrenToString(parseBuilder, parseElement.Children, parseCtx)
 	}
 	if _, parseOk4 := parseElement.Type.(*ReactiveTextElementType); parseOk4 {
 		parseGetter, _ := parseElement.Props[reactiveTextGetterProp].(func() string)
@@ -96,27 +102,27 @@ func renderElementToString(parseBuilder *strings.Builder, parseElement *Element)
 		if render == nil {
 			return nil
 		}
-		return renderElementToString(parseBuilder, render())
+		return renderElementToString(parseBuilder, render(), parseCtx)
 	}
 	if _, parseOk6 := parseElement.Type.(*ErrorBoundaryType); parseOk6 {
-		return renderErrorBoundaryToString(parseBuilder, parseElement)
+		return renderErrorBoundaryToString(parseBuilder, parseElement, parseCtx)
 	}
 	if _, parseOk7 := parseElement.Type.(*AsyncBoundaryElementType); parseOk7 {
-		return renderAsyncBoundaryToString(parseBuilder, parseElement)
+		return renderAsyncBoundaryToString(parseBuilder, parseElement, parseCtx)
 	}
 
-	parseResolved, parseErr := resolveComponentElement(parseElement)
+	parseResolved, parseErr := resolveComponentElement(parseElement, parseCtx)
 	if parseErr != nil {
 		return parseErr
 	}
 	if parseResolved == nil {
 		return nil
 	}
-	return renderElementToString(parseBuilder, parseResolved)
+	return renderElementToString(parseBuilder, parseResolved, parseCtx)
 }
 
 // renderErrorBoundaryToString is a core package helper.
-func renderErrorBoundaryToString(parseBuilder *strings.Builder, parseElement *Element) (parseErr error) {
+func renderErrorBoundaryToString(parseBuilder *strings.Builder, parseElement *Element, parseCtx map[int64]any) (parseErr error) {
 	if parseElement == nil {
 		return nil
 	}
@@ -137,29 +143,29 @@ func renderErrorBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 
 		if parseFallbackFn, _ := parseElement.Props["errorFallback"].(func(error, func()) *Element); parseFallbackFn != nil {
 			parseFallback := parseFallbackFn(parseBoundaryErr, func() {})
-			parseErr = renderElementToString(parseBuilder, parseFallback)
+			parseErr = renderElementToString(parseBuilder, parseFallback, parseCtx)
 			return
 		}
 		if parseFallback2, _ := parseElement.Props["fallback"].(*Element); parseFallback2 != nil {
-			parseErr = renderElementToString(parseBuilder, parseFallback2)
+			parseErr = renderElementToString(parseBuilder, parseFallback2, parseCtx)
 			return
 		}
 		parseErr = nil
 	}()
 
-	return renderChildrenToString(parseBuilder, parseElement.Children)
+	return renderChildrenToString(parseBuilder, parseElement.Children, parseCtx)
 }
 
 // renderAsyncBoundaryToString renders async fallback content when a child suspends.
-func renderAsyncBoundaryToString(parseBuilder *strings.Builder, parseElement *Element) (parseErr error) {
+func renderAsyncBoundaryToString(parseBuilder *strings.Builder, parseElement *Element, parseCtx map[int64]any) (parseErr error) {
 	if parseElement == nil {
 		return nil
 	}
 	if parseErr2, _ := parseElement.Props["error"].(error); parseErr2 != nil {
-		return renderAsyncBoundaryFallbackToString(parseBuilder, parseElement, parseErr2)
+		return renderAsyncBoundaryFallbackToString(parseBuilder, parseElement, parseErr2, parseCtx)
 	}
 	if parsePending, _ := parseElement.Props["pending"].(bool); parsePending {
-		return renderAsyncBoundaryFallbackToString(parseBuilder, parseElement, nil)
+		return renderAsyncBoundaryFallbackToString(parseBuilder, parseElement, nil, parseCtx)
 	}
 
 	defer func() {
@@ -168,7 +174,7 @@ func renderAsyncBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 			return
 		}
 		if _, parseOk := AsSuspension(parseRecovered); parseOk {
-			parseErr = renderAsyncBoundaryFallbackToString(parseBuilder, parseElement, nil)
+			parseErr = renderAsyncBoundaryFallbackToString(parseBuilder, parseElement, nil, parseCtx)
 			return
 		}
 		panic(parseRecovered)
@@ -176,13 +182,13 @@ func renderAsyncBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 
 	var parseContentBuilder strings.Builder
 	if parseContent, _ := parseElement.Props["content"].(*Element); parseContent != nil {
-		if parseErr2 := renderElementToString(&parseContentBuilder, parseContent); parseErr2 != nil {
+		if parseErr2 := renderElementToString(&parseContentBuilder, parseContent, parseCtx); parseErr2 != nil {
 			return parseErr2
 		}
 		parseBuilder.WriteString(parseContentBuilder.String())
 		return nil
 	}
-	if parseErr2 := renderChildrenToString(&parseContentBuilder, parseElement.Children); parseErr2 != nil {
+	if parseErr2 := renderChildrenToString(&parseContentBuilder, parseElement.Children, parseCtx); parseErr2 != nil {
 		return parseErr2
 	}
 	parseBuilder.WriteString(parseContentBuilder.String())
@@ -190,17 +196,17 @@ func renderAsyncBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 }
 
 // renderAsyncBoundaryFallbackToString renders the best available async fallback.
-func renderAsyncBoundaryFallbackToString(parseBuilder *strings.Builder, parseElement *Element, parseErr error) error {
+func renderAsyncBoundaryFallbackToString(parseBuilder *strings.Builder, parseElement *Element, parseErr error, parseCtx map[int64]any) error {
 	if parseElement == nil || parseElement.Props == nil {
 		return nil
 	}
 	if parseErr != nil {
 		if parseFallbackFn, _ := parseElement.Props["errorFallback"].(func(error) *Element); parseFallbackFn != nil {
-			return renderElementToString(parseBuilder, parseFallbackFn(parseErr))
+			return renderElementToString(parseBuilder, parseFallbackFn(parseErr), parseCtx)
 		}
 	}
 	if parseFallback, _ := parseElement.Props["fallback"].(*Element); parseFallback != nil {
-		return renderElementToString(parseBuilder, parseFallback)
+		return renderElementToString(parseBuilder, parseFallback, parseCtx)
 	}
 	return nil
 }
@@ -279,11 +285,11 @@ func elementWithSelected(parseOption *Element) *Element {
 // <option> whose value matches the select's controlled value as selected (unless
 // it already declares selected). It recurses into <optgroup> so nested options
 // are matched too.
-func renderSelectChildrenToString(parseBuilder *strings.Builder, parseChildren []any, parseSelectValue string) error {
+func renderSelectChildrenToString(parseBuilder *strings.Builder, parseChildren []any, parseSelectValue string, parseCtx map[int64]any) error {
 	for _, parseChild := range parseChildren {
 		parseEl, parseOk := parseChild.(*Element)
 		if !parseOk || parseEl == nil {
-			if parseErr := renderChildrenToString(parseBuilder, []any{parseChild}); parseErr != nil {
+			if parseErr := renderChildrenToString(parseBuilder, []any{parseChild}, parseCtx); parseErr != nil {
 				return parseErr
 			}
 			continue
@@ -295,7 +301,7 @@ func renderSelectChildrenToString(parseBuilder *strings.Builder, parseChildren [
 			if _, parseAlready := parseEl.Props["selected"]; !parseAlready && optionMatchValue(parseEl) == parseSelectValue {
 				parseRender = elementWithSelected(parseEl)
 			}
-			if parseErr := renderElementToString(parseBuilder, parseRender); parseErr != nil {
+			if parseErr := renderElementToString(parseBuilder, parseRender, parseCtx); parseErr != nil {
 				return parseErr
 			}
 		case strings.EqualFold(parseType, "optgroup"):
@@ -303,14 +309,14 @@ func renderSelectChildrenToString(parseBuilder *strings.Builder, parseChildren [
 			parseBuilder.WriteString(parseType)
 			writeSSRProps(parseBuilder, parseEl.Props)
 			parseBuilder.WriteByte('>')
-			if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseEl), parseSelectValue); parseErr != nil {
+			if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseEl), parseSelectValue, parseCtx); parseErr != nil {
 				return parseErr
 			}
 			parseBuilder.WriteString("</")
 			parseBuilder.WriteString(parseType)
 			parseBuilder.WriteByte('>')
 		default:
-			if parseErr := renderElementToString(parseBuilder, parseEl); parseErr != nil {
+			if parseErr := renderElementToString(parseBuilder, parseEl, parseCtx); parseErr != nil {
 				return parseErr
 			}
 		}
@@ -318,7 +324,7 @@ func renderSelectChildrenToString(parseBuilder *strings.Builder, parseChildren [
 	return nil
 }
 
-func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, parseElement *Element) error {
+func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, parseElement *Element, parseCtx map[int64]any) error {
 	// A controlled <textarea value="x"> renders its value as text content, not as
 	// a (browser-ignored) value attribute.
 	if parseTextareaValue, parseIsTextarea := textareaControlledValue(parseTag, parseElement.Props); parseIsTextarea {
@@ -340,7 +346,7 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 		parseBuilder.WriteString(parseTag)
 		writeSSRProps(parseBuilder, parseElement.Props, "value")
 		parseBuilder.WriteByte('>')
-		if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseElement), parseSelectValue); parseErr != nil {
+		if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseElement), parseSelectValue, parseCtx); parseErr != nil {
 			return parseErr
 		}
 		parseBuilder.WriteString("</")
@@ -360,7 +366,7 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 
 	if parseElement.hasDirectText {
 		parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
-	} else if parseErr := renderChildrenToString(parseBuilder, getElementChildren(parseElement)); parseErr != nil {
+	} else if parseErr := renderChildrenToString(parseBuilder, getElementChildren(parseElement), parseCtx); parseErr != nil {
 		return parseErr
 	}
 
@@ -371,13 +377,13 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 }
 
 // renderChildrenToString is a core package helper.
-func renderChildrenToString(parseBuilder *strings.Builder, parseChildren []any) error {
+func renderChildrenToString(parseBuilder *strings.Builder, parseChildren []any, parseCtx map[int64]any) error {
 	for _, parseChild := range parseChildren {
 		switch parseValue := parseChild.(type) {
 		case nil:
 			continue
 		case *Element:
-			if parseErr := renderElementToString(parseBuilder, parseValue); parseErr != nil {
+			if parseErr := renderElementToString(parseBuilder, parseValue, parseCtx); parseErr != nil {
 				return parseErr
 			}
 		case string:
@@ -390,9 +396,25 @@ func renderChildrenToString(parseBuilder *strings.Builder, parseChildren []any) 
 }
 
 // resolveComponentElement is a core package helper.
-func resolveComponentElement(parseElement *Element) (*Element, error) {
+// withSSRHookFiber runs render with a transient fiber installed as the current
+// hook fiber, so a component may call hooks during server rendering. The fiber
+// carries the inherited context values (for GoUseContextValue) and a fresh hooks
+// store (GoUseState returns its initial value; GoUseRef/GoUseMemo compute;
+// GoUseEffect queues an effect that is never committed, so it never runs on the
+// server). The previous current fiber is restored afterwards.
+func withSSRHookFiber(parseType any, parseProps map[string]any, parseCtx map[int64]any, parseRender func() *Element) *Element {
+	parseFiber := &Fiber{typeOf: parseType, props: parseProps, contextValues: parseCtx}
+	parsePrev := GetCurrentFiber()
+	SetCurrentFiber(parseFiber)
+	defer SetCurrentFiber(parsePrev)
+	return parseRender()
+}
+
+func resolveComponentElement(parseElement *Element, parseCtx map[int64]any) (*Element, error) {
 	if parseComponent, parseOk := parseElement.Type.(*ComponentType); parseOk {
-		return parseComponent.Render(parseElement.Props), nil
+		return withSSRHookFiber(parseElement.Type, parseElement.Props, parseCtx, func() *Element {
+			return parseComponent.Render(parseElement.Props)
+		}), nil
 	}
 
 	parseValue := reflect.ValueOf(parseElement.Type)
@@ -422,11 +444,14 @@ func resolveComponentElement(parseElement *Element) (*Element, error) {
 		return nil, fmt.Errorf("ssr: component %T has unsupported arity %d", parseElement.Type, parseTyp.NumIn())
 	}
 
-	parseResult := parseValue.Call(parseArgs)
-	if len(parseResult) != 1 || parseResult[0].IsNil() {
-		return nil, nil
-	}
-	parseResolved, _ := parseResult[0].Interface().(*Element)
+	parseResolved := withSSRHookFiber(parseElement.Type, parseElement.Props, parseCtx, func() *Element {
+		parseResult := parseValue.Call(parseArgs)
+		if len(parseResult) != 1 || parseResult[0].IsNil() {
+			return nil
+		}
+		parseOut, _ := parseResult[0].Interface().(*Element)
+		return parseOut
+	})
 	return parseResolved, nil
 }
 

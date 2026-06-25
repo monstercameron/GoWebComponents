@@ -228,7 +228,7 @@ func TestRuntimeHotReloadHelperBranches(parseT *testing.T) {
 
 // TestRuntimeSSRHelperBranches covers error-boundary SSR fallbacks, prop conversion, and typed memo restoration.
 func TestRuntimeSSRHelperBranches(parseT *testing.T) {
-	if parseErr := renderErrorBoundaryToString(&strings.Builder{}, nil); parseErr != nil {
+	if parseErr := renderErrorBoundaryToString(&strings.Builder{}, nil, nil); parseErr != nil {
 		parseT.Fatalf("expected nil boundary render to succeed, got %v", parseErr)
 	}
 
@@ -250,7 +250,7 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 			}, nil),
 		},
 	}
-	if parseErr := renderErrorBoundaryToString(parseBoundaryBuilder, parseBoundaryElement); parseErr != nil {
+	if parseErr := renderErrorBoundaryToString(parseBoundaryBuilder, parseBoundaryElement, nil); parseErr != nil {
 		parseT.Fatalf("expected error-boundary fallback render to recover, got %v", parseErr)
 	}
 	if parseBoundaryError != "boom" {
@@ -277,7 +277,7 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 			}, nil),
 		},
 	}
-	if parseErr := renderErrorBoundaryToString(parseElementFallbackBuilder, parseElementFallbackBoundary); parseErr != nil {
+	if parseErr := renderErrorBoundaryToString(parseElementFallbackBuilder, parseElementFallbackBoundary, nil); parseErr != nil {
 		parseT.Fatalf("expected fallback element render to recover, got %v", parseErr)
 	}
 	if !parseElementFallbackCalled {
@@ -302,7 +302,7 @@ func TestRuntimeSSRHelperBranches(parseT *testing.T) {
 			}, nil),
 		},
 	}
-	if parseErr := renderErrorBoundaryToString(parseNoFallbackBuilder, parseNoFallbackBoundary); parseErr != nil {
+	if parseErr := renderErrorBoundaryToString(parseNoFallbackBuilder, parseNoFallbackBoundary, nil); parseErr != nil {
 		parseT.Fatalf("expected missing fallback branch to swallow panic, got %v", parseErr)
 	}
 	if !isParseOnErrorCalled {

@@ -149,7 +149,7 @@ func renderSSRStreamBoundaryChunk(parseCtx context.Context, parseBoundary ssrStr
 				panic(parseRecovered)
 			}
 		}()
-		return renderElementToString(&parseContent, parseBoundary.content)
+		return renderElementToString(&parseContent, parseBoundary.content, nil)
 	}()
 	if parseErr != nil {
 		return SSRStreamChunk{Kind: SSRStreamChunkBoundary, BoundaryID: parseBoundary.id, Err: parseErr}
@@ -205,7 +205,7 @@ func renderElementToStreamShell(parseBuilder *strings.Builder, parseElement *Ele
 		return renderAsyncBoundaryToStreamShell(parseBuilder, parseElement, parseState)
 	}
 
-	parseResolved, parseErr := resolveComponentElement(parseElement)
+	parseResolved, parseErr := resolveComponentElement(parseElement, nil)
 	if parseErr != nil {
 		return parseErr
 	}
@@ -358,7 +358,7 @@ func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag stri
 		parseBuilder.WriteString(parseTag)
 		writeSSRProps(parseBuilder, parseElement.Props, "value")
 		parseBuilder.WriteByte('>')
-		if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseElement), parseSelectValue); parseErr != nil {
+		if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseElement), parseSelectValue, nil); parseErr != nil {
 			return parseErr
 		}
 		parseBuilder.WriteString("</")

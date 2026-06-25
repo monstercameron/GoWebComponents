@@ -1,5 +1,33 @@
 # Changelog
 
+## v3.5.0 - 2026-06-24
+
+### Added
+
+- **Hooks now run during server rendering (`ui.RenderToString`).** Previously the
+  string serializer was hook-less: a component calling any hook errored with
+  "called outside component context", so only hook-free trees could be
+  server-rendered. `RenderToString` now installs a transient hook fiber per
+  component, so on the server:
+  - `GoUseState` returns its initial value (the setter is a no-op);
+  - `GoUseRef` and `GoUseMemo` compute normally;
+  - `GoUseContextValue` resolves to the nearest provider's value — context flows
+    down through host elements and nested providers override correctly;
+  - `GoUseEffect` is queued but never committed, so effects do not run on the
+    server (matching React).
+
+  This makes GWC able to server-render real (hook-using) components, matching
+  React's `ReactDOMServerIntegrationHooks`. Implemented by threading the inherited
+  context map through the SSR renderer and deriving it at each `ContextProvider`
+  boundary. Covered by `ui/ssr_hooks_test.go`.
+
+  Notes: SSR-with-hooks uses the package-global current-fiber like the client
+  reconciler, so a single process renders hook components one tree at a time
+  (concurrent goroutine SSR of hook components needs external serialization — a
+  pre-existing hook-architecture constraint). The streaming SSR path runs hooks
+  but does not yet thread context (a documented follow-up); the buffered
+  `RenderToString` path is fully supported.
+
 ## v3.4.10 - 2026-06-24
 
 ### Fixed
