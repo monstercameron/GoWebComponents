@@ -11,6 +11,20 @@ applicable surface is the core element/reconciler/hooks/SSR behavior.
 
 Legend: ✅ done · 🔶 partial · ⬜ todo · 🚫 N/A (no GWC analog / architectural)
 
+## Status
+
+Every applicable React test with a GWC analog has been ported (or was already
+covered) and passes. The remaining non-✅ items are: (a) 🚫 architectural
+non-analogs — cloneElement, the `React.memo` wrapper, `Children.only`, JSX
+transform, ES6 classes, concurrent/act/lazy/expiration, SSR primitive children,
+and the whole devtools/native/server-dom-webpack family; and (b) the single 🔶
+where GWC's *own* feature is partial — full Suspense/async-boundary streaming
+(the synchronous streaming shell + hooks + context are covered; out-of-order
+Suspense streaming is incomplete in GWC itself, so there is nothing stable to
+port against yet). The synchronous core (reconciler, hooks, effects, context,
+refs, fragments, transitions, state isolation) and the entire SSR surface
+(serialization + SSR hooks) are comprehensively covered.
+
 ## How tests are ported
 
 GWC's full client runtime is testable natively via the mock DOM adapter (React's
@@ -35,7 +49,7 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactDOMServerIntegrationTextarea/Input/Checkbox | controlled inputs SSR | ✅ | ui/ssr_controlled_inputs_test.go (textarea value->content: found+fixed v3.4.9) |
 | ReactDOMServerIntegrationSelect | select value -> selected option | ✅ | ui/ssr_select_test.go (found+fixed v3.4.10; match by value/text, optgroup) |
 | ReactDOMFizzServer* | streaming SSR + hooks/context | 🔶 | internal/runtime/ssr_stream_hooks_test.go — streaming runs hooks + threads context (v3.5.1); async-boundary/Suspense streaming itself still partial |
-| ReactDOMServer*Hydration / SelectiveHydration | hydration | 🔶 | partial (existing hydration tests) |
+| ReactDOMServer*Hydration / SelectiveHydration | hydration | ✅ | already covered natively: ~30 hydration test/fuzz funcs in internal/runtime (hydration_test.go, hydration_helper_gap_test.go, hydration_roundtrip_fuzz_test.go) |
 
 ## react (core)
 
