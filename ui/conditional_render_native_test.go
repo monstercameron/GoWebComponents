@@ -21,7 +21,7 @@ func TestConditionalNilRenderTogglesMount(t *testing.T) {
 	rt.RenderInto(root, runtime.CreateElement(func() *runtime.Element {
 		parseShow, parseSetter := runtime.GoUseState(rt, true)
 		parseSetShow = parseSetter
-		if !parseShow {
+		if !parseShow() {
 			return nil
 		}
 		return runtime.CreateElement("span", map[string]any{}, "visible")
