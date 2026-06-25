@@ -1,5 +1,21 @@
 # Changelog
 
+## v3.4.8 - 2026-06-24
+
+### Fixed
+
+- **Duplicate keys in a list leaked host nodes and corrupted later renders.**
+  The reconciler's old-fiber lookup is a one-fiber-per-key map, so two siblings
+  sharing a `key` collided: the second overwrote the first, and the overwritten
+  fiber was never tagged for deletion. The list's host child count then grew past
+  the element count (e.g. `[a,a,b]` → `[a,b]` left **3** DOM children instead of
+  2), and the orphaned nodes bled into subsequent — even structurally different —
+  renders. Duplicate-keyed old fibers are now routed to the positionally-matched
+  fallback list, so every old fiber is tracked in exactly one structure and is
+  cleaned up; a new duplicate-keyed element also reuses a fallback match. Unique
+  keys are unaffected. Found via the native reconciler harness; covered by
+  `TestReconcileDuplicateKeysDoNotLeak` / `TestReconcileUniqueKeysUnaffected`.
+
 ## v3.4.7 - 2026-06-24
 
 ### Security

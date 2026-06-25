@@ -556,7 +556,16 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 		parseOldIndexByFiber[parseOldFiber] = parseOldIndex
 		parseOldIndex++
 		if parseKey, parseOk := fiberComparableKey(parseOldFiber); parseOk {
-			parseOldByKey[parseKey] = parseOldFiber
+			if _, parseDup := parseOldByKey[parseKey]; parseDup {
+				// Duplicate key: the keyed map holds only one fiber per key, so
+				// route the collision to the positionally-matched fallback list.
+				// This keeps every old fiber tracked in exactly one structure so
+				// none leaks at cleanup — an overwritten map entry would otherwise
+				// never be tagged for deletion, orphaning a stale DOM node.
+				parseOldFallbackKeyed = append(parseOldFallbackKeyed, parseOldFiber)
+			} else {
+				parseOldByKey[parseKey] = parseOldFiber
+			}
 		} else if hasFiberKey(parseOldFiber) {
 			parseOldFallbackKeyed = append(parseOldFallbackKeyed, parseOldFiber)
 		} else {
@@ -580,6 +589,10 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 			parseMatchedOld = parseOldByKey[parseKey2]
 			if parseMatchedOld != nil {
 				delete(parseOldByKey, parseKey2)
+			} else {
+				// No primary keyed match: a duplicate-keyed old fiber routed to
+				// the fallback list may still match this element by key.
+				parseMatchedOld = takeMatchingFallbackKeyed(parseOldFallbackKeyed, parseElem)
 			}
 		} else if hasElementKey(parseElem) {
 			parseMatchedOld = takeMatchingFallbackKeyed(parseOldFallbackKeyed, parseElem)
