@@ -40,8 +40,8 @@ re-renders/effects are observable inline. SSR behavior is tested via
 
 | React test file | Spirit | Status | GWC test |
 |---|---|---|---|
-| ReactChildren-test | Children.map/forEach/count/toArray/only | ⬜ | (GWC has Children normalize) |
-| ReactCreateElement-test | element creation, key/ref extraction | ⬜ | |
+| ReactChildren-test | flatten/filter/toArray spirit | ✅ | ui/children_native_test.go (map/only/forEach N/A — GWC has normalize, not the Children API) |
+| ReactCreateElement-test | element assembly: type/props/children/key | ✅ | ui/create_element_native_test.go |
 | ReactElementClone-test | cloneElement | 🚫 | no GWC cloneElement (immutable element model) |
 | ReactCreateRef-test / forwardRef | refs (DOM + value) | ✅ | ui/refs_native_test.go, ui/useref_native_test.go |
 | SSR primitive children (number/bool/null) | render primitives as children | 🚫 | Go static typing: html.* children are ui.Node; primitives go via ui.Text |
