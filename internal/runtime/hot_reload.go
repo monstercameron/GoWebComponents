@@ -865,8 +865,10 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 		var isHandledPanic bool
 		var parseNextFromBoundary *Fiber
 		renderStart := time.Now()
+		parseRt.activeRenderFiber = parseFiber
 		func() {
 			defer SetCurrentFiber(nil)
+			defer func() { parseRt.activeRenderFiber = nil }()
 			defer func() {
 				if parseRecovered := recover(); parseRecovered != nil {
 					var isHandled bool
@@ -903,6 +905,54 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 
 		if isHandledPanic {
 			return nil, true, parseNextFromBoundary
+		}
+
+		// Render-phase convergence: if the component updated its own state during
+		// this render (parseFiber.renderPhaseUpdate, set by the hook setter), re-run
+		// it with the new state until it stops updating — bounded like React's
+		// re-render limit — so the committed output reflects the final state instead
+		// of a half-rendered intermediate.
+		for parseRPIters := 0; parseFiber.renderPhaseUpdate; parseRPIters++ {
+			parseFiber.renderPhaseUpdate = false
+			if parseRPIters >= 25 {
+				ReportDiagnosticWithContext("runtime", DiagnosticError,
+					"render-phase state updates did not converge after 25 attempts; likely an unconditional setState during render",
+					diagnosticPathForFiber(parseFiber), diagnosticComponentStack(parseFiber))
+				break
+			}
+			if parseFiber.hooks != nil {
+				parseFiber.hooks.index = 0
+				parseFiber.hooks.stateIndex = 0
+				parseFiber.hooks.depIndex = 0
+				parseFiber.hooks.memoIndex = 0
+				parseFiber.hooks.callbackIndex = 0
+				parseFiber.hooks.refIndex = 0
+				parseFiber.hooks.idIndex = 0
+				parseFiber.hooks.fetchIndex = 0
+				parseFiber.hooks.funcIndex = 0
+				parseFiber.hooks.atomIndex = 0
+				parseFiber.hooks.cleanupIndex = 0
+				parseFiber.hooks.signature = parseFiber.hooks.signature[:0]
+			}
+			if parseFiber.effects != nil {
+				parseFiber.effects = parseFiber.effects[:0]
+			}
+			SetCurrentFiber(parseFiber)
+			parseRt.activeRenderFiber = parseFiber
+			func() {
+				defer SetCurrentFiber(nil)
+				defer func() { parseRt.activeRenderFiber = nil }()
+				switch parseFn := parseFiber.typeOf.(type) {
+				case func() *Element:
+					parseElement = parseFn()
+				case func(map[string]any) *Element:
+					parseElement = parseFn(parseFiber.props)
+				case func(Attrs) *Element:
+					parseElement = parseFn(Attrs(parseFiber.props))
+				case *ComponentType:
+					parseElement = parseFn.Render(parseFiber.props)
+				}
+			}()
 		}
 
 		if parseAttempt == 0 && parseRestore != nil {

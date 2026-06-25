@@ -1,5 +1,24 @@
 # Changelog
 
+## v3.5.3 - 2026-06-25
+
+### Fixed
+
+- **Render-phase state updates left the DOM inconsistent with the render.** When a
+  component updated its own state during render (`if x { setState(...) }` — the
+  derived-state-during-render pattern), the setter stored the new value and
+  scheduled a commit, but the component was never re-run, so the committed DOM
+  showed a value the component had not actually rendered (e.g. it rendered `0` but
+  the DOM showed `1`, and it never converged). `renderFunctionComponent` now
+  detects a render-phase update (the setter's owner is the fiber actively
+  rendering, tracked by a new `activeRenderFiber` flag — distinct from the ambient
+  current fiber so it never trips on the SSR path or hook unit tests) and re-runs
+  the component to convergence, bounded at 25 iterations with a diagnostic to
+  guard against an unconditional-setState infinite loop. Matches React's
+  "keeps restarting until there are no more new updates." Covered by
+  `TestRenderPhaseUpdateConverges` / `TestRenderPhaseDerivedStateOneStep` /
+  `TestRenderPhaseUnconditionalDoesNotHang`.
+
 ## v3.5.2 - 2026-06-25
 
 ### Fixed

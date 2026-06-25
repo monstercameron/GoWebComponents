@@ -80,7 +80,11 @@ type Fiber struct {
 	portalUnresolved    bool // portal target selector did not resolve at commit; retry on the next commit
 	needsChildReconcile bool
 	needsChildOrder     bool
-	// 6 bytes padding here to align next 8-byte field
+	// renderPhaseUpdate is set when a hook setter is called while this fiber is
+	// rendering (a render-phase update). renderFunctionComponent re-runs the
+	// component to converge on the new state instead of committing an output that
+	// does not match the latest state.
+	renderPhaseUpdate bool
 
 	// Component info
 	hooks              *Hooks
