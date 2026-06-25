@@ -336,6 +336,20 @@ func renderAsyncBoundaryFallbackToStreamShell(parseBuilder *strings.Builder, par
 }
 
 func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag string, parseElement *Element, parseState *ssrStreamState) error {
+	// Mirror the buffered serializer: a controlled <textarea value="x"> renders
+	// its value as text content, not as a browser-ignored value attribute.
+	if parseTextareaValue, parseIsTextarea := textareaControlledValue(parseTag, parseElement.Props); parseIsTextarea {
+		parseBuilder.WriteByte('<')
+		parseBuilder.WriteString(parseTag)
+		writeSSRProps(parseBuilder, parseElement.Props, "value")
+		parseBuilder.WriteByte('>')
+		parseBuilder.WriteString(html.EscapeString(parseTextareaValue))
+		parseBuilder.WriteString("</")
+		parseBuilder.WriteString(parseTag)
+		parseBuilder.WriteByte('>')
+		return nil
+	}
+
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
 	writeSSRProps(parseBuilder, parseElement.Props)

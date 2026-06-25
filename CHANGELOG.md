@@ -1,5 +1,23 @@
 # Changelog
 
+## v3.4.9 - 2026-06-24
+
+### Fixed
+
+- **Controlled `<textarea value="…">` rendered empty in SSR.** HTML ignores a
+  `value` attribute on `<textarea>` — the displayed value is the element's text
+  content — but the SSR serializer emitted `<textarea value="x"></textarea>`, so a
+  controlled textarea rendered blank server-side and mismatched on hydration (the
+  client path sets `.value` as a DOM property, which masked the bug outside SSR).
+  The serializer now renders a textarea's string `value` as escaped text content
+  (`<textarea>x</textarea>`), matching React's `ReactDOMServerIntegrationTextarea`
+  behavior; other attributes are preserved and an explicit child is used when no
+  `value` is set. Fixed in both the buffered and streaming SSR renderers. Found
+  while porting React's controlled-input SSR tests. Covered by
+  `TestSSRTextareaValueRendersAsContent`. (Note: `<select value>` still renders
+  the value as an attribute rather than marking the matching `<option selected>`;
+  tracked as a follow-up.)
+
 ## v3.4.8 - 2026-06-24
 
 ### Fixed

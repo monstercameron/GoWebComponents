@@ -30,7 +30,8 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactDOMServerIntegrationFragment | fragment SSR | ⬜ | |
 | ReactDOMServerIntegrationSpecialTypes | numbers/bools/null children | ⬜ | |
 | ReactDOMServerIntegrationHooks | hooks under SSR | ⬜ | |
-| ReactDOMServerIntegrationTextarea/Input/Select/Checkbox | controlled inputs SSR | ⬜ | |
+| ReactDOMServerIntegrationTextarea/Input/Checkbox | controlled inputs SSR | ✅ | ui/ssr_controlled_inputs_test.go (textarea value->content: found+fixed v3.4.9) |
+| ReactDOMServerIntegrationSelect | select value -> selected option | 🔶 | option selected works; select value still an attr (v3.4.9 follow-up) |
 | ReactDOMServerIntegrationRefs | refs under SSR | ⬜ | |
 | ReactDOMServerIntegrationNewContext | context under SSR | ⬜ | |
 | ReactDOMFizzServer* | streaming SSR | 🔶 | partial (internal/runtime/ssr_stream) |
