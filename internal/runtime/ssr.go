@@ -205,7 +205,36 @@ func renderAsyncBoundaryFallbackToString(parseBuilder *strings.Builder, parseEle
 }
 
 // renderHostElementToString is a core package helper.
+// textareaControlledValue reports the string a <textarea> must render as its text
+// content. HTML ignores a `value` attribute on <textarea> — the displayed value
+// is its child text — so a controlled textarea's value prop has to be serialized
+// as content or it renders empty server-side (and mismatches on hydration). React
+// renders a textarea's value/defaultValue the same way.
+func textareaControlledValue(parseTag string, parseProps map[string]any) (string, bool) {
+	if !strings.EqualFold(parseTag, "textarea") || parseProps == nil {
+		return "", false
+	}
+	if parseVal, parseOk := parseProps["value"].(string); parseOk {
+		return parseVal, true
+	}
+	return "", false
+}
+
 func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, parseElement *Element) error {
+	// A controlled <textarea value="x"> renders its value as text content, not as
+	// a (browser-ignored) value attribute.
+	if parseTextareaValue, parseIsTextarea := textareaControlledValue(parseTag, parseElement.Props); parseIsTextarea {
+		parseBuilder.WriteByte('<')
+		parseBuilder.WriteString(parseTag)
+		writeSSRProps(parseBuilder, parseElement.Props, "value")
+		parseBuilder.WriteByte('>')
+		parseBuilder.WriteString(html.EscapeString(parseTextareaValue))
+		parseBuilder.WriteString("</")
+		parseBuilder.WriteString(parseTag)
+		parseBuilder.WriteByte('>')
+		return nil
+	}
+
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
 	writeSSRProps(parseBuilder, parseElement.Props)
@@ -340,7 +369,7 @@ func serializeProps(parseProps map[string]any) []string {
 // It is the streaming twin of serializeProps: per-attribute it avoids the
 // intermediate `name="value"` string (and the slice holding them) that the
 // builder would immediately copy — the serializer's largest allocation source.
-func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]any) {
+func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]any, parseSkip ...string) {
 	if len(parseProps) == 0 {
 		return
 	}
@@ -350,6 +379,9 @@ func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]any) {
 	parseKeys := parseKeyStorage[:0]
 	for parseKey, parseValue := range parseProps {
 		if shouldSkipSSRProp(parseKey, parseValue) {
+			continue
+		}
+		if len(parseSkip) > 0 && slices.Contains(parseSkip, parseKey) {
 			continue
 		}
 		parseKeys = append(parseKeys, parseKey)
