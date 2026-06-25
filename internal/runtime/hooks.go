@@ -166,6 +166,15 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(an
 			if parseTargetFiber == nil {
 				parseTargetFiber = parseFiber
 			}
+			// Render-phase update: the setter was called while its own fiber's
+			// component function is executing. Don't schedule a commit of the
+			// half-rendered output — flag the fiber so renderFunctionComponent
+			// re-runs to convergence with the new state (matching React). The new
+			// value is already stored above, so the re-run observes it.
+			if parseRt != nil && parseRt.activeRenderFiber == parseTargetFiber {
+				parseTargetFiber.renderPhaseUpdate = true
+				return
+			}
 			parseRt.ScheduleOwnedFiberUpdateWithOrigin(parseTargetFiber, parseUpdateOrigin)
 		}
 

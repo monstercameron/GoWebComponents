@@ -52,8 +52,14 @@ type Runtime struct {
 	scheduler    Scheduler
 	browserState BrowserState
 
-	wipRoot                 *Fiber
-	currentRoot             *Fiber
+	wipRoot     *Fiber
+	currentRoot *Fiber
+	// activeRenderFiber is the fiber whose component function is executing right
+	// now (set only by renderFunctionComponent around the render call). A hook
+	// setter that sees its owner == activeRenderFiber is a render-phase update and
+	// converges in renderFunctionComponent instead of scheduling a commit. Unlike
+	// the ambient currentFiber, this is never set by unit tests or the SSR path.
+	activeRenderFiber       *Fiber
 	nextUnitOfWork          *Fiber
 	deletions               []*Fiber
 	pendingEffectFibers     []*Fiber
