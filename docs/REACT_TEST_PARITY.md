@@ -42,8 +42,9 @@ re-renders/effects are observable inline. SSR behavior is tested via
 |---|---|---|---|
 | ReactChildren-test | Children.map/forEach/count/toArray/only | ⬜ | (GWC has Children normalize) |
 | ReactCreateElement-test | element creation, key/ref extraction | ⬜ | |
-| ReactElementClone-test | cloneElement | 🚫? | (no GWC cloneElement — assess) |
-| ReactCreateRef-test / forwardRef | refs | ⬜ | |
+| ReactElementClone-test | cloneElement | 🚫 | no GWC cloneElement (immutable element model) |
+| ReactCreateRef-test / forwardRef | refs (DOM + value) | ✅ | ui/refs_native_test.go, ui/useref_native_test.go |
+| SSR primitive children (number/bool/null) | render primitives as children | 🚫 | Go static typing: html.* children are ui.Node; primitives go via ui.Text |
 | onlyChild-test | Children.only | ⬜ | |
 | ReactContextValidator / NewContext | context | ✅ | ui/context_native_test.go |
 | ReactStartTransition | transitions | ⬜ | (GWC has StartTransition) |
@@ -56,7 +57,9 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactHooksWithNoopRenderer | hooks via noop renderer | 🔶 | ui/hooks_state_native_test.go (state); more to port |
 | ReactEffectOrdering | effect run/cleanup order | ⬜ | ui/effects_native_test.go (basic) |
 | ReactFragment / ReactTopLevelFragment | fragments | ⬜ | |
-| ReactFiberRefs | ref attach/detach | ⬜ | |
+| ReactFiberRefs | ref attach/detach, detach-before-attach on remount | ✅ | ui/refs_native_test.go |
+| ReactEffectOrdering | deletion cleanup parent->child | ✅ | ui/effect_ordering_native_test.go |
+| ReactFragment / ReactTopLevelFragment | fragments hoist; keyed state preserved | ✅ | ui/fragment_native_test.go |
 | ReactIncrementalSideEffects | mount/unmount side effects | 🔶 | ui/effects_native_test.go (partial) |
 | ReactNewContext / ReactContextPropagation | context propagation | ✅ | ui/context_native_test.go |
 | ReactMemo | memoization / bailout | ⬜ | |
