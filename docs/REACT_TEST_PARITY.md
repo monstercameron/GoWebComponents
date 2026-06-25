@@ -26,10 +26,12 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactDOMServerIntegrationUntrustedURL | javascript: URL sanitization | ✅ | ui/url_sanitization_test.go (+ found v3.4.7) |
 | ReactDOMServerIntegrationAttributes | attr boolean/nil/numeric/escaping | ✅ | ui/attribute_serialization_test.go |
 | ReactDOMServerIntegrationElements | void elements, text escaping | ✅ | ui/void_element_test.go, ui/text_escaping_test.go |
-| ReactDOMServerIntegrationBasic | basic SSR render | ⬜ | |
-| ReactDOMServerIntegrationFragment | fragment SSR | ⬜ | |
-| ReactDOMServerIntegrationSpecialTypes | numbers/bools/null children | ⬜ | |
+| ReactDOMServerIntegrationBasic | basic SSR render, nested components, nil | ✅ | ui/ssr_components_test.go |
+| ReactDOMServerIntegrationFragment | fragment SSR | ✅ | ui/ssr_components_test.go (component->fragment hoist) |
+| ReactDOMServerIntegrationSpecialTypes | numbers/bools/null children | 🚫 | Go static typing (ui.Node children) |
 | ReactDOMServerIntegrationHooks | hooks under SSR | ⬜ | |
+| ReactDOMServerIntegrationRefs | refs inert during SSR | ✅ | ui/ssr_ref_and_context_test.go |
+| ReactDOMServerIntegrationNewContext | context under SSR / multi-consumer | ✅ | ui/ssr_ref_and_context_test.go, ui/context_native_test.go |
 | ReactDOMServerIntegrationTextarea/Input/Checkbox | controlled inputs SSR | ✅ | ui/ssr_controlled_inputs_test.go (textarea value->content: found+fixed v3.4.9) |
 | ReactDOMServerIntegrationSelect | select value -> selected option | ✅ | ui/ssr_select_test.go (found+fixed v3.4.10; match by value/text, optgroup) |
 | ReactDOMServerIntegrationRefs | refs under SSR | ⬜ | |
