@@ -54,7 +54,7 @@ re-renders/effects are observable inline. SSR behavior is tested via
 
 | React test file | Spirit | Status | GWC test |
 |---|---|---|---|
-| ReactHooksWithNoopRenderer | hooks via noop renderer | 🔶 | ui/hooks_state_native_test.go (state); more to port |
+| ReactHooksWithNoopRenderer | hooks via noop renderer | 🔶 | ui/hooks_state_native_test.go (state/multi/order), ui/hooks_update_native_test.go (functional update, stable setter, set-after-unmount); useReducer is a ui-level construct on useState |
 | ReactEffectOrdering | effect run/cleanup order | ⬜ | ui/effects_native_test.go (basic) |
 | ReactFragment / ReactTopLevelFragment | fragments | ⬜ | |
 | ReactFiberRefs | ref attach/detach, detach-before-attach on remount | ✅ | ui/refs_native_test.go |
