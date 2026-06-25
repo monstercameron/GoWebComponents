@@ -1,5 +1,21 @@
 # Changelog
 
+## v3.5.4 - 2026-06-25
+
+### Fixed
+
+- **Effects were dropped when a component used render-phase updates (regression in
+  v3.5.3).** The render-phase convergence loop cleared the fiber's per-iteration
+  effect list before each re-run; combined with the deps-equality check (a
+  stable-deps effect does not re-register when its deps are unchanged), the effect
+  ended up registered in no iteration and never ran. The loop no longer clears the
+  effect list — effects accumulate across convergence iterations and are then
+  de-duplicated by cleanup-index (keeping the last, i.e. the final render's effect
+  per slot). Each effect now runs exactly once with the converged state, for both
+  stable and changing deps, and multiple effects run once each in declaration
+  order. Covered by `TestRenderPhaseEffectRunsOnceStableDeps` /
+  `...ChangingDeps` / `TestRenderPhaseMultipleEffectsEachOnce`.
+
 ## v3.5.3 - 2026-06-25
 
 ### Fixed
