@@ -911,8 +911,16 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 		// this render (parseFiber.renderPhaseUpdate, set by the hook setter), re-run
 		// it with the new state until it stops updating — bounded like React's
 		// re-render limit — so the committed output reflects the final state instead
-		// of a half-rendered intermediate.
+		// of a half-rendered intermediate. The hook indices are reset per iteration
+		// but the deps/cleanups/effects arrays persist; effects accumulate across
+		// iterations (the deps-equality check makes a stable effect register only
+		// once, while a deps-changing effect registers per iteration), so they are
+		// de-duplicated by cleanup index afterwards to commit exactly the final
+		// render's effect per slot. NOTE: do not clear parseFiber.effects here —
+		// clearing it loses an effect whose deps did not change across iterations.
+		parseConverged := false
 		for parseRPIters := 0; parseFiber.renderPhaseUpdate; parseRPIters++ {
+			parseConverged = true
 			parseFiber.renderPhaseUpdate = false
 			if parseRPIters >= 25 {
 				ReportDiagnosticWithContext("runtime", DiagnosticError,
@@ -934,9 +942,6 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 				parseFiber.hooks.cleanupIndex = 0
 				parseFiber.hooks.signature = parseFiber.hooks.signature[:0]
 			}
-			if parseFiber.effects != nil {
-				parseFiber.effects = parseFiber.effects[:0]
-			}
 			SetCurrentFiber(parseFiber)
 			parseRt.activeRenderFiber = parseFiber
 			func() {
@@ -953,6 +958,9 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 					parseElement = parseFn.Render(parseFiber.props)
 				}
 			}()
+		}
+		if parseConverged {
+			parseFiber.effects = dedupRenderPhaseEffects(parseFiber.effects)
 		}
 
 		if parseAttempt == 0 && parseRestore != nil {
@@ -974,4 +982,34 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 	}
 
 	return nil, false, nil
+}
+
+// dedupRenderPhaseEffects collapses the effects accumulated across render-phase
+// convergence iterations to exactly one per cleanup-index slot — the last one,
+// i.e. the effect produced by the final converged render — preserving
+// declaration (cleanup-index) order. Without this, an effect whose deps change as
+// state converges would be registered (and run) once per iteration.
+func dedupRenderPhaseEffects(parseEffects []Effect) []Effect {
+	if len(parseEffects) <= 1 {
+		return parseEffects
+	}
+	parseLastBySlot := make(map[int]Effect, len(parseEffects))
+	parseMaxSlot := -1
+	for _, parseEffect := range parseEffects {
+		parseLastBySlot[parseEffect.CleanupIndex] = parseEffect
+		if parseEffect.CleanupIndex > parseMaxSlot {
+			parseMaxSlot = parseEffect.CleanupIndex
+		}
+	}
+	if len(parseLastBySlot) == len(parseEffects) {
+		// No duplicates (every slot appeared once); keep the original order.
+		return parseEffects
+	}
+	parseOut := parseEffects[:0]
+	for parseSlot := 0; parseSlot <= parseMaxSlot; parseSlot++ {
+		if parseEffect, parseOk := parseLastBySlot[parseSlot]; parseOk {
+			parseOut = append(parseOut, parseEffect)
+		}
+	}
+	return parseOut
 }
