@@ -47,7 +47,7 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactDOMServerIntegrationHooks | hooks under SSR | ✅ | ui/ssr_hooks_test.go — IMPLEMENTED in v3.5.0: RenderToString runs useState/useRef/useMemo/useContext (effects skipped); context flows + nested providers override. Streaming path: hooks yes, context threading is a follow-up. |
 | ReactDOMServerIntegrationRefs | refs inert during SSR | ✅ | ui/ssr_ref_and_context_test.go |
 | ReactDOMServerIntegrationNewContext | context under SSR / multi-consumer | ✅ | ui/ssr_ref_and_context_test.go, ui/context_native_test.go |
-| ReactDOMServerIntegrationTextarea/Input/Checkbox | controlled inputs SSR | ✅ | ui/ssr_controlled_inputs_test.go (textarea value->content: found+fixed v3.4.9) |
+| ReactDOMServerIntegrationTextarea/Input/Checkbox | controlled inputs SSR | ✅ | ui/ssr_controlled_inputs_test.go, ui/ssr_default_value_test.go (textarea v3.4.9; defaultValue/defaultChecked->controlled v3.5.2) |
 | ReactDOMServerIntegrationSelect | select value -> selected option | ✅ | ui/ssr_select_test.go (found+fixed v3.4.10; match by value/text, optgroup) |
 | ReactDOMFizzServer* | streaming SSR + hooks/context | 🔶 | internal/runtime/ssr_stream_hooks_test.go — streaming runs hooks + threads context (v3.5.1); async-boundary/Suspense streaming itself still partial |
 | ReactDOMServer*Hydration / SelectiveHydration | hydration | ✅ | already covered natively: ~30 hydration test/fuzz funcs in internal/runtime (hydration_test.go, hydration_helper_gap_test.go, hydration_roundtrip_fuzz_test.go) |

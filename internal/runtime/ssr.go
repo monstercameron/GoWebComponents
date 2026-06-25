@@ -324,13 +324,47 @@ func renderSelectChildrenToString(parseBuilder *strings.Builder, parseChildren [
 	return nil
 }
 
+// normalizeFormValueProps maps React's uncontrolled form props to their
+// controlled HTML equivalents for SSR: defaultValue -> value and
+// defaultChecked -> checked (only when the controlled prop is not already set).
+// Without this, defaultValue/defaultChecked serialize as browser-ignored
+// attributes and the field renders empty/unchecked server-side. Returns the
+// original map untouched when neither default* prop is present (the common case).
+func normalizeFormValueProps(parseProps map[string]any) map[string]any {
+	if parseProps == nil {
+		return parseProps
+	}
+	_, parseHasDefaultValue := parseProps["defaultValue"]
+	_, parseHasDefaultChecked := parseProps["defaultChecked"]
+	if !parseHasDefaultValue && !parseHasDefaultChecked {
+		return parseProps
+	}
+	parseOut := make(map[string]any, len(parseProps))
+	maps.Copy(parseOut, parseProps)
+	if parseDV, parseOk := parseOut["defaultValue"]; parseOk {
+		if _, parseHasValue := parseOut["value"]; !parseHasValue {
+			parseOut["value"] = parseDV
+		}
+		delete(parseOut, "defaultValue")
+	}
+	if parseDC, parseOk := parseOut["defaultChecked"]; parseOk {
+		if _, parseHasChecked := parseOut["checked"]; !parseHasChecked {
+			parseOut["checked"] = parseDC
+		}
+		delete(parseOut, "defaultChecked")
+	}
+	return parseOut
+}
+
 func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, parseElement *Element, parseCtx map[int64]any) error {
+	parseProps := normalizeFormValueProps(parseElement.Props)
+
 	// A controlled <textarea value="x"> renders its value as text content, not as
 	// a (browser-ignored) value attribute.
-	if parseTextareaValue, parseIsTextarea := textareaControlledValue(parseTag, parseElement.Props); parseIsTextarea {
+	if parseTextareaValue, parseIsTextarea := textareaControlledValue(parseTag, parseProps); parseIsTextarea {
 		parseBuilder.WriteByte('<')
 		parseBuilder.WriteString(parseTag)
-		writeSSRProps(parseBuilder, parseElement.Props, "value")
+		writeSSRProps(parseBuilder, parseProps, "value")
 		parseBuilder.WriteByte('>')
 		parseBuilder.WriteString(html.EscapeString(parseTextareaValue))
 		parseBuilder.WriteString("</")
@@ -341,10 +375,10 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 
 	// A controlled <select value="x"> marks the matching <option> as selected and
 	// drops the (browser-ignored) value attribute from the <select> itself.
-	if parseSelectValue, parseIsSelect := selectControlledValue(parseTag, parseElement.Props); parseIsSelect {
+	if parseSelectValue, parseIsSelect := selectControlledValue(parseTag, parseProps); parseIsSelect {
 		parseBuilder.WriteByte('<')
 		parseBuilder.WriteString(parseTag)
-		writeSSRProps(parseBuilder, parseElement.Props, "value")
+		writeSSRProps(parseBuilder, parseProps, "value")
 		parseBuilder.WriteByte('>')
 		if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseElement), parseSelectValue, parseCtx); parseErr != nil {
 			return parseErr
@@ -357,7 +391,7 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
-	writeSSRProps(parseBuilder, parseElement.Props)
+	writeSSRProps(parseBuilder, parseProps)
 	parseBuilder.WriteByte('>')
 
 	if isVoidElement(parseTag) {
