@@ -29,7 +29,7 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactDOMServerIntegrationBasic | basic SSR render, nested components, nil | ✅ | ui/ssr_components_test.go |
 | ReactDOMServerIntegrationFragment | fragment SSR | ✅ | ui/ssr_components_test.go (component->fragment hoist) |
 | ReactDOMServerIntegrationSpecialTypes | numbers/bools/null children | 🚫 | Go static typing (ui.Node children) |
-| ReactDOMServerIntegrationHooks | hooks under SSR | ⬜ | |
+| ReactDOMServerIntegrationHooks | hooks under SSR | 🔶 | ui/ssr_hooks_boundary_test.go — ARCHITECTURAL GAP: ui.RenderToString is hook-less; hook/context components render only via the reconciler (RenderInto), which IS tested. String-SSR of hook components errors. Candidate for a dedicated "SSR hooks" feature (transient fiber tree + context propagation + hook server-mode). |
 | ReactDOMServerIntegrationRefs | refs inert during SSR | ✅ | ui/ssr_ref_and_context_test.go |
 | ReactDOMServerIntegrationNewContext | context under SSR / multi-consumer | ✅ | ui/ssr_ref_and_context_test.go, ui/context_native_test.go |
 | ReactDOMServerIntegrationTextarea/Input/Checkbox | controlled inputs SSR | ✅ | ui/ssr_controlled_inputs_test.go (textarea value->content: found+fixed v3.4.9) |
