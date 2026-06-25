@@ -299,7 +299,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 		Type:     NewContextProviderType(NewContextDescriptor("default")),
 		Children: []any{CreateElement("span", nil, "provider")},
 	}
-	if parseErr := renderElementToString(parseBuilder, parseProviderElement); parseErr != nil {
+	if parseErr := renderElementToString(parseBuilder, parseProviderElement, nil); parseErr != nil {
 		parseT.Fatalf("renderElementToString(context provider): %v", parseErr)
 	}
 	if parseBuilder.String() != "<span>provider</span>" {
@@ -311,7 +311,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 		Type:     PortalNodeType,
 		Children: []any{CreateElement("span", nil, "portal")},
 	}
-	if parseErr := renderElementToString(parseBuilder, parsePortalElement); parseErr != nil {
+	if parseErr := renderElementToString(parseBuilder, parsePortalElement, nil); parseErr != nil {
 		parseT.Fatalf("renderElementToString(portal): %v", parseErr)
 	}
 	if parseBuilder.String() != "<span>portal</span>" {
@@ -320,7 +320,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 
 	parseBuilder.Reset()
 	parseReactiveTextFallback := &Element{Type: ReactiveTextNodeType, TextContent: "fallback"}
-	if parseErr := renderElementToString(parseBuilder, parseReactiveTextFallback); parseErr != nil {
+	if parseErr := renderElementToString(parseBuilder, parseReactiveTextFallback, nil); parseErr != nil {
 		parseT.Fatalf("renderElementToString(reactive text fallback): %v", parseErr)
 	}
 	if parseBuilder.String() != "fallback" {
@@ -332,7 +332,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 		Type:  ReactiveRegionNodeType,
 		Props: map[string]any{reactiveRegionRenderProp: func() *Element { return CreateElement("em", nil, "region") }},
 	}
-	if parseErr := renderElementToString(parseBuilder, parseReactiveRegionElement); parseErr != nil {
+	if parseErr := renderElementToString(parseBuilder, parseReactiveRegionElement, nil); parseErr != nil {
 		parseT.Fatalf("renderElementToString(reactive region): %v", parseErr)
 	}
 	if parseBuilder.String() != "<em>region</em>" {
@@ -340,7 +340,7 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 	}
 
 	parseBuilder.Reset()
-	if parseErr := renderChildrenToString(parseBuilder, []any{nil, "text", 7}); parseErr != nil {
+	if parseErr := renderChildrenToString(parseBuilder, []any{nil, "text", 7}, nil); parseErr != nil {
 		parseT.Fatalf("renderChildrenToString(): %v", parseErr)
 	}
 	if parseBuilder.String() != "text7" {
@@ -348,14 +348,14 @@ func TestSSRAndHotReloadHelperGapBranches(parseT *testing.T) {
 	}
 
 	parseUnsupportedReturn := func() string { return "bad" }
-	if _, parseErr := resolveComponentElement(&Element{Type: parseUnsupportedReturn}); parseErr == nil || !strings.Contains(parseErr.Error(), "must return *runtime.Element") {
+	if _, parseErr := resolveComponentElement(&Element{Type: parseUnsupportedReturn}, nil); parseErr == nil || !strings.Contains(parseErr.Error(), "must return *runtime.Element") {
 		parseT.Fatalf("expected unsupported return type error, got %v", parseErr)
 	}
 	parseUnsupportedArity := func(parseLeft string, parseRight string) *Element { return nil }
-	if _, parseErr := resolveComponentElement(&Element{Type: parseUnsupportedArity}); parseErr == nil || !strings.Contains(parseErr.Error(), "unsupported arity") {
+	if _, parseErr := resolveComponentElement(&Element{Type: parseUnsupportedArity}, nil); parseErr == nil || !strings.Contains(parseErr.Error(), "unsupported arity") {
 		parseT.Fatalf("expected unsupported arity error, got %v", parseErr)
 	}
-	if _, parseErr := resolveComponentElement(&Element{Type: 42}); parseErr == nil || !strings.Contains(parseErr.Error(), "unsupported element type") {
+	if _, parseErr := resolveComponentElement(&Element{Type: 42}, nil); parseErr == nil || !strings.Contains(parseErr.Error(), "unsupported element type") {
 		parseT.Fatalf("expected unsupported element type error, got %v", parseErr)
 	}
 

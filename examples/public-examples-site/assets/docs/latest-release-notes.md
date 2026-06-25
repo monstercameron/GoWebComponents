@@ -3,18 +3,19 @@
 This docs-site page mirrors the first section returned by
 `tools/changelogcheck.LatestEntry(CHANGELOG.md)`.
 
-## v3.4.10 - 2026-06-24
+## v3.5.0 - 2026-06-24
 
-The current latest changelog section is `v3.4.10 - 2026-06-24`. **Fixed:** a
-controlled `<select value="…">` did not mark the selected option in SSR — the
-serializer put a browser-ignored `value` attribute on the `<select>`, so a
-server-rendered select showed no initial selection and mismatched on hydration.
-The serializer now drops `value` from the `<select>` and renders the matching
-`<option>` with `selected` (matching by option value, or by text when it has no
-value, and recursing into `<optgroup>`), in both the buffered and streaming
-renderers — matching React's `ReactDOMServerIntegrationSelect`. Completes the
-controlled-input SSR work begun in v3.4.9 (textarea). It is checked by the
-blocking `tools/changelogcheck` release gate
-before a versioned release can ship.
+The current latest changelog section is `v3.5.0 - 2026-06-24`. **Added:** hooks
+now run during server rendering (`ui.RenderToString`). Previously the string
+serializer was hook-less — a component calling any hook errored, so only
+hook-free trees could be server-rendered. `RenderToString` now installs a
+transient hook fiber per component: `GoUseState` returns its initial value,
+`GoUseRef`/`GoUseMemo` compute, `GoUseContextValue` resolves to the nearest
+provider value (context flows through host elements; nested providers override),
+and `GoUseEffect` is queued but never run on the server — matching React's
+`ReactDOMServerIntegrationHooks`. This lets GWC server-render real hook-using
+components. The buffered path is fully supported; the streaming path runs hooks
+but does not yet thread context (a documented follow-up). It is checked by the
+blocking `tools/changelogcheck` release gate before a versioned release can ship.
 
 See the repository root `CHANGELOG.md` for the full entry body.
