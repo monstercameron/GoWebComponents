@@ -34,8 +34,6 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactDOMServerIntegrationNewContext | context under SSR / multi-consumer | ✅ | ui/ssr_ref_and_context_test.go, ui/context_native_test.go |
 | ReactDOMServerIntegrationTextarea/Input/Checkbox | controlled inputs SSR | ✅ | ui/ssr_controlled_inputs_test.go (textarea value->content: found+fixed v3.4.9) |
 | ReactDOMServerIntegrationSelect | select value -> selected option | ✅ | ui/ssr_select_test.go (found+fixed v3.4.10; match by value/text, optgroup) |
-| ReactDOMServerIntegrationRefs | refs under SSR | ⬜ | |
-| ReactDOMServerIntegrationNewContext | context under SSR | ⬜ | |
 | ReactDOMFizzServer* | streaming SSR + hooks/context | 🔶 | internal/runtime/ssr_stream_hooks_test.go — streaming runs hooks + threads context (v3.5.1); async-boundary/Suspense streaming itself still partial |
 | ReactDOMServer*Hydration / SelectiveHydration | hydration | 🔶 | partial (existing hydration tests) |
 
@@ -48,7 +46,7 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | ReactElementClone-test | cloneElement | 🚫 | no GWC cloneElement (immutable element model) |
 | ReactCreateRef-test / forwardRef | refs (DOM + value) | ✅ | ui/refs_native_test.go, ui/useref_native_test.go |
 | SSR primitive children (number/bool/null) | render primitives as children | 🚫 | Go static typing: html.* children are ui.Node; primitives go via ui.Text |
-| onlyChild-test | Children.only | ⬜ | |
+| onlyChild-test | Children.only | 🚫 | no GWC Children.only (GWC normalizes children to a slice; no single-child assertion API) |
 | ReactContextValidator / NewContext | context | ✅ | ui/context_native_test.go |
 | ReactStartTransition | transitions | ✅ | ui/transition_native_test.go (transition-wrapped updates commit; multi-update; same-value dedup) |
 | ReactJSX* / ES6Class / PureComponent / Version / Profiler-devtools | — | 🚫 | no Go analog |
@@ -58,8 +56,6 @@ re-renders/effects are observable inline. SSR behavior is tested via
 | React test file | Spirit | Status | GWC test |
 |---|---|---|---|
 | ReactHooksWithNoopRenderer | hooks via noop renderer | 🔶 | ui/hooks_state_native_test.go (state/multi/order), ui/hooks_update_native_test.go (functional update, stable setter, set-after-unmount); useReducer is a ui-level construct on useState |
-| ReactEffectOrdering | effect run/cleanup order | ⬜ | ui/effects_native_test.go (basic) |
-| ReactFragment / ReactTopLevelFragment | fragments | ⬜ | |
 | ReactFiberRefs | ref attach/detach, detach-before-attach on remount | ✅ | ui/refs_native_test.go |
 | ReactEffectOrdering | deletion cleanup parent->child | ✅ | ui/effect_ordering_native_test.go |
 | ReactFragment / ReactTopLevelFragment | fragments hoist; keyed state preserved | ✅ | ui/fragment_native_test.go |
@@ -78,7 +74,14 @@ react-refresh, react-debug-tools, react-is, react-cache, eslint-plugin-react-hoo
 use-sync-external-store, use-subscription, react-test-renderer (RTR-specific),
 scheduler internals.
 
-## Bugs found by this effort
+## Releases produced by this effort
 
+Bugs found + fixed:
 - **v3.4.7** — javascript:/vbscript: URL XSS in the element render API (UntrustedURL port)
 - **v3.4.8** — duplicate-key reconciler node leak/corruption (adversarial keyed-reconciliation probing)
+- **v3.4.9** — controlled `<textarea value>` rendered empty in SSR (must be text content) (Textarea port)
+- **v3.4.10** — controlled `<select value>` did not mark the selected option in SSR (Select port)
+
+Features added:
+- **v3.5.0** — hooks run during server rendering (`ui.RenderToString`): useState/useRef/useMemo/useContext, effects skipped, context propagation (Hooks port)
+- **v3.5.1** — streaming SSR (`RenderToStream`) threads context to hooks (completes v3.5.0)
