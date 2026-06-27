@@ -10,6 +10,24 @@ relevant) the honest ceiling.
 if fully implemented: **99.5%** (637/640) — every DevX dimension at its honest maximum.
 See [`SCORES.md`](./SCORES.md) for the refinement-loop history and watch-items.
 
+## V4 implementation status (live)
+
+Shipped so far on the `v4` branch (each an atomic, tested commit — native +, where
+relevant, wasm coverage; `go vet` clean):
+
+| Plan item | Shipped | Commit |
+|---|---|---|
+| **FA1** fine-grained signals | `state.Signal[T]` / `NewSignal` / `NewComputed` (+ `.Text` fine-grained binding) | `feat(state): fine-grained Signal[T]…` |
+| **FB7** two-way bind | `html.BindTo` / `BindFunc` (structural `Binding`; binds Signals/atoms) | `feat(html): BindTo/BindFunc…` |
+| **C3** diagnostics | hookcheck conditional-hook detection + symbol + specific remediation | `feat(hookcheck): detect conditional hooks…` |
+| **FC2** zero-npm security | `gwc supplychain` (zero-npm proof, dep budget, checksum verify, SBOM-shaped JSON) | `feat(gwc): add \`gwc supplychain\`…` |
+| **FB3** AI-native docs | `gwc llms` (llms.txt + llms-full.txt, `-check` staleness gate) | `feat(gwc): add \`gwc llms\`…` |
+| **B8** shared validation | `validate` package (struct-tag, wasm+native, `Fields()`→`ui.FieldErrors`) | `feat(validate): dependency-free…` |
+| groundwork | `ui.Run`+`interop.KeepAlive`; `gwc` singleton guard; `gwc check` hook-context analyzer; release go-get smoke fix | (4 commits) |
+
+The reactivity, binding, and validation work also advance the meshed Part I dimensions
+(B5/D3, B1/B2, B8/B3); the two `gwc` commands advance D5/F9 and F1/C3/C5.
+
 ## v4 — the combined plan: god-tier DevX × god-tier features
 
 This revision merges the **feature/capability roadmap** from the competitive analysis
