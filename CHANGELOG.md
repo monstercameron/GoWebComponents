@@ -4,6 +4,17 @@
 
 ### Added
 
+- **`timetravel` — snapshot step-back replay engine (V4, C4/FB6).** The pure engine behind
+  time-travel devtools (C4) and undo/redo (FB6): a bounded, navigable `History[T]` of
+  immutable snapshots with `Record`/`Undo`/`Redo`/`ScrubTo`, standard redo-branch
+  truncation, and ring eviction. Owns no clock/DOM/runtime; the devtools panel is a thin
+  view over `Labels()`/`ScrubTo`.
+- **`ui.UseInspect` — Svelte-style `$inspect` (V4, FB7).** Logs a labeled value's initial
+  state and every subsequent change (`old -> new`, by structural equality) through a
+  swappable sink (`SetInspectSink` → devtools, a test buffer, or silenced in production).
+- **`shorthand` named slots/snippets (V4, FB7).** Explicit, typed named slots (Vue named
+  slots / React render-children-by-name): `Slot`/`NewSlots` (last-wins) + `Has`/`Render`/
+  `Or` (overridable default content).
 - **Public-API baseline tests for V4 packages (V4).** `internal/apidump` extracts a
   package's exported surface (types with their shape, funcs, methods, consts, vars) as
   sorted signature lines and checks it against a committed golden, so any change to the
