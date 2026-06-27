@@ -39,7 +39,10 @@
   `Record` are JSON-serializable so they ride the `//gwc:server` transport unchanged.
   Marquee guarantee verified: two replicas edit the same key offline, reconnect, and every
   replica + the authority converge to the one value — proven both in-process and
-  **end-to-end over the real `serverfn` HTTP transport** (FC1 × FB1).
+  **end-to-end over the real `serverfn` HTTP transport** (FC1 × FB1). The offline queue is
+  durable: `Replica.Export` / `RestoreReplica` round-trip the full replica (records +
+  pending log + counter) through JSON, so unsynced writes survive a page reload and still
+  converge on reconnect (E3 — offline replay is the same engine).
 - **`gwc add` — headless component registry (V4).** The shadcn "own the code" model:
   `gwc add <name>` copies an a11y-correct, self-contained component into your repo (with
   your package name and a provenance header) — you own and restyle it, no runtime
