@@ -24,7 +24,7 @@ relevant, wasm coverage; `go vet` clean):
 | **FB3** AI-native docs | `gwc llms` (llms.txt + llms-full.txt, `-check` staleness gate) | `feat(gwc): add \`gwc llms\`…` |
 | **B8** shared validation | `validate` package (struct-tag, wasm+native, `Fields()`→`ui.FieldErrors`) + `Form.ValidateStruct()` | `feat(validate)…` + `feat(ui): Form.ValidateStruct` |
 | **B7/FA4** typed routes | `gwc routes gen` typed `Link*` constructors from route contracts (+ `check` gate) | `feat(gwc): add \`gwc routes gen\`…` |
-| **FA2/B6** query layer | `query` package: `Fetch` (request dedupe), `SWR`, `Mutate` (optimistic + rollback), invalidate-by-key/prefix, injectable clock | `feat(query): stable query/data layer…` |
+| **FA2/B6** query layer | `query` package: `Fetch` (request dedupe), `SWR`, `Mutate` (optimistic + rollback), invalidate-by-key/prefix, injectable clock; `ui.UseQuery`/`UseMutation` hooks (wasm e2e through real render path) | `feat(query): stable query/data layer…` + `feat(ui): UseQuery/UseMutation…` |
 | groundwork | `ui.Run`+`interop.KeepAlive`; `gwc` singleton guard; `gwc check` hook-context analyzer; release go-get smoke fix | (4 commits) |
 
 The reactivity, binding, and validation work also advance the meshed Part I dimensions

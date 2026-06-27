@@ -13,6 +13,10 @@
   key and fetcher are passed at every call site, nothing is auto-tracked — and **pure
   Go**, so the whole layer compiles to wasm and native and is fully unit-testable
   (`WithClock` injects deterministic time). Implements FA2 / graduates B6 to Stable.
+  Consumed in components via the new `ui.UseQuery` / `ui.UseMutation` hooks
+  (`query.Snapshot[T]` for the render path), covered by two wasm e2e tests through the
+  real render path — cached data painting to the DOM, and the full optimistic-mutation
+  loop (commit updates the DOM; failure rolls it back).
 - **`ui.Form.ValidateStruct()` — turnkey shared validation (V4).** Validates a form's
   value against its `validate:"..."` struct tags with no hand-written client
   validator, so the same struct validates client (wasm) and server (native) from one
