@@ -215,3 +215,116 @@ func TestCheckDirSkipsTestdataAndAggregates(t *testing.T) {
 		t.Fatalf("finding should point at bad.go: %s", parseFindings[0])
 	}
 }
+
+// --- conditional-hook detection (C3) ---
+
+func TestFlagsHookInIfBody(t *testing.T) {
+	parseFindings := check(t, `
+func Comp(show bool) {
+	if show {
+		s := UseState(0)
+		_ = s
+	}
+}`)
+	if len(parseFindings) != 1 {
+		t.Fatalf("expected one conditional finding, got %v", parseFindings)
+	}
+	parseF := parseFindings[0]
+	if parseF.Hook != "UseState" || parseF.Kind != KindConditional {
+		t.Fatalf("expected conditional UseState finding, got %+v", parseF)
+	}
+	if parseF.Func != "Comp" {
+		t.Fatalf("expected enclosing symbol Comp, got %q", parseF.Func)
+	}
+}
+
+func TestFlagsHookInElseBody(t *testing.T) {
+	parseFindings := check(t, `
+func Comp(show bool) {
+	if show {
+		_ = 1
+	} else {
+		_ = ui.UseRef(0)
+	}
+}`)
+	if len(parseFindings) != 1 || parseFindings[0].Kind != KindConditional || parseFindings[0].Hook != "UseRef" {
+		t.Fatalf("expected one conditional UseRef finding, got %v", parseFindings)
+	}
+}
+
+func TestFlagsHookInSwitchCase(t *testing.T) {
+	parseFindings := check(t, `
+func Comp(mode int) {
+	switch mode {
+	case 1:
+		_ = UseState(0)
+	}
+}`)
+	if len(parseFindings) != 1 || parseFindings[0].Kind != KindConditional {
+		t.Fatalf("expected one conditional finding in a switch case, got %v", parseFindings)
+	}
+}
+
+func TestHookInIfConditionNotFlagged(t *testing.T) {
+	// A hook in the *condition* runs every render in stable order — not a violation.
+	parseFindings := check(t, `
+func Comp() {
+	if UseToggle() {
+		_ = 1
+	}
+}`)
+	if len(parseFindings) != 0 {
+		t.Fatalf("a hook in an if-condition runs every render and must not be flagged, got %v", parseFindings)
+	}
+}
+
+func TestLoopFindingCarriesKindAndSymbol(t *testing.T) {
+	parseFindings := check(t, `
+func Row(items []int) {
+	for range items {
+		_ = UseState(0)
+	}
+}`)
+	if len(parseFindings) != 1 {
+		t.Fatalf("expected one finding, got %v", parseFindings)
+	}
+	if parseFindings[0].Kind != KindLoop || parseFindings[0].Func != "Row" {
+		t.Fatalf("expected loop kind + Row symbol, got %+v", parseFindings[0])
+	}
+}
+
+func TestConditionalFindingMessageNamesSymbolAndFix(t *testing.T) {
+	parseFindings := check(t, `
+func ProfileCard(open bool) {
+	if open {
+		_ = UseState(0)
+	}
+}`)
+	if len(parseFindings) != 1 {
+		t.Fatalf("expected one finding, got %v", parseFindings)
+	}
+	parseMsg := parseFindings[0].String()
+	for _, parseWant := range []string{"UseState", "conditionally", "ProfileCard", "top level"} {
+		if !strings.Contains(parseMsg, parseWant) {
+			t.Fatalf("message missing %q:\n%s", parseWant, parseMsg)
+		}
+	}
+	parseFix := parseFindings[0].Remediation()
+	if !strings.Contains(parseFix, "UseState") || !strings.Contains(parseFix, "unconditionally") {
+		t.Fatalf("remediation should name the hook and the fix: %s", parseFix)
+	}
+}
+
+func TestTopLevelHooksHaveNoConditionalFinding(t *testing.T) {
+	parseFindings := check(t, `
+func Comp(show bool) {
+	a := UseState(0)
+	b := ui.UseRef(0)
+	_ = a
+	_ = b
+	_ = show
+}`)
+	if len(parseFindings) != 0 {
+		t.Fatalf("top-level hooks must not be flagged, got %v", parseFindings)
+	}
+}
