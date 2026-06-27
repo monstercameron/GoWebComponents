@@ -20,7 +20,9 @@
   component model. `Registry.Validate` recursively rejects any non-allow-listed type or
   disallowed prop; `Render`/`RenderJSON` gate on validation. `DefaultRegistry` ships safe
   presentational components. Verified end-to-end: agent JSON → validate → render → mounted
-  DOM shows the content.
+  DOM shows the content. Hardened against untrusted-input DoS with safe-by-default size
+  bounds (`Limits`/`DefaultLimits`: max depth 32, max 10k nodes; `ValidateWithLimits` to
+  tune).
 - **`localfirst.PresenceSet` — collaboration presence/awareness (V4, FC6).** Real-time
   collaboration is the converging document store (FC1) plus ephemeral presence; presence is
   the only new piece, so FC6 comes nearly for free. `PresenceSet` tracks live peers (cursor/
