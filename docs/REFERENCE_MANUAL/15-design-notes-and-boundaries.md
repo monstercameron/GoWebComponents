@@ -67,6 +67,42 @@ For app authors, the practical takeaway is simple:
 - keep experimental or policy-heavy surfaces behind local wrappers
 - treat examples as proof points, not as undocumented API expansion
 
+## The wasm/native Build-Tag Split (One Mental Model)
+
+GWC code is written for two build targets — the browser (`GOOS=js GOARCH=wasm`) and
+everything else (native: your server, tests, tools). Many packages therefore carry two
+implementation files behind build tags:
+
+- `something.go` or `something_wasm.go` — `//go:build js && wasm` — the **browser** path
+  (real DOM, real `js.Value` interop).
+- `something_native.go` — `//go:build !js || !wasm` — the **native** path (a stub or a
+  pure-Go implementation, so the same API compiles and is testable off-platform).
+
+The single coherent rule that makes this predictable:
+
+> **One exported API, two implementations, chosen by the build target. The browser file does
+> the real DOM/interop work; the native file makes the same calls compile and behave
+> sensibly without a browser (a no-op, a pure-Go equivalent, or a mock-friendly seam).**
+
+Consequences worth internalizing:
+
+- **Hooks degrade, they don't disappear.** `UseEffect` is real in the browser and a no-op
+  natively; `UseState`/`UseRef` work natively but don't persist across renders (there is no
+  render loop off-platform). So a hook's *render-driven* behavior is verified in the wasm
+  lane, while its *pure logic* is factored out and unit-tested natively (the pattern used by
+  `UseQuery`, `UseInspect`, `UseDefer`).
+- **Prefer a pure core + a thin platform seam.** New features put their real logic in
+  build-tag-free, native-testable code and keep only the irreducible DOM/JS calls behind the
+  wasm tag. That is why most of the framework is testable under plain `go test`.
+- **`net/http` is the same on both sides.** Go's `net/http` works in wasm (Fetch-backed), so
+  packages like `serverfn`/`wholestack` need **no** build tags — one code path serves real
+  sockets on the server and Fetch in the browser.
+- **There is one HTML surface, not two.** The `html` package authors the same element tree
+  regardless of target; SSR (native) and hydration (wasm) consume it identically.
+
+If you remember nothing else: **the build tags pick an implementation, never a different
+public API.** A caller writes the same Go for both worlds.
+
 ## Scope And Non-Goals
 
 GWC is intentionally not trying to be every framework shape at once.
