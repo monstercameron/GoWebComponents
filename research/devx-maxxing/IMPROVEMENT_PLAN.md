@@ -24,6 +24,7 @@ relevant, wasm coverage; `go vet` clean):
 | **FB3** AI-native docs | `gwc llms` (llms.txt + llms-full.txt, `-check` staleness gate) | `feat(gwc): add \`gwc llms\`…` |
 | **B8** shared validation | `validate` package (struct-tag, wasm+native, `Fields()`→`ui.FieldErrors`) + `Form.ValidateStruct()` | `feat(validate)…` + `feat(ui): Form.ValidateStruct` |
 | **B7/FA4** typed routes | `gwc routes gen` typed `Link*` constructors from route contracts (+ `check` gate) | `feat(gwc): add \`gwc routes gen\`…` |
+| **FA4/B3** typed search params | `router.DecodeQuery[T]`/`EncodeQuery` (`query:` tags → validated typed struct via `validate`); `validate` gains `omitempty` | `feat(router): typed, validated search params` + `feat(validate): omitempty` |
 | **FA5/B1** transitions | `anim.DiffKeyedRects` (keyed-list FLIP classify+invert), `anim.Transition` (pure enter/exit state machine), `anim.StaggerDelay` | `feat(anim): keyed-list FLIP + enter/exit transitions` |
 | **F6/B3** typed i18n keys | `gwc i18n gen` typed message accessors from a base-locale bundle (namespace+key+`{param}` all compile-checked) (+ `check` gate) | `feat(gwc): add \`gwc i18n gen\`…` |
 | **FA2/B6** query layer | `query` package: `Fetch` (request dedupe), `SWR`, `Mutate` (optimistic + rollback), invalidate-by-key/prefix, injectable clock; `ui.UseQuery`/`UseMutation` hooks (wasm e2e through real render path) | `feat(query): stable query/data layer…` + `feat(ui): UseQuery/UseMutation…` |

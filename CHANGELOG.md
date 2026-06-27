@@ -4,6 +4,16 @@
 
 ### Added
 
+- **`router.DecodeQuery` / `EncodeQuery` — typed, validated search params (V4).** Decode
+  URL query strings into a typed struct via `query:"name"` tags
+  (string/bool/int/uint/float/[]string), then validate it with the `validate` package
+  using `validate:"..."` tags on the same struct — one typed read instead of scattered
+  `q.Get` + `strconv` + bounds checks. Malformed values error with the offending param;
+  validation failures return the `validate.Result`. `EncodeQuery` is the inverse for
+  building links (zero fields omitted). Meshes typed routes (B7), compile-safe data (B3),
+  and shared validation (B8).
+- **`validate` now supports `omitempty` (V4).** An optional field whose value is the zero
+  value skips its remaining rules, and is validated normally when present.
 - **`anim` keyed-list FLIP + enter/exit transitions (V4).** The FA5 orchestration layer
   over the existing FLIP/spring math: `DiffKeyedRects` classifies a keyed layout change
   into entering/exiting/moving items and computes each survivor's FLIP invert transform
