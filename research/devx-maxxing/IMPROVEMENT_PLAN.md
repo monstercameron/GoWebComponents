@@ -22,6 +22,7 @@ relevant, wasm coverage; `go vet` clean):
 | **FB7** two-way bind | `html.BindTo` / `BindFunc` (structural `Binding`; binds Signals/atoms) | `feat(html): BindTo/BindFunc…` |
 | **C3** diagnostics | hookcheck conditional-hook detection + symbol + specific remediation | `feat(hookcheck): detect conditional hooks…` |
 | **FC2** zero-npm security | `gwc supplychain` (zero-npm proof, dep budget, checksum verify, SBOM-shaped JSON) | `feat(gwc): add \`gwc supplychain\`…` |
+| **D5** vuln scanning | `gwc vuln` (govulncheck reachability scan: REACHABLE vs imported-only; `-strict`) | `feat(gwc): add \`gwc vuln\`…` |
 | **FB3** AI-native docs | `gwc llms` (llms.txt + llms-full.txt, `-check` staleness gate) | `feat(gwc): add \`gwc llms\`…` |
 | **B8** shared validation | `validate` package (struct-tag, wasm+native, `Fields()`→`ui.FieldErrors`) + `Form.ValidateStruct()` | `feat(validate)…` + `feat(ui): Form.ValidateStruct` |
 | **B7/FA4** typed routes | `gwc routes gen` typed `Link*` constructors from route contracts (+ `check` gate) | `feat(gwc): add \`gwc routes gen\`…` |

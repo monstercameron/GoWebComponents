@@ -4,6 +4,11 @@
 
 ### Added
 
+- **`gwc vuln` — known-vulnerability reachability scan (V4).** Runs `govulncheck -json`
+  and classifies each finding as REACHABLE (a call trace names a vulnerable function) or
+  imported-only. Reachable vulnerabilities fail the build; imported-only pass unless
+  `-strict`. Complements `gwc supplychain` on the security dimension (D5). Verified against
+  the live Go vuln database.
 - **`//gwc:server` server functions — the FB1 keystone (V4).** A server function is a
   plain, type-safe `func(context.Context, Req) (Resp, error)` marked `//gwc:server` that
   runs only on the server. The new `serverfn` runtime exposes `Handle` (register it as a
