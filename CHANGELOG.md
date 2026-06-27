@@ -4,6 +4,13 @@
 
 ### Added
 
+- **`wholestack` — one-binary, whole-stack, edge-portable deployment (V4, FC5).** `Handler`
+  composes a single `http.Handler` that serves the embedded wasm bundle (index + `.wasm` +
+  `wasm_exec.js`) AND the app's `//gwc:server` functions, with SPA fallback so client-routed
+  paths deep-link to the shell. One `go build` is the entire app — no Node, no separate
+  static host, no reverse proxy — and it runs anywhere `net/http` runs, including edge
+  runtimes. `ListenAndServe` is the one-line entry point. Verified end-to-end: the app shell,
+  a static asset, and a server function all served from one handler; SPA fallback; opt-out.
 - **In-app devtools/collaboration panels — dogfooded as GWC components (V4).** The plan's
   "panels" and "galleries" are built as testable framework components (the framework
   rendering its own tooling), each verified headlessly through the real reconciler + mock

@@ -17,6 +17,7 @@ relevant, wasm coverage; `go vet` clean):
 
 | Plan item | Shipped | Commit |
 |---|---|---|
+| **FC5 (frontier)** one-binary stack | `wholestack.Handler` serves the embedded wasm app + `//gwc:server` functions + SPA fallback from one http.Handler (`ListenAndServe` one-liner); edge-portable | `feat(wholestack): one-binary whole-stack handler` |
 | **D2/C4/FB5/FC6** in-app panels | dogfooded GWC components: `timetravel/devpanel`, `workbench/gallery`, `query/devtools` (+ `Cache.Inspect`), `localfirst/facepile` — the "panel/gallery" GUIs as headless-tested framework code | `feat(timetravel/devpanel)` + `feat(workbench/gallery)` + `feat(query/devtools)` + `feat(localfirst/facepile)` |
 | **FB2** optimistic actions | `query.MutateAsync` (apply optimistic now, reconcile async, rollback on error); e2e optimistic action over a real //gwc:server function | `feat(query): MutateAsync` |
 | **FB5/D1** stories-as-tests | `workbench.RunStories` headless story runner (gallery doubles as a browserless smoke suite under `go test`) | `feat(workbench): stories-as-tests` |
