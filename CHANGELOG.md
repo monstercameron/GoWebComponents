@@ -4,6 +4,13 @@
 
 ### Added
 
+- **In-app devtools/collaboration panels — dogfooded as GWC components (V4).** The plan's
+  "panels" and "galleries" are built as testable framework components (the framework
+  rendering its own tooling), each verified headlessly through the real reconciler + mock
+  DOM: `timetravel/devpanel.Panel` (time-travel scrubber timeline + step controls, C4/FB6),
+  `workbench/gallery.Gallery` (component gallery over the same stories `RunStories` tests,
+  FB5), `query/devtools.CachePanel` (cache observability table over the new `Cache.Inspect`,
+  D2), and `localfirst/facepile.Facepile` (presence "who's here" surface, FC6).
 - **`query.MutateAsync` — fire-and-forget optimistic actions (V4, FB2).** Applies the
   optimistic value immediately and reconciles in the background (commit on success, rollback
   on error, `onSettled` callback) — the async mutation that makes Next/Remix-style server

@@ -17,6 +17,7 @@ relevant, wasm coverage; `go vet` clean):
 
 | Plan item | Shipped | Commit |
 |---|---|---|
+| **D2/C4/FB5/FC6** in-app panels | dogfooded GWC components: `timetravel/devpanel`, `workbench/gallery`, `query/devtools` (+ `Cache.Inspect`), `localfirst/facepile` — the "panel/gallery" GUIs as headless-tested framework code | `feat(timetravel/devpanel)` + `feat(workbench/gallery)` + `feat(query/devtools)` + `feat(localfirst/facepile)` |
 | **FB2** optimistic actions | `query.MutateAsync` (apply optimistic now, reconcile async, rollback on error); e2e optimistic action over a real //gwc:server function | `feat(query): MutateAsync` |
 | **FB5/D1** stories-as-tests | `workbench.RunStories` headless story runner (gallery doubles as a browserless smoke suite under `go test`) | `feat(workbench): stories-as-tests` |
 | **C4/FB6** time-travel engine | `timetravel.History[T]` snapshot step-back replay (Record/Undo/Redo/ScrubTo, redo-branch truncation, ring eviction); panel is the separate GUI consumer | `feat(timetravel): snapshot step-back replay engine` |
