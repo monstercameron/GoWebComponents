@@ -22,7 +22,8 @@ relevant, wasm coverage; `go vet` clean):
 | **C3** diagnostics | hookcheck conditional-hook detection + symbol + specific remediation | `feat(hookcheck): detect conditional hooks…` |
 | **FC2** zero-npm security | `gwc supplychain` (zero-npm proof, dep budget, checksum verify, SBOM-shaped JSON) | `feat(gwc): add \`gwc supplychain\`…` |
 | **FB3** AI-native docs | `gwc llms` (llms.txt + llms-full.txt, `-check` staleness gate) | `feat(gwc): add \`gwc llms\`…` |
-| **B8** shared validation | `validate` package (struct-tag, wasm+native, `Fields()`→`ui.FieldErrors`) | `feat(validate): dependency-free…` |
+| **B8** shared validation | `validate` package (struct-tag, wasm+native, `Fields()`→`ui.FieldErrors`) + `Form.ValidateStruct()` | `feat(validate)…` + `feat(ui): Form.ValidateStruct` |
+| **B7/FA4** typed routes | `gwc routes gen` typed `Link*` constructors from route contracts (+ `check` gate) | `feat(gwc): add \`gwc routes gen\`…` |
 | groundwork | `ui.Run`+`interop.KeepAlive`; `gwc` singleton guard; `gwc check` hook-context analyzer; release go-get smoke fix | (4 commits) |
 
 The reactivity, binding, and validation work also advance the meshed Part I dimensions
