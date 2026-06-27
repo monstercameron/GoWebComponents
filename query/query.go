@@ -302,6 +302,36 @@ func (parseC *Cache) InvalidateAll() {
 	}
 }
 
+// EntryInfo is a non-generic, type-erased view of one cache entry for observability — the
+// devtools surface that does not know each key's concrete type.
+type EntryInfo struct {
+	Key       string
+	HasData   bool
+	Stale     bool
+	Fetching  bool
+	UpdatedAt time.Time
+}
+
+// Inspect returns a sorted, type-erased view of every cache entry — the data a devtools
+// cache panel renders (which keys are cached, fresh/stale, currently fetching).
+func (parseC *Cache) Inspect() []EntryInfo {
+	parseC.mu.Lock()
+	defer parseC.mu.Unlock()
+	parseInfos := make([]EntryInfo, 0, len(parseC.entries))
+	for parseKey, parseEntry := range parseC.entries {
+		parseStale := parseEntry.hasData && (parseC.staleTime <= 0 || parseC.now().Sub(parseEntry.updatedAt) >= parseC.staleTime)
+		parseInfos = append(parseInfos, EntryInfo{
+			Key:       parseKey,
+			HasData:   parseEntry.hasData,
+			Stale:     parseStale,
+			Fetching:  parseEntry.flight != nil,
+			UpdatedAt: parseEntry.updatedAt,
+		})
+	}
+	sort.Slice(parseInfos, func(parseA, parseB int) bool { return parseInfos[parseA].Key < parseInfos[parseB].Key })
+	return parseInfos
+}
+
 // Keys returns a sorted snapshot of the cached keys — for devtools, introspection, and
 // deciding which queries a focus/reconnect handler should revalidate.
 func (parseC *Cache) Keys() []string {

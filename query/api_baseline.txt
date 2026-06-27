@@ -2,6 +2,7 @@ const StatusError
 const StatusIdle
 const StatusLoading
 const StatusSuccess
+func (*Cache) Inspect() []EntryInfo
 func (*Cache) Invalidate(parseKey string)
 func (*Cache) InvalidateAll()
 func (*Cache) InvalidatePrefix(parsePrefix string)
@@ -18,6 +19,7 @@ func Snapshot[T any](parseC *Cache, parseKey string) Result[T]
 func WithClock(parseNow func() time.Time) Option
 func WithStaleTime(parseD time.Duration) Option
 type Cache struct { mu sync.Mutex entries map[string]*entry staleTime time.Duration now func() time.Time }
+type EntryInfo struct { Key string HasData bool Stale bool Fetching bool UpdatedAt time.Time }
 type Option func(*Cache)
 type Result struct { Data T Err error Status Status UpdatedAt time.Time Stale bool Fetching bool }
 type Status int
