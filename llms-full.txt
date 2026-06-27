@@ -2459,6 +2459,41 @@ Use this escalation order:
 
 That order keeps the mental model predictable.
 
+## Choosing A State Primitive (Decision Guide)
+
+GoWebComponents has one state tool for each distinct job, and they compose rather than
+compete. Pick by **where the truth lives and how far it must travel** — the smallest tool
+that fits is always the right one. Every primitive below is explicit about its
+dependencies; none discovers them through a hidden runtime graph.
+
+| Your situation | Use | Why |
+|---|---|---|
+| State owned and used by one component | `ui.UseState` | The smallest owner; no sharing machinery. |
+| One action updates several fields together | `ui.UseReducer` | Serializes related transitions through one updater. |
+| A subtree needs the same model without prop threading | context | Scoped sharing, still component-local. |
+| Unrelated branches need one source of truth | `state.UseAtom` / `state.GlobalAtom` | Shared, subscribable, explicitly keyed. |
+| A typed value derived from sources this component owns | `state.UseComputed` | Memoized derived value, render-time. |
+| A shared read-only value several consumers derive | `state.UseDerived` / `state.UseSelector` | Recompute follows explicit source IDs. |
+| Update exactly the DOM nodes bound to a value, no component re-render | `state.Signal` + `signal.Text(...)` | Fine-grained reactivity outside the hook lifecycle. |
+| Server data: cache, dedupe, stale-while-revalidate, optimistic writes | `query.Cache` + `ui.UseQuery` / `UseMutation` | The async/server tier; not for local UI state. |
+| Durable local state that survives reloads / syncs across tabs | `kvstate` | Persistence + single-replica conflict resolution. |
+| Client-authored data that must converge with a server while offline | `localfirst` | Multi-replica LWW convergence (optimistic + offline + real-time). |
+| Structured relational data in the browser | `db/sqlite` | Real SQLite for query-shaped local data. |
+
+Rules of thumb that keep the model coherent:
+
+- **Local before shared.** Reach for an atom only when two *unrelated* branches genuinely
+  need the same truth; otherwise `UseState` + context is clearer and cheaper.
+- **Server state is not UI state.** Data that comes from a server belongs in `query`
+  (cache, dedupe, SWR), not in an atom you hand-refresh — see ch.07. UI state derived from
+  it (a selected row, a draft edit) still belongs in `UseState`/atoms.
+- **Reach for `Signal` for cost, not style.** Prefer ordinary state until a measured
+  re-render is too broad; then bind the hot value with `signal.Text` to update only its
+  DOM nodes.
+- **`localfirst` is the convergence engine, `kvstate` is the persistence/conflict
+  primitive.** Use `kvstate` for one replica that must survive reloads and reconcile across
+  tabs; add `localfirst` when *multiple* replicas (clients) must converge with a server.
+
 ## Computed, Derived, And Selector Rules
 
 Use `state.UseComputed(...)` when:
