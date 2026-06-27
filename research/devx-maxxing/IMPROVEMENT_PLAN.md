@@ -17,6 +17,7 @@ relevant, wasm coverage; `go vet` clean):
 
 | Plan item | Shipped | Commit |
 |---|---|---|
+| **FB1 (keystone)** server functions | `serverfn` runtime (`Handle`/`Call`, typed `*ServerError`, no-build-tag net/http so server=sockets, browser=fetch) + `gwc server gen` (`//gwc:server` → client stubs + `RegisterServerFunctions`); e2e: native server + wasm client compile, HTTP round-trip through generated registration | `feat(serverfn): server-function runtime` + `feat(gwc): \`gwc server gen\`` |
 | **FA1** fine-grained signals | `state.Signal[T]` / `NewSignal` / `NewComputed` (+ `.Text` fine-grained binding) | `feat(state): fine-grained Signal[T]…` |
 | **FB7** two-way bind | `html.BindTo` / `BindFunc` (structural `Binding`; binds Signals/atoms) | `feat(html): BindTo/BindFunc…` |
 | **C3** diagnostics | hookcheck conditional-hook detection + symbol + specific remediation | `feat(hookcheck): detect conditional hooks…` |

@@ -4,6 +4,21 @@
 
 ### Added
 
+- **`//gwc:server` server functions — the FB1 keystone (V4).** A server function is a
+  plain, type-safe `func(context.Context, Req) (Resp, error)` marked `//gwc:server` that
+  runs only on the server. The new `serverfn` runtime exposes `Handle` (register it as a
+  JSON HTTP endpoint) and `Call` (invoke it, returning the typed response or a typed
+  `*ServerError`); both use `net/http`+`encoding/json` with no build tags, so the server
+  uses real sockets and the browser uses Fetch-backed `net/http` — the same code path,
+  fully testable with `httptest`. `gwc server gen` scans for `//gwc:server` functions,
+  enforces the contract, and generates `serverfn_gen_client.go` (browser stubs calling
+  `serverfn.Call`) + `serverfn_gen_server.go` (`RegisterServerFunctions(mux)` wiring each
+  via `serverfn.Handle`). One Go signature, called from the browser with full compile-time
+  type safety and no hand-written fetch/JSON glue — verified end-to-end: native server +
+  wasm client both compile, and a function round-trips over HTTP through the generated
+  registration. (Contract: shared Req/Resp types in a build-tag-free file, the server
+  function in a `//go:build !js || !wasm` file; the codegen rejects an unconstrained file
+  to prevent client/server name collisions. `gwc server check` is the CI staleness gate.)
 - **`router.DecodeQuery` / `EncodeQuery` — typed, validated search params (V4).** Decode
   URL query strings into a typed struct via `query:"name"` tags
   (string/bool/int/uint/float/[]string), then validate it with the `validate` package
