@@ -4,6 +4,12 @@
 
 ### Added
 
+- **Edge/WASI portability of the server stack (V4, FC4).** The server-side V4 packages —
+  `serverfn`, `wholestack`, `localfirst`, `agentui`, `query`, `validate`, `timetravel` — are
+  written platform-clean and verified to compile to `GOOS=wasip1` (WASI), so the whole-stack
+  handler and the sync/server-function/generative-UI engines run in edge WASI runtimes, not
+  only on a conventional server. "Ride the wasm platform leap" — the same Go, server-side at
+  the edge.
 - **`wholestack` — one-binary, whole-stack, edge-portable deployment (V4, FC5).** `Handler`
   composes a single `http.Handler` that serves the embedded wasm bundle (index + `.wasm` +
   `wasm_exec.js`) AND the app's `//gwc:server` functions, with SPA fallback so client-routed
