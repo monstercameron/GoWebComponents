@@ -157,6 +157,29 @@ func TestErrorInterface(parseT *testing.T) {
 	}
 }
 
+// TestOmitemptySkipsRulesWhenZero proves an `omitempty` field passes when empty but is
+// still validated by its other rules when present.
+func TestOmitemptySkipsRulesWhenZero(parseT *testing.T) {
+	type form struct {
+		Sort string `json:"sort" validate:"omitempty,oneof=asc desc"`
+		Page int    `json:"page" validate:"omitempty,gte=1"`
+	}
+
+	if parseRes := validate.Struct(form{}); !parseRes.Valid() {
+		parseT.Fatalf("expected empty optional fields to validate, got %v", parseRes.Errors)
+	}
+	if parseRes := validate.Struct(form{Sort: "desc", Page: 2}); !parseRes.Valid() {
+		parseT.Fatalf("expected valid present values to pass, got %v", parseRes.Errors)
+	}
+	parseRes := validate.Struct(form{Sort: "sideways", Page: 0})
+	if parseRes.Valid() {
+		parseT.Fatal("expected an invalid present value to fail oneof")
+	}
+	if parseRes.Fields()["sort"] == "" {
+		parseT.Fatalf("expected a sort error for a bad present value, got %#v", parseRes.Fields())
+	}
+}
+
 // TestUnexportedAndUntaggedSkipped proves unexported fields and fields without a
 // validate tag are ignored, and unknown rules don't fail.
 func TestUnexportedAndUntaggedSkipped(parseT *testing.T) {

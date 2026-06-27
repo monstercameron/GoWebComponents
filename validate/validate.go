@@ -136,12 +136,18 @@ func validateStruct(parseRV reflect.Value, parsePrefix string, parseDepth int, p
 		if parseTag == "" || parseTag == "-" {
 			continue
 		}
-		for parseRule := range strings.SplitSeq(parseTag, ",") {
-			parseRule = strings.TrimSpace(parseRule)
-			if parseRule == "" {
+		// `omitempty` makes a field optional: when it is present and the value is the
+		// zero value, every other rule on the field is skipped (matching the common
+		// struct-tag validator convention).
+		parseRules := splitRules(parseTag)
+		if slices.Contains(parseRules, "omitempty") && isZero(parseFieldValue) {
+			continue
+		}
+		for _, parseRule := range parseRules {
+			parseRuleName, parseArg := splitRule(parseRule)
+			if parseRuleName == "omitempty" {
 				continue
 			}
-			parseRuleName, parseArg := splitRule(parseRule)
 			if parseErr, parseHasErr := applyRule(parseName, parseRuleName, parseArg, parseFieldValue); parseHasErr {
 				parseResult.Errors = append(parseResult.Errors, parseErr)
 			}
@@ -161,6 +167,17 @@ func fieldName(parseField reflect.StructField) string {
 		return parseField.Name
 	}
 	return parseName
+}
+
+// splitRules splits a validate tag into its trimmed, non-empty rule tokens.
+func splitRules(parseTag string) []string {
+	var parseRules []string
+	for parseRule := range strings.SplitSeq(parseTag, ",") {
+		if parseRule = strings.TrimSpace(parseRule); parseRule != "" {
+			parseRules = append(parseRules, parseRule)
+		}
+	}
+	return parseRules
 }
 
 // splitRule splits "name=arg" into its name and argument ("" when there is no arg).
