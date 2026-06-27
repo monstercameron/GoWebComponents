@@ -4,6 +4,17 @@
 
 ### Added
 
+- **`agentui` — agent-native generative-UI runtime (V4, FC3).** A typed renderable schema
+  an agent emits (server-side behind a `//gwc:server` function), validated against a
+  component allow-list, then rendered to real UI. The safety property is structural: a
+  `Node` carries no code, no event handlers, no raw HTML — only an allow-listed component
+  `Type`, string `Props` the component permits, plain (escaped) `Text`, and `Children`. An
+  agent composes allow-listed components but can never inject behavior or markup —
+  the "allow-listed components, not raw code" guarantee, expressed natively by GWC's typed
+  component model. `Registry.Validate` recursively rejects any non-allow-listed type or
+  disallowed prop; `Render`/`RenderJSON` gate on validation. `DefaultRegistry` ships safe
+  presentational components. Verified end-to-end: agent JSON → validate → render → mounted
+  DOM shows the content.
 - **`localfirst` — built-in local-first sync engine (V4, FC1).** The convergence engine
   behind local-first sync (Zero/Electric/TanStack DB), pure Go on both sides: a
   last-write-wins register per key (LWW-Register CRDT) with a logical `Clock` (higher
