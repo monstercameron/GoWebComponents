@@ -87,14 +87,32 @@ jobs:
       - name: Run Canonical Go Get Smoke (Release Guard)
         run: |
           $ErrorActionPreference = "Stop"
-          $workDir = Join-Path $env:TEMP ("gogrpcbridge-release-smoke-" + [guid]::NewGuid().ToString("N"))
+          $workDir = Join-Path $env:TEMP ("gwc-release-smoke-" + [guid]::NewGuid().ToString("N"))
           New-Item -ItemType Directory -Path $workDir | Out-Null
           try {
             Push-Location $workDir
-            go mod init example.com/gogrpcbridge-release-smoke
+            go mod init example.com/gwc-release-smoke
             if ($LASTEXITCODE -ne 0) { throw "go mod init failed" }
-            go get github.com/monstercameron/GoGRPCBridge@latest
-            if ($LASTEXITCODE -ne 0) { throw "canonical go-get smoke failed" }
+            # Write a tiny external consumer that imports the released module, so the
+            # smoke proves go-get + import-path resolution + a real compile, not just
+            # that the module path resolves. Uses a long-stable symbol so '@latest'
+            # (the previously published tag during a tag push) always has it.
+            $main = @(
+              'package main',
+              'import "github.com/monstercameron/GoWebComponents/ui"',
+              'var _ = ui.Text("release-smoke")',
+              'func main() {}'
+            ) -join "`n"
+            Set-Content -Path (Join-Path $workDir "main.go") -Value $main -Encoding utf8
+            go get github.com/monstercameron/GoWebComponents@latest
+            if ($LASTEXITCODE -ne 0) { throw "go get GoWebComponents@latest failed" }
+            go build ./...
+            if ($LASTEXITCODE -ne 0) { throw "native consumer build failed" }
+            $env:GOOS = "js"; $env:GOARCH = "wasm"
+            go build ./...
+            $wasmExit = $LASTEXITCODE
+            Remove-Item Env:GOOS; Remove-Item Env:GOARCH
+            if ($wasmExit -ne 0) { throw "wasm consumer build failed" }
           } finally {
             Pop-Location
             if (Test-Path $workDir) {
