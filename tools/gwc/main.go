@@ -1037,6 +1037,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runServerCommand(parseL, parseArgs)
 	case "vuln":
 		return runVulnCommand(parseL, parseArgs)
+	case "add":
+		return runAddCommand(parseL, parseArgs)
 	case "clean":
 		return runCleanCommand(parseL, parseArgs)
 	case "bench", "benchmark":
@@ -1290,6 +1292,7 @@ func printUsage() {
 	fmt.Println("  i18n       Generate typed, compile-checked message accessors from a base-locale bundle (gen|check -bundle FILE); a typo'd namespace, key, or param becomes a compile error")
 	fmt.Println("  server     Generate client stubs + server registration for //gwc:server functions (gen|check); call a server func from the browser with full type safety")
 	fmt.Println("  vuln       Scan for known vulnerabilities via govulncheck; reports reachable vs imported-only (-strict to fail on imported)")
+	fmt.Println("  add        Copy an a11y-correct headless component into your repo (gwc add <name>; run bare to list the catalog)")
 	fmt.Println("  clean      Remove launcher-owned build artifacts, caches, and generated outputs")
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, race, wasm, hydration, browser, agent, agent-browser, and release")
 	fmt.Println("  watch      Watch Go files and rerun selected launcher-owned test lanes")
