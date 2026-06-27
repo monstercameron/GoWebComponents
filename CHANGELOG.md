@@ -10,7 +10,10 @@
   (`MovedKeys()` filters to items that actually moved); `Transition` is a pure, clock-free
   enter/exit state machine (`Entering→Entered`, `BeginExit→Exiting→Exited`) with
   `Progress`/`IsAnimating`/`IsRemovable`; `StaggerDelay` gives per-index cascade timing.
-  Owns no DOM and no clock — fully deterministic and unit-testable.
+  Owns no DOM and no clock — fully deterministic and unit-testable. Honors
+  `prefers-reduced-motion` via an explicit `MotionPreference` (`Animates()`,
+  `EffectiveDuration()`, `NewTransitionPref()`): under reduced motion, transitions snap
+  and FLIP moves are skipped (FA5 × D4).
 - **`gwc i18n gen` — typed, compile-checked message accessors (V4).** Reads a
   base-locale bundle (`{"namespace":{"key":"text {param}"}}`) and generates
   `i18n_keys_gen.go`: one typed accessor per message wrapping `i18n.Runtime.T`, taking a
