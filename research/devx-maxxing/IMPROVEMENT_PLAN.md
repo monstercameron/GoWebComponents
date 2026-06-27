@@ -53,19 +53,26 @@ The reactivity, binding, and validation work also advance the meshed Part I dime
 
 ### Deliberately NOT implemented as code (final V4 disposition)
 
-Every plan item with a verifiable implementation has shipped (above). Three items are
-recorded here as **out of code-scope**, each for a concrete reason — not as undone work but
-as the honest final disposition, so the plan is internally complete:
+Every plan item with a verifiable implementation has shipped (above), including the
+documentation rows: **F3** versioning policy (`VERSIONING.md`), **F7** governance
+(`GOVERNANCE.md`), **F8** the wasm/native build-tag mental model (design notes), and **E2**
+the reproducible-build recipe (deployment manual). What remains is recorded here as **out of
+code-scope**, each for a concrete reason — not undone work but the honest final disposition,
+so the plan is internally complete:
 
 | Item | Disposition | Why |
 |---|---|---|
 | **JetBrains plugin** (D2/tooling) | Deferred (not built) | The plan itself files it as "a separate later deliverable — not on the same timeline." It needs the IntelliJ SDK + Gradle (Kotlin), which can't be built or tested in this environment, so shipping it would be unverifiable scaffolding. The VS Code extension *was* shipped because its mapping core is Node-testable; the cross-editor value (surface `gwc lint --json` in the IDE) is delivered there. |
 | **D3 — root-cause the 123% `BenchmarkFineGrainedSelector…` regression** | Investigated, not "fixed" | The drift note predates V4 by ~3 months and was measured on `windows/amd64`; on this `windows/arm64` machine the same benchmark runs **faster than baseline** (~9.4µs vs 11.5µs) with healthy allocs, and net drift is +0.6% (109 improved / 114 regressed). It does not reproduce here, so there is no defensible code change to make — root-causing needs the amd64 hardware. |
 | **C2 incremental wasm link (true-10)** + **FA6 lazy-load wasm *chunks*** | Upstream / platform-capped (achievable halves SHIPPED) | The *only* irreducible part is a Go toolchain capability that does not exist (incremental wasm linking; per-view wasm code-splitting from one binary) — the plan classifies these as "(platform-cap)" / "upstream Go ask, tracked, not blocking." Everything achievable in framework code *was* shipped: C2's "what rebuilt & why" → `gwc buildreport`; **FA6's deferrable-views render half → `shorthand.Defer` + `ui.UseDefer`** (lazy subtree construction + mount-once latch). |
+| **F9 module split** (`/v4` bump) | Maintainer decision (gate documented) | Moving tool-only deps (`playwright-go`, `bubbletea`, AI SDKs) into a separate module changes consumers' `go.sum`, so it requires a **`/v4` major bump** — a release-strategy call the maintainer makes, not a unilateral refactor. The decision gate is written into [`VERSIONING.md`](../../VERSIONING.md); the checkable half (dependency budget) already ships in `gwc supplychain`. |
 
-These three are the literal residue of the plan; none is a hidden gap in the shipped
+These items are the literal residue of the plan; none is a hidden gap in the shipped
 framework. Everything expressible as tested Go — or, for the editor integration, as a
-Node-tested extension core — is implemented, atomic-committed, and green.
+Node-tested extension core, and for process/policy as documentation — is implemented,
+atomic-committed, and green. The remainder is two physical impossibilities (Kotlin toolchain,
+amd64 hardware), one absent Go-compiler capability, and one release-versioning decision that
+is the maintainer's to make.
 
 ## v4 — the combined plan: god-tier DevX × god-tier features
 
