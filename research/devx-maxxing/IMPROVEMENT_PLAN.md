@@ -17,6 +17,8 @@ relevant, wasm coverage; `go vet` clean):
 
 | Plan item | Shipped | Commit |
 |---|---|---|
+| **C1** hot reload (DX-fix) | `hotreload.SchemaFingerprint`/`SchemaChanged` — detect a changed state shape so reload shows a reset instead of silently restoring a mismatched type (ghost-bug fix) | `feat(hotreload): state-schema-change detection` |
+| **FB4** error overlay | `ui/erroroverlay.ErrorOverlay` dogfooded in-page modal (title/message/actionable hint/stack) over the existing diagnostics data | `feat(erroroverlay): in-page Elm-grade error overlay` |
 | **C2** build speed (platform-honest) | `gwc buildreport` — what rebuilt vs cached & why (from `-debug-actiongraph` NeedBuild signal) + warm/cold wall time; true-10 incremental wasm link filed upstream | `feat(gwc): add \`gwc buildreport\`` |
 | **A2/tooling** VS Code extension | `tools/vscode-gwc` surfaces `gwc lint --json` inline via DiagnosticCollection; host-independent mapping core node-tested | `feat(vscode-gwc): VS Code extension` |
 | **FC4 (frontier)** wasm platform leap | server stack (serverfn/wholestack/localfirst/agentui/query/validate/timetravel) verified to compile to `GOOS=wasip1` → edge-WASI-portable | (verified; platform-clean by design) |

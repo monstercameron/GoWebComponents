@@ -4,6 +4,14 @@
 
 ### Added
 
+- **`hotreload.SchemaChanged` — state-schema-change detection (V4, C1).** Fingerprints a
+  state snapshot's shape (keys + value types) so a state-preserving hot reload can show a
+  visible "state reset" when the shape changed instead of silently restoring a persisted
+  snapshot into a mismatched type — the ghost-bug fix the plan calls out.
+- **`ui/erroroverlay.ErrorOverlay` — in-page Elm-grade error overlay (V4, FB4).** A dogfooded
+  component that renders a development error as a dismissible, accessible modal (title,
+  message, actionable "Try: …" hint, optional stack), so failures are legible in the page,
+  not just the console. `FromError` builds props from a Go error.
 - **`gwc buildreport` — "what rebuilt & why" (V4, C2 platform-honest).** Derives a per-build
   report from `go build -debug-actiongraph`: which packages were rebuilt (the `NeedBuild`
   cache-miss signal) vs served from cache, ranked by compile time, with the warm/cold wall
