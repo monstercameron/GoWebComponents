@@ -15,6 +15,11 @@
   through a hidden runtime graph. Signals compose with `ui.ReactiveRegion` and
   `state.UseSelector` (same source contract as atoms/derived). Covered by native
   unit tests + wasm fine-grained-update tests.
+- **`html.BindTo` / `html.BindFunc` (+ shorthand re-exports) — two-way binding for
+  any handle.** Complements `html.Bind` (which binds a `ui.State[string]`) with a
+  structural `html.Binding` interface (`Get() string` / `Set(string)`), so the new
+  `state.Signal[string]`, atom handles, or an explicit getter/setter all bind a
+  controlled input in one option — no `value=`+`oninput=parse` pair.
 - **`ui.Run(selector, component, props...)` — a one-line browser entrypoint.** It
   wraps `ui.CreateElement` + `ui.Render` + the keep-alive block so a typical
   `main()` is a single call (`ui.Run("#app", renderApp)`) instead of the

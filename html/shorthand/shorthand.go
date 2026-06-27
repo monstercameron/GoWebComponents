@@ -440,6 +440,24 @@ func FlatMap[T any](parseItems []T, render func(T) []ui.Node) []ui.Node {
 	return html.FlatMap(parseItems, render)
 }
 
+// Bind delegates to [html.Bind]: two-way binds a controlled input to a
+// ui.State[string] in one call (value + oninput).
+func Bind(parseState ui.State[string]) PropOption {
+	return html.Bind(parseState)
+}
+
+// BindTo delegates to [html.BindTo]: two-way binds a controlled input to any
+// Get()/Set() string handle — including a state.Signal[string] or atom handle.
+func BindTo(parseTarget html.Binding) PropOption {
+	return html.BindTo(parseTarget)
+}
+
+// BindFunc delegates to [html.BindFunc]: two-way binds an input through an explicit
+// getter and setter, for sources that are not a single handle.
+func BindFunc(parseGet func() string, parseSet func(string)) PropOption {
+	return html.BindFunc(parseGet, parseSet)
+}
+
 // FilterMap delegates to [html.FilterMap].
 func FilterMap[T any](parseItems []T, render func(T) (ui.Node, bool)) []ui.Node {
 	return html.FilterMap(parseItems, render)
