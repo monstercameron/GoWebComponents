@@ -1,6 +1,7 @@
 package localfirst
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"testing"
@@ -148,6 +149,49 @@ func TestConcurrentWritesAreSafe(parseT *testing.T) {
 	parseWG.Wait()
 	if len(parseReplica.Pending()) != 50 {
 		parseT.Fatalf("expected 50 pending mutations, got %d", len(parseReplica.Pending()))
+	}
+}
+
+// TestDurableOfflineQueueSurvivesReload proves the offline queue is durable: a replica with
+// unsynced offline writes is exported, round-tripped through JSON (as a reload would do via
+// storage), restored, and then converges — no offline write is lost across the "reload".
+func TestDurableOfflineQueueSurvivesReload(parseT *testing.T) {
+	parseAuthority := NewAuthority()
+
+	// Edit offline (never synced), then "close the tab": serialize the whole replica.
+	parseBefore := NewReplica("A")
+	parseBefore.Set("draft", "unsynced-work")
+	parseBefore.Set("note", "also-offline")
+	if len(parseBefore.Pending()) != 2 {
+		parseT.Fatalf("expected 2 pending offline writes, got %d", len(parseBefore.Pending()))
+	}
+
+	parseBlob, parseErr := json.Marshal(parseBefore.Export())
+	if parseErr != nil {
+		parseT.Fatalf("marshal replica state: %v", parseErr)
+	}
+
+	// "Reopen the tab": decode persisted state and restore the replica.
+	var parseState ReplicaState
+	if parseErr := json.Unmarshal(parseBlob, &parseState); parseErr != nil {
+		parseT.Fatalf("unmarshal replica state: %v", parseErr)
+	}
+	parseAfter := RestoreReplica(parseState)
+
+	if len(parseAfter.Pending()) != 2 {
+		parseT.Fatalf("offline queue lost across reload: %d pending, want 2", len(parseAfter.Pending()))
+	}
+	if parseValue, parseOk := parseAfter.Get("draft"); !parseOk || parseValue != "unsynced-work" {
+		parseT.Fatalf("restored replica lost local value, got %q", parseValue)
+	}
+
+	// Reconnect: the restored offline writes reach the authority and converge.
+	Sync(parseAfter, parseAuthority)
+	if parseAuthority.Snapshot()["draft"] != "unsynced-work" || parseAuthority.Snapshot()["note"] != "also-offline" {
+		parseT.Fatalf("restored offline writes did not converge: %v", parseAuthority.Snapshot())
+	}
+	if len(parseAfter.Pending()) != 0 {
+		parseT.Fatal("pending should clear after the restored writes sync")
 	}
 }
 

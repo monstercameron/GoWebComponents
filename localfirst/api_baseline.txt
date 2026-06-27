@@ -7,6 +7,7 @@ func (*PresenceSet) Remove(parseClientID string)
 func (*PresenceSet) Tick()
 func (*PresenceSet) Update(parsePresence Presence)
 func (*Replica) Delete(parseKey string)
+func (*Replica) Export() ReplicaState
 func (*Replica) Get(parseKey string) (string, bool)
 func (*Replica) Merge(parseChanges []Record)
 func (*Replica) Pending() []Mutation
@@ -16,6 +17,7 @@ func (Clock) After(parseOther Clock) bool
 func NewAuthority() *Authority
 func NewPresenceSet(parseTTL uint64) *PresenceSet
 func NewReplica(parseID string) *Replica
+func RestoreReplica(parseState ReplicaState) *Replica
 func Sync(parseReplica *Replica, parseAuthority *Authority) []Record
 type Authority struct { mu sync.Mutex records map[string]Record }
 type Clock struct { Counter uint64 `json:"counter"` ReplicaID string `json:"replica"` }
@@ -24,3 +26,4 @@ type Presence struct { ClientID string `json:"client"` State string `json:"state
 type PresenceSet struct { mu sync.Mutex now uint64 ttl uint64 entries map[string]presenceRecord }
 type Record struct { Key string `json:"key"` Value string `json:"value"` Clock Clock `json:"clock"` Deleted bool `json:"deleted"` }
 type Replica struct { mu sync.Mutex id string counter uint64 records map[string]Record pending []Mutation }
+type ReplicaState struct { ID string `json:"id"` Counter uint64 `json:"counter"` Records map[string]Record `json:"records"` Pending []Mutation `json:"pending"` }

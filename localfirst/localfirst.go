@@ -17,6 +17,7 @@
 package localfirst
 
 import (
+	"maps"
 	"sort"
 	"sync"
 )
@@ -157,6 +158,46 @@ func (parseR *Replica) Snapshot() map[string]string {
 	parseR.mu.Lock()
 	defer parseR.mu.Unlock()
 	return liveValues(parseR.records)
+}
+
+// ReplicaState is the full, JSON-serializable state of a replica — its records, its
+// unsynced pending log, and its logical counter. Persist it (localStorage / IndexedDB /
+// db/sqlite) so a replica survives a page reload with its offline writes intact, then
+// Restore it: the durable offline queue that makes "edit offline, close the tab, reopen,
+// reconnect, converge" actually work.
+type ReplicaState struct {
+	ID      string            `json:"id"`
+	Counter uint64            `json:"counter"`
+	Records map[string]Record `json:"records"`
+	Pending []Mutation        `json:"pending"`
+}
+
+// Export captures the replica's full state for durable persistence.
+func (parseR *Replica) Export() ReplicaState {
+	parseR.mu.Lock()
+	defer parseR.mu.Unlock()
+	parseRecords := make(map[string]Record, len(parseR.records))
+	maps.Copy(parseRecords, parseR.records)
+	return ReplicaState{
+		ID:      parseR.id,
+		Counter: parseR.counter,
+		Records: parseRecords,
+		Pending: append([]Mutation(nil), parseR.pending...),
+	}
+}
+
+// RestoreReplica rebuilds a replica from persisted state — typically read back from
+// storage on page load — so its records and, crucially, its unsynced pending writes are
+// exactly as they were before the reload.
+func RestoreReplica(parseState ReplicaState) *Replica {
+	parseRecords := make(map[string]Record, len(parseState.Records))
+	maps.Copy(parseRecords, parseState.Records)
+	return &Replica{
+		id:      parseState.ID,
+		counter: parseState.Counter,
+		records: parseRecords,
+		pending: append([]Mutation(nil), parseState.Pending...),
+	}
 }
 
 // Authority is the server-authoritative store: it resolves incoming client mutations under
