@@ -4,6 +4,13 @@
 
 ### Added
 
+- **`gwc i18n gen` — typed, compile-checked message accessors (V4).** Reads a
+  base-locale bundle (`{"namespace":{"key":"text {param}"}}`) and generates
+  `i18n_keys_gen.go`: one typed accessor per message wrapping `i18n.Runtime.T`, taking a
+  string argument for each `{param}`. A typo in a namespace, key, or interpolation
+  parameter — or a forgotten/extra param — becomes a compile error rather than a silent
+  runtime miss. `gwc i18n check` is the CI staleness gate (regen + diff). The codegen
+  pair to `gwc routes gen`, closing the last stringly-typed surface (F6/B3).
 - **`query` package — stable query/data layer (V4).** GoWebComponents' Go-native
   answer to TanStack Query / SWR: a keyed, concurrency-safe cache with request
   de-duplication (N concurrent `Fetch`es for one key coalesce into a single fetcher
