@@ -109,6 +109,14 @@ func (parseL launcher) runServe(parseArgs []string) error {
 		return parseErr2
 	}
 
+	// Enforce one live serve per (host, port): terminate any predecessor still
+	// holding the port instead of failing to bind alongside a runaway orphan.
+	parseSingleton, parseErr2 := parseL.acquireLauncherSingleton("serve", parseConfig.host, parseConfig.port)
+	if parseErr2 != nil {
+		return parseErr2
+	}
+	defer parseSingleton.Release()
+
 	parseListener, parseErr2 := net.Listen("tcp", joinHostPort(parseConfig.host, parseConfig.port))
 	if parseErr2 != nil {
 		return fmt.Errorf("listen on %s: %w", joinHostPort(parseConfig.host, parseConfig.port), parseErr2)

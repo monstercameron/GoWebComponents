@@ -111,6 +111,15 @@ func (parseL launcher) runDev(parseArgs []string) error {
 		return nil
 	}
 	parsePlan := describeDevPlan(parseConfig)
+
+	// Enforce one live dev server per (host, port): terminate any predecessor
+	// (and its livereload child tree) still holding the port before spawning.
+	parseSingleton, parseSingletonErr := parseL.acquireLauncherSingleton("dev", parseConfig.host, parseConfig.port)
+	if parseSingletonErr != nil {
+		return parseSingletonErr
+	}
+	defer parseSingleton.Release()
+
 	parseCmd := exec.Command("go", parseForwarded...)
 	parseCmd.Dir = parseL.repoRoot
 	parseCmd.Env = os.Environ()
