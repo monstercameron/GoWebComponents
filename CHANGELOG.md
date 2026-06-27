@@ -4,6 +4,11 @@
 
 ### Added
 
+- **`agentui.Registry.Catalog` — allow-list introspection for MCP tools (V4, F4).** Exposes
+  the component allow-list as sorted, JSON-serializable `ComponentInfo` (name + permitted
+  props) so an agent — or an MCP tool serving the registry over the existing `agentbridge` —
+  learns up front exactly what it may emit, turning the allow-list into guidance rather than
+  an after-the-fact rejection.
 - **`hotreload.SchemaChanged` — state-schema-change detection (V4, C1).** Fingerprints a
   state snapshot's shape (keys + value types) so a state-preserving hot reload can show a
   visible "state reset" when the shape changed instead of silently restoring a persisted
