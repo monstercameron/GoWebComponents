@@ -1,0 +1,184 @@
+/*
+ * Canonical Bill Splitter stylesheet — the single shared design used by every
+ * non-GWC implementation so the visual result is byte-identical regardless of
+ * framework. GWC reproduces this same design through typed css/u utilities
+ * (see apps/gwc), which is itself one of the comparison dimensions.
+ *
+ * Theme is driven by [data-theme] on .bs-app (a manual toggle, not OS preference).
+ */
+
+.bs-app {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #0ea5e9;
+  --accent-text: #ffffff;
+
+  box-sizing: border-box;
+  min-height: 100vh;
+  margin: 0;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
+  max-width: 28rem;
+  margin-inline: auto;
+  font-family: system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.bs-app[data-theme="dark"] {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --border: #334155;
+  --accent: #38bdf8;
+  --accent-text: #04293c;
+}
+
+.bs-app *,
+.bs-app *::before,
+.bs-app *::after { box-sizing: border-box; }
+
+/* Header */
+.bs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.bs-title { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
+.bs-header-actions { display: flex; gap: 8px; }
+.bs-toggle {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bs-toggle[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+
+/* Card */
+.bs-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Fields */
+.bs-field { display: flex; flex-direction: column; gap: 8px; }
+.bs-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.bs-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--bg);
+}
+.bs-prefix { color: var(--muted); font-weight: 600; }
+.bs-input {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 1rem;
+  width: 100%;
+  outline: none;
+}
+
+/* Tip presets */
+.bs-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.bs-preset {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bs-preset--active {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+.bs-preset-custom {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  width: 7rem;
+  outline: none;
+}
+
+/* Stepper */
+.bs-stepper { display: flex; align-items: center; gap: 12px; }
+.bs-step {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 10px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.bs-step:disabled { opacity: 0.4; cursor: not-allowed; }
+.bs-count { font-size: 1.125rem; font-weight: 700; min-width: 2ch; text-align: center; }
+
+/* Results */
+.bs-result-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.bs-result-row span:last-child { color: var(--text); font-weight: 600; }
+.bs-result-hero {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.bs-result-hero-label { font-size: 0.95rem; color: var(--muted); }
+.bs-result-hero-value { font-size: 2rem; font-weight: 800; color: var(--accent); }
+.bs-note { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.bs-empty { margin: 0; font-size: 0.875rem; color: var(--muted); font-style: italic; }
+
+/* Breakdown */
+.bs-subtitle { margin: 0; font-size: 0.95rem; font-weight: 700; }
+.bs-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.bs-person {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+/* Footer */
+.bs-footer { font-size: 0.75rem; color: var(--muted); text-align: center; }

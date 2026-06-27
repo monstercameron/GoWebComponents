@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`ui.Run(selector, component, props...)` — a one-line browser entrypoint.** It
+  wraps `ui.CreateElement` + `ui.Render` + the keep-alive block so a typical
+  `main()` is a single call (`ui.Run("#app", renderApp)`) instead of the
+  `Render(CreateElement(fn, nil), "#app")` + `utils.WaitForever()` pair. The
+  explicit primitives are unchanged and remain the right choice for SSR, native,
+  tests, or when `main` must do work after mounting. On the native/SSR slice
+  `ui.Run` panics with the unified unsupported-on-server contract, mirroring
+  `ui.Render`. README and getting-started examples now lead with `ui.Run`.
+- **`interop.KeepAlive()` — the shared keep-alive primitive.** `utils.WaitForever`
+  and `ui.Run` both delegate to it. It lives in the leaf `interop` package so
+  `ui` can reuse it without the `ui → utils → hotreload → state → ui` import
+  cycle. `utils.WaitForever` is unchanged for callers (same name, same behavior).
+
 ## v3.5.4 - 2026-06-25
 
 ### Fixed

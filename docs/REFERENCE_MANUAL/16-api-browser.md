@@ -73,6 +73,7 @@ Source anchors:
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
 | `CreateElement`, `Component`, `Fragment`, `Text` | core node composition | [`Node`](../../ui/ui.go), [`Element`](../../ui/ui.go) | `ui.CreateElement(renderApp, appProps{})` |
+| `Run` | one-line browser entrypoint: `CreateElement` + `Render` + keep-alive; never returns | takes `selector, component, props...` | `ui.Run("#app", renderApp)` |
 | `Render`, `RenderInto`, `RenderToString`, `RenderToStringObserved`, `RenderToStream`, `RenderToStreamObserved`, `Hydrate`, `HydrateInto` | browser mount, SSR HTML, streaming SSR shell/chunks, hydration attach | [`HydrationOptions`](../../ui/hydration.go), [`SSRObservabilityOptions`](../../ui/ssr_observability.go), [`SSRStreamOptions`](../../ui/ssr_stream.go), [`SSRBootstrap`](../../ui/ssr_bootstrap.go) | `ui.Render(ui.CreateElement(renderApp, nil), "#app")` |
 | `UseState`, `UseReducer`, `UseRef`, `UsePrevious`, `UseId`, `UseEffect`, `UseMemo`, `UseCallback`, `UseEvent`, `WrapHandler` | local state and event wiring | [`State[T]`](../../ui/ui.go), [`Reducer[S,A]`](../../ui/ui.go), [`Ref[T]`](../../ui/ui.go), [`Previous[T]`](../../ui/ui.go), [`Handler`](../../ui/ui.go) | `storeCount := ui.UseState(0)` |
 | `StartTransition`, `UseTransition`, `UseDeferredValue`, `UseDebounced`, `UseThrottled`, `UseChannel`, `UseTask`, `UseWorkerTask` | scheduling, rate limiting, channel/task consumption, worker-backed jobs | [`Transition`](../../ui/ui.go), [`Debounced[T]`](../../ui/ui.go), [`Throttled[T]`](../../ui/ui.go), [`Channel[T]`](../../ui/ui.go), [`Task[T]`](../../ui/ui.go), [`WorkerTask[Request,Progress,Result]`](../../ui/worker_wasm.go) | `searchTransition := ui.UseTransition()` |
@@ -533,7 +534,7 @@ Source anchors:
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
-| `WaitForever` | keep a browser `main()` alive after mount | package-level helper | `utils.WaitForever()` |
+| `WaitForever` | keep a browser `main()` alive after mount (the same keep-alive `ui.Run` calls internally) | package-level helper | `utils.WaitForever()` |
 | `EnableDebug`, `DisableDebug`, `ConfigureDebugNamespace`, `ConfigureDebugNamespaces`, `ConfigureDebugNamespacesExclusive`, `EnableAllDebug`, `DisableAllDebug`, `GetDebugStatus`, `ConfigureMemStatsSampleRate`, `GetMemStatsSampleRate` | development debug and memory-stat toggles | package-level helper state | `utils.ConfigureDebugNamespace("router", true)` |
 | `EnableHotReload`, `IsHotReloadEnabled`, `InstallHotReloadBridge` | js/wasm hot-reload bridge convenience wrappers | package-level helper state | `utils.InstallHotReloadBridge("session", "draft")` |
 | `EnableGoroutineMonitoring`, `DisableGoroutineMonitoring`, `ConfigureGoroutineThreshold`, `GetGoroutineStats`, `ResetGoroutineBaseline` | browser-side goroutine leak monitoring | package-level helper state | `utils.EnableGoroutineMonitoring()` |

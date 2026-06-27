@@ -78,7 +78,6 @@ package main
 import (
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
 )
 
 // renderHelloApp renders the smallest useful interactive app for a first-run check.
@@ -104,7 +103,22 @@ func renderHelloApp() ui.Node {
 
 // main mounts the app into the browser DOM and keeps the Go program alive.
 func main() {
+	ui.Run("#app", renderHelloApp)
+}
+```
+
+`ui.Run(selector, component, props...)` is the one-line browser entrypoint: it
+builds the component with `ui.CreateElement`, mounts it at the selector via
+`ui.Render`, then blocks forever (the same keep-alive as `utils.WaitForever`) so
+the js/wasm program stays alive to handle events. It never returns.
+
+Reach for the explicit pair instead when `main` must do work after mounting, or
+for SSR/native/test entrypoints where you do not want to block:
+
+```go
+func main() {
 	ui.Render(ui.CreateElement(renderHelloApp, nil), "#app")
+	// ... start background work, register globals, etc. ...
 	utils.WaitForever()
 }
 ```
@@ -135,7 +149,6 @@ import (
 
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
 )
 
 type counterPanelProps struct {
@@ -193,8 +206,7 @@ func renderStarterApp() ui.Node {
 
 // main mounts the starter app into the browser DOM.
 func main() {
-	ui.Render(ui.CreateElement(renderStarterApp, nil), "#app")
-	utils.WaitForever()
+	ui.Run("#app", renderStarterApp)
 }
 ```
 

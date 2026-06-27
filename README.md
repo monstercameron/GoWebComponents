@@ -9,7 +9,7 @@
 [![Release Version](https://img.shields.io/github/v/release/monstercameron/GoWebComponents)](https://github.com/monstercameron/GoWebComponents/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/monstercameron/GoWebComponents)](https://goreportcard.com/report/github.com/monstercameron/GoWebComponents)
 
-GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, typed HTML builders, shorthand authoring helpers, client-side routing, and shared state. It also ships streaming SSR with real async suspension, hydration and static islands, crash containment by default, realtime data hooks, feature flags, i18n, accessibility primitives, and PWA/offline support.
+GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, typed HTML builders, shorthand authoring helpers, a typed compile-checked CSS engine, client-side routing, and shared state. It also ships streaming SSR with real async suspension, hydration and static islands, crash containment by default, realtime data hooks, feature flags, i18n, accessibility primitives, and PWA/offline support.
 
 It is **batteries-included**: rendering, hooks, routing, shared state, data fetching, SSR/hydration, i18n, accessibility, PWA/offline, feature flags, and devtools all ship in the same Go module, so there is no separate JavaScript build, bundler config, or npm dependency tree to assemble. The trade-offs that come with that — wasm runtime cost and bundle size — are described under [Performance and Trade-offs](#performance-and-trade-offs); read that section before adopting so expectations are set honestly.
 
@@ -51,6 +51,8 @@ Import public packages from the module path exactly as declared in `go.mod`:
 
 ```go
 import (
+  "github.com/monstercameron/GoWebComponents/css"
+  "github.com/monstercameron/GoWebComponents/css/u"
   "github.com/monstercameron/GoWebComponents/fetch"
   "github.com/monstercameron/GoWebComponents/flags"
   "github.com/monstercameron/GoWebComponents/hotreload"
@@ -67,7 +69,7 @@ Requirements:
 - Go 1.26+ (matches the `go` directive in `go.mod`)
 - A browser with WebAssembly support
 
-The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `state`, `fetch`, `flags`, `router`, `devtools`, and `hotreload`.
+The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `html/shorthand`, `css`, `css/u`, `state`, `fetch`, `flags`, `router`, `devtools`, and `hotreload`.
 
 The repo-standard workflow uses the `gwc` runner under `tools/gwc`. See [docs/REFERENCE_MANUAL/02-gwc-workflows.md](docs/REFERENCE_MANUAL/02-gwc-workflows.md) for the canonical launcher guide.
 
@@ -100,7 +102,7 @@ Use these entry docs instead of wandering the tree blindly:
 
 If you are contributing to the repo rather than just consuming the module, use this map first:
 
-- `ui/`, `html/`, `state/`, `fetch/`, `flags/`, `router/`: primary public library packages
+- `ui/`, `html/`, `html/shorthand/`, `css/`, `css/u/`, `state/`, `fetch/`, `flags/`, `router/`: primary public library packages
 - `devtools/`, `head/`, `hotreload/`, `i18n/`, `logging/`, `plugin/`, `prerender/`, `pwa/`, `virtualization/`: companion public packages
 - `internal/platform/`, `internal/runtime/`, `internal/runtime2/`: platform adapters and runtime internals
 - `testkit/`: reusable consumer-facing test helpers
@@ -125,9 +127,10 @@ package main
 import (
     "fmt"
 
+    "github.com/monstercameron/GoWebComponents/css"
+    "github.com/monstercameron/GoWebComponents/css/u"
     . "github.com/monstercameron/GoWebComponents/html/shorthand"
     "github.com/monstercameron/GoWebComponents/ui"
-    "github.com/monstercameron/GoWebComponents/utils"
 )
 
 type StarterAppProps struct {
@@ -144,11 +147,28 @@ type CounterPanelProps struct {
 
 func CounterPanel(props CounterPanelProps) ui.Node {
     return Div(
-        Class("space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"),
-        P(Class("text-sm text-slate-600"), Textf("Hello, %s.", props.Name)),
-        P(Class("text-lg font-semibold text-slate-900"), Textf("Count: %d", props.Count)),
-        P(Class("text-sm text-slate-500"), Textf("Previous count: %s", props.PreviousCount)),
-        Button(Type("button"), OnClick(props.OnIncrement), Class("rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white"), "Increment"),
+        // Layer 2: Tailwind-shaped typed utilities from css/u — autocompleted and
+        // compile-checked, no class-string parsing.
+        u.Class(
+            u.Flex, u.FlexCol, u.Gap(u.Spacing3),
+            u.Rounded(u.RadiusXl), u.Border(u.Slate200), u.Bg(u.White), u.Pad(u.Spacing5),
+        ),
+        P(u.Class(u.TextSize(u.TextSm), u.Fg(u.Slate600)), Textf("Hello, %s.", props.Name)),
+        P(u.Class(u.TextSize(u.TextLg), u.FontSemibold, u.Fg(u.Slate900)), Textf("Count: %d", props.Count)),
+        P(u.Class(u.TextSize(u.TextSm), u.Fg(u.Slate500)), Textf("Previous count: %s", props.PreviousCount)),
+        Button(
+            Type("button"),
+            OnClick(props.OnIncrement),
+            // Layer 1: typed raw CSS with a hover variant — folds into one hashed
+            // class. css.Class is an html.PropOption, so it drops into any tag.
+            css.Class(
+                css.Rounded(css.Rem(0.75)),
+                css.PaddingX(css.Rem(1)), css.PaddingY(css.Rem(0.5)),
+                css.Bg(css.Slate900), css.TextColor(css.White),
+                css.Hover(css.Bg(css.Slate700)),
+            ),
+            "Increment",
+        ),
     )
 }
 
@@ -170,19 +190,19 @@ func StarterApp(props StarterAppProps) ui.Node {
     }
 
     return Main(
-        Class("min-h-screen bg-slate-50 px-6 py-12 text-slate-900"),
+        u.Class(u.Block, u.Bg(u.Slate100), u.PadX(u.Spacing6), u.PadY(u.Spacing12), u.Fg(u.Slate900)),
         Div(
-            Class("mx-auto max-w-2xl space-y-6"),
-            H1(Class("text-4xl font-black tracking-tight"), props.Title),
-            P(Class("max-w-xl text-sm leading-7 text-slate-600"), "A small starter that uses dot-imported shorthand tags and helper functions for state, events, composition, and reactive text."),
+            u.Class(u.Flex, u.FlexCol, u.Gap(u.Spacing6)),
+            H1(u.Class(u.TextSize(u.Text4xl), u.FontBold), props.Title),
+            P(u.Class(u.TextSize(u.TextSm), u.Fg(u.Slate600)), "A small starter that uses dot-imported shorthand tags with typed css/u utilities for state, events, composition, and reactive text."),
             Input(
                 Type("text"),
                 Value(name.Get()),
                 OnInput(updateName),
                 Placeholder("Who is using the app?"),
-                Class("w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"),
+                u.Class(u.WFull, u.Rounded(u.RadiusXl), u.Border(u.Slate300), u.Bg(u.White), u.PadX(u.Spacing4), u.PadY(u.Spacing3), u.TextSize(u.TextSm)),
             ),
-            If(name.Get() == "", P(Class("text-sm text-amber-700"), "Tip: enter a name to personalize the panel.")),
+            If(name.Get() == "", P(u.Class(u.TextSize(u.TextSm), u.Fg(u.Amber500)), "Tip: enter a name to personalize the panel.")),
         ),
         ui.CreateElement(CounterPanel, CounterPanelProps{
             Name:          name.Get(),
@@ -190,16 +210,17 @@ func StarterApp(props StarterAppProps) ui.Node {
             PreviousCount: previousLabel,
             OnIncrement:   increment,
         }),
-        P(Class("mx-auto mt-6 max-w-2xl text-xs uppercase tracking-[0.18em] text-slate-500"), Textf("Current count is %d", count.Get())),
+        P(u.Class(u.TextSize(u.TextXs), u.Fg(u.Slate500)), Textf("Current count is %d", count.Get())),
     )
 }
 
 func main() {
-    ui.Render(ui.CreateElement(StarterApp, StarterAppProps{
+    // ui.Run builds the component, mounts it at "#app", and keeps the wasm
+    // program alive — the one-line equivalent of ui.Render + utils.WaitForever.
+    ui.Run("#app", StarterApp, StarterAppProps{
         Title:        "Starter App",
         InitialCount: 0,
-    }), "#app")
-    utils.WaitForever()
+    })
 }
 ```
 
@@ -209,7 +230,10 @@ This version stays small, but it shows the normal flow most React users expect:
 - `UseEvent` for typed event handlers
 - Component composition with a child `CounterPanel`
 - `UsePrevious` for render-time comparisons
-- Dot-imported `html/shorthand` tags and helpers such as `Div`, `Button`, `Class`, `Textf`, and `If`
+- Dot-imported `html/shorthand` tags and helpers such as `Div`, `Button`, `Textf`, and `If`
+- Typed, compile-checked styling: Tailwind-shaped utilities from `css/u` (`u.Flex`, `u.Gap(u.Spacing3)`, `u.Bg(u.White)`, responsive/state variants like `u.Md(...)` / `u.Hover(...)`) layered over raw typed CSS from `css` (`css.Bg(css.Slate900)`, `css.Hover(...)`), which folds into a single hashed class. No Tailwind toolchain or `class` string parsing — `u.Class(...)` / `css.Class(...)` are `html.PropOption`s that drop into any tag, and the wasm sink auto-injects the generated `<style>`.
+
+Mounting the app does not require a global stylesheet: the styles above are emitted by the `css` engine at render time. The host HTML stays minimal.
 
 Host HTML:
 
@@ -240,9 +264,10 @@ go run ./tools/gwc build -app .\main.go -profile development
 
 ## Core Concepts
 
-- Components return `ui.Node` and are mounted with `ui.Render(...)`.
+- Components return `ui.Node` and are mounted with `ui.Run(...)` (the one-line entrypoint) or, when you need to do work after mount, with `ui.Render(...)` plus `utils.WaitForever()`.
 - The `html` package provides the stable typed DOM builders such as `html.Div`, `html.Button`, `html.Input`, and `html.Tag`.
 - The `html/shorthand` package provides ergonomic mixed-argument sugar for dot-imported tags and helper funcs such as `Div`, `Button`, `Class`, `If`, `Text`, and `Textf`.
+- The `css` package provides typed, compile-checked styling: raw typed CSS (`css.New` / `css.Class` with properties, values, and pseudo/at-rule variants) plus the Tailwind-shaped utility layer in `css/u` (`u.Flex`, `u.Gap(u.Spacing3)`, `u.Hover(...)`, `u.Md(...)`). Styles fold into hashed classes emitted through a Sink that auto-injects in the browser and serializes to a `<style>` block for SSR.
 - Local component behavior lives in `ui` hooks such as `UseState`, `UseEffect`, `UseReducer`, `UseRef`, and `UseEvent`.
 - Shared application state lives in `state`, with atoms, derived values, computed values, and snapshot helpers.
 - Routing, fetch helpers, SSR, hydration, and diagnostics are layered on top of the same runtime rather than split into unrelated packages.
@@ -254,6 +279,8 @@ The preferred public surface is:
 - `ui`: component composition, hooks, rendering, hydration, async boundaries, events, portals, and form helpers
 - `html`: stable typed HTML builders and DOM prop metadata
 - `html/shorthand`: mixed-argument authoring sugar, helper funcs, and dot-import-friendly host tags layered on `html`
+- `css`: typed, compile-checked CSS — hashed atomic classes from typed properties/values, pseudo and at-rule variants, theme tokens, dynamic custom-property values, and SSR `<style>` serialization with hydration seeding
+- `css/u`: Tailwind-shaped typed utility layer over `css` (`u.Flex`, `u.Gap`, `u.Bg`, `u.Rounded`, responsive `u.Md`/`u.Lg`, state `u.Hover`/`u.Focus`, `u.Dark`) resolved against the active theme
 - `state`: atom-based shared state, derived state, computed values, and snapshot helpers
 - `fetch`: browser fetch helpers, typed resources, tag-aware query cache, realtime `UseWebSocket` / `UseEventSource` hooks, and imperative fetch flows
 - `flags`: browser-visible feature flag and deterministic experiment helpers
@@ -275,6 +302,13 @@ The preferred public surface is:
 - Hooks including `UseState`, `UseReducer`, `UseEffect`, `UseRef`, `UsePrevious`, `UseId`, `UseDeferredValue`, `UseTransition`, and context support
 - Event and async helpers including `UseEvent`, `UseChannel`, `UseTask`, `UseDebounced`, `UseThrottled`, `UseLazyNode`, `AsyncBoundary`, and `UseForm`
 - Crash containment by default: panics in render, events, effects, cleanup, and async work (`ui.SafeGo(...)`) are caught at every boundary and reported as structured, agent-readable console diagnostics instead of killing the page (see [docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md](docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md))
+
+### Styling
+
+- Typed, compile-checked CSS in the `css` package: `css.New(...)` / `css.Class(...)` fold typed properties and values (`css.Display.Flex`, `css.Gap(css.Px(8))`, `css.Bg(css.Slate900)`) plus pseudo and at-rule variants (`css.Hover(...)`, `css.Media(css.MinW(768), ...)`) into a single hashed atomic class
+- Tailwind-shaped utility layer in `css/u`, resolved against the active `css.Theme`: `u.Flex`, `u.Gap(u.Spacing3)`, `u.Rounded(u.RadiusXl)`, responsive `u.Md(...)` / `u.Lg(...)`, and state `u.Hover(...)` / `u.Focus(...)` / `u.Dark(...)` — all typed symbols, so a typo is a compile error, not a silent no-op
+- `css.Class(...)` / `u.Class(...)` are `html.PropOption`s that drop into any `html` or `shorthand` tag with no edits to those packages; the wasm sink auto-injects a managed `<style>`, and `css.StyleBlock()` + `css.SeedFromDocument()` carry the same rules through SSR and hydration
+- Dynamic runtime values stay on a stable class via `css.Dynamic*` (a CSS custom property set inline), avoiding a new class per distinct value
 
 ### State and Data
 
@@ -541,7 +575,7 @@ Generated wasm binaries and local browser-compiler package archives should stay 
 Current repo state as reflected in the codebase:
 
 - Core runtime lives in `internal/runtime/`
-- Preferred public packages are `ui`, `html`, `html/shorthand`, `state`, `fetch`, `flags`, `router`, `devtools`, and `hotreload`
+- Preferred public packages are `ui`, `html`, `html/shorthand`, `css`, `css/u`, `state`, `fetch`, `flags`, `router`, `devtools`, and `hotreload`
 - Example and test fixture code now builds through current `ui`/`html` bridge helpers and shorthand sugar instead of older compatibility layers
 - Native `internal/runtime` tests pass and report ≈88% statement coverage (reproduce with `go test ./internal/runtime -cover`)
 - Native runtime tests pass with `go test ./internal/runtime`

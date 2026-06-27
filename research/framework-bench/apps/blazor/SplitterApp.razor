@@ -1,0 +1,108 @@
+@implements IDisposable
+@inject SettingsService Settings
+
+<main class="bs-app" data-theme="@Settings.Theme">
+  <header class="bs-header">
+    <h1 class="bs-title">Bill Splitter</h1>
+    <div class="bs-header-actions">
+      <button class="bs-toggle" aria-pressed="@Settings.RoundUp" @onclick="Settings.ToggleRoundUp">Round up</button>
+      <button class="bs-toggle" aria-pressed="@(Settings.Theme == "dark")" @onclick="Settings.ToggleTheme">Dark</button>
+    </div>
+  </header>
+
+  <section class="bs-card bs-inputs">
+    <label class="bs-field">
+      <span class="bs-label">Bill amount</span>
+      <div class="bs-input-wrap">
+        <span class="bs-prefix">$</span>
+        <input class="bs-input" type="number" min="0" step="0.01"
+               value="@(_bill == 0 ? "" : _bill.ToString(CultureInfo.InvariantCulture))"
+               @oninput="OnBill" />
+      </div>
+    </label>
+
+    <div class="bs-field">
+      <span class="bs-label">Tip</span>
+      <div class="bs-presets">
+        @foreach (var p in Presets)
+        {
+          var preset = p;
+          <button class="bs-preset @(_tip == preset ? "bs-preset--active" : "")" @onclick="() => _tip = preset">@preset%</button>
+        }
+        <input class="bs-preset-custom" type="number" min="0" placeholder="Custom %"
+               value="@(_tip == 0 ? "" : _tip.ToString(CultureInfo.InvariantCulture))"
+               @oninput="OnTip" />
+      </div>
+    </div>
+
+    <div class="bs-field">
+      <span class="bs-label">People</span>
+      <div class="bs-stepper">
+        <button class="bs-step" aria-label="Fewer people" disabled="@(_people <= 1)" @onclick="Dec">−</button>
+        <span class="bs-count">@_people</span>
+        <button class="bs-step" aria-label="More people" @onclick="Inc">+</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="bs-card bs-results">
+    <div class="bs-result-row"><span>Tip</span><span>@Fmt(TipAmount)</span></div>
+    <div class="bs-result-row"><span>Total</span><span>@Fmt(Total)</span></div>
+    <div class="bs-result-hero">
+      <span class="bs-result-hero-label">Per person</span>
+      <span class="bs-result-hero-value">@Fmt(PerPerson)</span>
+    </div>
+    @if (Settings.RoundUp && RoundingExtra > 0)
+    {
+      <p class="bs-note">Rounding up collects @Fmt(RoundingExtra) extra · effective tip @EffTip.ToString("F1")%</p>
+    }
+    @if (_bill <= 0)
+    {
+      <p class="bs-empty">Enter a bill amount to begin.</p>
+    }
+  </section>
+
+  <section class="bs-card bs-breakdown">
+    <h2 class="bs-subtitle">Per-person breakdown</h2>
+    <ul class="bs-people">
+      @for (var n = 1; n <= _people; n++)
+      {
+        <li class="bs-person"><span>Person @n</span><span>@Fmt(PerPerson)</span></li>
+      }
+    </ul>
+  </section>
+
+  <footer class="bs-footer">Splitting @Fmt(Total) between @_people · @Settings.Theme theme</footer>
+</main>
+
+@code {
+    static readonly CultureInfo EnUs = CultureInfo.GetCultureInfo("en-US");
+    static readonly int[] Presets = { 10, 15, 18, 20, 25 };
+
+    // local component state
+    double _bill = 0;
+    double _tip = 18;
+    int _people = 1;
+
+    // derived
+    double TipAmount => _bill * _tip / 100;
+    double Total => _bill + TipAmount;
+    double PerPersonRaw => _people > 0 ? Total / _people : 0;
+    double PerPerson => Settings.RoundUp ? Math.Ceiling(PerPersonRaw) : PerPersonRaw;
+    double TotalCollected => Settings.RoundUp ? PerPerson * _people : Total;
+    double RoundingExtra => Math.Max(0, TotalCollected - Total);
+    double EffTip => _bill > 0 ? (TotalCollected - _bill) / _bill * 100 : _tip;
+
+    string Fmt(double v) => v.ToString("C", EnUs);
+
+    static double Parse(ChangeEventArgs e) =>
+        double.TryParse(e.Value?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 ? v : 0;
+
+    void OnBill(ChangeEventArgs e) => _bill = Parse(e);
+    void OnTip(ChangeEventArgs e) => _tip = Parse(e);
+    void Dec() => _people = Math.Max(1, _people - 1);
+    void Inc() => _people++;
+
+    protected override void OnInitialized() => Settings.OnChange += StateHasChanged;
+    public void Dispose() => Settings.OnChange -= StateHasChanged;
+}

@@ -1,0 +1,19 @@
+{
+  "name": "bill-splitter-qwik",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "comment": "Qwik v1 (stable). Qwik 2 moved to @qwik.dev/core but is still beta (2.0.0-beta.x) as of 2026-06, so this demo pins stable v1.",
+  "dependencies": {
+    "@builder.io/qwik": "^1.19.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^5.3.4"
+  }
+}

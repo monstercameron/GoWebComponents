@@ -3,6 +3,15 @@
 Gap analysis against React/Next/Solid ecosystems (2026-06-11). Ordered by
 impact; exactly three active items carry the next-work marker.
 
+## Research items
+
+- [ ] **devx-maxxing** (2026-06-27) — detailed, framework-agnostic developer-
+  experience rubric: 34 dimensions across 6 lifecycle phases, each with a 1–10
+  maturity ladder, evidence to collect, and red flags. Rubric written; next:
+  (1) score GoWebComponents evidence-linked, (2) calibrate vs React/Next, Solid,
+  Svelte/Kit, (3) feed top (target−current)×weight gaps back into this backlog,
+  (4) re-score per minor release. Doc: `research/devx-maxxing/DEVX_MAXXING.md`.
+
 ## High impact
 
 - [x] **Selective / progressive hydration (islands)** - hydration is
