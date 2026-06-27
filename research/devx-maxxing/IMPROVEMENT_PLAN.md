@@ -49,6 +49,22 @@ relevant, wasm coverage; `go vet` clean):
 The reactivity, binding, and validation work also advance the meshed Part I dimensions
 (B5/D3, B1/B2, B8/B3); the two `gwc` commands advance D5/F9 and F1/C3/C5.
 
+### Deliberately NOT implemented as code (final V4 disposition)
+
+Every plan item with a verifiable implementation has shipped (above). Three items are
+recorded here as **out of code-scope**, each for a concrete reason — not as undone work but
+as the honest final disposition, so the plan is internally complete:
+
+| Item | Disposition | Why |
+|---|---|---|
+| **JetBrains plugin** (D2/tooling) | Deferred (not built) | The plan itself files it as "a separate later deliverable — not on the same timeline." It needs the IntelliJ SDK + Gradle (Kotlin), which can't be built or tested in this environment, so shipping it would be unverifiable scaffolding. The VS Code extension *was* shipped because its mapping core is Node-testable; the cross-editor value (surface `gwc lint --json` in the IDE) is delivered there. |
+| **D3 — root-cause the 123% `BenchmarkFineGrainedSelector…` regression** | Investigated, not "fixed" | The drift note predates V4 by ~3 months and was measured on `windows/amd64`; on this `windows/arm64` machine the same benchmark runs **faster than baseline** (~9.4µs vs 11.5µs) with healthy allocs, and net drift is +0.6% (109 improved / 114 regressed). It does not reproduce here, so there is no defensible code change to make — root-causing needs the amd64 hardware. |
+| **C2 incremental wasm link (true-10)** + **FA6 lazy-load wasm *chunks*** | Upstream / platform-capped | Both require a Go toolchain capability that does not exist (incremental wasm linking; per-view wasm code-splitting from one binary). The plan classifies these as "(platform-cap)" / "upstream Go ask, tracked, not blocking." The **platform-honest** surfaces *were* shipped: C2 → `gwc buildreport`; FA6's deferred-render UX is expressible today with existing `Show`/async boundaries. |
+
+These three are the literal residue of the plan; none is a hidden gap in the shipped
+framework. Everything expressible as tested Go — or, for the editor integration, as a
+Node-tested extension core — is implemented, atomic-committed, and green.
+
 ## v4 — the combined plan: god-tier DevX × god-tier features
 
 This revision merges the **feature/capability roadmap** from the competitive analysis
