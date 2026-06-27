@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/internal/platform/jsdom"
 	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -304,6 +305,30 @@ func Render(parseRoot Node, parseSelector string) {
 		return
 	}
 	parseRt.RenderTo(parseSelector, parseRoot)
+}
+
+// runKeepAlive is the post-mount blocking call used by Run. It defaults to
+// interop.KeepAlive — the same keep-alive primitive behind utils.WaitForever — and
+// is a package variable only so tests can substitute a non-blocking stub.
+// Production builds always block here.
+var runKeepAlive = interop.KeepAlive
+
+// Run is the one-line entrypoint for a browser app. It builds the component with
+// CreateElement, mounts it into the element matched by selector via Render, then
+// blocks forever (the same keep-alive as utils.WaitForever) so the js/wasm program
+// stays alive to handle events. Run never returns.
+//
+// Pass the component plus any props CreateElement accepts; props are optional for
+// no-prop components:
+//
+//	func main() { ui.Run("#app", renderHelloApp) }
+//
+// Run is a convenience over the primitives, not a replacement for them. For SSR,
+// native, or tests — or when main must do work after mount — call Render (or
+// RenderInto) and block with utils.WaitForever yourself.
+func Run(parseSelector string, parseComponent interface{}, parseProps ...interface{}) {
+	Render(CreateElement(parseComponent, parseProps...), parseSelector)
+	runKeepAlive()
 }
 
 // RenderInto mounts the UI tree into an explicit DOM node.

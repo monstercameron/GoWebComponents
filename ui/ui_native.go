@@ -286,6 +286,16 @@ func Render(parseRoot Node, parseSelector string) {
 	panic(actionableUnsupportedOnServerPanic("Render"))
 }
 
+// Run is browser-only; on the native/SSR slice it panics like Render. Server-side
+// code should call RenderToString (or the SSR streaming APIs) instead of mounting
+// and blocking.
+func Run(parseSelector string, parseComponent any, parseProps ...any) {
+	_ = parseSelector
+	_ = parseComponent
+	_ = parseProps
+	panic(actionableUnsupportedOnServerPanic("Run"))
+}
+
 // RenderInto is a non-browser stub that returns an UnsupportedOnServer error.
 func RenderInto(parseRoot Node, parseTarget any) error {
 	_ = parseRoot

@@ -60,9 +60,11 @@ func EnableAllDebug() {}
 // DisableAllDebug is a production stub that does nothing.
 func DisableAllDebug() {}
 
-// WaitForever blocks indefinitely so js/wasm programs stay alive for events.
+// WaitForever blocks indefinitely so js/wasm programs stay alive for events. It
+// delegates to interop.KeepAlive, the shared keep-alive primitive also used by
+// ui.Run.
 func WaitForever() {
-	select {}
+	interop.KeepAlive()
 }
 
 // GetDebugStatus always returns all-false in production builds.
