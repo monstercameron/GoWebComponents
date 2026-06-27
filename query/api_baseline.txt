@@ -10,6 +10,7 @@ func (*Cache) Peek(parseKey string) (any, bool)
 func (*Cache) Set(parseKey string, parseData any)
 func (Status) String() string
 func Fetch[T any](parseC *Cache, parseKey string, parseFn func() (T, error)) Result[T]
+func MutateAsync[T any](parseC *Cache, parseKey string, parseOptimistic T, parseFn func() (T, error), parseOnSettled func(Result[T]))
 func Mutate[T any](parseC *Cache, parseKey string, parseOptimistic T, parseFn func() (T, error)) Result[T]
 func New(parseOpts ...Option) *Cache
 func SWR[T any](parseC *Cache, parseKey string, parseFn func() (T, error), parseOnUpdate func(Result[T])) Result[T]

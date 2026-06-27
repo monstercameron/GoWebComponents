@@ -218,6 +218,38 @@ func Mutate[T any](parseC *Cache, parseKey string, parseOptimistic T, parseFn fu
 	return resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
 }
 
+// MutateAsync applies the optimistic value to key immediately (so a Snapshot taken right
+// after already reflects it) and runs fn in the background, committing fn's result on
+// success or rolling back to the exact prior state on error, then invoking onSettled (may
+// be nil) with the outcome. This is the fire-and-forget optimistic action: the UI updates
+// now and the server reconciles later — pair fn with serverfn.Call to make a one-call
+// optimistic server action.
+func MutateAsync[T any](parseC *Cache, parseKey string, parseOptimistic T, parseFn func() (T, error), parseOnSettled func(Result[T])) {
+	parseC.mu.Lock()
+	parseE := parseC.ensureEntry(parseKey)
+	parsePrevData, parsePrevHas, parsePrevErr, parsePrevAt := parseE.data, parseE.hasData, parseE.err, parseE.updatedAt
+	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseOptimistic, true, nil, parseC.now()
+	parseC.mu.Unlock()
+
+	go func() {
+		parseVal, parseErr := parseFn()
+		parseC.mu.Lock()
+		var parseRes Result[T]
+		if parseErr != nil {
+			parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parsePrevData, parsePrevHas, parsePrevErr, parsePrevAt
+			parseRes = resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
+			parseRes.Err = parseErr
+		} else {
+			parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseVal, true, nil, parseC.now()
+			parseRes = resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
+		}
+		parseC.mu.Unlock()
+		if parseOnSettled != nil {
+			parseOnSettled(parseRes)
+		}
+	}()
+}
+
 // Set seeds or overwrites the cached value for key (e.g. priming from SSR data or a
 // mutation response), marking it freshly updated.
 func (parseC *Cache) Set(parseKey string, parseData any) {

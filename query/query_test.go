@@ -179,6 +179,61 @@ func TestMutateCommitsOnSuccess(parseT *testing.T) {
 	}
 }
 
+// TestMutateAsyncOptimisticThenSettles proves the fire-and-forget action: the optimistic
+// value is visible immediately, and the server result is committed when fn settles.
+func TestMutateAsyncOptimisticThenSettles(parseT *testing.T) {
+	parseCache := New(WithStaleTime(time.Hour))
+	parseCache.Set("likes", 10)
+
+	parseRelease := make(chan struct{})
+	parseSettled := make(chan Result[int], 1)
+	MutateAsync(parseCache, "likes", 11, func() (int, error) {
+		<-parseRelease
+		return 12, nil // server's authoritative value
+	}, func(parseRes Result[int]) { parseSettled <- parseRes })
+
+	// Optimistic value is visible before the server settles.
+	if parsePeek, _ := parseCache.Peek("likes"); parsePeek != 11 {
+		parseT.Fatalf("expected optimistic 11 immediately, got %v", parsePeek)
+	}
+
+	close(parseRelease)
+	select {
+	case parseRes := <-parseSettled:
+		if parseRes.Err != nil || parseRes.Data != 12 {
+			parseT.Fatalf("expected committed 12, got %+v", parseRes)
+		}
+	case <-time.After(time.Second):
+		parseT.Fatal("MutateAsync never settled")
+	}
+	if parsePeek, _ := parseCache.Peek("likes"); parsePeek != 12 {
+		parseT.Fatalf("expected committed server value 12, got %v", parsePeek)
+	}
+}
+
+// TestMutateAsyncRollsBackOnError proves an async failure restores the prior value.
+func TestMutateAsyncRollsBackOnError(parseT *testing.T) {
+	parseCache := New(WithStaleTime(time.Hour))
+	parseCache.Set("likes", 10)
+
+	parseSettled := make(chan Result[int], 1)
+	MutateAsync(parseCache, "likes", 11, func() (int, error) {
+		return 0, errors.New("server rejected")
+	}, func(parseRes Result[int]) { parseSettled <- parseRes })
+
+	select {
+	case parseRes := <-parseSettled:
+		if parseRes.Err == nil {
+			parseT.Fatal("expected the server error to surface")
+		}
+	case <-time.After(time.Second):
+		parseT.Fatal("MutateAsync never settled")
+	}
+	if parsePeek, _ := parseCache.Peek("likes"); parsePeek != 10 {
+		parseT.Fatalf("expected rollback to 10 after async failure, got %v", parsePeek)
+	}
+}
+
 // TestInvalidateForcesRefetch proves Invalidate makes a fresh entry refetch on next read.
 func TestInvalidateForcesRefetch(parseT *testing.T) {
 	parseCache := New(WithStaleTime(time.Hour))
