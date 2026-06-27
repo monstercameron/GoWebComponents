@@ -17,6 +17,7 @@ relevant, wasm coverage; `go vet` clean):
 
 | Plan item | Shipped | Commit |
 |---|---|---|
+| **FC6/B5** collaboration + state guide | `localfirst.PresenceSet` (heartbeat-expiry awareness on top of FC1) + reference-manual state-primitive decision guide | `feat(localfirst): presence` + `docs(state): decision guide` |
 | **FC3 (frontier)** agent-native UI | `agentui` typed renderable schema + allow-list `Registry.Validate`/`Render` (no code/handlers/raw-HTML; structural safety) + `DefaultRegistry`; e2e agent JSON→validate→render→DOM | `feat(agentui): agent-native generative-UI runtime` |
 | **FC1 (frontier)** local-first sync | `localfirst` LWW-Register CRDT engine: `Clock`/`Replica` (optimistic+offline pending+convergent Merge)/`Authority`; offline→reconnect→converge proven in-process AND over the real serverfn transport | `feat(localfirst): convergent CRDT core` + `test(localfirst): converge over serverfn` |
 | **FB1 (keystone)** server functions | `serverfn` runtime (`Handle`/`Call`, typed `*ServerError`, no-build-tag net/http so server=sockets, browser=fetch) + `gwc server gen` (`//gwc:server` → client stubs + `RegisterServerFunctions`); e2e: native server + wasm client compile, HTTP round-trip through generated registration | `feat(serverfn): server-function runtime` + `feat(gwc): \`gwc server gen\`` |

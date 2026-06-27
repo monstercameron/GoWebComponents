@@ -15,6 +15,12 @@
   disallowed prop; `Render`/`RenderJSON` gate on validation. `DefaultRegistry` ships safe
   presentational components. Verified end-to-end: agent JSON → validate → render → mounted
   DOM shows the content.
+- **`localfirst.PresenceSet` — collaboration presence/awareness (V4, FC6).** Real-time
+  collaboration is the converging document store (FC1) plus ephemeral presence; presence is
+  the only new piece, so FC6 comes nearly for free. `PresenceSet` tracks live peers (cursor/
+  name/status as an opaque payload) with heartbeat expiry and no wall clock — the app
+  advances time via `Tick`, so a crashed tab leaves the session deterministically. Distinct
+  from synced `Record`s by design: "who is here now" has no history.
 - **`localfirst` — built-in local-first sync engine (V4, FC1).** The convergence engine
   behind local-first sync (Zero/Electric/TanStack DB), pure Go on both sides: a
   last-write-wins register per key (LWW-Register CRDT) with a logical `Clock` (higher
