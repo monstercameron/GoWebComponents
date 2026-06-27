@@ -19,6 +19,7 @@
 package query
 
 import (
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -257,6 +258,29 @@ func (parseC *Cache) Invalidate(parseKey string) {
 	if parseE := parseC.entries[parseKey]; parseE != nil {
 		parseE.updatedAt = time.Time{}
 	}
+}
+
+// InvalidateAll marks every cached key stale so the next read of each refetches. This is
+// the global cache-bust used on sign-in/sign-out or a window-focus/reconnect revalidation.
+func (parseC *Cache) InvalidateAll() {
+	parseC.mu.Lock()
+	defer parseC.mu.Unlock()
+	for _, parseE := range parseC.entries {
+		parseE.updatedAt = time.Time{}
+	}
+}
+
+// Keys returns a sorted snapshot of the cached keys — for devtools, introspection, and
+// deciding which queries a focus/reconnect handler should revalidate.
+func (parseC *Cache) Keys() []string {
+	parseC.mu.Lock()
+	defer parseC.mu.Unlock()
+	parseKeys := make([]string, 0, len(parseC.entries))
+	for parseKey := range parseC.entries {
+		parseKeys = append(parseKeys, parseKey)
+	}
+	sort.Strings(parseKeys)
+	return parseKeys
 }
 
 // InvalidatePrefix marks every key sharing prefix stale — the by-scope invalidation that

@@ -2,6 +2,7 @@ package query
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -194,6 +195,29 @@ func TestInvalidateForcesRefetch(parseT *testing.T) {
 	parseRes := Fetch(parseCache, "k", parseFetch) // calls=2
 	if parseCalls.Load() != 2 || parseRes.Data != 2 {
 		parseT.Fatalf("expected refetch after invalidate (calls=2,data=2), got calls=%d %+v", parseCalls.Load(), parseRes)
+	}
+}
+
+// TestInvalidateAllAndKeys proves the global cache-bust stales every key and Keys returns
+// a sorted snapshot of cached keys.
+func TestInvalidateAllAndKeys(parseT *testing.T) {
+	parseCache := New(WithStaleTime(time.Hour))
+	parseCache.Set("b", 2)
+	parseCache.Set("a", 1)
+	parseCache.Set("c", 3)
+
+	if parseGot := strings.Join(parseCache.Keys(), ","); parseGot != "a,b,c" {
+		parseT.Fatalf("expected sorted keys a,b,c, got %q", parseGot)
+	}
+
+	// Fresh before, so a Fetch would hit cache; after InvalidateAll it must refetch.
+	var parseCalls atomic.Int64
+	parseCache.InvalidateAll()
+	for _, parseKey := range parseCache.Keys() {
+		_ = Fetch(parseCache, parseKey, func() (int, error) { parseCalls.Add(1); return 0, nil })
+	}
+	if parseCalls.Load() != 3 {
+		parseT.Fatalf("expected all 3 keys to refetch after InvalidateAll, got %d", parseCalls.Load())
 	}
 }
 
