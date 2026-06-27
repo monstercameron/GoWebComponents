@@ -1,0 +1,30 @@
+{
+  "name": "gwc",
+  "displayName": "GoWebComponents",
+  "description": "Surfaces gwc lint diagnostics inline in VS Code via a DiagnosticCollection.",
+  "version": "0.1.0",
+  "publisher": "monstercameron",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:go"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "gwc.lint",
+        "title": "GWC: Lint workspace"
+      }
+    ]
+  },
+  "scripts": {
+    "test": "node --test test/diagnostics.test.mjs"
+  }
+}
