@@ -1,0 +1,4 @@
+const ServerFnPrefix
+func Handler(parseOptions Options) http.Handler
+func ListenAndServe(parseAddr string, parseOptions Options) error
+type Options struct { Assets fs.FS RegisterServerFns func(*http.ServeMux) IndexFile string DisableSPAFallback bool }
