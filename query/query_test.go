@@ -197,6 +197,22 @@ func TestInvalidateForcesRefetch(parseT *testing.T) {
 	}
 }
 
+// TestSnapshotReadsWithoutFetching proves Snapshot is a pure read: it never invokes a
+// fetcher and reports idle for an unknown key.
+func TestSnapshotReadsWithoutFetching(parseT *testing.T) {
+	parseCache := New(WithStaleTime(time.Hour))
+
+	if parseRes := Snapshot[int](parseCache, "missing"); parseRes.Status != StatusIdle {
+		parseT.Fatalf("expected idle for an unknown key, got %+v", parseRes)
+	}
+
+	parseCache.Set("k", 7)
+	parseRes := Snapshot[int](parseCache, "k")
+	if parseRes.Data != 7 || parseRes.Status != StatusSuccess || parseRes.Stale {
+		parseT.Fatalf("expected fresh 7, got %+v", parseRes)
+	}
+}
+
 // TestInvalidatePrefixGroupsKeys proves prefix invalidation stales a whole key scope.
 func TestInvalidatePrefixGroupsKeys(parseT *testing.T) {
 	parseCache := New(WithStaleTime(time.Hour))

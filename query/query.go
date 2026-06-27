@@ -226,6 +226,19 @@ func (parseC *Cache) Set(parseKey string, parseData any) {
 	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseData, true, nil, parseC.now()
 }
 
+// Snapshot returns the current typed result for key WITHOUT triggering a fetch. It is
+// the pure read a render uses to project current cache state into the view; pair it with
+// SWR (or the ui.UseQuery hook) to drive the actual revalidation.
+func Snapshot[T any](parseC *Cache, parseKey string) Result[T] {
+	parseC.mu.Lock()
+	defer parseC.mu.Unlock()
+	parseE := parseC.entries[parseKey]
+	if parseE == nil {
+		return Result[T]{Status: StatusIdle}
+	}
+	return resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
+}
+
 // Peek returns the cached value for key without triggering a fetch.
 func (parseC *Cache) Peek(parseKey string) (any, bool) {
 	parseC.mu.Lock()
