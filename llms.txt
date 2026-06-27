@@ -1,0 +1,30 @@
+# GoWebComponents
+
+> GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, typed HTML builders, shorthand authoring he…
+
+## Reference Manual
+
+- [01 Getting Started](docs/REFERENCE_MANUAL/01-getting-started.md): Use this chapter when you want the shortest correct path from evaluation to a working GoWebComponents app.
+- [02 GWC Workflows](docs/REFERENCE_MANUAL/02-gwc-workflows.md): Use this chapter when you want the supported command-line workflow for GoWebComponents instead of assembling ad hoc shell scripts from commit history.
+- [03 App Shapes](docs/REFERENCE_MANUAL/03-app-shapes.md): Use this chapter when you need to choose the right application shape before you start spreading examples or APIs across a real codebase.
+- [04 UI Rendering And Hooks](docs/REFERENCE_MANUAL/04-ui-rendering-and-hooks.md): Use this chapter when you are working in the `ui` package surface: component composition, rendering, hooks, async helpers, overlays, transitions, worker tasks,…
+- [05 HTML Authoring](docs/REFERENCE_MANUAL/05-html-authoring.md): Use this chapter when you are authoring DOM trees with `html` or `html/shorthand`.
+- [06 State And Reactivity](docs/REFERENCE_MANUAL/06-state-and-reactivity.md): Use this chapter when you are deciding who should own mutable state, derived values, or resumable client state.
+- [07 Data Loading And Mutations](docs/REFERENCE_MANUAL/07-data-loading-and-mutations.md): Use this chapter when you are deciding who owns async reads, shared cached data, explicit mutations, optimistic updates, or offline replay.
+- [08 Routing](docs/REFERENCE_MANUAL/08-routing.md): Use this chapter when you are building route trees, reading params or query state, wiring loaders, or enforcing route-level navigation rules.
+- [09 SSR And Hydration](docs/REFERENCE_MANUAL/09-ssr-and-hydration.md): Use this chapter when your app renders HTML before wasm starts and then resumes that tree in the browser.
+- [10 Browser Interop And Workers](docs/REFERENCE_MANUAL/10-browser-interop-and-workers.md): Use this chapter when your app needs browser APIs, worker-backed background compute, or browser-local transport between tabs and windows.
+- [11 Forms Accessibility And I18n](docs/REFERENCE_MANUAL/11-forms-accessibility-and-i18n.md): Use this chapter when you are building typed forms, mapping authoritative server validation back into UI state, wiring focus and announcements, or making one ap…
+- [12 Devtools Testing And Observability](docs/REFERENCE_MANUAL/12-devtools-testing-and-observability.md): Use this chapter when you need repeatable test harnesses, in-app diagnostics, structured logs, or support-safe capture flows for GoWebComponents apps.
+- [13 Assets Deployment And PWA](docs/REFERENCE_MANUAL/13-assets-deployment-and-pwa.md): Use this chapter when you need a deployable asset graph, browser-compatible wasm delivery, installability, service-worker coordination, or offline-capable relea…
+- [14 Scaling Large Codebases](docs/REFERENCE_MANUAL/14-scaling-large-codebases.md): Use this chapter when your app is no longer a small demo and you need durable conventions for route families, shared modules, team ownership, validation lanes,…
+- [15 Design Notes And Boundaries](docs/REFERENCE_MANUAL/15-design-notes-and-boundaries.md): Use this chapter when you need the repo's explicit answer to these questions:
+- [16 API Browser](docs/REFERENCE_MANUAL/16-api-browser.md): Use this chapter when you want a dense package-by-package browser for the public GoWebComponents surface.
+- [Capability Matrix](docs/REFERENCE_MANUAL/capability-matrix.md)
+- [Diagnostic Error Code Reference](docs/REFERENCE_MANUAL/error-codes.md): Every code below is emitted in a structured runtime diagnostic. Look the code up here for its cause anchor and the `next:` remediation.
+
+## Project
+
+- [README](README.md): project overview and quick start
+- [CHANGELOG](CHANGELOG.md): release history
+- [Full docs](llms-full.txt): every reference-manual chapter concatenated for full-context ingestion
