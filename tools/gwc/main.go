@@ -1029,6 +1029,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runAuditCommand(parseL, parseArgs)
 	case "llms":
 		return runLLMsCommand(parseL, parseArgs)
+	case "routes":
+		return runRoutesCommand(parseL, parseArgs)
 	case "clean":
 		return runCleanCommand(parseL, parseArgs)
 	case "bench", "benchmark":
@@ -1278,6 +1280,7 @@ func printUsage() {
 	fmt.Println("  check      Run agent-shaped diagnostics across tests, source conventions, and GWC hook-context safety")
 	fmt.Println("  supplychain Audit the supply-chain surface: prove zero-npm, count Go deps, verify checksums, enforce a dep budget")
 	fmt.Println("  llms       Generate llms.txt + llms-full.txt from the reference manual (AI-native docs); -check for a CI staleness gate")
+	fmt.Println("  routes     Generate typed, compile-checked link constructors from router contracts (gen|check); a typo'd path param becomes a compile error")
 	fmt.Println("  clean      Remove launcher-owned build artifacts, caches, and generated outputs")
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, race, wasm, hydration, browser, agent, agent-browser, and release")
 	fmt.Println("  watch      Watch Go files and rerun selected launcher-owned test lanes")

@@ -15,6 +15,12 @@
   through a hidden runtime graph. Signals compose with `ui.ReactiveRegion` and
   `state.UseSelector` (same source contract as atoms/derived). Covered by native
   unit tests + wasm fine-grained-update tests.
+- **`gwc routes gen` — typed, compile-checked route links (V4).** Scans a package
+  for `router.MustDefineRoute("/users/:id")` contracts and generates `routes_gen.go`
+  with typed `Link*` constructors (`LinkUser(id string) string`), so a missing or
+  misnamed path parameter becomes a **compile error** instead of a runtime one —
+  closing the last stringly-typed gap that the runtime `RouteContract` can't.
+  `gwc routes check` is the CI staleness gate. Output is `go/format`-clean.
 - **`validate` package — dependency-free shared struct-tag validation (V4).** One
   Go struct with `validate:"required,email,min=3,oneof=..."` tags validates
   **identically on the server and the client** — `validate.Struct(v)` runs in an
