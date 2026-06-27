@@ -1,0 +1,8 @@
+const RoutePrefix
+func (*ServerError) Error() string
+func Call[Req, Resp any](parseCtx context.Context, parseName string, parseReq Req) (Resp, error)
+func Configure(parseBaseURL string)
+func Endpoint(parseName string) string
+func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn func(context.Context, Req) (Resp, error))
+func SetClient(parseClient *http.Client)
+type ServerError struct { Status int Message string }

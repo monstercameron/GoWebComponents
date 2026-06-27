@@ -1,0 +1,22 @@
+const StatusError
+const StatusIdle
+const StatusLoading
+const StatusSuccess
+func (*Cache) Invalidate(parseKey string)
+func (*Cache) InvalidateAll()
+func (*Cache) InvalidatePrefix(parsePrefix string)
+func (*Cache) Keys() []string
+func (*Cache) Peek(parseKey string) (any, bool)
+func (*Cache) Set(parseKey string, parseData any)
+func (Status) String() string
+func Fetch[T any](parseC *Cache, parseKey string, parseFn func() (T, error)) Result[T]
+func Mutate[T any](parseC *Cache, parseKey string, parseOptimistic T, parseFn func() (T, error)) Result[T]
+func New(parseOpts ...Option) *Cache
+func SWR[T any](parseC *Cache, parseKey string, parseFn func() (T, error), parseOnUpdate func(Result[T])) Result[T]
+func Snapshot[T any](parseC *Cache, parseKey string) Result[T]
+func WithClock(parseNow func() time.Time) Option
+func WithStaleTime(parseD time.Duration) Option
+type Cache struct { mu sync.Mutex entries map[string]*entry staleTime time.Duration now func() time.Time }
+type Option func(*Cache)
+type Result struct { Data T Err error Status Status UpdatedAt time.Time Stale bool Fetching bool }
+type Status int

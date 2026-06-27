@@ -1,0 +1,7 @@
+func (Result) All() map[string][]string
+func (Result) Error() string
+func (Result) Fields() map[string]string
+func (Result) Valid() bool
+func Struct(parseValue any) Result
+type FieldError struct { Field string `json:"field"` Rule string `json:"rule"` Message string `json:"message"` }
+type Result struct { Errors []FieldError `json:"errors,omitempty"` }

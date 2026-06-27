@@ -1,0 +1,55 @@
+const MotionFull
+const MotionReduced
+const PhaseEntered
+const PhaseEntering
+const PhaseExited
+const PhaseExiting
+func (*Spring) IsSettled(parseEpsilon float64) bool
+func (*Spring) Position() float64
+func (*Spring) SetTarget(parseTarget float64)
+func (*Spring) Step(parseDt float64) float64
+func (*Spring) Velocity() float64
+func (ListTransition) MovedKeys() []string
+func (MotionPreference) Animates() bool
+func (MotionPreference) EffectiveDuration(parseDuration float64) float64
+func (PanGesture) End() PanGesture
+func (PanGesture) Move(parseSample GestureSample) PanGesture
+func (Phase) String() string
+func (Transition) Advance(parseDelta float64) Transition
+func (Transition) BeginExit() Transition
+func (Transition) IsAnimating() bool
+func (Transition) IsRemovable() bool
+func (Transition) Progress() float64
+func ComputeFLIP(parseFirst, parseLast Rect) FLIPTransform
+func ComputePinch(parseStartA, parseStartB, parseCurrentA, parseCurrentB Point) PinchGesture
+func DiffKeyedRects(parsePrev, parseNext []KeyedRect) ListTransition
+func GentleSpring() SpringConfig
+func Interpolate(parseFrom, parseTo, parseT float64, parseEasing Easing) float64
+func NewSpring(parseConfig SpringConfig, parseInitial float64) *Spring
+func NewTransition(parseDuration float64) Transition
+func NewTransitionPref(parseDuration float64, parsePref MotionPreference) Transition
+func StaggerDelay(parseIndex int, parseStep float64) float64
+func StartPan(parseSample GestureSample) PanGesture
+func StiffSpring() SpringConfig
+func WobblySpring() SpringConfig
+type Easing func(parseT float64) float64
+type FLIPTransform struct { TranslateX float64 TranslateY float64 ScaleX float64 ScaleY float64 }
+type GestureSample struct { ID string X float64 Y float64 Time float64 }
+type KeyedRect struct { Key string Rect Rect }
+type ListTransition struct { Entering []string Exiting []string Moving map[string]FLIPTransform }
+type MotionPreference int
+type PanGesture struct { Start Point Current Point Delta Point Velocity Point StartTime float64 Time float64 Active bool }
+type Phase int
+type PinchGesture struct { StartA Point StartB Point CurrentA Point CurrentB Point StartDistance float64 Distance float64 Scale float64 Center Point Active bool }
+type Point struct { X float64 Y float64 }
+type Rect struct { X float64 Y float64 Width float64 Height float64 }
+type Spring struct { parseConfig SpringConfig parsePosition float64 parseVelocity float64 parseTarget float64 }
+type SpringConfig struct { Stiffness float64 Damping float64 Mass float64 }
+type Transition struct { Phase Phase Elapsed float64 Duration float64 }
+var EaseInCubic
+var EaseInOutCubic
+var EaseInOutQuad
+var EaseInQuad
+var EaseOutCubic
+var EaseOutQuad
+var Linear

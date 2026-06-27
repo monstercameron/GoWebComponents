@@ -1,0 +1,11 @@
+func (*Registry) Allowed(parseType string) bool
+func (*Registry) Register(parseSpec ComponentSpec)
+func (*Registry) Render(parseNode Node) (ui.Node, error)
+func (*Registry) RenderJSON(parseData []byte) (ui.Node, error)
+func (*Registry) Validate(parseNode Node) error
+func DefaultRegistry() *Registry
+func NewRegistry() *Registry
+func Parse(parseData []byte) (Node, error)
+type ComponentSpec struct { Name string AllowedProps []string Render func(parseProps map[string]string, parseChildren []ui.Node) ui.Node }
+type Node struct { Type string `json:"type"` Props map[string]string `json:"props,omitempty"` Text string `json:"text,omitempty"` Children []Node `json:"children,omitempty"` }
+type Registry struct { specs map[string]ComponentSpec }
