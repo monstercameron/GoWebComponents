@@ -317,6 +317,33 @@ Use this release flow as the default baseline:
 
 The critical rule is consistency: do not let HTML point at one asset graph while the service worker warms another.
 
+## Reproducible Builds
+
+Source-archive provenance (`git archive` + SHA-256 + build-provenance attestation) is already
+part of the release flow. The remaining step to a fully verifiable release is **byte-identical
+binary reproducibility**: the same source must compile to the same bytes on any machine. The
+recipe is exact:
+
+- **`-trimpath`** — strip local filesystem paths from the binary, so it doesn't encode the
+  builder's directory layout.
+- **`-buildvcs=false`** — keep VCS stamping out of the binary (provenance is recorded
+  separately, not embedded), so an otherwise-identical build isn't perturbed by git state.
+- **`SOURCE_DATE_EPOCH`** — pin any embedded timestamps to a fixed commit time rather than
+  "now".
+- **A CI-pinned `toolchain`** — the `go` directive in `go.mod` (and a pinned toolchain line)
+  fixes the exact compiler, since output is only reproducible within one toolchain version.
+
+```sh
+SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) \
+  GOFLAGS='-trimpath -buildvcs=false' \
+  GOOS=js GOARCH=wasm go build -o app.wasm ./cmd/app
+```
+
+**Verify** in CI by building twice from a clean checkout and byte-comparing (`sha256sum`) the
+two outputs; a mismatch fails the release. Reproducibility plus the existing provenance
+attestation means a consumer can independently rebuild the exact published artifact and
+confirm it matches.
+
 ## Browser And Hosting Boundaries
 
 Deployment still has browser and host requirements:
