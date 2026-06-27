@@ -4,6 +4,19 @@
 
 ### Added
 
+- **`query` package — stable query/data layer (V4).** GoWebComponents' Go-native
+  answer to TanStack Query / SWR: a keyed, concurrency-safe cache with request
+  de-duplication (N concurrent `Fetch`es for one key coalesce into a single fetcher
+  call), stale-while-revalidate (`SWR` returns stale data synchronously and refreshes
+  in the background), one-call optimistic mutations with automatic rollback on error
+  (`Mutate`), and invalidate-by-key / by-prefix. Kept deliberately **explicit** — the
+  key and fetcher are passed at every call site, nothing is auto-tracked — and **pure
+  Go**, so the whole layer compiles to wasm and native and is fully unit-testable
+  (`WithClock` injects deterministic time). Implements FA2 / graduates B6 to Stable.
+- **`ui.Form.ValidateStruct()` — turnkey shared validation (V4).** Validates a form's
+  value against its `validate:"..."` struct tags with no hand-written client
+  validator, so the same struct validates client (wasm) and server (native) from one
+  source and the two cannot drift. Capstone of B8.
 - **`state.Signal[T]` / `state.NewSignal` / `state.NewComputed` — fine-grained
   reactivity as a first-class primitive (V4).** A terse, ergonomic handle over the
   shared atom registry that updates exactly the DOM nodes bound to it
