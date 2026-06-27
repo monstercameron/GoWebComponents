@@ -4,6 +4,13 @@
 
 ### Added
 
+- **`gwc add` — headless component registry (V4).** The shadcn "own the code" model:
+  `gwc add <name>` copies an a11y-correct, self-contained component into your repo (with
+  your package name and a provenance header) — you own and restyle it, no runtime
+  dependency. Catalog: `disclosure` (WAI-ARIA disclosure) and `tabs` (WAI-ARIA
+  tablist/tabpanel with a roving tab stop), each verified native + wasm. Templates live as
+  a real compiled package, so the catalog can never ship a component that doesn't build
+  (FA3).
 - **`gwc vuln` — known-vulnerability reachability scan (V4).** Runs `govulncheck -json`
   and classifies each finding as REACHABLE (a call trace names a vulnerable function) or
   imported-only. Reachable vulnerabilities fail the build; imported-only pass unless
