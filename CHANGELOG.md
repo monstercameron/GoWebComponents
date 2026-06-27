@@ -4,6 +4,16 @@
 
 ### Added
 
+- **`gwc buildreport` — "what rebuilt & why" (V4, C2 platform-honest).** Derives a per-build
+  report from `go build -debug-actiongraph`: which packages were rebuilt (the `NeedBuild`
+  cache-miss signal) vs served from cache, ranked by compile time, with the warm/cold wall
+  time. The achievable platform-honest C2 surface; the true 10-rung (incremental wasm
+  linking) is an upstream Go ask the plan tracks as non-blocking.
+- **VS Code extension surfacing `gwc lint` diagnostics (V4, tooling).** A minimal real
+  extension (`tools/vscode-gwc`) that runs `gwc lint --json` on save and shows issues inline
+  via a `DiagnosticCollection`. Its mapping core (severity, 1-based→0-based positions, source
+  tagging) is host-independent and unit-tested under plain Node; it consumes the stable CLI
+  contract owned in Go, so the editor integration stays a thin language-agnostic consumer.
 - **Edge/WASI portability of the server stack (V4, FC4).** The server-side V4 packages —
   `serverfn`, `wholestack`, `localfirst`, `agentui`, `query`, `validate`, `timetravel` — are
   written platform-clean and verified to compile to `GOOS=wasip1` (WASI), so the whole-stack

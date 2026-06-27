@@ -17,6 +17,8 @@ relevant, wasm coverage; `go vet` clean):
 
 | Plan item | Shipped | Commit |
 |---|---|---|
+| **C2** build speed (platform-honest) | `gwc buildreport` — what rebuilt vs cached & why (from `-debug-actiongraph` NeedBuild signal) + warm/cold wall time; true-10 incremental wasm link filed upstream | `feat(gwc): add \`gwc buildreport\`` |
+| **A2/tooling** VS Code extension | `tools/vscode-gwc` surfaces `gwc lint --json` inline via DiagnosticCollection; host-independent mapping core node-tested | `feat(vscode-gwc): VS Code extension` |
 | **FC4 (frontier)** wasm platform leap | server stack (serverfn/wholestack/localfirst/agentui/query/validate/timetravel) verified to compile to `GOOS=wasip1` → edge-WASI-portable | (verified; platform-clean by design) |
 | **FC5 (frontier)** one-binary stack | `wholestack.Handler` serves the embedded wasm app + `//gwc:server` functions + SPA fallback from one http.Handler (`ListenAndServe` one-liner); edge-portable | `feat(wholestack): one-binary whole-stack handler` |
 | **D2/C4/FB5/FC6** in-app panels | dogfooded GWC components: `timetravel/devpanel`, `workbench/gallery`, `query/devtools` (+ `Cache.Inspect`), `localfirst/facepile` — the "panel/gallery" GUIs as headless-tested framework code | `feat(timetravel/devpanel)` + `feat(workbench/gallery)` + `feat(query/devtools)` + `feat(localfirst/facepile)` |
