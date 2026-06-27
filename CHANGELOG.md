@@ -4,6 +4,13 @@
 
 ### Added
 
+- **`anim` keyed-list FLIP + enter/exit transitions (V4).** The FA5 orchestration layer
+  over the existing FLIP/spring math: `DiffKeyedRects` classifies a keyed layout change
+  into entering/exiting/moving items and computes each survivor's FLIP invert transform
+  (`MovedKeys()` filters to items that actually moved); `Transition` is a pure, clock-free
+  enter/exit state machine (`Entering→Entered`, `BeginExit→Exiting→Exited`) with
+  `Progress`/`IsAnimating`/`IsRemovable`; `StaggerDelay` gives per-index cascade timing.
+  Owns no DOM and no clock — fully deterministic and unit-testable.
 - **`gwc i18n gen` — typed, compile-checked message accessors (V4).** Reads a
   base-locale bundle (`{"namespace":{"key":"text {param}"}}`) and generates
   `i18n_keys_gen.go`: one typed accessor per message wrapping `i18n.Runtime.T`, taking a
