@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"sort"
 
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -64,6 +65,28 @@ func (parseR *Registry) Register(parseSpec ComponentSpec) {
 func (parseR *Registry) Allowed(parseType string) bool {
 	_, parseOk := parseR.specs[parseType]
 	return parseOk
+}
+
+// ComponentInfo describes one allow-listed component for introspection: its name and the
+// prop keys it permits.
+type ComponentInfo struct {
+	Name         string   `json:"name"`
+	AllowedProps []string `json:"allowedProps"`
+}
+
+// Catalog returns the allow-list as sorted, JSON-serializable descriptors — the data an
+// agent (or an MCP tool exposing this registry) reads to learn exactly which components and
+// props it may emit before generating a tree, turning the allow-list from an after-the-fact
+// rejection into up-front guidance.
+func (parseR *Registry) Catalog() []ComponentInfo {
+	parseCatalog := make([]ComponentInfo, 0, len(parseR.specs))
+	for _, parseSpec := range parseR.specs {
+		parseProps := append([]string(nil), parseSpec.AllowedProps...)
+		sort.Strings(parseProps)
+		parseCatalog = append(parseCatalog, ComponentInfo{Name: parseSpec.Name, AllowedProps: parseProps})
+	}
+	sort.Slice(parseCatalog, func(parseA, parseB int) bool { return parseCatalog[parseA].Name < parseCatalog[parseB].Name })
+	return parseCatalog
 }
 
 // Limits bound the size of an agent-emitted tree so untrusted output cannot exhaust memory

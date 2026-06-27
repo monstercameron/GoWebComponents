@@ -1,6 +1,7 @@
 package agentui_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -30,6 +31,36 @@ func TestValidateAcceptsAllowListedTree(parseT *testing.T) {
 	}
 	if parseErr := agentui.DefaultRegistry().Validate(parseNode); parseErr != nil {
 		parseT.Fatalf("expected the allow-listed tree to validate, got %v", parseErr)
+	}
+}
+
+// TestCatalogListsAllowListForAgents proves the catalog exposes the allow-listed components
+// and their permitted props, sorted — the up-front guidance an MCP tool would serve an agent.
+func TestCatalogListsAllowListForAgents(parseT *testing.T) {
+	parseCatalog := agentui.DefaultRegistry().Catalog()
+	if len(parseCatalog) == 0 {
+		parseT.Fatal("default catalog should not be empty")
+	}
+
+	parseByName := map[string]agentui.ComponentInfo{}
+	parseNames := make([]string, len(parseCatalog))
+	for parseI, parseInfo := range parseCatalog {
+		parseByName[parseInfo.Name] = parseInfo
+		parseNames[parseI] = parseInfo.Name
+	}
+	// Sorted output.
+	for parseI := 1; parseI < len(parseNames); parseI++ {
+		if parseNames[parseI-1] > parseNames[parseI] {
+			parseT.Fatalf("catalog must be sorted, got %v", parseNames)
+		}
+	}
+	// heading permits both class and level; stack permits class only.
+	parseHeading, parseOk := parseByName["heading"]
+	if !parseOk || !slices.Contains(parseHeading.AllowedProps, "level") || !slices.Contains(parseHeading.AllowedProps, "class") {
+		parseT.Fatalf("heading should permit class+level, got %+v", parseHeading)
+	}
+	if parseStack := parseByName["stack"]; len(parseStack.AllowedProps) != 1 || parseStack.AllowedProps[0] != "class" {
+		parseT.Fatalf("stack should permit only class, got %+v", parseStack)
 	}
 }
 
