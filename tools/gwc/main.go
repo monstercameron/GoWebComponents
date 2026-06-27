@@ -1271,7 +1271,7 @@ func printUsage() {
 	fmt.Println("Commands:")
 	fmt.Println("  bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output")
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
-	fmt.Println("  check      Run agent-shaped diagnostics across tests and source conventions")
+	fmt.Println("  check      Run agent-shaped diagnostics across tests, source conventions, and GWC hook-context safety")
 	fmt.Println("  clean      Remove launcher-owned build artifacts, caches, and generated outputs")
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, race, wasm, hydration, browser, agent, agent-browser, and release")
 	fmt.Println("  watch      Watch Go files and rerun selected launcher-owned test lanes")

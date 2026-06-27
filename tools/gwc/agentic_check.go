@@ -29,6 +29,7 @@ type checkConfig struct {
 	pattern         string
 	skipTests       bool
 	skipConventions bool
+	skipHooks       bool
 	json            bool
 }
 
@@ -55,6 +56,7 @@ func (parseL launcher) runCheck(parseArgs []string) error {
 	parsePattern := parseFlags.String("pattern", "./...", "go test package pattern")
 	parseSkipTests := parseFlags.Bool("skip-tests", false, "Skip go test execution")
 	parseSkipConventions := parseFlags.Bool("skip-conventions", false, "Skip source convention checks")
+	parseSkipHooks := parseFlags.Bool("skip-hooks", false, "Skip the GWC hook-context analysis")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON envelope")
 	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
@@ -67,6 +69,7 @@ func (parseL launcher) runCheck(parseArgs []string) error {
 		pattern:         *parsePattern,
 		skipTests:       *parseSkipTests,
 		skipConventions: *parseSkipConventions,
+		skipHooks:       *parseSkipHooks,
 		json:            *parseJSON,
 	})
 	if parseErr != nil {
@@ -134,6 +137,7 @@ func resolveCheckConfig(parseConfig checkConfig) (checkConfig, error) {
 		pattern:         parsePattern,
 		skipTests:       parseConfig.skipTests,
 		skipConventions: parseConfig.skipConventions,
+		skipHooks:       parseConfig.skipHooks,
 		json:            parseConfig.json,
 	}, nil
 }
@@ -167,6 +171,13 @@ func buildCheckSummary(parseConfig checkConfig) checkSummary {
 		if len(parseDiagnostics) > 0 {
 			parseSummary.OK = false
 			parseSummary.Diagnostics = append(parseSummary.Diagnostics, parseDiagnostics...)
+		}
+	}
+	if !parseConfig.skipHooks {
+		parseHookDiagnostics := collectCheckHookContextDiagnostics(parseConfig.rootPath)
+		if len(parseHookDiagnostics) > 0 {
+			parseSummary.OK = false
+			parseSummary.Diagnostics = append(parseSummary.Diagnostics, parseHookDiagnostics...)
 		}
 	}
 	sort.SliceStable(parseSummary.Diagnostics, func(parseI int, parseJ int) bool {

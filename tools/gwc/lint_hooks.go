@@ -321,7 +321,7 @@ func isLintHookRuleHookName(parseName string) bool {
 // shouldSkipLintHookRuleDir reports whether a directory should be skipped by recursive scans.
 func shouldSkipLintHookRuleDir(parseName string) bool {
 	switch strings.TrimSpace(parseName) {
-	case ".git", "bin", "dist", "node_modules", "testdata", "third_party", "tmp", "vendor":
+	case ".git", ".claude", "bin", "dist", "node_modules", "testdata", "third_party", "tmp", "vendor":
 		return true
 	default:
 		return false
