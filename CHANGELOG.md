@@ -15,6 +15,12 @@
   through a hidden runtime graph. Signals compose with `ui.ReactiveRegion` and
   `state.UseSelector` (same source contract as atoms/derived). Covered by native
   unit tests + wasm fine-grained-update tests.
+- **`gwc llms` — AI-native docs generation (V4).** Generates `llms.txt` (the
+  llms.txt-standard index: project header + a linked, summarized table of every
+  reference-manual chapter) and `llms-full.txt` (all chapters concatenated for
+  full-context ingestion) from `docs/REFERENCE_MANUAL`. Deterministic output with a
+  `-check` CI staleness gate (regenerate + diff). The first step toward "the
+  framework your AI assistant gets right the first time."
 - **`gwc supplychain` — supply-chain / zero-npm audit command (V4).** Proves a
   project has **no npm dependency surface** (scans for `package.json`/lockfiles/
   `node_modules`, excluding research/examples/vendor/testdata), counts direct vs.
