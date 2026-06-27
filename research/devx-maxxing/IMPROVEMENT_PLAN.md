@@ -17,6 +17,7 @@ relevant, wasm coverage; `go vet` clean):
 
 | Plan item | Shipped | Commit |
 |---|---|---|
+| **B6/B7/D1 stability** API baselines | `internal/apidump` + golden public-API baseline tests for serverfn/query/localfirst/agentui/validate/anim (fails on drift; `UPDATE_API_BASELINE=1` to regen) — the concrete "API-baseline pinned / graduate to Stable" mechanism | `test(api): pin public-API baselines` |
 | **FC6/B5** collaboration + state guide | `localfirst.PresenceSet` (heartbeat-expiry awareness on top of FC1) + reference-manual state-primitive decision guide | `feat(localfirst): presence` + `docs(state): decision guide` |
 | **FC3 (frontier)** agent-native UI | `agentui` typed renderable schema + allow-list `Registry.Validate`/`Render` (no code/handlers/raw-HTML; structural safety) + `DefaultRegistry`; e2e agent JSON→validate→render→DOM | `feat(agentui): agent-native generative-UI runtime` |
 | **FC1 (frontier)** local-first sync | `localfirst` LWW-Register CRDT engine: `Clock`/`Replica` (optimistic+offline pending+convergent Merge)/`Authority`; offline→reconnect→converge proven in-process AND over the real serverfn transport | `feat(localfirst): convergent CRDT core` + `test(localfirst): converge over serverfn` |

@@ -4,6 +4,12 @@
 
 ### Added
 
+- **Public-API baseline tests for V4 packages (V4).** `internal/apidump` extracts a
+  package's exported surface (types with their shape, funcs, methods, consts, vars) as
+  sorted signature lines and checks it against a committed golden, so any change to the
+  public API of `serverfn`/`query`/`localfirst`/`agentui`/`validate`/`anim` fails a test
+  with a diff and can only land by regenerating the golden (`UPDATE_API_BASELINE=1`) with
+  intent. This is the concrete "graduated to Stable, API-baseline pinned" mechanism.
 - **`agentui` — agent-native generative-UI runtime (V4, FC3).** A typed renderable schema
   an agent emits (server-side behind a `//gwc:server` function), validated against a
   component allow-list, then rendered to real UI. The safety property is structural: a
