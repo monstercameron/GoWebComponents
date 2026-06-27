@@ -15,6 +15,14 @@
   through a hidden runtime graph. Signals compose with `ui.ReactiveRegion` and
   `state.UseSelector` (same source contract as atoms/derived). Covered by native
   unit tests + wasm fine-grained-update tests.
+- **`validate` package — dependency-free shared struct-tag validation (V4).** One
+  Go struct with `validate:"required,email,min=3,oneof=..."` tags validates
+  **identically on the server and the client** — `validate.Struct(v)` runs in an
+  HTTP handler and, because it uses only reflect/regexp/strconv (no syscall/net/file),
+  in the browser via wasm in `ui.UseForm`, so client/server validation can never
+  drift. `Result.Fields()` is `map[string]string` (the `ui.FieldErrors` shape) and
+  `Result` implements `error` for handlers. Rules: required/min/max/len/email/url/
+  oneof/eq/ne/gt/gte/lt/lte/alpha/alphanum/numeric, with nested-struct dotted paths.
 - **`gwc llms` — AI-native docs generation (V4).** Generates `llms.txt` (the
   llms.txt-standard index: project header + a linked, summarized table of every
   reference-manual chapter) and `llms-full.txt` (all chapters concatenated for
