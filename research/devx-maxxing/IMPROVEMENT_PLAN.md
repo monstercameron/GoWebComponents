@@ -17,6 +17,7 @@ relevant, wasm coverage; `go vet` clean):
 
 | Plan item | Shipped | Commit |
 |---|---|---|
+| **FC1 (frontier)** local-first sync | `localfirst` LWW-Register CRDT engine: `Clock`/`Replica` (optimistic+offline pending+convergent Merge)/`Authority`; offline→reconnect→converge proven in-process AND over the real serverfn transport | `feat(localfirst): convergent CRDT core` + `test(localfirst): converge over serverfn` |
 | **FB1 (keystone)** server functions | `serverfn` runtime (`Handle`/`Call`, typed `*ServerError`, no-build-tag net/http so server=sockets, browser=fetch) + `gwc server gen` (`//gwc:server` → client stubs + `RegisterServerFunctions`); e2e: native server + wasm client compile, HTTP round-trip through generated registration | `feat(serverfn): server-function runtime` + `feat(gwc): \`gwc server gen\`` |
 | **FA1** fine-grained signals | `state.Signal[T]` / `NewSignal` / `NewComputed` (+ `.Text` fine-grained binding) | `feat(state): fine-grained Signal[T]…` |
 | **FB7** two-way bind | `html.BindTo` / `BindFunc` (structural `Binding`; binds Signals/atoms) | `feat(html): BindTo/BindFunc…` |

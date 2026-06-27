@@ -4,6 +4,17 @@
 
 ### Added
 
+- **`localfirst` — built-in local-first sync engine (V4, FC1).** The convergence engine
+  behind local-first sync (Zero/Electric/TanStack DB), pure Go on both sides: a
+  last-write-wins register per key (LWW-Register CRDT) with a logical `Clock` (higher
+  counter wins, replica id breaks ties → every replica resolves a conflict identically). A
+  `Replica` gives optimistic local writes, a durable offline pending log, and a `Merge`
+  that converges toward authoritative records while acknowledging confirmed writes and
+  preserving Lamport monotonicity; an `Authority` is the server-side store. `Mutation`/
+  `Record` are JSON-serializable so they ride the `//gwc:server` transport unchanged.
+  Marquee guarantee verified: two replicas edit the same key offline, reconnect, and every
+  replica + the authority converge to the one value — proven both in-process and
+  **end-to-end over the real `serverfn` HTTP transport** (FC1 × FB1).
 - **`gwc add` — headless component registry (V4).** The shadcn "own the code" model:
   `gwc add <name>` copies an a11y-correct, self-contained component into your repo (with
   your package name and a provenance header) — you own and restyle it, no runtime
