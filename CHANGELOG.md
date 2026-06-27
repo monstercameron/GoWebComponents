@@ -15,6 +15,14 @@
   through a hidden runtime graph. Signals compose with `ui.ReactiveRegion` and
   `state.UseSelector` (same source contract as atoms/derived). Covered by native
   unit tests + wasm fine-grained-update tests.
+- **`gwc supplychain` — supply-chain / zero-npm audit command (V4).** Proves a
+  project has **no npm dependency surface** (scans for `package.json`/lockfiles/
+  `node_modules`, excluding research/examples/vendor/testdata), counts direct vs.
+  transitive Go modules, confirms `go.sum` checksums are present, and enforces an
+  optional `-budget N` on direct external dependencies. Locally-`replace`d modules
+  are excluded from the remote count. Emits the `gwc.agentic.v1` JSON envelope or a
+  human summary; non-zero exit on failure. The framework itself audits clean
+  (0 npm, checksum-verified). Adds **zero** dependencies — parses go.mod/go.sum by hand.
 - **`html.BindTo` / `html.BindFunc` (+ shorthand re-exports) — two-way binding for
   any handle.** Complements `html.Bind` (which binds a `ui.State[string]`) with a
   structural `html.Binding` interface (`Get() string` / `Set(string)`), so the new
