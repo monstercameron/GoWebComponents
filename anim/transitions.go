@@ -71,6 +71,40 @@ func DiffKeyedRects(parsePrev, parseNext []KeyedRect) ListTransition {
 }
 
 // ---------------------------------------------------------------------------
+// Accessibility: prefers-reduced-motion
+// ---------------------------------------------------------------------------
+
+// MotionPreference is the user's motion preference, sourced on the client from the
+// `prefers-reduced-motion` media query. Keeping it an explicit value (rather than reading
+// the media query deep inside the animation code) keeps this package pure and testable,
+// and forces every animated surface to make an accessible decision at the call site.
+type MotionPreference int
+
+const (
+	// MotionFull plays animations normally (prefers-reduced-motion: no-preference).
+	MotionFull MotionPreference = iota
+	// MotionReduced collapses non-essential motion: transitions snap and FLIP moves are
+	// skipped (prefers-reduced-motion: reduce).
+	MotionReduced
+)
+
+// Animates reports whether motion should play for this preference. Use it to skip a FLIP
+// move animation entirely under reduced motion.
+func (parseP MotionPreference) Animates() bool {
+	return parseP != MotionReduced
+}
+
+// EffectiveDuration returns the duration to use for this preference: the requested
+// duration under MotionFull, or 0 under MotionReduced so the transition snaps instantly to
+// its end state instead of moving.
+func (parseP MotionPreference) EffectiveDuration(parseDuration float64) float64 {
+	if parseP == MotionReduced {
+		return 0
+	}
+	return parseDuration
+}
+
+// ---------------------------------------------------------------------------
 // Enter / exit transition state machine
 // ---------------------------------------------------------------------------
 
@@ -116,6 +150,13 @@ type Transition struct {
 // NewTransition starts an element in PhaseEntering with the given enter/exit duration.
 func NewTransition(parseDuration float64) Transition {
 	return Transition{Phase: PhaseEntering, Duration: parseDuration}
+}
+
+// NewTransitionPref starts a transition whose duration honors the user's motion
+// preference: under MotionReduced the duration collapses to 0 so the element snaps in/out
+// with no animation, satisfying prefers-reduced-motion without branching at the call site.
+func NewTransitionPref(parseDuration float64, parsePref MotionPreference) Transition {
+	return NewTransition(parsePref.EffectiveDuration(parseDuration))
 }
 
 // Advance progresses the transition by parseDelta seconds, auto-promoting an entering

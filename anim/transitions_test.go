@@ -112,6 +112,31 @@ func TestTransitionZeroDurationSnaps(parseT *testing.T) {
 	}
 }
 
+// TestMotionPreferenceGatesAnimation proves prefers-reduced-motion collapses durations to
+// zero (so transitions snap) and reports that FLIP moves should be skipped.
+func TestMotionPreferenceGatesAnimation(parseT *testing.T) {
+	if !MotionFull.Animates() || MotionReduced.Animates() {
+		parseT.Fatal("expected full motion to animate and reduced motion not to")
+	}
+	if MotionFull.EffectiveDuration(0.3) != 0.3 {
+		parseT.Fatalf("full motion should keep the duration, got %v", MotionFull.EffectiveDuration(0.3))
+	}
+	if MotionReduced.EffectiveDuration(0.3) != 0 {
+		parseT.Fatalf("reduced motion should zero the duration, got %v", MotionReduced.EffectiveDuration(0.3))
+	}
+
+	// A reduced-motion transition snaps to Entered on the first advance.
+	parseReduced := NewTransitionPref(0.3, MotionReduced).Advance(0.016)
+	if parseReduced.Phase != PhaseEntered {
+		parseT.Fatalf("expected reduced-motion enter to snap to entered, got %s", parseReduced.Phase)
+	}
+	// A full-motion transition of the same request is still animating after one frame.
+	parseFull := NewTransitionPref(0.3, MotionFull).Advance(0.016)
+	if parseFull.Phase != PhaseEntering {
+		parseT.Fatalf("expected full-motion enter to still be entering, got %s", parseFull.Phase)
+	}
+}
+
 // TestStaggerDelay proves the cascade timing: index 0 has no delay, later items scale by
 // the step, and negative inputs are clamped to zero.
 func TestStaggerDelay(parseT *testing.T) {
