@@ -17,6 +17,8 @@ relevant, wasm coverage; `go vet` clean):
 
 | Plan item | Shipped | Commit |
 |---|---|---|
+| **FB2** optimistic actions | `query.MutateAsync` (apply optimistic now, reconcile async, rollback on error); e2e optimistic action over a real //gwc:server function | `feat(query): MutateAsync` |
+| **FB5/D1** stories-as-tests | `workbench.RunStories` headless story runner (gallery doubles as a browserless smoke suite under `go test`) | `feat(workbench): stories-as-tests` |
 | **C4/FB6** time-travel engine | `timetravel.History[T]` snapshot step-back replay (Record/Undo/Redo/ScrubTo, redo-branch truncation, ring eviction); panel is the separate GUI consumer | `feat(timetravel): snapshot step-back replay engine` |
 | **FB7** micro-DX | `ui.UseInspect` (Svelte `$inspect` + swappable sink) + `shorthand` named slots (`Slot`/`NewSlots`/`Has`/`Render`/`Or`) — completes FB7 alongside two-way bind | `feat(ui): UseInspect` + `feat(shorthand): named slots` |
 | **B6/B7/D1 stability** API baselines | `internal/apidump` + golden public-API baseline tests for serverfn/query/localfirst/agentui/validate/anim (fails on drift; `UPDATE_API_BASELINE=1` to regen) — the concrete "API-baseline pinned / graduate to Stable" mechanism | `test(api): pin public-API baselines` |

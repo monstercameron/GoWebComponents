@@ -4,6 +4,12 @@
 
 ### Added
 
+- **`query.MutateAsync` — fire-and-forget optimistic actions (V4, FB2).** Applies the
+  optimistic value immediately and reconciles in the background (commit on success, rollback
+  on error, `onSettled` callback) — the async mutation that makes Next/Remix-style server
+  Actions a one-liner. Verified end-to-end as an optimistic action over a real `//gwc:server`
+  function (optimistic value on screen immediately; server's authoritative result committed
+  on settle).
 - **`timetravel` — snapshot step-back replay engine (V4, C4/FB6).** The pure engine behind
   time-travel devtools (C4) and undo/redo (FB6): a bounded, navigable `History[T]` of
   immutable snapshots with `Record`/`Undo`/`Redo`/`ScrubTo`, standard redo-branch
