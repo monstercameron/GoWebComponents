@@ -78,6 +78,35 @@ func TestRenderJSONRejectsUnknownTypeBeforeRendering(parseT *testing.T) {
 	}
 }
 
+// TestValidateRejectsTooDeepTree proves the depth guard stops a hostile or runaway nesting
+// from exhausting the stack.
+func TestValidateRejectsTooDeepTree(parseT *testing.T) {
+	// Build a chain of stacks deeper than the limit.
+	parseDeep := agentui.Node{Type: "stack"}
+	parseCursor := &parseDeep
+	for range 40 {
+		parseChild := agentui.Node{Type: "stack"}
+		parseCursor.Children = []agentui.Node{parseChild}
+		parseCursor = &parseCursor.Children[0]
+	}
+	parseErr := agentui.DefaultRegistry().ValidateWithLimits(parseDeep, agentui.Limits{MaxDepth: 8})
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "max depth") {
+		parseT.Fatalf("expected a max-depth rejection, got %v", parseErr)
+	}
+}
+
+// TestValidateRejectsTooManyNodes proves the node-count guard bounds total tree size.
+func TestValidateRejectsTooManyNodes(parseT *testing.T) {
+	parseWide := agentui.Node{Type: "stack"}
+	for range 20 {
+		parseWide.Children = append(parseWide.Children, agentui.Node{Type: "text", Text: "x"})
+	}
+	parseErr := agentui.DefaultRegistry().ValidateWithLimits(parseWide, agentui.Limits{MaxNodes: 10})
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "max node count") {
+		parseT.Fatalf("expected a max-node-count rejection, got %v", parseErr)
+	}
+}
+
 // TestRenderToDOMEndToEnd is the FC3 guarantee end-to-end: an agent's JSON schema is parsed,
 // validated against the allow-list, rendered, and mounted — and the resulting DOM shows the
 // agent's content. Rendered natively through the real runtime + a mock DOM.

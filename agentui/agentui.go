@@ -66,14 +66,42 @@ func (parseR *Registry) Allowed(parseType string) bool {
 	return parseOk
 }
 
-// Validate checks a tree against the allow-list: every Type must be registered and every
-// prop key permitted by its component, recursively. The returned error names the first
-// violation and its path, so an agent's output is rejected with a precise reason.
-func (parseR *Registry) Validate(parseNode Node) error {
-	return parseR.validateAt(parseNode, "root")
+// Limits bound the size of an agent-emitted tree so untrusted output cannot exhaust memory
+// or stack: MaxDepth caps nesting, MaxNodes caps the total node count. A zero field means
+// "unbounded" for that dimension.
+type Limits struct {
+	MaxDepth int
+	MaxNodes int
 }
 
-func (parseR *Registry) validateAt(parseNode Node, parsePath string) error {
+// DefaultLimits are the safe-by-default bounds applied by Validate — generous enough for
+// any real UI, tight enough to reject a hostile or runaway tree.
+var DefaultLimits = Limits{MaxDepth: 32, MaxNodes: 10000}
+
+// Validate checks a tree against the allow-list under DefaultLimits: every Type must be
+// registered and every prop key permitted by its component, recursively, and the tree must
+// stay within the default depth/size bounds. The returned error names the first violation
+// and its path, so an agent's output is rejected with a precise reason.
+func (parseR *Registry) Validate(parseNode Node) error {
+	return parseR.ValidateWithLimits(parseNode, DefaultLimits)
+}
+
+// ValidateWithLimits is Validate with explicit size bounds — use it to tighten or relax the
+// depth/node caps for a particular surface.
+func (parseR *Registry) ValidateWithLimits(parseNode Node, parseLimits Limits) error {
+	parseCount := 0
+	return parseR.validateAt(parseNode, "root", 1, parseLimits, &parseCount)
+}
+
+func (parseR *Registry) validateAt(parseNode Node, parsePath string, parseDepth int, parseLimits Limits, parseCount *int) error {
+	if parseLimits.MaxDepth > 0 && parseDepth > parseLimits.MaxDepth {
+		return fmt.Errorf("%s: tree exceeds max depth %d", parsePath, parseLimits.MaxDepth)
+	}
+	*parseCount++
+	if parseLimits.MaxNodes > 0 && *parseCount > parseLimits.MaxNodes {
+		return fmt.Errorf("%s: tree exceeds max node count %d", parsePath, parseLimits.MaxNodes)
+	}
+
 	parseSpec, parseOk := parseR.specs[parseNode.Type]
 	if !parseOk {
 		return fmt.Errorf("%s: component type %q is not in the allow-list", parsePath, parseNode.Type)
@@ -84,7 +112,7 @@ func (parseR *Registry) validateAt(parseNode Node, parsePath string) error {
 		}
 	}
 	for parseIndex, parseChild := range parseNode.Children {
-		if parseErr := parseR.validateAt(parseChild, fmt.Sprintf("%s > %s[%d]", parsePath, parseNode.Type, parseIndex)); parseErr != nil {
+		if parseErr := parseR.validateAt(parseChild, fmt.Sprintf("%s > %s[%d]", parsePath, parseNode.Type, parseIndex), parseDepth+1, parseLimits, parseCount); parseErr != nil {
 			return parseErr
 		}
 	}
