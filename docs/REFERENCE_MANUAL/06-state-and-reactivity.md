@@ -56,6 +56,55 @@ Important advanced surfaces:
 - `state.UseSelector(...)` is a public shared-projection helper and should be treated as an explicit optimization-oriented tool, not the first state primitive you reach for
 - `ui.ReactiveRegion(...)` stays an opt-in hot-path optimization layered on top of shared state, not the default reactivity model
 
+## Fine-Grained Signals
+
+When the cost you care about is *over-render* — a value changes often and re-running
+its whole owning component is wasteful — reach for a **signal**. A `state.Signal[T]`
+is a terse, fine-grained handle: binding it with `signal.Text(...)` updates exactly
+that DOM text node when the signal changes, **without re-rendering the component that
+produced it**.
+
+```go
+// Created anywhere — including outside render (package var, handler, goroutine).
+count := state.NewSignal(0)
+
+func renderCounter() ui.Node {
+	add := ui.UseEvent(func() { count.Update(func(n int) int { return n + 1 }) })
+	return h.Div(
+		// This text node updates on its own; renderCounter does NOT re-run.
+		h.Span(count.Text(func(n int) string { return fmt.Sprintf("Count: %d", n) })),
+		h.Button(h.Type("button"), h.OnClick(add), "Add"),
+	)
+}
+```
+
+`state.NewComputed(compute, sources...)` derives a value from other signals/atoms.
+Its dependencies are **explicit** — you name the sources — so recomputation stays
+predictable and auditable. GWC deliberately does not discover dependencies through a
+hidden runtime graph; explicitness is the design choice. A computed composes with
+`ui.ReactiveRegion`, which subscribes to *every* declared source:
+
+```go
+first := state.NewSignal("Ada")
+last := state.NewSignal("Lovelace")
+full := state.NewComputed(func() string { return first.Get() + " " + last.Get() }, first, last)
+
+// The region re-renders fine-grained when first OR last changes — not the owner.
+ui.ReactiveRegion(func() ui.Node { return h.Text(full.Get()) }, full)
+```
+
+How signals relate to the other tools:
+
+- `NewSignal` mints its own identity — no caller-managed string id. Use
+  `NewKeyedSignal(id, init)` only when several call sites must share one signal (the
+  way `UseAtom(id, default)` shares by id; a signal and a same-id `UseAtom` reader
+  interoperate).
+- A signal **is** an atom under the hood, so it composes with `UseSelector`,
+  `ReactiveRegion`, snapshots, and `UseAtom` subscribers — there is no second
+  reactivity system to learn.
+- Prefer `UseState`/`UseComputed` for ordinary local values; reach for signals when a
+  measured hot value should update without rerunning its owner.
+
 ## Minimal Example
 
 Start with local ownership first. If one component owns the value, `ui.UseState` plus `state.UseComputed` is enough.

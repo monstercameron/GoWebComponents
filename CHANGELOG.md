@@ -4,6 +4,17 @@
 
 ### Added
 
+- **`state.Signal[T]` / `state.NewSignal` / `state.NewComputed` — fine-grained
+  reactivity as a first-class primitive (V4).** A terse, ergonomic handle over the
+  shared atom registry that updates exactly the DOM nodes bound to it
+  (`signal.Text(...)`) without re-rendering the owning component. Needs no
+  caller-managed id (one is minted; `NewKeyedSignal` shares an explicit id), and is
+  created outside the hook lifecycle so it can live in a package var, event handler,
+  or goroutine. `NewComputed` derives from **explicitly declared** sources — GWC
+  keeps reactivity predictable and auditable rather than discovering dependencies
+  through a hidden runtime graph. Signals compose with `ui.ReactiveRegion` and
+  `state.UseSelector` (same source contract as atoms/derived). Covered by native
+  unit tests + wasm fine-grained-update tests.
 - **`ui.Run(selector, component, props...)` — a one-line browser entrypoint.** It
   wraps `ui.CreateElement` + `ui.Render` + the keep-alive block so a typical
   `main()` is a single call (`ui.Run("#app", renderApp)`) instead of the
