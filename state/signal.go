@@ -53,8 +53,11 @@ func NewKeyedSignal[T any](parseID string, parseInitial T) Signal[T] {
 	return Signal[T]{atom: NewGlobalAtom(parseID, parseInitial)}
 }
 
-// Get returns the current value of the signal.
+// Get returns the current value of the signal. When called inside a NewAutoComputed compute
+// function, it also records this signal as a discovered dependency (auto-tracking); outside
+// one, the read-tracking check is a single cheap atomic load.
 func (parseS Signal[T]) Get() T {
+	recordSignalRead(parseS.atom.ID())
 	return parseS.atom.Get()
 }
 

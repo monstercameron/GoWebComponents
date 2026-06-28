@@ -200,3 +200,26 @@ func collectSignalText(parseAdapter *mockdom.MockDOMAdapter, parseNode runtime.D
 	}
 	return parseText
 }
+
+// TestNewAutoComputedDiscoversSources proves opt-in auto-tracking: NewAutoComputed runs its
+// compute once and auto-discovers every signal it read as a source, with the right value —
+// while NewComputed (explicit) remains the default path.
+func TestNewAutoComputedDiscoversSources(parseT *testing.T) {
+	parseA := state.NewSignal(2)
+	parseB := state.NewSignal(3)
+
+	parseSum := state.NewAutoComputed(func() int { return parseA.Get() + parseB.Get() })
+	if parseSum.Get() != 5 {
+		parseT.Fatalf("auto-computed value = %d, want 5", parseSum.Get())
+	}
+	// Both signals were discovered as reactive sources (so a region bound to the computed
+	// refreshes when either changes).
+	parseIDs := parseSum.ReactiveRegionSourceIDs()
+	if len(parseIDs) != 2 {
+		parseT.Fatalf("auto-computed should have discovered 2 sources, got %d: %v", len(parseIDs), parseIDs)
+	}
+	parseA.Set(10)
+	if parseSum.Get() != 13 {
+		parseT.Fatalf("auto-computed should recompute to 13 after a change, got %d", parseSum.Get())
+	}
+}
