@@ -98,6 +98,8 @@ func buildMCPManifest() mcpManifest {
 		}
 		parseManifest.Tools = append(parseManifest.Tools, mcpToolForCommand(parseCommand))
 	}
+	// Expose the agentui allow-list as a first-class MCP tool, not only via a CLI command (FC3).
+	parseManifest.Tools = append(parseManifest.Tools, agentUICatalogMCPTool())
 	return parseManifest
 }
 
@@ -191,6 +193,9 @@ func executeMCPToolCall(parseL launcher, parseParams json.RawMessage) (map[strin
 	parseCall := mcpToolCallParams{}
 	if parseErr := json.Unmarshal(parseParams, &parseCall); parseErr != nil {
 		return nil, fmt.Errorf("decode tool call params: %w", parseErr)
+	}
+	if parseCall.Name == agentUICatalogToolName {
+		return agentUICatalogMCPResult()
 	}
 	parseCommand, parseOK := commandNameForMCPTool(parseCall.Name)
 	if !parseOK {
