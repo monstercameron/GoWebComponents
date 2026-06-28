@@ -772,7 +772,7 @@ bottom for the next refinement pass.
   `ui.ReactiveRegion`. Add a test that currently *fails* for the multi-source case.
 - [ ] **FA1 — `NewComputed` is static-tracking** (caller passes sources); no auto-tracking. Make
   the limitation discoverable in the godoc, not buried.
-- [ ] **FA1 — non-comparable signal payloads always re-notify** (`GlobalAtom.Set` recover-guarded
+- [x] **FA1 — non-comparable equality fixed** ✅ atom Set falls back to reflect.DeepEqual, so an equal slice/map is a no-op (no re-notify). (`GlobalAtom.Set` recover-guarded
   `==`). Slices/maps/funcs trigger a DOM update even when semantically unchanged.
 - [x] **FA1 — `TextValue()` zero-arg shortcut** ✅ on Signal + Computed (default fmt). — callers write `s.Text(func(v string) string { return v })`. Expose a no-render-func shortcut.
 - [ ] **FA1 — signal `.Text` live-getter behavior only tested under `js && wasm`** — the native
