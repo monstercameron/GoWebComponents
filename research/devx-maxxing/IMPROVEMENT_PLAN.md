@@ -840,11 +840,8 @@ that the composite barely moved because the sprint targeted Part-II features, no
 - [ ] **FB6 — package the browser extension.** Real `.crx`/`.xpi` build+sign script (or a
   `web-ext` task) + a one-command side-load; currently it's a manual Developer-Mode
   Load-unpacked dance despite the README implying trivial packaging.
-- [ ] **FA6 — add `loading` + `error` sub-blocks** to `ui.Defer` (still a boolean latch
-  with one placeholder slot vs Angular `@defer`'s three). The trigger hooks shipped; the
-  sub-block state machine didn't.
-- [ ] **FA2 — ship `UseDurableMutation`** bridging `query.MutateAsync` ↔
-  `fetch.MutationQueue` (focus-refetch and the offline queue are still disconnected).
+- [x] **FA6 — `@defer` placeholder/loading/content/error sub-blocks** ✅ added a real defer state machine: `DeferState`/`DeferStatus` + `RenderDefer` (pure block router) + `UseAsyncDefer` (trigger → loading → ready/error, runs the async loader once). Matches Angular `@defer`'s four blocks instead of a boolean latch. `RenderDefer` is unit-tested for every state + nil-block safety. `ui/defer_blocks.go`.
+- [x] **FA2 — `fetch.UseDurableMutation` bridges cache ↔ offline queue** ✅ one call now does optimistic cache update (via `query.MutateAsync`) AND durable persistence (via `fetch.MutationQueue.Enqueue`): durability first, then optimistic UI; on commit success it clears the queue entry and commits the authoritative value, on failure it rolls the cache back and LEAVES the write queued for `Replay`. Lives in `fetch` (which already depends on `ui`) to avoid an import cycle. 2 native tests (success-clears, failure-keeps-queued). `fetch/durable_mutation.go`.
 - [x] **FA5 — `ViewTransition` auto-wired into the router** ✅ each navigation's DOM swap now runs inside the browser View Transitions API by default (auto-skipped under `prefers-reduced-motion`, opt-out via `SetViewTransitions(false)`), so the >90% route-change case animates with zero caller wiring. `router/navigation_ux.go` (built next to the focus-management default).
 - [ ] **FC3 — expose `agentui` catalog as an MCP tool** (`tools/list` in `gwc mcp` doesn't
   include it, so an agent can't query the allow-list); add streaming render.
