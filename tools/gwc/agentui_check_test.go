@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/monstercameron/GoWebComponents/agentui"
 )
 
 // TestAgentUICheckAcceptsValidAndRejectsInvalid proves `gwc agentui check` validates an
@@ -35,5 +37,23 @@ func TestAgentUICheckAcceptsValidAndRejectsInvalid(parseT *testing.T) {
 func TestAgentUICheckRequiresFile(parseT *testing.T) {
 	if parseErr := (launcher{}).runAgentUI([]string{"check"}); parseErr == nil {
 		parseT.Fatal("expected an error when no file is given")
+	}
+}
+
+// TestAgentUICatalogEmitsJSON proves `gwc agentui catalog` emits the allow-list (the data an
+// MCP tool serves an agent).
+func TestAgentUICatalogEmitsJSON(parseT *testing.T) {
+	if parseErr := printAgentUICatalog(); parseErr != nil {
+		parseT.Fatalf("catalog should emit JSON, got %v", parseErr)
+	}
+	// And the registry catalog itself is non-empty + has the known components.
+	parseNames := map[string]bool{}
+	for _, parseInfo := range agentui.DefaultRegistry().Catalog() {
+		parseNames[parseInfo.Name] = true
+	}
+	for _, parseWant := range []string{"stack", "heading", "text"} {
+		if !parseNames[parseWant] {
+			parseT.Fatalf("catalog missing %q: %v", parseWant, parseNames)
+		}
 	}
 }

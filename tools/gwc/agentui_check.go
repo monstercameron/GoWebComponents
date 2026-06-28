@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -25,8 +26,11 @@ func (parseL launcher) runAgentUI(parseArgs []string) error {
 		parseAction = parseArgs[0]
 		parseArgs = parseArgs[1:]
 	}
+	if parseAction == "catalog" {
+		return printAgentUICatalog()
+	}
 	if parseAction != "check" {
-		return fmt.Errorf("unknown agentui action %q (use check)", parseAction)
+		return fmt.Errorf("unknown agentui action %q (use check or catalog)", parseAction)
 	}
 
 	parseFlags := flag.NewFlagSet("agentui check", flag.ContinueOnError)
@@ -59,6 +63,19 @@ func (parseL launcher) runAgentUI(parseArgs []string) error {
 		return fmt.Errorf("agentui schema %s is not allow-list-valid: %w", parsePath, parseErr)
 	}
 	fmt.Printf("GWC agentui: OK %s — valid against the component allow-list\n", parsePath)
+	return nil
+}
+
+// printAgentUICatalog emits the component allow-list as JSON — the up-front guidance an
+// agent (or an MCP tool wrapping this command) reads to learn exactly which components and
+// props it may emit before generating a tree.
+func printAgentUICatalog() error {
+	parseCatalog := agentui.DefaultRegistry().Catalog()
+	parseOut, parseErr := json.MarshalIndent(parseCatalog, "", "  ")
+	if parseErr != nil {
+		return fmt.Errorf("encode agentui catalog: %w", parseErr)
+	}
+	fmt.Println(string(parseOut))
 	return nil
 }
 
