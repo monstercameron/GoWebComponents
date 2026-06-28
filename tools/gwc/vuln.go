@@ -47,6 +47,7 @@ type vulnEntry struct {
 	ID        string
 	Summary   string
 	Reachable bool // a finding's trace reaches a called function, not just an import
+	Stdlib    bool // the vulnerable module is the Go standard library / toolchain
 }
 
 // vulnReport is the parsed outcome of a govulncheck scan.
@@ -72,6 +73,7 @@ func (parseL launcher) runVuln(parseArgs []string) error {
 	parseFlags.SetOutput(os.Stdout)
 	parsePattern := parseFlags.String("pattern", "./...", "Package pattern to scan")
 	parseStrict := parseFlags.Bool("strict", false, "Exit non-zero when ANY vulnerability is imported, not only when one is reachable")
+	parseIncludeStdlib := parseFlags.Bool("include-stdlib", false, "Also block on reachable standard-library/toolchain advisories (fix by bumping Go)")
 	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
@@ -89,7 +91,7 @@ func (parseL launcher) runVuln(parseArgs []string) error {
 		return fmt.Errorf("parse govulncheck output: %w", parseErr)
 	}
 
-	return reportVuln(parseReport, *parseStrict)
+	return reportVuln(parseReport, *parseStrict, *parseIncludeStdlib)
 }
 
 // runGovulncheck executes govulncheck -json over the pattern, returning its stdout. A
@@ -119,6 +121,7 @@ func parseVulnFindings(parseReader io.Reader) (vulnReport, error) {
 	parseDecoder := json.NewDecoder(parseReader)
 	parseSummaries := map[string]string{}
 	parseReachable := map[string]bool{}
+	parseStdlib := map[string]bool{}
 	parseSeen := map[string]bool{}
 	var parseOrder []string
 
@@ -142,6 +145,9 @@ func parseVulnFindings(parseReader io.Reader) (vulnReport, error) {
 			if findingReachesFunction(parseMessage.Finding) {
 				parseReachable[parseID] = true
 			}
+			if findingIsStdlib(parseMessage.Finding) {
+				parseStdlib[parseID] = true
+			}
 		}
 	}
 
@@ -151,6 +157,7 @@ func parseVulnFindings(parseReader io.Reader) (vulnReport, error) {
 			ID:        parseID,
 			Summary:   parseSummaries[parseID],
 			Reachable: parseReachable[parseID],
+			Stdlib:    parseStdlib[parseID],
 		})
 	}
 	sort.Slice(parseReport.Entries, func(parseA, parseB int) bool {
@@ -170,31 +177,66 @@ func findingReachesFunction(parseFinding *vulnFinding) bool {
 	return false
 }
 
+// findingIsStdlib reports whether a finding's vulnerable module is the Go standard library or
+// toolchain. govulncheck names that module "stdlib" (and "toolchain" for the compiler), and the
+// vulnerable symbol is the first trace frame. Such advisories can only be remediated by bumping
+// the Go toolchain, so the gate reports them but — by default — does not block dependency-scope
+// CI on them.
+func findingIsStdlib(parseFinding *vulnFinding) bool {
+	for _, parseFrame := range parseFinding.Trace {
+		if parseModule := strings.TrimSpace(parseFrame.Module); parseModule != "" {
+			return parseModule == "stdlib" || parseModule == "toolchain"
+		}
+	}
+	return false
+}
+
 // reportVuln prints the verdict and returns a non-zero (error) result when the scan should
-// fail the build.
-func reportVuln(parseReport vulnReport, parseStrict bool) error {
-	parseReachable := parseReport.Reachable()
+// fail the build. The gate BLOCKS on reachable dependency advisories (vulnerable code your app
+// actually calls), which is what makes it a real merge gate. Reachable standard-library /
+// toolchain advisories are reported but do not block by default — they are only fixable by
+// bumping the Go toolchain, so failing every PR on them adds no security value; pass
+// -include-stdlib to block on those too. -strict additionally blocks on merely-imported
+// (unreachable) advisories.
+func reportVuln(parseReport vulnReport, parseStrict bool, parseIncludeStdlib bool) error {
 	if len(parseReport.Entries) == 0 {
 		fmt.Println("GWC vuln: OK — no known vulnerabilities found")
 		return nil
 	}
 
+	parseBlocking := []vulnEntry{}
+	parseStdlibReachable := []vulnEntry{}
 	for _, parseEntry := range parseReport.Entries {
 		parseLabel := "imported"
 		if parseEntry.Reachable {
 			parseLabel = "REACHABLE"
 		}
-		fmt.Printf("  [%s] %s — %s\n", parseLabel, parseEntry.ID, parseEntry.Summary)
+		parseScope := "dependency"
+		if parseEntry.Stdlib {
+			parseScope = "stdlib"
+		}
+		fmt.Printf("  [%s/%s] %s — %s\n", parseLabel, parseScope, parseEntry.ID, parseEntry.Summary)
+		if parseEntry.Reachable {
+			if parseEntry.Stdlib && !parseIncludeStdlib {
+				parseStdlibReachable = append(parseStdlibReachable, parseEntry)
+				continue
+			}
+			parseBlocking = append(parseBlocking, parseEntry)
+		}
 	}
 
-	if len(parseReachable) > 0 {
-		fmt.Printf("GWC vuln: FAIL — %d reachable vulnerability(ies) (called by your code)\n", len(parseReachable))
-		return fmt.Errorf("%d reachable vulnerability(ies)", len(parseReachable))
+	for _, parseEntry := range parseStdlibReachable {
+		fmt.Printf("GWC vuln: NOTE — reachable stdlib/toolchain advisory %s; remediate by bumping the Go toolchain (not gating; use -include-stdlib to gate)\n", parseEntry.ID)
+	}
+
+	if len(parseBlocking) > 0 {
+		fmt.Printf("GWC vuln: FAIL — %d reachable vulnerability(ies) (called by your code)\n", len(parseBlocking))
+		return fmt.Errorf("%d reachable vulnerability(ies)", len(parseBlocking))
 	}
 	if parseStrict {
 		fmt.Printf("GWC vuln: FAIL (strict) — %d imported vulnerability(ies)\n", len(parseReport.Entries))
 		return fmt.Errorf("%d imported vulnerability(ies) under -strict", len(parseReport.Entries))
 	}
-	fmt.Printf("GWC vuln: OK — %d vulnerability(ies) present but none reachable (use -strict to fail on these)\n", len(parseReport.Entries))
+	fmt.Printf("GWC vuln: OK — %d vulnerability(ies) present but none block the gate\n", len(parseReport.Entries))
 	return nil
 }

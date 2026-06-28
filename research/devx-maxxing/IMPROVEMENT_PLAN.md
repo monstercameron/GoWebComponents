@@ -818,9 +818,7 @@ that the composite barely moved because the sprint targeted Part-II features, no
 
 ## Tier 1 — highest composite ROI (high-weight Part-I, untouched by v5)
 
-- [ ] **D5 — flip govulncheck from advisory to blocking** (`supply-chain.yml` has
-  `continue-on-error: true` on the vuln job). One-line change → D5 9→10 (the 10-rung wants
-  a merge gate, which `gwc supplychain` already is; the vuln half just needs to block).
+- [x] **D5 — govulncheck is now a blocking merge gate** ✅ removed `continue-on-error`; the vuln job blocks on any REACHABLE dependency advisory via `gwc vuln`. To keep the gate meaningful (not flaky on un-fixable toolchain CVEs), `gwc vuln` classifies stdlib/toolchain advisories and reports — but does not block on — reachable stdlib ones by default (`-include-stdlib` gates those too); reachable dependency advisories always block, even alongside a waived stdlib one. 3 new tests. `tools/gwc/vuln.go`, `.github/workflows/supply-chain.yml`.
 - [ ] **A2 [6→platform-honest 10] — prebuilt `gwc` binary releases** + documented
   warm-cache path + published cold/warm timings. Weight 3 — biggest single composite lever.
 - [ ] **C2 [6→platform-honest 10] — persistent build daemon** keeping the Go build cache

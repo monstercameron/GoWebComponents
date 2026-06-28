@@ -57,24 +57,59 @@ func TestParseVulnFindingsCleanStream(parseT *testing.T) {
 	}
 }
 
-// TestReportVulnVerdicts proves the build-failure policy: reachable always fails; imported
-// passes unless -strict.
+// TestReportVulnVerdicts proves the build-failure policy: a reachable DEPENDENCY advisory
+// always fails (the merge gate); imported-only passes unless -strict.
 func TestReportVulnVerdicts(parseT *testing.T) {
 	parseClean := vulnReport{}
-	if parseErr := reportVuln(parseClean, false); parseErr != nil {
+	if parseErr := reportVuln(parseClean, false, false); parseErr != nil {
 		parseT.Fatalf("clean report should pass, got %v", parseErr)
 	}
 
 	parseImported := vulnReport{Entries: []vulnEntry{{ID: "GO-1", Reachable: false}}}
-	if parseErr := reportVuln(parseImported, false); parseErr != nil {
+	if parseErr := reportVuln(parseImported, false, false); parseErr != nil {
 		parseT.Fatalf("imported-only should pass without -strict, got %v", parseErr)
 	}
-	if parseErr := reportVuln(parseImported, true); parseErr == nil {
+	if parseErr := reportVuln(parseImported, true, false); parseErr == nil {
 		parseT.Fatal("imported-only should fail under -strict")
 	}
 
 	parseReachable := vulnReport{Entries: []vulnEntry{{ID: "GO-2", Reachable: true}}}
-	if parseErr := reportVuln(parseReachable, false); parseErr == nil {
-		parseT.Fatal("reachable vulnerability should always fail the build")
+	if parseErr := reportVuln(parseReachable, false, false); parseErr == nil {
+		parseT.Fatal("reachable dependency vulnerability should always fail the build")
+	}
+}
+
+// TestReportVulnStdlibPolicy proves a reachable STDLIB/toolchain advisory is reported but does
+// NOT block the gate by default (it is only fixable by bumping Go), and DOES block under
+// -include-stdlib.
+func TestReportVulnStdlibPolicy(parseT *testing.T) {
+	parseStdlibReachable := vulnReport{Entries: []vulnEntry{{ID: "GO-STD-1", Reachable: true, Stdlib: true}}}
+	if parseErr := reportVuln(parseStdlibReachable, false, false); parseErr != nil {
+		parseT.Fatalf("reachable stdlib advisory should NOT block by default, got %v", parseErr)
+	}
+	if parseErr := reportVuln(parseStdlibReachable, false, true); parseErr == nil {
+		parseT.Fatal("reachable stdlib advisory should block under -include-stdlib")
+	}
+	// A reachable dependency advisory still blocks even when a stdlib one is present-but-waived.
+	parseMixed := vulnReport{Entries: []vulnEntry{
+		{ID: "GO-STD-1", Reachable: true, Stdlib: true},
+		{ID: "GO-DEP-1", Reachable: true, Stdlib: false},
+	}}
+	if parseErr := reportVuln(parseMixed, false, false); parseErr == nil {
+		parseT.Fatal("a reachable dependency advisory must block even alongside a waived stdlib one")
+	}
+}
+
+// TestFindingIsStdlibClassification proves the stdlib/toolchain classifier reads the vulnerable
+// module from the trace.
+func TestFindingIsStdlibClassification(parseT *testing.T) {
+	if !findingIsStdlib(&vulnFinding{Trace: []vulnFrame{{Module: "stdlib", Package: "net/http"}}}) {
+		parseT.Fatal("stdlib module should classify as stdlib")
+	}
+	if !findingIsStdlib(&vulnFinding{Trace: []vulnFrame{{Module: "toolchain"}}}) {
+		parseT.Fatal("toolchain module should classify as stdlib")
+	}
+	if findingIsStdlib(&vulnFinding{Trace: []vulnFrame{{Module: "gorm.io/gorm"}}}) {
+		parseT.Fatal("a dependency module must not classify as stdlib")
 	}
 }

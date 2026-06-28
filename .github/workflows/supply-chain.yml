@@ -36,11 +36,15 @@ jobs:
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
-      - name: Known-vulnerability scan (reachable advisories)
-        # Advisory: stdlib/toolchain advisories should not perpetually red the gate; the
-        # report is surfaced and a reachable app-code advisory is visible in the logs.
-        continue-on-error: true
-        run: $(go env GOPATH)/bin/govulncheck ./... && ./gwc vuln
+      - name: Known-vulnerability scan (reachable advisories) — BLOCKING
+        # Merge gate: `gwc vuln` blocks the build on any REACHABLE dependency advisory (vulnerable
+        # code the app actually calls). Reachable stdlib/toolchain advisories are reported but do
+        # not red the gate by default — they are only fixable by bumping Go, so failing every PR
+        # on them adds no security value (pass -include-stdlib to gate those too). The full
+        # govulncheck report is emitted first for the logs, non-fatally.
+        run: |
+          $(go env GOPATH)/bin/govulncheck ./... || true
+          ./gwc vuln
 
   edge-portability:
     # Earn the FC4 "edge-portable" claim: the server stack must actually compile for the
