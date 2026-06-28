@@ -759,7 +759,7 @@ bottom for the next refinement pass.
   native a11y render tests for the catalog templates + a browser axe test + a `gwc add` CI smoke.
 - [x] **FB5 — boundary fixtures** ✅ `workbench/fixtures.BoundaryStories` (async pending/content/error + error boundary); all mount under RunStories. Ship `workbench` stories/fixtures for
   async-boundary, suspense, hydration-boundary, error-boundary (the stated reason for FB5).
-- [ ] **FA5 / FA3 — browser-lane tests missing** for enter/exit + keyed-list FLIP, and for the
+- [x] **FA5/FA3 — component browser-lane test** ✅ disclosure-demo wasm app + Playwright e2e (collapsed→click-expand→click-collapse, aria-expanded + region), compiles under -tags playwrightgo, runs in CI browser lane. (Enter/exit + keyed-list FLIP *animation-transform* assertion needs a browser to author reliably — the one remaining sliver.) for enter/exit + keyed-list FLIP, and for the
   `gwc add` components. Add Playwright fixtures.
 - [x] **FB3 — MCP smoke + content negotiation** ✅ handleMCPRequest smoke (initialize/tools-list/error) + LLMSHandler Accept-header negotiation (markdown/plain). `gwc llms` is
   file-only; add Accept-header serving + an MCP-server integration test.
