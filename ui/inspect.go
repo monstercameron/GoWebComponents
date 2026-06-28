@@ -55,7 +55,9 @@ func inspectMessage[T any](parseLabel string, parsePrevious T, parseNext T, pars
 // answer to Svelte's $inspect. It records the initial value on mount and, on each
 // subsequent render, logs an "old -> new" line when the value changed (by structural
 // equality), routed through the current inspect sink. A pure dev aid: leave it in during
-// development and silence it in production with SetInspectSink(func(string){}).
+// development and silence it in production either at runtime with
+// SetInspectSink(func(string){}) or, at zero per-call cost, by building with the gwcsilent
+// tag (`go build -tags gwcsilent`), which wires the sink to a no-op.
 //
 //	count := ui.UseState(0)
 //	ui.UseInspect("count", count.Get()) // logs each time count changes
