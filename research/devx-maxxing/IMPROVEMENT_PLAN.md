@@ -740,7 +740,7 @@ bottom for the next refinement pass.
 - [ ] **FA4 — CI staleness gates unwired.** `gwc routes check` and `gwc i18n check` exist but
   no workflow runs them — generated files can drift silently. Add a per-PR step. Ship a real
   `routes_gen.go` in an example (the generator has never run against a real package).
-- [ ] **FC3 — agentui not wired in.** `gwc check` doesn't validate agentui schemas (no import
+- [x] **FC3 — agentui wired into CLI** ✅ `gwc agentui check <file>` validates schemas against the allow-list (CI-gateable). (Catalog() MCP exposure + streaming render still open.) `gwc check` doesn't validate agentui schemas (no import
   link); the component catalog isn't exposed as an MCP tool; `agentui` is fully decoupled from
   `agentbridge`. Wire `DefaultRegistry().Validate` into `gwc check`; expose `Catalog()` as an
   MCP tool. (Also: no streaming render — spec says "streamed + rendered natively.")
