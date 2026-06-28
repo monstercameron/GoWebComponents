@@ -1287,7 +1287,7 @@ func printUsage() {
 	fmt.Println("Commands:")
 	fmt.Println("  bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output")
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
-	fmt.Println("  check      Run agent-shaped diagnostics across tests, source conventions, and GWC hook-context safety")
+	fmt.Println("  check      Run agent-shaped diagnostics across tests, source conventions, and GWC hook-context safety (--fix applies gofmt first)")
 	fmt.Println("  supplychain Audit the supply-chain surface: prove zero-npm, count Go deps, verify checksums, enforce a dep budget")
 	fmt.Println("  llms       Generate llms.txt + llms-full.txt from the reference manual (AI-native docs); -check for a CI staleness gate")
 	fmt.Println("  routes     Generate typed, compile-checked link constructors from router contracts (gen|check); a typo'd path param becomes a compile error")

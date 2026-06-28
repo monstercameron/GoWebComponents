@@ -58,6 +58,7 @@ func (parseL launcher) runCheck(parseArgs []string) error {
 	parseSkipConventions := parseFlags.Bool("skip-conventions", false, "Skip source convention checks")
 	parseSkipHooks := parseFlags.Bool("skip-hooks", false, "Skip the GWC hook-context analysis")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON envelope")
+	parseFix := parseFlags.Bool("fix", false, "Apply auto-fixable remediations (gofmt the project) before checking")
 	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
@@ -81,6 +82,15 @@ func (parseL launcher) runCheck(parseArgs []string) error {
 		}
 		return parseErr
 	}
+	// --fix applies the safe, auto-fixable remediation (gofmt) before checking, so the
+	// reported diagnostics reflect the post-fix state. AGENTS.md documents `gwc check --fix`
+	// as the post-edit hook; this is its implementation.
+	if *parseFix {
+		if parseFixErr := applyCheckFixes(parseL, parseConfig.rootPath, parseConfig.json); parseFixErr != nil {
+			return parseFixErr
+		}
+	}
+
 	parseSummary := buildCheckSummary(parseConfig)
 	parseErr = nil
 	if !parseSummary.OK {
@@ -105,6 +115,21 @@ func (parseL launcher) runCheck(parseArgs []string) error {
 		printAgenticHumanSummary("GWC check", parseSummary.OK, parseLines)
 	}
 	return parseErr
+}
+
+// applyCheckFixes applies the auto-fixable remediations before a check: today that is
+// gofmt-ing the project (the safe, deterministic fix). It runs the existing fmt path so the
+// behavior stays single-sourced; remediation text the diagnostics carry is surfaced by the
+// check itself for the developer/agent to apply.
+func applyCheckFixes(parseL launcher, parseRoot string, parseJSON bool) error {
+	parseFmtArgs := []string{}
+	if parseRoot != "" {
+		parseFmtArgs = append(parseFmtArgs, "-root", parseRoot)
+	}
+	if parseJSON {
+		parseFmtArgs = append(parseFmtArgs, "-json")
+	}
+	return parseL.runFmt(parseFmtArgs)
 }
 
 // resolveCheckConfig validates check input flags.
