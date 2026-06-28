@@ -31,3 +31,30 @@ func TestBoundaryStoriesAllMount(parseT *testing.T) {
 		parseT.Fatalf("boundary fixtures should all mount cleanly, got failures: %v", parseRecorder.messages)
 	}
 }
+
+// TestAllBoundaryStoriesMount proves every boundary surface — async/suspense, error,
+// suspense-boundary, AND hydration-boundary (the two D1 added) — mounts through the real
+// reconciler without panic, and that the suspense + hydration fixtures are actually present.
+func TestAllBoundaryStoriesMount(parseT *testing.T) {
+	parseStories := fixtures.AllStories()
+
+	parseNames := map[string]bool{}
+	for _, parseStory := range parseStories {
+		parseNames[parseStory.Name] = true
+	}
+	for _, parseWant := range []string{
+		"Suspense/fallback-while-pending",
+		"HydrationBoundary/on-visible",
+		"HydrationBoundary/immediate",
+	} {
+		if !parseNames[parseWant] {
+			parseT.Fatalf("missing expected boundary fixture %q (have %v)", parseWant, parseNames)
+		}
+	}
+
+	parseRecorder := &recordingT{}
+	workbench.RunStories(parseRecorder, parseStories...)
+	if len(parseRecorder.messages) != 0 {
+		parseT.Fatalf("all boundary fixtures should mount cleanly, got failures: %v", parseRecorder.messages)
+	}
+}

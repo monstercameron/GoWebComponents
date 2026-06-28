@@ -846,8 +846,7 @@ that the composite barely moved because the sprint targeted Part-II features, no
 - [x] **FC3 — `agentui` catalog exposed as an MCP tool** ✅ `gwc mcp` now publishes a first-class read-only `gwc_agentui_catalog` tool in `tools/list`, and `tools/call` returns the allow-list (component names + permitted prop keys) as JSON — so an agent queries exactly what it may emit BEFORE generating a UI tree. 3 tests (manifest inclusion, result shape, end-to-end JSON-RPC dispatch). `tools/gwc/agentui_mcp.go`. (Streaming render remains a larger follow-up.)
 - [ ] **FA3 — add browser axe tests for the 5 catalog components** + a `gwc add` CI smoke
   (copy-into-temp-module → `go build`); wire tabs arrow-key nav into the template or test it.
-- [ ] **D1 — confirm/add suspense-boundary + hydration-boundary fixtures** to
-  `workbench/fixtures` (async + error shipped; the other two unconfirmed — needed for 10).
+- [x] **D1 — suspense-boundary + hydration-boundary fixtures added** ✅ `workbench/fixtures` now ships `SuspenseStories` (fallback-while-pending → resolved-content) and `HydrationBoundaryStories` (a progressive-hydration island in every strategy: immediate/visible/interaction/idle), plus an `AllStories` aggregate. All four boundary surfaces (async/suspense, error, suspense, hydration) mount through the real reconciler in the stories-as-tests pass. `workbench/fixtures/fixtures.go`.
 - [x] **FA1 — `.Text` on a multi-source computed subscribes ALL sources** ✅ `createReactiveTextNode` now takes the full source-id set, stores them comma-joined in the atom-id prop, and the reconciler splits them to wire a subscription per dependency; `ComputedSignal.Text` passes every declared source. A multi-source computed's text now flushes when ANY dependency changes — the silent missed-update footgun is gone. Native test asserts both the structural id set and the rendered value. `state/state.go`, `internal/runtime/reconciler_commit.go`.
 
 ## Sequencing
