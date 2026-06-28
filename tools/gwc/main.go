@@ -1041,6 +1041,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runAddCommand(parseL, parseArgs)
 	case "buildreport":
 		return runBuildReportCommand(parseL, parseArgs)
+	case "agentui":
+		return runAgentUICommand(parseL, parseArgs)
 	case "clean":
 		return runCleanCommand(parseL, parseArgs)
 	case "bench", "benchmark":
@@ -1296,6 +1298,7 @@ func printUsage() {
 	fmt.Println("  vuln       Scan for known vulnerabilities via govulncheck; reports reachable vs imported-only (-strict to fail on imported)")
 	fmt.Println("  add        Copy an a11y-correct headless component into your repo (gwc add <name>; run bare to list the catalog)")
 	fmt.Println("  buildreport Report what a build rebuilt vs served from cache and why (from -debug-actiongraph); -rebuild for cold, -json for machine output (C2)")
+	fmt.Println("  agentui    Validate an agent-emitted UI schema against the component allow-list (gwc agentui check <file.json>); rejects non-allow-listed components/props (FC3)")
 	fmt.Println("  clean      Remove launcher-owned build artifacts, caches, and generated outputs")
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, race, wasm, hydration, browser, agent, agent-browser, and release")
 	fmt.Println("  watch      Watch Go files and rerun selected launcher-owned test lanes")
