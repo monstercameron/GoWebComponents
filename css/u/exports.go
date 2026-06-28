@@ -84,6 +84,17 @@ const (
 
 // --- raw escape hatches -------------------------------------------------------
 
+// Raw and Sel are the documented escape hatches for the typed utility surface. The curated
+// utilities cover the common surface, not every CSS property; when none fits, drop to a raw
+// declaration rather than reaching outside the engine. Raw(property, value) emits one declaration
+// and Sel(selector, rules...) emits an arbitrary selector — both fold, dedup, content-hash, and
+// emit through the SAME Layer-1 registry/sink as every typed utility, so a raw style still gets a
+// stable class name and SSR reuse (it is not an unmanaged inline style). Reach for these only for
+// the long tail; prefer a typed utility whenever one exists so the style stays autocompletable
+// and compile-checked.
+//
+//	// no typed aspect-ratio utility → use the raw escape hatch, still registry-managed:
+//	css.New(u.Pad(u.Spacing4), u.Raw("aspect-ratio", "16 / 9"))
 var (
 	Raw = css.Raw
 	Sel = css.Sel
