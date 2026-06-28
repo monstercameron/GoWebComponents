@@ -195,6 +195,41 @@ func TestDurableOfflineQueueSurvivesReload(parseT *testing.T) {
 	}
 }
 
+// TestAuthorityReceiveResolvesConflictDirectly proves Authority.Receive applies last-write-
+// wins in isolation (not only via Sync): a later batch with the same key but a winning clock
+// overrides the earlier record, and a losing clock is rejected — and the returned changes
+// reflect the resolved state.
+func TestAuthorityReceiveResolvesConflictDirectly(parseT *testing.T) {
+	parseAuthority := NewAuthority()
+
+	// First write wins for now.
+	parseChanges := parseAuthority.Receive([]Mutation{
+		{Record: Record{Key: "doc", Value: "from-A", Clock: Clock{Counter: 1, ReplicaID: "A"}}},
+	})
+	if len(parseChanges) != 1 || parseChanges[0].Value != "from-A" {
+		parseT.Fatalf("expected from-A accepted, got %+v", parseChanges)
+	}
+
+	// A higher-clock write overrides it.
+	parseChanges = parseAuthority.Receive([]Mutation{
+		{Record: Record{Key: "doc", Value: "from-B", Clock: Clock{Counter: 2, ReplicaID: "B"}}},
+	})
+	if len(parseChanges) != 1 || parseChanges[0].Value != "from-B" {
+		parseT.Fatalf("expected higher-clock from-B to win, got %+v", parseChanges)
+	}
+
+	// A stale write (lower clock) is rejected; Receive echoes the current winner.
+	parseChanges = parseAuthority.Receive([]Mutation{
+		{Record: Record{Key: "doc", Value: "stale-A", Clock: Clock{Counter: 1, ReplicaID: "A"}}},
+	})
+	if len(parseChanges) != 1 || parseChanges[0].Value != "from-B" {
+		parseT.Fatalf("a stale write must not override; expected from-B, got %+v", parseChanges)
+	}
+	if parseAuthority.Snapshot()["doc"] != "from-B" {
+		parseT.Fatalf("authority should hold from-B, got %v", parseAuthority.Snapshot())
+	}
+}
+
 // equalStringMaps reports whether two string maps are equal.
 func equalStringMaps(parseA, parseB map[string]string) bool {
 	if len(parseA) != len(parseB) {
