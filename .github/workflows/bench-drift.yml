@@ -1,0 +1,35 @@
+name: Bench Drift
+
+# D3 merge gate: a benchmark that regresses beyond the tolerance fails the build, so a
+# performance regression cannot land silently. The run compares the fresh native benchmark
+# numbers against the committed baseline (docs/benchmarks/latest.json) and exits non-zero on any
+# out-of-tolerance regression via `gwc bench -fail-on-regression`. Benchmarks are pinned to a
+# single package run (-parallel 1) for the lowest-noise comparison.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bench-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build gwc
+        run: go build -o gwc ./tools/gwc
+
+      - name: Benchmark drift gate (native lane)
+        # Compares against the committed baseline and fails on any out-of-tolerance regression.
+        run: ./gwc bench -lane native -parallel 1 -fail-on-regression

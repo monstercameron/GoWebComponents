@@ -196,6 +196,7 @@ func (parseL launcher) runBenchmark(parseArgs []string) error {
 	parseOutPath := parseFs.String("out", "", "JSON report path; defaults to docs/benchmarks/latest.json beneath the root")
 	parseReferencePath := parseFs.String("reference", "", "Optional reference benchmark JSON used for normalized scoring; defaults to docs/benchmarks/reference.json beneath the root")
 	parseJsonOutput := parseFs.Bool("json", false, "Emit the JSON report to stdout after writing it to disk")
+	parseFailOnRegression := parseFs.Bool("fail-on-regression", false, "Exit non-zero when any benchmark regressed beyond the tolerance vs the baseline (CI drift gate)")
 	var parseLanes stringListFlag
 	parseFs.Var(&parseLanes, "lane", "Benchmark lanes: native, wasm, or all; repeatable")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
@@ -245,7 +246,18 @@ func (parseL launcher) runBenchmark(parseArgs []string) error {
 	if parseRunErr != nil {
 		return parseRunErr
 	}
-	return nil
+	return benchmarkRegressionGate(parseReport.Comparison, *parseFailOnRegression)
+}
+
+// benchmarkRegressionGate returns a non-zero (error) result when the drift gate is enabled and
+// the comparison shows at least one benchmark regressed beyond the tolerance. With the gate off,
+// or no baseline comparison, or no regressions, it is a no-op — so the gate is opt-in for CI and
+// never breaks an ordinary local run.
+func benchmarkRegressionGate(parseComparison *benchmarkComparisonSummary, parseFailOnRegression bool) error {
+	if !parseFailOnRegression || parseComparison == nil || parseComparison.Regressed == 0 {
+		return nil
+	}
+	return fmt.Errorf("benchmark drift gate: %d benchmark(s) regressed beyond the %.1f%% tolerance", parseComparison.Regressed, parseComparison.TolerancePct)
 }
 
 func (parseL launcher) runBenchmarkCompare(parseArgs []string) error {
