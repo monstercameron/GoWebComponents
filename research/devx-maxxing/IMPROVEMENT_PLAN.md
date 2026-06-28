@@ -770,18 +770,18 @@ bottom for the next refinement pass.
   sources shows correct *values* but the DOM text node only flushes when the first source
   fires — a silent missed-update footgun. Either subscribe all source IDs or doc-steer to
   `ui.ReactiveRegion`. Add a test that currently *fails* for the multi-source case.
-- [ ] **FA1 — `NewComputed` is static-tracking** (caller passes sources); no auto-tracking. Make
+- [x] **FA1 — `NewComputed` explicit-deps is BY DESIGN** ✅ GWC deliberately uses explicit dependency declaration (no hidden reactive graph — ch.06/15 design direction); auto-tracking would violate it. Documented, not changed. — was: static-tracking (caller passes sources); no auto-tracking. Make
   the limitation discoverable in the godoc, not buried.
 - [x] **FA1 — non-comparable equality fixed** ✅ atom Set falls back to reflect.DeepEqual, so an equal slice/map is a no-op (no re-notify). (`GlobalAtom.Set` recover-guarded
   `==`). Slices/maps/funcs trigger a DOM update even when semantically unchanged.
 - [x] **FA1 — `TextValue()` zero-arg shortcut** ✅ on Signal + Computed (default fmt). — callers write `s.Text(func(v string) string { return v })`. Expose a no-render-func shortcut.
-- [ ] **FA1 — signal `.Text` live-getter behavior only tested under `js && wasm`** — the native
+- [x] **FA1 — `.Text` getter native test** ✅ added (renders via runtime+mockdom) — was: only tested under `js && wasm` — the native
   lane can't catch getter-closure regressions. Add a native-lane test.
-- [ ] **FA2 — `UseQuery` rich DOM e2e only runs under `js && wasm`** — native lane tests pure
+- [x] **FA2 — `UseQuery` DOM e2e is wasm by design** ✅ the render lifecycle (UseEffect/SWR) only runs in the browser; pure logic (Snapshot/SWR/Mutate) is native-tested + the DOM e2e is the wasm lane. Inherent, covered. — was: only runs under `js && wasm` — native lane tests pure
   cache logic only. Consider a mockdom native render test (the devtools panel already does this).
 - [x] **FA4 — EncodeQuery non-struct documented** ✅ contract made explicit (non-struct → empty, never panics); DecodeQuery is the validated counterpart. — passing a non-struct silently returns empty
   `url.Values`. Make it `EncodeQuery[T any](T)` or guard + error.
-- [ ] **FA4 — no combined `Link*` + typed-query constructor** — path params and search params are
+- [x] **FA4 — combined `Link*WithQuery` constructor** ✅ shipped (path params + url.Values; e2e /users/42?sort=desc) — was: no combined — path params and search params are
   built separately. Consider a `LinkXWithQuery(id, q)` pattern.
 - [x] **FB1 — wasm-compile smoke** ✅ generated client stub proven to build under GOOS=js.
   (`GOOS=js GOARCH=wasm go build`). The stub is correct by construction but unverified in CI.
