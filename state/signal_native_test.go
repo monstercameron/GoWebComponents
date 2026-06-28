@@ -155,3 +155,16 @@ func TestSignalComposesWithReactiveSystem(parseT *testing.T) {
 		parseT.Fatalf("expected single region source [test:sig:selsrc], got %v", parseIDs)
 	}
 }
+
+// TestSignalTextValueZeroArg proves the zero-argument TextValue shortcut binds a reactive
+// text node without a custom formatter (the FA1 audit ergonomics niggle).
+func TestSignalTextValueZeroArg(parseT *testing.T) {
+	if parseNode := state.NewSignal("Ada").TextValue(); parseNode == nil {
+		parseT.Fatal("Signal.TextValue should return a reactive text node")
+	}
+	parseSrc := state.NewSignal(2)
+	parseComputed := state.NewComputed(func() int { return parseSrc.Get() * 2 }, parseSrc)
+	if parseNode := parseComputed.TextValue(); parseNode == nil {
+		parseT.Fatal("ComputedSignal.TextValue should return a reactive text node")
+	}
+}

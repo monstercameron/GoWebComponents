@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"strconv"
 	"sync/atomic"
 )
@@ -94,6 +95,16 @@ func (parseS Signal[T]) Text(render func(T) string) *Element {
 	return createReactiveTextNode(parseS.atom.ID(), parseS.Get, render)
 }
 
+// TextValue is the zero-argument form of Text: it binds a reactive text node that renders
+// the signal's value with default fmt formatting — the common case (a string signal, or any
+// value whose fmt form is what you want) where no custom formatter is needed.
+//
+//	name := state.NewSignal("Ada")
+//	h.Span(name.TextValue()) // no render func
+func (parseS Signal[T]) TextValue() *Element {
+	return parseS.Text(func(parseValue T) string { return fmt.Sprint(parseValue) })
+}
+
 // selectorSourceID lets a Signal be used as a [UseSelector] source.
 func (parseS Signal[T]) selectorSourceID() string {
 	return parseS.atom.ID()
@@ -178,6 +189,12 @@ func (parseC ComputedSignal[T]) Text(render func(T) string) *Element {
 		parseID = parseC.sourceIDs[0]
 	}
 	return createReactiveTextNode(parseID, parseC.Get, render)
+}
+
+// TextValue is the zero-argument form of Text for a computed signal: it renders the computed
+// value with default fmt formatting (see Signal.TextValue).
+func (parseC ComputedSignal[T]) TextValue() *Element {
+	return parseC.Text(func(parseValue T) string { return fmt.Sprint(parseValue) })
 }
 
 // selectorSourceID returns the computed's primary source id (empty when it has no
