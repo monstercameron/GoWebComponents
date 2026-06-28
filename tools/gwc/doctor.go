@@ -92,6 +92,7 @@ func (parseL launcher) runDoctor(parseArgs []string) error {
 	parseAuditBaseline := parseFs.String("audit-baseline", "", "Optional path to a JSON baseline file of accepted audit findings")
 	parseAuditWriteBaseline := parseFs.String("audit-write-baseline", "", "Optional path to write the current audit findings as a JSON baseline")
 	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	parseFix := parseFs.Bool("fix", false, "Auto-apply the deterministic remediations (source fixes + generate gwc-start.json) before reporting")
 	var parseAuditSuppressions stringListFlag
 	parseFs.Var(&parseAuditSuppressions, "audit-suppress", "Audit check name to suppress; repeat or comma-separate")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
@@ -99,6 +100,18 @@ func (parseL launcher) runDoctor(parseArgs []string) error {
 			return nil
 		}
 		return parseErr
+	}
+
+	// --fix applies the deterministic remediations doctor would otherwise only print (the
+	// structured source edits shared with `gwc check --fix`, plus generating a missing
+	// gwc-start.json), so the report below reflects the post-fix state.
+	if *parseFix {
+		parseCwd, _ := doctorGetwd()
+		parseFixReport, parseFixErr := applyDoctorFixes(parseL, parseCwd, *parseJsonOutput)
+		if parseFixErr != nil {
+			return parseFixErr
+		}
+		reportDoctorFixes(parseFixReport, *parseJsonOutput)
 	}
 
 	parseReport := parseL.buildDoctorReport(doctorConfig{

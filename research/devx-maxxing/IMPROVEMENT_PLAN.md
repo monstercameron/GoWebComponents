@@ -824,8 +824,7 @@ that the composite barely moved because the sprint targeted Part-II features, no
 - [ ] **C2 [6→platform-honest 10] — persistent build daemon** keeping the Go build cache
   hot across saves + the `gwc buildreport` "what rebuilt & why" already shipped + published
   CI-gated timings. Weight 2.
-- [ ] **A1 [7→10] — `gwc doctor --fix`** auto-apply the remediations doctor already prints
-  + Win/macOS/Linux CI parity. Weight 2.
+- [x] **A1 — `gwc doctor --fix` + cross-OS CI parity** ✅ `gwc doctor --fix` auto-applies the deterministic remediations: the structured source edits shared with `gwc check --fix` (server-leak build-constraint rewrite) plus generating a missing `gwc-start.json` for a hand-built app (never overwriting existing metadata). Non-deterministic prereqs (Go missing, busy port) stay reported. New `doctor-parity.yml` runs the doctor/check-fixer tests + a `gwc doctor` smoke on ubuntu/macos/windows (path-sep + line-ending parity). 2 tests. `tools/gwc/doctorfix.go`.
 - [ ] **B4 [7→10] — `css/u` completeness matrix** + raw-css escape doc + registry
   no-double-emit test. Weight 2.
 - [ ] **D3 [7→10] — CI bench drift merge-gate** (a `gwc bench` step that exits non-zero on
