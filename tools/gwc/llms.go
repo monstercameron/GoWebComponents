@@ -4,11 +4,32 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 )
+
+// negotiateLLMSContentType picks the response Content-Type for the llms docs from the Accept
+// header: text/markdown when the client asks for it, text/plain otherwise — so an agent can
+// fetch the docs over HTTP with the content type it wants, not only as a file on disk.
+func negotiateLLMSContentType(parseAccept string) string {
+	if strings.Contains(parseAccept, "text/markdown") || strings.Contains(parseAccept, "text/x-markdown") {
+		return "text/markdown; charset=utf-8"
+	}
+	return "text/plain; charset=utf-8"
+}
+
+// LLMSHandler serves the given llms content over HTTP with Accept-header content
+// negotiation (the file-only `gwc llms` output, made fetchable for agents).
+func LLMSHandler(parseContent string) http.HandlerFunc {
+	return func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.Header().Set("Content-Type", negotiateLLMSContentType(parseR.Header.Get("Accept")))
+		_, _ = io.WriteString(parseW, parseContent)
+	}
+}
 
 // runLLMsCommand routes the AI-native docs generation command.
 var runLLMsCommand = func(parseL launcher, parseArgs []string) error {
