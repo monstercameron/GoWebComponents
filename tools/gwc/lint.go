@@ -354,6 +354,11 @@ func buildLintSummary(parseConfig lintConfig) (lintSummary, bool, error) {
 			return lintSummary{}, false, parseErr3
 		}
 		parseIssues = append(parseIssues, parseDeprecationIssues...)
+		parseA11yIssues, parseErr4 := collectLintA11yRuleIssues(parseConfig.rootPath, parseConfig.paths)
+		if parseErr4 != nil {
+			return lintSummary{}, false, parseErr4
+		}
+		parseIssues = append(parseIssues, parseA11yIssues...)
 		sortLintIssues(parseIssues)
 	}
 	parseConfigPath := parseLintActiveConfigPath(parseConfig, parseExecutablePath, parseMajorVersion)

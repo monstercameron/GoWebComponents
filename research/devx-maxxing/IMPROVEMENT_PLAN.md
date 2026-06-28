@@ -829,8 +829,7 @@ that the composite barely moved because the sprint targeted Part-II features, no
   no-double-emit test. Weight 2.
 - [ ] **D3 [7→10] — CI bench drift merge-gate** (a `gwc bench` step that exits non-zero on
   out-of-tolerance drift); root-cause the 123% selector regression on amd64 hardware.
-- [ ] **D4 [8→10] — focus-on-route-change as a built-in router default** + an a11y lint in
-  `gwc lint` (beyond the browser-only axe gate).
+- [x] **D4 — focus-on-route-change default + static a11y lint** ✅ two parts: (1) the router now moves keyboard focus to the new route's content after navigation by default (honors `[autofocus]`/`[data-route-focus]`, else focuses the route container with tabindex=-1), opt-out via `SetFocusManagement(false)` — `router/navigation_ux.go`; (2) a non-browser a11y linter wired into `gwc lint` (`gwc-a11y`) parses HTML with x/net/html and flags missing alt, no accessible name on buttons/links, unlabeled form controls, missing `<html lang>`, and positive tabindex — with no false positives on the accessible equivalents. Findings carry the rule as Symbol + a source line. 2 tests. `tools/gwc/lint_a11y.go`.
 - [ ] **F5 [7→10] — third-party-JS integration example** (`ImportModule` + typed bridge)
   + native-stub parity test.
 - [ ] **F7 [4→7] — the governance/community enablers** (public roadmap, GitHub Discussions,
@@ -846,8 +845,7 @@ that the composite barely moved because the sprint targeted Part-II features, no
   sub-block state machine didn't.
 - [ ] **FA2 — ship `UseDurableMutation`** bridging `query.MutateAsync` ↔
   `fetch.MutationQueue` (focus-refetch and the offline queue are still disconnected).
-- [ ] **FA5 — auto-wire `ViewTransition` into the router** on navigation (today the caller
-  must call it manually; the >90% route-change case is unanimated by default).
+- [x] **FA5 — `ViewTransition` auto-wired into the router** ✅ each navigation's DOM swap now runs inside the browser View Transitions API by default (auto-skipped under `prefers-reduced-motion`, opt-out via `SetViewTransitions(false)`), so the >90% route-change case animates with zero caller wiring. `router/navigation_ux.go` (built next to the focus-management default).
 - [ ] **FC3 — expose `agentui` catalog as an MCP tool** (`tools/list` in `gwc mcp` doesn't
   include it, so an agent can't query the allow-list); add streaming render.
 - [ ] **FA3 — add browser axe tests for the 5 catalog components** + a `gwc add` CI smoke

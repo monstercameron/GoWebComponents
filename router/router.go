@@ -84,6 +84,13 @@ type Router struct {
 	renderCurrentComponent func() *Element
 	isRenderApplyGuards    bool
 	renderVersion          int
+	// viewTransitions, when true (the default), wraps each navigation's DOM swap in the
+	// browser View Transitions API so route changes animate; it auto-skips under
+	// prefers-reduced-motion. focusManagement, when true (the default), moves keyboard focus
+	// to the new route's content after navigation so screen-reader and keyboard users are not
+	// stranded on the old page (D4). Both are opt-out via SetViewTransitions/SetFocusManagement.
+	viewTransitions bool
+	focusManagement bool
 }
 
 type navigationGuardState struct {
@@ -356,11 +363,13 @@ func NewHashRouter(parseOptions ...RouterOptions) *Router {
 	parseCfg.DefaultRoute = normalizePath(parseCfg.DefaultRoute)
 
 	parseRouter := &Router{
-		routes:       make(map[string]routeFactory),
-		routeOptions: make(map[string]Options),
-		patterns:     []routePattern{},
-		defaultRoute: parseCfg.DefaultRoute,
-		routerType:   routerTypeHash,
+		routes:          make(map[string]routeFactory),
+		routeOptions:    make(map[string]Options),
+		patterns:        []routePattern{},
+		defaultRoute:    parseCfg.DefaultRoute,
+		routerType:      routerTypeHash,
+		viewTransitions: true,
+		focusManagement: true,
 		loaderState: loaderState{
 			entries: make(map[string]*loaderEntry),
 			active:  make(map[string]struct{}),
@@ -388,11 +397,13 @@ func NewHistoryRouter(parseOptions ...RouterOptions) *Router {
 	parseCfg.DefaultRoute = normalizePath(parseCfg.DefaultRoute)
 
 	parseRouter := &Router{
-		routes:       make(map[string]routeFactory),
-		routeOptions: make(map[string]Options),
-		patterns:     []routePattern{},
-		defaultRoute: parseCfg.DefaultRoute,
-		routerType:   routerTypeHistory,
+		routes:          make(map[string]routeFactory),
+		routeOptions:    make(map[string]Options),
+		patterns:        []routePattern{},
+		defaultRoute:    parseCfg.DefaultRoute,
+		routerType:      routerTypeHistory,
+		viewTransitions: true,
+		focusManagement: true,
 		loaderState: loaderState{
 			entries: make(map[string]*loaderEntry),
 			active:  make(map[string]struct{}),
@@ -681,12 +692,29 @@ func (parseR *Router) renderCurrentRoute(isApplyGuards bool) {
 	// memoized chrome) re-render on navigation (G6). Done before the render so a
 	// subscribed fiber marked dirty here is re-rendered in this same pass.
 	publishLocation()
-	switch {
-	case parseR.targetSelector != "":
-		parseRt.RenderTo(parseR.targetSelector, parseRouteElement)
-	case parseR.targetElement.Truthy():
-		parseRt.Render(parseRouteElement, jsdom.NewWASMDOMNode(parseR.targetElement))
-	}
+	// Wrap the DOM swap in a view transition (auto-skipped under reduced motion) and move focus
+	// to the new route content afterward, both built-in defaults (FA5 + D4).
+	parseR.withRouteTransition(func() {
+		switch {
+		case parseR.targetSelector != "":
+			parseRt.RenderTo(parseR.targetSelector, parseRouteElement)
+		case parseR.targetElement.Truthy():
+			parseRt.Render(parseRouteElement, jsdom.NewWASMDOMNode(parseR.targetElement))
+		}
+		parseR.focusRouteContent()
+	})
+}
+
+// SetViewTransitions enables or disables the automatic View Transitions animation on
+// navigation. It is on by default; disable it to opt a router out of route-change animation.
+func (parseR *Router) SetViewTransitions(parseEnabled bool) {
+	parseR.viewTransitions = parseEnabled
+}
+
+// SetFocusManagement enables or disables automatic focus movement to the new route's content
+// after navigation. It is on by default; disable it only if the app manages focus itself.
+func (parseR *Router) SetFocusManagement(parseEnabled bool) {
+	parseR.focusManagement = parseEnabled
 }
 
 // ensureListener is an internal router helper.
