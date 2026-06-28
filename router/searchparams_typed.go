@@ -60,9 +60,12 @@ func DecodeQuery[T any](parseValues url.Values) (T, error) {
 	return parseTarget, nil
 }
 
-// EncodeQuery renders a typed struct back into url.Values using the same `query:"name"`
-// tags, skipping zero-valued fields so the resulting URL stays clean. It is the inverse of
-// DecodeQuery, for building links and updating the address bar from typed state.
+// EncodeQuery renders a typed struct (or a non-nil pointer to one) back into url.Values
+// using the same `query:"name"` tags, skipping zero-valued fields so the resulting URL stays
+// clean. It is the inverse of DecodeQuery, for building links and updating the address bar
+// from typed state. By contract it takes a struct: a non-struct, nil pointer, or other value
+// has no query fields and returns an empty url.Values (it never panics) — DecodeQuery is the
+// validated counterpart, so encoding stays intentionally permissive.
 func EncodeQuery(parseValue any) url.Values {
 	parseValues := url.Values{}
 	parseRV := reflect.ValueOf(parseValue)
