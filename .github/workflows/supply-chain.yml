@@ -1,0 +1,43 @@
+name: Supply Chain
+
+# Runs the framework's own supply-chain gates so the zero-npm posture and the
+# known-vulnerability scan actually execute on every change (audit FC2/D5).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build gwc
+        run: go build -o gwc ./tools/gwc
+
+      - name: Supply-chain audit (zero-npm + dependency budget + checksums)
+        # Hard gate: a new npm artifact or a dependency-budget breach fails the build.
+        run: ./gwc supplychain
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Known-vulnerability scan (reachable advisories)
+        # Advisory: stdlib/toolchain advisories should not perpetually red the gate; the
+        # report is surfaced and a reachable app-code advisory is visible in the logs.
+        continue-on-error: true
+        run: $(go env GOPATH)/bin/govulncheck ./... && ./gwc vuln
