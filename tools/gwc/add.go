@@ -16,7 +16,7 @@ import (
 // real package (tools/gwc/templates) so the catalog can never ship a component that does
 // not build.
 //
-//go:embed templates/disclosure.go templates/tabs.go
+//go:embed templates/alert.go templates/breadcrumb.go templates/disclosure.go templates/switch_toggle.go templates/tabs.go
 var componentTemplatesFS embed.FS
 
 // runAddCommand routes the `gwc add` headless-component registry command.
@@ -34,7 +34,10 @@ type componentTemplate struct {
 
 // componentRegistry is the catalog `gwc add` can install, sorted by name.
 var componentRegistry = []componentTemplate{
+	{name: "alert", summary: "Accessible status message (WAI-ARIA alert: role=alert + aria-live)", file: "templates/alert.go"},
+	{name: "breadcrumb", summary: "Accessible navigation trail (WAI-ARIA breadcrumb: nav + aria-current)", file: "templates/breadcrumb.go"},
 	{name: "disclosure", summary: "Accessible show/hide region (WAI-ARIA disclosure: aria-expanded/-controls)", file: "templates/disclosure.go"},
+	{name: "switch", summary: "Accessible on/off control (WAI-ARIA switch: role=switch + aria-checked)", file: "templates/switch_toggle.go"},
 	{name: "tabs", summary: "Accessible tabs (WAI-ARIA tablist + tabpanel, roving tab stop)", file: "templates/tabs.go"},
 }
 
