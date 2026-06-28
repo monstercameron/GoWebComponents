@@ -682,6 +682,130 @@ enter. A framework that is both the most *pleasant* to use (Part I) and the most
 *capable* and *uncopyable* (Part II) — keystoned by `//gwc:server`, moated by FC1/FC2/FC3.
 That is the god-tier framework, not just god-tier DevX.
 
+---
+
+# Part III — v5 polish backlog (feature/UX audit fixes)
+
+From the aggressive feature/UX audit (2026-06-27 @ `1af9f6cc`; full report in
+[`FEATURE_UX_AUDIT.md`](./FEATURE_UX_AUDIT.md)). Verdict: **0 of 19 capabilities are
+UX-perfect** — every feature ships a tested core primitive but misses the last mile.
+The work here is overwhelmingly **integration + defaults + CI gates + ergonomic hooks**,
+not new primitives. Check items off as you fix; add niggles to the open section at the
+bottom for the next refinement pass.
+
+## Critical — headline-breakers (fix first)
+
+- [x] **FB3 — `gwc check --fix`** ✅ shipped (gofmt pre-pass; e2e tested). `AGENTS.md` + the AI-native pitch tell
+  agents to run it; it errors. Implement the `--fix` flag (apply `gwc fmt` + the
+  remediations the diagnostics already carry); make it the documented post-edit hook.
+- [ ] **FB6 / C4 — installable browser extension is nonexistent.** `devtools/extension_bridge.go`
+  is manifest *data structures* only. Build a real web extension (packaged `.crx`/`.xpi` +
+  one-command side-load) consuming the `gwc.devtools.extension.v1` bridge payload, showing
+  live component tree + props/state + commit profiling. (The `timetravel.History[T]` engine
+  is already complete — this is only the panel surface.)
+- [x] **FA6 — defer triggers** ✅ shipped: `UseTimerTrigger`/`UseIdle`/`UseInteraction` + doc fix (UseIntersection) + wasm-chunk limitation noted. Add dedicated trigger
+  hooks (`UseIdle`, `UseInteraction`, `UseTimerTrigger`) alongside the viewport path; add
+  `loading` + `error` sub-blocks (currently 1 placeholder slot vs the spec's 3+); document
+  the wasm-chunk lazy-load limitation at the API. Fix the doc comment referencing the
+  non-existent `UseInViewport` (real hook is `UseIntersection`).
+- [ ] **FC4 — wasm-platform "shipped" claim is a tracking note.** Reclassify as tracked, OR
+  earn the label: add a real `GOOS=wasip1 GOARCH=wasm go build` CI step, a TinyGo size-budget
+  assertion (prove the ~200 KB claim), and a TinyGo compat lint. No `.wit` files exist yet.
+- [ ] **FC6 — "multiplayer" is presence-only.** `PresenceSet` is real; collaboration is not.
+  Implement op-based CRDT merge (or Automerge-Go bindings) so concurrent same-field edits
+  don't silently last-write-wins, plus a typed cursor/selection type. Until then, market it
+  as "presence," not "collaboration."
+
+## Major — load-bearing clause missing (core works)
+
+- [x] **FB2 — `UseOptimistic`/`UseAction`/`UseAsyncMutation`** ✅ shipped (wrap MutateAsync; 3 tests). (research docs only). Ship both
+  hooks wrapping `query.MutateAsync` with automatic re-render; add an async `UseMutation`
+  variant (current `ui.UseMutation` wraps the *blocking* `Mutate`).
+- [ ] **FB1 — server-leak analyzer not in `gwc check`.** It lives in `gwc doctor -audit` as an
+  AST heuristic (`audit.state_boundaries`). Promote to a real `go/analysis` import-graph pass
+  that walks wasm build targets and flags server-only imports, wired into `gwc check`.
+- [ ] **FA2 — no focus/reconnect refetch; offline queue not bridged.** Add built-in `focus`/
+  `online` listeners in `SWR`/`UseQuery` that revalidate; add a `UseDurableMutation` bridging
+  `query.MutateAsync` ↔ `fetch.MutationQueue` (today they're separate packages with no link).
+- [x] **FA5 — reduced-motion by default** ✅ UseSpring snaps + ViewTransition skips when reduced (router auto-wire still open).
+  `UseSpring` and `ui.ViewTransition` must internally consult `UsePrefersReducedMotion` and
+  skip/snap when reduced; the router must call `ViewTransition` on navigation automatically.
+- [ ] **FC2 — `gwc supplychain` is in no CI workflow.** The zero-npm gate never runs. Add it
+  to `release.yml` (or a `supply-chain.yml`) as a merge gate. Implement capability sandboxing
+  of third-party components + a capability-violation test, or descope that clause in writing.
+- [ ] **FB4 — hookcheck symbol diagnostics not in `gwc lint --json`.** The standalone
+  `hookcheck` is complete, but `gwc lint`'s `lintIssueRecord` has no Symbol field, so the VS
+  Code extension never shows symbol-named fixes. Wire `hookcheck` into the `gwc lint` path;
+  add "did you mean" remediation text to diagnostic messages (today only CLI-typo suggestions).
+- [ ] **FA4 — CI staleness gates unwired.** `gwc routes check` and `gwc i18n check` exist but
+  no workflow runs them — generated files can drift silently. Add a per-PR step. Ship a real
+  `routes_gen.go` in an example (the generator has never run against a real package).
+- [ ] **FC3 — agentui not wired in.** `gwc check` doesn't validate agentui schemas (no import
+  link); the component catalog isn't exposed as an MCP tool; `agentui` is fully decoupled from
+  `agentbridge`. Wire `DefaultRegistry().Validate` into `gwc check`; expose `Catalog()` as an
+  MCP tool. (Also: no streaming render — spec says "streamed + rendered natively.")
+- [ ] **FC5 — `gwc build --single-binary` flag + CI smoke absent.** `wholestack.Handler` is a
+  real library primitive but the "one command, scp one binary" CLI story doesn't exist. Add
+  the flag (embed wasm in a Go server binary) + a full-stack CI smoke + a copy-and-run test.
+
+## Minor — polish & coverage
+
+- [ ] **FB7 — `Index` control-flow helper missing** (Show/Switch shipped). Add a Solid-style
+  position-stable list renderer to `html/` + `html/shorthand/`.
+- [ ] **FA3 — catalog is 2 components** (disclosure, tabs) for a "shadcn model"; the richer
+  `a11y/` primitives (Menu/Combobox/Listbox/DatePicker/Table/AlertDialog/RadioGroup) aren't
+  installable via `gwc add`. Expand the catalog or explicitly scope "v4 catalog = N." Add
+  native a11y render tests for the catalog templates + a browser axe test + a `gwc add` CI smoke.
+- [ ] **FB5 — workbench boundary fixtures absent.** Ship `workbench` stories/fixtures for
+  async-boundary, suspense, hydration-boundary, error-boundary (the stated reason for FB5).
+- [ ] **FA5 / FA3 — browser-lane tests missing** for enter/exit + keyed-list FLIP, and for the
+  `gwc add` components. Add Playwright fixtures.
+- [ ] **FB3 — MCP server smoke test + HTTP markdown content negotiation absent.** `gwc llms` is
+  file-only; add Accept-header serving + an MCP-server integration test.
+
+## Niggles — deep-dive nitpicks (worth folding into the fixes above)
+
+- [ ] **FA1 — `ComputedSignal.Text` binds only `sourceIDs[0]`.** A computed spanning multiple
+  sources shows correct *values* but the DOM text node only flushes when the first source
+  fires — a silent missed-update footgun. Either subscribe all source IDs or doc-steer to
+  `ui.ReactiveRegion`. Add a test that currently *fails* for the multi-source case.
+- [ ] **FA1 — `NewComputed` is static-tracking** (caller passes sources); no auto-tracking. Make
+  the limitation discoverable in the godoc, not buried.
+- [ ] **FA1 — non-comparable signal payloads always re-notify** (`GlobalAtom.Set` recover-guarded
+  `==`). Slices/maps/funcs trigger a DOM update even when semantically unchanged.
+- [ ] **FA1 — no `Signal[string].Text` zero-arg form** — callers write `s.Text(func(v string) string { return v })`. Expose a no-render-func shortcut.
+- [ ] **FA1 — signal `.Text` live-getter behavior only tested under `js && wasm`** — the native
+  lane can't catch getter-closure regressions. Add a native-lane test.
+- [ ] **FA2 — `UseQuery` rich DOM e2e only runs under `js && wasm`** — native lane tests pure
+  cache logic only. Consider a mockdom native render test (the devtools panel already does this).
+- [ ] **FA4 — `EncodeQuery(any)` is not generic** — passing a non-struct silently returns empty
+  `url.Values`. Make it `EncodeQuery[T any](T)` or guard + error.
+- [ ] **FA4 — no combined `Link*` + typed-query constructor** — path params and search params are
+  built separately. Consider a `LinkXWithQuery(id, q)` pattern.
+- [ ] **FB1 — no wasm-compile smoke** for the generated `serverfn_gen_client.go` stub
+  (`GOOS=js GOARCH=wasm go build`). The stub is correct by construction but unverified in CI.
+- [ ] **FB4 — `hookcheck.Finding` field names diverge from spec** (`Hook`/`Pos`/`Func` vs
+  `Symbol`/`SourceLocation`); reconcile names or the spec, and add the explicit
+  "Symbol+Location present on AST-origin codes" verify test the C3 item called for.
+- [ ] **FC1 — spec API names diverge** (`sync.Presence`/`UseCursors` vs shipped
+  `localfirst.PresenceSet`). Either add a `sync` re-export package or update every
+  spec/doc/agent-prompt reference to the real path.
+- [x] **FC1 — isolated `Authority.Receive` conflict test** ✅ added. (only exercised via `Sync()`).
+- [ ] **FC2 — `gwc supplychain` JSON is SBOM-*shaped* but not CycloneDX** (real SBOM lives in
+  `tools/sbom/`); and `ChecksumsVerified` infers from a non-empty `go.sum` rather than calling
+  `go mod verify`. Decide whether to unify or document the split.
+- [ ] **FB7 — `UseInspect` has no production no-op build tag** (silence needs a manual
+  `SetInspectSink(func(string){})`); and no integration test exercising it inside a real render.
+- [ ] **Naming — `gwc audit` in the spec is actually `gwc supplychain`** (the router's `audit`
+  is the agent-bridge mutation trail). Reconcile the plan's FC2 name with the shipped command.
+
+## Refinement — add your own niggles here
+
+<!-- Append issues/niggles as you find them; they feed the next refinement pass.
+- [ ] (feature) — (what's rough) — (what UX-perfect requires)
+-->
+
+
 > **Honest scope note:** Part I is an adversarially-signed-off plan against a concrete
 > rubric with verification per item. Part II is a *capability roadmap* synthesized from
 > the competitive analysis (Vols I–III) — each item names a mechanism + verification, but
