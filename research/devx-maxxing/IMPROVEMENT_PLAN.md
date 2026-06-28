@@ -733,7 +733,7 @@ bottom for the next refinement pass.
 - [x] **FC2 — supplychain in CI** ✅ supply-chain.yml runs supplychain (hard gate) + vuln (advisory) on push/PR. The zero-npm gate never runs. Add it
   to `release.yml` (or a `supply-chain.yml`) as a merge gate. Implement capability sandboxing
   of third-party components + a capability-violation test, or descope that clause in writing.
-- [ ] **FB4 — hookcheck symbol diagnostics not in `gwc lint --json`.** The standalone
+- [x] **FB4 — hook diagnostics Symbol in `gwc lint`** ✅ structured Symbol field populated from the hook name; VS Code extension surfaces it symbol-prefixed (Go + node tests). The standalone
   `hookcheck` is complete, but `gwc lint`'s `lintIssueRecord` has no Symbol field, so the VS
   Code extension never shows symbol-named fixes. Wire `hookcheck` into the `gwc lint` path;
   add "did you mean" remediation text to diagnostic messages (today only CLI-typo suggestions).
