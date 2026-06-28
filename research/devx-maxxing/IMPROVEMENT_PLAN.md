@@ -744,7 +744,7 @@ bottom for the next refinement pass.
   link); the component catalog isn't exposed as an MCP tool; `agentui` is fully decoupled from
   `agentbridge`. Wire `DefaultRegistry().Validate` into `gwc check`; expose `Catalog()` as an
   MCP tool. (Also: no streaming render — spec says "streamed + rendered natively.")
-- [ ] **FC5 — `gwc build --single-binary` flag + CI smoke absent.** `wholestack.Handler` is a
+- [x] **FC5 — `gwc bundle` single-binary scaffold** ✅ generates an embed+wholestack server main; e2e: scaffold compiles to a binary. `wholestack.Handler` is a
   real library primitive but the "one command, scp one binary" CLI story doesn't exist. Add
   the flag (embed wasm in a Go server binary) + a full-stack CI smoke + a copy-and-run test.
 
