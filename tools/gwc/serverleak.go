@@ -134,21 +134,63 @@ func collectServerLeakDiagnostics(parseRootPath string) []agenticDiagnostic {
 				continue
 			}
 			parsePos := parseFset.Position(parseImport.Pos())
+			parseRel := relativeSlashPath(parseRootPath, parsePath)
+			parseEdits := serverLeakFixEdits(parsePath, parseRel)
 			for _, parseLeak := range resolveImportLeaks(parseImportPath, parseGraph) {
 				parseDiagnostics = append(parseDiagnostics, agenticDiagnostic{
 					Code:       "GWC-CHECK-SERVER-LEAK",
 					Severity:   "error",
 					Message:    serverLeakMessage(parseLeak),
-					File:       relativeSlashPath(parseRootPath, parsePath),
+					File:       parseRel,
 					Line:       parsePos.Line,
 					Suggestion: "Move the importing file behind a `//go:build !js || !wasm` constraint (run `gwc check --fix`), or call the server code through a //gwc:server function instead of importing it into the client.",
 					Attributes: map[string]string{"leaked": parseLeak.path},
+					Edits:      parseEdits,
 				})
 			}
 		}
 		return nil
 	})
 	return dedupeLeakDiagnostics(parseDiagnostics)
+}
+
+// serverLeakFixEdits computes the deterministic remediation for a server leak: rewrite the
+// file's client-only build constraint (`//go:build js && wasm`, plus any legacy `// +build`
+// twin) to the server constraint `//go:build !js || !wasm`, so the file — and its server-only
+// imports — move out of the browser bundle. `gwc check --fix` applies these edits. Returns nil
+// when no rewritable constraint line is found (the diagnostic then stays manual-only).
+func serverLeakFixEdits(parseAbsPath string, parseRel string) []agenticTextEdit {
+	parseData, parseErr := os.ReadFile(parseAbsPath)
+	if parseErr != nil {
+		return nil
+	}
+	parseEdits := []agenticTextEdit{}
+	for _, parseRawLine := range strings.Split(string(parseData), "\n") {
+		parseTrimmed := strings.TrimSpace(parseRawLine)
+		if constraint.IsGoBuild(parseTrimmed) {
+			if parseExpr, parseParseErr := constraint.Parse(parseTrimmed); parseParseErr == nil {
+				parseClient := parseExpr.Eval(func(parseTag string) bool { return parseTag == "js" || parseTag == "wasm" })
+				parseUntagged := parseExpr.Eval(func(string) bool { return false })
+				if parseClient && !parseUntagged {
+					parseEdits = append(parseEdits, agenticTextEdit{
+						File:        parseRel,
+						Description: "move file to the server build (off js/wasm)",
+						OldText:     parseRawLine,
+						NewText:     "//go:build !js || !wasm",
+					})
+				}
+			}
+		}
+		if constraint.IsPlusBuild(parseTrimmed) {
+			parseEdits = append(parseEdits, agenticTextEdit{
+				File:        parseRel,
+				Description: "rewrite legacy +build constraint to server-only",
+				OldText:     parseRawLine,
+				NewText:     "// +build !js !wasm",
+			})
+		}
+	}
+	return parseEdits
 }
 
 // serverLeakMessage renders the human message for one leaked import, showing the transitive

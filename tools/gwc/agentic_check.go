@@ -82,13 +82,16 @@ func (parseL launcher) runCheck(parseArgs []string) error {
 		}
 		return parseErr
 	}
-	// --fix applies the safe, auto-fixable remediation (gofmt) before checking, so the
-	// reported diagnostics reflect the post-fix state. AGENTS.md documents `gwc check --fix`
-	// as the post-edit hook; this is its implementation.
+	// --fix applies the deterministic, structured remediations the diagnostics carry (gofmt +
+	// the server-leak build-constraint rewrite) before checking, so the reported diagnostics
+	// reflect the post-fix state. AGENTS.md documents `gwc check --fix` as the post-edit hook;
+	// this is its implementation.
 	if *parseFix {
-		if parseFixErr := applyCheckFixes(parseL, parseConfig.rootPath, parseConfig.json); parseFixErr != nil {
+		parseFixReport, parseFixErr := applyCheckFixes(parseL, parseConfig.rootPath, parseConfig.json)
+		if parseFixErr != nil {
 			return parseFixErr
 		}
+		reportCheckFixes(parseFixReport, parseConfig.json)
 	}
 
 	parseSummary := buildCheckSummary(parseConfig)
@@ -117,19 +120,23 @@ func (parseL launcher) runCheck(parseArgs []string) error {
 	return parseErr
 }
 
-// applyCheckFixes applies the auto-fixable remediations before a check: today that is
-// gofmt-ing the project (the safe, deterministic fix). It runs the existing fmt path so the
-// behavior stays single-sourced; remediation text the diagnostics carry is surfaced by the
-// check itself for the developer/agent to apply.
-func applyCheckFixes(parseL launcher, parseRoot string, parseJSON bool) error {
-	parseFmtArgs := []string{}
-	if parseRoot != "" {
-		parseFmtArgs = append(parseFmtArgs, "-root", parseRoot)
-	}
+// reportCheckFixes prints what `gwc check --fix` changed. JSON callers get the structured
+// report folded into the envelope below via the summary; here we emit a concise human trail so
+// an interactive run shows the applied and still-manual remediations.
+func reportCheckFixes(parseReport checkFixReport, parseJSON bool) {
 	if parseJSON {
-		parseFmtArgs = append(parseFmtArgs, "-json")
+		return // the JSON envelope already carries diagnostics; avoid interleaving stray output
 	}
-	return parseL.runFmt(parseFmtArgs)
+	if len(parseReport.Applied) == 0 && len(parseReport.Manual) == 0 {
+		fmt.Println("fix: gofmt applied; no structured remediations needed")
+		return
+	}
+	for _, parseApplied := range parseReport.Applied {
+		fmt.Printf("fix: %s — %s (%s)\n", parseApplied.File, parseApplied.Description, parseApplied.Code)
+	}
+	for _, parseManual := range parseReport.Manual {
+		fmt.Printf("manual: %d × %s — %s\n", parseManual.Count, parseManual.Code, parseManual.Remediation)
+	}
 }
 
 // resolveCheckConfig validates check input flags.
