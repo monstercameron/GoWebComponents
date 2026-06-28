@@ -1,6 +1,10 @@
 package state
 
-import "github.com/monstercameron/GoWebComponents/internal/runtime"
+import (
+	"reflect"
+
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
+)
 
 // GlobalAtom is a non-hook handle to a shared atom, readable and writable from
 // ANY context — crucially from OUTSIDE a render: global keyboard handlers,
@@ -58,8 +62,8 @@ func (parseAtom GlobalAtom[T]) Get() T {
 // when the runtime is unavailable (e.g. native SSR with no global runtime).
 //
 // Writing a value equal to the current one is a no-op (no re-render), matching
-// UseState's behavior. Equality is a recover-guarded ==, so non-comparable types
-// (slice/map/func) always write.
+// UseState's behavior. Equality is a fast == with a structural reflect.DeepEqual fallback
+// for non-comparable types (slice/map), so an equal slice/map is also a no-op.
 func (parseAtom GlobalAtom[T]) Set(parseValue T) {
 	parseRt := runtime.GetGlobalRuntime()
 	if parseRt == nil {
@@ -71,13 +75,14 @@ func (parseAtom GlobalAtom[T]) Set(parseValue T) {
 	_ = parseRt.SetAtomValue(parseAtom.id, parseValue)
 }
 
-// atomValuesEqual reports whether two atom values are equal, guarding the ==
-// against non-comparable types (slice/map/func) where it returns false so the
-// write always proceeds.
+// atomValuesEqual reports whether two atom values are equal. It first tries a fast ==; on a
+// non-comparable type (slice/map/func) == panics, and it falls back to a structural
+// reflect.DeepEqual so that writing an equal slice/map does NOT needlessly re-notify (the
+// previous behavior always re-rendered for non-comparable payloads).
 func atomValuesEqual(parseA any, parseB any) (parseEqual bool) {
 	defer func() {
 		if recover() != nil {
-			parseEqual = false
+			parseEqual = reflect.DeepEqual(parseA, parseB)
 		}
 	}()
 	return parseA == parseB
