@@ -18,6 +18,12 @@ func (*Replica) Merge(parseChanges []Record)
 func (*Replica) Pending() []Mutation
 func (*Replica) Set(parseKey, parseValue string) Record
 func (*Replica) Snapshot() map[string]string
+func (*Text) Delete(parseIndex int, parseCount int)
+func (*Text) Export() TextState
+func (*Text) Insert(parseIndex int, parseString string)
+func (*Text) Len() int
+func (*Text) Merge(parseOther *Text)
+func (*Text) Value() string
 func (Clock) After(parseOther Clock) bool
 func (Cursor) End() int
 func (Cursor) HasSelection() bool
@@ -26,8 +32,10 @@ func NewAuthority() *Authority
 func NewCounter() *Counter
 func NewPresenceSet(parseTTL uint64) *PresenceSet
 func NewReplica(parseID string) *Replica
+func NewText(parseReplica string) *Text
 func RestoreCounter(parseState CounterState) *Counter
 func RestoreReplica(parseState ReplicaState) *Replica
+func RestoreText(parseState TextState, parseReplica string) *Text
 func Sync(parseReplica *Replica, parseAuthority *Authority) []Record
 type Authority struct { mu sync.Mutex records map[string]Record }
 type Clock struct { Counter uint64 `json:"counter"` ReplicaID string `json:"replica"` }
@@ -40,3 +48,6 @@ type PresenceSet struct { mu sync.Mutex now uint64 ttl uint64 entries map[string
 type Record struct { Key string `json:"key"` Value string `json:"value"` Clock Clock `json:"clock"` Deleted bool `json:"deleted"` }
 type Replica struct { mu sync.Mutex id string counter uint64 records map[string]Record pending []Mutation }
 type ReplicaState struct { ID string `json:"id"` Counter uint64 `json:"counter"` Records map[string]Record `json:"records"` Pending []Mutation `json:"pending"` }
+type Text struct { replica string seq uint64 elems map[elemID]*textElem }
+type TextOp struct { Replica string `json:"r"` Seq uint64 `json:"s"` AfterReplica string `json:"ar,omitempty"` AfterSeq uint64 `json:"as,omitempty"` Char string `json:"c,omitempty"` Deleted bool `json:"d,omitempty"` }
+type TextState struct { Replica string `json:"replica"` Ops []TextOp `json:"ops"` }

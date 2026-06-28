@@ -799,11 +799,79 @@ bottom for the next refinement pass.
 - [x] **Naming — `gwc audit`→`gwc supplychain` reconciled** ✅ FC2 spec text updated. (the router's `audit`
   is the agent-bridge mutation trail). Reconcile the plan's FC2 name with the shipped command.
 
+---
+
+# Part IV — v6 optimization round (post-Review-3)
+
+From Review 3 (2026-06-27 @ `3c94979e`; composite 82.0%, +1.2 pp). The v5 sprint fixed
+the feature/UX punch list and made **7/19 features genuinely UX-perfect** — but the
+adversarial re-verify caught three **scope-reduced "fixes"** (the `[x]` is honest but
+narrower than the gap), **12 features still shipped-but-rough**, and — most importantly —
+that the composite barely moved because the sprint targeted Part-II features, not the
+**high-weight Part-I runway**. This round fixes that.
+
+## Tier 0 — poor-quality fixes to redo properly (the `[x]` undersold the gap)
+
+- [x] **FB3 — `gwc check --fix` applies structured remediations** ✅ `--fix` now applies the deterministic `Edits` diagnostics carry (not just gofmt): the server-leak fix rewrites a browser file's `//go:build js && wasm` (+legacy `+build` twin) to `//go:build !js || !wasm`, moving the file + its server-only imports out of the client bundle. Loops to a fixed point, re-gofmts, and reports applied-vs-manual (hook-outside-component is honestly surfaced as manual — hoisting a hook can't be auto-rewritten safely). Idempotent; 3 tests. `tools/gwc/checkfix.go`.
+- [x] **FB1 — real transitive import-graph server-leak analysis** ✅ replaced the 6-entry deny-list with an import-graph pass: seeds from explicitly client-only files, follows imports into local module packages transitively, and classifies every reached path — curated server stdlib, a prefix matcher for third-party server SDKs (gorm/grpc/AWS/GCP/Azure/Mongo/pgx/redis/k8s/…), and local packages constrained off js/wasm. Catches the direct AND transitive gorm/grpc/cloud cases the audit named; shows the via-chain; 4 tests. Source-walked (not go/packages) so the gate is deterministic/offline. `tools/gwc/serverleak.go`.
+- [x] **FC6 — op-based collaborative-text CRDT shipped** ✅ `localfirst.Text` is an RGA (Replicated Growable Array): every inserted char is an immutable id'd element positioned after another, deletions are tombstones, `Merge` unions element sets with deleted-wins, and a deterministic id-ordered walk converges all replicas. Concurrent inserts (even at the same position) both survive — no LWW — and a concurrent-edit convergence test proves it, plus commutative/idempotent/round-trip tests. The integers-only PN-Counter gap is now closed for text. `localfirst/text.go`.
+
+## Tier 1 — highest composite ROI (high-weight Part-I, untouched by v5)
+
+- [ ] **D5 — flip govulncheck from advisory to blocking** (`supply-chain.yml` has
+  `continue-on-error: true` on the vuln job). One-line change → D5 9→10 (the 10-rung wants
+  a merge gate, which `gwc supplychain` already is; the vuln half just needs to block).
+- [ ] **A2 [6→platform-honest 10] — prebuilt `gwc` binary releases** + documented
+  warm-cache path + published cold/warm timings. Weight 3 — biggest single composite lever.
+- [ ] **C2 [6→platform-honest 10] — persistent build daemon** keeping the Go build cache
+  hot across saves + the `gwc buildreport` "what rebuilt & why" already shipped + published
+  CI-gated timings. Weight 2.
+- [ ] **A1 [7→10] — `gwc doctor --fix`** auto-apply the remediations doctor already prints
+  + Win/macOS/Linux CI parity. Weight 2.
+- [ ] **B4 [7→10] — `css/u` completeness matrix** + raw-css escape doc + registry
+  no-double-emit test. Weight 2.
+- [ ] **D3 [7→10] — CI bench drift merge-gate** (a `gwc bench` step that exits non-zero on
+  out-of-tolerance drift); root-cause the 123% selector regression on amd64 hardware.
+- [ ] **D4 [8→10] — focus-on-route-change as a built-in router default** + an a11y lint in
+  `gwc lint` (beyond the browser-only axe gate).
+- [ ] **F5 [7→10] — third-party-JS integration example** (`ImportModule` + typed bridge)
+  + native-stub parity test.
+- [ ] **F7 [4→7] — the governance/community enablers** (public roadmap, GitHub Discussions,
+  triage SLA in CONTRIBUTING) that v5 didn't touch. Structural ceiling is 7.
+
+## Tier 2 — finish the 12 still-rough features (close the last mile)
+
+- [ ] **FB6 — package the browser extension.** Real `.crx`/`.xpi` build+sign script (or a
+  `web-ext` task) + a one-command side-load; currently it's a manual Developer-Mode
+  Load-unpacked dance despite the README implying trivial packaging.
+- [ ] **FA6 — add `loading` + `error` sub-blocks** to `ui.Defer` (still a boolean latch
+  with one placeholder slot vs Angular `@defer`'s three). The trigger hooks shipped; the
+  sub-block state machine didn't.
+- [ ] **FA2 — ship `UseDurableMutation`** bridging `query.MutateAsync` ↔
+  `fetch.MutationQueue` (focus-refetch and the offline queue are still disconnected).
+- [ ] **FA5 — auto-wire `ViewTransition` into the router** on navigation (today the caller
+  must call it manually; the >90% route-change case is unanimated by default).
+- [ ] **FC3 — expose `agentui` catalog as an MCP tool** (`tools/list` in `gwc mcp` doesn't
+  include it, so an agent can't query the allow-list); add streaming render.
+- [ ] **FA3 — add browser axe tests for the 5 catalog components** + a `gwc add` CI smoke
+  (copy-into-temp-module → `go build`); wire tabs arrow-key nav into the template or test it.
+- [ ] **D1 — confirm/add suspense-boundary + hydration-boundary fixtures** to
+  `workbench/fixtures` (async + error shipped; the other two unconfirmed — needed for 10).
+- [ ] **FA1 — `.Text` on a multi-source computed** still binds only the first source
+  (documented, not fixed). Subscribe all source IDs or make `ReactiveRegion` the typed
+  default for multi-source.
+
+## Sequencing
+Do **Tier 0** first (they're correctness debt masquerading as done), then **Tier 1**
+(the only items that materially move the composite — D5 is nearly free), then **Tier 2**
+last-mile polish. Tier 1 is where the next review's number actually comes from.
+
 ## Refinement — add your own niggles here
 
 <!-- Append issues/niggles as you find them; they feed the next refinement pass.
 - [ ] (feature) — (what's rough) — (what UX-perfect requires)
 -->
+- [ ] 
 
 
 > **Honest scope note:** Part I is an adversarially-signed-off plan against a concrete
@@ -811,3 +879,341 @@ bottom for the next refinement pass.
 > the competitive analysis (Vols I–III) — each item names a mechanism + verification, but
 > the larger frontier bets (FC1/FC3/FC5) are multi-quarter efforts whose effort/risk is
 > recorded in the source volumes. The mesh is real; the sequencing is keystone-first.
+
+
+Yes — **that is exactly the right append**.
+
+For your custom browser, you should prefer the **full WASM host interface** over the **web/JS interface**.
+
+The split should be:
+
+```text id="i3s03b"
+Primary custom-browser mode:
+  WASM imports directly from gobrowser:* host interfaces
+  no syscall/js
+  no JavaScript WebAssembly loader
+  no JS DOM trampoline
+
+Compatibility web mode:
+  optional syscall/js backend
+  optional JS loader
+  only for running in normal browsers
+```
+
+So the browser treats WASM like an executable format, not like a web asset that JavaScript has to start.
+
+---
+
+## What “full WASM interface” means here
+
+Instead of:
+
+```text id="7h4vz1"
+HTML → JS loader → WebAssembly.instantiateStreaming → syscall/js → DOM
+```
+
+you do:
+
+```text id="h2gzp8"
+HTML → browser host detects linked WASM → Go host loads WASM → WASM imports browser syscalls → DOM batch protocol
+```
+
+The app binary imports functions from your browser:
+
+```go id="ynb0sa"
+//go:build wasip1 && wasm
+
+package dom
+
+//go:wasmimport gobrowser_dom submit_batch
+func submitBatch(ptr uint32, len uint32) uint32
+
+//go:wasmimport gobrowser_events poll_event
+func pollEvent(ptr uint32, cap uint32) uint32
+
+//go:wasmimport gobrowser_runtime sleep_until
+func sleepUntil(deadlineMillis uint64) uint32
+```
+
+Then your public API is Go-native:
+
+```go id="w88ljp"
+func Commit(batch *Batch) error {
+	ptr, n := batch.Raw()
+	code := submitBatch(ptr, n)
+	if code != 0 {
+		return domError(code)
+	}
+	return nil
+}
+```
+
+Go’s WASI support is already pointed in this direction: Go 1.21 added `GOOS=wasip1 GOARCH=wasm`, and `//go:wasmimport` lets Go code call host-provided WASM functions directly. ([Go][1])
+
+---
+
+## Use the WASM interface for the app ABI
+
+Define browser capabilities as WASM imports:
+
+```text id="ahvodo"
+gobrowser:dom
+gobrowser:events
+gobrowser:storage
+gobrowser:fetch
+gobrowser:timers
+gobrowser:clipboard
+gobrowser:permissions
+gobrowser:lifecycle
+gobrowser:process
+```
+
+Example import surface:
+
+```wit id="pqy7m0"
+package gobrowser:runtime;
+
+interface dom {
+  submit-batch: func(ptr: u32, len: u32) -> u32;
+  request-measure: func(ptr: u32, len: u32) -> u64;
+}
+
+interface events {
+  poll-event: func(ptr: u32, cap: u32) -> u32;
+  subscribe: func(node: u64, event-kind: u32, flags: u32) -> u64;
+  unsubscribe: func(id: u64);
+}
+
+interface lifecycle {
+  snapshot: func(ptr: u32, cap: u32) -> u32;
+  restore-complete: func(code: u32);
+  yield-now: func();
+}
+
+world app {
+  import dom;
+  import events;
+  import lifecycle;
+
+  export gobrowser-init: func();
+  export gobrowser-mount: func(root-node: u64);
+  export gobrowser-tick: func(now-ms: u64);
+  export gobrowser-shutdown: func(reason: u32);
+}
+```
+
+WIT is a good way to describe these interfaces because the WebAssembly Component Model uses WIT to define component contracts, and the Component Model canonical ABI exists so components can interoperate without ambiguity. ([Component Model][2])
+
+But for the hot DOM path, keep this rule:
+
+```text id="m6kue3"
+WIT describes the interface.
+Raw packed bytes carry the DOM batches.
+```
+
+Do not make every `setAttr` a separate WIT call.
+
+---
+
+## HTML declaration should become your manifest
+
+Use HTML as the document shell, but let your browser assign special meaning to WASM declarations:
+
+```html id="k3qqfw"
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Counter</title>
+
+  <link
+    rel="gobrowser:wasm-main"
+    href="/app/counter.wasm"
+    type="application/wasm"
+    data-world="gobrowser:app/v1"
+    data-root="#app"
+    data-sandbox="default">
+</head>
+<body>
+  <go-root id="app"></go-root>
+</body>
+</html>
+```
+
+Your browser algorithm:
+
+```text id="ewhgm3"
+1. Load document.
+2. Parse/scan for rel="gobrowser:wasm-main".
+3. Resolve WASM URL using document origin.
+4. Validate permissions/manifest.
+5. Instantiate WASM with gobrowser host imports.
+6. Call gobrowser-init.
+7. Find/mint root NodeID for #app.
+8. Call gobrowser-mount(rootNodeID).
+9. Receive DOM batches through gobrowser_dom.submit_batch.
+```
+
+Normal browsers will ignore the custom `rel` value. Your browser treats it as a first-class application entry point.
+
+---
+
+## This should replace `syscall/js`, not improve it
+
+Your instinct says “syscall/js, build a better interface.” I’d sharpen that:
+
+```text id="3utbws"
+Do not build on syscall/js.
+Build beside it.
+```
+
+Use build tags:
+
+```text id="4tdrpa"
+sdk/dom/dom_wasip1.go   → real custom browser backend
+sdk/dom/dom_js.go       → optional compatibility backend
+sdk/dom/dom_test.go     → pure-Go fake DOM backend
+```
+
+Example:
+
+```go id="ju3cx2"
+// dom_wasip1.go
+//go:build wasip1 && wasm
+
+package dom
+
+//go:wasmimport gobrowser_dom submit_batch
+func hostSubmitBatch(ptr, len uint32) uint32
+```
+
+```go id="9od9rr"
+// dom_js.go
+//go:build js && wasm
+
+package dom
+
+import "syscall/js"
+
+// Compatibility only. Not the real runtime.
+```
+
+So app authors import the same package:
+
+```go id="f6qlyv"
+import "gobrowser.dev/sdk/ui"
+```
+
+and choose target:
+
+```bash id="nebd68"
+# Real custom browser app
+GOOS=wasip1 GOARCH=wasm go build -o app.wasm ./cmd/app
+
+# Optional normal browser fallback
+GOOS=js GOARCH=wasm go build -o app_web.wasm ./cmd/app
+```
+
+---
+
+## What this buys you
+
+Using the WASM host interface gives you:
+
+```text id="5wzt3f"
+No JS loader dependency
+No JS object model as your ABI
+No syscall/js Value boxing
+No fake Promise/callback shape as core runtime
+Cleaner sandboxing
+Cleaner crash isolation
+Better host-controlled scheduling
+Better language neutrality
+```
+
+The browser owns the module lifecycle:
+
+```text id="j1hmre"
+instantiate
+start
+mount
+tick
+event delivery
+snapshot
+suspend
+resume
+shutdown
+restart after crash
+```
+
+That is exactly what you want for multi-tab browser architecture.
+
+---
+
+## The one thing it does not magically solve
+
+The WASM interface solves **WASM ↔ host**.
+
+It does not automatically solve **host ↔ real DOM**.
+
+You still need an engine adapter:
+
+```text id="i6kdau"
+WASM app
+  → gobrowser_dom.submit_batch
+  → Go host / tabhost
+  → engine DOM adapter
+  → real DOM
+```
+
+On Windows/WebView2, the no-JS path likely starts with **CDP DOM commands**, which are useful but not the final high-throughput DOM renderer. Chrome DevTools Protocol’s DOM domain includes operations such as setting attributes, setting node values, removing nodes, querying nodes, and setting outer HTML. ([GitHub][3])
+
+For the real fast no-JS path, you eventually want:
+
+```text id="9gse1n"
+CEF render-process DOM agent
+or
+WebKitGTK/WPE WebProcessExtension
+```
+
+That native agent can apply your binary DOM batch directly on the render process’s DOM lane.
+
+---
+
+## Updated architecture append
+
+Add this to the plan:
+
+```text id="74pmw7"
+WASM Interface Strategy
+
+The browser must support two app ABIs:
+
+1. Native Gobrowser ABI
+   - target: wasip1/wasm
+   - entry: HTML <link rel="gobrowser:wasm-main">
+   - imports: gobrowser:dom, gobrowser:events, gobrowser:storage, gobrowser:fetch
+   - no JavaScript loader
+   - no syscall/js
+   - preferred production path
+
+2. Web Compatibility ABI
+   - target: js/wasm
+   - entry: normal browser WASM loader
+   - imports: syscall/js
+   - optional fallback only
+   - not performance-critical
+```
+
+And the core slogan becomes:
+
+```text id="b3ec2g"
+The web interface is the fallback.
+The WASM host interface is the product.
+```
+
+That is the right direction for your browser.
+
+[1]: https://go.dev/blog/wasi?utm_source=chatgpt.com "WASI support in Go"
+[2]: https://component-model.bytecodealliance.org/design/wit.html?utm_source=chatgpt.com "WIT Reference"
+[3]: https://github.com/webassembly/component-model?utm_source=chatgpt.com "Component Model design and specification"
