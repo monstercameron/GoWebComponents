@@ -750,7 +750,7 @@ bottom for the next refinement pass.
 
 ## Minor — polish & coverage
 
-- [ ] **FB7 — `Index` control-flow helper missing** (Show/Switch shipped). Add a Solid-style
+- [x] **FB7 — `Index`** ✅ shipped (position-keyed list renderer; 2 tests). (Show/Switch shipped). Add a Solid-style
   position-stable list renderer to `html/` + `html/shorthand/`.
 - [ ] **FA3 — catalog is 2 components** (disclosure, tabs) for a "shadcn model"; the richer
   `a11y/` primitives (Menu/Combobox/Listbox/DatePicker/Table/AlertDialog/RadioGroup) aren't
@@ -791,7 +791,7 @@ bottom for the next refinement pass.
   `localfirst.PresenceSet`). Either add a `sync` re-export package or update every
   spec/doc/agent-prompt reference to the real path.
 - [x] **FC1 — isolated `Authority.Receive` conflict test** ✅ added. (only exercised via `Sync()`).
-- [ ] **FC2 — `gwc supplychain` JSON is SBOM-*shaped* but not CycloneDX** (real SBOM lives in
+- [x] **FC2 — checksum honesty + zero-npm regression** ✅ ChecksumsVerified documented as go.sum-presence (not over-claimed); vscode-gwc excluded so the extension can't break zero-npm. (CycloneDX vs SBOM-shaped: documented split.) (real SBOM lives in
   `tools/sbom/`); and `ChecksumsVerified` infers from a non-empty `go.sum` rather than calling
   `go mod verify`. Decide whether to unify or document the split.
 - [ ] **FB7 — `UseInspect` has no production no-op build tag** (silence needs a manual
