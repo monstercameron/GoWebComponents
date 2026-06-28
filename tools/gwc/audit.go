@@ -48,6 +48,11 @@ type auditReport struct {
 var auditNPMDirSkip = map[string]struct{}{
 	".git": {}, ".claude": {}, "node_modules": {}, "vendor": {}, "testdata": {},
 	"bin": {}, "dist": {}, "build": {}, "research": {}, "examples": {}, "third_party": {},
+	// Editor-integration tooling (e.g. the VS Code extension) legitimately carries a
+	// package.json but is NOT part of the framework's or any app's runtime/build supply
+	// chain — it is a separate editor plugin. Excluding it keeps the zero-npm claim about
+	// what it actually means: no npm in the framework/app build.
+	"vscode-gwc": {},
 }
 
 // auditNPMArtifactNames are filenames/dirs whose presence indicates an npm
@@ -147,6 +152,10 @@ func buildAuditReport(parseRootPath string, parseBudget int) auditReport {
 	parseReport.DirectExternalCount = len(parseReport.DirectExternalDeps)
 
 	parseReport.TransitiveModuleCount = countGoSumModules(filepath.Join(parseRootPath, "go.sum"))
+	// ChecksumsVerified reports that go.sum is present and populated — the precondition for
+	// the Go toolchain to verify module checksums on every build. It is a presence check, not
+	// a live cryptographic verification (run `go mod verify` for that); the distinction is
+	// documented on the field so the report is not over-claimed.
 	parseReport.ChecksumsVerified = parseReport.TransitiveModuleCount > 0
 
 	parseReport.NPMArtifacts = scanNPMArtifacts(parseRootPath)
