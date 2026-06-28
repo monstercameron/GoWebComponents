@@ -552,6 +552,7 @@ func listLauncherCommandRegistry() []launcherCommandMetadata {
 		{Name: "upgrade", Summary: "Non-interactive lifecycle upgrade for gwc-start.json schema and runtime assets.", JSON: true, Mutating: true},
 		{Name: "unmount", Summary: "Unmount a bridge-mounted component from a live agent session.", JSON: true, Mutating: true},
 		{Name: "verify", Summary: "Run app-local Go tests when present and perform a CI-profile wasm build.", JSON: true, Mutating: true},
+		{Name: "warm", Summary: "Persistent build daemon: keep the Go build cache hot across saves; -once/-json report cold vs warm timings.", JSON: true, LongRunning: true},
 		{Name: "watch", Summary: "Watch Go files and rerun selected launcher-owned test lanes.", JSON: true, LongRunning: true},
 		{Name: "wasm", Summary: "Run wasm-focused build experiment helpers such as wasm measure.", JSON: true, Mutating: true},
 	}
@@ -1172,6 +1173,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runWasmCommand(parseL, parseArgs)
 	case "watch":
 		return runWatchCommand(parseL, parseArgs)
+	case "warm":
+		return runWarmCommand(parseL, parseArgs)
 	case "sessions", "snapshot", "query", "describe", "wait-for", "audit", "undo", "replay", "render-tree", "set-atom", "set-state", "mount", "unmount", "delete-atom", "emit", "publish", "navigate", "logs", "crash-report", "recording", "lease":
 		return runLiveBridgeCommand(parseL, parseCommand, parseArgs)
 	case "snapshot-diff":
