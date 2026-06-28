@@ -140,3 +140,6 @@ temp/
 # Legacy merged workspace residue
 /tests/
 .gotmp
+
+# DevTools extension package build output
+tools/devtools-extension/dist/

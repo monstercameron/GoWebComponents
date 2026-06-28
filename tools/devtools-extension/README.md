@@ -17,9 +17,20 @@ node --test test/bridge.test.mjs
 
 `panel.js`/`devtools.js` are thin DevTools-API glue.
 
-## Side-load (one command)
+## Package (one command, zero-npm)
 
-- **Chrome/Edge:** `chrome://extensions` → enable Developer mode → **Load unpacked** → pick
-  this folder. (Or `npx web-ext run` for Firefox from this directory.)
-- The `.crx`/`.xpi` package is just this folder zipped (and signed for store distribution);
-  the source here is the extension.
+```sh
+go run ./tools/devtools-extension/pack
+```
+
+Builds `dist/gwc-devtools-<version>.zip` — the directly-loadable package, with no node/web-ext
+toolchain (it uses Go's stdlib `archive/zip`, keeping the repo's zero-npm posture). The packager
+validates the manifest and includes exactly the runtime files (not docs/tests).
+
+## Side-load
+
+- **Chrome/Edge:** `chrome://extensions` → Developer mode → **Load unpacked** → pick this folder,
+  or upload `dist/gwc-devtools-<version>.zip` to the Web Store / Edge Add-ons as-is.
+- **Firefox:** `about:debugging` → This Firefox → **Load Temporary Add-on** → pick the zip. A
+  signed `.xpi` for distribution is `web-ext sign` of that same zip (optional, not needed for
+  local use).
