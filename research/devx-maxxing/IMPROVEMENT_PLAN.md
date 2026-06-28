@@ -724,7 +724,7 @@ bottom for the next refinement pass.
 - [ ] **FB1 — server-leak analyzer not in `gwc check`.** It lives in `gwc doctor -audit` as an
   AST heuristic (`audit.state_boundaries`). Promote to a real `go/analysis` import-graph pass
   that walks wasm build targets and flags server-only imports, wired into `gwc check`.
-- [ ] **FA2 — no focus/reconnect refetch; offline queue not bridged.** Add built-in `focus`/
+- [x] **FA2 — focus/reconnect refetch** ✅ `UseRevalidateOnFocus` (focus/online → invalidate+revalidate; pure core tested). (UseDurableMutation queue bridge still open.) Add built-in `focus`/
   `online` listeners in `SWR`/`UseQuery` that revalidate; add a `UseDurableMutation` bridging
   `query.MutateAsync` ↔ `fetch.MutationQueue` (today they're separate packages with no link).
 - [x] **FA5 — reduced-motion by default** ✅ UseSpring snaps + ViewTransition skips when reduced (router auto-wire still open).
@@ -752,7 +752,7 @@ bottom for the next refinement pass.
 
 - [x] **FB7 — `Index`** ✅ shipped (position-keyed list renderer; 2 tests). (Show/Switch shipped). Add a Solid-style
   position-stable list renderer to `html/` + `html/shorthand/`.
-- [ ] **FA3 — catalog is 2 components** (disclosure, tabs) for a "shadcn model"; the richer
+- [x] **FA3 — catalog expanded to 5** ✅ +alert/switch/breadcrumb (WAI-ARIA, compiled templates, e2e copy+build). (a11y axe/browser tests still open.) (disclosure, tabs) for a "shadcn model"; the richer
   `a11y/` primitives (Menu/Combobox/Listbox/DatePicker/Table/AlertDialog/RadioGroup) aren't
   installable via `gwc add`. Expand the catalog or explicitly scope "v4 catalog = N." Add
   native a11y render tests for the catalog templates + a browser axe test + a `gwc add` CI smoke.
