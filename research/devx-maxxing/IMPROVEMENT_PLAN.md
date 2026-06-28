@@ -699,7 +699,7 @@ bottom for the next refinement pass.
 - [x] **FB3 — `gwc check --fix`** ✅ shipped (gofmt pre-pass; e2e tested). `AGENTS.md` + the AI-native pitch tell
   agents to run it; it errors. Implement the `--fix` flag (apply `gwc fmt` + the
   remediations the diagnostics already carry); make it the documented post-edit hook.
-- [ ] **FB6 / C4 — installable browser extension is nonexistent.** `devtools/extension_bridge.go`
+- [x] **FB6 — browser DevTools extension** ✅ real MV3 extension (manifest + devtools/panel) consuming the gwc.devtools.extension.v1 payload (tree/stats/profiling); node-tested bridge parser; one-command side-load. (.crx/.xpi = zip+sign of the source.) `devtools/extension_bridge.go`
   is manifest *data structures* only. Build a real web extension (packaged `.crx`/`.xpi` +
   one-command side-load) consuming the `gwc.devtools.extension.v1` bridge payload, showing
   live component tree + props/state + commit profiling. (The `timetravel.History[T]` engine
@@ -761,7 +761,7 @@ bottom for the next refinement pass.
   async-boundary, suspense, hydration-boundary, error-boundary (the stated reason for FB5).
 - [ ] **FA5 / FA3 — browser-lane tests missing** for enter/exit + keyed-list FLIP, and for the
   `gwc add` components. Add Playwright fixtures.
-- [ ] **FB3 — MCP server smoke test + HTTP markdown content negotiation absent.** `gwc llms` is
+- [x] **FB3 — MCP smoke + content negotiation** ✅ handleMCPRequest smoke (initialize/tools-list/error) + LLMSHandler Accept-header negotiation (markdown/plain). `gwc llms` is
   file-only; add Accept-header serving + an MCP-server integration test.
 
 ## Niggles — deep-dive nitpicks (worth folding into the fixes above)
