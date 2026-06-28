@@ -578,7 +578,7 @@ rather than re-specifying it.
 - Verify: an offline → mutate → reconnect → converge integration test (shared with E3).
 
 ### FC2 — Zero-npm as a security product → meshes **D5, F9**
-- `gwc audit` (prove zero-npm, emit the CycloneDX SBOM already wired in `release.yml`,
+- `gwc supplychain` (prove zero-npm, emit the CycloneDX SBOM already wired in `release.yml`,
   verify module checksums) + capability sandboxing of third-party components. **Extends
   F9** (the runtime/tooling module split) and **D5** (security) into a *marketed* supply-
   chain-immunity story — structurally immune to the 2026 npm attack wave (Axios, Shai-
@@ -610,8 +610,9 @@ rather than re-specifying it.
 - Verify: the single binary serves a full-stack app in a CI smoke; a copy-and-run deploy test.
 
 ### FC6 — Multiplayer / collaboration → meshes **FC1**
-- `sync.Presence` / `sync.UseCursors` + CRDT-backed docs (Automerge-Go on the server
-  authority), on top of FC1 + `UseWebSocket`. Falls out of FC1 nearly for free.
+- `localfirst.PresenceSet` / `localfirst.Cursor` (shipped) + CRDT-backed docs
+  (`localfirst.Counter` shipped; Automerge-Go-on-the-server-authority for text remains a
+  follow-up), on top of FC1 + `UseWebSocket`. Falls out of FC1 nearly for free.
 - Verify: a two-client presence + concurrent-edit merge test.
 
 ## Capability ↔ DevX-dimension mesh (how Part II raises Part I)
@@ -708,7 +709,7 @@ bottom for the next refinement pass.
   `loading` + `error` sub-blocks (currently 1 placeholder slot vs the spec's 3+); document
   the wasm-chunk lazy-load limitation at the API. Fix the doc comment referencing the
   non-existent `UseInViewport` (real hook is `UseIntersection`).
-- [ ] **FC4 — wasm-platform "shipped" claim is a tracking note.** Reclassify as tracked, OR
+- [x] **FC4 — real wasip1 CI gate** ✅ edge-portability job hard-gates `GOOS=wasip1` build of the server stack. (TinyGo size-budget = follow-up.) Reclassify as tracked, OR
   earn the label: add a real `GOOS=wasip1 GOARCH=wasm go build` CI step, a TinyGo size-budget
   assertion (prove the ~200 KB claim), and a TinyGo compat lint. No `.wit` files exist yet.
 - [x] **FC6 — op-based CRDT core + typed cursor** ✅ PN-Counter (concurrent increments converge to the sum, not LWW-1) + typed Cursor selection. (Full Automerge-scale text merge = larger follow-up.) `PresenceSet` is real; collaboration is not.
@@ -787,7 +788,7 @@ bottom for the next refinement pass.
 - [ ] **FB4 — `hookcheck.Finding` field names diverge from spec** (`Hook`/`Pos`/`Func` vs
   `Symbol`/`SourceLocation`); reconcile names or the spec, and add the explicit
   "Symbol+Location present on AST-origin codes" verify test the C3 item called for.
-- [ ] **FC1 — spec API names diverge** (`sync.Presence`/`UseCursors` vs shipped
+- [x] **FC1 — spec API names reconciled** ✅ plan now references shipped `localfirst.PresenceSet`/`Cursor`. (was: `sync.Presence`/`UseCursors` vs shipped
   `localfirst.PresenceSet`). Either add a `sync` re-export package or update every
   spec/doc/agent-prompt reference to the real path.
 - [x] **FC1 — isolated `Authority.Receive` conflict test** ✅ added. (only exercised via `Sync()`).
@@ -796,7 +797,7 @@ bottom for the next refinement pass.
   `go mod verify`. Decide whether to unify or document the split.
 - [x] **FB7 — `gwcsilent` build tag** ✅ zero-cost UseInspect silence. (silence needs a manual
   `SetInspectSink(func(string){})`); and no integration test exercising it inside a real render.
-- [ ] **Naming — `gwc audit` in the spec is actually `gwc supplychain`** (the router's `audit`
+- [x] **Naming — `gwc audit`→`gwc supplychain` reconciled** ✅ FC2 spec text updated. (the router's `audit`
   is the agent-bridge mutation trail). Reconcile the plan's FC2 name with the shipped command.
 
 ## Refinement — add your own niggles here
