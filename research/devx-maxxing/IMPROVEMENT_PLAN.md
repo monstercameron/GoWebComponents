@@ -711,7 +711,7 @@ bottom for the next refinement pass.
 - [ ] **FC4 — wasm-platform "shipped" claim is a tracking note.** Reclassify as tracked, OR
   earn the label: add a real `GOOS=wasip1 GOARCH=wasm go build` CI step, a TinyGo size-budget
   assertion (prove the ~200 KB claim), and a TinyGo compat lint. No `.wit` files exist yet.
-- [ ] **FC6 — "multiplayer" is presence-only.** `PresenceSet` is real; collaboration is not.
+- [x] **FC6 — op-based CRDT core + typed cursor** ✅ PN-Counter (concurrent increments converge to the sum, not LWW-1) + typed Cursor selection. (Full Automerge-scale text merge = larger follow-up.) `PresenceSet` is real; collaboration is not.
   Implement op-based CRDT merge (or Automerge-Go bindings) so concurrent same-field edits
   don't silently last-write-wins, plus a typed cursor/selection type. Until then, market it
   as "presence," not "collaboration."
