@@ -15,3 +15,12 @@ func TestGeneratedLinksResolve(t *testing.T) {
 		t.Fatalf("LinkPost(42,7) = %q, want /users/42/posts/7", got)
 	}
 }
+
+// TestGeneratedLinkWithQuery proves the combined path-params + typed-search-params
+// constructor appends the query string.
+func TestGeneratedLinkWithQuery(t *testing.T) {
+	q := map[string][]string{"sort": {"desc"}}
+	if got := LinkUserWithQuery("42", q); got != "/users/42?sort=desc" {
+		t.Fatalf("LinkUserWithQuery = %q, want /users/42?sort=desc", got)
+	}
+}
