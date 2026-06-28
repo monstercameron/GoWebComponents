@@ -205,6 +205,13 @@ func buildCheckSummary(parseConfig checkConfig) checkSummary {
 			parseSummary.Diagnostics = append(parseSummary.Diagnostics, parseHookDiagnostics...)
 		}
 	}
+	if !parseConfig.skipConventions {
+		parseLeakDiagnostics := collectServerLeakDiagnostics(parseConfig.rootPath)
+		if len(parseLeakDiagnostics) > 0 {
+			parseSummary.OK = false
+			parseSummary.Diagnostics = append(parseSummary.Diagnostics, parseLeakDiagnostics...)
+		}
+	}
 	sort.SliceStable(parseSummary.Diagnostics, func(parseI int, parseJ int) bool {
 		if parseSummary.Diagnostics[parseI].File == parseSummary.Diagnostics[parseJ].File {
 			return parseSummary.Diagnostics[parseI].Line < parseSummary.Diagnostics[parseJ].Line
