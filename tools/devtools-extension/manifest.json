@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "GoWebComponents DevTools",
+  "version": "0.1.0",
+  "description": "Live component tree, props/state, and commit profiling for a running GoWebComponents (wasm) app, over the gwc.devtools.extension.v1 bridge.",
+  "devtools_page": "devtools.html",
+  "permissions": []
+}
