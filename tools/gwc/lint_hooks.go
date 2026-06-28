@@ -193,6 +193,7 @@ func collectLintHookRuleFileIssues(parseRootPath string, parsePath string) ([]li
 						Column:     parsePosition.Column,
 						Message:    formatLintHookRuleMessage(parseHookName, parseReason),
 						SourceLine: parseLintHookRuleSourceLine(parseSourceLines, parsePosition.Line),
+						Symbol:     parseHookName,
 					})
 				}
 			}

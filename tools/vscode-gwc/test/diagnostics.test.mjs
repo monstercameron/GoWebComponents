@@ -29,6 +29,16 @@ test("toDiagnostics converts 1-based gwc positions to 0-based and tags the sourc
   assert.equal(diags[0].message, "conditional hook");
 });
 
+test("toDiagnostics surfaces the symbol (e.g. hook name) when present", () => {
+  const diags = toDiagnostics({
+    issues: [
+      { linter: "gwc-hook-rules", severity: "error", path: "ui/app.go", line: 5, column: 2, message: "called conditionally", symbol: "UseState" },
+    ],
+  });
+  assert.equal(diags[0].symbol, "UseState");
+  assert.ok(diags[0].message.startsWith("UseState: "), "message should be symbol-prefixed");
+});
+
 test("toDiagnostics tolerates missing fields and empty/empty-ish summaries", () => {
   assert.deepEqual(toDiagnostics({}), []);
   assert.deepEqual(toDiagnostics(null), []);

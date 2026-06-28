@@ -59,6 +59,13 @@ func Component() gwcui.Node {
 	if len(parseIssues) != 5 {
 		parseT.Fatalf("expected five hook rule issues, got %#v", parseIssues)
 	}
+	// Every hook-rule issue carries the offending hook in the structured Symbol field, so
+	// the VS Code extension can show a symbol-named diagnostic (audit FB4).
+	for _, parseIssue := range parseIssues {
+		if parseIssue.Symbol == "" {
+			parseT.Fatalf("hook rule issue should populate Symbol, got %#v", parseIssue)
+		}
+	}
 	parseMessages := make([]string, 0, len(parseIssues))
 	for _, parseIssue := range parseIssues {
 		parseMessages = append(parseMessages, parseIssue.Message)

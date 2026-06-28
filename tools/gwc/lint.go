@@ -73,6 +73,9 @@ type lintIssueRecord struct {
 	Column     int    `json:"column,omitempty"`
 	Message    string `json:"message"`
 	SourceLine string `json:"sourceLine,omitempty"`
+	// Symbol names the offending identifier (e.g. the hook) for diagnostics that have one,
+	// so an editor can surface a symbol-named quick-fix rather than only free text.
+	Symbol string `json:"symbol,omitempty"`
 }
 
 type lintSummary struct {

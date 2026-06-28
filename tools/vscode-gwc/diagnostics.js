@@ -31,7 +31,10 @@ function toDiagnostics(parseSummary) {
       startColumn: Math.max(0, (parseIssue.column || 1) - 1),
     },
     severity: severityFor(parseIssue.severity),
-    message: parseIssue.message || "",
+    // Prefix the symbol (e.g. the offending hook) when present, so the editor shows a
+    // symbol-named diagnostic rather than only free text.
+    message: parseIssue.symbol ? `${parseIssue.symbol}: ${parseIssue.message || ""}` : parseIssue.message || "",
+    symbol: parseIssue.symbol || "",
     source: parseIssue.linter ? `gwc:${parseIssue.linter}` : "gwc",
   }));
 }
