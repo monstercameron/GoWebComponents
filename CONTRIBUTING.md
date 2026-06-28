@@ -148,3 +148,32 @@ go run ./tools/gwc test -lane unit -lane wasm
 
 Run the relevant browser lane for UI changes, and add a focused Playwright spec
 when a regression would otherwise only be caught by eye.
+
+## Where to ask vs. file
+
+- **Questions, ideas, "is this a bug?"** → [GitHub Discussions](https://github.com/monstercameron/GoWebComponents/discussions).
+  Use *Q&A* for help, *Ideas* for proposals, *Show and tell* for what you built.
+- **A concrete, reproducible defect** → open an **Issue** with a minimal repro
+  (the smallest `main.go` + the `gwc` command that reproduces it).
+- **A security report** → follow [SECURITY.md](SECURITY.md); do **not** open a
+  public issue.
+
+## Triage SLA
+
+These are the maintainers' good-faith response targets (business days, not a
+contractual guarantee — this is a volunteer project):
+
+| What | First response | Notes |
+| --- | --- | --- |
+| Security report | **2 business days** | Acknowledgement + triage start. See SECURITY.md. |
+| Bug with a repro | **5 business days** | Labeled (`bug`, severity) and routed. |
+| Feature / idea | **10 business days** | Labeled and, if accepted, linked to the [roadmap](ROADMAP.md). |
+| Pull request | **5 business days** | First review pass; CI must be green first. |
+
+"First response" means a human has read it and labeled/replied — not that it is
+resolved. Stale items with no maintainer reply past these windows may be bumped
+by commenting `@maintainers triage`. The label taxonomy and escalation path live
+in [GOVERNANCE.md](GOVERNANCE.md).
+
+The public direction lives in [ROADMAP.md](ROADMAP.md); a feature request that
+aligns with a roadmap theme is far more likely to be accepted quickly.

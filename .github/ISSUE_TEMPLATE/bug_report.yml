@@ -1,0 +1,44 @@
+name: Bug report
+description: A concrete, reproducible defect in the framework, runtime, or gwc tooling.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A **minimal reproduction** is the single most
+        useful thing you can include — the smallest `main.go` plus the `gwc`
+        command that triggers the problem. First-response target: 5 business
+        days (see CONTRIBUTING.md → Triage SLA).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code + the exact `gwc`/`go` command that reproduces it.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "Output of `go version` and the GoWebComponents version/commit."
+    validations:
+      required: true
+  - type: dropdown
+    id: lane
+    attributes:
+      label: Where does it occur?
+      options:
+        - Browser (js/wasm)
+        - Server / SSR (native)
+        - gwc tooling
+        - Both / unsure
+    validations:
+      required: true

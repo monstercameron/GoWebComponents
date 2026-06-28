@@ -829,8 +829,7 @@ that the composite barely moved because the sprint targeted Part-II features, no
 - [x] **D4 — focus-on-route-change default + static a11y lint** ✅ two parts: (1) the router now moves keyboard focus to the new route's content after navigation by default (honors `[autofocus]`/`[data-route-focus]`, else focuses the route container with tabindex=-1), opt-out via `SetFocusManagement(false)` — `router/navigation_ux.go`; (2) a non-browser a11y linter wired into `gwc lint` (`gwc-a11y`) parses HTML with x/net/html and flags missing alt, no accessible name on buttons/links, unlabeled form controls, missing `<html lang>`, and positive tabindex — with no false positives on the accessible equivalents. Findings carry the rule as Symbol + a source line. 2 tests. `tools/gwc/lint_a11y.go`.
 - [ ] **F5 [7→10] — third-party-JS integration example** (`ImportModule` + typed bridge)
   + native-stub parity test.
-- [ ] **F7 [4→7] — the governance/community enablers** (public roadmap, GitHub Discussions,
-  triage SLA in CONTRIBUTING) that v5 didn't touch. Structural ceiling is 7.
+- [x] **F7 — governance/community enablers** ✅ added a public `ROADMAP.md` (Now/Next/Later/Exploring themes, with an explicit "open an Ideas post to influence this" loop), a **Triage SLA** table in CONTRIBUTING (security 2d / bug 5d / feature 10d / PR 5d, with escalation), a "where to ask vs. file" section routing questions to Discussions, and concrete `.github/ISSUE_TEMPLATE/` (structured bug form + `config.yml` that disables blank issues and routes Q&A/ideas to Discussions and security to the disclosure policy). Structural-ceiling-7 enablers now in place.
 
 ## Tier 2 — finish the 12 still-rough features (close the last mile)
 

@@ -1,0 +1,13 @@
+# Issues are for concrete, reproducible defects. Questions, ideas, and show-and-tell go to
+# Discussions; security reports follow the disclosure policy.
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Help (Q&A)
+    url: https://github.com/monstercameron/GoWebComponents/discussions/categories/q-a
+    about: Ask how to do something, or "is this a bug?" before filing an issue.
+  - name: Ideas & Feature Proposals
+    url: https://github.com/monstercameron/GoWebComponents/discussions/categories/ideas
+    about: Propose a feature or direction. Accepted ideas are linked from ROADMAP.md.
+  - name: Security Disclosure
+    url: https://github.com/monstercameron/GoWebComponents/security/policy
+    about: Report a vulnerability privately. Do NOT open a public issue.
