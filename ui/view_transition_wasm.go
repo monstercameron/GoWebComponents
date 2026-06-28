@@ -25,7 +25,9 @@ func ViewTransition(parseApply func()) {
 		return
 	}
 	parseStart := parseDocument.Get("startViewTransition")
-	if parseStart.Type() != js.TypeFunction {
+	// Honor prefers-reduced-motion: skip the animated transition and apply the change
+	// directly when the user has requested reduced motion.
+	if parseStart.Type() != js.TypeFunction || currentMediaMatch(prefersReducedMotionQuery) {
 		parseApply()
 		return
 	}
