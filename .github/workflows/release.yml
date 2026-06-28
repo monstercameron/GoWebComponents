@@ -185,6 +185,34 @@ jobs:
           sha256sum "${archive_name}" > "${archive_name}.sha256"
           echo "archive_name=${archive_name}" >> "$GITHUB_OUTPUT"
 
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build Prebuilt gwc Binaries
+        # A2: ship a prebuilt `gwc` for every supported platform so users skip a from-source
+        # build. gwc is a pure-Go CLI, so it cross-compiles with CGO disabled; each binary is
+        # checksummed into a single SHA256SUMS manifest attached to the release.
+        shell: bash
+        run: |
+          mkdir -p dist
+          release_tag="${{ steps.tag.outputs.release_tag }}"
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            os="${target%/*}"; arch="${target#*/}"
+            out="gwc_${release_tag}_${os}_${arch}"
+            ext=""; [ "$os" = "windows" ] && ext=".exe"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
+              go build -trimpath -ldflags "-s -w" -o "dist/${out}${ext}" ./tools/gwc
+          done
+          ( cd dist && sha256sum gwc_* > SHA256SUMS )
+          ls -l dist
+
+      - name: Generate gwc Binary Provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/gwc_*
+
       - name: Generate Build Provenance
         uses: actions/attest-build-provenance@v4
         with:
@@ -201,6 +229,8 @@ jobs:
             ${{ steps.archive.outputs.archive_name }}
             ${{ steps.archive.outputs.archive_name }}.sha256
             release-assets/sbom.cyclonedx.json
+            dist/gwc_*
+            dist/SHA256SUMS
           generate_release_notes: true
           body: |
             Release ${{ steps.tag.outputs.release_tag }}
@@ -209,6 +239,7 @@ jobs:
             - Release tag explicitly selected (no auto patch increment on main)
             - Passed unit/e2e and release verification gates
             - Includes source archive with SHA-256 checksum
-            - Includes GitHub build provenance attestation
+            - Prebuilt `gwc` binaries for linux/macOS/windows (amd64 + arm64) with SHA256SUMS
+            - Includes GitHub build provenance attestation (source + binaries)
           draft: false
           prerelease: false

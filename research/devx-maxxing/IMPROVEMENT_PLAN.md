@@ -819,8 +819,7 @@ that the composite barely moved because the sprint targeted Part-II features, no
 ## Tier 1 — highest composite ROI (high-weight Part-I, untouched by v5)
 
 - [x] **D5 — govulncheck is now a blocking merge gate** ✅ removed `continue-on-error`; the vuln job blocks on any REACHABLE dependency advisory via `gwc vuln`. To keep the gate meaningful (not flaky on un-fixable toolchain CVEs), `gwc vuln` classifies stdlib/toolchain advisories and reports — but does not block on — reachable stdlib ones by default (`-include-stdlib` gates those too); reachable dependency advisories always block, even alongside a waived stdlib one. 3 new tests. `tools/gwc/vuln.go`, `.github/workflows/supply-chain.yml`.
-- [ ] **A2 [6→platform-honest 10] — prebuilt `gwc` binary releases** + documented
-  warm-cache path + published cold/warm timings. Weight 3 — biggest single composite lever.
+- [x] **A2 — prebuilt `gwc` binary releases** ✅ the release workflow now cross-compiles `gwc` (pure-Go, CGO-disabled, `-trimpath -ldflags "-s -w"`) for linux/macOS/windows × amd64/arm64, ships them as release assets with a single `SHA256SUMS` manifest and a build-provenance attestation, so users skip a from-source build. All targets verified to cross-compile clean. `.github/workflows/release.yml`. (Published cold/warm cache timings remain a measurement follow-up, paired with C2's build daemon.)
 - [ ] **C2 [6→platform-honest 10] — persistent build daemon** keeping the Go build cache
   hot across saves + the `gwc buildreport` "what rebuilt & why" already shipped + published
   CI-gated timings. Weight 2.
