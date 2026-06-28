@@ -4,8 +4,11 @@ package state_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/state"
 )
 
@@ -167,4 +170,33 @@ func TestSignalTextValueZeroArg(parseT *testing.T) {
 	if parseNode := parseComputed.TextValue(); parseNode == nil {
 		parseT.Fatal("ComputedSignal.TextValue should return a reactive text node")
 	}
+}
+
+// TestSignalTextRendersValueNatively proves the .Text reactive-text-node getter produces the
+// current value when mounted natively (previously only exercised under js && wasm).
+func TestSignalTextRendersValueNatively(parseT *testing.T) {
+	parseAdapter := mockdom.NewMockDOMAdapter()
+	parseRuntime := runtime.NewRuntime(runtime.Config{DOMAdapter: parseAdapter, Reset: true})
+	parseRoot := parseAdapter.CreateElement("div")
+
+	parseSig := state.NewSignal("hello-signal")
+	parseNode := parseSig.Text(func(parseV string) string { return parseV + "!" })
+	if parseErr := parseRuntime.RenderInto(parseRoot, parseNode); parseErr != nil {
+		parseT.Fatalf("RenderInto: %v", parseErr)
+	}
+	if parseText := collectSignalText(parseAdapter, parseRoot); !strings.Contains(parseText, "hello-signal!") {
+		parseT.Fatalf("expected the .Text getter to render hello-signal!, got %q", parseText)
+	}
+}
+
+func collectSignalText(parseAdapter *mockdom.MockDOMAdapter, parseNode runtime.DOMNode) string {
+	parseMock, parseOk := parseNode.(*mockdom.MockDOMNode)
+	if !parseOk {
+		return ""
+	}
+	parseText := parseMock.TextContent
+	for _, parseChild := range parseAdapter.GetChildren(parseNode) {
+		parseText += collectSignalText(parseAdapter, parseChild)
+	}
+	return parseText
 }
