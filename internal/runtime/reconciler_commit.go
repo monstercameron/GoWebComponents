@@ -1119,9 +1119,13 @@ func (parseRt *Runtime) syncReactiveTextSubscription(parseFiber *Fiber) {
 		return
 	}
 	parseAtomID, _ := parseFiber.props[reactiveTextAtomIDProp].(string)
+	// The atom-id prop may carry several comma-joined source ids (a multi-source computed),
+	// so the text node subscribes to every dependency, not only the first.
 	parseSourceIDs := []string{}
-	if parseAtomID != "" {
-		parseSourceIDs = append(parseSourceIDs, parseAtomID)
+	for _, parseID := range strings.Split(parseAtomID, ",") {
+		if strings.TrimSpace(parseID) != "" {
+			parseSourceIDs = append(parseSourceIDs, parseID)
+		}
 	}
 	parseRt.syncFineGrainedSubscriptions(parseFiber, parseSourceIDs)
 	if parseAtomID != "" {

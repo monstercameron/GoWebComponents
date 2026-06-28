@@ -316,16 +316,19 @@ func scopedSelectorID(parseRequestedID string, parseSourceID string) string {
 
 // Text renders an atom-backed reactive text node that can update without rerendering the owning component.
 func (parseA Atom[T]) Text(render func(T) string) *Element {
-	return createReactiveTextNode(parseA.id, parseA.Get, render)
+	return createReactiveTextNode([]string{parseA.id}, parseA.Get, render)
 }
 
 // Text renders a derived-value-backed reactive text node that can update without rerendering the owning component.
 func (parseD Derived[T]) Text(render func(T) string) *Element {
-	return createReactiveTextNode(parseD.id, parseD.Get, render)
+	return createReactiveTextNode([]string{parseD.id}, parseD.Get, render)
 }
 
-// createReactiveTextNode is a core package helper.
-func createReactiveTextNode[T any](parseId string, parseGetter func() T, render func(T) string) *Element {
+// createReactiveTextNode builds a fine-grained reactive text node. It subscribes the node to
+// EVERY source id passed (a multi-source computed contributes all of its dependency ids), so the
+// text flushes when ANY source changes — not only the first. The ids are stored comma-joined in
+// the atom-id prop; the reconciler splits them when wiring subscriptions.
+func createReactiveTextNode[T any](parseIDs []string, parseGetter func() T, render func(T) string) *Element {
 	parseTextGetter := func() string {
 		if parseGetter == nil {
 			return ""
@@ -336,8 +339,14 @@ func createReactiveTextNode[T any](parseId string, parseGetter func() T, render 
 		}
 		return fmt.Sprint(parseValue)
 	}
+	parseFiltered := make([]string, 0, len(parseIDs))
+	for _, parseID := range parseIDs {
+		if strings.TrimSpace(parseID) != "" {
+			parseFiltered = append(parseFiltered, parseID)
+		}
+	}
 	return runtime.CreateElement(runtime.ReactiveTextNodeType, map[string]any{
-		runtimeReactiveTextAtomIDProp(): parseId,
+		runtimeReactiveTextAtomIDProp(): strings.Join(parseFiltered, ","),
 		runtimeReactiveTextGetterProp(): parseTextGetter,
 	})
 }

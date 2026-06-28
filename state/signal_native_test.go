@@ -201,6 +201,37 @@ func collectSignalText(parseAdapter *mockdom.MockDOMAdapter, parseNode runtime.D
 	return parseText
 }
 
+// TestComputedTextSubscribesAllSources proves the FA1 multi-source fix: a ComputedSignal.Text
+// node subscribes to EVERY declared source (not only the first), so a change to any dependency
+// flushes the text. We assert it both structurally (the reactive-text node carries all source
+// ids) and end-to-end (rendered text reflects the live computed value).
+func TestComputedTextSubscribesAllSources(parseT *testing.T) {
+	parseFirst := state.NewKeyedSignal("test:fa1:first", "Ada")
+	parseLast := state.NewKeyedSignal("test:fa1:last", "Lovelace")
+	parseFull := state.NewComputed(func() string {
+		return parseFirst.Get() + " " + parseLast.Get()
+	}, parseFirst, parseLast)
+
+	parseNode := parseFull.Text(func(parseV string) string { return parseV })
+	// Structural: the node's atom-id prop carries BOTH source ids (comma-joined), so the
+	// reconciler subscribes the text to each dependency.
+	parseIDs, _ := parseNode.Props["__gwc_reactive_text_atom_id"].(string)
+	if !strings.Contains(parseIDs, "test:fa1:first") || !strings.Contains(parseIDs, "test:fa1:last") {
+		parseT.Fatalf("multi-source .Text must subscribe to both sources, got id prop %q", parseIDs)
+	}
+
+	// End-to-end: mount and confirm the initial computed value renders.
+	parseAdapter := mockdom.NewMockDOMAdapter()
+	parseRuntime := runtime.NewRuntime(runtime.Config{DOMAdapter: parseAdapter, Reset: true})
+	parseRoot := parseAdapter.CreateElement("div")
+	if parseErr := parseRuntime.RenderInto(parseRoot, parseFull.Text(func(parseV string) string { return parseV })); parseErr != nil {
+		parseT.Fatalf("RenderInto: %v", parseErr)
+	}
+	if parseText := collectSignalText(parseAdapter, parseRoot); !strings.Contains(parseText, "Ada Lovelace") {
+		parseT.Fatalf("expected computed text 'Ada Lovelace', got %q", parseText)
+	}
+}
+
 // TestNewAutoComputedDiscoversSources proves opt-in auto-tracking: NewAutoComputed runs its
 // compute once and auto-discovers every signal it read as a source, with the right value —
 // while NewComputed (explicit) remains the default path.

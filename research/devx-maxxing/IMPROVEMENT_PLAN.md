@@ -852,9 +852,7 @@ that the composite barely moved because the sprint targeted Part-II features, no
   (copy-into-temp-module → `go build`); wire tabs arrow-key nav into the template or test it.
 - [ ] **D1 — confirm/add suspense-boundary + hydration-boundary fixtures** to
   `workbench/fixtures` (async + error shipped; the other two unconfirmed — needed for 10).
-- [ ] **FA1 — `.Text` on a multi-source computed** still binds only the first source
-  (documented, not fixed). Subscribe all source IDs or make `ReactiveRegion` the typed
-  default for multi-source.
+- [x] **FA1 — `.Text` on a multi-source computed subscribes ALL sources** ✅ `createReactiveTextNode` now takes the full source-id set, stores them comma-joined in the atom-id prop, and the reconciler splits them to wire a subscription per dependency; `ComputedSignal.Text` passes every declared source. A multi-source computed's text now flushes when ANY dependency changes — the silent missed-update footgun is gone. Native test asserts both the structural id set and the rendered value. `state/state.go`, `internal/runtime/reconciler_commit.go`.
 
 ## Sequencing
 Do **Tier 0** first (they're correctness debt masquerading as done), then **Tier 1**

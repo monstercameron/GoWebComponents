@@ -95,7 +95,7 @@ func (parseS Signal[T]) ID() string {
 //	// ...
 //	h.Span(count.Text(func(n int) string { return fmt.Sprintf("%d", n) }))
 func (parseS Signal[T]) Text(render func(T) string) *Element {
-	return createReactiveTextNode(parseS.atom.ID(), parseS.Get, render)
+	return createReactiveTextNode([]string{parseS.atom.ID()}, parseS.Get, render)
 }
 
 // TextValue is the zero-argument form of Text: it binds a reactive text node that renders
@@ -182,16 +182,12 @@ func (parseC ComputedSignal[T]) Peek() T {
 	return parseC.Get()
 }
 
-// Text renders a fine-grained reactive text node for the computed value. It binds
-// to the computed's first declared source; for a computed spanning several sources
-// that must all refresh the text, prefer ui.ReactiveRegion with this computed as
-// the source (which subscribes to every declared source id).
+// Text renders a fine-grained reactive text node for the computed value. It subscribes to
+// EVERY declared source, so the text flushes when any dependency changes — a multi-source
+// computed is no longer a silent missed-update footgun (it previously bound only the first
+// source). The node recomputes the full computed value on each flush.
 func (parseC ComputedSignal[T]) Text(render func(T) string) *Element {
-	parseID := ""
-	if len(parseC.sourceIDs) > 0 {
-		parseID = parseC.sourceIDs[0]
-	}
-	return createReactiveTextNode(parseID, parseC.Get, render)
+	return createReactiveTextNode(append([]string(nil), parseC.sourceIDs...), parseC.Get, render)
 }
 
 // TextValue is the zero-argument form of Text for a computed signal: it renders the computed
