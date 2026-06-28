@@ -1,11 +1,40 @@
 package main
 
 import (
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// TestEveryCatalogComponentRendersValidGo proves the `gwc add` smoke contract: every catalog
+// component, once copied into a destination package, is syntactically valid Go that parses
+// clean (the package-rewrite never corrupts the source). The real cross-module `go build` runs
+// in the catalog-smoke CI workflow; this is its fast, offline guard so a broken template fails
+// the unit lane immediately.
+func TestEveryCatalogComponentRendersValidGo(parseT *testing.T) {
+	if len(componentRegistry) != 5 {
+		parseT.Fatalf("expected the 5-component v4 catalog, got %d", len(componentRegistry))
+	}
+	for _, parseEntry := range componentRegistry {
+		parseSource, parseErr := componentTemplatesFS.ReadFile(parseEntry.file)
+		if parseErr != nil {
+			parseT.Fatalf("component %q: unreadable: %v", parseEntry.name, parseErr)
+		}
+		parseRendered, parseErr := renderComponentSource(string(parseSource), "uikit", parseEntry.name)
+		if parseErr != nil {
+			parseT.Fatalf("component %q: render failed: %v", parseEntry.name, parseErr)
+		}
+		if _, parseErr := parser.ParseFile(token.NewFileSet(), parseEntry.name+".go", parseRendered, parser.AllErrors); parseErr != nil {
+			parseT.Fatalf("component %q: rendered source is not valid Go: %v", parseEntry.name, parseErr)
+		}
+		if !strings.Contains(parseRendered, "package uikit") {
+			parseT.Fatalf("component %q: destination package not applied", parseEntry.name)
+		}
+	}
+}
 
 // TestComponentRegistryTemplatesEmbedAndCompileMarkers proves every catalog entry has an
 // embedded template that is non-empty and declares the catalog package (a smoke check that

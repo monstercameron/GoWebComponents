@@ -46,13 +46,24 @@ func Tabs(parseProps TabsProps) ui.Node {
 		parseSelect := ui.UseEvent(func() {
 			parseActive.Set(parseIndexCopy)
 		})
+		// Arrow-key roving (WAI-ARIA tabs): Left/Right move selection with wrap-around, Home/End
+		// jump to the first/last tab. Selection follows focus; the newly-active tab becomes the
+		// single roving tab stop (tabindex 0) on re-render.
+		parseKeyNav := ui.UseEvent(func(parseEvent ui.KeyboardEvent) {
+			parseNext := tabsNextIndex(parseEvent.GetKey(), parseIndexCopy, len(parseProps.Tabs))
+			if parseNext != parseIndexCopy {
+				parseEvent.PreventDefault()
+				parseActive.Set(parseNext)
+			}
+		})
 
 		parseTabButtons = append(parseTabButtons, html.Button(html.Props{
-			ID:      parseTabID,
-			Class:   "gwc-tabs-tab",
-			Type:    "button",
-			Role:    "tab",
-			OnClick: parseSelect,
+			ID:        parseTabID,
+			Class:     "gwc-tabs-tab",
+			Type:      "button",
+			Role:      "tab",
+			OnClick:   parseSelect,
+			OnKeyDown: parseKeyNav,
 			// tabindex must always render (0 and -1), so it goes through Raw — Props.TabIndex==0
 			// is intentionally omitted by the serializer, which would erase the roving tab stop.
 			Raw: map[string]any{"tabindex": tabsTabIndex(parseIsActive)},
@@ -96,4 +107,26 @@ func tabsTabIndex(parseActive bool) string {
 		return "0"
 	}
 	return "-1"
+}
+
+// tabsNextIndex computes the next selected tab for a keyboard event under the WAI-ARIA tabs
+// pattern: ArrowRight advances (wrapping past the end), ArrowLeft retreats (wrapping past the
+// start), Home selects the first tab and End the last; any other key leaves selection unchanged.
+// It is pure so the keyboard logic is unit-testable without a browser.
+func tabsNextIndex(parseKey string, parseCurrent int, parseCount int) int {
+	if parseCount <= 0 {
+		return parseCurrent
+	}
+	switch parseKey {
+	case "ArrowRight", "ArrowDown":
+		return (parseCurrent + 1) % parseCount
+	case "ArrowLeft", "ArrowUp":
+		return (parseCurrent - 1 + parseCount) % parseCount
+	case "Home":
+		return 0
+	case "End":
+		return parseCount - 1
+	default:
+		return parseCurrent
+	}
 }
