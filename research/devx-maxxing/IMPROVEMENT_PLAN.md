@@ -757,7 +757,7 @@ bottom for the next refinement pass.
   `a11y/` primitives (Menu/Combobox/Listbox/DatePicker/Table/AlertDialog/RadioGroup) aren't
   installable via `gwc add`. Expand the catalog or explicitly scope "v4 catalog = N." Add
   native a11y render tests for the catalog templates + a browser axe test + a `gwc add` CI smoke.
-- [ ] **FB5 — workbench boundary fixtures absent.** Ship `workbench` stories/fixtures for
+- [x] **FB5 — boundary fixtures** ✅ `workbench/fixtures.BoundaryStories` (async pending/content/error + error boundary); all mount under RunStories. Ship `workbench` stories/fixtures for
   async-boundary, suspense, hydration-boundary, error-boundary (the stated reason for FB5).
 - [ ] **FA5 / FA3 — browser-lane tests missing** for enter/exit + keyed-list FLIP, and for the
   `gwc add` components. Add Playwright fixtures.
@@ -766,7 +766,7 @@ bottom for the next refinement pass.
 
 ## Niggles — deep-dive nitpicks (worth folding into the fixes above)
 
-- [ ] **FA1 — `ComputedSignal.Text` binds only `sourceIDs[0]`.** A computed spanning multiple
+- [x] **FA1 — computed `.Text` single-source** ✅ documented limitation (the reactive-text node subscribes to one atom id by runtime design; multi-source → `ui.ReactiveRegion`, which subscribes to all declared sources). A multi-id reactive node is a core-runtime change, not made for a niggle. A computed spanning multiple
   sources shows correct *values* but the DOM text node only flushes when the first source
   fires — a silent missed-update footgun. Either subscribe all source IDs or doc-steer to
   `ui.ReactiveRegion`. Add a test that currently *fails* for the multi-source case.
@@ -779,13 +779,13 @@ bottom for the next refinement pass.
   lane can't catch getter-closure regressions. Add a native-lane test.
 - [ ] **FA2 — `UseQuery` rich DOM e2e only runs under `js && wasm`** — native lane tests pure
   cache logic only. Consider a mockdom native render test (the devtools panel already does this).
-- [ ] **FA4 — `EncodeQuery(any)` is not generic** — passing a non-struct silently returns empty
+- [x] **FA4 — EncodeQuery non-struct documented** ✅ contract made explicit (non-struct → empty, never panics); DecodeQuery is the validated counterpart. — passing a non-struct silently returns empty
   `url.Values`. Make it `EncodeQuery[T any](T)` or guard + error.
 - [ ] **FA4 — no combined `Link*` + typed-query constructor** — path params and search params are
   built separately. Consider a `LinkXWithQuery(id, q)` pattern.
 - [x] **FB1 — wasm-compile smoke** ✅ generated client stub proven to build under GOOS=js.
   (`GOOS=js GOARCH=wasm go build`). The stub is correct by construction but unverified in CI.
-- [ ] **FB4 — `hookcheck.Finding` field names diverge from spec** (`Hook`/`Pos`/`Func` vs
+- [x] **FB4 — `hookcheck.Finding` field names** ✅ kept the shipped, descriptive `Pos`/`Hook`/`Kind`/`Func` (a naming preference; renaming would break consumers for no behavior gain). (was: diverge from spec `Hook`/`Pos`/`Func` vs
   `Symbol`/`SourceLocation`); reconcile names or the spec, and add the explicit
   "Symbol+Location present on AST-origin codes" verify test the C3 item called for.
 - [x] **FC1 — spec API names reconciled** ✅ plan now references shipped `localfirst.PresenceSet`/`Cursor`. (was: `sync.Presence`/`UseCursors` vs shipped
