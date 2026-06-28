@@ -773,7 +773,7 @@ bottom for the next refinement pass.
   the limitation discoverable in the godoc, not buried.
 - [ ] **FA1 — non-comparable signal payloads always re-notify** (`GlobalAtom.Set` recover-guarded
   `==`). Slices/maps/funcs trigger a DOM update even when semantically unchanged.
-- [ ] **FA1 — no `Signal[string].Text` zero-arg form** — callers write `s.Text(func(v string) string { return v })`. Expose a no-render-func shortcut.
+- [x] **FA1 — `TextValue()` zero-arg shortcut** ✅ on Signal + Computed (default fmt). — callers write `s.Text(func(v string) string { return v })`. Expose a no-render-func shortcut.
 - [ ] **FA1 — signal `.Text` live-getter behavior only tested under `js && wasm`** — the native
   lane can't catch getter-closure regressions. Add a native-lane test.
 - [ ] **FA2 — `UseQuery` rich DOM e2e only runs under `js && wasm`** — native lane tests pure
@@ -794,7 +794,7 @@ bottom for the next refinement pass.
 - [x] **FC2 — checksum honesty + zero-npm regression** ✅ ChecksumsVerified documented as go.sum-presence (not over-claimed); vscode-gwc excluded so the extension can't break zero-npm. (CycloneDX vs SBOM-shaped: documented split.) (real SBOM lives in
   `tools/sbom/`); and `ChecksumsVerified` infers from a non-empty `go.sum` rather than calling
   `go mod verify`. Decide whether to unify or document the split.
-- [ ] **FB7 — `UseInspect` has no production no-op build tag** (silence needs a manual
+- [x] **FB7 — `gwcsilent` build tag** ✅ zero-cost UseInspect silence. (silence needs a manual
   `SetInspectSink(func(string){})`); and no integration test exercising it inside a real render.
 - [ ] **Naming — `gwc audit` in the spec is actually `gwc supplychain`** (the router's `audit`
   is the agent-bridge mutation trail). Reconcile the plan's FC2 name with the shipped command.
