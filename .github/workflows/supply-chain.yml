@@ -62,3 +62,21 @@ jobs:
           GOOS: wasip1
           GOARCH: wasm
         run: go build ./serverfn/ ./wholestack/ ./localfirst/ ./agentui/ ./query/ ./validate/ ./timetravel/
+
+  codegen-staleness:
+    # Generated code must not drift from its source: regenerate and fail if anything changed
+    # (audit FA4). A typed-routes example exercises `gwc routes gen` against a real package.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+      - name: Build gwc
+        run: go build -o gwc ./tools/gwc
+      - name: Routes codegen up to date
+        run: ./gwc routes check -pkg examples/public/typed-routes-demo
