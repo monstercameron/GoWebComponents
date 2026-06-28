@@ -770,8 +770,7 @@ bottom for the next refinement pass.
   sources shows correct *values* but the DOM text node only flushes when the first source
   fires — a silent missed-update footgun. Either subscribe all source IDs or doc-steer to
   `ui.ReactiveRegion`. Add a test that currently *fails* for the multi-source case.
-- [x] **FA1 — `NewComputed` explicit-deps is BY DESIGN** ✅ GWC deliberately uses explicit dependency declaration (no hidden reactive graph — ch.06/15 design direction); auto-tracking would violate it. Documented, not changed. — was: static-tracking (caller passes sources); no auto-tracking. Make
-  the limitation discoverable in the godoc, not buried.
+- [x] **FA1 — auto-tracking shipped as opt-in `NewAutoComputed`** ✅ explicit `NewComputed` stays the default/recommended path (no hidden reactive graph — ch.06/15 design direction), and `state.NewAutoComputed(func() T)` now offers Solid-style auto-discovery for callers who want it: it runs the compute once with read-tracking on and records every `Signal.Get` it observes as a source. `Signal.Get` carries a single-atomic-load read hook that is a no-op outside a discovery pass. Native test proves both sources are discovered and the value recomputes on change. — was: static-tracking only (caller passes sources).
 - [x] **FA1 — non-comparable equality fixed** ✅ atom Set falls back to reflect.DeepEqual, so an equal slice/map is a no-op (no re-notify). (`GlobalAtom.Set` recover-guarded
   `==`). Slices/maps/funcs trigger a DOM update even when semantically unchanged.
 - [x] **FA1 — `TextValue()` zero-arg shortcut** ✅ on Signal + Computed (default fmt). — callers write `s.Text(func(v string) string { return v })`. Expose a no-render-func shortcut.
