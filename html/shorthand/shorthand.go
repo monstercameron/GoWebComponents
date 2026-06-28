@@ -492,6 +492,14 @@ func MapKeyedIndexed[T any](parseItems []T, parseKey func(parseIndex int, parseI
 	return html.MapKeyedIndexed(parseItems, parseKey, render)
 }
 
+// Index renders a list keyed by POSITION rather than value — Solid's `<Index>`. The node at
+// each slot is reused as that position's value changes (instead of being torn down/rebuilt
+// on reorder), which is the right choice for lists of primitives or inputs where identity
+// follows position, not content. Contrast Map (value order) and MapKeyed (value identity).
+func Index[T any](parseItems []T, render func(parseIndex int, parseItem T) ui.Node) []ui.Node {
+	return html.MapKeyedIndexed(parseItems, func(parseIndex int, _ T) any { return parseIndex }, render)
+}
+
 // MapOr delegates to [html.MapOr].
 func MapOr[T any](parseItems []T, render func(T) ui.Node, parseFallback ui.Node) ui.Node {
 	return html.MapOr(parseItems, render, parseFallback)
