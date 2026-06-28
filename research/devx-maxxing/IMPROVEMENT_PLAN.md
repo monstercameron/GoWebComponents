@@ -722,7 +722,7 @@ bottom for the next refinement pass.
 - [x] **FB2 — `UseOptimistic`/`UseAction`/`UseAsyncMutation`** ✅ shipped (wrap MutateAsync; 3 tests). (research docs only). Ship both
   hooks wrapping `query.MutateAsync` with automatic re-render; add an async `UseMutation`
   variant (current `ui.UseMutation` wraps the *blocking* `Mutate`).
-- [ ] **FB1 — server-leak analyzer not in `gwc check`.** It lives in `gwc doctor -audit` as an
+- [x] **FB1 — server-leak analyzer in `gwc check`** ✅ flags server-only imports (os/exec, database/sql, …) in js&&wasm files; precise (explicit-client-only), no false positives on ui/. It lives in `gwc doctor -audit` as an
   AST heuristic (`audit.state_boundaries`). Promote to a real `go/analysis` import-graph pass
   that walks wasm build targets and flags server-only imports, wired into `gwc check`.
 - [x] **FA2 — focus/reconnect refetch** ✅ `UseRevalidateOnFocus` (focus/online → invalidate+revalidate; pure core tested). (UseDurableMutation queue bridge still open.) Add built-in `focus`/
@@ -738,7 +738,7 @@ bottom for the next refinement pass.
   `hookcheck` is complete, but `gwc lint`'s `lintIssueRecord` has no Symbol field, so the VS
   Code extension never shows symbol-named fixes. Wire `hookcheck` into the `gwc lint` path;
   add "did you mean" remediation text to diagnostic messages (today only CLI-typo suggestions).
-- [ ] **FA4 — CI staleness gates unwired.** `gwc routes check` and `gwc i18n check` exist but
+- [x] **FA4 — staleness gates wired + real routes_gen.go** ✅ typed-routes-demo example generated+tested; CI runs `gwc routes check` against it. `gwc routes check` and `gwc i18n check` exist but
   no workflow runs them — generated files can drift silently. Add a per-PR step. Ship a real
   `routes_gen.go` in an example (the generator has never run against a real package).
 - [x] **FC3 — agentui wired into CLI** ✅ `gwc agentui check <file>` validates schemas against the allow-list (CI-gateable). (Catalog() MCP exposure + streaming render still open.) `gwc check` doesn't validate agentui schemas (no import
