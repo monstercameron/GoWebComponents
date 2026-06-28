@@ -730,7 +730,7 @@ bottom for the next refinement pass.
 - [x] **FA5 — reduced-motion by default** ✅ UseSpring snaps + ViewTransition skips when reduced (router auto-wire still open).
   `UseSpring` and `ui.ViewTransition` must internally consult `UsePrefersReducedMotion` and
   skip/snap when reduced; the router must call `ViewTransition` on navigation automatically.
-- [ ] **FC2 — `gwc supplychain` is in no CI workflow.** The zero-npm gate never runs. Add it
+- [x] **FC2 — supplychain in CI** ✅ supply-chain.yml runs supplychain (hard gate) + vuln (advisory) on push/PR. The zero-npm gate never runs. Add it
   to `release.yml` (or a `supply-chain.yml`) as a merge gate. Implement capability sandboxing
   of third-party components + a capability-violation test, or descope that clause in writing.
 - [ ] **FB4 — hookcheck symbol diagnostics not in `gwc lint --json`.** The standalone
@@ -782,7 +782,7 @@ bottom for the next refinement pass.
   `url.Values`. Make it `EncodeQuery[T any](T)` or guard + error.
 - [ ] **FA4 — no combined `Link*` + typed-query constructor** — path params and search params are
   built separately. Consider a `LinkXWithQuery(id, q)` pattern.
-- [ ] **FB1 — no wasm-compile smoke** for the generated `serverfn_gen_client.go` stub
+- [x] **FB1 — wasm-compile smoke** ✅ generated client stub proven to build under GOOS=js.
   (`GOOS=js GOARCH=wasm go build`). The stub is correct by construction but unverified in CI.
 - [ ] **FB4 — `hookcheck.Finding` field names diverge from spec** (`Hook`/`Pos`/`Func` vs
   `Symbol`/`SourceLocation`); reconcile names or the spec, and add the explicit
