@@ -9,9 +9,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type panelNoOpScheduler struct{}

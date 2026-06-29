@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 func TestRegisterServiceWorkerReportsUnavailableOnNativeBuilds(parseT *testing.T) {

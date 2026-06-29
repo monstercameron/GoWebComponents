@@ -5,7 +5,7 @@ package app
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 // copyToClipboard writes text to the browser clipboard via navigator.clipboard.writeText.

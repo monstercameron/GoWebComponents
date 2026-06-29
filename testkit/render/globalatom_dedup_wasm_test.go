@@ -5,10 +5,10 @@ package render_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/state"
-	"github.com/monstercameron/GoWebComponents/testkit/render"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/state"
+	"github.com/monstercameron/GoWebComponents/v4/testkit/render"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestGlobalAtomSetDedupSkipsNoOpRerender proves GlobalAtom.Set with an unchanged

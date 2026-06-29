@@ -3,7 +3,7 @@ package ui
 import (
 	"reflect"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 type Context[T any] struct {

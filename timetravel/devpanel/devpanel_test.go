@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/timetravel"
-	"github.com/monstercameron/GoWebComponents/timetravel/devpanel"
+	"github.com/monstercameron/GoWebComponents/v4/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/timetravel"
+	"github.com/monstercameron/GoWebComponents/v4/timetravel/devpanel"
 )
 
 // TestPanelRendersTimelineAndMarksCurrent renders the panel headlessly through the real

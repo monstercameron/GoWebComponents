@@ -3,8 +3,8 @@ package html
 import (
 	"maps"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // Props contains the common HTML attributes and event handlers supported by the typed builders.

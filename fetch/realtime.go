@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	gwcruntime "github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/ui"
+	gwcruntime "github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 const (

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestGetRenderAllowedHostTagsIncludesExpectedDisplayTags verifies first-slice display tags are explicitly listed.

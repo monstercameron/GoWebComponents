@@ -37,8 +37,8 @@ func Generate(parseInput []byte, parseConfig TemplateConfig) (string, error) {
 	var parseBuf bytes.Buffer
 	parseBuf.WriteString("package " + parseConfig.PackageName + "\n\n")
 	parseBuf.WriteString("import (\n")
-	parseBuf.WriteString("\t\"github.com/monstercameron/GoWebComponents/html\"\n")
-	parseBuf.WriteString("\t\"github.com/monstercameron/GoWebComponents/ui\"\n")
+	parseBuf.WriteString("\t\"github.com/monstercameron/GoWebComponents/v4/html\"\n")
+	parseBuf.WriteString("\t\"github.com/monstercameron/GoWebComponents/v4/ui\"\n")
 	parseBuf.WriteString(")\n\n")
 	parseBuf.WriteString("type " + parseConfig.StructName + " struct {\n")
 	for _, parseField := range collectFields(parseRoot) {

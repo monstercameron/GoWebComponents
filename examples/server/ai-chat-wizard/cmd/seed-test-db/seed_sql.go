@@ -1,6 +1,6 @@
 package main
 
-import "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/internal/sqlfiles"
+import "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/internal/sqlfiles"
 
 type seedQueries struct {
 	schema             string

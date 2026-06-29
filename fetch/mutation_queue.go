@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 const defaultMutationQueueStorageKey = "__gwc_mutation_queue__"

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"

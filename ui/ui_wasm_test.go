@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v4/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 func installMockFetchResolvedBytes(parseT *testing.T, parsePayload []byte) {

@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/html"
-	ssr "github.com/monstercameron/GoWebComponents/test/ssr"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	ssr "github.com/monstercameron/GoWebComponents/v4/test/ssr"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 func TestConsumerSSRPattern_SnapshotAndPayload(parseT *testing.T) {

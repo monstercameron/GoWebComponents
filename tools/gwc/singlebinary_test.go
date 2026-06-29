@@ -18,7 +18,7 @@ func TestGenerateSingleBinaryServerIsValid(parseT *testing.T) {
 	for _, parseWant := range []string{
 		"package main",
 		"//go:embed all:dist",
-		"github.com/monstercameron/GoWebComponents/wholestack",
+		"github.com/monstercameron/GoWebComponents/v4/wholestack",
 		"wholestack.Handler(wholestack.Options{",
 		`fs.Sub(assets, "dist")`,
 		`addr := ":9000"`,

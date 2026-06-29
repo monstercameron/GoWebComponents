@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/css"
-	"github.com/monstercameron/GoWebComponents/css/u"
+	"github.com/monstercameron/GoWebComponents/v4/css"
+	"github.com/monstercameron/GoWebComponents/v4/css/u"
 )
 
 func TestTypedValueFormatting(t *testing.T) {

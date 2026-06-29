@@ -3,7 +3,7 @@ package head
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/v4/router"
 )
 
 func BenchmarkMergeDocumentMicro(parseB *testing.B) {

@@ -19,7 +19,7 @@
 //	import (
 //	    "context"
 //
-//	    "github.com/monstercameron/GoWebComponents/fetch"
+//	    "github.com/monstercameron/GoWebComponents/v4/fetch"
 //	)
 //
 //	func UserList() ui.Node {

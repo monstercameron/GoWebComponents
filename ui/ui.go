@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/internal/platform/jsdom"
-	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/internal/platform/jsdom"
+	"github.com/monstercameron/GoWebComponents/v4/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 const propsKey = "__ui_props"

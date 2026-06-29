@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestHandleHostControlEnvelopeDiagnosticStoresHostDiagnosticRing verifies diagnostic dispatch appends a durable host-region diagnostic ring entry.

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/deprecation"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/deprecation"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 // Element aliases the runtime element type for state package examples and helpers.

@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	benchmarkshared "github.com/monstercameron/GoWebComponents/examples/testing/render-benchmark/shared"
-	"github.com/monstercameron/GoWebComponents/interop"
-	"github.com/monstercameron/GoWebComponents/ui"
+	benchmarkshared "github.com/monstercameron/GoWebComponents/v4/examples/testing/render-benchmark/shared"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 const (

@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 func BenchmarkPortfolioProjectLookup(parseB *testing.B) {

@@ -7,8 +7,8 @@ import (
 	"syscall/js"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/fetch"
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 func TestInspectDiagnosticsCollectsPWASnapshot(parseT *testing.T) {

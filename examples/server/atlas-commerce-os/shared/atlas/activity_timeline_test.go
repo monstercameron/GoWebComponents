@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestDashboardActivityItemsGroupAndLimit verifies activity entries are grouped by source and capped per source for scanability.

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // FuzzParseBinarySnapshotEnvelope fuzzes binary snapshot decoding to ensure malformed payloads fail safely and successful decodes round-trip stably.

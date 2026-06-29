@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/client/cachecore"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/client/cachecore"
 )
 
 // TestApplyReconnectConflictResolution verifies reconnect conflict handling across unsent queue dedupe, settings merge, preference ack, and thread reconcile.

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/css"
+	"github.com/monstercameron/GoWebComponents/v4/css"
 )
 
 // safeVar matches the only shape Var may ever produce: var(--<identifier chars>).

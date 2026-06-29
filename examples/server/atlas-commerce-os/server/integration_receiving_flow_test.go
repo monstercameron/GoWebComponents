@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	serverauth "github.com/monstercameron/GoWebComponents/examples/server/atlas-commerce-os/server/auth"
+	serverauth "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/auth"
 )
 
 // TestReceivingReconciliationFlowIntegration verifies receiving session load, discrepancy branch updates, and final closeout persistence.

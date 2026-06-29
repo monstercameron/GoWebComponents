@@ -7,7 +7,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/monstercameron/GoWebComponents/i18n"
+	"github.com/monstercameron/GoWebComponents/v4/i18n"
 )
 
 // parseGetLocaleNamespaceKeys returns every key registered directly under locale+namespace

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 // TestAwaitNativeStubsReturnUnavailable verifies the Promise bridge surface fails

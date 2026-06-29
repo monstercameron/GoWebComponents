@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	appRouter "github.com/monstercameron/GoWebComponents/router"
-	baseRender "github.com/monstercameron/GoWebComponents/testkit/render"
+	appRouter "github.com/monstercameron/GoWebComponents/v4/router"
+	baseRender "github.com/monstercameron/GoWebComponents/v4/testkit/render"
 )
 
 func TestLoaderControllerResolveRejectCancelAndNilSafety(parseT *testing.T) {

@@ -150,7 +150,7 @@ func TestWriteHTTPErrorWritesStructuredBody(parseT *testing.T) {
 	if len(parseReport.AppFrames) > visibleAppFrameLimit+1 {
 		parseT.Fatalf("expected app frames to be limited, got %+v", parseReport.AppFrames)
 	}
-	if strings.Contains(parseReport.Formatted(), "github.com/monstercameron/GoWebComponents/internal/diagnostics.Build") {
+	if strings.Contains(parseReport.Formatted(), "github.com/monstercameron/GoWebComponents/v4/internal/diagnostics.Build") {
 		parseT.Fatalf("expected internal builder frames to be hidden, got %q", parseReport.Formatted())
 	}
 	if !strings.Contains(parseRecorder.Body.String(), "docs:") {

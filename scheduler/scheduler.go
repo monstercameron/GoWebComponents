@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/devtools"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/devtools"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 type Scheduler = runtime.Scheduler

@@ -4,7 +4,7 @@ package ui
 
 import (
 	"fmt"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 	"syscall/js"
 )
 

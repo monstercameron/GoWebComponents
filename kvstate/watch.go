@@ -3,7 +3,7 @@ package kvstate
 import (
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 // Cross-tab consistency uses a BroadcastChannel (interop.OpenCrossTabChannel),

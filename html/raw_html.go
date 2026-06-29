@@ -6,8 +6,8 @@ import (
 	xhtml "golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 
-	"github.com/monstercameron/GoWebComponents/sanitize"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/sanitize"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // Raw / markup nodes (G3).

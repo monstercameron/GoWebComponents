@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/i18n"
+	chatpb "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v4/i18n"
 )
 
 type parseCatalogSourceStub struct {

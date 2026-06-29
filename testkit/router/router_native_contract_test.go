@@ -5,7 +5,7 @@ package routertest
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/testkit/render"
+	"github.com/monstercameron/GoWebComponents/v4/testkit/render"
 )
 
 func TestNativeRouterConstructorsReportUnavailable(t *testing.T) {

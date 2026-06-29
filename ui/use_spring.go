@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/monstercameron/GoWebComponents/anim"
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/anim"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 // settledEpsilon is the positional/velocity threshold below which the spring is

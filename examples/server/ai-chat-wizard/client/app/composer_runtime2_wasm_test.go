@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestParseRegisterRuntime2RegionsHandlesRegistrationFailure verifies runtime2 registration falls back to inline rendering instead of panicking.

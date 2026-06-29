@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/monstercameron/GoWebComponents/agentui"
+	"github.com/monstercameron/GoWebComponents/v4/agentui"
 )
 
 // runAgentUICommand routes `gwc agentui check <file.json>` — validating an agent-emitted UI

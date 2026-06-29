@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/localfirst"
+	"github.com/monstercameron/GoWebComponents/v4/localfirst"
 )
 
 // TestSSRSeedsSyncedStore proves D6: the server's authoritative state seeds a fresh client

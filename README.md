@@ -51,16 +51,16 @@ Import public packages from the module path exactly as declared in `go.mod`:
 
 ```go
 import (
-  "github.com/monstercameron/GoWebComponents/css"
-  "github.com/monstercameron/GoWebComponents/css/u"
-  "github.com/monstercameron/GoWebComponents/fetch"
-  "github.com/monstercameron/GoWebComponents/flags"
-  "github.com/monstercameron/GoWebComponents/hotreload"
-  "github.com/monstercameron/GoWebComponents/html"
-    . "github.com/monstercameron/GoWebComponents/html/shorthand"
-  "github.com/monstercameron/GoWebComponents/router"
-  "github.com/monstercameron/GoWebComponents/state"
-  "github.com/monstercameron/GoWebComponents/ui"
+  "github.com/monstercameron/GoWebComponents/v4/css"
+  "github.com/monstercameron/GoWebComponents/v4/css/u"
+  "github.com/monstercameron/GoWebComponents/v4/fetch"
+  "github.com/monstercameron/GoWebComponents/v4/flags"
+  "github.com/monstercameron/GoWebComponents/v4/hotreload"
+  "github.com/monstercameron/GoWebComponents/v4/html"
+    . "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+  "github.com/monstercameron/GoWebComponents/v4/router"
+  "github.com/monstercameron/GoWebComponents/v4/state"
+  "github.com/monstercameron/GoWebComponents/v4/ui"
 )
 ```
 
@@ -127,10 +127,10 @@ package main
 import (
     "fmt"
 
-    "github.com/monstercameron/GoWebComponents/css"
-    "github.com/monstercameron/GoWebComponents/css/u"
-    . "github.com/monstercameron/GoWebComponents/html/shorthand"
-    "github.com/monstercameron/GoWebComponents/ui"
+    "github.com/monstercameron/GoWebComponents/v4/css"
+    "github.com/monstercameron/GoWebComponents/v4/css/u"
+    . "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type StarterAppProps struct {

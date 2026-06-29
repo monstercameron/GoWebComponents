@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/validate"
+	"github.com/monstercameron/GoWebComponents/v4/validate"
 )
 
 // DecodeQuery decodes URL query values into a typed struct T using `query:"name"` tags

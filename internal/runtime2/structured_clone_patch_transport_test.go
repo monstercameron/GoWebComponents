@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestBuildStructuredClonePatchEnvelopeJSONRoundTrips verifies structured-clone patch envelopes round-trip through JSON encode/decode.

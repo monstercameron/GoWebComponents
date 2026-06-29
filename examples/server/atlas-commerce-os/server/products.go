@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	serverdb "github.com/monstercameron/GoWebComponents/examples/server/atlas-commerce-os/server/db"
+	serverdb "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/db"
 )
 
 type productRequest struct {

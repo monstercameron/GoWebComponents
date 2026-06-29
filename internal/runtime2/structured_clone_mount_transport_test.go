@@ -3,7 +3,7 @@ package runtime2_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestBuildStructuredCloneMountEnvelopeJSONRoundTrips verifies valid mount envelopes round-trip through structured-clone transport.

@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"testing"
 
-	appRouter "github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/test/browser"
-	"github.com/monstercameron/GoWebComponents/testkit/render"
-	"github.com/monstercameron/GoWebComponents/ui"
+	appRouter "github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/test/browser"
+	"github.com/monstercameron/GoWebComponents/v4/testkit/render"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // Fixture wraps one router plus a rendered route fixture.

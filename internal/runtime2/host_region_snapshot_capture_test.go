@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestHandleHostRegionUpdateSnapshotCapturesPropsAndSources verifies host-side snapshot capture includes props and declared sources for one update.

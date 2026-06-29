@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 var serializationBoundaryInspection struct {

@@ -5,9 +5,9 @@ package main
 import (
 	"fmt"
 
-	gwcfetch "github.com/monstercameron/GoWebComponents/fetch"
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/ui"
+	gwcfetch "github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type MouseEvent = ui.MouseEvent

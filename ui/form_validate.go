@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/validate"
+import "github.com/monstercameron/GoWebComponents/v4/validate"
 
 // ValidateStruct validates the form's current value against the `validate:"..."`
 // struct tags on T and stores the resulting field errors, returning true when the

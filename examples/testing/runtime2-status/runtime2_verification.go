@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // buildRuntime2StatusNoticeTexts builds the operator-facing caveats that example 200 should surface.

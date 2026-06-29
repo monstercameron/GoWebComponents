@@ -5,9 +5,9 @@
 package facepile
 
 import (
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/localfirst"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/localfirst"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // Facepile renders the live peers in a presence set as a horizontal pile: one marker per

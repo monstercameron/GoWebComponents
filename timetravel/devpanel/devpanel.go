@@ -8,8 +8,8 @@ package devpanel
 import (
 	"strconv"
 
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // Model is the read view a time-travel panel needs — satisfied by *timetravel.History[T] for

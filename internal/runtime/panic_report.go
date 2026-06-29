@@ -371,10 +371,10 @@ func parsePanicFrames(parseStack []byte) []panicFrame {
 			continue
 		}
 		if strings.Contains(parseFunction, "runtime/debug.Stack") ||
-			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/internal/runtime.parsePanicFrames") ||
-			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/internal/runtime.buildPanicReportContext") ||
-			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/internal/runtime.ReportUnhandledPanicContext") ||
-			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/internal/runtime.reportUnhandledPanic") {
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v4/internal/runtime.parsePanicFrames") ||
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v4/internal/runtime.buildPanicReportContext") ||
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v4/internal/runtime.ReportUnhandledPanicContext") ||
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/v4/internal/runtime.reportUnhandledPanic") {
 			continue
 		}
 

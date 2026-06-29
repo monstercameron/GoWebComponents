@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	gwccapabilities "github.com/monstercameron/GoWebComponents/docs/capabilities"
-	gwcerrorcodes "github.com/monstercameron/GoWebComponents/docs/errorcodes"
+	gwccapabilities "github.com/monstercameron/GoWebComponents/v4/docs/capabilities"
+	gwcerrorcodes "github.com/monstercameron/GoWebComponents/v4/docs/errorcodes"
 	playwright "github.com/playwright-community/playwright-go"
 )
 
@@ -660,7 +660,7 @@ func buildAgenticRenderTestSource(parseTarget agenticRenderComponentTarget, pars
 	parseBuilder.WriteString("\t\"encoding/json\"\n")
 	parseBuilder.WriteString("\t\"fmt\"\n")
 	parseBuilder.WriteString("\t\"testing\"\n\n")
-	parseBuilder.WriteString("\tgwcui \"github.com/monstercameron/GoWebComponents/ui\"\n")
+	parseBuilder.WriteString("\tgwcui \"github.com/monstercameron/GoWebComponents/v4/ui\"\n")
 	parseBuilder.WriteString(")\n\n")
 	parseBuilder.WriteString("func TestGWCReadSurfaceRender(parseT *testing.T) {\n")
 	parseBuilder.WriteString("\tparseReport := struct {\n")

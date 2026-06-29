@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 func BenchmarkServerSSRResolveRouteDocs(parseB *testing.B) {

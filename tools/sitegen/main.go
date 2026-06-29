@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/pwa"
+	"github.com/monstercameron/GoWebComponents/v4/pwa"
 )
 
 func main() {

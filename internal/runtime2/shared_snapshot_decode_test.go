@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestParseSharedSnapshotEnvelopeDecodesPublishedSnapshot verifies shared-page payloads decode back into SnapshotEnvelope.

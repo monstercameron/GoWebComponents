@@ -24,7 +24,7 @@ func TestDisclosureE2E(parseT *testing.T) {
 	parseDir := parseT.TempDir()
 
 	parseWasmPath := filepath.Join(parseDir, "app.wasm")
-	parseBuild := exec.Command("go", "build", "-o", parseWasmPath, "github.com/monstercameron/GoWebComponents/examples/public/disclosure-demo")
+	parseBuild := exec.Command("go", "build", "-o", parseWasmPath, "github.com/monstercameron/GoWebComponents/v4/examples/public/disclosure-demo")
 	parseBuild.Dir = parseRoot
 	parseBuild.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if parseOut, parseErr := parseBuild.CombinedOutput(); parseErr != nil {

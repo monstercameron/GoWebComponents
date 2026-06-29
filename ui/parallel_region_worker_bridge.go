@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // storeParallelRegionRenderedNode caches one rendered public region node for worker-side canonical conversion.

@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/monstercameron/GoWebComponents/tools/changelogcheck"
+	"github.com/monstercameron/GoWebComponents/v4/tools/changelogcheck"
 )
 
 func main() {

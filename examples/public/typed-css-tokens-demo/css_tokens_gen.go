@@ -2,7 +2,7 @@
 
 package typedcsstokensdemo
 
-import "github.com/monstercameron/GoWebComponents/css/u"
+import "github.com/monstercameron/GoWebComponents/v4/css/u"
 
 // Typed, compile-checked token constants for the application theme.
 // A typo in a color/size/radius/spacing token is now a compile error, and the

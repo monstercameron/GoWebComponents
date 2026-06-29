@@ -3,7 +3,7 @@ package fetch
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/pluginruntime"
 )
 
 func init() {

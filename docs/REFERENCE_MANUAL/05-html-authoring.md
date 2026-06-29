@@ -66,9 +66,9 @@ If you want the safest default style, start with typed builders and explicit pro
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 // renderProfileCard renders a small DOM tree with typed builders and explicit props.
@@ -116,8 +116,8 @@ When callsites become noisy, use `PropsOf(...)` and the shorthand package delibe
 package formview
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type teamFormProps struct {
@@ -170,7 +170,7 @@ In a larger codebase, pick one host-authoring style per package and centralize r
 package sharedview
 
 import (
-	"github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/v4/html"
 )
 
 // BuildPanelProps returns one shared panel treatment for host containers.
@@ -192,8 +192,8 @@ func BuildFieldLabelProps() html.Props {
 package accountview
 
 import (
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 
 	"my-app/internal/sharedview"
 )
@@ -301,9 +301,9 @@ like bare utilities next to `html/shorthand` elements.
 
 ```go
 import (
-    "github.com/monstercameron/GoWebComponents/css"
-    . "github.com/monstercameron/GoWebComponents/css/u"
-    . "github.com/monstercameron/GoWebComponents/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/v4/css"
+    . "github.com/monstercameron/GoWebComponents/v4/css/u"
+    . "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
 )
 
 func Badge() ui.Node {

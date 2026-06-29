@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	manualdata "github.com/monstercameron/GoWebComponents/docs/REFERENCE_MANUAL"
+	manualdata "github.com/monstercameron/GoWebComponents/v4/docs/REFERENCE_MANUAL"
 )
 
 // catalogItem mirrors one entry of the public examples catalog manifest.

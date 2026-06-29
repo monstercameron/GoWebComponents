@@ -299,7 +299,7 @@ func parseLintHookRuleImportPackage(parseImportPath string) string {
 // isLintHookRuleImportPath reports whether an import path is one of the GWC hook packages.
 func isLintHookRuleImportPath(parseImportPath string) bool {
 	parseImportPath = strings.TrimSpace(parseImportPath)
-	if !strings.HasPrefix(parseImportPath, "github.com/monstercameron/GoWebComponents/") {
+	if !strings.HasPrefix(parseImportPath, "github.com/monstercameron/GoWebComponents/v4/") {
 		return false
 	}
 	switch parseLintHookRuleImportPackage(parseImportPath) {

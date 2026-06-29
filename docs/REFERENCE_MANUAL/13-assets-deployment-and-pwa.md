@@ -83,7 +83,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/monstercameron/GoWebComponents/pwa"
+	"github.com/monstercameron/GoWebComponents/v4/pwa"
 )
 
 // buildInstallableManifest returns the app-owned manifest that will be linked from HTML.
@@ -146,8 +146,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/monstercameron/GoWebComponents/fetch"
-	"github.com/monstercameron/GoWebComponents/pwa"
+	"github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/pwa"
 )
 
 // loadReleaseCachePlan converts one emitted release manifest into service-worker and Cache Storage plans.
@@ -234,10 +234,10 @@ package export
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/head"
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/head"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // getExportedAssetManifest returns the logical-to-emitted asset map for the current export.

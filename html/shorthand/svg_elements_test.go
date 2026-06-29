@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestSVGChartElementsRender proves the chart-primitive SVG helpers (G8) render

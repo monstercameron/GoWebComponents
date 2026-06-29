@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // PersistedState is a state handle whose value is durably persisted via the

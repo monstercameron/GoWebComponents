@@ -5,7 +5,7 @@ package render
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v4/internal/platform/mockdom"
 	xhtml "golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )

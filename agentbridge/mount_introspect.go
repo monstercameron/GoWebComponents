@@ -3,7 +3,7 @@ package agentbridge
 import (
 	"sort"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 // writeRemount re-mounts a previously-mounted component, reversing a

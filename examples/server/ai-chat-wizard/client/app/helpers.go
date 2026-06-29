@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/internal/markdownrender"
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/internal/markdownrender"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 var chatLog = parseNewChatRelayLogger("chat-wizard")

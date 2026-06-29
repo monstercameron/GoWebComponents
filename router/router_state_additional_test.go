@@ -7,7 +7,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 // TestEvaluateNavigationWasmAllowsGuardedRoute verifies the guard-attempt wrapper returns normalized targets for allowed routes.

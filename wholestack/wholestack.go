@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/serverfn"
+	"github.com/monstercameron/GoWebComponents/v4/serverfn"
 )
 
 // ServerFnPrefix re-exports the path server functions are mounted under.

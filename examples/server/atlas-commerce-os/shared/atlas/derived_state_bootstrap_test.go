@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/examples/server/atlas-commerce-os/shared/repository"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/shared/repository"
 )
 
 func TestPayloadBootstrapRoundTripAndRequestDedup(parseT *testing.T) {

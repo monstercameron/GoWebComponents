@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/proto"
 )
 
 // parseSeedAdminChatAnomalyUsageRows seeds failed/slow/high-cost usage fixtures for chats anomaly RPC coverage.

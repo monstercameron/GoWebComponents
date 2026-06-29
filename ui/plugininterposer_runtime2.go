@@ -3,8 +3,8 @@ package ui
 import (
 	"sort"
 
-	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 func init() {

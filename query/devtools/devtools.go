@@ -5,9 +5,9 @@
 package devtools
 
 import (
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/query"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/query"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // CachePanel renders a query cache's current entries: one row per key with its state

@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/query"
+import "github.com/monstercameron/GoWebComponents/v4/query"
 
 // UseAsyncMutation is the async sibling of UseMutation: the returned function applies the
 // optimistic value immediately (re-rendering now) and reconciles in the background —

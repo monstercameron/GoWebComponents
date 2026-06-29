@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )

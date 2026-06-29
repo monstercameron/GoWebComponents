@@ -5,7 +5,7 @@ package diagnostics
 import (
 	"net/http"
 
-	internaldiagnostics "github.com/monstercameron/GoWebComponents/internal/diagnostics"
+	internaldiagnostics "github.com/monstercameron/GoWebComponents/v4/internal/diagnostics"
 )
 
 // WriteHTTPError writes the report as an HTTP error response with the given

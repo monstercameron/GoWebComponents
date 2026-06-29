@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/pluginruntime"
 )
 
 func TestFetchServiceSnapshotBudgetAndCommands(parseT *testing.T) {

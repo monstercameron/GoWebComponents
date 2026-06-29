@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/logging"
+	"github.com/monstercameron/GoWebComponents/v4/logging"
 )
 
 const currentBugCaptureBundleVersion = 1

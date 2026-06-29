@@ -1,6 +1,6 @@
 package u
 
-import "github.com/monstercameron/GoWebComponents/css"
+import "github.com/monstercameron/GoWebComponents/v4/css"
 
 // Typed scale keys replace the former string theme keys, so a typo is a compile
 // error (and autocompletes) instead of a silent runtime fallback. Each constant's

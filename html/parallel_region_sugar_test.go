@@ -3,7 +3,7 @@ package html
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestOnClickParallelBuildsMarkerAndHandler verifies the helper sets both the local click handler and the bridge marker.

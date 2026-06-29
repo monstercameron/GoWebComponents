@@ -10,8 +10,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 // fetchTestNoOpScheduler keeps native fetch tests deterministic without background runtime timers.

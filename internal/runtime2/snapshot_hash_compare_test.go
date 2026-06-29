@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // buildRuntime2LegacySnapshotFingerprintHash computes snapshot identity using the legacy marshal-based path.

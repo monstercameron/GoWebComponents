@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestBuildRuntime2StatusRouteSummaryTextReportsLocalShellRuntime2Active verifies local-shell still means the runtime2 host path is active.

@@ -26,7 +26,7 @@ func TestTypedCSSE2E(parseT *testing.T) {
 
 	// 1. Build the demo to wasm.
 	parseWasmPath := filepath.Join(parseDir, "app.wasm")
-	parseBuild := exec.Command("go", "build", "-o", parseWasmPath, "github.com/monstercameron/GoWebComponents/examples/public/typed-css")
+	parseBuild := exec.Command("go", "build", "-o", parseWasmPath, "github.com/monstercameron/GoWebComponents/v4/examples/public/typed-css")
 	parseBuild.Dir = parseRoot
 	parseBuild.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if parseOut, parseErr := parseBuild.CombinedOutput(); parseErr != nil {
