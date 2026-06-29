@@ -743,6 +743,10 @@ residual gap explicitly so re-scores stay truthful rather than aspirational:
 Use a platform-honest anchor ONLY where a genuine upstream/structural blocker is
 named — never as a way to excuse ordinary engineering gaps.
 
+The upstream Go/wasm constraints for A2, C2, and C4 are tracked in
+[`docs/UPSTREAM_TOOLCHAIN_ASKS.md`](../../docs/UPSTREAM_TOOLCHAIN_ASKS.md) — the
+"recorded, not hidden" half of each platform-honest 10.
+
 ## Next steps for devx-maxxing
 
 1. Score GoWebComponents against this rubric (first pass), evidence-linked.

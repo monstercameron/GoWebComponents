@@ -127,7 +127,7 @@ func loadExamplesPublicSiteCatalog(parseCatalogPath string) (examplesPublicSiteC
 func buildDefaultExamplesPublicSiteCatalog() examplesPublicSiteCatalog {
 	return examplesPublicSiteCatalog{
 		Modules:  []string{"all", "commerce", "core", "data", "ecosystem", "forms", "interop", "platform", "plugins", "rendering", "router", "state"},
-		Statuses: []string{"all", "experimental", "stable"},
+		Statuses: []string{"all", "experimental", "stable", "deprecated"},
 		Levels:   []string{"all", "Advanced", "Beginner", "Core", "Intermediate"},
 		Filters:  []string{"All", "Concept", "API", "Example"},
 		SortOptions: []examplesPublicSiteSortOption{
@@ -448,12 +448,23 @@ func getExamplesPublicSiteLevel(parseSlug string) string {
 	}
 }
 
-// getExamplesPublicSiteStatus marks the highest-risk example surfaces as experimental and everything else as stable.
+// getExamplesPublicSiteStatus marks the highest-risk example surfaces as experimental,
+// examples that demonstrate a deprecated API as deprecated, and everything else as stable.
 func getExamplesPublicSiteStatus(parseSlug string) string {
+	if _, isDeprecated := examplesPublicSiteDeprecatedSlugs[strings.TrimSpace(parseSlug)]; isDeprecated {
+		return "deprecated"
+	}
 	if hasExamplesPublicSiteKeyword(parseSlug, "server", "static", "multi", "pwa", "plugin", "compiler", "worker", "hot", "devtools", "code") {
 		return "experimental"
 	}
 	return "stable"
+}
+
+// examplesPublicSiteDeprecatedSlugs lists example slugs whose primary API is deprecated, so the
+// generated catalog marks them "deprecated" (kept as references; prefer the noted replacement).
+var examplesPublicSiteDeprecatedSlugs = map[string]struct{}{
+	"use-fetch":    {}, // fetch.UseFetch → prefer fetch.UseResource / ui.UseQuery
+	"use-computed": {}, // state.UseComputed → prefer ui.UseMemo
 }
 
 // shouldEmbedExamplesPublicSiteItem reports whether one example is safe to mount inside the docs shell instead of remaining source-first.

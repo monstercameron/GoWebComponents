@@ -255,6 +255,7 @@ func (parseL launcher) runWasmMeasure(parseArgs []string) error {
 	parseReleaseProfile := parseFs.Bool("release-profile", false, "Use release-style build flags (-trimpath, -ldflags, -buildvcs=false)")
 	parseSkipCompression := parseFs.Bool("skip-compression", false, "Skip gzip and brotli sidecar generation")
 	parseServeReloadMs := parseFs.Int64("serve-reload-ms", 0, "Optional external reload timing in milliseconds")
+	parseMaxGzipBytes := parseFs.Int64("max-gzip-bytes", 0, "Fail (non-zero exit) if the gzip artifact exceeds this many bytes; 0 disables the budget gate (CI size budget)")
 	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
 	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
@@ -298,6 +299,28 @@ func (parseL launcher) runWasmMeasure(parseArgs []string) error {
 	}
 	if parseErr2 != nil {
 		return parseErr2
+	}
+	// CI size-budget gate: a non-zero -max-gzip-bytes fails the build when the gzip artifact
+	// exceeds the budget, so a starter (or any app) catches bundle-size regressions in CI.
+	if parseBudgetErr := checkWasmGzipBudget(parseSummary, *parseMaxGzipBytes); parseBudgetErr != nil {
+		return parseBudgetErr
+	}
+	return nil
+}
+
+// checkWasmGzipBudget enforces a gzip-size budget against a measured summary. A budget of 0 (or
+// negative) disables the gate. When the gzip artifact is missing it cannot be checked, so the
+// gate is a no-op rather than a false failure. Pure and testable.
+func checkWasmGzipBudget(parseSummary wasmMeasureSummary, parseMaxGzipBytes int64) error {
+	if parseMaxGzipBytes <= 0 {
+		return nil
+	}
+	parseGzip, parseOk := parseSummary.Manifest.Artifacts["gzip"]
+	if !parseOk {
+		return nil
+	}
+	if parseGzip.Bytes > parseMaxGzipBytes {
+		return fmt.Errorf("wasm gzip size %d bytes exceeds budget %d bytes", parseGzip.Bytes, parseMaxGzipBytes)
 	}
 	return nil
 }

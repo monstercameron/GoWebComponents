@@ -255,6 +255,27 @@ func (parseF Form[T]) SetField(parseName string, parseValue interface{}) bool {
 	return isParseUpdated
 }
 
+// HasField reports whether T has a field addressable by name (the same names SetField/Touch use).
+// SetField returns false for both an unknown field AND a type mismatch; HasField lets a test or a
+// dev-time guard catch a misspelled field name specifically.
+func (parseF Form[T]) HasField(parseName string) bool {
+	var parseValue T
+	if parseF.state.get != nil {
+		parseValue = parseF.state.get().value
+	}
+	_, parseOk := readNamedField(parseValue, parseName)
+	return parseOk
+}
+
+// MustSetField is SetField that panics when the field does not exist or the value's type does not
+// match — turning a silent no-op into a loud failure that surfaces a typo'd field name during
+// development. Prefer it where the field name is a hardcoded literal.
+func (parseF Form[T]) MustSetField(parseName string, parseValue interface{}) {
+	if !parseF.SetField(parseName, parseValue) {
+		panic("ui: MustSetField: unknown field or mismatched value type: " + parseName)
+	}
+}
+
 // Touch marks one field as touched.
 func (parseF Form[T]) Touch(parseName string) {
 	if parseF.state.get == nil {
@@ -697,7 +718,9 @@ func readNamedField[T any](parseValue T, parseName string) (interface{}, bool) {
 		return nil, false
 	}
 	parseField := parseRv.FieldByName(parseName)
-	if !parseField.IsValid() {
+	// CanInterface guards an unexported-but-existing field: FieldByName finds it, but .Interface()
+	// would panic. Treat it as absent — consistent with SetField (which rejects unsettable fields).
+	if !parseField.IsValid() || !parseField.CanInterface() {
 		return nil, false
 	}
 	return parseField.Interface(), true

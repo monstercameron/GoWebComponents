@@ -55,6 +55,35 @@ func (parseN *WASMDOMNode) Focus() {
 	}
 }
 
+// callMethod invokes a zero/one-arg DOM method on the element when present, no-op otherwise.
+// Shared by the imperative-handle helpers below so each stays a one-liner like Focus.
+func (parseN *WASMDOMNode) callMethod(parseName string, parseArgs ...any) {
+	if parseN == nil || !parseN.value.Truthy() {
+		return
+	}
+	if parseFn := parseN.value.Get(parseName); parseFn.Type() == js.TypeFunction {
+		parseN.value.Call(parseName, parseArgs...)
+	}
+}
+
+// Blur implements runtime.Blurrer by calling the element's blur() method.
+func (parseN *WASMDOMNode) Blur() { parseN.callMethod("blur") }
+
+// Click implements runtime.Clicker by calling the element's click() method (synthesizes a click).
+func (parseN *WASMDOMNode) Click() { parseN.callMethod("click") }
+
+// ScrollIntoView implements runtime.ScrollIntoViewer. An empty behavior uses the browser default;
+// "smooth"/"instant"/"auto" map to scrollIntoView({behavior}).
+func (parseN *WASMDOMNode) ScrollIntoView(parseBehavior string) {
+	if parseBehavior == "" {
+		parseN.callMethod("scrollIntoView")
+		return
+	}
+	parseOptions := js.Global().Get("Object").New()
+	parseOptions.Set("behavior", parseBehavior)
+	parseN.callMethod("scrollIntoView", parseOptions)
+}
+
 // WASMDOMAdapter implements runtime.DOMAdapter for browser/WASM.
 type WASMDOMAdapter struct {
 	document                js.Value

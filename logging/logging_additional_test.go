@@ -209,3 +209,21 @@ func TestLogContextUsesUIContextFallback(parseT *testing.T) {
 		parseT.Fatalf("expected ui trace headers in logs, got %#v", parseRecord)
 	}
 }
+
+// TestLoggerWithEmitsBaseFieldsEndToEnd is the end-to-end complement to the white-box With test: it
+// captures real Log output and asserts a With field appears in the JSON record and that a per-call
+// field overrides a With field with the same key.
+func TestLoggerWithEmitsBaseFieldsEndToEnd(parseT *testing.T) {
+	parseOut := captureStdout(parseT, func() {
+		New("svc").With("component", "auth", "stage", "first").Info("hello", "stage", "override")
+	})
+	if !strings.Contains(parseOut, `"component":"auth"`) {
+		parseT.Fatalf("With base field missing from emitted record: %q", parseOut)
+	}
+	if !strings.Contains(parseOut, `"stage":"override"`) {
+		parseT.Fatalf("per-call field must override the With field in the emitted record: %q", parseOut)
+	}
+	if strings.Contains(parseOut, `"stage":"first"`) {
+		parseT.Fatalf("overridden With field must not survive: %q", parseOut)
+	}
+}

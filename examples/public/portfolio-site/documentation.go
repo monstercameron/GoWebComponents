@@ -541,14 +541,14 @@ _, _ = state.RestoreSnapshot("app-state", state.LocalStorage)`,
 
 			// Derived state
 			ApiCard("Derived State", "functions", "Compute read-only values from other state",
-				`func UseComputed[T any](compute func() T, deps ...interface{}) Computed[T]
+				`func UseMemo[T any](compute func() T, deps ...any) T   // preferred (ui package)
 func UseDerived[T any](id string, compute func() T, deps ...string) Derived[T]
-func (c Computed[T]) Get() T
 func (d Derived[T]) Get() T
+// state.UseComputed is the deprecated predecessor of ui.UseMemo.
 
 // Example usage:
 total := state.UseAtom("total", 24)
-taxed := state.UseComputed(func() string {
+taxed := ui.UseMemo(func() string {
     return fmt.Sprintf("$%0.2f", float64(total.Get())*1.2)
 }, total.Get())
 
@@ -558,7 +558,7 @@ status := state.UseDerived("cart-status", func() string {
     }
     return "Ready"
 }, "total")`,
-				"UseComputed is local to the current component, while UseDerived registers a shared read-only atom keyed by ID."),
+				"ui.UseMemo computes a render-local derived value (preferred; state.UseComputed is its deprecated predecessor), while UseDerived registers a shared read-only atom keyed by ID."),
 		),
 	)
 }

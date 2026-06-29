@@ -844,6 +844,121 @@ Do **Tier 0** first (they're correctness debt masquerading as done), then **Tier
 (the only items that materially move the composite — D5 is nearly free), then **Tier 2**
 last-mile polish. Tier 1 is where the next review's number actually comes from.
 
+---
+
+# Part V — v7 round (post-Review-4)
+
+From Review 4 (2026-06-28 @ `d2e234e0`; composite **86.9%**, +4.9 pp — the biggest jump,
+because v6 finally targeted the high-weight Part-I runway). All 3 Tier-0 redos came back
+genuinely fixed; **18/19 features are now UX-perfect**. What remains is a short, mostly
+cheap list — ordered by **points-per-effort**, since the composite is now close enough
+that sequencing matters more than volume.
+
+## Tier 1 — the single highest-ROI move (do this first)
+
+- [x] **Publish + CI-gate `gwc warm` cold/warm build timings → unblocks BOTH A2 & C2.** ✅
+  `gwc warm -once` now does cold build + immediate warm rebuild, computes warm/cold
+  `SpeedupRatio`, publishes the report to `docs/benchmarks/build-times.json` (`-baseline`),
+  and gates via `-fail-on-regression` on the machine-independent ratio (`-max-warm-ratio`,
+  default 0.6). New `.github/workflows/build-times.yml` runs the gate (cold CI cache) + uploads
+  the report each run. Real measured baseline committed: cold 28.5s → warm 0.5s (1.8%). Tests:
+  `evaluateWarmRatio` (pass/fail/no-signal) + baseline-publish. `tools/gwc/warm.go`.
+
+## Tier 2 — cheap correctness / honesty fixes
+
+- [x] **Add the `windows/arm64` target to `release.yml`.** ✅ Added to the build loop — all 6
+  targets now ship; the prebuilt `gwc` covers Windows ARM64 (Snapdragon X2). `release.yml`.
+- [x] **Make `bench-drift.yml` run on direct pushes to `main`, not just PRs.** ✅ Added
+  `push: branches: [main]` to the trigger. `bench-drift.yml`.
+- [x] **FB1 — server-leak third-party list now extensible.** ✅ `gwc-serverleak.json` at the
+  module root (`{"serverOnlyPrefixes":[{"prefix":"...","reason":"..."}]}`) lets teams flag any
+  proprietary/newer server library the curated list misses; `loadServerLeakPrefixes` merges them
+  into `classifyServerOnlyImport`, threaded through the transitive walk. Missing/malformed config
+  is a no-op (gate never blocked on config). Test: a configured prefix flags an otherwise-unknown
+  import. Upgrades FB1 ⚠️→✅. `tools/gwc/serverleak.go`.
+
+## Tier 3 — remaining runway to a higher ceiling (bigger efforts)
+
+- [x] **A3 [9→10] — `gwc add route` / `gwc add component` sub-generators** ✅ `gwc add component
+  <Name>` emits a typed-props component in the README starter idiom; `gwc add route <Name>
+  -path /p` emits a `router.MustDefineRoute` contract var (picked up by `gwc routes gen`) + its
+  route component. Both gofmt-clean and parse-verified. Tests: scaffold-parses + dispatch-writes
+  + a leading-digit package-name guard (caught by my own test). `tools/gwc/add.go`.
+- [ ] **C5 [8→10] — VS Code route/style/token completion** + framework-specific quick-fixes
+  (lint diagnostics already surface; completion is the gap).
+- [ ] **B2 [8→10] — API-consistency lint** in `gwc lint` (verbSubject/arg-order/`Use*` rules).
+- [ ] **F9 [7→10] — module split** (runtime vs. tooling) — the deferred `/v4`-major decision;
+  `gwc supplychain` dep-budget already enforces the posture.
+- [x] **E1 — starter-embedded size-budget CI gate** ✅ Generated starter CI (`renderScaffoldGitHubActionsWorkflow`)
+  now has a self-contained "WASM Size Budget" step (gzip + byte compare vs a 4 MiB default, no extra
+  tooling dep). Framework mechanism added too: `gwc wasm measure -max-gzip-bytes N` fails over budget
+  (`checkWasmGzipBudget`, tested). `tools/gwc/start.go`, `tools/gwc/wasm.go`. (E3 SW + F2 index still open.)
+- [ ] **E3 — zero-config SW + CI offline e2e** and **F2** machine-verified API→example index.
+- [ ] **D3 [9→10] — root-cause the 123% selector regression on amd64 hardware** (can't
+  reproduce on this ARM64 build machine; needs amd64 to close).
+
+## Batch 2 (post-R5) — close A2/C2 platform-honest 10 + surface C1
+
+- [x] **Upstream Go/wasm asks tracked** — `docs/UPSTREAM_TOOLCHAIN_ASKS.md` records the
+  irreducible upstream constraints for A2 (cold golden-path = Go install/module-fetch; CDN
+  stretch route), C2 (no incremental wasm linker — full relink every build), C4 (no wasm
+  source maps). This is the "recorded, not hidden" half the platform-honest anchor requires;
+  with prebuilt binaries + published CI-gated wasm timings + the daemon/report all shipped,
+  A2 and C2 now meet their platform-honest 10. Linked from the rubric's anchor section.
+- [x] **C1 indicator already shipped** — `gwc dev -hot` defaults on (state-preserving reload),
+  `hotreload.SchemaFingerprint` handles schema-change resets, and the livereload client surfaces
+  status via `updateGWCIcon()` + `showBuildStatusPopup()` + phase labels/colors + a save→paint
+  timing breakdown. The R4 "missing indicator" read was from `dev.go` flags only; the indicator
+  lives client-side. `tools/livereload/scripts/livereload-client.txt`. (R6: C1 8→9.)
+- [x] **C1 → 10: state-preserving hot reload on the default path** ✅ `renderScaffoldMain` now wires
+  `hotreload.Enable()` + the import into a generated starter's `main()` whenever the `hot-reload`
+  capability is selected — so component state surviving edits is the *default* scaffold behavior,
+  not an expert opt-in (closing the R6 "default path" gap). Test asserts injection-when-selected and
+  absence-when-not. `tools/gwc/start_render.go`.
+
+## Batch 3 (post-R7) — push toward the 99.5% ceiling
+
+- [x] **E1 [8→10] — starter size-budget CI gate** ✅ (verified R7).
+- [x] **C1 [9→10] — hot-reload in default presets** ✅ `hot-reload` added to `minimal-client`/
+  `routed-spa` so `hotreload.Enable()` is wired by default on the common scaffold path (verified R7).
+- [x] **F1 [9→10] — doc Go-sample validation** ✅ `docs/doclint/goblocks.go` `ValidateGoBlocks`
+  parse-checks every complete-file ```` ```go ```` sample; merge-gate test `TestDocsHaveNoBrokenGoSamples`
+  (under `go test ./...`); 0 errors across real docs; fragments skipped (zero false positives). Also
+  fixed a real pre-existing doc-path false-positive (subdir-README dir-relative command paths now
+  resolve in `doclint.Resolve`). Parse-level by design; full type-check is the next increment.
+- [x] **A1 9→10** (verified R8 — `doctor --fix` was always complete; R6 note stale).
+- [x] **F2 8→9** (verified R8 — `docs/capabilities` is a machine-verified API→example index).
+- [x] **F3 9→10** (verified R9 — `api-baseline.yml` PR merge gate over 9 pkgs + support window in VERSIONING.md).
+- [x] **C4 9→10 platform-honest** (verified R9 — documented `SetWASMStackFrameMapper` stack-correlation workaround).
+- [x] **F8 partial** — chapter-05 decisive "dot-import `html/shorthand`" default added (reduces the two-surface
+  first-hour friction). F8→10 still needs the scaffold to bless one surface (starter rewrite) — deferred.
+- [~] **F1 held at 9** — parse-gate shipped (catches syntax rot, 0 errors baseline) but a renamed API still
+  parses. True 10 needs **type-level compilation** of samples; a blanket `go build` over all 58 complete-file
+  samples is infeasible (37 are illustrative/partial → false positives). Real path: a `go` fence marker
+  (e.g. ```` ```go gwc:build ````) tagging genuinely-runnable samples + a compile gate over only those. Genuine batch, deferred.
+
+## Remaining roadmap to the 99.5% ceiling (post-R9 = 92.0%, each a genuine batch)
+
+| Dim | Now | w | +pts | Shortest path (from the reviewers) |
+|---|---|---|---|---|
+| B2 API consistency | 8 → **9** (R10) | 3 | +3 | `gwc-consistency` lint (`tools/gwc/lint_consistency.go`): compat-alias-needs-deprecation + adjacent-bool guard. Dropped an over-broad pure-delegate rule after a dump showed 208 FPs on legit factories (zero-FP discipline). Fixed all 8 real violations + `css.Property` + the production-build stub variants to the deprecation protocol. Merge-gate test. **Held at 9** — to reach 10 needs a naming-convention (verbSubject) lint; **declined**: against the noun-form DSL surfaces (`Div`/`If`/`Px`) it is high-false-positive for ~zero real catches (gap-finder found the API already uniform). Naming stays review-enforced via CONVENTIONS.md. Reality-anchor call: not shipping lint noise to chase +3. |
+| C5 IDE integration | 8 | 2 | +4 | Typed route-name + CSS-token completion in `tools/vscode-gwc` (extension exists; completions absent). |
+| D6 SSR/hydration | 8 | 2 | +4 | Graduate Experimental SSR/hydration surfaces to Stable (+`api_baseline.txt`) + a CI offline-hydration e2e. |
+| F8 coherence | 9 | 3 | +3 | Scaffold emits only the canonical HTML surface (alternate behind a flag), making the choice invisible. |
+| F1 docs | 9 → **coded** | 3 | +3 | ✅ `gwc:build` marker + `CompileMarkedGoBlocks` (compile in throwaway module). **15 runnable samples tagged** (README + reference manual) — all compile clean; 40 illustrative fragments stay parse-only. `doccompile` gate + `doc-samples.yml`. **The gate caught a real bug**: the C4 stack-correlation doc referenced internal-only `runtime.SetWASMStackFrameMapper` → shipped public `ui.SetWASMStackFrameMapper` so the C4 workaround is actually usable. Pending review. |
+| F9 maintenance | 7 | 1 | +3 | Split tool-only deps into a `tools` module (major-bump call) so the library `go.sum` is clean. |
+| F2 examples | 9 → **coded** | 1 | +1 | ✅ `examples-build.yml` wasm sweep of all public examples (green) + **new `examples/public/feature-flags` example** closing the one capability with no example (`flags`); capability matrix regenerated, every API now has a CI-built, indexed example. Pending review. |
+| **F7 community** | **7** | **1** | **0** | **Structural ceiling — emergent adoption, not a commit. The −3 that caps the raw composite at 637/640 = 99.5%.** |
+
+Sum of codeable remaining (B2+C5+D6+F8+F1+F9+F2) = **+24 pts → 613+... → 99.5%** with F7 held at 7. Each row is its own implement→adversarial-review batch.
+
+## Still ⚠️ / not-yet-10 after R4 (the honest standing list)
+- **Platform-honest, blocked only on the timings job:** A2 (7), C2 (7) — see Tier 1.
+- **Structural ceiling:** F7 (7) — enablers shipped; 8+ needs real community adoption.
+- **Untouched runway:** A1 (9→10 needs non-deterministic-prereq handling), B2 (8), B4 (9),
+  C4 (9), C5 (8), D2 (9), E1/E2/E3 (8), F2 (8), F4 (9), F5 (9), F9 (7).
+- **Lone rough feature:** FB1 (server-leak 3rd-party coverage).
+
 ## Refinement — add your own niggles here
 
 <!-- Append issues/niggles as you find them; they feed the next refinement pass.

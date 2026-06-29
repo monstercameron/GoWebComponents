@@ -2,6 +2,7 @@ package devtools
 
 import "time"
 
+// Severity ranks a devtools Diagnostic from informational to error.
 type Severity string
 
 const (
@@ -10,6 +11,7 @@ const (
 	SeverityError   Severity = "error"
 )
 
+// Classification is the category label grouping related diagnostics and logs.
 type Classification string
 
 // Diagnostic describes a runtime diagnostic entry surfaced in devtools.
@@ -30,8 +32,10 @@ type Diagnostic struct {
 	Fields         map[string]string
 }
 
+// LogLevel is the verbosity level of a captured devtools Log entry.
 type LogLevel string
 
+// Log is one captured runtime log entry surfaced in devtools.
 type Log struct {
 	Domain         string
 	Level          LogLevel
@@ -95,6 +99,7 @@ type Branch struct {
 	SubtreeDurationNs int64
 }
 
+// ProfilingPhaseTotals sums per-phase durations (render/diff/commit/effect/cleanup) in nanoseconds.
 type ProfilingPhaseTotals struct {
 	RenderDurationNs  int64
 	DiffDurationNs    int64
@@ -103,6 +108,7 @@ type ProfilingPhaseTotals struct {
 	CleanupDurationNs int64
 }
 
+// ProfilingEvent is one timed event captured during profiling (a phase on a target).
 type ProfilingEvent struct {
 	Domain        string
 	Name          string
@@ -114,6 +120,7 @@ type ProfilingEvent struct {
 	Fields        map[string]string
 }
 
+// ComponentRenderTrace aggregates render/rerender counts and durations for one component.
 type ComponentRenderTrace struct {
 	Name                    string
 	Path                    string
@@ -127,6 +134,7 @@ type ComponentRenderTrace struct {
 	TriggerCounts           map[string]int
 }
 
+// FlamegraphFrame is one node in a render-timeline flamegraph (offset, depth, durations).
 type FlamegraphFrame struct {
 	Name              string
 	Kind              string
@@ -142,6 +150,7 @@ type FlamegraphFrame struct {
 	CleanupDurationNs int64
 }
 
+// StartupProfiling captures one-time app startup timings (bootstrap, transfer, hydration, first interaction).
 type StartupProfiling struct {
 	Mode                       string
 	StartedAt                  string
@@ -160,6 +169,7 @@ type StartupProfiling struct {
 	RouteBudgets               []RouteStartupBudget
 }
 
+// RouteStartupBudget holds averaged startup timings per route family for budget tracking.
 type RouteStartupBudget struct {
 	RouteFamily                       string
 	LastRoutePath                     string
@@ -176,6 +186,7 @@ type RouteStartupBudget struct {
 	AverageFirstInteractionDurationNs int64
 }
 
+// HydrationDebug records the outcome of a client hydration pass (mismatches, fallbacks, failures).
 type HydrationDebug struct {
 	CorrelationID        string
 	StartedAt            string
@@ -191,10 +202,12 @@ type HydrationDebug struct {
 	RecentMessages       []string
 }
 
+// BoundaryInspection is the set of inspected client/server data boundaries.
 type BoundaryInspection struct {
 	Entries []Boundary
 }
 
+// Boundary describes one client/server data boundary crossing (transport, encoding, size, status).
 type Boundary struct {
 	Name          string
 	Kind          string
@@ -214,6 +227,7 @@ type Boundary struct {
 	Rejected      []string
 }
 
+// Coordination aggregates worker, sync, replay, reconnect, and conflict state for offline/realtime debugging.
 type Coordination struct {
 	Workers         []WorkerJob
 	SyncEvents      []SyncEvent
@@ -225,6 +239,7 @@ type Coordination struct {
 	LastReplayError string
 }
 
+// WorkerJob describes one web-worker job and its lifecycle status.
 type WorkerJob struct {
 	Name        string
 	URL         string
@@ -240,6 +255,7 @@ type WorkerJob struct {
 	Correlation string
 }
 
+// SyncEvent is one realtime sync channel event (publish/receive on a topic).
 type SyncEvent struct {
 	Channel     string
 	Transport   string
@@ -252,6 +268,7 @@ type SyncEvent struct {
 	Timestamp   time.Time
 }
 
+// ReplayEntry is one queued offline mutation awaiting or undergoing replay.
 type ReplayEntry struct {
 	ID            string
 	Kind          string
@@ -266,6 +283,7 @@ type ReplayEntry struct {
 	UpdatedAt     time.Time
 }
 
+// SyncQueueEntry is one entity operation pending in the offline sync queue.
 type SyncQueueEntry struct {
 	ID          string
 	Entity      string
@@ -280,6 +298,7 @@ type SyncQueueEntry struct {
 	UpdatedAt   time.Time
 }
 
+// SyncHealthEntry reports per-entity sync health (pending ops, version, last sync).
 type SyncHealthEntry struct {
 	Entity     string
 	Owner      string
@@ -290,6 +309,7 @@ type SyncHealthEntry struct {
 	LastError  string
 }
 
+// ReconnectStatus describes the current realtime reconnect/backoff state.
 type ReconnectStatus struct {
 	State       string
 	Transport   string
@@ -300,6 +320,7 @@ type ReconnectStatus struct {
 	IsConnected bool
 }
 
+// ConflictState describes an entity's current sync-conflict status and resolution strategy.
 type ConflictState struct {
 	Entity     string
 	Owner      string
@@ -309,6 +330,7 @@ type ConflictState struct {
 	LastError  string
 }
 
+// ExtensionSection is a named block of extra summary lines contributed by a devtools extension.
 type ExtensionSection struct {
 	Name    string
 	Summary map[string]string

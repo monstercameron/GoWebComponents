@@ -1,49 +1,53 @@
 // Package fetch provides data loading utilities for GoWebComponents.
 //
-// The package exposes two public hook styles:
-//   - UseFetch for low-level fetch state around a URL and browser-style refetching
+// The package exposes these public hook styles:
 //   - UseResource for typed, context-aware async loading in non-trivial components
 //   - UseCachedResource for shared cached async state with deduplication and invalidation
 //   - UseQuery and UseInfiniteQuery for tag-aware cache invalidation,
 //     paginated data, and optimistic rollback helpers
 //   - UseWebSocket and UseEventSource for bounded browser realtime streams
 //   - OpenMutationQueue for durable offline write replay in browser storage
+//   - UseFetch (deprecated) for low-level raw fetch state around a URL
 //
-// UseResource is the preferred choice when callers want typed results,
-// cancellation, dependency-driven reloads, or loader logic that does more than
-// a single raw fetch call. UseFetch remains useful when callers explicitly want
-// the raw fetch state and response payload without introducing a typed loader.
+// UseResource is the preferred choice in nearly all cases: it gives typed results,
+// cancellation, dependency-driven reloads, and loader logic beyond a single raw
+// fetch call. UseFetch is deprecated — prefer UseResource (or ui.UseQuery for
+// cached, tag-invalidated data); it remains only for legacy callers.
 //
 // Basic usage:
 //
-//	import "github.com/monstercameron/GoWebComponents/fetch"
+//	import (
+//	    "context"
+//
+//	    "github.com/monstercameron/GoWebComponents/fetch"
+//	)
 //
 //	func UserList() ui.Node {
-//	    resource := fetch.UseFetch("/api/users")
+//	    resource := fetch.UseResource(func(ctx context.Context) (string, error) {
+//	        return fetchUsers(ctx) // your typed loader
+//	    })
 //	    state := resource.Get()
 //
 //	    if state.Loading {
 //	        return html.Div(html.Props{}, html.P(html.Props{}, html.Text("Loading...")))
 //	    }
 //
-//	    if state.Error != "" {
-//	        return html.Div(html.Props{}, html.P(html.Props{}, html.Text("Error: "+state.Error)))
+//	    if state.Err != nil {
+//	        return html.Div(html.Props{}, html.P(html.Props{}, html.Text("Error: "+state.Err.Error())))
 //	    }
 //
-//	    users := state.Data.(string) // Parse JSON or use as needed
 //	    refresh := ui.UseEvent(func() {
-//	        resource.Refetch()
+//	        resource.Reload()
 //	    })
 //	    return html.Div(html.Props{},
 //	        html.H1(html.Props{}, html.Text("Users")),
-//	        html.Pre(html.Props{}, html.Text(users)),
+//	        html.Pre(html.Props{}, html.Text(state.Data)),
 //	        html.Button(html.Props{OnClick: refresh}, html.Text("Refresh")),
 //	    )
 //	}
 //
 // Available functions:
 //
-//   - UseFetch: Hook for manual raw fetch state management via a handle
 //   - UseResource: Typed async resource hook for context-aware loaders
 //   - UseCachedResource: Shared typed cache hook with stale-while-revalidate behavior
 //   - UseQuery: Tag-aware cached query hook with optimistic rollback helpers
@@ -53,8 +57,9 @@
 //   - UseEventSource: Bounded EventSource hook with reconnect, backoff, and heartbeat timeout tracking
 //   - OpenMutationQueue: Durable queued write storage plus replay helpers for offline workflows
 //   - Fetch: Low-level fetch function returning a channel for manual control
+//   - UseFetch (deprecated): Raw fetch state hook — prefer UseResource
 //
-// The UseFetch hook:
+// The UseFetch hook (deprecated — prefer UseResource):
 //   - Manages loading, error, and raw response data states
 //   - Returns a handle with Get and Refetch methods
 //   - Leaves response parsing and higher-level orchestration under caller control

@@ -23,6 +23,10 @@ type RouteQueryProvider interface {
 }
 
 // RouteContract stores a validated route pattern together with reverse-routing helpers.
+//
+// The zero value is NOT valid: Path() and Href() on an uninitialized RouteContract
+// return a "route contract is not initialized" error. Always construct one with
+// DefineRoute (returns an error) or MustDefineRoute (panics on a bad pattern).
 type RouteContract struct {
 	pattern    string
 	segments   []routeContractSegment
@@ -202,10 +206,10 @@ func (parseC RouteContract) MustHrefFor(parseParams RouteParamsProvider, parseQu
 
 // validateParams is a core package helper.
 func (parseC RouteContract) validateParams(parseParams map[string]string) error {
-	if len(parseParams) == 0 || len(parseC.paramNames) == 0 {
-		if len(parseParams) == 0 {
-			return nil
-		}
+	// No supplied params is always valid. If params ARE supplied but the route declares
+	// none, they all fall through below as "extra" and are rejected.
+	if len(parseParams) == 0 {
+		return nil
 	}
 
 	parseAllowed := map[string]struct{}{}

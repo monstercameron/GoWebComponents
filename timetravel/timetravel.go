@@ -142,3 +142,14 @@ func (parseH *History[T]) Labels() []string {
 	}
 	return parseLabels
 }
+
+// Snapshots returns a copy of every retained snapshot (label + state) in order, WITHOUT moving the
+// cursor — so a devtools panel or undo-list UI can read the whole timeline at once instead of
+// looping ScrubTo (which mutates the cursor). The returned slice is a copy; mutating it is safe.
+func (parseH *History[T]) Snapshots() []Snapshot[T] {
+	parseH.mu.Lock()
+	defer parseH.mu.Unlock()
+	parseOut := make([]Snapshot[T], len(parseH.entries))
+	copy(parseOut, parseH.entries)
+	return parseOut
+}

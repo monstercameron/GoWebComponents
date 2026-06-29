@@ -2,6 +2,8 @@
 
 package hotreload
 
+import "github.com/monstercameron/GoWebComponents/deprecation"
+
 // Configure is unavailable on non-browser builds.
 func Configure(parseConfig Config) {
 	_ = parseConfig
@@ -13,8 +15,13 @@ func Disable() {}
 // Enabled always reports false on non-browser builds.
 func Enabled() bool { return false }
 
-// IsEnabled is a compatibility wrapper around Enabled.
-func IsEnabled() bool { return Enabled() }
+// IsEnabled reports whether hot reload is enabled.
+//
+// Deprecated: use Enabled.
+func IsEnabled() bool {
+	deprecation.Warn("hotreload.IsEnabled", "hotreload.Enabled")
+	return Enabled()
+}
 
 // GetSnapshot returns an empty payload on non-browser builds.
 func GetSnapshot() (string, error) { return "", nil }

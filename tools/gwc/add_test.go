@@ -37,6 +37,81 @@ func TestEveryCatalogComponentRendersValidGo(parseT *testing.T) {
 }
 
 // TestComponentRegistryTemplatesEmbedAndCompileMarkers proves every catalog entry has an
+// TestScaffoldComponentGeneratesValidGo proves `gwc add component <Name>` emits parseable,
+// idiomatic Go: a typed FooProps struct and a Foo(props FooProps) ui.Node component.
+func TestScaffoldComponentGeneratesValidGo(parseT *testing.T) {
+	parseSource, parseErr := scaffoldComponentSource("widgets", "Foo")
+	if parseErr != nil {
+		parseT.Fatalf("scaffoldComponentSource: %v", parseErr)
+	}
+	if _, parseErr := parser.ParseFile(token.NewFileSet(), "foo.go", parseSource, parser.AllErrors); parseErr != nil {
+		parseT.Fatalf("generated component does not parse: %v\n%s", parseErr, parseSource)
+	}
+	for _, parseWant := range []string{"package widgets", "type FooProps struct", "func Foo(props FooProps) ui.Node", "ui.UseState(0)"} {
+		if !strings.Contains(parseSource, parseWant) {
+			parseT.Fatalf("generated component missing %q:\n%s", parseWant, parseSource)
+		}
+	}
+}
+
+// TestScaffoldRouteGeneratesValidGo proves `gwc add route <Name> -path /p` emits parseable Go
+// with a route contract var (which `gwc routes gen` will pick up) and its route component.
+func TestScaffoldRouteGeneratesValidGo(parseT *testing.T) {
+	parseSource, parseErr := scaffoldRouteSource("routes", "UserDetail", "/users/:id")
+	if parseErr != nil {
+		parseT.Fatalf("scaffoldRouteSource: %v", parseErr)
+	}
+	if _, parseErr := parser.ParseFile(token.NewFileSet(), "userdetail.go", parseSource, parser.AllErrors); parseErr != nil {
+		parseT.Fatalf("generated route does not parse: %v\n%s", parseErr, parseSource)
+	}
+	for _, parseWant := range []string{`var UserDetailRoute = router.MustDefineRoute("/users/:id")`, "func UserDetail() ui.Node"} {
+		if !strings.Contains(parseSource, parseWant) {
+			parseT.Fatalf("generated route missing %q:\n%s", parseWant, parseSource)
+		}
+	}
+}
+
+// TestRunAddGeneratorWritesFiles proves the generator dispatch writes the file to disk under the
+// chosen directory with the lower-cased entity filename.
+func TestRunAddGeneratorWritesFiles(parseT *testing.T) {
+	parseDir := parseT.TempDir()
+	parseLauncher := launcher{}
+	if parseErr := parseLauncher.runAdd([]string{"component", "Foo", "-dir", parseDir, "-pkg", "widgets"}); parseErr != nil {
+		parseT.Fatalf("gwc add component: %v", parseErr)
+	}
+	if _, parseErr := os.Stat(filepath.Join(parseDir, "foo.go")); parseErr != nil {
+		parseT.Fatalf("expected foo.go written: %v", parseErr)
+	}
+	if parseErr := parseLauncher.runAdd([]string{"route", "UserDetail", "-path", "/users/:id", "-dir", parseDir}); parseErr != nil {
+		parseT.Fatalf("gwc add route: %v", parseErr)
+	}
+	if _, parseErr := os.Stat(filepath.Join(parseDir, "userdetail.go")); parseErr != nil {
+		parseT.Fatalf("expected userdetail.go written: %v", parseErr)
+	}
+}
+
+// TestValidPackageName proves the package-name fallback: a base starting with a digit (e.g. a
+// temp-dir segment "001" or "2fa") or an empty base is not a legal Go identifier, so it falls
+// back to the default; a normal base is lower-cased and kept.
+func TestValidPackageName(parseT *testing.T) {
+	parseCases := []struct {
+		base     string
+		fallback string
+		want     string
+	}{
+		{"2fa", "routes", "routes"},
+		{"001", "components", "components"},
+		{"", "routes", "routes"},
+		{"MyRoutes", "routes", "myroutes"},
+		{"widgets", "components", "widgets"},
+	}
+	for _, parseCase := range parseCases {
+		if parseGot := validPackageName(parseCase.base, parseCase.fallback); parseGot != parseCase.want {
+			parseT.Fatalf("validPackageName(%q, %q) = %q, want %q", parseCase.base, parseCase.fallback, parseGot, parseCase.want)
+		}
+	}
+}
+
 // embedded template that is non-empty and declares the catalog package (a smoke check that
 // the embed paths are correct; the templates themselves compile as tools/gwc/templates).
 func TestComponentRegistryTemplatesEmbed(parseT *testing.T) {

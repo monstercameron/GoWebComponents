@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"go/build/constraint"
 	"go/parser"
 	"go/token"
@@ -27,15 +28,21 @@ var serverOnlyImports = map[string]string{
 	"os/signal":     "OS signal handling is server-only",
 }
 
+// serverPrefixRule classifies a THIRD-PARTY import-path prefix as server-side. Built-in rules
+// cover the well-known SDKs; projects extend the set via a gwc-serverleak.json config so a
+// proprietary or newer server library not in the curated list is still caught.
+type serverPrefixRule struct {
+	Prefix string `json:"prefix"`
+	Reason string `json:"reason"`
+}
+
 // serverOnlyPrefixes classify THIRD-PARTY import paths that are unmistakably server-side —
 // databases, RPC servers, cloud SDKs, container/orchestration clients. The previous analyzer
 // only knew six stdlib packages, so a `gorm.io/gorm` or `google.golang.org/grpc` import in a
 // browser file passed silently; matching by well-known prefix closes that gap. Each entry is a
-// path prefix (matched on a package-path boundary) mapped to a human reason.
-var serverOnlyPrefixes = []struct {
-	Prefix string
-	Reason string
-}{
+// path prefix (matched on a package-path boundary) mapped to a human reason. Teams add their own
+// via gwc-serverleak.json (see loadServerLeakPrefixes) so the curated list is never the ceiling.
+var serverOnlyPrefixes = []serverPrefixRule{
 	{"gorm.io/", "GORM is a server-side ORM"},
 	{"google.golang.org/grpc", "gRPC servers/clients are server-side"},
 	{"github.com/aws/aws-sdk-go", "the AWS SDK is a server-side cloud client"},
@@ -56,19 +63,49 @@ var serverOnlyPrefixes = []struct {
 }
 
 // classifyServerOnlyImport reports whether an import path is server-only (and why), matching
-// the curated stdlib set first and then the third-party server-package prefixes. The boundary
-// check on prefixes avoids matching a path that merely shares a leading substring.
-func classifyServerOnlyImport(parseImportPath string) (string, bool) {
+// the curated stdlib set first, then the built-in third-party prefixes, then any project-supplied
+// prefixes from gwc-serverleak.json. The boundary check on prefixes avoids matching a path that
+// merely shares a leading substring.
+func classifyServerOnlyImport(parseImportPath string, parseExtra []serverPrefixRule) (string, bool) {
 	if parseReason, parseBad := serverOnlyImports[parseImportPath]; parseBad {
 		return parseReason, true
 	}
-	for _, parseEntry := range serverOnlyPrefixes {
+	for _, parseEntry := range append(append([]serverPrefixRule(nil), serverOnlyPrefixes...), parseExtra...) {
+		if parseEntry.Prefix == "" {
+			continue
+		}
 		if parseImportPath == parseEntry.Prefix ||
 			strings.HasPrefix(parseImportPath, parseEntry.Prefix) && (strings.HasSuffix(parseEntry.Prefix, "/") || importPathHasPrefix(parseImportPath, parseEntry.Prefix)) {
-			return parseEntry.Reason, true
+			parseReason := parseEntry.Reason
+			if parseReason == "" {
+				parseReason = "configured server-only package (gwc-serverleak.json)"
+			}
+			return parseReason, true
 		}
 	}
 	return "", false
+}
+
+// loadServerLeakPrefixes reads optional project-supplied server-only prefixes from
+// gwc-serverleak.json at the module root, e.g. {"serverOnlyPrefixes":[{"prefix":
+// "github.com/acme/internal-db","reason":"internal DB client"}]}. A missing or malformed file
+// yields no extra rules (the analyzer still applies the built-in set), so the gate is never
+// blocked on config. This makes the third-party coverage extensible rather than a fixed ceiling.
+func loadServerLeakPrefixes(parseModuleRoot string) []serverPrefixRule {
+	if parseModuleRoot == "" {
+		return nil
+	}
+	parseData, parseErr := os.ReadFile(filepath.Join(parseModuleRoot, "gwc-serverleak.json"))
+	if parseErr != nil {
+		return nil
+	}
+	var parseConfig struct {
+		ServerOnlyPrefixes []serverPrefixRule `json:"serverOnlyPrefixes"`
+	}
+	if parseErr := json.Unmarshal(parseData, &parseConfig); parseErr != nil {
+		return nil
+	}
+	return parseConfig.ServerOnlyPrefixes
 }
 
 // importPathHasPrefix reports whether parsePath is parsePrefix or a subpackage of it, treating
@@ -104,6 +141,7 @@ type leakedImport struct {
 func collectServerLeakDiagnostics(parseRootPath string) []agenticDiagnostic {
 	parseModuleRoot, parseModulePath := findModule(parseRootPath)
 	parseGraph := buildModulePackageGraph(parseModuleRoot, parseModulePath)
+	parseExtraPrefixes := loadServerLeakPrefixes(parseModuleRoot)
 
 	parseDiagnostics := []agenticDiagnostic{}
 	parseFset := token.NewFileSet()
@@ -136,7 +174,7 @@ func collectServerLeakDiagnostics(parseRootPath string) []agenticDiagnostic {
 			parsePos := parseFset.Position(parseImport.Pos())
 			parseRel := relativeSlashPath(parseRootPath, parsePath)
 			parseEdits := serverLeakFixEdits(parsePath, parseRel)
-			for _, parseLeak := range resolveImportLeaks(parseImportPath, parseGraph) {
+			for _, parseLeak := range resolveImportLeaks(parseImportPath, parseGraph, parseExtraPrefixes) {
 				parseDiagnostics = append(parseDiagnostics, agenticDiagnostic{
 					Code:       "GWC-CHECK-SERVER-LEAK",
 					Severity:   "error",
@@ -206,8 +244,8 @@ func serverLeakMessage(parseLeak leakedImport) string {
 // resolveImportLeaks classifies a single import path reachable from a client file and returns
 // every server-only package it leads to: the import itself when it is server-only, or — when it
 // is a local package — the server-only packages found by walking that package transitively.
-func resolveImportLeaks(parseImportPath string, parseGraph map[string]*modulePackage) []leakedImport {
-	if parseReason, parseBad := classifyServerOnlyImport(parseImportPath); parseBad {
+func resolveImportLeaks(parseImportPath string, parseGraph map[string]*modulePackage, parseExtra []serverPrefixRule) []leakedImport {
+	if parseReason, parseBad := classifyServerOnlyImport(parseImportPath, parseExtra); parseBad {
 		return []leakedImport{{path: parseImportPath, reason: parseReason}}
 	}
 	parsePkg, parseLocal := parseGraph[parseImportPath]
@@ -222,20 +260,20 @@ func resolveImportLeaks(parseImportPath string, parseGraph map[string]*modulePac
 		}}
 	}
 	parseVisited := map[string]bool{parseImportPath: true}
-	return walkPackageLeaks(parseImportPath, parseGraph, parseVisited, []string{parseImportPath})
+	return walkPackageLeaks(parseImportPath, parseGraph, parseVisited, []string{parseImportPath}, parseExtra)
 }
 
 // walkPackageLeaks recurses through a local package's wasm-included imports, accumulating the
 // chain, and returns the server-only packages reachable from it. Visited packages are tracked
 // to terminate on import cycles.
-func walkPackageLeaks(parsePkgPath string, parseGraph map[string]*modulePackage, parseVisited map[string]bool, parseChain []string) []leakedImport {
+func walkPackageLeaks(parsePkgPath string, parseGraph map[string]*modulePackage, parseVisited map[string]bool, parseChain []string, parseExtra []serverPrefixRule) []leakedImport {
 	parsePkg := parseGraph[parsePkgPath]
 	if parsePkg == nil {
 		return nil
 	}
 	parseLeaks := []leakedImport{}
 	for _, parseImportPath := range parsePkg.wasmImports {
-		if parseReason, parseBad := classifyServerOnlyImport(parseImportPath); parseBad {
+		if parseReason, parseBad := classifyServerOnlyImport(parseImportPath, parseExtra); parseBad {
 			parseLeaks = append(parseLeaks, leakedImport{path: parseImportPath, reason: parseReason, chain: append([]string(nil), parseChain...)})
 			continue
 		}
@@ -252,7 +290,7 @@ func walkPackageLeaks(parsePkgPath string, parseGraph map[string]*modulePackage,
 			continue
 		}
 		parseVisited[parseImportPath] = true
-		parseLeaks = append(parseLeaks, walkPackageLeaks(parseImportPath, parseGraph, parseVisited, append(append([]string(nil), parseChain...), parseImportPath))...)
+		parseLeaks = append(parseLeaks, walkPackageLeaks(parseImportPath, parseGraph, parseVisited, append(append([]string(nil), parseChain...), parseImportPath), parseExtra)...)
 	}
 	return parseLeaks
 }

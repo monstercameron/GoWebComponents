@@ -130,7 +130,7 @@ func TestKeyframesEmitsAtRuleAndAnimationName(t *testing.T) {
 			css.At("from", css.Raw("transform", "rotate(0deg)")),
 			css.At("to", css.Raw("transform", "rotate(360deg)")),
 		),
-		css.Animation(css.RawLength("1s"), "linear"),
+		css.Animation(css.Ms(1000), css.Linear),
 	)
 	got := css.Harvest()
 	if !strings.Contains(got, "@keyframes spin-") {
@@ -139,7 +139,7 @@ func TestKeyframesEmitsAtRuleAndAnimationName(t *testing.T) {
 	if !strings.Contains(got, "animation-name:spin-") {
 		t.Fatalf("missing animation-name: %q", got)
 	}
-	if !strings.Contains(got, "animation-duration:1s") {
+	if !strings.Contains(got, "animation-duration:1000ms") {
 		t.Fatalf("missing animation-duration: %q", got)
 	}
 	_ = class
@@ -204,3 +204,28 @@ func TestCustomSinkReceivesEmissions(t *testing.T) {
 type sinkFunc func(class, cssText string)
 
 func (f sinkFunc) Emit(class, cssText string) { f(class, cssText) }
+
+// TestTypedVarConstructors proves the Var* siblings let a CSS custom property flow into typed
+// non-color positions (Length/Duration/Angle/Number) with the same sanitizing as Var, so callers
+// don't fall through to Raw(...). A name without the -- prefix is normalized; injection chars are stripped.
+func TestTypedVarConstructors(t *testing.T) {
+	if got := css.VarLength("--size"); got != css.Length("var(--size)") {
+		t.Fatalf("VarLength = %q, want var(--size)", got)
+	}
+	if got := css.VarDuration("speed"); got != css.Duration("var(--speed)") {
+		t.Fatalf("VarDuration (no prefix) = %q, want var(--speed)", got)
+	}
+	if got := css.VarAngle("--rot"); got != css.Angle("var(--rot)") {
+		t.Fatalf("VarAngle = %q, want var(--rot)", got)
+	}
+	if got := css.VarNumber("--n"); got != css.Number("var(--n)") {
+		t.Fatalf("VarNumber = %q, want var(--n)", got)
+	}
+	// Injection attempt is sanitized away, exactly like Var(Color).
+	if got := css.VarLength("x);}evil{"); got != css.Length("var(--xevil)") {
+		t.Fatalf("VarLength sanitize = %q, want var(--xevil)", got)
+	}
+	// Typed Var flows into a typed prop without Raw fallthrough (compile-checks).
+	_ = css.W(css.VarLength("--w"))
+	_ = css.FontSize(css.VarLength("--fs"))
+}

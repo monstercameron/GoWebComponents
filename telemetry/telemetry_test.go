@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -54,7 +55,7 @@ func TestExportOTLPHTTPPostsJSON(parseT *testing.T) {
 	}))
 	defer parseServer.Close()
 
-	parseErr := ExportOTLPHTTP(parseServer.Client(), parseServer.URL, []RUMEvent{{Name: "load", Type: "profile"}}, ExportOptions{})
+	parseErr := ExportOTLPHTTP(context.Background(), parseServer.Client(), parseServer.URL, []RUMEvent{{Name: "load", Type: "profile"}}, ExportOptions{})
 	if parseErr != nil {
 		parseT.Fatalf("ExportOTLPHTTP returned error: %v", parseErr)
 	}
@@ -136,12 +137,26 @@ func TestExportOTLPHTTPReportsErrorStatus(parseT *testing.T) {
 	}))
 	defer parseServer.Close()
 
-	parseErr := ExportOTLPHTTP(parseServer.Client(), parseServer.URL, []RUMEvent{{Name: "load"}}, ExportOptions{})
+	parseErr := ExportOTLPHTTP(context.Background(), parseServer.Client(), parseServer.URL, []RUMEvent{{Name: "load"}}, ExportOptions{})
 	parseHTTPError, parseOk := parseErr.(*HTTPStatusError)
 	if !parseOk || parseHTTPError.StatusCode != http.StatusBadGateway {
 		parseT.Fatalf("expected HTTPStatusError 502, got %#v", parseErr)
 	}
 	if parseHTTPError.Error() != "gwc telemetry export failed with HTTP status 502" {
 		parseT.Fatalf("unexpected error string: %q", parseHTTPError.Error())
+	}
+}
+
+// TestExportOTLPHTTPNilContextDefaults proves a nil ctx is tolerated (replaced with Background),
+// so the new context param can't make a previously-working call panic.
+func TestExportOTLPHTTPNilContextDefaults(parseT *testing.T) {
+	parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.WriteHeader(http.StatusAccepted)
+	}))
+	defer parseServer.Close()
+
+	//nolint:staticcheck // intentionally passing a nil context to exercise the guard.
+	if parseErr := ExportOTLPHTTP(nil, parseServer.Client(), parseServer.URL, []RUMEvent{{Name: "load"}}, ExportOptions{}); parseErr != nil {
+		parseT.Fatalf("nil ctx must default to Background, got error: %v", parseErr)
 	}
 }

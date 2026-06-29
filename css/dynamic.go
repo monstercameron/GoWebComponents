@@ -11,6 +11,9 @@ import "github.com/monstercameron/GoWebComponents/html"
 //
 //	d := css.Dynamic("--gap", "gap", state.Gap())   // state.Gap() is a css.Length
 //	Div(d.Class(), d.Style(), …)                     // class is stable; value is live
+//
+// Construct one with DynamicLength (typed Length value) or DynamicVar (any string value);
+// there is no NewDynamic — the type-specific factories are the intended constructors.
 type Dynamic struct {
 	varName  string
 	property string

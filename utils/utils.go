@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/deprecation"
 	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/interop"
 )
@@ -166,16 +167,18 @@ func WaitForever() {
 func GetDebugStatus() map[string]bool {
 	parseStatus := make(map[string]bool)
 	parseStatus["global"] = debugEnabled
-	parseStatus["hotReload"] = hotreload.IsEnabled()
+	parseStatus["hotReload"] = hotreload.Enabled()
 	for parseNs, parseEnabled := range debugNamespaces {
 		parseStatus[parseNs] = parseEnabled
 	}
 	return parseStatus
 }
 
-// EnableHotReload is a compatibility wrapper around the hotreload package.
-// New code should prefer hotreload.Enable() or hotreload.Disable().
+// EnableHotReload enables or disables hot reload.
+//
+// Deprecated: use hotreload.Enable / hotreload.Disable directly.
 func EnableHotReload(isEnabled bool) {
+	deprecation.Warn("utils.EnableHotReload", "hotreload.Enable/hotreload.Disable")
 	debugf("UTILS", "🔥 EnableHotReload: hot reload %s\n", map[bool]string{true: "enabled", false: "disabled"}[isEnabled])
 	if isEnabled {
 		hotreload.Enable()
@@ -184,15 +187,19 @@ func EnableHotReload(isEnabled bool) {
 	hotreload.Disable()
 }
 
-// IsHotReloadEnabled is a compatibility wrapper around hotreload.IsEnabled().
+// IsHotReloadEnabled reports whether hot reload is enabled.
+//
+// Deprecated: use hotreload.Enabled.
 func IsHotReloadEnabled() bool {
-	return hotreload.IsEnabled()
+	deprecation.Warn("utils.IsHotReloadEnabled", "hotreload.Enabled")
+	return hotreload.Enabled()
 }
 
-// InstallHotReloadBridge is a compatibility wrapper around
-// hotreload.Configure(hotreload.Config{AtomIDs: ...}).
-// New code should prefer the hotreload package directly.
+// InstallHotReloadBridge configures the hot reload bridge with the given atom IDs.
+//
+// Deprecated: use hotreload.Configure directly.
 func InstallHotReloadBridge(parseAtomIDs ...string) {
+	deprecation.Warn("utils.InstallHotReloadBridge", "hotreload.Configure")
 	hotreload.Configure(hotreload.Config{AtomIDs: parseAtomIDs})
 }
 

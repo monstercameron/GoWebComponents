@@ -86,13 +86,13 @@ func (parseL launcher) runInspect(parseArgs []string) error {
 	if parseErr != nil {
 		return parseErr
 	}
-	buildSummary := buildInspectSummary(parseConfig)
+	parseSummary := buildInspectSummary(parseConfig)
 	if parseConfig.json {
 		renderEncoder := json.NewEncoder(os.Stdout)
 		renderEncoder.SetIndent("", "  ")
-		return renderEncoder.Encode(buildSummary)
+		return renderEncoder.Encode(parseSummary)
 	}
-	renderInspectSummary(buildSummary)
+	renderInspectSummary(parseSummary)
 	return nil
 }
 
@@ -124,219 +124,219 @@ func parseInspectConfig(parseConfig inspectConfig) (inspectConfig, error) {
 }
 
 // buildInspectSummary collects route, dependency, ownership, and file-type reports.
-func buildInspectSummary(buildConfig inspectConfig) inspectSummary {
-	buildSummary := inspectSummary{
+func buildInspectSummary(parseConfig inspectConfig) inspectSummary {
+	parseSummary := inspectSummary{
 		OK:   true,
-		Root: buildConfig.rootPath,
+		Root: parseConfig.rootPath,
 	}
 
-	buildRoutes, buildRouteErr := buildInspectRoutes(buildConfig.rootPath)
-	if buildRouteErr != nil {
-		buildSummary.OK = false
-		buildSummary.Errors = append(buildSummary.Errors, fmt.Sprintf("routes: %v", buildRouteErr))
+	parseRoutes, parseRouteErr := buildInspectRoutes(parseConfig.rootPath)
+	if parseRouteErr != nil {
+		parseSummary.OK = false
+		parseSummary.Errors = append(parseSummary.Errors, fmt.Sprintf("routes: %v", parseRouteErr))
 	} else {
-		buildSummary.Routes = buildRoutes
+		parseSummary.Routes = parseRoutes
 	}
 
-	buildDependencies, buildDependencyErr := buildInspectDependencies(buildConfig.rootPath)
-	if buildDependencyErr != nil {
-		buildSummary.OK = false
-		buildSummary.Errors = append(buildSummary.Errors, fmt.Sprintf("dependencies: %v", buildDependencyErr))
+	parseDependencies, parseDependencyErr := buildInspectDependencies(parseConfig.rootPath)
+	if parseDependencyErr != nil {
+		parseSummary.OK = false
+		parseSummary.Errors = append(parseSummary.Errors, fmt.Sprintf("dependencies: %v", parseDependencyErr))
 	} else {
-		buildSummary.Dependencies = buildDependencies
+		parseSummary.Dependencies = parseDependencies
 	}
 
-	buildOwnership, buildOwnershipErr := buildInspectOwnership(buildConfig.rootPath)
-	if buildOwnershipErr != nil {
-		buildSummary.OK = false
-		buildSummary.Errors = append(buildSummary.Errors, fmt.Sprintf("ownership: %v", buildOwnershipErr))
+	parseOwnership, parseOwnershipErr := buildInspectOwnership(parseConfig.rootPath)
+	if parseOwnershipErr != nil {
+		parseSummary.OK = false
+		parseSummary.Errors = append(parseSummary.Errors, fmt.Sprintf("ownership: %v", parseOwnershipErr))
 	} else {
-		buildSummary.Ownership = buildOwnership
+		parseSummary.Ownership = parseOwnership
 	}
 
-	buildFileTypes, buildFileTypeErr := buildInspectFileTypes(buildConfig.rootPath)
-	if buildFileTypeErr != nil {
-		buildSummary.OK = false
-		buildSummary.Errors = append(buildSummary.Errors, fmt.Sprintf("file-types: %v", buildFileTypeErr))
+	parseFileTypes, parseFileTypeErr := buildInspectFileTypes(parseConfig.rootPath)
+	if parseFileTypeErr != nil {
+		parseSummary.OK = false
+		parseSummary.Errors = append(parseSummary.Errors, fmt.Sprintf("file-types: %v", parseFileTypeErr))
 	} else {
-		buildSummary.FileTypes = buildFileTypes
+		parseSummary.FileTypes = parseFileTypes
 	}
 
-	return buildSummary
+	return parseSummary
 }
 
 // buildInspectRoutes summarizes route registration and delivery shape signals.
-func buildInspectRoutes(buildRootPath string) (inspectRouteReport, error) {
-	buildFiles, buildErr := collectGoldenPathGoFiles(buildRootPath)
-	if buildErr != nil {
-		return inspectRouteReport{}, buildErr
+func buildInspectRoutes(parseRootPath string) (inspectRouteReport, error) {
+	parseFiles, parseErr := collectGoldenPathGoFiles(parseRootPath)
+	if parseErr != nil {
+		return inspectRouteReport{}, parseErr
 	}
-	buildReport := inspectRouteReport{}
-	buildRouteFiles := map[string]struct{}{}
-	for _, buildFile := range buildFiles {
-		buildHits := strings.Count(buildFile.Content, "MustDefineRoute(")
-		buildHits += strings.Count(buildFile.Content, "router.Register(")
-		if buildHits > 0 {
-			buildReport.Registrations += buildHits
-			buildRouteFiles[buildFile.RelPath] = struct{}{}
+	parseReport := inspectRouteReport{}
+	parseRouteFiles := map[string]struct{}{}
+	for _, parseFile := range parseFiles {
+		parseHits := strings.Count(parseFile.Content, "MustDefineRoute(")
+		parseHits += strings.Count(parseFile.Content, "router.Register(")
+		if parseHits > 0 {
+			parseReport.Registrations += parseHits
+			parseRouteFiles[parseFile.RelPath] = struct{}{}
 		}
-		if strings.Contains(buildFile.Content, "ui.Lazy(") || strings.Contains(buildFile.Content, "ui.CreateElement(ui.Lazy") {
-			buildReport.HasLazySplit = true
+		if strings.Contains(parseFile.Content, "ui.Lazy(") || strings.Contains(parseFile.Content, "ui.CreateElement(ui.Lazy") {
+			parseReport.HasLazySplit = true
 		}
-		buildLowered := strings.ToLower(buildFile.Content)
-		if strings.Contains(buildLowered, "prerender") || strings.Contains(buildLowered, "static shell") {
-			buildReport.HasPrerenderHint = true
+		parseLowered := strings.ToLower(parseFile.Content)
+		if strings.Contains(parseLowered, "prerender") || strings.Contains(parseLowered, "static shell") {
+			parseReport.HasPrerenderHint = true
 		}
-		if strings.Contains(buildFile.Content, `"/pricing"`) ||
-			strings.Contains(buildFile.Content, `"/capabilities"`) ||
-			strings.Contains(buildFile.Content, `"/about"`) ||
-			strings.Contains(buildFile.Content, `"/docs"`) {
-			buildReport.HasMarketingRoute = true
+		if strings.Contains(parseFile.Content, `"/pricing"`) ||
+			strings.Contains(parseFile.Content, `"/capabilities"`) ||
+			strings.Contains(parseFile.Content, `"/about"`) ||
+			strings.Contains(parseFile.Content, `"/docs"`) {
+			parseReport.HasMarketingRoute = true
 		}
 	}
-	for buildFile := range buildRouteFiles {
-		buildReport.RouteFiles = append(buildReport.RouteFiles, buildFile)
+	for parseFile := range parseRouteFiles {
+		parseReport.RouteFiles = append(parseReport.RouteFiles, parseFile)
 	}
-	sort.Strings(buildReport.RouteFiles)
-	return buildReport, nil
+	sort.Strings(parseReport.RouteFiles)
+	return parseReport, nil
 }
 
 // buildInspectDependencies resolves module identity and third-party dependency imports.
-func buildInspectDependencies(buildRootPath string) (inspectDependencyView, error) {
-	buildModuleCommand := exec.Command("go", "list", "-m")
-	buildModuleCommand.Dir = buildRootPath
-	buildModuleOutput, buildModuleErr := buildModuleCommand.CombinedOutput()
-	if buildModuleErr != nil {
-		return inspectDependencyView{}, fmt.Errorf("run go list -m: %w", buildModuleErr)
+func buildInspectDependencies(parseRootPath string) (inspectDependencyView, error) {
+	parseModuleCommand := exec.Command("go", "list", "-m")
+	parseModuleCommand.Dir = parseRootPath
+	parseModuleOutput, parseModuleErr := parseModuleCommand.CombinedOutput()
+	if parseModuleErr != nil {
+		return inspectDependencyView{}, fmt.Errorf("run go list -m: %w", parseModuleErr)
 	}
 
-	buildDependencyCommand := exec.Command("go", "list", "-deps", "-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", "./...")
-	buildDependencyCommand.Dir = buildRootPath
-	buildDependencyOutput, buildDependencyErr := buildDependencyCommand.CombinedOutput()
-	if buildDependencyErr != nil {
-		return inspectDependencyView{}, fmt.Errorf("run go list -deps: %w", buildDependencyErr)
+	parseDependencyCommand := exec.Command("go", "list", "-deps", "-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", "./...")
+	parseDependencyCommand.Dir = parseRootPath
+	parseDependencyOutput, parseDependencyErr := parseDependencyCommand.CombinedOutput()
+	if parseDependencyErr != nil {
+		return inspectDependencyView{}, fmt.Errorf("run go list -deps: %w", parseDependencyErr)
 	}
 
-	buildDependencySet := map[string]struct{}{}
-	for buildLine := range strings.SplitSeq(string(buildDependencyOutput), "\n") {
-		buildImportPath := strings.TrimSpace(buildLine)
-		if buildImportPath == "" {
+	parseDependencySet := map[string]struct{}{}
+	for parseLine := range strings.SplitSeq(string(parseDependencyOutput), "\n") {
+		parseImportPath := strings.TrimSpace(parseLine)
+		if parseImportPath == "" {
 			continue
 		}
-		buildDependencySet[buildImportPath] = struct{}{}
+		parseDependencySet[parseImportPath] = struct{}{}
 	}
-	buildDependencies := make([]string, 0, len(buildDependencySet))
-	for buildImportPath := range buildDependencySet {
-		buildDependencies = append(buildDependencies, buildImportPath)
+	parseDependencies := make([]string, 0, len(parseDependencySet))
+	for parseImportPath := range parseDependencySet {
+		parseDependencies = append(parseDependencies, parseImportPath)
 	}
-	sort.Strings(buildDependencies)
+	sort.Strings(parseDependencies)
 
-	buildReport := inspectDependencyView{
-		ModulePath:   strings.TrimSpace(string(buildModuleOutput)),
-		TotalImports: len(buildDependencies),
+	parseReport := inspectDependencyView{
+		ModulePath:   strings.TrimSpace(string(parseModuleOutput)),
+		TotalImports: len(parseDependencies),
 	}
-	if len(buildDependencies) > 20 {
-		buildReport.SampleImports = append(buildReport.SampleImports, buildDependencies[:20]...)
-		buildReport.HasSampleLimit = true
-		return buildReport, nil
+	if len(parseDependencies) > 20 {
+		parseReport.SampleImports = append(parseReport.SampleImports, parseDependencies[:20]...)
+		parseReport.HasSampleLimit = true
+		return parseReport, nil
 	}
-	buildReport.SampleImports = buildDependencies
-	return buildReport, nil
+	parseReport.SampleImports = parseDependencies
+	return parseReport, nil
 }
 
 // buildInspectOwnership mirrors doctor ownership checks in one inspect-friendly summary.
-func buildInspectOwnership(buildRootPath string) (inspectOwnershipView, error) {
-	buildImportCheck := buildDoctorOwnershipBoundaryCheck(buildRootPath)
-	buildStateCheck := buildDoctorStateOwnershipCheck(buildRootPath)
-	buildBoundaryFiles := map[string]struct{}{}
-	for _, buildPath := range buildImportCheck.Locations {
-		buildBoundaryFiles[buildPath] = struct{}{}
+func buildInspectOwnership(parseRootPath string) (inspectOwnershipView, error) {
+	parseImportCheck := buildDoctorOwnershipBoundaryCheck(parseRootPath)
+	parseStateCheck := buildDoctorStateOwnershipCheck(parseRootPath)
+	parseBoundaryFiles := map[string]struct{}{}
+	for _, parsePath := range parseImportCheck.Locations {
+		parseBoundaryFiles[parsePath] = struct{}{}
 	}
-	for _, buildPath := range buildStateCheck.Locations {
-		buildBoundaryFiles[buildPath] = struct{}{}
+	for _, parsePath := range parseStateCheck.Locations {
+		parseBoundaryFiles[parsePath] = struct{}{}
 	}
-	buildReport := inspectOwnershipView{
-		ImportBoundaryStatus: buildImportCheck.Status,
-		ImportBoundaryNote:   buildImportCheck.Summary,
-		StateBoundaryStatus:  buildStateCheck.Status,
-		StateBoundaryNote:    buildStateCheck.Summary,
+	parseReport := inspectOwnershipView{
+		ImportBoundaryStatus: parseImportCheck.Status,
+		ImportBoundaryNote:   parseImportCheck.Summary,
+		StateBoundaryStatus:  parseStateCheck.Status,
+		StateBoundaryNote:    parseStateCheck.Summary,
 	}
-	for buildPath := range buildBoundaryFiles {
-		buildReport.BoundaryFiles = append(buildReport.BoundaryFiles, buildPath)
+	for parsePath := range parseBoundaryFiles {
+		parseReport.BoundaryFiles = append(parseReport.BoundaryFiles, parsePath)
 	}
-	sort.Strings(buildReport.BoundaryFiles)
-	return buildReport, nil
+	sort.Strings(parseReport.BoundaryFiles)
+	return parseReport, nil
 }
 
 // buildInspectFileTypes counts files by extension and top-level directory.
-func buildInspectFileTypes(buildRootPath string) (inspectFileTypesView, error) {
-	buildExtensionCounts := map[string]int{}
-	buildDirectoryCounts := map[string]int{}
-	buildWalkErr := filepath.WalkDir(buildRootPath, func(buildPath string, buildEntry fs.DirEntry, buildEntryErr error) error {
-		if buildEntryErr != nil {
-			return buildEntryErr
+func buildInspectFileTypes(parseRootPath string) (inspectFileTypesView, error) {
+	parseExtensionCounts := map[string]int{}
+	parseDirectoryCounts := map[string]int{}
+	parseWalkErr := filepath.WalkDir(parseRootPath, func(parsePath string, parseEntry fs.DirEntry, parseEntryErr error) error {
+		if parseEntryErr != nil {
+			return parseEntryErr
 		}
-		if buildPath == buildRootPath {
+		if parsePath == parseRootPath {
 			return nil
 		}
-		if buildEntry.IsDir() {
-			if shouldSkipDoctorAuditDir(buildEntry.Name()) {
+		if parseEntry.IsDir() {
+			if shouldSkipDoctorAuditDir(parseEntry.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		buildRelativePath, buildRelativeErr := filepath.Rel(buildRootPath, buildPath)
-		if buildRelativeErr != nil {
-			return buildRelativeErr
+		parseRelativePath, parseRelativeErr := filepath.Rel(parseRootPath, parsePath)
+		if parseRelativeErr != nil {
+			return parseRelativeErr
 		}
-		buildRelativePath = filepath.ToSlash(buildRelativePath)
-		buildExtension := strings.ToLower(strings.TrimSpace(filepath.Ext(buildEntry.Name())))
-		if buildExtension == "" {
-			buildExtension = "<none>"
+		parseRelativePath = filepath.ToSlash(parseRelativePath)
+		parseExtension := strings.ToLower(strings.TrimSpace(filepath.Ext(parseEntry.Name())))
+		if parseExtension == "" {
+			parseExtension = "<none>"
 		}
-		buildExtensionCounts[buildExtension]++
-		buildTopDirectory := buildInspectTopDirectory(buildRelativePath)
-		buildDirectoryCounts[buildTopDirectory]++
+		parseExtensionCounts[parseExtension]++
+		parseTopDirectory := buildInspectTopDirectory(parseRelativePath)
+		parseDirectoryCounts[parseTopDirectory]++
 		return nil
 	})
-	if buildWalkErr != nil {
-		return inspectFileTypesView{}, buildWalkErr
+	if parseWalkErr != nil {
+		return inspectFileTypesView{}, parseWalkErr
 	}
-	buildReport := inspectFileTypesView{
-		ExtensionCounts: buildInspectCountViews(buildExtensionCounts),
-		DirectoryCounts: buildInspectCountViews(buildDirectoryCounts),
+	parseReport := inspectFileTypesView{
+		ExtensionCounts: buildInspectCountViews(parseExtensionCounts),
+		DirectoryCounts: buildInspectCountViews(parseDirectoryCounts),
 	}
-	for _, buildEntry := range buildReport.ExtensionCounts {
-		buildReport.TotalFiles += buildEntry.Count
+	for _, parseEntry := range parseReport.ExtensionCounts {
+		parseReport.TotalFiles += parseEntry.Count
 	}
-	return buildReport, nil
+	return parseReport, nil
 }
 
 // buildInspectTopDirectory extracts the first path segment used for directory-level counting.
-func buildInspectTopDirectory(buildRelativePath string) string {
-	buildSegments := strings.Split(strings.TrimSpace(buildRelativePath), "/")
-	if len(buildSegments) == 0 {
+func buildInspectTopDirectory(parseRelativePath string) string {
+	parseSegments := strings.Split(strings.TrimSpace(parseRelativePath), "/")
+	if len(parseSegments) == 0 {
 		return "."
 	}
-	if strings.TrimSpace(buildSegments[0]) == "" {
+	if strings.TrimSpace(parseSegments[0]) == "" {
 		return "."
 	}
-	return buildSegments[0]
+	return parseSegments[0]
 }
 
 // buildInspectCountViews converts a count map into deterministic sorted output.
-func buildInspectCountViews(buildCounts map[string]int) []inspectCountView {
-	buildViews := make([]inspectCountView, 0, len(buildCounts))
-	for buildName, buildCount := range buildCounts {
-		buildViews = append(buildViews, inspectCountView{Name: buildName, Count: buildCount})
+func buildInspectCountViews(parseCounts map[string]int) []inspectCountView {
+	parseViews := make([]inspectCountView, 0, len(parseCounts))
+	for parseName, parseCount := range parseCounts {
+		parseViews = append(parseViews, inspectCountView{Name: parseName, Count: parseCount})
 	}
-	sort.Slice(buildViews, func(buildLeft int, buildRight int) bool {
-		if buildViews[buildLeft].Count != buildViews[buildRight].Count {
-			return buildViews[buildLeft].Count > buildViews[buildRight].Count
+	sort.Slice(parseViews, func(parseLeft int, parseRight int) bool {
+		if parseViews[parseLeft].Count != parseViews[parseRight].Count {
+			return parseViews[parseLeft].Count > parseViews[parseRight].Count
 		}
-		return buildViews[buildLeft].Name < buildViews[buildRight].Name
+		return parseViews[parseLeft].Name < parseViews[parseRight].Name
 	})
-	return buildViews
+	return parseViews
 }
 
 // renderInspectSummary prints a concise multi-report inspection summary.

@@ -486,6 +486,13 @@ For shared-memory or channel-transport debugging, confirm the actual resolved ru
 - inspect `GetSharedMemorySupport()` before enabling `OpenSharedBuffer(...)`
 - treat popup `Closed()` state and publish failures as ordinary degraded-state signals
 
+## Keeping The Program Alive (`interop.KeepAlive`)
+
+A wasm `main` must not return, or the Go runtime exits and the app's event handlers stop firing.
+`interop.KeepAlive()` blocks the calling goroutine forever (`select {}`). `ui.Run(...)` calls it for
+you, so most apps never call it directly; reach for it only when `main` mounts manually and must
+stay alive after doing its own setup work.
+
 ## Topic Pagination
 Topic 10 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.
 - Previous topic: [09 SSR And Hydration](09-ssr-and-hydration.md)

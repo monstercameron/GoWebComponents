@@ -41,6 +41,10 @@ type ListboxProps struct {
 	Label    string
 	ActiveID string
 	Items    []Item
+	// MultiSelect declares the listbox allows multiple selected options. When true the container
+	// gets aria-multiselectable="true" — required by WAI-ARIA 1.2 §5.5 so assistive tech announces
+	// the multi-select mode (per-option aria-selected alone is not enough).
+	MultiSelect bool
 }
 
 type DatePickerProps struct {
@@ -101,14 +105,18 @@ func Listbox(parseProps ListboxProps) ui.Node {
 			},
 		}, html.Text(parseItem.Label)))
 	}
+	parseAria := map[string]string{
+		"label":            parseProps.Label,
+		"activedescendant": strings.TrimSpace(parseProps.ActiveID),
+	}
+	if parseProps.MultiSelect {
+		parseAria["multiselectable"] = "true"
+	}
 	return html.Tag("div", html.Props{
 		ID:       parseProps.ID,
 		Role:     "listbox",
 		TabIndex: 0,
-		Aria: map[string]string{
-			"label":            parseProps.Label,
-			"activedescendant": strings.TrimSpace(parseProps.ActiveID),
-		},
+		Aria:     parseAria,
 	}, parseItems...)
 }
 

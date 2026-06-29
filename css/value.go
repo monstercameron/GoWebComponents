@@ -120,6 +120,21 @@ func RGBA(r, g, b int, a float64) Color {
 // to CSS identifier characters (letters, digits, '-', '_'), so an untrusted name
 // can never close the var() call or inject CSS.
 func Var(parseName string) Color {
+	return Color(varExpr(parseName))
+}
+
+// VarLength / VarDuration / VarAngle / VarNumber are the typed siblings of Var for custom
+// properties used in non-color positions, so a CSS variable flows into W/FontSize/Gap (Length),
+// Transition/Animation (Duration), Rotate (Angle), or LineHeight/Opacity (Number) with full type
+// safety instead of falling through to Raw(...). Same sanitizing as Var.
+func VarLength(parseName string) Length     { return Length(varExpr(parseName)) }
+func VarDuration(parseName string) Duration { return Duration(varExpr(parseName)) }
+func VarAngle(parseName string) Angle       { return Angle(varExpr(parseName)) }
+func VarNumber(parseName string) Number     { return Number(varExpr(parseName)) }
+
+// varExpr sanitizes a custom-property name to CSS identifier characters and wraps it in var(),
+// so an untrusted name can never close the var() call or inject CSS. Shared by every Var* form.
+func varExpr(parseName string) string {
 	var b strings.Builder
 	for i := 0; i < len(parseName); i++ {
 		c := parseName[i]
@@ -132,7 +147,7 @@ func Var(parseName string) Color {
 	if !strings.HasPrefix(name, "--") {
 		name = "--" + name
 	}
-	return Color("var(" + name + ")")
+	return "var(" + name + ")"
 }
 
 // Curated v1 color tokens (a Tailwind-shaped slice of the default palette).

@@ -98,9 +98,21 @@ const (
 func Bg(c css.Color) css.Rule { return css.Bg(c) }
 func Fg(c css.Color) css.Rule { return css.TextColor(c) }
 
+// BgC / TextC / BorderC set background / text / border color from a typed theme
+// color token: u.BgC(u.ColorSlate900). A typo is a compile error (the constant
+// does not exist) and the token set autocompletes — the canonical, type-safe path.
+// For a custom theme, `gwc css gen` generates the matching u.ColorToken constants.
+func BgC(c ColorToken) css.Rule     { return css.Bg(resolveColor(c)) }
+func TextC(c ColorToken) css.Rule   { return css.TextColor(resolveColor(c)) }
+func BorderC(c ColorToken) css.Rule { return css.Border(css.Px(1), resolveColor(c)) }
+
 // BgToken / TextToken resolve a theme color token name ("slate-900"); an unknown
 // token resolves to transparent so a typo fails visibly rather than silently
 // inheriting.
+//
+// Deprecated: prefer the typed u.BgC(u.ColorSlate900) / u.TextC(...), where a typo
+// is a compile error instead of a runtime transparent fallback. These string forms
+// remain for arbitrary/runtime-computed token names.
 func BgToken(name string) css.Rule {
 	c, ok := css.ColorValue(name)
 	if !ok {
@@ -108,6 +120,8 @@ func BgToken(name string) css.Rule {
 	}
 	return css.Bg(c)
 }
+
+// Deprecated: prefer the typed u.TextC(u.ColorSlate900). See BgToken.
 func TextToken(name string) css.Rule {
 	c, ok := css.ColorValue(name)
 	if !ok {
@@ -130,4 +144,4 @@ func Rounded(r Radius) css.Rule { return css.Rounded(resolveRadius(r)) }
 func Border(c css.Color) css.Rule { return css.Border(css.Px(1), c) }
 
 // Opacity sets opacity from a 0..100 percentage index (Tailwind's opacity-50).
-func Opacity(pct int) css.Rule { return css.Opacity(float64(pct) / 100) }
+func Opacity(pct int) css.Rule { return css.OpacityNum(css.Num(float64(pct) / 100)) }

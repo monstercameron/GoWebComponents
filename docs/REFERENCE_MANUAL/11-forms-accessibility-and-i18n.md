@@ -38,7 +38,7 @@ The main forms, accessibility, and i18n entrypoints are `Stable`:
 - `ui.UseForm(...)`, `FieldStatus(...)`, `FieldMessage(...)`, `Validate(...)`, `ValidateAsync(...)`, `Submit(...)`, `SubmitWithIntent(...)`, `ApplyServerErrors(...)`, and `ApplyServerActionResult(...)`
 - `ui.NewCSRFToken(...)`, `ui.DefaultCSRFHeaderName`, and `ui.DefaultCSRFFormFieldName`
 - `ui.UseFocusManager()`, `ui.UseFocusTrap(...)`, `ui.UseAnnouncer()`, and `ui.AccessibleOverlay(...)`
-- `i18n.NewBundle(...)`, `Bundle.Register(...)`, `Bundle.RegisterNamespace(...)`, `i18n.UseLocale(...)`, `i18n.Provider(...)`, `i18n.UseI18n()`, `i18n.PrefixPath(...)`, `i18n.ResolvePath(...)`, and `i18n.BundleFromSSRBootstrap(...)`
+- `i18n.NewBundle(...)`, `Bundle.Register(...)`, `Bundle.RegisterNamespace(...)`, `i18n.NewLazyBundle(...)` / `LazyBundle.EnsureLocale(...)` (lazy locale loading), `i18n.UseLocale(...)`, `i18n.Provider(...)`, `i18n.UseI18n()`, `i18n.PrefixPath(...)`, `i18n.ResolvePath(...)`, and `i18n.BundleFromSSRBootstrap(...)`
 
 Important advanced boundaries:
 
@@ -167,6 +167,23 @@ Why this is the right first pattern:
 - one typed form handle owns values and validation messages
 - spoken feedback and focus movement stay inside the same feature
 - the HTML remains ordinary and accessible instead of hiding state in ad hoc DOM code
+
+### Field names are strings — catch typos
+
+`SetField(name, value)` takes the struct field name as a string and returns `false` for **both** an
+unknown field and a mismatched value type — so a typo (`SetField("Eamil", …)`) silently no-ops. Two
+helpers make that catchable:
+
+- **`MustSetField(name, value)`** — same as `SetField` but *panics* on an unknown field or type
+  mismatch. Prefer it where the field name is a hardcoded literal, so a typo fails loudly in
+  development instead of silently dropping writes.
+- **`HasField(name) bool`** — reports whether the field exists; useful in a test or a dev-time guard
+  to assert the names a form wires up are real.
+
+```go
+getForm.MustSetField("Name", getEvent.GetValue()) // panics if "Name" isn't a field of the model
+if !getForm.HasField("Channel") { /* misspelled in this build — fix it */ }
+```
 
 ## Production-Shaped Example
 
@@ -387,6 +404,73 @@ How this scales:
 - feature routes and forms can just call `i18n.UseI18n()` instead of reparsing the URL or loading ad hoc message maps
 - server loaders can use `i18n.ResolvePath(...)` to choose locale-specific content without duplicating entire route trees per market
 
+## Shared Client/Server Validation (default path)
+
+Validate with **one schema on both sides**. Put `validate:"..."` tags on the request struct, then
+call `form.ValidateStruct()` in the browser and `validate.Struct(req)` in the server handler — the
+*same* type, the *same* rules, no hand-written client validator that can drift from the server:
+
+```go
+type Signup struct {
+	Email string `json:"email" validate:"required,email"`
+	Age   int    `json:"age"   validate:"gte=13"`
+}
+
+// Client (wasm): ui.UseForm + ValidateStruct runs validate.Struct on Signup.
+form := ui.UseForm(Signup{})
+if form.ValidateStruct() {
+	// submit; the server re-runs validate.Struct on the identical type
+}
+
+// Server handler (native): the same struct, the same tags.
+//   if res := validate.Struct(req); !res.Valid() { return res.Fields() }
+```
+
+`form.ValidateStruct()` is the turnkey default — prefer it over hand-rolling a client validator.
+The `validate` package is dependency-free and compiles to both wasm and native, which is what makes
+the single-schema guarantee real. Worked end-to-end example:
+[`examples/public/shared-form-validation`](../../examples/public/shared-form-validation/). For
+ad-hoc per-field checks not expressible as tags, `form.Validate(func(T) ui.FieldErrors)` remains
+available; async/server-driven validation flows through `form.ValidateAsync(...)` and
+`form.ApplyServerErrors(...)`.
+
+**Custom tag rules.** Register a domain rule once with `validate.RegisterRule` and use it as a tag
+on either side — it runs in `validate.Struct` everywhere, preserving the single-schema guarantee:
+
+```go
+validate.RegisterRule("sku", func(v any, arg string) (bool, string) {
+    s, _ := v.(string)
+    return s == "" || strings.HasPrefix(s, "SKU-"), "must start with SKU-"
+})
+
+type Item struct {
+    Code string `validate:"required,sku"` // built-in + custom rule compose
+}
+```
+
+The rule receives the field value (type-assert it) and the tag argument after `=` (e.g. `arg=="5"`
+for `validate:"between=5"`). Registration is concurrency-safe; a blank name, a nil function, or a
+built-in name (`required`, `email`, `min`, …) is ignored, so the core rule set can't be shadowed.
+
+**Cross-field rules.** Constraints that span fields (password==confirm, end≥start, "required if
+plan==team") can't be a per-field tag. `validate.Check` runs the struct tags *and* programmatic
+cross-field rules into one merged `Result`, preserving the single-schema guarantee:
+
+```go
+res := validate.Check(signup,
+    func(s Signup) *validate.FieldError {
+        if s.Password != s.Confirm {
+            return validate.Fail("confirm", "must match password")
+        }
+        return nil // valid
+    },
+)
+// res.Fields() now carries both tag failures and the cross-field failure.
+```
+
+A rule returns `nil` when valid or `validate.Fail(field, message)` to attach a failure. Nil rules
+are skipped and a panicking rule is contained (recorded as a failure, never crashing the caller).
+
 ## Form Workflows
 
 The recommended form ladder is:
@@ -463,7 +547,7 @@ For SSR:
 - The server-action result envelope is the shared contract between progressive HTML form posts and hydrated enhancement. It should not diverge into two business-rule paths.
 - Accessibility in this repo is explicit and semantic. The framework does not infer labels, announcements, or route-heading focus automatically.
 - `ui.AccessibleOverlay(...)` is modal-first. When the app needs nested sheets, popovers, menus, and stack coordination, move to the broader overlay surface intentionally.
-- `i18n` keeps locale state, catalog lookup, formatting, and path helpers small and composable. It does not own translation file formats, remote catalog loading, or global document mutation policy.
+- `i18n` keeps locale state, catalog lookup, formatting, and path helpers small and composable. It does not own translation file formats or global document mutation policy. For **lazy locale loading**, `i18n.LazyBundle` owns the load-once-per-locale orchestration (dedup + register) — you supply the transport via a `LocaleLoader` (e.g. fetch / `interop.ImportModule`) and call `EnsureLocale(locale)` before switching, so only the active locale ships on first paint.
 - Locale routing is application policy layered on top of `router`, not a router-owned global mode.
 
 ## Common Failure Modes
@@ -500,6 +584,37 @@ For manual browser checks, confirm:
 - polite and assertive announcements are not duplicated or stale
 - modal dialogs restore focus to the trigger after close
 - locale switches update `lang`, `dir`, translated copy, and locale-prefixed links together
+
+## Typed Message Accessors (`gwc i18n gen`)
+
+To make message keys and interpolation parameters compile-checked, generate typed accessors from a
+base-locale bundle. Given `messages.en.json`:
+
+```json
+{ "greeting": { "hello": "Hello {name}" } }
+```
+
+`gwc i18n gen -bundle messages.en.json -pkg .` writes `i18n_keys_gen.go` with one typed accessor per
+message, wrapping `i18n.Runtime.T` and taking a string argument for each `{param}`:
+
+```go
+msg := i18nkeys.GreetingHello("Ada") // a typo in the key, or a missing/extra param, is a compile error
+```
+
+`gwc i18n check` is the CI staleness gate (regenerate + diff). This is the i18n counterpart to
+`gwc routes gen` / `gwc server gen`, closing the last stringly-typed surface.
+
+### Optional fields (`omitempty`)
+
+The `validate` package supports an `omitempty` rule: an optional field whose value is the zero value
+skips its remaining rules, and is validated normally when present.
+
+```go
+type profile struct {
+	Name    string `validate:"required"`
+	Website string `validate:"omitempty,url"` // validated only when non-empty
+}
+```
 
 ## Topic Pagination
 Topic 11 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.

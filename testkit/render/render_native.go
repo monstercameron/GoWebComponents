@@ -5,6 +5,8 @@ package render
 import "testing"
 
 type config struct {
+	// synchronous true (the default) flushes scheduled work immediately on each render;
+	// false queues it until Flush is called (see WithQueuedScheduler).
 	synchronous bool
 }
 
@@ -86,7 +88,9 @@ func ParallelSafetyContract() string {
 	return parallelSafetyContract
 }
 
-// WithQueuedScheduler configures the harness to queue work until Flush is called.
+// WithQueuedScheduler configures the harness to queue scheduled work until Flush is
+// called, instead of the default synchronous flush-on-render behavior. (Internally this
+// clears the config's synchronous flag.)
 func WithQueuedScheduler() Option {
 	return func(parseCfg *config) {
 		parseCfg.synchronous = false
@@ -97,7 +101,7 @@ func WithQueuedScheduler() Option {
 // only use the real runtime on browser-targeted builds.
 func New(parseTb testing.TB, parseOptions ...Option) *Fixture {
 	parseTb.Helper()
-	parseTb.Fatalf("testkit/render requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+	parseTb.Fatalf("testkit/render requires js/wasm tests; run go test with a js/wasm executor: tools\\go_js_wasm_exec.bat (Windows) or tools/go_js_wasm_exec.sh (macOS/Linux)")
 	return nil
 }
 

@@ -749,7 +749,15 @@ func RegisterRoute(parsePath string, parseComponent interface{}, parseOptions ..
 	GetRouter().Register(parsePath, parseComponent, parseOptions...)
 }
 
+// GetCurrentPath returns the current route path from this router instance. It mirrors the
+// package-level GetCurrentPath and is the preferred name over GetCurrentRouterPath.
+func (parseR *Router) GetCurrentPath() string {
+	return parseR.GetCurrentRouterPath()
+}
+
 // GetCurrentRouterPath returns the current path from a router instance based on its type.
+//
+// Deprecated: use GetCurrentPath, which mirrors the package-level GetCurrentPath name.
 func (parseR *Router) GetCurrentRouterPath() string {
 	parseLoc := getLocationValue()
 	if !parseLoc.Truthy() {

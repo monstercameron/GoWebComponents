@@ -33,7 +33,7 @@ Then add advanced route lifecycle only when the screen needs it:
 - `Loader` for route-owned entry data
 - `UseRevalidator()` for rerunning the current route loader
 - `BeforeEnter` or `BeforeLeave` plus async variants for route-level navigation policy
-- `Layout: true` plus `router.GetOutlet()` for nested route shells
+- `Layout: true` plus `router.UseOutlet()` for nested route shells
 - route metadata through `Title`, `Description`, and `CanonicalURL`
 
 One practical split matters early:
@@ -54,7 +54,7 @@ Core routing is `Stable`:
 - `UseQuery`
 - `UseSearchParams`
 - redirects through `router.Options{Redirect: ...}`
-- nested layouts through `Layout: true` and `router.GetOutlet()`
+- nested layouts through `Layout: true` and `router.UseOutlet()`
 - route-level chunks through `RegisterLazy(...)` and `router.RouteChunk`
 - route contracts through `DefineRoute`, `MustDefineRoute`, `Path`, and `Href`
 
@@ -278,7 +278,7 @@ Why this is the right next layer:
 
 In a larger app, scale routing by using route contracts, nested shells, and one route-level auth boundary instead of multiple disconnected app roots.
 
-```go
+```go gwc:build
 package routes
 
 import (
@@ -321,7 +321,7 @@ func RenderWorkspaceLayout() ui.Node {
 	return h.Main(
 		h.Class("min-h-screen bg-slate-50"),
 		h.Header(h.Class("border-b bg-white p-4"), h.H1("Workspace shell")),
-		h.Section(h.Class("p-6"), router.GetOutlet()),
+		h.Section(h.Class("p-6"), router.UseOutlet()),
 	)
 }
 
@@ -370,7 +370,7 @@ func main() {
 Why this scales:
 
 - contracts remove string drift between registration, redirects, and button navigation
-- one shell stays mounted while nested routes swap through `GetOutlet()`
+- one shell stays mounted while nested routes swap through `UseOutlet()`
 - auth stays at the route-branch boundary instead of splitting the product into multiple HTML shells
 
 ## Params, Query, And Contracts
@@ -440,7 +440,7 @@ Use this table before you add more route machinery.
 | Mode-safe links | `Href(path)`, `FragmentHref(fragment)` | `Stable` | build an href that is correct for the active router mode / safe under `<base href>` (in-page anchors) | a static literal href is unambiguous |
 | Route contracts | `DefineRoute`, `MustDefineRoute`, `Path`, `Href`, `PathFor`, `HrefFor` | `Stable` | larger apps need validated reverse routing | the app is still small and string literals remain obvious |
 | Redirects | `router.Options{Redirect: ...}`, `RedirectNavigation` | core redirects are `Stable` | a matched route should hand off to another route cleanly | the page should stay mounted and render a manual fallback |
-| Nested layouts | `router.Options{Layout: true}`, `GetOutlet` | `Stable` | one shell should stay mounted while child routes swap | there is no shared shell between the routes |
+| Nested layouts | `router.Options{Layout: true}`, `UseOutlet` (`GetOutlet` is a deprecated alias) | `Stable` | one shell should stay mounted while child routes swap | there is no shared shell between the routes |
 | Loader-backed routes | `Loader`, `UseRouteData`, `UseRevalidator` | advanced router lifecycle | the route owns first-load data and refresh should rerun the same loader | the data is local to one component |
 | Guards and return-to recovery | `BeforeEnter`, `BeforeLeave`, async guard variants, `PreserveReturnTo`, `ReadReturnTo` | advanced router lifecycle | navigation policy belongs at the route boundary | the restriction is purely in-page UI, not route entry |
 | Route metadata | `Title`, `Description`, `CanonicalURL` | advanced router lifecycle | the route should own narrow SEO-safe metadata | broader head composition needs a dedicated head system |
@@ -497,6 +497,26 @@ go run ./tools/gwc dev -app .\examples\public\router-guards\main.go
 go run ./tools/gwc dev -app .\examples\public\router-hydrate-mount\main.go
 go run ./tools/gwc dev -app .\examples\public\single-shell-auth\main.go
 ```
+
+## Typed Search Params (`DecodeQuery` / `EncodeQuery`)
+
+Instead of scattered `q.Get(...)` + `strconv` + bounds checks, decode a URL query string into a typed
+struct in one read, validated with the same `validate` tags used elsewhere:
+
+```go
+type listParams struct {
+	Page int    `query:"page" validate:"gte=1"`
+	Sort string `query:"sort" validate:"oneof=new top"`
+}
+
+params, err := router.DecodeQuery[listParams](router.UseSearchParams().Values())
+// malformed values error with the offending param; validation failures return a validate.Result
+```
+
+`router.DecodeQuery[T](url.Values)` reads `query:"name"` tags (falling back to the lowercased field
+name), supports string/bool/int/uint/float/[]string, then runs `validate.Struct`. `router.EncodeQuery(v)`
+is the inverse for building links, omitting zero-valued fields. This meshes typed routes,
+compile-safe data, and shared validation.
 
 ## Topic Pagination
 Topic 8 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.

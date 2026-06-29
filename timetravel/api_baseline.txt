@@ -7,6 +7,7 @@ func (*History[T]) Len() int
 func (*History[T]) Record(parseLabel string, parseState T)
 func (*History[T]) Redo() (T, bool)
 func (*History[T]) ScrubTo(parseIndex int) (T, bool)
+func (*History[T]) Snapshots() []Snapshot[T]
 func (*History[T]) Undo() (T, bool)
 func New[T any](parseCapacity int, parseInitial T) *History[T]
 type History struct { mu sync.Mutex entries []Snapshot[T] cursor int capacity int }

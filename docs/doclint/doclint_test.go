@@ -1,6 +1,7 @@
 package doclint
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,6 +21,43 @@ func repoRoot(t *testing.T) string {
 		t.Fatalf("module root not found from %s", wd)
 	}
 	return root
+}
+
+// TestDocsHaveNoBrokenGoSamples is the doc-sample drift guard (F1 "docs can't silently lie"):
+// every complete-file ```go sample in the docs must parse, so a renamed API or a fat-fingered
+// edit that leaves a copy-paste-runnable sample broken fails CI instead of shipping. Fragments
+// (snippets without a package clause) are intentionally not checked, keeping zero false positives.
+// Runs under `go test ./...`, which gates PRs.
+func TestDocsHaveNoBrokenGoSamples(t *testing.T) {
+	root := repoRoot(t)
+	errs, err := ValidateGoBlocks(root)
+	if err != nil {
+		t.Fatalf("validate doc go samples: %v", err)
+	}
+	if len(errs) > 0 {
+		var b strings.Builder
+		for _, e := range errs {
+			fmt.Fprintf(&b, "  %s:%d — %s\n", e.DocPath, e.Line, e.Err)
+		}
+		t.Fatalf("docs contain %d complete-file ```go sample(s) that no longer parse:\n%s", len(errs), b.String())
+	}
+}
+
+// TestGoSampleGuardCatchesBreakage proves the sample guard actually fails on a broken
+// complete-file block (and ignores a fragment), so the zero-error baseline is meaningful.
+func TestGoSampleGuardCatchesBreakage(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "broken.md"),
+		[]byte("```go\npackage main\nfunc main( {\n```\n"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	errs, err := ValidateGoBlocks(dir)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if len(errs) != 1 {
+		t.Fatalf("expected the planted broken sample to be caught, got %d", len(errs))
+	}
 }
 
 // TestDocsHaveNoBrokenRepoPaths is the drift guard: every repo-relative input

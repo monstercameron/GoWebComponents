@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/deprecation"
 	runtimepkg "github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/state"
@@ -96,8 +97,11 @@ func Enabled() bool {
 	return enabled
 }
 
-// IsEnabled is a compatibility wrapper around Enabled.
+// IsEnabled reports whether the public hot reload bridge is enabled.
+//
+// Deprecated: use Enabled.
 func IsEnabled() bool {
+	deprecation.Warn("hotreload.IsEnabled", "hotreload.Enabled")
 	return Enabled()
 }
 

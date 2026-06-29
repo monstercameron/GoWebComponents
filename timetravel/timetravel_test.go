@@ -97,3 +97,30 @@ func TestScrubToArbitraryIndex(parseT *testing.T) {
 		parseT.Fatal("scrub out of range should report ok=false")
 	}
 }
+
+// TestSnapshotsCopyAndCursorImmutable proves Snapshots() returns the whole timeline as a COPY that
+// does not move the cursor and cannot corrupt internal state when mutated.
+func TestSnapshotsCopyAndCursorImmutable(parseT *testing.T) {
+	parseHist := timetravel.New(0, "a")
+	parseHist.Record("b", "b")
+	parseHist.Record("c", "c")
+	parseCursorBefore := parseHist.Cursor()
+
+	parseSnaps := parseHist.Snapshots()
+	if len(parseSnaps) != 3 {
+		parseT.Fatalf("Snapshots len = %d, want 3 (initial + 2)", len(parseSnaps))
+	}
+	if parseSnaps[0].Label != "initial" || parseSnaps[2].State != "c" {
+		parseT.Fatalf("unexpected snapshots: %+v", parseSnaps)
+	}
+
+	// Mutating the returned slice must not corrupt the history.
+	parseSnaps[0].Label = "HACKED"
+	if parseHist.Snapshots()[0].Label != "initial" {
+		parseT.Fatal("Snapshots() must return a copy; mutation leaked into internal state")
+	}
+	// Reading the timeline must not move the cursor.
+	if parseHist.Cursor() != parseCursorBefore {
+		parseT.Fatalf("Snapshots() moved the cursor: %d != %d", parseHist.Cursor(), parseCursorBefore)
+	}
+}

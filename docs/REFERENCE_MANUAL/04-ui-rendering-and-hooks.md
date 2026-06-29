@@ -273,6 +273,34 @@ Keep these rules explicit:
 - boundary fallbacks should be user-meaningful and feature-local
 - reset keys should follow route or workflow identity instead of random rerender noise
 
+### Suspending on data: `UseSuspenseQuery`
+
+`ui.UseSuspenseQuery(cache, key, fetcher, deps...)` is the suspending sibling of `UseQuery`
+(ch.07). Instead of returning a `query.Result` you switch on, it returns the data directly,
+*suspending* the render until the data is ready (the enclosing `AsyncBoundary` shows its fallback)
+and *throwing* the error to the nearest `ErrorBoundary` on failure. The component body reads the
+value unconditionally — the React `use(promise)` / Solid `createResource` shape:
+
+```go
+func UserCard(props UserProps) ui.Node {
+    user := ui.UseSuspenseQuery(appCache, "user/"+props.ID, func() (User, error) {
+        return api.GetUser(props.ID)
+    })
+    return ui.Text(user.Name) // no Status switch — the boundary handles loading/error
+}
+
+// Wrap once, higher up:
+ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
+    ErrorFallback: func(err error, reset func()) ui.Node { return ui.Text("failed: " + err.Error()) },
+    Child: ui.AsyncBoundary(ui.AsyncBoundaryProps{Fallback: Spinner(), Content: ui.CreateElement(UserCard, props)}),
+})
+```
+
+A cached success (even stale) or a recorded error resolves immediately; only an unfetched/in-flight
+key suspends. Pass `deps` exactly as for `UseQuery` when the fetcher closes over changing values. To
+retry after an error, invalidate the key (`cache.Invalidate`) and remount — a settled error is not
+auto-refetched on every render.
+
 For `ParallelRegion(...)` and other narrow worker-backed surfaces:
 
 - keep the output display-oriented and deterministic
@@ -403,6 +431,37 @@ Worker helpers and advanced region work:
 go run ./tools/gwc dev -app .\examples\public\worker-text-index\main.go
 go run ./tools/gwc dev -app .\examples\testing\parallel-region-basic\main.go
 ```
+
+## Animation (`anim`)
+
+The `anim` package is pure, clock-free animation math — it owns no DOM and no timer, so it is fully
+deterministic and unit-testable; you drive it from a render loop and apply the result as styles.
+
+Springs model damped motion frame by frame:
+
+```go
+s := anim.NewSpring(anim.GentleSpring(), 0.0) // also WobblySpring(), StiffSpring()
+s.SetTarget(1.0)
+// each frame, dt in seconds:
+pos := s.Step(dt)
+if s.IsSettled(0.001) { /* stop ticking */ }
+```
+
+Easing curves shape a 0..1 progress value (`Linear`, `EaseInQuad`/`EaseOutQuad`/`EaseInOutQuad`,
+`EaseInCubic`/`EaseOutCubic`/`EaseInOutCubic`), composed with `anim.Interpolate(from, to, t, easing)`.
+`anim.EasingFunc` is an alias for `anim.Easing` to disambiguate from `css.Easing` (a string type)
+when both packages are imported.
+
+For animated lists, `anim.DiffKeyedRects(prev, next)` classifies a keyed layout change into a
+`ListTransition{Entering, Exiting, Moving}` and computes each survivor's FLIP invert transform
+(`MovedKeys()` filters to items that actually moved). `anim.ComputeFLIP(first, last)` is the
+single-element form. Enter/exit is a pure state machine — `anim.NewTransition(duration)` →
+`Advance(dt)` / `BeginExit()` with `Progress()`/`IsAnimating()`/`IsRemovable()` — and
+`anim.StaggerDelay(index, step)` gives per-item cascade timing.
+
+Honor `prefers-reduced-motion` with an explicit `anim.MotionPreference` (`MotionFull` /
+`MotionReduced`): `NewTransitionPref(duration, pref)` snaps transitions and `pref.EffectiveDuration`
+/ `pref.Animates()` let FLIP moves be skipped under reduced motion.
 
 ## Topic Pagination
 Topic 4 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.

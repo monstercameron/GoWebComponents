@@ -23,13 +23,13 @@ const (
 func CounterDisplay() ui.Node {
 	parseCount := state.UseAtom(CounterAtom, 0)
 	parseTheme := state.UseAtom(ThemeAtom, "light")
-	parseThemeLabel := state.UseComputed(func() string {
+	parseThemeLabel := ui.UseMemo(func() string {
 		if parseTheme.Get() == "dark" {
 			return "Dark"
 		}
 		return "Light"
 	}, parseTheme.Get())
-	parseCountSummary := state.UseComputed(func() string {
+	parseCountSummary := ui.UseMemo(func() string {
 		if parseCount.Get()%2 != 0 {
 			return "Odd"
 		}
@@ -57,8 +57,8 @@ func CounterDisplay() ui.Node {
 		),
 		html.Div(
 			html.Props{Class: "mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"},
-			shared.ExampleStat("Theme", parseThemeLabel.Get()),
-			shared.ExampleStat("Parity", parseCountSummary.Get()),
+			shared.ExampleStat("Theme", parseThemeLabel),
+			shared.ExampleStat("Parity", parseCountSummary),
 			shared.ExampleStat("Atom ID", CounterAtom),
 		),
 	)

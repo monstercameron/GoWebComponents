@@ -19,6 +19,7 @@
 package query
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -357,10 +358,22 @@ func (parseC *Cache) InvalidatePrefix(parsePrefix string) {
 	}
 }
 
+// callFetch runs fn, converting a panic into an error. Without this a panicking fetcher would
+// unwind past runFetch's flight cleanup, leaving entry.flight non-nil and parseFlight.done open
+// forever — wedging every future read of the key in StatusLoading and blocking any joined caller.
+func callFetch[T any](parseFn func() (T, error)) (parseVal T, parseErr error) {
+	defer func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			parseErr = fmt.Errorf("query fetcher panicked: %v", parseRecovered)
+		}
+	}()
+	return parseFn()
+}
+
 // runFetch executes fn and stores the outcome under key, then releases the flight so
 // joined callers wake. Caller must NOT hold mu.
 func runFetch[T any](parseC *Cache, parseKey string, parseFn func() (T, error), parseFlight *flight) {
-	parseVal, parseErr := parseFn()
+	parseVal, parseErr := callFetch(parseFn)
 	parseC.mu.Lock()
 	parseE := parseC.entries[parseKey]
 	if parseErr == nil {

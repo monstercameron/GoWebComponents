@@ -28,6 +28,14 @@ func renderScaffoldMain(parseSelection startSelection, parseRepoModulePath strin
 	parseFeatureCards := renderScaffoldFeatureCards(parseNormalizedFeatures)
 	parseCapabilityState := renderScaffoldCapabilityState(parseNormalizedFeatures)
 	parseCapabilityWidgets := renderScaffoldCapabilityWidgets(parseNormalizedFeatures)
+	// When the hot-reload capability is selected, wire state-preserving hot reload on by default
+	// (the C1 10-rung: component state survives edits on the default path), not as an expert opt-in.
+	parseHotReloadImport := ""
+	parseHotReloadEnable := ""
+	if scaffoldHasFeature(parseNormalizedFeatures, "hot-reload") {
+		parseHotReloadImport = fmt.Sprintf("\n\t%q", parseRepoModulePath+"/hotreload")
+		parseHotReloadEnable = "\thotreload.Enable() // state-preserving hot reload (gwc dev)\n"
+	}
 	return fmt.Sprintf(`//go:build js && wasm
 // +build js,wasm
 
@@ -38,7 +46,7 @@ import (
 
 	%q
 	%q
-	%q
+	%q%s
 )
 
 func App() ui.Node {
@@ -95,10 +103,10 @@ func App() ui.Node {
 
 func main() {
 	utils.DisableAllDebug()
-	ui.Render(ui.CreateElement(App), "#app")
+%s	ui.Render(ui.CreateElement(App), "#app")
 	utils.WaitForever()
 }
-`, parseRepoModulePath+"/html", parseRepoModulePath+"/ui", parseRepoModulePath+"/utils", parseCapabilityState, parseSelection.ProjectName, parseSelection.Description, parseSelection.Author, parseSelection.Version, parseSelection.Preset.Name, parseSelection.ModulePath, parseSelection.Preset.Description, "Features: "+parseFeatureList, parseFeatureCards, parseCapabilityWidgets)
+`, parseRepoModulePath+"/html", parseRepoModulePath+"/ui", parseRepoModulePath+"/utils", parseHotReloadImport, parseCapabilityState, parseSelection.ProjectName, parseSelection.Description, parseSelection.Author, parseSelection.Version, parseSelection.Preset.Name, parseSelection.ModulePath, parseSelection.Preset.Description, "Features: "+parseFeatureList, parseFeatureCards, parseCapabilityWidgets, parseHotReloadEnable)
 }
 
 func renderScaffoldHTML(parseSelection startSelection) string {

@@ -61,6 +61,29 @@ func TestServerLeakFlagsThirdPartyServerSDKs(parseT *testing.T) {
 	}
 }
 
+// TestServerLeakConfigExtendsPrefixes proves the curated third-party list is not a ceiling: a
+// project-supplied gwc-serverleak.json prefix flags an otherwise-unknown server library imported
+// into the browser build (closing the FB1 "fragile fixed list" gap).
+func TestServerLeakConfigExtendsPrefixes(parseT *testing.T) {
+	parseDir := parseT.TempDir()
+	mustWrite(parseT, parseDir, "go.mod", "module example.com/app\n\ngo 1.26.0\n")
+	mustWrite(parseT, parseDir, "gwc-serverleak.json",
+		`{"serverOnlyPrefixes":[{"prefix":"github.com/acme/internal-db","reason":"internal DB client"}]}`)
+	mustWrite(parseT, parseDir, "client.go",
+		"//go:build js && wasm\n\npackage x\n\nimport _ \"github.com/acme/internal-db/pg\"\n")
+
+	parseDiags := collectServerLeakDiagnostics(parseDir)
+	parseFound := false
+	for _, parseDiag := range parseDiags {
+		if parseDiag.Attributes["leaked"] == "github.com/acme/internal-db/pg" {
+			parseFound = true
+		}
+	}
+	if !parseFound {
+		parseT.Fatalf("expected the configured prefix to flag github.com/acme/internal-db/pg, got %d diags", len(parseDiags))
+	}
+}
+
 // TestServerLeakFollowsTransitiveLocalImport proves the analyzer walks the import graph: a
 // browser file that imports a LOCAL helper package which itself imports a database driver is
 // flagged, even though the client file's own imports look clean. This is the core upgrade over

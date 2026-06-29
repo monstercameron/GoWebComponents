@@ -59,6 +59,12 @@ func Capabilities() []Capability {
 			Chapter:     "05-html-authoring.md",
 		},
 		{
+			Name:        "Typed theme tokens (gwc css gen)",
+			Packages:    []string{"css/u"},
+			ExampleSlug: "typed-css-tokens-demo",
+			Chapter:     "05-html-authoring.md",
+		},
+		{
 			Name:        "Markup nodes (raw HTML & SVG)",
 			Packages:    []string{"html"},
 			ExampleSlug: "raw-html",
@@ -79,7 +85,7 @@ func Capabilities() []Capability {
 		{
 			Name:        "Data loading & mutations",
 			Packages:    []string{"fetch"},
-			ExampleSlug: "use-fetch",
+			ExampleSlug: "use-resource",
 			Chapter:     "07-data-loading-and-mutations.md",
 		},
 		{
@@ -119,6 +125,12 @@ func Capabilities() []Capability {
 			Chapter:     "11-forms-accessibility-and-i18n.md",
 		},
 		{
+			Name:        "Shared client/server validation",
+			Packages:    []string{"validate", "ui"},
+			ExampleSlug: "shared-form-validation",
+			Chapter:     "11-forms-accessibility-and-i18n.md",
+		},
+		{
 			Name:        "Internationalization",
 			Packages:    []string{"i18n"},
 			ExampleSlug: "locale-switcher",
@@ -139,8 +151,80 @@ func Capabilities() []Capability {
 		{
 			Name:        "Feature flags",
 			Packages:    []string{"flags"},
-			ExampleSlug: "",
+			ExampleSlug: "feature-flags",
 			Chapter:     "06-state-and-reactivity.md",
+		},
+		{
+			Name:        "Fine-grained signals",
+			Packages:    []string{"state"},
+			ExampleSlug: "fine-grained-signal",
+			Chapter:     "06-state-and-reactivity.md",
+		},
+		{
+			Name:        "Server functions (//gwc:server)",
+			Packages:    []string{"serverfn"},
+			ExampleSlug: "",
+			Chapter:     "07-data-loading-and-mutations.md",
+		},
+		{
+			Name:        "Query cache & mutations",
+			Packages:    []string{"query", "ui"},
+			ExampleSlug: "use-query",
+			Chapter:     "07-data-loading-and-mutations.md",
+		},
+		{
+			Name:        "Generative UI (agent-native)",
+			Packages:    []string{"agentui"},
+			ExampleSlug: "agentui-registry",
+			Chapter:     "07-data-loading-and-mutations.md",
+		},
+		{
+			Name:        "Whole-stack one-binary deploy",
+			Packages:    []string{"wholestack", "serverfn"},
+			ExampleSlug: "",
+			Chapter:     "13-assets-deployment-and-pwa.md",
+		},
+		{
+			Name:        "Local-first CRDT sync",
+			Packages:    []string{"localfirst"},
+			ExampleSlug: "localfirst-crdt",
+			Chapter:     "06-state-and-reactivity.md",
+		},
+		{
+			Name:        "Time-travel devtools",
+			Packages:    []string{"timetravel"},
+			ExampleSlug: "timetravel-devpanel",
+			Chapter:     "12-devtools-testing-and-observability.md",
+		},
+		{
+			Name:        "Animations & FLIP",
+			Packages:    []string{"anim"},
+			ExampleSlug: "flip-keyed-list",
+			Chapter:     "04-ui-rendering-and-hooks.md",
+		},
+		{
+			Name:        "Two-way binding",
+			Packages:    []string{"html"},
+			ExampleSlug: "bind-to",
+			Chapter:     "05-html-authoring.md",
+		},
+		{
+			Name:        "Named slots",
+			Packages:    []string{"html/shorthand"},
+			ExampleSlug: "named-slots",
+			Chapter:     "05-html-authoring.md",
+		},
+		{
+			Name:        "Typed search params",
+			Packages:    []string{"router"},
+			ExampleSlug: "typed-decode-query",
+			Chapter:     "08-routing.md",
+		},
+		{
+			Name:        "Typed i18n message accessors",
+			Packages:    []string{"i18n"},
+			ExampleSlug: "",
+			Chapter:     "11-forms-accessibility-and-i18n.md",
 		},
 	}
 }

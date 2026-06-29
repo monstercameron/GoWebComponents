@@ -158,6 +158,13 @@ type runtimeErrorBoundaryComponent interface {
 // ErrorBoundary creates a subtree boundary with fallback rendering and reset behavior.
 var ErrorBoundary = &errorBoundaryComponent{boundaryType: runtime.NewErrorBoundaryType()}
 
+// NewErrorBoundary is the function entry point for an error boundary, mirroring AsyncBoundary(props)
+// and Lazy(props): NewErrorBoundary(ErrorBoundaryProps{...}) instead of CreateElement(ErrorBoundary,
+// props). (The ErrorBoundary identifier is a component var, so the func needs a distinct name.)
+func NewErrorBoundary(parseProps ErrorBoundaryProps) Node {
+	return CreateElement(ErrorBoundary, parseProps)
+}
+
 type LazyNodeState struct {
 	Node    Node
 	Loading bool

@@ -185,7 +185,7 @@ Why this is the right boundary:
 
 Keep runtime route contracts in one place, but leave metadata, prerender policy, and export decisions application-owned.
 
-```go
+```go gwc:build
 package routes
 
 import (

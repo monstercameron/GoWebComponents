@@ -15,6 +15,23 @@ Use another chapter instead when:
 - you need form ownership and validation flow in depth: go to [11 Forms Accessibility And I18n](11-forms-accessibility-and-i18n.md)
 - you need browser interop for custom events or custom-element event wiring: go to [10 Browser Interop And Workers](10-browser-interop-and-workers.md)
 
+## Which package to import (decisive default)
+
+There is **one mental model and one rendering engine** — `html/shorthand` is not a second
+framework, it is sugar that lowers onto the exact same `html` builders. So the choice never
+changes behavior, only ergonomics:
+
+- **New to GWC, or starting a file:** dot-import `html/shorthand`. It reads closest to the
+  public examples (e.g. `examples/public/counter`), and you can drop to `html.*` any time in
+  the same file. This is the blessed default for hand-written app code. (Note: the current
+  `gwc start` scaffold still emits explicit `html.Props{...}` builders — equivalent behavior,
+  just more verbose; aligning the scaffold to shorthand is tracked.)
+- **Library/package author exposing a stable surface:** import `html` and use the typed
+  builders + explicit `html.Props` directly.
+
+Whichever you pick, the other stays usable in the same file — no migration, no paradigm switch.
+If you remember one thing: **dot-import `html/shorthand` and go.**
+
 ## Overview
 
 The `html` layer is additive, explicit, and Go-first.
@@ -45,7 +62,7 @@ Practical defaults:
 
 If you want the safest default style, start with typed builders and explicit props.
 
-```go
+```go gwc:build
 package main
 
 import (
@@ -75,6 +92,21 @@ Why this is the safest starting point:
 - every element is explicit
 - props stay typed instead of stringly-typed
 - the callsite reads like ordinary Go, not a second templating language
+
+### Setting an intentional empty value
+
+`html.Props{Value: ""}` (and `TabIndex: 0`) are **omitted** — the zero value means "unset", so the
+attribute isn't emitted. That's what you want for most inputs, but a *controlled* input that needs to
+force an empty value (clear the field on every render) must say so explicitly. Use the `html.Value("")`
+prop option, or `Raw["value"] = ""`:
+
+```go
+// Controlled input that clears to empty — Props{Value: ""} would NOT emit value="".
+html.Input(html.PropsOf(html.Value(""), html.OnInput(handler)))
+// or: html.Input(html.Props{Raw: map[string]any{"value": ""}})
+```
+
+The same applies to any attribute whose zero value is meaningful (`TabIndex(0)`).
 
 ## Production-Shaped Example
 
@@ -134,7 +166,7 @@ Why this is the better midpoint:
 
 In a larger codebase, pick one host-authoring style per package and centralize repeated visual prop combinations behind helper builders, not raw prop maps scattered everywhere.
 
-```go
+```go gwc:build
 package sharedview
 
 import (
@@ -303,6 +335,39 @@ Key properties:
 
 See the [typed-css](../../examples/public/typed-css/) example for a fully bare-authored view.
 
+### Typed theme tokens (`gwc css gen`)
+
+The utility layer's scale keys are typed, so a token reference autocompletes and a typo is a
+compile error instead of a silent fallback. `css.DefaultTheme`'s scales ship typed out of the box:
+spacing (`u.Spacing3`), type scale (`u.TextLg`), radius (`u.RadiusLg`), and **color**
+(`u.ColorSlate900`). Pass them to the typed accessors:
+
+```go
+css.Class(u.BgC(u.ColorSlate900), u.TextC(u.ColorWhite), u.Rounded(u.RadiusLg), u.Pad(u.Spacing4))
+```
+
+`u.BgC`/`u.TextC`/`u.BorderC` take a `u.ColorToken` — `u.BgC(u.ColorSlat900)` (typo) does not
+compile. The string forms `u.BgToken("slate-900")`/`u.TextToken(...)` remain for runtime-computed
+names but are deprecated in favor of the typed accessors.
+
+For a **custom theme**, `gwc css gen` makes its tokens typed too. Author the palette as a theme
+JSON (the source of truth) and generate matching `u.ColorToken`/`u.TextScale`/`u.Radius`/`u.Spacing`
+constants:
+
+```bash
+gwc css gen   -theme theme.json -pkg ./theme   # writes theme/css_tokens_gen.go (DO NOT EDIT)
+gwc css check -theme theme.json -pkg ./theme   # CI gate: fails if css_tokens_gen.go drifts
+```
+
+```jsonc
+// theme.json — { "colors": { "name": "value" }, "fontSizes": {...}, "radii": {...}, "spacing": {...} }
+{ "colors": { "brand-500": "#6366f1", "ink": "#0f172a" }, "radii": { "pill": "9999px" } }
+```
+
+The generated `ColorBrand500 u.ColorToken = "brand-500"` then flows straight into `u.BgC(ColorBrand500)`.
+See the [typed-css-tokens-demo](../../examples/public/typed-css-tokens-demo/) example; the `gwc css check`
+gate runs in the codegen-staleness CI job alongside `gwc routes check`/`gwc i18n check`.
+
 ### Global rules, design tokens, and cascade layers (v3.3+)
 
 The hashed-class model above scopes every rule under a generated class. For the *global* stylesheet
@@ -413,6 +478,42 @@ Browser custom-element consumption:
 
 ```powershell
 go run ./tools/gwc dev -app .\examples\public\web-components\main.go
+```
+
+## Named Slots / Snippets
+
+For explicit, typed named slots (Vue named slots / React render-children-by-name), the
+`html/shorthand` package provides `Slot` and `Slots`:
+
+```go
+slots := h.NewSlots(
+	h.Slot("header", h.H2("Title")),
+	h.Slot("footer", h.Button(h.Text("Save"))),
+)
+
+// inside a layout component:
+h.Section(
+	h.Div(h.Class("head"), slots.Render("header")...),
+	h.Div(h.Class("body"), slots.Or("body", h.P("default body"))...),
+	h.Div(h.Class("foot"), slots.Render("footer")...),
+)
+```
+
+`Slots` is a `map[string][]ui.Node`. `NewSlots(...NamedSlot)` builds one (last write wins for a
+repeated name); `Has(name)` reports presence, `Render(name)` returns the slot's nodes (nil when
+absent), and `Or(name, fallback...)` returns the slot's nodes or the fallback default content.
+
+## Two-Way Binding (`html.BindTo` / `html.BindFunc`)
+
+`html.Bind(state)` binds a controlled input to a `ui.State[string]`. For any other handle, the
+structural `html.Binding` interface (`Get() string` / `Set(string)`) lets `html.BindTo` bind a
+`state.Signal[string]`, an atom handle, or anything that satisfies it in one prop — no manual
+`value=` + `oninput=` pair:
+
+```go
+name := state.NewSignal("")
+h.Input(html.BindTo(name))                 // any Binding
+h.Input(html.BindFunc(get, set))           // explicit getter/setter
 ```
 
 ## Topic Pagination

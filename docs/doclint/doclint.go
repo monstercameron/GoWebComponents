@@ -298,14 +298,25 @@ func normalizeToken(token string) string {
 	return clean
 }
 
-// Resolve reports the references whose target does not exist under root.
+// Resolve reports the references whose target does not exist under root. A reference is
+// considered live if it resolves EITHER repo-root-relative (the front-door case: README/getting-
+// started commands run from the repo root) OR relative to its own doc file's directory (a subdir
+// README whose command runs from that subdir, e.g. tools/devtools-extension/README.md running
+// `node --test test/bridge.test.mjs` from the extension dir). Accepting the doc-dir-relative
+// resolution removes a false-positive class without weakening the front-door drift guard.
 func Resolve(root string, refs []PathRef) []PathRef {
 	var broken []PathRef
 	for _, ref := range refs {
-		target := filepath.Join(root, filepath.FromSlash(ref.Rel))
-		if _, err := os.Stat(target); err != nil {
-			broken = append(broken, ref)
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(ref.Rel))); err == nil {
+			continue
 		}
+		if ref.DocPath != "" {
+			docDir := filepath.Dir(filepath.FromSlash(ref.DocPath))
+			if _, err := os.Stat(filepath.Join(root, docDir, filepath.FromSlash(ref.Rel))); err == nil {
+				continue
+			}
+		}
+		broken = append(broken, ref)
 	}
 	return broken
 }

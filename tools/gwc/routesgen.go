@@ -115,7 +115,10 @@ func collectRoutes(parsePkgDir string) (string, []routeDef, error) {
 		}
 		parseFile, parseParseErr := parser.ParseFile(parseFset, filepath.Join(parsePkgDir, parseName), nil, 0)
 		if parseParseErr != nil {
-			continue // skip files that don't parse; they are not the generator's concern
+			// Surface the skip so a syntax error in a route file isn't mistaken for
+			// "no contracts found"; the file is otherwise not the generator's concern.
+			fmt.Fprintf(os.Stderr, "GWC routes: skipping %s (parse error: %v)\n", parseName, parseParseErr)
+			continue
 		}
 		if parsePkgName == "" {
 			parsePkgName = parseFile.Name.Name

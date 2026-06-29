@@ -7,6 +7,8 @@ name: Bench Drift
 # single package run (-parallel 1) for the lowest-noise comparison.
 
 on:
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

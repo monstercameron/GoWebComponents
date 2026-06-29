@@ -36,7 +36,7 @@ func homePage(parseProps router.Attrs) ui.Node {
 	parseCurrentPath := router.GetCurrentPath()
 	return shared.ExamplePage(
 		"Nested Routes",
-		"router.GetOutlet",
+		"router.UseOutlet",
 		"Keep parent navigation mounted while deeper leaf routes replace only the outlet subtree.",
 		shared.ExamplePanel("Navigate",
 			html.Div(html.Props{Class: "flex flex-wrap gap-3"},
@@ -71,7 +71,7 @@ func dashboardLayout(parseProps router.Attrs) ui.Node {
 				routeLink("Docs", "/docs/getting-started", parseCurrentPath),
 			),
 		),
-		shared.ExamplePanel("Workspace", router.GetOutlet()),
+		shared.ExamplePanel("Workspace", router.UseOutlet()),
 	)
 }
 
@@ -121,7 +121,7 @@ func settingsLayout(parseProps router.Attrs) ui.Node {
 			"This is a second layout route nested under the dashboard tree.",
 			"It proves that deeper layout shells can own their own nav while still rendering inside the parent outlet.",
 		),
-		html.Div(html.Props{Class: "rounded-[20px] border border-white/10 bg-slate-950/60 p-4 shadow-inner shadow-black/20"}, router.GetOutlet()),
+		html.Div(html.Props{Class: "rounded-[20px] border border-white/10 bg-slate-950/60 p-4 shadow-inner shadow-black/20"}, router.UseOutlet()),
 	)
 }
 
@@ -159,7 +159,7 @@ func docsLayout(parseProps router.Attrs) ui.Node {
 				routeLink("Routing", "/docs/routing", parseCurrentPath),
 			),
 		),
-		shared.ExamplePanel("Article", router.GetOutlet()),
+		shared.ExamplePanel("Article", router.UseOutlet()),
 	)
 }
 

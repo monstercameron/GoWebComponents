@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -120,8 +121,12 @@ func BuildOTLPJSON(parseEvents []RUMEvent, parseOptions ExportOptions) ([]byte, 
 	return json.Marshal(parseBody)
 }
 
-// ExportOTLPHTTP posts an OTLP/HTTP JSON payload to endpoint.
-func ExportOTLPHTTP(parseClient *http.Client, parseEndpoint string, parseEvents []RUMEvent, parseOptions ExportOptions) error {
+// ExportOTLPHTTP posts an OTLP/HTTP JSON payload to endpoint. The context bounds the POST — a stuck
+// collector is cancelled via ctx (deadline/cancel) instead of blocking the caller forever.
+func ExportOTLPHTTP(parseCtx context.Context, parseClient *http.Client, parseEndpoint string, parseEvents []RUMEvent, parseOptions ExportOptions) error {
+	if parseCtx == nil {
+		parseCtx = context.Background()
+	}
 	parseBody, parseErr := BuildOTLPJSON(parseEvents, parseOptions)
 	if parseErr != nil {
 		return parseErr
@@ -129,7 +134,7 @@ func ExportOTLPHTTP(parseClient *http.Client, parseEndpoint string, parseEvents 
 	if parseClient == nil {
 		parseClient = http.DefaultClient
 	}
-	parseReq, parseErr := http.NewRequest(http.MethodPost, parseEndpoint, bytes.NewReader(parseBody))
+	parseReq, parseErr := http.NewRequestWithContext(parseCtx, http.MethodPost, parseEndpoint, bytes.NewReader(parseBody))
 	if parseErr != nil {
 		return parseErr
 	}

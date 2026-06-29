@@ -11,6 +11,7 @@ package events
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -38,16 +39,11 @@ type topicState struct {
 var globalRegistry sync.Map
 
 // globalIDCounter generates monotonically increasing subscriber IDs.
-var globalIDCounter uint64
-var globalIDMu sync.Mutex
+var globalIDCounter atomic.Uint64
 
 // nextID returns the next unique subscriber ID.
 func nextID() uint64 {
-	globalIDMu.Lock()
-	globalIDCounter++
-	parseID := globalIDCounter
-	globalIDMu.Unlock()
-	return parseID
+	return globalIDCounter.Add(1)
 }
 
 // stateFor returns the existing *topicState for a topic or creates one.
@@ -162,6 +158,9 @@ func Publish[T any](parseTopic string, parseValue T) {
 type TopicHandle[T any] struct {
 	parseTopic string
 }
+
+// Topic returns the topic name this handle publishes to, for logging and comparison.
+func (parseH TopicHandle[T]) Topic() string { return parseH.parseTopic }
 
 // Publish delivers parseValue to all subscribers currently registered on the
 // topic this handle was created for.

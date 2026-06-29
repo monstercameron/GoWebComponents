@@ -49,7 +49,7 @@
 //
 // Snapshot persistence notes:
 //
-//   - ExportSnapshot and ImportSnapshot preserve exact Go values for same-process restore.
+//   - GetSnapshot and ApplySnapshot preserve exact Go values for same-process restore.
 //   - SaveSnapshot and LoadSnapshot encode snapshots as JSON for browser storage.
 //   - SavePersistentSnapshot and LoadPersistentSnapshot use IndexedDB-first durable storage with explicit fallback behavior.
 //   - JSON persistence is only stable for JSON-compatible atom values; numeric and struct-heavy

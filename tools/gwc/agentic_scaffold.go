@@ -17,15 +17,16 @@ var runAgenticScaffoldCommand = func(parseL launcher, parseArgs []string) error 
 }
 
 type agenticScaffoldConfig struct {
-	rootPath string
-	kind     string
-	name     string
-	dir      string
-	pkg      string
-	module   string
-	noInput  bool
-	dryRun   bool
-	json     bool
+	rootPath  string
+	kind      string
+	name      string
+	dir       string
+	pkg       string
+	module    string
+	valueType string
+	noInput   bool
+	dryRun    bool
+	json      bool
 }
 
 type agenticScaffoldFile struct {
@@ -72,6 +73,7 @@ func (parseL launcher) runAgenticScaffold(parseArgs []string) error {
 	parseName := parseFlags.String("name", "", "Generated symbol or project name")
 	parsePackage := parseFlags.String("package", "", "Go package name for component and hook scaffolds")
 	parseModule := parseFlags.String("module", "", "Module path for app scaffolds")
+	parseValueType := parseFlags.String("type", "", "State value type for hook scaffolds (e.g. string, int, bool, MyStruct); defaults to string")
 	parseNoInput := parseFlags.Bool("no-input", false, "Confirm that the scaffold must run without prompts")
 	parseDryRun := parseFlags.Bool("dry-run", false, "Report planned files without writing")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON envelope")
@@ -83,15 +85,16 @@ func (parseL launcher) runAgenticScaffold(parseArgs []string) error {
 	}
 
 	parseConfig, parseErr := resolveAgenticScaffoldConfig(agenticScaffoldConfig{
-		rootPath: *parseRoot,
-		kind:     *parseKindFlag,
-		name:     *parseName,
-		dir:      *parseDir,
-		pkg:      *parsePackage,
-		module:   *parseModule,
-		noInput:  *parseNoInput,
-		dryRun:   *parseDryRun,
-		json:     *parseJSON,
+		rootPath:  *parseRoot,
+		kind:      *parseKindFlag,
+		name:      *parseName,
+		dir:       *parseDir,
+		pkg:       *parsePackage,
+		module:    *parseModule,
+		valueType: *parseValueType,
+		noInput:   *parseNoInput,
+		dryRun:    *parseDryRun,
+		json:      *parseJSON,
 	})
 	if parseErr != nil {
 		if *parseJSON {
@@ -173,16 +176,21 @@ func resolveAgenticScaffoldConfig(parseConfig agenticScaffoldConfig) (agenticSca
 	if parseModule == "" && parseKind == "app" {
 		parseModule = "example.com/" + slugifyScaffoldName(parseName)
 	}
+	parseValueType := strings.TrimSpace(parseConfig.valueType)
+	if parseValueType == "" {
+		parseValueType = "string"
+	}
 	return agenticScaffoldConfig{
-		rootPath: parseAbsRoot,
-		kind:     parseKind,
-		name:     parseName,
-		dir:      filepath.Clean(parseDir),
-		pkg:      parsePackage,
-		module:   parseModule,
-		noInput:  parseConfig.noInput,
-		dryRun:   parseConfig.dryRun,
-		json:     parseConfig.json,
+		rootPath:  parseAbsRoot,
+		kind:      parseKind,
+		name:      parseName,
+		dir:       filepath.Clean(parseDir),
+		pkg:       parsePackage,
+		module:    parseModule,
+		valueType: parseValueType,
+		noInput:   parseConfig.noInput,
+		dryRun:    parseConfig.dryRun,
+		json:      parseConfig.json,
 	}, nil
 }
 
@@ -339,17 +347,22 @@ func %s() ui.Node {
 `, parseConfig.pkg, parseConfig.name, parseConfig.name, parseConfig.name)
 }
 
-// renderAgenticHookScaffold renders a starter hook source file.
+// renderAgenticHookScaffold renders a starter hook source file. The state value type
+// defaults to string and can be overridden with the -type flag.
 func renderAgenticHookScaffold(parseConfig agenticScaffoldConfig) string {
+	parseValueType := parseConfig.valueType
+	if parseValueType == "" {
+		parseValueType = "string"
+	}
 	return fmt.Sprintf(`package %s
 
 import "github.com/monstercameron/GoWebComponents/ui"
 
 // Use%sState returns scaffolded component-local state for %s.
-func Use%sState(parseInitial string) ui.State[string] {
+func Use%sState(parseInitial %s) ui.State[%s] {
 	return ui.UseState(parseInitial)
 }
-`, parseConfig.pkg, parseConfig.name, parseConfig.name, parseConfig.name)
+`, parseConfig.pkg, parseConfig.name, parseConfig.name, parseConfig.name, parseValueType, parseValueType)
 }
 
 // renderAgenticExampleScaffold renders a runnable wasm example source file.

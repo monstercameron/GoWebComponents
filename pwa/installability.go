@@ -19,16 +19,6 @@ type InstallabilityState struct {
 	Reasons         []string
 }
 
-type InstallabilitySubscription struct {
-	cancel func()
-}
-
-func (parseSubscription InstallabilitySubscription) Cancel() {
-	if parseSubscription.cancel != nil {
-		parseSubscription.cancel()
-	}
-}
-
 type InstallabilityManager struct {
 	state     func() InstallabilityState
 	prompt    func(context.Context) (InstallPromptResult, error)

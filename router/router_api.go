@@ -99,9 +99,17 @@ func UseRouteData() Attrs {
 	return copyAttrs(currentRouteData)
 }
 
-// GetOutlet returns the child route element for the current layout route, if one exists.
-func GetOutlet() *Element {
+// UseOutlet returns the child route element for the current layout route, if one exists.
+// It follows the Use* hook-accessor naming used by the rest of this package.
+func UseOutlet() *Element {
 	return currentRouteOutlet
+}
+
+// GetOutlet returns the child route element for the current layout route, if one exists.
+//
+// Deprecated: use UseOutlet, which follows the package's Use* accessor convention.
+func GetOutlet() *Element {
+	return UseOutlet()
 }
 
 // Get returns the first value for a query key or an empty string.
@@ -138,6 +146,33 @@ func (parseQ Query) Encode() string {
 	return parseQ.values.Encode()
 }
 
+// Int parses the query value for key as an int; ok is false when the key is absent or unparseable.
+// Mirrors Params.Int so route params and query params read the same way.
+func (parseQ Query) Int(parseKey string) (int, bool) {
+	parseRaw := strings.TrimSpace(parseQ.Get(parseKey))
+	if parseRaw == "" {
+		return 0, false
+	}
+	parseValue, parseErr := strconv.Atoi(parseRaw)
+	if parseErr != nil {
+		return 0, false
+	}
+	return parseValue, true
+}
+
+// Bool parses the query value for key as a bool; ok is false when the key is absent or unparseable.
+func (parseQ Query) Bool(parseKey string) (bool, bool) {
+	parseRaw := strings.TrimSpace(parseQ.Get(parseKey))
+	if parseRaw == "" {
+		return false, false
+	}
+	parseValue, parseErr := strconv.ParseBool(parseRaw)
+	if parseErr != nil {
+		return false, false
+	}
+	return parseValue, true
+}
+
 // Get returns the first value for a query key or an empty string.
 func (parseS SearchParams) Get(parseKey string) string {
 	return Query{values: parseS.values}.Get(parseKey)
@@ -156,6 +191,16 @@ func (parseS SearchParams) Values() url.Values {
 // Encode serializes the current search params using net/url encoding.
 func (parseS SearchParams) Encode() string {
 	return Query{values: parseS.values}.Encode()
+}
+
+// Int parses the search-param value for key as an int; ok is false when absent or unparseable.
+func (parseS SearchParams) Int(parseKey string) (int, bool) {
+	return Query{values: parseS.values}.Int(parseKey)
+}
+
+// Bool parses the search-param value for key as a bool; ok is false when absent or unparseable.
+func (parseS SearchParams) Bool(parseKey string) (bool, bool) {
+	return Query{values: parseS.values}.Bool(parseKey)
 }
 
 // Set pushes a navigation update with key assigned to value.

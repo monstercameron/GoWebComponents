@@ -15,7 +15,10 @@ import (
 
 // Options represents configuration for HTTP fetch operations.
 type Options struct {
-	Method  string
+	Method string
+	// Headers are request headers. Values are typed any (not string) so callers can pass
+	// non-string values that are stringified at send time; response headers in Result are
+	// always plain strings.
 	Headers map[string]any
 	Body    any
 }
@@ -38,8 +41,10 @@ type State = runtime.FetchState
 
 // Result represents the result of a manual Fetch operation.
 type Result struct {
-	Data    any
-	Status  int
+	Data   any
+	Status int
+	// Headers are response headers, always plain strings (unlike Options.Headers, whose
+	// values are typed any for request-side flexibility).
 	Headers map[string]string
 	Err     error
 }
@@ -131,6 +136,9 @@ type resourceCancelRef interface {
 
 // UseFetch is a hook that simplifies data fetching within a component.
 // It uses the runtime fetch hook directly.
+//
+// Deprecated: prefer the typed UseResource[T] (a Go loader returning a typed value) or ui.UseQuery
+// (cache + dedupe + stale-while-revalidate). UseFetch remains for a quick untyped URL GET.
 func UseFetch(parseUrl string, parseOptions ...Options) Resource {
 	parseArgs := make([]any, len(parseOptions))
 	for parseI, parseOpt := range parseOptions {

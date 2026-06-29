@@ -8,6 +8,32 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
+// TestNamespaceHandleBindsNamespace proves Runtime.NS(ns) binds the namespace so t.T(key) equals
+// Runtime.T(ns, key), removing the forgot-the-namespace footgun of the positional form.
+func TestNamespaceHandleBindsNamespace(parseT *testing.T) {
+	parseBundle := NewBundle(BundleOptions{DefaultLocale: "en", FallbackLocale: "en"})
+	parseBundle.RegisterNamespace("en", "checkout", NamespaceCatalog{
+		"title": {Text: "Checkout"},
+		"total": {Text: "Total: {amount}"},
+	})
+	parseNode := Provider(ProviderProps{Bundle: parseBundle, Children: []ui.Node{ui.Text("c")}})
+	parseRuntime, parseOk := parseNode.Props["value"].(Runtime)
+	if !parseOk {
+		parseT.Fatalf("expected runtime in provider props, got %T", parseNode.Props["value"])
+	}
+
+	parseNS := parseRuntime.NS("checkout")
+	if parseNS.Name() != "checkout" {
+		parseT.Fatalf("Name() = %q, want checkout", parseNS.Name())
+	}
+	if parseGot, parseWant := parseNS.T("title"), parseRuntime.T("checkout", "title"); parseGot != parseWant || parseGot != "Checkout" {
+		parseT.Fatalf("NS.T(title) = %q, want %q (== %q)", parseGot, "Checkout", parseWant)
+	}
+	if parseGot := parseNS.T("total", Arguments{"amount": "$9"}); parseGot != "Total: $9" {
+		parseT.Fatalf("NS.T(total,args) = %q, want \"Total: $9\"", parseGot)
+	}
+}
+
 func TestLocaleStateAndBundleWrapperHelpers(parseT *testing.T) {
 	parseState := LocaleState{}
 	if parseState.Get() != "" || parseState.Direction() != DirectionLTR || parseState.FallbackLocale() != "" || parseState.SupportedLocales() != nil {

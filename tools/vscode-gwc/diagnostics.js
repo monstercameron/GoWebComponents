@@ -39,4 +39,25 @@ function toDiagnostics(parseSummary) {
   }));
 }
 
-module.exports = { toDiagnostics, severityFor };
+// toCodeActions maps a `gwc lint --json` summary into plain quick-fix descriptors for the
+// issues the underlying linter can autofix (issue.fixable). Each descriptor names the command
+// the host runs (gwc.fix) and the file to fix; the actual edit is applied by golangci's own
+// verified `gwc lint --fix`, never computed in the editor. Descriptors are host-independent so
+// this is unit-testable under plain Node; extension.js turns them into vscode.CodeAction.
+function toCodeActions(parseSummary) {
+  const parseIssues = (parseSummary && parseSummary.issues) || [];
+  return parseIssues
+    .filter((parseIssue) => parseIssue && parseIssue.fixable && parseIssue.path)
+    .map((parseIssue) => ({
+      title: `GWC: fix ${parseIssue.linter || "lint"} issue (gwc lint --fix)`,
+      command: "gwc.fix",
+      path: parseIssue.path,
+      range: {
+        startLine: Math.max(0, (parseIssue.line || 1) - 1),
+        startColumn: Math.max(0, (parseIssue.column || 1) - 1),
+      },
+      isPreferred: true,
+    }));
+}
+
+module.exports = { toDiagnostics, severityFor, toCodeActions };

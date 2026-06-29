@@ -39,7 +39,13 @@ type HydrateMode int
 const (
 	// HydrateEager loads the stored value when the binding mounts.
 	HydrateEager HydrateMode = iota
-	// HydrateLazy defers loading until the first read.
+	// HydrateLazy does NOT auto-load the stored value: the binding starts at the supplied initial
+	// value and the first Set persists forward over whatever was stored. Use it for write-through
+	// state that should not read its prior value back on mount.
+	//
+	// NOTE: this is "skip the eager load", not "load on first read" — true load-on-first-read is not
+	// implemented in the asynchronous-engine hook model (there is no synchronous read path to defer
+	// into). Use HydrateEager when you need the stored value available after mount.
 	HydrateLazy
 )
 

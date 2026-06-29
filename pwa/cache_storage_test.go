@@ -30,3 +30,19 @@ func TestBuildCacheStoragePlanBuildsExplicitStrategies(parseT *testing.T) {
 		parseT.Fatalf("expected wasm cache-first entry, got %+v", parsePlan.Entries[0])
 	}
 }
+
+// TestServiceWorkerOptionConstants proves the typed string constants assign to the string-typed
+// ServiceWorkerOptions fields (so callers use named values instead of magic strings) and carry the
+// Web-spec values.
+func TestServiceWorkerOptionConstants(parseT *testing.T) {
+	parseOpts := ServiceWorkerOptions{
+		Type:           ServiceWorkerTypeModule,
+		UpdateViaCache: UpdateViaCacheNone,
+	}
+	if parseOpts.Type != "module" || parseOpts.UpdateViaCache != "none" {
+		parseT.Fatalf("unexpected option values: %+v", parseOpts)
+	}
+	if ServiceWorkerTypeClassic != "classic" || UpdateViaCacheImports != "imports" || UpdateViaCacheAll != "all" {
+		parseT.Fatal("service-worker option constants must match the Web spec values")
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/deprecation"
 	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/interop"
 )
@@ -75,8 +76,11 @@ func GetDebugStatus() map[string]bool {
 	}
 }
 
-// EnableHotReload enables or disables hot reload in production builds.
+// EnableHotReload enables or disables hot reload.
+//
+// Deprecated: use hotreload.Enable / hotreload.Disable directly.
 func EnableHotReload(isEnabled bool) {
+	deprecation.Warn("utils.EnableHotReload", "hotreload.Enable/hotreload.Disable")
 	if isEnabled {
 		hotreload.Enable()
 		return
@@ -85,12 +89,18 @@ func EnableHotReload(isEnabled bool) {
 }
 
 // IsHotReloadEnabled reports whether hot reload is currently enabled.
+//
+// Deprecated: use hotreload.Enabled.
 func IsHotReloadEnabled() bool {
-	return hotreload.IsEnabled()
+	deprecation.Warn("utils.IsHotReloadEnabled", "hotreload.Enabled")
+	return hotreload.Enabled()
 }
 
 // InstallHotReloadBridge configures the hot reload bridge with the given atom IDs.
+//
+// Deprecated: use hotreload.Configure directly.
 func InstallHotReloadBridge(parseAtomIDs ...string) {
+	deprecation.Warn("utils.InstallHotReloadBridge", "hotreload.Configure")
 	hotreload.Configure(hotreload.Config{AtomIDs: parseAtomIDs})
 }
 

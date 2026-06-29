@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/internal/platform/jsdom"
 	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/interop"
 )
 
 const propsKey = "__ui_props"
@@ -204,6 +204,13 @@ type runtimeErrorBoundaryComponent interface {
 // ErrorBoundary creates a subtree boundary with fallback rendering and reset behavior.
 var ErrorBoundary = &errorBoundaryComponent{boundaryType: runtime.NewErrorBoundaryType()}
 
+// NewErrorBoundary is the function entry point for an error boundary, mirroring AsyncBoundary(props)
+// and Lazy(props): NewErrorBoundary(ErrorBoundaryProps{...}) instead of CreateElement(ErrorBoundary,
+// props). (The ErrorBoundary identifier is a component var, so the func needs a distinct name.)
+func NewErrorBoundary(parseProps ErrorBoundaryProps) Node {
+	return CreateElement(ErrorBoundary, parseProps)
+}
+
 // CreateElement creates a UI node from a component function, provider, boundary, or existing node.
 func CreateElement(parseComponent interface{}, parseProps ...interface{}) Node {
 	if parseNode, parseOk := parseComponent.(*runtime.Element); parseOk && len(parseProps) == 0 {
@@ -344,7 +351,12 @@ func RenderInto(parseRoot Node, parseTarget interface{}) error {
 // It restores the optional bootstrap payload, reuses matching server-rendered
 // DOM where possible, and falls back per subtree when hydration cannot
 // continue safely.
-func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOptions) (SSRBootstrap, error) {
+// hydrateWithBootstrap is the shared body of Hydrate and HydrateInto: it resolves the bootstrap
+// payload (options/script/reference), records startup cost, wires the parallel-region observer,
+// restores the ID seed + atom snapshot, sets strict mode, then mounts. The ONLY per-entrypoint
+// differences are the parallel-region bridge (selector vs target) and the mount call — supplied as
+// parseBridge and parseMount — so the bootstrap/observability logic lives in exactly one place.
+func hydrateWithBootstrap(parseOptions []HydrationOptions, parseBridge func() error, parseMount func(parseRt *runtime.Runtime) error) (SSRBootstrap, error) {
 	runtime.BeginStartupProfiling("hydrate")
 	parseBootstrapStarted := time.Now()
 	parseBootstrapSource := "options"
@@ -384,9 +396,7 @@ func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOpti
 	}
 	ensureInitialized()
 	parseRt := runtime.GetGlobalRuntime()
-	setParallelRegionHydrationObserver(parseRt, parseResolved.Observability.CorrelationID, func() error {
-		return handleParallelRegionHydrationSelector(parseSelector)
-	}, func(parseMetrics runtime.HydrationMetrics) {
+	setParallelRegionHydrationObserver(parseRt, parseResolved.Observability.CorrelationID, parseBridge, func(parseMetrics runtime.HydrationMetrics) {
 		dispatchSSRObservation(parseResolved.Observability, newSSRHydrationObservation(parseMetrics))
 	})
 	if parsePayload.IDSeed > 0 {
@@ -398,75 +408,28 @@ func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOpti
 		}
 	}
 	parseRt.SetNextHydrationStrict(parseResolved.Strict)
-	parseRt.HydrateTo(parseSelector, parseRoot)
-	if parseHydrationBridgeErr := handleParallelRegionHydrationSelector(parseSelector); parseHydrationBridgeErr != nil {
-		return SSRBootstrap{}, parseHydrationBridgeErr
+	if parseMountErr := parseMount(parseRt); parseMountErr != nil {
+		return SSRBootstrap{}, parseMountErr
+	}
+	if parseBridgeErr := parseBridge(); parseBridgeErr != nil {
+		return SSRBootstrap{}, parseBridgeErr
 	}
 	return parsePayload, nil
 }
 
+func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOptions) (SSRBootstrap, error) {
+	return hydrateWithBootstrap(parseOptions,
+		func() error { return handleParallelRegionHydrationSelector(parseSelector) },
+		func(parseRt *runtime.Runtime) error { parseRt.HydrateTo(parseSelector, parseRoot); return nil },
+	)
+}
+
 // HydrateInto resumes a UI tree into an explicit DOM node.
 func HydrateInto(parseRoot Node, parseTarget interface{}, parseOptions ...HydrationOptions) (SSRBootstrap, error) {
-	runtime.BeginStartupProfiling("hydrate")
-	parseBootstrapStarted := time.Now()
-	parseBootstrapSource := "options"
-	parseResolved := resolveHydrationOptions(parseOptions)
-	parsePayload := parseResolved.Bootstrap
-	switch {
-	case parseResolved.ScriptID != "":
-		parseParsed, parseErr := ReadBootstrapScript(parseResolved.ScriptID)
-		if parseErr != nil {
-			return SSRBootstrap{}, parseErr
-		}
-		parsePayload = parseParsed
-		parseBootstrapSource = "script"
-	case parseResolved.ReferenceScriptID != "":
-		parseRef, parseErr2 := ReadBootstrapReferenceScript(parseResolved.ReferenceScriptID)
-		if parseErr2 != nil {
-			return SSRBootstrap{}, parseErr2
-		}
-		parseParsed2, parseErr2 := ReadBootstrapReference(parseRef)
-		if parseErr2 != nil {
-			return SSRBootstrap{}, parseErr2
-		}
-		parsePayload = parseParsed2
-		parseBootstrapSource = "reference-script"
-	case parseResolved.BootstrapRef.URL != "":
-		parseParsed3, parseErr3 := ReadBootstrapReference(parseResolved.BootstrapRef)
-		if parseErr3 != nil {
-			return SSRBootstrap{}, parseErr3
-		}
-		parsePayload = parseParsed3
-		parseBootstrapSource = "reference-url"
-	}
-	runtime.RecordStartupBootstrapRead(time.Since(parseBootstrapStarted).Nanoseconds(), parseBootstrapSource)
-	storeHydrationStartupCost(parsePayload)
-	if parseResolved.Observability.CorrelationID == "" && parsePayload.CorrelationID != "" {
-		parseResolved.Observability.CorrelationID = parsePayload.CorrelationID
-	}
-	ensureInitialized()
-	parseRt := runtime.GetGlobalRuntime()
-	setParallelRegionHydrationObserver(parseRt, parseResolved.Observability.CorrelationID, func() error {
-		return handleParallelRegionHydrationTarget(parseTarget)
-	}, func(parseMetrics runtime.HydrationMetrics) {
-		dispatchSSRObservation(parseResolved.Observability, newSSRHydrationObservation(parseMetrics))
-	})
-	if parsePayload.IDSeed > 0 {
-		parseRt.SetIDSeed(parsePayload.IDSeed)
-	}
-	if len(parsePayload.Atoms) > 0 {
-		if parseErr4 := parseRt.RestoreAtomSnapshot(parsePayload.Atoms); parseErr4 != nil {
-			return SSRBootstrap{}, parseErr4
-		}
-	}
-	parseRt.SetNextHydrationStrict(parseResolved.Strict)
-	if parseErr5 := parseRt.HydrateInto(parseTarget, parseRoot); parseErr5 != nil {
-		return SSRBootstrap{}, parseErr5
-	}
-	if parseHydrationBridgeErr := handleParallelRegionHydrationTarget(parseTarget); parseHydrationBridgeErr != nil {
-		return SSRBootstrap{}, parseHydrationBridgeErr
-	}
-	return parsePayload, nil
+	return hydrateWithBootstrap(parseOptions,
+		func() error { return handleParallelRegionHydrationTarget(parseTarget) },
+		func(parseRt *runtime.Runtime) error { return parseRt.HydrateInto(parseTarget, parseRoot) },
+	)
 }
 
 // RenderToString renders a ui.Node tree to an HTML string for server-side rendering.

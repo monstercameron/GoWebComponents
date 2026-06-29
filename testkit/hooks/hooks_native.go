@@ -9,7 +9,7 @@ type Harness[T any] struct{}
 
 var nativeHooksFatal = func(parseTb testing.TB) {
 	parseTb.Helper()
-	parseTb.Fatal("testkit/hooks requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+	parseTb.Fatal("testkit/hooks requires js/wasm tests; run go test with a js/wasm executor: tools\\go_js_wasm_exec.bat (Windows) or tools/go_js_wasm_exec.sh (macOS/Linux)")
 }
 
 // RenderHook requires a js/wasm test environment because interactive hooks only

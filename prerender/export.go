@@ -50,27 +50,29 @@ func Export(parseOutputDir string, parseRoutes []Route) (ExportSummary, error) {
 		HTMLFiles:      make([]string, 0, len(parseRoutes)),
 		BootstrapFiles: make([]string, 0, len(parseRoutes)),
 	}
+	// Mid-loop errors return the partial summary (not a zeroed one) so callers know which files
+	// were already written to disk and can clean them up.
 	for _, parseRoute := range parseRoutes {
 		parseNormalizedPath, parseErr := normalizeRoutePath(parseRoute.Path)
 		if parseErr != nil {
-			return ExportSummary{}, parseErr
+			return parseSummary, parseErr
 		}
 		if parseRoute.Build == nil {
-			return ExportSummary{}, fmt.Errorf("prerender: build callback is required for route %q", parseNormalizedPath)
+			return parseSummary, fmt.Errorf("prerender: build callback is required for route %q", parseNormalizedPath)
 		}
 
 		parseTarget := buildTarget(parseNormalizedPath, parseRoute.BootstrapFormat)
 		parseResult, parseErr := parseRoute.Build(parseTarget)
 		if parseErr != nil {
-			return ExportSummary{}, fmt.Errorf("prerender: build %q: %w", parseNormalizedPath, parseErr)
+			return parseSummary, fmt.Errorf("prerender: build %q: %w", parseNormalizedPath, parseErr)
 		}
 		if strings.TrimSpace(parseResult.HTML) == "" {
-			return ExportSummary{}, fmt.Errorf("prerender: route %q returned empty html", parseNormalizedPath)
+			return parseSummary, fmt.Errorf("prerender: route %q returned empty html", parseNormalizedPath)
 		}
 
 		parseHtmlPath := filepath.Join(parseOutputDir, filepath.FromSlash(parseTarget.HTMLFile))
 		if parseErr2 := writeFile(parseHtmlPath, []byte(parseResult.HTML)); parseErr2 != nil {
-			return ExportSummary{}, parseErr2
+			return parseSummary, parseErr2
 		}
 		parseSummary.HTMLFiles = append(parseSummary.HTMLFiles, parseHtmlPath)
 
@@ -79,7 +81,7 @@ func Export(parseOutputDir string, parseRoutes []Route) (ExportSummary, error) {
 		}
 		parseBootstrapPath := filepath.Join(parseOutputDir, filepath.FromSlash(parseTarget.BootstrapFile))
 		if parseErr3 := writeFile(parseBootstrapPath, parseResult.Bootstrap); parseErr3 != nil {
-			return ExportSummary{}, parseErr3
+			return parseSummary, parseErr3
 		}
 		parseSummary.BootstrapFiles = append(parseSummary.BootstrapFiles, parseBootstrapPath)
 	}

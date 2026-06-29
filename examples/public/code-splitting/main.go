@@ -118,7 +118,7 @@ func catalogLayoutView() ui.Node {
 	parseCurrentPath := router.GetCurrentPath()
 	parseNav := router.UseNavigate()
 	parseGoTo := func(parsePath string) { parseNav.Navigate(parsePath) }
-	parseWorkspace := router.GetOutlet()
+	parseWorkspace := router.UseOutlet()
 	if parseWorkspace == nil {
 		parseWorkspace = lazyPanel("catalog-shell", "Catalog overview panel", "The deferred panel resolves after the catalog shell is already visible.")
 	}
@@ -147,7 +147,7 @@ func operationsLayoutView() ui.Node {
 	parseCurrentPath := router.GetCurrentPath()
 	parseNav := router.UseNavigate()
 	parseGoTo := func(parsePath string) { parseNav.Navigate(parsePath) }
-	parseWorkspace := router.GetOutlet()
+	parseWorkspace := router.UseOutlet()
 	if parseWorkspace == nil {
 		parseWorkspace = lazyPanel("operations-shell", "Operations queue panel", "The deferred queue resolves under the operations shell without disturbing navigation.")
 	}

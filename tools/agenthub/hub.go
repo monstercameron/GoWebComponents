@@ -678,7 +678,7 @@ func (parseHub *AgentHub) SendCommand(parseCtx context.Context, parseSessionID s
 	parseSess.pendingAcks[parseSeq] = parseCh
 	parseSess.mu.Unlock()
 
-	parseFrame := agentbridge.BuildCommandEnvelope(parseSeq, parseSessionID, parseName, parsePayload)
+	parseFrame := agentbridge.NewCommandEnvelope(parseSeq, parseSessionID, parseName, parsePayload)
 	parseFormatted, parseFormatErr := agentbridge.FormatEnvelopeJSON(parseFrame)
 	if parseFormatErr != nil {
 		parseSess.mu.Lock()
@@ -836,7 +836,7 @@ func (parseHub *AgentHub) updateWriteLease(parseSess *Session, parseAction strin
 		}
 		parseSess.lease = WriteLease{Holder: parseHolder, ExpiresAt: parseExpires}
 		parsePayload := json.RawMessage(fmt.Sprintf(`{"holder":%q}`, parseHolder))
-		parseSess.events.push(agentbridge.BuildEventEnvelope(parseSess.outSeq.Add(1), parseSess.ID, "lease.stolen", parsePayload))
+		parseSess.events.push(agentbridge.NewEventEnvelope(parseSess.outSeq.Add(1), parseSess.ID, "lease.stolen", parsePayload))
 	default:
 		return parseSess.lease, fmt.Errorf("agenthub: unsupported lease action %q", parseAction)
 	}

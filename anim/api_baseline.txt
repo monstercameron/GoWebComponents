@@ -32,6 +32,7 @@ func StaggerDelay(parseIndex int, parseStep float64) float64
 func StartPan(parseSample GestureSample) PanGesture
 func StiffSpring() SpringConfig
 func WobblySpring() SpringConfig
+type = EasingFunc Easing
 type Easing func(parseT float64) float64
 type FLIPTransform struct { TranslateX float64 TranslateY float64 ScaleX float64 ScaleY float64 }
 type GestureSample struct { ID string X float64 Y float64 Time float64 }

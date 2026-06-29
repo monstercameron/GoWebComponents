@@ -46,6 +46,27 @@ by this rule:
 
 That decision is the gate for doing the split; it is intentionally **not** made unilaterally.
 
+## Support window & deprecation
+
+A deprecated **Stable** API is not removed in the next release. The commitment:
+
+- A symbol marked deprecated stays present, working, and documented for **at least two minor
+  releases and at least 90 days** after the release that deprecated it, before a major release
+  may remove it. The deprecating release names the replacement in `CHANGELOG.md`.
+- The current major line receives fixes for **at least 12 months** after its successor major
+  is published, so a consumer is never forced to upgrade a major on short notice.
+
+The API-baseline tests below mechanically detect when a removal would breach this window (a
+baseline line disappears), so the policy is enforced, not just promised.
+
+## API-baseline merge gate
+
+The API-baseline tests (`internal/apidump` + each package's `api_baseline.txt`) run as a
+**required PR check** via `.github/workflows/api-baseline.yml` — not only at release. An
+accidental breaking change to an exported surface fails the PR before merge, so a major-bump
+trigger can never land silently on `main`. Intentional changes regenerate the baseline
+(`UPDATE_API_BASELINE=1 go test ./<pkg>/`) as a reviewed commit, classified by the table above.
+
 ## Pre-1.0 / pre-stable surfaces
 
 Packages or symbols documented as **Experimental** (see the reference manual's stability

@@ -78,3 +78,28 @@ func TestDatePickerAndTableExposeGridAndHeaderContracts(parseT *testing.T) {
 		}
 	}
 }
+
+// TestListboxMultiSelectEmitsAriaMultiselectable proves a multi-select listbox emits the
+// container-level aria-multiselectable="true" (WAI-ARIA 1.2 §5.5), and a single-select one omits it.
+func TestListboxMultiSelectEmitsAriaMultiselectable(parseT *testing.T) {
+	parseMulti, parseErr := ui.RenderToString(Listbox(ListboxProps{
+		ID: "tags", Label: "Tags", MultiSelect: true,
+		Items: []Item{{ID: "a", Label: "A", Selected: true}, {ID: "b", Label: "B", Selected: true}},
+	}))
+	if parseErr != nil {
+		parseT.Fatalf("render multi: %v", parseErr)
+	}
+	if !strings.Contains(parseMulti, `aria-multiselectable="true"`) {
+		parseT.Fatalf("multi-select listbox must emit aria-multiselectable, got %q", parseMulti)
+	}
+
+	parseSingle, parseErr2 := ui.RenderToString(Listbox(ListboxProps{
+		ID: "one", Label: "One", Items: []Item{{ID: "a", Label: "A"}},
+	}))
+	if parseErr2 != nil {
+		parseT.Fatalf("render single: %v", parseErr2)
+	}
+	if strings.Contains(parseSingle, "aria-multiselectable") {
+		parseT.Fatalf("single-select listbox must NOT emit aria-multiselectable, got %q", parseSingle)
+	}
+}

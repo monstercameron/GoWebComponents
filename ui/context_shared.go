@@ -95,52 +95,10 @@ func extractContextProviderValue(parseRawProps any) (any, bool) {
 	return parseValueField.Interface(), true
 }
 
-// extractContextProviderChildren is a core package helper.
+// extractContextProviderChildren resolves the context Provider's Child/Children props via the
+// shared coalesceChildren helper (one extraction implementation across all boundaries).
 func extractContextProviderChildren(parseRawProps any) []any {
-	if parseRawProps == nil {
-		return nil
-	}
-
-	if parsePropsMap, parseOk := parseRawProps.(map[string]any); parseOk {
-		parseChildren := make([]any, 0, 2)
-		if parseChild, parseOk2 := parsePropsMap["child"].(*runtime.Element); parseOk2 && parseChild != nil {
-			parseChildren = append(parseChildren, parseChild)
-		}
-		if parseChildNodes, parseOk3 := parsePropsMap["children"].([]any); parseOk3 && len(parseChildNodes) > 0 {
-			parseChildren = append(parseChildren, parseChildNodes...)
-		}
-		return parseChildren
-	}
-
-	parseReflectedValue := reflect.ValueOf(parseRawProps)
-	for parseReflectedValue.IsValid() && parseReflectedValue.Kind() == reflect.Pointer {
-		if parseReflectedValue.IsNil() {
-			return nil
-		}
-		parseReflectedValue = parseReflectedValue.Elem()
-	}
-
-	if !parseReflectedValue.IsValid() || parseReflectedValue.Kind() != reflect.Struct {
-		return nil
-	}
-
-	parseChildren2 := make([]any, 0, 2)
-	if parseChildField := parseReflectedValue.FieldByName("Child"); parseChildField.IsValid() && parseChildField.CanInterface() {
-		if parseChild2, parseOk4 := parseChildField.Interface().(*runtime.Element); parseOk4 && parseChild2 != nil {
-			parseChildren2 = append(parseChildren2, parseChild2)
-		}
-	}
-	if parseChildrenField := parseReflectedValue.FieldByName("Children"); parseChildrenField.IsValid() && parseChildrenField.CanInterface() {
-		if parseTypedChildren, parseOk5 := parseChildrenField.Interface().([]Node); parseOk5 {
-			for _, parseChild3 := range parseTypedChildren {
-				if parseChild3 != nil {
-					parseChildren2 = append(parseChildren2, parseChild3)
-				}
-			}
-		}
-	}
-
-	return parseChildren2
+	return coalesceChildren(parseRawProps)
 }
 
 // castContextValue is a core package helper.

@@ -18,12 +18,20 @@ func FocusVisible(rules ...Rule) []Rule { return applyVariant("&:focus-visible",
 // Active scopes rules to :active.
 func Active(rules ...Rule) []Rule { return applyVariant("&:active", "", rules) }
 
-// WhenDisabled scopes rules to :disabled.
-func WhenDisabled(rules ...Rule) []Rule { return applyVariant("&:disabled", "", rules) }
+// Disabled scopes rules to the :disabled pseudo-class. It uses the bare pseudo-class
+// name like the other variants (Hover, Focus, Active, …).
+func Disabled(rules ...Rule) []Rule { return applyVariant("&:disabled", "", rules) }
 
-// FirstChild / LastChild scope to structural pseudo-classes.
+// WhenDisabled scopes rules to :disabled.
+//
+// Deprecated: use Disabled, which matches the bare pseudo-class naming of the other variants.
+func WhenDisabled(rules ...Rule) []Rule { return Disabled(rules...) }
+
+// FirstChild scopes rules to the :first-child structural pseudo-class.
 func FirstChild(rules ...Rule) []Rule { return applyVariant("&:first-child", "", rules) }
-func LastChild(rules ...Rule) []Rule  { return applyVariant("&:last-child", "", rules) }
+
+// LastChild scopes rules to the :last-child structural pseudo-class.
+func LastChild(rules ...Rule) []Rule { return applyVariant("&:last-child", "", rules) }
 
 // Before / After scope to the ::before / ::after pseudo-elements. A content
 // declaration defaults to "" when absent so the pseudo-element renders.
@@ -122,10 +130,11 @@ func keyframesBody(frames []Frame) string {
 }
 
 // Animation sets the animation shorthand timing for a Keyframes rule. Compose it
-// alongside the Keyframes rule in the same New(...) call.
-func Animation(duration Length, timing string) Rule {
+// alongside the Keyframes rule in the same New(...) call. It takes a typed Duration and Easing
+// (matching Transition), so a unit-less or mistyped value is a compile error: Animation(Ms(200), Linear).
+func Animation(duration Duration, timing Easing) Rule {
 	return Rule{decls: []declaration{
 		{"animation-duration", string(duration)},
-		{"animation-timing-function", timing},
+		{"animation-timing-function", string(timing)},
 	}}
 }

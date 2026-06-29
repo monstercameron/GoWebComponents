@@ -412,3 +412,20 @@ func TestErrorBoundaryRendersFallbackOnServer(parseT *testing.T) {
 		parseT.Fatalf("unexpected server boundary fallback markup: %q", parseMarkup)
 	}
 }
+
+// TestNewErrorBoundaryFuncEntryPoint proves the func entry point produces the same boundary as
+// CreateElement(ErrorBoundary, props) — its fallback catches a child panic on the server.
+func TestNewErrorBoundaryFuncEntryPoint(parseT *testing.T) {
+	parseBoom := func() ui.Node { panic("boom") }
+	parseNode := ui.NewErrorBoundary(ui.ErrorBoundaryProps{
+		ErrorFallback: func(error, func()) ui.Node { return html.P(html.Props{}, html.Text("caught")) },
+		Child:         ui.CreateElement(parseBoom),
+	})
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("render: %v", parseErr)
+	}
+	if parseMarkup != `<p>caught</p>` {
+		parseT.Fatalf("NewErrorBoundary fallback markup = %q, want <p>caught</p>", parseMarkup)
+	}
+}

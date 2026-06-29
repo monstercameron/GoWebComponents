@@ -84,3 +84,5 @@ jobs:
         run: go build -o gwc ./tools/gwc
       - name: Routes codegen up to date
         run: ./gwc routes check -pkg examples/public/typed-routes-demo
+      - name: CSS token codegen up to date
+        run: ./gwc css check -theme examples/public/typed-css-tokens-demo/theme.json -pkg examples/public/typed-css-tokens-demo

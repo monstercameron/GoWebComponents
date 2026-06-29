@@ -157,8 +157,11 @@ func Transform(fns ...TransformFn) Rule {
 
 // --- box-shadow & outline -----------------------------------------------------
 
-// Shadow is a typed box-shadow value. Use the preset tokens or RawShadow.
+// ShadowToken is a typed box-shadow value. Use the preset tokens or RawShadow.
 type ShadowToken string
+
+// String returns the box-shadow value, matching the other typed CSS value types.
+func (parseToken ShadowToken) String() string { return string(parseToken) }
 
 const (
 	ShadowNone ShadowToken = "none"

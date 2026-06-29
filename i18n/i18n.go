@@ -336,6 +336,29 @@ func (parseR Runtime) T(parseNamespace string, parseKey string, parseArgs ...Arg
 	return parseR.bundle.Translate(parseR.Locale(), parseNamespace, parseKey, parseResolvedArgs, parseR.fallbackLocale)
 }
 
+// Namespace binds a Runtime to a single namespace so its translations are looked up by key
+// alone. It removes the per-call footgun of T(namespace, key, …) where swapping or forgetting the
+// positional namespace silently misses; the namespace is fixed once at the NS() call site.
+type Namespace struct {
+	runtime   Runtime
+	namespace string
+}
+
+// NS returns a Namespace handle bound to namespace, so a component that translates many keys in
+// the same namespace writes t := r.NS("checkout"); t.T("title"); t.T("total", args) instead of
+// repeating the namespace (and risking a typo) at every call.
+func (parseR Runtime) NS(parseNamespace string) Namespace {
+	return Namespace{runtime: parseR, namespace: parseNamespace}
+}
+
+// T translates key within the bound namespace, with the same args/fallback semantics as Runtime.T.
+func (parseN Namespace) T(parseKey string, parseArgs ...Arguments) string {
+	return parseN.runtime.T(parseN.namespace, parseKey, parseArgs...)
+}
+
+// Name returns the bound namespace.
+func (parseN Namespace) Name() string { return parseN.namespace }
+
 func (parseR Runtime) FormatNumber(parseValue float64, parseOptions ...NumberOptions) string {
 	return FormatNumber(parseR.Locale(), parseValue, parseOptions...)
 }

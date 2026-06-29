@@ -3,11 +3,32 @@ package pwa
 import "context"
 
 type ServiceWorkerOptions struct {
-	URL            string
-	Scope          string
-	Type           string
+	URL   string
+	Scope string
+	// Type is the worker script type: use ServiceWorkerTypeClassic / ServiceWorkerTypeModule
+	// (a typo'd string silently registers nothing useful).
+	Type string
+	// UpdateViaCache is the HTTP-cache policy for the worker script + its imports: use
+	// UpdateViaCacheImports / UpdateViaCacheAll / UpdateViaCacheNone.
 	UpdateViaCache string
 }
+
+// Service-worker script type values for ServiceWorkerOptions.Type (the standard
+// ServiceWorkerContainer.register `type` option). String constants — assignable to the field —
+// so a typo is a compile error at the use site instead of a silent registration quirk.
+const (
+	ServiceWorkerTypeClassic string = "classic"
+	ServiceWorkerTypeModule  string = "module"
+)
+
+// HTTP-cache policy values for ServiceWorkerOptions.UpdateViaCache (the standard `updateViaCache`
+// option): "imports" (default — bypass cache for the top script, use it for imports), "all" (use
+// the cache for both), "none" (bypass for both).
+const (
+	UpdateViaCacheImports string = "imports"
+	UpdateViaCacheAll     string = "all"
+	UpdateViaCacheNone    string = "none"
+)
 
 type ServiceWorkerState string
 
@@ -39,16 +60,6 @@ type BackgroundSyncCapabilities struct {
 
 func (parseCapabilities BackgroundSyncCapabilities) Available() bool {
 	return parseCapabilities.OneShot || parseCapabilities.Periodic
-}
-
-type ServiceWorkerSubscription struct {
-	cancel func()
-}
-
-func (parseSubscription ServiceWorkerSubscription) Cancel() {
-	if parseSubscription.cancel != nil {
-		parseSubscription.cancel()
-	}
 }
 
 type ServiceWorkerRegistration struct {

@@ -26,7 +26,8 @@ Start with the smallest owner that matches the real problem:
 - `ui.UseReducer`: one feature subtree owns several named transitions
 - `ui.CreateContext` and `ui.UseContext`: one subtree needs shared access without prop threading
 - `state.UseAtom`: unrelated components need the same shared source of truth
-- `state.UseComputed`: the current component wants a typed render-time derived value
+- `state.AtomKey` + `state.UseAtomKey`: a shared atom used across components/packages — declare the id, type, and default once as a key var (see below) instead of repeating the id string
+- `ui.UseMemo`: the current component wants a typed render-time derived value (returns the value directly; preferred over the deprecated `state.UseComputed`)
 - `state.UseDerived`: several components need the same read-only derived shared value
 - `state.UseSelector`: one consumer needs a narrower shared projection from a larger atom or derived source
 - snapshot helpers: the app intentionally exports, restores, or persists selected client-owned atoms
@@ -45,9 +46,9 @@ Core ownership tools are `Stable`:
 - `ui.CreateContext`
 - `ui.UseContext`
 - `state.UseAtom`
-- `state.UseComputed`
+- `state.UseComputed` *(deprecated — prefer `ui.UseMemo`, which returns the value directly)*
 - `state.UseDerived`
-- `state.GetSnapshot`, `state.ExportSnapshot`, `state.ApplySnapshot`, `state.ImportSnapshot`
+- `state.GetSnapshot`, `state.ApplySnapshot` *(prefer these; `state.ExportSnapshot` / `state.ImportSnapshot` are deprecated aliases)*
 - `state.SaveSnapshot`, `state.LoadSnapshot`, `state.RestoreSnapshot`
 - `state.SavePersistentSnapshot`, `state.LoadPersistentSnapshot`, `state.RestorePersistentSnapshot`
 
@@ -102,12 +103,12 @@ How signals relate to the other tools:
 - A signal **is** an atom under the hood, so it composes with `UseSelector`,
   `ReactiveRegion`, snapshots, and `UseAtom` subscribers — there is no second
   reactivity system to learn.
-- Prefer `UseState`/`UseComputed` for ordinary local values; reach for signals when a
+- Prefer `UseState`/`ui.UseMemo` for ordinary local values; reach for signals when a
   measured hot value should update without rerunning its owner.
 
 ## Minimal Example
 
-Start with local ownership first. If one component owns the value, `ui.UseState` plus `state.UseComputed` is enough.
+Start with local ownership first. If one component owns the value, `ui.UseState` plus `ui.UseMemo` is enough.
 
 ```go
 package main
@@ -116,7 +117,6 @@ import (
 	"fmt"
 
 	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
 	"github.com/monstercameron/GoWebComponents/utils"
 )
@@ -124,7 +124,7 @@ import (
 // renderInvitePlanner keeps both the writable source and the derived summary local to one component.
 func renderInvitePlanner() ui.Node {
 	storeSeatCount := ui.UseState(3)
-	getSeatSummary := state.UseComputed(func() string {
+	getSeatSummary := ui.UseMemo(func() string {
 		if storeSeatCount.Get() == 1 {
 			return "1 editor seat"
 		}
@@ -296,7 +296,7 @@ Why this is the right middle layer:
 
 In a larger codebase, separate app-owned shared state, persistence, and hot-path projections into a dedicated package instead of recreating atom IDs ad hoc in feature code.
 
-```go
+```go gwc:build
 package appstate
 
 import (
@@ -408,7 +408,8 @@ dependencies; none discovers them through a hidden runtime graph.
 | One action updates several fields together | `ui.UseReducer` | Serializes related transitions through one updater. |
 | A subtree needs the same model without prop threading | context | Scoped sharing, still component-local. |
 | Unrelated branches need one source of truth | `state.UseAtom` / `state.GlobalAtom` | Shared, subscribable, explicitly keyed. |
-| A typed value derived from sources this component owns | `state.UseComputed` | Memoized derived value, render-time. |
+| A shared atom referenced from several components/packages | `state.AtomKey` + `state.UseAtomKey` | Declare id+type+default once; typed call sites, no id-string drift. |
+| A typed value derived from sources this component owns | `ui.UseMemo` (`state.UseComputed` is deprecated → it) | Memoized derived value, render-time. |
 | A shared read-only value several consumers derive | `state.UseDerived` / `state.UseSelector` | Recompute follows explicit source IDs. |
 | Update exactly the DOM nodes bound to a value, no component re-render | `state.Signal` + `signal.Text(...)` | Fine-grained reactivity outside the hook lifecycle. |
 | Server data: cache, dedupe, stale-while-revalidate, optimistic writes | `query.Cache` + `ui.UseQuery` / `UseMutation` | The async/server tier; not for local UI state. |
@@ -430,9 +431,33 @@ Rules of thumb that keep the model coherent:
   primitive.** Use `kvstate` for one replica that must survive reloads and reconcile across
   tabs; add `localfirst` when *multiple* replicas (clients) must converge with a server.
 
+### Typed atom keys (`AtomKey`)
+
+`UseAtom(id, default)` repeats the id string and default at every call site, and lets a `UseAtom`
+and a `GlobalAtom` for the same id silently disagree on type or default. For an atom shared across
+components or packages, declare it **once** as an `AtomKey` and pass the key everywhere:
+
+```go
+// one declaration owns the id, the type, and the default
+var ThemeAtom = state.NewAtomKey("app.theme", "light")
+
+func Header() ui.Node {
+    theme := state.UseAtomKey(ThemeAtom)        // typed hook; no id string, no default repeated
+    return h.Button(ui.OnClick(func() { theme.Set("dark") }), ui.Text(theme.Get()))
+}
+
+// outside a component (a command handler, a test, app bootstrap):
+ThemeAtom.Global().Set("dark")                  // typed out-of-render handle
+```
+
+A typo in `ThemeAtom` is a compile error (a typo in `"app.theme"` silently makes a new atom), and
+every reader/writer shares the one declared type and default. `AtomKey` centralizes the contract —
+it does not namespace ids, so two keys built with the same id still address the same atom; share one
+key var per logical atom. The plain `UseAtom(id, default)` form remains for local/simple cases.
+
 ## Computed, Derived, And Selector Rules
 
-Use `state.UseComputed(...)` when:
+Use `state.UseComputed(...)` when *(deprecated — prefer `ui.UseMemo`, which returns the value directly)*:
 
 - the current component already owns the source values
 - you want a typed memoized derived value in render
@@ -460,8 +485,8 @@ Practical rule:
 
 Use snapshot helpers intentionally:
 
-- `GetSnapshot` or `ExportSnapshot`: clone the current runtime atoms
-- `ApplySnapshot` or `ImportSnapshot`: merge a snapshot back into the runtime
+- `GetSnapshot`: clone the current runtime atoms (`ExportSnapshot` is a deprecated alias)
+- `ApplySnapshot`: merge a snapshot back into the runtime (`ImportSnapshot` is a deprecated alias)
 - `Snapshot.Select(...)`: filter to the exact atom keys you actually want to move or persist
 - `SaveSnapshot`, `LoadSnapshot`, `RestoreSnapshot`: JSON browser-storage helpers
 - `SavePersistentSnapshot`, `LoadPersistentSnapshot`, `RestorePersistentSnapshot`: durable IndexedDB-first persistence helpers
@@ -603,6 +628,39 @@ Fine-grained reactivity design boundary:
 ```powershell
 go run ./tools/gwc dev -app .\examples\public\state-atoms\main.go
 ```
+
+## Local-First Sync (`localfirst`)
+
+`localfirst` is a built-in convergence engine for local-first / offline-first apps (the model behind
+Zero / Electric / TanStack DB), pure Go on both sides. Each key is a last-write-wins register
+(LWW-Register CRDT) ordered by a logical `Clock` (higher counter wins; replica id breaks ties), so
+every replica resolves a conflict identically.
+
+```go
+r := localfirst.NewReplica("tab-1") // optimistic local writes + durable pending log
+a := localfirst.NewAuthority()      // server-side store
+
+r.Set("title", "Draft")             // local, immediate
+localfirst.Sync(r, a)               // push pending mutations, merge authoritative state back
+title, _ := r.Get("title")          // converged value
+```
+
+`Replica.Pending()` exposes unsynced `Mutation`s; `Merge(changes)` converges toward authoritative
+`Record`s. The offline queue is durable: `Replica.Export()` / `localfirst.RestoreReplica(state)`
+round-trip the full replica (records + pending log + counter) through JSON, so unsynced writes
+survive a reload and still converge on reconnect. `Mutation`/`Record` are JSON-serializable, so they
+ride the `//gwc:server` transport unchanged.
+
+Ephemeral presence ("who's here now", no history) is a separate `PresenceSet`:
+
+```go
+p := localfirst.NewPresenceSet(3) // TTL in ticks
+p.Update(localfirst.Presence{ClientID: "tab-1", State: "editing"})
+p.Tick()                          // advance logical time; expired peers drop off
+live := p.Live()                  // []Presence
+```
+
+`localfirst/facepile.Facepile(p)` renders a ready-made "who's here" surface from a `*PresenceSet`.
 
 ## Topic Pagination
 Topic 6 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.

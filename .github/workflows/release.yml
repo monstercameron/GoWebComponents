@@ -38,6 +38,14 @@ jobs:
           go test -short -v -count=1 ./...
         shell: pwsh
 
+      - name: Reproducible-Build Gate
+        # E2: the byte-identical reproducibility check is skipped under -short (it does two full
+        # wasm builds), so run it explicitly on the release path — provenance attestation is only
+        # meaningful if builds are actually reproducible. Not -short, scoped to the one package.
+        run: |
+          go test -run TestReproducibleWasmBuild -count=1 ./tools/reprobuild
+        shell: pwsh
+
       - name: Vulnerability Scan (govulncheck)
         # Surfaces known vulnerabilities in the root module's call graph.
         # This gate is blocking. Any accepted exception must be documented in
@@ -198,7 +206,7 @@ jobs:
         run: |
           mkdir -p dist
           release_tag="${{ steps.tag.outputs.release_tag }}"
-          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             os="${target%/*}"; arch="${target#*/}"
             out="gwc_${release_tag}_${os}_${arch}"
             ext=""; [ "$os" = "windows" ] && ext=".exe"

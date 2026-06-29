@@ -126,22 +126,34 @@ func (parseP WorkerPool) Drain(parseCtx context.Context) error {
 	return parseP.drain(parseCtx)
 }
 
-// GetSize returns the configured worker count for the pool.
-func (parseP WorkerPool) GetSize() int {
+// Size returns the configured worker count for the pool. (Named without a Get prefix to match the
+// rest of the package's accessors — Name/Transport/Backend/Len/Closed.)
+func (parseP WorkerPool) Size() int {
 	if parseP.getSize == nil {
 		return 0
 	}
 	return parseP.getSize()
 }
 
-// GetQueueLimit returns the configured number of queued requests allowed in
-// addition to the running worker count.
-func (parseP WorkerPool) GetQueueLimit() int {
+// QueueLimit returns the configured number of queued requests allowed in addition to the running
+// worker count.
+func (parseP WorkerPool) QueueLimit() int {
 	if parseP.getQueueLimit == nil {
 		return 0
 	}
 	return parseP.getQueueLimit()
 }
+
+// GetSize returns the configured worker count for the pool.
+//
+// Deprecated: use Size (the Get prefix is inconsistent with the package's other accessors).
+func (parseP WorkerPool) GetSize() int { return parseP.Size() }
+
+// GetQueueLimit returns the configured number of queued requests allowed in addition to the running
+// worker count.
+//
+// Deprecated: use QueueLimit.
+func (parseP WorkerPool) GetQueueLimit() int { return parseP.QueueLimit() }
 
 // request schedules one request onto the next available pooled worker.
 func (parseS *workerPoolState) request(parseCtx context.Context, parseName string, parsePayload any, parseOnProgress func(WorkerMessage, error)) (WorkerMessage, error) {

@@ -75,13 +75,12 @@ For a real app, the workflow usually becomes: scaffold, configure, run, validate
 
 `main.go` with hot reload opt-in:
 
-```go
+```go gwc:build
 package main
 
 import (
 	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
 )
 
 // renderRootApp returns the root application node for the standalone dev loop.
@@ -92,8 +91,7 @@ func renderRootApp() ui.Node {
 // main enables state-preserving reload for gwc dev and mounts the app.
 func main() {
 	hotreload.Enable()
-	ui.Render(ui.CreateElement(renderRootApp, nil), "#app")
-	utils.WaitForever()
+	ui.Run("#app", renderRootApp)
 }
 ```
 
@@ -279,6 +277,32 @@ Build profiles are intentionally distinct:
 | `release` / `prod` | Go `js/wasm` | same release-shaped flags as CI | you want a deployable production artifact |
 | `tinygo` | TinyGo `wasm` | `-target=wasm -opt=z -tags production` | you are proving a TinyGo-compatible leaf app |
 
+### Code Generation
+
+These commands turn stringly-typed surfaces into compile-checked Go, each with a `-check` CI staleness
+gate (regenerate + diff, non-zero exit on drift):
+
+| Command | Use it when | Representative call |
+| --- | --- | --- |
+| `routes gen` / `routes check` | you want typed `Link*` constructors from `router.MustDefineRoute` contracts so a bad path param is a compile error | `go run ./tools/gwc routes gen -pkg .` |
+| `i18n gen` / `i18n check` | you want typed message accessors (`i18n_keys_gen.go`) from a base-locale bundle so a missing key or `{param}` is a compile error | `go run ./tools/gwc i18n gen -bundle .\messages.en.json -pkg .` |
+| `server gen` / `server check` | you want browser stubs + server wiring generated from `//gwc:server` functions | `go run ./tools/gwc server gen -pkg .` |
+| `css gen` / `css check` | you want typed CSS-token constants from a theme JSON | `go run ./tools/gwc css gen -theme .\theme.json -pkg .` |
+
+`server gen` writes `serverfn_gen_client.go` (`js/wasm` stubs calling `serverfn.Call`) and
+`serverfn_gen_server.go` (`RegisterServerFunctions(mux)`). See
+[07 Data Loading And Mutations](07-data-loading-and-mutations.md).
+
+### Security And Supply Chain
+
+| Command | Use it when | Representative call |
+| --- | --- | --- |
+| `supplychain` | you want a zero-npm proof, Go module counts, checksum verification, and an optional direct-dependency budget | `go run ./tools/gwc supplychain -root . -budget 25 -json` |
+| `vuln` | you want a known-vulnerability scan that gates on reachable findings (`govulncheck`-backed) | `go run ./tools/gwc vuln -strict` |
+
+`vuln` classifies each finding as reachable (a call trace names the vulnerable function — fails the
+build) or imported-only (passes unless `-strict`).
+
 ### Source-Debugging A Wasm App
 
 Use the debug profile when a browser issue needs source-oriented inspection instead of a normal fast dev-loop artifact:
@@ -307,6 +331,8 @@ Current Go `js/wasm` artifacts do not emit browser source maps or `.debug_*` DWA
 | `upgrade` | you need to backfill lifecycle metadata, feature matrix defaults, and runtime assets | `go run ./tools/gwc upgrade -root . -skip-runtime-assets` |
 | `migrate` | you need an upgrade report and safe compatibility API rewrites between framework versions | `go run ./tools/gwc migrate -root . -apply -json` |
 | `seed` | the project exposes a seed package for local identities or fixture data | `go run ./tools/gwc seed -root .` |
+| `add` | you want to copy a headless, a11y-correct component into your repo (shadcn "own the code" model) or scaffold a component/route stub | `go run ./tools/gwc add tabs -dir .\components` |
+| `llms` | you want AI-native docs (`llms.txt` index + `llms-full.txt`) generated from the reference manual | `go run ./tools/gwc llms -root . -check` |
 
 `migrate` runs the same metadata/runtime upgrade path as `upgrade`, then writes `bin/gwc-migrate-report.json` with compatibility API findings. By default it is report-only. With `-apply`, it rewrites parsed router selector calls from `GoRegisterRoute` to `Register` and `GoGetRoute` to `Current`; quoted code and comments remain untouched and visible in the report so humans can decide what to do with them.
 
@@ -317,6 +343,7 @@ Current Go `js/wasm` artifacts do not emit browser source maps or `.debug_*` DWA
 | `bench` | you want repeatable benchmark discovery, JSON output, or normalized scoring against a saved reference report | `go run ./tools/gwc bench -root . -reference .\docs\benchmarks\reference.json` |
 | `wasm measure` | you want a wasm artifact measurement pass with manifest output | `go run ./tools/gwc wasm measure -package .\examples\public\ui-render` |
 | `wasm compare` and related subcommands | you want wasm-specific diffing, compression, cache, or toolchain comparisons | `go run ./tools/gwc wasm compare-toolchain -package .\examples\public\ui-render -baseline-go go1.25.4 -candidate-go go1.26.0` |
+| `buildreport` | you want a "what rebuilt and why" report (rebuilt vs cached packages, ranked by compile time) from the build action graph | `go run ./tools/gwc buildreport -pattern ./... -json` |
 
 Use the subcommand help directly for the wasm tools:
 
@@ -418,7 +445,18 @@ Dry-run and machine-readable checks:
 go run ./tools/gwc dev -app .\main.go -dry-run
 go run ./tools/gwc verify -app .\main.go -root . -json
 go run ./tools/gwc lint -root . -json
+go run ./tools/gwc lint -root . -fix    # apply golangci's verified autofixes in place
 ```
+
+### Editor integration (VS Code)
+
+The [`tools/vscode-gwc`](../../tools/vscode-gwc/) extension surfaces `gwc lint --json` as inline
+diagnostics and offers **quick-fixes** for autofixable issues — the code-action delegates to
+`gwc lint --fix` (golangci's own fixer), so the editor never computes an edit itself. Completion
+for typed routes (`gwc routes gen`), message keys (`gwc i18n gen`), and theme tokens
+(`gwc css gen`) needs no extension support: those generators emit ordinary typed Go symbols, so
+gopls autocompletes them and a typo is a compile error. The mapping logic is host-independent and
+unit-tested under plain Node.
 
 Measurement help:
 

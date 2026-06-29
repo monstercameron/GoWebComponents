@@ -74,3 +74,28 @@ func (parseR DOMRef) Focus() {
 		parseFocuser.Focus()
 	}
 }
+
+// Blur removes keyboard focus from the referenced element. Like Focus, it routes through the
+// node's optional capability (real blur on wasm, no-op on native/SSR) and is safe before mount /
+// after unmount.
+func (parseR DOMRef) Blur() {
+	if parseBlurrer, parseOk := parseR.Node().(runtime.Blurrer); parseOk && parseBlurrer != nil {
+		parseBlurrer.Blur()
+	}
+}
+
+// Click synthesizes a click on the referenced element (element.click()). Cross-build no-op when
+// unsupported.
+func (parseR DOMRef) Click() {
+	if parseClicker, parseOk := parseR.Node().(runtime.Clicker); parseOk && parseClicker != nil {
+		parseClicker.Click()
+	}
+}
+
+// ScrollIntoView scrolls the referenced element into the visible area. behavior is "" (browser
+// default), "smooth", "instant", or "auto". Cross-build no-op when unsupported.
+func (parseR DOMRef) ScrollIntoView(parseBehavior string) {
+	if parseScroller, parseOk := parseR.Node().(runtime.ScrollIntoViewer); parseOk && parseScroller != nil {
+		parseScroller.ScrollIntoView(parseBehavior)
+	}
+}

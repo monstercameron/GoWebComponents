@@ -456,13 +456,12 @@ For a real app, the workflow usually becomes: scaffold, configure, run, validate
 
 `main.go` with hot reload opt-in:
 
-```go
+```go gwc:build
 package main
 
 import (
 	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
 )
 
 // renderRootApp returns the root application node for the standalone dev loop.
@@ -473,8 +472,7 @@ func renderRootApp() ui.Node {
 // main enables state-preserving reload for gwc dev and mounts the app.
 func main() {
 	hotreload.Enable()
-	ui.Render(ui.CreateElement(renderRootApp, nil), "#app")
-	utils.WaitForever()
+	ui.Run("#app", renderRootApp)
 }
 ```
 
@@ -660,6 +658,32 @@ Build profiles are intentionally distinct:
 | `release` / `prod` | Go `js/wasm` | same release-shaped flags as CI | you want a deployable production artifact |
 | `tinygo` | TinyGo `wasm` | `-target=wasm -opt=z -tags production` | you are proving a TinyGo-compatible leaf app |
 
+### Code Generation
+
+These commands turn stringly-typed surfaces into compile-checked Go, each with a `-check` CI staleness
+gate (regenerate + diff, non-zero exit on drift):
+
+| Command | Use it when | Representative call |
+| --- | --- | --- |
+| `routes gen` / `routes check` | you want typed `Link*` constructors from `router.MustDefineRoute` contracts so a bad path param is a compile error | `go run ./tools/gwc routes gen -pkg .` |
+| `i18n gen` / `i18n check` | you want typed message accessors (`i18n_keys_gen.go`) from a base-locale bundle so a missing key or `{param}` is a compile error | `go run ./tools/gwc i18n gen -bundle .\messages.en.json -pkg .` |
+| `server gen` / `server check` | you want browser stubs + server wiring generated from `//gwc:server` functions | `go run ./tools/gwc server gen -pkg .` |
+| `css gen` / `css check` | you want typed CSS-token constants from a theme JSON | `go run ./tools/gwc css gen -theme .\theme.json -pkg .` |
+
+`server gen` writes `serverfn_gen_client.go` (`js/wasm` stubs calling `serverfn.Call`) and
+`serverfn_gen_server.go` (`RegisterServerFunctions(mux)`). See
+[07 Data Loading And Mutations](07-data-loading-and-mutations.md).
+
+### Security And Supply Chain
+
+| Command | Use it when | Representative call |
+| --- | --- | --- |
+| `supplychain` | you want a zero-npm proof, Go module counts, checksum verification, and an optional direct-dependency budget | `go run ./tools/gwc supplychain -root . -budget 25 -json` |
+| `vuln` | you want a known-vulnerability scan that gates on reachable findings (`govulncheck`-backed) | `go run ./tools/gwc vuln -strict` |
+
+`vuln` classifies each finding as reachable (a call trace names the vulnerable function — fails the
+build) or imported-only (passes unless `-strict`).
+
 ### Source-Debugging A Wasm App
 
 Use the debug profile when a browser issue needs source-oriented inspection instead of a normal fast dev-loop artifact:
@@ -688,6 +712,8 @@ Current Go `js/wasm` artifacts do not emit browser source maps or `.debug_*` DWA
 | `upgrade` | you need to backfill lifecycle metadata, feature matrix defaults, and runtime assets | `go run ./tools/gwc upgrade -root . -skip-runtime-assets` |
 | `migrate` | you need an upgrade report and safe compatibility API rewrites between framework versions | `go run ./tools/gwc migrate -root . -apply -json` |
 | `seed` | the project exposes a seed package for local identities or fixture data | `go run ./tools/gwc seed -root .` |
+| `add` | you want to copy a headless, a11y-correct component into your repo (shadcn "own the code" model) or scaffold a component/route stub | `go run ./tools/gwc add tabs -dir .\components` |
+| `llms` | you want AI-native docs (`llms.txt` index + `llms-full.txt`) generated from the reference manual | `go run ./tools/gwc llms -root . -check` |
 
 `migrate` runs the same metadata/runtime upgrade path as `upgrade`, then writes `bin/gwc-migrate-report.json` with compatibility API findings. By default it is report-only. With `-apply`, it rewrites parsed router selector calls from `GoRegisterRoute` to `Register` and `GoGetRoute` to `Current`; quoted code and comments remain untouched and visible in the report so humans can decide what to do with them.
 
@@ -698,6 +724,7 @@ Current Go `js/wasm` artifacts do not emit browser source maps or `.debug_*` DWA
 | `bench` | you want repeatable benchmark discovery, JSON output, or normalized scoring against a saved reference report | `go run ./tools/gwc bench -root . -reference .\docs\benchmarks\reference.json` |
 | `wasm measure` | you want a wasm artifact measurement pass with manifest output | `go run ./tools/gwc wasm measure -package .\examples\public\ui-render` |
 | `wasm compare` and related subcommands | you want wasm-specific diffing, compression, cache, or toolchain comparisons | `go run ./tools/gwc wasm compare-toolchain -package .\examples\public\ui-render -baseline-go go1.25.4 -candidate-go go1.26.0` |
+| `buildreport` | you want a "what rebuilt and why" report (rebuilt vs cached packages, ranked by compile time) from the build action graph | `go run ./tools/gwc buildreport -pattern ./... -json` |
 
 Use the subcommand help directly for the wasm tools:
 
@@ -799,7 +826,18 @@ Dry-run and machine-readable checks:
 go run ./tools/gwc dev -app .\main.go -dry-run
 go run ./tools/gwc verify -app .\main.go -root . -json
 go run ./tools/gwc lint -root . -json
+go run ./tools/gwc lint -root . -fix    # apply golangci's verified autofixes in place
 ```
+
+### Editor integration (VS Code)
+
+The [`tools/vscode-gwc`](../../tools/vscode-gwc/) extension surfaces `gwc lint --json` as inline
+diagnostics and offers **quick-fixes** for autofixable issues — the code-action delegates to
+`gwc lint --fix` (golangci's own fixer), so the editor never computes an edit itself. Completion
+for typed routes (`gwc routes gen`), message keys (`gwc i18n gen`), and theme tokens
+(`gwc css gen`) needs no extension support: those generators emit ordinary typed Go symbols, so
+gopls autocompletes them and a typo is a compile error. The mapping logic is host-independent and
+unit-tested under plain Node.
 
 Measurement help:
 
@@ -1492,6 +1530,34 @@ Keep these rules explicit:
 - boundary fallbacks should be user-meaningful and feature-local
 - reset keys should follow route or workflow identity instead of random rerender noise
 
+### Suspending on data: `UseSuspenseQuery`
+
+`ui.UseSuspenseQuery(cache, key, fetcher, deps...)` is the suspending sibling of `UseQuery`
+(ch.07). Instead of returning a `query.Result` you switch on, it returns the data directly,
+*suspending* the render until the data is ready (the enclosing `AsyncBoundary` shows its fallback)
+and *throwing* the error to the nearest `ErrorBoundary` on failure. The component body reads the
+value unconditionally — the React `use(promise)` / Solid `createResource` shape:
+
+```go
+func UserCard(props UserProps) ui.Node {
+    user := ui.UseSuspenseQuery(appCache, "user/"+props.ID, func() (User, error) {
+        return api.GetUser(props.ID)
+    })
+    return ui.Text(user.Name) // no Status switch — the boundary handles loading/error
+}
+
+// Wrap once, higher up:
+ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
+    ErrorFallback: func(err error, reset func()) ui.Node { return ui.Text("failed: " + err.Error()) },
+    Child: ui.AsyncBoundary(ui.AsyncBoundaryProps{Fallback: Spinner(), Content: ui.CreateElement(UserCard, props)}),
+})
+```
+
+A cached success (even stale) or a recorded error resolves immediately; only an unfetched/in-flight
+key suspends. Pass `deps` exactly as for `UseQuery` when the fetcher closes over changing values. To
+retry after an error, invalidate the key (`cache.Invalidate`) and remount — a settled error is not
+auto-refetched on every render.
+
 For `ParallelRegion(...)` and other narrow worker-backed surfaces:
 
 - keep the output display-oriented and deterministic
@@ -1623,6 +1689,37 @@ go run ./tools/gwc dev -app .\examples\public\worker-text-index\main.go
 go run ./tools/gwc dev -app .\examples\testing\parallel-region-basic\main.go
 ```
 
+## Animation (`anim`)
+
+The `anim` package is pure, clock-free animation math — it owns no DOM and no timer, so it is fully
+deterministic and unit-testable; you drive it from a render loop and apply the result as styles.
+
+Springs model damped motion frame by frame:
+
+```go
+s := anim.NewSpring(anim.GentleSpring(), 0.0) // also WobblySpring(), StiffSpring()
+s.SetTarget(1.0)
+// each frame, dt in seconds:
+pos := s.Step(dt)
+if s.IsSettled(0.001) { /* stop ticking */ }
+```
+
+Easing curves shape a 0..1 progress value (`Linear`, `EaseInQuad`/`EaseOutQuad`/`EaseInOutQuad`,
+`EaseInCubic`/`EaseOutCubic`/`EaseInOutCubic`), composed with `anim.Interpolate(from, to, t, easing)`.
+`anim.EasingFunc` is an alias for `anim.Easing` to disambiguate from `css.Easing` (a string type)
+when both packages are imported.
+
+For animated lists, `anim.DiffKeyedRects(prev, next)` classifies a keyed layout change into a
+`ListTransition{Entering, Exiting, Moving}` and computes each survivor's FLIP invert transform
+(`MovedKeys()` filters to items that actually moved). `anim.ComputeFLIP(first, last)` is the
+single-element form. Enter/exit is a pure state machine — `anim.NewTransition(duration)` →
+`Advance(dt)` / `BeginExit()` with `Progress()`/`IsAnimating()`/`IsRemovable()` — and
+`anim.StaggerDelay(index, step)` gives per-item cascade timing.
+
+Honor `prefers-reduced-motion` with an explicit `anim.MotionPreference` (`MotionFull` /
+`MotionReduced`): `NewTransitionPref(duration, pref)` snaps transitions and `pref.EffectiveDuration`
+/ `pref.Animates()` let FLIP moves be skipped under reduced motion.
+
 ## Topic Pagination
 Topic 4 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.
 - Previous topic: [03 App Shapes](03-app-shapes.md)
@@ -1650,6 +1747,23 @@ Use another chapter instead when:
 - you need local hook patterns or rendering flow: go to [04 UI Rendering And Hooks](04-ui-rendering-and-hooks.md)
 - you need form ownership and validation flow in depth: go to [11 Forms Accessibility And I18n](11-forms-accessibility-and-i18n.md)
 - you need browser interop for custom events or custom-element event wiring: go to [10 Browser Interop And Workers](10-browser-interop-and-workers.md)
+
+## Which package to import (decisive default)
+
+There is **one mental model and one rendering engine** — `html/shorthand` is not a second
+framework, it is sugar that lowers onto the exact same `html` builders. So the choice never
+changes behavior, only ergonomics:
+
+- **New to GWC, or starting a file:** dot-import `html/shorthand`. It reads closest to the
+  public examples (e.g. `examples/public/counter`), and you can drop to `html.*` any time in
+  the same file. This is the blessed default for hand-written app code. (Note: the current
+  `gwc start` scaffold still emits explicit `html.Props{...}` builders — equivalent behavior,
+  just more verbose; aligning the scaffold to shorthand is tracked.)
+- **Library/package author exposing a stable surface:** import `html` and use the typed
+  builders + explicit `html.Props` directly.
+
+Whichever you pick, the other stays usable in the same file — no migration, no paradigm switch.
+If you remember one thing: **dot-import `html/shorthand` and go.**
 
 ## Overview
 
@@ -1681,7 +1795,7 @@ Practical defaults:
 
 If you want the safest default style, start with typed builders and explicit props.
 
-```go
+```go gwc:build
 package main
 
 import (
@@ -1711,6 +1825,21 @@ Why this is the safest starting point:
 - every element is explicit
 - props stay typed instead of stringly-typed
 - the callsite reads like ordinary Go, not a second templating language
+
+### Setting an intentional empty value
+
+`html.Props{Value: ""}` (and `TabIndex: 0`) are **omitted** — the zero value means "unset", so the
+attribute isn't emitted. That's what you want for most inputs, but a *controlled* input that needs to
+force an empty value (clear the field on every render) must say so explicitly. Use the `html.Value("")`
+prop option, or `Raw["value"] = ""`:
+
+```go
+// Controlled input that clears to empty — Props{Value: ""} would NOT emit value="".
+html.Input(html.PropsOf(html.Value(""), html.OnInput(handler)))
+// or: html.Input(html.Props{Raw: map[string]any{"value": ""}})
+```
+
+The same applies to any attribute whose zero value is meaningful (`TabIndex(0)`).
 
 ## Production-Shaped Example
 
@@ -1770,7 +1899,7 @@ Why this is the better midpoint:
 
 In a larger codebase, pick one host-authoring style per package and centralize repeated visual prop combinations behind helper builders, not raw prop maps scattered everywhere.
 
-```go
+```go gwc:build
 package sharedview
 
 import (
@@ -1939,6 +2068,39 @@ Key properties:
 
 See the [typed-css](../../examples/public/typed-css/) example for a fully bare-authored view.
 
+### Typed theme tokens (`gwc css gen`)
+
+The utility layer's scale keys are typed, so a token reference autocompletes and a typo is a
+compile error instead of a silent fallback. `css.DefaultTheme`'s scales ship typed out of the box:
+spacing (`u.Spacing3`), type scale (`u.TextLg`), radius (`u.RadiusLg`), and **color**
+(`u.ColorSlate900`). Pass them to the typed accessors:
+
+```go
+css.Class(u.BgC(u.ColorSlate900), u.TextC(u.ColorWhite), u.Rounded(u.RadiusLg), u.Pad(u.Spacing4))
+```
+
+`u.BgC`/`u.TextC`/`u.BorderC` take a `u.ColorToken` — `u.BgC(u.ColorSlat900)` (typo) does not
+compile. The string forms `u.BgToken("slate-900")`/`u.TextToken(...)` remain for runtime-computed
+names but are deprecated in favor of the typed accessors.
+
+For a **custom theme**, `gwc css gen` makes its tokens typed too. Author the palette as a theme
+JSON (the source of truth) and generate matching `u.ColorToken`/`u.TextScale`/`u.Radius`/`u.Spacing`
+constants:
+
+```bash
+gwc css gen   -theme theme.json -pkg ./theme   # writes theme/css_tokens_gen.go (DO NOT EDIT)
+gwc css check -theme theme.json -pkg ./theme   # CI gate: fails if css_tokens_gen.go drifts
+```
+
+```jsonc
+// theme.json — { "colors": { "name": "value" }, "fontSizes": {...}, "radii": {...}, "spacing": {...} }
+{ "colors": { "brand-500": "#6366f1", "ink": "#0f172a" }, "radii": { "pill": "9999px" } }
+```
+
+The generated `ColorBrand500 u.ColorToken = "brand-500"` then flows straight into `u.BgC(ColorBrand500)`.
+See the [typed-css-tokens-demo](../../examples/public/typed-css-tokens-demo/) example; the `gwc css check`
+gate runs in the codegen-staleness CI job alongside `gwc routes check`/`gwc i18n check`.
+
 ### Global rules, design tokens, and cascade layers (v3.3+)
 
 The hashed-class model above scopes every rule under a generated class. For the *global* stylesheet
@@ -2051,6 +2213,42 @@ Browser custom-element consumption:
 go run ./tools/gwc dev -app .\examples\public\web-components\main.go
 ```
 
+## Named Slots / Snippets
+
+For explicit, typed named slots (Vue named slots / React render-children-by-name), the
+`html/shorthand` package provides `Slot` and `Slots`:
+
+```go
+slots := h.NewSlots(
+	h.Slot("header", h.H2("Title")),
+	h.Slot("footer", h.Button(h.Text("Save"))),
+)
+
+// inside a layout component:
+h.Section(
+	h.Div(h.Class("head"), slots.Render("header")...),
+	h.Div(h.Class("body"), slots.Or("body", h.P("default body"))...),
+	h.Div(h.Class("foot"), slots.Render("footer")...),
+)
+```
+
+`Slots` is a `map[string][]ui.Node`. `NewSlots(...NamedSlot)` builds one (last write wins for a
+repeated name); `Has(name)` reports presence, `Render(name)` returns the slot's nodes (nil when
+absent), and `Or(name, fallback...)` returns the slot's nodes or the fallback default content.
+
+## Two-Way Binding (`html.BindTo` / `html.BindFunc`)
+
+`html.Bind(state)` binds a controlled input to a `ui.State[string]`. For any other handle, the
+structural `html.Binding` interface (`Get() string` / `Set(string)`) lets `html.BindTo` bind a
+`state.Signal[string]`, an atom handle, or anything that satisfies it in one prop — no manual
+`value=` + `oninput=` pair:
+
+```go
+name := state.NewSignal("")
+h.Input(html.BindTo(name))                 // any Binding
+h.Input(html.BindFunc(get, set))           // explicit getter/setter
+```
+
 ## Topic Pagination
 Topic 5 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.
 - Previous topic: [04 UI Rendering And Hooks](04-ui-rendering-and-hooks.md)
@@ -2090,7 +2288,8 @@ Start with the smallest owner that matches the real problem:
 - `ui.UseReducer`: one feature subtree owns several named transitions
 - `ui.CreateContext` and `ui.UseContext`: one subtree needs shared access without prop threading
 - `state.UseAtom`: unrelated components need the same shared source of truth
-- `state.UseComputed`: the current component wants a typed render-time derived value
+- `state.AtomKey` + `state.UseAtomKey`: a shared atom used across components/packages — declare the id, type, and default once as a key var (see below) instead of repeating the id string
+- `ui.UseMemo`: the current component wants a typed render-time derived value (returns the value directly; preferred over the deprecated `state.UseComputed`)
 - `state.UseDerived`: several components need the same read-only derived shared value
 - `state.UseSelector`: one consumer needs a narrower shared projection from a larger atom or derived source
 - snapshot helpers: the app intentionally exports, restores, or persists selected client-owned atoms
@@ -2109,9 +2308,9 @@ Core ownership tools are `Stable`:
 - `ui.CreateContext`
 - `ui.UseContext`
 - `state.UseAtom`
-- `state.UseComputed`
+- `state.UseComputed` *(deprecated — prefer `ui.UseMemo`, which returns the value directly)*
 - `state.UseDerived`
-- `state.GetSnapshot`, `state.ExportSnapshot`, `state.ApplySnapshot`, `state.ImportSnapshot`
+- `state.GetSnapshot`, `state.ApplySnapshot` *(prefer these; `state.ExportSnapshot` / `state.ImportSnapshot` are deprecated aliases)*
 - `state.SaveSnapshot`, `state.LoadSnapshot`, `state.RestoreSnapshot`
 - `state.SavePersistentSnapshot`, `state.LoadPersistentSnapshot`, `state.RestorePersistentSnapshot`
 
@@ -2166,12 +2365,12 @@ How signals relate to the other tools:
 - A signal **is** an atom under the hood, so it composes with `UseSelector`,
   `ReactiveRegion`, snapshots, and `UseAtom` subscribers — there is no second
   reactivity system to learn.
-- Prefer `UseState`/`UseComputed` for ordinary local values; reach for signals when a
+- Prefer `UseState`/`ui.UseMemo` for ordinary local values; reach for signals when a
   measured hot value should update without rerunning its owner.
 
 ## Minimal Example
 
-Start with local ownership first. If one component owns the value, `ui.UseState` plus `state.UseComputed` is enough.
+Start with local ownership first. If one component owns the value, `ui.UseState` plus `ui.UseMemo` is enough.
 
 ```go
 package main
@@ -2180,7 +2379,6 @@ import (
 	"fmt"
 
 	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
 	"github.com/monstercameron/GoWebComponents/utils"
 )
@@ -2188,7 +2386,7 @@ import (
 // renderInvitePlanner keeps both the writable source and the derived summary local to one component.
 func renderInvitePlanner() ui.Node {
 	storeSeatCount := ui.UseState(3)
-	getSeatSummary := state.UseComputed(func() string {
+	getSeatSummary := ui.UseMemo(func() string {
 		if storeSeatCount.Get() == 1 {
 			return "1 editor seat"
 		}
@@ -2360,7 +2558,7 @@ Why this is the right middle layer:
 
 In a larger codebase, separate app-owned shared state, persistence, and hot-path projections into a dedicated package instead of recreating atom IDs ad hoc in feature code.
 
-```go
+```go gwc:build
 package appstate
 
 import (
@@ -2472,7 +2670,8 @@ dependencies; none discovers them through a hidden runtime graph.
 | One action updates several fields together | `ui.UseReducer` | Serializes related transitions through one updater. |
 | A subtree needs the same model without prop threading | context | Scoped sharing, still component-local. |
 | Unrelated branches need one source of truth | `state.UseAtom` / `state.GlobalAtom` | Shared, subscribable, explicitly keyed. |
-| A typed value derived from sources this component owns | `state.UseComputed` | Memoized derived value, render-time. |
+| A shared atom referenced from several components/packages | `state.AtomKey` + `state.UseAtomKey` | Declare id+type+default once; typed call sites, no id-string drift. |
+| A typed value derived from sources this component owns | `ui.UseMemo` (`state.UseComputed` is deprecated → it) | Memoized derived value, render-time. |
 | A shared read-only value several consumers derive | `state.UseDerived` / `state.UseSelector` | Recompute follows explicit source IDs. |
 | Update exactly the DOM nodes bound to a value, no component re-render | `state.Signal` + `signal.Text(...)` | Fine-grained reactivity outside the hook lifecycle. |
 | Server data: cache, dedupe, stale-while-revalidate, optimistic writes | `query.Cache` + `ui.UseQuery` / `UseMutation` | The async/server tier; not for local UI state. |
@@ -2494,9 +2693,33 @@ Rules of thumb that keep the model coherent:
   primitive.** Use `kvstate` for one replica that must survive reloads and reconcile across
   tabs; add `localfirst` when *multiple* replicas (clients) must converge with a server.
 
+### Typed atom keys (`AtomKey`)
+
+`UseAtom(id, default)` repeats the id string and default at every call site, and lets a `UseAtom`
+and a `GlobalAtom` for the same id silently disagree on type or default. For an atom shared across
+components or packages, declare it **once** as an `AtomKey` and pass the key everywhere:
+
+```go
+// one declaration owns the id, the type, and the default
+var ThemeAtom = state.NewAtomKey("app.theme", "light")
+
+func Header() ui.Node {
+    theme := state.UseAtomKey(ThemeAtom)        // typed hook; no id string, no default repeated
+    return h.Button(ui.OnClick(func() { theme.Set("dark") }), ui.Text(theme.Get()))
+}
+
+// outside a component (a command handler, a test, app bootstrap):
+ThemeAtom.Global().Set("dark")                  // typed out-of-render handle
+```
+
+A typo in `ThemeAtom` is a compile error (a typo in `"app.theme"` silently makes a new atom), and
+every reader/writer shares the one declared type and default. `AtomKey` centralizes the contract —
+it does not namespace ids, so two keys built with the same id still address the same atom; share one
+key var per logical atom. The plain `UseAtom(id, default)` form remains for local/simple cases.
+
 ## Computed, Derived, And Selector Rules
 
-Use `state.UseComputed(...)` when:
+Use `state.UseComputed(...)` when *(deprecated — prefer `ui.UseMemo`, which returns the value directly)*:
 
 - the current component already owns the source values
 - you want a typed memoized derived value in render
@@ -2524,8 +2747,8 @@ Practical rule:
 
 Use snapshot helpers intentionally:
 
-- `GetSnapshot` or `ExportSnapshot`: clone the current runtime atoms
-- `ApplySnapshot` or `ImportSnapshot`: merge a snapshot back into the runtime
+- `GetSnapshot`: clone the current runtime atoms (`ExportSnapshot` is a deprecated alias)
+- `ApplySnapshot`: merge a snapshot back into the runtime (`ImportSnapshot` is a deprecated alias)
 - `Snapshot.Select(...)`: filter to the exact atom keys you actually want to move or persist
 - `SaveSnapshot`, `LoadSnapshot`, `RestoreSnapshot`: JSON browser-storage helpers
 - `SavePersistentSnapshot`, `LoadPersistentSnapshot`, `RestorePersistentSnapshot`: durable IndexedDB-first persistence helpers
@@ -2668,6 +2891,39 @@ Fine-grained reactivity design boundary:
 go run ./tools/gwc dev -app .\examples\public\state-atoms\main.go
 ```
 
+## Local-First Sync (`localfirst`)
+
+`localfirst` is a built-in convergence engine for local-first / offline-first apps (the model behind
+Zero / Electric / TanStack DB), pure Go on both sides. Each key is a last-write-wins register
+(LWW-Register CRDT) ordered by a logical `Clock` (higher counter wins; replica id breaks ties), so
+every replica resolves a conflict identically.
+
+```go
+r := localfirst.NewReplica("tab-1") // optimistic local writes + durable pending log
+a := localfirst.NewAuthority()      // server-side store
+
+r.Set("title", "Draft")             // local, immediate
+localfirst.Sync(r, a)               // push pending mutations, merge authoritative state back
+title, _ := r.Get("title")          // converged value
+```
+
+`Replica.Pending()` exposes unsynced `Mutation`s; `Merge(changes)` converges toward authoritative
+`Record`s. The offline queue is durable: `Replica.Export()` / `localfirst.RestoreReplica(state)`
+round-trip the full replica (records + pending log + counter) through JSON, so unsynced writes
+survive a reload and still converge on reconnect. `Mutation`/`Record` are JSON-serializable, so they
+ride the `//gwc:server` transport unchanged.
+
+Ephemeral presence ("who's here now", no history) is a separate `PresenceSet`:
+
+```go
+p := localfirst.NewPresenceSet(3) // TTL in ticks
+p.Update(localfirst.Presence{ClientID: "tab-1", State: "editing"})
+p.Tick()                          // advance logical time; expired peers drop off
+live := p.Live()                  // []Presence
+```
+
+`localfirst/facepile.Facepile(p)` renders a ready-made "who's here" surface from a `*PresenceSet`.
+
 ## Topic Pagination
 Topic 6 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.
 - Previous topic: [05 HTML Authoring](05-html-authoring.md)
@@ -2685,7 +2941,7 @@ Use this chapter when you are deciding who owns async reads, shared cached data,
 
 It is the right chapter for:
 
-- choosing between `fetch.UseFetch`, `fetch.UseResource[T](...)`, `fetch.UseCachedResource[T](...)`, and `fetch.Fetch(...)`
+- choosing between `fetch.UseResource[T](...)`, `fetch.UseCachedResource[T](...)`, and `fetch.Fetch(...)` (and the deprecated `fetch.UseFetch`)
 - deciding when route loaders should own the first read instead of a component
 - keeping optimistic updates and offline replay explicit instead of magical
 - separating client-owned UI state from server-owned read models
@@ -2703,8 +2959,8 @@ The first decision is not which fetch helper looks nicest. The first decision is
 
 Use the smallest owner that matches the screen:
 
-- `fetch.UseFetch(...)`: raw browser-style fetch state around one URL
-- `fetch.UseResource[T](...)`: typed component-owned async value with cancellation and reload
+- `fetch.UseResource[T](...)`: typed component-owned async value with cancellation and reload — the default choice
+- `fetch.UseFetch(...)`: *(deprecated — prefer `UseResource`)* raw browser-style fetch state around one URL
 - route loaders: route-owned first-load data, including SSR-aware entry data
 - `fetch.UseCachedResource[T](...)`: shared cached async data reused across components
 - `fetch.LoadCached[T](...)`: non-hook shared-cache reuse from route loaders or imperative code
@@ -2721,9 +2977,9 @@ Keep one boundary clear:
 
 The core read surface is `Stable`:
 
-- `fetch.UseFetch(...)`
 - `fetch.UseResource[T](...)`
 - `fetch.Fetch(...)`
+- `fetch.UseFetch(...)` *(deprecated — prefer `UseResource`; kept stable for legacy callers)*
 
 Important advanced surfaces:
 
@@ -2733,60 +2989,70 @@ Important advanced surfaces:
 
 ## Minimal Example
 
-Use `fetch.UseFetch(...)` when the point is the raw request state itself.
+Start with the smallest typed read: `fetch.UseResource[T](...)` owns one async value local to a
+component, with built-in cancellation and reload, and returns a typed result instead of raw
+`interface{}`.
 
 ```go
 package main
 
 import (
-	"fmt"
+	"context"
+	"time"
 
 	h "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/fetch"
 	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-// renderStatusProbe keeps one raw fetch request local to the current component.
+// renderStatusProbe owns one typed async read local to the current component.
 func renderStatusProbe() ui.Node {
-	storeURL := ui.UseState("/api/health")
-	storeResource := fetch.UseFetch(storeURL.Get())
+	storeResource := fetch.UseResource(func(getCtx context.Context) (string, error) {
+		select {
+		case <-time.After(400 * time.Millisecond):
+		case <-getCtx.Done():
+			return "", getCtx.Err()
+		}
+		return "healthy", nil
+	})
 	getState := storeResource.Get()
 
 	handleUserRefresh := ui.UseEvent(func() {
-		storeResource.Refetch()
+		storeResource.Reload()
 	})
 
 	getStatus := "Idle"
 	if getState.Loading {
 		getStatus = "Loading"
-	} else if getState.Error != "" {
+	} else if getState.Error != nil {
 		getStatus = "Error"
-	} else if getState.Data != nil {
-		getStatus = "Ready"
+	} else if getState.Ready {
+		getStatus = getState.Value
 	}
 
 	return h.Main(
 		h.Class("mx-auto max-w-xl space-y-4 p-6"),
-		h.H1("Raw fetch state"),
+		h.H1("Typed resource state"),
 		h.P(h.Textf("Status: %s", getStatus)),
-		h.Pre(fmt.Sprint(getState.Data)),
-		h.Button(h.Type("button"), h.OnClick(handleUserRefresh), "Refetch"),
+		h.Button(h.Type("button"), h.OnClick(handleUserRefresh), "Reload"),
 	)
 }
 
-// main mounts the raw-fetch example into the browser DOM.
+// main mounts the example into the browser DOM.
 func main() {
-	ui.Render(ui.CreateElement(renderStatusProbe, nil), "#app")
-	utils.WaitForever()
+	ui.Run("#app", renderStatusProbe)
 }
 ```
 
 Why this is the right smallest path:
 
-- the component owns one request
-- you can read loading, error, and raw payload directly
-- there is no typed loader or shared-cache policy until the app actually needs it
+- the component owns one typed async value
+- loading, error, and the typed result are read directly
+- cancellation and reload are built in, with no shared-cache policy until the app needs it
+
+> **Legacy:** `fetch.UseFetch(url)` returns raw loading/error/`interface{}` state for one URL. It is
+> **deprecated** — prefer `UseResource` (or `ui.UseQuery` for cached, tag-invalidated data). It
+> remains only for existing callers; see the API family table below.
 
 ## Production-Shaped Example
 
@@ -2872,7 +3138,7 @@ Why this is the better default for real screens:
 
 In a larger app, let route loaders and later components share one normalized cache key, then keep optimistic mutation behavior explicit on top of that cache entry.
 
-```go
+```go gwc:build
 package workspaceroute
 
 import (
@@ -2975,7 +3241,7 @@ func renderWorkspaceSummary(getProps router.Attrs) ui.Node {
 }
 ```
 
-```go
+```go gwc:build
 package mutationflow
 
 import (
@@ -3012,13 +3278,7 @@ Why this scales:
 - optimistic cache updates stay local and reversible instead of pretending the server already agreed
 - offline replay remains explicit because the app still owns auth, conflict handling, and revalidation after success
 
-## UseFetch Versus UseResource Versus UseCachedResource
-
-Use `fetch.UseFetch(...)` when:
-
-- you really want raw loading, error, and response state
-- one URL drives the component directly
-- the parsing and orchestration are simple and local
+## UseResource Versus UseCachedResource Versus UseQuery
 
 Use `fetch.UseResource[T](...)` when:
 
@@ -3032,11 +3292,18 @@ Use `fetch.UseCachedResource[T](...)` when:
 - stale-aware refresh and optimistic local patching are valuable
 - you are willing to own one normalized cache identity deliberately
 
+Use `ui.UseQuery(...)` (over the `query` package) when:
+
+- you want tag-aware invalidation across related queries
+- optimistic mutations with automatic rollback are part of the flow
+- the data layer benefits from request de-duplication and SWR (see the **Query Cache** section below)
+
 Practical rule:
 
-- `UseFetch` is the raw hook
 - `UseResource` is the preferred typed local read helper
 - `UseCachedResource` is the shared-cache tool for reused read models
+- `ui.UseQuery` is the tag-invalidated query/cache layer for application data
+- `UseFetch` is the **deprecated** raw hook — prefer `UseResource`
 
 ## Imperative Fetch And Upload
 
@@ -3076,6 +3343,174 @@ Keep the ownership split explicit:
 - writes stay authoritative on the server even when the client shows optimistic UI
 - auth, CSRF, timeout, correlation-id, and retry policy belong to the app transport boundary, not to the fetch cache itself
 - same-origin contracts are the easiest place to keep forms, loaders, cache invalidation, and auth/session behavior consistent
+
+### Typed error statuses (`serverfn.StatusError`)
+
+A server function returns an ordinary `error`, which maps to HTTP 500 by default. To return a
+client-error status, return a `*serverfn.StatusError` (or wrap one with `fmt.Errorf("...: %w", …)`):
+
+```go
+func getUser(ctx context.Context, req Req) (User, error) {
+    u, ok := store.Find(req.ID)
+    if !ok {
+        return User{}, serverfn.NotFound("no such user") // → HTTP 404
+    }
+    return u, nil
+}
+```
+
+Constructors cover the common cases: `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`,
+`Conflict`, `UnprocessableEntity`, plus `NewStatusError(status, msg)` for any code. The status
+round-trips to the caller as `*serverfn.ServerError`, so the client branches on the real reason:
+
+```go
+_, err := serverfn.Call[Req, User](ctx, "GetUser", req)
+var se *serverfn.ServerError
+if errors.As(err, &se) && se.Status == http.StatusNotFound {
+    // show a not-found state instead of a generic failure
+}
+```
+
+A plain `error` is unchanged (still 500) — adopting `StatusError` is opt-in and non-breaking.
+
+### Server functions (`//gwc:server`)
+
+A server function is a plain, type-safe `func(context.Context, Req) (Resp, error)` that runs only on
+the server. Mark it with a `//gwc:server` doc comment, in a file constrained to the server build
+(`//go:build !js || !wasm`); keep the shared `Req`/`Resp` types in a build-tag-free file.
+
+```go
+//go:build !js || !wasm
+
+package api
+
+import "context"
+
+type GetUserReq struct{ ID string }
+
+// //gwc:server
+func GetUser(ctx context.Context, req GetUserReq) (User, error) {
+	u, ok := store.Find(req.ID)
+	if !ok {
+		return User{}, serverfn.NotFound("no such user")
+	}
+	return u, nil
+}
+```
+
+`gwc server gen -pkg .` scans the package, validates the `(context.Context, Req) (Resp, error)`
+shape, and writes two files:
+
+- `serverfn_gen_client.go` (`//go:build js && wasm`) — browser stubs that call
+  `serverfn.Call[Req, Resp](ctx, "GetUser", req)`
+- `serverfn_gen_server.go` (`//go:build !js || !wasm`) — `RegisterServerFunctions(mux *http.ServeMux)`
+  that wires each function via `serverfn.Handle`
+
+The browser calls the generated stub with full compile-time type safety and no hand-written
+fetch/JSON glue; the server uses real sockets and the browser uses Fetch-backed `net/http`, so the
+same code path is testable with `httptest`. `gwc server check` is the CI staleness gate. To point the
+client at a non-default base URL, call `serverfn.Configure(baseURL)` (the default route prefix is
+`serverfn.RoutePrefix`, `/_gwc/fn/`).
+
+#### Whole-stack deployment (`wholestack`)
+
+`wholestack.Handler` / `wholestack.ListenAndServe` compose ONE `http.Handler` that serves the
+embedded wasm bundle AND the app's server functions, with SPA fallback so client-routed paths
+deep-link to the shell — one `go build` is the entire app (see
+[13 Assets, Deployment, And PWA](13-assets-deployment-and-pwa.md)).
+
+```go
+//go:embed dist
+var assets embed.FS
+
+func main() {
+	sub, _ := fs.Sub(assets, "dist")
+	log.Fatal(wholestack.ListenAndServe(":8080", wholestack.Options{
+		Assets:            sub,
+		RegisterServerFns: api.RegisterServerFunctions, // generated
+	}))
+}
+```
+
+## Query Cache And Mutations
+
+For application data that several components share — with tag-aware invalidation, request
+de-duplication, stale-while-revalidate, and optimistic mutations with automatic rollback — use the
+`query` package through the `ui.UseQuery` / `ui.UseMutation` hooks. It is the Go-native answer to
+TanStack Query / SWR, kept deliberately explicit (you pass the key and fetcher at every call site)
+and pure Go (compiles to wasm and native, unit-testable with `query.WithClock`).
+
+Create one cache (usually a package var), then read through `ui.UseQuery`:
+
+```go
+var appCache = query.New(query.WithStaleTime(30 * time.Second))
+
+func renderUserCard(props userProps) ui.Node {
+	res := ui.UseQuery(appCache, "user/"+props.ID, func() (User, error) {
+		return api.GetUser(context.Background(), api.GetUserReq{ID: props.ID})
+	}, props.ID)
+
+	switch {
+	case res.Status == query.StatusLoading:
+		return h.P("Loading...")
+	case res.Err != nil:
+		return h.P(h.Textf("Error: %v", res.Err))
+	default:
+		return h.P(h.Text(res.Data.Name))
+	}
+}
+```
+
+`query.Result[T]` carries `Data`, `Err`, `Status` (`StatusIdle`/`StatusLoading`/`StatusSuccess`/
+`StatusError`), `UpdatedAt`, `Stale`, and `Fetching` so the render path can show stale-while-fetching
+states. The last `deps` arguments behave like `UseEffect` deps — the query re-keys when they change.
+
+Mutations apply an optimistic value immediately and reconcile in the background:
+
+```go
+mutate := ui.UseMutation[User](appCache, "user/"+id)
+handleSave := ui.UseEvent(func() {
+	mutate(optimisticUser, func() (User, error) {
+		return api.SaveUser(context.Background(), draft) // commit on success, rollback on error
+	})
+})
+```
+
+`query.MutateAsync(cache, key, optimistic, fn, onSettled)` is the fire-and-forget form (it does not
+block render and calls `onSettled` with the final `Result[T]`). Invalidate related data with
+`cache.Invalidate(key)`, `cache.InvalidatePrefix(prefix)`, or `cache.InvalidateAll()`; inspect cache
+state for devtools with `cache.Inspect()` (see the time-travel/devtools chapter). When a component
+should suspend until data is ready (rendering an `AsyncBoundary` fallback meanwhile), use
+`ui.UseSuspenseQuery`, which returns the value `T` directly and throws to the nearest error boundary
+on failure.
+
+## Generative UI (`agentui`)
+
+When an agent (or any untrusted source) should compose UI, `agentui` renders a typed schema against a
+component allow-list — the safety property is structural: a `Node` carries no code, no event
+handlers, and no raw HTML, only an allow-listed component `Type`, string `Props` the component
+permits, escaped `Text`, and `Children`.
+
+```go
+reg := agentui.DefaultRegistry()
+reg.Register(agentui.ComponentSpec{
+	Name:         "callout",
+	AllowedProps: []string{"tone"},
+	Render: func(props map[string]string, children []ui.Node) ui.Node {
+		return html.Div(html.Props{Class: "callout-" + props["tone"]}, children...)
+	},
+})
+
+node, err := reg.RenderJSON(agentOutput) // validates, then renders to a safe ui.Node
+```
+
+`Registry.Validate` (and `ValidateWithLimits`) recursively reject any non-allow-listed type or
+disallowed prop; `Render`/`RenderJSON` gate on validation. Untrusted input is bounded by
+`agentui.DefaultLimits` (max depth 32, max 10k nodes) — pass explicit `Limits` to
+`ValidateWithLimits` to tune. `Registry.Catalog()` returns the allow-list as sorted
+`ComponentInfo` (name + permitted props) so an agent — or an MCP tool serving the registry over
+`agentbridge` — learns up front exactly what it may emit, turning the allow-list into guidance rather
+than an after-the-fact rejection.
 
 ## Optimistic UI And Offline Replay Rules
 
@@ -3119,7 +3554,7 @@ Use this table before you widen a read or mutation flow.
 
 | API family | Representative APIs | Stability | Use it when | Prefer something else when |
 | --- | --- | --- | --- | --- |
-| Raw hook state | `UseFetch`, `Resource.Get`, `Resource.Refetch` | `Stable` | one component wants raw request state around a URL | the loader deserves typed values and cancellation |
+| Raw hook state | `UseFetch`, `Resource.Get`, `Resource.Refetch` | `Stable` (deprecated — prefer `UseResource`) | a legacy component still wants raw request state around a URL | new code — use the typed `UseResource` instead |
 | Typed component resource | `UseResource`, `AsyncResource.Get`, `Reload`, `Cancel` | `Stable` | one component or panel owns a typed async value | several readers should reuse the same query |
 | Imperative request path | `Fetch`, `Upload`, `ReturnChannel` | `Stable` low-level surface | the request starts from an event handler, helper, or goroutine | a component-owned hook is clearer |
 | Shared cached resource | `UseCachedResource`, `CachedResource.Get`, `Reload`, `Invalidate`, `Dispose`, `Set`, `Update` | advanced public cache surface | several readers share one logical query and stale-aware reuse matters | the data only has one owner |
@@ -3221,7 +3656,7 @@ Then add advanced route lifecycle only when the screen needs it:
 - `Loader` for route-owned entry data
 - `UseRevalidator()` for rerunning the current route loader
 - `BeforeEnter` or `BeforeLeave` plus async variants for route-level navigation policy
-- `Layout: true` plus `router.GetOutlet()` for nested route shells
+- `Layout: true` plus `router.UseOutlet()` for nested route shells
 - route metadata through `Title`, `Description`, and `CanonicalURL`
 
 One practical split matters early:
@@ -3242,7 +3677,7 @@ Core routing is `Stable`:
 - `UseQuery`
 - `UseSearchParams`
 - redirects through `router.Options{Redirect: ...}`
-- nested layouts through `Layout: true` and `router.GetOutlet()`
+- nested layouts through `Layout: true` and `router.UseOutlet()`
 - route-level chunks through `RegisterLazy(...)` and `router.RouteChunk`
 - route contracts through `DefineRoute`, `MustDefineRoute`, `Path`, and `Href`
 
@@ -3466,7 +3901,7 @@ Why this is the right next layer:
 
 In a larger app, scale routing by using route contracts, nested shells, and one route-level auth boundary instead of multiple disconnected app roots.
 
-```go
+```go gwc:build
 package routes
 
 import (
@@ -3509,7 +3944,7 @@ func RenderWorkspaceLayout() ui.Node {
 	return h.Main(
 		h.Class("min-h-screen bg-slate-50"),
 		h.Header(h.Class("border-b bg-white p-4"), h.H1("Workspace shell")),
-		h.Section(h.Class("p-6"), router.GetOutlet()),
+		h.Section(h.Class("p-6"), router.UseOutlet()),
 	)
 }
 
@@ -3558,7 +3993,7 @@ func main() {
 Why this scales:
 
 - contracts remove string drift between registration, redirects, and button navigation
-- one shell stays mounted while nested routes swap through `GetOutlet()`
+- one shell stays mounted while nested routes swap through `UseOutlet()`
 - auth stays at the route-branch boundary instead of splitting the product into multiple HTML shells
 
 ## Params, Query, And Contracts
@@ -3628,7 +4063,7 @@ Use this table before you add more route machinery.
 | Mode-safe links | `Href(path)`, `FragmentHref(fragment)` | `Stable` | build an href that is correct for the active router mode / safe under `<base href>` (in-page anchors) | a static literal href is unambiguous |
 | Route contracts | `DefineRoute`, `MustDefineRoute`, `Path`, `Href`, `PathFor`, `HrefFor` | `Stable` | larger apps need validated reverse routing | the app is still small and string literals remain obvious |
 | Redirects | `router.Options{Redirect: ...}`, `RedirectNavigation` | core redirects are `Stable` | a matched route should hand off to another route cleanly | the page should stay mounted and render a manual fallback |
-| Nested layouts | `router.Options{Layout: true}`, `GetOutlet` | `Stable` | one shell should stay mounted while child routes swap | there is no shared shell between the routes |
+| Nested layouts | `router.Options{Layout: true}`, `UseOutlet` (`GetOutlet` is a deprecated alias) | `Stable` | one shell should stay mounted while child routes swap | there is no shared shell between the routes |
 | Loader-backed routes | `Loader`, `UseRouteData`, `UseRevalidator` | advanced router lifecycle | the route owns first-load data and refresh should rerun the same loader | the data is local to one component |
 | Guards and return-to recovery | `BeforeEnter`, `BeforeLeave`, async guard variants, `PreserveReturnTo`, `ReadReturnTo` | advanced router lifecycle | navigation policy belongs at the route boundary | the restriction is purely in-page UI, not route entry |
 | Route metadata | `Title`, `Description`, `CanonicalURL` | advanced router lifecycle | the route should own narrow SEO-safe metadata | broader head composition needs a dedicated head system |
@@ -3685,6 +4120,26 @@ go run ./tools/gwc dev -app .\examples\public\router-guards\main.go
 go run ./tools/gwc dev -app .\examples\public\router-hydrate-mount\main.go
 go run ./tools/gwc dev -app .\examples\public\single-shell-auth\main.go
 ```
+
+## Typed Search Params (`DecodeQuery` / `EncodeQuery`)
+
+Instead of scattered `q.Get(...)` + `strconv` + bounds checks, decode a URL query string into a typed
+struct in one read, validated with the same `validate` tags used elsewhere:
+
+```go
+type listParams struct {
+	Page int    `query:"page" validate:"gte=1"`
+	Sort string `query:"sort" validate:"oneof=new top"`
+}
+
+params, err := router.DecodeQuery[listParams](router.UseSearchParams().Values())
+// malformed values error with the offending param; validation failures return a validate.Result
+```
+
+`router.DecodeQuery[T](url.Values)` reads `query:"name"` tags (falling back to the lowercased field
+name), supports string/bool/int/uint/float/[]string, then runs `validate.Struct`. `router.EncodeQuery(v)`
+is the inverse for building links, omitting zero-valued fields. This meshes typed routes,
+compile-safe data, and shared validation.
 
 ## Topic Pagination
 Topic 8 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.
@@ -4756,6 +5211,13 @@ For shared-memory or channel-transport debugging, confirm the actual resolved ru
 - inspect `GetSharedMemorySupport()` before enabling `OpenSharedBuffer(...)`
 - treat popup `Closed()` state and publish failures as ordinary degraded-state signals
 
+## Keeping The Program Alive (`interop.KeepAlive`)
+
+A wasm `main` must not return, or the Go runtime exits and the app's event handlers stop firing.
+`interop.KeepAlive()` blocks the calling goroutine forever (`select {}`). `ui.Run(...)` calls it for
+you, so most apps never call it directly; reach for it only when `main` mounts manually and must
+stay alive after doing its own setup work.
+
 ## Topic Pagination
 Topic 10 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.
 - Previous topic: [09 SSR And Hydration](09-ssr-and-hydration.md)
@@ -4807,7 +5269,7 @@ The main forms, accessibility, and i18n entrypoints are `Stable`:
 - `ui.UseForm(...)`, `FieldStatus(...)`, `FieldMessage(...)`, `Validate(...)`, `ValidateAsync(...)`, `Submit(...)`, `SubmitWithIntent(...)`, `ApplyServerErrors(...)`, and `ApplyServerActionResult(...)`
 - `ui.NewCSRFToken(...)`, `ui.DefaultCSRFHeaderName`, and `ui.DefaultCSRFFormFieldName`
 - `ui.UseFocusManager()`, `ui.UseFocusTrap(...)`, `ui.UseAnnouncer()`, and `ui.AccessibleOverlay(...)`
-- `i18n.NewBundle(...)`, `Bundle.Register(...)`, `Bundle.RegisterNamespace(...)`, `i18n.UseLocale(...)`, `i18n.Provider(...)`, `i18n.UseI18n()`, `i18n.PrefixPath(...)`, `i18n.ResolvePath(...)`, and `i18n.BundleFromSSRBootstrap(...)`
+- `i18n.NewBundle(...)`, `Bundle.Register(...)`, `Bundle.RegisterNamespace(...)`, `i18n.NewLazyBundle(...)` / `LazyBundle.EnsureLocale(...)` (lazy locale loading), `i18n.UseLocale(...)`, `i18n.Provider(...)`, `i18n.UseI18n()`, `i18n.PrefixPath(...)`, `i18n.ResolvePath(...)`, and `i18n.BundleFromSSRBootstrap(...)`
 
 Important advanced boundaries:
 
@@ -4936,6 +5398,23 @@ Why this is the right first pattern:
 - one typed form handle owns values and validation messages
 - spoken feedback and focus movement stay inside the same feature
 - the HTML remains ordinary and accessible instead of hiding state in ad hoc DOM code
+
+### Field names are strings — catch typos
+
+`SetField(name, value)` takes the struct field name as a string and returns `false` for **both** an
+unknown field and a mismatched value type — so a typo (`SetField("Eamil", …)`) silently no-ops. Two
+helpers make that catchable:
+
+- **`MustSetField(name, value)`** — same as `SetField` but *panics* on an unknown field or type
+  mismatch. Prefer it where the field name is a hardcoded literal, so a typo fails loudly in
+  development instead of silently dropping writes.
+- **`HasField(name) bool`** — reports whether the field exists; useful in a test or a dev-time guard
+  to assert the names a form wires up are real.
+
+```go
+getForm.MustSetField("Name", getEvent.GetValue()) // panics if "Name" isn't a field of the model
+if !getForm.HasField("Channel") { /* misspelled in this build — fix it */ }
+```
 
 ## Production-Shaped Example
 
@@ -5156,6 +5635,73 @@ How this scales:
 - feature routes and forms can just call `i18n.UseI18n()` instead of reparsing the URL or loading ad hoc message maps
 - server loaders can use `i18n.ResolvePath(...)` to choose locale-specific content without duplicating entire route trees per market
 
+## Shared Client/Server Validation (default path)
+
+Validate with **one schema on both sides**. Put `validate:"..."` tags on the request struct, then
+call `form.ValidateStruct()` in the browser and `validate.Struct(req)` in the server handler — the
+*same* type, the *same* rules, no hand-written client validator that can drift from the server:
+
+```go
+type Signup struct {
+	Email string `json:"email" validate:"required,email"`
+	Age   int    `json:"age"   validate:"gte=13"`
+}
+
+// Client (wasm): ui.UseForm + ValidateStruct runs validate.Struct on Signup.
+form := ui.UseForm(Signup{})
+if form.ValidateStruct() {
+	// submit; the server re-runs validate.Struct on the identical type
+}
+
+// Server handler (native): the same struct, the same tags.
+//   if res := validate.Struct(req); !res.Valid() { return res.Fields() }
+```
+
+`form.ValidateStruct()` is the turnkey default — prefer it over hand-rolling a client validator.
+The `validate` package is dependency-free and compiles to both wasm and native, which is what makes
+the single-schema guarantee real. Worked end-to-end example:
+[`examples/public/shared-form-validation`](../../examples/public/shared-form-validation/). For
+ad-hoc per-field checks not expressible as tags, `form.Validate(func(T) ui.FieldErrors)` remains
+available; async/server-driven validation flows through `form.ValidateAsync(...)` and
+`form.ApplyServerErrors(...)`.
+
+**Custom tag rules.** Register a domain rule once with `validate.RegisterRule` and use it as a tag
+on either side — it runs in `validate.Struct` everywhere, preserving the single-schema guarantee:
+
+```go
+validate.RegisterRule("sku", func(v any, arg string) (bool, string) {
+    s, _ := v.(string)
+    return s == "" || strings.HasPrefix(s, "SKU-"), "must start with SKU-"
+})
+
+type Item struct {
+    Code string `validate:"required,sku"` // built-in + custom rule compose
+}
+```
+
+The rule receives the field value (type-assert it) and the tag argument after `=` (e.g. `arg=="5"`
+for `validate:"between=5"`). Registration is concurrency-safe; a blank name, a nil function, or a
+built-in name (`required`, `email`, `min`, …) is ignored, so the core rule set can't be shadowed.
+
+**Cross-field rules.** Constraints that span fields (password==confirm, end≥start, "required if
+plan==team") can't be a per-field tag. `validate.Check` runs the struct tags *and* programmatic
+cross-field rules into one merged `Result`, preserving the single-schema guarantee:
+
+```go
+res := validate.Check(signup,
+    func(s Signup) *validate.FieldError {
+        if s.Password != s.Confirm {
+            return validate.Fail("confirm", "must match password")
+        }
+        return nil // valid
+    },
+)
+// res.Fields() now carries both tag failures and the cross-field failure.
+```
+
+A rule returns `nil` when valid or `validate.Fail(field, message)` to attach a failure. Nil rules
+are skipped and a panicking rule is contained (recorded as a failure, never crashing the caller).
+
 ## Form Workflows
 
 The recommended form ladder is:
@@ -5232,7 +5778,7 @@ For SSR:
 - The server-action result envelope is the shared contract between progressive HTML form posts and hydrated enhancement. It should not diverge into two business-rule paths.
 - Accessibility in this repo is explicit and semantic. The framework does not infer labels, announcements, or route-heading focus automatically.
 - `ui.AccessibleOverlay(...)` is modal-first. When the app needs nested sheets, popovers, menus, and stack coordination, move to the broader overlay surface intentionally.
-- `i18n` keeps locale state, catalog lookup, formatting, and path helpers small and composable. It does not own translation file formats, remote catalog loading, or global document mutation policy.
+- `i18n` keeps locale state, catalog lookup, formatting, and path helpers small and composable. It does not own translation file formats or global document mutation policy. For **lazy locale loading**, `i18n.LazyBundle` owns the load-once-per-locale orchestration (dedup + register) — you supply the transport via a `LocaleLoader` (e.g. fetch / `interop.ImportModule`) and call `EnsureLocale(locale)` before switching, so only the active locale ships on first paint.
 - Locale routing is application policy layered on top of `router`, not a router-owned global mode.
 
 ## Common Failure Modes
@@ -5269,6 +5815,37 @@ For manual browser checks, confirm:
 - polite and assertive announcements are not duplicated or stale
 - modal dialogs restore focus to the trigger after close
 - locale switches update `lang`, `dir`, translated copy, and locale-prefixed links together
+
+## Typed Message Accessors (`gwc i18n gen`)
+
+To make message keys and interpolation parameters compile-checked, generate typed accessors from a
+base-locale bundle. Given `messages.en.json`:
+
+```json
+{ "greeting": { "hello": "Hello {name}" } }
+```
+
+`gwc i18n gen -bundle messages.en.json -pkg .` writes `i18n_keys_gen.go` with one typed accessor per
+message, wrapping `i18n.Runtime.T` and taking a string argument for each `{param}`:
+
+```go
+msg := i18nkeys.GreetingHello("Ada") // a typo in the key, or a missing/extra param, is a compile error
+```
+
+`gwc i18n check` is the CI staleness gate (regenerate + diff). This is the i18n counterpart to
+`gwc routes gen` / `gwc server gen`, closing the last stringly-typed surface.
+
+### Optional fields (`omitempty`)
+
+The `validate` package supports an `omitempty` rule: an optional field whose value is the zero value
+skips its remaining rules, and is validated normally when present.
+
+```go
+type profile struct {
+	Name    string `validate:"required"`
+	Website string `validate:"omitempty,url"` // validated only when non-empty
+}
+```
 
 ## Topic Pagination
 Topic 11 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.
@@ -5366,7 +5943,7 @@ Public takeaway:
 
 Start with the public component test helpers. Keep tests accessibility-first and drive behavior through the rendered UI contract instead of internal state.
 
-```go
+```go gwc:build
 package settings_test
 
 import (
@@ -5480,7 +6057,7 @@ Why this is the production-shaped baseline:
 
 When a team needs reproducible troubleshooting, capture a local bug bundle, derive a support-safe bundle from it, and compare snapshots before and after the suspect flow.
 
-```go
+```go gwc:build
 package support
 
 import "github.com/monstercameron/GoWebComponents/devtools"
@@ -5770,6 +6347,49 @@ When diagnosing a live bug:
 - compare snapshots before and after the failing flow
 - confirm the issue is visible in the smallest relevant test lane before widening CI coverage
 
+## Time Travel (`timetravel`)
+
+`timetravel` is the pure engine behind time-travel devtools and undo/redo: a bounded, navigable
+`History[T]` of immutable snapshots. It owns no clock, DOM, or runtime.
+
+```go
+h := timetravel.New[AppState](100, initial) // capacity; <= 0 means unbounded
+h.Record("typed a letter", next)            // truncates any redo branch, evicts oldest past capacity
+h.Undo()                                    // (T, ok)
+h.Redo()
+cur := h.Current()
+h.ScrubTo(3)                                // jump to any point; Labels() / Cursor() drive a timeline
+```
+
+`timetravel/devpanel.Panel(devpanel.Props{Model: h, OnUndo: ..., OnRedo: ..., OnScrub: ...})` renders
+a ready-made scrubber timeline over any `*History[T]` (it satisfies the panel's `Model` interface via
+`Labels()`/`Cursor()`).
+
+## Inspecting Values (`ui.UseInspect`)
+
+`ui.UseInspect(label, value)` is the Svelte-style `$inspect`: it logs a labeled value's initial state
+and every subsequent change (`old -> new`, by structural equality) through a swappable sink.
+`ui.SetInspectSink(fn)` routes those records to devtools, a test buffer, or silences them in
+production (it returns a restore func).
+
+```go
+ui.UseInspect("cartTotal", total) // logs cartTotal: <initial>, then each change
+```
+
+## In-Page Error Overlay (`ui/erroroverlay`)
+
+`erroroverlay.ErrorOverlay(props)` renders a development error as a dismissible, accessible modal
+(title, message, actionable "Try: …" hint, optional stack), so a failure is legible in the page, not
+only the console. `erroroverlay.FromError(err)` builds `Props` from a Go error; pair it with an error
+boundary's fallback.
+
+## Detecting State-Schema Changes On Hot Reload
+
+`hotreload.SchemaChanged(persisted, current)` reports whether a state snapshot's shape (sorted keys +
+per-key concrete type) changed, and `hotreload.SchemaFingerprint(snapshot)` returns that shape
+fingerprint. A state-preserving hot reload uses this to show a visible "state reset" when the shape
+changed instead of silently restoring a persisted snapshot into a mismatched type.
+
 ## Topic Pagination
 Topic 12 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.
 - Previous topic: [11 Forms Accessibility And I18n](11-forms-accessibility-and-i18n.md)
@@ -5859,7 +6479,7 @@ That means:
 
 Start with the smallest installable baseline: create a valid manifest and register the service worker from explicit client bootstrap code.
 
-```go
+```go gwc:build
 package deploy
 
 import (
@@ -5922,7 +6542,7 @@ Why this is the right first deployment shape:
 
 For a real release, treat `wasm-release-manifest.json` as the shared record between `gwc release`, service-worker precache planning, Cache Storage coordination, and diagnostics.
 
-```go
+```go gwc:build
 package release
 
 import (
@@ -6011,7 +6631,7 @@ Why this is the production baseline:
 
 For static-hosted or exported docs and marketing sites, keep logical asset names in app code and resolve hashed output URLs through one manifest-backed lookup layer.
 
-```go
+```go gwc:build
 package export
 
 import (
@@ -6099,6 +6719,33 @@ Use this release flow as the default baseline:
 5. only then derive service-worker and Cache Storage plans from the same release record
 
 The critical rule is consistency: do not let HTML point at one asset graph while the service worker warms another.
+
+## Reproducible Builds
+
+Source-archive provenance (`git archive` + SHA-256 + build-provenance attestation) is already
+part of the release flow. The remaining step to a fully verifiable release is **byte-identical
+binary reproducibility**: the same source must compile to the same bytes on any machine. The
+recipe is exact:
+
+- **`-trimpath`** — strip local filesystem paths from the binary, so it doesn't encode the
+  builder's directory layout.
+- **`-buildvcs=false`** — keep VCS stamping out of the binary (provenance is recorded
+  separately, not embedded), so an otherwise-identical build isn't perturbed by git state.
+- **`SOURCE_DATE_EPOCH`** — pin any embedded timestamps to a fixed commit time rather than
+  "now".
+- **A CI-pinned `toolchain`** — the `go` directive in `go.mod` (and a pinned toolchain line)
+  fixes the exact compiler, since output is only reproducible within one toolchain version.
+
+```sh
+SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) \
+  GOFLAGS='-trimpath -buildvcs=false' \
+  GOOS=js GOARCH=wasm go build -o app.wasm ./cmd/app
+```
+
+**Verify** in CI by building twice from a clean checkout and byte-comparing (`sha256sum`) the
+two outputs; a mismatch fails the release. Reproducibility plus the existing provenance
+attestation means a consumer can independently rebuild the exact published artifact and
+confirm it matches.
 
 ## Browser And Hosting Boundaries
 
@@ -6208,6 +6855,33 @@ Use the smallest commands that prove the deployment slice you changed:
   `go run ./examples/server/static-export-site`
 
 When the deployment change is browser-sensitive, add at least one evergreen desktop pass and one Mobile Safari or constrained-device pass before calling the change production-ready.
+
+## Whole-Stack One-Binary Deployment (`wholestack`)
+
+`wholestack` composes a single `http.Handler` that serves the embedded wasm bundle (index +
+`.wasm` + `wasm_exec.js`) AND the app's `//gwc:server` functions, with SPA fallback so client-routed
+paths deep-link to the shell. One `go build` is the entire app — no Node, no separate static host, no
+reverse proxy — and it runs anywhere `net/http` runs, including edge WASI runtimes (the V4 server
+packages compile to `GOOS=wasip1`).
+
+```go
+//go:embed dist
+var assets embed.FS
+
+func main() {
+	sub, _ := fs.Sub(assets, "dist")
+	log.Fatal(wholestack.ListenAndServe(":8080", wholestack.Options{
+		Assets:            sub,
+		RegisterServerFns: api.RegisterServerFunctions, // generated by `gwc server gen`
+		// IndexFile defaults to index.html; set DisableSPAFallback to opt out of deep-link rewrites
+	}))
+}
+```
+
+`wholestack.Handler(opts)` returns the composed handler if you need to mount it yourself or wrap it
+in middleware. Server functions are served under `wholestack.ServerFnPrefix` (`/_gwc/fn/`); every
+other non-asset path falls back to the SPA index unless `DisableSPAFallback` is set. See
+[07 Data Loading And Mutations](07-data-loading-and-mutations.md) for the `//gwc:server` contract.
 
 ## Topic Pagination
 Topic 13 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.
@@ -6790,6 +7464,42 @@ For app authors, the practical takeaway is simple:
 - keep experimental or policy-heavy surfaces behind local wrappers
 - treat examples as proof points, not as undocumented API expansion
 
+## The wasm/native Build-Tag Split (One Mental Model)
+
+GWC code is written for two build targets — the browser (`GOOS=js GOARCH=wasm`) and
+everything else (native: your server, tests, tools). Many packages therefore carry two
+implementation files behind build tags:
+
+- `something.go` or `something_wasm.go` — `//go:build js && wasm` — the **browser** path
+  (real DOM, real `js.Value` interop).
+- `something_native.go` — `//go:build !js || !wasm` — the **native** path (a stub or a
+  pure-Go implementation, so the same API compiles and is testable off-platform).
+
+The single coherent rule that makes this predictable:
+
+> **One exported API, two implementations, chosen by the build target. The browser file does
+> the real DOM/interop work; the native file makes the same calls compile and behave
+> sensibly without a browser (a no-op, a pure-Go equivalent, or a mock-friendly seam).**
+
+Consequences worth internalizing:
+
+- **Hooks degrade, they don't disappear.** `UseEffect` is real in the browser and a no-op
+  natively; `UseState`/`UseRef` work natively but don't persist across renders (there is no
+  render loop off-platform). So a hook's *render-driven* behavior is verified in the wasm
+  lane, while its *pure logic* is factored out and unit-tested natively (the pattern used by
+  `UseQuery`, `UseInspect`, `UseDefer`).
+- **Prefer a pure core + a thin platform seam.** New features put their real logic in
+  build-tag-free, native-testable code and keep only the irreducible DOM/JS calls behind the
+  wasm tag. That is why most of the framework is testable under plain `go test`.
+- **`net/http` is the same on both sides.** Go's `net/http` works in wasm (Fetch-backed), so
+  packages like `serverfn`/`wholestack` need **no** build tags — one code path serves real
+  sockets on the server and Fetch in the browser.
+- **There is one HTML surface, not two.** The `html` package authors the same element tree
+  regardless of target; SSR (native) and hydration (wasm) consume it identically.
+
+If you remember nothing else: **the build tags pick an implementation, never a different
+public API.** A caller writes the same Go for both worlds.
+
 ## Scope And Non-Goals
 
 GWC is intentionally not trying to be every framework shape at once.
@@ -6872,7 +7582,7 @@ Why this is the right boundary:
 
 Keep runtime route contracts in one place, but leave metadata, prerender policy, and export decisions application-owned.
 
-```go
+```go gwc:build
 package routes
 
 import (
@@ -7195,6 +7905,15 @@ Important boundary:
 | `html/shorthand` | core companion | mixed-argument host tag wrappers over `html` | [05](05-html-authoring.md) |
 | `state` | core | shared atoms, selectors, derived values, snapshots | [06](06-state-and-reactivity.md) |
 | `fetch` | core | typed resources, shared cache, mutation queue, uploads | [07](07-data-loading-and-mutations.md) |
+| `query` | core | keyed cache, request de-dup, SWR, optimistic mutations (via `ui.UseQuery`/`ui.UseMutation`) | [07](07-data-loading-and-mutations.md) |
+| `serverfn` | core | `//gwc:server` server functions: typed `Handle`/`Call`, status errors | [07](07-data-loading-and-mutations.md) |
+| `wholestack` | core | one-binary handler serving wasm bundle + server functions with SPA fallback | [13](13-assets-deployment-and-pwa.md) |
+| `localfirst` | core | local-first LWW-Register CRDT sync, durable offline replay, presence | [06](06-state-and-reactivity.md) |
+| `agentui` | core | agent-native generative-UI registry: typed allow-listed schema, validate + render | [07](07-data-loading-and-mutations.md) |
+| `timetravel` | core | bounded undo/redo/scrub snapshot history engine + devpanel | [12](12-devtools-testing-and-observability.md) |
+| `anim` | core | clock-free spring/easing/FLIP math, keyed-list transitions, motion preference | [04](04-ui-rendering-and-hooks.md) |
+| `ui/erroroverlay` | supported companion | in-page dismissible error overlay (`ErrorOverlay`, `FromError`) | [12](12-devtools-testing-and-observability.md) |
+| `validate` | core | dependency-free struct-tag validation (wasm + native); one shared client/server schema via `ui.Form.ValidateStruct` | [11](11-forms-accessibility-and-i18n.md) |
 | `flags` | core | browser-visible feature flags and deterministic experiment assignment | [15](15-design-notes-and-boundaries.md) |
 | `router` | core | routers, route contracts, params, guards, metadata | [08](08-routing.md) |
 | `interop` | core | browser APIs, workers, storage, channels, JS bridges | [10](10-browser-interop-and-workers.md) |
@@ -7209,10 +7928,10 @@ Important boundary:
 | `hotreload` | support | state-preserving development hot reload bridge | [12](12-devtools-testing-and-observability.md) |
 | `logging` | support | structured browser logging | [12](12-devtools-testing-and-observability.md) |
 | `utils` | support | js/wasm helpers such as `WaitForever`, debug toggles, hot reload bridge | [01](01-getting-started.md), [12](12-devtools-testing-and-observability.md) |
-| `testkit/render` | test support | js/wasm component fixture harness | [12](12-devtools-testing-and-observability.md) |
-| `testkit/hooks` | test support | hook harness on top of `testkit/render` | [12](12-devtools-testing-and-observability.md) |
-| `testkit/router` | test support | router fixture harness and guard helpers | [12](12-devtools-testing-and-observability.md) |
-| `testkit/ssr` | test support | SSR snapshots and hydration smoke helpers | [09](09-ssr-and-hydration.md), [12](12-devtools-testing-and-observability.md) |
+| `test/render` | test support | js/wasm component fixture harness (public facade over `testkit/render` — import this) | [12](12-devtools-testing-and-observability.md) |
+| `test/hooks` | test support | hook harness on top of `test/render` (public facade over `testkit/hooks` — import this) | [12](12-devtools-testing-and-observability.md) |
+| `test/router` | test support | router fixture harness and guard helpers (public facade over `testkit/router` — import this) | [12](12-devtools-testing-and-observability.md) |
+| `test/ssr` | test support | SSR snapshots and hydration smoke helpers (public facade over `testkit/ssr` — import this) | [09](09-ssr-and-hydration.md), [12](12-devtools-testing-and-observability.md) |
 
 ## ui
 
@@ -7242,6 +7961,8 @@ Source anchors:
 | `UseState`, `UseReducer`, `UseRef`, `UsePrevious`, `UseId`, `UseEffect`, `UseMemo`, `UseCallback`, `UseEvent`, `WrapHandler` | local state and event wiring | [`State[T]`](../../ui/ui.go), [`Reducer[S,A]`](../../ui/ui.go), [`Ref[T]`](../../ui/ui.go), [`Previous[T]`](../../ui/ui.go), [`Handler`](../../ui/ui.go) | `storeCount := ui.UseState(0)` |
 | `StartTransition`, `UseTransition`, `UseDeferredValue`, `UseDebounced`, `UseThrottled`, `UseChannel`, `UseTask`, `UseWorkerTask` | scheduling, rate limiting, channel/task consumption, worker-backed jobs | [`Transition`](../../ui/ui.go), [`Debounced[T]`](../../ui/ui.go), [`Throttled[T]`](../../ui/ui.go), [`Channel[T]`](../../ui/ui.go), [`Task[T]`](../../ui/ui.go), [`WorkerTask[Request,Progress,Result]`](../../ui/worker_wasm.go) | `searchTransition := ui.UseTransition()` |
 | `AsyncBoundary`, `UseLazyNode`, `Lazy`, `ErrorBoundary` | async subtree fallbacks and panic recovery | [`AsyncBoundaryProps`](../../ui/ui.go), [`LazyProps`](../../ui/ui.go), [`LazyNode`](../../ui/ui.go), [`ErrorBoundaryProps`](../../ui/ui.go) | `return ui.AsyncBoundary(ui.AsyncBoundaryProps{Pending: state.Loading, Content: body})` |
+| `UseQuery`, `UseMutation`, `UseSuspenseQuery` | tag-aware cached queries and optimistic mutations over the `query` package | [`query.Cache`](../../query/query.go), [`query.Result[T]`](../../query/query.go) | `res := ui.UseQuery(appCache, "user/"+id, loadUser, id)` |
+| `UseInspect`, `SetInspectSink` | Svelte-style `$inspect`: log a labeled value's initial state and every change through a swappable sink | takes `label, value`; sink `func(string)` | `ui.UseInspect("cartTotal", total)` |
 | `CreateContext`, `UseContext`, `Portal`, `ReactiveRegion`, `If`, `Match` | subtree-scoped values, portals, fine-grained regions, conditional composition | [`Context[T]`](../../ui/context_shared.go), [`ContextProviderProps[T]`](../../ui/context_shared.go), [`PortalProps`](../../ui/ui.go), [`ReactiveSource`](../../ui/ui.go), [`MatchBuilder`](../../ui/branching.go) | `session := ui.UseContext(appSessionContext)` |
 | `UseFocusManager`, `UseFocusTrap`, `UseCompositeNavigation`, `UseAnnouncer`, `AccessibleOverlay`, `UseOverlayStack`, `Overlay` | accessibility, focus management, roving tabindex, live regions, layered surfaces | [`FocusOptions`](../../ui/accessibility_shared.go), [`FocusTrapOptions`](../../ui/accessibility_shared.go), [`CompositeItem`](../../ui/accessibility_shared.go), [`CompositeNavigationOptions`](../../ui/accessibility_shared.go), [`AccessibleOverlayProps`](../../ui/accessibility_shared.go), [`OverlayStackOptions`](../../ui/overlay.go), [`OverlayProps`](../../ui/overlay.go), [`OverlayStack`](../../ui/overlay.go), [`Announcer`](../../ui/accessibility_shared.go) | `dialog := ui.Overlay(ui.OverlayProps{Open: isOpen, OnDismiss: handleClose})` |
 | `UseForm`, `NewCSRFToken`, `GetFiles` | typed local form state, server-action result mapping, file input extraction | [`Form[T]`](../../ui/form.go), [`CSRFToken`](../../ui/form.go), [`ServerActionResult`](../../ui/form.go), [`ServerFormErrors`](../../ui/form.go), [`FieldStatus`](../../ui/form.go), [`File`](../../ui/file_wasm.go) | `profileForm := ui.UseForm(profileDraft{})` |
@@ -7298,6 +8019,7 @@ Source anchors:
 | `Text`, `Textf`, `TextIf`, `Children`, `WithKey`, `If`, `IfElse`, `Unless`, `When`, `ClassNames`, `Map`, `MapKeyed`, `FlatMap`, `FilterMap`, `Join`, `Maybe`, `OrElse`, `Coalesce`, `Switch`, `Case`, `Default` | additive sugar on top of explicit typed builders | [`SwitchBranch`](../../html/sugar.go) | `html.Textf("Count: %d", count)` |
 | `PropsOf`, `WithProps`, `Class`, `ID`, `Name`, `For`, `Title`, `Value`, `Placeholder`, `Type`, `Href`, `Src`, `Role`, `Rows`, `TabIndex`, `Disabled`, `Checked`, `Selected`, `Required`, `ReadOnly`, `AutoFocus`, `DisabledIf`, `ReadOnlyIf`, `SelectedIf`, `Style`, `Data`, `Dataset`, `Aria`, `AriaSet`, `Attr`, `Attrs`, `OnBlur`, `OnChange`, `OnClick`, `OnClickParallel`, `OnFocus`, `OnInput`, `OnKeyDown`, `OnKeyUp`, `OnMouseDown`, `OnMouseUp`, `OnScroll`, `OnSubmit` | prop assembly and event option helpers | [`Props`](../../html/html.go), [`PropOption`](../../html/html.go) | `buttonProps := html.PropsOf(html.Class("btn"), html.OnClick(handleSave))` |
 | `Prevent`, `Stop`, `Debounce`, `Throttle` | event wrapper helpers | event callbacks, [`PropOption`](../../html/html.go) | `html.Button(html.Props{OnClick: html.Debounce(250*time.Millisecond, handleSave)}, html.Text("Save"))` |
+| `Bind`, `BindTo`, `BindFunc` | two-way binding for a controlled input (`ui.State[string]`, any `Binding`, or getter/setter) | [`Binding`](../../html/bind.go), [`PropOption`](../../html/html.go) | `html.Input(html.BindTo(nameSignal))` |
 | `RenderMarkdown`, `ResolveMarkdownHref`, `DNSPrefetch`, `Preconnect`, `Prefetch`, `Preload`, `ModulePreload` | markdown rendering and resource hints | [`MarkdownRenderOptions`](../../html/markdown.go), [`MarkdownClasses`](../../html/markdown.go) | `nodes := html.RenderMarkdown(readmeText)` |
 
 Important parameter objects:
@@ -7325,6 +8047,7 @@ Source anchors:
 | `FromProps`, `PropsOf`, `WithProps` | mix fully built props into shorthand argument lists | [`Props`](../../html/shorthand/shorthand.go), [`PropOption`](../../html/shorthand/shorthand.go) | `h.Input(h.FromProps(baseProps), h.Placeholder("Email"))` |
 | `Text`, `Textf`, `TextIf`, `Children`, `If`, `IfElse`, `Unless`, `When`, `ClassNames`, `Map`, `MapKeyed`, `FlatMap`, `FilterMap`, `Join`, `Maybe`, `OrElse`, `Coalesce`, `Switch`, `Case`, `Default`, `WithKey`, `Prevent`, `Stop`, `Debounce`, `Throttle` | the same additive authoring sugar as `html` | [`SwitchBranch`](../../html/shorthand/shorthand.go) | `h.Ul(h.Map(items, renderItem)...)` |
 | `Class`, `ID`, `Name`, `For`, `Title`, `Value`, `Placeholder`, `Type`, `Href`, `Src`, `Role`, `Rows`, `TabIndex`, `Disabled`, `Checked`, `Selected`, `Required`, `ReadOnly`, `AutoFocus`, `DisabledIf`, `ReadOnlyIf`, `SelectedIf`, `Style`, `Data`, `Dataset`, `Aria`, `AriaSet`, `Attr`, `Attrs`, `OnBlur`, `OnChange`, `OnClick`, `OnClickParallel`, `OnFocus`, `OnInput`, `OnKeyDown`, `OnKeyUp`, `OnMouseDown`, `OnMouseUp`, `OnScroll`, `OnSubmit` | shorthand re-exports of `html` prop helpers | [`PropOption`](../../html/shorthand/shorthand.go) | `h.Button(h.Class("btn"), h.Prevent(handleSubmit), "Submit")` |
+| `Slot`, `NewSlots`, `Bind`, `BindTo`, `BindFunc` | named slots (render-children-by-name) and two-way input binding | [`Slots`](../../html/shorthand/slots.go), [`NamedSlot`](../../html/shorthand/slots.go), [`html.Binding`](../../html/bind.go) | `slots := h.NewSlots(h.Slot("header", h.H2("Title")))` |
 
 ## state
 
@@ -7338,9 +8061,10 @@ Source anchors:
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
 | `UseAtom` | shared read/write state keyed by ID | [`Atom[T]`](../../state/state.go) | `sessionAtom := state.UseAtom("session", sessionState{})` |
-| `UseComputed` | render-local computed value based on hooks, atoms, or props | [`Computed[T]`](../../state/state.go) | `fullName := state.UseComputed(func() string { return first + " " + last })` |
+| `NewSignal`, `NewKeyedSignal`, `NewComputed`, `AtomKey`, `NewAtomKey`, `UseAtomKey` | fine-grained reactive signals (update only bound DOM nodes) and declared-once atom keys | [`Signal[T]`](../../state/signal.go), [`ComputedSignal[T]`](../../state/signal.go), [`AtomKey[T]`](../../state/atom_key.go) | `gap := state.NewSignal(8); gap.Text(func(n int) string { return fmt.Sprint(n) })` |
+| `UseComputed` *(deprecated — prefer `ui.UseMemo`)* | render-local computed value based on hooks, atoms, or props | [`Computed[T]`](../../state/state.go) | `fullName := state.UseComputed(func() string { return first + " " + last })` |
 | `UseDerived`, `UseSelector`, `Select` | shared read-only derived atoms and projected selectors | [`Derived[T]`](../../state/state.go) | `selectedUser := state.UseSelector("selected-user", usersAtom, projectUser)` |
-| `ExportSnapshot`, `GetSnapshot`, `ApplySnapshot`, `ImportSnapshot`, `MarshalSnapshotJSON`, `UnmarshalSnapshotJSON` | in-memory snapshot export/import and JSON serialization | [`Snapshot`](../../state/state.go) | `snapshotJSON, err := state.MarshalSnapshotJSON(snapshot)` |
+| `GetSnapshot`, `ApplySnapshot`, `MarshalSnapshotJSON`, `UnmarshalSnapshotJSON` (`ExportSnapshot` / `ImportSnapshot` are deprecated aliases) | in-memory snapshot export/import and JSON serialization | [`Snapshot`](../../state/state.go) | `snapshotJSON, err := state.MarshalSnapshotJSON(snapshot)` |
 | `SaveSnapshot`, `LoadSnapshot`, `RestoreSnapshot`, `SavePersistentSnapshot`, `LoadPersistentSnapshot`, `RestorePersistentSnapshot` | browser storage restore flows for atom snapshots | [`StorageArea`](../../state/state.go), [`PersistentSnapshotOptions`](../../state/state.go), [`Snapshot`](../../state/state.go) | `_, err := state.RestorePersistentSnapshot(ctx, "drafts")` |
 
 Key state objects:
@@ -7370,7 +8094,7 @@ Source anchors:
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
-| `UseFetch` | low-level raw fetch state by URL | [`Options`](../../fetch/fetch.go), [`Resource`](../../fetch/fetch.go), [`State`](../../fetch/fetch.go) | `resource := fetch.UseFetch("/api/orders")` |
+| `UseFetch` *(deprecated — prefer `UseResource`)* | low-level raw fetch state by URL | [`Options`](../../fetch/fetch.go), [`Resource`](../../fetch/fetch.go), [`State`](../../fetch/fetch.go) | `resource := fetch.UseFetch("/api/orders")` |
 | `UseResource` | typed async loader with cancellation and dependency reloads | [`AsyncResource[T]`](../../fetch/fetch.go), [`ResourceState[T]`](../../fetch/fetch.go) | `userResource := fetch.UseResource(loadUser, userID)` |
 | `UseCachedResource`, `InvalidateResource`, `DisposeResource`, `InspectCachedResources`, `SweepCachedResources`, `LoadCached`, `ConfigurePersistentCache`, `RestoreCacheBootstrap` | shared cached async state, invalidation, resume and inspection | [`CachedResource[T]`](../../fetch/cache.go), [`CachedResourceState[T]`](../../fetch/cache.go), [`CacheOptions`](../../fetch/cache.go), [`PersistentCacheOptions`](../../fetch/cache_persistent.go), [`CacheBootstrap`](../../fetch/cache_persistent.go) | `orders := fetch.UseCachedResource("orders:list", loadOrders)` |
 | `Fetch`, `Upload`, `ReturnChannel` | low-level request and upload primitives | [`Options`](../../fetch/fetch.go), [`Result`](../../fetch/fetch.go), [`UploadUpdate`](../../fetch/fetch.go), [`MultipartBody`](../../fetch/fetch.go), [`MultipartFile`](../../fetch/fetch.go) | `resultCh := fetch.Fetch("/api/export", fetch.Options{Method: "POST"})` |
@@ -7419,10 +8143,11 @@ Source anchors:
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
 | `NewHashRouter`, `NewHistoryRouter` | create one router instance with hash or history semantics | [`Router`](../../router/router.go), [`RouterOptions`](../../router/router.go) | `appRouter := router.NewHistoryRouter()` |
-| `(*Router).Register`, `RegisterRoute`, `(*Router).Mount`, `(*Router).HydrateMount`, `(*Router).MountElement`, `(*Router).HydrateMountElement`, `(*Router).Current`, `(*Router).IsLoading`, `(*Router).Navigate`, `(*Router).NavigateReplace`, `(*Router).Revalidate`, `(*Router).GetCurrentRouterPath` | route registration, mount, navigation, route rendering, loader refresh | [`Options`](../../router/router.go), [`Attrs`](../../router/router.go), [`RouteContext`](../../router/router.go) | `appRouter.Register("/inventory/:sku", renderInventoryPage, router.Options{Loader: loadInventory})` |
+| `(*Router).Register`, `RegisterRoute`, `(*Router).Mount`, `(*Router).HydrateMount`, `(*Router).MountElement`, `(*Router).HydrateMountElement`, `(*Router).Current`, `(*Router).IsLoading`, `(*Router).Navigate`, `(*Router).NavigateReplace`, `(*Router).Revalidate`, `(*Router).GetCurrentPath` (`GetCurrentRouterPath` is a deprecated alias) | route registration, mount, navigation, route rendering, loader refresh | [`Options`](../../router/router.go), [`Attrs`](../../router/router.go), [`RouteContext`](../../router/router.go) | `appRouter.Register("/inventory/:sku", renderInventoryPage, router.Options{Loader: loadInventory})` |
 | `Navigate`, `NavigateReplace`, `Revalidate`, `GetCurrentPath`, `UseNavigate`, `UseRevalidator` | global navigation and loader refresh helpers inside components | [`Navigator`](../../router/router.go), [`Revalidator`](../../router/router.go) | `router.UseNavigate().Navigate("/checkout")` |
-| `UseQuery`, `UseSearchParams`, `UseParams`, `UseRouteData`, `GetOutlet`, `GetRoute`, `GetRouter`, `InspectCurrentRoute`, `RegisterElementRoute` | access current route state, outlets, params, query, loader attrs, and route inspection | [`Query`](../../router/router.go), [`SearchParams`](../../router/router.go), [`Params`](../../router/router.go), [`RouteInspection`](../../router/router.go) | `sku := router.UseParams().Get("sku")` |
+| `UseQuery`, `UseSearchParams`, `UseParams`, `UseRouteData`, `UseOutlet` (`GetOutlet` is a deprecated alias), `GetRoute`, `GetRouter`, `InspectCurrentRoute`, `RegisterElementRoute` | access current route state, outlets, params, query, loader attrs, and route inspection | [`Query`](../../router/router.go), [`SearchParams`](../../router/router.go), [`Params`](../../router/router.go), [`RouteInspection`](../../router/router.go) | `sku := router.UseParams().Get("sku")` |
 | `DefineRoute`, `MustDefineRoute` | validate patterns and build typed reverse-routing contracts | [`RouteContract`](../../router/contracts.go), [`RouteParamsProvider`](../../router/contracts.go), [`RouteQueryProvider`](../../router/contracts.go) | `inventoryRoute := router.MustDefineRoute("/inventory/:sku")` |
+| `DecodeQuery`, `EncodeQuery` | typed, validated search params from a struct with `query:"..."` + `validate:"..."` tags | takes/returns `url.Values` | `p, err := router.DecodeQuery[listParams](values)` |
 | `BuildMetadataNode` | render narrow head metadata from route metadata | [`Metadata`](../../router/metadata.go) | `headNode := router.BuildMetadataNode(metadata)` |
 | `PreserveReturnTo`, `ReadReturnTo`, `AllowNavigation`, `BlockNavigation`, `RedirectNavigation` | return-to preservation and guard result helpers | [`GuardResult`](../../router/router.go), [`GuardDecision`](../../router/router.go), [`GuardFunc`](../../router/router.go), [`AsyncGuardFunc`](../../router/router.go), [`LeaveGuardFunc`](../../router/router.go), [`AsyncLeaveGuardFunc`](../../router/router.go) | `return router.BlockNavigation("unsaved changes")` |
 
@@ -7454,6 +8179,7 @@ Source anchors:
 | `GlobalThis`, `GetGlobalThis`, `GetDocument`, `CurrentDocument`, `GetWindowEnv`, `SharedWindowEnv`, `GetWindowLocation`, `GetWindowHistory`, `GetDocumentEvents`, `GetWindowEvents`, `GetMediaQuery` | raw-but-typed browser handle access without dropping into `syscall/js` | [`Value`](../../interop/value_wasm.go), [`Document`](../../interop/interop.go), [`WindowEnv`](../../interop/interop.go), [`Location`](../../interop/interop.go), [`History`](../../interop/interop.go), [`EventTarget`](../../interop/interop.go), [`MediaQueryList`](../../interop/interop.go) | `windowEnv, err := interop.GetWindowEnv()` |
 | `GetLocalStorage`, `LocalStorage`, `GetSessionStorage`, `SessionStorage`, `OpenPersistentStore`, `LoadPersistentJSON` | storage and durable browser persistence | [`Storage`](../../interop/interop.go), [`PersistentStore`](../../interop/interop.go), [`PersistentStoreOptions`](../../interop/interop.go) | `store, err := interop.OpenPersistentStore(ctx, interop.PersistentStoreOptions{Name: "gwc-cache"})` |
 | `GetClipboard`, `NavigatorClipboard`, `ScheduleTimeout`, `SetTimeout`, `ScheduleInterval`, `SetInterval` | clipboard and timer helpers | [`Clipboard`](../../interop/interop.go), [`Timer`](../../interop/interop.go) | `timer, err := interop.ScheduleTimeout(250*time.Millisecond, handleFlush)` |
+| `KeepAlive` | block the calling goroutine forever so a wasm `main` does not return (used by `ui.Run`) | — | `interop.KeepAlive()` |
 | `ImportModule`, `OpenWorker`, `OpenGoWASMWorker`, `NewGoWASMWorker`, `OpenWorkerPool`, `RequestWorkerDecoded`, `OpenMessageChannel`, `OpenSharedBuffer`, `GetSharedMemorySupport`, `GetWorkerScope` | dynamic modules, raw workers, worker pools, message ports, shared buffers | [`Module`](../../interop/interop.go), [`Worker`](../../interop/interop.go), [`WorkerOptions`](../../interop/interop.go), [`GoWASMWorkerOptions`](../../interop/interop.go), [`WorkerPool`](../../interop/interop.go), [`WorkerPoolOptions`](../../interop/worker_pool.go), [`MessageChannel`](../../interop/interop.go), [`SharedBuffer`](../../interop/interop.go), [`SharedMemorySupport`](../../interop/interop.go), [`WorkerScope`](../../interop/interop.go) | `worker, err := interop.OpenWorker(ctx, interop.WorkerOptions{URL: "/worker.js"})` |
 | `OpenCrossTabChannel`, `OpenSecondaryWindowChannel`, `OpenWindowOpenerChannel`, `SubscribeDecoded`, `SubscribeDecodedCrossTab`, `SubscribeDecodedMessagePort`, `SubscribeDecodedWindow`, `SubscribeDecodedWorker`, `SubscribeClientMessages`, `SubscribeClientWindowMessages`, `SubscribeSurfaceSignals` | cross-tab, cross-window, message-port, and worker messaging subscriptions | [`CrossTabChannel`](../../interop/interop.go), [`CrossTabChannelOptions`](../../interop/interop.go), [`WindowChannel`](../../interop/interop.go), [`WindowChannelOptions`](../../interop/interop.go), [`Subscription`](../../interop/interop.go) | `channel, err := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: "gwc-sync"})` |
 | `PublishClientHello`, `PublishClientHelloWithCapabilities`, `PublishClientHelloWindow`, `PublishClientHelloWindowWithCapabilities`, `PublishClientGoodbye`, `PublishClientGoodbyeWindow`, `PublishClientMessage`, `PublishClientWindowMessage`, `PublishClientEvent`, `PublishClientIntent`, `PublishClientQuery`, `PublishClientResult`, `PublishClientInvalidation`, `PublishClientBinaryCrossTab`, `PublishClientBinaryWindow`, `PublishSurfaceSignal`, `PublishIntent`, `PublishLogout`, `PublishRouteFocus`, `PublishSelection`, `PublishSessionExpired` | public client-protocol and multi-surface signaling | [`ClientIdentity`](../../interop/interop.go), [`ClientCapabilities`](../../interop/interop.go), [`ClientMessage`](../../interop/interop.go), [`SurfaceSignal`](../../interop/interop.go), [`SurfaceIntentSignal`](../../interop/interop.go) | `err = interop.PublishSelection(windowChannel, "catalog", sku, "table")` |
@@ -7658,6 +8384,7 @@ Source anchors:
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
 | `Enable`, `Configure`, `Disable`, `Enabled`, `IsEnabled`, `Prepare`, `GetSnapshot`, `ApplySnapshot` | development-state hot reload bridge with optional schema migrations | [`Config`](../../hotreload/hotreload.go), [`SnapshotMigration`](../../hotreload/hotreload.go), [`SnapshotMigrationContext`](../../hotreload/hotreload.go) | `hotreload.Configure(hotreload.Config{AtomIDs: []string{"session"}, ResetKey: "layout-v2", SnapshotVersion: 2})` |
+| `SchemaChanged`, `SchemaFingerprint` | detect a state-snapshot shape change (keys + types) so a reload shows a visible reset instead of a type mismatch | takes `map[string]any` | `if hotreload.SchemaChanged(persisted, current) { /* reset */ }` |
 
 ## logging
 
@@ -7780,6 +8507,86 @@ Key SSR test objects:
 - [`Snapshot`](../../testkit/ssr/ssr.go): `Contains`, `Structured`
 - [`HydrationHarness`](../../testkit/ssr/hydrate_wasm.go): `ByID`, `ByText`, `Text`, `Cleanup`
 
+## query
+
+Import with `import "github.com/monstercameron/GoWebComponents/query"`. Source: [query/query.go](../../query/query.go). Consume in components via the `ui.UseQuery` / `ui.UseMutation` / `ui.UseSuspenseQuery` hooks.
+
+| Surface | Use it for | Parameter objects / handles | Call shape |
+| --- | --- | --- | --- |
+| `New`, `WithStaleTime`, `WithClock` | construct a cache (inject a clock for tests) | [`Cache`](../../query/query.go), [`Option`](../../query/query.go) | `c := query.New(query.WithStaleTime(30*time.Second))` |
+| `Fetch`, `SWR`, `Snapshot` | keyed read with de-dup; stale-while-revalidate; non-fetching peek | [`Result[T]`](../../query/query.go), [`Status`](../../query/query.go) | `res := query.Fetch(c, "k", loader)` |
+| `Mutate`, `MutateAsync` | optimistic mutation with rollback on error (sync / fire-and-forget) | [`Result[T]`](../../query/query.go) | `query.Mutate(c, "k", optimistic, commit)` |
+| `(*Cache).Set`, `Peek`, `Invalidate`, `InvalidatePrefix`, `InvalidateAll`, `Inspect`, `Keys` | imperative cache control + devtools introspection | [`EntryInfo`](../../query/query.go) | `c.InvalidatePrefix("user/")` |
+
+## serverfn
+
+Import with `import "github.com/monstercameron/GoWebComponents/serverfn"`. Source: [serverfn/serverfn.go](../../serverfn/serverfn.go). Generate stubs/wiring with `gwc server gen`.
+
+| Surface | Use it for | Parameter objects / handles | Call shape |
+| --- | --- | --- | --- |
+| `Handle`, `Call` | register a `//gwc:server` function on a mux; call one (typed) from the client | generic `[Req, Resp any]` | `serverfn.Handle(mux, "GetUser", GetUser)` |
+| `Configure`, `SetClient`, `Endpoint`, `RoutePrefix` | point the client at a base URL / custom client; build the route | — | `serverfn.Configure("https://api.example.com")` |
+| `StatusError`, `ServerError` + `NewStatusError`, `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `UnprocessableEntity` | return/branch on typed HTTP statuses (default is 500) | [`StatusError`](../../serverfn/serverfn.go), [`ServerError`](../../serverfn/serverfn.go) | `return User{}, serverfn.NotFound("no such user")` |
+
+## wholestack
+
+Import with `import "github.com/monstercameron/GoWebComponents/wholestack"`. Source: [wholestack/wholestack.go](../../wholestack/wholestack.go).
+
+| Surface | Use it for | Parameter objects / handles | Call shape |
+| --- | --- | --- | --- |
+| `Handler`, `ListenAndServe` | one handler serving the embedded wasm bundle + `//gwc:server` functions with SPA fallback | [`Options`](../../wholestack/wholestack.go) (`Assets`, `RegisterServerFns`, `IndexFile`, `DisableSPAFallback`), `ServerFnPrefix` | `wholestack.ListenAndServe(":8080", opts)` |
+
+## localfirst
+
+Import with `import "github.com/monstercameron/GoWebComponents/localfirst"`. Source: [localfirst/localfirst.go](../../localfirst/localfirst.go), [localfirst/presence.go](../../localfirst/presence.go).
+
+| Surface | Use it for | Parameter objects / handles | Call shape |
+| --- | --- | --- | --- |
+| `NewReplica`, `RestoreReplica`, `Sync` | optimistic local writes + durable pending log; converge with an authority | [`Replica`](../../localfirst/localfirst.go), [`ReplicaState`](../../localfirst/localfirst.go), [`Record`](../../localfirst/localfirst.go), [`Mutation`](../../localfirst/localfirst.go), [`Clock`](../../localfirst/localfirst.go) | `r := localfirst.NewReplica("tab-1"); localfirst.Sync(r, a)` |
+| `(*Replica).Set/Delete/Get/Pending/Merge/Snapshot/Export` | the replica's read/write/merge/serialize surface | — | `r.Set("k", "v"); s := r.Export()` |
+| `NewAuthority`, `(*Authority).Receive/Changes/Snapshot` | server-side authoritative store | [`Authority`](../../localfirst/localfirst.go) | `a := localfirst.NewAuthority()` |
+| `NewPresenceSet`, `(*PresenceSet).Update/Tick/Remove/Live/Count` | ephemeral presence/awareness with TTL expiry (no wall clock) | [`PresenceSet`](../../localfirst/presence.go), [`Presence`](../../localfirst/presence.go) | `p := localfirst.NewPresenceSet(3)` |
+| `facepile.Facepile` | ready-made "who's here" UI over a `*PresenceSet` | — | `facepile.Facepile(p)` |
+
+## agentui
+
+Import with `import "github.com/monstercameron/GoWebComponents/agentui"`. Source: [agentui/agentui.go](../../agentui/agentui.go).
+
+| Surface | Use it for | Parameter objects / handles | Call shape |
+| --- | --- | --- | --- |
+| `NewRegistry`, `DefaultRegistry`, `(*Registry).Register` | build a component allow-list (or start from safe presentational defaults) | [`Registry`](../../agentui/agentui.go), [`ComponentSpec`](../../agentui/agentui.go) | `reg := agentui.DefaultRegistry()` |
+| `(*Registry).Validate`, `ValidateWithLimits`, `Render`, `RenderJSON`, `Allowed`, `Catalog` | validate + render an agent-emitted typed schema; introspect the allow-list | [`Node`](../../agentui/agentui.go), [`Limits`](../../agentui/agentui.go) (`DefaultLimits`), [`ComponentInfo`](../../agentui/agentui.go) | `node, err := reg.RenderJSON(agentOutput)` |
+| `Parse` | parse JSON into a `Node` without rendering | [`Node`](../../agentui/agentui.go) | `n, err := agentui.Parse(data)` |
+
+## timetravel
+
+Import with `import "github.com/monstercameron/GoWebComponents/timetravel"`. Source: [timetravel/timetravel.go](../../timetravel/timetravel.go), [timetravel/devpanel/devpanel.go](../../timetravel/devpanel/devpanel.go).
+
+| Surface | Use it for | Parameter objects / handles | Call shape |
+| --- | --- | --- | --- |
+| `New` | bounded snapshot history (`capacity <= 0` = unbounded) | [`History[T]`](../../timetravel/timetravel.go), [`Snapshot[T]`](../../timetravel/timetravel.go) | `h := timetravel.New[State](100, initial)` |
+| `(*History[T]).Record/Current/Undo/Redo/ScrubTo/CanUndo/CanRedo/Cursor/Len/Labels/Snapshots` | record/navigate immutable snapshots for undo/redo and scrubbing | — | `h.Record("edit", next); h.Undo()` |
+| `devpanel.Panel` | scrubber-timeline devtools over any `*History[T]` | [`devpanel.Props`](../../timetravel/devpanel/devpanel.go), [`devpanel.Model`](../../timetravel/devpanel/devpanel.go) | `devpanel.Panel(devpanel.Props{Model: h})` |
+
+## anim
+
+Import with `import "github.com/monstercameron/GoWebComponents/anim"`. Source: [anim/anim.go](../../anim/anim.go), [anim/transitions.go](../../anim/transitions.go).
+
+| Surface | Use it for | Parameter objects / handles | Call shape |
+| --- | --- | --- | --- |
+| `NewSpring`, `GentleSpring`, `WobblySpring`, `StiffSpring` | damped spring motion, stepped per frame | [`Spring`](../../anim/anim.go), [`SpringConfig`](../../anim/anim.go) | `s := anim.NewSpring(anim.GentleSpring(), 0); s.Step(dt)` |
+| `Interpolate` + easings (`Linear`, `EaseIn/Out/InOutQuad`, `…Cubic`), `Easing`/`EasingFunc` | shape a 0..1 progress value | [`Easing`](../../anim/anim.go) | `anim.Interpolate(0, 1, t, anim.EaseOutCubic)` |
+| `ComputeFLIP`, `DiffKeyedRects`, `(ListTransition).MovedKeys` | FLIP invert transforms; keyed-list enter/exit/move diffing | [`Rect`](../../anim/anim.go), [`FLIPTransform`](../../anim/anim.go), [`KeyedRect`](../../anim/transitions.go), [`ListTransition`](../../anim/transitions.go) | `t := anim.DiffKeyedRects(prev, next)` |
+| `NewTransition`, `NewTransitionPref`, `StaggerDelay` | clock-free enter/exit state machine + cascade timing, reduced-motion aware | [`Transition`](../../anim/transitions.go), [`Phase`](../../anim/transitions.go), [`MotionPreference`](../../anim/transitions.go) | `tr := anim.NewTransitionPref(0.3, pref)` |
+
+## ui/erroroverlay
+
+Import with `import "github.com/monstercameron/GoWebComponents/ui/erroroverlay"`. Source: [ui/erroroverlay/erroroverlay.go](../../ui/erroroverlay/erroroverlay.go).
+
+| Surface | Use it for | Parameter objects / handles | Call shape |
+| --- | --- | --- | --- |
+| `ErrorOverlay`, `FromError` | in-page dismissible, accessible error modal; build props from a Go error | [`Props`](../../ui/erroroverlay/erroroverlay.go) (`Title`, `Message`, `Hint`, `Stack`, `OnDismiss`) | `erroroverlay.ErrorOverlay(erroroverlay.FromError(err))` |
+
 ## Validation
 
 Use quick package-level checks rather than a full suite when you are validating this browser chapter:
@@ -7827,20 +8634,34 @@ Topic 16 of 16. Use previous and next to move through the ordered manual chapter
 | DOM refs & lifecycle | `ui`, `html` | [dom-ref](../../examples/public/dom-ref/) | [04-ui-rendering-and-hooks.md](04-ui-rendering-and-hooks.md) |
 | HTML authoring | `html`, `html/shorthand` | [semantic-html](../../examples/public/semantic-html/) | [05-html-authoring.md](05-html-authoring.md) |
 | Typed CSS | `css`, `css/u` | [typed-css](../../examples/public/typed-css/) | [05-html-authoring.md](05-html-authoring.md) |
+| Typed theme tokens (gwc css gen) | `css/u` | [typed-css-tokens-demo](../../examples/public/typed-css-tokens-demo/) | [05-html-authoring.md](05-html-authoring.md) |
 | Markup nodes (raw HTML & SVG) | `html` | [raw-html](../../examples/public/raw-html/) | [05-html-authoring.md](05-html-authoring.md) |
 | Shared state & reactivity | `state` | [state-atoms](../../examples/public/state-atoms/) | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
 | Client-side SQLite & durable state | `db/sqlite`, `kvstate` | [sqlite-persistence](../../examples/public/sqlite-persistence/) | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
-| Data loading & mutations | `fetch` | [use-fetch](../../examples/public/use-fetch/) | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
+| Data loading & mutations | `fetch` | [use-resource](../../examples/public/use-resource/) | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
 | Realtime data | `fetch` | [cross-tab-sync](../../examples/public/cross-tab-sync/) | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
 | Routing | `router` | [browser-router](../../examples/public/browser-router/) | [08-routing.md](08-routing.md) |
 | SSR & hydration | `ui`, `head` | [hydration](../../examples/public/hydration/) | [09-ssr-and-hydration.md](09-ssr-and-hydration.md) |
 | Static islands | `ui` | [static-islands](../../examples/public/static-islands/) | [09-ssr-and-hydration.md](09-ssr-and-hydration.md) |
 | Browser interop & workers | `interop` | [browser-interop](../../examples/public/browser-interop/) | [10-browser-interop-and-workers.md](10-browser-interop-and-workers.md) |
 | Forms & accessibility | `ui` | [form-accessibility](../../examples/public/form-accessibility/) | [11-forms-accessibility-and-i18n.md](11-forms-accessibility-and-i18n.md) |
+| Shared client/server validation | `validate`, `ui` | [shared-form-validation](../../examples/public/shared-form-validation/) | [11-forms-accessibility-and-i18n.md](11-forms-accessibility-and-i18n.md) |
 | Internationalization | `i18n` | [locale-switcher](../../examples/public/locale-switcher/) | [11-forms-accessibility-and-i18n.md](11-forms-accessibility-and-i18n.md) |
 | Devtools & diagnostics | `devtools` | [devtools-panel](../../examples/public/devtools-panel/) | [12-devtools-testing-and-observability.md](12-devtools-testing-and-observability.md) |
 | PWA & offline | `pwa` | [progressive-web-app-offline-cache](../../examples/public/progressive-web-app-offline-cache/) | [13-assets-deployment-and-pwa.md](13-assets-deployment-and-pwa.md) |
-| Feature flags | `flags` | — | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
+| Feature flags | `flags` | [feature-flags](../../examples/public/feature-flags/) | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
+| Fine-grained signals | `state` | — | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
+| Server functions (//gwc:server) | `serverfn` | — | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
+| Query cache & mutations | `query`, `ui` | — | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
+| Generative UI (agent-native) | `agentui` | — | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
+| Whole-stack one-binary deploy | `wholestack`, `serverfn` | — | [13-assets-deployment-and-pwa.md](13-assets-deployment-and-pwa.md) |
+| Local-first CRDT sync | `localfirst` | — | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
+| Time-travel devtools | `timetravel` | — | [12-devtools-testing-and-observability.md](12-devtools-testing-and-observability.md) |
+| Animations & FLIP | `anim` | [flip-demo](../../examples/public/flip-demo/) | [04-ui-rendering-and-hooks.md](04-ui-rendering-and-hooks.md) |
+| Two-way binding | `html` | — | [05-html-authoring.md](05-html-authoring.md) |
+| Named slots | `html/shorthand` | — | [05-html-authoring.md](05-html-authoring.md) |
+| Typed search params | `router` | — | [08-routing.md](08-routing.md) |
+| Typed i18n message accessors | `i18n` | — | [11-forms-accessibility-and-i18n.md](11-forms-accessibility-and-i18n.md) |
 
 
 ---

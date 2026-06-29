@@ -13,6 +13,7 @@ type Fields = map[string]any
 type Logger struct {
 	parseContext context.Context
 	scope        string
+	baseArgs     []any
 }
 
 // New returns a scoped logger for application code.
@@ -33,6 +34,22 @@ func (parseScopedLogger Logger) WithContext(parseLogContext context.Context) Log
 	return Logger{
 		parseContext: parseLogContext,
 		scope:        parseScopedLogger.scope,
+		baseArgs:     parseScopedLogger.baseArgs,
+	}
+}
+
+// With returns a copy of the logger that attaches the given fields to every subsequent entry, so a
+// component name, request id, or handler need not be repeated on each call. Accepts the same forms
+// as the Log methods (key/value pairs, a Fields map, or slog.Attr). Per-call fields override With
+// fields on a key collision. Mirrors slog.Logger.With.
+func (parseScopedLogger Logger) With(parseLogArgs ...any) Logger {
+	parseMerged := make([]any, 0, len(parseScopedLogger.baseArgs)+len(parseLogArgs))
+	parseMerged = append(parseMerged, parseScopedLogger.baseArgs...)
+	parseMerged = append(parseMerged, parseLogArgs...)
+	return Logger{
+		parseContext: parseScopedLogger.parseContext,
+		scope:        parseScopedLogger.scope,
+		baseArgs:     parseMerged,
 	}
 }
 
@@ -41,8 +58,12 @@ func (parseScopedLogger Logger) Scope() string {
 	return parseScopedLogger.scope
 }
 
-// Log writes a structured entry using the provided level.
+// Log writes a structured entry using the provided level. Any fields attached via With are merged
+// first (so per-call fields override them on a key collision).
 func (parseScopedLogger Logger) Log(parseLogLevel, parseLogMessage string, parseLogArgs ...any) {
+	if len(parseScopedLogger.baseArgs) > 0 {
+		parseLogArgs = append(append([]any{}, parseScopedLogger.baseArgs...), parseLogArgs...)
+	}
 	LogContext(parseScopedLogger.parseContext, parseLogLevel, parseScopedLogger.scope, parseLogMessage, parseLogArgs...)
 }
 

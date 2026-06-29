@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "root": "",
+  "pattern": "./examples/public/counter",
+  "target": "wasm",
+  "cycles": 2,
+  "coldDurationMs": 9025,
+  "warmDurationMs": 396,
+  "lastDurationMs": 396,
+  "speedupRatio": 0.04396208215721697,
+  "maxWarmRatio": 0.6
+}

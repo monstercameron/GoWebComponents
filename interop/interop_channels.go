@@ -122,13 +122,27 @@ func (parseB SharedBuffer) CompareExchangeInt32(parseIndex int, parseOldValue in
 	return parseB.compareExchangeInt32(parseIndex, parseOldValue, parseNewValue)
 }
 
+// WaitResult is the outcome of a SharedBuffer.WaitInt32 call — the typed form of JS Atomics.wait's
+// three return states, so callers branch on named constants instead of magic string literals.
+type WaitResult string
+
+const (
+	// WaitOK means the slot's value changed away from the expected value (the waiter was woken).
+	WaitOK WaitResult = "ok"
+	// WaitNotEqual means the slot did not hold the expected value, so the wait returned immediately.
+	WaitNotEqual WaitResult = "not-equal"
+	// WaitTimedOut means the optional timeout elapsed before the value changed.
+	WaitTimedOut WaitResult = "timed-out"
+)
+
 // WaitInt32 blocks in a worker context until the int32 slot at index changes
-// from expected or the optional timeout expires.
-func (parseB SharedBuffer) WaitInt32(parseIndex int, parseExpected int32, parseTimeout time.Duration) (string, error) {
+// from expected or the optional timeout expires. The WaitResult names the outcome.
+func (parseB SharedBuffer) WaitInt32(parseIndex int, parseExpected int32, parseTimeout time.Duration) (WaitResult, error) {
 	if parseB.waitInt32 == nil {
 		return "", unavailable("SharedBuffer.WaitInt32", "")
 	}
-	return parseB.waitInt32(parseIndex, parseExpected, parseTimeout)
+	parseStatus, parseErr := parseB.waitInt32(parseIndex, parseExpected, parseTimeout)
+	return WaitResult(parseStatus), parseErr
 }
 
 // NotifyInt32 wakes blocked waiters for the int32 slot at index and returns the

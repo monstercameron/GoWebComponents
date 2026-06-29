@@ -55,10 +55,14 @@ type EnvelopeError struct {
 // its own outbound frames with a monotonic Seq starting at 1; an ack points
 // back at the command it answers via AckSeq.
 type Envelope struct {
+	// Protocol is the wire-protocol identifier (always ProtocolName) — receivers reject mismatches.
 	Protocol string `json:"protocol"`
-	Version  int    `json:"version"`
-	Kind     string `json:"kind"`
-	Seq      uint64 `json:"seq"`
+	// Version is the protocol version (always ProtocolVersion) for compatibility negotiation.
+	Version int `json:"version"`
+	// Kind is the frame type: KindHello, KindCommand, KindAck, or KindEvent.
+	Kind string `json:"kind"`
+	// Seq is this sender's monotonic frame number, starting at 1.
+	Seq uint64 `json:"seq"`
 	// Session names the app session a frame belongs to. It is empty on the
 	// app's hello (the hub assigns the session id in its reply) and may be
 	// empty on app<->hub frames where the connection implies the session.
@@ -80,8 +84,8 @@ type Envelope struct {
 	StateVersion uint64 `json:"stateVersion,omitempty"`
 }
 
-// BuildHelloEnvelope builds the first frame an app sends after connecting.
-func BuildHelloEnvelope(parseSeq uint64, parsePayload json.RawMessage) Envelope {
+// NewHelloEnvelope builds the first frame an app sends after connecting.
+func NewHelloEnvelope(parseSeq uint64, parsePayload json.RawMessage) Envelope {
 	return Envelope{
 		Protocol: ProtocolName,
 		Version:  ProtocolVersion,
@@ -91,8 +95,8 @@ func BuildHelloEnvelope(parseSeq uint64, parsePayload json.RawMessage) Envelope 
 	}
 }
 
-// BuildCommandEnvelope builds a hub-to-app command frame.
-func BuildCommandEnvelope(parseSeq uint64, parseSession string, parseName string, parsePayload json.RawMessage) Envelope {
+// NewCommandEnvelope builds a hub-to-app command frame.
+func NewCommandEnvelope(parseSeq uint64, parseSession string, parseName string, parsePayload json.RawMessage) Envelope {
 	return Envelope{
 		Protocol: ProtocolName,
 		Version:  ProtocolVersion,
@@ -104,8 +108,8 @@ func BuildCommandEnvelope(parseSeq uint64, parseSession string, parseName string
 	}
 }
 
-// BuildAckEnvelope builds a successful reply to the command numbered parseAckSeq.
-func BuildAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uint64, parseStateVersion uint64, parsePayload json.RawMessage) Envelope {
+// NewAckEnvelope builds a successful reply to the command numbered parseAckSeq.
+func NewAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uint64, parseStateVersion uint64, parsePayload json.RawMessage) Envelope {
 	parseOK := true
 	return Envelope{
 		Protocol:     ProtocolName,
@@ -120,9 +124,9 @@ func BuildAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uint64, 
 	}
 }
 
-// BuildErrorAckEnvelope builds a failed reply to the command numbered
+// NewErrorAckEnvelope builds a failed reply to the command numbered
 // parseAckSeq, carrying a stable error code the agent can branch on.
-func BuildErrorAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uint64, parseCode string, parseMessage string) Envelope {
+func NewErrorAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uint64, parseCode string, parseMessage string) Envelope {
 	parseOK := false
 	return Envelope{
 		Protocol: ProtocolName,
@@ -136,8 +140,8 @@ func BuildErrorAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uin
 	}
 }
 
-// BuildEventEnvelope builds an unsolicited app-to-hub push frame.
-func BuildEventEnvelope(parseSeq uint64, parseSession string, parseName string, parsePayload json.RawMessage) Envelope {
+// NewEventEnvelope builds an unsolicited app-to-hub push frame.
+func NewEventEnvelope(parseSeq uint64, parseSession string, parseName string, parsePayload json.RawMessage) Envelope {
 	return Envelope{
 		Protocol: ProtocolName,
 		Version:  ProtocolVersion,
@@ -147,6 +151,41 @@ func BuildEventEnvelope(parseSeq uint64, parseSession string, parseName string, 
 		Name:     parseName,
 		Payload:  parsePayload,
 	}
+}
+
+// BuildHelloEnvelope builds the first frame an app sends after connecting.
+//
+// Deprecated: use NewHelloEnvelope (New* matches the module-wide constructor convention).
+func BuildHelloEnvelope(parseSeq uint64, parsePayload json.RawMessage) Envelope {
+	return NewHelloEnvelope(parseSeq, parsePayload)
+}
+
+// BuildCommandEnvelope builds a hub-to-app command frame.
+//
+// Deprecated: use NewCommandEnvelope.
+func BuildCommandEnvelope(parseSeq uint64, parseSession string, parseName string, parsePayload json.RawMessage) Envelope {
+	return NewCommandEnvelope(parseSeq, parseSession, parseName, parsePayload)
+}
+
+// BuildAckEnvelope builds a successful reply to the command numbered parseAckSeq.
+//
+// Deprecated: use NewAckEnvelope.
+func BuildAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uint64, parseStateVersion uint64, parsePayload json.RawMessage) Envelope {
+	return NewAckEnvelope(parseSeq, parseSession, parseAckSeq, parseStateVersion, parsePayload)
+}
+
+// BuildErrorAckEnvelope builds a failed reply to the command numbered parseAckSeq.
+//
+// Deprecated: use NewErrorAckEnvelope.
+func BuildErrorAckEnvelope(parseSeq uint64, parseSession string, parseAckSeq uint64, parseCode string, parseMessage string) Envelope {
+	return NewErrorAckEnvelope(parseSeq, parseSession, parseAckSeq, parseCode, parseMessage)
+}
+
+// BuildEventEnvelope builds an unsolicited app-to-hub push frame.
+//
+// Deprecated: use NewEventEnvelope.
+func BuildEventEnvelope(parseSeq uint64, parseSession string, parseName string, parsePayload json.RawMessage) Envelope {
+	return NewEventEnvelope(parseSeq, parseSession, parseName, parsePayload)
 }
 
 // FormatEnvelopeJSON validates an envelope and serializes it for the wire.

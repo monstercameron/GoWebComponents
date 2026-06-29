@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -82,6 +83,73 @@ func (parseE *ServerError) Error() string {
 	return fmt.Sprintf("server function failed (%d): %s", parseE.Status, parseE.Message)
 }
 
+// StatusError is an error a server function returns to control the HTTP status of the failure.
+// A plain error still maps to 500; returning a *StatusError (or wrapping one) makes Handle reply
+// with the chosen status and message. The status round-trips to the caller as ServerError.Status,
+// so the client can branch on 401/404/409/… instead of treating every failure as a 500.
+//
+//	func getUser(ctx context.Context, req Req) (User, error) {
+//	    u, ok := store.Find(req.ID)
+//	    if !ok { return User{}, serverfn.NotFound("no such user") }
+//	    return u, nil
+//	}
+type StatusError struct {
+	Status  int
+	Message string
+}
+
+// Error implements error. It is nil-safe so a mistakenly-returned nil *StatusError cannot panic.
+func (parseE *StatusError) Error() string {
+	if parseE == nil {
+		return "internal server error"
+	}
+	return parseE.Message
+}
+
+// NewStatusError builds a StatusError with an explicit HTTP status code.
+func NewStatusError(parseStatus int, parseMessage string) *StatusError {
+	return &StatusError{Status: parseStatus, Message: parseMessage}
+}
+
+// Convenience constructors for the common client-error statuses.
+func BadRequest(parseMessage string) *StatusError {
+	return NewStatusError(http.StatusBadRequest, parseMessage)
+}
+func Unauthorized(parseMessage string) *StatusError {
+	return NewStatusError(http.StatusUnauthorized, parseMessage)
+}
+func Forbidden(parseMessage string) *StatusError {
+	return NewStatusError(http.StatusForbidden, parseMessage)
+}
+func NotFound(parseMessage string) *StatusError {
+	return NewStatusError(http.StatusNotFound, parseMessage)
+}
+func Conflict(parseMessage string) *StatusError {
+	return NewStatusError(http.StatusConflict, parseMessage)
+}
+func UnprocessableEntity(parseMessage string) *StatusError {
+	return NewStatusError(http.StatusUnprocessableEntity, parseMessage)
+}
+
+// statusForError maps a server-function error to an HTTP status and client-facing message. A
+// *StatusError anywhere in the error chain selects its status; anything else is a 500.
+func statusForError(parseErr error) (int, string) {
+	var parseStatusErr *StatusError
+	if errors.As(parseErr, &parseStatusErr) {
+		// errors.As reports true even for a nil *StatusError wrapped in the error interface; treat
+		// that (and a zero status) as a plain 500 rather than dereferencing nil or emitting status 0.
+		if parseStatusErr == nil {
+			return http.StatusInternalServerError, "internal server error"
+		}
+		parseStatus := parseStatusErr.Status
+		if parseStatus == 0 {
+			parseStatus = http.StatusInternalServerError
+		}
+		return parseStatus, parseStatusErr.Message
+	}
+	return http.StatusInternalServerError, parseErr.Error()
+}
+
 // Handle registers fn as a JSON POST endpoint at Endpoint(name) on mux. It decodes the
 // request body into Req, invokes fn with the request's context, and writes fn's Resp as
 // JSON (200) or, on error, a {"error":...} body with a 4xx/5xx status. A non-POST method
@@ -107,7 +175,8 @@ func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn fu
 		}
 		parseResp, parseErr := parseFn(parseR.Context(), parseReq)
 		if parseErr != nil {
-			writeError(parseW, http.StatusInternalServerError, parseErr.Error())
+			parseStatus, parseMessage := statusForError(parseErr)
+			writeError(parseW, parseStatus, parseMessage)
 			return
 		}
 		parseW.Header().Set("Content-Type", "application/json")

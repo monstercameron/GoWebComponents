@@ -29,6 +29,22 @@ type Focuser interface {
 	Focus()
 }
 
+// Blurrer / Clicker / ScrollIntoViewer are the optional capabilities a DOMNode may implement for
+// the remaining common imperative-handle operations, mirroring Focuser. The wasm node implements
+// all three; ui.DOMRef.Blur/Click/ScrollIntoView route through them so they work cross-build
+// (no-op when the node — or the build — does not support the operation).
+type Blurrer interface {
+	Blur()
+}
+
+type Clicker interface {
+	Click()
+}
+
+type ScrollIntoViewer interface {
+	ScrollIntoView(behavior string)
+}
+
 // init registers the ref key so the DOM property differ skips it entirely — the
 // sink is plumbing, never markup. (Mutating propMetaCache here is safe: it runs
 // during package init, before any render goroutine exists.)

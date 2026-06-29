@@ -113,3 +113,19 @@ func TestBootstrapExtensionVariants(parseT *testing.T) {
 		parseT.Fatalf("expected fallback extension, got %q", parseExt3)
 	}
 }
+
+// TestExportReturnsPartialSummaryOnMidLoopError proves a mid-loop failure returns the PARTIAL
+// summary (files written before the error) rather than a zeroed one, so callers can clean up.
+func TestExportReturnsPartialSummaryOnMidLoopError(parseT *testing.T) {
+	parseDir := parseT.TempDir()
+	parseRes, parseErr := Export(parseDir, []Route{
+		{Path: "/", Build: func(Target) (RouteOutput, error) { return RouteOutput{HTML: "<p>ok</p>"}, nil }},
+		{Path: "/bad", Build: func(Target) (RouteOutput, error) { return RouteOutput{HTML: ""}, nil }},
+	})
+	if parseErr == nil {
+		parseT.Fatal("expected an error on the empty-html route")
+	}
+	if len(parseRes.HTMLFiles) != 1 {
+		parseT.Fatalf("expected the first route's file in the partial summary, got %v", parseRes.HTMLFiles)
+	}
+}

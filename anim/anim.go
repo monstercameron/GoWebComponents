@@ -73,7 +73,9 @@ func StiffSpring() SpringConfig {
 const maxDt = 0.064
 
 // Spring is a damped harmonic oscillator whose position advances frame by
-// frame via Step. Create one with NewSpring; zero value is not valid.
+// frame via Step. Create one with NewSpring; the zero value is NOT valid —
+// its Mass is 0, so Step divides by zero and silently produces NaN/Inf
+// positions rather than panicking.
 type Spring struct {
 	parseConfig   SpringConfig
 	parsePosition float64
@@ -148,7 +150,15 @@ func (parseS *Spring) IsSettled(parseEpsilon float64) bool {
 // Easing is a function that maps a progress value in [0, 1] to a shaped
 // output in [0, 1]. Inputs outside [0, 1] are clamped before the curve is
 // applied, so all easings are well-behaved for any finite input.
+//
+// Note: this is a func type and is unrelated to css.Easing (a string timing-
+// function token). When a file imports both packages, EasingFunc is the
+// drop-in alias to use for this type to avoid the bare-name collision.
 type Easing func(parseT float64) float64
+
+// EasingFunc is an alias for Easing, provided to disambiguate from css.Easing
+// (a string type) when both packages are imported in the same file.
+type EasingFunc = Easing
 
 // clamp01 constrains parseT to the closed interval [0, 1].
 func clamp01(parseT float64) float64 {

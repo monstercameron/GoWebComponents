@@ -56,6 +56,7 @@ type lintConfig struct {
 	fastOnly       bool
 	skipHookRules  bool
 	json           bool
+	fix            bool
 	resolution     map[string]string
 }
 
@@ -76,6 +77,10 @@ type lintIssueRecord struct {
 	// Symbol names the offending identifier (e.g. the hook) for diagnostics that have one,
 	// so an editor can surface a symbol-named quick-fix rather than only free text.
 	Symbol string `json:"symbol,omitempty"`
+	// Fixable reports that the underlying linter carries an autofix for this issue (golangci's
+	// issue.Replacement is present), so an editor can offer a quick-fix code-action that runs
+	// `gwc lint --fix`. The fix itself is applied by golangci's own verified fixer, not the editor.
+	Fixable bool `json:"fixable,omitempty"`
 }
 
 type lintSummary struct {
@@ -111,6 +116,7 @@ func (parseL launcher) runLint(parseArgs []string) error {
 	parseFastOnly := parseFs.Bool("fast-only", false, "Run only fast linters")
 	parseSkipHookRules := parseFs.Bool("skip-hook-rules", false, "Disable built-in GWC hook call-order checks")
 	parseJSON := parseFs.Bool("json", false, "Emit a machine-readable JSON report")
+	parseFix := parseFs.Bool("fix", false, "Apply linter autofixes in place via golangci-lint --fix (the editor quick-fix delegates here)")
 	var parsePaths stringListFlag
 	var parseEnableLinters stringListFlag
 	var parseDisableLinters stringListFlag
@@ -137,12 +143,17 @@ func (parseL launcher) runLint(parseArgs []string) error {
 		fastOnly:       *parseFastOnly,
 		skipHookRules:  *parseSkipHookRules,
 		json:           *parseJSON,
+		fix:            *parseFix,
 	})
 	if parseErr != nil {
 		return parseErr
 	}
 	if parseErr2 := enforceEnterpriseGoToolchainPolicy(parseConfig.rootPath, launcherActiveEnterpriseConfig.Policy); parseErr2 != nil {
 		return parseErr2
+	}
+
+	if parseConfig.fix {
+		return parseL.runLintFix(parseConfig)
 	}
 
 	parseSummary, isParseIssuesFound, parseErr := buildLintSummary(parseConfig)
@@ -359,6 +370,11 @@ func buildLintSummary(parseConfig lintConfig) (lintSummary, bool, error) {
 			return lintSummary{}, false, parseErr4
 		}
 		parseIssues = append(parseIssues, parseA11yIssues...)
+		parseConsistencyIssues, parseErr5 := collectLintConsistencyRuleIssues(parseConfig.rootPath, parseConfig.paths)
+		if parseErr5 != nil {
+			return lintSummary{}, false, parseErr5
+		}
+		parseIssues = append(parseIssues, parseConsistencyIssues...)
 		sortLintIssues(parseIssues)
 	}
 	parseConfigPath := parseLintActiveConfigPath(parseConfig, parseExecutablePath, parseMajorVersion)
@@ -551,6 +567,54 @@ func buildLintCommandArgsV1(parseConfig lintConfig) []string {
 	return parseArgs
 }
 
+// buildLintFixArgs builds golangci-lint `run --fix` arguments. Unlike the report path it does
+// not capture JSON — golangci edits files in place and prints what remains. The autofix is
+// golangci's own verified fixer, so the editor quick-fix that shells out here is correct by
+// construction (it never computes an edit itself).
+func buildLintFixArgs(parseConfig lintConfig) []string {
+	parseArgs := []string{"run", "--fix", "--issues-exit-code=0"}
+	if parseConfig.noConfig {
+		parseArgs = append(parseArgs, "--no-config")
+	}
+	if parseConfig.configPath != "" {
+		parseArgs = append(parseArgs, "--config", parseConfig.configPath)
+	}
+	if parseConfig.timeout != "" {
+		parseArgs = append(parseArgs, "--timeout", parseConfig.timeout)
+	}
+	for _, parseLinter := range parseConfig.enableLinters {
+		parseArgs = append(parseArgs, "--enable", parseLinter)
+	}
+	for _, parseLinter := range parseConfig.disableLinters {
+		parseArgs = append(parseArgs, "--disable", parseLinter)
+	}
+	parseArgs = append(parseArgs, parseConfig.paths...)
+	return parseArgs
+}
+
+// runLintFix applies linter autofixes in place via golangci-lint --fix. This is the engine the
+// VS Code quick-fix code-action delegates to (command gwc.fix), so a fix offered in the editor
+// is applied by the same verified fixer a developer would run on the CLI.
+func (parseL launcher) runLintFix(parseConfig lintConfig) error {
+	parseExecutablePath, parseErr := resolveLintExecutablePath(parseConfig)
+	if parseErr != nil {
+		return parseErr
+	}
+	parseArgs := buildLintFixArgs(parseConfig)
+	parseResult, parseErr := runLintProcess(parseExecutablePath, parseArgs, parseConfig.rootPath, buildNativeGoEnv())
+	if parseErr != nil {
+		return parseErr
+	}
+	if parseTrimmed := strings.TrimSpace(parseResult.stderr); parseTrimmed != "" {
+		fmt.Fprintln(os.Stderr, parseTrimmed)
+	}
+	if parseResult.exitCode != 0 {
+		return buildLintExecutionError(parseResult, parseExecutablePath, parseArgs)
+	}
+	fmt.Println("GWC lint: applied golangci-lint --fix; re-run `gwc lint` to see remaining issues")
+	return nil
+}
+
 // parseLintActiveConfigPath resolves the active golangci-lint config path when available.
 func parseLintActiveConfigPath(parseConfig lintConfig, parseExecutablePath string, parseMajorVersion int) string {
 	if parseConfig.noConfig {
@@ -678,6 +742,9 @@ func parseLintIssueRecord(parseIssue map[string]any, parseRootPath string) lintI
 		Column:     parseLintInt(parsePosition["Column"]),
 		Message:    firstNonEmpty(parseLintString(parseIssue["Text"]), parseLintString(parseIssue["Message"]), "lint issue"),
 		SourceLine: parseSourceLine,
+		// golangci attaches a "Replacement" object only when the linter has an autofix for the
+		// issue; its presence is the fixability signal an editor surfaces as a quick-fix.
+		Fixable: parseIssue["Replacement"] != nil,
 	}
 }
 

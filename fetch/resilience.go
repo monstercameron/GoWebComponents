@@ -3,6 +3,7 @@ package fetch
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"math/rand"
 	"sync"
@@ -91,6 +92,21 @@ const (
 	// is healthy again, allowing a limited number of calls through.
 	StateHalfOpen
 )
+
+// String returns the breaker state name ("closed", "open", "half-open") so the
+// state reads cleanly in logs and %v formatting instead of as a bare integer.
+func (parseState BreakerState) String() string {
+	switch parseState {
+	case StateClosed:
+		return "closed"
+	case StateOpen:
+		return "open"
+	case StateHalfOpen:
+		return "half-open"
+	default:
+		return fmt.Sprintf("BreakerState(%d)", int(parseState))
+	}
+}
 
 // BreakerConfig holds the tuning parameters for a CircuitBreaker.
 type BreakerConfig struct {
@@ -210,8 +226,7 @@ func (parseB *CircuitBreaker) recordFailure() {
 
 // ResiliencePolicy bundles a RetryPolicy and an optional CircuitBreaker into a
 // single unit that ExecuteWithPolicy uses to drive resilient operation calls.
-// Construct via NewResiliencePolicy; tests may overwrite the unexported fields
-// directly because they live in the same package.
+// Construct one with NewResiliencePolicy.
 type ResiliencePolicy struct {
 	// Retry controls backoff and attempt limits.
 	Retry RetryPolicy

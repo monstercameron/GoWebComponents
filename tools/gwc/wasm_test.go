@@ -10,6 +10,28 @@ import (
 	"testing"
 )
 
+// TestCheckWasmGzipBudget proves the E1 size-budget gate: over-budget fails, within-budget and
+// disabled (0) pass, and a missing gzip artifact is a no-op (not a false failure).
+func TestCheckWasmGzipBudget(parseT *testing.T) {
+	parseWithGzip := func(parseBytes int64) wasmMeasureSummary {
+		return wasmMeasureSummary{Manifest: wasmMeasureManifest{Artifacts: map[string]releaseArtifactRecord{
+			"gzip": {Path: "app.wasm.gz", Bytes: parseBytes},
+		}}}
+	}
+	if parseErr := checkWasmGzipBudget(parseWithGzip(2_000_000), 1_000_000); parseErr == nil {
+		parseT.Fatal("expected over-budget gzip to fail the gate")
+	}
+	if parseErr := checkWasmGzipBudget(parseWithGzip(500_000), 1_000_000); parseErr != nil {
+		parseT.Fatalf("within-budget gzip must pass: %v", parseErr)
+	}
+	if parseErr := checkWasmGzipBudget(parseWithGzip(9_000_000), 0); parseErr != nil {
+		parseT.Fatalf("budget 0 disables the gate: %v", parseErr)
+	}
+	if parseErr := checkWasmGzipBudget(wasmMeasureSummary{}, 1_000_000); parseErr != nil {
+		parseT.Fatalf("missing gzip artifact must be a no-op, got %v", parseErr)
+	}
+}
+
 func TestRunWasmMeasureWritesManifestAndArtifacts(parseT *testing.T) {
 	parseRoot := parseT.TempDir()
 	parseOutDir := filepath.Join(parseRoot, "out")

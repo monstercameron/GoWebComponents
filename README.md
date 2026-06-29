@@ -121,7 +121,7 @@ Local package maps live in the directory READMEs for the larger implementation a
 
 `main.go`:
 
-```go
+```go gwc:build
 package main
 
 import (

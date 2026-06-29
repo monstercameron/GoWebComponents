@@ -985,5 +985,26 @@ jobs:
         env:
           GOOS: js
           GOARCH: wasm
-`, parseSelection.ProjectName, scaffoldWASMOutputPath())
+
+      - name: WASM Size Budget
+        # Fail the build if the gzipped wasm exceeds the budget, so bundle-size regressions are
+        # caught in CI. Self-contained (gzip + byte compare) — no extra tooling dependency.
+        # Raise GZIP_BUDGET_BYTES deliberately as the app grows; it is a reviewed ceiling.
+        run: |
+          GZIP_BUDGET_BYTES=%d
+          gzip -9 -c %s > "%s.gz"
+          actual=$(wc -c < "%s.gz")
+          echo "gzipped wasm: ${actual} bytes (budget ${GZIP_BUDGET_BYTES})"
+          if [ "${actual}" -gt "${GZIP_BUDGET_BYTES}" ]; then
+            echo "::error::wasm gzip size ${actual} exceeds budget ${GZIP_BUDGET_BYTES} bytes"
+            exit 1
+          fi
+`, parseSelection.ProjectName, scaffoldWASMOutputPath(), scaffoldWASMSizeBudgetBytes(), scaffoldWASMOutputPath(), scaffoldWASMOutputPath(), scaffoldWASMOutputPath())
+}
+
+// scaffoldWASMSizeBudgetBytes is the default gzipped-wasm budget baked into a generated starter's
+// CI size gate. Generous enough not to false-fail a feature-rich starter (the minimal counter is
+// ~1.7 MB gzipped), tight enough to catch a gross regression. Teams raise it deliberately.
+func scaffoldWASMSizeBudgetBytes() int64 {
+	return 4 * 1024 * 1024 // 4 MiB gzipped
 }

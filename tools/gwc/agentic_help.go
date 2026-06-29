@@ -95,7 +95,7 @@ func buildGwcHelpReport(parseCommand string) (gwcHelpReport, error) {
 	}
 	parseSuggestion := suggestGwcHelpCommand(parseCommand, parseCommands)
 	if parseSuggestion != "" {
-		return gwcHelpReport{}, fmt.Errorf("unknown help command %q; did you mean %q", parseCommand, parseSuggestion)
+		return gwcHelpReport{}, fmt.Errorf("unknown help command %q; did you mean %q?", parseCommand, parseSuggestion)
 	}
 	return gwcHelpReport{}, fmt.Errorf("unknown help command %q", parseCommand)
 }

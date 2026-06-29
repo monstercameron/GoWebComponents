@@ -49,3 +49,24 @@ jobs:
             )
             rm -rf "$work"
           done
+
+      - name: gwc add component/route generators → go build
+        # A3 10-rung "CI-verified": the composable sub-generators must also produce compiling code
+        # in a fresh module, not just parse. Scaffold a component and a route into a throwaway
+        # module and build them.
+        shell: bash
+        run: |
+          repo="$(pwd)"
+          work="$(mktemp -d)"
+          ( cd "$work"
+            go mod init example.com/generator-smoke
+            echo "require github.com/monstercameron/GoWebComponents v0.0.0" >> go.mod
+            echo "replace github.com/monstercameron/GoWebComponents => $repo" >> go.mod
+            "$repo/gwc" add component MyWidget -dir ./ui -pkg ui
+            "$repo/gwc" add route Home -path /home -dir ./ui -pkg ui
+            printf 'package main\nimport _ "example.com/generator-smoke/ui"\nfunc main() {}\n' > main.go
+            go mod tidy
+            echo "Building generated component + route"
+            go build ./...
+          )
+          rm -rf "$work"

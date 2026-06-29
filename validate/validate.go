@@ -23,6 +23,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // FieldError is one validation failure: the (possibly dotted) field name, the rule
@@ -98,6 +99,55 @@ func Struct(parseValue any) Result {
 	parseRV := reflect.ValueOf(parseValue)
 	validateStruct(parseRV, "", 0, &parseResult)
 	return parseResult
+}
+
+// CrossRule is a programmatic, struct-level validation rule for constraints that span more than
+// one field — password==confirm, end>=start, "required if plan==team" — which per-field tags
+// cannot express. Return nil when valid, or a *FieldError (use Fail) describing the failure.
+type CrossRule[T any] func(parseValue T) *FieldError
+
+// Check validates value's struct tags (exactly like Struct) AND the given cross-field rules,
+// merging every failure into one Result. It keeps the single-schema guarantee for relationships
+// between fields: the same Check call runs in ui.UseForm on the client and in the server handler.
+//
+//	res := validate.Check(signup,
+//	    func(s Signup) *validate.FieldError {
+//	        if s.Password != s.Confirm {
+//	            return validate.Fail("confirm", "must match password")
+//	        }
+//	        return nil
+//	    },
+//	)
+//
+// A nil rule is skipped. A rule that panics is contained (it records a failure rather than crashing
+// the caller), mirroring custom tag rules.
+func Check[T any](parseValue T, parseRules ...CrossRule[T]) Result {
+	parseResult := Struct(parseValue)
+	for _, parseRule := range parseRules {
+		if parseRule == nil {
+			continue
+		}
+		if parseErr := callCrossRule(parseRule, parseValue); parseErr != nil {
+			parseResult.Errors = append(parseResult.Errors, *parseErr)
+		}
+	}
+	return parseResult
+}
+
+// Fail builds a *FieldError for a cross-field rule, attaching the message to field.
+func Fail(parseField, parseMessage string) *FieldError {
+	return &FieldError{Field: parseField, Rule: "cross_field", Message: parseMessage}
+}
+
+// callCrossRule invokes a cross-field rule, converting a panic into a failure so a buggy rule does
+// not crash Check (which on the server would 500 a request).
+func callCrossRule[T any](parseRule CrossRule[T], parseValue T) (parseErr *FieldError) {
+	defer func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			parseErr = &FieldError{Field: "", Rule: "cross_field", Message: fmt.Sprintf("validation rule panicked: %v", parseRecovered)}
+		}
+	}()
+	return parseRule(parseValue)
 }
 
 // validateStruct walks one struct value, applying field rules and recursing.
@@ -188,8 +238,59 @@ func splitRule(parseRule string) (string, string) {
 	return parseRule, ""
 }
 
+// RuleFunc is a custom validation rule registered with RegisterRule. value is the field's value
+// (type-assert it, commonly to string — use the comma-ok form, e.g. s, _ := value.(string)); arg
+// is the tag argument after '=' (e.g. "5" in validate:"phone=5"), or "" when there is none. Return
+// ok=false with a human-readable message to fail the field. A panic inside a RuleFunc is contained:
+// it fails the field with a "validation rule panicked" message rather than crashing Struct.
+type RuleFunc func(value any, arg string) (ok bool, message string)
+
+var (
+	customRulesMu sync.RWMutex
+	customRules   = map[string]RuleFunc{}
+)
+
+// builtinRules are the rule names handled directly by applyRule's switch; custom rules cannot
+// shadow them (RegisterRule ignores these names), and they are never dispatched to the registry.
+// Keep in sync with the applyRule switch + the omitempty short-circuit.
+var builtinRules = map[string]struct{}{
+	"omitempty": {}, "required": {}, "min": {}, "max": {}, "len": {},
+	"gt": {}, "gte": {}, "lt": {}, "lte": {}, "eq": {}, "ne": {},
+	"oneof": {}, "email": {}, "url": {}, "alpha": {}, "alphanum": {}, "numeric": {},
+}
+
+// RegisterRule adds (or replaces) a custom validation rule usable as validate:"name" or
+// validate:"name=arg". It is safe for concurrent use. A blank name, a nil fn, or a name that
+// collides with a built-in rule is ignored so the core rule set can never be shadowed.
+//
+//	validate.RegisterRule("phone", func(v any, _ string) (bool, string) {
+//	    s, _ := v.(string)
+//	    return s == "" || rePhone.MatchString(s), "must be a valid phone number"
+//	})
+func RegisterRule(parseName string, parseFn RuleFunc) {
+	parseName = strings.TrimSpace(parseName)
+	if parseName == "" || parseFn == nil {
+		return
+	}
+	if _, parseIsBuiltin := builtinRules[parseName]; parseIsBuiltin {
+		return
+	}
+	customRulesMu.Lock()
+	defer customRulesMu.Unlock()
+	customRules[parseName] = parseFn
+}
+
+// lookupRule returns the registered custom rule for name, if any.
+func lookupRule(parseName string) (RuleFunc, bool) {
+	customRulesMu.RLock()
+	defer customRulesMu.RUnlock()
+	parseFn, parseOK := customRules[parseName]
+	return parseFn, parseOK
+}
+
 // applyRule applies one rule to a field value and returns a FieldError when it
-// fails. Unknown rules are ignored (forward compatible).
+// fails. Built-in rules are handled by the switch; an unrecognized name is dispatched to a
+// custom rule registered via RegisterRule, and is otherwise ignored (forward compatible).
 func applyRule(parseField, parseRule, parseArg string, parseValue reflect.Value) (FieldError, bool) {
 	parseFail := func(parseMessage string) (FieldError, bool) {
 		return FieldError{Field: parseField, Rule: parseRule, Message: parseMessage}, true
@@ -238,8 +339,29 @@ func applyRule(parseField, parseRule, parseArg string, parseValue reflect.Value)
 		if parseStr, parseOK := stringValue(parseValue); parseOK && parseStr != "" && !reNumeric.MatchString(parseStr) {
 			return parseFail("must contain only digits")
 		}
+	default:
+		// Not a built-in rule: dispatch to a custom rule if one is registered, else ignore it
+		// (forward compatible). Built-in names never reach here, so a custom rule can't shadow them.
+		if parseFn, parseOK := lookupRule(parseRule); parseOK {
+			if parsePass, parseMessage := callRuleFunc(parseFn, valueInterface(parseValue), parseArg); !parsePass {
+				return parseFail(parseMessage)
+			}
+		}
 	}
 	return FieldError{}, false
+}
+
+// callRuleFunc invokes a custom rule, converting a panic into a validation failure so a buggy rule
+// (e.g. a non-comma-ok type assertion against an unexpected field type) fails the field cleanly
+// instead of crashing the whole Struct walk (which on the server would 500 a request).
+func callRuleFunc(parseFn RuleFunc, parseValue any, parseArg string) (parsePass bool, parseMessage string) {
+	defer func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			parsePass = false
+			parseMessage = fmt.Sprintf("validation rule panicked: %v", parseRecovered)
+		}
+	}()
+	return parseFn(parseValue, parseArg)
 }
 
 // applyNumericCompare handles gt/gte/lt/lte/eq/ne against the field's numeric value.

@@ -128,14 +128,26 @@ func (parseC Channel[T]) Closed() bool {
 // UseTask creates a cancellable background task driven by a Go function.
 //
 // The task only runs when Start is called. In-flight work is cancelled when the
-// component unmounts or when Cancel is called explicitly.
-//
-// The context passed to parseRun is derived from context.Background(). Component
-// or request-scoped deadline/value propagation is not currently supported; callers
-// that need deadline or value propagation should wrap the provided context inside
-// parseRun using context.WithDeadline or context.WithValue before passing it to
-// downstream calls.
+// component unmounts or when Cancel is called explicitly. The context passed to parseRun is derived
+// from context.Background(); use UseTaskCtx to propagate a parent context (deadline/values) instead.
 func UseTask[T any](parseRun func(context.Context) (T, error)) Task[T] {
+	return useTaskWithParent(context.Background(), parseRun)
+}
+
+// UseTaskCtx is UseTask whose task context is derived from parseParent, so a route-loader request
+// context, a component-scoped deadline, or context values propagate into parseRun. A nil parent
+// falls back to context.Background(); cancelling parseParent cancels the task (in addition to
+// unmount and Cancel).
+func UseTaskCtx[T any](parseParent context.Context, parseRun func(context.Context) (T, error)) Task[T] {
+	return useTaskWithParent(parseParent, parseRun)
+}
+
+// useTaskWithParent is the shared implementation: the task's cancellable context derives from
+// parseParent.
+func useTaskWithParent[T any](parseParent context.Context, parseRun func(context.Context) (T, error)) Task[T] {
+	if parseParent == nil {
+		parseParent = context.Background()
+	}
 	parseState := UseState(TaskState[T]{})
 	parseCancelRef := UseRef((context.CancelFunc)(nil))
 	parseRequestSeq := UseRef(0)
@@ -147,7 +159,7 @@ func UseTask[T any](parseRun func(context.Context) (T, error)) Task[T] {
 
 		parseRequestSeq.Set(parseRequestSeq.Get() + 1)
 		parseSeq := parseRequestSeq.Get()
-		parseCtx, parseCancel2 := context.WithCancel(context.Background())
+		parseCtx, parseCancel2 := context.WithCancel(parseParent)
 		parseCancelRef.Set(parseCancel2)
 
 		parseState.Update(func(parsePrev TaskState[T]) TaskState[T] {

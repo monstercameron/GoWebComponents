@@ -1,3 +1,7 @@
+// Package render is the public, supported facade over the internal testkit/render harness
+// for component render tests. Import this package (not testkit/render directly): it re-exports
+// the stable harness types and helpers so the underlying implementation can evolve without
+// breaking test code.
 package render
 
 import (

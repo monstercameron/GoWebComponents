@@ -21,6 +21,9 @@ type snapshotDiffConfig struct {
 	json       bool
 }
 
+// snapshotDiffReport is the result of `gwc snapshot-diff`. Added/Removed/Changed each list
+// the top-level atom keys (snapshot map keys) that were added, removed, or whose value
+// changed between the two snapshots — not JSON pointers or flattened paths.
 type snapshotDiffReport struct {
 	OK      bool     `json:"ok"`
 	Before  string   `json:"before"`

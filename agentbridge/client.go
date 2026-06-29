@@ -69,7 +69,7 @@ func (parseC *BridgeClient) buildHelloJSON() (string, error) {
 	if parseErr != nil {
 		return "", fmt.Errorf("agentbridge: marshal hello payload: %w", parseErr)
 	}
-	parseEnv := BuildHelloEnvelope(parseC.nextSeq(), json.RawMessage(parsePayloadBytes))
+	parseEnv := NewHelloEnvelope(parseC.nextSeq(), json.RawMessage(parsePayloadBytes))
 	parseJSON, parseErr := FormatEnvelopeJSON(parseEnv)
 	if parseErr != nil {
 		return "", fmt.Errorf("agentbridge: format hello envelope: %w", parseErr)
@@ -154,7 +154,7 @@ func (parseC *BridgeClient) handleCommand(parseSock AgentSocket, parseEnv Envelo
 
 	var parseReply Envelope
 	if parseExecErr != nil {
-		parseReply = BuildErrorAckEnvelope(
+		parseReply = NewErrorAckEnvelope(
 			parseC.nextSeq(),
 			parseEnv.Session,
 			parseEnv.Seq,
@@ -162,7 +162,7 @@ func (parseC *BridgeClient) handleCommand(parseSock AgentSocket, parseEnv Envelo
 			parseExecErr.Message,
 		)
 	} else {
-		parseReply = BuildAckEnvelope(
+		parseReply = NewAckEnvelope(
 			parseC.nextSeq(),
 			parseEnv.Session,
 			parseEnv.Seq,
@@ -187,7 +187,7 @@ func (parseC *BridgeClient) handleCommand(parseSock AgentSocket, parseEnv Envelo
 // active. It returns an error if no socket is connected or the write fails.
 // SendEvent is safe to call from any goroutine.
 func (parseC *BridgeClient) SendEvent(parseSession string, parseName string, parsePayload json.RawMessage) error {
-	parseEnv := BuildEventEnvelope(parseC.nextSeq(), parseSession, parseName, parsePayload)
+	parseEnv := NewEventEnvelope(parseC.nextSeq(), parseSession, parseName, parsePayload)
 	parseC.eventMu.Lock()
 	parseSock := parseC.eventSock
 	if parseSock == nil {

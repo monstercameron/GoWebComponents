@@ -2694,6 +2694,56 @@ func TestUseTaskTransitionsToRunningAndCancelled(parseT *testing.T) {
 	close(parseBlock)
 }
 
+// TestUseTaskCtxParentCancellationPropagates proves UseTaskCtx derives the task context from the
+// supplied parent: cancelling the PARENT (not Task.Cancel) cancels the running task's context.
+func TestUseTaskCtxParentCancellationPropagates(parseT *testing.T) {
+	installUIHookContext(parseT)
+
+	parseParent, parseCancelParent := context.WithCancel(context.Background())
+	parseObserved := make(chan error, 1)
+	parseTask := UseTaskCtx(parseParent, func(parseCtx context.Context) (string, error) {
+		<-parseCtx.Done()
+		parseObserved <- parseCtx.Err()
+		return "", parseCtx.Err()
+	})
+
+	parseTask.Start()
+	parseCancelParent() // cancel via the PARENT, not Task.Cancel()
+
+	select {
+	case parseErr := <-parseObserved:
+		if parseErr == nil {
+			parseT.Fatal("task context should be cancelled when the parent is cancelled")
+		}
+	case <-time.After(2 * time.Second):
+		parseT.Fatal("parent cancellation did not propagate into the task context")
+	}
+}
+
+// TestUseTaskCtxNilParentDefaultsToBackground proves a nil parent is tolerated (falls back to
+// Background) and the task runs to completion normally.
+func TestUseTaskCtxNilParentDefaultsToBackground(parseT *testing.T) {
+	installUIHookContext(parseT)
+
+	//nolint:staticcheck // intentionally passing a nil parent context to exercise the fallback guard.
+	parseTask := UseTaskCtx(nil, func(parseCtx context.Context) (string, error) {
+		return "ok", nil
+	})
+	parseTask.Start()
+
+	parseReady := false
+	for range 500 {
+		if parseTask.Get().Ready {
+			parseReady = true
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if parseGot := parseTask.Get(); !parseReady || parseGot.Value != "ok" || parseGot.Error != nil {
+		parseT.Fatalf("nil parent must default to Background and run normally, got %+v", parseGot)
+	}
+}
+
 func installMockWorkerConstructor(parseT *testing.T, parseOnPost func(js.Value, js.Value)) func() {
 	parseT.Helper()
 	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {

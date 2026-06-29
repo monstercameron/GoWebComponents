@@ -83,7 +83,7 @@ Public takeaway:
 
 Start with the public component test helpers. Keep tests accessibility-first and drive behavior through the rendered UI contract instead of internal state.
 
-```go
+```go gwc:build
 package settings_test
 
 import (
@@ -197,7 +197,7 @@ Why this is the production-shaped baseline:
 
 When a team needs reproducible troubleshooting, capture a local bug bundle, derive a support-safe bundle from it, and compare snapshots before and after the suspect flow.
 
-```go
+```go gwc:build
 package support
 
 import "github.com/monstercameron/GoWebComponents/devtools"
@@ -486,6 +486,49 @@ When diagnosing a live bug:
 - derive or export the support-safe bundle second
 - compare snapshots before and after the failing flow
 - confirm the issue is visible in the smallest relevant test lane before widening CI coverage
+
+## Time Travel (`timetravel`)
+
+`timetravel` is the pure engine behind time-travel devtools and undo/redo: a bounded, navigable
+`History[T]` of immutable snapshots. It owns no clock, DOM, or runtime.
+
+```go
+h := timetravel.New[AppState](100, initial) // capacity; <= 0 means unbounded
+h.Record("typed a letter", next)            // truncates any redo branch, evicts oldest past capacity
+h.Undo()                                    // (T, ok)
+h.Redo()
+cur := h.Current()
+h.ScrubTo(3)                                // jump to any point; Labels() / Cursor() drive a timeline
+```
+
+`timetravel/devpanel.Panel(devpanel.Props{Model: h, OnUndo: ..., OnRedo: ..., OnScrub: ...})` renders
+a ready-made scrubber timeline over any `*History[T]` (it satisfies the panel's `Model` interface via
+`Labels()`/`Cursor()`).
+
+## Inspecting Values (`ui.UseInspect`)
+
+`ui.UseInspect(label, value)` is the Svelte-style `$inspect`: it logs a labeled value's initial state
+and every subsequent change (`old -> new`, by structural equality) through a swappable sink.
+`ui.SetInspectSink(fn)` routes those records to devtools, a test buffer, or silences them in
+production (it returns a restore func).
+
+```go
+ui.UseInspect("cartTotal", total) // logs cartTotal: <initial>, then each change
+```
+
+## In-Page Error Overlay (`ui/erroroverlay`)
+
+`erroroverlay.ErrorOverlay(props)` renders a development error as a dismissible, accessible modal
+(title, message, actionable "Try: …" hint, optional stack), so a failure is legible in the page, not
+only the console. `erroroverlay.FromError(err)` builds `Props` from a Go error; pair it with an error
+boundary's fallback.
+
+## Detecting State-Schema Changes On Hot Reload
+
+`hotreload.SchemaChanged(persisted, current)` reports whether a state snapshot's shape (sorted keys +
+per-key concrete type) changed, and `hotreload.SchemaFingerprint(snapshot)` returns that shape
+fingerprint. A state-preserving hot reload uses this to show a visible "state reset" when the shape
+changed instead of silently restoring a persisted snapshot into a mismatched type.
 
 ## Topic Pagination
 Topic 12 of 16. Use previous and next to move through the ordered manual chapters; the first and last topics wrap.

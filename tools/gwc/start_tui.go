@@ -171,14 +171,14 @@ func defaultStartPresets() []startPreset {
 			Name:        "Minimal Client App",
 			Summary:     "Smallest browser-rendered starter with a clean wasm mount path.",
 			Description: "Start here when you want a tiny app you can understand and replace quickly.",
-			Features:    []string{"ui", "html", "dev-profile", "browser-mount"},
+			Features:    []string{"ui", "html", "dev-profile", "browser-mount", "hot-reload"},
 		},
 		{
 			Key:         "routed-spa",
 			Name:        "Routed SPA",
 			Summary:     "Client-rendered app with router wiring and a realistic page shell.",
 			Description: "Use this when you already know you need routes, navigation, and app-level structure.",
-			Features:    []string{"ui", "html", "router", "dev-profile", "browser-tests"},
+			Features:    []string{"ui", "html", "router", "dev-profile", "browser-tests", "hot-reload"},
 		},
 		{
 			Key:         "ssr-app",

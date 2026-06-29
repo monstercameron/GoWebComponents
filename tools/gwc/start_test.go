@@ -2168,6 +2168,50 @@ func TestGenerateStartScaffoldWritesStarterFiles(parseT *testing.T) {
 	}
 }
 
+// TestScaffoldMainWiresHotReloadWhenSelected proves the C1 10-rung default-path fix: a starter
+// that selects the hot-reload capability gets `hotreload.Enable()` + its import wired into main()
+// by default (state survives edits), while a starter without it does not import hotreload.
+// TestDefaultDevPresetsEnableHotReload proves the C1 default-path fix: the common inner-loop
+// presets ship `hot-reload` by default, so a user who runs `gwc start` and picks the natural
+// entry preset gets state-preserving hot reload wired into main() without selecting anything extra.
+func TestDefaultDevPresetsEnableHotReload(parseT *testing.T) {
+	parseByKey := map[string]startPreset{}
+	for _, parsePreset := range defaultStartPresets() {
+		parseByKey[parsePreset.Key] = parsePreset
+	}
+	for _, parseKey := range []string{"minimal-client", "routed-spa"} {
+		parsePreset, parseOk := parseByKey[parseKey]
+		if !parseOk {
+			parseT.Fatalf("expected default preset %q to exist", parseKey)
+		}
+		if !scaffoldHasFeature(parsePreset.Features, "hot-reload") {
+			parseT.Fatalf("default dev preset %q must include hot-reload, got %v", parseKey, parsePreset.Features)
+		}
+	}
+}
+
+func TestScaffoldMainWiresHotReloadWhenSelected(parseT *testing.T) {
+	parseWith := renderScaffoldMain(startSelection{
+		Preset:      startPreset{Name: "Hot", Features: []string{"ui", "html", "hot-reload"}},
+		ProjectName: "hot-app",
+		ModulePath:  "example.com/hot-app",
+	}, "github.com/monstercameron/GoWebComponents")
+	for _, parseWant := range []string{"hotreload.Enable()", "GoWebComponents/hotreload"} {
+		if !strings.Contains(parseWith, parseWant) {
+			parseT.Fatalf("hot-reload starter main must contain %q:\n%s", parseWant, parseWith)
+		}
+	}
+
+	parseWithout := renderScaffoldMain(startSelection{
+		Preset:      startPreset{Name: "Plain", Features: []string{"ui", "html"}},
+		ProjectName: "plain-app",
+		ModulePath:  "example.com/plain-app",
+	}, "github.com/monstercameron/GoWebComponents")
+	if strings.Contains(parseWithout, "hotreload") {
+		parseT.Fatalf("a starter without hot-reload must not import hotreload:\n%s", parseWithout)
+	}
+}
+
 func TestGenerateStartScaffoldCIWorkflowMatchesStarterOutputs(parseT *testing.T) {
 	parseRepoRoot, parseErr := resolveRepoRoot()
 	if parseErr != nil {
@@ -2235,7 +2279,7 @@ func TestGenerateStartScaffoldCIWorkflowMatchesStarterOutputs(parseT *testing.T)
 				parseT2.Fatalf("read workflow file: %v", parseErr2)
 			}
 			parseWorkflowText := string(parseWorkflowBytes)
-			for _, parseExpected := range []string{"go test ./...", "mkdir -p bin", "go build -o bin/main.wasm .", "GOOS: js", "GOARCH: wasm"} {
+			for _, parseExpected := range []string{"go test ./...", "mkdir -p bin", "go build -o bin/main.wasm .", "GOOS: js", "GOARCH: wasm", "WASM Size Budget", "GZIP_BUDGET_BYTES", "exceeds budget"} {
 				if !strings.Contains(parseWorkflowText, parseExpected) {
 					parseT2.Fatalf("expected workflow to contain %q", parseExpected)
 				}

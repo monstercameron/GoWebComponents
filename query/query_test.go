@@ -9,6 +9,27 @@ import (
 	"time"
 )
 
+// TestFetchRecoversPanickingFetcher proves a panicking fetcher is converted to an error and does
+// NOT wedge the key: the flight is cleared so a subsequent read reports StatusError, not a permanent
+// StatusLoading. Regression — without recovery the panic unwinds past runFetch's flight cleanup,
+// leaving entry.flight non-nil and the done channel open forever.
+func TestFetchRecoversPanickingFetcher(parseT *testing.T) {
+	parseCache := New(WithStaleTime(time.Hour))
+
+	parseRes := Fetch(parseCache, "k", func() (string, error) { panic("kaboom") })
+	if parseRes.Err == nil || !strings.Contains(parseRes.Err.Error(), "panicked") {
+		parseT.Fatalf("expected the fetcher panic surfaced as an error, got %+v", parseRes)
+	}
+
+	parseSnap := Snapshot[string](parseCache, "k")
+	if parseSnap.Status == StatusLoading {
+		parseT.Fatal("flight left open after fetcher panic — key wedged in StatusLoading")
+	}
+	if parseSnap.Status != StatusError {
+		parseT.Fatalf("expected StatusError after a panicking fetcher, got %v", parseSnap.Status)
+	}
+}
+
 // fakeClock is a deterministic, concurrency-safe clock for staleness tests.
 type fakeClock struct {
 	mu sync.Mutex

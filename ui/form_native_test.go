@@ -14,6 +14,95 @@ type sampleFormModel struct {
 	Active bool
 }
 
+// TestFormHasField proves HasField distinguishes a real field name from a typo (which SetField
+// would silently report as false), covering every field, a misspelling, an empty name, and a
+// freshly-constructed form.
+func TestFormHasField(parseT *testing.T) {
+	parseForm := UseForm(sampleFormModel{Name: "Atlas", Count: 1, Active: true})
+
+	for _, parseField := range []string{"Name", "Count", "Active"} {
+		if !parseForm.HasField(parseField) {
+			parseT.Fatalf("HasField(%q) = false, want true for an existing field", parseField)
+		}
+	}
+	for _, parseTypo := range []string{"Nmae", "count", "Missing", ""} {
+		if parseForm.HasField(parseTypo) {
+			parseT.Fatalf("HasField(%q) = true, want false (typo/unknown/empty)", parseTypo)
+		}
+	}
+
+	// Field existence is type-level, so HasField holds on a form whose value is the zero T too.
+	parseZeroForm := UseForm(sampleFormModel{})
+	if !parseZeroForm.HasField("Name") || parseZeroForm.HasField("Nope") {
+		parseT.Fatal("HasField must work on a zero-value form and still reject unknown fields")
+	}
+}
+
+// TestFormMustSetField proves MustSetField sets a valid field, and panics — rather than silently
+// no-opping like SetField — on an unknown field name or a mismatched value type.
+func TestFormMustSetField(parseT *testing.T) {
+	parseForm := UseForm(sampleFormModel{Name: "Atlas", Count: 1})
+
+	// Happy path: sets the value, no panic.
+	parseForm.MustSetField("Name", "Delta")
+	if parseGot := parseForm.Get().Name; parseGot != "Delta" {
+		parseT.Fatalf("MustSetField should set Name, got %q", parseGot)
+	}
+
+	parseMustPanic := func(parseDesc string, parseFn func()) {
+		defer func() {
+			if parseR := recover(); parseR == nil {
+				parseT.Fatalf("MustSetField must panic on %s", parseDesc)
+			}
+		}()
+		parseFn()
+	}
+	parseMustPanic("an unknown field", func() { parseForm.MustSetField("Missing", "x") })
+	parseMustPanic("a mismatched value type", func() { parseForm.MustSetField("Count", "not-int") })
+
+	// The failed MustSetField calls must not have mutated the form.
+	if parseGot := parseForm.Get(); parseGot.Name != "Delta" || parseGot.Count != 1 {
+		parseT.Fatalf("a panicking MustSetField must not mutate the form, got %#v", parseGot)
+	}
+}
+
+// TestReadNamedFieldGuardsUnexportedField proves readNamedField (which HasField relies on) treats
+// an unexported-but-existing field as absent rather than panicking on .Interface().
+func TestReadNamedFieldGuardsUnexportedField(parseT *testing.T) {
+	type modelWithUnexported struct {
+		Name string
+		age  int //nolint:unused // present to exercise the unexported-field guard
+	}
+	_ = modelWithUnexported{age: 0} // reference age so it isn't flagged unused
+
+	if _, parseOk := readNamedField(modelWithUnexported{Name: "Atlas"}, "Name"); !parseOk {
+		parseT.Fatal("readNamedField must find an exported field")
+	}
+	defer func() {
+		if parseR := recover(); parseR != nil {
+			parseT.Fatalf("readNamedField must not panic on an unexported field: %v", parseR)
+		}
+	}()
+	if _, parseOk := readNamedField(modelWithUnexported{Name: "Atlas"}, "age"); parseOk {
+		parseT.Fatal("readNamedField must report an unexported field as absent")
+	}
+}
+
+// TestFormZeroValueFormContract pins the dead-form behavior: HasField is type-level (true even on a
+// zero Form), but MustSetField panics because a zero Form has no state to write.
+func TestFormZeroValueFormContract(parseT *testing.T) {
+	var parseDead Form[sampleFormModel]
+	if !parseDead.HasField("Name") {
+		parseT.Fatal("HasField is type-level and must be true even on a zero-value form")
+	}
+	defer func() {
+		if parseR := recover(); parseR == nil {
+			parseT.Fatal("MustSetField on a zero-value (state-less) form must panic")
+		}
+	}()
+	parseDead.MustSetField("Name", "x")
+}
+
 func waitForCondition(parseT *testing.T, parseTimeout time.Duration, parseCheck func() bool) {
 	parseT.Helper()
 	parseDeadline := time.Now().Add(parseTimeout)

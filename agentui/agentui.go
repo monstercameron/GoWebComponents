@@ -38,7 +38,10 @@ type Node struct {
 type ComponentSpec struct {
 	Name         string
 	AllowedProps []string
-	Render       func(parseProps map[string]string, parseChildren []ui.Node) ui.Node
+	// Render builds the safe ui.Node for this component. parseChildren are the ALREADY
+	// validated and rendered child ui.Nodes (not raw agent output), so do not re-validate
+	// them — just place them. parseProps holds the allow-listed prop values.
+	Render func(parseProps map[string]string, parseChildren []ui.Node) ui.Node
 }
 
 func (parseS ComponentSpec) allowsProp(parseKey string) bool {
@@ -99,6 +102,10 @@ type Limits struct {
 
 // DefaultLimits are the safe-by-default bounds applied by Validate — generous enough for
 // any real UI, tight enough to reject a hostile or runaway tree.
+//
+// This is a package-level var read by Validate, so reassigning it changes the bounds
+// process-wide. Treat it as read-only: to use different bounds for one surface, pass
+// explicit Limits to ValidateWithLimits instead of mutating this value.
 var DefaultLimits = Limits{MaxDepth: 32, MaxNodes: 10000}
 
 // Validate checks a tree against the allow-list under DefaultLimits: every Type must be

@@ -4,7 +4,7 @@ Use this chapter when you are deciding who owns async reads, shared cached data,
 
 It is the right chapter for:
 
-- choosing between `fetch.UseFetch`, `fetch.UseResource[T](...)`, `fetch.UseCachedResource[T](...)`, and `fetch.Fetch(...)`
+- choosing between `fetch.UseResource[T](...)`, `fetch.UseCachedResource[T](...)`, and `fetch.Fetch(...)` (and the deprecated `fetch.UseFetch`)
 - deciding when route loaders should own the first read instead of a component
 - keeping optimistic updates and offline replay explicit instead of magical
 - separating client-owned UI state from server-owned read models
@@ -22,8 +22,8 @@ The first decision is not which fetch helper looks nicest. The first decision is
 
 Use the smallest owner that matches the screen:
 
-- `fetch.UseFetch(...)`: raw browser-style fetch state around one URL
-- `fetch.UseResource[T](...)`: typed component-owned async value with cancellation and reload
+- `fetch.UseResource[T](...)`: typed component-owned async value with cancellation and reload — the default choice
+- `fetch.UseFetch(...)`: *(deprecated — prefer `UseResource`)* raw browser-style fetch state around one URL
 - route loaders: route-owned first-load data, including SSR-aware entry data
 - `fetch.UseCachedResource[T](...)`: shared cached async data reused across components
 - `fetch.LoadCached[T](...)`: non-hook shared-cache reuse from route loaders or imperative code
@@ -40,9 +40,9 @@ Keep one boundary clear:
 
 The core read surface is `Stable`:
 
-- `fetch.UseFetch(...)`
 - `fetch.UseResource[T](...)`
 - `fetch.Fetch(...)`
+- `fetch.UseFetch(...)` *(deprecated — prefer `UseResource`; kept stable for legacy callers)*
 
 Important advanced surfaces:
 
@@ -52,60 +52,70 @@ Important advanced surfaces:
 
 ## Minimal Example
 
-Use `fetch.UseFetch(...)` when the point is the raw request state itself.
+Start with the smallest typed read: `fetch.UseResource[T](...)` owns one async value local to a
+component, with built-in cancellation and reload, and returns a typed result instead of raw
+`interface{}`.
 
 ```go
 package main
 
 import (
-	"fmt"
+	"context"
+	"time"
 
 	h "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/fetch"
 	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-// renderStatusProbe keeps one raw fetch request local to the current component.
+// renderStatusProbe owns one typed async read local to the current component.
 func renderStatusProbe() ui.Node {
-	storeURL := ui.UseState("/api/health")
-	storeResource := fetch.UseFetch(storeURL.Get())
+	storeResource := fetch.UseResource(func(getCtx context.Context) (string, error) {
+		select {
+		case <-time.After(400 * time.Millisecond):
+		case <-getCtx.Done():
+			return "", getCtx.Err()
+		}
+		return "healthy", nil
+	})
 	getState := storeResource.Get()
 
 	handleUserRefresh := ui.UseEvent(func() {
-		storeResource.Refetch()
+		storeResource.Reload()
 	})
 
 	getStatus := "Idle"
 	if getState.Loading {
 		getStatus = "Loading"
-	} else if getState.Error != "" {
+	} else if getState.Error != nil {
 		getStatus = "Error"
-	} else if getState.Data != nil {
-		getStatus = "Ready"
+	} else if getState.Ready {
+		getStatus = getState.Value
 	}
 
 	return h.Main(
 		h.Class("mx-auto max-w-xl space-y-4 p-6"),
-		h.H1("Raw fetch state"),
+		h.H1("Typed resource state"),
 		h.P(h.Textf("Status: %s", getStatus)),
-		h.Pre(fmt.Sprint(getState.Data)),
-		h.Button(h.Type("button"), h.OnClick(handleUserRefresh), "Refetch"),
+		h.Button(h.Type("button"), h.OnClick(handleUserRefresh), "Reload"),
 	)
 }
 
-// main mounts the raw-fetch example into the browser DOM.
+// main mounts the example into the browser DOM.
 func main() {
-	ui.Render(ui.CreateElement(renderStatusProbe, nil), "#app")
-	utils.WaitForever()
+	ui.Run("#app", renderStatusProbe)
 }
 ```
 
 Why this is the right smallest path:
 
-- the component owns one request
-- you can read loading, error, and raw payload directly
-- there is no typed loader or shared-cache policy until the app actually needs it
+- the component owns one typed async value
+- loading, error, and the typed result are read directly
+- cancellation and reload are built in, with no shared-cache policy until the app needs it
+
+> **Legacy:** `fetch.UseFetch(url)` returns raw loading/error/`interface{}` state for one URL. It is
+> **deprecated** — prefer `UseResource` (or `ui.UseQuery` for cached, tag-invalidated data). It
+> remains only for existing callers; see the API family table below.
 
 ## Production-Shaped Example
 
@@ -191,7 +201,7 @@ Why this is the better default for real screens:
 
 In a larger app, let route loaders and later components share one normalized cache key, then keep optimistic mutation behavior explicit on top of that cache entry.
 
-```go
+```go gwc:build
 package workspaceroute
 
 import (
@@ -294,7 +304,7 @@ func renderWorkspaceSummary(getProps router.Attrs) ui.Node {
 }
 ```
 
-```go
+```go gwc:build
 package mutationflow
 
 import (
@@ -331,13 +341,7 @@ Why this scales:
 - optimistic cache updates stay local and reversible instead of pretending the server already agreed
 - offline replay remains explicit because the app still owns auth, conflict handling, and revalidation after success
 
-## UseFetch Versus UseResource Versus UseCachedResource
-
-Use `fetch.UseFetch(...)` when:
-
-- you really want raw loading, error, and response state
-- one URL drives the component directly
-- the parsing and orchestration are simple and local
+## UseResource Versus UseCachedResource Versus UseQuery
 
 Use `fetch.UseResource[T](...)` when:
 
@@ -351,11 +355,18 @@ Use `fetch.UseCachedResource[T](...)` when:
 - stale-aware refresh and optimistic local patching are valuable
 - you are willing to own one normalized cache identity deliberately
 
+Use `ui.UseQuery(...)` (over the `query` package) when:
+
+- you want tag-aware invalidation across related queries
+- optimistic mutations with automatic rollback are part of the flow
+- the data layer benefits from request de-duplication and SWR (see the **Query Cache** section below)
+
 Practical rule:
 
-- `UseFetch` is the raw hook
 - `UseResource` is the preferred typed local read helper
 - `UseCachedResource` is the shared-cache tool for reused read models
+- `ui.UseQuery` is the tag-invalidated query/cache layer for application data
+- `UseFetch` is the **deprecated** raw hook — prefer `UseResource`
 
 ## Imperative Fetch And Upload
 
@@ -395,6 +406,174 @@ Keep the ownership split explicit:
 - writes stay authoritative on the server even when the client shows optimistic UI
 - auth, CSRF, timeout, correlation-id, and retry policy belong to the app transport boundary, not to the fetch cache itself
 - same-origin contracts are the easiest place to keep forms, loaders, cache invalidation, and auth/session behavior consistent
+
+### Typed error statuses (`serverfn.StatusError`)
+
+A server function returns an ordinary `error`, which maps to HTTP 500 by default. To return a
+client-error status, return a `*serverfn.StatusError` (or wrap one with `fmt.Errorf("...: %w", …)`):
+
+```go
+func getUser(ctx context.Context, req Req) (User, error) {
+    u, ok := store.Find(req.ID)
+    if !ok {
+        return User{}, serverfn.NotFound("no such user") // → HTTP 404
+    }
+    return u, nil
+}
+```
+
+Constructors cover the common cases: `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`,
+`Conflict`, `UnprocessableEntity`, plus `NewStatusError(status, msg)` for any code. The status
+round-trips to the caller as `*serverfn.ServerError`, so the client branches on the real reason:
+
+```go
+_, err := serverfn.Call[Req, User](ctx, "GetUser", req)
+var se *serverfn.ServerError
+if errors.As(err, &se) && se.Status == http.StatusNotFound {
+    // show a not-found state instead of a generic failure
+}
+```
+
+A plain `error` is unchanged (still 500) — adopting `StatusError` is opt-in and non-breaking.
+
+### Server functions (`//gwc:server`)
+
+A server function is a plain, type-safe `func(context.Context, Req) (Resp, error)` that runs only on
+the server. Mark it with a `//gwc:server` doc comment, in a file constrained to the server build
+(`//go:build !js || !wasm`); keep the shared `Req`/`Resp` types in a build-tag-free file.
+
+```go
+//go:build !js || !wasm
+
+package api
+
+import "context"
+
+type GetUserReq struct{ ID string }
+
+// //gwc:server
+func GetUser(ctx context.Context, req GetUserReq) (User, error) {
+	u, ok := store.Find(req.ID)
+	if !ok {
+		return User{}, serverfn.NotFound("no such user")
+	}
+	return u, nil
+}
+```
+
+`gwc server gen -pkg .` scans the package, validates the `(context.Context, Req) (Resp, error)`
+shape, and writes two files:
+
+- `serverfn_gen_client.go` (`//go:build js && wasm`) — browser stubs that call
+  `serverfn.Call[Req, Resp](ctx, "GetUser", req)`
+- `serverfn_gen_server.go` (`//go:build !js || !wasm`) — `RegisterServerFunctions(mux *http.ServeMux)`
+  that wires each function via `serverfn.Handle`
+
+The browser calls the generated stub with full compile-time type safety and no hand-written
+fetch/JSON glue; the server uses real sockets and the browser uses Fetch-backed `net/http`, so the
+same code path is testable with `httptest`. `gwc server check` is the CI staleness gate. To point the
+client at a non-default base URL, call `serverfn.Configure(baseURL)` (the default route prefix is
+`serverfn.RoutePrefix`, `/_gwc/fn/`).
+
+#### Whole-stack deployment (`wholestack`)
+
+`wholestack.Handler` / `wholestack.ListenAndServe` compose ONE `http.Handler` that serves the
+embedded wasm bundle AND the app's server functions, with SPA fallback so client-routed paths
+deep-link to the shell — one `go build` is the entire app (see
+[13 Assets, Deployment, And PWA](13-assets-deployment-and-pwa.md)).
+
+```go
+//go:embed dist
+var assets embed.FS
+
+func main() {
+	sub, _ := fs.Sub(assets, "dist")
+	log.Fatal(wholestack.ListenAndServe(":8080", wholestack.Options{
+		Assets:            sub,
+		RegisterServerFns: api.RegisterServerFunctions, // generated
+	}))
+}
+```
+
+## Query Cache And Mutations
+
+For application data that several components share — with tag-aware invalidation, request
+de-duplication, stale-while-revalidate, and optimistic mutations with automatic rollback — use the
+`query` package through the `ui.UseQuery` / `ui.UseMutation` hooks. It is the Go-native answer to
+TanStack Query / SWR, kept deliberately explicit (you pass the key and fetcher at every call site)
+and pure Go (compiles to wasm and native, unit-testable with `query.WithClock`).
+
+Create one cache (usually a package var), then read through `ui.UseQuery`:
+
+```go
+var appCache = query.New(query.WithStaleTime(30 * time.Second))
+
+func renderUserCard(props userProps) ui.Node {
+	res := ui.UseQuery(appCache, "user/"+props.ID, func() (User, error) {
+		return api.GetUser(context.Background(), api.GetUserReq{ID: props.ID})
+	}, props.ID)
+
+	switch {
+	case res.Status == query.StatusLoading:
+		return h.P("Loading...")
+	case res.Err != nil:
+		return h.P(h.Textf("Error: %v", res.Err))
+	default:
+		return h.P(h.Text(res.Data.Name))
+	}
+}
+```
+
+`query.Result[T]` carries `Data`, `Err`, `Status` (`StatusIdle`/`StatusLoading`/`StatusSuccess`/
+`StatusError`), `UpdatedAt`, `Stale`, and `Fetching` so the render path can show stale-while-fetching
+states. The last `deps` arguments behave like `UseEffect` deps — the query re-keys when they change.
+
+Mutations apply an optimistic value immediately and reconcile in the background:
+
+```go
+mutate := ui.UseMutation[User](appCache, "user/"+id)
+handleSave := ui.UseEvent(func() {
+	mutate(optimisticUser, func() (User, error) {
+		return api.SaveUser(context.Background(), draft) // commit on success, rollback on error
+	})
+})
+```
+
+`query.MutateAsync(cache, key, optimistic, fn, onSettled)` is the fire-and-forget form (it does not
+block render and calls `onSettled` with the final `Result[T]`). Invalidate related data with
+`cache.Invalidate(key)`, `cache.InvalidatePrefix(prefix)`, or `cache.InvalidateAll()`; inspect cache
+state for devtools with `cache.Inspect()` (see the time-travel/devtools chapter). When a component
+should suspend until data is ready (rendering an `AsyncBoundary` fallback meanwhile), use
+`ui.UseSuspenseQuery`, which returns the value `T` directly and throws to the nearest error boundary
+on failure.
+
+## Generative UI (`agentui`)
+
+When an agent (or any untrusted source) should compose UI, `agentui` renders a typed schema against a
+component allow-list — the safety property is structural: a `Node` carries no code, no event
+handlers, and no raw HTML, only an allow-listed component `Type`, string `Props` the component
+permits, escaped `Text`, and `Children`.
+
+```go
+reg := agentui.DefaultRegistry()
+reg.Register(agentui.ComponentSpec{
+	Name:         "callout",
+	AllowedProps: []string{"tone"},
+	Render: func(props map[string]string, children []ui.Node) ui.Node {
+		return html.Div(html.Props{Class: "callout-" + props["tone"]}, children...)
+	},
+})
+
+node, err := reg.RenderJSON(agentOutput) // validates, then renders to a safe ui.Node
+```
+
+`Registry.Validate` (and `ValidateWithLimits`) recursively reject any non-allow-listed type or
+disallowed prop; `Render`/`RenderJSON` gate on validation. Untrusted input is bounded by
+`agentui.DefaultLimits` (max depth 32, max 10k nodes) — pass explicit `Limits` to
+`ValidateWithLimits` to tune. `Registry.Catalog()` returns the allow-list as sorted
+`ComponentInfo` (name + permitted props) so an agent — or an MCP tool serving the registry over
+`agentbridge` — learns up front exactly what it may emit, turning the allow-list into guidance rather
+than an after-the-fact rejection.
 
 ## Optimistic UI And Offline Replay Rules
 
@@ -438,7 +617,7 @@ Use this table before you widen a read or mutation flow.
 
 | API family | Representative APIs | Stability | Use it when | Prefer something else when |
 | --- | --- | --- | --- | --- |
-| Raw hook state | `UseFetch`, `Resource.Get`, `Resource.Refetch` | `Stable` | one component wants raw request state around a URL | the loader deserves typed values and cancellation |
+| Raw hook state | `UseFetch`, `Resource.Get`, `Resource.Refetch` | `Stable` (deprecated — prefer `UseResource`) | a legacy component still wants raw request state around a URL | new code — use the typed `UseResource` instead |
 | Typed component resource | `UseResource`, `AsyncResource.Get`, `Reload`, `Cancel` | `Stable` | one component or panel owns a typed async value | several readers should reuse the same query |
 | Imperative request path | `Fetch`, `Upload`, `ReturnChannel` | `Stable` low-level surface | the request starts from an event handler, helper, or goroutine | a component-owned hook is clearer |
 | Shared cached resource | `UseCachedResource`, `CachedResource.Get`, `Reload`, `Invalidate`, `Dispose`, `Set`, `Update` | advanced public cache surface | several readers share one logical query and stale-aware reuse matters | the data only has one owner |

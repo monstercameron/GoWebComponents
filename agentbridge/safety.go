@@ -2,6 +2,7 @@ package agentbridge
 
 import (
 	"encoding/json"
+	"strconv"
 	"sync"
 )
 
@@ -197,17 +198,8 @@ func safetyHandleUndo(parsePayload json.RawMessage) (json.RawMessage, *EnvelopeE
 	return parseBytes, nil
 }
 
-// itoa renders a uint64 without importing strconv at the call site.
+// itoa renders a uint64 as a base-10 string. It is a thin alias for
+// strconv.FormatUint kept so the audit-message call sites stay terse.
 func itoa(parseValue uint64) string {
-	if parseValue == 0 {
-		return "0"
-	}
-	parseBuf := [20]byte{}
-	parseIdx := len(parseBuf)
-	for parseValue > 0 {
-		parseIdx--
-		parseBuf[parseIdx] = byte('0' + parseValue%10)
-		parseValue /= 10
-	}
-	return string(parseBuf[parseIdx:])
+	return strconv.FormatUint(parseValue, 10)
 }

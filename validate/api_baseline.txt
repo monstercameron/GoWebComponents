@@ -2,6 +2,11 @@ func (Result) All() map[string][]string
 func (Result) Error() string
 func (Result) Fields() map[string]string
 func (Result) Valid() bool
+func Check[T any](parseValue T, parseRules ...CrossRule[T]) Result
+func Fail(parseField, parseMessage string) *FieldError
+func RegisterRule(parseName string, parseFn RuleFunc)
 func Struct(parseValue any) Result
+type CrossRule func(parseValue T) *FieldError
 type FieldError struct { Field string `json:"field"` Rule string `json:"rule"` Message string `json:"message"` }
 type Result struct { Errors []FieldError `json:"errors,omitempty"` }
+type RuleFunc func(value any, arg string) (ok bool, message string)

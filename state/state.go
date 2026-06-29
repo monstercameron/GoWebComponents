@@ -51,13 +51,24 @@ type SnapshotMigration func(Snapshot) (Snapshot, error)
 // StorageArea names a browser storage backend.
 type StorageArea string
 
+// PersistentSnapshotOptions configures durable IndexedDB-first snapshot storage used by
+// SavePersistentSnapshot / LoadPersistentSnapshot. The zero value is valid: it uses the
+// default database and store names with no fallback. Set fields only to override defaults.
 type PersistentSnapshotOptions struct {
-	DatabaseName       string
-	StoreName          string
+	// DatabaseName is the IndexedDB database to open (default used when empty).
+	DatabaseName string
+	// StoreName is the object store within the database (default used when empty).
+	StoreName string
+	// DeleteOnCorruption drops and recreates the store if it fails to open, trading data
+	// loss for availability instead of surfacing a hard error.
 	DeleteOnCorruption bool
-	FallbackResolver   func() (interop.Storage, error)
-	FallbackBackend    string
-	StoreResolver      func(context.Context) (interop.PersistentStore, error)
+	// FallbackResolver supplies a synchronous Storage when IndexedDB is unavailable.
+	FallbackResolver func() (interop.Storage, error)
+	// FallbackBackend names the fallback for diagnostics (e.g. "localStorage").
+	FallbackBackend string
+	// StoreResolver overrides how the durable store is opened; when nil the default
+	// IndexedDB resolver is used.
+	StoreResolver func(context.Context) (interop.PersistentStore, error)
 }
 
 const (
@@ -199,6 +210,9 @@ func (parseA Atom[T]) Update(parseFn func(T) T) {
 //
 // The computed value is memoized according to the provided dependency list.
 // Callers should pass the values that should trigger recomputation.
+//
+// Deprecated: prefer ui.UseMemo, which returns the value directly (UseComputed only wraps it in a
+// Computed handle). For a shared, cross-component derived value use state.UseDerived instead.
 func UseComputed[T any](parseCompute func() T, parseDeps ...any) Computed[T] {
 	parseValue := runtime.GoUseMemoGlobal(func() any {
 		return parseCompute()
@@ -229,6 +243,13 @@ func (parseC Computed[T]) Get() T {
 // the named source atom IDs changes and expose a typed read-only handle to the
 // current derived value. Dependency tracking is explicit through atom IDs so
 // recomputation remains predictable and avoids hidden runtime graph discovery.
+//
+// The id is GLOBAL and shared — this is intentional and is the whole point: two components that
+// pass the same id share one derived atom (the same model as UseAtom). That deliberately differs
+// from UseSelector, whose id is auto-scoped to the calling component because a selector is a
+// component-local projection, not shared state. So: pick a unique, descriptive id for a UseDerived
+// you intend to share, exactly as you would for a UseAtom; reach for UseSelector when you want a
+// local, collision-free projection instead.
 func UseDerived[T any](parseId string, parseCompute func() T, parseDeps ...string) Derived[T] {
 	var parseZero T
 	if parseErr := runtime.GetGlobalRuntime().RegisterDerivedAtom(parseId, parseDeps, func() any {
@@ -375,9 +396,10 @@ func GetSnapshot() (Snapshot, error) {
 
 // ExportSnapshot returns a copy of all atoms currently registered in the global runtime.
 //
-// It preserves the original public API name and behavior for callers that still
-// use the export/import snapshot terminology.
+// Deprecated: use GetSnapshot. ExportSnapshot is the older export/import-terminology name and
+// is kept only for source compatibility.
 func ExportSnapshot() (Snapshot, error) {
+	deprecation.Warn("state.ExportSnapshot", "state.GetSnapshot")
 	return GetSnapshot()
 }
 
@@ -407,9 +429,10 @@ func ApplySnapshot(parseSnapshot Snapshot) error {
 // ImportSnapshot merges atom values from snapshot into the global runtime and
 // schedules subscribed components for updates.
 //
-// It preserves the original public API name and behavior for callers that still
-// use the export/import snapshot terminology.
+// Deprecated: use ApplySnapshot. ImportSnapshot is the older export/import-terminology name and
+// is kept only for source compatibility.
 func ImportSnapshot(parseSnapshot Snapshot) error {
+	deprecation.Warn("state.ImportSnapshot", "state.ApplySnapshot")
 	return ApplySnapshot(parseSnapshot)
 }
 
@@ -673,7 +696,7 @@ func openSnapshotStorage(parseArea StorageArea) (interop.Storage, error) {
 	case SessionStorage:
 		return loadStateSessionStorage()
 	default:
-		return interop.Storage{}, fmt.Errorf("%s is not available", parseArea)
+		return interop.Storage{}, fmt.Errorf("storage area %q is not available; valid areas are %q (state.LocalStorage) and %q (state.SessionStorage)", parseArea, LocalStorage, SessionStorage)
 	}
 }
 

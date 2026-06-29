@@ -25,7 +25,7 @@ func ClassSel(parseName string) Selector {
 	return Selector("." + strings.TrimPrefix(parseName, "."))
 }
 
-// Attr targets an attribute-presence selector: css.AttrSel("data-open") -> "[data-open]".
+// AttrSel targets an attribute-presence selector: css.AttrSel("data-open") -> "[data-open]".
 func AttrSel(parseName string) Selector { return Selector("[" + parseName + "]") }
 
 // AttrEq targets an attribute-equals selector: css.AttrEq("type","submit") ->

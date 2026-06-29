@@ -6,6 +6,38 @@ import (
 	"testing"
 )
 
+// TestCoalesceChildrenUnifiedForms proves the single shared extractor handles every shape the
+// per-boundary helpers used to each implement: map form with lowercase OR capital keys, []any OR
+// []Node children, the typed-struct form, and nil/empty — returning Child first then Children.
+func TestCoalesceChildrenUnifiedForms(parseT *testing.T) {
+	parseChild := Text("c")
+	parseKidA, parseKidB := Text("a"), Text("b")
+
+	parseCases := []struct {
+		parseName  string
+		parseProps any
+		parseWant  int
+	}{
+		{"map lowercase + []any", map[string]any{"child": parseChild, "children": []any{parseKidA, parseKidB}}, 3},
+		{"map capital + []Node", map[string]any{"Child": parseChild, "Children": []Node{parseKidA, parseKidB}}, 3},
+		{"struct form", ErrorBoundaryProps{Child: parseChild, Children: []Node{parseKidA}}, 2},
+		{"children only", map[string]any{"children": []any{parseKidA}}, 1},
+		{"nil props", nil, 0},
+		{"empty map", map[string]any{}, 0},
+	}
+	for _, parseCase := range parseCases {
+		if parseGot := coalesceChildren(parseCase.parseProps); len(parseGot) != parseCase.parseWant {
+			parseT.Fatalf("coalesceChildren(%s) len = %d, want %d", parseCase.parseName, len(parseGot), parseCase.parseWant)
+		}
+	}
+
+	// Child must come before Children in the returned order.
+	parseOrdered := coalesceChildren(map[string]any{"child": parseChild, "children": []any{parseKidA}})
+	if len(parseOrdered) != 2 || parseOrdered[0] != Node(parseChild) {
+		parseT.Fatalf("coalesceChildren must return Child first, got %v", parseOrdered)
+	}
+}
+
 func TestContextProviderHelperExtraction(parseT *testing.T) {
 	parseContext := CreateContext("light")
 	parseChild := Text("child")

@@ -1034,6 +1034,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runRoutesCommand(parseL, parseArgs)
 	case "i18n":
 		return runI18nCommand(parseL, parseArgs)
+	case "css":
+		return runCSSCommand(parseL, parseArgs)
 	case "server":
 		return runServerCommand(parseL, parseArgs)
 	case "vuln":
@@ -1299,6 +1301,7 @@ func printUsage() {
 	fmt.Println("  llms       Generate llms.txt + llms-full.txt from the reference manual (AI-native docs); -check for a CI staleness gate")
 	fmt.Println("  routes     Generate typed, compile-checked link constructors from router contracts (gen|check); a typo'd path param becomes a compile error")
 	fmt.Println("  i18n       Generate typed, compile-checked message accessors from a base-locale bundle (gen|check -bundle FILE); a typo'd namespace, key, or param becomes a compile error")
+	fmt.Println("  css        Generate typed, compile-checked theme-token constants from a theme JSON (gen|check -theme FILE); a typo'd color/size/radius/spacing token becomes a compile error")
 	fmt.Println("  server     Generate client stubs + server registration for //gwc:server functions (gen|check); call a server func from the browser with full type safety")
 	fmt.Println("  vuln       Scan for known vulnerabilities via govulncheck; reports reachable vs imported-only (-strict to fail on imported)")
 	fmt.Println("  add        Copy an a11y-correct headless component into your repo (gwc add <name>; run bare to list the catalog)")

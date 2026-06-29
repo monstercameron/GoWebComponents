@@ -135,6 +135,12 @@ type reactiveSource interface {
 // is lazy (it recomputes from the live sources on read); pass the computed to
 // ui.ReactiveRegion to render a subtree that updates fine-grained when any named
 // source changes.
+//
+// Multi-source note: Get, Text, and ReactiveRegionSourceIDs honor ALL declared
+// sources. The one exception is using a ComputedSignal as an explicit source of
+// ANOTHER computed (via the reactiveSource interface): only its primary (first)
+// source id is propagated, so chain a computed off its underlying atoms — not off
+// another multi-source computed — if you need every transitive dependency tracked.
 type ComputedSignal[T any] struct {
 	compute   func() T
 	sourceIDs []string

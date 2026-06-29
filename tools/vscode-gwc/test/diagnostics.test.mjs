@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const { toDiagnostics, severityFor } = require("../diagnostics.js");
+const { toDiagnostics, severityFor, toCodeActions } = require("../diagnostics.js");
 
 test("severityFor maps gwc severities to VS Code severity numbers", () => {
   assert.equal(severityFor("error"), 0);
@@ -48,4 +48,26 @@ test("toDiagnostics tolerates missing fields and empty/empty-ish summaries", () 
   assert.equal(diags[0].range.startColumn, 0);
   assert.equal(diags[0].severity, 1); // default warning
   assert.equal(diags[0].source, "gwc"); // no linter
+});
+
+test("toCodeActions offers a quick-fix only for fixable issues, at 0-based positions", () => {
+  const actions = toCodeActions({
+    issues: [
+      { linter: "gofmt", path: "ui/app.go", line: 10, column: 5, message: "needs gofmt", fixable: true },
+      { linter: "hookcheck", path: "ui/app.go", line: 3, column: 1, message: "conditional hook" }, // not fixable
+    ],
+  });
+  assert.equal(actions.length, 1, "only the fixable issue yields a code-action");
+  assert.equal(actions[0].command, "gwc.fix");
+  assert.equal(actions[0].path, "ui/app.go");
+  assert.equal(actions[0].range.startLine, 9);
+  assert.equal(actions[0].range.startColumn, 4);
+  assert.equal(actions[0].isPreferred, true);
+  assert.ok(actions[0].title.includes("gofmt"), "title names the offending linter");
+});
+
+test("toCodeActions ignores fixable issues with no path and tolerates empty summaries", () => {
+  assert.deepEqual(toCodeActions({}), []);
+  assert.deepEqual(toCodeActions(null), []);
+  assert.deepEqual(toCodeActions({ issues: [{ fixable: true, message: "no path" }] }), []);
 });

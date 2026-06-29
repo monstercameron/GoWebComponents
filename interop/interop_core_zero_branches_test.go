@@ -544,6 +544,10 @@ func TestUnavailableBranchesAcrossInteropWrappers(parseT *testing.T) {
 	if parsePool.GetSize() != 0 || parsePool.GetQueueLimit() != 0 {
 		parseT.Fatalf("expected zero-value worker pool limits, got size=%d queue=%d", parsePool.GetSize(), parsePool.GetQueueLimit())
 	}
+	// The unprefixed accessors return the same values; the deprecated Get* forms delegate to them.
+	if parsePool.Size() != parsePool.GetSize() || parsePool.QueueLimit() != parsePool.GetQueueLimit() {
+		parseT.Fatalf("Size/QueueLimit must equal the deprecated Get* forms")
+	}
 	if _, parseErr31v := parsePool.Request(parseCtx, "task", nil, nil); !IsCode(parseErr31v, CodeUnavailable) {
 		parseT.Fatalf("expected unavailable worker-pool request, got %v", parseErr31v)
 	}

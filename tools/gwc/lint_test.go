@@ -105,6 +105,45 @@ func TestRunLintJSONSummarizesIssues(parseT *testing.T) {
 	}
 }
 
+// TestParseLintIssueRecordFixable proves the Fixable signal: golangci attaches a "Replacement"
+// object only when the linter has an autofix, and that drives the editor quick-fix offer.
+func TestParseLintIssueRecordFixable(parseT *testing.T) {
+	parseFixable := parseLintIssueRecord(map[string]any{
+		"FromLinter":  "gofmt",
+		"Text":        "File is not gofmt-ed",
+		"Pos":         map[string]any{"Filename": "pkg/app.go", "Line": float64(3), "Column": float64(1)},
+		"Replacement": map[string]any{"NewLines": []any{"formatted"}},
+	}, "")
+	if !parseFixable.Fixable {
+		parseT.Fatalf("issue with a Replacement must be Fixable, got %#v", parseFixable)
+	}
+
+	parseUnfixable := parseLintIssueRecord(map[string]any{
+		"FromLinter": "hookcheck",
+		"Text":       "conditional hook",
+		"Pos":        map[string]any{"Filename": "ui/app.go", "Line": float64(5), "Column": float64(2)},
+	}, "")
+	if parseUnfixable.Fixable {
+		parseT.Fatalf("issue with no Replacement must not be Fixable, got %#v", parseUnfixable)
+	}
+}
+
+// TestBuildLintFixArgsDelegatesToGolangci proves `gwc lint --fix` shells out to golangci's own
+// verified fixer (run --fix) rather than computing edits itself — the editor quick-fix delegates here.
+func TestBuildLintFixArgsDelegatesToGolangci(parseT *testing.T) {
+	parseArgs := buildLintFixArgs(lintConfig{paths: []string{"./ui/..."}, enableLinters: []string{"gofmt"}})
+	parseJoined := strings.Join(parseArgs, " ")
+	if !strings.Contains(parseJoined, "run --fix") {
+		parseT.Fatalf("fix args must invoke golangci `run --fix`, got %q", parseJoined)
+	}
+	if !strings.Contains(parseJoined, "--enable gofmt") {
+		parseT.Fatalf("fix args must thread enabled linters, got %q", parseJoined)
+	}
+	if !strings.Contains(parseJoined, "./ui/...") {
+		parseT.Fatalf("fix args must include the target paths, got %q", parseJoined)
+	}
+}
+
 // TestRunLintWritesTextReport verifies the rendered text report and file output.
 func TestRunLintWritesTextReport(parseT *testing.T) {
 	parseRoot := parseT.TempDir()

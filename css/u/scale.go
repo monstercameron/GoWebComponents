@@ -53,9 +53,46 @@ const (
 	Spacing24 Spacing = 24
 )
 
-// resolveRadius / resolveText map a typed key to its theme value. Built-in
-// constants always hit; a key fabricated via conversion falls back to the scale's
-// sensible default.
+// ColorToken is a typed theme color-token key, so a color reference autocompletes
+// and a typo is a compile error instead of a silent transparent fallback. The
+// constants below cover css.DefaultTheme; a custom theme's tokens are generated
+// into the application package by `gwc css gen` (same shape, also u.ColorToken).
+type ColorToken string
+
+const (
+	ColorTransparent ColorToken = "transparent"
+	ColorCurrent     ColorToken = "current"
+	ColorWhite       ColorToken = "white"
+	ColorBlack       ColorToken = "black"
+	ColorSlate50     ColorToken = "slate-50"
+	ColorSlate100    ColorToken = "slate-100"
+	ColorSlate200    ColorToken = "slate-200"
+	ColorSlate300    ColorToken = "slate-300"
+	ColorSlate400    ColorToken = "slate-400"
+	ColorSlate500    ColorToken = "slate-500"
+	ColorSlate600    ColorToken = "slate-600"
+	ColorSlate700    ColorToken = "slate-700"
+	ColorSlate800    ColorToken = "slate-800"
+	ColorSlate900    ColorToken = "slate-900"
+	ColorSky400      ColorToken = "sky-400"
+	ColorSky500      ColorToken = "sky-500"
+	ColorSky600      ColorToken = "sky-600"
+	ColorRed500      ColorToken = "red-500"
+	ColorRed600      ColorToken = "red-600"
+	ColorGreen500    ColorToken = "green-500"
+	ColorAmber500    ColorToken = "amber-500"
+)
+
+// resolveRadius / resolveText / resolveColor map a typed key to its theme value.
+// Built-in constants always hit; a key fabricated via conversion falls back to the
+// scale's sensible default.
+func resolveColor(c ColorToken) css.Color {
+	if v, ok := css.ColorValue(string(c)); ok {
+		return v
+	}
+	return css.Transparent
+}
+
 func resolveRadius(r Radius) css.Length {
 	if v, ok := css.RadiusValue(string(r)); ok {
 		return v

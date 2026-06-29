@@ -47,6 +47,9 @@ var commandRegistry = map[string]AgentCommandHandler{}
 // RegisterAgentCommand registers a bridge command handler by wire name.
 // Later registrations replace earlier ones (last writer wins) so tests can
 // stub commands; production registration happens once at bridge install.
+//
+// A blank name or nil handler is silently ignored (no registration, no panic), so
+// guard against accidentally passing either if you rely on the command being present.
 func RegisterAgentCommand(parseName string, parseHandler AgentCommandHandler) {
 	parseTrimmed := strings.TrimSpace(parseName)
 	if parseTrimmed == "" || parseHandler == nil {

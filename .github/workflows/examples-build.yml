@@ -1,0 +1,38 @@
+name: Examples Build
+
+# F2 merge gate: every public example must compile for the browser target, so a framework API
+# change that breaks an example fails CI before merge (not just the catalog index's existence
+# guards). The examples live in the repo module, so the wasm build resolves against the repo's
+# own go.sum with no network. Complements docs/capabilities (the machine-verified API→example
+# index) and catalog-smoke (the `gwc add` copy-out path).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  examples-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build all public examples (wasm)
+        # Public examples are browser apps; they live in the repo module so this resolves with no
+        # network. Proven to pass across all 113 example mains.
+        env:
+          GOOS: js
+          GOARCH: wasm
+        run: go build ./examples/public/...
