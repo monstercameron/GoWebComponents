@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/html"
-	appRouter "github.com/monstercameron/GoWebComponents/router"
-	routertest "github.com/monstercameron/GoWebComponents/test/router"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	appRouter "github.com/monstercameron/GoWebComponents/v4/router"
+	routertest "github.com/monstercameron/GoWebComponents/v4/test/router"
 )
 
 func controlledLoaderRoute(_ appRouter.Attrs) *appRouter.Element {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 // TestScopeCacheKey documents the prefix convention that keeps unrelated

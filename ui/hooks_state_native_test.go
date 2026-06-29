@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 // hookHarness mounts a function component natively and reads back the rendered

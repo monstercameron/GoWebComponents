@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/proto"
 )
 
 // parseSeedAdminChatsDrilldownGrowthRows seeds one compact chats-growth fixture set for two workspace scopes.

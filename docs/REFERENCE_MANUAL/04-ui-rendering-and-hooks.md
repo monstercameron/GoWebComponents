@@ -69,9 +69,9 @@ The normal `ui` shape is one function component, one local state owner, and one 
 package main
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 // renderCounterApp renders one small interactive component using the default ui model.
@@ -112,8 +112,8 @@ Once one feature owns several fields and named transitions, keep the render tree
 package dashboard
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type dashboardFilterState struct {
@@ -194,8 +194,8 @@ In a larger app, scale `ui` by separating global composition, feature hooks, and
 package app
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 
 	"my-app/internal/feature/search"
 	"my-app/internal/feature/workspace"
@@ -215,8 +215,8 @@ func RenderRootApp() ui.Node {
 package search
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // RenderSearchToolbar keeps the feature surface local until the app has a real reason to widen ownership.

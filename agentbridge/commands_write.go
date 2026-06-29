@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/events"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/state"
+	"github.com/monstercameron/GoWebComponents/v4/events"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/state"
 )
 
 // RegisterWriteCommands installs the four input-level mutation commands on the

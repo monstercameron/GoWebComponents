@@ -9,8 +9,8 @@ import (
 	"syscall/js"
 	"testing"
 
-	runtimepkg "github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/state"
+	runtimepkg "github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/state"
 )
 
 // storeHotReloadTestGlobal replaces a global value for the duration of a wasm hotreload test.

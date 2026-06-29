@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 func TestWithCorrelationIDRoundTrip(parseT *testing.T) {

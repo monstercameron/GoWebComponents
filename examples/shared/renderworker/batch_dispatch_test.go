@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 type parseBatchDispatchChunkRequest struct {

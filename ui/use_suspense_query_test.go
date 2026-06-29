@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/query"
+	"github.com/monstercameron/GoWebComponents/v4/query"
 )
 
 // TestUseSuspenseQueryReturnsCachedValueWithoutSuspending proves the resolved path: a fresh cached

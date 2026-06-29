@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/query"
+import "github.com/monstercameron/GoWebComponents/v4/query"
 
 // revalidateOnSignal is the pure action behind UseRevalidateOnFocus: it marks every cached
 // query stale so the next render's UseQuery components revalidate. Split out so the

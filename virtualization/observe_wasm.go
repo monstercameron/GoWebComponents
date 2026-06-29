@@ -5,7 +5,7 @@ package virtualization
 import (
 	"errors"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 // Subscription tracks one active viewport observation.

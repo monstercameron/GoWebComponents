@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	serverauth "github.com/monstercameron/GoWebComponents/examples/server/atlas-commerce-os/server/auth"
+	serverauth "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/auth"
 )
 
 func TestEnsureCSRFCookieReuseAndCreate(parseT *testing.T) {

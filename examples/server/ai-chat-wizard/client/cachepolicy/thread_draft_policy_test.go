@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/client/cachecore"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/client/cachecore"
 )
 
 // TestStoreAndReadThreadDraft verifies thread drafts store and restore independently from unsent message queues.

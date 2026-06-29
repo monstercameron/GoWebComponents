@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/client/cachecore"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/client/cachecore"
 )
 
 // TestBuildLocaleCatalogResourceKey verifies locale catalog keys stay deterministic and include locale/namespace/bundle dimensions.

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/v4/router"
 )
 
 const chatRouteRoot = "/app"

@@ -5,9 +5,9 @@ package hooks_test
 import (
 	"testing"
 
-	hooks "github.com/monstercameron/GoWebComponents/test/hooks"
-	base "github.com/monstercameron/GoWebComponents/testkit/hooks"
-	"github.com/monstercameron/GoWebComponents/ui"
+	hooks "github.com/monstercameron/GoWebComponents/v4/test/hooks"
+	base "github.com/monstercameron/GoWebComponents/v4/testkit/hooks"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type parityHookValue struct {

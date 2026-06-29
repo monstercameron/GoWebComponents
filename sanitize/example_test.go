@@ -3,7 +3,7 @@ package sanitize_test
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/sanitize"
+	"github.com/monstercameron/GoWebComponents/v4/sanitize"
 )
 
 // ExampleSanitize strips dangerous markup and URL schemes while keeping safe

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // buildHostRegionPressureLatencySampleSlice builds one reusable latency sample slice for percentile reporting.

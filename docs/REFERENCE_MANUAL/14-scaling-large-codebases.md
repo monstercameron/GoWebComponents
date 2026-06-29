@@ -85,9 +85,9 @@ test/
 package app
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type appEnv struct {
@@ -164,9 +164,9 @@ import (
 	"context"
 	"fmt"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type routeProps struct {

@@ -1,7 +1,7 @@
 package diagnostics
 
 import (
-	internaldiagnostics "github.com/monstercameron/GoWebComponents/internal/diagnostics"
+	internaldiagnostics "github.com/monstercameron/GoWebComponents/v4/internal/diagnostics"
 )
 
 type Report = internaldiagnostics.Report

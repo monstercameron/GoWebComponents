@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestHandleHostRegionRoundTripTimingCapturesDispatchPatchAndCommit verifies host round-trip timing capture records dispatch-to-patch-ready and commit spans.

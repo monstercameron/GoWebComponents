@@ -5,7 +5,7 @@ package ui
 import (
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 // ViewTransition runs apply (the DOM-changing callback, typically a state update

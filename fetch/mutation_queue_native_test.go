@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 func TestFetchNativeMutationQueueHelpers(parseT *testing.T) {

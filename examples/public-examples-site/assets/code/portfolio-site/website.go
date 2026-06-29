@@ -3,9 +3,9 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/examples/shared"
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // DocsWebsite composes Earl Cameron's personal website and GoWebComponents showcase.

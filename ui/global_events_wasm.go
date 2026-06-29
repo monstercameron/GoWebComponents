@@ -5,7 +5,7 @@ package ui
 import (
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 // defaultBindGlobalEvent attaches a managed listener to document/window and

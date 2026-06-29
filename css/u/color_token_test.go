@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/css"
+	"github.com/monstercameron/GoWebComponents/v4/css"
 )
 
 // TestColorTokenResolvesAgainstTheme proves a built-in typed color token resolves to the

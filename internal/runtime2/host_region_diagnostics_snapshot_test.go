@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestGetHostRegionDiagnosticsSnapshotReportsReadOnlyRedactedState verifies diagnostics snapshots return redacted events, downgrade accounting, and counters without exposing mutable state.

@@ -5,7 +5,7 @@ package interop_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 // TestRequestAnimationFrameNative verifies that the native stub for

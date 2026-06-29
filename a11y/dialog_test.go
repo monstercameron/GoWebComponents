@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/a11y"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/a11y"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 func TestAlertDialogEmitsARIA(t *testing.T) {

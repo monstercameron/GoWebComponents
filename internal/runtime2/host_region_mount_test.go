@@ -3,7 +3,7 @@ package runtime2_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestHandleHostRegionMountMountsValidatedParallelRegion verifies host-side mount accepts a valid parallel region spec and stores mounted coordinator state.

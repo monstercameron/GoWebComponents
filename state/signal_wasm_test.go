@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 // TestSignalTextTracksValueFineGrained proves the fine-grained property: a

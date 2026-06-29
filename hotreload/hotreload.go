@@ -1,6 +1,6 @@
 package hotreload
 
-import "github.com/monstercameron/GoWebComponents/state"
+import "github.com/monstercameron/GoWebComponents/v4/state"
 
 // Config controls how the hot reload bridge captures state.
 type Config struct {

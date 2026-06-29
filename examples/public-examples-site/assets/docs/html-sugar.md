@@ -31,8 +31,8 @@ The intended split is straightforward: keep explicit typed builders available, a
 
 ```go
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 func SearchPanel(query string, pending bool, onInput func(ui.InputEvent)) ui.Node {
@@ -159,13 +159,13 @@ Event options accept either an existing `ui.Handler` or a callback supported by 
 Preferred base import:
 
 ```go
-import html "github.com/monstercameron/GoWebComponents/html"
+import html "github.com/monstercameron/GoWebComponents/v4/html"
 ```
 
 Preferred companion import when mixed argument host tags are the goal:
 
 ```go
-import h "github.com/monstercameron/GoWebComponents/html/shorthand"
+import h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
 ```
 
 Dot-importing `html` is acceptable only in very small example packages where identifier collisions are intentionally controlled.

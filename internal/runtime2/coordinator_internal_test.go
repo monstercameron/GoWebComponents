@@ -29,7 +29,7 @@ func TestRuntime2PackageDoesNotImportCurrentRuntimePackage(parseT *testing.T) {
 			if parseErr != nil {
 				parseT.Fatalf("unquote import path from %s: %v", parseBase, parseErr)
 			}
-			if parseImportPath == "github.com/monstercameron/GoWebComponents/internal/runtime" {
+			if parseImportPath == "github.com/monstercameron/GoWebComponents/v4/internal/runtime" {
 				parseT.Fatalf("expected runtime2 package to avoid internal/runtime import in %s", parseBase)
 			}
 		}

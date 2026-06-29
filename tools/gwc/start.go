@@ -496,6 +496,12 @@ func renderScaffoldGoMod(parseSelection startSelection, parseRepoModulePath stri
 	parseBuilder.WriteString(fmt.Sprintf("module %s\n\ngo 1.25.0\n", parseSelection.ModulePath))
 	if parseSelection.ProjectMode == scaffoldProjectModeContributorLinked && strings.TrimSpace(parseRepoModulePath) != "" && strings.TrimSpace(parseRepoRoot) != "" {
 		parseBuilder.WriteString("\n")
+		// A /vN-suffixed (N>=2) framework module replaced by a local path needs an explicit,
+		// major-matching require: go mod tidy would otherwise synthesize a v0 pseudo-version,
+		// which is invalid for a /vN module path. (v0/v1 paths need no explicit require.)
+		if parseMajor := scaffoldModuleMajorSuffix(parseRepoModulePath); parseMajor != "" {
+			parseBuilder.WriteString(fmt.Sprintf("require %s %s.0.0\n", parseRepoModulePath, parseMajor))
+		}
 		parseBuilder.WriteString(fmt.Sprintf("replace %s => %s\n", parseRepoModulePath, filepath.ToSlash(filepath.Clean(parseRepoRoot))))
 	}
 	// Browser-test starters import playwright-go (behind the playwrightgo build tag), but it is not
@@ -508,6 +514,25 @@ func renderScaffoldGoMod(parseSelection startSelection, parseRepoModulePath stri
 		}
 	}
 	return parseBuilder.String()
+}
+
+// scaffoldModuleMajorSuffix returns the "vN" major-version suffix of a module path when N>=2
+// (e.g. "github.com/x/y/v4" -> "v4"), or "" for v0/v1 paths that carry no suffix.
+func scaffoldModuleMajorSuffix(parseModulePath string) string {
+	parseIdx := strings.LastIndex(parseModulePath, "/v")
+	if parseIdx < 0 {
+		return ""
+	}
+	parseSuffix := parseModulePath[parseIdx+1:] // e.g. "v4"
+	if len(parseSuffix) < 2 || (parseSuffix == "v0" || parseSuffix == "v1") {
+		return ""
+	}
+	for _, parseR := range parseSuffix[1:] {
+		if parseR < '0' || parseR > '9' {
+			return ""
+		}
+	}
+	return parseSuffix
 }
 
 // readRepoDependencyVersion returns the version of parseModulePath as required by the repo's go.mod,

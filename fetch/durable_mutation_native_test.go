@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/interop"
-	"github.com/monstercameron/GoWebComponents/query"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v4/query"
 )
 
 // openDurableTestQueue opens a mutation queue backed by the in-memory native store.

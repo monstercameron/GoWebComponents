@@ -5,16 +5,16 @@ package main
 
 import (
 	"fmt"
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
 	"strings"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
-	"github.com/monstercameron/GoWebComponents/examples/shared"
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/i18n"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/v4/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/i18n"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 func bootstrapMessageCount(parseMessages map[string]map[string]ui.SSRI18nMessage) int {

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
+	"github.com/monstercameron/GoWebComponents/v4/tools/runnerconfig"
 )
 
 const launcherOverrideEnvVar = runnerconfig.OverrideEnvVar

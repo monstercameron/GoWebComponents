@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/html"
-	sh "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	sh "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestMapKeyedComponentRendersThroughSSR proves the keyed per-item components

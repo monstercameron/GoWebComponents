@@ -2,7 +2,7 @@ package runtime2_test
 
 import "testing"
 
-import "github.com/monstercameron/GoWebComponents/internal/runtime2"
+import "github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 
 // TestBuildControlReadyEnvelopeBuildsValidatedEnvelope verifies ready control builders produce one valid envelope.
 func TestBuildControlReadyEnvelopeBuildsValidatedEnvelope(parseT *testing.T) {

@@ -5,7 +5,7 @@ package main
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestBuildRuntime2StatusNoticeTextsReportsRenderOnlyCaveats verifies the example warns when it only has a bridge shard label and no hydration path.

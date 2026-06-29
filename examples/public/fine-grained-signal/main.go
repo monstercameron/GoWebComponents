@@ -6,13 +6,13 @@ package main
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v4/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/examples/shared"
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/state"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/state"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // ticksSignal lives outside the render function (a package var) because a signal is created once and

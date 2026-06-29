@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v4/diagnostics"
 )
 
 // emit is the sink for structured reports. Replaced by same-package tests to

@@ -18,7 +18,7 @@ import (
 	"agenthub"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
+	"github.com/monstercameron/GoWebComponents/v4/tools/runnerconfig"
 )
 
 func TestLiveReloadOriginValidation(parseT *testing.T) {
@@ -349,7 +349,7 @@ func TestBuildChangedComponentManifestExtractsTopLevelComponents(parseT *testing
 	parseMainPath := filepath.Join(parseAppDir, "main.go")
 	parseContent := `package main
 
-import "github.com/monstercameron/GoWebComponents/ui"
+import "github.com/monstercameron/GoWebComponents/v4/ui"
 
 func App() ui.Node { return nil }
 func helper() int { return 1 }

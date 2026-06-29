@@ -5,9 +5,9 @@ package hooks
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/testkit/render"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/testkit/render"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // Harness wraps one rendered hook instance.

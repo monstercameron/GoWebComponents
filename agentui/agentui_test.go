@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/agentui"
-	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/agentui"
+	"github.com/monstercameron/GoWebComponents/v4/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 // sampleAgentSchema is the kind of JSON an agent emits server-side: a small dashboard view

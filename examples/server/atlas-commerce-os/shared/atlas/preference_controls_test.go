@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestSettingsRouteRendersPreferenceFields verifies settings route preference controls render with core labels and submit action.

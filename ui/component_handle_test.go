@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 func TestCreateElementUsesStableComponentHandle(parseT *testing.T) {

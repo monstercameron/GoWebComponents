@@ -142,10 +142,10 @@ func parseFrames(parseStack []byte, parseExtraSkip []string) []frame {
 	parseLines := strings.Split(strings.ReplaceAll(string(parseStack), "\r\n", "\n"), "\n")
 	parseSkipFunctions := []string{
 		"runtime/debug.Stack",
-		"github.com/monstercameron/GoWebComponents/internal/diagnostics.parseFrames",
-		"github.com/monstercameron/GoWebComponents/internal/diagnostics.Build",
-		"github.com/monstercameron/GoWebComponents/internal/diagnostics.WriteHTTPError",
-		"github.com/monstercameron/GoWebComponents/internal/diagnostics.Emit",
+		"github.com/monstercameron/GoWebComponents/v4/internal/diagnostics.parseFrames",
+		"github.com/monstercameron/GoWebComponents/v4/internal/diagnostics.Build",
+		"github.com/monstercameron/GoWebComponents/v4/internal/diagnostics.WriteHTTPError",
+		"github.com/monstercameron/GoWebComponents/v4/internal/diagnostics.Emit",
 	}
 	parseSkipFunctions = append(parseSkipFunctions, parseExtraSkip...)
 	parseFrames := make([]frame, 0, len(parseLines)/2)

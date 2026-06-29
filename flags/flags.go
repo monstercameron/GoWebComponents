@@ -4,7 +4,7 @@ import (
 	"hash/fnv"
 	"maps"
 
-	"github.com/monstercameron/GoWebComponents/state"
+	"github.com/monstercameron/GoWebComponents/v4/state"
 )
 
 const defaultRegistryAtomID = "gwc:flags:registry"

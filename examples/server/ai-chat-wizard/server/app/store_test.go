@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/server/provider"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/server/provider"
 )
 
 func TestStoreConversationAndPreferenceLifecycle(parseT *testing.T) {

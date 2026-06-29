@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/css"
+	"github.com/monstercameron/GoWebComponents/v4/css"
 )
 
 // TestLayerWrapsHashedClass proves Layer emits the folded class inside an

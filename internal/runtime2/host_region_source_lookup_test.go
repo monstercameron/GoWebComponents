@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestHandleHostRegionDeclaredSourceLookupUsesSourceBridge verifies host adapters can look up declared source values and versions through a shipped-runtime bridge.

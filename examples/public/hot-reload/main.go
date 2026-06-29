@@ -5,13 +5,13 @@ package main
 import (
 	"fmt"
 
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
-	"github.com/monstercameron/GoWebComponents/examples/shared"
-	"github.com/monstercameron/GoWebComponents/hotreload"
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/v4/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v4/hotreload"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 func StableCounterPanel() ui.Node {

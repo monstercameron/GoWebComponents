@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/testkit/render"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/testkit/render"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestNewHooksComposeInOneComponent exercises many of the v3.3–v3.4 hooks in a

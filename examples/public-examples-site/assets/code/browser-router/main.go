@@ -7,14 +7,14 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v4/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/examples/shared"
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 const browserDemoBase = "/catalog-browser-router"

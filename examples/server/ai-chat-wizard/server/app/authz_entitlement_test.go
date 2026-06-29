@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/server/provider"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/server/provider"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

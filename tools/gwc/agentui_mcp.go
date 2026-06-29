@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/monstercameron/GoWebComponents/agentui"
+	"github.com/monstercameron/GoWebComponents/v4/agentui"
 )
 
 // agentUICatalogToolName is the MCP tool that exposes the agentui component allow-list, so an

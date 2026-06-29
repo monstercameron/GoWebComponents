@@ -3,8 +3,8 @@
 package atlas
 
 import (
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 func routeOutletNode() ui.Node {

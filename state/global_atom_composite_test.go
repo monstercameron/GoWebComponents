@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/state"
+	"github.com/monstercameron/GoWebComponents/v4/state"
 )
 
 type gaPrefs struct {

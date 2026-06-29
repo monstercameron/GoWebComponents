@@ -5,8 +5,8 @@ package ui
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // setParallelRegionHydrationObserver wires one public parallel-region shell bridge into the next hydration observer callback.

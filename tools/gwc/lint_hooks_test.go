@@ -17,11 +17,11 @@ func TestCollectLintHookRuleIssuesFlagsBoundedViolations(parseT *testing.T) {
 	parseSource := `package app
 
 import (
-	gwcui "github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/state"
-	"github.com/monstercameron/GoWebComponents/fetch"
-	"github.com/monstercameron/GoWebComponents/flags"
-	"github.com/monstercameron/GoWebComponents/router"
+	gwcui "github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/state"
+	"github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/flags"
+	"github.com/monstercameron/GoWebComponents/v4/router"
 )
 
 func Component() gwcui.Node {
@@ -111,7 +111,7 @@ func TestCollectLintHookRuleIssuesHandlesDotImportsAndTargets(parseT *testing.T)
 	}
 	parseScopedSource := `package scoped
 
-import . "github.com/monstercameron/GoWebComponents/ui"
+import . "github.com/monstercameron/GoWebComponents/v4/ui"
 
 func Component() {
 	if true {
@@ -121,7 +121,7 @@ func Component() {
 `
 	parseOtherSource := `package other
 
-import "github.com/monstercameron/GoWebComponents/ui"
+import "github.com/monstercameron/GoWebComponents/v4/ui"
 
 func Component() {
 	if true {
@@ -162,7 +162,7 @@ func TestBuildLintSummaryIncludesHookRuleIssues(parseT *testing.T) {
 	parseSourcePath := filepath.Join(parseRoot, "component.go")
 	parseSource := `package app
 
-import "github.com/monstercameron/GoWebComponents/ui"
+import "github.com/monstercameron/GoWebComponents/v4/ui"
 
 func Component() {
 	if true {

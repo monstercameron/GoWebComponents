@@ -12,8 +12,8 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/fetch"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 // catalogDataURL resolves the catalog asset relative to the current document URL.

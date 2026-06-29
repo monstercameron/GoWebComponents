@@ -87,8 +87,8 @@ The smallest useful GWC app is one browser-mounted component plus one stateful e
 package main
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // renderHelloApp renders the smallest useful interactive app for a first-run check.
@@ -158,8 +158,8 @@ package main
 import (
 	"fmt"
 
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type counterPanelProps struct {
@@ -257,8 +257,8 @@ package main
 import (
 	"my-app/internal/app"
 
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 // main mounts the application entrypoint owned by the app package.
@@ -274,8 +274,8 @@ func main() {
 package app
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 
 	"my-app/internal/feature/counter"
 )
@@ -460,8 +460,8 @@ For a real app, the workflow usually becomes: scaffold, configure, run, validate
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/hotreload"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/hotreload"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // renderRootApp returns the root application node for the standalone dev loop.
@@ -920,9 +920,9 @@ Choose this shape when one browser-mounted shell and local state are enough.
 package main
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 // renderClientOnlyApp renders the smallest useful product-shaped browser app.
@@ -968,10 +968,10 @@ Choose this shape when the app needs multiple screens, route params, clean navig
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 type routePageProps struct {
@@ -1080,8 +1080,8 @@ package main
 import (
 	"net/http"
 
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // renderSSRPage renders one request-time HTML tree for the current request.
@@ -1151,7 +1151,7 @@ Choose this shape when the delivery model matters as much as the component tree.
 ```go
 package main
 
-import "github.com/monstercameron/GoWebComponents/pwa"
+import "github.com/monstercameron/GoWebComponents/v4/pwa"
 
 // buildInstallabilityManifest returns the app-owned manifest for installable delivery.
 func buildInstallabilityManifest() pwa.Manifest {
@@ -1326,9 +1326,9 @@ The normal `ui` shape is one function component, one local state owner, and one 
 package main
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 // renderCounterApp renders one small interactive component using the default ui model.
@@ -1369,8 +1369,8 @@ Once one feature owns several fields and named transitions, keep the render tree
 package dashboard
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type dashboardFilterState struct {
@@ -1451,8 +1451,8 @@ In a larger app, scale `ui` by separating global composition, feature hooks, and
 package app
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 
 	"my-app/internal/feature/search"
 	"my-app/internal/feature/workspace"
@@ -1472,8 +1472,8 @@ func RenderRootApp() ui.Node {
 package search
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // RenderSearchToolbar keeps the feature surface local until the app has a real reason to widen ownership.
@@ -1799,9 +1799,9 @@ If you want the safest default style, start with typed builders and explicit pro
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 // renderProfileCard renders a small DOM tree with typed builders and explicit props.
@@ -1849,8 +1849,8 @@ When callsites become noisy, use `PropsOf(...)` and the shorthand package delibe
 package formview
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type teamFormProps struct {
@@ -1903,7 +1903,7 @@ In a larger codebase, pick one host-authoring style per package and centralize r
 package sharedview
 
 import (
-	"github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/v4/html"
 )
 
 // BuildPanelProps returns one shared panel treatment for host containers.
@@ -1925,8 +1925,8 @@ func BuildFieldLabelProps() html.Props {
 package accountview
 
 import (
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 
 	"my-app/internal/sharedview"
 )
@@ -2034,9 +2034,9 @@ like bare utilities next to `html/shorthand` elements.
 
 ```go
 import (
-    "github.com/monstercameron/GoWebComponents/css"
-    . "github.com/monstercameron/GoWebComponents/css/u"
-    . "github.com/monstercameron/GoWebComponents/html/shorthand"
+    "github.com/monstercameron/GoWebComponents/v4/css"
+    . "github.com/monstercameron/GoWebComponents/v4/css/u"
+    . "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
 )
 
 func Badge() ui.Node {
@@ -2378,9 +2378,9 @@ package main
 import (
 	"fmt"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 // renderInvitePlanner keeps both the writable source and the derived summary local to one component.
@@ -2428,9 +2428,9 @@ When a feature grows, widen ownership in steps: reducer for local workflow, cont
 package workspace
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/state"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/state"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 var workspaceFilterContext = ui.CreateContext(workspaceFilterState{})
@@ -2564,7 +2564,7 @@ package appstate
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/state"
+	"github.com/monstercameron/GoWebComponents/v4/state"
 )
 
 type workspacePrefs struct {
@@ -2609,9 +2609,9 @@ func applyWorkspacePrefsSnapshot(getCtx context.Context, getUserID string) (bool
 package dashboard
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/state"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/state"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type queueModel struct {
@@ -3000,9 +3000,9 @@ import (
 	"context"
 	"time"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/fetch"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // renderStatusProbe owns one typed async read local to the current component.
@@ -3065,9 +3065,9 @@ import (
 	"context"
 	"time"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/fetch"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type deployPreview struct {
@@ -3145,8 +3145,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/fetch"
-	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/router"
 )
 
 type workspaceSummary struct {
@@ -3191,10 +3191,10 @@ package workspaceview
 import (
 	"context"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/fetch"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type workspaceSummary struct {
@@ -3247,7 +3247,7 @@ package mutationflow
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/fetch"
 )
 
 // buildMutationQueue opens the durable browser-backed replay queue for writes that must survive reloads.
@@ -3723,10 +3723,10 @@ Start with one router, a couple of routes, and imperative navigation from a norm
 package main
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 type routePageProps struct {
@@ -3790,9 +3790,9 @@ import (
 	"fmt"
 	"time"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // RenderReportsPage reads params, query state, and loader data from the matched route.
@@ -3854,10 +3854,10 @@ func BuildReportsLoader(getCtx context.Context, getRouteCtx router.RouteContext)
 package main
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 
 	"my-app/internal/reports"
 )
@@ -3907,7 +3907,7 @@ package routes
 import (
 	"net/url"
 
-	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/v4/router"
 )
 
 var (
@@ -3934,9 +3934,9 @@ func BuildAppGuard(getIsAuthenticated func() bool) router.GuardFunc {
 package shell
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // RenderWorkspaceLayout keeps app-level chrome mounted while nested child routes swap through the outlet.
@@ -3963,9 +3963,9 @@ func RenderProjectPage() ui.Node {
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 
 	"my-app/internal/routes"
 	"my-app/internal/shell"
@@ -4271,8 +4271,8 @@ import (
 	"fmt"
 	"net/http"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // renderLandingPage returns one server-rendered page tree.
@@ -4314,7 +4314,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type productPageData struct {
@@ -4371,8 +4371,8 @@ func handleProductsPage(getW http.ResponseWriter, getR *http.Request) {
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 // main restores the inline bootstrap payload and hydrates the existing DOM tree.
@@ -4409,7 +4409,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // handleDocsPage emits a sidecar bootstrap reference instead of inlining a larger payload.
@@ -4448,9 +4448,9 @@ package client
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 type docsBootstrapData struct {
@@ -4812,9 +4812,9 @@ package main
 import (
 	"context"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/interop"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type workspaceSavedPulse struct {
@@ -4923,9 +4923,9 @@ import (
 	"context"
 	"fmt"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/interop"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // renderUsageChartHost measures the host, watches it for resize, and lazily hands chart work to a JS module.
@@ -5027,7 +5027,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 type searchProgress struct {
@@ -5288,8 +5288,8 @@ import (
 	"fmt"
 	"strings"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type reviewForm struct {
@@ -5426,8 +5426,8 @@ package editor
 import (
 	"strings"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type articleForm struct {
@@ -5560,9 +5560,9 @@ In a larger app, keep locale state, routing policy, and accessibility shell beha
 package shell
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/i18n"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/i18n"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 var workspaceBundle = func() *i18n.Bundle {
@@ -5950,9 +5950,9 @@ import (
 	"fmt"
 	"testing"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	render "github.com/monstercameron/GoWebComponents/test/render"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	render "github.com/monstercameron/GoWebComponents/v4/test/render"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // renderSaveSettingsButton renders one small stateful control for a consumer-facing fixture test.
@@ -5998,10 +5998,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/devtools"
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/logging"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/devtools"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/logging"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // renderDiagnosticsShell embeds a small summary, the full panel, and the focused error overlay.
@@ -6060,7 +6060,7 @@ When a team needs reproducible troubleshooting, capture a local bug bundle, deri
 ```go gwc:build
 package support
 
-import "github.com/monstercameron/GoWebComponents/devtools"
+import "github.com/monstercameron/GoWebComponents/v4/devtools"
 
 type supportArtifacts struct {
 	BugJSON           []byte
@@ -6486,7 +6486,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/monstercameron/GoWebComponents/pwa"
+	"github.com/monstercameron/GoWebComponents/v4/pwa"
 )
 
 // buildInstallableManifest returns the app-owned manifest that will be linked from HTML.
@@ -6549,8 +6549,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/monstercameron/GoWebComponents/fetch"
-	"github.com/monstercameron/GoWebComponents/pwa"
+	"github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v4/pwa"
 )
 
 // loadReleaseCachePlan converts one emitted release manifest into service-worker and Cache Storage plans.
@@ -6637,10 +6637,10 @@ package export
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/head"
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/head"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // getExportedAssetManifest returns the logical-to-emitted asset map for the current export.
@@ -6981,9 +6981,9 @@ test/
 package app
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type appEnv struct {
@@ -7060,9 +7060,9 @@ import (
 	"context"
 	"fmt"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type routeProps struct {
@@ -7523,8 +7523,8 @@ When you choose to use an experimental API, keep it behind one app-owned wrapper
 package search
 
 import (
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type searchModel struct {
@@ -7589,7 +7589,7 @@ import (
 	"net/url"
 	"sort"
 
-	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/v4/router"
 )
 
 type routeRecord struct {
@@ -7935,7 +7935,7 @@ Important boundary:
 
 ## ui
 
-Import with `import "github.com/monstercameron/GoWebComponents/ui"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/ui"`.
 
 Source anchors:
 
@@ -7999,7 +7999,7 @@ Constants and sentinels you will search for:
 
 ## html
 
-Import with `import html "github.com/monstercameron/GoWebComponents/html"`.
+Import with `import html "github.com/monstercameron/GoWebComponents/v4/html"`.
 
 Source anchors:
 
@@ -8032,7 +8032,7 @@ Important parameter objects:
 
 ## html/shorthand
 
-Import with `import h "github.com/monstercameron/GoWebComponents/html/shorthand"`.
+Import with `import h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"`.
 
 Source anchors:
 
@@ -8051,7 +8051,7 @@ Source anchors:
 
 ## state
 
-Import with `import "github.com/monstercameron/GoWebComponents/state"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/state"`.
 
 Source anchors:
 
@@ -8081,7 +8081,7 @@ Storage constants:
 
 ## fetch
 
-Import with `import "github.com/monstercameron/GoWebComponents/fetch"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/fetch"`.
 
 Source anchors:
 
@@ -8116,7 +8116,7 @@ Constants and keys:
 
 ## flags
 
-Import with `import "github.com/monstercameron/GoWebComponents/flags"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/flags"`.
 
 Use this package only for evaluated, non-secret decisions that are safe for
 browser-visible state.
@@ -8129,7 +8129,7 @@ browser-visible state.
 
 ## router
 
-Import with `import "github.com/monstercameron/GoWebComponents/router"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/router"`.
 
 Source anchors:
 
@@ -8162,7 +8162,7 @@ Key router handles:
 
 ## interop
 
-Import with `import "github.com/monstercameron/GoWebComponents/interop"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/interop"`.
 
 Source anchors:
 
@@ -8194,7 +8194,7 @@ Important public protocol types:
 
 ## i18n
 
-Import with `import "github.com/monstercameron/GoWebComponents/i18n"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/i18n"`.
 
 Source anchors:
 
@@ -8218,7 +8218,7 @@ Key i18n objects:
 
 ## devtools
 
-Import with `import "github.com/monstercameron/GoWebComponents/devtools"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/devtools"`.
 
 Source anchors:
 
@@ -8259,7 +8259,7 @@ Internal kernel note:
 
 ## head
 
-Import with `import "github.com/monstercameron/GoWebComponents/head"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/head"`.
 
 Source anchors:
 
@@ -8273,7 +8273,7 @@ Source anchors:
 
 ## pwa
 
-Import with `import "github.com/monstercameron/GoWebComponents/pwa"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/pwa"`.
 
 Source anchors:
 
@@ -8301,7 +8301,7 @@ Key PWA objects:
 
 ## plugin
 
-Import with `import "github.com/monstercameron/GoWebComponents/plugin"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/plugin"`.
 
 Source anchors:
 
@@ -8329,7 +8329,7 @@ Boundary note:
 
 ## virtualization
 
-Import with `import "github.com/monstercameron/GoWebComponents/virtualization"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/virtualization"`.
 
 Source anchors:
 
@@ -8349,7 +8349,7 @@ Key virtualization objects:
 
 ## prerender
 
-Import with `import "github.com/monstercameron/GoWebComponents/prerender"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/prerender"`.
 
 Source anchors:
 
@@ -8361,7 +8361,7 @@ Source anchors:
 
 ## diagnostics
 
-Import with `import "github.com/monstercameron/GoWebComponents/diagnostics"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/diagnostics"`.
 
 Source anchors:
 
@@ -8373,7 +8373,7 @@ Source anchors:
 
 ## hotreload
 
-Import with `import "github.com/monstercameron/GoWebComponents/hotreload"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/hotreload"`.
 
 Source anchors:
 
@@ -8388,7 +8388,7 @@ Source anchors:
 
 ## logging
 
-Import with `import "github.com/monstercameron/GoWebComponents/logging"`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/logging"`.
 
 Source anchors:
 
@@ -8416,7 +8416,7 @@ Record shape notes:
 
 ## utils
 
-Import with `import "github.com/monstercameron/GoWebComponents/utils"` in js/wasm builds.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/utils"` in js/wasm builds.
 
 Source anchors:
 
@@ -8433,7 +8433,7 @@ Source anchors:
 
 ## testkit/render
 
-Import with `import render "github.com/monstercameron/GoWebComponents/testkit/render"`.
+Import with `import render "github.com/monstercameron/GoWebComponents/v4/testkit/render"`.
 
 Source anchors:
 
@@ -8453,7 +8453,7 @@ Important fixture surface:
 
 ## testkit/hooks
 
-Import with `import hooks "github.com/monstercameron/GoWebComponents/testkit/hooks"`.
+Import with `import hooks "github.com/monstercameron/GoWebComponents/v4/testkit/hooks"`.
 
 Source anchors:
 
@@ -8470,7 +8470,7 @@ Key hook harness object:
 
 ## testkit/router
 
-Import with `import routertest "github.com/monstercameron/GoWebComponents/testkit/router"`.
+Import with `import routertest "github.com/monstercameron/GoWebComponents/v4/testkit/router"`.
 
 Source anchors:
 
@@ -8489,7 +8489,7 @@ Important router fixture surface:
 
 ## testkit/ssr
 
-Import with `import ssr "github.com/monstercameron/GoWebComponents/testkit/ssr"`.
+Import with `import ssr "github.com/monstercameron/GoWebComponents/v4/testkit/ssr"`.
 
 Source anchors:
 
@@ -8509,7 +8509,7 @@ Key SSR test objects:
 
 ## query
 
-Import with `import "github.com/monstercameron/GoWebComponents/query"`. Source: [query/query.go](../../query/query.go). Consume in components via the `ui.UseQuery` / `ui.UseMutation` / `ui.UseSuspenseQuery` hooks.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/query"`. Source: [query/query.go](../../query/query.go). Consume in components via the `ui.UseQuery` / `ui.UseMutation` / `ui.UseSuspenseQuery` hooks.
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -8520,7 +8520,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/query"`. Source: 
 
 ## serverfn
 
-Import with `import "github.com/monstercameron/GoWebComponents/serverfn"`. Source: [serverfn/serverfn.go](../../serverfn/serverfn.go). Generate stubs/wiring with `gwc server gen`.
+Import with `import "github.com/monstercameron/GoWebComponents/v4/serverfn"`. Source: [serverfn/serverfn.go](../../serverfn/serverfn.go). Generate stubs/wiring with `gwc server gen`.
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -8530,7 +8530,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/serverfn"`. Sourc
 
 ## wholestack
 
-Import with `import "github.com/monstercameron/GoWebComponents/wholestack"`. Source: [wholestack/wholestack.go](../../wholestack/wholestack.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v4/wholestack"`. Source: [wholestack/wholestack.go](../../wholestack/wholestack.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -8538,7 +8538,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/wholestack"`. Sou
 
 ## localfirst
 
-Import with `import "github.com/monstercameron/GoWebComponents/localfirst"`. Source: [localfirst/localfirst.go](../../localfirst/localfirst.go), [localfirst/presence.go](../../localfirst/presence.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v4/localfirst"`. Source: [localfirst/localfirst.go](../../localfirst/localfirst.go), [localfirst/presence.go](../../localfirst/presence.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -8550,7 +8550,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/localfirst"`. Sou
 
 ## agentui
 
-Import with `import "github.com/monstercameron/GoWebComponents/agentui"`. Source: [agentui/agentui.go](../../agentui/agentui.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v4/agentui"`. Source: [agentui/agentui.go](../../agentui/agentui.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -8560,7 +8560,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/agentui"`. Source
 
 ## timetravel
 
-Import with `import "github.com/monstercameron/GoWebComponents/timetravel"`. Source: [timetravel/timetravel.go](../../timetravel/timetravel.go), [timetravel/devpanel/devpanel.go](../../timetravel/devpanel/devpanel.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v4/timetravel"`. Source: [timetravel/timetravel.go](../../timetravel/timetravel.go), [timetravel/devpanel/devpanel.go](../../timetravel/devpanel/devpanel.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -8570,7 +8570,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/timetravel"`. Sou
 
 ## anim
 
-Import with `import "github.com/monstercameron/GoWebComponents/anim"`. Source: [anim/anim.go](../../anim/anim.go), [anim/transitions.go](../../anim/transitions.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v4/anim"`. Source: [anim/anim.go](../../anim/anim.go), [anim/transitions.go](../../anim/transitions.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -8581,7 +8581,7 @@ Import with `import "github.com/monstercameron/GoWebComponents/anim"`. Source: [
 
 ## ui/erroroverlay
 
-Import with `import "github.com/monstercameron/GoWebComponents/ui/erroroverlay"`. Source: [ui/erroroverlay/erroroverlay.go](../../ui/erroroverlay/erroroverlay.go).
+Import with `import "github.com/monstercameron/GoWebComponents/v4/ui/erroroverlay"`. Source: [ui/erroroverlay/erroroverlay.go](../../ui/erroroverlay/erroroverlay.go).
 
 | Surface | Use it for | Parameter objects / handles | Call shape |
 | --- | --- | --- | --- |
@@ -8650,17 +8650,17 @@ Topic 16 of 16. Use previous and next to move through the ordered manual chapter
 | Devtools & diagnostics | `devtools` | [devtools-panel](../../examples/public/devtools-panel/) | [12-devtools-testing-and-observability.md](12-devtools-testing-and-observability.md) |
 | PWA & offline | `pwa` | [progressive-web-app-offline-cache](../../examples/public/progressive-web-app-offline-cache/) | [13-assets-deployment-and-pwa.md](13-assets-deployment-and-pwa.md) |
 | Feature flags | `flags` | [feature-flags](../../examples/public/feature-flags/) | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
-| Fine-grained signals | `state` | — | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
+| Fine-grained signals | `state` | [fine-grained-signal](../../examples/public/fine-grained-signal/) | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
 | Server functions (//gwc:server) | `serverfn` | — | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
-| Query cache & mutations | `query`, `ui` | — | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
-| Generative UI (agent-native) | `agentui` | — | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
+| Query cache & mutations | `query`, `ui` | [use-query](../../examples/public/use-query/) | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
+| Generative UI (agent-native) | `agentui` | [agentui-registry](../../examples/public/agentui-registry/) | [07-data-loading-and-mutations.md](07-data-loading-and-mutations.md) |
 | Whole-stack one-binary deploy | `wholestack`, `serverfn` | — | [13-assets-deployment-and-pwa.md](13-assets-deployment-and-pwa.md) |
-| Local-first CRDT sync | `localfirst` | — | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
-| Time-travel devtools | `timetravel` | — | [12-devtools-testing-and-observability.md](12-devtools-testing-and-observability.md) |
-| Animations & FLIP | `anim` | [flip-demo](../../examples/public/flip-demo/) | [04-ui-rendering-and-hooks.md](04-ui-rendering-and-hooks.md) |
-| Two-way binding | `html` | — | [05-html-authoring.md](05-html-authoring.md) |
-| Named slots | `html/shorthand` | — | [05-html-authoring.md](05-html-authoring.md) |
-| Typed search params | `router` | — | [08-routing.md](08-routing.md) |
+| Local-first CRDT sync | `localfirst` | [localfirst-crdt](../../examples/public/localfirst-crdt/) | [06-state-and-reactivity.md](06-state-and-reactivity.md) |
+| Time-travel devtools | `timetravel` | [timetravel-devpanel](../../examples/public/timetravel-devpanel/) | [12-devtools-testing-and-observability.md](12-devtools-testing-and-observability.md) |
+| Animations & FLIP | `anim` | [flip-keyed-list](../../examples/public/flip-keyed-list/) | [04-ui-rendering-and-hooks.md](04-ui-rendering-and-hooks.md) |
+| Two-way binding | `html` | [bind-to](../../examples/public/bind-to/) | [05-html-authoring.md](05-html-authoring.md) |
+| Named slots | `html/shorthand` | [named-slots](../../examples/public/named-slots/) | [05-html-authoring.md](05-html-authoring.md) |
+| Typed search params | `router` | [typed-decode-query](../../examples/public/typed-decode-query/) | [08-routing.md](08-routing.md) |
 | Typed i18n message accessors | `i18n` | — | [11-forms-accessibility-and-i18n.md](11-forms-accessibility-and-i18n.md) |
 
 

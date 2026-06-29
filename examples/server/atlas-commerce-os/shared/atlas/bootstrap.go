@@ -5,7 +5,7 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 const atlasBootstrapDataKey = "atlas"

@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/internal/sqlfiles"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/internal/sqlfiles"
 )
 
 // parseLoadStoreQuery loads one SQL file into one store query field.

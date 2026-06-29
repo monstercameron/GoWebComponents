@@ -87,9 +87,9 @@ package main
 import (
 	"context"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/interop"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type workspaceSavedPulse struct {
@@ -198,9 +198,9 @@ import (
 	"context"
 	"fmt"
 
-	h "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/interop"
-	"github.com/monstercameron/GoWebComponents/ui"
+	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // renderUsageChartHost measures the host, watches it for resize, and lazily hands chart work to a JS module.
@@ -302,7 +302,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 type searchProgress struct {

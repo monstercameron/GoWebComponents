@@ -1,8 +1,8 @@
 package html
 
 import (
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // Ref binds a ui.DOMRef to the element so its live DOM node is published into the

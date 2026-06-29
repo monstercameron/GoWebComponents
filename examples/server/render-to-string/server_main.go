@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/diagnostics"
-	"github.com/monstercameron/GoWebComponents/head"
-	gwchtml "github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v4/head"
+	gwchtml "github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 const (

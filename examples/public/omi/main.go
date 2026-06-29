@@ -6,11 +6,11 @@ package main
 import (
 	"context"
 	"fmt"
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/examples/internal/exampleboot"
-	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/v4/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/v4/router"
 )
 
 func main() {

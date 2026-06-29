@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/diagnostics"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 const (

@@ -3,7 +3,7 @@ package workbench_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/apidump"
+	"github.com/monstercameron/GoWebComponents/v4/internal/apidump"
 )
 
 // TestPublicAPIBaseline pins this package's exported surface (see internal/apidump).

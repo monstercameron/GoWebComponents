@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 func TestObserveInstallabilityTracksPromptAvailabilityAndInstall(parseT *testing.T) {

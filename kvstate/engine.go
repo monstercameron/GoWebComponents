@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v4/db/sqlite"
 )
 
 // engine bundles a PersistenceBackend with the durable flush it is paced by.

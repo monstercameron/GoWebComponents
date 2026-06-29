@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/css"
+	"github.com/monstercameron/GoWebComponents/v4/css"
 )
 
 // TestGlobalRulesParticipateInSeedSuppression proves css.Global / css.Root rules

@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/localfirst"
-	"github.com/monstercameron/GoWebComponents/localfirst/facepile"
+	"github.com/monstercameron/GoWebComponents/v4/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/localfirst"
+	"github.com/monstercameron/GoWebComponents/v4/localfirst/facepile"
 )
 
 // TestFacepileRendersLivePeers renders the presence facepile headlessly and asserts every

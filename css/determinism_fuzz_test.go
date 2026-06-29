@@ -5,7 +5,7 @@ package css_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/css"
+	"github.com/monstercameron/GoWebComponents/v4/css"
 )
 
 // FuzzNewOrderIndependence fuzzes the documented determinism invariant: folding

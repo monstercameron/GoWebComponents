@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/internal/runtime2"
+import "github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 
 const parallelRegionClickSlotProp = "data-gwc-parallel-click-slot"
 const parallelRegionClickEventType = "click"

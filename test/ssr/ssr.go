@@ -3,8 +3,8 @@ package ssr
 import (
 	stdtesting "testing"
 
-	base "github.com/monstercameron/GoWebComponents/testkit/ssr"
-	"github.com/monstercameron/GoWebComponents/ui"
+	base "github.com/monstercameron/GoWebComponents/v4/testkit/ssr"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type Snapshot = base.Snapshot

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/client/cachecore"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/client/cachecore"
 )
 
 // TestStoreReadSettingsSnapshot verifies settings snapshots bootstrap quickly with snapshot-first reads and SWR refresh.

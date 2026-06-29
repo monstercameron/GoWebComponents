@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestBinaryTransportEndToEndHostSnapshotToWorkerUpdate verifies one display-only region flows through host snapshot capture, binary transport, and worker update.

@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/internal/runtime"
+import "github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 
 // WASMStackFrame describes one wasm/browser panic frame (function, source file, line) for
 // stack-correlation mapping. It is the public alias of the runtime frame type.

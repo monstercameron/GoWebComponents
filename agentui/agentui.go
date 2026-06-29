@@ -17,8 +17,8 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // Node is the typed, JSON-serializable renderable schema an agent emits.

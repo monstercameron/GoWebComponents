@@ -3,7 +3,7 @@ package runtime2
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/pluginruntime"
 )
 
 // TestBuildRuntime2MetaServiceNormalizesCapabilityReport verifies runtime2 capability metadata is exposed through the plugin service.

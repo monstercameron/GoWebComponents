@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/router"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestTreeSummaryWasmRendersSelectedNodeAndHierarchy verifies the tree inspector renders selected-node details, cache matches, and nested tree rows.

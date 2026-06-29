@@ -7,8 +7,8 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/css"
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/css"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 func main() {

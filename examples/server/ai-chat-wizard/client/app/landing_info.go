@@ -3,9 +3,9 @@
 package app
 
 import (
-	. "github.com/monstercameron/GoWebComponents/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/i18n"
-	"github.com/monstercameron/GoWebComponents/ui"
+	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v4/i18n"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // isInfoLandingPage reports whether parsePage is one of the six static info pages.

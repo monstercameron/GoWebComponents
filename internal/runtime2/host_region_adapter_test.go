@@ -3,7 +3,7 @@ package runtime2_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestBuildHostRegionAdapterOwnsRuntimeHandles verifies one host adapter owns the required runtime2 handles for a live region.

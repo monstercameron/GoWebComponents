@@ -4,10 +4,10 @@ import (
 	"errors"
 	"strings"
 
-	chatpb "github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/examples/server/ai-chat-wizard/server/catalog"
-	"github.com/monstercameron/GoWebComponents/i18n"
-	"github.com/monstercameron/GoWebComponents/ui"
+	chatpb "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/server/catalog"
+	"github.com/monstercameron/GoWebComponents/v4/i18n"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 var errCatalogNamespaceRequired = errors.New("catalog namespace is required")

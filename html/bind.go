@@ -1,6 +1,6 @@
 package html
 
-import "github.com/monstercameron/GoWebComponents/ui"
+import "github.com/monstercameron/GoWebComponents/v4/ui"
 
 // Bind wires a controlled input to a string State in one call (U6): it sets the
 // element's value from the state and updates the state on input. Replaces the

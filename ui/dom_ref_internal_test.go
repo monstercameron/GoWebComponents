@@ -5,7 +5,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 // fakeFocusNode is a runtime.DOMNode that also implements the imperative-handle capabilities

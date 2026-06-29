@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 // TestAtlasInventoryRenderBranchesCoverOverlaysAndFilters verifies inventory renderers, reducers, and filter helpers.

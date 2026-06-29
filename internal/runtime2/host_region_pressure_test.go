@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // TestHostRegionMultipleRegionsSharingOneRendererIDCoverage verifies multiple regions can mount and update while sharing one renderer ID.

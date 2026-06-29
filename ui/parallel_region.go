@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
 )
 
 // ParallelRegionSpec stores the public serializable input contract for one parallel region instance.

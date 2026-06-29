@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	serverauth "github.com/monstercameron/GoWebComponents/examples/server/atlas-commerce-os/server/auth"
-	serverdb "github.com/monstercameron/GoWebComponents/examples/server/atlas-commerce-os/server/db"
-	"github.com/monstercameron/GoWebComponents/examples/server/atlas-commerce-os/shared/atlas"
-	"github.com/monstercameron/GoWebComponents/examples/server/atlas-commerce-os/shared/repository"
-	"github.com/monstercameron/GoWebComponents/ui"
+	serverauth "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/auth"
+	serverdb "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/db"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/shared/atlas"
+	"github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/shared/repository"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
 type atlasServer struct {

@@ -12,10 +12,10 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/monstercameron/GoWebComponents/anim"
-	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
+	"github.com/monstercameron/GoWebComponents/v4/anim"
+	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v4/utils"
 )
 
 // parseSpringProps holds the (empty) props for the spring demo component.

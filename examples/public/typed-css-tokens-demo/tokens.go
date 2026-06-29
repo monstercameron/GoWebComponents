@@ -9,8 +9,8 @@
 package typedcsstokensdemo
 
 import (
-	"github.com/monstercameron/GoWebComponents/css"
-	"github.com/monstercameron/GoWebComponents/css/u"
+	"github.com/monstercameron/GoWebComponents/v4/css"
+	"github.com/monstercameron/GoWebComponents/v4/css/u"
 )
 
 // BrandTheme is the custom theme these tokens are generated from. Activate it before

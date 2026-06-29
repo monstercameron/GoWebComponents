@@ -15,7 +15,7 @@ import (
 func TestExtractFromSource_BasicCalls(t *testing.T) {
 	parseSrc := `package app
 
-import "github.com/monstercameron/GoWebComponents/i18n"
+import "github.com/monstercameron/GoWebComponents/v4/i18n"
 
 func parseExample() {
 	parseRt := i18n.UseI18n()

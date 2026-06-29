@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/plugin"
-	"github.com/monstercameron/GoWebComponents/plugin/conformance"
+	"github.com/monstercameron/GoWebComponents/v4/plugin"
+	"github.com/monstercameron/GoWebComponents/v4/plugin/conformance"
 )
 
 // ---------------------------------------------------------------------------

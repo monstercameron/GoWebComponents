@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/interop"
+	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
 
 // BatchDispatchOptions configures one lane-batched multi-worker request pass that aggregates chunk results by index.
