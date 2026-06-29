@@ -107,13 +107,13 @@ jobs:
             # (the previously published tag during a tag push) always has it.
             $main = @(
               'package main',
-              'import "github.com/monstercameron/GoWebComponents/ui"',
+              'import "github.com/monstercameron/GoWebComponents/v4/ui"',
               'var _ = ui.Text("release-smoke")',
               'func main() {}'
             ) -join "`n"
             Set-Content -Path (Join-Path $workDir "main.go") -Value $main -Encoding utf8
-            go get github.com/monstercameron/GoWebComponents@latest
-            if ($LASTEXITCODE -ne 0) { throw "go get GoWebComponents@latest failed" }
+            go get github.com/monstercameron/GoWebComponents/v4@latest
+            if ($LASTEXITCODE -ne 0) { throw "go get GoWebComponents/v4@latest failed" }
             go build ./...
             if ($LASTEXITCODE -ne 0) { throw "native consumer build failed" }
             $env:GOOS = "js"; $env:GOARCH = "wasm"
