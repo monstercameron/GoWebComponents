@@ -498,7 +498,36 @@ func renderScaffoldGoMod(parseSelection startSelection, parseRepoModulePath stri
 		parseBuilder.WriteString("\n")
 		parseBuilder.WriteString(fmt.Sprintf("replace %s => %s\n", parseRepoModulePath, filepath.ToSlash(filepath.Clean(parseRepoRoot))))
 	}
+	// Browser-test starters import playwright-go (behind the playwrightgo build tag), but it is not
+	// otherwise in the scaffold's dependency graph. Pin it explicitly — version read from the repo's
+	// go.mod — so `go mod tidy` resolves it deterministically from the seeded go.sum + module cache
+	// instead of trying to discover the version over the network (which fails under GOPROXY=off / CI).
+	if scaffoldHasFeature(startSelectionFeatures(parseSelection), "browser-tests") {
+		if parseVersion := readRepoDependencyVersion(parseRepoRoot, "github.com/playwright-community/playwright-go"); parseVersion != "" {
+			parseBuilder.WriteString(fmt.Sprintf("\nrequire github.com/playwright-community/playwright-go %s\n", parseVersion))
+		}
+	}
 	return parseBuilder.String()
+}
+
+// readRepoDependencyVersion returns the version of parseModulePath as required by the repo's go.mod,
+// or "" when the repo root is unset, the file is unreadable, or the module is not required. It scans
+// require lines (block or single-line form), ignoring replace/module directives.
+func readRepoDependencyVersion(parseRepoRoot string, parseModulePath string) string {
+	if strings.TrimSpace(parseRepoRoot) == "" {
+		return ""
+	}
+	parseContent, parseErr := os.ReadFile(filepath.Join(parseRepoRoot, "go.mod"))
+	if parseErr != nil {
+		return ""
+	}
+	for parseLine := range strings.SplitSeq(string(parseContent), "\n") {
+		parseFields := strings.Fields(parseLine)
+		if len(parseFields) == 2 && parseFields[0] == parseModulePath && strings.HasPrefix(parseFields[1], "v") {
+			return parseFields[1]
+		}
+	}
+	return ""
 }
 
 type scaffoldFeatureDescriptor struct {
