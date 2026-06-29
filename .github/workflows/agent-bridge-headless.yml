@@ -1,0 +1,87 @@
+name: Agent Bridge Headless
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/agent-bridge-headless.yml"
+      - "AGENTS.md"
+      - "agentbridge/**"
+      - "docs/REFERENCE_MANUAL/**"
+      - "examples/public-examples-site/assets/docs/**"
+      - "examples/server/ai-chat-wizard/**"
+      - "internal/runtime/**"
+      - "security/**"
+      - "test/playwrightgo/**"
+      - "tools/agenthub/**"
+      - "tools/gwc/**"
+      - "tools/livereload/**"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - ".github/workflows/agent-bridge-headless.yml"
+      - "AGENTS.md"
+      - "agentbridge/**"
+      - "docs/REFERENCE_MANUAL/**"
+      - "examples/public-examples-site/assets/docs/**"
+      - "examples/server/ai-chat-wizard/**"
+      - "internal/runtime/**"
+      - "security/**"
+      - "test/playwrightgo/**"
+      - "tools/agenthub/**"
+      - "tools/gwc/**"
+      - "tools/livereload/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PLAYWRIGHT_GO_VERSION: v0.5700.1
+
+jobs:
+  bridge-headless:
+    name: Bridge Native + Headless Dogfood
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Install Playwright Chromium
+        run: go run github.com/playwright-community/playwright-go/cmd/playwright@${{ env.PLAYWRIGHT_GO_VERSION }} install --with-deps chromium
+
+      - name: Run native agent bridge lane
+        run: go run ./tools/gwc test -lane agent -json
+
+      - name: Prebuild agent dogfood client
+        run: |
+          mkdir -p examples/server/ai-chat-wizard/bin/client/app
+          GOOS=js GOARCH=wasm go build -tags gwcagent -o examples/server/ai-chat-wizard/bin/client/app/chat.wasm ./examples/server/ai-chat-wizard/client
+
+      - name: Prebuild agent dogfood server
+        run: |
+          mkdir -p bin/ci
+          go build -o bin/ci/example100-agent-dogfood-server ./examples/server/ai-chat-wizard/cmd/server
+
+      - name: Run headless agent bridge dogfood lane
+        env:
+          GWC_AGENT_DOGFOOD_REUSE_CLIENT_WASM: "1"
+          GWC_AGENT_DOGFOOD_SERVER_BINARY: bin/ci/example100-agent-dogfood-server
+          GWC_AGENT_DOGFOOD_TRACE: "1"
+        run: |
+          while sleep 20; do
+            echo "agent-browser dogfood still running..."
+          done &
+          keepalive_pid="$!"
+          trap 'kill "$keepalive_pid" 2>/dev/null || true' EXIT
+          go test -tags playwrightgo -run 'TestExample100AgentBridgeDogfood|TestAgentBridgeDogfood|TestAgentBridgeHeadless' -count=1 -timeout=5m -v ./test/playwrightgo/examples

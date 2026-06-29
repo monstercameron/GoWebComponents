@@ -1,0 +1,72 @@
+name: Catalog Smoke
+
+# FA3: prove every `gwc add` catalog component compiles AFTER being copied into a fresh module
+# (not just in-repo). For each component we scaffold a throwaway module that requires the local
+# GoWebComponents via a replace directive, `gwc add` the component, write a tiny consumer, and
+# `go build` it. A template that does not compile standalone fails the gate.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  catalog-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build gwc
+        run: go build -o gwc ./tools/gwc
+
+      - name: gwc add → go build each catalog component
+        shell: bash
+        run: |
+          repo="$(pwd)"
+          for name in alert breadcrumb disclosure switch tabs; do
+            work="$(mktemp -d)"
+            ( cd "$work"
+              go mod init example.com/catalog-smoke
+              echo "require github.com/monstercameron/GoWebComponents v0.0.0" >> go.mod
+              echo "replace github.com/monstercameron/GoWebComponents => $repo" >> go.mod
+              mkdir -p uikit
+              "$repo/gwc" add "$name" -dir ./uikit -pkg uikit
+              # Tiny consumer so the package is actually compiled, not just present.
+              printf 'package main\nimport _ "example.com/catalog-smoke/uikit"\nfunc main() {}\n' > main.go
+              go mod tidy
+              echo "Building catalog component: $name"
+              go build ./...
+            )
+            rm -rf "$work"
+          done
+
+      - name: gwc add component/route generators → go build
+        # A3 10-rung "CI-verified": the composable sub-generators must also produce compiling code
+        # in a fresh module, not just parse. Scaffold a component and a route into a throwaway
+        # module and build them.
+        shell: bash
+        run: |
+          repo="$(pwd)"
+          work="$(mktemp -d)"
+          ( cd "$work"
+            go mod init example.com/generator-smoke
+            echo "require github.com/monstercameron/GoWebComponents v0.0.0" >> go.mod
+            echo "replace github.com/monstercameron/GoWebComponents => $repo" >> go.mod
+            "$repo/gwc" add component MyWidget -dir ./ui -pkg ui
+            "$repo/gwc" add route Home -path /home -dir ./ui -pkg ui
+            printf 'package main\nimport _ "example.com/generator-smoke/ui"\nfunc main() {}\n' > main.go
+            go mod tidy
+            echo "Building generated component + route"
+            go build ./...
+          )
+          rm -rf "$work"

@@ -1,0 +1,1609 @@
+{
+  "generatedAt": "2026-03-22T00:35:40Z",
+  "totalExamples": 101,
+  "wasmExamples": 96,
+  "multiClientExamples": 5,
+  "examples": [
+    {
+      "name": "01-counter",
+      "href": "../01-counter/counter.html",
+      "htmlFile": "counter.html",
+      "title": "Counter Example - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "counter.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "counter",
+        "ui"
+      ]
+    },
+    {
+      "name": "02-text-input",
+      "href": "../02-text-input/text-input.html",
+      "htmlFile": "text-input.html",
+      "title": "text-input Example - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "text-input.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "text-input",
+        "text",
+        "input",
+        "ui"
+      ]
+    },
+    {
+      "name": "03-toggle",
+      "href": "../03-toggle/toggle.html",
+      "htmlFile": "toggle.html",
+      "title": "Toggle Example - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "toggle.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "toggle",
+        "ui"
+      ]
+    },
+    {
+      "name": "04-form",
+      "href": "../04-form/form.html",
+      "htmlFile": "form.html",
+      "title": "Form - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "form.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "form",
+        "ui",
+        "forms"
+      ]
+    },
+    {
+      "name": "05-todo-basic",
+      "href": "../05-todo-basic/todo-basic.html",
+      "htmlFile": "todo-basic.html",
+      "title": "Todo Basic - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "todo-basic.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "todo-basic",
+        "todo",
+        "basic",
+        "ui"
+      ]
+    },
+    {
+      "name": "06-todo-advanced",
+      "href": "../06-todo-advanced/todo-advanced.html",
+      "htmlFile": "todo-advanced.html",
+      "title": "Todo Advanced - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "todo-advanced.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "todo-advanced",
+        "todo",
+        "advanced",
+        "ui"
+      ]
+    },
+    {
+      "name": "07-goroutines",
+      "href": "../07-goroutines/goroutines.html",
+      "htmlFile": "goroutines.html",
+      "title": "Goroutines - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "goroutines.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "goroutines",
+        "ui",
+        "scheduling"
+      ]
+    },
+    {
+      "name": "08-fetch",
+      "href": "../08-fetch/fetch.html",
+      "htmlFile": "fetch.html",
+      "title": "Fetch - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "fetch.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "fetch",
+        "ui"
+      ]
+    },
+    {
+      "name": "09-atoms",
+      "href": "../09-atoms/atoms.html",
+      "htmlFile": "atoms.html",
+      "title": "Atoms - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "atoms.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "atoms",
+        "ui"
+      ]
+    },
+    {
+      "name": "10-advanced-form",
+      "href": "../10-advanced-form/advanced-form.html",
+      "htmlFile": "advanced-form.html",
+      "title": "advanced-form Example - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "advanced-form.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "advanced-form",
+        "advanced",
+        "form",
+        "ui",
+        "forms"
+      ]
+    },
+    {
+      "name": "11-blog",
+      "href": "../11-blog/blog.html",
+      "htmlFile": "blog.html",
+      "title": "Blog Landing Page - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "blog.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "blog",
+        "ui"
+      ]
+    },
+    {
+      "name": "12-portfolio-site",
+      "href": "../12-portfolio-site/portfolio.html",
+      "htmlFile": "portfolio.html",
+      "title": "Portfolio Site - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "portfolio-site.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "portfolio-site",
+        "portfolio",
+        "site",
+        "ui"
+      ]
+    },
+    {
+      "name": "13-browser-compiler",
+      "href": "../13-browser-compiler/index.html",
+      "htmlFile": "index.html",
+      "title": "Personal Website 2025 - Real-time Go WASM Compiler",
+      "usesWasm": false,
+      "multiClient": false,
+      "tags": [
+        "browser",
+        "compiler",
+        "ui"
+      ]
+    },
+    {
+      "name": "14-omi",
+      "href": "../14-omi/omi.html",
+      "htmlFile": "omi.html",
+      "title": "OMI Example - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "omi.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "omi",
+        "ui"
+      ]
+    },
+    {
+      "name": "15-calculator",
+      "href": "../15-calculator/calculator.html",
+      "htmlFile": "calculator.html",
+      "title": "Signal Calculator - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "calculator.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "calculator",
+        "ui"
+      ]
+    },
+    {
+      "name": "16-devtools",
+      "href": "../16-devtools/devtools.html",
+      "htmlFile": "devtools.html",
+      "title": "Devtools Example - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "devtools.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "devtools",
+        "ui"
+      ]
+    },
+    {
+      "name": "17-ssr-routing",
+      "href": "../17-ssr-routing/ssr-routing.html",
+      "htmlFile": "ssr-routing.html",
+      "title": "SSR Routing Demo - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "ssr-routing.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "ssr-routing",
+        "ssr",
+        "routing",
+        "ui"
+      ]
+    },
+    {
+      "name": "18-ssr-server-routing",
+      "href": "../18-ssr-server-routing/index.html",
+      "htmlFile": "index.html",
+      "title": "Server SSR Routing Demo",
+      "usesWasm": false,
+      "multiClient": false,
+      "tags": [
+        "ssr",
+        "server",
+        "routing",
+        "ui"
+      ]
+    },
+    {
+      "name": "19-nested-routes",
+      "href": "../19-nested-routes/nested-routes.html",
+      "htmlFile": "nested-routes.html",
+      "title": "Nested Routes - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "nested-routes.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "nested-routes",
+        "nested",
+        "routes",
+        "ui"
+      ]
+    },
+    {
+      "name": "20-portals",
+      "href": "../20-portals/portals.html",
+      "htmlFile": "portals.html",
+      "title": "Portals - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "portals.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "portals",
+        "ui",
+        "overlays"
+      ]
+    },
+    {
+      "name": "21-ui-render",
+      "href": "../21-ui-render/ui-render.html",
+      "htmlFile": "ui-render.html",
+      "title": "ui.Render - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "ui-render.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "ui-render",
+        "ui",
+        "render"
+      ]
+    },
+    {
+      "name": "22-create-element",
+      "href": "../22-create-element/create-element.html",
+      "htmlFile": "create-element.html",
+      "title": "ui.CreateElement - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "create-element.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "create-element",
+        "create",
+        "element",
+        "ui"
+      ]
+    },
+    {
+      "name": "23-fragment",
+      "href": "../23-fragment/fragment.html",
+      "htmlFile": "fragment.html",
+      "title": "ui.Fragment - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "fragment.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "fragment",
+        "ui"
+      ]
+    },
+    {
+      "name": "24-use-ref",
+      "href": "../24-use-ref/use-ref.html",
+      "htmlFile": "use-ref.html",
+      "title": "ui.UseRef - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-ref.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-ref",
+        "use",
+        "ref",
+        "ui"
+      ]
+    },
+    {
+      "name": "25-use-previous",
+      "href": "../25-use-previous/use-previous.html",
+      "htmlFile": "use-previous.html",
+      "title": "ui.UsePrevious - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-previous.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-previous",
+        "use",
+        "previous",
+        "ui"
+      ]
+    },
+    {
+      "name": "26-use-deferred-value",
+      "href": "../26-use-deferred-value/use-deferred-value.html",
+      "htmlFile": "use-deferred-value.html",
+      "title": "ui.UseDeferredValue - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-deferred-value.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-deferred-value",
+        "use",
+        "deferred",
+        "value",
+        "ui",
+        "scheduling"
+      ]
+    },
+    {
+      "name": "27-transition-hooks",
+      "href": "../27-transition-hooks/transition-hooks.html",
+      "htmlFile": "transition-hooks.html",
+      "title": "Transition Hooks - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "transition-hooks.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "transition-hooks",
+        "transition",
+        "hooks",
+        "ui",
+        "scheduling"
+      ]
+    },
+    {
+      "name": "28-use-reducer",
+      "href": "../28-use-reducer/use-reducer.html",
+      "htmlFile": "use-reducer.html",
+      "title": "ui.UseReducer - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-reducer.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-reducer",
+        "use",
+        "reducer",
+        "ui"
+      ]
+    },
+    {
+      "name": "29-use-debounced",
+      "href": "../29-use-debounced/use-debounced.html",
+      "htmlFile": "use-debounced.html",
+      "title": "ui.UseDebounced - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-debounced.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-debounced",
+        "use",
+        "debounced",
+        "ui",
+        "scheduling"
+      ]
+    },
+    {
+      "name": "30-use-throttled",
+      "href": "../30-use-throttled/use-throttled.html",
+      "htmlFile": "use-throttled.html",
+      "title": "ui.UseThrottled - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-throttled.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-throttled",
+        "use",
+        "throttled",
+        "ui",
+        "scheduling"
+      ]
+    },
+    {
+      "name": "31-context-api",
+      "href": "../31-context-api/context-api.html",
+      "htmlFile": "context-api.html",
+      "title": "Context API - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "context-api.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "context-api",
+        "context",
+        "api",
+        "ui"
+      ]
+    },
+    {
+      "name": "32-async-boundary",
+      "href": "../32-async-boundary/async-boundary.html",
+      "htmlFile": "async-boundary.html",
+      "title": "ui.AsyncBoundary - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "async-boundary.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "async-boundary",
+        "async",
+        "boundary",
+        "ui"
+      ]
+    },
+    {
+      "name": "33-lazy",
+      "href": "../33-lazy/lazy.html",
+      "htmlFile": "lazy.html",
+      "title": "ui.Lazy - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "lazy.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "lazy",
+        "ui"
+      ]
+    },
+    {
+      "name": "34-error-boundary",
+      "href": "../34-error-boundary/error-boundary.html",
+      "htmlFile": "error-boundary.html",
+      "title": "ui.ErrorBoundary - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "error-boundary.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "error-boundary",
+        "error",
+        "boundary",
+        "ui"
+      ]
+    },
+    {
+      "name": "35-use-id",
+      "href": "../35-use-id/use-id.html",
+      "htmlFile": "use-id.html",
+      "title": "ui.UseId - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-id.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-id",
+        "use",
+        "id",
+        "ui"
+      ]
+    },
+    {
+      "name": "36-typed-events",
+      "href": "../36-typed-events/typed-events.html",
+      "htmlFile": "typed-events.html",
+      "title": "Typed Events - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "typed-events.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "typed-events",
+        "typed",
+        "events",
+        "ui"
+      ]
+    },
+    {
+      "name": "37-use-atom",
+      "href": "../37-use-atom/use-atom.html",
+      "htmlFile": "use-atom.html",
+      "title": "state.UseAtom - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-atom.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-atom",
+        "use",
+        "atom",
+        "state"
+      ]
+    },
+    {
+      "name": "38-use-computed",
+      "href": "../38-use-computed/use-computed.html",
+      "htmlFile": "use-computed.html",
+      "title": "state.UseComputed - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-computed.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-computed",
+        "use",
+        "computed",
+        "state"
+      ]
+    },
+    {
+      "name": "39-use-derived",
+      "href": "../39-use-derived/use-derived.html",
+      "htmlFile": "use-derived.html",
+      "title": "state.UseDerived - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-derived.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-derived",
+        "use",
+        "derived",
+        "state"
+      ]
+    },
+    {
+      "name": "40-snapshot-export-import",
+      "href": "../40-snapshot-export-import/snapshot-export-import.html",
+      "htmlFile": "snapshot-export-import.html",
+      "title": "state.ExportSnapshot / state.ImportSnapshot - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "snapshot-export-import.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "snapshot-export-import",
+        "snapshot",
+        "export",
+        "import",
+        "state"
+      ]
+    },
+    {
+      "name": "41-snapshot-storage",
+      "href": "../41-snapshot-storage/snapshot-storage.html",
+      "htmlFile": "snapshot-storage.html",
+      "title": "state.SaveSnapshot / state.LoadSnapshot / state.RestoreSnapshot - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "snapshot-storage.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "snapshot-storage",
+        "snapshot",
+        "storage",
+        "state"
+      ]
+    },
+    {
+      "name": "42-use-fetch",
+      "href": "../42-use-fetch/use-fetch.html",
+      "htmlFile": "use-fetch.html",
+      "title": "fetch.UseFetch - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-fetch.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-fetch",
+        "use",
+        "fetch"
+      ]
+    },
+    {
+      "name": "43-use-resource",
+      "href": "../43-use-resource/use-resource.html",
+      "htmlFile": "use-resource.html",
+      "title": "fetch.UseResource - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-resource.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-resource",
+        "use",
+        "resource",
+        "fetch"
+      ]
+    },
+    {
+      "name": "44-use-cached-resource",
+      "href": "../44-use-cached-resource/use-cached-resource.html",
+      "htmlFile": "use-cached-resource.html",
+      "title": "fetch.UseCachedResource - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-cached-resource.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-cached-resource",
+        "use",
+        "cached",
+        "resource",
+        "fetch"
+      ]
+    },
+    {
+      "name": "45-fetch-imperative",
+      "href": "../45-fetch-imperative/fetch-imperative.html",
+      "htmlFile": "fetch-imperative.html",
+      "title": "fetch.Fetch - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "fetch-imperative.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "fetch-imperative",
+        "fetch",
+        "imperative"
+      ]
+    },
+    {
+      "name": "46-raw-handler",
+      "href": "../46-raw-handler/raw-handler.html",
+      "htmlFile": "raw-handler.html",
+      "title": "ui.RawHandler - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "raw-handler.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "raw-handler",
+        "raw",
+        "handler",
+        "ui"
+      ]
+    },
+    {
+      "name": "47-portal-selector",
+      "href": "../47-portal-selector/portal-selector.html",
+      "htmlFile": "portal-selector.html",
+      "title": "ui.Portal Selector Target - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "portal-selector.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "portal-selector",
+        "portal",
+        "selector",
+        "ui",
+        "overlays"
+      ]
+    },
+    {
+      "name": "48-portal-target",
+      "href": "../48-portal-target/portal-target.html",
+      "htmlFile": "portal-target.html",
+      "title": "ui.Portal Explicit Target - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "portal-target.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "portal-target",
+        "portal",
+        "target",
+        "ui",
+        "overlays"
+      ]
+    },
+    {
+      "name": "49-use-channel",
+      "href": "../49-use-channel/use-channel.html",
+      "htmlFile": "use-channel.html",
+      "title": "ui.UseChannel - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-channel.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-channel",
+        "use",
+        "channel",
+        "ui"
+      ]
+    },
+    {
+      "name": "50-use-task",
+      "href": "../50-use-task/use-task.html",
+      "htmlFile": "use-task.html",
+      "title": "ui.UseTask - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-task.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-task",
+        "use",
+        "task",
+        "ui"
+      ]
+    },
+    {
+      "name": "51-use-form",
+      "href": "../51-use-form/use-form.html",
+      "htmlFile": "use-form.html",
+      "title": "ui.UseForm - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-form.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-form",
+        "use",
+        "form",
+        "ui",
+        "forms"
+      ]
+    },
+    {
+      "name": "52-semantic-html",
+      "href": "../52-semantic-html/semantic-html.html",
+      "htmlFile": "semantic-html.html",
+      "title": "html Semantic Layout - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "semantic-html.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "semantic-html",
+        "semantic",
+        "html"
+      ]
+    },
+    {
+      "name": "53-html-forms",
+      "href": "../53-html-forms/html-forms.html",
+      "htmlFile": "html-forms.html",
+      "title": "html Form Controls - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "html-forms.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "html-forms",
+        "html",
+        "forms"
+      ]
+    },
+    {
+      "name": "54-html-tag",
+      "href": "../54-html-tag/html-tag.html",
+      "htmlFile": "html-tag.html",
+      "title": "html.Tag - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "html-tag.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "html-tag",
+        "html",
+        "tag"
+      ]
+    },
+    {
+      "name": "55-hash-router",
+      "href": "../55-hash-router/hash-router.html",
+      "htmlFile": "hash-router.html",
+      "title": "router.NewHashRouter - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "hash-router.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "hash-router",
+        "hash",
+        "router"
+      ]
+    },
+    {
+      "name": "56-browser-router",
+      "href": "../56-browser-router/browser-router.html",
+      "htmlFile": "browser-router.html",
+      "title": "router.NewRouter - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "browser-router.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "browser-router",
+        "browser",
+        "router"
+      ]
+    },
+    {
+      "name": "57-use-navigate",
+      "href": "../57-use-navigate/use-navigate.html",
+      "htmlFile": "use-navigate.html",
+      "title": "router.UseNavigate - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-navigate.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-navigate",
+        "use",
+        "navigate",
+        "router"
+      ]
+    },
+    {
+      "name": "58-route-params",
+      "href": "../58-route-params/route-params.html",
+      "htmlFile": "route-params.html",
+      "title": "router.UseParams - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "route-params.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "route-params",
+        "route",
+        "params",
+        "router"
+      ]
+    },
+    {
+      "name": "59-route-query",
+      "href": "../59-route-query/route-query.html",
+      "htmlFile": "route-query.html",
+      "title": "router.UseQuery - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "route-query.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "route-query",
+        "route",
+        "query",
+        "router"
+      ]
+    },
+    {
+      "name": "60-route-loaders",
+      "href": "../60-route-loaders/route-loaders.html",
+      "htmlFile": "route-loaders.html",
+      "title": "router Loader Options - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "route-loaders.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "route-loaders",
+        "route",
+        "loaders",
+        "router"
+      ]
+    },
+    {
+      "name": "61-use-revalidator",
+      "href": "../61-use-revalidator/use-revalidator.html",
+      "htmlFile": "use-revalidator.html",
+      "title": "router.UseRevalidator - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-revalidator.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-revalidator",
+        "use",
+        "revalidator",
+        "router"
+      ]
+    },
+    {
+      "name": "62-router-redirects",
+      "href": "../62-router-redirects/router-redirects.html",
+      "htmlFile": "router-redirects.html",
+      "title": "router Redirects - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "router-redirects.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "router-redirects",
+        "router",
+        "redirects"
+      ]
+    },
+    {
+      "name": "63-router-metadata",
+      "href": "../63-router-metadata/router-metadata.html",
+      "htmlFile": "router-metadata.html",
+      "title": "router Metadata - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "router-metadata.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "router-metadata",
+        "router",
+        "metadata"
+      ]
+    },
+    {
+      "name": "64-nested-layout-routes",
+      "href": "../64-nested-layout-routes/nested-layout-routes.html",
+      "htmlFile": "nested-layout-routes.html",
+      "title": "router Nested Layout Routes - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "nested-layout-routes.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "nested-layout-routes",
+        "nested",
+        "layout",
+        "routes",
+        "router"
+      ]
+    },
+    {
+      "name": "65-router-guards",
+      "href": "../65-router-guards/router-guards.html",
+      "htmlFile": "router-guards.html",
+      "title": "router Guards - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "router-guards.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "router-guards",
+        "router",
+        "guards"
+      ]
+    },
+    {
+      "name": "66-devtools-panel",
+      "href": "../66-devtools-panel/devtools-panel.html",
+      "htmlFile": "devtools-panel.html",
+      "title": "devtools.Panel - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "devtools-panel.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "devtools-panel",
+        "devtools",
+        "panel"
+      ]
+    },
+    {
+      "name": "67-use-snapshot",
+      "href": "../67-use-snapshot/use-snapshot.html",
+      "htmlFile": "use-snapshot.html",
+      "title": "devtools.UseSnapshot - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-snapshot.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-snapshot",
+        "use",
+        "snapshot",
+        "devtools"
+      ]
+    },
+    {
+      "name": "68-snapshot-now",
+      "href": "../68-snapshot-now/snapshot-now.html",
+      "htmlFile": "snapshot-now.html",
+      "title": "devtools.SnapshotNow - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "snapshot-now.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "snapshot-now",
+        "snapshot",
+        "now",
+        "devtools"
+      ]
+    },
+    {
+      "name": "69-devtools-diagnostics",
+      "href": "../69-devtools-diagnostics/devtools-diagnostics.html",
+      "htmlFile": "devtools-diagnostics.html",
+      "title": "devtools Diagnostics - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "devtools-diagnostics.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "devtools-diagnostics",
+        "devtools",
+        "diagnostics"
+      ]
+    },
+    {
+      "name": "70-render-to-string",
+      "href": "../70-render-to-string/render-to-string.html",
+      "htmlFile": "render-to-string.html",
+      "title": "ui.RenderToString - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "render-to-string.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "render-to-string",
+        "render",
+        "to",
+        "string",
+        "ssr"
+      ]
+    },
+    {
+      "name": "71-hydrate",
+      "href": "../71-hydrate/hydrate.html",
+      "htmlFile": "hydrate.html",
+      "title": "ui.Hydrate - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "hydrate.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "hydrate",
+        "ssr",
+        "hydration"
+      ]
+    },
+    {
+      "name": "72-router-hydrate-mount",
+      "href": "../72-router-hydrate-mount/router-hydrate-mount.html",
+      "htmlFile": "router-hydrate-mount.html",
+      "title": "router.HydrateMount - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "router-hydrate-mount.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "router-hydrate-mount",
+        "router",
+        "hydrate",
+        "mount",
+        "ssr",
+        "hydration"
+      ]
+    },
+    {
+      "name": "73-ssr-bootstrap",
+      "href": "../73-ssr-bootstrap/ssr-bootstrap.html",
+      "htmlFile": "ssr-bootstrap.html",
+      "title": "Dedicated SSR bootstrap - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "ssr-bootstrap.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "ssr-bootstrap",
+        "ssr",
+        "bootstrap"
+      ]
+    },
+    {
+      "name": "74-ssr-route-data-reuse",
+      "href": "../74-ssr-route-data-reuse/ssr-route-data-reuse.html",
+      "htmlFile": "ssr-route-data-reuse.html",
+      "title": "SSR route data reuse - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "ssr-route-data-reuse.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "ssr-route-data-reuse",
+        "ssr",
+        "route",
+        "data",
+        "reuse",
+        "hydration"
+      ]
+    },
+    {
+      "name": "75-use-state",
+      "href": "../75-use-state/use-state.html",
+      "htmlFile": "use-state.html",
+      "title": "ui.UseState - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-state.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-state",
+        "use",
+        "state",
+        "ui"
+      ]
+    },
+    {
+      "name": "76-use-effect",
+      "href": "../76-use-effect/use-effect.html",
+      "htmlFile": "use-effect.html",
+      "title": "ui.UseEffect - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "use-effect.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "use-effect",
+        "use",
+        "effect",
+        "ui"
+      ]
+    },
+    {
+      "name": "77-accessible-overlay",
+      "href": "../77-accessible-overlay/accessible-overlay.html",
+      "htmlFile": "accessible-overlay.html",
+      "title": "ui.AccessibleOverlay - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "accessible-overlay.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "accessible-overlay",
+        "accessible",
+        "overlay",
+        "ui",
+        "overlays",
+        "accessibility"
+      ]
+    },
+    {
+      "name": "78-composite-navigation",
+      "href": "../78-composite-navigation/composite-navigation.html",
+      "htmlFile": "composite-navigation.html",
+      "title": "ui.UseCompositeNavigation - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "composite-navigation.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "composite-navigation",
+        "composite",
+        "navigation",
+        "ui"
+      ]
+    },
+    {
+      "name": "79-form-accessibility",
+      "href": "../79-form-accessibility/form-accessibility.html",
+      "htmlFile": "form-accessibility.html",
+      "title": "Form accessibility - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "form-accessibility.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "form-accessibility",
+        "form",
+        "accessibility",
+        "ui",
+        "forms"
+      ]
+    },
+    {
+      "name": "80-routed-accessibility",
+      "href": "../80-routed-accessibility/routed-accessibility.html",
+      "htmlFile": "routed-accessibility.html",
+      "title": "Routed accessibility - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "routed-accessibility.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "routed-accessibility",
+        "routed",
+        "accessibility",
+        "ui"
+      ]
+    },
+    {
+      "name": "81-overlay-stack",
+      "href": "../81-overlay-stack/overlay-stack.html",
+      "htmlFile": "overlay-stack.html",
+      "title": "ui.Overlay stack coordination - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "overlay-stack.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "overlay-stack",
+        "overlay",
+        "stack",
+        "ui",
+        "overlays"
+      ]
+    },
+    {
+      "name": "82-overlay-anchor",
+      "href": "../82-overlay-anchor/overlay-anchor.html",
+      "htmlFile": "overlay-anchor.html",
+      "title": "Anchored overlays and portal retargeting - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "overlay-anchor.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "overlay-anchor",
+        "overlay",
+        "anchor",
+        "ui",
+        "overlays"
+      ]
+    },
+    {
+      "name": "83-locale-switcher",
+      "href": "../83-locale-switcher/locale-switcher.html",
+      "htmlFile": "locale-switcher.html",
+      "title": "i18n locale switching - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "locale-switcher.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "locale-switcher",
+        "locale",
+        "switcher",
+        "i18n"
+      ]
+    },
+    {
+      "name": "84-ssr-i18n-bootstrap",
+      "href": "../84-ssr-i18n-bootstrap/ssr-i18n-bootstrap.html",
+      "htmlFile": "ssr-i18n-bootstrap.html",
+      "title": "SSR locale bootstrap - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "ssr-i18n-bootstrap.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "ssr-i18n-bootstrap",
+        "ssr",
+        "i18n",
+        "bootstrap",
+        "hydration"
+      ]
+    },
+    {
+      "name": "85-locale-routing",
+      "href": "../85-locale-routing/locale-routing.html",
+      "htmlFile": "locale-routing.html",
+      "title": "Locale routing guidance - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "locale-routing.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "locale-routing",
+        "locale",
+        "routing",
+        "i18n"
+      ]
+    },
+    {
+      "name": "88-web-components",
+      "href": "../88-web-components/web-components.html",
+      "htmlFile": "web-components.html",
+      "title": "Web Components - GoWebComponents",
+      "usesWasm": false,
+      "multiClient": false,
+      "tags": [
+        "web-components",
+        "web",
+        "components",
+        "html",
+        "custom-elements"
+      ]
+    },
+    {
+      "name": "89-exported-custom-element",
+      "href": "../89-exported-custom-element/exported-custom-element.html",
+      "htmlFile": "exported-custom-element.html",
+      "title": "Exported Custom Element Prototype - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "exported-custom-element.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "exported-custom-element",
+        "exported",
+        "custom",
+        "element",
+        "html",
+        "custom-elements"
+      ]
+    },
+    {
+      "name": "90-browser-interop",
+      "href": "../90-browser-interop/browser-interop.html",
+      "htmlFile": "browser-interop.html",
+      "title": "Browser Interop - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "browser-interop.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "browser-interop",
+        "browser",
+        "interop"
+      ]
+    },
+    {
+      "name": "91-worker-text-index",
+      "href": "../91-worker-text-index/worker-text-index.html",
+      "htmlFile": "worker-text-index.html",
+      "title": "Worker Text Index - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "worker-text-index.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "worker-text-index",
+        "worker",
+        "text",
+        "index",
+        "interop",
+        "workers"
+      ]
+    },
+    {
+      "name": "92-protected-routes",
+      "href": "../92-protected-routes/protected-routes.html",
+      "htmlFile": "protected-routes.html",
+      "title": "Protected Routes - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "protected-routes.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "protected-routes",
+        "protected",
+        "routes",
+        "router"
+      ]
+    },
+    {
+      "name": "93-ssr-cache-bootstrap",
+      "href": "../93-ssr-cache-bootstrap/ssr-cache-bootstrap.html",
+      "htmlFile": "ssr-cache-bootstrap.html",
+      "title": "SSR cache bootstrap - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "ssr-cache-bootstrap.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "ssr-cache-bootstrap",
+        "ssr",
+        "cache",
+        "bootstrap",
+        "fetch"
+      ]
+    },
+    {
+      "name": "94-cross-tab-sync",
+      "href": "../94-cross-tab-sync/cross-tab-sync.html",
+      "htmlFile": "cross-tab-sync.html",
+      "title": "Cross-Tab Sync - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "cross-tab-sync.wasm",
+      "multiClient": true,
+      "tags": [
+        "wasm",
+        "cross-tab-sync",
+        "cross",
+        "tab",
+        "sync",
+        "interop",
+        "cross-tab"
+      ]
+    },
+    {
+      "name": "95-multi-window-console",
+      "href": "../95-multi-window-console/multi-window-console-popup.html",
+      "htmlFile": "multi-window-console-popup.html",
+      "title": "Popup Surface - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "multi-window-console.wasm",
+      "multiClient": true,
+      "tags": [
+        "wasm",
+        "multi-window-console",
+        "multi",
+        "window",
+        "console",
+        "interop",
+        "multi-window"
+      ]
+    },
+    {
+      "name": "96-code-splitting",
+      "href": "../96-code-splitting/code-splitting.html",
+      "htmlFile": "code-splitting.html",
+      "title": "Route and Component Splitting - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "code-splitting.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "code-splitting",
+        "code",
+        "splitting",
+        "router"
+      ]
+    },
+    {
+      "name": "97-multi-client-binary",
+      "href": "../97-multi-client-binary/multi-client-binary-popup.html",
+      "htmlFile": "multi-client-binary-popup.html",
+      "title": "Popup Binary Preview - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "multi-client-binary.wasm",
+      "multiClient": true,
+      "tags": [
+        "wasm",
+        "multi-client-binary",
+        "multi",
+        "client",
+        "binary",
+        "interop",
+        "multi-client"
+      ]
+    },
+    {
+      "name": "97-multi-client-presence",
+      "href": "../97-multi-client-presence/multi-client-presence-popup.html",
+      "htmlFile": "multi-client-presence-popup.html",
+      "title": "Popup Inspector - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "multi-client-presence.wasm",
+      "multiClient": true,
+      "tags": [
+        "wasm",
+        "multi-client-presence",
+        "multi",
+        "client",
+        "presence",
+        "interop",
+        "multi-client"
+      ]
+    },
+    {
+      "name": "97-pwa-installability",
+      "href": "../97-pwa-installability/installability.html",
+      "htmlFile": "installability.html",
+      "title": "PWA Installability - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "pwa-installability.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "pwa-installability",
+        "pwa",
+        "installability"
+      ]
+    },
+    {
+      "name": "97-pwa-multi-client",
+      "href": "../97-pwa-multi-client/offline.html",
+      "htmlFile": "offline.html",
+      "title": "PWA Multi-Client Offline Shell",
+      "usesWasm": false,
+      "multiClient": true,
+      "tags": [
+        "pwa",
+        "multi",
+        "client",
+        "interop",
+        "multi-client"
+      ]
+    },
+    {
+      "name": "97-pwa-offline-cache",
+      "href": "../97-pwa-offline-cache/offline-cache.html",
+      "htmlFile": "offline-cache.html",
+      "title": "PWA Offline Cache - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "pwa-offline-cache.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "pwa-offline-cache",
+        "pwa",
+        "offline",
+        "cache"
+      ]
+    },
+    {
+      "name": "98-hot-reload",
+      "href": "../98-hot-reload/hot-reload.html",
+      "htmlFile": "hot-reload.html",
+      "title": "Hot Reload Example - GoWebComponents",
+      "usesWasm": false,
+      "multiClient": false,
+      "tags": [
+        "hot",
+        "reload",
+        "devtools"
+      ]
+    },
+    {
+      "name": "99-plugin-host",
+      "href": "../99-plugin-host/plugin-host.html",
+      "htmlFile": "plugin-host.html",
+      "title": "Plugin Host - GoWebComponents",
+      "usesWasm": true,
+      "wasmBinary": "99-plugin-host.wasm",
+      "multiClient": false,
+      "tags": [
+        "wasm",
+        "99-plugin-host",
+        "plugin",
+        "host"
+      ]
+    }
+  ]
+}

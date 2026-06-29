@@ -1,0 +1,11 @@
+# Default owner fallback.
+* @monstercameron
+
+# Release and CI automation are protected surfaces.
+/.github/workflows/ @monstercameron
+
+# Transport/runtime library changes require explicit owner review.
+/third_party/GoGRPCBridge/ @monstercameron
+
+# Release-readiness roadmap and integration docs.
+/docs/GOGRPCBRIDGE_*.md @monstercameron

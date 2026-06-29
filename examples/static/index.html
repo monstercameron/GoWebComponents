@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="GoWebComponents examples catalog powered by a Go server and a wasm-first multi-client app"
+    />
+    <meta name="author" content="Go Web Components" />
+    <title>GoWebComponents Examples</title>
+    <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="css/example-shell.css" />
+    <script src="script/wasm_exec.js"></script>
+    <script src="script/example-logger.js"></script>
+  </head>
+  <body class="example-shell bg-[#08111d] text-white min-h-screen">
+    <div id="app"></div>
+    <script id="__GWC_BOOTSTRAP__" type="application/json">{"version":1,"route":{"path":"/examples/"},"data":{"examples":{"mode":"static","catalogURL":"catalog.json","assetBase":"","wasmBase":"bin/","catalogHref":"./index.html#/examples","slug":""}}}</script>
+    <noscript>
+      <main style="max-width: 72rem; margin: 0 auto; padding: 2rem; font-family: 'Segoe UI Variable', 'Segoe UI', sans-serif;">
+        <h1>GoWebComponents Examples</h1>
+        <p>The primary catalog now boots from a Go/wasm app. Use JavaScript for the interactive multi-client catalog, or open the static catalog manifest used for GitHub Pages.</p>
+        <p><a href="catalog.json">Open static catalog manifest</a></p>
+      </main>
+    </noscript>
+    <script>
+      const GWC_EXAMPLES_CACHE = 'gwc-examples-runtime-v1';
+      async function loadCachedWasm(url, importObject) {
+        if (!('caches' in globalThis)) {
+          const response = await fetch(url, { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch wasm: ${response.status} ${response.statusText}`);
+          }
+          const bytes = await response.arrayBuffer();
+            console.info('[gwc examples] wasm source: network (no Cache Storage)', url);
+          return WebAssembly.instantiate(bytes, importObject);
+        }
+        const cache = await caches.open(GWC_EXAMPLES_CACHE);
+        let response = await cache.match(url);
+          let source = 'Cache Storage';
+        if (!response) {
+          response = await fetch(url, { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch wasm: ${response.status} ${response.statusText}`);
+          }
+          await cache.put(url, response.clone());
+            source = 'network';
+        }
+        const bytes = await response.arrayBuffer();
+          console.info(`[gwc examples] wasm source: ${source}`, url);
+        return WebAssembly.instantiate(bytes, importObject);
+      }
+      const go = new Go();
+      loadCachedWasm('bin/gwc-examples-site.wasm', go.importObject)
+        .then((result) => go.run(result.instance))
+        .catch((error) => {
+          const root = document.getElementById('app');
+          if (root) {
+            root.innerHTML = '<main style="max-width:72rem;margin:0 auto;padding:2rem;font-family:\'Segoe UI Variable\',\'Segoe UI\',sans-serif;"><h1>GoWebComponents Examples</h1><p>The wasm catalog failed to start.</p><p><a href="catalog.json">Open static catalog manifest</a></p></main>';
+          }
+          console.error(error);
+        });
+    </script>
+  </body>
+</html>

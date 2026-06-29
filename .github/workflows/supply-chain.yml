@@ -1,0 +1,88 @@
+name: Supply Chain
+
+# Runs the framework's own supply-chain gates so the zero-npm posture and the
+# known-vulnerability scan actually execute on every change (audit FC2/D5).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build gwc
+        run: go build -o gwc ./tools/gwc
+
+      - name: Supply-chain audit (zero-npm + dependency budget + checksums)
+        # Hard gate: a new npm artifact or a dependency-budget breach fails the build.
+        run: ./gwc supplychain
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Known-vulnerability scan (reachable advisories) — BLOCKING
+        # Merge gate: `gwc vuln` blocks the build on any REACHABLE dependency advisory (vulnerable
+        # code the app actually calls). Reachable stdlib/toolchain advisories are reported but do
+        # not red the gate by default — they are only fixable by bumping Go, so failing every PR
+        # on them adds no security value (pass -include-stdlib to gate those too). The full
+        # govulncheck report is emitted first for the logs, non-fatally.
+        run: |
+          $(go env GOPATH)/bin/govulncheck ./... || true
+          ./gwc vuln
+
+  edge-portability:
+    # Earn the FC4 "edge-portable" claim: the server stack must actually compile for the
+    # WASI (wasip1) target, so it runs in edge WASI runtimes, not only on a conventional
+    # server. A hard gate — a regression that pulls a non-wasip1-clean dependency into the
+    # server packages fails here.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+      - name: Build server stack for WASI (wasip1)
+        env:
+          GOOS: wasip1
+          GOARCH: wasm
+        run: go build ./serverfn/ ./wholestack/ ./localfirst/ ./agentui/ ./query/ ./validate/ ./timetravel/
+
+  codegen-staleness:
+    # Generated code must not drift from its source: regenerate and fail if anything changed
+    # (audit FA4). A typed-routes example exercises `gwc routes gen` against a real package.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+      - name: Build gwc
+        run: go build -o gwc ./tools/gwc
+      - name: Routes codegen up to date
+        run: ./gwc routes check -pkg examples/public/typed-routes-demo
+      - name: CSS token codegen up to date
+        run: ./gwc css check -theme examples/public/typed-css-tokens-demo/theme.json -pkg examples/public/typed-css-tokens-demo

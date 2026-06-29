@@ -1,0 +1,22 @@
+{
+  "targets": [
+    {
+      "tier": "small",
+      "label": "ui-render",
+      "package": "./examples/public/ui-render",
+      "notes": "Minimal feature example used to expose flag and cache overhead on a small wasm package."
+    },
+    {
+      "tier": "medium",
+      "label": "browser-router",
+      "package": "./examples/public/browser-router",
+      "notes": "Routed mid-sized app used to measure router-related build and startup tradeoffs without Atlas complexity."
+    },
+    {
+      "tier": "large",
+      "label": "atlas-commerce-os-client",
+      "package": "./examples/server/atlas-commerce-os/client",
+      "notes": "Largest production-shaped wasm hydration target currently shipped in the repo."
+    }
+  ]
+}

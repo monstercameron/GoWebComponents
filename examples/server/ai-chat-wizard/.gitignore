@@ -1,0 +1,18 @@
+bin/
+
+# Runtime logs and local process output
+log/
+server.stdout.log
+server.stderr.log
+
+# Local runtime state
+chat_history.db
+chat_history.db-shm
+chat_history.db-wal
+chat_history.db.incompatible-*.bak
+server/chat_history.db
+server/chat_history.db-shm
+server/chat_history.db-wal
+
+# Accidental generated residue from running protoc in the wrong working dir
+github.com/

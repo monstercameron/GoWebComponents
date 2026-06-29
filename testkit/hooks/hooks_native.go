@@ -1,0 +1,27 @@
+//go:build !js || !wasm
+
+package hooks
+
+import "testing"
+
+// Harness wraps one rendered hook instance.
+type Harness[T any] struct{}
+
+var nativeHooksFatal = func(parseTb testing.TB) {
+	parseTb.Helper()
+	parseTb.Fatal("testkit/hooks requires js/wasm tests; run go test with a js/wasm executor: tools\\go_js_wasm_exec.bat (Windows) or tools/go_js_wasm_exec.sh (macOS/Linux)")
+}
+
+// RenderHook requires a js/wasm test environment because interactive hooks only
+// use the real runtime on browser-targeted builds.
+func RenderHook[T any](parseTb testing.TB, parseHook func() T) *Harness[T] {
+	parseTb.Helper()
+	nativeHooksFatal(parseTb)
+	return nil
+}
+
+func (parseH *Harness[T]) Current() T         { var parseZero T; return parseZero }
+func (parseH *Harness[T]) Rerender()          {}
+func (parseH *Harness[T]) Flush()             {}
+func (parseH *Harness[T]) Act(parseFn func()) {}
+func (parseH *Harness[T]) Cleanup()           {}

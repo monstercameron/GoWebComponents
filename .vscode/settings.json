@@ -1,0 +1,41 @@
+{
+  // GoWebComponents compiles to WebAssembly. Most of the framework's
+  // browser-facing code lives in files guarded by `//go:build js && wasm`.
+  // Without these two env vars gopls analyzes the package for the host OS and
+  // hides every wasm-tagged file, so the whole browser half of the codebase
+  // shows phantom "build constraints exclude all Go files" / undefined-symbol
+  // errors on minute one. Setting GOOS=js/GOARCH=wasm points gopls at the
+  // wasm build the framework actually ships.
+  //
+  // Trade-off: with this set, the NATIVE-only files (SSR, the gwc tool, native
+  // stubs) are the ones excluded instead. Flip these to your host values
+  // temporarily when working on native-only packages, or open that package in
+  // a separate window.
+  "gopls": {
+    "build.env": {
+      "GOOS": "js",
+      "GOARCH": "wasm"
+    },
+    "ui.diagnostic.analyses": {
+      "unusedparams": true,
+      "unusedwrite": true
+    }
+  },
+  "go.toolsEnvVars": {
+    "GOOS": "js",
+    "GOARCH": "wasm"
+  },
+  "go.testEnvVars": {
+    "GOOS": "js",
+    "GOARCH": "wasm"
+  },
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.insertSpaces": false,
+    "editor.defaultFormatter": "golang.go"
+  },
+  // The framework is developed on Windows; keep go:embed assets and scripts
+  // from being silently rewritten away from their committed line endings.
+  "files.eol": "\n",
+  "files.insertFinalNewline": true
+}

@@ -1,0 +1,46 @@
+name: golden-ssr-app CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Run Baseline Go Tests
+        run: go test ./...
+
+      - name: Build WASM Entry
+        run: |
+          mkdir -p bin
+          go build -o bin/main.wasm .
+        env:
+          GOOS: js
+          GOARCH: wasm
+
+      - name: WASM Size Budget
+        # Fail the build if the gzipped wasm exceeds the budget, so bundle-size regressions are
+        # caught in CI. Self-contained (gzip + byte compare) — no extra tooling dependency.
+        # Raise GZIP_BUDGET_BYTES deliberately as the app grows; it is a reviewed ceiling.
+        run: |
+          GZIP_BUDGET_BYTES=4194304
+          gzip -9 -c bin/main.wasm > "bin/main.wasm.gz"
+          actual=$(wc -c < "bin/main.wasm.gz")
+          echo "gzipped wasm: ${actual} bytes (budget ${GZIP_BUDGET_BYTES})"
+          if [ "${actual}" -gt "${GZIP_BUDGET_BYTES}" ]; then
+            echo "::error::wasm gzip size ${actual} exceeds budget ${GZIP_BUDGET_BYTES} bytes"
+            exit 1
+          fi

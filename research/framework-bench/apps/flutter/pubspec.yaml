@@ -1,0 +1,15 @@
+name: bill_splitter_flutter
+description: Bill Splitter — Flutter web.
+publish_to: "none"
+version: 0.0.0
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  intl: ^0.20.2
+
+flutter:
+  uses-material-design: true

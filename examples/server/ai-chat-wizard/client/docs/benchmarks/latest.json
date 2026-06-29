@@ -1,0 +1,325 @@
+{
+  "ok": true,
+  "root": ".",
+  "generatedAt": "2026-03-28T00:09:53Z",
+  "goVersion": "go1.25.0",
+  "goos": "windows",
+  "goarch": "amd64",
+  "selectedLanes": [
+    "wasm"
+  ],
+  "bench": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale",
+  "count": 3,
+  "packageParallelism": 1,
+  "benchtime": "5x",
+  "reportPath": "./docs/benchmarks/latest.json",
+  "packageCount": 1,
+  "benchmarkCount": 4,
+  "failedPackages": 0,
+  "packages": [
+    {
+      "lane": "wasm",
+      "package": "./app",
+      "workspace": "./app",
+      "command": "go test -exec \u003cgoWasmExec\u003e -run ^$ -bench BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale -benchmem -count 3 -benchtime 5x .",
+      "ok": true,
+      "benchmarkCount": 4,
+      "benchmarks": [
+        {
+          "name": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_1",
+          "bucket": "compute",
+          "samples": [
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3980316,
+                "allocs/op": 20721,
+                "ns/op": 27127245
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_1         \t       5\t  27127245 ns/op\t 3980316 B/op\t   20721 allocs/op"
+            },
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3974876,
+                "allocs/op": 20640,
+                "ns/op": 22029773
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_1         \t       5\t  22029773 ns/op\t 3974876 B/op\t   20640 allocs/op"
+            },
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3982398,
+                "allocs/op": 20642,
+                "ns/op": 21926042
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_1         \t       5\t  21926042 ns/op\t 3982398 B/op\t   20642 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 3979196.6666666665,
+            "allocs/op": 20667.666666666668,
+            "ns/op": 23694353.333333332
+          }
+        },
+        {
+          "name": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_2",
+          "bucket": "compute",
+          "samples": [
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3817761,
+                "allocs/op": 20676,
+                "ns/op": 22172928
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_2         \t       5\t  22172928 ns/op\t 3817761 B/op\t   20676 allocs/op"
+            },
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3904420,
+                "allocs/op": 20681,
+                "ns/op": 21665997
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_2         \t       5\t  21665997 ns/op\t 3904420 B/op\t   20681 allocs/op"
+            },
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3825217,
+                "allocs/op": 20677,
+                "ns/op": 21533594
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_2         \t       5\t  21533594 ns/op\t 3825217 B/op\t   20677 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 3849132.6666666665,
+            "allocs/op": 20678,
+            "ns/op": 21790839.666666668
+          }
+        },
+        {
+          "name": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_3",
+          "bucket": "compute",
+          "samples": [
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3817734,
+                "allocs/op": 20710,
+                "ns/op": 23140198
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_3         \t       5\t  23140198 ns/op\t 3817734 B/op\t   20710 allocs/op"
+            },
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3817793,
+                "allocs/op": 20711,
+                "ns/op": 22285312
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_3         \t       5\t  22285312 ns/op\t 3817793 B/op\t   20711 allocs/op"
+            },
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3825344,
+                "allocs/op": 20714,
+                "ns/op": 21626624
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_3         \t       5\t  21626624 ns/op\t 3825344 B/op\t   20714 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 3820290.3333333335,
+            "allocs/op": 20711.666666666668,
+            "ns/op": 22350711.333333332
+          }
+        },
+        {
+          "name": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_4",
+          "bucket": "compute",
+          "samples": [
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3835387,
+                "allocs/op": 20750,
+                "ns/op": 22113587
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_4         \t       5\t  22113587 ns/op\t 3835387 B/op\t   20750 allocs/op"
+            },
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3835390,
+                "allocs/op": 20750,
+                "ns/op": 22770074
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_4         \t       5\t  22770074 ns/op\t 3835390 B/op\t   20750 allocs/op"
+            },
+            {
+              "iterations": 5,
+              "metrics": {
+                "B/op": 3835387,
+                "allocs/op": 20750,
+                "ns/op": 22374246
+              },
+              "raw": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_4         \t       5\t  22374246 ns/op\t 3835387 B/op\t   20750 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 3835388,
+            "allocs/op": 20750,
+            "ns/op": 22419302.333333332
+          }
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "baselineGeneratedAt": "2026-03-28T00:08:16Z",
+    "tolerancePct": 2,
+    "matchedMetrics": 12,
+    "improved": 10,
+    "regressed": 0,
+    "unchanged": 2,
+    "entries": [
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_4",
+        "metric": "B/op",
+        "baseline": 4027613,
+        "current": 3835388,
+        "delta": -192225,
+        "deltaPct": -4.772678010523851,
+        "direction": "improved"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_2",
+        "metric": "B/op",
+        "baseline": 4041347.3333333335,
+        "current": 3849132.6666666665,
+        "delta": -192214.66666666698,
+        "deltaPct": -4.756202593161595,
+        "direction": "improved"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_3",
+        "metric": "B/op",
+        "baseline": 4010137,
+        "current": 3820290.3333333335,
+        "delta": -189846.6666666665,
+        "deltaPct": -4.734169098628463,
+        "direction": "improved"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_1",
+        "metric": "B/op",
+        "baseline": 4169005,
+        "current": 3979196.6666666665,
+        "delta": -189808.3333333335,
+        "deltaPct": -4.552844943417758,
+        "direction": "improved"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_1",
+        "metric": "allocs/op",
+        "baseline": 21387.666666666668,
+        "current": 20667.666666666668,
+        "delta": -720,
+        "deltaPct": -3.3664261334413914,
+        "direction": "improved"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_3",
+        "metric": "allocs/op",
+        "baseline": 21433,
+        "current": 20711.666666666668,
+        "delta": -721.3333333333321,
+        "deltaPct": -3.365526680041674,
+        "direction": "improved"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_2",
+        "metric": "allocs/op",
+        "baseline": 21398,
+        "current": 20678,
+        "delta": -720,
+        "deltaPct": -3.3648004486400596,
+        "direction": "improved"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_4",
+        "metric": "allocs/op",
+        "baseline": 21470,
+        "current": 20750,
+        "delta": -720,
+        "deltaPct": -3.3535165346995806,
+        "direction": "improved"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_2",
+        "metric": "ns/op",
+        "baseline": 22425054,
+        "current": 21790839.666666668,
+        "delta": -634214.3333333321,
+        "deltaPct": -2.8281507519818327,
+        "direction": "improved"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_1",
+        "metric": "ns/op",
+        "baseline": 24259515.666666668,
+        "current": 23694353.333333332,
+        "delta": -565162.3333333358,
+        "deltaPct": -2.3296521707145477,
+        "direction": "improved"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_4",
+        "metric": "ns/op",
+        "baseline": 22242304.333333332,
+        "current": 22419302.333333332,
+        "delta": 176998,
+        "deltaPct": 0.795771864944509,
+        "direction": "unchanged"
+      },
+      {
+        "lane": "wasm",
+        "package": "./app",
+        "benchmark": "BenchmarkRenderWorkerExample100WorkerPathMetadataAndCostLongThreadScale/workers_3",
+        "metric": "ns/op",
+        "baseline": 22451626.666666668,
+        "current": 22350711.333333332,
+        "delta": -100915.33333333582,
+        "deltaPct": -0.44947893901675334,
+        "direction": "unchanged"
+      }
+    ]
+  }
+}

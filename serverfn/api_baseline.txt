@@ -1,0 +1,17 @@
+const RoutePrefix
+func (*ServerError) Error() string
+func (*StatusError) Error() string
+func BadRequest(parseMessage string) *StatusError
+func Call[Req, Resp any](parseCtx context.Context, parseName string, parseReq Req) (Resp, error)
+func Configure(parseBaseURL string)
+func Conflict(parseMessage string) *StatusError
+func Endpoint(parseName string) string
+func Forbidden(parseMessage string) *StatusError
+func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn func(context.Context, Req) (Resp, error))
+func NewStatusError(parseStatus int, parseMessage string) *StatusError
+func NotFound(parseMessage string) *StatusError
+func SetClient(parseClient *http.Client)
+func Unauthorized(parseMessage string) *StatusError
+func UnprocessableEntity(parseMessage string) *StatusError
+type ServerError struct { Status int Message string }
+type StatusError struct { Status int Message string }

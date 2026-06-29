@@ -1,0 +1,13 @@
+body{margin:0;background:#07111a;color:#e2e8f0;font-family:ui-sans-serif,system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:48px 24px 80px}
+.shell{display:grid;gap:24px}
+.card{border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.82);border-radius:28px;padding:28px}
+.eyebrow{margin:0;font-size:12px;letter-spacing:.35em;text-transform:uppercase;color:#67e8f9}
+.lead{margin:18px 0 0;max-width:760px;font-size:18px;line-height:1.8;color:#cbd5e1}
+.grid{display:grid;gap:16px}
+.link-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
+.link-chip{display:inline-flex;align-items:center;border:1px solid rgba(34,211,238,.2);border-radius:999px;padding:10px 16px;color:#cffafe;text-decoration:none;background:rgba(8,47,73,.45)}
+.link-chip:hover{background:rgba(8,47,73,.75)}
+.media-frame{margin-top:24px;overflow:hidden;border-radius:28px;border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.45)}
+.media-frame img{display:block;width:100%;height:auto}
+.media-frame-secondary{max-width:760px}

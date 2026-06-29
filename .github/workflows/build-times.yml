@@ -1,0 +1,53 @@
+name: Build Times
+
+# A2/C2 platform-honest gate: publishes the cold-vs-warm build-time pair and fails the build if
+# the Go build cache stops delivering a speedup (warm rebuild slower than -max-warm-ratio of the
+# cold build). CI starts from a cold cache, so the cold/warm differential is real and meaningful.
+# The gate targets the WASM build of a representative app (the workload A2/C2 actually care about —
+# wasm compile time, not the native CLI), recomputes timings fresh each run, and gates on the
+# machine-independent warm/cold ratio (absolute ms vary by hardware). The committed
+# docs/benchmarks/build-times.json is a portable reference snapshot; the gate does not depend on
+# it, so it cannot silently drift the build green/red — the fresh artifact is uploaded each run.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-times:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build gwc
+        run: go build -o gwc ./tools/gwc
+
+      - name: Cold/warm WASM build-time gate
+        # Cold wasm build (CI cache is empty) then an immediate warm rebuild of the counter app;
+        # fails if the warm rebuild is not at least 40% faster than the cold one
+        # (-max-warm-ratio 0.6), proving the build cache delivers for the wasm target. Writes the
+        # fresh report to docs/benchmarks/build-times.json (uploaded below).
+        run: |
+          ./gwc warm -once -target wasm -pattern ./examples/public/counter \
+            -baseline docs/benchmarks/build-times.json \
+            -max-warm-ratio 0.6 -fail-on-regression -json
+
+      - name: Upload build-time report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-times
+          path: docs/benchmarks/build-times.json

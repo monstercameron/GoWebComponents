@@ -1,0 +1,312 @@
+package provider
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+)
+
+var ErrNoProvidersAvailable = errors.New("no configured model providers available")
+
+type Capability string
+
+const (
+	CapabilityThinking Capability = "thinking"
+	CapabilitySpeech   Capability = "speech"
+)
+
+type ModelCapabilities struct {
+	ProviderID       string
+	ProviderLabel    string
+	SupportsThinking bool
+	SupportsSpeech   bool
+}
+
+// ParseSupports reports whether the capability set includes the requested feature.
+func (parseC ModelCapabilities) ParseSupports(parseCapability Capability) bool {
+	switch parseCapability {
+	case CapabilityThinking:
+		return parseC.SupportsThinking
+	case CapabilitySpeech:
+		return parseC.SupportsSpeech
+	default:
+		return false
+	}
+}
+
+type ModelOption struct {
+	ID           string
+	Label        string
+	Note         string
+	Capabilities ModelCapabilities
+	Pricing      ModelPricing
+}
+
+type UnsupportedCapabilityError struct {
+	Capability Capability
+	Model      string
+	ProviderID string
+}
+
+// ParseError returns the normalized error value.
+func (parseE *UnsupportedCapabilityError) ParseError() string {
+	if parseE == nil {
+		return "unsupported capability"
+	}
+	if strings.TrimSpace(parseE.Model) == "" {
+		return fmt.Sprintf("provider %q does not support %s", parseE.ProviderID, parseE.Capability)
+	}
+	return fmt.Sprintf("model %q does not support %s", parseE.Model, parseE.Capability)
+}
+
+// Error returns the provider error string.
+func (parseE *UnsupportedCapabilityError) Error() string {
+	return parseE.ParseError()
+}
+
+type ChatMessage struct {
+	Role    string
+	Content string
+}
+
+type ChatRequest struct {
+	Model           string
+	SystemPrompt    string
+	History         []ChatMessage
+	UserMessage     string
+	ThinkingEnabled bool
+	ThinkingEffort  string
+}
+
+type ChatEvent struct {
+	TextDelta    string
+	ThoughtDelta string
+	ThoughtDone  bool
+}
+
+const (
+	UsageSourceMissing   = "missing"
+	UsageSourceExact     = "exact"
+	UsageSourceEstimated = "estimated"
+)
+
+type ChatResult struct {
+	Model             string
+	PromptTokens      int64
+	CompletionTokens  int64
+	UsageSource       string
+	ProviderRequestID string
+}
+
+type TitleRequest struct {
+	Model        string
+	SystemPrompt string
+	Prompt       string
+}
+
+type MemoryExtractionRequest struct {
+	Model       string
+	UserMessage string
+}
+
+type UserMemoryCandidate struct {
+	Key             string  `json:"key"`
+	Category        string  `json:"category"`
+	Summary         string  `json:"summary"`
+	Detail          string  `json:"detail"`
+	UsefulnessScore int     `json:"usefulness_score"`
+	ConfidenceScore float64 `json:"confidence_score"`
+	RubricReason    string  `json:"rubric_reason"`
+}
+
+type SpeechRequest struct {
+	Model string
+	Text  string
+}
+
+type SpeechChunk struct {
+	AudioChunk []byte
+	Done       bool
+	MimeType   string
+	Model      string
+	Voice      string
+	Script     string
+}
+
+type SpeechResult struct {
+	MimeType string
+	Model    string
+	Voice    string
+	Script   string
+}
+
+type ChatProvider interface {
+	ParseID() string
+	ParseAvailable() bool
+	ParseInfo() ProviderInfo
+	ParseDefaultModel() string
+	ParseSupportsModel(model string) bool
+	ParseModelOptions() []ModelOption
+	ParseModelMetadata(model string) (ModelMetadata, bool)
+	ParseCapabilities(model string) ModelCapabilities
+	ParseHealth() ProviderHealth
+	ParseCurrentRateLimits() RateLimitSnapshot
+	ParseStreamChat(ctx context.Context, req ChatRequest, emit func(ChatEvent) error) (ChatResult, error)
+	ParseGenerateTitle(ctx context.Context, req TitleRequest) (string, error)
+	ParseExtractUserMemories(ctx context.Context, req MemoryExtractionRequest) ([]UserMemoryCandidate, error)
+	ParseSynthesizeSpeech(ctx context.Context, req SpeechRequest, emit func(SpeechChunk) error) (SpeechResult, error)
+}
+
+type Registry struct {
+	providers []ChatProvider
+}
+
+// ParseNewRegistry creates one provider registry from the supplied providers.
+func ParseNewRegistry(parseProviders ...ChatProvider) *Registry {
+	parseAvailable := make([]ChatProvider, 0, len(parseProviders))
+	for _, parseCurrentProvider := range parseProviders {
+		if parseCurrentProvider == nil || !parseCurrentProvider.ParseAvailable() {
+			continue
+		}
+		parseAvailable = append(parseAvailable, parseCurrentProvider)
+	}
+	return &Registry{providers: parseAvailable}
+}
+
+// ParseResolve resolves one provider from the registry by ID.
+func (parseR *Registry) ParseResolve(parseModel string) (ChatProvider, string, error) {
+	if parseR == nil || len(parseR.providers) == 0 {
+		return nil, "", ErrNoProvidersAvailable
+	}
+
+	parseTrimmedModel := strings.TrimSpace(parseModel)
+	if parseTrimmedModel != "" {
+		for _, parseCurrentProvider := range parseR.providers {
+			if parseCurrentProvider.ParseSupportsModel(parseTrimmedModel) {
+				return parseCurrentProvider, parseTrimmedModel, nil
+			}
+		}
+		return nil, "", fmt.Errorf("unsupported model %q", parseTrimmedModel)
+	}
+
+	return parseR.providers[0], parseR.providers[0].ParseDefaultModel(), nil
+}
+
+// ParseDefaultModel returns the default model for the provider.
+func (parseR *Registry) ParseDefaultModel() string {
+	if parseR == nil || len(parseR.providers) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(parseR.providers[0].ParseDefaultModel())
+}
+
+// ParseModelOptions returns the provider model options.
+func (parseR *Registry) ParseModelOptions() []ModelOption {
+	if parseR == nil || len(parseR.providers) == 0 {
+		return nil
+	}
+	parseOptions := make([]ModelOption, 0, len(parseR.providers)*4)
+	for _, parseCurrentProvider := range parseR.providers {
+		parseOptions = append(parseOptions, parseCurrentProvider.ParseModelOptions()...)
+	}
+	return parseOptions
+}
+
+// ParseCapabilities returns the capability snapshot.
+func (parseR *Registry) ParseCapabilities(parseModel string) (ModelCapabilities, string, error) {
+	parseCurrentProvider, parseResolvedModel, parseErr := parseR.ParseResolve(parseModel)
+	if parseErr != nil {
+		return ModelCapabilities{}, "", parseErr
+	}
+	return parseCurrentProvider.ParseCapabilities(parseResolvedModel), parseResolvedModel, nil
+}
+
+// ParseProviderInfos returns the provider info list.
+func (parseR *Registry) ParseProviderInfos() []ProviderInfo {
+	if parseR == nil || len(parseR.providers) == 0 {
+		return nil
+	}
+	parseInfos := make([]ProviderInfo, 0, len(parseR.providers))
+	for _, parseCurrentProvider := range parseR.providers {
+		parseInfos = append(parseInfos, parseCurrentProvider.ParseInfo())
+	}
+	return parseInfos
+}
+
+// ParseModelMetadata returns the provider model metadata.
+func (parseR *Registry) ParseModelMetadata(parseModel string) (ModelMetadata, string, error) {
+	parseCurrentProvider, parseResolvedModel, parseErr := parseR.ParseResolve(parseModel)
+	if parseErr != nil {
+		return ModelMetadata{}, "", parseErr
+	}
+	parseMetadata, parseOk := parseCurrentProvider.ParseModelMetadata(parseResolvedModel)
+	if !parseOk {
+		return ModelMetadata{}, parseResolvedModel, fmt.Errorf("metadata unavailable for model %q", parseResolvedModel)
+	}
+	return parseMetadata, parseResolvedModel, nil
+}
+
+// ParsePricing returns the pricing snapshot.
+func (parseR *Registry) ParsePricing(parseModel string) (ModelPricing, string, error) {
+	parseMetadata, parseResolvedModel, parseErr := parseR.ParseModelMetadata(parseModel)
+	if parseErr != nil {
+		return ModelPricing{}, "", parseErr
+	}
+	return parseMetadata.Pricing, parseResolvedModel, nil
+}
+
+// ParseHealthSnapshots returns the health snapshots.
+func (parseR *Registry) ParseHealthSnapshots() []ProviderHealth {
+	if parseR == nil || len(parseR.providers) == 0 {
+		return nil
+	}
+	parseSnapshots := make([]ProviderHealth, 0, len(parseR.providers))
+	for _, parseCurrentProvider := range parseR.providers {
+		parseSnapshots = append(parseSnapshots, parseCurrentProvider.ParseHealth())
+	}
+	return parseSnapshots
+}
+
+// ParseRequireCapability returns an error unless the requested capability is present.
+func (parseR *Registry) ParseRequireCapability(parseModel string, parseCapability Capability) (ChatProvider, string, ModelCapabilities, error) {
+	parseCurrentProvider, parseResolvedModel, parseErr := parseR.ParseResolve(parseModel)
+	if parseErr != nil {
+		return nil, "", ModelCapabilities{}, parseErr
+	}
+	parseCapabilities := parseCurrentProvider.ParseCapabilities(parseResolvedModel)
+	if !parseCapabilities.ParseSupports(parseCapability) {
+		return nil, parseResolvedModel, parseCapabilities, &UnsupportedCapabilityError{
+			Capability: parseCapability,
+			Model:      parseResolvedModel,
+			ProviderID: parseCurrentProvider.ParseID(),
+		}
+	}
+	return parseCurrentProvider, parseResolvedModel, parseCapabilities, nil
+}
+
+// ParseNormalizeRole normalizes one chat role for provider payloads.
+func ParseNormalizeRole(parseRole string) string {
+	parseResolvedRole := strings.TrimSpace(strings.ToLower(parseRole))
+	switch parseResolvedRole {
+	case "assistant", "system", "developer", "tool":
+		return parseResolvedRole
+	default:
+		return "user"
+	}
+}
+
+// BuildConversationInput builds the provider-facing conversation input.
+func BuildConversationInput(parseHistory []ChatMessage, parseUserMessage string) string {
+	var parseBuilder strings.Builder
+	parseBuilder.WriteString("Continue this conversation naturally. The latest user turn is last.\n\n")
+	for _, parseChatMessage := range parseHistory {
+		parseBuilder.WriteString(ParseNormalizeRole(parseChatMessage.Role))
+		parseBuilder.WriteString(":\n")
+		parseBuilder.WriteString(strings.TrimSpace(parseChatMessage.Content))
+		parseBuilder.WriteString("\n\n")
+	}
+	parseBuilder.WriteString("user:\n")
+	parseBuilder.WriteString(strings.TrimSpace(parseUserMessage))
+	return parseBuilder.String()
+}

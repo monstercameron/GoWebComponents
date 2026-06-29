@@ -1,0 +1,21 @@
+name: Starter Templates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  starter-templates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+          cache: true
+      - name: Scaffold, test, and build every starter
+        run: go test ./tools/gwc -run TestDefaultStarterTemplatesScaffoldTidyTestAndBuild -count=1
+      - name: Browser first-pixel smoke for every starter
+        run: go test -tags playwrightgo ./tools/gwc -run TestDefaultStarterTemplatesMountInHeadlessBrowser -count=1

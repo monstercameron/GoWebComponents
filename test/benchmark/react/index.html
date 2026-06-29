@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>React Benchmark</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        const { useState, useEffect, useMemo, createElement } = React;
+        const CORE_LIST_SIZE = 40;
+        const CONTENT_CARD_COUNT = 12;
+        const DEEP_TREE_DEPTH = 60;
+        const HOOK_COMPONENT_COUNT = 40;
+        const HOOKS_PER_COMPONENT = 20;
+        const PRIME_LIMIT = 10000;
+
+        function buildCoreItems() {
+            return Array.from({ length: CORE_LIST_SIZE }, (_, index) => `Item ${index}`);
+        }
+
+        function buildContentItems() {
+            return Array.from({ length: CONTENT_CARD_COUNT }, (_, index) => ({
+                id: index,
+                title: `Article ${index}`,
+                summary: 'This benchmark card exercises regular app rendering with nested content blocks.',
+                status: 'draft',
+                meta: `Section ${(index % 3) + 1}`,
+                tags: ['perf', 'bench', `card-${index % 4}`],
+            }));
+        }
+
+        function DeepTree({ depth }) {
+            if (depth <= 0) {
+                return createElement("div", { className: "leaf", id: "deep-leaf" }, "Leaf");
+            }
+            return createElement("div", { className: "node" }, createElement(DeepTree, { depth: depth - 1 }));
+        }
+
+        function ManyHooks() {
+            for (let i = 0; i < HOOKS_PER_COMPONENT; i++) {
+                useState(i);
+                useEffect(() => {}, []);
+                useMemo(() => i * 2, [i]);
+            }
+            return createElement("div", { className: "hook-node" }, "Hooks");
+        }
+
+        function ContentCard({ item }) {
+            return createElement("article", { className: "content-card" },
+                createElement("div", { className: "content-card-header" },
+                    createElement("h2", { className: "content-title" }, item.title),
+                    createElement("span", { className: "content-status" }, item.status)
+                ),
+                createElement("p", { className: "content-summary" }, item.summary),
+                createElement("div", { className: "content-meta" },
+                    createElement("span", { className: "content-meta-text" }, item.meta)
+                ),
+                createElement("div", { className: "content-tags" },
+                    item.tags.map((tag, index) => createElement("span", { key: `${item.id}-${index}`, className: "content-tag" }, tag))
+                )
+            );
+        }
+
+        function BenchmarkApp() {
+            const [coreItems, setCoreItems] = useState([]);
+            const [contentItems, setContentItems] = useState([]);
+            const [view, setView] = useState("core"); // core, content, deep, hooks
+            const [lastRenderTime, setLastRenderTime] = useState("");
+            const [computeResult, setComputeResult] = useState("");
+
+            useEffect(() => {
+                setLastRenderTime(new Date().toISOString());
+            }, [coreItems, contentItems, view]);
+
+            const computePrimes = () => {
+                const start = performance.now();
+                let count = 0;
+                for (let i = 2; i < PRIME_LIMIT; i++) {
+                    let isPrime = true;
+                    for (let j = 2; j * j <= i; j++) {
+                        if (i % j === 0) {
+                            isPrime = false;
+                            break;
+                        }
+                    }
+                    if (isPrime) {
+                        count++;
+                    }
+                }
+                const duration = performance.now() - start;
+                setComputeResult(`Found ${count} primes in ${Math.round(duration)}ms`);
+            };
+
+            const renderList = () => {
+                setView("core");
+                setCoreItems(buildCoreItems());
+                setContentItems([]);
+            };
+
+            const renderContent = () => {
+                setView("content");
+                setContentItems(buildContentItems());
+                setCoreItems([]);
+            };
+
+            const renderDeep = () => {
+                setView("deep");
+                setCoreItems([]);
+                setContentItems([]);
+            };
+
+            const renderHooks = () => {
+                setView("hooks");
+                setCoreItems([]);
+                setContentItems([]);
+            };
+
+            const clearList = () => {
+                setView("core");
+                setCoreItems([]);
+            };
+
+            const clearContent = () => {
+                setView("content");
+                setContentItems([]);
+            };
+
+            const updateList = () => {
+                setCoreItems(prev => prev.map(item => item + " (Updated)"));
+            };
+
+            const updateContent = () => {
+                setContentItems(prev => prev.map(item => ({
+                    ...item,
+                    title: item.title + ' (Updated)',
+                    summary: item.summary + ' Updated with fresh content.',
+                    status: 'live',
+                    meta: item.meta + ' / refreshed',
+                })));
+            };
+
+            let content;
+            if (view === "deep") {
+                content = createElement(DeepTree, { depth: DEEP_TREE_DEPTH });
+            } else if (view === "content") {
+                content = createElement("div", { id: "content-container" },
+                    contentItems.map((item) => createElement(ContentCard, { key: item.id, item }))
+                );
+            } else if (view === "hooks") {
+                const children = [];
+                for (let i = 0; i < HOOK_COMPONENT_COUNT; i++) {
+                    children.push(createElement(ManyHooks, { key: i }));
+                }
+                content = createElement("div", { id: "hooks-container" }, children);
+            } else {
+                content = createElement("div", { id: "core-list-container" },
+                    coreItems.map((item, index) => 
+                        createElement("div", { key: index, className: "core-list-item" }, item)
+                    )
+                );
+            }
+
+            return createElement("div", { id: "app" },
+                createElement("h1", null, "Benchmark App (React)"),
+                createElement("div", { id: "controls" },
+                    createElement("button", { id: "btn-render", onClick: renderList }, "Render Core Items"),
+                    createElement("button", { id: "btn-update", onClick: updateList }, "Update Core Items"),
+                    createElement("button", { id: "btn-clear", onClick: clearList }, "Clear Core Items"),
+                    createElement("button", { id: "btn-content-render", onClick: renderContent }, "Render Content Cards"),
+                    createElement("button", { id: "btn-content-update", onClick: updateContent }, "Update Content Cards"),
+                    createElement("button", { id: "btn-content-clear", onClick: clearContent }, "Clear Content Cards"),
+                    createElement("button", { id: "btn-deep", onClick: renderDeep }, "Render Deep Tree (60)"),
+                    createElement("button", { id: "btn-hooks", onClick: renderHooks }, "Render 40 Components w/ 60 Hooks"),
+                    createElement("button", { id: "btn-compute", onClick: computePrimes }, "Compute Primes (10k)")
+                ),
+                createElement("div", { id: "metrics" },
+                    createElement("p", { id: "last-render" }, "Last Render: " + lastRenderTime),
+                    createElement("p", { id: "core-count" }, "Core Count: " + coreItems.length),
+                    createElement("p", { id: "content-count" }, "Content Count: " + contentItems.length),
+                    createElement("p", { id: "compute-result" }, computeResult)
+                ),
+                createElement("div", { id: "container" }, content)
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(createElement(BenchmarkApp));
+    </script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+name: CI + Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Semver tag to release (vMAJOR.MINOR.PATCH)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  attestations: write
+  id-token: write
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Run Go Unit Tests
+        run: |
+          go test -short -v -count=1 ./...
+        shell: pwsh
+
+      - name: Reproducible-Build Gate
+        # E2: the byte-identical reproducibility check is skipped under -short (it does two full
+        # wasm builds), so run it explicitly on the release path — provenance attestation is only
+        # meaningful if builds are actually reproducible. Not -short, scoped to the one package.
+        run: |
+          go test -run TestReproducibleWasmBuild -count=1 ./tools/reprobuild
+        shell: pwsh
+
+      - name: Vulnerability Scan (govulncheck)
+        # Surfaces known vulnerabilities in the root module's call graph.
+        # This gate is blocking. Any accepted exception must be documented in
+        # security/govulncheck-suppressions.md and should have a tracked expiry.
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          & "$(go env GOPATH)\bin\govulncheck.exe" ./...
+        shell: pwsh
+
+      - name: Generate CycloneDX SBOM
+        # Emits a dependency SBOM whose component list is derived from the
+        # resolved module graph (go list -m -json all), attachable to the release.
+        run: |
+          go run ./tools/sbom/cmd/sbom bin/sbom.cyclonedx.json
+        shell: pwsh
+
+      - name: Upload CycloneDX SBOM
+        uses: actions/upload-artifact@v6
+        with:
+          name: cyclonedx-sbom
+          path: bin/sbom.cyclonedx.json
+          if-no-files-found: error
+
+      - name: CHANGELOG Entry Check
+        # Verifies the tag being released has a CHANGELOG.md section. This is a
+        # blocking release gate so tags do not ship with generated notes only.
+        run: |
+          $tag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "${{ github.event.inputs.release_tag }}" }
+          go run ./tools/changelogcheck/cmd/changelogcheck CHANGELOG.md $tag
+        shell: pwsh
+
+      - name: Run Golden-Path Verify Audit
+        run: |
+          go run ./tools/gwc verify -app .\examples\public\counter\main.go -root .\examples\public\counter -skip-tests -audit -audit-min-severity error
+        shell: pwsh
+
+      - name: Run Browser Smoke Suite (Playwright-Go)
+        run: |
+          go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v
+        shell: pwsh
+
+      - name: Run Browser Benchmark Suite (Playwright-Go)
+        run: |
+          go test -tags playwrightgo ./test/playwrightgo -run TestBenchmark -v
+        shell: pwsh
+
+      - name: Run Canonical Go Get Smoke (Release Guard)
+        run: |
+          $ErrorActionPreference = "Stop"
+          $workDir = Join-Path $env:TEMP ("gwc-release-smoke-" + [guid]::NewGuid().ToString("N"))
+          New-Item -ItemType Directory -Path $workDir | Out-Null
+          try {
+            Push-Location $workDir
+            go mod init example.com/gwc-release-smoke
+            if ($LASTEXITCODE -ne 0) { throw "go mod init failed" }
+            # Write a tiny external consumer that imports the released module, so the
+            # smoke proves go-get + import-path resolution + a real compile, not just
+            # that the module path resolves. Uses a long-stable symbol so '@latest'
+            # (the previously published tag during a tag push) always has it.
+            $main = @(
+              'package main',
+              'import "github.com/monstercameron/GoWebComponents/ui"',
+              'var _ = ui.Text("release-smoke")',
+              'func main() {}'
+            ) -join "`n"
+            Set-Content -Path (Join-Path $workDir "main.go") -Value $main -Encoding utf8
+            go get github.com/monstercameron/GoWebComponents@latest
+            if ($LASTEXITCODE -ne 0) { throw "go get GoWebComponents@latest failed" }
+            go build ./...
+            if ($LASTEXITCODE -ne 0) { throw "native consumer build failed" }
+            $env:GOOS = "js"; $env:GOARCH = "wasm"
+            go build ./...
+            $wasmExit = $LASTEXITCODE
+            Remove-Item Env:GOOS; Remove-Item Env:GOARCH
+            if ($wasmExit -ne 0) { throw "wasm consumer build failed" }
+          } finally {
+            Pop-Location
+            if (Test-Path $workDir) {
+              Remove-Item -Recurse -Force $workDir
+            }
+          }
+        shell: pwsh
+
+  release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Resolve Release Tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            release_tag="${{ github.event.inputs.release_tag }}"
+          else
+            release_tag="${GITHUB_REF_NAME}"
+          fi
+
+          if ! [[ "${release_tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "invalid release tag: ${release_tag}"
+            exit 1
+          fi
+          echo "release_tag=${release_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Download CycloneDX SBOM
+        uses: actions/download-artifact@v6
+        with:
+          name: cyclonedx-sbom
+          path: release-assets
+
+      - name: Create Tag For Manual Release
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.release_tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag $RELEASE_TAG already exists. Skipping."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag "$RELEASE_TAG"
+          git push origin "$RELEASE_TAG"
+
+      - name: Build Release Archive
+        id: archive
+        shell: bash
+        run: |
+          release_tag="${{ steps.tag.outputs.release_tag }}"
+          archive_name="GoWebComponents-${release_tag}.tar.gz"
+          git archive --format=tar.gz --output "${archive_name}" "${release_tag}"
+          sha256sum "${archive_name}" > "${archive_name}.sha256"
+          echo "archive_name=${archive_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build Prebuilt gwc Binaries
+        # A2: ship a prebuilt `gwc` for every supported platform so users skip a from-source
+        # build. gwc is a pure-Go CLI, so it cross-compiles with CGO disabled; each binary is
+        # checksummed into a single SHA256SUMS manifest attached to the release.
+        shell: bash
+        run: |
+          mkdir -p dist
+          release_tag="${{ steps.tag.outputs.release_tag }}"
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            os="${target%/*}"; arch="${target#*/}"
+            out="gwc_${release_tag}_${os}_${arch}"
+            ext=""; [ "$os" = "windows" ] && ext=".exe"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
+              go build -trimpath -ldflags "-s -w" -o "dist/${out}${ext}" ./tools/gwc
+          done
+          ( cd dist && sha256sum gwc_* > SHA256SUMS )
+          ls -l dist
+
+      - name: Generate gwc Binary Provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/gwc_*
+
+      - name: Generate Build Provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            ${{ steps.archive.outputs.archive_name }}
+            ${{ steps.archive.outputs.archive_name }}.sha256
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          name: ${{ steps.tag.outputs.release_tag }}
+          files: |
+            ${{ steps.archive.outputs.archive_name }}
+            ${{ steps.archive.outputs.archive_name }}.sha256
+            release-assets/sbom.cyclonedx.json
+            dist/gwc_*
+            dist/SHA256SUMS
+          generate_release_notes: true
+          body: |
+            Release ${{ steps.tag.outputs.release_tag }}
+
+            Changes in this release:
+            - Release tag explicitly selected (no auto patch increment on main)
+            - Passed unit/e2e and release verification gates
+            - Includes source archive with SHA-256 checksum
+            - Prebuilt `gwc` binaries for linux/macOS/windows (amd64 + arm64) with SHA256SUMS
+            - Includes GitHub build provenance attestation (source + binaries)
+          draft: false
+          prerelease: false

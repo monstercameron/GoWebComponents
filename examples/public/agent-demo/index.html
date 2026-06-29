@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Agent Bridge Demo</title>
+  <style>html,body{margin:0;height:100%;background:#0b1020}</style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="agent-canvas" style="position:fixed; top:24px; left:50%; transform:translateX(-50%); z-index:9999; max-width:90vw;"></div>
+  <div id="blog"></div>
+  <script src="/wasm_exec.js"></script>
+  <script>
+    const go = new Go();
+    WebAssembly.instantiateStreaming(fetch("/main.wasm"), go.importObject)
+      .then((result) => go.run(result.instance))
+      .catch((err) => {
+        document.getElementById("app").innerText = "wasm boot failed: " + err;
+        console.error(err);
+      });
+  </script>
+</body>
+</html>

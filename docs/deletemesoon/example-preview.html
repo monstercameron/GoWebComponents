@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>React Preview</title>
+  <link rel="stylesheet" href="../../examples/static/css/tailwind.css" />
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-[#08111d] text-white min-h-screen">
+  <div id="app"></div>
+  <script>
+    fetch('./example.jsx')
+      .then((response) => response.text())
+      .then((source) => {
+        let normalized = source.replace(/^import React[^\n]*\n/, 'const { useEffect, useMemo, useState } = React;\n');
+        normalized = normalized.replace('export default function DocsDemosSiteConcept()', 'function DocsDemosSiteConcept()');
+        normalized += '\nconst root = ReactDOM.createRoot(document.getElementById("app"));\nroot.render(<DocsDemosSiteConcept />);';
+        const compiled = Babel.transform(normalized, { presets: ['react'] }).code;
+        new Function('React', 'ReactDOM', compiled)(React, ReactDOM);
+      })
+      .catch((error) => {
+        document.getElementById('app').innerHTML = '<main style="max-width:72rem;margin:0 auto;padding:2rem;font-family:Segoe UI, sans-serif;"><h1>React preview failed</h1><p>' + error.message + '</p></main>';
+      });
+  </script>
+</body>
+</html>

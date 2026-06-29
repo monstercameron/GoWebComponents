@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>GoWebComponents Benchmark</title>
+    <script src="wasm_exec.js"></script>
+    <script>
+        const go = new Go();
+        const wasmURL = `bin/benchmark.wasm?v=${Date.now()}`;
+        WebAssembly.instantiateStreaming(fetch(wasmURL), go.importObject).then((result) => {
+            go.run(result.instance);
+        });
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>

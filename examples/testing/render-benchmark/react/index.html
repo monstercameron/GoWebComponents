@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Example 201 React Subject</title>
+    <link rel="stylesheet" href="../benchmark.css">
+    <script src="../vendor/react.latest.production.js"></script>
+    <script src="../benchmark-subject.js"></script>
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        window.addEventListener("error", (parseEvent) => {
+            window.__example201SubjectError = parseEvent.message || "react subject error";
+        });
+        window.addEventListener("unhandledrejection", (parseEvent) => {
+            window.__example201SubjectError = String(parseEvent.reason || "react subject rejection");
+        });
+        const { useEffect, useMemo, useState, createElement } = React;
+
+        const storeBenchmarkCoreListSize = 40;
+        const storeBenchmarkCoreStressListSize = 240;
+        const storeBenchmarkCoreStressHalfSize = storeBenchmarkCoreStressListSize / 2;
+        const storeBenchmarkCoreAppendCount = 100;
+        const storeBenchmarkContentCardCount = 12;
+        const storeBenchmarkDeepTreeDepth = 60;
+        const storeBenchmarkHookComponentCount = 40;
+        const storeBenchmarkHooksPerComponent = 20;
+        const storeBenchmarkPrimitiveRowCount = 200;
+        const storeBenchmarkPrimitiveRemoveCount = 100;
+        const storeBenchmarkEnterpriseSectionCount = 6;
+        const storeBenchmarkEnterpriseRecordCount = 5;
+        const storeBenchmarkEnterpriseMetricCount = 4;
+        const storeBenchmarkEnterpriseTargetSectionID = "section-3";
+
+        function buildBenchmarkCoreItems() {
+            return Array.from({ length: storeBenchmarkCoreListSize }, (_, parseIndex) => ({
+                getID: parseIndex + 1,
+                getText: `Item ${parseIndex}`
+            }));
+        }
+
+        function buildBenchmarkCoreStressText(parseRowID) {
+            return `Row ${String(parseRowID).padStart(4, "0")} / lane ${(parseRowID % 11) + 1} / cluster ${(parseRowID % 7) + 1} / bucket ${(parseRowID % 5) + 1} / payload ${(parseRowID % 13) + 1}`;
+        }
+
+        function buildBenchmarkCoreStressItems() {
+            const getItems = [];
+            for (let parseIndex = 0; parseIndex < storeBenchmarkCoreStressHalfSize; parseIndex++) {
+                getItems.push({
+                    getID: parseIndex + 1,
+                    getText: buildBenchmarkCoreStressText(parseIndex + 1)
+                });
+            }
+            for (let parseIndex = storeBenchmarkCoreStressHalfSize; parseIndex < storeBenchmarkCoreStressListSize; parseIndex++) {
+                getItems.push({
+                    getID: parseIndex + 1,
+                    getText: buildBenchmarkCoreStressText(parseIndex + 1)
+                });
+            }
+            return getItems;
+        }
+
+        function buildBenchmarkContentItems() {
+            return Array.from({ length: storeBenchmarkContentCardCount }, (_, parseIndex) => ({
+                getID: parseIndex,
+                getTitle: `Article ${parseIndex}`,
+                getSummary: "This benchmark card exercises browser-side render and update work with nested content blocks.",
+                getStatus: "draft",
+                getMeta: `Section ${(parseIndex % 3) + 1}`,
+                getTags: ["perf", "browser", `card-${parseIndex % 4}`]
+            }));
+        }
+
+        function buildBenchmarkUpdatedCoreItems(parseItems) {
+            return parseItems.map((parseItem) => ({
+                ...parseItem,
+                getText: `${parseItem.getText} (Updated)`
+            }));
+        }
+
+        function buildBenchmarkCoreAppendedItems(parseItems) {
+            const getItems = parseItems.slice();
+            for (let parseOffset = 0; parseOffset < storeBenchmarkCoreAppendCount; parseOffset++) {
+                const getRowID = 1001 + parseOffset;
+                getItems.push({
+                    getID: getRowID,
+                    getText: buildBenchmarkCoreStressText(getRowID)
+                });
+            }
+            return getItems;
+        }
+
+        function buildBenchmarkCorePrependedItems(parseItems) {
+            const getItems = [];
+            for (let parseOffset = 0; parseOffset < storeBenchmarkCoreAppendCount; parseOffset++) {
+                const getRowID = 2001 + parseOffset;
+                getItems.push({
+                    getID: getRowID,
+                    getText: buildBenchmarkCoreStressText(getRowID)
+                });
+            }
+            return getItems.concat(parseItems);
+        }
+
+        function buildBenchmarkCoreReversedItems(parseItems) {
+            return parseItems.slice().reverse();
+        }
+
+        function filterBenchmarkCoreStressItems(parseItems) {
+            return parseItems.filter((parseItem) => parseItem.getID % 3 === 0);
+        }
+
+        function buildBenchmarkCoreSortedItems(parseItems) {
+            return parseItems.slice().sort((parseLeft, parseRight) => parseLeft.getID - parseRight.getID);
+        }
+
+        function buildBenchmarkUpdatedContentItems(parseItems) {
+            return parseItems.map((parseItem) => ({
+                ...parseItem,
+                getTitle: `${parseItem.getTitle} (Updated)`,
+                getSummary: `${parseItem.getSummary} Updated with fresh content.`,
+                getStatus: "live",
+                getMeta: `${parseItem.getMeta} / refreshed`
+            }));
+        }
+
+        function buildBenchmarkPrimitiveLabel(parseRowID, parseSuffix = "") {
+            return `P${parseRowID}${parseSuffix}`;
+        }
+
+        function buildBenchmarkPrimitivePresetRows(parseCount, parseSuffix, parseState, isActive) {
+            return Array.from({ length: parseCount }, (_, parseIndex) => ({
+                getID: parseIndex + 1,
+                getLabel: buildBenchmarkPrimitiveLabel(parseIndex + 1, parseSuffix),
+                getState: parseState,
+                isActive
+            }));
+        }
+
+        function isBenchmarkPrimitiveBaseRows(parseRows) {
+            if (parseRows.length !== storeBenchmarkPrimitiveRowCount) {
+                return false;
+            }
+            const getFirstRow = parseRows[0];
+            const getLastRow = parseRows[parseRows.length - 1];
+            return getFirstRow?.getID === 1 &&
+                getFirstRow?.getLabel === storeBenchmarkBasePrimitiveRows[0].getLabel &&
+                getFirstRow?.getState === "steady" &&
+                getFirstRow?.isActive === false &&
+                getLastRow?.getID === storeBenchmarkPrimitiveRowCount &&
+                getLastRow?.getLabel === storeBenchmarkBasePrimitiveRows[storeBenchmarkBasePrimitiveRows.length - 1].getLabel &&
+                getLastRow?.getState === "steady" &&
+                getLastRow?.isActive === false;
+        }
+
+        const storeBenchmarkBasePrimitiveRows = buildBenchmarkPrimitivePresetRows(storeBenchmarkPrimitiveRowCount, "", "steady", false);
+        const storeBenchmarkLivePrimitiveRows = buildBenchmarkPrimitivePresetRows(storeBenchmarkPrimitiveRowCount, "(Live)", "steady", false);
+        const storeBenchmarkActivePrimitiveRows = buildBenchmarkPrimitivePresetRows(storeBenchmarkPrimitiveRowCount, "", "active", true);
+        const storeBenchmarkAppendedPrimitiveRows = buildBenchmarkPrimitivePresetRows(storeBenchmarkPrimitiveRowCount + storeBenchmarkPrimitiveRemoveCount, "", "steady", false);
+        const storeBenchmarkTrimmedPrimitiveRows = buildBenchmarkPrimitivePresetRows(storeBenchmarkPrimitiveRowCount - storeBenchmarkPrimitiveRemoveCount, "", "steady", false);
+
+        function buildBenchmarkPrimitiveRows() {
+            return storeBenchmarkBasePrimitiveRows;
+        }
+
+        function buildBenchmarkUpdatedPrimitiveTextRows(parseRows) {
+            if (isBenchmarkPrimitiveBaseRows(parseRows)) {
+                return storeBenchmarkLivePrimitiveRows;
+            }
+            return parseRows.map((parseRow) => ({
+                ...parseRow,
+                getLabel: `${parseRow.getLabel}(Live)`
+            }));
+        }
+
+        function buildBenchmarkUpdatedPrimitiveAttributeRows(parseRows) {
+            if (isBenchmarkPrimitiveBaseRows(parseRows)) {
+                return storeBenchmarkActivePrimitiveRows;
+            }
+            return parseRows.map((parseRow) => ({
+                ...parseRow,
+                getState: "active",
+                isActive: true
+            }));
+        }
+
+        function buildBenchmarkAppendedPrimitiveRows(parseRows) {
+            if (isBenchmarkPrimitiveBaseRows(parseRows)) {
+                return storeBenchmarkAppendedPrimitiveRows;
+            }
+            const getRows = parseRows.slice();
+            for (let parseOffset = 0; parseOffset < storeBenchmarkPrimitiveRemoveCount; parseOffset++) {
+                const getRowID = parseRows.length + parseOffset + 1;
+                getRows.push({
+                    getID: getRowID,
+                    getLabel: buildBenchmarkPrimitiveLabel(getRowID),
+                    getState: "steady",
+                    isActive: false
+                });
+            }
+            return getRows;
+        }
+
+        function buildBenchmarkTrimmedPrimitiveRows(parseRows) {
+            if (isBenchmarkPrimitiveBaseRows(parseRows)) {
+                return storeBenchmarkTrimmedPrimitiveRows;
+            }
+            if (parseRows.length <= storeBenchmarkPrimitiveRemoveCount) {
+                return [];
+            }
+            return parseRows.slice(0, parseRows.length - storeBenchmarkPrimitiveRemoveCount);
+        }
+
+        function buildBenchmarkEnterpriseMetrics(parseSectionIndex, parseRecordIndex, parseRevision) {
+            return [
+                { getLabel: "owners", getValue: String(6 + parseSectionIndex + parseRevision) },
+                { getLabel: "controls", getValue: String(14 + parseRecordIndex + parseRevision) },
+                { getLabel: "sla", getValue: `${24 + (parseSectionIndex * 2) + parseRevision}h` },
+                { getLabel: "risk", getValue: `r${((parseSectionIndex + parseRecordIndex + parseRevision) % 5) + 1}` }
+            ];
+        }
+
+        function buildBenchmarkEnterpriseSections() {
+            const getSectionTitles = [
+                "Portfolio Oversight",
+                "Capacity Planning",
+                "Risk Controls",
+                "Customer Rollout",
+                "Compliance Evidence",
+                "Executive Review"
+            ];
+            return Array.from({ length: storeBenchmarkEnterpriseSectionCount }, (_, parseSectionIndex) => {
+                const getSectionID = `section-${parseSectionIndex + 1}`;
+                return {
+                    getID: getSectionID,
+                    getTitle: getSectionTitles[parseSectionIndex],
+                    getSummary: `Nested enterprise review pack ${parseSectionIndex + 1} with shared controls, owners, and SLA markers.`,
+                    getStatus: "steady",
+                    getRevision: 0,
+                    getRecords: Array.from({ length: storeBenchmarkEnterpriseRecordCount }, (_, parseRecordIndex) => ({
+                        getID: `${getSectionID}-record-${String(parseRecordIndex + 1).padStart(2, "0")}`,
+                        getTitle: `Workstream ${String(parseSectionIndex + 1).padStart(2, "0")} / Batch ${String(parseRecordIndex + 1).padStart(2, "0")}`,
+                        getOwner: `team-${((parseSectionIndex + parseRecordIndex) % 4) + 1}`,
+                        getStatus: "steady",
+                        getRevision: 0,
+                        getMetrics: buildBenchmarkEnterpriseMetrics(parseSectionIndex, parseRecordIndex, 0)
+                    }))
+                };
+            });
+        }
+
+        function buildBenchmarkUpdatedEnterpriseSections(parseSections) {
+            return parseSections.map((parseSection, parseSectionIndex) => {
+                if (parseSection.getID !== storeBenchmarkEnterpriseTargetSectionID) {
+                    return parseSection;
+                }
+                const getRevision = parseSection.getRevision + 1;
+                return {
+                    ...parseSection,
+                    getRevision,
+                    getStatus: "escalated",
+                    getTitle: `${parseSection.getTitle} (Escalated)`,
+                    getSummary: `${parseSection.getSummary} Escalation review reopened.`,
+                    getRecords: parseSection.getRecords.map((parseRecord, parseRecordIndex) => ({
+                        ...parseRecord,
+                        getRevision,
+                        getStatus: "escalated",
+                        getTitle: `${parseRecord.getTitle} / Escalation ${getRevision}`,
+                        getOwner: `${parseRecord.getOwner}-priority`,
+                        getMetrics: buildBenchmarkEnterpriseMetrics(parseSectionIndex, parseRecordIndex, getRevision)
+                    }))
+                };
+            });
+        }
+
+        function buildBenchmarkDeepTreeChain({ getDepth, getRefreshToken, getTreeVersion }) {
+            let getNode = createElement(
+                "div",
+                {
+                    id: "benchmark-deep-leaf",
+                    className: "benchmark-deep-leaf",
+                    "data-refresh-token": String(getRefreshToken),
+                    "data-tree-version": String(getTreeVersion)
+                },
+                `Leaf R${getTreeVersion}`
+            );
+            for (let parseDepth = 1; parseDepth <= getDepth; parseDepth++) {
+                getNode = createElement(
+                    "div",
+                    {
+                        className: "benchmark-deep-node"
+                    },
+                    `Layer ${parseDepth} R${getTreeVersion}`,
+                    getNode
+                );
+            }
+            return getNode;
+        }
+
+        function renderBenchmarkEnterpriseView({ getSections, getRefreshToken }) {
+            return createElement(
+                "div",
+                { id: "enterprise-container", className: "grid gap-4", "data-refresh-token": String(getRefreshToken) },
+                getSections.map((parseSection) => createElement(
+                    "section",
+                    {
+                        key: parseSection.getID,
+                        className: "benchmark-enterprise-section rounded-[24px] border border-white/10 bg-slate-950/35 p-5",
+                        "data-section-id": parseSection.getID,
+                        "data-enterprise-revision": String(parseSection.getRevision),
+                        "data-refresh-token": String(getRefreshToken)
+                    },
+                    createElement(
+                        "div",
+                        { className: "flex items-center justify-between gap-3" },
+                        createElement(
+                            "div",
+                            { className: "space-y-2" },
+                            createElement("p", { className: "text-[11px] uppercase tracking-[0.18em] text-slate-400" }, parseSection.getID),
+                            createElement("h2", { className: "text-lg font-semibold text-white" }, parseSection.getTitle),
+                            createElement("p", { className: "text-sm leading-6 text-slate-300" }, parseSection.getSummary)
+                        ),
+                        createElement("span", { className: "benchmark-enterprise-section-status rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-cyan-100" }, parseSection.getStatus)
+                    ),
+                    createElement(
+                        "div",
+                        { className: "mt-4 grid gap-4 xl:grid-cols-2" },
+                        parseSection.getRecords.map((parseRecord) => createElement(
+                            "article",
+                            {
+                                key: parseRecord.getID,
+                                className: "benchmark-enterprise-record rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-lg shadow-black/20",
+                                "data-section-id": parseSection.getID,
+                                "data-record-id": parseRecord.getID,
+                                "data-enterprise-revision": String(parseRecord.getRevision)
+                            },
+                            createElement(
+                                "div",
+                                { className: "flex items-center justify-between gap-3" },
+                                createElement("h3", { className: "benchmark-enterprise-record-title text-sm font-semibold text-white" }, parseRecord.getTitle),
+                                createElement("span", { className: "benchmark-enterprise-status rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-cyan-100" }, parseRecord.getStatus)
+                            ),
+                            createElement("p", { className: "mt-2 text-xs uppercase tracking-[0.16em] text-slate-400" }, `Owner ${parseRecord.getOwner}`),
+                            createElement(
+                                "div",
+                                { className: "mt-3 flex flex-wrap gap-2" },
+                                parseRecord.getMetrics.map((parseMetric) => createElement(
+                                    "span",
+                                    {
+                                        key: `${parseRecord.getID}-${parseMetric.getLabel}`,
+                                        className: "benchmark-enterprise-metric rounded-full border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-slate-300",
+                                        "data-metric-label": parseMetric.getLabel
+                                    },
+                                    `${parseMetric.getLabel}: ${parseMetric.getValue}`
+                                ))
+                            )
+                        ))
+                    )
+                ))
+            );
+        }
+
+        function renderBenchmarkPrimitiveView({ getRows, getRefreshToken }) {
+            return createElement(
+                "div",
+                { id: "primitive-container", className: "benchmark-primitive-grid", "data-refresh-token": String(getRefreshToken) },
+                getRows.map((parseRow, parseIndex) => {
+                    const getProps = {
+                        key: parseRow.getID,
+                        className: `benchmark-primitive-row benchmark-primitive-label${parseRow.isActive ? " benchmark-primitive-row-active" : ""}`
+                    };
+                    if (parseIndex === getRows.length - 1) {
+                        getProps["data-primitive-id"] = String(parseRow.getID);
+                    }
+                    if (parseRow.getState && parseRow.getState !== "steady") {
+                        getProps["data-primitive-state"] = parseRow.getState;
+                    }
+                    return createElement("div", getProps, parseRow.getLabel);
+                })
+            );
+        }
+
+        function renderBenchmarkContentCard({ getItem, getRefreshToken }) {
+            return createElement(
+                "article",
+                {
+                    className: "benchmark-content-card rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-lg shadow-black/20",
+                    "data-refresh-token": String(getRefreshToken),
+                    "data-card-id": String(getItem.getID)
+                },
+                createElement(
+                    "div",
+                    { className: "flex items-center justify-between gap-3" },
+                    createElement("h2", { className: "benchmark-content-title text-base font-semibold text-white" }, getItem.getTitle),
+                    createElement("span", { className: "benchmark-content-status rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-cyan-100" }, getItem.getStatus)
+                ),
+                createElement("p", { className: "mt-3 text-sm leading-6 text-slate-300" }, getItem.getSummary),
+                createElement("p", { className: "benchmark-content-meta mt-3 text-xs uppercase tracking-[0.16em] text-slate-400" }, getItem.getMeta),
+                createElement(
+                    "div",
+                    { className: "mt-4 flex flex-wrap gap-2" },
+                    getItem.getTags.map((parseTag, parseIndex) => createElement(
+                        "span",
+                        { key: `${getItem.getID}-${parseIndex}`, className: "benchmark-content-tag rounded-full border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-slate-300" },
+                        parseTag
+                    ))
+                )
+            );
+        }
+
+        function renderBenchmarkManyHooks({ getIndex, getRefreshToken }) {
+            for (let parseIndex = 0; parseIndex < storeBenchmarkHooksPerComponent; parseIndex++) {
+                useState(parseIndex + getIndex);
+                useEffect(() => undefined, []);
+                useMemo(() => parseIndex * 2, [parseIndex]);
+            }
+            return createElement(
+                "div",
+                {
+                    className: "benchmark-hook-node rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-slate-100",
+                    "data-hook-index": String(getIndex),
+                    "data-refresh-token": String(getRefreshToken)
+                },
+                `Hooks ${getIndex + 1}`
+            );
+        }
+
+        function renderBenchmarkApp() {
+            const [getCoreItems, setCoreItems] = useState([]);
+            const [getContentItems, setContentItems] = useState([]);
+            const [getPrimitiveRows, setPrimitiveRows] = useState([]);
+            const [getEnterpriseSections, setEnterpriseSections] = useState([]);
+            const [getView, setView] = useState("core");
+            const [getTreeDepth, setTreeDepth] = useState(0);
+            const [getTreeVersion, setTreeVersion] = useState(0);
+            const [getHookCount, setHookCount] = useState(0);
+            const [getRefreshToken, setRefreshToken] = useState(0);
+            const [getLastAction, setLastAction] = useState("idle");
+
+            function handleCoreRender() {
+                setView("core");
+                setCoreItems(buildBenchmarkCoreItems());
+                setContentItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("core-render");
+            }
+
+            function handleCoreStressRender() {
+                setView("core");
+                setCoreItems(buildBenchmarkCoreStressItems());
+                setContentItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("core-stress-render");
+            }
+
+            function handleCoreUpdate() {
+                setView("core");
+                setCoreItems((parseItems) => buildBenchmarkUpdatedCoreItems(parseItems));
+                setPrimitiveRows([]);
+                setEnterpriseSections([]);
+                setLastAction("core-update");
+            }
+
+            function handleCoreAppend() {
+                setView("core");
+                setCoreItems((parseItems) => buildBenchmarkCoreAppendedItems(parseItems));
+                setPrimitiveRows([]);
+                setLastAction("core-append");
+            }
+
+            function handleCorePrepend() {
+                setView("core");
+                setCoreItems((parseItems) => buildBenchmarkCorePrependedItems(parseItems));
+                setPrimitiveRows([]);
+                setLastAction("core-prepend");
+            }
+
+            function handleCoreReverse() {
+                setView("core");
+                setCoreItems((parseItems) => buildBenchmarkCoreReversedItems(parseItems));
+                setPrimitiveRows([]);
+                setLastAction("core-reverse");
+            }
+
+            function handleCoreFilter() {
+                setView("core");
+                setCoreItems((parseItems) => filterBenchmarkCoreStressItems(parseItems));
+                setPrimitiveRows([]);
+                setLastAction("core-filter");
+            }
+
+            function handleCoreSort() {
+                setView("core");
+                setCoreItems((parseItems) => buildBenchmarkCoreSortedItems(parseItems));
+                setPrimitiveRows([]);
+                setLastAction("core-sort");
+            }
+
+            function handleCoreClear() {
+                setView("core");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("core-clear");
+            }
+
+            function handleContentRender() {
+                setView("content");
+                setContentItems(buildBenchmarkContentItems());
+                setCoreItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("content-render");
+            }
+
+            function handleContentUpdate() {
+                setView("content");
+                setContentItems((parseItems) => buildBenchmarkUpdatedContentItems(parseItems));
+                setPrimitiveRows([]);
+                setLastAction("content-update");
+            }
+
+            function handleContentClear() {
+                setView("content");
+                setContentItems([]);
+                setCoreItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("content-clear");
+            }
+
+            function handleDeepRender() {
+                setView("deep");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections([]);
+                setTreeDepth(storeBenchmarkDeepTreeDepth);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("deep-render");
+            }
+
+            function handleDeepUpdate() {
+                setView("deep");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections([]);
+                setTreeDepth((parseDepth) => parseDepth > 0 ? parseDepth : storeBenchmarkDeepTreeDepth);
+                setTreeVersion((parseValue) => parseValue + 1);
+                setRefreshToken((parseValue) => parseValue + 1);
+                setHookCount(0);
+                setLastAction("deep-update");
+            }
+
+            function handleEnterpriseRender() {
+                setView("enterprise");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections(buildBenchmarkEnterpriseSections());
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("enterprise-render");
+            }
+
+            function handleEnterpriseSubtreeUpdate() {
+                setView("enterprise");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections((parseSections) => buildBenchmarkUpdatedEnterpriseSections(parseSections.length === 0 ? buildBenchmarkEnterpriseSections() : parseSections));
+                setRefreshToken((parseValue) => parseValue + 1);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("enterprise-subtree-update");
+            }
+
+            function handlePrimitiveRender() {
+                setView("primitive");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows(buildBenchmarkPrimitiveRows());
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("primitive-render");
+            }
+
+            function handlePrimitiveTextUpdate() {
+                setView("primitive");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows((parseRows) => buildBenchmarkUpdatedPrimitiveTextRows(parseRows.length === 0 ? buildBenchmarkPrimitiveRows() : parseRows));
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("primitive-text-update");
+            }
+
+            function handlePrimitiveAttributeUpdate() {
+                setView("primitive");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows((parseRows) => buildBenchmarkUpdatedPrimitiveAttributeRows(parseRows.length === 0 ? buildBenchmarkPrimitiveRows() : parseRows));
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("primitive-attribute-update");
+            }
+
+            function handlePrimitiveAppend() {
+                setView("primitive");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows((parseRows) => buildBenchmarkAppendedPrimitiveRows(parseRows.length === 0 ? buildBenchmarkPrimitiveRows() : parseRows));
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("primitive-append");
+            }
+
+            function handlePrimitiveRemove() {
+                setView("primitive");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows((parseRows) => buildBenchmarkTrimmedPrimitiveRows(parseRows.length === 0 ? buildBenchmarkPrimitiveRows() : parseRows));
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("primitive-remove");
+            }
+
+            function handlePrimitiveClear() {
+                setView("primitive");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(0);
+                setLastAction("primitive-clear");
+            }
+
+            function handleHooksRender() {
+                setView("hooks");
+                setCoreItems([]);
+                setContentItems([]);
+                setPrimitiveRows([]);
+                setEnterpriseSections([]);
+                setTreeDepth(0);
+                setTreeVersion(0);
+                setHookCount(storeBenchmarkHookComponentCount);
+                setLastAction("hooks-render");
+            }
+
+            function handleRefresh() {
+                setRefreshToken((parseValue) => parseValue + 1);
+                setLastAction("refresh");
+            }
+
+            let getBenchmarkNode = createElement(
+                "div",
+                { id: "core-list-container", className: "grid gap-2", "data-refresh-token": String(getRefreshToken) },
+                getCoreItems.map((parseItem) => createElement(
+                    "div",
+                    {
+                        key: parseItem.getID,
+                        className: "benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100",
+                        "data-row-id": String(parseItem.getID)
+                    },
+                    parseItem.getText
+                ))
+            );
+
+            if (getView === "content") {
+                getBenchmarkNode = createElement(
+                    "div",
+                    { id: "content-container", className: "grid gap-4 lg:grid-cols-2", "data-refresh-token": String(getRefreshToken) },
+                    getContentItems.map((parseItem) => createElement(renderBenchmarkContentCard, { key: parseItem.getID, getItem: parseItem, getRefreshToken }))
+                );
+            } else if (getView === "primitive") {
+                getBenchmarkNode = createElement(renderBenchmarkPrimitiveView, { getRows: getPrimitiveRows, getRefreshToken });
+            } else if (getView === "deep") {
+                getBenchmarkNode = createElement(
+                    "div",
+                    { id: "benchmark-deep-root", className: "benchmark-deep-root", "data-refresh-token": String(getRefreshToken), "data-tree-version": String(getTreeVersion) },
+                    buildBenchmarkDeepTreeChain({ getDepth: getTreeDepth, getRefreshToken, getTreeVersion })
+                );
+            } else if (getView === "enterprise") {
+                getBenchmarkNode = createElement(renderBenchmarkEnterpriseView, { getSections: getEnterpriseSections, getRefreshToken });
+            } else if (getView === "hooks") {
+                getBenchmarkNode = createElement(
+                    "div",
+                    { id: "hooks-container", className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-4", "data-refresh-token": String(getRefreshToken) },
+                    Array.from({ length: getHookCount }, (_, parseIndex) => createElement(renderBenchmarkManyHooks, { key: parseIndex, getIndex: parseIndex, getRefreshToken }))
+                );
+            }
+
+            return createElement(
+                "div",
+                { id: "benchmark-app", className: "benchmark-page", "data-framework": "react" },
+                createElement(
+                    "div",
+                    { className: "benchmark-shell benchmark-stack" },
+                    createElement(
+                        "section",
+                        { className: "benchmark-panel benchmark-stack", style: { padding: "28px" } },
+                        createElement("p", { className: "benchmark-eyebrow", style: { margin: "0" } }, "Example 201"),
+                        createElement("h1", { style: { margin: "0", fontSize: "42px", lineHeight: "1.05" } }, "Browser Render Benchmark Subject"),
+                        createElement("p", { className: "benchmark-muted", style: { margin: "0", maxWidth: "980px", lineHeight: "1.7" } }, "This page exposes the React 19.2.4 comparison subject for the Example 201 browser benchmark."),
+                        createElement(
+                            "div",
+                            { id: "benchmark-controls", className: "benchmark-grid benchmark-grid-columns-4" },
+                            createElement("button", { id: "btn-core-render", className: "benchmark-button benchmark-button-primary", onClick: handleCoreRender }, "Render Core Items"),
+                            createElement("button", { id: "btn-core-stress-render", className: "benchmark-button benchmark-button-primary", onClick: handleCoreStressRender }, "Render Core Stress"),
+                            createElement("button", { id: "btn-core-update", className: "benchmark-button", onClick: handleCoreUpdate }, "Update Core Items"),
+                            createElement("button", { id: "btn-core-append", className: "benchmark-button", onClick: handleCoreAppend }, "Append Core Rows"),
+                            createElement("button", { id: "btn-core-prepend", className: "benchmark-button", onClick: handleCorePrepend }, "Prepend Core Rows"),
+                            createElement("button", { id: "btn-core-reverse", className: "benchmark-button", onClick: handleCoreReverse }, "Reverse Core Rows"),
+                            createElement("button", { id: "btn-core-filter", className: "benchmark-button", onClick: handleCoreFilter }, "Filter Core Rows"),
+                            createElement("button", { id: "btn-core-sort", className: "benchmark-button", onClick: handleCoreSort }, "Sort Core Rows"),
+                            createElement("button", { id: "btn-core-clear", className: "benchmark-button", onClick: handleCoreClear }, "Clear Core Items"),
+                            createElement("button", { id: "btn-content-render", className: "benchmark-button benchmark-button-primary", onClick: handleContentRender }, "Render Content Cards"),
+                            createElement("button", { id: "btn-content-update", className: "benchmark-button", onClick: handleContentUpdate }, "Update Content Cards"),
+                            createElement("button", { id: "btn-content-clear", className: "benchmark-button", onClick: handleContentClear }, "Clear Content Cards"),
+                            createElement("button", { id: "btn-primitive-render", className: "benchmark-button benchmark-button-primary", onClick: handlePrimitiveRender }, "Render Primitive Grid"),
+                            createElement("button", { id: "btn-primitive-text-update", className: "benchmark-button", onClick: handlePrimitiveTextUpdate }, "Update Primitive Text"),
+                            createElement("button", { id: "btn-primitive-attr-update", className: "benchmark-button", onClick: handlePrimitiveAttributeUpdate }, "Update Primitive Attrs"),
+                            createElement("button", { id: "btn-primitive-append", className: "benchmark-button", onClick: handlePrimitiveAppend }, "Append Primitive Rows"),
+                            createElement("button", { id: "btn-primitive-remove", className: "benchmark-button", onClick: handlePrimitiveRemove }, "Remove Primitive Rows"),
+                            createElement("button", { id: "btn-primitive-clear", className: "benchmark-button", onClick: handlePrimitiveClear }, "Clear Primitive Grid"),
+                            createElement("button", { id: "btn-deep-render", className: "benchmark-button benchmark-button-primary", onClick: handleDeepRender }, "Render Deep Tree"),
+                            createElement("button", { id: "btn-deep-update", className: "benchmark-button", onClick: handleDeepUpdate }, "Update Deep Tree"),
+                            createElement("button", { id: "btn-enterprise-render", className: "benchmark-button benchmark-button-primary", onClick: handleEnterpriseRender }, "Render Enterprise Workspace"),
+                            createElement("button", { id: "btn-enterprise-update", className: "benchmark-button", onClick: handleEnterpriseSubtreeUpdate }, "Update Enterprise Section"),
+                            createElement("button", { id: "btn-hooks-render", className: "benchmark-button benchmark-button-primary", onClick: handleHooksRender }, "Render Hook Grid"),
+                            createElement("button", { id: "btn-refresh", className: "benchmark-button", onClick: handleRefresh }, "Refresh Current View")
+                        ),
+                        createElement(
+                            "div",
+                            { id: "benchmark-metrics", className: "benchmark-grid benchmark-grid-columns-4" },
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "Framework"), createElement("p", { id: "metric-framework", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, "react")),
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "View"), createElement("p", { id: "metric-view", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, getView)),
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "Core Count"), createElement("p", { id: "metric-core-count", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, String(getCoreItems.length))),
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "Content Count"), createElement("p", { id: "metric-content-count", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, String(getContentItems.length))),
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "Refresh Count"), createElement("p", { id: "metric-refresh-count", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, String(getRefreshToken))),
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "Last Action"), createElement("p", { id: "metric-last-action", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, getLastAction))
+                        )
+                    ),
+                    createElement("section", { id: "benchmark-container", className: "benchmark-panel", style: { marginTop: "24px", padding: "24px" } }, getBenchmarkNode)
+                )
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("app")).render(createElement(renderBenchmarkApp));
+        window.__example201RegisterSubject("react").catch((parseErr) => {
+            console.error("Failed to register React benchmark subject:", parseErr);
+            window.__example201SubjectError = String(parseErr);
+        });
+    </script>
+</body>
+</html>

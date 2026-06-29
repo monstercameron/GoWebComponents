@@ -1,0 +1,369 @@
+{
+  "version": 1,
+  "owner_scope": "Atlas docs/test planning artifacts and examples/tests additions only",
+  "run_order": ["buyer-flow", "operator-flow", "design-parity"],
+  "buckets": [
+    {
+      "id": "buyer-flow",
+      "directory": "buyer-flow",
+      "type": "playwright-bucket",
+      "purpose": "Reusable public buyer journey suite for browsing, quote, restock, comment, recovery, and progressive-enhancement paths.",
+      "specs": ["browse", "form-submit", "mobile-nav", "progressive-enhancement"],
+      "stories": [
+        {
+          "id": "buyer-public-navigation",
+          "title": "Landing to catalog to product to warehouse availability and back",
+          "routes": ["/", "/shop", "/shop/frame-desk", "/warehouses/new-jersey-hub", "/warehouses/new-jersey-hub/availability/frame-desk", "/shop"],
+          "assertions": ["route shell remains stable", "primary buyer CTA remains visible", "recovery path returns to catalog"],
+          "checkpoints": ["public-landing-start", "public-catalog-browsing", "public-product-decision", "public-warehouse-availability"]
+        },
+        {
+          "id": "buyer-mobile-navigation",
+          "title": "Mobile menu survives public route changes",
+          "routes": ["/shop", "/shop/frame-desk", "/warehouses", "/warehouses/new-jersey-hub"],
+          "assertions": ["mobile menu opens and closes", "active public nav state follows route", "route-specific heading remains visible"],
+          "checkpoints": ["public-mobile-menu", "public-route-shell-after-mobile-nav"]
+        },
+        {
+          "id": "buyer-progressive-enhancement",
+          "title": "Quote, restock, and comment flows repeat after reload, back navigation, and direct-entry SSR",
+          "routes": ["/shop/frame-desk", "/warehouses/new-jersey-hub/availability/frame-desk"],
+          "assertions": ["forms preserve SSR fallback", "hydrated submit path shows success", "back navigation keeps shell context"],
+          "checkpoints": ["public-post-submit-success", "public-direct-entry-resume"]
+        },
+        {
+          "id": "buyer-public-parity-checklist",
+          "title": "Storefront hierarchy remains aligned with design/homepage_store.tsx",
+          "routes": ["/", "/shop", "/shop/frame-desk"],
+          "assertions": ["header structure matches storefront reference", "hero emphasis remains first-viewport signal", "product grid rhythm and action rail prominence remain intact"],
+          "checkpoints": ["parity-public-start", "parity-public-midpoint", "parity-public-end"]
+        }
+      ]
+    },
+    {
+      "id": "operator-flow",
+      "directory": "operator-flow",
+      "type": "playwright-bucket",
+      "purpose": "Reusable internal operator journey suite for dashboard, products, inventory, warehouses, logistics, moderation, comments, and settings.",
+      "specs": ["dashboard-triage", "product-workflow", "inventory-warehouse-workflow", "logistics-workflow", "moderation-workflow", "settings-persistence"],
+      "stories": [
+        {
+          "id": "operator-full-navigation",
+          "title": "Operator walks every major internal route family",
+          "routes": ["/app/dashboard", "/app/products", "/app/products/frame-desk", "/app/inventory", "/app/inventory/frame-desk", "/app/warehouses/new-jersey-hub", "/app/warehouses/new-jersey-hub/items/frame-desk", "/app/purchase-orders", "/app/purchase-orders/po-1042", "/app/receiving", "/app/receiving/rcv-illinois-001", "/app/comments", "/app/settings"],
+          "assertions": ["mock session remains valid", "internal shell header remains mounted", "route data and primary workflow controls are present"],
+          "checkpoints": ["operator-dashboard-start", "operator-product-editor", "operator-inventory-triage", "operator-warehouse-detail", "operator-po-receiving", "operator-settings-persistence"]
+        },
+        {
+          "id": "operator-alert-driven-workflow",
+          "title": "Dashboard alert leads to inventory or warehouse action and refreshes the originating summary",
+          "routes": ["/app/dashboard", "/app/inventory/frame-desk", "/app/warehouses/new-jersey-hub/items/frame-desk", "/app/dashboard"],
+          "assertions": ["originating alert context is preserved", "mutation success refreshes dashboard summary", "back navigation returns to the prior operator context"],
+          "checkpoints": ["operator-dashboard-start", "operator-inventory-threshold", "operator-route-context-return"]
+        },
+        {
+          "id": "operator-admin-session",
+          "title": "One operator session covers product edit, threshold change, warehouse follow-up, logistics, moderation, and settings persistence",
+          "routes": ["/app/products/frame-desk", "/app/inventory/frame-desk", "/app/warehouses/new-jersey-hub/items/frame-desk", "/app/purchase-orders/po-1042", "/app/receiving/rcv-illinois-001", "/app/comments", "/app/settings"],
+          "assertions": ["each mutation reports success or validation errors visibly", "summary refreshes after logistics and moderation actions", "settings persist across reload"],
+          "checkpoints": ["operator-product-editor", "operator-inventory-triage", "operator-logistics-update", "operator-moderation-toast", "operator-settings-persistence"]
+        },
+        {
+          "id": "operator-internal-parity-checklist",
+          "title": "Internal hierarchy remains aligned with design/homepage_warehouse.tsx",
+          "routes": ["/app/dashboard", "/app/inventory", "/app/warehouses/new-jersey-hub"],
+          "assertions": ["dashboard hierarchy matches warehouse reference", "dense data rhythm remains scannable", "quick actions and navigation affordances remain prominent"],
+          "checkpoints": ["parity-operator-start", "parity-operator-midpoint", "parity-operator-end"]
+        }
+      ]
+    },
+    {
+      "id": "design-parity",
+      "directory": "design-parity",
+      "type": "playwright-bucket",
+      "purpose": "Reference-aligned assertions and screenshots that stay separate from functionality flows.",
+      "specs": ["public-storefront-reference", "internal-warehouse-reference"],
+      "stories": [
+        {
+          "id": "parity-storefront-reference",
+          "title": "Public GWC shell versus storefront React reference",
+          "routes": ["/", "/shop", "/shop/frame-desk"],
+          "assertions": ["public header hierarchy", "hero composition", "featured-card band", "catalog grid rhythm", "product-detail composition"],
+          "checkpoints": ["parity-public-start", "parity-public-midpoint", "parity-public-end"]
+        },
+        {
+          "id": "parity-warehouse-reference",
+          "title": "Internal GWC shell versus warehouse React reference",
+          "routes": ["/app/dashboard", "/app/inventory", "/app/warehouses/new-jersey-hub"],
+          "assertions": ["internal header hierarchy", "dashboard summary band", "action cluster", "dense list rhythm", "warehouse-ops hierarchy"],
+          "checkpoints": ["parity-operator-start", "parity-operator-midpoint", "parity-operator-end"]
+        }
+      ],
+      "reference_files": ["../../server/atlas-commerce-os/design/homepage_store.tsx", "../../server/atlas-commerce-os/design/homepage_warehouse.tsx"]
+    }
+  ],
+  "helpers": [
+    {
+      "id": "buyer-navigation",
+      "purpose": "Open public routes, follow buyer CTAs, assert active public navigation, and return to catalog recovery paths."
+    },
+    {
+      "id": "operator-navigation",
+      "purpose": "Seed the mock operator session, open internal routes, follow nested workflow links, and preserve route-origin context."
+    },
+    {
+      "id": "parity-landmarks",
+      "purpose": "Find design-sensitive route landmarks such as public hero, action rail, internal summary band, dense table, and quick-action cluster."
+    },
+    {
+      "id": "screenshot-capture",
+      "purpose": "Capture named checkpoints using the shared file naming convention and viewport/theme matrix."
+    },
+    {
+      "id": "route-shell-stability",
+      "purpose": "Assert header, main landmark, route title, bootstrap marker, and unchanged shell regions after navigation, mutation, revalidation, and overlay actions."
+    }
+  ],
+  "manual_stories": [
+    "manual-public-browse-path",
+    "manual-public-quote-submit",
+    "manual-public-restock-submit",
+    "manual-public-comment-submit",
+    "manual-public-mobile-nav",
+    "manual-internal-sign-in-recovery",
+    "manual-product-editor-unsaved-save",
+    "manual-inventory-threshold-edit",
+    "manual-warehouse-item-context",
+    "manual-transfer-detail-decision",
+    "manual-purchase-order-decision-refresh",
+    "manual-receiving-discrepancy-reconcile",
+    "manual-comments-moderation-toast",
+    "manual-settings-preference-persistence",
+    "manual-diagnostics-review-mode"
+  ],
+  "e2e_tracks": [
+    {
+      "id": "buyer-flow-e2e",
+      "stories": ["buyer-browse-and-convert", "buyer-restock", "buyer-feedback", "buyer-recovery", "buyer-parity-review"]
+    },
+    {
+      "id": "operator-flow-e2e",
+      "stories": ["operator-dashboard-triage", "operator-product-workflow", "operator-warehouse-workflow", "operator-logistics-workflow", "operator-purchase-order-and-receiving", "operator-receiving-discrepancy", "operator-moderation", "operator-settings-and-persistence", "operator-parity-review"]
+    }
+  ],
+  "failure_recovery_stories": [
+    {
+      "id": "recovery-not-found",
+      "routes": ["/shop/not-a-real-product", "/warehouses/not-a-real-warehouse", "/warehouses/new-jersey-hub/availability/not-a-real-sku", "/app/inventory/not-a-real-sku", "/not-a-real-route"],
+      "assertions": ["status is 404", "route-appropriate recovery heading is visible", "primary recovery action is available"]
+    },
+    {
+      "id": "recovery-server-error",
+      "routes": ["/shop", "/app/dashboard"],
+      "assertions": ["status is 500 when the test store is forced closed", "retry or return action is route appropriate", "internal shell context is preserved where available"]
+    },
+    {
+      "id": "recovery-failed-write",
+      "routes": ["/shop/frame-desk", "/app/inventory/frame-desk", "/app/receiving/rcv-illinois-001"],
+      "assertions": ["user-entered form data is preserved", "field-level errors are visible", "summary-level error is visible"]
+    },
+    {
+      "id": "recovery-network-interruption",
+      "routes": ["/shop/frame-desk", "/app/purchase-orders/po-1042", "/app/receiving/rcv-illinois-001"],
+      "assertions": ["async panel shows local recovery", "visible state is not corrupted", "retry can restore the panel"]
+    },
+    {
+      "id": "recovery-duplicate-submit-timeout",
+      "routes": ["/shop/frame-desk", "/app/products/frame-desk", "/app/comments"],
+      "assertions": ["duplicate submit is prevented while pending", "timeout exposes retry", "successful retry does not double-apply"]
+    },
+    {
+      "id": "recovery-invalid-input-state",
+      "routes": ["/shop?sort=unsupported", "/app/inventory?density=giant", "/app/settings?locale=xx", "/app/dashboard"],
+      "assertions": ["malformed query params normalize safely", "unsupported preference values fall back", "corrupted browser storage does not break direct-entry SSR"]
+    },
+    {
+      "id": "recovery-async-navigation-race",
+      "routes": ["/app/inventory/frame-desk", "/app/purchase-orders/po-1042", "/app/receiving/rcv-illinois-001"],
+      "assertions": ["route refresh during pending mutation is safe", "overlay open during revalidation stays coherent", "navigation away during follow-up work does not leave stale UI"]
+    }
+  ],
+  "screenshot_conventions": {
+    "directory": "examples/server/atlas-commerce-os/docs/screenshots",
+    "pattern": "atlas-<surface>-<route>-<state>-<theme>-<viewport>.png",
+    "surfaces": ["public", "internal", "recovery", "parity"],
+    "themes": ["light", "dark"],
+    "viewports": ["desktop", "mobile"],
+    "locales": ["en", "fr", "ar"],
+    "refresh_order": ["buyer-flow", "operator-flow", "design-parity"]
+  },
+  "screenshot_baselines": [
+    {
+      "id": "public-landing-baseline",
+      "surface": "public",
+      "route": "/",
+      "route_slug": "landing",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "public-catalog-baseline",
+      "surface": "public",
+      "route": "/shop",
+      "route_slug": "catalog",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "public-product-baseline",
+      "surface": "public",
+      "route": "/shop/frame-desk",
+      "route_slug": "product-frame-desk",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "public-warehouses-baseline",
+      "surface": "public",
+      "route": "/warehouses",
+      "route_slug": "warehouses",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "public-warehouse-detail-baseline",
+      "surface": "public",
+      "route": "/warehouses/new-jersey-hub",
+      "route_slug": "warehouse-new-jersey-hub",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "public-warehouse-availability-baseline",
+      "surface": "public",
+      "route": "/warehouses/new-jersey-hub/availability/frame-desk",
+      "route_slug": "availability-new-jersey-hub-frame-desk",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_store"
+    },
+    {
+      "id": "internal-dashboard-baseline",
+      "surface": "internal",
+      "route": "/app/dashboard",
+      "route_slug": "dashboard",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-products-baseline",
+      "surface": "internal",
+      "route": "/app/products",
+      "route_slug": "products",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-inventory-baseline",
+      "surface": "internal",
+      "route": "/app/inventory",
+      "route_slug": "inventory",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-warehouse-baseline",
+      "surface": "internal",
+      "route": "/app/warehouses/new-jersey-hub",
+      "route_slug": "warehouse-new-jersey-hub",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-purchase-order-baseline",
+      "surface": "internal",
+      "route": "/app/purchase-orders/po-1042",
+      "route_slug": "purchase-order-po-1042",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-receiving-baseline",
+      "surface": "internal",
+      "route": "/app/receiving/rcv-illinois-001",
+      "route_slug": "receiving-rcv-illinois-001",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-comments-baseline",
+      "surface": "internal",
+      "route": "/app/comments",
+      "route_slug": "comments",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    },
+    {
+      "id": "internal-settings-baseline",
+      "surface": "internal",
+      "route": "/app/settings",
+      "route_slug": "settings",
+      "state": "baseline",
+      "themes": ["light", "dark"],
+      "viewports": ["desktop", "mobile"],
+      "reference_key": "homepage_warehouse"
+    }
+  ],
+  "screenshot_checkpoints": [
+    "public-landing-start",
+    "public-catalog-browsing",
+    "public-product-decision",
+    "public-warehouse-availability",
+    "public-post-submit-success",
+    "operator-dashboard-start",
+    "operator-product-editor",
+    "operator-inventory-triage",
+    "operator-warehouse-detail",
+    "operator-po-receiving",
+    "operator-settings-persistence",
+    "empty-state",
+    "no-results-state",
+    "recovery-page",
+    "validation-error",
+    "success-state",
+    "overlay-open",
+    "locale-fr-public",
+    "locale-ar-internal",
+    "parity-public-start",
+    "parity-public-midpoint",
+    "parity-public-end",
+    "parity-operator-start",
+    "parity-operator-midpoint",
+    "parity-operator-end"
+  ]
+}

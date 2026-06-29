@@ -1,0 +1,177 @@
+<div class="bs-app" :data-theme='c.Theme'>
+  <header class="bs-header">
+    <h1 class="bs-title">Bill Splitter</h1>
+    <div class="bs-header-actions">
+      <button class="bs-toggle" @click="c.ToggleRoundUp()" vg-content="'Round up'"></button>
+      <button class="bs-toggle" @click="c.ToggleTheme()" vg-content="'Dark'"></button>
+    </div>
+  </header>
+
+  <section class="bs-card bs-inputs">
+    <label class="bs-field">
+      <span class="bs-label">Bill amount</span>
+      <div class="bs-input-wrap">
+        <span class="bs-prefix">$</span>
+        <input class="bs-input" type="number" min="0" step="0.01" :value="c.NumStr(c.Bill)" @input="c.SetBill(event)" />
+      </div>
+    </label>
+
+    <div class="bs-field">
+      <span class="bs-label">Tip</span>
+      <div class="bs-presets">
+        <button vg-for='_, p := range c.Presets' :class='c.PresetClass(p)' @click='c.Tip = float64(p)' vg-content='strconv.Itoa(p)+"%"'></button>
+        <input class="bs-preset-custom" type="number" min="0" placeholder="Custom %" :value="c.NumStr(c.Tip)" @input="c.SetTip(event)" />
+      </div>
+    </div>
+
+    <div class="bs-field">
+      <span class="bs-label">People</span>
+      <div class="bs-stepper">
+        <button class="bs-step" :disabled='c.People <= 1' @click='c.Dec()'>−</button>
+        <span class="bs-count" vg-content="strconv.Itoa(c.People)"></span>
+        <button class="bs-step" @click="c.Inc()">+</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="bs-card bs-results">
+    <div class="bs-result-row"><span>Tip</span><span vg-content="c.USD(c.TipAmount())"></span></div>
+    <div class="bs-result-row"><span>Total</span><span vg-content="c.USD(c.Total())"></span></div>
+    <div class="bs-result-hero">
+      <span class="bs-result-hero-label">Per person</span>
+      <span class="bs-result-hero-value" vg-content="c.USD(c.PerPerson())"></span>
+    </div>
+    <p class="bs-note" vg-if="c.RoundUp &amp;&amp; c.RoundingExtra() > 0" vg-content="c.Note()"></p>
+    <p class="bs-empty" vg-if="c.Bill <= 0">Enter a bill amount to begin.</p>
+  </section>
+
+  <section class="bs-card bs-breakdown">
+    <h2 class="bs-subtitle">Per-person breakdown</h2>
+    <ul class="bs-people">
+      <li class="bs-person" vg-for='i := 0; i &lt; c.People; i++'>
+        <span vg-content='"Person "+strconv.Itoa(i+1)'></span>
+        <span vg-content='c.USD(c.PerPerson())'></span>
+      </li>
+    </ul>
+  </section>
+
+  <footer class="bs-footer" vg-content="c.FooterText()"></footer>
+</div>
+
+<script type="application/x-go">
+import (
+	"math"
+	"strconv"
+
+	"github.com/vugu/vugu"
+)
+
+// Bill Splitter — Vugu (Go→wasm). All state on the Root component; Vugu has no
+// separate "shared state" primitive for a single root, so theme/roundUp live here
+// (a multi-component Vugu app would wire them or use a shared struct pointer).
+type Root struct {
+	Bill    float64
+	Tip     float64
+	People  int
+	Theme   string
+	RoundUp bool
+	Presets []int
+}
+
+func (c *Root) Init(vugu.InitCtx) {
+	c.Tip, c.People, c.Theme, c.Presets = 18, 1, "light", []int{10, 15, 18, 20, 25}
+}
+
+func (c *Root) ToggleTheme() {
+	if c.Theme == "dark" {
+		c.Theme = "light"
+	} else {
+		c.Theme = "dark"
+	}
+}
+func (c *Root) ToggleRoundUp() { c.RoundUp = !c.RoundUp }
+func (c *Root) Inc()           { c.People++ }
+func (c *Root) Dec() {
+	if c.People > 1 {
+		c.People--
+	}
+}
+func (c *Root) SetBill(e vugu.DOMEvent) { c.Bill = parseNum(e.PropString("target", "value")) }
+func (c *Root) SetTip(e vugu.DOMEvent)  { c.Tip = parseNum(e.PropString("target", "value")) }
+
+func (c *Root) PresetClass(p int) string {
+	if c.Tip == float64(p) {
+		return "bs-preset bs-preset--active"
+	}
+	return "bs-preset"
+}
+
+func (c *Root) TipAmount() float64    { return c.Bill * c.Tip / 100 }
+func (c *Root) Total() float64        { return c.Bill + c.TipAmount() }
+func (c *Root) PerPersonRaw() float64 {
+	if c.People > 0 {
+		return c.Total() / float64(c.People)
+	}
+	return 0
+}
+func (c *Root) PerPerson() float64 {
+	if c.RoundUp {
+		return math.Ceil(c.PerPersonRaw())
+	}
+	return c.PerPersonRaw()
+}
+func (c *Root) TotalCollected() float64 {
+	if c.RoundUp {
+		return c.PerPerson() * float64(c.People)
+	}
+	return c.Total()
+}
+func (c *Root) RoundingExtra() float64 { return math.Max(0, c.TotalCollected()-c.Total()) }
+func (c *Root) EffTip() float64 {
+	if c.Bill > 0 {
+		return (c.TotalCollected() - c.Bill) / c.Bill * 100
+	}
+	return c.Tip
+}
+func (c *Root) Note() string {
+	return "Rounding up collects " + c.USD(c.RoundingExtra()) + " extra · effective tip " + strconv.FormatFloat(c.EffTip(), 'f', 1, 64) + "%"
+}
+func (c *Root) FooterText() string {
+	return "Splitting " + c.USD(c.Total()) + " between " + strconv.Itoa(c.People) + " · " + c.Theme + " theme"
+}
+
+func (c *Root) NumStr(v float64) string {
+	if v == 0 {
+		return ""
+	}
+	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+func (c *Root) USD(v float64) string { return usd(v) }
+
+func parseNum(s string) float64 {
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil || v < 0 {
+		return 0
+	}
+	return v
+}
+func usd(v float64) string {
+	cents := int64(math.Round(v * 100))
+	if cents < 0 {
+		cents = 0
+	}
+	d := strconv.FormatInt(cents/100, 10)
+	var g []byte
+	for i := 0; i < len(d); i++ {
+		if i > 0 && (len(d)-i)%3 == 0 {
+			g = append(g, ',')
+		}
+		g = append(g, d[i])
+	}
+	fs := strconv.FormatInt(cents%100, 10)
+	if len(fs) < 2 {
+		fs = "0" + fs
+	}
+	return "$" + string(g) + "." + fs
+}
+</script>

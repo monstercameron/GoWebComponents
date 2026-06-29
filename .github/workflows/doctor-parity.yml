@@ -1,0 +1,42 @@
+name: Doctor Parity
+
+# Earns the A1 "platform-honest" claim: `gwc doctor` and its --fix remediations must work
+# identically on Linux, macOS, and Windows. The doctor/check fixers touch build constraints,
+# file paths, and gofmt — all places where OS differences (path separators, line endings) bite —
+# so they are exercised on every supported OS, not just Linux.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  doctor-parity:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Build gwc
+        run: go build -o gwc ./tools/gwc
+
+      - name: Doctor + check fixer unit tests (cross-OS)
+        run: go test ./tools/gwc/ -run "Doctor|ScaffoldMetadata|CheckFix|ServerLeak|Vuln" -count=1
+
+      - name: gwc doctor smoke (self-repo)
+        run: go run ./tools/gwc doctor -json

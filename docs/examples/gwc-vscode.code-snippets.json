@@ -1,0 +1,122 @@
+{
+  "GWC component with state": {
+    "prefix": "gwc-component-state",
+    "body": [
+      "func ${1:Counter}() ui.Node {",
+      "\t${2:value} := ui.UseState(${3:0})",
+      "\treturn html.Section(html.Props{},",
+      "\t\thtml.H2(html.Props{}, html.Text(\"${4:Title}\")),",
+      "\t\thtml.P(html.Props{}, html.Text(fmt.Sprintf(\"%v\", ${2:value}.Get()))),",
+      "\t)",
+      "}"
+    ],
+    "description": "Start a small component with ui.UseState and typed html helpers."
+  },
+  "GWC browser mount": {
+    "prefix": "gwc-render-main",
+    "body": [
+      "func main() {",
+      "\tutils.DisableAllDebug()",
+      "\tui.Render(ui.CreateElement(${1:App}), \"${2:#app}\")",
+      "\tutils.WaitForever()",
+      "}"
+    ],
+    "description": "Render one GoWebComponents app into a browser selector from main.go."
+  },
+  "GWC browser router": {
+    "prefix": "gwc-router-basic",
+    "body": [
+      "r := router.NewHistoryRouter()",
+      "r.Register(\"${1:/}\", func() ui.Node {",
+      "\treturn html.Main(html.Props{}, html.Text(\"${2:Home}\"))",
+      "})",
+      "r.Mount(\"${3:#app}\")"
+    ],
+    "description": "Register and mount a minimal browser-router surface."
+  },
+  "GWC render test": {
+    "prefix": "gwc-test-render",
+    "body": [
+      "func Test${1:Component}(t *testing.T) {",
+      "\trendered := testui.Render(t, ui.CreateElement(${2:Component}))",
+      "\trendered.RequireText(\"${3:expected}\")",
+      "}"
+    ],
+    "description": "Start a focused component render test with the public testing surface."
+  },
+  "GWC routed loader page": {
+    "prefix": "gwc-router-loader",
+    "body": [
+      "r.Register(\"${1:/reports/:id}\", ${2:page}, router.Options{",
+      "\tLoader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {",
+      "\t\treturn router.Attrs{",
+      "\t\t\t\"title\": ${3:\"Loaded route data\"},",
+      "\t\t}, nil",
+      "\t},",
+      "\tLoading: ${4:loadingPage},",
+      "\tError:   ${5:errorPage},",
+      "})"
+    ],
+    "description": "Register a loader-backed route with explicit loading and error renderers."
+  },
+  "GWC route revalidator": {
+    "prefix": "gwc-router-revalidate",
+    "body": [
+      "revalidator := router.UseRevalidator()",
+      "refresh := ui.UseEvent(func() { revalidator.Revalidate() })",
+      "_ = refresh"
+    ],
+    "description": "Rerun the current route loader without changing the current path."
+  },
+  "GWC SSR bootstrap server": {
+    "prefix": "gwc-ssr-bootstrap-server",
+    "body": [
+      "payload := ui.SSRBootstrap{",
+      "\tRoute: ui.SSRRouteBootstrap{Path: \"${1:/}\"},",
+      "}",
+      "if err := ui.RegisterRouteBootstrapData(&payload, \"${2:key}\", \"${1:/}\", ${3:data}); err != nil {",
+      "\treturn err",
+      "}",
+      "script, err := ui.RenderBootstrapScript(payload, \"\")",
+      "if err != nil {",
+      "\treturn err",
+      "}",
+      "_ = script"
+    ],
+    "description": "Build and emit an SSR bootstrap payload with typed route-scoped data."
+  },
+  "GWC SSR bootstrap hydrate": {
+    "prefix": "gwc-ssr-bootstrap-hydrate",
+    "body": [
+      "payload, err := ui.ReadBootstrapScript(\"\")",
+      "if err != nil {",
+      "\treturn",
+      "}",
+      "_, _ = ui.Hydrate(ui.CreateElement(${1:App}), \"${2:#app}\", ui.HydrationOptions{Bootstrap: payload})"
+    ],
+    "description": "Read the server bootstrap payload and hydrate the browser app with it."
+  },
+  "GWC use form": {
+    "prefix": "gwc-use-form",
+    "body": [
+      "form := ui.UseForm(${1:signupForm}{})",
+      "set${2:Name} := ui.UseEvent(func(event ui.InputEvent) {",
+      "\tform.SetField(\"${2:Name}\", event.GetValue())",
+      "})",
+      "_ = set${2:Name}"
+    ],
+    "description": "Create a typed ui.UseForm handle and wire a field setter."
+  },
+  "GWC cached resource": {
+    "prefix": "gwc-use-cached-resource",
+    "body": [
+      "resource := fetch.UseCachedResource(\"${1:key}\", func(ctx context.Context) (${2:Result}, error) {",
+      "\treturn ${3:value}, nil",
+      "}, fetch.CacheOptions{StaleAfter: ${4:20 * time.Second}})",
+      "state := resource.Get()",
+      "_ = state"
+    ],
+    "description": "Create a shared cached async resource with stale-aware refresh policy."
+  }
+}
+

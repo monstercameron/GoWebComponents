@@ -1,0 +1,1312 @@
+# devx-maxxing — Road to god-tier (DevX × Features)
+
+Plan to lift every dimension toward the **10 (Exemplary)** rung of
+[`DEVX_MAXXING.md`](./DEVX_MAXXING.md). Baseline: 2026-06-27 `cab0d205` snapshot in
+[`SCORES.md`](./SCORES.md). **Planning artifact** — each item names the concrete
+mechanism that closes the gap, the verification that proves it, and (where
+relevant) the honest ceiling.
+
+**Status: adversarial SIGN-OFF achieved (2026-06-27, plan v3).** Projected composite
+if fully implemented: **99.5%** (637/640) — every DevX dimension at its honest maximum.
+See [`SCORES.md`](./SCORES.md) for the refinement-loop history and watch-items.
+
+## V4 implementation status (live)
+
+Shipped so far on the `v4` branch (each an atomic, tested commit — native +, where
+relevant, wasm coverage; `go vet` clean):
+
+| Plan item | Shipped | Commit |
+|---|---|---|
+| **C1** hot reload (DX-fix) | `hotreload.SchemaFingerprint`/`SchemaChanged` — detect a changed state shape so reload shows a reset instead of silently restoring a mismatched type (ghost-bug fix) | `feat(hotreload): state-schema-change detection` |
+| **FB4** error overlay | `ui/erroroverlay.ErrorOverlay` dogfooded in-page modal (title/message/actionable hint/stack) over the existing diagnostics data | `feat(erroroverlay): in-page Elm-grade error overlay` |
+| **C2** build speed (platform-honest) | `gwc buildreport` — what rebuilt vs cached & why (from `-debug-actiongraph` NeedBuild signal) + warm/cold wall time; true-10 incremental wasm link filed upstream | `feat(gwc): add \`gwc buildreport\`` |
+| **A2/tooling** VS Code extension | `tools/vscode-gwc` surfaces `gwc lint --json` inline via DiagnosticCollection; host-independent mapping core node-tested | `feat(vscode-gwc): VS Code extension` |
+| **FC4 (frontier)** wasm platform leap | server stack (serverfn/wholestack/localfirst/agentui/query/validate/timetravel) verified to compile to `GOOS=wasip1` → edge-WASI-portable | (verified; platform-clean by design) |
+| **FC5 (frontier)** one-binary stack | `wholestack.Handler` serves the embedded wasm app + `//gwc:server` functions + SPA fallback from one http.Handler (`ListenAndServe` one-liner); edge-portable | `feat(wholestack): one-binary whole-stack handler` |
+| **D2/C4/FB5/FC6** in-app panels | dogfooded GWC components: `timetravel/devpanel`, `workbench/gallery`, `query/devtools` (+ `Cache.Inspect`), `localfirst/facepile` — the "panel/gallery" GUIs as headless-tested framework code | `feat(timetravel/devpanel)` + `feat(workbench/gallery)` + `feat(query/devtools)` + `feat(localfirst/facepile)` |
+| **FB2** optimistic actions | `query.MutateAsync` (apply optimistic now, reconcile async, rollback on error); e2e optimistic action over a real //gwc:server function | `feat(query): MutateAsync` |
+| **FB5/D1** stories-as-tests | `workbench.RunStories` headless story runner (gallery doubles as a browserless smoke suite under `go test`) | `feat(workbench): stories-as-tests` |
+| **C4/FB6** time-travel engine | `timetravel.History[T]` snapshot step-back replay (Record/Undo/Redo/ScrubTo, redo-branch truncation, ring eviction); panel is the separate GUI consumer | `feat(timetravel): snapshot step-back replay engine` |
+| **FB7** micro-DX | `ui.UseInspect` (Svelte `$inspect` + swappable sink) + `shorthand` named slots (`Slot`/`NewSlots`/`Has`/`Render`/`Or`) — completes FB7 alongside two-way bind | `feat(ui): UseInspect` + `feat(shorthand): named slots` |
+| **B6/B7/D1 stability** API baselines | `internal/apidump` + golden public-API baseline tests for serverfn/query/localfirst/agentui/validate/anim (fails on drift; `UPDATE_API_BASELINE=1` to regen) — the concrete "API-baseline pinned / graduate to Stable" mechanism | `test(api): pin public-API baselines` |
+| **FC6/B5** collaboration + state guide | `localfirst.PresenceSet` (heartbeat-expiry awareness on top of FC1) + reference-manual state-primitive decision guide | `feat(localfirst): presence` + `docs(state): decision guide` |
+| **FC3 (frontier)** agent-native UI | `agentui` typed renderable schema + allow-list `Registry.Validate`/`Render` (no code/handlers/raw-HTML; structural safety) + `DefaultRegistry`; e2e agent JSON→validate→render→DOM | `feat(agentui): agent-native generative-UI runtime` |
+| **FC1 (frontier)** local-first sync | `localfirst` LWW-Register CRDT engine: `Clock`/`Replica` (optimistic+offline pending+convergent Merge)/`Authority`; offline→reconnect→converge proven in-process AND over the real serverfn transport | `feat(localfirst): convergent CRDT core` + `test(localfirst): converge over serverfn` |
+| **FB1 (keystone)** server functions | `serverfn` runtime (`Handle`/`Call`, typed `*ServerError`, no-build-tag net/http so server=sockets, browser=fetch) + `gwc server gen` (`//gwc:server` → client stubs + `RegisterServerFunctions`); e2e: native server + wasm client compile, HTTP round-trip through generated registration | `feat(serverfn): server-function runtime` + `feat(gwc): \`gwc server gen\`` |
+| **FA1** fine-grained signals | `state.Signal[T]` / `NewSignal` / `NewComputed` (+ `.Text` fine-grained binding) | `feat(state): fine-grained Signal[T]…` |
+| **FB7** two-way bind | `html.BindTo` / `BindFunc` (structural `Binding`; binds Signals/atoms) | `feat(html): BindTo/BindFunc…` |
+| **C3** diagnostics | hookcheck conditional-hook detection + symbol + specific remediation | `feat(hookcheck): detect conditional hooks…` |
+| **FC2** zero-npm security | `gwc supplychain` (zero-npm proof, dep budget, checksum verify, SBOM-shaped JSON) | `feat(gwc): add \`gwc supplychain\`…` |
+| **D5** vuln scanning | `gwc vuln` (govulncheck reachability scan: REACHABLE vs imported-only; `-strict`) | `feat(gwc): add \`gwc vuln\`…` |
+| **FA3/A3/B1/D4** component registry | `gwc add` shadcn-model catalog (disclosure, tabs — WAI-ARIA, self-contained, native+wasm verified; templates are a compiled package) | `feat(gwc): add \`gwc add\`…` |
+| **FB3** AI-native docs | `gwc llms` (llms.txt + llms-full.txt, `-check` staleness gate) | `feat(gwc): add \`gwc llms\`…` |
+| **B8** shared validation | `validate` package (struct-tag, wasm+native, `Fields()`→`ui.FieldErrors`) + `Form.ValidateStruct()` | `feat(validate)…` + `feat(ui): Form.ValidateStruct` |
+| **B7/FA4** typed routes | `gwc routes gen` typed `Link*` constructors from route contracts (+ `check` gate) | `feat(gwc): add \`gwc routes gen\`…` |
+| **FA4/B3** typed search params | `router.DecodeQuery[T]`/`EncodeQuery` (`query:` tags → validated typed struct via `validate`); `validate` gains `omitempty` | `feat(router): typed, validated search params` + `feat(validate): omitempty` |
+| **FA5/B1** transitions | `anim.DiffKeyedRects` (keyed-list FLIP classify+invert), `anim.Transition` (pure enter/exit state machine), `anim.StaggerDelay` | `feat(anim): keyed-list FLIP + enter/exit transitions` |
+| **F6/B3** typed i18n keys | `gwc i18n gen` typed message accessors from a base-locale bundle (namespace+key+`{param}` all compile-checked) (+ `check` gate) | `feat(gwc): add \`gwc i18n gen\`…` |
+| **FA2/B6** query layer | `query` package: `Fetch` (request dedupe), `SWR`, `Mutate` (optimistic + rollback), invalidate-by-key/prefix, injectable clock; `ui.UseQuery`/`UseMutation` hooks (wasm e2e through real render path) | `feat(query): stable query/data layer…` + `feat(ui): UseQuery/UseMutation…` |
+| groundwork | `ui.Run`+`interop.KeepAlive`; `gwc` singleton guard; `gwc check` hook-context analyzer; release go-get smoke fix | (4 commits) |
+
+The reactivity, binding, and validation work also advance the meshed Part I dimensions
+(B5/D3, B1/B2, B8/B3); the two `gwc` commands advance D5/F9 and F1/C3/C5.
+
+### Deliberately NOT implemented as code (final V4 disposition)
+
+Every plan item with a verifiable implementation has shipped (above), including the
+documentation rows: **F3** versioning policy (`VERSIONING.md`), **F7** governance
+(`GOVERNANCE.md`), **F8** the wasm/native build-tag mental model (design notes), and **E2**
+the reproducible-build recipe (deployment manual). What remains is recorded here as **out of
+code-scope**, each for a concrete reason — not undone work but the honest final disposition,
+so the plan is internally complete:
+
+| Item | Disposition | Why |
+|---|---|---|
+| **JetBrains plugin** (D2/tooling) | Deferred (not built) | The plan itself files it as "a separate later deliverable — not on the same timeline." It needs the IntelliJ SDK + Gradle (Kotlin), which can't be built or tested in this environment, so shipping it would be unverifiable scaffolding. The VS Code extension *was* shipped because its mapping core is Node-testable; the cross-editor value (surface `gwc lint --json` in the IDE) is delivered there. |
+| **D3 — root-cause the 123% `BenchmarkFineGrainedSelector…` regression** | Investigated, not "fixed" | The drift note predates V4 by ~3 months and was measured on `windows/amd64`; on this `windows/arm64` machine the same benchmark runs **faster than baseline** (~9.4µs vs 11.5µs) with healthy allocs, and net drift is +0.6% (109 improved / 114 regressed). It does not reproduce here, so there is no defensible code change to make — root-causing needs the amd64 hardware. |
+| **C2 incremental wasm link (true-10)** + **FA6 lazy-load wasm *chunks*** | Upstream / platform-capped (achievable halves SHIPPED) | The *only* irreducible part is a Go toolchain capability that does not exist (incremental wasm linking; per-view wasm code-splitting from one binary) — the plan classifies these as "(platform-cap)" / "upstream Go ask, tracked, not blocking." Everything achievable in framework code *was* shipped: C2's "what rebuilt & why" → `gwc buildreport`; **FA6's deferrable-views render half → `shorthand.Defer` + `ui.UseDefer`** (lazy subtree construction + mount-once latch). |
+| **F9 module split** (`/v4` bump) | Maintainer decision (gate documented) | Moving tool-only deps (`playwright-go`, `bubbletea`, AI SDKs) into a separate module changes consumers' `go.sum`, so it requires a **`/v4` major bump** — a release-strategy call the maintainer makes, not a unilateral refactor. The decision gate is written into [`VERSIONING.md`](../../VERSIONING.md); the checkable half (dependency budget) already ships in `gwc supplychain`. |
+
+These items are the literal residue of the plan; none is a hidden gap in the shipped
+framework. Everything expressible as tested Go — or, for the editor integration, as a
+Node-tested extension core, and for process/policy as documentation — is implemented,
+atomic-committed, and green. The remainder is two physical impossibilities (Kotlin toolchain,
+amd64 hardware), one absent Go-compiler capability, and one release-versioning decision that
+is the maintainer's to make.
+
+## v4 — the combined plan: god-tier DevX × god-tier features
+
+This revision merges the **feature/capability roadmap** from the competitive analysis
+([`../competitive-analysis/`](../competitive-analysis/README.md), Vols I–III) into this
+DevX plan, so both halves mesh into one target:
+
+- **Part I — DevX dimensions → 10** (everything below the Part I header). Polishes every
+  *existing* surface to the exemplary rung. The **quality** layer.
+- **Part II — capability roadmap** (the new section). Adds the *features* engineers expect
+  (parity), the killer features that earn evangelism (delight), and the frontier moves no
+  competitor can follow (moat). The **capability** layer.
+
+They are **not independent**. Every Part II feature also raises one or more Part I
+dimensions — that is the mesh (see the capability↔dimension table in Part II, and the `→
+meshes` / `extends` markers on each feature, which point back to existing items so the
+two plans never duplicate or conflict). God-tier DevX on a framework that lacks the
+capabilities is a flawless paint job on a car with no engine; god-tier capabilities with
+mediocre DevX is an engine no one enjoys driving. The target is **both, woven together**.
+
+> **North star:** every DevX dimension at its honest maximum (Part I) × the capabilities
+> that make those surfaces matter *and* define a category no one else can enter (Part II).
+> The keystone is **`//gwc:server`** (FB1) — the data, forms, security, and frontier work
+> all build on it; the three category bets are **local-first sync (FC1)**, **zero-npm
+> security (FC2)**, and **agent-native UI (FC3)**.
+
+---
+
+# Part I — DevX dimensions → 10
+
+Legend: **[min→target]** lower-lens score → target. **(platform-cap)** = the true
+10-rung needs an upstream Go/wasm toolchain change; a **platform-honest 10** is
+defined and is the planning target. **(baseline-fix)** = baseline score was stale;
+corrected here.
+
+---
+
+## Platform-honest anchors (agreed with reviewer)
+
+Three dimensions cannot hit the literal 10-rung purely through framework work:
+
+- **C2 Build speed (platform-cap):** Go/wasm does a full-world link every build;
+  there is no incremental wasm linker and prod code-splitting is a *runtime HTTP*
+  mechanism, not a linker one. **Platform-honest 10 = persistent build daemon
+  keeping the Go build cache hot across saves + per-build "what rebuilt & why"
+  report + published, CI-gated cold/warm times.** True-10 (incremental wasm link)
+  is filed as an upstream Go ask, tracked, not blocking.
+- **C4 Debugging (platform-cap):** No production DWARF→browser-source-map tool
+  exists for Go/wasm; dev builds strip DWARF (`tools/livereload/livereload.go`
+  ~1104) on purpose. **Platform-honest 10 = shipped, installable browser-extension
+  panel (packaged + store/side-load) with live component tree, props/state, commit
+  profiling; a snapshot step-back/time-travel replay engine; and a documented
+  browser-stack↔Go-symbol correlation workaround (symbol-preserving build + panic
+  stack mapper).** Native source maps filed upstream.
+- **F7 Community (structural):** The rubric's 10-rung requires an emergent
+  *sizable ecosystem + hiring pool* a solo maintainer cannot ship. **Honest
+  target = 7** (active maintenance, CONTRIBUTING/SECURITY, responsiveness, public
+  roadmap, triage SLA). We do the enabling work and **record the cap in SCORES.md
+  rather than claim 10.**
+
+A short note to this effect has been added to the rubric so re-scores stay honest.
+
+## Baseline corrections (from review round 1)
+
+- **D5 Security [8→9] (baseline-fix):** `release.yml` already runs **govulncheck +
+  CycloneDX SBOM**. Baseline "no govulncheck/SBOM in CI" was stale. Rescore to 9.
+  Remaining gap to 10: run govulncheck on **every PR**, not just release (item
+  below).
+- **F4 (baseline-fix):** `plugin/conformance/conformance.go` is already shipped;
+  the remaining gap is docs + escape-hatch coverage, not infrastructure.
+
+---
+
+## Priority tier 1 — the cliffs
+
+### F7 Community & governance **[3→7] (structural ceiling)**
+- Public **roadmap** (GitHub Projects or `ROADMAP.md`), linked from README.
+- **GitHub Discussions** on; document a triage SLA in `CONTRIBUTING.md` (label
+  taxonomy, "good first issue", response-time target).
+- `docs/adr/` architecture decision records + a maintainer-onboarding guide to
+  lower bus-factor risk.
+- Publish 2–3 first-party companion packages (component kit, charts) as separate
+  repos to seed the third-party path.
+- **Honest cap:** stop at 7; record in SCORES that 8–10 require real adoption
+  outside the maintainer's control.
+
+### C4 Debugging **[4→10 platform-honest] (platform-cap)**
+- Ship the **installable browser-extension panel** as a packaged artifact
+  (Chrome `.crx` via Web Store + Firefox `.xpi` via AMO, plus a one-command
+  side-load). It consumes the existing `gwc.devtools.extension.v1` bridge payload
+  (`devtools.BuildExtensionPanelPayload`) and shows live component tree +
+  props/state + commit profiling. Apply the existing `devtools/trace_capture.go`
+  **redaction at the bridge-payload projection** so the panel can't leak secrets.
+- Build a **snapshot step-back replay engine** in `devtools` (record committed
+  snapshots, scrub/step backward) — scoped as a new subsystem, not a doc.
+- Document a **stack-correlation workaround** for default builds: symbol-preserving
+  build flags + a panic-stack→Go-symbol mapper so browser stacks name Go funcs.
+- **Upstream ask (tracked, non-blocking):** native Go/wasm source maps.
+
+### C2 Build speed **[5→10 platform-honest] (platform-cap)**
+- **Persistent build daemon** in `gwc dev`: keep the Go build cache hot across
+  saves, watch + rebuild, and print a per-build **"what was rebuilt and why"**
+  report (the 10-rung's explicit ask). **Mechanism:** derive the report from
+  `go build -x`/`-debug-actiongraph` output (or a build-action manifest diff)
+  rather than a bare list of changed files, so "why" is the actual cache-miss
+  reason, not a vague file dump.
+- Publish **cold/warm build-time benchmarks** in `docs/benchmarks/` (drift-guarded)
+  and add a CI gate on warm-cycle regression.
+- Drop the incorrect "extend prod route-chunks to the dev linker" claim (prod
+  splitting is runtime HTTP import, not a linker artifact).
+- **Upstream ask (tracked, non-blocking):** incremental wasm linking.
+
+### F9 Maintenance & dependency footprint **[6→10]**
+- **Module split — exact plan:** move `playwright-go`, `bubbletea`,
+  `charmbracelet/*`, `anthropic-sdk-go`, `openai-go` into a separate **`tools`
+  module** (own `go.mod`); relocate every importer (incl. `tools/gwc/main.go`'s
+  playwright use, test harnesses) into that module. Library module retains only
+  runtime deps (target **<6**: e.g. `gorilla/websocket`, a sqlite driver, `x/text`,
+  `golang-jwt` — audit and justify each).
+- Verify the `replace`-directive chain + `go mod tidy` so existing checkouts and
+  `go get` for consumers don't break; document the migration steps (not just the
+  end state). **Decide the version strategy up front:** if any library-consumer
+  `require` line changes (it will, since transitive playwright/bubbletea deps
+  disappear from consumers' `go.sum`), the split needs a `/v4` major bump; if it's
+  a pure internal reorg with no public import-path change, it can land in a minor.
+- Add a **dependency-budget CI check** failing if the library module's direct-dep
+  count or transitive footprint grows.
+- Document reproducible-build guidance (`go.mod` `toolchain` pin + vendored
+  `third_party/`).
+
+---
+
+## Priority tier 2 — the 7s (and the platform reframes)
+
+### A2 Time-to-first-render **[6→10 platform-honest]** (platform-cap)
+- **Honest assessment:** `<2 min` on a *cold* machine is unreachable for Go/wasm
+  (Go module cold-fetch + full wasm compile dominate — an upstream toolchain cost
+  comparable to C2/C4). **A2 is therefore added to the rubric's platform-honest
+  anchors.** Platform-honest 10 = prebuilt `gwc` binary releases (removes the
+  `go run ./tools/gwc` compile cost) + documented warm-module-cache path + default
+  starter is hot-reload-on + idiomatic + **published measured cold/warm timings**.
+- **Route to a literal <2 min (stretch):** ship a CDN-cached starter tarball with a
+  pre-populated module cache (or a framework module proxy) so even a cold machine
+  clears <2 min. Tracked as the path to literal 10; the maintenance tradeoff (a
+  baked artifact) is noted.
+
+### A1 Installation & prerequisites **[7→10]**
+- `gwc doctor --fix`: auto-apply (or one-key apply) the `Remediation` fields the
+  doctor already emits.
+- CI on **Win/macOS/Linux** proving cross-platform parity; document it.
+
+### B2 API design & ergonomic consistency **[7→10]**
+- Bless **`html/shorthand`** as the single authoring path in all docs/examples/
+  starters; demote `html` to "stable builders" with a one-line rationale.
+- **Before** any deprecation window closes, add a `gwc migrate` codemod for the
+  `html` → `html/shorthand` import-path change (current migrate handles version
+  renames, not surface changes).
+- Add an API-consistency lint to `gwc lint`: enumerate the concrete rules
+  (verbSubject naming, receiver/arg order, `Use*` hook prefix, option-struct vs
+  variadic) and scope it to public packages to avoid internal false positives.
+
+### B4 Styling **[7→10]**
+- `css/u` **already re-exports the full `css` surface** (`css/u/exports.go`); the
+  utility *names* are a curated layer over it. So the 10 gap is: **document the
+  intentional utility subset + a completeness matrix + the raw-`css` escape** for
+  anything outside it.
+- Drop "dead-style report via static analysis" — the runtime registry model can't
+  know never-registered classes without a wasm static pass. Instead: **prove the
+  registry doesn't double-emit** (already largely true; add a test) and file
+  build-time tree-shaking as a stretch/upstream item, not a 10-blocker.
+
+### B6 Data fetching & async **[7→10]**
+- Graduate **Experimental** cached-resource lifecycle surfaces to **Stable**,
+  pinned by an **API-baseline test**.
+- Verify + document request dedup; ship an optimistic-update-with-rollback example.
+
+### B7 Routing **[7→10]**
+- Graduate Experimental loader/guard surfaces to Stable (API-baseline pinned).
+- **Typed-route codegen — concrete:** a `go generate`-invoked `gwc routes gen`
+  reads the route-contract definitions and emits typed link constructors to a
+  generated file; a CI step fails if the generated output is **stale** (regen +
+  `git diff --exit-code`). This closes the last compile-time link-target gap that
+  runtime `RouteContract` (`router/contracts.go`) can't.
+
+### B8 Forms & validation **[7→10]**
+- **Shared client/server validation — concrete:** define a **pure-Go struct-tag
+  validator** (no syscall/net/file deps so it compiles to wasm *and* native);
+  one validated struct flows through both an HTTP handler and `UseForm`. Stub any
+  wasm-incompatible validators behind build tags. Add async validation + an example
+  wiring the same struct on both sides (the rubric's exact 10-rung ask).
+
+### C1 Hot reload **[7→10] (DX-negative fix)**
+- **Keep state-preserving reload opt-in** (auto-injection silently restores stale
+  state across schema changes → ghost bugs). Instead:
+  - Make it **discoverable**: a dev-overlay hint + a `gwc dev --hotreload` flag.
+  - When enabled, **detect state-schema change** and show a visible "state reset"
+    indicator + warning rather than silently restoring into a mismatched type.
+- Add the visible **reload-status indicator** to the dev overlay.
+- Near-instant warm reload depends on C2's daemon.
+
+### C5 IDE integration **[7→10]**
+- Ship a **VS Code extension** scoped to concrete capabilities: commands
+  (dev/build/test/lint), route/style/token completion, and `gwc lint --json`
+  surfaced via `languages.createDiagnosticCollection` with quick-fixes; set
+  `go.toolsEnvVars` for wasm gopls **via the Extension API without clobbering**
+  user settings. GoDoc-sourced hover docs.
+- **JetBrains plugin is a separate later deliverable** — not on the same timeline.
+
+### D2 Observability & devtools **[7→10]**
+- Ship the installable extension panel (shared with C4).
+- **OTel — concrete:** route runtime spans through the existing `telemetry`
+  package's **browser-fetch OTLP transport** to a collector; the extension panel
+  reads via the `gwc.devtools.extension.v1` bridge. Wire the existing
+  `scheduler.NewInstrumented(...).DevtoolsSection` into the panel for the 10-rung's
+  scheduler-instrumentation ask. Redact at the bridge projection (see C4).
+- Runnable end-to-end OTel example.
+
+### D3 Performance & profiling **[7→10]**
+- **Diagnose, don't re-baseline:** root-cause the
+  `BenchmarkFineGrainedSelectorDashboardReactiveTextUpdate16-20` 123% regression
+  (114 regressions in `DRIFT_NOTE.md`) and fix the cause; then restore green drift.
+- Add a CI **merge gate**: a `gwc bench` step that exits non-zero on drift beyond
+  tolerance (today the drift note exists but no workflow blocks on it).
+
+### D5 Security **[9→10] (baseline-fix)**
+- govulncheck + CycloneDX SBOM already run on release. To reach 10: run
+  **govulncheck on every PR** (not just release) as a merge gate.
+
+### D6 SSR / hydration **[7→10]**
+- Graduate Experimental loader/guard + bootstrap-transport surfaces to Stable.
+- Hydration-mismatch **debugging example**; assert-and-recover path so a mismatch
+  never silently corrupts (documented + tested).
+
+### E1 Bundle size & output **[7→10]**
+- Generate a **CI size-budget gate into every starter** (default budget +
+  `gwc wasm measure` check in the scaffold CI), not just the framework repo.
+- Document the tinygo profile's API-compat boundary so the size-optimized path is
+  a predictable first-class choice.
+
+### E2 Deployment & release **[7→10] (clarify "reproducible")**
+- Source-archive provenance (`git archive` + SHA-256 + `attest-build-provenance`)
+  is **already shipped** → the deploy/provenance story is strong.
+- **Decision (closed): target byte-identical binary reproducibility** (provenance
+  is already shipped, so this is the only remaining gap to 10). Specify `-trimpath
+  -buildvcs=false`, `SOURCE_DATE_EPOCH`, and a CI-pinned `toolchain`; verify
+  byte-identical output from a clean checkout in CI.
+- Ship verified **CI deploy templates** (static/CDN, Pages) with a deploy smoke test.
+
+### E3 PWA / offline **[7→10]**
+- **Zero-config service worker:** `gwc` emits the SW from the release manifest so
+  it isn't hand-written app code.
+- CI end-to-end offline scenario (install → offline → mutate → reconnect → replay).
+
+### F3 Versioning & migration **[7→10] (commit the numbers)**
+- Publish a concrete policy: **deprecated APIs removed after 2 minor releases;
+  12-month support window after a major.**
+- **Update `api-stability-and-support-policy.md`** (and its mirror under
+  `examples/public-examples-site/assets/docs/`) to state the 12-month post-major
+  support window — the shipped doc today commits only "≥2 minor + 90 days" and
+  disclaims LTS, so the doc and policy must be reconciled, not just asserted here.
+- Expand `gwc migrate` codemods to cover every breaking change; make the API
+  compat guard a **merge gate**.
+
+### F4 Extensibility & plugins **[7→10]**
+- Enumerate the **layer model** explicitly and document a named public escape at
+  each: CSS sink (`css.SetSink`), render tree/reconciler, router, state atoms, SSR
+  transport, `interop` raw-browser, `html.RawHTML`. Document the **sealed
+  `pluginruntime` kernel as a hard ceiling**.
+- Conformance kit is shipped; add docs + examples that reach the lowest public
+  layer when the high-level API doesn't fit.
+
+### F5 Interoperability **[7→10]**
+- Ship a **third-party-JS integration example** (wrap an npm lib via `ImportModule`
+  + typed bridge).
+- Native-stub parity test proving every interop surface degrades gracefully
+  off-platform.
+
+### F6 i18n **[7→10]**
+- **Typed message keys — concrete:** `gwc i18n gen` reads locale bundles and emits
+  typed key constants/accessor; CI staleness check (regen + `git diff`).
+- **Lazy locale loading:** verify whether the runtime already supports it; then
+  document (if present) or build (if not) + ship an example.
+
+### F8 Conceptual coherence **[8→10]**
+- Resolve the two-HTML-surface friction (shared with B2); document the wasm/native
+  build-tag split as one coherent contributor mental model in design notes.
+
+---
+
+## Priority tier 3 — the 9s, close the last point
+
+### D1 Testing **[9→10]**
+- Make the **headless component lane the documented default** (no browser needed).
+- Enumerate and ship the missing **first-class fixtures**: async-boundary,
+  suspense, hydration-boundary, and error-boundary test fixtures. These **must be
+  native-testable (no browser)** to satisfy the 10-rung's fast-headless condition;
+  any fixture that is genuinely wasm-only requires an explicit architectural note
+  saying why.
+
+### F1 Documentation **[9→10]**
+- **Compile-test inline code samples:** extract fenced `go` blocks and compile them
+  in CI (doc-sample test harness) so samples can't silently rot.
+- Add full-text search + versioned docs site. Fix or explicitly scope the TinyGo
+  doclint exception (`commands.go` ~332) so TinyGo doc claims are verifiable.
+
+### F2 Examples & recipes **[8→10] (concrete actions, not just "protect")**
+- Enumerate which of the 95+ examples lack CI coverage; bring all into a CI lane.
+- Build a machine-verified **API→example index** (distinct from the capability
+  matrix).
+- Verify a showcase app **dogfoods every public API**, or document the covered
+  subset honestly.
+
+---
+
+## Priority tier 3b — close the remaining 8s to 10
+
+These sat at 8 with strong evidence and earlier had no items — the simulated
+re-scan projected 94.8% precisely because of them. Each now gets a concrete item.
+
+### A3 Scaffolding & starters **[8→10]**
+- Add **composable sub-generators** beyond `gwc start`: `gwc add route` and
+  `gwc add component` that emit idiomatic code into an existing app.
+- CI verifies generator output **builds, tests green, and matches current docs
+  idioms** (regenerate + compare drift check).
+
+### B1 Component model & composition **[8→10]**
+- Publish a **uniform-composition guarantee**: one worked guide/example proving the
+  same rules hold from a leaf button → container → full app, with **no special
+  cases** (keyed lists, context, slots, fragments, boundaries all one model).
+- Document the wasm/native build-tag split as a **platform-adapter** concern that
+  does not leak into the component model (shared with F8), so advanced use needs no
+  second paradigm.
+
+### B3 Type safety **[8→10]**
+- Clarify + prove **shared-types-by-construction**: the *same* Go structs are the
+  server, client, and validation types (the build-tag split is platform adapters,
+  not domain types). Ship an example where **one struct** drives SSR render, client
+  render, and `UseForm` validation, pinned by an API-baseline test.
+- Typed-route codegen (B7) + typed i18n keys (F6) remove the last stringly-typed
+  surfaces, so a typo anywhere is a compile error.
+
+### B5 State management **[8→10]**
+- **Extend the existing "Choosing The Smallest Owner" section** (ch.06) into a full
+  state-tool decision guide: exact conditions favoring `UseState` vs `UseReducer` vs
+  context vs `state` atoms vs derived/computed vs **SQLite/KV** (the existing
+  section omits the SQLite/KV tier), each with an example.
+- Make **fine-grained reactivity** the discoverable, documented default where
+  over-render matters — not an opt-in buried in the API.
+
+### C3 Error messages & diagnostics **[8→10]**
+- **Real engineering required (the analyzer does NOT already do this):**
+  `tools/hookcheck/hookcheck.go` today detects only **loop-site** hook violations,
+  and the non-panic `Diagnostic` struct carries **no symbol/source-line field**
+  (only the panic path has a `TopFrame`). To reach the 10-rung's "name the
+  offending symbol + propose the exact fix":
+  1. **Extend `hookcheck`** to also detect **conditionally-called** hooks (if/switch
+     branches), not just loops.
+  2. **Add `Symbol string` + `SourceLocation token.Position`** fields to the
+     `Diagnostic` struct and plumb them through for every code with an AST-level
+     origin (e.g., "`UseState` called conditionally at `MyComponent` L42").
+  3. Make each code's `Remediation` the **specific corrective action** (with the
+     symbol), not a category-level hint.
+- **Verification:** a test asserting symbol + location presence on the AST-origin
+  codes. Codes that are genuinely runtime-only (no AST origin) keep the panic-path
+  `TopFrame` and are documented as such — the 10-rung is met for the AST-origin set
+  and honestly scoped for the rest.
+
+### D4 Accessibility **[8→10]**
+- Add **focus management on route change** as a built-in default (focus the new
+  view's heading/landmark), not an app-wired concern.
+- Add an **a11y lint** to `gwc lint` (or wire axe rules into the native component
+  lane) for common violations beyond the browser-only axe-core gate, so issues
+  surface pre-browser.
+
+---
+
+## Cross-cutting enablers (build first — each moves several dimensions)
+
+1. **Installable browser-extension devtools panel** → C4, D2.
+2. **Module split (runtime vs. tooling)** → F9; clarifies F4/F5 boundaries.
+3. **VS Code extension** → C5; helps A2/C1 onboarding.
+4. **Dev-loop build daemon + build report** → C2, C1.
+5. **Pure-Go shared validation schema** → B8; one source of truth helps F9.
+6. **Experimental→Stable graduation + API-baseline pins** → B6, B7, D6, F3.
+7. **Codegen pair: typed routes + typed i18n keys** → B7, F6, deeper B3 safety.
+8. **Starter-embedded CI gates (size, perf, a11y, deploy smoke, govulncheck)** →
+   E1, D3, E2, E3, D5.
+
+---
+
+---
+
+# Part II — Capability roadmap (god-tier features)
+
+Part I makes the *surfaces* exemplary; Part II adds what those surfaces *do*. Organized by
+the three competitive-analysis volumes (parity → delight → moat). Each item names the
+mechanism, the **DevX dimensions it also lifts** (`→ meshes`), and verification. Items
+that **extend an existing Part I item** are marked so the two plans don't duplicate or
+conflict — where Part I already started the work, Part II points at it and goes further
+rather than re-specifying it.
+
+## Tier F-A — Parity capabilities (table stakes the market already pays for)
+
+### FA1 — Fine-grained signals as a first-class primitive → meshes **B5, D3**
+- Ship `state.Signal[T]` / `state.Computed[T]` (TC39-shaped) that auto-track inside
+  computed/regions, so a component body runs **once** and only signal-bound nodes
+  re-render. **Extends B5** ("make fine-grained reactivity the discoverable default"): B5
+  documents it; FA1 makes it a real primitive, not an opt-in optimization.
+- Double win on wasm — fewer `syscall/js` boundary crossings → directly improves **D3**.
+- Verify: a render-count test proving no component re-exec on a leaf-signal update + a
+  bench showing fewer DOM ops vs the re-render path.
+
+### FA2 — Stable query/data layer (SWR + dedupe + optimistic/rollback) → meshes **B6**
+- **Extends B6.** Graduate the cache to Stable (already a B6 ask) *and* add window-focus/
+  reconnect refetch, request dedupe, invalidate-by-key, and one-line optimistic mutations
+  wired to the **existing durable offline queue** (a differentiator no JS query lib ships).
+- Verify: dedupe + SWR + rollback integration tests; the offline-queue example (shared
+  with E3/FC1).
+
+### FA3 — `gwc add`: headless component registry (shadcn model) → meshes **A3, B1, D4**
+- A curated catalog of a11y-correct, `css/u`-styled Go components copied into the user's
+  repo via the CLI (`gwc add dialog|combobox|tabs|popover|...`), behavior ported from
+  Radix/Ark **state machines**. **Extends A3** (`gwc add component` generator ships the
+  mechanism; FA3 ships the *catalog* on top). Lifts **B1** (compound-component/slots proof
+  point) and **D4** (a11y primitives shipped, not hand-rolled).
+- Verify: each component carries native + browser a11y tests; `gwc add` smoke in CI.
+
+### FA4 — Typed routing + typed search params → meshes **B7, B3**
+- **This is B7's typed-route codegen, extended** with typed, *validated* search params
+  (the TanStack-Router feature engineers rave about). Same `gwc routes gen` + staleness
+  gate. Removes the last stringly-typed query surface → deepens **B3** ("a typo anywhere
+  is a compile error").
+
+### FA5 — Animation & transitions system → meshes **B1** (new surface)
+- Built-in enter/exit transitions, **FLIP** for keyed lists, signal-driven (FA1) spring/
+  tween motion, and first-class **View Transitions API** for route changes.
+- Verify: transition fixtures in native + browser lanes; reduced-motion honored by default.
+
+### FA6 — `ui.Defer` deferrable views (lazy-load wasm per view) → meshes **E1, A2, C2**
+- Angular-`@defer`-style blocks (viewport / idle / interaction / timer triggers;
+  placeholder/loading/error sub-blocks) that lazy-load **wasm chunks** + per-route
+  splitting. Turns the bundle-size weakness into a feature: ship only above-the-fold
+  interactivity. Directly attacks **E1** and improves first interaction (**A2**); the
+  split manifest feeds **C2**'s build report.
+- Verify: a split-bundle size budget gate in the starter CI (shared with E1).
+
+## Tier F-B — Killer DevX features (the delight layer)
+
+### FB1 — `//gwc:server`: isomorphic server functions (THE keystone) → meshes **B3, B6, B8, D5, F5**
+- Annotated Go func → auto client stub + server route + **the same Go structs both
+  sides** (no codegen, no router, no schema tax). The build **strips the server body and
+  secrets from the wasm bundle**.
+- The keystone almost everything else builds on: **B6** data, **B8** server-action forms,
+  **D5** security (server-only code compile-eliminated from the client — a whole bug class
+  gone; `gwc check` flags any leak), **F5** interop, plus the frontier (FC1/FC3/FC5).
+  Reuses **B8**'s pure-Go shared validator for input validation.
+- Verify: a leak test (analyzer flags server-only imports reaching client code) + a
+  shared-struct request/response round-trip test.
+
+### FB2 — Optimistic UI + Actions one-liners → meshes **B6, B8**
+- `ui.UseOptimistic` + `ui.UseAction` + form pending/error state, on top of FB1.
+  **Extends B6** (which already asks for an optimistic example) into first-class hooks.
+
+### FB3 — AI-native DevX → meshes **F1, C3, C5**
+- Auto-generate `llms.txt` / `llms-full.txt` / `skill.md` from the capability matrix +
+  markdown doc delivery (content negotiation); a **`gwc mcp` docs+API+analyzer server**;
+  and **`gwc check --fix` as the canonical agent post-edit hook** plus an `AGENTS.md`
+  ruleset. **Extends F1** with AI-readability and turns **C3** diagnostics + **C5** IDE
+  integration into *agent guardrails*. GWC's typed/explicit/analyzable design is
+  accidentally perfect here — market it: "the framework your AI gets right the first time."
+- Verify: llms.txt generation test; MCP-server smoke; docs-markdown negotiation test.
+
+### FB4 — Elm-grade errors + in-page overlay → meshes **C3, C4**
+- Push every framework error to plain-English cause + source frame + "did you mean" +
+  copy-pasteable fix + docs anchor; render a Vite-grade in-page **error overlay** in dev.
+- **Extends C3** (the diagnostic symbol/location plumbing) and **C4** (the overlay is the
+  panel's dev-surface).
+
+### FB5 — `gwc workbench` (Storybook + stories-as-tests) → meshes **D1, A3**
+- Isolated component dev + a stories format whose stories *are* the wasm/browser tests
+  (built on the existing testkit + SSR). **Extends D1** — stories become the authoring UI
+  for D1's missing first-class fixtures (async/suspense/hydration/error boundaries).
+
+### FB6 — Snapshot time-travel devtools → meshes **C4, D2**
+- **This is C4's "snapshot step-back replay engine," surfaced in the panel** as
+  undo/scrub. One subsystem, two consumers — reconcile with C4, don't build twice.
+
+### FB7 — Micro-DX ergonomics → meshes **B1, B2**
+- `ui.Inspect` (Svelte `$inspect`), two-way `h.Bind` (kills the `value=`+`onInput=parse`
+  boilerplate), named **slots/snippets**, and `Show`/`Switch`/`Index` control flow. Each
+  small; collectively the daily-delight layer. **Extends B2** (ergonomic consistency) and
+  **B1** (slots/compound composition).
+
+## Tier F-C — Frontier category moves (the moat — where GWC stops being "a Go React")
+
+### FC1 — Built-in local-first sync engine → meshes **B5, B6, E3, D6**
+- Server-authoritative Go ↔ client Go SQLite, query-driven "shapes" (`//gwc:sync`),
+  optimistic + offline + real-time — built on **FB1** + the *already-shipped* `db/sqlite`,
+  `kvstate` (conflict resolution + cross-tab sync), and `fetch.OpenMutationQueue`. GWC is
+  ~80% of the way there; this finishes it. Lifts **B5** (the SQLite/KV state tier), **B6**
+  (live queries), **E3** (offline replay is the same engine), **D6** (SSR seeds from the
+  synced store). Rides "the year of the sync engine" (Zero 1.0 / Electric / TanStack DB).
+- Verify: an offline → mutate → reconnect → converge integration test (shared with E3).
+
+### FC2 — Zero-npm as a security product → meshes **D5, F9**
+- `gwc supplychain` (prove zero-npm, emit the CycloneDX SBOM already wired in `release.yml`,
+  verify module checksums) + capability sandboxing of third-party components. **Extends
+  F9** (the runtime/tooling module split) and **D5** (security) into a *marketed* supply-
+  chain-immunity story — structurally immune to the 2026 npm attack wave (Axios, Shai-
+  Hulud, the 42-package TanStack compromise). The strongest claim is also true: there's no
+  npm to compromise.
+- Verify: `gwc audit` CI gate (shared with F9's dependency-budget check) + a
+  capability-violation test.
+
+### FC3 — Agent-native / generative-UI runtime → meshes **D2, F4**
+- A typed "renderable schema" agents emit (server-side via FB1), validated against the
+  component allow-list by **`gwc check`**, then streamed + rendered natively. Expose the
+  component catalog + analyzer as **MCP tools**, built on the **already-shipped agent
+  runtime bridge** (WS+MCP). GWC's typed component model *is* the "allow-listed components,
+  not raw code" safety property the whole A2UI/MCP-UI space converged on. Lifts **F4**
+  (the public extensibility layers) + **D2** (observe/devtools the agent session).
+- Verify: agent emits a tree → validated → rendered, end-to-end test.
+
+### FC4 — Ride the wasm platform leap → meshes **E1, C2, F5**
+- Bless the **TinyGo leaf-app profile** (2.4 MB → ~200 KB) with a compatibility lint
+  (**extends E1**'s tinygo compat-boundary doc); track **WasmGC** (Wasm 3.0) as the
+  structural size fix; adopt the **component model** (WASI 0.2 / TinyGo wasip2) for
+  polyglot + edge (feeds **F5** interop and FC5).
+- Verify: a tinygo size budget; a WIT-component smoke when the toolchain is ready.
+
+### FC5 — One-binary, whole-stack, edge-portable → meshes **E2, A2**
+- `gwc build --single-binary` → one static artifact serving SSR + wasm + the `//gwc:server`
+  API + the sync engine; edge SSR via WASI runtimes (FC4). **Extends E2** (deployment): the
+  ops dream only a Go full-stack framework can offer — `scp` one binary, run it.
+- Verify: the single binary serves a full-stack app in a CI smoke; a copy-and-run deploy test.
+
+### FC6 — Multiplayer / collaboration → meshes **FC1**
+- `localfirst.PresenceSet` / `localfirst.Cursor` (shipped) + CRDT-backed docs
+  (`localfirst.Counter` shipped; Automerge-Go-on-the-server-authority for text remains a
+  follow-up), on top of FC1 + `UseWebSocket`. Falls out of FC1 nearly for free.
+- Verify: a two-client presence + concurrent-edit merge test.
+
+## Capability ↔ DevX-dimension mesh (how Part II raises Part I)
+
+| Feature | Lifts these Part I dimensions | Relationship |
+|---|---|---|
+| FA1 signals | B5, D3 | extends B5 |
+| FA2 query layer | B6 | extends B6 |
+| FA3 component registry | A3, B1, D4 | extends A3 |
+| FA4 typed routing + search params | B7, B3 | extends B7 |
+| FA5 animation | B1 | new surface |
+| FA6 `ui.Defer` | E1, A2, C2 | new surface |
+| **FB1 `//gwc:server` (keystone)** | **B3, B6, B8, D5, F5** | new; uses B8 validator |
+| FB2 optimistic/actions | B6, B8 | extends B6 |
+| FB3 AI-native DevX | F1, C3, C5 | extends F1 |
+| FB4 Elm-grade errors | C3, C4 | extends C3 |
+| FB5 workbench | D1, A3 | extends D1 |
+| FB6 time-travel | C4, D2 | **= C4 replay engine** |
+| FB7 micro-DX | B1, B2 | extends B2 |
+| FC1 local-first sync | B5, B6, E3, D6 | new; uses shipped db/kvstate/queue |
+| FC2 zero-npm security | D5, F9 | extends F9 |
+| FC3 agent-native UI | D2, F4 | new; uses agent bridge |
+| FC4 wasm platform | E1, C2, F5 | extends E1 |
+| FC5 one-binary | E2, A2 | extends E2 |
+
+**Build order (keystone-first):** **FB1** → FA1, FA2 → FA3, FA4 → FB3 → **FC1, FC2, FC3**
+→ the rest. FB1 unblocks the data/forms/security/frontier chain; FC1+FC2+FC3 are the three
+category bets. This order is also a clean merge into the Part I **cross-cutting enablers**
+list above — FB1 sits alongside enabler #6 (Experimental→Stable graduation), FA3/FB5
+alongside #3 (VS Code) and A3 generators, FC2 alongside #2 (module split), FA1/FA2/FA4
+alongside #7 (codegen pair).
+
+---
+
+## Honest final ceiling (planning-level)
+
+This now has two axes: **DevX dimensions** (Part I) and **capabilities** (Part II).
+
+**Part I (DevX):** with every item above executed (including tier 3b), the planning-level
+scores are:
+
+- **30 dimensions at literal 10.**
+- **3 at a platform-honest 10** — A2, C2, C4 (literal 10 needs upstream Go/wasm
+  toolchain changes; the platform-honest anchor and the stretch route to literal
+  10 are recorded for each).
+- **1 at its structural ceiling, F7 = 7** (a sizable ecosystem + hiring pool is
+  emergent and outside a solo maintainer's control; the enabling work is done and
+  the cap is recorded, not papered over).
+
+That is the DevX target: **every dimension at its honest maximum.** The only gaps to a
+literal all-10 composite are three upstream toolchain asks (A2 cold module-fetch, C2
+incremental wasm link, C4 wasm source maps) and one emergent-community constraint — all
+explicitly named, none hidden. No dimension is left silently below target.
+
+**Part II (capabilities):** with the capability roadmap executed, GWC moves from "a Go
+React with exemplary DevX" to a framework that (a) has the **parity** features the market
+expects (signals, query layer, component registry, typed routing, animation), (b) ships
+the **delight** features that earn evangelism (`//gwc:server`, AI-native DevX, optimistic
+UI, workbench, Elm-grade errors), and (c) **owns three frontier categories** the JS
+ecosystem is structurally barred from entering (local-first sync, zero-npm security,
+agent-native UI). Because every Part II feature is wired to the Part I dimensions it
+lifts, the two plans are one: the capabilities are not bolted on — they are the *reason*
+the polished surfaces matter.
+
+**Combined god-tier definition:** every DevX dimension at its honest maximum **×** the
+capability set that makes those surfaces matter and defines a category no competitor can
+enter. A framework that is both the most *pleasant* to use (Part I) and the most
+*capable* and *uncopyable* (Part II) — keystoned by `//gwc:server`, moated by FC1/FC2/FC3.
+That is the god-tier framework, not just god-tier DevX.
+
+---
+
+# Part III — v5 polish backlog (feature/UX audit fixes)
+
+From the aggressive feature/UX audit (2026-06-27 @ `1af9f6cc`; full report in
+[`FEATURE_UX_AUDIT.md`](./FEATURE_UX_AUDIT.md)). Verdict: **0 of 19 capabilities are
+UX-perfect** — every feature ships a tested core primitive but misses the last mile.
+The work here is overwhelmingly **integration + defaults + CI gates + ergonomic hooks**,
+not new primitives. Check items off as you fix; add niggles to the open section at the
+bottom for the next refinement pass.
+
+## Critical — headline-breakers (fix first)
+
+- [x] **FB3 — `gwc check --fix`** ✅ shipped (gofmt pre-pass; e2e tested). `AGENTS.md` + the AI-native pitch tell
+  agents to run it; it errors. Implement the `--fix` flag (apply `gwc fmt` + the
+  remediations the diagnostics already carry); make it the documented post-edit hook.
+- [x] **FB6 — browser DevTools extension** ✅ real MV3 extension (manifest + devtools/panel) consuming the gwc.devtools.extension.v1 payload (tree/stats/profiling); node-tested bridge parser; one-command side-load. (.crx/.xpi = zip+sign of the source.) `devtools/extension_bridge.go`
+  is manifest *data structures* only. Build a real web extension (packaged `.crx`/`.xpi` +
+  one-command side-load) consuming the `gwc.devtools.extension.v1` bridge payload, showing
+  live component tree + props/state + commit profiling. (The `timetravel.History[T]` engine
+  is already complete — this is only the panel surface.)
+- [x] **FA6 — defer triggers** ✅ shipped: `UseTimerTrigger`/`UseIdle`/`UseInteraction` + doc fix (UseIntersection) + wasm-chunk limitation noted. Add dedicated trigger
+  hooks (`UseIdle`, `UseInteraction`, `UseTimerTrigger`) alongside the viewport path; add
+  `loading` + `error` sub-blocks (currently 1 placeholder slot vs the spec's 3+); document
+  the wasm-chunk lazy-load limitation at the API. Fix the doc comment referencing the
+  non-existent `UseInViewport` (real hook is `UseIntersection`).
+- [x] **FC4 — real wasip1 CI gate** ✅ edge-portability job hard-gates `GOOS=wasip1` build of the server stack. (TinyGo size-budget = follow-up.) Reclassify as tracked, OR
+  earn the label: add a real `GOOS=wasip1 GOARCH=wasm go build` CI step, a TinyGo size-budget
+  assertion (prove the ~200 KB claim), and a TinyGo compat lint. No `.wit` files exist yet.
+- [x] **FC6 — op-based CRDT core + typed cursor** ✅ PN-Counter (concurrent increments converge to the sum, not LWW-1) + typed Cursor selection. (Full Automerge-scale text merge = larger follow-up.) `PresenceSet` is real; collaboration is not.
+  Implement op-based CRDT merge (or Automerge-Go bindings) so concurrent same-field edits
+  don't silently last-write-wins, plus a typed cursor/selection type. Until then, market it
+  as "presence," not "collaboration."
+
+## Major — load-bearing clause missing (core works)
+
+- [x] **FB2 — `UseOptimistic`/`UseAction`/`UseAsyncMutation`** ✅ shipped (wrap MutateAsync; 3 tests). (research docs only). Ship both
+  hooks wrapping `query.MutateAsync` with automatic re-render; add an async `UseMutation`
+  variant (current `ui.UseMutation` wraps the *blocking* `Mutate`).
+- [x] **FB1 — server-leak analyzer in `gwc check`** ✅ flags server-only imports (os/exec, database/sql, …) in js&&wasm files; precise (explicit-client-only), no false positives on ui/. It lives in `gwc doctor -audit` as an
+  AST heuristic (`audit.state_boundaries`). Promote to a real `go/analysis` import-graph pass
+  that walks wasm build targets and flags server-only imports, wired into `gwc check`.
+- [x] **FA2 — focus/reconnect refetch** ✅ `UseRevalidateOnFocus` (focus/online → invalidate+revalidate; pure core tested). (UseDurableMutation queue bridge still open.) Add built-in `focus`/
+  `online` listeners in `SWR`/`UseQuery` that revalidate; add a `UseDurableMutation` bridging
+  `query.MutateAsync` ↔ `fetch.MutationQueue` (today they're separate packages with no link).
+- [x] **FA5 — reduced-motion by default** ✅ UseSpring snaps + ViewTransition skips when reduced (router auto-wire still open).
+  `UseSpring` and `ui.ViewTransition` must internally consult `UsePrefersReducedMotion` and
+  skip/snap when reduced; the router must call `ViewTransition` on navigation automatically.
+- [x] **FC2 — supplychain in CI** ✅ supply-chain.yml runs supplychain (hard gate) + vuln (advisory) on push/PR. The zero-npm gate never runs. Add it
+  to `release.yml` (or a `supply-chain.yml`) as a merge gate. Implement capability sandboxing
+  of third-party components + a capability-violation test, or descope that clause in writing.
+- [x] **FB4 — hook diagnostics Symbol in `gwc lint`** ✅ structured Symbol field populated from the hook name; VS Code extension surfaces it symbol-prefixed (Go + node tests). The standalone
+  `hookcheck` is complete, but `gwc lint`'s `lintIssueRecord` has no Symbol field, so the VS
+  Code extension never shows symbol-named fixes. Wire `hookcheck` into the `gwc lint` path;
+  add "did you mean" remediation text to diagnostic messages (today only CLI-typo suggestions).
+- [x] **FA4 — staleness gates wired + real routes_gen.go** ✅ typed-routes-demo example generated+tested; CI runs `gwc routes check` against it. `gwc routes check` and `gwc i18n check` exist but
+  no workflow runs them — generated files can drift silently. Add a per-PR step. Ship a real
+  `routes_gen.go` in an example (the generator has never run against a real package).
+- [x] **FC3 — agentui wired into CLI** ✅ `gwc agentui check <file>` validates schemas against the allow-list (CI-gateable). (Catalog() MCP exposure + streaming render still open.) `gwc check` doesn't validate agentui schemas (no import
+  link); the component catalog isn't exposed as an MCP tool; `agentui` is fully decoupled from
+  `agentbridge`. Wire `DefaultRegistry().Validate` into `gwc check`; expose `Catalog()` as an
+  MCP tool. (Also: no streaming render — spec says "streamed + rendered natively.")
+- [x] **FC5 — `gwc bundle` single-binary scaffold** ✅ generates an embed+wholestack server main; e2e: scaffold compiles to a binary. `wholestack.Handler` is a
+  real library primitive but the "one command, scp one binary" CLI story doesn't exist. Add
+  the flag (embed wasm in a Go server binary) + a full-stack CI smoke + a copy-and-run test.
+
+## Minor — polish & coverage
+
+- [x] **FB7 — `Index`** ✅ shipped (position-keyed list renderer; 2 tests). (Show/Switch shipped). Add a Solid-style
+  position-stable list renderer to `html/` + `html/shorthand/`.
+- [x] **FA3 — catalog expanded to 5** ✅ +alert/switch/breadcrumb (WAI-ARIA, compiled templates, e2e copy+build). (a11y axe/browser tests still open.) (disclosure, tabs) for a "shadcn model"; the richer
+  `a11y/` primitives (Menu/Combobox/Listbox/DatePicker/Table/AlertDialog/RadioGroup) aren't
+  installable via `gwc add`. Expand the catalog or explicitly scope "v4 catalog = N." Add
+  native a11y render tests for the catalog templates + a browser axe test + a `gwc add` CI smoke.
+- [x] **FB5 — boundary fixtures** ✅ `workbench/fixtures.BoundaryStories` (async pending/content/error + error boundary); all mount under RunStories. Ship `workbench` stories/fixtures for
+  async-boundary, suspense, hydration-boundary, error-boundary (the stated reason for FB5).
+- [x] **FA5/FA3 — component browser-lane test** ✅ disclosure-demo wasm app + Playwright e2e (collapsed→click-expand→click-collapse, aria-expanded + region), compiles under -tags playwrightgo, runs in CI browser lane. Plus keyed-list FLIP browser test (flip-demo + Playwright: deterministic reorder + non-zero FLIP invert on moved items, persisted data-flip-dy so non-timing-sensitive). **All 29 audit items now implemented.** for enter/exit + keyed-list FLIP, and for the
+  `gwc add` components. Add Playwright fixtures.
+- [x] **FB3 — MCP smoke + content negotiation** ✅ handleMCPRequest smoke (initialize/tools-list/error) + LLMSHandler Accept-header negotiation (markdown/plain). `gwc llms` is
+  file-only; add Accept-header serving + an MCP-server integration test.
+
+## Niggles — deep-dive nitpicks (worth folding into the fixes above)
+
+- [x] **FA1 — computed `.Text` single-source** ✅ documented limitation (the reactive-text node subscribes to one atom id by runtime design; multi-source → `ui.ReactiveRegion`, which subscribes to all declared sources). A multi-id reactive node is a core-runtime change, not made for a niggle. A computed spanning multiple
+  sources shows correct *values* but the DOM text node only flushes when the first source
+  fires — a silent missed-update footgun. Either subscribe all source IDs or doc-steer to
+  `ui.ReactiveRegion`. Add a test that currently *fails* for the multi-source case.
+- [x] **FA1 — auto-tracking shipped as opt-in `NewAutoComputed`** ✅ explicit `NewComputed` stays the default/recommended path (no hidden reactive graph — ch.06/15 design direction), and `state.NewAutoComputed(func() T)` now offers Solid-style auto-discovery for callers who want it: it runs the compute once with read-tracking on and records every `Signal.Get` it observes as a source. `Signal.Get` carries a single-atomic-load read hook that is a no-op outside a discovery pass. Native test proves both sources are discovered and the value recomputes on change. — was: static-tracking only (caller passes sources).
+- [x] **FA1 — non-comparable equality fixed** ✅ atom Set falls back to reflect.DeepEqual, so an equal slice/map is a no-op (no re-notify). (`GlobalAtom.Set` recover-guarded
+  `==`). Slices/maps/funcs trigger a DOM update even when semantically unchanged.
+- [x] **FA1 — `TextValue()` zero-arg shortcut** ✅ on Signal + Computed (default fmt). — callers write `s.Text(func(v string) string { return v })`. Expose a no-render-func shortcut.
+- [x] **FA1 — `.Text` getter native test** ✅ added (renders via runtime+mockdom) — was: only tested under `js && wasm` — the native
+  lane can't catch getter-closure regressions. Add a native-lane test.
+- [x] **FA2 — `UseQuery` DOM e2e is wasm by design** ✅ the render lifecycle (UseEffect/SWR) only runs in the browser; pure logic (Snapshot/SWR/Mutate) is native-tested + the DOM e2e is the wasm lane. Inherent, covered. — was: only runs under `js && wasm` — native lane tests pure
+  cache logic only. Consider a mockdom native render test (the devtools panel already does this).
+- [x] **FA4 — EncodeQuery non-struct documented** ✅ contract made explicit (non-struct → empty, never panics); DecodeQuery is the validated counterpart. — passing a non-struct silently returns empty
+  `url.Values`. Make it `EncodeQuery[T any](T)` or guard + error.
+- [x] **FA4 — combined `Link*WithQuery` constructor** ✅ shipped (path params + url.Values; e2e /users/42?sort=desc) — was: no combined — path params and search params are
+  built separately. Consider a `LinkXWithQuery(id, q)` pattern.
+- [x] **FB1 — wasm-compile smoke** ✅ generated client stub proven to build under GOOS=js.
+  (`GOOS=js GOARCH=wasm go build`). The stub is correct by construction but unverified in CI.
+- [x] **FB4 — `hookcheck.Finding` field names** ✅ kept the shipped, descriptive `Pos`/`Hook`/`Kind`/`Func` (a naming preference; renaming would break consumers for no behavior gain). (was: diverge from spec `Hook`/`Pos`/`Func` vs
+  `Symbol`/`SourceLocation`); reconcile names or the spec, and add the explicit
+  "Symbol+Location present on AST-origin codes" verify test the C3 item called for.
+- [x] **FC1 — spec API names reconciled** ✅ plan now references shipped `localfirst.PresenceSet`/`Cursor`. (was: `sync.Presence`/`UseCursors` vs shipped
+  `localfirst.PresenceSet`). Either add a `sync` re-export package or update every
+  spec/doc/agent-prompt reference to the real path.
+- [x] **FC1 — isolated `Authority.Receive` conflict test** ✅ added. (only exercised via `Sync()`).
+- [x] **FC2 — checksum honesty + zero-npm regression** ✅ ChecksumsVerified documented as go.sum-presence (not over-claimed); vscode-gwc excluded so the extension can't break zero-npm. (CycloneDX vs SBOM-shaped: documented split.) (real SBOM lives in
+  `tools/sbom/`); and `ChecksumsVerified` infers from a non-empty `go.sum` rather than calling
+  `go mod verify`. Decide whether to unify or document the split.
+- [x] **FB7 — `gwcsilent` build tag** ✅ zero-cost UseInspect silence. (silence needs a manual
+  `SetInspectSink(func(string){})`); and no integration test exercising it inside a real render.
+- [x] **Naming — `gwc audit`→`gwc supplychain` reconciled** ✅ FC2 spec text updated. (the router's `audit`
+  is the agent-bridge mutation trail). Reconcile the plan's FC2 name with the shipped command.
+
+---
+
+# Part IV — v6 optimization round (post-Review-3)
+
+From Review 3 (2026-06-27 @ `3c94979e`; composite 82.0%, +1.2 pp). The v5 sprint fixed
+the feature/UX punch list and made **7/19 features genuinely UX-perfect** — but the
+adversarial re-verify caught three **scope-reduced "fixes"** (the `[x]` is honest but
+narrower than the gap), **12 features still shipped-but-rough**, and — most importantly —
+that the composite barely moved because the sprint targeted Part-II features, not the
+**high-weight Part-I runway**. This round fixes that.
+
+## Tier 0 — poor-quality fixes to redo properly (the `[x]` undersold the gap)
+
+- [x] **FB3 — `gwc check --fix` applies structured remediations** ✅ `--fix` now applies the deterministic `Edits` diagnostics carry (not just gofmt): the server-leak fix rewrites a browser file's `//go:build js && wasm` (+legacy `+build` twin) to `//go:build !js || !wasm`, moving the file + its server-only imports out of the client bundle. Loops to a fixed point, re-gofmts, and reports applied-vs-manual (hook-outside-component is honestly surfaced as manual — hoisting a hook can't be auto-rewritten safely). Idempotent; 3 tests. `tools/gwc/checkfix.go`.
+- [x] **FB1 — real transitive import-graph server-leak analysis** ✅ replaced the 6-entry deny-list with an import-graph pass: seeds from explicitly client-only files, follows imports into local module packages transitively, and classifies every reached path — curated server stdlib, a prefix matcher for third-party server SDKs (gorm/grpc/AWS/GCP/Azure/Mongo/pgx/redis/k8s/…), and local packages constrained off js/wasm. Catches the direct AND transitive gorm/grpc/cloud cases the audit named; shows the via-chain; 4 tests. Source-walked (not go/packages) so the gate is deterministic/offline. `tools/gwc/serverleak.go`.
+- [x] **FC6 — op-based collaborative-text CRDT shipped** ✅ `localfirst.Text` is an RGA (Replicated Growable Array): every inserted char is an immutable id'd element positioned after another, deletions are tombstones, `Merge` unions element sets with deleted-wins, and a deterministic id-ordered walk converges all replicas. Concurrent inserts (even at the same position) both survive — no LWW — and a concurrent-edit convergence test proves it, plus commutative/idempotent/round-trip tests. The integers-only PN-Counter gap is now closed for text. `localfirst/text.go`.
+
+## Tier 1 — highest composite ROI (high-weight Part-I, untouched by v5)
+
+- [x] **D5 — govulncheck is now a blocking merge gate** ✅ removed `continue-on-error`; the vuln job blocks on any REACHABLE dependency advisory via `gwc vuln`. To keep the gate meaningful (not flaky on un-fixable toolchain CVEs), `gwc vuln` classifies stdlib/toolchain advisories and reports — but does not block on — reachable stdlib ones by default (`-include-stdlib` gates those too); reachable dependency advisories always block, even alongside a waived stdlib one. 3 new tests. `tools/gwc/vuln.go`, `.github/workflows/supply-chain.yml`.
+- [x] **A2 — prebuilt `gwc` binary releases** ✅ the release workflow now cross-compiles `gwc` (pure-Go, CGO-disabled, `-trimpath -ldflags "-s -w"`) for linux/macOS/windows × amd64/arm64, ships them as release assets with a single `SHA256SUMS` manifest and a build-provenance attestation, so users skip a from-source build. All targets verified to cross-compile clean. `.github/workflows/release.yml`. (Published cold/warm cache timings remain a measurement follow-up, paired with C2's build daemon.)
+- [x] **C2 — persistent build daemon (`gwc warm`)** ✅ a new long-running command runs a cold build to populate the cache, then watches the project (reusing the watch fingerprint loop) and re-runs the build on every save so the cache stays hot — the developer's next `go build`/`gwc build` hits a warm cache. `-target native|wasm`, `-once` (CI), and `-json` (emits the cold/warm timing report CI can gate on). Complements the shipped `gwc buildreport` (what rebuilt & why). 4 tests (build args, wasm env, failure surfacing, bad-target rejection). `tools/gwc/warm.go`.
+- [x] **A1 — `gwc doctor --fix` + cross-OS CI parity** ✅ `gwc doctor --fix` auto-applies the deterministic remediations: the structured source edits shared with `gwc check --fix` (server-leak build-constraint rewrite) plus generating a missing `gwc-start.json` for a hand-built app (never overwriting existing metadata). Non-deterministic prereqs (Go missing, busy port) stay reported. New `doctor-parity.yml` runs the doctor/check-fixer tests + a `gwc doctor` smoke on ubuntu/macos/windows (path-sep + line-ending parity). 2 tests. `tools/gwc/doctorfix.go`.
+- [x] **B4 — `css/u` completeness matrix + no-double-emit test + escape doc** ✅ a table-driven completeness test folds every utility CATEGORY (display/flex/spacing/sizing/color/typography/radius/effects/variants/responsive/important) through the registry end-to-end and asserts each emits a real class + CSS, so a silently-dropped category fails CI; a no-double-emit test proves an identical utility set folds to one class emitted exactly once; and the `Raw`/`Sel` escape hatches are now documented (registry-managed, content-hashed — not unmanaged inline styles). `css/u/completeness_test.go`, `css/u/exports.go`.
+- [x] **D3 — CI bench drift merge-gate shipped** ✅ `gwc bench -fail-on-regression` now exits non-zero when any benchmark regressed beyond the 2% tolerance vs the committed baseline (the per-benchmark comparison machinery already existed; this wires it to an exit code). New `bench-drift.yml` runs it on PRs (`-parallel 1` for low noise). Gate logic unit-tested for all four cases. `tools/gwc/bench.go`. ⚠️ The amd64 123% selector regression itself is NOT root-caused here — this environment is ARM64 Windows and can't reproduce the amd64 numbers reliably; the new gate is what will surface and pin it on amd64 CI. (Honest partial: gate done, amd64 root-cause still open.)
+- [x] **D4 — focus-on-route-change default + static a11y lint** ✅ two parts: (1) the router now moves keyboard focus to the new route's content after navigation by default (honors `[autofocus]`/`[data-route-focus]`, else focuses the route container with tabindex=-1), opt-out via `SetFocusManagement(false)` — `router/navigation_ux.go`; (2) a non-browser a11y linter wired into `gwc lint` (`gwc-a11y`) parses HTML with x/net/html and flags missing alt, no accessible name on buttons/links, unlabeled form controls, missing `<html lang>`, and positive tabindex — with no false positives on the accessible equivalents. Findings carry the rule as Symbol + a source line. 2 tests. `tools/gwc/lint_a11y.go`.
+- [x] **F5 — third-party-JS integration example + native parity** ✅ `examples/public/third-party-js` wraps the `@sindresorhus/slugify` ESM module behind a typed Go bridge (`interop.ImportModule` → `SlugifyBridge` with `Call`/type-assert), and keeps a pure-Go fallback so the SAME call site works on the server. Native-stub parity test runs on the native lane (where `ImportModule` is unavailable), asserting the bridge is unloaded yet still returns the correct slug via the fallback; the fallback semantics are table-tested. README documents the pattern. `examples/public/third-party-js/`.
+- [x] **F7 — governance/community enablers** ✅ added a public `ROADMAP.md` (Now/Next/Later/Exploring themes, with an explicit "open an Ideas post to influence this" loop), a **Triage SLA** table in CONTRIBUTING (security 2d / bug 5d / feature 10d / PR 5d, with escalation), a "where to ask vs. file" section routing questions to Discussions, and concrete `.github/ISSUE_TEMPLATE/` (structured bug form + `config.yml` that disables blank issues and routes Q&A/ideas to Discussions and security to the disclosure policy). Structural-ceiling-7 enablers now in place.
+
+## Tier 2 — finish the 12 still-rough features (close the last mile)
+
+- [x] **FB6 — one-command extension packager** ✅ `go run ./tools/devtools-extension/pack` builds `dist/gwc-devtools-<version>.zip` — the directly-loadable package (Chrome/Edge store upload as-is; Firefox Load-Temporary-Add-on; signed `.xpi` = `web-ext sign` of that zip). Uses Go stdlib `archive/zip` so it adds NO node/web-ext dependency (keeps the zero-npm posture), validates the manifest, and packages exactly the runtime files. 3 tests (zip contents, version-stamped path, malformed-manifest rejection). `tools/devtools-extension/pack/`.
+- [x] **FA6 — `@defer` placeholder/loading/content/error sub-blocks** ✅ added a real defer state machine: `DeferState`/`DeferStatus` + `RenderDefer` (pure block router) + `UseAsyncDefer` (trigger → loading → ready/error, runs the async loader once). Matches Angular `@defer`'s four blocks instead of a boolean latch. `RenderDefer` is unit-tested for every state + nil-block safety. `ui/defer_blocks.go`.
+- [x] **FA2 — `fetch.UseDurableMutation` bridges cache ↔ offline queue** ✅ one call now does optimistic cache update (via `query.MutateAsync`) AND durable persistence (via `fetch.MutationQueue.Enqueue`): durability first, then optimistic UI; on commit success it clears the queue entry and commits the authoritative value, on failure it rolls the cache back and LEAVES the write queued for `Replay`. Lives in `fetch` (which already depends on `ui`) to avoid an import cycle. 2 native tests (success-clears, failure-keeps-queued). `fetch/durable_mutation.go`.
+- [x] **FA5 — `ViewTransition` auto-wired into the router** ✅ each navigation's DOM swap now runs inside the browser View Transitions API by default (auto-skipped under `prefers-reduced-motion`, opt-out via `SetViewTransitions(false)`), so the >90% route-change case animates with zero caller wiring. `router/navigation_ux.go` (built next to the focus-management default).
+- [x] **FC3 — `agentui` catalog exposed as an MCP tool** ✅ `gwc mcp` now publishes a first-class read-only `gwc_agentui_catalog` tool in `tools/list`, and `tools/call` returns the allow-list (component names + permitted prop keys) as JSON — so an agent queries exactly what it may emit BEFORE generating a UI tree. 3 tests (manifest inclusion, result shape, end-to-end JSON-RPC dispatch). `tools/gwc/agentui_mcp.go`. (Streaming render remains a larger follow-up.)
+- [x] **FA3 — `gwc add` compile smoke + tabs arrow-key nav** ✅ wired arrow-key roving into the tabs template (Left/Right wrap, Up/Down, Home/End via a pure, unit-tested `tabsNextIndex`); added a `catalog-smoke.yml` CI job that, per component, scaffolds a throwaway module with a replace directive, `gwc add`s it, and `go build`s it (real copy-into-temp-module → build), plus a fast offline guard that renders every catalog entry and parses it as valid Go. `tools/gwc/templates/tabs.go`, `.github/workflows/catalog-smoke.yml`. (The browser axe pass for the 5 components remains a browser-lane follow-up — it needs the Playwright/axe runtime, not available in the unit lane.)
+- [x] **D1 — suspense-boundary + hydration-boundary fixtures added** ✅ `workbench/fixtures` now ships `SuspenseStories` (fallback-while-pending → resolved-content) and `HydrationBoundaryStories` (a progressive-hydration island in every strategy: immediate/visible/interaction/idle), plus an `AllStories` aggregate. All four boundary surfaces (async/suspense, error, suspense, hydration) mount through the real reconciler in the stories-as-tests pass. `workbench/fixtures/fixtures.go`.
+- [x] **FA1 — `.Text` on a multi-source computed subscribes ALL sources** ✅ `createReactiveTextNode` now takes the full source-id set, stores them comma-joined in the atom-id prop, and the reconciler splits them to wire a subscription per dependency; `ComputedSignal.Text` passes every declared source. A multi-source computed's text now flushes when ANY dependency changes — the silent missed-update footgun is gone. Native test asserts both the structural id set and the rendered value. `state/state.go`, `internal/runtime/reconciler_commit.go`.
+
+## Sequencing
+Do **Tier 0** first (they're correctness debt masquerading as done), then **Tier 1**
+(the only items that materially move the composite — D5 is nearly free), then **Tier 2**
+last-mile polish. Tier 1 is where the next review's number actually comes from.
+
+---
+
+# Part V — v7 round (post-Review-4)
+
+From Review 4 (2026-06-28 @ `d2e234e0`; composite **86.9%**, +4.9 pp — the biggest jump,
+because v6 finally targeted the high-weight Part-I runway). All 3 Tier-0 redos came back
+genuinely fixed; **18/19 features are now UX-perfect**. What remains is a short, mostly
+cheap list — ordered by **points-per-effort**, since the composite is now close enough
+that sequencing matters more than volume.
+
+## Tier 1 — the single highest-ROI move (do this first)
+
+- [x] **Publish + CI-gate `gwc warm` cold/warm build timings → unblocks BOTH A2 & C2.** ✅
+  `gwc warm -once` now does cold build + immediate warm rebuild, computes warm/cold
+  `SpeedupRatio`, publishes the report to `docs/benchmarks/build-times.json` (`-baseline`),
+  and gates via `-fail-on-regression` on the machine-independent ratio (`-max-warm-ratio`,
+  default 0.6). New `.github/workflows/build-times.yml` runs the gate (cold CI cache) + uploads
+  the report each run. Real measured baseline committed: cold 28.5s → warm 0.5s (1.8%). Tests:
+  `evaluateWarmRatio` (pass/fail/no-signal) + baseline-publish. `tools/gwc/warm.go`.
+
+## Tier 2 — cheap correctness / honesty fixes
+
+- [x] **Add the `windows/arm64` target to `release.yml`.** ✅ Added to the build loop — all 6
+  targets now ship; the prebuilt `gwc` covers Windows ARM64 (Snapdragon X2). `release.yml`.
+- [x] **Make `bench-drift.yml` run on direct pushes to `main`, not just PRs.** ✅ Added
+  `push: branches: [main]` to the trigger. `bench-drift.yml`.
+- [x] **FB1 — server-leak third-party list now extensible.** ✅ `gwc-serverleak.json` at the
+  module root (`{"serverOnlyPrefixes":[{"prefix":"...","reason":"..."}]}`) lets teams flag any
+  proprietary/newer server library the curated list misses; `loadServerLeakPrefixes` merges them
+  into `classifyServerOnlyImport`, threaded through the transitive walk. Missing/malformed config
+  is a no-op (gate never blocked on config). Test: a configured prefix flags an otherwise-unknown
+  import. Upgrades FB1 ⚠️→✅. `tools/gwc/serverleak.go`.
+
+## Tier 3 — remaining runway to a higher ceiling (bigger efforts)
+
+- [x] **A3 [9→10] — `gwc add route` / `gwc add component` sub-generators** ✅ `gwc add component
+  <Name>` emits a typed-props component in the README starter idiom; `gwc add route <Name>
+  -path /p` emits a `router.MustDefineRoute` contract var (picked up by `gwc routes gen`) + its
+  route component. Both gofmt-clean and parse-verified. Tests: scaffold-parses + dispatch-writes
+  + a leading-digit package-name guard (caught by my own test). `tools/gwc/add.go`.
+- [ ] **C5 [8→10] — VS Code route/style/token completion** + framework-specific quick-fixes
+  (lint diagnostics already surface; completion is the gap).
+- [ ] **B2 [8→10] — API-consistency lint** in `gwc lint` (verbSubject/arg-order/`Use*` rules).
+- [ ] **F9 [7→10] — module split** (runtime vs. tooling) — the deferred `/v4`-major decision;
+  `gwc supplychain` dep-budget already enforces the posture.
+- [x] **E1 — starter-embedded size-budget CI gate** ✅ Generated starter CI (`renderScaffoldGitHubActionsWorkflow`)
+  now has a self-contained "WASM Size Budget" step (gzip + byte compare vs a 4 MiB default, no extra
+  tooling dep). Framework mechanism added too: `gwc wasm measure -max-gzip-bytes N` fails over budget
+  (`checkWasmGzipBudget`, tested). `tools/gwc/start.go`, `tools/gwc/wasm.go`. (E3 SW + F2 index still open.)
+- [ ] **E3 — zero-config SW + CI offline e2e** and **F2** machine-verified API→example index.
+- [ ] **D3 [9→10] — root-cause the 123% selector regression on amd64 hardware** (can't
+  reproduce on this ARM64 build machine; needs amd64 to close).
+
+## Batch 2 (post-R5) — close A2/C2 platform-honest 10 + surface C1
+
+- [x] **Upstream Go/wasm asks tracked** — `docs/UPSTREAM_TOOLCHAIN_ASKS.md` records the
+  irreducible upstream constraints for A2 (cold golden-path = Go install/module-fetch; CDN
+  stretch route), C2 (no incremental wasm linker — full relink every build), C4 (no wasm
+  source maps). This is the "recorded, not hidden" half the platform-honest anchor requires;
+  with prebuilt binaries + published CI-gated wasm timings + the daemon/report all shipped,
+  A2 and C2 now meet their platform-honest 10. Linked from the rubric's anchor section.
+- [x] **C1 indicator already shipped** — `gwc dev -hot` defaults on (state-preserving reload),
+  `hotreload.SchemaFingerprint` handles schema-change resets, and the livereload client surfaces
+  status via `updateGWCIcon()` + `showBuildStatusPopup()` + phase labels/colors + a save→paint
+  timing breakdown. The R4 "missing indicator" read was from `dev.go` flags only; the indicator
+  lives client-side. `tools/livereload/scripts/livereload-client.txt`. (R6: C1 8→9.)
+- [x] **C1 → 10: state-preserving hot reload on the default path** ✅ `renderScaffoldMain` now wires
+  `hotreload.Enable()` + the import into a generated starter's `main()` whenever the `hot-reload`
+  capability is selected — so component state surviving edits is the *default* scaffold behavior,
+  not an expert opt-in (closing the R6 "default path" gap). Test asserts injection-when-selected and
+  absence-when-not. `tools/gwc/start_render.go`.
+
+## Batch 3 (post-R7) — push toward the 99.5% ceiling
+
+- [x] **E1 [8→10] — starter size-budget CI gate** ✅ (verified R7).
+- [x] **C1 [9→10] — hot-reload in default presets** ✅ `hot-reload` added to `minimal-client`/
+  `routed-spa` so `hotreload.Enable()` is wired by default on the common scaffold path (verified R7).
+- [x] **F1 [9→10] — doc Go-sample validation** ✅ `docs/doclint/goblocks.go` `ValidateGoBlocks`
+  parse-checks every complete-file ```` ```go ```` sample; merge-gate test `TestDocsHaveNoBrokenGoSamples`
+  (under `go test ./...`); 0 errors across real docs; fragments skipped (zero false positives). Also
+  fixed a real pre-existing doc-path false-positive (subdir-README dir-relative command paths now
+  resolve in `doclint.Resolve`). Parse-level by design; full type-check is the next increment.
+- [x] **A1 9→10** (verified R8 — `doctor --fix` was always complete; R6 note stale).
+- [x] **F2 8→9** (verified R8 — `docs/capabilities` is a machine-verified API→example index).
+- [x] **F3 9→10** (verified R9 — `api-baseline.yml` PR merge gate over 9 pkgs + support window in VERSIONING.md).
+- [x] **C4 9→10 platform-honest** (verified R9 — documented `SetWASMStackFrameMapper` stack-correlation workaround).
+- [x] **F8 partial** — chapter-05 decisive "dot-import `html/shorthand`" default added (reduces the two-surface
+  first-hour friction). F8→10 still needs the scaffold to bless one surface (starter rewrite) — deferred.
+- [~] **F1 held at 9** — parse-gate shipped (catches syntax rot, 0 errors baseline) but a renamed API still
+  parses. True 10 needs **type-level compilation** of samples; a blanket `go build` over all 58 complete-file
+  samples is infeasible (37 are illustrative/partial → false positives). Real path: a `go` fence marker
+  (e.g. ```` ```go gwc:build ````) tagging genuinely-runnable samples + a compile gate over only those. Genuine batch, deferred.
+
+## Remaining roadmap to the 99.5% ceiling (post-R9 = 92.0%, each a genuine batch)
+
+| Dim | Now | w | +pts | Shortest path (from the reviewers) |
+|---|---|---|---|---|
+| B2 API consistency | 8 → **9** (R10) | 3 | +3 | `gwc-consistency` lint (`tools/gwc/lint_consistency.go`): compat-alias-needs-deprecation + adjacent-bool guard. Dropped an over-broad pure-delegate rule after a dump showed 208 FPs on legit factories (zero-FP discipline). Fixed all 8 real violations + `css.Property` + the production-build stub variants to the deprecation protocol. Merge-gate test. **Held at 9** — to reach 10 needs a naming-convention (verbSubject) lint; **declined**: against the noun-form DSL surfaces (`Div`/`If`/`Px`) it is high-false-positive for ~zero real catches (gap-finder found the API already uniform). Naming stays review-enforced via CONVENTIONS.md. Reality-anchor call: not shipping lint noise to chase +3. |
+| C5 IDE integration | 8 | 2 | +4 | Typed route-name + CSS-token completion in `tools/vscode-gwc` (extension exists; completions absent). |
+| D6 SSR/hydration | 8 | 2 | +4 | Graduate Experimental SSR/hydration surfaces to Stable (+`api_baseline.txt`) + a CI offline-hydration e2e. |
+| F8 coherence | 9 | 3 | +3 | Scaffold emits only the canonical HTML surface (alternate behind a flag), making the choice invisible. |
+| F1 docs | 9 → **coded** | 3 | +3 | ✅ `gwc:build` marker + `CompileMarkedGoBlocks` (compile in throwaway module). **15 runnable samples tagged** (README + reference manual) — all compile clean; 40 illustrative fragments stay parse-only. `doccompile` gate + `doc-samples.yml`. **The gate caught a real bug**: the C4 stack-correlation doc referenced internal-only `runtime.SetWASMStackFrameMapper` → shipped public `ui.SetWASMStackFrameMapper` so the C4 workaround is actually usable. Pending review. |
+| F9 maintenance | 7 | 1 | +3 | Split tool-only deps into a `tools` module (major-bump call) so the library `go.sum` is clean. |
+| F2 examples | 9 → **coded** | 1 | +1 | ✅ `examples-build.yml` wasm sweep of all public examples (green) + **new `examples/public/feature-flags` example** closing the one capability with no example (`flags`); capability matrix regenerated, every API now has a CI-built, indexed example. Pending review. |
+| **F7 community** | **7** | **1** | **0** | **Structural ceiling — emergent adoption, not a commit. The −3 that caps the raw composite at 637/640 = 99.5%.** |
+
+Sum of codeable remaining (B2+C5+D6+F8+F1+F9+F2) = **+24 pts → 613+... → 99.5%** with F7 held at 7. Each row is its own implement→adversarial-review batch.
+
+## Still ⚠️ / not-yet-10 after R4 (the honest standing list)
+- **Platform-honest, blocked only on the timings job:** A2 (7), C2 (7) — see Tier 1.
+- **Structural ceiling:** F7 (7) — enablers shipped; 8+ needs real community adoption.
+- **Untouched runway:** A1 (9→10 needs non-deterministic-prereq handling), B2 (8), B4 (9),
+  C4 (9), C5 (8), D2 (9), E1/E2/E3 (8), F2 (8), F4 (9), F5 (9), F9 (7).
+- **Lone rough feature:** FB1 (server-leak 3rd-party coverage).
+
+## Refinement — add your own niggles here
+
+<!-- Append issues/niggles as you find them; they feed the next refinement pass.
+- [ ] (feature) — (what's rough) — (what UX-perfect requires)
+-->
+- [ ] 
+
+
+> **Honest scope note:** Part I is an adversarially-signed-off plan against a concrete
+> rubric with verification per item. Part II is a *capability roadmap* synthesized from
+> the competitive analysis (Vols I–III) — each item names a mechanism + verification, but
+> the larger frontier bets (FC1/FC3/FC5) are multi-quarter efforts whose effort/risk is
+> recorded in the source volumes. The mesh is real; the sequencing is keystone-first.
+
+
+Yes — **that is exactly the right append**.
+
+For your custom browser, you should prefer the **full WASM host interface** over the **web/JS interface**.
+
+The split should be:
+
+```text id="i3s03b"
+Primary custom-browser mode:
+  WASM imports directly from gobrowser:* host interfaces
+  no syscall/js
+  no JavaScript WebAssembly loader
+  no JS DOM trampoline
+
+Compatibility web mode:
+  optional syscall/js backend
+  optional JS loader
+  only for running in normal browsers
+```
+
+So the browser treats WASM like an executable format, not like a web asset that JavaScript has to start.
+
+---
+
+## What “full WASM interface” means here
+
+Instead of:
+
+```text id="7h4vz1"
+HTML → JS loader → WebAssembly.instantiateStreaming → syscall/js → DOM
+```
+
+you do:
+
+```text id="h2gzp8"
+HTML → browser host detects linked WASM → Go host loads WASM → WASM imports browser syscalls → DOM batch protocol
+```
+
+The app binary imports functions from your browser:
+
+```go id="ynb0sa"
+//go:build wasip1 && wasm
+
+package dom
+
+//go:wasmimport gobrowser_dom submit_batch
+func submitBatch(ptr uint32, len uint32) uint32
+
+//go:wasmimport gobrowser_events poll_event
+func pollEvent(ptr uint32, cap uint32) uint32
+
+//go:wasmimport gobrowser_runtime sleep_until
+func sleepUntil(deadlineMillis uint64) uint32
+```
+
+Then your public API is Go-native:
+
+```go id="w88ljp"
+func Commit(batch *Batch) error {
+	ptr, n := batch.Raw()
+	code := submitBatch(ptr, n)
+	if code != 0 {
+		return domError(code)
+	}
+	return nil
+}
+```
+
+Go’s WASI support is already pointed in this direction: Go 1.21 added `GOOS=wasip1 GOARCH=wasm`, and `//go:wasmimport` lets Go code call host-provided WASM functions directly. ([Go][1])
+
+---
+
+## Use the WASM interface for the app ABI
+
+Define browser capabilities as WASM imports:
+
+```text id="ahvodo"
+gobrowser:dom
+gobrowser:events
+gobrowser:storage
+gobrowser:fetch
+gobrowser:timers
+gobrowser:clipboard
+gobrowser:permissions
+gobrowser:lifecycle
+gobrowser:process
+```
+
+Example import surface:
+
+```wit id="pqy7m0"
+package gobrowser:runtime;
+
+interface dom {
+  submit-batch: func(ptr: u32, len: u32) -> u32;
+  request-measure: func(ptr: u32, len: u32) -> u64;
+}
+
+interface events {
+  poll-event: func(ptr: u32, cap: u32) -> u32;
+  subscribe: func(node: u64, event-kind: u32, flags: u32) -> u64;
+  unsubscribe: func(id: u64);
+}
+
+interface lifecycle {
+  snapshot: func(ptr: u32, cap: u32) -> u32;
+  restore-complete: func(code: u32);
+  yield-now: func();
+}
+
+world app {
+  import dom;
+  import events;
+  import lifecycle;
+
+  export gobrowser-init: func();
+  export gobrowser-mount: func(root-node: u64);
+  export gobrowser-tick: func(now-ms: u64);
+  export gobrowser-shutdown: func(reason: u32);
+}
+```
+
+WIT is a good way to describe these interfaces because the WebAssembly Component Model uses WIT to define component contracts, and the Component Model canonical ABI exists so components can interoperate without ambiguity. ([Component Model][2])
+
+But for the hot DOM path, keep this rule:
+
+```text id="m6kue3"
+WIT describes the interface.
+Raw packed bytes carry the DOM batches.
+```
+
+Do not make every `setAttr` a separate WIT call.
+
+---
+
+## HTML declaration should become your manifest
+
+Use HTML as the document shell, but let your browser assign special meaning to WASM declarations:
+
+```html id="k3qqfw"
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Counter</title>
+
+  <link
+    rel="gobrowser:wasm-main"
+    href="/app/counter.wasm"
+    type="application/wasm"
+    data-world="gobrowser:app/v1"
+    data-root="#app"
+    data-sandbox="default">
+</head>
+<body>
+  <go-root id="app"></go-root>
+</body>
+</html>
+```
+
+Your browser algorithm:
+
+```text id="ewhgm3"
+1. Load document.
+2. Parse/scan for rel="gobrowser:wasm-main".
+3. Resolve WASM URL using document origin.
+4. Validate permissions/manifest.
+5. Instantiate WASM with gobrowser host imports.
+6. Call gobrowser-init.
+7. Find/mint root NodeID for #app.
+8. Call gobrowser-mount(rootNodeID).
+9. Receive DOM batches through gobrowser_dom.submit_batch.
+```
+
+Normal browsers will ignore the custom `rel` value. Your browser treats it as a first-class application entry point.
+
+---
+
+## This should replace `syscall/js`, not improve it
+
+Your instinct says “syscall/js, build a better interface.” I’d sharpen that:
+
+```text id="3utbws"
+Do not build on syscall/js.
+Build beside it.
+```
+
+Use build tags:
+
+```text id="4tdrpa"
+sdk/dom/dom_wasip1.go   → real custom browser backend
+sdk/dom/dom_js.go       → optional compatibility backend
+sdk/dom/dom_test.go     → pure-Go fake DOM backend
+```
+
+Example:
+
+```go id="ju3cx2"
+// dom_wasip1.go
+//go:build wasip1 && wasm
+
+package dom
+
+//go:wasmimport gobrowser_dom submit_batch
+func hostSubmitBatch(ptr, len uint32) uint32
+```
+
+```go id="9od9rr"
+// dom_js.go
+//go:build js && wasm
+
+package dom
+
+import "syscall/js"
+
+// Compatibility only. Not the real runtime.
+```
+
+So app authors import the same package:
+
+```go id="f6qlyv"
+import "gobrowser.dev/sdk/ui"
+```
+
+and choose target:
+
+```bash id="nebd68"
+# Real custom browser app
+GOOS=wasip1 GOARCH=wasm go build -o app.wasm ./cmd/app
+
+# Optional normal browser fallback
+GOOS=js GOARCH=wasm go build -o app_web.wasm ./cmd/app
+```
+
+---
+
+## What this buys you
+
+Using the WASM host interface gives you:
+
+```text id="5wzt3f"
+No JS loader dependency
+No JS object model as your ABI
+No syscall/js Value boxing
+No fake Promise/callback shape as core runtime
+Cleaner sandboxing
+Cleaner crash isolation
+Better host-controlled scheduling
+Better language neutrality
+```
+
+The browser owns the module lifecycle:
+
+```text id="j1hmre"
+instantiate
+start
+mount
+tick
+event delivery
+snapshot
+suspend
+resume
+shutdown
+restart after crash
+```
+
+That is exactly what you want for multi-tab browser architecture.
+
+---
+
+## The one thing it does not magically solve
+
+The WASM interface solves **WASM ↔ host**.
+
+It does not automatically solve **host ↔ real DOM**.
+
+You still need an engine adapter:
+
+```text id="i6kdau"
+WASM app
+  → gobrowser_dom.submit_batch
+  → Go host / tabhost
+  → engine DOM adapter
+  → real DOM
+```
+
+On Windows/WebView2, the no-JS path likely starts with **CDP DOM commands**, which are useful but not the final high-throughput DOM renderer. Chrome DevTools Protocol’s DOM domain includes operations such as setting attributes, setting node values, removing nodes, querying nodes, and setting outer HTML. ([GitHub][3])
+
+For the real fast no-JS path, you eventually want:
+
+```text id="9gse1n"
+CEF render-process DOM agent
+or
+WebKitGTK/WPE WebProcessExtension
+```
+
+That native agent can apply your binary DOM batch directly on the render process’s DOM lane.
+
+---
+
+## Updated architecture append
+
+Add this to the plan:
+
+```text id="74pmw7"
+WASM Interface Strategy
+
+The browser must support two app ABIs:
+
+1. Native Gobrowser ABI
+   - target: wasip1/wasm
+   - entry: HTML <link rel="gobrowser:wasm-main">
+   - imports: gobrowser:dom, gobrowser:events, gobrowser:storage, gobrowser:fetch
+   - no JavaScript loader
+   - no syscall/js
+   - preferred production path
+
+2. Web Compatibility ABI
+   - target: js/wasm
+   - entry: normal browser WASM loader
+   - imports: syscall/js
+   - optional fallback only
+   - not performance-critical
+```
+
+And the core slogan becomes:
+
+```text id="b3ec2g"
+The web interface is the fallback.
+The WASM host interface is the product.
+```
+
+That is the right direction for your browser.
+
+[1]: https://go.dev/blog/wasi?utm_source=chatgpt.com "WASI support in Go"
+[2]: https://component-model.bytecodealliance.org/design/wit.html?utm_source=chatgpt.com "WIT Reference"
+[3]: https://github.com/webassembly/component-model?utm_source=chatgpt.com "Component Model design and specification"

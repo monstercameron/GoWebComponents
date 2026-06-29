@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-label="Static export docs">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#082f49"/>
+      <stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#g)"/>
+  <rect x="128" y="136" width="1024" height="448" rx="32" fill="#0f172a" fill-opacity=".62"/>
+  <text x="176" y="244" fill="#f0fdfa" font-family="Segoe UI, sans-serif" font-size="50" font-weight="700">Static export docs</text>
+  <text x="176" y="316" fill="#99f6e4" font-family="Segoe UI, sans-serif" font-size="28">Nested routes can still carry content-rich media shells.</text>
+</svg>

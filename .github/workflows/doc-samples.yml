@@ -1,0 +1,33 @@
+name: Doc Samples
+
+# F1 type-level gate: every `gwc:build`-marked complete-file Go sample in the docs is COMPILED
+# against the real module (written to a throwaway module with a replace → repo, then `go build`).
+# This catches the failure the parse-gate cannot — a runnable sample that still parses but uses a
+# renamed/removed API. The fast parse-gate (TestDocsHaveNoBrokenGoSamples) runs in the normal
+# `go test ./...` lane; this heavier compile gate runs here, behind the `doccompile` build tag.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  doc-samples:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Compile gwc:build-marked doc samples
+        run: go test -tags doccompile ./docs/doclint -run TestDocsMarkedSamplesCompile -count=1 -v -timeout 10m

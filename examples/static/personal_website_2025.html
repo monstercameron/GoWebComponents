@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Website 2025 - Real-time Go WASM Compiler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="script/wasm_exec.js"></script>
+    <script src="script/example-logger.js"></script>
+    <link rel="stylesheet" href="css/example-shell.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #1a1a2e;
+            --bg-tertiary: #16213e;
+            --accent-primary: #4f46e5;
+            --accent-secondary: #7c3aed;
+            --accent-tertiary: #06b6d4;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --terminal-bg: #0f172a;
+            --terminal-border: #334155;
+        }
+
+        body {
+            font-family: 'Crimson Text', Georgia, serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%, var(--bg-primary) 100%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+        }
+
+        .font-mono { font-family: 'JetBrains Mono', 'Monaco', monospace; }
+        .font-sans { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        .font-serif { font-family: 'Crimson Text', Georgia, serif; }
+
+        /* Fancy loading spinner with gradient */
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(79, 70, 229, 0.1);
+            border-top: 3px solid var(--accent-primary);
+            border-right: 3px solid var(--accent-secondary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Glowing text effect for headers */
+        .glow-text {
+            text-shadow: 0 0 10px rgba(79, 70, 229, 0.5), 0 0 20px rgba(79, 70, 229, 0.3), 0 0 30px rgba(79, 70, 229, 0.1);
+        }
+
+        /* Classic progress bar */
+        .progress-bar {
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            transition: width 0.5s ease-in-out;
+            box-shadow: 0 0 10px rgba(79, 70, 229, 0.3);
+        }
+
+        /* Stage status colors with glow effects */
+        .stage-complete { 
+            color: var(--success); 
+            text-shadow: 0 0 5px rgba(16, 185, 129, 0.5);
+        }
+        .stage-active { 
+            color: var(--accent-primary); 
+            text-shadow: 0 0 5px rgba(79, 70, 229, 0.5);
+            animation: pulse 2s infinite;
+        }
+        .stage-pending { color: var(--text-muted); }
+        .stage-error { 
+            color: var(--error); 
+            text-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Terminal-style console */
+        .console-output {
+            background: var(--terminal-bg);
+            border: 1px solid var(--terminal-border);
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(6, 182, 212, 0.1);
+        }
+
+        /* Fancy card backgrounds */
+        .glass-card {
+            background: rgba(26, 26, 46, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Nerdy matrix-style background animation */
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            z-index: -1;
+        }
+
+        /* Custom scrollbar */
+        .console-output::-webkit-scrollbar {
+            width: 6px;
+        }
+        .console-output::-webkit-scrollbar-track {
+            background: var(--terminal-bg);
+        }
+        .console-output::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 3px;
+        }
+
+        /* Button hover effects */
+        .btn-fancy {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .btn-fancy:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.4);
+        }
+        .btn-fancy::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        .btn-fancy:hover::before {
+            left: 100%;
+        }
+
+        /* Mac Terminal Styling */
+        .mac-terminal-window {
+            background: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid #3a3a3a;
+            overflow: hidden;
+        }
+
+        .mac-terminal-titlebar {
+            background: linear-gradient(180deg, #4a4a4a 0%, #2e2e2e 100%);
+            border-bottom: 1px solid #1a1a1a;
+            padding: 12px 0;
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+        }
+
+        .mac-terminal-content {
+            background: #1e1e1e;
+            padding: 20px;
+            font-family: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #00ff00;
+            overflow-y: auto;
+            max-height: calc(100vh - 300px);
+            min-height: 400px;
+        }
+
+        .mac-terminal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .mac-terminal-content::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        .mac-terminal-content::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+        .mac-terminal-content::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+
+        /* Mega Launch Button */
+        .mega-launch-btn {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.2);
+            animation: mega-btn-glow 3s ease-in-out infinite alternate;
+        }
+        
+        .mega-launch-btn::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #10b981, #06d6a0, #10b981, #06d6a0);
+            border-radius: 18px;
+            z-index: -1;
+            animation: mega-btn-border 2s linear infinite;
+        }
+        
+        .mega-launch-btn:hover {
+            box-shadow: 0 25px 50px rgba(16, 185, 129, 0.5), 0 0 0 1px rgba(16, 185, 129, 0.4);
+        }
+        
+        @keyframes mega-btn-glow {
+            0% { box-shadow: 0 20px 40px rgba(16, 185, 129, 0.3), 0 0 20px rgba(16, 185, 129, 0.2); }
+            100% { box-shadow: 0 25px 50px rgba(16, 185, 129, 0.4), 0 0 30px rgba(16, 185, 129, 0.3); }
+        }
+        
+        @keyframes mega-btn-border {
+            0%, 100% { background: linear-gradient(45deg, #10b981, #06d6a0, #10b981, #06d6a0); }
+            50% { background: linear-gradient(45deg, #06d6a0, #10b981, #06d6a0, #10b981); }
+        }
+
+        /* Fade out animation for app transition */
+        .fade-out {
+            animation: fadeOut 1s ease-in-out forwards;
+        }
+        
+        @keyframes fadeOut {
+            0% { 
+                opacity: 1; 
+                transform: scale(1);
+            }
+            100% { 
+                opacity: 0; 
+                transform: scale(0.95);
+            }
+        }
+
+        /* Root container for Go application */
+        #root {
+            width: 100%;
+            height: 100vh;
+            background: var(--bg-primary);
+            opacity: 0;
+            animation: fadeIn 0.8s ease-in-out 0.2s forwards;
+        }
+        
+        @keyframes fadeIn {
+            0% { 
+                opacity: 0; 
+                transform: scale(1.05);
+            }
+            100% { 
+                opacity: 1; 
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen example-shell">
+    
+    <!-- Matrix-style background -->
+    <div class="matrix-bg">
+        <pre class="font-mono text-xs leading-3">
+// Go WebAssembly Compiler Pipeline
+func main() {
+    compiler := NewWASMCompiler()
+    sources := FetchFromGitHub()
+    vfs := CreateVirtualFS(sources)
+    binary := compiler.Compile(vfs)
+    runtime.Execute(binary)
+}
+        </pre>
+    </div>
+    
+    <!-- Loading Container -->
+    <div id="loading-container" class="min-h-screen p-6">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-5xl font-bold mb-4 glow-text font-serif">Personal Website 2025</h1>
+            <p class="text-xl font-sans font-light mb-2" style="color: var(--text-secondary)">Real-time Go Compilation in Browser</p>
+            <p class="text-sm font-mono" style="color: var(--text-muted)">
+                <span class="text-cyan-400">$</span> fetch → compile → execute
+                <span class="animate-pulse">|</span>
+            </p>
+        </div>
+
+        <!-- Progress Bar - Full Width Row -->
+        <div class="max-w-7xl mx-auto mb-8">
+            <div class="glass-card rounded-xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-serif font-semibold glow-text">WASM Compilation Pipeline</h3>
+                    <div id="progress-text" class="text-sm font-mono text-cyan-400">INIT_SEQUENCE</div>
+                </div>
+                <div class="w-full bg-gray-800 rounded-full h-6 shadow-inner">
+                    <div id="progress-bar" class="progress-bar h-6 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+            
+            <!-- Left Column: Pipeline Status -->
+            <div class="space-y-6">
+                <!-- Main Control Panel -->
+                <div class="glass-card rounded-xl p-8">
+                    <!-- Loading State -->
+                    <div id="loading-state" class="text-center">
+                        <h3 class="text-xl font-serif font-semibold mb-6 glow-text">Initializing System...</h3>
+                        <div class="loading-spinner mx-auto mb-4"></div>
+                        <p class="text-sm font-mono text-cyan-400">Preparing compilation environment</p>
+                    </div>
+                    
+                    <!-- Ready State - Hidden initially -->
+                    <div id="ready-state" class="hidden text-center">
+                        <div class="mb-6">
+                            <div class="flex items-center justify-center mb-4">
+                                <span class="text-4xl mr-3">🎉</span>
+                                <div>
+                                    <h3 class="text-2xl font-serif font-bold glow-text text-green-400">Ready to Launch!</h3>
+                                    <p class="text-sm font-sans text-green-300">Website compiled successfully</p>
+                                </div>
+                                <span class="text-4xl ml-3">🚀</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Prominent Run Button -->
+                        <button id="run-website" onclick="runWebsite()" 
+                                class="mega-launch-btn relative px-12 py-6 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-400 hover:via-emerald-400 hover:to-teal-400 rounded-2xl transition-all duration-300 text-white font-bold text-xl shadow-2xl transform hover:scale-105 hover:-translate-y-1">
+                            <span class="relative z-10 flex items-center justify-center">
+                                <span class="text-2xl mr-3">▶️</span>
+                                Launch Website
+                                <span class="text-2xl ml-3">✨</span>
+                            </span>
+                            <div class="absolute inset-0 bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 rounded-2xl blur opacity-30 group-hover:opacity-60 transition-opacity"></div>
+                        </button>
+                        
+                        <p class="text-xs font-mono text-gray-400 mt-4">Click to execute your compiled Go application</p>
+                    </div>
+                </div>
+
+                <!-- Detailed Stage Indicators -->
+                <div class="glass-card rounded-xl p-6">
+                    <h3 class="text-xl font-serif font-semibold mb-4 text-center glow-text">System Status</h3>
+                    <div id="stage-list" class="space-y-3">
+                        <div id="stage-1" class="stage-pending flex items-center">
+                            <span class="w-6 h-6 text-center mr-3 flex items-center justify-center text-sm">⏳</span>
+                            <span class="font-sans text-sm">Loading Go compiler...</span>
+                            <span class="ml-auto font-mono text-xs opacity-50">compile.wasm</span>
+                        </div>
+                        <div id="stage-2" class="stage-pending flex items-center">
+                            <span class="w-6 h-6 text-center mr-3 flex items-center justify-center text-sm">⏳</span>
+                            <span class="font-sans text-sm">Checking for updates...</span>
+                            <span class="ml-auto font-mono text-xs opacity-50">git.fetch()</span>
+                        </div>
+                        <div id="stage-3" class="stage-pending flex items-center">
+                            <span class="w-6 h-6 text-center mr-3 flex items-center justify-center text-sm">⏳</span>
+                            <span class="font-sans text-sm">Fetching source files...</span>
+                            <span class="ml-auto font-mono text-xs opacity-50">fiber/*.go</span>
+                        </div>
+                        <div id="stage-4" class="stage-pending flex items-center">
+                            <span class="w-6 h-6 text-center mr-3 flex items-center justify-center text-sm">⏳</span>
+                            <span class="font-sans text-sm">Creating virtual filesystem...</span>
+                            <span class="ml-auto font-mono text-xs opacity-50">/virtual/*</span>
+                        </div>
+                        <div id="stage-5" class="stage-pending flex items-center">
+                            <span class="w-6 h-6 text-center mr-3 flex items-center justify-center text-sm">⏳</span>
+                            <span class="font-sans text-sm">Compiling Go source...</span>
+                            <span class="ml-auto font-mono text-xs opacity-50">go build</span>
+                        </div>
+                        <div id="stage-6" class="stage-pending flex items-center">
+                            <span class="w-6 h-6 text-center mr-3 flex items-center justify-center text-sm">⏳</span>
+                            <span class="font-sans text-sm">Loading application...</span>
+                            <span class="ml-auto font-mono text-xs opacity-50">*.wasm</span>
+                        </div>
+                        <div id="stage-7" class="stage-pending flex items-center">
+                            <span class="w-6 h-6 text-center mr-3 flex items-center justify-center text-sm">⏳</span>
+                            <span class="font-sans text-sm">Running application...</span>
+                            <span class="ml-auto font-mono text-xs opacity-50">main()</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Mac Terminal -->
+            <div class="space-y-6">
+                <!-- Mac Terminal Window -->
+                <div class="mac-terminal-window">
+                    <!-- Terminal Title Bar -->
+                    <div class="mac-terminal-titlebar">
+                        <div class="flex items-center justify-between">
+                            <div class="flex space-x-2 ml-4">
+                                <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                                <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            </div>
+                            <div class="text-center flex-1">
+                                <span class="text-sm font-medium text-gray-300">personal-website-2025</span>
+                            </div>
+                            <div class="w-20"></div> <!-- Spacer for centering -->
+                        </div>
+                    </div>
+                    
+                    <!-- Terminal Content -->
+                    <div class="mac-terminal-content">
+                        <div class="mb-2 text-green-400 font-mono text-sm">
+                            Last login: $(date) on console
+                        </div>
+                        <div id="console-output" class="font-mono text-sm text-green-300 whitespace-pre-wrap leading-relaxed"></div>
+                        <div id="terminal-prompt" class="flex items-center">
+                            <span class="text-green-400 font-mono text-sm">personal-website-2025@browser ~ %</span>
+                            <span class="ml-1 w-2 h-4 bg-green-400 animate-pulse"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Container (hidden initially) -->
+    <div id="app" class="hidden min-h-screen"></div>
+
+    <!-- Load JavaScript modules in order -->
+    <script src="script/personal-website-2025-cache-manager.js"></script>
+    <script src="script/personal-website-2025-github-fetcher.js"></script>
+    <script src="script/personal-website-2025-virtual-fs.js"></script>
+    <script src="script/personal-website-2025-compilation-manager.js"></script>
+    <script src="script/personal-website-2025-app-runner.js"></script>
+    <script src="script/personal-website-2025-main.js"></script>
+    
+    <script>
+        // Utility functions for the loading interface
+        function updateProgress(percentage) {
+            const progressBar = document.getElementById('progress-bar');
+            progressBar.style.width = percentage + '%';
+        }
+
+        function updateProgressText(text) {
+            document.getElementById('progress-text').textContent = text;
+        }
+
+        function setStageStatus(stageNumber, status) {
+            const stage = document.getElementById(`stage-${stageNumber}`);
+            const icon = stage.querySelector('span');
+            
+            stage.className = `flex items-center stage-${status}`;
+            
+            switch(status) {
+                case 'active':
+                    icon.textContent = '🔄';
+                    break;
+                case 'complete':
+                    icon.textContent = '✅';
+                    break;
+                case 'error':
+                    icon.textContent = '❌';
+                    break;
+                default:
+                    icon.textContent = '⏳';
+            }
+        }
+
+        function addConsoleOutput(text) {
+            const console = document.getElementById('console-output');
+            const terminalContainer = document.querySelector('.mac-terminal-content');
+            
+            // Add timestamp and format for Mac terminal
+            const timestamp = new Date().toLocaleTimeString();
+            const formattedText = `[${timestamp}] ${text}`;
+            console.textContent += formattedText + '\n';
+            
+            // Auto-scroll to bottom of terminal container
+            terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        }
+
+        function showError(message) {
+            // Errors now display in the terminal
+            addConsoleOutput(`❌ ERROR: ${message}`);
+        }
+
+        function toggleConsole() {
+            // Console is always visible in the Mac terminal now
+            const terminal = document.querySelector('.mac-terminal-content');
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function showApp() {
+            document.getElementById('loading-container').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+        }
+
+        // Global system instance
+        let pws2025 = null;
+
+        function showReadyState() {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('ready-state').classList.remove('hidden');
+            
+            // Add some celebration effects
+            addConsoleOutput('🎉 COMPILATION_COMPLETE: Website ready for launch!');
+            addConsoleOutput('✨ WASM_BINARY: Successfully generated');
+            addConsoleOutput('🚀 LAUNCH_READY: Click the button to execute');
+        }
+
+        async function runWebsite() {
+            addConsoleOutput('🔥 LAUNCHING WEBSITE...');
+            addConsoleOutput('🎯 EXECUTING WASM BINARY...');
+            addConsoleOutput('✨ TRANSITION: Preparing application container...');
+            
+            // Start fade out animation
+            document.body.classList.add('fade-out');
+            
+            // After fade out completes, clear body and create root
+            setTimeout(async () => {
+                // Clear all body content
+                document.body.innerHTML = '';
+                
+                // Remove fade-out class and reset styles
+                document.body.classList.remove('fade-out');
+                document.body.style.cssText = '';
+                
+                // Create root div for Go application
+                const root = document.createElement('div');
+                root.id = 'root';
+                document.body.appendChild(root);
+                
+                // Launch the compiled application
+                if (pws2025 && pws2025.state.compiled) {
+                    await pws2025.launchApplication();
+                } else {
+                    // Fallback to basic mock
+                    root.innerHTML = '<div style="padding: 2rem; color: white; background: #0a0a0f; min-height: 100vh;"><h1>🚀 Go WASM Application Running!</h1><p>Ready for real compilation integration.</p></div>';
+                }
+                
+                // console.log('🚀 Root container ready for Go application mounting');
+                
+            }, 1000); // Match the fade-out animation duration
+        }
+
+        // Pipeline is now handled by the main integration class
+
+         // Main application initialization
+         document.addEventListener('DOMContentLoaded', async () => {
+             addConsoleOutput('🚀 PWS-2025 SYSTEM BOOT');
+             addConsoleOutput('📦 INITIALIZING COMPILATION MODULES...');
+             updateProgressText('SYS_INIT');
+             
+             try {
+                 // Initialize all modules
+                 addConsoleOutput('🔧 MODULE_INIT: Creating module instances...');
+                 
+                 gitHubFetcher = new GitHubFetcher();
+                 vfs = new VirtualFileSystem();
+                 cacheManager = new CacheManager();
+                 appRunner = new AppRunner();
+                 
+                 // Initialize cache manager
+                 await cacheManager.init();
+                 
+                 // Create compilation manager and wire up callbacks
+                 compilationManager = new CompilationManager();
+                 compilationManager.init(vfs, cacheManager);
+                 
+                 // Set up event callbacks
+                 compilationManager.setCallbacks({
+                     onProgress: (percentage, status) => {
+                         updateProgress(percentage);
+                         updateProgressText(status);
+                         addConsoleOutput(`📊 PROGRESS: ${percentage}% - ${status}`);
+                     },
+                     onStageUpdate: (stage, status) => {
+                         setStageStatus(stage, status);
+                         const stageNames = ['', 'Compiler Load', 'Cache Check', 'Source Fetch', 'VFS Setup', 'Go Compile', 'Binary Cache', 'Prep Exec'];
+                         addConsoleOutput(`🎯 STAGE_${stage}: ${stageNames[stage]} - ${status.toUpperCase()}`);
+                     },
+                     onError: (message) => {
+                         addConsoleOutput(`❌ COMPILATION_ERROR: ${message}`);
+                         showError(message);
+                     },
+                     onComplete: (wasmBinary, metadata) => {
+                         addConsoleOutput(`✅ COMPILATION_SUCCESS: Generated ${wasmBinary.byteLength} byte WASM binary`);
+                         addConsoleOutput(`📊 METADATA: ${metadata.sourceFiles} source files, ${metadata.optimizations.join(', ')} optimizations`);
+                         compiledWasmBinary = wasmBinary;
+                     }
+                 });
+                 
+                 addConsoleOutput('✅ MODULE_INIT: All modules initialized successfully');
+                 addConsoleOutput('🎯 READY: Starting compilation pipeline...');
+                 
+                 // Start the compilation pipeline
+                 setTimeout(() => {
+                     startCompilationPipeline();
+                 }, 1000);
+                 
+             } catch (error) {
+                 addConsoleOutput(`❌ INIT_ERROR: ${error.message}`);
+                 showError('Failed to initialize compilation system: ' + error.message);
+             }
+         });
+    </script>
+</body>
+</html> 
+

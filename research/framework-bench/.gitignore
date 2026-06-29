@@ -1,0 +1,29 @@
+# Keep the comparison repo clean: commit only source. Every app's dependencies and
+# build artifacts are reproducible from its manifest, so they are ignored here.
+
+# --- JS/TS (React, Vue, Svelte, Solid, Angular, ...) ---
+**/node_modules/
+**/dist/
+**/build/
+**/.vite/
+**/.angular/
+**/.svelte-kit/
+**/*.tsbuildinfo
+**/pnpm-lock.yaml
+**/package-lock.json
+**/yarn.lock
+**/bun.lockb
+
+# --- .NET (Blazor) ---
+**/bin/
+**/obj/
+
+# --- Rust (Leptos/Yew, later passes) ---
+**/target/
+**/Cargo.lock
+
+# --- GWC (Go → wasm) build output for this study ---
+apps/gwc/dist/
+
+# --- misc ---
+**/.DS_Store

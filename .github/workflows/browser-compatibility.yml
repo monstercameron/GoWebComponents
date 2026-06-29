@@ -1,0 +1,30 @@
+name: Browser Compatibility
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Run Browser Compatibility Smoke (Playwright-Go)
+        run: |
+          go test -tags playwrightgo ./test/playwrightgo/examples -run TestBrowserCompat -v

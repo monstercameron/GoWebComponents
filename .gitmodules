@@ -1,0 +1,3 @@
+[submodule "third_party/GoGRPCBridge"]
+	path = third_party/GoGRPCBridge
+	url = https://github.com/monstercameron/GoGRPCBridge.git

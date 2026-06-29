@@ -1,0 +1,298 @@
+name: GoGRPCBridge CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/gogrpcbridge-ci.yml"
+      - "docs/GOGRPCBRIDGE_*.md"
+      - "go.mod"
+      - "go.sum"
+      - "scripts/bootstrap-gogrpcbridge.ps1"
+      - "third_party/GoGRPCBridge/**"
+      - "examples/server/ai-chat-wizard/**"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - ".github/workflows/gogrpcbridge-ci.yml"
+      - "docs/GOGRPCBRIDGE_*.md"
+      - "go.mod"
+      - "go.sum"
+      - "scripts/bootstrap-gogrpcbridge.ps1"
+      - "third_party/GoGRPCBridge/**"
+      - "examples/server/ai-chat-wizard/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GOLANGCI_LINT_VERSION: v1.64.8
+  GOSEC_VERSION: v2.25.0
+  GOVULNCHECK_VERSION: v1.1.4
+  PLAYWRIGHT_GO_VERSION: v0.5200.1
+
+jobs:
+  gogrpcbridge-lint:
+    name: Lint Lane
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}
+
+      - name: Run bridge lint lane
+        run: go run ./third_party/GoGRPCBridge/tools/runner.go lint
+
+  gogrpcbridge-security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Install security scanners
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@${{ env.GOSEC_VERSION }}
+          go install golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULNCHECK_VERSION }}
+
+      - name: Run gosec (fail on HIGH severity + HIGH confidence)
+        run: |
+          cd ./third_party/GoGRPCBridge
+          # Keep generated-code exception for G103 in broad scan.
+          gosec -severity high -confidence high -exclude G103 ./...
+          # Enforce G103 in first-party code paths where unsafe usage is not expected.
+          gosec -severity high -confidence high -include G103 ./pkg/... ./examples/... ./e2e/... ./tools/...
+
+      - name: Run govulncheck (reachable vulnerabilities fail)
+        run: |
+          cd ./third_party/GoGRPCBridge
+          govulncheck ./...
+
+  gogrpcbridge-api-governance:
+    name: API Governance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Run API compatibility and migration-policy guard
+        run: |
+          cd ./third_party/GoGRPCBridge
+          go run ./tools/api_compat_guard check
+
+  gogrpcbridge-unit:
+    name: Unit Lane
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Run bridge unit lane
+        run: go run ./third_party/GoGRPCBridge/tools/runner.go test-short
+
+  gogrpcbridge-wasm:
+    name: WASM Lane
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Run bridge wasm compile lane
+        run: go run ./third_party/GoGRPCBridge/tools/runner.go build
+
+  gogrpcbridge-browser:
+    name: Browser Lane
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'gogrpcbridge-full-gate')
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Install Playwright browsers
+        run: go run github.com/playwright-community/playwright-go/cmd/playwright@${{ env.PLAYWRIGHT_GO_VERSION }} install --with-deps chromium
+
+      - name: Run bridge browser lane
+        run: go run ./third_party/GoGRPCBridge/tools/runner.go e2e
+
+  gogrpcbridge-integration-smoke:
+    name: Root Integration Smoke
+    runs-on: ubuntu-latest
+    needs:
+      - gogrpcbridge-lint
+      - gogrpcbridge-security
+      - gogrpcbridge-api-governance
+      - gogrpcbridge-unit
+      - gogrpcbridge-wasm
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Verify module replacement wiring
+        run: go list -m github.com/monstercameron/GoGRPCBridge
+
+      - name: Run root consumer smoke tests
+        run: |
+          go test ./examples/server/ai-chat-wizard/client/app -run TestDoesNotExist -count=1
+          go test ./examples/server/ai-chat-wizard/server/app -run TestTransportHelpersCoverTunnelAndWasmResolution -count=1
+
+  gogrpcbridge-go-get-smoke:
+    name: Go Get Smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Run clean-consumer go-get smoke test
+        run: |
+          set -euo pipefail
+          WORK_DIR="$(mktemp -d)"
+          trap 'rm -rf "$WORK_DIR"' EXIT
+          cd "$WORK_DIR"
+          go mod init example.com/gogrpcbridge-get-smoke
+          go get github.com/monstercameron/GoGRPCBridge@latest
+
+  gogrpcbridge-fast-pr-gate:
+    name: Fast PR Gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs:
+      - gogrpcbridge-lint
+      - gogrpcbridge-security
+      - gogrpcbridge-api-governance
+      - gogrpcbridge-unit
+      - gogrpcbridge-wasm
+      - gogrpcbridge-integration-smoke
+      - gogrpcbridge-go-get-smoke
+
+    steps:
+      - name: Report fast lane success
+        run: |
+          echo "Fast PR gate passed:"
+          echo "- lint"
+          echo "- security"
+          echo "- api governance"
+          echo "- unit"
+          echo "- wasm"
+          echo "- root integration smoke"
+          echo "- go-get smoke"
+
+  gogrpcbridge-benchmark-trend:
+    name: Benchmark Trend Lane
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'gogrpcbridge-full-gate')
+    needs:
+      - gogrpcbridge-unit
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Run benchmark trend comparison
+        run: go run ./third_party/GoGRPCBridge/tools/runner.go quality-trend
+
+      - name: Upload benchmark trend summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gogrpcbridge-benchmark-trend
+          path: third_party/GoGRPCBridge/bin/quality/trend.json
+          if-no-files-found: warn
+
+  gogrpcbridge-full-gate:
+    name: Full Gate
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'gogrpcbridge-full-gate')
+    needs:
+      - gogrpcbridge-lint
+      - gogrpcbridge-security
+      - gogrpcbridge-api-governance
+      - gogrpcbridge-unit
+      - gogrpcbridge-wasm
+      - gogrpcbridge-browser
+      - gogrpcbridge-integration-smoke
+      - gogrpcbridge-go-get-smoke
+      - gogrpcbridge-benchmark-trend
+
+    steps:
+      - name: Report full gate success
+        run: |
+          echo "Full gate passed:"
+          echo "- lint"
+          echo "- security"
+          echo "- api governance"
+          echo "- unit"
+          echo "- wasm"
+          echo "- browser"
+          echo "- root integration smoke"
+          echo "- go-get smoke"
+          echo "- benchmark trend"

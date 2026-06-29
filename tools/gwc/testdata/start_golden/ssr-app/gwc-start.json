@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "projectName": "golden-ssr-app",
+  "modulePath": "github.com/example/golden-ssr-app",
+  "author": "Golden Test",
+  "version": "1.0.0",
+  "description": "Golden output for the SSR scaffold.",
+  "targetDir": "//generated//golden-ssr-app",
+  "preset": {
+    "key": "ssr-app",
+    "name": "SSR App",
+    "summary": "Starter for request-time HTML rendering.",
+    "description": "Generated in golden tests.",
+    "features": [
+      "ssr",
+      "hydration"
+    ]
+  },
+  "enterprise": {},
+  "ownership": {
+    "projectOwnership": "standalone",
+    "frameworkSourceMode": "module-proxy"
+  },
+  "tooling": {
+    "appPath": "main.go",
+    "htmlPath": "index.html",
+    "wasmPath": "bin/main.wasm",
+    "devHost": "127.0.0.1",
+    "devPort": "8080",
+    "defaultBuildProfile": "development",
+    "releaseOutDir": "bin/wasm-release",
+    "releaseBinaryName": "app.wasm",
+    "releaseCompression": "gzip+brotli"
+  }
+}

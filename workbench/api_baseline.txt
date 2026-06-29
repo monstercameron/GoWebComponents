@@ -1,0 +1,3 @@
+func RunStories(parseT TestingT, parseStories ...Story)
+type Story struct { Name string Render func() ui.Node }
+type TestingT interface { Helper() Errorf(parseFormat string, parseArgs ...any) }

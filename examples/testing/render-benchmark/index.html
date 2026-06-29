@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Example 201 Browser Benchmark</title>
+    <link rel="stylesheet" href="./benchmark.css">
+</head>
+<body>
+    <div class="benchmark-page">
+        <div class="benchmark-shell benchmark-stack">
+            <section class="benchmark-panel benchmark-stack" style="padding: 28px;">
+                <p class="benchmark-eyebrow" style="margin: 0;">Example 201</p>
+                <h1 style="margin: 0; font-size: 42px; line-height: 1.05;">Browser benchmark and worker scaling</h1>
+                <p class="benchmark-muted" style="margin: 0; max-width: 980px; line-height: 1.7;">
+                    This page compares React 19.2.4, runtime1, and runtime2 at multiple Go WASM worker counts. The default scaling matrix is
+                    1, 2, 4, and 8 workers for the same off-main-thread chunk-preparation step. It measures browser-visible render and update work through one shared DOM contract while
+                    keeping DOM ownership on the main thread, and it now reports both DOM-ready and paint-proxy finish lines instead of one mixed headline. The RT2 scaling section
+                    below compares worker batch time directly so frame-quantized paint timings do not hide worker-count differences.
+                </p>
+                <div class="benchmark-inline">
+                    <button id="btn-run-benchmark" class="benchmark-button benchmark-button-primary">Run Browser Benchmarks</button>
+                    <span id="benchmark-status" class="benchmark-muted">Idle.</span>
+                </div>
+            </section>
+
+            <section id="benchmark-frame-grid" class="benchmark-frame-grid"></section>
+
+            <section class="benchmark-grid benchmark-grid-columns-3" id="benchmark-category-results"></section>
+
+            <section class="benchmark-grid benchmark-grid-columns-2" id="benchmark-scaling-results"></section>
+
+            <section class="benchmark-grid benchmark-grid-columns-3" id="benchmark-results"></section>
+
+            <section class="benchmark-panel benchmark-stack" style="padding: 24px;">
+                <div class="benchmark-inline" style="justify-content: space-between;">
+                    <h2 style="margin: 0; font-size: 24px;">Raw report</h2>
+                    <span class="benchmark-muted">window.__example201Report</span>
+                </div>
+                <pre id="benchmark-report-json" class="benchmark-pre benchmark-card" style="padding: 18px;">Run the benchmark to populate the JSON report.</pre>
+            </section>
+        </div>
+    </div>
+    <script src="./benchmark-runner.js"></script>
+</body>
+</html>

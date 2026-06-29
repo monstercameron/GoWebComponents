@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "projectName": "golden-reference-app",
+  "modulePath": "github.com/example/golden-reference-app",
+  "author": "Golden Test",
+  "version": "1.0.0",
+  "description": "Golden output for the reference app scaffold.",
+  "targetDir": "//generated//golden-reference-app",
+  "preset": {
+    "key": "reference-app",
+    "name": "Reference App",
+    "summary": "Starter for mixed routing, forms, and data flows.",
+    "description": "Generated in golden tests.",
+    "features": [
+      "router",
+      "forms",
+      "fetch",
+      "state",
+      "browser-tests"
+    ]
+  },
+  "enterprise": {},
+  "ownership": {
+    "projectOwnership": "standalone",
+    "frameworkSourceMode": "module-proxy"
+  },
+  "tooling": {
+    "appPath": "main.go",
+    "htmlPath": "index.html",
+    "wasmPath": "bin/main.wasm",
+    "devHost": "127.0.0.1",
+    "devPort": "8080",
+    "defaultBuildProfile": "development",
+    "releaseOutDir": "bin/wasm-release",
+    "releaseBinaryName": "app.wasm",
+    "releaseCompression": "gzip+brotli"
+  }
+}

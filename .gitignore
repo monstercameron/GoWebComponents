@@ -1,2 +1,145 @@
+# OS-specific files
 .DS_Store
-static/bin/main.wasm
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.wasm
+
+# Test binaries
+*.test
+*.out
+
+# Build artifacts
+/bin/**
+!/bin/README.md
+/dist/
+/build/
+/.pages/
+/.pages-validate/
+/client
+/backgroundworker
+*.hotreload-manifest.json
+static/bin/
+go-compiler-wasm
+go-source
+/public-examples-site
+/static-islands
+/agent-demo
+examples/13-browser-compiler/static/pkg/
+test/benchmark/bin/
+
+# Local binaries and coverage outputs
+/runtime
+/runtime_native
+/test_compile.wasm
+/coverage*.out
+/cov_*.txt
+/internal/runtime/cover_run.json
+
+# Logs
+*.log
+logs/
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE and editor files
+# Track the shared team config (committed below) but ignore personal files.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+*.iml
+*.sublime-*
+.history/
+
+# Dependency directories
+vendor/
+node_modules/
+.npm-cache/
+examples/static/.npm-cache/
+examples/static/node_modules/
+package-lock.json
+
+# Go cache and temporary files
+.gocache/
+.gomodcache/
+.gotmp/
+go.work
+go.work.sum
+
+# Coverage and test output
+*.coverprofile
+coverage.html
+coverage.out
+*.test.log
+test-output*.txt
+/coverage
+/coverage_*
+/cover-*
+/cover_*
+/tmpcov
+/tmpcov_*
+coverage_current_*
+/ui_cov_fix.cov
+/virt_cov_fix.cov
+/gwcstats*.cov
+/.gocache_cov/
+/101-static-islands
+/103-virtualized-feed
+/*_cov
+/*_cov_*
+/%TMPDIR%/
+/$p
+/$out
+/$profile
+/$tmp
+
+# Playwright test artifacts
+test/playwright-report/
+test/test-results/
+test/.playwright/
+playwright-report/
+test-results/
+
+# Environment and config files (if sensitive)
+.env
+.env.local
+.venv/
+/chat_history.db
+/chat_history.db-shm
+/chat_history.db-wal
+*.key
+*.pem
+
+# Temporary files
+temp/
+*.tmp
+*.patch
+*.txt
+!tools/livereload/scripts/livereload-client.txt
+
+# Diagnostics artifacts
+/diagnostics/*
+!/diagnostics/*.go
+!/diagnostics/*_test.go
+!/diagnostics/README.md
+
+# Legacy merged workspace residue
+/tests/
+.gotmp
+
+# DevTools extension package build output
+tools/devtools-extension/dist/

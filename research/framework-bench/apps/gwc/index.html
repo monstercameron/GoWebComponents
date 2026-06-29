@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bill Splitter — GoWebComponents</title>
+    <script src="./wasm_exec.js"></script>
+    <script>
+      const go = new Go();
+      WebAssembly.instantiateStreaming(fetch("./dist/main.wasm"), go.importObject)
+        .then((result) => go.run(result.instance));
+    </script>
+  </head>
+  <body>
+    <!-- GWC generates all styling through typed css/u and injects a <style id="gwc-css">. -->
+    <div id="app"></div>
+  </body>
+</html>
