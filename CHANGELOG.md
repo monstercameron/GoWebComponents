@@ -1,5 +1,20 @@
 # Changelog
 
+## v4.0.1 - 2026-06-29
+
+### Fixed
+
+- **`/v4` module path (semantic import versioning).** v4.0.0 was not `go get`-able:
+  the module path lacked the major-version suffix Go requires for v2+, so the proxy
+  rejected every v2+ tag. The module is now `github.com/monstercameron/GoWebComponents/v4`
+  and all internal import paths were updated accordingly. Consumers import
+  `github.com/monstercameron/GoWebComponents/v4/...`.
+- **Release pipeline.** Pinned `playwright-go` in the browser-test scaffold go.mod
+  (offline `go mod tidy` resolution); made the API-baseline comparison
+  line-ending-agnostic (CRLF vs LF on Windows checkouts); restored `bin/README.md`
+  so the SBOM step's output directory exists; the go-get release smoke now targets
+  the `/v4` path and runs `go mod tidy` to populate the transitive `go.sum` closure.
+
 ## v4.0.0 - 2026-06-28
 
 ### Added
