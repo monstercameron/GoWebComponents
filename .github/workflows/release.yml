@@ -114,6 +114,10 @@ jobs:
             Set-Content -Path (Join-Path $workDir "main.go") -Value $main -Encoding utf8
             go get github.com/monstercameron/GoWebComponents/v4@latest
             if ($LASTEXITCODE -ne 0) { throw "go get GoWebComponents/v4@latest failed" }
+            # Populate go.sum for the full transitive closure so the consumer build resolves every
+            # dependency (go get of the module alone does not add transitive deps' go.sum entries).
+            go mod tidy
+            if ($LASTEXITCODE -ne 0) { throw "go mod tidy of consumer failed" }
             go build ./...
             if ($LASTEXITCODE -ne 0) { throw "native consumer build failed" }
             $env:GOOS = "js"; $env:GOARCH = "wasm"
