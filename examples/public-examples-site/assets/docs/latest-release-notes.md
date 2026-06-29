@@ -3,9 +3,12 @@
 This docs-site page mirrors the first section returned by
 `tools/changelogcheck.LatestEntry(CHANGELOG.md)`.
 
-## v4.0.0 - 2026-06-28
+## v4.0.1 - 2026-06-29
 
-The current latest changelog section is `v4.0.0 - 2026-06-28` — the V4 release.
+The current latest changelog section is `v4.0.1 - 2026-06-29` — a patch over the V4
+release: the module adopts the `/v4` semantic-import-versioning path so it is
+`go get`-able, plus release-pipeline fixes (scaffold dep pin, CRLF-agnostic API
+baseline, SBOM output dir, go-get smoke on the `/v4` path).
 
 **Added (highlights):**
 
