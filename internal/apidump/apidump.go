@@ -167,7 +167,11 @@ func Check(parseT testing.TB, parseDir, parseGolden string) {
 	if parseErr != nil {
 		parseT.Fatalf("read golden %s (generate it with UPDATE_API_BASELINE=1): %v", parseGolden, parseErr)
 	}
-	if string(parseWant) != parseGot {
+	// Normalize line endings before comparing: the generated API uses "\n", but a golden file
+	// checked out on Windows (autocrlf) carries "\r\n", which would otherwise fail the comparison
+	// on every line despite identical content. This keeps the gate stable across platforms/checkouts.
+	parseWantNormalized := strings.ReplaceAll(string(parseWant), "\r\n", "\n")
+	if parseWantNormalized != parseGot {
 		parseT.Fatalf("public API of %s changed.\nIf intentional, regenerate with UPDATE_API_BASELINE=1 and review the diff.\n\n--- current API ---\n%s", parseDir, parseGot)
 	}
 }
