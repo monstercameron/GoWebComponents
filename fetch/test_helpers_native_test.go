@@ -86,8 +86,14 @@ func buildFetchTestPersistentStore(parseT *testing.T) (interop.PersistentStore, 
 }
 
 // waitFetchTestCondition waits until the provided predicate succeeds or the timeout elapses.
+// Callers pass an "eventually" bound, not a precise one, so the ceiling is
+// floored at 5s: 1s ceilings flaked on loaded CI runners (the v4.1.0 release
+// run) while a larger ceiling only ever extends failing runs.
 func waitFetchTestCondition(parseT *testing.T, parseTimeout time.Duration, parseCheck func() bool) {
 	parseT.Helper()
+	if parseTimeout < 5*time.Second {
+		parseTimeout = 5 * time.Second
+	}
 	parseDeadline := time.Now().Add(parseTimeout)
 	for time.Now().Before(parseDeadline) {
 		if parseCheck() {

@@ -1,5 +1,16 @@
 # Changelog
 
+## v4.1.1 - 2026-07-04
+
+### Fixed
+
+- **Release gate follow-ups for v4.1.0.** The docs-site latest-release-notes
+  mirror now surfaces the v4.1.x entry (the blocking
+  `TestLatestEntryIsSurfacedInDocsSiteMirror` gate); the `fetch` test helper
+  `waitFetchTestCondition` floors its ceiling at 5s so the realtime heartbeat
+  test no longer flakes on loaded CI runners. No library code changes beyond
+  v4.1.0 — see that entry for the performance release itself.
+
 ## v4.1.0 - 2026-07-04
 
 Performance release: a day-long optimization campaign against the Example 201
