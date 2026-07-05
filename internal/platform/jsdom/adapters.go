@@ -14,6 +14,9 @@ import (
 // WASMDOMNode wraps a js.Value representing a DOM node.
 type WASMDOMNode struct {
 	value js.Value
+	// batchID caches the node's JS-side attr-batch registry id (0 = not yet
+	// registered; ids start at 1). See attr_batch.go.
+	batchID int
 }
 
 var _ runtime.DOMNode = (*WASMDOMNode)(nil)
@@ -115,6 +118,13 @@ type WASMDOMAdapter struct {
 	// appendChild fallback).  Both are set on the first appendDOMChildren call.
 	appendChecked bool
 	appendFast    bool
+	// Cross-node attribute update batching state (see attr_batch.go).
+	attrBatchActive   bool
+	attrHelpersBound  bool
+	attrHelpersFailed bool
+	attrBatchPayload  strings.Builder
+	attrRegisterNode  js.Value
+	attrFlushBatch    js.Value
 }
 
 type wasmBatchState struct {
@@ -380,6 +390,18 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 	return getNode
 }
 
+// CreateHTMLFragment parses several serialized sibling subtrees through the
+// shared template element in one bridge call and returns the template
+// CONTENT node; its children are the parsed roots (still detached — walking
+// then appending them moves each out of the fragment).
+func (parseA *WASMDOMAdapter) CreateHTMLFragment(parseHTML string) runtime.DOMNode {
+	if parseHTML == "" || !parseA.ensureStoreTemplate() {
+		return &WASMDOMNode{value: js.Null()}
+	}
+	parseA.storeTemplate.Set("innerHTML", parseHTML)
+	return &WASMDOMNode{value: parseA.storeTemplateContent}
+}
+
 // CreateHTMLSubtree parses one serialized HTML subtree through the shared
 // template element in a single bridge call and returns its root node (still
 // detached; appending it later moves it out of the template content).
@@ -401,6 +423,9 @@ func (parseA *WASMDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName,
 		// URL rendered through the normal element API cannot execute on click —
 		// parity with the SSR serializer's sanitizer.
 		parseValue = runtime.SanitizeURLAttributeValue(parseName, parseValue)
+		if parseA.queueAttrWrite(parseWasmNode, 'a', parseName, parseValue) {
+			return
+		}
 		parseWasmNode.value.Call("setAttribute", parseName, parseValue)
 	}
 }
@@ -420,6 +445,9 @@ func (parseA *WASMDOMAdapter) GetAttribute(parseNode runtime.DOMNode, parseName 
 
 func (parseA *WASMDOMAdapter) RemoveAttribute(parseNode runtime.DOMNode, parseName string) {
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		if parseA.queueAttrWrite(parseWasmNode, 'r', parseName, "") {
+			return
+		}
 		parseWasmNode.value.Call("removeAttribute", parseName)
 	}
 }

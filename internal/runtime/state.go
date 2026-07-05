@@ -690,8 +690,14 @@ func (parseRt *Runtime) CleanupAtomSubscriptions(parseFiber *Fiber) {
 		return
 	}
 
-	// Fallback for fibers without hooks or if atoms list is empty (shouldn't happen if using GoUseAtom)
-	parseRt.atomRegistry.UnsubscribeFiberFromAll(parseFiber)
+	// A fiber with no recorded atoms and no reactive source ids was never
+	// subscribed to anything: every Subscribe call site records the id on
+	// hooks.atoms or fiber.reactiveSourceIDs at the same site (state.go,
+	// syncFineGrainedSubscriptions, hydration-deferred variants). The old
+	// registry-wide UnsubscribeFiberFromAll fallback here took the registry
+	// mutex once per deleted fiber (hundreds of times per bulk removal) to
+	// scan for subscriptions that cannot exist. Pinned by
+	// TestPlainFiberDeletionSkipsAtomRegistry.
 }
 
 // GetAtomValue is a helper to get an atom value directly (for debugging/testing)

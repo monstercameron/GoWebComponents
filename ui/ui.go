@@ -505,6 +505,21 @@ func UseEffect(parseEffect func() func(), parseDeps ...interface{}) {
 	runtime.GoUseEffectGlobal(parseEffect, parseDeps...)
 }
 
+// UseMemoOf memoizes one computation keyed by a single comparable dependency
+// with zero steady-state allocations: pass a static (non-capturing) compute
+// function that derives the value from the dependency. Uses the same memo
+// slot as UseMemo; do not alternate between the two across renders.
+func UseMemoOf[T any, D comparable](parseCompute func(D) T, parseDep D) T {
+	return runtime.GoUseMemoOf(parseCompute, parseDep)
+}
+
+// UseEffectOf registers an effect keyed by a single comparable dependency
+// without the variadic deps allocation. Same slot as UseEffect; do not
+// alternate between the two across renders.
+func UseEffectOf[D comparable](parseEffect func() func(), parseDep D) {
+	runtime.GoUseEffectOf(parseEffect, parseDep)
+}
+
 // UseLayoutEffect registers a layout effect (G36): it runs synchronously after
 // the commit mutates the DOM, before the browser paints, and before this
 // component's passive UseEffect callbacks. Use it for post-render DOM work that
@@ -518,17 +533,10 @@ func UseLayoutEffect(parseEffect func() func(), parseDeps ...interface{}) {
 
 // UseMemo memoizes a computed value until dependencies change.
 func UseMemo[T any](parseCompute func() T, parseDeps ...interface{}) T {
-	parseValue := runtime.GoUseMemoGlobalTyped(func() interface{} {
-		return parseCompute()
-	}, reflect.TypeOf((*T)(nil)).Elem(), parseDeps...)
-
-	parseCast, parseOk := parseValue.(T)
-	if parseOk {
-		return parseCast
-	}
-
-	var parseZero T
-	return parseZero
+	// Typed pass-through: no func()->any adapter closure per call and no
+	// per-call reflect (the hot-reload coercion target comes from T inside
+	// the runtime, on the restore path only).
+	return runtime.GoUseMemoFor(parseCompute, parseDeps...)
 }
 
 // UseCallback memoizes a callback until dependencies change.
@@ -684,6 +692,7 @@ func ensureInitialized() {
 		return
 	}
 
+	applyInteractiveGCPacing()
 	runtime.InitGlobalRuntime(runtime.Config{
 		DOMAdapter:         jsdom.NewWASMDOMAdapter(),
 		EventAdapter:       jsdom.NewWASMEventAdapter(),

@@ -391,6 +391,213 @@ func goUseMemo(parseCompute func() any, parseTargetType reflect.Type, parseDeps 
 	return parseMemo.value
 }
 
+// ensureMemoSlot runs the shared memo-hook prologue (hooks store init,
+// signature, index bookkeeping, slot growth) and returns the slot.
+func ensureMemoSlot(parseName string) *memoizedValue {
+	parseFiber := requireCurrentHookFiber(parseName)
+
+	if parseFiber.hooks == nil {
+		parseFiber.hooks = &Hooks{owner: parseFiber}
+	} else if parseFiber.hooks.owner == nil {
+		parseFiber.hooks.owner = parseFiber
+	}
+
+	parseHooks := parseFiber.hooks
+	recordHookSignature(parseHooks, "memo")
+	parseHooks.index++
+
+	parseMemoIdx := parseHooks.memoIndex
+	parseHooks.memoIndex++
+
+	if len(parseHooks.memos) <= parseMemoIdx {
+		parseNeeded := parseMemoIdx + 1
+		if parseNeeded <= cap(parseHooks.memos) {
+			parseHooks.memos = parseHooks.memos[:parseNeeded]
+		} else {
+			parseNewMemos := make([]memoizedValue, parseNeeded, parseNeeded*2)
+			copy(parseNewMemos, parseHooks.memos)
+			parseHooks.memos = parseNewMemos
+		}
+	}
+	return &parseHooks.memos[parseMemoIdx]
+}
+
+// hookRestoreForMemoSlot exposes the hot-reload restore pair for the memo
+// slot the prologue just claimed (index was advanced, so -1).
+func hookRestoreForMemoSlot() (any, []any, bool) {
+	parseFiber := GetCurrentFiber()
+	if parseFiber == nil || parseFiber.hooks == nil {
+		return nil, nil, false
+	}
+	return parseFiber.hooks.restoreMemoValue(parseFiber.hooks.memoIndex - 1)
+}
+
+// GoUseMemoFor memoizes one typed computation without the func()-any adapter
+// closure the untyped entry point forces on generic callers: the compute
+// function passes through unwrapped, and the hot-reload type coercion target
+// comes from the type parameter (reflect only runs on the restore path).
+func GoUseMemoFor[T any](parseCompute func() T, parseDeps ...any) T {
+	parseMemo := ensureMemoSlot("GoUseMemo")
+
+	if parseMemo.deps == nil {
+		if parseRestoredValue, parseRestoredDeps, parseOk := hookRestoreForMemoSlot(); parseOk {
+			if parseCoerced, parseOk2 := coerceHotReloadValue(parseRestoredValue, reflect.TypeFor[T]()); parseOk2 {
+				parseMemo.value = parseCoerced
+				parseMemo.deps = parseRestoredDeps
+			}
+		}
+	}
+
+	if parseMemo.deps == nil || !areDepsEqual(parseMemo.deps, parseDeps) {
+		parseValue := parseCompute()
+		parseMemo.value = parseValue
+		parseMemo.deps = parseDeps
+		return parseValue
+	}
+	parseValue, _ := parseMemo.value.(T)
+	return parseValue
+}
+
+// GoUseMemoOf memoizes one computation keyed by a single comparable
+// dependency with zero steady-state allocations: the compute function
+// receives the dependency (so it can be a static, non-capturing func), the
+// unchanged-dep check type-asserts the stored box instead of boxing the new
+// value, and the cached result is returned by assertion. It shares the memo
+// slot machinery (and hook signature) with GoUseMemo, so the two may not be
+// swapped for one another between renders of one component.
+func GoUseMemoOf[T any, D comparable](parseCompute func(D) T, parseDep D) T {
+	parseFiber := requireCurrentHookFiber("GoUseMemo")
+
+	if parseFiber.hooks == nil {
+		parseFiber.hooks = &Hooks{owner: parseFiber}
+	} else if parseFiber.hooks.owner == nil {
+		parseFiber.hooks.owner = parseFiber
+	}
+
+	parseHooks := parseFiber.hooks
+	recordHookSignature(parseHooks, "memo")
+	parseHooks.index++
+
+	parseMemoIdx := parseHooks.memoIndex
+	parseHooks.memoIndex++
+
+	if len(parseHooks.memos) <= parseMemoIdx {
+		parseNeeded := parseMemoIdx + 1
+		if parseNeeded <= cap(parseHooks.memos) {
+			parseHooks.memos = parseHooks.memos[:parseNeeded]
+		} else {
+			parseNewMemos := make([]memoizedValue, parseNeeded, parseNeeded*2)
+			copy(parseNewMemos, parseHooks.memos)
+			parseHooks.memos = parseNewMemos
+		}
+	}
+
+	parseMemo := &parseHooks.memos[parseMemoIdx]
+	if len(parseMemo.deps) == 1 {
+		if parsePrev, parseOk := parseMemo.deps[0].(D); parseOk && parsePrev == parseDep {
+			if parseValue, parseOk2 := parseMemo.value.(T); parseOk2 {
+				return parseValue
+			}
+		}
+	}
+
+	parseValue := parseCompute(parseDep)
+	parseMemo.value = parseValue
+	parseMemo.deps = []any{parseDep}
+	return parseValue
+}
+
+// GoUseEffectOf registers a passive effect keyed by a single comparable
+// dependency without the variadic []any deps allocation. Same slot machinery
+// as GoUseEffect ("effect" signature); not swappable with it between renders.
+func GoUseEffectOf[D comparable](parseEffect func() func(), parseDep D) {
+	parseFiber := requireCurrentHookFiber("GoUseEffect")
+
+	if parseFiber.hooks == nil {
+		parseFiber.hooks = &Hooks{owner: parseFiber}
+	} else if parseFiber.hooks.owner == nil {
+		parseFiber.hooks.owner = parseFiber
+	}
+
+	parseHooks := parseFiber.hooks
+	recordHookSignature(parseHooks, "effect")
+	parseHooks.index++
+
+	parseDepIdx := parseHooks.depIndex
+	parseHooks.depIndex++
+	parseCleanupIdx := parseHooks.cleanupIndex
+	parseHooks.cleanupIndex++
+
+	growEffectSlots(parseHooks, parseDepIdx, parseCleanupIdx)
+
+	shouldRun := false
+	parsePrevDeps := parseHooks.deps[parseDepIdx]
+	if parsePrevDeps == nil {
+		parseHooks.deps[parseDepIdx] = []any{parseDep}
+		shouldRun = true
+	} else {
+		parsePrev, parseOk := parsePrevDeps[0].(D)
+		if len(parsePrevDeps) != 1 || !parseOk || parsePrev != parseDep || parseHooks.effectEpochs[parseCleanupIdx] != parseHooks.effectEpoch {
+			parseHooks.deps[parseDepIdx] = []any{parseDep}
+			shouldRun = true
+		}
+	}
+
+	if shouldRun {
+		if parseHooks.cleanups[parseCleanupIdx] != nil {
+			parseStart := time.Now()
+			parseHooks.cleanups[parseCleanupIdx]()
+			parseDurationNs := time.Since(parseStart).Nanoseconds()
+			parseFiber.cleanupDurationNs += parseDurationNs
+			recordSlowOperationDiagnostic("cleanup", parseFiber, parseDurationNs)
+			parseHooks.cleanups[parseCleanupIdx] = nil
+		}
+		if parseFiber.effects == nil {
+			parseFiber.effects = make([]Effect, 0)
+		}
+		parseFiber.effects = append(parseFiber.effects, Effect{
+			Fn:           parseEffect,
+			CleanupIndex: parseCleanupIdx,
+		})
+		parseHooks.effectEpochs[parseCleanupIdx] = parseHooks.effectEpoch
+	}
+}
+
+// growEffectSlots extends the deps/cleanups/effectEpochs stores to cover one
+// effect slot; shared by the variadic and typed effect entry points.
+func growEffectSlots(parseHooks *Hooks, parseDepIdx, parseCleanupIdx int) {
+	if len(parseHooks.deps) <= parseDepIdx {
+		parseNeeded := parseDepIdx + 1
+		if parseNeeded <= cap(parseHooks.deps) {
+			parseHooks.deps = parseHooks.deps[:parseNeeded]
+		} else {
+			parseNewDeps := make([][]any, parseNeeded, parseNeeded*2)
+			copy(parseNewDeps, parseHooks.deps)
+			parseHooks.deps = parseNewDeps
+		}
+	}
+	if len(parseHooks.cleanups) <= parseCleanupIdx {
+		parseNeeded2 := parseCleanupIdx + 1
+		if parseNeeded2 <= cap(parseHooks.cleanups) {
+			parseHooks.cleanups = parseHooks.cleanups[:parseNeeded2]
+		} else {
+			parseNewCleanups := make([]func(), parseNeeded2, parseNeeded2*2)
+			copy(parseNewCleanups, parseHooks.cleanups)
+			parseHooks.cleanups = parseNewCleanups
+		}
+	}
+	if len(parseHooks.effectEpochs) <= parseCleanupIdx {
+		parseNeeded3 := parseCleanupIdx + 1
+		if parseNeeded3 <= cap(parseHooks.effectEpochs) {
+			parseHooks.effectEpochs = parseHooks.effectEpochs[:parseNeeded3]
+		} else {
+			parseNewEpochs := make([]int, parseNeeded3, parseNeeded3*2)
+			copy(parseNewEpochs, parseHooks.effectEpochs)
+			parseHooks.effectEpochs = parseNewEpochs
+		}
+	}
+}
+
 // GoUseMemoTyped memoizes expensive computations and coerces restored hot reload
 // values to the caller's expected type when possible.
 func GoUseMemoTyped(parseCompute func() any, parseTargetType reflect.Type, parseDeps ...any) any {
@@ -672,6 +879,13 @@ func fastEqual(parseA, parseB any) bool {
 	if parseA == nil || parseB == nil {
 		return false
 	}
+
+	// NOTE(perf A/B 2026-07-05): an interface-header identity fast path here
+	// (same type descriptor + same data pointer => equal) measured FLAT in
+	// the browser refresh/update scenarios and was removed: granular dirty
+	// marking means clean shell components never re-render, so stable
+	// handler/map references rarely reach this compare on hot paths. Re-try
+	// only with evidence that DeepEqual fallbacks are hot.
 
 	// Fast path for common primitives before reflection.
 	switch parseVa := parseA.(type) {

@@ -6,7 +6,6 @@ import (
 	"math"
 	"reflect"
 	"strings"
-	"time"
 )
 
 // HotReloadSnapshot captures the component-local state that can be restored
@@ -870,7 +869,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 		var parseElement *Element
 		var isHandledPanic bool
 		var parseNextFromBoundary *Fiber
-		renderStart := time.Now()
+		renderStart := commitTimingStart()
 		parseRt.activeRenderFiber = parseFiber
 		func() {
 			defer SetCurrentFiber(nil)
@@ -906,7 +905,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 				parseElement = parseComponent.Render(parseFiber.props)
 			}
 		}()
-		renderDurationNs := time.Since(renderStart).Nanoseconds()
+		renderDurationNs := commitTimingSinceNs(renderStart)
 		parseFiber.renderDurationNs = renderDurationNs
 
 		if isHandledPanic {

@@ -19,7 +19,7 @@ import (
 func TestExample201PhaseTotalsProbe(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	getRepoRoot := examplesRepoRootFromFile(parseFile)
-	buildExample201BenchmarkWasm(parseT, getRepoRoot)
+	buildExample201BenchmarkWasmDev(parseT, getRepoRoot)
 	getBaseURL := startExamplesCatalogServer(parseT, getRepoRoot, "18103")
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
 		if _, parseErr := parsePage.Goto(getBaseURL+"/examples/testing/render-benchmark/runtime/", playwright.PageGotoOptions{
@@ -34,9 +34,9 @@ func TestExample201PhaseTotalsProbe(parseT *testing.T) {
 		}
 
 		getScenarios := []string{
-			"core-render", "core-update", "core-stress-update", "core-append",
+			"core-render", "core-update", "core-stress-update", "core-append", "core-refresh", "content-refresh",
 			"content-render", "content-update",
-			"primitive-render", "primitive-text-update",
+			"primitive-render", "primitive-text-update", "primitive-attribute-update", "primitive-remove",
 			"deep-render", "deep-update",
 			"enterprise-subtree-update", "hooks-render",
 		}
@@ -110,7 +110,7 @@ func TestExample201PhaseTotalsProbe(parseT *testing.T) {
 func TestExample201CPUProfileProbe(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	getRepoRoot := examplesRepoRootFromFile(parseFile)
-	buildExample201BenchmarkWasm(parseT, getRepoRoot)
+	buildExample201BenchmarkWasmDev(parseT, getRepoRoot)
 	getBaseURL := startExamplesCatalogServer(parseT, getRepoRoot, "18104")
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
 		if _, parseErr := parsePage.Goto(getBaseURL+"/examples/testing/render-benchmark/runtime/", playwright.PageGotoOptions{

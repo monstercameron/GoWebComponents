@@ -156,6 +156,7 @@ type runtimeProfiling struct {
 	workLoopPasses                   int
 	processedUnits                   int
 	commitCount                      int
+	serializedMountRoots             int
 	fineGrainedCommits               int
 	fineGrainedDescendantHostCommits int
 	fineGrainedDescendantTextCommits int

@@ -1,5 +1,89 @@
 # Changelog
 
+## v4.2.0 - 2026-07-05
+
+Performance release, round two: an overnight benchmark-refine-regress loop
+against the Example 201 harness. GWC's production build now runs a
+**0.85-0.95 same-run geomean band against React 19's production bundle, with
+8-10 outright scenario wins per run** (from ~0.73-0.83 at v4.1.0). Every
+change was kept only after a same-thermal-window A/B; the full per-iteration
+log (including honestly reverted and gate-rejected attempts) is in
+`docs/DEVNOTES_PERF_LOOP.md`.
+
+### Performance
+
+- **Interactive GC pacing as a browser default.** Go's GOGC=100 collects
+  every time the heap doubles over an interactive app's tiny live set,
+  landing stop-the-world pauses (measured up to ~9ms) inside interaction
+  windows. GWC wasm apps now initialize with GOGC=300 plus a 512MB
+  `debug.SetMemoryLimit` backstop; override or disable per origin via
+  `localStorage["gwc:gogc"]` ("off" or a custom percent), with the applied
+  policy reported as an info diagnostic. Measured: hooks scenario 13.0 to
+  7.4ms mean, in-window collections 5 to 1; the GC-pause-victim scenarios
+  (core-update, the refresh trio) now flip to outright wins.
+- **Benchmark fairness: production vs production.** The scored browser
+  benchmark previously compared a GWC development build (commit timers and
+  the hook threading guard active) against React's production bundle. The
+  report and boot probe now build with `-profile benchmark`
+  (`-tags production`, `-s -w`, trimpath), as does the runtime2 worker; the
+  phase/GC probes keep an explicit dev build for their instrumentation.
+- **Production builds strip more dev-only cost.** Two raw
+  `time.Now`/`time.Since` pairs on the hottest dispatch paths
+  (`performUnitOfWork`, `renderFunctionComponent`) now route through the
+  production-gated timing helpers, and the missing-key warning's ungated
+  O(N) child scan per `reconcileChildren` call is production-gated.
+  `go test -tags production` is green and part of the regression set.
+- **Serialized mounts extended.** Sibling-run serialization mounts flat
+  lists from ONE fragment parse (a 200-row list was one template parse per
+  row); plain text children serialize inline, so mixed text+element chains
+  (the deep-tree shape) mount as a single parse — deep-render dropped from
+  ~8-9ms to ~2.8ms in the phase probe and deep scenarios now win outright.
+  Observable via the new `Runtime.SerializedMountRoots()` counter.
+- **Typed pass-through hooks and memo.** `ui.UseMemo` no longer allocates a
+  `func() any` adapter closure nor runs per-call reflection
+  (`runtime.GoUseMemoFor`); `ui.UseMemoOf`/`ui.UseEffectOf` take a static
+  compute function plus one comparable dependency for zero steady-state
+  allocations (2.6x faster hook walk in wasm).
+- **Zero-allocation element construction fields.** `html.Props.DataAttr`
+  sets one data-* attribute without a Data map allocation, and
+  `html.Props.Text` sets text content without the throwaway child Element
+  the `html.Text(...)` form builds. Cumulative native mirror allocations:
+  core-update 340 to 180 per pass, core-refresh 344 to 142.
+- **Keyed trailing appends skip the map path.** Growing a keyed list matches
+  the prefix in order and mounts the tail as placements — no key boxing, no
+  keyed-map build (list growth previously boxed every key into `any`).
+- **Deletion teardown cost.** Removed a registry-wide atom-subscription scan
+  that ran for every deleted fiber that had never subscribed (the
+  subscribe-records-on-fiber invariant is now pinned by test), and merged
+  two of the three recursive teardown walks per deleted subtree.
+- **Cross-node attribute batching.** Commit-phase attribute writes buffer
+  into one string-encoded payload applied by a single bridge call into a
+  JS-side loop (WeakRef node registry; CSP-safe fallback to direct writes).
+  primitive-attribute-update commit time -40%.
+
+### Added
+
+- `ui.Typed[P](fn)` — registers a props-taking component once and returns a
+  constructor with a statically dispatched renderer (no `reflect.Value.Call`
+  per render; wasm reflection was most of the hooks scenario's remaining
+  dispatch cost). Mixing with `ui.CreateElement` preserves component
+  identity.
+- Benchmark/diagnostic instruments: the hooks/append native mirrors, a
+  browser boot/TTI probe, GC counters and refresh/remove/attribute scenarios
+  in the phase probe, a GC-pacing A/B probe, and `test/render` now compiles
+  for wasm so mirrors run under node without a browser.
+
+### Fixed
+
+- mockdom fidelity: `textContent` concatenates descendant text,
+  `ReplaceChildren` reparents like the browser, and the adapter can parse
+  HTML fragments (`CreateHTMLSubtree`/`CreateHTMLFragment` via x/net/html),
+  so the native suite exercises the serialized-mount and hydration paths.
+- The benchmark subject's hook cell now mirrors React's semantics exactly
+  (`useEffect(fn, [])` runs once; the previous no-deps form re-ran 800
+  effects per render, biasing the comparison against GWC).
+
+
 ## v4.1.1 - 2026-07-04
 
 ### Fixed

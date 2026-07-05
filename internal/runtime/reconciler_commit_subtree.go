@@ -46,6 +46,13 @@ func (parseRt *Runtime) shouldDeferHostDomToCommit(parseFiber *Fiber) bool {
 	if _, parseOk := parseRt.domAdapter.(htmlSubtreeDOMAdapter); !parseOk {
 		return false
 	}
+	// Plain text nodes defer too: a serialized parent inlines them (mixed
+	// text+element children are the deep-tree shape), and any that end up
+	// outside a serialized subtree are created by the commit placement
+	// branch instead — same bridge call, later.
+	if parseTag, parseOk := parseFiber.typeOf.(string); parseOk && parseTag == "TEXT_ELEMENT" {
+		return true
+	}
 	return isFastLaneCompactFiber(parseFiber) && !parseFiber.fineGrained &&
 		len(parseFiber.eventCallbacks) == 0
 }
@@ -90,7 +97,89 @@ func (parseRt *Runtime) tryCommitSerializedSubtree(parseFiber *Fiber) bool {
 		return false
 	}
 	parseRt.bindSerializedSubtree(parseFiber, parseRoot)
+	parseRt.profiling.serializedMountRoots++
 	return true
+}
+
+// SerializedMountRoots reports how many placement roots (single subtrees or
+// sibling-run members) mounted through the serialized-HTML strategy — the
+// observable signal that the fast mount paths are actually firing.
+func (parseRt *Runtime) SerializedMountRoots() int {
+	if parseRt == nil {
+		return 0
+	}
+	return parseRt.profiling.serializedMountRoots
+}
+
+// htmlFragmentDOMAdapter is the optional capability for parsing SEVERAL
+// serialized sibling subtrees in one call; the returned node is a container
+// (template content / mock fragment) whose children are the parsed roots.
+type htmlFragmentDOMAdapter interface {
+	CreateHTMLFragment(parseHTML string) DOMNode
+}
+
+// prepareSerializedSiblingRuns pre-mounts maximal runs of consecutive
+// eligible placement siblings from ONE combined HTML parse. Flat lists are
+// the motivating shape: each row is a one-host subtree, too small for
+// tryCommitSerializedSubtree, so a 200-row mount previously paid one
+// template parse per row. Run members keep effectTagPlacement with their dom
+// pre-bound — the normal commit recursion appends them in order through the
+// existing batched append — while their descendants are bound and cleared
+// exactly like the single-subtree path.
+func (parseRt *Runtime) prepareSerializedSiblingRuns(parseParent *Fiber) {
+	if parseRt == nil || parseParent == nil || parseParent.child == nil {
+		return
+	}
+	parseFragmentAdapter, parseOk := parseRt.domAdapter.(htmlFragmentDOMAdapter)
+	if !parseOk {
+		return
+	}
+
+	var parseBuilder strings.Builder
+	var parseRun []*Fiber
+	parseHostCount := 0
+
+	parseFlush := func() {
+		if len(parseRun) >= 2 && parseHostCount >= serializedMountMinHosts && parseBuilder.Len() > 0 {
+			parseFragment := parseFragmentAdapter.CreateHTMLFragment(parseBuilder.String())
+			if !IsDOMNodeNull(parseFragment) {
+				parseDomChild := parseRt.domAdapter.GetFirstChild(parseFragment)
+				for _, parseMember := range parseRun {
+					if IsDOMNodeNull(parseDomChild) {
+						break
+					}
+					// Bind the member and its descendants; the member keeps
+					// its placement tag so the commit walk appends it in
+					// sibling order.
+					parseRt.bindSerializedSubtree(parseMember, parseDomChild)
+					parseMember.effectTag = effectTagPlacement
+					parseRt.profiling.serializedMountRoots++
+					parseDomChild = parseRt.domAdapter.GetNextSibling(parseDomChild)
+				}
+			}
+		}
+		parseBuilder.Reset()
+		parseRun = parseRun[:0]
+		parseHostCount = 0
+	}
+
+	for parseChild := parseParent.child; parseChild != nil; parseChild = parseChild.sibling {
+		parsePreLen := parseBuilder.Len()
+		parsePreHosts := parseHostCount
+		if serializeMountSubtree(parseChild, &parseBuilder, &parseHostCount) {
+			parseRun = append(parseRun, parseChild)
+			continue
+		}
+		// Member ineligible: discard its partial serialization and close the
+		// current run.
+		parseTruncated := parseBuilder.String()[:parsePreLen]
+		parseHostCount = parsePreHosts
+		parseKept := parseTruncated
+		parseBuilder.Reset()
+		parseBuilder.WriteString(parseKept)
+		parseFlush()
+	}
+	parseFlush()
 }
 
 // serializeMountSubtree writes one fiber subtree as HTML, reporting false as
@@ -129,7 +218,24 @@ func serializeMountSubtree(parseFiber *Fiber, parseBuilder *strings.Builder, par
 		}
 		parseBuilder.WriteString(html.EscapeString(parseFiber.textContent))
 	} else {
+		// Children may mix plain text nodes with nested hosts (e.g. a label
+		// text plus a nested element per layer of a deep tree). Text children
+		// serialize inline; the positional bind walk pairs them with the
+		// parsed text nodes. Two guards keep the zip aligned: empty text
+		// parses to NO node, and adjacent text runs merge into ONE node —
+		// either case falls back to per-node mounting.
+		wasTextChild := false
 		for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
+			if isSerializableTextChild(parseChild) {
+				parseText := serializableTextChildValue(parseChild)
+				if parseText == "" || wasTextChild {
+					return false
+				}
+				parseBuilder.WriteString(html.EscapeString(parseText))
+				wasTextChild = true
+				continue
+			}
+			wasTextChild = false
 			if !serializeMountSubtree(parseChild, parseBuilder, parseHostCount) {
 				return false
 			}
@@ -139,6 +245,26 @@ func serializeMountSubtree(parseFiber *Fiber, parseBuilder *strings.Builder, par
 	parseBuilder.WriteString(parseTag)
 	parseBuilder.WriteByte('>')
 	return true
+}
+
+// isSerializableTextChild reports whether one child fiber is a plain
+// mounted-from-scratch text node the serializer may inline.
+func isSerializableTextChild(parseFiber *Fiber) bool {
+	if parseFiber == nil || parseFiber.effectTag != effectTagPlacement ||
+		!IsDOMNodeNull(parseFiber.dom) || parseFiber.hydration != nil || parseFiber.child != nil {
+		return false
+	}
+	parseTag, parseOk := parseFiber.typeOf.(string)
+	return parseOk && parseTag == "TEXT_ELEMENT"
+}
+
+// serializableTextChildValue mirrors createDom's TEXT_ELEMENT value lookup.
+func serializableTextChildValue(parseFiber *Fiber) string {
+	parseText := parseFiber.textContent
+	if parseText == "" && parseFiber.props != nil {
+		parseText, _ = parseFiber.props["nodeValue"].(string)
+	}
+	return parseText
 }
 
 // bindSerializedSubtree zips the fiber subtree against the freshly parsed DOM

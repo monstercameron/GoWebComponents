@@ -370,6 +370,15 @@ func shouldPreserveHydrationInitialProperty(parseName string) bool {
 	}
 }
 
+// attrUpdateBatchDOMAdapter is the optional capability for buffering a
+// commit's attribute writes into one bridge call (browser adapter only).
+// While a batch is open, attribute reads through the adapter may observe
+// stale values — commitRoot flushes before anything that reads the DOM runs.
+type attrUpdateBatchDOMAdapter interface {
+	BeginAttrUpdateBatch()
+	EndAttrUpdateBatch()
+}
+
 // commitRoot commits all changes to the DOM
 func (parseRt *Runtime) commitRoot() {
 	parseStart := commitTimingStart()
@@ -397,6 +406,17 @@ func (parseRt *Runtime) commitRoot() {
 			})
 		}
 	}()
+	// Cross-node attribute batching: buffer every attribute write in the
+	// commit walk into one bridge call (one setAttribute hop per attribute
+	// otherwise dominates attribute-heavy commits). Nothing in the walk
+	// reads attributes back; the deferred End covers panic unwinds and the
+	// explicit flush below runs before effects, which may read the DOM.
+	parseAttrBatchAdapter, hasAttrBatch := parseRt.domAdapter.(attrUpdateBatchDOMAdapter)
+	if hasAttrBatch {
+		parseAttrBatchAdapter.BeginAttrUpdateBatch()
+		defer parseAttrBatchAdapter.EndAttrUpdateBatch()
+	}
+
 	// Process deletions first
 	for _, parseFiber := range parseRt.deletions {
 		// Deletions need to find their parent DOM node
@@ -426,6 +446,12 @@ func (parseRt *Runtime) commitRoot() {
 		if parseRt.shouldRepairCommittedChildOrder(parseRt.wipRoot) {
 			parseRt.applyCommittedChildOrder(parseRt.wipRoot.dom, parseRt.buildCommittedChildNodes(parseRt.wipRoot.child, nil))
 		}
+	}
+
+	// Flush buffered attribute writes before effects and subscribers run —
+	// they may read the DOM. The deferred End above then no-ops.
+	if hasAttrBatch {
+		parseAttrBatchAdapter.EndAttrUpdateBatch()
 	}
 
 	parseRt.currentRoot = parseCommittedRoot
@@ -462,8 +488,17 @@ func (parseRt *Runtime) commitRoot() {
 	fireFirstCommitHooks()
 }
 
-// reportMissingKeys is an internal reconciler helper.
+// reportMissingKeys is an internal reconciler helper. It exists only to emit
+// the missing-key development warning, but it walks the ENTIRE child slice on
+// every reconcileChildren call — an unamortized O(N) pass per list per render
+// (the keyed-dispatch check it duplicates short-circuits on the first keyed
+// element). Gated behind the same dev/production split as the commit timers
+// and the hook threading guard.
 func reportMissingKeys(parseParent *Fiber, parseElements []any) {
+	if !hookThreadingGuardEnabled {
+		// production build: diagnostics stripped, skip the O(N) scan.
+		return
+	}
 	parseRenderableCount := 0
 	parseMissingKeyCount := 0
 	hasKeyedSibling := false
@@ -686,6 +721,10 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 		})
 		isParseBatching := parseSupportsBatching && parseRt.shouldBatchCommittedPlacements(parseFiber, parseChildDomParent)
 		if isParseBatching {
+			// Multiple placements are landing under this parent: pre-mount
+			// runs of eligible siblings from one combined parse before the
+			// per-child walk creates them one template at a time.
+			parseRt.prepareSerializedSiblingRuns(parseFiber)
 			parseBatchAdapter.BeginBatch(parseChildDomParent)
 		}
 		parseRt.commitWork(parseFiber.child, parseChildDomParent)
@@ -1278,11 +1317,12 @@ func (parseRt *Runtime) commitDeletion(parseFiber *Fiber, parseDomParent DOMNode
 	// Run all cleanup functions before removing from DOM
 	parseRt.runCleanups(parseFiber)
 
-	// Cleanup atom subscriptions for this fiber and subtree
-	parseRt.cleanupAtomSubscriptionsSubtree(parseFiber)
-
-	// G2: detach any DOM refs in the deleted subtree so holders observe nil.
-	parseRt.releaseDOMRefsSubtree(parseFiber)
+	// Cleanup atom subscriptions and detach DOM refs (G2) for the fiber and
+	// its subtree in ONE walk — these are order-independent runtime
+	// bookkeeping phases; walking the deleted subtree separately for each
+	// tripled the traversal cost of bulk removals. runCleanups above stays a
+	// separate first pass: user cleanup callbacks may read descendant refs.
+	parseRt.teardownDeletedSubtree(parseFiber)
 
 	if parseRt.isPortalFiber(parseFiber) {
 		parseRt.deleteFiberSubtree(parseFiber.child, parseRt.resolvePortalParent(parseFiber))
@@ -1296,6 +1336,22 @@ func (parseRt *Runtime) commitDeletion(parseFiber *Fiber, parseDomParent DOMNode
 		// Function component without DOM node - recursively delete all descendants
 		// We need to find and remove all actual DOM nodes in the subtree
 		parseRt.deleteFiberSubtree(parseFiber.child, parseDomParent)
+	}
+}
+
+// teardownDeletedSubtree unsubscribes atoms and releases DOM refs across one
+// deleted subtree in a single recursive walk (see commitDeletion).
+func (parseRt *Runtime) teardownDeletedSubtree(parseFiber *Fiber) {
+	if parseFiber == nil {
+		return
+	}
+	parseRt.CleanupAtomSubscriptions(parseFiber)
+	if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
+		parseRt.CleanupAtomSubscriptions(parseFiber.alternate)
+	}
+	parseRt.publishDOMRef(parseFiber, nil)
+	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
+		parseRt.teardownDeletedSubtree(parseChild)
 	}
 }
 

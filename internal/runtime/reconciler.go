@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"time"
 )
 
 type elementScratchPool struct {
@@ -420,12 +419,18 @@ func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, p
 
 	// Phase 1: validate the whole run is same-order/same-identity before any
 	// fiber is built or relinked, so an abort can never leave half-mutated
-	// chain links or moved atom subscriptions behind.
+	// chain links or moved atom subscriptions behind. Elements remaining
+	// after the old chain is exhausted are trailing appends — the dominant
+	// list-growth shape — and mount as placements in phase 2, so appends
+	// never fall back to the key-boxing map path.
 	parseOldFiber := parseOldFirst
 	for _, parseElement := range parseElements {
 		parseElem, parseOk := parseElement.(*Element)
-		if !parseOk || parseElem == nil || parseOldFiber == nil {
+		if !parseOk || parseElem == nil {
 			return false
+		}
+		if parseOldFiber == nil {
+			continue // trailing append candidate; only castability matters
 		}
 		if !sameFiberType(parseElem, parseOldFiber) || !hasElementFiberKeyMatch(parseElem, parseOldFiber) {
 			return false
@@ -436,21 +441,27 @@ func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, p
 		return false
 	}
 
-	// Phase 2: build the chain.
+	// Phase 2: build the chain — updates over the matched prefix, placements
+	// for the appended tail.
 	parseOldFiber = parseOldFirst
 	var parseFirstChild *Fiber
 	var parsePrevSibling *Fiber
 	for _, parseElement := range parseElements {
 		parseElem := parseElement.(*Element)
-		parseNextOldFiber := parseOldFiber.sibling
-		parseNewFiber := parseRt.buildUpdatedFiber(parseWipFiber, parseOldFiber, parseElem)
+		var parseNewFiber *Fiber
+		if parseOldFiber != nil {
+			parseNextOldFiber := parseOldFiber.sibling
+			parseNewFiber = parseRt.buildUpdatedFiber(parseWipFiber, parseOldFiber, parseElem)
+			parseOldFiber = parseNextOldFiber
+		} else {
+			parseNewFiber = buildPlacementFiber(parseWipFiber, parseElem, nil)
+		}
 		if parseFirstChild == nil {
 			parseFirstChild = parseNewFiber
 		} else if parsePrevSibling != nil {
 			parsePrevSibling.sibling = parseNewFiber
 		}
 		parsePrevSibling = parseNewFiber
-		parseOldFiber = parseNextOldFiber
 	}
 	parseWipFiber.child = parseFirstChild
 	return true
@@ -1113,11 +1124,11 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 		return parseRt.getNextSiblingUnitOfWork(parseFiber)
 	}
 
-	parseStart := time.Now()
+	parseStart := commitTimingStart()
 	parseFiber.renderDurationNs = 0
 	parseFiber.diffDurationNs = 0
 	parseFinalize := func(parseNext *Fiber) *Fiber {
-		parseDiffDurationNs := max(time.Since(parseStart).Nanoseconds()-parseFiber.renderDurationNs, 0)
+		parseDiffDurationNs := max(commitTimingSinceNs(parseStart)-parseFiber.renderDurationNs, 0)
 		parseFiber.diffDurationNs = parseDiffDurationNs
 		parseRt.profiling.totalDiffDurationNs += parseDiffDurationNs
 		return parseNext

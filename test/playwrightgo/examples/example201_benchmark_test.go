@@ -596,6 +596,22 @@ func buildExample201OneAndFourWorkerRoute() string {
 
 // buildExample201BenchmarkWasm builds the shared Go benchmark subject through gwc into the examples wasm output directory.
 func buildExample201BenchmarkWasm(parseT *testing.T, parseRepoRoot string) string {
+	return buildExample201BenchmarkWasmProfile(parseT, parseRepoRoot, "benchmark")
+}
+
+// buildExample201BenchmarkWasmDev builds the subject WITHOUT -tags production
+// so the phase/GC probes keep their timing instrumentation (commit timers and
+// PhaseTotals are compiled out of production builds).
+func buildExample201BenchmarkWasmDev(parseT *testing.T, parseRepoRoot string) string {
+	return buildExample201BenchmarkWasmProfile(parseT, parseRepoRoot, "development")
+}
+
+// buildExample201BenchmarkWasmProfile builds the benchmark subject with an
+// explicit gwc build profile. The scored report uses "benchmark"
+// (-tags production, -s -w, trimpath) so GWC's production build is compared
+// against React's production bundle — the dev build left the commit timers
+// and the hook threading guard active in every previously scored run.
+func buildExample201BenchmarkWasmProfile(parseT *testing.T, parseRepoRoot string, parseProfile string) string {
 	parseT.Helper()
 	getOutputPath := filepath.Join(parseRepoRoot, "bin", "examples", "render-benchmark.wasm")
 	getCommand := exec.Command(
@@ -604,6 +620,7 @@ func buildExample201BenchmarkWasm(parseT *testing.T, parseRepoRoot string) strin
 		"-app", "./examples/testing/render-benchmark/main.go",
 		"-root", "./examples/testing/render-benchmark",
 		"-out", "./bin/examples/render-benchmark.wasm",
+		"-profile", parseProfile,
 	)
 	getCommand.Dir = parseRepoRoot
 	if getOutput, parseErr := getCommand.CombinedOutput(); parseErr != nil {
@@ -616,7 +633,7 @@ func buildExample201BenchmarkWasm(parseT *testing.T, parseRepoRoot string) strin
 func buildExample201BenchmarkWorkerWasm(parseT *testing.T, parseRepoRoot string) string {
 	parseT.Helper()
 	getOutputPath := filepath.Join(parseRepoRoot, "bin", "examples", "render-benchmark-worker.wasm")
-	getCommand := exec.Command("go", "build", "-o", getOutputPath, "./examples/testing/render-benchmark/backgroundworker")
+	getCommand := exec.Command("go", "build", "-tags", "production", "-trimpath", "-ldflags", "-s -w", "-o", getOutputPath, "./examples/testing/render-benchmark/backgroundworker")
 	getCommand.Dir = parseRepoRoot
 	getCommand.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if getOutput, parseErr := getCommand.CombinedOutput(); parseErr != nil {

@@ -854,6 +854,13 @@ func buildBenchmarkRuntime3ContentRegionNodes(parseMode string, parseContentChun
 	return getRegionNodes
 }
 
+// Typed constructors: per-render component creation without the reflect
+// trampoline (ui.Typed builds a statically dispatched renderer once).
+var (
+	getTypedBenchmarkContentCard = ui.Typed(renderBenchmarkContentCard)
+	getTypedBenchmarkManyHooks   = ui.Typed(renderBenchmarkManyHooks)
+)
+
 // renderBenchmarkContentCard renders one nested content-card subtree for the current runtime mode.
 func renderBenchmarkContentCard(parseProps renderBenchmarkContentCardProps) ui.Node {
 	getTagNodes := make([]ui.Node, 0, len(parseProps.GetItem.GetTags))
@@ -897,12 +904,23 @@ func renderBenchmarkContentCard(parseProps renderBenchmarkContentCardProps) ui.N
 	)
 }
 
-// renderBenchmarkManyHooks renders one hook-heavy leaf used by the current runtime benchmark mode.
+// benchmarkHookStaticEffect / benchmarkHookStaticMemo are static hook bodies
+// for the typed no-alloc hook variants (the compute receives its dep, so no
+// per-render closure capture).
+func benchmarkHookStaticEffect() func() { return nil }
+
+func benchmarkHookStaticMemo(parseDep int) int { return parseDep * 2 }
+
+// renderBenchmarkManyHooks renders one hook-heavy leaf used by the current
+// runtime benchmark mode. Hook semantics mirror the React subject exactly:
+// useEffect(fn, []) runs once (UseEffectOf with the stable slot index) and
+// useMemo(fn, [parseIndex]) caches per index (UseMemoOf) — the previous
+// no-deps UseEffect re-ran every render, which React's cell never did.
 func renderBenchmarkManyHooks(parseProps renderBenchmarkHookCellProps) ui.Node {
 	for parseIndex := 0; parseIndex < benchmarkHooksPerComponent; parseIndex++ {
 		ui.UseState(parseIndex + parseProps.GetIndex)
-		ui.UseEffect(func() func() { return nil })
-		ui.UseMemo(func() int { return parseIndex * 2 }, parseIndex)
+		ui.UseEffectOf(benchmarkHookStaticEffect, parseIndex)
+		ui.UseMemoOf(benchmarkHookStaticMemo, parseIndex)
 	}
 	return html.Div(
 		html.Props{
@@ -1330,7 +1348,7 @@ func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshare
 	case "content":
 		getItems := make([]ui.Node, 0, len(parseContentItems))
 		for _, getItem := range parseContentItems {
-			getItems = append(getItems, ui.CreateElement(renderBenchmarkContentCard, renderBenchmarkContentCardProps{
+			getItems = append(getItems, getTypedBenchmarkContentCard(renderBenchmarkContentCardProps{
 				GetItem:         getItem,
 				GetRefreshToken: parseRefreshToken,
 			}))
@@ -1352,7 +1370,7 @@ func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshare
 	case "hooks":
 		getItems := make([]ui.Node, 0, parseHookCount)
 		for parseIndex := 0; parseIndex < parseHookCount; parseIndex++ {
-			getItems = append(getItems, ui.CreateElement(renderBenchmarkManyHooks, renderBenchmarkHookCellProps{
+			getItems = append(getItems, getTypedBenchmarkManyHooks(renderBenchmarkHookCellProps{
 				GetIndex:        parseIndex,
 				GetRefreshToken: parseRefreshToken,
 			}))
@@ -1370,11 +1388,11 @@ func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshare
 		for _, getItem := range parseCoreItems {
 			getItems = append(getItems, html.Div(
 				html.Props{
-					Key:   strconv.Itoa(getItem.GetID),
-					Class: "benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100",
-					Data:  map[string]string{"row-id": strconv.Itoa(getItem.GetID)},
+					Key:      strconv.Itoa(getItem.GetID),
+					Class:    "benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100",
+					DataAttr: html.DataAttribute{Name: "row-id", Value: strconv.Itoa(getItem.GetID)},
+					Text:     getItem.GetText,
 				},
-				html.Text(getItem.GetText),
 			))
 		}
 		return html.Div(

@@ -1,5 +1,3 @@
-//go:build !js || !wasm
-
 package render
 
 import (
@@ -29,8 +27,13 @@ type mirrorHookCellProps struct {
 }
 
 // newMirrorHooksHost mounts the hook grid and returns the token setter that
-// drives re-renders plus the scheduler used to flush scheduled work.
-func newMirrorHooksHost(parseB *testing.B) (func(int), *mockdom.MockScheduler) {
+// drives re-renders plus the scheduler used to flush scheduled work. With
+// useTyped the cells construct through ui.Typed (static dispatch) instead of
+// ui.CreateElement's reflect trampoline — the A/B for typed registration.
+func mirrorHookStaticEffect() func() { return nil }
+func mirrorHookStaticMemo(parseDep int) int { return parseDep * 2 }
+
+func newMirrorHooksHost(parseB *testing.B, useTyped bool, useTypedHooks bool) (func(int), *mockdom.MockScheduler) {
 	parseB.Helper()
 	getAdapter := mockdom.NewMockDOMAdapter()
 	getScheduler := mockdom.NewMockScheduler(false)
@@ -40,8 +43,13 @@ func newMirrorHooksHost(parseB *testing.B) (func(int), *mockdom.MockScheduler) {
 	getCell := func(parseProps mirrorHookCellProps) ui.Node {
 		for parseIndex := 0; parseIndex < mirrorHooksPerComponent; parseIndex++ {
 			runtime.GoUseState(getRuntime, parseIndex+parseProps.GetIndex)
-			runtime.GoUseEffect(func() func() { return nil })
-			runtime.GoUseMemo(func() any { return parseIndex * 2 }, parseIndex)
+			if useTypedHooks {
+				runtime.GoUseEffectOf(mirrorHookStaticEffect, parseIndex)
+				runtime.GoUseMemoOf(mirrorHookStaticMemo, parseIndex)
+			} else {
+				runtime.GoUseEffect(func() func() { return nil })
+				runtime.GoUseMemo(func() any { return parseIndex * 2 }, parseIndex)
+			}
 		}
 		return html.Div(
 			html.Props{
@@ -55,16 +63,25 @@ func newMirrorHooksHost(parseB *testing.B) (func(int), *mockdom.MockScheduler) {
 		)
 	}
 
+	var storeTypedCell func(mirrorHookCellProps) ui.Node
+	if useTyped {
+		storeTypedCell = ui.Typed(getCell)
+	}
 	var storeSetToken func(any)
 	getComponent := func() ui.Node {
 		getToken, parseSetToken := runtime.GoUseState(getRuntime, 0)
 		storeSetToken = parseSetToken
 		getItems := make([]ui.Node, 0, mirrorHookComponents)
 		for parseIndex := 0; parseIndex < mirrorHookComponents; parseIndex++ {
-			getItems = append(getItems, ui.CreateElement(getCell, mirrorHookCellProps{
+			getProps := mirrorHookCellProps{
 				GetIndex:        parseIndex,
 				GetRefreshToken: getToken(),
-			}))
+			}
+			if useTyped {
+				getItems = append(getItems, storeTypedCell(getProps))
+			} else {
+				getItems = append(getItems, ui.CreateElement(getCell, getProps))
+			}
 		}
 		return html.Div(
 			html.Props{
@@ -89,7 +106,32 @@ func newMirrorHooksHost(parseB *testing.B) (func(int), *mockdom.MockScheduler) {
 // steady state: every leaf re-renders (token prop changes), re-walking all
 // 2400 hook slots.
 func BenchmarkMirrorHooksRefresh(parseB *testing.B) {
-	getSetToken, getScheduler := newMirrorHooksHost(parseB)
+	getSetToken, getScheduler := newMirrorHooksHost(parseB, false, false)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		getSetToken(parseI + 1)
+		getScheduler.FlushAll()
+	}
+}
+
+// BenchmarkMirrorHooksRefreshTypedHooks combines ui.Typed dispatch with the
+// zero-alloc GoUseMemoOf/GoUseEffectOf variants (static compute fns, single
+// comparable dep) — the "well-written app" ceiling for the hooks scenario.
+func BenchmarkMirrorHooksRefreshTypedHooks(parseB *testing.B) {
+	getSetToken, getScheduler := newMirrorHooksHost(parseB, true, true)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		getSetToken(parseI + 1)
+		getScheduler.FlushAll()
+	}
+}
+
+// BenchmarkMirrorHooksRefreshTyped is the same scenario with cells built via
+// ui.Typed static dispatch instead of the reflect trampoline.
+func BenchmarkMirrorHooksRefreshTyped(parseB *testing.B) {
+	getSetToken, getScheduler := newMirrorHooksHost(parseB, true, false)
 	parseB.ReportAllocs()
 	parseB.ResetTimer()
 	for parseI := 0; parseI < parseB.N; parseI++ {

@@ -8,6 +8,9 @@ import (
 )
 
 func TestReconcileChildrenReportsMissingKeyWhenMixedWithKeyedSiblings(parseT *testing.T) {
+	if !hookThreadingGuardEnabled {
+		parseT.Skip("dev-only diagnostic; stripped from production builds")
+	}
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
@@ -1076,6 +1079,9 @@ func TestRunEffects_NilFiber(parseT *testing.T) {
 }
 
 func TestRunEffects_ReportsSlowEffectDiagnostic(parseT *testing.T) {
+	if !hookThreadingGuardEnabled {
+		parseT.Skip("dev-only diagnostic; stripped from production builds")
+	}
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
@@ -1116,6 +1122,9 @@ func TestRunEffects_ReportsSlowEffectDiagnostic(parseT *testing.T) {
 }
 
 func TestRunCleanups_ReportsSlowCleanupDiagnostic(parseT *testing.T) {
+	if !hookThreadingGuardEnabled {
+		parseT.Skip("dev-only diagnostic; stripped from production builds")
+	}
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
@@ -1209,9 +1218,12 @@ func TestCommitDeletion_RunsCleanupsAndCleansAtomSubs(parseT *testing.T) {
 		parseT.Fatal("expected 1 subscriber before deletion")
 	}
 
-	// Attach a cleanup to the function fiber
+	// Attach a cleanup to the function fiber. The atom id is recorded on
+	// hooks.atoms exactly as GoUseAtom does — every real Subscribe call site
+	// records its id on the fiber, and CleanupAtomSubscriptions' fast path
+	// relies on that invariant (see TestPlainFiberDeletionSkipsAtomRegistry).
 	isParseRan := false
-	parseFuncFiber.hooks = &Hooks{cleanups: []func(){func() { isParseRan = true }}}
+	parseFuncFiber.hooks = &Hooks{cleanups: []func(){func() { isParseRan = true }}, atoms: []string{"test-atom"}}
 
 	parseRt.commitDeletion(parseFuncFiber, parseParentDOM)
 

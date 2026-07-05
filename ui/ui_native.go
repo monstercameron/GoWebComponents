@@ -417,6 +417,18 @@ func (parseR Ref[T]) Set(parseValue T) {
 // UseEffect is a no-op on non-browser targets.
 func UseEffect(parseEffect func() func(), parseDeps ...any) {}
 
+// UseMemoOf computes directly on non-browser targets (native UseMemo parity).
+func UseMemoOf[T any, D comparable](parseCompute func(D) T, parseDep D) T {
+	if parseCompute == nil {
+		var parseZero T
+		return parseZero
+	}
+	return parseCompute(parseDep)
+}
+
+// UseEffectOf is a no-op on non-browser targets (native UseEffect parity).
+func UseEffectOf[D comparable](parseEffect func() func(), parseDep D) {}
+
 // UseLayoutEffect is a no-op on non-browser targets (G36).
 func UseLayoutEffect(parseEffect func() func(), parseDeps ...any) {}
 

@@ -2,10 +2,18 @@ package html
 
 import (
 	"maps"
+	"sync"
 
 	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
+
+// DataAttribute names one data-* attribute (Name is the suffix after
+// "data-") for the zero-allocation Props.DataAttr field.
+type DataAttribute struct {
+	Name  string
+	Value string
+}
 
 // Props contains the common HTML attributes and event handlers supported by the typed builders.
 type Props struct {
@@ -69,6 +77,20 @@ type Props struct {
 	Aria  map[string]string
 	Raw   map[string]any
 
+	// DataAttr sets one data-* attribute without allocating a Data map — the
+	// dominant single-attribute case (e.g. a per-row id) costs zero
+	// allocations this way. Name is the part after "data-". Combine with the
+	// Data map for additional attributes; both land in the same
+	// deterministically sorted segment.
+	DataAttr DataAttribute
+
+	// Text sets the element's entire text content directly. The equivalent
+	// html.Text(...) child form allocates a full throwaway Element that Tag
+	// discards after extracting the string — one of the highest-frequency
+	// allocation sites in text-heavy trees. Ignored when children are passed
+	// or when empty (use a Text child for explicit empty text).
+	Text string
+
 	OnClick         ui.Handler
 	OnInput         ui.Handler
 	OnChange        ui.Handler
@@ -119,12 +141,18 @@ func Tag(parseName string, parseProps Props, parseChildren ...ui.Node) ui.Node {
 	// disqualification check and the map-lane fallback consume it.
 	parseEvents := runtimeEventProps(parseProps)
 	if parseKey, parseAttrs, isCompact := toRuntimeCompactProps(parseProps, parseEvents); isCompact {
+		if parseProps.Text != "" && len(parseChildren) == 0 && parseName != "TEXT_ELEMENT" && parseName != "FRAGMENT" {
+			return runtime.CreateElementCompactHostOwnedText(parseName, parseKey, parseAttrs, parseProps.Text)
+		}
 		if len(parseChildren) == 1 && parseName != "TEXT_ELEMENT" && parseName != "FRAGMENT" {
 			if parseText, hasText := runtime.PlainTextContent(parseChildren[0]); hasText {
 				return runtime.CreateElementCompactHostOwnedText(parseName, parseKey, parseAttrs, parseText)
 			}
 		}
 		return runtime.CreateElementCompactHostOwned(parseName, parseKey, parseAttrs, toInterfaces(parseChildren)...)
+	}
+	if parseProps.Text != "" && len(parseChildren) == 0 {
+		return runtime.CreateElementOwned(parseName, toRuntimePropsWithEvents(parseProps, parseEvents), any(Text(parseProps.Text)))
 	}
 	return runtime.CreateElementOwned(parseName, toRuntimePropsWithEvents(parseProps, parseEvents), toInterfaces(parseChildren)...)
 }
@@ -714,6 +742,9 @@ func toRuntimeCompactProps(parseProps Props, parseEvents []eventProp) (string, [
 		parseProps.Loading,
 	}
 	parseAttrCount := len(parseProps.Data) + len(parseProps.Aria)
+	if parseProps.DataAttr.Name != "" {
+		parseAttrCount++
+	}
 	for _, parseValue := range parseStringValues {
 		if parseValue != "" {
 			parseAttrCount++
@@ -736,17 +767,39 @@ func toRuntimeCompactProps(parseProps Props, parseEvents []eventProp) (string, [
 	// attribute order is deterministic for a given payload (the reconciler
 	// compares fast-lane attribute slices positionally).
 	parseDataStart := len(parseAttrs)
+	if parseProps.DataAttr.Name != "" {
+		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: internPrefixedAttrName(&dataAttrNameCache, "data-", parseProps.DataAttr.Name), Value: parseProps.DataAttr.Value})
+	}
 	for parseKey, parseValue := range parseProps.Data {
-		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: "data-" + parseKey, Value: parseValue})
+		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: internPrefixedAttrName(&dataAttrNameCache, "data-", parseKey), Value: parseValue})
 	}
 	sortHostAttrSegment(parseAttrs[parseDataStart:])
 	parseAriaStart := len(parseAttrs)
 	for parseKey2, parseValue2 := range parseProps.Aria {
-		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: "aria-" + parseKey2, Value: parseValue2})
+		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: internPrefixedAttrName(&ariaAttrNameCache, "aria-", parseKey2), Value: parseValue2})
 	}
 	sortHostAttrSegment(parseAttrs[parseAriaStart:])
 
 	return parseProps.Key, parseAttrs, true
+}
+
+// dataAttrNameCache / ariaAttrNameCache intern prefixed attribute names
+// ("row-id" -> "data-row-id"). Data/Aria keys are developer-authored and
+// highly repetitive, so the concat allocated one string per attribute per
+// element per render (measured ~10% of a bailout pass's allocations).
+var (
+	dataAttrNameCache sync.Map
+	ariaAttrNameCache sync.Map
+)
+
+// internPrefixedAttrName returns the cached prefixed form of one attribute key.
+func internPrefixedAttrName(parseCache *sync.Map, parsePrefix, parseKey string) string {
+	if parseCached, parseOk := parseCache.Load(parseKey); parseOk {
+		return parseCached.(string)
+	}
+	parseName := parsePrefix + parseKey
+	parseCache.Store(parseKey, parseName)
+	return parseName
 }
 
 // sortHostAttrSegment insertion-sorts one small attribute segment by name;
@@ -815,6 +868,9 @@ func toRuntimeProps(parseProps Props) map[string]any {
 // a second pass.
 func toRuntimePropsWithEvents(parseProps Props, parseEvents []eventProp) map[string]any {
 	parseCount := len(parseProps.Data) + len(parseProps.Aria) + len(parseProps.Raw) + len(parseEvents)
+	if parseProps.DataAttr.Name != "" {
+		parseCount++
+	}
 	if parseProps.ID != "" {
 		parseCount++
 	}
@@ -1110,6 +1166,9 @@ func toRuntimePropsWithEvents(parseProps Props, parseEvents []eventProp) map[str
 		parseValues["style"] = parseProps.Style
 	}
 
+	if parseProps.DataAttr.Name != "" {
+		parseValues[internPrefixedAttrName(&dataAttrNameCache, "data-", parseProps.DataAttr.Name)] = parseProps.DataAttr.Value
+	}
 	if len(parseProps.Data) != 0 {
 		for parseKey, parseValue := range parseProps.Data {
 			parseValues["data-"+parseKey] = parseValue

@@ -25,6 +25,30 @@ func (parseA *MockDOMAdapter) CreateHTMLSubtree(parseHTML string) runtime.DOMNod
 	return parseRoot
 }
 
+// CreateHTMLFragment parses several serialized sibling subtrees into a
+// detached container node whose children are the parsed roots, mirroring the
+// browser adapter's template-content fragment. Appending a child elsewhere
+// moves it out (AppendChild reparents).
+func (parseA *MockDOMAdapter) CreateHTMLFragment(parseHTML string) runtime.DOMNode {
+	parseContext := &html.Node{Type: html.ElementNode, Data: "div", DataAtom: atom.Div}
+	parseNodes, parseErr := html.ParseFragment(strings.NewReader(parseHTML), parseContext)
+	if parseErr != nil || len(parseNodes) == 0 {
+		return (*MockDOMNode)(nil)
+	}
+	parseFragment := parseA.CreateElement("#fragment").(*MockDOMNode)
+	parseAny := false
+	for _, parseSrc := range parseNodes {
+		if parseBuilt := parseA.buildParsedNode(parseSrc); parseBuilt != nil {
+			parseA.AppendChild(parseFragment, parseBuilt)
+			parseAny = true
+		}
+	}
+	if !parseAny {
+		return (*MockDOMNode)(nil)
+	}
+	return parseFragment
+}
+
 // buildParsedNode converts one parsed html.Node into a mock node through the
 // adapter's regular creation methods so operation recording stays consistent.
 func (parseA *MockDOMAdapter) buildParsedNode(parseSrc *html.Node) *MockDOMNode {

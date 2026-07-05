@@ -259,6 +259,39 @@ func (parseA *MockDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNod
 	}
 }
 
+// ReplaceChildren replaces one parent's child list in a single operation,
+// mirroring the browser adapter's Element.replaceChildren fidelity: listed
+// nodes are reparented in order, unlisted previous children are detached.
+func (parseA *MockDOMAdapter) ReplaceChildren(parseParent runtime.DOMNode, parseChildren []runtime.DOMNode) {
+	parseP, parsePok := parseParent.(*MockDOMNode)
+	if !parsePok {
+		return
+	}
+	parseA.mu.Lock()
+	defer parseA.mu.Unlock()
+	for _, parseOld := range parseP.Children {
+		if parseOld != nil && parseOld.Parent == parseP {
+			parseOld.Parent = nil
+		}
+	}
+	parseP.Children = parseP.Children[:0]
+	for _, parseChild := range parseChildren {
+		if parseC, parseCok := parseChild.(*MockDOMNode); parseCok && parseC != nil {
+			if parseC.Parent != nil && parseC.Parent != parseP {
+				for parseIndex, parseExisting := range parseC.Parent.Children {
+					if parseExisting.ID == parseC.ID {
+						parseC.Parent.Children = append(parseC.Parent.Children[:parseIndex], parseC.Parent.Children[parseIndex+1:]...)
+						break
+					}
+				}
+			}
+			parseP.Children = append(parseP.Children, parseC)
+			parseC.Parent = parseP
+		}
+	}
+	parseA.recordOpLocked("replaceChildren", parseP.ID, len(parseChildren))
+}
+
 func (parseA *MockDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNode) {
 	parseP, parsePok := parseParent.(*MockDOMNode)
 	parseC, parseCok := parseChild.(*MockDOMNode)

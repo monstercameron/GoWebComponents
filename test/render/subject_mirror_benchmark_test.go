@@ -38,11 +38,11 @@ func renderMirrorCoreList(parseRows []mirrorCoreRow, parseToken int) ui.Node {
 	for _, getRow := range parseRows {
 		getItems = append(getItems, html.Div(
 			html.Props{
-				Key:   strconv.Itoa(getRow.GetID),
-				Class: mirrorCoreRowClass,
-				Data:  map[string]string{"row-id": strconv.Itoa(getRow.GetID)},
+				Key:      strconv.Itoa(getRow.GetID),
+				Class:    mirrorCoreRowClass,
+				DataAttr: html.DataAttribute{Name: "row-id", Value: strconv.Itoa(getRow.GetID)},
+				Text:     getRow.GetText,
 			},
-			html.Text(getRow.GetText),
 		))
 	}
 	return html.Div(
@@ -121,6 +121,26 @@ func BenchmarkMirrorCoreUpdate40(parseB *testing.B) {
 			getSetRows(getRowsA)
 		}
 		getScheduler.FlushAll()
+	}
+}
+
+// BenchmarkMirrorCoreAppend mirrors the browser core-append scenario: append
+// 100 keyed rows to a mounted 200-row list, then trim back outside the timer.
+func BenchmarkMirrorCoreAppend(parseB *testing.B) {
+	getSetRows, _, getScheduler := newMirrorBenchmarkHost(parseB)
+	getBase := buildMirrorCoreRows(200, "")
+	getGrown := buildMirrorCoreRows(300, "")
+	getSetRows(getBase)
+	getScheduler.FlushAll()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		getSetRows(getGrown)
+		getScheduler.FlushAll()
+		parseB.StopTimer()
+		getSetRows(getBase)
+		getScheduler.FlushAll()
+		parseB.StartTimer()
 	}
 }
 
