@@ -2002,6 +2002,7 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 // main mounts the benchmark subject in the requested framework mode.
 func main() {
 	utils.DisableAllDebug()
+	registerBenchmarkPhaseProbe()
 	getMode := buildBenchmarkMode()
 	if getMode == benchmarkModeRuntime3 || hasBenchmarkWorkerMode(getMode) {
 		registerBenchmarkRuntime3Renderers()

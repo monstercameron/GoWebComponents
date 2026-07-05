@@ -145,10 +145,22 @@ func WithKey(parseNode ui.Node, parseKey any) ui.Node {
 	if parseNode == nil {
 		return nil
 	}
+	// Typed fast-lane nodes carry string keys on the dedicated field, keeping
+	// their map-free shape; other keys go through the legacy props map (with
+	// the host-prop view refreshed so the reconciler sees the mutation).
+	if parseKeyText, isKeyText := parseKey.(string); isKeyText && parseNode.Props == nil {
+		parseNode.Key = parseKeyText
+		return parseNode
+	}
+	runtime.EnsureElementProps(parseNode)
 	if parseNode.Props == nil {
 		parseNode.Props = make(map[string]any, 1)
 	}
 	parseNode.Props["key"] = parseKey
+	// The typed key field would otherwise shadow the map override during
+	// reconciliation.
+	parseNode.Key = ""
+	runtime.RefreshElementHostProps(parseNode)
 	return parseNode
 }
 
@@ -1347,9 +1359,15 @@ func Show(isCondition bool, parseNode ui.Node) ui.Node {
 	if parseNode.Props != nil {
 		parseClone.Props = cloneAnyMap(parseNode.Props)
 	} else {
-		parseClone.Props = make(map[string]any, 1)
+		// Typed fast-lane nodes materialize their attribute view first so the
+		// hidden flag joins (rather than replaces) the existing attributes.
+		parseClone.Props = runtime.EnsureElementProps(&parseClone)
+		if parseClone.Props == nil {
+			parseClone.Props = make(map[string]any, 1)
+		}
 	}
 	parseClone.Props["hidden"] = true
+	runtime.RefreshElementHostProps(&parseClone)
 	return &parseClone
 }
 
@@ -1359,6 +1377,9 @@ func WithChildren(parseNode ui.Node, parseChildren ...ui.Node) ui.Node {
 	if parseNode == nil {
 		return nil
 	}
+	// A single text child may be stored directly on the host element; demote
+	// it to an explicit child node before appending more children.
+	runtime.DemoteDirectTextChild(parseNode)
 	for _, parseChild := range parseChildren {
 		if parseChild != nil {
 			parseNode.Children = append(parseNode.Children, parseChild)

@@ -115,11 +115,18 @@ const parallelRegionClickSlotDataKey = "gwc-parallel-click-slot"
 
 // Tag creates a node for an arbitrary HTML tag name.
 func Tag(parseName string, parseProps Props, parseChildren ...ui.Node) ui.Node {
-	parseChildValues := toInterfaces(parseChildren)
-	if parseValues, parseAttrs, isCompact := toRuntimeCompactProps(parseProps); isCompact {
-		return runtime.CreateElementCompactHostOwned(parseName, parseValues, parseAttrs, parseChildValues...)
+	// The event scan runs exactly once per element; both the compact
+	// disqualification check and the map-lane fallback consume it.
+	parseEvents := runtimeEventProps(parseProps)
+	if parseKey, parseAttrs, isCompact := toRuntimeCompactProps(parseProps, parseEvents); isCompact {
+		if len(parseChildren) == 1 && parseName != "TEXT_ELEMENT" && parseName != "FRAGMENT" {
+			if parseText, hasText := runtime.PlainTextContent(parseChildren[0]); hasText {
+				return runtime.CreateElementCompactHostOwnedText(parseName, parseKey, parseAttrs, parseText)
+			}
+		}
+		return runtime.CreateElementCompactHostOwned(parseName, parseKey, parseAttrs, toInterfaces(parseChildren)...)
 	}
-	return runtime.CreateElementOwned(parseName, toRuntimeProps(parseProps), parseChildValues...)
+	return runtime.CreateElementOwned(parseName, toRuntimePropsWithEvents(parseProps, parseEvents), toInterfaces(parseChildren)...)
 }
 
 // Link creates a typed link element.
@@ -131,39 +138,31 @@ func Link(parseProps Props) ui.Node {
 // attribute and property channels.
 func CustomElement(parseName string, parseProps CustomElementProps, parseChildren ...ui.Node) ui.Node {
 	parseChildValues := toInterfaces(parseChildren)
-	parseValues, parseAttrs, isCompact := toRuntimeCompactProps(parseProps.Props)
 	parseCount := len(parseProps.Attributes) + len(parseProps.Presence) + len(parseProps.Properties)
 	if parseCount == 0 {
-		if isCompact {
-			return runtime.CreateElementCompactHostOwned(parseName, parseValues, parseAttrs, parseChildValues...)
+		parseEvents := runtimeEventProps(parseProps.Props)
+		if parseKey, parseAttrs, isCompact := toRuntimeCompactProps(parseProps.Props, parseEvents); isCompact {
+			return runtime.CreateElementCompactHostOwned(parseName, parseKey, parseAttrs, parseChildValues...)
 		}
-		return runtime.CreateElementOwned(parseName, toRuntimeProps(parseProps.Props), parseChildValues...)
+		return runtime.CreateElementOwned(parseName, toRuntimePropsWithEvents(parseProps.Props, parseEvents), parseChildValues...)
 	}
-	if !isCompact || len(parseProps.Properties) != 0 {
-		parseValues = toRuntimeProps(parseProps.Props)
-	}
+	// Extra attribute/presence/property channels are rare; the map-based lane
+	// keeps their merge semantics and CreateElementOwned re-derives the
+	// compact attribute view when the merged payload allows it.
+	parseValues := toRuntimeProps(parseProps.Props)
 	if parseValues == nil {
 		parseValues = make(map[string]any, parseCount)
 	}
 	for parseKey, parseValue := range parseProps.Attributes {
 		parseValues[parseKey] = parseValue
-		if isCompact && len(parseProps.Properties) == 0 {
-			parseAttrs = append(parseAttrs, runtime.HostAttr{Name: parseKey, Value: parseValue})
-		}
 	}
 	for parseKey2, parseEnabled := range parseProps.Presence {
 		if parseEnabled {
 			parseValues[parseKey2] = ""
-			if isCompact && len(parseProps.Properties) == 0 {
-				parseAttrs = append(parseAttrs, runtime.HostAttr{Name: parseKey2, Value: ""})
-			}
 		}
 	}
 	for parseKey3, parseValue2 := range parseProps.Properties {
 		parseValues[customElementPropertyPrefix+parseKey3] = parseValue2
-	}
-	if isCompact && len(parseProps.Properties) == 0 {
-		return runtime.CreateElementCompactHostOwned(parseName, parseValues, parseAttrs, parseChildValues...)
 	}
 	return runtime.CreateElementOwned(parseName, parseValues, parseChildValues...)
 }
@@ -651,11 +650,11 @@ func Defs(parseProps Props, parseChildren ...ui.Node) ui.Node {
 // Use creates an svg use element.
 func Use(parseProps Props) ui.Node { return Tag("use", parseProps) }
 
-// toRuntimeCompactProps builds props and compact host attrs in one pass for
-// typed Props that contain only string attributes plus the skipped key prop.
-func toRuntimeCompactProps(parseProps Props) (map[string]any, []runtime.HostAttr, bool) {
-	parseEvents := runtimeEventProps(parseProps)
-
+// toRuntimeCompactProps normalizes typed Props that contain only string
+// attributes (plus an optional key) into the typed fast lane: a reconciliation
+// key and a deterministic compact attribute slice, with no props map at all.
+// parseEvents is the caller's single runtimeEventProps scan.
+func toRuntimeCompactProps(parseProps Props, parseEvents []eventProp) (string, []runtime.HostAttr, bool) {
 	if parseProps.Value != "" ||
 		parseProps.Rows != 0 ||
 		parseProps.Cols != 0 ||
@@ -676,115 +675,145 @@ func toRuntimeCompactProps(parseProps Props) (map[string]any, []runtime.HostAttr
 		parseProps.Style != nil ||
 		len(parseProps.Raw) != 0 ||
 		len(parseEvents) != 0 {
-		return nil, nil, false
+		return "", nil, false
 	}
 
-	parseCount := len(parseProps.Data) + len(parseProps.Aria)
-	parseAttrCount := parseCount
-	parseCountStringAttr := func(parseValue string) {
+	// The prop/attr name table (compactStringAttrNames) pairs positionally
+	// with this stack array; both must stay index-aligned. Building the array
+	// in place keeps the hot constructor free of helper-call copies and
+	// closures.
+	parseStringValues := [...]string{
+		parseProps.ID,
+		parseProps.Class,
+		parseProps.Slot,
+		parseProps.Title,
+		parseProps.Type,
+		parseProps.Name,
+		parseProps.Placeholder,
+		parseProps.Accept,
+		parseProps.Href,
+		parseProps.Src,
+		parseProps.Alt,
+		parseProps.For,
+		parseProps.Role,
+		parseProps.Target,
+		parseProps.Rel,
+		parseProps.As,
+		parseProps.Action,
+		parseProps.Method,
+		parseProps.EncType,
+		parseProps.AutoComplete,
+		parseProps.Min,
+		parseProps.Max,
+		parseProps.Step,
+		parseProps.Pattern,
+		parseProps.Lang,
+		parseProps.Dir,
+		parseProps.Width,
+		parseProps.Height,
+		parseProps.Loading,
+	}
+	parseAttrCount := len(parseProps.Data) + len(parseProps.Aria)
+	for _, parseValue := range parseStringValues {
 		if parseValue != "" {
-			parseCount++
 			parseAttrCount++
 		}
 	}
-	parseCountStringAttr(parseProps.ID)
-	parseCountStringAttr(parseProps.Class)
-	if parseProps.Key != "" {
-		parseCount++
-	}
-	parseCountStringAttr(parseProps.Slot)
-	parseCountStringAttr(parseProps.Title)
-	parseCountStringAttr(parseProps.Type)
-	parseCountStringAttr(parseProps.Name)
-	parseCountStringAttr(parseProps.Placeholder)
-	parseCountStringAttr(parseProps.Accept)
-	parseCountStringAttr(parseProps.Href)
-	parseCountStringAttr(parseProps.Src)
-	parseCountStringAttr(parseProps.Alt)
-	parseCountStringAttr(parseProps.For)
-	parseCountStringAttr(parseProps.Role)
-	parseCountStringAttr(parseProps.Target)
-	parseCountStringAttr(parseProps.Rel)
-	parseCountStringAttr(parseProps.As)
-	parseCountStringAttr(parseProps.Action)
-	parseCountStringAttr(parseProps.Method)
-	parseCountStringAttr(parseProps.EncType)
-	parseCountStringAttr(parseProps.AutoComplete)
-	parseCountStringAttr(parseProps.Min)
-	parseCountStringAttr(parseProps.Max)
-	parseCountStringAttr(parseProps.Step)
-	parseCountStringAttr(parseProps.Pattern)
-	parseCountStringAttr(parseProps.Lang)
-	parseCountStringAttr(parseProps.Dir)
-	parseCountStringAttr(parseProps.Width)
-	parseCountStringAttr(parseProps.Height)
-	parseCountStringAttr(parseProps.Loading)
 
-	if parseCount == 0 {
-		return nil, nil, true
+	if parseAttrCount == 0 {
+		return parseProps.Key, nil, true
 	}
 
-	parseValues := make(map[string]any, parseCount+1)
 	parseAttrs := make([]runtime.HostAttr, 0, parseAttrCount)
-	parseStoreAttr := func(parsePropName string, parseAttrName string, parseValue string) {
+	for parseIndex, parseValue := range parseStringValues {
 		if parseValue == "" {
-			return
+			continue
 		}
-		parseValues[parsePropName] = parseValue
-		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: parseAttrName, Value: parseValue})
+		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: compactStringAttrNames[parseIndex].attrName, Value: parseValue})
 	}
 
-	parseStoreAttr("id", "id", parseProps.ID)
-	parseStoreAttr("class", "class", parseProps.Class)
-	if parseProps.Key != "" {
-		parseValues["key"] = parseProps.Key
-	}
-	parseStoreAttr("slot", "slot", parseProps.Slot)
-	parseStoreAttr("title", "title", parseProps.Title)
-	parseStoreAttr("type", "type", parseProps.Type)
-	parseStoreAttr("name", "name", parseProps.Name)
-	parseStoreAttr("placeholder", "placeholder", parseProps.Placeholder)
-	parseStoreAttr("accept", "accept", parseProps.Accept)
-	parseStoreAttr("href", "href", parseProps.Href)
-	parseStoreAttr("src", "src", parseProps.Src)
-	parseStoreAttr("alt", "alt", parseProps.Alt)
-	parseStoreAttr("htmlFor", "for", parseProps.For)
-	parseStoreAttr("role", "role", parseProps.Role)
-	parseStoreAttr("target", "target", parseProps.Target)
-	parseStoreAttr("rel", "rel", parseProps.Rel)
-	parseStoreAttr("as", "as", parseProps.As)
-	parseStoreAttr("action", "action", parseProps.Action)
-	parseStoreAttr("method", "method", parseProps.Method)
-	parseStoreAttr("enctype", "enctype", parseProps.EncType)
-	parseStoreAttr("autocomplete", "autocomplete", parseProps.AutoComplete)
-	parseStoreAttr("min", "min", parseProps.Min)
-	parseStoreAttr("max", "max", parseProps.Max)
-	parseStoreAttr("step", "step", parseProps.Step)
-	parseStoreAttr("pattern", "pattern", parseProps.Pattern)
-	parseStoreAttr("lang", "lang", parseProps.Lang)
-	parseStoreAttr("dir", "dir", parseProps.Dir)
-	parseStoreAttr("width", "width", parseProps.Width)
-	parseStoreAttr("height", "height", parseProps.Height)
-	parseStoreAttr("loading", "loading", parseProps.Loading)
-
+	// Data/Aria segments come from map iteration; sort each segment so the
+	// attribute order is deterministic for a given payload (the reconciler
+	// compares fast-lane attribute slices positionally).
+	parseDataStart := len(parseAttrs)
 	for parseKey, parseValue := range parseProps.Data {
-		parseName := "data-" + parseKey
-		parseValues[parseName] = parseValue
-		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: parseName, Value: parseValue})
+		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: "data-" + parseKey, Value: parseValue})
 	}
+	sortHostAttrSegment(parseAttrs[parseDataStart:])
+	parseAriaStart := len(parseAttrs)
 	for parseKey2, parseValue2 := range parseProps.Aria {
-		parseName2 := "aria-" + parseKey2
-		parseValues[parseName2] = parseValue2
-		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: parseName2, Value: parseValue2})
+		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: "aria-" + parseKey2, Value: parseValue2})
 	}
+	sortHostAttrSegment(parseAttrs[parseAriaStart:])
 
-	return parseValues, parseAttrs, true
+	return parseProps.Key, parseAttrs, true
 }
+
+// sortHostAttrSegment insertion-sorts one small attribute segment by name;
+// data-/aria- maps rarely exceed a handful of entries.
+func sortHostAttrSegment(parseAttrs []runtime.HostAttr) {
+	if len(parseAttrs) < 2 {
+		return
+	}
+	for parseIndex := 1; parseIndex < len(parseAttrs); parseIndex++ {
+		parseAttr := parseAttrs[parseIndex]
+		parseSlot := parseIndex
+		for parseSlot > 0 && parseAttrs[parseSlot-1].Name > parseAttr.Name {
+			parseAttrs[parseSlot] = parseAttrs[parseSlot-1]
+			parseSlot--
+		}
+		parseAttrs[parseSlot] = parseAttr
+	}
+}
+
+// compactStringAttrNames maps each compactStringAttrValues slot to its runtime
+// prop name and DOM attribute name, in the same order attributes were emitted
+// historically (id, class, then the long tail).
+var compactStringAttrNames = [...]struct {
+	propName string
+	attrName string
+}{
+	{"id", "id"},
+	{"class", "class"},
+	{"slot", "slot"},
+	{"title", "title"},
+	{"type", "type"},
+	{"name", "name"},
+	{"placeholder", "placeholder"},
+	{"accept", "accept"},
+	{"href", "href"},
+	{"src", "src"},
+	{"alt", "alt"},
+	{"htmlFor", "for"},
+	{"role", "role"},
+	{"target", "target"},
+	{"rel", "rel"},
+	{"as", "as"},
+	{"action", "action"},
+	{"method", "method"},
+	{"enctype", "enctype"},
+	{"autocomplete", "autocomplete"},
+	{"min", "min"},
+	{"max", "max"},
+	{"step", "step"},
+	{"pattern", "pattern"},
+	{"lang", "lang"},
+	{"dir", "dir"},
+	{"width", "width"},
+	{"height", "height"},
+	{"loading", "loading"},
+}
+
 
 // toRuntimeProps is a core package helper.
 func toRuntimeProps(parseProps Props) map[string]any {
-	parseEvents := runtimeEventProps(parseProps)
+	return toRuntimePropsWithEvents(parseProps, runtimeEventProps(parseProps))
+}
 
+// toRuntimePropsWithEvents is toRuntimeProps with the event scan hoisted to
+// the caller, so construction paths that already scanned events don't pay for
+// a second pass.
+func toRuntimePropsWithEvents(parseProps Props, parseEvents []eventProp) map[string]any {
 	parseCount := len(parseProps.Data) + len(parseProps.Aria) + len(parseProps.Raw) + len(parseEvents)
 	if parseProps.ID != "" {
 		parseCount++

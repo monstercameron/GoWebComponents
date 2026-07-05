@@ -69,7 +69,7 @@ func RenderToStream(parseCtx context.Context, parseWriter io.Writer, parseElemen
 		}
 	}()
 
-	parseState := &ssrStreamState{options: parseOptions}
+	parseState := &ssrStreamState{options: parseOptions, contextValues: ssrHookOwnerContext(nil)}
 	var parseShell strings.Builder
 	if parseErr2 := renderElementToStreamShell(&parseShell, parseElement, parseState); parseErr2 != nil {
 		return parseErr2
@@ -155,7 +155,9 @@ func renderSSRStreamBoundaryChunk(parseCtx context.Context, parseBoundary ssrStr
 				panic(parseRecovered)
 			}
 		}()
-		return renderElementToString(&parseContent, parseBoundary.content, parseBoundary.contextValues)
+		// Boundary chunks render on their own goroutine, so the shell's cached
+		// hook-owner id must be replaced with this goroutine's before rendering.
+		return renderElementToString(&parseContent, parseBoundary.content, ssrHookOwnerContext(parseBoundary.contextValues))
 	}()
 	if parseErr != nil {
 		return SSRStreamChunk{Kind: SSRStreamChunkBoundary, BoundaryID: parseBoundary.id, Err: parseErr}
@@ -385,7 +387,11 @@ func renderHostElementToStreamShell(parseBuilder *strings.Builder, parseTag stri
 
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
-	writeSSRProps(parseBuilder, parseProps)
+	if parseElement.isCompactHostProps && parseProps == nil {
+		writeSSRCompactAttrs(parseBuilder, parseElement.getHostAttrs)
+	} else {
+		writeSSRProps(parseBuilder, parseProps)
+	}
 	parseBuilder.WriteByte('>')
 
 	if isVoidElement(parseTag) {

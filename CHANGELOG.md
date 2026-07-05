@@ -1,5 +1,88 @@
 # Changelog
 
+## v4.1.0 - 2026-07-04
+
+Performance release: a day-long optimization campaign against the Example 201
+browser benchmark (React 19 side-by-side). Same-run geomean vs React improved
+from ~0.27x at the start of the campaign to **0.71x**, with two scenarios now
+beating React outright (core-stress-update 1.10x, content-update 1.02x). All
+lanes green throughout; no public API breaks.
+
+### Performance
+
+- **Synchronous discrete-event flush.** Component event handlers now commit
+  their render pass inside the event's own task (`Runtime.FlushScheduledDiscreteWork`,
+  called by the wasm event bridge after the handler returns) instead of paying a
+  `setTimeout(0)` macrotask hop per interaction — the fixed ~1ms+ tax React's
+  sync discrete flushing never paid. Goroutine-spawned state writes still
+  coalesce exactly as before (the flush runs after all synchronous handler
+  work); a guarded `workLoopDepth` prevents reentrant flushes from handlers
+  fired synchronously by commit-phase DOM writes. 15/19 benchmark scenarios
+  improved.
+- **Hook-slot machinery (hooks-render 2x).** Three fixes measured by the new
+  native hooks mirror benchmark (1.25ms → 0.25ms per 2400-hook pass, allocs −47%):
+  the dev-mode hook threading guard re-samples its `runtime.Stack` traceback
+  every 4096th call instead of every 64th (the traceback was 65% of total CPU
+  in hook-dense renders); `GoUseState` caches its getter/setter closure pair
+  per slot across renders (closure churn was 47% of allocations), retargeting
+  through `hooks.owner` so cached setters never hold stale fibers; and
+  `ui.CreateElement` no longer rebuilds and re-stores a component's renderer on
+  every call when the implementation is the identical function value
+  (`ComponentType.ImplementationMatches`).
+- **Typed no-map element fast lane.** html-built compact host elements carry a
+  deterministic `[]HostAttr` slice and `Key` field instead of a `map[string]any`
+  Props map; the reconciler diffs fast-lane pairs positionally, commit touches
+  only changed attributes, and SSR/hydration serialize byte-identically. Core
+  native update: 155µs → 55µs. Post-creation mutators (`WithKey`, `Show`,
+  `WithChildren`) go through the Ensure → mutate → Refresh seam.
+- **LIS-hybrid child-order repair.** Keyed reorders keep the longest in-order
+  run and move only displaced nodes (one displaced row = one `insertBefore`,
+  previously a wholesale `replaceChildren`); heavy permutations still collapse
+  to one replace.
+- **Serialized subtree mounts.** Eligible all-fast-lane placement subtrees
+  mount from one `template.innerHTML` parse + binding walk instead of one
+  bridge call per node (a 200-row list mounts in one call instead of ~400);
+  per-node prepared+batched creation remains the automatic fallback.
+- **Bailout and render-loop pruning.** Subtree bailouts stop descending at
+  clean nodes, skip clock reads, and the render pass avoids redundant key
+  probes and double event scans.
+- **Reconciler/runtime pass (earlier in campaign).** Geomean −33% across the
+  native benchmark suite; hooks −97%, SSR string/stream −85%.
+
+### Fixed
+
+- **Diagnostics ring quadratic under report storms.** Once the bounded ring
+  filled, every further report rebuilt the entire slice and dedup index
+  (measured: 478ms for a 2000-warning hydration mismatch storm). The ring now
+  drops to half capacity on overflow, making reports O(1) amortized; the same
+  storm costs 6.4ms.
+- **mockdom `textContent` fidelity.** The mock adapter now concatenates
+  descendant text like a browser, so hydration over parsed markup no longer
+  fabricates per-node text mismatches in native tests.
+
+### Added
+
+- **Native benchmark + probe suite.** Native mirrors of the browser benchmark's
+  core and hooks scenarios (`test/render/*_benchmark_test.go`), a hydration
+  walk benchmark with adoption pinning, a browser boot/TTI probe
+  (`TestExample201BootProbe`: wasm fetch / instantiate / subject-ready split),
+  and GC visibility in the phase probe (`numGC`/`gcPauseNs` per scenario).
+- **mockdom `CreateHTMLSubtree`.** The mock adapter parses HTML subtrees via
+  `x/net/html`, so the native suite exercises the serialized-mount and
+  hydration-over-markup paths the browser adapter uses.
+
+### Measured (no code change)
+
+- Boot: subject wasm is 2.37MB gzipped (vs ~45KB for the React equivalent);
+  localhost TTI 437ms cold / ~114ms warm vs 34ms. The wire size is the
+  dominant real-world gap.
+- runtime2 workers: a flat ~2x per-update round-trip overhead vs runtime1 at
+  2, 4, and 8 workers (protocol-bound, not contention); worst on full-dataset
+  re-serialization scenarios (core-append 9–11x).
+- GC tails: max/median 1.74 vs React's 1.20; 1–5 collections per scenario
+  window with single pauses up to ~9ms — the allocation cuts above are the
+  mitigation path.
+
 ## v4.0.1 - 2026-06-29
 
 ### Fixed

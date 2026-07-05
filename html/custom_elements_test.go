@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
@@ -53,7 +54,7 @@ func TestCustomElementSeparatesAttributesFromProperties(parseT *testing.T) {
 		parseT.Fatalf("expected one slotted child, got %d", len(parseNode.Children))
 	}
 	parseChild, parseOk3 := parseNode.Children[0].(*ui.Element)
-	if !parseOk3 || parseChild.Props["slot"] != "actions" {
+	if !parseOk3 || runtime.EnsureElementProps(parseChild)["slot"] != "actions" {
 		parseT.Fatalf("expected child slot attribute, got %#v", parseNode.Children[0])
 	}
 }

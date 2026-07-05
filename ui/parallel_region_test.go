@@ -503,15 +503,10 @@ func TestParallelRegionBuildsLocalFirstShell(parseT *testing.T) {
 	if getNode.Type != "div" {
 		parseT.Fatalf("shell node type = %v, want div", getNode.Type)
 	}
-	if len(getNode.Children) != 1 {
-		parseT.Fatalf("shell child count = %d, want 1", len(getNode.Children))
-	}
-	getChildNode, hasChildNode := getNode.Children[0].(Node)
-	if !hasChildNode {
-		parseT.Fatalf("shell child type = %T, want ui.Node", getNode.Children[0])
-	}
-	if getChildNode.TextContent != "Hot" {
-		parseT.Fatalf("shell child text = %q, want %q", getChildNode.TextContent, "Hot")
+	// A single plain Text child is stored directly on the shell host element
+	// (direct-text fast path) instead of as a separate text child node.
+	if len(getNode.Children) != 0 || getNode.TextContent != "Hot" {
+		parseT.Fatalf("shell direct text = %q (children %#v), want %q with no child nodes", getNode.TextContent, getNode.Children, "Hot")
 	}
 }
 
@@ -750,8 +745,10 @@ func TestReportParallelRegionDiagnosticErrorAndSharedRuntimeHelpers(parseT *test
 		parseT.Fatalf("empty shell = %+v, want div without children", getEmptyShell)
 	}
 	getChildShell := renderParallelRegionShellNode(map[string]any{"id": "shell"}, Text("hot"))
-	if len(getChildShell.Children) != 1 {
-		parseT.Fatalf("shell child count = %d, want 1", len(getChildShell.Children))
+	// A single plain Text child is stored directly on the shell host element
+	// (direct-text fast path) instead of as a separate text child node.
+	if len(getChildShell.Children) != 0 || getChildShell.TextContent != "hot" {
+		parseT.Fatalf("shell direct text = %q (children %#v), want %q with no child nodes", getChildShell.TextContent, getChildShell.Children, "hot")
 	}
 	if isParallelRegionTransitionUpdate() {
 		parseT.Fatal("did not expect transition update without current fiber")

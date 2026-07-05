@@ -181,7 +181,7 @@ func buildProfilingBudgetRuntime(parseFixture profilingBudgetFixture) *Runtime {
 			LastRenderDurationNs:  int64(2 * time.Millisecond),
 			TotalRenderDurationNs: parseFixture.parseTotalRenderDurationNs,
 			TriggerCounts:         map[string]int{"state": parseFixture.parseRerenderCount, "mount": 1},
-			LastRenderedAt:        "2026-03-25T17:30:00.000Z",
+			LastRenderedAt:        time.Date(2026, 3, 25, 17, 30, 0, 0, time.UTC),
 		},
 	}
 	parseRuntime.profiling.routeStartupBudgets = map[string]*routeStartupBudget{

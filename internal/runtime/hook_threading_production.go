@@ -4,6 +4,6 @@ package runtime
 
 const hookThreadingGuardEnabled = false
 
-func currentHookGoroutineID() uint64 {
+func computeHookGoroutineID() uint64 {
 	return 0
 }

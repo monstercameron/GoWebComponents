@@ -1,8 +1,10 @@
 package html
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
@@ -13,30 +15,20 @@ func TestNativeToRuntimePropsOmitsZeroValues(parseT *testing.T) {
 }
 
 func TestNativeToRuntimeCompactPropsEncodesStringAttrs(parseT *testing.T) {
-	parseValues, parseAttrs, isCompact := toRuntimeCompactProps(Props{
+	parseInput := Props{
 		ID:    "field-id",
 		Class: "field shell",
 		Key:   "node-1",
 		For:   "target-id",
 		Data:  map[string]string{"mode": "demo"},
 		Aria:  map[string]string{"label": "Email"},
-	})
+	}
+	parseKey, parseAttrs, isCompact := toRuntimeCompactProps(parseInput, runtimeEventProps(parseInput))
 	if !isCompact {
 		parseT.Fatal("expected string-only props to use compact attrs")
 	}
-
-	parseChecks := map[string]any{
-		"id":         "field-id",
-		"class":      "field shell",
-		"key":        "node-1",
-		"htmlFor":    "target-id",
-		"data-mode":  "demo",
-		"aria-label": "Email",
-	}
-	for parseKey, parseWant := range parseChecks {
-		if parseGot := parseValues[parseKey]; parseGot != parseWant {
-			parseT.Fatalf("expected %s=%#v, got %#v", parseKey, parseWant, parseGot)
-		}
+	if parseKey != "node-1" {
+		parseT.Fatalf("expected typed key node-1, got %q", parseKey)
 	}
 
 	parseAttrValues := map[string]string{}
@@ -73,7 +65,7 @@ func TestNativeToRuntimeCompactPropsRejectsNoncompactProps(parseT *testing.T) {
 
 	for _, parseTt := range parseTests {
 		parseT.Run(parseTt.name, func(parseT2 *testing.T) {
-			if _, _, isCompact := toRuntimeCompactProps(parseTt.props); isCompact {
+			if _, _, isCompact := toRuntimeCompactProps(parseTt.props, runtimeEventProps(parseTt.props)); isCompact {
 				parseT2.Fatal("expected noncompact props to use the generic element path")
 			}
 		})
@@ -287,7 +279,7 @@ func TestNativeTagAndLinkBuildersPreserveChildren(parseT *testing.T) {
 	if parseNode == nil || parseNode.Type != "section" {
 		parseT.Fatalf("expected section node, got %#v", parseNode)
 	}
-	if parseNode.Props["class"] != "shell" {
+	if runtime.EnsureElementProps(parseNode)["class"] != "shell" {
 		parseT.Fatalf("expected class prop, got %#v", parseNode.Props)
 	}
 	if len(parseNode.Children) != 2 {
@@ -298,8 +290,64 @@ func TestNativeTagAndLinkBuildersPreserveChildren(parseT *testing.T) {
 	if parseLink == nil || parseLink.Type != "link" {
 		parseT.Fatalf("expected link node, got %#v", parseLink)
 	}
-	if parseLink.Props["rel"] != "stylesheet" || parseLink.Props["href"] != "/app.css" {
-		parseT.Fatalf("expected link props, got %#v", parseLink.Props)
+	parseLinkProps := runtime.EnsureElementProps(parseLink)
+	if parseLinkProps["rel"] != "stylesheet" || parseLinkProps["href"] != "/app.css" {
+		parseT.Fatalf("expected link props, got %#v", parseLinkProps)
+	}
+}
+
+// TestNativeWithChildrenPreservesFastLaneAttrsInSSR pins the demote seam: a
+// fast-lane direct-text node that gains children afterwards must keep its
+// compact attributes in server-rendered markup.
+func TestNativeWithChildrenPreservesFastLaneAttrsInSSR(parseT *testing.T) {
+	parseNode := WithChildren(Span(Props{Class: "chip"}, Text("Loading")), Span(Props{}, Text("more")))
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString: %v", parseErr)
+	}
+	for _, parseWant := range []string{`class="chip"`, "Loading", "more"} {
+		if !strings.Contains(parseMarkup, parseWant) {
+			parseT.Fatalf("expected markup to contain %q, got %q", parseWant, parseMarkup)
+		}
+	}
+}
+
+// TestNativeControlledSelectKeepsFastLaneOptgroupAttrs pins that a typed
+// fast-lane optgroup nested in a controlled select serializes its compact
+// attributes and that the matching option still gains selected.
+func TestNativeControlledSelectKeepsFastLaneOptgroupAttrs(parseT *testing.T) {
+	parseNode := Select(Props{Value: "b"},
+		Optgroup(Props{Class: "grp", Data: map[string]string{"section": "letters"}},
+			Option(Props{}, Text("a")),
+			Option(Props{Class: "opt"}, Text("b")),
+		),
+	)
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString: %v", parseErr)
+	}
+	for _, parseWant := range []string{`class="grp"`, `data-section="letters"`, `class="opt"`, "selected"} {
+		if !strings.Contains(parseMarkup, parseWant) {
+			parseT.Fatalf("expected markup to contain %q, got %q", parseWant, parseMarkup)
+		}
+	}
+}
+
+// TestNativeWithKeyOnFastLaneNode pins the post-creation key seam for typed
+// fast-lane nodes: string keys land on the dedicated field, non-string keys
+// materialize the legacy map lane so the reconciler still sees them.
+func TestNativeWithKeyOnFastLaneNode(parseT *testing.T) {
+	parseNode := WithKey(Div(Props{Class: "row"}), "k1")
+	if parseNode.Key != "k1" {
+		parseT.Fatalf("expected fast-lane key field, got %q (props %#v)", parseNode.Key, parseNode.Props)
+	}
+
+	parseMixed := WithKey(Div(Props{Class: "row"}), 7)
+	if parseMixed.Props["key"] != 7 {
+		parseT.Fatalf("expected non-string key in materialized props, got %#v", parseMixed.Props)
+	}
+	if parseMixed.Props["class"] != "row" {
+		parseT.Fatalf("expected materialized props to keep attributes, got %#v", parseMixed.Props)
 	}
 }
 
@@ -308,12 +356,13 @@ func TestNativeCustomElementWithoutExtraChannels(parseT *testing.T) {
 	if parseNode == nil || parseNode.Type != "demo-card" {
 		parseT.Fatalf("expected custom element, got %#v", parseNode)
 	}
-	if parseNode.Props["class"] != "shell" {
+	if runtime.EnsureElementProps(parseNode)["class"] != "shell" {
 		parseT.Fatalf("expected class prop, got %#v", parseNode.Props)
 	}
-	parseChild, parseOk := parseNode.Children[0].(*ui.Element)
-	if len(parseNode.Children) != 1 || !parseOk || parseChild.TextContent != "child" {
-		parseT.Fatalf("expected child preservation, got %#v", parseNode.Children)
+	// A single plain Text child is stored directly on the host element
+	// (direct-text fast path) instead of as a separate text child node.
+	if len(parseNode.Children) != 0 || parseNode.TextContent != "child" {
+		parseT.Fatalf("expected direct text child preservation, got %#v (text %q)", parseNode.Children, parseNode.TextContent)
 	}
 }
 
@@ -448,11 +497,12 @@ func TestNativeConvenienceHelpers(parseT *testing.T) {
 		{node: DNSPrefetch("https://cdn.example.test"), rel: "dns-prefetch", as: nil},
 	}
 	for _, parseTt := range parseResourceHints {
-		if parseTt.node.Type != "link" || parseTt.node.Props["rel"] != parseTt.rel {
+		parseNodeProps := runtime.EnsureElementProps(parseTt.node)
+		if parseTt.node.Type != "link" || parseNodeProps["rel"] != parseTt.rel {
 			parseT.Fatalf("expected rel %q, got %#v", parseTt.rel, parseTt.node)
 		}
-		if parseTt.as != nil && parseTt.node.Props["as"] != parseTt.as {
-			parseT.Fatalf("expected as %v, got %#v", parseTt.as, parseTt.node.Props["as"])
+		if parseTt.as != nil && parseNodeProps["as"] != parseTt.as {
+			parseT.Fatalf("expected as %v, got %#v", parseTt.as, parseNodeProps["as"])
 		}
 	}
 }

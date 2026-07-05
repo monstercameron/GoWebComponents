@@ -379,7 +379,13 @@ func hotReloadFiberPathSegment(parseFiber *Fiber) string {
 
 // hotReloadFiberKeySegment is an internal hot-reload helper.
 func hotReloadFiberKeySegment(parseFiber *Fiber) string {
-	if parseFiber == nil || parseFiber.props == nil {
+	if parseFiber == nil {
+		return ""
+	}
+	if parseFiber.key != "" {
+		return "key:" + parseFiber.key
+	}
+	if parseFiber.props == nil {
 		return ""
 	}
 	parseKey, parseOk := parseFiber.props["key"]
@@ -829,7 +835,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 		if parseAttempt == 0 && parseRestore == nil {
 			parseRt.strictPreviewRender(parseFiber)
 		}
-		SetCurrentFiber(parseFiber)
+		setCurrentFiberOwned(parseFiber, parseRt.renderPassOwnerID())
 		parseFiber.renderDurationNs = 0
 		if parseAttempt == 0 && parseRestore != nil {
 			parseFiber.hooks = &Hooks{owner: parseFiber, hotReloadRestore: parseRestore}
@@ -942,7 +948,7 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 				parseFiber.hooks.cleanupIndex = 0
 				parseFiber.hooks.signature = parseFiber.hooks.signature[:0]
 			}
-			SetCurrentFiber(parseFiber)
+			setCurrentFiberOwned(parseFiber, parseRt.renderPassOwnerID())
 			parseRt.activeRenderFiber = parseFiber
 			func() {
 				defer SetCurrentFiber(nil)

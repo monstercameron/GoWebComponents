@@ -13,6 +13,7 @@ type optimizationTestAdapter struct {
 	getFirstChildCount     int
 	getNextSiblingCount    int
 	insertBeforeCount      int
+	appendChildCount       int
 	replaceChildrenCount   int
 	beginBatchCount        int
 	endBatchCount          int
@@ -73,6 +74,11 @@ func (parseA *optimizationTestAdapter) InsertBefore(parseParent DOMNode, parseNe
 	parseA.testDOMAdapter.InsertBefore(parseParent, parseNewChild, parseRefChild)
 }
 
+func (parseA *optimizationTestAdapter) AppendChild(parseParent DOMNode, parseChild DOMNode) {
+	parseA.appendChildCount++
+	parseA.testDOMAdapter.AppendChild(parseParent, parseChild)
+}
+
 // ReplaceChildren records one wholesale child replacement for optimization coverage.
 func (parseA *optimizationTestAdapter) ReplaceChildren(parseParent DOMNode, parseChildren []DOMNode) {
 	parseA.replaceChildrenCount++
@@ -97,6 +103,7 @@ func (parseA *optimizationTestAdapter) resetCounts() {
 	parseA.getFirstChildCount = 0
 	parseA.getNextSiblingCount = 0
 	parseA.insertBeforeCount = 0
+	parseA.appendChildCount = 0
 	parseA.replaceChildrenCount = 0
 	parseA.beginBatchCount = 0
 	parseA.endBatchCount = 0
@@ -126,11 +133,7 @@ func TestCreateDomUsesPreparedCompactHostMount(parseT *testing.T) {
 }
 
 func TestCreateElementCompactHostOwnedUsesProvidedAttrs(parseT *testing.T) {
-	parseProps := map[string]any{
-		"id":    "row-1",
-		"class": "card",
-	}
-	parseElem := CreateElementCompactHostOwned("div", parseProps, []HostAttr{
+	parseElem := CreateElementCompactHostOwned("div", "row-key", []HostAttr{
 		{Name: "id", Value: "row-1"},
 		{Name: "class", Value: "card"},
 	}, "hello")
@@ -147,9 +150,18 @@ func TestCreateElementCompactHostOwnedUsesProvidedAttrs(parseT *testing.T) {
 	if !parseElem.hasDirectText || parseElem.TextContent != "hello" {
 		parseT.Fatalf("expected direct text child, got direct=%v text=%q", parseElem.hasDirectText, parseElem.TextContent)
 	}
-	parseProps["id"] = "row-2"
-	if parseElem.Props["id"] != "row-2" {
-		parseT.Fatal("expected owned props map to be retained")
+	if parseElem.Props != nil {
+		parseT.Fatalf("expected fast-lane element to carry no props map, got %#v", parseElem.Props)
+	}
+	if parseElem.Key != "row-key" {
+		parseT.Fatalf("expected typed key, got %q", parseElem.Key)
+	}
+	parseView := EnsureElementProps(parseElem)
+	if parseView["id"] != "row-1" || parseView["class"] != "card" || parseView["key"] != "row-key" {
+		parseT.Fatalf("expected materialized props view, got %#v", parseView)
+	}
+	if parseElem.Props == nil {
+		parseT.Fatal("expected materialized props view to be cached on the element")
 	}
 }
 
@@ -158,10 +170,7 @@ func TestCreateElementCompactHostOwnedRendersPreparedMount(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseContainer := parseAdapter.CreateElement("root")
 
-	parseRt.Render(CreateElementCompactHostOwned("div", map[string]any{
-		"id":    "row-1",
-		"class": "card",
-	}, []HostAttr{
+	parseRt.Render(CreateElementCompactHostOwned("div", "", []HostAttr{
 		{Name: "id", Value: "row-1"},
 		{Name: "class", Value: "card"},
 	}, "hello"), parseContainer)
@@ -175,10 +184,9 @@ func TestCreateElementCompactHostOwnedRendersPreparedMount(parseT *testing.T) {
 }
 
 func TestRefreshElementHostPropsAfterCompactConstructorMutation(parseT *testing.T) {
-	parseElem := CreateElementCompactHostOwned("input", map[string]any{
-		"id": "email",
-	}, []HostAttr{{Name: "id", Value: "email"}})
+	parseElem := CreateElementCompactHostOwned("input", "", []HostAttr{{Name: "id", Value: "email"}})
 
+	EnsureElementProps(parseElem)
 	parseElem.Props["value"] = "cam@example.test"
 	RefreshElementHostProps(parseElem)
 
@@ -569,6 +577,42 @@ func TestApplyCommittedChildOrderUsesReplaceChildrenFastPath(parseT *testing.T) 
 	parseChildren := parseAdapter.GetChildren(parseParent)
 	if len(parseChildren) != len(getExpected) {
 		parseT.Fatalf("expected %d repaired children, got %d", len(getExpected), len(parseChildren))
+	}
+	for getIndex, getExpectedNode := range getExpected {
+		if !IsSameDOMNode(parseChildren[getIndex], getExpectedNode) {
+			parseT.Fatalf("expected child %d to match repaired order", getIndex)
+		}
+	}
+}
+
+// TestApplyCommittedChildOrderMovesOnlyDisplacedChild pins the minimal-move
+// repair: one child moved from front to back of a long list costs exactly one
+// DOM move, not a wholesale rebuild or a cascade of per-position inserts.
+func TestApplyCommittedChildOrderMovesOnlyDisplacedChild(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseParent := parseAdapter.CreateElement("section")
+	getNodes := make([]DOMNode, 0, 12)
+	for range 12 {
+		getNode := parseAdapter.CreateElement("div")
+		getNodes = append(getNodes, getNode)
+		parseAdapter.AppendChild(parseParent, getNode)
+	}
+	// Expected order: first child moved to the end; everything else stays.
+	getExpected := append(append(make([]DOMNode, 0, 12), getNodes[1:]...), getNodes[0])
+	parseAdapter.resetCounts()
+
+	parseRt.applyCommittedChildOrder(parseParent, getExpected)
+
+	if parseAdapter.replaceChildrenCount != 0 {
+		parseT.Fatalf("expected minimal-move repair to skip replaceChildren, got %d calls", parseAdapter.replaceChildrenCount)
+	}
+	if getMoves := parseAdapter.insertBeforeCount + parseAdapter.appendChildCount; getMoves != 1 {
+		parseT.Fatalf("expected exactly one DOM move for one displaced child, got %d (insert=%d append=%d)", getMoves, parseAdapter.insertBeforeCount, parseAdapter.appendChildCount)
+	}
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != len(getExpected) {
+		parseT.Fatalf("expected %d children, got %d", len(getExpected), len(parseChildren))
 	}
 	for getIndex, getExpectedNode := range getExpected {
 		if !IsSameDOMNode(parseChildren[getIndex], getExpectedNode) {

@@ -300,6 +300,33 @@ func TestQueryAgentNodesByID(t *testing.T) {
 	}
 }
 
+// TestReadPropStringFastLaneFiber pins that agent queries resolve string
+// attributes from the typed fast-lane compact slice when a fiber carries no
+// props map, including the for/htmlFor spelling difference.
+func TestReadPropStringFastLaneFiber(t *testing.T) {
+	parseFiber := &Fiber{
+		typeOf:             "label",
+		isCompactHostProps: true,
+		getHostAttrs: []HostAttr{
+			{Name: "id", Value: "field-label"},
+			{Name: "for", Value: "field-input"},
+			{Name: "role", Value: "note"},
+		},
+	}
+	if parseGot := readPropString(parseFiber, "id"); parseGot != "field-label" {
+		t.Fatalf("expected fast-lane id, got %q", parseGot)
+	}
+	if parseGot := readPropString(parseFiber, "htmlFor"); parseGot != "field-input" {
+		t.Fatalf("expected fast-lane htmlFor via for attr, got %q", parseGot)
+	}
+	if parseGot := readPropString(parseFiber, "role"); parseGot != "note" {
+		t.Fatalf("expected fast-lane role, got %q", parseGot)
+	}
+	if parseGot := readPropString(parseFiber, "missing"); parseGot != "" {
+		t.Fatalf("expected empty for absent attr, got %q", parseGot)
+	}
+}
+
 // TestQueryAgentNodesByTag pins that tag queries return all nodes with the
 // matching element tag (case-insensitive).
 func TestQueryAgentNodesByTag(t *testing.T) {

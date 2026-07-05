@@ -52,10 +52,35 @@ func RenderToString(parseElement *Element) (parseMarkup string, parseErr error) 
 	}()
 
 	var parseBuilder strings.Builder
-	if parseErr2 := renderElementToString(&parseBuilder, parseElement, nil); parseErr2 != nil {
+	if parseErr2 := renderElementToString(&parseBuilder, parseElement, ssrHookOwnerContext(nil)); parseErr2 != nil {
 		return "", parseErr2
 	}
 	return parseBuilder.String(), nil
+}
+
+// ssrHookOwnerContextKey is a reserved context-values key that carries the
+// rendering goroutine's hook-owner id down the synchronous SSR walk, so each
+// component resolution skips a full runtime.Stack traceback (the dominant SSR
+// cost in development builds). It is negative and can never collide with
+// context descriptor IDs, which come from a positive counter.
+const ssrHookOwnerContextKey int64 = -1 << 62
+
+// ssrHookOwnerContext derives a context-values map seeded with the calling
+// goroutine's hook-owner id. Each goroutine that enters an SSR walk (string
+// render, stream shell, stream boundary chunk) must seed its own map; the id
+// is only valid on the call stack that computed it.
+func ssrHookOwnerContext(parseParent map[int64]any) map[int64]any {
+	if !hookThreadingGuardEnabled {
+		return parseParent
+	}
+	parseOwner := computeHookGoroutineID()
+	if parseOwner == 0 {
+		return parseParent
+	}
+	parseCtx := make(map[int64]any, len(parseParent)+1)
+	maps.Copy(parseCtx, parseParent)
+	parseCtx[ssrHookOwnerContextKey] = parseOwner
+	return parseCtx
 }
 
 // renderElementToString is a core package helper. parseCtx carries the inherited
@@ -268,15 +293,25 @@ func optionMatchValue(parseOption *Element) string {
 
 // elementWithSelected returns a shallow copy of an <option> element with
 // selected=true added to its props, without mutating the source element.
+// Typed fast-lane options materialize their attribute view first so the copy
+// keeps every compact attribute in the serialized output.
 func elementWithSelected(parseOption *Element) *Element {
-	parseProps := make(map[string]any, len(parseOption.Props)+1)
-	maps.Copy(parseProps, parseOption.Props)
+	var parseProps map[string]any
+	if parseOption.Props == nil && parseOption.isCompactHostProps {
+		// The materialized view is exclusively owned by this call, so the
+		// selected flag can land in it directly without a defensive copy.
+		parseProps = fastLanePropsView(parseOption.getHostAttrs, parseOption.Key, nil, false)
+	} else {
+		parseProps = make(map[string]any, len(parseOption.Props)+1)
+		maps.Copy(parseProps, parseOption.Props)
+	}
 	parseProps["selected"] = true
 	return &Element{
 		Type:          parseOption.Type,
 		Props:         parseProps,
 		Children:      parseOption.Children,
 		TextContent:   parseOption.TextContent,
+		Key:           parseOption.Key,
 		hasDirectText: parseOption.hasDirectText,
 	}
 }
@@ -307,7 +342,11 @@ func renderSelectChildrenToString(parseBuilder *strings.Builder, parseChildren [
 		case strings.EqualFold(parseType, "optgroup"):
 			parseBuilder.WriteByte('<')
 			parseBuilder.WriteString(parseType)
-			writeSSRProps(parseBuilder, parseEl.Props)
+			if parseEl.isCompactHostProps && parseEl.Props == nil {
+				writeSSRCompactAttrs(parseBuilder, parseEl.getHostAttrs)
+			} else {
+				writeSSRProps(parseBuilder, parseEl.Props)
+			}
 			parseBuilder.WriteByte('>')
 			if parseErr := renderSelectChildrenToString(parseBuilder, getElementChildren(parseEl), parseSelectValue, parseCtx); parseErr != nil {
 				return parseErr
@@ -391,7 +430,11 @@ func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, p
 
 	parseBuilder.WriteByte('<')
 	parseBuilder.WriteString(parseTag)
-	writeSSRProps(parseBuilder, parseProps)
+	if parseElement.isCompactHostProps && parseProps == nil {
+		writeSSRCompactAttrs(parseBuilder, parseElement.getHostAttrs)
+	} else {
+		writeSSRProps(parseBuilder, parseProps)
+	}
 	parseBuilder.WriteByte('>')
 
 	if isVoidElement(parseTag) {
@@ -439,8 +482,10 @@ func renderChildrenToString(parseBuilder *strings.Builder, parseChildren []any, 
 func withSSRHookFiber(parseType any, parseProps map[string]any, parseCtx map[int64]any, parseRender func() *Element) *Element {
 	parseFiber := &Fiber{typeOf: parseType, props: parseProps, contextValues: parseCtx}
 	parsePrev := GetCurrentFiber()
-	SetCurrentFiber(parseFiber)
-	defer SetCurrentFiber(parsePrev)
+	parsePrevOwner := currentFiberOwnerGoroutineID
+	parseOwner, _ := parseCtx[ssrHookOwnerContextKey].(uint64)
+	setCurrentFiberOwned(parseFiber, parseOwner)
+	defer setCurrentFiberOwned(parsePrev, parsePrevOwner)
 	return parseRender()
 }
 
@@ -542,6 +587,47 @@ func serializeProps(parseProps map[string]any) []string {
 // It is the streaming twin of serializeProps: per-attribute it avoids the
 // intermediate `name="value"` string (and the slice holding them) that the
 // builder would immediately copy — the serializer's largest allocation source.
+// writeSSRCompactAttrs serializes one typed fast-lane attribute slice with the
+// same ordering, name normalization, sanitization, and escaping as
+// writeSSRProps, so fast-lane and map-built elements produce identical markup.
+func writeSSRCompactAttrs(parseBuilder *strings.Builder, parseAttrs []HostAttr) {
+	if len(parseAttrs) == 0 {
+		return
+	}
+	// writeSSRProps sorts by legacy prop-map key; mirror that so output stays
+	// byte-identical. The slice is tiny, so an insertion sort on a stack copy
+	// avoids heap traffic.
+	var parseStorage [16]HostAttr
+	parsePairs := parseStorage[:0]
+	for _, parseAttr := range parseAttrs {
+		parsePairs = append(parsePairs, HostAttr{Name: compactAttrPropName(parseAttr.Name), Value: parseAttr.Value})
+	}
+	for parseIndex := 1; parseIndex < len(parsePairs); parseIndex++ {
+		parsePair := parsePairs[parseIndex]
+		parseSlot := parseIndex
+		for parseSlot > 0 && parsePairs[parseSlot-1].Name > parsePair.Name {
+			parsePairs[parseSlot] = parsePairs[parseSlot-1]
+			parseSlot--
+		}
+		parsePairs[parseSlot] = parsePair
+	}
+	for _, parsePair := range parsePairs {
+		parseName := normalizeSSRAttrName(parsePair.Name)
+		if !isValidSSRAttrName(parseName) {
+			continue
+		}
+		parseValue := parsePair.Value
+		if urlBearingSSRAttr(parseName) {
+			parseValue = sanitizeSSRURLValue(parseValue)
+		}
+		parseBuilder.WriteByte(' ')
+		parseBuilder.WriteString(parseName)
+		parseBuilder.WriteString(`="`)
+		parseBuilder.WriteString(html.EscapeString(parseValue))
+		parseBuilder.WriteByte('"')
+	}
+}
+
 func writeSSRProps(parseBuilder *strings.Builder, parseProps map[string]any, parseSkip ...string) {
 	if len(parseProps) == 0 {
 		return

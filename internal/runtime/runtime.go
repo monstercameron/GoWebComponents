@@ -59,23 +59,36 @@ type Runtime struct {
 	// setter that sees its owner == activeRenderFiber is a render-phase update and
 	// converges in renderFunctionComponent instead of scheduling a commit. Unlike
 	// the ambient currentFiber, this is never set by unit tests or the SSR path.
-	activeRenderFiber       *Fiber
-	nextUnitOfWork          *Fiber
-	deletions               []*Fiber
-	pendingEffectFibers     []*Fiber
-	tracksPendingEffects    bool
-	updateScheduled         bool
-	continueWorkFn          func()
-	pendingBoundaryRecovery bool
-	pendingEffectOverflow   bool
-	transitionDepth         int
-	pendingTransitions      int
-	transitionMu            sync.Mutex
-	strictMode              StrictModeOptions
-	limits                  RuntimeLimits
-	schedulerState          runtimeSchedulerState
-	replay                  runtimeReplayState
-	agentStateVersion       atomic.Uint64
+	activeRenderFiber *Fiber
+	// renderPassActive marks a running work loop pass; while set,
+	// renderPassOwnerID lazily captures the pass goroutine id once (a full
+	// runtime.Stack traceback) so per-fiber SetCurrentFiber calls skip it.
+	// Both fields are set and cleared only by workLoop on its own synchronous
+	// call stack; the id is 0 whenever no component has rendered yet.
+	renderPassActive           bool
+	renderPassOwnerGoroutineID uint64
+	// workLoopDepth guards synchronous discrete-event flushes: a flush may
+	// only start a work loop when none is already running on this stack
+	// (e.g. a focus handler fired synchronously by a commit-phase DOM write).
+	// Maintained unconditionally by workLoop, unlike renderPassActive which
+	// exists only for the dev threading guard.
+	workLoopDepth   int
+	nextUnitOfWork  *Fiber
+	deletions                  []*Fiber
+	pendingEffectFibers        []*Fiber
+	tracksPendingEffects       bool
+	updateScheduled            bool
+	continueWorkFn             func()
+	pendingBoundaryRecovery    bool
+	pendingEffectOverflow      bool
+	transitionDepth            int
+	pendingTransitions         int
+	transitionMu               sync.Mutex
+	strictMode                 StrictModeOptions
+	limits                     RuntimeLimits
+	schedulerState             runtimeSchedulerState
+	replay                     runtimeReplayState
+	agentStateVersion          atomic.Uint64
 
 	// Global state management
 	atomRegistry *AtomRegistry

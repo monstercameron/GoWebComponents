@@ -71,6 +71,23 @@ func (parseComponentType *ComponentType) SetImplementationRenderer(parseComponen
 	parseComponentType.getState.Store(parseCurrentState)
 }
 
+// ImplementationMatches reports whether the handle's current implementation is
+// the very same function value (code pointer and closure data). Hot-swap
+// callers use it to skip rebuilding an identical renderer on every element
+// creation; a recreated closure (fresh captures, same code) does not match, so
+// hot-reload and inline-component swaps still take the update path.
+func (parseComponentType *ComponentType) ImplementationMatches(parseComponentImplementation any) bool {
+	if parseComponentType == nil {
+		return false
+	}
+	parseStateValue := parseComponentType.getState.Load()
+	if parseStateValue == nil {
+		return false
+	}
+	parseState := parseStateValue.(componentRenderState)
+	return parseState.getRender != nil && sameFunctionIdentity(parseState.getImplementation, parseComponentImplementation)
+}
+
 // IdentityKey returns the logical identity used to compare component handles.
 func (parseComponentType *ComponentType) IdentityKey() string {
 	if parseComponentType == nil {

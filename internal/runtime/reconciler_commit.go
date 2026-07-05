@@ -89,6 +89,41 @@ func (parseRt *Runtime) applyCompactHostAttrs(parseDom DOMNode, parseAttrs []Hos
 	}
 }
 
+// updateCompactHostAttrs diffs two deterministic compact attribute slices and
+// applies only the changed attributes; it reports whether any DOM write
+// happened. Slices are tiny (a handful of attributes), so the containment
+// scans are linear rather than map-backed.
+func (parseRt *Runtime) updateCompactHostAttrs(parseDom DOMNode, parseOldAttrs, parseNewAttrs []HostAttr) bool {
+	if hostAttrsEqual(parseOldAttrs, parseNewAttrs) {
+		return false
+	}
+	isChanged := false
+	for _, parseNew := range parseNewAttrs {
+		parseOldValue, hasOld := lookupHostAttr(parseOldAttrs, parseNew.Name)
+		if !hasOld || parseOldValue != parseNew.Value {
+			parseRt.domAdapter.SetAttribute(parseDom, parseNew.Name, parseNew.Value)
+			isChanged = true
+		}
+	}
+	for _, parseOld := range parseOldAttrs {
+		if _, hasNew := lookupHostAttr(parseNewAttrs, parseOld.Name); !hasNew {
+			parseRt.domAdapter.RemoveAttribute(parseDom, parseOld.Name)
+			isChanged = true
+		}
+	}
+	return isChanged
+}
+
+// lookupHostAttr finds one attribute by name in a compact attribute slice.
+func lookupHostAttr(parseAttrs []HostAttr, parseName string) (string, bool) {
+	for _, parseAttr := range parseAttrs {
+		if parseAttr.Name == parseName {
+			return parseAttr.Value, true
+		}
+	}
+	return "", false
+}
+
 // updateDomProperties updates DOM properties with optimized batching when available
 func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, parseNewProps map[string]any) {
 	// Check if dom is nil (interface is nil) or if the concrete value is null
@@ -502,7 +537,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 	if !isPortal && !IsDOMNodeNull(parseDomParent) {
 		if parseFiber.effectTag == effectTagPlacement {
 			parseStart := commitTimingStart()
-			if IsDOMNodeNull(parseFiber.dom) {
+			if IsDOMNodeNull(parseFiber.dom) && !parseRt.tryCommitSerializedSubtree(parseFiber) {
 				parseFiber.dom = parseRt.createDom(parseFiber)
 			}
 			if !IsDOMNodeNull(parseFiber.dom) {
@@ -534,10 +569,17 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 				}
 			} else {
 				parseStart3 := commitTimingStart()
-				parseBatchAdapter, parseSupportsBatching := parseRt.domAdapter.(interface {
-					BatchSetAttributes(DOMNode, map[string]string)
-				})
-				parseRt.applyInitialDomProps(parseFiber.dom, parseFiber.props, parseSupportsBatching, parseBatchAdapter, parseFiber.hydrated)
+				if isFastLaneCompactFiber(parseFiber) {
+					// Typed fast-lane fibers carry no events or controlled
+					// values; adopting a hydrated node only needs its
+					// attributes reasserted.
+					parseRt.applyCompactHostAttrs(parseFiber.dom, parseFiber.getHostAttrs)
+				} else {
+					parseBatchAdapter, parseSupportsBatching := parseRt.domAdapter.(interface {
+						BatchSetAttributes(DOMNode, map[string]string)
+					})
+					parseRt.applyInitialDomProps(parseFiber.dom, parseFiber.props, parseSupportsBatching, parseBatchAdapter, parseFiber.hydrated)
+				}
 				if parseFiber.hasDirectText && parseRt.domNodeText(parseFiber.dom) != parseFiber.textContent {
 					parseRt.domAdapter.SetTextContent(parseFiber.dom, parseFiber.textContent)
 				}
@@ -573,8 +615,14 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 						}
 						isParseCommitted = true
 					}
-					if !propsEqualIgnoringChildren(parseFiber.alternate.props, parseFiber.props) {
-						parseRt.updateDomProperties(parseFiber.dom, parseFiber.alternate.props, parseFiber.props)
+					if isFastLaneCompactFiber(parseFiber) && isFastLaneCompactFiber(parseFiber.alternate) {
+						// Typed fast lane: diff the deterministic attribute
+						// slices directly and touch only changed attributes.
+						if parseRt.updateCompactHostAttrs(parseFiber.dom, parseFiber.alternate.getHostAttrs, parseFiber.getHostAttrs) {
+							isParseCommitted = true
+						}
+					} else if parseOldView, parseNewView := fiberPropsView(parseFiber.alternate), fiberPropsView(parseFiber); !propsEqualIgnoringChildren(parseOldView, parseNewView) {
+						parseRt.updateDomProperties(parseFiber.dom, parseOldView, parseNewView)
 						isParseCommitted = true
 					}
 					if isParseCommitted {
@@ -677,7 +725,7 @@ func (parseRt *Runtime) countCommittedPlacementChildrenUntil(parseFiber *Fiber, 
 			parseFiber = parseFiber.sibling
 			continue
 		}
-		if !IsDOMNodeNull(parseFiber.dom) {
+		if !IsDOMNodeNull(parseFiber.dom) || isDeferredCommitHostFiber(parseFiber) {
 			if parseFiber.effectTag == effectTagPlacement {
 				parseCount++
 				if parseCount >= parseLimit {
@@ -763,13 +811,40 @@ func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseEx
 	if isCommittedChildOrderStable(parseExpected, parseObserved) {
 		return
 	}
-	if parseReplaceAdapter, parseOk := parseRt.domAdapter.(interface {
-		ReplaceChildren(DOMNode, []DOMNode)
-	}); parseOk && len(parseExpected) >= getCommittedChildReplaceThreshold && canReplaceCommittedChildren(parseExpected, parseObserved) {
-		parseReplaceAdapter.ReplaceChildren(parseDomParent, parseExpected)
+
+	// Same node set, order differs: keep the longest run of children already
+	// in relative order and move only the rest. A single displaced row in a
+	// long list costs one insertBefore instead of a wholesale rebuild; a
+	// heavily permuted long list (moves > half) still collapses into one
+	// replaceChildren call when the adapter supports it.
+	if parseMatch, hasSameSet := buildCommittedChildOrderMatch(parseExpected, parseObserved); hasSameSet {
+		parseKept, parseKeptCount := markCommittedChildOrderKept(parseMatch, len(parseExpected))
+		parseMoveCount := len(parseExpected) - parseKeptCount
+		if parseReplaceAdapter, parseOk := parseRt.domAdapter.(interface {
+			ReplaceChildren(DOMNode, []DOMNode)
+		}); parseOk && len(parseExpected) >= getCommittedChildReplaceThreshold && parseMoveCount*2 > len(parseExpected) {
+			parseReplaceAdapter.ReplaceChildren(parseDomParent, parseExpected)
+			return
+		}
+		var parseAnchor DOMNode
+		for parseIndex := len(parseExpected) - 1; parseIndex >= 0; parseIndex-- {
+			parseNode := parseExpected[parseIndex]
+			if parseKept[parseIndex] {
+				parseAnchor = parseNode
+				continue
+			}
+			if IsDOMNodeNull(parseAnchor) {
+				parseRt.domAdapter.AppendChild(parseDomParent, parseNode)
+			} else {
+				parseRt.domAdapter.InsertBefore(parseDomParent, parseNode, parseAnchor)
+			}
+			parseAnchor = parseNode
+		}
 		return
 	}
 
+	// Set mismatch (detached expected nodes or foreign observed nodes):
+	// greedy positional repair handles inserts and removals.
 	for parseIndex, parseExpectedNode := range parseExpected {
 		if parseIndex < len(parseObserved) && IsSameDOMNode(parseObserved[parseIndex], parseExpectedNode) {
 			continue
@@ -792,17 +867,70 @@ func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseEx
 	}
 }
 
-// canReplaceCommittedChildren reports whether one wholesale replaceChildren call preserves the current repair semantics.
-func canReplaceCommittedChildren(parseExpected []DOMNode, parseObserved []DOMNode) bool {
+// buildCommittedChildOrderMatch maps each observed child to its expected
+// index; hasSameSet is false when the two lists are not the same node set.
+func buildCommittedChildOrderMatch(parseExpected, parseObserved []DOMNode) ([]int, bool) {
 	if len(parseExpected) != len(parseObserved) {
-		return false
+		return nil, false
 	}
-	for _, parseObservedNode := range parseObserved {
-		if parseFindObservedChildNodeIndex(parseExpected, parseObservedNode, 0) < 0 {
-			return false
+	parseMatch := make([]int, len(parseObserved))
+	parseUsed := make([]bool, len(parseExpected))
+	for parseIndex, parseObservedNode := range parseObserved {
+		parseFound := -1
+		for parseExpectedIndex, parseExpectedNode := range parseExpected {
+			if !parseUsed[parseExpectedIndex] && IsSameDOMNode(parseExpectedNode, parseObservedNode) {
+				parseFound = parseExpectedIndex
+				break
+			}
+		}
+		if parseFound < 0 {
+			return nil, false
+		}
+		parseUsed[parseFound] = true
+		parseMatch[parseIndex] = parseFound
+	}
+	return parseMatch, true
+}
+
+// markCommittedChildOrderKept marks the expected indices forming the longest
+// increasing subsequence of the observed→expected match — the children whose
+// relative DOM order is already correct — using the O(n log n) patience
+// algorithm. Everything unmarked must move.
+func markCommittedChildOrderKept(parseMatch []int, parseExpectedLen int) ([]bool, int) {
+	parseTails := make([]int, 0, len(parseMatch))
+	parsePrev := make([]int, len(parseMatch))
+	parseTailIndexes := make([]int, 0, len(parseMatch))
+	for parseIndex, parseValue := range parseMatch {
+		parseLo, parseHi := 0, len(parseTails)
+		for parseLo < parseHi {
+			parseMid := (parseLo + parseHi) / 2
+			if parseTails[parseMid] < parseValue {
+				parseLo = parseMid + 1
+			} else {
+				parseHi = parseMid
+			}
+		}
+		if parseLo > 0 {
+			parsePrev[parseIndex] = parseTailIndexes[parseLo-1]
+		} else {
+			parsePrev[parseIndex] = -1
+		}
+		if parseLo == len(parseTails) {
+			parseTails = append(parseTails, parseValue)
+			parseTailIndexes = append(parseTailIndexes, parseIndex)
+		} else {
+			parseTails[parseLo] = parseValue
+			parseTailIndexes[parseLo] = parseIndex
 		}
 	}
-	return true
+	parseKept := make([]bool, parseExpectedLen)
+	parseCount := len(parseTails)
+	if parseCount > 0 {
+		for parseCursor := parseTailIndexes[parseCount-1]; parseCursor >= 0; parseCursor = parsePrev[parseCursor] {
+			parseKept[parseMatch[parseCursor]] = true
+		}
+	}
+	return parseKept, parseCount
 }
 
 // parseFindObservedChildNodeIndex reports one node index inside the observed child order, starting at parseFromIndex.

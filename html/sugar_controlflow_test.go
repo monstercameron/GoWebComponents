@@ -40,8 +40,9 @@ func TestMapKeyedIndexedThreadsIndexAndKey(parseT *testing.T) {
 	if len(parseNodes) != 2 {
 		parseT.Fatalf("expected 2 keyed nodes, got %d", len(parseNodes))
 	}
-	if parseNodes[0].Props["key"] != "k0:alpha" || parseNodes[1].Props["key"] != "k1:beta" {
-		parseT.Fatalf("expected indexed keys, got %#v / %#v", parseNodes[0].Props["key"], parseNodes[1].Props["key"])
+	// String keys ride the typed fast-lane Key field.
+	if parseNodes[0].Key != "k0:alpha" || parseNodes[1].Key != "k1:beta" {
+		parseT.Fatalf("expected indexed keys, got %#v / %#v", parseNodes[0].Key, parseNodes[1].Key)
 	}
 	parseMarkup, parseRenderErr := ui.RenderToString(Ul(Props{}, parseNodes...))
 	if parseRenderErr != nil {

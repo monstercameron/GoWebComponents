@@ -380,6 +380,21 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 	return getNode
 }
 
+// CreateHTMLSubtree parses one serialized HTML subtree through the shared
+// template element in a single bridge call and returns its root node (still
+// detached; appending it later moves it out of the template content).
+func (parseA *WASMDOMAdapter) CreateHTMLSubtree(parseHTML string) runtime.DOMNode {
+	if parseHTML == "" || !parseA.ensureStoreTemplate() {
+		return &WASMDOMNode{value: js.Null()}
+	}
+	parseA.storeTemplate.Set("innerHTML", parseHTML)
+	parseNode := parseA.storeTemplateContent.Get("firstChild")
+	if parseNode.IsNull() || parseNode.IsUndefined() {
+		return &WASMDOMNode{value: js.Null()}
+	}
+	return &WASMDOMNode{value: parseNode}
+}
+
 func (parseA *WASMDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName, parseValue string) {
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
 		// Block javascript:/vbscript: URLs in href/src/action so a user-controlled
@@ -908,11 +923,13 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 		return js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			parseF()
+			runtime.FlushGlobalDiscreteWork()
 			return nil
 		})
 	case func(string):
 		return js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
+			defer runtime.FlushGlobalDiscreteWork()
 			if len(parseArgs2) == 0 {
 				parseF("")
 				return nil
@@ -935,6 +952,7 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs3) > 0 {
 				parseF(parseArgs3[0])
+				runtime.FlushGlobalDiscreteWork()
 			}
 			return nil
 		})
@@ -942,6 +960,7 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 		return js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			parseF()
+			runtime.FlushGlobalDiscreteWork()
 			return nil
 		})
 	case func(js.Value) error:
@@ -949,6 +968,7 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs5) > 0 {
 				parseF(parseArgs5[0])
+				runtime.FlushGlobalDiscreteWork()
 			}
 			return nil
 		})
@@ -957,6 +977,7 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs6) > 0 {
 				parseF(runtime.NewGoEvent(parseArgs6[0]))
+				runtime.FlushGlobalDiscreteWork()
 			}
 			return nil
 		})
@@ -965,6 +986,7 @@ func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 			defer runtime.RecoverContainedPanic("dom", "wrapped callback")
 			if len(parseArgs7) > 0 {
 				parseF(runtime.NewGoEvent(parseArgs7[0]))
+				runtime.FlushGlobalDiscreteWork()
 			}
 			return nil
 		})

@@ -32,6 +32,15 @@ func dispatchRuntimeWork(parseScheduler Scheduler, parseContinueWork func()) {
 	parseScheduler.SetTimeout(parseContinueWork, 0)
 }
 
+// NOTE(sched A/B 2026-07-04): dispatching the INITIAL work-loop kick via
+// queueMicrotask instead of SetTimeout(0) was tried and REVERTED. Example 201
+// same-run geomean vs React fell 0.658 -> 0.495 (every scenario worse, React
+// itself unchanged-to-faster): the microtask fires before Go's parked
+// goroutines finish enqueueing the action's remaining state writes, so one
+// user action commits as multiple split render passes. The setTimeout hop is
+// what lets all goroutine state writes coalesce into one pass — do not
+// "optimize" it away without re-running that experiment.
+
 // ScheduleUpdateWithLane schedules a full root update on an explicit priority lane.
 func (parseRt *Runtime) ScheduleUpdateWithLane(parseLane UpdateLane) {
 	parseRt.scheduleUpdateWithLane(parseLane, true)
@@ -107,6 +116,42 @@ func (parseRt *Runtime) scheduleUpdateWithLane(parseLane UpdateLane, shouldRecor
 	dispatchRuntimeWork(parseScheduler, parseContinueWork)
 }
 
+// FlushScheduledDiscreteWork synchronously runs a freshly scheduled, not yet
+// started render pass. The DOM event bridge calls it after a component event
+// handler returns, so a discrete user action commits inside its own task
+// (React-style sync discrete flush) instead of waiting out the setTimeout(0)
+// kick — while state writes from goroutines the handler spawned still land in
+// a follow-up pass exactly as they would have with the macrotask hop. The
+// already-queued kick later finds no pending work and no-ops. It refuses to
+// run when any work loop is active on this stack (a handler fired
+// synchronously by a commit-phase DOM write) or when the pass has already
+// consumed work slices.
+func (parseRt *Runtime) FlushScheduledDiscreteWork() {
+	if parseRt == nil {
+		return
+	}
+	schedulerMu.Lock()
+	shouldFlush := parseRt.updateScheduled && parseRt.workLoopDepth == 0 &&
+		parseRt.wipRoot != nil && parseRt.nextUnitOfWork == parseRt.wipRoot
+	schedulerMu.Unlock()
+	if !shouldFlush {
+		return
+	}
+	parseRt.continueWorkLoop()
+}
+
+// FlushGlobalDiscreteWork flushes the global runtime's freshly scheduled
+// pass; the wasm DOM event bridge uses it because adapter-level wrappers do
+// not carry a runtime reference.
+func FlushGlobalDiscreteWork() {
+	globalRuntimeMu.Lock()
+	parseRt := globalRuntime
+	globalRuntimeMu.Unlock()
+	if parseRt != nil {
+		parseRt.FlushScheduledDiscreteWork()
+	}
+}
+
 // continueWorkLoop is a bound method to avoid closure allocation
 func (parseRt *Runtime) continueWorkLoop() {
 	defer func() {
@@ -128,6 +173,15 @@ func (parseRt *Runtime) continueWorkLoop() {
 
 // workLoop processes work units during idle periods
 func (parseRt *Runtime) workLoop(parseDeadline Deadline) {
+	parseRt.workLoopDepth++
+	defer func() { parseRt.workLoopDepth-- }()
+	if hookThreadingGuardEnabled && !parseRt.renderPassActive {
+		parseRt.renderPassActive = true
+		defer func() {
+			parseRt.renderPassActive = false
+			parseRt.renderPassOwnerGoroutineID = 0
+		}()
+	}
 	parseRt.profiling.workLoopPasses++
 	shouldYield := false
 	parseUnits := 0

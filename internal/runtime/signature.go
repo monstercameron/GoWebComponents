@@ -68,7 +68,9 @@ func (parseSignature ComponentSignature) identityKey() string {
 
 // recordHookSignature is a core package helper.
 func recordHookSignature(parseHooks *Hooks, parseKind string) {
-	if parseHooks == nil || strings.TrimSpace(parseKind) == "" {
+	// Callers pass constant kind literals; no sanitization needed on this
+	// per-hook-call hot path.
+	if parseHooks == nil || parseKind == "" {
 		return
 	}
 	parseHooks.signature = append(parseHooks.signature, parseKind)
@@ -143,7 +145,13 @@ func trimCallableName(parseName string) string {
 
 // describeFiberKey is a core package helper.
 func describeFiberKey(parseFiber *Fiber) string {
-	if parseFiber == nil || parseFiber.props == nil {
+	if parseFiber == nil {
+		return ""
+	}
+	if parseFiber.key != "" {
+		return parseFiber.key
+	}
+	if parseFiber.props == nil {
 		return ""
 	}
 

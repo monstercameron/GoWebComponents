@@ -16,7 +16,10 @@ type componentRenderTrace struct {
 	LastRenderDurationNs  int64
 	TotalRenderDurationNs int64
 	TriggerCounts         map[string]int
-	LastRenderedAt        string
+	// LastRenderedAt holds the raw render instant; it is formatted lazily by
+	// collectComponentRenderTraces so the per-render hot path never pays for
+	// timestamp formatting.
+	LastRenderedAt time.Time
 }
 
 type routeStartupBudget struct {
@@ -130,11 +133,30 @@ func (parseRt *Runtime) recordComponentRenderTraceLocked(parseFiber *Fiber, pars
 	if parseRt == nil || parseFiber == nil {
 		return
 	}
-	parseKind, parseName := describeFiber(parseFiber)
+	// Name and path derivation walk ancestors and reflect over component
+	// functions, so they are cached on the hooks store: hooks survive exactly
+	// the updates that keep a component at the same tree position (same
+	// parent, keyed reorders), which is what keeps the cached path accurate.
+	parseHooks := parseFiber.hooks
+	var parseKind, parseName, parsePath string
+	if parseHooks != nil && parseHooks.traceKind != "" {
+		parseKind = parseHooks.traceKind
+		parseName = parseHooks.traceName
+		parsePath = parseHooks.tracePath
+	} else {
+		parseKind, parseName = describeFiber(parseFiber)
+		if parseKind == "component" {
+			parsePath = diagnosticPathForFiber(parseFiber)
+		}
+		if parseHooks != nil {
+			parseHooks.traceKind = parseKind
+			parseHooks.traceName = parseName
+			parseHooks.tracePath = parsePath
+		}
+	}
 	if parseKind != "component" {
 		return
 	}
-	parsePath := diagnosticPathForFiber(parseFiber)
 	parseKey := parsePath
 	if parseKey == "" {
 		parseKey = parseName
@@ -164,7 +186,7 @@ func (parseRt *Runtime) recordComponentRenderTraceLocked(parseFiber *Fiber, pars
 	parseTrace.LastTrigger = parseTrigger
 	parseTrace.LastRenderDurationNs = parseDurationNs
 	parseTrace.TotalRenderDurationNs += parseDurationNs
-	parseTrace.LastRenderedAt = time.Now().UTC().Format(timeFormatRFC3339Milli)
+	parseTrace.LastRenderedAt = time.Now()
 	parseTrace.TriggerCounts[parseTrigger]++
 	parseRt.profiling.totalRenderDurationNs += parseDurationNs
 }

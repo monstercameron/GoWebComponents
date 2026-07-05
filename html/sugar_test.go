@@ -233,7 +233,8 @@ func TestSecondPassCollectionHelpers(parseT *testing.T) {
 	parseKeyed := MapKeyed([]string{"alpha", "beta"}, func(parseValue6 string) any { return "k:" + parseValue6 }, func(parseValue7 string) ui.Node {
 		return Li(Props{}, Text(parseValue7))
 	})
-	if len(parseKeyed) != 2 || parseKeyed[0].Props["key"] != "k:alpha" || parseKeyed[1].Props["key"] != "k:beta" {
+	// String keys ride the typed fast-lane Key field.
+	if len(parseKeyed) != 2 || parseKeyed[0].Key != "k:alpha" || parseKeyed[1].Key != "k:beta" {
 		parseT.Fatalf("expected keyed nodes, got %#v", parseKeyed)
 	}
 

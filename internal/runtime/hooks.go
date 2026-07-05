@@ -63,6 +63,17 @@ func isNilableType[T any]() bool {
 	return isNilable
 }
 
+// stateAccessor caches one state slot's getter/setter closure pair across
+// renders. The closures depend only on the Runtime, the Hooks store, and the
+// slot indices — all stable for the store's lifetime — so rebuilding them per
+// render (2 allocations per UseState per render) is pure churn. The getter is
+// stored type-erased; a failed func() T assertion (state type changed, e.g.
+// hot reload) rebuilds the pair.
+type stateAccessor struct {
+	getter any
+	setter func(any)
+}
+
 // GoUseState provides state management for components
 func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(any)) {
 	parseFiber := requireCurrentHookFiber("GoUseState")
@@ -120,6 +131,16 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(an
 	}
 
 	parseHooks := parseFiber.hooks
+
+	// Cached accessor fast path: steady-state re-renders reuse the slot's
+	// closure pair instead of allocating a fresh getter+setter per call.
+	if parseStateIdx < len(parseHooks.stateAccessors) {
+		parseCached := &parseHooks.stateAccessors[parseStateIdx]
+		if parseCachedGetter, parseOk := parseCached.getter.(func() T); parseOk && parseCached.setter != nil {
+			return parseCachedGetter, parseCached.setter
+		}
+	}
+
 	// Capture indices for closure
 	parseSIdx := parseStateIdx * 2
 	parsePIdx := parseStateIdx*2 + 1
@@ -134,7 +155,14 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(an
 
 	parseSetter := func(parseNewValueOrUpdater any) {
 		apply := func(parseUpdateOrigin string) {
-			parseRt.reportStrictSetStateDuringRender(parseFiber, "GoUseState")
+			// The accessor outlives the fiber that created it: hooks.owner is
+			// re-pointed at the live fiber every render, so all targeting goes
+			// through it (the creation fiber is only a last-resort fallback).
+			parseTargetFiber := parseHooks.owner
+			if parseTargetFiber == nil {
+				parseTargetFiber = parseFiber
+			}
+			parseRt.reportStrictSetStateDuringRender(parseTargetFiber, "GoUseState")
 			if parsePIdx >= len(parseHooks.states) {
 				parseNeeded := parsePIdx + 1
 				if parseNeeded > cap(parseHooks.states) {
@@ -162,10 +190,6 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(an
 
 			parseHooks.states[parsePIdx] = parseNewValue
 			parseHooks.states[parseSIdx] = parseNewValue
-			parseTargetFiber := parseHooks.owner
-			if parseTargetFiber == nil {
-				parseTargetFiber = parseFiber
-			}
 			// Render-phase update: the setter was called while its own fiber's
 			// component function is executing. Don't schedule a commit of the
 			// half-rendered output — flag the fiber so renderFunctionComponent
@@ -187,6 +211,17 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(an
 
 		apply("local-state")
 	}
+
+	if parseNeededAcc := parseStateIdx + 1; len(parseHooks.stateAccessors) < parseNeededAcc {
+		if parseNeededAcc <= cap(parseHooks.stateAccessors) {
+			parseHooks.stateAccessors = parseHooks.stateAccessors[:parseNeededAcc]
+		} else {
+			parseNewAccessors := make([]stateAccessor, parseNeededAcc, parseNeededAcc*2)
+			copy(parseNewAccessors, parseHooks.stateAccessors)
+			parseHooks.stateAccessors = parseNewAccessors
+		}
+	}
+	parseHooks.stateAccessors[parseStateIdx] = stateAccessor{getter: parseGetter, setter: parseSetter}
 
 	return parseGetter, parseSetter
 }
@@ -738,6 +773,16 @@ func fastEqual(parseA, parseB any) bool {
 				return parseVa == nil && parseVb19 == nil
 			}
 			return reflect.ValueOf(parseVa).Pointer() == reflect.ValueOf(parseVb19).Pointer()
+		}
+		return false
+	case map[string]string:
+		// Same identity semantics as the generic slice/map fallback below, but
+		// without paying two reflect.TypeOf calls to get there.
+		if parseVb21, parseOk21 := parseB.(map[string]string); parseOk21 {
+			if parseVa == nil || parseVb21 == nil {
+				return parseVa == nil && parseVb21 == nil
+			}
+			return reflect.ValueOf(parseVa).Pointer() == reflect.ValueOf(parseVb21).Pointer()
 		}
 		return false
 	case time.Time:

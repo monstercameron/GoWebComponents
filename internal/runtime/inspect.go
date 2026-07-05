@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 )
 
 type DiagnosticSeverity string
@@ -422,7 +423,7 @@ func collectComponentRenderTraces(parseEntries map[string]*componentRenderTrace,
 			LastRenderDurationNs:    parseEntry.LastRenderDurationNs,
 			TotalRenderDurationNs:   parseEntry.TotalRenderDurationNs,
 			AverageRenderDurationNs: parseAverage,
-			LastRenderedAt:          parseEntry.LastRenderedAt,
+			LastRenderedAt:          formatTraceRenderedAt(parseEntry.LastRenderedAt),
 			TriggerCounts:           parseTriggerCounts,
 		})
 	}
@@ -436,6 +437,16 @@ func collectComponentRenderTraces(parseEntries map[string]*componentRenderTrace,
 		parseTraces = parseTraces[:parseLimit]
 	}
 	return parseTraces
+}
+
+// formatTraceRenderedAt formats a render-trace timestamp at snapshot time; the
+// per-render hot path stores the raw time.Time instead of paying for RFC3339
+// formatting on every component render.
+func formatTraceRenderedAt(parseAt time.Time) string {
+	if parseAt.IsZero() {
+		return ""
+	}
+	return parseAt.UTC().Format(timeFormatRFC3339Milli)
 }
 
 // buildRouteStartupBudgets builds startup budget snapshots grouped by route family.
@@ -497,8 +508,7 @@ func inspectHydrationDebugSnapshot(parseMetrics HydrationMetrics, parseDiagnosti
 		parseSnapshot.FinishedAt = parseMetrics.FinishedAt.UTC().Format(timeFormatRFC3339Milli)
 	}
 	for _, parseDiagnostic := range parseDiagnostics {
-		parseLower := strings.ToLower(parseDiagnostic.Message)
-		if strings.Contains(parseLower, "hydration ") {
+		if containsHydrationFold(parseDiagnostic.Message) {
 			parseSnapshot.RecentMessages = append(parseSnapshot.RecentMessages, parseDiagnostic.Message)
 		}
 	}
@@ -506,6 +516,44 @@ func inspectHydrationDebugSnapshot(parseMetrics HydrationMetrics, parseDiagnosti
 		parseSnapshot.RecentMessages = append([]string(nil), parseSnapshot.RecentMessages[len(parseSnapshot.RecentMessages)-5:]...)
 	}
 	return parseSnapshot
+}
+
+// containsHydrationFold reports whether the message contains "hydration "
+// case-insensitively without allocating a lowered copy per diagnostic (this
+// runs over the whole diagnostic list on every inspection snapshot). It jumps
+// between 'h'/'H' candidates with IndexByte instead of scanning every byte.
+func containsHydrationFold(parseMessage string) bool {
+	const parseNeedle = "hydration "
+	for parsePos := 0; parsePos+len(parseNeedle) <= len(parseMessage); parsePos++ {
+		parseLower := strings.IndexByte(parseMessage[parsePos:], 'h')
+		parseUpper := strings.IndexByte(parseMessage[parsePos:], 'H')
+		parseNext := parseLower
+		if parseNext < 0 || (parseUpper >= 0 && parseUpper < parseNext) {
+			parseNext = parseUpper
+		}
+		if parseNext < 0 {
+			return false
+		}
+		parsePos += parseNext
+		if parsePos+len(parseNeedle) > len(parseMessage) {
+			return false
+		}
+		parseMatched := true
+		for parseOffset := 1; parseOffset < len(parseNeedle); parseOffset++ {
+			parseByte := parseMessage[parsePos+parseOffset]
+			if parseByte >= 'A' && parseByte <= 'Z' {
+				parseByte += 'a' - 'A'
+			}
+			if parseByte != parseNeedle[parseOffset] {
+				parseMatched = false
+				break
+			}
+		}
+		if parseMatched {
+			return true
+		}
+	}
+	return false
 }
 
 // collectFlamegraphFrames is a core package helper.

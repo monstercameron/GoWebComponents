@@ -8,12 +8,30 @@ import (
 	"time"
 )
 
+// diagnosticDedupKey identifies one diagnostic for repeat-count coalescing.
+// A comparable struct key avoids concatenating the fields into one large
+// string per report.
+type diagnosticDedupKey struct {
+	severity    DiagnosticSeverity
+	source      string
+	message     string
+	path        string
+	stack       string
+	topFrame    string
+	consequence string
+	fields      string
+}
+
 var (
 	diagnosticsMu   sync.Mutex
-	diagnosticIndex = map[string]int{}
+	diagnosticIndex = map[diagnosticDedupKey]int{}
 	diagnostics     []Diagnostic
 	logsMu          sync.Mutex
-	logBuffer       []LogEntry
+	// logBuffer is a circular buffer once it reaches maxLogEntries: logHead is
+	// the index of the oldest entry and inserts overwrite in place, so steady-
+	// state logging never reallocates. GetLogs linearizes oldest-first.
+	logBuffer []LogEntry
+	logHead   int
 )
 
 const maxLogEntries = 200
@@ -44,18 +62,38 @@ func reportDiagnosticWithContextDetails(parseSource string, parseSeverity Diagno
 	}
 	parseTrimmedPath := strings.TrimSpace(parsePath)
 	parseStackKey := strings.Join(parseComponentStack, " > ")
-	parseClassification := classifyDiagnostic(parseTrimmedSource, parseSeverity, parseTrimmedMessage)
-	parseDetails := diagnosticMetadata(parseTrimmedSource, parseSeverity, parseClassification, parseTrimmedMessage)
-	if shouldEscalateDiagnosticStrictly(parseTrimmedSource, parseSeverity, parseClassification, parseDetails) {
-		escalateStrictDiagnostic(parseTrimmedSource, parseDetails, parseTrimmedMessage, parseTrimmedPath, parseComponentStack)
+	parseTrimmedTopFrame := strings.TrimSpace(parseTopFrame)
+	parseTrimmedConsequence := strings.TrimSpace(parseConsequence)
+
+	// Strict escalation must run on every report (including dedup repeats),
+	// but strict mode is off by default; classification and metadata are
+	// otherwise only needed when a new entry is stored, so repeats skip them.
+	parseClassification := DiagnosticClassification("")
+	parseDetails := diagnosticDetails{}
+	hasParseDetails := false
+	if strictDiagnosticsEnabled() {
+		parseClassification = classifyDiagnostic(parseTrimmedSource, parseSeverity, parseTrimmedMessage)
+		parseDetails = diagnosticMetadata(parseTrimmedSource, parseSeverity, parseClassification, parseTrimmedMessage)
+		hasParseDetails = true
+		if shouldEscalateDiagnosticStrictly(parseTrimmedSource, parseSeverity, parseClassification, parseDetails) {
+			escalateStrictDiagnostic(parseTrimmedSource, parseDetails, parseTrimmedMessage, parseTrimmedPath, parseComponentStack)
+		}
 	}
 
 	// Dedup-first: the key is derived from the same inputs the context-fields
 	// map is built from, so repeat diagnostics (e.g. a missing-key warning
 	// firing every render) increment a counter without paying the field-map,
 	// clone, and log construction below.
-	parseKey := string(parseSeverity) + "|" + parseTrimmedSource + "|" + parseTrimmedMessage + "|" + parseTrimmedPath + "|" + parseStackKey + "|" +
-		strings.TrimSpace(parseTopFrame) + "|" + strings.TrimSpace(parseConsequence) + "|" + diagnosticFieldsKey(parseExtraFields)
+	parseKey := diagnosticDedupKey{
+		severity:    parseSeverity,
+		source:      parseTrimmedSource,
+		message:     parseTrimmedMessage,
+		path:        parseTrimmedPath,
+		stack:       parseStackKey,
+		topFrame:    parseTrimmedTopFrame,
+		consequence: parseTrimmedConsequence,
+		fields:      diagnosticFieldsKey(parseExtraFields),
+	}
 
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
@@ -63,6 +101,12 @@ func reportDiagnosticWithContextDetails(parseSource string, parseSeverity Diagno
 		diagnostics[parseIndex].Count++
 		return
 	}
+	if !hasParseDetails {
+		parseClassification = classifyDiagnostic(parseTrimmedSource, parseSeverity, parseTrimmedMessage)
+		parseDetails = diagnosticMetadata(parseTrimmedSource, parseSeverity, parseClassification, parseTrimmedMessage)
+	}
+	// diagnosticContextFields builds a fresh map, so the entry takes ownership
+	// of it directly; the log entry below clones its own copy.
 	parseFields := diagnosticContextFields(parseTrimmedPath, parseComponentStack, parseTopFrame, parseConsequence, parseExtraFields)
 
 	diagnosticIndex[parseKey] = len(diagnostics)
@@ -74,43 +118,61 @@ func reportDiagnosticWithContextDetails(parseSource string, parseSeverity Diagno
 		Docs:           parseDetails.Docs,
 		Remediation:    parseDetails.Remediation,
 		Recoverable:    parseDetails.Recoverable,
-		TopFrame:       strings.TrimSpace(parseTopFrame),
-		Consequence:    strings.TrimSpace(parseConsequence),
+		TopFrame:       parseTrimmedTopFrame,
+		Consequence:    parseTrimmedConsequence,
 		Message:        parseTrimmedMessage,
 		Count:          1,
 		Path:           parseTrimmedPath,
 		ComponentStack: append([]string(nil), parseComponentStack...),
-		Fields:         cloneLogFields(parseFields),
+		Fields:         parseFields,
 	})
 	trimDiagnosticsLocked(maxDiagnosticEntries)
 
-	reportDiagnosticLogDetails(parseTrimmedSource, parseSeverity, parseTrimmedMessage, parseTopFrame, parseConsequence, parseFields)
+	reportLogWithKnownDetails(parseTrimmedSource, logLevelForSeverity(parseSeverity), parseClassification, parseDetails, parseTrimmedMessage, "", parseFields, parseTrimmedTopFrame, parseTrimmedConsequence)
 }
 
-// trimDiagnosticsLocked bounds the process-wide diagnostic ring.
+// trimDiagnosticsLocked bounds the process-wide diagnostic ring. When the
+// ring overflows it keeps only the newest half of the limit: dropping one
+// entry at a time would rebuild the slice and the dedup index on EVERY
+// report once full, turning a diagnostic storm (e.g. per-node hydration
+// mismatches) quadratic — measured at 478ms for 2000 warnings. Halving
+// amortizes the rebuild to O(1) per report; the ring holds between limit/2
+// and limit entries.
 func trimDiagnosticsLocked(parseLimit int) {
 	if parseLimit <= 0 || len(diagnostics) <= parseLimit {
 		return
 	}
-	diagnostics = append([]Diagnostic(nil), diagnostics[len(diagnostics)-parseLimit:]...)
-	diagnosticIndex = make(map[string]int, len(diagnostics))
+	parseKeep := parseLimit / 2
+	if parseKeep < 1 {
+		parseKeep = 1
+	}
+	diagnostics = append([]Diagnostic(nil), diagnostics[len(diagnostics)-parseKeep:]...)
+	diagnosticIndex = make(map[diagnosticDedupKey]int, len(diagnostics))
 	for parseIndex, parseDiagnostic := range diagnostics {
-		parseKey := string(parseDiagnostic.Severity) + "|" + parseDiagnostic.Source + "|" + parseDiagnostic.Message + "|" + parseDiagnostic.Path + "|" +
-			strings.Join(parseDiagnostic.ComponentStack, " > ") + "|" + strings.TrimSpace(parseDiagnostic.TopFrame) + "|" + strings.TrimSpace(parseDiagnostic.Consequence) + "|" + diagnosticFieldsKey(parseDiagnostic.Fields)
+		parseKey := diagnosticDedupKey{
+			severity:    parseDiagnostic.Severity,
+			source:      parseDiagnostic.Source,
+			message:     parseDiagnostic.Message,
+			path:        parseDiagnostic.Path,
+			stack:       strings.Join(parseDiagnostic.ComponentStack, " > "),
+			topFrame:    strings.TrimSpace(parseDiagnostic.TopFrame),
+			consequence: strings.TrimSpace(parseDiagnostic.Consequence),
+			fields:      diagnosticFieldsKey(parseDiagnostic.Fields),
+		}
 		diagnosticIndex[parseKey] = parseIndex
 	}
 }
 
-// GetDiagnostics returns a copy of the current diagnostic list.
+// GetDiagnostics returns a copy of the current diagnostic list. The entries
+// are value copies; their ComponentStack slices and Fields maps are shared
+// with the store, which never mutates them after insert — treat them as
+// read-only. (Deep-cloning them per read dominated the cost of devtools
+// inspection snapshots.)
 func GetDiagnostics() []Diagnostic {
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
 	parseClone := make([]Diagnostic, len(diagnostics))
-	for parseIndex, parseDiagnostic := range diagnostics {
-		parseClone[parseIndex] = parseDiagnostic
-		parseClone[parseIndex].ComponentStack = append([]string(nil), parseDiagnostic.ComponentStack...)
-		parseClone[parseIndex].Fields = cloneLogFields(parseDiagnostic.Fields)
-	}
+	copy(parseClone, diagnostics)
 	return parseClone
 }
 
@@ -142,6 +204,22 @@ func reportLogWithFieldsDetails(parseDomain string, parseLevel LogLevel, parseCl
 		parseLevel = LogInfo
 	}
 	parseDetails := diagnosticMetadata(parseTrimmedDomain, logSeverity(parseLevel), parseClassification, parseTrimmedMessage)
+	reportLogWithKnownDetails(parseTrimmedDomain, parseLevel, parseClassification, parseDetails, parseTrimmedMessage, parseCorrelationID, parseFields, parseTopFrame, parseConsequence)
+}
+
+// reportLogWithKnownDetails records one structured log entry whose diagnostic
+// metadata was already computed by the caller (the diagnostic-report path
+// derives it once for both the diagnostic entry and its log entry).
+func reportLogWithKnownDetails(parseTrimmedDomain string, parseLevel LogLevel, parseClassification DiagnosticClassification, parseDetails diagnosticDetails, parseTrimmedMessage string, parseCorrelationID string, parseFields map[string]string, parseTopFrame string, parseConsequence string) {
+	if parseTrimmedMessage == "" {
+		return
+	}
+	if parseClassification == "" {
+		parseClassification = DiagnosticInformational
+	}
+	if parseLevel == "" {
+		parseLevel = LogInfo
+	}
 
 	parseEntry := LogEntry{
 		Domain:         parseTrimmedDomain,
@@ -161,21 +239,26 @@ func reportLogWithFieldsDetails(parseDomain string, parseLevel LogLevel, parseCl
 
 	logsMu.Lock()
 	defer logsMu.Unlock()
-	logBuffer = append(logBuffer, parseEntry)
-	if len(logBuffer) > maxLogEntries {
-		logBuffer = append([]LogEntry(nil), logBuffer[len(logBuffer)-maxLogEntries:]...)
+	if len(logBuffer) < maxLogEntries {
+		logBuffer = append(logBuffer, parseEntry)
+		return
+	}
+	logBuffer[logHead] = parseEntry
+	logHead++
+	if logHead == len(logBuffer) {
+		logHead = 0
 	}
 }
 
-// GetLogs returns a copy of the current in-memory log buffer.
+// GetLogs returns a copy of the current in-memory log buffer, oldest first.
+// The entries are value copies; their Fields maps are shared with the store,
+// which never mutates them after insert — treat them as read-only.
 func GetLogs() []LogEntry {
 	logsMu.Lock()
 	defer logsMu.Unlock()
-	parseClone := make([]LogEntry, len(logBuffer))
-	for parseIndex, parseEntry := range logBuffer {
-		parseClone[parseIndex] = parseEntry
-		parseClone[parseIndex].Fields = cloneLogFields(parseEntry.Fields)
-	}
+	parseClone := make([]LogEntry, 0, len(logBuffer))
+	parseClone = append(parseClone, logBuffer[logHead:]...)
+	parseClone = append(parseClone, logBuffer[:logHead]...)
 	return parseClone
 }
 
@@ -183,7 +266,7 @@ func GetLogs() []LogEntry {
 func ClearDiagnostics() {
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
-	diagnosticIndex = map[string]int{}
+	diagnosticIndex = map[diagnosticDedupKey]int{}
 	diagnostics = nil
 }
 
@@ -192,6 +275,7 @@ func ClearLogs() {
 	logsMu.Lock()
 	defer logsMu.Unlock()
 	logBuffer = nil
+	logHead = 0
 }
 
 // Inspect captures a snapshot of the current runtime tree, profiling state, and diagnostics.
@@ -207,11 +291,10 @@ func (parseRt *Runtime) Inspect() InspectionSnapshot {
 		return parseSnapshot
 	}
 
+	// Event Fields maps are cloned at insert (RecordProfilingEvent) and never
+	// mutated afterwards, so the snapshot shares them read-only.
 	parseEvents := make([]ProfilingEvent, len(parseRt.profiling.events))
-	for parseIndex, parseEvent := range parseRt.profiling.events {
-		parseEvents[parseIndex] = parseEvent
-		parseEvents[parseIndex].Fields = cloneLogFields(parseEvent.Fields)
-	}
+	copy(parseEvents, parseRt.profiling.events)
 	var parseRoot *FiberSnapshot
 	var parseStats InspectionStats
 	if parseRt.currentRoot != nil {
@@ -277,13 +360,13 @@ const timeFormatRFC3339Milli = "2006-01-02T15:04:05.000Z07:00"
 
 // classifyDiagnostic is a core package helper.
 func classifyDiagnostic(parseSource string, parseSeverity DiagnosticSeverity, parseMessage string) DiagnosticClassification {
-	parseTrimmed := strings.ToLower(strings.TrimSpace(parseMessage))
 	switch parseSeverity {
 	case DiagnosticInfo:
 		return DiagnosticInformational
 	case DiagnosticError:
 		return DiagnosticCorrectness
 	case DiagnosticWarning:
+		parseTrimmed := strings.ToLower(strings.TrimSpace(parseMessage))
 		if strings.Contains(parseTrimmed, "slow ") {
 			return DiagnosticPerformance
 		}
@@ -298,20 +381,6 @@ func classifyDiagnostic(parseSource string, parseSeverity DiagnosticSeverity, pa
 	default:
 		return DiagnosticInformational
 	}
-}
-
-// reportDiagnosticLogDetails is a core package helper.
-func reportDiagnosticLogDetails(parseSource string, parseSeverity DiagnosticSeverity, parseMessage string, parseTopFrame string, parseConsequence string, parseFields map[string]string) {
-	reportLogWithFieldsDetails(
-		parseSource,
-		logLevelForSeverity(parseSeverity),
-		classifyDiagnostic(parseSource, parseSeverity, parseMessage),
-		parseMessage,
-		"",
-		parseFields,
-		parseTopFrame,
-		parseConsequence,
-	)
 }
 
 // diagnosticContextFields is a core package helper.

@@ -268,11 +268,32 @@ func (parseRt *Runtime) detectHydrationTextMismatch(parseFiber *Fiber, parseNode
 
 // detectHydrationAttributeMismatches is a core package helper.
 func (parseRt *Runtime) detectHydrationAttributeMismatches(parseFiber *Fiber, parseNode DOMNode) []string {
-	if parseFiber == nil || IsDOMNodeNull(parseNode) || parseFiber.props == nil {
+	if parseFiber == nil || IsDOMNodeNull(parseNode) {
 		return nil
 	}
 	parseTyp, parseOk := parseFiber.typeOf.(string)
 	if !parseOk || parseTyp == "TEXT_ELEMENT" || parseTyp == "FRAGMENT" {
+		return nil
+	}
+
+	// Typed fast-lane fibers carry attributes in the compact slice instead of
+	// a props map; compare those directly against the server-rendered node.
+	if isFastLaneCompactFiber(parseFiber) {
+		var parseWarnings []string
+		for _, parseAttr := range parseFiber.getHostAttrs {
+			parseName := compactAttrPropName(parseAttr.Name)
+			parseActual, parseComparable := parseRt.readHydrationComparableValue(parseNode, parseName)
+			if !parseComparable {
+				continue
+			}
+			if hydrationValuesEqual(parseName, parseAttr.Value, parseActual) {
+				continue
+			}
+			parseWarnings = append(parseWarnings, fmt.Sprintf("hydration attribute mismatch for %s on <%s>: server %q client %q", parseName, parseTyp, parseActual, parseAttr.Value))
+		}
+		return parseWarnings
+	}
+	if parseFiber.props == nil {
 		return nil
 	}
 

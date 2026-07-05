@@ -94,7 +94,7 @@ func buildProfilingScenarioRuntime(parseScenario string) *Runtime {
 			LastRenderDurationNs:  int64(2 * time.Millisecond),
 			TotalRenderDurationNs: int64(70 * time.Millisecond),
 			TriggerCounts:         map[string]int{parseScenario: 17, "props": 8},
-			LastRenderedAt:        "2026-03-25T16:00:00.000Z",
+			LastRenderedAt:        time.Date(2026, 3, 25, 16, 0, 0, 0, time.UTC),
 		},
 	}
 	parseRuntime.profiling.events = []ProfilingEvent{

@@ -10,6 +10,20 @@ func GetCurrentFiber() *Fiber {
 	return currentFiber
 }
 
+// Hook-ownership guard state. computeHookGoroutineID is a full runtime.Stack
+// traceback (microseconds per call), so the guard verifies lazily:
+// hookGuardVerifiedOwnerID records the owner goroutine id for which some hook
+// call already proved the calling goroutine matches. It persists across
+// SetCurrentFiber(nil)/re-arm cycles for the same owner id (goroutine ids are
+// never reused within a process), so steady-state render passes on one
+// goroutine verify once instead of once per component. These are package
+// globals like currentFiber itself; the reconciler is single-goroutine per
+// render pass by construction.
+var (
+	hookGuardVerifiedOwnerID uint64
+	hookGuardCheckCounter    uint32
+)
+
 // SetCurrentFiber sets the current fiber (used during component rendering)
 func SetCurrentFiber(parseFiber *Fiber) {
 	currentFiber = parseFiber
@@ -17,7 +31,42 @@ func SetCurrentFiber(parseFiber *Fiber) {
 		currentFiberOwnerGoroutineID = 0
 		return
 	}
-	currentFiberOwnerGoroutineID = currentHookGoroutineID()
+	currentFiberOwnerGoroutineID = computeHookGoroutineID()
+}
+
+// renderPassOwnerID returns the goroutine id that owns the current component
+// render: the work loop pass id (captured lazily on the pass's first component
+// render), or a freshly computed id when no pass is active. It must only be
+// called from the render's own synchronous call stack (renderFunctionComponent,
+// strictPreviewRender), which is what makes the cached id exact.
+func (parseRt *Runtime) renderPassOwnerID() uint64 {
+	if !hookThreadingGuardEnabled {
+		return 0
+	}
+	if parseRt == nil || !parseRt.renderPassActive {
+		return computeHookGoroutineID()
+	}
+	if parseRt.renderPassOwnerGoroutineID == 0 {
+		parseRt.renderPassOwnerGoroutineID = computeHookGoroutineID()
+	}
+	return parseRt.renderPassOwnerGoroutineID
+}
+
+// setCurrentFiberOwned installs a fiber whose owner goroutine id was already
+// computed by the enclosing render pass (see Runtime.workLoop). The owner id
+// is exact because the reconciler calls this on the same synchronous call
+// stack that captured it; passing 0 falls back to computing the id.
+func setCurrentFiberOwned(parseFiber *Fiber, parseOwnerID uint64) {
+	if parseOwnerID == 0 || parseFiber == nil {
+		SetCurrentFiber(parseFiber)
+		return
+	}
+	currentFiber = parseFiber
+	if !hookThreadingGuardEnabled {
+		currentFiberOwnerGoroutineID = 0
+		return
+	}
+	currentFiberOwnerGoroutineID = parseOwnerID
 }
 
 // runtimeForFiber returns the owning runtime for a fiber subtree, falling back
@@ -54,12 +103,34 @@ func requireCurrentHookFiber(parseName string) *Fiber {
 
 // isCurrentHookGoroutineOwner reports whether a hook call is running on the
 // goroutine that claimed the current render fiber.
+//
+// The definitive check costs a full runtime.Stack traceback, so it runs on the
+// first hook call under a not-yet-verified owner id and is then re-sampled
+// every 64th call; verified steady-state hook calls take the cheap path. A
+// hook call from a goroutine other than the one that armed the fiber is
+// always caught while that owner id is unverified (goroutine ids are unique
+// for the life of the process, so a stale verified id never matches a new
+// owner); a goroutine spawned mid-render after verification is caught by the
+// periodic re-check instead of on its first call.
 func isCurrentHookGoroutineOwner() bool {
 	if !hookThreadingGuardEnabled || currentFiberOwnerGoroutineID == 0 {
 		return true
 	}
-	parseCurrentID := currentHookGoroutineID()
-	return parseCurrentID == 0 || parseCurrentID == currentFiberOwnerGoroutineID
+	hookGuardCheckCounter++
+	// Resample interval trade-off: a rogue goroutine calling hooks after the
+	// owner was verified is caught within this many hook calls. 4096 (was 64)
+	// keeps detection while making hook-dense renders affordable — a 2400-hook
+	// pass paid ~37 runtime.Stack tracebacks per render at 64 (~65% of total
+	// hooks-scenario CPU, measured); at 4096 it pays at most one.
+	if hookGuardVerifiedOwnerID == currentFiberOwnerGoroutineID && hookGuardCheckCounter&4095 != 0 {
+		return true
+	}
+	parseCurrentID := computeHookGoroutineID()
+	if parseCurrentID == 0 || parseCurrentID == currentFiberOwnerGoroutineID {
+		hookGuardVerifiedOwnerID = currentFiberOwnerGoroutineID
+		return true
+	}
+	return false
 }
 
 // reportHookThreadingViolation records a structured diagnostic before the hook
@@ -68,7 +139,7 @@ func reportHookThreadingViolation(parseName string, parseFiber *Fiber) {
 	parseFields := map[string]string{
 		"hook":            strings.TrimSpace(parseName),
 		"renderGoroutine": strconv.FormatUint(currentFiberOwnerGoroutineID, 10),
-		"callGoroutine":   strconv.FormatUint(currentHookGoroutineID(), 10),
+		"callGoroutine":   strconv.FormatUint(computeHookGoroutineID(), 10),
 	}
 	reportDiagnosticWithContextDetails(
 		"runtime",
@@ -102,13 +173,47 @@ func CreateElementOwned(parseTyp any, parseProps map[string]any, parseChildren .
 	return buildElement(parseTyp, parseProps, parseChildren...)
 }
 
-// CreateElementCompactHostOwned creates one host element from an owned props map
-// and a caller-normalized compact string-attribute view.
-func CreateElementCompactHostOwned(parseTag string, parseProps map[string]any, parseAttrs []HostAttr, parseChildren ...any) *Element {
+// CreateElementCompactHostOwned creates one typed fast-lane host element from a
+// reconciliation key and a caller-normalized, deterministic compact
+// string-attribute view. Fast-lane elements carry no props map at all; cold
+// readers materialize one on demand (see ensureElementProps).
+func CreateElementCompactHostOwned(parseTag string, parseKey string, parseAttrs []HostAttr, parseChildren ...any) *Element {
 	if parseTag == "TEXT_ELEMENT" || parseTag == "FRAGMENT" {
-		return buildElement(parseTag, parseProps, parseChildren...)
+		parseElem := buildElement(parseTag, nil, parseChildren...)
+		parseElem.Key = parseKey
+		return parseElem
 	}
-	return buildElementWithHostProps(parseTag, parseProps, parseProps, parseAttrs, true, parseChildren...)
+	parseElem := buildElementWithHostProps(parseTag, nil, nil, parseAttrs, true, true, parseChildren...)
+	parseElem.Key = parseKey
+	return parseElem
+}
+
+// CreateElementCompactHostOwnedText creates one typed fast-lane host element
+// whose only child is plain text, skipping child-slice normalization entirely.
+func CreateElementCompactHostOwnedText(parseTag string, parseKey string, parseAttrs []HostAttr, parseText string) *Element {
+	return &Element{
+		Type:               parseTag,
+		Children:           emptyChildren,
+		Key:                parseKey,
+		TextContent:        parseText,
+		getHostAttrs:       parseAttrs,
+		isCompactHostProps: true,
+		hasDirectText:      true,
+	}
+}
+
+// PlainTextContent reports the text carried by one plain text node (as built
+// by ui.Text / html.Text â€” no props, no key), so construction sugar can route
+// single text children through the direct-text fast path without allocating a
+// child slice.
+func PlainTextContent(parseElem *Element) (string, bool) {
+	if parseElem == nil || parseElem.hasDirectText || len(parseElem.Props) != 0 {
+		return "", false
+	}
+	if parseTag, parseOk := parseElem.Type.(string); parseOk && parseTag == "TEXT_ELEMENT" {
+		return parseElem.TextContent, true
+	}
+	return "", false
 }
 
 // buildElementHostProps creates one host-only props map and optional compact string attrs for one public element payload.
@@ -125,7 +230,7 @@ func buildElementHostProps(parseTyp any, parseProps map[string]any) (map[string]
 	// separate host-only copy: every entry point clones or owns the map before
 	// reaching here, and the DOM differ skips propKindSkip entries (including
 	// "children"), so the copy only added one map allocation per host element
-	// per render — the single largest allocation site in component updates.
+	// per render â€” the single largest allocation site in component updates.
 	getHostAttrs := make([]HostAttr, 0, len(parseProps))
 	isCompactHostProps := true
 	for parseName, parseValue := range parseProps {
@@ -179,7 +284,11 @@ func cloneElementProps(parseProps map[string]any) map[string]any {
 	return getProps
 }
 
-// canStoreElementDirectText reports whether one host element can carry its only string child directly on the host fiber.
+// canStoreElementDirectText reports whether one host element can carry its only
+// text child directly on the host fiber. Both raw string children and plain
+// TEXT_ELEMENT children (as produced by ui.Text / html.Text â€” no props, no key)
+// qualify; carrying the text on the host fiber skips one fiber and one DOM
+// text-node round trip per text leaf.
 func canStoreElementDirectText(parseTyp any, parseChildren []any) (bool, string) {
 	if len(parseChildren) != 1 {
 		return false, ""
@@ -188,11 +297,48 @@ func canStoreElementDirectText(parseTyp any, parseChildren []any) (bool, string)
 	if !parseOk || parseTag == "TEXT_ELEMENT" || parseTag == "FRAGMENT" {
 		return false, ""
 	}
-	parseText, hasParseText := parseChildren[0].(string)
-	if !hasParseText {
-		return false, ""
+	switch parseChild := parseChildren[0].(type) {
+	case string:
+		return true, parseChild
+	case *Element:
+		if parseChild != nil && !parseChild.hasDirectText && len(parseChild.Props) == 0 {
+			if parseChildTag, parseTagOk := parseChild.Type.(string); parseTagOk && parseChildTag == "TEXT_ELEMENT" {
+				return true, parseChild.TextContent
+			}
+		}
 	}
-	return true, parseText
+	return false, ""
+}
+
+// DemoteDirectTextChild converts an element that carries its only text child
+// directly on the host (the direct-text fast path) back to an explicit
+// TEXT_ELEMENT child. Post-creation child appenders (html.WithChildren) must
+// call this first: the direct-text representation renders TextContent and
+// ignores structural children, so appending to Children alone would drop the
+// new nodes.
+func DemoteDirectTextChild(parseElem *Element) {
+	if parseElem == nil || !parseElem.hasDirectText {
+		return
+	}
+	parseElem.hasDirectText = false
+	parseChildren := []any{&Element{
+		Type:        "TEXT_ELEMENT",
+		TextContent: parseElem.TextContent,
+		Children:    emptyChildren,
+	}}
+	parseElem.TextContent = ""
+	parseElem.Children = parseChildren
+	if parseElem.Props == nil {
+		if parseElem.isCompactHostProps {
+			// Materialize the full attribute view: a bare {"children": ...}
+			// map would make the SSR serializers treat the element as
+			// map-built and silently drop every compact attribute.
+			parseElem.Props = fastLanePropsView(parseElem.getHostAttrs, parseElem.Key, nil, false)
+		} else {
+			parseElem.Props = make(map[string]any, 1)
+		}
+	}
+	parseElem.Props["children"] = parseChildren
 }
 
 // getElementChildren returns one element's structural children while tolerating legacy props-backed child storage.
@@ -256,31 +402,116 @@ func getElementFiberProps(parseElem *Element) map[string]any {
 	return parseElem.Props
 }
 
-// RefreshElementHostProps rebuilds one element's cached host-prop view after post-creation prop mutation.
+// isFastLaneCompactFiber reports whether a fiber carries typed fast-lane host
+// state: a deterministic compact attribute slice and no props map at all.
+func isFastLaneCompactFiber(parseFiber *Fiber) bool {
+	return parseFiber != nil && parseFiber.isCompactHostProps && parseFiber.props == nil
+}
+
+// hostAttrsEqual compares two deterministic compact attribute slices
+// positionally; fast-lane construction guarantees a stable order per payload.
+func hostAttrsEqual(parseA, parseB []HostAttr) bool {
+	if len(parseA) != len(parseB) {
+		return false
+	}
+	for parseIndex := range parseA {
+		if parseA[parseIndex] != parseB[parseIndex] {
+			return false
+		}
+	}
+	return true
+}
+
+// compactAttrPropName maps one compact attribute name back to its legacy
+// props-map key; only "for" differs from its prop spelling.
+func compactAttrPropName(parseName string) string {
+	if parseName == "for" {
+		return "htmlFor"
+	}
+	return parseName
+}
+
+// fastLanePropsView materializes a legacy props-map view from typed fast-lane
+// host state for cold readers (inspection, diagnostics, mixed-shape updates).
+// Hot paths never call this.
+func fastLanePropsView(parseAttrs []HostAttr, parseKey string, parseChildren []any, hasDirectText bool) map[string]any {
+	parseProps := make(map[string]any, len(parseAttrs)+2)
+	for _, parseAttr := range parseAttrs {
+		parseProps[compactAttrPropName(parseAttr.Name)] = parseAttr.Value
+	}
+	if parseKey != "" {
+		parseProps["key"] = parseKey
+	}
+	if !hasDirectText && len(parseChildren) != 0 {
+		parseProps["children"] = parseChildren
+	}
+	return parseProps
+}
+
+// fiberPropsView returns a props-map view of one fiber, materializing a
+// transient map for typed fast-lane fibers so map-shaped consumers keep
+// working; the view is never cached on the fiber.
+func fiberPropsView(parseFiber *Fiber) map[string]any {
+	if parseFiber == nil {
+		return nil
+	}
+	if parseFiber.props != nil || !parseFiber.isCompactHostProps {
+		return parseFiber.props
+	}
+	return fastLanePropsView(parseFiber.getHostAttrs, parseFiber.key, parseFiber.children, parseFiber.hasDirectText)
+}
+
+// EnsureElementProps materializes and caches a legacy props-map view on one
+// typed fast-lane element. Public tooling that reads Element.Props directly
+// should call this first; elements built through the map lane are returned
+// unchanged.
+func EnsureElementProps(parseElem *Element) map[string]any {
+	if parseElem == nil {
+		return nil
+	}
+	if parseElem.Props != nil || !parseElem.isCompactHostProps {
+		return parseElem.Props
+	}
+	parseElem.Props = fastLanePropsView(parseElem.getHostAttrs, parseElem.Key, parseElem.Children, parseElem.hasDirectText)
+	return parseElem.Props
+}
+
+// RefreshElementHostProps rebuilds one element's cached host-prop view after
+// post-creation prop mutation. Typed fast-lane elements materialize their
+// props map first, so a refresh never drops attributes that only lived in the
+// compact slice.
 func RefreshElementHostProps(parseElem *Element) {
 	if parseElem == nil {
 		return
 	}
+	EnsureElementProps(parseElem)
 	parseElem.getHostProps, parseElem.getHostAttrs, parseElem.isCompactHostProps = buildElementHostProps(parseElem.Type, parseElem.Props)
 }
 
 // buildElement builds one virtual DOM element and stores the normalized children slice on the props map.
 func buildElement(parseTyp any, parseProps map[string]any, parseChildren ...any) *Element {
 	getHostProps, getHostAttrs, isCompactHostProps := buildElementHostProps(parseTyp, parseProps)
-	return buildElementWithHostProps(parseTyp, parseProps, getHostProps, getHostAttrs, isCompactHostProps, parseChildren...)
+	return buildElementWithHostProps(parseTyp, parseProps, getHostProps, getHostAttrs, isCompactHostProps, false, parseChildren...)
 }
 
-// buildElementWithHostProps builds one virtual DOM element from an already-normalized host-prop view.
-func buildElementWithHostProps(parseTyp any, parseProps map[string]any, getHostProps map[string]any, getHostAttrs []HostAttr, isCompactHostProps bool, parseChildren ...any) *Element {
+// buildElementWithHostProps builds one virtual DOM element from an
+// already-normalized host-prop view. isMapFree marks the typed fast lane:
+// those elements never receive a props map at construction time (cold readers
+// materialize one through EnsureElementProps).
+func buildElementWithHostProps(parseTyp any, parseProps map[string]any, getHostProps map[string]any, getHostAttrs []HostAttr, isCompactHostProps bool, isMapFree bool, parseChildren ...any) *Element {
 	if len(parseChildren) == 0 {
 		parseChildren = emptyChildren
 	}
 
 	if isParseDirectText, parseDirectText := canStoreElementDirectText(parseTyp, parseChildren); isParseDirectText {
-		if parseProps == nil {
+		// Typed fast-lane elements stay map-free; their children live on the
+		// Children/text fields only.
+		if parseProps == nil && !isMapFree {
 			parseProps = make(map[string]any, 1)
 		}
-		parseProps["children"] = parseChildren
+		if parseProps != nil {
+			parseProps["children"] = parseChildren
+		}
 		return &Element{
 			Type:               parseTyp,
 			Props:              parseProps,
@@ -318,10 +549,12 @@ func buildElementWithHostProps(parseTyp any, parseProps map[string]any, getHostP
 		}
 	}
 
-	if parseProps == nil {
+	if parseProps == nil && !isMapFree {
 		parseProps = make(map[string]any, 1)
 	}
-	parseProps["children"] = parseChildren
+	if parseProps != nil {
+		parseProps["children"] = parseChildren
+	}
 
 	return &Element{
 		Type:               parseTyp,
@@ -447,9 +680,22 @@ func (parseRt *Runtime) reuseFiberChildSubtree(parseParent *Fiber) {
 	}
 }
 
-// sanitizeFiberSubtree relinks one reused committed subtree and clears stale work flags before commit traversal.
+// sanitizeFiberSubtree relinks one reused committed subtree and clears stale
+// work flags before commit traversal. A node that is already fully clean —
+// correct parent link, no pending flags, hooks owned by itself — can only
+// have clean descendants (scheduler dirtying bubbles subtreeDirty up through
+// it, and any render below went through a dirty ancestor), so the walk stops
+// descending there. The first bailout after a commit pays one full sweep;
+// every later bailout of the same subtree touches only the shallow fringe.
 func (parseRt *Runtime) sanitizeFiberSubtree(parseFiber *Fiber, parseParent *Fiber) {
 	for parseCurrent := parseFiber; parseCurrent != nil; parseCurrent = parseCurrent.sibling {
+		if parseCurrent.parent == parseParent &&
+			parseCurrent.effectTag == effectTagNone &&
+			!parseCurrent.dirty && !parseCurrent.subtreeDirty &&
+			!parseCurrent.needsUpdate && !parseCurrent.needsChildReconcile && !parseCurrent.needsChildOrder &&
+			(parseCurrent.hooks == nil || parseCurrent.hooks.owner == parseCurrent) {
+			continue
+		}
 		parseCurrent.parent = parseParent
 		parseCurrent.effectTag = effectTagNone
 		parseCurrent.dirty = false
@@ -519,5 +765,3 @@ func buildClonedFiberSubscriptionAtomIDs(parseFiber *Fiber) []string {
 	}
 	return getAtomIDs
 }
-
-// reconcileChildren reconciles the children of a fiber

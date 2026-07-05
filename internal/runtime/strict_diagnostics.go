@@ -35,6 +35,15 @@ func ConfigureStrictDiagnostics(parseOptions StrictDiagnosticsOptions) {
 	strictDiagnosticsState.options = parseOptions
 }
 
+// strictDiagnosticsEnabled reports whether strict escalation is on without
+// cloning the option slices; every diagnostic report checks this, and strict
+// mode is off by default.
+func strictDiagnosticsEnabled() bool {
+	strictDiagnosticsState.mu.RLock()
+	defer strictDiagnosticsState.mu.RUnlock()
+	return strictDiagnosticsState.options.Enabled
+}
+
 // CurrentStrictDiagnosticsOptions returns the current strict-diagnostics behavior.
 func CurrentStrictDiagnosticsOptions() StrictDiagnosticsOptions {
 	strictDiagnosticsState.mu.RLock()

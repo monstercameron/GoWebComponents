@@ -497,10 +497,23 @@ func readCollectFiberText(parseFiber *Fiber, parseParts *[]string) {
 	}
 }
 
-// readPropString reads one string prop from a fiber's props map. It returns
-// the empty string when the prop is absent, nil, or not a string.
+// readPropString reads one string prop from a fiber. Typed fast-lane fibers
+// carry their string attributes in the compact slice instead of a props map,
+// so those are consulted first; the empty string is returned when the prop is
+// absent, nil, or not a string.
 func readPropString(parseFiber *Fiber, parsePropName string) string {
-	if parseFiber == nil || parseFiber.props == nil {
+	if parseFiber == nil {
+		return ""
+	}
+	if parseFiber.props == nil {
+		if parseFiber.isCompactHostProps {
+			parseAttrName := parsePropName
+			if parseAttrName == "htmlFor" {
+				parseAttrName = "for"
+			}
+			parseValue, _ := lookupHostAttr(parseFiber.getHostAttrs, parseAttrName)
+			return parseValue
+		}
 		return ""
 	}
 	parseVal, parseOk := parseFiber.props[parsePropName]

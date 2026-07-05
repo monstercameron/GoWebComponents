@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestContextHelperBranchesCoverPanicsAndRepair covers direct context hook helper branches.
@@ -108,7 +109,7 @@ func TestInspectHelperBranchesCoverTraceAndBudgetHelpers(parseT *testing.T) {
 			LastRenderDurationNs:  12,
 			TotalRenderDurationNs: 20,
 			TriggerCounts:         map[string]int{"mount": 1, "props": 1},
-			LastRenderedAt:        "2026-03-26T00:00:00.000Z",
+			LastRenderedAt:        time.Date(2026, 3, 26, 0, 0, 0, 0, time.UTC),
 		},
 		"fast": {
 			Name:                  "Sidebar",

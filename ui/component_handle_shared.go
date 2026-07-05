@@ -37,7 +37,14 @@ func getComponentHandle(parseComponent any) *runtime.ComponentType {
 
 	if parseCached, parseOk := componentHandleCache.Load(parseIdentity); parseOk {
 		handle := parseCached.(*runtime.ComponentType)
-		handle.SetImplementationRenderer(parseComponent, buildComponentRenderer(parseComponent))
+		// Steady-state fast path: the same function value re-registering
+		// (every CreateElement of an unchanged component) keeps its renderer;
+		// only a genuinely different implementation pays the rebuild. A
+		// recreated closure (same code, fresh captures) does not match, so
+		// hot reload and inline components still swap.
+		if !handle.ImplementationMatches(parseComponent) {
+			handle.SetImplementationRenderer(parseComponent, buildComponentRenderer(parseComponent))
+		}
 		return handle
 	}
 

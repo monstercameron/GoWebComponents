@@ -186,6 +186,8 @@ func readStaticIslandsNodeText(parseNode *runtime.Element) string {
 		return parseNode.TextContent
 	}
 	var buildText strings.Builder
+	// Hosts with a single text child carry it directly (direct-text fast path).
+	buildText.WriteString(parseNode.TextContent)
 	for _, parseChild := range parseNode.Children {
 		parseElement, parseOk := parseChild.(*runtime.Element)
 		if !parseOk {

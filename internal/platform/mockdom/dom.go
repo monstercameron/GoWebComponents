@@ -170,7 +170,10 @@ func (parseA *MockDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName s
 		case "nodeName":
 			return parseN.Tag
 		case "textContent":
-			return parseN.TextContent
+			// Browser fidelity: textContent is the concatenation of the
+			// node's own text and all descendant text (nodes parsed from
+			// HTML store their text in child text nodes, not the field).
+			return mockNodeTextContent(parseN)
 		case "className":
 			return parseN.Attrs["class"]
 		case "htmlFor":
@@ -182,6 +185,23 @@ func (parseA *MockDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName s
 		return parseN.Props[parseName]
 	}
 	return nil
+}
+
+// mockNodeTextContent concatenates a node's own text with all descendant
+// text, matching the browser's Node.textContent semantics.
+func mockNodeTextContent(parseNode *MockDOMNode) string {
+	if parseNode == nil {
+		return ""
+	}
+	if len(parseNode.Children) == 0 {
+		return parseNode.TextContent
+	}
+	var parseBuilder strings.Builder
+	parseBuilder.WriteString(parseNode.TextContent)
+	for _, parseChild := range parseNode.Children {
+		parseBuilder.WriteString(mockNodeTextContent(parseChild))
+	}
+	return parseBuilder.String()
 }
 
 // QuerySelector resolves one simple selector against the current mock DOM tree.

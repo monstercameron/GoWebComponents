@@ -5,6 +5,7 @@ package html
 import (
 	"testing"
 
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
 
@@ -13,11 +14,12 @@ func TestDiv_OmitsZeroValueProps(parseT *testing.T) {
 	if parseElem == nil {
 		parseT.Fatal("expected element")
 	}
-	if len(parseElem.Props) != 1 {
-		parseT.Fatalf("expected only runtime children prop, got %#v", parseElem.Props)
+	// Typed fast-lane elements carry no props map at construction time.
+	if parseElem.Props != nil {
+		parseT.Fatalf("expected fast-lane element without a props map, got %#v", parseElem.Props)
 	}
-	if _, parseOk := parseElem.Props["children"]; !parseOk {
-		parseT.Fatalf("expected runtime children prop, got %#v", parseElem.Props)
+	if len(runtime.EnsureElementProps(parseElem)) != 0 {
+		parseT.Fatalf("expected empty materialized props, got %#v", parseElem.Props)
 	}
 }
 
@@ -86,7 +88,7 @@ func TestFormPropsIncludeEncType(parseT *testing.T) {
 	if parseElem == nil {
 		parseT.Fatal("expected form element")
 	}
-	if parseElem.Props["enctype"] != "multipart/form-data" {
+	if runtime.EnsureElementProps(parseElem)["enctype"] != "multipart/form-data" {
 		parseT.Fatalf("expected enctype prop, got %#v", parseElem.Props["enctype"])
 	}
 }
@@ -193,37 +195,35 @@ func TestResourceHintHelpersCreateLinkElements(parseT *testing.T) {
 	if parsePreload.Type != "link" {
 		parseT.Fatalf("expected link tag, got %#v", parsePreload.Type)
 	}
-	if parsePreload.Props["rel"] != "preload" {
-		parseT.Fatalf("expected preload rel, got %#v", parsePreload.Props["rel"])
+	parsePreloadProps := runtime.EnsureElementProps(parsePreload)
+	if parsePreloadProps["rel"] != "preload" {
+		parseT.Fatalf("expected preload rel, got %#v", parsePreloadProps["rel"])
 	}
-	if parsePreload.Props["href"] != "/static/bin/browser-interop.wasm" {
-		parseT.Fatalf("expected preload href, got %#v", parsePreload.Props["href"])
+	if parsePreloadProps["href"] != "/static/bin/browser-interop.wasm" {
+		parseT.Fatalf("expected preload href, got %#v", parsePreloadProps["href"])
 	}
-	if parsePreload.Props["as"] != "fetch" {
-		parseT.Fatalf("expected preload as attribute, got %#v", parsePreload.Props["as"])
-	}
-
-	parseModulePreload := ModulePreload("/static/modules/browser-interop-lazy-module.js")
-	if parseModulePreload.Props["rel"] != "modulepreload" {
-		parseT.Fatalf("expected modulepreload rel, got %#v", parseModulePreload.Props["rel"])
-	}
-	if parseModulePreload.Props["as"] != "script" {
-		parseT.Fatalf("expected modulepreload as script, got %#v", parseModulePreload.Props["as"])
+	if parsePreloadProps["as"] != "fetch" {
+		parseT.Fatalf("expected preload as attribute, got %#v", parsePreloadProps["as"])
 	}
 
-	parsePrefetch := Prefetch("/static/modules/next-route.js")
-	if parsePrefetch.Props["rel"] != "prefetch" {
-		parseT.Fatalf("expected prefetch rel, got %#v", parsePrefetch.Props["rel"])
+	parseModulePreload := runtime.EnsureElementProps(ModulePreload("/static/modules/browser-interop-lazy-module.js"))
+	if parseModulePreload["rel"] != "modulepreload" {
+		parseT.Fatalf("expected modulepreload rel, got %#v", parseModulePreload["rel"])
+	}
+	if parseModulePreload["as"] != "script" {
+		parseT.Fatalf("expected modulepreload as script, got %#v", parseModulePreload["as"])
 	}
 
-	parsePreconnect := Preconnect("https://cdn.example.test")
-	if parsePreconnect.Props["rel"] != "preconnect" {
-		parseT.Fatalf("expected preconnect rel, got %#v", parsePreconnect.Props["rel"])
+	if parsePrefetch := runtime.EnsureElementProps(Prefetch("/static/modules/next-route.js")); parsePrefetch["rel"] != "prefetch" {
+		parseT.Fatalf("expected prefetch rel, got %#v", parsePrefetch["rel"])
 	}
 
-	parseDns := DNSPrefetch("https://cdn.example.test")
-	if parseDns.Props["rel"] != "dns-prefetch" {
-		parseT.Fatalf("expected dns-prefetch rel, got %#v", parseDns.Props["rel"])
+	if parsePreconnect := runtime.EnsureElementProps(Preconnect("https://cdn.example.test")); parsePreconnect["rel"] != "preconnect" {
+		parseT.Fatalf("expected preconnect rel, got %#v", parsePreconnect["rel"])
+	}
+
+	if parseDns := runtime.EnsureElementProps(DNSPrefetch("https://cdn.example.test")); parseDns["rel"] != "dns-prefetch" {
+		parseT.Fatalf("expected dns-prefetch rel, got %#v", parseDns["rel"])
 	}
 }
 
@@ -267,7 +267,7 @@ func TestAccessibilityPropsPreserveSemanticRelationships(parseT *testing.T) {
 	if parseLabel == nil {
 		parseT.Fatal("expected label element")
 	}
-	if parseLabel.Props["htmlFor"] != "field-id" {
+	if runtime.EnsureElementProps(parseLabel)["htmlFor"] != "field-id" {
 		parseT.Fatalf("expected htmlFor prop, got %#v", parseLabel.Props["htmlFor"])
 	}
 }

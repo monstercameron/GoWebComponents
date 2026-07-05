@@ -179,16 +179,15 @@ func (parseRt *Runtime) buildFiberNeedsWork(parseOldFiber *Fiber, parseElem *Ele
 	if parseOldFiber == nil || parseElem == nil {
 		return true, false
 	}
-	parseElemProps := getElementFiberProps(parseElem)
-	parseElemChildren := getElementChildren(parseElem)
 
-	isDirty := parseRt.isFiberDirty(parseOldFiber)
-	if isDirty || parseOldFiber.needsUpdate {
+	if parseRt.isFiberDirty(parseOldFiber) || parseOldFiber.needsUpdate {
 		return true, false
 	}
 	if parseOldFiber.needsChildReconcile {
 		return false, true
 	}
+	parseElemProps := getElementFiberProps(parseElem)
+	parseElemChildren := getElementChildren(parseElem)
 
 	if parseT, parseOk := parseElem.Type.(string); parseOk && parseT == "TEXT_ELEMENT" {
 		parseOldText := parseOldFiber.textContent
@@ -202,6 +201,36 @@ func (parseRt *Runtime) buildFiberNeedsWork(parseOldFiber *Fiber, parseElem *Ele
 		return parseOldText != parseNewText, false
 	}
 
+	// Typed fast lane: both sides carry deterministic compact attribute
+	// slices and no props map, so the diff is a positional slice walk plus
+	// the dedicated key field — no map iteration at all.
+	if isFastLaneCompactFiber(parseOldFiber) && parseElem.isCompactHostProps && parseElemProps == nil {
+		if parseOldFiber.hasDirectText != parseElem.hasDirectText {
+			return true, true
+		}
+		if parseOldFiber.hasDirectText && parseOldFiber.textContent != parseElem.TextContent {
+			return true, false
+		}
+		if parseOldFiber.key != parseElem.Key || !hostAttrsEqual(parseOldFiber.getHostAttrs, parseElem.getHostAttrs) {
+			return true, false
+		}
+		if parseOldFiber.hasDirectText {
+			return false, false
+		}
+		if childrenEqual(getFiberChildren(parseOldFiber), parseElemChildren) {
+			return false, false
+		}
+		return false, true
+	}
+
+	// Mixed shapes (one side fast-lane, one side map-built) compare through
+	// materialized map views so shape transitions diff correctly.
+	parseOldView := fiberPropsView(parseOldFiber)
+	parseNewView := parseElemProps
+	if parseNewView == nil && parseElem.isCompactHostProps {
+		parseNewView = fastLanePropsView(parseElem.getHostAttrs, parseElem.Key, parseElem.Children, parseElem.hasDirectText)
+	}
+
 	if parseOldFiber.hasDirectText || parseElem.hasDirectText {
 		if parseOldFiber.hasDirectText != parseElem.hasDirectText {
 			return true, true
@@ -209,19 +238,19 @@ func (parseRt *Runtime) buildFiberNeedsWork(parseOldFiber *Fiber, parseElem *Ele
 		if parseOldFiber.textContent != parseElem.TextContent {
 			return true, false
 		}
-		if propsEqualIgnoringChildren(parseOldFiber.props, parseElemProps) {
+		if propsEqualIgnoringChildren(parseOldView, parseNewView) {
 			return false, false
 		}
 		return true, false
 	}
 
-	if propsEqual(parseOldFiber.props, parseElemProps) {
+	if propsEqual(parseOldView, parseNewView) {
 		if childrenEqual(getFiberChildren(parseOldFiber), parseElemChildren) {
 			return false, false
 		}
 		return false, true
 	}
-	if propsEqualIgnoringChildren(parseOldFiber.props, parseElemProps) {
+	if propsEqualIgnoringChildren(parseOldView, parseNewView) {
 		return false, true
 	}
 
@@ -257,6 +286,7 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 		props:               parseElemProps,
 		children:            getElementChildren(parseElem),
 		getHostAttrs:        parseElem.getHostAttrs,
+		key:                 parseElem.Key,
 		textContent:         parseElem.TextContent,
 		dom:                 parseOldFiber.dom,
 		parent:              parseWipFiber,
@@ -282,6 +312,16 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 	return parseNewFiber
 }
 
+// NOTE(experiment, 2026-07-04): a "relink clean fast-lane fibers instead of
+// cloning" fast path was tried here (adopt the committed child fiber object
+// directly when key/attrs/text/children are unchanged). It passed the full
+// native suite and the runtime1 browser subject, but deterministically broke
+// the runtime2 worker content flow (worker state arrived, re-render never
+// happened — a stale fiber-reference interaction in the update targeting
+// path), and its measured upside was flat because the fiber pool already
+// makes clones allocation-free. Rejected; children of a dirty parent are
+// always cloned.
+
 // buildPlacementFiber builds one new placement fiber for an inserted or replaced element.
 func buildPlacementFiber(parseWipFiber *Fiber, parseElem *Element, parseOldFiber *Fiber) *Fiber {
 	if parseWipFiber == nil || parseElem == nil {
@@ -295,6 +335,7 @@ func buildPlacementFiber(parseWipFiber *Fiber, parseElem *Element, parseOldFiber
 		props:              parseElemProps,
 		children:           getElementChildren(parseElem),
 		getHostAttrs:       parseElem.getHostAttrs,
+		key:                parseElem.Key,
 		textContent:        parseElem.TextContent,
 		parent:             parseWipFiber,
 		effectTag:          effectTagPlacement,
@@ -333,7 +374,42 @@ func hasElementFiberKeyMatch(parseElem *Element, parseFiber *Fiber) bool {
 	if !isParseElemKeyed {
 		return true
 	}
-	return fastEqual(parseElem.Props["key"], parseFiber.props["key"])
+	// Typed fast-lane keys compare as plain strings; boxing them into `any`
+	// for fastEqual allocated on every keyed row of every render.
+	if parseElem.Key != "" && parseFiber.key != "" {
+		return parseElem.Key == parseFiber.key
+	}
+	return fastEqual(elementKeyValue(parseElem), fiberKeyValue(parseFiber))
+}
+
+// elementKeyValue returns one element's reconciliation key, preferring the
+// typed fast-lane field over the props map.
+func elementKeyValue(parseElem *Element) any {
+	if parseElem == nil {
+		return nil
+	}
+	if parseElem.Key != "" {
+		return parseElem.Key
+	}
+	if parseElem.Props == nil {
+		return nil
+	}
+	return parseElem.Props["key"]
+}
+
+// fiberKeyValue returns one fiber's reconciliation key, preferring the typed
+// fast-lane field over the props map.
+func fiberKeyValue(parseFiber *Fiber) any {
+	if parseFiber == nil {
+		return nil
+	}
+	if parseFiber.key != "" {
+		return parseFiber.key
+	}
+	if parseFiber.props == nil {
+		return nil
+	}
+	return parseFiber.props["key"]
 }
 
 // tryReconcileKeyedChildrenInOrder fast-paths keyed lists that kept the same sibling order.
@@ -342,22 +418,31 @@ func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, p
 		return false
 	}
 
+	// Phase 1: validate the whole run is same-order/same-identity before any
+	// fiber is built or relinked, so an abort can never leave half-mutated
+	// chain links or moved atom subscriptions behind.
 	parseOldFiber := parseOldFirst
-	var parseFirstChild *Fiber
-	var parsePrevSibling *Fiber
-
 	for _, parseElement := range parseElements {
 		parseElem, parseOk := parseElement.(*Element)
-		if !parseOk || parseElem == nil {
-			return false
-		}
-		if parseOldFiber == nil {
+		if !parseOk || parseElem == nil || parseOldFiber == nil {
 			return false
 		}
 		if !sameFiberType(parseElem, parseOldFiber) || !hasElementFiberKeyMatch(parseElem, parseOldFiber) {
 			return false
 		}
+		parseOldFiber = parseOldFiber.sibling
+	}
+	if parseOldFiber != nil {
+		return false
+	}
 
+	// Phase 2: build the chain.
+	parseOldFiber = parseOldFirst
+	var parseFirstChild *Fiber
+	var parsePrevSibling *Fiber
+	for _, parseElement := range parseElements {
+		parseElem := parseElement.(*Element)
+		parseNextOldFiber := parseOldFiber.sibling
 		parseNewFiber := parseRt.buildUpdatedFiber(parseWipFiber, parseOldFiber, parseElem)
 		if parseFirstChild == nil {
 			parseFirstChild = parseNewFiber
@@ -365,11 +450,7 @@ func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, p
 			parsePrevSibling.sibling = parseNewFiber
 		}
 		parsePrevSibling = parseNewFiber
-		parseOldFiber = parseOldFiber.sibling
-	}
-
-	if parseOldFiber != nil {
-		return false
+		parseOldFiber = parseNextOldFiber
 	}
 	parseWipFiber.child = parseFirstChild
 	return true
@@ -555,7 +636,7 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 	for parseOldFiber := parseOldFirst; parseOldFiber != nil; parseOldFiber = parseOldFiber.sibling {
 		parseOldIndexByFiber[parseOldFiber] = parseOldIndex
 		parseOldIndex++
-		if parseKey, parseOk := fiberComparableKey(parseOldFiber); parseOk {
+		if parseKey, isComparable, hasKey := fiberReconcileKey(parseOldFiber); isComparable {
 			if _, parseDup := parseOldByKey[parseKey]; parseDup {
 				// Duplicate key: the keyed map holds only one fiber per key, so
 				// route the collision to the positionally-matched fallback list.
@@ -566,7 +647,7 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 			} else {
 				parseOldByKey[parseKey] = parseOldFiber
 			}
-		} else if hasFiberKey(parseOldFiber) {
+		} else if hasKey {
 			parseOldFallbackKeyed = append(parseOldFallbackKeyed, parseOldFiber)
 		} else {
 			parseOldUnkeyed = append(parseOldUnkeyed, parseOldFiber)
@@ -585,7 +666,7 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 		}
 
 		var parseMatchedOld *Fiber
-		if parseKey2, hasKey := elementComparableKey(parseElem); hasKey {
+		if parseKey2, isComparable2, hasKey2 := elementReconcileKey(parseElem); isComparable2 {
 			parseMatchedOld = parseOldByKey[parseKey2]
 			if parseMatchedOld != nil {
 				delete(parseOldByKey, parseKey2)
@@ -594,7 +675,7 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 				// the fallback list may still match this element by key.
 				parseMatchedOld = takeMatchingFallbackKeyed(parseOldFallbackKeyed, parseElem)
 			}
-		} else if hasElementKey(parseElem) {
+		} else if hasKey2 {
 			parseMatchedOld = takeMatchingFallbackKeyed(parseOldFallbackKeyed, parseElem)
 		} else if parseUnkeyedIndex < len(parseOldUnkeyed) {
 			parseMatchedOld = parseOldUnkeyed[parseUnkeyedIndex]
@@ -687,7 +768,13 @@ func sameFiberType(parseElem *Element, parseOldFiber *Fiber) bool {
 
 // hasElementKey is an internal reconciler helper.
 func hasElementKey(parseElem *Element) bool {
-	if parseElem == nil || parseElem.Props == nil {
+	if parseElem == nil {
+		return false
+	}
+	if parseElem.Key != "" {
+		return true
+	}
+	if parseElem.Props == nil {
 		return false
 	}
 	_, parseOk := parseElem.Props["key"]
@@ -696,7 +783,13 @@ func hasElementKey(parseElem *Element) bool {
 
 // hasFiberKey is an internal reconciler helper.
 func hasFiberKey(parseFiber *Fiber) bool {
-	if parseFiber == nil || parseFiber.props == nil {
+	if parseFiber == nil {
+		return false
+	}
+	if parseFiber.key != "" {
+		return true
+	}
+	if parseFiber.props == nil {
 		return false
 	}
 	_, parseOk := parseFiber.props["key"]
@@ -705,7 +798,13 @@ func hasFiberKey(parseFiber *Fiber) bool {
 
 // elementComparableKey is an internal reconciler helper.
 func elementComparableKey(parseElem *Element) (any, bool) {
-	if parseElem == nil || parseElem.Props == nil {
+	if parseElem == nil {
+		return nil, false
+	}
+	if parseElem.Key != "" {
+		return parseElem.Key, true
+	}
+	if parseElem.Props == nil {
 		return nil, false
 	}
 	return propsComparableKey(parseElem.Props)
@@ -713,7 +812,13 @@ func elementComparableKey(parseElem *Element) (any, bool) {
 
 // fiberComparableKey is an internal reconciler helper.
 func fiberComparableKey(parseFiber *Fiber) (any, bool) {
-	if parseFiber == nil || parseFiber.props == nil {
+	if parseFiber == nil {
+		return nil, false
+	}
+	if parseFiber.key != "" {
+		return parseFiber.key, true
+	}
+	if parseFiber.props == nil {
 		return nil, false
 	}
 	return propsComparableKey(parseFiber.props)
@@ -725,6 +830,11 @@ func propsComparableKey(parseProps map[string]any) (any, bool) {
 	if !parseOk || parseKey == nil {
 		return nil, false
 	}
+	return comparableKeyValue(parseKey)
+}
+
+// comparableKeyValue reports whether one key value can serve as a map key.
+func comparableKeyValue(parseKey any) (any, bool) {
 	switch parseTyped := parseKey.(type) {
 	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, bool:
 		return parseTyped, true
@@ -738,17 +848,63 @@ func propsComparableKey(parseProps map[string]any) (any, bool) {
 	return parseKey, true
 }
 
+// fiberReconcileKey classifies one fiber's key in a single probe: the
+// map-usable key value (when comparable) plus whether any key exists at all,
+// so keyed reconciliation avoids a second props lookup on the fallback path.
+func fiberReconcileKey(parseFiber *Fiber) (any, bool, bool) {
+	if parseFiber == nil {
+		return nil, false, false
+	}
+	if parseFiber.key != "" {
+		return parseFiber.key, true, true
+	}
+	if parseFiber.props == nil {
+		return nil, false, false
+	}
+	parseKey, hasKey := parseFiber.props["key"]
+	if !hasKey {
+		return nil, false, false
+	}
+	if parseKey == nil {
+		return nil, false, true
+	}
+	parseValue, isComparable := comparableKeyValue(parseKey)
+	return parseValue, isComparable, true
+}
+
+// elementReconcileKey is the element-side twin of fiberReconcileKey.
+func elementReconcileKey(parseElem *Element) (any, bool, bool) {
+	if parseElem == nil {
+		return nil, false, false
+	}
+	if parseElem.Key != "" {
+		return parseElem.Key, true, true
+	}
+	if parseElem.Props == nil {
+		return nil, false, false
+	}
+	parseKey, hasKey := parseElem.Props["key"]
+	if !hasKey {
+		return nil, false, false
+	}
+	if parseKey == nil {
+		return nil, false, true
+	}
+	parseValue, isComparable := comparableKeyValue(parseKey)
+	return parseValue, isComparable, true
+}
+
 // takeMatchingFallbackKeyed is an internal reconciler helper.
 func takeMatchingFallbackKeyed(parseOldFibers []*Fiber, parseElem *Element) *Fiber {
-	if parseElem == nil || parseElem.Props == nil {
+	if parseElem == nil || (parseElem.Key == "" && parseElem.Props == nil) {
 		return nil
 	}
-	parseKey := parseElem.Props["key"]
+	parseKey := elementKeyValue(parseElem)
 	for parseIndex, parseOldFiber := range parseOldFibers {
-		if parseOldFiber == nil || parseOldFiber.props == nil {
+		if parseOldFiber == nil || (parseOldFiber.key == "" && parseOldFiber.props == nil) {
 			continue
 		}
-		if fastEqual(parseOldFiber.props["key"], parseKey) {
+		if fastEqual(fiberKeyValue(parseOldFiber), parseKey) {
 			parseOldFibers[parseIndex] = nil
 			return parseOldFiber
 		}
@@ -842,6 +998,9 @@ func propsEqualIgnoringChildren(parseA, parseB map[string]any) bool {
 		return false
 	}
 
+	// One pass suffices: the children-adjusted lengths already matched, and
+	// every non-children key of A was found in B, so B cannot hold an extra
+	// non-children key.
 	for parseK, parseV1 := range parseA {
 		if parseK == "children" {
 			continue
@@ -851,15 +1010,6 @@ func propsEqualIgnoringChildren(parseA, parseB map[string]any) bool {
 			return false
 		}
 		if !fastEqual(parseV1, parseV2) {
-			return false
-		}
-	}
-
-	for parseK := range parseB {
-		if parseK == "children" {
-			continue
-		}
-		if _, parseOk := parseA[parseK]; !parseOk {
 			return false
 		}
 	}
@@ -944,6 +1094,25 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 	if parseFiber == nil {
 		return nil
 	}
+
+	// Distinguish self work from descendant-only work so clean owners can forward updates without rerendering.
+	isParseSelfDirty := parseRt.isFiberDirty(parseFiber) || parseFiber.needsChildReconcile
+	isParseSubtreeOnly := !isParseSelfDirty && parseFiber.subtreeDirty
+
+	// Reuse the committed child chain when neither the fiber nor any
+	// descendant needs work. The bailout path skips diff timing entirely —
+	// no render or reconcile ran, and the pair of clock reads was the
+	// dominant cost of visiting a clean fiber.
+	if !isParseSelfDirty && !isParseSubtreeOnly {
+		parseFiber.renderDurationNs = 0
+		parseFiber.diffDurationNs = 0
+		if parseFiber.hooks != nil {
+			parseFiber.hooks.owner = parseFiber
+		}
+		parseRt.reuseFiberChildSubtree(parseFiber)
+		return parseRt.getNextSiblingUnitOfWork(parseFiber)
+	}
+
 	parseStart := time.Now()
 	parseFiber.renderDurationNs = 0
 	parseFiber.diffDurationNs = 0
@@ -952,19 +1121,6 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 		parseFiber.diffDurationNs = parseDiffDurationNs
 		parseRt.profiling.totalDiffDurationNs += parseDiffDurationNs
 		return parseNext
-	}
-
-	// Distinguish self work from descendant-only work so clean owners can forward updates without rerendering.
-	isParseSelfDirty := parseRt.isFiberDirty(parseFiber) || parseFiber.needsChildReconcile
-	isParseSubtreeOnly := !isParseSelfDirty && parseFiber.subtreeDirty
-
-	// Reuse the committed child chain when neither the fiber nor any descendant needs work.
-	if !isParseSelfDirty && !isParseSubtreeOnly {
-		if parseFiber.hooks != nil {
-			parseFiber.hooks.owner = parseFiber
-		}
-		parseRt.reuseFiberChildSubtree(parseFiber)
-		return parseFinalize(parseRt.getNextSiblingUnitOfWork(parseFiber))
 	}
 
 	// Clear dirty flags on fiber and alternates
@@ -1003,6 +1159,13 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 					parseFiber.hydrated = true
 					parseFiber.effectTag = effectTagHydrate
 					parseFiber.childHydration = newHydrationBoundary(parseHydratedDOM, parseRt.domAdapter.GetFirstChild(parseHydratedDOM))
+				} else if parseRt.shouldDeferHostDomToCommit(parseFiber) {
+					// Serialized-mount candidate: leave dom null so commit can
+					// mount the whole subtree from one parsed HTML string; the
+					// commit placement branch creates per-node DOM if the
+					// subtree turns out ineligible.
+					parseFiber.hydrated = false
+					parseFiber.childHydration = nil
 				} else {
 					parseFiber.dom = parseRt.createDom(parseFiber)
 					parseFiber.hydrated = false

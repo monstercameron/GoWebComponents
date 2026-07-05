@@ -302,7 +302,7 @@ func (parseRt *Runtime) strictPreviewRender(parseFiber *Fiber) {
 	parsePreviewHooks := &Hooks{owner: parseFiber}
 	parsePrevHooks := parseFiber.hooks
 	parseFiber.hooks = parsePreviewHooks
-	SetCurrentFiber(parseFiber)
+	setCurrentFiberOwned(parseFiber, parseRt.renderPassOwnerID())
 	defer SetCurrentFiber(nil)
 	defer func() {
 		parseFiber.hooks = parsePrevHooks

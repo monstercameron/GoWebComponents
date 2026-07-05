@@ -4,9 +4,13 @@ import "reflect"
 
 // Element represents a virtual DOM node.
 type Element struct {
-	Type               any
-	Props              map[string]any
-	Children           []any
+	Type     any
+	Props    map[string]any
+	Children []any
+	// Key carries the reconciliation key for elements built through the typed
+	// fast lane (html.Props). Map-built elements keep their key in Props; the
+	// key helpers consult this field first.
+	Key                string
 	TextContent        string // Optimization for TEXT_ELEMENT to avoid map allocation
 	getHostProps       map[string]any
 	getHostAttrs       []HostAttr
@@ -99,8 +103,11 @@ type Fiber struct {
 	isCompactHostProps bool
 
 	// Interfaces and Strings (16 bytes each)
-	typeOf      any
-	dom         DOMNode
+	typeOf any
+	dom    DOMNode
+	// key mirrors Element.Key for fast-lane elements; map-built fibers keep
+	// their key in props and the key helpers consult this field first.
+	key         string
 	textContent string
 	effectTag   effectTagKind
 
@@ -211,6 +218,7 @@ type Hooks struct {
 	effectEpoch   int
 
 	states           []any // Interleaved: state, pending, state, pending...
+	stateAccessors   []stateAccessor
 	deps             [][]any
 	memos            []memoizedValue
 	callbacks        []callbackValue
@@ -226,6 +234,13 @@ type Hooks struct {
 	hotReloadRestore *HotReloadComponentSnapshot
 	effectHadCleanup []bool
 	effectSeen       []bool
+
+	// Cached render-trace identity (see recordComponentRenderTraceLocked).
+	// Hooks survive exactly the updates that keep a component at the same
+	// tree position, so kind/name/path stay valid for the store's lifetime.
+	traceKind string
+	traceName string
+	tracePath string
 }
 
 // Attrs is a convenience type for component props.

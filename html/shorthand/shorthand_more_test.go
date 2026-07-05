@@ -374,7 +374,8 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(parseT *testing.T) {
 	if If(false, Text("x")) != nil || Unless(false, Text("x")) == nil || IfElse(true, Text("a"), Text("b")).TextContent != "a" {
 		parseT.Fatal("expected conditional helpers to delegate")
 	}
-	if parseNode := WithKey(Text("x"), "k1"); parseNode == nil || parseNode.Props["key"] != "k1" {
+	// String keys ride the typed fast-lane Key field.
+	if parseNode := WithKey(Text("x"), "k1"); parseNode == nil || parseNode.Key != "k1" {
 		parseT.Fatalf("expected key application, got %#v", parseNode)
 	}
 	if Switch("warn", Case("ok", Text("ok")), Case("warn", Text("warn")), Default(Text("fallback"))).TextContent != "warn" {
