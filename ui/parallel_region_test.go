@@ -735,6 +735,45 @@ func TestParallelRegionWorkerPropFiltersRecognizeBridgeOnlyProps(parseT *testing
 	}
 }
 
+// TestParallelRegionBridgeFallbackStoreSurfacesAndClears pins the #83 HIGH fix: a
+// worker-bridge failure (mount/update/click) is RECORDED per region so it can be
+// surfaced on ParallelRegionStatus.GetFallbackReason instead of only logged, and it
+// is cleared on recovery and on registry reset so a stale reason never lingers.
+func TestParallelRegionBridgeFallbackStoreSurfacesAndClears(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseID := runtime2.RegionInstanceID("region-fallback-x")
+	if parseGot := resolveParallelRegionBridgeFallback(parseID); parseGot != "" {
+		parseT.Fatalf("expected no recorded fallback initially, got %q", parseGot)
+	}
+
+	recordParallelRegionBridgeFallback(parseID, "worker mount bridge failed: boom")
+	if parseGot := resolveParallelRegionBridgeFallback(parseID); parseGot != "worker mount bridge failed: boom" {
+		parseT.Fatalf("recorded fallback not surfaced, got %q", parseGot)
+	}
+
+	// Empty region or reason must be ignored (never overwrites a recorded reason).
+	recordParallelRegionBridgeFallback("", "ignored")
+	recordParallelRegionBridgeFallback(parseID, "")
+	if parseGot := resolveParallelRegionBridgeFallback(parseID); parseGot != "worker mount bridge failed: boom" {
+		parseT.Fatalf("empty record must not clobber the reason, got %q", parseGot)
+	}
+
+	// Recovery clears the reason.
+	clearParallelRegionBridgeFallback(parseID)
+	if parseGot := resolveParallelRegionBridgeFallback(parseID); parseGot != "" {
+		parseT.Fatalf("clear must drop the recorded fallback, got %q", parseGot)
+	}
+
+	// Registry reset clears any recorded reason.
+	recordParallelRegionBridgeFallback(parseID, "again")
+	resetParallelRegionRegistry()
+	if parseGot := resolveParallelRegionBridgeFallback(parseID); parseGot != "" {
+		parseT.Fatalf("reset must clear recorded fallbacks, got %q", parseGot)
+	}
+}
+
 // TestParallelRegionWorkerPropsOutputStripsFunctionValuesAndStaysJSONEncodable pins the
 // #83 func-prop encode fix end to end: an arbitrarily-named function-valued prop is
 // removed from the display-only worker props so the result marshals cleanly, while

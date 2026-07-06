@@ -79,6 +79,9 @@ func buildParallelRegionClickBridgeHandler(
 		handleParallelRegionWrappedClick(parseWrappedHandler, parseEvent)
 		if parseDispatchErr := handleParallelRegionClickDispatch(parseRegionInstanceID, parseSlotID); parseDispatchErr != nil {
 			reportParallelRegionDiagnosticError("parallel-region click bridge failed: " + parseDispatchErr.Error())
+			// Surface on the public status so a click that can never commit a patch
+			// (e.g. an unknown region ID from a failed mount) is visible, not silent.
+			recordParallelRegionBridgeFallback(parseRegionInstanceID, "click bridge failed: "+parseDispatchErr.Error())
 		}
 	}), nil
 }

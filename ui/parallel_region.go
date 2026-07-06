@@ -63,7 +63,42 @@ var (
 	cacheParallelRegionSchedulerShardsByID = map[runtime2.RegionInstanceID][]runtime2.SchedulerShardID{}
 	cacheParallelRegionHydrationMarkerByID = map[runtime2.RegionInstanceID]runtime2.SSRShellMarker{}
 	cacheParallelRegionWorkerRuntime       = runtime2.BuildWorkerRegionRuntime()
+	// cacheParallelRegionBridgeFallbackByID records a UI-side worker-bridge failure
+	// (mount/update/click) per region so it is SURFACED on ParallelRegionStatus
+	// .GetFallbackReason instead of only logged. Without it a bridge failure left the
+	// region WorkerAttached with no worker state — every later click hit "unknown
+	// region ID" and the content silently never updated, with no visible error.
+	cacheParallelRegionBridgeFallbackByID = map[runtime2.RegionInstanceID]string{}
 )
+
+// recordParallelRegionBridgeFallback stores a worker-bridge failure reason for one
+// region so it surfaces on the public status. Ignores an empty region/reason.
+func recordParallelRegionBridgeFallback(parseRegionInstanceID runtime2.RegionInstanceID, parseReason string) {
+	if parseRegionInstanceID == "" || parseReason == "" {
+		return
+	}
+	storeParallelRegionAdapterMu.Lock()
+	cacheParallelRegionBridgeFallbackByID[parseRegionInstanceID] = parseReason
+	storeParallelRegionAdapterMu.Unlock()
+}
+
+// clearParallelRegionBridgeFallback drops a region's recorded bridge failure after
+// it recovers (a successful mount/update), so a stale reason does not linger.
+func clearParallelRegionBridgeFallback(parseRegionInstanceID runtime2.RegionInstanceID) {
+	if parseRegionInstanceID == "" {
+		return
+	}
+	storeParallelRegionAdapterMu.Lock()
+	delete(cacheParallelRegionBridgeFallbackByID, parseRegionInstanceID)
+	storeParallelRegionAdapterMu.Unlock()
+}
+
+// resolveParallelRegionBridgeFallback returns a region's recorded bridge failure reason.
+func resolveParallelRegionBridgeFallback(parseRegionInstanceID runtime2.RegionInstanceID) string {
+	storeParallelRegionAdapterMu.RLock()
+	defer storeParallelRegionAdapterMu.RUnlock()
+	return cacheParallelRegionBridgeFallbackByID[parseRegionInstanceID]
+}
 
 // buildParallelRegionRendererMetadata returns the current runtime2 capability metadata for public display-only regions.
 func buildParallelRegionRendererMetadata(parseEventSlotMetadata runtime2.EventSlotMetadata) runtime2.RendererMetadata {
@@ -231,6 +266,11 @@ func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 		if hasParallelRegionMounted {
 			if parseWorkerMountErr := handleParallelRegionWorkerMount(getParallelRegionHostAdapter, parseRuntimeSpec, getInputVersion); parseWorkerMountErr != nil {
 				reportParallelRegionDiagnosticError("parallel-region worker mount bridge failed: " + parseWorkerMountErr.Error())
+				// Surface on the public status: a failed mount leaves the region
+				// without worker state, so later clicks silently fail otherwise.
+				recordParallelRegionBridgeFallback(parseRuntimeSpec.RegionInstanceID, "worker mount bridge failed: "+parseWorkerMountErr.Error())
+			} else {
+				clearParallelRegionBridgeFallback(parseRuntimeSpec.RegionInstanceID)
 			}
 		} else {
 			getDispatchResult, parseDispatchErr := handleParallelRegionUpdateDispatch(getParallelRegionHostAdapter, parseRuntimeSpec, getInputVersion)
@@ -244,6 +284,9 @@ func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 				getDispatchResult,
 			); parseWorkerUpdateErr != nil {
 				reportParallelRegionDiagnosticError("parallel-region worker update bridge failed: " + parseWorkerUpdateErr.Error())
+				recordParallelRegionBridgeFallback(parseRuntimeSpec.RegionInstanceID, "worker update bridge failed: "+parseWorkerUpdateErr.Error())
+			} else {
+				clearParallelRegionBridgeFallback(parseRuntimeSpec.RegionInstanceID)
 			}
 		}
 		if parseAttachErr := handleParallelRegionPostRenderAttachByID(parseRuntimeSpec.RegionInstanceID); parseAttachErr != nil {
@@ -645,6 +688,7 @@ func handleParallelRegionOwnerRemove(parseRegionInstanceID string) error {
 	delete(cacheParallelRegionInputVersionByID, getRegionInstanceID)
 	delete(cacheParallelRegionSchedulerShardsByID, getRegionInstanceID)
 	delete(cacheParallelRegionHydrationMarkerByID, getRegionInstanceID)
+	delete(cacheParallelRegionBridgeFallbackByID, getRegionInstanceID)
 	storeParallelRegionAdapterMu.Unlock()
 	cacheParallelRegionWorkerRuntime.HandleWorkerRegionDispose(parseRegionInstanceID)
 	if getParallelRegionHostAdapter == nil {
@@ -668,7 +712,13 @@ func GetParallelRegionRuntimeStatus(parseRegionInstanceID string) (ParallelRegio
 	if !hasRuntimeStatus {
 		return ParallelRegionStatus{}, false, nil
 	}
-	return buildParallelRegionStatus(getRuntimeStatus), true, nil
+	getStatus := buildParallelRegionStatus(getRuntimeStatus)
+	// Surface a UI-side worker-bridge failure that the runtime status does not carry
+	// (the runtime never learned of it because the bridge failed before dispatch).
+	if getStatus.GetFallbackReason == "" {
+		getStatus.GetFallbackReason = resolveParallelRegionBridgeFallback(getRegionInstanceID)
+	}
+	return getStatus, true, nil
 }
 
 // buildParallelRegionStatus converts one internal runtime2 status snapshot into the public read-only ui status surface.
@@ -726,6 +776,7 @@ func resetParallelRegionRegistry() {
 	cacheParallelRegionInputVersionByID = map[runtime2.RegionInstanceID]uint64{}
 	cacheParallelRegionSchedulerShardsByID = map[runtime2.RegionInstanceID][]runtime2.SchedulerShardID{}
 	cacheParallelRegionHydrationMarkerByID = map[runtime2.RegionInstanceID]runtime2.SSRShellMarker{}
+	cacheParallelRegionBridgeFallbackByID = map[runtime2.RegionInstanceID]string{}
 	storeParallelRegionAdapterMu.Unlock()
 	cacheParallelRegionWorkerRuntime = runtime2.BuildWorkerRegionRuntime()
 	runtime2.ResetRendererRegistry()
