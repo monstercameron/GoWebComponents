@@ -1301,6 +1301,15 @@ func StyleVar(parseName string, parseValue string) PropOption {
 // parseOverride wins, and the Style/Data/Aria/Raw maps are unioned with
 // parseOverride taking precedence per key. Neither input is mutated. Use it to
 // forward and override props through a wrapper component.
+//
+// The scalar overlay uses reflection DELIBERATELY: Props has ~50 fields (and a
+// growing set of ~30 event handlers), so a hand-written field-by-field merge
+// would silently drop any newly added field until someone remembered to extend
+// it. Reflection auto-covers every field via IsZero. This is not a per-element
+// hot path — Tag/CreateElement never call MergeProps; it runs only on explicit
+// prop composition (wrappers, DefaultProps) — so the reflection cost is
+// negligible. Do NOT "optimize" it into an explicit merge without a full-field
+// parity guard (see TestMergePropsCoversEveryField).
 func MergeProps(parseBase Props, parseOverride Props) Props {
 	parseResult := cloneProps(parseBase)
 	parseResultValue := reflect.ValueOf(&parseResult).Elem()

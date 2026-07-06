@@ -1,11 +1,79 @@
 package html
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
+
+// setFieldNonZero fills a reflected field with a distinctive non-zero value so a
+// merge can be checked for dropping it. Handles the kinds that appear in Props.
+func setFieldNonZero(parseField reflect.Value) {
+	switch parseField.Kind() {
+	case reflect.String:
+		parseField.SetString("x")
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		parseField.SetInt(1)
+	case reflect.Bool:
+		parseField.SetBool(true)
+	case reflect.Map:
+		parseMap := reflect.MakeMap(parseField.Type())
+		parseVal := reflect.New(parseField.Type().Elem()).Elem()
+		setFieldNonZero(parseVal)
+		parseMap.SetMapIndex(reflect.ValueOf("k"), parseVal)
+		parseField.Set(parseMap)
+	case reflect.Func:
+		parseType := parseField.Type()
+		parseField.Set(reflect.MakeFunc(parseType, func([]reflect.Value) []reflect.Value {
+			parseOuts := make([]reflect.Value, parseType.NumOut())
+			for parseI := range parseOuts {
+				parseOuts[parseI] = reflect.Zero(parseType.Out(parseI))
+			}
+			return parseOuts
+		}))
+	case reflect.Struct:
+		// ui.Handler has an unexported field, so it can only be built via its
+		// public constructor.
+		if parseField.Type() == reflect.TypeOf(ui.Handler{}) {
+			parseField.Set(reflect.ValueOf(ui.WrapHandler("x")))
+			return
+		}
+		for parseI := 0; parseI < parseField.NumField(); parseI++ {
+			if parseField.Field(parseI).CanSet() {
+				setFieldNonZero(parseField.Field(parseI))
+			}
+		}
+	case reflect.Interface:
+		parseField.Set(reflect.ValueOf("x"))
+	}
+}
+
+// TestMergePropsCoversEveryField future-proofs #91: every field of an override
+// Props must survive a merge over an empty base. It sets EVERY field non-zero via
+// reflection, merges, and asserts none came back zero — so if MergeProps is ever
+// converted to a hand-written field-by-field merge (or a field is added and not
+// handled), a silently dropped field fails this test instead of shipping.
+func TestMergePropsCoversEveryField(parseT *testing.T) {
+	var parseOverride Props
+	parseOV := reflect.ValueOf(&parseOverride).Elem()
+	for parseI := 0; parseI < parseOV.NumField(); parseI++ {
+		if parseOV.Field(parseI).CanSet() {
+			setFieldNonZero(parseOV.Field(parseI))
+		}
+	}
+
+	parseResult := MergeProps(Props{}, parseOverride)
+
+	parseRV := reflect.ValueOf(parseResult)
+	parseType := parseRV.Type()
+	for parseI := 0; parseI < parseRV.NumField(); parseI++ {
+		if parseRV.Field(parseI).IsZero() {
+			parseT.Fatalf("MergeProps dropped field %q: every override field must carry through", parseType.Field(parseI).Name)
+		}
+	}
+}
 
 // TestConditionalPropOptions verifies AttrIf/ClassIf/StyleIf apply only when the
 // condition holds and are no-ops (skipped) otherwise.
