@@ -68,11 +68,19 @@ func (parseCoordinator *Coordinator) GetEntry(parseRegionInstanceID RegionInstan
 	}
 	parseCoordinator.storeMu.RLock()
 	parseEntry, parseHasEntry := parseCoordinator.storeEntries[parseRegionInstanceID]
-	parseCoordinator.storeMu.RUnlock()
 	if !parseHasEntry || parseEntry == nil {
+		parseCoordinator.storeMu.RUnlock()
 		return CoordinatorEntry{}, false
 	}
-	return *parseEntry, true
+	// Copy by value AND isolate the SourceIDs slice under the lock: a plain *entry
+	// copy shares the slice backing array with the coordinator's live entry, so a
+	// caller reading/mutating the returned SourceIDs would race a concurrent
+	// SetRegionSourceIDs. The hot-path field getters below deliberately skip this
+	// copy for perf and are read immediately by trusted callers.
+	parseCopy := *parseEntry
+	parseCopy.SourceIDs = append([]string(nil), parseEntry.SourceIDs...)
+	parseCoordinator.storeMu.RUnlock()
+	return parseCopy, true
 }
 
 // GetEntrySnapshotFields reads only the Epoch, RendererID, and SourceIDs from one coordinator entry.

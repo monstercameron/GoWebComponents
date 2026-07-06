@@ -1180,6 +1180,16 @@ FIXED + PINNED (#42): css sink public API diverged by target — StyleBlock/
   references that fail to compile if any func is target-only. Native + wasm GREEN.
   (Existing wasm CriticalCSS empty-attr left as-is; attr consistency in #84.)
 
+## Module 12 backlog follow-up (runtime2 misc triage, 2026-07-05)
+#47 TRIAGED: FIXED+PINNED Coordinator.GetEntry — it returned a struct copy sharing
+  the SourceIDs slice backing array with the live entry (caller mutation/read could
+  race SetRegionSourceIDs); now deep-copies SourceIDs under RLock. Pin:
+  coordinator_getentry_isolation_test.go. redaction item = NOT a defect (thorough +
+  6+ tests). DEFERRED (owner tradeoff): the hot-path field getters share the slice
+  too but are deliberately un-copied for perf and SetRegionSourceIDs replaces (not
+  mutates) → live race unlikely; "dead code" needs a staticcheck pass, not blind
+  deletion. runtime2 suite GREEN.
+
 ## Module 12 backlog follow-up (runtime2 idempotency monotonicity, 2026-07-05)
 FIXED + PINNED (#46): HandlePatchIdempotency deduped by version + rejected
   same-version conflicts but had NO monotonicity guard — a never-seen version below
