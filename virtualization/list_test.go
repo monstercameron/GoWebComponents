@@ -391,3 +391,37 @@ func TestRestoreElementScrollTopSetErrorIsReturned(parseT *testing.T) {
 		parseT.Fatalf("expected setScrollTop error to be returned, got %v", parseErr)
 	}
 }
+
+// TestListItemsIdentityGatesKeyMemo pins the #58 O(N)-per-scroll fix: the item-key
+// bundle is memoized on a cheap O(1) items identity (backing-array pointer + len).
+// The same slice reused across scroll re-renders yields the SAME identity (memo
+// hit, no O(N) rebuild); a new slice, a different length, or an empty slice yields
+// a distinct identity so the keys are rebuilt when the item set actually changes.
+func TestListItemsIdentityGatesKeyMemo(parseT *testing.T) {
+	parseItems := []string{"a", "b", "c"}
+
+	parseID1 := listItemsIdentity(parseItems)
+	parseID2 := listItemsIdentity(parseItems) // same slice, scroll re-render
+	if parseID1 != parseID2 {
+		parseT.Fatalf("same slice must yield same identity (memo hit): %+v vs %+v", parseID1, parseID2)
+	}
+
+	parseReslice := parseItems[:2] // same backing array, different length
+	if listItemsIdentity(parseReslice) == parseID1 {
+		parseT.Fatal("different length must yield a distinct identity")
+	}
+
+	parseNew := []string{"a", "b", "c"} // fresh slice (immutable update)
+	if listItemsIdentity(parseNew) == parseID1 {
+		parseT.Fatal("a new backing array must yield a distinct identity (rebuild)")
+	}
+
+	if listItemsIdentity([]string{}) != (itemsIdentity{}) {
+		parseT.Fatal("empty slice must yield the zero identity")
+	}
+
+	// Sanity: reflect.ValueOf(...).Pointer() equals the backing-array data pointer.
+	if uintptr(unsafe.Pointer(unsafe.SliceData(parseItems))) != parseID1.ptr {
+		parseT.Fatal("identity pointer must match the slice backing-array pointer")
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -108,7 +109,14 @@ func List[T any](parseProps ListProps[T]) ui.Node {
 	if parseErr != nil {
 		panic(parseErr)
 	}
-	parseKeys, parseKeyIndex := collectItemKeys(parseProps.Items, parseProps.ItemKey)
+	// Rebuild the O(N) item-key bundle only when the item set changes (a new
+	// slice identity), not on scroll-driven re-renders.
+	parseKeyBundle := ui.UseMemoOf(func(itemsIdentity) itemKeysBundle {
+		parseK, parseKI := collectItemKeys(parseProps.Items, parseProps.ItemKey)
+		return itemKeysBundle{keys: parseK, index: parseKI, signature: keySignature(parseK)}
+	}, listItemsIdentity(parseProps.Items))
+	parseKeys := parseKeyBundle.keys
+	parseKeyIndex := parseKeyBundle.index
 	parseViewport := ui.UseState(parseInitialState)
 	parseLifecycleCounts := ui.UseRef(rowLifecycleCounts{})
 	parseKeysRef := ui.UseRef(parseKeys)
@@ -144,7 +152,7 @@ func List[T any](parseProps ListProps[T]) ui.Node {
 		parseProps.RowHeight,
 		parseKeyIndex,
 		parseRestoreRef,
-	), parseListID, parseProps.Height, parseProps.RowHeight, keySignature(parseKeys))
+	), parseListID, parseProps.Height, parseProps.RowHeight, parseKeyBundle.signature)
 
 	parseState := parseViewport.Get()
 	parseRendered := clampRange(parseState.Rendered, len(parseProps.Items))
@@ -316,6 +324,34 @@ func collectItemKeys[T any](parseItems []T, parseItemKey func(T) string) ([]stri
 		parseIndex[parseKey] = parseItemIndex
 	}
 	return parseKeys, parseIndex
+}
+
+// itemKeysBundle memoizes the per-item key slice, key->index map, and the effect
+// signature so the O(N) key walk (collectItemKeys + keySignature) runs once per
+// item-set change instead of once per render — a render happens on every scroll
+// frame, so recomputing them there made scrolling O(N) per frame and defeated
+// virtualization.
+type itemKeysBundle struct {
+	keys      []string
+	index     map[string]int
+	signature string
+}
+
+// itemsIdentity is a cheap O(1) identity for an items slice: the backing-array
+// pointer plus length. It is comparable, so it can key ui.UseMemoOf. A caller
+// that follows the immutable-update idiom (a new slice when items change) gets a
+// new identity and a rebuild; in-place mutation of a same-length slice keeps the
+// identity and would reuse the cached keys, so items must be treated as immutable.
+type itemsIdentity struct {
+	ptr uintptr
+	len int
+}
+
+func listItemsIdentity[T any](parseItems []T) itemsIdentity {
+	if len(parseItems) == 0 {
+		return itemsIdentity{}
+	}
+	return itemsIdentity{ptr: reflect.ValueOf(parseItems).Pointer(), len: len(parseItems)}
 }
 
 // keySignature returns a cheap change-detection signature of the item keys, used
