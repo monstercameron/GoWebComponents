@@ -3,6 +3,7 @@
 package state_test
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
@@ -64,6 +65,35 @@ func TestGlobalAtomUpdate(parseT *testing.T) {
 	parseAtom.Update(func(parsePrev int) int { return parsePrev + 5 })
 	if parseGot := parseAtom.Get(); parseGot != 15 {
 		parseT.Fatalf("expected 15 after Update, got %d", parseGot)
+	}
+}
+
+// TestGlobalAtomUpdateIsAtomicUnderConcurrency pins #76: many goroutines each
+// incrementing the same atom via Update must not lose writes. The old
+// Set(fn(Get())) implementation read-computed-wrote without a lock, so two
+// updaters reading the same old value would clobber each other and the final
+// count would fall short of the number of increments. The atomic registry
+// update holds the lock across read-compute-write, so every increment lands.
+func TestGlobalAtomUpdateIsAtomicUnderConcurrency(parseT *testing.T) {
+	parseAtom := state.NewGlobalAtom("test:ga:atomic-update", 0)
+
+	const parseGoroutines = 50
+	const parsePerGoroutine = 200
+	var parseWG sync.WaitGroup
+	parseWG.Add(parseGoroutines)
+	for parseG := 0; parseG < parseGoroutines; parseG++ {
+		go func() {
+			defer parseWG.Done()
+			for parseI := 0; parseI < parsePerGoroutine; parseI++ {
+				parseAtom.Update(func(parsePrev int) int { return parsePrev + 1 })
+			}
+		}()
+	}
+	parseWG.Wait()
+
+	parseWant := parseGoroutines * parsePerGoroutine
+	if parseGot := parseAtom.Get(); parseGot != parseWant {
+		parseT.Fatalf("lost updates under concurrency: got %d, want %d", parseGot, parseWant)
 	}
 }
 

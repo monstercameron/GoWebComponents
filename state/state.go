@@ -197,9 +197,30 @@ func (parseA Atom[T]) Set(parseValue T) {
 	parseA.set(parseValue)
 }
 
-// Update replaces the atom value using the previous value.
+// Update transforms the atom value using the previous value. The read and write
+// are performed atomically under the atom registry lock, so concurrent Update
+// calls cannot lose one another's writes (the get-then-set race). parseFn must
+// be a pure transform of the previous value and must not read or write any atom
+// itself (that would deadlock under the held lock).
 func (parseA Atom[T]) Update(parseFn func(T) T) {
-	parseA.set(parseFn(parseA.get()))
+	parseRt := runtime.GetGlobalRuntime()
+	if parseRt == nil {
+		// No global runtime (e.g. native SSR): best-effort non-atomic fallback.
+		parseA.set(parseFn(parseA.get()))
+		return
+	}
+	var parseZero T
+	// parseA.get() is read outside the registry lock to seed the default for the
+	// (unexpected) case where the atom has no entry; the atomic update below reads
+	// the real current value under the lock and only uses this default if absent.
+	parseDefault := parseA.get()
+	_ = parseRt.UpdateAtomValue(parseA.id, parseDefault, func(parsePrev any) any {
+		parseTyped, parseOk := parsePrev.(T)
+		if !parseOk {
+			parseTyped = parseZero
+		}
+		return parseFn(parseTyped)
+	})
 }
 
 // UseComputed derives a typed value from other state used by the current component.

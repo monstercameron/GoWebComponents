@@ -196,6 +196,48 @@ func (parseAr *AtomRegistry) setAtomAndNotify(parseId string, parseValue any, pa
 	notifyFibersUnique(parseFibers, parseNotify)
 }
 
+// updateAtomAndNotify atomically applies parseFn to the atom's current value
+// (or parseDefault when the atom has no value yet) and stores the result,
+// holding the registry lock across the whole read-compute-write. This closes
+// the get-then-set race in functional updates: two goroutines that each read
+// the same old value, compute, and write can no longer clobber one another —
+// with the lock held, the second updater always observes the first's write.
+//
+// parseFn MUST be a pure transform of the previous value. Because the registry
+// lock is held while it runs, re-entering the registry from within it (reading
+// or writing ANY atom, e.g. via Atom.Get/Set) deadlocks. This matches the
+// atomic-compute contract of sync.Map-style APIs. When the result equals the
+// current value the update is a no-op and no subscriber is notified, matching
+// the Set no-op-on-equal behavior.
+func (parseAr *AtomRegistry) updateAtomAndNotify(parseId string, parseDefault any, parseFn func(any) any, parseNotify func(*Fiber)) {
+	parseAr.mu.Lock()
+	parseCurrent, parseOk := parseAr.atoms[parseId]
+	if !parseOk {
+		parseCurrent = parseDefault
+	}
+	parseNext := parseFn(parseCurrent)
+	if fastEqual(parseCurrent, parseNext) {
+		parseAr.mu.Unlock()
+		return
+	}
+	parseAr.atoms[parseId] = parseNext
+	parseFibers := parseAr.collectSubscribersLocked(parseId)
+	parseAr.mu.Unlock()
+
+	if parseNotify == nil {
+		return
+	}
+	for _, parseDerivedID := range parseAr.listDependents(parseId) {
+		parseDerivedFibers, parseErr := parseAr.recomputeDerived(parseDerivedID, map[string]bool{parseId: true})
+		if parseErr != nil {
+			ReportDiagnostic("state", DiagnosticWarning, parseErr.Error())
+			continue
+		}
+		parseFibers = append(parseFibers, parseDerivedFibers...)
+	}
+	notifyFibersUnique(parseFibers, parseNotify)
+}
+
 // setValueAndCollectSubscribers is a core package helper.
 func (parseAr *AtomRegistry) setValueAndCollectSubscribers(parseId string, parseValue any) []*Fiber {
 	parseAr.mu.Lock()
@@ -715,6 +757,32 @@ func (parseRt *Runtime) SetAtomValue(parseId string, parseValue any) error {
 	}
 	apply := func(parseUpdateOrigin string) {
 		parseRt.atomRegistry.setAtomAndNotify(parseId, parseValue, func(parseFiber *Fiber) {
+			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, parseUpdateOrigin)
+		})
+	}
+	if parseRt.ShouldDeferStateUpdates() {
+		parseRt.ScheduleTransition(func() {
+			apply("transition")
+		})
+		return nil
+	}
+
+	apply("atom")
+
+	return nil
+}
+
+// UpdateAtomValue atomically transforms an atom's value with parseFn, holding the
+// registry lock across the read-compute-write so concurrent functional updates
+// cannot lose each other's writes. parseDefault supplies the previous value when
+// the atom has no entry yet. parseFn MUST be pure and MUST NOT re-enter the atom
+// registry (that deadlocks under the held lock); see updateAtomAndNotify.
+func (parseRt *Runtime) UpdateAtomValue(parseId string, parseDefault any, parseFn func(any) any) error {
+	if parseRt.atomRegistry == nil {
+		return fmt.Errorf("atom registry not initialized")
+	}
+	apply := func(parseUpdateOrigin string) {
+		parseRt.atomRegistry.updateAtomAndNotify(parseId, parseDefault, parseFn, func(parseFiber *Fiber) {
 			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, parseUpdateOrigin)
 		})
 	}

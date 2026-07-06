@@ -88,7 +88,21 @@ func atomValuesEqual(parseA any, parseB any) (parseEqual bool) {
 	return parseA == parseB
 }
 
-// Update applies fn to the current value and stores the result.
+// Update applies fn to the current value and stores the result. The read and
+// write happen atomically under the atom registry lock, so concurrent Update
+// calls cannot lose one another's writes (the get-then-set race). fn must be a
+// pure transform of the previous value and must not read or write any atom
+// itself (that would deadlock under the held lock).
 func (parseAtom GlobalAtom[T]) Update(parseFn func(T) T) {
-	parseAtom.Set(parseFn(parseAtom.Get()))
+	parseRt := runtime.GetGlobalRuntime()
+	if parseRt == nil {
+		return
+	}
+	_ = parseRt.UpdateAtomValue(parseAtom.id, parseAtom.def, func(parsePrev any) any {
+		parseTyped, parseOk := parsePrev.(T)
+		if !parseOk {
+			parseTyped = parseAtom.def
+		}
+		return parseFn(parseTyped)
+	})
 }
