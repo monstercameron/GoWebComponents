@@ -426,9 +426,17 @@ func (parseR *Router) setupHistoryListener() {
 		return
 	}
 
-	// Handler for browser back/forward buttons
+	// Handler for browser back/forward buttons. The disposed check makes a
+	// replaced router's still-attached listeners no-op: there is no
+	// removeEventListener path, so a second Router (hot-reload, remount,
+	// hash<->history switch, test harness) would otherwise leave the first
+	// router's popstate/hashchange handlers rendering the stale, disposed
+	// router against a reused target, racing the live one.
 	parsePopstateHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 		defer runtime.RecoverContainedPanic("router", "setupHistoryListener callback")
+		if parseR.disposed {
+			return nil
+		}
 		parseR.renderCurrentRoute(true)
 		return nil
 	})
@@ -436,6 +444,9 @@ func (parseR *Router) setupHistoryListener() {
 	parseWindow.Call("addEventListener", browserEventPop, parsePopstateHandler)
 	parseHashchangeHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 		defer runtime.RecoverContainedPanic("router", "setupHistoryListener callback")
+		if parseR.disposed {
+			return nil
+		}
 		// History routers still need hashchange rerenders for in-page fragment navigation.
 		// Without this, links like "#faq" update the URL but shared route components never
 		// see a new location snapshot, which breaks anchor state and browser back/forward.
@@ -492,6 +503,16 @@ func (parseR *Router) Register(parsePath string, parseComponent interface{}, par
 				runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "replacing existing pattern route registration for "+parseNormalize)
 				parseR.patterns[parseIndex] = routePattern{pattern: parseNormalize, factory: parseFactory, options: parseOption}
 				return
+			}
+		}
+		// Warn when this pattern is unreachable: matchPattern returns the first
+		// registration-order match, so an earlier pattern that already covers every
+		// path this one could match will always win (e.g. "/users/*" or "/users/:id"
+		// registered before "/users/new").
+		for _, parseExisting := range parseR.patterns {
+			if patternShadows(parseExisting.pattern, parseNormalize) {
+				runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "route "+parseNormalize+" is unreachable: it is shadowed by the earlier-registered route "+parseExisting.pattern)
+				break
 			}
 		}
 		parseR.patterns = append(parseR.patterns, routePattern{pattern: parseNormalize, factory: parseFactory, options: parseOption})

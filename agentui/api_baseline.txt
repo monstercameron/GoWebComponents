@@ -12,5 +12,5 @@ type ComponentInfo struct { Name string `json:"name"` AllowedProps []string `jso
 type ComponentSpec struct { Name string AllowedProps []string Render func(parseProps map[string]string, parseChildren []ui.Node) ui.Node }
 type Limits struct { MaxDepth int MaxNodes int }
 type Node struct { Type string `json:"type"` Props map[string]string `json:"props,omitempty"` Text string `json:"text,omitempty"` Children []Node `json:"children,omitempty"` }
-type Registry struct { specs map[string]ComponentSpec }
+type Registry struct { mu sync.RWMutex specs map[string]ComponentSpec }
 var DefaultLimits

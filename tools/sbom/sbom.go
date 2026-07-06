@@ -33,11 +33,13 @@ type Document struct {
 	Components  []Component `json:"components"`
 }
 
-// goModule mirrors the fields of `go list -m -json` we consume.
+// goModule mirrors the fields of `go list -m -json` we consume. Replace is the
+// resolved replacement target (nil when the module is not replaced).
 type goModule struct {
-	Path    string `json:"Path"`
-	Version string `json:"Version"`
-	Main    bool   `json:"Main"`
+	Path    string    `json:"Path"`
+	Version string    `json:"Version"`
+	Main    bool      `json:"Main"`
+	Replace *goModule `json:"Replace"`
 }
 
 // Generate runs the module list in parseRepoRoot and returns a CycloneDX BOM.
@@ -68,15 +70,32 @@ func BuildDocument(parseListJSON []byte) (Document, error) {
 		if parseErr != nil {
 			return Document{}, fmt.Errorf("decode module list: %w", parseErr)
 		}
-		if parseModule.Main || parseModule.Version == "" {
+		if parseModule.Main {
 			continue
 		}
-		parsePURL := "pkg:golang/" + parseModule.Path + "@" + parseModule.Version
+		// Resolve replace directives so the SBOM reflects REAL provenance rather
+		// than the original module's placeholder pseudo-version. A local-path
+		// replace (Replace set, no version) is in-tree/vendored source, not a
+		// fetchable upstream package — emitting a synthetic pkg:golang PURL for it
+		// would actively misrepresent provenance, so it is skipped.
+		parsePath := parseModule.Path
+		parseVersion := parseModule.Version
+		if parseModule.Replace != nil {
+			if parseModule.Replace.Version == "" {
+				continue
+			}
+			parsePath = parseModule.Replace.Path
+			parseVersion = parseModule.Replace.Version
+		}
+		if parseVersion == "" {
+			continue
+		}
+		parsePURL := "pkg:golang/" + parsePath + "@" + parseVersion
 		parseComponents = append(parseComponents, Component{
 			Type:    "library",
 			BOMRef:  parsePURL,
-			Name:    parseModule.Path,
-			Version: parseModule.Version,
+			Name:    parsePath,
+			Version: parseVersion,
 			PURL:    parsePURL,
 		})
 	}

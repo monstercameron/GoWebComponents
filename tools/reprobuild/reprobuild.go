@@ -14,12 +14,18 @@ import (
 	"path/filepath"
 )
 
-// BuildWasmSHA builds parsePackage for js/wasm with the release flags
-// (-trimpath -ldflags "-s -w") into a throwaway file under parseTempDir and
-// returns the lowercase hex SHA-256 of the resulting artifact.
+// BuildWasmSHA builds parsePackage for js/wasm with the RELEASE profile flags and
+// returns the lowercase hex SHA-256 of the resulting artifact. The flags MUST
+// match the actual release build (tools/gwc release_build.go "release" profile:
+// Trimpath, Ldflags "-s -w", BuildVCS "false", Tags "production") — otherwise this
+// gate verifies the reproducibility of an artifact that is NOT what ships. In
+// particular -tags production selects the production code paths (a different
+// binary than the default/dev build) and -buildvcs=false strips VCS stamping (a
+// nondeterminism source the release deliberately removes); omitting either meant
+// the check passed on the wrong artifact.
 func BuildWasmSHA(parseRepoRoot string, parsePackage string, parseTempDir string) (string, error) {
 	parseOut := filepath.Join(parseTempDir, "repro.wasm")
-	parseCmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w", "-o", parseOut, parsePackage)
+	parseCmd := exec.Command("go", releaseWasmBuildArgs(parseOut, parsePackage)...)
 	parseCmd.Dir = parseRepoRoot
 	parseCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if parseOutput, parseErr := parseCmd.CombinedOutput(); parseErr != nil {
@@ -31,6 +37,22 @@ func BuildWasmSHA(parseRepoRoot string, parsePackage string, parseTempDir string
 	}
 	parseSum := sha256.Sum256(parseData)
 	return hex.EncodeToString(parseSum[:]), nil
+}
+
+// releaseWasmBuildArgs is the `go build` argument list that reproduces the release
+// profile. Kept as its own function so a test can pin that the release-matching
+// flags (notably -tags production and -buildvcs=false) are present — without them
+// the gate silently verifies the wrong artifact. Must stay in sync with the
+// "release" profile in tools/gwc release_build.go.
+func releaseWasmBuildArgs(parseOut string, parsePackage string) []string {
+	return []string{
+		"build",
+		"-trimpath",
+		"-ldflags", "-s -w",
+		"-buildvcs=false",
+		"-tags", "production",
+		"-o", parseOut, parsePackage,
+	}
 }
 
 // SHAMatches reports whether two artifact digests are identical. It is the

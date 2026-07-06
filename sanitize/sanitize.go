@@ -3,6 +3,7 @@
 package sanitize
 
 import (
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -12,6 +13,12 @@ import (
 
 // Policy defines the allowlist for HTML sanitization. Tags, attributes, and
 // URL schemes outside these sets are stripped or unwrapped.
+//
+// A Policy's maps are only ever READ during Sanitize, so one Policy may be
+// shared across concurrent Sanitize calls — but callers must treat a shared
+// Policy as immutable: mutating its maps (e.g. AllowedURLSchemes["data"]=true)
+// while another goroutine sanitizes is a data race. Build the Policy fully
+// before sharing it.
 type Policy struct {
 	// AllowedTags is the set of element names that may appear in output.
 	AllowedTags map[string]bool
@@ -52,6 +59,12 @@ var dropWithContents = map[string]bool{
 	"script": true, "style": true, "iframe": true, "object": true,
 	"embed": true, "form": true, "svg": true, "math": true,
 	"link": true, "meta": true, "base": true,
+	// golang.org/x/net/html does NOT model <template>'s inert .content
+	// fragment (a documented divergence from the HTML5 spec): its children are
+	// ordinary tree children. Unwrapping them would promote inert template
+	// markup into live, out-of-context output (invalid fragments — a mutation-
+	// XSS precondition), so drop the whole subtree like svg/math/form.
+	"template": true,
 }
 
 // voidElements are elements that have no children and need no closing tag.
@@ -79,6 +92,11 @@ func Sanitize(parseHTML string, parseOptions ...Policy) string {
 
 // Sanitize parses parseHTML and returns an XSS-safe HTML string using the
 // receiver policy as the allowlist.
+//
+// Sanitize fails closed: any parse error (including input nested deeper than
+// x/net/html's 512-node open-element-stack cap) yields "" rather than leaking
+// raw input. It imposes no input-size ceiling of its own, so callers exposing
+// it to untrusted request bodies should cap the body size upstream.
 func (parsePolicy Policy) Sanitize(parseHTML string) string {
 	if strings.TrimSpace(parseHTML) == "" {
 		return ""
@@ -175,18 +193,45 @@ func (parsePolicy Policy) writeAttr(parseBuf *strings.Builder, parseAttr html.At
 		return
 	}
 
-	// Validate URL schemes for URL-bearing attributes.
+	parseValue := parseAttr.Val
+
+	// Validate URL schemes for URL-bearing attributes. Emit the SAME cleaned
+	// string that was validated (not the raw value): validating a control-char-
+	// stripped copy while emitting the original is the shape of bug that becomes
+	// a bypass the moment the stripped set and the browser's scheme recovery
+	// diverge.
 	if urlAttributes[parseName] {
-		if !parsePolicy.isSafeURL(parseAttr.Val) {
+		parseValue = stripControlChars(parseAttr.Val)
+		if !parsePolicy.isSafeURL(parseValue) {
 			return
 		}
+	}
+
+	// colspan/rowspan are allow-listed by name only; an oversized or negative
+	// value is spec-invalid and a known client-side rendering-hang vector. Drop
+	// the attribute unless it is a small positive integer within the HTML caps.
+	if parseName == "colspan" && !isValidSpanValue(parseValue, 1000) {
+		return
+	}
+	if parseName == "rowspan" && !isValidSpanValue(parseValue, 65534) {
+		return
 	}
 
 	parseBuf.WriteByte(' ')
 	parseBuf.WriteString(parseName)
 	parseBuf.WriteString(`="`)
-	parseBuf.WriteString(html.EscapeString(parseAttr.Val))
+	parseBuf.WriteString(html.EscapeString(parseValue))
 	parseBuf.WriteByte('"')
+}
+
+// isValidSpanValue reports whether a colspan/rowspan value is a positive integer
+// no greater than parseMax.
+func isValidSpanValue(parseValue string, parseMax int) bool {
+	parseN, parseErr := strconv.Atoi(strings.TrimSpace(parseValue))
+	if parseErr != nil {
+		return false
+	}
+	return parseN >= 1 && parseN <= parseMax
 }
 
 // isSafeURL returns true when parseURL is safe to emit in an href/src context.

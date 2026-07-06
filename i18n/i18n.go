@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v4/ui"
@@ -55,6 +56,12 @@ type BundleOptions struct {
 }
 
 type Bundle struct {
+	// mu guards catalogs (and the default/fallback locale fields written during
+	// Register). A *Bundle is commonly shared across concurrent SSR requests (and
+	// LazyBundle.EnsureLocale, which promises concurrency-safety, mutates it), so
+	// an unsynchronized Register racing a lookup is a FATAL, unrecoverable Go
+	// "concurrent map read and map write" — never held across a user callback.
+	mu             sync.RWMutex
 	defaultLocale  string
 	fallbackLocale string
 	onMissing      MissingHandler
@@ -191,6 +198,8 @@ func (parseB *Bundle) Register(parseLocale string, parseCatalog Catalog) {
 	if parseKey == "" {
 		return
 	}
+	parseB.mu.Lock()
+	defer parseB.mu.Unlock()
 	if parseB.catalogs == nil {
 		parseB.catalogs = map[string]Catalog{}
 	}
@@ -235,10 +244,12 @@ func (parseB *Bundle) Locales() []string {
 	if parseB == nil {
 		return nil
 	}
+	parseB.mu.RLock()
 	parseLocales := make([]string, 0, len(parseB.catalogs))
 	for parseLocale := range parseB.catalogs {
 		parseLocales = append(parseLocales, parseLocale)
 	}
+	parseB.mu.RUnlock()
 	sort.Strings(parseLocales)
 	return parseLocales
 }
@@ -550,6 +561,10 @@ func (parseB *Bundle) ToSSRBootstrap(parseOptions SSRBootstrapOptions) ui.SSRI18
 		parseIncludeNamespaces[parseNamespace] = struct{}{}
 	}
 	parseMessages := map[string]map[string]ui.SSRI18nMessage{}
+	// RLock the direct catalog iteration. Locales() above already locked+released,
+	// so there is no nested-lock here.
+	parseB.mu.RLock()
+	defer parseB.mu.RUnlock()
 	for _, parseCandidate := range normalizeLocales(parseIncludeLocales) {
 		parseCatalog, parseOk := parseB.catalogs[parseCandidate]
 		if !parseOk {
@@ -613,6 +628,8 @@ func BundleFromSSRBootstrap(parsePayload ui.SSRI18nBootstrap) *Bundle {
 }
 
 func (parseB *Bundle) lookup(parseLocale string, parseNamespace string, parseKey string, parseFallbackLocale string) (Message, bool) {
+	parseB.mu.RLock()
+	defer parseB.mu.RUnlock()
 	for _, parseCandidate := range localeCandidates(parseLocale, fallbackString(parseFallbackLocale, parseB.fallbackLocale), parseB.defaultLocale) {
 		parseCatalog, parseOk := parseB.catalogs[parseCandidate]
 		if !parseOk {
@@ -665,11 +682,18 @@ func resolveTemplate(parseLocale string, parseEntry Message, parseArgs Arguments
 }
 
 func interpolateTemplate(parseTemplate string, parseArgs Arguments) string {
-	parseResolved := parseTemplate
-	for parseKey, parseValue := range parseArgs {
-		parseResolved = strings.ReplaceAll(parseResolved, "{"+parseKey+"}", stringifyArgument(parseValue))
+	if len(parseArgs) == 0 {
+		return parseTemplate
 	}
-	return parseResolved
+	// Single pass via a Replacer: sequential ReplaceAll re-scanned each
+	// substituted value, so an argument whose value contained another key's
+	// placeholder (e.g. name="{count}") interpolated nondeterministically with
+	// Go's randomized map order. A Replacer never re-scans inserted text.
+	parsePairs := make([]string, 0, len(parseArgs)*2)
+	for parseKey, parseValue := range parseArgs {
+		parsePairs = append(parsePairs, "{"+parseKey+"}", stringifyArgument(parseValue))
+	}
+	return strings.NewReplacer(parsePairs...).Replace(parseTemplate)
 }
 
 func stringifyArgument(parseValue any) string {
@@ -792,7 +816,17 @@ func pluralCategoryForLocale(parseLocale string, parseValue float64) PluralCateg
 // localeCandidateCache memoizes resolved candidate chains: NormalizeLocale
 // re-parses BCP-47 tags through x/text on every call (~75% of Translate
 // allocations), and apps use a handful of locale combinations at most.
-var localeCandidateCache sync.Map // "locale|fallback|default" -> []string
+//
+// The key is the raw (un-normalized) locale, which is often derived from a URL
+// segment or Accept-Language — i.e. request-controlled — so the cache is
+// size-capped: past the cap, misses still resolve correctly, they just skip
+// caching. The cap is far above any real app's locale count.
+var (
+	localeCandidateCache sync.Map // "locale|fallback|default" -> []string
+	localeCandidateCount atomic.Int32
+)
+
+const maxLocaleCandidateEntries = 4096
 
 func localeCandidates(parseLocale string, parseFallbackLocale string, parseDefaultLocale string) []string {
 	parseCacheKey := parseLocale + "|" + parseFallbackLocale + "|" + parseDefaultLocale
@@ -800,7 +834,11 @@ func localeCandidates(parseLocale string, parseFallbackLocale string, parseDefau
 		return parseCached.([]string)
 	}
 	parseResolved := buildLocaleCandidates(parseLocale, parseFallbackLocale, parseDefaultLocale)
-	localeCandidateCache.Store(parseCacheKey, parseResolved)
+	if localeCandidateCount.Load() < maxLocaleCandidateEntries {
+		if _, parseLoaded := localeCandidateCache.LoadOrStore(parseCacheKey, parseResolved); !parseLoaded {
+			localeCandidateCount.Add(1)
+		}
+	}
 	return parseResolved
 }
 

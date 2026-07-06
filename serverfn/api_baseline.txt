@@ -11,6 +11,7 @@ func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn fu
 func NewStatusError(parseStatus int, parseMessage string) *StatusError
 func NotFound(parseMessage string) *StatusError
 func SetClient(parseClient *http.Client)
+func SetMaxRequestBytes(parseLimit int64)
 func Unauthorized(parseMessage string) *StatusError
 func UnprocessableEntity(parseMessage string) *StatusError
 type ServerError struct { Status int Message string }

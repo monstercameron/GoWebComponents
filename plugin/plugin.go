@@ -4,12 +4,45 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/monstercameron/GoWebComponents/v4/ui"
 )
+
+// PluginPanicHandler is invoked when a plugin-supplied callback panics during
+// Host dispatch. Plugins are a third-party trust boundary, so a panic in a guard/
+// observer/provider/validator is recovered — it must not crash the host — but it
+// is NOT swallowed silently: the default handler reports it to stderr. Override
+// to route recovered plugin panics to a diagnostics sink instead.
+var PluginPanicHandler = func(parseWhat string, parseRecovered any) {
+	fmt.Fprintf(os.Stderr, "plugin: recovered panic in %s: %v\n", parseWhat, parseRecovered)
+}
+
+// pluginCall runs a plugin-supplied callback that returns a value, converting a
+// panic into parseFallback so a faulty plugin cannot crash the host.
+func pluginCall[T any](parseWhat string, parseFn func() T, parseFallback T) (parseResult T) {
+	defer func() {
+		if parseRec := recover(); parseRec != nil {
+			PluginPanicHandler(parseWhat, parseRec)
+			parseResult = parseFallback
+		}
+	}()
+	return parseFn()
+}
+
+// pluginRun runs a plugin-supplied void callback with panic isolation.
+func pluginRun(parseWhat string, parseFn func()) {
+	defer func() {
+		if parseRec := recover(); parseRec != nil {
+			PluginPanicHandler(parseWhat, parseRec)
+		}
+	}()
+	parseFn()
+}
 
 type Tier string
 
@@ -73,6 +106,16 @@ type HostOptions struct {
 }
 
 type Host struct {
+	// registerMu serializes whole Register/Close operations so a plugin's
+	// snapshot→Setup→finalize sequence is atomic w.r.t. other registrations.
+	// stateMu guards every MUTABLE field below; it is never held across a plugin
+	// callback (Setup/guard/observer/provider/cleanup) — dispatch snapshots the
+	// relevant slice under RLock and invokes callbacks after releasing it, so a
+	// callback that calls back into Add*/Register cannot deadlock. capabilities is
+	// immutable after NewHost and needs no lock.
+	registerMu sync.Mutex
+	stateMu    sync.RWMutex
+
 	capabilities map[Capability]struct{}
 	plugins      []Manifest
 	cleanups     []CleanupFunc
@@ -212,6 +255,11 @@ func (parseHost *Host) Register(parsePlugin Plugin) error {
 	if parsePlugin == nil {
 		return errors.New("plugin: plugin is nil")
 	}
+	// Serialize whole registrations so snapshot→Setup→finalize is atomic w.r.t.
+	// other Register/Close calls. Held across the Setup callback; the Add* calls
+	// Setup makes take stateMu (a different lock) individually, so no deadlock.
+	parseHost.registerMu.Lock()
+	defer parseHost.registerMu.Unlock()
 
 	parseManifest := parsePlugin.Manifest()
 	if parseErr := validateManifest(parseManifest); parseErr != nil {
@@ -231,10 +279,12 @@ func (parseHost *Host) Register(parsePlugin Plugin) error {
 		return fmt.Errorf("plugin: setup failed for %q: %w", parseManifest.ID, parseErr2)
 	}
 
+	parseHost.stateMu.Lock()
 	parseHost.plugins = append(parseHost.plugins, cloneManifest(parseManifest))
 	if parseCleanup != nil {
 		parseHost.cleanups = append(parseHost.cleanups, parseCleanup)
 	}
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -243,9 +293,18 @@ func (parseHost *Host) Close() error {
 	if parseHost == nil {
 		return nil
 	}
+	parseHost.registerMu.Lock()
+	defer parseHost.registerMu.Unlock()
+
+	// Snapshot the cleanups under RLock and run them OUTSIDE the lock (before the
+	// reset, so a cleanup can still read host state), then clear all state.
+	parseHost.stateMu.RLock()
+	parseCleanups := append([]CleanupFunc(nil), parseHost.cleanups...)
+	parseHost.stateMu.RUnlock()
+
 	var parseJoined error
-	for parseIndex := len(parseHost.cleanups) - 1; parseIndex >= 0; parseIndex-- {
-		parseCleanup := parseHost.cleanups[parseIndex]
+	for parseIndex := len(parseCleanups) - 1; parseIndex >= 0; parseIndex-- {
+		parseCleanup := parseCleanups[parseIndex]
 		if parseCleanup == nil {
 			continue
 		}
@@ -253,6 +312,8 @@ func (parseHost *Host) Close() error {
 			parseJoined = errors.Join(parseJoined, parseErr)
 		}
 	}
+
+	parseHost.stateMu.Lock()
 	parseHost.routeGuards = nil
 	parseHost.navigationObservers = nil
 	parseHost.cacheDecorators = nil
@@ -267,6 +328,7 @@ func (parseHost *Host) Close() error {
 	parseHost.plugins = nil
 	parseHost.values = map[string]any{}
 	parseHost.cleanups = nil
+	parseHost.stateMu.Unlock()
 	return parseJoined
 }
 
@@ -288,6 +350,8 @@ func (parseHost *Host) Plugins() []Manifest {
 	if parseHost == nil {
 		return nil
 	}
+	parseHost.stateMu.RLock()
+	defer parseHost.stateMu.RUnlock()
 	parsePlugins := make([]Manifest, 0, len(parseHost.plugins))
 	for _, parseManifest := range parseHost.plugins {
 		parsePlugins = append(parsePlugins, cloneManifest(parseManifest))
@@ -304,7 +368,9 @@ func (parseHost *Host) SetValue(parseKey string, parseValue any) {
 	if parseTrimmed == "" {
 		return
 	}
+	parseHost.stateMu.Lock()
 	parseHost.values[parseTrimmed] = parseValue
+	parseHost.stateMu.Unlock()
 }
 
 // Value retrieves a named value stored on the host.
@@ -312,6 +378,8 @@ func (parseHost *Host) Value(parseKey string) (any, bool) {
 	if parseHost == nil {
 		return nil, false
 	}
+	parseHost.stateMu.RLock()
+	defer parseHost.stateMu.RUnlock()
 	parseValue, parseOk := parseHost.values[strings.TrimSpace(parseKey)]
 	return parseValue, parseOk
 }
@@ -324,7 +392,9 @@ func (parseHost *Host) AddRouteGuard(parseGuard RouteGuard) error {
 	if parseGuard == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.routeGuards = append(parseHost.routeGuards, parseGuard)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -336,7 +406,9 @@ func (parseHost *Host) AddNavigationObserver(parseObserver NavigationObserver) e
 	if parseObserver == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.navigationObservers = append(parseHost.navigationObservers, parseObserver)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -345,11 +417,18 @@ func (parseHost *Host) EvaluateRoute(parseRequest RouteRequest) GuardDecision {
 	if parseHost == nil {
 		return Allow("plugin host unavailable")
 	}
-	for _, parseGuard := range parseHost.routeGuards {
+	parseHost.stateMu.RLock()
+	parseGuardsSnap := append([]RouteGuard(nil), parseHost.routeGuards...)
+	parseHost.stateMu.RUnlock()
+	for _, parseGuard := range parseGuardsSnap {
 		if parseGuard == nil {
 			continue
 		}
-		parseDecision := parseGuard(parseRequest)
+		// A panicking guard degrades to "no decision" (treated as allow) so a
+		// broken third-party plugin cannot block all navigation.
+		parseDecision := pluginCall("route guard", func() GuardDecision {
+			return parseGuard(parseRequest)
+		}, GuardDecision{})
 		if parseDecision.Outcome == "" || parseDecision.Outcome == GuardAllow {
 			continue
 		}
@@ -363,9 +442,12 @@ func (parseHost *Host) NotifyNavigation(parseEvent NavigationEvent) {
 	if parseHost == nil {
 		return
 	}
-	for _, parseObserver := range parseHost.navigationObservers {
+	parseHost.stateMu.RLock()
+	parseNavSnap := append([]NavigationObserver(nil), parseHost.navigationObservers...)
+	parseHost.stateMu.RUnlock()
+	for _, parseObserver := range parseNavSnap {
 		if parseObserver != nil {
-			parseObserver(parseEvent)
+			pluginRun("navigation observer", func() { parseObserver(parseEvent) })
 		}
 	}
 }
@@ -378,7 +460,9 @@ func (parseHost *Host) AddCacheKeyDecorator(parseDecorator CacheKeyDecorator) er
 	if parseDecorator == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.cacheDecorators = append(parseHost.cacheDecorators, parseDecorator)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -390,7 +474,9 @@ func (parseHost *Host) AddRequestObserver(parseObserver RequestObserver) error {
 	if parseObserver == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.requestObservers = append(parseHost.requestObservers, parseObserver)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -400,9 +486,16 @@ func (parseHost *Host) DecorateCacheKey(parseKey string) string {
 		return parseKey
 	}
 	parseDecorated := parseKey
-	for _, parseDecorator := range parseHost.cacheDecorators {
+	parseHost.stateMu.RLock()
+	parseDecSnap := append([]CacheKeyDecorator(nil), parseHost.cacheDecorators...)
+	parseHost.stateMu.RUnlock()
+	for _, parseDecorator := range parseDecSnap {
 		if parseDecorator != nil {
-			parseDecorated = parseDecorator(parseDecorated)
+			// A panicking decorator passes the key through unchanged.
+			parseCurrent := parseDecorated
+			parseDecorated = pluginCall("cache-key decorator", func() string {
+				return parseDecorator(parseCurrent)
+			}, parseCurrent)
 		}
 	}
 	return parseDecorated
@@ -413,9 +506,12 @@ func (parseHost *Host) NotifyRequest(parseEvent RequestEvent) {
 	if parseHost == nil {
 		return
 	}
-	for _, parseObserver := range parseHost.requestObservers {
+	parseHost.stateMu.RLock()
+	parseReqSnap := append([]RequestObserver(nil), parseHost.requestObservers...)
+	parseHost.stateMu.RUnlock()
+	for _, parseObserver := range parseReqSnap {
 		if parseObserver != nil {
-			parseObserver(parseEvent)
+			pluginRun("request observer", func() { parseObserver(parseEvent) })
 		}
 	}
 }
@@ -428,7 +524,9 @@ func (parseHost *Host) AddPanelProvider(parseProvider PanelProvider) error {
 	if parseProvider == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.panelProviders = append(parseHost.panelProviders, parseProvider)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -437,12 +535,15 @@ func (parseHost *Host) Panels() []Panel {
 	if parseHost == nil {
 		return nil
 	}
-	parsePanels := make([]Panel, 0, len(parseHost.panelProviders))
-	for _, parseProvider := range parseHost.panelProviders {
+	parseHost.stateMu.RLock()
+	parsePanelSnap := append([]PanelProvider(nil), parseHost.panelProviders...)
+	parseHost.stateMu.RUnlock()
+	parsePanels := make([]Panel, 0, len(parsePanelSnap))
+	for _, parseProvider := range parsePanelSnap {
 		if parseProvider == nil {
 			continue
 		}
-		parsePanel := parseProvider()
+		parsePanel := pluginCall("panel provider", parseProvider, Panel{})
 		if strings.TrimSpace(parsePanel.ID) == "" || strings.TrimSpace(parsePanel.Title) == "" {
 			continue
 		}
@@ -459,7 +560,9 @@ func (parseHost *Host) AddDevtoolsSectionProvider(parseProvider DevtoolsSectionP
 	if parseProvider == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.devtoolsSectionProviders = append(parseHost.devtoolsSectionProviders, parseProvider)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -468,12 +571,15 @@ func (parseHost *Host) DevtoolsSections() []DevtoolsSection {
 	if parseHost == nil {
 		return nil
 	}
-	parseSections := make([]DevtoolsSection, 0, len(parseHost.devtoolsSectionProviders))
-	for _, parseProvider := range parseHost.devtoolsSectionProviders {
+	parseHost.stateMu.RLock()
+	parseSecSnap := append([]DevtoolsSectionProvider(nil), parseHost.devtoolsSectionProviders...)
+	parseHost.stateMu.RUnlock()
+	parseSections := make([]DevtoolsSection, 0, len(parseSecSnap))
+	for _, parseProvider := range parseSecSnap {
 		if parseProvider == nil {
 			continue
 		}
-		parseSection := parseProvider()
+		parseSection := pluginCall("devtools section provider", parseProvider, DevtoolsSection{})
 		if strings.TrimSpace(parseSection.Name) == "" {
 			continue
 		}
@@ -490,7 +596,9 @@ func (parseHost *Host) AddDevtoolsActionProvider(parseProvider DevtoolsActionPro
 	if parseProvider == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.devtoolsActionProviders = append(parseHost.devtoolsActionProviders, parseProvider)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -500,11 +608,14 @@ func (parseHost *Host) DevtoolsActions() []DevtoolsAction {
 		return nil
 	}
 	parseActions := make([]DevtoolsAction, 0)
-	for _, parseProvider := range parseHost.devtoolsActionProviders {
+	parseHost.stateMu.RLock()
+	parseActSnap := append([]DevtoolsActionProvider(nil), parseHost.devtoolsActionProviders...)
+	parseHost.stateMu.RUnlock()
+	for _, parseProvider := range parseActSnap {
 		if parseProvider == nil {
 			continue
 		}
-		for _, parseAction := range parseProvider() {
+		for _, parseAction := range pluginCall("devtools action provider", parseProvider, nil) {
 			if strings.TrimSpace(parseAction.Label) == "" || parseAction.Run == nil {
 				continue
 			}
@@ -522,7 +633,9 @@ func (parseHost *Host) AddHeadProvider(parseProvider HeadProvider) error {
 	if parseProvider == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.headProviders = append(parseHost.headProviders, parseProvider)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -531,12 +644,15 @@ func (parseHost *Host) HeadNodes() []ui.Node {
 	if parseHost == nil {
 		return nil
 	}
-	parseNodes := make([]ui.Node, 0, len(parseHost.headProviders))
-	for _, parseProvider := range parseHost.headProviders {
+	parseHost.stateMu.RLock()
+	parseHeadSnap := append([]HeadProvider(nil), parseHost.headProviders...)
+	parseHost.stateMu.RUnlock()
+	parseNodes := make([]ui.Node, 0, len(parseHeadSnap))
+	for _, parseProvider := range parseHeadSnap {
 		if parseProvider == nil {
 			continue
 		}
-		if parseNode := parseProvider(); parseNode != nil {
+		if parseNode := pluginCall("head provider", parseProvider, nil); parseNode != nil {
 			parseNodes = append(parseNodes, parseNode)
 		}
 	}
@@ -551,7 +667,9 @@ func (parseHost *Host) AddBootstrapProvider(parseProvider BootstrapProvider) err
 	if parseProvider == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.bootstrapProviders = append(parseHost.bootstrapProviders, parseProvider)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -561,11 +679,14 @@ func (parseHost *Host) BootstrapData() map[string]map[string]any {
 		return nil
 	}
 	parsePayloads := map[string]map[string]any{}
-	for _, parseProvider := range parseHost.bootstrapProviders {
+	parseHost.stateMu.RLock()
+	parseBootSnap := append([]BootstrapProvider(nil), parseHost.bootstrapProviders...)
+	parseHost.stateMu.RUnlock()
+	for _, parseProvider := range parseBootSnap {
 		if parseProvider == nil {
 			continue
 		}
-		parsePayload := parseProvider()
+		parsePayload := pluginCall("bootstrap provider", parseProvider, BootstrapPayload{})
 		parseNamespace := strings.TrimSpace(parsePayload.Namespace)
 		if parseNamespace == "" || len(parsePayload.Data) == 0 {
 			continue
@@ -585,7 +706,9 @@ func (parseHost *Host) AddFormValidator(parseValidator FormValidator) error {
 	if parseValidator == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.formValidators = append(parseHost.formValidators, parseValidator)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -597,7 +720,9 @@ func (parseHost *Host) AddSubmitObserver(parseObserver SubmitObserver) error {
 	if parseObserver == nil {
 		return nil
 	}
+	parseHost.stateMu.Lock()
 	parseHost.submitObservers = append(parseHost.submitObservers, parseObserver)
+	parseHost.stateMu.Unlock()
 	return nil
 }
 
@@ -607,11 +732,16 @@ func (parseHost *Host) ValidateForm(parseSubmission FormSubmission) []Validation
 		return nil
 	}
 	parseIssues := make([]ValidationIssue, 0)
-	for _, parseValidator := range parseHost.formValidators {
+	parseHost.stateMu.RLock()
+	parseValSnap := append([]FormValidator(nil), parseHost.formValidators...)
+	parseHost.stateMu.RUnlock()
+	for _, parseValidator := range parseValSnap {
 		if parseValidator == nil {
 			continue
 		}
-		parseIssues = append(parseIssues, parseValidator(parseSubmission)...)
+		parseIssues = append(parseIssues, pluginCall("form validator", func() []ValidationIssue {
+			return parseValidator(parseSubmission)
+		}, nil)...)
 	}
 	return parseIssues
 }
@@ -621,9 +751,12 @@ func (parseHost *Host) NotifySubmit(parseSubmission FormSubmission) {
 	if parseHost == nil {
 		return
 	}
-	for _, parseObserver := range parseHost.submitObservers {
+	parseHost.stateMu.RLock()
+	parseSubSnap := append([]SubmitObserver(nil), parseHost.submitObservers...)
+	parseHost.stateMu.RUnlock()
+	for _, parseObserver := range parseSubSnap {
 		if parseObserver != nil {
-			parseObserver(parseSubmission)
+			pluginRun("submit observer", func() { parseObserver(parseSubmission) })
 		}
 	}
 }
@@ -661,6 +794,8 @@ type registrySnapshot struct {
 }
 
 func (parseHost *Host) snapshot() registrySnapshot {
+	parseHost.stateMu.RLock()
+	defer parseHost.stateMu.RUnlock()
 	parseValues := make(map[string]any, len(parseHost.values))
 	maps.Copy(parseValues, parseHost.values)
 	return registrySnapshot{
@@ -682,6 +817,8 @@ func (parseHost *Host) snapshot() registrySnapshot {
 }
 
 func (parseHost *Host) rollback(parseSnapshot registrySnapshot) {
+	parseHost.stateMu.Lock()
+	defer parseHost.stateMu.Unlock()
 	parseHost.routeGuards = parseHost.routeGuards[:parseSnapshot.routeGuards]
 	parseHost.navigationObservers = parseHost.navigationObservers[:parseSnapshot.navigationObservers]
 	parseHost.cacheDecorators = parseHost.cacheDecorators[:parseSnapshot.cacheDecorators]
@@ -710,6 +847,8 @@ func (parseHost *Host) requireCapability(parseCapability Capability) error {
 }
 
 func (parseHost *Host) hasPlugin(parseId string) bool {
+	parseHost.stateMu.RLock()
+	defer parseHost.stateMu.RUnlock()
 	parseTrimmed := strings.TrimSpace(parseId)
 	for _, parseManifest := range parseHost.plugins {
 		if parseManifest.ID == parseTrimmed {

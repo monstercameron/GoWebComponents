@@ -34,7 +34,11 @@ func ParsePatchKeyedMoveOp(parseRaw PatchKeyedMoveOpRaw, parseKnownNodeIDs map[u
 	if !hasSiblingCount {
 		return PatchKeyedMoveOp{}, fmt.Errorf("runtime2: keyed-move op parent node id %d has no sibling bounds", parseRaw.ParentNodeID)
 	}
-	if parseRaw.DestinationIndex > getSiblingCount {
+	// The applier removes the moved node before reinserting, so the valid
+	// destination range is 0..siblingCount-1; DestinationIndex == siblingCount
+	// passed validation here but always failed at commit (wasted rollback +
+	// fallback cycle). Reject it at parse time to match the applier's ceiling.
+	if parseRaw.DestinationIndex >= getSiblingCount {
 		return PatchKeyedMoveOp{}, fmt.Errorf("runtime2: keyed-move op destination index %d is out of range for sibling count %d", parseRaw.DestinationIndex, getSiblingCount)
 	}
 	return PatchKeyedMoveOp(parseRaw), nil

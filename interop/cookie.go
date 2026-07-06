@@ -71,8 +71,14 @@ func ExpireCookie(parseName string, parseOptions ...CookieOptions) error {
 // SameSite=None automatically adds Secure. This function is pure Go and is
 // used by both wasm and native builds.
 func buildCookieString(parseName string, parseValue string, parseOpts CookieOptions) string {
+	// The value is percent-encoded, but the name is emitted raw. Strip the
+	// structural/header-injection bytes (';', '=', CR, LF, control chars) that
+	// are illegal in a cookie name anyway, so a crafted name cannot corrupt the
+	// Set-Cookie string or inject a second directive. Valid names are unchanged,
+	// so previously written cookies still read back.
+	parseSafeName := sanitizeCookieName(parseName)
 	parseEncoded := url.QueryEscape(parseValue)
-	parseParts := []string{parseName + "=" + parseEncoded}
+	parseParts := []string{parseSafeName + "=" + parseEncoded}
 
 	if parseOpts.Path != "" {
 		parseParts = append(parseParts, "Path="+parseOpts.Path)
@@ -96,6 +102,21 @@ func buildCookieString(parseName string, parseValue string, parseOpts CookieOpti
 	}
 
 	return strings.Join(parseParts, "; ")
+}
+
+// sanitizeCookieName drops bytes that are illegal in a cookie name and could
+// otherwise break out of the name token in the Set-Cookie header.
+func sanitizeCookieName(parseName string) string {
+	var parseBuilder strings.Builder
+	parseBuilder.Grow(len(parseName))
+	for parseIndex := 0; parseIndex < len(parseName); parseIndex++ {
+		parseC := parseName[parseIndex]
+		if parseC <= ' ' || parseC == ';' || parseC == '=' || parseC == ',' || parseC == 0x7f {
+			continue
+		}
+		parseBuilder.WriteByte(parseC)
+	}
+	return parseBuilder.String()
 }
 
 // parseCookieHeader parses a raw "a=1; b=2" cookie string and returns the

@@ -121,6 +121,21 @@ func (parseDB *DB) Flush(parseCtx context.Context) error {
 	if parseCtx == nil {
 		parseCtx = context.Background()
 	}
+	// The flush snapshots the raw VFS image directly, bypassing the sql.DB
+	// connection pool, so acquire the single pooled connection (SetMaxOpenConns(1))
+	// first. Holding it blocks any concurrent Tx/Exec and, if a transaction is
+	// already in flight (e.g. a debounced flush timer fires between two Exec calls
+	// of an open Tx on another goroutine), waits for it to commit/rollback — so the
+	// image can never be snapshotted mid-transaction, which would persist a torn,
+	// journal-less database that rehydrates as if consistent.
+	//
+	// Do NOT call Flush synchronously from inside a Tx callback: that would hold
+	// the only connection while waiting for it, a self-deadlock.
+	parseConn, parseConnErr := parseDB.sdb.Conn(parseCtx)
+	if parseConnErr != nil {
+		return parseConnErr
+	}
+	defer parseConn.Close()
 	return parseDB.flush(parseCtx)
 }
 
@@ -164,7 +179,11 @@ func sanitizeName(parseName string) string {
 	return parseSafe
 }
 
-// applyPragmas runs each pragma as "PRAGMA k=v" in deterministic order.
+// applyPragmas runs each pragma as "PRAGMA k=v" in deterministic order. Pragma
+// keys/values are the ONE place this package builds SQL by string formatting
+// rather than parameters (PRAGMA does not accept bind parameters), so both are
+// validated first: a value like "journal_mode=WAL; DROP TABLE x" from a config
+// file / preference would otherwise be a SQL-injection vector.
 func applyPragmas(parseCtx context.Context, parseSDB *sql.DB, parsePragmas map[string]string) error {
 	parseKeys := make([]string, 0, len(parsePragmas))
 	for parseKey := range parsePragmas {
@@ -172,9 +191,55 @@ func applyPragmas(parseCtx context.Context, parseSDB *sql.DB, parsePragmas map[s
 	}
 	sort.Strings(parseKeys)
 	for _, parseKey := range parseKeys {
-		if _, parseErr := parseSDB.ExecContext(parseCtx, fmt.Sprintf("PRAGMA %s=%s", parseKey, parsePragmas[parseKey])); parseErr != nil {
+		if !isValidPragmaKey(parseKey) {
+			return fmt.Errorf("apply pragma %q: invalid pragma name", parseKey)
+		}
+		parseValue := parsePragmas[parseKey]
+		if !isValidPragmaValue(parseValue) {
+			return fmt.Errorf("apply pragma %s: invalid pragma value %q", parseKey, parseValue)
+		}
+		if _, parseErr := parseSDB.ExecContext(parseCtx, fmt.Sprintf("PRAGMA %s=%s", parseKey, parseValue)); parseErr != nil {
 			return fmt.Errorf("apply pragma %s: %w", parseKey, parseErr)
 		}
 	}
 	return nil
+}
+
+// isValidPragmaKey accepts an identifier: a letter/underscore start followed by
+// letters, digits, or underscores. This covers every real SQLite pragma name.
+func isValidPragmaKey(parseKey string) bool {
+	if parseKey == "" {
+		return false
+	}
+	for parseI, parseR := range parseKey {
+		parseAlpha := (parseR >= 'a' && parseR <= 'z') || (parseR >= 'A' && parseR <= 'Z') || parseR == '_'
+		parseDigit := parseR >= '0' && parseR <= '9'
+		if parseI == 0 && !parseAlpha {
+			return false
+		}
+		if !parseAlpha && !parseDigit {
+			return false
+		}
+	}
+	return true
+}
+
+// isValidPragmaValue accepts an identifier or a (possibly negative) integer —
+// e.g. WAL, NORMAL, MEMORY, ON, OFF, 5000, -2000 (cache_size in KiB). Anything
+// containing whitespace, ';', quotes, or parentheses is rejected as unsafe.
+func isValidPragmaValue(parseValue string) bool {
+	if parseValue == "" {
+		return false
+	}
+	for parseI, parseR := range parseValue {
+		parseAlpha := (parseR >= 'a' && parseR <= 'z') || (parseR >= 'A' && parseR <= 'Z') || parseR == '_'
+		parseDigit := parseR >= '0' && parseR <= '9'
+		if parseR == '-' && parseI == 0 {
+			continue
+		}
+		if !parseAlpha && !parseDigit {
+			return false
+		}
+	}
+	return true
 }

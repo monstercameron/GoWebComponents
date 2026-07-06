@@ -392,8 +392,18 @@ func applyRenderCountSignal(parseSignals []RenderCountSignal, parseComponent str
 	if parseComponent == "" {
 		return parseSignals[0]
 	}
+	// Two-pass resolution: prefer an EXACT Name/Path match before falling back to
+	// a substring match. parseSignals is sorted by render count descending, so a
+	// single-pass substring match could resolve "Button" to an unrelated
+	// "IconButton" that happens to have more renders — silently checking the wrong
+	// component's budget (a false pass/fail).
 	for _, parseSignal := range parseSignals {
-		if parseSignal.Name == parseComponent || parseSignal.Path == parseComponent || strings.Contains(parseSignal.Path, parseComponent) {
+		if parseSignal.Name == parseComponent || parseSignal.Path == parseComponent {
+			return parseSignal
+		}
+	}
+	for _, parseSignal := range parseSignals {
+		if strings.Contains(parseSignal.Path, parseComponent) {
 			return parseSignal
 		}
 	}

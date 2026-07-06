@@ -80,6 +80,65 @@ func (serviceInternal) private() {}
 	}
 }
 
+// TestScanPackageCapturesSignaturesForBreakingChanges pins that the guard is
+// signature-aware: a changed function/method/field/interface-method signature
+// produces a different symbol set, so an incompatible reshape that keeps the name
+// is caught. Name-only identity (the prior behavior) missed every such break.
+func TestScanPackageCapturesSignaturesForBreakingChanges(t *testing.T) {
+	scan := func(body string) []string {
+		root := t.TempDir()
+		writeFixture(t, root, "api/api.go", "package api\n\n"+body)
+		symbols, err := scanPackage(root, "api", targetSpec{Name: "native", GOOS: "linux", GOARCH: "amd64"})
+		if err != nil {
+			t.Fatalf("scan package: %v", err)
+		}
+		return symbols
+	}
+
+	before := scan(`type Cfg struct{ Timeout int }
+type Reader interface{ Read(p []byte) (int, error) }
+func Do(a int) error { return nil }
+func (Cfg) Run(x int) {}
+`)
+	after := scan(`type Cfg struct{ Timeout string }
+type Reader interface{ Read(p []byte) (int64, error) }
+func Do(a int, b string) error { return nil }
+func (Cfg) Run(x int64) {}
+`)
+
+	// Each name-only symbol survives (removal-detection unchanged)...
+	for _, name := range []string{"func Do", "method (Cfg) Run", "field Cfg.Timeout", "interface Reader.Read"} {
+		assertContains(t, before, name)
+		assertContains(t, after, name)
+	}
+	// ...but the signature entries differ, so the breaking change is visible: every
+	// "before" signature entry must be ABSENT from "after".
+	beforeSigs := signatureEntries(before)
+	if len(beforeSigs) == 0 {
+		t.Fatal("expected signature entries to be recorded")
+	}
+	afterSet := map[string]struct{}{}
+	for _, s := range after {
+		afterSet[s] = struct{}{}
+	}
+	for _, sig := range beforeSigs {
+		if _, ok := afterSet[sig]; ok {
+			t.Fatalf("signature entry %q survived a breaking change; the guard is not signature-aware", sig)
+		}
+	}
+}
+
+func signatureEntries(symbols []string) []string {
+	var out []string
+	for _, s := range symbols {
+		if strings.HasPrefix(s, "funcsig ") || strings.HasPrefix(s, "methodsig ") ||
+			strings.HasPrefix(s, "fieldtype ") || strings.HasPrefix(s, "interfacesig ") {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 func TestScanPackageHonorsBuildTargets(t *testing.T) {
 	root := t.TempDir()
 	writeFixture(t, root, "target/common.go", `package target
@@ -193,7 +252,7 @@ func TestOnly() {}
 		t.Fatalf("scan package: %v", err)
 	}
 
-	want := []string{"const Alpha", "func Zebra"}
+	want := []string{"const Alpha", "func Zebra", "funcsig Zebra func()"}
 	if !slices.Equal(symbols, want) {
 		t.Fatalf("symbols = %v, want %v", symbols, want)
 	}
@@ -342,8 +401,8 @@ func Foo() {}
 	if !slices.Equal(baseline.Scope, []string{"pkg"}) {
 		t.Fatalf("baseline scope = %v, want [pkg]", baseline.Scope)
 	}
-	if got := baseline.Targets["test"].Packages["pkg"]; !slices.Equal(got, []string{"func Foo"}) {
-		t.Fatalf("baseline symbols = %v, want [func Foo]", got)
+	if got := baseline.Targets["test"].Packages["pkg"]; !slices.Equal(got, []string{"func Foo", "funcsig Foo func()"}) {
+		t.Fatalf("baseline symbols = %v, want [func Foo funcsig Foo func()]", got)
 	}
 
 	if err := run(root, baselinePath, "pkg", "test=linux/amd64", false); err != nil {

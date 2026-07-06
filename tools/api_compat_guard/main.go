@@ -232,6 +232,10 @@ func scanTypeMembers(typeName string, expr ast.Expr, symbols map[string]struct{}
 			for _, name := range field.Names {
 				if name.IsExported() {
 					symbols["field "+typeName+"."+name.Name] = struct{}{}
+					// The field's TYPE is part of the struct's public contract:
+					// changing `F int` -> `F string` is breaking, yet the name-only
+					// entry misses it. Record the type too.
+					symbols["fieldtype "+typeName+"."+name.Name+" "+normalizeSignature(exprString(field.Type))] = struct{}{}
 				}
 			}
 		}
@@ -246,6 +250,9 @@ func scanTypeMembers(typeName string, expr ast.Expr, symbols map[string]struct{}
 			for _, name := range field.Names {
 				if name.IsExported() {
 					symbols["interface "+typeName+"."+name.Name] = struct{}{}
+					// The method signature is the interface contract; a changed
+					// signature is breaking for every implementer.
+					symbols["interfacesig "+typeName+"."+name.Name+" "+normalizeSignature(exprString(field.Type))] = struct{}{}
 				}
 			}
 		}
@@ -256,11 +263,20 @@ func scanFuncDecl(decl *ast.FuncDecl, symbols map[string]struct{}) {
 	if !decl.Name.IsExported() {
 		return
 	}
+	// Record the signature alongside the name so a BREAKING change (added/removed
+	// param, changed param or result type) is caught. The name-only entry catches
+	// removal; the signature entry catches an incompatible reshape that keeps the
+	// name. exprString(decl.Type) renders the full func type incl. generic type
+	// params, e.g. "func[T any](a int) error".
+	sig := normalizeSignature(exprString(decl.Type))
 	if decl.Recv == nil || len(decl.Recv.List) == 0 {
 		symbols["func "+decl.Name.Name] = struct{}{}
+		symbols["funcsig "+decl.Name.Name+" "+sig] = struct{}{}
 		return
 	}
-	symbols[fmt.Sprintf("method (%s) %s", exprString(decl.Recv.List[0].Type), decl.Name.Name)] = struct{}{}
+	recv := exprString(decl.Recv.List[0].Type)
+	symbols[fmt.Sprintf("method (%s) %s", recv, decl.Name.Name)] = struct{}{}
+	symbols[fmt.Sprintf("methodsig (%s) %s %s", recv, decl.Name.Name, sig)] = struct{}{}
 }
 
 func exportedEmbeddedFieldName(expr ast.Expr) (string, bool) {
@@ -286,6 +302,12 @@ func exprString(expr ast.Expr) string {
 		return "<invalid>"
 	}
 	return buf.String()
+}
+
+// normalizeSignature collapses all whitespace runs to single spaces so a
+// multi-line rendering of a func/field type compares as one stable line.
+func normalizeSignature(source string) string {
+	return strings.Join(strings.Fields(source), " ")
 }
 
 func compareBaselines(expected apiBaseline, current apiBaseline) []compatIssue {
@@ -344,6 +366,13 @@ func readBaseline(path string) (apiBaseline, error) {
 	var baseline apiBaseline
 	if err := json.Unmarshal(data, &baseline); err != nil {
 		return apiBaseline{}, fmt.Errorf("parse baseline: %w", err)
+	}
+	// Reject an empty baseline: compareBaselines only walks expected.Targets, so a
+	// baseline truncated to "{}" (bad merge, botched -update, overwrite) would
+	// iterate zero times and the guard would "pass" even if every exported symbol
+	// were deleted — a silent false-pass in a compatibility gate.
+	if len(baseline.Targets) == 0 {
+		return apiBaseline{}, fmt.Errorf("baseline %s has no targets; refusing to run (an empty baseline passes unconditionally)", path)
 	}
 	return baseline, nil
 }

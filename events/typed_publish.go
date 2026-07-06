@@ -123,7 +123,3 @@ func clearCodecRegistry() {
 		return true
 	})
 }
-
-// codecMu is a package-level mutex used by tests that need to synchronise
-// access to clearCodecRegistry across goroutines.
-var codecMu sync.Mutex

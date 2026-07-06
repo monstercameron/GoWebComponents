@@ -152,9 +152,14 @@ func renderErrorBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 		return nil
 	}
 
+	// Children render into a scratch builder first (like the async boundary):
+	// a panic mid-subtree must not leave partial, unclosed markup in the output
+	// ahead of the fallback.
+	var parseChildBuilder strings.Builder
 	defer func() {
 		parseRecovered := recover()
 		if parseRecovered == nil {
+			parseBuilder.WriteString(parseChildBuilder.String())
 			return
 		}
 
@@ -178,7 +183,7 @@ func renderErrorBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 		parseErr = nil
 	}()
 
-	return renderChildrenToString(parseBuilder, parseElement.Children, parseCtx)
+	return renderChildrenToString(&parseChildBuilder, parseElement.Children, parseCtx)
 }
 
 // renderAsyncBoundaryToString renders async fallback content when a child suspends.

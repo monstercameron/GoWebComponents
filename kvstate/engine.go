@@ -3,6 +3,7 @@ package kvstate
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 
 	"github.com/monstercameron/GoWebComponents/v4/db/sqlite"
@@ -15,14 +16,25 @@ type engine struct {
 	close   func() error
 }
 
+// namedDB is one opened SQLite database shared by every table-scoped engine
+// under one Options.Name.
+type namedDB struct {
+	db         *sqlite.DB
+	durability Durability
+	engines    map[string]*engine // keyed by table
+}
+
 var (
 	enginesMu sync.Mutex
-	engines   = map[string]*engine{}
+	engines   = map[string]*namedDB{}
 )
 
-// acquireEngine returns the shared engine for opts.Name, creating it (and its
-// SQLite database + table) on first use. When a custom Backend is supplied, it
-// is used directly and no SQLite database is opened.
+// acquireEngine returns the shared engine for (opts.Name, opts.Table), creating
+// the SQLite database on first use of the Name and the table on first use of
+// the (Name, Table) pair. The cache used to key by Name alone, which silently
+// routed a second Table (and ignored a different Durability) into whatever the
+// first caller opened. When a custom Backend is supplied, it is used directly
+// and no SQLite database is opened.
 func acquireEngine(parseCtx context.Context, parseOptions Options) (*engine, error) {
 	parseOptions = parseOptions.withDefaults()
 
@@ -35,31 +47,43 @@ func acquireEngine(parseCtx context.Context, parseOptions Options) (*engine, err
 
 	enginesMu.Lock()
 	defer enginesMu.Unlock()
-	if parseExisting, parseOK := engines[parseOptions.Name]; parseOK {
-		return parseExisting, nil
+	parseEntry, parseOK := engines[parseOptions.Name]
+	if parseOK {
+		if parseEntry.durability != parseOptions.Durability {
+			return nil, fmt.Errorf("kvstate: store %q is already open with a different durability; all Options sharing a Name must agree on Durability", parseOptions.Name)
+		}
+		if parseExisting, hasTable := parseEntry.engines[parseOptions.Table]; hasTable {
+			return parseExisting, nil
+		}
+	} else {
+		parseDB, parseErr := sqlite.Open(parseCtx, sqlite.Options{
+			Name:        parseOptions.Name,
+			Persistence: parseOptions.Durability.toSQLite(),
+		})
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		parseEntry = &namedDB{db: parseDB, durability: parseOptions.Durability, engines: map[string]*engine{}}
+		engines[parseOptions.Name] = parseEntry
 	}
 
-	parseDB, parseErr := sqlite.Open(parseCtx, sqlite.Options{
-		Name:        parseOptions.Name,
-		Persistence: parseOptions.Durability.toSQLite(),
-	})
-	if parseErr != nil {
-		return nil, parseErr
-	}
-	if _, parseErr := parseDB.Exec(parseCtx,
+	if _, parseErr := parseEntry.db.Exec(parseCtx,
 		"CREATE TABLE IF NOT EXISTS "+parseOptions.Table+
 			" (k TEXT PRIMARY KEY, v BLOB NOT NULL, version INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
 	); parseErr != nil {
-		parseDB.Close()
+		if len(parseEntry.engines) == 0 {
+			parseEntry.db.Close()
+			delete(engines, parseOptions.Name)
+		}
 		return nil, parseErr
 	}
 
 	parseEngine := &engine{
-		backend: &sqliteBackend{db: parseDB, table: parseOptions.Table},
-		flush:   parseDB.Flush,
-		close:   parseDB.Close,
+		backend: &sqliteBackend{db: parseEntry.db, table: parseOptions.Table},
+		flush:   parseEntry.db.Flush,
+		close:   parseEntry.db.Close,
 	}
-	engines[parseOptions.Name] = parseEngine
+	parseEntry.engines[parseOptions.Table] = parseEngine
 	return parseEngine, nil
 }
 
@@ -68,9 +92,9 @@ func acquireEngine(parseCtx context.Context, parseOptions Options) (*engine, err
 func resetEnginesForTest() {
 	enginesMu.Lock()
 	defer enginesMu.Unlock()
-	for parseName, parseEngine := range engines {
-		if parseEngine.close != nil {
-			parseEngine.close()
+	for parseName, parseEntry := range engines {
+		if parseEntry.db != nil {
+			parseEntry.db.Close()
 		}
 		delete(engines, parseName)
 	}

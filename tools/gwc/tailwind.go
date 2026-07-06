@@ -335,12 +335,22 @@ func downloadTailwindBinaryFile(parseVersionTag string, parseAssetName string, p
 	if parseErr != nil {
 		return fmt.Errorf("download tailwind binary: %w", parseErr)
 	}
-	if parseChecksumErr == nil {
+	// Integrity check. A checksum MISMATCH always fails closed. The two
+	// fail-OPEN paths (checksum manifest unreachable, or the manifest lacks an
+	// entry for this asset) are kept — some older Tailwind releases ship no
+	// sha256sums.txt, and hard-failing would break the dev command for them —
+	// but they must never be SILENT: a downloaded executable being installed
+	// without verification is exactly what an operator needs to see.
+	if parseChecksumErr != nil {
+		fmt.Fprintf(os.Stderr, "warning: tailwind checksum manifest unavailable (%v); installing %s WITHOUT integrity verification\n", parseChecksumErr, parseAssetName)
+	} else {
 		parseChecksumByAsset := parseTailwindChecksums(string(parseChecksumBytes))
 		if parseExpectedChecksum, hasChecksum := parseChecksumByAsset[parseAssetName]; hasChecksum {
 			if parseErr2 := verifyTailwindChecksum(parseAssetBytes, parseExpectedChecksum); parseErr2 != nil {
 				return fmt.Errorf("verify tailwind checksum: %w", parseErr2)
 			}
+		} else {
+			fmt.Fprintf(os.Stderr, "warning: tailwind checksum manifest has no entry for %s; installing WITHOUT integrity verification\n", parseAssetName)
 		}
 	}
 

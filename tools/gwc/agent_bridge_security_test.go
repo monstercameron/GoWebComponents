@@ -9,6 +9,14 @@ import (
 )
 
 func TestAgentBridgeReleaseArtifactHasNoAgentStrings(parseT *testing.T) {
+	// Runs a full `go build -tags production` js/wasm build of the counter example
+	// — a slow, toolchain-dependent step that can fail transiently and make the
+	// default suite non-deterministic. Skip in -short so the fast dev-loop suite
+	// stays deterministic; full CI runs (no -short) still enforce this security
+	// check that the release artifact contains no agent-bridge strings.
+	if testing.Short() {
+		parseT.Skip("runs a full production wasm build; skipped in -short (still enforced in full CI)")
+	}
 	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", ".."))
 	if parseErr != nil {
 		parseT.Fatalf("resolve repo root: %v", parseErr)

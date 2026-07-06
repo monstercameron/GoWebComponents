@@ -93,15 +93,32 @@ func Hex(parseValue string) Color {
 			}
 		}
 	}
-	if b.Len() == 0 {
+	// Only 3/4/6/8-digit forms are legal CSS hex colors; anything else (e.g.
+	// Hex("12345")) the browser silently drops. Fall back to black rather than
+	// emit a dead value.
+	switch b.Len() {
+	case 3, 4, 6, 8:
+		return Color("#" + b.String())
+	default:
 		return Color("#000000")
 	}
-	return Color("#" + b.String())
 }
 
-// RGB builds an rgb() color.
+// clampChannel clamps an RGB channel to the valid [0,255] range.
+func clampChannel(parseV int) int {
+	if parseV < 0 {
+		return 0
+	}
+	if parseV > 255 {
+		return 255
+	}
+	return parseV
+}
+
+// RGB builds an rgb() color; channels are clamped to [0,255] (matching how RGBA
+// clamps alpha) so the formatter emits canonical, in-range output.
 func RGB(r, g, b int) Color {
-	return Color("rgb(" + strconv.Itoa(r) + "," + strconv.Itoa(g) + "," + strconv.Itoa(b) + ")")
+	return Color("rgb(" + strconv.Itoa(clampChannel(r)) + "," + strconv.Itoa(clampChannel(g)) + "," + strconv.Itoa(clampChannel(b)) + ")")
 }
 
 // RGBA builds an rgba() color; alpha is clamped to [0,1].
@@ -112,7 +129,7 @@ func RGBA(r, g, b int, a float64) Color {
 	if a > 1 {
 		a = 1
 	}
-	return Color("rgba(" + strconv.Itoa(r) + "," + strconv.Itoa(g) + "," + strconv.Itoa(b) + "," + trimFloat(a) + ")")
+	return Color("rgba(" + strconv.Itoa(clampChannel(r)) + "," + strconv.Itoa(clampChannel(g)) + "," + strconv.Itoa(clampChannel(b)) + "," + trimFloat(a) + ")")
 }
 
 // Var references a CSS custom property, the bridge for runtime/dynamic values:

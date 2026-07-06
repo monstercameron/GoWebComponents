@@ -105,5 +105,11 @@ func sanitizeIdent(parseName string) string {
 	if len(parseOut) == 0 {
 		return "gwc_state"
 	}
+	// The result is interpolated UNQUOTED into DDL/DML (CREATE TABLE <t>, FROM <t>),
+	// and an unquoted SQL identifier may not begin with a digit — "123abc" would be
+	// a syntax error at table-create time. Prefix a leading digit with '_'.
+	if parseOut[0] >= '0' && parseOut[0] <= '9' {
+		parseOut = append([]rune{'_'}, parseOut...)
+	}
 	return string(parseOut)
 }

@@ -316,6 +316,19 @@ func (parseA *MockDOMAdapter) InsertBefore(parseParent, parseNewNode, parseRefer
 	if parsePok && parseNok && parseRok {
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
+		// Mirror the browser adapter's guard: if the reference node is not a
+		// child of parent, no-op BEFORE detaching — otherwise the new node is
+		// pulled out of its old parent and then never inserted anywhere.
+		parseHasRef := false
+		for _, parseCh := range parseP.Children {
+			if parseCh.ID == parseR.ID {
+				parseHasRef = true
+				break
+			}
+		}
+		if !parseHasRef {
+			return
+		}
 		if parseN.Parent != nil {
 			for parseIndex, parseExistingChild := range parseN.Parent.Children {
 				if parseExistingChild.ID == parseN.ID {
@@ -358,6 +371,11 @@ func (parseA *MockDOMAdapter) GetParent(parseNode runtime.DOMNode) runtime.DOMNo
 	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
+		if parseN.Parent == nil {
+			// Return an untyped nil like the browser adapter — a typed-nil
+			// *MockDOMNode inside the interface would defeat callers' == nil checks.
+			return nil
+		}
 		return parseN.Parent
 	}
 	return nil
@@ -439,6 +457,15 @@ func (parseA *MockDOMAdapter) SetTextContent(parseNode runtime.DOMNode, parseTex
 		parseA.mu.Lock()
 		defer parseA.mu.Unlock()
 		parseN.TextContent = parseText
+		// Browser fidelity: the textContent setter replaces ALL children with a
+		// single text node; keeping stale children would make later
+		// textContent reads concatenate content the browser would have removed.
+		if len(parseN.Children) > 0 {
+			for _, parseChild := range parseN.Children {
+				parseChild.Parent = nil
+			}
+			parseN.Children = parseN.Children[:0]
+		}
 		parseA.recordOpLocked("setTextContent", parseN.ID, parseText)
 	}
 }
@@ -473,7 +500,7 @@ func (parseA *MockDOMAdapter) ClearOperations() {
 func (parseA *MockDOMAdapter) AssertOperation(parseIndex int, parseExpectedType string) error {
 	parseA.mu.Lock()
 	defer parseA.mu.Unlock()
-	if parseIndex >= len(parseA.operations) {
+	if parseIndex < 0 || parseIndex >= len(parseA.operations) {
 		return fmt.Errorf("operation index %d out of bounds (have %d operations)", parseIndex, len(parseA.operations))
 	}
 	parseOp := parseA.operations[parseIndex]

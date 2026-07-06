@@ -129,17 +129,34 @@ func TestNativeSSRTransferEnvelopeHelpers(parseT *testing.T) {
 	}
 }
 
-// TestNativeUseContextAndAsyncBoundaryBranches verifies panic and fallback branches in the native SSR slice.
+// TestNativeUseContextAndAsyncBoundaryBranches verifies context resolution and fallback branches in the native SSR slice.
 func TestNativeUseContextAndAsyncBoundaryBranches(parseT *testing.T) {
+	// UseContext resolves through the runtime's SSR hook fiber on native
+	// builds (it used to panic UnsupportedOnServer despite full runtime
+	// support): a provider value reaches the consuming component.
 	parseTheme := CreateContext("light")
-	defer func() {
-		parseRecovered := recover()
-		if parseRecovered == nil {
-			parseT.Fatal("expected UseContext to panic on non-js/wasm builds")
-		}
-		if !strings.Contains(parseRecovered.(string), "UseContext") {
-			parseT.Fatalf("unexpected UseContext panic %q", parseRecovered)
-		}
+	parseConsumer := func() Node {
+		return Text(UseContext(parseTheme))
+	}
+	parseContextMarkup, parseContextErr := RenderToString(CreateElement(parseTheme.Provider, ContextProviderProps[string]{
+		Value: "dark",
+		Child: CreateElement(parseConsumer),
+	}))
+	if parseContextErr != nil {
+		parseT.Fatalf("unexpected UseContext SSR error: %v", parseContextErr)
+	}
+	if parseContextMarkup != "dark" {
+		parseT.Fatalf("expected provider value to resolve through native SSR, got %q", parseContextMarkup)
+	}
+
+	// Outside a render it still panics (hook outside component context).
+	func() {
+		defer func() {
+			if recover() == nil {
+				parseT.Fatal("expected UseContext outside a render to panic")
+			}
+		}()
+		_ = UseContext(parseTheme)
 	}()
 
 	parseErrorFallback := Text("error-fallback")
@@ -162,7 +179,6 @@ func TestNativeUseContextAndAsyncBoundaryBranches(parseT *testing.T) {
 		parseT.Fatalf("expected AsyncBoundary timeout fallback markup, got %q", parseTimeoutMarkup)
 	}
 	UseEffect(func() func() { return nil })
-	_ = UseContext(parseTheme)
 }
 
 type errNativeHelperTestMessage string

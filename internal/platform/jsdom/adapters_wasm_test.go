@@ -4,6 +4,7 @@
 package jsdom
 
 import (
+	"strings"
 	"syscall/js"
 	"testing"
 
@@ -404,5 +405,21 @@ func TestWASMDOMAdapter_EndBatchFallsBackToAppendChild(parseT *testing.T) {
 	}
 	if !parseFirst.Get("parentNode").Equal(parseParent) || !parseSecond.Get("parentNode").Equal(parseParent) {
 		parseT.Fatal("expected batched appendChild fallback to set parentNode on each child")
+	}
+}
+
+func TestBuildHostElementHTMLSanitizesURLAttributes(parseT *testing.T) {
+	getHTML, parseOK := buildHostElementHTML("a", []runtime.HostAttr{
+		{Name: "href", Value: "javascript:alert(1)"},
+		{Name: "class", Value: "link"},
+	}, "click")
+	if !parseOK {
+		parseT.Fatalf("expected template fast path to accept a safe tag/attr set")
+	}
+	if strings.Contains(getHTML, "javascript:") {
+		parseT.Fatalf("template fast path must block javascript: URLs, got %q", getHTML)
+	}
+	if !strings.Contains(getHTML, `class="link"`) || !strings.Contains(getHTML, ">click</a>") {
+		parseT.Fatalf("unexpected serialized element: %q", getHTML)
 	}
 }

@@ -111,17 +111,17 @@ func TestFieldKeyProtection(parseT *testing.T) {
 // TestBuildMapAndSliceValueEdges covers nil and empty reflected containers.
 func TestBuildMapAndSliceValueEdges(parseT *testing.T) {
 	var parseNilMap map[string]int
-	if parseGot := buildMapValue(reflect.ValueOf(parseNilMap)); parseGot != nil {
+	if parseGot := buildMapValue(reflect.ValueOf(parseNilMap), 0); parseGot != nil {
 		parseT.Fatalf("nil map should normalize to nil, got %#v", parseGot)
 	}
 	var parseNilSlice []int
-	if parseGot := buildSliceValue(reflect.ValueOf(parseNilSlice)); parseGot != nil {
+	if parseGot := buildSliceValue(reflect.ValueOf(parseNilSlice), 0); parseGot != nil {
 		parseT.Fatalf("nil slice should normalize to nil, got %#v", parseGot)
 	}
-	if parseGot := buildSliceValue(reflect.ValueOf([2]string{"a", "b"})); !reflect.DeepEqual(parseGot, []any{"a", "b"}) {
+	if parseGot := buildSliceValue(reflect.ValueOf([2]string{"a", "b"}), 0); !reflect.DeepEqual(parseGot, []any{"a", "b"}) {
 		parseT.Fatalf("array normalization: %#v", parseGot)
 	}
-	if parseGot := buildMapValue(reflect.ValueOf(map[string]int{"": 1, "k": 2})); !reflect.DeepEqual(parseGot, map[string]any{"k": 2}) {
+	if parseGot := buildMapValue(reflect.ValueOf(map[string]int{"": 1, "k": 2}), 0); !reflect.DeepEqual(parseGot, map[string]any{"k": 2}) {
 		parseT.Fatalf("empty-key map entry should drop: %#v", parseGot)
 	}
 }

@@ -40,6 +40,26 @@ func TestRenderHookTracksStateTransitions(parseT *testing.T) {
 	}
 }
 
+// TestRenderHookPreservesStateAcrossRerender pins that an explicit Rerender
+// updates the host in place rather than remounting it — so UseState-backed hook
+// state survives a rerender (the harness previously re-declared the host closure
+// each render, forcing a remount that reset all hook state to its initial value).
+func TestRenderHookPreservesStateAcrossRerender(parseT *testing.T) {
+	parseHarness := RenderHook(parseT, useCounterHook)
+	parseHarness.Act(func() {
+		parseHarness.Current().Increment()
+	})
+	if parseGot := parseHarness.Current().Count; parseGot != 1 {
+		parseT.Fatalf("expected count 1 after increment, got %d", parseGot)
+	}
+
+	parseHarness.Rerender()
+
+	if parseGot := parseHarness.Current().Count; parseGot != 1 {
+		parseT.Fatalf("hook state was reset by Rerender (remount): expected 1, got %d", parseGot)
+	}
+}
+
 func TestRenderHookSupportsExplicitRerender(parseT *testing.T) {
 	parseLabel := "first"
 	parseHarness := RenderHook(parseT, func() string {

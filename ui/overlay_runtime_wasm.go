@@ -10,9 +10,12 @@ import (
 
 // UseOverlayStack registers a surface in the shared overlay manager and returns its derived stack state.
 func UseOverlayStack(parseOptions OverlayStackOptions) OverlayStack {
+	// UseId is a positional hook: call it unconditionally so the hook sequence
+	// does not shift when ID toggles between empty and provided across renders.
+	parseGeneratedID := UseId()
 	parseId := parseOptions.ID
 	if parseId == "" {
-		parseId = UseId() + "-layer"
+		parseId = parseGeneratedID + "-layer"
 	}
 	parseRegistration := overlayManagerRegistration{
 		ID:                  parseId,
@@ -47,9 +50,11 @@ func UseOverlayStack(parseOptions OverlayStackOptions) OverlayStack {
 
 // Overlay renders a stack-aware layered surface with coordinated z-order, dismissal routing, and focus ownership.
 func Overlay(parseProps OverlayProps) Node {
+	// Unconditional for hook-order stability (see UseOverlayStack).
+	parseGeneratedID := UseId()
 	parseSurfaceID := parseProps.SurfaceID
 	if parseSurfaceID == "" {
-		parseSurfaceID = UseId() + "-overlay"
+		parseSurfaceID = parseGeneratedID + "-overlay"
 	}
 	parseKind := normalizeOverlayKind(parseProps.Kind)
 	parseModal := parseProps.Modal

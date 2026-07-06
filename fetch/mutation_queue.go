@@ -8,11 +8,26 @@ import (
 	"maps"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
+
+// mutationQueueLocks serializes each storage key's load-mutate-save sequence.
+// MutationQueue is a value type shared by copy, so a mutex FIELD would give each
+// copy its own lock and protect nothing; keying on the storage string makes the
+// lock shared by every queue value (and every copy) that targets the same
+// persisted list — without it two concurrent Enqueue/Remove/Replay calls could
+// each load the same snapshot and the second save() would silently drop the
+// first writer's durable mutation.
+var mutationQueueLocks sync.Map // storageKey -> *sync.Mutex
+
+func (parseQ MutationQueue) lock() *sync.Mutex {
+	parseActual, _ := mutationQueueLocks.LoadOrStore(parseQ.storageKey, &sync.Mutex{})
+	return parseActual.(*sync.Mutex)
+}
 
 const defaultMutationQueueStorageKey = "__gwc_mutation_queue__"
 const defaultMutationQueueStoreName = "mutation-queue"
@@ -230,6 +245,10 @@ func (parseQ MutationQueue) Enqueue(parseDraft MutationDraft) (QueuedMutation, e
 		parseMethod = "POST"
 	}
 
+	parseMu := parseQ.lock()
+	parseMu.Lock()
+	defer parseMu.Unlock()
+
 	parseEntries, parseErr := parseQ.load()
 	if parseErr != nil {
 		return QueuedMutation{}, parseErr
@@ -289,6 +308,9 @@ func (parseQ MutationQueue) Remove(parseId string) error {
 	if parseTrimmed == "" {
 		return nil
 	}
+	parseMu := parseQ.lock()
+	parseMu.Lock()
+	defer parseMu.Unlock()
 	parseEntries, parseErr := parseQ.load()
 	if parseErr != nil {
 		return parseErr
@@ -321,6 +343,14 @@ func (parseQ MutationQueue) ReplayWithOptions(parseCtx context.Context, parseExe
 	if len(parseOptions) > 0 {
 		parseReplayOptions = parseOptions[0]
 	}
+
+	// Replay is exclusive for its storage key: it holds the lock across the
+	// whole load-execute-save so a concurrent Enqueue/Remove can't interleave a
+	// stale snapshot save. Executors do network I/O, so this serializes replays
+	// (intended for a durable queue) rather than optimizing throughput.
+	parseMu := parseQ.lock()
+	parseMu.Lock()
+	defer parseMu.Unlock()
 
 	parseEntries, parseErr := parseQ.load()
 	if parseErr != nil {

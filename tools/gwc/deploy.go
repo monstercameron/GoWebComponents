@@ -162,6 +162,14 @@ func applyDeployArtifacts(applyArtifactDir string, applyManifest releaseManifest
 	applyFiles := []string{filepath.Base(applyManifestPath)}
 	applyChecks := []string{"manifest parses as a js/wasm release record"}
 	for _, applyRecord := range applyManifest.Artifacts {
+		// Contain the manifest-supplied path inside the artifact dir. Without
+		// this, a record path like "../../etc/passwd" (or an absolute path)
+		// would let a crafted manifest read arbitrary files into the deploy
+		// package and, via the filesystem adapter, write them outside the
+		// target dir (path traversal / zip-slip).
+		if applyErr := ensureDeployPathContained(applyArtifactDir, applyRecord.Path); applyErr != nil {
+			return nil, nil, applyErr
+		}
 		applyPath := filepath.Join(applyArtifactDir, filepath.FromSlash(applyRecord.Path))
 		applyInfo, applyErr := os.Stat(applyPath)
 		if applyErr != nil {
@@ -175,6 +183,29 @@ func applyDeployArtifacts(applyArtifactDir string, applyManifest releaseManifest
 	}
 	sort.Strings(applyFiles)
 	return applyFiles, applyChecks, nil
+}
+
+// ensureDeployPathContained rejects a manifest artifact path that is absolute
+// or escapes the artifact directory once resolved, so a crafted manifest cannot
+// pull files from outside the release tree into the deploy package.
+func ensureDeployPathContained(applyArtifactDir string, applyRecordPath string) error {
+	applyRelPath := filepath.FromSlash(strings.TrimSpace(applyRecordPath))
+	if applyRelPath == "" {
+		return errors.New("validate deploy artifact: empty artifact path")
+	}
+	if filepath.IsAbs(applyRelPath) {
+		return fmt.Errorf("validate deploy artifact %s: absolute artifact paths are not allowed", applyRecordPath)
+	}
+	applyResolved := filepath.Clean(filepath.Join(applyArtifactDir, applyRelPath))
+	applyBase := filepath.Clean(applyArtifactDir)
+	applyRel, applyErr := filepath.Rel(applyBase, applyResolved)
+	if applyErr != nil {
+		return fmt.Errorf("validate deploy artifact %s: %w", applyRecordPath, applyErr)
+	}
+	if applyRel == ".." || strings.HasPrefix(applyRel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("validate deploy artifact %s: path escapes the artifact directory", applyRecordPath)
+	}
+	return nil
 }
 
 // buildDeployAdapter selects a deployment adapter implementation by name.

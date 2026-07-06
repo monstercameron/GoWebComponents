@@ -1,6 +1,9 @@
 package runtime
 
-import "sync/atomic"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 type componentRenderState struct {
 	getImplementation any
@@ -15,6 +18,10 @@ type ComponentType struct {
 	QualifiedName string
 
 	getState atomic.Value
+	// setMu serializes the read-modify-write in SetImplementationRenderer;
+	// atomic.Value alone would let two concurrent swaps lose one update.
+	// Render stays lock-free (Load only).
+	setMu sync.Mutex
 }
 
 // NewComponentType constructs a component handle recognized by the runtime.
@@ -59,6 +66,8 @@ func (parseComponentType *ComponentType) SetImplementationRenderer(parseComponen
 	if parseComponentType == nil {
 		return
 	}
+	parseComponentType.setMu.Lock()
+	defer parseComponentType.setMu.Unlock()
 	parseCurrentStateValue := parseComponentType.getState.Load()
 	parseCurrentState := componentRenderState{}
 	if parseCurrentStateValue != nil {

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"sync"
 
 	"github.com/monstercameron/GoWebComponents/v4/html"
 	"github.com/monstercameron/GoWebComponents/v4/ui"
@@ -51,6 +52,11 @@ func (parseS ComponentSpec) allowsProp(parseKey string) bool {
 // Registry is the component allow-list a generative-UI tree is validated and rendered
 // against. An app registers exactly the components it is willing to let an agent compose.
 type Registry struct {
+	// mu guards specs: Register may be called concurrently with Validate/Render/
+	// Catalog (e.g. a dev hot-reload path or a per-request registry extension). An
+	// unsynchronized concurrent map read+write is a FATAL, unrecoverable Go
+	// runtime error (not a catchable panic), so all access goes through the lock.
+	mu    sync.RWMutex
 	specs map[string]ComponentSpec
 }
 
@@ -61,12 +67,23 @@ func NewRegistry() *Registry {
 
 // Register adds (or replaces) a component in the allow-list.
 func (parseR *Registry) Register(parseSpec ComponentSpec) {
+	parseR.mu.Lock()
 	parseR.specs[parseSpec.Name] = parseSpec
+	parseR.mu.Unlock()
+}
+
+// lookup returns a copy of the spec for a type under the read lock, so callers
+// use the value without holding the lock across user Render callbacks/recursion.
+func (parseR *Registry) lookup(parseType string) (ComponentSpec, bool) {
+	parseR.mu.RLock()
+	parseSpec, parseOk := parseR.specs[parseType]
+	parseR.mu.RUnlock()
+	return parseSpec, parseOk
 }
 
 // Allowed reports whether a component type is in the allow-list.
 func (parseR *Registry) Allowed(parseType string) bool {
-	_, parseOk := parseR.specs[parseType]
+	_, parseOk := parseR.lookup(parseType)
 	return parseOk
 }
 
@@ -82,6 +99,8 @@ type ComponentInfo struct {
 // props it may emit before generating a tree, turning the allow-list from an after-the-fact
 // rejection into up-front guidance.
 func (parseR *Registry) Catalog() []ComponentInfo {
+	parseR.mu.RLock()
+	defer parseR.mu.RUnlock()
 	parseCatalog := make([]ComponentInfo, 0, len(parseR.specs))
 	for _, parseSpec := range parseR.specs {
 		parseProps := append([]string(nil), parseSpec.AllowedProps...)
@@ -132,7 +151,7 @@ func (parseR *Registry) validateAt(parseNode Node, parsePath string, parseDepth 
 		return fmt.Errorf("%s: tree exceeds max node count %d", parsePath, parseLimits.MaxNodes)
 	}
 
-	parseSpec, parseOk := parseR.specs[parseNode.Type]
+	parseSpec, parseOk := parseR.lookup(parseNode.Type)
 	if !parseOk {
 		return fmt.Errorf("%s: component type %q is not in the allow-list", parsePath, parseNode.Type)
 	}
@@ -159,13 +178,19 @@ func (parseR *Registry) Render(parseNode Node) (ui.Node, error) {
 }
 
 func (parseR *Registry) render(parseNode Node) ui.Node {
-	parseSpec := parseR.specs[parseNode.Type]
+	parseSpec, _ := parseR.lookup(parseNode.Type)
 	parseChildren := make([]ui.Node, 0, len(parseNode.Children)+1)
 	if parseNode.Text != "" {
 		parseChildren = append(parseChildren, html.Text(parseNode.Text))
 	}
 	for _, parseChild := range parseNode.Children {
 		parseChildren = append(parseChildren, parseR.render(parseChild))
+	}
+	// A spec registered with a nil Render passes Validate (which only checks
+	// type/props) but would panic here; degrade to an empty node instead of
+	// crashing the whole render on a wiring mistake.
+	if parseSpec.Render == nil {
+		return html.Text("")
 	}
 	return parseSpec.Render(parseNode.Props, parseChildren)
 }

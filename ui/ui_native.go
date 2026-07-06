@@ -566,9 +566,22 @@ func UseDeferredValue[T any](parseValue T) T {
 	return parseValue
 }
 
-// UseContext is a core package helper.
+// UseContext reads the current value for a typed context. It works during
+// native SSR exactly like the wasm build: the runtime's SSR hook fiber carries
+// the provider chain's context values, so components using context are fully
+// server-renderable. (This used to panic UnsupportedOnServer — vestigial from
+// before SSR hook support.) Outside a render it panics with the standard
+// hook-outside-component diagnostic.
 func UseContext[T any](parseContext *Context[T]) T {
-	panic(actionableUnsupportedOnServerPanic("UseContext"))
+	if parseContext == nil || parseContext.descriptor == nil {
+		panic(runtime.ActionableFrameworkPanic(runtime.ActionablePanicOptions{
+			Source:  "ui",
+			Subject: "ui.UseContext",
+			Message: "ui.UseContext called with nil context descriptor",
+			Path:    "ui.UseContext",
+		}))
+	}
+	return castContextValue[T](runtime.GoUseContextValue(parseContext.descriptor))
 }
 
 // AsyncBoundary renders children resolving async loading, error, and pending states on the server.

@@ -125,7 +125,10 @@ func Within(parseAncestor string, parseRules ...Rule) []Rule {
 //
 //	css.New(css.Bg(css.Slate900), css.DataTheme("light", css.Bg(css.White)))
 func DataTheme(parseName string, parseRules ...Rule) []Rule {
-	return Within(`[data-theme="`+parseName+`"]`, parseRules...)
+	// Escape the theme name: it's often a user/profile-driven value, and an
+	// unescaped `"` would break out of the attribute selector and inject a live,
+	// process-global rule (persistent CSS defacement via the shared registry).
+	return Within(`[data-theme="`+cssStringEscape(parseName)+`"]`, parseRules...)
 }
 
 // Inject installs an arbitrary CSS string as a managed <style> element, keyed by

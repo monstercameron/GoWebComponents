@@ -333,12 +333,12 @@ func (parseRt *Runtime) readHydrationComparableValue(parseNode DOMNode, parseNam
 	if parseRt.domAdapter == nil {
 		return "", false
 	}
-	parseValue := parseRt.domAdapter.GetProperty(parseNode, parsePropName)
+	parseValue := normalizeForeignPropertyValue(parseRt.domAdapter.GetProperty(parseNode, parsePropName))
 	if parseValue == nil {
 		if parsePropName == parseName {
 			return "", false
 		}
-		parseValue = parseRt.domAdapter.GetProperty(parseNode, parseName)
+		parseValue = normalizeForeignPropertyValue(parseRt.domAdapter.GetProperty(parseNode, parseName))
 		if parseValue == nil {
 			return "", false
 		}
@@ -422,7 +422,7 @@ func (parseRt *Runtime) describeHydrationNode(parseNode DOMNode) string {
 
 // domNodeType is a core package helper.
 func (parseRt *Runtime) domNodeType(parseNode DOMNode) int {
-	parseValue := parseRt.domAdapter.GetProperty(parseNode, "nodeType")
+	parseValue := normalizeForeignPropertyValue(parseRt.domAdapter.GetProperty(parseNode, "nodeType"))
 	if parseNumber, parseOk := normalizeHydrationInt(parseValue); parseOk {
 		return parseNumber
 	}
@@ -431,12 +431,12 @@ func (parseRt *Runtime) domNodeType(parseNode DOMNode) int {
 
 // domNodeTag is a core package helper.
 func (parseRt *Runtime) domNodeTag(parseNode DOMNode) string {
-	if parseValue := parseRt.domAdapter.GetProperty(parseNode, "tagName"); parseValue != nil {
+	if parseValue := normalizeForeignPropertyValue(parseRt.domAdapter.GetProperty(parseNode, "tagName")); parseValue != nil {
 		if parseText, parseOk := normalizeHydrationString(parseValue); parseOk {
 			return parseText
 		}
 	}
-	if parseValue2 := parseRt.domAdapter.GetProperty(parseNode, "nodeName"); parseValue2 != nil {
+	if parseValue2 := normalizeForeignPropertyValue(parseRt.domAdapter.GetProperty(parseNode, "nodeName")); parseValue2 != nil {
 		if parseText2, parseOk2 := normalizeHydrationString(parseValue2); parseOk2 {
 			return parseText2
 		}
@@ -446,7 +446,7 @@ func (parseRt *Runtime) domNodeTag(parseNode DOMNode) string {
 
 // domNodeText is a core package helper.
 func (parseRt *Runtime) domNodeText(parseNode DOMNode) string {
-	if parseValue := parseRt.domAdapter.GetProperty(parseNode, "textContent"); parseValue != nil {
+	if parseValue := normalizeForeignPropertyValue(parseRt.domAdapter.GetProperty(parseNode, "textContent")); parseValue != nil {
 		if parseText, parseOk := normalizeHydrationString(parseValue); parseOk {
 			return parseText
 		}

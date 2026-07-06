@@ -37,6 +37,18 @@ const (
 	leaseDuration = 5 * time.Minute
 )
 
+// WebSocket keepalive tunables. After the hello handshake the read deadline was
+// previously cleared, so a half-open peer (client crash without TCP FIN, network
+// partition) left ReadMessage blocked forever — a leaked session goroutine plus a
+// stale entry in hub.sessions. The hub now pings every agentPingPeriod and drops a
+// connection whose read (data or pong) goes quiet for agentPongWait. Vars, not
+// consts, so tests can shrink them.
+var (
+	agentPongWait   = 60 * time.Second
+	agentPingPeriod = 54 * time.Second // must be < agentPongWait
+	agentWriteWait  = 10 * time.Second
+)
+
 // AgentHub is the server-side session registry and WebSocket handler for
 // /gwc-agent. Create one with NewAgentHub; the zero value is not valid.
 type AgentHub struct {
@@ -426,9 +438,23 @@ func (parseHub *AgentHub) handleAPISuccessor(parseW http.ResponseWriter, parseR 
 	}
 }
 
+// maxAgentAPIBodyBytes caps the request body the plain-HTTP agent API will read.
+const maxAgentAPIBodyBytes = 4 << 20 // 4 MiB
+
+// maxAgentFrameBytes caps a single inbound WebSocket frame.
+const maxAgentFrameBytes = 16 << 20 // 16 MiB
+
 func (parseHub *AgentHub) authorizeAPI(parseW http.ResponseWriter, parseR *http.Request) bool {
 	if !parseHub.isLoopback(parseR.RemoteAddr) {
 		http.Error(parseW, "agent API is localhost-only", http.StatusForbidden)
+		return false
+	}
+	// Defense-in-depth parity with the WebSocket upgrade path (which enforces
+	// originAllowed): reject a present cross-origin Origin so a visited website
+	// cannot drive the agent API even if the per-run token leaked via a side
+	// channel. Empty Origin (non-browser dev tooling) is still allowed.
+	if !parseHub.originAllowed(parseR) {
+		http.Error(parseW, "agent API rejects cross-origin requests", http.StatusForbidden)
 		return false
 	}
 	parseToken := strings.TrimSpace(parseR.URL.Query().Get("token"))
@@ -439,6 +465,10 @@ func (parseHub *AgentHub) authorizeAPI(parseW http.ResponseWriter, parseR *http.
 		http.Error(parseW, "missing or invalid agent token", http.StatusForbidden)
 		return false
 	}
+	// Cap the request body: the API handlers json-decode parseR.Body with no
+	// size limit, so an authorized-but-buggy/compromised loopback peer could OOM
+	// the dev box with one huge body.
+	parseR.Body = http.MaxBytesReader(parseW, parseR.Body, maxAgentAPIBodyBytes)
 	return true
 }
 
@@ -502,6 +532,11 @@ func (parseHub *AgentHub) writeAPIJSON(parseW http.ResponseWriter, parseValue an
 func (parseHub *AgentHub) serveSession(parseConn *websocket.Conn) {
 	defer parseConn.Close()
 
+	// Bound per-frame allocation: gorilla/websocket allows unlimited frame sizes
+	// when no read limit is set, so a compromised/buggy loopback peer holding the
+	// token could OOM the dev box with a single enormous frame.
+	parseConn.SetReadLimit(maxAgentFrameBytes)
+
 	// Read the mandatory hello frame. Give it a generous deadline so a slow
 	// wasm boot does not time out a legitimate connection, but a dangling
 	// socket does not live forever.
@@ -512,10 +547,14 @@ func (parseHub *AgentHub) serveSession(parseConn *websocket.Conn) {
 	if parseReadErr != nil {
 		return
 	}
-	// Clear the deadline for the rest of the session.
-	if parseClearErr := parseConn.SetReadDeadline(time.Time{}); parseClearErr != nil {
+	// Arm the keepalive read deadline for the rest of the session; each inbound
+	// frame and each pong pushes it forward (see runFrameLoop + the pong handler).
+	if parseSetErr := parseConn.SetReadDeadline(time.Now().Add(agentPongWait)); parseSetErr != nil {
 		return
 	}
+	parseConn.SetPongHandler(func(string) error {
+		return parseConn.SetReadDeadline(time.Now().Add(agentPongWait))
+	})
 
 	parseEnvelope, parseParseErr := agentbridge.ParseEnvelope(string(parseHelloRaw))
 	if parseParseErr != nil || parseEnvelope.Kind != agentbridge.KindHello {
@@ -566,6 +605,27 @@ func (parseHub *AgentHub) serveSession(parseConn *websocket.Conn) {
 
 // runFrameLoop reads inbound frames from the session's socket until it closes.
 func (parseHub *AgentHub) runFrameLoop(parseSess *Session) {
+	// Keepalive: ping periodically so a half-open connection is detected. gorilla's
+	// WriteControl is safe to call concurrently with the WriteMessage path (guarded
+	// by writeMu elsewhere), so the ping needs no extra locking. The ticker stops
+	// when the read loop returns (defer close(parseDone)).
+	parseDone := make(chan struct{})
+	defer close(parseDone)
+	go func() {
+		parseTicker := time.NewTicker(agentPingPeriod)
+		defer parseTicker.Stop()
+		for {
+			select {
+			case <-parseDone:
+				return
+			case <-parseTicker.C:
+				if parseErr := parseSess.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(agentWriteWait)); parseErr != nil {
+					return
+				}
+			}
+		}
+	}()
+
 	for {
 		_, parseRaw, parseReadErr := parseSess.conn.ReadMessage()
 		if parseReadErr != nil {
@@ -584,6 +644,9 @@ func (parseHub *AgentHub) runFrameLoop(parseSess *Session) {
 			parseSess.drainPendingAcks()
 			return
 		}
+
+		// A live frame arrived: push the keepalive deadline forward.
+		_ = parseSess.conn.SetReadDeadline(time.Now().Add(agentPongWait))
 
 		parseEnv, parseParseErr := agentbridge.ParseEnvelope(string(parseRaw))
 		if parseParseErr != nil {

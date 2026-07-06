@@ -220,6 +220,11 @@ func loadRouteChunkScript(parseCtx context.Context, parseScriptURL string) error
 	parseDocument.Get("head").Call("appendChild", parseScript)
 	select {
 	case <-parseCtx.Done():
+		// Detach the listeners BEFORE the deferred Release runs. Removing the
+		// <script> does not reliably cancel an already-queued load/error event;
+		// if one fires after Release, invoking a released js.Func panics.
+		parseScript.Call("removeEventListener", "load", parseLoad)
+		parseScript.Call("removeEventListener", "error", parseError)
 		if parseScript.Get("remove").Truthy() {
 			parseScript.Call("remove")
 		}

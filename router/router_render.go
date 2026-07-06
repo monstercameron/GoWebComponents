@@ -29,7 +29,33 @@ func (parseR *Router) renderResolvedRouteStackWithDepth(parseRoutes []resolvedRo
 	}
 	parseR.prepareLoaderState(parseLoaderKeys)
 	parseR.prepareChunkState(parseChunkKeys)
+	// Apply document metadata ONCE for the whole matched stack, with the
+	// deepest non-empty value winning per field. Applying it per level (as it
+	// used to) made a leaf's empty Title/Description/Canonical reset the
+	// document back to the base value, silently erasing a layout route's
+	// metadata on every normal layout+outlet navigation.
+	parseR.applyRouteMetadata(mergeRouteMetadata(parseRoutes))
 	return parseR.renderRouteLevel(parseRoutes, 0, parseQuery, parseQueryKey, isApplyGuards, parseGuardCtx, parseAttemptID, parseRedirectDepth)
+}
+
+// mergeRouteMetadata collapses the matched route stack into the effective
+// document metadata: for Title, Description, and CanonicalURL the deepest
+// (most specific) route that sets a non-empty value wins, and a field no route
+// sets stays empty so applyRouteMetadata resets it to the captured base.
+func mergeRouteMetadata(parseRoutes []resolvedRoute) Options {
+	var parseMerged Options
+	for _, parseRoute := range parseRoutes {
+		if strings.TrimSpace(parseRoute.option.Title) != "" {
+			parseMerged.Title = parseRoute.option.Title
+		}
+		if strings.TrimSpace(parseRoute.option.Description) != "" {
+			parseMerged.Description = parseRoute.option.Description
+		}
+		if strings.TrimSpace(parseRoute.option.CanonicalURL) != "" {
+			parseMerged.CanonicalURL = parseRoute.option.CanonicalURL
+		}
+	}
+	return parseMerged
 }
 
 // renderRouteLevel is an internal router helper.
@@ -291,9 +317,10 @@ func (parseR *Router) applyBeforeEnterGuard(parsePath string, parseOption Option
 	return runtime.Div(nil, runtime.Text(parseMessage))
 }
 
-// applyRouteOptions is an internal router helper.
+// applyRouteOptions is an internal router helper. Metadata is applied once for
+// the whole stack in renderResolvedRouteStackWithDepth (see mergeRouteMetadata),
+// so this handles only per-level redirect resolution.
 func (parseR *Router) applyRouteOptions(parsePath string, parseOption Options, parseQuery url.Values, isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64, parseRedirectDepth int) *Element {
-	parseR.applyRouteMetadata(parseOption)
 	if parseOption.Redirect == "" {
 		return nil
 	}

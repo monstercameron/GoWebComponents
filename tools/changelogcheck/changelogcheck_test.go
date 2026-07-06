@@ -45,6 +45,21 @@ func TestHasEntryFindsAllForms(t *testing.T) {
 	}
 }
 
+// TestHasEntryRejectsProseMention pins that a version mentioned in prose (not as
+// the header's leading identifier) does NOT satisfy the release gate, while the
+// real leading-identifier forms still do.
+func TestHasEntryRejectsProseMention(t *testing.T) {
+	parseProse := "# Changelog\n\n## Migration notes for 3.0.46 users\n\nsome text\n"
+	if HasEntry(parseProse, "3.0.46") {
+		t.Error("HasEntry: a prose mention of 3.0.46 must not satisfy the gate")
+	}
+	for _, parseHeader := range []string{"## 3.0.46 - 2026-06-12", "## [3.0.46]", "## v3.0.46"} {
+		if !HasEntry("# Changelog\n\n"+parseHeader+"\n\nbody\n", "3.0.46") {
+			t.Errorf("HasEntry: leading-identifier header %q should match", parseHeader)
+		}
+	}
+}
+
 // TestHasEntryReturnsFalseForMissingVersion confirms that a version not present
 // in the changelog is not matched.
 func TestHasEntryReturnsFalseForMissingVersion(t *testing.T) {

@@ -174,11 +174,28 @@ func resolveScope(parseScope string, parseWindow, parseDocument js.Value) string
 	return "browser"
 }
 
+// recoverConsoleListener contains a panic in a browser-console listener so it
+// cannot escape the JS bridge and terminate the wasm program, reporting it to
+// the devtools console instead. The logging package has no runtime dependency,
+// so it self-contains here rather than using runtime.RecoverContainedPanic.
+func recoverConsoleListener(parseEvent string) {
+	if parseRecovered := recover(); parseRecovered != nil {
+		if parseConsole := js.Global().Get("console"); parseConsole.Truthy() {
+			parseConsole.Call("error", "gwc logging: panic in "+parseEvent+" listener:", fmt.Sprint(parseRecovered))
+		}
+	}
+}
+
 func addEventListener(parseTarget js.Value, parseEvent string, isCapture bool, parseCallback func([]js.Value)) func() {
 	if !parseTarget.Truthy() || parseTarget.Get("addEventListener").Type() != js.TypeFunction {
 		return func() {}
 	}
 	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		// Contain panics: this helper wires document-wide interaction listeners
+		// (click/submit/error/popstate/...), so an uncaught panic in the
+		// callback or the app's Logger sink would escape the JS bridge and kill
+		// the whole wasm program.
+		defer recoverConsoleListener(parseEvent)
 		if parseCallback != nil {
 			parseCallback(parseArgs)
 		}
@@ -219,6 +236,7 @@ func installMountObserver(parseLogger Logger, parseDocument js.Value) func() {
 	var parseObserver js.Value
 	isParseMountedLogged := false
 	parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		defer recoverConsoleListener("mutation-observer")
 		if isParseMountedLogged {
 			return nil
 		}

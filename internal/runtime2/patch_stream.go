@@ -115,6 +115,28 @@ func BuildPatchStreamIdentity(parseRaw PatchStreamRaw) (string, error) {
 	return buildPatchStreamIdentityFromParts(parseRaw.GetHeader, parseRaw.GetStringTable, parseRaw.GetOps)
 }
 
+// VerifyPatchStreamIdentity recomputes the deterministic identity from a decoded
+// stream's parts (header + string table + ops) and checks it against the identity
+// carried in the stream. It is a defense-in-depth integrity check for patches that
+// have crossed a trust/serialization boundary (e.g. the parallel-region worker
+// postMessage bridge): a body corrupted or tampered while the carried identity is
+// left intact is caught here rather than silently applied. A stream that carries no
+// identity is accepted (nothing to check against; callers compute it on demand).
+func VerifyPatchStreamIdentity(parseRaw PatchStreamRaw) error {
+	parseCarried := strings.TrimSpace(parseRaw.GetPatchIdentity)
+	if parseCarried == "" {
+		return nil
+	}
+	parseRecomputed, parseErr := buildPatchStreamIdentityFromParts(parseRaw.GetHeader, parseRaw.GetStringTable, parseRaw.GetOps)
+	if parseErr != nil {
+		return parseErr
+	}
+	if parseRecomputed != parseCarried {
+		return fmt.Errorf("runtime2: patch identity mismatch (carried %q, recomputed %q): corrupted or tampered patch stream", parseCarried, parseRecomputed)
+	}
+	return nil
+}
+
 // buildPatchStreamRawWithIdentity builds one typed patch stream from prevalidated identity parts.
 func buildPatchStreamRawWithIdentity(parseHeader PatchStreamHeaderRaw, parseStringTable []string, parseOps []PatchStreamOpRaw, parsePatchIdentity string) (PatchStreamRaw, error) {
 	if _, parseHeaderErr := ParsePatchStreamHeader(parseHeader, parseHeader.RegionID); parseHeaderErr != nil {

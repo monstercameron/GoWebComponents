@@ -468,3 +468,27 @@ func receiveSSRStreamTestError(parseT *testing.T, parseErrs <-chan error) error 
 		return nil
 	}
 }
+
+func TestRenderToStreamErrorBoundaryDoesNotLeakPartialMarkupOnPanic(parseT *testing.T) {
+	parseDone := make(chan struct{})
+	close(parseDone)
+	parsePanickingChild := CreateElement(func() *Element {
+		panic("stream child render failure")
+	}, nil)
+	parseContent := CreateElement("div", nil, "before", parsePanickingChild, "after")
+	parseRoot := CreateElement(NewErrorBoundaryType(), map[string]any{
+		"fallback": CreateElement("span", nil, "recovered"),
+	}, parseContent)
+
+	var parseOut strings.Builder
+	if parseErr := RenderToStream(context.Background(), &parseOut, parseRoot, SSRStreamOptions{}); parseErr != nil {
+		parseT.Fatalf("RenderToStream: %v", parseErr)
+	}
+	parseHTML := parseOut.String()
+	if parseHTML != `<span>recovered</span>` {
+		parseT.Fatalf("expected only fallback markup after child panic, got %q", parseHTML)
+	}
+	if strings.Contains(parseHTML, "before") || strings.Contains(parseHTML, "<div") {
+		parseT.Fatalf("stream error boundary leaked partial content: %s", parseHTML)
+	}
+}

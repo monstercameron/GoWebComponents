@@ -18,6 +18,7 @@ type UpdatePrompt struct {
 	available    bool
 	onChange     func(bool)
 	subscription ServiceWorkerSubscription
+	reloadSub    ServiceWorkerSubscription
 	started      bool
 }
 
@@ -87,17 +88,37 @@ func (parsePrompt *UpdatePrompt) Available() bool {
 // Apply activates the waiting worker and reloads the page once it takes control. It arms the
 // controller-change reload BEFORE skipping waiting so the reload fires on activation, not before.
 func (parsePrompt *UpdatePrompt) Apply(parseCtx context.Context) error {
-	if _, parseErr := parsePrompt.registration.ReloadOnControllerChange(); parseErr != nil {
+	parseReloadSub, parseErr := parsePrompt.registration.ReloadOnControllerChange()
+	if parseErr != nil {
 		return parseErr
 	}
-	return parsePrompt.registration.SkipWaiting(parseCtx)
+	// Retain the reload-on-controllerchange handle. Cancel any listener a prior
+	// Apply armed (idempotence) and store the new one; on a SkipWaiting failure
+	// cancel it, because no controllerchange will fire and it would otherwise
+	// leak. On success the page reloads on activation, which tears everything down.
+	parsePrompt.mu.Lock()
+	parsePrompt.reloadSub.Cancel()
+	parsePrompt.reloadSub = parseReloadSub
+	parsePrompt.mu.Unlock()
+
+	if parseErr := parsePrompt.registration.SkipWaiting(parseCtx); parseErr != nil {
+		parsePrompt.mu.Lock()
+		parsePrompt.reloadSub.Cancel()
+		parsePrompt.reloadSub = ServiceWorkerSubscription{}
+		parsePrompt.mu.Unlock()
+		return parseErr
+	}
+	return nil
 }
 
 // Stop cancels the lifecycle subscription.
 func (parsePrompt *UpdatePrompt) Stop() {
 	parsePrompt.mu.Lock()
 	parseSubscription := parsePrompt.subscription
+	parseReloadSub := parsePrompt.reloadSub
+	parsePrompt.reloadSub = ServiceWorkerSubscription{}
 	parsePrompt.started = false
 	parsePrompt.mu.Unlock()
 	parseSubscription.Cancel()
+	parseReloadSub.Cancel()
 }

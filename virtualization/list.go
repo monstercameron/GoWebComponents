@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -55,13 +56,41 @@ type restorationSnapshot struct {
 	AnchorKey string  `json:"anchorKey,omitempty"`
 }
 
+// maxRestorationSnapshots bounds the process-global scroll-restoration store. The
+// store must outlive a list's unmount (that is the whole point — restore scroll
+// after navigating away and back), so entries can't be dropped on unmount; without
+// a cap, an app with dynamically-keyed lists (e.g. "list-user-<id>" across a long
+// session) would grow the map without bound. A snapshot is tiny (a float64 + a
+// short key), so a generous LRU cap covers realistic navigation while bounding
+// memory: the least-recently-stored snapshot is evicted past the cap.
+const maxRestorationSnapshots = 256
+
 type restorationStoreState struct {
 	mu        sync.Mutex
 	snapshots map[string]restorationSnapshot
+	// order tracks store recency (least-recent first) for LRU eviction.
+	order []string
 }
 
 var restorationStore = restorationStoreState{
 	snapshots: map[string]restorationSnapshot{},
+}
+
+// touchAndEvictLocked records parseId as most-recently-stored and evicts the
+// oldest snapshots once the store exceeds maxRestorationSnapshots. Caller holds mu.
+func (parseStore *restorationStoreState) touchAndEvictLocked(parseId string) {
+	for parseIndex, parseExisting := range parseStore.order {
+		if parseExisting == parseId {
+			parseStore.order = append(parseStore.order[:parseIndex], parseStore.order[parseIndex+1:]...)
+			break
+		}
+	}
+	parseStore.order = append(parseStore.order, parseId)
+	for len(parseStore.order) > maxRestorationSnapshots {
+		parseEvict := parseStore.order[0]
+		parseStore.order = parseStore.order[1:]
+		delete(parseStore.snapshots, parseEvict)
+	}
 }
 
 // List renders one fixed-height vertical virtualized list with an owned scroll
@@ -289,8 +318,25 @@ func collectItemKeys[T any](parseItems []T, parseItemKey func(T) string) ([]stri
 	return parseKeys, parseIndex
 }
 
+// keySignature returns a cheap change-detection signature of the item keys, used
+// as a UseEffect dependency. It replaces a fmt.Sprintf("%q", keys) that allocated
+// a full quoted copy of every key on every render (and a render happens on every
+// scroll frame) — for a large list that was a per-frame multi-hundred-KB alloc.
+// This FNV-1a fold over the key bytes allocates only the small final string.
 func keySignature(parseKeys []string) string {
-	return fmt.Sprintf("%q", parseKeys)
+	const parseOffset = uint64(14695981039346656037)
+	const parsePrime = uint64(1099511628211)
+	parseHash := parseOffset
+	for _, parseKey := range parseKeys {
+		for parseI := 0; parseI < len(parseKey); parseI++ {
+			parseHash ^= uint64(parseKey[parseI])
+			parseHash *= parsePrime
+		}
+		// Separator byte so ["ab","c"] and ["a","bc"] hash differently.
+		parseHash ^= 0x1f
+		parseHash *= parsePrime
+	}
+	return strconv.FormatUint(parseHash, 16) + ":" + strconv.Itoa(len(parseKeys))
 }
 
 func storeRestorationSnapshot(parseId string, parseSnapshot restorationSnapshot) {
@@ -300,6 +346,7 @@ func storeRestorationSnapshot(parseId string, parseSnapshot restorationSnapshot)
 	restorationStore.mu.Lock()
 	defer restorationStore.mu.Unlock()
 	restorationStore.snapshots[parseId] = parseSnapshot
+	restorationStore.touchAndEvictLocked(parseId)
 }
 
 func loadRestorationSnapshot(parseId string) (restorationSnapshot, bool) {
@@ -315,6 +362,7 @@ func loadRestorationSnapshot(parseId string) (restorationSnapshot, bool) {
 	parseBrowserSnapshot, parseBrowserOK := loadPersistedRestorationSnapshot(parseId)
 	if parseBrowserOK {
 		restorationStore.snapshots[parseId] = parseBrowserSnapshot
+		restorationStore.touchAndEvictLocked(parseId)
 		return parseBrowserSnapshot, true
 	}
 	return restorationSnapshot{}, false

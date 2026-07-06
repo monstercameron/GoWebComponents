@@ -127,9 +127,10 @@ func generateSite(parseRepoRoot string, parseOutDir string) error {
 		return fmt.Errorf("write sw.js: %w", parseErr8)
 	}
 
-	parseInfo, _ := os.Stat(parseWasmPath)
+	// Use the bytes already read above rather than re-Stat'ing the file (avoids a
+	// redundant syscall and a nil-deref panic if the file vanishes mid-run).
 	fmt.Printf("sitegen: built site.wasm (%.1f MB) and generated boot shell in %s\n",
-		float64(parseInfo.Size())/(1024*1024), parseOutDir)
+		float64(len(parseWasmBytes))/(1024*1024), parseOutDir)
 	return nil
 }
 

@@ -128,8 +128,21 @@ func TestRuntimeStrictDiagnosticsBranchHelpers(parseT *testing.T) {
 		Classifications: []DiagnosticClassification{DiagnosticRecovered},
 	})
 
+	// RecoverableOnly was not set (false): unrecoverable diagnostics matching
+	// the filters escalate too. (The old coercion forced RecoverableOnly=true,
+	// which made the escalate-everything mode unexpressible.)
+	if !shouldEscalateDiagnosticStrictly("runtime", DiagnosticWarning, DiagnosticRecovered, diagnosticDetails{Code: "MATCH"}) {
+		parseT.Fatal("expected unrecoverable diagnostic to escalate when RecoverableOnly is false")
+	}
+	ConfigureStrictDiagnostics(StrictDiagnosticsOptions{
+		Enabled:         true,
+		Codes:           []string{"MATCH"},
+		Sources:         []string{"runtime"},
+		Classifications: []DiagnosticClassification{DiagnosticRecovered},
+		RecoverableOnly: true,
+	})
 	if shouldEscalateDiagnosticStrictly("runtime", DiagnosticWarning, DiagnosticRecovered, diagnosticDetails{Code: "MATCH"}) {
-		parseT.Fatal("expected unrecoverable diagnostic to be skipped in strict mode")
+		parseT.Fatal("expected unrecoverable diagnostic to be skipped when RecoverableOnly is true")
 	}
 	if shouldEscalateDiagnosticStrictly("router", DiagnosticWarning, DiagnosticRecovered, parseDetails) {
 		parseT.Fatal("expected source mismatch to skip escalation")

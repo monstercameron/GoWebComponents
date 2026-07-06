@@ -117,6 +117,14 @@ func HandleHostControlEnvelope(
 		parseRegionID := string(getRegionInstanceID)
 		parseHostRegionAdapter.storeScheduler.ClearSchedulerFallbackOwnership(parseRegionID)
 		parseHostRegionAdapter.storeRecoveryCoordinator.ClearRegionLocalFallback(parseRegionID)
+		// Restart resets the region like the other four lifecycle-reset paths
+		// (mount/dispose/structural-remount/repair-remount): the restarted
+		// worker's patch counter goes back to 1, so the host must clear its
+		// last-applied-version watermark and rebuild the idempotency tracker.
+		// Omitting these made every post-restart patch (version <= the stale
+		// watermark) silently dropped, freezing the region.
+		parseHostRegionAdapter.storeHostRegionLastPatchVersion = 0
+		parseHostRegionAdapter.storeHostRegionPatchIdempotency = BuildPatchIdempotencyTracker()
 		parseHostRegionAdapter.storeHostRegionDeferredDispatch = hostRegionDeferredDispatch{}
 		parseHostRegionAdapter.hasHostRegionDeferredDispatch = false
 		parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""

@@ -83,10 +83,12 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 		// Mark as loading
 		parseHooks.fetches[parseIdx].state = FetchState{Data: nil, Error: "", Loading: true}
 
-		// Trigger component re-render
+		// Trigger component re-render. Target the tracked fiber (updated every
+		// render) like the async callbacks below do — the creation fiber may be
+		// a detached old generation by the time refetch runs.
 		parseRt := GetGlobalRuntime()
 		if parseRt != nil {
-			parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber, "async-resource")
+			parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
 		}
 
 		// Start fetch in a goroutine

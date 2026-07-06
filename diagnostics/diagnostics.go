@@ -13,7 +13,8 @@ func NewReport(parseOptions Options) Report {
 	return internaldiagnostics.Build(parseOptions)
 }
 
-// Emit dispatches a diagnostics report to all registered listeners.
+// Emit writes a formatted diagnostics report to stderr. (There is no listener/
+// sink registry — the report is rendered synchronously to os.Stderr.)
 func Emit(parseReport Report) {
 	internaldiagnostics.Emit(parseReport)
 }

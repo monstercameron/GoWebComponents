@@ -3,6 +3,7 @@ package errorcodes
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -60,6 +61,41 @@ func TestExtractCodesHandlesCRLFSource(parseT *testing.T) {
 	parseAsync := parseSeen["GWC-RUNTIME-PANIC-ASYNC"]
 	if parseAsync.Docs != "ACTIONABLE_ERRORS.md#gwc-runtime-panic-async" {
 		parseT.Fatalf("async panic docs = %q, want ACTIONABLE_ERRORS.md#gwc-runtime-panic-async", parseAsync.Docs)
+	}
+}
+
+// TestExtractorMatchesIndependentLiteralScan makes the drift guard
+// NON-self-referential. TestErrorCodeReferenceIsGenerated compares the committed
+// page against RenderPage(ExtractCodes(...)) — BOTH derived from the same
+// extractor — so if ExtractCodes silently drops a code (a broken .Code/return
+// regex), the regenerated page and the committed page omit it identically and the
+// guard passes. Here an INDEPENDENT naive scan collects every quoted GWC-<UPPER>
+// code literal in the source and asserts the structured extractor found all of
+// them, so an extractor regression that drops a real code fails the suite.
+func TestExtractorMatchesIndependentLiteralScan(parseT *testing.T) {
+	parseSource := readMetadataSource(parseT)
+
+	parseLiteral := regexp.MustCompile(`"(GWC-[A-Z0-9-]+)"`)
+	parseNaive := map[string]bool{}
+	for _, parseMatch := range parseLiteral.FindAllStringSubmatch(parseSource, -1) {
+		parseCode := parseMatch[1]
+		if parseCode == "GWC-RUNTIME-PANIC" {
+			continue // the generic fallback ExtractCodes intentionally skips
+		}
+		parseNaive[parseCode] = true
+	}
+	if len(parseNaive) < 15 {
+		parseT.Fatalf("independent literal scan found only %d codes; the cross-check pattern is broken", len(parseNaive))
+	}
+
+	parseExtracted := map[string]bool{}
+	for _, parseCode := range ExtractCodes(parseSource) {
+		parseExtracted[parseCode.Code] = true
+	}
+	for parseCode := range parseNaive {
+		if !parseExtracted[parseCode] {
+			parseT.Fatalf("code %q appears as a literal in the runtime source but the structured extractor dropped it — the drift guard is self-referential and would not catch this", parseCode)
+		}
 	}
 }
 

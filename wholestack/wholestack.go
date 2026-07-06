@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/v4/serverfn"
 )
@@ -48,6 +49,15 @@ func Handler(parseOptions Options) http.Handler {
 	if parseOptions.RegisterServerFns != nil {
 		parseOptions.RegisterServerFns(parseMux)
 	}
+	if parseOptions.Assets == nil {
+		// No assets configured (e.g. an API-only build): serve a clear 500 for any
+		// non-server-fn path rather than deferring to a nil fs.FS panic on the
+		// first request (both http.FileServer and serveFile would nil-deref).
+		parseMux.HandleFunc("/", func(parseW http.ResponseWriter, parseR *http.Request) {
+			http.Error(parseW, "wholestack: no Assets filesystem configured", http.StatusInternalServerError)
+		})
+		return parseMux
+	}
 	parseFileServer := http.FileServer(http.FS(parseOptions.Assets))
 	parseMux.Handle("/", staticOrIndex(parseOptions.Assets, parseFileServer, parseIndex, parseSPA))
 	return parseMux
@@ -56,7 +66,18 @@ func Handler(parseOptions Options) http.Handler {
 // ListenAndServe builds the whole-stack handler and serves it on addr — the one-line
 // production entry point for a single-binary app.
 func ListenAndServe(parseAddr string, parseOptions Options) error {
-	return http.ListenAndServe(parseAddr, Handler(parseOptions))
+	// Set timeouts explicitly: http.ListenAndServe's bare server has none, which
+	// leaves a public single-binary app open to slow-client (Slowloris) FD/goroutine
+	// exhaustion. ReadHeaderTimeout is the key Slowloris defense; WriteTimeout is
+	// left unset so serving a multi-MB wasm bundle over a slow link isn't cut off.
+	parseServer := &http.Server{
+		Addr:              parseAddr,
+		Handler:           Handler(parseOptions),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	return parseServer.ListenAndServe()
 }
 
 // staticOrIndex serves a static asset when it exists, otherwise (for a GET under SPA mode)

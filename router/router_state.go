@@ -131,8 +131,11 @@ func parseNavigationTarget(parseTarget string) (string, url.Values) {
 	parseQuery := url.Values{}
 	if parseIdx := strings.Index(parseNormalized, "?"); parseIdx >= 0 {
 		parsePath = parseNormalized[:parseIdx]
-		parseParsed, parseErr := url.ParseQuery(parseNormalized[parseIdx+1:])
-		if parseErr == nil {
+		// url.ParseQuery returns the successfully-parsed pairs PLUS the first error
+		// — keep the partial result so one malformed param (e.g. a bad %-escape)
+		// doesn't silently discard every valid param alongside it.
+		parseParsed, _ := url.ParseQuery(parseNormalized[parseIdx+1:])
+		if len(parseParsed) > 0 {
 			parseQuery = parseParsed
 		}
 	}

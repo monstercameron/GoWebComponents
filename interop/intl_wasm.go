@@ -17,6 +17,22 @@ var intlFormatterCache = map[string]js.Value{}
 // intlCacheMu guards intlFormatterCache against concurrent WASM goroutines.
 var intlCacheMu sync.Mutex
 
+// maxIntlFormatterEntries caps the formatter cache. The key includes the
+// locale (often per-user: a timezone string, a currency code), so without a
+// cap an app formatting across many locales would retain one Intl.* js.Value
+// per unique combination for the process lifetime. Past the cap, formatters
+// are rebuilt per call rather than cached — correctness is unaffected.
+const maxIntlFormatterEntries = 2048
+
+// storeIntlFormatter caches parseFmt unless the cache is at capacity. Caller
+// must hold intlCacheMu.
+func storeIntlFormatter(parseCacheKey string, parseFmt js.Value) {
+	if len(intlFormatterCache) >= maxIntlFormatterEntries {
+		return
+	}
+	intlFormatterCache[parseCacheKey] = parseFmt
+}
+
 // IntlAvailable reports whether the browser's Intl API is present and usable.
 // It returns true when js.Global().Get("Intl") is truthy (not undefined/null).
 func IntlAvailable() bool {
@@ -50,7 +66,7 @@ func IntlFormatNumber(parseLocale string, parseValue float64, parseOptions ...In
 			return "", parseBuildErr
 		}
 		intlCacheMu.Lock()
-		intlFormatterCache[parseCacheKey] = parseFmt
+		storeIntlFormatter(parseCacheKey, parseFmt)
 		intlCacheMu.Unlock()
 	}
 
@@ -87,7 +103,7 @@ func IntlFormatDate(parseLocale string, parseUnixMillis int64, parseOptions ...I
 			return "", parseBuildErr
 		}
 		intlCacheMu.Lock()
-		intlFormatterCache[parseCacheKey] = parseFmt
+		storeIntlFormatter(parseCacheKey, parseFmt)
 		intlCacheMu.Unlock()
 	}
 

@@ -167,3 +167,25 @@ func TestRenderToStringAsyncBoundaryDoesNotLeakPartialMarkupOnSuspension(parseT 
 		parseT.Fatalf("suspended boundary leaked partial content: %s", parseHTML)
 	}
 }
+
+func TestRenderToStringErrorBoundaryDoesNotLeakPartialMarkupOnPanic(parseT *testing.T) {
+	parsePanickingChild := CreateElement(func() *Element {
+		panic("child render failure")
+	}, nil)
+	parseContent := CreateElement("div", nil, "before", parsePanickingChild, "after")
+	parseFallback := CreateElement("span", nil, "recovered")
+	parseRoot := CreateElement(NewErrorBoundaryType(), map[string]any{
+		"fallback": parseFallback,
+	}, parseContent)
+
+	parseHTML, parseErr := RenderToString(parseRoot)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString: %v", parseErr)
+	}
+	if parseHTML != `<span>recovered</span>` {
+		parseT.Fatalf("expected only fallback markup after child panic, got %q", parseHTML)
+	}
+	if strings.Contains(parseHTML, "before") || strings.Contains(parseHTML, "<div") {
+		parseT.Fatalf("error boundary leaked partial content: %s", parseHTML)
+	}
+}

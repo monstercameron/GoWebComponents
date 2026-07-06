@@ -77,6 +77,23 @@ func TestSPAFallbackServesShellForClientRoutes(parseT *testing.T) {
 	}
 }
 
+// TestHandlerNilAssetsReturns500 pins that a handler built with no Assets serves
+// a clean 500 rather than panicking on a nil fs.FS on the first request.
+func TestHandlerNilAssetsReturns500(parseT *testing.T) {
+	parseHandler := wholestack.Handler(wholestack.Options{})
+	parseServer := httptest.NewServer(parseHandler)
+	defer parseServer.Close()
+
+	parseResp, parseErr := http.Get(parseServer.URL + "/")
+	if parseErr != nil {
+		parseT.Fatalf("GET failed: %v", parseErr)
+	}
+	defer parseResp.Body.Close()
+	if parseResp.StatusCode != http.StatusInternalServerError {
+		parseT.Fatalf("expected 500 for nil Assets, got %d", parseResp.StatusCode)
+	}
+}
+
 // TestSPAFallbackDisabled404s proves disabling the fallback yields a 404 for unknown paths.
 func TestSPAFallbackDisabled404s(parseT *testing.T) {
 	parseHandler := wholestack.Handler(wholestack.Options{Assets: appAssets(), DisableSPAFallback: true})

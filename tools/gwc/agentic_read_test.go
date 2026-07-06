@@ -123,6 +123,14 @@ func TestRunModelOutputsJSON(parseT *testing.T) {
 
 func writeAgenticReadFixture(parseT *testing.T) string {
 	parseT.Helper()
+	// This fixture shells out to `go mod tidy`, which resolves imports over the
+	// network / module cache — a slow, toolchain- and network-dependent step that
+	// makes the default suite non-deterministic (transient proxy/cache failures).
+	// Skip in -short so the fast dev-loop suite stays deterministic; full CI runs
+	// (no -short) still exercise it. Skipping here skips every calling test.
+	if testing.Short() {
+		parseT.Skip("agentic-read fixture runs `go mod tidy` (network/toolchain); skipped in -short")
+	}
 	parseRoot := parseT.TempDir()
 	parseRepoRoot, parseErr := resolveRepoRoot()
 	if parseErr != nil {

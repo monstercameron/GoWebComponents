@@ -1,3 +1,8 @@
+// Fuzzing is unsupported on js/wasm, and the wasm-under-node runner cannot
+// read the seed corpus directory on Windows (O_DIRECTORY unsupported) — the
+// seeds execute on the native build.
+//go:build !(js && wasm)
+
 package ui
 
 import "testing"

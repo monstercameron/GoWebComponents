@@ -52,7 +52,9 @@ type writeMountedRoot struct {
 }
 
 var (
-	writeMountMu         sync.Mutex
+	writeMountMu sync.Mutex
+	// writeMaxMountedRoots bounds the live agent-mounted root registry.
+	writeMaxMountedRoots = 256
 	writeMountComponents = map[string]MountComponentFactory{}
 	writeMountedRoots    = map[string]writeMountedRoot{}
 )
@@ -565,6 +567,13 @@ func writeHandleMount(parsePayload json.RawMessage) (json.RawMessage, *EnvelopeE
 	if _, parseExists := writeMountedRoots[parseDec.ID]; parseExists {
 		writeMountMu.Unlock()
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: fmt.Sprintf("mount: id %q is already mounted", parseDec.ID)}
+	}
+	// Bound concurrent mounts: an agent calling bridge.mount with unique ids
+	// and never unmounting would otherwise grow this map (and the live DOM
+	// subtrees it tracks) without limit. Mirrors the auditCap ring elsewhere.
+	if len(writeMountedRoots) >= writeMaxMountedRoots {
+		writeMountMu.Unlock()
+		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: fmt.Sprintf("mount: mounted-root limit (%d) reached; unmount before mounting more", writeMaxMountedRoots)}
 	}
 	writeMountedRoots[parseDec.ID] = writeMountedRoot{Component: parseDec.Component, Selector: parseDec.Selector, Props: parseProps}
 	writeMountMu.Unlock()

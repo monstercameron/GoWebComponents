@@ -94,6 +94,12 @@ type groupKey struct {
 	atRules          string
 }
 
+// atRuleSep joins/splits a scope's stacked at-rules. It is the ASCII unit
+// separator, which cannot legally appear in a CSS at-rule — the old "||"
+// delimiter collided with an at-rule value that literally contained "||",
+// merging unrelated rules and mis-splitting the nesting on render.
+const atRuleSep = "\x1f"
+
 // canonicalize folds rules into a deterministic CSS-source representation plus the
 // ordered list of raw blocks. The representation is selector-template-relative
 // (uses "&", not the final class) so it is identity-free and stable: identical
@@ -116,7 +122,7 @@ func canonicalize(rules []Rule) (canonical string, groups []renderGroup, raws []
 		}
 		key := groupKey{
 			selectorTemplate: r.scope.template(),
-			atRules:          strings.Join(r.scope.atRules, "||"),
+			atRules:          strings.Join(r.scope.atRules, atRuleSep),
 		}
 		bucket, ok := buckets[key]
 		if !ok {
@@ -177,7 +183,7 @@ func splitAtRules(joined string) []string {
 	if joined == "" {
 		return nil
 	}
-	return strings.Split(joined, "||")
+	return strings.Split(joined, atRuleSep)
 }
 
 // renderGroup is a single emittable block keyed to the (not-yet-known) class.

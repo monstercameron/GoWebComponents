@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -138,6 +139,33 @@ go 1.21
 	}
 	if !strings.Contains(parseMessage, "stat") && !strings.Contains(parseMessage, "cannot find") {
 		parseT.Fatalf("error should include go build output, got: %v", parseErr)
+	}
+}
+
+// TestReleaseWasmBuildArgsMatchReleaseProfile pins that the reproducibility gate
+// builds with the SAME flags as the actual release profile (tools/gwc
+// release_build.go "release": -trimpath, -ldflags "-s -w", -buildvcs=false,
+// -tags production). Missing -tags production (dev vs production code) or
+// -buildvcs=false (VCS-stamp nondeterminism the release strips) previously made
+// the gate verify an artifact that is not what ships — a silent false-pass.
+func TestReleaseWasmBuildArgsMatchReleaseProfile(parseT *testing.T) {
+	parseArgs := releaseWasmBuildArgs("/tmp/out.wasm", "./pkg")
+	parseJoined := strings.Join(parseArgs, " ")
+
+	for _, parseNeed := range []string{"-trimpath", "-buildvcs=false"} {
+		if !slices.Contains(parseArgs, parseNeed) {
+			parseT.Fatalf("release build args missing %q: %v", parseNeed, parseArgs)
+		}
+	}
+	if !strings.Contains(parseJoined, "-ldflags -s -w") {
+		parseT.Fatalf("release build args missing ldflags -s -w: %v", parseArgs)
+	}
+	if !strings.Contains(parseJoined, "-tags production") {
+		parseT.Fatalf("release build args missing -tags production (would verify the dev artifact, not the release): %v", parseArgs)
+	}
+	// Output + package must be the final positional args.
+	if parseArgs[len(parseArgs)-2] != "/tmp/out.wasm" || parseArgs[len(parseArgs)-1] != "./pkg" {
+		parseT.Fatalf("expected output + package as trailing args, got %v", parseArgs)
 	}
 }
 

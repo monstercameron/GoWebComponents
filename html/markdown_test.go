@@ -252,25 +252,25 @@ func TestMarkdownHelperBranchesAndFallbackNodes(parseT *testing.T) {
 
 	parseSource := []byte("alpha")
 	parseTextNode := ast.NewTextSegment(text.NewSegment(0, 5))
-	parseRendered, parseOk := renderMarkdownBlock(parseTextNode, parseSource, MarkdownRenderOptions{})
+	parseRendered, parseOk := renderMarkdownBlock(parseTextNode, parseSource, MarkdownRenderOptions{}, 0)
 	if !parseOk || parseRendered == nil || parseRendered.Type != "p" {
 		parseT.Fatalf("expected text-node markdown block fallback to paragraph, got ok=%t rendered=%#v", parseOk, parseRendered)
 	}
 
 	parseEmptyNode := ast.NewTextSegment(text.NewSegment(0, 0))
-	parseRendered, parseOk = renderMarkdownBlock(parseEmptyNode, parseSource, MarkdownRenderOptions{})
+	parseRendered, parseOk = renderMarkdownBlock(parseEmptyNode, parseSource, MarkdownRenderOptions{}, 0)
 	if parseOk || parseRendered != nil {
 		parseT.Fatalf("expected empty text-node markdown block fallback to skip render, got ok=%t rendered=%#v", parseOk, parseRendered)
 	}
 
 	parseInlineContainer := ast.NewParagraph()
 	parseInlineContainer.AppendChild(parseInlineContainer, ast.NewTextSegment(text.NewSegment(0, 5)))
-	parseInline := renderMarkdownInline(parseInlineContainer, parseSource, MarkdownRenderOptions{})
+	parseInline := renderMarkdownInline(parseInlineContainer, parseSource, MarkdownRenderOptions{}, 0)
 	if len(parseInline) != 1 || parseInline[0] == nil || parseInline[0].TextContent != "alpha" {
 		parseT.Fatalf("expected default inline fallback to text node, got %#v", parseInline)
 	}
 
-	parseEmptyInline := renderMarkdownInline(ast.NewParagraph(), parseSource, MarkdownRenderOptions{})
+	parseEmptyInline := renderMarkdownInline(ast.NewParagraph(), parseSource, MarkdownRenderOptions{}, 0)
 	if len(parseEmptyInline) != 0 {
 		parseT.Fatalf("expected empty inline fallback to produce no nodes, got %#v", parseEmptyInline)
 	}

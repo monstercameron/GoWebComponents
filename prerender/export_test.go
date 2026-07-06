@@ -75,6 +75,18 @@ func TestExportRejectsInvalidRoutes(parseT *testing.T) {
 	}
 }
 
+func TestExportRejectsPathTraversalRoute(parseT *testing.T) {
+	parseOutputDir := parseT.TempDir()
+
+	_, parseErr := Export(parseOutputDir, []Route{{
+		Path:  "/../../escape",
+		Build: func(Target) (RouteOutput, error) { return RouteOutput{HTML: "nope"}, nil },
+	}})
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "'..'") {
+		parseT.Fatalf("expected path-traversal rejection, got %v", parseErr)
+	}
+}
+
 func assertFileContains(parseT *testing.T, parsePath string, parseWant string) {
 	parseT.Helper()
 	parseData, parseErr := os.ReadFile(parsePath)

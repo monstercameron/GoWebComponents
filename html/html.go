@@ -2,7 +2,9 @@ package html
 
 import (
 	"maps"
+	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/v4/ui"
@@ -190,9 +192,30 @@ func CustomElement(parseName string, parseProps CustomElementProps, parseChildre
 		}
 	}
 	for parseKey3, parseValue2 := range parseProps.Properties {
+		// Reject DOM sinks that parse their value as markup: Properties flows to a
+		// literal JS property set (element[name]=value), so element.innerHTML =
+		// userValue would execute injected markup, bypassing every escaping/
+		// sanitization path in the framework. Use html.RawHTML (which runs through
+		// sanitize) for trusted markup instead.
+		if isUnsafeCustomElementProperty(parseKey3) {
+			continue
+		}
 		parseValues[customElementPropertyPrefix+parseKey3] = parseValue2
 	}
 	return runtime.CreateElementOwned(parseName, parseValues, parseChildValues...)
+}
+
+// isUnsafeCustomElementProperty reports whether a custom-element property name is
+// a DOM sink that parses its value as markup. Setting these via Properties (a
+// literal element[name]=value) would execute injected HTML, bypassing all
+// escaping/sanitization — use html.RawHTML for trusted markup instead.
+func isUnsafeCustomElementProperty(parseName string) bool {
+	switch strings.ToLower(strings.TrimSpace(parseName)) {
+	case "innerhtml", "outerhtml", "insertadjacenthtml":
+		return true
+	default:
+		return false
+	}
 }
 
 // Fragment groups children without introducing an extra host element.
@@ -767,8 +790,15 @@ func toRuntimeCompactProps(parseProps Props, parseEvents []eventProp) (string, [
 	// attribute order is deterministic for a given payload (the reconciler
 	// compares fast-lane attribute slices positionally).
 	parseDataStart := len(parseAttrs)
+	// DataAttr and the Data map can both target the same data-* name. Emitting both
+	// would produce a DUPLICATE data-<name> attribute in this fast-lane slice (the
+	// map path in toRuntimePropsWithEvents lets Data overwrite DataAttr). Resolve the
+	// collision the SAME way here — the Data map wins — so both build paths agree and
+	// no duplicate attribute is emitted. (Data[name] on a nil map is a safe zero read.)
 	if parseProps.DataAttr.Name != "" {
-		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: internPrefixedAttrName(&dataAttrNameCache, "data-", parseProps.DataAttr.Name), Value: parseProps.DataAttr.Value})
+		if _, parseDataCollision := parseProps.Data[parseProps.DataAttr.Name]; !parseDataCollision {
+			parseAttrs = append(parseAttrs, runtime.HostAttr{Name: internPrefixedAttrName(&dataAttrNameCache, "data-", parseProps.DataAttr.Name), Value: parseProps.DataAttr.Value})
+		}
 	}
 	for parseKey, parseValue := range parseProps.Data {
 		parseAttrs = append(parseAttrs, runtime.HostAttr{Name: internPrefixedAttrName(&dataAttrNameCache, "data-", parseKey), Value: parseValue})
@@ -788,17 +818,31 @@ func toRuntimeCompactProps(parseProps Props, parseEvents []eventProp) (string, [
 // highly repetitive, so the concat allocated one string per attribute per
 // element per render (measured ~10% of a bailout pass's allocations).
 var (
-	dataAttrNameCache sync.Map
-	ariaAttrNameCache sync.Map
+	dataAttrNameCache attrNameCache
+	ariaAttrNameCache attrNameCache
 )
 
+// attrNameCache is a size-capped intern table. The cap only exists so an app
+// that (unusually) generates unique attribute NAMES per render cannot grow
+// the cache without bound; past the cap new names just pay the concat.
+type attrNameCache struct {
+	entries sync.Map
+	size    atomic.Int32
+}
+
+const maxAttrNameCacheEntries = 4096
+
 // internPrefixedAttrName returns the cached prefixed form of one attribute key.
-func internPrefixedAttrName(parseCache *sync.Map, parsePrefix, parseKey string) string {
-	if parseCached, parseOk := parseCache.Load(parseKey); parseOk {
+func internPrefixedAttrName(parseCache *attrNameCache, parsePrefix, parseKey string) string {
+	if parseCached, parseOk := parseCache.entries.Load(parseKey); parseOk {
 		return parseCached.(string)
 	}
 	parseName := parsePrefix + parseKey
-	parseCache.Store(parseKey, parseName)
+	if parseCache.size.Load() < maxAttrNameCacheEntries {
+		if _, parseExisted := parseCache.entries.LoadOrStore(parseKey, parseName); !parseExisted {
+			parseCache.size.Add(1)
+		}
+	}
 	return parseName
 }
 

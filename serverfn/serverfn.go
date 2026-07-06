@@ -37,7 +37,30 @@ var (
 	configMu      sync.RWMutex
 	clientBaseURL string
 	httpClient    = http.DefaultClient
+	// maxRequestBytes caps the request body Handle will read. Server functions
+	// are the trust boundary — request bodies are attacker-controlled — so an
+	// uncapped io.ReadAll is a trivial memory-exhaustion DoS. Configurable via
+	// SetMaxRequestBytes; default 10 MiB.
+	maxRequestBytes int64 = 10 << 20
 )
+
+// SetMaxRequestBytes sets the maximum server-function request body size in bytes.
+// A non-positive value restores the 10 MiB default. Applies to subsequently
+// served requests.
+func SetMaxRequestBytes(parseLimit int64) {
+	configMu.Lock()
+	defer configMu.Unlock()
+	if parseLimit <= 0 {
+		parseLimit = 10 << 20
+	}
+	maxRequestBytes = parseLimit
+}
+
+func currentMaxRequestBytes() int64 {
+	configMu.RLock()
+	defer configMu.RUnlock()
+	return maxRequestBytes
+}
 
 // Configure sets the base URL the client uses to reach server functions (e.g. an httptest
 // server URL in tests, or an absolute origin for a cross-origin API). An empty base URL —
@@ -156,13 +179,31 @@ func statusForError(parseErr error) (int, string) {
 // is rejected with 405 and a malformed body with 400.
 func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn func(context.Context, Req) (Resp, error)) {
 	parseMux.HandleFunc(Endpoint(parseName), func(parseW http.ResponseWriter, parseR *http.Request) {
+		// A server function is arbitrary user code invoked with attacker-shaped
+		// input; a nil-deref/index panic inside it (e.g. an omitted optional
+		// field left as a nil slice) would otherwise reset the connection with no
+		// clean error. Recover into a generic 500 so every failure has a uniform
+		// JSON surface and the process/connection is not disturbed.
+		defer func() {
+			if parseRec := recover(); parseRec != nil {
+				writeError(parseW, http.StatusInternalServerError, "internal server error")
+			}
+		}()
 		if parseR.Method != http.MethodPost {
 			writeError(parseW, http.StatusMethodNotAllowed, "server functions require POST")
 			return
 		}
 		var parseReq Req
+		// Cap the body: this is the trust boundary, so an uncapped io.ReadAll is a
+		// memory-exhaustion DoS. MaxBytesReader also aborts chunked streams.
+		parseR.Body = http.MaxBytesReader(parseW, parseR.Body, currentMaxRequestBytes())
 		parseBody, parseErr := io.ReadAll(parseR.Body)
 		if parseErr != nil {
+			var parseMaxErr *http.MaxBytesError
+			if errors.As(parseErr, &parseMaxErr) {
+				writeError(parseW, http.StatusRequestEntityTooLarge, "request body too large")
+				return
+			}
 			writeError(parseW, http.StatusBadRequest, "read request body: "+parseErr.Error())
 			return
 		}
@@ -179,8 +220,16 @@ func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn fu
 			writeError(parseW, parseStatus, parseMessage)
 			return
 		}
+		// Marshal BEFORE writing: json.Encoder writes the header implicitly on its
+		// first byte, so a marshal failure mid-stream would leave a misleading
+		// empty 200. Buffer first so an encode error becomes a real 500.
+		parseOut, parseMarshalErr := json.Marshal(parseResp)
+		if parseMarshalErr != nil {
+			writeError(parseW, http.StatusInternalServerError, "encode response")
+			return
+		}
 		parseW.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(parseW).Encode(parseResp)
+		_, _ = parseW.Write(parseOut)
 	})
 }
 

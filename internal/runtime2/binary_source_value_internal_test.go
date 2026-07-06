@@ -162,7 +162,7 @@ func TestBuildBinarySourceAnyListIntoAndParseBinarySourceListValue(parseT *testi
 	if parseErr != nil {
 		parseT.Fatalf("buildBinarySourceAnyListInto returned error: %v", parseErr)
 	}
-	parseDecoded, parseErr := parseBinarySourceListValue(parsePayload)
+	parseDecoded, parseErr := parseBinarySourceListValue(parsePayload, 0)
 	if parseErr != nil {
 		parseT.Fatalf("parseBinarySourceListValue returned error: %v", parseErr)
 	}
@@ -180,13 +180,13 @@ func TestBuildBinarySourceAnyListIntoAndParseBinarySourceListValue(parseT *testi
 		parseT.Fatal("expected nested unsupported list item to fail")
 	}
 
-	if _, parseErr := parseBinarySourceListValue([]byte{binarySourceValueKindList}); parseErr == nil {
+	if _, parseErr := parseBinarySourceListValue([]byte{binarySourceValueKindList}, 0); parseErr == nil {
 		parseT.Fatal("expected truncated list payload to fail")
 	}
-	if _, parseErr := parseBinarySourceListValue([]byte{binarySourceValueKindList, 1, 4, 0, 0, 0, 1}); parseErr == nil {
+	if _, parseErr := parseBinarySourceListValue([]byte{binarySourceValueKindList, 1, 4, 0, 0, 0, 1}, 0); parseErr == nil {
 		parseT.Fatal("expected oversized list item length to fail")
 	}
-	if _, parseErr := parseBinarySourceListValue([]byte{binarySourceValueKindList, 1, 1, 0, 0, 0, binarySourceValueKindBoolTrue, 0}); parseErr == nil {
+	if _, parseErr := parseBinarySourceListValue([]byte{binarySourceValueKindList, 1, 1, 0, 0, 0, binarySourceValueKindBoolTrue, 0}, 0); parseErr == nil {
 		parseT.Fatal("expected trailing list bytes to fail")
 	}
 }
@@ -197,7 +197,7 @@ func TestBuildBinarySourceAnyMapIntoAndParseBinarySourceMapValue(parseT *testing
 	if parseErr != nil {
 		parseT.Fatalf("buildBinarySourceAnyMapInto returned error: %v", parseErr)
 	}
-	parseDecoded, parseErr := parseBinarySourceMapValue(parsePayload)
+	parseDecoded, parseErr := parseBinarySourceMapValue(parsePayload, 0)
 	if parseErr != nil {
 		parseT.Fatalf("parseBinarySourceMapValue returned error: %v", parseErr)
 	}
@@ -220,25 +220,25 @@ func TestBuildBinarySourceAnyMapIntoAndParseBinarySourceMapValue(parseT *testing
 		parseT.Fatal("expected oversized map key to fail")
 	}
 
-	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap}); parseErr == nil {
+	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap}, 0); parseErr == nil {
 		parseT.Fatal("expected truncated map payload to fail")
 	}
-	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 1, 1}); parseErr == nil {
+	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 1, 1}, 0); parseErr == nil {
 		parseT.Fatal("expected truncated map key length to fail")
 	}
-	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 1, 4, 0, 'a'}); parseErr == nil {
+	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 1, 4, 0, 'a'}, 0); parseErr == nil {
 		parseT.Fatal("expected oversized map key to fail")
 	}
-	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 1, 1, 0, 'a'}); parseErr == nil {
+	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 1, 1, 0, 'a'}, 0); parseErr == nil {
 		parseT.Fatal("expected truncated map value length to fail")
 	}
-	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 1, 1, 0, 'a', 2, 0, 0, 0, binarySourceValueKindBoolTrue}); parseErr == nil {
+	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 1, 1, 0, 'a', 2, 0, 0, 0, binarySourceValueKindBoolTrue}, 0); parseErr == nil {
 		parseT.Fatal("expected oversize map value to fail")
 	}
-	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 1, 1, 0, 'a', 1, 0, 0, 0, binarySourceValueKindBoolTrue, 0}); parseErr == nil {
+	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 1, 1, 0, 'a', 1, 0, 0, 0, binarySourceValueKindBoolTrue, 0}, 0); parseErr == nil {
 		parseT.Fatal("expected trailing map bytes to fail")
 	}
-	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 2, 1, 0, 'b', 1, 0, 0, 0, binarySourceValueKindBoolTrue, 1, 0, 'a', 1, 0, 0, 0, binarySourceValueKindBoolTrue}); parseErr == nil {
+	if _, parseErr := parseBinarySourceMapValue([]byte{binarySourceValueKindMap, 2, 1, 0, 'b', 1, 0, 0, 0, binarySourceValueKindBoolTrue, 1, 0, 'a', 1, 0, 0, 0, binarySourceValueKindBoolTrue}, 0); parseErr == nil {
 		parseT.Fatal("expected non-canonical map ordering to fail")
 	}
 }
@@ -382,5 +382,56 @@ func TestBuildBinarySourceValueReflectInto(parseT *testing.T) {
 	parseType := reflect.TypeFor[parseExample]()
 	if parseType.NumField() != 3 {
 		parseT.Fatal("unexpected test type shape")
+	}
+}
+
+// TestParseBinarySourceValueRejectsDeepNesting pins the depth guard: a
+// deeply-nested list payload must be rejected with an error instead of
+// recursing until the Go stack overflows (an unrecoverable worker crash).
+func TestParseBinarySourceValueRejectsDeepNesting(parseT *testing.T) {
+	// Innermost leaf: nil.
+	parsePayload := []byte{binarySourceValueKindNil}
+	// Wrap it in maxBinarySourceValueDepth+8 single-item list levels.
+	for parseLevel := 0; parseLevel < maxBinarySourceValueDepth+8; parseLevel++ {
+		parseInner := parsePayload
+		parseWrapped := make([]byte, 0, len(parseInner)+6)
+		parseWrapped = append(parseWrapped, binarySourceValueKindList, 1)
+		var parseLen [4]byte
+		parseLen[0] = byte(len(parseInner))
+		parseLen[1] = byte(len(parseInner) >> 8)
+		parseLen[2] = byte(len(parseInner) >> 16)
+		parseLen[3] = byte(len(parseInner) >> 24)
+		parseWrapped = append(parseWrapped, parseLen[:]...)
+		parseWrapped = append(parseWrapped, parseInner...)
+		parsePayload = parseWrapped
+	}
+	if _, parseErr := ParseBinarySourceValue(parsePayload); parseErr == nil {
+		parseT.Fatal("expected deep-nesting rejection, got nil error")
+	}
+}
+
+// TestParseBinarySourceValueRejectsDeepMapNesting pins the depth guard on the MAP
+// path specifically: the map decoder previously called the public entry point
+// (resetting depth to 0), so a map-nested-in-map payload bypassed the guard.
+func TestParseBinarySourceValueRejectsDeepMapNesting(parseT *testing.T) {
+	// Innermost leaf: nil. Wrap it in single-entry map levels {"k": inner}.
+	parsePayload := []byte{binarySourceValueKindNil}
+	for parseLevel := 0; parseLevel < maxBinarySourceValueDepth+8; parseLevel++ {
+		parseInner := parsePayload
+		parseWrapped := make([]byte, 0, len(parseInner)+9)
+		parseWrapped = append(parseWrapped, binarySourceValueKindMap, 1) // kind, count=1
+		parseWrapped = append(parseWrapped, 1, 0)                        // keyLen=1 (LE uint16)
+		parseWrapped = append(parseWrapped, 'k')                         // key
+		var parseLen [4]byte
+		parseLen[0] = byte(len(parseInner))
+		parseLen[1] = byte(len(parseInner) >> 8)
+		parseLen[2] = byte(len(parseInner) >> 16)
+		parseLen[3] = byte(len(parseInner) >> 24)
+		parseWrapped = append(parseWrapped, parseLen[:]...) // valueLen (LE uint32)
+		parseWrapped = append(parseWrapped, parseInner...)
+		parsePayload = parseWrapped
+	}
+	if _, parseErr := ParseBinarySourceValue(parsePayload); parseErr == nil {
+		parseT.Fatal("expected deep map-nesting rejection, got nil error")
 	}
 }

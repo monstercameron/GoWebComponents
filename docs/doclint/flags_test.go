@@ -24,6 +24,40 @@ func TestExtractKnownGwcFlagsFindsVarFlags(t *testing.T) {
 	}
 }
 
+// TestExtractKnownGwcFlagsFindsTypedVarAndUint64 pins the previously-missing
+// definition forms: the *Var family (name is the 2nd arg — .StringVar, .BoolVar,
+// .DurationVar, …) and .Uint64. Without them, a flag defined this way would be
+// absent from the known set and every doc referencing it flagged as unknown (a
+// false-fail). gwc uses none today, so this fixture-based test guards the gap.
+func TestExtractKnownGwcFlagsFindsTypedVarAndUint64(t *testing.T) {
+	dir := t.TempDir()
+	src := `package main
+
+import "flag"
+
+func setup(parseFs *flag.FlagSet) {
+	var cfg struct{ Name string; On bool; N uint64; Every int }
+	parseFs.StringVar(&cfg.Name, "profile-name", "", "usage")
+	parseFs.BoolVar(&cfg.On, "verbose-mode", false, "usage")
+	parseFs.Uint64("max-bytes", 0, "usage")
+	parseFs.DurationVar(nil, "poll-interval", 0, "usage")
+	_ = cfg
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	known, err := ExtractKnownGwcFlags(dir)
+	if err != nil {
+		t.Fatalf("extract known flags: %v", err)
+	}
+	for _, want := range []string{"profile-name", "verbose-mode", "max-bytes", "poll-interval"} {
+		if !known[want] {
+			t.Fatalf("expected typed-var / Uint64 flag %q to be extracted, got %v", want, known)
+		}
+	}
+}
+
 // TestDocsGwcFlagsExist is the flag-existence guard: every -flag used on a gwc
 // command line in the docs must correspond to a real launcher flag. A renamed
 // or removed flag still cited in docs fails here.

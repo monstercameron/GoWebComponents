@@ -62,7 +62,12 @@ func renderHandleTree(parsePayload json.RawMessage) (json.RawMessage, *EnvelopeE
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: "render-tree: selector " + parseSelector + " did not resolve to a container"}
 	}
 
-	parseElement, parseBuildErr := renderBuildElement(parseDec.Tree)
+	// Bound the agent-supplied tree before building it: unlike bridge.snapshot
+	// (which takes MaxDepth/MaxNodes), render-tree had no limit, so a deep/wide
+	// tree could allocate unboundedly and mount a huge live DOM subtree —
+	// resource exhaustion from untrusted agent input.
+	parseNodeBudget := renderMaxTreeNodes
+	parseElement, parseBuildErr := renderBuildElement(parseDec.Tree, 0, &parseNodeBudget)
 	if parseBuildErr != nil {
 		return nil, parseBuildErr
 	}
@@ -84,10 +89,24 @@ func renderHandleTree(parsePayload json.RawMessage) (json.RawMessage, *EnvelopeE
 	return writeEncodeOK()
 }
 
+// renderMaxTreeDepth / renderMaxTreeNodes bound an agent-supplied render tree.
+const (
+	renderMaxTreeDepth = 32
+	renderMaxTreeNodes = 2000
+)
+
 // renderBuildElement recursively interprets a renderTreeNode into a runtime
 // Element using the runtime builders. It allowlists tags, strips on* event
-// attributes, and blocks unsafe href/src schemes.
-func renderBuildElement(parseNode renderTreeNode) (*runtime.Element, *EnvelopeError) {
+// attributes, blocks unsafe href/src schemes, and bounds nesting depth and
+// total node count via parseDepth / parseNodeBudget.
+func renderBuildElement(parseNode renderTreeNode, parseDepth int, parseNodeBudget *int) (*runtime.Element, *EnvelopeError) {
+	if parseDepth > renderMaxTreeDepth {
+		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: "render-tree: nesting exceeds the depth limit"}
+	}
+	if *parseNodeBudget <= 0 {
+		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: "render-tree: node count exceeds the limit"}
+	}
+	*parseNodeBudget--
 	parseTag := strings.ToLower(strings.TrimSpace(parseNode.Tag))
 	if !renderAllowedTags[parseTag] {
 		return nil, &EnvelopeError{Code: ErrorCodeBadPayload, Message: "render-tree: tag " + parseNode.Tag + " is not allowed"}
@@ -110,7 +129,7 @@ func renderBuildElement(parseNode renderTreeNode) (*runtime.Element, *EnvelopeEr
 		parseChildren = append(parseChildren, runtime.CreateElement("TEXT_ELEMENT", map[string]any{"nodeValue": parseNode.Text}))
 	}
 	for _, parseChild := range parseNode.Children {
-		parseBuilt, parseErr := renderBuildElement(parseChild)
+		parseBuilt, parseErr := renderBuildElement(parseChild, parseDepth+1, parseNodeBudget)
 		if parseErr != nil {
 			return nil, parseErr
 		}

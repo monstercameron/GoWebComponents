@@ -89,7 +89,27 @@ func sanitizeSnapshotForSupport(parseSnapshot Snapshot) Snapshot {
 	parseSnapshot.Hydration = sanitizeHydrationForSupport(parseSnapshot.Hydration)
 	parseSnapshot.Diagnostics = sanitizeDiagnosticsForSupport(parseSnapshot.Diagnostics)
 	parseSnapshot.Logs = sanitizeLogsForSupport(parseSnapshot.Logs)
+	parseSnapshot.Kernel = sanitizeKernelForSupport(parseSnapshot.Kernel)
 	return parseSnapshot
+}
+
+// sanitizeKernelForSupport redacts the freeform plugin-supplied strings in the
+// kernel snapshot. Plugin health/diagnostic Reason/Message/Operation fields are
+// populated verbatim from third-party plugin reports, so a secret or PII a
+// plugin embeds would otherwise flow, un-redacted, into the ONE bundle meant to
+// leave the machine (support export) — every other Snapshot section is
+// sanitized; Kernel was the omission.
+func sanitizeKernelForSupport(parseKernel KernelSnapshot) KernelSnapshot {
+	for parseI := range parseKernel.Plugins {
+		parseKernel.Plugins[parseI].Reason = redactSupportString(parseKernel.Plugins[parseI].Reason)
+		parseKernel.Plugins[parseI].Message = redactSupportString(parseKernel.Plugins[parseI].Message)
+	}
+	for parseI := range parseKernel.Events {
+		parseKernel.Events[parseI].Operation = redactSupportString(parseKernel.Events[parseI].Operation)
+		parseKernel.Events[parseI].Reason = redactSupportString(parseKernel.Events[parseI].Reason)
+		parseKernel.Events[parseI].Message = redactSupportString(parseKernel.Events[parseI].Message)
+	}
+	return parseKernel
 }
 
 func sanitizeRouteForSupport(parseRoute Route) Route {

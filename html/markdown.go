@@ -69,8 +69,15 @@ func RenderMarkdown(parseMarkdown string, parseOptions ...MarkdownRenderOptions)
 	}
 	parseSource := []byte(parseMarkdown)
 	parseRoot := goldmark.New(goldmark.WithExtensions(extension.GFM)).Parser().Parse(text.NewReader(parseSource))
-	return renderMarkdownBlocks(parseRoot, parseSource, parseConfig)
+	return renderMarkdownBlocks(parseRoot, parseSource, parseConfig, 0)
 }
+
+// maxMarkdownRenderDepth bounds the recursive AST walk. goldmark does not cap
+// blockquote/list nesting, so adversarial input like "> " repeated tens of
+// thousands of times yields an AST deep enough to overflow the render stack.
+// The cap sits far above any real document (deeply nested lists rarely exceed
+// a few dozen levels) while stopping pathological input from crashing the process.
+const maxMarkdownRenderDepth = 512
 
 // ResolveMarkdownHref resolves a markdown destination against the source document path.
 func ResolveMarkdownHref(parseSourcePath, parseDestination string) string {
@@ -103,10 +110,15 @@ func ResolveMarkdownHref(parseSourcePath, parseDestination string) string {
 }
 
 // renderMarkdownBlocks is a core package helper.
-func renderMarkdownBlocks(parseParent ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions) []ui.Node {
+func renderMarkdownBlocks(parseParent ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, parseDepth int) []ui.Node {
+	if parseDepth > maxMarkdownRenderDepth {
+		// Adversarially deep nesting: truncate with a visible marker rather than
+		// recursing until the stack overflows.
+		return []ui.Node{P(propsWithClass(parseConfig.Classes.Paragraph), Text("[markdown nesting too deep — truncated]"))}
+	}
 	parseNodes := make([]ui.Node, 0)
 	for parseChild := parseParent.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
-		if parseRendered, parseOk := renderMarkdownBlock(parseChild, parseSource, parseConfig); parseOk {
+		if parseRendered, parseOk := renderMarkdownBlock(parseChild, parseSource, parseConfig, parseDepth); parseOk {
 			parseNodes = append(parseNodes, parseRendered)
 		}
 	}
@@ -114,11 +126,11 @@ func renderMarkdownBlocks(parseParent ast.Node, parseSource []byte, parseConfig 
 }
 
 // renderMarkdownBlock is a core package helper.
-func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions) (ui.Node, bool) {
+func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, parseDepth int) (ui.Node, bool) {
 	parseClasses := parseConfig.Classes
 	switch parseTyped := parseNode.(type) {
 	case *ast.Heading:
-		parseChildren := renderMarkdownInlines(parseTyped, parseSource, parseConfig)
+		parseChildren := renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth)
 		switch parseTyped.Level {
 		case 1:
 			return H1(propsWithClass(parseClasses.Heading1), parseChildren...), true
@@ -134,13 +146,13 @@ func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig Mar
 			return H6(propsWithClass(parseClasses.Heading6), parseChildren...), true
 		}
 	case *ast.Paragraph:
-		return P(propsWithClass(parseClasses.Paragraph), renderMarkdownInlines(parseTyped, parseSource, parseConfig)...), true
+		return P(propsWithClass(parseClasses.Paragraph), renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth)...), true
 	case *ast.TextBlock:
-		return P(propsWithClass(parseClasses.Paragraph), renderMarkdownInlines(parseTyped, parseSource, parseConfig)...), true
+		return P(propsWithClass(parseClasses.Paragraph), renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth)...), true
 	case *ast.Blockquote:
-		return Blockquote(propsWithClass(parseClasses.Blockquote), renderMarkdownBlocks(parseTyped, parseSource, parseConfig)...), true
+		return Blockquote(propsWithClass(parseClasses.Blockquote), renderMarkdownBlocks(parseTyped, parseSource, parseConfig, parseDepth+1)...), true
 	case *ast.List:
-		parseItems := renderMarkdownBlocks(parseTyped, parseSource, parseConfig)
+		parseItems := renderMarkdownBlocks(parseTyped, parseSource, parseConfig, parseDepth+1)
 		parseClassName := strings.TrimSpace(parseClasses.List)
 		if parseTyped.IsOrdered() {
 			parseClassName = joinMarkdownClasses(parseClassName, parseClasses.OrderedList)
@@ -153,7 +165,7 @@ func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig Mar
 		parseClassName = joinMarkdownClasses(parseClassName, parseClasses.UnorderedList)
 		return Ul(propsWithClass(parseClassName), parseItems...), true
 	case *ast.ListItem:
-		parseItems := renderMarkdownBlocks(parseTyped, parseSource, parseConfig)
+		parseItems := renderMarkdownBlocks(parseTyped, parseSource, parseConfig, parseDepth+1)
 		if !markdownNodeContainsTaskCheckBox(parseTyped) {
 			if isParseChecked, isParseTask := markdownTaskListItemState(parseTyped, parseSource); isParseTask {
 				parseItems = append([]ui.Node{renderMarkdownTaskCheckBox(&extast.TaskCheckBox{IsChecked: isParseChecked})}, parseItems...)
@@ -175,7 +187,7 @@ func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig Mar
 	case *extast.TaskCheckBox:
 		return renderMarkdownTaskCheckBox(parseTyped), true
 	case *extast.Table:
-		return renderMarkdownTable(parseTyped, parseSource, parseConfig), true
+		return renderMarkdownTable(parseTyped, parseSource, parseConfig, parseDepth+1), true
 	default:
 		parseTextValue := strings.TrimSpace(markdownPlainText(parseNode, parseSource))
 		if parseTextValue == "" {
@@ -186,15 +198,15 @@ func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig Mar
 }
 
 // renderMarkdownTable converts a GFM table into thead/tbody markup.
-func renderMarkdownTable(parseTable *extast.Table, parseSource []byte, parseConfig MarkdownRenderOptions) ui.Node {
+func renderMarkdownTable(parseTable *extast.Table, parseSource []byte, parseConfig MarkdownRenderOptions, parseDepth int) ui.Node {
 	var parseHeadRows []ui.Node
 	var parseBodyRows []ui.Node
 	for parseChild := parseTable.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
 		switch parseRow := parseChild.(type) {
 		case *extast.TableHeader:
-			parseHeadRows = append(parseHeadRows, renderMarkdownTableRow(parseRow, parseSource, parseConfig, true))
+			parseHeadRows = append(parseHeadRows, renderMarkdownTableRow(parseRow, parseSource, parseConfig, true, parseDepth))
 		case *extast.TableRow:
-			parseBodyRows = append(parseBodyRows, renderMarkdownTableRow(parseRow, parseSource, parseConfig, false))
+			parseBodyRows = append(parseBodyRows, renderMarkdownTableRow(parseRow, parseSource, parseConfig, false, parseDepth))
 		}
 	}
 	parseSections := make([]ui.Node, 0, 2)
@@ -208,14 +220,14 @@ func renderMarkdownTable(parseTable *extast.Table, parseSource []byte, parseConf
 }
 
 // renderMarkdownTableRow converts one table row's cells into th/td nodes.
-func renderMarkdownTableRow(parseRow ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, isParseHeader bool) ui.Node {
+func renderMarkdownTableRow(parseRow ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, isParseHeader bool, parseDepth int) ui.Node {
 	parseCellTag := "td"
 	if isParseHeader {
 		parseCellTag = "th"
 	}
 	var parseCells []ui.Node
 	for parseCell := parseRow.FirstChild(); parseCell != nil; parseCell = parseCell.NextSibling() {
-		parseCells = append(parseCells, Tag(parseCellTag, Props{}, renderMarkdownInlines(parseCell, parseSource, parseConfig)...))
+		parseCells = append(parseCells, Tag(parseCellTag, Props{}, renderMarkdownInlines(parseCell, parseSource, parseConfig, parseDepth)...))
 	}
 	return Tag("tr", Props{}, parseCells...)
 }
@@ -231,16 +243,21 @@ func renderMarkdownCodeBlock(parseCode string, parseConfig MarkdownRenderOptions
 }
 
 // renderMarkdownInlines is a core package helper.
-func renderMarkdownInlines(parseParent ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions) []ui.Node {
+func renderMarkdownInlines(parseParent ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, parseDepth int) []ui.Node {
+	if parseDepth > maxMarkdownRenderDepth {
+		// Adversarially deep inline nesting (e.g. runaway emphasis/link nesting):
+		// stop recursing before the stack overflows.
+		return nil
+	}
 	parseNodes := make([]ui.Node, 0)
 	for parseChild := parseParent.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
-		parseNodes = append(parseNodes, renderMarkdownInline(parseChild, parseSource, parseConfig)...)
+		parseNodes = append(parseNodes, renderMarkdownInline(parseChild, parseSource, parseConfig, parseDepth)...)
 	}
 	return parseNodes
 }
 
 // renderMarkdownInline is a core package helper.
-func renderMarkdownInline(parseNode ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions) []ui.Node {
+func renderMarkdownInline(parseNode ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions, parseDepth int) []ui.Node {
 	parseClasses := parseConfig.Classes
 	switch parseTyped := parseNode.(type) {
 	case *ast.Text:
@@ -253,13 +270,13 @@ func renderMarkdownInline(parseNode ast.Node, parseSource []byte, parseConfig Ma
 	case *ast.CodeSpan:
 		return []ui.Node{Code(propsWithClass(parseClasses.InlineCode), Text(markdownPlainText(parseTyped, parseSource)))}
 	case *ast.Emphasis:
-		parseChildren := renderMarkdownInlines(parseTyped, parseSource, parseConfig)
+		parseChildren := renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth+1)
 		if parseTyped.Level == 2 {
 			return []ui.Node{Tag("strong", propsWithClass(parseClasses.Strong), parseChildren...)}
 		}
 		return []ui.Node{Em(propsWithClass(parseClasses.Emphasis), parseChildren...)}
 	case *ast.Link:
-		parseChildren2 := renderMarkdownInlines(parseTyped, parseSource, parseConfig)
+		parseChildren2 := renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth+1)
 		parseProps := propsWithClass(parseClasses.Link)
 		parseProps.Href = safeMarkdownHref(parseConfig, string(parseTyped.Destination))
 		parseProps.Target = parseConfig.LinkTarget
@@ -284,7 +301,7 @@ func renderMarkdownInline(parseNode ast.Node, parseSource []byte, parseConfig Ma
 		}
 		return []ui.Node{Text(parseRaw)}
 	case *extast.Strikethrough:
-		return []ui.Node{Del(Props{}, renderMarkdownInlines(parseTyped, parseSource, parseConfig)...)}
+		return []ui.Node{Del(Props{}, renderMarkdownInlines(parseTyped, parseSource, parseConfig, parseDepth+1)...)}
 	case *extast.TaskCheckBox:
 		return []ui.Node{renderMarkdownTaskCheckBox(parseTyped)}
 	default:

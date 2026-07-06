@@ -29,6 +29,34 @@ func TestWASMDOMNodeNullHelpersTreatTypedNilAndNullWrapperAsEquivalent(parseT *t
 	}
 }
 
+// TestSetTextContentToleratesNullAndTypedNilNodes pins that the text adapters do
+// not panic on a typed-nil node or a null/undefined-valued node. A typed-nil
+// (*WASMDOMNode) passes the type assertion but nil-derefs on .value, and .Set on a
+// null/undefined js.Value panics with "not an object"; either would tear down the
+// whole app from the render/commit path where detached nodes are common.
+func TestSetTextContentToleratesNullAndTypedNilNodes(parseT *testing.T) {
+	parseAdapter := &WASMDOMAdapter{}
+	var parseTypedNil runtime.DOMNode = (*WASMDOMNode)(nil)
+	parseNullNode := runtime.DOMNode(&WASMDOMNode{value: js.Null()})
+	parseUndefNode := runtime.DOMNode(&WASMDOMNode{value: js.Undefined()})
+
+	for _, parseNode := range []runtime.DOMNode{parseTypedNil, parseNullNode, parseUndefNode} {
+		// Must be a no-op, not a panic.
+		parseAdapter.SetTextContent(parseNode, "x")
+		if parseGot := parseAdapter.GetTextContent(parseNode); parseGot != "" {
+			parseT.Fatalf("expected empty text for absent node, got %q", parseGot)
+		}
+	}
+
+	// A concrete object-backed node still round-trips (textContent is a plain
+	// property on any JS object, so this needs no document shim).
+	parseReal := runtime.DOMNode(&WASMDOMNode{value: js.Global().Get("Object").New()})
+	parseAdapter.SetTextContent(parseReal, "hello")
+	if parseGot := parseAdapter.GetTextContent(parseReal); parseGot != "hello" {
+		parseT.Fatalf("expected round-tripped text 'hello', got %q", parseGot)
+	}
+}
+
 func TestWASMDOMNodeEqualsUsesUnderlyingJSIdentity(parseT *testing.T) {
 	parseValue := js.Global().Get("Object").New()
 	parseSame := &WASMDOMNode{value: parseValue}

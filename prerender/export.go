@@ -107,6 +107,15 @@ func normalizeRoutePath(parsePath string) (string, error) {
 	if !strings.HasPrefix(parsePath, "/") {
 		return "", fmt.Errorf("prerender: route %q must start with '/'", parsePath)
 	}
+	// Reject ".." segments: the route path is turned into an on-disk file path
+	// (buildTarget → filepath.Join → os.WriteFile), so a traversal segment would
+	// let a route write outside the export output directory. Defense-in-depth —
+	// routes are normally developer-authored, but must not be trusted to be.
+	for _, parseSegment := range strings.Split(parsePath, "/") {
+		if parseSegment == ".." {
+			return "", fmt.Errorf("prerender: route %q must not contain '..' segments", parsePath)
+		}
+	}
 	if parsePath != "/" {
 		parsePath = strings.TrimRight(parsePath, "/")
 	}

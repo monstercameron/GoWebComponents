@@ -23,6 +23,16 @@ const (
 	defaultHotReloadSchemaVersion   = 1
 )
 
+// These package globals are intentionally UNsynchronized. This file is
+// //go:build js,wasm only, and the wasm runtime is single-threaded with
+// cooperative scheduling: every accessor here — Install/Disable and the JS bridge
+// callbacks (export/prepare/import/getLastRestoreResult/getDiagnostics/getActivity)
+// — is invoked synchronously on the one main goroutine and reads/writes these
+// globals straight through with no channel/await yield point in between, so no two
+// accesses can interleave and there is no data race. Do NOT add a sync.Mutex here
+// (it would be cargo-cult false-safety on a hot path). If you ever spawn a
+// goroutine that touches these — or introduce an await between a read and a write
+// of one — that invariant breaks and the access model must be reconsidered then.
 var enabled bool
 var bridgeInstalled bool
 var currentConfig Config
@@ -77,11 +87,17 @@ func Configure(parseConfig Config) {
 		return
 	}
 
-	enabled = true
 	currentConfig = parseNormalized
 	uninstallBridge()
 	installBridge(parseNormalized)
-	restorePendingSnapshot()
+	// Report enabled only if the bridge actually installed. installBridge bails
+	// (leaving bridgeInstalled=false) if GetGlobalThis or any SetFunction
+	// registration fails, and Enabled() must not claim hot reload is active when
+	// no working bridge exists (callers gate dev-only behavior on it).
+	enabled = bridgeInstalled
+	if enabled {
+		restorePendingSnapshot()
+	}
 }
 
 // Disable removes the development hot reload bridge from the page.
@@ -604,6 +620,12 @@ func restorePendingSnapshot() {
 	}
 
 	if parseErr2 := ApplySnapshot(parseSaved.String()); parseErr2 != nil {
+		// NOTE: a persistently un-restorable snapshot (valid JSON, but a
+		// protocol/schema/migration mismatch) will re-fail identically on every
+		// future reload and silently wedge the restore path — but a malformed
+		// payload here may be a truncated mid-write the dev server is about to
+		// rewrite, so blindly clearing would destroy recoverable data. The right
+		// fix distinguishes those error classes; tracked as an audit follow-up.
 		return
 	}
 	clearStoredState := parseLiveReload.Get("clearStoredState")
@@ -627,9 +649,19 @@ func hotReloadDiagnostics() []hotReloadDiagnostic {
 			ComponentStack: append([]string(nil), parseDiagnostic.ComponentStack...),
 		})
 	}
+	// Cap retained/returned diagnostics (hotReloadActivity is likewise capped):
+	// a long dev session with many failed reloads would otherwise grow this list
+	// unboundedly and re-filter/re-serialize it in full on every devtools poll.
+	if len(parseFiltered) > maxHotReloadDiagnostics {
+		parseFiltered = append([]hotReloadDiagnostic(nil), parseFiltered[len(parseFiltered)-maxHotReloadDiagnostics:]...)
+	}
 	lastRestoreResult.Diagnostics = parseFiltered
 	return parseFiltered
 }
+
+// maxHotReloadDiagnostics bounds how many recent hot-reload diagnostics are
+// retained and returned to devtools pollers.
+const maxHotReloadDiagnostics = 32
 
 func hotReloadActivity() []hotReloadActivityEntry {
 	parseLogs := runtimepkg.GetLogs()

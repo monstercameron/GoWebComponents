@@ -457,10 +457,27 @@ func buildBinarySourceStructInto(dst []byte, parseValue reflect.Value) ([]byte, 
 	return buildBinarySourceAnyMapInto(dst, parseFieldMap)
 }
 
+// maxBinarySourceValueDepth bounds nesting in a decoded source value. The
+// encoder limits items PER LEVEL but never limited depth, so a crafted
+// deeply-nested list/map payload (≈6 bytes per level) drove the mutually
+// recursive decoders below into a Go stack overflow — a fatal, unrecoverable
+// crash (recover() cannot catch it) reachable from every binary-envelope
+// decode entry point on untrusted worker bytes. Real source graphs are shallow.
+const maxBinarySourceValueDepth = 64
+
 // ParseBinarySourceValue decodes one supported binary source value payload.
 func ParseBinarySourceValue(parsePayload []byte) (any, error) {
+	return parseBinarySourceValueAt(parsePayload, 0)
+}
+
+// parseBinarySourceValueAt is ParseBinarySourceValue with an explicit nesting
+// depth so list/map recursion can be bounded.
+func parseBinarySourceValueAt(parsePayload []byte, parseDepth int) (any, error) {
 	if len(parsePayload) == 0 {
 		return nil, fmt.Errorf("runtime2: binary source value payload is empty")
+	}
+	if parseDepth > maxBinarySourceValueDepth {
+		return nil, fmt.Errorf("runtime2: binary source value nesting exceeds depth limit %d", maxBinarySourceValueDepth)
 	}
 	parseKind := parsePayload[0]
 	switch parseKind {
@@ -486,18 +503,18 @@ func ParseBinarySourceValue(parsePayload []byte) (any, error) {
 		}
 		return string(parsePayload[5 : 5+parseLength]), nil
 	case binarySourceValueKindList:
-		return parseBinarySourceListValue(parsePayload)
+		return parseBinarySourceListValue(parsePayload, parseDepth)
 	case binarySourceValueKindNil:
 		return nil, nil
 	case binarySourceValueKindMap:
-		return parseBinarySourceMapValue(parsePayload)
+		return parseBinarySourceMapValue(parsePayload, parseDepth)
 	default:
 		return nil, fmt.Errorf("runtime2: binary source value kind %d is unsupported", parseKind)
 	}
 }
 
 // parseBinarySourceListValue decodes one list payload from the binary source-value graph.
-func parseBinarySourceListValue(parsePayload []byte) ([]any, error) {
+func parseBinarySourceListValue(parsePayload []byte, parseDepth int) ([]any, error) {
 	if len(parsePayload) < 2 {
 		return nil, fmt.Errorf("runtime2: source-value list payload is truncated")
 	}
@@ -520,7 +537,7 @@ func parseBinarySourceListValue(parsePayload []byte) ([]any, error) {
 				parseRemaining,
 			)
 		}
-		parseItemValue, parseErr := ParseBinarySourceValue(parsePayload[parseOffset : parseOffset+parseItemLength])
+		parseItemValue, parseErr := parseBinarySourceValueAt(parsePayload[parseOffset:parseOffset+parseItemLength], parseDepth+1)
 		if parseErr != nil {
 			return nil, fmt.Errorf("runtime2: decode list item[%d]: %w", parseIndex, parseErr)
 		}
@@ -534,7 +551,7 @@ func parseBinarySourceListValue(parsePayload []byte) ([]any, error) {
 }
 
 // parseBinarySourceMapValue decodes one canonical map payload from the binary source-value graph.
-func parseBinarySourceMapValue(parsePayload []byte) (map[string]any, error) {
+func parseBinarySourceMapValue(parsePayload []byte, parseDepth int) (map[string]any, error) {
 	if len(parsePayload) < 2 {
 		return nil, fmt.Errorf("runtime2: source-value map payload is truncated")
 	}
@@ -578,7 +595,11 @@ func parseBinarySourceMapValue(parsePayload []byte) (map[string]any, error) {
 				parseRemaining,
 			)
 		}
-		parseValue, parseErr := ParseBinarySourceValue(parsePayload[parseOffset : parseOffset+parseValueLength])
+		// Thread the depth counter (parseDepth+1) through the map value like the
+		// list decoder does — calling the public ParseBinarySourceValue here reset
+		// depth to 0, so a map-nested-in-map payload bypassed maxBinarySourceValueDepth
+		// and could stack-overflow the host (unrecoverable) on untrusted worker input.
+		parseValue, parseErr := parseBinarySourceValueAt(parsePayload[parseOffset:parseOffset+parseValueLength], parseDepth+1)
 		if parseErr != nil {
 			return nil, fmt.Errorf("runtime2: decode map value[%d]: %w", parseIndex, parseErr)
 		}

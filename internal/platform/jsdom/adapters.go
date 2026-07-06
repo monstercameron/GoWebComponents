@@ -4,6 +4,7 @@
 package jsdom
 
 import (
+	"fmt"
 	"html"
 	"strings"
 	"syscall/js"
@@ -373,10 +374,12 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 		}
 		parseA.storeTemplate.Set("innerHTML", getHTML)
 		parseNode := parseA.storeTemplateContent.Get("firstChild")
-		if parseNode.IsNull() || parseNode.IsUndefined() {
-			return &WASMDOMNode{value: js.Null()}
+		if !parseNode.IsNull() && !parseNode.IsUndefined() {
+			return &WASMDOMNode{value: parseNode}
 		}
-		return &WASMDOMNode{value: parseNode}
+		// The HTML parser drops some elements from template content (html, head,
+		// body, frame) — fall through to direct createElement instead of handing
+		// the reconciler a null node.
 	}
 	parseNode := parseCreateElement.Invoke(parseTag)
 	if parseNode.IsNull() || parseNode.IsUndefined() {
@@ -660,13 +663,17 @@ func (parseA *WASMDOMAdapter) GetInnerHTML(parseNode runtime.DOMNode) string {
 }
 
 func (parseA *WASMDOMAdapter) SetTextContent(parseNode runtime.DOMNode, parseText string) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	// IsNull is nil-receiver-safe and also covers a null/undefined js.Value: a
+	// typed-nil (*WASMDOMNode) passes the type assertion but nil-derefs on .value,
+	// and .Set on a null/undefined value panics with "not an object". Both crash
+	// the whole app from the render/commit path, so guard before touching JS.
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk && !parseWasmNode.IsNull() {
 		parseWasmNode.value.Set("textContent", parseText)
 	}
 }
 
 func (parseA *WASMDOMAdapter) GetTextContent(parseNode runtime.DOMNode) string {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk && !parseWasmNode.IsNull() {
 		return parseWasmNode.value.Get("textContent").String()
 	}
 	return ""
@@ -879,7 +886,9 @@ func buildHostElementHTMLInto(parseBuilder *strings.Builder, parseTag string, pa
 		parseBuilder.WriteByte(' ')
 		parseBuilder.WriteString(parseAttr.Name)
 		parseBuilder.WriteString(`="`)
-		parseBuilder.WriteString(html.EscapeString(parseAttr.Value))
+		// Same javascript:/vbscript: URL blocking as SetAttribute — the template
+		// fast path must not be the one lane where a hostile href survives.
+		parseBuilder.WriteString(html.EscapeString(runtime.SanitizeURLAttributeValue(parseAttr.Name, parseAttr.Value)))
 		parseBuilder.WriteByte('"')
 	}
 	parseBuilder.WriteByte('>')
@@ -1316,7 +1325,15 @@ func (parseB *WASMBrowserState) OnPopState(parseCallback func(path string)) {
 	parseB.window.Call("addEventListener", "popstate", parseB.popStateHandle)
 }
 
-func (parseB *WASMBrowserState) SetItem(parseKey, parseValue string) error {
+func (parseB *WASMBrowserState) SetItem(parseKey, parseValue string) (getErr error) {
+	// localStorage.setItem throws (quota exceeded, private-mode restrictions);
+	// syscall/js surfaces that as a Go panic — convert it to the error this
+	// method already promises instead of crashing the app on a full store.
+	defer func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			getErr = fmt.Errorf("jsdom: localStorage setItem %q failed: %v", parseKey, parseRecovered)
+		}
+	}()
 	parseStorage := parseB.window.Get("localStorage")
 	if !parseStorage.IsNull() && !parseStorage.IsUndefined() {
 		parseStorage.Call("setItem", parseKey, parseValue)
@@ -1324,7 +1341,13 @@ func (parseB *WASMBrowserState) SetItem(parseKey, parseValue string) error {
 	return nil
 }
 
-func (parseB *WASMBrowserState) GetItem(parseKey string) (string, bool) {
+func (parseB *WASMBrowserState) GetItem(parseKey string) (getValue string, getOK bool) {
+	// getItem can throw under blocked-storage policies; treat that as absent.
+	defer func() {
+		if recover() != nil {
+			getValue, getOK = "", false
+		}
+	}()
 	parseStorage := parseB.window.Get("localStorage")
 	if parseStorage.IsNull() || parseStorage.IsUndefined() {
 		return "", false
@@ -1338,6 +1361,8 @@ func (parseB *WASMBrowserState) GetItem(parseKey string) (string, bool) {
 }
 
 func (parseB *WASMBrowserState) RemoveItem(parseKey string) {
+	// removeItem can throw under blocked-storage policies; removal is best-effort.
+	defer func() { _ = recover() }()
 	parseStorage := parseB.window.Get("localStorage")
 	if !parseStorage.IsNull() && !parseStorage.IsUndefined() {
 		parseStorage.Call("removeItem", parseKey)

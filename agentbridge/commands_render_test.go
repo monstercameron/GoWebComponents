@@ -24,7 +24,7 @@ func TestRenderBuildElementAllowsSafeTreeAndSanitizesAttrs(parseT *testing.T) {
 			Attrs: map[string]string{"href": "/docs"},
 			Text:  "Docs",
 		}},
-	})
+	}, 0, &[]int{renderMaxTreeNodes}[0])
 	if parseErr != nil {
 		parseT.Fatalf("renderBuildElement returned error: %v", parseErr)
 	}
@@ -50,12 +50,36 @@ func TestRenderBuildElementAllowsSafeTreeAndSanitizesAttrs(parseT *testing.T) {
 }
 
 func TestRenderBuildElementRejectsDisallowedTags(parseT *testing.T) {
-	_, parseErr := renderBuildElement(renderTreeNode{Tag: "script", Text: "alert(1)"})
+	_, parseErr := renderBuildElement(renderTreeNode{Tag: "script", Text: "alert(1)"}, 0, &[]int{renderMaxTreeNodes}[0])
 	if parseErr == nil {
 		parseT.Fatal("expected disallowed script tag to fail")
 	}
 	if parseErr.Code != ErrorCodeBadPayload || !strings.Contains(parseErr.Message, "not allowed") {
 		parseT.Fatalf("unexpected disallowed-tag error: %#v", parseErr)
+	}
+}
+
+func TestRenderBuildElementBoundsDepthAndNodeCount(parseT *testing.T) {
+	// Deep nesting past renderMaxTreeDepth must be rejected, not built.
+	parseDeep := renderTreeNode{Tag: "div"}
+	parseCursor := &parseDeep
+	for parseI := 0; parseI < renderMaxTreeDepth+5; parseI++ {
+		parseCursor.Children = []renderTreeNode{{Tag: "div"}}
+		parseCursor = &parseCursor.Children[0]
+	}
+	parseBudget := renderMaxTreeNodes
+	if _, parseErr := renderBuildElement(parseDeep, 0, &parseBudget); parseErr == nil {
+		parseT.Fatal("expected deep tree to exceed the depth limit")
+	}
+
+	// A wide tree whose node count exceeds renderMaxTreeNodes must be rejected.
+	parseWide := renderTreeNode{Tag: "div"}
+	for parseI := 0; parseI < renderMaxTreeNodes+10; parseI++ {
+		parseWide.Children = append(parseWide.Children, renderTreeNode{Tag: "span"})
+	}
+	parseBudget = renderMaxTreeNodes
+	if _, parseErr := renderBuildElement(parseWide, 0, &parseBudget); parseErr == nil {
+		parseT.Fatal("expected wide tree to exceed the node-count limit")
 	}
 }
 

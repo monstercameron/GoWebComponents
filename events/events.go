@@ -28,8 +28,11 @@ type entry struct {
 
 // topicState is the mutable state kept per topic string.
 type topicState struct {
-	mu        sync.Mutex
-	entries   []entry
+	mu      sync.Mutex
+	entries []entry
+	// dead marks a state evicted from the registry by the last unsubscribe;
+	// holders of a stale pointer must retry stateFor instead of using it.
+	dead      bool
 	hasLast   bool
 	lastValue any
 }
@@ -63,7 +66,10 @@ type TopicOption struct {
 
 // WithReplayLast returns a TopicOption that causes a new subscriber to
 // immediately receive the most recently published value on its topic, if any
-// value has been published since the program started.
+// value has been published while the topic had registry state. Note: when the
+// LAST subscriber of a topic unsubscribes the registry entry is cleared
+// (Subscribe's documented contract), which also drops the replay value — a
+// later subscriber replays only values published after it re-created the topic.
 func WithReplayLast() TopicOption {
 	return TopicOption{parseReplayLast: true}
 }
@@ -88,7 +94,6 @@ func Subscribe[T any](parseTopic string, parseHandler func(T)) (parseUnsubscribe
 // UseTopic. parseReplay controls whether the last published value is
 // delivered immediately.
 func subscribeInternal[T any](parseTopic string, parseHandler func(T), parseReplay bool) (parseUnsubscribe func()) {
-	parseState := stateFor(parseTopic)
 	parseID := nextID()
 
 	parseWrapper := func(parseValue any) {
@@ -101,13 +106,26 @@ func subscribeInternal[T any](parseTopic string, parseHandler func(T), parseRepl
 		parseHandler(parseTyped)
 	}
 
-	parseState.mu.Lock()
-	parseState.entries = append(parseState.entries, entry{id: parseID, deliver: parseWrapper})
-	// Capture replay snapshot while holding the lock so we see a consistent
-	// last value.
-	parseDoReplay := parseReplay && parseState.hasLast
-	parseReplayValue := parseState.lastValue
-	parseState.mu.Unlock()
+	var parseState *topicState
+	var parseDoReplay bool
+	var parseReplayValue any
+	for {
+		parseState = stateFor(parseTopic)
+		parseState.mu.Lock()
+		if parseState.dead {
+			// A concurrent last-unsubscribe evicted this state between our
+			// stateFor and the lock; retry against a fresh registry entry.
+			parseState.mu.Unlock()
+			continue
+		}
+		parseState.entries = append(parseState.entries, entry{id: parseID, deliver: parseWrapper})
+		// Capture replay snapshot while holding the lock so we see a consistent
+		// last value.
+		parseDoReplay = parseReplay && parseState.hasLast
+		parseReplayValue = parseState.lastValue
+		parseState.mu.Unlock()
+		break
+	}
 
 	if parseDoReplay {
 		parseWrapper(parseReplayValue)
@@ -123,6 +141,14 @@ func subscribeInternal[T any](parseTopic string, parseHandler func(T), parseRepl
 			}
 		}
 		parseState.entries = parseNext
+		if len(parseState.entries) == 0 && !parseState.dead {
+			// Last subscriber left: clear the registry entry (the documented
+			// contract) so dynamically named topics cannot leak state — and
+			// drop the retained lastValue with it. CompareAndDelete only
+			// removes THIS state, never a fresh one racing in under the topic.
+			parseState.dead = true
+			globalRegistry.CompareAndDelete(parseTopic, parseState)
+		}
 		parseState.mu.Unlock()
 	}
 }
@@ -132,17 +158,24 @@ func subscribeInternal[T any](parseTopic string, parseHandler func(T), parseRepl
 // order. A panicking subscriber is contained; other subscribers still receive
 // the value. Publish is goroutine-safe.
 func Publish[T any](parseTopic string, parseValue T) {
-	parseState := stateFor(parseTopic)
-
-	parseState.mu.Lock()
-	// Record the last value for WithReplayLast subscribers.
-	parseState.hasLast = true
-	parseState.lastValue = parseValue
-	// Snapshot the subscriber list so we release the lock before calling
-	// handlers (handlers may themselves call Subscribe/Publish).
-	parseSnapshot := make([]entry, len(parseState.entries))
-	copy(parseSnapshot, parseState.entries)
-	parseState.mu.Unlock()
+	var parseSnapshot []entry
+	for {
+		parseState := stateFor(parseTopic)
+		parseState.mu.Lock()
+		if parseState.dead {
+			parseState.mu.Unlock()
+			continue
+		}
+		// Record the last value for WithReplayLast subscribers.
+		parseState.hasLast = true
+		parseState.lastValue = parseValue
+		// Snapshot the subscriber list so we release the lock before calling
+		// handlers (handlers may themselves call Subscribe/Publish).
+		parseSnapshot = make([]entry, len(parseState.entries))
+		copy(parseSnapshot, parseState.entries)
+		parseState.mu.Unlock()
+		break
+	}
 
 	for _, parseE := range parseSnapshot {
 		parseE.deliver(parseValue)

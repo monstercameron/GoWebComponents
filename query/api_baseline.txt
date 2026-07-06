@@ -1,7 +1,10 @@
 const StatusError
-const StatusIdle
+const StatusIdle Status
 const StatusLoading
 const StatusSuccess
+func (*Cache) Evict(parseKey string)
+func (*Cache) EvictAll()
+func (*Cache) EvictPrefix(parsePrefix string)
 func (*Cache) Inspect() []EntryInfo
 func (*Cache) Invalidate(parseKey string)
 func (*Cache) InvalidateAll()

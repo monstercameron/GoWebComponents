@@ -282,7 +282,19 @@ func buildSlogValue(parseValue slog.Value) any {
 }
 
 // normalizeLogValue converts one arbitrary value into one JSON-safe logging value.
+// maxLogValueDepth bounds the recursive normalization walk so a cyclic value
+// (e.g. a struct with a parent/self pointer — now that structs are walked) cannot
+// infinite-loop and crash the logger.
+const maxLogValueDepth = 32
+
 func normalizeLogValue(parseValue any) any {
+	return normalizeLogValueDepth(parseValue, 0)
+}
+
+func normalizeLogValueDepth(parseValue any, parseDepth int) any {
+	if parseDepth > maxLogValueDepth {
+		return fmt.Sprint(parseValue)
+	}
 	switch parseTyped := parseValue.(type) {
 	case nil:
 		return nil
@@ -329,13 +341,13 @@ func normalizeLogValue(parseValue any) any {
 	case []any:
 		parseSlice := make([]any, 0, len(parseTyped))
 		for _, parseItem := range parseTyped {
-			parseSlice = append(parseSlice, normalizeLogValue(parseItem))
+			parseSlice = append(parseSlice, normalizeLogValueDepth(parseItem, parseDepth+1))
 		}
 		return parseSlice
 	case map[string]any:
 		parseMap := make(map[string]any, len(parseTyped))
 		for parseFieldKey, parseFieldValue := range parseTyped {
-			parseMap[strings.TrimSpace(parseFieldKey)] = normalizeLogValue(parseFieldValue)
+			parseMap[strings.TrimSpace(parseFieldKey)] = normalizeLogValueDepth(parseFieldValue, parseDepth+1)
 		}
 		return parseMap
 	case map[string]string:
@@ -355,18 +367,20 @@ func normalizeLogValue(parseValue any) any {
 		if parseValueReflect.IsNil() {
 			return nil
 		}
-		return normalizeLogValue(parseValueReflect.Elem().Interface())
+		return normalizeLogValueDepth(parseValueReflect.Elem().Interface(), parseDepth+1)
 	case reflect.Map:
-		return buildMapValue(parseValueReflect)
+		return buildMapValue(parseValueReflect, parseDepth)
 	case reflect.Slice, reflect.Array:
-		return buildSliceValue(parseValueReflect)
+		return buildSliceValue(parseValueReflect, parseDepth)
+	case reflect.Struct:
+		return buildStructValue(parseValueReflect, parseDepth)
 	default:
 		return fmt.Sprint(parseValue)
 	}
 }
 
 // buildMapValue converts one reflected map into one JSON-safe logging object.
-func buildMapValue(parseValue reflect.Value) map[string]any {
+func buildMapValue(parseValue reflect.Value, parseDepth int) map[string]any {
 	if parseValue.Kind() != reflect.Map || (parseValue.Kind() == reflect.Map && parseValue.IsNil()) {
 		return nil
 	}
@@ -376,19 +390,62 @@ func buildMapValue(parseValue reflect.Value) map[string]any {
 		if parseFieldKey == "" {
 			continue
 		}
-		parseMap[parseFieldKey] = normalizeLogValue(parseValue.MapIndex(parseMapKey).Interface())
+		parseMap[parseFieldKey] = normalizeLogValueDepth(parseValue.MapIndex(parseMapKey).Interface(), parseDepth+1)
 	}
 	return parseMap
 }
 
 // buildSliceValue converts one reflected slice or array into one JSON-safe logging array.
-func buildSliceValue(parseValue reflect.Value) []any {
+func buildSliceValue(parseValue reflect.Value, parseDepth int) []any {
 	if (parseValue.Kind() != reflect.Slice && parseValue.Kind() != reflect.Array) || (parseValue.Kind() == reflect.Slice && parseValue.IsNil()) {
 		return nil
 	}
 	parseSlice := make([]any, 0, parseValue.Len())
 	for parseIndex := 0; parseIndex < parseValue.Len(); parseIndex++ {
-		parseSlice = append(parseSlice, normalizeLogValue(parseValue.Index(parseIndex).Interface()))
+		parseSlice = append(parseSlice, normalizeLogValueDepth(parseValue.Index(parseIndex).Interface(), parseDepth+1))
 	}
 	return parseSlice
+}
+
+// buildStructValue walks a struct's EXPORTED fields into a JSON-safe object so
+// downstream telemetry redaction can match sensitive field names (password, token,
+// …). Previously a struct value fell through to fmt.Sprint, which dumped every
+// field value (including unexported ones) into one string that redaction could not
+// decompose — a redaction blind spot AND leakier than this. Unexported fields are
+// skipped (unreadable), json:"-" opts a field out, and the json tag name is honored
+// so keys match how the struct serializes. time.Time/error/fmt.Stringer are handled
+// earlier in normalizeLogValueDepth, so only plain structs reach here.
+func buildStructValue(parseValue reflect.Value, parseDepth int) map[string]any {
+	parseType := parseValue.Type()
+	parseObject := make(map[string]any, parseValue.NumField())
+	for parseIndex := 0; parseIndex < parseValue.NumField(); parseIndex++ {
+		parseField := parseType.Field(parseIndex)
+		if parseField.PkgPath != "" { // unexported field
+			continue
+		}
+		parseName := structFieldLogName(parseField)
+		if parseName == "-" {
+			continue // json:"-" opt-out
+		}
+		parseFieldValue := parseValue.Field(parseIndex)
+		if !parseFieldValue.CanInterface() {
+			continue
+		}
+		parseObject[parseName] = normalizeLogValueDepth(parseFieldValue.Interface(), parseDepth+1)
+	}
+	return parseObject
+}
+
+// structFieldLogName returns the json tag name for a struct field when present,
+// else the Go field name. A tag of "-" is returned verbatim so the caller can skip it.
+func structFieldLogName(parseField reflect.StructField) string {
+	parseTag := strings.TrimSpace(parseField.Tag.Get("json"))
+	if parseTag == "" {
+		return parseField.Name
+	}
+	parseName := strings.TrimSpace(strings.Split(parseTag, ",")[0])
+	if parseName == "" {
+		return parseField.Name
+	}
+	return parseName
 }

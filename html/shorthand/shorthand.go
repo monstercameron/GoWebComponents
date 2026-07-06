@@ -1,7 +1,6 @@
 package shorthand
 
 import (
-	"maps"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v4/html"
@@ -889,15 +888,4 @@ func splitArgs(parseArgs ...any) (Props, []ui.Node) {
 // are merged key-wise with incoming entries overriding base entries.
 func mergeProps(parseBase Props, parseIncoming Props) Props {
 	return html.MergeProps(parseBase, parseIncoming)
-}
-
-// mergeStringMap merges parseIncoming over parseBase without mutating either.
-func mergeStringMap(parseBase map[string]string, parseIncoming map[string]string) map[string]string {
-	if len(parseIncoming) == 0 {
-		return parseBase
-	}
-	parseMerged := make(map[string]string, len(parseBase)+len(parseIncoming))
-	maps.Copy(parseMerged, parseBase)
-	maps.Copy(parseMerged, parseIncoming)
-	return parseMerged
 }

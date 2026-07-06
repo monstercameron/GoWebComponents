@@ -2,8 +2,32 @@ package pwa
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
+
+// TestUpdatePromptApplyCancelsReloadOnSkipWaitingFailure pins that a SkipWaiting
+// failure cancels the reload-on-controllerchange listener Apply just armed —
+// otherwise it leaks (no controllerchange will ever fire to tear it down).
+func TestUpdatePromptApplyCancelsReloadOnSkipWaitingFailure(parseT *testing.T) {
+	parseReloadCancelled := false
+	parseRegistration := ServiceWorkerRegistration{
+		snapshot: func() ServiceWorkerSnapshot { return ServiceWorkerSnapshot{Scope: "/"} },
+		skipWaiting: func(context.Context) error {
+			return errors.New("skip failed")
+		},
+		reloadOnControllerChange: func() (ServiceWorkerSubscription, error) {
+			return ServiceWorkerSubscription{cancel: func() { parseReloadCancelled = true }}, nil
+		},
+	}
+	parsePrompt := NewUpdatePrompt(parseRegistration)
+	if parseErr := parsePrompt.Apply(context.Background()); parseErr == nil {
+		parseT.Fatal("expected Apply to return the SkipWaiting error")
+	}
+	if !parseReloadCancelled {
+		parseT.Fatal("reload subscription leaked: not cancelled after SkipWaiting failure")
+	}
+}
 
 // TestUpdatePromptFlow proves the E3 composite update-prompt flow end to end against a stubbed
 // registration: no update at start, a waiting worker flips Available + fires OnChange, and Apply

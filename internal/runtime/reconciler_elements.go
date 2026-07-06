@@ -629,9 +629,15 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 		}
 		parseNewFiber := acquireWorkInProgress(parseOldFiber)
 		*parseNewFiber = Fiber{
-			typeOf:              parseOldFiber.typeOf,
-			props:               parseOldFiber.props,
-			children:            parseOldFiber.children,
+			typeOf:   parseOldFiber.typeOf,
+			props:    parseOldFiber.props,
+			children: parseOldFiber.children,
+			// key must survive the bailout clone: fast-lane fibers carry their
+			// reconciliation key ONLY here (props is nil), and the keyed
+			// reconciler treats key==""+props==nil as unkeyed — dropping it
+			// destroyed row identity on the next keyed update after a bailout.
+			key:                 parseOldFiber.key,
+			portalUnresolved:    parseOldFiber.portalUnresolved,
 			getHostAttrs:        parseOldFiber.getHostAttrs,
 			textContent:         parseOldFiber.textContent,
 			dom:                 parseOldFiber.dom,

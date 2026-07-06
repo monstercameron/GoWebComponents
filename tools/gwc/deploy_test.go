@@ -96,6 +96,52 @@ func TestRunDeployFilesystemCopiesArtifacts(parseT *testing.T) {
 	}
 }
 
+// TestRunDeployRejectsPathTraversalArtifact pins that a manifest whose artifact
+// path escapes the artifact directory is rejected rather than copied out of tree.
+func TestRunDeployRejectsPathTraversalArtifact(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseArtifactDir := filepath.Join(parseRoot, "bin", "wasm-release")
+	if parseErr := os.MkdirAll(parseArtifactDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir artifact dir: %v", parseErr)
+	}
+	// A file that lives OUTSIDE the artifact dir, which the traversal targets.
+	parseSecretPath := filepath.Join(parseRoot, "secret.txt")
+	if parseErr := os.WriteFile(parseSecretPath, []byte("secret"), 0644); parseErr != nil {
+		parseT.Fatalf("write secret: %v", parseErr)
+	}
+	parseManifest := map[string]any{
+		"package": "example.com/app",
+		"profile": "release",
+		"goos":    "js",
+		"goarch":  "wasm",
+		"artifacts": map[string]any{
+			"wasm": map[string]any{
+				"path":   "../../secret.txt",
+				"bytes":  6,
+				"sha256": "abc",
+			},
+		},
+	}
+	parseManifestBytes, parseEncodeErr := json.MarshalIndent(parseManifest, "", "  ")
+	if parseEncodeErr != nil {
+		parseT.Fatalf("encode manifest fixture: %v", parseEncodeErr)
+	}
+	parseManifestPath := filepath.Join(parseArtifactDir, "wasm-release-manifest.json")
+	if parseErr := os.WriteFile(parseManifestPath, parseManifestBytes, 0644); parseErr != nil {
+		parseT.Fatalf("write release manifest: %v", parseErr)
+	}
+	parseRunErr := (launcher{}).runDeploy([]string{
+		"-root", parseRoot,
+		"-manifest", parseManifestPath,
+		"-adapter", "filesystem",
+		"-target", filepath.Join(parseRoot, "deploy-target"),
+		"-json",
+	})
+	if parseRunErr == nil || !strings.Contains(parseRunErr.Error(), "escapes the artifact directory") {
+		parseT.Fatalf("expected path-traversal rejection, got %v", parseRunErr)
+	}
+}
+
 // TestRunDeployZipCreatesArchive verifies zip adapter packaging behavior.
 func TestRunDeployZipCreatesArchive(parseT *testing.T) {
 	parseRoot := parseT.TempDir()

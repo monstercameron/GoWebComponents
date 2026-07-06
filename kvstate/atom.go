@@ -59,14 +59,18 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 			parseShared.setError(parseLoadErr)
 		} else if parseFound {
 			var parseValue T
-			if parseOpts.Codec.Decode(parseRec.Value, &parseValue) == nil {
+			if parseDecodeErr := parseOpts.Codec.Decode(parseRec.Value, &parseValue); parseDecodeErr == nil {
 				parseShared.setVersion(parseRec.Version)
 				parseAtom.Set(parseValue)
+			} else {
+				// Surface schema drift / corrupted rows: silently keeping the
+				// initial value with Err()==nil hid the failure entirely.
+				parseShared.setError(parseDecodeErr)
 			}
 		}
 		parseShared.setLoading(false)
 
-		subscribeCrossTab(parseOpts.Name, parseKey, func() {
+		parseUnsub := subscribeCrossTab(parseOpts.Name, parseKey, func() {
 			parseRec, parseFound, parseLoadErr := parseEngine.backend.Load(parseCtx, parseKey)
 			if parseLoadErr != nil || !parseFound {
 				return
@@ -76,11 +80,27 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 				return
 			}
 			var parseValue T
-			if parseOpts.Codec.Decode(parseRec.Value, &parseValue) == nil {
+			if parseDecodeErr := parseOpts.Codec.Decode(parseRec.Value, &parseValue); parseDecodeErr == nil {
 				parseShared.setVersion(parseRec.Version)
 				parseAtom.Set(parseValue)
+			} else {
+				parseShared.setError(parseDecodeErr)
 			}
 		})
+
+		// Tear the cross-tab subscription down when the caller cancels the context;
+		// previously the unsubscribe func was discarded, so the subscription (and the
+		// engine/atom it captures) leaked for the lifetime of the process. A
+		// non-cancellable context (Done()==nil, e.g. context.Background) has nothing
+		// to clean up, so skip the watcher goroutine entirely.
+		if parseDone := parseCtx.Done(); parseDone != nil {
+			go func() {
+				<-parseDone
+				parseUnsub()
+			}()
+		} else {
+			_ = parseUnsub
+		}
 	}()
 
 	parseSet := func(parseValue T) {
@@ -89,14 +109,16 @@ func BindAtom[T any](parseCtx context.Context, parseAtom state.Atom[T], parseKey
 		if parseEngine == nil {
 			return
 		}
+		// Claim the version synchronously so concurrent Set calls receive distinct,
+		// call-ordered versions; assigning it inside the goroutine via a non-atomic
+		// getVersion()+1 let two writers claim the same version and clobber each other.
+		parseNextVersion := parseShared.nextVersion()
 		go func() {
 			parseData, parseEncErr := parseOpts.Codec.Encode(parseValue)
 			if parseEncErr != nil {
 				parseShared.setError(parseEncErr)
 				return
 			}
-			parseNextVersion := parseShared.getVersion() + 1
-			parseShared.setVersion(parseNextVersion)
 			parseRec := Record{
 				Key:       parseKey,
 				Value:     parseData,
@@ -151,6 +173,16 @@ func (parseS *boundAtomState) setVersion(parseV int64) {
 func (parseS *boundAtomState) getVersion() int64 {
 	parseS.mu.Lock()
 	defer parseS.mu.Unlock()
+	return parseS.version
+}
+
+// nextVersion atomically increments and returns the version. A getVersion()+1
+// followed by a separate setVersion() let two concurrent writers read the same
+// base and both persist the same version number, silently clobbering one write.
+func (parseS *boundAtomState) nextVersion() int64 {
+	parseS.mu.Lock()
+	defer parseS.mu.Unlock()
+	parseS.version++
 	return parseS.version
 }
 

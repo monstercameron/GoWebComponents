@@ -707,17 +707,10 @@ type uiQueueItem struct {
 	fn func()
 }
 
-var (
-	uiQueue     = make(chan uiQueueItem, 1024)
-	uiQueueInit sync.Once
-)
+var uiQueue = make(chan uiQueueItem, 1024)
 
 // EnqueueUI adds a function to the UI queue for main-thread execution.
 func EnqueueUI(parseFn func()) {
-	uiQueueInit.Do(func() {
-		// Queue is already initialized
-	})
-
 	select {
 	case uiQueue <- uiQueueItem{fn: parseFn}:
 		// Successfully enqueued

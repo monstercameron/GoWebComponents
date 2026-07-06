@@ -15,6 +15,7 @@ type Harness[T any] struct {
 	tb      testing.TB
 	fixture *render.Fixture
 	hook    func() T
+	host    func(hostProps) ui.Node
 	current T
 	tick    int
 	cleaned bool
@@ -30,6 +31,17 @@ func RenderHook[T any](parseTb testing.TB, parseHook func() T) *Harness[T] {
 	parseHarness := &Harness[T]{
 		tb:   parseTb,
 		hook: parseHook,
+	}
+	// Capture the host component function ONCE and reuse the SAME function value
+	// on every render. The reconciler's component identity includes the closure's
+	// captured-environment pointer, so re-declaring the literal inside render()
+	// would make every Rerender a DIFFERENT component type → a full unmount+remount
+	// that wipes all UseState/UseRef/UseReducer state and re-fires mount effects
+	// (a false pass/fail for any state-persistence test). A stable host plus a
+	// changing Tick prop forces an in-place update instead.
+	parseHarness.host = func(_ hostProps) ui.Node {
+		parseHarness.current = parseHarness.hook()
+		return html.Div(html.Props{ID: "hook-host"})
 	}
 	parseHarness.fixture = render.New(parseTb)
 	parseHarness.render()
@@ -81,10 +93,7 @@ func (parseH *Harness[T]) Cleanup() {
 
 func (parseH *Harness[T]) render() {
 	parseH.tick++
-	parseH.fixture.Render(ui.CreateElement(func(_ hostProps) ui.Node {
-		parseH.current = parseH.hook()
-		return html.Div(html.Props{ID: "hook-host"})
-	}, hostProps{Tick: parseH.tick}))
+	parseH.fixture.Render(ui.CreateElement(parseH.host, hostProps{Tick: parseH.tick}))
 }
 
 func (parseH *Harness[T]) requireActive() {

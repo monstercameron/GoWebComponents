@@ -21,7 +21,14 @@ var (
 
 	// nameFirstFlagPattern matches flag definitions whose name is the first
 	// argument: parseFs.String("name", ...), .Bool(...), .Int(...), etc.
-	nameFirstFlagPattern = regexp.MustCompile(`\.(?:String|Bool|Int|Int64|Uint|Duration|Float64)\("([a-z][a-z0-9-]*)"`)
+	nameFirstFlagPattern = regexp.MustCompile(`\.(?:String|Bool|Int|Int64|Uint|Uint64|Duration|Float64)\("([a-z][a-z0-9-]*)"`)
+	// typedVarFlagPattern matches the *Var family — .StringVar(&x, "name", ...),
+	// .BoolVar, .IntVar, .DurationVar, etc. — where the name is the SECOND
+	// argument. \.Var\( does NOT match `.StringVar(` (the char before `Var(` is a
+	// letter, not a dot), so without this the whole *Var family of standard flag
+	// definitions is silently missed: a future -foo defined via StringVar would be
+	// absent from the known set and every doc referencing it flagged as unknown.
+	typedVarFlagPattern = regexp.MustCompile(`\.(?:String|Bool|Int|Int64|Uint|Uint64|Duration|Float64)Var\([^,]+,\s*"([a-z][a-z0-9-]*)"`)
 	// varFlagPattern matches flag.Var(&value, "name", ...), where the flag name
 	// is the SECOND argument (repeatable/custom flags like -lane, -ext).
 	varFlagPattern = regexp.MustCompile(`\.Var\([^,]+,\s*"([a-z][a-z0-9-]*)"`)
@@ -55,6 +62,9 @@ func ExtractKnownGwcFlags(parseGwcDir string) (map[string]bool, error) {
 		}
 		parseSource := string(parseData)
 		for _, parseMatch := range nameFirstFlagPattern.FindAllStringSubmatch(parseSource, -1) {
+			parseKnown[parseMatch[1]] = true
+		}
+		for _, parseMatch := range typedVarFlagPattern.FindAllStringSubmatch(parseSource, -1) {
 			parseKnown[parseMatch[1]] = true
 		}
 		for _, parseMatch := range varFlagPattern.FindAllStringSubmatch(parseSource, -1) {

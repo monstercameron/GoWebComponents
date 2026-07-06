@@ -96,7 +96,8 @@ func TestRenderDetachedResolvesSelectorAndReusesRuntime(parseT *testing.T) {
 		parseT.Fatal("detached runtime should share global adapters")
 	}
 
-	if parseErr := RenderDetached("#agent", nil); parseErr != nil {
+	// Re-rendering the same selector reuses the registered runtime.
+	if parseErr := RenderDetached("#agent", CreateElement("div", map[string]any{"id": "overlay2"})); parseErr != nil {
 		parseT.Fatalf("RenderDetached second call error = %v", parseErr)
 	}
 	detachedRuntimeMu.Lock()
@@ -115,6 +116,20 @@ func TestRenderDetachedResolvesSelectorAndReusesRuntime(parseT *testing.T) {
 	detachedRuntimeMu.Unlock()
 	if parseOther == nil || parseOther == parseFirst || parseCountAfterOther != 2 {
 		parseT.Fatalf("different selectors should get isolated runtimes: first=%p other=%p count=%d", parseFirst, parseOther, parseCountAfterOther)
+	}
+
+	// A nil element clears the container AND evicts the registry entry — the
+	// registry is keyed by agent-supplied selectors and must not accumulate
+	// one Runtime per selector ever unmounted.
+	if parseErr := RenderDetached("#agent", nil); parseErr != nil {
+		parseT.Fatalf("RenderDetached clear call error = %v", parseErr)
+	}
+	detachedRuntimeMu.Lock()
+	_, parseStillRegistered := detachedRuntimes["#agent"]
+	parseCountAfterClear := len(detachedRuntimes)
+	detachedRuntimeMu.Unlock()
+	if parseStillRegistered || parseCountAfterClear != 1 {
+		parseT.Fatalf("clearing a detached mount should evict its registry entry: registered=%t count=%d", parseStillRegistered, parseCountAfterClear)
 	}
 }
 

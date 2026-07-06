@@ -195,6 +195,13 @@ func serializeMountSubtree(parseFiber *Fiber, parseBuilder *strings.Builder, par
 	if !parseOk || parseTag == "TEXT_ELEMENT" || parseTag == "FRAGMENT" {
 		return false
 	}
+	// The tag is written raw into the parsed HTML string; anything outside the
+	// conservative tag alphabet would break the positional bind zip (or, with
+	// a hostile name, inject markup). Mirrors jsdom's CreatePreparedElement
+	// guard, which this path bypasses.
+	if !isSafeSerializedMountTag(parseTag) {
+		return false
+	}
 	if _, isSVG := serializedMountSVGTags[strings.ToLower(parseTag)]; isSVG {
 		return false
 	}
@@ -244,6 +251,26 @@ func serializeMountSubtree(parseFiber *Fiber, parseBuilder *strings.Builder, par
 	parseBuilder.WriteString("</")
 	parseBuilder.WriteString(parseTag)
 	parseBuilder.WriteByte('>')
+	return true
+}
+
+// isSafeSerializedMountTag reports whether one tag name can round-trip through
+// a serialized HTML parse without escaping (letters, digits, hyphen).
+func isSafeSerializedMountTag(parseTag string) bool {
+	if parseTag == "" {
+		return false
+	}
+	for parseIndex := 0; parseIndex < len(parseTag); parseIndex++ {
+		parseC := parseTag[parseIndex]
+		switch {
+		case parseC >= 'a' && parseC <= 'z':
+		case parseC >= 'A' && parseC <= 'Z':
+		case parseC >= '0' && parseC <= '9':
+		case parseC == '-':
+		default:
+			return false
+		}
+	}
 	return true
 }
 

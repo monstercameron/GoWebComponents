@@ -631,6 +631,28 @@ func TestNonLoopbackRemoteAddrRefused(parseT *testing.T) {
 	}
 }
 
+// TestCrossOriginAPIRequestRefused pins that a valid-token, loopback API request
+// is still rejected when it carries a cross-origin Origin header — defense-in-depth
+// parity with the WebSocket upgrade path.
+func TestCrossOriginAPIRequestRefused(parseT *testing.T) {
+	parseHub, parseServer := newTestHub(parseT)
+
+	parseReq, parseErr := http.NewRequest(http.MethodPost, parseServer.URL+"/__gwc-agent/command?token="+parseHub.Token(), strings.NewReader(`{"name":"x"}`))
+	if parseErr != nil {
+		parseT.Fatalf("new request: %v", parseErr)
+	}
+	parseReq.Header.Set("Origin", "https://evil.example")
+	parseReq.Header.Set("Content-Type", "application/json")
+	parseResp, parseDoErr := http.DefaultClient.Do(parseReq)
+	if parseDoErr != nil {
+		parseT.Fatalf("do request: %v", parseDoErr)
+	}
+	defer parseResp.Body.Close()
+	if parseResp.StatusCode != http.StatusForbidden {
+		parseT.Fatalf("expected 403 for cross-origin API request, got %d", parseResp.StatusCode)
+	}
+}
+
 // --- extra: RouteAgentHub wires the hub into a mux ---
 
 func TestRouteAgentHubRegistersEndpoint(parseT *testing.T) {

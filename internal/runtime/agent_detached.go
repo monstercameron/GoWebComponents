@@ -32,6 +32,17 @@ func RenderDetached(parseSelector string, parseElement *Element) error {
 
 	detachedRuntimeMu.Lock()
 	parseRt, parseOK := detachedRuntimes[parseSelector]
+	if parseElement == nil {
+		// A nil element clears the container AND evicts the registry entry:
+		// the registry is keyed by agent-supplied selectors, so keeping one
+		// full Runtime alive per selector ever unmounted grows without bound.
+		delete(detachedRuntimes, parseSelector)
+		detachedRuntimeMu.Unlock()
+		if parseOK {
+			parseRt.Render(nil, parseContainer)
+		}
+		return nil
+	}
 	if !parseOK {
 		parseRt = NewRuntime(Config{
 			DOMAdapter:   parseGlobal.domAdapter,

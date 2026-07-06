@@ -1577,6 +1577,12 @@ func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
 	if parseEffectCount == 0 {
 		return
 	}
+	// Consume the queue: effects run exactly once. A bailout-reused fiber keeps
+	// its Fiber object across commits, and the full-tree runEffects fallback
+	// (taken whenever a pass queues no effects) would otherwise re-execute every
+	// stale queued effect on it — re-firing mount effects on unrelated updates
+	// and overwriting their cleanups without calling them.
+	defer func() { parseFiber.effects = parseFiber.effects[:0] }()
 
 	parseHasLayout := false
 	for parseI := range parseEffects {

@@ -903,6 +903,11 @@ func fastEqual(parseA, parseB any) bool {
 		}
 	case float64:
 		if parseVb4, parseOk4 := parseB.(float64); parseOk4 {
+			// Object.is semantics: treat NaN as equal to NaN, else a NaN dep makes
+			// areDepsEqual report "changed" every render and re-runs forever.
+			if parseVa != parseVa && parseVb4 != parseVb4 {
+				return true
+			}
 			return parseVa == parseVb4
 		}
 	case int64:
@@ -911,6 +916,9 @@ func fastEqual(parseA, parseB any) bool {
 		}
 	case float32:
 		if parseVb6, parseOk6 := parseB.(float32); parseOk6 {
+			if parseVa != parseVa && parseVb6 != parseVb6 {
+				return true
+			}
 			return parseVa == parseVb6
 		}
 	case int32:

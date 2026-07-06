@@ -509,7 +509,18 @@ func (parseKernel *Kernel) appendDiagnostic(parsePluginID string, parseOperation
 		When:      time.Now().UTC(),
 		Report:    buildReport,
 	})
+	// Bound the diagnostic log: a long-lived process that repeatedly boots/closes
+	// kernels (hot-reload, dev plugin reload) would otherwise grow getEvents —
+	// each carrying a full diagnostics.Report — forever. Keep the most recent
+	// window; copy to a fresh slice so dropped entries' backing array is freed.
+	if len(parseKernel.getEvents) > maxKernelDiagnostics {
+		parseKernel.getEvents = append([]PluginDiagnostic(nil), parseKernel.getEvents[len(parseKernel.getEvents)-maxKernelDiagnostics:]...)
+	}
 }
+
+// maxKernelDiagnostics caps how many recent plugin diagnostic events the kernel
+// retains, so the log cannot grow without bound over a long-lived process.
+const maxKernelDiagnostics = 512
 
 // storeHealth writes one health report snapshot.
 func (parseKernel *Kernel) storeHealth(parsePluginID string, parseState HealthState, parseReason HealthReason, parseMessage string, parseErrorCount int) {

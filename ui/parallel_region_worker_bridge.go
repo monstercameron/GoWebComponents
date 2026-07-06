@@ -251,6 +251,18 @@ func buildParallelRegionWorkerNodeOutput(parseNode Node) (any, error) {
 			if parseChildrenErr != nil {
 				return nil, parseChildrenErr
 			}
+			// Direct-text fast lane: internal/runtime folds a host element's single
+			// plain-text child onto Element.TextContent, leaving Children EMPTY. If we
+			// only read .Children the text is silently dropped from the worker
+			// RenderIR — so a <div>{label}</div> region's text never appears and text
+			// changes never diff into a patch (the root cause of #40). Re-materialize
+			// it as a synthetic text child.
+			if len(parseChildrenOutput) == 0 && parseNode.TextContent != "" {
+				parseChildrenOutput = []any{map[string]any{
+					"kind": "text",
+					"text": parseNode.TextContent,
+				}}
+			}
 			parseElementOutput := map[string]any{
 				"kind": "host-element",
 				"tag":  getNodeType,

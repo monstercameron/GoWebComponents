@@ -210,3 +210,26 @@ func parseFormatRenderStyleScalarLegacy(parseRaw any) (string, error) {
 		return "", fmt.Errorf("unsupported nested style shape %T", parseRaw)
 	}
 }
+
+// TestFormatRenderStyleMapRejectsInjection pins that a map-form style value
+// cannot smuggle extra CSS declarations via ';' '{' '}' or control bytes.
+func TestFormatRenderStyleMapRejectsInjection(parseT *testing.T) {
+	parseCases := []map[string]any{
+		{"color": "red; position:fixed; top:0"},
+		{"color": "red} .evil{color:blue"},
+		{"color": "red\n; opacity:0"},
+	}
+	for parseIndex, parseCase := range parseCases {
+		if _, parseErr := FormatRenderStyleValue(parseCase); parseErr == nil {
+			parseT.Fatalf("case %d: expected injection rejection, got nil error", parseIndex)
+		}
+	}
+	// A clean value still formats.
+	parseOut, parseErr := FormatRenderStyleValue(map[string]any{"color": "red", "opacity": "0.5"})
+	if parseErr != nil {
+		parseT.Fatalf("clean style rejected: %v", parseErr)
+	}
+	if parseOut != "color:red;opacity:0.5" {
+		parseT.Fatalf("unexpected clean style output %q", parseOut)
+	}
+}

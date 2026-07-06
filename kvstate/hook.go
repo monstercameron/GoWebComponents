@@ -59,9 +59,13 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseOptions ...O
 					parseErrState.Set(parseLoadErr)
 				} else if parseFound {
 					var parseValue T
-					if parseEngine != nil && parseOpts.Codec.Decode(parseRec.Value, &parseValue) == nil {
+					if parseDecodeErr := parseOpts.Codec.Decode(parseRec.Value, &parseValue); parseDecodeErr == nil {
 						parseVersionRef.Set(parseRec.Version)
 						parseValState.Set(parseValue)
+					} else {
+						// Surface schema drift / corrupted rows instead of
+						// silently keeping the initial value with Err()==nil.
+						parseErrState.Set(parseDecodeErr)
 					}
 				}
 			}
@@ -79,9 +83,11 @@ func UsePersistedState[T any](parseKey string, parseInitial T, parseOptions ...O
 					return // local wins; ignore the incoming write
 				}
 				var parseValue T
-				if parseOpts.Codec.Decode(parseRec.Value, &parseValue) == nil {
+				if parseDecodeErr := parseOpts.Codec.Decode(parseRec.Value, &parseValue); parseDecodeErr == nil {
 					parseVersionRef.Set(parseRec.Version)
 					parseValState.Set(parseValue)
+				} else {
+					parseErrState.Set(parseDecodeErr)
 				}
 			})
 		}()

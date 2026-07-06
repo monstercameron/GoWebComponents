@@ -191,11 +191,9 @@ func ResolveWorkspaceBuildRoot(parseRootPath string, parseFs FS) (string, error)
 	}
 	parseCleaned := filepath.Clean(strings.TrimSpace(parseRootPath))
 	if parseCleaned == "" || parseCleaned == "." {
-		parseCleaned = "bin"
-		if filepath.IsAbs(parseCleaned) {
-			return parseCleaned, nil
-		}
-		parseResolved, parseResolveErr := filepath.Abs(parseCleaned)
+		// The literal "bin" is never absolute, so the previous IsAbs branch here
+		// was dead code; resolve it against the working directory directly.
+		parseResolved, parseResolveErr := filepath.Abs("bin")
 		if parseResolveErr != nil {
 			return "", parseResolveErr
 		}
@@ -222,7 +220,9 @@ func GetArtifactNamespace(parseRootPath string) string {
 		return "workspace"
 	}
 	parseBase := filepath.Base(parseCleaned)
-	if parseBase == "" || parseBase == "." || parseBase == string(filepath.Separator) {
+	if parseBase == "" || parseBase == "." || parseBase == ".." || parseBase == string(filepath.Separator) {
+		// A ".." base would make ResolveArtifactPath's filepath.Join collapse a
+		// level and resolve artifacts outside the intended root — fall back.
 		return "workspace"
 	}
 	return parseBase

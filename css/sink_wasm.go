@@ -2,7 +2,10 @@
 
 package css
 
-import "syscall/js"
+import (
+	"sync"
+	"syscall/js"
+)
 
 // defaultSink returns the build's default emission sink. On the wasm build it is
 // the DOM sink that appends rules to a single managed <style> element in <head>.
@@ -17,6 +20,12 @@ const styleElementID = "gwc-css"
 // registry), DOM-only, and a no-op when no document is present (e.g. a worker or
 // the node-based wasm test runner) so it degrades gracefully.
 type domSink struct {
+	// mu guards the read-modify-write of the <style> element's textContent and
+	// the lazy style-element cache. registerAndEmit releases the registry lock
+	// before calling Emit, so without this two goroutines emitting concurrently
+	// (an async handler re-rendering during another render) could lose one
+	// goroutine's CSS or create duplicate <style> elements. Mirrors bufferSink.
+	mu    sync.Mutex
 	style js.Value // cached <style> element, set on first Emit
 }
 
@@ -48,6 +57,8 @@ func (s *domSink) styleElement() js.Value {
 }
 
 func (s *domSink) Emit(parseClass string, parseCSS string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	style := s.styleElement()
 	if !style.Truthy() {
 		return // no DOM (worker/test host) — nothing to inject into.

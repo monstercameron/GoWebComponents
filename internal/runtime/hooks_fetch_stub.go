@@ -18,7 +18,5 @@ var unsupportedFetchRefetch = func() {}
 func GoUseFetch(parseFetchURL string, parseFetchOptions ...any) (func() FetchState, func()) {
 	_ = parseFetchURL
 	_ = parseFetchOptions
-	parseFetch := fetchValue{}
-	_ = parseFetch.fiber
 	return unsupportedFetchGetter, unsupportedFetchRefetch
 }

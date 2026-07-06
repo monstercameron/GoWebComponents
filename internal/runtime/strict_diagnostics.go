@@ -29,9 +29,10 @@ func ConfigureStrictDiagnostics(parseOptions StrictDiagnosticsOptions) {
 	parseOptions.Codes = append([]string(nil), parseOptions.Codes...)
 	parseOptions.Sources = append([]string(nil), parseOptions.Sources...)
 	parseOptions.Classifications = append([]DiagnosticClassification(nil), parseOptions.Classifications...)
-	if !parseOptions.RecoverableOnly {
-		parseOptions.RecoverableOnly = true
-	}
+	// RecoverableOnly is stored exactly as the caller set it. The old
+	// `if !RecoverableOnly { RecoverableOnly = true }` coercion made false
+	// unexpressible — escalate-everything mode silently behaved as
+	// recoverable-only for every caller who asked for it.
 	strictDiagnosticsState.options = parseOptions
 }
 

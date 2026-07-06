@@ -97,6 +97,14 @@ func controlHandleWaitFor(parsePayload json.RawMessage) (json.RawMessage, *Envel
 	if parseTimeout <= 0 {
 		parseTimeout = 250 * time.Millisecond
 	}
+	// Clamp to a ceiling: RunLoop dispatches commands synchronously on the
+	// connection's single read/write goroutine, so an agent-supplied huge
+	// timeoutMs would busy-wait here and block every other frame on the
+	// session for that whole duration — a self-inflicted bridge DoS.
+	const controlWaitForMaxTimeout = 30 * time.Second
+	if parseTimeout > controlWaitForMaxTimeout {
+		parseTimeout = controlWaitForMaxTimeout
+	}
 	parseDeadline := time.Now().Add(parseTimeout)
 	parseRt := runtime.GetGlobalRuntime()
 	for {

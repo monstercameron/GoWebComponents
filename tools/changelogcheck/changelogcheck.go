@@ -40,34 +40,22 @@ func HasEntry(parseChangelog string, parseVersion string) bool {
 	return false
 }
 
-// containsVersionToken reports whether parseHeader contains parseTarget as a
-// whole version token. The header may use formats like "v3.0.46",
-// "3.0.46 - 2026-06-12", or "[3.0.46]".
+// containsVersionToken reports whether parseTarget is parseHeader's LEADING
+// version identifier. The header may use formats like "v3.0.46",
+// "3.0.46 - 2026-06-12", or "[3.0.46]". The version must be the header's primary
+// identifier — NOT merely mentioned somewhere in prose: "## Migration notes for
+// 3.0.46 users" must not satisfy a release gate for 3.0.46.
 func containsVersionToken(parseHeader string, parseTarget string) bool {
-	// Scan through the header looking for the target string; when found, check
-	// that it is not immediately surrounded by version-number characters so we
-	// do not match "3.0.4" inside "3.0.46".
-	parseLower := parseHeader
-	parseSearch := parseTarget
-	parseIdx := 0
-	for {
-		parsePos := strings.Index(parseLower[parseIdx:], parseSearch)
-		if parsePos < 0 {
-			return false
-		}
-		parseAbsPos := parseIdx + parsePos
-		parseEnd := parseAbsPos + len(parseSearch)
-
-		// Check left boundary: must not be preceded by a version-number character.
-		parseLBoundOK := parseAbsPos == 0 || !isVersionChar(parseLower[parseAbsPos-1])
-		// Check right boundary: must not be followed by a version-number character.
-		parseRBoundOK := parseEnd >= len(parseLower) || !isVersionChar(parseLower[parseEnd])
-
-		if parseLBoundOK && parseRBoundOK {
-			return true
-		}
-		parseIdx = parseAbsPos + 1
+	// Strip a leading run of wrapper/prefix characters ('[', 'v'/'V', whitespace)
+	// so "[3.0.46]", "v3.0.46", and "3.0.46 - date" all anchor on the number.
+	parseAnchored := strings.TrimLeft(parseHeader, " \t[vV")
+	if !strings.HasPrefix(parseAnchored, parseTarget) {
+		return false
 	}
+	// The token must end here, not be a prefix of a longer version (3.0.46 in
+	// 3.0.461).
+	parseEnd := len(parseTarget)
+	return parseEnd >= len(parseAnchored) || !isVersionChar(parseAnchored[parseEnd])
 }
 
 // isVersionChar reports whether b is a digit or a dot, which are the characters

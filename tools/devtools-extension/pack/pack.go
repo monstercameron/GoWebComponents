@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // packagedFiles is the allow-list of extension source files that ship in the package. Docs,
@@ -50,6 +51,11 @@ func PackageExtension(parseSrcDir string, parseOutPath string) (string, error) {
 	if parseErr != nil {
 		return "", parseErr
 	}
+	if !isPathSafeVersion(parseVersion) {
+		// The version is concatenated into the output file path; a value with a
+		// path separator or ".." would write the archive outside dist/.
+		return "", fmt.Errorf("manifest.json version %q is not a safe path token", parseVersion)
+	}
 	if parseOutPath == "" {
 		parseOutPath = filepath.Join(parseSrcDir, "dist", "gwc-devtools-"+parseVersion+".zip")
 	}
@@ -57,13 +63,20 @@ func PackageExtension(parseSrcDir string, parseOutPath string) (string, error) {
 		return "", fmt.Errorf("create dist dir: %w", parseErr)
 	}
 
-	parseFile, parseErr := os.Create(parseOutPath)
+	// Write to a temp file and rename into place only on full success, so a
+	// mid-package failure (a missing source file) cannot truncate/replace a
+	// previously-good artifact at parseOutPath.
+	parseTemp, parseErr := os.CreateTemp(filepath.Dir(parseOutPath), filepath.Base(parseOutPath)+".*.tmp")
 	if parseErr != nil {
-		return "", fmt.Errorf("create archive: %w", parseErr)
+		return "", fmt.Errorf("create archive temp: %w", parseErr)
 	}
-	defer parseFile.Close()
+	parseTempPath := parseTemp.Name()
+	defer func() {
+		_ = parseTemp.Close()
+		_ = os.Remove(parseTempPath)
+	}()
 
-	parseZip := zip.NewWriter(parseFile)
+	parseZip := zip.NewWriter(parseTemp)
 	for _, parseName := range packagedFiles {
 		if parseErr := addFileToZip(parseZip, parseSrcDir, parseName); parseErr != nil {
 			_ = parseZip.Close()
@@ -73,7 +86,25 @@ func PackageExtension(parseSrcDir string, parseOutPath string) (string, error) {
 	if parseErr := parseZip.Close(); parseErr != nil {
 		return "", fmt.Errorf("finalize archive: %w", parseErr)
 	}
+	if parseErr := parseTemp.Close(); parseErr != nil {
+		return "", fmt.Errorf("close archive temp: %w", parseErr)
+	}
+	if parseErr := os.Rename(parseTempPath, parseOutPath); parseErr != nil {
+		return "", fmt.Errorf("finalize archive path: %w", parseErr)
+	}
 	return parseOutPath, nil
+}
+
+// isPathSafeVersion reports whether a manifest version is safe to embed in a
+// file path: non-empty and free of path separators and ".." segments.
+func isPathSafeVersion(parseVersion string) bool {
+	if parseVersion == "" {
+		return false
+	}
+	if strings.ContainsAny(parseVersion, `/\`) || strings.Contains(parseVersion, "..") {
+		return false
+	}
+	return true
 }
 
 // readManifestVersion validates the manifest is JSON and returns its version field.

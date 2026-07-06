@@ -19,19 +19,49 @@ func El(parseTag string) Selector { return Selector(parseTag) }
 // full type-safety: css.SheetRef(titleSheet) -> ".c-abc".
 func SheetRef(parseSheet Sheet) Selector { return Selector("." + string(parseSheet)) }
 
+// cssStringEscape escapes a value for safe embedding inside a double-quoted CSS
+// string (attribute-selector value), so it cannot break out of the quotes.
+func cssStringEscape(parseValue string) string {
+	parseValue = strings.ReplaceAll(parseValue, "\\", "\\\\")
+	parseValue = strings.ReplaceAll(parseValue, "\"", "\\\"")
+	return parseValue
+}
+
+// cssIdentSanitize keeps only CSS-identifier-safe runes so a name cannot
+// restructure the selector (']', '{', '}', whitespace, etc. are dropped). parseExtra
+// lists additional allowed runes (e.g. ":" for namespaced attribute names).
+func cssIdentSanitize(parseName, parseExtra string) string {
+	var parseBuf strings.Builder
+	for _, parseR := range parseName {
+		switch {
+		case parseR >= 'a' && parseR <= 'z', parseR >= 'A' && parseR <= 'Z',
+			parseR >= '0' && parseR <= '9', parseR == '-', parseR == '_':
+			parseBuf.WriteRune(parseR)
+		case parseExtra != "" && strings.ContainsRune(parseExtra, parseR):
+			parseBuf.WriteRune(parseR)
+		}
+	}
+	return parseBuf.String()
+}
+
 // ClassSel targets a literal class name (interop with existing string classes):
-// css.ClassSel("title") -> ".title".
+// css.ClassSel("title") -> ".title". The name is sanitized to CSS-identifier-safe
+// characters so it cannot inject additional selector/rule text.
 func ClassSel(parseName string) Selector {
-	return Selector("." + strings.TrimPrefix(parseName, "."))
+	return Selector("." + cssIdentSanitize(strings.TrimPrefix(parseName, "."), ""))
 }
 
 // AttrSel targets an attribute-presence selector: css.AttrSel("data-open") -> "[data-open]".
-func AttrSel(parseName string) Selector { return Selector("[" + parseName + "]") }
+// The attribute name is sanitized to CSS-identifier-safe characters.
+func AttrSel(parseName string) Selector {
+	return Selector("[" + cssIdentSanitize(parseName, ":") + "]")
+}
 
 // AttrEq targets an attribute-equals selector: css.AttrEq("type","submit") ->
-// `[type="submit"]`.
+// `[type="submit"]`. The name is sanitized and the value is string-escaped so a
+// crafted value cannot break out of the quotes and inject a live global rule.
 func AttrEq(parseName, parseValue string) Selector {
-	return Selector("[" + parseName + "=\"" + parseValue + "\"]")
+	return Selector("[" + cssIdentSanitize(parseName, ":") + "=\"" + cssStringEscape(parseValue) + "\"]")
 }
 
 // Sel is the explicit selector-template escape hatch for a fragment the typed

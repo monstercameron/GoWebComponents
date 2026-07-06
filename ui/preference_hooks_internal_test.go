@@ -2,10 +2,23 @@ package ui
 
 import (
 	"errors"
+	goruntime "runtime"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/v4/interop"
 )
+
+// skipHookCallOutsideComponentOnWasm skips tests that invoke Use* hooks at
+// test top level: hooks outside a component panic by contract on the wasm
+// build (native stubs mask it), and this environment has no DOM to mount
+// into. The selection logic under test is platform-independent, so the
+// native run carries the coverage.
+func skipHookCallOutsideComponentOnWasm(t *testing.T) {
+	t.Helper()
+	if goruntime.GOOS == "js" {
+		t.Skip("Use* hooks are illegal outside a component on the wasm build; covered natively")
+	}
+}
 
 type fakeMediaQuerySource struct {
 	parseMatches bool
@@ -45,6 +58,7 @@ func (parseS *fakeBoolState) Set(parseValue bool) {
 }
 
 func TestPreferenceHooksUnavailableDefaults(t *testing.T) {
+	skipHookCallOutsideComponentOnWasm(t)
 	withFakeMediaQuerySource(t, nil, errors.New("media unavailable"))
 	if currentMediaMatch(prefersDarkSchemeQuery) {
 		t.Fatal("currentMediaMatch unavailable = true, want false")
@@ -58,6 +72,7 @@ func TestPreferenceHooksUnavailableDefaults(t *testing.T) {
 }
 
 func TestPreferenceHooksReadCurrentMatches(t *testing.T) {
+	skipHookCallOutsideComponentOnWasm(t)
 	parseSource := &fakeMediaQuerySource{parseMatches: true}
 	withFakeMediaQuerySource(t, parseSource, nil)
 	if !currentMediaMatch(prefersReducedMotionQuery) {

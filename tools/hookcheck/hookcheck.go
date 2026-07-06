@@ -151,8 +151,12 @@ func CheckDir(parseRoot string) ([]Finding, error) {
 		}
 		parseFileFindings, parseCheckErr := CheckSource(parsePath, parseSrc)
 		if parseCheckErr != nil {
-			// Skip files that don't parse (e.g. build-tagged stubs); they are not
-			// the analyzer's concern.
+			// A syntactically valid file always parses (go/parser ignores build
+			// constraints — they're comments), so this branch means a genuine
+			// syntax error. Surface it to stderr instead of silently dropping the
+			// file, which would be a blind spot (a hook violation in a file that
+			// also has a typo would go unreported).
+			fmt.Fprintf(os.Stderr, "hookcheck: skipping unparseable %s: %v\n", parsePath, parseCheckErr)
 			return nil
 		}
 		parseFindings = append(parseFindings, parseFileFindings...)

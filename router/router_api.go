@@ -445,10 +445,9 @@ func getCurrentQueryValues() url.Values {
 		return url.Values{}
 	}
 
-	parseValues, parseErr := url.ParseQuery(parseRaw)
-	if parseErr != nil {
-		return url.Values{}
-	}
+	// url.ParseQuery returns partial results plus an error — keep the valid params
+	// instead of discarding them all when one param is malformed.
+	parseValues, _ := url.ParseQuery(parseRaw)
 	return parseValues
 }
 

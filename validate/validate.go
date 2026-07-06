@@ -420,7 +420,24 @@ func isZero(parseValue reflect.Value) bool {
 
 // measureLen returns the length used by min/max/len for the value: rune count for
 // strings, element count for slices/maps/arrays, else -1.
+// derefValidateValue follows pointers/interfaces to the concrete value so numeric/
+// length rules apply to *int, *float64, etc. A nil pointer yields an invalid Value
+// (rule skips — an unset optional field is handled by `required`, not min/max/gte).
+func derefValidateValue(parseValue reflect.Value) reflect.Value {
+	for parseValue.IsValid() && (parseValue.Kind() == reflect.Pointer || parseValue.Kind() == reflect.Interface) {
+		if parseValue.IsNil() {
+			return reflect.Value{}
+		}
+		parseValue = parseValue.Elem()
+	}
+	return parseValue
+}
+
 func measureLen(parseValue reflect.Value) int {
+	parseValue = derefValidateValue(parseValue)
+	if !parseValue.IsValid() {
+		return -1
+	}
 	switch parseValue.Kind() {
 	case reflect.String:
 		return len([]rune(parseValue.String()))
@@ -466,6 +483,10 @@ func measureMessage(parseValue reflect.Value, parseBound, parseArg string) strin
 }
 
 func numericValue(parseValue reflect.Value) (float64, bool) {
+	parseValue = derefValidateValue(parseValue)
+	if !parseValue.IsValid() {
+		return 0, false
+	}
 	switch parseValue.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return float64(parseValue.Int()), true

@@ -82,6 +82,11 @@ func subscribeCrossTab(parseName, parseKey string, parseOnChange func()) func() 
 	return func() {
 		parseHub.mu.Lock()
 		delete(parseHub.subs[parseKey], parseID)
+		// Drop the empty inner map too: keys can be dynamic, and the empty
+		// husks otherwise accumulate for the hub's lifetime.
+		if len(parseHub.subs[parseKey]) == 0 {
+			delete(parseHub.subs, parseKey)
+		}
 		parseHub.mu.Unlock()
 	}
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"syscall/js"
 	"time"
+
+	gwcruntime "github.com/monstercameron/GoWebComponents/v4/internal/runtime"
 )
 
 // buildWebSocketInitialState returns the browser WebSocket initial state.
@@ -173,6 +175,11 @@ func (parseT *realtimeBrowserTransport) close() (parseErr error) {
 // addListener registers one browser event callback.
 func (parseT *realtimeBrowserTransport) addListener(parseName string, parseHandler func(js.Value)) {
 	parseFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		// Contain panics: parseHandler runs handleMessage/handleError etc. which
+		// drive a re-render. A panic on a malformed server message (or any bug
+		// downstream) would otherwise escape the JS bridge and kill the page on
+		// every socket event.
+		defer gwcruntime.RecoverContainedPanic("fetch", "realtime "+parseName)
 		parseEvent := js.Undefined()
 		if len(parseArgs) > 0 {
 			parseEvent = parseArgs[0]

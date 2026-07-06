@@ -34,12 +34,20 @@ const (
 const attrBatchHelperScript = `(() => {
 	if (window.__gwcAttrNid) { return; }
 	const reg = [null];
+	const free = [];
+	const fin = (typeof FinalizationRegistry === "function")
+		? new FinalizationRegistry((id) => {
+			const ref = reg[id];
+			if (ref && !ref.deref()) { reg[id] = null; free.push(id); }
+		})
+		: null;
 	window.__gwcAttrNid = (el) => {
 		let id = el.__gwcAttrId;
 		if (id === undefined) {
-			id = reg.length;
-			reg.push(new WeakRef(el));
+			id = free.length ? free.pop() : reg.length;
+			reg[id] = new WeakRef(el);
 			el.__gwcAttrId = id;
+			if (fin) { fin.register(el, id); }
 		}
 		return id;
 	};

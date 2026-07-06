@@ -20,10 +20,31 @@ func Fetch(parseUrl string, parseOptions Options) <-chan Result {
 	parseCh := make(chan Result, 1)
 
 	go func() {
-		defer gwcruntime.RecoverContainedPanic("fetch", "Do request")
+		// Browser fetch() throws SYNCHRONOUSLY (not via promise rejection) for
+		// realistic inputs — a GET/HEAD with a body, an invalid URL, a
+		// disallowed header name. A plain RecoverContainedPanic would log and
+		// swallow that, leaving parseCh unwritten and the caller (result := <-Fetch)
+		// blocked forever. This defer guarantees a terminal Result on any
+		// synchronous throw during request setup. The async promise callbacks
+		// below run on later event-loop turns (after this goroutine returns), so
+		// parseSettled is only ever observed here for the synchronous path.
+		parseSettled := false
+		sendResult := func(parseResult Result) {
+			if parseSettled {
+				return
+			}
+			parseSettled = true
+			parseCh <- parseResult
+		}
+		defer func() {
+			if parseRecovered := recover(); parseRecovered != nil {
+				gwcruntime.ContainPanic("fetch", gwcruntime.PanicPhaseAsync, "Do request", parseRecovered)
+				sendResult(Result{Err: fmt.Errorf("fetch request failed: %v", parseRecovered)})
+			}
+		}()
 		parseFetchFunction := js.Global().Get("fetch")
 		if !parseFetchFunction.Truthy() {
-			parseCh <- Result{Err: errors.New("fetch API unavailable in this environment")}
+			sendResult(Result{Err: errors.New("fetch API unavailable in this environment")})
 			return
 		}
 
@@ -37,7 +58,7 @@ func Fetch(parseUrl string, parseOptions Options) <-chan Result {
 
 		parseBodyValue, isFormData, parseErr := bodyToJSValue(parseOptions.Body)
 		if parseErr != nil {
-			parseCh <- Result{Err: parseErr}
+			sendResult(Result{Err: parseErr})
 			return
 		}
 
@@ -132,36 +153,6 @@ func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-c
 	parseCh := make(chan UploadUpdate, 8)
 
 	go func() {
-		defer gwcruntime.RecoverContainedPanic("fetch", "Upload request")
-		parseXhrCtor := js.Global().Get("XMLHttpRequest")
-		if !parseXhrCtor.Truthy() {
-			parseCh <- UploadUpdate{Done: true, Result: Result{Err: errors.New("XMLHttpRequest unavailable in this environment")}}
-			close(parseCh)
-			return
-		}
-
-		parseBodyValue, isFormData, parseErr := bodyToJSValue(parseOptions.Body)
-		if parseErr != nil {
-			parseCh <- UploadUpdate{Done: true, Result: Result{Err: parseErr}}
-			close(parseCh)
-			return
-		}
-
-		parseXhr := parseXhrCtor.New()
-		parseMethod := parseOptions.Method
-		if parseMethod == "" {
-			parseMethod = "POST"
-		}
-		parseXhr.Call("open", parseMethod, parseUrl, true)
-		if parseOptions.Headers != nil {
-			for parseK, parseV := range parseOptions.Headers {
-				if isFormData && strings.EqualFold(parseK, "Content-Type") {
-					continue
-				}
-				parseXhr.Call("setRequestHeader", parseK, fmt.Sprint(parseV))
-			}
-		}
-
 		var parseProgressFn js.Func
 		var parseLoadFn js.Func
 		var parseErrorFn js.Func
@@ -186,6 +177,12 @@ func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-c
 				parseAbortFn.Release()
 			}
 		}
+		// parseFinalize emits the single terminal update, closes parseCh, and
+		// releases the listener funcs — exactly once. Hoisted above every
+		// throwable js call (New/open/setRequestHeader/send all throw
+		// synchronously on bad input) so the recover below can settle the
+		// channel; without it a synchronous XHR throw left parseCh unclosed and
+		// any range-based consumer hanging forever.
 		parseFinalize := func(parseUpdate2 UploadUpdate) {
 			parseOnce.Do(func() {
 				close(parseDone)
@@ -193,6 +190,39 @@ func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-c
 				close(parseCh)
 				parseCleanup()
 			})
+		}
+		defer func() {
+			if parseRecovered := recover(); parseRecovered != nil {
+				gwcruntime.ContainPanic("fetch", gwcruntime.PanicPhaseAsync, "Upload request", parseRecovered)
+				parseFinalize(UploadUpdate{Done: true, Result: Result{Err: fmt.Errorf("upload request failed: %v", parseRecovered)}})
+			}
+		}()
+
+		parseXhrCtor := js.Global().Get("XMLHttpRequest")
+		if !parseXhrCtor.Truthy() {
+			parseFinalize(UploadUpdate{Done: true, Result: Result{Err: errors.New("XMLHttpRequest unavailable in this environment")}})
+			return
+		}
+
+		parseBodyValue, isFormData, parseErr := bodyToJSValue(parseOptions.Body)
+		if parseErr != nil {
+			parseFinalize(UploadUpdate{Done: true, Result: Result{Err: parseErr}})
+			return
+		}
+
+		parseXhr := parseXhrCtor.New()
+		parseMethod := parseOptions.Method
+		if parseMethod == "" {
+			parseMethod = "POST"
+		}
+		parseXhr.Call("open", parseMethod, parseUrl, true)
+		if parseOptions.Headers != nil {
+			for parseK, parseV := range parseOptions.Headers {
+				if isFormData && strings.EqualFold(parseK, "Content-Type") {
+					continue
+				}
+				parseXhr.Call("setRequestHeader", parseK, fmt.Sprint(parseV))
+			}
 		}
 
 		parseProgressFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {

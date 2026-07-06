@@ -709,9 +709,17 @@ func (parseLrs *LiveReloadServer) handleWebSocketManaged(parseW http.ResponseWri
 }
 
 func (parseLrs *LiveReloadServer) sendCurrentBuildStatus(parseConn *websocket.Conn) {
+	// Snapshot the shared pointer under the mutex: lastBuildStatus is mutated
+	// concurrently by triggerBuild and checkCurrentBuildState (both on their own
+	// goroutines), so reading it unlocked from this per-connection handler is a
+	// data race.
+	parseLrs.mutex.Lock()
+	parseStatus := parseLrs.lastBuildStatus
+	parseLrs.mutex.Unlock()
+
 	// Check if we have a previous build status to send
-	if parseLrs.lastBuildStatus != nil {
-		parseMessage := newWebSocketMessage(MessageTypeCurrentStatus, *parseLrs.lastBuildStatus)
+	if parseStatus != nil {
+		parseMessage := newWebSocketMessage(MessageTypeCurrentStatus, *parseStatus)
 
 		parseData, parseErr := json.Marshal(parseMessage)
 		if parseErr != nil {
@@ -723,7 +731,7 @@ func (parseLrs *LiveReloadServer) sendCurrentBuildStatus(parseConn *websocket.Co
 			emitLivereloadError("LiveReloadServer.sendCurrentBuildStatus.write", "current_status", parseErr2, "the new websocket client did not receive the current build status and may show stale state.", "Inspect websocket connectivity and client lifecycle during status delivery.")
 		} else {
 			parseStatusText := "success"
-			if !parseLrs.lastBuildStatus.Success {
+			if !parseStatus.Success {
 				parseStatusText = "failed"
 			}
 			fmt.Printf("Ã°Å¸â€œÂ¤ Sent current build status (%s) to new client\n", parseStatusText)
@@ -742,6 +750,7 @@ func (parseLrs *LiveReloadServer) checkCurrentBuildState(parseConn *websocket.Co
 		return
 	}
 
+	parseLrs.mutex.Lock()
 	parseLrs.lastBuildStatus = &BuildStatus{
 		Success:      false,
 		ReloadType:   "none",
@@ -749,6 +758,7 @@ func (parseLrs *LiveReloadServer) checkCurrentBuildState(parseConn *websocket.Co
 		PhaseSummary: "checking current build state for a newly connected client",
 		StaleOutput:  false,
 	}
+	parseLrs.mutex.Unlock()
 
 	parseCmd := exec.Command(buildCommand, "build", "-o", parseLrs.outputPath)
 	parseCmd.Dir = parseLrs.buildDir
@@ -795,7 +805,9 @@ func (parseLrs *LiveReloadServer) checkCurrentBuildState(parseConn *websocket.Co
 	}
 
 	// Store this as the current build status
+	parseLrs.mutex.Lock()
 	parseLrs.lastBuildStatus = &buildStatus
+	parseLrs.mutex.Unlock()
 
 	// Send to the specific client
 	parseMessage := newWebSocketMessage(MessageTypeCurrentStatus, buildStatus)
@@ -1090,7 +1102,7 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 	if parseErr := os.MkdirAll(filepath.Dir(parseLrs.outputPath), 0o755); parseErr != nil {
 		emitLivereloadError("LiveReloadServer.triggerBuild.mkdir", filepath.Dir(parseLrs.outputPath), parseErr, "the livereload output directory could not be created before rebuilding.", "Inspect the configured build root and directory permissions for the livereload artifact path.")
 		parseLrs.clearPendingStateSnapshot()
-		parseLrs.lastBuildStatus = &BuildStatus{
+		parseMkdirFailedStatus := &BuildStatus{
 			Success:      false,
 			Error:        fmt.Sprintf("Failed to prepare build output directory: %v", parseErr),
 			ReloadType:   "none",
@@ -1098,7 +1110,10 @@ func (parseLrs *LiveReloadServer) triggerBuild() {
 			PhaseSummary: "blocked on a build error; the last good output is all the dev server can still serve",
 			StaleOutput:  true,
 		}
-		parseLrs.broadcastMessage(MessageTypeBuildError, *parseLrs.lastBuildStatus)
+		parseLrs.mutex.Lock()
+		parseLrs.lastBuildStatus = parseMkdirFailedStatus
+		parseLrs.mutex.Unlock()
+		parseLrs.broadcastMessage(MessageTypeBuildError, *parseMkdirFailedStatus)
 		return
 	}
 	// Dev builds skip DWARF generation (-ldflags=-w): the linker dominates

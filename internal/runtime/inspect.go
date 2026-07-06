@@ -520,23 +520,16 @@ func inspectHydrationDebugSnapshot(parseMetrics HydrationMetrics, parseDiagnosti
 
 // containsHydrationFold reports whether the message contains "hydration "
 // case-insensitively without allocating a lowered copy per diagnostic (this
-// runs over the whole diagnostic list on every inspection snapshot). It jumps
-// between 'h'/'H' candidates with IndexByte instead of scanning every byte.
+// runs over the whole diagnostic list on every inspection snapshot). A single
+// byte scan: the old IndexByte('h')/IndexByte('H') candidate-jumping paid a
+// full scan for the absent case letter at every position — O(n²) on messages
+// dense in one case of 'h'.
 func containsHydrationFold(parseMessage string) bool {
 	const parseNeedle = "hydration "
 	for parsePos := 0; parsePos+len(parseNeedle) <= len(parseMessage); parsePos++ {
-		parseLower := strings.IndexByte(parseMessage[parsePos:], 'h')
-		parseUpper := strings.IndexByte(parseMessage[parsePos:], 'H')
-		parseNext := parseLower
-		if parseNext < 0 || (parseUpper >= 0 && parseUpper < parseNext) {
-			parseNext = parseUpper
-		}
-		if parseNext < 0 {
-			return false
-		}
-		parsePos += parseNext
-		if parsePos+len(parseNeedle) > len(parseMessage) {
-			return false
+		// 'h'|0x20 and 'H'|0x20 are both 'h'; no other byte maps onto it.
+		if parseMessage[parsePos]|0x20 != 'h' {
+			continue
 		}
 		parseMatched := true
 		for parseOffset := 1; parseOffset < len(parseNeedle); parseOffset++ {
@@ -819,7 +812,13 @@ func previewValue(parseValue any) string {
 	case string:
 		parseTrimmed := parseTyped
 		if len(parseTrimmed) > 48 {
-			parseTrimmed = parseTrimmed[:45] + "..."
+			// Back the cut off any UTF-8 continuation bytes so the preview
+			// never splits a rune into escaped garbage.
+			parseCut := 45
+			for parseCut > 0 && parseTrimmed[parseCut]&0xC0 == 0x80 {
+				parseCut--
+			}
+			parseTrimmed = parseTrimmed[:parseCut] + "..."
 		}
 		return fmt.Sprintf("%q", parseTrimmed)
 	case fmt.Stringer:

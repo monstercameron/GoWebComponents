@@ -87,6 +87,14 @@ func formatRenderStyleMap(parseRaw map[string]any) (string, error) {
 func formatRenderStyleScalar(parseRaw any) (string, error) {
 	switch parseValue := parseRaw.(type) {
 	case string:
+		// A map-form style value is emitted verbatim into the "key:value"
+		// serialization; a value containing ';' '{' '}' or a control byte would
+		// inject extra declarations (e.g. {"color":"red; position:fixed"} →
+		// a fixed-position overlay). These are structural CSS characters that a
+		// single property value never legitimately needs.
+		if strings.ContainsAny(parseValue, ";{}") || strings.IndexFunc(parseValue, isStyleControlRune) >= 0 {
+			return "", fmt.Errorf("style value %q contains a disallowed character", parseValue)
+		}
 		return parseValue, nil
 	case bool:
 		if parseValue {
@@ -122,4 +130,10 @@ func formatRenderStyleScalar(parseRaw any) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported nested style shape %T", parseRaw)
 	}
+}
+
+// isStyleControlRune reports whether r is an ASCII control character that must
+// not appear in a serialized style value.
+func isStyleControlRune(parseR rune) bool {
+	return parseR < 0x20 || parseR == 0x7f
 }

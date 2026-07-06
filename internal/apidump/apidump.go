@@ -106,9 +106,19 @@ func renderGen(parseFset *token.FileSet, parseGen *ast.GenDecl) []string {
 			if parseGen.Tok == token.CONST {
 				parseKeyword = "const"
 			}
+			// Include the explicitly-declared type so a breaking type change to an
+			// exported var/const (e.g. `var Default *Config` -> `*OtherConfig`) is
+			// caught instead of collapsing to the same name-only line. Untyped
+			// declarations (Type == nil, e.g. `var ErrX = errors.New(...)` or an
+			// untyped const) stay name-only — the concrete type isn't in the AST
+			// without go/types, so this is a conservative, no-inference improvement.
+			parseTypeSuffix := ""
+			if parseTyped.Type != nil {
+				parseTypeSuffix = " " + normalize(render(parseFset, parseTyped.Type))
+			}
 			for _, parseName := range parseTyped.Names {
 				if parseName.IsExported() {
-					parseLines = append(parseLines, fmt.Sprintf("%s %s", parseKeyword, parseName.Name))
+					parseLines = append(parseLines, fmt.Sprintf("%s %s%s", parseKeyword, parseName.Name, parseTypeSuffix))
 				}
 			}
 		}

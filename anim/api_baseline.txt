@@ -1,7 +1,7 @@
-const MotionFull
+const MotionFull MotionPreference
 const MotionReduced
 const PhaseEntered
-const PhaseEntering
+const PhaseEntering Phase
 const PhaseExited
 const PhaseExiting
 func (*Spring) IsSettled(parseEpsilon float64) bool
@@ -47,10 +47,10 @@ type Rect struct { X float64 Y float64 Width float64 Height float64 }
 type Spring struct { parseConfig SpringConfig parsePosition float64 parseVelocity float64 parseTarget float64 }
 type SpringConfig struct { Stiffness float64 Damping float64 Mass float64 }
 type Transition struct { Phase Phase Elapsed float64 Duration float64 }
-var EaseInCubic
-var EaseInOutCubic
-var EaseInOutQuad
-var EaseInQuad
-var EaseOutCubic
-var EaseOutQuad
-var Linear
+var EaseInCubic Easing
+var EaseInOutCubic Easing
+var EaseInOutQuad Easing
+var EaseInQuad Easing
+var EaseOutCubic Easing
+var EaseOutQuad Easing
+var Linear Easing

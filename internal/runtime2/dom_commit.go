@@ -313,15 +313,21 @@ func (parseDOMCommitter *DOMCommitter) CommitRegionRemoveNode(parseRegionID stri
 }
 
 // parseDeleteNodeIDs deletes one node subtree from a region-local node map.
+// The node is removed BEFORE recursing into its children, so the map's own
+// membership acts as a visited-set: a malformed cyclic child graph (e.g. a
+// replace-subtree op carrying nodes that reference each other as children —
+// which the canonical-tree parser does not currently reject) terminates on the
+// back-edge instead of recursing until the Go stack overflows and crashes the
+// worker.
 func parseDeleteNodeIDs(parseRegionDOMNodeByNodeID map[uint64]*RegionDOMNode, parseNodeID uint64) {
 	parseRegionDOMNode, hasRegionDOMNode := parseRegionDOMNodeByNodeID[parseNodeID]
 	if !hasRegionDOMNode {
 		return
 	}
+	delete(parseRegionDOMNodeByNodeID, parseNodeID)
 	for _, getChildNodeID := range parseRegionDOMNode.GetChildNodeIDs {
 		parseDeleteNodeIDs(parseRegionDOMNodeByNodeID, getChildNodeID)
 	}
-	delete(parseRegionDOMNodeByNodeID, parseNodeID)
 }
 
 // parseFilterChildNodeIDs returns a child list that excludes one node ID.
@@ -807,7 +813,9 @@ func hasCommitRemoveRootAncestor(
 	parseRegionNodeMap map[uint64]*RegionDOMNode,
 	parseParentNodeID uint64,
 ) bool {
-	for parseParentNodeID != 0 {
+	// Bound the walk by the node count: a malformed parent-pointer cycle would
+	// otherwise loop forever. The chain can visit each node at most once.
+	for parseSteps := 0; parseParentNodeID != 0 && parseSteps <= len(parseRegionNodeMap); parseSteps++ {
 		if _, hasRemoveRoot := parseRemoveRootNodeIDSet[parseParentNodeID]; hasRemoveRoot {
 			return true
 		}

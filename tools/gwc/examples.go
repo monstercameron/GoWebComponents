@@ -1267,14 +1267,19 @@ func jsSingleQuoted(parseText string) string {
 func renderExamplesListingHTML(parseLinks []exampleLink, parseQuery string) string {
 	var parseItems strings.Builder
 	for _, parseLink := range parseLinks {
-		parseItems.WriteString(`<li><a href="` + parseLink.Href + `">` + parseLink.Name + `</a></li>`)
+		// Escape Href/Name: they derive from filesystem directory names, so a
+		// folder named e.g. `"><script>` would otherwise inject into this page.
+		parseItems.WriteString(`<li><a href="` + escapeHTML(parseLink.Href) + `">` + escapeHTML(parseLink.Name) + `</a></li>`)
 	}
 	if parseItems.Len() == 0 {
 		parseItems.WriteString(`<li>No examples matched this search yet.</li>`)
 	}
 	parseMetaText := "Generated from example folders under /examples."
 	if strings.TrimSpace(parseQuery) != "" {
-		parseMetaText = fmt.Sprintf("Filtered examples for %q.", parseQuery)
+		// parseQuery is the reflected ?q= URL parameter: HTML-escape it or a
+		// crafted query reflects as live markup here (reflected XSS). %q only
+		// adds Go-style quoting, which is not HTML-safe.
+		parseMetaText = `Filtered examples for "` + escapeHTML(parseQuery) + `".`
 	}
 	return `<!doctype html>
 <html lang="en">

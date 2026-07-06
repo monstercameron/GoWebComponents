@@ -79,11 +79,17 @@ type entry struct {
 	hasData   bool
 	updatedAt time.Time
 	flight    *flight // non-nil while a fetch is in progress (the dedupe handle)
+	// gen increments on every data write. Async completions (background
+	// fetches, optimistic mutations) capture it at their start and commit only
+	// if it is unchanged, so the SEMANTICALLY newest write wins instead of the
+	// slowest-to-finish one.
+	gen uint64
 }
 
 // flight is one in-progress fetch that concurrent callers join instead of duplicating.
 type flight struct {
 	done chan struct{}
+	gen  uint64 // entry.gen when this fetch started
 }
 
 // Cache is a concurrency-safe keyed query cache. Create one per logical data scope
@@ -158,7 +164,7 @@ func Fetch[T any](parseC *Cache, parseKey string, parseFn func() (T, error)) Res
 		return resultAfterFlight[T](parseC, parseKey)
 	}
 
-	parseFlight := &flight{done: make(chan struct{})}
+	parseFlight := &flight{done: make(chan struct{}), gen: parseE.gen}
 	parseE.flight = parseFlight
 	parseC.mu.Unlock()
 
@@ -180,7 +186,7 @@ func SWR[T any](parseC *Cache, parseKey string, parseFn func() (T, error), parse
 		return parseSnapshot
 	}
 
-	parseFlight := &flight{done: make(chan struct{})}
+	parseFlight := &flight{done: make(chan struct{}), gen: parseE.gen}
 	parseE.flight = parseFlight
 	parseSnapshot.Fetching = true
 	parseC.mu.Unlock()
@@ -203,19 +209,33 @@ func Mutate[T any](parseC *Cache, parseKey string, parseOptimistic T, parseFn fu
 	parseE := parseC.ensureEntry(parseKey)
 	parsePrevData, parsePrevHas, parsePrevErr, parsePrevAt := parseE.data, parseE.hasData, parseE.err, parseE.updatedAt
 	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseOptimistic, true, nil, parseC.now()
+	parseE.gen++
+	parseGen := parseE.gen
 	parseC.mu.Unlock()
 
 	parseVal, parseErr := parseFn()
 
 	parseC.mu.Lock()
 	defer parseC.mu.Unlock()
+	if parseE.gen != parseGen {
+		// A newer write (another mutation, Set, or a completed fetch) landed
+		// while fn ran; committing or rolling back would clobber it. Report
+		// the outcome against the current state instead.
+		parseRes := resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
+		if parseErr != nil {
+			parseRes.Err = parseErr
+		}
+		return parseRes
+	}
 	if parseErr != nil {
 		parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parsePrevData, parsePrevHas, parsePrevErr, parsePrevAt
+		parseE.gen++
 		parseRes := resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
 		parseRes.Err = parseErr
 		return parseRes
 	}
 	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseVal, true, nil, parseC.now()
+	parseE.gen++
 	return resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
 }
 
@@ -230,18 +250,29 @@ func MutateAsync[T any](parseC *Cache, parseKey string, parseOptimistic T, parse
 	parseE := parseC.ensureEntry(parseKey)
 	parsePrevData, parsePrevHas, parsePrevErr, parsePrevAt := parseE.data, parseE.hasData, parseE.err, parseE.updatedAt
 	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseOptimistic, true, nil, parseC.now()
+	parseE.gen++
+	parseGen := parseE.gen
 	parseC.mu.Unlock()
 
 	go func() {
 		parseVal, parseErr := parseFn()
 		parseC.mu.Lock()
 		var parseRes Result[T]
-		if parseErr != nil {
+		switch {
+		case parseE.gen != parseGen:
+			// A newer write landed while fn ran; leave it in place (see Mutate).
+			parseRes = resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
+			if parseErr != nil {
+				parseRes.Err = parseErr
+			}
+		case parseErr != nil:
 			parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parsePrevData, parsePrevHas, parsePrevErr, parsePrevAt
+			parseE.gen++
 			parseRes = resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
 			parseRes.Err = parseErr
-		} else {
+		default:
 			parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseVal, true, nil, parseC.now()
+			parseE.gen++
 			parseRes = resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
 		}
 		parseC.mu.Unlock()
@@ -258,6 +289,37 @@ func (parseC *Cache) Set(parseKey string, parseData any) {
 	defer parseC.mu.Unlock()
 	parseE := parseC.ensureEntry(parseKey)
 	parseE.data, parseE.hasData, parseE.err, parseE.updatedAt = parseData, true, nil, parseC.now()
+	parseE.gen++
+}
+
+// Evict removes key from the cache entirely, releasing its retained value.
+// Unlike Invalidate (which keeps the value and marks it stale), Evict is for
+// keys that will not be read again — pagination cursors, per-item detail keys,
+// search strings — so a long-lived session does not grow the cache without
+// bound. An in-flight fetch for the key completes harmlessly: its result is
+// dropped (the entry is gone) and joined callers wake normally.
+func (parseC *Cache) Evict(parseKey string) {
+	parseC.mu.Lock()
+	defer parseC.mu.Unlock()
+	delete(parseC.entries, parseKey)
+}
+
+// EvictPrefix removes every key sharing prefix — the by-scope sibling of Evict.
+func (parseC *Cache) EvictPrefix(parsePrefix string) {
+	parseC.mu.Lock()
+	defer parseC.mu.Unlock()
+	for parseKey := range parseC.entries {
+		if strings.HasPrefix(parseKey, parsePrefix) {
+			delete(parseC.entries, parseKey)
+		}
+	}
+}
+
+// EvictAll removes every cached entry, releasing all retained values.
+func (parseC *Cache) EvictAll() {
+	parseC.mu.Lock()
+	defer parseC.mu.Unlock()
+	clear(parseC.entries)
 }
 
 // Snapshot returns the current typed result for key WITHOUT triggering a fetch. It is
@@ -371,17 +433,25 @@ func callFetch[T any](parseFn func() (T, error)) (parseVal T, parseErr error) {
 }
 
 // runFetch executes fn and stores the outcome under key, then releases the flight so
-// joined callers wake. Caller must NOT hold mu.
+// joined callers wake. Caller must NOT hold mu. The outcome commits only when no
+// newer write (Set/Mutate) landed while the fetch was in flight, and only when the
+// entry still exists (it may have been Evicted).
 func runFetch[T any](parseC *Cache, parseKey string, parseFn func() (T, error), parseFlight *flight) {
 	parseVal, parseErr := callFetch(parseFn)
 	parseC.mu.Lock()
-	parseE := parseC.entries[parseKey]
-	if parseErr == nil {
-		parseE.data, parseE.err, parseE.hasData, parseE.updatedAt = parseVal, nil, true, parseC.now()
-	} else {
-		parseE.err = parseErr
+	if parseE := parseC.entries[parseKey]; parseE != nil {
+		if parseE.gen == parseFlight.gen {
+			if parseErr == nil {
+				parseE.data, parseE.err, parseE.hasData, parseE.updatedAt = parseVal, nil, true, parseC.now()
+				parseE.gen++
+			} else {
+				parseE.err = parseErr
+			}
+		}
+		if parseE.flight == parseFlight {
+			parseE.flight = nil
+		}
 	}
-	parseE.flight = nil
 	close(parseFlight.done)
 	parseC.mu.Unlock()
 }
@@ -394,13 +464,29 @@ func resultAfterFlight[T any](parseC *Cache, parseKey string) Result[T] {
 }
 
 // resultFromEntry projects an entry into a typed Result. Caller holds mu.
+// A nil entry (evicted mid-flight) reports StatusIdle.
 func resultFromEntry[T any](parseE *entry, parseNow time.Time, parseStale time.Duration) Result[T] {
+	if parseE == nil {
+		return Result[T]{Status: StatusIdle}
+	}
 	var parseData T
+	isTypeMismatch := false
 	if parseE.hasData {
-		parseData, _ = parseE.data.(T)
+		if parseTyped, parseOk := parseE.data.(T); parseOk {
+			parseData = parseTyped
+		} else {
+			isTypeMismatch = true
+		}
 	}
 	parseStatus := StatusIdle
+	parseErr := parseE.err
 	switch {
+	case isTypeMismatch:
+		// The key was populated with a different concrete type (key reused
+		// across features). Silently reporting Success with a zero value hid
+		// the mismatch entirely.
+		parseStatus = StatusError
+		parseErr = fmt.Errorf("query: cached value has type %T, not the requested type", parseE.data)
 	case parseE.hasData:
 		parseStatus = StatusSuccess
 	case parseE.flight != nil:
@@ -411,7 +497,7 @@ func resultFromEntry[T any](parseE *entry, parseNow time.Time, parseStale time.D
 	parseIsStale := parseE.hasData && (parseStale <= 0 || parseNow.Sub(parseE.updatedAt) >= parseStale)
 	return Result[T]{
 		Data:      parseData,
-		Err:       parseE.err,
+		Err:       parseErr,
 		Status:    parseStatus,
 		UpdatedAt: parseE.updatedAt,
 		Stale:     parseIsStale,

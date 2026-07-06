@@ -219,6 +219,40 @@ func parseWalkFile(parseFset *token.FileSet, parseF *ast.File) ExtractResult {
 			return true
 		}
 
+		// Two call shapes reach a .T selector:
+		//   Runtime.T(namespace, key, ...)  -> namespace + key are the first two args
+		//   Namespace.T(key, ...)           -> namespace is bound in the receiver via
+		//                                       rt.NS("namespace"), key is the first arg
+		// Detect the inline rt.NS("literal").T(...) chain and pull the namespace from
+		// the receiver so the key is not silently misread as the namespace (which left
+		// Namespace.T keys out of the completeness check entirely). Only the inline
+		// literal form is resolvable AST-only; a Namespace stored in a variable can't
+		// be resolved without type/dataflow info, so it is surfaced as Dynamic below
+		// rather than dropped. The receiver-bound branch is kept narrow (receiver must
+		// itself be a .NS("literal") call) to avoid matching unrelated one-arg .T methods.
+		if parseNs, parseNsOk := parseNamespaceReceiver(parseSel.X); parseNsOk {
+			if len(parseCall.Args) < 1 {
+				return true
+			}
+			parsePos := parseFset.Position(parseCall.Pos())
+			parseKey, parseKeyOk := parseStringLit(parseCall.Args[0])
+			if !parseKeyOk {
+				parseResult.Dynamic = append(parseResult.Dynamic, DynamicUsage{
+					File:   parsePos.Filename,
+					Line:   parsePos.Line,
+					Reason: "key is non-literal",
+				})
+				return true
+			}
+			parseResult.Messages = append(parseResult.Messages, Message{
+				Namespace: parseNs,
+				Key:       parseKey,
+				File:      parsePos.Filename,
+				Line:      parsePos.Line,
+			})
+			return true
+		}
+
 		if len(parseCall.Args) < 2 {
 			return true
 		}
@@ -260,6 +294,25 @@ func parseWalkFile(parseFset *token.FileSet, parseF *ast.File) ExtractResult {
 	})
 
 	return parseResult
+}
+
+// parseNamespaceReceiver reports whether parseExpr is an inline `<x>.NS("literal")`
+// call and, if so, returns the namespace literal. This is the receiver of a
+// Namespace.T(key) call; recognizing it lets the extractor pull the namespace from
+// the receiver chain instead of misreading the key argument as the namespace.
+func parseNamespaceReceiver(parseExpr ast.Expr) (string, bool) {
+	parseCall, parseOk := parseExpr.(*ast.CallExpr)
+	if !parseOk {
+		return "", false
+	}
+	parseSel, parseSelOk := parseCall.Fun.(*ast.SelectorExpr)
+	if !parseSelOk || parseSel.Sel.Name != "NS" {
+		return "", false
+	}
+	if len(parseCall.Args) < 1 {
+		return "", false
+	}
+	return parseStringLit(parseCall.Args[0])
 }
 
 // parseStringLit returns the string value of parseExpr if it is a basic

@@ -18,7 +18,7 @@ func Humanize(parseValue string) string {
 		parseWords[parseI] = strings.ToLower(parseWords[parseI])
 	}
 	parseJoined := strings.Join(parseWords, " ")
-	return strings.ToUpper(parseJoined[:1]) + parseJoined[1:]
+	return upperFirstRune(parseJoined)
 }
 
 // TitleCase capitalizes the first letter of every word in an identifier:
@@ -29,9 +29,18 @@ func TitleCase(parseValue string) string {
 		if parseWord == "" {
 			continue
 		}
-		parseWords[parseI] = strings.ToUpper(parseWord[:1]) + strings.ToLower(parseWord[1:])
+		parseWords[parseI] = upperFirstRune(strings.ToLower(parseWord))
 	}
 	return strings.Join(parseWords, " ")
+}
+
+// upperFirstRune uppercases the first RUNE of a string. Byte-index slicing
+// (s[:1]) split multi-byte leading runes ("über" -> corrupted UTF-8).
+func upperFirstRune(parseValue string) string {
+	for parseIndex, parseR := range parseValue {
+		return string(unicode.ToUpper(parseR)) + parseValue[parseIndex+len(string(parseR)):]
+	}
+	return parseValue
 }
 
 // splitWords breaks snake_case, kebab-case, spaces, and camelCase boundaries.

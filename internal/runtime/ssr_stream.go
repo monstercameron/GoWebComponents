@@ -235,11 +235,22 @@ func renderErrorBoundaryToStreamShell(parseBuilder *strings.Builder, parseElemen
 		return nil
 	}
 
+	// Children render into a scratch builder (mirroring the buffered serializer):
+	// a panic mid-subtree must not leave partial, unclosed markup ahead of the
+	// fallback. Pending stream boundaries registered by the discarded children
+	// are rolled back too — their markers died with the scratch output, so
+	// streaming their patches later would be wasted work targeting nothing.
+	var parseChildBuilder strings.Builder
+	parsePendingLen := len(parseState.pending)
+	parseNextBoundaryID := parseState.nextBoundaryID
 	defer func() {
 		parseRecovered := recover()
 		if parseRecovered == nil {
+			parseBuilder.WriteString(parseChildBuilder.String())
 			return
 		}
+		parseState.pending = parseState.pending[:parsePendingLen]
+		parseState.nextBoundaryID = parseNextBoundaryID
 
 		parseBoundaryErr := normalizeBoundaryError(parseRecovered)
 		if parseOnError, _ := parseElement.Props["onError"].(func(error)); parseOnError != nil {
@@ -261,7 +272,7 @@ func renderErrorBoundaryToStreamShell(parseBuilder *strings.Builder, parseElemen
 		parseErr = nil
 	}()
 
-	return renderChildrenToStreamShell(parseBuilder, parseElement.Children, parseState)
+	return renderChildrenToStreamShell(&parseChildBuilder, parseElement.Children, parseState)
 }
 
 func renderAsyncBoundaryToStreamShell(parseBuilder *strings.Builder, parseElement *Element, parseState *ssrStreamState) error {

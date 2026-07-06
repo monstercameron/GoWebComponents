@@ -79,8 +79,23 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 	var parseDataFn js.Func
 	var parseCatchFn js.Func
 
+	// A panic inside any callback must still resolve the channel: the plain
+	// containment guard only logs, which left the caller parked forever on
+	// parseResultCh and the deferred Releases below never running (three
+	// leaked js.Func handles per failed call). Buffered channel + select
+	// makes the panic-path send safe even after a normal send.
+	parseContainToChannel := func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			runtime.ContainPanic("ui", runtime.PanicPhaseAsync, "ReadBootstrapReference callback", parseRecovered)
+			select {
+			case parseResultCh <- fetchResult{err: fmt.Errorf("bootstrap fetch callback panicked: %v", parseRecovered)}:
+			default:
+			}
+		}
+	}
+
 	parseResponseFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
-		defer runtime.RecoverContainedPanic("ui", "ReadBootstrapReference callback")
+		defer parseContainToChannel()
 		if len(parseArgs) == 0 {
 			return parsePromiseCtor.Call("reject", "missing fetch response")
 		}
@@ -96,7 +111,7 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 	})
 
 	parseDataFn = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
-		defer runtime.RecoverContainedPanic("ui", "ReadBootstrapReference callback")
+		defer parseContainToChannel()
 		if len(parseArgs2) == 0 {
 			parseResultCh <- fetchResult{err: fmt.Errorf("bootstrap fetch returned no data")}
 			return nil
@@ -110,7 +125,7 @@ func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error
 	})
 
 	parseCatchFn = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
-		defer runtime.RecoverContainedPanic("ui", "ReadBootstrapReference callback")
+		defer parseContainToChannel()
 		parseMessage := "bootstrap fetch failed"
 		if len(parseArgs3) > 0 {
 			parseMessage = parseArgs3[0].String()

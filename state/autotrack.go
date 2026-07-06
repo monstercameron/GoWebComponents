@@ -35,6 +35,12 @@ func recordSignalRead(parseID string) {
 // (NewComputed) remains the default and recommended path per GWC's no-hidden-graph design,
 // so auto-tracking is a convenience, not a replacement.
 //
+// Concurrency contract: the discovery pass is NOT isolated per goroutine. Construct
+// auto-computeds on one goroutine (package init / app boot is the intended spot);
+// signals read on OTHER goroutines while a discovery pass runs may be attributed to
+// the wrong computed — extra dependencies at best, missing ones (silently stale
+// bindings) at worst. Nested NewAutoComputed calls on the same goroutine are fine.
+//
 //	a := state.NewSignal(2)
 //	b := state.NewSignal(3)
 //	sum := state.NewAutoComputed(func() int { return a.Get() + b.Get() }) // a, b discovered

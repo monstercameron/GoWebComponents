@@ -1,6 +1,7 @@
 package shorthand
 
 import (
+	goruntime "runtime"
 	"strings"
 	"testing"
 	"time"
@@ -275,6 +276,13 @@ func TestEventHandlerReexportsEmitNativePropsAndPassive(parseT *testing.T) {
 		parseT.Fatal("expected Passive to preserve callback payload")
 	}
 
+	// On* options route through ui.UseEvent, which is a hook: on the wasm build
+	// calling them outside a mounted component panics by contract, and this test
+	// environment has no DOM to mount into. The emission logic under test is
+	// platform-independent, so the native build carries the coverage.
+	if goruntime.GOOS == "js" {
+		parseT.Skip("On* options are hooks on the wasm build; covered natively")
+	}
 	parseNode := Div(
 		OnPointerDown(parsePassive),
 		OnPointerMove(func(ui.Event) {}),

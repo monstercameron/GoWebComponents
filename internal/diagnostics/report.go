@@ -129,6 +129,31 @@ func (parseReport Report) Formatted() string {
 	return strings.Join(parseLines, "\n")
 }
 
+// FormattedPublic returns a client-safe rendering of the report: only the
+// app-authored fields (summary, code/headline, next step, docs link). It
+// deliberately OMITS where/path/error/runtime and every stack frame — those come
+// from debug.Stack() and embed absolute build paths (which leak the OS username
+// and the server's filesystem layout) plus internal call structure. That detail
+// belongs in the server log (Emit → stderr), never in an HTTP response body sent
+// to an untrusted client.
+func (parseReport Report) FormattedPublic() string {
+	parseLines := []string{parseReport.Summary}
+	if parseReport.Code != "" && parseReport.Headline != "" {
+		parseLines = append(parseLines, fmt.Sprintf("[%s] %s", parseReport.Code, parseReport.Headline))
+	} else if parseReport.Code != "" {
+		parseLines = append(parseLines, fmt.Sprintf("[%s]", parseReport.Code))
+	} else if parseReport.Headline != "" {
+		parseLines = append(parseLines, parseReport.Headline)
+	}
+	if parseNext := strings.TrimSpace(parseReport.Next); parseNext != "" {
+		parseLines = append(parseLines, "next: "+parseNext)
+	}
+	if parseDocs := strings.TrimSpace(parseReport.Docs); parseDocs != "" {
+		parseLines = append(parseLines, "docs: "+parseDocs)
+	}
+	return strings.Join(parseLines, "\n")
+}
+
 // Emit writes the formatted report to stderr.
 func Emit(parseReport Report) {
 	parseFormatted := strings.TrimSpace(parseReport.Formatted())

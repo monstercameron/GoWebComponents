@@ -62,6 +62,32 @@ func TestStructuredSnapshotParsesHeadMetadataAndJSONLD(parseT *testing.T) {
 	parseStructured.ApplyStructuredJSONLDType(parseT, "docs-jsonld", "Article")
 }
 
+// TestStructuredSnapshotCollectsMetadataAnywhereInTree pins that the structured
+// collector walks the ENTIRE parsed tree, so head-level tags are found regardless
+// of where the HTML parser places them (Structured wraps the snapshot in <div> and
+// full-document-parses it, which can relocate head tags). A future change that
+// only walked <head> would silently drop metadata a component rendered inline —
+// a false-pass for every Apply* head-assertion helper. Here the tags are buried
+// deep in nested body content, never in a <head>.
+func TestStructuredSnapshotCollectsMetadataAnywhereInTree(parseT *testing.T) {
+	parseHTML := "<section><article><div>" +
+		"<title>Deep Title</title>" +
+		`<meta name="description" content="deep desc">` +
+		`<meta property="og:title" content="deep og">` +
+		`<link rel="canonical" href="https://example.com/deep">` +
+		`<script id="deep-ld" type="application/ld+json">{"@type":"Thing"}</script>` +
+		"</div></article></section>"
+
+	parseStructured := Snapshot{HTML: parseHTML}.Structured(parseT)
+	parseStructured.ApplyStructuredTitle(parseT, "Deep Title")
+	parseStructured.ApplyStructuredMetaName(parseT, "description", "deep desc")
+	parseStructured.ApplyStructuredMetaProperty(parseT, "og:title", "deep og")
+	parseStructured.ApplyStructuredCanonicalURL(parseT, "https://example.com/deep")
+	if parseStructured.JSONLD("deep-ld") == "" {
+		parseT.Fatal("expected the JSON-LD script buried in body content to be collected")
+	}
+}
+
 func TestLoadStaticExportReadsExportedRoutesAndBootstrapSidecars(parseT *testing.T) {
 	parseOutputDir := parseT.TempDir()
 	parseHeadMarkup, parseErr := head.RenderToString(head.Document{
