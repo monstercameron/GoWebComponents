@@ -31,6 +31,20 @@ func (parseN *WASMDOMNode) IsNull() bool {
 	return parseN == nil || parseN.value.IsNull() || parseN.value.IsUndefined()
 }
 
+// liveWasmNode resolves a runtime.DOMNode to a *WASMDOMNode only when it is a
+// live element — a wrong concrete type, a typed-nil pointer, or a wrapper around
+// a null/undefined js.Value all yield ok=false. Reaching through .value on any
+// of those panics in syscall/js ("not an object"), which would crash the whole
+// app from the render/commit path, so every adapter method that dereferences
+// .value must gate on this rather than the bare type assertion.
+func liveWasmNode(parseNode runtime.DOMNode) (*WASMDOMNode, bool) {
+	parseWasmNode, parseOk := parseNode.(*WASMDOMNode)
+	if !parseOk || parseWasmNode.IsNull() {
+		return nil, false
+	}
+	return parseWasmNode, true
+}
+
 func (parseN *WASMDOMNode) Equals(parseOther runtime.DOMNode) bool {
 	if parseN == nil {
 		return runtime.IsDOMNodeNull(parseOther)
@@ -680,21 +694,21 @@ func (parseA *WASMDOMAdapter) GetTextContent(parseNode runtime.DOMNode) string {
 }
 
 func (parseA *WASMDOMAdapter) AddClass(parseNode runtime.DOMNode, parseClassName string) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseClassList := parseWasmNode.value.Get("classList")
 		parseClassList.Call("add", parseClassName)
 	}
 }
 
 func (parseA *WASMDOMAdapter) RemoveClass(parseNode runtime.DOMNode, parseClassName string) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseClassList := parseWasmNode.value.Get("classList")
 		parseClassList.Call("remove", parseClassName)
 	}
 }
 
 func (parseA *WASMDOMAdapter) ToggleClass(parseNode runtime.DOMNode, parseClassName string) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseClassList := parseWasmNode.value.Get("classList")
 		parseClassList.Call("toggle", parseClassName)
 	}
@@ -745,14 +759,14 @@ func (parseA *WASMDOMAdapter) GetNextSibling(parseNode runtime.DOMNode) runtime.
 }
 
 func (parseA *WASMDOMAdapter) SetStyle(parseNode runtime.DOMNode, parseProperty, parseValue string) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseStyle := parseWasmNode.value.Get("style")
 		parseStyle.Set(parseProperty, parseValue)
 	}
 }
 
 func (parseA *WASMDOMAdapter) SetStyles(parseNode runtime.DOMNode, parseStyles map[string]string) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseStyle := parseWasmNode.value.Get("style")
 		// Batch style updates by caching style object
 		for parseProperty, parseValue := range parseStyles {

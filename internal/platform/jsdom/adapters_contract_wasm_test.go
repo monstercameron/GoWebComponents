@@ -57,6 +57,27 @@ func TestSetTextContentToleratesNullAndTypedNilNodes(parseT *testing.T) {
 	}
 }
 
+// TestClassAndStyleMutatorsTolerateNullAndTypedNilNodes pins #80: the class and
+// style write paths — which run on every commit and routinely see detached or
+// not-yet-created nodes — must no-op rather than panic on a typed-nil or
+// null/undefined-valued node. Reaching classList/style through .value on such a
+// node panics in syscall/js and tears down the whole app from the render path.
+func TestClassAndStyleMutatorsTolerateNullAndTypedNilNodes(parseT *testing.T) {
+	parseAdapter := &WASMDOMAdapter{}
+	var parseTypedNil runtime.DOMNode = (*WASMDOMNode)(nil)
+	parseNullNode := runtime.DOMNode(&WASMDOMNode{value: js.Null()})
+	parseUndefNode := runtime.DOMNode(&WASMDOMNode{value: js.Undefined()})
+
+	for _, parseNode := range []runtime.DOMNode{parseTypedNil, parseNullNode, parseUndefNode} {
+		// Each must be a no-op, not a panic.
+		parseAdapter.AddClass(parseNode, "a")
+		parseAdapter.RemoveClass(parseNode, "a")
+		parseAdapter.ToggleClass(parseNode, "a")
+		parseAdapter.SetStyle(parseNode, "color", "red")
+		parseAdapter.SetStyles(parseNode, map[string]string{"color": "red"})
+	}
+}
+
 func TestWASMDOMNodeEqualsUsesUnderlyingJSIdentity(parseT *testing.T) {
 	parseValue := js.Global().Get("Object").New()
 	parseSame := &WASMDOMNode{value: parseValue}
