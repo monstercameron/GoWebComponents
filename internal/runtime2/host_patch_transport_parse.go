@@ -3,7 +3,36 @@ package runtime2
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/monstercameron/GoWebComponents/v4/diagnostics"
 )
+
+// reportPatchIdentityMismatch surfaces a decoded-patch identity mismatch detected
+// at the host/worker trust boundary. A test seam; the default emits a fail-visible
+// diagnostic. Advisory only — see verifyDecodedPatchIdentity.
+var reportPatchIdentityMismatch = func(parseRegionID string, parsePatchVersion uint64, parseErr error) {
+	diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
+		Code:     "GWC-PATCH-IDENTITY-MISMATCH",
+		Headline: "decoded patch failed its identity check",
+		Summary:  fmt.Sprintf("region %q patch version %d: %v — the patch crossed the worker transport boundary and its carried identity does not match a recompute from its parts, indicating a corrupted or tampered body", parseRegionID, parsePatchVersion, parseErr),
+		Next:     "investigate the worker->host patch transport for corruption or tampering (the patch was still applied: this is an advisory integrity check, not a gate)",
+	}))
+}
+
+// verifyDecodedPatchIdentity runs the defense-in-depth identity check on a patch
+// decoded at the host/worker boundary and REPORTS a mismatch WITHOUT rejecting the
+// patch. Rejecting is deliberately avoided here: buildPatchStreamIdentityFromParts
+// distinguishes nil from empty-but-non-nil ops, and a stream may legitimately carry
+// a hand-set (non-canonical) identity, so a hard reject could false-reject a valid
+// patch and break rendering. Advisory detection removes the silent-application gap
+// with zero false-reject risk; promoting it to a hard reject is gated on the
+// worker-bridge harness (#83) proving every patch that reaches this boundary
+// round-trips its identity exactly.
+func verifyDecodedPatchIdentity(parsePatchStream PatchStreamRaw) {
+	if parseErr := VerifyPatchStreamIdentity(parsePatchStream); parseErr != nil {
+		reportPatchIdentityMismatch(parsePatchStream.GetHeader.RegionID, parsePatchStream.GetHeader.PatchVersion, parseErr)
+	}
+}
 
 // ParseHostPatchPayloadWithFallback decodes one patch payload based on one patch-ready control envelope with fallback across shared-buffer, binary, and structured-clone tiers.
 func ParseHostPatchPayloadWithFallback(
@@ -26,6 +55,10 @@ func ParseHostPatchPayloadWithFallback(
 		if parsePatchStream.GetHeader.PatchVersion != parseExpectedPatchVersion {
 			return "", PatchStreamRaw{}, fmt.Errorf("runtime2: patch payload version mismatch expected=%d actual=%d", parseExpectedPatchVersion, parsePatchStream.GetHeader.PatchVersion)
 		}
+		// Defense-in-depth: the patch has crossed the worker serialization boundary,
+		// so verify its carried identity against a recompute from its decoded parts.
+		// Advisory (surfaces a mismatch, does not reject) — see verifyDecodedPatchIdentity.
+		verifyDecodedPatchIdentity(parsePatchStream)
 		return parseTier, parsePatchStream, nil
 	}
 	hasParseMessagePayloadBinaryPrefix := hasParseBinaryPatchPayloadPrefix(parseMessagePayload)
