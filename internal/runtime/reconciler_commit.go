@@ -1695,7 +1695,14 @@ func (parseRt *Runtime) runOneEffect(parseFiber *Fiber, parseEffect *Effect) {
 	parseRt.checkStrictEffectCleanupSymmetry(parseFiber, parseEffect.CleanupIndex, parseCleanup != nil)
 }
 
-// runEffects runs all effects for a fiber tree
+// runEffects runs all effects for a fiber tree.
+//
+// Ordering is DELIBERATE and load-bearing (do not "fix" it to match React):
+// effect SETUP runs top-down parent->child (this fiber, then child, then
+// sibling), where React runs setup child->parent. The corresponding cleanup
+// order (parent->child on deletion) is the one React guarantees and is pinned
+// by ui/effect_ordering_native_test.go — see its architectural note. Switching
+// setup to bottom-up is an owner-level architecture change, not an audit fix.
 func (parseRt *Runtime) runEffects(parseFiber *Fiber) {
 	if parseFiber == nil {
 		return
