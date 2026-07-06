@@ -1,5 +1,109 @@
 # Changelog
 
+## v4.3.0 - 2026-07-06
+
+Enterprise-hardening release: a file-by-file security, correctness, and
+observability audit across the framework, plus two new CI gates that close
+long-standing blind spots. Every fix was pinned by a test that was
+**negative-verified** (confirmed to fail without the fix) and gated on both the
+native and the (now CI-enforced) wasm suites. This is a **minor** release: the only
+exported-surface change is add-only (two new `serverfn` setters), so no consumer is
+forced to change code to compile — but several **security defaults changed
+behavior**; see *Behavior changes* below for opt-outs.
+
+### Behavior changes (security defaults — review before upgrading)
+
+- **serverfn CSRF protection is now on by default.** `serverfn.Handle` requires
+  `Content-Type: application/json` and rejects browser-flagged cross-site requests
+  (`Sec-Fetch-Site: cross-site`). The generated client always sends
+  `application/json`, so generated code is unaffected; only a hand-rolled caller that
+  posts a non-JSON body breaks. **Opt out** with `serverfn.SetCSRFProtection(false)`
+  if you must accept raw callers and have another CSRF defense.
+- **serverfn no longer returns internal error text to clients.** A plain `error`
+  from a server function now maps to a generic `500` ("internal server error")
+  instead of echoing its message (which could leak a DSN/SQL/path). **Migration:** to
+  send a deliberate message, return a `*serverfn.StatusError` (e.g. `serverfn.Conflict("...")`
+  or `serverfn.NewStatusError(500, "...")`); the real error is delivered to the new
+  `serverfn.SetErrorLogger` sink (default: stderr) so operators keep full diagnostics.
+- **Plugins are held to their declared capabilities.** During `plugin.Host` `Setup`,
+  an `Add*` call for a capability the plugin did not list in `Manifest.Requires` now
+  fails registration (previously only the host-wide capability was checked).
+  **Migration:** declare every capability your plugin uses in `Manifest.Requires`.
+- **Plugins can only resolve services they declared.** `pluginruntime`'s per-plugin
+  `Context.ResolveService` now returns unavailable for a service the plugin did not
+  list in `RequiredServices`/`OptionalServices` (the kernel owner's resolution is
+  unchanged). **Migration:** declare resolved services in the manifest (Optional if
+  absence is tolerated).
+
+### Added
+
+- `serverfn.SetCSRFProtection(bool)` — toggle the CSRF content-type + cross-site
+  defenses (default on).
+- `serverfn.SetErrorLogger(func(name string, err error))` — route the real
+  server-side error behind a 5xx to your logger (default: stderr; `nil` silences).
+
+### Security & correctness
+
+- **serverfn**: CSRF/Content-Type hardening + error-disclosure policy (above);
+  read/decode errors and recovered panics are genericized to the client and logged
+  server-side.
+- **plugin / pluginruntime**: per-plugin capability enforcement and per-plugin
+  service allowlist (least privilege at the plugin trust boundary); the cache-key
+  decorator output is capped (8 KiB) to stop a runaway decorator from ballooning the
+  fetch cache key (reject-not-truncate to avoid key collisions).
+- **db/sqlite**: the passphrase encryptor's salt→derived-key cache is now bounded
+  (FIFO, 128 entries) — decrypting data sealed by many replicas no longer retains
+  derived key material without bound.
+- **telemetryredaction**: a fail-visible dev guard (`GWC-TELEMETRY-NONJSON`) fires
+  when a non-JSON value (a struct/pointer) reaches `Value` and cannot be walked, so a
+  future caller passing a raw struct with secret fields is caught in dev/test instead
+  of leaking silently. Scalar hot path stays reflection-free.
+- **runtime2**: advisory patch-identity verification at the host/worker decode
+  boundary — a patch whose carried identity does not match a recompute from its
+  decoded parts is surfaced (`GWC-PATCH-IDENTITY-MISMATCH`) rather than silently
+  applied. Advisory (not a hard reject) to avoid false-rejecting legitimately
+  non-canonical identities.
+
+### Router (all wasm-verified in a real DOM harness)
+
+- **`BeforeLeave` is honored on browser back/forward.** popstate fires after the URL
+  already changed, so a blocking `BeforeLeave` was silently bypassed; the router now
+  evaluates the leave guard on popstate and restores the URL (via `pushState`) when it
+  blocks. Synchronous guards only (documented follow-up for async on popstate).
+- **History listeners are freed when a router is replaced** (hot-reload / remount /
+  hash↔history switch) instead of being leaked and left attached to `window`.
+- **popstate + hashchange no longer double-render** a single hash navigation
+  (deduped by location signature; never blocks a genuine re-navigation).
+- **A default-route fallback keeps its layout stack** (an unmatched path falling back
+  to the default route was rendered bare, unlike direct navigation).
+
+### Parallel-region worker bridge
+
+- **Worker-bridge failures are surfaced**, not swallowed: a failed mount/update/click
+  is reported on `ParallelRegionStatus.GetFallbackReason` instead of only logged (a
+  failed region previously showed `WorkerAttached` and silently never updated).
+- **Any function-valued prop is stripped** from the display-only worker props
+  (previously only an exact-name `on*` allowlist), so an arbitrarily-named callback no
+  longer fails the first JSON patch encode and silently degrades the region.
+
+### CI & tests
+
+- **New wasm-test merge gate** (`.github/workflows/wasm-tests.yml`): every package
+  shipping a `*_wasm_test.go` now runs under `GOOS=js GOARCH=wasm` in CI — the many
+  wasm suites were never executed by the native `go test` lanes. Turning the gate on
+  immediately surfaced and fixed a hidden `virtualization` wasm-test failure (its mock
+  document lacked `dispatchEvent`).
+- **New hydration browser e2e** (`test/playwrightgo`, `#37`): server-renders a probe,
+  hydrates it in headless Chromium, and asserts the framework-reported hydration
+  metrics show zero fallbacks/discards (`FallbackCount==0`) — proving in a real
+  browser that `ui.Hydrate` adopts server DOM rather than silently client-rendering,
+  a gap that had no test since inception.
+
+### Fixed
+
+- **virtualization**: hidden wasm-test failure (missing `dispatchEvent` in the mock
+  document) exposed by the new wasm CI gate.
+
 ## v4.2.0 - 2026-07-05
 
 Performance release, round two: an overnight benchmark-refine-regress loop

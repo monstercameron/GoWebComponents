@@ -4,6 +4,39 @@ Granular module-by-module audit. Each section lists what was found, what was
 fixed, and what was deliberately left alone (with the reason), so a later
 reader can tell "reviewed and clean" apart from "not yet reviewed".
 
+## Audit closure (2026-07-06) — every deferred task resolved
+
+All findings below, including the items marked **DEFERRED to tracked tasks**
+throughout this document, are now closed and shipped in **v4.3.0** (see
+`CHANGELOG.md`). Every fix was pinned by a negative-verified test and gated on the
+native and wasm suites. Resolution map for the previously-deferred tasks:
+
+- **#37** hydration browser e2e (FallbackCount==0) — DONE, passes in headless
+  Chromium (`test/playwrightgo/hydration_metrics_e2e_test.go`, commit `888363e2`).
+- **#39** wasm tests in CI — DONE (`.github/workflows/wasm-tests.yml`, `7775e627`);
+  turning it on surfaced + fixed a hidden `virtualization` wasm failure.
+- **#45** runtime2 patch-identity verify on decode — DONE as an advisory (not a hard
+  reject, to dodge the false-reject hazard), `63fdc4e2`.
+- **#50** telemetryredaction non-JSON policy — DONE as a fail-visible dev guard,
+  `ab22b047`.
+- **#52** serverfn CSRF + error-disclosure — DONE (owner-approved), `b0a33117`.
+- **#53** plugin Host hardening — capability enforcement + cache-key cap DONE
+  (`5ea855d3`, `afcaf1bf`); blocking-callback timeout + reentrant-Register remain
+  documented owner-level policy (not contained fixes).
+- **#54** pluginruntime per-plugin service allowlist — DONE (owner-approved),
+  `327b6388`.
+- **#55** localfirst/db unbounded derived-key cache — DONE (bounded FIFO), `59f29259`.
+- **#82** router back/forward BeforeLeave + listener leak + double-render +
+  default-route layout — all 4 DONE, wasm-verified (`c57c8543`, `1f55e045`,
+  `ce733500`).
+- **#83** parallel-region func-prop encode + silent-failure surfacing — DONE
+  (`4ff0c656`, `0d9e6e51`); the "no real Web Worker" note stays an architectural
+  expectation-setting item, not a bug.
+
+Remaining genuinely-open items are owner-level POLICY decisions only (plugin
+callback-timeout semantics, reentrant-Register support, a real Web Worker upgrade),
+recorded inline where they arise.
+
 ## Module 1: internal/platform (jsdom + mockdom) — DONE
 
 ### Fixed
