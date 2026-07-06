@@ -1161,6 +1161,15 @@ RESOLVED-AS-NON-ISSUE + DOCUMENTED (#57 sync part): the hotreload package global
   GREEN. (The other half of #57, the silent restore-wedge, stays deferred — its fix
   conflicts with a test that pins skip-clear-on-malformed as intentional.)
 
+## Module 12 backlog follow-up (runtime2 idempotency monotonicity, 2026-07-05)
+FIXED + PINNED (#46): HandlePatchIdempotency deduped by version + rejected
+  same-version conflicts but had NO monotonicity guard — a never-seen version below
+  one already applied in the epoch (stale/reordered worker-bridge delivery) was
+  applied, regressing the DOM with an older cumulative diff. Added a per-epoch
+  high-water mark (getMaxPatchVersion): a new version < max is dropped idempotently
+  (apply=false, no error); forward progress advances it; epoch change resets it.
+  Pins: patch_idempotency_monotonicity_test.go. Full runtime2 suite GREEN.
+
 ## Module 12 backlog follow-up (runtime2 patch-identity verify, 2026-07-05)
 CAPABILITY + PINNED (#45): patch_identity (deterministic hash of parts) is carried
   in the binary payload but TRUSTED on decode — a body corrupted/tampered across the

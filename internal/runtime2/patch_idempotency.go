@@ -5,6 +5,11 @@ import "fmt"
 type patchIdempotencyState struct {
 	getEpochByRegionID          uint64
 	storeIdentityByPatchVersion map[uint64]string
+	// getMaxPatchVersion is the highest patch version applied in the current epoch.
+	// Patch versions are monotonic sequence numbers, so a never-seen version below
+	// this maximum is a stale/reordered delivery (common across the async worker
+	// bridge) whose older cumulative diff must NOT be applied over newer state.
+	getMaxPatchVersion uint64
 }
 
 // PatchIdempotencyTracker tracks duplicate and conflicting patch identities per region.
@@ -44,7 +49,16 @@ func (parseTracker *PatchIdempotencyTracker) HandlePatchIdempotency(parseRegionI
 		}
 		return false, fmt.Errorf("runtime2: patch version %d for region %q already recorded as identity %q (received %q)", parsePatchVersion, parseRegionID, getIdentity, parsePatchIdentity)
 	}
+	// Monotonicity guard: a never-seen version below the epoch's high-water mark is a
+	// stale/reordered patch (e.g. delayed worker-bridge delivery). Applying its older
+	// cumulative diff over newer state would regress the DOM, so drop it idempotently
+	// (skip, no error) rather than apply out of order.
+	if parsePatchVersion < getState.getMaxPatchVersion {
+		parseTracker.storePatchStateByRegionID[parseRegionID] = getState
+		return false, nil
+	}
 	getState.storeIdentityByPatchVersion[parsePatchVersion] = parsePatchIdentity
+	getState.getMaxPatchVersion = parsePatchVersion
 	parseTracker.storePatchStateByRegionID[parseRegionID] = getState
 	return true, nil
 }
