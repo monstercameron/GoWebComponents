@@ -1180,6 +1180,22 @@ FIXED + PINNED (#42): css sink public API diverged by target — StyleBlock/
   references that fail to compile if any func is target-only. Native + wasm GREEN.
   (Existing wasm CriticalCSS empty-attr left as-is; attr consistency in #84.)
 
+## Backlog follow-ups (kvstate Save + closure-aliasing feasibility, 2026-07-05)
+- #90 DONE: sqliteBackend.Save is now version-conditional (ON CONFLICT DO UPDATE
+  ... WHERE excluded.version >= <table>.version) — a stale out-of-order lower-version
+  write is dropped at the durability layer instead of clobbering newer data. Pinned
+  by kvstate/engine_version_conditional_test.go. Closes the last kvstate item.
+- #38 FEASIBILITY (owner-level, no safe drive-by): component identity =
+  FuncForPC(fn.Pointer()).Name() (the CODE pointer), so inline component closures
+  from the same literal (e.g. built in a for-loop) collapse to one IdentityKey and
+  alias (the #78 CRITICAL). A runtime diagnostic is fundamentally hard: Go's reflect
+  does not expose a closure's captured-environment pointer, so the runtime cannot
+  cheaply tell two same-code closures apart — which is why the aliasing is silent.
+  Options: (a) unsafe funcval-env inspection (fragile), (b) a static vet-style
+  analyzer flagging component closures inside loops (substantial new tool), or (c)
+  fold into #78 (explicit-key / call-site+index identity) which removes the footgun.
+  Recommend (c). No contained runtime-diagnostic fix exists.
+
 ## Module 12 backlog follow-up (runtime2 misc triage, 2026-07-05)
 #47 TRIAGED: FIXED+PINNED Coordinator.GetEntry — it returned a struct copy sharing
   the SourceIDs slice backing array with the live entry (caller mutation/read could
