@@ -101,6 +101,12 @@ type Router struct {
 	popstateHandler          js.Func
 	hashchangeHandler        js.Func
 	historyListenersAttached bool
+
+	// lastCommittedPath is the path of the most recently rendered route. A
+	// back/forward popstate fires AFTER the URL has already changed, so this is the
+	// only record of what the user is navigating away FROM — handlePopstateLeaveGuard
+	// uses it to evaluate the leave guard and, if blocked, restore the URL.
+	lastCommittedPath string
 }
 
 type navigationGuardState struct {
@@ -447,6 +453,12 @@ func (parseR *Router) setupHistoryListener() {
 		if parseR.disposed {
 			return nil
 		}
+		// A back/forward changes the URL BEFORE firing popstate; evaluate the leave
+		// guard for the route being left and, if it blocks, restore the URL and skip
+		// the render so BeforeLeave is not silently bypassed by browser navigation.
+		if parseR.handlePopstateLeaveGuard() {
+			return nil
+		}
 		parseR.renderCurrentRoute(true)
 		return nil
 	})
@@ -762,6 +774,74 @@ func (parseR *Router) renderCurrentRoute(isApplyGuards bool) {
 		}
 		parseR.focusRouteContent()
 	})
+	// Record the committed path so a subsequent back/forward popstate can tell what
+	// route it is leaving (the URL will already have changed by the time it fires).
+	parseR.lastCommittedPath = parsePath
+}
+
+// handlePopstateLeaveGuard evaluates the leave guard for a back/forward navigation
+// whose URL has ALREADY changed (popstate fires post-change). If a synchronous
+// BeforeLeave on the route being left blocks, the URL is restored (pushed back to
+// the committed path) and true is returned so the caller skips rendering the new
+// route — the standard back/forward-cancel. A leave redirect restores then navigates
+// to the redirect target. Async BeforeLeave is not evaluated here (the URL cannot be
+// held pending an async decision on popstate); such guards fall through to allow,
+// matching the prior behavior. Returns false when navigation may proceed.
+func (parseR *Router) handlePopstateLeaveGuard() bool {
+	parseFrom := strings.TrimSpace(parseR.lastCommittedPath)
+	parseTo := parseR.GetCurrentRouterPath()
+	if parseFrom == "" || parseFrom == parseTo {
+		return false
+	}
+	parseResolved := parseR.resolveRouteStack(parseFrom)
+	if !parseResolved.found {
+		return false
+	}
+	parseToPath, parseToQuery := parseNavigationTarget(parseTo)
+	parseToResolved := parseR.resolveRouteStack(parseToPath)
+	parseToLeaf := resolvedRoute{}
+	if parseToResolved.found && len(parseToResolved.routes) > 0 {
+		parseToLeaf = parseToResolved.routes[len(parseToResolved.routes)-1]
+	}
+	parseToCtx := parseR.routeContext(parseToPath, parseToLeaf.params, parseToQuery)
+	// The pre-popstate query is no longer available (location already changed), so
+	// the leave context uses the new query; the from-route path/params — what a
+	// leave guard chiefly branches on — are correct.
+	parseFromQuery := getCurrentQueryValues()
+	for parseIndex := len(parseResolved.routes) - 1; parseIndex >= 0; parseIndex-- {
+		parseRoute := parseResolved.routes[parseIndex]
+		if parseRoute.option.BeforeLeave == nil {
+			continue
+		}
+		parseFromCtx := parseR.routeContext(parseRoute.path, parseRoute.params, parseFromQuery)
+		parseDecision := guardDecisionFromResult(parseRoute.option.BeforeLeave(parseFromCtx, parseToCtx))
+		if parseRedirect := strings.TrimSpace(parseDecision.Redirect); parseRedirect != "" {
+			parseR.restoreCommittedURL(parseFrom)
+			parseR.Navigate(normalizeNavigationTarget(parseRedirect))
+			return true
+		}
+		if parseDecision.Blocked || parseDecision.Denied {
+			parseR.restoreCommittedURL(parseFrom)
+			return true
+		}
+	}
+	return false
+}
+
+// restoreCommittedURL pushes the URL back to the committed path after a blocked
+// back/forward. pushState (not popstate-emitting) is used so restoring does not
+// itself re-trigger the popstate handler.
+func (parseR *Router) restoreCommittedURL(parsePath string) {
+	if parseR.routerType == routerTypeHistory {
+		parseHistory := getHistoryValue()
+		if parseHistory.Truthy() && parseHistory.Get("pushState").Truthy() {
+			parseHistory.Call("pushState", nil, "", parsePath)
+			return
+		}
+	}
+	if parseLoc := getLocationValue(); parseLoc.Truthy() {
+		parseLoc.Set("hash", "#"+strings.TrimPrefix(parsePath, "#"))
+	}
 }
 
 // SetViewTransitions enables or disables the automatic View Transitions animation on
