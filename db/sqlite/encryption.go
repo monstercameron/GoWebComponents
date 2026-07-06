@@ -66,26 +66,42 @@ func NewPassphraseEncryptor(parsePassphrase string, parseIterations int) Encrypt
 	}
 }
 
+// maxDerivedKeyCacheEntries bounds the salt->derived-key memo. Sealing reuses
+// this instance's single salt, but decryption derives from each ciphertext's
+// header salt, so decrypting data sealed by many replicas (each with its own
+// random salt) would otherwise grow the cache — and retain sensitive key
+// material — without bound. Past the cap the oldest entry is evicted; a later
+// hit on an evicted salt simply re-runs PBKDF2.
+const maxDerivedKeyCacheEntries = 128
+
 type passphraseEncryptor struct {
 	passphrase string
 	iterations int
 
-	mu   sync.Mutex
-	salt []byte            // minted once, reused for every Seal by this instance
-	keys map[string][]byte // salt -> derived key (PBKDF2 runs once per distinct salt)
+	mu       sync.Mutex
+	salt     []byte            // minted once, reused for every Seal by this instance
+	keys     map[string][]byte // salt -> derived key (PBKDF2 runs once per distinct salt)
+	keyOrder []string          // insertion order, for bounded FIFO eviction
 }
 
 func (parseE *passphraseEncryptor) deriveKey(parseSalt []byte) ([]byte, error) {
 	parseE.mu.Lock()
 	defer parseE.mu.Unlock()
-	if parseKey, parseOk := parseE.keys[string(parseSalt)]; parseOk {
+	parseSaltKey := string(parseSalt)
+	if parseKey, parseOk := parseE.keys[parseSaltKey]; parseOk {
 		return parseKey, nil
 	}
 	parseKey, parseErr := pbkdf2.Key(sha256.New, parseE.passphrase, parseSalt, parseE.iterations, encKeyLen)
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parseE.keys[string(parseSalt)] = parseKey
+	if len(parseE.keys) >= maxDerivedKeyCacheEntries && len(parseE.keyOrder) > 0 {
+		parseOldest := parseE.keyOrder[0]
+		parseE.keyOrder = parseE.keyOrder[1:]
+		delete(parseE.keys, parseOldest)
+	}
+	parseE.keys[parseSaltKey] = parseKey
+	parseE.keyOrder = append(parseE.keyOrder, parseSaltKey)
 	return parseKey, nil
 }
 
