@@ -16,8 +16,17 @@ type pluginContext struct {
 }
 
 // ResolveService resolves one typed service from the running kernel.
+//
+// The plugin's manifest is an access boundary: a service the plugin did NOT
+// declare in RequiredServices/OptionalServices is reported as unavailable
+// ((nil, false)) even when the kernel has it registered, so a plugin can reach
+// only the services it asked for. Declare a service Optional to resolve it while
+// still tolerating its absence.
 func (parseContext pluginContext) ResolveService(parseKey ServiceKey) (any, bool) {
 	if parseContext.getKernel == nil {
+		return nil, false
+	}
+	if !parseContext.getKernel.pluginMayResolve(parseContext.getPluginID, parseKey) {
 		return nil, false
 	}
 	return parseContext.getKernel.ResolveService(parseKey)

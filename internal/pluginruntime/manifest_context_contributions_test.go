@@ -31,7 +31,7 @@ func TestPluginContextExposesKernelInfoAndCleanup(parseT *testing.T) {
 		Registrations: []PluginRegistration{{
 			Factory: func() Plugin {
 				return buildTestPlugin{
-					buildManifest: Manifest{ID: "context-plugin", Version: "1.0.0"},
+					buildManifest: Manifest{ID: "context-plugin", Version: "1.0.0", RequiredServices: []ServiceKey{ServiceKeyDiagnostics}},
 					buildStart: func(parseContext Context) (Handle, error) {
 						if parseInfo := parseContext.KernelInfo(); parseInfo.APIVersion != "v1alpha1" {
 							parseT.Fatalf("KernelInfo() = %#v", parseInfo)

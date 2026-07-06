@@ -83,7 +83,7 @@ func TestNewKernelStartsPluginsAndResolvesServices(parseT *testing.T) {
 		Registrations: []PluginRegistration{{
 			Factory: func() Plugin {
 				return buildTestPlugin{
-					buildManifest: Manifest{ID: "alpha", Version: "1.0.0", ActivationPolicy: ActivationPolicyBoot},
+					buildManifest: Manifest{ID: "alpha", Version: "1.0.0", RequiredServices: []ServiceKey{ServiceKeyDiagnostics}, ActivationPolicy: ActivationPolicyBoot},
 					buildStart: func(parseContext Context) (Handle, error) {
 						buildStarted = true
 						getService, hasService := parseContext.ResolveService(ServiceKeyDiagnostics)
@@ -105,6 +105,48 @@ func TestNewKernelStartsPluginsAndResolvesServices(parseT *testing.T) {
 	getReports := buildKernel.HealthReports()
 	if len(getReports) != 1 || getReports[0].State != HealthStateHealthy {
 		parseT.Fatalf("unexpected health reports: %+v", getReports)
+	}
+}
+
+// TestPluginContextEnforcesServiceAllowlist pins the #54 access boundary: through a
+// pluginContext a plugin can resolve ONLY the services it declared in its manifest.
+// A declared service resolves; an undeclared one is reported unavailable even though
+// it is registered on the kernel — so a plugin cannot reach a service it never asked
+// for. The kernel-owner's own Kernel.ResolveService stays unrestricted.
+func TestPluginContextEnforcesServiceAllowlist(parseT *testing.T) {
+	var buildDeclaredOK, buildUndeclaredOK bool
+	var buildDeclaredVal any
+	buildKernel, parseErr := NewKernel(BootstrapOptions{
+		Services: []ServiceRegistration{
+			{Key: ServiceKeyDiagnostics, Value: "diag"},
+			{Key: ServiceKeyRoute, Value: "route"},
+		},
+		Registrations: []PluginRegistration{{
+			Factory: func() Plugin {
+				return buildTestPlugin{
+					// Declares Diagnostics only; Route is registered on the kernel but NOT declared here.
+					buildManifest: Manifest{ID: "scoped", Version: "1.0.0", RequiredServices: []ServiceKey{ServiceKeyDiagnostics}, ActivationPolicy: ActivationPolicyBoot},
+					buildStart: func(parseContext Context) (Handle, error) {
+						buildDeclaredVal, buildDeclaredOK = parseContext.ResolveService(ServiceKeyDiagnostics)
+						_, buildUndeclaredOK = parseContext.ResolveService(ServiceKeyRoute)
+						return nil, nil
+					},
+				}
+			},
+		}},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("NewKernel() error = %v", parseErr)
+	}
+	if !buildDeclaredOK || buildDeclaredVal != "diag" {
+		parseT.Fatalf("declared service must resolve, got val=%v ok=%t", buildDeclaredVal, buildDeclaredOK)
+	}
+	if buildUndeclaredOK {
+		parseT.Fatal("undeclared service must be reported unavailable to the plugin")
+	}
+	// The kernel owner still sees the undeclared service — enforcement is per-plugin only.
+	if _, hasRoute := buildKernel.ResolveService(ServiceKeyRoute); !hasRoute {
+		parseT.Fatal("Kernel.ResolveService must remain unrestricted for the kernel owner")
 	}
 }
 

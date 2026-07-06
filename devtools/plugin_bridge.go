@@ -21,9 +21,12 @@ type builtInDevtoolsPlugin struct{}
 // Manifest returns the built-in devtools plugin manifest.
 func (builtInDevtoolsPlugin) Manifest() pluginruntime.Manifest {
 	return pluginruntime.Manifest{
-		ID:               "devtools.kernel",
-		Version:          "1.0.0",
-		Description:      "kernel-backed devtools sections",
+		ID:          "devtools.kernel",
+		Version:     "1.0.0",
+		Description: "kernel-backed devtools sections",
+		// Declared so the runtime2-summary section may resolve it; Optional because
+		// the section degrades gracefully when runtime2 metadata is absent.
+		OptionalServices: []pluginruntime.ServiceKey{pluginruntime.ServiceKeyRuntime2Meta},
 		ActivationPolicy: pluginruntime.ActivationPolicyBoot,
 	}
 }

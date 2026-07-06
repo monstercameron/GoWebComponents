@@ -96,6 +96,35 @@ func (parseKernel *Kernel) ResolveService(parseKey ServiceKey) (any, bool) {
 	return getService, hasService
 }
 
+// pluginMayResolve reports whether the plugin identified by parsePluginID declared
+// parseKey in its manifest's RequiredServices or OptionalServices. This makes the
+// manifest's declared service set an ACCESS BOUNDARY: through a pluginContext a
+// plugin can resolve only the services it declared, so a plugin cannot reach for a
+// service it never asked for (least-privilege). The kernel-owner's own
+// Kernel.ResolveService is intentionally NOT gated — only per-plugin resolution is.
+func (parseKernel *Kernel) pluginMayResolve(parsePluginID string, parseKey ServiceKey) bool {
+	if parseKernel == nil || parsePluginID == "" {
+		return false
+	}
+	parseKernel.getMu.RLock()
+	defer parseKernel.getMu.RUnlock()
+	getState := parseKernel.getPlugins[parsePluginID]
+	if getState == nil {
+		return false
+	}
+	for _, parseDeclared := range getState.getManifest.RequiredServices {
+		if parseDeclared == parseKey {
+			return true
+		}
+	}
+	for _, parseDeclared := range getState.getManifest.OptionalServices {
+		if parseDeclared == parseKey {
+			return true
+		}
+	}
+	return false
+}
+
 // SetService stores or replaces one service on the kernel.
 func (parseKernel *Kernel) SetService(parseKey ServiceKey, parseValue any) {
 	if parseKernel == nil || parseKey == "" || parseValue == nil {
