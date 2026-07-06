@@ -1,10 +1,13 @@
 package css
 
 import (
+	"fmt"
 	"hash/fnv"
 	"sort"
 	"strconv"
 	"sync"
+
+	"github.com/monstercameron/GoWebComponents/v4/diagnostics"
 )
 
 // Sink is the documented emission seam. New(...) calls Emit exactly once per
@@ -20,6 +23,23 @@ var (
 	registryMu sync.Mutex
 	registry        = map[string]bool{} // class -> already emitted
 	activeSink Sink = defaultSink()
+
+	// The class registry only grows (a class, once emitted, must stay registered
+	// so its rule is not re-emitted). Building classes from RUNTIME values — instead
+	// of routing live values through the Dynamic escape valve (var(--name) + inline
+	// value) — mints a new class per distinct value and grows the registry (and the
+	// live <style>) without bound. When the count crosses the churn threshold, warn
+	// ONCE so the developer can find the leak. Vars are test seams.
+	classRegistryChurnThreshold = 10000
+	classChurnWarned            bool // guarded by registryMu
+	reportClassRegistryChurn    = func(parseCount int) {
+		diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
+			Code:     "GWC-CSS-CLASS-CHURN",
+			Headline: fmt.Sprintf("css class registry exceeded %d unique classes", classRegistryChurnThreshold),
+			Summary:  fmt.Sprintf("the css class registry has grown to %d classes; this usually means classes are minted from runtime values on every render", parseCount),
+			Next:     "route live values through css.DynamicLength / css.DynamicVar (a stable var(--…) class + inline value) instead of building a new class per value",
+		}))
+	}
 )
 
 // SetSink swaps the active emission sink and returns the previous one. Mainly for
@@ -70,6 +90,7 @@ func Reset() {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	registry = map[string]bool{}
+	classChurnWarned = false
 	activeSink = defaultSink()
 	newCache.Clear()
 	if r, ok := activeSink.(interface{ reset() }); ok {
@@ -86,8 +107,16 @@ func registerAndEmit(parseClass, parseCSS string) bool {
 		return false
 	}
 	registry[parseClass] = true
+	parseCount := len(registry)
+	parseShouldWarn := !classChurnWarned && parseCount >= classRegistryChurnThreshold
+	if parseShouldWarn {
+		classChurnWarned = true
+	}
 	sink := activeSink
 	registryMu.Unlock()
+	if parseShouldWarn {
+		reportClassRegistryChurn(parseCount)
+	}
 	sink.Emit(parseClass, parseCSS)
 	return true
 }

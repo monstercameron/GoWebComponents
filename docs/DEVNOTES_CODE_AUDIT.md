@@ -1161,6 +1161,15 @@ RESOLVED-AS-NON-ISSUE + DOCUMENTED (#57 sync part): the hotreload package global
   GREEN. (The other half of #57, the silent restore-wedge, stays deferred — its fix
   conflicts with a test that pins skip-clear-on-malformed as intentional.)
 
+## Module 4 backlog follow-up (css class-churn guard, 2026-07-05)
+FIXED + PINNED (#43): the css class registry only grows; nothing enforced the
+  Dynamic escape valve, so building classes from runtime values via the normal API
+  minted a new class per value and grew the registry/<style> without bound. Added a
+  one-time churn watchdog in registerAndEmit: past classRegistryChurnThreshold
+  (10000) it emits ONE GWC-CSS-CLASS-CHURN diagnostic pointing at DynamicLength/
+  DynamicVar (warn, not evict — eviction would break rendered elements). Reset
+  re-arms. Pins: css/class_churn_test.go. Native + wasm GREEN.
+
 ## Module 4 backlog follow-up (css sink API parity, 2026-07-05)
 FIXED + PINNED (#42): css sink public API diverged by target — StyleBlock/
   HarvestedClasses native-only, SeedFromDocument wasm-only — so portable code
