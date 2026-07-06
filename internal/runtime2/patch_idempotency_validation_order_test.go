@@ -41,6 +41,37 @@ func TestParsePatchStreamInvalidBodyDoesNotPoisonIdempotency(parseT *testing.T) 
 	}
 }
 
+// TestParsePatchStreamRejectsStaleEpochBeforeNodeIndexResolution pins the #72
+// node-index-reuse defense: a patch from a PRE-restart epoch, delivered after the
+// region restarted to a higher epoch, must be rejected on the epoch mismatch
+// BEFORE any op/node-index decoding. This is what makes worker-restart node-index
+// reuse safe — a stale patch that references node indices the new epoch may have
+// reused for different nodes never reaches DOM application, and never touches the
+// (epoch-scoped) idempotency tracker.
+func TestParsePatchStreamRejectsStaleEpochBeforeNodeIndexResolution(parseT *testing.T) {
+	parseTracker := BuildPatchIdempotencyTracker()
+
+	// Region restarted to epoch 2; this patch is still stamped with the old epoch 1.
+	parseStale := PatchStreamRaw{
+		GetHeader: PatchStreamHeaderRaw{
+			ProtocolVersion: PatchStreamProtocolVersion,
+			RegionID:        "region-1",
+			Epoch:           1,
+			InputVersion:    1,
+			PatchVersion:    9,
+		},
+		GetPatchIdentity: "stale-epoch-patch",
+	}
+	if _, _, parseErr := ParsePatchStreamTransaction(parseStale, "region-1", 2, map[uint64]struct{}{}, map[uint64]uint32{}, parseTracker); parseErr == nil {
+		parseT.Fatal("expected a stale-epoch patch to be rejected before node-index resolution")
+	}
+	// The epoch check runs before the idempotency tracker, so a fresh epoch-2 patch
+	// at the same version is unaffected.
+	if parseApply, parseErr := parseTracker.CheckPatchIdempotency("region-1", 2, 9, "fresh-epoch2"); parseErr != nil || !parseApply {
+		parseT.Fatalf("epoch-2 patch should be unaffected by the rejected stale patch: apply=%v err=%v", parseApply, parseErr)
+	}
+}
+
 // TestCheckThenCommitPatchIdempotencyBehavesLikeHandle verifies the split
 // Check/Commit path matches the check-and-commit HandlePatchIdempotency for the
 // duplicate, conflict, and forward-progress cases.
