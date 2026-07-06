@@ -3,7 +3,13 @@ package runtime
 import (
 	"slices"
 	"strings"
+	"sync/atomic"
 )
+
+// unkeyedComponentAliasWarned makes reportUnkeyedComponentAliasing fire at most
+// once per process — one educational nudge, not a per-render spam, and after it
+// fires the whole scan short-circuits so the hot path pays nothing.
+var unkeyedComponentAliasWarned atomic.Bool
 
 const getCommittedChildReplaceThreshold = 8
 
@@ -534,6 +540,49 @@ func reportMissingKeys(parseParent *Fiber, parseElements []any) {
 
 	_, parseParentName := describeFiber(parseParent)
 	ReportDiagnostic("runtime", DiagnosticWarning, "missing key on one or more sibling elements under "+parseParentName)
+}
+
+// reportUnkeyedComponentAliasing warns once when a parent has two or more UNKEYED
+// COMPONENT children that resolve to the same identity (the classic inline-closure-
+// per-list-item case, where every closure shares one code-pointer identity). Unlike
+// reportMissingKeys — which only flags a MIXED keyed/unkeyed list — this catches the
+// fully-unkeyed stateful-component list, where the reconciler associates hook state
+// with slot position rather than logical item, so insert/delete/reorder shows the
+// wrong item's state. Dev builds only; warn-once so it costs nothing after firing.
+func reportUnkeyedComponentAliasing(parseParent *Fiber, parseElements []any) {
+	if !hookThreadingGuardEnabled || unkeyedComponentAliasWarned.Load() {
+		return
+	}
+	var parseIdentityCounts map[string]int
+	for _, parseElement := range parseElements {
+		parseElem, parseOk := parseElement.(*Element)
+		if !parseOk || parseElem == nil || parseElem.Type == nil {
+			continue
+		}
+		if _, isParseHost := parseElem.Type.(string); isParseHost {
+			continue // host element (e.g. a <div>): unkeyed host children carry no hook state
+		}
+		if hasElementKey(parseElem) {
+			continue // explicitly keyed → correctly identified across reorders
+		}
+		_, parseIdentity := describeCallableIdentity(parseElem.Type)
+		if parseIdentity == "" {
+			continue
+		}
+		if parseIdentityCounts == nil {
+			parseIdentityCounts = map[string]int{}
+		}
+		parseIdentityCounts[parseIdentity]++
+		if parseIdentityCounts[parseIdentity] >= 2 {
+			if unkeyedComponentAliasWarned.CompareAndSwap(false, true) {
+				_, parseParentName := describeFiber(parseParent)
+				ReportDiagnostic("runtime", DiagnosticWarning,
+					"two or more sibling components without keys under "+parseParentName+
+						" share one identity ("+parseIdentity+"); their hook state will associate with list POSITION, not the logical item, so insert/delete/reorder can render the wrong item's state — pass an explicit key (e.g. WithKey) to each list item")
+			}
+			return
+		}
+	}
 }
 
 // parentChild is an internal reconciler helper.

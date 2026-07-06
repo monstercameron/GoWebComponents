@@ -1180,6 +1180,22 @@ FIXED + PINNED (#42): css sink public API diverged by target — StyleBlock/
   references that fail to compile if any func is target-only. Native + wasm GREEN.
   (Existing wasm CriticalCSS empty-attr left as-is; attr consistency in #84.)
 
+## CRITICAL #78/#38 — unkeyed component-list aliasing warning (2026-07-05)
+RESOLVED-VIA-DIAGNOSTIC + PINNED + GATE GREEN. Without explicit keys, sibling
+  inline-closure components share one code-pointer IdentityKey, so the reconciler
+  binds hook state to slot POSITION not logical item (insert/delete/reorder shows
+  the wrong item's state). No correct silent auto-fix exists (position is unstable
+  under reorder — the framework needs explicit keys, same as React), so the remedy
+  is to warn. The existing reportMissingKeys only flagged MIXED keyed/unkeyed lists;
+  added reportUnkeyedComponentAliasing (reconciler_commit.go, wired into
+  reconcileChildren) — 2+ unkeyed component siblings sharing an identity emit a
+  one-time warning advising WithKey. Dev-only (hookThreadingGuardEnabled), warn-once
+  (atomic, zero hot-path cost after firing). This also resolves #38 (a runtime
+  distinct-closure detector is infeasible — Go hides the closure env pointer — but
+  the sibling-identity collision IS detectable). Pin:
+  internal/runtime/unkeyed_component_alias_test.go. First CRITICAL taken under the
+  user's go-ahead to work the CRITICAL backlog.
+
 ## Backlog follow-ups (kvstate Save + closure-aliasing feasibility, 2026-07-05)
 - #90 DONE: sqliteBackend.Save is now version-conditional (ON CONFLICT DO UPDATE
   ... WHERE excluded.version >= <table>.version) — a stale out-of-order lower-version

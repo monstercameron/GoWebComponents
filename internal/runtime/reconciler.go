@@ -493,6 +493,7 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 	}
 	parseElements = parseFlatElements
 	reportMissingKeys(parseWipFiber, parseElements)
+	reportUnkeyedComponentAliasing(parseWipFiber, parseElements)
 
 	if shouldUseKeyedReconciliation(parseElements, parseWipFiber) {
 		parseRt.reconcileKeyedChildren(parseWipFiber, parseElements)
