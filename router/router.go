@@ -91,6 +91,16 @@ type Router struct {
 	// stranded on the old page (D4). Both are opt-out via SetViewTransitions/SetFocusManagement.
 	viewTransitions bool
 	focusManagement bool
+
+	// History listeners this router attached to window, retained so a replaced
+	// router can remove them (see teardownHistoryListener). Without this a second
+	// Router (hot-reload, remount, hash<->history switch) would leave the first
+	// router's popstate/hashchange handlers attached and leaked forever — the
+	// disposed flag only no-ops them, it never detaches or frees them.
+	historyListenerWindow    js.Value
+	popstateHandler          js.Func
+	hashchangeHandler        js.Func
+	historyListenersAttached bool
 }
 
 type navigationGuardState struct {
@@ -455,9 +465,34 @@ func (parseR *Router) setupHistoryListener() {
 	})
 	parseWindow.Call("addEventListener", browserEventHash, parseHashchangeHandler)
 
-	// Clean up on unload
-	registerCleanup(parsePopstateHandler)
-	registerCleanup(parseHashchangeHandler)
+	// Retain the handlers + window so teardownHistoryListener can detach and free
+	// them when this router is replaced. The router now OWNS their lifecycle, so
+	// they are deliberately NOT handed to registerCleanup (whose beforeunload batch
+	// would double-release a handler this router already released on teardown).
+	parseR.historyListenerWindow = parseWindow
+	parseR.popstateHandler = parsePopstateHandler
+	parseR.hashchangeHandler = parseHashchangeHandler
+	parseR.historyListenersAttached = true
+}
+
+// teardownHistoryListener detaches and frees the popstate/hashchange handlers this
+// router attached in setupHistoryListener. Idempotent. Called when the router is
+// replaced (setGlobalRouter) so a superseded router leaves no listeners attached to
+// window and no js.Func leaked.
+func (parseR *Router) teardownHistoryListener() {
+	if parseR == nil || !parseR.historyListenersAttached {
+		return
+	}
+	parseR.historyListenersAttached = false
+	if parseR.historyListenerWindow.Truthy() && parseR.historyListenerWindow.Get("removeEventListener").Truthy() {
+		parseR.historyListenerWindow.Call("removeEventListener", browserEventPop, parseR.popstateHandler)
+		parseR.historyListenerWindow.Call("removeEventListener", browserEventHash, parseR.hashchangeHandler)
+	}
+	parseR.popstateHandler.Release()
+	parseR.hashchangeHandler.Release()
+	parseR.popstateHandler = js.Func{}
+	parseR.hashchangeHandler = js.Func{}
+	parseR.historyListenerWindow = js.Value{}
 }
 
 // GoRegisterRoute registers a route on the router instance.
@@ -545,6 +580,9 @@ func (parseR *Router) Current() *Element {
 func setGlobalRouter(parseNew *Router) {
 	if globalRouter != nil && globalRouter != parseNew {
 		globalRouter.disposed = true
+		// Detach and free the superseded router's history listeners so they are not
+		// leaked (and cannot render the disposed router against a reused target).
+		globalRouter.teardownHistoryListener()
 	}
 	globalRouter = parseNew
 }
