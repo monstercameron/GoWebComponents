@@ -596,7 +596,7 @@ func (parseHub *AgentHub) serveSession(parseConn *websocket.Conn) {
 			break
 		}
 	}
-	parseHub.sessions = append(parseHub.sessions, parseSess)
+	parseHub.appendSessionLocked(parseSess)
 	parseHub.mu.Unlock()
 
 	// Run the inbound frame loop.
@@ -834,6 +834,28 @@ func (parseHub *AgentHub) recordingChain(parseSess *Session, parseMax int) []Com
 // maxRecordingChainDepth caps how far back a reload/crash predecessor chain is
 // walked, bounding work even before the visited-set catches a cycle.
 const maxRecordingChainDepth = 128
+
+// maxRetainedSessions bounds the append-only hub.sessions history. Crashed/reloaded
+// predecessors are kept for crash-report linkage and were never pruned, so a long
+// dev session with repeated hot-reloads grew the slice (and its per-session ring
+// buffers) without bound. The oldest sessions are dropped past this cap. It sits
+// comfortably above maxRecordingChainDepth: a predecessor is always older (earlier)
+// than its successor and chains are walked at most maxRecordingChainDepth deep, so
+// keeping the newest maxRetainedSessions preserves every reachable crash-report
+// chain; anything older can no longer be reached by a bounded walk anyway. A var
+// (not const) so tests can lower it without opening hundreds of connections.
+var maxRetainedSessions = 512
+
+// appendSessionLocked appends a session to the append-only history and prunes the
+// oldest past maxRetainedSessions. Caller holds parseHub.mu. A fresh slice is
+// allocated on prune so the dropped *Session pointers (and their ring buffers) are
+// unreachable and GC-able.
+func (parseHub *AgentHub) appendSessionLocked(parseSess *Session) {
+	parseHub.sessions = append(parseHub.sessions, parseSess)
+	if parseOverflow := len(parseHub.sessions) - maxRetainedSessions; parseOverflow > 0 {
+		parseHub.sessions = append([]*Session(nil), parseHub.sessions[parseOverflow:]...)
+	}
+}
 
 // recordingChainGuarded walks the predecessor chain with a visited-set and a
 // depth cap so a self-referential or cyclic PredecessorID cannot infinite-loop
