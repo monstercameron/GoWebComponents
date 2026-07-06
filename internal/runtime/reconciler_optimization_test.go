@@ -520,6 +520,57 @@ func TestCommitRootRepairsChildOrderWhenKeyedChildrenMove(parseT *testing.T) {
 	}
 }
 
+// TestCommitRepairsChildOrderForDomLessFragmentOwner covers #70: a keyed reorder
+// inside a Fragment must still produce the correct DOM order. Investigation showed
+// the child-order-repair guard that skips DOM-less owners is NOT a defect here —
+// fragments are flattened into their DOM-bearing ancestor, whose repair pass
+// (buildCommittedChildNodes recurses through the DOM-less fragment) moves the
+// reused child nodes. This test regression-guards that flattening + repair path
+// so a future change to fragment handling cannot silently break reorders.
+func TestCommitRepairsChildOrderForDomLessFragmentOwner(parseT *testing.T) {
+	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
+	parseContainer := parseAdapter.CreateElement("root")
+
+	// The keyed list is wrapped in a Fragment, so the owning fiber is DOM-less
+	// and the keyed <div>s are direct children of the <section> host.
+	parseRenderList := func(parseIDs ...string) *Element {
+		parseChildren := make([]any, 0, len(parseIDs))
+		for _, parseID := range parseIDs {
+			parseChildren = append(parseChildren, CreateElement("div", map[string]any{"id": parseID, "key": parseID}, parseID))
+		}
+		return CreateElement("section", map[string]any{"id": "host"},
+			CreateElement("FRAGMENT", nil, parseChildren...),
+		)
+	}
+
+	parseRt.Render(parseRenderList("a", "b", "c"), parseContainer)
+	parseAdapter.resetCounts()
+	parseRt.Render(parseRenderList("c", "a", "b"), parseContainer)
+
+	parseRootChildren := parseAdapter.GetChildren(parseContainer)
+	if len(parseRootChildren) != 1 {
+		parseT.Fatalf("expected one host root child, got %d", len(parseRootChildren))
+	}
+	parseHost, parseOk := parseRootChildren[0].(*testDOMNode)
+	if !parseOk {
+		parseT.Fatalf("expected host node *testDOMNode, got %T", parseRootChildren[0])
+	}
+	parseExpectedIDs := []string{"c", "a", "b"}
+	if len(parseHost.children) != len(parseExpectedIDs) {
+		parseT.Fatalf("expected %d fragment children under host, got %d", len(parseExpectedIDs), len(parseHost.children))
+	}
+	for parseIndex, parseExpectedID := range parseExpectedIDs {
+		parseChild, parseOk2 := parseHost.children[parseIndex].(*testDOMNode)
+		if !parseOk2 {
+			parseT.Fatalf("expected child %d to be *testDOMNode, got %T", parseIndex, parseHost.children[parseIndex])
+		}
+		if parseChild.attributes["id"] != parseExpectedID {
+			parseT.Fatalf("DOM-less fragment child order not repaired: want %v, got id %q at index %d", parseExpectedIDs, parseChild.attributes["id"], parseIndex)
+		}
+	}
+}
+
 func TestApplyCommittedChildOrderReusesObservedChildScan(parseT *testing.T) {
 	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
