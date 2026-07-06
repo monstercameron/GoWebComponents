@@ -324,7 +324,9 @@ func buildLoggingTestHarness(parseT *testing.T) *loggingTestHarness {
 			parseRecord := parseObjectCtor.New()
 			parseRecord.Set("level", parseLevel2)
 			if len(parseArgs) > 0 {
-				parseRecord.Set("payload", parseArgs[0])
+				// The backend leads with the message string when non-empty; the
+				// structured record object is always the LAST argument.
+				parseRecord.Set("payload", parseArgs[len(parseArgs)-1])
 			}
 			parseEntries.Call("push", parseRecord)
 			return nil

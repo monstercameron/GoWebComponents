@@ -30,7 +30,10 @@ func buildLoggingTestConsole() (js.Value, js.Value, func()) {
 			parseRecord := js.Global().Get("Object").New()
 			parseRecord.Set("level", parseLevel2)
 			if len(parseArgs) > 0 {
-				parseRecord.Set("entry", parseArgs[0])
+				// The backend leads with the message string when it is non-empty
+				// (console.log(message, record)); the structured record object is
+				// always the LAST argument, so capture that as "entry".
+				parseRecord.Set("entry", parseArgs[len(parseArgs)-1])
 			}
 			parseLogs.Call("push", parseRecord)
 			return nil
