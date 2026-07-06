@@ -533,3 +533,44 @@ func findRepoRoot() (string, error) {
 		dir = parent
 	}
 }
+
+// TestCompareBaselinesDetectsPackageAndTargetDrift pins the #63 drift detection:
+// a package (or whole target) that the current scan covers but the baseline
+// omits is a silent coverage gap and must be reported, while adding a SYMBOL to
+// an already-tracked package stays allowed.
+func TestCompareBaselinesDetectsPackageAndTargetDrift(t *testing.T) {
+	expected := apiBaseline{
+		Targets: map[string]targetBaseline{
+			"native": {Packages: map[string][]string{"ui": {"func Kept"}}},
+		},
+	}
+	current := apiBaseline{
+		Targets: map[string]targetBaseline{
+			"native": {Packages: map[string][]string{
+				"ui":     {"func Kept", "func Added"}, // added symbol: allowed
+				"router": {"func New"},                // new package: DRIFT
+			}},
+			"wasm": {Packages: map[string][]string{"ui": {"func X"}}}, // new target: DRIFT
+		},
+	}
+
+	issues := compareBaselines(expected, current)
+
+	var driftPkgs []string
+	for _, issue := range issues {
+		if issue.Symbol != apiBaselineDriftSymbol {
+			t.Fatalf("unexpected non-drift issue (an added symbol must be allowed): %+v", issue)
+		}
+		driftPkgs = append(driftPkgs, issue.Target+"/"+issue.Package)
+	}
+	got := strings.Join(driftPkgs, ",")
+	if !strings.Contains(got, "native/router") {
+		t.Fatalf("expected drift for the new native/router package, got %q", got)
+	}
+	if !strings.Contains(got, "wasm/ui") {
+		t.Fatalf("expected drift for the new wasm target, got %q", got)
+	}
+	if strings.Contains(got, "native/ui") {
+		t.Fatalf("native/ui is tracked; adding a symbol must not report drift, got %q", got)
+	}
+}

@@ -310,6 +310,14 @@ func normalizeSignature(source string) string {
 	return strings.Join(strings.Fields(source), " ")
 }
 
+// apiBaselineDriftSymbol marks a package (or target) that the current scan
+// covers but the baseline does not. Adding a symbol to a tracked package is a
+// non-breaking change and is allowed, but a package with NO baseline at all is a
+// silent coverage gap: its future breaking changes would pass unnoticed until
+// someone regenerates the baseline. Flag it so the guard fails and the baseline
+// is brought back in sync.
+const apiBaselineDriftSymbol = "(package absent from baseline — run api_compat_guard -update to track it)"
+
 func compareBaselines(expected apiBaseline, current apiBaseline) []compatIssue {
 	var issues []compatIssue
 	for targetName, expectedTarget := range expected.Targets {
@@ -333,6 +341,23 @@ func compareBaselines(expected apiBaseline, current apiBaseline) []compatIssue {
 					issues = append(issues, compatIssue{Target: targetName, Package: pkg, Symbol: symbol})
 				}
 			}
+		}
+
+		// Package drift within a tracked target.
+		for pkg := range currentTarget.Packages {
+			if _, ok := expectedTarget.Packages[pkg]; !ok {
+				issues = append(issues, compatIssue{Target: targetName, Package: pkg, Symbol: apiBaselineDriftSymbol})
+			}
+		}
+	}
+
+	// Target drift: a whole target the current scan covers but the baseline omits.
+	for targetName, currentTarget := range current.Targets {
+		if _, ok := expected.Targets[targetName]; ok {
+			continue
+		}
+		for pkg := range currentTarget.Packages {
+			issues = append(issues, compatIssue{Target: targetName, Package: pkg, Symbol: apiBaselineDriftSymbol})
 		}
 	}
 
