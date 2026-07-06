@@ -21,7 +21,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 )
 
@@ -42,7 +45,76 @@ var (
 	// uncapped io.ReadAll is a trivial memory-exhaustion DoS. Configurable via
 	// SetMaxRequestBytes; default 10 MiB.
 	maxRequestBytes int64 = 10 << 20
+	// csrfProtection, when true (the default), makes Handle require a JSON
+	// Content-Type and reject browser-flagged cross-site requests. See
+	// SetCSRFProtection for the rationale.
+	csrfProtection = true
 )
+
+// errorLoggerMu guards errorLogger independently of configMu so logging a server
+// error never contends with request-path config reads.
+var (
+	errorLoggerMu sync.RWMutex
+	// errorLogger receives the REAL (un-sanitized) error behind every 5xx — the
+	// error a server function returned or a recovered panic — so operators keep
+	// full diagnostics server-side even though the client only ever sees a generic
+	// "internal server error". Defaults to a stderr line; set to nil to silence,
+	// or override to route into a structured logger. The name is the server
+	// function's registered name.
+	errorLogger = func(parseName string, parseErr error) {
+		fmt.Fprintf(os.Stderr, "serverfn: %s failed: %v\n", parseName, parseErr)
+	}
+)
+
+// SetErrorLogger overrides the sink for the real server-side error behind a 5xx.
+// Passing nil disables server-side error logging (the client still only sees a
+// generic message). Enterprise deployments should route this into their logger.
+func SetErrorLogger(parseLogger func(parseName string, parseErr error)) {
+	errorLoggerMu.Lock()
+	defer errorLoggerMu.Unlock()
+	errorLogger = parseLogger
+}
+
+// logServerError surfaces the real error to the configured sink (if any).
+func logServerError(parseName string, parseErr error) {
+	errorLoggerMu.RLock()
+	parseLogger := errorLogger
+	errorLoggerMu.RUnlock()
+	if parseLogger != nil {
+		parseLogger(parseName, parseErr)
+	}
+}
+
+// SetCSRFProtection toggles Handle's cross-site-request defenses (default on).
+//
+// When enabled, Handle requires the request's Content-Type to be application/json
+// and rejects any request a browser has flagged (via Sec-Fetch-Site) as
+// cross-site. This is the package's CSRF defense:
+//
+//   - application/json is NOT a CORS-safelisted Content-Type, so a cross-origin
+//     browser request carrying it forces a CORS preflight, which an attacker's
+//     forged page cannot satisfy for a cookie-authenticated victim; and an HTML
+//     <form> — which can only send the three safelisted content types — cannot
+//     forge a call at all.
+//   - Sec-Fetch-Site is a browser-set, JS-unspoofable request header; when it is
+//     present and reports "cross-site" the request is rejected outright. It is
+//     absent for non-browser clients, so this never rejects a legitimate
+//     server-to-server or curl caller.
+//
+// The generated client always sends application/json, so this is transparent to
+// generated code. Disable ONLY if you must accept raw non-JSON callers and have
+// another CSRF defense in place.
+func SetCSRFProtection(parseEnabled bool) {
+	configMu.Lock()
+	defer configMu.Unlock()
+	csrfProtection = parseEnabled
+}
+
+func currentCSRFProtection() bool {
+	configMu.RLock()
+	defer configMu.RUnlock()
+	return csrfProtection
+}
 
 // SetMaxRequestBytes sets the maximum server-function request body size in bytes.
 // A non-positive value restores the 10 MiB default. Applies to subsequently
@@ -154,8 +226,12 @@ func UnprocessableEntity(parseMessage string) *StatusError {
 	return NewStatusError(http.StatusUnprocessableEntity, parseMessage)
 }
 
-// statusForError maps a server-function error to an HTTP status and client-facing message. A
-// *StatusError anywhere in the error chain selects its status; anything else is a 500.
+// statusForError maps a server-function error to an HTTP status and the
+// CLIENT-FACING message. A *StatusError anywhere in the error chain selects its
+// status and its (author-chosen, safe-to-expose) message. ANY OTHER error maps
+// to a generic 500: a plain fmt.Errorf can wrap a DSN, SQL fragment, or
+// filesystem path, so its text must never reach the caller — the real error is
+// surfaced to operators via the ErrorLogger sink instead.
 func statusForError(parseErr error) (int, string) {
 	var parseStatusErr *StatusError
 	if errors.As(parseErr, &parseStatusErr) {
@@ -170,7 +246,7 @@ func statusForError(parseErr error) (int, string) {
 		}
 		return parseStatus, parseStatusErr.Message
 	}
-	return http.StatusInternalServerError, parseErr.Error()
+	return http.StatusInternalServerError, "internal server error"
 }
 
 // Handle registers fn as a JSON POST endpoint at Endpoint(name) on mux. It decodes the
@@ -186,12 +262,27 @@ func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn fu
 		// JSON surface and the process/connection is not disturbed.
 		defer func() {
 			if parseRec := recover(); parseRec != nil {
+				// Keep the real panic value server-side; the client only sees a
+				// generic 500 so a panic message cannot leak internal detail.
+				logServerError(parseName, fmt.Errorf("panic: %v", parseRec))
 				writeError(parseW, http.StatusInternalServerError, "internal server error")
 			}
 		}()
 		if parseR.Method != http.MethodPost {
 			writeError(parseW, http.StatusMethodNotAllowed, "server functions require POST")
 			return
+		}
+		// CSRF defense (see SetCSRFProtection): require a JSON Content-Type and
+		// reject browser-flagged cross-site requests. Runs before the body is read.
+		if currentCSRFProtection() {
+			if !isJSONContentType(parseR.Header.Get("Content-Type")) {
+				writeError(parseW, http.StatusUnsupportedMediaType, "server functions require Content-Type: application/json")
+				return
+			}
+			if strings.EqualFold(parseR.Header.Get("Sec-Fetch-Site"), "cross-site") {
+				writeError(parseW, http.StatusForbidden, "cross-site request rejected")
+				return
+			}
 		}
 		var parseReq Req
 		// Cap the body: this is the trust boundary, so an uncapped io.ReadAll is a
@@ -204,19 +295,26 @@ func Handle[Req, Resp any](parseMux *http.ServeMux, parseName string, parseFn fu
 				writeError(parseW, http.StatusRequestEntityTooLarge, "request body too large")
 				return
 			}
-			writeError(parseW, http.StatusBadRequest, "read request body: "+parseErr.Error())
+			// Generic message: the read error's text can name Go internals.
+			writeError(parseW, http.StatusBadRequest, "could not read request body")
 			return
 		}
 		// An empty body is a valid zero-value request (a no-argument call).
 		if len(bytes.TrimSpace(parseBody)) > 0 {
 			if parseErr := json.Unmarshal(parseBody, &parseReq); parseErr != nil {
-				writeError(parseW, http.StatusBadRequest, "decode request: "+parseErr.Error())
+				// Generic message: a decode error names Go types/fields.
+				writeError(parseW, http.StatusBadRequest, "invalid request body")
 				return
 			}
 		}
 		parseResp, parseErr := parseFn(parseR.Context(), parseReq)
 		if parseErr != nil {
 			parseStatus, parseMessage := statusForError(parseErr)
+			// A 5xx means either a plain (message-suppressed) error or an explicit
+			// server-fault StatusError: log the real error so it is not lost.
+			if parseStatus >= http.StatusInternalServerError {
+				logServerError(parseName, parseErr)
+			}
 			writeError(parseW, parseStatus, parseMessage)
 			return
 		}
@@ -263,6 +361,21 @@ func Call[Req, Resp any](parseCtx context.Context, parseName string, parseReq Re
 		return parseResp, fmt.Errorf("decode response: %w", parseErr)
 	}
 	return parseResp, nil
+}
+
+// isJSONContentType reports whether a Content-Type header names application/json
+// (ignoring any charset/boundary parameters and case). An unparseable or absent
+// header is not JSON. This is the gate that forces a CORS preflight on
+// cross-origin browser calls — see SetCSRFProtection.
+func isJSONContentType(parseHeader string) bool {
+	if parseHeader == "" {
+		return false
+	}
+	parseMediaType, _, parseErr := mime.ParseMediaType(parseHeader)
+	if parseErr != nil {
+		return false
+	}
+	return strings.EqualFold(parseMediaType, "application/json")
 }
 
 // writeError sends a JSON error envelope with the given status.

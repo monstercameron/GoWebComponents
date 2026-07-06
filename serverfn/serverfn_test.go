@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -50,12 +51,15 @@ func TestHandleAndCallRoundTrip(parseT *testing.T) {
 	}
 }
 
-// TestCallPropagatesServerError proves a server function error reaches the client as a
-// typed *ServerError carrying the server's message and status.
+// TestCallPropagatesServerError proves a server function's DELIBERATE message reaches the
+// client as a typed *ServerError with its status. Under the error-disclosure policy an
+// author-chosen message must travel via a StatusError (a plain error is suppressed to a
+// generic 500 — see TestHandlePlainErrorIsGenericToClient); NewStatusError(500, …) is how a
+// server-fault exposes a safe message.
 func TestCallPropagatesServerError(parseT *testing.T) {
 	newTestServer(parseT, func(parseMux *http.ServeMux) {
 		Handle(parseMux, "Fail", func(parseCtx context.Context, parseReq echoReq) (echoResp, error) {
-			return echoResp{}, errors.New("name is taken")
+			return echoResp{}, NewStatusError(http.StatusInternalServerError, "name is taken")
 		})
 	})
 
@@ -124,8 +128,9 @@ func TestStatusForErrorEdgeCases(parseT *testing.T) {
 	if parseStatus, parseMsg := statusForError(NotFound("missing")); parseStatus != http.StatusNotFound || parseMsg != "missing" {
 		parseT.Fatalf("NotFound must map to 404/missing, got %d/%q", parseStatus, parseMsg)
 	}
-	if parseStatus, parseMsg := statusForError(errors.New("plain")); parseStatus != http.StatusInternalServerError || parseMsg != "plain" {
-		parseT.Fatalf("plain error must map to 500/plain, got %d/%q", parseStatus, parseMsg)
+	// Disclosure policy: a plain error's own text is NEVER exposed — it maps to a generic 500.
+	if parseStatus, parseMsg := statusForError(errors.New("dsn=postgres://secret")); parseStatus != http.StatusInternalServerError || parseMsg != "internal server error" {
+		parseT.Fatalf("plain error must map to a GENERIC 500, got %d/%q", parseStatus, parseMsg)
 	}
 
 	// A nil *StatusError typed as error (the Go nil-interface anti-pattern) must not panic.
@@ -142,12 +147,18 @@ func TestStatusForErrorEdgeCases(parseT *testing.T) {
 	}()
 }
 
-// TestHandlePlainErrorStillMapsTo500 pins the non-breaking guarantee: an ordinary error is
-// unchanged — it still maps to 500.
-func TestHandlePlainErrorStillMapsTo500(parseT *testing.T) {
+// TestHandlePlainErrorIsGenericToClient pins the error-disclosure policy: a plain error's
+// text (which can wrap a DSN/SQL/path) is NEVER sent to the caller — it maps to 500 with a
+// generic message — while the REAL error is still delivered to the server-side ErrorLogger.
+func TestHandlePlainErrorIsGenericToClient(parseT *testing.T) {
+	parseOldLogger := errorLogger
+	var parseLogged error
+	SetErrorLogger(func(parseName string, parseErr error) { parseLogged = parseErr })
+	parseT.Cleanup(func() { SetErrorLogger(parseOldLogger) })
+
 	newTestServer(parseT, func(parseMux *http.ServeMux) {
 		Handle(parseMux, "Boom", func(parseCtx context.Context, parseReq echoReq) (echoResp, error) {
-			return echoResp{}, errors.New("kaboom")
+			return echoResp{}, errors.New("dsn=postgres://user:pw@db/secret")
 		})
 	})
 
@@ -155,6 +166,17 @@ func TestHandlePlainErrorStillMapsTo500(parseT *testing.T) {
 	var parseServerErr *ServerError
 	if !errors.As(parseErr, &parseServerErr) || parseServerErr.Status != http.StatusInternalServerError {
 		parseT.Fatalf("expected a plain error to stay 500, got %+v", parseServerErr)
+	}
+	// The secret-bearing text must NOT reach the client.
+	if strings.Contains(parseServerErr.Message, "postgres") || strings.Contains(parseServerErr.Message, "secret") {
+		parseT.Fatalf("plain error text leaked to client: %q", parseServerErr.Message)
+	}
+	if parseServerErr.Message != "internal server error" {
+		parseT.Fatalf("expected a generic client message, got %q", parseServerErr.Message)
+	}
+	// ...but the operator-side logger DID receive the real error.
+	if parseLogged == nil || !strings.Contains(parseLogged.Error(), "postgres") {
+		parseT.Fatalf("expected the real error delivered to ErrorLogger, got %v", parseLogged)
 	}
 }
 
