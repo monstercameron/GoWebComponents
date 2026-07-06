@@ -120,13 +120,42 @@ func (parseRt *Runtime) claimHydrationNode(parseFiber *Fiber) (DOMNode, bool) {
 		// adopted node reflects what the virtual tree describes.
 		if !parseRt.strictHydration && parseRt.domAdapter != nil {
 			parseExpectedText := ""
+			parseIsTextNodeFiber := false
 			switch {
 			case isTextLikeFiber(parseFiber):
 				parseExpectedText = textLikeFiberValue(parseFiber)
+				parseIsTextNodeFiber = true
 			case parseFiber.hasDirectText:
 				parseExpectedText = parseFiber.textContent
 			}
-			parseRt.domAdapter.SetTextContent(parseCandidate, parseExpectedText)
+			parseActualText := parseRt.domNodeText(parseCandidate)
+			// Finding #79: adjacent text fibers (e.g. CreateElement("p", nil,
+			// "Hello", "World")) serialize with NO separator, so the browser parses
+			// them as ONE text node "HelloWorld". Overwriting that node to just this
+			// fiber's value would DESTROY the following fibers' text. Instead, when
+			// this is a text node whose content begins with the expected value, SPLIT
+			// it: keep the expected prefix here and leave the remainder as a new
+			// sibling text node for the next text fiber to claim. This resolves
+			// greedily for any number of adjacent text fibers.
+			if parseIsTextNodeFiber && len(parseExpectedText) > 0 &&
+				len(parseActualText) > len(parseExpectedText) &&
+				strings.HasPrefix(parseActualText, parseExpectedText) &&
+				parseRt.domNodeType(parseCandidate) == 3 {
+				parseRt.domAdapter.SetTextContent(parseCandidate, parseExpectedText)
+				parseRemainderNode := parseRt.domAdapter.CreateTextNode(parseActualText[len(parseExpectedText):])
+				parseParent := parseRt.domAdapter.GetParent(parseCandidate)
+				if !IsDOMNodeNull(parseParent) {
+					if IsDOMNodeNull(parseBoundary.cursor) {
+						parseRt.domAdapter.AppendChild(parseParent, parseRemainderNode)
+					} else {
+						parseRt.domAdapter.InsertBefore(parseParent, parseRemainderNode, parseBoundary.cursor)
+					}
+					// The next text fiber claims the split-off remainder.
+					parseBoundary.cursor = parseRemainderNode
+				}
+			} else {
+				parseRt.domAdapter.SetTextContent(parseCandidate, parseExpectedText)
+			}
 		}
 	}
 	for _, parseWarning := range parseRt.detectHydrationAttributeMismatches(parseFiber, parseCandidate) {

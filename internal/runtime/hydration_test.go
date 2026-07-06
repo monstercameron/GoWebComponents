@@ -47,6 +47,52 @@ func TestHydrateReusesExistingDOMForSimpleTree(parseT *testing.T) {
 	}
 }
 
+// TestHydrateSplitsAdjacentTextWithoutDestroyingContent pins the #79 fix: two
+// adjacent text fibers serialize to a single, separator-less DOM text node
+// ("Hello"+"World" -> "HelloWorld"). Hydration must SPLIT that node so each text
+// fiber owns its share, rather than overwriting it to the first fiber's value
+// (which destroyed "World"). The server text node is reused for the prefix and a
+// new sibling holds the remainder.
+func TestHydrateSplitsAdjacentTextWithoutDestroyingContent(parseT *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("p")
+	// The browser collapses adjacent text into ONE node with no separator.
+	parseServerText := parseAdapter.CreateTextNode("HelloWorld")
+	parseAdapter.AppendChild(parseServerNode, parseServerText)
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
+
+	parseRt.Hydrate(CreateElement("p", nil, "Hello", "World"), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
+
+	// The <p> host node must be reused (no fallback).
+	parseHosts := parseAdapter.GetChildren(parseContainer)
+	if len(parseHosts) != 1 || !parseHosts[0].Equals(parseServerNode) {
+		parseT.Fatalf("expected the server <p> to be reused, got %d children", len(parseHosts))
+	}
+
+	// The single server text node must be split into two, preserving all content.
+	parseTextNodes := parseAdapter.GetChildren(parseServerNode)
+	if len(parseTextNodes) != 2 {
+		parseT.Fatalf("expected adjacent text split into 2 nodes, got %d", len(parseTextNodes))
+	}
+	parseFirst := parseTextNodes[0].(*testDOMNode).text
+	parseSecond := parseTextNodes[1].(*testDOMNode).text
+	if parseFirst != "Hello" || parseSecond != "World" {
+		parseT.Fatalf("adjacent text split wrong: got %q + %q, want \"Hello\" + \"World\"", parseFirst, parseSecond)
+	}
+	// The original server node must be reused for the prefix (not discarded).
+	if !parseTextNodes[0].Equals(parseServerText) {
+		parseT.Fatal("expected the original server text node to hold the prefix")
+	}
+}
+
 func TestHydrateFallsBackForTagMismatch(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
