@@ -122,9 +122,16 @@ func (parseB *sqliteBackend) Load(parseCtx context.Context, parseKey string) (Re
 }
 
 func (parseB *sqliteBackend) Save(parseCtx context.Context, parseRecord Record) error {
+	// Version-conditional upsert: only overwrite when the incoming version is at
+	// least the stored one. Writes for a single key are versioned monotonically, but
+	// they persist from per-write goroutines that can land out of order; an
+	// unconditional DO UPDATE would let a stale (lower-version) write clobber a newer
+	// value already on disk. The WHERE clause drops the stale write (no row change,
+	// no error), completing the version-race fix at the durability layer.
 	_, parseErr := parseB.db.Exec(parseCtx,
 		"INSERT INTO "+parseB.table+" (k, v, version, updated_at) VALUES (?, ?, ?, ?)"+
-			" ON CONFLICT(k) DO UPDATE SET v = excluded.v, version = excluded.version, updated_at = excluded.updated_at",
+			" ON CONFLICT(k) DO UPDATE SET v = excluded.v, version = excluded.version, updated_at = excluded.updated_at"+
+			" WHERE excluded.version >= "+parseB.table+".version",
 		parseRecord.Key, parseRecord.Value, parseRecord.Version, parseRecord.UpdatedAt,
 	)
 	return parseErr
