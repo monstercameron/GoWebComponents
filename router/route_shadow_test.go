@@ -27,6 +27,12 @@ func TestPatternShadows(parseT *testing.T) {
 		{"different length no shadow", "/users/:id", "/users/:id/edit", false},
 		// NOT shadowing: a narrower wildcard does not swallow a broader one.
 		{"narrow wildcard vs broad", "/users/settings/*", "/users/*", false},
+		// A broader wildcard DOES swallow a narrower one registered later.
+		{"broad wildcard shadows narrow", "/users/*", "/users/settings/*", true},
+		// NOT shadowing: a fixed-arity pattern cannot swallow an unbounded
+		// wildcard — the wildcard still matches deeper paths (#41 false positive).
+		{"param does not shadow wildcard", "/users/:id", "/users/*", false},
+		{"static does not shadow wildcard", "/users/list", "/users/*", false},
 		// NOT shadowing: unrelated prefixes.
 		{"unrelated prefixes", "/admin/*", "/users/new", false},
 		// Identical patterns are not treated as shadowing (duplicate-registration concern).

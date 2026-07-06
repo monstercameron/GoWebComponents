@@ -25,6 +25,15 @@ func patternShadows(parseEarlier, parseLater string) bool {
 	if parseEarlier == parseLater {
 		return false
 	}
+	// A trailing-* wildcard matches paths of UNBOUNDED depth. A fixed-arity
+	// pattern (only static/:param segments) can never subsume all of them, so it
+	// cannot shadow a wildcard — only another wildcard can. Without this guard the
+	// single-representative concrete path (one extra segment) makes e.g. "/a/:x"
+	// look like it shadows "/a/*", a false unreachable warning for a route that
+	// still matches "/a/b/c".
+	if strings.HasSuffix(parseLater, "*") && !strings.HasSuffix(parseEarlier, "*") {
+		return false
+	}
 	return shadowPatternMatches(parseEarlier, shadowConcretePath(parseLater))
 }
 
