@@ -521,7 +521,7 @@ func parseParsePatchStreamTransaction(
 	parseTracker *PatchIdempotencyTracker,
 	parseHasPatchKeyedMove bool,
 	parseHasPatchKeyedMoveKnown bool,
-) (PatchStreamParseResult, bool, error) {
+) (parseResult PatchStreamParseResult, parseShouldApply bool, parseErr error) {
 	parseHeader, parseHeaderErr := ParsePatchStreamHeader(parseRaw.GetHeader, parseExpectedRegionID)
 	if parseHeaderErr != nil {
 		return PatchStreamParseResult{}, false, parseHeaderErr
@@ -537,7 +537,13 @@ func parseParsePatchStreamTransaction(
 		return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch stream identity is required")
 	}
 	if parseTracker != nil {
-		hasApply, parseIdempotencyErr := parseTracker.HandlePatchIdempotency(
+		// #72: CHECK idempotency (non-mutating) before decoding/validating the
+		// patch body, but COMMIT the version state only after the whole body
+		// validates. Committing up-front let a patch that failed body validation
+		// record its version + identity, so a later corrected patch at the same
+		// version was rejected as a conflict and the region wedged. The deferred
+		// commit fires exactly when this call returns a successful, applied patch.
+		hasApply, parseIdempotencyErr := parseTracker.CheckPatchIdempotency(
 			parseHeader.RegionID,
 			parseHeader.Epoch,
 			parseHeader.PatchVersion,
@@ -549,6 +555,16 @@ func parseParsePatchStreamTransaction(
 		if !hasApply {
 			return PatchStreamParseResult{}, false, nil
 		}
+		defer func() {
+			if parseErr == nil && parseShouldApply {
+				_ = parseTracker.CommitPatchIdempotency(
+					parseHeader.RegionID,
+					parseHeader.Epoch,
+					parseHeader.PatchVersion,
+					parseRaw.GetPatchIdentity,
+				)
+			}
+		}()
 	}
 	var parseStringTable RenderStringTable
 	if parseHasCanonicalStringTableSortedUnique(parseRaw.GetStringTable) {
