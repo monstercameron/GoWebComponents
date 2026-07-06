@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -143,6 +144,67 @@ func TestFetchNativeLoadQueryRegistersTagsAndInvalidatesOnce(parseT *testing.T) 
 	}
 	if parseDisposedAgain := DisposeQueryTag("user"); parseDisposedAgain != 0 {
 		parseT.Fatalf("expected disposed tag to be idempotent, got %d", parseDisposedAgain)
+	}
+}
+
+// TestFetchNativeInfiniteQueryLoadNextDropsResultSupersededByReload pins the #85
+// stale-result fix: a page fetched by LoadNext must NOT be appended if a Reload
+// superseded the query while that page was in flight — otherwise a page fetched
+// from a now-stale cursor corrupts the freshly reloaded data.
+func TestFetchNativeInfiniteQueryLoadNextDropsResultSupersededByReload(parseT *testing.T) {
+	installFetchTestHookContext(parseT)
+
+	var parsePageZeroCount int32
+	parseReleaseNext := make(chan struct{})
+	parseStartedNext := make(chan struct{})
+	var parseSignalOnce int32
+
+	parseQuery := UseInfiniteQuery[string, int]("feed-stale", func(parseCtx context.Context, parseRequest QueryPageRequest[int]) (QueryPage[string, int], error) {
+		_ = parseCtx
+		if parseRequest.PageIndex == 0 {
+			parseN := atomic.AddInt32(&parsePageZeroCount, 1)
+			return QueryPage[string, int]{
+				Items:      []string{fmt.Sprintf("p0-%d", parseN)},
+				NextCursor: 1,
+				HasNext:    true,
+			}, nil
+		}
+		// The LoadNext page: signal in-flight once, then block so the test can
+		// supersede it with a Reload.
+		if atomic.CompareAndSwapInt32(&parseSignalOnce, 0, 1) {
+			close(parseStartedNext)
+		}
+		<-parseReleaseNext
+		return QueryPage[string, int]{Items: []string{"p1-STALE"}, NextCursor: 2, HasNext: false}, nil
+	}, InfiniteQueryOptions[int]{InitialCursor: 0})
+
+	parseQuery.Reload()
+	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+		parseState := parseQuery.Get()
+		return parseState.Ready && !parseState.Loading && len(parseState.Items) == 1
+	})
+
+	parseQuery.LoadNext()   // captures load gen, blocks in the loader
+	<-parseStartedNext      // the page load is in flight
+
+	parseQuery.Reload()     // supersedes it: bumps requestSeq, reloads page 0 as p0-2
+	waitFetchTestCondition(parseT, 2*time.Second, func() bool {
+		parseState := parseQuery.Get()
+		return parseState.Ready && !parseState.Loading && len(parseState.Items) == 1 && parseState.Items[0] == "p0-2"
+	})
+
+	close(parseReleaseNext) // the stale LoadNext now completes and must be dropped
+	// Give the released goroutine time to attempt (and drop) its commit.
+	time.Sleep(150 * time.Millisecond)
+
+	parseFinal := parseQuery.Get()
+	for _, parseItem := range parseFinal.Items {
+		if parseItem == "p1-STALE" {
+			parseT.Fatalf("stale LoadNext page corrupted reloaded data: %+v", parseFinal.Items)
+		}
+	}
+	if len(parseFinal.Items) != 1 || parseFinal.Items[0] != "p0-2" {
+		parseT.Fatalf("expected reloaded single page p0-2 to survive, got %+v", parseFinal.Items)
 	}
 }
 

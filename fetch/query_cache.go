@@ -208,6 +208,10 @@ func (parseQ InfiniteQuery[T, C]) LoadNext() {
 
 	parseCursor := parseState.Value.NextCursor
 	parsePageIndex := len(parseState.Value.Pages)
+	// Capture the load generation so a Reload/Invalidate-driven first-page load
+	// that supersedes this in-flight page can be detected — LoadNext bypasses the
+	// first-page load's own requestSeq guard.
+	parseLoadGen := cachedResourceRequestSeq(parseQ.key)
 	updateCachedSnapshot(parseQ.key, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
 		parsePrev.Loading = true
 		parsePrev.Error = nil
@@ -222,8 +226,25 @@ func (parseQ InfiniteQuery[T, C]) LoadNext() {
 			Cursor:    parseCursor,
 			PageIndex: parsePageIndex,
 		})
+		// Stale-guard: a page fetched from a now-stale cursor must not clobber
+		// fresh data. A Reload/Invalidate bumps the entry's load generation (it
+		// keeps the same page count when it resets to one page, so the count
+		// check alone would miss it); a Set/Update/second-LoadNext changes the
+		// base page count. Drop the result if EITHER changed since LoadNext began.
+		if cachedResourceRequestSeq(parseQ.key) != parseLoadGen {
+			updateCachedSnapshot(parseQ.key, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
+				parsePrev.Stale = parsePrev.Ready
+				return parsePrev
+			})
+			return
+		}
+		parseCommitted := false
 		if parseErr != nil {
 			updateCachedSnapshot(parseQ.key, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
+				parseCurrent, _ := castCachedValue[InfiniteQueryData[T, C]](parsePrev.Value)
+				if len(parseCurrent.Pages) != parsePageIndex {
+					return parsePrev
+				}
 				parsePrev.Loading = false
 				parsePrev.Error = parseErr
 				parsePrev.Stale = parsePrev.Ready
@@ -234,14 +255,21 @@ func (parseQ InfiniteQuery[T, C]) LoadNext() {
 
 		updateCachedSnapshot(parseQ.key, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
 			parseCurrent, _ := castCachedValue[InfiniteQueryData[T, C]](parsePrev.Value)
+			if len(parseCurrent.Pages) != parsePageIndex {
+				return parsePrev
+			}
 			parsePrev.Value = appendInfiniteQueryPage(parseCurrent, parsePage)
 			parsePrev.Loading = false
 			parsePrev.Error = nil
 			parsePrev.Ready = true
 			parsePrev.Stale = false
 			parsePrev.UpdatedAt = time.Now()
+			parseCommitted = true
 			return parsePrev
 		})
+		if !parseCommitted {
+			return
+		}
 		markCachedEntryFresh(parseQ.key)
 		persistCachedSnapshot(parseQ.key)
 	}()

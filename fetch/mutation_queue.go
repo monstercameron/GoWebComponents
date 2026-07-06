@@ -348,6 +348,12 @@ func (parseQ MutationQueue) ReplayWithOptions(parseCtx context.Context, parseExe
 	// whole load-execute-save so a concurrent Enqueue/Remove can't interleave a
 	// stale snapshot save. Executors do network I/O, so this serializes replays
 	// (intended for a durable queue) rather than optimizing throughput.
+	//
+	// RE-ENTRANCY: because the storage-key lock is held across the executor, the
+	// executor MUST NOT call back into the SAME queue (Enqueue/Remove/Replay on
+	// the same storage key) — the lock is not reentrant and it would self-
+	// deadlock. Chain follow-up mutations AFTER Replay returns, or onto a
+	// different storage key.
 	parseMu := parseQ.lock()
 	parseMu.Lock()
 	defer parseMu.Unlock()

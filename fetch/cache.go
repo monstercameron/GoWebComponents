@@ -521,6 +521,24 @@ func shouldUseCachedHandle(parseKey string, parseEntry *cachedResourceEntry) boo
 	return parseRaw == parseEntry
 }
 
+// cachedResourceRequestSeq returns the current load generation for a key, or 0
+// when the key has no entry. It is the token InfiniteQuery.LoadNext captures to
+// detect that a Reload/Invalidate-driven load superseded an in-flight page load
+// (startCachedLoad bumps requestSeq for every fresh load).
+func cachedResourceRequestSeq(parseKey string) uint64 {
+	if parseKey == "" {
+		return 0
+	}
+	parseRaw, parseOk := cachedResourceRegistry.Load(parseKey)
+	if !parseOk {
+		return 0
+	}
+	parseEntry := parseRaw.(*cachedResourceEntry)
+	parseEntry.mu.Lock()
+	defer parseEntry.mu.Unlock()
+	return parseEntry.requestSeq
+}
+
 // getCachedResourceEntry is an internal cache helper.
 func getCachedResourceEntry(parseKey string) *cachedResourceEntry {
 	if parseKey == "" {
