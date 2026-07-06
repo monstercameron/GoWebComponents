@@ -163,6 +163,104 @@ func TestSWRSkipsRefreshWhenFresh(parseT *testing.T) {
 	}
 }
 
+// TestSWRJoinerIsAlsoNotified pins the #75 fix: a second SWR that JOINS an
+// already-in-flight fetch must also have its onUpdate invoked when the fetch
+// completes. Previously only the SWR call that STARTED the fetch was notified,
+// so any component that joined never re-rendered on the fresh data.
+func TestSWRJoinerIsAlsoNotified(parseT *testing.T) {
+	parseClock := &fakeClock{t: time.Unix(1_000_000, 0)}
+	parseCache := New(WithStaleTime(time.Minute), WithClock(parseClock.now))
+	parseCache.Set("k", 1)
+	parseClock.advance(2 * time.Minute) // now stale
+
+	parseRelease := make(chan struct{})
+	parseStarted := make(chan struct{})
+	parseFirst := make(chan Result[int], 1)
+
+	// First SWR starts the background refresh and blocks it mid-flight.
+	SWR(parseCache, "k", func() (int, error) {
+		close(parseStarted)
+		<-parseRelease
+		return 2, nil
+	}, func(parseR Result[int]) { parseFirst <- parseR })
+	<-parseStarted // the refresh is now in flight
+
+	// Second SWR for the same key joins the in-flight refresh; its fetcher must
+	// never run, and its onUpdate must still fire on completion.
+	parseSecond := make(chan Result[int], 1)
+	parseSnap := SWR(parseCache, "k", func() (int, error) {
+		parseT.Error("joining SWR must not start a second fetch")
+		return 0, nil
+	}, func(parseR Result[int]) { parseSecond <- parseR })
+	if !parseSnap.Fetching {
+		parseT.Fatalf("joining SWR snapshot should report fetching, got %+v", parseSnap)
+	}
+
+	close(parseRelease)
+
+	for parseName, parseCh := range map[string]chan Result[int]{"starter": parseFirst, "joiner": parseSecond} {
+		select {
+		case parseR := <-parseCh:
+			if parseR.Data != 2 || parseR.Status != StatusSuccess {
+				parseT.Fatalf("%s onUpdate got %+v, want fresh 2", parseName, parseR)
+			}
+		case <-time.After(time.Second):
+			parseT.Fatalf("%s onUpdate never fired", parseName)
+		}
+	}
+}
+
+// TestEvictedFetchDoesNotPoisonRecreatedEntry pins the #75 ABA fix: an in-flight
+// fetch whose key is Evicted and then re-created (a fresh entry whose gen
+// restarted at 0, aliasing the stale flight's captured gen) must NOT commit its
+// stale result into the new entry. The commit now requires the entry to still
+// own the completing flight.
+func TestEvictedFetchDoesNotPoisonRecreatedEntry(parseT *testing.T) {
+	parseCache := New()
+
+	parseStaleRelease := make(chan struct{})
+	parseStaleStarted := make(chan struct{})
+	parseStaleDone := make(chan Result[int], 1)
+	go func() {
+		parseStaleDone <- Fetch(parseCache, "k", func() (int, error) {
+			close(parseStaleStarted)
+			<-parseStaleRelease
+			return 111, nil // stale value from the evicted entry
+		})
+	}()
+	<-parseStaleStarted // stale fetch is in flight on entry E1 (gen 0)
+
+	parseCache.Evict("k") // E1 removed from the map
+
+	// A new fetch recreates the entry (E2, gen 0) and starts its own flight.
+	parseNewRelease := make(chan struct{})
+	parseNewStarted := make(chan struct{})
+	parseNewDone := make(chan Result[int], 1)
+	go func() {
+		parseNewDone <- Fetch(parseCache, "k", func() (int, error) {
+			close(parseNewStarted)
+			<-parseNewRelease
+			return 222, nil // the value the recreated entry should hold
+		})
+	}()
+	<-parseNewStarted // E2 in flight (gen 0), same as the stale flight's captured gen
+
+	// Complete the STALE fetch first — it must be dropped, not committed to E2.
+	close(parseStaleRelease)
+	<-parseStaleDone
+
+	// Complete the new fetch; E2 must hold its own value.
+	close(parseNewRelease)
+	parseNewRes := <-parseNewDone
+
+	if parseNewRes.Data != 222 {
+		parseT.Fatalf("recreated entry poisoned by stale flight: got %d, want 222", parseNewRes.Data)
+	}
+	if parseVal, parseOk := parseCache.Peek("k"); !parseOk || parseVal.(int) != 222 {
+		parseT.Fatalf("cache poisoned by stale evicted fetch: got %v, want 222", parseVal)
+	}
+}
+
 // TestMutateOptimisticRollbackOnError proves the optimistic value is applied, then on a
 // failed mutation the cache is restored to its exact prior value and the error reported.
 func TestMutateOptimisticRollbackOnError(parseT *testing.T) {

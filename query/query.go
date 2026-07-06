@@ -90,6 +90,11 @@ type entry struct {
 type flight struct {
 	done chan struct{}
 	gen  uint64 // entry.gen when this fetch started
+	// waiters are the SWR onUpdate callbacks of every caller that started or
+	// joined this fetch. runFetch invokes them all once, after completion,
+	// outside the lock — so a component that joins an in-flight fetch is still
+	// notified when the fresh data lands. Guarded by Cache.mu.
+	waiters []func()
 }
 
 // Cache is a concurrency-safe keyed query cache. Create one per logical data scope
@@ -181,22 +186,37 @@ func SWR[T any](parseC *Cache, parseKey string, parseFn func() (T, error), parse
 	parseE := parseC.ensureEntry(parseKey)
 	parseSnapshot := resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
 
-	if parseC.fresh(parseE) || parseE.flight != nil {
+	// Fresh data: no refresh needed, so onUpdate is intentionally not registered.
+	if parseC.fresh(parseE) {
+		parseC.mu.Unlock()
+		return parseSnapshot
+	}
+
+	// A refresh is already in flight: JOIN it. Register this caller's onUpdate as
+	// a waiter on the existing flight so it is notified when that fetch completes
+	// — previously a joining caller's onUpdate was silently dropped and its
+	// component never re-rendered on the fresh data.
+	if parseE.flight != nil {
+		if parseOnUpdate != nil {
+			parseE.flight.waiters = append(parseE.flight.waiters, func() {
+				parseOnUpdate(resultAfterFlight[T](parseC, parseKey))
+			})
+		}
 		parseC.mu.Unlock()
 		return parseSnapshot
 	}
 
 	parseFlight := &flight{done: make(chan struct{}), gen: parseE.gen}
+	if parseOnUpdate != nil {
+		parseFlight.waiters = append(parseFlight.waiters, func() {
+			parseOnUpdate(resultAfterFlight[T](parseC, parseKey))
+		})
+	}
 	parseE.flight = parseFlight
 	parseSnapshot.Fetching = true
 	parseC.mu.Unlock()
 
-	go func() {
-		runFetch(parseC, parseKey, parseFn, parseFlight)
-		if parseOnUpdate != nil {
-			parseOnUpdate(resultAfterFlight[T](parseC, parseKey))
-		}
-	}()
+	go runFetch(parseC, parseKey, parseFn, parseFlight)
 	return parseSnapshot
 }
 
@@ -439,7 +459,12 @@ func callFetch[T any](parseFn func() (T, error)) (parseVal T, parseErr error) {
 func runFetch[T any](parseC *Cache, parseKey string, parseFn func() (T, error), parseFlight *flight) {
 	parseVal, parseErr := callFetch(parseFn)
 	parseC.mu.Lock()
-	if parseE := parseC.entries[parseKey]; parseE != nil {
+	// Commit only when the entry still OWNS this flight. If the key was Evicted
+	// and later re-created, the map holds a fresh entry whose flight differs (and
+	// whose gen restarted at 0, so the bare gen check could ALIAS this stale
+	// flight's captured gen — the ABA poisoning). Requiring flight identity drops
+	// this stale result harmlessly onto the recreated entry.
+	if parseE := parseC.entries[parseKey]; parseE != nil && parseE.flight == parseFlight {
 		if parseE.gen == parseFlight.gen {
 			if parseErr == nil {
 				parseE.data, parseE.err, parseE.hasData, parseE.updatedAt = parseVal, nil, true, parseC.now()
@@ -448,12 +473,18 @@ func runFetch[T any](parseC *Cache, parseKey string, parseFn func() (T, error), 
 				parseE.err = parseErr
 			}
 		}
-		if parseE.flight == parseFlight {
-			parseE.flight = nil
-		}
+		parseE.flight = nil
 	}
+	// Capture and clear the waiters under the lock, then invoke them after
+	// releasing it — a waiter re-reads the cache (resultAfterFlight locks).
+	parseWaiters := parseFlight.waiters
+	parseFlight.waiters = nil
 	close(parseFlight.done)
 	parseC.mu.Unlock()
+
+	for _, parseWaiter := range parseWaiters {
+		parseWaiter()
+	}
 }
 
 // resultAfterFlight builds a snapshot for key under the lock; used once a fetch finishes.
