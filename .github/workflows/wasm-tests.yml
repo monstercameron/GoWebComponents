@@ -1,0 +1,57 @@
+name: WASM Tests
+
+# Systemic-gap gate (#39): the framework's real target is the browser (GOOS=js
+# GOARCH=wasm), but the native `go test ./...` lanes never build or run the many
+# *_wasm_test.go suites — so a regression that only manifests under wasm (a missing
+# js.Value guard, a mock-DOM gap, a build-tag-only code path) could merge unseen.
+# This job runs every package that ships a wasm test under the JS/wasm target using
+# Go's Node-backed exec wrapper, so those suites are a merge gate like any other.
+#
+# API-baseline tests are intentionally skipped here: they pin the NATIVE exported
+# surface, which legitimately differs under wasm build tags, and are already covered
+# by the API Baseline workflow.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wasm-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Setup Node
+        # The GOOS=js exec wrapper ($GOROOT/lib/wasm/go_js_wasm_exec) runs the test
+        # binary under Node.
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run wasm unit tests
+        run: |
+          set -euo pipefail
+          exec_wrapper="$(go env GOROOT)/lib/wasm/go_js_wasm_exec"
+          # Every package that ships a *_wasm_test.go (examples + vendored third_party
+          # trees, which have their own CI, excluded). Enumerated from the tree so new
+          # wasm suites are picked up automatically with no edit to this workflow.
+          pkgs=$(git ls-files '*_wasm_test.go' \
+            | grep -vE '^(examples|third_party)/' \
+            | xargs -n1 dirname | sort -u | sed 's#^#./#')
+          echo "wasm test packages:"; echo "$pkgs"
+          GOOS=js GOARCH=wasm go test -exec "$exec_wrapper" -count=1 \
+            -skip 'PublicAPIBaseline|APIBaseline|ApiBaseline|API_BASELINE' \
+            $pkgs

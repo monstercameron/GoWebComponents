@@ -192,6 +192,13 @@ func installListWASMBrowserHarness(parseT *testing.T, parseListID string, parseS
 		return js.Null()
 	})
 	parseDocument.Set("getElementById", parseGetElementByID)
+	// The app dispatches a "gwc:ready" CustomEvent on document after its first
+	// commit (ui/ready_wasm.go); the mock document must expose dispatchEvent or that
+	// deferred callback panics with "dispatchEvent is not a function".
+	parseDispatchEvent := js.FuncOf(func(parseThis6b js.Value, parseArgs6b []js.Value) interface{} {
+		return true
+	})
+	parseDocument.Set("dispatchEvent", parseDispatchEvent)
 	parseGlobal.Set("document", parseDocument)
 
 	var parseResizeCallback js.Value
@@ -228,6 +235,7 @@ func installListWASMBrowserHarness(parseT *testing.T, parseListID string, parseS
 		parseAddEventListener.Release()
 		parseRemoveEventListener.Release()
 		parseGetElementByID.Release()
+		parseDispatchEvent.Release()
 		parseResizeObserverCtor.Release()
 		if hasResizeObserve {
 			parseResizeObserve.Release()
