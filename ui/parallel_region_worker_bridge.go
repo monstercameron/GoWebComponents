@@ -327,7 +327,7 @@ func buildParallelRegionWorkerPropsOutput(parseProps map[string]any) (map[string
 	parsePropsOutput := make(map[string]any, len(parseProps))
 	parseNodeKey := ""
 	for getPropKey, getPropValue := range parseProps {
-		if shouldParallelRegionStripWorkerProp(getPropKey) {
+		if shouldParallelRegionStripWorkerProp(getPropKey, getPropValue) {
 			continue
 		}
 		switch getPropKey {

@@ -1,6 +1,10 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
+import (
+	"reflect"
+
+	"github.com/monstercameron/GoWebComponents/v4/internal/runtime2"
+)
 
 const parallelRegionClickSlotProp = "data-gwc-parallel-click-slot"
 const parallelRegionClickEventType = "click"
@@ -86,7 +90,16 @@ func hasParallelRegionWorkerEventProp(parsePropKey string) bool {
 	}
 }
 
-// shouldParallelRegionStripWorkerProp reports whether one public host prop is bridge-only and should not reach worker render output.
-func shouldParallelRegionStripWorkerProp(parsePropKey string) bool {
-	return parsePropKey == parallelRegionClickSlotProp || hasParallelRegionWorkerEventProp(parsePropKey)
+// shouldParallelRegionStripWorkerProp reports whether one public host prop is
+// bridge-only and must not reach the display-only worker render output. Bridge
+// event props (the click slot + on*-named handlers) are stripped by name; ANY
+// function-valued prop is also stripped regardless of name. A function cannot be
+// JSON-encoded into the worker props, so an arbitrarily-named callback (e.g.
+// "onCustom" or a raw Go func) that slipped past the name allowlist would otherwise
+// make the first patch encode fail and silently degrade the region.
+func shouldParallelRegionStripWorkerProp(parsePropKey string, parsePropValue any) bool {
+	if parsePropKey == parallelRegionClickSlotProp || hasParallelRegionWorkerEventProp(parsePropKey) {
+		return true
+	}
+	return parsePropValue != nil && reflect.TypeOf(parsePropValue).Kind() == reflect.Func
 }

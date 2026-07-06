@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -718,11 +719,48 @@ func TestParallelRegionWorkerPropFiltersRecognizeBridgeOnlyProps(parseT *testing
 	if hasParallelRegionWorkerEventProp("data-testid") {
 		parseT.Fatal("did not expect non-event prop to be treated as worker event prop")
 	}
-	if !shouldParallelRegionStripWorkerProp(parallelRegionClickSlotProp) || !shouldParallelRegionStripWorkerProp("onchange") {
+	if !shouldParallelRegionStripWorkerProp(parallelRegionClickSlotProp, nil) || !shouldParallelRegionStripWorkerProp("onchange", nil) {
 		parseT.Fatal("expected bridge-only props to be stripped")
 	}
-	if shouldParallelRegionStripWorkerProp("class") {
+	if shouldParallelRegionStripWorkerProp("class", "btn") {
 		parseT.Fatal("did not expect ordinary props to be stripped")
+	}
+	// A function-valued prop of ANY name must be stripped (it cannot be JSON-encoded
+	// into worker props; leaving it in silently fails the first patch encode).
+	if !shouldParallelRegionStripWorkerProp("onCustomHandler", func() {}) {
+		parseT.Fatal("expected an arbitrarily-named function-valued prop to be stripped")
+	}
+	if !shouldParallelRegionStripWorkerProp("data-cb", func(int) string { return "" }) {
+		parseT.Fatal("expected any function value to be stripped regardless of name")
+	}
+}
+
+// TestParallelRegionWorkerPropsOutputStripsFunctionValuesAndStaysJSONEncodable pins the
+// #83 func-prop encode fix end to end: an arbitrarily-named function-valued prop is
+// removed from the display-only worker props so the result marshals cleanly, while
+// ordinary props survive.
+func TestParallelRegionWorkerPropsOutputStripsFunctionValuesAndStaysJSONEncodable(parseT *testing.T) {
+	parseOut, _, parseErr := buildParallelRegionWorkerPropsOutput(map[string]any{
+		"class":           "btn",
+		"data-testid":     "widget",
+		"onCustomHandler": func() {},
+		"reducer":         func(int) int { return 0 },
+	})
+	if parseErr != nil {
+		parseT.Fatalf("building worker props with function values must not error, got %v", parseErr)
+	}
+	if _, hasFunc := parseOut["onCustomHandler"]; hasFunc {
+		parseT.Fatal("function-valued prop must be stripped from worker props output")
+	}
+	if _, hasReducer := parseOut["reducer"]; hasReducer {
+		parseT.Fatal("any function value must be stripped from worker props output")
+	}
+	if parseOut["class"] != "btn" || parseOut["data-testid"] != "widget" {
+		parseT.Fatalf("ordinary props must survive stripping, got %+v", parseOut)
+	}
+	// The stripped output must be JSON-encodable (the real patch pipeline marshals it).
+	if _, parseMarshalErr := json.Marshal(parseOut); parseMarshalErr != nil {
+		parseT.Fatalf("worker props output must be JSON-encodable after stripping, got %v", parseMarshalErr)
 	}
 }
 
