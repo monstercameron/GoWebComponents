@@ -88,7 +88,7 @@ func RenderToStream(parseCtx context.Context, parseWriter io.Writer, parseElemen
 	for _, parseBoundary := range parseState.pending {
 		parseBoundaryCopy := parseBoundary
 		go func() {
-			parseChunks <- renderSSRStreamBoundaryChunk(parseCtx, parseBoundaryCopy, parseOptions)
+			parseChunks <- safeRenderSSRStreamBoundaryChunk(parseCtx, parseBoundaryCopy, parseOptions)
 		}()
 	}
 
@@ -127,6 +127,29 @@ func flushSSRStream(parseWriter io.Writer, parseOptions SSRStreamOptions) {
 	if parseFlusher, parseOk := parseWriter.(interface{ Flush() }); parseOk {
 		parseFlusher.Flush()
 	}
+}
+
+// safeRenderSSRStreamBoundaryChunk wraps renderSSRStreamBoundaryChunk so that a
+// panic escaping a boundary's deferred resolution can NEVER crash the server
+// process. Each pending boundary resolves on its own goroutine, and a panic on
+// a goroutine is not recoverable by its parent — so without this guard a single
+// panicking suspended component (or the deliberate re-panic in
+// renderSSRStreamBoundaryChunk's inner recover for non-suspension panics) takes
+// down the whole process AND deadlocks the collector, which is waiting for a
+// chunk the dead goroutine never sends. The recover degrades the panic to an
+// error chunk, consistent with how re-suspension is already reported, so the
+// stream aborts with a recoverable error instead of a crash.
+func safeRenderSSRStreamBoundaryChunk(parseCtx context.Context, parseBoundary ssrStreamPendingBoundary, parseOptions SSRStreamOptions) (parseChunk SSRStreamChunk) {
+	defer func() {
+		if parseRecovered := recover(); parseRecovered != nil {
+			parseChunk = SSRStreamChunk{
+				Kind:       SSRStreamChunkBoundary,
+				BoundaryID: parseBoundary.id,
+				Err:        fmt.Errorf("ssr stream: boundary %s panicked during resolution: %v", parseBoundary.id, parseRecovered),
+			}
+		}
+	}()
+	return renderSSRStreamBoundaryChunk(parseCtx, parseBoundary, parseOptions)
 }
 
 func renderSSRStreamBoundaryChunk(parseCtx context.Context, parseBoundary ssrStreamPendingBoundary, parseOptions SSRStreamOptions) SSRStreamChunk {

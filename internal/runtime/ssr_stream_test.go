@@ -244,6 +244,51 @@ func TestRenderToStreamDoesNotLeakPartialBoundaryMarkupOnSuspension(parseT *test
 	}
 }
 
+// TestRenderToStreamBoundaryPanicDuringResolutionIsContained pins the #79 fix: a
+// panic raised while a SUSPENDED boundary resolves — on its own goroutine, after
+// the shell has already streamed — must be contained as a stream error, not crash
+// the whole server process (a goroutine panic is unrecoverable by the parent, so
+// without the guard this test binary itself would abort). The recover degrades it
+// to an error-carrying boundary chunk and RenderToStream returns that error.
+func TestRenderToStreamBoundaryPanicDuringResolutionIsContained(parseT *testing.T) {
+	parseDone := make(chan struct{})
+	parsePanicOnResolve := CreateElement(func() *Element {
+		SuspendUntil(parseDone, "resolves then panics")
+		panic("boundary content panicked after resolution")
+	}, nil)
+	parseContent := CreateElement("div", nil, "before", parsePanicOnResolve, "after")
+	parseRoot := CreateElement(AsyncBoundaryNodeType, map[string]any{
+		"content":  parseContent,
+		"fallback": CreateElement("span", nil, "loading"),
+	})
+
+	parseChunks := make(chan SSRStreamChunk, 4)
+	parseErrs := make(chan error, 1)
+	go func() {
+		var parseBuffer bytes.Buffer
+		parseErrs <- RenderToStream(context.Background(), &parseBuffer, parseRoot, SSRStreamOptions{
+			OnChunk: func(parseChunk SSRStreamChunk) { parseChunks <- parseChunk },
+		})
+	}()
+
+	// The shell (with fallback) streams first, before the boundary resolves.
+	parseShell := receiveSSRStreamTestChunk(parseT, parseChunks)
+	if parseShell.Kind != SSRStreamChunkShell || !strings.Contains(parseShell.HTML, "loading") {
+		parseT.Fatalf("expected shell chunk with fallback, got %+v", parseShell)
+	}
+
+	// Releasing the suspension makes the boundary re-render and panic on its
+	// goroutine. This must surface as a returned error, not a process crash.
+	close(parseDone)
+	parseErr := receiveSSRStreamTestError(parseT, parseErrs)
+	if parseErr == nil {
+		parseT.Fatal("expected RenderToStream to return an error for a panicking boundary, got nil")
+	}
+	if !strings.Contains(parseErr.Error(), "panicked") {
+		parseT.Fatalf("expected a contained boundary-panic error, got %v", parseErr)
+	}
+}
+
 func TestRenderToStreamDiscardsNestedPendingBoundaryWhenOuterSuspends(parseT *testing.T) {
 	parseInnerDone := make(chan struct{})
 	parseOuterDone := make(chan struct{})
