@@ -620,12 +620,17 @@ func restorePendingSnapshot() {
 	}
 
 	if parseErr2 := ApplySnapshot(parseSaved.String()); parseErr2 != nil {
-		// NOTE: a persistently un-restorable snapshot (valid JSON, but a
-		// protocol/schema/migration mismatch) will re-fail identically on every
-		// future reload and silently wedge the restore path — but a malformed
-		// payload here may be a truncated mid-write the dev server is about to
-		// rewrite, so blindly clearing would destroy recoverable data. The right
-		// fix distinguishes those error classes; tracked as an audit follow-up.
+		// A persistently un-restorable snapshot (valid JSON but a protocol/
+		// schema/migration/state mismatch) would re-fail identically on every
+		// future reload and silently wedge the restore path. Clear it so the next
+		// reload starts fresh. A malformed payload (invalid JSON) may be a
+		// truncated mid-write the dev server will rewrite, so it is kept.
+		if snapshotWedgeShouldClear(parseSaved.String()) {
+			if clearStoredState := parseLiveReload.Get("clearStoredState"); clearStoredState.Present() {
+				_, _ = clearStoredState.Invoke()
+				runtimepkg.ReportDiagnostic("hotreload", runtimepkg.DiagnosticWarning, "cleared an un-restorable hot reload snapshot to recover the restore path: "+parseErr2.Error())
+			}
+		}
 		return
 	}
 	clearStoredState := parseLiveReload.Get("clearStoredState")

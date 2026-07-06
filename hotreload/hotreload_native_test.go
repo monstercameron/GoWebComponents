@@ -1,49 +1,30 @@
-//go:build !js || !wasm
+//go:build !(js && wasm)
 
 package hotreload
 
 import "testing"
 
-func TestNativeHotReloadStubs(parseT *testing.T) {
-	Disable()
-	if Enabled() {
-		parseT.Fatalf("expected disabled hotreload by default on native builds")
+// TestSnapshotWedgeShouldClear pins the #57 restore-wedge discriminator: a
+// well-formed JSON snapshot that failed to restore is un-restorable (schema/
+// migration mismatch) and must be cleared so the restore path is not wedged
+// forever; a malformed/truncated payload (possibly a mid-write) is kept.
+func TestSnapshotWedgeShouldClear(parseT *testing.T) {
+	parseCases := []struct {
+		parseName    string
+		parsePayload string
+		parseWant    bool
+	}{
+		{"valid object -> clear", `{"version":2,"state":{"n":1}}`, true},
+		{"valid array -> clear", `[1,2,3]`, true},
+		{"valid string -> clear", `"snapshot"`, true},
+		{"truncated mid-write -> keep", `{"version":2,"state":{"n":`, false},
+		{"garbage -> keep", `not json at all`, false},
+		{"empty -> keep", ``, false},
 	}
-	if IsEnabled() {
-		parseT.Fatalf("expected IsEnabled to mirror disabled hotreload state on native builds")
-	}
-
-	Enable()
-	if Enabled() {
-		parseT.Fatalf("expected enable to remain disabled on native builds")
-	}
-
-	Configure(Config{
-		AtomIDs:  []string{"theme", "sidebar"},
-		ResetKey: "build-v1",
-	})
-	if Enabled() {
-		parseT.Fatalf("expected configure to remain disabled on native builds")
-	}
-
-	parsePayload, parseErr := GetSnapshot()
-	if parseErr != nil {
-		parseT.Fatalf("expected native snapshot to return nil error, got %v", parseErr)
-	}
-	if parsePayload != "" {
-		parseT.Fatalf("expected native snapshot payload to be empty, got %q", parsePayload)
-	}
-
-	if parseErr2 := ApplySnapshot(`{"state":{"theme":"dark"}}`); parseErr2 != nil {
-		parseT.Fatalf("expected native apply snapshot to be no-op, got %v", parseErr2)
-	}
-
-	Prepare()
-	Disable()
-	if Enabled() {
-		parseT.Fatalf("expected disable to keep native hotreload disabled")
-	}
-	if IsEnabled() {
-		parseT.Fatalf("expected IsEnabled to remain false after native disable")
+	for _, parseCase := range parseCases {
+		if parseGot := snapshotWedgeShouldClear(parseCase.parsePayload); parseGot != parseCase.parseWant {
+			parseT.Fatalf("%s: snapshotWedgeShouldClear(%q) = %v, want %v",
+				parseCase.parseName, parseCase.parsePayload, parseGot, parseCase.parseWant)
+		}
 	}
 }

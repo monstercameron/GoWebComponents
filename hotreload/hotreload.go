@@ -1,6 +1,23 @@
 package hotreload
 
-import "github.com/monstercameron/GoWebComponents/v4/state"
+import (
+	"encoding/json"
+
+	"github.com/monstercameron/GoWebComponents/v4/state"
+)
+
+// snapshotWedgeShouldClear decides whether a stored hot-reload snapshot that
+// FAILED to restore should be cleared to avoid wedging the restore path. A
+// well-formed JSON payload that still failed to apply is an un-restorable
+// snapshot (protocol/schema/migration mismatch or bad state) that will re-fail
+// identically on every future reload — clearing it lets the next reload start
+// fresh instead of silently retrying the same broken restore forever. An
+// ill-formed payload, by contrast, is likely a truncated mid-write the dev
+// server is about to rewrite, so it is kept (clearing could destroy recoverable
+// data). JSON validity is the exact discriminator between the two classes.
+func snapshotWedgeShouldClear(parsePayload string) bool {
+	return json.Valid([]byte(parsePayload))
+}
 
 // Config controls how the hot reload bridge captures state.
 type Config struct {
