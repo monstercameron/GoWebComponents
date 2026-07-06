@@ -480,6 +480,23 @@ func (parseHost *Host) AddRequestObserver(parseObserver RequestObserver) error {
 	return nil
 }
 
+// maxDecoratedCacheKeyLen bounds the byte length of a cache key produced by a
+// CacheKeyDecorator. Decorators run on the fetch hot path, so a decorator that
+// returns a huge (or per-call exponentially growing) string is a memory/CPU DoS
+// on every request. Past the cap the decorator's output is REJECTED — the
+// pre-decoration key is kept — rather than truncated: truncating two distinct
+// over-long keys to the same prefix would silently collide unrelated cache
+// entries. 8 KiB is far above any legitimate cache key (URLs, query signatures)
+// yet bounds a runaway decorator.
+const maxDecoratedCacheKeyLen = 8192
+
+// reportCacheKeyOverflow is invoked when a decorator's output exceeds
+// maxDecoratedCacheKeyLen and is therefore rejected. A test seam; the default
+// surfaces the rejection to stderr so a misbehaving plugin is not hidden.
+var reportCacheKeyOverflow = func(parseLen int) {
+	fmt.Fprintf(os.Stderr, "plugin: cache-key decorator output of %d bytes exceeds the %d-byte cap; output rejected, key left undecorated\n", parseLen, maxDecoratedCacheKeyLen)
+}
+
 // DecorateCacheKey applies all registered cache-key decorators in order and returns the result.
 func (parseHost *Host) DecorateCacheKey(parseKey string) string {
 	if parseHost == nil {
@@ -493,9 +510,16 @@ func (parseHost *Host) DecorateCacheKey(parseKey string) string {
 		if parseDecorator != nil {
 			// A panicking decorator passes the key through unchanged.
 			parseCurrent := parseDecorated
-			parseDecorated = pluginCall("cache-key decorator", func() string {
+			parseNext := pluginCall("cache-key decorator", func() string {
 				return parseDecorator(parseCurrent)
 			}, parseCurrent)
+			// Reject over-long decorator output so a runaway decorator cannot
+			// balloon the fetch cache key; keep the pre-decoration key.
+			if len(parseNext) > maxDecoratedCacheKeyLen {
+				reportCacheKeyOverflow(len(parseNext))
+				parseNext = parseCurrent
+			}
+			parseDecorated = parseNext
 		}
 	}
 	return parseDecorated
