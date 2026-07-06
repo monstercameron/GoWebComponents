@@ -65,11 +65,32 @@ type TopicOption struct {
 }
 
 // WithReplayLast returns a TopicOption that causes a new subscriber to
-// immediately receive the most recently published value on its topic, if any
-// value has been published while the topic had registry state. Note: when the
-// LAST subscriber of a topic unsubscribes the registry entry is cleared
-// (Subscribe's documented contract), which also drops the replay value — a
-// later subscriber replays only values published after it re-created the topic.
+// immediately receive the most recently published value on its topic, if one
+// has been retained.
+//
+// Retention lifetime: Publish records the last value on the topic's registry
+// state, and that state persists as long as the topic has an entry in the
+// registry. A value published BEFORE any subscriber exists is retained and
+// WILL be replayed to the first WithReplayLast subscriber (see
+// TestLateSubscriberWithReplayLast). Retention ends only when the LAST
+// subscriber unsubscribes: that clears the registry entry and drops the
+// retained value, so a subscriber that arrives after a full subscribe/
+// unsubscribe cycle replays only values published after the topic was
+// re-created.
+//
+// Retention caveat (unbounded for dynamic topic names): because a value
+// published to a subscriber-less topic is retained, publishing to many
+// distinct, never-subscribed topic strings (e.g. "user:"+id) retains one
+// small state per distinct topic for the process lifetime. Prefer a bounded
+// set of static topic names; a bounded/TTL retention policy for subscriber-
+// less topics is a deferred enhancement.
+//
+// Ordering caveat (concurrent publish): the replay value is delivered just
+// after the subscriber is registered, without holding the topic lock across
+// the handler (so a re-entrant handler cannot deadlock). A Publish that races
+// in that narrow window can therefore deliver a newer value before the replay
+// of the older one. Replay ordering is exact when subscription and publishing
+// are not concurrent (always true on the single-threaded wasm target).
 func WithReplayLast() TopicOption {
 	return TopicOption{parseReplayLast: true}
 }
