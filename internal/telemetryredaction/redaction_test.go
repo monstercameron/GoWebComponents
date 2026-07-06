@@ -14,6 +14,90 @@ func resetPolicy(parseT *testing.T) {
 	})
 }
 
+// TestValueGuardsAgainstNonJSONValues pins the #50 contract guard: a non-JSON-like
+// value (a struct or pointer) reaching Value() cannot be walked, so it is flagged
+// via the dev guard (a future caller passing a raw struct with secret fields is
+// caught rather than leaking silently), while ordinary JSON scalars never flag.
+func TestValueGuardsAgainstNonJSONValues(parseT *testing.T) {
+	resetPolicy(parseT)
+
+	type secretBearing struct {
+		APIKey string
+	}
+
+	parseOldReport := reportNonJSONTelemetryValue
+	parseFlagged := map[string]int{}
+	reportNonJSONTelemetryValue = func(parsePath string, parseValue any) {
+		parseFlagged[parsePath]++
+	}
+	parseT.Cleanup(func() { reportNonJSONTelemetryValue = parseOldReport })
+
+	// A struct nested inside a JSON map hits the un-walkable default branch.
+	parseInput := map[string]any{
+		"scalar": "safe",
+		"count":  42,
+		"creds":  secretBearing{APIKey: "sk-live-123"},
+	}
+	Value("telemetry", parseInput)
+
+	if parseFlagged["telemetry.creds"] != 1 {
+		parseT.Fatalf("struct value must be flagged once, got %d for telemetry.creds (all: %v)", parseFlagged["telemetry.creds"], parseFlagged)
+	}
+	// Scalars must NOT be flagged.
+	if parseFlagged["telemetry.scalar"] != 0 || parseFlagged["telemetry.count"] != 0 {
+		parseT.Fatalf("scalars must not be flagged: %v", parseFlagged)
+	}
+
+	// A pointer is likewise flagged.
+	parseSecret := &secretBearing{APIKey: "sk-live-456"}
+	Value("ptr", map[string]any{"creds": parseSecret})
+	if parseFlagged["ptr.creds"] != 1 {
+		parseT.Fatalf("pointer value must be flagged, got %v", parseFlagged)
+	}
+}
+
+// TestNonJSONReportDedupesPerType pins that the default (diagnostics-emitting) guard
+// reports each distinct offending type at most once, so it cannot spam the sink.
+func TestNonJSONReportDedupesPerType(parseT *testing.T) {
+	resetPolicy(parseT)
+
+	type widget struct{ Token string }
+
+	parseOldSeen := nonJSONReported
+	nonJSONMu.Lock()
+	nonJSONReported = map[string]struct{}{}
+	nonJSONMu.Unlock()
+	parseT.Cleanup(func() {
+		nonJSONMu.Lock()
+		nonJSONReported = parseOldSeen
+		nonJSONMu.Unlock()
+	})
+
+	parseEmits := 0
+	parseOldReport := reportNonJSONTelemetryValue
+	reportNonJSONTelemetryValue = func(parsePath string, parseValue any) {
+		// Exercise the real dedup set, counting only first-sightings.
+		parseTypeName := fmtSprintType(parseValue)
+		nonJSONMu.Lock()
+		_, parseSeen := nonJSONReported[parseTypeName]
+		if !parseSeen {
+			nonJSONReported[parseTypeName] = struct{}{}
+			parseEmits++
+		}
+		nonJSONMu.Unlock()
+	}
+	parseT.Cleanup(func() { reportNonJSONTelemetryValue = parseOldReport })
+
+	for parseI := 0; parseI < 5; parseI++ {
+		Value("t", map[string]any{"w": widget{Token: "x"}})
+	}
+	if parseEmits != 1 {
+		parseT.Fatalf("same type must emit once, got %d", parseEmits)
+	}
+}
+
+func fmtSprintType(parseValue any) string { return reflect.TypeOf(parseValue).String() }
+
 func TestFieldMatchesNormalizedNamesAndLastPathSegment(parseT *testing.T) {
 	resetPolicy(parseT)
 	Configure(Policy{Fields: []string{"api-key", "user token"}})

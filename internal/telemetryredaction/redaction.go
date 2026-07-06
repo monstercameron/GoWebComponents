@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/monstercameron/GoWebComponents/v4/diagnostics"
 )
 
 const RedactedValue = "[redacted]"
@@ -150,8 +152,64 @@ func redactValue(parsePath string, parseValue any) any {
 		copy(parseOut, parseTyped)
 		return parseOut
 	default:
+		// Contract: callers MUST pass JSON-decoded telemetry values — the shapes
+		// json.Unmarshal into `any` produces (map[string]any, []any, and scalars).
+		// A struct, a pointer, or a map with non-string keys cannot be walked, so
+		// its nested fields are returned WITHOUT redaction. Every in-tree caller
+		// normalizes first (a json.Marshal→Unmarshal round-trip, or logging's
+		// normalizeLogValue), so this is unreachable today; the guard exists so a
+		// future caller passing a raw struct with secret fields is caught in
+		// dev/test instead of silently leaking. Scalars pass through with no cost.
+		if !isJSONScalar(parseValue) {
+			reportNonJSONTelemetryValue(parsePath, parseValue)
+		}
 		return normalizeValue(parseValue)
 	}
+}
+
+// isJSONScalar reports whether parseValue is a leaf that json.Unmarshal-into-any
+// can produce (or a common Go numeric/bool scalar), so the dev guard does not flag
+// ordinary passthrough values. Deliberately a cheap type switch — NO reflection —
+// because it runs on the telemetry-wide hot path for every non-collection value.
+func isJSONScalar(parseValue any) bool {
+	switch parseValue.(type) {
+	case nil, bool, string,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64, uintptr,
+		float32, float64:
+		return true
+	default:
+		return false
+	}
+}
+
+// nonJSONReported dedups the dev guard so a repeated non-JSON type cannot spam the
+// diagnostics sink on the telemetry hot path.
+var (
+	nonJSONMu       sync.Mutex
+	nonJSONReported = map[string]struct{}{}
+)
+
+// reportNonJSONTelemetryValue warns (once per distinct Go type) that a value which
+// is not JSON-like reached Value() and was therefore passed through unredacted. A
+// test seam.
+var reportNonJSONTelemetryValue = func(parsePath string, parseValue any) {
+	parseTypeName := fmt.Sprintf("%T", parseValue)
+	nonJSONMu.Lock()
+	_, parseSeen := nonJSONReported[parseTypeName]
+	if !parseSeen {
+		nonJSONReported[parseTypeName] = struct{}{}
+	}
+	nonJSONMu.Unlock()
+	if parseSeen {
+		return
+	}
+	diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
+		Code:     "GWC-TELEMETRY-NONJSON",
+		Headline: fmt.Sprintf("non-JSON telemetry value of type %s was not redacted", parseTypeName),
+		Summary:  fmt.Sprintf("telemetryredaction.Value received a %s at path %q; it is not a JSON-like shape (map[string]any / []any / scalar), so it was returned WITHOUT walking its fields — any nested secret field is unredacted", parseTypeName, parsePath),
+		Next:     "normalize telemetry to JSON-decoded values before redaction (json.Marshal then Unmarshal into any, or logging.normalizeLogValue); do not pass raw structs or pointers to Value",
+	}))
 }
 
 func normalizeValue(parseValue any) any {
