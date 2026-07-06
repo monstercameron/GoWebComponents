@@ -82,6 +82,12 @@ func HarvestedClasses() []string { return bufferSinkInstance.classes() }
 // pipeline-oriented name; both return "" when nothing has been emitted.
 func CriticalCSS() string { return StyleBlock() }
 
+// SeedFromDocument is a no-op on native builds: there is no DOM/document to read a
+// server-rendered <style data-gwc-css> block from. It exists for cross-target API
+// parity so code that hydrates the client registry compiles on both targets (the
+// wasm build does the real seeding).
+func SeedFromDocument() {}
+
 // StyleBlock returns the harvested CSS wrapped in a <style data-gwc-css> element
 // carrying the emitted class names in a data attribute. The SSR head includes
 // this so styles are present on first paint and the client can pre-seed its

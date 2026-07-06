@@ -3,6 +3,8 @@
 package css
 
 import (
+	"html"
+	"strings"
 	"sync"
 	"syscall/js"
 )
@@ -80,6 +82,27 @@ func Harvest() string {
 		return ""
 	}
 	return style.Get("textContent").String()
+}
+
+// HarvestedClasses returns every class the registry currently knows about, sorted.
+// Exists for cross-target API parity with the native buffer sink (which returns its
+// own emission-ordered list). On wasm the DOM <style> is the live sink, so the
+// shared registry is the source of truth for present classes.
+func HarvestedClasses() []string {
+	return registeredClasses()
+}
+
+// StyleBlock returns the managed <style> text wrapped in a
+// <style data-gwc-css="<classes>"> element, mirroring the native SSR-extraction
+// format (class list escaped as an HTML attribute). Exists for cross-target API
+// parity. Returns "" when nothing has been injected.
+func StyleBlock() string {
+	cssText := Harvest()
+	if cssText == "" {
+		return ""
+	}
+	classes := strings.Join(HarvestedClasses(), " ")
+	return `<style data-gwc-css="` + html.EscapeString(classes) + `">` + cssText + `</style>`
 }
 
 // CriticalCSS returns the managed <style> element's text wrapped in a

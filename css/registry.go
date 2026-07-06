@@ -2,6 +2,7 @@ package css
 
 import (
 	"hash/fnv"
+	"sort"
 	"strconv"
 	"sync"
 )
@@ -45,6 +46,22 @@ func Seed(parseClasses ...string) {
 	for _, class := range parseClasses {
 		registry[class] = true
 	}
+}
+
+// registeredClasses returns every class currently known to the registry (emitted
+// or seeded), sorted for determinism. Build-tag-free so the wasm sink can expose
+// HarvestedClasses() with the same shape as the native buffer sink (which keeps its
+// own ordered list); the shared registry is the cross-target source of truth for
+// "which classes are present".
+func registeredClasses() []string {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	out := make([]string, 0, len(registry))
+	for class := range registry {
+		out = append(out, class)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // Reset clears the registry and resets the active sink to the build default. For

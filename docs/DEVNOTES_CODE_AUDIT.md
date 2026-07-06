@@ -1161,6 +1161,16 @@ RESOLVED-AS-NON-ISSUE + DOCUMENTED (#57 sync part): the hotreload package global
   GREEN. (The other half of #57, the silent restore-wedge, stays deferred — its fix
   conflicts with a test that pins skip-clear-on-malformed as intentional.)
 
+## Module 4 backlog follow-up (css sink API parity, 2026-07-05)
+FIXED + PINNED (#42): css sink public API diverged by target — StyleBlock/
+  HarvestedClasses native-only, SeedFromDocument wasm-only — so portable code
+  calling any failed to compile on the other target. Added native SeedFromDocument()
+  (no-op), wasm HarvestedClasses() (registeredClasses() shared accessor) + wasm
+  StyleBlock() (native-format, html.EscapeString'd attr). Both targets now expose the
+  identical 7-func set. Pinned by css/parity_test.go — build-tag-free typed-value
+  references that fail to compile if any func is target-only. Native + wasm GREEN.
+  (Existing wasm CriticalCSS empty-attr left as-is; attr consistency in #84.)
+
 ## Module 12 backlog follow-up (runtime2 idempotency monotonicity, 2026-07-05)
 FIXED + PINNED (#46): HandlePatchIdempotency deduped by version + rejected
   same-version conflicts but had NO monotonicity guard — a never-seen version below
