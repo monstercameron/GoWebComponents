@@ -107,6 +107,14 @@ type Router struct {
 	// only record of what the user is navigating away FROM — handlePopstateLeaveGuard
 	// uses it to evaluate the leave guard and, if blocked, restore the URL.
 	lastCommittedPath string
+
+	// lastListenerRenderSig is the location signature of the most recent
+	// listener-driven (popstate/hashchange) render. A single hash navigation under a
+	// history router fires BOTH popstate and hashchange, which would otherwise render
+	// twice; renderFromListener skips a listener render whose signature equals the
+	// immediately-preceding one, coalescing that pair without ever blocking a genuine
+	// re-navigation (a different URL rendered in between changes the signature).
+	lastListenerRenderSig string
 }
 
 type navigationGuardState struct {
@@ -459,7 +467,7 @@ func (parseR *Router) setupHistoryListener() {
 		if parseR.handlePopstateLeaveGuard() {
 			return nil
 		}
-		parseR.renderCurrentRoute(true)
+		parseR.renderFromListener()
 		return nil
 	})
 
@@ -472,7 +480,8 @@ func (parseR *Router) setupHistoryListener() {
 		// History routers still need hashchange rerenders for in-page fragment navigation.
 		// Without this, links like "#faq" update the URL but shared route components never
 		// see a new location snapshot, which breaks anchor state and browser back/forward.
-		parseR.renderCurrentRoute(true)
+		// renderFromListener coalesces the popstate+hashchange pair a single hash nav fires.
+		parseR.renderFromListener()
 		return nil
 	})
 	parseWindow.Call("addEventListener", browserEventHash, parseHashchangeHandler)
@@ -826,6 +835,30 @@ func (parseR *Router) handlePopstateLeaveGuard() bool {
 		}
 	}
 	return false
+}
+
+// locationSignature returns a stable fingerprint of the browser location
+// (pathname + search + hash), used to coalesce the popstate+hashchange double-fire.
+func (parseR *Router) locationSignature() string {
+	parseLoc := getLocationValue()
+	if !parseLoc.Truthy() {
+		return ""
+	}
+	return parseLoc.Get("pathname").String() + "\x00" + parseLoc.Get("search").String() + "\x00" + parseLoc.Get("hash").String()
+}
+
+// renderFromListener renders in response to a popstate/hashchange event, deduping
+// the pair those two events form for one hash navigation: a listener render whose
+// location signature matches the immediately-preceding listener render is skipped.
+// This never suppresses a real navigation — any different-URL render in between
+// changes the stored signature — it only collapses the redundant same-URL double-fire.
+func (parseR *Router) renderFromListener() {
+	parseSig := parseR.locationSignature()
+	if parseSig == parseR.lastListenerRenderSig {
+		return
+	}
+	parseR.lastListenerRenderSig = parseSig
+	parseR.renderCurrentRoute(true)
 }
 
 // restoreCommittedURL pushes the URL back to the committed path after a blocked

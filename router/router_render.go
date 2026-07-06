@@ -162,6 +162,14 @@ func (parseR *Router) resolveRouteStack(parsePath string) resolvedRouteStack {
 	}
 
 	if parseLeaf.id == defaultRoutePrefix+parseR.defaultRoute {
+		// The request path did not match, so we are falling back to the default
+		// route. Wrap it in the SAME layout stack it gets when navigated to directly
+		// — resolve by the default route's OWN path (which exact-matches and so does
+		// not re-enter this branch, terminating the recursion) rather than rendering
+		// it bare. Without this, a fallback render skipped all parent Layout routes.
+		if parseStack := parseR.resolveRouteStack(parseR.defaultRoute); parseStack.found {
+			return parseStack
+		}
 		return resolvedRouteStack{routes: []resolvedRoute{parseLeaf}, found: true}
 	}
 
