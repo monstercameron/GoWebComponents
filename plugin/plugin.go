@@ -121,6 +121,16 @@ type Host struct {
 	cleanups     []CleanupFunc
 	values       map[string]any
 
+	// activePluginRequires is the declared-capability set of the plugin currently
+	// inside its Setup call, or nil when no Setup is running. registerMu ensures
+	// only one plugin is ever in Setup at a time; the pointer is guarded by stateMu
+	// so a concurrent direct Add* cannot race-read it. While set, requireCapability
+	// additionally enforces that the capability was DECLARED in this plugin's
+	// Manifest.Requires — declaring a capability is how a plugin authorizes itself
+	// to the matching Add* surface (per-plugin least privilege).
+	activePluginRequires map[Capability]struct{}
+	activePluginID       string
+
 	routeGuards              []RouteGuard
 	navigationObservers      []NavigationObserver
 	cacheDecorators          []CacheKeyDecorator
@@ -273,6 +283,11 @@ func (parseHost *Host) Register(parsePlugin Plugin) error {
 	}
 
 	parseSnapshot := parseHost.snapshot()
+	// Enter this plugin's Setup scope so every Add* it calls is checked against the
+	// capabilities it declared, not merely those enabled host-wide. Cleared on all
+	// paths (including a Setup panic) via defer.
+	parseHost.beginSetup(parseManifest)
+	defer parseHost.endSetup()
 	parseCleanup, parseErr2 := parsePlugin.Setup(parseHost)
 	if parseErr2 != nil {
 		parseHost.rollback(parseSnapshot)
@@ -860,12 +875,49 @@ func (parseHost *Host) rollback(parseSnapshot registrySnapshot) {
 	maps.Copy(parseHost.values, parseSnapshot.values)
 }
 
+// beginSetup marks the given plugin as the one currently in Setup, capturing its
+// declared capability set so requireCapability can enforce per-plugin scope.
+func (parseHost *Host) beginSetup(parseManifest Manifest) {
+	parseRequires := make(map[Capability]struct{}, len(parseManifest.Requires))
+	for _, parseCapability := range parseManifest.Requires {
+		parseTrimmed := Capability(strings.TrimSpace(string(parseCapability)))
+		if parseTrimmed != "" {
+			parseRequires[parseTrimmed] = struct{}{}
+		}
+	}
+	parseHost.stateMu.Lock()
+	parseHost.activePluginRequires = parseRequires
+	parseHost.activePluginID = parseManifest.ID
+	parseHost.stateMu.Unlock()
+}
+
+// endSetup clears the active-Setup plugin scope.
+func (parseHost *Host) endSetup() {
+	parseHost.stateMu.Lock()
+	parseHost.activePluginRequires = nil
+	parseHost.activePluginID = ""
+	parseHost.stateMu.Unlock()
+}
+
 func (parseHost *Host) requireCapability(parseCapability Capability) error {
 	if parseHost == nil {
 		return errors.New("plugin: host is nil")
 	}
 	if _, parseOk := parseHost.capabilities[parseCapability]; !parseOk {
 		return fmt.Errorf("plugin: capability %q is not enabled on this host", parseCapability)
+	}
+	// If a plugin is mid-Setup, it may use only the capabilities it DECLARED in its
+	// Manifest.Requires — declaring the capability is how a plugin authorizes itself
+	// to the matching Add* surface (least privilege). Direct host configuration
+	// outside any plugin Setup has no manifest and keeps only the host-wide check.
+	parseHost.stateMu.RLock()
+	parseRequires := parseHost.activePluginRequires
+	parseActiveID := parseHost.activePluginID
+	parseHost.stateMu.RUnlock()
+	if parseRequires != nil {
+		if _, parseOk := parseRequires[parseCapability]; !parseOk {
+			return fmt.Errorf("plugin: plugin %q uses capability %q without declaring it in its manifest Requires", parseActiveID, parseCapability)
+		}
 	}
 	return nil
 }

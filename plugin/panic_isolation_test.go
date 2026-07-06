@@ -5,6 +5,56 @@ import (
 	"testing"
 )
 
+// TestSetupEnforcesDeclaredCapabilities pins the #53 per-plugin capability boundary: during
+// Setup a plugin may use only the capabilities it declared in Manifest.Requires, even when the
+// host enables more. A plugin that reaches for an undeclared (but host-enabled) capability fails
+// registration and is rolled back; one that declares it succeeds.
+func TestSetupEnforcesDeclaredCapabilities(parseT *testing.T) {
+	// Host enables BOTH capabilities, so only the per-plugin check can reject.
+	parseHost := NewHost(HostOptions{Capabilities: []Capability{CapabilityRouter, CapabilityAsyncData}})
+
+	// Declares Router only, but uses AsyncData (AddCacheKeyDecorator).
+	parseErr := parseHost.Register(Define(Manifest{
+		ID:       "under-declared",
+		Version:  "1.0.0",
+		Tier:     TierExperimental,
+		Requires: []Capability{CapabilityRouter},
+	}, func(parseHost2 *Host) (CleanupFunc, error) {
+		return nil, parseHost2.AddCacheKeyDecorator(func(parseKey string) string { return parseKey })
+	}))
+	if parseErr == nil {
+		parseT.Fatal("expected Register to fail: plugin used a capability it did not declare")
+	}
+	if !strings.Contains(parseErr.Error(), "without declaring it") {
+		parseT.Fatalf("unexpected error: %v", parseErr)
+	}
+	if len(parseHost.Plugins()) != 0 {
+		parseT.Fatalf("the rejected plugin must be rolled back, got %d registered", len(parseHost.Plugins()))
+	}
+
+	// Declaring AsyncData makes the identical Add* call succeed.
+	parseErr2 := parseHost.Register(Define(Manifest{
+		ID:       "well-declared",
+		Version:  "1.0.0",
+		Tier:     TierExperimental,
+		Requires: []Capability{CapabilityAsyncData},
+	}, func(parseHost2 *Host) (CleanupFunc, error) {
+		return nil, parseHost2.AddCacheKeyDecorator(func(parseKey string) string { return "ns:" + parseKey })
+	}))
+	if parseErr2 != nil {
+		parseT.Fatalf("well-declared plugin must register: %v", parseErr2)
+	}
+	if parseGot := parseHost.DecorateCacheKey("k"); parseGot != "ns:k" {
+		parseT.Fatalf("declared decorator should apply, got %q", parseGot)
+	}
+
+	// After Setup completes, direct host configuration (no active plugin scope) is
+	// governed only by the host-wide capability check — the per-plugin gate is off.
+	if parseErr3 := parseHost.AddRouteGuard(func(RouteRequest) GuardDecision { return GuardDecision{Outcome: GuardAllow} }); parseErr3 != nil {
+		parseT.Fatalf("direct Add* outside Setup must not be gated per-plugin: %v", parseErr3)
+	}
+}
+
 // TestDecorateCacheKeyRejectsOverlongOutput pins the #53 cache-key cap: a
 // decorator that returns a runaway (huge) string is a memory/CPU DoS on the fetch
 // hot path, so its output is REJECTED (the pre-decoration key is kept) rather
