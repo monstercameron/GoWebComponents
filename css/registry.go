@@ -24,6 +24,13 @@ var (
 	registry        = map[string]bool{} // class -> already emitted
 	activeSink Sink = defaultSink()
 
+	// classFingerprints records a content hash of the CSS emitted under each
+	// class, so a hash COLLISION — two distinct rule-sets whose class name hashes
+	// to the same value — is detected instead of silently applying the first
+	// rule-set's styles to the second's element. Only populated by registerAndEmit
+	// (not Seed, which knows the class but not its CSS). Guarded by registryMu.
+	classFingerprints = map[string]uint64{}
+
 	// The class registry only grows (a class, once emitted, must stay registered
 	// so its rule is not re-emitted). Building classes from RUNTIME values — instead
 	// of routing live values through the Dynamic escape valve (var(--name) + inline
@@ -90,6 +97,7 @@ func Reset() {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	registry = map[string]bool{}
+	classFingerprints = map[string]uint64{}
 	classChurnWarned = false
 	activeSink = defaultSink()
 	newCache.Clear()
@@ -101,12 +109,22 @@ func Reset() {
 // registerAndEmit registers the class if new and emits its CSS through the active
 // sink exactly once. Returns true if this call performed the emission.
 func registerAndEmit(parseClass, parseCSS string) bool {
+	parseFingerprint := cssContentFingerprint(parseCSS)
 	registryMu.Lock()
 	if registry[parseClass] {
+		// A class already emitted is normally a benign fold-cache miss for an
+		// identical rule-set. Verify the CSS actually matches; a mismatch means a
+		// class-name hash COLLISION between two distinct rule-sets, which would
+		// otherwise silently give the second element the first's styles.
+		parsePrevFingerprint, parseHasFingerprint := classFingerprints[parseClass]
 		registryMu.Unlock()
+		if parseHasFingerprint && parsePrevFingerprint != parseFingerprint {
+			reportClassHashCollision(parseClass)
+		}
 		return false
 	}
 	registry[parseClass] = true
+	classFingerprints[parseClass] = parseFingerprint
 	parseCount := len(registry)
 	parseShouldWarn := !classChurnWarned && parseCount >= classRegistryChurnThreshold
 	if parseShouldWarn {
@@ -136,4 +154,26 @@ func shortHash(parseText string) string {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(parseText))
 	return strconv.FormatUint(h.Sum64(), 36)
+}
+
+// cssContentFingerprint is a 64-bit content hash of emitted CSS, used only to
+// detect a class-name hash collision (same class, different CSS). It is a
+// separate hash from the class name, so a false collision report would require
+// BOTH the class hash AND this fingerprint to collide — effectively impossible.
+func cssContentFingerprint(parseCSS string) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(parseCSS))
+	return h.Sum64()
+}
+
+// reportClassHashCollision warns (once-loud, fail-visible) that two distinct
+// rule-sets produced the same class name — the second rule-set's CSS was NOT
+// emitted, so its element renders with the first rule-set's styles. A test seam.
+var reportClassHashCollision = func(parseClass string) {
+	diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
+		Code:     "GWC-CSS-CLASS-COLLISION",
+		Headline: fmt.Sprintf("css class name collision on %q", parseClass),
+		Summary:  fmt.Sprintf("two distinct rule-sets hashed to class %q with different CSS; the second rule-set's styles were dropped and its element will render with the first's styles", parseClass),
+		Next:     "this is an astronomically rare hash collision — vary one of the colliding rule-sets slightly (e.g. add a no-op declaration) to force a different class name",
+	}))
 }
