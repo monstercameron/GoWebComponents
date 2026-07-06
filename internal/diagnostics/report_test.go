@@ -57,14 +57,22 @@ func TestWriteHTTPErrorWritesStructuredBody(parseT *testing.T) {
 	if parseResponse.StatusCode != http.StatusInternalServerError {
 		parseT.Fatalf("expected status 500, got %d", parseResponse.StatusCode)
 	}
-	if parseBody := parseRecorder.Body.String(); !strings.Contains(parseBody, "GWC-TOOL-LIVERELOAD") || !strings.Contains(parseBody, "runtime: the request returned HTTP 500") {
-		parseT.Fatalf("expected structured response body, got %q", parseBody)
+	// #60: the default HTTP body is the CLIENT-SAFE subset — code/next/docs — and
+	// must NOT disclose the stack, build paths, or where/path/error/runtime detail.
+	parseBody := parseRecorder.Body.String()
+	if !strings.Contains(parseBody, "GWC-TOOL-LIVERELOAD") {
+		parseT.Fatalf("expected client-safe body to include the error code, got %q", parseBody)
+	}
+	for _, parseLeak := range []string{"stack:", "app:", "where: ", "runtime: ", "error: "} {
+		if strings.Contains(parseBody, parseLeak) {
+			parseT.Fatalf("client HTTP body leaked internal diagnostic detail %q: %q", parseLeak, parseBody)
+		}
+	}
+	if parseBody != parseReport.FormattedPublic() {
+		parseT.Fatalf("expected body to equal FormattedPublic(), got %q", parseBody)
 	}
 	if parseContentType := parseResponse.Header.Get("Content-Type"); parseContentType != "text/plain; charset=utf-8" {
 		parseT.Fatalf("expected text response content type, got %q", parseContentType)
-	}
-	if !strings.Contains(parseRecorder.Body.String(), parseReport.Formatted()) {
-		parseT.Fatalf("expected response body to match formatted report, got %q", parseRecorder.Body.String())
 	}
 	if !strings.Contains(parseReport.Formatted(), "where: ") {
 		parseT.Fatalf("expected formatted report to include where line, got %q", parseReport.Formatted())
@@ -135,9 +143,6 @@ func TestWriteHTTPErrorWritesStructuredBody(parseT *testing.T) {
 	if parseResponse.Status != "500 Internal Server Error" {
 		parseT.Fatalf("expected recorder status, got %q", parseResponse.Status)
 	}
-	if parseBody2 := parseRecorder.Body.String(); !strings.Contains(parseBody2, "stack:") {
-		parseT.Fatalf("expected stack details in response body, got %q", parseBody2)
-	}
 	if !strings.Contains(parseReport.Formatted(), "[GWC-TOOL-LIVERELOAD]") {
 		parseT.Fatalf("expected code line, got %q", parseReport.Formatted())
 	}
@@ -158,18 +163,6 @@ func TestWriteHTTPErrorWritesStructuredBody(parseT *testing.T) {
 	}
 	if !strings.Contains(parseRecorder.Body.String(), "next:") {
 		parseT.Fatalf("expected next line in response body, got %q", parseRecorder.Body.String())
-	}
-	if !strings.Contains(parseRecorder.Body.String(), "runtime:") {
-		parseT.Fatalf("expected runtime line in response body, got %q", parseRecorder.Body.String())
-	}
-	if !strings.Contains(parseRecorder.Body.String(), "where:") {
-		parseT.Fatalf("expected where line in response body, got %q", parseRecorder.Body.String())
-	}
-	if !strings.Contains(parseRecorder.Body.String(), "path: /") {
-		parseT.Fatalf("expected path line in response body, got %q", parseRecorder.Body.String())
-	}
-	if !strings.Contains(parseRecorder.Body.String(), "error: build failed") {
-		parseT.Fatalf("expected error line in response body, got %q", parseRecorder.Body.String())
 	}
 	if !strings.Contains(parseRecorder.Body.String(), "[GWC-TOOL-LIVERELOAD] tool failure in livereload.handleHTML") {
 		parseT.Fatalf("expected headline in response body, got %q", parseRecorder.Body.String())
@@ -213,13 +206,45 @@ func TestWriteHTTPErrorWritesStructuredBody(parseT *testing.T) {
 	if parseReport.Formatted() == "build failed" {
 		parseT.Fatalf("expected full contract, got %q", parseReport.Formatted())
 	}
-	if !strings.Contains(parseRecorder.Body.String(), "app:") {
-		parseT.Fatalf("expected app frames in response body, got %q", parseRecorder.Body.String())
-	}
 	if !strings.Contains(parseReport.Formatted(), parseReport.AppFrames[0]) {
 		parseT.Fatalf("expected first app frame to appear, got %q", parseReport.Formatted())
 	}
 	if parseReport.Where == "/" {
 		parseT.Fatalf("expected where to use stack frame when available, got %+v", parseReport)
+	}
+}
+
+// TestWriteHTTPErrorVerboseWritesFullReport pins the #60 opt-in: the verbose
+// variant intentionally writes the FULL Formatted() report (stack + where/path/
+// error/runtime) for trusted/dev endpoints, while the default WriteHTTPError does
+// not. Guards that both halves of the gate stay wired.
+func TestWriteHTTPErrorVerboseWritesFullReport(parseT *testing.T) {
+	parseReport := Build(Options{
+		Summary:  "build failed",
+		Code:     "GWC-TOOL-LIVERELOAD",
+		Headline: "tool failure",
+		Path:     "/",
+		Runtime:  "the request returned HTTP 500.",
+		Next:     "Rebuild.",
+		Docs:     "ACTIONABLE_ERRORS.md#x",
+	})
+
+	parseVerbose := httptest.NewRecorder()
+	WriteHTTPErrorVerbose(parseVerbose, http.StatusInternalServerError, parseReport)
+	parseVerboseBody := parseVerbose.Body.String()
+	if parseVerboseBody != parseReport.Formatted() {
+		parseT.Fatalf("verbose body must equal the full Formatted() report, got %q", parseVerboseBody)
+	}
+	for _, parseWant := range []string{"stack:", "runtime: ", "where: "} {
+		if !strings.Contains(parseVerboseBody, parseWant) {
+			parseT.Fatalf("verbose body must include %q for a trusted endpoint, got %q", parseWant, parseVerboseBody)
+		}
+	}
+
+	// The default variant on the same report must remain client-safe.
+	parseDefault := httptest.NewRecorder()
+	WriteHTTPError(parseDefault, http.StatusInternalServerError, parseReport)
+	if strings.Contains(parseDefault.Body.String(), "stack:") {
+		parseT.Fatalf("default WriteHTTPError must not leak the stack, got %q", parseDefault.Body.String())
 	}
 }
