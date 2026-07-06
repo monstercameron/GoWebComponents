@@ -127,8 +127,14 @@ func buildLogRecord(parseCtx context.Context, parseLogLevel, parseLogScope, pars
 	parseAttributes := buildLogAttributes(parseLogFields)
 
 	parseRecord := map[string]any{
-		"attributes":      parseAttributes,
-		"level":           parseLevelDetails.canonicalLevel,
+		"attributes": parseAttributes,
+		"level":      parseLevelDetails.canonicalLevel,
+		// Redaction boundary: structured attributes (including walked struct
+		// fields) are scrubbed by buildLogAttributes, but the message is a
+		// free-text string with no field key to match the key-based redaction
+		// policy against, so it is emitted verbatim. Callers must keep PII in
+		// fields, not interpolated into the message. Content/pattern-based
+		// message scrubbing is a deferred policy decision (#88, cf. #50).
 		"message":         strings.TrimSpace(parseLogMessage),
 		"scope":           strings.TrimSpace(parseLogScope),
 		"severity_number": parseLevelDetails.severityNumber,
