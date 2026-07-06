@@ -78,6 +78,46 @@ func TestClassAndStyleMutatorsTolerateNullAndTypedNilNodes(parseT *testing.T) {
 	}
 }
 
+// TestAttributePropertyAndTreeReadsTolerateNullAndTypedNilNodes pins the rest of
+// the #80 batch: the attribute/property/event-listener writers and the tree
+// reads all dereference .value on the receiver, so a typed-nil or
+// null/undefined-valued node must yield a no-op / zero value rather than a
+// syscall/js panic that tears down the app from the render/commit path.
+func TestAttributePropertyAndTreeReadsTolerateNullAndTypedNilNodes(parseT *testing.T) {
+	parseAdapter := &WASMDOMAdapter{}
+	var parseTypedNil runtime.DOMNode = (*WASMDOMNode)(nil)
+	parseNullNode := runtime.DOMNode(&WASMDOMNode{value: js.Null()})
+	parseUndefNode := runtime.DOMNode(&WASMDOMNode{value: js.Undefined()})
+	parseHandler := js.FuncOf(func(js.Value, []js.Value) any { return nil })
+	defer parseHandler.Release()
+
+	for _, parseNode := range []runtime.DOMNode{parseTypedNil, parseNullNode, parseUndefNode} {
+		// Writes: no-op, not a panic.
+		parseAdapter.SetAttribute(parseNode, "id", "x")
+		parseAdapter.RemoveAttribute(parseNode, "id")
+		parseAdapter.SetProperty(parseNode, "value", "x")
+		parseAdapter.AddPassiveEventListener(parseNode, "click", parseHandler)
+		parseAdapter.RemovePassiveEventListener(parseNode, "click", parseHandler)
+
+		// Reads: zero value, not a panic.
+		if parseGot := parseAdapter.GetInnerHTML(parseNode); parseGot != "" {
+			parseT.Fatalf("expected empty innerHTML for absent node, got %q", parseGot)
+		}
+		if parseGot := parseAdapter.GetChildren(parseNode); parseGot != nil {
+			parseT.Fatalf("expected nil children for absent node, got %v", parseGot)
+		}
+		if parseGot := parseAdapter.GetParent(parseNode); parseGot != nil {
+			parseT.Fatalf("expected nil parent for absent node, got %v", parseGot)
+		}
+		if parseGot := parseAdapter.GetFirstChild(parseNode); parseGot != nil {
+			parseT.Fatalf("expected nil firstChild for absent node, got %v", parseGot)
+		}
+		if parseGot := parseAdapter.GetNextSibling(parseNode); parseGot != nil {
+			parseT.Fatalf("expected nil nextSibling for absent node, got %v", parseGot)
+		}
+	}
+}
+
 func TestWASMDOMNodeEqualsUsesUnderlyingJSIdentity(parseT *testing.T) {
 	parseValue := js.Global().Get("Object").New()
 	parseSame := &WASMDOMNode{value: parseValue}

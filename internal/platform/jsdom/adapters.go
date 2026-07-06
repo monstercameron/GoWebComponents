@@ -435,7 +435,7 @@ func (parseA *WASMDOMAdapter) CreateHTMLSubtree(parseHTML string) runtime.DOMNod
 }
 
 func (parseA *WASMDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName, parseValue string) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		// Block javascript:/vbscript: URLs in href/src/action so a user-controlled
 		// URL rendered through the normal element API cannot execute on click —
 		// parity with the SSR serializer's sanitizer.
@@ -461,7 +461,7 @@ func (parseA *WASMDOMAdapter) GetAttribute(parseNode runtime.DOMNode, parseName 
 }
 
 func (parseA *WASMDOMAdapter) RemoveAttribute(parseNode runtime.DOMNode, parseName string) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		if parseA.queueAttrWrite(parseWasmNode, 'r', parseName, "") {
 			return
 		}
@@ -470,14 +470,14 @@ func (parseA *WASMDOMAdapter) RemoveAttribute(parseNode runtime.DOMNode, parseNa
 }
 
 func (parseA *WASMDOMAdapter) SetProperty(parseNode runtime.DOMNode, parseName string, parseValue interface{}) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		// Direct property set (fastest path)
 		parseWasmNode.value.Set(parseName, parseValue)
 	}
 }
 
 func (parseA *WASMDOMAdapter) AddPassiveEventListener(parseNode runtime.DOMNode, parseEventType string, parseHandler any) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseOptions := js.Global().Get("Object").New()
 		parseOptions.Set("passive", true)
 		parseWasmNode.value.Call("addEventListener", parseEventType, parseHandler, parseOptions)
@@ -485,7 +485,7 @@ func (parseA *WASMDOMAdapter) AddPassiveEventListener(parseNode runtime.DOMNode,
 }
 
 func (parseA *WASMDOMAdapter) RemovePassiveEventListener(parseNode runtime.DOMNode, parseEventType string, parseHandler any) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseWasmNode.value.Call("removeEventListener", parseEventType, parseHandler)
 	}
 }
@@ -670,7 +670,7 @@ func (parseA *WASMDOMAdapter) GetElementsByTagName(parseTagName string) []runtim
 }
 
 func (parseA *WASMDOMAdapter) GetInnerHTML(parseNode runtime.DOMNode) string {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		return parseWasmNode.value.Get("innerHTML").String()
 	}
 	return ""
@@ -715,7 +715,7 @@ func (parseA *WASMDOMAdapter) ToggleClass(parseNode runtime.DOMNode, parseClassN
 }
 
 func (parseA *WASMDOMAdapter) GetParent(parseNode runtime.DOMNode) runtime.DOMNode {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseParent := parseWasmNode.value.Get("parentNode")
 		if !parseParent.IsNull() && !parseParent.IsUndefined() {
 			return &WASMDOMNode{value: parseParent}
@@ -725,7 +725,7 @@ func (parseA *WASMDOMAdapter) GetParent(parseNode runtime.DOMNode) runtime.DOMNo
 }
 
 func (parseA *WASMDOMAdapter) GetChildren(parseNode runtime.DOMNode) []runtime.DOMNode {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseChildren := parseWasmNode.value.Get("children")
 		parseLength := parseChildren.Get("length").Int()
 
@@ -739,7 +739,7 @@ func (parseA *WASMDOMAdapter) GetChildren(parseNode runtime.DOMNode) []runtime.D
 }
 
 func (parseA *WASMDOMAdapter) GetFirstChild(parseNode runtime.DOMNode) runtime.DOMNode {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseFirstChild := parseWasmNode.value.Get("firstChild")
 		if !parseFirstChild.IsNull() && !parseFirstChild.IsUndefined() {
 			return &WASMDOMNode{value: parseFirstChild}
@@ -749,7 +749,7 @@ func (parseA *WASMDOMAdapter) GetFirstChild(parseNode runtime.DOMNode) runtime.D
 }
 
 func (parseA *WASMDOMAdapter) GetNextSibling(parseNode runtime.DOMNode) runtime.DOMNode {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+	if parseWasmNode, parseOk := liveWasmNode(parseNode); parseOk {
 		parseNextSibling := parseWasmNode.value.Get("nextSibling")
 		if !parseNextSibling.IsNull() && !parseNextSibling.IsUndefined() {
 			return &WASMDOMNode{value: parseNextSibling}
