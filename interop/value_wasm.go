@@ -114,19 +114,22 @@ func (parseV Value) Float() float64 {
 	return parseRaw.Float()
 }
 
-// Get reads a property from the wrapped value.
+// Get reads a property from the wrapped value. Reading a property from a
+// null/undefined receiver would panic in syscall/js, so such a receiver yields
+// an empty (not-present) Value instead of crashing the caller.
 func (parseV Value) Get(parseName string) Value {
 	parseRaw, parseOk := parseV.rawValue()
-	if !parseOk {
+	if !parseOk || parseRaw.IsNull() || parseRaw.IsUndefined() {
 		return Value{}
 	}
 	return Value{raw: parseRaw.Get(parseName)}
 }
 
-// Set writes a property on the wrapped value.
+// Set writes a property on the wrapped value. A null/undefined receiver cannot
+// hold properties (and would panic in syscall/js), so it returns an error.
 func (parseV Value) Set(parseName string, parseValue any) error {
 	parseRaw, parseOk := parseV.rawValue()
-	if !parseOk {
+	if !parseOk || parseRaw.IsNull() || parseRaw.IsUndefined() {
 		return unavailable("Value.Set", parseName)
 	}
 	parseJsValue, parseErr := goValueToJS("Value.Set", parseName, parseValue)
@@ -137,10 +140,11 @@ func (parseV Value) Set(parseName string, parseValue any) error {
 	return nil
 }
 
-// Delete removes a property from the wrapped value.
+// Delete removes a property from the wrapped value. A null/undefined receiver
+// has no properties (and would panic in syscall/js), so it returns an error.
 func (parseV Value) Delete(parseName string) error {
 	parseRaw, parseOk := parseV.rawValue()
-	if !parseOk {
+	if !parseOk || parseRaw.IsNull() || parseRaw.IsUndefined() {
 		return unavailable("Value.Delete", parseName)
 	}
 	parseRaw.Delete(parseName)

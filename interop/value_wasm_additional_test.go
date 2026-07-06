@@ -59,6 +59,35 @@ func TestValuePrimitiveAccessorsWasmCoverZeroAndTypedValues(parseT *testing.T) {
 	}
 }
 
+// TestValueGetSetDeleteOnNullReceiverDoNotPanic pins #87: property access on a
+// null/undefined receiver must return a safe zero/error rather than panicking
+// the caller. syscall/js panics on Get/Set/Delete against a null/undefined
+// js.Value, so the wrappers guard the receiver before dereferencing it.
+func TestValueGetSetDeleteOnNullReceiverDoNotPanic(parseT *testing.T) {
+	for parseName, parseRecv := range map[string]Value{
+		"null":      {raw: js.Null()},
+		"undefined": {raw: js.Undefined()},
+	} {
+		parseRecv := parseRecv
+		parseT.Run(parseName, func(parseT *testing.T) {
+			defer func() {
+				if parseR := recover(); parseR != nil {
+					parseT.Fatalf("Get/Set/Delete on %s receiver panicked: %v", parseName, parseR)
+				}
+			}()
+			if parseRecv.Get("prop").Present() {
+				parseT.Fatalf("expected Get on %s receiver to be absent", parseName)
+			}
+			if parseErr := parseRecv.Set("prop", 1); parseErr == nil {
+				parseT.Fatalf("expected Set on %s receiver to return an error", parseName)
+			}
+			if parseErr := parseRecv.Delete("prop"); parseErr == nil {
+				parseT.Fatalf("expected Delete on %s receiver to return an error", parseName)
+			}
+		})
+	}
+}
+
 // TestJSErrorTextWasmPrefersMessageSources verifies JavaScript exception text selection prefers explicit detail before lossy fallbacks.
 func TestJSErrorTextWasmPrefersMessageSources(parseT *testing.T) {
 	if parseGot := jsExceptionError(nil).Error(); parseGot != "javascript exception" {
