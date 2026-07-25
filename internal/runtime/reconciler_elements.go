@@ -71,6 +71,19 @@ func setCurrentFiberOwned(parseFiber *Fiber, parseOwnerID uint64) {
 
 // runtimeForFiber returns the owning runtime for a fiber subtree, falling back
 // to the global runtime for legacy tests that install a bare current fiber.
+// ResolveRuntime returns the runtime that owns the component currently
+// rendering, falling back to the global runtime outside a render (v5 P2.6).
+//
+// Packages that reach for GetGlobalRuntime to read or write atoms should call
+// this instead. During a render it resolves to the runtime that actually owns
+// the tree, so a second Runtime in the same process keeps its own atom state —
+// which is what P3.7 requires, since projections are published into the atom
+// registry and would otherwise all land in whichever runtime happened to be
+// global.
+func ResolveRuntime() *Runtime {
+	return runtimeForFiber(currentFiber)
+}
+
 func runtimeForFiber(parseFiber *Fiber) *Runtime {
 	for parseCursor := parseFiber; parseCursor != nil; parseCursor = parseCursor.parent {
 		if parseCursor.ownerRuntime != nil {

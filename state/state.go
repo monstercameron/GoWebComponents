@@ -203,7 +203,7 @@ func (parseA Atom[T]) Set(parseValue T) {
 // be a pure transform of the previous value and must not read or write any atom
 // itself (that would deadlock under the held lock).
 func (parseA Atom[T]) Update(parseFn func(T) T) {
-	parseRt := runtime.GetGlobalRuntime()
+	parseRt := runtime.ResolveRuntime()
 	if parseRt == nil {
 		// No global runtime (e.g. native SSR): best-effort non-atomic fallback.
 		parseA.set(parseFn(parseA.get()))
@@ -273,7 +273,7 @@ func (parseC Computed[T]) Get() T {
 // local, collision-free projection instead.
 func UseDerived[T any](parseId string, parseCompute func() T, parseDeps ...string) Derived[T] {
 	var parseZero T
-	if parseErr := runtime.GetGlobalRuntime().RegisterDerivedAtom(parseId, parseDeps, func() any {
+	if parseErr := runtime.ResolveRuntime().RegisterDerivedAtom(parseId, parseDeps, func() any {
 		return parseCompute()
 	}); parseErr != nil {
 		return Derived[T]{id: parseId, get: func() T { return parseZero }}
@@ -409,7 +409,7 @@ func runtimeReactiveTextGetterProp() string {
 // restore via ApplySnapshot. When serializing to JSON or browser storage, only
 // JSON-compatible atom values should be relied on as stable persisted data.
 func GetSnapshot() (Snapshot, error) {
-	parseRaw := runtime.GetGlobalRuntime().SnapshotAtoms()
+	parseRaw := runtime.ResolveRuntime().SnapshotAtoms()
 	parseSnapshot := make(Snapshot, len(parseRaw))
 	maps.Copy(parseSnapshot, parseRaw)
 	return parseSnapshot, nil
@@ -444,7 +444,7 @@ func (parseS Snapshot) Select(parseKeys ...string) Snapshot {
 // ApplySnapshot merges atom values from snapshot into the global runtime and
 // schedules subscribed components for updates.
 func ApplySnapshot(parseSnapshot Snapshot) error {
-	return runtime.GetGlobalRuntime().RestoreAtomSnapshot(parseSnapshot)
+	return runtime.ResolveRuntime().RestoreAtomSnapshot(parseSnapshot)
 }
 
 // ImportSnapshot merges atom values from snapshot into the global runtime and

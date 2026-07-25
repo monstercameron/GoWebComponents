@@ -31,7 +31,7 @@ type GlobalAtom[T any] struct {
 // to construct at package-init time or after an external write.
 func NewGlobalAtom[T any](parseID string, parseDefault T) GlobalAtom[T] {
 	parseAtom := GlobalAtom[T]{id: parseID, def: parseDefault}
-	if parseRt := runtime.GetGlobalRuntime(); parseRt != nil {
+	if parseRt := runtime.ResolveRuntime(); parseRt != nil {
 		parseRt.InitAtomValue(parseID, parseDefault)
 	}
 	return parseAtom
@@ -43,7 +43,7 @@ func (parseAtom GlobalAtom[T]) ID() string { return parseAtom.id }
 // Get returns the current value, or the handle's default when the runtime is
 // unavailable or the stored value is not of type T.
 func (parseAtom GlobalAtom[T]) Get() T {
-	parseRt := runtime.GetGlobalRuntime()
+	parseRt := runtime.ResolveRuntime()
 	if parseRt == nil {
 		return parseAtom.def
 	}
@@ -65,7 +65,7 @@ func (parseAtom GlobalAtom[T]) Get() T {
 // UseState's behavior. Equality is a fast == with a structural reflect.DeepEqual fallback
 // for non-comparable types (slice/map), so an equal slice/map is also a no-op.
 func (parseAtom GlobalAtom[T]) Set(parseValue T) {
-	parseRt := runtime.GetGlobalRuntime()
+	parseRt := runtime.ResolveRuntime()
 	if parseRt == nil {
 		return
 	}
@@ -94,7 +94,7 @@ func atomValuesEqual(parseA any, parseB any) (parseEqual bool) {
 // pure transform of the previous value and must not read or write any atom
 // itself (that would deadlock under the held lock).
 func (parseAtom GlobalAtom[T]) Update(parseFn func(T) T) {
-	parseRt := runtime.GetGlobalRuntime()
+	parseRt := runtime.ResolveRuntime()
 	if parseRt == nil {
 		return
 	}
