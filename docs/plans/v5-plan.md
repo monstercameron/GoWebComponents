@@ -7,7 +7,8 @@ Date: 2026-07-25 · **Revision: r13**
 
 ## Implementation status
 
-Branch `v5`. Phases 1 and 2 complete; Phase A measured through PA.2.
+Branch `v5`. Phases 1 and 2 complete; Phase A measured through PA.2; Phase 3
+substantially complete; Phase 4 started.
 
 | Item | State | Notes |
 |---|---|---|
@@ -26,7 +27,22 @@ Branch `v5`. Phases 1 and 2 complete; Phase A measured through PA.2.
 | PA.3 ship (c) | ⛔ blocked | see blockers under PA.3 |
 | P0.2 subject app | ✅ | 5k-row table, 3 workloads, real-input probe |
 | P0.3 v4 baseline | ✅ | **captured** — see below |
-| Phase 3 · 4 · 5 · 6 | ⛔ | Phase 3 gated on P0.3 and §11 |
+| P3.1 · P3.2 | ✅ | transferables; O(change) ReplaceSubtree rollback |
+| P3.3 services substrate | ✅ | transport · ledger · arbiter · dispatcher; contingency decided on measurement |
+| P3.4 `domain` runtime | ✅ | replay · resume · cancel; 30k-of-50k crash finishes at 50k |
+| P3.5 SQLite off-thread | ✅ | `db/offthread`; no engine in `app.wasm`, checked on the dependency graph |
+| P3.15a delta engine | ✅ | **M11 0.30x** ; ops O(change), snapshot path measured O(N) |
+| P3.7 projection API | ✅ | zero round-trips asserted by message count; **M12 memory half**; typos fail to compile |
+| P3.8a/b failure model | ✅ | classified kinds; retry refuses may-have-applied by default |
+| P3.12 compute pool | ✅ | §11-Q4 resolved; restart loses no jobs |
+| P4.1 virtualization | ✅ | **M4 met** — flat 1k→100k, 137x at 10k rows |
+| P4.2 workload budgets | ✅ | §11-Q12 resolved; R6 violation found and fixed |
+| P3.6 · P3.10 · P3.11 · P3.13 · P3.14 · P3.15b | ⛔ | remaining Phase 3 |
+| P4.3 · P4.4 · Phase 5 · 6 · P0.5 | ⛔ | not started |
+
+**M12's pause half is open**, deliberately: it can only be measured in a browser
+on the P0.2 harness, and a native reading would be a green check that means
+nothing. The memory half is met and sets `Resident()`.
 
 ### v4 baseline (P0.3, headless Chromium, windows/arm64)
 
