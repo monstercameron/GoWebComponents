@@ -49,7 +49,29 @@ substantially complete; Phase 4 started.
 | P6.5 honest size story | ✅ | `docs/V5_SIZE_STORY.md` |
 | P3.13 migration guide | ◐ | `docs/V5_MIGRATION.md`; the CashFlux port is a different repo |
 | P6.4 out-of-order Suspense | ✅ | shell at 0s vs 251ms boundary; 4x120ms resolve in 120ms |
-| P6.2 · P6.3 · P0.5 | ⛔ | need a browser or build tooling |
+| worker request/reply | ✅ | correlation table; the plumbing every other item assumed |
+| P5.2 retire runtime2 | ⏸ | measured and predicted; **not executed** — see Phase 5 |
+| P6.2 · P6.3 · P0.5 | ⛔ | need a browser, build tooling, or other frameworks |
+
+### What is built, and what is still owed
+
+**Built and tested natively (454 tests across the v5 packages):** the services
+substrate, the domain command runtime, off-thread SQLite, the delta engine, the
+projection API with its SSR bootstrap, the failure model, the compute pool,
+virtualization, workload budgets, the cross-thread timeline, GC pacing, the
+storage tier model, hot reload, the escalation assistant, two-artifact
+packaging, and the worker correlation table.
+
+**Owed, and each for a stated reason:**
+
+| Owed | Why it is not done here |
+|---|---|
+| M1 · M2 · M3 against v5 | the P0.2 harness subject app still runs SQLite on the render thread; validating the thesis needs it ported to the two-artifact model |
+| M7 · M12 pause half | js/wasm marks single-threaded without native Go's parallel assist — a native number would be a green check that means nothing |
+| P5.2 | a large deletion that also removes P3.3's conformance anchors; a deliberate call, not a consequence of a benchmark |
+| P6.2 · P6.3 | criteria are a network assertion and a paint-timeline assertion — both browser |
+| P0.5 | needs Solid, Svelte 5, and a Rust peer installed |
+| P3.13 second half | CashFlux lives in its own repository |
 
 **M5 is missed as written, and met in practice.** Measured on the two-artifact
 example: 1.73 MB **gzipped** against a 1.6 MB target — and **1.26 MB brotli**,
