@@ -57,6 +57,54 @@ func dispatchRuntimeWork(parseScheduler Scheduler, parseContinueWork func()) {
 	parseScheduler.SetTimeout(parseContinueWork, 0)
 }
 
+// idleDispatchBackstopMs bounds how long idle-lane work may wait for an idle
+// callback that may never arrive.
+const idleDispatchBackstopMs = 50
+
+// dispatchLaneWork routes a continuation by priority (v5 P1.3).
+//
+// Transition and background lanes go through RequestIdleCallback so they run in
+// whatever time the browser has left after painting, instead of competing with
+// input on the macrotask queue. Everything else keeps SetTimeout.
+//
+// RequestIdleCallback has been part of the Scheduler interface (and implemented
+// by jsdom and mockdom) since before v5, but nothing in the runtime ever called
+// it, so a custom Scheduler could implement it as a no-op without consequence.
+// Making it load-bearing changes that contract, so idle dispatch always arms a
+// SetTimeout backstop alongside it and takes whichever fires first. A no-op
+// implementation therefore still makes progress — one backstop late — and says
+// so once rather than stalling background work forever.
+func (parseRt *Runtime) dispatchLaneWork(parseLane UpdateLane, parseContinueWork func()) {
+	if parseContinueWork == nil {
+		return
+	}
+	if parseRt == nil || parseRt.scheduler == nil {
+		parseContinueWork()
+		return
+	}
+	if parseLane != UpdateLaneTransition && parseLane != UpdateLaneBackground {
+		parseRt.scheduler.SetTimeout(parseContinueWork, 0)
+		return
+	}
+
+	isRun := false
+	runOnce := func(parseVia string) {
+		if isRun {
+			return
+		}
+		isRun = true
+		if parseVia == "backstop" && !parseRt.idleFallbackReported {
+			parseRt.idleFallbackReported = true
+			ReportDiagnostic("runtime", DiagnosticWarning,
+				"Scheduler.RequestIdleCallback did not run idle-lane work within the backstop window; falling back to SetTimeout. A no-op RequestIdleCallback implementation will keep taking this path.")
+		}
+		parseContinueWork()
+	}
+
+	parseRt.scheduler.RequestIdleCallback(func(Deadline) { runOnce("idle") })
+	parseRt.scheduler.SetTimeout(func() { runOnce("backstop") }, idleDispatchBackstopMs)
+}
+
 // NOTE(sched A/B 2026-07-04): dispatching the INITIAL work-loop kick via
 // queueMicrotask instead of SetTimeout(0) was tried and REVERTED. Example 201
 // same-run geomean vs React fell 0.658 -> 0.495 (every scenario worse, React
@@ -267,9 +315,10 @@ func (parseRt *Runtime) workLoop(parseDeadline Deadline) {
 	if parseRt.wipRoot != nil && parseRt.nextUnitOfWork == nil {
 		parseRt.commitRoot()
 	} else if parseRt.nextUnitOfWork != nil {
-		// More work remains, schedule next iteration
-		// fmt.Printf("workLoop: more work remains, scheduling next iteration\n")
-		dispatchRuntimeWork(parseRt.scheduler, parseRt.getContinueWorkFn())
+		// More work remains. Route the continuation by lane (v5 P1.3) so
+		// transition and background passes resume in idle time rather than
+		// competing with input on the macrotask queue.
+		parseRt.dispatchLaneWork(parseRt.schedulerState.currentLane, parseRt.getContinueWorkFn())
 	}
 }
 

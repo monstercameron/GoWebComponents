@@ -84,6 +84,10 @@ type Runtime struct {
 	// passiveDrainScheduled guards against queueing more than one deferred
 	// passive drain when several commits land before the first one runs.
 	passiveDrainScheduled bool
+	// idleFallbackReported keeps the "RequestIdleCallback did not fire"
+	// diagnostic to once per runtime, so a no-op Scheduler implementation
+	// reports the problem instead of flooding the log every idle dispatch.
+	idleFallbackReported bool
 	// frameBudgetMs is the wall-clock slice budget for one work-loop pass
 	// (v5 P1.2). Zero disables time-based slicing and keeps the count-only
 	// behavior. Gated on interruptRestartIsSafe.
