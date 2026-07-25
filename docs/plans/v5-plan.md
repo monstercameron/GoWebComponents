@@ -3,7 +3,7 @@
 **Goal: main-thread frame time is invariant to workload size** — without giving
 up the single-threaded constant factor.
 
-Date: 2026-07-25 · **Revision: r12**
+Date: 2026-07-25 · **Revision: r13**
 
 ## Implementation status
 
@@ -61,8 +61,52 @@ tail-reliability guard needs for p95. The guard correctly refuses to quote it.
 Raise the input rate for a tighter number — the verdict is unaffected at this
 magnitude.
 
-**Flags remain default-off (R2).** The baseline now exists to justify flipping
-them; the next step is measuring each flag against it.
+### Phase 1+2 flags measured against the baseline — they REGRESS this scenario
+
+R2 says a flag flips once its acceptance test passes. It did not pass. Both arms
+ran back to back on one machine, v5 second so thermal drift worked against it,
+and both reported `valid=true` with their configuration verified as applied.
+
+| Metric | v4 | v5 (all flags on) | Δ |
+|---|---|---|---|
+| loaded p95 frame | 1704.98 ms | **3171.60 ms** | **+86%** |
+| worst long frame | 1704.1 ms | **3623.8 ms** | **+113%** |
+| interaction p95 | 1368.0 ms | 1440.0 ms | +5% |
+| long frames | 233 | 235 | — |
+| idle p95 frame | 16.80 ms | 16.70 ms | — (no cost when idle) |
+
+**This is the plan's own thesis confirming itself, not refuting itself — but it
+does refute an assumption the plan made.**
+
+Phases 1 and 2 bound the cost of *rendering*. In this scenario frame time is not
+dominated by rendering: it is dominated by **domain work on the render thread** —
+SQLite executing as wazero-interpreted wasm, and a 2MB JSON decode — which
+monopolizes the single wasm thread for hundreds of milliseconds at a stretch.
+
+Against a thread-monopolizing workload, the Phase 1/2 changes actively hurt,
+and the mechanism is clear: they all trade a longer wall-clock path for a more
+interruptible one. P1.1 adds a scheduler hop per commit, P1.2 makes the work
+loop yield far more often, P2.2 adds deferral passes. Every one of those hops
+queues *behind* the blocking domain work. More yielding is only a win when the
+thing you yield to is short.
+
+Consequences, recorded rather than smoothed over:
+
+1. **The flags stay off.** All three. This is R2 working exactly as intended —
+   the discipline caught a regression that "it should be faster" reasoning would
+   have shipped.
+2. **Phase 3 is not one phase among six; it is the load-bearing one.** No amount
+   of scheduler work fixes a scenario whose cost is domain work on the render
+   thread. Only moving that work off-thread does.
+3. **§1.2's scenario is Phase-3-shaped.** It was designed to prove the v5 thesis
+   end to end, which means it cannot validate Phase 1/2 in isolation. Those need
+   a render-bound scenario — a deep tree with heavy component bodies and no
+   blocking domain work — which does not exist yet.
+4. **The all-on arm conflates three changes.** Before any of them is judged
+   individually, each needs its own arm.
+
+Open work created by this result: per-flag arms, and a render-bound companion
+scenario that can actually exercise what Phases 1 and 2 improve.
 
 > **r10 is a structural rewrite, not a content change.** r9 had grown to 1,147
 > lines, **44% of it blockquoted implementation mechanism** — checkpoint

@@ -405,7 +405,59 @@ func driveTyping(parseDurationMs int) js.Value {
 	return js.Global().Get("Promise").New(parseExecutor)
 }
 
+// applyURLScheduling reads v5 flags off the query string so the same page can
+// be measured as v4 and as v5 without rebuilding.
+//
+//	?v5=1                     all three, defaults
+//	?paintSplit=1&frameMs=5   individually
+func applyURLScheduling() SchedulingChoice {
+	parseSearch := js.Global().Get("location").Get("search").String()
+	parseParams := js.Global().Get("URLSearchParams").New(parseSearch)
+
+	parseHas := func(parseKey string) bool {
+		parseValue := parseParams.Call("get", parseKey)
+		return !parseValue.IsNull() && parseValue.String() != "" && parseValue.String() != "0"
+	}
+
+	parseAll := parseHas("v5")
+	parseChoice := SchedulingChoice{
+		PassiveEffectsAfterPaint: parseAll || parseHas("paintSplit"),
+		LaneQueues:               parseAll || parseHas("lanes"),
+	}
+	if parseAll {
+		parseChoice.FrameBudgetMs = -1 // the 5ms default
+	}
+	if parseRaw := parseParams.Call("get", "frameMs"); !parseRaw.IsNull() {
+		if parseParsed, parseErr := strconv.ParseFloat(parseRaw.String(), 64); parseErr == nil {
+			parseChoice.FrameBudgetMs = parseParsed
+		}
+	}
+
+	ui.ConfigureScheduling(ui.SchedulingOptions{
+		PassiveEffectsAfterPaint: parseChoice.PassiveEffectsAfterPaint,
+		FrameBudgetMs:            parseChoice.FrameBudgetMs,
+		LaneQueues:               parseChoice.LaneQueues,
+	})
+	return parseChoice
+}
+
+// SchedulingChoice is echoed to JS so a report records which runtime produced
+// it. A baseline compared against an unknown configuration is worthless.
+type SchedulingChoice struct {
+	PassiveEffectsAfterPaint bool
+	FrameBudgetMs            float64
+	LaneQueues               bool
+}
+
 func main() {
+	parseChoice := applyURLScheduling()
+
+	parseConfigObj := js.Global().Get("Object").New()
+	parseConfigObj.Set("passiveEffectsAfterPaint", parseChoice.PassiveEffectsAfterPaint)
+	parseConfigObj.Set("frameBudgetMs", parseChoice.FrameBudgetMs)
+	parseConfigObj.Set("laneQueues", parseChoice.LaneQueues)
+	js.Global().Set("__gwcV5Config", parseConfigObj)
+
 	registerV5LoadHarnessProbe()
 	registerWorkloads()
 	registerProbes()

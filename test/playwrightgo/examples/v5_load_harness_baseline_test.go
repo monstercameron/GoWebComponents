@@ -261,3 +261,145 @@ func TestV5LoadHarnessBaseline(parseT *testing.T) {
 		fmt.Println("baseline captured with failing targets, as expected for v4")
 	}
 }
+
+// TestV5SchedulingComparison runs the harness twice on one machine -- v4
+// behavior, then every v5 scheduling flag on -- and reports the delta.
+//
+// Back to back and in that order on purpose: this chassis is fanless and warms
+// during a run, so running v5 second means any thermal drift works AGAINST the
+// change rather than for it. A win measured that way is a floor, not a ceiling.
+//
+// R2 says a flag flips once its acceptance test passes. This is that test.
+//
+//	go test -tags playwrightgo ./test/playwrightgo/examples //	  -run TestV5SchedulingComparison -v -timeout 30m
+func TestV5SchedulingComparison(parseT *testing.T) {
+	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", "..", ".."))
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+
+	parseWasmPath := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness", "v5harness.wasm")
+	buildV5HarnessWasm(parseT, parseRepoRoot, parseWasmPath)
+
+	parseServer := serveV5Harness(parseT, parseRepoRoot)
+	defer parseServer.Close()
+
+	parsePW, parseErr := playwright.Run()
+	if parseErr != nil {
+		parseT.Skipf("playwright unavailable: %v", parseErr)
+	}
+	defer parsePW.Stop()
+
+	parseBrowser, parseErr := parsePW.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+		Headless: playwright.Bool(true),
+	})
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer parseBrowser.Close()
+
+	type armResult struct {
+		label  string
+		report v5HarnessReport
+	}
+	parseArms := []struct {
+		label string
+		query string
+	}{
+		{"v4 (flags off)", ""},
+		{"v5 (all flags on)", "?v5=1"},
+	}
+
+	parseResults := make([]armResult, 0, len(parseArms))
+	for _, parseArm := range parseArms {
+		parsePage, parseErr := parseBrowser.NewPage()
+		if parseErr != nil {
+			parseT.Fatalf("new page: %v", parseErr)
+		}
+
+		parseHarnessDone := make(chan struct{})
+		parseTypingDone := make(chan struct{})
+
+		if _, parseErr := parsePage.Goto(parseServer.URL+parseArm.query, playwright.PageGotoOptions{
+			WaitUntil: playwright.WaitUntilStateLoad,
+			Timeout:   playwright.Float(180000),
+		}); parseErr != nil {
+			parseT.Fatalf("goto %s: %v", parseArm.label, parseErr)
+		}
+		if _, parseErr := parsePage.WaitForFunction(`() => window.__gwcV5Ready === true`, nil,
+			playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr != nil {
+			parseT.Fatalf("wait ready %s: %v", parseArm.label, parseErr)
+		}
+
+		// Confirm the arm actually got the configuration it asked for, so a
+		// flag that silently failed to apply cannot be reported as a win.
+		parseRawConfig, parseErr := parsePage.Evaluate(`() => JSON.stringify(window.__gwcV5Config)`)
+		if parseErr != nil {
+			parseT.Fatalf("read config %s: %v", parseArm.label, parseErr)
+		}
+		parseT.Logf("%s config: %s", parseArm.label, parseRawConfig.(string))
+
+		go func() {
+			defer close(parseTypingDone)
+			parseAlphabet := "abcdefghijklmnopqrstuvwxyz"
+			for parseI := 0; ; parseI++ {
+				select {
+				case <-parseHarnessDone:
+					return
+				default:
+				}
+				parseInput := parsePage.Locator("#filter")
+				if parseI%4 == 0 {
+					_ = parseInput.Fill("")
+				} else {
+					_ = parseInput.PressSequentially(string(parseAlphabet[parseI%26]),
+						playwright.LocatorPressSequentiallyOptions{Delay: playwright.Float(20)})
+				}
+				time.Sleep(60 * time.Millisecond)
+			}
+		}()
+
+		if parseErr := parsePage.Locator("#run").Click(); parseErr != nil {
+			parseT.Fatalf("click run %s: %v", parseArm.label, parseErr)
+		}
+		if _, parseErr := parsePage.WaitForFunction(`() => !!window.__gwcV5Report`, nil,
+			playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(600000)}); parseErr != nil {
+			parseT.Fatalf("wait report %s: %v", parseArm.label, parseErr)
+		}
+		close(parseHarnessDone)
+		<-parseTypingDone
+
+		parseRaw, parseErr := parsePage.Evaluate(`() => JSON.stringify(window.__gwcV5Report)`)
+		if parseErr != nil {
+			parseT.Fatalf("read report %s: %v", parseArm.label, parseErr)
+		}
+		var parseReport v5HarnessReport
+		if parseErr := json.Unmarshal([]byte(parseRaw.(string)), &parseReport); parseErr != nil {
+			parseT.Fatalf("decode report %s: %v", parseArm.label, parseErr)
+		}
+		parseResults = append(parseResults, armResult{label: parseArm.label, report: parseReport})
+		_ = parsePage.Close()
+	}
+
+	for _, parseResult := range parseResults {
+		parseT.Logf("%-20s valid=%t  idle p95=%7.2fms  loaded p95=%9.2fms  longFrames=%4d  worst=%8.1fms  M3 p95=%7.1fms (n=%d)  GC max=%.2fms",
+			parseResult.label,
+			parseResult.report.Valid,
+			parseResult.report.Metrics.M1.Idle.P95,
+			parseResult.report.Metrics.M1.Loaded.P95,
+			parseResult.report.Metrics.M2.Count,
+			parseResult.report.Metrics.M2.WorstMs,
+			parseResult.report.Metrics.M3.P95,
+			parseResult.report.Metrics.M3.N,
+			parseResult.report.Metrics.M7)
+	}
+
+	if len(parseResults) == 2 {
+		parseV4, parseV5 := parseResults[0].report, parseResults[1].report
+		parseT.Logf("delta loaded p95: %.2fms -> %.2fms", parseV4.Metrics.M1.Loaded.P95, parseV5.Metrics.M1.Loaded.P95)
+		parseT.Logf("delta long frames: %d -> %d (worst %.1fms -> %.1fms)",
+			parseV4.Metrics.M2.Count, parseV5.Metrics.M2.Count,
+			parseV4.Metrics.M2.WorstMs, parseV5.Metrics.M2.WorstMs)
+		parseT.Logf("delta interaction p95: %.1fms -> %.1fms", parseV4.Metrics.M3.P95, parseV5.Metrics.M3.P95)
+	}
+}

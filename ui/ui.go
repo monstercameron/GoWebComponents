@@ -18,6 +18,45 @@ const propsKey = "__ui_props"
 
 var runtimeInitialized bool
 
+// SchedulingOptions selects the v5 scheduling behaviors.
+//
+// All default to the v4 behavior (R2). Each was measured against the P0.3
+// baseline before being recommended; see docs/plans/v5-plan.md.
+type SchedulingOptions struct {
+	// PassiveEffectsAfterPaint keeps layout effects synchronous inside the
+	// commit task and defers passive effects past the paint boundary, so a slow
+	// UseEffect can no longer hold the frame.
+	//
+	// Changes effect ORDERING, not just timing: every layout effect in the tree
+	// then precedes every passive effect.
+	PassiveEffectsAfterPaint bool
+	// FrameBudgetMs gives the work loop a real wall-clock slice budget instead
+	// of a fixed fiber count. Zero keeps count-only slicing; negative selects
+	// the 5ms default.
+	FrameBudgetMs float64
+	// LaneQueues defers work marked at a lower priority than the running pass to
+	// a follow-up pass, with a per-lane deadline so deferral cannot starve.
+	LaneQueues bool
+}
+
+var schedulingOptions SchedulingOptions
+
+// ConfigureScheduling selects v5 scheduling behaviors. Call it BEFORE the first
+// Render or Hydrate; afterwards the runtime is already built and this is a
+// no-op, which it reports rather than failing silently.
+//
+// Without this the flags on runtime.Config are unreachable from an application,
+// so R2's "flip the flag once its acceptance test passes" could not be carried
+// out by the people the flags are for.
+func ConfigureScheduling(parseOptions SchedulingOptions) {
+	if runtimeInitialized {
+		runtime.ReportDiagnostic("ui", runtime.DiagnosticWarning,
+			"ConfigureScheduling was called after the runtime was initialized; call it before the first Render or Hydrate")
+		return
+	}
+	schedulingOptions = parseOptions
+}
+
 type componentMeta struct {
 	hasArg      bool
 	argType     reflect.Type
@@ -694,11 +733,14 @@ func ensureInitialized() {
 
 	applyInteractiveGCPacing()
 	runtime.InitGlobalRuntime(runtime.Config{
-		DOMAdapter:         jsdom.NewWASMDOMAdapter(),
-		EventAdapter:       jsdom.NewWASMEventAdapter(),
-		Scheduler:          jsdom.NewWASMScheduler(),
-		BrowserState:       jsdom.NewWASMBrowserState(),
-		HideRawPanicOutput: true,
+		DOMAdapter:               jsdom.NewWASMDOMAdapter(),
+		EventAdapter:             jsdom.NewWASMEventAdapter(),
+		Scheduler:                jsdom.NewWASMScheduler(),
+		BrowserState:             jsdom.NewWASMBrowserState(),
+		HideRawPanicOutput:       true,
+		PassiveEffectsAfterPaint: schedulingOptions.PassiveEffectsAfterPaint,
+		FrameBudgetMs:            schedulingOptions.FrameBudgetMs,
+		LaneQueues:               schedulingOptions.LaneQueues,
 	})
 	if _, parseErr := pluginruntime.BootGlobalKernel(pluginruntime.BootstrapOptions{}); parseErr != nil {
 		runtime.ReportDiagnostic("pluginruntime", runtime.DiagnosticWarning, "plugin kernel bootstrap failed: "+parseErr.Error())

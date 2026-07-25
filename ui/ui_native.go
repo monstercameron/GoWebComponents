@@ -288,6 +288,18 @@ func RenderToStringObserved(parseRoot Node, parseOptions SSRObservabilityOptions
 	return renderToStringObserved(parseRoot, parseOptions)
 }
 
+// SchedulingOptions mirrors the browser type so code that configures
+// scheduling compiles unchanged on the native/SSR slice.
+type SchedulingOptions struct {
+	PassiveEffectsAfterPaint bool
+	FrameBudgetMs            float64
+	LaneQueues               bool
+}
+
+// ConfigureScheduling is a no-op off-browser: there is no paint to defer past
+// and no frame to budget. It exists so an app can call it unconditionally.
+func ConfigureScheduling(parseOptions SchedulingOptions) {}
+
 // Render is browser-only; the native SSR slice exposes RenderToString instead.
 func Render(parseRoot Node, parseSelector string) {
 	panic(actionableUnsupportedOnServerPanic("Render"))
