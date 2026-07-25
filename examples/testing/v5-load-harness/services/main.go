@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/v4/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v4/gcpacing"
 )
 
 // workload tracks one background job's progress.
@@ -258,6 +259,13 @@ func workloadByName(parseName string) (*workload, func(chan struct{}), bool) {
 }
 
 func main() {
+	// The worker's profile is the opposite of the render thread's. Nothing
+	// paints here, so a pause delays completion rather than a frame, and the
+	// throughput profile spends less total CPU on collection.
+	if _, _, parseErr := gcpacing.Apply(gcpacing.ProfileThroughput, 0); parseErr != nil {
+		postProgress("", 0, "gc pacing not applied: "+parseErr.Error())
+	}
+
 	js.Global().Set("onmessage", js.FuncOf(func(_ js.Value, parseArgs []js.Value) any {
 		if len(parseArgs) == 0 {
 			return nil

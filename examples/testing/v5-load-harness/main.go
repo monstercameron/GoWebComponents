@@ -31,6 +31,7 @@ import (
 	"sync"
 	"syscall/js"
 
+	"github.com/monstercameron/GoWebComponents/v4/gcpacing"
 	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/v4/interop"
 	"github.com/monstercameron/GoWebComponents/v4/ui"
@@ -392,6 +393,14 @@ type SchedulingChoice struct {
 }
 
 func main() {
+	// P4.4: the render thread pays for pauses, not for total collection CPU, so
+	// it takes the responsive profile. Applied here rather than inside the
+	// framework because pacing is process-global — a library that set it would
+	// be deciding for an application that may have its own view.
+	if _, _, parseErr := gcpacing.Apply(gcpacing.ProfileResponsive, 0); parseErr != nil {
+		js.Global().Get("console").Call("warn", "gc pacing not applied: "+parseErr.Error())
+	}
+
 	parseChoice := applyURLScheduling()
 
 	parseConfigObj := js.Global().Get("Object").New()

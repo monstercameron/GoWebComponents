@@ -135,10 +135,10 @@ background work runs**: `services.wasm` instead of the render thread.
 | M1 idle p95 frame | 16.80 ms | 16.70 ms | — (control) | |
 | M1 **loaded p95 frame** | **1633.30 ms** | **16.70 ms** | equivalent to idle | ✅ **MET** |
 | M1 equivalence | false | **true** | true | ✅ |
-| M2 long frames | 245 (worst 1649 ms) | 12 (worst 435 ms) | 0 | ❌ 20× better, not zero |
-| M3 interaction p95 / max | 1128 / 1400 ms | **24.0 / 72.0 ms** | <50 / <120 ms | ✅ **MET** |
+| M2 long frames | 245 (worst 1649 ms) | 18 (worst **193.8 ms**) | 0 | ❌ worst case 8.5× better, count not zero |
+| M3 interaction p95 / max | 1128 / 1400 ms | **24.0 / 56.0 ms** | <50 / <120 ms | ✅ **MET** |
 | M3 sample size | n=56 (guard refused it) | **n=542** | ≥200 | ✅ quotable |
-| M7 max GC pause | 6.60 ms | 7.10 ms | <3 ms | ❌ unchanged |
+| M7 max GC pause | 6.60 ms | **4.50 ms** | <3 ms | ❌ 32% better, not met |
 
 **M1 is the plan's thesis and it is met.** Loaded p95 equals idle p95 to the
 decimal — 16.70 ms both arms, equivalence true, a **97.8× improvement** on the
@@ -156,10 +156,26 @@ remaining spikes are the render thread's own work — most likely the first
 render, worker instantiation, and table growth. Finding and removing them is
 real work this measurement makes possible rather than something it settles.
 
-**M7 is unchanged at 7.10 ms** and that is expected: `gcpacing` ships profiles
-but nothing in the harness applies one. Wiring `ProfileResponsive` into the app
-binary is the obvious next step, and P4.4's own tests are explicit that a native
-run cannot predict what it will do in the browser.
+**GC pacing was then applied and re-measured, and the browser confirmed what
+P4.4's native tests explicitly could not.** The render thread runs
+`ProfileResponsive`, the worker `ProfileThroughput`:
+
+| | without pacing | with pacing |
+|---|---|---|
+| M7 max GC pause | 7.10 ms | **4.50 ms** (−37%) |
+| M2 worst long frame | 435.4 ms | **193.8 ms** (−55%) |
+| M2 long-frame count | 12 | 18 (+50%) |
+| M3 max | 72.0 ms | **56.0 ms** (−22%) |
+
+That count-versus-worst trade is exactly the responsive profile's mechanism —
+more collections, each stopping the world for less — showing up as a browser
+measurement. P4.4's native tests could establish only that the profile collects
+more often, because native pauses sat at timer resolution and maxima from
+different sample sizes are not comparable. **This is the missing half.**
+
+M7 still misses at 4.50 ms against a 3 ms budget. What is left is not pacing:
+the worst pauses now cluster with the remaining long frames, so the same
+render-thread work behind M2 is the likely source.
 
 ### Phase 1+2 flags measured against the baseline — they REGRESS this scenario
 
