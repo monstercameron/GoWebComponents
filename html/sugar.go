@@ -27,7 +27,11 @@ func Text(parseContent any) ui.Node {
 	case fmt.Stringer:
 		return ui.Text(parseValue.String())
 	case func() string:
-		return runtime.CreateElement(runtime.ReactiveTextNodeType, map[string]any{
+		// v5 PA.2(a): the map literal is constructed here and has no other
+		// reference, so the caller-may-retain contract CreateElement's clone
+		// protects cannot apply. Owned skips a map allocation per reactive text
+		// node.
+		return runtime.CreateElementOwned(runtime.ReactiveTextNodeType, map[string]any{
 			reactiveTextGetterProp: parseValue,
 		})
 	case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, float32, float64:
