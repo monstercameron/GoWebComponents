@@ -556,3 +556,15 @@ of the evidence needed to make them well.
 | Q12 | What do T9's cliffs *do* once observable — reject, drop-oldest, degrade, block? | P4.2 |
 | Q13 | Does `DependsOn`-style staleness detection stay signal rather than noise under chunked bulk commits? | P3.15a |
 | Q14 | Does P3.3's "SAB tier" still mean what it meant before D5 cut the seqlock tier? | P3.3 |
+
+### 11.1 Resolved
+
+Recorded as their owning items shipped. A question is only moved here when the
+implementation actually settled it; the rest stay open above.
+
+| # | Resolution | Settled by |
+|---|---|---|
+| Q4 | **Reuse `services.wasm`; no third binary.** A third artifact adds a second Go runtime instance — the memory Q2 already flags as the mobile risk — and buys no isolation, because compute jobs are the app's own Go code either way. The dispatcher already routes across N workers over one binary, so the pool scales by worker count, not artifact count. A separate binary would only be justified by a different dependency set, and there is none. | P3.12 |
+| Q8 | **In a `CheckpointStore`, and what makes it survive is whichever store the app supplies.** The constraint named in the question — SQLite cannot commit atomically across separate database files — is precisely why exactly-once is not claimed unconditionally: backed by the same transactional store as the effects, progress and effect commit together; backed by anything else, resume re-executes at most one checkpoint interval and `BulkResult.MaxReplayWindow` reports the bound. | P3.4 |
+| Q9 | **Two publication paths, chosen by what the producer knows.** `Publish` scans the new state when the changed rows are not knowable in advance (a statement whose effects the handler did not enumerate, a projection derived from a join it never touched) and is O(N) in time while still emitting O(change) ops. `Apply` skips the scan when the producer can enumerate its own changes, and is O(change) in both. Measured: 5.95 ms vs 71 ns at 20k rows. | P3.15a |
+| Q10 | **Worker-local.** A domain panic is contained at the command boundary, the command is not recorded as applied so it stays retryable, and the worker survives — which is the only thing that makes P3.8a's "recoverable UI state" mean anything. Blast radius is one command. Classified as a rejection rather than a death, so a retry policy does not treat it as possibly-applied. | P3.4, P3.8a |
