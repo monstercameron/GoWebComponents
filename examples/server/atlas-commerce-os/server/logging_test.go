@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	serverauth "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/auth"
+	serverauth "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/auth"
 )
 
 // captureServerLogBuffer routes stdlib log output into a test buffer and restores logger settings on cleanup.

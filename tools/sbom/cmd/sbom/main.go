@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/monstercameron/GoWebComponents/v4/tools/sbom"
+	"github.com/monstercameron/GoWebComponents/v5/tools/sbom"
 )
 
 func main() {

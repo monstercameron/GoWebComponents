@@ -5,7 +5,7 @@ package router
 import (
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 // routeLocationAtomID is the well-known atom the router publishes the active

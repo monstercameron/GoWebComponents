@@ -1,6 +1,6 @@
 package css
 
-import "github.com/monstercameron/GoWebComponents/v4/deprecation"
+import "github.com/monstercameron/GoWebComponents/v5/deprecation"
 
 // This file defines the typed property surface for Layer 1: typed namespaces of
 // typed values (the css.Display.Flex shape) and typed property constructors

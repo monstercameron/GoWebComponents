@@ -4,13 +4,13 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v4/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v5/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v4/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	h "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // renderCard is a layout component that places named slots: header and footer are filled by the

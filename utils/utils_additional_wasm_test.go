@@ -9,7 +9,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/hotreload"
+	"github.com/monstercameron/GoWebComponents/v5/hotreload"
 )
 
 // storeUtilsTestGlobal replaces a browser global for the lifetime of one test.

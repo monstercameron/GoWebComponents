@@ -9,7 +9,7 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 // RouteChunkLoader loads one route-level code artifact before the route factory

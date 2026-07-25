@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/monstercameron/GoWebComponents/v4/examples/shared"
+import "github.com/monstercameron/GoWebComponents/v5/examples/shared"
 
 // renderDocsPageCompact renders the documentation route inside the shared example shell.
 func renderDocsPageCompact(_ Attrs) *Element {

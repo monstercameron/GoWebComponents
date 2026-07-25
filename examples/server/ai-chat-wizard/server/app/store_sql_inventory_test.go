@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/internal/sqlfiles"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/internal/sqlfiles"
 )
 
 // parseInventoryExampleRoot returns the absolute path of the 100-ai-chat-wizard

@@ -8,7 +8,7 @@ import (
 	goruntime "runtime"
 	"syscall/js"
 
-	gwcruntime "github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	gwcruntime "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 // registerBenchmarkPhaseProbe exposes the reconciler's cumulative phase totals

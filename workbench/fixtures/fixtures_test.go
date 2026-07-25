@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/workbench"
-	"github.com/monstercameron/GoWebComponents/v4/workbench/fixtures"
+	"github.com/monstercameron/GoWebComponents/v5/workbench"
+	"github.com/monstercameron/GoWebComponents/v5/workbench/fixtures"
 )
 
 // recordingT captures RunStories failures.

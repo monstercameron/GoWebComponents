@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+import "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 
 // OnReady registers fn to run once, right after the first render commits (the
 // initial UI is on screen and its effects have run). If the app has already

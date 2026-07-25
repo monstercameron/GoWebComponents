@@ -6,7 +6,7 @@
 //
 // Basic usage:
 //
-//	import "github.com/monstercameron/GoWebComponents/v4/state"
+//	import "github.com/monstercameron/GoWebComponents/v5/state"
 //
 //	// In any component
 //	func UserProfile() ui.Node {

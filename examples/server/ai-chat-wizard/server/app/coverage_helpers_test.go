@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/server/provider"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/server/provider"
 	"google.golang.org/grpc"
 )
 

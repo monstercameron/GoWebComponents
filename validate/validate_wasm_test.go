@@ -5,7 +5,7 @@ package validate_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/validate"
+	"github.com/monstercameron/GoWebComponents/v5/validate"
 )
 
 // TestValidatorRunsInWasm proves the reflection-based validator executes under

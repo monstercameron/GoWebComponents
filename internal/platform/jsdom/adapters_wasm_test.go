@@ -8,7 +8,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 func TestWASMDOMAdapter_LazilyBindsDocumentMethods(parseT *testing.T) {

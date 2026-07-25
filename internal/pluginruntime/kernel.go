@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v5/internal/diagnostics"
 )
 
 // PluginDiagnostic stores one kernel-attributed plugin event.

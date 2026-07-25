@@ -1,8 +1,8 @@
 package templatelowering
 
 import (
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 type LandingProps struct {

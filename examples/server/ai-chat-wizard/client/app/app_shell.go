@@ -5,12 +5,12 @@ package app
 import (
 	"strings"
 
-	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/i18n"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
-	"github.com/monstercameron/GoWebComponents/v4/logging"
-	"github.com/monstercameron/GoWebComponents/v4/state"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/i18n"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/logging"
+	"github.com/monstercameron/GoWebComponents/v5/state"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // appViewState is the render-only snapshot consumed by the shell helpers.

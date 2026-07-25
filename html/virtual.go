@@ -3,7 +3,7 @@ package html
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // Flat-list virtualization — plan item P4.1, acceptance M4.

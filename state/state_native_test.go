@@ -13,8 +13,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
 )
 
 // stateNativeNoOpScheduler keeps native state tests deterministic without scheduling background work.

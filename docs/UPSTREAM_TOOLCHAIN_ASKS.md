@@ -53,7 +53,7 @@ be translated back to application-owned Go locations. Install one at startup:
 
 package main
 
-import "github.com/monstercameron/GoWebComponents/v4/ui"
+import "github.com/monstercameron/GoWebComponents/v5/ui"
 
 func main() {
 	// Map an observed wasm/browser panic frame back to a higher-signal Go location.

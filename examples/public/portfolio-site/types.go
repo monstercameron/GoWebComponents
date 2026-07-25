@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/monstercameron/GoWebComponents/v4/ui"
+import "github.com/monstercameron/GoWebComponents/v5/ui"
 
 // Type aliases for convenience - declared once for the entire package
 type Attrs = map[string]interface{}

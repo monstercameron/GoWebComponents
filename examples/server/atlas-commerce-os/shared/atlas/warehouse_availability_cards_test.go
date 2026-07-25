@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // TestPublicProductPromiseLanesCardRendersWarehouseCards verifies warehouse-specific promise cards and service-level fallback copy.

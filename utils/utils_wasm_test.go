@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/hotreload"
+	"github.com/monstercameron/GoWebComponents/v5/hotreload"
 )
 
 func TestEnableHotReloadDelegatesToHotreloadPackage(parseT *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/services"
+	"github.com/monstercameron/GoWebComponents/v5/internal/services"
 )
 
 // Outcome is what happened to a command.

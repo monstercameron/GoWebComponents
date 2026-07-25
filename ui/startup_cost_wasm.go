@@ -7,7 +7,7 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 // storeHydrationStartupCost captures startup-cost attribution for hydration profiling snapshots.

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v4/tools/runnerconfig"
+	"github.com/monstercameron/GoWebComponents/v5/tools/runnerconfig"
 )
 
 type config struct {

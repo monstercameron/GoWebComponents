@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	chatpb "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
-	"github.com/monstercameron/GoWebComponents/v4/logging"
+	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/logging"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"

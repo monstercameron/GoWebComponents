@@ -1,6 +1,6 @@
 package devtools
 
-import "github.com/monstercameron/GoWebComponents/v4/internal/pluginruntime"
+import "github.com/monstercameron/GoWebComponents/v5/internal/pluginruntime"
 
 func init() {
 	_ = pluginruntime.RegisterBuiltinService(pluginruntime.ServiceRegistration{

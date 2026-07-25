@@ -7,7 +7,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/css"
+	"github.com/monstercameron/GoWebComponents/v5/css"
 )
 
 // fakeDOMSource installs a minimal document on globalThis so the wasm DOM sink

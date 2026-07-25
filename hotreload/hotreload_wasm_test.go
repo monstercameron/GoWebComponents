@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
 )
 
 type noOpScheduler struct{}

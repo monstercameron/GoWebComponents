@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v4/interop"
+import "github.com/monstercameron/GoWebComponents/v5/interop"
 
 // ColorScheme is the user's preferred color scheme as reported by the
 // prefers-color-scheme media feature.

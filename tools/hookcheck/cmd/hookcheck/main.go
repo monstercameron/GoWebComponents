@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/monstercameron/GoWebComponents/v4/tools/hookcheck"
+	"github.com/monstercameron/GoWebComponents/v5/tools/hookcheck"
 )
 
 func main() {

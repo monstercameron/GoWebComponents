@@ -18,8 +18,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // Node is the typed, JSON-serializable renderable schema an agent emits.

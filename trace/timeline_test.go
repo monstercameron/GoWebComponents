@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/trace"
+	"github.com/monstercameron/GoWebComponents/v5/trace"
 )
 
 // v5 P4.3 — the two-runtime devtools timeline.

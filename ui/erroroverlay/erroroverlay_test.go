@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v4/ui/erroroverlay"
+	"github.com/monstercameron/GoWebComponents/v5/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/ui/erroroverlay"
 )
 
 // TestErrorOverlayRendersMessageHintAndStack renders the overlay headlessly and asserts the

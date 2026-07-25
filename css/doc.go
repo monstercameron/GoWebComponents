@@ -17,7 +17,7 @@
 // Layer 2 — Tailwind-shaped utilities (subpackage css/u), built on Layer 1. Every
 // utility resolves against the active css.Theme and returns Layer-1 rules:
 //
-//	import "github.com/monstercameron/GoWebComponents/v4/css/u"
+//	import "github.com/monstercameron/GoWebComponents/v5/css/u"
 //	css.New(u.Flex, u.Gap(3), u.Bg(u.Slate900), u.Md(u.Hover(u.FlexRow)...)...)
 //
 // # Crossing into html

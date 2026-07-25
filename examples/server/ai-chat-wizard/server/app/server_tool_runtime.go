@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	chatpb "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
 	"google.golang.org/grpc"
 )
 

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/db/offthread"
-	"github.com/monstercameron/GoWebComponents/v4/db/offthread/server"
-	"github.com/monstercameron/GoWebComponents/v4/db/sqlite"
+	"github.com/monstercameron/GoWebComponents/v5/db/offthread"
+	"github.com/monstercameron/GoWebComponents/v5/db/offthread/server"
+	"github.com/monstercameron/GoWebComponents/v5/db/sqlite"
 )
 
 // v5 P3.5 — the engine-side half, against a real SQLite database.

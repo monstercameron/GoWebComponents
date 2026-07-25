@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"sync"
 
-	appRouter "github.com/monstercameron/GoWebComponents/v4/router"
-	baseRender "github.com/monstercameron/GoWebComponents/v4/testkit/render"
+	appRouter "github.com/monstercameron/GoWebComponents/v5/router"
+	baseRender "github.com/monstercameron/GoWebComponents/v5/testkit/render"
 )
 
 type LoaderAttempt struct {

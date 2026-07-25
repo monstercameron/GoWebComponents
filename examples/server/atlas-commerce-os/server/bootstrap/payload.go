@@ -1,6 +1,6 @@
 package bootstrap
 
-import "github.com/monstercameron/GoWebComponents/v4/ui"
+import "github.com/monstercameron/GoWebComponents/v5/ui"
 
 type Payload struct {
 	Route       RouteBootstrap     `json:"route"`

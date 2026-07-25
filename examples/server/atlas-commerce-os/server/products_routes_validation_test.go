@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	serverauth "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/auth"
+	serverauth "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/auth"
 )
 
 func TestInternalProductCRUDWarehouseReturnRedirects(parseT *testing.T) {

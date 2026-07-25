@@ -414,7 +414,7 @@ func writeHotReloadBrowserFixture(parseT *testing.T, parseRepoRoot string, parse
 	if parseErr != nil {
 		parseT.Fatalf("read repo module path: %v", parseErr)
 	}
-	parseGoMod := fmt.Sprintf("module example.com/gwc-hot-reload-browser-e2e\n\ngo 1.25.0\n\nrequire %s v4.0.0\n\nreplace %s => %s\n", parseModulePath, parseModulePath, filepath.ToSlash(parseRepoRoot))
+	parseGoMod := fmt.Sprintf("module example.com/gwc-hot-reload-browser-e2e\n\ngo 1.25.0\n\nrequire %s v5.0.0\n\nreplace %s => %s\n", parseModulePath, parseModulePath, filepath.ToSlash(parseRepoRoot))
 	writeHotReloadBrowserFile(parseT, filepath.Join(parseAppRoot, "go.mod"), parseGoMod)
 	writeHotReloadBrowserIndex(parseT, parseAppRoot)
 	writeHotReloadBrowserMain(parseT, parseAppRoot, parseModulePath)
@@ -428,7 +428,7 @@ func writeRuntimePanicOverlayFixture(parseT *testing.T, parseRepoRoot string, pa
 	if parseErr := os.MkdirAll(filepath.Join(parseAppRoot, "widgets"), 0o755); parseErr != nil {
 		parseT.Fatalf("create runtime overlay fixture dirs: %v", parseErr)
 	}
-	parseGoMod := fmt.Sprintf("module example.com/gwc-runtime-overlay-browser-e2e\n\ngo 1.25.0\n\nrequire %s v4.0.0\n\nreplace %s => %s\n", parseModulePath, parseModulePath, filepath.ToSlash(parseRepoRoot))
+	parseGoMod := fmt.Sprintf("module example.com/gwc-runtime-overlay-browser-e2e\n\ngo 1.25.0\n\nrequire %s v5.0.0\n\nreplace %s => %s\n", parseModulePath, parseModulePath, filepath.ToSlash(parseRepoRoot))
 	writeHotReloadBrowserFile(parseT, filepath.Join(parseAppRoot, "go.mod"), parseGoMod)
 	writeHotReloadBrowserIndex(parseT, parseAppRoot)
 	writeRuntimePanicOverlayMain(parseT, parseAppRoot, parseModulePath)
@@ -589,8 +589,8 @@ func writeHotReloadBrowserChangedPanel(parseT *testing.T, parsePath string, pars
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 func ChangedCounterPanel() ui.Node {

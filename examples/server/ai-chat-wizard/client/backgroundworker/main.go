@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/internal/markdownrender"
-	"github.com/monstercameron/GoWebComponents/v4/examples/shared/renderworker"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
-	"github.com/monstercameron/GoWebComponents/v4/logging"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/internal/markdownrender"
+	"github.com/monstercameron/GoWebComponents/v5/examples/shared/renderworker"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/logging"
 )
 
 const backgroundWorkerRequestRenderMarkdown = "render-markdown"

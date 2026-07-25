@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/server/provider"
+	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/server/provider"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"

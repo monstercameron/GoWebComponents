@@ -5,11 +5,11 @@ package app
 import (
 	"strings"
 
-	catalog "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/client/catalog"
-	"github.com/monstercameron/GoWebComponents/v4/i18n"
-	"github.com/monstercameron/GoWebComponents/v4/router"
-	"github.com/monstercameron/GoWebComponents/v4/state"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	catalog "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/client/catalog"
+	"github.com/monstercameron/GoWebComponents/v5/i18n"
+	"github.com/monstercameron/GoWebComponents/v5/router"
+	"github.com/monstercameron/GoWebComponents/v5/state"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 type localeOption struct {

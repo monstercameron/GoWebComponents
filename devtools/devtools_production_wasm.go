@@ -5,7 +5,7 @@ package devtools
 import (
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // SnapshotNow returns a minimal snapshot in production wasm builds.

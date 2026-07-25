@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 // DOM boundary cost — where the initial-render deficit against React actually is.

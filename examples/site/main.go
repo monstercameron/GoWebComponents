@@ -10,10 +10,10 @@ package main
 import (
 	"strings"
 
-	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/router"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
-	"github.com/monstercameron/GoWebComponents/v4/utils"
+	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/router"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v5/utils"
 )
 
 // siteChapters is loaded once from the embedded manual data.

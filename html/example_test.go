@@ -3,7 +3,7 @@ package html_test
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v4/html"
+	"github.com/monstercameron/GoWebComponents/v5/html"
 )
 
 // ExampleSanitizeMarkdownHref shows the URL-scheme allowlist used by

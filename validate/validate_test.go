@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/validate"
+	"github.com/monstercameron/GoWebComponents/v5/validate"
 )
 
 // TestRegisterRuleCustomValidation proves a registered custom rule participates in Struct

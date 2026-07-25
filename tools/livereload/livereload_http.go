@@ -15,7 +15,7 @@ import (
 
 	"agenthub"
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/v4/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v5/diagnostics"
 )
 
 func (parseLrs *LiveReloadServer) newHTTPHandler() http.Handler {

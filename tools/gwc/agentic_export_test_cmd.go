@@ -180,8 +180,8 @@ func buildExportTestSource(parsePackage string, parseComponent string, parseTest
 		parseSource.WriteString("\t\"strings\"\n")
 	}
 	parseSource.WriteString("\t\"testing\"\n\n")
-	parseSource.WriteString("\t\"github.com/monstercameron/GoWebComponents/v4/testkit/render\"\n")
-	parseSource.WriteString("\t\"github.com/monstercameron/GoWebComponents/v4/ui\"\n")
+	parseSource.WriteString("\t\"github.com/monstercameron/GoWebComponents/v5/testkit/render\"\n")
+	parseSource.WriteString("\t\"github.com/monstercameron/GoWebComponents/v5/ui\"\n")
 	parseSource.WriteString(")\n\n")
 	parseSource.WriteString("func " + sanitizeTestName(parseTestName) + "(parseT *testing.T) {\n")
 	parseSource.Write(parseBody.Bytes())

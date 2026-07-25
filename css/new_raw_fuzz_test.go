@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/css"
+	"github.com/monstercameron/GoWebComponents/v5/css"
 )
 
 // FuzzNewRawHardening fuzzes the hashed-class emit path (New + Raw, distinct from

@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
-	benchmarkshared "github.com/monstercameron/GoWebComponents/v4/examples/testing/render-benchmark/shared"
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
-	"github.com/monstercameron/GoWebComponents/v4/utils"
+	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
+	benchmarkshared "github.com/monstercameron/GoWebComponents/v5/examples/testing/render-benchmark/shared"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v5/utils"
 )
 
 const (

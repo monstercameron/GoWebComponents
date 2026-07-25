@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	serverauth "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/auth"
-	"github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/shared/repository"
+	serverauth "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/auth"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/repository"
 )
 
 // TestAtlasServerClosedDatabaseAPIReadErrors covers API read handlers after the backing store is closed.

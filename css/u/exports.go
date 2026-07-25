@@ -8,7 +8,7 @@ package u
 // re-exported (use the typed value form, e.g. GapV(Px(8)), or css. for the rare
 // raw case).
 
-import "github.com/monstercameron/GoWebComponents/v4/css"
+import "github.com/monstercameron/GoWebComponents/v5/css"
 
 // --- types (aliases so signatures read bare) ---------------------------------
 

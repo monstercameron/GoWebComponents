@@ -1,6 +1,6 @@
 package css_test
 
-import "github.com/monstercameron/GoWebComponents/v4/css"
+import "github.com/monstercameron/GoWebComponents/v5/css"
 
 // The css sink API must be identical on native and wasm builds so portable app
 // code compiles on both targets. This file is build-tag-free: referencing each

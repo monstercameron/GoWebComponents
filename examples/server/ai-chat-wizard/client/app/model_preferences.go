@@ -6,11 +6,11 @@ import (
 	"context"
 	"strings"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/proto"
-	"github.com/monstercameron/GoWebComponents/v4/fetch"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
-	"github.com/monstercameron/GoWebComponents/v4/logging"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/v5/fetch"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/logging"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/events"
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v5/events"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/router"
 )
 
 // RegisterControlCommands installs bridge.wait-for and bridge.describe.

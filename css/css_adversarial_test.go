@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/css"
+	"github.com/monstercameron/GoWebComponents/v5/css"
 )
 
 // ── helpers ──────────────────────────────────────────────────────────────────

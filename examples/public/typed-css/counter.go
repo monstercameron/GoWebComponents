@@ -5,9 +5,9 @@ package main
 import (
 	"strconv"
 
-	. "github.com/monstercameron/GoWebComponents/v4/css/u"          // styling: bare
-	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand" // elements: bare
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	. "github.com/monstercameron/GoWebComponents/v5/css/u"          // styling: bare
+	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand" // elements: bare
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // Hoisted shared button base — folded once. ZERO css./u. qualifiers: everything

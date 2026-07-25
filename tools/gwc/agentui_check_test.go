@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/agentui"
+	"github.com/monstercameron/GoWebComponents/v5/agentui"
 )
 
 // TestAgentUICheckAcceptsValidAndRejectsInvalid proves `gwc agentui check` validates an

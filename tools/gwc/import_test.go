@@ -49,7 +49,7 @@ func TestParseImportedHTMLDocumentComplex(parseT *testing.T) {
 		parseT.Fatalf("unexpected root tags: %#v", parseDocument.Roots)
 	}
 
-	parseMainGo, parseErr := renderImportedMain(parseDocument, "github.com/monstercameron/GoWebComponents/v4")
+	parseMainGo, parseErr := renderImportedMain(parseDocument, "github.com/monstercameron/GoWebComponents/v5")
 	if parseErr != nil {
 		parseT.Fatalf("render imported main: %v", parseErr)
 	}
@@ -82,7 +82,7 @@ func TestParseImportedJSXDocumentComplex(parseT *testing.T) {
 		parseT.Fatalf("expected one main root, got %#v", parseDocument.Roots)
 	}
 
-	parseMainGo, parseErr := renderImportedMain(parseDocument, "github.com/monstercameron/GoWebComponents/v4")
+	parseMainGo, parseErr := renderImportedMain(parseDocument, "github.com/monstercameron/GoWebComponents/v5")
 	if parseErr != nil {
 		parseT.Fatalf("render imported main: %v", parseErr)
 	}
@@ -199,7 +199,7 @@ func TestRunImportWritesSingleMainGoForJSX(parseT *testing.T) {
 func createImportBuildProject(parseT *testing.T, parseRepoRoot string, parseModulePath string) string {
 	parseT.Helper()
 	parseProjectDir := parseT.TempDir()
-	parseGoMod := "module " + parseModulePath + "\n\ngo 1.25.0\n\nrequire github.com/monstercameron/GoWebComponents/v4 v4.0.0\n\nreplace github.com/monstercameron/GoWebComponents/v4 => " + filepath.ToSlash(parseRepoRoot) + "\n"
+	parseGoMod := "module " + parseModulePath + "\n\ngo 1.25.0\n\nrequire github.com/monstercameron/GoWebComponents/v5 v5.0.0\n\nreplace github.com/monstercameron/GoWebComponents/v5 => " + filepath.ToSlash(parseRepoRoot) + "\n"
 	if parseErr := os.WriteFile(filepath.Join(parseProjectDir, "go.mod"), []byte(parseGoMod), 0644); parseErr != nil {
 		parseT.Fatalf("write import build go.mod: %v", parseErr)
 	}

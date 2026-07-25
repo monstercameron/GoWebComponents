@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
 )
 
 var parseRenderWorkerExample100BenchmarkSink int

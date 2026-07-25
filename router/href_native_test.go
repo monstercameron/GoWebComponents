@@ -5,7 +5,7 @@ package router_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v5/router"
 )
 
 // TestHrefNativePassthrough proves Href returns the path unchanged on native

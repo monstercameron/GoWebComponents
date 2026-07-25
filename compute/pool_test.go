@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/compute"
+	"github.com/monstercameron/GoWebComponents/v5/compute"
 )
 
 // v5 P3.12 — the compute pool.

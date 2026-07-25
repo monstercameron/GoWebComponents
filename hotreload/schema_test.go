@@ -3,7 +3,7 @@ package hotreload_test
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/hotreload"
+	"github.com/monstercameron/GoWebComponents/v5/hotreload"
 )
 
 // TestSchemaFingerprintStableForSameShape proves identical shapes (keys + types) fingerprint

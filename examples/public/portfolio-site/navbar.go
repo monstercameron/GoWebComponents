@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v5/router"
 )
 
 // NavBar renders a sophisticated navigation bar with glassmorphism effects and animations.

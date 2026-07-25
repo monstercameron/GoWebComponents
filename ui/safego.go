@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+import "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 
 // SafeGo starts fn on a new goroutine with framework crash containment. In
 // wasm a panic that escapes any goroutine exits the whole Go program and

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/client/cachecore"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/client/cachecore"
 )
 
 // TestStoreUndeliveredLogRetryAndAck verifies undelivered diagnostics logs persist, retry on reconnect, and remove on ack.

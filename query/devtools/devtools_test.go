@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/v4/query"
-	"github.com/monstercameron/GoWebComponents/v4/query/devtools"
+	"github.com/monstercameron/GoWebComponents/v5/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/query"
+	"github.com/monstercameron/GoWebComponents/v5/query/devtools"
 )
 
 // TestCachePanelRendersKeysAndStatus renders the query devtools panel headlessly and

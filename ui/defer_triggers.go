@@ -3,7 +3,7 @@ package ui
 import (
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
 )
 
 // Trigger hooks produce the boolean a UseDefer latch consumes. Each returns false until its

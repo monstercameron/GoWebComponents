@@ -1,6 +1,6 @@
 package css
 
-import "github.com/monstercameron/GoWebComponents/v4/html"
+import "github.com/monstercameron/GoWebComponents/v5/html"
 
 // Dynamic pairs a static, hashed class that references a CSS custom property with
 // the inline StyleVar PropOption that carries the live value. This is the

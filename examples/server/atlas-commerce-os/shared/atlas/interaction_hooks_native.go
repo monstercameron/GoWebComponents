@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/interop"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 type atlasLocalState[T any] struct {

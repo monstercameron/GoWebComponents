@@ -35,7 +35,7 @@ func TestConsistencyFlagsCompatAliasWithoutDeprecation(parseT *testing.T) {
 // deprecation protocol (Deprecated: doc + deprecation.Warn) is NOT flagged.
 func TestConsistencyAcceptsDeprecatedCompatAlias(parseT *testing.T) {
 	parseDir, parsePath := writeConsistencyFixture(parseT,
-		"package x\n\nimport \"github.com/monstercameron/GoWebComponents/v4/deprecation\"\n\n"+
+		"package x\n\nimport \"github.com/monstercameron/GoWebComponents/v5/deprecation\"\n\n"+
 			"// Foo is a compatibility wrapper around Bar.\n//\n// Deprecated: use Bar.\n"+
 			"func Foo() int { deprecation.Warn(\"x.Foo\", \"x.Bar\"); return Bar() }\n\nfunc Bar() int { return 1 }\n")
 	parseIssues, parseErr := collectLintConsistencyRuleFileIssues(parseDir, parsePath)

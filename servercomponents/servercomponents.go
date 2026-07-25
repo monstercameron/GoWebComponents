@@ -1,6 +1,6 @@
 package servercomponents
 
-import "github.com/monstercameron/GoWebComponents/v4/ui"
+import "github.com/monstercameron/GoWebComponents/v5/ui"
 
 // Descriptor is the serializable server-component model shared with build tools.
 type Descriptor struct {

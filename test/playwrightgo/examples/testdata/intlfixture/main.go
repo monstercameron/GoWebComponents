@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
 )
 
 // parseCase holds a single formatting test case for the fixture matrix.

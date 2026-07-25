@@ -63,9 +63,9 @@ import (
 	"context"
 	"time"
 
-	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/fetch"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	h "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/fetch"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // renderStatusProbe owns one typed async read local to the current component.
@@ -128,9 +128,9 @@ import (
 	"context"
 	"time"
 
-	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/fetch"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	h "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/fetch"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 type deployPreview struct {
@@ -208,8 +208,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/fetch"
-	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v5/fetch"
+	"github.com/monstercameron/GoWebComponents/v5/router"
 )
 
 type workspaceSummary struct {
@@ -254,10 +254,10 @@ package workspaceview
 import (
 	"context"
 
-	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/fetch"
-	"github.com/monstercameron/GoWebComponents/v4/router"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	h "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/fetch"
+	"github.com/monstercameron/GoWebComponents/v5/router"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 type workspaceSummary struct {
@@ -310,7 +310,7 @@ package mutationflow
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v4/fetch"
+	"github.com/monstercameron/GoWebComponents/v5/fetch"
 )
 
 // buildMutationQueue opens the durable browser-backed replay queue for writes that must survive reloads.

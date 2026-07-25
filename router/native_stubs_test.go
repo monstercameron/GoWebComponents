@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v5/internal/pluginruntime"
 )
 
 func TestNativeRegisteredRoutesReturnsNonNilEmptySlice(parseT *testing.T) {

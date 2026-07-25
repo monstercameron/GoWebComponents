@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/validate"
+	"github.com/monstercameron/GoWebComponents/v5/validate"
 )
 
 type listQuery struct {

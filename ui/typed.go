@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 // Typed registers a props-taking component once and returns a constructor

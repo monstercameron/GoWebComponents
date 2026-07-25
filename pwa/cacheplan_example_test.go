@@ -1,7 +1,7 @@
 package pwa_test
 
 import (
-	"github.com/monstercameron/GoWebComponents/v4/pwa"
+	"github.com/monstercameron/GoWebComponents/v5/pwa"
 )
 
 // ExampleBuildCacheStoragePlan shows building a service-worker cache plan from an

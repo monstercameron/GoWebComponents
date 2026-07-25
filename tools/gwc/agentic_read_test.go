@@ -137,13 +137,13 @@ func writeAgenticReadFixture(parseT *testing.T) string {
 		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
 	parseFiles := map[string]string{
-		"go.mod": "module example.com/agenticfixture\n\ngo 1.26.0\n\nrequire github.com/monstercameron/GoWebComponents/v4 v4.0.0\n\nreplace github.com/monstercameron/GoWebComponents/v4 => " + filepath.ToSlash(parseRepoRoot) + "\n",
+		"go.mod": "module example.com/agenticfixture\n\ngo 1.26.0\n\nrequire github.com/monstercameron/GoWebComponents/v5 v5.0.0\n\nreplace github.com/monstercameron/GoWebComponents/v5 => " + filepath.ToSlash(parseRepoRoot) + "\n",
 		"app.go": `package agenticfixture
 
 import (
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	"github.com/monstercameron/GoWebComponents/v4/state"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	"github.com/monstercameron/GoWebComponents/v5/state"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // CardProps configures Card.

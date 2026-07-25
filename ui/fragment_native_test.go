@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/platform/mockdom"
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/internal/platform/mockdom"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 // fragmentEl builds a GWC fragment (the "FRAGMENT" marker the reconciler flattens).

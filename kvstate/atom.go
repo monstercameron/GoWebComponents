@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/state"
+	"github.com/monstercameron/GoWebComponents/v5/state"
 )
 
 // BoundAtom is a global state.Atom whose value is durably persisted. Its

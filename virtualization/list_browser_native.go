@@ -2,7 +2,7 @@
 
 package virtualization
 
-import "github.com/monstercameron/GoWebComponents/v4/ui"
+import "github.com/monstercameron/GoWebComponents/v5/ui"
 
 // buildListViewportEffect returns one native no-op effect because owned viewport observation only runs in browser builds.
 func buildListViewportEffect(parseListID string, parseItemCount int, parseHeight float64, parseRowHeight float64, parseConfig ViewportConfig, parseKeysRef ui.Ref[[]string], parseKeyIndexRef ui.Ref[map[string]int], parseRestoreRef ui.Ref[restorationSnapshot], parseViewport ui.State[ViewportState], parsePublishDiagnostics func(ViewportState)) func() func() {

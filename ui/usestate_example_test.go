@@ -3,8 +3,8 @@ package ui_test
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // exampleCounter reads and updates its own state with the State handle

@@ -31,10 +31,10 @@ import (
 	"sync"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v4/gcpacing"
-	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/gcpacing"
+	h "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // rowCount and windowSize size the table the probe interacts with. 5k rows is

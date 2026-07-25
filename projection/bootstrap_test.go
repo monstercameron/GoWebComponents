@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/projection"
+	"github.com/monstercameron/GoWebComponents/v5/projection"
 )
 
 // v5 P3.11 — SSR bootstrap carries initial projections.

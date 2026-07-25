@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/devtools"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/devtools"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 func TestEventsFromSnapshotAndBuildOTLPJSON(parseT *testing.T) {

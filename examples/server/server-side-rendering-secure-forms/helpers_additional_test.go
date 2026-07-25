@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 func TestPageHelpersAndValidationBranches(parseT *testing.T) {

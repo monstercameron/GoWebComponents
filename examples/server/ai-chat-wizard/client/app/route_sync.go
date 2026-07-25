@@ -5,7 +5,7 @@ package app
 import (
 	"strings"
 
-	chatpb "github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/proto"
+	chatpb "github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/proto"
 )
 
 // shouldRedirectUnauthenticatedRouteToLanding returns whether the client should send a resolved unauthenticated app route back to landing.

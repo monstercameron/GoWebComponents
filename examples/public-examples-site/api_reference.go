@@ -9,9 +9,9 @@ import (
 	"syscall/js"
 	"time"
 
-	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 const innerHTMLProperty = "__gwc_prop__:innerHTML"

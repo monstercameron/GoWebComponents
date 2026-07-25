@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	render "github.com/monstercameron/GoWebComponents/v4/test/render"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	render "github.com/monstercameron/GoWebComponents/v5/test/render"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 func counterExampleApp() ui.Node {

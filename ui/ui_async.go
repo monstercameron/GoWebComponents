@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 // UseDeferredValue keeps returning the last committed value until a transition updates it.

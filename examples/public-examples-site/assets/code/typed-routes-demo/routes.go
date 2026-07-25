@@ -4,7 +4,7 @@
 // (in CI) fails if routes_gen.go drifts from these contracts.
 package typedroutesdemo
 
-import "github.com/monstercameron/GoWebComponents/v4/router"
+import "github.com/monstercameron/GoWebComponents/v5/router"
 
 var (
 	// HomeRoute is the marketing home page.

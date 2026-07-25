@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/diagnostics"
-	"github.com/monstercameron/GoWebComponents/v4/head"
-	"github.com/monstercameron/GoWebComponents/v4/router"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/diagnostics"
+	"github.com/monstercameron/GoWebComponents/v5/head"
+	"github.com/monstercameron/GoWebComponents/v5/router"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 const (

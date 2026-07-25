@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/i18n"
+	"github.com/monstercameron/GoWebComponents/v5/i18n"
 )
 
 // ExampleFormatRelativeTime formats a timestamp relative to a base time.

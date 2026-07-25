@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/pwa"
+	"github.com/monstercameron/GoWebComponents/v5/pwa"
 	playwright "github.com/playwright-community/playwright-go"
 )
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/internal/buildinfo"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/internal/buildinfo"
 )
 
 // versionPattern is the semver-like format used by the shared version constant:

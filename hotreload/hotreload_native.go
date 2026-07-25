@@ -2,7 +2,7 @@
 
 package hotreload
 
-import "github.com/monstercameron/GoWebComponents/v4/deprecation"
+import "github.com/monstercameron/GoWebComponents/v5/deprecation"
 
 // Configure is unavailable on non-browser builds.
 func Configure(parseConfig Config) {

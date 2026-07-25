@@ -5,8 +5,8 @@ package atlas
 import (
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/fetch"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/fetch"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 func BootstrapCacheEntries(parsePayload Payload, parseOptions fetch.CacheOptions, parseUpdatedAt time.Time) []fetch.CacheBootstrapEntry {

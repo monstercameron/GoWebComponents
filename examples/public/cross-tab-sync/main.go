@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v4/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
-	"github.com/monstercameron/GoWebComponents/v4/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
-	"github.com/monstercameron/GoWebComponents/v4/utils"
+	"github.com/monstercameron/GoWebComponents/v5/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v5/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v5/utils"
 )
 
 const (

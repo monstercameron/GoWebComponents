@@ -79,8 +79,8 @@ For a real app, the workflow usually becomes: scaffold, configure, run, validate
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/v4/hotreload"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/hotreload"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // renderRootApp returns the root application node for the standalone dev loop.

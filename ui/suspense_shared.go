@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+import "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 
 // SuspenseValue describes a render-time value that may not be ready yet.
 type SuspenseValue[T any] struct {

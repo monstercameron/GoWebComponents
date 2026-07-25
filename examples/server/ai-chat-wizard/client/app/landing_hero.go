@@ -3,9 +3,9 @@
 package app
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/i18n"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/i18n"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // renderLandingHeroSection renders the full-width hero: headline copy on the left, demo chat card on the right.

@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/pluginruntime"
+	"github.com/monstercameron/GoWebComponents/v5/internal/pluginruntime"
 )
 
 func init() {

@@ -197,8 +197,8 @@ func scaffoldComponentSource(parsePkgName, parseTypeName string) (string, error)
 package %s
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // %sProps are the inputs to the %s component.
@@ -234,9 +234,9 @@ func scaffoldRouteSource(parsePkgName, parseTypeName, parsePattern string) (stri
 package %s
 
 import (
-	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/router"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/router"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // %sRoute is the typed route contract for %q. Run `+"`gwc routes gen`"+` to generate a

@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	benchmarkshared "github.com/monstercameron/GoWebComponents/v4/examples/testing/render-benchmark/shared"
-	"github.com/monstercameron/GoWebComponents/v4/interop"
+	benchmarkshared "github.com/monstercameron/GoWebComponents/v5/examples/testing/render-benchmark/shared"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
 )
 
 const (

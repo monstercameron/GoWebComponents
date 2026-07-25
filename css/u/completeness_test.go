@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/css"
-	"github.com/monstercameron/GoWebComponents/v4/css/u"
+	"github.com/monstercameron/GoWebComponents/v5/css"
+	"github.com/monstercameron/GoWebComponents/v5/css/u"
 )
 
 // TestUtilityCompletenessMatrix proves every utility CATEGORY the engine claims to cover

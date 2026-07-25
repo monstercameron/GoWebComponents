@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/examples/server/ai-chat-wizard/server/provider"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/ai-chat-wizard/server/provider"
 )
 
 func TestCustomPromptAndMemoryHelperFunctions(parseT *testing.T) {

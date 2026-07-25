@@ -1,5 +1,78 @@
 # Changelog
 
+## v5.0.0 - 2026-07-25
+
+**Major release: the module path is now `github.com/monstercameron/GoWebComponents/v5`.**
+Update your imports; `go get -u` will not move you here on its own, which is the
+point of a major version.
+
+### Why this is a major
+
+`ui.ParallelRegion`, `ui.RegisterParallelRegion`, and the surrounding
+parallel-region API are **removed**, and `ui.Hydrate`/`ui.HydrateInto` lose their
+parallel-region bridge parameter. Rendering across workers was measured at ~11%
+— a rounding error against its cost in complexity — so runtime2 was retired as a
+renderer. That is a breaking change to exported API, which `VERSIONING.md`
+requires a major bump for. The branch previously carried it under `/v4`; this
+release corrects that.
+
+### The v5 thesis, measured
+
+Heavier background work should take longer to COMPLETE, never longer to PAINT.
+With the three §1.2 workloads relocated to a domain worker, the harness reports a
+loaded p95 frame of **16.70 ms against a 16.70 ms idle frame** — equivalent,
+against **1633.30 ms** for the same workloads on the render thread in v4.
+
+### Added
+
+- **`ui.PostAsync`** — the supported way for a worker reply, gRPC callback, or
+  goroutine to change rendered state. Work is queued and applied at one defined
+  point per frame, so an async write cannot land mid-render, and writes posted
+  together produce one render rather than N.
+- **`Config.AsyncIngress`** (off by default) — routes state setters called
+  outside the frame loop through that same inbox, so existing async code becomes
+  safe without being rewritten.
+- **`domain.Runtime.SetYield` / `BulkCommand.YieldEvery`** — a bulk command can
+  now return to its worker's message loop, which is what makes it cancellable at
+  all. Previously the cancel sat in a queue behind the run it was meant to stop.
+- **Two-artifact packaging** — `app.wasm` renders, `services.wasm` owns the
+  engine. The example carries a working transport, and a test fails the build if
+  `app.wasm` ever links SQLite, checked on the dependency graph.
+- `domain`, `delta`, and `escalate` promoted out of `internal/`, so adopters can
+  actually import what the migration guide tells them to.
+
+### Fixed
+
+- **Lane deferral discarded the update it deferred.** The pass that declined a
+  fiber cleared the same lane bit it had just set, so no follow-up pass was
+  scheduled and nothing stayed dirty. Reachable only with `LaneQueues` on.
+- **`WorkerClient.Deliver` could hang the JS event loop.** It read a pending
+  reply slot without claiming it, so a duplicate reply — or `Deliver` racing
+  `WorkerDied` — sent twice into a one-slot channel and blocked forever, inside
+  the message callback.
+- **Transaction rollback ran on the context that had just died.** Cleanup reused
+  the caller's context, which is usually cancelled precisely when rollback is
+  needed, leaving the transaction and its write lock open. A failed commit did no
+  cleanup at all.
+- **The serialized mount skipped most real markup.** It required both compact
+  attributes and no props map; the second condition is about how an element was
+  constructed, not whether it can be serialized. Elements built through
+  `runtime.CreateElement` with a string props map now mount in one bridge call —
+  measured 195 crossings to 2 on a 12-card tree.
+
+### Known open
+
+Honest accounting rather than a clean bill:
+
+- **M2 (zero long tasks) and M7 (3 ms pause budget) are missed**, not met.
+- **P3.4 exactly-once is incomplete.** A crash between an effect succeeding and
+  the ledger commit still duplicates the effect; closing it needs effects and
+  ledger to commit together (a transactional `CheckpointStore`).
+- **P6.2 route splitting and P6.3 streaming instantiate are not implemented.**
+- **Initial Render still loses to React.** A rare ~20-30 ms outlier in
+  content-render inflates its scored mean roughly 3x; several causes have been
+  eliminated (see `example201_spike_probe_test.go`) and it is not yet named.
+
 ## v4.3.0 - 2026-07-06
 
 Enterprise-hardening release: a file-by-file security, correctness, and

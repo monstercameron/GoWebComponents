@@ -5,7 +5,7 @@ package pwa
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
 )
 
 func TestObserveInstallabilityReportsUnavailableOnNativeBuilds(parseT *testing.T) {

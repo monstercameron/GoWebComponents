@@ -126,8 +126,8 @@ When you choose to use an experimental API, keep it behind one app-owned wrapper
 package search
 
 import (
-	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	h "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 type searchModel struct {
@@ -192,7 +192,7 @@ import (
 	"net/url"
 	"sort"
 
-	"github.com/monstercameron/GoWebComponents/v4/router"
+	"github.com/monstercameron/GoWebComponents/v5/router"
 )
 
 type routeRecord struct {

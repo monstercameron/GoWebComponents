@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	serverauth "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/auth"
-	serverdb "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/db"
+	serverauth "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/auth"
+	serverdb "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/db"
 )
 
 func TestInternalProductCRUDJSONMutations(parseT *testing.T) {

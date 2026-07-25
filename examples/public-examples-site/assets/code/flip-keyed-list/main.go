@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v4/anim"
-	"github.com/monstercameron/GoWebComponents/v4/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v5/anim"
+	"github.com/monstercameron/GoWebComponents/v5/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v4/examples/shared"
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/examples/shared"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // flipExample demonstrates anim.DiffKeyedRects: given the before/after layout rectangles of a keyed

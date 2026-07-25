@@ -5,12 +5,12 @@ package main
 import (
 	"fmt"
 
-	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
+	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
 
-	"github.com/monstercameron/GoWebComponents/v4/examples/internal/exampleboot"
-	"github.com/monstercameron/GoWebComponents/v4/hotreload"
-	"github.com/monstercameron/GoWebComponents/v4/router"
-	"github.com/monstercameron/GoWebComponents/v4/utils"
+	"github.com/monstercameron/GoWebComponents/v5/examples/internal/exampleboot"
+	"github.com/monstercameron/GoWebComponents/v5/hotreload"
+	"github.com/monstercameron/GoWebComponents/v5/router"
+	"github.com/monstercameron/GoWebComponents/v5/utils"
 )
 
 func main() {

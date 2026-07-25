@@ -5,7 +5,7 @@ package pwa
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v4/interop"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
 )
 
 func testNativeNoopHelpers(_ context.Context, _ interop.ErrorCode) {}

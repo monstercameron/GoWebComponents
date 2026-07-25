@@ -3,8 +3,8 @@ package fetch
 import (
 	"context"
 
-	"github.com/monstercameron/GoWebComponents/v4/query"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/query"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // DurableMutationRunner applies a mutation that is BOTH optimistic and durable: it updates the

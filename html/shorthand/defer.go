@@ -1,6 +1,6 @@
 package shorthand
 
-import "github.com/monstercameron/GoWebComponents/v4/ui"
+import "github.com/monstercameron/GoWebComponents/v5/ui"
 
 // Defer renders placeholder until shown is true, then builds and renders content. content is
 // a thunk invoked ONLY when shown — so the deferred (often expensive) subtree is never

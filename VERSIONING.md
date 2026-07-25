@@ -8,9 +8,16 @@ commits the actual rules so a release's number is predictable, not a judgment ca
 
 | Bump | Trigger | Examples |
 |---|---|---|
-| **Major** (`/v5`, `/v6`, …) | A breaking change to an **exported** identifier in the library module, or any change that forces a consumer to edit code or that alters a consumer's `go.sum`. | Removing/renaming an exported func/type/method; changing an exported signature; moving a dependency out of the library module (see *Module split* below). |
+| **Major** (`/v6`, `/v7`, …) | A breaking change to an **exported** identifier in the library module, or any change that forces a consumer to edit code or that alters a consumer's `go.sum`. | Removing/renaming an exported func/type/method; changing an exported signature; moving a dependency out of the library module (see *Module split* below). |
 | **Minor** (`x.Y.0`) | A backward-compatible **addition**. | New exported function/type/method; a new package; a new optional field with a zero-value default. |
 | **Patch** (`x.y.Z`) | A backward-compatible **fix** with no API change. | Bug fixes, performance, docs, internal refactors, new tests. |
+
+The module is currently **`github.com/monstercameron/GoWebComponents/v5`**. It moved
+there in v5.0.0 because retiring runtime2 as a renderer removed `ui.ParallelRegion`
+and the surrounding public API, and changed the `ui.Hydrate`/`ui.HydrateInto`
+signatures — exactly the trigger in the Major row above. The change had been sitting
+on the branch under `/v4`, where `go get -u` would have delivered it to consumers
+with no import-path signal; that is what a major version exists to prevent.
 
 "Exported API" is defined concretely as the surface captured by the **API-baseline tests**
 (`internal/apidump` + each package's `api_baseline.txt`): exported types with their shape,
@@ -31,7 +38,7 @@ version heading. A major release's entry must include the **migration steps** (o
 each breaking change. There is no separate migration guide to fall out of date; the changelog
 entry is the migration guide.
 
-## Module split (the open `/v4` decision)
+## Module split (the open module-boundary decision)
 
 The plan's F9 item proposes moving heavy tool-only dependencies (`playwright-go`,
 `bubbletea`, `charmbracelet/*`, the AI SDKs) into a separate **`tools` module** so the
@@ -40,7 +47,7 @@ by this rule:
 
 - If any **library-consumer** `require`/`go.sum` line changes (it will, because transitive
   tool deps disappear from consumers' graphs), the split is a **breaking** change to the
-  module graph and **must** ship as a major (`/v4` → import-path bump).
+  module graph and **must** ship as a major (import-path bump to `/v6`).
 - If it is a pure internal reorg with **no** change to any public import path or consumer
   `go.sum`, it can ship as a **minor**.
 

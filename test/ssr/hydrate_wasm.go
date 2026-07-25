@@ -5,8 +5,8 @@ package ssr
 import (
 	stdtesting "testing"
 
-	base "github.com/monstercameron/GoWebComponents/v4/testkit/ssr"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	base "github.com/monstercameron/GoWebComponents/v5/testkit/ssr"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 type HydrationOptions = base.HydrationOptions

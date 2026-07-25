@@ -10,7 +10,7 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/agentbridge"
+	"github.com/monstercameron/GoWebComponents/v5/agentbridge"
 )
 
 // enableDemoAgentBridge connects the demo app to the localhost agent hub when

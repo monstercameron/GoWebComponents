@@ -25,7 +25,7 @@ var enginePackages = []string{
 	"github.com/tetratelabs/wazero",
 	"github.com/ncruces/go-sqlite3",
 	"modernc.org/sqlite",
-	"github.com/monstercameron/GoWebComponents/v4/db/sqlite",
+	"github.com/monstercameron/GoWebComponents/v5/db/sqlite",
 }
 
 // listDeps returns the transitive dependency list of a package for one platform.
@@ -43,7 +43,7 @@ func listDeps(parseT *testing.T, parseGOOS string, parseGOARCH string, parsePack
 
 // TestOffThreadClientDoesNotLinkTheEngine is P3.5 criterion (b).
 func TestOffThreadClientDoesNotLinkTheEngine(parseT *testing.T) {
-	parseDeps := listDeps(parseT, "js", "wasm", "github.com/monstercameron/GoWebComponents/v4/db/offthread")
+	parseDeps := listDeps(parseT, "js", "wasm", "github.com/monstercameron/GoWebComponents/v5/db/offthread")
 
 	for _, parseDep := range parseDeps {
 		for _, parseEnginePackage := range enginePackages {
@@ -60,7 +60,7 @@ func TestOffThreadClientDoesNotLinkTheEngine(parseT *testing.T) {
 // work: this asserts the engine lives SOMEWHERE, and that the somewhere is the
 // package meant for domain.wasm.
 func TestOffThreadServerDoesLinkTheEngine(parseT *testing.T) {
-	parseDeps := listDeps(parseT, "js", "wasm", "github.com/monstercameron/GoWebComponents/v4/db/offthread/server")
+	parseDeps := listDeps(parseT, "js", "wasm", "github.com/monstercameron/GoWebComponents/v5/db/offthread/server")
 
 	hasEngine := false
 	for _, parseDep := range parseDeps {
@@ -82,8 +82,8 @@ func TestOffThreadServerDoesLinkTheEngine(parseT *testing.T) {
 // that is what this asserts. The dependency direction must stay one-way:
 // server → sqlite, never sqlite → offthread.
 func TestConventionalSQLiteDoesNotPullTheOffThreadClient(parseT *testing.T) {
-	for _, parseDep := range listDeps(parseT, "js", "wasm", "github.com/monstercameron/GoWebComponents/v4/db/sqlite") {
-		if strings.HasPrefix(parseDep, "github.com/monstercameron/GoWebComponents/v4/db/offthread") {
+	for _, parseDep := range listDeps(parseT, "js", "wasm", "github.com/monstercameron/GoWebComponents/v5/db/sqlite") {
+		if strings.HasPrefix(parseDep, "github.com/monstercameron/GoWebComponents/v5/db/offthread") {
 			parseT.Errorf("db/sqlite depends on %q — every existing app's binary would change", parseDep)
 		}
 	}
@@ -97,7 +97,7 @@ func TestConventionalSQLiteDoesNotPullTheOffThreadClient(parseT *testing.T) {
 // cannot honor across a thread boundary — one round trip per row. Keeping the
 // dependency out keeps that mistake unavailable.
 func TestOffThreadClientHasNoDatabaseSQLDependency(parseT *testing.T) {
-	for _, parseDep := range listDeps(parseT, "js", "wasm", "github.com/monstercameron/GoWebComponents/v4/db/offthread") {
+	for _, parseDep := range listDeps(parseT, "js", "wasm", "github.com/monstercameron/GoWebComponents/v5/db/offthread") {
 		if parseDep == "database/sql" {
 			parseT.Error("db/offthread depends on database/sql — results must be materialized, not cursor-shaped")
 		}

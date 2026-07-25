@@ -1499,13 +1499,13 @@ func TestDetectHTMLPathReturnsEmptyForNonDirectoryRoot(parseT *testing.T) {
 
 func TestRenderScaffoldGoModUsesStandaloneLayout(parseT *testing.T) {
 	parseSelection := startSelection{ModulePath: "github.com/test/app"}
-	parseContent := renderScaffoldGoMod(parseSelection, "github.com/monstercameron/GoWebComponents/v4", `C:\repo\GoWebComponents`)
+	parseContent := renderScaffoldGoMod(parseSelection, "github.com/monstercameron/GoWebComponents/v5", `C:\repo\GoWebComponents`)
 	for _, parseExpected := range []string{"module github.com/test/app", "go 1.25.0"} {
 		if !strings.Contains(parseContent, parseExpected) {
 			parseT.Fatalf("expected go.mod content to contain %q", parseExpected)
 		}
 	}
-	for _, parseUnexpected := range []string{"require github.com/monstercameron/GoWebComponents/v4", "replace github.com/monstercameron/GoWebComponents/v4"} {
+	for _, parseUnexpected := range []string{"require github.com/monstercameron/GoWebComponents/v5", "replace github.com/monstercameron/GoWebComponents/v5"} {
 		if strings.Contains(parseContent, parseUnexpected) {
 			parseT.Fatalf("expected standalone go.mod content to omit %q", parseUnexpected)
 		}
@@ -1517,11 +1517,11 @@ func TestRenderScaffoldGoModUsesContributorLinkedReplace(parseT *testing.T) {
 		ModulePath:  "github.com/test/app",
 		ProjectMode: scaffoldProjectModeContributorLinked,
 	}
-	parseContent := renderScaffoldGoMod(parseSelection, "github.com/monstercameron/GoWebComponents/v4", `C:\repo\GoWebComponents`)
+	parseContent := renderScaffoldGoMod(parseSelection, "github.com/monstercameron/GoWebComponents/v5", `C:\repo\GoWebComponents`)
 	for _, parseExpected := range []string{
 		"module github.com/test/app",
 		"go 1.25.0",
-		"replace github.com/monstercameron/GoWebComponents/v4 => C:/repo/GoWebComponents",
+		"replace github.com/monstercameron/GoWebComponents/v5 => C:/repo/GoWebComponents",
 	} {
 		if !strings.Contains(parseContent, parseExpected) {
 			parseT.Fatalf("expected contributor-linked go.mod content to contain %q", parseExpected)
@@ -1679,7 +1679,7 @@ func TestRenderScaffoldExtraFilesAddsBrowserTestScaffold(parseT *testing.T) {
 }
 
 func TestRenderScaffoldOutputGolden(parseT *testing.T) {
-	const repoModulePath = "github.com/monstercameron/GoWebComponents/v4"
+	const repoModulePath = "github.com/monstercameron/GoWebComponents/v5"
 	parseRepoRoot := filepath.FromSlash("/repo/GoWebComponents")
 
 	parseTests := []struct {
@@ -1833,7 +1833,7 @@ func TestRenderScaffoldMainIncludesFeatureCardsFromSelection(parseT *testing.T) 
 		ModulePath:  "example.com/starter-app",
 	}
 
-	parseMain := renderScaffoldMain(parseSelection, "github.com/monstercameron/GoWebComponents/v4")
+	parseMain := renderScaffoldMain(parseSelection, "github.com/monstercameron/GoWebComponents/v5")
 	for _, parseExpected := range []string{
 		"Starter capability matrix",
 		"Route shell and navigation affordances are scaffolded in the starter layout.",
@@ -1860,7 +1860,7 @@ func TestRenderScaffoldMainReferenceAppIncludesCommonPathWidgets(parseT *testing
 		TargetDir:   filepath.Join("C:\\tmp", "starter-app"),
 	}
 
-	parseMain := renderScaffoldMain(parseSelection, "github.com/monstercameron/GoWebComponents/v4")
+	parseMain := renderScaffoldMain(parseSelection, "github.com/monstercameron/GoWebComponents/v5")
 	for _, parseExpected := range []string{
 		`html.Text("Routing")`,
 		`html.Text("Async Data")`,
@@ -2195,8 +2195,8 @@ func TestScaffoldMainWiresHotReloadWhenSelected(parseT *testing.T) {
 		Preset:      startPreset{Name: "Hot", Features: []string{"ui", "html", "hot-reload"}},
 		ProjectName: "hot-app",
 		ModulePath:  "example.com/hot-app",
-	}, "github.com/monstercameron/GoWebComponents/v4")
-	for _, parseWant := range []string{"hotreload.Enable()", "GoWebComponents/v4/hotreload"} {
+	}, "github.com/monstercameron/GoWebComponents/v5")
+	for _, parseWant := range []string{"hotreload.Enable()", "GoWebComponents/v5/hotreload"} {
 		if !strings.Contains(parseWith, parseWant) {
 			parseT.Fatalf("hot-reload starter main must contain %q:\n%s", parseWant, parseWith)
 		}
@@ -2206,7 +2206,7 @@ func TestScaffoldMainWiresHotReloadWhenSelected(parseT *testing.T) {
 		Preset:      startPreset{Name: "Plain", Features: []string{"ui", "html"}},
 		ProjectName: "plain-app",
 		ModulePath:  "example.com/plain-app",
-	}, "github.com/monstercameron/GoWebComponents/v4")
+	}, "github.com/monstercameron/GoWebComponents/v5")
 	if strings.Contains(parseWithout, "hotreload") {
 		parseT.Fatalf("a starter without hot-reload must not import hotreload:\n%s", parseWithout)
 	}
@@ -2405,7 +2405,7 @@ func TestGenerateStartScaffoldWritesContributorLinkedGoMod(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("read contributor-linked go.mod: %v", parseErr)
 	}
-	parseExpectedReplace := "replace github.com/monstercameron/GoWebComponents/v4 => " + filepath.ToSlash(filepath.Clean(parseRepoRoot))
+	parseExpectedReplace := "replace github.com/monstercameron/GoWebComponents/v5 => " + filepath.ToSlash(filepath.Clean(parseRepoRoot))
 	if !strings.Contains(string(parseGoModBytes), parseExpectedReplace) {
 		parseT.Fatalf("expected contributor-linked go.mod to contain %q, got:\n%s", parseExpectedReplace, string(parseGoModBytes))
 	}
@@ -3364,7 +3364,7 @@ func ensureScaffoldUsesLocalRepoModule(parseT *testing.T, parseRepoRoot string, 
 		parseT.Fatalf("read scaffold go.mod: %v", parseErr)
 	}
 	parseGoModText := strings.TrimSpace(string(parseGoModBytes)) + "\n\n" +
-		"require " + parseModulePath + " v4.0.0\n\n" +
+		"require " + parseModulePath + " v5.0.0\n\n" +
 		"replace " + parseModulePath + " => " + filepath.ToSlash(parseRepoRoot) + "\n"
 	if parseErr2 := os.WriteFile(parseGoModPath, []byte(parseGoModText), 0644); parseErr2 != nil {
 		parseT.Fatalf("write scaffold go.mod: %v", parseErr2)

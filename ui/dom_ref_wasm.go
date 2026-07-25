@@ -5,7 +5,7 @@ package ui
 import (
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/platform/jsdom"
+	"github.com/monstercameron/GoWebComponents/v5/internal/platform/jsdom"
 )
 
 // Value returns the underlying js.Value for the referenced element, or js.Null()

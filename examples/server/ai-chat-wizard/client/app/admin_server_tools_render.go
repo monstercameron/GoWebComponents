@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 // renderDashboardServerToolsPanel renders the full superuser server-tools surface.

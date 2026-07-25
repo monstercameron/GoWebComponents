@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/monstercameron/GoWebComponents/v4/agentbridge"
+	"github.com/monstercameron/GoWebComponents/v5/agentbridge"
 )
 
 // SessionState is the lifecycle state of an agent session.

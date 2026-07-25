@@ -3,7 +3,7 @@ package devtools
 import (
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/v4/plugin"
+	"github.com/monstercameron/GoWebComponents/v5/plugin"
 )
 
 var hostExtensionSources struct {

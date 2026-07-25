@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/testkit/render"
+	"github.com/monstercameron/GoWebComponents/v5/testkit/render"
 )
 
 // Fixture wraps one router plus a rendered route fixture.

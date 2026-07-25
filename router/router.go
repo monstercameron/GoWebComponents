@@ -12,9 +12,9 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/deprecation"
-	"github.com/monstercameron/GoWebComponents/v4/internal/platform/jsdom"
-	"github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/v5/deprecation"
+	"github.com/monstercameron/GoWebComponents/v5/internal/platform/jsdom"
+	"github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 const (

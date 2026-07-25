@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/fetch"
-	"github.com/monstercameron/GoWebComponents/v4/html"
-	render "github.com/monstercameron/GoWebComponents/v4/test/render"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/fetch"
+	"github.com/monstercameron/GoWebComponents/v5/html"
+	render "github.com/monstercameron/GoWebComponents/v5/test/render"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 func asyncResourceApp(parseController *render.ResourceController[string]) ui.Node {

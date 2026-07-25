@@ -7,7 +7,7 @@ import (
 	goruntime "runtime"
 	"syscall/js"
 
-	gwcruntime "github.com/monstercameron/GoWebComponents/v4/internal/runtime"
+	gwcruntime "github.com/monstercameron/GoWebComponents/v5/internal/runtime"
 )
 
 // V5 load-harness probe.

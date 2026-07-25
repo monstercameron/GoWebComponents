@@ -5,8 +5,8 @@ package virtualization
 import (
 	"encoding/json"
 
-	"github.com/monstercameron/GoWebComponents/v4/interop"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
+	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
 const restorationStoragePrefix = "gwc:virtualization:restore:"

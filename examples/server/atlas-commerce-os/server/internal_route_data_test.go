@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	serverdb "github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/server/db"
-	"github.com/monstercameron/GoWebComponents/v4/examples/server/atlas-commerce-os/shared/repository"
+	serverdb "github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/server/db"
+	"github.com/monstercameron/GoWebComponents/v5/examples/server/atlas-commerce-os/shared/repository"
 )
 
 func TestInternalRouteDataCountAndFallbackHelpers(parseT *testing.T) {

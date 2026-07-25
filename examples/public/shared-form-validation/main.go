@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/v4/examples/internal/exampleboot"
-	_ "github.com/monstercameron/GoWebComponents/v4/examples/internal/examplelog"
+	"github.com/monstercameron/GoWebComponents/v5/examples/internal/exampleboot"
+	_ "github.com/monstercameron/GoWebComponents/v5/examples/internal/examplelog"
 
-	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
-	"github.com/monstercameron/GoWebComponents/v4/ui"
-	"github.com/monstercameron/GoWebComponents/v4/utils"
+	. "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/v5/ui"
+	"github.com/monstercameron/GoWebComponents/v5/utils"
 )
 
 // Signup is the SHARED validation schema. The same struct, with the same `validate:"..."` tags,
