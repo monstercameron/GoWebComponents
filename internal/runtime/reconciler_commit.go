@@ -513,7 +513,7 @@ func (parseRt *Runtime) commitRoot() {
 
 	// G16: signal "app ready" once the first commit (initial paint + effects) is
 	// done. No-op on every later commit.
-	fireFirstCommitHooks()
+	parseRt.fireFirstCommitHooks()
 }
 
 // reportMissingKeys is an internal reconciler helper. It exists only to emit

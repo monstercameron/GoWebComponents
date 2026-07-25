@@ -83,6 +83,10 @@ type Runtime struct {
 	// passiveDrainScheduled guards against queueing more than one deferred
 	// passive drain when several commits land before the first one runs.
 	passiveDrainScheduled bool
+	// ready carries this runtime's first-commit signal (v5 P2.3). Per runtime,
+	// so a second Runtime fires its own ready hooks rather than finding a
+	// process-wide flag already set.
+	ready readyState
 	// laneQueues enables per-lane deferral with expiry (v5 P2.2). Off by
 	// default (R2); when off, every dirty fiber renders in whatever pass finds
 	// it, which is the pre-v5 behavior.
