@@ -119,6 +119,13 @@ is the point: it fails the build if `app.wasm` ever links the engine, checked on
 the dependency graph rather than on a size that could be small for unrelated
 reasons.
 
+The example carries the whole transport, not a sketch of one: a `Poster` that
+posts `{id, name, request}`, a `worker.js` bootstrap, an `onmessage` handler in
+`services` that dispatches by name and answers **every** request — including
+unknown names and panicking handlers — and an `onerror` hook that fails the
+in-flight requests when the worker dies. Each of those exists because its absence
+produces a page that hangs with nothing to point at, rather than an error.
+
 Sizes, brotli: `app.wasm` 1.26 MB, `services.wasm` 1.96 MB. See
 `docs/V5_SIZE_STORY.md` for the full accounting, including what is not measured.
 
@@ -146,6 +153,45 @@ if err := registry.Verify(CreateOrder, CancelOrder, ArchiveOrder); err != nil {
     return err   // names every mismatch, not just the first
 }
 ```
+
+### Never call a command from a DOM callback
+
+This is the one that costs a day. `Invoke` waits for the worker's reply. A DOM
+callback runs **on** the JS event loop, and the reply arrives **as** a message
+event on that same loop — so waiting inside the callback prevents the event that
+would end the wait from ever being dispatched. The page deadlocks: no error, no
+failing call, it just stops.
+
+It is a property of the environment, not of `Invoke`, and nothing inside `Invoke`
+can fix it. Run the wait on a goroutine, and bring the result back through the
+inbox:
+
+```go
+onClick := func() {
+    go func() {                                    // returns the loop immediately
+        res, err := CreateOrder.Invoke(ctx, client, codec, args)
+        if err != nil {
+            reportOrderFailed(err)                 // never swallow it
+            return
+        }
+        ui.PostAsync(func() {                      // back onto the frame loop
+            setOrderID(res.ID)
+            setStatus("placed")                    // both writes, one render
+        })
+    }()
+}
+```
+
+`ui.PostAsync` is the second half and is not optional. A result arrives on a
+goroutine, which is outside the frame loop; writing render state from there
+mutates it at an arbitrary moment relative to whatever the reconciler is doing.
+Posting queues the write to one defined point in the frame. Everything inside a
+single post is applied in one block, so a result that updates three pieces of
+state produces one render rather than three.
+
+With `Config.AsyncIngress` enabled the runtime routes off-loop setters through
+the inbox for you, so existing async code becomes safe without being rewritten.
+Posting explicitly is still worth it when several writes belong together.
 
 ### Give commands stable IDs
 
