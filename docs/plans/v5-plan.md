@@ -508,12 +508,27 @@ This agrees with P0.3's independent finding that frame time is dominated by
 domain work on the render thread rather than by rendering. Two different
 measurements, same conclusion.
 
-**P5.2 is a large deletion (`dom_commit.go`, `patch_*.go`, and their suites) and
-has not been executed.** It also removes the anchors for P3.3's differential
+**P5.2's scope is larger than this plan states, and it has not been executed.**
+
+The plan describes it as "delete `dom_commit.go`, `patch_*.go`". Measured:
+
+| | |
+|---|---|
+| named deletion targets | ~9,300 lines |
+| `internal/runtime2` in total | 392 files, ~60,600 lines |
+| **public API that depends on it** | **`ui/parallel_region.go`** |
+| example apps that depend on it | 4 |
+| P3.3 conformance tests that depend on it | 4 |
+
+`ui.ParallelRegion` is a **public API surface**, so retiring runtime2 as a
+renderer is a breaking change for anyone using it — not the contained internal
+deletion the one-line description implies. That does not contradict P5.1's
+measurement; it means P5.2 needs a deprecation path for `ui.ParallelRegion`
+that the plan never scoped. It also removes the anchors for P3.3's differential
 conformance tests, which drive runtime2's real encoders to prove the extracted
 services match their source — those were correct when written and would be
-deleted with it. Sequencing that is a deliberate call rather than a mechanical
-consequence of this measurement.
+deleted with it. Sequencing all of this is a deliberate call rather than a
+mechanical consequence of a benchmark.
 
 ### Phase 6 — Cold start *(parallel)*
 
