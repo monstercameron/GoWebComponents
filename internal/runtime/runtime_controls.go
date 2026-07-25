@@ -111,6 +111,8 @@ type runtimeSchedulerState struct {
 	droppedBackpressure  int
 	interruptedWork      int
 	lastBackpressureLane UpdateLane
+	// lanes carries per-lane pending state and deferral deadlines (v5 P2.2).
+	lanes laneState
 }
 
 func (parseState *runtimeSchedulerState) ensureDefaults(parseLimits RuntimeLimits) {

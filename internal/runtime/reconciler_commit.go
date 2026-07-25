@@ -506,6 +506,11 @@ func (parseRt *Runtime) commitRoot() {
 		parseRt.scheduleUpdateWithLane(parseInterruptLane, false)
 	}
 
+	// v5 P2.2: this pass declined to render work belonging to lower lanes.
+	// Start a follow-up pass at the highest lane still pending, so deferral
+	// never becomes a stranded update.
+	parseRt.scheduleDeferredLaneWork()
+
 	// G16: signal "app ready" once the first commit (initial paint + effects) is
 	// done. No-op on every later commit.
 	fireFirstCommitHooks()

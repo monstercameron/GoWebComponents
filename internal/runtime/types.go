@@ -129,7 +129,12 @@ type Fiber struct {
 	reactiveSourceIDs []string
 	fineGrained       bool
 	updateOrigin      string
-	ownerRuntime      *Runtime
+	// updateLane records which priority lane marked this fiber dirty (v5 P2.2),
+	// so a pass can tell whether the work belongs to it or should be deferred.
+	// Zero means "no lane recorded" and always renders, keeping legacy callers
+	// working unchanged.
+	updateLane   UpdateLane
+	ownerRuntime *Runtime
 }
 
 type hydrationBoundary struct {

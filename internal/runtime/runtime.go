@@ -83,6 +83,10 @@ type Runtime struct {
 	// passiveDrainScheduled guards against queueing more than one deferred
 	// passive drain when several commits land before the first one runs.
 	passiveDrainScheduled bool
+	// laneQueues enables per-lane deferral with expiry (v5 P2.2). Off by
+	// default (R2); when off, every dirty fiber renders in whatever pass finds
+	// it, which is the pre-v5 behavior.
+	laneQueues bool
 	// inbox holds async work posted from outside the frame loop (v5 P2.1).
 	// Drained at one defined point per frame so N async messages produce one
 	// render pass rather than N. See inbox.go.
@@ -266,6 +270,14 @@ type Config struct {
 	// to count-only slicing and emits a diagnostic rather than degrading
 	// silently.
 	FrameBudgetMs float64
+	// LaneQueues enables per-lane deferral with expiration (v5 P2.2): work
+	// marked at a lower priority than the running pass is deferred to a
+	// follow-up pass rather than rendered inside this one.
+	//
+	// Off by default. Each deferrable lane carries a deadline (transition
+	// 500ms, background 2s) after which it is admitted regardless of priority,
+	// so deferral cannot become starvation under sustained input.
+	LaneQueues bool
 }
 
 // configHidesRawPanicOutput resolves the containment default: panics are
@@ -306,6 +318,9 @@ func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
 	}
 	if parseConfig.PassiveEffectsAfterPaint {
 		parseRuntime.passiveEffectsAfterPaint = true
+	}
+	if parseConfig.LaneQueues {
+		parseRuntime.laneQueues = true
 	}
 	if parseConfig.FrameBudgetMs < 0 {
 		parseRuntime.frameBudgetMs = defaultFrameBudgetMs

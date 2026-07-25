@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 )
 
 type elementScratchPool struct {
@@ -1091,6 +1092,13 @@ func (parseRt *Runtime) clearFiberDirty(parseFiber *Fiber) {
 	parseFiber.subtreeDirty = false
 	parseFiber.needsUpdate = false
 	parseFiber.needsChildReconcile = false
+	// v5 P2.2: the fiber's work has been consumed, so it no longer belongs to
+	// any lane. Leaving a stale lane here would make a later pass defer a fiber
+	// whose work is already done.
+	if parseFiber.updateLane != 0 {
+		parseRt.schedulerState.lanes.clearLanePending(parseFiber.updateLane)
+		parseFiber.updateLane = 0
+	}
 
 	parseAlternate := parseFiber.alternate
 	if parseAlternate != nil && parseAlternate != parseFiber {
@@ -1110,6 +1118,21 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 	// Distinguish self work from descendant-only work so clean owners can forward updates without rerendering.
 	isParseSelfDirty := parseRt.isFiberDirty(parseFiber) || parseFiber.needsChildReconcile
 	isParseSubtreeOnly := !isParseSelfDirty && parseFiber.subtreeDirty
+
+	// v5 P2.2: this fiber's work belongs to a lower-priority lane than the pass
+	// currently running, and that lane has not yet expired. Decline to render it
+	// here and let a follow-up pass at its own lane pick it up.
+	//
+	// Deferral reuses the subtree-only tier rather than skipping the walk: the
+	// fiber keeps its dirty flag and does not re-render, but its children are
+	// still traversed so higher-priority work below it renders normally.
+	// Skipping the walk would strand descendants behind a low-priority ancestor.
+	if isParseSelfDirty && parseRt.laneQueuesEnabled() &&
+		!parseRt.laneAdmitsFiber(parseRt.schedulerState.currentLane, parseFiber.updateLane, time.Now()) {
+		parseRt.noteLaneDeferred(parseFiber)
+		isParseSelfDirty = false
+		isParseSubtreeOnly = true
+	}
 
 	// Reuse the committed child chain when neither the fiber nor any
 	// descendant needs work. The bailout path skips diff timing entirely —

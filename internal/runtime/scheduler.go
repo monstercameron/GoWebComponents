@@ -531,6 +531,7 @@ func (parseRt *Runtime) ScheduleUpdateForFiberWithOrigin(parseFiber *Fiber, pars
 		}
 		parseF.dirty = true
 		parseF.needsUpdate = true
+		parseF.updateLane = parseLane
 		if isParseFirst {
 			parseF.updateOrigin = parseOrigin
 		} else if parseF.updateOrigin == "" {
@@ -579,6 +580,7 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fib
 	parseFiber.dirty = true
 	parseFiber.subtreeDirty = true
 	parseFiber.needsUpdate = true
+	parseFiber.updateLane = parseLane
 	parseRt.markFiberSubtreeDirty(parseFiber.parent)
 	parseFiber.updateOrigin = buildScheduledUpdateOrigin(parseCurrentOrigin, parseOrigin, "fine-grained")
 	if !parseRt.updateScheduled {
