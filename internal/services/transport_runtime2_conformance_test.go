@@ -56,14 +56,14 @@ func buildConformancePatchStream() runtime2.PatchStreamRaw {
 	}
 }
 
-// TestRuntime2PatchStreamSatisfiesCodec is a compile-time-ish assertion: if the
-// adapter does not satisfy services.Codec, this file does not build.
-func TestRuntime2PatchStreamSatisfiesCodec(parseT *testing.T) {
-	var parseCodec services.Codec[runtime2.PatchStreamRaw] = patchStreamCodec{}
-	if parseCodec == nil {
-		parseT.Fatal("runtime2's patch stream must satisfy the extracted codec interface")
-	}
-}
+// The assertion that runtime2's patch stream satisfies the extracted codec is a
+// COMPILE-TIME one: if the adapter does not implement services.Codec, this file
+// does not build.
+//
+// Written as a var rather than a test with a nil check, because patchStreamCodec
+// is a non-pointer struct and the interface holding it can never be nil — the
+// check read like a runtime assertion and asserted nothing.
+var _ services.Codec[runtime2.PatchStreamRaw] = patchStreamCodec{}
 
 // TestRuntime2PatchStreamRoundTripsThroughSubstrate drives runtime2's real
 // encoders through the generic Encode/Decode path at each reachable tier.
