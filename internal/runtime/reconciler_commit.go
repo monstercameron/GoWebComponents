@@ -472,13 +472,22 @@ func (parseRt *Runtime) commitRoot() {
 	parseRt.updateScheduled = false
 
 	// Run effects after the committed tree is current and hydration gates are lifted.
-	if parseRt.tracksPendingEffects && !parseRt.pendingEffectOverflow {
-		parseRt.runPendingEffects()
+	//
+	// v5 P1.1: when passiveEffectsAfterPaint is enabled, only LAYOUT effects run
+	// here — synchronously, in the same task as the DOM writes, because that is
+	// the whole reason the tier exists. Passive effects are deferred past the
+	// paint boundary so a slow UseEffect can no longer hold the frame.
+	if parseRt.passiveEffectsAfterPaint {
+		parseRt.commitLayoutEffectsAndDeferPassive(parseCommittedRoot)
 	} else {
-		parseRt.runEffects(parseCommittedRoot)
+		if parseRt.tracksPendingEffects && !parseRt.pendingEffectOverflow {
+			parseRt.runPendingEffects()
+		} else {
+			parseRt.runEffects(parseCommittedRoot)
+		}
+		parseRt.tracksPendingEffects = false
+		parseRt.pendingEffectOverflow = false
 	}
-	parseRt.tracksPendingEffects = false
-	parseRt.pendingEffectOverflow = false
 
 	if parseWasHydrating {
 		parseRt.finishHydrationMetrics(false, "")
@@ -1597,15 +1606,99 @@ func (parseRt *Runtime) queuePendingEffectFiber(parseFiber *Fiber) {
 	parseRt.pendingEffectFibers = append(parseRt.pendingEffectFibers, parseFiber)
 }
 
+// commitLayoutEffectsAndDeferPassive is the P1.1 commit tail.
+//
+// Layout effects run here, synchronously, still inside the commit task — they
+// exist to observe committed DOM before paint. Passive effects are handed to
+// the scheduler so the browser reaches its rendering step first.
+//
+// Two behaviors are deliberate:
+//
+//   - With no scheduler configured (native tests, SSR), passive effects run
+//     inline. There is no paint to wait for, and deferring them would silently
+//     change semantics for every native caller.
+//   - The deferred drain re-reads its state at run time rather than capturing
+//     it, because another commit may land between the schedule and the drain.
+func (parseRt *Runtime) commitLayoutEffectsAndDeferPassive(parseCommittedRoot *Fiber) {
+	isTrackedDrain := parseRt.tracksPendingEffects && !parseRt.pendingEffectOverflow
+
+	if isTrackedDrain {
+		parseRt.runPendingEffectsTier(effectTierLayout)
+	} else {
+		parseRt.runEffectsTier(parseCommittedRoot, effectTierLayout)
+	}
+
+	// No scheduler: nothing to yield to, so keep the single-task semantics
+	// native callers already depend on.
+	if parseRt.scheduler == nil {
+		parseRt.drainPassiveEffects(parseCommittedRoot, isTrackedDrain)
+		return
+	}
+
+	// A second commit before the drain fires would otherwise queue a second
+	// drain for the same work; one pending drain is enough, and it always
+	// reads current state.
+	if parseRt.passiveDrainScheduled {
+		return
+	}
+	parseRt.passiveDrainScheduled = true
+	parseRt.scheduler.SetTimeout(func() {
+		parseRt.passiveDrainScheduled = false
+		parseRt.drainPassiveEffects(parseRt.currentRoot, parseRt.tracksPendingEffects && !parseRt.pendingEffectOverflow)
+	}, 0)
+}
+
+// drainPassiveEffects runs the passive tier and clears the pass bookkeeping the
+// layout tier deliberately left intact.
+func (parseRt *Runtime) drainPassiveEffects(parseRoot *Fiber, isTrackedDrain bool) {
+	if isTrackedDrain {
+		parseRt.runPendingEffectsTier(effectTierPassive)
+	} else {
+		parseRt.runEffectsTier(parseRoot, effectTierPassive)
+	}
+	parseRt.tracksPendingEffects = false
+	parseRt.pendingEffectOverflow = false
+}
+
+// effectTier selects which queued effects a drain pass runs (v5 P1.1).
+//
+// The split exists because layout and passive effects have opposite timing
+// requirements: layout effects must observe the committed DOM *before* the
+// browser paints, while passive effects must not delay that paint. Running both
+// in one pass — the pre-v5 behavior — means any slow UseEffect holds the frame.
+type effectTier uint8
+
+const (
+	// effectTierAll runs every queued effect in one pass, layout first.
+	// Pre-P1.1 behavior, retained for the flag-off path.
+	effectTierAll effectTier = iota
+	// effectTierLayout runs only layout effects and LEAVES THE QUEUE INTACT
+	// so the passive pass can still find its own effects.
+	effectTierLayout
+	// effectTierPassive runs only passive effects and consumes the queue.
+	effectTierPassive
+)
+
 // runPendingEffects runs only the fibers that scheduled effects during the current render pass.
 func (parseRt *Runtime) runPendingEffects() {
+	parseRt.runPendingEffectsTier(effectTierAll)
+}
+
+// runPendingEffectsTier drains one tier across the fibers that queued effects.
+//
+// The pending list is cleared only by a queue-consuming tier, so a layout pass
+// can run first and leave the same list for the passive pass that follows it
+// after paint.
+func (parseRt *Runtime) runPendingEffectsTier(parseTier effectTier) {
 	if parseRt == nil || len(parseRt.pendingEffectFibers) == 0 {
 		return
 	}
 	for _, parseFiber := range parseRt.pendingEffectFibers {
-		parseRt.runFiberEffects(parseFiber)
+		parseRt.runFiberEffectsTier(parseFiber, parseTier)
 	}
-	parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
+	if parseTier != effectTierLayout {
+		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
+	}
 }
 
 // runFiberEffects runs one fiber's queued effects without traversing descendants.
@@ -1615,23 +1708,50 @@ func (parseRt *Runtime) runPendingEffects() {
 // before any passive effect mutates further. When the fiber has no layout
 // effects (the common case) the effects run in their queued order in a single
 // pass.
-func (parseRt *Runtime) runFiberEffects(parseFiber *Fiber) {
+// runFiberEffectsTier runs one fiber's queued effects for a single tier.
+//
+// Queue consumption is tier-dependent and load-bearing. effectTierLayout leaves
+// the queue in place because its passive counterpart still has to find those
+// effects after paint; every other tier truncates, because effects must run
+// exactly once — a bailout-reused fiber keeps its Fiber object across commits,
+// and the full-tree runEffects fallback would otherwise re-execute stale queued
+// effects, re-firing mount effects on unrelated updates and overwriting their
+// cleanups without calling them.
+func (parseRt *Runtime) runFiberEffectsTier(parseFiber *Fiber, parseTier effectTier) {
 	if parseFiber == nil {
 		return
 	}
 
 	parseEffects := parseFiber.effects
-	parseEffectCount := len(parseEffects)
-	parseFiber.effectDurationNs = 0
-	if parseEffectCount == 0 {
+	if len(parseEffects) == 0 {
 		return
 	}
-	// Consume the queue: effects run exactly once. A bailout-reused fiber keeps
-	// its Fiber object across commits, and the full-tree runEffects fallback
-	// (taken whenever a pass queues no effects) would otherwise re-execute every
-	// stale queued effect on it — re-firing mount effects on unrelated updates
-	// and overwriting their cleanups without calling them.
-	defer func() { parseFiber.effects = parseFiber.effects[:0] }()
+	// Only reset the accumulator on a pass that starts the fiber's work, so a
+	// split layout+passive commit reports their sum rather than the last tier.
+	if parseTier != effectTierPassive {
+		parseFiber.effectDurationNs = 0
+	}
+
+	if parseTier != effectTierLayout {
+		defer func() { parseFiber.effects = parseFiber.effects[:0] }()
+	}
+
+	switch parseTier {
+	case effectTierLayout:
+		for parseI := range parseEffects {
+			if parseEffects[parseI].Layout {
+				parseRt.runOneEffect(parseFiber, &parseEffects[parseI])
+			}
+		}
+		return
+	case effectTierPassive:
+		for parseI := range parseEffects {
+			if !parseEffects[parseI].Layout {
+				parseRt.runOneEffect(parseFiber, &parseEffects[parseI])
+			}
+		}
+		return
+	}
 
 	parseHasLayout := false
 	for parseI := range parseEffects {
@@ -1704,18 +1824,24 @@ func (parseRt *Runtime) runOneEffect(parseFiber *Fiber, parseEffect *Effect) {
 // by ui/effect_ordering_native_test.go — see its architectural note. Switching
 // setup to bottom-up is an owner-level architecture change, not an audit fix.
 func (parseRt *Runtime) runEffects(parseFiber *Fiber) {
+	parseRt.runEffectsTier(parseFiber, effectTierAll)
+}
+
+// runEffectsTier is the tree-walking fallback used when the pending-effect
+// queue overflowed. It preserves runEffects' top-down setup order per tier.
+func (parseRt *Runtime) runEffectsTier(parseFiber *Fiber, parseTier effectTier) {
 	if parseFiber == nil {
 		return
 	}
 
-	parseRt.runFiberEffects(parseFiber)
+	parseRt.runFiberEffectsTier(parseFiber, parseTier)
 
 	// Recursively run effects for children and siblings
 	if parseFiber.child != nil {
-		parseRt.runEffects(parseFiber.child)
+		parseRt.runEffectsTier(parseFiber.child, parseTier)
 	}
 	if parseFiber.sibling != nil {
-		parseRt.runEffects(parseFiber.sibling)
+		parseRt.runEffectsTier(parseFiber.sibling, parseTier)
 	}
 }
 

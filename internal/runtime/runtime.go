@@ -77,6 +77,13 @@ type Runtime struct {
 	deletions                  []*Fiber
 	pendingEffectFibers        []*Fiber
 	tracksPendingEffects       bool
+	// passiveEffectsAfterPaint enables the v5 P1.1 commit split: layout effects
+	// stay synchronous inside the commit task, passive effects are deferred past
+	// the paint boundary. Off by default (R2) until its acceptance test passes.
+	passiveEffectsAfterPaint bool
+	// passiveDrainScheduled guards against queueing more than one deferred
+	// passive drain when several commits land before the first one runs.
+	passiveDrainScheduled bool
 	updateScheduled            bool
 	continueWorkFn             func()
 	pendingBoundaryRecovery    bool
@@ -229,6 +236,15 @@ type Config struct {
 	OnUnhandledPanicReport func(PanicReport)
 	StrictMode             StrictModeOptions
 	Limits                 RuntimeLimits
+	// PassiveEffectsAfterPaint enables the v5 P1.1 commit split: layout effects
+	// run synchronously in the commit task (so they observe committed DOM before
+	// paint), passive effects run after the browser has painted.
+	//
+	// Off by default. Enabling it changes effect ORDERING, not just timing:
+	// every layout effect in the tree now precedes every passive effect, where
+	// previously each fiber ran both tiers before the next fiber ran either.
+	// See internal/runtime/effect_ordering_contract_test.go.
+	PassiveEffectsAfterPaint bool
 }
 
 // configHidesRawPanicOutput resolves the containment default: panics are
@@ -266,6 +282,9 @@ func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
 		parseRuntime.strictMode = parseConfig.StrictMode.withDefaults()
 	} else if parseConfig.StrictMode != (StrictModeOptions{}) {
 		parseRuntime.strictMode = parseConfig.StrictMode.withDefaults()
+	}
+	if parseConfig.PassiveEffectsAfterPaint {
+		parseRuntime.passiveEffectsAfterPaint = true
 	}
 	parseRuntime.limits = parseConfig.Limits.withDefaults()
 	applyGlobalRuntimeLimits(parseRuntime.limits)
