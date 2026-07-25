@@ -182,6 +182,53 @@ M7 still misses at 4.50 ms against a 3 ms budget. What is left is not pacing:
 the worst pauses now cluster with the remaining long frames, so the same
 render-thread work behind M2 is the likely source.
 
+### M6 measured — runtime1 vs React 19
+
+Five runs, headless Chromium, windows/arm64, production build. `DOM Score` is
+`100 * geomean(reference DOM Ready / measured DOM Ready)` — higher is faster.
+
+| Run | React | Runtime 1 | ratio |
+|---|---:|---:|---:|
+| 1 | 70 | 50 | 0.71 |
+| 2 | 68 | 53 | 0.78 |
+| 3 | 68 | 54 | 0.79 |
+| 4 | 78 | 51 | 0.65 |
+| 5 | 70 | 55 | 0.79 |
+
+Median ratio **0.78** — runtime1 takes roughly **1.3x React's DOM-ready time**
+overall. The aggregate hides the shape, which matters more:
+
+| Category | Runtime 1 vs React | wins |
+|---|---:|---:|
+| Targeted Update | **+0.357 ms** | **3 / 5** |
+| Primitive Update | **+0.123 ms** | **1 / 2** |
+| Primitive Churn | −1.135 ms | 1 / 2 |
+| Refresh | −0.566 ms | 0 / 3 |
+| Structural Churn | −1.100 ms | 0 / 2 |
+| Primitive Render | −1.415 ms | 0 / 1 |
+| Initial Render | **−3.236 ms** | 0 / 4 |
+
+**runtime1 wins fine-grained updates and loses initial render.** All five of
+its wins are in update categories; Initial Render is the dominant loss and
+drags the geomean on its own.
+
+Two honest caveats:
+
+- **The 0.71x baseline's units are unresolved.** The plan does not state
+  whether it is a score ratio (higher better) or a time ratio (lower better),
+  and the checked-in snapshot has 0 scored scenarios so it cannot settle it.
+  The millisecond column above is unambiguous and is what should be quoted.
+- **The CHANGELOG's claim does not reproduce here.** It states a "0.85–0.95
+  same-run geomean band ... with 8–10 outright scenario wins per run". These
+  runs show 5 wins. Different hardware is the likely explanation and is not
+  established; the claim should not be repeated until it is re-measured.
+
+**v5 did not target this axis, and this measurement is not evidence about v5.**
+The benchmark runs pure rendering with no domain work, and the Phase 1/2 flags
+are off. P5.1 measured component bodies at ~11% of a render pass, which is why
+v5 spent its effort moving domain work off-thread instead. v5's result is M1
+and M3 — staying responsive under load — not raw render throughput.
+
 ### Phase 1+2 flags measured against the baseline — they REGRESS this scenario
 
 R2 says a flag flips once its acceptance test passes. It did not pass. Both arms
@@ -269,6 +316,7 @@ ship short of it with a recorded reason).
 | M5 · measured | two-artifact `app.wasm` gzipped | — | **1.73MB — MISSED by 8%** | ⚪ | P3.10 |
 | M5 · brotli | same binary, brotli (what browsers negotiate) | — | **1.26MB — 21% UNDER target** | ⚪ | P6.1 |
 | M6 | runtime1 geomean vs React | 0.71x | no regression | 🔴 | P0.3 |
+| M6 · measured | runtime1 vs React 19.2.4, full surface, 5 runs | — | **React ~70 / Runtime 1 ~53 DOM Score; 5 of 19 scenario wins** | 🔴 | P5.1 |
 | M7 | GC max pause, render thread | ~9ms | <3ms | ⚪ | P0.3 |
 | M8a/b | `cloneElementProps` alloc share / absolute allocs-per-op | 53% / — | <20% / −40% | ⚪ | PA.1 |
 | M9 | Fine-grained update + list cost vs Solid, Svelte 5, one Rust peer, on the **js-framework-benchmark** protocol | never measured | within 2x | ⚪ | P0.5 |
