@@ -123,12 +123,6 @@ func parseBuildTourStops() []parseTourStop {
 			parseDesc:    "Model selection, tone, and thinking state persist across reloads and sync across browser tabs via the state package atom broadcast.",
 		},
 		{
-			parseTitle:   "Composer runtime2 region",
-			parsePattern: "Display-only ui.ParallelRegion",
-			parseFile:    "client/app/composer_runtime2.go",
-			parseDesc:    "Example 100 currently uses runtime2 in the composer cost summary. The renderer is registered once and mounted through a display-only parallel region on the public UI path.",
-		},
-		{
 			parseTitle:   "Streamed thread",
 			parsePattern: "Streaming progressive render",
 			parseFile:    "client/app/stream.go",

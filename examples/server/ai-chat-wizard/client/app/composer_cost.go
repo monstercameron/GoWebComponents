@@ -3,17 +3,9 @@
 package app
 
 import (
-	"sync"
-
 	. "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/v4/i18n"
-	"github.com/monstercameron/GoWebComponents/v4/logging"
 	"github.com/monstercameron/GoWebComponents/v4/ui"
-)
-
-const (
-	renderComposerCostRendererID = "chat-wizard.composer-costs"
-	renderComposerCostRegionID   = "chat-wizard.composer-costs.primary"
 )
 
 type renderComposerCostRegionProps struct {
@@ -23,29 +15,7 @@ type renderComposerCostRegionProps struct {
 	RenderAccount  string
 }
 
-var storeRuntime2RegionRegistrationOnce sync.Once
-var isRuntime2RegionRegistrationReady bool
-
-var handleComposerRuntime2RegionRegister = func(parseRendererID string, parseRender func(renderComposerCostRegionProps) ui.Node) error {
-	return ui.RegisterParallelRegion(parseRendererID, parseRender)
-}
-
-// parseRegisterRuntime2Regions registers example 100 display-only runtime2 region renderers.
-func parseRegisterRuntime2Regions() {
-	storeRuntime2RegionRegistrationOnce.Do(func() {
-		parseErr := handleComposerRuntime2RegionRegister(renderComposerCostRendererID, renderComposerCostRegion)
-		if parseErr != nil {
-			chatLog.Warn("composer runtime2 region registration failed; using inline fallback", logging.Fields{
-				"renderer_id": renderComposerCostRendererID,
-				"error":       parseErr,
-			})
-			return
-		}
-		isRuntime2RegionRegistrationReady = true
-	})
-}
-
-// parseBuildComposerCostRegionProps formats display-only composer cost labels for runtime2 props.
+// parseBuildComposerCostRegionProps formats the display-only composer cost labels.
 func parseBuildComposerCostRegionProps(parseComposerProps composerProps) renderComposerCostRegionProps {
 	parseRegionProps := renderComposerCostRegionProps{
 		HasThreadCost:  parseComposerProps.ThreadCostSummary.HasAnyExactCosts && parseComposerProps.ThreadCostSummary.TotalCost > 0,
@@ -92,7 +62,7 @@ func parseBuildComposerAccountCostText(parseIntl i18n.Runtime, parseCost string,
 	return parseIntl.T(chatI18nNamespace, "input.accountTotalPartial", parseArgs)
 }
 
-// renderComposerCostRegion renders the display-only runtime2 region body for composer cost labels.
+// renderComposerCostRegion renders the display-only composer cost labels.
 func renderComposerCostRegion(parseRegionProps renderComposerCostRegionProps) ui.Node {
 	return Fragment(
 		If(parseRegionProps.HasThreadCost,
@@ -102,17 +72,4 @@ func renderComposerCostRegion(parseRegionProps renderComposerCostRegionProps) ui
 			P(ClassStr("text-right text-sm text-white/35 mt-0.5 pr-1"), Text(parseRegionProps.RenderAccount)),
 		),
 	)
-}
-
-// renderComposerCostParallelRegion renders the runtime2-backed display-only cost summary region.
-func renderComposerCostParallelRegion(parseComposerProps composerProps) ui.Node {
-	parseRegionProps := parseBuildComposerCostRegionProps(parseComposerProps)
-	if !isRuntime2RegionRegistrationReady {
-		return renderComposerCostRegion(parseRegionProps)
-	}
-	return ui.ParallelRegion(ui.ParallelRegionSpec[renderComposerCostRegionProps]{
-		RendererID:       renderComposerCostRendererID,
-		RegionInstanceID: renderComposerCostRegionID,
-		Props:            parseRegionProps,
-	})
 }

@@ -416,7 +416,6 @@ func ParseApp(parseProps chatWizardRouteProps) ui.Node {
 // ParseRun starts the chat wizard client entrypoint.
 func ParseRun() {
 	parseEnableDogfoodAgentBridge()
-	parseRegisterRuntime2Regions()
 	parseR := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: chatRouteRoot})
 	parseR.Register(authLandingRoute, func(router.Attrs) *router.Element {
 		return ui.CreateElement(parseChatWizardRoot, buildAppRouteProps())

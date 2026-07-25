@@ -425,12 +425,18 @@ go run ./tools/gwc dev -app .\examples\public\accessible-overlay\main.go
 go run ./tools/gwc dev -app .\examples\public\overlay-stack\main.go
 ```
 
-Worker helpers and advanced region work:
+Worker helpers:
 
 ```powershell
 go run ./tools/gwc dev -app .\examples\public\worker-text-index\main.go
-go run ./tools/gwc dev -app .\examples\testing\parallel-region-basic\main.go
 ```
+
+> **Removed in v5.** `ui.ParallelRegion` and the runtime2 worker-rendering
+> path were retired. P5.1 measured component bodies at ~11% of a render pass —
+> well under the 35% bar at which parallelizing them could pay — so shipping
+> component invocation to a worker solved the wrong problem at higher cost.
+> Move expensive work to a **domain worker** instead; see
+> `docs/V5_MIGRATION.md`.
 
 ## Animation (`anim`)
 

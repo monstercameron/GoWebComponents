@@ -81,7 +81,7 @@ func parseInputArea(parseProps composerProps) ui.Node {
 					),
 				),
 			),
-			renderComposerCostParallelRegion(parseProps),
+			renderComposerCostRegion(parseBuildComposerCostRegionProps(parseProps)),
 		),
 	)
 }

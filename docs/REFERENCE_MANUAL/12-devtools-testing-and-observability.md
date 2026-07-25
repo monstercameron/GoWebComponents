@@ -476,7 +476,6 @@ go run ./tools/gwc build -app .\examples\public\devtools-panel\main.go -root .\e
 go run ./tools/gwc build -app .\examples\public\use-snapshot\main.go -root .\examples\public\use-snapshot
 go run ./tools/gwc build -app .\examples\public\snapshot-now\main.go -root .\examples\public\snapshot-now
 go run ./tools/gwc build -app .\examples\public\devtools-diagnostics\main.go -root .\examples\public\devtools-diagnostics
-go run ./tools/gwc build -app .\examples\testing\kernel-plugin-devtools\main.go -root .\examples\testing\kernel-plugin-devtools
 go test -tags playwrightgo ./test/playwrightgo/kernelplugindevtools -timeout 5m -v
 ```
 
