@@ -29,7 +29,7 @@ substantially complete; Phase 4 started.
 | P0.3 v4 baseline | ✅ | **captured** — see below |
 | P3.1 · P3.2 | ✅ | transferables; O(change) ReplaceSubtree rollback |
 | P3.3 services substrate | ✅ | transport · ledger · arbiter · dispatcher; contingency decided on measurement |
-| P3.4 `domain` runtime | ✅ | replay · resume · cancel; 30k-of-50k crash finishes at 50k |
+| P3.4 `domain` runtime | ⚠️ | replay · resume ✅; **cancel needed a yield** (`SetYield`/`YieldEvery`) — polling a flag cannot work when nothing can set it; **exactly-once still open**, see below |
 | P3.5 SQLite off-thread | ✅ | `db/offthread`; no engine in `app.wasm`, checked on the dependency graph |
 | P3.15a delta engine | ✅ | **M11 0.30x** ; ops O(change), snapshot path measured O(N) |
 | P3.7 projection API | ✅ | zero round-trips asserted by message count; **M12 memory half**; typos fail to compile |
@@ -508,6 +508,29 @@ change whether it is attempted, not just when it is expected.
 
 **Exit:** T3/T4/T5/T12 closed with tests · `-race` clean · M6 green.
 
+**Status 2026-07-25.** P2.1 is now WIRED, which it was not before: the inbox
+existed and nothing outside tests posted to it, so hook setters still mutated
+state wherever they were called and T4 was open in practice however complete the
+queue looked. Setters called outside the frame loop now route through it, and
+`ui.PostAsync` gives application code — a worker reply, a gRPC callback, a
+goroutine — a supported way in. "Outside the frame loop" is decided by two
+counters (`workLoopDepth`, `frameLoopDepth`) rather than goroutine identity,
+which is the wrong question in wasm; event dispatch and the drain itself are
+marked, and each mark has a test that fails when it is removed.
+
+It ships **off by default** (`Config.AsyncIngress`). Forcing it on for the whole
+suite fails nine tests, all of one shape — a test calls a setter from its own
+goroutine and asserts the new value on the next line. Those failures ARE the
+feature, and they are also proof the change is visible to code that already
+exists, so it stays opt-in until an app has been migrated deliberately.
+
+P2.2's deferral had a defect that made the accept criterion unreachable: the
+pass that declined a fiber cleared the same lane bit it had just marked, so no
+follow-up pass was scheduled and nothing stayed dirty — the deferred update was
+silently dropped. Fixed, with a test driving `performUnitOfWork` directly, since
+the existing end-to-end test passed for the wrong reason (its state setter
+scheduled an ordinary update that rendered regardless).
+
 ### Phase 3 — Off-thread domain *(additive — see D4)*
 
 | ID | Item | Accept | Effort |
@@ -516,6 +539,28 @@ change whether it is attempted, not just when it is expected.
 | P3.2 | Reduce mixed-ops rollback snapshot alloc | **benchmark the mixed-ops path first**; then report its measured contribution to browser `core-append` as a fraction | M |
 | P3.3 | Extract service substrate from runtime2 | hello-world round-trips on all three transports **with a measurable definition of degradation** (SAB unavailable → falls back to push-on-change, diagnostic emitted, no error surfaced to the app); no regression on runtime2 compare benches. **Carries a contingency — see below** | XL |
 | P3.4 | `domain.wasm` runtime | (a) atomic commands **replay** with no duplicate effects; (b) bulk commands **resume** — crash at row 30k of 50k finishes at exactly 50k; (c) cancelled commands do neither | L |
+
+**P3.4 status 2026-07-25 — two gaps, one closed.**
+
+*(c) cancellation was untestable as written.* The test called `Cancel` from
+inside the running step, which presupposes exactly what a worker denies: that
+something else gets to run while the loop is running. A real worker takes its
+next message only after the current command returns, so a cancel posted during a
+50,000-item run sits in a queue behind the run it is meant to stop, and the
+per-item flag check is polling something nothing can set. `BulkCommand.YieldEvery`
+plus `Runtime.SetYield` give the turn back; the yield happens *before* the flag
+check, so a turn is never spent without re-reading what it was spent on. A
+yield interval with no yielder is refused rather than ignored — running anyway
+produces a command that polls a cancel flag and cannot receive a cancel.
+
+*(a) exactly-once remains OPEN, and this item should not be marked done for it.*
+`Execute` records a command as applied only after its effects succeed, so a
+retry after a partial failure re-runs rather than silently dropping the work —
+but a crash between the effect succeeding and the ledger commit duplicates the
+effect. That closes only when effects and the ledger commit **together**, which
+is §11-Q7's transactional `CheckpointStore`, not a change in this package. The
+bulk test says the same thing about its own result: exactly-once there is luck,
+not a guarantee.
 | P3.5 | SQLite off-thread behind `OpenOffThread` | (a) an app not using it runs byte-identically to v4; (b) one using it has no wazero symbol in `app.wasm`; (c) **a mixed app works with both models side by side** | L |
 | P3.6 | OPFS backend, single-writer | incremental durability by kill-and-reopen; a second tab reaches a read-only state without throwing and surfaces it to the app; when OPFS is unavailable the IndexedDB tier is used with a diagnostic and no app-visible error | M |
 | P3.15a | Delta publication engine — **precedes P3.7** | M11; delta ops are O(change) | L |
@@ -614,6 +659,17 @@ cost, for a narrower set of apps.
 This agrees with P0.3's independent finding that frame time is dominated by
 domain work on the render thread rather than by rendering. Two different
 measurements, same conclusion.
+
+**Consequence, settled 2026-07-25: the module is now `/v5`.** Retiring the
+renderer removed `ui.ParallelRegion`, `ui.RegisterParallelRegion`, and the
+surrounding public API, and changed the `ui.Hydrate`/`ui.HydrateInto`
+signatures. §4's additive rule cannot cover that, and `VERSIONING.md` names it
+as the Major trigger. The work sat on the branch under `/v4` for several
+commits, where `go get -u` would have handed a build-breaking change to
+consumers with no import-path signal — which is the single thing a major version
+exists to prevent. Rewritten across 1,296 files; `CHANGELOG.md` was deliberately
+left alone, because its historical entries describe releases that really did
+ship as `/v4`.
 
 **P5.2's scope is larger than this plan states, and it has not been executed.**
 
