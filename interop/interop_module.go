@@ -283,10 +283,12 @@ type DecodedWorkerMessage[T any] struct {
 type Worker struct {
 	post      func(any) error
 	postPorts func(any, ...MessagePort) error
-	subscribe func(func(WorkerMessage, error)) (Subscription, error)
-	request   func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error)
-	terminate func() error
-	restart   func(context.Context) error
+	// postTransferable moves binary payloads instead of cloning them (v5 P3.1).
+	postTransferable func(any, []Transferable) error
+	subscribe        func(func(WorkerMessage, error)) (Subscription, error)
+	request          func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error)
+	terminate        func() error
+	restart          func(context.Context) error
 }
 
 type WorkerScope struct {

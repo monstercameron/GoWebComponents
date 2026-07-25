@@ -87,8 +87,9 @@ func OpenWorker(parseCtx context.Context, parseOptions WorkerOptions) (Worker, e
 		return Worker{}, parseErr
 	}
 	return Worker{
-		post:      parseState.post,
-		postPorts: parseState.postPorts,
+		post:             parseState.post,
+		postPorts:        parseState.postPorts,
+		postTransferable: parseState.postTransferable,
 		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
 			return parseState.subscribe(handler)
 		},
@@ -114,8 +115,9 @@ func OpenGoWASMWorker(parseCtx context.Context, parseOptions GoWASMWorkerOptions
 		return Worker{}, parseErr
 	}
 	return Worker{
-		post:      parseState.post,
-		postPorts: parseState.postPorts,
+		post:             parseState.post,
+		postPorts:        parseState.postPorts,
+		postTransferable: parseState.postTransferable,
 		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
 			return parseState.subscribe(handler)
 		},

@@ -54,6 +54,14 @@ func (parseS *goWASMWorkerState) postPorts(parseMessage any, parsePorts ...Messa
 	return parseWorker.PostPorts(parseMessage, parsePorts...)
 }
 
+func (parseS *goWASMWorkerState) postTransferable(parseMessage any, parseBuffers []Transferable) error {
+	parseWorker, parseErr := parseS.current("Worker.PostTransferable", parseS.options.WASMURL)
+	if parseErr != nil {
+		return parseErr
+	}
+	return parseWorker.PostTransferable(parseMessage, parseBuffers...)
+}
+
 func (parseS *goWASMWorkerState) subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error) {
 	parseWorker, parseErr := parseS.current("Worker.Subscribe", parseS.options.WASMURL)
 	if parseErr != nil {
@@ -145,6 +153,14 @@ func (parseS *browserWorkerState) postPorts(parseMessage any, parsePorts ...Mess
 		return parseErr
 	}
 	return postStructuredMessageJS("Worker.PostPorts", parseS.options.URL, parseRaw, parseMessage, parsePorts...)
+}
+
+func (parseS *browserWorkerState) postTransferable(parseMessage any, parseBuffers []Transferable) error {
+	parseRaw, parseErr := parseS.current("Worker.PostTransferable", parseS.options.URL)
+	if parseErr != nil {
+		return parseErr
+	}
+	return postTransferableMessageJS("Worker.PostTransferable", parseS.options.URL, parseRaw, parseMessage, parseBuffers)
 }
 
 func (parseS *browserWorkerState) subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error) {
@@ -327,7 +343,10 @@ func newMessagePort(parseTarget string, parseRaw js.Value) MessagePort {
 	}
 	startMessagePort(parseRaw)
 	return MessagePort{
-		raw:       parseRaw,
+		raw: parseRaw,
+		// MessagePort.PostTransferable reaches the raw port directly, so it
+		// needs no closure here — unlike Worker, whose raw handle is owned by a
+		// restartable state object.
 		post:      parseState.post,
 		postPorts: parseState.postPorts,
 		subscribe: parseState.subscribe,

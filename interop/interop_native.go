@@ -109,6 +109,39 @@ func OpenGoWASMWorker(parseWorkerCtx context.Context, parseWorkerOptions GoWASMW
 	return Worker{}, unavailable("OpenGoWASMWorker", parseWorkerOptions.WASMURL)
 }
 
+// Transferable is the non-browser form of a movable binary payload (v5 P3.1).
+//
+// Off-browser there is no postMessage and nothing to transfer, so this holds
+// the bytes and every send path reports unavailable. It exists so code that
+// builds transferables compiles unchanged on the native and SSR slices.
+type Transferable struct {
+	data []byte
+}
+
+// NewTransferable is a non-browser stub that retains the bytes.
+func NewTransferable(parseData []byte) (Transferable, error) {
+	return Transferable{data: parseData}, nil
+}
+
+// Bytes returns the retained payload.
+func (parseT Transferable) Bytes() []byte { return parseT.data }
+
+// Len reports the payload length.
+func (parseT Transferable) Len() int { return len(parseT.data) }
+
+// IsDetached is always false off-browser: nothing can take ownership away.
+func (parseT Transferable) IsDetached() bool { return false }
+
+// PostTransferable is a non-browser stub that always returns an unavailable error.
+func (parseW Worker) PostTransferable(parsePayload any, parseBuffers ...Transferable) error {
+	return unavailable("PostTransferable", "worker")
+}
+
+// PostTransferable is a non-browser stub that always returns an unavailable error.
+func (parseP MessagePort) PostTransferable(parsePayload any, parseBuffers ...Transferable) error {
+	return unavailable("PostTransferable", "message port")
+}
+
 // GetWorkerScope is a non-browser stub that always returns an unavailable error.
 func GetWorkerScope() (WorkerScope, error) {
 	return WorkerScope{}, unavailable("GetWorkerScope", "worker")
