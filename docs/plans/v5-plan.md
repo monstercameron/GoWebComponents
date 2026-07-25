@@ -375,6 +375,29 @@ smaller bet, has a good one. Symmetric treatment:
 - Either way the decision is **recorded with its measurement**, not taken
   silently.
 
+**P3.3 contingency — decision taken 2026-07-24: continue extracting.**
+
+| Measurement | Value |
+|---|---|
+| `BenchmarkCompareLocalVsWorkerBackedRendering/local` | 2197 ns/op · 1472 B/op · 18 allocs/op |
+| `BenchmarkCompareLocalVsWorkerBackedRendering/worker-backed` | 6485 ns/op · 7749 B/op · 43 allocs/op |
+
+No regression: the transport extraction created a new package and modified no
+runtime2 code, and the worker-backed ratio (2.95×) sits where D2 already places
+it — protocol-bound, payload-dominated. The clause that would have stopped the
+extraction did not fire, so the scheduler, recovery coordinator, and idempotency
+ledger proceed.
+
+One finding from the extraction changes what "extract" means for the remaining
+items and is recorded here because it applies to all of them: **runtime2's
+services delegate ordering to the patch parse layer above them.** The ledger
+resets on any epoch mismatch, and the recovery coordinator accepts version
+arguments it never reads — both safe there only because a stale epoch is
+rejected before either is reached. A payload-agnostic service has no such layer,
+so each extraction must carry its own ordering guard. These are deliberate
+behavioral differences from the source, not ports, and each is pinned by a test
+that names it.
+
 ### Phase 4 — Bounded commit
 
 | ID | Item | Accept | Effort |
