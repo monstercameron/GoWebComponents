@@ -110,7 +110,11 @@ type Runtime struct {
 	updateScheduled         bool
 	continueWorkFn          func()
 	pendingBoundaryRecovery bool
-	pendingEffectOverflow   bool
+	// fiberSlab batches mount-path fiber allocation; see acquireMountFiber.
+	fiberSlab     []Fiber
+	fiberSlabNext int
+
+	pendingEffectOverflow bool
 	// pendingEffectOverflowCount counts lifetime overflows for the P4.2 budget
 	// signal. A boolean alone cannot distinguish "tripped once during a bulk
 	// import" from "trips every frame", which are different problems.
