@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 )
 
 // Transport carries one request to the database thread and returns its response.
@@ -125,24 +126,52 @@ func (parseDB *DB) Tx(parseCtx context.Context, parseFn func(*Tx) error) (parseE
 	parseTx := &Tx{db: parseDB, id: parseBegin.TxID}
 	defer func() {
 		if parseRecovered := recover(); parseRecovered != nil {
-			parseDB.finishTx(parseCtx, OpRollback, parseTx.id)
+			parseDB.rollback(parseCtx, parseTx.id)
 			panic(parseRecovered)
 		}
 	}()
 
 	if parseErr = parseFn(parseTx); parseErr != nil {
-		parseDB.finishTx(parseCtx, OpRollback, parseTx.id)
+		parseDB.rollback(parseCtx, parseTx.id)
 		return parseErr
 	}
 
 	parseCommit, parseCommitErr := parseDB.transport.Call(parseCtx, Request{Op: OpCommit, TxID: parseTx.id})
 	if parseCommitErr != nil {
+		// A commit that never got an answer leaves the transaction — and its
+		// write lock — open on the database thread. Rolling back is best effort
+		// and safe either way: if the commit did land, the transaction is
+		// already gone and the rollback is refused harmlessly.
+		parseDB.rollback(parseCtx, parseTx.id)
 		return fmt.Errorf("offthread: commit: %w", parseCommitErr)
 	}
 	if parseCommit.Err != "" {
+		parseDB.rollback(parseCtx, parseTx.id)
 		return &RemoteError{Op: OpCommit, Message: parseCommit.Err}
 	}
 	return nil
+}
+
+// rollbackTimeout bounds transaction cleanup, so a wedged transport cannot turn
+// a failing transaction into a hang.
+const rollbackTimeout = 5 * time.Second
+
+// rollback ends a failed transaction on a context that can still run.
+//
+// The caller's context is deliberately NOT reused for cleanup. Rollback most
+// often runs BECAUSE that context was cancelled or timed out, and a cancelled
+// context is refused before the request reaches the database thread — so the
+// rollback silently does nothing and the transaction stays open, holding the
+// single write lock for the life of the process. Every later write from every
+// caller then blocks behind it, which is exactly the "the whole database has
+// hung" symptom this function exists to prevent.
+//
+// WithoutCancel keeps the caller's values (tracing, request identity) while
+// dropping its cancellation; the timeout puts a fresh bound back on.
+func (parseDB *DB) rollback(parseCtx context.Context, parseTxID string) {
+	parseCleanupCtx, parseCancel := context.WithTimeout(context.WithoutCancel(parseCtx), rollbackTimeout)
+	defer parseCancel()
+	parseDB.finishTx(parseCleanupCtx, OpRollback, parseTxID)
 }
 
 // finishTx ends a transaction, deliberately discarding any error.

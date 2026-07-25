@@ -1165,9 +1165,11 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 	// fiber keeps its dirty flag and does not re-render, but its children are
 	// still traversed so higher-priority work below it renders normally.
 	// Skipping the walk would strand descendants behind a low-priority ancestor.
+	isParseLaneDeferred := false
 	if isParseSelfDirty && parseRt.laneQueuesEnabled() &&
 		!parseRt.laneAdmitsFiber(parseRt.schedulerState.currentLane, parseFiber.updateLane, time.Now()) {
 		parseRt.noteLaneDeferred(parseFiber)
+		isParseLaneDeferred = true
 		isParseSelfDirty = false
 		isParseSubtreeOnly = true
 	}
@@ -1196,8 +1198,18 @@ func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
 		return parseNext
 	}
 
-	// Clear dirty flags on fiber and alternates
-	parseRt.clearFiberDirty(parseFiber)
+	// Clear dirty flags on fiber and alternates.
+	//
+	// A lane-deferred fiber is the exception: its work was DECLINED, not done.
+	// clearFiberDirty drops the dirty flag and calls clearLanePending on exactly
+	// the lane noteLaneDeferred marked a few lines above, so running it here
+	// erased the record of the pass that was owed — highestPendingLane returned
+	// 0, scheduleDeferredLaneWork returned early, and the update was lost with
+	// nothing left dirty for anything else to find. The descendants below are
+	// still walked; that is what the subtree-only downgrade exists for.
+	if !isParseLaneDeferred {
+		parseRt.clearFiberDirty(parseFiber)
+	}
 
 	if isParseSubtreeOnly {
 		if parseFiber.hooks != nil {

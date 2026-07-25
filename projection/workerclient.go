@@ -106,9 +106,10 @@ func (parseClient *WorkerClient) Send(parseCtx context.Context, parseName string
 		return parseReply.payload, nil
 
 	case <-parseCtx.Done():
-		// The slot is released here and not on reply arrival, so a late reply
-		// finds nothing and is dropped. Leaving it would let the reply be
-		// delivered to whichever request later reused the id.
+		// Releasing here is what makes a late reply find nothing and be dropped.
+		// Leaving the slot would let that reply be delivered to whichever
+		// request later reused the id. (Deliver and WorkerDied each claim the
+		// slot under the lock too, so at most one of the three ever sends.)
 		parseClient.release(parseRequestID)
 		return nil, parseCtx.Err()
 	}
@@ -125,13 +126,29 @@ func (parseClient *WorkerClient) Deliver(parseRequestID uint64, parsePayload []b
 		return false
 	}
 
+	// The slot is CLAIMED — read and deleted — under the lock, so exactly one
+	// caller can ever send on this channel.
+	//
+	// Reading without deleting was a deadlock: the channel has capacity one, so
+	// two callers that both found the entry both send, and the second blocks
+	// forever. That needs no exotic timing — a duplicate reply for one id, or
+	// Deliver racing WorkerDied over the same id, is enough. Deliver runs inside
+	// the worker's message-event callback, so blocking there does not stall one
+	// request; it stops the JS event loop, and with it every further message,
+	// timer, and frame on the thread.
 	parseClient.mutex.Lock()
 	parseChannel, hasPending := parseClient.pending[parseRequestID]
+	if hasPending {
+		delete(parseClient.pending, parseRequestID)
+	}
 	parseClient.mutex.Unlock()
 
 	if !hasPending {
 		return false
 	}
+	// Non-blocking by construction: this caller owns the only claim on a
+	// buffered slot, and the waiter's context-cancellation path releases the id
+	// rather than draining, so no send can find the buffer full.
 	parseChannel <- reply{payload: parsePayload, err: parseWorkerErr}
 	return true
 }
