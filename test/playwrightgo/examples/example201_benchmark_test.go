@@ -553,18 +553,17 @@ func buildExample201ExpectedFrameworkIDs(parseRoute string) []string {
 	}
 	getParsedRoute, parseErr := url.Parse(getRoute)
 	if parseErr != nil {
-		return []string{"react", "runtime1", "runtime2-workers1", "runtime2-workers2", "runtime2-workers4", "runtime2-workers8"}
+		return []string{"react", "runtime1"}
 	}
 	getQuery := getParsedRoute.Query()
-	getWorkerCounts := buildExample201ExpectedWorkerCounts(getRoute)
-	getFrameworkIDs := make([]string, 0, len(getWorkerCounts)+2)
-	if strings.TrimSpace(getQuery.Get("subjectSet")) != "runtime2-scaling" {
-		getFrameworkIDs = append(getFrameworkIDs, "react", "runtime1")
+	// runtime2 was retired in v5 (P5.2), so the only subjects are React and
+	// runtime1. Leaving the worker arms expected would fail every run; leaving
+	// them RUNNING would have been worse, since those modes now fall through to
+	// the runtime1 path and would report runtime1 under a runtime2 label.
+	if strings.TrimSpace(getQuery.Get("subjectSet")) == "runtime2-scaling" {
+		return nil
 	}
-	for _, getWorkerCount := range getWorkerCounts {
-		getFrameworkIDs = append(getFrameworkIDs, fmt.Sprintf("runtime2-workers%d", getWorkerCount))
-	}
-	return getFrameworkIDs
+	return []string{"react", "runtime1"}
 }
 
 // buildExample201ScalingRoute returns the RT2-only stress route used to expose worker-count scaling beyond one-frame paint quantization.
