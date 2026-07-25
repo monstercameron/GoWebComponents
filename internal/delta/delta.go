@@ -395,3 +395,67 @@ func longestIncreasingSubsequence(parseValues []int) []int {
 	}
 	return parseResult
 }
+
+// ------------------------------------------------------------ hot reload
+
+// State is an engine's publication index, extracted for transfer across a
+// worker reload (plan item P3.14).
+//
+// It is the index and nothing else: keys, their order, and their versions. No
+// payloads, because the engine never held any — which is what makes carrying
+// this across a reload cheap enough to be worth doing.
+type State struct {
+	// Order is the published key order.
+	Order []Key `json:"order,omitempty"`
+	// Versions parallels Order.
+	//
+	// Parallel arrays rather than a map so the JSON is compact and the order is
+	// carried by the structure rather than needing a separate sort on restore.
+	Versions []uint64 `json:"versions,omitempty"`
+}
+
+// ExportState captures the engine's publication index.
+func (parseEngine *Engine) ExportState() State {
+	if parseEngine == nil {
+		return State{}
+	}
+	parseState := State{
+		Order:    make([]Key, len(parseEngine.order)),
+		Versions: make([]uint64, len(parseEngine.order)),
+	}
+	copy(parseState.Order, parseEngine.order)
+	for parseIndex, parseKey := range parseEngine.order {
+		parseState.Versions[parseIndex] = parseEngine.versionByKey[parseKey]
+	}
+	return parseState
+}
+
+// Restore rebuilds an engine from an exported index.
+//
+// This is what makes P3.14's guarantee possible. Without it, a reloaded worker
+// starts with an empty engine and its first publish emits an insert for every
+// row — a full re-send of a 20,000-row projection across the boundary, on a code
+// edit. With it, the first publish after a reload emits only what actually
+// changed, which for an edit that changed no data is nothing at all.
+func Restore(parseState State) (*Engine, error) {
+	if len(parseState.Order) != len(parseState.Versions) {
+		return nil, fmt.Errorf("delta: restored state has %d keys and %d versions",
+			len(parseState.Order), len(parseState.Versions))
+	}
+
+	parseEngine := New()
+	parseEngine.order = make([]Key, 0, len(parseState.Order))
+	for parseIndex, parseKey := range parseState.Order {
+		if parseKey == "" {
+			return nil, fmt.Errorf("delta: restored state has an empty key at %d", parseIndex)
+		}
+		if _, hasKey := parseEngine.versionByKey[parseKey]; hasKey {
+			// A duplicate would make the restored order ambiguous and the next
+			// diff wrong in a way nothing downstream could detect.
+			return nil, fmt.Errorf("delta: restored state repeats key %q", parseKey)
+		}
+		parseEngine.order = append(parseEngine.order, parseKey)
+		parseEngine.versionByKey[parseKey] = parseState.Versions[parseIndex]
+	}
+	return parseEngine, nil
+}

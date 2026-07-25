@@ -288,3 +288,19 @@ func (parseLedger *Ledger) recordVersionLocked(parseState *streamLedgerState, pa
 		}
 	}
 }
+
+// Streams lists every tracked stream id.
+//
+// Exists for P3.14: a worker reload must carry its replay state forward, and
+// that means enumerating what has been recorded. Order is unspecified — map
+// iteration — because the ledger's decisions never depend on it.
+func (parseLedger *Ledger) Streams() []string {
+	if parseLedger == nil {
+		return nil
+	}
+	parseStreams := make([]string, 0, len(parseLedger.stateByStreamID))
+	for parseStreamID := range parseLedger.stateByStreamID {
+		parseStreams = append(parseStreams, parseStreamID)
+	}
+	return parseStreams
+}

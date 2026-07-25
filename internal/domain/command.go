@@ -207,3 +207,67 @@ func runContained(parseEffect func() error) (parseErr error) {
 	}()
 	return parseEffect()
 }
+
+// ------------------------------------------------------------ hot reload
+
+// RuntimeState is a command runtime's replay state, extracted for transfer
+// across a worker reload (plan item P3.14).
+//
+// Only what a reload must not lose. Checkpoints are excluded on purpose: they
+// already live in the CheckpointStore, which is the durable side and survives
+// the reload by construction. Carrying them here would create a second copy that
+// can disagree with the first.
+type RuntimeState struct {
+	// Applied lists commands already applied, so a retry after the reload is
+	// still recognized as a replay rather than run a second time.
+	//
+	// This is the guarantee that would silently break: a reloaded worker with a
+	// fresh ledger treats every in-flight retry as new work, so a command that
+	// succeeded just before the edit runs again just after it.
+	Applied []CommandID `json:"applied,omitempty"`
+	// Cancelled lists commands that must stay refused.
+	Cancelled []CommandID `json:"cancelled,omitempty"`
+}
+
+// ExportState captures the replay state a reload must preserve.
+func (parseRuntime *Runtime) ExportState() RuntimeState {
+	if parseRuntime == nil {
+		return RuntimeState{}
+	}
+
+	parseState := RuntimeState{}
+	for _, parseStreamID := range parseRuntime.ledger.Streams() {
+		parseState.Applied = append(parseState.Applied, CommandID(parseStreamID))
+	}
+	for parseCommandID, isCancelled := range parseRuntime.cancelled {
+		if isCancelled {
+			parseState.Cancelled = append(parseState.Cancelled, parseCommandID)
+		}
+	}
+	return parseState
+}
+
+// RestoreRuntime rebuilds a command runtime from exported state.
+//
+// The checkpoint store is supplied separately because it is durable and was
+// never part of the export.
+func RestoreRuntime(parseCheckpoints CheckpointStore, parseState RuntimeState) (*Runtime, error) {
+	parseRuntime := NewRuntime(parseCheckpoints)
+
+	for _, parseCommandID := range parseState.Applied {
+		if parseCommandID == "" {
+			return nil, errors.New("domain: restored state contains an empty command id")
+		}
+		if parseErr := parseRuntime.ledger.Commit(
+			string(parseCommandID), commandEpoch, commandVersion, string(parseCommandID)); parseErr != nil {
+			return nil, fmt.Errorf("domain: restoring command %q: %w", parseCommandID, parseErr)
+		}
+	}
+	for _, parseCommandID := range parseState.Cancelled {
+		if parseCommandID == "" {
+			return nil, errors.New("domain: restored state contains an empty cancelled command id")
+		}
+		parseRuntime.cancelled[parseCommandID] = true
+	}
+	return parseRuntime, nil
+}
