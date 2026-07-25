@@ -53,8 +53,59 @@ func (parseRt *Runtime) shouldDeferHostDomToCommit(parseFiber *Fiber) bool {
 	if parseTag, parseOk := parseFiber.typeOf.(string); parseOk && parseTag == "TEXT_ELEMENT" {
 		return true
 	}
-	return isFastLaneCompactFiber(parseFiber) && !parseFiber.fineGrained &&
+	return isSerializableHostFiber(parseFiber) && !parseFiber.fineGrained &&
 		len(parseFiber.eventCallbacks) == 0
+}
+
+// isSerializableHostFiber reports whether one host fiber's DOM state is fully
+// described by getHostAttrs, so a serialized mount produces exactly what the
+// per-node path would have produced.
+//
+// The typed fast lane (props == nil) qualifies by construction. The MAP lane
+// qualifies too, and that is the case that matters: isCompactHostProps already
+// means every prop resolved to a plain string attribute captured in
+// getHostAttrs — a non-string value or a special property clears it. Gating on
+// isFastLaneCompactFiber instead excluded every element built through
+// html.Props{...}, which is nearly all real application markup and all of the
+// Example 201 content render, so those subtrees never reached the one-call
+// mount that already existed for them.
+//
+// Only two prop kinds are dropped without clearing isCompactHostProps:
+// "children", which needs no attribute, and a DOM ref, which needs the node —
+// a ref-bearing fiber must take the per-node path or its ref is never filled.
+func isSerializableHostFiber(parseFiber *Fiber) bool {
+	if parseFiber == nil || !parseFiber.isCompactHostProps {
+		return false
+	}
+	if parseFiber.props == nil {
+		return true
+	}
+	_, hasRef := parseFiber.props[DOMRefKey]
+	return !hasRef
+}
+
+// serializedAttrsRoundTrip reports whether every attribute survives the SSR
+// writer byte-for-byte.
+//
+// writeSSRCompactAttrs silently DROPS names it rejects and REWRITES url-bearing
+// values. Both are correct for SSR and wrong here: the per-node mount path
+// calls SetAttribute with the raw name and value, so a subtree containing
+// either case would land in the DOM differently depending on which strategy
+// commit happened to pick — and which it picks depends on host count and
+// sibling grouping, not on anything the author wrote. Rejecting those subtrees
+// keeps the two paths identical. Map-lane attribute names come from user maps
+// (data-*, aria-*, spread props), so this is reachable input, not paranoia.
+func serializedAttrsRoundTrip(parseAttrs []HostAttr) bool {
+	for _, parseAttr := range parseAttrs {
+		parseName := normalizeSSRAttrName(compactAttrPropName(parseAttr.Name))
+		if !isValidSSRAttrName(parseName) {
+			return false
+		}
+		if urlBearingSSRAttr(parseName) && sanitizeSSRURLValue(parseAttr.Value) != parseAttr.Value {
+			return false
+		}
+	}
+	return true
 }
 
 // isDeferredCommitHostFiber reports whether one null-dom placement fiber is a
@@ -205,9 +256,12 @@ func serializeMountSubtree(parseFiber *Fiber, parseBuilder *strings.Builder, par
 	if _, isSVG := serializedMountSVGTags[strings.ToLower(parseTag)]; isSVG {
 		return false
 	}
-	if !isFastLaneCompactFiber(parseFiber) || parseFiber.fineGrained ||
+	if !isSerializableHostFiber(parseFiber) || parseFiber.fineGrained ||
 		len(parseFiber.eventCallbacks) != 0 || !IsDOMNodeNull(parseFiber.dom) ||
 		parseFiber.hydration != nil || parseFiber.effectTag != effectTagPlacement {
+		return false
+	}
+	if !serializedAttrsRoundTrip(parseFiber.getHostAttrs) {
 		return false
 	}
 
