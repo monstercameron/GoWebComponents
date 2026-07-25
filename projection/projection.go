@@ -92,6 +92,13 @@ type Projection[T any] struct {
 	// droppedByResidency counts rows refused because the cap was reached, so a
 	// truncated view is visible rather than silently short.
 	droppedByResidency int
+
+	// ready reports that initial contents have arrived — see Ready(), and note
+	// that it is deliberately NOT derived from the row count.
+	ready bool
+	// complete reports that the resident rows are the whole dataset rather than
+	// a server-sent prefix.
+	complete bool
 }
 
 // New creates an empty projection.
@@ -368,4 +375,9 @@ func (parseProjection *Projection[T]) Reset() {
 	clear(parseProjection.indexByKey)
 	parseProjection.indexStale = false
 	parseProjection.droppedByResidency = 0
+	// A reset projection is unloaded again: its subject changed, and whatever
+	// made it ready described the old subject. Leaving ready set would render
+	// "no results" for the new one before anything was fetched.
+	parseProjection.ready = false
+	parseProjection.complete = false
 }
