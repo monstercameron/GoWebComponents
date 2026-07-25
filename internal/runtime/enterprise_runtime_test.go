@@ -42,6 +42,14 @@ func TestEnterpriseSchedulerLanesCoalescePromoteAndBackpressure(parseT *testing.
 
 	parseRt.ScheduleUpdateWithLane(UpdateLaneBackground)
 	parseRt.schedulerState.currentLane = UpdateLaneBackground
+
+	// v5 P2.5: InterruptedWork counts passes whose IN-FLIGHT work was
+	// interrupted. A pass that is merely scheduled still has
+	// nextUnitOfWork == wipRoot and has visited nothing, so an update arriving
+	// in that window is ordinary coalescing, not an interrupt. Advance the
+	// cursor off the root to model a pass that has actually started consuming.
+	parseRt.nextUnitOfWork = &Fiber{typeOf: "component", parent: parseRt.wipRoot}
+
 	parseRt.ScheduleUpdateWithLane(UpdateLaneInput)
 	parseRt.ScheduleUpdateWithLane(UpdateLaneTransition)
 
@@ -54,6 +62,41 @@ func TestEnterpriseSchedulerLanesCoalescePromoteAndBackpressure(parseT *testing.
 	}
 	if len(parseScheduler.timeouts) != 1 {
 		parseT.Fatalf("expected one scheduled timeout after coalescing, got %d", len(parseScheduler.timeouts))
+	}
+	// The interrupt must be deferred, never applied in place: the pass keeps
+	// its cursor and the higher lane is recorded for after the commit.
+	if parseRt.pendingInterruptLane != UpdateLaneInput {
+		parseT.Fatalf("expected the higher lane to be deferred to after commit, got %v", parseRt.pendingInterruptLane)
+	}
+	if parseRt.nextUnitOfWork == parseRt.wipRoot {
+		parseT.Fatal("interrupt must not reset the work cursor mid-pass (v5 T12)")
+	}
+}
+
+// TestSchedulerLanePromotionBeforePassStartsIsNotAnInterrupt pins the other
+// half of the P2.5 distinction: a higher lane arriving while the pass is only
+// scheduled needs no interrupt at all, because the pass has visited nothing and
+// will pick the new work up naturally.
+func TestSchedulerLanePromotionBeforePassStartsIsNotAnInterrupt(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRoot := &Fiber{typeOf: "ROOT", props: map[string]any{"children": []any{}}, dirty: true}
+	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
+	parseRt.currentRoot = parseRoot
+
+	parseRt.ScheduleUpdateWithLane(UpdateLaneBackground)
+	parseRt.schedulerState.currentLane = UpdateLaneBackground
+	// Deliberately leave nextUnitOfWork == wipRoot: scheduled, not started.
+	parseRt.ScheduleUpdateWithLane(UpdateLaneInput)
+
+	if parseSnapshot := parseRt.SchedulerSnapshot(); parseSnapshot.InterruptedWork != 0 {
+		parseT.Fatalf("a not-yet-started pass cannot be interrupted, got InterruptedWork=%d", parseSnapshot.InterruptedWork)
+	}
+	if parseRt.pendingInterruptLane != 0 {
+		parseT.Fatalf("no deferred interrupt should be recorded, got %v", parseRt.pendingInterruptLane)
+	}
+	// The lane still promotes — coalescing is unaffected.
+	if parseSnapshot := parseRt.SchedulerSnapshot(); parseSnapshot.PendingLane != "input" {
+		parseT.Fatalf("expected lane promotion to still apply, got %#v", parseSnapshot)
 	}
 }
 

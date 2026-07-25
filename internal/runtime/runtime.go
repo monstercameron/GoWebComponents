@@ -84,6 +84,14 @@ type Runtime struct {
 	// passiveDrainScheduled guards against queueing more than one deferred
 	// passive drain when several commits land before the first one runs.
 	passiveDrainScheduled bool
+	// frameBudgetMs is the wall-clock slice budget for one work-loop pass
+	// (v5 P1.2). Zero disables time-based slicing and keeps the count-only
+	// behavior. Gated on interruptRestartIsSafe.
+	frameBudgetMs float64
+	// pendingInterruptLane records a higher-priority lane that arrived while a
+	// pass was already walking the tree (v5 P2.5). The pass finishes and
+	// commits; commitRoot then starts the higher lane. Zero means none pending.
+	pendingInterruptLane UpdateLane
 	updateScheduled            bool
 	continueWorkFn             func()
 	pendingBoundaryRecovery    bool
@@ -245,6 +253,15 @@ type Config struct {
 	// previously each fiber ran both tiers before the next fiber ran either.
 	// See internal/runtime/effect_ordering_contract_test.go.
 	PassiveEffectsAfterPaint bool
+	// FrameBudgetMs enables the v5 P1.2 wall-clock slice budget: the work loop
+	// yields when a slice has consumed this many milliseconds, instead of only
+	// after a fixed fiber count.
+	//
+	// Zero keeps count-only slicing. Negative selects the 5ms default. Requires
+	// the interrupt-safe restart path (P2.5); without it the runtime falls back
+	// to count-only slicing and emits a diagnostic rather than degrading
+	// silently.
+	FrameBudgetMs float64
 }
 
 // configHidesRawPanicOutput resolves the containment default: panics are
@@ -285,6 +302,11 @@ func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
 	}
 	if parseConfig.PassiveEffectsAfterPaint {
 		parseRuntime.passiveEffectsAfterPaint = true
+	}
+	if parseConfig.FrameBudgetMs < 0 {
+		parseRuntime.frameBudgetMs = defaultFrameBudgetMs
+	} else if parseConfig.FrameBudgetMs > 0 {
+		parseRuntime.frameBudgetMs = parseConfig.FrameBudgetMs
 	}
 	parseRuntime.limits = parseConfig.Limits.withDefaults()
 	applyGlobalRuntimeLimits(parseRuntime.limits)

@@ -149,10 +149,34 @@ func (parseRt *Runtime) coalesceScheduledUpdateLocked(parseLane UpdateLane) {
 	if parseRt.schedulerState.pendingLane == 0 || normalizeUpdateLane(parseLane) < parseRt.schedulerState.pendingLane {
 		parseRt.schedulerState.pendingLane = normalizeUpdateLane(parseLane)
 	}
-	if parseRt.nextUnitOfWork != nil && parseRt.currentRoot != nil && parseRt.schedulerState.currentLane != 0 && normalizeUpdateLane(parseLane) < parseRt.schedulerState.currentLane {
+	// `nextUnitOfWork != wipRoot` is the "pass has actually started consuming
+	// work" test (the same one FlushScheduledDiscreteWork uses). A pass that is
+	// merely SCHEDULED still has nextUnitOfWork == wipRoot, and an update
+	// arriving in that window needs no interrupt at all — the pass has not
+	// visited anything yet, so it picks the new work up naturally. Treating
+	// that window as an interrupt is what made the old rebuild look harmless
+	// most of the time while being destructive in the narrow case that matters.
+	isPassInFlight := parseRt.nextUnitOfWork != nil && parseRt.nextUnitOfWork != parseRt.wipRoot
+	if isPassInFlight && parseRt.currentRoot != nil && parseRt.schedulerState.currentLane != 0 && normalizeUpdateLane(parseLane) < parseRt.schedulerState.currentLane {
 		parseRt.schedulerState.interruptedWork++
 		parseRt.schedulerState.currentLane = normalizeUpdateLane(parseLane)
-		parseRt.rebuildWIPRootForInterruptLocked()
+		// v5 P2.5 (T12): mark, finish the pass, start the higher lane after the
+		// commit — do NOT rebuild the work-in-progress root here.
+		//
+		// The old path called rebuildWIPRootForInterruptLocked, which reaches
+		// acquireWorkInProgress(currentRoot). Because currentRoot.alternate IS
+		// the in-flight wipRoot in the stable two-fiber cycle, that does
+		// `*reused = Fiber{}` — zeroing the very root the work loop is walking,
+		// clearing its child pointer. Landing between slices was survivable
+		// (a clean restart); landing during performUnitOfWork was not: the loop
+		// writes its own return value back over nextUnitOfWork, discarding the
+		// restart, then commitRoot finds wipRoot.child == nil, commits nothing,
+		// and installs a childless currentRoot. The next pass then diffs
+		// against an empty tree and re-places DOM that is already mounted.
+		//
+		// Deferring costs at most one pass of latency for the higher lane and
+		// removes the failure mode entirely.
+		parseRt.pendingInterruptLane = normalizeUpdateLane(parseLane)
 	}
 	if parseRt.schedulerState.maxQueuedUpdates > 0 && parseRt.schedulerState.coalescedUpdates > parseRt.schedulerState.maxQueuedUpdates {
 		parseRt.schedulerState.droppedBackpressure++
@@ -187,28 +211,30 @@ func laneForUpdateOrigin(parseOrigin string) UpdateLane {
 	}
 }
 
-func (parseRt *Runtime) rebuildWIPRootForInterruptLocked() {
-	if parseRt == nil || parseRt.currentRoot == nil {
-		return
-	}
-	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
-	*parseRt.wipRoot = Fiber{
-		typeOf:       parseRt.currentRoot.typeOf,
-		dom:          parseRt.currentRoot.dom,
-		props:        parseRt.currentRoot.props,
-		children:     parseRt.currentRoot.children,
-		alternate:    parseRt.currentRoot,
-		dirty:        true,
-		ownerRuntime: parseRt,
-	}
-	parseRt.nextUnitOfWork = parseRt.wipRoot
-	if parseRt.deletions != nil {
-		parseRt.deletions = parseRt.deletions[:0]
-	}
-	if parseRt.pendingEffectFibers != nil {
-		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
-	}
-}
+// interruptRestartIsSafe records that the P2.5 mark-and-defer path is in
+// effect: an interrupt never mutates the root the work loop is walking.
+//
+// P1.2's real frame deadline asserts this before enabling itself, because live
+// time-slicing multiplies the mid-pass yields that made T12 reachable — shipping
+// the improvement without the fix would increase exposure to a bug that blanks
+// the screen. Keeping the constant next to the code it describes means reverting
+// P2.5 forces flipping it, so the gate cannot silently rot.
+const interruptRestartIsSafe = true
+
+// NOTE(v5 P2.5): rebuildWIPRootForInterruptLocked was REMOVED, not disabled.
+//
+// It rebuilt the work-in-progress root mid-pass on a higher-lane interrupt via
+// acquireWorkInProgress(currentRoot). Because currentRoot.alternate IS the
+// in-flight wipRoot in the two-fiber cycle, that zeroed the live root in place
+// and cleared its child chain; when it landed inside performUnitOfWork the work
+// loop overwrote the restart with its own return value, and commitRoot then
+// installed a childless currentRoot — blanking the tree and causing the next
+// pass to re-place already-mounted DOM.
+//
+// coalesceScheduledUpdateLocked now records pendingInterruptLane instead, and
+// commitRoot starts the higher lane once the tree is consistent. Do not
+// reintroduce an in-place rebuild: any restart that mutates the root the work
+// loop is currently walking has this failure mode.
 
 type SchedulerSnapshot struct {
 	PendingLane      string

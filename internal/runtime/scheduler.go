@@ -20,6 +20,31 @@ func (parseD *infiniteDeadline) TimeRemaining() float64 { return 1000 } // lots 
 // DidTimeout is a core package helper.
 func (parseD *infiniteDeadline) DidTimeout() bool { return false }
 
+// frameBudgetDeadline is a real wall-clock slice budget (v5 P1.2).
+//
+// workLoop yields when TimeRemaining() drops below 1ms, so the budget is the
+// share of a frame the render pass may consume before handing control back.
+// The remaining frame time goes to commit, effects, and the browser's own
+// style/layout/paint work.
+type frameBudgetDeadline struct {
+	startedAt time.Time
+	budgetMs  float64
+}
+
+func newFrameBudgetDeadline(parseBudgetMs float64) *frameBudgetDeadline {
+	return &frameBudgetDeadline{startedAt: time.Now(), budgetMs: parseBudgetMs}
+}
+
+func (parseD *frameBudgetDeadline) TimeRemaining() float64 {
+	return parseD.budgetMs - float64(time.Since(parseD.startedAt).Microseconds())/1000
+}
+
+func (parseD *frameBudgetDeadline) DidTimeout() bool { return parseD.TimeRemaining() <= 0 }
+
+// defaultFrameBudgetMs leaves roughly two thirds of a 60Hz frame for commit,
+// effects, and the browser's own rendering work.
+const defaultFrameBudgetMs = 5.0
+
 // dispatchRuntimeWork schedules one continuation or runs it immediately when no scheduler is configured.
 func dispatchRuntimeWork(parseScheduler Scheduler, parseContinueWork func()) {
 	if parseContinueWork == nil {
@@ -168,7 +193,40 @@ func (parseRt *Runtime) continueWorkLoop() {
 	schedulerMu.Lock()
 	parseRt.schedulerState.currentLane = parseRt.schedulerState.pendingLane
 	schedulerMu.Unlock()
-	parseRt.workLoop(globalInfiniteDeadline)
+	parseRt.workLoop(parseRt.resolveWorkLoopDeadline())
+}
+
+// resolveWorkLoopDeadline picks the deadline for one work-loop slice (v5 P1.2).
+//
+// Historically this was always globalInfiniteDeadline, whose TimeRemaining()
+// returns a constant 1000 — so the `TimeRemaining() < 1` yield check in workLoop
+// could never fire and slicing was purely count-based. A slice of 1200 fibers
+// takes whatever it takes, which on a large tree is well past a frame.
+//
+// The wall-clock budget makes that check real. It is gated on
+// interruptRestartIsSafe: live time-slicing multiplies mid-pass yields, and each
+// yield is a window for the T12 interrupt bug, so the improvement must not ship
+// without P2.5's fix.
+func (parseRt *Runtime) resolveWorkLoopDeadline() Deadline {
+	if !parseRt.frameBudgetEnabled() {
+		return globalInfiniteDeadline
+	}
+	return newFrameBudgetDeadline(parseRt.frameBudgetMs)
+}
+
+// frameBudgetEnabled reports whether time-based slicing may run.
+func (parseRt *Runtime) frameBudgetEnabled() bool {
+	if parseRt == nil || parseRt.frameBudgetMs <= 0 {
+		return false
+	}
+	if !interruptRestartIsSafe {
+		// Refuse rather than degrade quietly: a caller who asked for time
+		// slicing should learn that the safety precondition is missing.
+		ReportDiagnostic("runtime", DiagnosticWarning,
+			"frame budget requested but the interrupt-safe restart path (v5 P2.5) is absent; falling back to count-based slicing")
+		return false
+	}
+	return true
 }
 
 // workLoop processes work units during idle periods

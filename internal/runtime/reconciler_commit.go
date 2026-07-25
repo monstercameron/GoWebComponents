@@ -498,6 +498,14 @@ func (parseRt *Runtime) commitRoot() {
 		parseRt.ScheduleUpdate()
 	}
 
+	// v5 P2.5 (T12): a higher-priority lane arrived mid-pass. The pass was
+	// allowed to finish and commit rather than being torn down in place; start
+	// the higher lane now that the tree is consistent.
+	if parseInterruptLane := parseRt.pendingInterruptLane; parseInterruptLane != 0 {
+		parseRt.pendingInterruptLane = 0
+		parseRt.scheduleUpdateWithLane(parseInterruptLane, false)
+	}
+
 	// G16: signal "app ready" once the first commit (initial paint + effects) is
 	// done. No-op on every later commit.
 	fireFirstCommitHooks()
