@@ -48,7 +48,8 @@ substantially complete; Phase 4 started.
 | P6.1 compression | ◐ | brotli measured (−27%); `wasm-opt` not installed, unmeasured |
 | P6.5 honest size story | ✅ | `docs/V5_SIZE_STORY.md` |
 | P3.13 migration guide | ◐ | `docs/V5_MIGRATION.md`; the CashFlux port is a different repo |
-| P6.2 · P6.3 · P6.4 · P0.5 | ⛔ | not started |
+| P6.4 out-of-order Suspense | ✅ | shell at 0s vs 251ms boundary; 4x120ms resolve in 120ms |
+| P6.2 · P6.3 · P0.5 | ⛔ | need a browser or build tooling |
 
 **M5 is missed as written, and met in practice.** Measured on the two-artifact
 example: 1.73 MB **gzipped** against a 1.6 MB target — and **1.26 MB brotli**,
