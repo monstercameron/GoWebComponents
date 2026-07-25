@@ -443,6 +443,42 @@ P5.1 re-measure component render share (method: P0.4).
 `patch_*.go` (**L**). **If ≥35%** → P5.3 element-shipping hybrid (**XL**).
 *Expected outcome: retire.* Stated as a falsifiable prediction.
 
+**P5.1 measured 2026-07-25 — the prediction holds: RETIRE.**
+
+Measured by difference over a 200-component tree, so nothing had to be
+instrumented (`internal/runtime/render_share_bench_test.go`). The same tree is
+rendered twice with identical structure and output, differing only in how much
+work each body does.
+
+| Arm | Full pass | Body work alone | Body share |
+|---|---|---|---|
+| trivial bodies | 59.8 µs | — | — |
+| **light bodies (typical)** | 64.5 µs | 6.9 µs | **10.8%** (7.3% by difference) |
+| heavy bodies (15× typical) | 162.2 µs | 107.9 µs | 66.6% |
+
+**A typical component body is ~11% of a render pass, comfortably under the 35%
+bar.** Parallelizing it cannot move the total: at 11%, perfect parallelism
+across infinite workers saves 11% of rendering, which is a rounding error
+against the 97× gap P0.3 measured between loaded and idle frames.
+
+The heavy arm is the honest caveat and it does not change the decision. Bodies
+had to be made ~15× more expensive than typical before the share cleared 35%,
+and an app in that regime should move the expensive work to the **domain
+worker** — which is Phase 3, already built — rather than parallelize rendering.
+Shipping component invocation to workers solves the wrong problem, at higher
+cost, for a narrower set of apps.
+
+This agrees with P0.3's independent finding that frame time is dominated by
+domain work on the render thread rather than by rendering. Two different
+measurements, same conclusion.
+
+**P5.2 is a large deletion (`dom_commit.go`, `patch_*.go`, and their suites) and
+has not been executed.** It also removes the anchors for P3.3's differential
+conformance tests, which drive runtime2's real encoders to prove the extracted
+services match their source — those were correct when written and would be
+deleted with it. Sequencing that is a deliberate call rather than a mechanical
+consequence of this measurement.
+
 ### Phase 6 — Cold start *(parallel)*
 
 > Phase 6 received the least scrutiny of any phase — nine review rounds
