@@ -47,4 +47,3 @@ func TestInfiniteDeadlineMethods(parseT *testing.T) {
 		parseT.Fatal("expected infinite deadline to never time out")
 	}
 }
-

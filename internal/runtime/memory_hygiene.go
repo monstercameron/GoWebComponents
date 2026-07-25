@@ -50,7 +50,7 @@ func (parseRt *Runtime) InternalStateSnapshot() InternalStateSnapshot {
 	parseSnapshot.FiberCount = countFiberTree(parseRt.currentRoot)
 	parseSnapshot.PendingEffectFibers = len(parseRt.pendingEffectFibers)
 	parseSnapshot.ProfilingEventCount = len(parseRt.profiling.events)
-	parseSnapshot.SchedulerBackpressure = parseRt.schedulerState.droppedBackpressure > 0
+	parseSnapshot.SchedulerBackpressure = parseRt.schedulerState.coalescedAtLimit > 0
 	if parseRt.atomRegistry != nil {
 		parseSnapshot.AtomCount = parseRt.atomRegistry.GetAtomCount()
 		parseSnapshot.AtomSubscriberCount = parseRt.atomRegistry.GetSubscriberTotal()

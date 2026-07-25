@@ -1,4 +1,4 @@
-﻿package runtime
+package runtime
 
 import "testing"
 
@@ -165,5 +165,3 @@ func TestIdleDispatch_NoSchedulerRunsInline(parseT *testing.T) {
 		parseT.Errorf("with no scheduler the continuation must run inline, ran=%d", parseRan)
 	}
 }
-
-

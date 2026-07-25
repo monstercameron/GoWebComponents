@@ -57,7 +57,7 @@ func TestEnterpriseSchedulerLanesCoalescePromoteAndBackpressure(parseT *testing.
 	if parseSnapshot.PendingLane != "input" {
 		parseT.Fatalf("expected pending lane to promote to input, got %#v", parseSnapshot)
 	}
-	if parseSnapshot.CoalescedUpdates != 1 || parseSnapshot.InterruptedWork != 1 || !parseSnapshot.Backpressure || parseSnapshot.DroppedUpdates != 1 {
+	if parseSnapshot.CoalescedUpdates != 1 || parseSnapshot.InterruptedWork != 1 || !parseSnapshot.Backpressure || parseSnapshot.CoalescedAtLimit != 1 {
 		parseT.Fatalf("expected coalescing, interrupt, and backpressure counters, got %#v", parseSnapshot)
 	}
 	if len(parseScheduler.timeouts) != 1 {

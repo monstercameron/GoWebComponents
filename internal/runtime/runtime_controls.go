@@ -103,12 +103,20 @@ func applyGlobalRuntimeLimits(parseLimits RuntimeLimits) {
 }
 
 type runtimeSchedulerState struct {
-	pendingLane          UpdateLane
-	currentLane          UpdateLane
-	maxQueuedUpdates     int
-	enqueuedUpdates      int
-	coalescedUpdates     int
-	droppedBackpressure  int
+	pendingLane      UpdateLane
+	currentLane      UpdateLane
+	maxQueuedUpdates int
+	enqueuedUpdates  int
+	coalescedUpdates int
+	// coalescedAtLimit counts how many updates arrived at the queue limit and
+	// were merged into the pending render.
+	//
+	// Formerly droppedBackpressure, which was wrong in the way that matters: an
+	// update is a request to re-render, re-render requests are idempotent, and
+	// collapsing N of them produces the same frame. Nothing is dropped. A
+	// counter named for data loss makes every reader investigate a loss that
+	// never happened. See BudgetCoalesce.
+	coalescedAtLimit     int
 	interruptedWork      int
 	lastBackpressureLane UpdateLane
 	// lanes carries per-lane pending state and deferral deadlines (v5 P2.2).
@@ -181,10 +189,17 @@ func (parseRt *Runtime) coalesceScheduledUpdateLocked(parseLane UpdateLane) {
 		parseRt.pendingInterruptLane = normalizeUpdateLane(parseLane)
 	}
 	if parseRt.schedulerState.maxQueuedUpdates > 0 && parseRt.schedulerState.coalescedUpdates > parseRt.schedulerState.maxQueuedUpdates {
-		parseRt.schedulerState.droppedBackpressure++
+		parseRt.schedulerState.coalescedAtLimit++
 		parseRt.schedulerState.lastBackpressureLane = normalizeUpdateLane(parseLane)
 		parseRt.schedulerState.coalescedUpdates = parseRt.schedulerState.maxQueuedUpdates
-		ReportDiagnostic("runtime", DiagnosticWarning, "scheduled update backpressure limit reached; coalescing extra updates into the pending render")
+		// R6: reported on the transition into the coalescing state, not on every
+		// update that arrives while there. A burst of ten thousand updates past
+		// the limit produced ten thousand identical warnings, whose formatting
+		// cost landed on the render thread during the exact burst the warning
+		// was about.
+		if parseRt.schedulerState.coalescedAtLimit == 1 {
+			ReportDiagnostic("runtime", DiagnosticWarning, "scheduled update queue reached its limit; further updates coalesce into the pending render (no updates are lost)")
+		}
 	}
 }
 
@@ -243,7 +258,10 @@ type SchedulerSnapshot struct {
 	CurrentLane      string
 	EnqueuedUpdates  int
 	CoalescedUpdates int
-	DroppedUpdates   int
+	// CoalescedAtLimit counts updates that arrived once the queue was full and
+	// were merged into the pending render. NOT dropped — it was named
+	// DroppedUpdates, and nothing is lost: re-render requests are idempotent.
+	CoalescedAtLimit int
 	InterruptedWork  int
 	Backpressure     bool
 }
@@ -260,9 +278,9 @@ func (parseRt *Runtime) SchedulerSnapshot() SchedulerSnapshot {
 		CurrentLane:      parseRt.schedulerState.currentLane.String(),
 		EnqueuedUpdates:  parseRt.schedulerState.enqueuedUpdates,
 		CoalescedUpdates: parseRt.schedulerState.coalescedUpdates,
-		DroppedUpdates:   parseRt.schedulerState.droppedBackpressure,
+		CoalescedAtLimit: parseRt.schedulerState.coalescedAtLimit,
 		InterruptedWork:  parseRt.schedulerState.interruptedWork,
-		Backpressure:     parseRt.schedulerState.droppedBackpressure > 0,
+		Backpressure:     parseRt.schedulerState.coalescedAtLimit > 0,
 	}
 }
 

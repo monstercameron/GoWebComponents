@@ -119,4 +119,3 @@ func Text(parseTextContent string) *Element {
 		Children:    emptyChildren,
 	}
 }
-

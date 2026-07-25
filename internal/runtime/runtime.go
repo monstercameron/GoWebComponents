@@ -111,14 +111,18 @@ type Runtime struct {
 	continueWorkFn          func()
 	pendingBoundaryRecovery bool
 	pendingEffectOverflow   bool
-	transitionDepth         int
-	pendingTransitions      int
-	transitionMu            sync.Mutex
-	strictMode              StrictModeOptions
-	limits                  RuntimeLimits
-	schedulerState          runtimeSchedulerState
-	replay                  runtimeReplayState
-	agentStateVersion       atomic.Uint64
+	// pendingEffectOverflowCount counts lifetime overflows for the P4.2 budget
+	// signal. A boolean alone cannot distinguish "tripped once during a bulk
+	// import" from "trips every frame", which are different problems.
+	pendingEffectOverflowCount int
+	transitionDepth            int
+	pendingTransitions         int
+	transitionMu               sync.Mutex
+	strictMode                 StrictModeOptions
+	limits                     RuntimeLimits
+	schedulerState             runtimeSchedulerState
+	replay                     runtimeReplayState
+	agentStateVersion          atomic.Uint64
 
 	// Global state management
 	atomRegistry *AtomRegistry

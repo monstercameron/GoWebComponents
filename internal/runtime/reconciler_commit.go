@@ -1610,9 +1610,23 @@ func (parseRt *Runtime) queuePendingEffectFiber(parseFiber *Fiber) {
 	parseLimit := parseRt.limits.withDefaults().MaxPendingEffectFibers
 	if parseLimit > 0 && len(parseRt.pendingEffectFibers) >= parseLimit {
 		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
+		hasAlreadyOverflowed := parseRt.pendingEffectOverflow
 		parseRt.pendingEffectOverflow = true
+		parseRt.pendingEffectOverflowCount++
 		parseRt.tracksPendingEffects = false
-		ReportDiagnosticWithContext("runtime", DiagnosticWarning, "pending effect queue exceeded its bounded capacity; falling back to full-tree effect scan", diagnosticPathForFiber(parseFiber), diagnosticComponentStack(parseFiber))
+		// R6 — diagnostics carry an allocation budget, and this one did not.
+		//
+		// Emptying the queue means the next 1024 fibers refill it and overflow
+		// AGAIN within the same pass, so a large tree hit this path repeatedly.
+		// Each visit built a fiber path string and walked the component stack:
+		// per-overflow allocation, on the render thread, during the pass already
+		// large enough to have overflowed. Reporting only on the transition into
+		// the degraded state keeps the signal and drops the cost, and P4.2's
+		// budget signal carries the count that the repeated warnings were
+		// standing in for.
+		if !hasAlreadyOverflowed {
+			ReportDiagnosticWithContext("runtime", DiagnosticWarning, "pending effect queue exceeded its bounded capacity; falling back to full-tree effect scan", diagnosticPathForFiber(parseFiber), diagnosticComponentStack(parseFiber))
+		}
 		return
 	}
 	parseRt.tracksPendingEffects = true

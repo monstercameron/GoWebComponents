@@ -508,4 +508,3 @@ func TestAsyncInbox_MultipleItems(parseT *testing.T) {
 		parseT.Errorf("Expected 10 executions, got %d", parseCount)
 	}
 }
-
