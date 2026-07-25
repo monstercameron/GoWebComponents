@@ -141,10 +141,20 @@ export function buildReport({ idleWindows, loadedWindows, frameIntervalMs, optio
   const idleFrames = poolFrames(idleWindows);
   const loadedFrames = poolFrames(loadedWindows);
 
-  // Drift is checked on the pooled series in collection order. If this fires,
-  // the interleaving did not save the run and the numbers are not usable.
+  // Drift is checked on the IDLE arm only, and that distinction is load-bearing.
+  //
+  // The idle arm is the control: nothing is running, so any trend in it is the
+  // machine changing under us — thermal throttling, a background process — and
+  // that invalidates the comparison.
+  //
+  // The loaded arm legitimately trends. A 50k-row import gets slower as the
+  // table grows; frame time rising across a loaded run is the phenomenon being
+  // measured, not an artifact. The first real run of this harness failed on
+  // exactly that: idle p95 16.8ms against loaded p95 1835ms, flagged "drift"
+  // when it was the load working as designed. Gating on the loaded arm would
+  // make the harness reject precisely the runs it exists to capture.
   const idleDrift = stats.detectDrift(idleFrames);
-  const loadedDrift = stats.detectDrift(loadedFrames);
+  const loadedDrift = stats.detectDrift(loadedFrames); // reported, never gated
 
   const m1 = stats.equivalent(loadedFrames, idleFrames, {
     statistic: (values) => stats.percentile(values, 0.95),
@@ -169,8 +179,8 @@ export function buildReport({ idleWindows, loadedWindows, frameIntervalMs, optio
     frameIntervalMs,
     options,
 
-    valid: !idleDrift.drifted && !loadedDrift.drifted,
-    drift: { idle: idleDrift, loaded: loadedDrift },
+    valid: !idleDrift.drifted,
+    drift: { idle: idleDrift, loaded: loadedDrift, gatedOn: 'idle' },
 
     metrics: {
       // M1 — the acceptance test for v5.

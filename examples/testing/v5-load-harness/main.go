@@ -377,39 +377,29 @@ func registerProbes() {
 	js.Global().Set("__gwcV5Probes", parseObj)
 }
 
-// driveTyping types into the filter input for the requested duration and
-// returns a Promise the harness awaits.
+// driveTyping holds the measurement window open for the requested duration.
+//
+// It does NOT synthesize input events any more. Event Timing only records
+// entries for TRUSTED events — ones the browser itself originated — so
+// dispatchEvent(new Event("input")) produces no interactionId and therefore no
+// interaction records at all. The first real harness run proved it: M3 came
+// back with n=0 while frames were visibly janking, i.e. the metric silently
+// measured an empty set.
+//
+// Real keystrokes now come from the Playwright driver, which types into
+// #filter for the whole run. This probe just keeps the window open so the
+// driver and the harness stay aligned. Opening the page by hand and typing
+// works the same way.
 func driveTyping(parseDurationMs int) js.Value {
 	parseExecutor := js.FuncOf(func(_ js.Value, parseArgs []js.Value) any {
 		parseResolve := parseArgs[0]
-		parseDeadline := time.Now().Add(time.Duration(parseDurationMs) * time.Millisecond)
-		parseAlphabet := "abcdefghijklmnopqrstuvwxyz"
-		parseIndex := 0
-
-		var parseStep js.Func
-		parseStep = js.FuncOf(func(js.Value, []js.Value) any {
-			if time.Now().After(parseDeadline) {
-				parseStep.Release()
-				parseResolve.Invoke()
-				return nil
-			}
-			parseInput := js.Global().Get("document").Call("getElementById", "filter")
-			if !parseInput.IsNull() && !parseInput.IsUndefined() {
-				// Alternate between a matching prefix and a miss so the filter
-				// actually changes the visible set rather than no-opping.
-				parseValue := ""
-				if parseIndex%4 != 0 {
-					parseValue = "row-" + string(parseAlphabet[parseIndex%26])
-				}
-				parseInput.Set("value", parseValue)
-				parseEvent := js.Global().Get("Event").New("input", map[string]any{"bubbles": true})
-				parseInput.Call("dispatchEvent", parseEvent)
-			}
-			parseIndex++
-			js.Global().Call("setTimeout", parseStep, 60)
+		var parseDone js.Func
+		parseDone = js.FuncOf(func(js.Value, []js.Value) any {
+			parseDone.Release()
+			parseResolve.Invoke()
 			return nil
 		})
-		js.Global().Call("setTimeout", parseStep, 0)
+		js.Global().Call("setTimeout", parseDone, parseDurationMs)
 		return nil
 	})
 	return js.Global().Get("Promise").New(parseExecutor)

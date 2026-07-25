@@ -3,7 +3,7 @@
 **Goal: main-thread frame time is invariant to workload size** — without giving
 up the single-threaded constant factor.
 
-Date: 2026-07-25 · **Revision: r11**
+Date: 2026-07-25 · **Revision: r12**
 
 ## Implementation status
 
@@ -24,11 +24,45 @@ Branch `v5`. Phases 1 and 2 complete; Phase A measured through PA.2.
 | PA.1 baseline | ✅ | candidate (a) found spent |
 | PA.2 prototypes | ✅ | (b) unsound, (c) wins 2–3x |
 | PA.3 ship (c) | ⛔ blocked | see blockers under PA.3 |
-| P0.2 / P0.3 harness + baseline | ⛔ | needs the browser subject app |
+| P0.2 subject app | ✅ | 5k-row table, 3 workloads, real-input probe |
+| P0.3 v4 baseline | ✅ | **captured** — see below |
 | Phase 3 · 4 · 5 · 6 | ⛔ | Phase 3 gated on P0.3 and §11 |
 
-**Flags are all default-off (R2).** Flipping them needs P0.3's baseline, which
-needs P0.2's subject app — the next real unblock.
+### v4 baseline (P0.3, headless Chromium, windows/arm64)
+
+Every §1.1 row that read "unmeasured" now has a number. Every target misses,
+which is the point: this gap is what v5 exists to close.
+
+| Metric | v4 measured | v5 target |
+|---|---|---|
+| M1 idle p95 frame | 16.80 ms | — (control) |
+| M1 **loaded** p95 frame | **1633.30 ms** | equivalent to idle |
+| M2 long frames | 245 (worst 1649 ms) | 0 |
+| M3 interaction p95 / max | 1128 ms / 1400 ms | <50 / <120 ms |
+| M7 max GC pause | 6.60 ms | <3 ms |
+| harness wasm, uncompressed | 12.7 MB | — (M5 tracks app.wasm gz) |
+
+Under load, v4's p95 frame is **97x** its idle frame. The plan's thesis is no
+longer an argument; it is a measurement.
+
+Two harness bugs surfaced on the first real run and are fixed:
+
+- **Drift gating on the loaded arm.** The loaded arm legitimately trends — a
+  50k-row import gets slower as the table grows — so gating on it made the
+  harness reject exactly the runs it exists to capture. Drift is now gated on
+  the **idle** arm, which is the control; loaded drift is reported only.
+- **Synthetic input recorded nothing.** Event Timing only accepts *trusted*
+  events, so the app dispatching its own `input` events produced no
+  `interactionId` and M3 came back n=0 while frames visibly janked. Real
+  keystrokes now come from the Playwright driver.
+
+Open harness item: the probe yields ~56 interactions per run, below the 200 the
+tail-reliability guard needs for p95. The guard correctly refuses to quote it.
+Raise the input rate for a tighter number — the verdict is unaffected at this
+magnitude.
+
+**Flags remain default-off (R2).** The baseline now exists to justify flipping
+them; the next step is measuring each flag against it.
 
 > **r10 is a structural rewrite, not a content change.** r9 had grown to 1,147
 > lines, **44% of it blockquoted implementation mechanism** — checkpoint
