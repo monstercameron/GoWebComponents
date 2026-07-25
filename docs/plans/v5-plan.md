@@ -3,7 +3,32 @@
 **Goal: main-thread frame time is invariant to workload size** — without giving
 up the single-threaded constant factor.
 
-Date: 2026-07-25 · **Revision: r10**
+Date: 2026-07-25 · **Revision: r11**
+
+## Implementation status
+
+Branch `v5`. Phases 1 and 2 complete; Phase A measured through PA.2.
+
+| Item | State | Notes |
+|---|---|---|
+| P1.1 passive after paint | ✅ | flag `PassiveEffectsAfterPaint` |
+| P1.2 real frame budget | ✅ | flag `FrameBudgetMs`, gated on P2.5 in code |
+| P1.3 idle dispatch | ✅ | idle + SetTimeout backstop, first wins |
+| P1.4 ordering contract | ✅ | 6 tests |
+| P2.1 async inbox | ✅ | N posts → 1 pass, measured |
+| P2.2 lane queues | ✅ | flag `LaneQueues`; allocation-free |
+| P2.3 per-runtime state | ✅ | scoped to first-commit signal; conformance suite |
+| P2.4 EnqueueUI removal | ✅ | replaced by the inbox |
+| P2.5 interrupt-safe restart | ✅ | T12 closed |
+| P2.6 runtime-scoped atoms | ✅ | `ResolveRuntime` |
+| PA.1 baseline | ✅ | candidate (a) found spent |
+| PA.2 prototypes | ✅ | (b) unsound, (c) wins 2–3x |
+| PA.3 ship (c) | ⛔ blocked | see blockers under PA.3 |
+| P0.2 / P0.3 harness + baseline | ⛔ | needs the browser subject app |
+| Phase 3 · 4 · 5 · 6 | ⛔ | Phase 3 gated on P0.3 and §11 |
+
+**Flags are all default-off (R2).** Flipping them needs P0.3's baseline, which
+needs P0.2's subject app — the next real unblock.
 
 > **r10 is a structural rewrite, not a content change.** r9 had grown to 1,147
 > lines, **44% of it blockquoted implementation mechanism** — checkpoint
@@ -183,7 +208,30 @@ change whether it is attempted, not just when it is expected.
 |---|---|---|---|
 | PA.1 | Instrument `cloneElementProps` cost | M8 baseline recorded | S |
 | PA.2 | Prototype 3 designs behind flags: Owned-migration · copy-on-write · slice-backed small-map | comparison table on all four affected benchmarks, **plus a selection by the §6 tie-break** | L |
-| PA.3 | Ship the winner | M8a <20%, M8b −40%, M6 holds, M7 improves; if the props contract breaks, a `gwc vet` lint and PA.3-owned migration note ship with it | L |
+| PA.3 | Ship candidate (c) — slice-backed small props | M8a <20%, M8b −40%, M6 holds, M7 improves; if the props contract breaks, a `gwc vet` lint and PA.3-owned migration note ship with it | L |
+
+> **PA.3 blockers, found during PA.2 (r11).** The microbench report called this
+> "architectural, not a micro-edit"; these are the specifics.
+>
+> 1. **136 direct `Element.Props` readers** — 66 inside `internal/runtime`, 70
+>    outside. A slice-backed store needs lazy map materialization behind a view
+>    helper (the pattern `EnsureElementProps` / `fastLanePropsView` already use
+>    for the compact host lane) before any of them can be left alone.
+> 2. **The runtime WRITES to the props map.** `buildElementWithHostProps` sets
+>    `props["children"]`, and allocates a map purely to hold children when the
+>    caller passed none. So props is not read-only caller data, and a storage
+>    swap has to carry that write path.
+> 3. **`props["children"]` is load-bearing, not vestigial.** `getFiberChildren`
+>    falls back to it when `fiber.children` is empty — which is exactly the
+>    direct-text case, where `Children` is deliberately `emptyChildren`. And
+>    `propsEqualIgnoringChildren` (`reconciler.go:1004-1007`) special-cases the
+>    key during diffing, so the diff path has to agree with whatever the storage
+>    does.
+>
+> Sequence for PA.3: introduce the view helper and migrate the 66 in-package
+> readers first, behind a flag, with the compact-host lane as the reference
+> implementation. Only then swap the storage. The 70 external readers are the
+> reason `EnsureElementProps` is already public — they keep working through it.
 | PA.4 | Compile-time hoisting spike — **conditional on PA.3 missing M8b** | ceiling measured on 201 scenarios | L |
 
 ### Phase 1 — Frame integrity *(no API change)*
