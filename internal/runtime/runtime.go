@@ -91,6 +91,16 @@ type Runtime struct {
 	// default (R2); when off, every dirty fiber renders in whatever pass finds
 	// it, which is the pre-v5 behavior.
 	laneQueues bool
+	// asyncIngress routes state updates made OUTSIDE the frame loop through the
+	// inbox instead of applying them where they are called (v5 P2.1). Off by
+	// default, following laneQueues: turning it on changes when an async write
+	// lands, so it stays opt-in until its acceptance test is the thing deciding.
+	asyncIngress bool
+	// frameLoopDepth counts frame-loop regions that are not the work loop —
+	// event dispatch and inbox drains. workLoopDepth covers render and commit.
+	// A setter that finds BOTH at zero was called from somewhere the runtime
+	// does not control, which is exactly the case the inbox exists for.
+	frameLoopDepth int
 	// inbox holds async work posted from outside the frame loop (v5 P2.1).
 	// Drained at one defined point per frame so N async messages produce one
 	// render pass rather than N. See inbox.go.
@@ -290,6 +300,29 @@ type Config struct {
 	// 500ms, background 2s) after which it is admitted regardless of priority,
 	// so deferral cannot become starvation under sustained input.
 	LaneQueues bool
+
+	// AsyncIngress routes state updates made outside the frame loop through the
+	// async inbox (v5 P2.1).
+	//
+	// Without it, a gRPC callback, a worker reply, or any goroutine mutates hook
+	// state at whatever moment it happens to run — which is the race the inbox
+	// was built to remove, and which no amount of care at the call site can fix
+	// because the call site does not know whether a render is in flight. With
+	// it, such a write is queued and applied at one defined point per frame, so
+	// the in-flight tree is isolated by construction and N async writes in a
+	// frame produce one render rather than N.
+	//
+	// Off by default: it changes WHEN an async write lands (one task later, at
+	// the drain), and that is a semantic change existing apps should opt into.
+	//
+	// Measured 2026-07-25 rather than assumed: forcing it on for the whole suite
+	// fails nine tests, all of the same shape — a test calls a setter directly
+	// from its own goroutine and asserts the new value on the next line. That is
+	// precisely the write this defers, so the failures are the feature working,
+	// not a defect in it. They are also proof the change is observable to code
+	// that already exists, which is why it stays opt-in until an app has been
+	// migrated deliberately rather than by a default flip.
+	AsyncIngress bool
 }
 
 // configHidesRawPanicOutput resolves the containment default: panics are
@@ -333,6 +366,9 @@ func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
 	}
 	if parseConfig.LaneQueues {
 		parseRuntime.laneQueues = true
+	}
+	if parseConfig.AsyncIngress {
+		parseRuntime.asyncIngress = true
 	}
 	if parseConfig.FrameBudgetMs < 0 {
 		parseRuntime.frameBudgetMs = defaultFrameBudgetMs

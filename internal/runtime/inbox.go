@@ -132,6 +132,11 @@ func (parseRt *Runtime) DrainAsyncInbox() {
 			"async inbox exceeded its bound and drained early; batching degraded but no work was dropped")
 	}
 
+	// Marked as frame-loop work: entries call the same setters an event handler
+	// does, and without this each one would post itself straight back into the
+	// queue and be deferred another frame, forever.
+	parseRt.enterFrameLoop()
+	defer parseRt.exitFrameLoop()
 	for _, parseWork := range parseBatch {
 		parseRt.runInboxEntry(parseWork)
 	}
@@ -168,4 +173,67 @@ func (parseRt *Runtime) AsyncInboxStats() (parsePosts int, parseDrains int) {
 	parseRt.inbox.mu.Lock()
 	defer parseRt.inbox.mu.Unlock()
 	return parseRt.inbox.postCount, parseRt.inbox.drainCount
+}
+
+// Frame-loop marking (v5 P2.1, second half).
+//
+// The inbox is only half a solution while state setters still apply wherever
+// they are called. A gRPC callback, a worker reply, or any goroutine reaches the
+// same setter a click handler does, and the setter cannot tell them apart — so
+// it mutates hook state at an arbitrary moment relative to the in-flight tree.
+//
+// The distinction the setter needs is not "which goroutine" but "is the runtime
+// already running". Goroutine identity is the wrong question in wasm, where
+// callbacks arrive on goroutines the runtime never created and the render loop
+// has no stable identity of its own. Whether a frame-loop region is on the stack
+// is exact, costs two field reads, and needs no platform knowledge.
+//
+// Regions that count as inside the loop:
+//
+//	workLoopDepth    render and commit (commitRoot runs from the work loop)
+//	frameLoopDepth   event dispatch, and the inbox drain itself
+//
+// Event dispatch has to be marked or every click pays an extra task hop: the
+// setter would post, the drain would apply it a task later, and only then would
+// the render be scheduled. The drain has to be marked for the same reason in
+// reverse — work applied during a drain is already on the loop, and posting it
+// again would defer it another frame, indefinitely.
+
+// enterFrameLoop marks the start of a frame-loop region.
+func (parseRt *Runtime) enterFrameLoop() {
+	if parseRt != nil {
+		parseRt.frameLoopDepth++
+	}
+}
+
+// exitFrameLoop marks the end of a frame-loop region.
+func (parseRt *Runtime) exitFrameLoop() {
+	if parseRt != nil && parseRt.frameLoopDepth > 0 {
+		parseRt.frameLoopDepth--
+	}
+}
+
+// insideFrameLoop reports whether the caller is already running on the frame
+// loop, and is therefore free to mutate state directly.
+func (parseRt *Runtime) insideFrameLoop() bool {
+	return parseRt != nil && (parseRt.workLoopDepth > 0 || parseRt.frameLoopDepth > 0)
+}
+
+// shouldPostAsyncStateUpdate reports whether a state write must be queued rather
+// than applied where it was called.
+//
+// The scheduler check is not incidental. With no scheduler — native tests, SSR —
+// PostAsync drains inline, so posting would still apply the write on the calling
+// goroutine, but through runInboxEntry, which CONTAINS panics. Silently changing
+// panic semantics for every native caller is not worth the nothing it buys where
+// there is no frame loop to be isolated from.
+func (parseRt *Runtime) shouldPostAsyncStateUpdate() bool {
+	return parseRt != nil && parseRt.asyncIngress && parseRt.scheduler != nil &&
+		!parseRt.insideFrameLoop()
+}
+
+// AsyncIngressEnabled reports whether off-loop state writes are routed through
+// the inbox, so an app can check what it is running under.
+func (parseRt *Runtime) AsyncIngressEnabled() bool {
+	return parseRt != nil && parseRt.asyncIngress
 }

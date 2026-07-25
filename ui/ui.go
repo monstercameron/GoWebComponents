@@ -603,6 +603,51 @@ func UseContext[T any](parseContext *Context[T]) T {
 	return castContextValue[T](runtime.GoUseContextValue(parseContext.descriptor))
 }
 
+// PostAsync hands work to the render thread from outside it.
+//
+// This is the supported way for anything that is not already on the frame loop
+// — a gRPC callback, a Web Worker reply, a goroutine, a channel receive — to
+// change state that the UI renders from. Call it with a function that performs
+// the mutation; that function runs later, at one defined point in the frame,
+// with the in-flight tree guaranteed not to be mid-render.
+//
+// Two properties follow, and neither is achievable from the call site alone:
+//
+//   - Isolation. Nothing outside the frame loop touches hook state, so a render
+//     in flight cannot be torn by a reply that happens to arrive during it. The
+//     call site cannot arrange this itself, because it has no way to know
+//     whether a render is running.
+//   - Batching. Everything posted between two drains is applied in one
+//     synchronous block, so twenty worker messages in a frame produce one render
+//     pass rather than twenty.
+//
+// Safe to call from any goroutine. Work is queued, never dropped: if the queue
+// outgrows its bound the runtime drains early and reports that batching
+// degraded, rather than discarding anything.
+//
+//	go func() {
+//	    parseRows := fetchFromWorker()
+//	    ui.PostAsync(func() { setRows(parseRows) })
+//	}()
+//
+// With Config.AsyncIngress on, state setters called off the frame loop are
+// routed through this automatically, so existing async code becomes safe without
+// being rewritten. Calling PostAsync explicitly is still worthwhile when several
+// writes belong together — one post means one render for the whole group.
+func PostAsync(parseFn func()) {
+	runtime.PostAsyncGlobal(parseFn)
+}
+
+// AsyncIngressEnabled reports whether off-loop state writes are routed through
+// the async inbox automatically.
+//
+// Worth checking in library code that must work under both settings: with it
+// off, an off-loop setter still applies where it is called, so such code should
+// post explicitly rather than assume the runtime will.
+func AsyncIngressEnabled() bool {
+	return runtime.AsyncIngressEnabledGlobal()
+}
+
 // StartTransition schedules non-urgent updates in the transition lane.
 func StartTransition(parseFn func()) {
 	runtime.StartTransitionGlobal(parseFn)

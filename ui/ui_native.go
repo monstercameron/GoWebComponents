@@ -335,6 +335,21 @@ func HydrateInto(parseRoot Node, parseTarget any, parseOptions ...HydrationOptio
 	return SSRBootstrap{}, UnsupportedOnServer("HydrateInto")
 }
 
+// PostAsync runs fn immediately on non-browser targets.
+//
+// There is no frame loop to hand work to during SSR or in native tests, so the
+// queue would only add a hop. Running inline keeps the same code correct in both
+// places, which is the point of the API existing at all.
+func PostAsync(parseFn func()) {
+	if parseFn != nil {
+		parseFn()
+	}
+}
+
+// AsyncIngressEnabled reports false on non-browser targets: with no frame loop,
+// there is nothing for an off-loop write to be isolated from.
+func AsyncIngressEnabled() bool { return false }
+
 // StartTransition runs fn immediately on non-browser targets.
 func StartTransition(parseFn func()) {
 	if parseFn != nil {

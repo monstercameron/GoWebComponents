@@ -75,7 +75,7 @@ func BuildDOMWrappedFunctionGlobal(parseHandlerFn interface{}) interface{} {
 	if parseRuntime.domAdapter == nil {
 		panic(actionableRuntimeDOMAdapterPanic("BuildDOMWrappedFunctionGlobal"))
 	}
-	return parseRuntime.domAdapter.WrapFunction(parseHandlerFn)
+	return parseRuntime.domAdapter.WrapFunction(parseRuntime.markFrameLoopHandler(parseHandlerFn))
 }
 
 // BuildDOMWrappedFunctionIfReadyGlobal wraps one plain Go callback when the global runtime already has a DOM adapter.
@@ -87,7 +87,7 @@ func BuildDOMWrappedFunctionIfReadyGlobal(parseHandlerFn interface{}) (interface
 	if parseRuntime.domAdapter == nil {
 		return nil, false
 	}
-	return parseRuntime.domAdapter.WrapFunction(parseHandlerFn), true
+	return parseRuntime.domAdapter.WrapFunction(parseRuntime.markFrameLoopHandler(parseHandlerFn)), true
 }
 
 // GoUseAtomGlobal wraps GoUseAtom with global runtime
@@ -118,4 +118,20 @@ func Text(parseTextContent string) *Element {
 		TextContent: parseTextContent,
 		Children:    emptyChildren,
 	}
+}
+
+// PostAsyncGlobal queues work on the global runtime's async inbox (v5 P2.1).
+//
+// The package-level entry point behind ui.PostAsync: application code holds no
+// *Runtime, so the public API has to resolve one. ResolveRuntime rather than
+// GetGlobalRuntime, so a post issued while a second runtime is rendering lands
+// on that runtime rather than on whichever happened to be global.
+func PostAsyncGlobal(parseWork func()) {
+	ResolveRuntime().PostAsync(parseWork)
+}
+
+// AsyncIngressEnabledGlobal reports whether the resolved runtime routes off-loop
+// state writes through the inbox.
+func AsyncIngressEnabledGlobal() bool {
+	return ResolveRuntime().AsyncIngressEnabled()
 }

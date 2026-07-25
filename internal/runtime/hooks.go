@@ -202,6 +202,24 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(an
 			parseRt.ScheduleOwnedFiberUpdateWithOrigin(parseTargetFiber, parseUpdateOrigin)
 		}
 
+		// Called from outside the frame loop — a goroutine, a gRPC callback, a
+		// worker reply — so the write is queued and applied at the next drain
+		// instead of landing at an arbitrary point relative to the in-flight
+		// tree. The closure allocates only on this path; the on-loop path below
+		// is unchanged, which matters because it is the hot one.
+		if parseRt.shouldPostAsyncStateUpdate() {
+			parseRt.PostAsync(func() {
+				if parseRt.ShouldDeferStateUpdates() {
+					parseRt.ScheduleTransition(func() {
+						apply("transition")
+					})
+					return
+				}
+				apply("async")
+			})
+			return
+		}
+
 		if parseRt != nil && parseRt.ShouldDeferStateUpdates() {
 			parseRt.ScheduleTransition(func() {
 				apply("transition")

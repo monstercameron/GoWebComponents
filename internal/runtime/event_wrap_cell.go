@@ -28,6 +28,12 @@ func (parseRuntime *Runtime) wrapEventHandlerCell(parseCell *funcHandlerCell) an
 			}
 		}()
 
+		// A handler runs ON the frame loop, so setters it calls apply directly.
+		// Without this mark every click would post instead, costing one extra
+		// task before the render was even scheduled.
+		parseRuntime.enterFrameLoop()
+		defer parseRuntime.exitFrameLoop()
+
 		// Use the cached reflect.Value so reflect.ValueOf is not called on every event dispatch.
 		parseCurrentFnValue := parseCell.fnVal
 		if !parseCurrentFnValue.IsValid() || parseCurrentFnValue.Kind() != reflect.Func {
@@ -52,4 +58,36 @@ func buildEventResultValues(parseFnType reflect.Type) []reflect.Value {
 		parseResults[parseIndex] = reflect.Zero(parseFnType.Out(parseIndex))
 	}
 	return parseResults
+}
+
+// markFrameLoopHandler wraps one plain callback so a dispatch of it counts as
+// frame-loop work.
+//
+// wrapEventHandlerCell marks hook-created handlers inline, but callbacks wrapped
+// through BuildDOMWrappedFunction* have no cell to mark. An unmarked handler
+// looks async to the setter, so every state write inside it would post and cost
+// an extra task before the render was even scheduled — on every interaction.
+//
+// Costs one reflect.MakeFunc per WRAP, not per dispatch, and only when async
+// ingress is on; otherwise the callback is returned untouched.
+func (parseRuntime *Runtime) markFrameLoopHandler(parseFn any) any {
+	if parseRuntime == nil || parseFn == nil || !parseRuntime.asyncIngress {
+		return parseFn
+	}
+	parseFnType := reflect.TypeOf(parseFn)
+	if parseFnType == nil || parseFnType.Kind() != reflect.Func {
+		return parseFn
+	}
+	// Variadic signatures need CallSlice rather than Call, and a wrong choice
+	// here corrupts arguments rather than failing loudly. No event handler is
+	// variadic, so the case is declined instead of guessed at.
+	if parseFnType.IsVariadic() {
+		return parseFn
+	}
+	parseFnValue := reflect.ValueOf(parseFn)
+	return reflect.MakeFunc(parseFnType, func(parseArgs []reflect.Value) []reflect.Value {
+		parseRuntime.enterFrameLoop()
+		defer parseRuntime.exitFrameLoop()
+		return parseFnValue.Call(parseArgs)
+	}).Interface()
 }
