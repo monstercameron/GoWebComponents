@@ -1,0 +1,9 @@
+{
+  "name": "gwc-v5-load-harness",
+  "private": true,
+  "type": "module",
+  "description": "Marks the harness modules as ESM so stats.js is directly testable under node. Browsers ignore this file.",
+  "scripts": {
+    "test": "node stats.test.mjs"
+  }
+}

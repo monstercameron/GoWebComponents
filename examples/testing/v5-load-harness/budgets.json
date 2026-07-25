@@ -1,0 +1,43 @@
+{
+  "$comment": [
+    "Gate thresholds for the v5 load harness. CI fails the build when a run",
+    "exceeds these. Baselines are captured by P0.3 before any v5 work lands;",
+    "targets come from docs/plans/v5-plan.md section 1.1.",
+    "",
+    "M1 is not a threshold but an equivalence test — see stats.equivalent().",
+    "Its margin lives here so it can be tightened as the runtime improves",
+    "without editing code."
+  ],
+
+  "M1_frameEquivalence": {
+    "statistic": "p95",
+    "marginMs": 1.0,
+    "marginRatio": 0.1,
+    "$comment": "Effective margin is max(marginMs, idle_p95 * marginRatio), so a fast baseline does not make the gate unreachable."
+  },
+
+  "M2_maxLongFrames": 0,
+
+  "M3_interactionP99Ms": 50,
+  "M3_interactionMaxMs": 120,
+  "$M3_comment": "The percentile gate uses the highest statistic the sample supports (p99 needs n>=1000, p95 needs n>=200); a typing probe realistically yields low hundreds, so p95 is the usual gate. M3_interactionMaxMs is an absolute ceiling gated independently, because an under-sampled percentile cannot see one catastrophic interaction.",
+
+  "M7_maxGCPauseMs": 3.0,
+
+  "validity": {
+    "driftToleranceRatio": 0.12,
+    "minFramesPerArm": 240,
+    "$comment": "A run whose second half drifts more than 12% from its first half is discarded, not reported. See DEVNOTES_PERF_LOOP on this machine's fanless swings."
+  },
+
+  "baselines": {
+    "$comment": "Filled by P0.3 against v4. Null means not yet captured.",
+    "capturedAt": null,
+    "commit": null,
+    "M1_idleP95Ms": null,
+    "M1_loadedP95Ms": null,
+    "M2_longFrames": null,
+    "M3_interactionP99Ms": null,
+    "M7_maxGCPauseMs": null
+  }
+}
