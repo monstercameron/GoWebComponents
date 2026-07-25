@@ -18,6 +18,24 @@ type BulkCommand struct {
 	ID CommandID
 	// Total is the number of items.
 	Total int
+	// YieldEvery is how many items run between turns given back to the host
+	// event loop.
+	//
+	// Zero never yields, which is correct for a runtime with a thread to itself
+	// and wrong for the case bulk commands are actually for. In a single-threaded
+	// worker message loop, a run that never yields cannot be cancelled by a
+	// message: the cancel is queued behind the run it is meant to stop. The
+	// per-item flag check below is necessary but not sufficient, because with no
+	// yield nothing can ever set that flag.
+	//
+	// Setting it requires Runtime.SetYield; ExecuteBulk refuses a command that
+	// asks to yield with no yielder installed, rather than running to completion
+	// while looking cancellable.
+	//
+	// Separate from CheckpointEvery on purpose. Checkpoints default to every
+	// item, and a round trip through the event loop per item would cost far more
+	// than the work.
+	YieldEvery int
 	// CheckpointEvery is how many items complete between durable progress writes.
 	// Zero or one checkpoints every item, which is the only interval that gives
 	// exactly-once against a non-transactional store — see CheckpointStore.
@@ -85,6 +103,18 @@ func (parseRuntime *Runtime) ExecuteBulk(parseCommand BulkCommand, parseStep fun
 	if parseStep == nil {
 		return BulkResult{Outcome: OutcomeFailed}, errors.New("domain: bulk command step is required")
 	}
+	if parseCommand.YieldEvery < 0 {
+		return BulkResult{Outcome: OutcomeFailed},
+			fmt.Errorf("domain: bulk command %q has a negative yield interval", parseCommand.ID)
+	}
+	if parseCommand.YieldEvery > 0 && parseRuntime.yield == nil {
+		// Refused rather than ignored. Running anyway would produce a command
+		// that looks cancellable — it checks the flag on every item — while
+		// being structurally incapable of receiving a cancel.
+		return BulkResult{Outcome: OutcomeFailed},
+			fmt.Errorf("domain: bulk command %q asks to yield every %d items but no yielder is installed; call Runtime.SetYield",
+				parseCommand.ID, parseCommand.YieldEvery)
+	}
 
 	parseResult := BulkResult{Total: parseCommand.Total}
 
@@ -126,6 +156,15 @@ func (parseRuntime *Runtime) ExecuteBulk(parseCommand BulkCommand, parseStep fun
 	}
 
 	for parseIndex := parseStartIndex; parseIndex < parseCommand.Total; parseIndex++ {
+		// Yield BEFORE the cancellation check, never after: the yield is what
+		// lets a cancel message be delivered at all, so a turn given back
+		// without then re-reading the flag would waste the round trip and delay
+		// the stop by a whole interval.
+		if parseCommand.YieldEvery > 0 && parseIndex > parseStartIndex &&
+			(parseIndex-parseStartIndex)%parseCommand.YieldEvery == 0 {
+			parseRuntime.yield()
+		}
+
 		// Checked every item rather than once up front: a cancel arriving during a
 		// 50,000-item run should stop it, not be noticed after it finishes.
 		if parseRuntime.cancelled[parseCommand.ID] {

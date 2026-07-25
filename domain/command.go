@@ -68,6 +68,10 @@ type Runtime struct {
 	ledger      *services.Ledger
 	checkpoints CheckpointStore
 	cancelled   map[CommandID]bool
+	// yield gives the host event loop a turn during a long bulk run. See
+	// SetYield — without it, a bulk command occupies its thread from start to
+	// finish and no cancel message can reach it.
+	yield func()
 }
 
 // NewRuntime creates a command runtime over a checkpoint store.
@@ -81,6 +85,37 @@ func NewRuntime(parseCheckpoints CheckpointStore) *Runtime {
 		ledger:      services.NewLedger(),
 		checkpoints: parseCheckpoints,
 		cancelled:   make(map[CommandID]bool),
+	}
+}
+
+// SetYield installs the function ExecuteBulk uses to give the host event loop a
+// turn between chunks.
+//
+// This exists because of where bulk commands actually run. A domain worker is a
+// single-threaded message loop: it receives a command, runs it, and only then
+// takes the next message. A 50,000-item bulk run that never returns to that loop
+// cannot be cancelled by a message, because the cancel message is sitting in a
+// queue the worker will not read until the run it is meant to stop has finished.
+// Checking a flag on every item does not help when nothing can set the flag.
+//
+// The yielder is the environment's, not the domain's: in a wasm worker it is a
+// setTimeout(0) round trip; in a test it can be a no-op or a channel receive.
+// The domain layer must not know which.
+//
+//	parseRuntime.SetYield(func() {
+//	    parseDone := make(chan struct{})
+//	    var parseCallback js.Func
+//	    parseCallback = js.FuncOf(func(js.Value, []js.Value) any {
+//	        parseCallback.Release()
+//	        close(parseDone)
+//	        return nil
+//	    })
+//	    js.Global().Call("setTimeout", parseCallback, 0)
+//	    <-parseDone
+//	})
+func (parseRuntime *Runtime) SetYield(parseYield func()) {
+	if parseRuntime != nil {
+		parseRuntime.yield = parseYield
 	}
 }
 
