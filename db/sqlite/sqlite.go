@@ -112,6 +112,24 @@ func (parseDB *DB) Tx(parseCtx context.Context, parseFn func(*sql.Tx) error) (pa
 	return parseTx.Commit()
 }
 
+// Begin opens a transaction the caller finishes explicitly.
+//
+// Tx is the right call for a transaction that lives inside one function. Begin
+// exists for the case Tx cannot express: a transaction spanning several
+// messages, where BEGIN, the statements, and COMMIT each arrive separately and
+// no single Go call frame contains them. That is exactly the off-thread server
+// in db/offthread/server.
+//
+// The caller MUST commit or roll back. The pool holds a single connection, so an
+// abandoned transaction blocks every later statement on this database — which is
+// why Tx remains the default and this is the exception.
+func (parseDB *DB) Begin(parseCtx context.Context) (*sql.Tx, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
+	}
+	return parseDB.sdb.BeginTx(parseCtx, nil)
+}
+
 // Flush forces the current database image to its durable backend. It is a no-op
 // for Memory and for native file-backed databases.
 func (parseDB *DB) Flush(parseCtx context.Context) error {
