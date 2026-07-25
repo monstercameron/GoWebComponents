@@ -99,21 +99,49 @@ world and would perturb the frames being measured.
 
 ## Status
 
-Implemented: `stats.js`, `metrics.js`, `harness.js`, `probe.go`, `budgets.json`.
+Implemented: `stats.js`, `metrics.js`, `harness.js`, `probe.go`, `budgets.json`,
+plus the subject app (`main.go`, `index.html`) — **P0.2**.
 
-Not yet built (**P0.2**): the subject app — `main.go` with the five concurrent
-workloads from `v5-plan.md` §1.2 (50k-row SQLite import, full-text re-index,
-2MB fetch+decode loop, 5k-row virtualized table, continuous typing probe) —
-and the Playwright driver under `test/playwrightgo/examples`.
+42 unit tests green across three suites:
 
-The subject app must expose:
-
-```js
-window.__gwcV5Workloads = { import: Workload, reindex: Workload, fetch: Workload, ... }
-window.__gwcV5Probes    = { typing: Probe, scroll: Probe, filter: Probe }
-window.__gwcV5Probe     = () => string  // registered by probe.go
+```
+node stats.test.mjs && node gate.test.mjs && node integration.test.mjs
 ```
 
-Until P0.2 lands, `stats.js` is independently testable under node and is the
-piece worth reviewing first — it is where a wrong result would be least
-obvious.
+### Running the harness
+
+```powershell
+$env:GOOS='js'; $env:GOARCH='wasm'
+go build -o ./examples/testing/v5-load-harness/v5harness.wasm ./examples/testing/v5-load-harness
+$env:GOOS=''; $env:GOARCH=''
+go run ./tools/gwc examples     # serves the catalog
+```
+
+Then open the harness page and press **Run harness**. It writes
+`window.__gwcV5Report` and `window.__gwcV5Verdict`, which is what a Playwright
+driver reads.
+
+### Subject app
+
+`main.go` exposes three globals:
+
+| Global | Shape |
+|---|---|
+| `__gwcV5Workloads` | `import`, `reindex`, `decode` — each `start`/`stop`/`stats` |
+| `__gwcV5Probes` | `typing(durationMs)` → Promise |
+| `__gwcV5Probe` | phase totals + windowed max GC pause (`probe.go`) |
+
+Two design points worth keeping if this is rewritten:
+
+**The probe drives real DOM events**, not state setters. Event Timing only
+records entries with a genuine `interactionId`, so a probe that mutated state
+behind the DOM's back would produce no interaction records at all and M3 would
+silently measure nothing.
+
+**The decode workload builds its 2MB payload locally** instead of fetching one.
+`fetch()` already runs off the main thread, so the main-thread cost this
+scenario needs to model is the *decode*, not the transfer — and building it
+locally keeps the harness deterministic and offline.
+
+**Workload throughput is reported alongside the metrics** (`completed` counts),
+so a "pass" achieved by doing no background work is visible rather than silent.
