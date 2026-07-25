@@ -51,6 +51,7 @@ substantially complete; Phase 4 started.
 | P6.4 out-of-order Suspense | ✅ | shell at 0s vs 251ms boundary; 4x120ms resolve in 120ms |
 | worker request/reply | ✅ | correlation table; the plumbing every other item assumed |
 | harness two-artifact port | ✅ | **M1 and M3 MET**; workloads run in `services.wasm` |
+| public API for adopters | ✅ | `domain`/`delta`/`escalate` promoted out of `internal/`; 1,448 entries under the compat guard |
 | P5.2 retire runtime2 | ✅ | 453 files, 78k lines; `ui.ParallelRegion` removed (breaking) |
 | P6.2 · P6.3 · P0.5 | ⛔ | need a browser, build tooling, or other frameworks |
 

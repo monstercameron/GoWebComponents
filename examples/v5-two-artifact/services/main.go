@@ -17,8 +17,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/v4/db/offthread"
 	"github.com/monstercameron/GoWebComponents/v4/db/offthread/server"
 	"github.com/monstercameron/GoWebComponents/v4/db/sqlite"
-	"github.com/monstercameron/GoWebComponents/v4/internal/delta"
-	"github.com/monstercameron/GoWebComponents/v4/internal/domain"
+	"github.com/monstercameron/GoWebComponents/v4/delta"
+	"github.com/monstercameron/GoWebComponents/v4/domain"
 )
 
 func main() {

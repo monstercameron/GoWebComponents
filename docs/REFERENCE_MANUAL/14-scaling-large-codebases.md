@@ -334,7 +334,7 @@ Use this ownership split for larger teams:
 | Route family | `internal/app/routes/*` or equivalent | route registration, loaders, guards, metadata, route-specific shells | unrelated sibling feature logic |
 | Feature module | `internal/app/features/*` | reducer-backed workflows, panel logic, route-local composition | browser boot, global auth, global deployment rules |
 | Shared UI | `internal/ui/*` or `shared/ui/*` | tokens, primitives, a11y-safe components, layout helpers | route-specific business policy |
-| Domain | `internal/domain/*` or `shared/*` contracts | entities, repository interfaces, pure policy helpers, typed payloads | browser-only APIs |
+| Domain | `domain/*` or `shared/*` contracts | entities, repository interfaces, pure policy helpers, typed payloads | browser-only APIs |
 | Platform | `server/`, `platform/`, deployment tooling | HTTP, auth, persistence, logging, release, cache headers | leaf UI composition |
 
 Team ownership should mirror the same split:

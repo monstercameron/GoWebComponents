@@ -8,7 +8,7 @@
 // removed. Filtering, sorting, and windowing over a resident projection are
 // local operations on local memory.
 //
-// The worker keeps the authority and publishes deltas (internal/delta); this
+// The worker keeps the authority and publishes deltas (delta); this
 // package applies them and answers questions. It never queries.
 //
 // Residency is bounded on purpose. Making the render thread hold an unbounded
@@ -21,11 +21,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/delta"
+	"github.com/monstercameron/GoWebComponents/v4/delta"
 )
 
-// Key identifies one row. It is delta.Key re-exported so app code does not
-// import an internal package.
+// Key identifies one row, re-exported from delta so a caller reading a
+// projection does not have to import the publication engine as well.
 type Key = delta.Key
 
 // Op is one published delta operation.
@@ -36,9 +36,10 @@ type OpKind = delta.OpKind
 
 // The op kinds, re-exported.
 //
-// Aliases rather than new constants for a concrete reason: Op is an alias of a
-// type declared in an internal package, so without these an app outside this
-// module could receive ops but could not name their kinds to switch on them.
+// Aliases rather than new constants, so a kind produced by delta and a kind
+// named through projection are the same value and switch statements over either
+// stay exhaustive. Declaring separate constants would create two vocabularies
+// for one concept and a conversion nobody would remember to write.
 const (
 	OpInsert = delta.OpInsert
 	OpUpdate = delta.OpUpdate

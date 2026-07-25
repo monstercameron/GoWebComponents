@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/v4/internal/delta"
+	"github.com/monstercameron/GoWebComponents/v4/delta"
 	"github.com/monstercameron/GoWebComponents/v4/projection"
 )
 

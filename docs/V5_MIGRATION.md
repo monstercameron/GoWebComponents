@@ -9,6 +9,30 @@ and every claim has a test behind it. Where something is unverified, it says so.
 
 ---
 
+## The packages
+
+Everything below is importable from any module. Verified by building an external
+module against them, not by inspection — three of these lived under `internal/`
+until it turned out that made the two-artifact split impossible for anyone
+outside this repository.
+
+| Package | What it is | Runs on |
+|---|---|---|
+| `html` | `VirtualList` | render thread |
+| `projection` | resident reads, typed commands, failure model, SSR bootstrap, worker client | render thread |
+| `gcpacing` | GC profiles | both |
+| `trace` | cross-thread timeline | both |
+| `domain` | command runtime: replay, resume, cancel | worker |
+| `delta` | O(change) publication engine | worker |
+| `db/offthread` | SQLite client — links no engine | render thread |
+| `db/offthread/server` | SQLite server — links the engine | worker |
+| `db/durability` | storage tier + single-writer model | worker |
+| `compute` | CPU-bound job pool | render thread |
+| `escalate` | migration assistant | build-time tool |
+
+`internal/services` stays internal deliberately: it is the substrate `compute`
+wraps, and its types reach you through `compute`'s own aliases.
+
 ## Do you need to migrate?
 
 Probably not all at once, and possibly not at all.
@@ -87,8 +111,8 @@ Two `main` packages from one module:
 
 - `app` — renders. Must not import `db/sqlite`, or the SQLite engine and its wasm
   interpreter land in `app.wasm`.
-- `services` — the domain worker. Imports `db/offthread/server`, `internal/domain`,
-  `internal/delta`.
+- `services` — the domain worker. Imports `db/offthread/server`, `domain`,
+  `delta`.
 
 Copy the structure from `examples/v5-two-artifact`, including its test. The test
 is the point: it fails the build if `app.wasm` ever links the engine, checked on

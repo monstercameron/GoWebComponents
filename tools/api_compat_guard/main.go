@@ -20,7 +20,7 @@ import (
 
 const (
 	defaultBaselinePath = "tools/api_compat_guard/api_compatibility_baseline.json"
-	defaultPackageList  = "fetch,flags,router,state,ui"
+	defaultPackageList  = "fetch,flags,router,state,ui,projection,domain,delta,compute,trace,gcpacing,escalate,db/offthread,db/durability"
 	defaultTargetList   = "native,wasm"
 )
 
