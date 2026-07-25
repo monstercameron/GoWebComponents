@@ -347,7 +347,7 @@ func TestRuntimeSchedulerState_ExtraCoverage(parseT *testing.T) {
 	// InitGlobalRuntime branch that repairs nil internals on an existing global runtime.
 	globalRuntime = &Runtime{}
 	InitGlobalRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	if globalRuntime.atomRegistry == nil || globalRuntime.deletions == nil || globalRuntime.uiQueue == nil {
+	if globalRuntime.atomRegistry == nil || globalRuntime.deletions == nil {
 		parseT.Fatal("expected InitGlobalRuntime to repair runtime internals")
 	}
 
@@ -373,16 +373,10 @@ func TestRuntimeSchedulerState_ExtraCoverage(parseT *testing.T) {
 		parseT.Fatal("expected child to be marked dirty")
 	}
 
-	// EnqueueUI fallback path when queue is full.
-	parseOldQueue := uiQueue
-	defer func() { uiQueue = parseOldQueue }()
-	uiQueue = make(chan uiQueueItem, 1)
-	uiQueue <- uiQueueItem{fn: func() {}}
-	isParseFallbackCalled := false
-	EnqueueUI(func() { isParseFallbackCalled = true })
-	if !isParseFallbackCalled {
-		parseT.Fatal("expected EnqueueUI fallback to execute synchronously when queue is full")
-	}
+	// v5 P2.4: the EnqueueUI queue-full fallback is gone along with the queue.
+	// Its replacement is the async inbox, whose bounded path drains early
+	// instead of running work on the calling goroutine — covered by
+	// TestInbox_OverflowDrainsEarlyRatherThanDropping.
 
 	// State helper and fallback paths.
 	parseRt.atomRegistry = nil

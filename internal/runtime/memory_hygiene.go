@@ -35,13 +35,16 @@ type MemoryHygieneSnapshot struct {
 // InternalStateSnapshot returns bounded internal queue, fiber, and listener counters.
 func (parseRt *Runtime) InternalStateSnapshot() InternalStateSnapshot {
 	parseSnapshot := InternalStateSnapshot{
-		UIQueueSize:     GetUIQueueSize(),
 		DiagnosticCount: len(GetDiagnostics()),
 		LogCount:        len(GetLogs()),
 	}
 	if parseRt == nil {
 		return parseSnapshot
 	}
+	// v5 P2.4: this counted the package-global EnqueueUI channel, which nothing
+	// drained. It now reports the per-runtime async inbox (P2.1), which is the
+	// queue that actually holds pending cross-goroutine work.
+	parseSnapshot.UIQueueSize = parseRt.AsyncInboxDepth()
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
 	parseSnapshot.FiberCount = countFiberTree(parseRt.currentRoot)

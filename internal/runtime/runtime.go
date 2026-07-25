@@ -24,7 +24,6 @@ func GetGlobalRuntime() *Runtime {
 		globalRuntime = &Runtime{
 			atomRegistry: NewAtomRegistry(),
 			deletions:    make([]*Fiber, 0),
-			uiQueue:      make([]func(), 0),
 		}
 	}
 	return globalRuntime
@@ -72,11 +71,11 @@ type Runtime struct {
 	// (e.g. a focus handler fired synchronously by a commit-phase DOM write).
 	// Maintained unconditionally by workLoop, unlike renderPassActive which
 	// exists only for the dev threading guard.
-	workLoopDepth   int
-	nextUnitOfWork  *Fiber
-	deletions                  []*Fiber
-	pendingEffectFibers        []*Fiber
-	tracksPendingEffects       bool
+	workLoopDepth        int
+	nextUnitOfWork       *Fiber
+	deletions            []*Fiber
+	pendingEffectFibers  []*Fiber
+	tracksPendingEffects bool
 	// passiveEffectsAfterPaint enables the v5 P1.1 commit split: layout effects
 	// stay synchronous inside the commit task, passive effects are deferred past
 	// the paint boundary. Off by default (R2) until its acceptance test passes.
@@ -84,6 +83,10 @@ type Runtime struct {
 	// passiveDrainScheduled guards against queueing more than one deferred
 	// passive drain when several commits land before the first one runs.
 	passiveDrainScheduled bool
+	// inbox holds async work posted from outside the frame loop (v5 P2.1).
+	// Drained at one defined point per frame so N async messages produce one
+	// render pass rather than N. See inbox.go.
+	inbox asyncInbox
 	// idleFallbackReported keeps the "RequestIdleCallback did not fire"
 	// diagnostic to once per runtime, so a no-op Scheduler implementation
 	// reports the problem instead of flooding the log every idle dispatch.
@@ -95,19 +98,19 @@ type Runtime struct {
 	// pendingInterruptLane records a higher-priority lane that arrived while a
 	// pass was already walking the tree (v5 P2.5). The pass finishes and
 	// commits; commitRoot then starts the higher lane. Zero means none pending.
-	pendingInterruptLane UpdateLane
-	updateScheduled            bool
-	continueWorkFn             func()
-	pendingBoundaryRecovery    bool
-	pendingEffectOverflow      bool
-	transitionDepth            int
-	pendingTransitions         int
-	transitionMu               sync.Mutex
-	strictMode                 StrictModeOptions
-	limits                     RuntimeLimits
-	schedulerState             runtimeSchedulerState
-	replay                     runtimeReplayState
-	agentStateVersion          atomic.Uint64
+	pendingInterruptLane    UpdateLane
+	updateScheduled         bool
+	continueWorkFn          func()
+	pendingBoundaryRecovery bool
+	pendingEffectOverflow   bool
+	transitionDepth         int
+	pendingTransitions      int
+	transitionMu            sync.Mutex
+	strictMode              StrictModeOptions
+	limits                  RuntimeLimits
+	schedulerState          runtimeSchedulerState
+	replay                  runtimeReplayState
+	agentStateVersion       atomic.Uint64
 
 	// Global state management
 	atomRegistry *AtomRegistry
@@ -121,9 +124,6 @@ type Runtime struct {
 	// Global ID counter for useId hook
 	idCounter   int
 	idCounterMu sync.Mutex
-
-	// UI queue for non-render updates
-	uiQueue []func()
 
 	// Hydration bookkeeping
 	hydrating                      bool
@@ -323,9 +323,6 @@ func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
 	}
 	if parseRuntime.pendingEffectFibers == nil {
 		parseRuntime.pendingEffectFibers = make([]*Fiber, 0)
-	}
-	if parseRuntime.uiQueue == nil {
-		parseRuntime.uiQueue = make([]func(), 0)
 	}
 }
 

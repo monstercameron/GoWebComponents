@@ -130,27 +130,6 @@ func BenchmarkRenderSteadyState(parseB *testing.B) {
 	}
 }
 
-func BenchmarkEnqueueUI(parseB *testing.B) {
-	ProcessUIQueue()
-
-	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
-		EnqueueUI(func() {})
-		ProcessUIQueue()
-	}
-}
-
-func BenchmarkProcessUIQueueBatch64(parseB *testing.B) {
-	parseB.ReportAllocs()
-	for parseI := 0; parseI < parseB.N; parseI++ {
-		ProcessUIQueue()
-		for range 64 {
-			EnqueueUI(func() {})
-		}
-		ProcessUIQueue()
-	}
-}
-
 func BenchmarkTransitionListRefresh250(parseB *testing.B) {
 	parseAdapter := newTestDOMAdapter()
 	parseScheduler := newTestScheduler()

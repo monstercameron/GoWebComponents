@@ -489,52 +489,23 @@ func TestScheduleUpdateForFiberWithOrigin_PreservesTransitionOriginAcrossMixedMa
 	}
 }
 
-func TestEnqueueUI(parseT *testing.T) {
-	isParseExecuted := false
-
-	EnqueueUI(func() {
-		isParseExecuted = true
-	})
-
-	ProcessUIQueue()
-
-	if !isParseExecuted {
-		parseT.Error("Expected UI function to be executed")
-	}
-}
-
-func TestUIQueue_MultipleItems(parseT *testing.T) {
+// Ported from TestUIQueue_MultipleItems (v5 P2.4). The package-global UI queue
+// it exercised is gone; the per-runtime async inbox replaced it, so the same
+// property — many queued items all run — is asserted against the new mechanism.
+func TestAsyncInbox_MultipleItems(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler(), Reset: true})
 	parseCount := 0
 
 	for range 10 {
-		EnqueueUI(func() {
+		parseRt.PostAsync(func() {
 			parseCount++
 		})
 	}
 
-	ProcessUIQueue()
+	parseRt.DrainAsyncInbox()
 
 	if parseCount != 10 {
 		parseT.Errorf("Expected 10 executions, got %d", parseCount)
 	}
 }
 
-func TestGetUIQueueSize(parseT *testing.T) {
-	// Clear queue first
-	ProcessUIQueue()
-
-	EnqueueUI(func() {})
-	EnqueueUI(func() {})
-
-	parseSize := GetUIQueueSize()
-	if parseSize != 2 {
-		parseT.Errorf("Expected queue size 2, got %d", parseSize)
-	}
-
-	ProcessUIQueue()
-
-	parseSize = GetUIQueueSize()
-	if parseSize != 0 {
-		parseT.Errorf("Expected queue size 0 after processing, got %d", parseSize)
-	}
-}

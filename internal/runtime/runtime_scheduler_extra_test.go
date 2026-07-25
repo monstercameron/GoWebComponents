@@ -48,19 +48,3 @@ func TestInfiniteDeadlineMethods(parseT *testing.T) {
 	}
 }
 
-func TestGetUIQueueSize_AfterEnqueueAndProcess(parseT *testing.T) {
-	ProcessUIQueue()
-
-	EnqueueUI(func() {})
-	EnqueueUI(func() {})
-
-	if parseGot := GetUIQueueSize(); parseGot != 2 {
-		parseT.Fatalf("expected queue size 2 after enqueue, got %d", parseGot)
-	}
-
-	ProcessUIQueue()
-
-	if parseGot2 := GetUIQueueSize(); parseGot2 != 0 {
-		parseT.Fatalf("expected queue size 0 after processing, got %d", parseGot2)
-	}
-}

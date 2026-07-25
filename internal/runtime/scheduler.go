@@ -809,37 +809,16 @@ func (parseRt *Runtime) isFiberInCurrentTree(parseFiber *Fiber) bool {
 	return parseRoot == parseRt.currentRoot
 }
 
-// UI Queue for cross-goroutine updates
-type uiQueueItem struct {
-	fn func()
-}
-
-var uiQueue = make(chan uiQueueItem, 1024)
-
-// EnqueueUI adds a function to the UI queue for main-thread execution.
-func EnqueueUI(parseFn func()) {
-	select {
-	case uiQueue <- uiQueueItem{fn: parseFn}:
-		// Successfully enqueued
-	default:
-		// Queue full, execute synchronously (fallback)
-		parseFn()
-	}
-}
-
-// ProcessUIQueue runs pending UI updates until the queue is empty.
-func ProcessUIQueue() {
-	for {
-		select {
-		case parseItem := <-uiQueue:
-			parseItem.fn()
-		default:
-			return
-		}
-	}
-}
-
-// GetUIQueueSize returns the current UI queue size.
-func GetUIQueueSize() int {
-	return len(uiQueue)
-}
+// NOTE(v5 P2.4): EnqueueUI / ProcessUIQueue / GetUIQueueSize were REMOVED.
+//
+// They were the async inbox idea left unfinished. The package-level channel was
+// never drained by anything outside tests — ProcessUIQueue had no production
+// caller in the entire repository — so posted work simply accumulated until the
+// 1024-slot buffer filled. Worse, the queue-full path ran the callback
+// synchronously on the calling goroutine, which is exactly the cross-goroutine
+// hand-off the queue existed to prevent: under load it degraded into the
+// failure mode it was written to avoid.
+//
+// Runtime.PostAsync / DrainAsyncInbox (inbox.go, v5 P2.1) replace them, with
+// the two properties this lacked: a real drain point on the frame loop, and
+// per-runtime rather than package-global state.
