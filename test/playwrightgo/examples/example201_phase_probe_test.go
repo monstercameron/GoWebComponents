@@ -153,8 +153,8 @@ func TestExample201CPUProfileProbe(parseT *testing.T) {
 		var getPayload struct {
 			Profile struct {
 				Nodes []struct {
-					ID        int   `json:"id"`
-					HitCount  int   `json:"hitCount"`
+					ID        int `json:"id"`
+					HitCount  int `json:"hitCount"`
 					CallFrame struct {
 						FunctionName string `json:"functionName"`
 						URL          string `json:"url"`

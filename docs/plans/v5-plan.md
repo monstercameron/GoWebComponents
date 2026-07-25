@@ -66,7 +66,8 @@ packaging, and the worker correlation table.
 
 | Owed | Why it is not done here |
 |---|---|
-| M1 · M2 · M3 against v5 | the P0.2 harness subject app still runs SQLite on the render thread; validating the thesis needs it ported to the two-artifact model |
+| M2 to zero | 12 long frames remain (down from 245); the steady-state workloads are off-thread, so what is left is render-thread work — first render, worker instantiation, table growth |
+| M7 |  ships profiles but the harness applies none; wiring `ProfileResponsive` into app.wasm is the next step |
 | M7 · M12 pause half | js/wasm marks single-threaded without native Go's parallel assist — a native number would be a green check that means nothing |
 | P5.2 | a large deletion that also removes P3.3's conformance anchors; a deliberate call, not a consequence of a benchmark |
 | P6.2 · P6.3 | criteria are a network assertion and a paint-timeline assertion — both browser |
@@ -122,6 +123,43 @@ Open harness item: the probe yields ~56 interactions per run, below the 200 the
 tail-reliability guard needs for p95. The guard correctly refuses to quote it.
 Raise the input rate for a tighter number — the verdict is unaffected at this
 magnitude.
+
+### v5 MEASURED — the thesis holds
+
+Same harness, same workloads, same machine. The only change is **where the
+background work runs**: `services.wasm` instead of the render thread.
+`docs/benchmarks/v5-measured.json` against `v5-baseline.json`.
+
+| Metric | v4 | **v5** | Target | |
+|---|---|---|---|---|
+| M1 idle p95 frame | 16.80 ms | 16.70 ms | — (control) | |
+| M1 **loaded p95 frame** | **1633.30 ms** | **16.70 ms** | equivalent to idle | ✅ **MET** |
+| M1 equivalence | false | **true** | true | ✅ |
+| M2 long frames | 245 (worst 1649 ms) | 12 (worst 435 ms) | 0 | ❌ 20× better, not zero |
+| M3 interaction p95 / max | 1128 / 1400 ms | **24.0 / 72.0 ms** | <50 / <120 ms | ✅ **MET** |
+| M3 sample size | n=56 (guard refused it) | **n=542** | ≥200 | ✅ quotable |
+| M7 max GC pause | 6.60 ms | 7.10 ms | <3 ms | ❌ unchanged |
+
+**M1 is the plan's thesis and it is met.** Loaded p95 equals idle p95 to the
+decimal — 16.70 ms both arms, equivalence true, a **97.8× improvement** on the
+loaded frame. "Heavier work takes longer to complete, never longer to paint" is
+no longer an argument.
+
+**M3 is met and, for the first time, quotable.** The v4 run produced n=56, below
+the 200 the tail-reliability guard requires, so the guard correctly refused to
+quote its p95. This run produced n=542 — because the probe is no longer fighting
+the render thread for turns, so far more interactions complete.
+
+**M2 improved 20× and still misses.** Twelve long frames remain, worst 435 ms.
+They are not the steady-state workloads: those now live off-thread. The
+remaining spikes are the render thread's own work — most likely the first
+render, worker instantiation, and table growth. Finding and removing them is
+real work this measurement makes possible rather than something it settles.
+
+**M7 is unchanged at 7.10 ms** and that is expected: `gcpacing` ships profiles
+but nothing in the harness applies one. Wiring `ProfileResponsive` into the app
+binary is the obvious next step, and P4.4's own tests are explicit that a native
+run cannot predict what it will do in the browser.
 
 ### Phase 1+2 flags measured against the baseline — they REGRESS this scenario
 

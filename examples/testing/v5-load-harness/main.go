@@ -24,16 +24,13 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall/js"
-	"time"
 
-	"github.com/monstercameron/GoWebComponents/v4/db/sqlite"
 	h "github.com/monstercameron/GoWebComponents/v4/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/v4/interop"
 	"github.com/monstercameron/GoWebComponents/v4/ui"
@@ -48,188 +45,127 @@ const (
 	windowSize = 40
 )
 
-// ---------------------------------------------------------------- workloads
+// The background workloads now run in services.wasm, not here.
+//
+// That relocation IS what this harness measures. In v4 all three ran on the
+// render thread and produced a loaded p95 frame of 1633 ms against a 16.8 ms
+// idle frame — a 97x gap. This binary keeps only the render-thread half: the
+// table, the probe, and a cache of the worker's progress.
+//
+// Progress is PUSHED by the worker rather than polled, so reading stats never
+// costs a round trip. A poll per frame would reintroduce exactly the
+// main-thread wait the architecture exists to remove.
 
-// workload is one background job. It never renders; it exists to compete with
-// the probe for the main thread.
-type workload struct {
-	name    string
-	mu      sync.Mutex
-	running bool
-	stop    chan struct{}
-	// completed counts units of work finished, so a "pass" achieved by doing
-	// no background work at all is visible rather than silent.
+// workloadStats is the render thread's cached view of one worker workload.
+type workloadStats struct {
+	mu        sync.Mutex
 	completed int
 	errText   string
 }
 
-func (parseW *workload) begin() (chan struct{}, bool) {
-	parseW.mu.Lock()
-	defer parseW.mu.Unlock()
-	if parseW.running {
+func (parseStats *workloadStats) record(parseCompleted int, parseErrText string) {
+	parseStats.mu.Lock()
+	defer parseStats.mu.Unlock()
+	parseStats.completed = parseCompleted
+	if parseErrText != "" {
+		parseStats.errText = parseErrText
+	}
+}
+
+func (parseStats *workloadStats) snapshot() (int, string) {
+	parseStats.mu.Lock()
+	defer parseStats.mu.Unlock()
+	return parseStats.completed, parseStats.errText
+}
+
+var (
+	importStats  = &workloadStats{}
+	reindexStats = &workloadStats{}
+	decodeStats  = &workloadStats{}
+)
+
+func statsByName(parseName string) (*workloadStats, bool) {
+	switch parseName {
+	case "import":
+		return importStats, true
+	case "reindex":
+		return reindexStats, true
+	case "decode":
+		return decodeStats, true
+	default:
 		return nil, false
 	}
-	parseW.running = true
-	parseW.stop = make(chan struct{})
-	return parseW.stop, true
 }
 
-func (parseW *workload) end() {
-	parseW.mu.Lock()
-	if parseW.running {
-		parseW.running = false
-		close(parseW.stop)
-	}
-	parseW.mu.Unlock()
-}
-
-func (parseW *workload) tick(parseN int) {
-	parseW.mu.Lock()
-	parseW.completed += parseN
-	parseW.mu.Unlock()
-}
-
-func (parseW *workload) fail(parseErr error) {
-	parseW.mu.Lock()
-	parseW.errText = parseErr.Error()
-	parseW.mu.Unlock()
-}
-
-func (parseW *workload) snapshot() (int, string) {
-	parseW.mu.Lock()
-	defer parseW.mu.Unlock()
-	return parseW.completed, parseW.errText
-}
-
+// domainWorker is the services.wasm worker this binary drives.
 var (
-	importWorkload  = &workload{name: "import"}
-	reindexWorkload = &workload{name: "reindex"}
-	decodeWorkload  = &workload{name: "decode"}
+	domainWorker     js.Value
+	domainWorkerOnce sync.Once
+	domainWorkerErr  string
 )
 
-// database is opened once. Memory persistence keeps the harness measuring
-// runtime behavior rather than IndexedDB flush cost; durability is P3.6's
-// concern, not this scenario's.
-var (
-	databaseOnce sync.Once
-	database     *sqlite.DB
-	databaseErr  error
-)
-
-func openDatabase() (*sqlite.DB, error) {
-	databaseOnce.Do(func() {
-		database, databaseErr = sqlite.Open(context.Background(), sqlite.Options{
-			Name:        "v5harness",
-			Persistence: sqlite.Memory,
-		})
-		if databaseErr != nil {
-			return
-		}
-		_, databaseErr = database.Exec(context.Background(),
-			`CREATE TABLE IF NOT EXISTS rows_t (id INTEGER PRIMARY KEY, label TEXT, body TEXT)`)
-	})
-	return database, databaseErr
-}
-
-// runImport inserts 50k rows in batches, yielding between them so the work is
-// genuinely concurrent with the probe rather than one uninterruptible block.
-func runImport(parseStop chan struct{}) {
-	parseDB, parseErr := openDatabase()
-	if parseErr != nil {
-		importWorkload.fail(parseErr)
-		return
-	}
-	const batch = 500
-	for parseOffset := 0; parseOffset < 50000; parseOffset += batch {
-		select {
-		case <-parseStop:
-			return
-		default:
-		}
-		parseTx := strings.Builder{}
-		parseTx.WriteString("INSERT INTO rows_t (label, body) VALUES ")
-		for parseI := range batch {
-			if parseI > 0 {
-				parseTx.WriteString(",")
-			}
-			fmt.Fprintf(&parseTx, "('row-%d','%s')", parseOffset+parseI, strings.Repeat("x", 48))
-		}
-		if _, parseErr := parseDB.Exec(context.Background(), parseTx.String()); parseErr != nil {
-			importWorkload.fail(parseErr)
-			return
-		}
-		importWorkload.tick(batch)
-		yieldToLoop()
-	}
-}
-
-// runReindex scans every row repeatedly, the read-side counterpart to the
-// import's write pressure.
-func runReindex(parseStop chan struct{}) {
-	parseDB, parseErr := openDatabase()
-	if parseErr != nil {
-		reindexWorkload.fail(parseErr)
-		return
-	}
-	for {
-		select {
-		case <-parseStop:
-			return
-		default:
-		}
-		parseRows, parseErr := parseDB.Query(context.Background(),
-			`SELECT id, label FROM rows_t ORDER BY label LIMIT 2000`)
-		if parseErr != nil {
-			reindexWorkload.fail(parseErr)
-			return
-		}
-		parseSeen := 0
-		for parseRows.Next() {
-			var parseID int
-			var parseLabel string
-			if parseErr := parseRows.Scan(&parseID, &parseLabel); parseErr != nil {
-				break
-			}
-			parseSeen++
-		}
-		parseRows.Close()
-		reindexWorkload.tick(parseSeen)
-		yieldToLoop()
-	}
-}
-
-// runDecodeLoop builds and parses a ~2MB JSON payload every 3s.
+// startDomainWorker creates the worker and wires its progress messages.
 //
-// It builds the payload locally rather than fetching one: fetch() itself runs
-// off the main thread, so the main-thread cost this scenario needs to model is
-// the DECODE, not the transfer. Modelling it locally also keeps the harness
-// deterministic and offline.
-func runDecodeLoop(parseStop chan struct{}) {
-	parsePayload := buildLargeJSON()
-	for {
-		select {
-		case <-parseStop:
+// Called once, at startup, so the worker's wasm is instantiating while the app
+// renders its first frame rather than after the harness asks for work.
+func startDomainWorker() {
+	domainWorkerOnce.Do(func() {
+		parseWorkerCtor := js.Global().Get("Worker")
+		if parseWorkerCtor.IsUndefined() {
+			domainWorkerErr = "this context has no Worker constructor"
 			return
-		case <-time.After(3 * time.Second):
 		}
-		parseParsed := js.Global().Get("JSON").Call("parse", parsePayload)
-		decodeWorkload.tick(parseParsed.Get("items").Length())
-		yieldToLoop()
-	}
+		domainWorker = parseWorkerCtor.New("./worker.js")
+
+		domainWorker.Set("onmessage", js.FuncOf(func(_ js.Value, parseArgs []js.Value) any {
+			if len(parseArgs) == 0 {
+				return nil
+			}
+			parseData := parseArgs[0].Get("data")
+			if parseData.IsUndefined() || parseData.IsNull() {
+				return nil
+			}
+			parseName := parseData.Get("workload").String()
+			parseErrText := ""
+			if parseErr := parseData.Get("err"); !parseErr.IsUndefined() && !parseErr.IsNull() {
+				parseErrText = parseErr.String()
+			}
+			if parseStats, hasStats := statsByName(parseName); hasStats {
+				parseStats.record(parseData.Get("completed").Int(), parseErrText)
+			} else if parseErrText != "" {
+				// A worker-level failure carries no workload name. Recording it
+				// against all three keeps a broken worker from reading as three
+				// workloads that simply did nothing.
+				importStats.record(0, parseErrText)
+				reindexStats.record(0, parseErrText)
+				decodeStats.record(0, parseErrText)
+			}
+			return nil
+		}))
+
+		domainWorker.Set("onerror", js.FuncOf(func(_ js.Value, parseArgs []js.Value) any {
+			domainWorkerErr = "worker error"
+			importStats.record(0, domainWorkerErr)
+			reindexStats.record(0, domainWorkerErr)
+			decodeStats.record(0, domainWorkerErr)
+			return nil
+		}))
+	})
 }
 
-func buildLargeJSON() string {
-	parseBuilder := strings.Builder{}
-	parseBuilder.WriteString(`{"items":[`)
-	for parseI := range 12000 {
-		if parseI > 0 {
-			parseBuilder.WriteString(",")
+// postToWorker sends one start/stop instruction.
+func postToWorker(parseOp string, parseName string) {
+	startDomainWorker()
+	if domainWorker.IsUndefined() {
+		if parseStats, hasStats := statsByName(parseName); hasStats {
+			parseStats.record(0, domainWorkerErr)
 		}
-		fmt.Fprintf(&parseBuilder, `{"id":%d,"name":"item-%d","tags":["a","b","c"],"body":"%s"}`,
-			parseI, parseI, strings.Repeat("y", 96))
+		return
 	}
-	parseBuilder.WriteString(`]}`)
-	return parseBuilder.String()
+	parseMessage := js.Global().Get("Object").New()
+	parseMessage.Set("op", parseOp)
+	parseMessage.Set("workload", parseName)
+	domainWorker.Call("postMessage", parseMessage)
 }
 
 // yieldToLoop hands control back to the JS event loop so background work
@@ -325,25 +261,31 @@ func renderApp() ui.Node {
 
 // -------------------------------------------------------------- JS bindings
 
-func workloadObject(parseW *workload, parseRun func(chan struct{})) js.Value {
+// workloadObject exposes one worker-backed workload with the SAME JS shape the
+// harness already drives.
+//
+// The contract is deliberately unchanged: start, stop, stats. Only the
+// implementation moved. Changing the surface at the same time as the
+// architecture would make any measured difference impossible to attribute.
+func workloadObject(parseName string, parseStats *workloadStats) js.Value {
 	parseObj := js.Global().Get("Object").New()
-	parseObj.Set("name", parseW.name)
+	parseObj.Set("name", parseName)
 	parseObj.Set("start", js.FuncOf(func(js.Value, []js.Value) any {
-		if parseStop, parseOk := parseW.begin(); parseOk {
-			go parseRun(parseStop)
-		}
+		postToWorker("start", parseName)
 		return nil
 	}))
 	parseObj.Set("stop", js.FuncOf(func(js.Value, []js.Value) any {
-		parseW.end()
+		postToWorker("stop", parseName)
 		return nil
 	}))
 	parseObj.Set("stats", js.FuncOf(func(js.Value, []js.Value) any {
-		parseCompleted, parseErrText := parseW.snapshot()
-		parseStats := js.Global().Get("Object").New()
-		parseStats.Set("completed", parseCompleted)
-		parseStats.Set("err", parseErrText)
-		return parseStats
+		// Answered from the cache the worker pushes into. No round trip, which
+		// is the point — the harness reads this between frames.
+		parseCompleted, parseErrText := parseStats.snapshot()
+		parseSnapshot := js.Global().Get("Object").New()
+		parseSnapshot.Set("completed", parseCompleted)
+		parseSnapshot.Set("err", parseErrText)
+		return parseSnapshot
 	}))
 	return parseObj
 }
@@ -351,9 +293,9 @@ func workloadObject(parseW *workload, parseRun func(chan struct{})) js.Value {
 // registerWorkloads exposes the background jobs.
 func registerWorkloads() {
 	parseObj := js.Global().Get("Object").New()
-	parseObj.Set("import", workloadObject(importWorkload, runImport))
-	parseObj.Set("reindex", workloadObject(reindexWorkload, runReindex))
-	parseObj.Set("decode", workloadObject(decodeWorkload, runDecodeLoop))
+	parseObj.Set("import", workloadObject("import", importStats))
+	parseObj.Set("reindex", workloadObject("reindex", reindexStats))
+	parseObj.Set("decode", workloadObject("decode", decodeStats))
 	js.Global().Set("__gwcV5Workloads", parseObj)
 }
 
@@ -459,6 +401,13 @@ func main() {
 	js.Global().Set("__gwcV5Config", parseConfigObj)
 
 	registerV5LoadHarnessProbe()
+
+	// Start the domain worker before the first render, so its wasm instantiates
+	// while this thread paints rather than after the harness asks for work. A
+	// lazily-created worker would put its whole instantiation cost inside the
+	// first measured workload and attribute it to the workload.
+	startDomainWorker()
+
 	registerWorkloads()
 	registerProbes()
 

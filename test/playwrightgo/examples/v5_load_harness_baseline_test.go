@@ -58,9 +58,9 @@ type v5HarnessReport struct {
 			} `json:"loaded"`
 		} `json:"m1_frameTimeEquivalence"`
 		M2 struct {
-			Count  int     `json:"count"`
+			Count   int     `json:"count"`
 			WorstMs float64 `json:"worstMs"`
-			Source string  `json:"source"`
+			Source  string  `json:"source"`
 		} `json:"m2_longFrames"`
 		M3 struct {
 			N   int     `json:"n"`
