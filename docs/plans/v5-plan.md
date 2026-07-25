@@ -50,10 +50,15 @@ substantially complete; Phase 4 started.
 | P3.13 migration guide | ◐ | `docs/V5_MIGRATION.md`; the CashFlux port is a different repo |
 | P6.4 out-of-order Suspense | ✅ | shell at 0s vs 251ms boundary; 4x120ms resolve in 120ms |
 | worker request/reply | ✅ | correlation table; the plumbing every other item assumed |
-| P5.2 retire runtime2 | ⏸ | measured and predicted; **not executed** — see Phase 5 |
+| harness two-artifact port | ✅ | **M1 and M3 MET**; workloads run in `services.wasm` |
+| P5.2 retire runtime2 | ✅ | 453 files, 78k lines; `ui.ParallelRegion` removed (breaking) |
 | P6.2 · P6.3 · P0.5 | ⛔ | need a browser, build tooling, or other frameworks |
 
 ### What is built, and what is still owed
+
+**Validated in a browser:** M1 (loaded p95 = idle p95 = 16.70 ms, 97.8×) and M3
+(24.0 / 56.0 ms) on the two-artifact harness. M2 and M7 improved sharply and
+still miss.
 
 **Built and tested natively (454 tests across the v5 packages):** the services
 substrate, the domain command runtime, off-thread SQLite, the delta engine, the
@@ -69,7 +74,6 @@ packaging, and the worker correlation table.
 | M2 to zero | 12 long frames remain (down from 245); the steady-state workloads are off-thread, so what is left is render-thread work — first render, worker instantiation, table growth |
 | M7 | the `gcpacing` package ships profiles but the harness applies none; wiring `ProfileResponsive` into `app.wasm` is the next step |
 | M12 pause half | js/wasm marks single-threaded without native Go's parallel assist — a native number would be a green check that means nothing |
-| P5.2 | a large deletion that also removes P3.3's conformance anchors; a deliberate call, not a consequence of a benchmark |
 | P6.2 · P6.3 | criteria are a network assertion and a paint-timeline assertion — both browser |
 | P0.5 | needs Solid, Svelte 5, and a Rust peer installed |
 | P3.13 second half | CashFlux lives in its own repository |
