@@ -67,8 +67,8 @@ packaging, and the worker correlation table.
 | Owed | Why it is not done here |
 |---|---|
 | M2 to zero | 12 long frames remain (down from 245); the steady-state workloads are off-thread, so what is left is render-thread work — first render, worker instantiation, table growth |
-| M7 |  ships profiles but the harness applies none; wiring `ProfileResponsive` into app.wasm is the next step |
-| M7 · M12 pause half | js/wasm marks single-threaded without native Go's parallel assist — a native number would be a green check that means nothing |
+| M7 | the `gcpacing` package ships profiles but the harness applies none; wiring `ProfileResponsive` into `app.wasm` is the next step |
+| M12 pause half | js/wasm marks single-threaded without native Go's parallel assist — a native number would be a green check that means nothing |
 | P5.2 | a large deletion that also removes P3.3's conformance anchors; a deliberate call, not a consequence of a benchmark |
 | P6.2 · P6.3 | criteria are a network assertion and a paint-timeline assertion — both browser |
 | P0.5 | needs Solid, Svelte 5, and a Rust peer installed |
