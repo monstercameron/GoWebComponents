@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/andybalholm/brotli"
 )
 
 // v5 P3.10 — two-artifact packaging, acceptance M5 and M10.
@@ -56,6 +58,94 @@ func buildWasm(parseT *testing.T, parsePackage string) (int64, int64) {
 	}
 
 	return int64(len(parseBytes)), int64(parseCompressed.Len())
+}
+
+// compressBrotli reports a payload's brotli size at maximum quality.
+//
+// P6.1 pairs wasm-opt with brotli. wasm-opt is a Binaryen tool and is not
+// installed here, so that half is not measured — see
+// TestP61CompressionDeltaIsRecorded. Brotli is a dependency of this module
+// already, so its delta over gzip can be measured exactly.
+func compressBrotli(parseT *testing.T, parseBytes []byte) int64 {
+	parseT.Helper()
+
+	var parseCompressed bytes.Buffer
+	parseWriter := brotli.NewWriterLevel(&parseCompressed, brotli.BestCompression)
+	if _, parseErr := parseWriter.Write(parseBytes); parseErr != nil {
+		parseT.Fatalf("brotli write: %v", parseErr)
+	}
+	if parseErr := parseWriter.Close(); parseErr != nil {
+		parseT.Fatalf("brotli close: %v", parseErr)
+	}
+	return int64(parseCompressed.Len())
+}
+
+// buildAndRead compiles a package and returns its raw bytes.
+func buildAndRead(parseT *testing.T, parsePackage string) []byte {
+	parseT.Helper()
+
+	if _, parseErr := exec.LookPath("go"); parseErr != nil {
+		parseT.Skip("the go toolchain is not available")
+	}
+	parseOutput := filepath.Join(parseT.TempDir(), "out.wasm")
+	parseCommand := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", parseOutput, parsePackage)
+	parseCommand.Env = append(parseCommand.Environ(), "GOOS=js", "GOARCH=wasm")
+	if parseCombined, parseErr := parseCommand.CombinedOutput(); parseErr != nil {
+		parseT.Fatalf("building %s: %s", parsePackage, parseCombined)
+	}
+	parseBytes, parseReadErr := os.ReadFile(parseOutput)
+	if parseReadErr != nil {
+		parseT.Fatalf("reading the artifact: %v", parseReadErr)
+	}
+	return parseBytes
+}
+
+// TestP61CompressionDeltaIsRecorded measures P6.1's compression half.
+//
+// The criterion is "measured size delta recorded per step". Two steps, and only
+// one of them can run here:
+//
+//   - wasm-opt -Oz: a Binaryen tool, NOT INSTALLED in this environment, so its
+//     delta is unmeasured and stays unmeasured rather than estimated. A number
+//     invented for a tool that did not run would be worse than a gap.
+//   - brotli over gzip: measured exactly, since brotli is already a dependency.
+func TestP61CompressionDeltaIsRecorded(parseT *testing.T) {
+	if testing.Short() {
+		parseT.Skip("skipping wasm builds in short mode")
+	}
+
+	if _, parseErr := exec.LookPath("wasm-opt"); parseErr == nil {
+		parseT.Log("wasm-opt IS available here; its delta should be added to this measurement")
+	} else {
+		parseT.Log("wasm-opt is not installed, so the -Oz step is UNMEASURED and is not estimated")
+	}
+
+	for _, parseCase := range []struct {
+		label string
+		pkg   string
+	}{
+		{"app.wasm", appPackage},
+		{"services.wasm", servicesPackage},
+	} {
+		parseBytes := buildAndRead(parseT, parseCase.pkg)
+
+		var parseGzip bytes.Buffer
+		parseWriter, _ := gzip.NewWriterLevel(&parseGzip, gzip.BestCompression)
+		parseWriter.Write(parseBytes)
+		parseWriter.Close()
+
+		parseGzipSize := int64(parseGzip.Len())
+		parseBrotliSize := compressBrotli(parseT, parseBytes)
+		parseSaving := 100 * float64(parseGzipSize-parseBrotliSize) / float64(parseGzipSize)
+
+		parseT.Logf("P6.1 %s: raw %d B, gzip %d B, brotli %d B (%.1f%% smaller than gzip)",
+			parseCase.label, len(parseBytes), parseGzipSize, parseBrotliSize, parseSaving)
+
+		if parseBrotliSize >= parseGzipSize {
+			parseT.Errorf("%s: brotli (%d B) is not smaller than gzip (%d B); the step is not worth taking",
+				parseCase.label, parseBrotliSize, parseGzipSize)
+		}
+	}
 }
 
 // listDeps returns a package's transitive js/wasm dependencies.

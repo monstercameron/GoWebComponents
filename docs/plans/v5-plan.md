@@ -39,11 +39,22 @@ substantially complete; Phase 4 started.
 | P4.2 workload budgets | ✅ | §11-Q12 resolved; R6 violation found and fixed |
 | P4.3 devtools timeline | ✅ | causal ordering across threads; clocks never compared |
 | P3.10 two-artifact packaging | ✅ | engine out of `app.wasm`; **M5 missed at 1.73MB**, recorded |
-| P3.6 · P3.11 · P3.13 · P3.14 · P3.15b | ⛔ | remaining Phase 3 |
-| P4.4 · Phase 5 · 6 · P0.5 | ⛔ | not started |
+| P3.6 tier + single-writer | ✅ | fallback quiet, second tab read-only, lock model tested |
+| P3.11 SSR bootstrap | ✅ | `Ready()` is declared, not derived from row count |
+| P3.14 domain hot-reload | ✅ | reload republishes 0 ops; replay state survives |
+| P3.15b escalation assistant | ✅ | classifies read/write, refuses to guess |
+| P4.4 GC pacing | ✅ | profiles ship; M7 stays open, and a test says why |
+| P5.1 render share | ✅ | **11% typical — under the 35% bar; retire predicted, P5.2 not executed** |
+| P6.1 compression | ◐ | brotli measured (−27%); `wasm-opt` not installed, unmeasured |
+| P6.5 honest size story | ✅ | `docs/V5_SIZE_STORY.md` |
+| P3.13 · P6.2 · P6.3 · P6.4 · P0.5 | ⛔ | not started |
 
-**M5 is missed and stays missed for now.** Measured on the two-artifact example:
-1.73 MB gzipped against a 1.6 MB target. Of the budget, **541 KB (34%) is the Go
+**M5 is missed as written, and met in practice.** Measured on the two-artifact
+example: 1.73 MB **gzipped** against a 1.6 MB target — and **1.26 MB brotli**,
+which is 21% under it. Every browser that runs wasm negotiates brotli, so 1.26 MB
+is what a user downloads. The metric says gzip, so M5 is recorded as MISSED
+rather than retroactively edited to produce a pass; both numbers are true and
+they are not the same claim. Full accounting in `docs/V5_SIZE_STORY.md`. Of the budget, **541 KB (34%) is the Go
 js/wasm floor** — an empty `func main() { select {} }` built with the same flags
 — so the addressable portion is 1.06 MB and the overrun is 12% of *that*. The
 plan already anticipated this: M5 is advisory precisely because it "measures
@@ -173,6 +184,7 @@ ship short of it with a recorded reason).
 | M4 | 10k-row collection commit cost | O(dataset) | O(viewport) | 🔴 | P0.3 |
 | M5 | `app.wasm` gzipped | 2.37MB | <1.6MB | ⚪ | P0.3 |
 | M5 · measured | two-artifact `app.wasm` gzipped | — | **1.73MB — MISSED by 8%** | ⚪ | P3.10 |
+| M5 · brotli | same binary, brotli (what browsers negotiate) | — | **1.26MB — 21% UNDER target** | ⚪ | P6.1 |
 | M6 | runtime1 geomean vs React | 0.71x | no regression | 🔴 | P0.3 |
 | M7 | GC max pause, render thread | ~9ms | <3ms | ⚪ | P0.3 |
 | M8a/b | `cloneElementProps` alloc share / absolute allocs-per-op | 53% / — | <20% / −40% | ⚪ | PA.1 |
