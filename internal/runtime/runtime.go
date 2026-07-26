@@ -149,9 +149,17 @@ type Runtime struct {
 	// signal. A boolean alone cannot distinguish "tripped once during a bulk
 	// import" from "trips every frame", which are different problems.
 	pendingEffectOverflowCount int
-	transitionDepth            int
-	pendingTransitions         int
-	transitionMu               sync.Mutex
+	// transitionDepth is the TOTAL number of open transitions across all
+	// goroutines. It is only a cheap gate: a state write asks "is any transition
+	// open" first, and consults transitionOwners for "is MINE open" only when the
+	// answer is yes. See transition.go.
+	transitionDepth int
+	// transitionOwners counts open transitions per goroutine, so one goroutine's
+	// StartTransition cannot demote an unrelated goroutine's write to the
+	// transition lane.
+	transitionOwners   map[uint64]int
+	pendingTransitions int
+	transitionMu       sync.Mutex
 	strictMode                 StrictModeOptions
 	limits                     RuntimeLimits
 	schedulerState             runtimeSchedulerState

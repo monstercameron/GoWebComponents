@@ -188,3 +188,80 @@ func findErrorBoundaryFiberForTest(parseFiber *Fiber) *Fiber {
 	}
 	return findErrorBoundaryFiberForTest(parseFiber.sibling)
 }
+
+// A transition on one goroutine must not make an unrelated goroutine's write
+// non-urgent.
+//
+// transitionDepth was a single counter, so ShouldDeferStateUpdates answered "is a
+// transition open anywhere" for every caller. Harmless only until the fiber clones
+// started carrying updateLane — a deferred transition now waits up to its 500ms
+// expiry, so a coincidence of timing could hold an urgent write that long.
+func TestTransitionScopeDoesNotLeakToOtherGoroutines(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler(), Reset: true})
+
+	parseInside := make(chan struct{})
+	parseSeen := make(chan bool, 1)
+	parseRelease := make(chan struct{})
+
+	go func() {
+		<-parseInside
+		parseSeen <- parseRt.ShouldDeferStateUpdates()
+		close(parseRelease)
+	}()
+
+	parseOwnerSaw := false
+	parseRt.StartTransition(func() {
+		// The owning goroutine IS inside the transition.
+		parseOwnerSaw = parseRt.ShouldDeferStateUpdates()
+		close(parseInside)
+		<-parseRelease
+	})
+
+	if !parseOwnerSaw {
+		parseT.Error("the goroutine that opened the transition must be inside it")
+	}
+	if <-parseSeen {
+		parseT.Error("an unrelated goroutine was told to defer; its writes would be demoted to the transition lane")
+	}
+	if parseRt.ShouldDeferStateUpdates() {
+		parseT.Error("the transition must close when StartTransition returns")
+	}
+}
+
+// Nesting on one goroutine, and two goroutines transitioning at once, must both
+// stay correct — which is why ownership is a per-goroutine count rather than a
+// single owner id.
+func TestTransitionScopeHandlesNestingAndConcurrency(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler(), Reset: true})
+
+	parseRt.StartTransition(func() {
+		parseRt.StartTransition(func() {
+			if !parseRt.ShouldDeferStateUpdates() {
+				parseT.Error("inner nested transition should defer")
+			}
+		})
+		if !parseRt.ShouldDeferStateUpdates() {
+			parseT.Error("the outer transition must survive the inner one closing")
+		}
+	})
+	if parseRt.ShouldDeferStateUpdates() {
+		parseT.Error("both transitions closed; nothing should defer")
+	}
+
+	// Two goroutines, each in its own transition, must each see only their own.
+	parseBothOpen := make(chan struct{})
+	parseDone := make(chan bool, 2)
+	for parseI := 0; parseI < 2; parseI++ {
+		go func() {
+			parseRt.StartTransition(func() {
+				parseDone <- parseRt.ShouldDeferStateUpdates()
+				<-parseBothOpen
+			})
+		}()
+	}
+	parseFirst, parseSecond := <-parseDone, <-parseDone
+	close(parseBothOpen)
+	if !parseFirst || !parseSecond {
+		parseT.Error("each transitioning goroutine must see its own transition")
+	}
+}
