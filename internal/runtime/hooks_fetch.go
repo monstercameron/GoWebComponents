@@ -97,14 +97,16 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 			// Use syscall/js to call fetch API
 			parseFetch := js.Global().Get("fetch")
 			if !parseFetch.Truthy() {
-				parseHooks.fetches[parseIdx].state = FetchState{
-					Data:    nil,
-					Error:   "fetch API unavailable",
-					Loading: false,
-				}
-				if parseRt != nil {
-					parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
-				}
+				parseRt.applyAsyncStateWrite(func() {
+					parseHooks.fetches[parseIdx].state = FetchState{
+						Data:    nil,
+						Error:   "fetch API unavailable",
+						Loading: false,
+					}
+					if parseRt != nil {
+						parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
+					}
+				})
 				return
 			}
 
@@ -125,14 +127,16 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 					parseStatus := parseResp.Get("status").Int()
 					parseErrorMsg := fmt.Sprintf("Fetch failed: %d %s", parseStatus, parseStatusText)
 
-					parseHooks.fetches[parseIdx].state = FetchState{
-						Data:    nil,
-						Error:   parseErrorMsg,
-						Loading: false,
-					}
-					if parseRt != nil {
-						parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
-					}
+					parseRt.applyAsyncStateWrite(func() {
+						parseHooks.fetches[parseIdx].state = FetchState{
+							Data:    nil,
+							Error:   parseErrorMsg,
+							Loading: false,
+						}
+						if parseRt != nil {
+							parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
+						}
+					})
 					return nil
 				}
 
@@ -146,14 +150,16 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 					defer parseTextCatch.Release()
 
 					parseData := parseArgs2[0].String()
-					parseHooks.fetches[parseIdx].state = FetchState{
-						Data:    parseData,
-						Error:   "",
-						Loading: false,
-					}
-					if parseRt != nil {
-						parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
-					}
+					parseRt.applyAsyncStateWrite(func() {
+						parseHooks.fetches[parseIdx].state = FetchState{
+							Data:    parseData,
+							Error:   "",
+							Loading: false,
+						}
+						if parseRt != nil {
+							parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
+						}
+					})
 					return nil
 				})
 
@@ -162,14 +168,16 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 					defer parseTextThen.Release()
 					defer parseTextCatch.Release()
 
-					parseHooks.fetches[parseIdx].state = FetchState{
-						Data:    nil,
-						Error:   "Failed to read response body",
-						Loading: false,
-					}
-					if parseRt != nil {
-						parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
-					}
+					parseRt.applyAsyncStateWrite(func() {
+						parseHooks.fetches[parseIdx].state = FetchState{
+							Data:    nil,
+							Error:   "Failed to read response body",
+							Loading: false,
+						}
+						if parseRt != nil {
+							parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
+						}
+					})
 					return nil
 				})
 
@@ -183,14 +191,16 @@ func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState
 				defer parseThen.Release()
 				defer parseCatch.Release()
 
-				parseHooks.fetches[parseIdx].state = FetchState{
-					Data:    nil,
-					Error:   "Fetch failed", // Matches test expectation
-					Loading: false,
-				}
-				if parseRt != nil {
-					parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
-				}
+				parseRt.applyAsyncStateWrite(func() {
+					parseHooks.fetches[parseIdx].state = FetchState{
+						Data:    nil,
+						Error:   "Fetch failed", // Matches test expectation
+						Loading: false,
+					}
+					if parseRt != nil {
+						parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
+					}
+				})
 				return nil
 			})
 

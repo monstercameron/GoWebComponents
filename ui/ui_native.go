@@ -294,6 +294,7 @@ type SchedulingOptions struct {
 	PassiveEffectsAfterPaint bool
 	FrameBudgetMs            float64
 	LaneQueues               bool
+	AsyncIngress             bool
 }
 
 // ConfigureScheduling is a no-op off-browser: there is no paint to defer past

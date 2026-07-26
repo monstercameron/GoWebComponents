@@ -686,6 +686,23 @@ func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (fu
 				})
 			}
 
+			// Same off-loop routing as GoUseState. An atom is MORE exposed to
+			// this, not less: it is the natural place to publish a worker reply
+			// or a subscription event, so its setter is more likely than a
+			// component's to be called from a goroutine.
+			if parseRt.shouldPostAsyncStateUpdate() {
+				parseRt.PostAsync(func() {
+					if parseRt.ShouldDeferStateUpdates() {
+						parseRt.ScheduleTransition(func() {
+							apply("transition")
+						})
+						return
+					}
+					apply("atom-async")
+				})
+				return
+			}
+
 			if parseRt.ShouldDeferStateUpdates() {
 				parseRt.ScheduleTransition(func() {
 					apply("transition")

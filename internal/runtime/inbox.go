@@ -308,3 +308,25 @@ func (parseRt *Runtime) shouldPostAsyncStateUpdate() bool {
 func (parseRt *Runtime) AsyncIngressEnabled() bool {
 	return parseRt != nil && parseRt.asyncIngress
 }
+
+// applyAsyncStateWrite runs one state mutation where it is safe to run.
+//
+// For call sites that mutate state DIRECTLY rather than through a setter — the
+// fetch hook writes its FetchState into the hooks slice and then schedules —
+// there is no setter to route, so the routing has to happen at the write.
+//
+// A JS promise callback is the motivating case and is easy to misjudge. It runs
+// on the same thread as the frame loop, which makes it feel synchronous with
+// rendering, but it runs as a MICROTASK outside any region the runtime marked.
+// A resolution that lands while a sliced render is between units mutates hook
+// state the in-flight tree has already read.
+func (parseRt *Runtime) applyAsyncStateWrite(parseWrite func()) {
+	if parseWrite == nil {
+		return
+	}
+	if parseRt.shouldPostAsyncStateUpdate() {
+		parseRt.PostAsync(parseWrite)
+		return
+	}
+	parseWrite()
+}

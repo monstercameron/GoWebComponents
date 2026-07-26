@@ -37,6 +37,19 @@ type SchedulingOptions struct {
 	// LaneQueues defers work marked at a lower priority than the running pass to
 	// a follow-up pass, with a per-lane deadline so deferral cannot starve.
 	LaneQueues bool
+	// AsyncIngress routes state writes made OUTSIDE the frame loop — from a
+	// worker reply, a gRPC callback, or any goroutine — through the async inbox,
+	// so they are applied at one defined point per frame instead of at whatever
+	// moment they happen to arrive.
+	//
+	// This is the flag that makes existing async code safe without rewriting it.
+	// Without it, isolation depends on every such call site remembering to use
+	// ui.PostAsync, and a call site that forgets gets no warning.
+	//
+	// It changes WHEN an async write lands: one task later, at the drain. Writes
+	// posted together are applied in one block, so several results produce one
+	// render rather than several.
+	AsyncIngress bool
 }
 
 var schedulingOptions SchedulingOptions
@@ -781,6 +794,7 @@ func ensureInitialized() {
 		PassiveEffectsAfterPaint: schedulingOptions.PassiveEffectsAfterPaint,
 		FrameBudgetMs:            schedulingOptions.FrameBudgetMs,
 		LaneQueues:               schedulingOptions.LaneQueues,
+		AsyncIngress:             schedulingOptions.AsyncIngress,
 	})
 	if _, parseErr := pluginruntime.BootGlobalKernel(pluginruntime.BootstrapOptions{}); parseErr != nil {
 		runtime.ReportDiagnostic("pluginruntime", runtime.DiagnosticWarning, "plugin kernel bootstrap failed: "+parseErr.Error())

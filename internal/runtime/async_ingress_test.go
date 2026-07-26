@@ -314,3 +314,67 @@ func TestAsyncIngress_HardOverflowDrainsRatherThanGrowingForever(parseT *testing
 			parseDepth, parseCeiling)
 	}
 }
+
+// TestAsyncIngress_AtomWritesAreRoutedToo closes the gap that made the feature
+// look complete while covering one hook.
+//
+// Routing only GoUseState leaves the shape most exposed to this unprotected. An
+// atom is the natural place to publish a worker reply or a subscription event —
+// it exists so state can be shared across components without threading it
+// through props — so its setter is MORE likely than a component's to be called
+// from a goroutine, not less.
+func TestAsyncIngress_AtomWritesAreRoutedToo(parseT *testing.T) {
+	parseRt, parseContainer, parseScheduler := newAsyncIngressRuntime(parseT)
+
+	parseRenders := 0
+	var parseSet func(any)
+	parseRendered := ""
+	parseComponent := func() *Element {
+		parseRenders++
+		parseValue, parseSetter := GoUseAtom(parseRt, "async-ingress-atom", "start")
+		parseSet = parseSetter
+		parseRendered = parseValue()
+		return CreateElement("span", map[string]any{}, parseValue())
+	}
+	parseRt.Render(CreateElement(parseComponent, nil), parseContainer)
+	runScheduledTimeouts(parseScheduler)
+	if parseSet == nil {
+		parseT.Fatal("the component never rendered, so no atom setter was captured")
+	}
+
+	parseSet("from-async")
+
+	if parseRendered != "start" {
+		parseT.Errorf("the atom write reached the tree immediately (rendered %q); an off-loop atom setter is not being routed",
+			parseRendered)
+	}
+	if parseRt.AsyncInboxDepth() != 1 {
+		parseT.Errorf("inbox depth = %d, want 1; the atom write was not queued", parseRt.AsyncInboxDepth())
+	}
+
+	runScheduledTimeouts(parseScheduler)
+	if parseRendered != "from-async" {
+		parseT.Errorf("after the drain, rendered %q, want %q; the atom write was queued and then lost",
+			parseRendered, "from-async")
+	}
+}
+
+// TestAsyncIngress_IsReachableFromThePublicAPI pins the gap that made every
+// other test in this file describe an unreachable feature.
+//
+// runtime.Config.AsyncIngress is internal. ui.SchedulingOptions is what an
+// application actually calls, and it carried no field for this — so the flag
+// could be set by the runtime's own tests and by nothing else. A guarantee no
+// caller can turn on is not a guarantee.
+func TestAsyncIngress_IsReachableFromThePublicAPI(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{
+		DOMAdapter:   parseAdapter,
+		Scheduler:    newTestScheduler(),
+		AsyncIngress: true,
+		Reset:        true,
+	})
+	if !parseRt.AsyncIngressEnabled() {
+		parseT.Fatal("Config.AsyncIngress did not reach the runtime")
+	}
+}
