@@ -281,6 +281,13 @@ func (parseRt *Runtime) frameBudgetEnabled() bool {
 func (parseRt *Runtime) workLoop(parseDeadline Deadline) {
 	parseRt.workLoopDepth++
 	defer func() { parseRt.workLoopDepth-- }()
+	// Render and commit are frame-loop work, and marking them through the same
+	// counter as event dispatch gives ownership ONE rule. Reading workLoopDepth
+	// separately in insideFrameLoop would have left this region unowned, so a
+	// goroutine spawned mid-render would still have been mistaken for the
+	// renderer.
+	parseRt.enterFrameLoop()
+	defer parseRt.exitFrameLoop()
 	if hookThreadingGuardEnabled && !parseRt.renderPassActive {
 		parseRt.renderPassActive = true
 		defer func() {

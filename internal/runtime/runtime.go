@@ -101,6 +101,10 @@ type Runtime struct {
 	// A setter that finds BOTH at zero was called from somewhere the runtime
 	// does not control, which is exactly the case the inbox exists for.
 	frameLoopDepth int
+	// frameLoopOwner is the goroutine that entered the outermost frame-loop
+	// region. A write from any other goroutine is async however deep the
+	// counter is — see frame_loop_owner.go.
+	frameLoopOwner uint64
 	// inbox holds async work posted from outside the frame loop (v5 P2.1).
 	// Drained at one defined point per frame so N async messages produce one
 	// render pass rather than N. See inbox.go.

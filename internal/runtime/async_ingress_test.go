@@ -199,3 +199,59 @@ func TestAsyncIngress_ExplicitPostRunsItsSetterOnTheLoop(parseT *testing.T) {
 		parseT.Errorf("two writes in one post produced %d renders, want 1", parseRenderCount)
 	}
 }
+
+// TestAsyncIngress_GoroutineSpawnedByAHandlerIsStillAsync is the hole at the
+// centre of the mechanism.
+//
+// insideFrameLoop counts depth per RUNTIME, not per goroutine. A handler that
+// spawns a goroutine — which is the documented way to call a worker command
+// without deadlocking the event loop — leaves that goroutine running while the
+// depth is still non-zero. The setter it calls therefore reads "inside the frame
+// loop" and applies directly, at an arbitrary moment relative to the in-flight
+// tree.
+//
+// That is precisely the caller async ingress exists for, so the feature misses
+// its own motivating case, and misses it silently. Worse than absent: an app
+// that enables AsyncIngress and follows the documented goroutine pattern gets
+// no isolation and no indication that it has none.
+func TestAsyncIngress_GoroutineSpawnedByAHandlerIsStillAsync(parseT *testing.T) {
+	parseRt, parseContainer, parseScheduler := newAsyncIngressRuntime(parseT)
+	parseSet, parseRendered, _ := mountCounter(parseT, parseRt, parseContainer, parseScheduler)
+
+	// A handler that does what the migration guide tells adopters to do: hand
+	// the blocking work to a goroutine so the event loop is released.
+	parseDone := make(chan struct{})
+	parseCell := &funcHandlerCell{}
+	parseHandler := func() {
+		go func() {
+			defer close(parseDone)
+			parseSet("from-goroutine")
+		}()
+		// Block until the goroutine has run its setter, so the write lands while
+		// the handler is still on the stack and the depth is still non-zero.
+		// Without this the test would race and pass by luck.
+		<-parseDone
+	}
+	parseCell.fn = parseHandler
+	parseCell.fnVal = reflect.ValueOf(parseHandler)
+	parseWrapped, parseOk := parseRt.wrapEventHandlerCell(parseCell).(func())
+	if !parseOk {
+		parseT.Fatal("the event wrapper did not preserve the handler signature")
+	}
+
+	parseWrapped()
+
+	if parseRt.AsyncInboxDepth() != 1 {
+		parseT.Errorf("inbox depth = %d, want 1; a goroutine's write bypassed the inbox because the runtime-wide depth counter said its handler was still on the loop",
+			parseRt.AsyncInboxDepth())
+	}
+	if parseRendered() != "start" {
+		parseT.Errorf("the goroutine's write reached the tree immediately (rendered %q); nothing isolated the in-flight tree from it",
+			parseRendered())
+	}
+
+	runScheduledTimeouts(parseScheduler)
+	if parseRendered() != "from-goroutine" {
+		parseT.Errorf("after the drain, rendered %q, want %q", parseRendered(), "from-goroutine")
+	}
+}

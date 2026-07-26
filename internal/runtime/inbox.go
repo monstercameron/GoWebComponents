@@ -199,24 +199,56 @@ func (parseRt *Runtime) AsyncInboxStats() (parsePosts int, parseDrains int) {
 // reverse — work applied during a drain is already on the loop, and posting it
 // again would defer it another frame, indefinitely.
 
-// enterFrameLoop marks the start of a frame-loop region.
+// enterFrameLoop marks the start of a frame-loop region and records which
+// goroutine owns it.
+//
+// The owner is captured on the OUTERMOST entry only, and only when async
+// ingress is on, so a default build never pays for the identity lookup.
 func (parseRt *Runtime) enterFrameLoop() {
-	if parseRt != nil {
-		parseRt.frameLoopDepth++
+	if parseRt == nil {
+		return
 	}
+	if parseRt.frameLoopDepth == 0 && parseRt.asyncIngress {
+		parseRt.frameLoopOwner = frameLoopGoroutineID()
+	}
+	parseRt.frameLoopDepth++
 }
 
 // exitFrameLoop marks the end of a frame-loop region.
 func (parseRt *Runtime) exitFrameLoop() {
-	if parseRt != nil && parseRt.frameLoopDepth > 0 {
-		parseRt.frameLoopDepth--
+	if parseRt == nil || parseRt.frameLoopDepth == 0 {
+		return
+	}
+	parseRt.frameLoopDepth--
+	if parseRt.frameLoopDepth == 0 {
+		parseRt.frameLoopOwner = 0
 	}
 }
 
-// insideFrameLoop reports whether the caller is already running on the frame
-// loop, and is therefore free to mutate state directly.
+// insideFrameLoop reports whether the CALLER is running on the frame loop, and
+// is therefore free to mutate state directly.
+//
+// Depth alone answers a different question — "is a frame-loop region on some
+// stack" — and gets the important case wrong. A goroutine spawned by an event
+// handler runs while that handler is still on the stack, so a depth-only check
+// called it on-loop and let its write reach the tree directly. That goroutine is
+// exactly what the inbox is for, so the mechanism missed its own motivating
+// case in silence.
+//
+// The identity lookup is skipped entirely when async ingress is off: nothing
+// consults this in that configuration except to preserve prior behaviour, and
+// paying 1.15 µs per state write for a disabled feature would be indefensible.
 func (parseRt *Runtime) insideFrameLoop() bool {
-	return parseRt != nil && (parseRt.workLoopDepth > 0 || parseRt.frameLoopDepth > 0)
+	if parseRt == nil || parseRt.frameLoopDepth == 0 {
+		return false
+	}
+	if !parseRt.asyncIngress {
+		return true
+	}
+	// A zero owner means the identity could not be read. Treated as "not the
+	// owner" so an unreadable stack routes the write through the inbox — slower,
+	// never wrong — rather than admitting it on an unverified claim.
+	return parseRt.frameLoopOwner != 0 && frameLoopGoroutineID() == parseRt.frameLoopOwner
 }
 
 // shouldPostAsyncStateUpdate reports whether a state write must be queued rather
