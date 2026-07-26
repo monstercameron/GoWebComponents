@@ -669,3 +669,96 @@ func TestV5LongFrameAttribution(parseT *testing.T) {
 		parseT.Skip("no long frames observed in this run; nothing to attribute")
 	}
 }
+
+// TestV5GCPauseSweep asks whether M7's 3ms budget is a tuning problem or a floor.
+//
+// The render thread already runs the responsive pacing profile (GOGC=40) and
+// still reports a ~7ms worst pause. Two explanations fit that equally well from
+// a single reading — the pacing is not aggressive enough, or Go's
+// stop-the-world costs more than 3ms in wasm regardless — and they have
+// opposite fixes. Sweeping GOGC separates them: if the worst pause tracks the
+// setting, it is tuning; if it plateaus, it is a floor and the budget is the
+// thing that is wrong.
+func TestV5GCPauseSweep(parseT *testing.T) {
+	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", "..", ".."))
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseWasmPath := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness", "v5harness.wasm")
+	buildV5HarnessWasm(parseT, parseRepoRoot, parseWasmPath)
+
+	parseServer := serveV5Harness(parseT, parseRepoRoot)
+	defer parseServer.Close()
+
+	parsePW, parseErr := playwright.Run()
+	if parseErr != nil {
+		parseT.Skipf("playwright unavailable: %v", parseErr)
+	}
+	defer parsePW.Stop()
+	parseBrowser, parseErr := parsePW.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer parseBrowser.Close()
+	parsePage, parseErr := parseBrowser.NewPage()
+	if parseErr != nil {
+		parseT.Fatalf("new page: %v", parseErr)
+	}
+
+	parseT.Logf("%-14s %10s %10s %10s", "GOGC", "maxPauseMs", "numGC", "heapMB")
+	for _, parseGOGC := range []string{"", "40", "20", "10"} {
+		if _, parseErr := parsePage.Goto(parseServer.URL, playwright.PageGotoOptions{
+			WaitUntil: playwright.WaitUntilStateLoad, Timeout: playwright.Float(180000),
+		}); parseErr != nil {
+			parseT.Fatalf("goto harness: %v", parseErr)
+		}
+		if parseGOGC == "" {
+			if _, parseErr := parsePage.Evaluate(`() => localStorage.removeItem('gwc:gogc')`); parseErr != nil {
+				parseT.Fatalf("clear gogc: %v", parseErr)
+			}
+		} else if _, parseErr := parsePage.Evaluate(`(v) => localStorage.setItem('gwc:gogc', v)`, parseGOGC); parseErr != nil {
+			parseT.Fatalf("seed gogc: %v", parseErr)
+		}
+		if _, parseErr := parsePage.Reload(); parseErr != nil {
+			parseT.Fatalf("reload: %v", parseErr)
+		}
+		if _, parseErr := parsePage.WaitForFunction(`() => window.__gwcV5Ready === true && !!window.__gwcV5Probe`, nil,
+			playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr != nil {
+			parseT.Fatalf("wait for subject: %v", parseErr)
+		}
+
+		parseRaw, parseErr := parsePage.Evaluate(`async () => {
+			for (const name of ['import', 'reindex', 'decode']) window.__gwcV5Workloads[name].start();
+			// Read once to establish the window baseline the probe diffs against,
+			// then run long enough that a collection actually happens: at GOGC=40
+			// with a ~1MB heap, six seconds of this workload produced zero GCs and
+			// therefore a meaningless 0.00ms worst pause.
+			window.__gwcV5Probe();
+			await window.__gwcV5Probes.typing(20000);
+			for (const name of ['import', 'reindex', 'decode']) window.__gwcV5Workloads[name].stop();
+			return window.__gwcV5Probe();
+		}`)
+		if parseErr != nil {
+			parseT.Fatalf("run window: %v", parseErr)
+		}
+		var parseProbe struct {
+			WindowMaxPauseNs uint64 `json:"windowMaxPauseNs"`
+			Truncated        bool   `json:"pauseSampleTruncated"`
+			NumGC            uint32 `json:"numGC"`
+			HeapAllocBytes   uint64 `json:"heapAllocBytes"`
+		}
+		if parseErr := json.Unmarshal([]byte(parseRaw.(string)), &parseProbe); parseErr != nil {
+			parseT.Fatalf("decode probe: %v", parseErr)
+		}
+		parseWorst := parseProbe.WindowMaxPauseNs
+		if parseProbe.Truncated {
+			parseT.Logf("  (pause sample truncated at GOGC=%s; the worst pause may be higher than reported)", parseGOGC)
+		}
+		parseLabel := parseGOGC
+		if parseLabel == "" {
+			parseLabel = "responsive(40)"
+		}
+		parseT.Logf("%-14s %10.2f %10d %10.1f", parseLabel,
+			float64(parseWorst)/1e6, parseProbe.NumGC, float64(parseProbe.HeapAllocBytes)/1e6)
+	}
+}

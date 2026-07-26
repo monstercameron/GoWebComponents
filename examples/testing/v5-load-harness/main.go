@@ -26,6 +26,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -409,12 +410,36 @@ type SchedulingChoice struct {
 	LaneQueues               bool
 }
 
+// gcPercentOverride reads a GOGC override from localStorage, or 0 for none.
+func gcPercentOverride() int {
+	parseStorage := js.Global().Get("localStorage")
+	if !parseStorage.Truthy() {
+		return 0
+	}
+	parseValue := parseStorage.Call("getItem", "gwc:gogc")
+	if !parseValue.Truthy() {
+		return 0
+	}
+	parsePercent, parseErr := strconv.Atoi(parseValue.String())
+	if parseErr != nil || parsePercent <= 0 {
+		return 0
+	}
+	return parsePercent
+}
+
 func main() {
 	// P4.4: the render thread pays for pauses, not for total collection CPU, so
 	// it takes the responsive profile. Applied here rather than inside the
 	// framework because pacing is process-global — a library that set it would
 	// be deciding for an application that may have its own view.
-	if _, _, parseErr := gcpacing.Apply(gcpacing.ProfileResponsive, 0); parseErr != nil {
+	//
+	// localStorage["gwc:gogc"] overrides the percentage, so M7 can be swept
+	// against GOGC empirically. Whether a pause budget is missed because the
+	// pacing is wrong or because Go/wasm has a floor under it is not answerable
+	// from one setting, and guessing which it is picks the wrong fix.
+	if parseOverride := gcPercentOverride(); parseOverride > 0 {
+		debug.SetGCPercent(parseOverride)
+	} else if _, _, parseErr := gcpacing.Apply(gcpacing.ProfileResponsive, 0); parseErr != nil {
 		js.Global().Get("console").Call("warn", "gc pacing not applied: "+parseErr.Error())
 	}
 
