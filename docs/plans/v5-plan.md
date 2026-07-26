@@ -548,6 +548,40 @@ allocation burst that provokes it (the initial and re-filter renders of a
 Neither remaining miss is an off-thread-architecture problem. Both are
 render-performance problems, the same family as the Example 201 deficit.
 
+**Hypotheses tested and REJECTED, so they are not tried again.**
+
+For M7:
+
+| tried | result |
+|---|---|
+| GOGC pacing (40 / 20 / 10) | no effect — ~1 collection per 20 s on a 1 MB heap, so pacing has nothing to pace |
+| collect once at boot | no effect on M7, though it did move M2 13→6 and M3 46→40 and is kept for that |
+| forced collection every 750 ms | actively worse — M2 6→10, worst frame 69.7→116.9 ms, M7 7.1→10.2 ms |
+| off-by-one in the pause window | a real bug, fixed; M7 statistically unchanged, which proves the expensive collection happens inside the window rather than being misattributed from startup |
+
+Forcing collections directly gives worst 6.30 ms / mean 0.97 ms cold and worst
+0.50 ms / mean 0.21 ms warm. Go's stop-the-world in wasm is cheap; a collection
+following a GAP is not. What remains is the cost of mark termination over a
+pointer-dense fiber tree — a runtime allocation-shape change, not a pacing one.
+
+For M2:
+
+| tried | result |
+|---|---|
+| `FrameBudgetMs` + `LaneQueues` on by default | real improvement, kept — long frames 23→13 |
+| precompute the filter's lowercase labels | worst frame 101.6→85.5 ms, kept |
+| `UseDeferredValue` for the list | within noise, kept because it is the correct pattern regardless |
+| resume budget-exhausted slices at the next animation frame | **worse and reverted** — M2 6→26, M3 p95 40→56 ms (out of budget), worst 82→117 ms |
+
+The last one is worth stating fully because the reasoning was sound and the
+measurement still refused it. `SetTimeout(0)` resumes a slice about a
+millisecond later, inside the SAME frame, so ten 5 ms slices still produce one
+60 ms frame — the work is divided and the frame is not. Yielding to
+`requestAnimationFrame` fixes that and makes everything worse: a pass needing ten
+slices then spans ~167 ms instead of ~60 ms, keystrokes queue behind it, and the
+system falls further behind than the long frames cost. Slicing helps latency;
+frame-aligning starves throughput.
+
 **Status 2026-07-25.** P2.1 is now WIRED, which it was not before: the inbox
 existed and nothing outside tests posted to it, so hook setters still mutated
 state wherever they were called and T4 was open in practice however complete the
