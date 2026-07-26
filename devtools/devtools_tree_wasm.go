@@ -76,7 +76,10 @@ func treeSummary(parseNode *Node, parseDepth int, parseMaxDepth int, parseSelect
 
 func renderNode(parseNode Node, parseDepth int, parseMaxDepth int, parseSelectedPath string, parseSelectNode func(string)) ui.Node {
 	parseChildren := []ui.Node{
-		html.Div(html.Props{OnClick: ui.WrapHandler(func() {
+		// Keyed by node path, not by render: one js.Func per inspected node for
+		// the life of the session instead of one per node per repaint. See
+		// stableHandler.
+		html.Div(html.Props{OnClick: stableHandler("tree:"+parseNode.Path, func() {
 			if parseSelectNode != nil {
 				parseSelectNode(parseNode.Path)
 			}

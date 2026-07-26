@@ -772,6 +772,23 @@ func UseEvent(parseFn interface{}) Handler {
 }
 
 // WrapHandler wraps an already-prepared handler value.
+//
+// Pass a value that is ALREADY a wrapped handler — typically UseEvent's — and
+// this is a passthrough: the wrapped form is not a Go func, so the check below
+// skips it and nothing new is allocated. That is the intended use.
+//
+// Passing a raw Go func LEAKS, and the leak is per call. On js/wasm the wrap
+// creates a js.Func, which the Go collector cannot reclaim; only an explicit
+// Release() frees it, and this function has no owner to release it from.
+// UseEvent does not have the problem because it caches one wrapper in a hook
+// slot, re-points it at the latest closure each render, and releases it when the
+// component unmounts.
+//
+// So: inside a render body, use UseEvent. Reach for WrapHandler only to forward
+// a handler you already made, or when you can guarantee the wrap happens once
+// for the life of the page. Devtools got this wrong — it wrapped a fresh closure
+// per tree node per repaint — and now keys its handlers through a cache for
+// exactly this reason (devtools/stable_handler_wasm.go).
 func WrapHandler(parseValue interface{}) Handler {
 	if parseValue != nil {
 		parseValueType := reflect.TypeOf(parseValue)

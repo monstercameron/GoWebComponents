@@ -319,7 +319,9 @@ func ErrorOverlay(parseProps ErrorOverlayProps) ui.Node {
 				parseButtons := make([]ui.Node, 0, len(parseMatchedActions))
 				for _, parseAction := range parseMatchedActions {
 					parseCurrent := parseAction
-					parseButtons = append(parseButtons, html.Button(html.Props{OnClick: ui.WrapHandler(func() {
+					// Keyed by issue + action label so the overlay reuses one
+					// js.Func per action rather than minting one per repaint.
+					parseButtons = append(parseButtons, html.Button(html.Props{OnClick: stableHandler("overlay:"+parseIssue.Code+":"+parseAction.Label, func() {
 						if parseCurrent.Run != nil {
 							parseCurrent.Run(ErrorOverlayActionContext{Snapshot: parseSnapshot, Issue: parseIssue})
 						}
