@@ -275,6 +275,29 @@ export function deriveMetrics(window_, stats) {
     longFrameCount: window_.longFrames.filter((entry) => entry.duration > 50).length,
     totalBlockingMs: window_.longFrames.reduce((sum, entry) => sum + (entry.blockingDuration ?? 0), 0),
     worstLongFrameMs: window_.longFrames.reduce((worst, entry) => Math.max(worst, entry.duration), 0),
+    // Composition of the long frames, not just their count.
+    //
+    // A count says the render thread missed a deadline; it cannot say whether it
+    // was busy or absent. Long Animation Frame entries carry per-script
+    // attribution, so the time that belongs to scripts can be separated from the
+    // time that belongs to nothing the main thread executed — and a frame with
+    // no scripts and no style/layout is a thread that did not run, which no
+    // amount of framework work would shorten.
+    longFrameScriptedMs: window_.longFrames.reduce(
+      (sum, entry) => sum + (entry.scripts ?? []).reduce((s, script) => s + script.duration, 0), 0),
+    longFrameStyleLayoutMs: window_.longFrames.reduce(
+      (sum, entry) => sum + (entry.styleAndLayoutDuration ?? 0), 0),
+    longFrameTopInvokers: (() => {
+      const byInvoker = new Map();
+      for (const entry of window_.longFrames) {
+        for (const script of entry.scripts ?? []) {
+          const key = `${script.invokerType ?? '?'} ${script.invoker ?? '?'}`;
+          byInvoker.set(key, (byInvoker.get(key) ?? 0) + script.duration);
+        }
+      }
+      return [...byInvoker.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
+        .map(([name, ms]) => ({ name, ms }));
+    })(),
     longFrameSource: window_.longFrameSource,
 
     // M3

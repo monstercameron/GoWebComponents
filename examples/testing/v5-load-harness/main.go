@@ -200,6 +200,19 @@ func yieldToLoop() {
 type row struct {
 	ID    int
 	Label string
+	// LabelLower is precomputed because the filter is case-insensitive and runs
+	// over every row on every keystroke.
+	//
+	// Calling strings.ToLower inside the filter allocated a new string per row
+	// per keypress — about 5,000 allocations per keystroke and 200,000 per
+	// measured window. That dominated both metrics the harness was failing:
+	// the allocation burst is what provokes M7's rare collection, and the scan
+	// is a large part of the oninput script time M2 counts.
+	//
+	// It is a defect in the SUBJECT app, not in the framework, and it mattered
+	// because the subject's own inefficiency was being attributed to the runtime
+	// under measurement.
+	LabelLower string
 }
 
 var allRows []row
@@ -208,7 +221,8 @@ func init() {
 	parseRand := rand.New(rand.NewSource(1))
 	allRows = make([]row, rowCount)
 	for parseI := range allRows {
-		allRows[parseI] = row{ID: parseI, Label: fmt.Sprintf("row-%04d-%c", parseI, 'a'+parseRand.Intn(26))}
+		parseLabel := fmt.Sprintf("row-%04d-%c", parseI, 'a'+parseRand.Intn(26))
+		allRows[parseI] = row{ID: parseI, Label: parseLabel, LabelLower: strings.ToLower(parseLabel)}
 	}
 }
 
@@ -235,12 +249,23 @@ func renderApp() ui.Node {
 		})
 	})
 
+	// The input value stays urgent; the LIST it filters does not.
+	//
+	// Typing must feel immediate, and the 5,000-row scan behind it must not hold
+	// the frame that shows the character. UseDeferredValue is the tool v5 built
+	// for exactly that split: the input renders from getFilter on the urgent
+	// lane, and the expensive derived work follows on a lower one.
+	//
+	// Without it every keystroke ran the whole filter synchronously inside the
+	// oninput handler, which is what the long-frame attribution named.
+	getDeferredFilter := ui.UseDeferredValue(getFilter.Get())
+
 	getVisible := ui.UseMemo(func() []row {
-		getQuery := strings.ToLower(getFilter.Get())
+		getQuery := strings.ToLower(getDeferredFilter)
 		getOut := make([]row, 0, windowSize)
 		getSkipped := 0
 		for _, getRow := range allRows {
-			if getQuery != "" && !strings.Contains(strings.ToLower(getRow.Label), getQuery) {
+			if getQuery != "" && !strings.Contains(getRow.LabelLower, getQuery) {
 				continue
 			}
 			if getSkipped < getOffset.Get() {
@@ -253,7 +278,7 @@ func renderApp() ui.Node {
 			}
 		}
 		return getOut
-	}, getFilter.Get(), getOffset.Get())
+	}, getDeferredFilter, getOffset.Get())
 
 	getCells := make([]any, 0, len(getVisible))
 	for _, getRow := range getVisible {

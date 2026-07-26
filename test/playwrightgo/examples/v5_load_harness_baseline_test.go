@@ -649,6 +649,24 @@ func TestV5LongFrameAttribution(parseT *testing.T) {
 	}
 
 	parseT.Logf("%d long animation frames on the render thread during 8s of loaded typing", len(parseFrames))
+
+	// Per frame, not aggregated. The aggregate said GWC's own handlers, but the
+	// Go phase totals say a commit costs ~6-15ms — so a 100ms frame contains
+	// something the sum hides, and only the individual frames can say whether
+	// that is one long script, many short ones, or time attributed to nothing.
+	for parseIndex, parseFrame := range parseFrames {
+		parseScripted := 0.0
+		for _, parseScript := range parseFrame.Scripts {
+			parseScripted += parseScript.Duration
+		}
+		parseT.Logf("  frame %d: duration=%.1fms blocking=%.1fms styleLayout=%.1fms scripted=%.1fms unattributed=%.1fms scripts=%d",
+			parseIndex, parseFrame.Duration, parseFrame.BlockingDuration, parseFrame.StyleAndLayout,
+			parseScripted, parseFrame.Duration-parseScripted-parseFrame.StyleAndLayout, len(parseFrame.Scripts))
+		for _, parseScript := range parseFrame.Scripts {
+			parseT.Logf("      %-42s %7.1fms (forced reflow %.1fms)",
+				parseScript.InvokerType+" "+parseScript.Invoker, parseScript.Duration, parseScript.Forced)
+		}
+	}
 	parseByInvoker := map[string]float64{}
 	parseCountByInvoker := map[string]int{}
 	parseTotalForced := 0.0
@@ -761,4 +779,225 @@ func TestV5GCPauseSweep(parseT *testing.T) {
 		parseT.Logf("%-14s %10.2f %10d %10.1f", parseLabel,
 			float64(parseWorst)/1e6, parseProbe.NumGC, float64(parseProbe.HeapAllocBytes)/1e6)
 	}
+}
+
+// TestV5LongFrameDoseResponse asks whether M2's long frames are the framework's
+// work or the render thread failing to get CPU.
+//
+// The attribution probe found a 205ms long frame containing zero scripts, zero
+// style, and zero layout — 205ms attributed to nothing the main thread executed.
+// A frame like that is not slow rendering; it is a thread that did not run. The
+// obvious suspect is the domain worker, which runs wazero-interpreted SQLite and
+// is CPU-bound.
+//
+// If that is right, long frames should scale with how many workloads are
+// running and should not depend on what the render thread is doing. If it is
+// wrong — if the framework is really producing them — the count should track
+// rendering instead.
+//
+// This matters for whether M2 is achievable at all: no framework change can stop
+// a thread from being descheduled by the OS.
+func TestV5LongFrameDoseResponse(parseT *testing.T) {
+	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", "..", ".."))
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseWasmPath := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness", "v5harness.wasm")
+	buildV5HarnessWasm(parseT, parseRepoRoot, parseWasmPath)
+	parseServer := serveV5Harness(parseT, parseRepoRoot)
+	defer parseServer.Close()
+
+	parsePW, parseErr := playwright.Run()
+	if parseErr != nil {
+		parseT.Skipf("playwright unavailable: %v", parseErr)
+	}
+	defer parsePW.Stop()
+	parseBrowser, parseErr := parsePW.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer parseBrowser.Close()
+	parsePage, parseErr := parseBrowser.NewPage()
+	if parseErr != nil {
+		parseT.Fatalf("new page: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseServer.URL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad, Timeout: playwright.Float(180000),
+	}); parseErr != nil {
+		parseT.Fatalf("goto harness: %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForFunction(`() => window.__gwcV5Ready === true`, nil,
+		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr != nil {
+		parseT.Fatalf("wait for subject: %v", parseErr)
+	}
+
+	parseCores, _ := parsePage.Evaluate(`() => navigator.hardwareConcurrency`)
+	parseT.Logf("navigator.hardwareConcurrency = %v", parseCores)
+
+	parseArms := []struct {
+		Label     string
+		Workloads []string
+	}{
+		{"no workloads", []string{}},
+		{"import only", []string{"import"}},
+		{"import+reindex", []string{"import", "reindex"}},
+		{"all three", []string{"import", "reindex", "decode"}},
+	}
+
+	parseT.Logf("%-18s %10s %12s %14s %14s", "arm", "longFrames", "worstMs", "scriptedMs", "unattributedMs")
+	for _, parseArm := range parseArms {
+		parseRaw, parseErr := parsePage.Evaluate(`async (names) => {
+			const frames = [];
+			const observer = new PerformanceObserver((list) => {
+				for (const e of list.getEntries()) {
+					let scripted = 0;
+					for (const s of (e.scripts ?? [])) scripted += s.duration;
+					frames.push({ duration: e.duration, scripted, styleLayout: e.styleAndLayoutDuration ?? 0 });
+				}
+			});
+			observer.observe({ type: 'long-animation-frame' });
+			for (const n of names) window.__gwcV5Workloads[n].start();
+			await window.__gwcV5Probes.typing(6000);
+			for (const n of names) window.__gwcV5Workloads[n].stop();
+			observer.disconnect();
+			return JSON.stringify(frames);
+		}`, parseArm.Workloads)
+		if parseErr != nil {
+			parseT.Fatalf("run arm %s: %v", parseArm.Label, parseErr)
+		}
+		var parseFrames []struct {
+			Duration    float64 `json:"duration"`
+			Scripted    float64 `json:"scripted"`
+			StyleLayout float64 `json:"styleLayout"`
+		}
+		if parseErr := json.Unmarshal([]byte(parseRaw.(string)), &parseFrames); parseErr != nil {
+			parseT.Fatalf("decode frames: %v", parseErr)
+		}
+		parseWorst, parseScripted, parseUnattributed := 0.0, 0.0, 0.0
+		for _, parseFrame := range parseFrames {
+			if parseFrame.Duration > parseWorst {
+				parseWorst = parseFrame.Duration
+			}
+			parseScripted += parseFrame.Scripted
+			parseUnattributed += parseFrame.Duration - parseFrame.Scripted - parseFrame.StyleLayout
+		}
+		parseT.Logf("%-18s %10d %12.1f %14.1f %14.1f",
+			parseArm.Label, len(parseFrames), parseWorst, parseScripted, parseUnattributed)
+	}
+}
+
+// TestV5LongFrameRealVersusSyntheticInput isolates the one variable the
+// dose-response left uncontrolled.
+//
+// With the app's own typing probe driving the filter, all three workloads
+// running, and 6s per arm, the render thread produced ZERO long frames. The
+// baseline run produces 13. The two differ in how input arrives: the baseline
+// uses real keystrokes dispatched over CDP by Playwright, which is also the only
+// way M3 sees anything, since Event Timing ignores untrusted events.
+//
+// So either real input costs something synthetic input does not — which would
+// make M2 a genuine finding about handling trusted events — or the long frames
+// belong to the automation channel rather than the app, which would make M2 a
+// third measurement artifact after the unbuilt worker and the buffered
+// observers.
+//
+// Both arms run the same workloads for the same duration. Only the input
+// mechanism changes.
+func TestV5LongFrameRealVersusSyntheticInput(parseT *testing.T) {
+	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", "..", ".."))
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseWasmPath := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness", "v5harness.wasm")
+	buildV5HarnessWasm(parseT, parseRepoRoot, parseWasmPath)
+	parseServer := serveV5Harness(parseT, parseRepoRoot)
+	defer parseServer.Close()
+
+	parsePW, parseErr := playwright.Run()
+	if parseErr != nil {
+		parseT.Skipf("playwright unavailable: %v", parseErr)
+	}
+	defer parsePW.Stop()
+	parseBrowser, parseErr := parsePW.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer parseBrowser.Close()
+	parsePage, parseErr := parseBrowser.NewPage()
+	if parseErr != nil {
+		parseT.Fatalf("new page: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseServer.URL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad, Timeout: playwright.Float(180000),
+	}); parseErr != nil {
+		parseT.Fatalf("goto harness: %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForFunction(`() => window.__gwcV5Ready === true`, nil,
+		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr != nil {
+		parseT.Fatalf("wait for subject: %v", parseErr)
+	}
+
+	parseCollect := func(parseLabel string, parseReal bool) {
+		if _, parseErr := parsePage.Evaluate(`() => {
+			window.__frames = [];
+			window.__obs = new PerformanceObserver((list) => {
+				for (const e of list.getEntries()) {
+					let scripted = 0;
+					for (const s of (e.scripts ?? [])) scripted += s.duration;
+					window.__frames.push({ duration: e.duration, scripted, styleLayout: e.styleAndLayoutDuration ?? 0 });
+				}
+			});
+			window.__obs.observe({ type: 'long-animation-frame' });
+			for (const n of ['import','reindex','decode']) window.__gwcV5Workloads[n].start();
+		}`); parseErr != nil {
+			parseT.Fatalf("start %s: %v", parseLabel, parseErr)
+		}
+
+		if parseReal {
+			parseAlphabet := "abcdefghijklmnopqrstuvwxyz"
+			parseDeadline := time.Now().Add(6 * time.Second)
+			for parseI := 0; time.Now().Before(parseDeadline); parseI++ {
+				parseInput := parsePage.Locator("#filter")
+				if parseI%4 == 0 {
+					_ = parseInput.Fill("")
+				} else {
+					_ = parseInput.PressSequentially(string(parseAlphabet[parseI%26]),
+						playwright.LocatorPressSequentiallyOptions{Delay: playwright.Float(20)})
+				}
+				time.Sleep(60 * time.Millisecond)
+			}
+		} else if _, parseErr := parsePage.Evaluate(`async () => { await window.__gwcV5Probes.typing(6000); }`); parseErr != nil {
+			parseT.Fatalf("synthetic typing: %v", parseErr)
+		}
+
+		parseRaw, parseErr := parsePage.Evaluate(`() => {
+			for (const n of ['import','reindex','decode']) window.__gwcV5Workloads[n].stop();
+			window.__obs.disconnect();
+			return JSON.stringify(window.__frames);
+		}`)
+		if parseErr != nil {
+			parseT.Fatalf("stop %s: %v", parseLabel, parseErr)
+		}
+		var parseFrames []struct {
+			Duration    float64 `json:"duration"`
+			Scripted    float64 `json:"scripted"`
+			StyleLayout float64 `json:"styleLayout"`
+		}
+		if parseErr := json.Unmarshal([]byte(parseRaw.(string)), &parseFrames); parseErr != nil {
+			parseT.Fatalf("decode %s: %v", parseLabel, parseErr)
+		}
+		parseWorst, parseScripted, parseUnattributed := 0.0, 0.0, 0.0
+		for _, parseFrame := range parseFrames {
+			if parseFrame.Duration > parseWorst {
+				parseWorst = parseFrame.Duration
+			}
+			parseScripted += parseFrame.Scripted
+			parseUnattributed += parseFrame.Duration - parseFrame.Scripted - parseFrame.StyleLayout
+		}
+		parseT.Logf("%-22s longFrames=%-4d worst=%7.1fms scripted=%8.1fms unattributed=%8.1fms",
+			parseLabel, len(parseFrames), parseWorst, parseScripted, parseUnattributed)
+	}
+
+	parseCollect("synthetic input", false)
+	parseCollect("real CDP keystrokes", true)
 }
