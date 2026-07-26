@@ -49,7 +49,7 @@ function nextFrame() {
  * loses attribution — the report records which one was used so a run measured
  * with the weaker instrument is never silently compared against a stronger one.
  */
-function createLongFrameObserver(sink) {
+function createLongFrameObserver(sink, since = 0) {
   if (typeof PerformanceObserver === 'undefined') {
     return { source: 'none', disconnect() {} };
   }
@@ -58,6 +58,15 @@ function createLongFrameObserver(sink) {
   if (supported.includes('long-animation-frame')) {
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
+        // buffered:true replays everything recorded since PAGE LOAD into this
+        // freshly created observer. Without this filter each window counted the
+        // entire session's history again: the per-window long-frame counts came
+        // out monotonically increasing (2, 15, 26, 30, 33, 35) with an identical
+        // worst frame in every window, and M2 summed those cumulative snapshots
+        // across twelve windows. buffered:true is still wanted — it catches
+        // entries between the window opening and this observer existing — so the
+        // fix is to drop the history, not the buffering.
+        if (entry.startTime < since) continue;
         sink.push({
           startTime: entry.startTime,
           duration: entry.duration,
@@ -82,6 +91,7 @@ function createLongFrameObserver(sink) {
   if (supported.includes('longtask')) {
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
+        if (entry.startTime < since) continue;
         sink.push({
           startTime: entry.startTime,
           duration: entry.duration,
@@ -107,7 +117,7 @@ function createLongFrameObserver(sink) {
  * so this metric has 8ms granularity. Adequate for a 50ms gate, useless for
  * chasing a 2ms improvement — use the Go phase totals for that.
  */
-function createInteractionObserver(sink) {
+function createInteractionObserver(sink, since = 0) {
   if (typeof PerformanceObserver === 'undefined') return { supported: false, disconnect() {} };
   const supported = PerformanceObserver.supportedEntryTypes ?? [];
   if (!supported.includes('event')) return { supported: false, disconnect() {} };
@@ -118,6 +128,11 @@ function createInteractionObserver(sink) {
       // (e.g. a programmatic or continuous event). Those are excluded so
       // scroll noise cannot dilute the interaction percentile.
       if (!entry.interactionId) continue;
+      // Same history replay as the long-frame observer, and the same
+      // consequence: every window re-measured every interaction since page
+      // load, so the M3 percentile described the whole session rather than the
+      // window, and drifted upward as the run went on.
+      if (entry.startTime < since) continue;
       sink.push({
         name: entry.name,
         startTime: entry.startTime,
@@ -188,8 +203,11 @@ export function startMeasurement(options = {}) {
   const longFrames = [];
   const interactions = [];
 
-  const longFrameObserver = createLongFrameObserver(longFrames);
-  const interactionObserver = createInteractionObserver(interactions);
+  // Captured BEFORE the observers so nothing recorded during this window can
+  // be filtered out by its own start time.
+  const windowStartedAt = performance.now();
+  const longFrameObserver = createLongFrameObserver(longFrames, windowStartedAt);
+  const interactionObserver = createInteractionObserver(interactions, windowStartedAt);
   const goBefore = readGoProbe();
 
   let running = true;

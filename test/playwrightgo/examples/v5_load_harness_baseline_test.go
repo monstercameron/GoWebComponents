@@ -451,3 +451,88 @@ func TestV5SchedulingComparison(parseT *testing.T) {
 		parseT.Logf("delta interaction p95: %.1fms -> %.1fms", parseV4.Metrics.M3.P95, parseV5.Metrics.M3.P95)
 	}
 }
+
+// TestV5WorkerMessageRate measures the half of "move the work off-thread" that
+// moving the work does not fix.
+//
+// Relocating a workload to a worker moves the COMPUTE. It does not move the
+// NOTIFICATION: every progress message is a wasm callback on the render thread
+// plus one boundary crossing per field read. A worker that reports progress per
+// batch, in a loop whose only pause is setTimeout(0), can therefore cost the
+// render thread more than the work it took away — and it costs it in exactly the
+// currency M2 and M3 are denominated in, small frequent interruptions rather
+// than one long block.
+//
+// M1 stays green throughout, because a flood of 1 ms interruptions does not
+// lengthen the p95 FRAME; it lengthens the time an interaction waits to be
+// serviced. That is why this is measured separately rather than inferred from
+// the frame metric.
+func TestV5WorkerMessageRate(parseT *testing.T) {
+	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", "..", ".."))
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseWasmPath := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness", "v5harness.wasm")
+	buildV5HarnessWasm(parseT, parseRepoRoot, parseWasmPath)
+
+	parseServer := serveV5Harness(parseT, parseRepoRoot)
+	defer parseServer.Close()
+
+	parsePW, parseErr := playwright.Run()
+	if parseErr != nil {
+		parseT.Skipf("playwright unavailable: %v", parseErr)
+	}
+	defer parsePW.Stop()
+
+	parseBrowser, parseErr := parsePW.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer parseBrowser.Close()
+
+	parsePage, parseErr := parseBrowser.NewPage()
+	if parseErr != nil {
+		parseT.Fatalf("new page: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseServer.URL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad, Timeout: playwright.Float(180000),
+	}); parseErr != nil {
+		parseT.Fatalf("goto harness: %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForFunction(`() => window.__gwcV5Ready === true && !!window.__gwcV5WorkerMessages`, nil,
+		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr != nil {
+		parseT.Fatalf("wait for subject ready: %v", parseErr)
+	}
+
+	parseRaw, parseErr := parsePage.Evaluate(`async () => {
+		const before = window.__gwcV5WorkerMessages();
+		for (const name of ['import', 'reindex', 'decode']) {
+			window.__gwcV5Workloads[name].start();
+		}
+		await new Promise((r) => setTimeout(r, 4000));
+		const after = window.__gwcV5WorkerMessages();
+		for (const name of ['import', 'reindex', 'decode']) {
+			window.__gwcV5Workloads[name].stop();
+		}
+		return JSON.stringify({ before, after });
+	}`)
+	if parseErr != nil {
+		parseT.Fatalf("run workloads: %v", parseErr)
+	}
+	var parseCounts struct {
+		Before int `json:"before"`
+		After  int `json:"after"`
+	}
+	if parseErr := json.Unmarshal([]byte(parseRaw.(string)), &parseCounts); parseErr != nil {
+		parseT.Fatalf("decode counts: %v", parseErr)
+	}
+
+	parseDelivered := parseCounts.After - parseCounts.Before
+	parsePerSecond := float64(parseDelivered) / 4.0
+	parseT.Logf("worker delivered %d progress messages in 4s = %.0f/s to the render thread (about %.0f boundary crossings/s at ~5 reads each)",
+		parseDelivered, parsePerSecond, parsePerSecond*5)
+
+	if parseDelivered == 0 {
+		parseT.Fatal("no progress messages were delivered; the workloads did not run, so this measured nothing")
+	}
+}

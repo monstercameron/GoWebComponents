@@ -29,6 +29,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/v5/gcpacing"
@@ -105,6 +106,15 @@ var (
 	domainWorkerErr  string
 )
 
+// workerMessageCount counts progress messages delivered to the RENDER thread.
+//
+// Relocating work to a worker moves the compute, not the notification. Every
+// message is a wasm callback plus one boundary crossing per field read, on the
+// thread the whole architecture exists to protect, so a chatty worker can cost
+// more than the work it took away. Counting it is the difference between
+// knowing that and assuming it.
+var workerMessageCount atomic.Int64
+
 // startDomainWorker creates the worker and wires its progress messages.
 //
 // Called once, at startup, so the worker's wasm is instantiating while the app
@@ -119,6 +129,7 @@ func startDomainWorker() {
 		domainWorker = parseWorkerCtor.New("./worker.js")
 
 		domainWorker.Set("onmessage", js.FuncOf(func(_ js.Value, parseArgs []js.Value) any {
+			workerMessageCount.Add(1)
 			if len(parseArgs) == 0 {
 				return nil
 			}
@@ -318,6 +329,12 @@ func registerProbes() {
 	}))
 
 	js.Global().Set("__gwcV5Probes", parseObj)
+
+	// Exposed so a probe can read how much the worker talked back, which is the
+	// half of "move the work off-thread" that moving the work does not fix.
+	js.Global().Set("__gwcV5WorkerMessages", js.FuncOf(func(js.Value, []js.Value) any {
+		return int(workerMessageCount.Load())
+	}))
 }
 
 // driveTyping holds the measurement window open for the requested duration.
