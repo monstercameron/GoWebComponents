@@ -508,6 +508,46 @@ change whether it is attempted, not just when it is expected.
 
 **Exit:** T3/T4/T5/T12 closed with tests · `-race` clean · M6 green.
 
+**Metric status 2026-07-25, measured with proven load (112,000 units).**
+
+| | before | now | budget | |
+|---|---|---|---|---|
+| M1 frame equivalence | equivalent | equivalent | ±1.0 ms | met |
+| M3 interaction p95 | 56.0 ms | **48.0 ms** | 50 ms | **met** |
+| M3 worst interaction | 136 ms | **104.0 ms** | 120 ms | **met** |
+| M2 long frames | 23 | **13** | 0 | missed |
+| M7 max GC pause | ~7 ms | ~7 ms | 3 ms | missed |
+
+M3 crossed its budget when `FrameBudgetMs` and `LaneQueues` were turned on by
+default, which R2 permits now that `TestV5SchedulingComparison` passes. Two
+earlier numbers were wrong rather than better: the harness compared an idle page
+against an idle page until the domain worker was actually built, and the
+long-frame and interaction observers used `buffered: true`, so every window
+re-counted the whole session and M2 read ~6x its true value.
+
+**Why the last two are missed, measured rather than assumed.**
+
+M2 is not the workloads. Long Animation Frame attribution during loaded typing
+names `INPUT#filter.oninput` (82 ms across 2 scripts) and the work loop's own
+`setTimeout` (97 ms), with 0.0 ms of forced style/layout. It is GWC
+reconciling a filtered list. The per-phase totals say the rest: a loaded window
+runs the SAME commit count and unit count as an idle one while every phase takes
+2-4x longer (diff 19-29 ms idle against 88-239 ms loaded). The render thread is
+not doing more work under load, it is doing the same work more slowly — CPU
+contention with the worker. M1 survives because the p95 frame is set by the rAF
+cadence; the contention shows up in the tail, which is what M2 counts.
+
+M7 is not the collector's schedule. Sweeping GOGC over 20 s of loaded typing:
+40 gives 0 collections, 20 gives 1, 10 gives 1, and every arm reports a 0.00 ms
+worst pause against a ~1 MB heap. The render thread allocates so little that
+pacing has nothing to pace, so a lower GOGC cannot shorten a pause that is not
+happening. The 7 ms is one rare collection in a 75 s run; the lever is the
+allocation burst that provokes it (the initial and re-filter renders of a
+5,000-row list), not GOGC.
+
+Neither remaining miss is an off-thread-architecture problem. Both are
+render-performance problems, the same family as the Example 201 deficit.
+
 **Status 2026-07-25.** P2.1 is now WIRED, which it was not before: the inbox
 existed and nothing outside tests posted to it, so hook setters still mutated
 state wherever they were called and T4 was open in practice however complete the
