@@ -133,6 +133,37 @@ function poolInteractions(windows) {
   return windows.flatMap((window_) => window_.raw.interactions.map((entry) => entry.duration));
 }
 
+/**
+ * Aggregate how much background work the LOADED arm actually completed.
+ *
+ * This is the evidence for the whole comparison, and it was being collected per
+ * window and then thrown away. M1 asks whether a loaded frame is equivalent to
+ * an idle one — and a loaded arm that ran NO load answers "yes" perfectly. A
+ * worker that failed to instantiate, a workload that errored on its first call,
+ * a message dropped before onmessage existed: each produces a flawless M1 and a
+ * meaningless one.
+ *
+ * Counts are cumulative per workload, and each loaded window restarts them, so
+ * the totals sum across windows while the per-window figures stay comparable.
+ */
+function poolWorkloadThroughput(windows) {
+  const byName = new Map();
+  for (const window_ of windows) {
+    for (const stat of window_.workloadStats ?? []) {
+      const entry = byName.get(stat.name) ?? { name: stat.name, completed: 0, windows: 0, errors: [] };
+      entry.completed += stat.completed ?? 0;
+      entry.windows += 1;
+      // The field is `err`, matching what the app's stats() returns and what
+      // index.html forwards. Reading a different name here silently reported a
+      // failing worker as a clean one, which is precisely the case this exists
+      // to catch.
+      if (stat.err) entry.errors.push(stat.err);
+      byName.set(stat.name, entry);
+    }
+  }
+  return [...byName.values()];
+}
+
 // Exported for integration.test.mjs. A test that maintains its own copy of this
 // aggregation cannot catch a regression in the shipped one — reverting the
 // weakest-observer-wins rule below would leave such a test green while
@@ -217,7 +248,16 @@ export function buildReport({ idleWindows, loadedWindows, frameIntervalMs, optio
 
     // Retained so a stored run can be re-scored without re-running.
     raw: { idle: idleMetrics, loaded: loadedMetrics },
-    workloadThroughput: loadedWindows.map((window_) => window_.workloadStats),
+
+    // What the loaded arm actually did.
+    //
+    // This was previously reported per-window and unaggregated, and nothing —
+    // not the gate, not the Go driver — ever read it. That made it decoration
+    // rather than evidence, on the one fact every other number depends on: M1
+    // asks whether a loaded frame matches an idle one, and a loaded arm that
+    // ran NO load answers yes perfectly. The gate now refuses such a run.
+    workloadThroughput: poolWorkloadThroughput(loadedWindows),
+    workloadThroughputByWindow: loadedWindows.map((window_) => window_.workloadStats),
   };
 }
 
@@ -236,6 +276,33 @@ export function gate(report, budgets) {
       metric: 'validity',
       reason: 'thermal or background drift exceeded tolerance; measurement discarded',
       detail: report.drift,
+    });
+  }
+
+  // Before any metric: did the loaded arm carry load at all?
+  //
+  // Checked FIRST and separately from validity, because the failure it catches
+  // is the one that looks most like success. A broken worker makes every metric
+  // below pass — M1 equivalent, zero long frames, no GC pauses — and the report
+  // would read as the strongest possible result while measuring an idle page
+  // twice.
+  const throughput = report.workloadThroughput ?? [];
+  const totalCompleted = throughput.reduce((sum, entry) => sum + (entry.completed ?? 0), 0);
+  const workloadErrors = throughput.flatMap((entry) =>
+    (entry.errors ?? []).map((text) => `${entry.name}: ${text}`),
+  );
+  if (throughput.length === 0 || totalCompleted <= 0) {
+    failures.push({
+      metric: 'load',
+      reason:
+        'the loaded arm completed no background work; M1 equivalence is vacuous because there was nothing to be equivalent to',
+      detail: { throughput, workloadErrors },
+    });
+  } else if (workloadErrors.length > 0) {
+    failures.push({
+      metric: 'load',
+      reason: `background workloads reported ${workloadErrors.length} error(s); the load was partial`,
+      detail: { throughput, workloadErrors },
     });
   }
 

@@ -39,7 +39,20 @@ type v5HarnessVerdict struct {
 }
 
 type v5HarnessReport struct {
-	Valid   bool `json:"valid"`
+	Valid bool `json:"valid"`
+	// WorkloadThroughput is how much background work the LOADED arm completed.
+	//
+	// Parsed because M1 is conditional on it. M1 asks whether a loaded frame is
+	// equivalent to an idle one, and a loaded arm that ran no load answers yes
+	// perfectly — a worker that failed to instantiate, a workload that errored
+	// on its first call, or a message posted before onmessage existed all
+	// produce a flawless result that measured an idle page twice.
+	WorkloadThroughput []struct {
+		Name      string   `json:"name"`
+		Completed int      `json:"completed"`
+		Windows   int      `json:"windows"`
+		Errors    []string `json:"errors"`
+	} `json:"workloadThroughput"`
 	Metrics struct {
 		M1 struct {
 			Equivalent bool    `json:"equivalent"`
@@ -72,14 +85,32 @@ type v5HarnessReport struct {
 	} `json:"metrics"`
 }
 
-// buildV5HarnessWasm compiles the subject app for the browser.
+// buildV5HarnessWasm compiles the subject app AND its domain worker.
+//
+// Both, and that is the whole point. worker.js fetches ./v5services.wasm, and
+// nothing ever built it — so the worker failed to instantiate on every run, the
+// three background workloads never started, and the harness compared an idle
+// page against an idle page. M1 reported perfect frame-time equivalence, which
+// is exactly what measuring nothing twice looks like.
+//
+// The missing binary was invisible because the only evidence of it was a
+// workload throughput of zero, and nothing read that.
 func buildV5HarnessWasm(parseT *testing.T, parseRepoRoot string, parseOutPath string) {
 	parseT.Helper()
-	parseCmd := exec.Command("go", "build", "-o", parseOutPath, "./examples/testing/v5-load-harness")
+	buildV5Wasm(parseT, parseRepoRoot, parseOutPath, "./examples/testing/v5-load-harness")
+	buildV5Wasm(parseT, parseRepoRoot,
+		filepath.Join(filepath.Dir(parseOutPath), "v5services.wasm"),
+		"./examples/testing/v5-load-harness/services")
+}
+
+// buildV5Wasm compiles one package for js/wasm.
+func buildV5Wasm(parseT *testing.T, parseRepoRoot string, parseOutPath string, parsePackage string) {
+	parseT.Helper()
+	parseCmd := exec.Command("go", "build", "-o", parseOutPath, parsePackage)
 	parseCmd.Dir = parseRepoRoot
 	parseCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if parseOut, parseErr := parseCmd.CombinedOutput(); parseErr != nil {
-		parseT.Fatalf("build harness wasm: %v\n%s", parseErr, parseOut)
+		parseT.Fatalf("build %s for wasm: %v\n%s", parsePackage, parseErr, parseOut)
 	}
 }
 
@@ -253,6 +284,23 @@ func TestV5LoadHarnessBaseline(parseT *testing.T) {
 	if parseReport.Metrics.M3.N == 0 {
 		parseT.Fatal("probe recorded zero interactions; M3 measured nothing")
 	}
+
+	// And the load must have been real. This is checked LAST but matters MOST:
+	// it is the only assertion here whose failure mode looks like success. Every
+	// metric above passes at its best when the loaded arm did nothing, so
+	// without this the strongest possible report is also the emptiest one.
+	parseTotalCompleted := 0
+	for _, parseWorkload := range parseReport.WorkloadThroughput {
+		parseTotalCompleted += parseWorkload.Completed
+		parseT.Logf("workload %-8s completed=%-8d windows=%d errors=%v",
+			parseWorkload.Name, parseWorkload.Completed, parseWorkload.Windows, parseWorkload.Errors)
+	}
+	if len(parseReport.WorkloadThroughput) == 0 || parseTotalCompleted == 0 {
+		parseT.Fatalf("the loaded arm completed no background work (%d workloads reporting); M1's equivalence is vacuous because there was no load to be equivalent to",
+			len(parseReport.WorkloadThroughput))
+	}
+	parseT.Logf("loaded arm completed %d units of background work across %d workloads",
+		parseTotalCompleted, len(parseReport.WorkloadThroughput))
 
 	if !parseVerdict.Passed {
 		for _, parseFailure := range parseVerdict.Failures {

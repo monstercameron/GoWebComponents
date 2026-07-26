@@ -91,7 +91,10 @@ function rawWindow({
       interactionsSupported: true,
       go: goProbePair(gc),
     },
-    workloadStats: [],
+    // Non-empty so the load gate is satisfied: these fixtures exist to exercise
+    // drift, M2, and M7, and a window that reports no work would fail on the
+    // load gate before reaching the metric under test.
+    workloadStats: [{ name: 'import', completed: 8000, errText: '' }],
   };
 }
 

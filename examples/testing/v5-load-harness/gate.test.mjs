@@ -35,6 +35,13 @@ function healthyReport(overrides = {}) {
   return {
     valid: true,
     drift: {},
+    // A healthy run carried load. Without this every negative test below would
+    // also trip the load gate, and would pass for the wrong reason.
+    workloadThroughput: [
+      { name: 'import', completed: 50000, windows: 6, errors: [] },
+      { name: 'reindex', completed: 12000, windows: 6, errors: [] },
+      { name: 'decode', completed: 24000, windows: 6, errors: [] },
+    ],
     metrics: {
       m1_frameTimeEquivalence: { equivalent: true, marginMs: 1.0, ci: { upper: 0.3 } },
       m2_longFrames: { count: 0, worstMs: 0, totalBlockingMs: 0, source: 'long-animation-frame' },
