@@ -126,11 +126,15 @@ func (parseRuntime *Runtime) SetYield(parseYield func()) {
 // partway can be retried under the same id — where recording it up front would
 // make the retry look like a replay and silently drop the work.
 //
-// The converse is the cost, and it is inherent rather than an oversight: if the
-// process dies between the effects succeeding and the record being written, the
-// retry re-runs the effects. Closing that gap requires the effects and the
-// record to commit together, which is what a transactional CheckpointStore
-// gives and what §11-Q7 is about.
+// The converse is the cost: if the process dies between the effects succeeding
+// and the record being written, the retry re-runs the effects. Reversing the
+// order moves that window rather than removing it — a crash after the record and
+// before the effect would drop the work instead, which is worse.
+//
+// It closes only when the effect and the record commit TOGETHER. A store that
+// implements TransactionalCheckpointStore can arrange that, and Execute uses it
+// when present; see transactional.go. Runtime.ExactlyOnce reports which
+// guarantee an application is actually running under.
 func (parseRuntime *Runtime) Execute(parseCommandID CommandID, parseEffect func() error) (Outcome, error) {
 	if parseRuntime == nil {
 		return OutcomeFailed, errors.New("domain: runtime is nil")
@@ -143,6 +147,15 @@ func (parseRuntime *Runtime) Execute(parseCommandID CommandID, parseEffect func(
 	}
 	if parseRuntime.cancelled[parseCommandID] {
 		return OutcomeCancelled, nil
+	}
+
+	// A store that can host the effect inside its own transaction closes the
+	// crash window described above; one that cannot falls through to the
+	// check/commit path below, which still refuses duplicates for every failure
+	// short of a crash in that one window. Runtime.ExactlyOnce reports which is
+	// in force.
+	if parseOutcome, parseErr, isHandled := parseRuntime.executeTransactionally(parseCommandID, parseEffect); isHandled {
+		return parseOutcome, parseErr
 	}
 
 	parseDecision, parseCheckErr := parseRuntime.ledger.Check(
