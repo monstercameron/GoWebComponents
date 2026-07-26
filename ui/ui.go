@@ -767,6 +767,20 @@ func UseId() string {
 }
 
 // UseEvent wraps a Go function so it can be used as a stable event handler.
+//
+// "Stable" is the load-bearing word, and it buys two things an inline closure
+// cannot. The wrapper is created once per hook slot and re-pointed at the latest
+// closure each render, so it compares EQUAL between renders — which lets the
+// reconciler skip both the re-render and the DOM write for that prop. And it is
+// released when the component unmounts, which on js/wasm is the only way the
+// underlying js.Func is ever reclaimed.
+//
+// Passing a raw inline closure as a prop instead is correct but costs on every
+// commit: closures compare unequal by identity (deliberately — the alternative
+// is stale captured state), so the owning fiber is dirty every render and the
+// handler is re-written to the DOM through SetProperty, which the commit's
+// attribute batching does not cover. On a long list that is one bridge crossing
+// per row per commit.
 func UseEvent(parseFn interface{}) Handler {
 	return Handler{value: runtime.GoUseFunc(parseFn)}
 }
