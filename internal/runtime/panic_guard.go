@@ -77,10 +77,18 @@ func GuardCallback(parseSource string, parseSubject string, parseFn func()) func
 // loop panic so the runtime can accept future updates. The last committed
 // tree (currentRoot) is left untouched: the page stays partially alive
 // instead of wedged on corrupt work-in-progress state.
+//
+// "Left untouched" was not true of its LINKS. The bailout path shares fiber
+// objects between the committed and work-in-progress trees and repoints their
+// .parent at the WIP fiber, so dropping wipRoot here left the committed tree's
+// descendants anchored to a discarded root — and every later update targeting
+// them resolved to nil and vanished without a diagnostic. Re-anchoring makes the
+// promise in the paragraph above actually hold. See restoreCommittedTreeLinks.
 func (parseRt *Runtime) recoverWorkLoopState() {
 	if parseRt == nil {
 		return
 	}
+	restoreCommittedTreeLinks(parseRt.currentRoot)
 	parseRt.nextUnitOfWork = nil
 	parseRt.wipRoot = nil
 	if parseRt.deletions != nil {

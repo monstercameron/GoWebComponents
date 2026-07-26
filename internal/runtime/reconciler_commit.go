@@ -1427,9 +1427,43 @@ func (parseRt *Runtime) teardownDeletedSubtree(parseFiber *Fiber) {
 		parseRt.CleanupAtomSubscriptions(parseFiber.alternate)
 	}
 	parseRt.publishDOMRef(parseFiber, nil)
+	parseRt.detachDeletedPortalDOM(parseFiber)
 	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
 		parseRt.teardownDeletedSubtree(parseChild)
 	}
+}
+
+// detachDeletedPortalDOM removes the DOM a portal placed in its OWN target when
+// that portal is deleted as part of a larger subtree.
+//
+// commitDeletion handles the case where the deleted fiber IS a portal, and
+// nothing handled a portal nested BELOW it — which is where every portal in a
+// real application lives, since a modal or tooltip is rendered by a component
+// that gets conditionally unmounted. Both shapes leaked:
+//
+//   - the deleted ancestor owns a DOM node, so commitDeletion removes that node
+//     and returns without ever descending to the portal
+//   - the deleted ancestor is a DOM-less component, so deleteFiberSubtree
+//     descends with the ancestor's OWN dom parent, and the portal's children are
+//     not under it; the browser adapter's RemoveChild checks parentNode before
+//     calling remove(), so the mismatch is a silent no-op rather than an error
+//
+// Either way the portal's nodes stay in the document forever, wired to state
+// whose cleanups have already run — runCleanups walks the deleted subtree, so
+// the effects are torn down while their DOM lives on.
+//
+// Removal uses the portal's own resolved target rather than the inherited DOM
+// parent, which is the whole point: a portal's children were never under the
+// parent the deletion walk is carrying.
+func (parseRt *Runtime) detachDeletedPortalDOM(parseFiber *Fiber) {
+	if parseRt == nil || !parseRt.isPortalFiber(parseFiber) {
+		return
+	}
+	parsePortalParent := parseRt.resolvePortalParent(parseFiber)
+	if IsDOMNodeNull(parsePortalParent) {
+		return
+	}
+	parseRt.deleteFiberSubtree(parseFiber.child, parsePortalParent)
 }
 
 // cleanupAtomSubscriptionsSubtree is an internal reconciler helper.

@@ -280,3 +280,191 @@ func TestPostAsyncGlobalTargetsTheGlobalRuntimeNotTheRenderingOne(parseT *testin
 		parseT.Errorf("expected the post on the global runtime's inbox, depth = %d", parseGlobal.AsyncInboxDepth())
 	}
 }
+
+// An abandoned pass must not leave the committed tree pointing into it.
+//
+// Hypothesis under test: reuseFiberChildSubtree has the WIP parent adopt the
+// SAME child objects as the committed tree, and sanitizeFiberSubtree then
+// repoints those children's .parent at the WIP fiber. recoverWorkLoopState nils
+// wipRoot and nothing else, so after an abandoned pass the committed tree's
+// descendants can point at a fiber that was thrown away — and isFiberInCurrentTree
+// walks .parent to decide whether an update is deliverable at all.
+func TestAbandonedPassLeavesTheCommittedTreeReachable(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler, Reset: true})
+	parseContainer := parseAdapter.CreateElement("div")
+
+	var parseSet func(any)
+	parseLeaf := func() *Element {
+		parseValue, parseSetter := GoUseState(parseRt, "before")
+		parseSet = parseSetter
+		return CreateElement("span", map[string]any{"id": "leaf"}, parseValue())
+	}
+	parseShell := func() *Element {
+		return CreateElement("div", map[string]any{"id": "shell"},
+			CreateElement(parseLeaf, map[string]any{}))
+	}
+
+	parseRt.Render(CreateElement(parseShell, nil), parseContainer)
+	runScheduledTimeouts(parseScheduler)
+
+	parseCommittedRoot := parseRt.currentRoot
+
+	// A root-only update: every descendant is clean, so the first child bails out
+	// through reuseFiberChildSubtree and the repointing happens.
+	parseRt.ScheduleUpdate()
+	if len(parseScheduler.timeouts) == 0 {
+		parseT.Fatal("expected a scheduled pass")
+	}
+	parseScheduler.timeouts = parseScheduler.timeouts[1:] // drop it: the pass never runs to completion
+
+	// Drive exactly the part of the pass that performs the bailout, then abandon
+	// it the way an unhandled panic would.
+	for parseSteps := 0; parseSteps < 4 && parseRt.nextUnitOfWork != nil; parseSteps++ {
+		parseRt.nextUnitOfWork = parseRt.performUnitOfWork(parseRt.nextUnitOfWork)
+	}
+	parseRt.recoverWorkLoopState()
+
+	if parseRt.currentRoot != parseCommittedRoot {
+		parseT.Fatal("setup: the committed root should be untouched by an abandoned pass")
+	}
+
+	// Every fiber still in the committed tree must still be reachable from it,
+	// or updates targeting it are silently undeliverable.
+	var parseWalk func(*Fiber, string)
+	parseOrphans := 0
+	parseWalk = func(parseFiber *Fiber, parseLabel string) {
+		if parseFiber == nil {
+			return
+		}
+		if !parseRt.isFiberInCurrentTree(parseFiber) {
+			parseOrphans++
+			parseT.Errorf("%s is in the committed tree but does not resolve back to currentRoot", parseLabel)
+		}
+		parseWalk(parseFiber.child, parseLabel+"/child")
+		parseWalk(parseFiber.sibling, parseLabel+"/sibling")
+	}
+	parseWalk(parseCommittedRoot.child, "root/child")
+
+	// The behavioural consequence: a state write after an abandoned pass must
+	// still reach the DOM.
+	parseSet("after")
+	runScheduledTimeouts(parseScheduler)
+	if parseNode := findNodeByID(parseContainer, "leaf"); parseNode == nil || collectFiberText(parseNode) != "after" {
+		parseT.Errorf("state write after an abandoned pass never reached the DOM (orphaned fibers: %d)", parseOrphans)
+	}
+}
+
+func collectFiberText(parseNode *testDOMNode) string {
+	if parseNode == nil {
+		return ""
+	}
+	if parseNode.text != "" {
+		return parseNode.text
+	}
+	for _, parseChild := range parseNode.children {
+		if parseTyped, parseOk := parseChild.(*testDOMNode); parseOk {
+			if parseText := collectFiberText(parseTyped); parseText != "" {
+				return parseText
+			}
+		}
+	}
+	return ""
+}
+
+// A portal nested inside a deleted subtree must take its DOM with it.
+//
+// commitDeletion handled the case where the deleted fiber IS a portal and
+// nothing handled a portal below it — which is where every real portal lives,
+// since a modal or tooltip is rendered by a component that gets conditionally
+// unmounted. Both leak shapes are covered here: an ancestor that owns a DOM node
+// (removed, never descended past) and a DOM-less component ancestor (descended,
+// but carrying the wrong DOM parent, so the browser's parentNode check makes the
+// removal a silent no-op). Effect cleanups run either way, so the leak is
+// orphaned DOM wired to torn-down state.
+func TestPortalInsideDeletedSubtreeIsRemoved(parseT *testing.T) {
+	parseCases := []struct {
+		name  string
+		owner func(parseOverlay DOMNode, parseID string) *Element
+	}{
+		{
+			name: "ancestor owns a DOM node",
+			owner: func(parseOverlay DOMNode, parseID string) *Element {
+				return CreateElement("div", map[string]any{"id": "wrapper"},
+					CreateElement(PortalNodeType, map[string]any{"portalTargetNode": parseOverlay},
+						CreateElement("div", map[string]any{"id": parseID}, "overlay"),
+					))
+			},
+		},
+		{
+			name: "ancestor is a DOM-less component",
+			owner: func(parseOverlay DOMNode, parseID string) *Element {
+				parseComponent := func() *Element {
+					return CreateElement(PortalNodeType, map[string]any{"portalTargetNode": parseOverlay},
+						CreateElement("div", map[string]any{"id": parseID}, "overlay"),
+					)
+				}
+				return CreateElement(parseComponent, map[string]any{})
+			},
+		},
+	}
+
+	for _, parseCase := range parseCases {
+		parseT.Run(parseCase.name, func(parseT *testing.T) {
+			parseAdapter := newTestDOMAdapter()
+			parseScheduler := newTestScheduler()
+			parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+			parseApp := parseAdapter.CreateElement("div")
+			parseOverlay := parseAdapter.CreateElement("div")
+
+			renderAndDrain(parseT, parseRt, parseScheduler, parseApp,
+				CreateElement("section", nil, parseCase.owner(parseOverlay, "portaled")))
+			if findNodeByID(parseOverlay, "portaled") == nil {
+				parseT.Fatal("setup: the portal child should be mounted in the overlay")
+			}
+
+			renderAndDrain(parseT, parseRt, parseScheduler, parseApp,
+				CreateElement("section", nil,
+					CreateElement("p", map[string]any{"id": "replacement"}, "gone")))
+
+			if findNodeByID(parseOverlay, "portaled") != nil {
+				parseT.Error("portal content survived deletion of its owning subtree")
+			}
+		})
+	}
+}
+
+// ...and a portal that is still mounted must be left alone, or the fix above
+// would be a different bug: deleting a SIBLING must not empty the overlay.
+func TestPortalSurvivesDeletionOfASibling(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseApp := parseAdapter.CreateElement("div")
+	parseOverlay := parseAdapter.CreateElement("div")
+
+	parsePortal := func() *Element {
+		return CreateElement(PortalNodeType, map[string]any{"portalTargetNode": parseOverlay},
+			CreateElement("div", map[string]any{"id": "kept"}, "overlay"))
+	}
+
+	renderAndDrain(parseT, parseRt, parseScheduler, parseApp,
+		CreateElement("section", nil,
+			CreateElement("div", map[string]any{"id": "doomed"}, "bye"),
+			parsePortal(),
+		))
+	if findNodeByID(parseOverlay, "kept") == nil {
+		parseT.Fatal("setup: the portal child should be mounted in the overlay")
+	}
+
+	renderAndDrain(parseT, parseRt, parseScheduler, parseApp,
+		CreateElement("section", nil, parsePortal()))
+
+	if findNodeByID(parseApp, "doomed") != nil {
+		parseT.Fatal("setup: the sibling should have been removed")
+	}
+	if findNodeByID(parseOverlay, "kept") == nil {
+		parseT.Error("a still-mounted portal lost its content when a sibling was deleted")
+	}
+}

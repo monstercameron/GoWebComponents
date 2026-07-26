@@ -735,6 +735,45 @@ func (parseRt *Runtime) sanitizeFiberSubtree(parseFiber *Fiber, parseParent *Fib
 	}
 }
 
+// restoreCommittedTreeLinks re-anchors the committed tree after a render pass is
+// abandoned, so every fiber in it resolves back to currentRoot again.
+//
+// The bailout path SHARES fiber objects between the two trees: reuseFiberChildSubtree
+// hands the work-in-progress parent the committed parent's own child chain, and
+// sanitizeFiberSubtree then repoints those children's .parent at the WIP fiber.
+// One object cannot have two parents, and the design accepts that because the WIP
+// tree becomes the committed tree a moment later. Abandon the pass instead and the
+// trade is never paid: the committed tree's descendants are left pointing into a
+// fiber that was thrown away.
+//
+// That is not cosmetic. isFiberInCurrentTree decides whether an update is
+// deliverable by walking .parent up to the root and comparing it with currentRoot,
+// and resolveOwnedFiberTarget / resolveSubscribedFiberTarget return nil when it
+// fails — so after one abandoned pass a component's setState reaches nothing, with
+// no diagnostic and no crash. Measured before this fix: three of four fibers
+// orphaned, and a state write afterwards never reached the DOM.
+//
+// O(tree) on a path that only runs when a pass is discarded, which is the right
+// place to spend it. No short-circuit on an already-correct parent link: the
+// abandoned pass may have re-anchored a fiber at any depth, so a matching link
+// near the root says nothing about the subtree beneath it.
+//
+// What this does NOT restore: sanitizeFiberSubtree also clears dirty/needsUpdate
+// on the shared fibers, so work marked before the abandoned pass is lost with it.
+// Recovering that needs the flags to be captured before the pass, which is a
+// larger change; re-anchoring at least stops the tree from being permanently
+// undeliverable, which is the difference between one lost update and every
+// future one.
+func restoreCommittedTreeLinks(parseRoot *Fiber) {
+	if parseRoot == nil {
+		return
+	}
+	for parseChild := parseRoot.child; parseChild != nil; parseChild = parseChild.sibling {
+		parseChild.parent = parseRoot
+		restoreCommittedTreeLinks(parseChild)
+	}
+}
+
 // handleClonedFiberSubscriptionMove moves atom subscriptions from one cloned fiber to its new current fiber.
 func (parseRt *Runtime) handleClonedFiberSubscriptionMove(parseOldFiber *Fiber, parseNewFiber *Fiber) {
 	if parseRt == nil || parseRt.atomRegistry == nil || parseOldFiber == nil || parseNewFiber == nil || parseOldFiber == parseNewFiber {
