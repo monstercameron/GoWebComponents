@@ -3,6 +3,7 @@ package runtime
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 // Async ingress acceptance (v5 P2.1).
@@ -434,5 +435,91 @@ func TestAsyncIngress_OnLoopFiberScheduleStillDirect(parseT *testing.T) {
 	if parseRt.AsyncInboxDepth() != 0 {
 		parseT.Errorf("inbox depth = %d; an on-loop schedule was queued, which would cost every interaction an extra task",
 			parseRt.AsyncInboxDepth())
+	}
+}
+
+// TestAsyncIngress_DrainIsBoundedByADeadline pins that queue pressure cannot
+// become one enormous main-thread task.
+//
+// The drain applied the whole batch in one block. With a soft bound of 16,384
+// entries and a hard bound of 262,144, a burst turned queue depth directly into
+// frame time — the inbox causing exactly the long frame the architecture exists
+// to prevent.
+func TestAsyncIngress_DrainIsBoundedByADeadline(parseT *testing.T) {
+	parseRt, parseContainer, parseScheduler := newAsyncIngressRuntime(parseT)
+	mountCounter(parseT, parseRt, parseContainer, parseScheduler)
+
+	// Entries that are individually slow, so the budget is reached long before
+	// the batch is exhausted. A fast entry would let the whole batch fit and the
+	// test would pass without exercising the bound.
+	const parseEntries = 400
+	parseApplied := 0
+	for parseIndex := 0; parseIndex < parseEntries; parseIndex++ {
+		parseRt.PostAsync(func() {
+			parseApplied++
+			parseBusyUntil := time.Now().Add(60 * time.Microsecond)
+			for time.Now().Before(parseBusyUntil) {
+			}
+		})
+	}
+
+	parseRt.DrainAsyncInbox()
+
+	if parseApplied == 0 {
+		parseT.Fatal("the drain applied nothing")
+	}
+	if parseApplied >= parseEntries {
+		parseT.Errorf("one drain applied all %d entries; the batch is not bounded, so queue depth still converts directly into frame time",
+			parseEntries)
+	}
+	if parseRt.AsyncInboxDepth() != parseEntries-parseApplied {
+		parseT.Errorf("inbox holds %d entries after applying %d of %d; the remainder was not returned to the queue",
+			parseRt.AsyncInboxDepth(), parseApplied, parseEntries)
+	}
+
+	// Whatever was left must still be scheduled and must still arrive.
+	runScheduledTimeouts(parseScheduler)
+	if parseApplied != parseEntries {
+		parseT.Errorf("after draining to completion %d of %d entries ran; bounding the drain must delay work, never drop it",
+			parseApplied, parseEntries)
+	}
+	if parseRt.AsyncInboxDepth() != 0 {
+		parseT.Errorf("inbox still holds %d entries", parseRt.AsyncInboxDepth())
+	}
+}
+
+// TestAsyncIngress_SlicedDrainPreservesOrder guards the property a queue may not
+// trade away for a budget.
+//
+// Entries left over by a deadline ran BEFORE anything posted since, so they go
+// back to the front. Appending them would reorder one producer's own writes, and
+// a worker that posts "set rows" then "set total" would have them applied the
+// other way round.
+func TestAsyncIngress_SlicedDrainPreservesOrder(parseT *testing.T) {
+	parseRt, parseContainer, parseScheduler := newAsyncIngressRuntime(parseT)
+	mountCounter(parseT, parseRt, parseContainer, parseScheduler)
+
+	parseOrder := make([]int, 0, 300)
+	for parseIndex := 0; parseIndex < 300; parseIndex++ {
+		parseCaptured := parseIndex
+		parseRt.PostAsync(func() {
+			parseOrder = append(parseOrder, parseCaptured)
+			parseBusyUntil := time.Now().Add(60 * time.Microsecond)
+			for time.Now().Before(parseBusyUntil) {
+			}
+		})
+	}
+
+	parseRt.DrainAsyncInbox()
+	runScheduledTimeouts(parseScheduler)
+
+	if len(parseOrder) != 300 {
+		parseT.Fatalf("applied %d entries, want 300", len(parseOrder))
+	}
+	for parseIndex, parseValue := range parseOrder {
+		if parseValue != parseIndex {
+			parseT.Fatalf("entry %d ran at position %d; slicing the drain reordered a producer's writes",
+				parseValue, parseIndex)
+		}
 	}
 }

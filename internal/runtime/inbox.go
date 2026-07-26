@@ -134,11 +134,34 @@ func (parseRt *Runtime) inboxLimit() int {
 	return parseRt.limits.withDefaults().MaxQueuedUpdates
 }
 
-// DrainAsyncInbox applies every queued entry in one synchronous block.
+// inboxDrainSliceCheck is how many entries run between deadline checks.
 //
-// Running the whole batch before yielding is the entire point: each entry marks
-// its own state, and the updateScheduled gate collapses all of them into a
-// single render pass.
+// An entry is usually a state write costing well under a microsecond, so
+// checking a clock on every one would cost more than the work. Sixty-four keeps
+// the overshoot past the budget small while making the check itself negligible.
+const inboxDrainSliceCheck = 64
+
+// inboxDrainBudgetMs bounds one drain when the runtime has no frame budget of
+// its own to borrow.
+const inboxDrainBudgetMs = 4
+
+// DrainAsyncInbox applies queued entries under a time budget.
+//
+// Applying the WHOLE batch in one block was the original design, on the
+// reasoning that each entry marks its own state and the updateScheduled gate
+// collapses them into a single render pass. The coalescing part is right and is
+// kept. The unbounded part is not: the queue's soft bound is 16,384 entries and
+// its hard bound 262,144, so a burst converts queue pressure into one enormous
+// main-thread task — the inbox would be causing precisely the frame the
+// architecture exists to protect.
+//
+// So the batch is applied in slices against a deadline, and whatever does not
+// fit is returned to the FRONT of the queue with another drain scheduled.
+// Order is preserved: entries left over ran before anything posted since.
+//
+// Coalescing survives being sliced. Every entry still marks state through the
+// same updateScheduled gate, so N entries across M drains still produce one
+// render pass per frame rather than one per entry.
 func (parseRt *Runtime) DrainAsyncInbox() {
 	if parseRt == nil {
 		return
@@ -175,10 +198,63 @@ func (parseRt *Runtime) DrainAsyncInbox() {
 	// does, and without this each one would post itself straight back into the
 	// queue and be deferred another frame, forever.
 	parseRt.enterFrameLoop()
-	defer parseRt.exitFrameLoop()
-	for _, parseWork := range parseBatch {
+	parseDeadline := parseRt.resolveInboxDrainDeadline()
+	parseApplied := 0
+	for parseIndex, parseWork := range parseBatch {
 		parseRt.runInboxEntry(parseWork)
+		parseApplied = parseIndex + 1
+		if parseApplied%inboxDrainSliceCheck == 0 && parseDeadline.TimeRemaining() < 1 {
+			break
+		}
 	}
+	parseRt.exitFrameLoop()
+
+	if parseApplied < len(parseBatch) {
+		parseRt.requeueUndrained(parseBatch[parseApplied:])
+	}
+}
+
+// resolveInboxDrainDeadline gives one drain its slice budget.
+//
+// It borrows the runtime's frame budget when there is one, so a drain and a
+// render slice are bounded by the same number and an app that tuned one has
+// tuned both.
+func (parseRt *Runtime) resolveInboxDrainDeadline() Deadline {
+	if parseRt.frameBudgetEnabled() {
+		return newFrameBudgetDeadline(parseRt.frameBudgetMs)
+	}
+	return newFrameBudgetDeadline(inboxDrainBudgetMs)
+}
+
+// requeueUndrained returns unapplied entries to the FRONT of the queue and
+// ensures another drain is scheduled.
+//
+// The front, because these entries were posted before anything still queued;
+// appending them would reorder an async producer's own writes, which is the one
+// thing a queue must not do.
+func (parseRt *Runtime) requeueUndrained(parseRemaining []func()) {
+	if len(parseRemaining) == 0 {
+		return
+	}
+	parseRt.inbox.mu.Lock()
+	parseRestored := make([]func(), 0, len(parseRemaining)+len(parseRt.inbox.entries))
+	parseRestored = append(parseRestored, parseRemaining...)
+	parseRestored = append(parseRestored, parseRt.inbox.entries...)
+	parseRt.inbox.entries = parseRestored
+	isAlreadyScheduled := parseRt.inbox.scheduled
+	parseRt.inbox.scheduled = true
+	parseRt.inbox.mu.Unlock()
+
+	if isAlreadyScheduled {
+		return
+	}
+	if parseRt.scheduler == nil {
+		// No frame loop to wait for; finish inline rather than leaving work
+		// queued with nothing that will ever come back for it.
+		parseRt.DrainAsyncInbox()
+		return
+	}
+	parseRt.scheduler.SetTimeout(parseRt.DrainAsyncInbox, 0)
 }
 
 // runInboxEntry isolates one entry so a panicking producer cannot strand the
