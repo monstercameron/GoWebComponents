@@ -63,8 +63,20 @@ func (parseState *v5ProbeState) buildWindowMaxPauseNs(parseMemStats *goruntime.M
 		isTruncated = true
 	}
 
+	// Cycles that completed INSIDE this window are previous+1 through current.
+	//
+	// The loop ran previous through current-1, which is wrong at both ends: it
+	// included the collection that finished BEFORE the window opened and
+	// excluded the last one inside it. The included one is the expensive case —
+	// a collection following a gap costs ~6ms where a warm one costs ~0.2ms — so
+	// a startup pause was being reported as a pause during a measured window,
+	// repeatedly, in whichever window happened to follow it.
+	//
+	// Go documents the pause for the cycle that produced NumGC == k as living at
+	// PauseNs[(k+255)%256], so the index expression is unchanged; only the range
+	// was wrong.
 	getMaxPauseNs := uint64(0)
-	for getCycle := getStartCycle; getCycle < getCurrentNumGC; getCycle++ {
+	for getCycle := getStartCycle + 1; getCycle <= getCurrentNumGC; getCycle++ {
 		getPauseNs := parseMemStats.PauseNs[(getCycle+255)%256]
 		if getPauseNs > getMaxPauseNs {
 			getMaxPauseNs = getPauseNs
