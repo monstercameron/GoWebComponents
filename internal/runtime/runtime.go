@@ -108,11 +108,19 @@ type Runtime struct {
 	// event dispatch and inbox drains. workLoopDepth covers render and commit.
 	// A setter that finds BOTH at zero was called from somewhere the runtime
 	// does not control, which is exactly the case the inbox exists for.
-	frameLoopDepth int
+	// Atomic, because these are not only touched by the frame loop. The inbox's
+	// hard-overflow path drains on whatever goroutine is POSTING (inbox.go:
+	// "nothing scheduled can have run, or the queue could not have reached this
+	// size"), and that drain enters and leaves the frame-loop region — so a
+	// producer goroutine mutates the renderer's own ownership state while the
+	// renderer may be inside it. Unobservable in wasm, where there is one
+	// thread; a genuine race in SSR and in the native suite. Atomics rather than
+	// a mutex because insideFrameLoop is consulted on every off-loop state write.
+	frameLoopDepth atomic.Int32
 	// frameLoopOwner is the goroutine that entered the outermost frame-loop
 	// region. A write from any other goroutine is async however deep the
 	// counter is — see frame_loop_owner.go.
-	frameLoopOwner uint64
+	frameLoopOwner atomic.Uint64
 	// inbox holds async work posted from outside the frame loop (v5 P2.1).
 	// Drained at one defined point per frame so N async messages produce one
 	// render pass rather than N. See inbox.go.

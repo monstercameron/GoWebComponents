@@ -19,8 +19,8 @@ func TestBudgetsReportEveryCliffWithAName(parseT *testing.T) {
 	parseBudgets := parseRt.Budgets()
 
 	parseSignals := parseBudgets.Signals()
-	if len(parseSignals) != 2 {
-		parseT.Fatalf("signals = %d, want both T9 cliffs represented", len(parseSignals))
+	if len(parseSignals) != 3 {
+		parseT.Fatalf("signals = %d, want every bounded queue represented", len(parseSignals))
 	}
 
 	parseSeen := map[string]bool{}
@@ -37,8 +37,11 @@ func TestBudgetsReportEveryCliffWithAName(parseT *testing.T) {
 			parseT.Errorf("cliff %q has no limit; T9 is about bounded queues", parseSignal.Name)
 		}
 	}
-	if !parseSeen[BudgetPendingEffects] || !parseSeen[BudgetQueuedUpdates] {
-		parseT.Errorf("signals = %v, want both %q and %q", parseSeen, BudgetPendingEffects, BudgetQueuedUpdates)
+	// The async inbox joined the other two: it is a bounded queue whose overflow
+	// suspends frame isolation, and it was reportable only as a console line.
+	if !parseSeen[BudgetPendingEffects] || !parseSeen[BudgetQueuedUpdates] || !parseSeen[BudgetAsyncInbox] {
+		parseT.Errorf("signals = %v, want %q, %q and %q", parseSeen,
+			BudgetPendingEffects, BudgetQueuedUpdates, BudgetAsyncInbox)
 	}
 }
 

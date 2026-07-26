@@ -60,6 +60,17 @@ type asyncInbox struct {
 	mu        sync.Mutex
 	entries   []func()
 	scheduled bool
+	// overflowCount and hardOverflowCount are LIFETIME totals, unlike the two
+	// booleans below which every drain resets.
+	//
+	// P4.2's own argument is that a log line is not something a devtools panel, a
+	// test, or a CI gate can read — and these two cliffs were log-only, while the
+	// hard one suspends the frame-isolation guarantee the whole inbox exists to
+	// provide. Worse, a reader arriving after the drain found both flags false,
+	// so the condition was not merely unreported but unobservable. See
+	// Runtime.Budgets.
+	overflowCount     int
+	hardOverflowCount int
 	// overflowed records that the queue grew past its soft bound, so the
 	// condition can be surfaced instead of inferred.
 	overflowed bool
@@ -95,11 +106,13 @@ func (parseRt *Runtime) PostAsync(parseWork func()) {
 		parseRt.inbox.scheduled = true
 	}
 	isPastHardBound := parseLimit > 0 && len(parseRt.inbox.entries) > parseLimit*inboxHardOverflowFactor
-	if isOverBound {
+	if isOverBound && !parseRt.inbox.overflowed {
 		parseRt.inbox.overflowed = true
+		parseRt.inbox.overflowCount++
 	}
-	if isPastHardBound {
+	if isPastHardBound && !parseRt.inbox.hardOverflowed {
 		parseRt.inbox.hardOverflowed = true
+		parseRt.inbox.hardOverflowCount++
 	}
 	parseRt.inbox.mu.Unlock()
 
@@ -144,6 +157,15 @@ const inboxDrainSliceCheck = 64
 // inboxDrainBudgetMs bounds one drain when the runtime has no frame budget of
 // its own to borrow.
 const inboxDrainBudgetMs = 4
+
+// inboxDrainBudgetShare is the fraction of the frame budget one drain may take.
+//
+// A drain and a render slice happen in the SAME frame, so handing the drain the
+// whole frame budget meant a frame could spend the full budget draining and then
+// the full budget rendering — each component honouring "the" budget while the
+// frame paid twice, plus an unbounded commit on top. A third leaves the render
+// pass, which is the thing the budget was written for, the majority of it.
+const inboxDrainBudgetShare = 3
 
 // DrainAsyncInbox applies queued entries under a time budget.
 //
@@ -216,12 +238,18 @@ func (parseRt *Runtime) DrainAsyncInbox() {
 
 // resolveInboxDrainDeadline gives one drain its slice budget.
 //
-// It borrows the runtime's frame budget when there is one, so a drain and a
-// render slice are bounded by the same number and an app that tuned one has
-// tuned both.
+// It borrows a SHARE of the runtime's frame budget when there is one, so a drain
+// and a render slice are bounded by the same number and an app that tuned one has
+// tuned both — without the two of them independently spending it in full.
 func (parseRt *Runtime) resolveInboxDrainDeadline() Deadline {
 	if parseRt.frameBudgetEnabled() {
-		return newFrameBudgetDeadline(parseRt.frameBudgetMs)
+		parseShare := parseRt.frameBudgetMs / inboxDrainBudgetShare
+		// Never below one slice-check's worth of time, or the drain makes no
+		// progress and requeues forever on a very small configured budget.
+		if parseShare < 1 {
+			parseShare = 1
+		}
+		return newFrameBudgetDeadline(parseShare)
 	}
 	return newFrameBudgetDeadline(inboxDrainBudgetMs)
 }
@@ -290,6 +318,18 @@ func (parseRt *Runtime) AsyncInboxStats() (parsePosts int, parseDrains int) {
 	return parseRt.inbox.postCount, parseRt.inbox.drainCount
 }
 
+// asyncInboxPressure reports the inbox's current occupancy and its lifetime
+// overflow totals, for the P4.2 budget signal.
+func (parseRt *Runtime) asyncInboxPressure() (parseDepth int, parseSoft int, parseHard int, isSuspended bool) {
+	if parseRt == nil {
+		return 0, 0, 0, false
+	}
+	parseRt.inbox.mu.Lock()
+	defer parseRt.inbox.mu.Unlock()
+	return len(parseRt.inbox.entries), parseRt.inbox.overflowCount,
+		parseRt.inbox.hardOverflowCount, parseRt.inbox.hardOverflowed
+}
+
 // Frame-loop marking (v5 P2.1, second half).
 //
 // The inbox is only half a solution while state setters still apply wherever
@@ -323,20 +363,31 @@ func (parseRt *Runtime) enterFrameLoop() {
 	if parseRt == nil {
 		return
 	}
-	if parseRt.frameLoopDepth == 0 && parseRt.asyncIngress {
-		parseRt.frameLoopOwner = frameLoopGoroutineID()
+	// Atomic: the hard-overflow path drains on the POSTING goroutine, so this
+	// runs off the frame loop as well as on it. See the field declarations.
+	if parseRt.frameLoopDepth.Add(1) == 1 && parseRt.asyncIngress {
+		parseRt.frameLoopOwner.Store(frameLoopGoroutineID())
 	}
-	parseRt.frameLoopDepth++
 }
 
 // exitFrameLoop marks the end of a frame-loop region.
 func (parseRt *Runtime) exitFrameLoop() {
-	if parseRt == nil || parseRt.frameLoopDepth == 0 {
+	if parseRt == nil {
 		return
 	}
-	parseRt.frameLoopDepth--
-	if parseRt.frameLoopDepth == 0 {
-		parseRt.frameLoopOwner = 0
+	// Guard the underflow on the atomic itself: reading the depth, deciding, and
+	// then decrementing is a check-then-act that two goroutines can interleave.
+	for {
+		parseDepth := parseRt.frameLoopDepth.Load()
+		if parseDepth == 0 {
+			return
+		}
+		if parseRt.frameLoopDepth.CompareAndSwap(parseDepth, parseDepth-1) {
+			if parseDepth == 1 {
+				parseRt.frameLoopOwner.Store(0)
+			}
+			return
+		}
 	}
 }
 
@@ -363,7 +414,8 @@ func (parseRt *Runtime) insideFrameLoop() bool {
 	// A zero owner means the identity could not be read. Treated as "not the
 	// owner" so an unreadable stack routes the write through the inbox — slower,
 	// never wrong — rather than admitting it on an unverified claim.
-	return parseRt.frameLoopOwner != 0 && frameLoopGoroutineID() == parseRt.frameLoopOwner
+	parseOwner := parseRt.frameLoopOwner.Load()
+	return parseOwner != 0 && frameLoopGoroutineID() == parseOwner
 }
 
 // shouldPostAsyncStateUpdate reports whether a state write must be queued rather

@@ -117,6 +117,10 @@ const (
 	BudgetPendingEffects = "pending-effects"
 	// BudgetQueuedUpdates is the update queue that coalesces past its limit.
 	BudgetQueuedUpdates = "queued-updates"
+	// BudgetAsyncInbox is the off-loop ingress queue (P2.1). Past its soft bound
+	// batching degrades; past the hard bound the drain moves onto the producing
+	// goroutine and frame isolation is suspended for that batch.
+	BudgetAsyncInbox = "async-inbox"
 )
 
 // WorkloadBudgets is every cliff's state at one moment.
@@ -127,19 +131,26 @@ const (
 type WorkloadBudgets struct {
 	PendingEffects BudgetSignal
 	QueuedUpdates  BudgetSignal
+	// AsyncInbox is the off-loop ingress queue. It was missing for as long as
+	// this file existed, which left the runtime's most consequential cliff
+	// readable only as a console line: past the hard bound the drain moves onto
+	// the producing goroutine and the frame-isolation guarantee — the whole
+	// point of P2.1 — is suspended for that batch.
+	AsyncInbox BudgetSignal
 }
 
 // Degraded reports whether any cliff is currently active.
 func (parseBudgets WorkloadBudgets) Degraded() bool {
-	return parseBudgets.PendingEffects.Active || parseBudgets.QueuedUpdates.Active
+	return parseBudgets.PendingEffects.Active || parseBudgets.QueuedUpdates.Active ||
+		parseBudgets.AsyncInbox.Active
 }
 
 // Signals returns the cliffs in a stable order, for iteration.
 //
 // Returns an array, not a slice, so ranging over it in a per-frame devtools poll
 // does not allocate.
-func (parseBudgets WorkloadBudgets) Signals() [2]BudgetSignal {
-	return [2]BudgetSignal{parseBudgets.PendingEffects, parseBudgets.QueuedUpdates}
+func (parseBudgets WorkloadBudgets) Signals() [3]BudgetSignal {
+	return [3]BudgetSignal{parseBudgets.PendingEffects, parseBudgets.QueuedUpdates, parseBudgets.AsyncInbox}
 }
 
 // Budgets reports the current workload budget state.
@@ -151,9 +162,11 @@ func (parseRt *Runtime) Budgets() WorkloadBudgets {
 		return WorkloadBudgets{
 			PendingEffects: BudgetSignal{Name: BudgetPendingEffects, Behavior: BudgetDegrade},
 			QueuedUpdates:  BudgetSignal{Name: BudgetQueuedUpdates, Behavior: BudgetCoalesce},
+			AsyncInbox:     BudgetSignal{Name: BudgetAsyncInbox, Behavior: BudgetDegrade},
 		}
 	}
 
+	parseInboxDepth, parseInboxSoft, parseInboxHard, isInboxSuspended := parseRt.asyncInboxPressure()
 	parseLimits := parseRt.limits.withDefaults()
 	return WorkloadBudgets{
 		PendingEffects: BudgetSignal{
@@ -176,7 +189,38 @@ func (parseRt *Runtime) Budgets() WorkloadBudgets {
 			Active: parseRt.schedulerState.coalescedUpdates >= parseRt.schedulerState.maxQueuedUpdates &&
 				parseRt.schedulerState.maxQueuedUpdates > 0,
 		},
+		AsyncInbox: BudgetSignal{
+			Name: BudgetAsyncInbox,
+			// The SOFT bound, because that is the number a reader can act on:
+			// past it batching degrades. The hard bound is 16x further out and
+			// is reported through Triggered rather than as a second limit.
+			Limit:    parseLimits.MaxQueuedUpdates * inboxOverflowFactor,
+			Observed: parseInboxDepth,
+			// Degrade, not Coalesce: nothing is merged and nothing is lost. Past
+			// the soft bound the queue simply grows until the loop takes its
+			// turn, which costs batching. Past the hard bound the drain runs on
+			// the producer — still lossless, and still a degradation, but of the
+			// isolation guarantee rather than of throughput.
+			Behavior: BudgetDegrade,
+			// Soft + hard, so a caller sees every time pressure was reached; the
+			// hard total is the one that matters and is available on its own
+			// through AsyncInboxSuspensions.
+			Triggered: parseInboxSoft + parseInboxHard,
+			Active:    isInboxSuspended,
+		},
 	}
+}
+
+// AsyncInboxSuspensions reports how many times the inbox drained on a producer
+// goroutine, suspending frame isolation for that batch.
+//
+// Separate from the aggregate Triggered count because these two conditions are
+// not the same event and folding them together hides the serious one behind the
+// ordinary one — the distinction the inbox's own comments already draw between
+// "batching degraded" and "the guarantee was suspended".
+func (parseRt *Runtime) AsyncInboxSuspensions() int {
+	_, _, parseHard, _ := parseRt.asyncInboxPressure()
+	return parseHard
 }
 
 // GlobalBudgets reports the global runtime's workload budgets, for callers that
