@@ -2,6 +2,7 @@ package runtime
 
 import (
 	goruntime "runtime"
+	"strings"
 	"testing"
 )
 
@@ -263,5 +264,41 @@ func TestTransitionScopeHandlesNestingAndConcurrency(parseT *testing.T) {
 	close(parseBothOpen)
 	if !parseFirst || !parseSecond {
 		parseT.Error("each transitioning goroutine must see its own transition")
+	}
+}
+
+// The memory-hygiene check must be able to see a goroutine leak. The heap and
+// fiber thresholds could not: a suspended boundary parking a watcher per render
+// moved almost no heap, kept the tree the same size, and changed no atom or
+// subscriber count.
+func TestMemoryHygieneReportsGoroutinePressure(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Reset: true})
+
+	parseBaseline := parseRt.CheckMemoryHygiene(MemoryHygieneOptions{})
+	if parseBaseline.Goroutines <= 0 {
+		parseT.Fatal("the snapshot must report a live goroutine count")
+	}
+	if len(parseBaseline.Diagnostics) != 0 {
+		parseT.Errorf("no threshold was configured, so nothing should be reported: %v", parseBaseline.Diagnostics)
+	}
+
+	// A threshold below the current count must report, so the option is wired
+	// rather than merely declared — the failure mode two RuntimeLimits fields had.
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+	parseTripped := parseRt.CheckMemoryHygiene(MemoryHygieneOptions{MaxGoroutines: 1})
+	parseFound := false
+	for _, parseMessage := range parseTripped.Diagnostics {
+		if strings.Contains(parseMessage, "goroutine threshold exceeded") {
+			parseFound = true
+		}
+	}
+	if !parseFound {
+		parseT.Errorf("MaxGoroutines was not honoured: %v", parseTripped.Diagnostics)
+	}
+
+	// And a generous threshold must stay quiet.
+	if parseQuiet := parseRt.CheckMemoryHygiene(MemoryHygieneOptions{MaxGoroutines: 1 << 20}); len(parseQuiet.Diagnostics) != 0 {
+		parseT.Errorf("a threshold far above the count must not report: %v", parseQuiet.Diagnostics)
 	}
 }

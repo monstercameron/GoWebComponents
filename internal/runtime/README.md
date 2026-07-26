@@ -68,4 +68,14 @@ and what the code does.
 - Use `Config.StrictMode` for dev-time double-render, setState-during-render, and effect cleanup-contract checks.
 - Use `Config.Limits` to bound pending effects, queued update coalescing, replay events, and diagnostics.
 - Use `StartReplayRecording` / `StopReplayRecording` and `ReplayUpdates` to capture and replay deterministic scheduling streams.
-- Use `InternalStateSnapshot` and `CheckMemoryHygiene` for long-session fiber, atom, subscriber, queue, and heap-pressure diagnostics.
+- Use `InternalStateSnapshot` and `CheckMemoryHygiene` for long-session fiber, atom,
+  subscriber, queue, goroutine, and heap-pressure diagnostics. **Neither is free, and
+  neither belongs in a per-frame poll.** `InternalStateSnapshot` walks the whole
+  committed fiber tree while holding `schedulerMu`, so it blocks scheduling for
+  O(tree) per sample, and `CheckMemoryHygiene` additionally calls
+  `runtime.ReadMemStats`, which stops the world. Sampling either on a timer
+  manufactures the pauses M7 exists to bound. Call them on demand, or on a slow
+  interval when investigating.
+- Set `MemoryHygieneOptions.MaxGoroutines` when investigating a leak: the heap and
+  fiber thresholds cannot see a goroutine parked on a channel, which is how the
+  suspended-boundary watcher leak (fixed in `ee39ac99`) stayed invisible.
