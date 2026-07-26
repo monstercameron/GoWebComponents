@@ -108,6 +108,16 @@ func applyGlobalRuntimeLimits(parseLimits RuntimeLimits) {
 		trimDiagnosticsLocked(maxDiagnosticEntries)
 		diagnosticsMu.Unlock()
 	}
+	if parseLimits.MaxProfilingEvents > 0 {
+		schedulerMu.Lock()
+		maxProfilingEvents = parseLimits.MaxProfilingEvents
+		schedulerMu.Unlock()
+	}
+	if parseLimits.MaxLogEntries > 0 {
+		logsMu.Lock()
+		maxLogEntries = parseLimits.MaxLogEntries
+		logsMu.Unlock()
+	}
 }
 
 type runtimeSchedulerState struct {
