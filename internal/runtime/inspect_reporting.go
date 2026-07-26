@@ -34,7 +34,12 @@ var (
 	logHead   int
 )
 
-const maxLogEntries = 200
+const defaultMaxLogEntries = 200
+
+// maxLogEntries bounds the log ring. A var for the same reason as
+// maxProfilingEvents: RuntimeLimits.MaxLogEntries was a public field nothing
+// read. Written only under logsMu, which guards the buffer.
+var maxLogEntries = defaultMaxLogEntries
 const defaultMaxDiagnosticEntries = 500
 
 var maxDiagnosticEntries = defaultMaxDiagnosticEntries
@@ -295,6 +300,9 @@ func (parseRt *Runtime) Inspect() InspectionSnapshot {
 	// mutated afterwards, so the snapshot shares them read-only.
 	parseEvents := make([]ProfilingEvent, len(parseRt.profiling.events))
 	copy(parseEvents, parseRt.profiling.events)
+	// Timestamps are formatted here, for a reader, rather than at record time on
+	// the render thread. See materializeProfilingTimestamps.
+	parseEvents = materializeProfilingTimestamps(parseEvents)
 	var parseRoot *FiberSnapshot
 	var parseStats InspectionStats
 	if parseRt.currentRoot != nil {

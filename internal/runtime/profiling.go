@@ -5,7 +5,17 @@ import (
 	"time"
 )
 
-const maxProfilingEvents = 256
+const defaultMaxProfilingEvents = 256
+
+// maxProfilingEvents bounds the event ring.
+//
+// A var rather than a const because RuntimeLimits.MaxProfilingEvents is a public
+// configuration field that nothing read: the ring was capped by the constant and
+// a caller setting the limit was silently ignored. Same shape as
+// maxDiagnosticEntries next door, and applied through the same
+// applyGlobalRuntimeLimits path. Written only under schedulerMu, which is the
+// lock the ring itself is kept under.
+var maxProfilingEvents = defaultMaxProfilingEvents
 
 type componentRenderTrace struct {
 	Name                  string
@@ -58,6 +68,28 @@ type ProfilingEvent struct {
 	DurationNs    int64
 	Timestamp     string
 	Fields        map[string]string
+
+	// recordedAt is when the event was recorded, kept as an instant so the
+	// RFC3339 string is built only for a reader. See recordProfilingEventLocked
+	// and materializeProfilingTimestamps.
+	recordedAt time.Time
+}
+
+// materializeProfilingTimestamps fills in Timestamp for a copied slice of
+// events, formatting the instant captured at record time.
+//
+// Every reader goes through a copy of the ring, so this stamps the copy and
+// leaves the stored events alone: an event read twice formats twice, which is
+// two allocations in a devtools poll rather than one per commit on the render
+// thread. Events that arrived with an explicit Timestamp keep it.
+func materializeProfilingTimestamps(parseEvents []ProfilingEvent) []ProfilingEvent {
+	for parseIndex := range parseEvents {
+		if parseEvents[parseIndex].Timestamp != "" || parseEvents[parseIndex].recordedAt.IsZero() {
+			continue
+		}
+		parseEvents[parseIndex].Timestamp = parseEvents[parseIndex].recordedAt.UTC().Format(timeFormatRFC3339Milli)
+	}
+	return parseEvents
 }
 
 // ReportProfilingEvent records a profiling timeline entry on the global runtime.
@@ -100,7 +132,22 @@ func (parseRt *Runtime) recordProfilingEventLocked(parseEvent ProfilingEvent) {
 		parseTrimmedPhase = "instant"
 	}
 	if strings.TrimSpace(parseEvent.Timestamp) == "" {
-		parseEvent.Timestamp = time.Now().UTC().Format(timeFormatRFC3339Milli)
+		// Recorded as a monotonic instant and formatted only when somebody reads
+		// the ring.
+		//
+		// Formatting here cost a string allocation per recorded event, and
+		// commitRoot records one on EVERY commit — so a 60fps app paid a heap
+		// allocation and an RFC3339 format on the render thread, at frame rate,
+		// from the code whose job is to measure the render thread. R6 exists for
+		// exactly this ("diagnostics carry an allocation budget"), and the
+		// neighbouring bar is 0 allocs for a steady-state reconcile.
+		//
+		// It also feeds M7: the remaining GC pauses were traced to allocation
+		// SHAPE rather than collector pacing, and an unconditional per-commit
+		// allocation is part of that shape. The ring holds at most a few hundred
+		// events and is read by devtools and tests, so deferring the format costs
+		// nothing a reader can observe.
+		parseEvent.recordedAt = time.Now()
 	}
 	parseEvent.Domain = parseTrimmedDomain
 	parseEvent.Name = parseTrimmedName

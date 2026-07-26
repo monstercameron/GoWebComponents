@@ -577,3 +577,141 @@ func TestChildOrderMatchHandlesArbitraryPermutations(parseT *testing.T) {
 		parseT.Error("a different node set must not report a match")
 	}
 }
+
+// The async inbox is a bounded queue whose overflow suspends the guarantee the
+// inbox exists to provide, and it was reportable only as a console line — the
+// exact thing P4.2's own rationale says a budget signal is for. Worse, the
+// overflow flags reset on every drain, so a reader arriving afterwards saw
+// nothing at all.
+func TestAsyncInboxIsAReadableBudget(parseT *testing.T) {
+	parseRt := NewRuntime(Config{
+		DOMAdapter: newTestDOMAdapter(),
+		Scheduler:  newTestScheduler(),
+		Limits:     RuntimeLimits{MaxQueuedUpdates: 2},
+		Reset:      true,
+	})
+
+	parseSignal := parseRt.Budgets().AsyncInbox
+	if parseSignal.Name != BudgetAsyncInbox {
+		parseT.Fatalf("signal name = %q, want %q", parseSignal.Name, BudgetAsyncInbox)
+	}
+	if parseSignal.Limit <= 0 {
+		parseT.Error("the inbox cliff must report the bound it degrades at")
+	}
+	if parseSignal.Triggered != 0 || parseSignal.Active {
+		parseT.Error("a fresh runtime has reached no cliff")
+	}
+
+	// Post past the soft bound (limit * inboxOverflowFactor) without letting the
+	// scheduler drain, which is exactly the backpressure condition.
+	parseSoftBound := 2 * inboxOverflowFactor
+	for parseI := 0; parseI <= parseSoftBound+1; parseI++ {
+		parseRt.PostAsync(func() {})
+	}
+
+	parseAfter := parseRt.Budgets().AsyncInbox
+	if parseAfter.Observed == 0 {
+		parseT.Error("occupancy must be readable, not only the fact that a bound was passed")
+	}
+	if parseAfter.Triggered == 0 {
+		parseT.Error("passing the soft bound must be counted")
+	}
+
+	// The count must SURVIVE the drain that clears the flags — the property the
+	// booleans alone could not provide.
+	parseRt.DrainAsyncInbox()
+	if parseDrained := parseRt.Budgets().AsyncInbox; parseDrained.Triggered == 0 {
+		parseT.Error("the overflow count was reset by the drain; it is a lifetime total")
+	}
+	if parseRt.AsyncInboxSuspensions() != 0 {
+		parseT.Error("no producer-side drain happened, so no isolation suspension should be reported")
+	}
+}
+
+// A commit must not allocate a timestamp string.
+//
+// commitRoot records a profiling event on EVERY commit, and recordProfilingEventLocked
+// formatted time.Now() into RFC3339 there — a heap allocation on the render
+// thread at frame rate, from the code whose job is to measure the render thread.
+// R6 exists for this, and it feeds M7, whose remaining pauses were traced to
+// allocation shape rather than collector pacing.
+func TestProfilingRecordDoesNotAllocateATimestamp(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Reset: true})
+
+	parseAllocs := testing.AllocsPerRun(200, func() {
+		parseRt.recordProfilingEventLocked(ProfilingEvent{
+			Domain: "runtime",
+			Name:   "commit",
+			Phase:  "finish",
+			Target: "root",
+		})
+	})
+
+	// The ring append amortizes to zero once it has grown; formatting a string
+	// would be a guaranteed allocation on every call.
+	if parseAllocs > 0 {
+		parseT.Errorf("recording one event allocated %v times per run; the commit path must not format a timestamp", parseAllocs)
+	}
+}
+
+// ...and a reader must still see one, or the deferral traded a real feature for
+// the allocation.
+func TestProfilingReadersStillSeeTimestamps(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Reset: true})
+	parseRt.recordProfilingEventLocked(ProfilingEvent{Domain: "runtime", Name: "commit", Phase: "finish"})
+
+	parseEvents := materializeProfilingTimestamps(append([]ProfilingEvent(nil), parseRt.profiling.events...))
+	if len(parseEvents) == 0 {
+		parseT.Fatal("expected the recorded event")
+	}
+	if strings.TrimSpace(parseEvents[len(parseEvents)-1].Timestamp) == "" {
+		parseT.Error("a reader must see a formatted timestamp")
+	}
+
+	// An explicitly supplied timestamp is preserved rather than overwritten.
+	parseRt.recordProfilingEventLocked(ProfilingEvent{Domain: "runtime", Name: "x", Timestamp: "supplied"})
+	parseWithSupplied := materializeProfilingTimestamps(append([]ProfilingEvent(nil), parseRt.profiling.events...))
+	if parseWithSupplied[len(parseWithSupplied)-1].Timestamp != "supplied" {
+		parseT.Error("an explicit timestamp must survive")
+	}
+}
+
+// RuntimeLimits.MaxProfilingEvents and MaxLogEntries were public configuration
+// fields that nothing read: both rings were capped by their own constants, so a
+// caller who set either got the default and no indication otherwise. A field
+// that is silently ignored is worse than one that does not exist, because it
+// reads as a control that was tried and did not help.
+func TestRuntimeLimitsAreNotSilentlyIgnored(parseT *testing.T) {
+	parseDefaultProfiling := maxProfilingEvents
+	parseDefaultLogs := maxLogEntries
+	defer func() {
+		schedulerMu.Lock()
+		maxProfilingEvents = parseDefaultProfiling
+		schedulerMu.Unlock()
+		logsMu.Lock()
+		maxLogEntries = parseDefaultLogs
+		logsMu.Unlock()
+	}()
+
+	NewRuntime(Config{
+		DOMAdapter: newTestDOMAdapter(),
+		Limits:     RuntimeLimits{MaxProfilingEvents: 8, MaxLogEntries: 12},
+		Reset:      true,
+	})
+
+	if maxProfilingEvents != 8 {
+		parseT.Errorf("MaxProfilingEvents ignored: cap = %d, want 8", maxProfilingEvents)
+	}
+	if maxLogEntries != 12 {
+		parseT.Errorf("MaxLogEntries ignored: cap = %d, want 12", maxLogEntries)
+	}
+
+	// And the configured cap must actually bound the ring.
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Limits: RuntimeLimits{MaxProfilingEvents: 8}})
+	for parseI := 0; parseI < 40; parseI++ {
+		parseRt.recordProfilingEventLocked(ProfilingEvent{Domain: "runtime", Name: "e"})
+	}
+	if len(parseRt.profiling.events) > 8 {
+		parseT.Errorf("ring holds %d events past a limit of 8", len(parseRt.profiling.events))
+	}
+}

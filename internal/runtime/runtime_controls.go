@@ -93,6 +93,14 @@ func (parseLimits RuntimeLimits) withDefaults() RuntimeLimits {
 }
 
 // applyGlobalRuntimeLimits applies process-wide buffers that predate runtime instances.
+//
+// MaxProfilingEvents and MaxLogEntries were declared here for as long as this
+// struct existed and read by nothing: both rings were capped by their own
+// constants, so a caller who set either field got the default and no indication
+// otherwise. A configuration field that is silently ignored is worse than one
+// that does not exist, because it reads as a control that was tried and did not
+// help. Wired the same way MaxDiagnostics already was — each under the lock that
+// guards its own buffer.
 func applyGlobalRuntimeLimits(parseLimits RuntimeLimits) {
 	if parseLimits.MaxDiagnostics > 0 {
 		diagnosticsMu.Lock()
