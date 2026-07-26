@@ -255,3 +255,62 @@ func TestAsyncIngress_GoroutineSpawnedByAHandlerIsStillAsync(parseT *testing.T) 
 		parseT.Errorf("after the drain, rendered %q, want %q", parseRendered(), "from-goroutine")
 	}
 }
+
+// TestAsyncIngress_SoftOverflowKeepsTheDrainOffTheProducer pins the tier split.
+//
+// Past the soft bound the queue keeps growing and the drain stays scheduled.
+// Bringing it onto the producer would run application state mutations on a
+// goroutine the runtime does not control, at a moment it did not choose — the
+// exact hazard the inbox removes — and doing that under load means the guarantee
+// is absent precisely when it matters.
+func TestAsyncIngress_SoftOverflowKeepsTheDrainOffTheProducer(parseT *testing.T) {
+	parseRt, parseContainer, parseScheduler := newAsyncIngressRuntime(parseT)
+	parseSet, _, _ := mountCounter(parseT, parseRt, parseContainer, parseScheduler)
+
+	parseLimit := parseRt.inboxLimit()
+	if parseLimit <= 0 {
+		parseT.Skip("no queued-update limit configured, so there is no bound to exceed")
+	}
+
+	// Comfortably past the soft bound, comfortably short of the hard one.
+	parseTarget := parseLimit*inboxOverflowFactor + 8
+	for parseIndex := range parseTarget {
+		parseSet(parseIndex)
+	}
+
+	if parseDepth := parseRt.AsyncInboxDepth(); parseDepth != parseTarget {
+		parseT.Errorf("inbox depth = %d after %d posts past the soft bound; something drained on the producer",
+			parseDepth, parseTarget)
+	}
+
+	runScheduledTimeouts(parseScheduler)
+	if parseDepth := parseRt.AsyncInboxDepth(); parseDepth != 0 {
+		parseT.Errorf("inbox still holds %d entries after the scheduled drain", parseDepth)
+	}
+}
+
+// TestAsyncIngress_HardOverflowDrainsRatherThanGrowingForever pins the other
+// side, so the isolation preference cannot turn into an unbounded queue.
+//
+// Reaching the hard bound means the event loop never got a turn — no scheduled
+// drain can have run, or the queue could not be this size — so the choice is
+// between draining on the producer and growing until the tab dies.
+func TestAsyncIngress_HardOverflowDrainsRatherThanGrowingForever(parseT *testing.T) {
+	parseRt, parseContainer, parseScheduler := newAsyncIngressRuntime(parseT)
+	parseSet, _, _ := mountCounter(parseT, parseRt, parseContainer, parseScheduler)
+
+	parseLimit := parseRt.inboxLimit()
+	if parseLimit <= 0 {
+		parseT.Skip("no queued-update limit configured, so there is no bound to exceed")
+	}
+
+	parseCeiling := parseLimit * inboxHardOverflowFactor
+	for parseIndex := range parseCeiling + 2 {
+		parseSet(parseIndex)
+	}
+
+	if parseDepth := parseRt.AsyncInboxDepth(); parseDepth > parseCeiling {
+		parseT.Errorf("inbox depth = %d, above the hard bound of %d; a non-yielding producer can grow it without limit",
+			parseDepth, parseCeiling)
+	}
+}

@@ -30,10 +30,27 @@ import "sync"
 // queue-full path ran the callback synchronously on the calling goroutine —
 // precisely the hand-off it existed to prevent.
 
-// inboxOverflowFactor bounds how far the queue may grow past the configured
-// limit before an early drain is forced. Dropping work is never an option;
-// draining early trades batching for boundedness.
+// inboxOverflowFactor is how far past the configured limit the queue may grow
+// before the pressure is reported. Reaching it degrades BATCHING only — the
+// drain is brought forward, not moved onto the producer.
 const inboxOverflowFactor = 4
+
+// inboxHardOverflowFactor is the last-resort bound, past which the queue is
+// drained on whatever goroutine is posting.
+//
+// The two tiers exist because the soft bound previously did this, and it is the
+// wrong price to pay at the first sign of pressure. Draining on the producer
+// runs application state mutations on a goroutine the runtime does not control,
+// at a moment it did not choose — which is the exact hazard the inbox was built
+// to remove. Trading it away under load means the guarantee is absent precisely
+// when it matters most.
+//
+// Reaching THIS bound means a producer has queued ~16x the soft bound without
+// the event loop getting a single turn. Such a producer is not yielding at all,
+// so no scheduled drain can ever run, and the choice is between draining here
+// and growing until the tab dies. Draining is better, and it is reported as the
+// distinct condition it is rather than as ordinary backpressure.
+const inboxHardOverflowFactor = inboxOverflowFactor * 16
 
 // asyncInbox holds work posted from outside the frame loop.
 //
@@ -43,9 +60,15 @@ type asyncInbox struct {
 	mu        sync.Mutex
 	entries   []func()
 	scheduled bool
-	// overflowed records that a drain was forced early because the queue grew
-	// past its bound, so the condition can be surfaced instead of inferred.
+	// overflowed records that the queue grew past its soft bound, so the
+	// condition can be surfaced instead of inferred.
 	overflowed bool
+	// hardOverflowed records that the queue was drained on a producer goroutine
+	// because nothing else could ever have drained it. Kept separate from
+	// overflowed: one says batching degraded, the other says the isolation
+	// guarantee was suspended, and reporting them as the same event would hide
+	// the second behind the first.
+	hardOverflowed bool
 	// drainCount and postCount make the batching property observable; a
 	// benchmark or diagnostic can show N posts collapsing into one drain.
 	drainCount int
@@ -71,19 +94,28 @@ func (parseRt *Runtime) PostAsync(parseWork func()) {
 	if !isAlreadyScheduled {
 		parseRt.inbox.scheduled = true
 	}
+	isPastHardBound := parseLimit > 0 && len(parseRt.inbox.entries) > parseLimit*inboxHardOverflowFactor
 	if isOverBound {
 		parseRt.inbox.overflowed = true
 	}
+	if isPastHardBound {
+		parseRt.inbox.hardOverflowed = true
+	}
 	parseRt.inbox.mu.Unlock()
 
-	if isOverBound {
-		// Bounded, not lossy: drain now rather than let the queue grow without
-		// limit. Batching degrades; correctness does not (R4 — the condition is
-		// reported by DrainAsyncInbox).
+	if isPastHardBound && parseRt.scheduler != nil {
+		// Last resort. Nothing scheduled can have run, or the queue could not
+		// have reached this size, so the choice is between draining on this
+		// goroutine and growing until the tab dies. DrainAsyncInbox reports the
+		// suspension.
 		parseRt.DrainAsyncInbox()
 		return
 	}
 	if isAlreadyScheduled {
+		// Past the soft bound the drain is already pending; the queue keeps
+		// growing until the loop takes its turn. Deliberate: bringing the drain
+		// onto THIS goroutine would trade the isolation guarantee for a
+		// smaller queue, and the queue is the cheaper thing to give up.
 		return
 	}
 	if parseRt.scheduler == nil {
@@ -117,7 +149,9 @@ func (parseRt *Runtime) DrainAsyncInbox() {
 	parseRt.inbox.entries = nil
 	parseRt.inbox.scheduled = false
 	isOverflowed := parseRt.inbox.overflowed
+	isHardOverflowed := parseRt.inbox.hardOverflowed
 	parseRt.inbox.overflowed = false
+	parseRt.inbox.hardOverflowed = false
 	if len(parseBatch) > 0 {
 		parseRt.inbox.drainCount++
 	}
@@ -127,9 +161,14 @@ func (parseRt *Runtime) DrainAsyncInbox() {
 		return
 	}
 
-	if isOverflowed {
+	if isHardOverflowed {
 		ReportDiagnostic("runtime", DiagnosticWarning,
-			"async inbox exceeded its bound and drained early; batching degraded but no work was dropped")
+			"async inbox was drained on a producer goroutine because the event loop never got a turn; "+
+				"frame isolation was suspended for this batch. A producer posting this fast without yielding "+
+				"would stall the page regardless — the fix is at the call site, not here.")
+	} else if isOverflowed {
+		ReportDiagnostic("runtime", DiagnosticWarning,
+			"async inbox exceeded its bound; batching degraded, no work was dropped, and the drain stayed on the frame loop")
 	}
 
 	// Marked as frame-loop work: entries call the same setters an event handler
