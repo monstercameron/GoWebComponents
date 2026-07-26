@@ -51,7 +51,30 @@ type countingDOMAdapter struct {
 	texts        int
 	subtrees     int
 	fragments    int
+	traversals   int
 	subtreeBytes int
+}
+
+// Traversal is a bridge crossing too, and counting only creation hid it.
+//
+// bindSerializedSubtree zips the fiber tree against the parsed DOM by walking
+// it — one GetFirstChild or GetNextSibling per node. Those are Get calls across
+// the same boundary as CreateElement, so a serialized mount does not cost the
+// one parse plus one append an earlier count reported: it costs that plus a
+// walk proportional to the node count.
+func (parseA *countingDOMAdapter) GetFirstChild(parseNode runtime.DOMNode) runtime.DOMNode {
+	parseA.traversals++
+	return parseA.MockDOMAdapter.GetFirstChild(parseNode)
+}
+
+func (parseA *countingDOMAdapter) GetNextSibling(parseNode runtime.DOMNode) runtime.DOMNode {
+	parseA.traversals++
+	return parseA.MockDOMAdapter.GetNextSibling(parseNode)
+}
+
+func (parseA *countingDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName string) any {
+	parseA.traversals++
+	return parseA.MockDOMAdapter.GetProperty(parseNode, parseName)
 }
 
 func (parseA *countingDOMAdapter) CreateElement(parseTag string) runtime.DOMNode {
@@ -93,7 +116,7 @@ func (parseA *countingDOMAdapter) CreateHTMLFragment(parseHTML string) runtime.D
 
 func (parseA *countingDOMAdapter) total() int {
 	return parseA.creates + parseA.texts + parseA.attrs + parseA.properties +
-		parseA.appends + parseA.subtrees + parseA.fragments
+		parseA.appends + parseA.subtrees + parseA.fragments + parseA.traversals
 }
 
 // perNodeDOMAdapter forces the per-node commit path.
@@ -218,17 +241,27 @@ func TestDOMBoundaryCrossingsAreTheInitialRenderCost(parseT *testing.T) {
 	parseContainer := parseAdapter.MockDOMAdapter.CreateElement("section")
 	parseRT.Render(runtime.CreateElement("div", nil, buildContentCardTree(12, 3)...), parseContainer)
 
-	parseT.Logf("content-render (12 cards x 3 tags): creates=%d texts=%d attrs=%d props=%d appends=%d subtrees=%d fragments=%d (%d serialized bytes)  TOTAL=%d",
+	parseT.Logf("content-render (12 cards x 3 tags): creates=%d texts=%d attrs=%d props=%d appends=%d subtrees=%d fragments=%d traversals=%d (%d serialized bytes)  TOTAL=%d",
 		parseAdapter.creates, parseAdapter.texts, parseAdapter.attrs,
 		parseAdapter.properties, parseAdapter.appends, parseAdapter.subtrees,
-		parseAdapter.fragments, parseAdapter.subtreeBytes, parseAdapter.total())
+		parseAdapter.fragments, parseAdapter.traversals, parseAdapter.subtreeBytes,
+		parseAdapter.total())
 
-	// A guard, not a target. While the serialized mount was gated on the typed
-	// fast lane this scenario cost 374 crossings, because every element built
-	// from a props map was ineligible. The bound sits just above the batched
-	// cost so a regression to per-node mounting fails here rather than silently
-	// in a browser benchmark nobody reruns.
-	if parseAdapter.total() > 60 {
+	// A guard, not a target.
+	//
+	// The number moved twice, and both moves were corrections rather than
+	// changes to the code being measured. It read 374 while the count was taken
+	// against runtime's testDOMAdapter, which has no CreateHTMLSubtree and so
+	// measured the fallback path. It then read 2 while the count ignored
+	// traversal — but bindSerializedSubtree walks the parsed tree with
+	// GetFirstChild and GetNextSibling, and those cross the same boundary
+	// CreateElement does.
+	//
+	// Counting traversal, a serialized mount of this scenario costs one parse,
+	// one append, and a walk proportional to the node count: about 159. The
+	// per-node path costs roughly three crossings per node. The advantage is
+	// real but far smaller than a creation-only count suggests.
+	if parseAdapter.total() > 200 {
 		parseT.Errorf("content-render now costs %d boundary crossings; the commit fell back to per-node mounting",
 			parseAdapter.total())
 	}
@@ -312,4 +345,167 @@ func TestUnsafeAttributesFallBackToPerNodeMount(parseT *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSerializedMountSurvivesParserNormalization is the correctness limit of
+// mounting from an HTML string.
+//
+// bindSerializedSubtree zips fiber children against parsed DOM children by
+// POSITION, on the assumption that the parser returns exactly the structure the
+// serializer emitted. An HTML parser does not promise that. It promises to
+// produce a conforming tree, and it will insert, move, or drop nodes to get
+// one — <tr> outside a section element gets an implicit <tbody> wrapped around
+// it, content before a valid <table> child gets hoisted out, and so on.
+//
+// When that happens the zip pairs each fiber with the wrong node: a <tr> fiber
+// binds to the <tbody> the parser invented, its children bind to that tbody's
+// children, and every later update writes to the wrong element. Nothing errors —
+// the DOM is simply not the one the component described.
+//
+// So this renders shapes a parser is known to rewrite and requires the batched
+// mount to agree with the per-node mount, which is definitionally correct
+// because it builds the tree node by node and never consults a parser.
+func TestSerializedMountSurvivesParserNormalization(parseT *testing.T) {
+	parseCases := []struct {
+		name string
+		tree func() *runtime.Element
+	}{
+		{
+			// <tr> as a direct child of <table>: the parser inserts <tbody>.
+			name: "table rows without an explicit tbody",
+			tree: func() *runtime.Element {
+				return runtime.CreateElement("table", map[string]any{"class": "t"},
+					runtime.CreateElement("tr", map[string]any{"class": "r1"},
+						runtime.CreateElement("td", map[string]any{"class": "c1"}, "a"),
+						runtime.CreateElement("td", map[string]any{"class": "c2"}, "b"),
+					),
+					runtime.CreateElement("tr", map[string]any{"class": "r2"},
+						runtime.CreateElement("td", map[string]any{"class": "c3"}, "c"),
+						runtime.CreateElement("td", map[string]any{"class": "c4"}, "d"),
+					),
+				)
+			},
+		},
+		{
+			// A <p> cannot contain a <div>; the parser closes the <p> early and
+			// promotes the div to a sibling.
+			name: "block element inside a paragraph",
+			tree: func() *runtime.Element {
+				return runtime.CreateElement("section", map[string]any{"class": "s"},
+					runtime.CreateElement("p", map[string]any{"class": "p1"},
+						runtime.CreateElement("div", map[string]any{"class": "d1"}, "inner"),
+						runtime.CreateElement("span", map[string]any{"class": "sp"}, "tail"),
+					),
+				)
+			},
+		},
+		{
+			// <li> outside a list, and nested lists, are both commonly reshaped.
+			name: "list items with a nested list",
+			tree: func() *runtime.Element {
+				return runtime.CreateElement("ul", map[string]any{"class": "u"},
+					runtime.CreateElement("li", map[string]any{"class": "l1"}, "one"),
+					runtime.CreateElement("li", map[string]any{"class": "l2"},
+						runtime.CreateElement("ul", map[string]any{"class": "u2"},
+							runtime.CreateElement("li", map[string]any{"class": "l3"}, "deep"),
+						),
+					),
+				)
+			},
+		},
+		{
+			// <select> may only contain option/optgroup; anything else is dropped
+			// or hoisted, which loses a node the fiber tree still expects.
+			name: "select with a stray child",
+			tree: func() *runtime.Element {
+				return runtime.CreateElement("select", map[string]any{"class": "sel"},
+					runtime.CreateElement("option", map[string]any{"class": "o1"}, "one"),
+					runtime.CreateElement("div", map[string]any{"class": "stray"}, "nope"),
+					runtime.CreateElement("option", map[string]any{"class": "o2"}, "two"),
+				)
+			},
+		},
+	}
+
+	for _, parseCase := range parseCases {
+		parseT.Run(parseCase.name, func(parseT *testing.T) {
+			parseBatchedAdapter := &countingDOMAdapter{MockDOMAdapter: NewMockDOMAdapter()}
+			parseBatchedContainer := parseBatchedAdapter.MockDOMAdapter.CreateElement("main")
+			runtime.NewRuntime(runtime.Config{DOMAdapter: parseBatchedAdapter}).
+				Render(parseCase.tree(), parseBatchedContainer)
+
+			parsePerNodeMock := NewMockDOMAdapter()
+			parsePerNodeContainer := parsePerNodeMock.CreateElement("main")
+			runtime.NewRuntime(runtime.Config{DOMAdapter: &perNodeDOMAdapter{DOMAdapter: parsePerNodeMock}}).
+				Render(parseCase.tree(), parsePerNodeContainer)
+
+			parseBatched := signatureOf(parseBatchedContainer)
+			parsePerNode := signatureOf(parsePerNodeContainer)
+			if parseBatched != parsePerNode {
+				parseT.Errorf("serialized mount produced different DOM than per-node mount (serialized %d subtree(s))\n%s",
+					parseBatchedAdapter.subtrees+parseBatchedAdapter.fragments,
+					describeSignatureDiff(parseBatched, parsePerNode))
+			}
+		})
+	}
+}
+
+// TestSerializedMountAgreesAcrossTagCombinations sweeps parent/child tag pairs
+// rather than trusting a hand-written list of dangerous shapes.
+//
+// The blocklist in serializedMountReshapedTags is only as good as the cases
+// someone thought of, and HTML's tree-construction rules are long. This renders
+// every parent/child combination both ways and requires them to agree, so a tag
+// whose content model is enforced by the parser and NOT on the list fails here
+// rather than in an application.
+//
+// The per-node mount is the oracle: it builds the tree node by node and never
+// consults a parser, so it produces exactly what the component described by
+// construction.
+func TestSerializedMountAgreesAcrossTagCombinations(parseT *testing.T) {
+	parseParents := []string{
+		"div", "span", "section", "article", "header", "footer", "main", "aside",
+		"nav", "ul", "ol", "li", "dl", "dt", "dd", "p", "blockquote", "figure",
+		"figcaption", "table", "thead", "tbody", "tr", "td", "th", "caption",
+		"select", "optgroup", "option", "datalist", "form", "fieldset", "legend",
+		"label", "button", "a", "h1", "h2", "pre", "code", "em", "strong", "small",
+		"details", "summary", "picture", "video", "audio", "canvas", "template",
+		"my-widget", "x-panel",
+	}
+	parseChildren := []string{"div", "span", "li", "tr", "td", "option", "p", "a", "my-widget"}
+
+	parseMismatches := 0
+	for _, parseParent := range parseParents {
+		for _, parseChild := range parseChildren {
+			parseName := parseParent + ">" + parseChild
+			parseBuild := func() *runtime.Element {
+				return runtime.CreateElement("div", map[string]any{"class": "host"},
+					runtime.CreateElement(parseParent, map[string]any{"class": "p"},
+						runtime.CreateElement(parseChild, map[string]any{"class": "a"}, "one"),
+						runtime.CreateElement(parseChild, map[string]any{"class": "b"}, "two"),
+					),
+				)
+			}
+
+			parseBatchedAdapter := &countingDOMAdapter{MockDOMAdapter: NewMockDOMAdapter()}
+			parseBatchedContainer := parseBatchedAdapter.MockDOMAdapter.CreateElement("main")
+			runtime.NewRuntime(runtime.Config{DOMAdapter: parseBatchedAdapter}).
+				Render(parseBuild(), parseBatchedContainer)
+
+			parsePerNodeMock := NewMockDOMAdapter()
+			parsePerNodeContainer := parsePerNodeMock.CreateElement("main")
+			runtime.NewRuntime(runtime.Config{DOMAdapter: &perNodeDOMAdapter{DOMAdapter: parsePerNodeMock}}).
+				Render(parseBuild(), parsePerNodeContainer)
+
+			parseBatched := signatureOf(parseBatchedContainer)
+			parsePerNode := signatureOf(parsePerNodeContainer)
+			if parseBatched != parsePerNode {
+				parseMismatches++
+				parseT.Errorf("%s: serialized mount disagrees with per-node mount\n%s",
+					parseName, describeSignatureDiff(parseBatched, parsePerNode))
+			}
+		}
+	}
+	parseT.Logf("swept %d parent/child combinations, %d mismatches",
+		len(parseParents)*len(parseChildren), parseMismatches)
 }

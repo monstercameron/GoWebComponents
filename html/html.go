@@ -901,7 +901,6 @@ var compactStringAttrNames = [...]struct {
 	{"loading", "loading"},
 }
 
-
 // toRuntimeProps is a core package helper.
 func toRuntimeProps(parseProps Props) map[string]any {
 	return toRuntimePropsWithEvents(parseProps, runtimeEventProps(parseProps))

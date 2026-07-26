@@ -28,12 +28,26 @@ import (
 // strategy it would in a browser.
 type countingAdapter struct {
 	*mockdom.MockDOMAdapter
-	creates   int
-	texts     int
-	attrs     int
-	appends   int
-	subtrees  int
-	fragments int
+	creates    int
+	texts      int
+	attrs      int
+	appends    int
+	subtrees   int
+	fragments  int
+	traversals int
+}
+
+// Traversal crosses the boundary too. bindSerializedSubtree walks the parsed
+// tree one GetFirstChild/GetNextSibling per node, so a count that ignores it
+// reports a serialized mount as costing two crossings when it costs a walk.
+func (parseA *countingAdapter) GetFirstChild(parseNode runtime.DOMNode) runtime.DOMNode {
+	parseA.traversals++
+	return parseA.MockDOMAdapter.GetFirstChild(parseNode)
+}
+
+func (parseA *countingAdapter) GetNextSibling(parseNode runtime.DOMNode) runtime.DOMNode {
+	parseA.traversals++
+	return parseA.MockDOMAdapter.GetNextSibling(parseNode)
 }
 
 func (parseA *countingAdapter) CreateElement(parseTag string) runtime.DOMNode {
@@ -68,7 +82,7 @@ func (parseA *countingAdapter) CreateHTMLFragment(parseHTML string) runtime.DOMN
 
 func (parseA *countingAdapter) total() int {
 	return parseA.creates + parseA.texts + parseA.attrs + parseA.appends +
-		parseA.subtrees + parseA.fragments
+		parseA.subtrees + parseA.fragments + parseA.traversals
 }
 
 // benchmarkContentCard reproduces renderBenchmarkContentCard from the Example
@@ -132,8 +146,12 @@ func TestCompactLaneMarkupAlreadyMountedInOneCall(parseT *testing.T) {
 	if parseAdapter.subtrees+parseAdapter.fragments == 0 {
 		parseT.Error("compact-lane markup did not take the serialized mount at all")
 	}
-	if parseAdapter.total() > 10 {
-		parseT.Errorf("compact-lane markup cost %d bridge crossings; it should mount in a handful",
+	// About 159: one parse, one append, and a bind walk of roughly two crossings
+	// per node. NOT "a handful" — an earlier version of this bound said 10,
+	// because the counter ignored the GetFirstChild/GetNextSibling traversal
+	// that bindSerializedSubtree performs on every node.
+	if parseAdapter.total() > 200 {
+		parseT.Errorf("compact-lane markup cost %d bridge crossings; the serialized mount stopped firing",
 			parseAdapter.total())
 	}
 }
@@ -146,10 +164,14 @@ func TestCompactLaneMarkupAlreadyMountedInOneCall(parseT *testing.T) {
 // conditions, so the props map alone disqualified the whole subtree and it
 // reverted to one bridge call per node.
 //
-// Measured on this exact tree by toggling the gate: 195 crossings before, 2
-// after. The same applies to any element built through runtime.CreateElement
-// with a string props map, which is how the ui package and generated code
-// construct markup.
+// Measured on this exact tree by toggling the gate, with traversal counted:
+// 279 crossings before, 159 after — a 43% reduction, not the 97x an earlier
+// creation-only count implied. The bind walk costs about two crossings per node
+// either way, so the saving is the per-node creation, not the whole cost.
+//
+// The same applies to any element built through runtime.CreateElement with a
+// string props map, which is how the ui package and generated code construct
+// markup.
 func TestMapLaneMarkupAlsoMountsInOneCall(parseT *testing.T) {
 	parseAdapter := mountCards(parseT, html.Props{Raw: map[string]any{"data-flag": "on"}})
 
@@ -160,8 +182,8 @@ func TestMapLaneMarkupAlsoMountsInOneCall(parseT *testing.T) {
 	if parseAdapter.subtrees+parseAdapter.fragments == 0 {
 		parseT.Error("no subtree was serialized on the map lane")
 	}
-	if parseAdapter.total() > 10 {
-		parseT.Errorf("map-lane markup cost %d bridge crossings, against 2 when the widening is working and 195 without it; the serialized mount stopped reaching map-lane subtrees",
+	if parseAdapter.total() > 200 {
+		parseT.Errorf("map-lane markup cost %d bridge crossings, against ~159 when the widening is working and ~279 without it; the serialized mount stopped reaching map-lane subtrees",
 			parseAdapter.total())
 	}
 }
@@ -186,7 +208,7 @@ func TestStyleMapMarkupStillMountsPerNode(parseT *testing.T) {
 		parseAdapter.creates, parseAdapter.texts, parseAdapter.attrs, parseAdapter.appends,
 		parseAdapter.subtrees, parseAdapter.fragments, parseAdapter.total())
 
-	if parseAdapter.total() <= 10 {
+	if parseAdapter.total() <= 200 {
 		parseT.Errorf("style-map markup now costs only %d crossings — if it was made serializable, this test documents stale limits and should be rewritten",
 			parseAdapter.total())
 	}

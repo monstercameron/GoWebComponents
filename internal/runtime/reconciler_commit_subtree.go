@@ -17,6 +17,63 @@ type htmlSubtreeDOMAdapter interface {
 // path, which is already one bridge call per node.
 const serializedMountMinHosts = 3
 
+// serializedMountReshapedTags are tags whose CONTENT MODEL an HTML parser
+// enforces by rewriting the tree, which makes them unsafe to mount from a
+// serialized string.
+//
+// bindSerializedSubtree zips fiber children against parsed DOM children by
+// POSITION, on the assumption that the parser returns exactly the structure the
+// serializer emitted. A parser makes no such promise. It promises a CONFORMING
+// tree, and it will insert, move, or drop nodes to get one. Three cases,
+// measured against the per-node mount in
+// TestSerializedMountSurvivesParserNormalization:
+//
+//	<table><tr>…      an implicit <tbody> is inserted, so every <tr> fiber binds
+//	                  to the tbody and each later update writes the wrong node
+//	<p><div>…         the <p> is closed early and the div promoted to a sibling;
+//	                  the observed result duplicated the content
+//	<select><div>…    the stray element is dropped and replaced by a text node
+//
+// None of these error. The DOM is simply not the one the component described,
+// and every subsequent update compounds it.
+//
+// Verifying after the parse was the alternative and is rejected on cost: the
+// bind walk already spends two bridge crossings per node, and reading each
+// node's tag to check it would add a third, erasing the reason this path
+// exists. Refusing the shapes costs nothing and cannot be wrong about the ones
+// it names.
+var serializedMountReshapedTags = map[string]struct{}{
+	// Table structure. The parser inserts tbody, hoists non-table content out,
+	// and relocates anything appearing before a valid child.
+	"table": {}, "thead": {}, "tbody": {}, "tfoot": {}, "tr": {}, "td": {}, "th": {},
+	"caption": {}, "colgroup": {}, "col": {},
+	// Option lists. Anything that is not an option or optgroup is dropped, and
+	// an option's own content is restricted to text.
+	"select": {}, "optgroup": {}, "option": {}, "datalist": {},
+	// Document structure — never legitimate inside a mounted subtree, and each
+	// one triggers its own insertion mode.
+	"html": {}, "head": {}, "body": {}, "frameset": {}, "frame": {}, "template": {},
+	// A nested form is dropped outright.
+	"form": {},
+}
+
+// serializedMountNonNestingTags cannot contain themselves at any depth.
+//
+// The parser implies an end tag for the open one and promotes the inner element
+// to a sibling, so the fiber tree and the parsed tree disagree about depth from
+// that point down. Found by sweeping parent/child combinations rather than by
+// reading the spec — li>li and a>a both survived a hand-written blocklist that
+// already covered tables, selects, and paragraphs, which is the argument for
+// keeping that sweep.
+//
+// Depth matters: <a><div><a> is nested just as <a><a> is, so this is checked
+// against every ancestor inside the serialized subtree rather than the parent.
+// Ancestors OUTSIDE it are irrelevant — the fragment is parsed standalone, so
+// an <a> already in the document cannot affect it.
+var serializedMountNonNestingTags = map[string]struct{}{
+	"a": {}, "li": {}, "dt": {}, "dd": {}, "button": {}, "nobr": {}, "p": {},
+}
+
 // serializedMountSVGTags mirrors the adapter-side SVG routing: template
 // innerHTML parses in the HTML namespace, so SVG subtrees must keep the
 // per-node createElementNS path.
@@ -239,6 +296,13 @@ func (parseRt *Runtime) prepareSerializedSiblingRuns(parseParent *Fiber) {
 // either direct text or exclusively more such hosts. Attribute serialization
 // reuses the SSR compact writer for sanitization and escaping parity.
 func serializeMountSubtree(parseFiber *Fiber, parseBuilder *strings.Builder, parseHostCount *int) bool {
+	return serializeMountSubtreeWithin(parseFiber, parseBuilder, parseHostCount, nil)
+}
+
+// serializeMountSubtreeWithin carries the enclosing tags so a non-nesting tag
+// can be refused when it appears inside itself. parseAncestors holds only tags
+// inside the serialized subtree; it starts empty at each serialization root.
+func serializeMountSubtreeWithin(parseFiber *Fiber, parseBuilder *strings.Builder, parseHostCount *int, parseAncestors []string) bool {
 	if parseFiber == nil {
 		return false
 	}
@@ -253,8 +317,30 @@ func serializeMountSubtree(parseFiber *Fiber, parseBuilder *strings.Builder, par
 	if !isSafeSerializedMountTag(parseTag) {
 		return false
 	}
-	if _, isSVG := serializedMountSVGTags[strings.ToLower(parseTag)]; isSVG {
+	parseLowerTag := strings.ToLower(parseTag)
+	if _, isSVG := serializedMountSVGTags[parseLowerTag]; isSVG {
 		return false
+	}
+	if _, isReshaped := serializedMountReshapedTags[parseLowerTag]; isReshaped {
+		return false
+	}
+	if _, cannotNest := serializedMountNonNestingTags[parseLowerTag]; cannotNest {
+		for _, parseAncestor := range parseAncestors {
+			if parseAncestor == parseLowerTag {
+				return false
+			}
+		}
+	}
+	// A paragraph may only contain phrasing content. An element child closes the
+	// <p> early and is promoted to a sibling, so the fiber tree and the parsed
+	// tree stop agreeing about depth. Text-only paragraphs — the common case,
+	// and the one the benchmark's cards use — are unaffected.
+	if parseLowerTag == "p" && parseFiber.child != nil {
+		for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
+			if !isSerializableTextChild(parseChild) {
+				return false
+			}
+		}
 	}
 	if !isSerializableHostFiber(parseFiber) || parseFiber.fineGrained ||
 		len(parseFiber.eventCallbacks) != 0 || !IsDOMNodeNull(parseFiber.dom) ||
@@ -297,7 +383,8 @@ func serializeMountSubtree(parseFiber *Fiber, parseBuilder *strings.Builder, par
 				continue
 			}
 			wasTextChild = false
-			if !serializeMountSubtree(parseChild, parseBuilder, parseHostCount) {
+			if !serializeMountSubtreeWithin(parseChild, parseBuilder, parseHostCount,
+				append(parseAncestors, parseLowerTag)) {
 				return false
 			}
 		}
