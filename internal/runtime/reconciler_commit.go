@@ -1670,9 +1670,50 @@ func (parseRt *Runtime) commitLayoutEffectsAndDeferPassive(parseCommittedRoot *F
 	}
 	parseRt.passiveDrainScheduled = true
 	parseRt.scheduler.SetTimeout(func() {
+		// A flush ahead of a new pass may have already run these and cleared the
+		// debt. Draining again would take the untracked path — the queue is now
+		// empty — and re-run every passive effect in the tree.
+		if !parseRt.passiveDrainScheduled {
+			return
+		}
 		parseRt.passiveDrainScheduled = false
 		parseRt.drainPassiveEffects(parseRt.currentRoot, parseRt.tracksPendingEffects && !parseRt.pendingEffectOverflow)
 	}, 0)
+}
+
+// flushPendingPassiveEffectsBeforeSchedule runs the previous commit's passive
+// effects before a new pass begins.
+//
+// Without it those effects are silently DROPPED. The commit split leaves them
+// queued in pendingEffectFibers with a drain scheduled for after paint, and
+// scheduleUpdateWithLane truncates that list at the top of every pass. An update
+// scheduled in the window between commit and drain — a layout effect calling
+// setState, an atom write, a worker reply, none of them exotic — leaves the
+// drain reading an empty list.
+//
+// Nothing reports it. The component simply never gets its UseEffect, so a
+// subscription is never opened, a fetch never starts, a timer is never armed,
+// and the bug presents as a feature that intermittently does not work.
+//
+// Running them here rather than merely preserving the list is what keeps the
+// ordering honest: an effect from commit N must not observe the tree from commit
+// N+1. This is the same reason React flushes passive effects at the top of
+// scheduleUpdateOnFiber.
+func (parseRt *Runtime) flushPendingPassiveEffectsBeforeSchedule() {
+	if parseRt == nil || parseRt.flushingPassiveBeforeSchedule {
+		return
+	}
+	if !parseRt.passiveDrainScheduled || len(parseRt.pendingEffectFibers) == 0 {
+		return
+	}
+	parseRt.flushingPassiveBeforeSchedule = true
+	defer func() { parseRt.flushingPassiveBeforeSchedule = false }()
+
+	// Cleared first so the callback already queued with the scheduler sees the
+	// debt settled and returns without draining a second time.
+	parseRt.passiveDrainScheduled = false
+	parseRt.drainPassiveEffects(parseRt.currentRoot,
+		parseRt.tracksPendingEffects && !parseRt.pendingEffectOverflow)
 }
 
 // drainPassiveEffects runs the passive tier and clears the pass bookkeeping the

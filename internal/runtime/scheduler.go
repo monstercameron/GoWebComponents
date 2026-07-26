@@ -137,6 +137,12 @@ func (parseRt *Runtime) scheduleUpdateWithLane(parseLane UpdateLane, shouldRecor
 	if parseRt == nil {
 		return
 	}
+	// Before the lock, and before this pass truncates pendingEffectFibers: the
+	// previous commit's passive effects are queued in that list, and clearing it
+	// with a drain still pending drops them silently. Outside the lock because a
+	// passive effect may schedule an update of its own, which would re-enter.
+	parseRt.flushPendingPassiveEffectsBeforeSchedule()
+
 	schedulerMu.Lock()
 	parseRt.profiling.scheduledRootUpdates++
 

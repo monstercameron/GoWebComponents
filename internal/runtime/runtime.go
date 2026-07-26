@@ -82,7 +82,15 @@ type Runtime struct {
 	passiveEffectsAfterPaint bool
 	// passiveDrainScheduled guards against queueing more than one deferred
 	// passive drain when several commits land before the first one runs.
+	//
+	// It also records that a drain is OWED. A scheduled callback that finds it
+	// false has been overtaken by a flush and must not drain again — doing so
+	// would fall through to the untracked path and re-run every passive effect
+	// in the tree.
 	passiveDrainScheduled bool
+	// flushingPassiveBeforeSchedule guards the pre-pass flush against re-entry,
+	// since a passive effect is free to schedule an update of its own.
+	flushingPassiveBeforeSchedule bool
 	// ready carries this runtime's first-commit signal (v5 P2.3). Per runtime,
 	// so a second Runtime fires its own ready hooks rather than finding a
 	// process-wide flag already set.

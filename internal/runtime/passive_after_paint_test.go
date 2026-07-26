@@ -41,6 +41,18 @@ func (parseS *deferredScheduler) flush() {
 
 func (parseS *deferredScheduler) pendingCount() int { return len(parseS.pending) }
 
+// runOne runs a single queued callback, so a test can stop at the moment a
+// commit has happened but its deferred passive drain has not.
+func (parseS *deferredScheduler) runOne() bool {
+	if len(parseS.pending) == 0 {
+		return false
+	}
+	parseNext := parseS.pending[0]
+	parseS.pending = parseS.pending[1:]
+	parseNext()
+	return true
+}
+
 // newPaintSplitRuntime builds a runtime with P1.1 enabled and a scheduler whose
 // deferred work the test controls.
 func newPaintSplitRuntime(parseT *testing.T) (*Runtime, DOMNode, *deferredScheduler) {
@@ -363,5 +375,54 @@ func TestPaintSplit_FlagOffPreservesLegacyOrdering(parseT *testing.T) {
 	getWantLegacy := "parent-layout,parent-passive,child-layout,child-passive"
 	if getGot := parseLog.String(); getGot != getWantLegacy {
 		parseT.Errorf("flag-off order = %q, want the pre-P1.1 shape %q", getGot, getWantLegacy)
+	}
+}
+
+// TestPaintSplit_PassiveEffectsSurviveANewUpdate is the gap between "deferred"
+// and "deferred and still guaranteed to run".
+//
+// Splitting the commit leaves passive effects queued in pendingEffectFibers with
+// a drain scheduled for after paint. scheduleUpdateWithLane then truncates that
+// list at the top of every new pass. If an update is scheduled in the window
+// between the commit and the drain — which is not exotic, it is what a layout
+// effect calling setState does, or any async write — the drain fires against an
+// empty list and the effects are never run.
+//
+// Nothing reports it. The component simply never gets its UseEffect, so a
+// subscription is never opened, a fetch never starts, a timer is never armed.
+func TestPaintSplit_PassiveEffectsSurviveANewUpdate(parseT *testing.T) {
+	parseRt, parseRoot, parseScheduler := newPaintSplitRuntime(parseT)
+	parseLog := &recorder{}
+
+	parseComponent := func() *Element {
+		passive(parseLog, "passive")
+		return CreateElement("div", map[string]any{})
+	}
+
+	if parseErr := parseRt.RenderInto(parseRoot, CreateElement(parseComponent, map[string]any{})); parseErr != nil {
+		parseT.Fatalf("render: %v", parseErr)
+	}
+
+	// Drive the work loop to commit WITHOUT letting the deferred passive drain
+	// run, so the queue is in exactly the state the bug needs: effects pending,
+	// drain scheduled, nothing run yet.
+	for parseGuard := 0; parseGuard < 50 && parseRt.currentRoot == nil; parseGuard++ {
+		parseScheduler.runOne()
+	}
+	if parseRt.currentRoot == nil {
+		parseT.Fatal("the tree never committed")
+	}
+	if parseLog.String() != "" {
+		parseT.Fatalf("passive effect already ran (%q); this test needs it still pending", parseLog.String())
+	}
+
+	// A new pass is scheduled before the drain fires — a layout effect calling
+	// setState, an atom write, a worker reply.
+	parseRt.ScheduleUpdate()
+
+	parseScheduler.flush()
+
+	if getGot := parseLog.String(); getGot == "" {
+		parseT.Error("the passive effect never ran; scheduling a new pass cleared the queue the pending drain was going to read")
 	}
 }
