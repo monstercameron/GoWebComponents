@@ -672,9 +672,12 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 			updateOrigin:        parseOldFiber.updateOrigin,
 			// Same reason as buildUpdatedFiber: the bailout clone is the OTHER
 			// way a marked fiber reaches the work loop, so dropping the lane
-			// here defeats P2.2 just as completely.
-			updateLane:   parseOldFiber.updateLane,
-			ownerRuntime: parseRt,
+			// here defeats P2.2 just as completely. The suspension fields travel
+			// for the same reason — see the goroutine-per-render note there.
+			updateLane:      parseOldFiber.updateLane,
+			asyncSuspension: parseOldFiber.asyncSuspension,
+			asyncWait:       parseOldFiber.asyncWait,
+			ownerRuntime:    parseRt,
 		}
 		if parseNewFiber.hooks != nil {
 			parseNewFiber.hooks.owner = parseNewFiber

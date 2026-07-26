@@ -372,6 +372,21 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 		hasDirectText:       parseElem.hasDirectText,
 		isCompactHostProps:  parseElem.isCompactHostProps,
 		updateOrigin:        parseOldFiber.updateOrigin,
+		// A suspension has to survive the clone or every re-render re-subscribes.
+		//
+		// subscribeAsyncBoundary dedupes on asyncWait, so dropping it here made the
+		// dedupe check always fail: renderAsyncBoundaryChildren re-subscribes on
+		// every render while a boundary is suspended, and each subscription parks a
+		// NEW goroutine on the same Done channel. Measured before this: +12
+		// goroutines over 12 boundary re-renders, exactly one per pass, each holding
+		// a reference to the boundary fiber and each firing its own
+		// ScheduleUpdateForFiber when the promise resolves.
+		//
+		// It does not reproduce on a root-only update — the boundary bails out and
+		// never re-subscribes — which is why the obvious test shape missed it. See
+		// TestSuspendedBoundaryDoesNotLeakAGoroutinePerRender.
+		asyncSuspension: parseOldFiber.asyncSuspension,
+		asyncWait:       parseOldFiber.asyncWait,
 		// The lane has to survive the clone or P2.2 does not exist.
 		//
 		// performUnitOfWork reads updateLane off the WORK-IN-PROGRESS fiber, and

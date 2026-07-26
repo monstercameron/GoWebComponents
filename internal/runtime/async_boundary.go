@@ -119,6 +119,21 @@ func (parseRt *Runtime) clearAsyncBoundarySuspension(parseBoundary *Fiber) {
 }
 
 // subscribeAsyncBoundary schedules a boundary retry when a suspension resolves.
+//
+// The asyncWait dedupe is load-bearing and was silently inoperative: neither
+// fiber clone literal carried asyncWait or asyncSuspension, so every re-render of
+// a suspended boundary saw a zero field, failed the check below, and parked
+// ANOTHER goroutine on the same channel — one per pass, each holding the boundary
+// fiber alive and each firing its own retry on resolve. Fixed in the clone
+// literals rather than here, because the same omission also broke the suspension
+// lookup itself; see the note in buildUpdatedFiber.
+//
+// Residual bound, stated rather than hidden: one goroutine per boundary stays
+// parked until its Done channel closes. That is O(suspended boundaries) rather
+// than O(renders), and a channel that never closes is a promise the caller never
+// settles — but a boundary unmounted while still suspended does leave its watcher
+// waiting. Cancelling that needs a per-boundary stop signal threaded through
+// unmount, which is a larger change than this one.
 func (parseRt *Runtime) subscribeAsyncBoundary(parseBoundary *Fiber, parseSuspension *Suspension) {
 	if parseRt == nil || parseBoundary == nil || parseSuspension == nil || parseSuspension.Done == nil {
 		return
