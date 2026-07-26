@@ -294,6 +294,7 @@ type SchedulingOptions struct {
 	PassiveEffectsAfterPaint bool
 	FrameBudgetMs            float64
 	LaneQueues               bool
+	DisableLaneQueues        bool
 	AsyncIngress             bool
 }
 

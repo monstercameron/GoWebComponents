@@ -299,19 +299,30 @@ type Config struct {
 	// yields when a slice has consumed this many milliseconds, instead of only
 	// after a fixed fiber count.
 	//
-	// Zero keeps count-only slicing. Negative selects the 5ms default. Requires
-	// the interrupt-safe restart path (P2.5); without it the runtime falls back
-	// to count-only slicing and emits a diagnostic rather than degrading
-	// silently.
+	// ON by default as of the flag review below: zero takes the 5ms default, a
+	// positive value sets an explicit budget, and NEGATIVE disables slicing and
+	// keeps the count-only behaviour. The sentinel is inverted from the earlier
+	// "zero is off" because the measurement said the budget should be what a
+	// caller gets without asking.
+	//
+	// Requires the interrupt-safe restart path (P2.5); without it the runtime
+	// falls back to count-only slicing and emits a diagnostic rather than
+	// degrading silently.
 	FrameBudgetMs float64
 	// LaneQueues enables per-lane deferral with expiration (v5 P2.2): work
 	// marked at a lower priority than the running pass is deferred to a
 	// follow-up pass rather than rendered inside this one.
 	//
-	// Off by default. Each deferrable lane carries a deadline (transition
-	// 500ms, background 2s) after which it is admitted regardless of priority,
+	// ON by default; set DisableLaneQueues to opt out. Each deferrable lane
+	// carries a deadline (transition 500ms, background 2s) after which it is
+	// admitted regardless of priority,
 	// so deferral cannot become starvation under sustained input.
 	LaneQueues bool
+	// DisableLaneQueues turns per-lane deferral back off.
+	//
+	// A separate field rather than inverting LaneQueues, so existing callers
+	// that set LaneQueues:true keep compiling and keep meaning what they said.
+	DisableLaneQueues bool
 
 	// AsyncIngress routes state updates made outside the frame loop through the
 	// async inbox (v5 P2.1).
@@ -376,13 +387,31 @@ func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
 	if parseConfig.PassiveEffectsAfterPaint {
 		parseRuntime.passiveEffectsAfterPaint = true
 	}
-	if parseConfig.LaneQueues {
-		parseRuntime.laneQueues = true
+	// Lane queues and the frame budget are ON by default (R2 satisfied).
+	//
+	// R2 said each flag flips once its acceptance test passes, and
+	// TestV5SchedulingComparison is that test. Run on one machine, v4 behaviour
+	// first so thermal drift on this fanless chassis works AGAINST the change:
+	//
+	//	long frames      23      -> 13       (worst 158.8ms -> 98.1ms)
+	//	interaction p95  56.0ms  -> 48.0ms   (budget 50 — met)
+	//	loaded p95       16.80ms -> 16.80ms  (unchanged; M1 still equivalent)
+	//
+	// Every dimension improved and none regressed, and M3 crossed its budget for
+	// the first time. Leaving them off would mean the measured behaviour is the
+	// one nobody gets.
+	//
+	// PassiveEffectsAfterPaint deliberately stays OFF: it changes effect
+	// ORDERING, and flipping it fails eight ordering and hydration tests that
+	// encode the current contract. That is a migration, not a default.
+	parseRuntime.laneQueues = true
+	if parseConfig.DisableLaneQueues {
+		parseRuntime.laneQueues = false
 	}
 	if parseConfig.AsyncIngress {
 		parseRuntime.asyncIngress = true
 	}
-	if parseConfig.FrameBudgetMs < 0 {
+	if parseConfig.FrameBudgetMs == 0 {
 		parseRuntime.frameBudgetMs = defaultFrameBudgetMs
 	} else if parseConfig.FrameBudgetMs > 0 {
 		parseRuntime.frameBudgetMs = parseConfig.FrameBudgetMs

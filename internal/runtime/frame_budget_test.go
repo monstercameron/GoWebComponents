@@ -48,14 +48,24 @@ func TestFrameBudget_DeadlineExpires(parseT *testing.T) {
 
 // TestFrameBudget_DisabledByDefault pins R2: the runtime keeps count-only
 // slicing unless a budget is requested.
-func TestFrameBudget_DisabledByDefault(parseT *testing.T) {
+// TestFrameBudget_EnabledByDefault pins the flipped default.
+//
+// It was off, on the R2 rule that a v5 flag stays off until its acceptance test
+// passes. TestV5SchedulingComparison is that test and it passed: long frames
+// 23 -> 13, worst 158.8ms -> 98.1ms, interaction p95 56.0ms -> 48.0ms against a
+// 50ms budget, with the loaded frame p95 unchanged. Leaving it off would mean
+// the measured behaviour is the one nobody gets.
+func TestFrameBudget_EnabledByDefault(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Reset: true})
 
-	if parseRt.frameBudgetEnabled() {
-		parseT.Error("frame budget must be off unless configured")
+	if !parseRt.frameBudgetEnabled() {
+		parseT.Error("frame budget must be on without being asked for")
 	}
-	if parseRt.resolveWorkLoopDeadline() != Deadline(globalInfiniteDeadline) {
-		parseT.Error("with no budget configured the work loop must keep the infinite deadline")
+	if parseRt.frameBudgetMs != defaultFrameBudgetMs {
+		parseT.Errorf("default budget = %v, want %v", parseRt.frameBudgetMs, defaultFrameBudgetMs)
+	}
+	if parseRt.resolveWorkLoopDeadline() == Deadline(globalInfiniteDeadline) {
+		parseT.Error("with a budget in force the work loop must take a finite deadline")
 	}
 }
 
@@ -69,11 +79,13 @@ func TestFrameBudget_ConfiguredValueIsUsed(parseT *testing.T) {
 		parseT.Error("an explicit budget must enable time-based slicing")
 	}
 
-	// Negative selects the default rather than disabling, so a caller cannot
-	// accidentally turn slicing off by passing a sentinel.
-	parseDefaulted := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), FrameBudgetMs: -1, Reset: true})
-	if parseDefaulted.frameBudgetMs != defaultFrameBudgetMs {
-		parseT.Errorf("negative budget = %v, want the %v default", parseDefaulted.frameBudgetMs, defaultFrameBudgetMs)
+	// The sentinel is inverted now that the budget is the default: zero takes
+	// the default, and NEGATIVE is the explicit opt-out. A caller that wants
+	// count-only slicing has to ask for it, which is the right way round once
+	// the measured behaviour is the default one.
+	parseDisabled := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), FrameBudgetMs: -1, Reset: true})
+	if parseDisabled.frameBudgetEnabled() {
+		parseT.Error("a negative budget must disable time-based slicing")
 	}
 }
 

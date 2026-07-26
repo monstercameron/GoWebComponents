@@ -149,13 +149,34 @@ func TestLanes_AdmissionRules(parseT *testing.T) {
 	}
 }
 
-// TestLanes_DisabledByDefaultAdmitsEverything pins R2.
-func TestLanes_DisabledByDefaultAdmitsEverything(parseT *testing.T) {
+// TestLanes_EnabledByDefault pins the flipped default.
+//
+// R2 kept lane queues off until their acceptance test passed.
+// TestV5SchedulingComparison is that test, run v4-first on a fanless chassis so
+// thermal drift worked against the change: long frames 23 -> 13, worst 158.8ms
+// -> 98.1ms, interaction p95 56.0ms -> 48.0ms against a 50ms budget, loaded
+// frame p95 unchanged.
+func TestLanes_EnabledByDefault(parseT *testing.T) {
 	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Reset: true})
 	parseNow := time.Now()
 
+	if !parseRt.laneQueuesEnabled() {
+		parseT.Fatal("lane queues must be on without being asked for")
+	}
+	parseRt.schedulerState.lanes.markLanePending(UpdateLaneBackground, parseNow)
+	if parseRt.laneAdmitsFiber(UpdateLaneInput, UpdateLaneBackground, parseNow) {
+		parseT.Error("background work must not render inside an input-lane pass when lane queues are on")
+	}
+}
+
+// TestLanes_DisableOptsBackOut keeps the escape hatch honest: a default that
+// cannot be turned off is not a default, it is a behaviour change.
+func TestLanes_DisableOptsBackOut(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), DisableLaneQueues: true, Reset: true})
+	parseNow := time.Now()
+
 	if parseRt.laneQueuesEnabled() {
-		parseT.Fatal("lane queues must be off by default")
+		parseT.Fatal("DisableLaneQueues did not turn lane queues off")
 	}
 	parseRt.schedulerState.lanes.markLanePending(UpdateLaneBackground, parseNow)
 	if !parseRt.laneAdmitsFiber(UpdateLaneInput, UpdateLaneBackground, parseNow) {

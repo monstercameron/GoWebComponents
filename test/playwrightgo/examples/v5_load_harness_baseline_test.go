@@ -536,3 +536,136 @@ func TestV5WorkerMessageRate(parseT *testing.T) {
 		parseT.Fatal("no progress messages were delivered; the workloads did not run, so this measured nothing")
 	}
 }
+
+// TestV5LongFrameAttribution asks what is actually IN the long frames M2 counts.
+//
+// The workloads run in a worker, so the render thread should not be executing
+// them. Something still produced 29 long frames on it during the loaded arm
+// against 1 during the idle arm, and a count cannot say what. Long Animation
+// Frame entries carry per-script attribution — name, invoker, duration, and the
+// forced style/layout time that is the classic cause of a long frame no phase
+// total explains — so this reads that rather than inferring from timing.
+func TestV5LongFrameAttribution(parseT *testing.T) {
+	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", "..", ".."))
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseWasmPath := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness", "v5harness.wasm")
+	buildV5HarnessWasm(parseT, parseRepoRoot, parseWasmPath)
+
+	parseServer := serveV5Harness(parseT, parseRepoRoot)
+	defer parseServer.Close()
+
+	parsePW, parseErr := playwright.Run()
+	if parseErr != nil {
+		parseT.Skipf("playwright unavailable: %v", parseErr)
+	}
+	defer parsePW.Stop()
+	parseBrowser, parseErr := parsePW.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer parseBrowser.Close()
+	parsePage, parseErr := parseBrowser.NewPage()
+	if parseErr != nil {
+		parseT.Fatalf("new page: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseServer.URL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad, Timeout: playwright.Float(180000),
+	}); parseErr != nil {
+		parseT.Fatalf("goto harness: %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForFunction(`() => window.__gwcV5Ready === true`, nil,
+		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr != nil {
+		parseT.Fatalf("wait for subject ready: %v", parseErr)
+	}
+
+	// Collect from the moment the workloads start, and drive typing throughout so
+	// the render thread is doing what it does during a measured window.
+	parseStopTyping := make(chan struct{})
+	parseTypingDone := make(chan struct{})
+	go func() {
+		defer close(parseTypingDone)
+		parseAlphabet := "abcdefghijklmnopqrstuvwxyz"
+		for parseI := 0; ; parseI++ {
+			select {
+			case <-parseStopTyping:
+				return
+			default:
+			}
+			parseInput := parsePage.Locator("#filter")
+			if parseI%4 == 0 {
+				_ = parseInput.Fill("")
+			} else {
+				_ = parseInput.PressSequentially(string(parseAlphabet[parseI%26]),
+					playwright.LocatorPressSequentiallyOptions{Delay: playwright.Float(20)})
+			}
+			time.Sleep(60 * time.Millisecond)
+		}
+	}()
+
+	parseRaw, parseErr := parsePage.Evaluate(`async () => {
+		const frames = [];
+		const observer = new PerformanceObserver((list) => {
+			for (const entry of list.getEntries()) {
+				frames.push({
+					duration: entry.duration,
+					blockingDuration: entry.blockingDuration ?? 0,
+					styleAndLayout: entry.styleAndLayoutDuration ?? 0,
+					scripts: (entry.scripts ?? []).map((s) => ({
+						name: s.name, invoker: s.invoker, invokerType: s.invokerType,
+						duration: s.duration, forced: s.forcedStyleAndLayoutDuration ?? 0,
+					})),
+				});
+			}
+		});
+		observer.observe({ type: 'long-animation-frame' });
+		for (const name of ['import', 'reindex', 'decode']) window.__gwcV5Workloads[name].start();
+		await new Promise((r) => setTimeout(r, 8000));
+		for (const name of ['import', 'reindex', 'decode']) window.__gwcV5Workloads[name].stop();
+		observer.disconnect();
+		return JSON.stringify(frames);
+	}`)
+	close(parseStopTyping)
+	<-parseTypingDone
+	if parseErr != nil {
+		parseT.Fatalf("collect long frames: %v", parseErr)
+	}
+
+	var parseFrames []struct {
+		Duration         float64 `json:"duration"`
+		BlockingDuration float64 `json:"blockingDuration"`
+		StyleAndLayout   float64 `json:"styleAndLayout"`
+		Scripts          []struct {
+			Name        string  `json:"name"`
+			Invoker     string  `json:"invoker"`
+			InvokerType string  `json:"invokerType"`
+			Duration    float64 `json:"duration"`
+			Forced      float64 `json:"forced"`
+		} `json:"scripts"`
+	}
+	if parseErr := json.Unmarshal([]byte(parseRaw.(string)), &parseFrames); parseErr != nil {
+		parseT.Fatalf("decode frames: %v", parseErr)
+	}
+
+	parseT.Logf("%d long animation frames on the render thread during 8s of loaded typing", len(parseFrames))
+	parseByInvoker := map[string]float64{}
+	parseCountByInvoker := map[string]int{}
+	parseTotalForced := 0.0
+	for _, parseFrame := range parseFrames {
+		parseTotalForced += parseFrame.StyleAndLayout
+		for _, parseScript := range parseFrame.Scripts {
+			parseKey := parseScript.InvokerType + " " + parseScript.Invoker
+			parseByInvoker[parseKey] += parseScript.Duration
+			parseCountByInvoker[parseKey]++
+			parseTotalForced += parseScript.Forced
+		}
+	}
+	for parseKey, parseMs := range parseByInvoker {
+		parseT.Logf("  %-58s %6.1f ms across %d scripts", parseKey, parseMs, parseCountByInvoker[parseKey])
+	}
+	parseT.Logf("  total style/layout + forced reflow time: %.1f ms", parseTotalForced)
+	if len(parseFrames) == 0 {
+		parseT.Skip("no long frames observed in this run; nothing to attribute")
+	}
+}
