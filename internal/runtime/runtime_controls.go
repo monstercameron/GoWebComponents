@@ -116,9 +116,22 @@ type runtimeSchedulerState struct {
 	// collapsing N of them produces the same frame. Nothing is dropped. A
 	// counter named for data loss makes every reader investigate a loss that
 	// never happened. See BudgetCoalesce.
-	coalescedAtLimit     int
-	interruptedWork      int
-	lastBackpressureLane UpdateLane
+	// updateArrivedInFlight records that an update was scheduled while a pass
+	// was already walking the tree.
+	//
+	// Such an update cannot be served by the running pass — it may have visited
+	// those fibers already — so the pass owes a follow-up. Without this the
+	// update was folded into pendingLane and then nothing ran it: the fibers
+	// stayed dirty, no pass was scheduled, and the tree simply stopped updating.
+	//
+	// The window is nearly closed without time-slicing, because a pass usually
+	// completes inside one task. A frame budget opens it at every yield, which
+	// is what froze the Example 201 core-* scenarios — the work loop ran two
+	// passes, committed twice, and stopped with nothing rendered.
+	updateArrivedInFlight bool
+	coalescedAtLimit      int
+	interruptedWork       int
+	lastBackpressureLane  UpdateLane
 	// lanes carries per-lane pending state and deferral deadlines (v5 P2.2).
 	lanes laneState
 }
@@ -167,6 +180,13 @@ func (parseRt *Runtime) coalesceScheduledUpdateLocked(parseLane UpdateLane) {
 	// that window as an interrupt is what made the old rebuild look harmless
 	// most of the time while being destructive in the narrow case that matters.
 	isPassInFlight := parseRt.nextUnitOfWork != nil && parseRt.nextUnitOfWork != parseRt.wipRoot
+	if isPassInFlight {
+		// Owed regardless of lane. The interrupt branch below handles the case
+		// where the new work is MORE urgent than the running pass; this handles
+		// every case, including the common one where it is the same lane and the
+		// old code did nothing at all.
+		parseRt.schedulerState.updateArrivedInFlight = true
+	}
 	if isPassInFlight && parseRt.currentRoot != nil && parseRt.schedulerState.currentLane != 0 && normalizeUpdateLane(parseLane) < parseRt.schedulerState.currentLane {
 		parseRt.schedulerState.interruptedWork++
 		parseRt.schedulerState.currentLane = normalizeUpdateLane(parseLane)

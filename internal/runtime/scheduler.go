@@ -865,3 +865,31 @@ func (parseRt *Runtime) isFiberInCurrentTree(parseFiber *Fiber) bool {
 // Runtime.PostAsync / DrainAsyncInbox (inbox.go, v5 P2.1) replace them, with
 // the two properties this lacked: a real drain point on the frame loop, and
 // per-runtime rather than package-global state.
+
+// scheduleFollowUpForInFlightUpdate starts the pass owed to an update that
+// arrived while the previous one was already walking the tree.
+//
+// Called from commitRoot, after the tree is consistent, for the same reason
+// scheduleDeferredLaneWork is: an update that could not be served by the pass in
+// flight has left its fibers dirty with nothing scheduled to consume them.
+//
+// Before this, coalesceScheduledUpdateLocked folded such an update into
+// pendingLane and acted only when it was MORE urgent than the running pass. A
+// same-lane update — the common case — was recorded and then never run. Time
+// slicing turned that from a narrow race into a reliable hang, because a sliced
+// pass is in flight across many tasks rather than none.
+func (parseRt *Runtime) scheduleFollowUpForInFlightUpdate() {
+	if parseRt == nil || !parseRt.schedulerState.updateArrivedInFlight {
+		return
+	}
+	parseRt.schedulerState.updateArrivedInFlight = false
+
+	parseLane := parseRt.schedulerState.pendingLane
+	if parseLane == 0 {
+		parseLane = UpdateLaneDefault
+	}
+	// shouldRecordReplay is false: this pass exists to finish work already
+	// recorded by the update that requested it, and recording it again would
+	// replay the same intent twice.
+	parseRt.scheduleUpdateWithLane(parseLane, false)
+}

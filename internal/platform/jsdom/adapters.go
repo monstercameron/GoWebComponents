@@ -849,16 +849,21 @@ func (parseA *WASMDOMAdapter) storeBatchChildren(parseChildren []interface{}) {
 	parseA.storeBatchChildrenPool = append(parseA.storeBatchChildrenPool, parseChildren[:0])
 }
 
-// BatchSetAttributes sets multiple attributes without paying one extra Go callback hop.
+// BatchSetAttributes sets multiple attributes on one node.
+//
+// It must go through queueAttrWrite, not straight to the bridge. The real
+// batching lives in attr_batch.go and spans NODES, not attributes: during a
+// commit every write is encoded into one payload flushed with a single call.
+// Calling setAttribute directly here bypassed that entirely, so the path the
+// commit selected for attribute-heavy elements paid one hop per attribute
+// while the single-attribute path it fell back to paid none — the "batch" was
+// the slower of the two.
 func (parseA *WASMDOMAdapter) BatchSetAttributes(parseNode runtime.DOMNode, parseAttrs map[string]string) {
-	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
-		if len(parseAttrs) == 0 {
-			return
-		}
-		for parseName, parseValue := range parseAttrs {
-			parseValue = runtime.SanitizeURLAttributeValue(parseName, parseValue)
-			parseWasmNode.value.Call("setAttribute", parseName, parseValue)
-		}
+	if len(parseAttrs) == 0 {
+		return
+	}
+	for parseName, parseValue := range parseAttrs {
+		parseA.SetAttribute(parseNode, parseName, parseValue)
 	}
 }
 

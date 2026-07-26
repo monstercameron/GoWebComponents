@@ -299,21 +299,24 @@ type Config struct {
 	// yields when a slice has consumed this many milliseconds, instead of only
 	// after a fixed fiber count.
 	//
-	// OFF by default. Zero keeps count-only slicing; negative selects the 5ms
-	// default; a positive value sets an explicit budget.
+	// ON by default: zero takes the 5ms default, a positive value sets an
+	// explicit budget, and NEGATIVE opts out to count-only slicing.
 	//
-	// It was briefly flipped ON, on the strength of TestV5SchedulingComparison
-	// improving every metric it measures. That flip was WRONG and is reverted:
-	// time-slicing a render breaks the Example 201 core-* and enterprise-*
-	// scenarios outright — the tree never renders and the harness times out
-	// waiting for it — in both the development and production builds. Slicing
-	// has a correctness defect on those shapes, and a rendering bug outweighs an
-	// interaction-latency win.
+	// This flag was flipped on, reverted, and flipped back, and the middle step
+	// is the useful one. Turning it on froze the Example 201 core-* and
+	// enterprise-* scenarios: the tree never rendered and the harness timed out
+	// with zero items, in both builds. Slicing did not cause that defect, it
+	// EXPOSED one — an update arriving while a pass was already walking the tree
+	// was folded into pendingLane and never run, because the coalescing path
+	// acted only when the new work was MORE urgent than the running pass. A pass
+	// completes inside one task without a budget, so the window was nearly
+	// closed; a budget opens it at every yield.
 	//
-	// The flip was validated against the native suite, where only the flag's own
-	// "off by default" test failed, and that was not enough: nothing in the
-	// native suite drives those browser scenarios. A scheduling default now
-	// needs the browser benchmark to pass before it moves.
+	// With that fixed (scheduleFollowUpForInFlightUpdate) the browser benchmark
+	// is green with the budget on, which is now the gate. The first flip was
+	// validated against `go test ./...` alone, where only this flag's own
+	// "off by default" test failed — a clean-looking result that could not have
+	// caught it, because nothing native drives those scenarios.
 	//
 	// Requires the interrupt-safe restart path (P2.5); without it the runtime
 	// falls back to count-only slicing and emits a diagnostic rather than
@@ -421,7 +424,7 @@ func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
 	if parseConfig.AsyncIngress {
 		parseRuntime.asyncIngress = true
 	}
-	if parseConfig.FrameBudgetMs < 0 {
+	if parseConfig.FrameBudgetMs == 0 {
 		parseRuntime.frameBudgetMs = defaultFrameBudgetMs
 	} else if parseConfig.FrameBudgetMs > 0 {
 		parseRuntime.frameBudgetMs = parseConfig.FrameBudgetMs

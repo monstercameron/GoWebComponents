@@ -20,12 +20,10 @@ var runtimeInitialized bool
 
 // SchedulingOptions selects the v5 scheduling behaviors.
 //
-// LaneQueues is ON by default; its acceptance test passed and the browser
-// benchmark stays green with it.
-//
-// FrameBudgetMs is OFF: it improves interaction latency and breaks rendering on
-// the Example 201 core-* and enterprise-* scenarios, which is not a trade worth
-// making by default.
+// FrameBudgetMs and LaneQueues are ON by default. Both pass their acceptance
+// test AND leave the Example 201 browser benchmark green, which is the gate a
+// scheduling default has to clear — the native suite cannot see the scenarios
+// that a slicing change breaks.
 //
 // PassiveEffectsAfterPaint and AsyncIngress stay off: each changes observable
 // semantics (effect ordering, and when an async write lands), so they are
@@ -41,12 +39,8 @@ type SchedulingOptions struct {
 	// FrameBudgetMs gives the work loop a real wall-clock slice budget instead
 	// of a fixed fiber count.
 	//
-	// OFF by default: zero keeps count-only slicing, negative selects the 5ms
-	// default, and a positive value sets an explicit budget.
-	//
-	// Enabling it currently breaks the Example 201 core-* and enterprise-*
-	// scenarios — the tree never renders — so slicing has a correctness defect
-	// on those shapes that must be fixed before it can be a default.
+	// ON by default: zero takes the 5ms default, a positive value sets an
+	// explicit budget, and NEGATIVE opts out to count-only slicing.
 	FrameBudgetMs float64
 	// LaneQueues defers work marked at a lower priority than the running pass to
 	// a follow-up pass, with a per-lane deadline so deferral cannot starve.

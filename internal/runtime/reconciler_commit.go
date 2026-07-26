@@ -510,6 +510,7 @@ func (parseRt *Runtime) commitRoot() {
 	// Start a follow-up pass at the highest lane still pending, so deferral
 	// never becomes a stranded update.
 	parseRt.scheduleDeferredLaneWork()
+	parseRt.scheduleFollowUpForInFlightUpdate()
 
 	// G16: signal "app ready" once the first commit (initial paint + effects) is
 	// done. No-op on every later commit.
