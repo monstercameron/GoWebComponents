@@ -68,12 +68,38 @@ virtualization, workload budgets, the cross-thread timeline, GC pacing, the
 storage tier model, hot reload, the escalation assistant, two-artifact
 packaging, and the worker correlation table.
 
+## Canonical score — the only numbers to quote
+
+Measured 2026-07-26 on the current harness, with the loaded arm's work PROVEN
+(the gate now refuses a run whose workloads completed nothing). Everything
+earlier in this document predates one or more of three harness defects and is
+marked void where it appears.
+
+| Metric | Result | Target | |
+|---|---|---|---|
+| M1 loaded p95 frame vs idle | 16.80 ms vs 16.70 ms | equivalent | ✅ met |
+| M3 interaction p95 | 40.0 ms | < 50 ms | ✅ met |
+| M3 worst interaction | 64 ms | < 120 ms | ✅ met |
+| M2 long frames | **4** (worst 96.6 ms) | 0 | ❌ missed |
+| M7 max GC pause | **~7.5 ms** | < 3 ms | ❌ missed |
+
+Background work completed in the loaded arm: ~112,000 units across import,
+re-index, and decode.
+
+**Read M2 and M7 with two cautions.** This chassis is fanless and throttles
+under sustained benchmarking — the same build measured 4 long frames cold and 33
+hot, so any single reading taken during a long session is worthless. And M2 is
+the only budget expressed as an absolute zero rather than a percentile or a
+bound, which makes it a claim about application update size rather than about
+the framework; whether that is the right shape is an open question for the
+owner, not something to be quietly redefined to pass.
+
 **Owed, and each for a stated reason:**
 
 | Owed | Why it is not done here |
 |---|---|
-| M2 to zero | 12 long frames remain (down from 245); the steady-state workloads are off-thread, so what is left is render-thread work — first render, worker instantiation, table growth |
-| M7 | the `gcpacing` package ships profiles but the harness applies none; wiring `ProfileResponsive` into `app.wasm` is the next step |
+| M2 to zero | see **Canonical score** — 4 long frames remain, and the count in this row was taken from a superseded harness |
+| M7 | see **Canonical score** — `ProfileResponsive` IS applied; five separate mitigations were tested and rejected |
 | M12 pause half | js/wasm marks single-threaded without native Go's parallel assist — a native number would be a green check that means nothing |
 | P6.2 · P6.3 | criteria are a network assertion and a paint-timeline assertion — both browser |
 | P0.5 | needs Solid, Svelte 5, and a Rust peer installed |
@@ -135,15 +161,34 @@ Same harness, same workloads, same machine. The only change is **where the
 background work runs**: `services.wasm` instead of the render thread.
 `docs/benchmarks/v5-measured.json` against `v5-baseline.json`.
 
-| Metric | v4 | **v5** | Target | |
+> ### ⚠️ SUPERSEDED — every v5 column below is VOID
+>
+> These were taken before three defects in the harness were found, and each one
+> invalidates them:
+>
+> 1. **The domain worker was never built.** `worker.js` fetched a
+>    `v5services.wasm` that nothing compiled, so the worker failed to
+>    instantiate, the three workloads never ran, and the harness compared an
+>    idle page against an idle page. M1's "equivalence" was measuring nothing
+>    twice, which is what perfect equivalence looks like.
+> 2. **The long-frame and interaction observers used `buffered: true`,** so each
+>    window re-counted every entry since page load. M2 was overstated about
+>    sixfold and M3's percentile described the whole session.
+> 3. **The GC pause window was off by one at both ends,** attributing a
+>    collection that finished before the window to the window.
+>
+> The v4 column is unaffected — v4 ran its workloads in-process and needed no
+> worker. Do not quote the v5 column; see **Canonical score** below.
+
+| Metric | v4 | v5 (VOID) | Target | |
 |---|---|---|---|---|
 | M1 idle p95 frame | 16.80 ms | 16.70 ms | — (control) | |
-| M1 **loaded p95 frame** | **1633.30 ms** | **16.70 ms** | equivalent to idle | ✅ **MET** |
-| M1 equivalence | false | **true** | true | ✅ |
-| M2 long frames | 245 (worst 1649 ms) | 18 (worst **193.8 ms**) | 0 | ❌ worst case 8.5× better, count not zero |
-| M3 interaction p95 / max | 1128 / 1400 ms | **24.0 / 56.0 ms** | <50 / <120 ms | ✅ **MET** |
-| M3 sample size | n=56 (guard refused it) | **n=542** | ≥200 | ✅ quotable |
-| M7 max GC pause | 6.60 ms | **4.50 ms** | <3 ms | ❌ 32% better, not met |
+| M1 **loaded p95 frame** | **1633.30 ms** | 16.70 ms | equivalent to idle | measured with no load |
+| M1 equivalence | false | true | true | vacuous |
+| M2 long frames | 245 (worst 1649 ms) | 18 (worst 193.8 ms) | 0 | inflated ~6× |
+| M3 interaction p95 / max | 1128 / 1400 ms | 24.0 / 56.0 ms | <50 / <120 ms | measured with no load |
+| M3 sample size | n=56 (guard refused it) | n=542 | ≥200 | — |
+| M7 max GC pause | 6.60 ms | 4.50 ms | <3 ms | window off by one |
 
 **M1 is the plan's thesis and it is met.** Loaded p95 equals idle p95 to the
 decimal — 16.70 ms both arms, equivalence true, a **97.8× improvement** on the
