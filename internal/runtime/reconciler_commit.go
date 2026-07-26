@@ -985,16 +985,52 @@ func (parseRt *Runtime) applyCommittedChildOrder(parseDomParent DOMNode, parseEx
 
 // buildCommittedChildOrderMatch maps each observed child to its expected
 // index; hasSameSet is false when the two lists are not the same node set.
+//
+// The scan resumes from the last match instead of restarting at zero, and that
+// is the whole performance story here.
+//
+// This feeds an O(n log n) LIS, but the match that feeds it restarted its search
+// at index 0 for every observed node, so the pair was quadratic and the LIS was
+// free by comparison. Measured on the shapes a list actually produces: 500 rows
+// 547µs, 1000 rows 1.57ms, 2000 rows 4.07ms, 5000 rows 22.5ms, against an LIS
+// that never registered above 0.5ms. It runs inside commitRoot, which no frame
+// budget bounds, and it triggers when a filtered list is re-populated — the
+// exact shape M2's residual long frames were measured on.
+//
+// Resuming works because the two lists are permutations of the same set and DOM
+// order is mostly preserved: a rotation, an insertion, or a handful of moved
+// rows all advance the cursor monotonically, so each search stops on its first
+// or second probe. The wrap-around second pass keeps it CORRECT for an arbitrary
+// permutation rather than merely fast for a friendly one, and the used-set check
+// keeps duplicate node values matching one-to-one exactly as before. Worst case
+// is unchanged; the common case stops being the worst case.
+//
+// A hash index would make it unconditionally linear and cannot be built: DOMNode
+// identity is Equals, not ==, and the browser adapter hands out a fresh wrapper
+// per traversal call, so the same node is a different map key each time it is
+// read. Removing the DOM read-back entirely — deriving the move set from fiber
+// order, which IS pointer-comparable — is the real fix and a larger change to
+// the most delicate part of commit.
 func buildCommittedChildOrderMatch(parseExpected, parseObserved []DOMNode) ([]int, bool) {
 	if len(parseExpected) != len(parseObserved) {
 		return nil, false
 	}
 	parseMatch := make([]int, len(parseObserved))
 	parseUsed := make([]bool, len(parseExpected))
+	parseCursor := 0
 	for parseIndex, parseObservedNode := range parseObserved {
 		parseFound := -1
-		for parseExpectedIndex, parseExpectedNode := range parseExpected {
-			if !parseUsed[parseExpectedIndex] && IsSameDOMNode(parseExpectedNode, parseObservedNode) {
+		// Forward from the cursor, then wrap: together these cover the whole
+		// list exactly once.
+		for parseOffset := range parseExpected {
+			parseExpectedIndex := parseCursor + parseOffset
+			if parseExpectedIndex >= len(parseExpected) {
+				parseExpectedIndex -= len(parseExpected)
+			}
+			if parseUsed[parseExpectedIndex] {
+				continue
+			}
+			if IsSameDOMNode(parseExpected[parseExpectedIndex], parseObservedNode) {
 				parseFound = parseExpectedIndex
 				break
 			}
@@ -1004,6 +1040,10 @@ func buildCommittedChildOrderMatch(parseExpected, parseObserved []DOMNode) ([]in
 		}
 		parseUsed[parseFound] = true
 		parseMatch[parseIndex] = parseFound
+		parseCursor = parseFound + 1
+		if parseCursor >= len(parseExpected) {
+			parseCursor = 0
+		}
 	}
 	return parseMatch, true
 }

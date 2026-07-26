@@ -3,6 +3,7 @@ package runtime
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 // Regressions found reviewing the v5 renderer. Each test names the defect it
@@ -466,5 +467,113 @@ func TestPortalSurvivesDeletionOfASibling(parseT *testing.T) {
 	}
 	if findNodeByID(parseOverlay, "kept") == nil {
 		parseT.Error("a still-mounted portal lost its content when a sibling was deleted")
+	}
+}
+
+type orderProbeNode struct{ id int }
+
+func (parseN *orderProbeNode) IsNull() bool { return parseN == nil }
+func (parseN *orderProbeNode) Equals(parseOther DOMNode) bool {
+	parseTyped, parseOk := parseOther.(*orderProbeNode)
+	return parseOk && parseTyped != nil && parseTyped.id == parseN.id
+}
+
+// The child-order match must not be quadratic on the shapes lists actually
+// produce. It feeds an O(n log n) LIS and used to restart its scan at index 0
+// for every node, so the pair cost 22.5ms at 5000 rows with the LIS itself at
+// ~0 — inside commitRoot, which no frame budget bounds.
+//
+// Asserted as a scaling ratio rather than a wall-clock bound so the test means
+// the same thing on a slower machine: 4x the rows must not cost anything like
+// 16x the time.
+func TestChildOrderMatchScalesLinearly(parseT *testing.T) {
+	build := func(parseN int) ([]DOMNode, []DOMNode) {
+		parseExpected := make([]DOMNode, parseN)
+		for parseI := range parseExpected {
+			parseExpected[parseI] = &orderProbeNode{id: parseI}
+		}
+		// Rotation by half: the shape a filter being cleared produces, where the
+		// re-placed rows land ahead of the retained ones.
+		parseObserved := make([]DOMNode, parseN)
+		for parseI := range parseObserved {
+			parseObserved[parseI] = parseExpected[(parseI+parseN/2)%parseN]
+		}
+		return parseExpected, parseObserved
+	}
+
+	measure := func(parseN int) time.Duration {
+		parseExpected, parseObserved := build(parseN)
+		parseBest := time.Hour
+		for parseRun := 0; parseRun < 5; parseRun++ {
+			parseStart := time.Now()
+			parseMatch, parseOk := buildCommittedChildOrderMatch(parseExpected, parseObserved)
+			parseElapsed := time.Since(parseStart)
+			if !parseOk || len(parseMatch) != parseN {
+				parseT.Fatalf("n=%d: the two lists are the same set and must match", parseN)
+			}
+			if parseElapsed < parseBest {
+				parseBest = parseElapsed
+			}
+		}
+		return parseBest
+	}
+
+	parseSmall := measure(500)
+	parseLarge := measure(2000)
+	parseT.Logf("match cost: n=500 %v, n=2000 %v", parseSmall, parseLarge)
+
+	// Quadratic would be ~16x for 4x the rows. Linear is ~4x. 8x leaves generous
+	// room for timer noise while still failing a return to the nested scan.
+	if parseSmall > 0 && parseLarge > parseSmall*8 {
+		parseT.Errorf("4x the rows cost %.1fx the time (%v -> %v); the match is superlinear again",
+			float64(parseLarge)/float64(parseSmall), parseSmall, parseLarge)
+	}
+}
+
+// Correctness of the resumed scan on an arbitrary permutation, including one
+// that forces the wrap-around, and on duplicate node values which must still
+// match one-to-one.
+func TestChildOrderMatchHandlesArbitraryPermutations(parseT *testing.T) {
+	parseExpected := []DOMNode{
+		&orderProbeNode{id: 0}, &orderProbeNode{id: 1}, &orderProbeNode{id: 2},
+		&orderProbeNode{id: 3}, &orderProbeNode{id: 4},
+	}
+	parseObserved := []DOMNode{
+		parseExpected[4], parseExpected[0], parseExpected[3],
+		parseExpected[1], parseExpected[2],
+	}
+	parseMatch, parseOk := buildCommittedChildOrderMatch(parseExpected, parseObserved)
+	if !parseOk {
+		parseT.Fatal("same set must match")
+	}
+	parseWant := []int{4, 0, 3, 1, 2}
+	for parseI := range parseWant {
+		if parseMatch[parseI] != parseWant[parseI] {
+			parseT.Errorf("match[%d] = %d, want %d (full: %v)", parseI, parseMatch[parseI], parseWant[parseI], parseMatch)
+		}
+	}
+
+	// A node value appearing twice must consume two distinct expected slots.
+	parseDup := &orderProbeNode{id: 9}
+	parseDupExpected := []DOMNode{parseDup, &orderProbeNode{id: 1}, parseDup}
+	parseDupObserved := []DOMNode{parseDup, parseDup, &orderProbeNode{id: 1}}
+	parseDupMatch, parseDupOk := buildCommittedChildOrderMatch(parseDupExpected, parseDupObserved)
+	if !parseDupOk {
+		parseT.Fatal("duplicate values are still the same set")
+	}
+	parseSeen := map[int]bool{}
+	for _, parseValue := range parseDupMatch {
+		if parseSeen[parseValue] {
+			parseT.Errorf("expected index %d matched twice: %v", parseValue, parseDupMatch)
+		}
+		parseSeen[parseValue] = true
+	}
+
+	// A genuinely different set must still be rejected.
+	if _, parseOk := buildCommittedChildOrderMatch(
+		[]DOMNode{&orderProbeNode{id: 0}},
+		[]DOMNode{&orderProbeNode{id: 7}},
+	); parseOk {
+		parseT.Error("a different node set must not report a match")
 	}
 }
