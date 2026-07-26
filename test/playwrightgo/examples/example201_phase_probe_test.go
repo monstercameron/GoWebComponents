@@ -133,7 +133,15 @@ func TestExample201CPUProfileProbe(parseT *testing.T) {
 		if _, parseErr2 := getSession.Send("Profiler.setSamplingInterval", map[string]interface{}{"interval": 100}); parseErr2 != nil {
 			parseT.Fatalf("profiler interval: %v", parseErr2)
 		}
-		getScenario := "core-render"
+		// content-render, not core-render.
+		//
+		// Two reasons, and the first is that this probe was RED: the standalone
+		// subject page cannot run the core-* scenarios — core-count comes back
+		// zero without setup only the scored runner performs — so the profile
+		// never ran. The second is that content-render is the scenario that
+		// actually costs: it is GWC's worst against React and the one whose long
+		// frames M2 counts.
+		getScenario := "content-render"
 		if _, parseErr2 := getSession.Send("Profiler.start", nil); parseErr2 != nil {
 			parseT.Fatalf("profiler start: %v", parseErr2)
 		}

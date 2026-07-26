@@ -299,11 +299,21 @@ type Config struct {
 	// yields when a slice has consumed this many milliseconds, instead of only
 	// after a fixed fiber count.
 	//
-	// ON by default as of the flag review below: zero takes the 5ms default, a
-	// positive value sets an explicit budget, and NEGATIVE disables slicing and
-	// keeps the count-only behaviour. The sentinel is inverted from the earlier
-	// "zero is off" because the measurement said the budget should be what a
-	// caller gets without asking.
+	// OFF by default. Zero keeps count-only slicing; negative selects the 5ms
+	// default; a positive value sets an explicit budget.
+	//
+	// It was briefly flipped ON, on the strength of TestV5SchedulingComparison
+	// improving every metric it measures. That flip was WRONG and is reverted:
+	// time-slicing a render breaks the Example 201 core-* and enterprise-*
+	// scenarios outright — the tree never renders and the harness times out
+	// waiting for it — in both the development and production builds. Slicing
+	// has a correctness defect on those shapes, and a rendering bug outweighs an
+	// interaction-latency win.
+	//
+	// The flip was validated against the native suite, where only the flag's own
+	// "off by default" test failed, and that was not enough: nothing in the
+	// native suite drives those browser scenarios. A scheduling default now
+	// needs the browser benchmark to pass before it moves.
 	//
 	// Requires the interrupt-safe restart path (P2.5); without it the runtime
 	// falls back to count-only slicing and emits a diagnostic rather than
@@ -411,7 +421,7 @@ func applyRuntimeConfig(parseRuntime *Runtime, parseConfig Config) {
 	if parseConfig.AsyncIngress {
 		parseRuntime.asyncIngress = true
 	}
-	if parseConfig.FrameBudgetMs == 0 {
+	if parseConfig.FrameBudgetMs < 0 {
 		parseRuntime.frameBudgetMs = defaultFrameBudgetMs
 	} else if parseConfig.FrameBudgetMs > 0 {
 		parseRuntime.frameBudgetMs = parseConfig.FrameBudgetMs

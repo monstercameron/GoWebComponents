@@ -78,10 +78,20 @@ marked void where it appears.
 | Metric | Result | Target | |
 |---|---|---|---|
 | M1 loaded p95 frame vs idle | 16.80 ms vs 16.70 ms | equivalent | ✅ met |
-| M3 interaction p95 | 40.0 ms | < 50 ms | ✅ met |
-| M3 worst interaction | 64 ms | < 120 ms | ✅ met |
-| M2 long frames | **4** (worst 96.6 ms) | 0 | ❌ missed |
-| M7 max GC pause | **~7.5 ms** | < 3 ms | ❌ missed |
+| M3 worst interaction | 72 ms | < 120 ms | ✅ met |
+| M2 long frames | 21 (worst 78.6 ms) | 0 | ❌ missed |
+| M3 interaction p95 | 56.0 ms | < 50 ms | ❌ missed |
+| M7 max GC pause | ~5.5 ms | < 3 ms | ❌ missed |
+
+**These are worse than the numbers this table held an hour ago, and the earlier
+ones were not real.** M3 read 40.0 ms and M2 read 4 with `FrameBudgetMs` turned
+on by default. That default has been reverted because time-slicing a render
+breaks the Example 201 `core-*` and `enterprise-*` scenarios outright — the tree
+never renders and the benchmark times out — in both the development and
+production builds. The interaction-latency win was real and it was bought with a
+rendering bug, so it does not count.
+
+`LaneQueues` remains on: isolated against the same benchmark, it is green.
 
 Background work completed in the loaded arm: ~112,000 units across import,
 re-index, and decode.
