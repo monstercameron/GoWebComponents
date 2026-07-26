@@ -372,3 +372,84 @@ func TestNewRecorderRequiresAThread(parseT *testing.T) {
 		parseT.Error("a recorder without a thread name cannot be attributed and must be refused")
 	}
 }
+
+// TestSpansStayOrderedAcrossRingWraps pins the ring arithmetic.
+//
+// The recorder writes into a fixed capacity-sized ring, so the newest span
+// physically precedes the oldest in the backing array for most of the buffer's
+// life. Reads must linearize that back to oldest-first, and must do so after
+// several full wraps rather than just the first one.
+func TestSpansStayOrderedAcrossRingWraps(parseT *testing.T) {
+	const parseCapacity = 4
+	const parseWritten = 4*parseCapacity + 3 // several full wraps, ending mid-ring
+
+	parseRecorder, parseErr := trace.NewRecorder(trace.ThreadRender, parseCapacity)
+	if parseErr != nil {
+		parseT.Fatalf("NewRecorder: %v", parseErr)
+	}
+	for parseIndex := range parseWritten {
+		if _, parseStartErr := parseRecorder.Start(fmt.Sprintf("span-%d", parseIndex), "c", "", int64(parseIndex)); parseStartErr != nil {
+			parseT.Fatalf("Start: %v", parseStartErr)
+		}
+	}
+
+	parseSpans := parseRecorder.Spans()
+	if len(parseSpans) != parseCapacity {
+		parseT.Fatalf("retained %d spans, want the capacity of %d", len(parseSpans), parseCapacity)
+	}
+	if parseRecorder.Dropped() != parseWritten-parseCapacity {
+		parseT.Errorf("dropped = %d, want %d", parseRecorder.Dropped(), parseWritten-parseCapacity)
+	}
+
+	// Oldest first, and exactly the last `capacity` spans written.
+	for parseIndex, parseSpan := range parseSpans {
+		parseWantName := fmt.Sprintf("span-%d", parseWritten-parseCapacity+parseIndex)
+		if parseSpan.Name != parseWantName {
+			parseT.Fatalf("span at position %d is %q, want %q — the ring did not linearize oldest-first", parseIndex, parseSpan.Name, parseWantName)
+		}
+		if parseIndex > 0 && parseSpans[parseIndex-1].Seq >= parseSpan.Seq {
+			parseT.Fatalf("sequence went backwards at position %d: %d then %d", parseIndex, parseSpans[parseIndex-1].Seq, parseSpan.Seq)
+		}
+	}
+
+	// A merged timeline must see the same linearized view, not the raw ring.
+	parseMerged := trace.Merge(parseRecorder).Lifecycle("c")
+	if len(parseMerged) != parseCapacity {
+		parseT.Fatalf("merged timeline has %d spans, want %d — the raw ring leaked in", len(parseMerged), parseCapacity)
+	}
+}
+
+// TestEndAfterWrapClosesTheRightSpan guards the open index across wraps: it is
+// keyed on absolute position, so a wrap must not make it address a slot now
+// occupied by a newer span.
+func TestEndAfterWrapClosesTheRightSpan(parseT *testing.T) {
+	const parseCapacity = 4
+	parseRecorder, _ := trace.NewRecorder(trace.ThreadRender, parseCapacity)
+
+	var parseIDs []trace.SpanID
+	for parseIndex := range 2*parseCapacity + 1 {
+		parseSpanID, _ := parseRecorder.Start(fmt.Sprintf("span-%d", parseIndex), "c", "", int64(parseIndex))
+		parseIDs = append(parseIDs, parseSpanID)
+	}
+
+	// The oldest still-resident span, which has wrapped at least twice.
+	parseOldestResident := parseIDs[len(parseIDs)-parseCapacity]
+	if parseEndErr := parseRecorder.End(parseOldestResident, 999, ""); parseEndErr != nil {
+		parseT.Fatalf("ending the oldest resident span after wrapping: %v", parseEndErr)
+	}
+
+	for _, parseSpan := range parseRecorder.Spans() {
+		if parseSpan.ID == parseOldestResident {
+			if parseSpan.Open() {
+				parseT.Error("the ended span is still open — the absolute index did not resolve to its slot")
+			}
+			if parseSpan.EndNanos != 999 {
+				parseT.Errorf("EndNanos = %d, want 999", parseSpan.EndNanos)
+			}
+			continue
+		}
+		if !parseSpan.Open() {
+			parseT.Errorf("span %q was closed but never ended — End hit a neighbour across the wrap", parseSpan.ID)
+		}
+	}
+}

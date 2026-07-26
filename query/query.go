@@ -84,6 +84,9 @@ type entry struct {
 	// if it is unchanged, so the SEMANTICALLY newest write wins instead of the
 	// slowest-to-finish one.
 	gen uint64
+	// lastUse orders entries for eviction. A counter rather than a timestamp so
+	// recency does not depend on the injected clock, which a test may freeze.
+	lastUse uint64
 }
 
 // flight is one in-progress fetch that concurrent callers join instead of duplicating.
@@ -104,6 +107,35 @@ type Cache struct {
 	entries   map[string]*entry
 	staleTime time.Duration
 	now       func() time.Time
+	// maxEntries bounds the map; useClock stamps entry.lastUse for eviction
+	// order. See DefaultMaxEntries.
+	maxEntries int
+	useClock   uint64
+}
+
+// DefaultMaxEntries bounds a cache that does not set its own limit.
+//
+// The map had no bound at all, and ensureEntry creates a record on every read
+// path — including misses and fetches that error — so a parameterized key
+// pattern retained one entry per distinct key forever. Search-as-you-type is the
+// clearest case: one key per keystroke, none ever collected.
+//
+// A COUNT bound rather than a time-to-live, deliberately. A default TTL would
+// change behaviour for every existing caller, including apps whose working set
+// is a handful of stable keys that are supposed to stay cached. A count only
+// engages at a scale where unbounded growth is a bug rather than a working set,
+// and the entry it drops is the least recently used — by definition the one
+// nothing is looking at. Apps that want time-based collection can still call
+// Evict / EvictPrefix on their own schedule.
+const DefaultMaxEntries = 512
+
+// WithMaxEntries bounds how many keys the cache retains, evicting the
+// least-recently-used entry when a new key would exceed the limit. The default
+// is DefaultMaxEntries. Zero or negative disables the bound entirely, which
+// restores the previous unbounded behaviour — appropriate only when the key
+// space is known to be small and fixed.
+func WithMaxEntries(parseMax int) Option {
+	return func(parseC *Cache) { parseC.maxEntries = parseMax }
 }
 
 // Option configures a Cache at construction.
@@ -126,8 +158,9 @@ func WithClock(parseNow func() time.Time) Option {
 // New creates an empty cache with the given options.
 func New(parseOpts ...Option) *Cache {
 	parseC := &Cache{
-		entries: map[string]*entry{},
-		now:     time.Now,
+		entries:    map[string]*entry{},
+		now:        time.Now,
+		maxEntries: DefaultMaxEntries,
 	}
 	for _, parseOpt := range parseOpts {
 		parseOpt(parseC)
@@ -135,14 +168,61 @@ func New(parseOpts ...Option) *Cache {
 	return parseC
 }
 
-// ensureEntry returns the entry for key, creating it if absent. Caller holds mu.
+// ensureEntry returns the entry for key, creating it if absent, and marks it as
+// the most recently used. Caller holds mu.
 func (parseC *Cache) ensureEntry(parseKey string) *entry {
 	parseE := parseC.entries[parseKey]
-	if parseE == nil {
+	isNew := parseE == nil
+	if isNew {
 		parseE = &entry{}
 		parseC.entries[parseKey] = parseE
 	}
+	// Stamped BEFORE any eviction: a brand-new entry carries lastUse 0 until it
+	// is, which makes it the coldest thing in the map and the first candidate to
+	// be dropped — the new key would evict itself and the fetch would never be
+	// cached.
+	parseC.markUsedLocked(parseE)
+	if isNew {
+		parseC.evictLeastRecentlyUsedLocked()
+	}
 	return parseE
+}
+
+// markUsedLocked stamps one entry as the most recently used. Caller holds mu.
+func (parseC *Cache) markUsedLocked(parseE *entry) {
+	parseC.useClock++
+	parseE.lastUse = parseC.useClock
+}
+
+// evictLeastRecentlyUsedLocked drops the coldest entry while the cache is over
+// its bound. Caller holds mu.
+//
+// An entry with a fetch in flight is never chosen: callers are blocked on that
+// flight's done channel and resolve by reading the entry back, so evicting it
+// would strand them on a record nothing will ever complete. If EVERY entry is
+// in flight the cache is briefly allowed over its bound rather than breaking
+// that guarantee — a transient state that resolves as the flights land.
+func (parseC *Cache) evictLeastRecentlyUsedLocked() {
+	if parseC.maxEntries <= 0 {
+		return
+	}
+	for len(parseC.entries) > parseC.maxEntries {
+		parseColdestKey := ""
+		parseColdestUse := uint64(0)
+		for parseKey, parseEntry := range parseC.entries {
+			if parseEntry.flight != nil {
+				continue
+			}
+			if parseColdestKey == "" || parseEntry.lastUse < parseColdestUse {
+				parseColdestKey = parseKey
+				parseColdestUse = parseEntry.lastUse
+			}
+		}
+		if parseColdestKey == "" {
+			return
+		}
+		delete(parseC.entries, parseColdestKey)
+	}
 }
 
 // fresh reports whether the entry has data within the stale window. Caller holds mu.
@@ -352,6 +432,10 @@ func Snapshot[T any](parseC *Cache, parseKey string) Result[T] {
 	if parseE == nil {
 		return Result[T]{Status: StatusIdle}
 	}
+	// A read is a use. A component that reads a still-fresh key every render
+	// never reaches a fetch path, so without this its entry would look colder on
+	// every tick and eventually be evicted out from under an active reader.
+	parseC.markUsedLocked(parseE)
 	return resultFromEntry[T](parseE, parseC.now(), parseC.staleTime)
 }
 
@@ -360,6 +444,7 @@ func (parseC *Cache) Peek(parseKey string) (any, bool) {
 	parseC.mu.Lock()
 	defer parseC.mu.Unlock()
 	if parseE := parseC.entries[parseKey]; parseE != nil && parseE.hasData {
+		parseC.markUsedLocked(parseE)
 		return parseE.data, true
 	}
 	return nil, false

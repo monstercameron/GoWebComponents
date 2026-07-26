@@ -226,7 +226,7 @@ func (parseProjection *Projection[T]) applyRemove(parseOp Op) {
 		// dropped rows at the cap still converges.
 		return
 	}
-	parseProjection.entries = append(parseProjection.entries[:parsePosition], parseProjection.entries[parsePosition+1:]...)
+	parseProjection.removeEntryAt(parsePosition)
 	parseProjection.indexStale = true
 
 	if parseProjection.droppedByResidency > 0 {
@@ -237,13 +237,34 @@ func (parseProjection *Projection[T]) applyRemove(parseOp Op) {
 	}
 }
 
+// removeEntryAt drops the row at one position and releases the slot the shift
+// vacates.
+//
+// The plain append(entries[:i], entries[i+1:]...) idiom shifts left but leaves
+// the old last element in the slot past the new length, and an Entry carries
+// the decoded row. Because every removal leaves its own residue, a projection
+// that churned its window kept a payload at EVERY position behind the shortened
+// slice: inserting eight rows and removing all eight left a projection
+// reporting zero rows whose backing array still held all eight, reachable, for
+// as long as the projection lived.
+//
+// That is the memory M12 budgets — DefaultResident is sized from measured
+// render-thread projection memory — so a leak here is a leak of exactly the
+// thing the residency cap exists to bound.
+func (parseProjection *Projection[T]) removeEntryAt(parsePosition int) {
+	copy(parseProjection.entries[parsePosition:], parseProjection.entries[parsePosition+1:])
+	var parseZero Entry[T]
+	parseProjection.entries[len(parseProjection.entries)-1] = parseZero
+	parseProjection.entries = parseProjection.entries[:len(parseProjection.entries)-1]
+}
+
 func (parseProjection *Projection[T]) applyMove(parseOp Op) error {
 	parsePosition, hasKey := parseProjection.lookup(parseOp.Key)
 	if !hasKey {
 		return nil
 	}
 	parseEntry := parseProjection.entries[parsePosition]
-	parseProjection.entries = append(parseProjection.entries[:parsePosition], parseProjection.entries[parsePosition+1:]...)
+	parseProjection.removeEntryAt(parsePosition)
 	parseProjection.indexStale = true
 
 	// positionAfter may rebuild the index, which marks it clean. Every mutation

@@ -156,6 +156,29 @@ func (parseAr *AtomRegistry) deleteAtom(parseId string) {
 	parseAr.mu.Unlock()
 }
 
+// deleteAtomIfUnsubscribed removes one atom only when nothing is subscribed to
+// it, reporting whether it did.
+//
+// The subscriber check is the whole point. deleteAtom drops the subscription
+// set along with the value, so deleting an atom a mounted component still reads
+// would silently stop that component from ever being notified again — it would
+// keep rendering a stale value with no indication why. Callers that want to
+// reclaim an abandoned key can therefore ask for it unconditionally and get a
+// safe no-op when the key turns out not to be abandoned after all.
+func (parseAr *AtomRegistry) deleteAtomIfUnsubscribed(parseId string) bool {
+	if parseAr == nil {
+		return false
+	}
+	parseAr.mu.RLock()
+	hasSubscribers := len(parseAr.subscriptions[parseId]) > 0
+	parseAr.mu.RUnlock()
+	if hasSubscribers {
+		return false
+	}
+	parseAr.deleteAtom(parseId)
+	return true
+}
+
 // SetAtom updates an atom's value and returns subscribed fibers.
 func (parseAr *AtomRegistry) SetAtom(parseId string, parseValue any) []*Fiber {
 	parseAr.mu.Lock()
@@ -555,12 +578,20 @@ func (parseAr *AtomRegistry) RestoreSnapshot(parseSnapshot map[string]any) []*Fi
 		return nil
 	}
 
-	parseUnique := make(map[*Fiber]bool)
+	// Allocated lazily. RestoreSnapshot is the single-key write path for the
+	// cached-resource layer, which calls it on every loading/ready/error
+	// transition — usually with no subscriber at all. Building the dedup map up
+	// front meant every one of those transitions allocated a map to put nothing
+	// in it.
+	var parseUnique map[*Fiber]bool
 	parseAr.mu.Lock()
 	for parseId, parseValue := range parseSnapshot {
 		parseAr.atoms[parseId] = parseValue
 		if parseSubs, parseOk := parseAr.subscriptions[parseId]; parseOk {
 			for parseFiber := range parseSubs {
+				if parseUnique == nil {
+					parseUnique = make(map[*Fiber]bool, len(parseSubs))
+				}
 				parseUnique[parseFiber] = true
 			}
 		}
@@ -829,6 +860,25 @@ func (parseRt *Runtime) InitAtomValue(parseId string, parseValue any) bool {
 	}
 	parseRt.atomRegistry.InitAtom(parseId, parseValue)
 	return true
+}
+
+// DeleteAtomValueIfUnsubscribed removes an atom and its registry bookkeeping
+// when no fiber is subscribed to it, and reports whether it did.
+//
+// The registry has no eviction of its own — atoms live for the process — which
+// is correct for the app-global state they were designed for and wrong for the
+// layers that key atoms by a DYNAMIC id (a cache key, a row id). Those grow the
+// registry monotonically, and writing a zero VALUE over a dead key reclaims the
+// payload but leaves the key. This is how such a layer hands the key back.
+//
+// It refuses when the atom still has subscribers rather than reporting success,
+// so a caller cannot accidentally cut a mounted component off from its updates;
+// see deleteAtomIfUnsubscribed.
+func (parseRt *Runtime) DeleteAtomValueIfUnsubscribed(parseId string) bool {
+	if parseRt == nil || parseRt.atomRegistry == nil {
+		return false
+	}
+	return parseRt.atomRegistry.deleteAtomIfUnsubscribed(parseId)
 }
 
 // RegisterDerivedAtom is a core package helper.

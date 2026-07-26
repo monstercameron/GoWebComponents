@@ -102,6 +102,14 @@ type Router struct {
 	hashchangeHandler        js.Func
 	historyListenersAttached bool
 
+	// The hash router's own hashchange listener, retained for the same reason
+	// (see teardownHashListener). It used to be handed to registerCleanup, whose
+	// beforeunload batch only frees at page teardown — which is not a lifetime at
+	// all for a router replaced mid-session.
+	hashListenerWindow   js.Value
+	hashListener         js.Func
+	hashListenerAttached bool
+
 	// lastCommittedPath is the path of the most recently rendered route. A
 	// back/forward popstate fires AFTER the URL has already changed, so this is the
 	// only record of what the user is navigating away FROM — handlePopstateLeaveGuard
@@ -601,9 +609,10 @@ func (parseR *Router) Current() *Element {
 func setGlobalRouter(parseNew *Router) {
 	if globalRouter != nil && globalRouter != parseNew {
 		globalRouter.disposed = true
-		// Detach and free the superseded router's history listeners so they are not
+		// Detach and free the superseded router's listeners so they are not
 		// leaked (and cannot render the disposed router against a reused target).
 		globalRouter.teardownHistoryListener()
+		globalRouter.teardownHashListener()
 	}
 	globalRouter = parseNew
 }
@@ -909,11 +918,36 @@ func (parseR *Router) ensureListener() {
 
 	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 		defer runtime.RecoverContainedPanic("router", "ensureListener callback")
+		// Same disposal guard the history listeners carry. Without it a
+		// superseded hash router kept rendering itself against a reused target
+		// on every hashchange, racing the live one.
+		if parseR.disposed {
+			return nil
+		}
 		parseR.renderCurrentRoute(true)
 		return nil
 	})
 	parseWindow.Call("addEventListener", browserEventHash, parseHandler)
-	registerCleanup(parseHandler)
+	parseR.hashListenerWindow = parseWindow
+	parseR.hashListener = parseHandler
+	parseR.hashListenerAttached = true
+}
+
+// teardownHashListener detaches and frees the hashchange handler this router
+// attached in ensureListener. Idempotent. Called when the router is replaced
+// (setGlobalRouter), the hash-router counterpart of teardownHistoryListener.
+func (parseR *Router) teardownHashListener() {
+	if parseR == nil || !parseR.hashListenerAttached {
+		return
+	}
+	parseR.hashListenerAttached = false
+	parseR.listening = false
+	if parseR.hashListenerWindow.Truthy() && parseR.hashListenerWindow.Get("removeEventListener").Truthy() {
+		parseR.hashListenerWindow.Call("removeEventListener", browserEventHash, parseR.hashListener)
+	}
+	parseR.hashListener.Release()
+	parseR.hashListener = js.Func{}
+	parseR.hashListenerWindow = js.Value{}
 }
 
 // RegisterRoute registers a route with the global router.

@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/v5/internal/platform/jsdom"
@@ -314,9 +313,6 @@ func RegisterElementRoute(parsePath string, parseElemRef js.Value) {
 }
 
 var globalRouter = NewHashRouter()
-var cleanupOnce sync.Once
-var cleanupMu sync.Mutex
-var cleanupHandlers []js.Func
 
 // ensureInitialized is an internal router helper.
 func ensureInitialized() {
@@ -333,33 +329,12 @@ func ensureInitialized() {
 	routerRuntimeInitialized = true
 }
 
-// registerCleanup registers a js.Func to be released when the page unloads.
-// All registered handlers are released together by a single beforeunload listener.
-func registerCleanup(parseHandler js.Func) {
-	cleanupMu.Lock()
-	cleanupHandlers = append(cleanupHandlers, parseHandler)
-	cleanupMu.Unlock()
-
-	cleanupOnce.Do(func() {
-		parseWindow := js.Global().Get("window")
-		if !parseWindow.Truthy() || !parseWindow.Get("addEventListener").Truthy() {
-			return
-		}
-		// Register a single unload listener that releases all accumulated handlers.
-		parseUnload := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
-			defer runtime.RecoverContainedPanic("router", "registerCleanup callback")
-			cleanupMu.Lock()
-			parseAll := cleanupHandlers
-			cleanupHandlers = nil
-			cleanupMu.Unlock()
-			for _, parseH := range parseAll {
-				parseH.Release()
-			}
-			return nil
-		})
-		parseWindow.Call("addEventListener", "beforeunload", parseUnload)
-	})
-}
+// Handler lifetimes are owned by the router that attached them
+// (teardownHistoryListener / teardownHashListener), not by a package-wide
+// beforeunload batch. The batch that used to live here only released at page
+// teardown, which is not a lifetime at all for a router replaced mid-session:
+// every superseded hash router leaked its listener, and the listener kept the
+// dead router and its route table reachable.
 
 // makeRouteFactory is an internal router helper.
 func makeRouteFactory(parseComponent interface{}) routeFactory {

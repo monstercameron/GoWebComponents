@@ -97,7 +97,12 @@ func RegisterSSRObserver(parseNotify func(SSRObservation)) SSRObserverSubscripti
 			if parseObserver.id != parseObserverID {
 				continue
 			}
-			ssrObserversList = append(ssrObserversList[:parseIndex], ssrObserversList[parseIndex+1:]...)
+			// Release the slot the shift vacates: an observer holds a notify
+			// closure, which the compaction would otherwise leave reachable
+			// past the new length until another subscriber overwrote it.
+			copy(ssrObserversList[parseIndex:], ssrObserversList[parseIndex+1:])
+			ssrObserversList[len(ssrObserversList)-1] = ssrObserver{}
+			ssrObserversList = ssrObserversList[:len(ssrObserversList)-1]
 			return
 		}
 	}}

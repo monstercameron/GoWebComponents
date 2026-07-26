@@ -429,3 +429,109 @@ func TestInvalidatePrefixGroupsKeys(parseT *testing.T) {
 		parseT.Fatal("user/99 is outside the prefix and must stay fresh")
 	}
 }
+
+// TestCacheEvictsLeastRecentlyUsedPastItsBound: the map had no bound, and
+// ensureEntry creates a record on every read path, so a parameterized key
+// pattern (search-as-you-type is the clearest) retained one entry per distinct
+// key for the life of the process.
+func TestCacheEvictsLeastRecentlyUsedPastItsBound(parseT *testing.T) {
+	parseC := New(WithMaxEntries(3))
+
+	for _, parseKey := range []string{"a", "b", "c"} {
+		parseKeyCopy := parseKey
+		Fetch(parseC, parseKeyCopy, func() (string, error) { return parseKeyCopy, nil })
+	}
+
+	// Touch "a" so "b" becomes the coldest.
+	if parseRes := Snapshot[string](parseC, "a"); parseRes.Data != "a" {
+		parseT.Fatalf("setup: expected a cached %q, got %+v", "a", parseRes)
+	}
+
+	Fetch(parseC, "d", func() (string, error) { return "d", nil })
+
+	parseKeys := parseC.Keys()
+	if len(parseKeys) != 3 {
+		parseT.Fatalf("cache holds %d entries, want its bound of 3: %v", len(parseKeys), parseKeys)
+	}
+	parseHas := map[string]bool{}
+	for _, parseKey := range parseKeys {
+		parseHas[parseKey] = true
+	}
+	if parseHas["b"] {
+		parseT.Error("the least-recently-used key survived eviction")
+	}
+	for _, parseKey := range []string{"a", "c", "d"} {
+		if !parseHas[parseKey] {
+			parseT.Errorf("key %q should have been retained, got %v", parseKey, parseKeys)
+		}
+	}
+}
+
+// TestCacheBoundCanBeDisabled keeps the previous unbounded behaviour reachable
+// for a caller whose key space is known to be small and fixed.
+func TestCacheBoundCanBeDisabled(parseT *testing.T) {
+	parseC := New(WithMaxEntries(0))
+	for parseIndex := range DefaultMaxEntries + 10 {
+		parseKey := "k" + strings.Repeat("x", parseIndex%3) + string(rune('a'+parseIndex%26)) + itoaTest(parseIndex)
+		Fetch(parseC, parseKey, func() (string, error) { return "v", nil })
+	}
+	if len(parseC.Keys()) != DefaultMaxEntries+10 {
+		parseT.Fatalf("an unbounded cache dropped entries: %d retained", len(parseC.Keys()))
+	}
+}
+
+// TestCacheDefaultBoundApplies proves the bound is on by default, not only when
+// a caller opts in.
+func TestCacheDefaultBoundApplies(parseT *testing.T) {
+	parseC := New()
+	for parseIndex := range DefaultMaxEntries + 50 {
+		parseKey := "key-" + itoaTest(parseIndex)
+		Fetch(parseC, parseKey, func() (string, error) { return "v", nil })
+	}
+	if parseCount := len(parseC.Keys()); parseCount > DefaultMaxEntries {
+		parseT.Fatalf("cache grew to %d entries past its default bound of %d", parseCount, DefaultMaxEntries)
+	}
+}
+
+// TestCacheNeverEvictsAnInFlightEntry: callers block on a flight's done channel
+// and resolve by reading the entry back, so evicting one would strand them.
+func TestCacheNeverEvictsAnInFlightEntry(parseT *testing.T) {
+	parseC := New(WithMaxEntries(2))
+
+	parseRelease := make(chan struct{})
+	parseStarted := make(chan struct{})
+	parseDone := make(chan Result[string], 1)
+	go func() {
+		parseDone <- Fetch(parseC, "slow", func() (string, error) {
+			close(parseStarted)
+			<-parseRelease
+			return "slow-value", nil
+		})
+	}()
+	<-parseStarted
+
+	// Push well past the bound while "slow" is still in flight.
+	for parseIndex := range 10 {
+		parseKey := "filler-" + itoaTest(parseIndex)
+		Fetch(parseC, parseKey, func() (string, error) { return "v", nil })
+	}
+
+	close(parseRelease)
+	parseResult := <-parseDone
+	if parseResult.Err != nil || parseResult.Data != "slow-value" {
+		parseT.Fatalf("an in-flight fetch was stranded by eviction: %+v", parseResult)
+	}
+}
+
+// itoaTest keeps these tests free of a strconv import for one trivial use.
+func itoaTest(parseValue int) string {
+	if parseValue == 0 {
+		return "0"
+	}
+	var parseBuf []byte
+	for parseValue > 0 {
+		parseBuf = append([]byte{byte('0' + parseValue%10)}, parseBuf...)
+		parseValue /= 10
+	}
+	return string(parseBuf)
+}

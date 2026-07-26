@@ -25,6 +25,20 @@ type MockDOMNode struct {
 
 var _ runtime.DOMNode = (*MockDOMNode)(nil)
 
+// removeMockChildAt drops one child and releases the slot the shift vacates.
+//
+// The plain append(children[:i], children[i+1:]...) idiom leaves the old last
+// child in the slot past the new length, so a detached node — and its whole
+// subtree through Children — stayed reachable from the parent that had removed
+// it. That matters more here than it would in ordinary test scaffolding: this
+// adapter is what the runtime's memory and retention tests measure against, so
+// a leak in the mock reads as a leak in the thing under test.
+func removeMockChildAt(parseChildren []*MockDOMNode, parseIndex int) []*MockDOMNode {
+	copy(parseChildren[parseIndex:], parseChildren[parseIndex+1:])
+	parseChildren[len(parseChildren)-1] = nil
+	return parseChildren[:len(parseChildren)-1]
+}
+
 func (parseN *MockDOMNode) IsNull() bool {
 	return parseN == nil
 }
@@ -248,7 +262,7 @@ func (parseA *MockDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNod
 		if parseC.Parent != nil {
 			for parseIndex, parseExistingChild := range parseC.Parent.Children {
 				if parseExistingChild.ID == parseC.ID {
-					parseC.Parent.Children = append(parseC.Parent.Children[:parseIndex], parseC.Parent.Children[parseIndex+1:]...)
+					parseC.Parent.Children = removeMockChildAt(parseC.Parent.Children, parseIndex)
 					break
 				}
 			}
@@ -274,13 +288,16 @@ func (parseA *MockDOMAdapter) ReplaceChildren(parseParent runtime.DOMNode, parse
 			parseOld.Parent = nil
 		}
 	}
+	// clear() before the reslice, so the replaced children are not left
+	// reachable from the parent that just dropped them.
+	clear(parseP.Children)
 	parseP.Children = parseP.Children[:0]
 	for _, parseChild := range parseChildren {
 		if parseC, parseCok := parseChild.(*MockDOMNode); parseCok && parseC != nil {
 			if parseC.Parent != nil && parseC.Parent != parseP {
 				for parseIndex, parseExisting := range parseC.Parent.Children {
 					if parseExisting.ID == parseC.ID {
-						parseC.Parent.Children = append(parseC.Parent.Children[:parseIndex], parseC.Parent.Children[parseIndex+1:]...)
+						parseC.Parent.Children = removeMockChildAt(parseC.Parent.Children, parseIndex)
 						break
 					}
 				}
@@ -300,7 +317,7 @@ func (parseA *MockDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNod
 		defer parseA.mu.Unlock()
 		for parseI, parseCh := range parseP.Children {
 			if parseCh.ID == parseC.ID {
-				parseP.Children = append(parseP.Children[:parseI], parseP.Children[parseI+1:]...)
+				parseP.Children = removeMockChildAt(parseP.Children, parseI)
 				parseC.Parent = nil
 				break
 			}
@@ -332,7 +349,7 @@ func (parseA *MockDOMAdapter) InsertBefore(parseParent, parseNewNode, parseRefer
 		if parseN.Parent != nil {
 			for parseIndex, parseExistingChild := range parseN.Parent.Children {
 				if parseExistingChild.ID == parseN.ID {
-					parseN.Parent.Children = append(parseN.Parent.Children[:parseIndex], parseN.Parent.Children[parseIndex+1:]...)
+					parseN.Parent.Children = removeMockChildAt(parseN.Parent.Children, parseIndex)
 					break
 				}
 			}
@@ -445,6 +462,7 @@ func (parseA *MockDOMAdapter) SetInnerHTML(parseNode runtime.DOMNode, parseHtml 
 			for _, parseChild := range parseN.Children {
 				parseChild.Parent = nil
 			}
+			clear(parseN.Children)
 			parseN.Children = parseN.Children[:0]
 			parseN.TextContent = ""
 		}
@@ -464,6 +482,7 @@ func (parseA *MockDOMAdapter) SetTextContent(parseNode runtime.DOMNode, parseTex
 			for _, parseChild := range parseN.Children {
 				parseChild.Parent = nil
 			}
+			clear(parseN.Children)
 			parseN.Children = parseN.Children[:0]
 		}
 		parseA.recordOpLocked("setTextContent", parseN.ID, parseText)

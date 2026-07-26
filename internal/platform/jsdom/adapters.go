@@ -356,7 +356,7 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 		}
 		getNode := &WASMDOMNode{value: parseElem}
 		if len(parseAttrs) > 0 {
-			parseA.BatchSetAttributes(getNode, buildHostAttrMap(parseAttrs))
+			parseA.setHostAttrs(getNode, parseAttrs)
 		}
 		if parseText != "" {
 			parseElem.Set("textContent", parseText)
@@ -380,7 +380,7 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 				return &WASMDOMNode{value: js.Null()}
 			}
 			getNode := &WASMDOMNode{value: parseNode}
-			parseA.BatchSetAttributes(getNode, buildHostAttrMap(parseAttrs))
+			parseA.setHostAttrs(getNode, parseAttrs)
 			if parseText != "" {
 				parseNode.Set("textContent", parseText)
 			}
@@ -400,7 +400,7 @@ func (parseA *WASMDOMAdapter) CreatePreparedElement(parseTag string, parseAttrs 
 		return &WASMDOMNode{value: js.Null()}
 	}
 	getNode := &WASMDOMNode{value: parseNode}
-	parseA.BatchSetAttributes(getNode, buildHostAttrMap(parseAttrs))
+	parseA.setHostAttrs(getNode, parseAttrs)
 	if parseText != "" {
 		parseNode.Set("textContent", parseText)
 	}
@@ -824,6 +824,15 @@ func (parseA *WASMDOMAdapter) appendDOMChildren(parseParent js.Value, parseChild
 	}
 }
 
+// maxBatchChildrenPooled bounds the append-buffer free list.
+//
+// The pool only needs as many buffers as there are batch operations in flight
+// at once, which is the commit walk's nesting depth. Eight covers that with
+// room to spare; past it a buffer is dropped to the collector rather than
+// parked forever, so a deep or pathological commit cannot leave the adapter
+// holding an arbitrary number of them for the rest of the session.
+const maxBatchChildrenPooled = 8
+
 // getBatchChildren returns one reusable DOM argument buffer for append-style bridge calls.
 func (parseA *WASMDOMAdapter) getBatchChildren() []interface{} {
 	if parseA == nil {
@@ -834,6 +843,10 @@ func (parseA *WASMDOMAdapter) getBatchChildren() []interface{} {
 		return make([]interface{}, 0, 8)
 	}
 	getChildren := parseA.storeBatchChildrenPool[getPoolIndex]
+	// Drop the slice header as well as shortening the pool: [:n] alone leaves
+	// the handed-out buffer referenced from the backing array, so the pool went
+	// on retaining every buffer it had ever lent.
+	parseA.storeBatchChildrenPool[getPoolIndex] = nil
 	parseA.storeBatchChildrenPool = parseA.storeBatchChildrenPool[:getPoolIndex]
 	return getChildren[:0]
 }
@@ -841,6 +854,9 @@ func (parseA *WASMDOMAdapter) getBatchChildren() []interface{} {
 // storeBatchChildren stores one DOM argument buffer for later append-style bridge-call reuse.
 func (parseA *WASMDOMAdapter) storeBatchChildren(parseChildren []interface{}) {
 	if parseA == nil || parseChildren == nil {
+		return
+	}
+	if len(parseA.storeBatchChildrenPool) >= maxBatchChildrenPooled {
 		return
 	}
 	for getIndex := range parseChildren {
@@ -867,16 +883,15 @@ func (parseA *WASMDOMAdapter) BatchSetAttributes(parseNode runtime.DOMNode, pars
 	}
 }
 
-// buildHostAttrMap converts one compact host-attr slice into one string map for shared batching code.
-func buildHostAttrMap(parseAttrs []runtime.HostAttr) map[string]string {
-	if len(parseAttrs) == 0 {
-		return nil
-	}
-	getAttrs := make(map[string]string, len(parseAttrs))
+// setHostAttrs applies one compact host-attr slice directly.
+//
+// Replaces a map built from this slice purely to satisfy BatchSetAttributes'
+// signature: the map was allocated per mounted element and immediately ranged
+// over, and the writes end up in the same cross-node batch either way.
+func (parseA *WASMDOMAdapter) setHostAttrs(parseNode runtime.DOMNode, parseAttrs []runtime.HostAttr) {
 	for _, parseAttr := range parseAttrs {
-		getAttrs[parseAttr.Name] = parseAttr.Value
+		parseA.SetAttribute(parseNode, parseAttr.Name, parseAttr.Value)
 	}
-	return getAttrs
 }
 
 // buildHostElementHTML formats one compact host element as one HTML string when the tag and attrs are safe.

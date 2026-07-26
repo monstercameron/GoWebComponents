@@ -158,10 +158,21 @@ func (parseRt *Runtime) recordProfilingEventLocked(parseEvent ProfilingEvent) {
 
 	parseRt.profiling.events = append(parseRt.profiling.events, parseEvent)
 	if len(parseRt.profiling.events) > maxProfilingEvents {
-		// Trim in-place: shift the tail down without allocating a new backing array.
-		parseTail := parseRt.profiling.events[len(parseRt.profiling.events)-maxProfilingEvents:]
-		parseRt.profiling.events = parseRt.profiling.events[:maxProfilingEvents]
-		copy(parseRt.profiling.events, parseTail)
+		// Trim in-place, keeping the newest HALF.
+		//
+		// Dropping one event at a time shifted all 256 down on every event once
+		// the ring was full, so a profiling-heavy pass paid an O(cap) memmove per
+		// recorded event — on the render thread, from the code that exists to
+		// measure it. Halving amortizes that to ~1 element move per event, the
+		// same trade trimDiagnosticsLocked already makes next door; the ring now
+		// holds between maxProfilingEvents/2 and maxProfilingEvents.
+		//
+		// The vacated slots are cleared because a ProfilingEvent carries a Fields
+		// map, which would otherwise stay reachable behind the shortened slice.
+		parseKeep := maxProfilingEvents / 2
+		copy(parseRt.profiling.events, parseRt.profiling.events[len(parseRt.profiling.events)-parseKeep:])
+		clear(parseRt.profiling.events[parseKeep:])
+		parseRt.profiling.events = parseRt.profiling.events[:parseKeep]
 	}
 }
 

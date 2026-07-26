@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -233,5 +234,91 @@ func TestNativeGlobalHookShimsDelegateToRuntime(parseT *testing.T) {
 	parseAtomSet("updated")
 	if parseAtomGet() != "updated" {
 		parseT.Fatalf("GoUseAtomGlobal updated = %q", parseAtomGet())
+	}
+}
+
+// TestRenderDetachedRegistryIsBounded pins the registry cap.
+//
+// Entries are keyed by an agent-supplied selector and were previously removed
+// only by an explicit nil render, so an agent mounting into a fresh selector
+// each time accumulated one full Runtime per selector for the session.
+func TestRenderDetachedRegistryIsBounded(parseT *testing.T) {
+	parseAdapter := newQueryTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+
+	globalRuntimeMu.Lock()
+	parsePrevGlobal := globalRuntime
+	globalRuntime = NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	globalRuntimeMu.Unlock()
+	detachedRuntimeMu.Lock()
+	parsePrevDetached := detachedRuntimes
+	parsePrevOrder := detachedRuntimeOrder
+	detachedRuntimes = map[string]*Runtime{}
+	detachedRuntimeOrder = nil
+	detachedRuntimeMu.Unlock()
+	parseT.Cleanup(func() {
+		globalRuntimeMu.Lock()
+		globalRuntime = parsePrevGlobal
+		globalRuntimeMu.Unlock()
+		detachedRuntimeMu.Lock()
+		detachedRuntimes = parsePrevDetached
+		detachedRuntimeOrder = parsePrevOrder
+		detachedRuntimeMu.Unlock()
+	})
+
+	parseSelectorAt := func(parseIndex int) string {
+		return fmt.Sprintf("#panel-%d", parseIndex)
+	}
+	parseTotal := maxDetachedRuntimes + 10
+	for parseIndex := range parseTotal {
+		parseSelector := parseSelectorAt(parseIndex)
+		parseAdapter.selectorResults[parseSelector] = parseAdapter.CreateElement("div")
+		if parseErr := RenderDetached(parseSelector, CreateElement("div", map[string]any{"id": "x"})); parseErr != nil {
+			parseT.Fatalf("RenderDetached(%s): %v", parseSelector, parseErr)
+		}
+	}
+
+	detachedRuntimeMu.Lock()
+	parseCount := len(detachedRuntimes)
+	_, hasOldest := detachedRuntimes[parseSelectorAt(0)]
+	_, hasNewest := detachedRuntimes[parseSelectorAt(parseTotal-1)]
+	parseOrderLen := len(detachedRuntimeOrder)
+	detachedRuntimeMu.Unlock()
+
+	if parseCount > maxDetachedRuntimes {
+		parseT.Fatalf("registry holds %d runtimes, want at most %d", parseCount, maxDetachedRuntimes)
+	}
+	if hasOldest {
+		parseT.Error("the least-recently-rendered mount should have been evicted first")
+	}
+	if !hasNewest {
+		parseT.Error("the most-recently-rendered mount must be retained")
+	}
+	if parseOrderLen > maxDetachedRuntimes {
+		parseT.Errorf("recency list holds %d selectors, want at most %d — it must not outgrow the map it orders", parseOrderLen, maxDetachedRuntimes)
+	}
+}
+
+// TestRenderDetachedEvictionSurvivesAWipedRegistry: the recency list is a hint
+// over the map, not a parallel source of truth. Clearing the map behind it (as
+// a nil render or a test swap does) must not make eviction return an entry that
+// no longer exists.
+func TestRenderDetachedEvictionSurvivesAWipedRegistry(parseT *testing.T) {
+	detachedRuntimeMu.Lock()
+	parsePrevDetached := detachedRuntimes
+	parsePrevOrder := detachedRuntimeOrder
+	detachedRuntimes = map[string]*Runtime{}
+	detachedRuntimeOrder = []string{"#gone-1", "#gone-2"}
+	parseSelector, parseRt, parseOK := evictOldestDetachedRuntimeLocked()
+	parseOrderAfter := len(detachedRuntimeOrder)
+	detachedRuntimes = parsePrevDetached
+	detachedRuntimeOrder = parsePrevOrder
+	detachedRuntimeMu.Unlock()
+
+	if parseOK || parseRt != nil || parseSelector != "" {
+		parseT.Fatalf("evicting from an empty registry returned (%q, %p, %v), want no entry", parseSelector, parseRt, parseOK)
+	}
+	if parseOrderAfter != 0 {
+		parseT.Errorf("stale recency entries = %d, want them drained", parseOrderAfter)
 	}
 }

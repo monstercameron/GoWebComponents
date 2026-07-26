@@ -432,7 +432,16 @@ func TestApplyInitialDomPropsSkipsBatchMapForTwoStringAttrs(parseT *testing.T) {
 	}
 }
 
-func TestApplyInitialDomPropsBatchesThreeStringAttrs(parseT *testing.T) {
+// The mount path no longer accumulates attributes into a map to hand to
+// BatchSetAttributes, at any attribute count.
+//
+// It did so from three attributes up, on the premise that BatchSetAttributes
+// was one bridge call. It is a loop over SetAttribute, and SetAttribute is
+// where real (cross-node) attribute batching happens — so the map was a
+// per-element allocation on the mount path that bought no fewer crossings.
+// This pins the absence of that allocation; the previous version of this test
+// pinned its presence.
+func TestApplyInitialDomPropsWritesThreeStringAttrsDirectly(parseT *testing.T) {
 	parseAdapter := &optimizationTestAdapter{testDOMAdapter: newTestDOMAdapter()}
 	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter})
 	parseDom := parseAdapter.CreateElement("div")
@@ -443,8 +452,20 @@ func TestApplyInitialDomPropsBatchesThreeStringAttrs(parseT *testing.T) {
 		"data-state": "live",
 	})
 
-	if parseAdapter.batchSetAttributeCount != 1 {
-		parseT.Fatalf("expected three-attr mount path to use one batch call, got %d", parseAdapter.batchSetAttributeCount)
+	if parseAdapter.batchSetAttributeCount != 0 {
+		parseT.Fatalf("expected three-attr mount path to avoid the batch map, got %d batch calls", parseAdapter.batchSetAttributeCount)
+	}
+	if parseAdapter.setAttributeCount != 3 {
+		parseT.Fatalf("expected direct attribute writes for three attrs, got %d", parseAdapter.setAttributeCount)
+	}
+	parseNode, parseOk := parseDom.(*testDOMNode)
+	if !parseOk {
+		parseT.Fatalf("expected *testDOMNode, got %T", parseDom)
+	}
+	for parseName, parseWant := range map[string]string{"id": "row-1", "class": "card", "data-state": "live"} {
+		if parseGot := parseNode.attributes[parseName]; parseGot != parseWant {
+			parseT.Fatalf("expected attribute %q to be %q, got %q", parseName, parseWant, parseGot)
+		}
 	}
 }
 

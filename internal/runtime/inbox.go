@@ -84,6 +84,12 @@ type asyncInbox struct {
 	// benchmark or diagnostic can show N posts collapsing into one drain.
 	drainCount int
 	postCount  int
+	// spare is the previous drain's buffer, handed back for the next batch to
+	// refill. The drain used to take `entries` and leave nil behind, so a steady
+	// async producer regrew the queue from zero every frame — the allocation the
+	// inbox exists to keep OFF the frame's critical path. Swapping two buffers
+	// makes the steady state allocation-free once the queue has found its size.
+	spare []func()
 }
 
 // PostAsync queues work to be applied at the next frame boundary.
@@ -191,7 +197,11 @@ func (parseRt *Runtime) DrainAsyncInbox() {
 
 	parseRt.inbox.mu.Lock()
 	parseBatch := parseRt.inbox.entries
-	parseRt.inbox.entries = nil
+	// Hand the previous drain's buffer back rather than leaving nil. Producers
+	// posting during this drain refill it in place; parseBatch is returned to
+	// the spare slot at the end, cleared so it holds no closure.
+	parseRt.inbox.entries = parseRt.inbox.spare[:0]
+	parseRt.inbox.spare = nil
 	parseRt.inbox.scheduled = false
 	isOverflowed := parseRt.inbox.overflowed
 	isHardOverflowed := parseRt.inbox.hardOverflowed
@@ -203,6 +213,7 @@ func (parseRt *Runtime) DrainAsyncInbox() {
 	parseRt.inbox.mu.Unlock()
 
 	if len(parseBatch) == 0 {
+		parseRt.recycleInboxBatch(parseBatch)
 		return
 	}
 
@@ -232,8 +243,30 @@ func (parseRt *Runtime) DrainAsyncInbox() {
 	parseRt.exitFrameLoop()
 
 	if parseApplied < len(parseBatch) {
+		// requeueUndrained copies the remainder out, so parseBatch is free to
+		// recycle once it returns.
 		parseRt.requeueUndrained(parseBatch[parseApplied:])
 	}
+	parseRt.recycleInboxBatch(parseBatch)
+}
+
+// recycleInboxBatch returns one drained batch buffer for the next drain to
+// refill, cleared so it retains none of the closures it carried.
+//
+// Only one buffer is held. A drain that finds a spare already parked (two
+// drains overlapping, which the scheduler does not do but a hard-overflow
+// producer drain can) simply drops the older one to the collector rather than
+// growing a free list nothing bounds.
+func (parseRt *Runtime) recycleInboxBatch(parseBatch []func()) {
+	if parseRt == nil || cap(parseBatch) == 0 {
+		return
+	}
+	clear(parseBatch)
+	parseRt.inbox.mu.Lock()
+	if parseRt.inbox.spare == nil {
+		parseRt.inbox.spare = parseBatch[:0]
+	}
+	parseRt.inbox.mu.Unlock()
 }
 
 // resolveInboxDrainDeadline gives one drain its slice budget.

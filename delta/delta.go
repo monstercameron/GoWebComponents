@@ -329,7 +329,11 @@ func (parseEngine *Engine) insertAfter(parseKey Key, parseAfterKey Key) error {
 func (parseEngine *Engine) removeFromOrder(parseKey Key) {
 	for parsePosition, parseExisting := range parseEngine.order {
 		if parseExisting == parseKey {
-			parseEngine.order = append(parseEngine.order[:parsePosition], parseEngine.order[parsePosition+1:]...)
+			// Release the slot the shift vacates rather than leaving the old
+			// last key in it past the new length.
+			copy(parseEngine.order[parsePosition:], parseEngine.order[parsePosition+1:])
+			parseEngine.order[len(parseEngine.order)-1] = ""
+			parseEngine.order = parseEngine.order[:len(parseEngine.order)-1]
 			return
 		}
 	}

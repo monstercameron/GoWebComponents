@@ -92,6 +92,7 @@ func (parseRt *Runtime) recoverWorkLoopState() {
 	parseRt.nextUnitOfWork = nil
 	parseRt.wipRoot = nil
 	if parseRt.deletions != nil {
+		clear(parseRt.deletions)
 		parseRt.deletions = parseRt.deletions[:0]
 	}
 	parseRt.pendingEffectFibers = nil

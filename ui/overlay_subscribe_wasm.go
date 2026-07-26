@@ -17,7 +17,15 @@ func (parseM *overlayStackManager) subscribe(parseNotify func()) func() {
 		defer parseM.mu.Unlock()
 		for parseIndex, parseSubscriber := range parseM.subscribers {
 			if parseSubscriber.id == parseSubscriberID {
-				parseM.subscribers = append(parseM.subscribers[:parseIndex], parseM.subscribers[parseIndex+1:]...)
+				// Compacting with append(s[:i], s[i+1:]...) alone leaves the old
+				// last subscriber in the slot past the new length, and a
+				// subscriber is a NOTIFY CLOSURE — it captures the overlay
+				// component's state setter, so an unmounted overlay stayed
+				// reachable through it until another overlay happened to
+				// subscribe and overwrite the slot.
+				copy(parseM.subscribers[parseIndex:], parseM.subscribers[parseIndex+1:])
+				parseM.subscribers[len(parseM.subscribers)-1] = overlaySubscriber{}
+				parseM.subscribers = parseM.subscribers[:len(parseM.subscribers)-1]
 				return
 			}
 		}

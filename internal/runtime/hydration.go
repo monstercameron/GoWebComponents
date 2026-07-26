@@ -32,6 +32,10 @@ func (parseRt *Runtime) flushHydrationSubscriptions() {
 		}
 		parseRt.atomRegistry.Unsubscribe(parseAction.atomID, parseAction.fiber)
 	}
+	// clear() before the reslice: each action holds a *Fiber, so truncating
+	// alone kept the hydrated tree's fibers reachable from the runtime after
+	// hydration had finished with them — including any later deleted.
+	clear(parseRt.deferredHydrationSubscriptions)
 	parseRt.deferredHydrationSubscriptions = parseRt.deferredHydrationSubscriptions[:0]
 }
 

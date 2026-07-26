@@ -42,6 +42,11 @@ func (parseH *History[T]) Record(parseLabel string, parseState T) {
 	defer parseH.mu.Unlock()
 
 	parseH.entries = append(parseH.entries[:parseH.cursor+1], Snapshot[T]{Label: parseLabel, State: parseState})
+	// The discarded redo branch is still in the backing array past the new
+	// length. T is application state — often the largest object the app holds —
+	// so undoing deep and then recording once kept every abandoned snapshot
+	// alive behind a slice the caller believes it shortened.
+	clear(parseH.entries[len(parseH.entries):cap(parseH.entries)])
 	parseH.cursor = len(parseH.entries) - 1
 	parseH.evictLocked()
 }

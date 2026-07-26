@@ -324,3 +324,117 @@ func TestFetchNativeCachedResourceFailingLoaderNoRetryStorm(parseT *testing.T) {
 		parseT.Fatalf("expected exactly one loader invocation, got %d", atomic.LoadInt32(&parseLoads))
 	}
 }
+
+// TestAbandonedCachedResourcesAreSweptOnAccess pins the collection path for
+// keys nobody comes back for.
+//
+// DisposeAfter and MaxAge used to be enforced only when a key was ACCESSED, and
+// nothing in the framework called SweepCachedResources, so an entry whose last
+// reader unmounted was never collected — its payload stayed resident for the
+// session. Accessing ANY key now sweeps abandoned ones.
+func TestAbandonedCachedResourcesAreSweptOnAccess(parseT *testing.T) {
+	installFetchTestHookContext(parseT)
+
+	parseResetSweepClock := func() {
+		abandonedSweepMu.Lock()
+		abandonedSweepLast = time.Time{}
+		abandonedSweepMu.Unlock()
+	}
+	parseT.Cleanup(parseResetSweepClock)
+
+	// Abandoned: configured to dispose, idle past the window, no subscriber.
+	parseAbandoned := getCachedResourceEntry("abandoned")
+	configureCachedResourceEntry[string]("abandoned", parseAbandoned, CacheOptions{DisposeAfter: time.Millisecond})
+	setCachedValue("abandoned", "payload")
+	parseAbandoned.mu.Lock()
+	parseAbandoned.lastAccess = time.Now().Add(-time.Second)
+	parseAbandoned.mu.Unlock()
+
+	// Idle for just as long, but still held by a mounted component.
+	parseWatched := getCachedResourceEntry("watched")
+	configureCachedResourceEntry[string]("watched", parseWatched, CacheOptions{DisposeAfter: time.Millisecond})
+	setCachedValue("watched", "payload")
+	retainCachedResource("watched", "Thread/Live")
+	parseWatched.mu.Lock()
+	parseWatched.lastAccess = time.Now().Add(-time.Second)
+	parseWatched.mu.Unlock()
+	parseT.Cleanup(func() { releaseCachedResource("watched", "Thread/Live") })
+
+	// Touching an unrelated key is what triggers the sweep.
+	parseResetSweepClock()
+	parseTrigger := getCachedResourceEntry("trigger")
+	prepareCachedResourceEntry("trigger", parseTrigger)
+
+	if _, parseStillThere := cachedResourceRegistry.Load("abandoned"); parseStillThere {
+		parseT.Error("an abandoned cache entry survived the sweep — its payload stays resident for the session")
+	}
+	if _, parseWatchedThere := cachedResourceRegistry.Load("watched"); !parseWatchedThere {
+		parseT.Error("a cache entry with a live subscriber was swept — a mounted component just lost its data")
+	}
+	if parseState := currentCachedSnapshot("watched"); parseState.Value != "payload" {
+		parseT.Errorf("a subscribed entry's value was cleared: %+v", parseState)
+	}
+}
+
+// TestAbandonedSweepIsRateLimited: the sweep walks the whole registry, so it
+// must not run on every cache read.
+func TestAbandonedSweepIsRateLimited(parseT *testing.T) {
+	installFetchTestHookContext(parseT)
+	parseT.Cleanup(func() {
+		abandonedSweepMu.Lock()
+		abandonedSweepLast = time.Time{}
+		abandonedSweepMu.Unlock()
+	})
+
+	parseTrigger := getCachedResourceEntry("rate-trigger")
+	abandonedSweepMu.Lock()
+	abandonedSweepLast = time.Time{}
+	abandonedSweepMu.Unlock()
+	prepareCachedResourceEntry("rate-trigger", parseTrigger)
+
+	abandonedSweepMu.Lock()
+	parseFirst := abandonedSweepLast
+	abandonedSweepMu.Unlock()
+	if parseFirst.IsZero() {
+		parseT.Fatal("the first access should have run a sweep")
+	}
+
+	// A second access well inside the interval must be a no-op.
+	parseLater := getCachedResourceEntry("rate-trigger-2")
+	prepareCachedResourceEntry("rate-trigger-2", parseLater)
+	abandonedSweepMu.Lock()
+	parseSecond := abandonedSweepLast
+	abandonedSweepMu.Unlock()
+	if !parseSecond.Equal(parseFirst) {
+		parseT.Error("a second access inside the interval re-swept the registry — the rate limit is not holding")
+	}
+}
+
+// TestDisposeReleasesTheCacheKeysAtom pins the registry hand-back.
+//
+// Disposal used to write a ZERO snapshot over the key's atom, which reclaimed
+// the payload but left the key in the global atom registry for the life of the
+// process — one dead entry per cache key an app had ever used.
+func TestDisposeReleasesTheCacheKeysAtom(parseT *testing.T) {
+	installFetchTestHookContext(parseT)
+
+	parseRt := runtime.GetGlobalRuntime()
+	if parseRt == nil {
+		parseT.Skip("no global runtime in this harness")
+	}
+	parseAtomID := cachedResourceAtomID("atom-release")
+
+	parseEntry := getCachedResourceEntry("atom-release")
+	configureCachedResourceEntry[string]("atom-release", parseEntry, CacheOptions{})
+	setCachedValue("atom-release", "payload")
+	if _, parseSeeded := parseRt.GetAtomValue(parseAtomID); !parseSeeded {
+		parseT.Fatal("setup: caching a value should seed the key's atom")
+	}
+
+	DisposeResource("atom-release")
+
+	if _, parseStillThere := parseRt.GetAtomValue(parseAtomID); parseStillThere {
+		parseT.Error("disposing a cached resource left its atom in the registry — the key leaks for the session")
+	}
+}
+

@@ -98,14 +98,27 @@ const DefaultCapacity = 4096
 // Not safe for concurrent use, which is not a limitation here: there is one
 // recorder per thread and each thread is single-threaded in wasm.
 type Recorder struct {
-	thread   Thread
+	thread Thread
+	// spans is a ring of exactly capacity slots. The span with absolute index a
+	// lives at spans[a%capacity] and is resident while a >= total-count.
+	//
+	// It used to be a plain slice that evicted by shifting every element down
+	// one and then rebuilding openByID from scratch — both O(capacity), on
+	// EVERY span once the buffer was full, which is the steady state for any
+	// long-running trace.
 	spans    []Span
 	capacity int
+	// total counts spans ever appended; count is how many are still resident.
+	total    uint64
+	count    int
 	seq      uint64
 	dropped  int
 	// openByID indexes spans that have started and not ended, so End is O(1)
-	// rather than a scan back through the buffer.
-	openByID map[SpanID]int
+	// rather than a scan back through the buffer. It stores the ABSOLUTE index,
+	// which does not move when the ring wraps; a slice index did, which is what
+	// forced the rebuild. Eviction deletes the evicted id, so membership here
+	// implies residency.
+	openByID map[SpanID]uint64
 }
 
 // NewRecorder creates a recorder for one thread.
@@ -118,9 +131,9 @@ func NewRecorder(parseThread Thread, parseCapacity int) (*Recorder, error) {
 	}
 	return &Recorder{
 		thread:   parseThread,
-		spans:    make([]Span, 0, parseCapacity),
+		spans:    make([]Span, parseCapacity),
 		capacity: parseCapacity,
-		openByID: make(map[SpanID]int),
+		openByID: make(map[SpanID]uint64),
 	}, nil
 }
 
@@ -167,43 +180,53 @@ func (parseRecorder *Recorder) End(parseSpanID SpanID, parseEndNanos int64, pars
 	if parseRecorder == nil {
 		return errors.New("trace: recorder is nil")
 	}
-	parseIndex, hasSpan := parseRecorder.openByID[parseSpanID]
+	parseAbsolute, hasSpan := parseRecorder.openByID[parseSpanID]
 	if !hasSpan {
 		return fmt.Errorf("trace: span %q is not open on the %s thread", parseSpanID, parseRecorder.thread)
 	}
-	parseRecorder.spans[parseIndex].EndNanos = parseEndNanos
-	parseRecorder.spans[parseIndex].Err = parseErr
+	parseSlot := parseRecorder.slotOf(parseAbsolute)
+	parseRecorder.spans[parseSlot].EndNanos = parseEndNanos
+	parseRecorder.spans[parseSlot].Err = parseErr
 	delete(parseRecorder.openByID, parseSpanID)
 	return nil
 }
 
-// appendSpan adds a span, evicting the oldest when the buffer is full.
-func (parseRecorder *Recorder) appendSpan(parseSpan Span) {
-	if len(parseRecorder.spans) >= parseRecorder.capacity {
-		parseEvicted := parseRecorder.spans[0]
-		parseRecorder.spans = append(parseRecorder.spans[:0], parseRecorder.spans[1:]...)
-		parseRecorder.dropped++
-		delete(parseRecorder.openByID, parseEvicted.ID)
-		// Every retained span shifted down one, so the open index would point at
-		// the wrong entries. Rebuilding on eviction keeps End correct; it is
-		// O(capacity) but happens only when the buffer is already full.
-		for parseIndex := range parseRecorder.spans {
-			if parseRecorder.spans[parseIndex].Open() {
-				parseRecorder.openByID[parseRecorder.spans[parseIndex].ID] = parseIndex
-			}
-		}
-	}
-	parseRecorder.spans = append(parseRecorder.spans, parseSpan)
-	parseRecorder.openByID[parseSpan.ID] = len(parseRecorder.spans) - 1
+// slotOf maps one absolute span index onto its ring slot.
+func (parseRecorder *Recorder) slotOf(parseAbsolute uint64) int {
+	return int(parseAbsolute % uint64(parseRecorder.capacity))
 }
 
-// Spans returns a copy of the recorded spans.
+// appendSpan adds a span, evicting the oldest when the ring is full.
+//
+// O(1): the write lands in the slot the evicted span vacated, and the open
+// index needs no repair because it is keyed on absolute position.
+func (parseRecorder *Recorder) appendSpan(parseSpan Span) {
+	if parseRecorder.count == parseRecorder.capacity {
+		parseEvictedAbsolute := parseRecorder.total - uint64(parseRecorder.capacity)
+		parseEvicted := parseRecorder.spans[parseRecorder.slotOf(parseEvictedAbsolute)]
+		// Harmless when the evicted span had already ended.
+		delete(parseRecorder.openByID, parseEvicted.ID)
+		parseRecorder.dropped++
+		parseRecorder.count--
+	}
+
+	parseAbsolute := parseRecorder.total
+	parseRecorder.spans[parseRecorder.slotOf(parseAbsolute)] = parseSpan
+	parseRecorder.total++
+	parseRecorder.count++
+	parseRecorder.openByID[parseSpan.ID] = parseAbsolute
+}
+
+// Spans returns a copy of the recorded spans, oldest first.
 func (parseRecorder *Recorder) Spans() []Span {
 	if parseRecorder == nil {
 		return nil
 	}
-	parseCopy := make([]Span, len(parseRecorder.spans))
-	copy(parseCopy, parseRecorder.spans)
+	parseCopy := make([]Span, parseRecorder.count)
+	parseFirst := parseRecorder.total - uint64(parseRecorder.count)
+	for parseIndex := range parseRecorder.count {
+		parseCopy[parseIndex] = parseRecorder.spans[parseRecorder.slotOf(parseFirst+uint64(parseIndex))]
+	}
 	return parseCopy
 }
 
@@ -251,7 +274,10 @@ func Merge(parseRecorders ...*Recorder) *Timeline {
 		if parseRecorder == nil {
 			continue
 		}
-		parseTimeline.spans = append(parseTimeline.spans, parseRecorder.spans...)
+		// Spans() rather than the raw ring: the backing array is capacity-sized
+		// and unordered once it has wrapped, so appending it directly would mix
+		// in never-written slots and out-of-order entries.
+		parseTimeline.spans = append(parseTimeline.spans, parseRecorder.Spans()...)
 		parseTimeline.dropped += parseRecorder.dropped
 	}
 	return parseTimeline

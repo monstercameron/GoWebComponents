@@ -76,18 +76,15 @@ func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
 }
 
 // applyCompactHostAttrs applies one pre-normalized string-attr slice without the generic prop meta walk.
+//
+// The attrs arrive as a slice precisely so the typed fast lane never allocates
+// a props map; converting that slice back INTO a map to reach
+// BatchSetAttributes therefore paid the allocation the fast lane exists to
+// avoid, once per mounted element with three or more attributes. It bought
+// nothing: BatchSetAttributes is a loop over SetAttribute, and SetAttribute is
+// already where cross-node attribute batching happens.
 func (parseRt *Runtime) applyCompactHostAttrs(parseDom DOMNode, parseAttrs []HostAttr) {
 	if parseRt == nil || IsDOMNodeNull(parseDom) || len(parseAttrs) == 0 {
-		return
-	}
-	if parseBatchAdapter, parseBatchOk := parseRt.domAdapter.(interface {
-		BatchSetAttributes(DOMNode, map[string]string)
-	}); parseBatchOk && len(parseAttrs) >= 3 {
-		parseAttrBatch := make(map[string]string, len(parseAttrs))
-		for _, parseAttr := range parseAttrs {
-			parseAttrBatch[parseAttr.Name] = parseAttr.Value
-		}
-		parseBatchAdapter.BatchSetAttributes(parseDom, parseAttrBatch)
 		return
 	}
 	for _, parseAttr := range parseAttrs {
@@ -139,14 +136,9 @@ func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, par
 
 	// fmt.Printf("updateDomProperties: updating %d old props, %d new props\n", len(oldProps), len(newProps))
 
-	// Check if adapter supports batching (only for WASM adapter)
-	parseBatchAdapter, parseSupportsBatching := parseRt.domAdapter.(interface {
-		BatchSetAttributes(DOMNode, map[string]string)
-	})
-
 	// Optimization: Fast path for initial render (no old props)
 	if len(parseOldProps) == 0 && len(parseNewProps) > 0 {
-		parseRt.applyInitialDomProps(parseDom, parseNewProps, parseSupportsBatching, parseBatchAdapter, false)
+		parseRt.applyInitialDomProps(parseDom, parseNewProps, false)
 		return
 	}
 
@@ -236,58 +228,26 @@ func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, par
 }
 
 // applyInitialDomProps is an internal reconciler helper.
-func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map[string]any, isSupportsBatching bool, parseBatchAdapter interface {
-	BatchSetAttributes(DOMNode, map[string]string)
-}, isPreserveHydrationState bool) {
-	var (
-		parseAttrBatch                            map[string]string
-		parseFirstAttrName, parseFirstAttrValue   string
-		parseSecondAttrName, parseSecondAttrValue string
-		parseAttrCount                            int
-	)
-	parseFlushAttrBatch := func() {
-		if parseAttrCount == 0 {
-			return
-		}
-		if parseAttrBatch != nil {
-			parseBatchAdapter.BatchSetAttributes(parseDom, parseAttrBatch)
-			clear(parseAttrBatch)
-			parseAttrBatch = nil
-		} else {
-			parseRt.domAdapter.SetAttribute(parseDom, parseFirstAttrName, parseFirstAttrValue)
-			if parseAttrCount > 1 {
-				parseRt.domAdapter.SetAttribute(parseDom, parseSecondAttrName, parseSecondAttrValue)
-			}
-		}
-		parseFirstAttrName = ""
-		parseFirstAttrValue = ""
-		parseSecondAttrName = ""
-		parseSecondAttrValue = ""
-		parseAttrCount = 0
-	}
+//
+// Attribute writes go straight to the adapter. They used to be accumulated
+// into a deferred batch — held in two scalar pairs for the one- and
+// two-attribute cases, spilling into a map at three — which was flushed
+// through BatchSetAttributes at each non-attribute write and at the end.
+//
+// All of that rested on BatchSetAttributes being one bridge call. It is not;
+// it is a loop over SetAttribute, and SetAttribute is already where
+// cross-node attribute batching happens (jsdom/attr_batch.go encodes every
+// write in a commit into a single flush). So the deferral bought no fewer
+// bridge crossings and cost one map per mounted element with three or more
+// attributes — on the mount path, which is where this runtime allocates.
+//
+// Write ORDER is preserved more faithfully than before, not less: the flush
+// calls existed to stop deferred attributes from landing after a property
+// write issued later, and direct writes are in encounter order by
+// construction.
+func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map[string]any, isPreserveHydrationState bool) {
 	parseStoreAttr := func(parseName string, parseValue string) {
-		if !isSupportsBatching {
-			parseRt.domAdapter.SetAttribute(parseDom, parseName, parseValue)
-			return
-		}
-
-		// Avoid allocating the batch map for the common one- and two-attribute mount paths.
-		switch parseAttrCount {
-		case 0:
-			parseFirstAttrName = parseName
-			parseFirstAttrValue = parseValue
-		case 1:
-			parseSecondAttrName = parseName
-			parseSecondAttrValue = parseValue
-		case 2:
-			parseAttrBatch = make(map[string]string, len(parseNewProps))
-			parseAttrBatch[parseFirstAttrName] = parseFirstAttrValue
-			parseAttrBatch[parseSecondAttrName] = parseSecondAttrValue
-			parseAttrBatch[parseName] = parseValue
-		default:
-			parseAttrBatch[parseName] = parseValue
-		}
-		parseAttrCount++
+		parseRt.domAdapter.SetAttribute(parseDom, parseName, parseValue)
 	}
 
 	for parseName, parseValue := range parseNewProps {
@@ -303,7 +263,6 @@ func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map
 			continue
 		}
 		if parseHandler, parseOk := passiveEventHandler(parseValue); parseOk {
-			parseFlushAttrBatch()
 			parseRt.addPassiveEventHandler(parseDom, parseTargetName, parseHandler)
 			continue
 		}
@@ -311,7 +270,6 @@ func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map
 		switch parseMeta.kind {
 		case propKindStyle:
 			if parseStyles, parseOk := parseValue.(map[string]string); parseOk {
-				parseFlushAttrBatch()
 				parseRt.domAdapter.SetStyles(parseDom, parseStyles)
 			} else if parseStr, parseOk2 := parseValue.(string); parseOk2 {
 				parseStoreAttr(parseMeta.attrName, parseStr)
@@ -321,19 +279,15 @@ func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map
 				parseStoreAttr(parseMeta.attrName, parseStr2)
 			}
 		case propKindSpecialProperty:
-			parseFlushAttrBatch()
 			parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseValue)
 		default:
 			if parseStr3, parseOk4 := parseValue.(string); parseOk4 {
 				parseStoreAttr(parseMeta.attrName, parseStr3)
 			} else {
-				parseFlushAttrBatch()
 				parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseValue)
 			}
 		}
 	}
-
-	parseFlushAttrBatch()
 }
 
 func passiveEventHandler(parseValue any) (any, bool) {
@@ -442,7 +396,14 @@ func (parseRt *Runtime) commitRoot() {
 		// We can't pass a cached parent here easily because deletions can be anywhere
 		parseRt.commitWork(parseFiber, nil)
 	}
-	// Clear deletions but keep capacity
+	// Clear deletions but keep capacity.
+	//
+	// clear() before the reslice, because [:0] alone keeps every *Fiber in the
+	// backing array reachable. The slice is unbounded, so one teardown of a
+	// large list left thousands of deleted fibers — each pinning its detached
+	// subtree, its hooks, and its DOM handles — resident until some later pass
+	// happened to overwrite those slots.
+	clear(parseRt.deletions)
 	parseRt.deletions = parseRt.deletions[:0]
 
 	// Commit the work
@@ -739,10 +700,7 @@ func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
 					// attributes reasserted.
 					parseRt.applyCompactHostAttrs(parseFiber.dom, parseFiber.getHostAttrs)
 				} else {
-					parseBatchAdapter, parseSupportsBatching := parseRt.domAdapter.(interface {
-						BatchSetAttributes(DOMNode, map[string]string)
-					})
-					parseRt.applyInitialDomProps(parseFiber.dom, parseFiber.props, parseSupportsBatching, parseBatchAdapter, parseFiber.hydrated)
+					parseRt.applyInitialDomProps(parseFiber.dom, parseFiber.props, parseFiber.hydrated)
 				}
 				if parseFiber.hasDirectText && parseRt.domNodeText(parseFiber.dom) != parseFiber.textContent {
 					parseRt.domAdapter.SetTextContent(parseFiber.dom, parseFiber.textContent)
@@ -1363,14 +1321,26 @@ func (parseRt *Runtime) syncFineGrainedSubscriptions(parseFiber *Fiber, parseSou
 		return
 	}
 	parsePrevious := parseFiber.reactiveSourceIDs
+	// The joined form of parsePrevious, carried alongside it so the unchanged
+	// path below can adopt the string instead of rebuilding it.
+	parsePreviousJoined := parseFiber.reactiveAtomID
 	if parseFiber.alternate != nil && parseFiber.alternate != parseFiber && len(parseFiber.alternate.reactiveSourceIDs) > 0 {
 		parsePrevious = parseFiber.alternate.reactiveSourceIDs
+		parsePreviousJoined = parseFiber.alternate.reactiveAtomID
 	}
 	if sameReactiveSourceIDs(parsePrevious, parseSourceIDs) {
 		parseFiber.reactiveSourceIDs = parsePrevious
 		parseFiber.reactiveAtomID = ""
 		if len(parsePrevious) > 0 {
-			parseFiber.reactiveAtomID = strings.Join(parsePrevious, ",")
+			// Nothing changed, so the previous generation's joined id is still
+			// correct. Re-joining here allocated once per fine-grained fiber per
+			// COMMIT — on the path whose whole purpose is to avoid work when the
+			// subscription set is stable. The fallback covers a previous
+			// generation that never recorded one.
+			parseFiber.reactiveAtomID = parsePreviousJoined
+			if parseFiber.reactiveAtomID == "" {
+				parseFiber.reactiveAtomID = strings.Join(parsePrevious, ",")
+			}
 		}
 		parseFiber.fineGrained = len(parsePrevious) > 0
 		return
@@ -1495,6 +1465,7 @@ func (parseRt *Runtime) commitDeletion(parseFiber *Fiber, parseDomParent DOMNode
 
 	if parseRt.isPortalFiber(parseFiber) {
 		parseRt.deleteFiberSubtree(parseFiber.child, parseRt.resolvePortalParent(parseFiber))
+		releaseDeletedSubtree(parseFiber)
 		return
 	}
 
@@ -1506,10 +1477,64 @@ func (parseRt *Runtime) commitDeletion(parseFiber *Fiber, parseDomParent DOMNode
 		// We need to find and remove all actual DOM nodes in the subtree
 		parseRt.deleteFiberSubtree(parseFiber.child, parseDomParent)
 	}
+	releaseDeletedSubtree(parseFiber)
 }
 
-// teardownDeletedSubtree unsubscribes atoms and releases DOM refs across one
-// deleted subtree in a single recursive walk (see commitDeletion).
+// releaseDeletedSubtree drops the references a fully deleted fiber still holds,
+// after its cleanups have run and its DOM is detached.
+//
+// Mount fibers are slab-allocated 128 at a time (acquireMountFiber), and a slab
+// stays alive while ANY fiber in it is reachable. The slab comment bounds the
+// cost at the 424-byte slot on the premise that "a fiber is zeroed when it is
+// reused or dropped" — true of the REUSE path, which zeroes through
+// acquireWorkInProgress, but nothing zeroed a DELETED fiber. So unmounting 127
+// rows of a slab whose 128th fiber survives kept all 127 rows' props maps,
+// hooks (state values, memo results, refs), children slices, and DOM handles
+// reachable through the slab, indefinitely.
+//
+// Sibling contract matches runCleanups: the argument fiber's own sibling chain
+// is NOT traversed, because a DELETION-tagged fiber's old-tree siblings may
+// still be mounted. Children are traversed with their siblings, as they belong
+// to the deleted subtree.
+//
+// typeOf and ownerRuntime are deliberately left in place: they are word-sized,
+// retain nothing of consequence, and a late async write that reaches a deleted
+// fiber (a resolved suspension, an in-flight validator) still finds a coherent
+// object to no-op against rather than a stripped one.
+func releaseDeletedSubtree(parseFiber *Fiber) {
+	if parseFiber == nil {
+		return
+	}
+	for parseChild := parseFiber.child; parseChild != nil; {
+		// Read the sibling link before the child releases it.
+		parseNext := parseChild.sibling
+		releaseDeletedSubtree(parseChild)
+		parseChild = parseNext
+	}
+
+	parseFiber.parent = nil
+	parseFiber.child = nil
+	parseFiber.sibling = nil
+	parseFiber.alternate = nil
+	parseFiber.dom = nil
+	parseFiber.hooks = nil
+	parseFiber.props = nil
+	parseFiber.children = nil
+	parseFiber.getHostAttrs = nil
+	parseFiber.contextValues = nil
+	parseFiber.hydration = nil
+	parseFiber.childHydration = nil
+	parseFiber.effects = nil
+	parseFiber.eventCallbacks = nil
+	parseFiber.reactiveSourceIDs = nil
+	parseFiber.asyncSuspension = nil
+	parseFiber.asyncWait = nil
+	parseFiber.boundaryError = nil
+}
+
+// teardownDeletedSubtree unsubscribes atoms, releases DOM refs, and detaches
+// portal-hosted DOM across one deleted subtree in a single recursive walk (see
+// commitDeletion).
 func (parseRt *Runtime) teardownDeletedSubtree(parseFiber *Fiber) {
 	if parseFiber == nil {
 		return
@@ -1741,6 +1766,7 @@ func (parseRt *Runtime) queuePendingEffectFiber(parseFiber *Fiber) {
 	}
 	parseLimit := parseRt.limits.withDefaults().MaxPendingEffectFibers
 	if parseLimit > 0 && len(parseRt.pendingEffectFibers) >= parseLimit {
+		clear(parseRt.pendingEffectFibers)
 		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
 		hasAlreadyOverflowed := parseRt.pendingEffectOverflow
 		parseRt.pendingEffectOverflow = true
@@ -1897,6 +1923,7 @@ func (parseRt *Runtime) runPendingEffectsTier(parseTier effectTier) {
 		parseRt.runFiberEffectsTier(parseFiber, parseTier)
 	}
 	if parseTier != effectTierLayout {
+		clear(parseRt.pendingEffectFibers)
 		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
 	}
 }
@@ -1933,7 +1960,17 @@ func (parseRt *Runtime) runFiberEffectsTier(parseFiber *Fiber, parseTier effectT
 	}
 
 	if parseTier != effectTierLayout {
-		defer func() { parseFiber.effects = parseFiber.effects[:0] }()
+		defer func() {
+			// clear() before the reslice: an Effect holds Fn, a closure over the
+			// render that queued it. Truncating alone left THIS render's closures
+			// — and everything they captured, including the props of the render
+			// that just finished — reachable in the backing array until a later
+			// render appended over the slot. A component that mounts, runs its
+			// effects and then sits idle never reaches that point, and one whose
+			// effect count shrinks never reaches it for the tail.
+			clear(parseFiber.effects)
+			parseFiber.effects = parseFiber.effects[:0]
+		}()
 	}
 
 	switch parseTier {

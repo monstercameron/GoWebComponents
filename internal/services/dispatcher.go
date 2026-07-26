@@ -454,6 +454,9 @@ func (parseDispatcher *Dispatcher) dropQueuedWork(parseUnitID string) bool {
 		}
 		parseKept = append(parseKept, parseJob)
 	}
+	// In-place compaction leaves dropped jobs — and their payloads — reachable
+	// in the slots past the new length.
+	clear(parseDispatcher.queue[len(parseKept):])
 	parseDispatcher.queue = parseKept
 	if hasDropped {
 		// Compaction moved every job after the removed ones, so every cached index
@@ -498,6 +501,7 @@ func (parseDispatcher *Dispatcher) DrainQueue() []Job {
 		}
 		parseDrained = append(parseDrained, parseJob)
 	}
+	clear(parseDispatcher.queue)
 	parseDispatcher.queue = parseDispatcher.queue[:0]
 	clear(parseDispatcher.updateIndexByUnit)
 	return parseDrained

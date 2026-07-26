@@ -367,6 +367,29 @@ func DisposeResource(parseKey string) {
 	clearCachedSnapshot(parseKey)
 	deletePersistentCachedSnapshot(parseKey)
 	unregisterQueryKey(parseKey)
+	releaseCachedResourceAtom(parseKey)
+}
+
+// releaseCachedResourceAtom hands a disposed key's atom back to the registry.
+//
+// clearCachedSnapshot writes a ZERO snapshot, which reclaims the payload but
+// leaves the key in the global atom registry forever — and these keys are
+// app-supplied, so a long session accumulated one dead entry per cache key it
+// had ever used. The write above is what notifies any subscriber; this only
+// removes what is left behind afterwards.
+//
+// A key that still has subscribers keeps its atom: the runtime refuses the
+// delete in that case, and the zeroed snapshot already written is the correct
+// state for a subscriber to observe.
+func releaseCachedResourceAtom(parseKey string) {
+	if parseKey == "" {
+		return
+	}
+	parseRt := runtime.GetGlobalRuntime()
+	if parseRt == nil {
+		return
+	}
+	parseRt.DeleteAtomValueIfUnsubscribed(cachedResourceAtomID(parseKey))
 }
 
 // InspectCachedResources returns a stable snapshot of shared cache state for diagnostics and devtools.
@@ -681,10 +704,21 @@ func updateCachedSnapshot(parseKey string, parseUpdate func(cachedResourceSnapsh
 	if parseRt == nil {
 		return
 	}
-	if parseRestoreErr := parseRt.RestoreAtomSnapshot(map[string]any{cachedResourceAtomID(parseKey): parseSnapshot}); parseRestoreErr != nil {
+	// SetAtomValue rather than RestoreAtomSnapshot: this is a ONE-key write, and
+	// routing it through the bulk-restore API allocated a map per call to carry
+	// a single pair. It runs on every loading/ready/error transition of every
+	// cached resource, so that map was one of the more frequent allocations in
+	// the data layer.
+	//
+	// The write and notify semantics are the same — both store unconditionally,
+	// schedule each subscribed fiber once, and defer through a transition when
+	// the runtime asks for it. SetAtomValue additionally recomputes derived
+	// atoms that depend on this one, which is a superset of the old behaviour,
+	// and costs one nil-returning dependents lookup when there are none.
+	if parseSetErr := parseRt.SetAtomValue(cachedResourceAtomID(parseKey), parseSnapshot); parseSetErr != nil {
 		runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "cached resource snapshot restore failed", "", map[string]string{
 			"key":     parseKey,
-			"message": parseRestoreErr.Error(),
+			"message": parseSetErr.Error(),
 		})
 	}
 }
@@ -951,6 +985,12 @@ func prepareCachedResourceEntry(parseKey string, parseEntry *cachedResourceEntry
 	parseEntry.lastAccess = parseNow
 	parseEntry.mu.Unlock()
 
+	// Every access sweeps ABANDONED keys, rate-limited. This is the only thing
+	// that collects an entry nobody comes back for; the checks above only ever
+	// fire for a key being accessed, which is precisely the key that is not the
+	// problem. See sweepAbandonedCachedResources.
+	sweepAbandonedCachedResources(parseNow)
+
 	if isParseDisposeEntry {
 		resetCachedResourceEntry(parseKey, parseEntry)
 		return
@@ -965,6 +1005,73 @@ func prepareCachedResourceEntry(parseKey string, parseEntry *cachedResourceEntry
 	if isParsePersistSnapshot {
 		persistCachedSnapshot(parseKey)
 	}
+}
+
+// abandonedSweepInterval is the minimum gap between opportunistic sweeps.
+//
+// The sweep walks the whole registry, so it is rate-limited rather than run per
+// access. Thirty seconds is far below any realistic DisposeAfter/MaxAge and far
+// above any render cadence, so it costs nothing measurable and still collects
+// promptly relative to the policy the app configured.
+const abandonedSweepInterval = 30 * time.Second
+
+var (
+	abandonedSweepMu   sync.Mutex
+	abandonedSweepLast time.Time
+)
+
+// sweepAbandonedCachedResources disposes entries that have no subscriber left
+// and have passed their configured DisposeAfter or MaxAge.
+//
+// Why this exists. DisposeAfter and MaxAge were only ever enforced by
+// prepareCachedResourceEntry, which runs when a key is ACCESSED — so a key that
+// stopped being accessed was never collected. SweepCachedResources could have
+// done it, but nothing in the framework called it, so by default the shared
+// registry only grew: mount a component that caches "user:123", unmount it,
+// never touch that key again, and its entry and its fetched payload stayed
+// resident for the session.
+//
+// Why the subscriber guard, when SweepCachedResources has none. That function
+// is the app's explicit "collect now" and keeps its documented meaning. This one
+// runs on its own, so it takes only the case that cannot surprise anyone: an
+// entry with no live reader. A mounted component always holds a subscriber
+// (retainCachedResource, via UseEffect), so its data is never pulled out from
+// under it here — even if it has not re-rendered in a while.
+func sweepAbandonedCachedResources(parseNow time.Time) {
+	abandonedSweepMu.Lock()
+	if !abandonedSweepLast.IsZero() && parseNow.Sub(abandonedSweepLast) < abandonedSweepInterval {
+		abandonedSweepMu.Unlock()
+		return
+	}
+	// Stamped BEFORE the walk, so a dispose that schedules a render which reads
+	// another entry cannot re-enter this and recurse.
+	abandonedSweepLast = parseNow
+	abandonedSweepMu.Unlock()
+
+	cachedResourceRegistry.Range(func(parseKey, parseValue any) bool {
+		parseCacheKey, _ := parseKey.(string)
+		parseEntry, _ := parseValue.(*cachedResourceEntry)
+		if parseCacheKey == "" || parseEntry == nil {
+			return true
+		}
+		if !isCachedEntryAbandoned(parseNow, parseEntry) {
+			return true
+		}
+		DisposeResource(parseCacheKey)
+		return true
+	})
+}
+
+// isCachedEntryAbandoned reports whether an entry has no live reader and has
+// outlived its configured retention.
+func isCachedEntryAbandoned(parseNow time.Time, parseEntry *cachedResourceEntry) bool {
+	parseEntry.mu.Lock()
+	hasSubscribers := parseEntry.subscribers > 0
+	parseEntry.mu.Unlock()
+	if hasSubscribers {
+		return false
+	}
+	return shouldDisposeCachedEntry(parseNow, parseEntry)
 }
 
 // clearCachedSnapshot is an internal cache helper.

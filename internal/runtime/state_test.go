@@ -578,3 +578,51 @@ func TestRegisterDerivedAtomRejectsIndirectCycles(parseT *testing.T) {
 		parseT.Fatal("expected indirect derived cycle registration to fail")
 	}
 }
+
+// TestDeleteAtomValueIfUnsubscribed covers the guard that makes atom reclamation
+// safe for layers that key atoms by a dynamic id (a cache key, a row id).
+//
+// deleteAtom drops the SUBSCRIPTION SET along with the value, so deleting an
+// atom a mounted component still reads would leave that component rendering a
+// stale value that can never be updated again — silently. The delete therefore
+// refuses while anything is subscribed.
+func TestDeleteAtomValueIfUnsubscribed(parseT *testing.T) {
+	parseRt := &Runtime{atomRegistry: NewAtomRegistry(), scheduler: newTestScheduler()}
+
+	parseRt.atomRegistry.InitAtom("orphan", "value")
+	if !parseRt.DeleteAtomValueIfUnsubscribed("orphan") {
+		parseT.Fatal("an atom with no subscribers should be reclaimable")
+	}
+	if _, parseStillThere := parseRt.GetAtomValue("orphan"); parseStillThere {
+		parseT.Error("the reclaimed atom is still in the registry")
+	}
+
+	parseRt.atomRegistry.InitAtom("held", "value")
+	parseReader := &Fiber{typeOf: "test"}
+	parseRt.atomRegistry.Subscribe("held", parseReader)
+
+	if parseRt.DeleteAtomValueIfUnsubscribed("held") {
+		parseT.Fatal("an atom with a live subscriber must not be reclaimed")
+	}
+	if _, parseStillThere := parseRt.GetAtomValue("held"); !parseStillThere {
+		parseT.Error("the refused delete removed the atom anyway")
+	}
+	if parseRt.atomRegistry.GetSubscriberCount("held") != 1 {
+		parseT.Error("the refused delete dropped the subscription set — the subscriber would never be notified again")
+	}
+
+	// Once the last reader goes away the key becomes reclaimable.
+	parseRt.atomRegistry.Unsubscribe("held", parseReader)
+	if !parseRt.DeleteAtomValueIfUnsubscribed("held") {
+		parseT.Error("the atom should be reclaimable once its last subscriber is gone")
+	}
+
+	// Nil receivers and unknown ids are no-ops, not panics.
+	var parseNilRt *Runtime
+	if parseNilRt.DeleteAtomValueIfUnsubscribed("anything") {
+		parseT.Error("a nil runtime should report no deletion")
+	}
+	if !parseRt.DeleteAtomValueIfUnsubscribed("never-existed") {
+		parseT.Error("deleting an absent, unsubscribed id should be a successful no-op")
+	}
+}

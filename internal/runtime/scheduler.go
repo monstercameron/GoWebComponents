@@ -180,11 +180,13 @@ func (parseRt *Runtime) scheduleUpdateWithLane(parseLane UpdateLane, shouldRecor
 	if parseRt.deletions == nil {
 		parseRt.deletions = make([]*Fiber, 0)
 	} else {
+		clear(parseRt.deletions)
 		parseRt.deletions = parseRt.deletions[:0]
 	}
 	if parseRt.pendingEffectFibers == nil {
 		parseRt.pendingEffectFibers = make([]*Fiber, 0)
 	} else {
+		clear(parseRt.pendingEffectFibers)
 		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
 	}
 
@@ -377,11 +379,13 @@ func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
 	if parseRt.deletions == nil {
 		parseRt.deletions = make([]*Fiber, 0)
 	} else {
+		clear(parseRt.deletions)
 		parseRt.deletions = parseRt.deletions[:0]
 	}
 	if parseRt.pendingEffectFibers == nil {
 		parseRt.pendingEffectFibers = make([]*Fiber, 0)
 	} else {
+		clear(parseRt.pendingEffectFibers)
 		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
 	}
 
@@ -445,6 +449,9 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 	parseRt.strictHydration = parseRt.nextHydrationStrict
 	parseRt.beginHydrationMetrics(parseExistingChildren, parseRt.nextHydrationStrict)
 	parseRt.nextHydrationStrict = false
+	// clear() before the reslice — the actions hold fibers from the PREVIOUS
+	// hydration, which this pass is replacing.
+	clear(parseRt.deferredHydrationSubscriptions)
 	parseRt.deferredHydrationSubscriptions = parseRt.deferredHydrationSubscriptions[:0]
 	if parseRt.deferredHydrationUpdates == nil {
 		parseRt.deferredHydrationUpdates = make(map[*Fiber]bool)
@@ -473,11 +480,13 @@ func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
 	if parseRt.deletions == nil {
 		parseRt.deletions = make([]*Fiber, 0)
 	} else {
+		clear(parseRt.deletions)
 		parseRt.deletions = parseRt.deletions[:0]
 	}
 	if parseRt.pendingEffectFibers == nil {
 		parseRt.pendingEffectFibers = make([]*Fiber, 0)
 	} else {
+		clear(parseRt.pendingEffectFibers)
 		parseRt.pendingEffectFibers = parseRt.pendingEffectFibers[:0]
 	}
 

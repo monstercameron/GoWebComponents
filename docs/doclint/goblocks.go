@@ -185,8 +185,21 @@ func compileSampleInModule(repoRoot string, block GoBlock, index int) string {
 	if err := os.WriteFile(filepath.Join(tempDir, "main.go"), []byte(block.Source), 0o644); err != nil {
 		return "write sample: " + err.Error()
 	}
-	goMod := "module gwcdocsample\n\ngo 1.26\n\nrequire github.com/monstercameron/GoWebComponents v0.0.0\n" +
-		"replace github.com/monstercameron/GoWebComponents => " + filepath.ToSlash(repoRoot) + "\n"
+	// The module path is READ from the repo rather than written here.
+	//
+	// It used to be the literal "github.com/monstercameron/GoWebComponents",
+	// which stopped resolving the moment the library moved to /v5: every marked
+	// sample failed with "does not contain package .../v5/ui", and the gate
+	// reported fifteen broken samples that were in fact fine. A hardcoded module
+	// path inside a harness that compiles against that module is a second copy
+	// of a fact, and it went stale at the first opportunity.
+	parseModulePath, parseModuleErr := readRepoModulePath(repoRoot)
+	if parseModuleErr != nil {
+		return "read repo module path: " + parseModuleErr.Error()
+	}
+	goMod := "module gwcdocsample\n\ngo 1.26\n\nrequire " + parseModulePath + " " +
+		requireVersionForModulePath(parseModulePath) + "\n" +
+		"replace " + parseModulePath + " => " + filepath.ToSlash(repoRoot) + "\n"
 	if err := os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(goMod), 0o644); err != nil {
 		return "write go.mod: " + err.Error()
 	}
@@ -221,4 +234,44 @@ func ValidateGoBlocks(root string) ([]GoBlockError, error) {
 		}
 	}
 	return errs, nil
+}
+
+// readRepoModulePath returns the module path declared by the repository's
+// go.mod, so a harness that compiles against the module cannot disagree with it.
+func readRepoModulePath(parseRepoRoot string) (string, error) {
+	parseContent, parseErr := os.ReadFile(filepath.Join(parseRepoRoot, "go.mod"))
+	if parseErr != nil {
+		return "", parseErr
+	}
+	for _, parseLine := range strings.Split(string(parseContent), "\n") {
+		parseTrimmed := strings.TrimSpace(parseLine)
+		if parseRest, isModule := strings.CutPrefix(parseTrimmed, "module "); isModule {
+			if parsePath := strings.TrimSpace(parseRest); parsePath != "" {
+				return parsePath, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no module directive in %s/go.mod", parseRepoRoot)
+}
+
+// requireVersionForModulePath returns a require version consistent with the
+// module path's major-version suffix.
+//
+// Go rejects a require of ".../v5" at v0.0.0, so the version cannot be a
+// constant either — it has to track whatever major the path declares.
+func requireVersionForModulePath(parseModulePath string) string {
+	parseIndex := strings.LastIndex(parseModulePath, "/v")
+	if parseIndex < 0 {
+		return "v0.0.0"
+	}
+	parseSuffix := parseModulePath[parseIndex+2:]
+	if parseSuffix == "" {
+		return "v0.0.0"
+	}
+	for _, parseRune := range parseSuffix {
+		if parseRune < '0' || parseRune > '9' {
+			return "v0.0.0"
+		}
+	}
+	return "v" + parseSuffix + ".0.0"
 }

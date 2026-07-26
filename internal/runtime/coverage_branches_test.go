@@ -300,9 +300,21 @@ func TestReconciler_BatchedDomAndEffectCoverage(parseT *testing.T) {
 		"class":    "panel",
 		"style":    "display:block",
 		"children": []any{},
-	}, true, parseAdapter, false)
-	if len(parseAdapter.batches) == 0 {
-		parseT.Fatal("expected batched attribute adapter path to run")
+	}, false)
+	// The mount path writes attributes straight through SetAttribute now; it no
+	// longer accumulates them into a map for BatchSetAttributes, so the batch
+	// adapter records nothing and the attributes must have landed directly.
+	if len(parseAdapter.batches) != 0 {
+		parseT.Fatalf("expected the mount path to bypass the batch map, got %d batches", len(parseAdapter.batches))
+	}
+	parseNode, parseNodeOk := parseDom.(*testDOMNode)
+	if !parseNodeOk {
+		parseT.Fatalf("expected *testDOMNode, got %T", parseDom)
+	}
+	for parseName, parseWant := range map[string]string{"id": "root", "class": "panel", "style": "display:block"} {
+		if parseGot := parseNode.attributes[parseName]; parseGot != parseWant {
+			parseT.Fatalf("expected attribute %q to be %q, got %q", parseName, parseWant, parseGot)
+		}
 	}
 
 	parseComponent := func(parseProps map[string]any) *Element { return Div(nil, "x") }

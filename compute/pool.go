@@ -176,6 +176,11 @@ func (parsePool *Pool) Dispatch() []Assignment {
 		parseAssignments = append(parseAssignments, Assignment{Job: parseJob, WorkerID: parseWorkerID})
 	}
 
+	// Compacting in place leaves the dispatched jobs in the slots past the new
+	// length, and a Job carries its Payload. Without this the queue's backing
+	// array pinned every dispatched payload until some later submission
+	// happened to overwrite that slot.
+	clear(parsePool.queue[len(parseRemaining):])
 	parsePool.queue = parseRemaining
 	return parseAssignments
 }

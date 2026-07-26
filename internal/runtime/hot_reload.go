@@ -95,7 +95,10 @@ func (parseRt *Runtime) RestoreHotReloadSnapshotWithPlan(parseSnapshot HotReload
 		}
 	}
 
+	// Overwrite in place, then release whatever the previous, longer snapshot
+	// left past the new length.
 	parseRt.pendingHotReloadComponents = append(parseRt.pendingHotReloadComponents[:0], parseSnapshot.Components...)
+	clear(parseRt.pendingHotReloadComponents[len(parseRt.pendingHotReloadComponents):cap(parseRt.pendingHotReloadComponents)])
 	parseRt.pendingHotReloadIndex = 0
 	if parseRt.pendingHotReloadByPath != nil {
 		clear(parseRt.pendingHotReloadByPath)
@@ -691,6 +694,7 @@ func (parseRt *Runtime) PrepareForHotReload() {
 	parseRt.wipRoot = nil
 	parseRt.nextUnitOfWork = nil
 	if parseRt.deletions != nil {
+		clear(parseRt.deletions)
 		parseRt.deletions = parseRt.deletions[:0]
 	}
 	parseRt.updateScheduled = false
@@ -861,6 +865,9 @@ func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bo
 		}
 
 		if parseFiber.effects != nil {
+			// clear() before the reslice: an Effect holds a closure over the
+			// pre-reload component, which is exactly what a reload is replacing.
+			clear(parseFiber.effects)
 			parseFiber.effects = parseFiber.effects[:0]
 		} else {
 			parseFiber.effects = make([]Effect, 0)
@@ -1016,5 +1023,8 @@ func dedupRenderPhaseEffects(parseEffects []Effect) []Effect {
 			parseOut = append(parseOut, parseEffect)
 		}
 	}
+	// Filtering in place leaves the superseded duplicates — and their closures —
+	// in the slots past the new length.
+	clear(parseEffects[len(parseOut):])
 	return parseOut
 }
