@@ -55,13 +55,29 @@ func TestGoUseState_NilableStateCanResetToNil(parseT *testing.T) {
 	}
 }
 
+// TestGoUseEffect_RunsPreviousCleanupOnDependencyChange pins WHEN the previous
+// cleanup runs, not merely that it does.
+//
+// It previously asserted the cleanup ran inside GoUseEffect, during render. That
+// was the contract and it was the bug: a render is not a commitment — it can be
+// interrupted by a higher lane, restarted, or discarded by an error boundary —
+// and a cleanup run during one that never commits has closed a socket or dropped
+// a subscription for a setup that will never be queued to replace it.
+//
+// The contract now is React's: the cleanup is left pending through render and
+// runs at COMMIT, immediately before the setup that supersedes it. Both halves
+// are asserted, because "runs eventually" and "does not run during render" are
+// different guarantees and only the pair is useful.
 func TestGoUseEffect_RunsPreviousCleanupOnDependencyChange(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Reset: true})
 	parseFiber := &Fiber{typeOf: "test", props: make(map[string]any)}
 	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	parseCleanupRuns := 0
+	parseSetupRuns := 0
 	GoUseEffect(func() func() {
+		parseSetupRuns++
 		return func() { parseCleanupRuns++ }
 	}, "a")
 
@@ -69,18 +85,37 @@ func TestGoUseEffect_RunsPreviousCleanupOnDependencyChange(parseT *testing.T) {
 		parseT.Fatalf("expected one queued effect on initial render, got %d", len(parseFiber.effects))
 	}
 
-	parseCleanup := parseFiber.effects[0].Fn()
-	parseFiber.hooks.cleanups[0] = parseCleanup
-	resetHookRenderState(parseFiber)
+	// Commit the first effect the way the runtime does, so its cleanup is
+	// registered by the same path production uses.
+	parseRt.runOneEffect(parseFiber, &parseFiber.effects[0])
+	if parseSetupRuns != 1 || parseCleanupRuns != 0 {
+		parseT.Fatalf("after the first commit: setups=%d cleanups=%d, want 1 and 0", parseSetupRuns, parseCleanupRuns)
+	}
 
+	resetHookRenderState(parseFiber)
 	GoUseEffect(func() func() {
+		parseSetupRuns++
 		return func() { parseCleanupRuns++ }
 	}, "b")
 
-	if parseCleanupRuns != 1 {
-		parseT.Fatalf("expected previous cleanup to run before replacement effect, got %d", parseCleanupRuns)
+	// RENDER is done. Nothing may have been torn down yet.
+	if parseCleanupRuns != 0 {
+		parseT.Fatalf("the previous cleanup ran during render (%d times); a render that never commits would tear down state with nothing queued to replace it",
+			parseCleanupRuns)
 	}
 	if len(parseFiber.effects) != 1 {
 		parseT.Fatalf("expected replacement effect to be queued, got %d", len(parseFiber.effects))
+	}
+	if parseFiber.hooks.cleanups[0] == nil {
+		parseT.Fatal("the pending cleanup was discarded during render; an unmount before the next commit would never run it")
+	}
+
+	// COMMIT. Cleanup first, then the replacement setup.
+	parseRt.runOneEffect(parseFiber, &parseFiber.effects[0])
+	if parseCleanupRuns != 1 {
+		parseT.Fatalf("expected the previous cleanup to run at commit, got %d", parseCleanupRuns)
+	}
+	if parseSetupRuns != 2 {
+		parseT.Fatalf("expected the replacement setup to run at commit, got %d setups", parseSetupRuns)
 	}
 }

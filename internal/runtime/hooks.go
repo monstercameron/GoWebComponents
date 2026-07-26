@@ -328,15 +328,17 @@ func goUseEffectImpl(parseEffect func() func(), parseLayout bool, parseDeps ...a
 	}
 
 	if shouldRun {
-		// Run cleanup from previous effect if it exists
-		if parseHooks.cleanups[parseCleanupIdx] != nil {
-			parseStart := time.Now()
-			parseHooks.cleanups[parseCleanupIdx]()
-			parseDurationNs := time.Since(parseStart).Nanoseconds()
-			parseFiber.cleanupDurationNs += parseDurationNs
-			recordSlowOperationDiagnostic("cleanup", parseFiber, parseDurationNs)
-			parseHooks.cleanups[parseCleanupIdx] = nil
-		}
+		// The previous cleanup is deliberately NOT run here.
+		//
+		// This is the render phase, and a render is not a commitment: it can be
+		// interrupted by a higher lane, restarted, or discarded by an error
+		// boundary. A cleanup run here has already closed a socket, cancelled a
+		// timer, or dropped a subscription for a setup that may never be queued
+		// to replace it, leaving the component with neither.
+		//
+		// It stays in parseHooks.cleanups so runOneEffect can run it at COMMIT,
+		// immediately before its replacement — and so an unmount before that
+		// commit still finds it. See runOneEffect.
 
 		// Queue the new effect
 		if parseFiber.effects == nil {

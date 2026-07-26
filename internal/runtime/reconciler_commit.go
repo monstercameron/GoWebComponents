@@ -1852,6 +1852,16 @@ func (parseRt *Runtime) runFiberEffectsTier(parseFiber *Fiber, parseTier effectT
 // runOneEffect runs a single effect with effect-boundary panic containment and
 // profiling, storing any returned cleanup at the effect's cleanup index.
 func (parseRt *Runtime) runOneEffect(parseFiber *Fiber, parseEffect *Effect) {
+	// The outgoing cleanup runs HERE, not where the effect was queued.
+	//
+	// GoUseEffect used to run it inline in the component body, during render.
+	// A render can be interrupted, restarted, or discarded, and a cleanup that
+	// ran during one that never committed has torn down state with nothing
+	// queued to replace it. Running it at commit also gives the ordering
+	// callers expect: cleanup immediately precedes the setup that supersedes it,
+	// with the committed DOM already in place.
+	parseRt.runOutgoingCleanup(parseFiber, parseEffect.CleanupIndex)
+
 	parseStart := commitTimingStart()
 	parseCleanup := func() func() {
 		var parseCleanupFn func()
@@ -1881,6 +1891,33 @@ func (parseRt *Runtime) runOneEffect(parseFiber *Fiber, parseEffect *Effect) {
 		parseFiber.hooks.cleanups[parseEffect.CleanupIndex] = parseCleanup
 	}
 	parseRt.checkStrictEffectCleanupSymmetry(parseFiber, parseEffect.CleanupIndex, parseCleanup != nil)
+}
+
+// runOutgoingCleanup runs the cleanup left by the previous instance of one
+// effect, if any, and clears the slot.
+//
+// Separate from runOneEffect's own accounting so the cleanup is attributed to
+// cleanupDurationNs rather than to the effect that replaced it — otherwise a
+// slow teardown is reported as a slow setup, and the diagnostic points at the
+// wrong function.
+func (parseRt *Runtime) runOutgoingCleanup(parseFiber *Fiber, parseCleanupIndex int) {
+	if parseFiber == nil || parseFiber.hooks == nil {
+		return
+	}
+	if parseCleanupIndex < 0 || parseCleanupIndex >= len(parseFiber.hooks.cleanups) {
+		return
+	}
+	parseCleanup := parseFiber.hooks.cleanups[parseCleanupIndex]
+	if parseCleanup == nil {
+		return
+	}
+	parseFiber.hooks.cleanups[parseCleanupIndex] = nil
+
+	parseStart := commitTimingStart()
+	parseCleanup()
+	parseDurationNs := commitTimingSinceNs(parseStart)
+	parseFiber.cleanupDurationNs += parseDurationNs
+	recordSlowOperationDiagnostic("cleanup", parseFiber, parseDurationNs)
 }
 
 // runEffects runs all effects for a fiber tree.

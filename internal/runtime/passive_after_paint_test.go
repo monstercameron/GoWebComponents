@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -424,5 +425,73 @@ func TestPaintSplit_PassiveEffectsSurviveANewUpdate(parseT *testing.T) {
 
 	if getGot := parseLog.String(); getGot == "" {
 		parseT.Error("the passive effect never ran; scheduling a new pass cleared the queue the pending drain was going to read")
+	}
+}
+
+// TestPaintSplit_CleanupRunsAtCommitNotDuringRender pins where a cleanup is
+// allowed to happen.
+//
+// GoUseEffect ran the previous cleanup inline in the component body — during
+// RENDER, before anything was committed. A render is not a commitment: it can be
+// interrupted by a higher lane, restarted, or discarded by an error boundary. A
+// cleanup that ran during a discarded render has torn down a subscription,
+// cancelled a timer, or closed a socket for a setup that will never be queued to
+// replace it, and the component is left with neither.
+//
+// It is also observable ordering: a cleanup that runs at render time happens
+// BEFORE the DOM its successor will observe exists.
+//
+// The test stops between the commit and the deferred passive drain, which is
+// exactly the window where a render-phase cleanup has already run and a
+// commit-phase one has not.
+func TestPaintSplit_CleanupRunsAtCommitNotDuringRender(parseT *testing.T) {
+	parseRt, parseRoot, parseScheduler := newPaintSplitRuntime(parseT)
+	parseLog := &recorder{}
+
+	var parseBump func(any)
+	parseRenders := 0
+	parseComponent := func() *Element {
+		parseRenders++
+		parseDep, parseSetDep := GoUseState(parseRt, 1)
+		parseBump = parseSetDep
+		parseCurrentDep := parseDep()
+		GoUseEffect(func() func() {
+			parseLog.add("setup" + strconv.Itoa(parseCurrentDep))
+			return func() { parseLog.add("cleanup" + strconv.Itoa(parseCurrentDep)) }
+		}, parseCurrentDep)
+		return CreateElement("div", map[string]any{})
+	}
+
+	if parseErr := parseRt.RenderInto(parseRoot, CreateElement(parseComponent, map[string]any{})); parseErr != nil {
+		parseT.Fatalf("render: %v", parseErr)
+	}
+	parseScheduler.flush()
+	if getGot := parseLog.String(); getGot != "setup1" {
+		parseT.Fatalf("after mount, log = %q, want %q", getGot, "setup1")
+	}
+
+	// Second pass with a changed dep, driven only as far as the commit. The
+	// update comes from a state setter rather than a bare root schedule, which
+	// is both what an application does and what actually marks the fiber dirty.
+	parseBump(2)
+	parseRendersBefore := parseRenders
+	for parseGuard := 0; parseGuard < 50 && parseRenders == parseRendersBefore; parseGuard++ {
+		if !parseScheduler.runOne() {
+			break
+		}
+	}
+	if parseRenders == parseRendersBefore {
+		parseT.Fatal("the component never re-rendered, so this test would pass without observing anything")
+	}
+
+	if getGot := parseLog.String(); getGot != "setup1" {
+		parseT.Errorf("log = %q immediately after the re-render, want %q — the cleanup ran during RENDER, so a render that never commits would tear down state with nothing queued to replace it",
+			getGot, "setup1")
+	}
+
+	parseScheduler.flush()
+	if getGot := parseLog.String(); getGot != "setup1,cleanup1,setup2" {
+		parseT.Errorf("log = %q, want %q; cleanup must run at commit, immediately before its replacement",
+			getGot, "setup1,cleanup1,setup2")
 	}
 }
