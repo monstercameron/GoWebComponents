@@ -395,8 +395,16 @@ func (parseRt *Runtime) commitRoot() {
 	parseStart := commitTimingStart()
 	defer func() {
 		parseDurationNs := commitTimingSinceNs(parseStart)
-		parseRt.profiling.commitCount++
 		parseRt.AdvanceAgentStateVersion()
+		// The profiling counters and the event ring are guarded by schedulerMu
+		// everywhere else (recordComponentRenderTrace takes it before calling its
+		// ...Locked half); this tail wrote them bare while calling a function
+		// named for the lock. Taken here rather than inside
+		// recordProfilingEventLocked so the *Locked convention keeps meaning what
+		// it says at every other call site.
+		schedulerMu.Lock()
+		defer schedulerMu.Unlock()
+		parseRt.profiling.commitCount++
 		parseRt.profiling.lastCommitDurationNs = parseDurationNs
 		parseRt.profiling.totalCommitDurationNs += parseDurationNs
 		parseRt.recordProfilingEventLocked(ProfilingEvent{
@@ -465,16 +473,31 @@ func (parseRt *Runtime) commitRoot() {
 		parseAttrBatchAdapter.EndAttrUpdateBatch()
 	}
 
+	// Under schedulerMu, because every field written here is read under it by
+	// scheduleUpdateWithLane and coalesceScheduledUpdateLocked. commitRoot held
+	// no lock at all and still called finishScheduledLocked — a name whose whole
+	// job is to tell the reader the caller holds it. Single-threaded in wasm and
+	// therefore invisible where the runtime usually runs; genuinely concurrent in
+	// SSR and in the native suite, which is what the -race job now watches.
+	schedulerMu.Lock()
 	parseRt.currentRoot = parseCommittedRoot
 	parseRt.schedulerState.finishScheduledLocked()
 	parseRt.wipRoot = nil
+	schedulerMu.Unlock()
+
 	parseWasHydrating := parseRt.hydrating
 	if parseWasHydrating {
 		parseRt.hydrating = false
 		parseRt.strictHydration = false
+		// Deliberately OUTSIDE the lock: a flushed subscription can schedule an
+		// update, which takes schedulerMu, so holding it across this region
+		// would deadlock. Two short critical sections rather than one long one.
 		parseRt.flushHydrationSubscriptions()
 	}
+
+	schedulerMu.Lock()
 	parseRt.updateScheduled = false
+	schedulerMu.Unlock()
 
 	// Run effects after the committed tree is current and hydration gates are lifted.
 	//
@@ -581,6 +604,35 @@ func reportUnkeyedComponentAliasing(parseParent *Fiber, parseElements []any) {
 	if !hookThreadingGuardEnabled || unkeyedComponentAliasWarned.Load() {
 		return
 	}
+	// Cheap pre-count before any reflection or allocation.
+	//
+	// Two unkeyed component siblings are required for this to report anything,
+	// and the scan below reaches describeCallableIdentity — which reflects over
+	// a function value — plus a map allocation, on the FIRST candidate. Most
+	// child lists are host elements or a single component, so the expensive part
+	// ran constantly on lists that could never produce a warning. This pass is
+	// type assertions only and stops at two.
+	parseCandidates := 0
+	for _, parseElement := range parseElements {
+		parseElem, parseOk := parseElement.(*Element)
+		if !parseOk || parseElem == nil || parseElem.Type == nil {
+			continue
+		}
+		if _, isParseHost := parseElem.Type.(string); isParseHost {
+			continue
+		}
+		if hasElementKey(parseElem) {
+			continue
+		}
+		parseCandidates++
+		if parseCandidates >= 2 {
+			break
+		}
+	}
+	if parseCandidates < 2 {
+		return
+	}
+
 	var parseIdentityCounts map[string]int
 	for _, parseElement := range parseElements {
 		parseElem, parseOk := parseElement.(*Element)

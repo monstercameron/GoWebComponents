@@ -623,10 +623,20 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 		}()
 	}
 	parseElements = parseFlatElements
-	reportMissingKeys(parseWipFiber, parseElements)
 	reportUnkeyedComponentAliasing(parseWipFiber, parseElements)
 
 	if shouldUseKeyedReconciliation(parseElements, parseWipFiber) {
+		// Both key diagnostics moved INSIDE the keyed branch.
+		//
+		// reportMissingKeys ran on every reconcileChildren call — every host
+		// element with children, on every render — and walked the whole child
+		// slice to decide something it could not possibly report on an unkeyed
+		// list. It fires only when hasKeyedSibling, and hasKeyedSibling is set
+		// by either a keyed element or a keyed old fiber, each of which is
+		// exactly what shouldUseKeyedReconciliation tests. So the guard is
+		// equivalent, and it removes an unamortized O(N) dev-build scan from
+		// the overwhelmingly common case of a list with no keys anywhere.
+		reportMissingKeys(parseWipFiber, parseElements)
 		reportDuplicateKeys(parseWipFiber, parseElements)
 		parseRt.reconcileKeyedChildren(parseWipFiber, parseElements)
 		return
