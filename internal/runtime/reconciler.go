@@ -1,9 +1,11 @@
 package runtime
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -148,6 +150,33 @@ func getPropMeta(parseName string) domPropMeta {
 		return parseMeta
 	}
 	return domPropMeta{kind: propKindDefault, attrName: parseName}
+}
+
+// domPropUnsetsAsProperty reports whether removing one prop must clear a DOM
+// PROPERTY rather than remove an attribute, decided from the value that was set.
+//
+// getPropMeta answers "how is this prop applied?" from the NAME, and the removal
+// path used that same answer — which is wrong for every event the hand-written
+// propMetaCache does not list. An unlisted on* prop resolves to propKindDefault
+// with shouldReset false, so removal called RemoveAttribute while the handler
+// had been installed with SetProperty: an attribute that never existed is
+// removed, and the listener stays. Measured across twenty common events —
+// onmouseover, onpointerenter, onpaste, onfocusin, ontoggle and the rest — every
+// one survived its own removal, while the three that happen to be in the table
+// cleared correctly.
+//
+// Extending the table was the tempting fix and is wrong twice over: it can never
+// be complete, because custom elements define their own on* properties; and the
+// property-versus-attribute split is a fact about the VALUE, not the name. So
+// this mirrors the SET path exactly — updateDomProperties' propKindDefault
+// branch writes a string as an attribute and anything else as a property — and
+// unsets whichever one was written.
+func domPropUnsetsAsProperty(parseMeta domPropMeta, parseOldValue any) bool {
+	if parseMeta.kind != propKindDefault || parseOldValue == nil {
+		return false
+	}
+	_, isString := parseOldValue.(string)
+	return !isString
 }
 
 // acquireWorkInProgress is an internal reconciler helper.
@@ -343,7 +372,18 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 		hasDirectText:       parseElem.hasDirectText,
 		isCompactHostProps:  parseElem.isCompactHostProps,
 		updateOrigin:        parseOldFiber.updateOrigin,
-		ownerRuntime:        parseRt,
+		// The lane has to survive the clone or P2.2 does not exist.
+		//
+		// performUnitOfWork reads updateLane off the WORK-IN-PROGRESS fiber, and
+		// this literal zeroes every field it does not name. The scheduler marks
+		// the lane on fibers in the CURRENT tree, so without this the next pass
+		// clones them, the lane becomes 0, laneAdmitsFiber short-circuits on
+		// "no recorded lane" and admits everything. Deferral was therefore never
+		// reached on any path an application takes — measured: a background-lane
+		// child re-rendered inside an input-lane pass and noteLaneDeferred never
+		// ran. See TestLanes_BackgroundWorkIsDeferredThroughRealScheduling.
+		updateLane:   parseOldFiber.updateLane,
+		ownerRuntime: parseRt,
 	}
 	ensureFineGrainedTwinLink(parseOldFiber, parseNewFiber)
 	parseRt.handleClonedFiberSubscriptionMove(parseOldFiber, parseNewFiber)
@@ -450,6 +490,58 @@ func fiberKeyValue(parseFiber *Fiber) any {
 	return parseFiber.props["key"]
 }
 
+// duplicateKeyWarned makes reportDuplicateKeys fire at most once per process,
+// matching reportUnkeyedComponentAliasing: one educational nudge, then the scan
+// short-circuits and costs nothing.
+var duplicateKeyWarned atomic.Bool
+
+// reportDuplicateKeys warns when two siblings in a keyed list share one key.
+//
+// Why a diagnostic rather than a fallback. The in-order fast path validates the
+// matched prefix against the old chain but checks trailing APPENDS for
+// castability only, so appending an element whose key already exists produces
+// two same-key fibers with no deletion. Making that abort to the map path was
+// the obvious fix and is the wrong one: trailing append is the dominant
+// list-growth shape, the fast path exists precisely to keep it allocation-free,
+// and the slow path does not actually repair the situation either — its
+// duplicate handling routes the collision to a positional fallback list, which
+// is a tolerance, not a resolution.
+//
+// The real defect is upstream, in the caller's key function, and it is
+// invisible: the DOM stays correct while hook state follows the wrong logical
+// item across the next reorder. So this reports it where it can be fixed and
+// leaves the hot path alone. Dev builds only.
+func reportDuplicateKeys(parseParent *Fiber, parseElements []any) {
+	if !hookThreadingGuardEnabled || duplicateKeyWarned.Load() {
+		return
+	}
+	var parseSeen map[any]struct{}
+	for _, parseElement := range parseElements {
+		parseElem, parseOk := parseElement.(*Element)
+		if !parseOk || parseElem == nil {
+			continue
+		}
+		parseKey, isComparable, hasKey := elementReconcileKey(parseElem)
+		if !hasKey || !isComparable {
+			continue
+		}
+		if parseSeen == nil {
+			parseSeen = make(map[any]struct{}, len(parseElements))
+		}
+		if _, isDuplicate := parseSeen[parseKey]; isDuplicate {
+			if duplicateKeyWarned.CompareAndSwap(false, true) {
+				_, parseParentName := describeFiber(parseParent)
+				ReportDiagnostic("runtime", DiagnosticWarning,
+					fmt.Sprintf("two sibling elements under %s share the key %v; keys must be unique among siblings, "+
+						"or hook state and DOM identity will follow list POSITION rather than the logical item across reorders",
+						parseParentName, parseKey))
+			}
+			return
+		}
+		parseSeen[parseKey] = struct{}{}
+	}
+}
+
 // tryReconcileKeyedChildrenInOrder fast-paths keyed lists that kept the same sibling order.
 func (parseRt *Runtime) tryReconcileKeyedChildrenInOrder(parseWipFiber *Fiber, parseElements []any, parseOldFirst *Fiber) bool {
 	if parseWipFiber == nil {
@@ -535,6 +627,7 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 	reportUnkeyedComponentAliasing(parseWipFiber, parseElements)
 
 	if shouldUseKeyedReconciliation(parseElements, parseWipFiber) {
+		reportDuplicateKeys(parseWipFiber, parseElements)
 		parseRt.reconcileKeyedChildren(parseWipFiber, parseElements)
 		return
 	}

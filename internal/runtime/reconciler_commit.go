@@ -167,6 +167,11 @@ func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, par
 			}
 			if parseMeta.shouldReset {
 				parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseMeta.resetValue)
+			} else if domPropUnsetsAsProperty(parseMeta, parseOldProps[parseName]) {
+				// Set as a property, so it has to be cleared as one — removing an
+				// attribute that was never written leaves the handler live. See
+				// domPropUnsetsAsProperty.
+				parseRt.domAdapter.SetProperty(parseDom, parseTargetName, nil)
 			} else {
 				parseRt.domAdapter.RemoveAttribute(parseDom, parseMeta.attrName)
 			}

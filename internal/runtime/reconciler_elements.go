@@ -670,7 +670,11 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 			hasDirectText:       parseOldFiber.hasDirectText,
 			isCompactHostProps:  parseOldFiber.isCompactHostProps,
 			updateOrigin:        parseOldFiber.updateOrigin,
-			ownerRuntime:        parseRt,
+			// Same reason as buildUpdatedFiber: the bailout clone is the OTHER
+			// way a marked fiber reaches the work loop, so dropping the lane
+			// here defeats P2.2 just as completely.
+			updateLane:   parseOldFiber.updateLane,
+			ownerRuntime: parseRt,
 		}
 		if parseNewFiber.hooks != nil {
 			parseNewFiber.hooks.owner = parseNewFiber
