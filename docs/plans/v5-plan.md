@@ -141,9 +141,22 @@ against a floor (Go wasm size)". Splitting the artifacts moved it 2.37 → 1.73 
 (−27%) and cannot close the rest; that needs framework-side size work, not
 packaging. A ratchet test guards against regrowth.
 
-**M12's pause half is open**, deliberately: it can only be measured in a browser
-on the P0.2 harness, and a native reading would be a green check that means
-nothing. The memory half is met and sets `Resident()`.
+**M12's pause half is now MET** (2026-07-26). Measured in the browser on the P0.2
+harness, forcing collections with nothing resident and then with the default
+20,000-row cap resident, both arms warmed first:
+
+| | heap | worst pause | mean |
+|---|---:|---:|---:|
+| no projection | 0.7 MB | 0.70 ms | 0.31 ms |
+| 20,000 rows resident | 4.9 MB | 0.90 ms | 0.28 ms |
+
+Residency costs **+0.20 ms**, and the total stays at 0.90 ms against the 3 ms
+ceiling. So the mechanism that could quietly undo M1 does not: holding rows on
+the render thread to avoid worker round trips is paid for.
+
+The warm-up is load-bearing. Without it the first arm collected cold and the test
+reported residency as IMPROVING pauses by 0.80 ms, which was the cold/warm gap
+(≈6 ms cold against ≈0.2 ms warm) and not the projection.
 
 ### v4 baseline (P0.3, headless Chromium, windows/arm64)
 

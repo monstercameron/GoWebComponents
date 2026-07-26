@@ -1296,3 +1296,119 @@ func TestV5GCPauseAcrossWindowTransitions(parseT *testing.T) {
 	parseT.Logf("worst pause: idle %.2fms, loaded %.2fms (M7 budget 3.00ms, baseline reports ~7-8ms)",
 		parseWorstIdle, parseWorstLoaded)
 }
+
+// TestV5M12ProjectionPause closes M12's pause half.
+//
+// M12 is part of the stated ship gate, and its memory half is met — Resident()
+// caps how many rows the render thread holds. The pause half is the one that
+// could quietly undo M1: keeping rows on the render thread to avoid worker round
+// trips is only a win if the garbage that residency creates does not cost more
+// than the round trips it saves.
+//
+// It has to be measured in a browser. js/wasm marks single-threaded, without
+// native Go's parallel assist, so a native reading would be a green check that
+// means nothing.
+//
+// Method: force collections with nothing resident, then with the default 20,000
+// row cap resident, and compare. Forcing rather than waiting is deliberate — the
+// render thread collects about once per twenty seconds under load, so waiting
+// for a natural collection measures patience, not residency.
+func TestV5M12ProjectionPause(parseT *testing.T) {
+	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", "..", ".."))
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseWasmPath := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness", "v5harness.wasm")
+	buildV5HarnessWasm(parseT, parseRepoRoot, parseWasmPath)
+	parseServer := serveV5Harness(parseT, parseRepoRoot)
+	defer parseServer.Close()
+
+	parsePW, parseErr := playwright.Run()
+	if parseErr != nil {
+		parseT.Skipf("playwright unavailable: %v", parseErr)
+	}
+	defer parsePW.Stop()
+	parseBrowser, parseErr := parsePW.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer parseBrowser.Close()
+	parsePage, parseErr := parseBrowser.NewPage()
+	if parseErr != nil {
+		parseT.Fatalf("new page: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseServer.URL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad, Timeout: playwright.Float(180000),
+	}); parseErr != nil {
+		parseT.Fatalf("goto: %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForFunction(
+		`() => window.__gwcV5Ready === true && !!window.__gwcV5ForceGC && !!window.__gwcV5FillProjection`,
+		nil, playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr != nil {
+		parseT.Skipf("harness does not expose the projection probe: %v", parseErr)
+	}
+
+	parseMeasure := func(parseLabel string, parseRows int) (float64, float64, int) {
+		parseFill, parseErr := parsePage.Evaluate(`(n) => window.__gwcV5FillProjection(n)`, parseRows)
+		if parseErr != nil {
+			parseT.Fatalf("fill (%s): %v", parseLabel, parseErr)
+		}
+		var parseFilled struct {
+			Resident int    `json:"resident"`
+			Err      string `json:"err"`
+		}
+		if parseErr := json.Unmarshal([]byte(parseFill.(string)), &parseFilled); parseErr != nil {
+			parseT.Fatalf("decode fill (%s): %v", parseLabel, parseErr)
+		}
+		if parseFilled.Err != "" {
+			parseT.Fatalf("fill (%s): %s", parseLabel, parseFilled.Err)
+		}
+
+		// Warm the collector before measuring. A collection following a gap
+		// costs about 6ms where a warm one costs 0.2ms, so an unwarmed first arm
+		// makes residency look like it IMPROVES pauses — the first version of
+		// this test reported a -0.80ms "cost", which was the warm-up and not the
+		// projection.
+		if _, parseErr := parsePage.Evaluate(`() => window.__gwcV5ForceGC(5)`); parseErr != nil {
+			parseT.Fatalf("warm gc (%s): %v", parseLabel, parseErr)
+		}
+
+		parseRaw, parseErr := parsePage.Evaluate(`() => window.__gwcV5ForceGC(20)`)
+		if parseErr != nil {
+			parseT.Fatalf("force gc (%s): %v", parseLabel, parseErr)
+		}
+		var parseResult struct {
+			PauseNs        []uint64 `json:"pauseNs"`
+			HeapAllocBytes uint64   `json:"heapAllocBytes"`
+		}
+		if parseErr := json.Unmarshal([]byte(parseRaw.(string)), &parseResult); parseErr != nil {
+			parseT.Fatalf("decode gc (%s): %v", parseLabel, parseErr)
+		}
+		parseWorst, parseTotal := uint64(0), uint64(0)
+		for _, parsePause := range parseResult.PauseNs {
+			if parsePause > parseWorst {
+				parseWorst = parsePause
+			}
+			parseTotal += parsePause
+		}
+		parseMean := float64(parseTotal) / float64(len(parseResult.PauseNs))
+		parseT.Logf("%-18s resident=%-6d heap=%5.1fMB  worst=%6.2fms  mean=%5.2fms",
+			parseLabel, parseFilled.Resident, float64(parseResult.HeapAllocBytes)/1e6,
+			float64(parseWorst)/1e6, parseMean/1e6)
+		return float64(parseWorst) / 1e6, parseMean / 1e6, parseFilled.Resident
+	}
+
+	parseEmptyWorst, _, _ := parseMeasure("no projection", 0)
+	parseFullWorst, _, parseResident := parseMeasure("20k rows resident", 20000)
+
+	if parseResident == 0 {
+		parseT.Fatal("nothing became resident, so this measured an empty projection twice")
+	}
+	parseT.Logf("M12 pause cost of residency: %+.2f ms (budget: M7's 3 ms ceiling applies to the total)",
+		parseFullWorst-parseEmptyWorst)
+	if parseFullWorst > 3.0 {
+		parseT.Logf("  worst pause with a full projection is %.2f ms, OVER the 3 ms pause ceiling", parseFullWorst)
+	} else {
+		parseT.Logf("  worst pause with a full projection is %.2f ms, within the 3 ms ceiling", parseFullWorst)
+	}
+}

@@ -24,6 +24,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	goruntime "runtime"
@@ -37,6 +38,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/v5/gcpacing"
 	h "github.com/monstercameron/GoWebComponents/v5/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/v5/interop"
+	"github.com/monstercameron/GoWebComponents/v5/projection"
 	"github.com/monstercameron/GoWebComponents/v5/ui"
 )
 
@@ -379,6 +381,23 @@ func registerProbes() {
 			strconv.FormatUint(parseStats.HeapAlloc, 10) + "}"
 	}))
 
+	// M12's pause half: what a RESIDENT projection costs the render thread in
+	// collection pauses.
+	//
+	// The memory half is met and sets Resident(). The pause half is the one that
+	// could quietly undo M1 — holding rows on the render thread to avoid worker
+	// round trips is only a win if the garbage it creates does not cost more
+	// than the round trips saved. It has to be measured in a browser: js/wasm
+	// marks single-threaded, without native Go's parallel assist, so a native
+	// number would be a green check that means nothing.
+	js.Global().Set("__gwcV5FillProjection", js.FuncOf(func(_ js.Value, parseArgs []js.Value) any {
+		parseRows := 20000
+		if len(parseArgs) > 0 && parseArgs[0].Type() == js.TypeNumber {
+			parseRows = parseArgs[0].Int()
+		}
+		return fillResidentProjection(parseRows)
+	}))
+
 	// Exposed so a probe can read how much the worker talked back, which is the
 	// half of "move the work off-thread" that moving the work does not fix.
 	js.Global().Set("__gwcV5WorkerMessages", js.FuncOf(func(js.Value, []js.Value) any {
@@ -459,6 +478,61 @@ type SchedulingChoice struct {
 }
 
 // gcPercentOverride reads a GOGC override from localStorage, or 0 for none.
+// residentProjection is held for the lifetime of the page on purpose.
+//
+// A projection that is filled and dropped measures allocation, not RESIDENCY.
+// M12 asks what it costs to KEEP rows on the render thread, so the rows have to
+// survive the collections being measured.
+var residentProjection *projection.Projection[projectionRow]
+
+// projectionRow is a row shaped like something an application would hold: a few
+// strings rather than one integer, because a projection of integers would
+// understate the pointer graph the collector has to walk.
+type projectionRow struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Note  string `json:"note"`
+}
+
+// fillResidentProjection builds a resident projection of the requested size and
+// reports what it holds.
+func fillResidentProjection(parseRows int) string {
+	if parseRows <= 0 {
+		residentProjection = nil
+		goruntime.GC()
+		return `{"resident":0}`
+	}
+
+	parseBuilt, parseErr := projection.New(func(parsePayload []byte) (projectionRow, error) {
+		var parseRow projectionRow
+		return parseRow, json.Unmarshal(parsePayload, &parseRow)
+	}, projection.Options{Resident: parseRows})
+	if parseErr != nil {
+		return `{"resident":0,"err":"` + parseErr.Error() + `"}`
+	}
+
+	parseOps := make([]projection.Op, 0, parseRows)
+	var parseAnchor projection.Key
+	for parseIndex := range parseRows {
+		parseKey := projection.Key("row-" + strconv.Itoa(parseIndex))
+		parsePayload, _ := json.Marshal(projectionRow{
+			ID:    string(parseKey),
+			Label: "label-" + strconv.Itoa(parseIndex),
+			Note:  "note-" + strconv.Itoa(parseIndex) + "-" + strings.Repeat("x", 24),
+		})
+		parseOps = append(parseOps, projection.Op{
+			Kind: projection.OpInsert, Key: parseKey, AfterKey: parseAnchor, Payload: parsePayload,
+		})
+		parseAnchor = parseKey
+	}
+	if parseApplyErr := parseBuilt.Apply(parseOps); parseApplyErr != nil {
+		return `{"resident":0,"err":"` + parseApplyErr.Error() + `"}`
+	}
+
+	residentProjection = parseBuilt
+	return `{"resident":` + strconv.Itoa(parseBuilt.Len()) + `}`
+}
+
 // gcMemoryLimitOverride reads a soft memory limit from localStorage, or 0.
 func gcMemoryLimitOverride() int64 {
 	parseStorage := js.Global().Get("localStorage")
