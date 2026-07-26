@@ -405,7 +405,7 @@ func (parseRt *Runtime) exitFrameLoop() {
 // consults this in that configuration except to preserve prior behaviour, and
 // paying 1.15 µs per state write for a disabled feature would be indefensible.
 func (parseRt *Runtime) insideFrameLoop() bool {
-	if parseRt == nil || parseRt.frameLoopDepth == 0 {
+	if parseRt == nil || parseRt.frameLoopDepth.Load() == 0 {
 		return false
 	}
 	if !parseRt.asyncIngress {
