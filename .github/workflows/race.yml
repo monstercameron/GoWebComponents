@@ -1,0 +1,62 @@
+name: Race Detector
+
+# The v5 plan makes "-race clean" the exit criterion for P2.3 (per-runtime state),
+# and until this workflow existed nothing enforced it. No other workflow passes
+# -race, and the detector is unavailable on the primary development machine
+# (windows/arm64: "-race is not supported on windows/arm64"), so the criterion was
+# being asserted rather than measured.
+#
+# What this actually watches. In wasm the runtime is single-threaded and every
+# race below is unobservable — which is exactly why they survive review. Native
+# is where they are real: SSR renders, the test suite, and any app that posts to
+# a runtime from a goroutine. The specific shapes this exists to catch:
+#
+#   - commitRoot mutating scheduler state outside schedulerMu while the
+#     Schedule* entry points read it under the lock
+#   - the async inbox's hard-overflow path draining on a producer goroutine and
+#     touching the frame-loop counters the renderer owns
+#   - package globals the reconciler treats as render-goroutine-owned
+#     (currentFiber and friends) being read from off-loop callers
+#
+# ubuntu/amd64 because that is where the detector runs. Native packages only:
+# js/wasm cannot be race-tested, and the browser suites live elsewhere.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Runtime and core packages under -race
+        # -count=1 so a cached pass never stands in for a real run. The runtime
+        # package is listed first and separately: it is the one the criterion is
+        # about, and a failure there should be legible without scrolling past
+        # every other package's output.
+        run: |
+          go test -race -count=1 ./internal/runtime/
+
+      - name: Remaining native packages under -race
+        # Split from the gate above so a race in, say, the router does not read as
+        # a runtime race. Still a hard failure — this is a gate, not a report.
+        run: |
+          go test -race -count=1 \
+            ./ui/... ./html/... ./router/... ./state/... ./query/... \
+            ./fetch/... ./domain/... ./delta/... ./escalate/... \
+            ./internal/services/... ./compute/... ./kvstate/...
