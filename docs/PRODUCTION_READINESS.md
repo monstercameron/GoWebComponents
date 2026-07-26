@@ -83,6 +83,28 @@ means moving children off the props map and changing a retained-props contract o
 a core path, for under 8% of allocations that are not what either remaining
 budget is bound by. Not worth the risk on this evidence.
 
+## What measuring M10 found
+
+The example had been "verified" by a packaging test that checks which symbols
+land in which binary. It had never been RUN. Four defects, each of which fails by
+hanging rather than by erroring:
+
+1. `ui.Render(..., "root")` passed a bare id where a CSS selector is expected.
+   The runtime reported it clearly; nothing was reading the console.
+2. A worker-level error carries no request id, so it was delivered against id 0,
+   matched no waiter, and was dropped. A services.wasm that never loaded
+   presented as a command that never returned.
+3. The app posted its first command without waiting for the worker's ready
+   signal. A message sent before `onmessage` exists is dropped silently — which
+   the services binary's own comment predicts, and which the app ignored.
+4. `js.Value.String()` on an absent field returns the literal `"<undefined>"`,
+   a non-empty string, so every SUCCESSFUL reply was read as a rejection.
+
+The pattern is worth more than the individual bugs: every one of them fails by
+producing nothing, and the test only became diagnosable after it captured console
+output, page errors, and failed requests. A browser test that can only say
+"waited 60 seconds" names no cause.
+
 ## What is still missing
 
 | | Why it is not done |
@@ -92,6 +114,7 @@ budget is bound by. Not worth the risk on this evidence.
 | CashFlux still on v4.2.0 | Different repository. No real application exercises v5, so nothing has validated it outside two synthetic harnesses. |
 | Real GoGRPCBridge stress | Never run. The console trace that motivated v5 is dominated by application work — `hydrate`, `pull`, `flush` at 5–33 s — which no reconciler change touches. |
 | ~~P3.4 exactly-once~~ | **CLOSED.** `TransactionalCheckpointStore` lets a store host the effect inside its own transaction, so the effect and its applied-record commit together; `Execute` uses it when present. `Runtime.ExactlyOnce()` reports which guarantee is in force, so an application does not have to infer it. A store that cannot do this keeps the previous behaviour, and a test pins that weaker bound so the difference stays visible. What remains is an implementation over real storage — the SQLite store writing the record inside the effect's own transaction. |
-| M9, M10, M12 | Unmeasured: no cross-framework comparison against Solid/Svelte/Rust, no browser time-to-first-worker-command, no projection-induced pause measurement. |
+| M10 | **MEASURED: 1084 ms against a 400 ms target — missed.** Covers page load, app instantiate, worker spawn, services instantiate, SQLite open, command round trip, and the reply applied through the inbox. Closing the measurement found four defects in the two-artifact example that a packaging test could not see, listed below. |
+| M9, M12 | Still unmeasured: no cross-framework comparison against Solid/Svelte/Rust, no projection-induced pause measurement. |
 | P6.2, P6.3 | Route splitting and streaming instantiation unimplemented. |
 | Commit inside the frame budget | Reconciliation is sliced; deletion, DOM commit, order repair, and layout effects are not. This is the structural reason M2 resists scheduling fixes. |

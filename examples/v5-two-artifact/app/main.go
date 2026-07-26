@@ -14,8 +14,8 @@
 // at all, both of which are easy to get wrong in ways that look like a hung page
 // rather than a bug:
 //
-//	1. Never call a command from a DOM callback. See runCommand.
-//	2. Apply the result through ui.PostAsync. See applyResult.
+//  1. Never call a command from a DOM callback. See runCommand.
+//  2. Apply the result through ui.PostAsync. See applyResult.
 package main
 
 import (
@@ -81,6 +81,15 @@ func (parsePoster *workerPoster) Post(parseRequestID uint64, parseName string, p
 	return nil
 }
 
+// workerReady closes when services.wasm has installed its message handler.
+//
+// A command posted before that lands in a scope with no onmessage and is dropped
+// silently — no error anywhere, and Invoke waits for a reply that was never
+// going to come. The services binary announces itself for exactly this reason,
+// and an app that ignores the announcement gets a page that loads fine and then
+// does nothing.
+var workerReady = make(chan struct{})
+
 // startWorker boots services.wasm and wires replies back into the client.
 func startWorker(parseClient *projection.WorkerClient, parsePoster *workerPoster) {
 	parseWorker := js.Global().Get("Worker").New("worker.js")
@@ -98,11 +107,36 @@ func startWorker(parseClient *projection.WorkerClient, parsePoster *workerPoster
 		// it, and delivering it under id 0 would be reported as a reply for an
 		// unknown request on every start.
 		if parseData.Get("ready").Truthy() {
+			// Closed once. A worker that announced itself twice would otherwise
+			// panic the app on the second close, turning a harmless duplicate
+			// into a crash.
+			select {
+			case <-workerReady:
+			default:
+				close(workerReady)
+			}
 			return nil
 		}
 
 		parseRequestID := uint64(parseData.Get("id").Float())
-		if parseErrText := parseData.Get("err").String(); parseErrText != "" {
+		// Checked for PRESENCE, not for emptiness. js.Value.String() on an
+		// absent field returns the literal "<undefined>", which is a non-empty
+		// string — so reading it directly turned every SUCCESSFUL reply into a
+		// rejection carrying the text "<undefined>". The reply plumbing looked
+		// like a domain that refused everything.
+		parseErrValue := parseData.Get("err")
+		if parseErrText := parseErrValue.String(); !parseErrValue.IsUndefined() &&
+			!parseErrValue.IsNull() && parseErrText != "" {
+			// An error with NO request id is not a refusal, it is the worker
+			// itself failing — worker.js reports a failed instantiate that way.
+			// Delivering it against id 0 finds no waiter and drops it silently,
+			// so a services.wasm that never loads presents as a command that
+			// never returns, with nothing in the console to point at. Failing
+			// every in-flight request is the honest translation.
+			if parseRequestID == 0 {
+				parseClient.WorkerDied(parseErrText)
+				return nil
+			}
 			// Rejection, not WorkerDeath: the worker answered and refused. That
 			// distinction is what tells a retry policy whether spending another
 			// attempt could possibly help.
@@ -198,16 +232,31 @@ func main() {
 
 	// One command, issued the way every command should be: off the event loop,
 	// with its result applied through the inbox.
+	//
+	// It also publishes M10's timing half. The metric is time from navigation
+	// to the first command COMPLETING — not to the worker existing — because a
+	// worker that has booted but cannot yet answer has not moved the app any
+	// closer to being usable. performance.now() is measured from navigation
+	// start, so the value needs no arithmetic on the reading side.
 	runCommand(func() {
+		// Wait for the worker to be able to receive before sending. This is the
+		// handshake the whole transport depends on and the easiest thing to
+		// leave out, because leaving it out fails only by hanging.
+		<-workerReady
+
 		parseResult, parseInvokeErr := addRow.Invoke(
 			context.Background(), parseResilient, jsonCodec{}, addRowArgs{Name: "first"})
 		if parseInvokeErr != nil {
 			// Reported rather than swallowed. A command that silently does
-			// nothing is the failure mode that costs the most to diagnose.
+			// nothing is the failure mode that costs the most to diagnose, and
+			// a probe waiting on the timing below would otherwise just hang.
+			js.Global().Set("__v5FirstCommandError", parseInvokeErr.Error())
 			js.Global().Get("console").Call("error", "addRow failed: "+parseInvokeErr.Error())
 			return
 		}
 		applyResult(func() {
+			js.Global().Set("__v5FirstCommandMs",
+				js.Global().Get("performance").Call("now").Float())
 			js.Global().Get("console").Call("log", "addRow committed "+parseResult.ID)
 		})
 	})
@@ -222,7 +271,7 @@ func main() {
 			return html.Div(html.Props{Class: "row"},
 				html.Text(fmt.Sprintf("%s — %d", parseRows[parseIndex].Value.Name, parseRows[parseIndex].Value.Total)))
 		},
-	}), "root")
+	}), "#app")
 
 	_ = removeRow
 	select {}

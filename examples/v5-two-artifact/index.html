@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>v5 two-artifact packaging</title>
+<!--
+  The render-thread half of the two-artifact split.
+
+  It loads app.wasm ONLY. services.wasm is fetched by worker.js on the worker's
+  own thread, which is the property this example exists to demonstrate: the page
+  never downloads, parses, or instantiates the database engine.
+-->
+<body>
+  <div id="app"></div>
+  <script src="/wasm_exec.js"></script>
+  <script>
+    const go = new Go();
+    WebAssembly.instantiateStreaming(fetch('./app.wasm'), go.importObject)
+      .then((result) => { go.run(result.instance); })
+      .catch((err) => {
+        // Visible failure. A blank page and a silent console is the same
+        // symptom as a worker that never answers, and telling them apart later
+        // costs far more than reporting it here.
+        window.__v5FirstCommandError = 'app instantiate failed: ' + err;
+        document.getElementById("app").textContent = String(err);
+      });
+  </script>
+</body>
