@@ -246,3 +246,37 @@ func TestUniqueSiblingKeysAreNotReported(parseT *testing.T) {
 		}
 	}
 }
+
+// ui.PostAsync must not pick its target runtime by asking which one is
+// rendering. The caller is off-loop by construction, so currentFiber describes
+// someone else's stack; resolving through it made the same call site land on
+// different runtimes depending on timing, and read render-goroutine-owned
+// package state from a producer goroutine while doing it.
+func TestPostAsyncGlobalTargetsTheGlobalRuntimeNotTheRenderingOne(parseT *testing.T) {
+	parseGlobal := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler(), Reset: true})
+	InitGlobalRuntime(Config{Reset: false})
+	globalRuntimeMu.Lock()
+	globalRuntime = parseGlobal
+	globalRuntimeMu.Unlock()
+
+	parseOther := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+
+	// Stand in for "a second runtime is mid-render": currentFiber points into a
+	// tree owned by parseOther, which is what ResolveRuntime followed.
+	parseRenderingFiber := &Fiber{typeOf: "div", ownerRuntime: parseOther}
+	SetCurrentFiber(parseRenderingFiber)
+	defer SetCurrentFiber(nil)
+
+	if parseResolved := ResolveRuntime(); parseResolved != parseOther {
+		parseT.Fatal("setup: ResolveRuntime should follow currentFiber to the other runtime")
+	}
+
+	postAsyncGlobal(func() {})
+
+	if parseOther.AsyncInboxDepth() != 0 {
+		parseT.Error("the post landed on the runtime that happened to be rendering")
+	}
+	if parseGlobal.AsyncInboxDepth() != 1 {
+		parseT.Errorf("expected the post on the global runtime's inbox, depth = %d", parseGlobal.AsyncInboxDepth())
+	}
+}

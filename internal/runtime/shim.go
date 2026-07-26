@@ -121,17 +121,14 @@ func Text(parseTextContent string) *Element {
 }
 
 // PostAsyncGlobal queues work on the global runtime's async inbox (v5 P2.1).
-//
-// The package-level entry point behind ui.PostAsync: application code holds no
-// *Runtime, so the public API has to resolve one. ResolveRuntime rather than
-// GetGlobalRuntime, so a post issued while a second runtime is rendering lands
-// on that runtime rather than on whichever happened to be global.
+// The package-level entry point behind ui.PostAsync; see postAsyncGlobal in
+// global_async.go for why it resolves the way it does.
 func PostAsyncGlobal(parseWork func()) {
-	ResolveRuntime().PostAsync(parseWork)
+	postAsyncGlobal(parseWork)
 }
 
-// AsyncIngressEnabledGlobal reports whether the resolved runtime routes off-loop
+// AsyncIngressEnabledGlobal reports whether the global runtime routes off-loop
 // state writes through the inbox.
 func AsyncIngressEnabledGlobal() bool {
-	return ResolveRuntime().AsyncIngressEnabled()
+	return asyncIngressEnabledGlobal()
 }
