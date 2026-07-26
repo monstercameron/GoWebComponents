@@ -86,13 +86,26 @@ marked void where it appears.
 Background work completed in the loaded arm: ~112,000 units across import,
 re-index, and decode.
 
-**Read M2 and M7 with two cautions.** This chassis is fanless and throttles
+**Read these numbers with one caution.** This chassis is fanless and throttles
 under sustained benchmarking — the same build measured 4 long frames cold and 33
-hot, so any single reading taken during a long session is worthless. And M2 is
-the only budget expressed as an absolute zero rather than a percentile or a
-bound, which makes it a claim about application update size rather than about
-the framework; whether that is the right shape is an open question for the
-owner, not something to be quietly redefined to pass.
+hot, so any single reading taken during a long session is worthless.
+
+**M2's budget is reachable, and this was checked rather than assumed.** It was
+tempting to argue that a target of absolute zero, where every other budget is a
+percentile or a bound, is really a claim about application update size rather
+than about the framework. React 19 refutes that. Driven through the same nine
+Example 201 scenarios on the same page with the same driver:
+
+| | long frames | worst | scripted |
+|---|---|---|---|
+| React 19.2.4 | **0** | — | 0.0 ms |
+| GWC | 1 | 89.2 ms | 75.0 ms |
+
+React does the same updates and produces no frame over 50ms. So M2 is not a
+badly shaped budget; it is the raw-render deficit measured a different way, the
+same gap M6 reports as 0.70x. Closing it means making reconciliation and commit
+faster, not rescheduling them — both directions of scheduling have now been
+tested and neither reaches it.
 
 **Owed, and each for a stated reason:**
 
