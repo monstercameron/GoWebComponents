@@ -1001,3 +1001,100 @@ func TestV5LongFrameRealVersusSyntheticInput(parseT *testing.T) {
 	parseCollect("synthetic input", false)
 	parseCollect("real CDP keystrokes", true)
 }
+
+// TestV5GCPauseFloor asks whether M7's 3ms budget is reachable at all.
+//
+// The sweep established that pacing has nothing to pace: the render thread runs
+// about one collection per twenty seconds against a one-megabyte heap, so a
+// lower GOGC cannot shorten a pause that is not happening. That leaves the
+// pause's own cost, and a single observed 6-7ms says nothing about whether it is
+// reducible — a rare expensive collection and a platform floor look identical
+// from one sample.
+//
+// Forcing collections settles it. If every forced pause on this heap lands near
+// the observed worst, Go's stop-the-world in wasm costs more than the budget
+// allows and no framework change reaches it. If forced pauses are far cheaper,
+// the observed 6-7ms belongs to a specific moment worth finding.
+func TestV5GCPauseFloor(parseT *testing.T) {
+	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", "..", ".."))
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseWasmPath := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness", "v5harness.wasm")
+	buildV5HarnessWasm(parseT, parseRepoRoot, parseWasmPath)
+	parseServer := serveV5Harness(parseT, parseRepoRoot)
+	defer parseServer.Close()
+
+	parsePW, parseErr := playwright.Run()
+	if parseErr != nil {
+		parseT.Skipf("playwright unavailable: %v", parseErr)
+	}
+	defer parsePW.Stop()
+	parseBrowser, parseErr := parsePW.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer parseBrowser.Close()
+	parsePage, parseErr := parseBrowser.NewPage()
+	if parseErr != nil {
+		parseT.Fatalf("new page: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseServer.URL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad, Timeout: playwright.Float(180000),
+	}); parseErr != nil {
+		parseT.Fatalf("goto harness: %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForFunction(`() => window.__gwcV5Ready === true && !!window.__gwcV5ForceGC`, nil,
+		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr != nil {
+		parseT.Fatalf("wait for subject: %v", parseErr)
+	}
+
+	// Once quiescent, then again under the same load M7 is measured against —
+	// a floor that only holds on an idle page would not be a floor.
+	for _, parseArm := range []struct {
+		Label  string
+		Loaded bool
+	}{{"quiescent", false}, {"under load", true}} {
+		if parseArm.Loaded {
+			if _, parseErr := parsePage.Evaluate(`() => {
+				for (const n of ['import','reindex','decode']) window.__gwcV5Workloads[n].start();
+			}`); parseErr != nil {
+				parseT.Fatalf("start workloads: %v", parseErr)
+			}
+			time.Sleep(3 * time.Second)
+		}
+
+		parseRaw, parseErr := parsePage.Evaluate(`() => window.__gwcV5ForceGC(15)`)
+		if parseErr != nil {
+			parseT.Fatalf("force gc (%s): %v", parseArm.Label, parseErr)
+		}
+		var parseResult struct {
+			PauseNs        []uint64 `json:"pauseNs"`
+			HeapAllocBytes uint64   `json:"heapAllocBytes"`
+		}
+		if parseErr := json.Unmarshal([]byte(parseRaw.(string)), &parseResult); parseErr != nil {
+			parseT.Fatalf("decode (%s): %v", parseArm.Label, parseErr)
+		}
+		if len(parseResult.PauseNs) == 0 {
+			parseT.Fatalf("%s: no pauses recorded", parseArm.Label)
+		}
+		parseWorst, parseTotal := uint64(0), uint64(0)
+		for _, parsePause := range parseResult.PauseNs {
+			if parsePause > parseWorst {
+				parseWorst = parsePause
+			}
+			parseTotal += parsePause
+		}
+		parseT.Logf("%-12s %d forced collections on a %.1fMB heap: worst %.2fms, mean %.2fms, budget 3.00ms",
+			parseArm.Label, len(parseResult.PauseNs), float64(parseResult.HeapAllocBytes)/1e6,
+			float64(parseWorst)/1e6, float64(parseTotal)/float64(len(parseResult.PauseNs))/1e6)
+
+		if parseArm.Loaded {
+			if _, parseErr := parsePage.Evaluate(`() => {
+				for (const n of ['import','reindex','decode']) window.__gwcV5Workloads[n].stop();
+			}`); parseErr != nil {
+				parseT.Fatalf("stop workloads: %v", parseErr)
+			}
+		}
+	}
+}
