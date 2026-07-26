@@ -516,6 +516,9 @@ func (parseRt *Runtime) ScheduleUpdateForFiberWithOrigin(parseFiber *Fiber, pars
 	if parseFiber == nil {
 		return
 	}
+	if parseRt.postAsyncFiberSchedule(parseFiber, parseOrigin, parseRt.ScheduleUpdateForFiberWithOrigin) {
+		return
+	}
 	if parseRt.hydrating {
 		if parseRt.deferredHydrationUpdates == nil {
 			parseRt.deferredHydrationUpdates = make(map[*Fiber]bool)
@@ -569,10 +572,35 @@ func (parseRt *Runtime) ScheduleGranularUpdateForFiber(parseFiber *Fiber) {
 	parseRt.ScheduleGranularUpdateForFiberWithOrigin(parseFiber, "fine-grained")
 }
 
+// postAsyncFiberSchedule queues an off-loop schedule request and reports whether
+// it did.
+//
+// The ingress invariant belongs HERE rather than at each call site. Routing the
+// setters, atoms, and fetch completions covered the paths that were looked for
+// and missed one that was not: AsyncBoundary resolves a suspension on a
+// goroutine and marked its fiber directly, so a suspense resolution could dirty
+// a fiber and its ancestors while a sliced render was walking them. Any future
+// caller that spawns a goroutine would have had the same hole.
+//
+// Enforcing it at the scheduler makes the safe path structural instead of
+// something every caller has to remember. It cannot recurse: the queued closure
+// runs during a drain, which is frame-loop work, so the second call takes the
+// direct path.
+func (parseRt *Runtime) postAsyncFiberSchedule(parseFiber *Fiber, parseOrigin string, parseSchedule func(*Fiber, string)) bool {
+	if !parseRt.shouldPostAsyncStateUpdate() {
+		return false
+	}
+	parseRt.PostAsync(func() { parseSchedule(parseFiber, parseOrigin) })
+	return true
+}
+
 // ScheduleGranularUpdateForFiberWithOrigin marks only the target fiber dirty
 // and records the triggering cause for profiling and devtools inspection.
 func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fiber, parseOrigin string) {
 	if parseFiber == nil {
+		return
+	}
+	if parseRt.postAsyncFiberSchedule(parseFiber, parseOrigin, parseRt.ScheduleGranularUpdateForFiberWithOrigin) {
 		return
 	}
 	if parseRt.hydrating {

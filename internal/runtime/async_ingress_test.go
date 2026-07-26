@@ -378,3 +378,61 @@ func TestAsyncIngress_IsReachableFromThePublicAPI(parseT *testing.T) {
 		parseT.Fatal("Config.AsyncIngress did not reach the runtime")
 	}
 }
+
+// TestAsyncIngress_SchedulerEnforcesIngressForCallersItDoesNotKnow is the
+// structural half of the guarantee.
+//
+// Routing setters, atoms, and fetch completions covered the paths that were
+// looked for. AsyncBoundary was not one of them: it resolves a suspension on a
+// goroutine and marked its fiber directly, so a resolution could dirty a fiber
+// and its ancestors while a sliced render was walking them. Every future caller
+// that spawns a goroutine would have had the same hole, because the invariant
+// lived at the call sites instead of at the scheduler.
+//
+// This asserts the enforcement point rather than any one caller: an off-loop
+// call to the fiber scheduler is queued, whoever makes it.
+func TestAsyncIngress_SchedulerEnforcesIngressForCallersItDoesNotKnow(parseT *testing.T) {
+	parseRt, parseContainer, parseScheduler := newAsyncIngressRuntime(parseT)
+	mountCounter(parseT, parseRt, parseContainer, parseScheduler)
+
+	parseFiber := parseRt.currentRoot.child
+	if parseFiber == nil {
+		parseT.Fatal("expected a mounted fiber")
+	}
+
+	// The shape AsyncBoundary uses: a goroutine that waits, then marks a fiber.
+	// Called synchronously here so the assertion is about the scheduler's
+	// enforcement, not about goroutine timing.
+	parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber, "async-suspense")
+
+	if parseRt.AsyncInboxDepth() != 1 {
+		parseT.Errorf("inbox depth = %d, want 1; an off-loop fiber schedule reached the tree directly, so the invariant still depends on every caller remembering it",
+			parseRt.AsyncInboxDepth())
+	}
+
+	runScheduledTimeouts(parseScheduler)
+	if parseRt.AsyncInboxDepth() != 0 {
+		parseT.Errorf("inbox still holds %d entries after the drain", parseRt.AsyncInboxDepth())
+	}
+}
+
+// TestAsyncIngress_OnLoopFiberScheduleStillDirect keeps the enforcement from
+// becoming a tax on the path that is already safe.
+func TestAsyncIngress_OnLoopFiberScheduleStillDirect(parseT *testing.T) {
+	parseRt, parseContainer, parseScheduler := newAsyncIngressRuntime(parseT)
+	mountCounter(parseT, parseRt, parseContainer, parseScheduler)
+
+	parseFiber := parseRt.currentRoot.child
+	if parseFiber == nil {
+		parseT.Fatal("expected a mounted fiber")
+	}
+
+	parseRt.enterFrameLoop()
+	parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber, "local-state")
+	parseRt.exitFrameLoop()
+
+	if parseRt.AsyncInboxDepth() != 0 {
+		parseT.Errorf("inbox depth = %d; an on-loop schedule was queued, which would cost every interaction an extra task",
+			parseRt.AsyncInboxDepth())
+	}
+}

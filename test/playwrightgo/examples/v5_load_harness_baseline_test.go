@@ -176,6 +176,19 @@ func TestV5LoadHarnessBaseline(parseT *testing.T) {
 		parseT.Fatalf("goto harness: %v", parseErr)
 	}
 
+	// A soft memory limit can be injected for the M7 experiment: GOGC cannot make
+	// collections frequent on a sub-megabyte heap, so every collection follows a
+	// gap and a gap is what makes one expensive.
+	if parseLimit := os.Getenv("GWC_V5_GCMEM"); parseLimit != "" {
+		if _, parseErr := parsePage.Evaluate(`(v) => localStorage.setItem('gwc:gcmem', v)`, parseLimit); parseErr != nil {
+			parseT.Fatalf("seed gcmem: %v", parseErr)
+		}
+		if _, parseErr := parsePage.Reload(); parseErr != nil {
+			parseT.Fatalf("reload for gcmem: %v", parseErr)
+		}
+		parseT.Logf("soft memory limit = %s bytes", parseLimit)
+	}
+
 	// The app sets __gwcV5Ready after its first render, so the harness never
 	// measures a tree that does not exist yet.
 	if _, parseErr := parsePage.WaitForFunction(`() => window.__gwcV5Ready === true`, nil,
@@ -1097,4 +1110,189 @@ func TestV5GCPauseFloor(parseT *testing.T) {
 			}
 		}
 	}
+}
+
+// TestV5GCPauseVersusFrameBudget tests the last standing explanation for M7.
+//
+// Go's stop-the-world must wait for every goroutine to reach a safepoint, and
+// wasm has no asynchronous preemption — a goroutine yields only at a function
+// call or a channel operation. So a collection triggered in the middle of a long
+// uninterrupted render would record the WAIT as pause time, and the pause would
+// be bounded by how long the runtime lets a slice run rather than by collection
+// work. Forced collections already showed the work itself costs 0.2-0.5ms warm,
+// so something is adding milliseconds that is not collecting.
+//
+// The prediction is falsifiable: if the pause is safepoint waiting, shrinking
+// the frame budget shrinks it, because a shorter slice cannot block a collection
+// for as long. If the pause is unchanged across budgets, waiting is not the
+// cause and the remaining explanation is the collection's own mark cost.
+//
+// Uses the harness page directly rather than full baseline runs — one 30s
+// loaded window per budget instead of 75s of interleaved arms.
+func TestV5GCPauseVersusFrameBudget(parseT *testing.T) {
+	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", "..", ".."))
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseWasmPath := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness", "v5harness.wasm")
+	buildV5HarnessWasm(parseT, parseRepoRoot, parseWasmPath)
+	parseServer := serveV5Harness(parseT, parseRepoRoot)
+	defer parseServer.Close()
+
+	parsePW, parseErr := playwright.Run()
+	if parseErr != nil {
+		parseT.Skipf("playwright unavailable: %v", parseErr)
+	}
+	defer parsePW.Stop()
+	parseBrowser, parseErr := parsePW.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer parseBrowser.Close()
+	parsePage, parseErr := parseBrowser.NewPage()
+	if parseErr != nil {
+		parseT.Fatalf("new page: %v", parseErr)
+	}
+
+	parseT.Logf("%-16s %12s %10s %10s", "frameMs", "maxPauseMs", "numGC", "heapMB")
+	for _, parseBudget := range []string{"5", "2", "1", "0.5"} {
+		if _, parseErr := parsePage.Goto(parseServer.URL+"/?frameMs="+parseBudget, playwright.PageGotoOptions{
+			WaitUntil: playwright.WaitUntilStateLoad, Timeout: playwright.Float(180000),
+		}); parseErr != nil {
+			parseT.Fatalf("goto (frameMs=%s): %v", parseBudget, parseErr)
+		}
+		if _, parseErr := parsePage.WaitForFunction(`() => window.__gwcV5Ready === true && !!window.__gwcV5Probe`, nil,
+			playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr != nil {
+			parseT.Fatalf("wait (frameMs=%s): %v", parseBudget, parseErr)
+		}
+
+		parseRaw, parseErr := parsePage.Evaluate(`async () => {
+			for (const n of ['import','reindex','decode']) window.__gwcV5Workloads[n].start();
+			window.__gwcV5Probe();                       // seed the window diff
+			await window.__gwcV5Probes.typing(30000);
+			for (const n of ['import','reindex','decode']) window.__gwcV5Workloads[n].stop();
+			return window.__gwcV5Probe();
+		}`)
+		if parseErr != nil {
+			parseT.Fatalf("run (frameMs=%s): %v", parseBudget, parseErr)
+		}
+		var parseProbe struct {
+			WindowMaxPauseNs uint64 `json:"windowMaxPauseNs"`
+			NumGC            uint32 `json:"numGC"`
+			HeapAllocBytes   uint64 `json:"heapAllocBytes"`
+		}
+		if parseErr := json.Unmarshal([]byte(parseRaw.(string)), &parseProbe); parseErr != nil {
+			parseT.Fatalf("decode (frameMs=%s): %v", parseBudget, parseErr)
+		}
+		parseT.Logf("%-16s %12.2f %10d %10.1f", parseBudget,
+			float64(parseProbe.WindowMaxPauseNs)/1e6, parseProbe.NumGC,
+			float64(parseProbe.HeapAllocBytes)/1e6)
+	}
+}
+
+// TestV5GCPauseAcrossWindowTransitions asks where M7's pause actually lives.
+//
+// Every controlled measurement says the collector is cheap: forced collections
+// cost 0.2-0.5ms warm, and a 30s loaded window reports a 0.00ms maximum at every
+// frame budget from 5ms down to 0.5ms. The full baseline nonetheless reports
+// ~7-8ms. Something the baseline does and a single window does not is producing
+// it.
+//
+// The structural difference is the shape of the run: twelve interleaved windows,
+// with the three workloads STARTED and STOPPED at each boundary and a cooldown
+// between. Starting a workload re-imports 50,000 rows from zero, so each
+// transition is an allocation burst on both threads, and the harness does its
+// own bookkeeping there too.
+//
+// This replicates that shape and nothing else. If the pause appears here, M7 is
+// measuring the harness's window structure rather than the application's
+// steady-state behaviour — which would make it the fourth measurement artifact
+// in this file, and would mean the number to fix is the instrument's.
+func TestV5GCPauseAcrossWindowTransitions(parseT *testing.T) {
+	parseRepoRoot, parseErr := filepath.Abs(filepath.Join("..", "..", ".."))
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseWasmPath := filepath.Join(parseRepoRoot, "examples", "testing", "v5-load-harness", "v5harness.wasm")
+	buildV5HarnessWasm(parseT, parseRepoRoot, parseWasmPath)
+	parseServer := serveV5Harness(parseT, parseRepoRoot)
+	defer parseServer.Close()
+
+	parsePW, parseErr := playwright.Run()
+	if parseErr != nil {
+		parseT.Skipf("playwright unavailable: %v", parseErr)
+	}
+	defer parsePW.Stop()
+	parseBrowser, parseErr := parsePW.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	if parseErr != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr)
+	}
+	defer parseBrowser.Close()
+	parsePage, parseErr := parseBrowser.NewPage()
+	if parseErr != nil {
+		parseT.Fatalf("new page: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseServer.URL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad, Timeout: playwright.Float(180000),
+	}); parseErr != nil {
+		parseT.Fatalf("goto: %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForFunction(`() => window.__gwcV5Ready === true && !!window.__gwcV5Probe`, nil,
+		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(180000)}); parseErr != nil {
+		parseT.Fatalf("wait: %v", parseErr)
+	}
+
+	parseRaw, parseErr := parsePage.Evaluate(`async () => {
+		const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+		const names = ['import','reindex','decode'];
+		const perWindow = [];
+		for (let i = 0; i < 6; i++) {
+			// idle window, matching the baseline's interleave
+			window.__gwcV5Probe();
+			await window.__gwcV5Probes.typing(4000);
+			perWindow.push({ arm: 'idle', probe: window.__gwcV5Probe() });
+			await sleep(1500);
+
+			// loaded window: workloads started and stopped around it
+			for (const n of names) window.__gwcV5Workloads[n].start();
+			window.__gwcV5Probe();
+			await window.__gwcV5Probes.typing(4000);
+			for (const n of names) window.__gwcV5Workloads[n].stop();
+			perWindow.push({ arm: 'loaded', probe: window.__gwcV5Probe() });
+			await sleep(1500);
+		}
+		return JSON.stringify(perWindow);
+	}`)
+	if parseErr != nil {
+		parseT.Fatalf("run windows: %v", parseErr)
+	}
+
+	var parseWindows []struct {
+		Arm   string `json:"arm"`
+		Probe string `json:"probe"`
+	}
+	if parseErr := json.Unmarshal([]byte(parseRaw.(string)), &parseWindows); parseErr != nil {
+		parseT.Fatalf("decode: %v", parseErr)
+	}
+
+	parseWorstIdle, parseWorstLoaded := 0.0, 0.0
+	for parseIndex, parseWindow := range parseWindows {
+		var parseProbe struct {
+			WindowMaxPauseNs uint64 `json:"windowMaxPauseNs"`
+			NumGC            uint32 `json:"numGC"`
+		}
+		if parseErr := json.Unmarshal([]byte(parseWindow.Probe), &parseProbe); parseErr != nil {
+			parseT.Fatalf("decode probe %d: %v", parseIndex, parseErr)
+		}
+		parseMs := float64(parseProbe.WindowMaxPauseNs) / 1e6
+		parseT.Logf("  w%-2d %-7s maxPause=%6.2fms numGC=%d", parseIndex, parseWindow.Arm, parseMs, parseProbe.NumGC)
+		if parseWindow.Arm == "loaded" && parseMs > parseWorstLoaded {
+			parseWorstLoaded = parseMs
+		}
+		if parseWindow.Arm == "idle" && parseMs > parseWorstIdle {
+			parseWorstIdle = parseMs
+		}
+	}
+	parseT.Logf("worst pause: idle %.2fms, loaded %.2fms (M7 budget 3.00ms, baseline reports ~7-8ms)",
+		parseWorstIdle, parseWorstLoaded)
 }

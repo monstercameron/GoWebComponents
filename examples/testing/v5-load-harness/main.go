@@ -459,6 +459,31 @@ type SchedulingChoice struct {
 }
 
 // gcPercentOverride reads a GOGC override from localStorage, or 0 for none.
+// gcMemoryLimitOverride reads a soft memory limit from localStorage, or 0.
+func gcMemoryLimitOverride() int64 {
+	parseStorage := js.Global().Get("localStorage")
+	if !parseStorage.Truthy() {
+		return 0
+	}
+	parseValue := parseStorage.Call("getItem", "gwc:gcmem")
+	if !parseValue.Truthy() {
+		return 0
+	}
+	parseLimit, parseErr := strconv.ParseInt(parseValue.String(), 10, 64)
+	if parseErr != nil || parseLimit <= 0 {
+		return 0
+	}
+	return parseLimit
+}
+
+// gcPercentOverrideOr returns the localStorage GOGC override or a fallback.
+func gcPercentOverrideOr(parseFallback int) int {
+	if parseOverride := gcPercentOverride(); parseOverride > 0 {
+		return parseOverride
+	}
+	return parseFallback
+}
+
 func gcPercentOverride() int {
 	parseStorage := js.Global().Get("localStorage")
 	if !parseStorage.Truthy() {
@@ -485,7 +510,18 @@ func main() {
 	// against GOGC empirically. Whether a pause budget is missed because the
 	// pacing is wrong or because Go/wasm has a floor under it is not answerable
 	// from one setting, and guessing which it is picks the wrong fix.
-	if parseOverride := gcPercentOverride(); parseOverride > 0 {
+	//
+	// localStorage["gwc:gcmem"] sets a soft memory limit in bytes. GOGC alone
+	// cannot make collections frequent here: the heap is under a megabyte, so a
+	// percentage-of-live target is reached rarely at any setting, and every
+	// collection therefore follows a long gap. A gap is what makes one
+	// expensive — forced collections cost 0.2-0.5ms warm and 6.3ms cold. A limit
+	// triggers on absolute size instead, which is the only knob that can keep
+	// the collector warm on a heap this small.
+	if parseLimit := gcMemoryLimitOverride(); parseLimit > 0 {
+		debug.SetGCPercent(gcPercentOverrideOr(40))
+		debug.SetMemoryLimit(parseLimit)
+	} else if parseOverride := gcPercentOverride(); parseOverride > 0 {
 		debug.SetGCPercent(parseOverride)
 	} else if _, _, parseErr := gcpacing.Apply(gcpacing.ProfileResponsive, 0); parseErr != nil {
 		js.Global().Get("console").Call("warn", "gc pacing not applied: "+parseErr.Error())
