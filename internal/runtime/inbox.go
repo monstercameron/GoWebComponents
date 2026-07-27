@@ -195,6 +195,31 @@ func (parseRt *Runtime) DrainAsyncInbox() {
 		return
 	}
 
+	// Not while a pass is building the tree.
+	//
+	// This is the contract PostAsync already documents — "the write is queued and
+	// applied at the next drain instead of landing at an arbitrary point relative
+	// to the in-flight tree" — and it was not being kept: a drain scheduled for
+	// this frame runs whether or not a render is halfway through one.
+	//
+	// The cost of landing mid-pass is not a torn tree; it is a LOST UPDATE. A
+	// pass already past a fiber cannot answer a mark on it, and it then consumes
+	// that mark, because clearing a fiber's dirty flags clears its alternate's
+	// too and the pair is what the mark landed on. The state ends up holding a
+	// value the screen never shows, with nothing scheduled to correct it —
+	// measured as an autosave indicator stuck on "saving" over a note the server
+	// had already stored, and as a loading skeleton that never resolved for a
+	// request that succeeded. The window is one frame, which is exactly what an
+	// RPC to a server on the same machine fits inside.
+	//
+	// Deferring is safe from starvation: `inbox.scheduled` stays true, so no
+	// other drain is booked while this one keeps re-booking itself, and a pass
+	// always ends.
+	if parseRt.wipRoot != nil && parseRt.scheduler != nil {
+		parseRt.scheduler.SetTimeout(parseRt.DrainAsyncInbox, 0)
+		return
+	}
+
 	parseRt.inbox.mu.Lock()
 	parseBatch := parseRt.inbox.entries
 	// Hand the previous drain's buffer back rather than leaving nil. Producers
