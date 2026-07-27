@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -713,5 +714,63 @@ func TestRuntimeLimitsAreNotSilentlyIgnored(parseT *testing.T) {
 	}
 	if len(parseRt.profiling.events) > 8 {
 		parseT.Errorf("ring holds %d events past a limit of 8", len(parseRt.profiling.events))
+	}
+}
+
+// Duplicate detection must survive the linear-scan/map promotion boundary.
+//
+// reportDuplicateKeys scans a stack array for short sibling lists and promotes
+// to a map past 32 keys (the map it used to allocate unconditionally was 63% of
+// all allocations in the keyed reconcile benchmark). Promotion is the seam where
+// a rewrite like that silently loses coverage: keys seen BEFORE the switch have
+// to be carried into the map, or a list whose duplicate straddles the boundary
+// reports nothing. These two cases pin both sides of it.
+func TestDuplicateSiblingKeysAreReportedAcrossTheMapPromotionBoundary(parseT *testing.T) {
+	if !hookThreadingGuardEnabled {
+		parseT.Skip("dev-only diagnostic; stripped from production builds")
+	}
+	for _, parseCase := range []struct {
+		name         string
+		duplicateOf  int
+		shouldReport bool
+	}{
+		// The duplicate's original was seen during the LINEAR scan, but the
+		// repeat only arrives after the map has taken over. This is the case a
+		// naive promotion loses.
+		{name: "duplicate straddles the boundary", duplicateOf: 3, shouldReport: true},
+		// Both occurrences land after promotion — the pure map path.
+		{name: "duplicate entirely past the boundary", duplicateOf: 40, shouldReport: true},
+		// A long list with no duplicates must stay silent, or promotion has
+		// introduced a false positive.
+		{name: "no duplicate in a long list", duplicateOf: -1, shouldReport: false},
+	} {
+		parseT.Run(parseCase.name, func(parseT *testing.T) {
+			duplicateKeyWarned.Store(false)
+			defer duplicateKeyWarned.Store(false)
+			ClearDiagnostics()
+			defer ClearDiagnostics()
+
+			parseChildren := make([]any, 0, 64)
+			for parseIndex := range 60 {
+				parseKey := strconv.Itoa(parseIndex)
+				if parseIndex == 50 && parseCase.duplicateOf >= 0 {
+					parseKey = strconv.Itoa(parseCase.duplicateOf)
+				}
+				parseChildren = append(parseChildren, CreateElement("li", map[string]any{"key": parseKey}))
+			}
+
+			parseRt := &Runtime{}
+			parseRt.reconcileChildren(&Fiber{typeOf: "ul"}, parseChildren)
+
+			parseFound := false
+			for _, parseDiagnostic := range GetDiagnostics() {
+				if strings.Contains(parseDiagnostic.Message, "share the key") {
+					parseFound = true
+				}
+			}
+			if parseFound != parseCase.shouldReport {
+				parseT.Errorf("duplicate reported = %v, want %v", parseFound, parseCase.shouldReport)
+			}
+		})
 	}
 }

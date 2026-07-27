@@ -90,6 +90,17 @@
 // RenderToStream turns those suspended async boundaries into fallback-first
 // shell markup and later boundary replacement chunks, while RenderToString keeps
 // the synchronous all-at-once HTML path.
+//
+// SSR atom scope: on the server, EACH render is a fresh world. RenderToString,
+// RenderToStringObserved, RenderToStream, and RenderToStreamObserved each mint
+// their own atom registry for the duration of that render, so state.UseAtom's
+// initial value wins on every request, a write during a render is visible only to
+// the rest of THAT render, and nothing a request writes can appear in another
+// request's HTML. Request state is supplied up front with
+// RenderToStringWithAtoms (or SSRStreamOptions.InitialAtoms), where a seeded id
+// beats the component's initial value. In the BROWSER the opposite holds and is
+// intended: an atom is global to the page and outlives every render, which is
+// what makes it shared state rather than component state.
 // ErrorBoundary is the sibling recovery primitive for unexpected panics during
 // render, effect, cleanup, and event-handler execution. It renders a fallback
 // subtree instead of letting a child failure tear down the entire app tree.

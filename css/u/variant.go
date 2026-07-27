@@ -27,8 +27,36 @@ func PeerFocus(rules ...css.Rule) []css.Rule {
 	return css.DefineVariant(".peer:focus ~ &")(rules...)
 }
 
-// Dark is the prefers-color-scheme:dark variant.
-func Dark(rules ...css.Rule) []css.Rule { return css.Media(css.Dark, rules...) }
+// Dark / Light are the prefers-color-scheme variants.
+func Dark(rules ...css.Rule) []css.Rule  { return css.Media(css.Dark, rules...) }
+func Light(rules ...css.Rule) []css.Rule { return css.Media(css.Light, rules...) }
+
+// The accessibility preference variants. They exist as named functions for the same
+// reason the css.MediaQuery constants do: a misspelled RawMedia query compiles, emits,
+// and never matches, so the accommodation silently does not exist. A misspelled
+// function name does not compile.
+//
+//	css.New(u.Transition(u.PropColors, u.Ms(120), u.Ease),
+//	        u.ReducedMotion(u.TransitionDuration(u.Ms(0)))...)
+func ReducedMotion(rules ...css.Rule) []css.Rule {
+	return css.Media(css.ReducedMotion, rules...)
+}
+
+// MotionOK is the inverse of ReducedMotion — gate decorative motion ON with this
+// rather than gating it off with ReducedMotion, so the no-preference default is calm.
+func MotionOK(rules ...css.Rule) []css.Rule { return css.Media(css.MotionOK, rules...) }
+
+// ContrastMore / ContrastLess are the prefers-contrast variants.
+func ContrastMore(rules ...css.Rule) []css.Rule { return css.Media(css.ContrastMore, rules...) }
+func ContrastLess(rules ...css.Rule) []css.Rule { return css.Media(css.ContrastLess, rules...) }
+
+// ForcedColors is the Windows-High-Contrast / forced-colors variant. Inside it the UA
+// owns the palette, so the useful work is restoring structure (borders on boxes that
+// were distinguished only by background color).
+func ForcedColors(rules ...css.Rule) []css.Rule { return css.Media(css.ForcedColors, rules...) }
+
+// Print scopes rules to paged output.
+func Print(rules ...css.Rule) []css.Rule { return css.Media(css.Print, rules...) }
 
 // Responsive variants resolve their breakpoint min-width from the active theme.
 func Sm(rules ...css.Rule) []css.Rule  { return breakpoint("sm", rules) }

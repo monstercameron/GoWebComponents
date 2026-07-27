@@ -349,7 +349,26 @@ func (parseRt *Runtime) buildUpdatedFiber(parseWipFiber *Fiber, parseOldFiber *F
 	parseElemProps := getElementFiberProps(parseElem)
 	parseNewFiber := acquireWorkInProgress(parseOldFiber)
 	*parseNewFiber = Fiber{
-		typeOf:              parseOldFiber.typeOf,
+		// Adopt the CURRENT element's type, not the old fiber's.
+		//
+		// Every caller of buildUpdatedFiber has already proved the two types are
+		// the same COMPONENT (sameFiberType/isSameType: equal tag string, or
+		// equal ComponentType.IdentityKey, or the identical func value), so for
+		// tags and plain funcs this is the same value either way. It is not the
+		// same value for a *ComponentType: two handles can share an
+		// IdentityKey — "this is still MyForm, keep the fiber and its hooks" —
+		// while carrying DIFFERENT implementations, because a closure
+		// re-created this render captures different variables than the one that
+		// mounted. The element is the only thing that knows which closure
+		// belongs in this slot; the old fiber knows only which one used to.
+		//
+		// Keeping parseOldFiber.typeOf here made component identity depend on a
+		// handle being mutated in place (ui.getComponentHandle used to overwrite
+		// one shared per-name handle), and THAT is what let sibling components
+		// built from one func literal render each other's captured props. With
+		// per-closure handles the fiber has to pick its implementation up from
+		// the element, or an inline component's captures would freeze at mount.
+		typeOf:              parseElem.Type,
 		props:               parseElemProps,
 		children:            getElementChildren(parseElem),
 		getHostAttrs:        parseElem.getHostAttrs,
@@ -530,6 +549,23 @@ func reportDuplicateKeys(parseParent *Fiber, parseElements []any) {
 	if !hookThreadingGuardEnabled || duplicateKeyWarned.Load() {
 		return
 	}
+	// Small sibling lists scan a stack array instead of building a map.
+	//
+	// This check runs on EVERY keyed reconcile, and the map it used to allocate
+	// unconditionally measured 63% of all allocations in
+	// BenchmarkReconcileChildrenKeyedStableList16 — making the keyed path 4x the
+	// cost of the unkeyed one (6315ns/6 allocs vs 1573ns/0 allocs) in exactly
+	// the shape every real list has. It is compiled out of production builds, so
+	// this never reached shipped code, but it is what developers profile against
+	// and it made dev-mode measurements of keyed lists misleading.
+	//
+	// A linear scan is also genuinely faster at these sizes: comparing a handful
+	// of interface values beats hashing them, and duplicate-key bugs are found
+	// just as well either way. The map is kept for long lists so the quadratic
+	// scan cannot become its own problem.
+	const parseLinearScanLimit = 32
+	var parseSeenSmall [parseLinearScanLimit]any
+	parseSmallCount := 0
 	var parseSeen map[any]struct{}
 	for _, parseElement := range parseElements {
 		parseElem, parseOk := parseElement.(*Element)
@@ -540,21 +576,51 @@ func reportDuplicateKeys(parseParent *Fiber, parseElements []any) {
 		if !hasKey || !isComparable {
 			continue
 		}
+		if parseSeen == nil && parseSmallCount < parseLinearScanLimit {
+			parseIsDuplicate := false
+			for parseIndex := range parseSmallCount {
+				if parseSeenSmall[parseIndex] == parseKey {
+					parseIsDuplicate = true
+					break
+				}
+			}
+			if !parseIsDuplicate {
+				parseSeenSmall[parseSmallCount] = parseKey
+				parseSmallCount++
+				continue
+			}
+			reportDuplicateKeyOnce(parseParent, parseKey)
+			return
+		}
 		if parseSeen == nil {
+			// Crossed the linear-scan limit: promote what has been seen so far
+			// into a map rather than restarting, so a long list still gets the
+			// check without rescanning.
 			parseSeen = make(map[any]struct{}, len(parseElements))
+			for parseIndex := range parseSmallCount {
+				parseSeen[parseSeenSmall[parseIndex]] = struct{}{}
+			}
 		}
 		if _, isDuplicate := parseSeen[parseKey]; isDuplicate {
-			if duplicateKeyWarned.CompareAndSwap(false, true) {
-				_, parseParentName := describeFiber(parseParent)
-				ReportDiagnostic("runtime", DiagnosticWarning,
-					fmt.Sprintf("two sibling elements under %s share the key %v; keys must be unique among siblings, "+
-						"or hook state and DOM identity will follow list POSITION rather than the logical item across reorders",
-						parseParentName, parseKey))
-			}
+			reportDuplicateKeyOnce(parseParent, parseKey)
 			return
 		}
 		parseSeen[parseKey] = struct{}{}
 	}
+}
+
+// reportDuplicateKeyOnce emits the duplicate-sibling-key warning at most once per
+// process. Extracted so the linear-scan and map paths in reportDuplicateKeys
+// cannot drift into reporting the same defect two different ways.
+func reportDuplicateKeyOnce(parseParent *Fiber, parseKey any) {
+	if !duplicateKeyWarned.CompareAndSwap(false, true) {
+		return
+	}
+	_, parseParentName := describeFiber(parseParent)
+	ReportDiagnostic("runtime", DiagnosticWarning,
+		fmt.Sprintf("two sibling elements under %s share the key %v; keys must be unique among siblings, "+
+			"or hook state and DOM identity will follow list POSITION rather than the logical item across reorders",
+			parseParentName, parseKey))
 }
 
 // tryReconcileKeyedChildrenInOrder fast-paths keyed lists that kept the same sibling order.

@@ -160,14 +160,20 @@ type Runtime struct {
 	transitionOwners   map[uint64]int
 	pendingTransitions int
 	transitionMu       sync.Mutex
-	strictMode                 StrictModeOptions
-	limits                     RuntimeLimits
-	schedulerState             runtimeSchedulerState
-	replay                     runtimeReplayState
-	agentStateVersion          atomic.Uint64
+	strictMode         StrictModeOptions
+	limits             RuntimeLimits
+	schedulerState     runtimeSchedulerState
+	replay             runtimeReplayState
+	agentStateVersion  atomic.Uint64
 
 	// Global state management
 	atomRegistry *AtomRegistry
+	// ssrRequestScope marks a throwaway runtime that exists only to own ONE
+	// server render's atom registry (see ssr_atom_scope.go). It is how an atom
+	// hook tells "I am inside a server render, use this request's registry" from
+	// "I am a browser/reconciler render, use the process-global one". Never set on
+	// a runtime that renders to a DOM.
+	ssrRequestScope bool
 
 	// Hot reload restore queue for component-local state snapshots.
 	pendingHotReloadComponents []HotReloadComponentSnapshot

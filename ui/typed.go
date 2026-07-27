@@ -21,6 +21,15 @@ import (
 // cache), same reconciliation, hooks work unchanged. Mixing is safe — plain
 // CreateElement calls for the same function value keep the static renderer
 // (the implementation-identity guard skips re-registration).
+//
+// PASS A STABLE FUNCTION VALUE — a declared func, resolved once at package
+// level, as shown above. Typed owns its handle for the process lifetime and
+// installs a renderer on it, which is the deliberate form of the swap that
+// getComponentHandle refuses to do accidentally (see the identity discussion in
+// component_handle_shared.go). Calling Typed with a freshly built closure — or
+// calling it per render — registers a separate handle each time: correct output,
+// but it re-does the registration work Typed exists to do once, and the
+// no-reflection renderer stops being shared.
 func Typed[P any](parseComponent func(P) Node) func(P) Node {
 	parseHandle := getComponentHandle(parseComponent)
 	parseHandle.SetImplementationRenderer(parseComponent, func(parseImplementation any, parseRawProps map[string]any) *runtime.Element {

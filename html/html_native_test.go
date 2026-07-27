@@ -450,9 +450,9 @@ func TestPropOptionValueEmptyStringEmitsKey(parseT *testing.T) {
 	}
 }
 
-// TestPropOptionTabIndexZeroEmitsKey verifies that TabIndex(0) routes through
-// Raw so that toRuntimeProps emits the "tabIndex" key even when the value is
-// zero (#75 regression guard).
+// TestPropOptionTabIndexZeroEmitsKey verifies that TabIndex(0) emits the "tabIndex"
+// key even though the value is zero (#75 regression guard). It now routes through the
+// typed Props.TabIndex field via the TabIndexZero sentinel rather than through Raw.
 func TestPropOptionTabIndexZeroEmitsKey(parseT *testing.T) {
 	parseEncoded := toRuntimeProps(PropsOf(TabIndex(0)))
 	if _, parseOk := parseEncoded["tabIndex"]; !parseOk {
@@ -460,6 +460,66 @@ func TestPropOptionTabIndexZeroEmitsKey(parseT *testing.T) {
 	}
 	if parseEncoded["tabIndex"] != 0 {
 		parseT.Fatalf("expected tabIndex==0, got %#v", parseEncoded["tabIndex"])
+	}
+	// The sentinel must never leak to the DOM as its raw magic number.
+	if parseEncoded["tabIndex"] == TabIndexZero {
+		parseT.Fatalf("TabIndexZero sentinel leaked into the emitted props: %#v", parseEncoded)
+	}
+}
+
+// TestPropsTabIndexZeroSentinel is the struct-literal half of the same fix. A
+// scrollable region needs tabindex="0" to be keyboard-reachable at all, and a plain
+// `TabIndex: 0` is indistinguishable from an unset int field — so TabIndexZero is the
+// way to say it, and the existing -1 / positive call sites must be untouched.
+func TestPropsTabIndexZeroSentinel(parseT *testing.T) {
+	parseCases := []struct {
+		name  string
+		props Props
+		want  any // nil = attribute must be absent
+	}{
+		{"unset stays unset", Props{}, nil},
+		{"literal zero stays unset", Props{TabIndex: 0}, nil},
+		{"sentinel emits zero", Props{TabIndex: TabIndexZero}, 0},
+		{"script-focusable is unchanged", Props{TabIndex: -1}, -1},
+		{"explicit order is unchanged", Props{TabIndex: 5}, 5},
+		{"large positive is unchanged", Props{TabIndex: 32767}, 32767},
+	}
+	for _, parseCase := range parseCases {
+		parseEncoded := toRuntimeProps(parseCase.props)
+		parseGot, parseOk := parseEncoded["tabIndex"]
+		if parseCase.want == nil {
+			if parseOk {
+				parseT.Errorf("%s: expected no tabIndex key, got %#v", parseCase.name, parseGot)
+			}
+			continue
+		}
+		if !parseOk {
+			parseT.Errorf("%s: expected tabIndex key, got %#v", parseCase.name, parseEncoded)
+			continue
+		}
+		if parseGot != parseCase.want {
+			parseT.Errorf("%s: expected tabIndex==%v, got %#v", parseCase.name, parseCase.want, parseGot)
+		}
+	}
+}
+
+// TestTabIndexZeroRendersAttribute proves the sentinel survives the whole path to
+// serialized markup — the accessibility outcome, not just the props map. A scroll
+// container that renders no tabindex cannot be reached by keyboard.
+func TestTabIndexZeroRendersAttribute(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(Div(Props{TabIndex: TabIndexZero, Role: "region"}, Text("scrollable")))
+	if parseErr != nil {
+		parseT.Fatalf("render failed: %v", parseErr)
+	}
+	if !strings.Contains(strings.ToLower(parseMarkup), `tabindex="0"`) {
+		parseT.Fatalf("expected a tabindex=0 attribute, got %q", parseMarkup)
+	}
+	parseUnset, parseErr2 := ui.RenderToString(Div(Props{Role: "region"}, Text("scrollable")))
+	if parseErr2 != nil {
+		parseT.Fatalf("render failed: %v", parseErr2)
+	}
+	if strings.Contains(strings.ToLower(parseUnset), "tabindex") {
+		parseT.Fatalf("an unset TabIndex must emit nothing, got %q", parseUnset)
 	}
 }
 

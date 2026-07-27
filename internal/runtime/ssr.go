@@ -39,6 +39,18 @@ func isValidSSRAttrName(parseName string) bool {
 // fragments, and simple function components that return *Element. Hydration and
 // browser bootstrap are intentionally out of scope here.
 func RenderToString(parseElement *Element) (parseMarkup string, parseErr error) {
+	return renderToStringScoped(parseElement, nil)
+}
+
+// renderToStringScoped is the one buffered-SSR body. parseInitialAtoms seeds this
+// render's atom scope before the walk starts.
+//
+// The atom scope is resolved per call: a top-level render gets a FRESH one (that
+// is what makes each request a fresh world) and a render nested inside another
+// server render inherits the enclosing request's. See ssr_atom_scope.go. Do not
+// hoist the scope to a package var "to avoid the allocation" — that is precisely
+// the cross-request state leak this indirection exists to close.
+func renderToStringScoped(parseElement *Element, parseInitialAtoms map[string]any) (parseMarkup string, parseErr error) {
 	if parseElement == nil {
 		return "", nil
 	}
@@ -51,8 +63,9 @@ func RenderToString(parseElement *Element) (parseMarkup string, parseErr error) 
 		}
 	}()
 
+	parseCtx := withSSRAtomScope(ssrHookOwnerContext(nil), ssrAtomScopeForRender(parseInitialAtoms))
 	var parseBuilder strings.Builder
-	if parseErr2 := renderElementToString(&parseBuilder, parseElement, ssrHookOwnerContext(nil)); parseErr2 != nil {
+	if parseErr2 := renderElementToString(&parseBuilder, parseElement, parseCtx); parseErr2 != nil {
 		return "", parseErr2
 	}
 	return parseBuilder.String(), nil
@@ -484,8 +497,21 @@ func renderChildrenToString(parseBuilder *strings.Builder, parseChildren []any, 
 // store (GoUseState returns its initial value; GoUseRef/GoUseMemo compute;
 // GoUseEffect queues an effect that is never committed, so it never runs on the
 // server). The previous current fiber is restored afterwards.
+//
+// It also stamps this render's atom scope onto the fiber as ownerRuntime. That is
+// load-bearing, not decoration: it is the ONLY thing that lets an atom hook (and
+// anything else resolving through ResolveRuntime — GlobalAtom, derived atoms,
+// snapshots) find THIS request's registry instead of the process-global one. The
+// transient fiber is a per-render object, so hanging a per-render scope on it is
+// exactly the right lifetime. Dropping this line silently restores the
+// cross-request atom leak; the SSR scope tests are what catch that.
 func withSSRHookFiber(parseType any, parseProps map[string]any, parseCtx map[int64]any, parseRender func() *Element) *Element {
-	parseFiber := &Fiber{typeOf: parseType, props: parseProps, contextValues: parseCtx}
+	parseFiber := &Fiber{
+		typeOf:        parseType,
+		props:         parseProps,
+		contextValues: parseCtx,
+		ownerRuntime:  ssrAtomScopeFromContext(parseCtx),
+	}
 	parsePrev := GetCurrentFiber()
 	parsePrevOwner := currentFiberOwnerGoroutineID
 	parseOwner, _ := parseCtx[ssrHookOwnerContextKey].(uint64)

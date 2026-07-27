@@ -28,6 +28,17 @@ type (
 	NthArg    = css.NthArg
 	Easing    = css.Easing
 	TransProp = css.TransitionProperty
+
+	Track       = css.Track
+	Placement   = css.GridPlacement
+	Image       = css.Image
+	ColorStop   = css.ColorStop
+	FontStack   = css.FontStack
+	LineStyle   = css.LineStyle
+	ShadowToken = css.ShadowToken
+	BgSizeValue = css.BgSizeValue
+	Shape       = css.GradientShape
+	Direction   = css.GradientDirection
 )
 
 // --- entry points & registry --------------------------------------------------
@@ -74,6 +85,12 @@ var (
 	MaxWidth  = css.MaxWidth
 	MinHeight = css.MinHeight
 	MaxHeight = css.MaxHeight
+
+	Ch       = css.Ch       // character-width length: Ch(68) -> "68ch"
+	Clamp    = css.Clamp    // clamp(min, preferred, max)
+	MinLen   = css.MinLen   // min(a, b, …)
+	MaxLen   = css.MaxLen   // max(a, b, …)
+	ColorMix = css.ColorMix // color-mix(in oklab, a pct%, b)
 )
 
 const (
@@ -149,6 +166,46 @@ var (
 	UserSelect         = css.UserSelect
 	TextTransform      = css.TextTransform
 	FontVariantNumeric = css.FontVariantNumeric
+
+	// Box & scrolling.
+	Overflow            = css.Overflow
+	OverflowX           = css.OverflowX
+	OverflowY           = css.OverflowY
+	OverscrollBehavior  = css.OverscrollBehavior
+	OverscrollBehaviorX = css.OverscrollBehaviorX
+	OverscrollBehaviorY = css.OverscrollBehaviorY
+	PointerEvents       = css.PointerEvents
+	Appearance          = css.Appearance
+	ColorScheme         = css.ColorScheme
+
+	// Flex / grid item alignment.
+	FlexWrap     = css.FlexWrap
+	AlignSelf    = css.AlignSelf
+	JustifySelf  = css.JustifySelf
+	AlignContent = css.AlignContent
+	JustifyItems = css.JustifyItems
+
+	// Borders & tables.
+	BorderStyle    = css.BorderStyle
+	BorderCollapse = css.BorderCollapse
+	TableLayout    = css.TableLayout
+
+	// Typography.
+	TextAlign            = css.TextAlign
+	VerticalAlign        = css.VerticalAlign
+	WhiteSpace           = css.WhiteSpace
+	TextWrap             = css.TextWrap
+	OverflowWrap         = css.OverflowWrap
+	TextDecoration       = css.TextDecoration
+	TextDecorationStyle  = css.TextDecorationStyle
+	FontStyle            = css.FontStyle
+	FontVariantLigatures = css.FontVariantLigatures
+
+	// Backgrounds.
+	BgRepeat   = css.BgRepeat
+	BgClip     = css.BgClip
+	BgOrigin   = css.BgOrigin
+	MaskRepeat = css.MaskRepeat
 )
 
 // --- raw property constructors (no scale-flavored u equivalent) ---------------
@@ -169,6 +226,121 @@ var (
 	LineHeight    = css.LineHeight
 	LineHeightLen = css.LineHeightLen
 	CubicBezier   = css.CubicBezier
+
+	TransitionProps     = css.TransitionProps
+	TransitionLonghands = css.TransitionLonghands
+	TransitionDuration  = css.TransitionDuration
+	RawShadow           = css.RawShadow
+	Shadows             = css.Shadows
+	ShadowOf            = css.ShadowOf
+	ShadowInset         = css.ShadowInset
+	OutlineStyle        = css.OutlineStyle
+
+	// Side-specific borders and corner radii. (u.Border(c) stays the 1px-solid
+	// scale-flavored form; these are the Layer-1 width+color constructors.)
+	BorderTop     = css.BorderTop
+	BorderRight   = css.BorderRight
+	BorderBottom  = css.BorderBottom
+	BorderLeft    = css.BorderLeft
+	BorderX       = css.BorderX
+	BorderY       = css.BorderY
+	BorderColor   = css.BorderColor
+	BorderWidth   = css.BorderWidth
+	BorderSpacing = css.BorderSpacing
+	// RoundedTopV/… carry the V suffix because u.Rounded already takes a theme
+	// Radius token; these take a Layer-1 Length, matching the GapV convention.
+	RoundedTopV    = css.RoundedTop
+	RoundedBottomV = css.RoundedBottom
+	RoundedLeftV   = css.RoundedLeft
+	RoundedRightV  = css.RoundedRight
+
+	// Inset offsets & stacking.
+	Top              = css.Top
+	Right            = css.Right
+	Bottom           = css.Bottom
+	Left             = css.Left
+	Inset            = css.Inset
+	InsetX           = css.InsetX
+	InsetY           = css.InsetY
+	ZIndex           = css.ZIndex
+	ScrollPadding    = css.ScrollPadding
+	ScrollPaddingTop = css.ScrollPaddingTop
+
+	// Flex item longhands. (u.Flex is Display.Flex, so the css.Flex shorthand is
+	// re-exported as FlexOf to keep both reachable.)
+	FlexOf     = css.Flex
+	FlexGrow   = css.FlexGrow
+	FlexShrink = css.FlexShrink
+	FlexBasis  = css.FlexBasis
+	Order      = css.Order
+	RowGap     = css.RowGap
+	ColumnGap  = css.ColumnGap
+
+	// Grid.
+	GridCols        = css.GridCols
+	GridRows        = css.GridRows
+	GridAutoRows    = css.GridAutoRows
+	GridAutoColumns = css.GridAutoColumns
+	GridAreas       = css.GridAreas
+	GridArea        = css.GridArea
+	GridColumn      = css.GridColumn
+	GridRow         = css.GridRow
+	Fr              = css.Fr
+	TrackLen        = css.TrackLen
+	MinMax          = css.MinMax
+	FitContent      = css.FitContent
+	Repeat          = css.Repeat
+	RepeatFit       = css.RepeatFit
+	RepeatFill      = css.RepeatFill
+	GridLineAt      = css.GridLineAt
+	GridSpan        = css.GridSpan
+	GridLineName    = css.GridLineName
+	GridRange       = css.GridRange
+
+	// Backgrounds & gradients.
+	BgImage                 = css.BgImage
+	BgSize                  = css.BgSize
+	BgSizeXY                = css.BgSizeXY
+	BgPosition              = css.BgPosition
+	LinearGradient          = css.LinearGradient
+	LinearGradientTo        = css.LinearGradientTo
+	RepeatingLinearGradient = css.RepeatingLinearGradient
+	RadialGradient          = css.RadialGradient
+	RepeatingRadialGradient = css.RepeatingRadialGradient
+	ConicGradient           = css.ConicGradient
+	CircleAt                = css.CircleAt
+	EllipseAt               = css.EllipseAt
+	CircleSizedAt           = css.CircleSizedAt
+	URLImage                = css.URLImage
+	RawImage                = css.RawImage
+	Stop                    = css.Stop
+	StopAt                  = css.StopAt
+	StopSpan                = css.StopSpan
+	ColorHint               = css.ColorHint
+	MaskImage               = css.MaskImage
+	MaskSize                = css.MaskSize
+
+	// Typography constructors.
+	Font                    = css.Font
+	FontStackOf             = css.FontStackOf
+	VarFontStack            = css.VarFontStack
+	RawFontStack            = css.RawFontStack
+	TextDecorationThickness = css.TextDecorationThickness
+	TextUnderlineOffset     = css.TextUnderlineOffset
+	TextDecorationColor     = css.TextDecorationColor
+	TextOverflowEllipsis    = css.TextOverflowEllipsis
+	TextIndent              = css.TextIndent
+	WordSpacing             = css.WordSpacing
+
+	// Custom-property declarations (the typed replacement for Raw("--x", …)).
+	Custom          = css.Custom
+	CustomColor     = css.CustomColor
+	CustomLength    = css.CustomLength
+	CustomNumber    = css.CustomNumber
+	CustomDuration  = css.CustomDuration
+	CustomAngle     = css.CustomAngle
+	CustomFontStack = css.CustomFontStack
+	CustomShadow    = css.CustomShadow
 )
 
 const (
@@ -190,6 +362,37 @@ const (
 	EaseIn    = css.EaseIn
 	EaseOut   = css.EaseOut
 	EaseInOut = css.EaseInOut
+
+	LineSolid  = css.LineSolid
+	LineDashed = css.LineDashed
+	LineDotted = css.LineDotted
+	LineDouble = css.LineDouble
+	LineNone   = css.LineNone
+	LineHidden = css.LineHidden
+
+	TrackAuto       = css.TrackAuto
+	TrackMinContent = css.TrackMinContent
+	TrackMaxContent = css.TrackMaxContent
+	GridAuto        = css.GridAuto
+
+	NoImage       = css.NoImage
+	Circle        = css.Circle
+	Ellipse       = css.Ellipse
+	ToTop         = css.ToTop
+	ToBottom      = css.ToBottom
+	ToLeft        = css.ToLeft
+	ToRight       = css.ToRight
+	ToTopLeft     = css.ToTopLeft
+	ToTopRight    = css.ToTopRight
+	ToBottomLeft  = css.ToBottomLeft
+	ToBottomRight = css.ToBottomRight
+	BgCover       = css.BgCover
+	BgContain     = css.BgContain
+	BgAuto        = css.BgAuto
+
+	SansStack  = css.SansStack
+	SerifStack = css.SerifStack
+	MonoStack  = css.MonoStack
 )
 
 // --- the rest of the color palette (u already exports a curated subset) -------

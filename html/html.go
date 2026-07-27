@@ -56,9 +56,44 @@ type Props struct {
 
 	Rows int
 	Cols int
-	// TabIndex of 0 is silently omitted by toRuntimeProps; use html.TabIndex(0)
-	// (the PropOption) or Raw["tabIndex"]=0 to make tabindex=0 explicit.
-	TabIndex  int
+	// TabIndex sets the tabindex attribute. A literal 0 is indistinguishable from
+	// "field not set" (it is Go's zero value for an int), so `TabIndex: 0` emits
+	// NOTHING — set TabIndexZero when you mean tabindex="0":
+	//
+	//	html.Props{TabIndex: -1}                 // focusable by script only
+	//	html.Props{TabIndex: html.TabIndexZero}  // tabindex="0" — in the tab order
+	//
+	// Why the sentinel exists at all: tabindex="0" is not a cosmetic value, it is the
+	// one that puts an element into the natural tab order at its DOM position, and it
+	// is the ONLY way to make a non-interactive element keyboard-reachable. A scroll
+	// container (Overflow.Auto) that cannot be focused cannot be scrolled by keyboard
+	// at all — the content is simply unreachable for anyone not using a mouse — and a
+	// roving-tabindex composite widget needs tabindex="0" on its active item and -1 on
+	// the rest. Making that inexpressible in the typed API pushed every such call site
+	// into Raw["tabIndex"], where nothing is type-checked.
+	//
+	// The alternatives were a *int (which would have broken every existing
+	// `TabIndex: -1` and `TabIndex: 5` literal) and a second bool field (which lets a
+	// caller set two contradictory fields). A sentinel keeps the field an int, keeps
+	// every existing call site compiling and behaving identically, and cannot be set
+	// by accident. html.TabIndex(0) (the PropOption) routes here too.
+	TabIndex int
+	// The remaining int fields share the same "0 == unset" encoding, and it was
+	// audited alongside TabIndex. None of them needs a sentinel:
+	//
+	//   - Rows/Cols: rows="0"/cols="0" are invalid (both require a positive integer),
+	//     so a browser falls back to the default either way.
+	//   - MinLength: minlength="0" imposes no constraint — the same as absent.
+	//   - MaxLength: maxlength="0" IS technically meaningful (accept no input at all),
+	//     but a field that rejects every keystroke is a disabled/readonly field
+	//     expressed the confusing way; use Disabled or ReadOnly.
+	//   - ColSpan: colspan="0" was dropped from HTML5 and is clamped to 1.
+	//   - RowSpan: rowspan="0" IS spec-valid ("span the rest of the row group") and
+	//     genuinely unreachable through this field. It is left alone deliberately:
+	//     unlike tabindex="0" it has no accessibility consequence, it is vanishingly
+	//     rare, and Raw["rowSpan"]=0 covers it. Reconsider if a caller ever needs it.
+	//
+	// Min/Max/Step are `string` fields above, so "0" is expressible there already.
 	MaxLength int
 	MinLength int
 	ColSpan   int
@@ -132,6 +167,39 @@ type CustomElementProps struct {
 	Attributes map[string]string
 	Presence   map[string]bool
 	Properties map[string]any
+}
+
+// TabIndexZero is the explicit Props.TabIndex value that emits tabindex="0".
+//
+// It is math.MinInt32: a real tabindex is a small integer (0, -1, or a low positive
+// for an explicit tab order), so the most negative 32-bit value is a number no author
+// would ever mean, while still being an ordinary int that a struct literal can hold.
+// See the Props.TabIndex field comment for why a sentinel rather than a *int.
+//
+// Only Props.TabIndex interprets it; the value never reaches the DOM, because
+// tabIndexAttr translates it back to 0 on the way out.
+const TabIndexZero = -1 << 31
+
+// tabIndexAttr resolves a Props.TabIndex field to the value to emit and whether to
+// emit it at all. Kept as one function so the compact-lane disqualification check and
+// both map-lane passes cannot drift apart on what "set" means.
+func tabIndexAttr(parseValue int) (int, bool) {
+	switch parseValue {
+	case 0:
+		return 0, false // zero value: field not set
+	case TabIndexZero:
+		return 0, true // explicitly requested tabindex="0"
+	default:
+		return parseValue, true
+	}
+}
+
+// hasTabIndexAttr is the boolean-only form, so the compact-lane disqualification
+// chain keeps short-circuiting instead of hoisting the check above it. It delegates
+// rather than re-testing, so the two forms cannot drift.
+func hasTabIndexAttr(parseValue int) bool {
+	_, parseOK := tabIndexAttr(parseValue)
+	return parseOK
 }
 
 const customElementPropertyPrefix = "__gwc_prop__:"
@@ -706,10 +774,14 @@ func Use(parseProps Props) ui.Node { return Tag("use", parseProps) }
 // key and a deterministic compact attribute slice, with no props map at all.
 // parseEvents is the caller's single runtimeEventProps scan.
 func toRuntimeCompactProps(parseProps Props, parseEvents []eventProp) (string, []runtime.HostAttr, bool) {
+	// TabIndex goes through hasTabIndexAttr rather than a bare "!= 0" so the
+	// TabIndexZero sentinel also disqualifies the compact lane: the fast lane carries
+	// string attributes only, so an explicit tabindex="0" has to fall through to the
+	// map lane to be emitted at all.
 	if parseProps.Value != "" ||
 		parseProps.Rows != 0 ||
 		parseProps.Cols != 0 ||
-		parseProps.TabIndex != 0 ||
+		hasTabIndexAttr(parseProps.TabIndex) ||
 		parseProps.MaxLength != 0 ||
 		parseProps.MinLength != 0 ||
 		parseProps.ColSpan != 0 ||
@@ -1013,7 +1085,7 @@ func toRuntimePropsWithEvents(parseProps Props, parseEvents []eventProp) map[str
 	if parseProps.Cols != 0 {
 		parseCount++
 	}
-	if parseProps.TabIndex != 0 {
+	if hasTabIndexAttr(parseProps.TabIndex) {
 		parseCount++
 	}
 	if parseProps.MaxLength != 0 {
@@ -1163,8 +1235,8 @@ func toRuntimePropsWithEvents(parseProps Props, parseEvents []eventProp) map[str
 	if parseProps.Cols != 0 {
 		parseValues["cols"] = parseProps.Cols
 	}
-	if parseProps.TabIndex != 0 {
-		parseValues["tabIndex"] = parseProps.TabIndex
+	if parseTabIndex, hasParseTabIndex := tabIndexAttr(parseProps.TabIndex); hasParseTabIndex {
+		parseValues["tabIndex"] = parseTabIndex
 	}
 	if parseProps.MaxLength != 0 {
 		parseValues["maxLength"] = parseProps.MaxLength

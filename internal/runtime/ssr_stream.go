@@ -31,6 +31,12 @@ type SSRStreamOptions struct {
 	ScriptNonce           string
 	OnChunk               func(SSRStreamChunk)
 	Flush                 func()
+	// InitialAtoms seeds this stream's per-render atom scope before the shell walk
+	// starts, so request state is an INPUT to the render rather than something a
+	// previous request left in a shared registry. Seeded ids beat the component's
+	// UseAtom initial (InitAtom is init-if-absent); ignored in the browser, where
+	// SSR keeps using the live page's atoms. See ssr_atom_scope.go.
+	InitialAtoms map[string]any
 }
 
 type ssrStreamPendingBoundary struct {
@@ -69,7 +75,14 @@ func RenderToStream(parseCtx context.Context, parseWriter io.Writer, parseElemen
 		}
 	}()
 
-	parseState := &ssrStreamState{options: parseOptions, contextValues: ssrHookOwnerContext(nil)}
+	// One atom scope per stream, minted here and owned by this request only. Every
+	// pending boundary copies these context values, so a boundary that resolves
+	// later — on its own goroutine — writes into the SAME request's registry and
+	// never into a neighbouring request's. See ssr_atom_scope.go.
+	parseState := &ssrStreamState{
+		options:       parseOptions,
+		contextValues: withSSRAtomScope(ssrHookOwnerContext(nil), ssrAtomScopeForRender(parseOptions.InitialAtoms)),
+	}
 	var parseShell strings.Builder
 	if parseErr2 := renderElementToStreamShell(&parseShell, parseElement, parseState); parseErr2 != nil {
 		return parseErr2

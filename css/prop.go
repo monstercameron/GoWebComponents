@@ -71,14 +71,22 @@ type alignProp struct {
 	Center  Rule
 	End     Rule
 	Stretch Rule
+	// Baseline aligns items on their first text baseline rather than their box
+	// edges. It is the only value here that depends on the CONTENT of the items
+	// rather than their geometry, which is exactly why layouts need it: a label
+	// and a number of different font sizes sitting in one row look aligned only
+	// when their baselines agree, not when their boxes do. Center is the usual
+	// (wrong) substitute and it leaves mixed-size text visibly adrift.
+	Baseline Rule
 }
 
 // Items is the typed namespace for align-items.
 var Items = alignProp{
-	Start:   decl("align-items", "flex-start"),
-	Center:  decl("align-items", "center"),
-	End:     decl("align-items", "flex-end"),
-	Stretch: decl("align-items", "stretch"),
+	Start:    decl("align-items", "flex-start"),
+	Center:   decl("align-items", "center"),
+	End:      decl("align-items", "flex-end"),
+	Stretch:  decl("align-items", "stretch"),
+	Baseline: decl("align-items", "baseline"),
 }
 
 type justifyProp struct {
@@ -160,9 +168,11 @@ var FontWeight = fontWeightProp{
 // Rounded sets border-radius.
 func Rounded(v Length) Rule { return decl("border-radius", string(v)) }
 
-// Border sets a solid border of the given width and color.
+// Border sets a solid border of the given width and color on all four sides. For a
+// single edge use BorderTop/Right/Bottom/Left; for a non-solid line pair it with
+// BorderStyle.
 func Border(width Length, c Color) Rule {
-	return decl("border", string(width)+" solid "+string(c))
+	return decl("border", solidLine(width, c))
 }
 
 // Opacity sets the opacity (0..1).

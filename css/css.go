@@ -39,16 +39,29 @@ func (s Sheet) String() string { return string(s) }
 // with the ... operator, or pass them through the rules... variadic directly —
 // New accepts both single Rules and rule slices via the Rules helper.
 func New(rules ...Rule) Sheet {
+	// Fast path: digest the INPUT rules and look that up before doing any work.
+	// canonicalize allocates maps, sorts and serializes, so consulting the cache
+	// after it — which is what this function used to do — meant a repeat fold still
+	// paid for the expensive half. See fastfold.go for the measurements and for why
+	// the digest must be order-sensitive.
+	foldedKey := computeFoldKey(rules)
+	if cached, ok := foldCache.Load(foldedKey); ok {
+		return cached.(Sheet)
+	}
+
 	canonical, groups, raws := canonicalize(rules)
 	if canonical == "" {
+		// Not cached: an empty fold is already cheap, and caching it would mean
+		// storing a key for every distinct no-op rule-set a caller constructs.
 		return ""
 	}
-	// Fast path: a previously-folded identical rule-set returns its class without
-	// re-hashing or rebuilding the CSS text. Repeated New(...) in a render loop
-	// becomes a map lookup. (Static styles should also be hoisted to package vars
-	// so they fold exactly once at init.)
+	// Second-level cache: two different rule ORDERS canonicalize to the same text
+	// when they do not conflict, so this still collapses them onto one class even
+	// though their fold keys differ.
 	if cached, ok := newCache.Load(canonical); ok {
-		return cached.(Sheet)
+		sheet := cached.(Sheet)
+		foldCache.Store(foldedKey, sheet)
+		return sheet
 	}
 	class := hashClass(canonical)
 
@@ -62,6 +75,7 @@ func New(rules ...Rule) Sheet {
 	registerAndEmit(class, hardenCSS(cssText.String()))
 	sheet := Sheet(class)
 	newCache.Store(canonical, sheet)
+	foldCache.Store(foldedKey, sheet)
 	return sheet
 }
 

@@ -93,12 +93,19 @@ func DeclareLayers(parseNames ...string) {
 // Root emits a `:root { … }` block — the canonical home for a custom-property
 // (design-token) palette authored in typed Go:
 //
-//	css.Root(css.Raw("--accent", "#4f46e5"), css.Raw("--radius", "12px"))
+//	css.Root(
+//	    css.CustomColor("accent", css.Hex("4f46e5")),  // --accent: #4f46e5
+//	    css.CustomLength("radius", css.Px(12)),        // --radius: 12px
+//	)
 //
-// It is shorthand for Global(":root", rules...). Author custom properties with
-// the existing css.Raw(property, value) escape hatch. A runtime theme engine can
-// then override individual tokens with element.style.setProperty without
-// regenerating any classes.
+// It is shorthand for Global(":root", rules...). Author custom properties with the
+// Custom* constructors in custom.go: they normalize the name through the same helper
+// Var uses, so a declaration and its css.Var("accent") reference cannot drift apart,
+// and a missing "--" prefix is impossible rather than a silently dead declaration.
+// (css.Raw("--accent", "#4f46e5") still works and is what these replace.)
+//
+// A runtime theme engine can then override individual tokens with
+// element.style.setProperty without regenerating any classes.
 func Root(parseRules ...Rule) {
 	Global(":root", parseRules...)
 }

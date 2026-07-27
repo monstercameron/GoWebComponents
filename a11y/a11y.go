@@ -113,9 +113,18 @@ func Listbox(parseProps ListboxProps) ui.Node {
 		parseAria["multiselectable"] = "true"
 	}
 	return html.Tag("div", html.Props{
-		ID:       parseProps.ID,
-		Role:     "listbox",
-		TabIndex: 0,
+		ID:   parseProps.ID,
+		Role: "listbox",
+		// TabIndexZero, not 0. A plain 0 is Go's zero value for an int field, so
+		// html.Props cannot tell "put this in the tab order" from "field unset" and
+		// emits no attribute at all. This listbox therefore shipped as a
+		// role="listbox" that no keyboard user could focus — the exact defect this
+		// package exists to prevent, in this package.
+		//
+		// A composite widget MUST be focusable: the listbox owns arrow-key
+		// navigation and aria-activedescendant, so if it cannot take focus, none of
+		// that is reachable and the role is a promise the widget does not keep.
+		TabIndex: html.TabIndexZero,
 		Aria:     parseAria,
 	}, parseItems...)
 }

@@ -101,6 +101,11 @@ func Reset() {
 	classChurnWarned = false
 	activeSink = defaultSink()
 	newCache.Clear()
+	// foldCache must be cleared with newCache, never separately. It maps an input
+	// digest straight to a Sheet, so an entry surviving a Reset would hand back a
+	// class whose CSS is no longer in the registry and no longer emitted — styling
+	// that silently vanishes while the class name still appears in the markup.
+	foldCache.Clear()
 	if r, ok := activeSink.(interface{ reset() }); ok {
 		r.reset()
 	}

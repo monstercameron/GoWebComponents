@@ -81,6 +81,32 @@ func TestDatePickerAndTableExposeGridAndHeaderContracts(parseT *testing.T) {
 
 // TestListboxMultiSelectEmitsAriaMultiselectable proves a multi-select listbox emits the
 // container-level aria-multiselectable="true" (WAI-ARIA 1.2 §5.5), and a single-select one omits it.
+// A composite widget that owns arrow-key navigation and aria-activedescendant
+// must be focusable, or none of that is reachable and role="listbox" is a promise
+// the widget does not keep.
+//
+// This regressed silently for a long time: the source said TabIndex: 0, which
+// looks correct and is not — 0 is Go's zero value for an int field, so
+// html.Props could not tell "put this in the tab order" from "field unset" and
+// emitted no attribute at all. The fix is html.TabIndexZero. This test asserts
+// the emitted attribute rather than the source intent, because the source intent
+// was already right while the output was wrong.
+func TestListboxIsKeyboardFocusable(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(Listbox(ListboxProps{
+		ID: "hubs", Label: "Hubs", Items: []Item{{ID: "a", Label: "A"}},
+	}))
+	if parseErr != nil {
+		parseT.Fatalf("render listbox: %v", parseErr)
+	}
+	// Case-insensitive: the typed path currently serializes the key as tabIndex,
+	// which is valid because HTML attribute names are case-insensitive. This test
+	// pins focusability, not the casing — see normalizeSSRAttrName.
+	parseLower := strings.ToLower(parseMarkup)
+	if !strings.Contains(parseLower, `tabindex="0"`) {
+		parseT.Fatalf("listbox must be focusable via tabindex=\"0\", got %q", parseMarkup)
+	}
+}
+
 func TestListboxMultiSelectEmitsAriaMultiselectable(parseT *testing.T) {
 	parseMulti, parseErr := ui.RenderToString(Listbox(ListboxProps{
 		ID: "tags", Label: "Tags", MultiSelect: true,

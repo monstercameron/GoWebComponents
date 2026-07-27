@@ -288,6 +288,31 @@ func RenderToStringObserved(parseRoot Node, parseOptions SSRObservabilityOptions
 	return renderToStringObserved(parseRoot, parseOptions)
 }
 
+// RenderToStringWithAtoms renders a ui.Node tree to HTML with parseInitialAtoms
+// seeded into THIS render's atom scope, keyed by atom id.
+//
+// Every server render already gets its own atom scope, so state.UseAtom's initial
+// value wins on every request and nothing survives into the next one. This is the
+// entry point for the other half of that contract: handing a request's own state
+// to the render up front. Precedence is
+//
+//	seeded value  >  the component's UseAtom initial  >  nothing
+//
+// so a handler can do
+//
+//	ui.RenderToStringWithAtoms(page(), map[string]any{"app.tenant": parseTenant})
+//
+// and every component reading state.UseAtom("app.tenant", ...) observes the
+// request's tenant without threading it through props.
+//
+// It replaces the "mutate global atoms, then render" pattern, which a per-render
+// scope makes ineffective (and which was never safe under concurrent requests:
+// two in-flight requests would have fought over one registry). Server-only —
+// there is no request to scope in a browser.
+func RenderToStringWithAtoms(parseRoot Node, parseInitialAtoms map[string]any) (string, error) {
+	return runtime.RenderToStringWithAtoms(parseRoot, parseInitialAtoms)
+}
+
 // SchedulingOptions mirrors the browser type so code that configures
 // scheduling compiles unchanged on the native/SSR slice.
 type SchedulingOptions struct {

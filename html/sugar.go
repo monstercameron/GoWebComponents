@@ -550,16 +550,18 @@ func Cols(parseValue int) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.Cols = parseValue })
 }
 
-// TabIndex sets the tabindex attribute on a Props.
+// TabIndex sets the tabindex attribute on a Props. TabIndex(0) is meaningful and is
+// emitted: it puts the element into the natural tab order at its DOM position, which
+// is the only way to make a non-interactive element (a scroll container, a
+// roving-tabindex item) keyboard-reachable.
 //
-// When parseValue is 0 the key is written into Raw["tabIndex"] so that
-// toRuntimeProps emits it explicitly.  Props.TabIndex==0 is silently dropped
-// by toRuntimeProps; prefer html.TabIndex(0) when tabindex=0 is intentional.
+// It maps 0 onto the Props.TabIndex sentinel rather than injecting Raw["tabIndex"],
+// so the value stays in the typed field where PropsOf/merge semantics treat it like
+// any other tabindex — and so a later Attr("tabIndex", …) still overrides it through
+// the normal Raw-wins path instead of colliding with this option inside Raw.
 func TabIndex(parseValue int) PropOption {
 	if parseValue == 0 {
-		return optionFunc(func(parseProps *Props) {
-			parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]any{"tabIndex": 0})
-		})
+		parseValue = TabIndexZero
 	}
 	return optionFunc(func(parseProps *Props) { parseProps.TabIndex = parseValue })
 }

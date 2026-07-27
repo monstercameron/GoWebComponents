@@ -19,6 +19,44 @@ type Rule struct {
 	// raw holds complete, class-independent CSS blocks (e.g. an @keyframes body)
 	// that must travel with the rule and participate in hashing/emission.
 	raw []string
+	// declHash is a content hash of decls, computed once at construction so the
+	// fold fast path (fastfold.go) costs O(rules) instead of O(total bytes).
+	//
+	// ZERO MEANS "NOT COMPUTED", not "empty". Any constructor that builds a Rule
+	// literal without setting it, or that mutates decls afterwards, must leave or
+	// reset it to 0 — computeFoldKey then hashes that rule's contents the slow way,
+	// which is correct, just not fast. A STALE non-zero hash is the one thing that
+	// would be wrong, so when in doubt set it to 0.
+	//
+	// It deliberately covers only decls, not scope: variant helpers copy a rule and
+	// rewrite its scope, and excluding scope means those copies keep a valid hash
+	// instead of silently carrying a stale one.
+	declHash uint64
+}
+
+// hashDecls computes the content hash stored in Rule.declHash. It must stay in
+// step with how computeFoldKey mixes declarations, or a precomputed hash and a
+// fallback hash would disagree for identical content and the same rule-set would
+// fold to two different classes depending on how it was built.
+func hashDecls(parseDecls []declaration) uint64 {
+	parseHash := fnvOffset1
+	for _, parseDecl := range parseDecls {
+		for i := 0; i < len(parseDecl.property); i++ {
+			parseHash = (parseHash ^ uint64(parseDecl.property[i])) * fnvPrime1
+		}
+		parseHash = (parseHash ^ 0xfe) * fnvPrime1
+		for i := 0; i < len(parseDecl.value); i++ {
+			parseHash = (parseHash ^ uint64(parseDecl.value[i])) * fnvPrime1
+		}
+		parseHash = (parseHash ^ 0xfd) * fnvPrime1
+	}
+	// Never hand back 0 from a real computation: 0 is the "not computed" sentinel,
+	// and a rule that legitimately hashed to 0 would silently take the slow path
+	// forever. Mapping it to 1 costs nothing and keeps the sentinel unambiguous.
+	if parseHash == 0 {
+		return 1
+	}
+	return parseHash
 }
 
 // declaration is a single "property: value" pair.
@@ -45,7 +83,8 @@ func (s scope) template() string {
 
 // decl is the internal constructor shared by every typed property.
 func decl(property, value string) Rule {
-	return Rule{decls: []declaration{{property: property, value: value}}}
+	parseDecls := []declaration{{property: property, value: value}}
+	return Rule{decls: parseDecls, declHash: hashDecls(parseDecls)}
 }
 
 // MarkImportant returns a copy of the rule with "!important" appended to every
@@ -61,6 +100,11 @@ func MarkImportant(parseRule Rule) Rule {
 		}
 		next.decls[i] = declaration{property: d.property, value: value}
 	}
+	// The values just changed, so the copied declHash describes the ORIGINAL rule.
+	// Recompute rather than zero it: MarkImportant is used inside bundles that get
+	// folded on every render, and leaving it at 0 would push those rules onto the
+	// slow hashing path for the life of the process.
+	next.declHash = hashDecls(next.decls)
 	return next
 }
 
@@ -105,6 +149,34 @@ const atRuleSep = "\x1f"
 // (uses "&", not the final class) so it is identity-free and stable: identical
 // rule-sets in any order produce identical text, which is what the content hash
 // keys on.
+//
+// TWO CONSEQUENCES OF THAT DETERMINISM ARE INTENTIONAL AND LOAD-BEARING. Both are
+// surprising the first time they bite; neither is a bug, and "fixing" either one
+// would break class-name stability, which the determinism fuzz test and the class
+// churn watchdog exist to protect.
+//
+//  1. BLOCKS ARE SORTED BY (at-rule, selector), NOT BY SOURCE ORDER. Within one
+//     folded class, source order therefore cannot break a specificity tie: two
+//     blocks at equal specificity always resolve in sorted order, whatever order the
+//     author wrote them in. This is what makes the fold reorderable — New(a, b) and
+//     New(b, a) MUST produce the same class — and it is also usable as a tool: the
+//     empty at-rule sorts before "@media …", so a media block reliably lands after
+//     the unconditional one and wins on order without !important. (Whether one
+//     PSEUDO-class beats another is still specificity, not this sort. When you need a
+//     guaranteed order across selectors, reach for cascade layers via Layer.)
+//
+//  2. DECLARATIONS ARE SORTED BY PROPERTY NAME WITHIN A BLOCK. Shorthand-then-
+//     longhand works by construction, because every longhand of a shorthand starts
+//     with the shorthand's own name and so sorts after it ("border" < "border-style",
+//     "background-image" after "background"). What it CANNOT express is one longhand
+//     overriding a sibling longhand: "border-bottom" sorts before "border-top", so
+//     border-bottom can never beat border-top inside a single block, no matter which
+//     was written first. Two rules that fight over the same physical side are
+//     unorderable here by design — express the intent with one declaration per side,
+//     or separate the losing rule into its own scope (a variant, or a Layer).
+//
+// A repeated property within the same scope is still last-write-wins at fold time
+// (see the bucket assignment below), so the sort applies to distinct properties only.
 func canonicalize(rules []Rule) (canonical string, groups []renderGroup, raws []string) {
 	buckets := map[groupKey]map[string]string{}
 	order := []groupKey{}

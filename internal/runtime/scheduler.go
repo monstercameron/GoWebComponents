@@ -114,6 +114,30 @@ func (parseRt *Runtime) dispatchLaneWork(parseLane UpdateLane, parseContinueWork
 // what lets all goroutine state writes coalesce into one pass — do not
 // "optimize" it away without re-running that experiment.
 
+// NOTE(sched 2026-07-26): a PAINT-YIELD CASCADE GUARD was built and then
+// WITHDRAWN AS UNTESTED — not refuted. Recording it so the next person does not
+// assume the question is settled.
+//
+// Hypothesis: M2's long frames are several complete render passes stacked into
+// one frame, because SetTimeout(0) continuations are drained before the browser
+// paints. Proposed fix: after two passes in one 16ms window, route the next
+// through RequestIdleCallback (which runs after paint) with a SetTimeout
+// backstop, leaving the synchronous discrete flush untouched so M3 cannot
+// regress.
+//
+// It was implemented and unit-tested, and the browser A/B that appeared to
+// refute it was INVALID: the harness page is served from a scratchpad copy of
+// v5harness.wasm, and that copy was hours stale, so both arms ran the same
+// binary and the measured difference was noise. The guard has never actually
+// executed in a browser. Anyone retrying it should verify the served artifact's
+// checksum against the freshly built one BEFORE trusting a single number.
+//
+// What IS known from correctly-served runs: the long frames are dominated by
+// the synchronous discrete flush inside the event handler
+// (INPUT#filter.oninput), not by dispatched follow-up passes — which is an
+// argument that this guard would not have helped much even if it had run, since
+// it deliberately never touches that path.
+
 // ScheduleUpdateWithLane schedules a full root update on an explicit priority lane.
 func (parseRt *Runtime) ScheduleUpdateWithLane(parseLane UpdateLane) {
 	parseRt.scheduleUpdateWithLane(parseLane, true)

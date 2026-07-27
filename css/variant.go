@@ -1,6 +1,9 @@
 package css
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+)
 
 // Variants wrap inner rules in a selector and/or at-rule scope. They compose by
 // nesting — css.Media(css.MinW(768), css.Hover(css.Display.Flex)) produces a
@@ -67,8 +70,75 @@ func MinW(px int) MediaQuery { return MediaQuery("(min-width:" + strconv.Itoa(px
 // MaxW is a max-width media query.
 func MaxW(px int) MediaQuery { return MediaQuery("(max-width:" + strconv.Itoa(px) + "px)") }
 
-// Dark is the prefers-color-scheme:dark media query.
-const Dark MediaQuery = "(prefers-color-scheme:dark)"
+// Dark / Light are the prefers-color-scheme media queries.
+const (
+	Dark  MediaQuery = "(prefers-color-scheme:dark)"
+	Light MediaQuery = "(prefers-color-scheme:light)"
+)
+
+// The accessibility preference queries. These are typed constants rather than
+// RawMedia strings for a specific reason: a media query is not validated by anything.
+// A typo in RawMedia("(prefers-reduced-motion: reduse)") does not fail to compile, does
+// not fail to emit, and does not warn — it produces a syntactically valid @media block
+// that simply never matches, so the accessibility accommodation silently does not
+// exist. These three (plus MotionOK) are the a11y floor, so they are the ones that must
+// be unmisspellable.
+const (
+	// ReducedMotion matches when the user has asked the OS to reduce animation
+	// (Windows "Show animations", macOS "Reduce motion", GNOME/Android equivalents).
+	// Motion under this query should be neutralized, not merely shortened.
+	ReducedMotion MediaQuery = "(prefers-reduced-motion:reduce)"
+	// MotionOK is the inverse — the explicit "no preference" state. Prefer gating
+	// motion ON with MotionOK over gating it OFF with ReducedMotion when the
+	// animation is decorative: the default then costs nothing for a user whose
+	// preference is unknown.
+	MotionOK MediaQuery = "(prefers-reduced-motion:no-preference)"
+
+	// ContrastMore / ContrastLess match prefers-contrast. Under ContrastMore, raise
+	// border and text contrast rather than adding decoration.
+	ContrastMore MediaQuery = "(prefers-contrast:more)"
+	ContrastLess MediaQuery = "(prefers-contrast:less)"
+
+	// ForcedColors matches when the platform has substituted its own palette
+	// (Windows High Contrast / forced-colors mode). Inside it, colors are overridden
+	// by the UA, so the useful work is restoring structure the forced palette
+	// erases — borders on elements that were distinguished only by background color,
+	// and forced-color-adjust:none on the few places a brand color must survive.
+	ForcedColors MediaQuery = "(forced-colors:active)"
+
+	// ReducedTransparency and ReducedData round out the preference set.
+	ReducedTransparency MediaQuery = "(prefers-reduced-transparency:reduce)"
+	ReducedData         MediaQuery = "(prefers-reduced-data:reduce)"
+)
+
+// Print matches paged output.
+const Print MediaQuery = "print"
+
+// Hover / NoHover match the hover media feature — the correct test for "does this
+// pointer have a hover state", as opposed to inferring it from viewport width.
+// (Named HoverCapable/NoHover to avoid colliding with the Hover pseudo-class variant.)
+const (
+	HoverCapable MediaQuery = "(hover:hover)"
+	NoHover      MediaQuery = "(hover:none)"
+)
+
+// MediaAll combines features with `and`, so every one must match:
+//
+//	MediaAll(MinW(768), Dark) -> "(min-width:768px) and (prefers-color-scheme:dark)"
+//
+// Note this is `and`, not the comma that @media uses for `or`. A comma-joined query
+// list would match if ANY feature matched, which is almost never what a caller
+// nesting two conditions means — hence only the `and` form is provided typed.
+func MediaAll(queries ...MediaQuery) MediaQuery {
+	parts := make([]string, 0, len(queries))
+	for _, q := range queries {
+		if q == "" {
+			continue
+		}
+		parts = append(parts, string(q))
+	}
+	return MediaQuery(strings.Join(parts, " and "))
+}
 
 // RawMedia is the escape hatch for an arbitrary media feature query.
 func RawMedia(parseQuery string) MediaQuery { return MediaQuery(parseQuery) }

@@ -61,7 +61,22 @@ func (parseComponentType *ComponentType) SetImplementation(parseComponentImpleme
 	parseComponentType.SetImplementationRenderer(parseComponentImplementation, nil)
 }
 
-// SetImplementationRenderer updates the current implementation and, when provided, swaps in one matching renderer.
+// SetImplementationRenderer updates the current implementation and, when
+// provided, swaps in one matching renderer.
+//
+// ONLY THE OWNER OF A HANDLE MAY CALL THIS. A handle is shared by every element
+// built from it, so a swap here retroactively changes what those elements
+// render — that is the point for hot reload and for ui.Typed installing its
+// static renderer, and it is a data-corruption bug for anything else.
+//
+// Concretely: ui.getComponentHandle used to call this whenever a lookup arrived
+// with a function value different from the cached one. Since every closure
+// created from a single `func` literal reports the same qualified name, N
+// sibling components built from one literal resolved to one handle and each
+// registration overwrote the last — so all N rendered the final closure's
+// captured props (observed: four form inputs all named "subject"). Distinct
+// closures now get distinct handles; see the identity discussion in
+// ui/component_handle_shared.go before reintroducing a name-keyed swap.
 func (parseComponentType *ComponentType) SetImplementationRenderer(parseComponentImplementation any, parseRender func(any, map[string]any) *Element) {
 	if parseComponentType == nil {
 		return
@@ -81,10 +96,16 @@ func (parseComponentType *ComponentType) SetImplementationRenderer(parseComponen
 }
 
 // ImplementationMatches reports whether the handle's current implementation is
-// the very same function value (code pointer and closure data). Hot-swap
-// callers use it to skip rebuilding an identical renderer on every element
-// creation; a recreated closure (fresh captures, same code) does not match, so
-// hot-reload and inline-component swaps still take the update path.
+// the very same function value — code pointer AND closure data, so two closures
+// compiled from one `func` literal with different captures do NOT match.
+//
+// That distinction is the whole point: a name (or a bare code pointer) cannot
+// tell those two closures apart, and treating them as one component is what let
+// sibling components overwrite each other's implementations. Callers use this
+// to answer "is this handle already carrying exactly this code?" — yes means
+// reuse it as-is (the steady-state fast path for top-level components, which
+// present one stable function value forever), no means this is a different
+// program and needs a handle of its own.
 func (parseComponentType *ComponentType) ImplementationMatches(parseComponentImplementation any) bool {
 	if parseComponentType == nil {
 		return false
