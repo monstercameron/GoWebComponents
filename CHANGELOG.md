@@ -1,5 +1,36 @@
 # Changelog
 
+## v5.0.1 - 2026-07-28
+
+**Fix: `css/u` no longer collides with `html/shorthand` under dot-import.**
+
+`css/u/exports.go` re-exported seven names that `html/shorthand` already
+declares, which broke the exact pattern that file exists to enable — dot-import
+`u` alongside `shorthand`. Any file doing both failed to compile with
+`X redeclared in this block`:
+
+| Name | Clashing `html/shorthand` declaration |
+|---|---|
+| `Track` | `<track>` element |
+| `Repeat` | node repetition helper |
+| `LinearGradient` | `<linearGradient>` SVG element |
+| `RadialGradient` | `<radialGradient>` SVG element |
+| `Stop` | `<stop>` SVG element |
+| `Circle` | `<circle>` SVG element |
+| `Ellipse` | `<ellipse>` SVG element |
+
+Those seven are no longer re-exported under `u`; reach them as `css.Track`,
+`css.Repeat`, `css.LinearGradient`, `css.RadialGradient`, `css.Stop`,
+`css.Circle`, `css.Ellipse`. This follows the rule the file already applied to
+`Gap`, `Bg`, `Rounded`, `Border`, and friends — a name that would shadow stays
+qualified. Unambiguous neighbours (`LinearGradientTo`, `RepeatingLinearGradient`,
+`RepeatingRadialGradient`, `RepeatFit`, `RepeatFill`, `StopAt`, `StopSpan`,
+`CircleAt`, `EllipseAt`, `CircleSizedAt`) are untouched and stay bare.
+
+Source-compatible for any code that was already compiling, since code that
+dot-imported both could not build at all, and nothing in this repository
+referenced the removed aliases.
+
 ## v5.0.0 - 2026-07-25
 
 **Major release: the module path is now `github.com/monstercameron/GoWebComponents/v5`.**

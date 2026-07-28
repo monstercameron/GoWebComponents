@@ -29,7 +29,9 @@ type (
 	Easing    = css.Easing
 	TransProp = css.TransitionProperty
 
-	Track       = css.Track
+	// Track is intentionally NOT re-exported: html/shorthand.Track is the <track>
+	// element, and this file's whole premise is that u dot-imports cleanly alongside
+	// shorthand. Use css.Track for the grid-track type.
 	Placement   = css.GridPlacement
 	Image       = css.Image
 	ColorStop   = css.ColorStop
@@ -289,7 +291,7 @@ var (
 	TrackLen        = css.TrackLen
 	MinMax          = css.MinMax
 	FitContent      = css.FitContent
-	Repeat          = css.Repeat
+	// Repeat: shadowed by html/shorthand.Repeat (node repetition) — use css.Repeat.
 	RepeatFit       = css.RepeatFit
 	RepeatFill      = css.RepeatFill
 	GridLineAt      = css.GridLineAt
@@ -302,10 +304,11 @@ var (
 	BgSize                  = css.BgSize
 	BgSizeXY                = css.BgSizeXY
 	BgPosition              = css.BgPosition
-	LinearGradient          = css.LinearGradient
+	// LinearGradient / RadialGradient: shadowed by the html/shorthand SVG elements of
+	// the same name — use css.LinearGradient / css.RadialGradient. The *To and
+	// Repeating* forms below carry no such clash and stay bare.
 	LinearGradientTo        = css.LinearGradientTo
 	RepeatingLinearGradient = css.RepeatingLinearGradient
-	RadialGradient          = css.RadialGradient
 	RepeatingRadialGradient = css.RepeatingRadialGradient
 	ConicGradient           = css.ConicGradient
 	CircleAt                = css.CircleAt
@@ -313,7 +316,7 @@ var (
 	CircleSizedAt           = css.CircleSizedAt
 	URLImage                = css.URLImage
 	RawImage                = css.RawImage
-	Stop                    = css.Stop
+	// Stop: shadowed by html/shorthand.Stop (the SVG <stop>) — use css.Stop.
 	StopAt                  = css.StopAt
 	StopSpan                = css.StopSpan
 	ColorHint               = css.ColorHint
@@ -376,8 +379,8 @@ const (
 	GridAuto        = css.GridAuto
 
 	NoImage       = css.NoImage
-	Circle        = css.Circle
-	Ellipse       = css.Ellipse
+	// Circle / Ellipse: shadowed by the html/shorthand SVG elements — use css.Circle /
+	// css.Ellipse. CircleAt / EllipseAt above are unambiguous and stay bare.
 	ToTop         = css.ToTop
 	ToBottom      = css.ToBottom
 	ToLeft        = css.ToLeft
